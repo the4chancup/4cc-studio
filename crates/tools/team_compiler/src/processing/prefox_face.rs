@@ -18,6 +18,7 @@ use studio_core::Disposition;
 use vtree::ScopePath;
 
 use super::materialize::PackageFiles;
+use super::prefox_split::split_face_model;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::deep::relative;
 use crate::face_diff;
@@ -69,7 +70,12 @@ struct FaceModel<'a> {
 /// packs neither (`pipeline.md` "3. Per-model-folder parallel steps", step 4). A linked shared
 /// face's files are copied in under the player's own: a model or `.mtl` packing under a name
 /// (case-folded) the player's folder already packs is left out, the player's file replacing it
-/// as a copy would (`player_folders.md` "A link plus local models combines"). When no entry is
+/// as a copy would (`player_folders.md` "A link plus local models combines"). A hand-split
+/// model (`ModelFolder::hand_split`) is split at the wrists (`split_face_model`): its body is
+/// packed and listed in its place, and each hand made follows it as
+/// `oral_<stem>_glove_l_win32.model` or `oral_<stem>_glove_r_win32.model`, an entry typed
+/// `gloveL` or `gloveR` naming the model's `.mtl` and `ratio`; a split model whose `.mtl` is a
+/// Common file fails the task with `model_conversion_failed`. When no entry is
 /// a `face_neck`, the dummy is listed last and packed as `oral_dummy_win32.model` and
 /// `dummy.mtl`, noted in `findings` as `xml_face_neck_added` when the face has a model. An
 /// entry's type is written for `ctx.version` (`version_type`): each entry whose type that
@@ -232,19 +238,62 @@ pub(super) fn face(
                 vec![("file", relative(&model.file.path, model.source_path))],
             ));
         }
-        entries.push(XmlEntry {
+        let entry = XmlEntry {
             xml_type,
             path: xml_path(model_directory, &model.packed),
             material: format!("{material_directory}{}", material.path.name()),
             ratio: ratio(&model.stem).map(str::to_owned),
-        });
-        if !model.in_common {
-            insert(
-                &mut contents,
-                ModelPackage::Face,
-                model.packed,
-                take(files, model.file),
-            )?;
+        };
+        if model.in_common {
+            entries.push(entry);
+            continue;
+        }
+        let bytes = take(files, model.file);
+        if !folder.hand_split.contains(&model.file.path) {
+            entries.push(entry);
+            insert(&mut contents, ModelPackage::Face, model.packed, bytes)?;
+            continue;
+        }
+        // A split model's `.mtl` is read in place: it is packed below, with the face's other
+        // `.mtl` files, and taken there.
+        let Some(mtl) = files.get(&material.path) else {
+            return Err(TaskFailure {
+                code: Code::ModelConversionFailed,
+                context: vec![
+                    ("model", model.file.path.name().to_owned()),
+                    (
+                        "error",
+                        format!(
+                            "its .mtl, {}, is a Common file, which the face does not read",
+                            material.path.as_str()
+                        ),
+                    ),
+                ],
+            });
+        };
+        let split = split_face_model(model.file.path.name(), &bytes, mtl, ctx, findings)?;
+        let gloves = [
+            ("glove_l", "gloveL", split.glove_l),
+            ("glove_r", "gloveR", split.glove_r),
+        ];
+        // A model that was all hand leaves no body: no entry, nothing packed under its name,
+        // and its gloves listed where its entry would be.
+        if let Some(body) = split.body {
+            insert(&mut contents, ModelPackage::Face, model.packed, body)?;
+            entries.push(entry.clone());
+        }
+        for (hand, hand_type, part) in gloves {
+            let Some(part) = part else {
+                continue;
+            };
+            let packed = packed_model_name(&format!("{}_{hand}", model.stem));
+            entries.push(XmlEntry {
+                xml_type: hand_type.to_owned(),
+                path: xml_path("./", &packed),
+                material: entry.material.clone(),
+                ratio: entry.ratio.clone(),
+            });
+            insert(&mut contents, ModelPackage::Face, packed, part)?;
         }
     }
     let home = folder.textures.directory(Engine::PreFox, team_id);

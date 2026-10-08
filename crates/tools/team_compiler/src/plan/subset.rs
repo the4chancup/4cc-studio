@@ -846,6 +846,18 @@ pub(crate) fn is_part_of(role: &PlayerFile, package: ModelPackage) -> bool {
     )
 }
 
+/// Whether the model `file` of the folder at `folder` is named as face content: the package
+/// its name and position give it (`model_role`, without the `ingame_face` marker) is the
+/// face. A pre-Fox face packs boots and gloves models beside its face models, all typed by
+/// `face.xml`, so this is what keeps a model named as boots or gloves, or sitting in `boots/`
+/// or `gloves/`, out of the pre-Fox hand split, as its package keeps it out on Fox
+/// (`model_conversion/hand_split.md` "Pipeline integration").
+pub(crate) fn named_as_face(folder: &ScopePath, file: &FileDescriptor) -> bool {
+    position(folder, file)
+        .and_then(|position| model_role(position, file_stem(file.path.name()), false))
+        .is_some_and(|(package, _)| package == ModelPackage::Face)
+}
+
 /// Whether the player folder `player` has a model that packs into `package` on a target of
 /// `engine`, under its `ingame_face` marker when it holds one (`is_part_of`): on Fox its own
 /// or one a `.common` link brings in; on pre-Fox a part of his own the marker gives him

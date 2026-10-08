@@ -58,7 +58,7 @@ pub(crate) struct CheckedSource {
     /// The text of the root `notes.txt` validation kept, its BOM removed; `None` when the
     /// export has no such note or a finding dropped it before its identity was resolved.
     pub(crate) notes: Option<String>,
-    /// The export paths of the FMDLs the deep pass found carrying hand weights
+    /// The export paths of the models the deep pass found carrying hand weights
     /// (`deep::ContentPass::hand_weighted`), which planning reads for the hand auto-split;
     /// empty when the deep pass did not run. Read only beside `resolved`.
     pub(crate) hand_weighted: BTreeSet<ScopePath>,

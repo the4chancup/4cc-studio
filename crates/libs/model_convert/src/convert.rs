@@ -11,7 +11,7 @@ use pes_version::{Engine, PesVersion};
 use crate::affine::Affine;
 use crate::formats::{ConvertError, Imported};
 use crate::loss::Finding;
-use crate::ops::hand_split::fox_has_hand_weights;
+use crate::ops::hand_split::{fox_has_hand_weights, prefox_has_hand_weights};
 use crate::skeletons::retarget::{bone_moved, retarget};
 use crate::skeletons::{is_standard, skeletons, version_bone, version_bone_hand_first};
 
@@ -176,27 +176,6 @@ fn conforming<'a>(
     } else {
         version_bone(tables, name)
     }
-}
-
-/// The `.model` side of `fox_has_hand_weights`.
-fn prefox_has_hand_weights(model: &::pes_model::model::Model) -> bool {
-    model.meshes.iter().any(|mesh| {
-        let (Some(indices), Some(weights)) =
-            (&mesh.vertices.bone_indices, &mesh.vertices.bone_weights)
-        else {
-            return false;
-        };
-        indices.iter().zip(weights).any(|(row, ws)| {
-            row.iter().enumerate().any(|(slot, &entry)| {
-                ws[slot] > 0.0
-                    && mesh
-                        .bone_group
-                        .get(usize::from(entry))
-                        .and_then(|&bone| model.bones.get(bone))
-                        .is_some_and(|bone| crate::ops::hand_split::hand_of(&bone.name).is_some())
-            })
-        })
-    })
 }
 
 #[cfg(test)]

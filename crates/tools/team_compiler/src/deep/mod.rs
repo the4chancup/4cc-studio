@@ -37,8 +37,9 @@
 //!
 //! The model folders and `Common/`'s files are checked in parallel on the caller's rayon
 //! pool, each worker reading and holding one file at a time, and the findings are collected
-//! in file order (`content_findings`). Each FMDL it parses is also asked, on the same parse,
-//! whether its vertices carry hand weights, which planning needs for the hand auto-split.
+//! in file order (`content_findings`). Each model it parses (`.fmdl`, `.model`) is also asked,
+//! on the same parse, whether its vertices carry hand weights, which planning needs for the
+//! hand auto-split.
 
 pub(crate) mod collar;
 mod documents;
@@ -77,8 +78,8 @@ pub(crate) use model::FAR_VERTEX_CODES;
 pub(crate) struct ContentPass {
     /// The content findings, in file order.
     pub(crate) findings: Vec<ContentFinding>,
-    /// The export paths of the FMDLs it parsed (a player folder's, a shared folder's or a
-    /// `Common/` one) whose vertices carry a positive weight on a hand-skeleton bone, whatever
+    /// The export paths of the models it parsed (`.fmdl`, `.model`; a player folder's, a shared
+    /// folder's or a `Common/` one) whose vertices carry a positive weight on a hand-skeleton bone, whatever
     /// their role and the target: planning decides which of them the hand auto-split takes
     /// (`pipeline.md` "2. Per-export serial steps", step 6). A file that does not parse is
     /// not among them.
@@ -90,7 +91,7 @@ pub(crate) struct ContentPass {
 }
 
 impl ContentPass {
-    /// The pass of a file that gives `findings`, no weighted FMDL and no material names.
+    /// The pass of a file that gives `findings`, no weighted model and no material names.
     fn findings_only(findings: Vec<ContentFinding>) -> ContentPass {
         ContentPass {
             findings,
@@ -98,7 +99,7 @@ impl ContentPass {
         }
     }
 
-    /// `other`'s findings after this pass's, and its weighted FMDLs and material names with
+    /// `other`'s findings after this pass's, and its weighted models and material names with
     /// this pass's.
     fn append(&mut self, other: ContentPass) {
         self.findings.extend(other.findings);
@@ -119,7 +120,7 @@ struct KeptCommon {
 }
 
 /// The content findings of `export`, the sanitized export read from `content` and compiled for
-/// `version`, with the FMDLs among its files that carry hand weights (`ContentPass`). The
+/// `version`, with the models among its files that carry hand weights (`ContentPass`). The
 /// findings come in file order: each player folder's models, material sets and textures, then
 /// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
 /// their face diff, boots, gloves), then `Common/`'s, then each `Collars/` file's, then each
@@ -401,7 +402,7 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
 /// an Error dropping the folder, the file named below the folder; when the target's `engine`
 /// is pre-Fox, each `.model`'s, and each typed `.common` link's to one,
 /// `model_material_undefined` (`material_finding`, its `.mtl` searched among the folder's
-/// files and `common`'s), right after the model's own findings; with the FMDLs among them
+/// files and `common`'s), right after the model's own findings; with the models among them
 /// that carry hand weights and the material names of the pre-Fox ones. The files are read and
 /// checked in parallel, each worker holding one file, and the models' material names compared
 /// after, from the names each read kept.
@@ -575,7 +576,7 @@ fn file_findings(
     file_outcome(content, file, checked, scope, disposition, name).findings
 }
 
-/// `file_findings`, with `file` among the pass's weighted FMDLs when it is an FMDL that parses
+/// `file_findings`, with `file` among the pass's weighted models when it is a model that parses
 /// and carries hand weights (`ContentPass::hand_weighted`), and with its material names when it
 /// is a pre-Fox model or material set that parses (`ContentPass::materials`).
 fn file_outcome(

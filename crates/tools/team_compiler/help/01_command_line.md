@@ -173,6 +173,11 @@ A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a folder with no fa
 used, and both commands report it as `face_file_not_used`. For PES 2015 to 2017 every `.model`
 of a player folder without `ingame_face`, boots and gloves included, goes into the player's
 face, listed in a `face.xml` that `compile` writes with each model's type read from its name.
+A face model there whose vertices are weighted to the hand bones (`skh_`) has its hands cut off
+at the wrist at compile time, which the note `model_hand_split` names: the rest keeps the
+model's place, and the hands of `body.model` become `body_glove_l.model` and
+`body_glove_r.model` in the same face, listed as its left and right gloves with the same `.mtl`.
+A model named as boots or gloves, or one a `.common` link brings in, is never cut.
 With `ingame_face`, every `.model` but a glove (`shirt.model` and `torso.model` included)
 becomes part of the player's own boots, written as one `boots.model` with one `boots.mtl` in
 his own boots folder; several are merged into one, reported as `model_merged`, and a linked

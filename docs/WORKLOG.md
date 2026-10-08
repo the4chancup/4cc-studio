@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14 is under way (slices a to d, e1 and e2 done, e3 next of e3 to e5), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14 is under way (slices a to d and e1 to e3 done, e4 next of e4 to e5), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1449,6 +1449,26 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   missed, e1's two guards among the caught. Two open issues logged (texture stem conflicts
   under the marker, a replaced `.mtl` behind a kept linked model). The first run died with
   the PC (the third BSOD); rerun whole.
+  (e3) done 2026-10-08 (Opus 5.5, first time; two contradictions accepted, both applied by
+  the sidekick: a pre-Fox model named as boots or gloves is never split, which the brief's
+  role rule would have (`subset::named_as_face`, `model_role` without the marker); the split
+  reads its `.mtl` in place from the task's files, since a linked face's `.mtl` the player's
+  shadows is never in the face's own `.mtl` list; one plan gap decided after its report: a
+  split model whose `.mtl` is a Common file is refused, decision entry): `model_convert`
+  `ops::hand_split::prefox_has_hand_weights` `pub` (moved from `convert.rs`); the deep pass's
+  `.model` arm records hand weights; `hand_split_parts` by engine (pre-Fox: the face's own
+  and a combined shared face's `.model` files named as face content, never a Common-linked
+  one nor an `ingame_face` part), no gloves task on pre-Fox; `processing/prefox_split.rs`
+  (`split_face_model`: `.model` + `.mtl` to the IR, `split_by_skeleton_group`, each part
+  back to a `.model`, charged at the source's size; `model_hand_split`; a failure
+  `model_conversion_failed`); `prefox_face::face` packs the body in its place and the hands
+  as `oral_<stem>_glove_l_win32.model`/`_glove_r_` entries typed `gloveL`/`gloveR` with the
+  body's `.mtl` and `ratio`; `help/`. Tests: unit (detector, deep, plan, split) and
+  `tests/cli/prefox_hand_split.rs` (TC-MOD-43 and the Common `.mtl` refusal). A side effect
+  worth knowing: a hand-weighted `.model` with `model_material_undefined` under
+  `pass_through` now fails `model_conversion_failed` (the import needs every material) where
+  it was packed as it was. Gates green (225 of 256); `mutants-diff b75d16a` (local): 29
+  (`model_convert` 6, `team_compiler` 23), 24 caught, 5 unviable, 0 missed.
   IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-XML-08, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
@@ -2310,7 +2330,9 @@ pruned when their phase closes; they stay in git history.
 - open (2026-10-08, 4.14e3's plan) — pre-Fox: a hand-weighted model behind a `.model.common`
   link is listed whole by its Common path, not split (`hand_split.md` "Pipeline
   integration"): the game then loads a body with hands on the body skeleton. Splitting it
-  means packing a copy into the face. Build it when an export has one.
+  means packing a copy into the face. Build it when an export has one. Likewise (4.14e3,
+  decision entry) a hand-weighted model whose `.mtl` is a Common file fails its folder with
+  `model_conversion_failed` instead of reading that file for the split.
 - open (found at 4.14e2's review) — pre-Fox combined folders: when a player's `.mtl` replaces
   a linked folder's of the same name and a linked model he does not replace used it, that
   model is listed with his `.mtl`, which the deep pass never compared with its materials
@@ -3655,3 +3677,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     gloves folder, unmerged, each model with its `.mtl` and a `glove.xml`, a gloves folder his
     link combines adding its models (his own file replacing one of the same name); a shared
     gloves folder no longer writes a `.mtl` none of its models uses.
+  - **4.14e3:** on PES 2015 to 2017 a face model whose vertices weigh on the hand bones is
+    split at the wrists at compile time (`model_hand_split`): the body keeps its `face.xml`
+    entry and its hands become `oral_<stem>_glove_l_win32.model` and `_glove_r_` entries
+    typed `gloveL`/`gloveR` naming the same `.mtl`; a model named as boots or gloves, one a
+    `.common` link brings in, and one under `ingame_face` are not split; a split model whose
+    `.mtl` is a Common file is refused (decision entry).

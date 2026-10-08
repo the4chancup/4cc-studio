@@ -24,7 +24,7 @@ pub(crate) fn face_cpk(slot: u8) -> String {
 }
 
 /// The folder every entry of slot `slot`'s face CPK sits in.
-fn face_folder(slot: u8) -> String {
+pub(crate) fn face_folder(slot: u8) -> String {
     format!("common/character0/model/character/face/real/714{slot:02}/")
 }
 
@@ -135,7 +135,7 @@ fn compile_for(
 }
 
 /// Every entry of the nested CPK `bytes`, by its path, with its bytes.
-fn nested_entries(bytes: &[u8]) -> BTreeMap<String, Vec<u8>> {
+pub(crate) fn nested_entries(bytes: &[u8]) -> BTreeMap<String, Vec<u8>> {
     let mut cpk = cpk::CpkArchive::open(Cursor::new(bytes)).unwrap();
     let entries = cpk.entries().to_vec();
     entries

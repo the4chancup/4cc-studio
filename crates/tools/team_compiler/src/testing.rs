@@ -158,7 +158,7 @@ pub(crate) fn two_team_colors() -> Option<Vec<Rgb>> {
 }
 
 /// `export`, numbered `export_id`, as planning takes it with the root `colors.txt` colors
-/// `team_colors` and the note `notes`, the deep pass having found no FMDL with hand weights.
+/// `team_colors` and the note `notes`, the deep pass having found no model with hand weights.
 pub(crate) fn to_plan(
     export_id: ExportId,
     export: ResolvedAestheticsExport,

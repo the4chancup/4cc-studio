@@ -9,6 +9,7 @@ mod model;
 mod prefox_common;
 mod prefox_face;
 mod prefox_shared;
+mod prefox_split;
 mod referee_marker;
 mod team_assets;
 mod texture;

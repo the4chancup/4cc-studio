@@ -32,7 +32,7 @@ use item_rows::{ItemRow, RowPlayer, export_rows};
 use subset::{
     FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, file_stem,
     first_not_compiled, is_part_of, link_combines, link_feeds_own_package, link_name,
-    linked_folder, package_of, player_file, skeleton_slot, texture_format,
+    linked_folder, named_as_face, package_of, player_file, skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -157,13 +157,13 @@ pub(crate) struct ModelFolder {
     /// there (`mtl_search::mtl_for`), and a texture link names its Common texture by the stem
     /// that file spells (`pipeline.md` "3. Per-model-folder parallel steps", steps 4 and 6).
     pub(crate) common_files: Vec<FileDescriptor>,
-    /// The export paths of the player folder's **hand-split parts**: its face parts (its own
-    /// models, a combined `Faces/` folder's, a Common model a `.common` link brings in) whose
-    /// vertices the deep pass found carrying hand weights, on a Fox target. The face task
-    /// packs each one's body, and the folder's gloves task, planned even with no glove-named
-    /// file, reads each one and makes its hands `glove_l`/`glove_r` parts
-    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 3). Empty for a shared folder,
-    /// whose models are never split.
+    /// The export paths of the player folder's **hand-split parts**: its face models whose
+    /// vertices the deep pass found carrying hand weights (`hand_split_parts`). On Fox the face
+    /// task packs each one's body, and the folder's gloves task, planned even with no
+    /// glove-named file, reads each one and makes its hands `glove_l`/`glove_r` parts
+    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 3). On pre-Fox the face task
+    /// alone splits each one, packing its hands as two more `face.xml` entries, and no gloves
+    /// task is planned for them. Empty for a shared folder, whose models are never split.
     pub(crate) hand_split: BTreeSet<ScopePath>,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
@@ -473,7 +473,7 @@ impl TaskKind {
     }
 
     /// Every file the task reads from its export: a package's models (a `.common` link's
-    /// Common model and skeleton, never the link) and the files packed beside them, the
+    /// Common model and skeleton, never the link) and the files packed beside them, the Fox
     /// gloves' also the folder's hand-split face parts, whose hands they take; a folder's
     /// textures; the Common textures; the Common models and `.mtl` files (pre-Fox); a
     /// portrait's one file; a kit's config and `colors.txt`,
@@ -484,8 +484,15 @@ impl TaskKind {
             TaskKind::Models {
                 folder, package, ..
             } => folder_files(folder, |source, source_path, file, role| {
+                let hands = match folder.engine {
+                    Engine::Fox => {
+                        *package == ModelPackage::Gloves && folder.hand_split.contains(&file.path)
+                    }
+                    // A pre-Fox split model is the face's alone (`folder_tasks`).
+                    Engine::PreFox => false,
+                };
                 role.package() == Some(*package)
-                    || (*package == ModelPackage::Gloves && folder.hand_split.contains(&file.path))
+                    || hands
                     // A pre-Fox model goes into the package its source feeds: a shared boots
                     // or gloves folder's into its own output, a folder an `ingame_face` player
                     // combines into his package of its kind.
@@ -539,28 +546,33 @@ fn folder_files(
 }
 
 /// The export paths of `folder`'s hand-split parts on a target of `engine`
-/// (`ModelFolder::hand_split`): its face parts, its own, a combined folder's or a Common
-/// model's, whose path is among `hand_weighted`, the FMDLs the deep pass found carrying hand
-/// weights. A boots or gloves part is never one, whatever its weights: an authored glove is
-/// all hand, and a boots model is on the body skeleton already (`model_conversion/
-/// hand_split.md` "Pipeline integration").
+/// (`ModelFolder::hand_split`): its face models whose path is among `hand_weighted`, the
+/// models the deep pass found carrying hand weights. On Fox those are its face parts, its own,
+/// a combined folder's or a Common model's. On pre-Fox they are the `.model` files its face
+/// packs and names as face content, its own and a combined shared face's: never a model a
+/// `.common` link brings in, which the face lists by reference in the team's Common output and
+/// packs nothing of, and never an `ingame_face` player's part, which has no face. A model
+/// named as boots or gloves is never one on either engine, whatever its weights: an authored
+/// glove is all hand, and a boots model is on the body skeleton already
+/// (`model_conversion/hand_split.md` "Pipeline integration").
 fn hand_split_parts(
     folder: &ModelFolder,
     hand_weighted: &BTreeSet<ScopePath>,
     engine: Engine,
 ) -> BTreeSet<ScopePath> {
-    match engine {
-        Engine::Fox => {}
-        // A pre-Fox face packs its `.model` parts as they are: their split is not built yet.
-        Engine::PreFox => return BTreeSet::new(),
-    }
     folder
         .roles()
         .into_iter()
-        .flat_map(|(_, _, files)| files)
-        .filter(|(file, role)| {
-            is_part_of(role, ModelPackage::Face) && hand_weighted.contains(&file.path)
+        .flat_map(|(_, source_path, files)| {
+            files.into_iter().filter(move |(file, role)| match engine {
+                Engine::Fox => is_part_of(role, ModelPackage::Face),
+                Engine::PreFox => {
+                    matches!(role, PlayerFile::PreFoxModel { .. })
+                        && named_as_face(source_path, file)
+                }
+            })
         })
+        .filter(|(file, _)| hand_weighted.contains(&file.path))
         .map(|(file, _)| file.path.clone())
         .collect()
 }
@@ -591,9 +603,9 @@ pub(crate) struct ExportToPlan {
     pub(crate) team_colors: Option<Vec<Rgb>>,
     /// The text of its root `notes.txt`; `None` when it has none.
     pub(crate) notes: Option<String>,
-    /// The export paths of its FMDLs whose vertices carry hand weights, as the deep pass found
-    /// them (`deep::ContentPass::hand_weighted`): a player's face part among them is hand
-    /// auto-split on a Fox target (`ModelFolder::hand_split`).
+    /// The export paths of its models (`.fmdl`, `.model`) whose vertices carry hand weights,
+    /// as the deep pass found them (`deep::ContentPass::hand_weighted`): a player's face model
+    /// among them is hand auto-split (`ModelFolder::hand_split`).
     pub(crate) hand_weighted: BTreeSet<ScopePath>,
 }
 
@@ -995,8 +1007,8 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
 
 /// Pushes `folder`'s tasks onto `tasks`: one `Models` task for each of `packages` any of the
 /// folder's sources holds a model of (a face link alone makes the shared face the player's),
-/// for the face whatever the folder holds when `blank_face` is set, and for the gloves when
-/// the folder has a hand-split part (`ModelFolder::hand_split`), emitted under that
+/// for the face whatever the folder holds when `blank_face` is set, and on Fox for the gloves
+/// when the folder has a hand-split part (`ModelFolder::hand_split`), emitted under that
 /// package's keys, then, when the folder has textures, its `Textures` task completing its
 /// variant sets against `kits`, the export's kit numbers, the lot as one `TaskGroup`.
 fn folder_tasks(
@@ -1020,8 +1032,12 @@ fn folder_tasks(
                 || (matches!(role, PlayerFile::PreFoxModel { .. }) && *package == source)
         });
         let blank = blank_face && *package == ModelPackage::Face;
-        // A hand-split face part gives the folder gloves, whatever its files are named.
-        let hands = *package == ModelPackage::Gloves && !folder.hand_split.is_empty();
+        let hands = match folder.engine {
+            // A hand-split face part gives the folder gloves, whatever its files are named.
+            Engine::Fox => *package == ModelPackage::Gloves && !folder.hand_split.is_empty(),
+            // The face task packs a split model's hands as entries of its own `face.xml`.
+            Engine::PreFox => false,
+        };
         if models.is_empty() && !blank && !hands {
             continue;
         }
@@ -3156,23 +3172,86 @@ mod tests {
     }
 
     #[test]
-    fn a_pre_fox_target_takes_no_hand_split_part() {
-        // `compile` does not build a pre-Fox target yet, so the export plans nothing...
-        let report = hand_weighted_plan(PesVersion::Pes17);
-        assert_eq!(summary(&report), Vec::<String>::new());
-        assert_eq!(codes(&report), ["content_not_yet_compiled"]);
-        // ...and the same folder planning gives a Fox target's split part has none for a
-        // pre-Fox one: its face compilation is where it will split.
-        let fox = hand_weighted_plan(PesVersion::Pes21);
-        let folder = models_folder(&fox.manifest.tasks[0]);
-        let weighted: BTreeSet<ScopePath> = [scope_path("Players/05 - A/body.fmdl")].into();
-        assert_eq!(
-            hand_split_parts(folder, &weighted, Engine::Fox),
-            weighted.clone()
+    fn a_pre_fox_face_model_weighted_to_hand_bones_is_split_by_the_face_alone() {
+        let export = resolved(
+            "co Midcup Hands",
+            &[
+                // A face model of his own and one of the shared face he links: both split.
+                ("Players/05 - A/body.model", 3),
+                ("Players/05 - A/body.mtl", 1),
+                ("Players/05 - A/Round.face", 0),
+                ("Faces/Round/hair_high.model", 5),
+                ("Faces/Round/hair_high.mtl", 1),
+                // A Common model behind a link: the face lists it by reference, packs nothing.
+                ("Players/06 - B/legs.model.common", 0),
+                ("Common/legs.model", 7),
+                ("Common/legs.mtl", 1),
+                // Under `ingame_face` no model is face content.
+                ("Players/07 - C/ingame_face", 0),
+                ("Players/07 - C/torso.model", 9),
+                ("Players/07 - C/torso.mtl", 1),
+                // Models named as gloves or boots, packed in his face beside nothing else.
+                ("Players/08 - D/glove_l.model", 2),
+                ("Players/08 - D/boots.model", 4),
+                ("Players/08 - D/x.mtl", 1),
+            ],
+            &[],
+            None,
         );
+        let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
+        // Every model weighted to hand bones; the link's own path too, so a link taken by its
+        // role would be seen whichever path it were recorded under.
+        planned.hand_weighted = [
+            "Players/05 - A/body.model",
+            "Faces/Round/hair_high.model",
+            "Players/06 - B/legs.model.common",
+            "Common/legs.model",
+            "Players/07 - C/torso.model",
+            "Players/08 - D/glove_l.model",
+            "Players/08 - D/boots.model",
+        ]
+        .map(scope_path)
+        .into();
+
+        let report = plan_run(vec![planned], PesVersion::Pes17);
+
+        // One face task per face, and no gloves task for the split: its hands are entries of
+        // the face's own `face.xml`.
         assert_eq!(
-            hand_split_parts(folder, &weighted, Engine::PreFox),
-            BTreeSet::new()
+            summary(&report),
+            [
+                "0 714 Face Players/05 - A [71405] charge 10",
+                "0 714 Face Players/06 - B [71406] charge 0",
+                "0 714 Boots Players/07 - C [627] charge 10",
+                "0 714 Face Players/08 - D [71408] charge 7",
+                "0 714 common models Common (2) charge 8",
+            ]
+        );
+        let tasks = &report.manifest.tasks;
+        assert_eq!(
+            models_folder(&tasks[0]).hand_split,
+            ["Players/05 - A/body.model", "Faces/Round/hair_high.model"]
+                .map(scope_path)
+                .into()
+        );
+        for task in &tasks[1..4] {
+            let folder = models_folder(task);
+            assert_eq!(
+                folder.hand_split,
+                BTreeSet::new(),
+                "{}",
+                folder.path.as_str()
+            );
+        }
+        // The face reads what it did before the split: its models and their `.mtl` files.
+        assert_eq!(
+            task_files(&tasks[0]),
+            [
+                "Players/05 - A/body.model",
+                "Players/05 - A/body.mtl",
+                "Faces/Round/hair_high.model",
+                "Faces/Round/hair_high.mtl",
+            ]
         );
     }
 }

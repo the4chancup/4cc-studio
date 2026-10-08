@@ -4931,3 +4931,14 @@ a reference, for a case no export on the maintainer's machine has (one hand-weig
 exists there, a Fox one). Logged as an open worklog issue rather than built.
 Plan: `model_conversion/hand_split.md` "Pipeline integration"; `team_compiler/README.md`
 TC-MOD-43; `team_compiler/messages.md` the `model_hand_split` row.
+
+## 2026-10-08 — team_compiler — Pre-Fox hand split of a model whose `.mtl` is a Common file is refused
+Decision: on pre-Fox a hand-weighted face model whose `.mtl` is a Common file (a `.mtl.common`
+link, or a `Common/` `.mtl` its search finds) fails its folder with `model_conversion_failed`
+(`error=its .mtl, <path>, is a Common file, which the face does not read`), not split by reading
+that Common file.
+Why: the split needs the `.mtl` bytes and the face task reads no Common file (the Common output
+is listed by reference). Reading one only for a split would be an exception to that rule for a
+case no export on the maintainer's machine has; a refusal names the model and the fix (a local
+`.mtl`), and the exception can be built when an export needs it (sidekick's finding, 4.14e3).
+Plan: `model_conversion/hand_split.md` "Pipeline integration".

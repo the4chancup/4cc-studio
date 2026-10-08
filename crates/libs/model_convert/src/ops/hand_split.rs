@@ -92,6 +92,31 @@ pub fn fox_has_hand_weights(model: &::fmdl::Model) -> bool {
     })
 }
 
+/// Whether the pre-Fox `model` (a `.model`) carries a positive weight on a hand-skeleton
+/// bone (`skh_*_l` or `skh_*_r`), the hand auto-split's detection rule: read from the
+/// model's own bone weights and bone names, with no IR import, and only a weighted slot
+/// counts, so a hand bone that a bone group lists without any vertex weighing on it does
+/// not. A model with no bone weights at all has none.
+pub fn prefox_has_hand_weights(model: &::pes_model::model::Model) -> bool {
+    model.meshes.iter().any(|mesh| {
+        let (Some(indices), Some(weights)) =
+            (&mesh.vertices.bone_indices, &mesh.vertices.bone_weights)
+        else {
+            return false;
+        };
+        indices.iter().zip(weights).any(|(row, ws)| {
+            row.iter().enumerate().any(|(slot, &entry)| {
+                ws[slot] > 0.0
+                    && mesh
+                        .bone_group
+                        .get(usize::from(entry))
+                        .and_then(|&bone| model.bones.get(bone))
+                        .is_some_and(|bone| hand_of(&bone.name).is_some())
+            })
+        })
+    })
+}
+
 /// The topological identity key: position bits, the bone index row, the weight bits —
 /// the same fields `fmdl::ops::vertex_enc`'s `topological_key` groups on. UVs are
 /// deliberately absent: a UV seam is two entries, one topological vertex.
@@ -674,6 +699,51 @@ mod tests {
         }
         assert!(listed, "a bone group still lists skh_index_l");
         assert!(!fox_has_hand_weights(&fmdl));
+    }
+
+    #[test]
+    fn the_model_check_follows_weights_not_names() {
+        // The wrist mesh written as a `.model`: its column x = 4 weighs fully on skh_index_l.
+        let ir = model(
+            vec![bone("sk_forearm_l"), bone("sk_hand_l"), bone("skh_index_l")],
+            wrist_mesh(),
+        );
+        let weighted = crate::formats::pes_model::ir_to_model(&ir).unwrap().model;
+        assert!(prefox_has_hand_weights(&weighted));
+
+        // Every slot naming the hand bone weighted 0: the bone stays in the group.
+        let mut unweighted = weighted.clone();
+        let hand = unweighted
+            .bones
+            .iter()
+            .position(|bone| bone.name == "skh_index_l")
+            .unwrap();
+        let mut listed = false;
+        for mesh in &mut unweighted.meshes {
+            let Some(entry) = mesh.bone_group.iter().position(|&bone| bone == hand) else {
+                continue;
+            };
+            listed = true;
+            let indices = mesh.vertices.bone_indices.as_ref().unwrap();
+            let weights = mesh.vertices.bone_weights.as_mut().unwrap();
+            for (row, ws) in indices.iter().zip(weights.iter_mut()) {
+                for (slot, &index) in row.iter().enumerate() {
+                    if usize::from(index) == entry {
+                        ws[slot] = 0.0;
+                    }
+                }
+            }
+        }
+        assert!(listed, "a bone group still lists skh_index_l");
+        assert!(!prefox_has_hand_weights(&unweighted));
+
+        // No bone weights at all: nothing to read a hand from.
+        let mut rigid = weighted;
+        for mesh in &mut rigid.meshes {
+            mesh.vertices.bone_indices = None;
+            mesh.vertices.bone_weights = None;
+        }
+        assert!(!prefox_has_hand_weights(&rigid));
     }
 
     #[test]

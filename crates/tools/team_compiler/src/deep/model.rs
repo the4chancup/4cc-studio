@@ -1,9 +1,9 @@
 //! The deep pass's model checks (`team_compiler/messages.md` "Model checks"): which rules
 //! the format crates' checks fire on a native model (`.fmdl`, `.model`) or a `.mtl`, one
-//! entry per code, and whether an FMDL carries hand weights.
+//! entry per code, and whether a model (`.fmdl` or `.model`) carries hand weights.
 
 use fmdl::{FmdlFile, Model};
-use model_convert::ops::hand_split::fox_has_hand_weights;
+use model_convert::ops::hand_split::{fox_has_hand_weights, prefox_has_hand_weights};
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 
@@ -69,10 +69,12 @@ impl Fired {
 pub(super) struct ModelRead {
     /// The rules the format crate's check fired on it.
     pub(super) fired: Vec<Fired>,
-    /// An FMDL whose vertices carry a positive weight on a hand-skeleton bone (`skh_*_l`,
-    /// `skh_*_r`): planning gives a player folder holding it as a face part a gloves task, and
-    /// the face and gloves tasks split it (`pipeline.md` "2. Per-export serial steps", step 6).
-    /// Always `false` for a pre-Fox model or a material set.
+    /// A model whose vertices carry a positive weight on a hand-skeleton bone (`skh_*_l`,
+    /// `skh_*_r`), an FMDL or a pre-Fox `.model`, each read by its own format's check: on Fox
+    /// planning gives a player folder holding it as a face part a gloves task, and the face and
+    /// gloves tasks split it (`pipeline.md` "2. Per-export serial steps", step 6); on pre-Fox
+    /// the face task splits it into two more `face.xml` entries. Always `false` for a material
+    /// set.
     pub(super) hand_weighted: bool,
     /// Its material names, in order: for a pre-Fox model the names it lists (`Model::materials`,
     /// as `pes_model::check::check_bundle` compares them, a name no mesh uses included), for a
@@ -108,7 +110,7 @@ pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> 
                     .into_iter()
                     .map(Fired::pre_fox)
                     .collect(),
-                hand_weighted: false,
+                hand_weighted: prefox_has_hand_weights(&model),
                 materials: model.materials,
             }
         }
@@ -151,8 +153,8 @@ mod tests {
 
     use super::*;
     use crate::deep::tests::{
-        counted, edited, far_boots, findings_for, findings_of, folder, glove_over_the_face_limit,
-        path, pre_fox_fixture, tracer_boots,
+        counted, edited, far_boots, findings_for, findings_of, fixture, folder,
+        glove_over_the_face_limit, path, pre_fox_fixture, tracer_boots,
     };
     use crate::testing::scratch;
 
@@ -478,6 +480,18 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn a_pre_fox_model_weighted_to_hand_bones_reads_hand_weighted() {
+        let body = fired(ModelKind::PreFoxModel, &fixture("hand_split/body.model")).unwrap();
+        assert!(body.hand_weighted);
+        let card = fired(
+            ModelKind::PreFoxModel,
+            &pre_fox_fixture("cardhead_face_high.model"),
+        )
+        .unwrap();
+        assert!(!card.hand_weighted);
     }
 
     #[test]
