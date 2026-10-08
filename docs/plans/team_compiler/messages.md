@@ -418,8 +418,17 @@ checked the same way (`face_diff_invalid`); beside a `face_diff.bin` or `face_di
 `xml_dif_conflict`; with none of the three the bundled face diff is written. A `<model>`'s
 attributes are written in source order, verbatim but for `type` (the version rewrite) and the
 two references above; an unknown element is written verbatim with its attributes, text and
-children. A folder holding a `face.xml` has a face, whatever models it holds (an xml naming only
-Common models is one), so its face files are used. A `face.xml` in a shared face folder
+children. The written order is the children in source order, then the `face_neck` dummy when
+appended, then the `<dif>` last, as the game's own files and Red's output place it. A file two
+references name (a `.model` listed twice, a `.mtl` under two spellings) is packed once, under
+the first. A `kitN` reference to a `.mtl` set packs every variant as a `.model` set's does: a
+`pants_kitN.mtl` packed under that name is a file the game never asks for. An xml naming the
+dummy's own names (`./dummy.mtl`, `./oral_dummy_*.model`) without a `face_neck` entry fails the
+task when the dummy is appended, since two files cannot share a name; no export does this. `xml_uniform_pes15` on a
+user xml names the entry by its `path` value, since an entry need not resolve to a file. The hand
+auto-split does not apply to such a folder: the xml says what the face loads, and a split would
+add glove entries the member did not write. A folder holding a `face.xml` has a face, whatever
+models it holds (an xml naming only Common models is one), so its face files are used. A `face.xml` in a shared face folder
 (`Faces/`) is not supported yet: the pre-Fox gate names it (open question: whether the shared
 xml is the authority for every player combining it, and what his own files add).
 

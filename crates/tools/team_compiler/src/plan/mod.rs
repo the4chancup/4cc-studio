@@ -346,6 +346,17 @@ impl ModelFolder {
         roles
     }
 
+    /// The member's own `face.xml` the face reads: the first of the folder's own files with the
+    /// role `PlayerFile::FaceXml` (pre-Fox, a face file, so never under `ingame_face`), when
+    /// there is one. The deep pass checked every one; the face task writes this one back in
+    /// place of a generated `face.xml` (`messages.md` "User-supplied `face.xml`").
+    pub(crate) fn own_face_xml(&self) -> Option<&FileDescriptor> {
+        let (_, _, own) = self.roles().into_iter().next()?;
+        own.into_iter()
+            .find(|(_, role)| *role == PlayerFile::FaceXml)
+            .map(|(file, _)| file)
+    }
+
     /// The Common model the folder's `.common` link at `link` resolved to (`common_models`).
     fn common_model(&self, link: &ScopePath) -> &CommonModel {
         self.common_models
@@ -626,12 +637,18 @@ fn folder_files(
 /// packs nothing of, and never an `ingame_face` player's part, which has no face. A model
 /// named as boots or gloves is never one on either engine, whatever its weights: an authored
 /// glove is all hand, and a boots model is on the body skeleton already
-/// (`model_conversion/hand_split.md` "Pipeline integration").
+/// (`model_conversion/hand_split.md` "Pipeline integration"). A folder holding its own
+/// `face.xml` has none (`ModelFolder::own_face_xml`).
 fn hand_split_parts(
     folder: &ModelFolder,
     hand_weighted: &BTreeSet<ScopePath>,
     engine: Engine,
 ) -> BTreeSet<ScopePath> {
+    // The member's xml says what the face loads: a split would add glove entries he did not
+    // write (`messages.md` "User-supplied `face.xml`", the paragraph "What is emitted").
+    if folder.own_face_xml().is_some() {
+        return BTreeSet::new();
+    }
     folder
         .roles()
         .into_iter()
@@ -3500,6 +3517,42 @@ mod tests {
                 "Players/05 - A/body.mtl",
                 "Faces/Round/hair_high.model",
                 "Faces/Round/hair_high.mtl",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_pre_fox_folder_holding_its_own_face_xml_splits_no_hand_weighted_model() {
+        let export = resolved(
+            "co Midcup Hands",
+            &[
+                ("Players/05 - A/body.model", 3),
+                ("Players/05 - A/body.mtl", 1),
+                ("Players/05 - A/face.xml", 1),
+            ],
+            &[],
+            None,
+        );
+        let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
+        planned.hand_weighted = [scope_path("Players/05 - A/body.model")].into();
+
+        let report = plan_run(vec![planned], PesVersion::Pes17);
+
+        let tasks = &report.manifest.tasks;
+        assert_eq!(
+            summary(&report),
+            ["0 714 Face Players/05 - A [71405] charge 5"]
+        );
+        // The xml says what the face loads: the face task splits nothing, so it reports no
+        // `model_hand_split`, and lists no glove entry the member did not write.
+        assert_eq!(models_folder(&tasks[0]).hand_split, BTreeSet::new());
+        // The face reads the xml beside the model and its `.mtl`.
+        assert_eq!(
+            task_files(&tasks[0]),
+            [
+                "Players/05 - A/body.model",
+                "Players/05 - A/body.mtl",
+                "Players/05 - A/face.xml",
             ]
         );
     }

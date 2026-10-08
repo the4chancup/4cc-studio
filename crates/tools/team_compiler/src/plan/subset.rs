@@ -1063,13 +1063,13 @@ pub(crate) fn first_not_compiled(
 }
 
 /// `first_not_compiled` for the pre-Fox `version`, where `compile` builds a team's player
-/// folders' own `.model` files with their `.mtl` files, textures and face diff, their
-/// `.common` links to a `.model`, a `.mtl` or a texture, the shared face, boots and gloves
-/// folders they link, the export's `Common/` folder, its portraits and its logo. A refs export
+/// folders' own `.model` files with their `.mtl` files, textures and face diff, their own
+/// `face.xml`, their `.common` links to a `.model`, a `.mtl` or a texture, the shared face,
+/// boots and gloves folders they link, the export's `Common/` folder, its portraits and its
+/// logo. A refs export
 /// is named by the target. Otherwise, in this order: each mapped player folder's first file
 /// with no pre-Fox role (`player_file`: an `.fmdl`, a link to an `.fmdl`, a per-kit model under
-/// `ingame_face` or behind a link, among others), a member's own `face.xml` (read and checked,
-/// emitted by a later step) or, under
+/// `ingame_face` or behind a link, among others) or, under
 /// `ingame_face`, with a role not built there yet (`compiled_under_ingame_face`), then the
 /// first item `pre_fox_shared_not_compiled` names in each shared folder a link of his feeds
 /// his own package from
@@ -1090,11 +1090,8 @@ fn pre_fox_not_compiled(
     for folder in mapped_players(export) {
         let models = FolderModels::of_player(folder, Engine::PreFox);
         if let Some(file) = folder.files.iter().find(|file| {
-            // A member's own `face.xml` is read and checked, not emitted yet.
-            player_file(&folder.path, file, &models).is_none_or(|role| {
-                role == PlayerFile::FaceXml
-                    || (folder.ingame_face && !compiled_under_ingame_face(&role))
-            })
+            player_file(&folder.path, file, &models)
+                .is_none_or(|role| folder.ingame_face && !compiled_under_ingame_face(&role))
         }) {
             return Some(what_entry(file));
         }
@@ -1151,7 +1148,7 @@ fn compiled_under_ingame_face(role: &PlayerFile) -> bool {
         }
         | PlayerFile::PreFoxCommonModel { .. } => false,
         // Not met: under the marker the face files are not used, the xml among them
-        // (`UnusedFaceFile`); and the gate names an own xml whatever the marker.
+        // (`UnusedFaceFile`).
         PlayerFile::FaceXml => false,
         PlayerFile::Model { .. }
         | PlayerFile::CommonModel { .. }
@@ -1617,11 +1614,12 @@ mod tests {
         assert_eq!(pre_fox(&all[6..]), what("Kits/g1"));
         assert_eq!(pre_fox(&all[7..]), what(collar));
         assert_eq!(pre_fox(&all[8..]), what(common));
-        // A member's own `face.xml` is a later step's; a per-kit set compiles.
+        // A member's own `face.xml` compiles, directly in his folder or in `face/`; a per-kit
+        // set compiles.
         let own_xml = "Players/03 - A/face.xml";
-        assert_eq!(pre_fox(&[own_xml]), what(own_xml));
+        assert_eq!(pre_fox(&[own_xml]), None);
         let xml_in_face = "Players/03 - A/face/face.xml";
-        assert_eq!(pre_fox(&[xml_in_face]), what(xml_in_face));
+        assert_eq!(pre_fox(&[xml_in_face]), None);
         // A shared face's own is not supported yet.
         let shared_xml = "Faces/Round/face.xml";
         assert_eq!(

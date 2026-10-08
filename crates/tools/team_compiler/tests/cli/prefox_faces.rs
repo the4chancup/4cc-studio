@@ -115,6 +115,11 @@ pub(crate) fn pes16(sandbox: &Sandbox) -> String {
     pes_settings(sandbox, 16)
 }
 
+/// The PES 15 settings of `sandbox`, whose game folder does not exist.
+pub(crate) fn pes15(sandbox: &Sandbox) -> String {
+    pes_settings(sandbox, 15)
+}
+
 /// Runs `compile --no-deploy` for PES 17, asserts the export `name`'s findings are `findings`
 /// and the run succeeded, and returns the output CPK's entries.
 pub(crate) fn compile_pes17(
@@ -685,7 +690,7 @@ const COMMON_714: &str = "common/character1/model/character/uniform/common/714/"
 
 /// The entries directly in team 714's Common output, by their names in it: the players'
 /// common subfolders below it left out.
-fn common_output(entries: &BTreeMap<String, Vec<u8>>) -> BTreeMap<&str, &Vec<u8>> {
+pub(crate) fn common_output(entries: &BTreeMap<String, Vec<u8>>) -> BTreeMap<&str, &Vec<u8>> {
     entries_under(entries, COMMON_714)
         .into_iter()
         .filter(|(name, _)| !name.contains('/'))

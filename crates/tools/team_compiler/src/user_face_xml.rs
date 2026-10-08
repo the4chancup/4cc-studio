@@ -328,7 +328,7 @@ fn named<'a>(
 /// The kit number of the file named `name` when it is a variant of the set the `kitN` name
 /// `referenced` names (`pants_kit2.model` of `pants_kitN.model`), the stems compared
 /// case-folded; `None` otherwise, and when `referenced` is no kit reference.
-fn variant_of(referenced: &str, name: &str) -> Option<u8> {
+pub(crate) fn variant_of(referenced: &str, name: &str) -> Option<u8> {
     let Some((KitToken::Reference, set)) = kit_token(file_stem(referenced)) else {
         return None;
     };

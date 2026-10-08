@@ -1,13 +1,16 @@
 //! The `face.xml` a pre-Fox face CPK lists its models in (`team_compiler/pipeline.md` "3.
 //! Per-model-folder parallel steps", step 4): each model's type, read from its file name
 //! (`player_folders.md` "Model names"), the name it is packed under, its `ratio`, and the file
-//! itself, in the shape the game's own face CPKs carry; and the `glove.xml` of a shared gloves
-//! output, the same file without the face diff (step 7).
+//! itself, in the shape the game's own face CPKs carry; a member's own `face.xml` written back
+//! in that shape (`user_face_xml`); and the `glove.xml` of a shared gloves output, the same
+//! file without the face diff (step 7).
 
 use aesthetics_export::{ModelSuffix, ends_with_name, model_suffix, without_kit_token};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use pes_version::PesVersion;
+
+use crate::user_face_xml::Element;
 
 /// One `<model>` element of a generated `face.xml`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,6 +24,23 @@ pub(crate) struct XmlEntry {
     pub(crate) material: String,
     /// The `ratio` attribute, when the model's name sets one.
     pub(crate) ratio: Option<String>,
+}
+
+impl XmlEntry {
+    /// The entry's `<model>` attributes (name, value) in the order written: `level` (always
+    /// `0`), `type`, `path`, `material`, then `ratio` when set.
+    pub(crate) fn attributes(&self) -> Vec<(String, String)> {
+        let mut attributes = vec![
+            ("level".to_owned(), "0".to_owned()),
+            ("type".to_owned(), self.xml_type.clone()),
+            ("path".to_owned(), self.path.clone()),
+            ("material".to_owned(), self.material.clone()),
+        ];
+        if let Some(ratio) = &self.ratio {
+            attributes.push(("ratio".to_owned(), ratio.clone()));
+        }
+        attributes
+    }
 }
 
 /// The `face.xml` type of the model with file stem `stem`, read without the `_win32` suffix a
@@ -188,32 +208,110 @@ pub(crate) fn glove_xml(entries: &[XmlEntry]) -> Vec<u8> {
     config_xml(entries, None)
 }
 
+/// One child of the `<config>` of a member's own `face.xml` as the compiler writes it back
+/// (`user_face_xml`).
+pub(crate) enum WrittenChild<'a> {
+    /// A `<model>`: its attributes (name, value), in the order written.
+    Model(Vec<(String, String)>),
+    /// Any other element, written as the member wrote it, its attributes, text and children
+    /// included (`xml_element_unknown`).
+    Other(&'a Element),
+}
+
+/// A member's own `face.xml` written back (`messages.md` "User-supplied `face.xml`"):
+/// `children` in their order, then `dif`, the face's face diff, as its `<dif>`, in the shape of
+/// a generated one (`face_xml`): the same declaration, `<config>` root, three-space indent, CRLF
+/// line ends and `<dif>` line. Each child is one line: a `<model>` with its attributes in the
+/// order given, any other element with its attributes, its text and its child elements inline,
+/// closed by ` />` when it has neither text nor children. Values and text are escaped.
+pub(crate) fn user_face_xml(children: &[WrittenChild], dif: &[u8]) -> Vec<u8> {
+    let mut text = String::from(HEAD);
+    for child in children {
+        text.push_str(INDENT);
+        match child {
+            WrittenChild::Model(attributes) => {
+                push_element(&mut text, "model", attributes, "", &[])
+            }
+            WrittenChild::Other(element) => push_element(
+                &mut text,
+                &element.name,
+                &element.attributes,
+                &element.text,
+                &element.children,
+            ),
+        }
+        text.push_str("\r\n");
+    }
+    push_tail(&mut text, Some(dif));
+    text.into_bytes()
+}
+
+/// The first two lines of a `face.xml` or `glove.xml`: the XML declaration in single quotes
+/// and the `<config>` root's start tag.
+const HEAD: &str = "<?xml version='1.0' encoding='UTF-8'?>\r\n<config>\r\n";
+
+/// The indent of each child of `<config>`.
+const INDENT: &str = "   ";
+
 /// The `<config>` document listing `entries`, with `dif` as its `<dif>` when given
 /// (`face_xml`, `glove_xml`).
 fn config_xml(entries: &[XmlEntry], dif: Option<&[u8]>) -> Vec<u8> {
-    let mut text = String::from("<?xml version='1.0' encoding='UTF-8'?>\r\n<config>\r\n");
+    let mut text = String::from(HEAD);
     for entry in entries {
-        text.push_str(&format!(
-            "   <model level=\"0\" type=\"{}\" path=\"{}\" material=\"{}\"",
-            escaped(&entry.xml_type),
-            escaped(&entry.path),
-            escaped(&entry.material),
-        ));
-        if let Some(ratio) = &entry.ratio {
-            text.push_str(&format!(" ratio=\"{}\"", escaped(ratio)));
-        }
-        text.push_str(" />\r\n");
+        text.push_str(INDENT);
+        push_element(&mut text, "model", &entry.attributes(), "", &[]);
+        text.push_str("\r\n");
     }
+    push_tail(&mut text, dif);
+    text.into_bytes()
+}
+
+/// Appends to `text` the element `name` with `attributes` (name, value) in their order, then
+/// `content` and `children`, all on one line; ` />` closes it when it has neither.
+fn push_element(
+    text: &mut String,
+    name: &str,
+    attributes: &[(String, String)],
+    content: &str,
+    children: &[Element],
+) {
+    text.push('<');
+    text.push_str(name);
+    for (attribute, value) in attributes {
+        text.push_str(&format!(" {attribute}=\"{}\"", escaped(value)));
+    }
+    if content.is_empty() && children.is_empty() {
+        text.push_str(" />");
+        return;
+    }
+    text.push('>');
+    text.push_str(&escaped(content));
+    for child in children {
+        push_element(
+            text,
+            &child.name,
+            &child.attributes,
+            &child.text,
+            &child.children,
+        );
+    }
+    text.push_str(&format!("</{name}>"));
+}
+
+/// Appends to `text` the end of a `<config>` document: `dif`, when given, as its `<dif>`, the
+/// base64 (standard alphabet, padded) on one line of its own, then `</config>` with no final
+/// line end.
+fn push_tail(text: &mut String, dif: Option<&[u8]>) {
     if let Some(dif) = dif {
         text.push_str("<dif>\r\n");
         text.push_str(&STANDARD.encode(dif));
         text.push_str("\r\n</dif>\r\n");
     }
     text.push_str("</config>");
-    text.into_bytes()
 }
 
-/// `value` as an XML attribute value between double quotes: `&`, `<`, `>` and `"` escaped.
+/// `value` as an XML attribute value between double quotes, or as an element's text: `&`, `<`,
+/// `>` and `"` escaped.
 fn escaped(value: &str) -> String {
     value
         .replace('&', "&amp;")
@@ -363,5 +461,93 @@ mod tests {
              <model level=\"0\" type=\"gloveR\" path=\"./glove_r.model\" material=\"./materials.mtl\" />\r\n\
              </config>"
         );
+    }
+
+    /// The attributes `pairs` as `WrittenChild::Model` takes them.
+    fn attributes(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+        pairs
+            .iter()
+            .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+            .collect()
+    }
+
+    #[test]
+    fn a_member_s_xml_keeps_its_attribute_order_and_writes_an_unknown_element_inline() {
+        let extra = Element {
+            name: "extra".to_owned(),
+            attributes: attributes(&[("a", "1&2")]),
+            text: "x<y".to_owned(),
+            children: vec![Element {
+                name: "inner".to_owned(),
+                attributes: attributes(&[("b", "2")]),
+                text: String::new(),
+                children: Vec::new(),
+            }],
+        };
+        let empty = Element {
+            name: "empty".to_owned(),
+            attributes: Vec::new(),
+            text: String::new(),
+            children: Vec::new(),
+        };
+        // Text alone, and a child alone, each keep the element open.
+        let text_only = Element {
+            name: "note".to_owned(),
+            attributes: Vec::new(),
+            text: "t".to_owned(),
+            children: Vec::new(),
+        };
+        let child_only = Element {
+            name: "outer".to_owned(),
+            attributes: Vec::new(),
+            text: String::new(),
+            children: vec![Element {
+                name: "empty".to_owned(),
+                attributes: Vec::new(),
+                text: String::new(),
+                children: Vec::new(),
+            }],
+        };
+        let children = [
+            WrittenChild::Model(attributes(&[
+                ("type", "cape"),
+                ("glow", "1"),
+                ("path", "./a&b.model"),
+                ("material", "./hat.mtl"),
+                ("level", "1"),
+            ])),
+            WrittenChild::Other(&extra),
+            WrittenChild::Other(&empty),
+            WrittenChild::Other(&text_only),
+            WrittenChild::Other(&child_only),
+        ];
+
+        let xml = user_face_xml(&children, b"FAC");
+
+        assert_eq!(
+            String::from_utf8(xml).unwrap(),
+            "<?xml version='1.0' encoding='UTF-8'?>\r\n\
+             <config>\r\n   \
+             <model type=\"cape\" glow=\"1\" path=\"./a&amp;b.model\" material=\"./hat.mtl\" level=\"1\" />\r\n   \
+             <extra a=\"1&amp;2\">x&lt;y<inner b=\"2\" /></extra>\r\n   \
+             <empty />\r\n   \
+             <note>t</note>\r\n   \
+             <outer><empty /></outer>\r\n\
+             <dif>\r\n\
+             RkFD\r\n\
+             </dif>\r\n\
+             </config>"
+        );
+    }
+
+    #[test]
+    fn a_member_s_xml_ends_with_the_dif_tail_a_generated_one_has() {
+        let dif = b"FACE and more bytes";
+        let generated = face_xml(&[], dif);
+        let written = user_face_xml(&[], dif);
+        assert_eq!(written, generated);
+        // Both end with the `<dif>` line, then `</config>` with no final line end.
+        let tail = format!("<dif>\r\n{}\r\n</dif>\r\n</config>", STANDARD.encode(dif));
+        assert!(written.ends_with(tail.as_bytes()));
     }
 }

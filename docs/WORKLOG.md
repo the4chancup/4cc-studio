@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 in progress (a1 done: the member's own `face.xml` read and checked; a2 next: emitted), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 in progress (a1 and a2 done: the member's own `face.xml` read, checked and emitted; b next: `mtl_texture_not_found`), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1562,6 +1562,27 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `mutants-diff d4ea252` (local): 184, 150 caught, 30 unviable, 4 missed (the linked face's
   files never reaching the deep pass, the two guards of `listed_materials`, `resolve`'s kind
   check on a Common reference), each covered by a lead test; rerun 154 caught, 0 missed.
+  (a2) done 2026-10-08 (Opus 5.5, fresh agent, landed first time; one ruling it changed with
+  evidence: the source loop's model arms call the `.mtl` search, which `expect`s a hit the deep
+  pass no longer promises for an xml folder, so both arms are skipped there; three
+  contradictions accepted without code: the task's `common_files` hold no `Common/` `.model`,
+  so a Common reference is written unchecked on the deep pass's guarantee; a Common `.mtl` keeps
+  the reference's spelling; `model_hand_split` is a processing finding, so the plan test asserts
+  an empty `hand_split`; two gaps applied and accepted into the plan paragraph (a `kitN` `.mtl`
+  set packs every variant; any file named twice packs once); one left (an xml naming the dummy's
+  names without a `face_neck` fails the task); lead fix: none): `face_xml::user_face_xml` writing
+  `WrittenChild::{Model, Other}` through the same line writer as a generated xml
+  (`push_element`, `push_tail`; `XmlEntry::attributes`); `prefox_face::user_xml_face` with
+  `XmlFace` (a `./` file packed under the referenced name, a `kitN` set whole under the folder's
+  names, a Common model written `oral_<stem>_*.model` at the team's Common output, a Common
+  `.mtl` by its name there, `.mtl` files pointed as a generated face's, the dummy appended with
+  `xml_face_neck_added`, `xml_uniform_pes15` naming the entry's `path`, the xml's last `<dif>`
+  else the folder's else the bundled one); `ModelFolder::own_face_xml` (no hand split for such
+  a folder); the pre-Fox gate lets a player folder's own xml through. Gates green (TC-XML-01,
+  02, 04, 05; the Fumos xml compiled verbatim as a test). `mutants-diff 13d0750` (local): 57,
+  51 caught, 3 unviable, 3 missed (the serializer's empty-element guard with text alone or a
+  child alone; the kind check of the `kitN` packing loop, which the CLI test hid by naming
+  both sets), each covered by a lead test; rerun 54 caught, 0 missed.
 
 - [ ] 4.16 **Pre-Fox kits, bins and DDS compression**: a kit marked `fox` has its main texture
   and its own mask re-laid to the pre-Fox layout (`kit_layout::relaid`, TC-KIT-19), `kit_mask` injected from the mask template
@@ -3837,3 +3858,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     `.mtl` rather than the search's; the folder has a face; on Fox the xml is ignored with
     `xml_ignored_fox` and the gate lets it through; the pre-Fox gate still names it (a2 emits
     it). Next: 4.15a2.
+  - **4.15a2 done** (TC-XML-01, TC-XML-02, TC-XML-04, TC-XML-05): on PES 15-17 a member's own
+    `face.xml` compiles: written back in the generated shape with its attributes and unknown
+    elements verbatim, a `./` file packed under the referenced name, a Common model written as
+    the Common output packs it, the dummy and the PES 2015 rewrite as for a generated xml, its
+    own `<dif>` else the folder's; only the files it names are packed; no hand split for such a
+    folder; the pre-Fox tracer's Fumos xml compiles verbatim as a test. TC-XML-07 is 4.15b's.
+    Next: 4.15b.

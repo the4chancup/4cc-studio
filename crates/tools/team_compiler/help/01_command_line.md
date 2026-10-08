@@ -185,14 +185,20 @@ its 3-character folder, on PES 2016 a model name starting with none of `face_hig
 `hair_high_` and `oral_`, and a `<dif>` beside a `face_diff.bin` or `face_diff.xml`. What the
 compiler cannot vouch for is kept and warned about: an unknown element, attribute or `type`, a
 `ratio` that is not a number, a path it cannot check, and a `.model` of the folder the xml
-does not list. A `level` other than 0 is noted. `compile` does not build such a folder yet and
-names the file. For PES 2018 to 2021 the xml is ignored, reported as `xml_ignored_fox`, and the
+does not list. A `level` other than 0 is noted. `compile` writes the xml back with its `./`
+files packed under the names it gives them, a Common model named as the team's Common folder
+holds it with the team ID in place of the Common path's 3-character folder, the `face_neck`
+stand-in appended when no entry has that type (`xml_face_neck_added`), and for PES 2015
+`uniform` written `uniform_sub` (`xml_uniform_pes15`). Only the models and `.mtl` files the
+xml names are packed, and its own `<dif>`, else the folder's face diff, is the face's. For
+PES 2018 to 2021 the xml is ignored, reported as `xml_ignored_fox`, and the
 folder's models compile as they would without it.
 A face model there whose vertices are weighted to the hand bones (`skh_`) has its hands cut off
 at the wrist at compile time, which the note `model_hand_split` names: the rest keeps the
 model's place, and the hands of `body.model` become `body_glove_l.model` and
 `body_glove_r.model` in the same face, listed as its left and right gloves with the same `.mtl`.
-A model named as boots or gloves, or one a `.common` link brings in, is never cut.
+A model named as boots or gloves, or one a `.common` link brings in, is never cut, nor is any
+model of a folder holding its own `face.xml`, which lists what the face loads.
 With `ingame_face`, every `.model` but a glove (`shirt.model` and `torso.model` included)
 becomes part of the player's own boots, written as one `boots.model` with one `boots.mtl` in
 his own boots folder; several are merged into one, reported as `model_merged`, and a linked
