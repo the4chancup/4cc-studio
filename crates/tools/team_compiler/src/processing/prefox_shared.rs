@@ -1,21 +1,24 @@
 //! A pre-Fox boots or gloves output (`team_compiler/pipeline.md` "3. Per-model-folder parallel
 //! steps", step 7): loose files in the shape of the game's own boots and glove folders, written
 //! under an id. A `Boots/` or `Gloves/` folder a player links plainly is written once under its
-//! shared id; an `ingame_face` player's own boots and gloves, his parts of each and the models
-//! of a folder of their kind his link combines, under his exclusive id (`player_folders.md`
-//! "`ingame_face` marker"). Boots are one model as `boots.model` and the `.mtl` it uses as
-//! `boots.mtl`, the names the game loads, several models merged into one
-//! (`pes_model::ops::merge`); gloves are each model and the `.mtl` files they use under their
-//! own names lowercased, listed in a generated `glove.xml`, unmerged. A shared folder's
-//! textures sit beside them (`TextureHome::SharedOutput`), the `.mtl` paths naming them
-//! `./<stem>.dds`; a player's are in his common folder (`TextureHome::PlayerCommon`), named as
-//! his face's `.mtl` files name them. `materialize` writes the files into the output's folder.
+//! shared id; an `ingame_face` player's own boots and gloves, his parts of each (the Common
+//! models his `.common` links copy in included, with the `.mtl` each uses) and the models of a
+//! folder of their kind his link combines, under his exclusive id (`player_folders.md`
+//! "`ingame_face` marker", "`ingame_face` with shared links"). Boots are one model as
+//! `boots.model` and the `.mtl` it uses as `boots.mtl`, the names the game loads, several
+//! models merged into one (`pes_model::ops::merge`); gloves are each model and the `.mtl`
+//! files they use under their own names lowercased, listed in a generated `glove.xml`,
+//! unmerged. A shared folder's textures sit beside them (`TextureHome::SharedOutput`), the
+//! `.mtl` paths naming them `./<stem>.dds`; a player's are in his common folder
+//! (`TextureHome::PlayerCommon`), named as his face's `.mtl` files name them, and a Common
+//! `.mtl`'s stay in the team's Common output. `materialize` writes the files into the output's
+//! folder.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 use std::sync::Arc;
 
-use aesthetics_export::FileDescriptor;
+use aesthetics_export::{FileDescriptor, FileKind};
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 use pes_model::model::Model;
@@ -33,14 +36,16 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::ModelFolder;
-use crate::plan::subset::{ModelPackage, PlayerFile, file_stem};
+use crate::plan::subset::{ModelPackage, PlayerFile, file_stem, is_direct_common_file};
 
 /// What the deep pass guarantees of every `.model` a task reads on pre-Fox.
 const MTL_FOUND: &str = "the deep pass drops a folder holding a `.model` no `.mtl` is found for \
                          (`model_material_undefined`)";
 
 /// One `.model` of the output, with the source folder it was found in: its `.mtl` is searched
-/// for there (`mtl_for`), a combined folder's never in the player's folder.
+/// for there (`mtl_for`), a combined folder's never in the player's folder. A Common model a
+/// marked player's link copies in has his folder as its source, its `.mtl` resolved at
+/// planning (`material_of`).
 struct SourceModel<'a> {
     /// The model file.
     file: &'a FileDescriptor,
@@ -67,9 +72,10 @@ struct BootsPart<'a> {
 
 /// The files of `folder`'s pre-Fox `package`, boots or gloves, compiled from its files' bytes in
 /// `files` for team `team_id`, by their names in the output's folder. The models of the
-/// package are a shared folder's, or an `ingame_face` player's parts with a combined folder's
-/// of the package's kind. Boots: the models as `boots.model` and the `.mtl` each uses
-/// (`mtl_for`) as `boots.mtl` (`boots_files`), the merge of several noted in `findings` as
+/// package are a shared folder's, or an `ingame_face` player's parts, the Common models his
+/// `.common` links copy in included, with a combined folder's of the package's kind. Boots:
+/// the models as `boots.model` and the `.mtl` each uses (`material_of`) as `boots.mtl`
+/// (`boots_files`), the merge of several noted in `findings` as
 /// `model_merged`. Gloves: each model under its file name lowercased, the `.mtl` each uses
 /// likewise, once however many use it, and a `glove.xml` listing the models in the order of
 /// their export paths, case-folded, each typed by its role and naming its `.mtl`; a player's
@@ -77,8 +83,12 @@ struct BootsPart<'a> {
 /// A `.mtl` no model uses is not packed. Every `.mtl` packed has each texture path naming one
 /// of the folder's textures by its stem pointed at the folder's texture home, and one naming a
 /// stem a texture link of the folder stands for at that texture in the team's Common output,
-/// as the face's are (`rewritten_materials`). Two files packing under one name otherwise fail
-/// the task. A merge is charged to `ctx`'s memory budget.
+/// as the face's are (`rewritten_materials`); in a copied Common `.mtl` alone, a path naming
+/// neither but a texture directly in `Common/` is pointed at that texture in the team's Common
+/// output, while the folder's own `.mtl` files leave such a path as written. A Common model and
+/// its `.mtl` pack under their file names as the folder's own do.
+/// Two files packing under one name otherwise fail the task. A merge is charged to `ctx`'s
+/// memory budget.
 pub(super) fn package(
     folder: &ModelFolder,
     package: ModelPackage,
@@ -128,12 +138,14 @@ pub(super) fn package(
                 PlayerFile::CommonTexture(stem) => {
                     linked.insert(vtree::fold_name(&stem), linked_texture_stem(folder, file));
                 }
-                // A `.mtl` is packed when a model uses it (`mtl_for`), below.
-                PlayerFile::Material => {}
+                // A `.mtl` is packed when a model uses it (`material_of`), below; a marked
+                // player's `.mtl` link has brought in the Common `.mtl` as one
+                // (`ModelFolder::roles`).
+                PlayerFile::Material | PlayerFile::CommonMaterial => {}
                 // A model of another package, and the roles planning gives none of the
                 // package's files: the subset gate names a shared boots or gloves folder's
-                // other files (`pre_fox_shared_not_compiled`), and a link to a Common model or
-                // `.mtl` beside `ingame_face` (`compiled_under_ingame_face`).
+                // other files (`pre_fox_shared_not_compiled`), and a marked player's model
+                // link is a part (`PlayerFile::PreFoxPart`), not listed by reference.
                 PlayerFile::PreFoxModel { .. }
                 | PlayerFile::PreFoxPart { .. }
                 | PlayerFile::Model { .. }
@@ -144,19 +156,44 @@ pub(super) fn package(
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::SlotlessSkeleton
                 | PlayerFile::LeftOutKitVariant
-                | PlayerFile::PreFoxCommonModel { .. }
-                | PlayerFile::CommonMaterial => {}
+                | PlayerFile::PreFoxCommonModel { .. } => {}
             }
         }
     }
     let home = folder.textures.directory(Engine::PreFox, team_id);
     let common_directory = paths::common_texture_directory(Engine::PreFox, team_id);
+    // The textures directly in `Common/`, each stem folded with its stem as `Common/` spells
+    // it, which a Common `.mtl` copied in with a part names. A shared folder has none.
+    let common_textures: BTreeMap<String, String> = folder
+        .common_files
+        .iter()
+        .filter(|file| file.kind == FileKind::Texture)
+        .map(|file| {
+            let stem = file_stem(file.path.name());
+            (vtree::fold_name(stem), stem.to_owned())
+        })
+        .collect();
     // A stem the folder holds is its own, before one a texture link stands for, as in the
     // face (`prefox_face::face`).
-    let places = [
+    let own_places = [
         (&textures, home.as_str()),
         (&linked, common_directory.as_str()),
     ];
+    let common_places = [
+        own_places[0],
+        own_places[1],
+        (&common_textures, common_directory.as_str()),
+    ];
+    // The textures directly in `Common/` are a copied Common `.mtl`'s alone: a `.mtl` of the
+    // folder's resolves a texture into Common only through a `.common` link (`model_format.md`
+    // "Link files"), so an unlinked Common stem it names is left as written, as in the face.
+    let places_for = |material: &FileDescriptor| -> &[(&BTreeMap<String, String>, &str)] {
+        if is_direct_common_file(&material.path) {
+            &common_places
+        } else {
+            &own_places
+        }
+    };
     let mut contents = PackageFiles::new();
     match package {
         ModelPackage::Boots => {
@@ -170,21 +207,14 @@ pub(super) fn package(
             });
             let used: Vec<&FileDescriptor> = models
                 .iter()
-                .map(|model| {
-                    mtl_for(
-                        &model.file.path,
-                        model.source_path,
-                        model.source_files,
-                        &folder.common_files,
-                    )
-                    .expect(MTL_FOUND)
-                })
+                .map(|model| material_of(folder, model))
                 .collect();
             // Each `.mtl` is read once, however many parts use it.
             let mut sets: BTreeMap<&ScopePath, MaterialSet> = BTreeMap::new();
             for material in &used {
                 if !sets.contains_key(&material.path) {
-                    let set = read_materials(material, &take(files, material), &places)?;
+                    let set =
+                        read_materials(material, &take(files, material), places_for(material))?;
                     sets.insert(&material.path, set);
                 }
             }
@@ -230,13 +260,7 @@ pub(super) fn package(
             let mut used: Vec<(&FileDescriptor, bool)> = Vec::new();
             for model in models {
                 let name = model.file.path.name();
-                let material = mtl_for(
-                    &model.file.path,
-                    model.source_path,
-                    model.source_files,
-                    &folder.common_files,
-                )
-                .expect(MTL_FOUND);
+                let material = material_of(folder, &model);
                 if !used.iter().any(|(file, _)| file.path == material.path) {
                     used.push((material, own(model.source_path)));
                 }
@@ -253,7 +277,7 @@ pub(super) fn package(
                 (file.path.name().to_ascii_lowercase(), *own)
             });
             for (file, _) in used {
-                let bytes = rewritten_materials(file, &take(files, file), &places)?;
+                let bytes = rewritten_materials(file, &take(files, file), places_for(file))?;
                 let name = file.path.name().to_ascii_lowercase();
                 insert(&mut contents, package, name, bytes)?;
             }
@@ -270,6 +294,28 @@ pub(super) fn package(
         ),
     }
     Ok(contents)
+}
+
+/// The `.mtl` that `model`, a model of `folder`'s package, uses: for a Common model a marked
+/// player's `.common` link copies in, the one planning found from the link
+/// (`CommonModel::material`), since a search from the Common path would look in the wrong
+/// folders; for any other, the one its search finds in its source folder (`mtl_for`).
+fn material_of<'a>(folder: &'a ModelFolder, model: &SourceModel<'a>) -> &'a FileDescriptor {
+    if !is_direct_common_file(&model.file.path) {
+        return mtl_for(
+            &model.file.path,
+            model.source_path,
+            model.source_files,
+            &folder.common_files,
+        )
+        .expect(MTL_FOUND);
+    }
+    folder
+        .common_models
+        .iter()
+        .find(|common| common.model.path == model.file.path)
+        .and_then(|common| common.material.as_ref())
+        .expect("planning resolves the `.mtl` of every Common part it puts in a link's place")
 }
 
 /// `items`, gloves files of a player or a shared folder, less each of a folder the player

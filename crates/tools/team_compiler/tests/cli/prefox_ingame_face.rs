@@ -1,6 +1,7 @@
 //! `compile` for PES 2017 of a player folder holding `ingame_face`, whose models other than
 //! gloves become his own boots, merged with a boots folder his link combines, and whose gloves
-//! become his own gloves folder, unmerged, with a gloves folder his link combines; and of the
+//! become his own gloves folder, unmerged, with a gloves folder his link combines, each with
+//! the Common models and `.mtl` files his `.common` links copy in; and of the
 //! shared folders written in the same shapes: a `Boots/` folder holding several boots models,
 //! a `Gloves/` folder holding a `.mtl` no model uses.
 
@@ -394,6 +395,159 @@ fn under_ingame_face_a_gloves_link_beside_a_gloves_part_combines_the_player_s_mo
     assert_eq!(
         sampler_paths(boots["boots.mtl"]),
         [format!("{SLOT_05_HOME}boots.dds")]
+    );
+}
+
+/// Team 714's Common output, where the Common textures are and a copied Common `.mtl` names
+/// them.
+const COMMON_714: &str = "model/character/uniform/common/714/";
+
+// TC-MOD-44
+#[test]
+fn under_ingame_face_a_common_model_link_is_one_more_part_of_the_player_s_boots() {
+    let sandbox = Sandbox::new("prefox_ingame_common_boots");
+    let export = "co Midcup Studs";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    let socks_model = card_naming("socks");
+    sandbox.write(&format!("{player}/socks.model"), &socks_model);
+    sandbox.write(&format!("{player}/socks.mtl"), &materials("socks", "skin"));
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{player}/kit_boots.model.common"), b"");
+    let common = format!("exports/{export}/Common");
+    let studs_model = card_naming("studs");
+    sandbox.write(&format!("{common}/kit_boots.model"), &studs_model);
+    sandbox.write(
+        &format!("{common}/kit_boots.mtl"),
+        &materials("studs", "studs"),
+    );
+    sandbox.write(&format!("{common}/studs.dds"), &small_dds());
+
+    // The two parts merge into his one `boots.model`; no link is combined, a `.common` link
+    // not being a shared folder.
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            CLEAN[1],
+            "Info model_merged [Keep] at Players/05 - A (model=boots.model)",
+        ],
+    );
+
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+    let boots = entries_under(&entries, BOOTS_K0625);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl"]);
+    assert_eq!(
+        mesh_count(boots["boots.model"]),
+        mesh_count(&studs_model) + mesh_count(&socks_model),
+        "the Common model's meshes plus socks's"
+    );
+    // The Common part first (`kit_boots.model` before `socks.model`): its texture stays in
+    // the team's Common output, his own is in his common folder.
+    assert_eq!(
+        sampler_paths(boots["boots.mtl"]),
+        [
+            format!("{COMMON_714}studs.dds"),
+            format!("{SLOT_05_HOME}skin.dds")
+        ]
+    );
+    for texture in [
+        format!("common/character1/{COMMON_714}studs.dds"),
+        format!("common/character1/{SLOT_05_HOME}skin.dds"),
+    ] {
+        assert!(entries.contains_key(&texture), "{texture}");
+    }
+}
+
+#[test]
+fn under_ingame_face_only_a_copied_common_mtl_names_a_common_texture_it_has_no_link_to() {
+    let sandbox = Sandbox::new("prefox_ingame_common_unlinked");
+    let export = "co Midcup Studs";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/socks.model"), &card_naming("socks"));
+    // His own `.mtl` names `studs.dds`, which only `Common/` holds, through no texture link.
+    sandbox.write(&format!("{player}/socks.mtl"), &materials("socks", "studs"));
+    sandbox.write(&format!("{player}/kit_boots.model.common"), b"");
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/kit_boots.model"), &card_naming("studs"));
+    let studs = materials("studs", "studs");
+    sandbox.write(&format!("{common}/kit_boots.mtl"), &studs);
+    sandbox.write(&format!("{common}/studs.dds"), &small_dds());
+
+    let merged = "Info model_merged [Keep] at Players/05 - A (model=boots.model)";
+    let entries = compile_pes17(&sandbox, export, &[CLEAN[0], CLEAN[1], merged]);
+
+    // The copied Common `.mtl`'s path names the Common output; his own stays as written.
+    let boots = entries_under(&entries, BOOTS_K0625);
+    assert_eq!(
+        sampler_paths(boots["boots.mtl"]),
+        [format!("{COMMON_714}studs.dds"), "./studs.dds".to_owned()]
+    );
+}
+
+// TC-MOD-45
+#[test]
+fn under_ingame_face_common_links_are_copied_into_the_player_s_own_gloves_folder() {
+    let sandbox = Sandbox::new("prefox_ingame_common_gloves");
+    let export = "co Midcup Hands";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/glove_l.model.common"), b"");
+    let right_model = card_naming("right");
+    sandbox.write(&format!("{player}/glove_r.model"), &right_model);
+    sandbox.write(&format!("{player}/glove_r.mtl.common"), b"");
+    let common = format!("exports/{export}/Common");
+    let left_model = card_naming("left");
+    sandbox.write(&format!("{common}/glove_l.model"), &left_model);
+    sandbox.write(&format!("{common}/glove_l.mtl"), &materials("left", "left"));
+    sandbox.write(
+        &format!("{common}/glove_r.mtl"),
+        &materials("right", "right"),
+    );
+    for texture in ["left", "right"] {
+        sandbox.write(&format!("{common}/{texture}.dds"), &small_dds());
+    }
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+    let gloves = entries_under(&entries, GLOVES);
+    let names: Vec<&str> = gloves.keys().copied().collect();
+    assert_eq!(
+        names,
+        [
+            "g0625/glove.xml",
+            "g0625/glove_l.model",
+            "g0625/glove_l.mtl",
+            "g0625/glove_r.model",
+            "g0625/glove_r.mtl",
+        ]
+    );
+    let gloves = entries_under(&entries, GLOVES_G0625);
+    assert_eq!(*gloves["glove_l.model"], left_model);
+    assert_eq!(*gloves["glove_r.model"], right_model);
+    // By export path, case-folded: the Common model first.
+    assert_eq!(
+        String::from_utf8(gloves["glove.xml"].clone()).unwrap(),
+        glove_xml(&[
+            ("gloveL", "glove_l.model", "glove_l.mtl"),
+            ("gloveR", "glove_r.model", "glove_r.mtl"),
+        ])
+    );
+    for (name, texture) in [("glove_l.mtl", "left"), ("glove_r.mtl", "right")] {
+        assert_eq!(
+            sampler_paths(gloves[name]),
+            [format!("{COMMON_714}{texture}.dds")]
+        );
+    }
+    // No boots part, so no boots of his own.
+    assert!(
+        !entries.keys().any(|path| path.starts_with(BOOTS_K0625)),
+        "{:?}",
+        entries.keys()
     );
 }
 

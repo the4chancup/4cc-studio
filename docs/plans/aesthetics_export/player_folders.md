@@ -132,7 +132,11 @@ folder is (each model under its own name with its `glove.xml` entry), the linked
 joining the player's as more entries and a local model whose output name a linked one shares
 replacing it. `glove.xml` lists any number of entries, so the game loads every part as it is,
 while a merge would add conflicts to fix for nothing and could not combine a `handL` part with a
-`gloveL` one, whose types differ. A **face** link under
+`gloveL` one, whose types differ. A `.model.common` or `.mtl.common` link under `ingame_face`
+follows the same rule: with no `face.xml` to name the Common path, the Common model is one more
+part of his boots or one more model of his gloves, copied in under its own name as a combined
+folder's would be, and a Common `.mtl` a part of his uses is copied in with it (its textures
+stay in the team's Common output, which the copy names). A **face** link under
 `ingame_face` is contradictory (the marker suppresses the face folder the link would fill) and drops
 the player folder with `ingame_face_explicit_face_model`, exactly like explicitly-named local face
 models.

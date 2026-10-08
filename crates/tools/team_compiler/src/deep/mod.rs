@@ -443,6 +443,9 @@ fn folder_findings(
         // (4.17 adds Fox where it is the source).
         let searched = match engine {
             Engine::Fox => false,
+            // The roles are read without the `ingame_face` marker (`FolderModels::of`), so a
+            // model link is `PreFoxCommonModel` here even in a marked folder, where planning
+            // makes it a part of his boots or gloves whose `.mtl` is needed all the same.
             Engine::PreFox => {
                 file.kind == FileKind::Model(ModelFormat::PesModel)
                     || matches!(

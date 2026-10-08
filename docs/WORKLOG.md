@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14 is under way (slices a to d and e1 to e4 done, e5 next and last), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued; 4.15 next), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1493,7 +1493,24 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `kit_variants`, `subset`, `face_xml`, `prefox_face`. Gates green (226 of 256);
   `mutants-diff 5964639` (local): 47, 40 caught, 6 unviable, 1 missed (`listed_material`'s
   guard; its unit test added by the lead, caught by hand with the guard perturbed).
-  IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-XML-08, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
+  (e5) done 2026-10-08 (Opus 5.5, fresh agent, one rework round of one finding it raised
+  itself as a plan gap: the Common-texture place also pointed his own `.mtl` files at an
+  unlinked Common stem, which the plan resolves only through a link; one contradiction
+  accepted without code: the deep pass reads a folder's roles without the marker, so its
+  `.mtl` check already covered a marked folder's link; lead fix: none): under `ingame_face` a
+  `.model.common` link named as boots or gloves is a `PreFoxPart` (`subset::pre_fox_part`,
+  shared with the `.model` arm), planning puts the Common model in the link's place with the
+  `.mtl` its search finds (`CommonModel::material`, pre-Fox only; `ModelFolder::roles`,
+  `push_common`) and a `.mtl.common` link's Common `.mtl` beside it, so the boots merge and
+  the gloves output read them as his files (`prefox_shared::material_of`); a copied Common
+  `.mtl` alone names the textures directly in `Common/` at the team's Common output
+  (`places_for`). Left as they are: his own file beside a Common one of its packed name fails
+  the task naming the file; a Common `.mtl` is read by each task using it and by the Common
+  models task. Tests: TC-MOD-44, TC-MOD-45 and the own-`.mtl` sibling in
+  `tests/cli/prefox_ingame_face.rs`; units in `subset`, `plan` (`roles`, task files and
+  charges), `deep`. Gates green (228 of 258); `mutants-diff db84354` (local): 37, 30 caught,
+  7 unviable, 0 missed.
+  IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-MOD-43..45, TC-CHK-08, TC-TEX-07, TC-XML-08, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
   CPK holds `common/character0/model/character/face/real/71405.cpk` whose `face.xml` lists one
@@ -3764,3 +3781,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     implies is `kit_variant_mtl_differs`; a `.mtl` texture path naming `pants_kitN` is pointed
     at the texture home. Still refused by name: a per-kit model under `ingame_face`, in a
     shared boots or gloves folder, or behind a link. Next: 4.14e5.
+  - **4.14e5 done** (TC-MOD-44, TC-MOD-45), the last slice of 4.14: under `ingame_face` on
+    PES 15-17 a `.model.common` link's Common model is copied in as one more part of the
+    player's boots merge or one more model of his gloves, with the `.mtl` its search finds,
+    and a `.mtl.common` link one of his parts uses is copied the same way; a copied Common
+    `.mtl` names the Common textures in the team's Common output (decision entry). 4.14 has
+    no refusal left for a pre-Fox player folder but a member's own `face.xml` (4.15). Next:
+    4.15.

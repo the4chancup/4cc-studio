@@ -4975,3 +4975,21 @@ steps), and compiling them as Fox does would silently merge or double a variant.
 Plan: `team_compiler/pipeline.md` "Kit-dependent assets"; `model_format.md` "Kit-dependent
 assets (`kitN`)"; `team_compiler/messages.md` `kit_variant_mtl_differs`; `team_compiler/README.md`
 TC-CMN-07.
+
+## 2026-10-08 — team_compiler — Under `ingame_face` on PES 15-17 a Common link's files are copied in as parts
+Decision: in a player folder holding `ingame_face` compiled for PES 15-17, a `.model.common` link
+named as boots or gloves stands for the Common model's files as a part of his own package: the
+model is one more input of his boots merge, or one more model of his gloves written under its
+own name with a `glove.xml` entry, and the `.mtl` its search finds (a Common one, or his own
+override) is read and written with it; a `.mtl.common` link one of his parts uses is copied the
+same way. The Common textures such a `.mtl` names stay in the team's Common output, where the
+written `.mtl` names them. A link named as face content is validation's
+`ingame_face_explicit_face_model`, as a file is; a link to a per-kit model has no role.
+Why: the marker means no `face.xml`, the one place a pre-Fox output names a Common model by
+reference, and a boots merge needs the bytes in any case. Naming a Common path from a
+`glove.xml` is a shape no legacy tool wrote and no game test covers, while copying the files in
+is what a combined gloves folder's models already get; one rule for both packages. Fox bakes a
+link's model into the package the same way (`player_folders.md` "Common model links and model
+merging").
+Plan: `aesthetics_export/player_folders.md` "`ingame_face` with shared links";
+`team_compiler/README.md` TC-MOD-44, TC-MOD-45.

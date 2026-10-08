@@ -903,6 +903,19 @@ TC-MOD-43  GIVEN slot 05 holding body.model, whose vertices carry skh_*_l and sk
                 oral_body_glove_r_win32.model, its face.xml listing them typed parts, gloveL
                 and gloveR, each naming ./body.mtl, every face of the source is in exactly one
                 of the three, model_hand_split names body.model, and no glove/g0625/ folder
+TC-MOD-44  GIVEN slot 05 holding ingame_face, socks.model with socks.mtl naming skin.dds, and
+           kit_boots.model.common; Common/ holding kit_boots.model, kit_boots.mtl naming studs
+           and studs.dds
+           WHEN the export is compiled for PES 17
+           THEN no 71405 face CPK is written, boots/k0625/boots.model's mesh count is the Common
+                model's plus socks's, and its boots.mtl names studs.dds in the team's Common
+                output and skin.dds in his common folder
+TC-MOD-45  GIVEN slot 05 holding ingame_face, glove_l.model.common, glove_r.model and
+           glove_r.mtl.common; Common/ holding glove_l.model, glove_l.mtl and glove_r.mtl
+           WHEN the export is compiled for PES 17
+           THEN glove/g0625/ holds glove_l.model byte-identical to Common's, glove_l.mtl,
+                glove_r.model and glove_r.mtl, and its glove.xml lists the two typed gloveL and
+                gloveR naming ./glove_l.mtl and ./glove_r.mtl
                 exists
 ```
 

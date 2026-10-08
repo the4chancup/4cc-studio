@@ -2485,6 +2485,7 @@ mod tests {
                 link,
                 model: named("Common/legs.fmdl", "fcl_hair.fmdl"),
                 skeleton: skeletons.then(|| named("Common/legs.skl", "fcl_hair.skl")),
+                material: None,
             }],
             common_texture_stems: common_stems.iter().map(|stem| (*stem).to_owned()).collect(),
             ..player_with(files, Vec::new())
@@ -2601,6 +2602,7 @@ mod tests {
                 link: link.clone(),
                 model: named("Common/kit_boots.fmdl", "boots.fmdl"),
                 skeleton: None,
+                material: None,
             }],
             ..player_with(
                 vec![

@@ -192,7 +192,11 @@ the player's boots out, the error telling which. His gloves (`glove_l`, `glove_r
 `handR`) go to his own gloves folder, each written as a linked `Gloves` folder's are (below),
 none merged; a linked `Gloves` folder beside them adds its models, reported as
 `link_combined`, the player's own model or `.mtl` replacing the linked folder's file of the
-same name. A face with
+same name. With `ingame_face`, a `.common` link to a model (`kit_boots.model.common`,
+`glove_l.model.common`) makes the Common model one more part of his boots or gloves, copied
+into his own folder with the `.mtl` it uses (found as for any link, below), and a link to a
+`.mtl` one of his models uses is copied in the same way; the textures a Common `.mtl` names
+stay in the team's Common folder. A face with
 models but none of type `face_neck` (a `face_high` model is one) gets an invisible stand-in,
 reported as `xml_face_neck_added`. For PES 2015 a model typed `uniform` (`body_uniform.model`)
 is listed as `uniform_sub` instead, reported as `xml_uniform_pes15`. A player or shared folder
@@ -230,8 +234,7 @@ cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` 
 their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a `.mtl` or a
 texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
 only `.model`, `.mtl` and texture files, and the portraits and the logo; kits, collars,
-`.fmdl` files, a `.common` link to a model or a `.mtl` beside `ingame_face`,
-and referee exports are named. For
+`.fmdl` files and referee exports are named. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
 or content other than a player's

@@ -25,14 +25,16 @@ use vtree::ScopePath;
 use crate::bins::Rgb;
 use crate::kit_variants::{kit_number, model_variant_sets};
 use crate::messages::{Code, tool_message};
+use crate::mtl_search::mtl_for;
 use crate::paths::{PackageKey, REFEREE_TEAM_ID, TextureHome};
 use collars::export_collar;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use subset::{
     FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, file_stem,
-    first_not_compiled, is_part_of, link_combines, link_feeds_own_package, link_name,
-    linked_folder, named_as_face, package_of, player_file, skeleton_slot, texture_format,
+    first_not_compiled, is_direct_common_file, is_part_of, link_combines, link_feeds_own_package,
+    link_name, linked_folder, named_as_face, package_of, player_file, skeleton_slot,
+    texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -141,7 +143,8 @@ pub(crate) struct ModelFolder {
     /// and for a player linking plainly or not at all.
     pub(crate) combined: Vec<CombinedFolder>,
     /// The player folder's `.common` model links, each resolved to the Common model it brings
-    /// in as a part. Empty for a shared folder, which holds no link.
+    /// in as a part (`common_models`; on pre-Fox only an `ingame_face` player's). Empty for a
+    /// shared folder, which holds no link.
     pub(crate) common_models: Vec<CommonModel>,
     /// The stems, folded, of the textures directly in the export's `Common/` folder, which the
     /// export's Common textures task emits into the team's Common output: a Common part's
@@ -155,7 +158,9 @@ pub(crate) struct ModelFolder {
     /// (`common_models`), and for a shared folder, which holds no link. The face task's `.mtl`
     /// search looks in Common for a `.model.common` link and resolves a `.mtl.common` link
     /// there (`mtl_search::mtl_for`), and a texture link names its Common texture by the stem
-    /// that file spells (`pipeline.md` "3. Per-model-folder parallel steps", steps 4 and 6).
+    /// that file spells (`pipeline.md` "3. Per-model-folder parallel steps", steps 4 and 6);
+    /// an `ingame_face` player's boots and gloves resolve a `.mtl.common` link there too
+    /// (`ModelFolder::roles`) and point a copied Common `.mtl` at the textures among them.
     pub(crate) common_files: Vec<FileDescriptor>,
     /// The export paths of the player folder's **hand-split parts**: its face models whose
     /// vertices the deep pass found carrying hand weights (`hand_split_parts`). On Fox the face
@@ -169,14 +174,16 @@ pub(crate) struct ModelFolder {
     pub(crate) textures: TextureHome,
 }
 
-/// A player folder's `.common` link to an FMDL, resolved against the export's `Common/` folder
-/// as validation resolved it (`player_folders.md` "Common model links and model merging"): the
-/// Common model is a part of the package the link's role names, and its skeleton travels with
-/// it ("SKL pairing").
+/// A player folder's `.common` link to an FMDL, or on pre-Fox an `ingame_face` player's link to
+/// a `.model`, resolved against the export's `Common/` folder as validation resolved it
+/// (`player_folders.md` "Common model links and model merging"): the Common model is a part of
+/// the package the link's role names, and its skeleton travels with it ("SKL pairing"), or on
+/// pre-Fox the `.mtl` it uses.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CommonModel {
     /// The link file's export path (`Players/05 - A/legs.fmdl.common`), which the folder's
-    /// files list and whose role (`PlayerFile::CommonModel`) the Common model takes.
+    /// files list and whose role (`PlayerFile::CommonModel`, or `PlayerFile::PreFoxPart` on
+    /// pre-Fox) the Common model takes.
     pub(crate) link: ScopePath,
     /// The Common model the link names (`Common/legs.fmdl`): what the Models task reads.
     pub(crate) model: FileDescriptor,
@@ -184,6 +191,11 @@ pub(crate) struct CommonModel {
     /// one and the role has a skeleton slot; `None` otherwise, a slotless role's skeleton being
     /// the structure pass's `skl_no_slot`.
     pub(crate) skeleton: Option<FileDescriptor>,
+    /// On pre-Fox, the `.mtl` the link's search finds (`mtl_search::mtl_for`): a `Common/`
+    /// one, or the player's own override of it. It is read and written with the Common model,
+    /// a part of his boots or gloves under `ingame_face` (`player_folders.md` "`ingame_face`
+    /// with shared links"). `None` on Fox, whose materials travel inside the FMDL.
+    pub(crate) material: Option<FileDescriptor>,
 }
 
 /// A shared folder a player folder combines (`player_folders.md` "A link plus local models
@@ -220,6 +232,11 @@ impl ModelFolder {
     /// stands for the Common files it resolved to (`common_models`): the Common model under
     /// the link's role, in the link's place, and its Common skeleton under the role's slot,
     /// paired with it by their shared `Common/<stem>`; the empty link itself is never read.
+    /// On pre-Fox only a link of a folder holding `ingame_face` is one (a part of his boots
+    /// or gloves, `PlayerFile::PreFoxPart`), and its Common `.mtl`, when its search finds one
+    /// in `Common/`, follows it as a `PlayerFile::Material`; under the marker a `.mtl.common`
+    /// link likewise brings in its Common `.mtl` as one, the link kept beside it. Each Common
+    /// file comes once per source, however many links stand for it.
     pub(crate) fn roles(&self) -> Vec<SourceRoles<'_>> {
         let mut own =
             FolderModels::of_player_files(&self.path, &self.files, self.ingame_face, self.engine);
@@ -243,9 +260,9 @@ impl ModelFolder {
         let mut roles = Vec::new();
         for (package, path, files, models) in sources {
             let mut source_roles = Vec::new();
-            // The resolved Common models already pushed for this source: two link
-            // spellings of one Common file (`x.fmdl.common` and `x.fmdl.common.txt`)
-            // are one part, not two reads of one model.
+            // The Common files already pushed for this source: two link spellings of one
+            // Common file (`x.fmdl.common` and `x.fmdl.common.txt`) are one part, not two
+            // reads of one model, and a Common `.mtl` two links find is read once.
             let mut common_pushed = BTreeSet::new();
             for file in files {
                 let Some(role) = player_file(path, file, &models) else {
@@ -255,22 +272,52 @@ impl ModelFolder {
                     PlayerFile::Packed { name, .. } => Some(name),
                     PlayerFile::FaceDiffXml => Some("face_diff.bin"),
                     PlayerFile::CommonModel { package, name } => {
-                        let resolved = self
-                            .common_models
-                            .iter()
-                            .find(|common| common.link == file.path)
-                            .expect("planning resolves every `.common` model link of a folder");
-                        if common_pushed.insert(resolved.model.path.fold_key()) {
-                            source_roles.push((&resolved.model, role));
-                            if let Some(skeleton) = &resolved.skeleton {
-                                let name = skeleton_slot(package, name).expect(
-                                    "planning pairs a skeleton only with a part that has a slot",
-                                );
-                                source_roles
-                                    .push((skeleton, PlayerFile::Skeleton { package, name }));
-                            }
+                        let resolved = self.common_model(&file.path);
+                        if push_common(&mut source_roles, &mut common_pushed, &resolved.model, role)
+                            && let Some(skeleton) = &resolved.skeleton
+                        {
+                            let name = skeleton_slot(package, name).expect(
+                                "planning pairs a skeleton only with a part that has a slot",
+                            );
+                            source_roles.push((skeleton, PlayerFile::Skeleton { package, name }));
                         }
                         continue;
+                    }
+                    // Only a marked player's link to a `.model` is a part: the Common model
+                    // in its place, with a Common `.mtl` its search finds (his own one is
+                    // among his files already).
+                    PlayerFile::PreFoxPart { .. } if file.kind == FileKind::CommonLink => {
+                        let resolved = self.common_model(&file.path);
+                        push_common(&mut source_roles, &mut common_pushed, &resolved.model, role);
+                        if let Some(material) = resolved
+                            .material
+                            .as_ref()
+                            .filter(|material| is_direct_common_file(&material.path))
+                        {
+                            push_common(
+                                &mut source_roles,
+                                &mut common_pushed,
+                                material,
+                                PlayerFile::Material,
+                            );
+                        }
+                        continue;
+                    }
+                    // Under the marker a part's `.mtl` found through a link is copied in with
+                    // it; the link stays too, for the part's search to see among his files.
+                    PlayerFile::CommonMaterial if self.ingame_face => {
+                        let linked = common_link_name(file.path.name())
+                            .expect("a CommonMaterial role implies a `.common` link name");
+                        let material = common_file(&self.common_files, &linked).expect(
+                            "validation drops a player folder whose link names no Common file",
+                        );
+                        push_common(
+                            &mut source_roles,
+                            &mut common_pushed,
+                            material,
+                            PlayerFile::Material,
+                        );
+                        None
                     }
                     PlayerFile::Model { .. }
                     | PlayerFile::Skeleton { .. }
@@ -298,6 +345,14 @@ impl ModelFolder {
         roles
     }
 
+    /// The Common model the folder's `.common` link at `link` resolved to (`common_models`).
+    fn common_model(&self, link: &ScopePath) -> &CommonModel {
+        self.common_models
+            .iter()
+            .find(|common| &common.link == link)
+            .expect("planning resolves every `.common` model link of a folder")
+    }
+
     /// The package the folder's own files feed, which its own textures count for when a stem
     /// conflicts and its pre-Fox models (`PlayerFile::PreFoxModel`) go into: a player folder's
     /// stand for its face, a shared folder's for its one package. A pre-Fox player holding
@@ -314,6 +369,22 @@ impl ModelFolder {
             TextureHome::SharedOutput { package, .. } => *package,
         }
     }
+}
+
+/// Pushes the Common `file` under `role` onto `roles` unless `pushed`, the Common files pushed
+/// so far for the source, holds it already, and says whether it pushed: two links standing for
+/// one Common file give it once.
+fn push_common<'a>(
+    roles: &mut Vec<(&'a FileDescriptor, PlayerFile)>,
+    pushed: &mut BTreeSet<String>,
+    file: &'a FileDescriptor,
+    role: PlayerFile,
+) -> bool {
+    if !pushed.insert(file.path.fold_key()) {
+        return false;
+    }
+    roles.push((file, role));
+    true
 }
 
 /// What a task compiles.
@@ -1230,10 +1301,14 @@ fn player_folders<Slot: Copy>(
 
 /// The player folder's `.common` model links resolved against `common`, the export's `Common/`
 /// files, exactly as validation resolved them (a file directly in `Common/`, matched by
-/// case-folded name): each with its Common model and, when the link's role has a skeleton
-/// slot, the Common `.skl` of the model's stem, for a target of `engine` (none on pre-Fox,
-/// where a model link stays a link the face's `face.xml` names, `PlayerFile::PreFoxCommonModel`).
-/// Validation drops a folder whose link names no Common file, so every link here resolves.
+/// case-folded name), for a target of `engine`: on Fox each link to an FMDL, with its Common
+/// model and, when the link's role has a skeleton slot, the Common `.skl` of the model's
+/// stem; on pre-Fox each link that is a part of an `ingame_face` player's boots or gloves
+/// (`PlayerFile::PreFoxPart`), with its Common model and the `.mtl` its search finds
+/// (`mtl_for`), and no skeleton, a `.model` carrying its own. A pre-Fox link without the
+/// marker stays a link the face's `face.xml` names (`PlayerFile::PreFoxCommonModel`) and is
+/// not resolved here. Validation drops a folder whose link names no Common file, so every link
+/// here resolves.
 fn common_models(
     folder: &PlayerFolder,
     common: &[FileDescriptor],
@@ -1244,22 +1319,46 @@ fn common_models(
         .files
         .iter()
         .filter_map(|file| {
-            let Some(PlayerFile::CommonModel { package, name }) =
-                player_file(&folder.path, file, &models)
-            else {
-                return None;
+            let slot = match player_file(&folder.path, file, &models)? {
+                PlayerFile::CommonModel { package, name } => skeleton_slot(package, name),
+                // Only a marked folder gives a link a part's role.
+                PlayerFile::PreFoxPart { .. } if file.kind == FileKind::CommonLink => None,
+                PlayerFile::Model { .. }
+                | PlayerFile::PreFoxPart { .. }
+                | PlayerFile::Packed { .. }
+                | PlayerFile::FaceDiffXml
+                | PlayerFile::UnusedFaceFile
+                | PlayerFile::Skeleton { .. }
+                | PlayerFile::SlotlessSkeleton
+                | PlayerFile::LeftOutKitVariant
+                | PlayerFile::Texture(..)
+                | PlayerFile::CommonTexture(_)
+                | PlayerFile::PreFoxModel { .. }
+                | PlayerFile::Material
+                | PlayerFile::PreFoxCommonModel { .. }
+                | PlayerFile::CommonMaterial => return None,
             };
             let linked = common_link_name(file.path.name())
-                .expect("a CommonModel role implies a `.common` link name");
+                .expect("a model link's role implies a `.common` link name");
             let model = common_file(common, &linked)
                 .expect("validation drops a player folder whose link names no Common file");
-            let skeleton = skeleton_slot(package, name)
-                .and_then(|_| common_skeleton(common, &linked))
-                .cloned();
+            let skeleton = slot.and_then(|_| common_skeleton(common, &linked)).cloned();
+            let material = match engine {
+                Engine::Fox => None,
+                Engine::PreFox => Some(
+                    mtl_for(&file.path, &folder.path, &folder.files, common)
+                        .expect(
+                            "the deep pass drops a folder holding a link to a `.model` no `.mtl` \
+                             is found for (`model_material_undefined`)",
+                        )
+                        .clone(),
+                ),
+            };
             Some(CommonModel {
                 link: file.path.clone(),
                 model: model.clone(),
                 skeleton,
+                material,
             })
         })
         .collect()
@@ -3069,6 +3168,154 @@ mod tests {
                 "Gloves/Keeper/glove_r.mtl",
             ]
         );
+    }
+
+    #[test]
+    fn a_pre_fox_marked_player_s_common_links_are_parts_read_with_the_mtl_their_search_finds() {
+        let export = resolved(
+            "co Midcup Common",
+            &[
+                ("Players/05 - A/ingame_face", 0),
+                // Two spellings of one link: one part, its files read once.
+                ("Players/05 - A/kit_boots.model.common", 0),
+                ("Players/05 - A/kit_boots.model.common.txt", 0),
+                // A link whose `.mtl` is his own override of the Common one.
+                ("Players/05 - A/glove_l.model.common", 0),
+                ("Players/05 - A/glove_l.mtl", 1),
+                // A model of his whose `.mtl` is a Common one, through two link spellings.
+                ("Players/05 - A/glove_r.model", 2),
+                ("Players/05 - A/glove_r.mtl.common", 0),
+                ("Players/05 - A/glove_r.mtl.common.txt", 0),
+                ("Common/kit_boots.model", 4),
+                ("Common/kit_boots.mtl", 8),
+                ("Common/glove_l.model", 16),
+                ("Common/glove_l.mtl", 32),
+                ("Common/glove_r.mtl", 64),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes17,
+        );
+
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        // Each package reads its parts and every `.mtl` of his, the Common ones his parts'
+        // searches find included; the Common models task reads all of `Common/` again.
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Boots Players/05 - A [625] charge 77",
+                "0 714 Gloves Players/05 - A [625] charge 91",
+                "0 714 common models Common (5) charge 124",
+            ]
+        );
+        let tasks = &report.manifest.tasks;
+        assert_eq!(
+            task_files(&tasks[0]),
+            [
+                "Players/05 - A/glove_l.mtl",
+                "Common/glove_r.mtl",
+                "Common/kit_boots.model",
+                "Common/kit_boots.mtl",
+            ]
+        );
+        assert_eq!(
+            task_files(&tasks[1]),
+            [
+                "Common/glove_l.model",
+                "Players/05 - A/glove_l.mtl",
+                "Players/05 - A/glove_r.model",
+                "Common/glove_r.mtl",
+                "Common/kit_boots.mtl",
+            ]
+        );
+        let folder = models_folder(&tasks[0]);
+        let links: Vec<(&str, &str, Option<&str>)> = folder
+            .common_models
+            .iter()
+            .map(|common| {
+                assert_eq!(common.skeleton, None, "a `.model` carries its own skeleton");
+                (
+                    common.link.as_str(),
+                    common.model.path.as_str(),
+                    common.material.as_ref().map(|file| file.path.as_str()),
+                )
+            })
+            .collect();
+        assert_eq!(
+            links,
+            [
+                (
+                    "Players/05 - A/glove_l.model.common",
+                    "Common/glove_l.model",
+                    Some("Players/05 - A/glove_l.mtl")
+                ),
+                (
+                    "Players/05 - A/kit_boots.model.common",
+                    "Common/kit_boots.model",
+                    Some("Common/kit_boots.mtl")
+                ),
+                (
+                    "Players/05 - A/kit_boots.model.common.txt",
+                    "Common/kit_boots.model",
+                    Some("Common/kit_boots.mtl")
+                ),
+            ]
+        );
+        // The Common model in the link's place under the link's role, each Common `.mtl`
+        // once, before the `.mtl` links, which are kept for the search to see.
+        let (_, _, roles) = folder.roles().swap_remove(0);
+        let roles: Vec<(&str, PlayerFile)> = roles
+            .into_iter()
+            .map(|(file, role)| (file.path.as_str(), role))
+            .collect();
+        let part = |package, xml_type: &str| PlayerFile::PreFoxPart {
+            package,
+            xml_type: xml_type.to_owned(),
+        };
+        assert_eq!(
+            roles,
+            [
+                ("Common/glove_l.model", part(ModelPackage::Gloves, "gloveL")),
+                ("Players/05 - A/glove_l.mtl", PlayerFile::Material),
+                (
+                    "Players/05 - A/glove_r.model",
+                    part(ModelPackage::Gloves, "gloveR")
+                ),
+                ("Common/glove_r.mtl", PlayerFile::Material),
+                (
+                    "Players/05 - A/glove_r.mtl.common",
+                    PlayerFile::CommonMaterial
+                ),
+                (
+                    "Players/05 - A/glove_r.mtl.common.txt",
+                    PlayerFile::CommonMaterial
+                ),
+                ("Common/kit_boots.model", part(ModelPackage::Boots, "parts")),
+                ("Common/kit_boots.mtl", PlayerFile::Material),
+            ]
+        );
+
+        // On Fox a link's materials travel inside the FMDL: none is resolved.
+        let fox = resolved(
+            "co Midcup Fox",
+            &[
+                ("Players/05 - A/legs.fmdl.common", 0),
+                ("Common/legs.fmdl", 4),
+            ],
+            &[],
+            None,
+        );
+        let report = plan_run(
+            vec![to_plan(ExportId(0), fox, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+        let folder = models_folder(&report.manifest.tasks[0]);
+        assert_eq!(folder.common_models.len(), 1);
+        assert_eq!(folder.common_models[0].material, None);
     }
 
     #[test]

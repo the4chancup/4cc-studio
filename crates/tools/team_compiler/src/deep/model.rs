@@ -347,6 +347,36 @@ mod tests {
     }
 
     #[test]
+    fn under_ingame_face_a_model_link_with_no_mtl_anywhere_is_undefined() {
+        // The link is a part of his boots, whose `boots.mtl` needs the Common model's `.mtl`.
+        let temp = scratch("deep_pre_fox_marked_link_undefined");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - B/ingame_face", Vec::new()),
+                ("Players/05 - B/kit_boots.model.common", Vec::new()),
+                (
+                    "Common/kit_boots.model",
+                    pre_fox_fixture("cardhead_face_high.model"),
+                ),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [ContentFinding {
+                code: "model_material_undefined",
+                scope: folder("Players/05 - B"),
+                context: vec![("file", "kit_boots.model.common".to_owned())],
+                disposition: Disposition::DropFolder,
+                pass_through_eligible: false,
+            }]
+        );
+    }
+
+    #[test]
     fn a_model_link_s_search_sees_only_the_common_files_the_common_pass_kept() {
         let temp = scratch("deep_pre_fox_link_broken_mtl");
         let findings = findings_for(
