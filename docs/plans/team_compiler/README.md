@@ -830,8 +830,10 @@ TC-MOD-28  GIVEN slot 05 holding boots.glb, boots.model and skin.png, and anothe
 TC-MOD-29  GIVEN slot 05 holding a .model one of whose bones stores a singular matrix, which the
            pes_model reader accepts and the conversion to FMDL cannot invert
            WHEN the export is compiled for PES 21, then again with pass_through on
-           THEN model_conversion_failed is reported naming the file and the folder is dropped;
-                with pass_through on it is still dropped
+           THEN model_conversion_failed is reported naming the file and the boots package is
+                left out while the folder's blank face and its textures stand (a task's
+                failure is its package's, as every task failure); with pass_through on it is
+                still left out
 TC-MOD-30  GIVEN slot 05 holding a .model with a vertex 6000 units from the origin
            WHEN the export is compiled for PES 21
            THEN vertex_too_far_from_origin is reported naming the .model and the folder dropped
@@ -852,8 +854,10 @@ TC-MOD-33  GIVEN slot 05 holding face_high.fmdl and skin.dds, and linking Faces/
                 face package and nothing at slot 05's texture folder
 TC-MOD-34  GIVEN slot 05 holding boots.model and boots.mtl naming skin, and skin.dds
            WHEN the export is compiled for PES 21
-           THEN k0625 holds a boots.fmdl the fmdl reader accepts with the source's mesh count,
-                and skin.ftex sits in the player's common subfolder
+           THEN k0625 holds a boots.fmdl the fmdl reader accepts with the source's mesh count
+                plus the anti-blur mesh the FMDL export regenerates (the card head's one mesh
+                becomes two), its texture table naming skin.dds under the player's texture
+                home, and skin.ftex sits in the player's common subfolder
 TC-MOD-35  GIVEN slot 05 holding ingame_face, kit_boots.model, kit_boots.mtl and Crocs.boots,
            Boots/Crocs/ holding boots.model and boots.mtl, linked by no other player
            WHEN the export is compiled for PES 17

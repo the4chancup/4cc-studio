@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1774,7 +1774,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `model_material_undefined` comparison know `.model` files only; a plan ruling on how an xml
   names a converted model and its `<stem>.mtl` comes first; analysis in
   `.tmp/sk_4_17a_report.md` R3); a converted material whose base is the game's `dummy_bsm`
-  (Konami's `addon_oral.fmdl`) keeps its Fox path on pre-Fox (rule with slice c). GPT review
+  (Konami's `addon_oral.fmdl`) keeps its Fox path on pre-Fox (rule with slice c). From 4.17b:
+  the Warnings and Infos the target format's check fires on a converted form are not reported
+  (rule with slice c: Warnings kept with their code, Infos dropped); the same-engine
+  `needs_conversion` pre-check of a selected native model is not run yet (slice c); per-kit
+  `.model` variants on Fox are not a set (`kit_variants::model_variant_sets` reads FMDLs only,
+  so `pants_kit1.model` + `pants_kit2.model` both convert and merge with no
+  `kit_variant_model_fox`; slice f); a role-less `.model` on Fox (in `gloves/` naming no hand,
+  in `common/` under a lenient file-type check) is skipped silently by the gate, 4.17a's FMDL
+  gap mirrored, until 4.20; a converted `.mtl` path into the pre-Fox team Common directory
+  (`model/character/uniform/common/<team>/x.dds`) on Fox is called supplied by the deep check
+  when `Common/` or an installed CPK holds its stem, but the Fox Models task points converted
+  paths at the folder's own textures and its links only, so the packed FMDL keeps the pre-Fox
+  directory with no finding (slice f, with `Common/`). GPT review
   (c) queued: the two-crate 4.17a change (`model_convert` FMDL import's dummy rule,
   `team_compiler` conversion), sections `pipeline.md` step 3 "Format conversion", DECISIONS
   2026-10-08 (both 4.17 entries).
@@ -1803,6 +1815,36 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   sidekick's import rule replaced the lead's, which broke Fox round trips); mutants: 92
   (model_convert 17, team_compiler 75), 79 caught, 13 unviable (`Default::default()` on types
   without one), 0 missed; `just bindings` green).
+  (b) done 2026-10-08 (`subset.rs`: on Fox a `.model` with no `.fmdl` of its path stem is
+  `PlayerFile::Model` through `model_role` (`FolderModels::native_model_stems`, the renamed
+  `pre_fox_model_stems`, now both engines' native stems; `FolderModels::beaten`), every `.mtl`
+  outside `common/` is `PlayerFile::Material` on both engines, the gate skips a role-less
+  `.model` or `.mtl` (with the gate at 4.20); `plan/mod.rs` `TaskKind::files` reads a source's
+  `.mtl` files on Fox only when the package converts a `.model`; `processing/conversion.rs`
+  `FoxConversion { model, skeleton }`, `model_for_fox(name, bytes, mtl, ctx, findings)`, and
+  `target_form_failure` run by both directions on the converted form (a far vertex
+  `vertex_too_far_from_origin` with context `model`, `count`; any other Error
+  `model_conversion_failed` with the rule's code; Warnings and Infos not reported, slice c);
+  `processing/model.rs` `package` converts a selected `.model` with the `.mtl` `mtl_for` finds
+  among its source's files, the generated skeleton as the part's (equal to a member's, else
+  `skl_merge_conflict`; `skl_no_slot` with context `model` for a slotless role, a glove
+  included), the gloves task re-converting a hand-split part without re-reporting; `deep/`:
+  `pairings` on Fox for a selected `.model`, `unread` skips a beaten model on both engines and,
+  on Fox, a `.mtl` no selected `.model` pairs with, `held` on Fox too so a selected `.model`'s
+  `.mtl` gets `mtl_texture_not_found`; `Fired`, `Fired::fox`, `Fired::pre_fox`, `summed`
+  `pub(crate)`; help; `tests/cli/conversion.rs` TC-MOD-26 (both engines, whole finding lists,
+  the beaten model silent, a far beaten `.model` dropping nothing on PES 21), TC-MOD-29 (the
+  boots package left out, the blank face and `skin.ftex` committed, with and without
+  `pass_through`), TC-MOD-30, TC-MOD-34 (card head 1 mesh to 2 FMDL meshes, one anti-blur;
+  `skin.dds` in the table under the player's home, `skin.ftex` in the CPK; the bundled
+  `boots.skl`), the hand split of a converted `.model` (8/8/24 of 40 faces), the generated
+  skeleton alone, equal to a member's and in conflict, `skl_no_slot` on `face_high.model`, the
+  Fox `.mtl` texture Warning; six contradictions accepted (four brief errors, two measured facts
+  that corrected TC-MOD-34 and TC-MOD-29 plus three catalog rows, DECISIONS 2026-10-08 "A
+  failed conversion leaves its package out"); one rework round for two plan gaps the sidekick
+  found (the Fox `.mtl` texture check, the beaten model deep-checked), the rest parked above;
+  mutants: 108, 91 caught, 17 unviable (`Default::default()` on types without one, one `||`
+  in a `let` chain), 0 missed).
 
 - [x] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
   on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
@@ -4086,3 +4128,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     dummy textures cross engines by rule (DECISIONS 2026-10-08): the FMDL import gives
     `dummy_nrm`/`dummy_srm` no role, `dummy_kit*` is pointed at the team's Common directory.
     Next: 4.17b (pre-Fox to Fox in the Models task, the selection rule on Fox).
+  - **4.17b done** (TC-MOD-26, 29, 30, 34): on PES 18-21 a player's `.model` with no `.fmdl`
+    twin is converted in the Models task with the `.mtl` its search finds, the skeleton the
+    conversion writes taking a member's `.skl` path; every converted model is checked in its
+    target form, a failure leaving its package out as every task failure does (DECISIONS
+    2026-10-08); a beaten model is read by nothing, and a selected `.model`'s `.mtl` gets the
+    texture check on Fox. Next: 4.17c (every loss code mapped, Warnings of the converted form,
+    the same-engine pre-check, `model_gltf_unsupported`).

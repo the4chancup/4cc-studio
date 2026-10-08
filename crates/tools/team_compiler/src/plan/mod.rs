@@ -559,7 +559,8 @@ impl TaskKind {
 
     /// Every file the task reads from its export: a package's models (a `.common` link's
     /// Common model and skeleton, never the link) and the files packed beside them, the Fox
-    /// gloves' also the folder's hand-split face parts, whose hands they take, the pre-Fox
+    /// gloves' also the folder's hand-split face parts, whose hands they take, a Fox package
+    /// converting a `.model` also the `.mtl` files of the model's source, the pre-Fox
     /// face's also the skeleton of each FMDL it converts; a folder's
     /// textures; the Common textures; the Common models and `.mtl` files (pre-Fox); a
     /// portrait's one file; a kit's config and `colors.txt`,
@@ -569,31 +570,56 @@ impl TaskKind {
         match self {
             TaskKind::Models {
                 folder, package, ..
-            } => folder_files(folder, |source, source_path, file, role| {
-                let hands = match folder.engine {
-                    Engine::Fox => {
-                        *package == ModelPackage::Gloves && folder.hand_split.contains(&file.path)
-                    }
-                    // A pre-Fox split model is the face's alone (`folder_tasks`).
-                    Engine::PreFox => false,
+            } => {
+                let reads_model = |source, file: &FileDescriptor, role: &PlayerFile| {
+                    let hands = match folder.engine {
+                        Engine::Fox => {
+                            *package == ModelPackage::Gloves
+                                && folder.hand_split.contains(&file.path)
+                        }
+                        // A pre-Fox split model is the face's alone (`folder_tasks`).
+                        Engine::PreFox => false,
+                    };
+                    // A Fox `.mtl` is the face's only by `PlayerFile::package`'s pre-Fox
+                    // answer: it is read below, with the `.model` it may define.
+                    let fox_material = matches!(role, PlayerFile::Material)
+                        && match folder.engine {
+                            Engine::Fox => true,
+                            Engine::PreFox => false,
+                        };
+                    (role.package() == Some(*package) && !fox_material)
+                        || hands
+                        // A pre-Fox model goes into the package its source feeds: a shared
+                        // boots or gloves folder's into its own output, a folder an
+                        // `ingame_face` player combines into his package of its kind.
+                        || (matches!(role, PlayerFile::PreFoxModel { .. }) && *package == source)
+                        // The face converts the FMDL the skeleton is the bind pose of.
+                        || (matches!(role, PlayerFile::ConversionSkeleton)
+                            && *package == ModelPackage::Face)
                 };
-                role.package() == Some(*package)
-                    || hands
-                    // A pre-Fox model goes into the package its source feeds: a shared boots
-                    // or gloves folder's into its own output, a folder an `ingame_face` player
-                    // combines into his package of its kind.
-                    || (matches!(role, PlayerFile::PreFoxModel { .. }) && *package == source)
-                    // A pre-Fox `.mtl` goes where its source's models go, each package packing
-                    // the ones its models use (`mtl_for`): a combined folder's into the
-                    // player's package of its kind, the folder's own into each of its
-                    // packages, an `ingame_face` player's models being parts of his boots and
-                    // of his gloves (`PlayerFile::PreFoxPart`).
-                    || (matches!(role, PlayerFile::Material)
-                        && (*package == source || source_path == &folder.path))
-                    // The face converts the FMDL the skeleton is the bind pose of.
-                    || (matches!(role, PlayerFile::ConversionSkeleton)
-                        && *package == ModelPackage::Face)
-            }),
+                // On Fox only a package converting a `.model` reads a `.mtl`: the FMDLs carry
+                // their materials, and a `.mtl` beside a `.model` an FMDL beats is read by
+                // nothing (`pipeline.md` step 3 "Format conversion").
+                let converts = match folder.engine {
+                    Engine::Fox => folder_files(folder, |source, _, file, role| {
+                        reads_model(source, file, role)
+                    })
+                    .iter()
+                    .any(|file| file.kind == FileKind::Model(ModelFormat::PesModel)),
+                    Engine::PreFox => true,
+                };
+                folder_files(folder, |source, source_path, file, role| {
+                    reads_model(source, file, role)
+                        // A `.mtl` goes where its source's models go, each package packing (on
+                        // Fox, converting with) the ones its models use (`mtl_for`): a combined
+                        // folder's into the player's package of its kind, the folder's own into
+                        // each of its packages, a pre-Fox `ingame_face` player's models being
+                        // parts of his boots and of his gloves (`PlayerFile::PreFoxPart`).
+                        || (matches!(role, PlayerFile::Material)
+                            && converts
+                            && (*package == source || source_path == &folder.path))
+                })
+            }
             TaskKind::Textures { folder, .. } => folder_files(folder, |_, _, _, role| {
                 matches!(role, PlayerFile::Texture(..))
             }),
@@ -3175,6 +3201,46 @@ mod tests {
                 "Players/05 - A/face_diff.bin",
                 "Players/05 - A/fcl_hair.fmdl",
                 "Players/05 - A/fcl_hair.skl",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_fox_package_converting_a_model_reads_the_folder_s_mtl_files_and_one_of_fmdls_none() {
+        let export = resolved(
+            "co Midcup Convert",
+            &[
+                ("Players/05 - A/boots.model", 4),
+                ("Players/05 - A/boots.mtl", 1),
+                ("Players/05 - A/materials.mtl", 2),
+                // The face holds only FMDLs: the `.model` of the hair's stem is beaten.
+                ("Players/05 - A/fcl_hair.fmdl", 8),
+                ("Players/05 - A/fcl_hair.model", 16),
+                ("Players/05 - A/shirt.dds", 32),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/05 - A [71405] charge 8",
+                "0 714 Boots Players/05 - A [625] charge 7",
+                "0 714 textures Players/05 - A charge 32",
+            ]
+        );
+        assert_eq!(
+            task_files(&report.manifest.tasks[1]),
+            [
+                "Players/05 - A/boots.model",
+                "Players/05 - A/boots.mtl",
+                "Players/05 - A/materials.mtl",
             ]
         );
     }

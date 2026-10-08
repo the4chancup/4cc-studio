@@ -1,14 +1,24 @@
 //! Cross-format conversion (`team_compiler/pipeline.md` step 3 "Format conversion"): on PES
 //! 2015 to 2017 a player folder's `.fmdl` with no `.model` of its stem beside it is converted to
 //! a `.model` and its material set, which the face packs and lists in its `face.xml` as it
-//! does a member's own; its paired `.skl` is the conversion's bind pose, packed nowhere.
+//! does a member's own; its paired `.skl` is the conversion's bind pose, packed nowhere. On PES
+//! 2018 to 2021 a player folder's `.model` with no `.fmdl` of its stem is converted with its
+//! `.mtl` to an FMDL, which the Models task packs as it packs a member's FMDL, with the skeleton
+//! the conversion writes, when it writes one, as the part's. A model of the other format beside
+//! one of the target's is ignored with no finding, and a converted model whose conversion fails
+//! or whose converted form the game cannot load leaves its package out, the folder's other
+//! packages and its textures standing (the writer's rule for every task failure).
 
 use std::collections::BTreeMap;
+use std::fs;
+use std::path::Path;
 
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes_settings, tracer_player_file};
+use crate::models::{body_skl, package_names};
 use crate::prefox_faces::{
-    CLEAN, face_cpk, nested_entries, ordered_entries, pes17, sampler_paths, write_slot_05_face,
+    CLEAN, card_materials, card_model, face_cpk, nested_entries, ordered_entries, pes17,
+    sampler_paths, small_dds, write_slot_05_face,
 };
 use crate::{clean_model, findings_of};
 
@@ -287,5 +297,445 @@ fn a_fox_model_whose_conversion_fails_drops_its_folder_naming_the_model() {
         !entries.contains_key(TRACER_FACE_CPK),
         "{:?}",
         entries.keys()
+    );
+}
+
+/// Slot 05's folder in the export `export` of team /co/ 714.
+fn slot_05(export: &str) -> String {
+    format!("exports/{export}/Players/05 - A")
+}
+
+/// `compile --no-deploy` of the sandbox's exports for PES `version` (`pes_settings`, with
+/// `extra` settings appended): the run's exit code, the lines of the export `name`, and the
+/// output CPK's entries, none when the run wrote no CPK.
+fn compiled_for(
+    sandbox: &Sandbox,
+    version: u8,
+    extra: &str,
+    name: &str,
+) -> (u8, Vec<String>, BTreeMap<String, Vec<u8>>) {
+    let settings = format!("{}{extra}", pes_settings(sandbox, version));
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let lines = findings_of(&run.messages(), name)
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    let cpk = sandbox.root.join("output/4cc_99_test.cpk");
+    let entries = if cpk.exists() {
+        cpk_entries(&cpk)
+    } else {
+        BTreeMap::new()
+    };
+    (run.exit_code(), lines, entries)
+}
+
+/// The card head's face model with `edit` applied to its parsed form, written back.
+fn edited_card(edit: impl FnOnce(&mut pes_model::model::Model)) -> Vec<u8> {
+    let file = pes_model::format::PreFoxModel::read(&card_model()).unwrap();
+    let mut model = pes_model::model::Model::from_file(&file).unwrap();
+    edit(&mut model);
+    model.to_file().unwrap().write().unwrap()
+}
+
+/// Writes slot 05 of the export `export`: `boots.model` holding `model`, the card head's
+/// material set naming `skin` as `boots.mtl`, and `skin.dds`.
+fn write_boots_model(sandbox: &Sandbox, export: &str, model: &[u8]) {
+    let player = slot_05(export);
+    sandbox.write(&format!("{player}/boots.model"), model);
+    sandbox.write(&format!("{player}/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+}
+
+/// The boots package of slot 05 of team 714 on PES 21.
+const BOOTS_FPK: &str = "Asset/model/character/boots/k0625/#Win/boots.fpk";
+
+/// Slot 05's texture home on PES 21, as an FMDL names it.
+const HOME_714_05: &str = "/Assets/pes16/model/character/common/714/05 - A/sourceimages/";
+
+// TC-MOD-26
+#[test]
+fn a_model_beside_the_fmdl_of_its_stem_is_ignored_on_pes_21_and_used_on_pes_17() {
+    let export = "co Midcup Boots";
+    // Writes slot 05: `skin.dds` when `skin`, the tracer's boots texture, the tracer's boots
+    // FMDL (naming `shirt`) when `fmdl`, and the card head as boots with its material set
+    // (naming `skin`) when `model`.
+    let write = |sandbox: &Sandbox, skin: bool, fmdl: bool, model: bool| {
+        let player = slot_05(export);
+        if skin {
+            sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+        }
+        sandbox.write(
+            &format!("{player}/shirt.dds"),
+            &tracer_player_file("shirt.dds"),
+        );
+        if fmdl {
+            sandbox.write(
+                &format!("{player}/boots.fmdl"),
+                &tracer_player_file("boots.fmdl"),
+            );
+        }
+        if model {
+            sandbox.write(&format!("{player}/boots.model"), &card_model());
+            sandbox.write(&format!("{player}/boots.mtl"), &card_materials());
+        }
+    };
+    // The tracer's boots report their weights where they are the selected model, and the
+    // beaten one reports nothing: on PES 17 neither the beaten FMDL's weights nor, on PES 21,
+    // with no `skin.dds`, the beaten `.model`'s `.mtl` naming the missing `skin`.
+    let weights =
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)";
+    let identified = "Info export_identified [Keep] (team=/co/, id=714)";
+    let no_colors = "Info team_colors_missing [Keep] ()";
+    let neck = "Info xml_face_neck_added [Keep] at Players/05 - A ()";
+    for (version, skin, alone_fmdl, alone_model, run_name, expected) in [
+        (
+            21,
+            false,
+            true,
+            false,
+            "pes21",
+            vec![weights, identified, no_colors],
+        ),
+        (
+            17,
+            true,
+            false,
+            true,
+            "pes17",
+            vec![identified, no_colors, neck],
+        ),
+    ] {
+        let both = Sandbox::new(&format!("conversion_twins_{run_name}_both"));
+        write(&both, skin, true, true);
+        let alone = Sandbox::new(&format!("conversion_twins_{run_name}_alone"));
+        write(&alone, skin, alone_fmdl, alone_model);
+
+        let (both_code, both_lines, both_entries) = compiled_for(&both, version, "", export);
+        let (alone_code, alone_lines, alone_entries) = compiled_for(&alone, version, "", export);
+
+        assert_eq!(
+            (both_code, alone_code),
+            (0, 0),
+            "PES {version}: {both_lines:#?}"
+        );
+        assert_eq!(both_lines, expected, "PES {version}");
+        assert_eq!(alone_lines, expected, "PES {version}");
+        assert!(
+            both_entries == alone_entries,
+            "PES {version}: the CPKs differ: {:?} against {:?}",
+            both_entries.keys(),
+            alone_entries.keys()
+        );
+    }
+}
+
+// TC-MOD-34
+#[test]
+fn a_model_alone_is_converted_to_the_boots_fmdl_with_its_texture_in_the_player_s_folder() {
+    let sandbox = Sandbox::new("conversion_model_for_fox");
+    let export = "co Midcup Boots";
+    write_boots_model(&sandbox, export, &card_model());
+
+    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+
+    assert_eq!(
+        lines,
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ]
+    );
+    assert_eq!(code, 0);
+    let skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
+    assert!(entries.contains_key(skin), "{:?}", entries.keys());
+    let package = fpk::FpkFile::read(&entries[BOOTS_FPK]).unwrap();
+    assert_eq!(
+        package_names(&entries[BOOTS_FPK]),
+        ["boots.fmdl", "boots.skl"]
+    );
+    let file = fmdl::FmdlFile::read(package.get("boots.fmdl").unwrap()).unwrap();
+    let boots = fmdl::Model::from_file(&file).unwrap();
+    // The card's one mesh, and the anti-blur mesh the FMDL export makes for it.
+    let anti_blur = boots
+        .meshes
+        .iter()
+        .filter(|mesh| mesh.is_antiblur_mesh)
+        .count();
+    assert_eq!(
+        (
+            model_mesh_count(&card_model()),
+            boots.meshes.len(),
+            anti_blur
+        ),
+        (1, 2, 1)
+    );
+    // The `.mtl`'s `./skin.dds`, pointed at the player's texture home by its stem.
+    let skin_paths: Vec<(String, String)> = fmdl::ops::paths::texture_paths(&file)
+        .unwrap()
+        .into_iter()
+        .filter(|path| path.file_name.starts_with("skin."))
+        .map(|path| (path.directory, path.file_name))
+        .collect();
+    assert!(!skin_paths.is_empty());
+    for path in &skin_paths {
+        assert_eq!(path, &(HOME_714_05.to_owned(), "skin.dds".to_owned()));
+    }
+    // The card's one bone is the game's own, at its pose: the conversion writes no skeleton,
+    // so the boots get the bundled one.
+    assert_eq!(package.get("boots.skl").unwrap(), body_skl("pes21"));
+}
+
+// TC-MOD-29
+#[test]
+fn a_model_whose_conversion_fails_leaves_its_package_out_even_with_pass_through() {
+    let export = "co Midcup Boots";
+    // The card head's one bone stores an all-zero matrix: `pes_model` reads it and its check
+    // finds nothing, and the conversion cannot invert it.
+    let singular = edited_card(|model| model.bones[0].matrix = [0.0; 12]);
+    for (pass_through, extra) in [
+        (false, ""),
+        (true, "[team-compiler]\npass_through = true\n"),
+    ] {
+        let sandbox = Sandbox::new(&format!("conversion_singular_{pass_through}"));
+        write_boots_model(&sandbox, export, &singular);
+
+        let (code, lines, entries) = compiled_for(&sandbox, 21, extra, export);
+
+        let failed = "Error model_conversion_failed [DropFolder] at Players/05 - A (model=boots.model, error=bone 0's stored matrix is singular)";
+        assert!(lines.iter().any(|line| line == failed), "{lines:#?}");
+        assert_eq!(code, 1, "pass_through {pass_through}");
+        // No boots. The folder's other package, its blank face, and its textures commit as
+        // beside any failed package (the writer's group rule).
+        let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+        assert_eq!(
+            paths,
+            [
+                "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex",
+                "Asset/model/character/face/real/71405/#Win/face.fpk",
+                "Asset/model/character/face/real/71405/#Win/face.fpkd",
+                "common/character0/model/character/uniform/team/UniColor.bin",
+                "common/etc/TeamColor.bin",
+            ],
+            "pass_through {pass_through}"
+        );
+    }
+}
+
+// TC-MOD-30
+#[test]
+fn a_model_with_a_far_vertex_drops_its_folder_on_pes_21() {
+    let sandbox = Sandbox::new("conversion_far_model");
+    let export = "co Midcup Boots";
+    let far = edited_card(|model| model.meshes[0].vertices.positions[0] = [6000.0, 0.0, 0.0]);
+    write_boots_model(&sandbox, export, &far);
+
+    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+
+    let far_line = "Error vertex_too_far_from_origin [DropFolder] at Players/05 - A (file=boots.model, count=1)";
+    assert!(lines.iter().any(|line| line == far_line), "{lines:#?}");
+    assert_eq!(code, 1);
+    assert!(
+        entries
+            .keys()
+            .all(|path| !path.contains("k0625") && !path.contains("71405")),
+        "{:?}",
+        entries.keys()
+    );
+}
+
+// TC-MOD-26
+#[test]
+fn a_model_an_fmdl_beats_on_pes_21_drops_nothing_with_its_far_vertex() {
+    let sandbox = Sandbox::new("conversion_far_model_beaten");
+    let export = "co Midcup Boots";
+    let player = slot_05(export);
+    sandbox.write(&format!("{player}/boots.fmdl"), &clean_model());
+    let far = edited_card(|model| model.meshes[0].vertices.positions[0] = [6000.0, 0.0, 0.0]);
+    sandbox.write(&format!("{player}/boots.model"), &far);
+    sandbox.write(&format!("{player}/boots.mtl"), &card_materials());
+
+    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+
+    assert!(
+        lines
+            .iter()
+            .all(|line| !line.contains("vertex_too_far_from_origin")),
+        "{lines:#?}"
+    );
+    assert_eq!(code, 0, "{lines:#?}");
+    let package = fpk::FpkFile::read(&entries[BOOTS_FPK]).unwrap();
+    assert_eq!(
+        fmdl_mesh_count(package.get("boots.fmdl").unwrap()),
+        fmdl_mesh_count(&clean_model())
+    );
+}
+
+#[test]
+fn a_selected_model_s_mtl_naming_a_texture_nobody_supplies_is_a_warning_on_pes_21() {
+    let sandbox = Sandbox::new("conversion_mtl_texture_missing");
+    let export = "co Midcup Boots";
+    let player = slot_05(export);
+    // No `skin.dds`, which the `.mtl` names.
+    sandbox.write(&format!("{player}/boots.model"), &card_model());
+    sandbox.write(&format!("{player}/boots.mtl"), &card_materials());
+
+    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+
+    assert_eq!(
+        lines,
+        [
+            "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=boots.mtl, texture=./skin.dds, materials=card)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ]
+    );
+    assert_eq!(code, 0);
+    assert!(
+        package_names(&entries[BOOTS_FPK]).contains(&"boots.fmdl".to_owned()),
+        "{:?}",
+        entries.keys()
+    );
+}
+
+/// The faces of the model `name` in the package at `path` in `entries`, read back with `fmdl`.
+fn face_count(entries: &BTreeMap<String, Vec<u8>>, path: &str, name: &str) -> usize {
+    let package = fpk::FpkFile::read(&entries[path]).unwrap();
+    let file = fmdl::FmdlFile::read(package.get(name).unwrap()).unwrap();
+    let model = fmdl::Model::from_file(&file).unwrap();
+    model.meshes.iter().map(|mesh| mesh.faces.len()).sum()
+}
+
+#[test]
+fn a_hand_weighted_model_is_converted_then_gives_its_hands_to_the_player_s_gloves() {
+    let sandbox = Sandbox::new("conversion_hand_split");
+    let export = "co Midcup Hands";
+    // The hand-split strip as a pre-Fox pair (`tests/fixtures/hand_split/README.md`): 40
+    // faces, of which each hand's split takes 8 and the body keeps 24. Its `.mtl` names no
+    // texture.
+    let fixture = |name: &str| {
+        fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/hand_split")
+                .join(name),
+        )
+        .unwrap()
+    };
+    let player = slot_05(export);
+    sandbox.write(&format!("{player}/body.model"), &fixture("body.model"));
+    sandbox.write(&format!("{player}/body.mtl"), &fixture("body.mtl"));
+
+    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+
+    assert_eq!(
+        lines,
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=body.model)",
+            "Info team_colors_missing [Keep] ()",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body.model, gloves=glove_l, glove_r)",
+        ]
+    );
+    assert_eq!(code, 0);
+    let gloves = "Asset/model/character/glove/g0625/#Win/glove.fpk";
+    assert_eq!(
+        package_names(&entries[gloves]),
+        ["glove_l.fmdl", "glove_r.fmdl"]
+    );
+    let face = "Asset/model/character/face/real/71405/#Win/face.fpk";
+    let split = [
+        face_count(&entries, gloves, "glove_l.fmdl"),
+        face_count(&entries, gloves, "glove_r.fmdl"),
+        face_count(&entries, face, "fcl_hair.fmdl"),
+    ];
+    assert_eq!(split, [8, 8, 24]);
+    assert_eq!(
+        split.iter().sum::<usize>(),
+        40,
+        "every face of the source, once"
+    );
+}
+
+/// The card head's face model with its one bone renamed to one no game skeleton holds, which
+/// the conversion keeps and writes a skeleton for.
+fn card_with_its_own_bone() -> Vec<u8> {
+    edited_card(|model| model.bones[0].name = "my_bone".to_owned())
+}
+
+#[test]
+fn the_skeleton_a_conversion_writes_is_the_boots_or_beside_a_member_s_a_conflict() {
+    let export = "co Midcup Boots";
+    let alone = Sandbox::new("conversion_skeleton_alone");
+    write_boots_model(&alone, export, &card_with_its_own_bone());
+
+    let (code, lines, entries) = compiled_for(&alone, 21, "", export);
+
+    assert_eq!(code, 0, "{lines:#?}");
+    let package = fpk::FpkFile::read(&entries[BOOTS_FPK]).unwrap();
+    let skeleton = fmdl::SklFile::read(package.get("boots.skl").unwrap()).unwrap();
+    assert!(
+        skeleton.bones.iter().any(|bone| bone.name == "my_bone"),
+        "{:?}",
+        skeleton
+            .bones
+            .iter()
+            .map(|bone| &bone.name)
+            .collect::<Vec<_>>()
+    );
+
+    let generated = package.get("boots.skl").unwrap().to_vec();
+
+    // A member's `.skl` of the boots' stem holding the same bytes is the same skeleton.
+    let same = Sandbox::new("conversion_skeleton_same");
+    write_boots_model(&same, export, &card_with_its_own_bone());
+    same.write(&format!("{}/boots.skl", slot_05(export)), &generated);
+
+    let (code, lines, entries) = compiled_for(&same, 21, "", export);
+
+    assert_eq!(code, 0, "{lines:#?}");
+    let package = fpk::FpkFile::read(&entries[BOOTS_FPK]).unwrap();
+    assert!(package.get("boots.skl").unwrap() == generated.as_slice());
+
+    // A member's `.skl` of the boots' stem, the bundled PES 21 one, which lacks the bone.
+    let beside = Sandbox::new("conversion_skeleton_beside");
+    write_boots_model(&beside, export, &card_with_its_own_bone());
+    beside.write(
+        &format!("{}/boots.skl", slot_05(export)),
+        &body_skl("pes21"),
+    );
+
+    let (code, lines, entries) = compiled_for(&beside, 21, "", export);
+
+    let conflict = "Error skl_merge_conflict [DropFolder] at Players/05 - A (skeleton=differs)";
+    assert!(lines.iter().any(|line| line == conflict), "{lines:#?}");
+    assert_eq!(code, 1);
+    assert!(!entries.contains_key(BOOTS_FPK), "{:?}", entries.keys());
+}
+
+#[test]
+fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_as_skl_no_slot() {
+    let sandbox = Sandbox::new("conversion_skeleton_slotless");
+    let export = "co Midcup Face";
+    let player = slot_05(export);
+    sandbox.write(
+        &format!("{player}/face_high.model"),
+        &card_with_its_own_bone(),
+    );
+    sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+
+    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+
+    assert_eq!(
+        lines,
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning skl_no_slot [Keep] at Players/05 - A (model=face_high.model)",
+        ]
+    );
+    assert_eq!(code, 0);
+    assert_eq!(
+        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
+        ["face_diff.bin", "face_high.fmdl"]
     );
 }

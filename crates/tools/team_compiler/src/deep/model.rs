@@ -24,20 +24,21 @@ pub(super) enum ModelKind {
     Mtl,
 }
 
-/// One rule a format crate's check fired on a file.
+/// One rule a format crate's check fired on a file, or on a converted model in its target form
+/// (`processing::conversion`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct Fired {
+pub(crate) struct Fired {
     /// The format crate's code.
-    pub(super) code: &'static str,
+    pub(crate) code: &'static str,
     /// Whether the format crate rates it an Error, which drops what holds the file.
-    pub(super) error: bool,
+    pub(crate) error: bool,
     /// How many items tripped the rule.
-    pub(super) count: usize,
+    pub(crate) count: usize,
 }
 
 impl Fired {
     /// `fmdl`'s finding `found` as a rule fired: its code, whether it is an Error, its count.
-    fn fox(found: fmdl::check::Finding) -> Fired {
+    pub(crate) fn fox(found: fmdl::check::Finding) -> Fired {
         let error = match found.severity {
             fmdl::check::Severity::Error => true,
             fmdl::check::Severity::Warning | fmdl::check::Severity::Info => false,
@@ -51,7 +52,7 @@ impl Fired {
 
     /// `pes_model`'s finding `found` as a rule fired: its code, whether it is an Error, its
     /// count.
-    fn pre_fox(found: pes_model::check::Finding) -> Fired {
+    pub(crate) fn pre_fox(found: pes_model::check::Finding) -> Fired {
         let error = match found.severity {
             pes_model::check::Severity::Error => true,
             pes_model::check::Severity::Warning | pes_model::check::Severity::Info => false,
@@ -173,7 +174,7 @@ fn material_read(material: Material) -> MaterialRead {
 
 /// `fired` with one entry per code, in the order each code first fired, its counts summed:
 /// the checks report per mesh or per material, a member reads one line per file.
-pub(super) fn summed(fired: Vec<Fired>) -> Vec<Fired> {
+pub(crate) fn summed(fired: Vec<Fired>) -> Vec<Fired> {
     let mut summed: Vec<Fired> = Vec::new();
     for rule in fired {
         match summed.iter_mut().find(|known| known.code == rule.code) {
@@ -192,7 +193,7 @@ mod tests {
     use super::*;
     use crate::deep::tests::{
         bc1_dds, counted, edited, far_boots, findings_for, findings_of, fixture, folder,
-        glove_over_the_face_limit, path, pre_fox_fixture, tracer_boots,
+        glove_over_the_face_limit, mtl_texture, path, pre_fox_fixture, tracer_boots, tracer_file,
     };
     use crate::testing::scratch;
 
@@ -313,10 +314,26 @@ mod tests {
             &[],
         );
         let b = folder("Players/05 - B");
-        // The boots' two meshes are empty; the shadow's one material names no state.
+        // The boots' two meshes are empty; the shadow's one material names no state. On PES
+        // 21 each `.model`, no FMDL beside it, is converted with the `.mtl` its search finds,
+        // which here defines none of its materials, and whose texture paths are looked up: the
+        // card head's `./texture.dds`, of a material no mesh binds, is missing.
         assert_eq!(
             findings,
             [
+                undefined(
+                    "Players/03 - A",
+                    "face_high.model",
+                    "materials.mtl",
+                    "judge_card_red"
+                ),
+                mtl_texture(
+                    "mtl_texture_unused_missing",
+                    folder("Players/03 - A"),
+                    "materials.mtl",
+                    "./texture.dds",
+                    "card"
+                ),
                 counted(
                     "model_mesh_empty",
                     &b,
@@ -324,6 +341,12 @@ mod tests {
                     2,
                     Disposition::Keep,
                     false
+                ),
+                undefined(
+                    "Players/05 - B",
+                    "boots.model",
+                    "boots.mtl",
+                    "Boots_Game_mat, Boots_Game_Alpha_mat"
                 ),
                 counted(
                     "mtl_state_missing",
@@ -513,6 +536,67 @@ mod tests {
     }
 
     #[test]
+    fn on_pes_21_a_model_no_fmdl_beats_is_paired_and_a_beaten_one_and_its_mtl_read_by_nothing() {
+        let temp = scratch("deep_fox_pairings");
+        let findings = findings_of(
+            temp.path(),
+            &[
+                // Selected, its `.mtl` defining only the card head's `card`.
+                (
+                    "Players/03 - A/face_high.model",
+                    pre_fox_fixture("konami_card.model"),
+                ),
+                (
+                    "Players/03 - A/face_high.mtl",
+                    pre_fox_fixture("cardhead_materials.mtl"),
+                ),
+                // Selected, with no `.mtl` for its search to find.
+                (
+                    "Players/05 - B/face_high.model",
+                    pre_fox_fixture("konami_card.model"),
+                ),
+                // Beaten by the FMDL of its stem (the tracer's right glove, which `fmdl`'s
+                // check finds nothing in): neither it nor the `.mtl` beside it, neither of which
+                // even parses, is read, compared or reported.
+                ("Players/07 - C/face_high.fmdl", tracer_file("glove_r.fmdl")),
+                ("Players/07 - C/face_high.model", b"not a model".to_vec()),
+                (
+                    "Players/07 - C/face_high.mtl",
+                    b"not a material set".to_vec(),
+                ),
+            ],
+            &[],
+        );
+        // The selected model's `.mtl` has its texture paths looked up: the card head's
+        // `./texture.dds`, of a material no mesh binds, is missing.
+        assert_eq!(
+            findings,
+            [
+                undefined(
+                    "Players/03 - A",
+                    "face_high.model",
+                    "face_high.mtl",
+                    "judge_card_red"
+                ),
+                mtl_texture(
+                    "mtl_texture_unused_missing",
+                    folder("Players/03 - A"),
+                    "face_high.mtl",
+                    "./texture.dds",
+                    "card"
+                ),
+                ContentFinding {
+                    code: "model_material_undefined",
+                    scope: folder("Players/05 - B"),
+                    context: vec![("file", "face_high.model".to_owned())],
+                    disposition: Disposition::DropFolder,
+                    pass_through_eligible: false,
+                },
+            ]
+        );
+    }
+
+    #[test]
     fn a_model_link_s_common_model_is_compared_with_the_mtl_its_search_finds() {
         let temp = scratch("deep_pre_fox_link_named_undefined");
         let findings = findings_for(
@@ -576,40 +660,58 @@ mod tests {
         let mut model = pes_model::model::Model::from_file(&file).unwrap();
         model.meshes[0].vertices.positions[0] = [6000.0, 0.0, 0.0];
         let card = model.to_file().unwrap().write().unwrap();
-        // With a material set beside it, so the model's one finding is its far vertex.
+        // With the material set defining its material beside it, so the model's one finding is
+        // its far vertex (the set names no state, its own finding).
         let findings = findings_of(
             temp.path(),
             &[
                 ("Players/03 - A/card.model", card),
                 (
                     "Players/03 - A/card.mtl",
-                    pre_fox_fixture("cardhead_materials.mtl"),
+                    pre_fox_fixture("konami_card_red.mtl"),
                 ),
             ],
             &[],
         );
         assert_eq!(
             findings,
-            [counted(
-                "vertex_too_far_from_origin",
-                &folder("Players/03 - A"),
-                "card.model",
-                1,
-                Disposition::DropFolder,
-                false
-            )]
+            [
+                counted(
+                    "vertex_too_far_from_origin",
+                    &folder("Players/03 - A"),
+                    "card.model",
+                    1,
+                    Disposition::DropFolder,
+                    false
+                ),
+                counted(
+                    "mtl_state_missing",
+                    &folder("Players/03 - A"),
+                    "card.mtl",
+                    7,
+                    Disposition::Keep,
+                    false
+                ),
+            ]
         );
     }
 
     #[test]
     fn a_pre_fox_error_keeps_its_code_drops_the_folder_and_may_pass_through() {
         let temp = scratch("deep_pre_fox_error");
-        // The card head's material set, clean, with its one material listed twice.
+        // The card head's material set, clean, with its one material listed twice, beside the
+        // texture it names and no model: read for PES 17, where every `.mtl` is packed (on PES
+        // 21 nothing reads a `.mtl` no `.model` is converted with).
         let mut set = MaterialSet::read(&pre_fox_fixture("cardhead_materials.mtl")).unwrap();
         set.materials.push(set.materials[0].clone());
-        let findings = findings_of(
+        let findings = findings_for(
+            PesVersion::Pes17,
             temp.path(),
-            &[("Players/03 - A/materials.mtl", set.write())],
+            &[
+                ("Players/03 - A/materials.mtl", set.write()),
+                ("Players/03 - A/texture.dds", bc1_dds(4, 4)),
+            ],
+            &[],
             &[],
         );
         assert_eq!(
@@ -628,24 +730,34 @@ mod tests {
     #[test]
     fn a_pre_fox_model_or_material_set_that_does_not_parse_drops_its_folder() {
         let temp = scratch("deep_pre_fox_broken");
-        let findings = findings_of(
+        // For PES 17, where the `.mtl` alone in its folder is read (on PES 21 nothing reads a
+        // `.mtl` no `.model` is converted with).
+        let findings = findings_for(
+            PesVersion::Pes17,
             temp.path(),
             &[
                 ("Players/03 - A/boots.model", b"not a model".to_vec()),
                 ("Players/05 - B/boots.mtl", b"not a material set".to_vec()),
             ],
             &[],
+            &[],
         );
         let model_error = PreFoxModel::read(b"not a model").unwrap_err().to_string();
         let mtl_error = MaterialSet::read(b"not a material set")
             .unwrap_err()
             .to_string();
-        // No `model_material_undefined` for the model with no `.mtl` beside it: the target is
-        // PES 21, where a `.model` is not compiled yet.
+        // The model with no `.mtl` beside it has every material undefined too.
         assert_eq!(
             findings,
             [
                 broken("model_broken", "Players/03 - A", "boots.model", model_error),
+                ContentFinding {
+                    code: "model_material_undefined",
+                    scope: folder("Players/03 - A"),
+                    context: vec![("file", "boots.model".to_owned())],
+                    disposition: Disposition::DropFolder,
+                    pass_through_eligible: false,
+                },
                 broken("mtl_broken", "Players/05 - B", "boots.mtl", mtl_error),
             ]
         );

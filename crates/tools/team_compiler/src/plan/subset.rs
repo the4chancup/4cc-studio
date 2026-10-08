@@ -162,7 +162,9 @@ pub(crate) fn linked_folder<'a>(
 pub(crate) enum PlayerFile {
     /// A model, packed into `package` as `<name>.fmdl` with its texture paths rewritten:
     /// `name` is its allowed name, the free prefix stripped (`kit_boots.fmdl` packs as
-    /// `boots.fmdl`).
+    /// `boots.fmdl`). A `.model` with no `.fmdl` of its path stem beside it takes the role too:
+    /// the Models task converts it to an FMDL with the `.mtl` its search finds (`pipeline.md`
+    /// step 3 "Format conversion").
     Model {
         package: ModelPackage,
         name: &'static str,
@@ -251,9 +253,12 @@ pub(crate) enum PlayerFile {
         /// unread.
         xml_type: String,
     },
-    /// Pre-Fox: a `.mtl`, packed into the player's face CPK under its own name with its
-    /// texture paths pointed at the player's common folder. The `face.xml` names it for each
-    /// model whose search finds it (`mtl_search::mtl_for`).
+    /// A `.mtl` outside `common/`. On pre-Fox it is packed into the player's face CPK under its
+    /// own name with its texture paths pointed at the player's common folder, and the
+    /// `face.xml` names it for each model whose search finds it (`mtl_search::mtl_for`). On Fox
+    /// it is packed nowhere: a Models task converting a `.model` reads the folder's `.mtl`
+    /// files (`TaskKind::files`) and gives the model the one its search finds, so one beside
+    /// only FMDLs, a `.model` an FMDL beats included, is read by nothing.
     Material,
     /// Pre-Fox: a `.common` link to a `.model` (`legs.model.common` → `Common/legs.model`),
     /// listed in the player's generated `face.xml` under `xml_type`, the type a `.model` of
@@ -540,10 +545,11 @@ pub(crate) struct FolderModels {
     /// which are not models of the folder on Fox (`PlayerFile::LeftOutKitVariant`): no
     /// skeleton pairs with one.
     left_out_variants: Vec<ScopePath>,
-    /// Pre-Fox: the path stems of its `.model` files, each of which beats an `.fmdl` of its
-    /// path stem (`pipeline.md` step 3 "Format conversion": target-native first), the FMDL
+    /// The path stems of its models in the target engine's own format, `.fmdl` files on Fox
+    /// and `.model` files on pre-Fox, each of which beats a model of the other format of its
+    /// path stem (`pipeline.md` step 3 "Format conversion": target-native first), that model
     /// then having no role and no finding (TC-MOD-26).
-    pre_fox_model_stems: Vec<String>,
+    native_model_stems: Vec<String>,
     /// Pre-Fox, without `ingame_face`: the path stems of the `.fmdl` files the face converts
     /// (`PlayerFile::PreFoxModel`), each of whose skeletons is the conversion's bind pose
     /// (`PlayerFile::ConversionSkeleton`).
@@ -558,8 +564,9 @@ impl FolderModels {
     }
 
     /// The models among `files` of the folder at `folder`, which holds `ingame_face` when
-    /// `ingame_face` is set, for a target of `engine`. On Fox: its `.fmdl` files and its
-    /// `.common` links to one, directly in it or in a reserved subfolder, each with its
+    /// `ingame_face` is set, for a target of `engine`. On Fox: its `.fmdl` files, its `.model`
+    /// files with no `.fmdl` of their path stem, which the Models task converts, and its
+    /// `.common` links to an FMDL, directly in it or in a reserved subfolder, each with its
     /// resolved role. A link counts as a model of its role's package, but pairs no skeleton of
     /// the folder's: a Common model's skeleton is Common's, resolved at planning
     /// (`common_skeleton`). A per-kit model with a lower variant of its set beside it is left
@@ -590,18 +597,16 @@ impl FolderModels {
                 // Every variant is packed there, and the face task lists the set once.
                 Engine::PreFox => Vec::new(),
             },
-            pre_fox_model_stems: match engine {
-                Engine::Fox => Vec::new(),
-                // Read before the loop: `boots.fmdl` sorts before the `boots.model` beating it.
-                Engine::PreFox => files
-                    .iter()
-                    .filter(|file| {
-                        file.kind == FileKind::Model(ModelFormat::PesModel)
-                            && position(folder, file).is_some()
-                    })
-                    .map(|file| vtree::fold_name(path_stem(file)))
-                    .collect(),
-            },
+            // Read before the loop: on pre-Fox `boots.fmdl` sorts before the `boots.model`
+            // beating it.
+            native_model_stems: files
+                .iter()
+                .filter(|file| {
+                    file.kind == FileKind::Model(native_format(engine))
+                        && position(folder, file).is_some()
+                })
+                .map(|file| vtree::fold_name(path_stem(file)))
+                .collect(),
             converted_stems: Vec::new(),
         };
         for file in files {
@@ -622,7 +627,7 @@ impl FolderModels {
                         );
                     let path_fold = vtree::fold_name(path_stem(file));
                     let converted = file.kind == FileKind::Model(ModelFormat::Fmdl)
-                        && !models.pre_fox_model_stems.contains(&path_fold);
+                        && !models.native_model_stems.contains(&path_fold);
                     let typed = pre_fox_model_type(position, file_stem(name)).is_some();
                     if converted && typed {
                         models.converted_stems.push(path_fold);
@@ -641,15 +646,21 @@ impl FolderModels {
                 continue;
             }
             let file_name = file.path.name();
-            let (model_name, local) = if file.kind == FileKind::Model(ModelFormat::Fmdl) {
-                (file_name.to_owned(), true)
-            } else if file.kind == FileKind::CommonLink
-                && let Some(linked) = linked_fmdl(file_name)
-            {
-                (linked, false)
-            } else {
-                continue;
-            };
+            // A `.model` an FMDL of its path stem beats is no model of the folder's.
+            let converted = file.kind == FileKind::Model(ModelFormat::PesModel)
+                && !models
+                    .native_model_stems
+                    .contains(&vtree::fold_name(path_stem(file)));
+            let (model_name, local) =
+                if file.kind == FileKind::Model(ModelFormat::Fmdl) || converted {
+                    (file_name.to_owned(), true)
+                } else if file.kind == FileKind::CommonLink
+                    && let Some(linked) = linked_fmdl(file_name)
+                {
+                    (linked, false)
+                } else {
+                    continue;
+                };
             let Some((package, name)) = model_role(position, file_stem(&model_name), ingame_face)
             else {
                 continue;
@@ -698,6 +709,21 @@ impl FolderModels {
         self.engine
     }
 
+    /// Whether `file` is a model the target's own format beats (`pipeline.md` step 3 "Format
+    /// conversion": target-native first): a model in the other engine's format, a `.model` on
+    /// Fox or an `.fmdl` on pre-Fox, with a model of the target's format of its path stem
+    /// beside it. The beaten model has no role and no finding (TC-MOD-26): nothing reads it.
+    pub(crate) fn beaten(&self, file: &FileDescriptor) -> bool {
+        let other_format = match self.engine {
+            Engine::Fox => ModelFormat::PesModel,
+            Engine::PreFox => ModelFormat::Fmdl,
+        };
+        file.kind == FileKind::Model(other_format)
+            && self
+                .native_model_stems
+                .contains(&vtree::fold_name(path_stem(file)))
+    }
+
     /// The models of a player folder linking a shared face: the shared face is the player's
     /// face (a merge of one, `player_folders.md` "A link plus local models combines"), so the
     /// folder's `face_diff.bin` and `fcl_hair_sim.fclo` have a package to go in with no face
@@ -727,7 +753,19 @@ pub(crate) fn player_file(
     }
 }
 
-/// `player_file` on Fox, for `file` at `position`.
+/// The model format a target of `engine` reads natively: FMDL on Fox, `.model` on pre-Fox.
+fn native_format(engine: Engine) -> ModelFormat {
+    match engine {
+        Engine::Fox => ModelFormat::Fmdl,
+        Engine::PreFox => ModelFormat::PesModel,
+    }
+}
+
+/// `player_file` on Fox, for `file` at `position`: a `.model` with no `.fmdl` of its path stem
+/// beside it takes the role an FMDL of its name would, the Models task converting it with the
+/// `.mtl` its search finds, and every `.mtl` outside `common/` is a material set such a
+/// conversion may read (`PlayerFile::Material`). A `.model` an FMDL of its path stem beats has
+/// no role.
 fn fox_file(
     position: Position,
     file: &FileDescriptor,
@@ -739,7 +777,10 @@ fn fox_file(
     match file.kind {
         // A left-out kit variant is one only where it would be a model: a file planning gives no
         // role keeps none.
-        FileKind::Model(ModelFormat::Fmdl) => {
+        FileKind::Model(format @ (ModelFormat::Fmdl | ModelFormat::PesModel)) => {
+            if format == ModelFormat::PesModel && models.native_model_stems.contains(&path_fold) {
+                return None;
+            }
             model_role(position, stem, models.ingame_face).map(|(package, name)| {
                 if models.left_out_variants.contains(&file.path) {
                     PlayerFile::LeftOutKitVariant
@@ -789,10 +830,11 @@ fn fox_file(
                 name: "fcl_hair_sim.fclo",
             },
         ),
+        FileKind::Mtl if position != Position::Common => Some(PlayerFile::Material),
         FileKind::Texture | FileKind::Bin | FileKind::Xml => {
             texture_or_face_diff(position, file, models)
         }
-        FileKind::Model(ModelFormat::PesModel | ModelFormat::Gltf)
+        FileKind::Model(ModelFormat::Gltf)
         | FileKind::Skl
         | FileKind::Fclo
         | FileKind::Mtl
@@ -822,7 +864,7 @@ fn pre_fox_file(
     let path_fold = vtree::fold_name(path_stem(file));
     match file.kind {
         FileKind::Model(format @ (ModelFormat::PesModel | ModelFormat::Fmdl)) => {
-            if format == ModelFormat::Fmdl && models.pre_fox_model_stems.contains(&path_fold) {
+            if format == ModelFormat::Fmdl && models.native_model_stems.contains(&path_fold) {
                 return None;
             }
             let stem = file_stem(file.path.name());
@@ -1328,9 +1370,17 @@ fn player_not_compiled(
 ) -> Option<(&'static str, String)> {
     let models = FolderModels::of_player(folder, Engine::Fox);
     // A member's own `face.xml` has no Fox role and is ignored (`xml_ignored_fox`): Fox has no
-    // `face.xml`, and the models compile as without it.
+    // `face.xml`, and the models compile as without it. A pre-Fox file with no role is ignored
+    // too (`pipeline.md` step 3 "Format conversion"): a `.model` an FMDL of its stem beats,
+    // a `.mtl` in `common/`. The skip goes with this gate at 4.20, when a file with no role is
+    // simply ignored.
     if let Some(file) = folder.files.iter().find(|file| {
-        player_file(&folder.path, file, &models).is_none() && !is_user_face_xml(&folder.path, file)
+        player_file(&folder.path, file, &models).is_none()
+            && !is_user_face_xml(&folder.path, file)
+            && !matches!(
+                file.kind,
+                FileKind::Model(ModelFormat::PesModel) | FileKind::Mtl
+            )
     }) {
         return Some(what_entry(file));
     }
@@ -1355,8 +1405,8 @@ fn player_not_compiled(
 /// The first thing in the shared `folder` of `kind` that `compile` cannot build into a Fox
 /// package yet, its own or a combining player's: the files go by a player folder's roles (a
 /// `Faces/` folder's face files and hair skeletons included), but only the package the folder
-/// is loaded as and its textures have a place to go, and a folder with no model is named as a
-/// whole.
+/// is loaded as and its textures have a place to go, a `.model` or a `.mtl` is named (a shared
+/// folder's `.model` is not converted yet), and a folder with no model is named as a whole.
 fn shared_not_compiled(
     kind: SharedKind,
     folder: &SharedModelFolder,
@@ -1375,8 +1425,13 @@ fn shared_not_compiled(
         };
         // A model of another package has no package here, a `.common` link (kept by a
         // non-strict file-type check) resolves only from a player folder, and a face file
-        // with no face model has no place in a shared folder.
+        // with no face model has no place in a shared folder. Nor is a `.model` a shared
+        // folder holds converted yet, nor its `.mtl` read.
         if role.package().is_some_and(|owner| owner != package)
+            || matches!(
+                file.kind,
+                FileKind::Model(ModelFormat::PesModel) | FileKind::Mtl
+            )
             || matches!(
                 role,
                 PlayerFile::CommonModel { .. }
@@ -1583,6 +1638,53 @@ mod tests {
             ]),
             None
         );
+    }
+
+    #[test]
+    fn a_fox_target_converts_a_player_s_own_model_and_ignores_one_an_fmdl_beats() {
+        // A `.model` with no FMDL of its stem, and its `.mtl`.
+        assert_eq!(
+            gate(&[
+                "Players/03 - A/boots.model",
+                "Players/03 - A/boots.mtl",
+                "Players/03 - A/torso.model",
+                "Players/03 - A/face/hat.mtl",
+            ]),
+            None
+        );
+        assert_eq!(
+            first_hit(&["Players/03 - A/boots.model", "Players/03 - A/materials.mtl"]),
+            None
+        );
+        // `FACE`'s `face_high.fmdl` beats the `.model` of its stem, ignored with its `.mtl`.
+        assert_eq!(
+            gate(&[
+                "Players/03 - A/face_high.model",
+                "Players/03 - A/face_high.mtl"
+            ]),
+            None
+        );
+        // glTF, a shared folder's `.model` or `.mtl`, a `Common/` one and a link to it are
+        // still named.
+        let glb = "Players/03 - A/boots.glb";
+        assert_eq!(gate(&["Players/03 - A/boots.model", glb]), what(glb));
+        let shared_model = "Boots/Crocs/boots.model";
+        assert_eq!(
+            gate(&["Players/05 - B/Crocs.boots", shared_model]),
+            what(shared_model)
+        );
+        let shared_mtl = "Faces/Round/hair_high.mtl";
+        assert_eq!(
+            gate(&[
+                "Players/05 - B/Round.face",
+                "Faces/Round/hair_high.fmdl",
+                shared_mtl
+            ]),
+            what(shared_mtl)
+        );
+        let link = "Players/03 - A/legs.model.common";
+        assert_eq!(gate(&[link, "Common/legs.model"]), what(link));
+        assert_eq!(gate(&["Common/legs.model"]), what("Common/legs.model"));
     }
 
     #[test]
@@ -3076,9 +3178,13 @@ mod tests {
                 Some(PlayerFile::FaceXml),
             ]
         );
+        // On Fox the same files are a model the Models task converts and its material set.
         assert_eq!(
             engine_roles(&["face_high.model", "face_high.mtl"], Engine::Fox),
-            [None, None]
+            [
+                model(ModelPackage::Face, "face_high"),
+                Some(PlayerFile::Material)
+            ]
         );
         // A glove names its hand, and a model in `face/` takes its own name's type.
         assert_eq!(
@@ -3246,6 +3352,156 @@ mod tests {
             [Some(PlayerFile::FaceDiffXml), pre_fox_model("parts")]
         );
         assert_eq!(PlayerFile::ConversionSkeleton.package(), None);
+    }
+
+    #[test]
+    fn on_fox_a_model_is_converted_unless_an_fmdl_of_its_stem_beats_it() {
+        // No `.fmdl` of its stem: it takes the role an FMDL of its name would, and its `.mtl`
+        // is a material set, wherever it sits but in `common/`.
+        assert_eq!(
+            engine_roles(
+                &[
+                    "boots.model",
+                    "boots.mtl",
+                    "x_hair_high.model",
+                    "face/hat.model",
+                    "gloves/keeper_glove_r.model",
+                    "materials.mtl",
+                    "boots/materials.mtl",
+                    "common/hat.mtl",
+                ],
+                Engine::Fox
+            ),
+            [
+                model(ModelPackage::Boots, "boots"),
+                Some(PlayerFile::Material),
+                model(ModelPackage::Face, "hair_high"),
+                model(ModelPackage::Face, "fcl_hair"),
+                model(ModelPackage::Gloves, "glove_r"),
+                Some(PlayerFile::Material),
+                Some(PlayerFile::Material),
+                None,
+            ]
+        );
+        // An FMDL of its stem beats it, its `.mtl` keeping the role nothing reads; one of its
+        // name in another directory does not, nor does one of another stem.
+        assert_eq!(
+            engine_roles(
+                &[
+                    "boots.fmdl",
+                    "Boots.model",
+                    "boots.mtl",
+                    "boots/boots.fmdl",
+                    "fcl_hair.model",
+                    "fcl_hair_x.fmdl",
+                ],
+                Engine::Fox
+            ),
+            [
+                model(ModelPackage::Boots, "boots"),
+                None,
+                Some(PlayerFile::Material),
+                model(ModelPackage::Boots, "boots"),
+                model(ModelPackage::Face, "fcl_hair"),
+                model(ModelPackage::Face, "fcl_hair"),
+            ]
+        );
+        // Under `ingame_face` a converted model takes the role an FMDL of its name would.
+        let marked = |names: &[&str]| -> Vec<Option<PlayerFile>> {
+            let folder = PlayerFolder {
+                ingame_face: true,
+                ..folder(names)
+            };
+            let models = FolderModels::of_player(&folder, Engine::Fox);
+            folder
+                .files
+                .iter()
+                .map(|file| player_file(&folder.path, file, &models))
+                .collect()
+        };
+        assert_eq!(
+            marked(&["torso.model", "torso.skl"]),
+            [
+                model(ModelPackage::Boots, "boots"),
+                skeleton(ModelPackage::Boots, "boots.skl")
+            ]
+        );
+    }
+
+    #[test]
+    fn a_model_is_beaten_by_one_of_the_target_s_format_of_its_path_stem() {
+        let folder = folder(&[
+            "boots.fmdl",
+            "Boots.model",
+            "boots.mtl",
+            "boots/boots.model",
+            "face/hat.fmdl",
+            "hat.model",
+        ]);
+        for (engine, expected) in [
+            (Engine::Fox, [false, true, false, false, false, false]),
+            (Engine::PreFox, [true, false, false, false, false, false]),
+        ] {
+            let models = FolderModels::of_player(&folder, engine);
+            let beaten: Vec<bool> = folder
+                .files
+                .iter()
+                .map(|file| models.beaten(file))
+                .collect();
+            assert_eq!(beaten, expected, "{engine:?}");
+        }
+    }
+
+    #[test]
+    fn on_fox_a_converted_model_is_a_model_of_the_folder_its_skeleton_pairs_with() {
+        // The `.skl` of a converted model's stem packs under its slot, as an FMDL's does; a
+        // slotless model's is `skl_no_slot`; the face files beside a converted face model are
+        // used.
+        assert_eq!(
+            engine_roles(
+                &[
+                    "kit_boots.model",
+                    "Kit_Boots.skl",
+                    "fcl_hair.model",
+                    "fcl_hair.skl",
+                    "face_high.model",
+                    "face_high.skl",
+                    "face_diff.bin",
+                    "fcl_hair_sim.fclo",
+                ],
+                Engine::Fox
+            ),
+            [
+                model(ModelPackage::Boots, "boots"),
+                skeleton(ModelPackage::Boots, "boots.skl"),
+                model(ModelPackage::Face, "fcl_hair"),
+                skeleton(ModelPackage::Face, "fcl_hair_sim.skl"),
+                model(ModelPackage::Face, "face_high"),
+                Some(PlayerFile::SlotlessSkeleton),
+                packed(ModelPackage::Face, "face_diff.bin"),
+                packed(ModelPackage::Face, "fcl_hair_sim.fclo"),
+            ]
+        );
+        assert_eq!(
+            engine_roles(&["boots.fmdl", "hat.model", "hat.skl"], Engine::Fox),
+            [
+                model(ModelPackage::Boots, "boots"),
+                model(ModelPackage::Face, "fcl_hair"),
+                skeleton(ModelPackage::Face, "fcl_hair_sim.skl"),
+            ]
+        );
+        // A converted face model gives the folder a face, which the boots alone do not.
+        assert_eq!(
+            engine_roles(
+                &["face_diff.bin", "boots.fmdl", "face_high.model"],
+                Engine::Fox
+            )[0],
+            packed(ModelPackage::Face, "face_diff.bin")
+        );
+        assert_eq!(
+            engine_roles(&["face_diff.bin", "boots.fmdl", "boots.model"], Engine::Fox)[0],
+            Some(PlayerFile::UnusedFaceFile)
+        );
     }
 
     #[test]
@@ -3459,8 +3715,10 @@ mod tests {
             Some(PlayerFile::CommonTexture("hair".to_owned()))
         );
         for refused in [
-            "face_high.model",
-            "torso.model",
+            // A `.model` the FMDL of its stem beats, and a `.mtl` where only textures go.
+            "kit_boots.model",
+            "Fcl_Hair.model",
+            "common/body.mtl",
             "boots.skl",
             "glove_l.skl",
             "face.xml",

@@ -122,7 +122,8 @@ pub(crate) enum Code {
     /// package is left out.
     SklMergeConflict,
     /// A `.skl` paired with a `face_high`, `hair_high` or `oral` model, which have no skeleton
-    /// slot on Fox; the file is ignored.
+    /// slot on Fox; the file is ignored. Also the skeleton a `.model`'s conversion writes for a
+    /// model of such a role, or of a glove, which is left out the same way.
     SklNoSlot,
     /// A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a player folder with no
     /// face model (with or without `ingame_face`): there is no face for it to shape, so the
@@ -239,12 +240,15 @@ pub(crate) enum Code {
     /// A converted model's bind pose was re-bound from its source version's skeleton to the
     /// target's (bones moved more than tolerance).
     SkeletonRetargeted,
-    /// A model the compiler must convert (an FMDL for PES 15-17, or a face model to hand
-    /// auto-split) cannot be read, converted or written back; its package is left out.
+    /// A model the compiler must convert (an FMDL for PES 15-17, a `.model` for PES 18-21, or a
+    /// face model to hand auto-split) cannot be read, converted or written back, or its
+    /// converted form trips an Error of its format's check (the rule's code is the error); its
+    /// package is left out.
     ModelConversionFailed,
     /// A model has a vertex more than 5000 units from the origin, which lags the game for the
     /// whole matchday; its folder is left out (a `Common/` model: the file), whatever
-    /// `pass_through` says.
+    /// `pass_through` says. Found on a source by the deep pass, and on a converted model's
+    /// target form by its task, which leaves the model's package out.
     VertexTooFarFromOrigin,
     /// A model file (`.fmdl` or `.model`) that does not parse; its folder is left out (a
     /// `Common/` model: the file), whatever `pass_through` says, since it cannot be processed.

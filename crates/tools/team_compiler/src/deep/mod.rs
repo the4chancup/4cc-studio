@@ -6,14 +6,17 @@
 //!
 //! This module reads every native model (`.fmdl`, `.model`) and every `.mtl` of the player
 //! folders, the shared folders and `Common/`, whatever the target version (a model of either
-//! format is a source for either target), and reports what the format crates' checks find
+//! format is a source for either target), but for PES 2018 to 2021 a model folder's `.mtl` no
+//! `.model` of the folder is converted with, which nothing reads; and it reports what the
+//! format crates' checks find
 //! (`team_compiler/messages.md` "Model checks"): one finding per file and code, at the
 //! severity the format crate gives it. An Error drops what holds the file and may pass through;
 //! a Warning or an Info only informs. The far vertex, which both formats check, is reported as
 //! `vertex_too_far_from_origin` and never passes through. A file that does not parse is
 //! `model_broken` or `mtl_broken`. A `.model`, or a `.common` link to one, for which no `.mtl`
 //! is found (`mtl_search`) has every material undefined, `model_material_undefined`, for PES
-//! 2015 to 2017: the folder is dropped, `pass_through` or not. One whose `.mtl` lacks a
+//! 2015 to 2017, and so has a model folder's `.model` no `.fmdl` of its stem beats for PES 2018
+//! to 2021: the folder is dropped, `pass_through` or not. One whose `.mtl` lacks a
 //! material it binds is `model_material_undefined` too, naming those materials, and may pass
 //! through. glTF models are not read (Phase 7).
 //!
@@ -79,11 +82,11 @@ use crate::user_face_xml::{
 use collar::collar_findings;
 use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
 use materials::{TextureSources, held_stems, texture_findings};
-use model::{MaterialRead, ModelKind, fired, summed};
+use model::{MaterialRead, ModelKind, fired};
 use portrait::{folder_portrait, portrait_conflict, portrait_findings};
 use texture::{SizeRule, texture_finding};
 
-pub(crate) use model::FAR_VERTEX_CODES;
+pub(crate) use model::{FAR_VERTEX_CODES, Fired, summed};
 
 /// What the deep pass found in one export (`content_findings`).
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -165,8 +168,9 @@ impl KeptCommon {
 /// checked before the folders, whose models' `.mtl` search sees only the ones kept, and whose
 /// models' materials are compared with the kept ones' names (`KeptCommon`).
 ///
-/// For PES 2015 to 2017 each `.mtl`'s texture paths are looked up (`materials`), right after
-/// its own findings, each finding keeping what holds the `.mtl`: a folder's against the
+/// For PES 2015 to 2017 each `.mtl`'s texture paths are looked up (`materials`), and for PES
+/// 2018 to 2021 those of each folder `.mtl` a selected `.model` pairs with, right after its own
+/// findings, each finding keeping what holds the `.mtl`: a folder's against the
 /// textures the folder holds, `Common/`'s and `installed`, the stems the installed CPKs loaded
 /// before the run's hold in the team's Common output (`None` when that lookup cannot be made or
 /// the export has no team ID); a kept `Common/` `.mtl`'s against `Common/`'s textures and
@@ -558,14 +562,15 @@ impl<'a> FaceUse<'a> {
 
 /// The findings of the files among `files`, those of the model folder at `folder`, that the
 /// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
-/// an Error dropping the folder, the file named below the folder; when the target `version`
-/// is pre-Fox, each `.model`'s, and each typed `.common` link's to one,
-/// `model_material_undefined` (`material_finding`, its `.mtl` searched among the folder's
-/// files and `common`'s), right after the model's own findings, and each `.mtl`'s texture
-/// lookup (`materials::texture_findings`), right after the `.mtl`'s own findings; with the
-/// models among them that carry hand weights and the materials of the pre-Fox ones. The files
-/// are read and checked in parallel, each worker holding one file, and the models' materials
-/// compared after, from what each read kept.
+/// an Error dropping the folder, the file named below the folder (not a model the target's own
+/// format beats, nor on Fox a `.mtl` no `.model` pairs with, which nothing reads); for each
+/// model `pairings` pairs (on pre-Fox each `.model` and each typed `.common` link to one, on
+/// Fox each `.model` no FMDL beats), `model_material_undefined` (`material_finding`, its `.mtl`
+/// searched among the folder's files and `common`'s), right after the model's own findings;
+/// each read `.mtl`'s texture lookup (`materials::texture_findings`), right after the `.mtl`'s
+/// own findings; with the models among them that carry hand weights and the materials of the
+/// pre-Fox ones. The files are read and checked in parallel, each worker holding one file, and
+/// the models' materials compared after, from what each read kept.
 ///
 /// When `face` says the folder's face files are used (`FaceUse::Used`), each member's own
 /// `face.xml` among `files` (`PlayerFile::FaceXml`) is read and checked (`user_xml_findings`),
@@ -621,11 +626,29 @@ fn folder_findings(
             listed_materials(&xmls, files, common, folder)
         }
     });
+    let pairings = pairings(folder, files, &models, engine, listed, common);
+    // A model the target's own format beats (`FolderModels::beaten`) is read by nothing, and
+    // on Fox a `.mtl` is read only by the conversion of a `.model` paired with it, so one no
+    // such model pairs with (beside only FMDLs, or a `.model` an FMDL beats) is read by
+    // nothing either. Neither is checked: its findings would drop a folder `compile` builds
+    // without it (`pipeline.md` step 3 "Format conversion").
+    let unread = |file: &FileDescriptor| {
+        models.beaten(file)
+            || match engine {
+                Engine::Fox => {
+                    file.kind == FileKind::Mtl
+                        && !pairings
+                            .iter()
+                            .any(|pairing| pairing.mtl.is_some_and(|mtl| mtl.path == file.path))
+                }
+                Engine::PreFox => false,
+            }
+    };
     // Collected in file order (an indexed `collect`), whatever the scheduling.
     let mut per_file: Vec<ContentPass> = files
         .par_iter()
         .map(|file| match checked_as(file, size_rule) {
-            Some(checked) => file_outcome(
+            Some(checked) if !unread(file) => file_outcome(
                 content,
                 file,
                 checked,
@@ -633,16 +656,13 @@ fn folder_findings(
                 Disposition::DropFolder,
                 &relative(&file.path, folder),
             ),
-            None => ContentPass::default(),
+            Some(_) | None => ContentPass::default(),
         })
         .collect();
     let mut materials = BTreeMap::new();
     for found in &mut per_file {
         materials.append(&mut found.materials);
     }
-    let pairings = pairings(folder, files, &models, engine, listed, common);
-    // On Fox a `.mtl` is read but not packed (the Fox face task does not read it), so its
-    // paths are not looked up.
     let shared: Vec<&SharedModelFolder> = match &face {
         FaceUse::Used {
             linked_face,
@@ -651,12 +671,14 @@ fn folder_findings(
         FaceUse::Unused => Vec::new(),
     };
     let held = match engine {
-        Engine::Fox => None,
         // A folder an xml Error drops gets no texture finding (`messages.md`, the paragraph
         // starting "On pre-Fox the check runs in the deep pass"): the member fixes the xml
         // first, and its entries may name other `.mtl` files.
         Engine::PreFox if xml_drops_folder => None,
-        Engine::PreFox => Some(held_stems(folder, files, &models, &shared, engine)),
+        // The `.mtl` checked is the member's source, the same whatever the target, so on Fox
+        // the one a selected `.model` pairs with, the only one the pass reads there, is looked
+        // up as on pre-Fox (`messages.md`, the `mtl_texture_not_found` row).
+        Engine::Fox | Engine::PreFox => Some(held_stems(folder, files, &models, &shared, engine)),
     };
     let sources = held.as_ref().map(|held| TextureSources {
         held,
@@ -695,9 +717,9 @@ fn folder_findings(
     pass
 }
 
-/// A pre-Fox model of a model folder paired with the `.mtl` it binds its materials from: what
-/// `model_material_undefined` compares, and what makes a `.mtl` material mesh-used for the
-/// texture lookup.
+/// A `.model` of a model folder paired with the `.mtl` it binds its materials from: what
+/// `model_material_undefined` compares, what makes a `.mtl` material mesh-used for the
+/// texture lookup, and on Fox what makes a `.mtl` read at all.
 struct Pairing<'a> {
     /// The folder's file the pairing is about, which a finding names: a `.model`, or a typed
     /// `.common` link to a `Common/` one.
@@ -714,7 +736,8 @@ struct Pairing<'a> {
 /// models are `models`, read for a target of `engine`: with the folder's own `face.xml`, the
 /// models it lists with the `.mtl` each entry names (`listed`, empty when an xml drops the
 /// folder); without, on pre-Fox, each `.model` and each typed `.common` link to one with the
-/// `.mtl` its search finds among `files` and `common`'s; on Fox none.
+/// `.mtl` its search finds among `files` and `common`'s; on Fox each `.model` with a role
+/// (`PlayerFile::Model`: no FMDL of its stem beats it) the same way.
 fn pairings<'a>(
     folder: &'a ScopePath,
     files: &'a [FileDescriptor],
@@ -736,10 +759,16 @@ fn pairings<'a>(
     files
         .iter()
         .filter(|file| match engine {
-            // On Fox a `.model` is not read yet: a `boots.model` beside `boots.fmdl` is never
-            // the selected source, so dropping the folder for it would lose a working FMDL
-            // (4.17 adds Fox where it is the source).
-            Engine::Fox => false,
+            // On Fox a selected `.model` is converted with the `.mtl` its search finds. One an
+            // FMDL of its stem beats has no role and is read by nothing: dropping the folder
+            // for it would lose a working FMDL.
+            Engine::Fox => {
+                file.kind == FileKind::Model(ModelFormat::PesModel)
+                    && matches!(
+                        player_file(folder, file, models),
+                        Some(PlayerFile::Model { .. })
+                    )
+            }
             // The roles are read without the `ingame_face` marker (`FolderModels::of`), so a
             // model link is `PreFoxCommonModel` here even in a marked folder, where planning
             // makes it a part of his boots or gloves whose `.mtl` is needed all the same.
@@ -2023,7 +2052,7 @@ mod tests {
 
     /// The texture finding `code` of the `.mtl` named `file` on `scope`, about `texture`,
     /// named by `materials`; every texture finding keeps what holds the file.
-    fn mtl_texture(
+    pub(super) fn mtl_texture(
         code: &'static str,
         scope: IssueScope,
         file: &str,

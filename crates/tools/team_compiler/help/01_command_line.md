@@ -233,8 +233,8 @@ listed in a `glove.xml` that `compile` writes; the
 textures of either sit beside the models.
 Each model uses the first `.mtl` found in its own folder, then in the player's folder: one
 whose name starts or ends the model's name, then `materials.mtl`, then any. For PES 2015 to
-2017, a model with no `.mtl` to use is the error `model_material_undefined`, and the player's
-folder is left out. A model using a material its `.mtl` does not define is
+2017, and for PES 2018 to 2021 when no `.fmdl` of its name is beside it, a model with no `.mtl`
+to use is the error `model_material_undefined`, and the player's folder is left out. A model using a material its `.mtl` does not define is
 `model_material_undefined` too, naming the `.mtl` and the missing materials: the folder is
 left out unless `pass_through` is on, which keeps it as it is, and the game then draws those
 parts with its fallback material. Both commands report either. For PES 2015 to 2017 the
@@ -268,8 +268,14 @@ own face, boots and gloves models, their textures, portraits, the `ingame_face` 
 the logo, `.fmdl` collars, linked shared `Faces`, `Boots` and `Gloves` folders, and a
 `Common` folder holding only `.fmdl`, `.skl` and
 texture files, its models reached through `.common` links (a model in a `gloves` subfolder
-whose name does not say which hand it is, or a `.common` link to a material file, among
-others). `check` still checks
+whose name does not say which hand it is, a `.common` link to a material file, or a `.model`
+in a shared folder, among others); a player's own `.model` models are converted to `.fmdl`
+with the `.mtl` they use, and `.glb`/`.gltf` are named. A `.model` beside a `.fmdl` of the
+same name is left out for the `.fmdl`, with its `.mtl`. A converted model is checked again as
+the `.fmdl` it becomes: one that cannot be converted, or that comes out with a vertex more than
+5000 units from the origin, is reported as `model_conversion_failed` or
+`vertex_too_far_from_origin` and its package (face, boots or gloves) is left out, even with
+`pass_through` on. `check` still checks
 those exports.
 
 A `Collars` folder holds custom collar models, each replacing one of the game's stock collars:
@@ -474,7 +480,9 @@ linked shared face's count too), and a path into the team's Common folder
 above. A missing texture that a mesh uses is the warning `mtl_texture_not_found`: the folder
 is still compiled, since the game shows some such faces as they were made, but look at the
 player in the game. One that only a material no mesh uses names is an info line,
-`mtl_texture_unused_missing`. Paths into the game's own folders are not looked for.
+`mtl_texture_unused_missing`. Paths into the game's own folders are not looked for. On PES
+2018 to 2021 the same goes for the `.mtl` of a `.model` the compiler converts (one with no
+`.fmdl` of its name beside it); a `.mtl` no such model uses is not read at all.
 
 A folder named `templates` in the data folder holds files that replace the compiler's built-in
 copies of the same name, so a cup can swap one without a new version of the compiler. The names,

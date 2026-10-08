@@ -1,11 +1,14 @@
 //! One package of a model folder's Fox models (`team_compiler/pipeline.md` "3.
-//! Per-model-folder parallel steps", steps 2, 3 and 7): its models renamed to their allowed
+//! Per-model-folder parallel steps", steps 1, 2, 3 and 7): its `.model` sources converted to
+//! FMDL, its models renamed to their allowed
 //! names, each part's texture paths pointed at where its textures go and the textures its
 //! meshes use looked for, the parts resolving to one name merged into one model, with
 //! the files that go beside them: the package's files, which `materialize` packs or places.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::iter;
 
+use aesthetics_export::{FileKind, ModelFormat};
 use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::{TexturePath, rewrite_texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
@@ -16,14 +19,16 @@ use pes_version::Engine;
 use studio_core::Disposition;
 use vtree::ScopePath;
 
+use super::conversion::model_for_fox;
 use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_diff;
 use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
+use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::ModelFolder;
-use crate::plan::subset::{ModelPackage, PlayerFile, file_stem};
+use crate::plan::subset::{ModelPackage, PlayerFile, file_stem, skeleton_slot};
 
 /// One model of the package: a part of the output model its allowed name names, from the
 /// folder's own files, a combined shared folder's, or the export's `Common/` folder through a
@@ -33,9 +38,10 @@ struct Part {
     name: &'static str,
     /// The part's export path, which with its file name orders the parts of one output.
     path: ScopePath,
-    /// The part's bytes, an FMDL.
+    /// The part's bytes, an FMDL: a `.model`'s converted.
     bytes: Vec<u8>,
-    /// The skeleton paired with the part: the `.skl` of its stem in its own source folder.
+    /// The skeleton paired with the part: the `.skl` of its stem in its own source folder, or
+    /// the one a `.model`'s conversion writes.
     skeleton: Option<Vec<u8>>,
     /// Where the part's own textures are packed.
     textures: PartTextures,
@@ -55,7 +61,12 @@ enum PartTextures {
 
 /// The files of `folder`'s `package`, compiled from its files' bytes in `files` for team
 /// `team_id`, by their names in the package, a file the game needs beside the models that no
-/// source holds taken from the run's templates. A hand-split face part gives the face its body
+/// source holds taken from the run's templates. A `.model` with no `.fmdl` of its stem is
+/// converted first (`conversion::model_for_fox`), with the `.mtl` its search finds among its
+/// source's files, and is then a part like a member's FMDL: the skeleton the conversion
+/// writes is the part's, as a member's `.skl` of its stem would be (one beside it of other
+/// bytes is `skl_merge_conflict`), and is left out with `skl_no_slot` for a role with no
+/// skeleton slot. A hand-split face part gives the face its body
 /// and the gloves its hands (`parts_of`), before any texture path is rewritten. A
 /// merge of several parts into one model is noted in `findings` as `fmdl_merged`. A texture a
 /// part's mesh uses that nothing supplies (`texture_supply`) fails the task with
@@ -75,14 +86,25 @@ pub(super) fn package(
     let mut texture_stems = BTreeSet::new();
     let mut linked_stems = BTreeSet::new();
     let mut contents = PackageFiles::new();
-    for (_, _, source_files) in folder.roles() {
+    // `roles()` yields the folder's own files, then each combined folder's in `combined`'s
+    // order, so each source's roles pair with its own file list here: a `.model`'s `.mtl` is
+    // searched for among its source's files.
+    let source_files = iter::once(&folder.files).chain(
+        folder
+            .combined
+            .iter()
+            .map(|combined| &combined.folder.files),
+    );
+    for ((_, source_path, source_roles), source_files) in
+        folder.roles().into_iter().zip(source_files)
+    {
         // A skeleton pairs with the model of its stem in the same directory: keyed by the
         // path up to the extension, case-folded as the file system folds it (planning pairs
         // a Common skeleton with its model folded too), since a player folder's reserved
         // subfolder may hold a model of the same name as one directly in the folder.
         let mut skeletons: BTreeMap<String, Vec<u8>> = BTreeMap::new();
         let mut source_parts: Vec<Part> = Vec::new();
-        for (file, role) in source_files {
+        for (file, role) in source_roles {
             // A hand-split face part (`ModelFolder::hand_split`) is read by the face task, which
             // keeps its body, and by the gloves task, which keeps its hands.
             let hand_split = folder.hand_split.contains(&file.path)
@@ -102,7 +124,40 @@ pub(super) fn package(
                     package: owner,
                     name,
                 } if owner == package || hand_split => {
-                    let part = part(name, PartTextures::Folder);
+                    let mut part = part(name, PartTextures::Folder);
+                    if file.kind == FileKind::Model(ModelFormat::PesModel) {
+                        let mtl = mtl_for(
+                            &file.path,
+                            source_path,
+                            source_files,
+                            &folder.common_files,
+                        )
+                        .expect(
+                            "the deep pass drops a folder holding a selected `.model` no `.mtl` \
+                             is found for (`model_material_undefined`)",
+                        );
+                        let mtl = files.get(&mtl.path).expect(
+                            "a package converting a `.model` reads its source's `.mtl` files \
+                             (`TaskKind::files`)",
+                        );
+                        // The gloves task converts a hand-split face part again, for its
+                        // hands: what the conversion reports is the face's to tell.
+                        let mut reported = Vec::new();
+                        let converted =
+                            model_for_fox(file.path.name(), &part.bytes, mtl, ctx, &mut reported)?;
+                        part.bytes = converted.model;
+                        part.skeleton = converted.skeleton;
+                        if skeleton_slot(owner, name).is_none() && part.skeleton.take().is_some() {
+                            reported.push((
+                                Code::SklNoSlot,
+                                Disposition::Keep,
+                                vec![("model", file.path.name().to_owned())],
+                            ));
+                        }
+                        if owner == package {
+                            findings.extend(reported);
+                        }
+                    }
                     source_parts.extend(parts_of(part, hand_split, package, ctx, findings)?);
                 }
                 PlayerFile::CommonModel {
@@ -148,18 +203,27 @@ pub(super) fn package(
                 | PlayerFile::LeftOutKitVariant
                 | PlayerFile::FaceDiffXml
                 | PlayerFile::Packed { .. } => {}
+                // Read in place with the `.model` it defines, above.
+                PlayerFile::Material => {}
                 // Pre-Fox roles: a Fox target gives no file one.
                 PlayerFile::PreFoxModel { .. }
                 | PlayerFile::PreFoxPart { .. }
                 | PlayerFile::PreFoxCommonModel { .. }
-                | PlayerFile::Material
                 | PlayerFile::CommonMaterial
                 | PlayerFile::FaceXml
                 | PlayerFile::ConversionSkeleton => {}
             }
         }
         for part in &mut source_parts {
-            part.skeleton = skeletons.remove(&vtree::fold_name(file_stem(part.path.as_str())));
+            let member = skeletons.remove(&vtree::fold_name(file_stem(part.path.as_str())));
+            // A converted `.model`'s own skeleton takes the path a member's `.skl` of its stem
+            // would: beside one, they are two skeletons of the part, one when they are equal.
+            part.skeleton = match (part.skeleton.take(), member) {
+                (Some(converted), Some(member)) if converted != member => {
+                    return Err(skeleton_conflict());
+                }
+                (converted, member) => member.or(converted),
+            };
         }
         parts.extend(source_parts);
     }
@@ -317,12 +381,17 @@ fn merged_skeleton(parts: &mut [Part]) -> Result<Option<Vec<u8>>, TaskFailure> {
         return Ok(None);
     };
     if skeletons.any(|skeleton| skeleton != first) {
-        return Err(TaskFailure {
-            code: Code::SklMergeConflict,
-            context: vec![("skeleton", "differs".to_owned())],
-        });
+        return Err(skeleton_conflict());
     }
     Ok(first)
+}
+
+/// `skl_merge_conflict` for one output model whose parts bring different skeletons.
+fn skeleton_conflict() -> TaskFailure {
+    TaskFailure {
+        code: Code::SklMergeConflict,
+        context: vec![("skeleton", "differs".to_owned())],
+    }
 }
 
 /// The parts `part`, a model of the folder's, gives `package`: the part itself, or, when it

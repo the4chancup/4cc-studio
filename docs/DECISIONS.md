@@ -5131,3 +5131,20 @@ that directory is the target's convention. Whether the modded PES 15-17 exes sub
 stem at that path for a face model is for the maintainer to confirm in game.
 Plan: `team_compiler/pipeline.md` step 3 "Format conversion", the last sentences;
 `model_format.md` "Textures" already gives the pre-Fox fallbacks.
+
+## 2026-10-08 — team_compiler — A failed conversion leaves its package out, as every task failure does
+Decision: `model_conversion_failed`, and `vertex_too_far_from_origin` when the task that
+converts a source fires it on the target form, leave that task's package out and let the
+folder's other packages and its textures through, the writer's rule for every task failure
+(`merge_material_conflict`, `skl_merge_conflict`, `fmdl_texture_not_found`). The deep pass's
+far vertex, read from a native source, still drops the folder. TC-MOD-29's text, the two
+catalog rows and `skl_no_slot`'s (the generated SKL of a slotless role or a glove part, same
+code, context `model`) say so.
+Why: the plan disagreed with itself: the catalog rows and TC-MOD-29 said "folder discarded",
+`messages.rs` and the writer said "its package is left out", and 4.17b's measurement showed
+the writer's rule (the blank face and `skin.ftex` of a folder whose boots failed to convert
+are in the CPK). Dropping the folder would need a failure scope on the writer's task batch
+for one finding, and a package left out beside an Error on the folder is already how a merge
+conflict reaches the member.
+Plan: `team_compiler/README.md` TC-MOD-29 and TC-MOD-34 (the measured mesh relation);
+`team_compiler/messages.md` the three rows.
