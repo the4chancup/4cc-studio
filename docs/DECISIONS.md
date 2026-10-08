@@ -5357,3 +5357,16 @@ path verbatim in the FMDL was a texture the game could not find with no finding:
 evidence must point it.
 Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the Common `.model` sentence
 and the Common-path sentence), "Kit-dependent assets" (the set's formats).
+
+## 2026-10-08 — team_compiler — Pre-Fox writes no player tables; the aesthetics stay in the savefile patch whole
+Decision: on PES 15-17 the compiler writes no `PlayerAppearance.bin`, `BootsList.bin` or
+`GloveList.bin`; a player's appearance, boots and gloves reach a pre-Fox game through the
+savefile patch alone, as before. The worklog's open question (pre-Fox player tables, found
+2026-10-05) is closed.
+Why: PES 17 does read `PlayerAppearance.bin` and `BootsList.bin` for a stripped record
+(Test 4), but a `GloveList.bin` row never applied, with the row's player's PlayerGloves bit
+at 0 (Test 4b) or 1 (Test 4c), on the 4cc exe and the stock one. Gloves therefore need the
+savefile patch on pre-Fox, so a full pre-Fox DLC always needs it; writing the other two
+tables beside it would split one player's look between the CPK and the save and gain
+nothing (maintainer).
+Plan: `team_compiler/pipeline.md`, the output paths table (the three table rows).

@@ -1465,9 +1465,9 @@ without it Phase 3 promotes the same way and says nothing more (deployment is Ph
 | TeamColor.bin | `common/etc/TeamColor.bin` | same |
 | UniColor.bin | `common/character0/model/character/uniform/team/UniColor.bin` | same |
 | UniformParameter | — | `common/character0/model/character/uniform/team/UniformParameter.bin` |
-| PlayerAppearance.bin | — (PES 17's base data has one, not written; worklog "Issues") | `common/character0/model/character/appearance/PlayerAppearance.bin` (60-byte rows: player id, then the record's 56 appearance bytes) |
-| BootsList.bin | — (PES 15-17's base data has one, not written) | `common/character0/model/character/boots/BootsList.bin` ((player id, boots ID) u32 pairs, sorted by id) |
-| GloveList.bin | — (as BootsList.bin) | `common/character0/model/character/glove/GloveList.bin` ((player id, gloves ID) u32 pairs, sorted by id) |
+| PlayerAppearance.bin | — (PES 17's base data has one and the game reads it for a stripped record, Test 4; not written: a pre-Fox game never applies a `GloveList.bin` row, Tests 4b and 4c, so the savefile patch is needed anyway and the aesthetics go there whole, not split between the CPK and the save) | `common/character0/model/character/appearance/PlayerAppearance.bin` (60-byte rows: player id, then the record's 56 appearance bytes) |
+| BootsList.bin | — (PES 15-17's base data has one; not written, as PlayerAppearance.bin) | `common/character0/model/character/boots/BootsList.bin` ((player id, boots ID) u32 pairs, sorted by id) |
+| GloveList.bin | — (not read by PES 17 for a stripped record, Tests 4b and 4c; not written) | `common/character0/model/character/glove/GloveList.bin` ((player id, gloves ID) u32 pairs, sorted by id) |
 
 ### Resolved decisions and open questions
 

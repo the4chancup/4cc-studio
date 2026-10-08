@@ -3078,7 +3078,12 @@ pruned when their phase closes; they stay in git history.
   injected by `pes-db-generator`'s `player_edit.py`, every record one shared base body
   (`Player_Edit_Base_20.bin`: every motion stored 0, i.e. 1, the motion edit flag set). The
   Winter Cup 2023 save's 4,829 players with a motion other than 1 were edited after that.
-- open, needs the maintainer — pre-Fox has the player tables too (found 2026-10-05):
+- answered (maintainer, 2026-10-08, after Test 4c: a pre-Fox game never applies a
+  `GloveList.bin` row, so a full pre-Fox DLC needs the savefile patch anyway, and writing
+  `PlayerAppearance.bin` and `BootsList.bin` beside it would split one player's look between
+  the CPK and the save for nothing; pre-Fox writes no player tables, the aesthetics stay in
+  the savefile patch whole; `pipeline.md` output table, decision entry) — pre-Fox has the
+  player tables too (found 2026-10-05):
   `BootsList.bin` and `GloveList.bin` in the base data of PES 15, 16 and 17 (`dt33`, and PES
   17's `dt00_win`), and in the cup's own `4cc_02_misc.cpk` on PES 15 and 17, with a row for
   every cup player id 70101-89223, all 1; `PlayerAppearance.bin` (13,242 rows of 60 bytes, as
