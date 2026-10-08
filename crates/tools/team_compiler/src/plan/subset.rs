@@ -969,12 +969,14 @@ pub(crate) fn file_stem(name: &str) -> &str {
     name.rsplit_once('.').map_or(name, |(stem, _)| stem)
 }
 
-/// What a Fox `compile` does with a team export's `Collars/` file (`pipeline.md` "Collars").
+/// What `compile` does with a team export's `Collars/` file for a target of one engine
+/// (`pipeline.md` "Collars").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CollarFile {
-    /// An FMDL: it claims the stock collar its name gives and is written in its place.
+    /// A model in the format the engine reads, an FMDL on Fox and a `.model` on pre-Fox: it
+    /// claims the stock collar its name gives and is written in its place.
     Compiled,
-    /// A model in another format: converting a collar between engines is not built yet, so
+    /// A model in another format: converting a collar between formats is not built yet, so
     /// the gate names it.
     NotCompiled,
     /// Any other kind, which the structure pass keeps only with the strict file-type check
@@ -982,11 +984,16 @@ pub(crate) enum CollarFile {
     PassedOver,
 }
 
-/// What a Fox `compile` does with the `Collars/` file `file`.
-pub(crate) fn collar_file(file: &FileDescriptor) -> CollarFile {
+/// What `compile` does with the `Collars/` file `file` for a target of `engine`.
+pub(crate) fn collar_file(file: &FileDescriptor, engine: Engine) -> CollarFile {
     match file.kind {
-        FileKind::Model(ModelFormat::Fmdl) => CollarFile::Compiled,
-        FileKind::Model(ModelFormat::PesModel | ModelFormat::Gltf) => CollarFile::NotCompiled,
+        FileKind::Model(format) => match (engine, format) {
+            (Engine::Fox, ModelFormat::Fmdl) | (Engine::PreFox, ModelFormat::PesModel) => {
+                CollarFile::Compiled
+            }
+            (Engine::Fox, ModelFormat::PesModel | ModelFormat::Gltf)
+            | (Engine::PreFox, ModelFormat::Fmdl | ModelFormat::Gltf) => CollarFile::NotCompiled,
+        },
         FileKind::Texture
         | FileKind::Skl
         | FileKind::Fclo
@@ -1057,7 +1064,7 @@ pub(crate) fn first_not_compiled(
     let mut rest = export
         .collars
         .iter()
-        .filter(|file| collar_file(file) == CollarFile::NotCompiled)
+        .filter(|file| collar_file(file, Engine::Fox) == CollarFile::NotCompiled)
         .chain(
             export
                 .common
@@ -1070,8 +1077,8 @@ pub(crate) fn first_not_compiled(
 /// `first_not_compiled` for the pre-Fox `version`, where `compile` builds a team's player
 /// folders' own `.model` files with their `.mtl` files, textures and face diff, their own
 /// `face.xml`, their `.common` links to a `.model`, a `.mtl` or a texture, the shared face,
-/// boots and gloves folders they link, the export's `Common/` folder, its kits, its portraits
-/// and its logo. A refs export
+/// boots and gloves folders they link, the export's `Common/` folder, its kits, its `.model`
+/// collars, its portraits and its logo. A refs export
 /// is named by the target. Otherwise, in this order: each mapped player folder's first file
 /// with no pre-Fox role (`player_file`: an `.fmdl`, a link to an `.fmdl`, a per-kit model under
 /// `ingame_face` or behind a link, among others) or, under
@@ -1081,9 +1088,10 @@ pub(crate) fn first_not_compiled(
 /// (`link_feeds_own_package`: the `Faces/` folder his face link names, the `Boots/` or
 /// `Gloves/` folder a link combines under the marker); then each shared boots folder taking an
 /// id, then each such gloves folder (`pre_fox_shared_not_compiled`); then the first kit
-/// texture no engine compiles (`kit_texture_not_compiled`), then the first `Collars/` file,
-/// then the first `Common/` file the pre-Fox Common
-/// output does not hold (`common_file_compiled`). Each is a later step's content.
+/// texture no engine compiles (`kit_texture_not_compiled`), then the first collar file
+/// `compile` does not build on pre-Fox (`collar_file`), then the first `Common/` file the
+/// pre-Fox Common output does not hold (`common_file_compiled`). Each is a later step's
+/// content.
 fn pre_fox_not_compiled(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -1125,12 +1133,16 @@ fn pre_fox_not_compiled(
     if let Some(item) = kit_texture_not_compiled(export) {
         return Some(item);
     }
-    let mut rest = export.collars.iter().chain(
-        export
-            .common
-            .iter()
-            .filter(|file| !common_file_compiled(file, Engine::PreFox)),
-    );
+    let mut rest = export
+        .collars
+        .iter()
+        .filter(|file| collar_file(file, Engine::PreFox) == CollarFile::NotCompiled)
+        .chain(
+            export
+                .common
+                .iter()
+                .filter(|file| !common_file_compiled(file, Engine::PreFox)),
+        );
     rest.next().map(what_entry)
 }
 
@@ -1614,7 +1626,9 @@ mod tests {
         let boots_link = "Players/05 - B/Crocs.boots";
         let boots_fmdl = "Boots/Crocs/boots.fmdl";
         let kit = "Kits/g1/kit.dds";
-        let collar = "Collars/collar_12.model";
+        // A `.model` collar compiles; an FMDL one is named until collars are converted.
+        assert_eq!(pre_fox(&["Collars/collar_12.model"]), None);
+        let collar = "Collars/collar_12.fmdl";
         let common = "Common/x.fmdl";
         let kit_extra = "Kits/g1/kit_spec.dds";
         // In a folder, its first file with no role, then its linked face folder's first; then
@@ -2522,9 +2536,15 @@ mod tests {
                 "{collar}"
             );
         }
+        for collar in ["Collars/collar_12.fmdl", "Collars/collar_12.glb"] {
+            assert_eq!(
+                pre_fox_hit(&[collar, "Collars/collar_13.model"], PesVersion::Pes17),
+                what(collar),
+                "{collar}"
+            );
+        }
         // A texture is kept in `Collars/` only with the strict file-type check off, which
         // `resolved` has on: added as the structure pass would keep it.
-        let mut export = resolved("co Midcup Gate", &[(FACE[0], 1), (FACE[1], 1)], &[], None);
         let path = ScopePath::new("Collars/collar_12.dds").unwrap();
         let file = FileDescriptor {
             size: 1,
@@ -2532,9 +2552,54 @@ mod tests {
             source: path.clone(),
             path,
         };
-        assert_eq!(collar_file(&file), CollarFile::PassedOver);
-        export.export.collars.push(file);
-        assert_eq!(first_not_compiled(&export, PesVersion::Pes21), None);
+        for (face, version) in [
+            (FACE.as_slice(), PesVersion::Pes21),
+            (PRE_FOX_FACE.as_slice(), PesVersion::Pes17),
+        ] {
+            let face: Vec<(&str, u64)> = face.iter().map(|path| (*path, 1)).collect();
+            let mut export = resolved("co Midcup Gate", &face, &[], None);
+            export.export.collars.push(file.clone());
+            assert_eq!(first_not_compiled(&export, version), None, "{version}");
+        }
+    }
+
+    #[test]
+    fn a_collar_compiles_in_the_model_format_its_target_s_engine_reads() {
+        let collar = |name: &str, engine| {
+            let path = ScopePath::new(&format!("Collars/{name}")).unwrap();
+            let file = FileDescriptor {
+                size: 1,
+                kind: classify(path.name()),
+                source: path.clone(),
+                path,
+            };
+            collar_file(&file, engine)
+        };
+        for (name, fox, pre_fox) in [
+            (
+                "collar_12.fmdl",
+                CollarFile::Compiled,
+                CollarFile::NotCompiled,
+            ),
+            (
+                "collar_12.model",
+                CollarFile::NotCompiled,
+                CollarFile::Compiled,
+            ),
+            (
+                "collar_12.glb",
+                CollarFile::NotCompiled,
+                CollarFile::NotCompiled,
+            ),
+            (
+                "collar_12.dds",
+                CollarFile::PassedOver,
+                CollarFile::PassedOver,
+            ),
+        ] {
+            assert_eq!(collar(name, Engine::Fox), fox, "{name} on Fox");
+            assert_eq!(collar(name, Engine::PreFox), pre_fox, "{name} on pre-Fox");
+        }
     }
 
     #[test]

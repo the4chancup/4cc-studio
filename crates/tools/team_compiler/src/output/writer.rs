@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use aesthetics_export::ExportCoverage;
 use anyhow::{Context, ensure};
 use kit_config::KitConfig;
-use pes_version::PesVersion;
+use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, Message, Scope};
 
 use crate::bins::kit_configs::kit_configs;
@@ -126,8 +126,9 @@ impl Referees {
         }
         self.committed = true;
         // The path alone tells: only the marker task writes the collar, with its texture in the
-        // same batch, and a batch commits whole or not at all.
-        if path == paths::collar(REFEREE_MARKER_COLLAR) {
+        // same batch, and a batch commits whole or not at all. A refs export is compiled on
+        // Fox only, so the marker is at the Fox path.
+        if path == paths::collar(Engine::Fox, REFEREE_MARKER_COLLAR) {
             self.marker = true;
         }
         let Some(cpk) = &mut self.cpk else {
@@ -1254,7 +1255,7 @@ mod tests {
     #[test]
     fn with_the_marker_every_referee_kit_config_wears_its_collar_and_nothing_else_changes() {
         let temp = scratch("writer_refs_marker");
-        let marker = paths::collar(REFEREE_MARKER_COLLAR);
+        let marker = paths::collar(Engine::Fox, REFEREE_MARKER_COLLAR);
         let templates = Templates::embedded();
         for version in [
             PesVersion::Pes18,
@@ -1313,7 +1314,7 @@ mod tests {
         fs::create_dir_all(file.parent().unwrap()).unwrap();
         fs::write(&file, &replacement).unwrap();
         let (templates, _) = Templates::read(Some(&data)).unwrap();
-        let marker = paths::collar(REFEREE_MARKER_COLLAR);
+        let marker = paths::collar(Engine::Fox, REFEREE_MARKER_COLLAR);
         let output = temp.path().join("output");
         fs::create_dir_all(&output).unwrap();
 
@@ -1336,7 +1337,11 @@ mod tests {
         let (templates, _) = Templates::read(Some(&data)).unwrap();
         let mut output = with_refs_cpk(temp.path(), BTreeMap::new(), 0..1);
         output
-            .submit(batch(0, &[&paths::collar(REFEREE_MARKER_COLLAR)], None))
+            .submit(batch(
+                0,
+                &[&paths::collar(Engine::Fox, REFEREE_MARKER_COLLAR)],
+                None,
+            ))
             .unwrap();
 
         let error = output

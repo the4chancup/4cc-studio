@@ -486,9 +486,10 @@ pub(crate) enum TaskKind {
         /// The export's root `ref_marker.dds`.
         marker: FileDescriptor,
     },
-    /// The team's collar (`pipeline.md` "Collars"): its `Collars/collar_<ID>.fmdl` written
-    /// unchanged in place of stock collar `id`, keeping the materials its author gave it. One
-    /// task per team export holding a collar it claimed (`collars::export_collar`).
+    /// The team's collar (`pipeline.md` "Collars"): its `Collars/collar_<ID>` model in the
+    /// format the target reads (`.fmdl` on Fox, `.model` on pre-Fox) written unchanged in place
+    /// of stock collar `id`, keeping the materials its author gave it. One task per team export
+    /// holding a collar it claimed (`collars::export_collar`).
     Collar {
         /// The collar file.
         file: FileDescriptor,
@@ -1037,6 +1038,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             export_id,
             &export.export_display_name,
             &export.collars,
+            version.engine(),
             &mut claimed_collars,
             &mut messages,
         );
@@ -3351,19 +3353,12 @@ mod tests {
 
     #[test]
     fn an_export_the_subset_gate_refuses_lists_no_colors_and_reports_none_missing() {
-        // A collar, which `compile` does not build for PES 17 yet.
-        let collar = || {
-            resolved(
-                "co Midcup Collar",
-                &[("Collars/collar_12.model", 1)],
-                &[],
-                None,
-            )
-        };
+        // A Common FMDL, which the PES 17 Common output does not hold.
+        let refused = || resolved("co Midcup Common", &[("Common/x.fmdl", 1)], &[], None);
         let report = plan_run(
             vec![
-                to_plan(ExportId(0), collar(), Some(vec![[1, 2, 3]]), None),
-                to_plan(ExportId(1), collar(), None, None),
+                to_plan(ExportId(0), refused(), Some(vec![[1, 2, 3]]), None),
+                to_plan(ExportId(1), refused(), None, None),
             ],
             PesVersion::Pes17,
         );

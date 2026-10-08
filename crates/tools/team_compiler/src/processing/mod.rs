@@ -284,10 +284,15 @@ pub(crate) fn process_task(
             referee_marker::referee_marker(marker, ctx, &mut files)
                 .map(|entries| (TaskOutput::Entries(entries), None))
         }
-        // The deep pass has read and checked the model; on Fox a collar keeps the materials
-        // its FMDL embeds, so its bytes go out as they are.
+        // The deep pass has read and checked the model, which is in the format the target
+        // reads. On both engines a collar keeps the materials its author gave it (embedded in
+        // an FMDL, named against the shared `uniform.mtl` in a `.model`), so its bytes go out
+        // as they are, a WESYS-wrapped `.model` still wrapped: the game reads both.
         TaskKind::Collar { file, id } => {
-            let entry = (paths::collar(*id), take(&mut files, file));
+            let entry = (
+                paths::collar(ctx.version.engine(), *id),
+                take(&mut files, file),
+            );
             Ok((TaskOutput::Entries(vec![entry]), None))
         }
     };
@@ -1891,6 +1896,38 @@ mod tests {
         assert_eq!(
             paths(&batch),
             ["Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl"]
+        );
+        assert!(batch.entries[0].1 == bytes, "the file's bytes as they are");
+    }
+
+    #[test]
+    fn a_pes_17_collar_task_writes_its_model_unchanged_at_the_pre_fox_nocloth_path() {
+        // Konami's WESYS-wrapped shirt model from `pes_model`'s fixtures: a `.model` that reads.
+        let bytes = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../libs/pes_model/tests/fixtures/konami_collar_052.wesys.model"),
+        )
+        .unwrap();
+        let path = ScopePath::new("Collars/collar_12.model").unwrap();
+        let file = FileDescriptor {
+            size: 0,
+            kind: aesthetics_export::classify(path.name()),
+            source: path.clone(),
+            path: path.clone(),
+        };
+
+        let batch = process(
+            TaskKind::Collar { file, id: 12 },
+            PesVersion::Pes17,
+            None,
+            TaskFiles::from([(path, bytes.clone())]),
+        );
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert!(batch.uniparam.is_none() && batch.uni_color.is_none());
+        assert_eq!(
+            paths(&batch),
+            ["common/character0/model/character/uniform/nocloth/collar_012.model"]
         );
         assert!(batch.entries[0].1 == bytes, "the file's bytes as they are");
     }

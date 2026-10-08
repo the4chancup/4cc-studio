@@ -254,8 +254,8 @@ skips any other export with the error `content_not_yet_compiled`, naming the fir
 cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` files with
 their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a `.mtl` or a
 texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
-only `.model`, `.mtl` and texture files, the kits, and the portraits and the logo; collars,
-`.fmdl` files and referee exports are named. For
+only `.model`, `.mtl` and texture files, the kits, its `.model` collars, and the portraits and
+the logo; `.fmdl` files and referee exports are named. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
 or content other than a player's
@@ -287,9 +287,13 @@ kits it does not send again. This comes after the FPC values, so an FPC team kee
 collar. Two exports cannot replace the same collar: the first in export order keeps it, and the
 later one's file is the error `collar_id_conflict`, naming the export that holds it, its file
 left out and its kits keeping their own collars. An export holds one collar, so a second
-collar file of the same export is that error too, naming the export itself. A `.model`,
-`.glb` or `.gltf` collar is not converted yet: an export holding one is skipped with
-`content_not_yet_compiled`.
+collar file of the same export is that error too, naming the export itself. On PES 2015 to
+2017, `compile` writes a team's `Collars/collar_<number>.model` as it is in place of that
+stock collar, and the kits the export holds wear it as their collar and winter collar, after
+the FPC values as above; the two rules on who keeps a collar are the same. A collar in the
+other version's format (a `.model` for PES 2018 to 2021, a `.fmdl`
+for PES 2015 to 2017), or a `.glb` or `.gltf` one, is not converted yet: an export holding one
+is skipped with `content_not_yet_compiled`.
 
 A `refs` export compiles on PES 2018 to 2021 like a team's player folders: each referee folder
 its `players.txt` lists is built once and written for every slot it is listed under, slot NN

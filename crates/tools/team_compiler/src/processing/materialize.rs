@@ -672,7 +672,7 @@ mod tests {
         };
         assert_placed(
             kind,
-            &[paths::collar(12).as_str()],
+            &[paths::collar(Engine::Fox, 12).as_str()],
             &["egg Midcup Tracer/Collars/collar_012.fmdl"],
         );
     }

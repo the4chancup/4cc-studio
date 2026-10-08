@@ -14,6 +14,7 @@ use crate::compile::{
     compiled_players, cpk_entries, pes_settings, pes21_settings, tracer_kit, tracer_player_file,
 };
 use crate::compile_exports::{UNIFORM_PARAMETER, bundled_uniform_parameter, emitted_config};
+use crate::prefox_faces::card_model;
 use crate::{CLEAN_PLAYER, TEAM_COLORS_MISSING, clean_model, findings_of, no_deploy_lines};
 
 /// The export the tests here write, with the coverage tag a `Midcup` export carries.
@@ -21,6 +22,11 @@ const EXPORT: &str = "exports/co Midcup Collars";
 
 /// The CPK path of stock collar 12's model on Fox, which a team's `collar_12.fmdl` replaces.
 const COLLAR_12: &str = "Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl";
+
+/// The CPK path of stock collar 12's model on PES 15-17, which a team's `collar_12.model`
+/// replaces.
+const PRE_FOX_COLLAR_12: &str =
+    "common/character0/model/character/uniform/nocloth/collar_012.model";
 
 /// The entries of the sandbox's compiled CPK.
 fn compiled(sandbox: &Sandbox) -> BTreeMap<String, Vec<u8>> {
@@ -317,7 +323,98 @@ fn a_texture_in_collars_is_dropped_and_the_collar_model_kept() {
     assert!(compiled(&sandbox).get(COLLAR_12) == Some(&clean_model()));
 }
 
-// The refusal half of TC-CMN-08; its other half needs collars compiled.
+// TC-CMN-08
+#[test]
+fn a_pes_17_model_collar_is_compiled_unchanged_and_the_team_s_loose_configs_wear_it() {
+    let sandbox = Sandbox::new("collar_pre_fox_compiled");
+    sandbox.write(
+        &format!("{EXPORT}/Collars/collar_12.model"),
+        &pre_fox_model(),
+    );
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Collars"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            TEAM_COLORS_MISSING,
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = compiled(&sandbox);
+    assert!(
+        entries.get(PRE_FOX_COLLAR_12) == Some(&pre_fox_model()),
+        "the collar file as it is: {:#?}",
+        entries.keys()
+    );
+    assert!(
+        entries.keys().all(|path| !path.starts_with("Asset/")),
+        "nothing at a Fox path: {:#?}",
+        entries.keys()
+    );
+    let p1 = emitted_config(&entries, "1st", PesVersion::Pes17);
+    assert_eq!((p1.shirt.collar, p1.shirt.winter_collar), (12, 12));
+}
+
+#[test]
+fn a_pes_17_fmdl_collar_is_named_as_not_compiled_yet() {
+    let sandbox = Sandbox::new("collar_pre_fox_fmdl");
+    sandbox.write(&format!("{EXPORT}/Collars/collar_12.fmdl"), &clean_model());
+
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Collars"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error content_not_yet_compiled [DropExport] (what=Collars/collar_12.fmdl)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+}
+
+#[test]
+fn of_two_pes_17_exports_replacing_one_collar_the_later_one_loses_it() {
+    let sandbox = Sandbox::new("collar_pre_fox_conflict");
+    let first = "exports/a Midcup Collars";
+    // Two different models, so the CPK's collar shows whose it is.
+    let firsts = pre_fox_model();
+    let seconds = card_model();
+    assert_ne!(firsts, seconds);
+    sandbox.write(&format!("{first}/Collars/collar_12.model"), &firsts);
+    sandbox.write(&format!("{EXPORT}/Collars/collar_12.model"), &seconds);
+
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Collars"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            TEAM_COLORS_MISSING,
+            "Error collar_id_conflict [DropFile] at Collars/collar_12.model (file=collar_12.model, claimant=a Midcup Collars)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    let entries = compiled(&sandbox);
+    assert!(
+        entries.get(PRE_FOX_COLLAR_12) == Some(&firsts),
+        "/a/'s collar, not /co/'s: {:#?}",
+        entries.keys()
+    );
+}
+
+// The refusal half of TC-CMN-08.
+// TC-CMN-08
 #[test]
 fn a_pre_fox_collar_past_the_version_s_stock_set_is_refused() {
     let sandbox = Sandbox::new("collar_pre_fox");

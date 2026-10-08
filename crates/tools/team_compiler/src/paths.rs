@@ -196,11 +196,16 @@ pub(crate) fn pre_fox_common_file(team_id: u16, name: &str) -> String {
     )
 }
 
-/// The CPK path of stock collar `id`'s model on Fox, which a model at that path replaces: the
-/// Collars row of "Game paths reference", the id zero-padded to three digits
-/// (`collar_105.fmdl`). The pre-Fox collar path is not built yet.
-pub(crate) fn collar(id: u8) -> String {
-    format!("Asset/model/character/uniform/nocloth/#Win/collar_{id:03}.fmdl")
+/// The CPK path of stock collar `id`'s model for a target of `engine`, which a model at that
+/// path replaces: the Collars row of "Game paths reference", the id zero-padded to three
+/// digits, an FMDL on Fox (`collar_105.fmdl`), a `.model` on pre-Fox (`collar_105.model`).
+pub(crate) fn collar(engine: Engine, id: u8) -> String {
+    match engine {
+        Engine::Fox => format!("Asset/model/character/uniform/nocloth/#Win/collar_{id:03}.fmdl"),
+        Engine::PreFox => {
+            format!("common/character0/model/character/uniform/nocloth/collar_{id:03}.model")
+        }
+    }
 }
 
 /// The CPK path of one kit texture, by its game name (`u0792g1`, `u0792g1_back`), converted
@@ -516,16 +521,28 @@ mod tests {
     #[test]
     fn a_collar_goes_by_its_three_digit_id_among_the_nocloth_models() {
         assert_eq!(
-            collar(105),
+            collar(Engine::Fox, 105),
             "Asset/model/character/uniform/nocloth/#Win/collar_105.fmdl"
         );
         assert_eq!(
-            collar(REFEREE_MARKER_COLLAR),
+            collar(Engine::Fox, REFEREE_MARKER_COLLAR),
             "Asset/model/character/uniform/nocloth/#Win/collar_077.fmdl"
         );
         assert_eq!(
-            collar(1),
+            collar(Engine::Fox, 1),
             "Asset/model/character/uniform/nocloth/#Win/collar_001.fmdl"
+        );
+    }
+
+    #[test]
+    fn a_collar_is_an_fmdl_under_win_on_fox_and_a_model_under_character0_on_pre_fox() {
+        assert_eq!(
+            collar(Engine::Fox, 12),
+            "Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl"
+        );
+        assert_eq!(
+            collar(Engine::PreFox, 12),
+            "common/character0/model/character/uniform/nocloth/collar_012.model"
         );
     }
 

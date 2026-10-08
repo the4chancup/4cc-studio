@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 
 use aesthetics_export::FileDescriptor;
+use pes_version::Engine;
 use studio_core::{Disposition, ExportId, Message, Scope};
 
 use super::subset::{CollarFile, collar_file, file_stem};
@@ -12,24 +13,26 @@ use crate::deep::collar::named_id;
 use crate::messages::{Code, tool_message};
 
 /// The collar the export `export_id`, named `export_name`, keeps of its `Collars/` files
-/// `collars`, with the stock collar it replaces, claimed in `claimed` (each claimed collar's ID
-/// and its claimant's name, run-wide). Its FMDLs are taken in path order: the first whose ID
-/// no earlier export claimed claims it; every other, its ID claimed already or the export
-/// holding a collar already (its own same ID included), reports `collar_id_conflict` on its
-/// file, naming the claimant, and is left out. A file of another kind claims nothing
+/// `collars` for a target of `engine`, with the stock collar it replaces, claimed in `claimed`
+/// (each claimed collar's ID and its claimant's name, run-wide). Its models in the format the
+/// engine reads, FMDLs on Fox and `.model` files on pre-Fox, are taken in path order: the first
+/// whose ID no earlier export claimed claims it; every other, its ID claimed already or the
+/// export holding a collar already (its own same ID included), reports `collar_id_conflict` on
+/// its file, naming the claimant, and is left out. A file of another kind claims nothing
 /// (`collar_file`). `claimed` starts empty: the suite's own collars, 105 and 77, never get
 /// here, the deep pass having dropped a file named for either as a conflict.
 pub(crate) fn export_collar(
     export_id: ExportId,
     export_name: &str,
     collars: &[FileDescriptor],
+    engine: Engine,
     claimed: &mut BTreeMap<u8, String>,
     messages: &mut Vec<Message>,
 ) -> Option<(FileDescriptor, u8)> {
     let mut kept: Option<(FileDescriptor, u8)> = None;
     // The structure pass lists a folder's files in path order.
     for file in collars {
-        match collar_file(file) {
+        match collar_file(file, engine) {
             CollarFile::Compiled => {}
             CollarFile::NotCompiled | CollarFile::PassedOver => continue,
         }
@@ -68,9 +71,9 @@ mod tests {
     use crate::plan::{PlanReport, TaskKind, plan_run};
     use crate::testing::{resolved, to_plan, two_team_colors};
 
-    /// The run planned for PES 21 over the exports `exports` (name, files), in that order, each
-    /// with two team colors, every file one byte.
-    fn planned(exports: &[(&str, &[&str])]) -> PlanReport {
+    /// The run planned for `version` over the exports `exports` (name, files), in that order,
+    /// each with two team colors, every file one byte.
+    fn planned(version: PesVersion, exports: &[(&str, &[&str])]) -> PlanReport {
         let exports = exports
             .iter()
             .zip(0..)
@@ -84,7 +87,7 @@ mod tests {
                 )
             })
             .collect();
-        plan_run(exports, PesVersion::Pes21)
+        plan_run(exports, version)
     }
 
     /// Each collar task of `report` as (export, file path, ID).
@@ -156,16 +159,19 @@ mod tests {
 
     #[test]
     fn of_two_exports_claiming_one_collar_the_first_keeps_it_and_the_second_s_kits_lose_it() {
-        let report = planned(&[
-            (
-                "a Midcup Collars",
-                &["Collars/collar_12.fmdl", "Kits/p1/kit.dds"],
-            ),
-            (
-                "co Midcup Collars",
-                &["Collars/collar_12.fmdl", "Kits/p1/kit.dds"],
-            ),
-        ]);
+        let report = planned(
+            PesVersion::Pes21,
+            &[
+                (
+                    "a Midcup Collars",
+                    &["Collars/collar_12.fmdl", "Kits/p1/kit.dds"],
+                ),
+                (
+                    "co Midcup Collars",
+                    &["Collars/collar_12.fmdl", "Kits/p1/kit.dds"],
+                ),
+            ],
+        );
 
         assert_eq!(collar_tasks(&report), [(0, "Collars/collar_12.fmdl", 12)]);
         assert_eq!(
@@ -184,18 +190,45 @@ mod tests {
     }
 
     #[test]
+    fn on_pes_17_a_model_collar_is_claimed_and_a_second_claimant_s_is_a_conflict() {
+        let report = planned(
+            PesVersion::Pes17,
+            &[
+                (
+                    "a Midcup Collars",
+                    &["Collars/collar_12.model", "Kits/p1/kit.dds"],
+                ),
+                (
+                    "co Midcup Collars",
+                    &["Collars/collar_12.model", "Kits/p1/kit.dds"],
+                ),
+            ],
+        );
+
+        assert_eq!(collar_tasks(&report), [(0, "Collars/collar_12.model", 12)]);
+        assert_eq!(
+            conflicts(&report),
+            ["1 Collars/collar_12.model file=collar_12.model claimant=a Midcup Collars"]
+        );
+        assert_eq!(kit_collars(&report), [(0, "p1", Some(12)), (1, "p1", None)]);
+    }
+
+    #[test]
     fn an_export_holds_one_collar_and_its_second_is_a_conflict_naming_itself() {
         // Path order puts `collar_012` first: it claims 12, and `collar_12` names the same
         // collar. `collar_13`, unclaimed, is still the export's second.
-        let report = planned(&[(
-            "co Midcup Collars",
-            &[
-                "Collars/collar_12.fmdl",
-                "Collars/collar_012.fmdl",
-                "Collars/collar_13.fmdl",
-                "Kits/p1/kit.dds",
-            ],
-        )]);
+        let report = planned(
+            PesVersion::Pes21,
+            &[(
+                "co Midcup Collars",
+                &[
+                    "Collars/collar_12.fmdl",
+                    "Collars/collar_012.fmdl",
+                    "Collars/collar_13.fmdl",
+                    "Kits/p1/kit.dds",
+                ],
+            )],
+        );
 
         assert_eq!(collar_tasks(&report), [(0, "Collars/collar_012.fmdl", 12)]);
         assert_eq!(
@@ -210,10 +243,13 @@ mod tests {
 
     #[test]
     fn a_collar_task_comes_last_in_its_export_s_range_after_the_logo() {
-        let report = planned(&[(
-            "co Midcup Collars",
-            &["Collars/collar_12.fmdl", "Kits/p1/kit.dds", "logo.png"],
-        )]);
+        let report = planned(
+            PesVersion::Pes21,
+            &[(
+                "co Midcup Collars",
+                &["Collars/collar_12.fmdl", "Kits/p1/kit.dds", "logo.png"],
+            )],
+        );
 
         let kinds: Vec<&str> = report
             .manifest

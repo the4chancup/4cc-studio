@@ -34,7 +34,7 @@ pub(super) fn referee_marker(
             paths::common_texture(Engine::Fox, REFEREE_TEAM_ID, MARKER_STEM),
             texture,
         ),
-        (paths::collar(REFEREE_MARKER_COLLAR), model),
+        (paths::collar(Engine::Fox, REFEREE_MARKER_COLLAR), model),
     ])
 }
 

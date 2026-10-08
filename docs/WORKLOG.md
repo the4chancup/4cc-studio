@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 in progress (a done: PES 15-17 kits with the mask template and loose configs; b done: `dds_compression`; c, d next), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 in progress (a done: PES 15-17 kits with the mask template and loose configs; b done: `dds_compression`; c done: `.model` collars; d next), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1690,6 +1690,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   mode wraps its loose `.dds` too when the setting resolves on, by design (the setting follows
   `multicpk_mode`, not the layout), untested; mutants: 26 after the predicate cut, 19 caught, 7
   unviable (`Default::default()` on types without one, serde impls included), 0 missed)
+  (c) done 2026-10-08 (`subset::collar_file(file, engine)`: the model format the engine reads
+  compiles, the other native format and glTF are named until 4.17 converts them, any other
+  kind passed over on both engines (a non-model file in `Collars/`, kept only with the strict
+  check off, was named on pre-Fox before: now ignored as on Fox); the pre-Fox walk filters
+  collars as the Fox one does; `collars::export_collar` takes the engine; `paths::collar(engine,
+  id)`, pre-Fox `common/character0/model/character/uniform/nocloth/collar_NNN.model`, the
+  referee-marker callers passing `Engine::Fox` (refs compile on Fox only until 4.27); the task
+  writes the file unchanged, a wrapped `.model` still wrapped; the loose configs wear the ID
+  through `TeamKitEdits` already; help; `tests/cli/collars.rs` TC-CMN-08's compile half, an
+  `.fmdl` named on PES 17, two PES 17 claimants; the collar reaches the slots a `Midcup` export
+  does not resend only through 4.16d's re-emitted loose configs, so the help promises the
+  export's kits until then; mutants: 26, 21 caught, 5 unviable (`Default::default()` on types
+  without one), 0 missed)
 
 - [ ] 4.17 **Cross-format conversion and source selection**: target-native first, then glTF, then
   the opposite native format converted through `model_convert::convert` (FMDL → `.model` + `.mtl`
@@ -3972,3 +3985,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     `false`) WESYS-zlibs every `.dds` a PES 15-17 run emits, on the worker that made it; a
     wrapped source the conversion would keep is emitted as it is; Fox ignores the setting.
     Next: 4.16c (collars for pre-Fox), 4.16d (installed loose kit configs patched).
+  - **4.16c done** (TC-CMN-08): a team's `Collars/collar_<ID>.model` compiles for PES 15-17 as
+    its FMDL does on Fox, written unchanged in place of the stock collar, the claim and the
+    conflict rules the same; a `.fmdl` collar is named there until 4.17 converts it. Next:
+    4.16d.
