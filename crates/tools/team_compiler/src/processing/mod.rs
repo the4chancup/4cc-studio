@@ -237,16 +237,35 @@ pub(crate) fn process_task(
                     (TaskOutput::Entries(entries), None)
                 })
         }
-        TaskKind::CommonTextures { textures, kits, .. } => {
-            texture::common_textures(textures, kits, task.team_id, ctx, &mut files, &mut findings)
-                .map(|entries| (TaskOutput::Entries(entries), None))
-        }
+        TaskKind::CommonTextures {
+            textures,
+            kits,
+            environment_map,
+            ..
+        } => texture::common_textures(
+            textures,
+            kits,
+            *environment_map,
+            task.team_id,
+            ctx,
+            &mut files,
+            &mut findings,
+        )
+        .map(|entries| (TaskOutput::Entries(entries), None)),
         TaskKind::CommonModels {
+            folder,
             files: common,
             texture_stems,
-            ..
-        } => prefox_common::common_models(common, texture_stems, task.team_id, &mut files)
-            .map(|entries| (TaskOutput::Entries(entries), None)),
+        } => prefox_common::common_models(
+            folder,
+            common,
+            texture_stems,
+            task.team_id,
+            ctx,
+            &mut files,
+            &mut findings,
+        )
+        .map(|entries| (TaskOutput::Entries(entries), None)),
         TaskKind::Portrait { player_id, file } => {
             let name = file.path.name();
             let format = texture_format(name)
@@ -2901,6 +2920,7 @@ mod tests {
                 folder: folder.clone(),
                 textures: textures.clone(),
                 kits: Vec::new(),
+                environment_map: false,
             },
             &[("Common/hair.ftex", &converted)],
         );
@@ -2924,6 +2944,7 @@ mod tests {
                 folder,
                 textures,
                 kits: Vec::new(),
+                environment_map: false,
             },
             &[("Common/Cloth.dds", b"not a DDS")],
         );
@@ -2965,6 +2986,7 @@ mod tests {
                 folder,
                 textures,
                 kits: Vec::new(),
+                environment_map: false,
             },
             &[("Common/bc6h.dds", &bc6h)],
         );
@@ -3565,6 +3587,7 @@ mod tests {
             folder: folder.clone(),
             textures,
             kits: vec![1, 2],
+            environment_map: false,
         });
 
         assert_eq!(

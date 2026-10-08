@@ -11,11 +11,11 @@ use pes_model::model::Model;
 
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, tracer_player_file};
-use crate::findings_of;
 use crate::prefox_faces::{
     BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, face_cpk, pes17,
     pre_fox_fixture, sampler_paths, small_dds, write_slot_05_face,
 };
+use crate::{clean_model, findings_of};
 
 /// The folder slot 05's own boots are written to in team 714's export: his exclusive id.
 const BOOTS_K0625: &str = "common/character0/model/character/boots/k0625/";
@@ -674,4 +674,68 @@ fn under_ingame_face_fmdl_parts_are_converted_into_the_player_s_own_boots_and_gl
     );
     let texture = format!("common/character1/{SLOT_05_HOME}shirt.dds");
     assert!(entries.contains_key(&texture), "{texture}");
+}
+
+#[test]
+fn under_ingame_face_a_common_fmdl_link_is_converted_into_the_player_s_own_boots() {
+    let sandbox = Sandbox::new("prefox_ingame_common_fmdl");
+    let export = "co Midcup Studs";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    // His own boots part, the tracer's right glove (`clean_model`), converted too: the card
+    // head, bound to `sk_head` as the hair is but with another transform, would not merge with
+    // the hair (`skl_merge_conflict`), nor would a second copy of the hair, whose `shirt`
+    // material would name another texture place (`merge_material_conflict`).
+    sandbox.write(&format!("{player}/boots.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/legs.fmdl.common"), b"");
+    // The tracer's hair, its skeleton (the conversion's bind pose) and the texture it names.
+    let common = format!("exports/{export}/Common");
+    sandbox.write(
+        &format!("{common}/legs.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        &format!("{common}/legs.skl"),
+        &tracer_player_file("fcl_hair.skl"),
+    );
+    sandbox.write(
+        &format!("{common}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    // His boots convert the Common FMDL from its export path, the `skl_parent` drops coming
+    // from the Common skeleton, which the conversion read.
+    let folder = "at Players/05 - A";
+    for finding in [
+        format!(
+            "Info native_field_dropped [Keep] {folder} (model=Common/legs.fmdl, bone=8, field=skl_parent)"
+        ),
+        format!("Info model_merged [Keep] {folder} (model=boots.model)"),
+    ] {
+        assert!(
+            findings_of(&lines, export).contains(&finding.as_str()),
+            "{finding}: {lines:#?}"
+        );
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+    let boots = entries_under(&entries, BOOTS_K0625);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl"]);
+    // His glove's mesh, then the hair's two, its anti-blur mesh folded back.
+    assert_eq!(mesh_count(boots["boots.model"]), 1 + 2);
+    // The hair's texture pointed at the team's Common directory, where the Common textures
+    // task emits it, as a Common part's places say (his folder holds no `shirt`).
+    let paths = sampler_paths(boots["boots.mtl"]);
+    let shirt = format!("{COMMON_714}shirt.dds");
+    assert!(paths.contains(&shirt), "{paths:?}");
+    assert!(
+        entries.contains_key(&format!("common/character1/{shirt}")),
+        "{:?}",
+        entries.keys()
+    );
 }

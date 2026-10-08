@@ -60,7 +60,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, KitTextureSource,
-    ModelFormat, PlayerFolder, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
+    ModelFormat, PlayerFolder, SharedKind, SharedModelFolder, ValidatedAestheticsExport, classify,
     common_link_name,
 };
 use dds_convert::SourceFormat;
@@ -72,8 +72,8 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::plan::subset::{
-    FolderModels, PlayerFile, common_file, file_stem, is_direct_common_file,
-    link_feeds_own_package, linked_folder, player_file, texture_format,
+    FolderModels, PlayerFile, file_stem, is_direct_common_file, link_feeds_own_package,
+    linked_folder, player_file, pre_fox_common_model, texture_format,
 };
 use crate::reader::ContentSource;
 use crate::user_face_xml::{
@@ -743,8 +743,10 @@ struct Pairing<'a> {
 /// The pairings of the models among `files`, those of the model folder at `folder` whose
 /// models are `models`, read for a target of `engine`: with the folder's own `face.xml`, the
 /// models it lists with the `.mtl` each entry names (`listed`, empty when an xml drops the
-/// folder); without, on pre-Fox, each `.model` and each typed `.common` link to one with the
-/// `.mtl` its search finds among `files` and `common`'s; on Fox each `.model` with a role
+/// folder); without, on pre-Fox, each `.model` and each typed `.common` link loading a Common
+/// `.model` (`pre_fox_common_model`; one loading a Common FMDL pairs none, the FMDL's
+/// conversion writing its material set) with the `.mtl` its search finds among `files` and
+/// `common`'s; on Fox each `.model` with a role
 /// (`PlayerFile::Model`: no FMDL of its stem beats it) the same way.
 fn pairings<'a>(
     folder: &'a ScopePath,
@@ -779,18 +781,21 @@ fn pairings<'a>(
             }
             // The roles are read without the `ingame_face` marker (`FolderModels::of`), so a
             // model link is `PreFoxCommonModel` here even in a marked folder, where planning
-            // makes it a part of his boots or gloves whose `.mtl` is needed all the same.
+            // makes it a part of his boots or gloves whose `.mtl` is needed all the same. A
+            // link loading a Common FMDL pairs none: its material set is its conversion's.
             Engine::PreFox => {
                 file.kind == FileKind::Model(ModelFormat::PesModel)
-                    || matches!(
+                    || (matches!(
                         player_file(folder, file, models),
                         Some(PlayerFile::PreFoxCommonModel { .. })
-                    )
+                    ) && !links_common_fmdl(file, common))
             }
         })
         .map(|file| {
             let model = match common_link_name(file.path.name()) {
-                Some(linked) => common_file(&common.files, &linked).map(|model| &model.path),
+                Some(linked) => {
+                    pre_fox_common_model(&common.files, &linked).map(|model| &model.path)
+                }
                 None => Some(&file.path),
             };
             Pairing {
@@ -800,6 +805,19 @@ fn pairings<'a>(
             }
         })
         .collect()
+}
+
+/// Whether the pre-Fox `.common` model link `file` loads a Common FMDL, which the Common models
+/// task converts with the material set its conversion writes: the Common model it loads among
+/// `common`'s kept files (`pre_fox_common_model`), or, when the pass dropped that file, the
+/// model its name links.
+fn links_common_fmdl(file: &FileDescriptor, common: &KeptCommon) -> bool {
+    let Some(linked) = common_link_name(file.path.name()) else {
+        return false;
+    };
+    let kind = pre_fox_common_model(&common.files, &linked)
+        .map_or_else(|| classify(&linked), |model| model.kind);
+    kind == FileKind::Model(ModelFormat::Fmdl)
 }
 
 /// The names of the materials the meshes of the models `pairings` pair with the `.mtl` at

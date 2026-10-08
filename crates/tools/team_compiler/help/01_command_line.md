@@ -215,7 +215,8 @@ none merged; a linked `Gloves` folder beside them adds its models, reported as
 `link_combined`, the player's own model or `.mtl` replacing the linked folder's file of the
 same name. With `ingame_face`, a `.common` link to a model (`kit_boots.model.common`,
 `glove_l.model.common`) makes the Common model one more part of his boots or gloves, copied
-into his own folder with the `.mtl` it uses (found as for any link, below), and a link to a
+into his own folder with the `.mtl` it uses (found as for any link, below), a Common `.fmdl`
+(`legs.fmdl.common`) converted into the part as his own are, and a link to a
 `.mtl` one of his models uses is copied in the same way; the textures a Common `.mtl` names
 stay in the team's Common folder. A face with
 models but none of type `face_neck` (a `face_high` model is one) gets an invisible stand-in,
@@ -242,7 +243,12 @@ models, `.mtl` files and textures in `Common` are
 written once into the team's Common folder in the game, which loads them from there: a
 `.common` link to a model (`legs.model.common`) lists the Common model in the player's
 `face.xml`, using a `.mtl` named like it beside the link, else the one found in `Common`, else
-one found as above; a link to a `.mtl` (`body.mtl.common`) counts as that `.mtl` sitting beside
+one found as above. A `.fmdl` in `Common` is converted once there, with the `.skl` of its name
+as its pose, its materials written as a `.mtl` of its name (a `.mtl` of that name in `Common`
+too is two files of one name, and the Common models are left out with `folder_pack_failed`),
+and a link to it (`legs.fmdl.common`) lists it with those materials, not a `.mtl` of the
+player's; a `.fmdl` beside a `.model` of the same name in `Common` is left out for the `.model`,
+which a link to the `.fmdl` then lists. A link to a `.mtl` (`body.mtl.common`) counts as that `.mtl` sitting beside
 the link, and a link to a texture points the player's `.mtl` files at the Common texture. A
 kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
@@ -252,9 +258,10 @@ range) is reported by both commands as `kit_config_invalid`, naming the error, a
 left out, even with `pass_through` on. `compile`
 skips any other export with the error `content_not_yet_compiled`, naming the first thing it
 cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` files with
-their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a `.mtl` or a
-texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
-only `.model`, `.mtl` and texture files, the kits, its `.model` and `.fmdl` collars, and the
+their `.mtl` files, textures and face diff, its `.common` links to a `.model`, an `.fmdl`, a
+`.mtl` or a texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder
+holding only `.model`, `.mtl`, `.fmdl` (converted, with its `.skl`) and texture files, the
+kits, its `.model` and `.fmdl` collars, and the
 portraits and the logo, and a player's `.fmdl` models (with `ingame_face`, the `.fmdl` parts
 of his own boots and gloves), and a linked shared `Faces`, `Boots` or `Gloves` folder's,
 converted to `.model` files with their materials; referee exports are named. A `.fmdl` beside
@@ -266,7 +273,8 @@ it is part of out with `model_conversion_failed`. A metal material (a Fox `fox3d
 converted this way reflects the compiler's environment map, emitted beside the player's
 textures, or a shared `Boots` or `Gloves` folder's, as `env.dds`; an `env` texture of the
 folder's own (`env.dds`, `env.png`), or the Common one its `env.dds.common` link names, is
-used instead, and `templates/env.dds` in the
+used instead; a `Common` folder's `.fmdl` gets the map in the team's Common output, or the
+`env` texture of the `Common` folder; and `templates/env.dds` in the
 data folder replaces the built-in one. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),

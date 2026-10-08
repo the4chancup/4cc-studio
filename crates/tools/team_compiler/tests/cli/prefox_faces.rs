@@ -1225,10 +1225,10 @@ fn a_model_link_whose_only_mtl_is_a_broken_common_one_drops_its_folder() {
 
 #[test]
 fn a_common_file_pre_fox_does_not_build_skips_the_export() {
-    let sandbox = Sandbox::new("prefox_common_fmdl");
+    let sandbox = Sandbox::new("prefox_common_glb");
     let export = "co Midcup Card";
     write_slot_05_face(&sandbox, export);
-    sandbox.write(&format!("exports/{export}/Common/x.fmdl"), &clean_model());
+    sandbox.write(&format!("exports/{export}/Common/x.glb"), b"glTF");
 
     let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
 
@@ -1237,11 +1237,152 @@ fn a_common_file_pre_fox_does_not_build_skips_the_export() {
         findings_of(&lines, export),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Common/x.fmdl)",
+            "Error content_not_yet_compiled [DropExport] (what=Common/x.glb)",
         ],
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
+}
+
+/// Writes the export `export`: slot 05 with his own face (`write_slot_05_face`) and
+/// `legs.fmdl.common`, and `Common/` holding `legs.fmdl` (the tracer's hair), `legs.skl` (its
+/// skeleton) and `shirt.dds`, the texture the hair names.
+fn write_common_fmdl_legs(sandbox: &Sandbox, export: &str) {
+    write_slot_05_face(sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/legs.fmdl.common"),
+        b"",
+    );
+    let common = format!("exports/{export}/Common");
+    sandbox.write(
+        &format!("{common}/legs.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        &format!("{common}/legs.skl"),
+        &tracer_player_file("fcl_hair.skl"),
+    );
+    sandbox.write(
+        &format!("{common}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+}
+
+#[test]
+fn a_common_fmdl_is_converted_once_into_the_common_output_which_a_link_names() {
+    let sandbox = Sandbox::new("prefox_common_fmdl");
+    let export = "co Midcup Legs";
+    write_common_fmdl_legs(&sandbox, export);
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    // The conversion's losses are the Common models task's, on `Common`; the `skl_parent` drops
+    // come from the skeleton, which the conversion read.
+    let common = "at Common";
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)"
+                .to_owned(),
+            CLEAN[0].to_owned(),
+            CLEAN[1].to_owned(),
+            format!(
+                "Info native_field_dropped [Keep] {common} (model=legs.fmdl, field=bone_matrices)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {common} (model=legs.fmdl, bone=8, field=skl_parent)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {common} (model=legs.fmdl, bone=25, field=skl_parent)"
+            ),
+            format!(
+                "Warning mesh_flags_dropped [Keep] {common} (model=legs.fmdl, material=1, field=no_shadow_cast)"
+            ),
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let output = common_output(&entries);
+    let names: Vec<&str> = output.keys().copied().collect();
+    assert_eq!(names, ["legs.mtl", "oral_legs_win32.model", "shirt.dds"]);
+    // Converted: `pes_model` reads it, the hair's anti-blur mesh folded back.
+    let model = pes_model::format::PreFoxModel::read(output["oral_legs_win32.model"]).unwrap();
+    assert_eq!(
+        pes_model::model::Model::from_file(&model)
+            .unwrap()
+            .meshes
+            .len(),
+        2
+    );
+    assert!(
+        sampler_paths(output["legs.mtl"])
+            .contains(&"model/character/uniform/common/714/shirt.dds".to_owned()),
+        "{:?}",
+        sampler_paths(output["legs.mtl"])
+    );
+    // His face lists the Common model with its converted set, and packs neither.
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        ["face.xml", "face_high.mtl", "oral_face_high_win32.model"]
+    );
+    let entry = |xml_type: &str, path: &str, material: &str| {
+        (xml_type.to_owned(), path.to_owned(), material.to_owned())
+    };
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [
+            entry("face_neck", "./oral_face_high_*.model", "./face_high.mtl"),
+            entry(
+                "parts",
+                "model/character/uniform/common/714/oral_legs_*.model",
+                "model/character/uniform/common/714/legs.mtl"
+            ),
+        ]
+    );
+    assert!(
+        entries.keys().all(|path| [".fmdl", ".skl"]
+            .iter()
+            .all(|extension| !path.ends_with(extension))),
+        "{:?}",
+        entries.keys()
+    );
+}
+
+#[test]
+fn a_common_mtl_of_a_converted_fmdl_s_set_name_fails_the_common_models_task() {
+    let sandbox = Sandbox::new("prefox_common_fmdl_mtl");
+    let export = "co Midcup Legs";
+    write_common_fmdl_legs(&sandbox, export);
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/Legs.mtl"), &materials_naming("shirt"));
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    // Two files of one name, folded: the task fails as a whole, its conversion's notes with
+    // it, and the Common textures and slot 05's face still commit.
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
+            CLEAN[0],
+            CLEAN[1],
+            "Error folder_pack_failed [DropFolder] at Common (error=two files of Common/ are packed as Legs.mtl)",
+        ],
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let names: Vec<&str> = common_output(&entries).keys().copied().collect();
+    assert_eq!(names, ["shirt.dds"]);
+    assert!(entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }
 
 // TC-MOD-23

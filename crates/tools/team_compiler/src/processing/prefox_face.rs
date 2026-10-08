@@ -39,7 +39,7 @@ use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::subset::{
     ModelPackage, PlayerFile, common_file, file_stem, in_folder_or_face, is_direct_common_file,
-    path_stem,
+    path_stem, pre_fox_common_model,
 };
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 use crate::user_face_xml::{
@@ -82,11 +82,17 @@ enum FaceSource<'a> {
     /// An FMDL converted for the target (`fmdl_for_pre_fox`): the `.model` written, packed in
     /// its place, and its material set, packed as `<stem>.mtl` (`converted_material_name`).
     Converted(PreFoxConversion),
+    /// A Common FMDL a `.common` link names, converted once by the export's Common models task
+    /// (`prefox_common`): the face packs nothing of it and names its material set, `<stem>.mtl`
+    /// in the team's Common output. The player's own `.mtl` files do not layer over it, as they
+    /// do over a Common `.model`'s ("Common-linked models bring their own materials" in
+    /// `model_format.md`): the FMDL carries its materials, and the set is the conversion's.
+    CommonConversion,
 }
 
 /// The name a converted model's material set is packed under: `<stem>.mtl`, the stem as the
 /// FMDL spells it.
-fn converted_material_name(stem: &str) -> String {
+pub(super) fn converted_material_name(stem: &str) -> String {
     format!("{stem}.mtl")
 }
 
@@ -178,7 +184,8 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 /// texture link of the folder stands for at that texture in the team's Common output; and the
 /// `face.xml`, its `<dif>` the folder's face diff (`face_diff.bin`, else `face_diff.xml`
 /// decoded, else the bundled one). A `.common` link to a model is an entry naming the model in
-/// the team's Common output, where the export's Common models task packs it; a `.mtl` the
+/// the team's Common output, where the export's Common models task packs it, or converts a
+/// Common FMDL, the entry then naming the converted `<stem>.mtl` there; a `.mtl` the
 /// search finds in `Common/`, directly or through a link, is named there too, and the face
 /// packs neither (`pipeline.md` "3. Per-model-folder parallel steps", step 4). A linked shared
 /// face's files are copied in under the player's own: a model or `.mtl` packing under a name
@@ -315,15 +322,25 @@ pub(super) fn face(
                         continue;
                     }
                     let stem = file_stem(&linked_name);
+                    let linked_model = pre_fox_common_model(&folder.common_files, &linked_name)
+                        .expect("validation drops a player folder whose link names no Common file");
+                    // A Common `.model`'s `.mtl` is the one its search finds; a Common FMDL's
+                    // material set is its conversion's (`material_of`'s `expect` is for a
+                    // `.model`'s search).
+                    let source = if linked_model.kind == FileKind::Model(ModelFormat::Fmdl) {
+                        FaceSource::CommonConversion
+                    } else {
+                        FaceSource::Member {
+                            material: material_of(file),
+                        }
+                    };
                     models.push(FaceModel {
                         file,
                         stem: stem.to_owned(),
                         xml_type,
                         packed: packed_model_name(stem),
                         in_common: true,
-                        source: FaceSource::Member {
-                            material: material_of(file),
-                        },
+                        source,
                         source_path,
                     });
                 }
@@ -409,6 +426,10 @@ pub(super) fn face(
                 }
                 FaceSource::Member { material } => ("./", material.path.name().to_owned()),
                 FaceSource::Converted(_) => ("./", converted_material_name(&model.stem)),
+                FaceSource::CommonConversion => (
+                    common_directory.as_str(),
+                    converted_material_name(&model.stem),
+                ),
             };
             let name = match kit {
                 KitPlace::Listed { kit } => listed_material(&name, *kit),
@@ -489,6 +510,9 @@ pub(super) fn face(
                     materials.write(),
                 )?;
                 (converted, None)
+            }
+            FaceSource::CommonConversion => {
+                unreachable!("a converted Common model is a link's, its entry pushed above")
             }
         };
         if !folder.hand_split.contains(&model.file.path) {
@@ -605,8 +629,8 @@ fn packed_dummy(
 /// may name, where it points what the face does not pack, and the face's files packed so far.
 struct XmlFace<'a> {
     /// The files a reference may name: the player's own, his linked shared face's and the
-    /// export's `Common/` `.mtl` files and textures (`ModelFolder::common_files`, which hold
-    /// no `Common/` `.model`).
+    /// export's `Common/` models, `.mtl` files and textures (`ModelFolder::common_files`; a
+    /// Common `path` reference resolves nothing here, `written_path`).
     named: FaceFiles<'a>,
     /// The team's Common output, where the game loads a Common file from.
     common_directory: &'a str,

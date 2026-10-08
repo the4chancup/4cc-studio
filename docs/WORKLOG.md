@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1803,7 +1803,14 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   failed") and commits nothing of the folder, an implicit rule planning honors since f3a by
   never planning a textures task with nothing to emit; a `failed` flag on `TaskBatch`, or
   an assertion, would make it explicit (found at f3a: a planned empty task lost a whole
-  face CPK with exit 0 and no finding).
+  face CPK with exit 0 and no finding). From f3b, for 4.20 or converge: a member's own
+  `face.xml` naming a converted Common model (`common/XXX/legs.mtl`, `oral_legs_*.model`
+  from `legs.fmdl`) gets `xml_model_not_found`, the deep pass resolving Common references
+  among source files by kind; a Common FMDL a `.model` of its stem beats is still
+  deep-checked (`model_broken`, `DropFile`) where a player folder's beaten FMDL is unread;
+  the Common models task never hand-splits (a Common `.model` is not split either); two
+  converted parts merged under the marker with a material of one name but different
+  texture places fail `merge_material_conflict`, which the merge rules do not cover.
   Open for the maintainer here: whether a converted collar's first material as `uni_collar`
   and the rest as `uni_shirts` (ruled at slice e, DECISIONS 2026-10-08 "Collars across
   engines"; the stock referee collar uses `uni_shirts` alone) is drawn right, an in-game
@@ -2058,6 +2065,41 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   f3), a member's `.mtl` colliding with a converted glove's set (an error, ruled in
   DECISIONS), shared `Faces/` role-less Fox files ignored too (accepted); lead fixes: none;
   mutants: see the 4.17f2 log line).
+  (f3b) done 2026-10-08 (lead first, `b63dd94`: DECISIONS "A Common FMDL converts once in the
+  Common models task on PES 15-17", the plan's step 7 Common sentences and step 6 Common
+  sentence, `player_folders.md`'s marker sentence. `plan/subset.rs` `pre_fox_common_model`
+  (the Common model a link loads: the named file, or the `.model` of its stem that beats a
+  Common FMDL), `pre_fox_link` and `linked_pre_fox_model` taking an FMDL link
+  (`PreFoxCommonModel`; a `PreFoxPart` under the marker), `common_file_compiled` true for a
+  Common FMDL and `.skl` on both engines (a beaten FMDL and a stray `.skl` ignored as a
+  player's); `plan/mod.rs` `common_model_files` (the `.model` and `.mtl` files, each
+  converted FMDL with the `.skl` of its stem), `CommonModel` for an FMDL link with the Common
+  `.skl` and no `.mtl` (contradiction accepted: the brief's "skeleton when the slot has one"
+  gave a marked link none), `roles()` pushing it as a `ConversionSkeleton`,
+  `ModelFolder::common_files` holding the Common models too (contradiction accepted: the
+  face needs the same stem selection), `TaskKind::CommonTextures::environment_map` (a
+  converted Common FMDL in `metal_models`, no Common `env`; the task planned for it alone);
+  `deep/mod.rs` `links_common_fmdl` (a link loading a Common FMDL pairs no `.mtl`);
+  `processing/prefox_common.rs` converting each FMDL (`fmdl_for_pre_fox` with the Common
+  skeleton, `add_environment_map` at the Common directory, `point_materials`,
+  `point_reserved_kit_stems`), packed as `oral_<stem>_win32.model` + `<stem>.mtl`, the
+  duplicate check case-folded (contradiction accepted: the game's file system folds),
+  `folder_pack_failed` at `Common` for a member's `.mtl` of that name; `prefox_face.rs`
+  `FaceSource::CommonConversion` (the entry's material at the Common directory, nothing
+  packed, no `.mtl` layering); `texture.rs` `common_textures` emitting the template; help.
+  Tests: `tests/cli/prefox_faces.rs` a Common FMDL (the tracer's hair with its `.skl`)
+  converted once into the Common output and listed by slot 05's `face.xml` at the Common
+  path with `legs.mtl`, the `skl_parent` drops on `Common`; a Common `Legs.mtl` beside it
+  failing the task, the face and textures still committed; `tests/cli/conversion.rs` the
+  template in the Common output, or `Common/env.dds` instead; `tests/cli/prefox_ingame_face.rs`
+  a marked player's `legs.fmdl.common` converted into his boots with his own `boots.fmdl`
+  (contradiction accepted: the brief's `card_model()` part cannot merge with the hair,
+  `skl_merge_conflict` on `sk_head`); unit tests on the roles, the gate, the stem selection,
+  the task files, the Common flag, the deep pairing. Four contradictions accepted; plan gaps
+  parked (open items below): a member's own `face.xml` naming a converted Common model, a
+  beaten Common FMDL still deep-checked, no hand split in the Common task, two converted
+  parts' material clash under the marker; lead fixes: none; mutants: see the 4.17f3b log
+  line).
   (f3a) done 2026-10-08 (lead first, `a281f33`: DECISIONS "An `env` texture link, one
   sampler shape, every `model` context alike, no kit warning on a folder the glTF drop
   orphaned", the plan's step 6 paragraph and step 3 sentences, the `kit_variant_model_fox`
@@ -4430,3 +4472,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     (lead fix from the sidekick's probe). Mutants: 19, 15 caught, 4 unviable (`Default::default()` on types without one), 0 missed. Next: 4.17f3b (an FMDL
     in `Common/` converted once in the Common models task on PES 15-17, the `x.fmdl.common`
     link listing its `.mtl`, the marker case).
+  - **4.17f3b done**: on PES 15-17 an FMDL directly in `Common/` converts once, in the
+    Common models task, into the team's Common output with its material set as
+    `<stem>.mtl`, its `.skl` the bind pose and the environment map emitted there for a metal
+    one; an `x.fmdl.common` link lists it at the Common path with that `.mtl`, and under
+    `ingame_face` converts into the part; a link to a Common FMDL a Common `.model` of its
+    stem beats loads the `.model`. Decision logged. Mutants: 52, 43 caught, 9 unviable (`Default::default()` on types without one), 0 missed. Next: 4.17f3c
+    (PES 18-21: a Common `.model` + `.mtl` converted in each linking player's Models task;
+    per-kit `.model` sets; the pre-Fox Common texture path pointed at the Fox Common
+    directory).

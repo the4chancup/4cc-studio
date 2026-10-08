@@ -1318,3 +1318,63 @@ fn a_shared_boots_folder_s_metal_material_reflects_the_environment_map_beside_it
         entries.keys()
     );
 }
+
+/// Compiles for PES 17 with `dds_compression` on an export holding slot 05's own face and
+/// `Common/legs.fmdl` made of `metal_model()`, with `env`, when given, as `Common/env.dds`,
+/// and gives the Common output's `legs.mtl` as `pes_model` reads it and its `env.dds`,
+/// unwrapped.
+fn compiled_common_metal(sandbox: &Sandbox, env: Option<&[u8]>) -> (MaterialSet, Vec<u8>) {
+    let export = "co Midcup Metal";
+    write_slot_05_face(sandbox, export);
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/legs.fmdl"), &metal_model());
+    if let Some(env) = env {
+        sandbox.write(&format!("{common}/env.dds"), env);
+    }
+    let settings = format!(
+        "{}[team-compiler]\ndds_compression = true\n",
+        pes17(sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let output = common_output(&entries);
+    let names: Vec<&str> = output.keys().copied().collect();
+    assert_eq!(names, ["env.dds", "legs.mtl", "oral_legs_win32.model"]);
+    let materials = MaterialSet::read(output["legs.mtl"]).unwrap();
+    (materials, wezlib::decompress(output["env.dds"]).unwrap())
+}
+
+#[test]
+fn a_common_fmdl_s_metal_material_reflects_the_template_in_the_common_output() {
+    let sandbox = Sandbox::new("conversion_metal_common");
+
+    let (materials, environment) = compiled_common_metal(&sandbox, None);
+
+    assert_metal_naming(
+        &materials.materials,
+        "model/character/uniform/common/714/env.dds",
+    );
+    assert!(
+        environment == environment_template(),
+        "env.dds is the bundled template"
+    );
+}
+
+#[test]
+fn a_common_env_dds_is_the_environment_map_a_common_fmdl_s_metal_material_names() {
+    let sandbox = Sandbox::new("conversion_metal_common_own");
+
+    // Already WESYS-wrapped, so it is emitted as it is and its bytes tell it from the template.
+    let (materials, environment) =
+        compiled_common_metal(&sandbox, Some(&wezlib::compress(&small_dds())));
+
+    assert_metal_naming(
+        &materials.materials,
+        "model/character/uniform/common/714/env.dds",
+    );
+    assert!(environment == small_dds(), "env.dds is the Common one");
+}

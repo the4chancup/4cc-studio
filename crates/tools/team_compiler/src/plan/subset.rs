@@ -243,11 +243,12 @@ pub(crate) enum PlayerFile {
     /// parts merged; the gloves are written unmerged, each model under its own name and listed
     /// in the gloves' `glove.xml` (`player_folders.md` "`ingame_face` marker"). The folder's
     /// `.mtl` files go into each of the two, which packs the ones its parts use
-    /// (`TaskKind::files`). A `.common` link to a `.model` takes this role too, as a `.model`
-    /// of the linked stem would in its place: with no `face.xml` to name the Common path, the
-    /// Common model is copied in as the part, planning putting it in the link's place with the
-    /// `.mtl` its search finds (`ModelFolder::roles`; `player_folders.md` "`ingame_face` with
-    /// shared links").
+    /// (`TaskKind::files`). A `.common` link to a `.model` or an FMDL takes this role too, as a
+    /// `.model` of the linked stem would in its place: with no `face.xml` to name the Common
+    /// path, the Common model is copied in as the part, planning putting it in the link's place
+    /// with the `.mtl` its search finds, or a Common FMDL with the `.skl` of its stem, its
+    /// bind pose, to convert as his own FMDL parts are (`ModelFolder::roles`;
+    /// `player_folders.md` "`ingame_face` with shared links").
     PreFoxPart {
         /// The package the model is a part of.
         package: ModelPackage,
@@ -263,13 +264,15 @@ pub(crate) enum PlayerFile {
     /// files (`TaskKind::files`) and gives the model the one its search finds, so one beside
     /// only FMDLs, a `.model` an FMDL beats included, is read by nothing.
     Material,
-    /// Pre-Fox: a `.common` link to a `.model` (`legs.model.common` → `Common/legs.model`),
-    /// listed in the player's generated `face.xml` under `xml_type`, the type a `.model` of
-    /// the linked stem would have in the link's place, at the team's Common output, where the
-    /// export's Common models task packs the Common model once. The game loads it from there
-    /// (`player_folders.md` "Common model links and model merging"), so nothing is packed into
-    /// the face and nothing reads the empty link. Under `ingame_face` such a link is a
-    /// `PreFoxPart` instead.
+    /// Pre-Fox: a `.common` link to a `.model` (`legs.model.common` → `Common/legs.model`) or
+    /// to an FMDL (`legs.fmdl.common` → `Common/legs.fmdl`), listed in the player's generated
+    /// `face.xml` under `xml_type`, the type a `.model` of the linked stem would have in the
+    /// link's place, at the team's Common output, where the export's Common models task packs
+    /// the Common `.model` once, or converts the Common FMDL once into a `.model` and its
+    /// material set (`pre_fox_common_model` says which the link loads). The game loads it from
+    /// there (`player_folders.md` "Common model links and model merging"), so nothing is
+    /// packed into the face and nothing reads the empty link. Under `ingame_face` such a link
+    /// is a `PreFoxPart` instead.
     PreFoxCommonModel {
         /// The linked model's `face.xml` type.
         xml_type: String,
@@ -387,6 +390,23 @@ pub(crate) fn common_skeleton<'a>(
     model_name: &str,
 ) -> Option<&'a FileDescriptor> {
     common_file(common, &format!("{}.skl", file_stem(model_name)))
+}
+
+/// The Common model a pre-Fox `.common` link to the model named `linked` loads, among `common`
+/// (the export's `Common/` files): the file of that name directly in `Common/`, found as
+/// validation found it, unless it is an FMDL a `.model` of its stem there beats (per-stem
+/// selection, target-native first: `pipeline.md` step 3 "Format conversion"). Such a link
+/// loads that `.model`, found by the linked stem, and the FMDL is ignored as a player folder's
+/// beaten FMDL is. `None` when `common` holds no file of the name.
+pub(crate) fn pre_fox_common_model<'a>(
+    common: &'a [FileDescriptor],
+    linked: &str,
+) -> Option<&'a FileDescriptor> {
+    let named = common_file(common, linked)?;
+    if named.kind != FileKind::Model(ModelFormat::Fmdl) {
+        return Some(named);
+    }
+    Some(common_file(common, &format!("{}.model", file_stem(linked))).unwrap_or(named))
 }
 
 /// Where a file sits in its model folder: directly in it, or one level down in one of the
@@ -590,7 +610,7 @@ impl FolderModels {
     /// (`common_skeleton`). A per-kit model with a lower variant of its set beside it is left
     /// out (`model_variant_sets`). On pre-Fox: its `.model` files, its `.fmdl` files with no
     /// `.model` or glTF of their path stem, which the face converts, and its `.common` links to a
-    /// `.model` with a role, every one of them a part of the face (`PlayerFile::PreFoxModel`,
+    /// `.model` or an FMDL with a role, every one of them a part of the face (`PlayerFile::PreFoxModel`,
     /// `PlayerFile::PreFoxCommonModel`), every variant of a per-kit set included, or under
     /// `ingame_face` the parts of his boots and gloves, the folder having no face
     /// (`PlayerFile::PreFoxPart`); only a converted FMDL pairs a skeleton, its bind pose.
@@ -895,8 +915,8 @@ fn fox_file(
 /// it (`pre_fox_part`), an `.fmdl` with no `.model` or glTF of its path stem beside it the
 /// same, the `.skl` paired with such an FMDL its conversion's bind pose
 /// (`PlayerFile::ConversionSkeleton`), a `.mtl` beside the models, outside `common/`, a
-/// `.common` link to a `.model`, a `.mtl` or a texture (`pre_fox_link`), under `ingame_face` a
-/// link to a `.model` being a part as the `.model` itself would be, a member's own `face.xml`,
+/// `.common` link to a `.model`, an FMDL, a `.mtl` or a texture (`pre_fox_link`), under
+/// `ingame_face` a link to a model being a part as the `.model` itself would be, a member's own `face.xml`,
 /// a face file (`PlayerFile::FaceXml`), and a glTF with no `.model` of its path stem beside it
 /// (`PlayerFile::UnsupportedGltf`). A model `FolderModels::beaten` names, any other `.skl` and
 /// `fcl_hair_sim.fclo` have no role, nor any other link or any `.xml` but the face diff.
@@ -918,8 +938,8 @@ fn pre_fox_file(
             pre_fox_model_type(position, stem).map(|xml_type| PlayerFile::PreFoxModel { xml_type })
         }
         FileKind::Mtl if position != Position::Common => Some(PlayerFile::Material),
-        // Under the marker a link to a `.model` stands for the Common model as a part of his
-        // own, copied in, since no `face.xml` names the Common path.
+        // Under the marker a link to a `.model` or an FMDL stands for the Common model as a
+        // part of his own, copied in or converted, since no `face.xml` names the Common path.
         FileKind::CommonLink if models.ingame_face => {
             match linked_pre_fox_model(file.path.name()) {
                 Some(linked) => pre_fox_part(position, file_stem(&linked)),
@@ -969,27 +989,33 @@ fn pre_fox_part(position: Position, stem: &str) -> Option<PlayerFile> {
         .map(|(package, _)| PlayerFile::PreFoxPart { package, xml_type })
 }
 
-/// The `.model` a `.common` link named `link_name` stands for (`legs.model.common` →
-/// `legs.model`); `None` for a link to anything else.
+/// The model a `.common` link named `link_name` stands for on pre-Fox, a `.model` or an FMDL
+/// (`legs.model.common` → `legs.model`, `legs.fmdl.common` → `legs.fmdl`); `None` for a link
+/// to anything else.
 fn linked_pre_fox_model(link_name: &str) -> Option<String> {
-    common_link_name(link_name)
-        .filter(|name| classify(name) == FileKind::Model(ModelFormat::PesModel))
+    common_link_name(link_name).filter(|name| {
+        matches!(
+            classify(name),
+            FileKind::Model(ModelFormat::PesModel | ModelFormat::Fmdl)
+        )
+    })
 }
 
-/// The pre-Fox role of the `.common` link named `name` at `position`: a link to a `.model`
-/// takes the type a `.model` of the linked stem would have there (`pre_fox_model_type`; none
-/// for a glove naming no hand), a link to a `.mtl` is a material link, a link to a texture
-/// stands for its stem, as on Fox. A link to a per-kit model has none yet: the Common models
-/// task, which packs the linked model, would have to list its set. A link in `common/` has
-/// none (only textures may sit there, so validation never resolves a link there), nor has a
-/// link to anything else.
+/// The pre-Fox role of the `.common` link named `name` at `position`: a link to a `.model` or
+/// an FMDL takes the type a `.model` of the linked stem would have there
+/// (`pre_fox_model_type`; none for a glove naming no hand), the Common models task having
+/// packed the `.model`, or converted the FMDL, into the team's Common output; a link to a
+/// `.mtl` is a material link, a link to a texture stands for its stem, as on Fox. A link to a
+/// per-kit model has none yet: the Common models task, which packs the linked model, would
+/// have to list its set. A link in `common/` has none (only textures may sit there, so
+/// validation never resolves a link there), nor has a link to anything else.
 fn pre_fox_link(position: Position, name: &str) -> Option<PlayerFile> {
     if position == Position::Common {
         return None;
     }
     let linked = common_link_name(name)?;
     match classify(&linked) {
-        FileKind::Model(ModelFormat::PesModel) => {
+        FileKind::Model(ModelFormat::PesModel | ModelFormat::Fmdl) => {
             let stem = file_stem(&linked);
             if kit_token(stem).is_some() {
                 return None;
@@ -999,7 +1025,7 @@ fn pre_fox_link(position: Position, name: &str) -> Option<PlayerFile> {
         }
         FileKind::Mtl => Some(PlayerFile::CommonMaterial),
         FileKind::Texture => linked_texture_stem(name).map(PlayerFile::CommonTexture),
-        FileKind::Model(ModelFormat::Fmdl | ModelFormat::Gltf)
+        FileKind::Model(ModelFormat::Gltf)
         | FileKind::Skl
         | FileKind::Fclo
         | FileKind::Xml
@@ -1384,21 +1410,21 @@ fn referee_not_compiled(export: &ValidatedAestheticsExport) -> Option<(&'static 
 }
 
 /// Whether `compile` for a target of `engine` builds the `Common/` file, or accepts it:
-/// directly in the folder, a texture (the export's Common textures task); on Fox an FMDL or a
-/// `.skl` (reached through a player's `.common` link; one no link names builds nothing); on
-/// pre-Fox a `.model` or a `.mtl` (the export's Common models task, which writes every one into
-/// the team's Common output). Any other kind, and any file deeper in the folder, is named.
+/// directly in the folder, a texture (the export's Common textures task); an FMDL or a `.skl`,
+/// on Fox reached through a player's `.common` link (one no link names builds nothing), on
+/// pre-Fox converted by the export's Common models task with the `.skl` of its stem as its
+/// bind pose (an FMDL a `.model` of its stem beats, and a `.skl` no converted FMDL pairs, are
+/// ignored as a player folder's are: `ignored_without_role`); on pre-Fox a `.model` or a
+/// `.mtl` (the Common models task, which writes every one into the team's Common output). Any
+/// other kind, and any file deeper in the folder, is named.
 fn common_file_compiled(file: &FileDescriptor, engine: Engine) -> bool {
     if !is_direct_common_file(&file.path) {
         return false;
     }
-    // Each engine builds its own model format.
     match file.kind {
         FileKind::Texture => texture_format(file.path.name()).is_some(),
-        FileKind::Model(ModelFormat::Fmdl) | FileKind::Skl => match engine {
-            Engine::Fox => true,
-            Engine::PreFox => false,
-        },
+        FileKind::Model(ModelFormat::Fmdl) | FileKind::Skl => true,
+        // Fox does not read a `.model` or a `.mtl` from Common yet.
         FileKind::Model(ModelFormat::PesModel) | FileKind::Mtl => match engine {
             Engine::Fox => false,
             Engine::PreFox => true,
@@ -1971,7 +1997,7 @@ mod tests {
             ),
             None
         );
-        let fmdl_link = "Players/05 - B/x.fmdl.common";
+        let gltf_link = "Players/05 - B/x.glb.common";
         let face_link = "Players/05 - B/Round.face";
         let boots_link = "Players/05 - B/Crocs.boots";
         // A per-kit model a shared boots folder cannot list once.
@@ -1980,7 +2006,7 @@ mod tests {
         // A `.model` collar compiles, and an FMDL one is converted.
         assert_eq!(pre_fox(&["Collars/collar_12.model"]), None);
         assert_eq!(pre_fox(&["Collars/collar_12.fmdl"]), None);
-        let common = "Common/x.fmdl";
+        let common = "Common/x.glb";
         let kit_extra = "Kits/g1/kit_spec.dds";
         // A shared face's own `face.xml` is not supported yet.
         let shared_xml = "Faces/Round/face.xml";
@@ -1988,7 +2014,7 @@ mod tests {
         // the shared boots and gloves folders, the kits' textures and `Common/` (no collar file
         // is named on pre-Fox).
         let all = [
-            fmdl_link,
+            gltf_link,
             face_link,
             "Faces/Round/hair_high.model",
             shared_xml,
@@ -1998,7 +2024,7 @@ mod tests {
             kit_extra,
             common,
         ];
-        assert_eq!(pre_fox(&all), what(fmdl_link));
+        assert_eq!(pre_fox(&all), what(gltf_link));
         assert_eq!(pre_fox(&all[1..]), what(shared_xml));
         assert_eq!(pre_fox(&all[4..]), what(boots_per_kit));
         assert_eq!(pre_fox(&all[6..]), what(kit_extra));
@@ -2162,18 +2188,38 @@ mod tests {
             ),
             None
         );
-        // A `Common/` file of a Fox format is named.
-        for refused in ["Common/x.fmdl", "Common/legs.skl"] {
-            assert_eq!(pre_fox(&[refused]), what(refused), "{refused}");
-        }
-        // So is one in a subfolder, which only a non-strict file-type check keeps (see the Fox
-        // test above), asked directly here.
-        for (path, compiled) in [
-            ("Common/sub/y.dds", false),
-            ("Common/sub/legs.model", false),
-            ("Common/y.dds", true),
-            ("Common/legs.model", true),
-            ("Common/body.mtl", true),
+        // An FMDL with its skeleton, which the Common models task converts, a `.skl` no FMDL
+        // pairs, ignored, and a link to the FMDL, which the face lists.
+        let fmdl_link = "Players/03 - A/x.fmdl.common";
+        assert_eq!(
+            pre_fox(&[
+                "Common/x.fmdl",
+                "Common/x.skl",
+                "Common/legs.skl",
+                fmdl_link
+            ]),
+            None
+        );
+        // A link to a per-kit FMDL is named, as one to a per-kit `.model` is.
+        let kit_link = "Players/03 - A/pants_kit1.fmdl.common";
+        assert_eq!(
+            pre_fox(&["Common/pants_kit1.fmdl", kit_link]),
+            what(kit_link)
+        );
+        // A glTF is named.
+        assert_eq!(pre_fox(&["Common/x.glb"]), what("Common/x.glb"));
+        // So is a file in a subfolder, which only a non-strict file-type check keeps (see the
+        // Fox test above), asked directly here on both engines.
+        for (path, pre_fox_compiled, fox_compiled) in [
+            ("Common/sub/y.dds", false, false),
+            ("Common/sub/legs.model", false, false),
+            ("Common/sub/x.fmdl", false, false),
+            ("Common/y.dds", true, true),
+            ("Common/legs.model", true, false),
+            ("Common/body.mtl", true, false),
+            ("Common/x.fmdl", true, true),
+            ("Common/x.skl", true, true),
+            ("Common/x.glb", false, false),
         ] {
             let path = ScopePath::new(path).unwrap();
             let file = FileDescriptor {
@@ -2182,16 +2228,55 @@ mod tests {
                 source: path.clone(),
                 path,
             };
-            assert_eq!(
-                common_file_compiled(&file, Engine::PreFox),
-                compiled,
-                "{}",
-                file.path.as_str()
-            );
+            for (engine, compiled) in [
+                (Engine::PreFox, pre_fox_compiled),
+                (Engine::Fox, fox_compiled),
+            ] {
+                assert_eq!(
+                    common_file_compiled(&file, engine),
+                    compiled,
+                    "{} {engine:?}",
+                    file.path.as_str()
+                );
+            }
         }
-        // A link to an FMDL has no pre-Fox role.
-        let fmdl_link = "Players/03 - A/x.fmdl.common";
-        assert_eq!(pre_fox(&[fmdl_link, "Common/x.fmdl"]), what(fmdl_link));
+    }
+
+    #[test]
+    fn a_pre_fox_model_link_loads_the_common_model_its_stem_selects() {
+        let files = |paths: &[&str]| -> Vec<FileDescriptor> {
+            paths
+                .iter()
+                .map(|path| {
+                    let path = ScopePath::new(path).unwrap();
+                    FileDescriptor {
+                        size: 0,
+                        kind: aesthetics_export::classify(path.name()),
+                        source: path.clone(),
+                        path,
+                    }
+                })
+                .collect()
+        };
+        let loaded = |common: &[FileDescriptor], linked: &str| {
+            pre_fox_common_model(common, linked).map(|file| file.path.as_str().to_owned())
+        };
+        let alone = files(&["Common/legs.fmdl", "Common/Legs.skl"]);
+        assert_eq!(
+            loaded(&alone, "Legs.fmdl").as_deref(),
+            Some("Common/legs.fmdl")
+        );
+        // A `.model` of its stem beats the FMDL, which a link to the FMDL then does not load.
+        let both = files(&["Common/legs.fmdl", "Common/LEGS.model"]);
+        assert_eq!(
+            loaded(&both, "legs.fmdl").as_deref(),
+            Some("Common/LEGS.model")
+        );
+        assert_eq!(
+            loaded(&both, "legs.model").as_deref(),
+            Some("Common/LEGS.model")
+        );
+        assert_eq!(loaded(&both, "hat.fmdl"), None);
     }
 
     /// The gate's first hit in the export `refs Cup` mapping `Ref A` to slot 01, holding a Fox
@@ -3450,6 +3535,8 @@ mod tests {
                     "boots/Legs.MODEL.common.txt",
                     "gloves/left.model.common",
                     "pants_kit1.model.common",
+                    "pants_kit1.fmdl.common",
+                    "x.glb.common",
                 ],
                 Engine::PreFox
             ),
@@ -3458,12 +3545,43 @@ mod tests {
                 common_model("face_neck"),
                 Some(PlayerFile::CommonMaterial),
                 Some(PlayerFile::CommonTexture("hair".to_owned())),
-                None,
+                common_model("parts"),
                 None,
                 None,
                 common_model("parts"),
                 None,
                 None,
+                None,
+                None,
+            ]
+        );
+        // Under `ingame_face` a link to a `.model` or an FMDL is a part of his boots or gloves.
+        let marked = PlayerFolder {
+            ingame_face: true,
+            ..folder(&[
+                "legs.model.common",
+                "legs.fmdl.common",
+                "glove_l.fmdl.common",
+            ])
+        };
+        let models = FolderModels::of_player(&marked, Engine::PreFox);
+        let roles: Vec<Option<PlayerFile>> = marked
+            .files
+            .iter()
+            .map(|file| player_file(&marked.path, file, &models))
+            .collect();
+        let part = |package, xml_type: &str| {
+            Some(PlayerFile::PreFoxPart {
+                package,
+                xml_type: xml_type.to_owned(),
+            })
+        };
+        assert_eq!(
+            roles,
+            [
+                part(ModelPackage::Boots, "parts"),
+                part(ModelPackage::Boots, "parts"),
+                part(ModelPackage::Gloves, "gloveL"),
             ]
         );
         // A typed model link is a face model: the face diff beside it is used.

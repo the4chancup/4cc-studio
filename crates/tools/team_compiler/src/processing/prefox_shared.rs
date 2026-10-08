@@ -51,7 +51,8 @@ const MTL_FOUND: &str = "the deep pass drops a folder holding a `.model` no `.mt
 /// One `.model` of the output, or an `.fmdl` converted to one, with the source folder it was
 /// found in: a `.model`'s `.mtl` is searched for there (`mtl_for`), a combined folder's never
 /// in the player's folder. A Common model a marked player's link copies in has his folder as
-/// its source, its `.mtl` resolved at planning (`material_of`).
+/// its source, a Common `.model`'s `.mtl` resolved at planning (`material_of`), and so is a
+/// Common FMDL's skeleton (`plan::CommonModel::skeleton`).
 struct SourceModel<'a> {
     /// The model file.
     file: &'a FileDescriptor,
@@ -115,13 +116,15 @@ struct BootsPart<'a> {
 /// neither but a texture directly in `Common/` is pointed at that texture in the team's Common
 /// output, while the folder's own `.mtl` files leave such a path as written. A Common model and
 /// its `.mtl` pack under their file names as the folder's own do. An `.fmdl` is converted
-/// (`fmdl_for_pre_fox`, the `.skl` its source pairs with it as the bind pose, its findings
-/// naming it by `source_name`), its `.model` taking a member's `.model`'s place and its
+/// (`fmdl_for_pre_fox`, the `.skl` its source pairs with it as the bind pose, a Common FMDL's
+/// the Common `.skl` of its stem, its findings naming it by `source_name`, a Common one by its
+/// export path), its `.model` taking a member's `.model`'s place and its
 /// material set the place of the `.mtl` that model uses: merged into `boots.mtl`, or packed
 /// as `<stem>.mtl` lowercased beside `<stem>.model` and named by its `glove.xml` entry. The
 /// set's texture paths are pointed as the face points a converted one's: each metal material
 /// first given the environment map in the texture home (`add_environment_map`, as the face
-/// does), then the folder's textures and links as a `.mtl`'s, then the reserved kit stems at
+/// does), then the folder's textures and links as a `.mtl`'s (a Common FMDL's also the
+/// textures directly in `Common/`, as a copied Common `.mtl`'s), then the reserved kit stems at
 /// the team's Common texture directory. A conversion that fails fails the task. Two files
 /// packing under one name otherwise fail the task, a member's `.mtl` of a converted glove's
 /// `<stem>.mtl` name among them. A merge is charged to `ctx`'s memory budget.
@@ -242,8 +245,8 @@ pub(super) fn package(
     // The textures directly in `Common/` are a copied Common `.mtl`'s alone: a `.mtl` of the
     // folder's resolves a texture into Common only through a `.common` link (`model_format.md`
     // "Link files"), so an unlinked Common stem it names is left as written, as in the face.
-    // A converted FMDL's set goes by its FMDL, which is never a Common file: a link copies in
-    // only a `.model` (`PlayerFile::PreFoxPart`).
+    // A converted FMDL's set goes by its FMDL: a Common one a link of his brings in names the
+    // Common textures as a copied Common `.mtl` does.
     let places_for = |file: &FileDescriptor| -> &[(&BTreeMap<String, String>, &str)] {
         if is_direct_common_file(&file.path) {
             &common_places

@@ -252,11 +252,13 @@ fn resolve_stem(
 /// wrong. A texture conversion reports a finding on (`texture_codec_unsupported`) is left out
 /// alone, the finding noted in `findings` with `DropFile`, and the rest emitted; any other
 /// failure fails the task, and with it every Common texture. The players linking a Common
-/// model still commit on their own. The textures emitted have their kit variant sets completed
-/// against `kits` (`complete_kit_variants`).
+/// model still commit on their own. With `environment_map` (`TaskKind::CommonTextures`) the
+/// template environment map is emitted as `env.dds` beside them, as it is. The textures emitted
+/// have their kit variant sets completed against `kits` (`complete_kit_variants`).
 pub(super) fn common_textures(
     textures: &[FileDescriptor],
     kits: &[u8],
+    environment_map: bool,
     team_id: u16,
     ctx: &CompileContext,
     files: &mut TaskFiles,
@@ -272,6 +274,12 @@ pub(super) fn common_textures(
             }
             Err(TextureError::Other(error)) => return Err(TaskFailure::from(error)),
         }
+    }
+    if environment_map {
+        converted.push((
+            ENVIRONMENT_MAP_STEM.to_owned(),
+            ctx.templates.environment_map().to_vec(),
+        ));
     }
     complete_kit_variants(&mut converted, kits, findings);
     let engine = ctx.version.engine();

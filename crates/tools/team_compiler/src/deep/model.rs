@@ -454,6 +454,54 @@ mod tests {
     }
 
     #[test]
+    fn a_link_loading_a_common_fmdl_pairs_no_mtl_and_one_loading_a_model_does() {
+        let temp = scratch("deep_pre_fox_fmdl_link");
+        let card = || pre_fox_fixture("cardhead_face_high.model");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                // A Common FMDL, whose conversion writes its material set: no `.mtl` needed.
+                ("Players/05 - B/legs.fmdl.common", Vec::new()),
+                ("Common/legs.fmdl", tracer_file("glove_r.fmdl")),
+                // A Common `.model`, with no `.mtl` anywhere.
+                ("Players/06 - C/hat.model.common", Vec::new()),
+                ("Common/hat.model", card()),
+                // An FMDL a `.model` of its stem beats: its link loads the `.model`.
+                ("Players/07 - D/arm.fmdl.common", Vec::new()),
+                ("Common/arm.fmdl", tracer_file("glove_r.fmdl")),
+                ("Common/arm.model", card()),
+            ],
+            &[],
+            &[],
+        );
+        let undefined: Vec<&ContentFinding> = findings
+            .iter()
+            .filter(|finding| finding.code == "model_material_undefined")
+            .collect();
+        assert_eq!(
+            undefined,
+            [
+                &ContentFinding {
+                    code: "model_material_undefined",
+                    scope: folder("Players/06 - C"),
+                    context: vec![("file", "hat.model.common".to_owned())],
+                    disposition: Disposition::DropFolder,
+                    pass_through_eligible: false,
+                },
+                &ContentFinding {
+                    code: "model_material_undefined",
+                    scope: folder("Players/07 - D"),
+                    context: vec![("file", "arm.fmdl.common".to_owned())],
+                    disposition: Disposition::DropFolder,
+                    pass_through_eligible: false,
+                },
+            ],
+            "{findings:#?}"
+        );
+    }
+
+    #[test]
     fn a_model_link_s_search_sees_only_the_common_files_the_common_pass_kept() {
         let temp = scratch("deep_pre_fox_link_broken_mtl");
         let findings = findings_for(

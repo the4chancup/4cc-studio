@@ -583,6 +583,7 @@ mod tests {
             folder: ScopePath::new("Common").unwrap(),
             textures: Vec::new(),
             kits: Vec::new(),
+            environment_map: false,
         };
         assert_placed(
             kind,
