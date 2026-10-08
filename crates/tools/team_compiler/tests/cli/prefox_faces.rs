@@ -682,6 +682,139 @@ fn a_player_s_own_file_replaces_the_linked_face_folder_s_file_of_its_packed_name
     );
 }
 
+/// Writes the export `export`: `Faces/Round/hat.fmdl` holding `model`, linked by slot 05,
+/// which holds nothing else.
+pub(crate) fn write_round_hat(sandbox: &Sandbox, export: &str, model: &[u8]) {
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Round.face"), b"");
+    sandbox.write(&format!("exports/{export}/Faces/Round/hat.fmdl"), model);
+}
+
+#[test]
+fn a_linked_face_folder_s_fmdl_is_converted_into_the_player_s_face_cpk() {
+    let sandbox = Sandbox::new("prefox_shared_face_fmdl");
+    let export = "co Midcup Round";
+    // The tracer's hair, its skeleton (the conversion's bind pose) and the texture it names.
+    write_round_hat(&sandbox, export, &tracer_player_file("fcl_hair.fmdl"));
+    let round = format!("exports/{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/hat.skl"),
+        &tracer_player_file("fcl_hair.skl"),
+    );
+    sandbox.write(
+        &format!("{round}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    let player = "at Players/05 - A";
+    // The conversion's losses are the face task's, on the player: TC-MOD-27's for the hair.
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hat.fmdl, count=1662)"
+                .to_owned(),
+            "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+            "Info team_colors_missing [Keep] ()".to_owned(),
+            format!("Info link_combined [Keep] {player} (link=Round.face)"),
+            format!(
+                "Info native_field_dropped [Keep] {player} (model=hat.fmdl, field=bone_matrices)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {player} (model=hat.fmdl, bone=8, field=skl_parent)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {player} (model=hat.fmdl, bone=25, field=skl_parent)"
+            ),
+            format!(
+                "Warning mesh_flags_dropped [Keep] {player} (model=hat.fmdl, material=1, field=no_shadow_cast)"
+            ),
+            format!("Info xml_face_neck_added [Keep] {player} ()"),
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "dummy.mtl",
+            "face.xml",
+            "hat.mtl",
+            "oral_dummy_win32.model",
+            "oral_hat_win32.model",
+        ]
+    );
+    // Converted: `pes_model` reads both, the hair's anti-blur mesh folded back.
+    let hat = &face[&format!("{folder}oral_hat_win32.model")];
+    let model = pes_model::format::PreFoxModel::read(hat).unwrap();
+    assert_eq!(
+        pes_model::model::Model::from_file(&model)
+            .unwrap()
+            .meshes
+            .len(),
+        2
+    );
+    let materials = &face[&format!("{folder}hat.mtl")];
+    assert!(
+        sampler_paths(materials)
+            .contains(&"model/character/uniform/common/714/05 - A/shirt.dds".to_owned()),
+        "{:?}",
+        sampler_paths(materials)
+    );
+    let entry = |xml_type: &str, stem: &str| {
+        (
+            xml_type.to_owned(),
+            format!("./oral_{stem}_*.model"),
+            format!("./{stem}.mtl"),
+        )
+    };
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [entry("parts", "hat"), entry("face_neck", "dummy")]
+    );
+    assert!(
+        entries.keys().all(|path| !path.contains("Round")
+            && [".fmdl", ".skl"]
+                .iter()
+                .all(|extension| !path.ends_with(extension))),
+        "{:?}",
+        entries.keys()
+    );
+}
+
+#[test]
+fn a_linked_boots_folder_s_fmdl_still_skips_the_export_on_pes_17() {
+    let sandbox = Sandbox::new("prefox_shared_boots_fmdl");
+    let export = "co Midcup Mud";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Mud.boots"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Boots/Mud/boots.fmdl"),
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error content_not_yet_compiled [DropExport] (what=Boots/Mud/boots.fmdl)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+}
+
 #[test]
 fn a_model_with_no_mtl_beside_an_fmdl_of_its_name_is_not_undefined_on_fox() {
     let sandbox = Sandbox::new("prefox_undefined_fox");

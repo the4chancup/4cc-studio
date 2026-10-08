@@ -22,7 +22,7 @@ use pes_model::format::mtl::{
 
 use crate::prefox_faces::{
     CLEAN, card_materials, card_model, face_cpk, face_folder, nested_entries, ordered_entries,
-    pes17, sampler_paths, small_dds, write_slot_05_face,
+    pes17, sampler_paths, small_dds, write_round_hat, write_slot_05_face,
 };
 use crate::textures::texture_fixture;
 use crate::{clean_model, findings_of};
@@ -719,6 +719,129 @@ fn a_selected_gltf_drops_its_folder_on_pes_21_and_one_an_fmdl_beats_is_ignored()
     }
 }
 
+/// The boots package of team 714's first shared boots folder on PES 21.
+const SHARED_BOOTS_FPK: &str = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+
+#[test]
+fn a_shared_boots_folder_s_model_is_converted_to_its_boots_fmdl_on_pes_21() {
+    let sandbox = Sandbox::new("conversion_shared_model_for_fox");
+    let export = "co Midcup Shared";
+    sandbox.write(&format!("{}/Crocs.boots", slot_05(export)), b"");
+    let crocs = format!("exports/{export}/Boots/Crocs");
+    sandbox.write(&format!("{crocs}/boots.model"), &card_model());
+    sandbox.write(&format!("{crocs}/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{crocs}/skin.dds"), &small_dds());
+
+    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+
+    assert_eq!(lines, CLEAN);
+    assert_eq!(code, 0);
+    let skin = "Asset/model/character/boots/k0644/#windx11/skin.ftex";
+    assert!(entries.contains_key(skin), "{:?}", entries.keys());
+    assert_eq!(
+        package_names(&entries[SHARED_BOOTS_FPK]),
+        ["boots.fmdl", "boots.skl"]
+    );
+    let package = fpk::FpkFile::read(&entries[SHARED_BOOTS_FPK]).unwrap();
+    let file = fmdl::FmdlFile::read(package.get("boots.fmdl").unwrap()).unwrap();
+    let boots = fmdl::Model::from_file(&file).unwrap();
+    // The card's one mesh, and the anti-blur mesh the FMDL export makes for it.
+    let anti_blur = boots
+        .meshes
+        .iter()
+        .filter(|mesh| mesh.is_antiblur_mesh)
+        .count();
+    assert_eq!(
+        (
+            model_mesh_count(&card_model()),
+            boots.meshes.len(),
+            anti_blur
+        ),
+        (1, 2, 1)
+    );
+    // The `.mtl`'s `./skin.dds`, pointed at the shared output's folder by its stem.
+    let skin_paths: Vec<(String, String)> = fmdl::ops::paths::texture_paths(&file)
+        .unwrap()
+        .into_iter()
+        .filter(|path| path.file_name.starts_with("skin."))
+        .map(|path| (path.directory, path.file_name))
+        .collect();
+    assert!(!skin_paths.is_empty());
+    for path in &skin_paths {
+        assert_eq!(
+            path,
+            &(
+                "/Assets/pes16/model/character/boots/k0644/".to_owned(),
+                "skin.dds".to_owned()
+            )
+        );
+    }
+}
+
+#[test]
+fn a_shared_folder_s_selected_gltf_drops_every_player_linking_it_on_pes_21_and_17() {
+    let export = "co Midcup Gltf";
+    let gltf_error =
+        "Error model_gltf_unsupported [DropFolder] at Players/05 - A (file=Boots/Crocs/boots.glb)";
+    let identified = "Info export_identified [Keep] (team=/co/, id=714)";
+    let no_colors = "Info team_colors_missing [Keep] ()";
+    let slot_06 = format!("exports/{export}/Players/06 - B");
+    for (version, findings, kept, dropped) in [
+        (
+            21,
+            vec![identified, gltf_error, no_colors],
+            "Asset/model/character/boots/k0626/#Win/boots.fpk".to_owned(),
+            ["k0625", "71405", "k0644"],
+        ),
+        (
+            17,
+            vec![
+                identified,
+                gltf_error,
+                no_colors,
+                "Info xml_face_neck_added [Keep] at Players/06 - B ()",
+            ],
+            face_cpk(6),
+            ["71405", "boots/k0644", "05 - A"],
+        ),
+    ] {
+        let sandbox = Sandbox::new(&format!("conversion_shared_gltf_pes{version}"));
+        sandbox.write(&format!("{}/Crocs.boots", slot_05(export)), b"");
+        // The glTF is never read, so any bytes stand for one.
+        sandbox.write(&format!("exports/{export}/Boots/Crocs/boots.glb"), b"glTF");
+        // Slot 06 compiles, so the run writes a CPK slot 05 is missing from.
+        if version == 21 {
+            sandbox.write(&format!("{slot_06}/boots.fmdl"), &clean_model());
+        } else {
+            sandbox.write(&format!("{slot_06}/boots.model"), &card_model());
+            sandbox.write(&format!("{slot_06}/boots.mtl"), &card_materials());
+            sandbox.write(&format!("{slot_06}/skin.dds"), &small_dds());
+        }
+
+        let (code, lines, entries) = compiled_for(&sandbox, version, "", export);
+
+        assert_eq!(lines, findings, "PES {version}");
+        assert_eq!(code, 1, "PES {version}");
+        assert!(entries.contains_key(&kept), "{:?}", entries.keys());
+        assert!(
+            entries
+                .keys()
+                .all(|path| dropped.iter().all(|part| !path.contains(part))),
+            "PES {version}: {:?}",
+            entries.keys()
+        );
+
+        // `check` reports neither: the drop is planning's.
+        let run = sandbox.run(&pes_settings(&sandbox, version), &["check"]);
+        assert_eq!(
+            findings_of(&run.messages(), export),
+            [identified],
+            "PES {version}"
+        );
+        assert_eq!(run.exit_code(), 0, "PES {version}");
+    }
+}
+
 #[test]
 fn a_selected_model_s_mtl_naming_a_texture_nobody_supplies_is_a_warning_on_pes_21() {
     let sandbox = Sandbox::new("conversion_mtl_texture_missing");
@@ -928,12 +1051,18 @@ const PRE_FOX_HOME_714_05: &str = "model/character/uniform/common/714/05 - A/";
 const ENVIRONMENT_714_05: &str =
     "common/character1/model/character/uniform/common/714/05 - A/env.dds";
 
-/// Writes slot 05 of the export `export` holding `boots.fmdl` made of `metal_model()`, compiles
-/// it for PES 17 with `dds_compression` on, and gives the run's lines, slot 05's face
-/// `boots.mtl` as `pes_model` reads it, and the bytes of the CPK's `env.dds` in the slot's
-/// texture home, unwrapped: it is zlibbed as every DDS the run emits. The run must exit 0.
+/// Writes slot 05 of the export `export` holding `boots.fmdl` made of `metal_model()`, and
+/// gives `compiled_metal` of its face's `boots.mtl`.
 fn compiled_metal_boots(sandbox: &Sandbox, export: &str) -> (Vec<String>, MaterialSet, Vec<u8>) {
     sandbox.write(&format!("{}/boots.fmdl", slot_05(export)), &metal_model());
+    compiled_metal(sandbox, "boots.mtl")
+}
+
+/// Compiles the sandbox's exports for PES 17 with `dds_compression` on, and gives the run's
+/// lines, the `.mtl` named `mtl` of slot 05's face as `pes_model` reads it, and the bytes of
+/// the CPK's `env.dds` in the slot's texture home, unwrapped: it is zlibbed as every DDS the
+/// run emits. The run must exit 0.
+fn compiled_metal(sandbox: &Sandbox, mtl: &str) -> (Vec<String>, MaterialSet, Vec<u8>) {
     let settings = format!(
         "{}[team-compiler]\ndds_compression = true\n",
         pes17(sandbox)
@@ -943,7 +1072,7 @@ fn compiled_metal_boots(sandbox: &Sandbox, export: &str) -> (Vec<String>, Materi
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let face = nested_entries(&entries[&face_cpk(5)]);
-    let materials = MaterialSet::read(&face[&format!("{}boots.mtl", face_folder(5))]).unwrap();
+    let materials = MaterialSet::read(&face[&format!("{}{mtl}", face_folder(5))]).unwrap();
     let environment = entries
         .get(ENVIRONMENT_714_05)
         .unwrap_or_else(|| panic!("no {ENVIRONMENT_714_05}: {:?}", entries.keys()));
@@ -1033,6 +1162,26 @@ fn a_fox_metal_material_compiled_for_pes_17_reflects_the_template_environment_ma
         lines
             .iter()
             .all(|line| !line.contains("template_override_active")),
+        "{lines:#?}"
+    );
+    assert_metal(&materials.materials);
+    assert!(
+        environment == environment_template(),
+        "env.dds is the bundled template"
+    );
+}
+
+#[test]
+fn a_linked_face_folder_s_metal_material_reflects_the_environment_map_in_the_player_s_home() {
+    let sandbox = Sandbox::new("conversion_metal_shared_face");
+    write_round_hat(&sandbox, "co Midcup Metal", &metal_model());
+
+    let (lines, materials, environment) = compiled_metal(&sandbox, "hat.mtl");
+
+    assert!(
+        lines
+            .iter()
+            .all(|line| !line.contains("content_not_yet_compiled")),
         "{lines:#?}"
     );
     assert_metal(&materials.materials);

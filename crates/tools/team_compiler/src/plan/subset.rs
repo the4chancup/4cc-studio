@@ -290,8 +290,9 @@ pub(crate) enum PlayerFile {
     /// A `.glb` or `.gltf` model with no model of the target's own format of its path stem
     /// beside it: the selected representation of its stem, which beats a model of the other
     /// engine's format beside it (`pipeline.md` step 3 "Format conversion"). The compiler does
-    /// not read glTF until Phase 7, so planning drops the player folder holding one
-    /// (`model_gltf_unsupported`) rather than compile the other format in its place: the
+    /// not read glTF until Phase 7, so planning drops the player folder holding one, or the
+    /// shared folder holding one with every player folder linking it
+    /// (`model_gltf_unsupported`), rather than compile the other format in its place: the
     /// same export never compiles differently once glTF is read.
     UnsupportedGltf,
 }
@@ -1200,7 +1201,7 @@ pub(crate) fn first_not_compiled(
 
 /// `first_not_compiled` for the pre-Fox `version`, where `compile` builds a team's player
 /// folders' own `.model` files with their `.mtl` files, textures and face diff, their own
-/// `.fmdl` files converted for the face, their own
+/// `.fmdl` files and those of the shared face they link converted for the face, their own
 /// `face.xml`, their `.common` links to a `.model`, a `.mtl` or a texture, the shared face,
 /// boots and gloves folders they link, the export's `Common/` folder, its kits, its `.model`
 /// collars and its FMDL collars converted, its portraits and its logo. A refs export
@@ -1440,9 +1441,10 @@ fn player_not_compiled(
 
 /// The first thing in the shared `folder` of `kind` that `compile` cannot build into a Fox
 /// package yet, its own or a combining player's: the files go by a player folder's roles (a
-/// `Faces/` folder's face files and hair skeletons included), but only the package the folder
-/// is loaded as and its textures have a place to go, a `.model` or a `.mtl` is named (a shared
-/// folder's `.model` is not converted yet), and a folder with no model is named as a whole.
+/// `Faces/` folder's face files and hair skeletons included, and a `.model` converted in its
+/// task with its `.mtl`, as a player's is), but only the package the folder is loaded as and
+/// its textures have a place to go, and a folder with no model is named as a whole. A selected
+/// glTF is never met: planning has removed its folder before this walk (`drop_gltf_folders`).
 fn shared_not_compiled(
     kind: SharedKind,
     folder: &SharedModelFolder,
@@ -1452,8 +1454,9 @@ fn shared_not_compiled(
     let models = FolderModels::of(path, &folder.files, Engine::Fox);
     let mut has_model = false;
     for file in &folder.files {
-        // A shared face's own `face.xml` is ignored as a player folder's is.
-        if kind == SharedKind::Face && is_user_face_xml(path, file) {
+        // A shared face's own `face.xml` is ignored as a player folder's is, and so is a
+        // model another representation of its stem beats (TC-MOD-26).
+        if (kind == SharedKind::Face && is_user_face_xml(path, file)) || models.beaten(file) {
             continue;
         }
         let Some(role) = player_file(path, file, &models) else {
@@ -1461,20 +1464,15 @@ fn shared_not_compiled(
         };
         // A model of another package has no package here, a `.common` link (kept by a
         // non-strict file-type check) resolves only from a player folder, and a face file
-        // with no face model has no place in a shared folder. Nor is a `.model` a shared
-        // folder holds converted yet, nor its `.mtl` read, nor is its glTF's folder dropped
-        // at planning as a player folder's is.
-        if role.package().is_some_and(|owner| owner != package)
-            || matches!(
-                file.kind,
-                FileKind::Model(ModelFormat::PesModel) | FileKind::Mtl
-            )
+        // with no face model has no place in a shared folder. A `.mtl` belongs to no package
+        // on Fox (`PlayerFile::package` gives its pre-Fox answer): the task converting the
+        // `.model` it defines reads it (`TaskKind::files`).
+        if (role != PlayerFile::Material && role.package().is_some_and(|owner| owner != package))
             || matches!(
                 role,
                 PlayerFile::CommonModel { .. }
                     | PlayerFile::CommonTexture(_)
                     | PlayerFile::UnusedFaceFile
-                    | PlayerFile::UnsupportedGltf
             )
         {
             return Some(what_entry(file));
@@ -1490,13 +1488,15 @@ fn shared_not_compiled(
 /// The first thing in the shared `folder` of `kind` that `compile` cannot build for a pre-Fox
 /// target yet: its first file with no pre-Fox role (`player_file`), that is a `.common` link
 /// (kept by a non-strict file-type check, it resolves only from a player folder), that is its
-/// own `face.xml` (not supported in a shared folder yet), that is an `.fmdl` or the skeleton
-/// paired with one (not converted in a shared folder yet) or, in a boots
-/// or gloves folder, with a role other than a model, a `.mtl` or a texture (a face diff has no
-/// face there to shape), or that is a per-kit model; a folder with no model is named as a
-/// whole. A boots folder holding several models compiles: they are merged into its one
-/// `boots.model`. A `Faces/` folder's files are copied into each linking player's face, so its
-/// face files are kept, and its per-kit sets are listed there.
+/// own `face.xml` (not supported in a shared folder yet), or, in a boots or gloves folder,
+/// that is an `.fmdl` or the skeleton paired with one (not converted there yet), that has a
+/// role other than a model, a `.mtl` or a texture (a face diff has no face there to shape), or
+/// that is a per-kit model; a folder with no model is named as a whole. A boots folder holding
+/// several models compiles: they are merged into its one `boots.model`. A `Faces/` folder's
+/// files are copied into each linking player's face, so its face files are kept, its per-kit
+/// sets are listed there, and its FMDL is converted there with its skeleton as the bind pose,
+/// as a player's own is. A selected glTF is never met: planning has removed its folder before
+/// this walk (`drop_gltf_folders`).
 fn pre_fox_shared_not_compiled(
     kind: SharedKind,
     folder: &SharedModelFolder,
@@ -1505,29 +1505,37 @@ fn pre_fox_shared_not_compiled(
     let models = FolderModels::of(path, &folder.files, Engine::PreFox);
     let mut has_model = false;
     for file in &folder.files {
+        // A model another representation of its stem beats is ignored, as in a player folder
+        // (TC-MOD-26).
+        if models.beaten(file) {
+            continue;
+        }
         let Some(role) = player_file(path, file, &models) else {
             return Some(what_entry(file));
         };
+        // Planning has removed a folder holding a selected glTF before this walk
+        // (`drop_gltf_folders`).
+        if role == PlayerFile::UnsupportedGltf {
+            continue;
+        }
         // A shared face's own `face.xml` is not supported yet: whether it rules every player
         // combining the face is an open question (`messages.md` "User-supplied `face.xml`").
-        // Nor is an FMDL a shared folder holds converted yet, nor its skeleton read, nor is
-        // its glTF's folder dropped at planning as a player folder's is.
         if matches!(
             role,
             PlayerFile::PreFoxCommonModel { .. }
                 | PlayerFile::CommonMaterial
                 | PlayerFile::CommonTexture(_)
                 | PlayerFile::FaceXml
-                | PlayerFile::ConversionSkeleton
-                | PlayerFile::UnsupportedGltf
-        ) || file.kind == FileKind::Model(ModelFormat::Fmdl)
-        {
+        ) {
             return Some(what_entry(file));
         }
-        let loose_output_file = matches!(
-            role,
-            PlayerFile::PreFoxModel { .. } | PlayerFile::Material | PlayerFile::Texture(..)
-        );
+        // Only the face converts an FMDL: the boots and gloves writer converts nothing yet
+        // (worklog step 4.17f2). The FMDL's skeleton is no loose output file either.
+        let loose_output_file = file.kind != FileKind::Model(ModelFormat::Fmdl)
+            && matches!(
+                role,
+                PlayerFile::PreFoxModel { .. } | PlayerFile::Material | PlayerFile::Texture(..)
+            );
         // The boots merge into one `boots.model` and the shared `glove.xml` lists every glove,
         // so neither can list a per-kit set once yet: every variant would be worn at once.
         let per_kit_model = matches!(role, PlayerFile::PreFoxModel { .. })
@@ -1709,32 +1717,52 @@ mod tests {
         let glb = "Players/03 - A/boots.glb";
         assert_eq!(gate(&["Players/03 - A/boots.model", glb]), None);
         assert_eq!(gate(&["Players/03 - A/boots.fmdl", glb]), None);
-        // A shared folder's glTF, `.model` or `.mtl`, a `Common/` one and a link to it are
-        // still named.
-        let shared_glb = "Boots/Crocs/boots.glb";
+        // A shared folder's `.model` is converted as a player's, with its `.mtl`, in a boots
+        // folder and in a face; its glTF's folder is planning's to drop.
         assert_eq!(
-            gate(&["Players/05 - B/Crocs.boots", shared_glb]),
-            what(shared_glb)
+            gate(&[
+                "Players/05 - B/Crocs.boots",
+                "Boots/Crocs/boots.model",
+                "Boots/Crocs/boots.mtl",
+            ]),
+            None
         );
-        let face_glb = "Faces/Round/hair_high.glb";
-        assert_eq!(
-            gate(&["Players/05 - B/Round.face", face_glb]),
-            what(face_glb)
-        );
-        let shared_model = "Boots/Crocs/boots.model";
-        assert_eq!(
-            gate(&["Players/05 - B/Crocs.boots", shared_model]),
-            what(shared_model)
-        );
-        let shared_mtl = "Faces/Round/hair_high.mtl";
         assert_eq!(
             gate(&[
                 "Players/05 - B/Round.face",
                 "Faces/Round/hair_high.fmdl",
-                shared_mtl
+                "Faces/Round/hat.model",
+                "Faces/Round/hat.mtl",
             ]),
-            what(shared_mtl)
+            None
         );
+        assert_eq!(
+            gate(&[
+                "Players/05 - B/Crocs.boots",
+                "Boots/Crocs/boots.glb",
+                "Boots/Crocs/kit_boots.fmdl",
+            ]),
+            None
+        );
+        assert_eq!(
+            gate(&[
+                "Players/05 - B/Round.face",
+                "Faces/Round/hair_high.glb",
+                "Faces/Round/face_high.fmdl",
+            ]),
+            None
+        );
+        // A glTF and a `.model` an FMDL of their stem beats are ignored there too.
+        assert_eq!(
+            gate(&[
+                "Players/05 - B/Crocs.boots",
+                "Boots/Crocs/boots.fmdl",
+                "Boots/Crocs/boots.glb",
+                "Boots/Crocs/boots.model",
+            ]),
+            None
+        );
+        // A `Common/` one and a link to it are still named.
         let link = "Players/03 - A/legs.model.common";
         assert_eq!(gate(&[link, "Common/legs.model"]), what(link));
         assert_eq!(gate(&["Common/legs.model"]), what("Common/legs.model"));
@@ -1822,10 +1850,27 @@ mod tests {
             "Gloves/Keeper/materials.mtl",
         ];
         assert_eq!(pre_fox(&keeper), None);
-        // A shared folder's FMDL is named, a face folder's too: only a player's own is
-        // converted.
-        let hat = "Faces/Round/hat.fmdl";
-        assert_eq!(pre_fox(&[round.as_slice(), &[hat]].concat()), what(hat));
+        // A shared face's FMDL is converted as a player's, its skeleton the bind pose; a boots
+        // or gloves folder's is still named.
+        assert_eq!(
+            pre_fox(
+                &[
+                    round.as_slice(),
+                    &["Faces/Round/hat.fmdl", "Faces/Round/hat.skl"]
+                ]
+                .concat()
+            ),
+            None
+        );
+        for fmdl in [
+            "Boots/Crocs/kit_boots.fmdl",
+            "Gloves/Keeper/keeper_gloveR.fmdl",
+        ] {
+            assert_eq!(
+                pre_fox(&[crocs.as_slice(), &keeper, &[fmdl]].concat()),
+                what(fmdl)
+            );
+        }
         // A shared boots folder holding several boots models compiles: they are merged.
         let link = "Players/03 - A/Crocs.boots";
         assert_eq!(
@@ -1861,8 +1906,8 @@ mod tests {
             None
         );
         // A glTF beats the FMDL of its stem, and its folder is planning's to drop
-        // (`model_gltf_unsupported`); one a `.model` of its stem beats is ignored. A shared
-        // folder's glTF is still named.
+        // (`model_gltf_unsupported`), a shared folder's too; one a `.model` of its stem beats
+        // is ignored.
         assert_eq!(
             pre_fox(&["Players/03 - A/hat.fmdl", "Players/03 - A/hat.glb"]),
             None
@@ -1871,10 +1916,24 @@ mod tests {
             pre_fox(&["Players/03 - A/hat.model", "Players/03 - A/hat.glb"]),
             None
         );
-        let shared_glb = "Faces/Round/hat.glb";
         assert_eq!(
-            pre_fox(&[round.as_slice(), &[shared_glb]].concat()),
-            what(shared_glb)
+            pre_fox(&[round.as_slice(), &["Faces/Round/hat.glb"]].concat()),
+            None
+        );
+        assert_eq!(
+            pre_fox(&[crocs.as_slice(), &["Boots/Crocs/kit_boots.glb"]].concat()),
+            None
+        );
+        // A glTF and an FMDL a `.model` of their stem beats are ignored there too.
+        assert_eq!(
+            pre_fox(
+                &[
+                    crocs.as_slice(),
+                    &["Boots/Crocs/boots.glb", "Boots/Crocs/boots.fmdl"]
+                ]
+                .concat()
+            ),
+            None
         );
         let fmdl_link = "Players/05 - B/x.fmdl.common";
         let face_link = "Players/05 - B/Round.face";
@@ -1886,6 +1945,8 @@ mod tests {
         assert_eq!(pre_fox(&["Collars/collar_12.fmdl"]), None);
         let common = "Common/x.fmdl";
         let kit_extra = "Kits/g1/kit_spec.dds";
+        // A shared face's own `face.xml` is not supported yet.
+        let shared_xml = "Faces/Round/face.xml";
         // In a folder, its first file with no role, then its linked face folder's first; then
         // the shared boots and gloves folders, the kits' textures and `Common/` (no collar file
         // is named on pre-Fox).
@@ -1893,7 +1954,7 @@ mod tests {
             fmdl_link,
             face_link,
             "Faces/Round/hair_high.model",
-            hat,
+            shared_xml,
             boots_link,
             boots_fmdl,
             kit,
@@ -1901,7 +1962,7 @@ mod tests {
             common,
         ];
         assert_eq!(pre_fox(&all), what(fmdl_link));
-        assert_eq!(pre_fox(&all[1..]), what(hat));
+        assert_eq!(pre_fox(&all[1..]), what(shared_xml));
         assert_eq!(pre_fox(&all[4..]), what(boots_fmdl));
         assert_eq!(pre_fox(&all[6..]), what(kit_extra));
         assert_eq!(pre_fox(&all[8..]), what(common));
@@ -1927,8 +1988,6 @@ mod tests {
         assert_eq!(pre_fox(&[own_xml]), None);
         let xml_in_face = "Players/03 - A/face/face.xml";
         assert_eq!(pre_fox(&[xml_in_face]), None);
-        // A shared face's own is not supported yet.
-        let shared_xml = "Faces/Round/face.xml";
         assert_eq!(
             pre_fox(&[round.as_slice(), &[shared_xml]].concat()),
             what(shared_xml)

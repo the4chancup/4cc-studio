@@ -759,7 +759,8 @@ pub(crate) struct ExportToPlan {
 }
 
 /// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
-/// `version`. A mapped player folder whose model is a selected glTF is dropped first
+/// `version`. A mapped player folder whose model is a selected glTF is dropped first, and so
+/// is a shared folder whose model is one, with every player folder linking it
 /// (`drop_gltf_folders`). An export holding anything Phase 3 cannot compile yet plans no task
 /// and reports `content_not_yet_compiled` naming the first such item. Every other export's
 /// note goes into the manifest, and a team export's colors; one with no root `colors.txt` reports
@@ -1281,13 +1282,16 @@ fn drop_other_engine_map(
 }
 
 /// Drops every mapped player folder of `export` holding a glTF model selected for its stem on
-/// `version` (`PlayerFile::UnsupportedGltf`), reporting `model_gltf_unsupported` on the folder
-/// once per such file, naming it below the folder, in the export's folder order (`pipeline.md` step 3 "Format
-/// conversion": a selected glTF drops the folder until Phase 7 rather than falling through to
-/// the other engine's format). The folder's roster slots are removed, as validation removes a
-/// dropped folder's, so it plans no task and its slots compile as empty ones do. It goes
-/// before the subset gate, which therefore never walks the folder. A shared folder's glTF is
-/// left to the gate (`shared_not_compiled`).
+/// `version` (`PlayerFile::UnsupportedGltf`), and every shared folder holding one with each
+/// mapped player folder linking it (`pipeline.md` step 3 "Format conversion": a selected glTF
+/// drops its folder until Phase 7 rather than falling through to the other engine's format,
+/// and a player without the face, boots or gloves he linked would compile to something he did
+/// not ask for). `model_gltf_unsupported` is reported on the player folder once per such file:
+/// his own, named below his folder, or, when he holds none, those of the shared folders he
+/// links, named by their export paths; each in the export's folder order. The player folder's
+/// roster slots are removed, as validation removes a dropped folder's, so it plans no task and
+/// its slots compile as empty ones do, and the shared folder is removed from the export. It
+/// goes before the subset gate, which therefore never walks either.
 fn drop_gltf_folders(
     export_id: ExportId,
     export: &mut ResolvedAestheticsExport,
@@ -1295,21 +1299,62 @@ fn drop_gltf_folders(
     messages: &mut Vec<Message>,
 ) {
     let export = &mut export.export;
+    let engine = version.engine();
     let mapped: Vec<PlayerIndex> = match &export.roster {
         ValidatedRoster::Team(slots) => slots.values().copied().collect(),
         ValidatedRoster::Referees(slots) => slots.values().copied().collect(),
     };
+    // Each selected glTF of a shared folder, with that folder's path, faces first, then boots,
+    // then gloves, as the export lists them.
+    let mut shared_gltfs: Vec<(ScopePath, ScopePath)> = Vec::new();
+    for folder in export
+        .faces
+        .iter()
+        .chain(&export.boots)
+        .chain(&export.gloves)
+    {
+        let models = FolderModels::of(&folder.path, &folder.files, engine);
+        for file in &folder.files {
+            if player_file(&folder.path, file, &models) == Some(PlayerFile::UnsupportedGltf) {
+                shared_gltfs.push((folder.path.clone(), file.path.clone()));
+            }
+        }
+    }
     let mut dropped = Vec::new();
     for (index, folder) in export.players.iter().enumerate() {
         let index = PlayerIndex(index);
         if !mapped.contains(&index) {
             continue;
         }
-        let models = FolderModels::of_player(folder, version.engine());
-        for file in &folder.files {
-            if player_file(&folder.path, file, &models) != Some(PlayerFile::UnsupportedGltf) {
-                continue;
-            }
+        let models = FolderModels::of_player(folder, engine);
+        // Named below the folder, as `xml_ignored_fox` names its file: two glTFs of one name
+        // in different subfolders are two findings a member can tell apart.
+        let mut files: Vec<String> = folder
+            .files
+            .iter()
+            .filter(|file| {
+                player_file(&folder.path, file, &models) == Some(PlayerFile::UnsupportedGltf)
+            })
+            .map(|file| crate::deep::relative(&file.path, &folder.path))
+            .collect();
+        // A folder dropped for its own glTF is not told about a linked one as well.
+        if files.is_empty() {
+            let linked: Vec<&ScopePath> = folder
+                .links
+                .iter()
+                .filter_map(|link| linked_folder(export, link))
+                .map(|shared| &shared.path)
+                .collect();
+            files = shared_gltfs
+                .iter()
+                .filter(|(shared, _)| linked.contains(&shared))
+                .map(|(_, file)| file.as_str().to_owned())
+                .collect();
+        }
+        if !files.is_empty() {
+            dropped.push(index);
+        }
+        for file in files {
             messages.push(tool_message(
                 Code::ModelGltfUnsupported,
                 Scope::Folder {
@@ -1317,15 +1362,18 @@ fn drop_gltf_folders(
                     path: folder.path.clone(),
                 },
                 Disposition::DropFolder,
-                // Named below the folder, as `xml_ignored_fox` names its file: two glTFs of one
-                // name in different subfolders are two findings a member can tell apart.
-                vec![("file", crate::deep::relative(&file.path, &folder.path))],
+                vec![("file", file)],
             ));
-            if !dropped.contains(&index) {
-                dropped.push(index);
-            }
         }
     }
+    let holds_gltf = |folder: &SharedModelFolder| {
+        shared_gltfs
+            .iter()
+            .any(|(shared, _)| *shared == folder.path)
+    };
+    export.faces.retain(|folder| !holds_gltf(folder));
+    export.boots.retain(|folder| !holds_gltf(folder));
+    export.gloves.retain(|folder| !holds_gltf(folder));
     match &mut export.roster {
         ValidatedRoster::Team(slots) => slots.retain(|_, index| !dropped.contains(index)),
         ValidatedRoster::Referees(slots) => slots.retain(|_, index| !dropped.contains(index)),
@@ -2174,6 +2222,97 @@ mod tests {
                 "0 999 Boots Players/Ref B [referee 2] charge 16",
             ]
         );
+    }
+
+    #[test]
+    fn a_shared_folder_s_selected_gltf_drops_it_with_every_player_linking_it() {
+        let files = [
+            ("Players/05 - A/Crocs.boots", 0),
+            // Dropped for his own glTF, which is the one reported.
+            ("Players/06 - B/Crocs.boots", 0),
+            ("Players/06 - B/face/hat.gltf", 4),
+            ("Players/07 - C/Round.face", 0),
+            ("Players/09 - D/Mud.boots", 0),
+            ("Boots/Crocs/boots.glb", 4),
+            ("Boots/Mud/boots.glb", 4),
+            ("Faces/Round/hat.glb", 4),
+        ];
+        // A model of the target's format beats Mud's glTF of its stem: Mud compiles.
+        for (version, mud) in [
+            (PesVersion::Pes21, &[("Boots/Mud/boots.fmdl", 16)][..]),
+            (
+                PesVersion::Pes17,
+                &[("Boots/Mud/boots.model", 16), ("Boots/Mud/boots.mtl", 1)][..],
+            ),
+        ] {
+            let export = resolved("co Midcup Gltf", &[&files[..], mud].concat(), &[], None);
+
+            let mut kept = export.clone();
+            let mut messages = Vec::new();
+            drop_gltf_folders(ExportId(0), &mut kept, version, &mut messages);
+            let names = |folders: &[SharedModelFolder]| -> Vec<String> {
+                folders
+                    .iter()
+                    .map(|folder| folder.folder_name.clone())
+                    .collect()
+            };
+            assert_eq!(names(&kept.export.boots), ["Mud"], "{version}");
+            assert_eq!(names(&kept.export.faces), Vec::<String>::new(), "{version}");
+
+            let report = plan_run(
+                vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+                version,
+            );
+
+            assert_eq!(
+                message_summary(&report),
+                [
+                    (
+                        "model_gltf_unsupported",
+                        "Players/05 - A",
+                        Disposition::DropFolder
+                    ),
+                    (
+                        "model_gltf_unsupported",
+                        "Players/06 - B",
+                        Disposition::DropFolder
+                    ),
+                    (
+                        "model_gltf_unsupported",
+                        "Players/07 - C",
+                        Disposition::DropFolder
+                    ),
+                ],
+                "{version}"
+            );
+            // A shared file by its export path, the folder's own below the folder.
+            let files: Vec<&str> = report
+                .messages
+                .iter()
+                .map(|message| message.context[0].1.as_str())
+                .collect();
+            assert_eq!(
+                files,
+                [
+                    "Boots/Crocs/boots.glb",
+                    "face/hat.gltf",
+                    "Faces/Round/hat.glb"
+                ],
+                "{version}"
+            );
+            // Only slot 09 and Mud plan tasks.
+            let folders: BTreeSet<String> = report
+                .manifest
+                .tasks
+                .iter()
+                .map(|task| task.kind.folder_path().as_str().to_owned())
+                .collect();
+            assert_eq!(
+                folders,
+                BTreeSet::from(["Boots/Mud".to_owned(), "Players/09 - D".to_owned()]),
+                "{version}"
+            );
+        }
     }
 
     #[test]

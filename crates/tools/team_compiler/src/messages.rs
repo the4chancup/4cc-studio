@@ -289,8 +289,9 @@ pub(crate) enum Code {
     /// A player folder's glTF model (`.glb` or `.gltf`) is its stem's selected representation,
     /// no model of the target's own format of its stem beside it, and the compiler does not
     /// read glTF yet: planning leaves the folder out, never compiling the other engine's
-    /// `.model` or `.fmdl` beside it instead. Reported by `compile` alone, before the folder's
-    /// tasks are made, so `pass_through` does not apply.
+    /// `.model` or `.fmdl` beside it instead. A shared folder's is reported on each player
+    /// folder linking it, which is left out with it. Reported by `compile` alone, before the
+    /// folder's tasks are made, so `pass_through` does not apply.
     ModelGltfUnsupported,
     /// A model the compiler must convert (an FMDL for PES 15-17, a `.model` for PES 18-21, or a
     /// face model to hand auto-split) cannot be read, converted or written back, or its
