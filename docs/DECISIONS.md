@@ -5148,3 +5148,41 @@ for one finding, and a package left out beside an Error on the folder is already
 conflict reaches the member.
 Plan: `team_compiler/README.md` TC-MOD-29 and TC-MOD-34 (the measured mesh relation);
 `team_compiler/messages.md` the three rows.
+
+## 2026-10-08 — team_compiler — Conversion findings: every loss code reported, the converted form's Warnings and Infos not
+Decision: `conversion::reported` maps every `model_convert` loss code to a catalog row, in both
+directions and for the same-engine retarget, the hand-split re-conversion excluded (one report
+per source): a Warning for a change in how the model looks or moves (a guessed bone matrix,
+a guessed fold, a guessed shader family, a zeroed weight slot, a mesh unhidden), an Info for a
+drop the game cannot show (a redundant copy, a derived attribute, a default the game applies).
+The converter's `native_field_dropped` splits into two rows by its detail: `native_field_dropped`
+(I) and `mesh_flags_dropped` (W) for `invisible` and `no_shadow_cast`, since the catalog gives a
+code one severity and keying it by context would be machinery for one case. The target format's
+`check` on a converted form acts on its Errors alone; its Warnings and Infos are not reported.
+Why: 4.17a mapped the two codes its tracer run fired and dropped the rest "until slice c", and a
+dropped loss is a change the member never hears of. Reporting the converted form's Warnings
+would need a `Code` variant per format-check rule (the deep pass reports those by string, the
+tasks by `Code`), and the member can change nothing in the converter's output: the source is
+what they edit, and the deep pass checks it with every rule.
+Plan: `team_compiler/messages.md` the conversion rows after `skeleton_retargeted` and the
+"Model checks" paragraph.
+
+## 2026-10-08 — team_compiler, model_convert — The same-engine pre-check waits for reference poses that match the game's files
+Decision: a selected native model is packed from its source bytes on both engines;
+`model_convert::needs_conversion` is not run by the compiler until the converter's reference
+poses are reconciled with the game's own skeleton files (worklog 4.17g, a two-crate step: the
+face against the version's own face table, boots against the game's `boots.skl`, gloves
+against the hand pose, then the compiler's call in the Fox Models task and the pre-Fox face,
+whose drafts 4.17c1 kept under `.tmp/`). `bone_matrix_unknown` and
+`material_family_approximated` carry the bone's or material's name under `name`.
+Why: 4.17c1 wired the pre-check as the plan said and the pre-Fox parity test failed:
+`needs_conversion` says true for every model of the pre-Fox tracer on PES 15, 16 and 17, the
+last being Red's own target, re-binding 31, 8, 24 and 24 bones of working community models
+(the face's `skf_*` bones are 0.002 to 0.041 off PES 19's Fox face table, the boots' leg bones
+0.121 off the body table they are not bound to, the gloves' 0.36 off). On Fox no real fixture
+needs it on any version except boots shipping the game's own `boots.skl` (feet at ±0.09
+against every body table's ±0.194), which the check would re-bind to the body pose. A check
+whose only real trigger is a working file is a wrong check, and running it changes what members
+already play; the loss mapping does not depend on it.
+Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the pre-check sentence);
+`team_compiler/messages.md` the two rows.

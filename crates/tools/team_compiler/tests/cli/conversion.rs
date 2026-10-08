@@ -79,6 +79,33 @@ fn the_tracer_s_fox_models_compile_for_pes_17_as_model_files_with_their_material
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] {folder} (file=glove_l.fmdl, count=2)"
         ),
         "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)".to_owned(),
+        // What each conversion drops: the FMDL's redundant bone-matrix block, the hair's
+        // `.skl` parents the FMDL's win over, and the `shirt` mesh's no-shadow flag, which a
+        // `.mtl` cannot express.
+        format!(
+            "egg Midcup Tracer: Info native_field_dropped [Keep] {folder} (model=boots.fmdl, field=bone_matrices)"
+        ),
+        format!(
+            "egg Midcup Tracer: Warning mesh_flags_dropped [Keep] {folder} (model=boots.fmdl, material=1, field=no_shadow_cast)"
+        ),
+        format!(
+            "egg Midcup Tracer: Info native_field_dropped [Keep] {folder} (model=fcl_hair.fmdl, field=bone_matrices)"
+        ),
+        format!(
+            "egg Midcup Tracer: Info native_field_dropped [Keep] {folder} (model=fcl_hair.fmdl, bone=8, field=skl_parent)"
+        ),
+        format!(
+            "egg Midcup Tracer: Info native_field_dropped [Keep] {folder} (model=fcl_hair.fmdl, bone=25, field=skl_parent)"
+        ),
+        format!(
+            "egg Midcup Tracer: Warning mesh_flags_dropped [Keep] {folder} (model=fcl_hair.fmdl, material=1, field=no_shadow_cast)"
+        ),
+        format!(
+            "egg Midcup Tracer: Info native_field_dropped [Keep] {folder} (model=glove_l.fmdl, field=bone_matrices)"
+        ),
+        format!(
+            "egg Midcup Tracer: Info native_field_dropped [Keep] {folder} (model=glove_r.fmdl, field=bone_matrices)"
+        ),
         // No model is typed `face_neck`: the hair and the boots are `parts`.
         format!("egg Midcup Tracer: Info xml_face_neck_added [Keep] {folder} ()"),
         format!(
@@ -215,8 +242,34 @@ fn a_fox_model_re_bound_to_pes_15_s_skeleton_is_reported_naming_it() {
                 "Info fmdl_weights_not_normalized [Keep] {folder} (file=glove_l.fmdl, count=2)"
             ),
             "Info export_identified [Keep] (team=/egg/, id=792)".to_owned(),
+            // Each model's losses in the order the conversion reports them, the re-binding
+            // between the import's and the `.model` export's.
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=boots.fmdl, field=bone_matrices)"
+            ),
             format!("Info skeleton_retargeted [Keep] {folder} (model=boots.fmdl, bones=7)"),
+            format!(
+                "Warning mesh_flags_dropped [Keep] {folder} (model=boots.fmdl, material=1, field=no_shadow_cast)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=fcl_hair.fmdl, field=bone_matrices)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=fcl_hair.fmdl, bone=8, field=skl_parent)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=fcl_hair.fmdl, bone=25, field=skl_parent)"
+            ),
             format!("Info skeleton_retargeted [Keep] {folder} (model=fcl_hair.fmdl, bones=7)"),
+            format!(
+                "Warning mesh_flags_dropped [Keep] {folder} (model=fcl_hair.fmdl, material=1, field=no_shadow_cast)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=glove_l.fmdl, field=bone_matrices)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=glove_r.fmdl, field=bone_matrices)"
+            ),
             format!("Info xml_face_neck_added [Keep] {folder} ()"),
         ]
     );
@@ -632,6 +685,10 @@ fn a_hand_weighted_model_is_converted_then_gives_its_hands_to_the_player_s_glove
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=body.model)",
             "Info team_colors_missing [Keep] ()",
+            // The face's conversion reports once; the gloves' conversion of the same model,
+            // for its hands, reports nothing.
+            "Info dummy_texture_added [Keep] at Players/05 - A (model=body.model, material=0, sampler=NormalMap_Tex_NRM)",
+            "Info dummy_texture_added [Keep] at Players/05 - A (model=body.model, material=0, sampler=SpecularMap_Tex_LIN)",
             "Info model_hand_split [Keep] at Players/05 - A (model=body.model, gloves=glove_l, glove_r)",
         ]
     );

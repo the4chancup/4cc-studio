@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1762,7 +1762,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `Templates::environment_map()`, the `EnvironmentMap` sampler added to a converted `Metal`
   material, the cubemap emitted into the folder's texture home (TC-MOD-36); (e) collars across
   engines (TC-CMN-09; the `.model` → Fox and glTF collar rulings made then); (f) shared folders,
-  `Common/` models and `.common` links in the other format.
+  `Common/` models and `.common` links in the other format; (g) the same-engine pre-check, two
+  crates: `model_convert::needs_conversion`'s reference poses reconciled with the game's own
+  skeleton files (the face against the version's own face table, not PES 19's Fox one; boots
+  against the game's `boots.skl`; gloves against the hand pose), measured against the pre-Fox
+  parity tracer (today true for all four of its models on PES 17, Red's target) and the Fox
+  boots shipping the game's `boots.skl` (today true on every Fox version), then the compiler's
+  call in the Fox Models task and the pre-Fox face from 4.17c1's drafts
+  (`.tmp/sk_4_17c1_fox_precheck.rs`, `.tmp/sk_4_17c1_prefox_precheck.rs`,
+  `.tmp/sk_4_17c1_prefox_face.diff`), the gloves task given the face's `.skl` for its
+  re-conversion, a slotless model's `.skl` read for the pre-check (DECISIONS 2026-10-08 "The
+  same-engine pre-check waits"). Slice c was split: c1 the loss codes and the pre-check
+  measurement, c2 the selected glTF (`model_gltf_unsupported`, TC-MOD-28).
   Open for the maintainer here: which converted material of a collar becomes `uni_collar` and
   which `uni_shirts` (the stock referee collar uses `uni_shirts` alone; the recommendation for
   slice e: the first material `uni_collar`, the rest `uni_shirts`), an in-game check; whether
@@ -1774,7 +1785,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `model_material_undefined` comparison know `.model` files only; a plan ruling on how an xml
   names a converted model and its `<stem>.mtl` comes first; analysis in
   `.tmp/sk_4_17a_report.md` R3); a converted material whose base is the game's `dummy_bsm`
-  (Konami's `addon_oral.fmdl`) keeps its Fox path on pre-Fox (rule with slice c). From 4.17b:
+  (Konami's `addon_oral.fmdl`) keeps its Fox path on pre-Fox
+  (`/Assets/pes16/model/character/common/sourceimages/dummy_bsm.dds`), where the legacy
+  converter wrote `./.dds`, a directory with the name dropped (measured at 4.17c1 on
+  `legacy19to16_oral.mtl`): neither resolves on PES 15-17, so the game draws that material
+  with its fallback either way, and the same model's hidden oral mesh (`invisible`, a flag a
+  `.mtl` cannot express, now the Warning `mesh_flags_dropped`) shows on PES 17; open for the
+  maintainer: what the modded exes draw for such a material and whether a hidden Fox mesh
+  should be dropped from the `.model` instead of unhidden (a plan ruling, then a converter
+  change). From 4.17b:
   the Warnings and Infos the target format's check fires on a converted form are not reported
   (rule with slice c: Warnings kept with their code, Infos dropped); the same-engine
   `needs_conversion` pre-check of a selected native model is not run yet (slice c); per-kit
@@ -1845,6 +1864,24 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   found (the Fox `.mtl` texture check, the beaten model deep-checked), the rest parked above;
   mutants: 108, 91 caught, 17 unviable (`Default::default()` on types without one, one `||`
   in a `let` chain), 0 missed).
+  (c1) done 2026-10-08 (`conversion.rs` `reported` maps every code `model_convert::loss`
+  documents (16) to a catalog row, context `model`, then the subject's `mesh`/`material`/`bone`
+  index, then the detail under the row's key (`name`, `count`, `parameter`, `sampler`,
+  `texture`, `field`; the folds' `bone` detail in the index's place), `native_field_dropped`
+  for `invisible`/`no_shadow_cast` as the Warning `mesh_flags_dropped`; `messages.rs` 15 `Code`
+  variants (`material_texture_unused`'s had no variant), `ALL` 128; help; the tracer tests on
+  PES 17 and 15 pin the measured loss lines (`bone_matrices` on every model, the hair's two
+  `skl_parent`, the `shirt` material's `no_shadow_cast` on the boots and the hair), the hand
+  split's two `dummy_texture_added`, the card's three losses in the unit test; the same-engine
+  pre-check was wired on both engines as the plan said, measured, and taken out again: the
+  sidekick removed the pre-Fox half itself when the parity test failed (every tracer model
+  true on PES 17), the lead's rework unwired the Fox half (true only for boots shipping the
+  game's `boots.skl`), the drafts kept under `.tmp/` for slice (g) (DECISIONS 2026-10-08 "The
+  same-engine pre-check waits"); the `.expect` a `.model`'s Common `.mtl` seemed to reach on Fox
+  is unreachable (the plain search never looks in `Common/`, and the gate names a Common
+  `.mtl` and a `.common` link to one), measured by a probe, no change; `dummy_bsm` measured
+  (open item above); one rework round; mutants: 23, 21 caught, 2 unviable (`Default::default()`
+  on `Code`, one `||` in a `let` chain), 0 missed).
 
 - [x] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
   on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
@@ -4135,3 +4172,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     2026-10-08); a beaten model is read by nothing, and a selected `.model`'s `.mtl` gets the
     texture check on Fox. Next: 4.17c (every loss code mapped, Warnings of the converted form,
     the same-engine pre-check, `model_gltf_unsupported`).
+  - **4.17c1 done**: every `model_convert` loss code is reported at a catalog severity
+    (Warning for a change in how the model looks or moves, Info for a drop the game cannot
+    show), the converted form's own Warnings and Infos are not (DECISIONS 2026-10-08). The
+    same-engine pre-check was wired as the plan said and measured: `needs_conversion`'s
+    reference poses disagree with the pre-Fox parity tracer on Red's own target and fire on
+    Fox only for boots shipping the game's `boots.skl`, so it is deferred to slice (g), a
+    two-crate step reconciling the poses first (DECISIONS 2026-10-08). Next: 4.17c2 (a
+    selected glTF refused at planning, TC-MOD-28).

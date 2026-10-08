@@ -319,10 +319,16 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    through to the opposite native format, so the same export never compiles differently once
    glTF is read. Selection is per model stem, each stem on its own: a `hair_high.model` beside
    a `face_high.fmdl` is selected and converted, not dropped by a folder-wide choice, which
-   would lose it silently. Every selected native model runs the conversion pre-check
-   (`model_convert::needs_conversion`), so a same-engine model of another version is retargeted
-   when a bone it uses differs (`conversion.md` "Cost") and one that needs nothing is written
-   from its source bytes. A file only the other engine reads is ignored with no finding when its
+   would lose it silently. A selected native model is packed from its source bytes, its
+   texture paths pointed; the conversion pre-check (`model_convert::needs_conversion`), which
+   would retarget a same-engine model of another version when a bone it uses differs
+   (`conversion.md` "Cost"), is not run until the converter's reference poses are reconciled
+   with the game's own skeleton files: measured at 4.17c1, it says true for every model of the
+   pre-Fox parity tracer on PES 17, Red's own target (the face's `skf_*` bones against PES 19's
+   Fox face table, the boots and the gloves against the body pose where they are bound to a
+   boots and a hand pose), and on every Fox version for boots shipping the game's own
+   `boots.skl` (feet at x ±0.09 against the body tables' ±0.194), so running it would re-bind
+   working community models (worklog step 4.17g). A file only the other engine reads is ignored with no finding when its
    model is not selected (a `.mtl` beside a `.model` an FMDL beats on Fox) or when the target
    has no counterpart for it (`fcl_hair_sim.fclo` on PES 15-17): TC-MOD-26 keeps the unselected
    model itself silent, and its companions follow it. The `.skl` paired with a selected FMDL is

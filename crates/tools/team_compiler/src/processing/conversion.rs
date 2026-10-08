@@ -7,7 +7,7 @@
 //! (`messages.md` `vertex_too_far_from_origin`): what the source passed, the conversion may
 //! still have moved or split past a limit.
 
-use model_convert::{Converted, NativeModelBundle, convert, loss};
+use model_convert::{Converted, NativeModelBundle, Subject, convert, loss};
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 use pes_version::PesVersion;
@@ -179,29 +179,61 @@ fn target_form_failure(name: &str, fired: Vec<Fired>) -> Result<(), TaskFailure>
     }
 }
 
-/// The finding the conversion's `loss` of the model `name` (its file name) is reported as: an
-/// Info on the folder naming the model and, for `bone_folded_for_version`, the bone folded and
-/// the one it folded onto (`bone`, `<bone> -> <target>`), for `skeleton_retargeted` how many
-/// bones moved (`bones`). Any other loss is not reported yet: the conversion's remaining codes
-/// are mapped by a later step, for every converted model.
+/// The finding the conversion's `loss` of the model `name` (its file name) is reported as, on
+/// the folder, at its catalog row's severity (`messages.md`, the conversion rows): its context
+/// is the model, then the index of the mesh, material or bone the loss is about, then the
+/// loss's detail under the row's key when the row names one. A fold's detail,
+/// `<bone> -> <target>`, names the bone itself and is given in the index's place.
+/// `native_field_dropped` of a Fox mesh flag a `.mtl` cannot express (`invisible`,
+/// `no_shadow_cast`) is `mesh_flags_dropped`, a Warning: the mesh shows where the source hid
+/// it. `None` for a code `model_convert::loss` does not document.
 fn reported(name: &str, loss: &loss::Finding) -> Option<Finding> {
-    let (code, key) = match loss.code {
-        "bone_folded_for_version" => (Code::BoneFoldedForVersion, "bone"),
-        "skeleton_retargeted" => (Code::SkeletonRetargeted, "bones"),
+    let (code, detail_key) = match loss.code {
+        "bone_matrix_unknown" => (Code::BoneMatrixUnknown, Some("name")),
+        "bone_slot_dropped" => (Code::BoneSlotDropped, Some("count")),
+        "material_family_approximated" => (Code::MaterialFamilyApproximated, Some("name")),
+        "material_split_by_flags" => (Code::MaterialSplitByFlags, Some("name")),
+        "material_texture_unused" => (Code::MaterialTextureUnused, Some("texture")),
+        "material_parameter_dropped" => (Code::MaterialParameterDropped, Some("parameter")),
+        "sampler_settings_defaulted" => (Code::SamplerSettingsDefaulted, Some("sampler")),
+        "vertex_bitangents_dropped" => (Code::VertexBitangentsDropped, None),
+        "dummy_texture_added" => (Code::DummyTextureAdded, Some("sampler")),
+        "native_field_dropped" => match loss.detail.as_str() {
+            "invisible" | "no_shadow_cast" => (Code::MeshFlagsDropped, Some("field")),
+            _ => (Code::NativeFieldDropped, Some("field")),
+        },
+        "bone_folded_for_version" => (Code::BoneFoldedForVersion, Some("bone")),
+        "bone_folded_by_position" => (Code::BoneFoldedByPosition, Some("bone")),
+        "skeleton_retargeted" => (Code::SkeletonRetargeted, Some("bones")),
+        "static_bone_added" => (Code::StaticBoneAdded, None),
+        "weight_clamped" => (Code::WeightClamped, Some("count")),
+        "empty_mesh_bone_group_dropped" => (Code::EmptyMeshBoneGroupDropped, Some("count")),
+        // `loss.code` is a string `model_convert` documents rather than an enum: a code it
+        // adds is unknown here until the catalog gives it a row.
         _ => return None,
     };
-    Some((
-        code,
-        Disposition::Keep,
-        vec![("model", name.to_owned()), (key, loss.detail.clone())],
-    ))
+    let mut context = vec![("model", name.to_owned())];
+    let subject = match loss.subject {
+        Subject::Model => None,
+        Subject::Mesh(index) => Some(("mesh", index)),
+        Subject::Material(index) => Some(("material", index)),
+        Subject::Bone(index) => Some(("bone", index)),
+    };
+    if let Some((key, index)) = subject
+        && detail_key != Some(key)
+    {
+        context.push((key, index.to_string()));
+    }
+    if let Some(key) = detail_key {
+        context.push((key, loss.detail.clone()));
+    }
+    Some((code, Disposition::Keep, context))
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
-    use model_convert::Subject;
     use pipeline::MemoryBudget;
 
     use super::*;
@@ -271,10 +303,35 @@ mod tests {
             (1, 1),
             "the card's meshes, then the FMDL's"
         );
-        // The card's one bone is the game's own, at its pose: no skeleton of its own, and
-        // nothing the member is told.
+        // The card's one bone is the game's own, at its pose: no skeleton of its own, and no
+        // bone moved. What the member is told is what the FMDL adds and drops: the dummy
+        // maps its `Basic_C` material lacks, and the bitangents an FMDL has no place for.
         assert!(converted.skeleton.is_none());
-        assert_eq!(findings, []);
+        let model_named = |rest: &[(&'static str, &str)]| {
+            let mut context = vec![("model", "card.model".to_owned())];
+            context.extend(rest.iter().map(|(key, value)| (*key, (*value).to_owned())));
+            context
+        };
+        assert_eq!(
+            findings,
+            [
+                (
+                    Code::DummyTextureAdded,
+                    Disposition::Keep,
+                    model_named(&[("material", "0"), ("sampler", "NormalMap_Tex_NRM")])
+                ),
+                (
+                    Code::DummyTextureAdded,
+                    Disposition::Keep,
+                    model_named(&[("material", "0"), ("sampler", "SpecularMap_Tex_LIN")])
+                ),
+                (
+                    Code::VertexBitangentsDropped,
+                    Disposition::Keep,
+                    model_named(&[("mesh", "0")])
+                ),
+            ]
+        );
     }
 
     #[test]
@@ -379,55 +436,188 @@ mod tests {
         }
     }
 
+    /// A loss's code, subject and detail, and the code and context after the model's name
+    /// that `reported` gives it.
+    type ReportedCase = (
+        &'static str,
+        Subject,
+        &'static str,
+        Code,
+        &'static [(&'static str, &'static str)],
+    );
+
     #[test]
-    fn a_fold_and_a_retargeted_skeleton_are_reported_and_the_other_losses_not_yet() {
-        // A PES 2017 model folded for PES 2015, as `model_convert`'s retargeting reports it.
+    fn every_documented_loss_code_is_reported() {
+        // Each code `model_convert::loss` documents, with a subject and a detail of the kind
+        // its importers and exporters give it, and the finding the member is told.
+        let cases: [ReportedCase; 17] = [
+            (
+                "bone_matrix_unknown",
+                Subject::Bone(4),
+                "my_bone",
+                Code::BoneMatrixUnknown,
+                &[("bone", "4"), ("name", "my_bone")],
+            ),
+            (
+                "bone_slot_dropped",
+                Subject::Mesh(2),
+                "3",
+                Code::BoneSlotDropped,
+                &[("mesh", "2"), ("count", "3")],
+            ),
+            (
+                "material_family_approximated",
+                Subject::Material(1),
+                "shirt",
+                Code::MaterialFamilyApproximated,
+                &[("material", "1"), ("name", "shirt")],
+            ),
+            (
+                "material_split_by_flags",
+                Subject::Material(0),
+                "kit_1",
+                Code::MaterialSplitByFlags,
+                &[("material", "0"), ("name", "kit_1")],
+            ),
+            (
+                "material_texture_unused",
+                Subject::Material(2),
+                "Tex_Sampler",
+                Code::MaterialTextureUnused,
+                &[("material", "2"), ("texture", "Tex_Sampler")],
+            ),
+            (
+                "material_parameter_dropped",
+                Subject::Material(0),
+                "SpecularColor",
+                Code::MaterialParameterDropped,
+                &[("material", "0"), ("parameter", "SpecularColor")],
+            ),
+            (
+                "sampler_settings_defaulted",
+                Subject::Material(1),
+                "DiffuseMap",
+                Code::SamplerSettingsDefaulted,
+                &[("material", "1"), ("sampler", "DiffuseMap")],
+            ),
+            (
+                "vertex_bitangents_dropped",
+                Subject::Mesh(0),
+                "",
+                Code::VertexBitangentsDropped,
+                &[("mesh", "0")],
+            ),
+            (
+                "dummy_texture_added",
+                Subject::Material(0),
+                "NormalMap_Tex_NRM",
+                Code::DummyTextureAdded,
+                &[("material", "0"), ("sampler", "NormalMap_Tex_NRM")],
+            ),
+            (
+                "native_field_dropped",
+                Subject::Model,
+                "bone_matrices",
+                Code::NativeFieldDropped,
+                &[("field", "bone_matrices")],
+            ),
+            (
+                "native_field_dropped",
+                Subject::Material(1),
+                "invisible",
+                Code::MeshFlagsDropped,
+                &[("material", "1"), ("field", "invisible")],
+            ),
+            // A PES 2017 model folded for PES 2015, as `model_convert`'s retargeting reports
+            // it: the detail names the bone, in the index's place.
+            (
+                "bone_folded_for_version",
+                Subject::Bone(3),
+                "dsk_deltoid_l -> dsk_upperarm_l",
+                Code::BoneFoldedForVersion,
+                &[("bone", "dsk_deltoid_l -> dsk_upperarm_l")],
+            ),
+            (
+                "bone_folded_by_position",
+                Subject::Bone(9),
+                "dsk_back -> sk_chest",
+                Code::BoneFoldedByPosition,
+                &[("bone", "dsk_back -> sk_chest")],
+            ),
+            (
+                "skeleton_retargeted",
+                Subject::Model,
+                "7",
+                Code::SkeletonRetargeted,
+                &[("bones", "7")],
+            ),
+            (
+                "static_bone_added",
+                Subject::Mesh(1),
+                "",
+                Code::StaticBoneAdded,
+                &[("mesh", "1")],
+            ),
+            (
+                "weight_clamped",
+                Subject::Mesh(0),
+                "12",
+                Code::WeightClamped,
+                &[("mesh", "0"), ("count", "12")],
+            ),
+            (
+                "empty_mesh_bone_group_dropped",
+                Subject::Mesh(3),
+                "175",
+                Code::EmptyMeshBoneGroupDropped,
+                &[("mesh", "3"), ("count", "175")],
+            ),
+        ];
+        for (code, subject, detail, expected, context) in cases {
+            let mut expected_context = vec![("model", "boots.fmdl".to_owned())];
+            expected_context.extend(
+                context
+                    .iter()
+                    .map(|(key, value)| (*key, (*value).to_owned())),
+            );
+            assert_eq!(
+                reported("boots.fmdl", &loss(code, subject, detail)),
+                Some((expected, Disposition::Keep, expected_context)),
+                "{code} {detail}"
+            );
+        }
+        // The other Fox mesh flag, and a `native_field_dropped` on a bone.
         assert_eq!(
             reported(
                 "boots.fmdl",
                 &loss(
-                    "bone_folded_for_version",
-                    Subject::Bone(3),
-                    "dsk_deltoid_l -> dsk_upperarm_l"
+                    "native_field_dropped",
+                    Subject::Material(1),
+                    "no_shadow_cast"
                 )
-            ),
-            Some((
-                Code::BoneFoldedForVersion,
-                Disposition::Keep,
-                vec![
-                    ("model", "boots.fmdl".to_owned()),
-                    ("bone", "dsk_deltoid_l -> dsk_upperarm_l".to_owned()),
-                ]
-            ))
+            )
+            .map(|(code, _, _)| code),
+            Some(Code::MeshFlagsDropped)
         );
         assert_eq!(
             reported(
-                "boots.fmdl",
-                &loss("skeleton_retargeted", Subject::Model, "7")
+                "fcl_hair.fmdl",
+                &loss("native_field_dropped", Subject::Bone(8), "skl_parent")
             ),
             Some((
-                Code::SkeletonRetargeted,
+                Code::NativeFieldDropped,
                 Disposition::Keep,
                 vec![
-                    ("model", "boots.fmdl".to_owned()),
-                    ("bones", "7".to_owned()),
+                    ("model", "fcl_hair.fmdl".to_owned()),
+                    ("bone", "8".to_owned()),
+                    ("field", "skl_parent".to_owned()),
                 ]
             ))
         );
-        // What the tracer's models report on PES 2017, none of it shown yet.
-        for (code, subject, detail) in [
-            ("native_field_dropped", Subject::Model, "bone_matrices"),
-            ("native_field_dropped", Subject::Bone(8), "skl_parent"),
-            (
-                "native_field_dropped",
-                Subject::Material(1),
-                "no_shadow_cast",
-            ),
-        ] {
-            assert_eq!(
-                reported("fcl_hair.fmdl", &loss(code, subject, detail)),
-                None
-            );
-        }
+        // A code `loss.rs` does not document is no finding.
+        assert_eq!(
+            reported("boots.fmdl", &loss("no_such_loss", Subject::Model, "")),
+            None
+        );
     }
 }

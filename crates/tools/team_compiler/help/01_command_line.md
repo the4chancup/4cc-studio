@@ -275,7 +275,9 @@ same name is left out for the `.fmdl`, with its `.mtl`. A converted model is che
 the `.fmdl` it becomes: one that cannot be converted, or that comes out with a vertex more than
 5000 units from the origin, is reported as `model_conversion_failed` or
 `vertex_too_far_from_origin` and its package (face, boots or gloves) is left out, even with
-`pass_through` on. `check` still checks
+`pass_through` on. On every version, a converted model's Warnings and Infos name what the
+conversion changed: a bone folded onto another or its pose guessed, a material's shader
+guessed, a texture, a flag or a field the other game has no place for. `check` still checks
 those exports.
 
 A `Collars` folder holds custom collar models, each replacing one of the game's stock collars:

@@ -234,12 +234,58 @@ pub(crate) enum Code {
     /// A texture in a codec, or with a feature, `dds_convert` cannot convert in-process;
     /// discarded the same way.
     TextureCodecUnsupported,
+    /// A native sampler of the source engine's material table the target engine does not
+    /// carry, dropped from a converted model's material (the conversion's form of the glTF
+    /// role the target has no sampler for).
+    MaterialTextureUnused,
     /// A used bone the target PES version's skeleton lacks had its weights transferred to the
     /// fold table's (or nearest) bone, in a model converted for the target.
     BoneFoldedForVersion,
     /// A converted model's bind pose was re-bound from its source version's skeleton to the
     /// target's (bones moved more than tolerance).
     SkeletonRetargeted,
+    /// A converted model's bone has no companion `.skl` and a name in none of the target
+    /// version's skeleton tables, so its bind matrix is the identity: the mesh it skins sits
+    /// where the identity puts it.
+    BoneMatrixUnknown,
+    /// A converted mesh's vertex weighted a bone slot past the mesh's bone group: the slot was
+    /// zeroed and the vertex's weights renormalized, so it skins differently.
+    BoneSlotDropped,
+    /// A used bone the target version lacks, with no fold-table entry, was folded onto the
+    /// nearest target body bone by rest position: a guess.
+    BoneFoldedByPosition,
+    /// No shader rule named a converted material's shader, so its family, and the target
+    /// shader, is the closest fit: the material may render differently.
+    MaterialFamilyApproximated,
+    /// Meshes of one FMDL material instance carried different flags, so the instance became
+    /// two materials of the converted model.
+    MaterialSplitByFlags,
+    /// A native parameter of the source engine's material table the target shader does not
+    /// carry, dropped from a converted model's material.
+    MaterialParameterDropped,
+    /// A `.mtl` sampler name with no stored settings table, written with the default sampler
+    /// settings in the converted model.
+    SamplerSettingsDefaulted,
+    /// A converted mesh's bitangents, which an FMDL has no attribute for: the game derives
+    /// them.
+    VertexBitangentsDropped,
+    /// A shaded or metal material with no normal or specular map got the game's dummy texture
+    /// for the sampler a Fox model requires.
+    DummyTextureAdded,
+    /// A non-default field the target format has no home for, dropped with nothing the game
+    /// would show (an FMDL's redundant local-space bone matrices, a `.skl` parent the FMDL's
+    /// wins over, a normal or tangent `w` a `.model` cannot carry, a `.model` field).
+    NativeFieldDropped,
+    /// A Fox mesh flag a `.mtl` cannot express, `invisible` or `no_shadow_cast`, dropped: the
+    /// mesh shows, or casts a shadow, where the source hid it.
+    MeshFlagsDropped,
+    /// An unskinned mesh was weighted to the `static` bone an FMDL needs.
+    StaticBoneAdded,
+    /// A converted mesh's vertices carried a weight above 1, clamped to the FMDL weight's
+    /// maximum.
+    WeightClamped,
+    /// A vertexless mesh's bone group was written empty: it skins nothing.
+    EmptyMeshBoneGroupDropped,
     /// A model the compiler must convert (an FMDL for PES 15-17, a `.model` for PES 18-21, or a
     /// face model to hand auto-split) cannot be read, converted or written back, or its
     /// converted form trips an Error of its format's check (the rule's code is the error); its
@@ -362,7 +408,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 113] = [
+    const ALL: [Code; 128] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -436,8 +482,23 @@ impl Code {
         Code::KitTextureTooBig,
         Code::TextureTypeMismatch,
         Code::TextureCodecUnsupported,
+        Code::MaterialTextureUnused,
         Code::BoneFoldedForVersion,
         Code::SkeletonRetargeted,
+        Code::BoneMatrixUnknown,
+        Code::BoneSlotDropped,
+        Code::BoneFoldedByPosition,
+        Code::MaterialFamilyApproximated,
+        Code::MaterialSplitByFlags,
+        Code::MaterialParameterDropped,
+        Code::SamplerSettingsDefaulted,
+        Code::VertexBitangentsDropped,
+        Code::DummyTextureAdded,
+        Code::NativeFieldDropped,
+        Code::MeshFlagsDropped,
+        Code::StaticBoneAdded,
+        Code::WeightClamped,
+        Code::EmptyMeshBoneGroupDropped,
         Code::ModelConversionFailed,
         Code::VertexTooFarFromOrigin,
         Code::ModelBroken,
@@ -554,8 +615,23 @@ impl Code {
             Code::KitTextureTooBig => "kit_texture_too_big",
             Code::TextureTypeMismatch => "texture_type_mismatch",
             Code::TextureCodecUnsupported => "texture_codec_unsupported",
+            Code::MaterialTextureUnused => "material_texture_unused",
             Code::BoneFoldedForVersion => "bone_folded_for_version",
             Code::SkeletonRetargeted => "skeleton_retargeted",
+            Code::BoneMatrixUnknown => "bone_matrix_unknown",
+            Code::BoneSlotDropped => "bone_slot_dropped",
+            Code::BoneFoldedByPosition => "bone_folded_by_position",
+            Code::MaterialFamilyApproximated => "material_family_approximated",
+            Code::MaterialSplitByFlags => "material_split_by_flags",
+            Code::MaterialParameterDropped => "material_parameter_dropped",
+            Code::SamplerSettingsDefaulted => "sampler_settings_defaulted",
+            Code::VertexBitangentsDropped => "vertex_bitangents_dropped",
+            Code::DummyTextureAdded => "dummy_texture_added",
+            Code::NativeFieldDropped => "native_field_dropped",
+            Code::MeshFlagsDropped => "mesh_flags_dropped",
+            Code::StaticBoneAdded => "static_bone_added",
+            Code::WeightClamped => "weight_clamped",
+            Code::EmptyMeshBoneGroupDropped => "empty_mesh_bone_group_dropped",
             Code::ModelConversionFailed => "model_conversion_failed",
             Code::VertexTooFarFromOrigin => "vertex_too_far_from_origin",
             Code::ModelBroken => "model_broken",
@@ -692,8 +768,23 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_texture_too_big", CatalogSeverity::Error),
     ("texture_type_mismatch", CatalogSeverity::Error),
     ("texture_codec_unsupported", CatalogSeverity::Error),
+    ("material_texture_unused", CatalogSeverity::Info),
     ("bone_folded_for_version", CatalogSeverity::Info),
     ("skeleton_retargeted", CatalogSeverity::Info),
+    ("bone_matrix_unknown", CatalogSeverity::Warning),
+    ("bone_slot_dropped", CatalogSeverity::Warning),
+    ("bone_folded_by_position", CatalogSeverity::Warning),
+    ("material_family_approximated", CatalogSeverity::Warning),
+    ("material_split_by_flags", CatalogSeverity::Info),
+    ("material_parameter_dropped", CatalogSeverity::Info),
+    ("sampler_settings_defaulted", CatalogSeverity::Info),
+    ("vertex_bitangents_dropped", CatalogSeverity::Info),
+    ("dummy_texture_added", CatalogSeverity::Info),
+    ("native_field_dropped", CatalogSeverity::Info),
+    ("mesh_flags_dropped", CatalogSeverity::Warning),
+    ("static_bone_added", CatalogSeverity::Info),
+    ("weight_clamped", CatalogSeverity::Info),
+    ("empty_mesh_bone_group_dropped", CatalogSeverity::Info),
     ("model_conversion_failed", CatalogSeverity::Error),
     ("vertex_too_far_from_origin", CatalogSeverity::Error),
     ("model_broken", CatalogSeverity::Error),
