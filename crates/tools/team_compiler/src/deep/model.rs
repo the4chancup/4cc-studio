@@ -502,6 +502,67 @@ mod tests {
     }
 
     #[test]
+    fn on_fox_a_model_link_pairs_the_mtl_its_search_finds_unless_an_fmdl_of_its_stem_beats_it() {
+        let card = || pre_fox_fixture("cardhead_face_high.model");
+        // The findings of `codes` among the PES 21 pass's over `files`.
+        let found = |name: &str, files: &[(&str, Vec<u8>)], codes: &[&str]| {
+            let temp = scratch(name);
+            findings_for(PesVersion::Pes21, temp.path(), files, &[], &[])
+                .into_iter()
+                .filter(|finding| codes.contains(&finding.code))
+                .collect::<Vec<ContentFinding>>()
+        };
+        // A Common `.model` with no `.mtl` anywhere; one an FMDL of its stem beats loads the
+        // FMDL, which carries its materials.
+        let codes = ["model_material_undefined", "mtl_texture_not_found"];
+        assert_eq!(
+            found(
+                "deep_fox_model_link_undefined",
+                &[
+                    ("Players/05 - B/hat.model.common", Vec::new()),
+                    ("Common/hat.model", card()),
+                    ("Players/06 - C/arm.model.common", Vec::new()),
+                    ("Common/arm.model", card()),
+                    ("Common/arm.fmdl", tracer_file("glove_r.fmdl")),
+                ],
+                &codes,
+            ),
+            [ContentFinding {
+                code: "model_material_undefined",
+                scope: folder("Players/05 - B"),
+                context: vec![("file", "hat.model.common".to_owned())],
+                disposition: Disposition::DropFolder,
+                pass_through_eligible: false,
+            }]
+        );
+        // The Common `.mtl` its search finds is read with it, its texture looked up on the
+        // linking player's folder, where the conversion reads it: its `./texture.dds` is in no
+        // folder `Common/`'s textures supply.
+        assert_eq!(
+            found(
+                "deep_fox_model_link_texture",
+                &[
+                    ("Players/05 - B/legs.model.common", Vec::new()),
+                    ("Common/legs.model", card()),
+                    ("Common/legs.mtl", pre_fox_fixture("cardhead_materials.mtl")),
+                ],
+                &codes,
+            ),
+            [ContentFinding {
+                code: "mtl_texture_not_found",
+                scope: folder("Players/05 - B"),
+                context: vec![
+                    ("file", "Common/legs.mtl".to_owned()),
+                    ("texture", "./texture.dds".to_owned()),
+                    ("materials", "card".to_owned()),
+                ],
+                disposition: Disposition::Keep,
+                pass_through_eligible: false,
+            }]
+        );
+    }
+
+    #[test]
     fn a_model_link_s_search_sees_only_the_common_files_the_common_pass_kept() {
         let temp = scratch("deep_pre_fox_link_broken_mtl");
         let findings = findings_for(

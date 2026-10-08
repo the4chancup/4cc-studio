@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1800,14 +1800,34 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   failed") and commits nothing of the folder, an implicit rule planning honors since f3a by
   never planning a textures task with nothing to emit; a `failed` flag on `TaskBatch`, or
   an assertion, would make it explicit (found at f3a: a planned empty task lost a whole
-  face CPK with exit 0 and no finding). From f3b, for 4.20 or converge: a member's own
+  face CPK with exit 0 and no finding). Also for converge (maintainer, 2026-10-08):
+  `team_compiler` has outgrown mutation runs (each mutant rebuilds the crate with its test
+  binaries, which link `studio_core` and so egui, the build that hit the VPS cap and made
+  the crate local-only; a whole-crate run pays that per mutant), so the self-contained
+  modules move to lib crates even with the compiler as their only consumer, their tests
+  with them (a lib's mutants run the lib's tests alone): `face_diff`, `user_face_xml`,
+  `kit_variants`, `mtl_search` first; the crate-boundary move is a plan edit and a decision
+  entry at that point. From f3b, for 4.20 or converge: a member's own
   `face.xml` naming a converted Common model (`common/XXX/legs.mtl`, `oral_legs_*.model`
   from `legs.fmdl`) gets `xml_model_not_found`, the deep pass resolving Common references
   among source files by kind; a Common FMDL a `.model` of its stem beats is still
   deep-checked (`model_broken`, `DropFile`) where a player folder's beaten FMDL is unread;
   the Common models task never hand-splits (a Common `.model` is not split either); two
   converted parts merged under the marker with a material of one name but different
-  texture places fail `merge_material_conflict`, which the merge rules do not cover.
+  texture places fail `merge_material_conflict`, which the merge rules do not cover. From
+  f3c, for 4.20 or converge: on Fox a player's own `.mtl` override for a Common `.model`
+  (`legs.mtl` beside `legs.model.common`) is looked up by the deep pass against the
+  folder's textures while the Models task points the part's paths among `Common/`'s alone,
+  so a texture only the player holds counts as supplied and stays `./face.dds` in the FMDL
+  with no finding (`player_folders.md` says the override layers on top, not where its
+  textures resolve: a plan ruling); a pre-Fox Common path an installed CPK supplies
+  (`texture_supply` reads them) is called supplied by the deep pass but left as written,
+  since the path is pointed only when `Common/` holds the stem (pointing it whenever the
+  deep pass calls it supplied would close it); an unlinked Common `.model` or `.mtl` is
+  still deep-checked and dropped when broken, as an unlinked Common FMDL is, where the gate
+  and the plan sentence say "ignored"; two links in one folder to one Common model under
+  two roles bring it in once under the first link's role, `common_material` following
+  (pre-existing, the plan silent).
   Open for the maintainer (`docs/QUESTIONS.md` "Converted collars", "`dummy_kit` on the
   modded PES 15-17 exes"). Open for a
   later slice: a converted FMDL in a folder with the member's own `face.xml` is silently not
@@ -2089,6 +2109,41 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   beaten Common FMDL still deep-checked, no hand split in the Common task, two converted
   parts' material clash under the marker; lead fixes: none; mutants: see the 4.17f3b log
   line).
+  (f3c) done 2026-10-08 (lead first, `2d94071`: DECISIONS "A Common `.model` converts in
+  each linking player's Models task on PES 18-21; per-kit sets span both formats; a pre-Fox
+  Common texture path is pointed at the Fox Common directory", the plan's step 3 sentences
+  and "Kit-dependent assets". `plan/subset.rs` `linked_model` (one function for both
+  engines, `linked_fmdl` and `linked_pre_fox_model` folded), `selected_common_model(common,
+  linked, engine)` (target-native first on either engine: on Fox an FMDL of the stem beats
+  a linked `.model`), `common_file_compiled(file)` with no engine (both accept the same
+  kinds; an unlinked Common `.model` or `.mtl` is unused on Fox); `plan/mod.rs`
+  `common_models` giving a `.model` link the `.mtl` `mtl_for` finds on both engines,
+  `push_common_material` (the `.mtl` as a `PlayerFile::Material`, shared with the marker
+  arm), `ModelFolder::common_material`; `kit_variants::model_variant_sets` counting `.fmdl`
+  and `.model` variants (a number in both formats one variant, its FMDL selected, the
+  reference with the lowest variant's extension); `deep/mod.rs` pairing a Fox `.model` link
+  with the Common `.mtl` its search finds, `model_material_undefined` on the player's folder
+  when none, the Common `.mtl`'s texture lookup on the folder once, against `Common/`'s
+  textures; `processing/model.rs` `convert_part` (the `Model` and `CommonModel` arms share
+  it), a Common `.model` converted in each linking player's task with its Common `.mtl`
+  (twice for two players), `point_texture(path, places, common, team_segment)` sending a
+  path the deep pass reads as `Reference::Common` to the Fox Common directory when
+  `Common/` holds its stem; help. Tests: `tests/cli/common_links.rs` a `legs.model.common`
+  converted into slot 05's face beside his own converted card (contradiction accepted: the
+  tracer's hair cannot merge with the card, `skl_merge_conflict` on `sk_head`), `skin` once
+  in the Common output; two players each converting it; `tests/cli/models.rs` a
+  `pants_kit1.model` + `pants_kit2.model` set, the lowest alone converted;
+  `tests/cli/conversion.rs` the pre-Fox Common path pointed with `Common/shirt.dds` and left
+  as written without (`mtl_texture_not_found` pinned), a linked Common `.model`'s
+  `skl_no_slot` naming `Common/face_high.model` (contradiction accepted: the brief's
+  `legs.model.common` name; the arm reads the Common model, never the link, and f3a and the
+  plan name a converted shared source by its export path); unit tests on the roles, the
+  gate, the selection on both engines, the plan, the sets, the deep pairing, the path rule.
+  Plan gaps parked (open items below): a player's override `.mtl` for a Common `.model`
+  resolving its textures nowhere the task points, a pre-Fox Common path an installed CPK
+  supplies left as written, an unlinked Common `.model` still deep-checked, one Common
+  model under two roles; lead fixes: one assertion from the mutation survivor (two files
+  of one number and format stay two variants); mutants: see the 4.17f3c log line).
   (f3a) done 2026-10-08 (lead first, `a281f33`: DECISIONS "An `env` texture link, one
   sampler shape, every `model` context alike, no kit warning on a folder the glTF drop
   orphaned", the plan's step 6 paragraph and step 3 sentences, the `kit_variant_model_fox`
@@ -4495,3 +4550,15 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-08** — `docs/QUESTIONS.md` created (maintainer's request): the one list of the
   questions only he can answer, fourteen moved out of the worklog's steps and issues (each
   of those now points there); `AGENTS.md` "Working documents" gained the row.
+  - **4.17f3c done**: on PES 18-21 a `.model` directly in `Common/` with its `.mtl`, linked
+    by `x.model.common`, converts in each linking player's Models task as his own `.model`
+    does, an FMDL of its stem beating it, its Common `.mtl` paired and looked up in the deep
+    pass on the player's folder; a per-kit model set's variants are the folder's `.fmdl`
+    and `.model` files, a number in both formats one variant with its FMDL selected; a
+    converted path naming the pre-Fox Common texture directory is pointed at the Fox Common
+    directory when `Common/` holds the stem. Two contradictions accepted (the finding names
+    the Common model's export path; the fixture). Mutants: 76, 62 caught, 13 unviable
+    (`Default::default()` on types without one, `||` in conditions the types refuse), 1
+    missed (`model_variant_sets`'s dedup rule for two files of one number and format),
+    caught by the lead's added assertion (rerun on the function: 5 caught, 1 unviable).
+    Next: 4.17g (the same-engine pre-check of a selected native model).

@@ -39,7 +39,7 @@ use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::subset::{
     ModelPackage, PlayerFile, common_file, file_stem, in_folder_or_face, is_direct_common_file,
-    path_stem, pre_fox_common_model,
+    path_stem, selected_common_model,
 };
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 use crate::user_face_xml::{
@@ -322,8 +322,11 @@ pub(super) fn face(
                         continue;
                     }
                     let stem = file_stem(&linked_name);
-                    let linked_model = pre_fox_common_model(&folder.common_files, &linked_name)
-                        .expect("validation drops a player folder whose link names no Common file");
+                    let linked_model =
+                        selected_common_model(&folder.common_files, &linked_name, Engine::PreFox)
+                            .expect(
+                                "validation drops a player folder whose link names no Common file",
+                            );
                     // A Common `.model`'s `.mtl` is the one its search finds; a Common FMDL's
                     // material set is its conversion's (`material_of`'s `expect` is for a
                     // `.model`'s search).

@@ -73,7 +73,7 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::plan::subset::{
     FolderModels, PlayerFile, file_stem, is_direct_common_file, link_feeds_own_package,
-    linked_folder, player_file, pre_fox_common_model, texture_format,
+    linked_folder, player_file, selected_common_model, texture_format,
 };
 use crate::reader::ContentSource;
 use crate::user_face_xml::{
@@ -178,7 +178,9 @@ impl KeptCommon {
 ///
 /// For PES 2015 to 2017 each `.mtl`'s texture paths are looked up (`materials`), and for PES
 /// 2018 to 2021 those of each folder `.mtl` a selected `.model` pairs with, right after its own
-/// findings, each finding keeping what holds the `.mtl`: a folder's against the
+/// findings, and of each `Common/` `.mtl` a player's link to a Common `.model` pairs with, on
+/// his folder against `Common/`'s textures and `installed` (`folder_findings`), each finding
+/// keeping what holds the `.mtl`: a folder's against the
 /// textures the folder holds, `Common/`'s and `installed`, the stems the installed CPKs loaded
 /// before the run's hold in the team's Common output (`None` when that lookup cannot be made or
 /// the export has no team ID); a kept `Common/` `.mtl`'s against `Common/`'s textures and
@@ -573,10 +575,12 @@ impl<'a> FaceUse<'a> {
 /// an Error dropping the folder, the file named below the folder (not a model the target's own
 /// format beats, nor on Fox a `.mtl` no `.model` pairs with, which nothing reads); for each
 /// model `pairings` pairs (on pre-Fox each `.model` and each typed `.common` link to one, on
-/// Fox each `.model` no FMDL beats), `model_material_undefined` (`material_finding`, its `.mtl`
-/// searched among the folder's files and `common`'s), right after the model's own findings;
-/// each read `.mtl`'s texture lookup (`materials::texture_findings`), right after the `.mtl`'s
-/// own findings; with the models among them that carry hand weights and the materials of the
+/// Fox each `.model` no FMDL beats and each `.common` link loading a Common `.model`),
+/// `model_material_undefined` (`material_finding`, its `.mtl` searched among the folder's files
+/// and `common`'s), right after the model's own findings; each read `.mtl`'s texture lookup
+/// (`materials::texture_findings`), right after the `.mtl`'s own findings, and on Fox that of
+/// a `Common/` `.mtl` a link pairs with, against `Common/`'s textures, right after the link's
+/// (once per folder); with the models among them that carry hand weights and the materials of the
 /// pre-Fox ones. The files are read and checked in parallel, each worker holding one file, and
 /// the models' materials compared after, from what each read kept.
 ///
@@ -693,6 +697,17 @@ fn folder_findings(
         common: &common.texture_stems,
         installed: common.installed.as_ref(),
     });
+    // A Common part's texture paths are pointed among `Common/`'s textures alone
+    // (`processing::model`), so a Common `.mtl` is looked up against them, as pre-Fox looks up
+    // its Common `.mtl` files (`common_mtl_findings`).
+    let common_sources = TextureSources {
+        held: &common.texture_stems,
+        common: &common.texture_stems,
+        installed: common.installed.as_ref(),
+    };
+    // The Common `.mtl` files looked up for this folder so far: two links finding one are one
+    // lookup.
+    let mut looked_up: BTreeSet<&ScopePath> = BTreeSet::new();
     let mut pass = ContentPass::default();
     for (file, found) in files.iter().zip(per_file) {
         pass.append(found);
@@ -719,6 +734,28 @@ fn folder_findings(
             pass.findings.extend(material_finding(
                 pairing, folder, common, &materials, &scope,
             ));
+            let common_mtl = match engine {
+                // Fox has no Common model output: each linking player's Models task converts
+                // the Common `.model` with this `.mtl`, so its lookup is the folder's, right
+                // after the link's own finding.
+                Engine::Fox => pairing.mtl.filter(|mtl| is_direct_common_file(&mtl.path)),
+                // Pre-Fox packs a Common `.mtl` once for the team and looks it up on its own
+                // file (`common_mtl_findings`).
+                Engine::PreFox => None,
+            };
+            if let Some(mtl) = common_mtl
+                && looked_up.insert(&mtl.path)
+                && let Some(read) = common.materials.get(&mtl.path)
+            {
+                let used = used_names(&pairings, &mtl.path, &materials, common);
+                pass.findings.extend(texture_findings(
+                    mtl.path.as_str(),
+                    read,
+                    &used,
+                    &common_sources,
+                    &scope,
+                ));
+            }
         }
     }
     pass.materials = materials;
@@ -744,10 +781,11 @@ struct Pairing<'a> {
 /// models are `models`, read for a target of `engine`: with the folder's own `face.xml`, the
 /// models it lists with the `.mtl` each entry names (`listed`, empty when an xml drops the
 /// folder); without, on pre-Fox, each `.model` and each typed `.common` link loading a Common
-/// `.model` (`pre_fox_common_model`; one loading a Common FMDL pairs none, the FMDL's
+/// `.model` (`selected_common_model`; one loading a Common FMDL pairs none, the FMDL's
 /// conversion writing its material set) with the `.mtl` its search finds among `files` and
-/// `common`'s; on Fox each `.model` with a role
-/// (`PlayerFile::Model`: no FMDL of its stem beats it) the same way.
+/// `common`'s; on Fox each `.model` with a role (`PlayerFile::Model`: no FMDL of its stem
+/// beats it) and each `.common` link with a role loading a Common `.model` (one loading a
+/// Common FMDL pairs none, the FMDL carrying its materials) the same way.
 fn pairings<'a>(
     folder: &'a ScopePath,
     files: &'a [FileDescriptor],
@@ -769,15 +807,15 @@ fn pairings<'a>(
     files
         .iter()
         .filter(|file| match engine {
-            // On Fox a selected `.model` is converted with the `.mtl` its search finds. One an
-            // FMDL of its stem beats has no role and is read by nothing: dropping the folder
-            // for it would lose a working FMDL.
+            // On Fox a selected `.model` is converted with the `.mtl` its search finds, and so
+            // is a linked Common `.model`. One an FMDL of its stem beats has no role and is read
+            // by nothing: dropping the folder for it would lose a working FMDL.
             Engine::Fox => {
-                file.kind == FileKind::Model(ModelFormat::PesModel)
-                    && matches!(
-                        player_file(folder, file, models),
-                        Some(PlayerFile::Model { .. })
-                    )
+                let role = player_file(folder, file, models);
+                (file.kind == FileKind::Model(ModelFormat::PesModel)
+                    && matches!(role, Some(PlayerFile::Model { .. })))
+                    || (matches!(role, Some(PlayerFile::CommonModel { .. }))
+                        && !links_common_fmdl(file, common, engine))
             }
             // The roles are read without the `ingame_face` marker (`FolderModels::of`), so a
             // model link is `PreFoxCommonModel` here even in a marked folder, where planning
@@ -788,13 +826,13 @@ fn pairings<'a>(
                     || (matches!(
                         player_file(folder, file, models),
                         Some(PlayerFile::PreFoxCommonModel { .. })
-                    ) && !links_common_fmdl(file, common))
+                    ) && !links_common_fmdl(file, common, engine))
             }
         })
         .map(|file| {
             let model = match common_link_name(file.path.name()) {
                 Some(linked) => {
-                    pre_fox_common_model(&common.files, &linked).map(|model| &model.path)
+                    selected_common_model(&common.files, &linked, engine).map(|model| &model.path)
                 }
                 None => Some(&file.path),
             };
@@ -807,15 +845,16 @@ fn pairings<'a>(
         .collect()
 }
 
-/// Whether the pre-Fox `.common` model link `file` loads a Common FMDL, which the Common models
-/// task converts with the material set its conversion writes: the Common model it loads among
-/// `common`'s kept files (`pre_fox_common_model`), or, when the pass dropped that file, the
+/// Whether the `.common` model link `file` loads a Common FMDL on a target of `engine`, which
+/// takes no `.mtl`: on Fox it carries its materials, on pre-Fox the Common models task converts
+/// it with the material set its conversion writes. The Common model it loads is among
+/// `common`'s kept files (`selected_common_model`), or, when the pass dropped that file, the
 /// model its name links.
-fn links_common_fmdl(file: &FileDescriptor, common: &KeptCommon) -> bool {
+fn links_common_fmdl(file: &FileDescriptor, common: &KeptCommon, engine: Engine) -> bool {
     let Some(linked) = common_link_name(file.path.name()) else {
         return false;
     };
-    let kind = pre_fox_common_model(&common.files, &linked)
+    let kind = selected_common_model(&common.files, &linked, engine)
         .map_or_else(|| classify(&linked), |model| model.kind);
     kind == FileKind::Model(ModelFormat::Fmdl)
 }

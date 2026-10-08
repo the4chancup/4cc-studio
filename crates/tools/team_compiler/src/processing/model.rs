@@ -29,6 +29,7 @@ use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::ModelFolder;
 use crate::plan::subset::{ModelPackage, PlayerFile, file_stem, skeleton_slot};
+use crate::user_face_xml::{Reference, reference};
 
 /// One model of the package: a part of the output model its allowed name names, from the
 /// folder's own files, a combined shared folder's, or the export's `Common/` folder through a
@@ -62,11 +63,12 @@ enum PartTextures {
 /// The files of `folder`'s `package`, compiled from its files' bytes in `files` for team
 /// `team_id`, by their names in the package, a file the game needs beside the models that no
 /// source holds taken from the run's templates. A `.model` with no `.fmdl` of its stem is
-/// converted first (`conversion::model_for_fox`), with the `.mtl` its search finds among its
-/// source's files, and is then a part like a member's FMDL: the skeleton the conversion
-/// writes is the part's, as a member's `.skl` of its stem would be (one beside it of other
-/// bytes is `skl_merge_conflict`), and is left out with `skl_no_slot` for a role with no
-/// skeleton slot. A hand-split face part gives the face its body
+/// converted first (`convert_part`), with the `.mtl` its search finds among its source's
+/// files, and so is a Common `.model` a `.common` link brings in, with the `.mtl` planning
+/// resolved for it (`ModelFolder::common_material`); either is then a part like a member's
+/// FMDL: the skeleton the conversion writes is the part's, as a member's `.skl` of its stem
+/// would be (one beside it of other bytes is `skl_merge_conflict`), and is left out with
+/// `skl_no_slot` for a role with no skeleton slot. A hand-split face part gives the face its body
 /// and the gloves its hands (`parts_of`), before any texture path is rewritten. A
 /// merge of several parts into one model is noted in `findings` as `fmdl_merged`. A texture a
 /// part's mesh uses that nothing supplies (`texture_supply`) fails the task with
@@ -141,33 +143,32 @@ pub(super) fn package(
                             "a package converting a `.model` reads its source's `.mtl` files \
                              (`TaskKind::files`)",
                         );
-                        // The gloves task converts a hand-split face part again, for its
-                        // hands: what the conversion reports is the face's to tell.
-                        let mut reported = Vec::new();
-                        let converted =
-                            model_for_fox(&model, &part.bytes, mtl, ctx, &mut reported)?;
-                        part.bytes = converted.model;
-                        part.skeleton = converted.skeleton;
-                        if skeleton_slot(owner, name).is_none() && part.skeleton.take().is_some() {
-                            reported.push((
-                                Code::SklNoSlot,
-                                Disposition::Keep,
-                                vec![("model", model.clone())],
-                            ));
-                        }
-                        if owner == package {
-                            findings.extend(reported);
-                        }
+                        convert_part(&mut part, &model, mtl, owner, package, ctx, findings)?;
                     }
                     let parts = parts_of(part, &model, hand_split, package, ctx, findings)?;
                     source_parts.extend(parts);
                 }
+                // A Common `.model` converts here, in each linking player's task, as his own
+                // `.model` does: Fox has no Common model output for it to convert once into,
+                // so two players linking it convert it twice, as a Common FMDL is baked into
+                // each of their packages (`pipeline.md` step 3 "Format conversion").
                 PlayerFile::CommonModel {
                     package: owner,
                     name,
                 } if owner == package || hand_split => {
-                    let part = part(name, PartTextures::Common);
+                    let mut part = part(name, PartTextures::Common);
                     let model = source_name(&file.path, &folder.path);
+                    if file.kind == FileKind::Model(ModelFormat::PesModel) {
+                        let mtl = folder.common_material(&file.path).expect(
+                            "planning resolves a Common `.model`'s `.mtl`, the deep pass having \
+                             dropped a folder linking one with none (`model_material_undefined`)",
+                        );
+                        let mtl = files.get(&mtl.path).expect(
+                            "a package converting a Common `.model` reads the `.mtl` planning \
+                             resolved for it (`TaskKind::files`)",
+                        );
+                        convert_part(&mut part, &model, mtl, owner, package, ctx, findings)?;
+                    }
                     let parts = parts_of(part, &model, hand_split, package, ctx, findings)?;
                     source_parts.extend(parts);
                 }
@@ -257,8 +258,9 @@ pub(super) fn package(
     // in Common, a Common part's own or one a folder's link stands for, stays in the team's
     // Common output, where the export's Common textures task puts it once for every player
     // (`pipeline.md` step 6: a texture resolved in Common is never relocated). A folder part
-    // looks in the folder's textures first. Validation refuses a player folder holding a
-    // texture and a link of one stem (`texture_stem_conflict`), but not a link beside a
+    // looks in the folder's textures first, and a path of its into the team's pre-Fox Common
+    // folder reaches `Common/`'s (`point_texture`). Validation refuses a player folder holding
+    // a texture and a link of one stem (`texture_stem_conflict`), but not a link beside a
     // combined shared folder's texture of its stem: there the shared folder's texture wins.
     let texture_directory = folder.textures.directory(ctx.version.engine(), team_id);
     let common_directory = paths::common_texture_directory(Engine::Fox, team_id);
@@ -292,7 +294,7 @@ pub(super) fn package(
             };
             let mut model = FmdlFile::read(&part.bytes)?;
             rewrite_texture_paths(&mut model, |path| {
-                point_texture(path, places, &team_segment);
+                point_texture(path, places, common_places[0], &team_segment);
             })?;
             for path in used_texture_paths(&model)? {
                 let installed_holds = |stem: &str| {
@@ -399,6 +401,39 @@ fn skeleton_conflict() -> TaskFailure {
         code: Code::SklMergeConflict,
         context: vec![("skeleton", "differs".to_owned())],
     }
+}
+
+/// Converts `part`, a `.model` that the task's findings name `model`, to an FMDL with `mtl`,
+/// the material set its search found (`conversion::model_for_fox`): the part's bytes become
+/// the FMDL's and its skeleton the one the conversion writes, left out with `skl_no_slot` for
+/// a part of `owner` under a name with no skeleton slot. What the conversion reports goes to
+/// `findings` only when the task builds `owner`, its `package`: the gloves task converts a
+/// hand-split face part again, for its hands, and that is the face's to tell. A conversion
+/// that fails, or whose FMDL the game cannot load, fails the task.
+fn convert_part(
+    part: &mut Part,
+    model: &str,
+    mtl: &[u8],
+    owner: ModelPackage,
+    package: ModelPackage,
+    ctx: &CompileContext,
+    findings: &mut Vec<Finding>,
+) -> Result<(), TaskFailure> {
+    let mut reported = Vec::new();
+    let converted = model_for_fox(model, &part.bytes, mtl, ctx, &mut reported)?;
+    part.bytes = converted.model;
+    part.skeleton = converted.skeleton;
+    if skeleton_slot(owner, part.name).is_none() && part.skeleton.take().is_some() {
+        reported.push((
+            Code::SklNoSlot,
+            Disposition::Keep,
+            vec![("model", model.to_owned())],
+        ));
+    }
+    if owner == package {
+        findings.extend(reported);
+    }
+    Ok(())
 }
 
 /// The parts `part`, a model of the folder's that its task's findings name `model`
@@ -509,18 +544,37 @@ fn split_fmdl(bytes: &[u8]) -> anyhow::Result<SplitFmdl> {
 
 /// Points `path`, one texture reference of a part, at where its texture is: the directory of
 /// the first of `places`, each the stems of the textures packed in a directory for the part,
-/// that holds its stem, or a variant of its set when it is a kit reference (`pants_kitN`); any
-/// other texture is one of the game's own, whose directory names the team as `000`, replaced
-/// by `team_segment`. The file name is never changed: the game itself respells a reference for
-/// the kit picked.
-fn point_texture(path: &mut TexturePath, places: &[(&BTreeSet<String>, &str)], team_segment: &str) {
+/// that holds its stem, or a variant of its set when it is a kit reference (`pants_kitN`).
+/// Else a path into the team's pre-Fox Common folder (`model/character/uniform/common/<team>/`,
+/// how a member's pre-Fox `.mtl` names a texture of `Common/`), read as the deep pass reads it
+/// (`user_face_xml::reference`), goes to the directory of `common`, the `Common/` textures, when
+/// they hold its stem: the evidence on which the deep pass calls it supplied (`pipeline.md`
+/// step 3 "Format conversion"). Any other texture is one of the game's own, whose directory
+/// names the team as `000`, replaced by `team_segment`. The file name is never changed: the
+/// game itself respells a reference for the kit picked.
+fn point_texture(
+    path: &mut TexturePath,
+    places: &[(&BTreeSet<String>, &str)],
+    common: (&BTreeSet<String>, &str),
+    team_segment: &str,
+) {
     let stem = file_stem(&path.file_name);
-    let place = places.iter().find(|(stems, _)| {
+    let holds = |stems: &BTreeSet<String>| {
         stems.contains(&vtree::fold_name(stem))
             || has_variant_among(stem, stems.iter().map(String::as_str))
-    });
+    };
+    let names_pre_fox_common = || {
+        let written = format!("{}{}", path.directory, path.file_name);
+        matches!(reference(&written), Reference::Common { .. })
+    };
+    let (common_stems, common_directory) = common;
+    let place = places
+        .iter()
+        .find(|(stems, _)| holds(stems))
+        .map(|(_, directory)| *directory)
+        .or_else(|| (names_pre_fox_common() && holds(common_stems)).then_some(common_directory));
     path.directory = match place {
-        Some((_, directory)) => (*directory).to_owned(),
+        Some(directory) => directory.to_owned(),
         None => path.directory.replace("/000/", team_segment),
     };
 }
@@ -714,10 +768,75 @@ mod tests {
         point_texture(
             &mut path,
             &[(&own, "/home/"), (&linked, "/common/")],
+            (&linked, "/common/"),
             "/792/",
         );
         assert_eq!(path.file_name, file_name);
         path.directory
+    }
+
+    /// The directory `point_texture` gives `file_name` in `directory` for team 714, the part's
+    /// own stems being `own`, going to `/home/`, and `Common/`'s `common`, going to `/common/`
+    /// for a pre-Fox Common path.
+    fn pointed_from(directory: &str, file_name: &str, own: &[&str], common: &[&str]) -> String {
+        let mut path = TexturePath {
+            file_name: file_name.to_owned(),
+            directory: directory.to_owned(),
+        };
+        let set = |stems: &[&str]| -> BTreeSet<String> {
+            stems.iter().map(|stem| (*stem).to_owned()).collect()
+        };
+        let (own, common) = (set(own), set(common));
+        point_texture(
+            &mut path,
+            &[(&own, "/home/")],
+            (&common, "/common/"),
+            "/714/",
+        );
+        assert_eq!(path.file_name, file_name);
+        path.directory
+    }
+
+    #[test]
+    fn a_pre_fox_common_path_goes_to_the_common_directory_when_common_holds_its_stem() {
+        let pre_fox = "model/character/uniform/common/714/";
+        assert_eq!(
+            pointed_from(pre_fox, "shirt.dds", &[], &["shirt"]),
+            "/common/"
+        );
+        // The team's segment as a member's pre-Fox `.mtl` may spell it, and a kit reference.
+        for segment in ["XXX", "000"] {
+            let directory = format!("model/character/uniform/common/{segment}/");
+            assert_eq!(
+                pointed_from(&directory, "shirt.dds", &[], &["shirt"]),
+                "/common/",
+                "{segment}"
+            );
+        }
+        assert_eq!(
+            pointed_from(pre_fox, "pants_kitN.dds", &[], &["pants_kit2"]),
+            "/common/"
+        );
+        // The folder's own texture of the stem comes first, as for any path.
+        assert_eq!(
+            pointed_from(pre_fox, "shirt.dds", &["shirt"], &["shirt"]),
+            "/home/"
+        );
+        // Left as written when `Common/` does not hold the stem.
+        assert_eq!(pointed_from(pre_fox, "shirt.dds", &[], &["skin"]), pre_fox);
+        // Only a pre-Fox Common path reaches `Common/`: a `./` path, a player's pre-Fox texture
+        // home below the team's folder, or a Fox path of the game's own does not.
+        for directory in [
+            "./",
+            "model/character/uniform/common/714/05 - A/",
+            "/Assets/pes16/model/character/common/sourceimages/",
+        ] {
+            assert_eq!(
+                pointed_from(directory, "shirt.dds", &[], &["shirt"]),
+                directory,
+                "{directory}"
+            );
+        }
     }
 
     /// `pointed_between` with the part's own stems `stems` and no linked stem.

@@ -18,6 +18,7 @@ use crate::bins::{BOOTS_LIST, GLOVE_LIST, install_tables, item_list, pairs_of};
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
 use crate::face_folders::assert_blank_face;
+use crate::prefox_faces::{card_materials, card_model, small_dds};
 use crate::{TEAM_COLORS_MISSING, clean_model, command_args, findings_of};
 
 /// The entry names of the FPK `bytes`.
@@ -1645,6 +1646,34 @@ fn per_kit_models_on_pes_21_compile_the_lowest_variant_alone_and_say_so() {
         face_package(entries).get("fcl_hair.fmdl").unwrap().to_vec()
     };
     assert!(hair(&both) == hair(&alone), "the packed hair differs");
+}
+
+#[test]
+fn per_kit_model_files_on_pes_21_are_a_set_and_only_the_lowest_is_converted() {
+    let sandbox = Sandbox::new("mod_kit_variant_pre_fox_models");
+    let player = "exports/co Midcup Variant Cards/Players/05 - A";
+    for variant in ["pants_kit1", "pants_kit2"] {
+        sandbox.write(&format!("{player}/{variant}.model"), &card_model());
+        sandbox.write(&format!("{player}/{variant}.mtl"), &card_materials());
+    }
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Variant Cards",
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=pants_kit1.model)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning kit_variant_model_fox [Keep] at Players/05 - A (model=pants_kitN.model, used=pants_kit1.model)",
+        ],
+    );
+
+    // The card's one mesh and the anti-blur mesh the FMDL export makes for it: one variant's,
+    // `pants_kit2.model` being read by no task.
+    let hair = face_package(&entries);
+    let file = FmdlFile::read(hair.get("fcl_hair.fmdl").unwrap()).unwrap();
+    assert_eq!(Model::from_file(&file).unwrap().meshes.len(), 2);
 }
 
 #[test]

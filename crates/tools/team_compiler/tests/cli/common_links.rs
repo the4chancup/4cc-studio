@@ -12,6 +12,8 @@ use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_player_file};
 use crate::findings_of;
 use crate::models::{body_skl, face_package, package_names};
+use crate::prefox_faces::{card_materials, card_model, materials_naming, small_dds};
+use pes_model::format::mtl::MaterialSet;
 
 const FACE_05: &str = "Asset/model/character/face/real/71405/#Win/face.fpk";
 const FACE_05_FPKD: &str = "Asset/model/character/face/real/71405/#Win/face.fpkd";
@@ -369,6 +371,151 @@ fn a_common_skeleton_of_a_slotless_face_model_is_reported_on_the_link_and_not_pa
         package_names(&entries[FACE_05]),
         ["face_diff.bin", "face_high.fmdl"]
     );
+}
+
+/// Writes the export `export`'s `Common/legs.model`, the card head, with the card's material
+/// set naming `skin` as `Common/legs.mtl`, and `Common/skin.dds`.
+fn write_common_card(sandbox: &Sandbox, export: &str) {
+    sandbox.write(&format!("{export}/Common/legs.model"), &card_model());
+    sandbox.write(&format!("{export}/Common/legs.mtl"), &card_materials());
+    sandbox.write(&format!("{export}/Common/skin.dds"), &small_dds());
+}
+
+/// The meshes of the card head converted to an FMDL: its one mesh and the anti-blur mesh the
+/// FMDL export makes for it.
+const CONVERTED_CARD_MESHES: usize = 2;
+
+/// The card head as a model of the player's own: its one material renamed `torso`, in the
+/// model and in its material set, which names `./face.dds`. It merges with the card itself
+/// with no material in common, and its one bone is the card's, at the card's pose (a part of
+/// another skeleton's pose would be `skl_merge_conflict`).
+fn own_card() -> (Vec<u8>, Vec<u8>) {
+    let file = pes_model::format::PreFoxModel::read(&card_model()).unwrap();
+    let mut model = pes_model::model::Model::from_file(&file).unwrap();
+    model.materials = vec!["torso".to_owned()];
+    let mut materials = MaterialSet::read(&materials_naming("face")).unwrap();
+    materials.materials[0].name = "torso".to_owned();
+    (model.to_file().unwrap().write().unwrap(), materials.write())
+}
+
+#[test]
+fn a_common_model_link_converts_the_model_with_its_common_mtl_into_the_player_s_face() {
+    let sandbox = Sandbox::new("cmn_model_link");
+    let export = "exports/co Midcup Card";
+    let player = format!("{export}/Players/05 - A");
+    let (torso, torso_materials) = own_card();
+    sandbox.write(&format!("{player}/torso.model"), &torso);
+    sandbox.write(&format!("{player}/torso.mtl"), &torso_materials);
+    sandbox.write(&format!("{player}/face.dds"), &small_dds());
+    sandbox.write(&format!("{player}/legs.model.common"), b"");
+    write_common_card(&sandbox, export);
+    let skin = format!("{COMMON_TEXTURES}/skin.ftex");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Card"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.model.common)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.model)",
+            "Info team_colors_missing [Keep] ()",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/face.ftex",
+            skin.as_str(),
+            FACE_05,
+            FACE_05_FPKD,
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            "common/etc/TeamColor.bin"
+        ],
+        "skin once, in the team's Common output"
+    );
+    assert_no_common_path(&entries);
+    let package = face_package(&entries);
+    let merged = package.get("fcl_hair.fmdl").unwrap();
+    assert_eq!(
+        mesh_count(merged),
+        2 * CONVERTED_CARD_MESHES,
+        "the local part's meshes plus the converted Common model's"
+    );
+    // The Common `.mtl`'s `./skin.dds`, pointed at the team's Common output, the player's own
+    // `./face.dds` at his subfolder.
+    let skin_directories = texture_directories(merged, "skin.dds");
+    assert!(!skin_directories.is_empty());
+    assert!(
+        skin_directories
+            .iter()
+            .all(|directory| directory == COMMON_DIRECTORY),
+        "{skin_directories:?}"
+    );
+    let face_directories = texture_directories(merged, "face.dds");
+    assert!(!face_directories.is_empty());
+    assert!(
+        face_directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"),
+        "{face_directories:?}"
+    );
+}
+
+#[test]
+fn two_players_linking_one_common_model_each_convert_it_and_share_its_texture() {
+    let sandbox = Sandbox::new("cmn_model_link_twice");
+    let export = "exports/co Midcup Cards";
+    for slot in ["05 - A", "07 - B"] {
+        sandbox.write(&format!("{export}/Players/{slot}/legs.model.common"), b"");
+    }
+    write_common_card(&sandbox, export);
+    let skin = format!("{COMMON_TEXTURES}/skin.ftex");
+    let face_07 = "Asset/model/character/face/real/71407/#Win/face.fpk";
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Cards"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.model.common)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/07 - B (file=legs.model.common)",
+            "Info team_colors_missing [Keep] ()"
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            skin.as_str(),
+            FACE_05,
+            FACE_05_FPKD,
+            face_07,
+            "Asset/model/character/face/real/71407/#Win/face.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            "common/etc/TeamColor.bin"
+        ],
+        "each player's face, the Common texture once"
+    );
+    for path in [FACE_05, face_07] {
+        let package = fpk::FpkFile::read(&entries[path]).unwrap();
+        let hair = package.get("fcl_hair.fmdl").unwrap();
+        assert_eq!(mesh_count(hair), CONVERTED_CARD_MESHES, "{path}");
+        let directories = texture_directories(hair, "skin.dds");
+        assert!(!directories.is_empty());
+        assert!(
+            directories
+                .iter()
+                .all(|directory| directory == COMMON_DIRECTORY),
+            "{path}: {directories:?}"
+        );
+    }
 }
 
 #[test]

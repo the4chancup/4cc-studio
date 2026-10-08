@@ -22,8 +22,8 @@ use pes_model::format::mtl::{
 
 use crate::prefox_faces::{
     BOOTS_K0644, CLEAN, card_materials, card_model, common_output, entries_under, face_cpk,
-    face_folder, nested_entries, ordered_entries, pes17, sampler_paths, small_dds, write_round_hat,
-    write_slot_05_face,
+    face_folder, nested_entries, ordered_entries, pes17, pre_fox_fixture, sampler_paths, small_dds,
+    write_round_hat, write_slot_05_face,
 };
 use crate::textures::texture_fixture;
 use crate::{clean_model, findings_of};
@@ -559,6 +559,83 @@ fn a_model_alone_is_converted_to_the_boots_fmdl_with_its_texture_in_the_player_s
     assert_eq!(package.get("boots.skl").unwrap(), body_skl("pes21"));
 }
 
+#[test]
+fn a_converted_path_into_the_pre_fox_common_folder_names_the_fox_one_when_common_holds_it() {
+    let export = "co Midcup Boots";
+    // The card head's material set naming `shirt` in the team's pre-Fox Common folder, the way
+    // a member's own `.mtl` names a texture in `Common/`.
+    let text = String::from_utf8(pre_fox_fixture("cardhead_materials.mtl")).unwrap();
+    let pre_fox_path = "model/character/uniform/common/714/shirt.dds";
+    let mtl = text.replace("./texture.dds", pre_fox_path).into_bytes();
+    let write = |sandbox: &Sandbox, common: bool| {
+        let player = slot_05(export);
+        sandbox.write(&format!("{player}/boots.model"), &card_model());
+        sandbox.write(&format!("{player}/boots.mtl"), &mtl);
+        if common {
+            sandbox.write(
+                &format!("exports/{export}/Common/shirt.dds"),
+                &tracer_player_file("shirt.dds"),
+            );
+        }
+    };
+    // The directories of the boots FMDL's paths naming `shirt.dds`.
+    let shirt_directories = |entries: &BTreeMap<String, Vec<u8>>| -> Vec<String> {
+        let package = fpk::FpkFile::read(&entries[BOOTS_FPK]).unwrap();
+        let file = fmdl::FmdlFile::read(package.get("boots.fmdl").unwrap()).unwrap();
+        fmdl::ops::paths::texture_paths(&file)
+            .unwrap()
+            .into_iter()
+            .filter(|path| path.file_name == "shirt.dds")
+            .map(|path| path.directory)
+            .collect()
+    };
+    let identified = "Info export_identified [Keep] (team=/co/, id=714)";
+    let no_colors = "Info team_colors_missing [Keep] ()";
+
+    // With `Common/shirt.dds`: pointed at the team's Fox Common output, which holds it.
+    let held = Sandbox::new("conversion_pre_fox_common_path_held");
+    write(&held, true);
+    let (code, lines, entries) = compiled_for(&held, 21, "", export);
+    assert_eq!(lines, [identified, no_colors]);
+    assert_eq!(code, 0);
+    assert!(
+        entries.contains_key("Asset/model/character/common/714/sourceimages/#windx11/shirt.ftex"),
+        "{:?}",
+        entries.keys()
+    );
+    let directories = shirt_directories(&entries);
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory == "/Assets/pes16/model/character/common/714/sourceimages/"),
+        "{directories:?}"
+    );
+
+    // Without: left as written, as any path the export does not hold, and the deep check's
+    // lookup says so.
+    let missing = Sandbox::new("conversion_pre_fox_common_path_missing");
+    write(&missing, false);
+    let (code, lines, entries) = compiled_for(&missing, 21, "", export);
+    assert_eq!(
+        lines,
+        [
+            "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=boots.mtl, texture=model/character/uniform/common/714/shirt.dds, materials=card)",
+            identified,
+            no_colors,
+        ]
+    );
+    assert_eq!(code, 0);
+    let directories = shirt_directories(&entries);
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory == "model/character/uniform/common/714/"),
+        "{directories:?}"
+    );
+}
+
 // TC-MOD-29
 #[test]
 fn a_model_whose_conversion_fails_leaves_its_package_out_even_with_pass_through() {
@@ -1026,6 +1103,38 @@ fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_as_skl_no_slot(
             ["face_diff.bin", "face_high.fmdl"]
         );
     }
+}
+
+#[test]
+fn a_linked_common_model_s_conversion_is_reported_on_the_player_naming_its_export_path() {
+    // A Common `.model` converts in the linking player's face task, its findings named as a
+    // shared folder's file converted there is: by its export path.
+    let sandbox = Sandbox::new("conversion_skeleton_slotless_common");
+    let export = "co Midcup Face";
+    sandbox.write(&format!("{}/face_high.model.common", slot_05(export)), b"");
+    let common = format!("exports/{export}/Common");
+    sandbox.write(
+        &format!("{common}/face_high.model"),
+        &card_with_its_own_bone(),
+    );
+    sandbox.write(&format!("{common}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{common}/skin.dds"), &small_dds());
+
+    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+
+    assert_eq!(
+        lines,
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning skl_no_slot [Keep] at Players/05 - A (model=Common/face_high.model)",
+        ]
+    );
+    assert_eq!(code, 0);
+    assert_eq!(
+        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
+        ["face_diff.bin", "face_high.fmdl"]
+    );
 }
 
 /// The `EnvironmentMap` samplers of `set`, every material's.

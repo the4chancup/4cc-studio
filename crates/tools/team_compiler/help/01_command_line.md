@@ -41,8 +41,9 @@ in place of the `N`. When the team has a kit number (a `p1` to `p9` folder in `K
 goalkeeper's `g1` goes with the number picked) with no texture of its own, the lowest one is
 copied for it, so the game never shows a missing texture, and the warning `kit_variant_missing`
 names the texture, the kit and the copied file. Per-kit models (`pants_kit1.fmdl` beside
-`pants_kit2.fmdl`) are not possible on PES 2018 to 2021: only the lowest one is used, and the
-warning `kit_variant_model_fox` says so. On PES 2015 to 2017 the set is listed once in the
+`pants_kit2.fmdl`, or `.model` files, or a mix of the two) are not possible on PES 2018 to 2021:
+only the lowest one is used (a `.model` converted with its `.mtl`), and the warning
+`kit_variant_model_fox` says so. On PES 2015 to 2017 the set is listed once in the
 `face.xml`, as `pants_kitN`, every variant is packed and the game loads the one for the kit
 picked; each variant's `.mtl` goes by the same rule (`pants_kit1.mtl` and `pants_kit2.mtl`, or
 one `pants.mtl` for all), and the warning `kit_variant_mtl_differs` names a variant whose `.mtl`
@@ -106,8 +107,14 @@ from there, so the Common model is built into the player's own face, boots or gl
 were a model of the player's folder, under the name its own name or the subfolder gives it
 (`legs.fmdl.common` is face content, reported as `fmdl_fcl_hair_fallback` like a local
 `legs.fmdl`), and merged with the player's models of that name. A skeleton file named after it
-in `Common` (`Common/legs.skl`) comes with it. The textures in `Common` (image files directly
-in it) are built once for the whole team, whether a player uses them or not, and a
+in `Common` (`Common/legs.skl`) comes with it. A `.model` in `Common` works the same way
+(`legs.model.common`): it is converted for each player linking it, with the `.mtl` a link
+finds (a `.mtl` named like it beside the link, else one in `Common`, else one beside the link),
+and a `.fmdl` of the same name in `Common` is used instead when there is one. A converted
+model's `.mtl` path into the team's PES 2015 to 2017 Common folder
+(`model/character/uniform/common/XXX/skin.dds`) names the team's Common folder instead when
+`Common` holds that texture, and is left as written otherwise. The textures in `Common`
+(image files directly in it) are built once for the whole team, whether a player uses them or not, and a
 Common model's textures of those names are read from there, so twenty players sharing one
 Common model share one copy of its textures. A player's own models can use a texture in
 `Common` the same way: an empty file named after it plus `.common` (`hair.dds.common` in the
@@ -281,7 +288,7 @@ PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 or content other than a player's
 own face, boots and gloves models, their textures, portraits, the `ingame_face` marker, kits,
 the logo, `.fmdl` collars, linked shared `Faces`, `Boots` and `Gloves` folders, and a
-`Common` folder holding only `.fmdl`, `.skl` and
+`Common` folder holding only `.fmdl`, `.model`, `.mtl`, `.skl` and
 texture files, its models reached through `.common` links (a model in a `gloves` subfolder
 whose name does not say which hand it is, or a `.common` link to a material file, among
 others); a player's own `.model` models, and a shared folder's, are converted to `.fmdl` with
