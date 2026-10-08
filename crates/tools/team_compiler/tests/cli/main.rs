@@ -24,6 +24,7 @@ mod prefox_faces;
 mod prefox_hand_split;
 mod prefox_ingame_face;
 mod prefox_kit_variants;
+mod prefox_textures;
 mod prefox_user_xml;
 mod referees;
 mod sideload;

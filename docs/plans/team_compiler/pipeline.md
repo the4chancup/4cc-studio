@@ -1568,7 +1568,9 @@ Resolved decisions:
   Common → referenced in place, once per team.
 - **A texture a model names must exist** (`fmdl_texture_not_found`, `mtl_texture_not_found`): a
   player whose texture nobody supplies does not look as its author meant, so the finding is an
-  Error and drops the folder. A texture used by one of the model's meshes is supplied when
+  Error and drops the folder on Fox; on pre-Fox it is a Warning that keeps the folder, because
+  the game plays such a face (`messages.md`, the paragraph after "Texture existence is checked
+  **deep**"). A texture used by one of the model's meshes is supplied when
   (1) its stem resolves in the model's folder, links included; or (2) its path names the team's
   Common output and the export's `Common/` holds the stem; or (3) its path names the team's
   Common output and an **installed CPK** holds that path. Case 3 is the midcup export: a partial

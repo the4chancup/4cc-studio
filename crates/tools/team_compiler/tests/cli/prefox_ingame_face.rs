@@ -477,8 +477,10 @@ fn under_ingame_face_only_a_copied_common_mtl_names_a_common_texture_it_has_no_l
     sandbox.write(&format!("{common}/kit_boots.mtl"), &studs);
     sandbox.write(&format!("{common}/studs.dds"), &small_dds());
 
+    // So nothing supplies his own `studs.dds`, which is a Warning.
+    let missing = "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=socks.mtl, texture=./studs.dds, materials=socks)";
     let merged = "Info model_merged [Keep] at Players/05 - A (model=boots.model)";
-    let entries = compile_pes17(&sandbox, export, &[CLEAN[0], CLEAN[1], merged]);
+    let entries = compile_pes17(&sandbox, export, &[missing, CLEAN[0], CLEAN[1], merged]);
 
     // The copied Common `.mtl`'s path names the Common output; his own stays as written.
     let boots = entries_under(&entries, BOOTS_K0625);

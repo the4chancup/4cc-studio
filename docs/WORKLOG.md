@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 in progress (a1 and a2 done: the member's own `face.xml` read, checked and emitted; b next: `mtl_texture_not_found`), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 next, with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1517,7 +1517,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `face_neck` entry, whose MTL names `skin.dds` under `.../common/714/05 - .../`, and no `Asset/`
   entry
 
-- [ ] 4.15 **Pre-Fox XML and MTL checks, user `face.xml`**: the Error/Warning/Info line of
+- [x] 4.15 **Pre-Fox XML and MTL checks, user `face.xml`**: the Error/Warning/Info line of
   "User-supplied `face.xml`" with its resolution paragraph, `xml_ignored_fox`,
   `mtl_texture_not_found` (mesh-used materials) against `mtl_texture_unused_missing`. The
   `mtl_material_duplicate` and `mtl_state_*` rows are already reported by the deep pass from
@@ -1525,7 +1525,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   converted model's `[prefox.states]` wait for glTF sources to compile (Phase 7; the deep pass
   does not read glTF); `xml_texture_path_missing` needs the texture suffix mapping table of the
   same phase (today a sampler without `path` is `mtl_broken`); a `face.xml` in a shared face
-  folder stays refused by the pre-Fox gate (open question in the plan paragraph). Plan:
+  folder stays refused by the pre-Fox gate (open question in the plan paragraph); a pre-Fox
+  texture `.common` link satisfied by an installed CPK (the face task points a link by its
+  target's name; `installed_common_textures` stays Fox-only); a Common-form texture path in a
+  `.mtl` packed with its `XXX` segment as written although the check calls it supplied (whether
+  Red respells it: 4.31's pre-Fox parity). Plan:
   `messages.md` "XML/MTL content checks", "User-supplied `face.xml`". IDs: TC-XML-01..07,
   TC-XML-09 (TC-XML-08 is 4.14d's). Slices: (a1) the xml read, checked and resolved
   (`user_face_xml.rs`: parse, the content checks, reference resolution, serialization), its
@@ -1536,10 +1540,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the dummy and the version rewrite as for a generated xml, the `<dif>` sources), the gate
   lifted for a player folder's own xml, the Fumos xml of the pre-Fox tracer compiled verbatim
   as a second test (TC-XML-01, TC-XML-02, TC-XML-04, TC-XML-05); (b) `mtl_texture_not_found`
-  and `mtl_texture_unused_missing` at compile time under Fox's rule ("A texture a model names
-  must exist"), the model's bound material names carried from the deep pass as `hand_weighted`
-  is, a `./` or bare path whose stem no place holds being missing on pre-Fox (the face packs no
-  texture) (TC-XML-07). Crates: tc → verify: the hand-written xml of `testing.md` ("user
+  and `mtl_texture_unused_missing` in the deep pass under Fox's rule ("A texture a model names
+  must exist"), which pairs each model with its `.mtl` and has read both: a `./` or bare path
+  whose stem the folder does not hold is missing, a Common-form path is looked for in `Common/`
+  and the installed CPKs, the installed stems reaching the pass from validation (TC-XML-07; the
+  paragraph after "Texture existence is checked **deep**"). Crates: tc → verify: the hand-written xml of `testing.md` ("user
   `face.xml`") compiled for PES 17 is emitted with 714 substituted into its Common path, its
   unknown `type` and extra attribute kept with `xml_type_unknown` and `xml_attribute_unknown`,
   `level="1"` kept with `xml_level_lod`; a `<model>` without `path` drops the folder with
@@ -1583,6 +1588,27 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   51 caught, 3 unviable, 3 missed (the serializer's empty-element guard with text alone or a
   child alone; the kind check of the `kitN` packing loop, which the CLI test hid by naming
   both sets), each covered by a lead test; rerun 54 caught, 0 missed.
+  (b) done 2026-10-08 (Opus 5.5, fresh agent; one rework round, caused by the plan, not the
+  code: the row's Error refused the pre-Fox tracer's Fumos face, a cup-played export whose
+  `face.mtl` names `./face_edithair_specular_roughness.dds` on a mesh-used material it holds no
+  file for, which Red warned on and compiled; the sidekick reported it as a blocker and
+  loosened nothing, the lead ruled the finding a Warning (DECISIONS); one contradiction it
+  applied on plan evidence, accepted: mesh-used means bound by a mesh, not listed by the model
+  (`MaterialRead::mesh_used`); six gaps reported, two fixed in the rework (a referee's combined
+  boots and gloves hold textures for his face; no texture finding on a folder an xml Error
+  drops), one deferred (the `XXX` segment, above), three what the plan says; lead fixes: the
+  parity test's expected warning and one test comment): the deep pass keeps each pre-Fox
+  material's sampler paths (`deep::model::MaterialRead`) and looks every `.mtl`'s up by the
+  face task's stem rule (`deep::materials`: `supply`, `texture_findings`, `held_stems`), each
+  model paired once with its `.mtl` (`deep::Pairing`, `pairings`) for both
+  `model_material_undefined` and the mesh-used set, `FaceUse` naming the shared folders whose
+  textures a face packs, the installed Common stems reaching the pass from `check_source`
+  (`InstalledPaths::common_texture_stems` by engine), a `Common/` `.mtl` checked once against
+  the Common models' names; `tests/cli/prefox_textures.rs` (TC-XML-07, TC-TEX-05's three runs
+  on PES 17, a game path and a dummy stem). Gates green (236 of 258). `deep/mod.rs` is past
+  2,000 lines: converge's design-health pass should move the pairing and the texture wiring
+  beside `deep/materials.rs`. `mutants-diff a98219b` (local): 72, 59 caught, 13 unviable (each a
+  `Default::default()` on a type without one, or `||` inside a `let` chain), 0 missed.
 
 - [ ] 4.16 **Pre-Fox kits, bins and DDS compression**: a kit marked `fox` has its main texture
   and its own mask re-laid to the pre-Fox layout (`kit_layout::relaid`, TC-KIT-19), `kit_mask` injected from the mask template
@@ -3865,3 +3891,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     own `<dif>` else the folder's; only the files it names are packed; no hand split for such a
     folder; the pre-Fox tracer's Fumos xml compiles verbatim as a test. TC-XML-07 is 4.15b's.
     Next: 4.15b.
+  - **4.15b done** (TC-XML-07; 4.15 closed): on PES 15-17 the deep pass looks every `.mtl`'s
+    texture paths up by the face task's stem rule, `check` and `compile` alike: a miss on a
+    material a paired model's mesh binds is `mtl_texture_not_found`, a Warning keeping the
+    folder (the plan's Error refused the cup-played Fumos tracer; Red warned on the same file),
+    a miss only unbound materials name `mtl_texture_unused_missing`; a Common-form path is
+    looked for in `Common/` and the installed CPKs listed before the run's. Deferred: a pre-Fox
+    texture link satisfied by an installed CPK; the `XXX` segment of a supplied Common-form
+    `.mtl` path left as written. Next: 4.16.

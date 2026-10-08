@@ -403,6 +403,11 @@ fn a_model_with_no_mtl_drops_its_folder_and_a_face_without_face_neck_gets_the_du
         &format!("{export}/Players/06 - B/hat_parts.mtl"),
         &pre_fox_fixture("cardhead_materials.mtl"),
     );
+    // The texture the set names, so its folder is compiled.
+    sandbox.write(
+        &format!("{export}/Players/06 - B/texture.dds"),
+        &small_dds(),
+    );
     let undefined =
         "Error model_material_undefined [DropFolder] at Players/05 - A (file=hat.model)";
 
@@ -499,11 +504,20 @@ fn a_shared_boots_folder_s_model_of_another_name_is_written_as_boots_model_with_
     let mud = format!("exports/{export}/Boots/Mud");
     sandbox.write(&format!("{mud}/kit_boots.model"), &card_model());
     sandbox.write(&format!("{mud}/kit_boots.mtl"), &materials_naming("mud"));
-    // A second material set, which the search does not pick for `kit_boots.model`.
+    // A second material set, which the search does not pick for `kit_boots.model`: with no
+    // model paired with it, its missing texture is only an Info.
     sandbox.write(&format!("{mud}/materials.mtl"), &materials_naming("other"));
     sandbox.write(&format!("{mud}/mud.dds"), &small_dds());
 
-    let entries = compile_pes17(&sandbox, export, &CLEAN);
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info mtl_texture_unused_missing [Keep] at Boots/Mud (file=materials.mtl, texture=./other.dds, materials=card)",
+            CLEAN[0],
+            CLEAN[1],
+        ],
+    );
 
     let boots = entries_under(&entries, BOOTS_K0644);
     let names: Vec<&str> = boots.keys().copied().collect();
@@ -527,6 +541,8 @@ fn a_linked_gloves_folder_is_written_with_a_generated_glove_xml_under_its_shared
         sandbox.write(&format!("{keeper}/{hand}.model"), &card_model());
         sandbox.write(&format!("{keeper}/{hand}.mtl"), &card_materials());
     }
+    // The texture both sets name: a shared folder's `.mtl` is checked against its own files.
+    sandbox.write(&format!("{keeper}/skin.dds"), &small_dds());
 
     let entries = compile_pes17(&sandbox, export, &CLEAN);
 
@@ -540,6 +556,7 @@ fn a_linked_gloves_folder_is_written_with_a_generated_glove_xml_under_its_shared
             "g0644/glove_l.mtl",
             "g0644/glove_r.model",
             "g0644/glove_r.mtl",
+            "g0644/skin.dds",
         ]
     );
     assert_eq!(*gloves["g0644/glove_l.model"], card_model());

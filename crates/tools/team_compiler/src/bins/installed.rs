@@ -57,25 +57,32 @@ impl InstalledPaths {
         }
     }
 
-    /// The stems, folded, of the textures these CPKs hold in team `team_id`'s Fox Common output
-    /// (`paths::common_texture`), which a texture `.common` link may name instead of a file in
-    /// the export's `Common/` (`pipeline.md` "Resolved decisions", "A texture a model names must
-    /// exist"); empty when the lookup cannot be made. Validation asks on a Fox target only.
-    pub(crate) fn common_texture_stems(&self, team_id: u16) -> BTreeSet<String> {
+    /// The stems, folded, of the textures these CPKs hold in team `team_id`'s Common output for
+    /// a target of `engine` (`paths::common_texture`): on Fox the ones a texture `.common` link
+    /// may name instead of a file in the export's `Common/`, on pre-Fox the ones a `.mtl`'s
+    /// Common path may name (`pipeline.md` "Resolved decisions", "A texture a model names must
+    /// exist"); empty when the lookup cannot be made.
+    pub(crate) fn common_texture_stems(&self, engine: Engine, team_id: u16) -> BTreeSet<String> {
         let paths = match self {
             InstalledPaths::Unknown => return BTreeSet::new(),
             InstalledPaths::Known(paths) => paths,
         };
         // The path of the empty stem, cut at the stem, gives the folded head and tail every
         // Common texture path of the team has.
-        let empty = vtree::fold_name(&paths::common_texture(Engine::Fox, team_id, ""));
-        let suffix = ".ftex";
+        let empty = vtree::fold_name(&paths::common_texture(engine, team_id, ""));
+        let suffix = match engine {
+            Engine::Fox => ".ftex",
+            Engine::PreFox => ".dds",
+        };
         let prefix = empty
             .strip_suffix(suffix)
-            .expect("a Common texture path ends with the stem and `.ftex`");
+            .expect("a Common texture path ends with the stem and its engine's extension");
+        // On pre-Fox a player's own textures sit in a folder below the team's Common one
+        // (`TextureHome::directory`), under the same head: a stem holding a `/` is one of them.
         paths
             .iter()
             .filter_map(|path| path.strip_prefix(prefix)?.strip_suffix(suffix))
+            .filter(|stem| !stem.contains('/'))
             .map(str::to_owned)
             .collect()
     }
@@ -668,15 +675,46 @@ mod tests {
             .collect(),
         );
         assert_eq!(
-            installed.common_texture_stems(714),
+            installed.common_texture_stems(Engine::Fox, 714),
             BTreeSet::from(["hair".to_owned()])
         );
         assert_eq!(
-            installed.common_texture_stems(702),
+            installed.common_texture_stems(Engine::Fox, 702),
             BTreeSet::from(["skin".to_owned()])
         );
         assert_eq!(
-            InstalledPaths::Unknown.common_texture_stems(714),
+            InstalledPaths::Unknown.common_texture_stems(Engine::Fox, 714),
+            BTreeSet::new()
+        );
+    }
+
+    #[test]
+    fn the_pre_fox_common_texture_stems_are_the_team_s_own_common_dds_files_folded() {
+        let installed = InstalledPaths::Known(
+            [
+                paths::common_texture(Engine::PreFox, 714, "Hair"),
+                paths::common_texture(Engine::PreFox, 702, "skin"),
+                // The team's Fox Common texture, which a pre-Fox target does not read.
+                paths::common_texture(Engine::Fox, 714, "cloth"),
+                // A Common `.mtl`, beside the textures.
+                paths::pre_fox_common_file(714, "hat.mtl"),
+                // A player's own texture, in his folder below the team's Common one.
+                "common/character1/model/character/uniform/common/714/05 - A/shirt.dds".to_owned(),
+            ]
+            .iter()
+            .map(|path| vtree::fold_name(path))
+            .collect(),
+        );
+        assert_eq!(
+            installed.common_texture_stems(Engine::PreFox, 714),
+            BTreeSet::from(["hair".to_owned()])
+        );
+        assert_eq!(
+            installed.common_texture_stems(Engine::PreFox, 702),
+            BTreeSet::from(["skin".to_owned()])
+        );
+        assert_eq!(
+            InstalledPaths::Unknown.common_texture_stems(Engine::PreFox, 714),
             BTreeSet::new()
         );
     }

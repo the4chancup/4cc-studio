@@ -305,7 +305,7 @@ pass-through-eligible, and the logo goes as one unit.
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
 | `xml_texture_path_missing` | E | sampler with no texture path and not auto-fillable (sampler not in the suffix mapping table) | folder discarded |
-| `mtl_texture_not_found` | E/W | texture (by stem) used by one of the model's meshes supplied by nobody: not in the folder, and for a Common path neither in the export's `Common/` nor in an installed CPK (the rule of `fmdl_texture_not_found`, W included) | folder discarded; kept when W |
+| `mtl_texture_not_found` | W | texture (by stem) used by one of the model's meshes supplied by nobody: not in the folder, and for a Common path neither in the export's `Common/` nor in an installed CPK (the lookup of `fmdl_texture_not_found`); a Warning where Fox's is an Error, because the game plays such a face (the paragraph below) | folder kept |
 | `mtl_texture_unused_missing` | I | texture referenced only by materials no mesh uses | none |
 | `xml_root_tag_invalid` | E | root tag is not `<config>` | folder discarded |
 | `xml_model_type_missing` | E | `<model>` without `type` | folder discarded |
@@ -437,6 +437,41 @@ which MTL material each mesh actually binds, so a missing texture on a mesh-used
 error, while a miss on a material no mesh uses can never break the model and is only reported as
 info. Red only reads the MTL and cannot tell used materials from unused ones, so it has to report
 every miss as a warning.
+
+On pre-Fox the check runs in the deep pass, which already pairs each `.model` with its `.mtl`
+(the search, or the entry of the member's own `face.xml`) and has read both, so `check` reports
+it as `compile` does; Fox's `fmdl_texture_not_found` runs in the face task instead, where the
+merged model's pointed paths are known. A `.mtl` material is **mesh-used** when a model paired
+with that `.mtl` binds its name. Every `.mtl` of a folder is checked, so one no model pairs with
+(an unlisted `.mtl` beside a member's xml) reports its misses as `mtl_texture_unused_missing`.
+A sampler path, whatever directory it spells, is supplied when its stem (or a variant of its
+set, for a `pants_kitN` reference) is one the folder holds: a texture among the folder's own
+files or its linked shared face's (for a referee, whose face packs his combined boots' and
+gloves' textures too, those folders' as well), or the linked stem of a texture `.common` link;
+this is the stem rule the face task points `.mtl` paths by, so the check and the pointing
+agree. A shared face folder's `.mtl` files are checked in that folder's own pass against its
+own textures: a shared face is complete by itself, and a texture a player holds of a stem it
+names does not count. Past the folder, a `./` or bare path is missing (the face packs no
+texture the folder does not hold); a path of the Common form
+`model/character/uniform/common/<3 chars>/<name>` is supplied when `Common/` holds the stem, or
+an installed CPK holds `common/character1/model/character/uniform/common/<team>/<stem>.dds`
+(the walk of `fmdl_texture_not_found`; a lookup that cannot be made, or an export with no team
+ID, holds nothing); any other path names the game's own files and is not looked up, nor is a
+`dummy_*` stem. One finding per `.mtl` and distinct path, naming the file, the path as written
+and the materials naming it; a folder an xml Error drops gets none. **The finding is a Warning
+that keeps the folder**, where Fox's is an Error: the pre-Fox tracer's Fumos face names
+`./face_edithair_specular_roughness.dds` on a mesh-used material, holds no such file, and played
+a cup as Red compiled it with a warning. Which samplers a pre-Fox shader reads is not known, so
+the compiler cannot tell that harmless miss from one that shows, and refusing a face the game
+plays would fail the parity standard; the Warning tells the member where to look. A `Common/`
+`.mtl` is packed once for the team, so its mesh-used names are those every kept `Common/`
+`.model` binds, and its paths resolve among the `Common/` textures and the installed CPKs. A
+Common-form path the check calls supplied is still packed with its segment as written (the
+face task points only stems the folder holds): whether Red respells it is a question for the
+pre-Fox parity step. A pre-Fox texture `.common` link
+whose target is not in the export stays `common_link_missing`, not yet satisfied by an installed
+CPK: the face task points a link by its target's name, so lifting that needs the task to point
+a targetless link by the link's own stem (a later step).
 
 **Kits**
 

@@ -48,6 +48,7 @@
 
 pub(crate) mod collar;
 mod documents;
+mod materials;
 mod model;
 mod portrait;
 mod texture;
@@ -56,7 +57,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, KitTextureSource,
-    ModelFormat, PlayerFolder, SharedKind, ValidatedAestheticsExport, common_link_name,
+    ModelFormat, PlayerFolder, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
+    common_link_name,
 };
 use dds_convert::SourceFormat;
 use pes_version::{Engine, PesVersion};
@@ -67,8 +69,8 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::plan::subset::{
-    FolderModels, PlayerFile, common_file, is_direct_common_file, linked_folder, player_file,
-    texture_format,
+    FolderModels, PlayerFile, common_file, file_stem, is_direct_common_file,
+    link_feeds_own_package, linked_folder, player_file, texture_format,
 };
 use crate::reader::ContentSource;
 use crate::user_face_xml::{
@@ -76,7 +78,8 @@ use crate::user_face_xml::{
 };
 use collar::collar_findings;
 use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
-use model::{ModelKind, fired, summed};
+use materials::{TextureSources, held_stems, texture_findings};
+use model::{MaterialRead, ModelKind, fired, summed};
 use portrait::{folder_portrait, portrait_conflict, portrait_findings};
 use texture::{SizeRule, texture_finding};
 
@@ -93,10 +96,10 @@ pub(crate) struct ContentPass {
     /// (`pipeline.md` "2. Per-export serial steps", step 6). A file that does not parse is
     /// not among them.
     pub(crate) hand_weighted: BTreeSet<ScopePath>,
-    /// The export path of each pre-Fox `.model` and `.mtl` it parsed, with its material names
-    /// (`model::ModelRead::materials`), which a model's `model_material_undefined` compares.
-    /// A file that does not parse is not among them.
-    materials: BTreeMap<ScopePath, Vec<String>>,
+    /// The export path of each pre-Fox `.model` and `.mtl` it parsed, with its materials
+    /// (`model::ModelRead::materials`), which a model's `model_material_undefined` compares and
+    /// a `.mtl`'s texture lookup reads. A file that does not parse is not among them.
+    materials: BTreeMap<ScopePath, Vec<MaterialRead>>,
 }
 
 impl ContentPass {
@@ -118,14 +121,34 @@ impl ContentPass {
 }
 
 /// The `Common/` files the deep pass keeps, which a model's `.mtl` search looks among, with the
-/// material names of those that are parsed pre-Fox models and material sets
-/// (`ContentPass::materials`).
+/// materials of those that are parsed pre-Fox models and material sets
+/// (`ContentPass::materials`), and the textures the team's Common output will hold, which a
+/// pre-Fox `.mtl`'s Common path may name (`materials::supply`).
 #[derive(Debug, Default)]
 struct KeptCommon {
     /// The kept files, in `Common/`'s order.
     files: Vec<FileDescriptor>,
-    /// The material names of the kept pre-Fox models and material sets, by export path.
-    materials: BTreeMap<ScopePath, Vec<String>>,
+    /// The materials of the kept pre-Fox models and material sets, by export path.
+    materials: BTreeMap<ScopePath, Vec<MaterialRead>>,
+    /// The stems, folded, of the kept textures, which the export's Common textures task packs.
+    texture_stems: BTreeSet<String>,
+    /// The stems, folded, the installed CPKs loaded before the run's hold in the team's Common
+    /// output; `None` when that lookup cannot be made or the export has no team ID.
+    installed: Option<BTreeSet<String>>,
+}
+
+impl KeptCommon {
+    /// The materials of the parsed pre-Fox file at `path`: a folder's, among
+    /// `folder_materials`, or a kept `Common/` one's; `None` for a file that did not parse.
+    fn materials_of<'a>(
+        &'a self,
+        path: &ScopePath,
+        folder_materials: &'a BTreeMap<ScopePath, Vec<MaterialRead>>,
+    ) -> Option<&'a Vec<MaterialRead>> {
+        folder_materials
+            .get(path)
+            .or_else(|| self.materials.get(path))
+    }
 }
 
 /// The content findings of `export`, the sanitized export read from `content` and compiled for
@@ -142,6 +165,13 @@ struct KeptCommon {
 /// checked before the folders, whose models' `.mtl` search sees only the ones kept, and whose
 /// models' materials are compared with the kept ones' names (`KeptCommon`).
 ///
+/// For PES 2015 to 2017 each `.mtl`'s texture paths are looked up (`materials`), right after
+/// its own findings, each finding keeping what holds the `.mtl`: a folder's against the
+/// textures the folder holds, `Common/`'s and `installed`, the stems the installed CPKs loaded
+/// before the run's hold in the team's Common output (`None` when that lookup cannot be made or
+/// the export has no team ID); a kept `Common/` `.mtl`'s against `Common/`'s textures and
+/// `installed`, its mesh-used materials being those the kept `Common/` models bind.
+///
 /// The player folders, the shared folders, the files of each folder and `Common/`'s files are
 /// checked in parallel, on the rayon pool the caller runs this in; the rest in order. Every
 /// file is read through `content` and each worker holds one file's bytes at a time, so at most
@@ -152,12 +182,13 @@ pub(crate) fn content_findings(
     export: &ValidatedAestheticsExport,
     content: &ContentSource,
     version: PesVersion,
+    installed: Option<BTreeSet<String>>,
 ) -> ContentPass {
     let size_rule = SizeRule::of(version);
     let engine = version.engine();
     // Each group below is collected in its items' order (rayon's indexed `collect`), so the
     // findings come out in file order whatever the workers' scheduling.
-    let common: Vec<ContentPass> = export
+    let mut common: Vec<ContentPass> = export
         .common
         .par_iter()
         .map(|file| {
@@ -181,21 +212,30 @@ pub(crate) fn content_findings(
     // Error would keep is left out too: the pass does not know the setting, and leaving it
     // out can only report a folder `compile` could have built, never let one through that
     // it cannot.
-    let mut kept_common = KeptCommon::default();
+    let mut kept_common = KeptCommon {
+        installed,
+        ..KeptCommon::default()
+    };
     for (file, pass) in export.common.iter().zip(&common) {
-        let dropped = pass
-            .findings
-            .iter()
-            .any(|finding| matches!(finding.disposition, Disposition::DropFile));
-        if dropped {
+        if drops_file(&pass.findings) {
             continue;
         }
         kept_common.files.push(file.clone());
-        if let Some(names) = pass.materials.get(&file.path) {
+        if let Some(read) = pass.materials.get(&file.path) {
             kept_common
                 .materials
-                .insert(file.path.clone(), names.clone());
+                .insert(file.path.clone(), read.clone());
         }
+    }
+    kept_common.texture_stems = kept_common
+        .files
+        .iter()
+        .filter(|file| file.kind == FileKind::Texture)
+        .map(|file| vtree::fold_name(file_stem(file.path.name())))
+        .collect();
+    match engine {
+        Engine::Fox => {}
+        Engine::PreFox => common_mtl_findings(&export.common, &mut common, &kept_common),
     }
     let players: Vec<ContentPass> = export
         .players
@@ -203,7 +243,6 @@ pub(crate) fn content_findings(
         .map(|player| {
             let folder = &player.path;
             // Under the marker the face files are not used, his own `face.xml` among them.
-            let face = (!player.ingame_face).then(|| linked_face_files(export, player));
             let mut pass = folder_findings(
                 content,
                 folder,
@@ -211,7 +250,7 @@ pub(crate) fn content_findings(
                 &kept_common,
                 size_rule,
                 version,
-                face,
+                FaceUse::of_player(export, player, engine),
             );
             let findings = &mut pass.findings;
             findings.extend(face_diff_findings(
@@ -247,7 +286,10 @@ pub(crate) fn content_findings(
                 &kept_common,
                 size_rule,
                 version,
-                Some(&[]),
+                FaceUse::Used {
+                    linked_face: None,
+                    combined: Vec::new(),
+                },
             );
             pass.findings.extend(face_diff_findings(
                 content,
@@ -271,7 +313,7 @@ pub(crate) fn content_findings(
                 &kept_common,
                 size_rule,
                 version,
-                None,
+                FaceUse::Unused,
             )
         })
         .collect();
@@ -413,18 +455,105 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
     }
 }
 
-/// The files of the shared face folder `player` links in `export`, as planning resolves the
-/// link (`linked_folder`); empty when he links none.
-fn linked_face_files<'a>(
-    export: &'a ValidatedAestheticsExport,
-    player: &PlayerFolder,
-) -> &'a [FileDescriptor] {
-    player
-        .links
+/// Whether `findings`, a `Common/` file's, drop it.
+fn drops_file(findings: &[ContentFinding]) -> bool {
+    findings
         .iter()
-        .find(|link| matches!(link.kind, SharedKind::Face))
-        .and_then(|link| linked_folder(export, link))
-        .map_or(&[], |face| face.files.as_slice())
+        .any(|finding| matches!(finding.disposition, Disposition::DropFile))
+}
+
+/// The texture findings of each `.mtl` among `common`, the export's `Common/` files whose
+/// passes are `passes`, that `kept` holds, a pre-Fox target's (`materials::texture_findings`):
+/// each on its file, keeping it, appended to its pass after its own findings. A `Common/`
+/// `.mtl` is packed once for the team, before any player's pairing is known, so its mesh-used
+/// materials are those every kept `Common/` model's meshes bind, and its paths resolve among
+/// the kept `Common/` textures and the installed CPKs alone.
+fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], kept: &KeptCommon) {
+    let model_kind = FileKind::Model(ModelFormat::PesModel);
+    let used: BTreeSet<&str> = kept
+        .files
+        .iter()
+        .filter(|file| file.kind == model_kind)
+        .filter_map(|file| kept.materials.get(&file.path))
+        .flatten()
+        .filter(|material| material.mesh_used)
+        .map(|material| material.name.as_str())
+        .collect();
+    let sources = TextureSources {
+        held: &kept.texture_stems,
+        common: &kept.texture_stems,
+        installed: kept.installed.as_ref(),
+    };
+    for (file, pass) in common.iter().zip(passes) {
+        if file.kind != FileKind::Mtl {
+            continue;
+        }
+        // A file the pass dropped, or that did not parse, has no kept materials.
+        let Some(read) = kept.materials.get(&file.path) else {
+            continue;
+        };
+        pass.findings.extend(texture_findings(
+            file.path.name(),
+            read,
+            &used,
+            &sources,
+            &IssueScope::File(file.path.clone()),
+        ));
+    }
+}
+
+/// Whether a model folder's face files are used, and which shared folders the face packs
+/// (`folder_findings`).
+enum FaceUse<'a> {
+    /// The face files are not used: a boots or gloves folder, or a player under `ingame_face`.
+    Unused,
+    /// The face files are used: a player folder without `ingame_face`, or a shared face
+    /// folder.
+    Used {
+        /// The shared face folder the folder links, whose files its own `face.xml` may name and
+        /// whose textures its `.mtl` paths may name; `None` for a shared face folder and a
+        /// player linking none.
+        linked_face: Option<&'a SharedModelFolder>,
+        /// The shared boots and gloves folders whose textures the face packs too, those whose
+        /// link feeds the player's own package (`link_feeds_own_package`): a referee's, every
+        /// one of whose links does. Empty for a team player, whose boots and gloves links stay
+        /// plain while his face is used.
+        combined: Vec<&'a SharedModelFolder>,
+    },
+}
+
+impl<'a> FaceUse<'a> {
+    /// How the face files of `player`, a player folder of `export` compiled for a target of
+    /// `engine`, are used, its links resolved as planning resolves them (`linked_folder`).
+    fn of_player(
+        export: &'a ValidatedAestheticsExport,
+        player: &PlayerFolder,
+        engine: Engine,
+    ) -> FaceUse<'a> {
+        if player.ingame_face {
+            return FaceUse::Unused;
+        }
+        let linked_face = player
+            .links
+            .iter()
+            .find(|link| matches!(link.kind, SharedKind::Face))
+            .and_then(|link| linked_folder(export, link));
+        let combined = player
+            .links
+            .iter()
+            .filter(|link| match link.kind {
+                SharedKind::Face => false,
+                SharedKind::Boots | SharedKind::Gloves => {
+                    link_feeds_own_package(&export.roster, engine, player, link)
+                }
+            })
+            .filter_map(|link| linked_folder(export, link))
+            .collect();
+        FaceUse::Used {
+            linked_face,
+            combined,
+        }
+    }
 }
 
 /// The findings of the files among `files`, those of the model folder at `folder`, that the
@@ -432,18 +561,19 @@ fn linked_face_files<'a>(
 /// an Error dropping the folder, the file named below the folder; when the target `version`
 /// is pre-Fox, each `.model`'s, and each typed `.common` link's to one,
 /// `model_material_undefined` (`material_finding`, its `.mtl` searched among the folder's
-/// files and `common`'s), right after the model's own findings; with the models among them
-/// that carry hand weights and the material names of the pre-Fox ones. The files are read and
-/// checked in parallel, each worker holding one file, and the models' material names compared
-/// after, from the names each read kept.
+/// files and `common`'s), right after the model's own findings, and each `.mtl`'s texture
+/// lookup (`materials::texture_findings`), right after the `.mtl`'s own findings; with the
+/// models among them that carry hand weights and the materials of the pre-Fox ones. The files
+/// are read and checked in parallel, each worker holding one file, and the models' materials
+/// compared after, from what each read kept.
 ///
-/// `face` is `Some` when the folder's face files are used (a player folder without
-/// `ingame_face`, or a shared face folder), holding the files of the shared face the folder
-/// links (empty when none). Then each member's own `face.xml` among `files`
-/// (`PlayerFile::FaceXml`) is read and checked (`user_xml_findings`), its findings at its place
-/// in file order, and the xml overrides the search: `model_material_undefined` compares only
-/// the models it lists with the `.mtl` each entry names (`listed_materials`), and none at all
-/// when an xml has an Error, which drops the folder.
+/// When `face` says the folder's face files are used (`FaceUse::Used`), each member's own
+/// `face.xml` among `files` (`PlayerFile::FaceXml`) is read and checked (`user_xml_findings`),
+/// its findings at its place in file order, and the xml overrides the search:
+/// `model_material_undefined` compares only the models it lists with the `.mtl` each entry
+/// names (`listed_materials`), and none at all when an xml has an Error, which drops the
+/// folder; nor is any `.mtl`'s texture looked up then. The textures of the shared folders the
+/// face packs count for the folder's `.mtl` paths, as they do for the face task.
 fn folder_findings(
     content: &ContentSource,
     folder: &ScopePath,
@@ -451,16 +581,16 @@ fn folder_findings(
     common: &KeptCommon,
     size_rule: SizeRule,
     version: PesVersion,
-    face: Option<&[FileDescriptor]>,
+    face: FaceUse,
 ) -> ContentPass {
     let engine = version.engine();
     let models = FolderModels::of(folder, files, engine);
     let scope = IssueScope::Folder(folder.clone());
-    let xmls: Vec<(&FileDescriptor, XmlOutcome)> = match face {
-        Some(linked_face) => {
+    let xmls: Vec<(&FileDescriptor, XmlOutcome)> = match &face {
+        FaceUse::Used { linked_face, .. } => {
             let face_files = FaceFiles {
                 own: files,
-                linked_face,
+                linked_face: linked_face.map_or(&[], |face| face.files.as_slice()),
                 common: &common.files,
                 folder,
             };
@@ -473,11 +603,24 @@ fn folder_findings(
                 })
                 .collect()
         }
-        None => Vec::new(),
+        FaceUse::Unused => Vec::new(),
     };
-    // With an xml, the models it lists and the `.mtl` each entry names; `None` when there is
-    // no xml, and the search pairs each model.
-    let listed = (!xmls.is_empty()).then(|| listed_materials(&xmls, files, common, folder));
+    let xml_drops_folder = xmls.iter().any(|(_, outcome)| {
+        outcome.parsed.is_none()
+            || outcome
+                .findings
+                .iter()
+                .any(|finding| finding.disposition == Disposition::DropFolder)
+    });
+    // With an xml, the models it lists and the `.mtl` each entry names, none when an xml
+    // drops the folder; `None` when there is no xml, and the search pairs each model.
+    let listed = (!xmls.is_empty()).then(|| {
+        if xml_drops_folder {
+            Vec::new()
+        } else {
+            listed_materials(&xmls, files, common, folder)
+        }
+    });
     // Collected in file order (an indexed `collect`), whatever the scheduling.
     let mut per_file: Vec<ContentPass> = files
         .par_iter()
@@ -497,45 +640,54 @@ fn folder_findings(
     for found in &mut per_file {
         materials.append(&mut found.materials);
     }
+    let pairings = pairings(folder, files, &models, engine, listed, common);
+    // On Fox a `.mtl` is read but not packed (the Fox face task does not read it), so its
+    // paths are not looked up.
+    let shared: Vec<&SharedModelFolder> = match &face {
+        FaceUse::Used {
+            linked_face,
+            combined,
+        } => linked_face.iter().chain(combined).copied().collect(),
+        FaceUse::Unused => Vec::new(),
+    };
+    let held = match engine {
+        Engine::Fox => None,
+        // A folder an xml Error drops gets no texture finding (`messages.md`, the paragraph
+        // starting "On pre-Fox the check runs in the deep pass"): the member fixes the xml
+        // first, and its entries may name other `.mtl` files.
+        Engine::PreFox if xml_drops_folder => None,
+        Engine::PreFox => Some(held_stems(folder, files, &models, &shared, engine)),
+    };
+    let sources = held.as_ref().map(|held| TextureSources {
+        held,
+        common: &common.texture_stems,
+        installed: common.installed.as_ref(),
+    });
     let mut pass = ContentPass::default();
     for (file, found) in files.iter().zip(per_file) {
         pass.append(found);
+        if let Some(sources) = &sources
+            && file.kind == FileKind::Mtl
+            && let Some(read) = materials.get(&file.path)
+        {
+            let used = used_names(&pairings, &file.path, &materials, common);
+            pass.findings.extend(texture_findings(
+                &relative(&file.path, folder),
+                read,
+                &used,
+                sources,
+                &scope,
+            ));
+        }
         if let Some((_, outcome)) = xmls.iter().find(|(xml, _)| xml.path == file.path) {
             pass.findings.extend(outcome.findings.iter().cloned());
         }
-        if let Some(listed) = &listed {
-            for (_, mtl) in listed.iter().filter(|(model, _)| model.path == file.path) {
-                pass.findings.extend(undefined_materials(
-                    relative(&file.path, folder),
-                    &file.path,
-                    mtl,
-                    folder,
-                    common,
-                    &materials,
-                    &scope,
-                ));
-            }
-            continue;
-        }
-        // On Fox a `.model` is not read yet: a `boots.model` beside `boots.fmdl` is never
-        // the selected source, so dropping the folder for it would lose a working FMDL
-        // (4.17 adds Fox where it is the source).
-        let searched = match engine {
-            Engine::Fox => false,
-            // The roles are read without the `ingame_face` marker (`FolderModels::of`), so a
-            // model link is `PreFoxCommonModel` here even in a marked folder, where planning
-            // makes it a part of his boots or gloves whose `.mtl` is needed all the same.
-            Engine::PreFox => {
-                file.kind == FileKind::Model(ModelFormat::PesModel)
-                    || matches!(
-                        player_file(folder, file, &models),
-                        Some(PlayerFile::PreFoxCommonModel { .. })
-                    )
-            }
-        };
-        if searched {
+        for pairing in pairings
+            .iter()
+            .filter(|pairing| pairing.file.path == file.path)
+        {
             pass.findings.extend(material_finding(
-                file, folder, files, common, &materials, &scope,
+                pairing, folder, common, &materials, &scope,
             ));
         }
     }
@@ -543,14 +695,102 @@ fn folder_findings(
     pass
 }
 
-/// `model_material_undefined` on `scope` for `file`, a `.model` among `files` (those of the
-/// model folder at `folder`) or a typed `.common` link among them to a `Common/` one, when the
-/// target is pre-Fox; `folder_materials` are the material names of the folder's parsed
-/// pre-Fox files, `common`'s of the kept `Common/` ones (`ContentPass::materials`).
+/// A pre-Fox model of a model folder paired with the `.mtl` it binds its materials from: what
+/// `model_material_undefined` compares, and what makes a `.mtl` material mesh-used for the
+/// texture lookup.
+struct Pairing<'a> {
+    /// The folder's file the pairing is about, which a finding names: a `.model`, or a typed
+    /// `.common` link to a `Common/` one.
+    file: &'a FileDescriptor,
+    /// The model whose materials count: the file itself, or a link's kept `Common/` model;
+    /// `None` when the pass dropped that model.
+    model: Option<&'a ScopePath>,
+    /// The `.mtl`: the one the folder's `face.xml` entry names, or the search's (`mtl_for`);
+    /// `None` when the search finds none.
+    mtl: Option<&'a FileDescriptor>,
+}
+
+/// The pairings of the models among `files`, those of the model folder at `folder` whose
+/// models are `models`, read for a target of `engine`: with the folder's own `face.xml`, the
+/// models it lists with the `.mtl` each entry names (`listed`, empty when an xml drops the
+/// folder); without, on pre-Fox, each `.model` and each typed `.common` link to one with the
+/// `.mtl` its search finds among `files` and `common`'s; on Fox none.
+fn pairings<'a>(
+    folder: &'a ScopePath,
+    files: &'a [FileDescriptor],
+    models: &FolderModels,
+    engine: Engine,
+    listed: Option<Vec<(&'a FileDescriptor, &'a FileDescriptor)>>,
+    common: &'a KeptCommon,
+) -> Vec<Pairing<'a>> {
+    if let Some(listed) = listed {
+        return listed
+            .into_iter()
+            .map(|(model, mtl)| Pairing {
+                file: model,
+                model: Some(&model.path),
+                mtl: Some(mtl),
+            })
+            .collect();
+    }
+    files
+        .iter()
+        .filter(|file| match engine {
+            // On Fox a `.model` is not read yet: a `boots.model` beside `boots.fmdl` is never
+            // the selected source, so dropping the folder for it would lose a working FMDL
+            // (4.17 adds Fox where it is the source).
+            Engine::Fox => false,
+            // The roles are read without the `ingame_face` marker (`FolderModels::of`), so a
+            // model link is `PreFoxCommonModel` here even in a marked folder, where planning
+            // makes it a part of his boots or gloves whose `.mtl` is needed all the same.
+            Engine::PreFox => {
+                file.kind == FileKind::Model(ModelFormat::PesModel)
+                    || matches!(
+                        player_file(folder, file, models),
+                        Some(PlayerFile::PreFoxCommonModel { .. })
+                    )
+            }
+        })
+        .map(|file| {
+            let model = match common_link_name(file.path.name()) {
+                Some(linked) => common_file(&common.files, &linked).map(|model| &model.path),
+                None => Some(&file.path),
+            };
+            Pairing {
+                file,
+                model,
+                mtl: mtl_for(&file.path, folder, files, &common.files),
+            }
+        })
+        .collect()
+}
+
+/// The names of the materials the meshes of the models `pairings` pair with the `.mtl` at
+/// `mtl` bind: its mesh-used materials. A model that did not parse binds none.
+/// `folder_materials` and `common`'s are the parsed pre-Fox files' (`ContentPass::materials`).
+fn used_names<'a>(
+    pairings: &[Pairing],
+    mtl: &ScopePath,
+    folder_materials: &'a BTreeMap<ScopePath, Vec<MaterialRead>>,
+    common: &'a KeptCommon,
+) -> BTreeSet<&'a str> {
+    pairings
+        .iter()
+        .filter(|pairing| pairing.mtl.is_some_and(|paired| &paired.path == mtl))
+        .filter_map(|pairing| common.materials_of(pairing.model?, folder_materials))
+        .flatten()
+        .filter(|material| material.mesh_used)
+        .map(|material| material.name.as_str())
+        .collect()
+}
+
+/// `model_material_undefined` on `scope` for `pairing`, a pre-Fox model of the model folder at
+/// `folder`; `folder_materials` are the materials of the folder's parsed pre-Fox files,
+/// `common`'s of the kept `Common/` ones (`ContentPass::materials`).
 ///
 /// When its search (`mtl_search::mtl_for`) finds no `.mtl`, the finding names the model and is
 /// not pass-through-eligible: the face's `face.xml` must name a material set for the model,
-/// and there is none to name. When it finds one, the material names the model binds (a link's:
+/// and there is none to name. When it has one, the material names the model binds (a link's:
 /// the linked `Common/` model's) that the `.mtl` does not define are the finding's, in the
 /// model's order, naming the model, the `.mtl` (below the folder, or by its export path in
 /// `Common/`) and those names; it is pass-through-eligible: the file packs as it is, and the
@@ -558,15 +798,14 @@ fn folder_findings(
 /// defined, or when either file did not parse (its own `model_broken` or `mtl_broken` drops
 /// it).
 fn material_finding(
-    file: &FileDescriptor,
+    pairing: &Pairing,
     folder: &ScopePath,
-    files: &[FileDescriptor],
     common: &KeptCommon,
-    folder_materials: &BTreeMap<ScopePath, Vec<String>>,
+    folder_materials: &BTreeMap<ScopePath, Vec<MaterialRead>>,
     scope: &IssueScope,
 ) -> Option<ContentFinding> {
-    let name = relative(&file.path, folder);
-    let Some(mtl) = mtl_for(&file.path, folder, files, &common.files) else {
+    let name = relative(&pairing.file.path, folder);
+    let Some(mtl) = pairing.mtl else {
         return Some(ContentFinding {
             code: MODEL_MATERIAL_UNDEFINED,
             scope: scope.clone(),
@@ -575,11 +814,15 @@ fn material_finding(
             pass_through_eligible: false,
         });
     };
-    let model = match common_link_name(file.path.name()) {
-        Some(linked) => &common_file(&common.files, &linked)?.path,
-        None => &file.path,
-    };
-    undefined_materials(name, model, mtl, folder, common, folder_materials, scope)
+    undefined_materials(
+        name,
+        pairing.model?,
+        mtl,
+        folder,
+        common,
+        folder_materials,
+        scope,
+    )
 }
 
 /// `model_material_undefined` on `scope` for the model at `model`, which the finding names
@@ -587,26 +830,22 @@ fn material_finding(
 /// define, in the model's order, naming the `.mtl` below `folder` or by its export path in
 /// `Common/`; pass-through-eligible, the file packing as it is. `None` when every name is
 /// defined, or when either file did not parse. `folder_materials` and `common`'s are the
-/// material names of the parsed pre-Fox files (`ContentPass::materials`).
+/// materials of the parsed pre-Fox files (`ContentPass::materials`).
 fn undefined_materials(
     name: String,
     model: &ScopePath,
     mtl: &FileDescriptor,
     folder: &ScopePath,
     common: &KeptCommon,
-    folder_materials: &BTreeMap<ScopePath, Vec<String>>,
+    folder_materials: &BTreeMap<ScopePath, Vec<MaterialRead>>,
     scope: &IssueScope,
 ) -> Option<ContentFinding> {
-    let names_of = |path: &ScopePath| {
-        folder_materials
-            .get(path)
-            .or_else(|| common.materials.get(path))
-    };
-    let defined = names_of(&mtl.path)?;
-    let undefined: Vec<&str> = names_of(model)?
+    let defined = common.materials_of(&mtl.path, folder_materials)?;
+    let undefined: Vec<&str> = common
+        .materials_of(model, folder_materials)?
         .iter()
-        .filter(|used| !defined.contains(used))
-        .map(String::as_str)
+        .filter(|used| !defined.iter().any(|material| material.name == used.name))
+        .map(|used| used.name.as_str())
         .collect();
     if undefined.is_empty() {
         return None;
@@ -693,24 +932,14 @@ fn user_xml_findings(
 /// `face.xml` files list, each with the `.mtl` its entry names (`user_face_xml::resolve`),
 /// for `model_material_undefined` to compare: the xml overrides the search. An entry naming no
 /// `material`, or one the compiler cannot resolve, is compared with nothing, and a `material`
-/// naming no file is `xml_model_not_found` already. Empty when an xml did not parse or has an
-/// Error: the folder is dropped.
+/// naming no file is `xml_model_not_found` already. The caller asks only when no xml drops the
+/// folder.
 fn listed_materials<'a>(
     xmls: &[(&FileDescriptor, XmlOutcome)],
     files: &'a [FileDescriptor],
     common: &'a KeptCommon,
     folder: &'a ScopePath,
 ) -> Vec<(&'a FileDescriptor, &'a FileDescriptor)> {
-    let dropped = xmls.iter().any(|(_, outcome)| {
-        outcome.parsed.is_none()
-            || outcome
-                .findings
-                .iter()
-                .any(|finding| finding.disposition == Disposition::DropFolder)
-    });
-    if dropped {
-        return Vec::new();
-    }
     // The shared face's files are not the folder's own: a model there is checked in that
     // folder's pass.
     let face_files = FaceFiles {
@@ -1004,6 +1233,27 @@ mod tests {
         unwritten: &[&str],
         structure_codes: &[&str],
     ) -> ContentPass {
+        export_pass(
+            "co Midcup Deep",
+            None,
+            version,
+            root,
+            files,
+            unwritten,
+            structure_codes,
+        )
+    }
+
+    /// `pass_for` over the folder export `name`, whose `players.txt` is `players_txt`.
+    fn export_pass(
+        name: &str,
+        players_txt: Option<&[u8]>,
+        version: PesVersion,
+        root: &Path,
+        files: &[(&str, Vec<u8>)],
+        unwritten: &[&str],
+        structure_codes: &[&str],
+    ) -> ContentPass {
         for (path, bytes) in files {
             let path = root.join(path);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -1014,18 +1264,18 @@ mod tests {
             .map(|(path, bytes)| (*path, bytes.len() as u64))
             .chain(unwritten.iter().map(|path| (*path, 1)))
             .collect();
-        let (resolved, codes) = resolved_with_issues("co Midcup Deep", &listed, &[], None);
+        let (resolved, codes) = resolved_with_issues(name, &listed, &[], players_txt);
         assert_eq!(codes, structure_codes, "the structure pass's findings");
         let source = ExportSource {
             export_id: ExportId(0),
             path: root.to_path_buf(),
             kind: SourceKind::Folder,
-            file_name: "co Midcup Deep".to_owned(),
-            display_name: "co Midcup Deep".to_owned(),
+            file_name: name.to_owned(),
+            display_name: name.to_owned(),
             team_name: None,
         };
         let content = ContentSource::new(&source, &MemoryBudget::new(1 << 30));
-        content_findings(&resolved.export, &content, version)
+        content_findings(&resolved.export, &content, version, None)
     }
 
     /// The bytes of `tests/fixtures/textures/<name>` (that folder's `README.md`).
@@ -1490,6 +1740,7 @@ mod tests {
                 ("hat.model", card()),
                 ("hat.mtl", card_materials()),
                 ("other.mtl", other_materials()),
+                ("texture.dds", bc1_dds(4, 4)),
                 (
                     "face.xml",
                     one_model_xml(r#"path="./hat.model" material="./other.mtl""#),
@@ -1515,6 +1766,7 @@ mod tests {
                 ("hat.model", card()),
                 ("hat.mtl", card_materials()),
                 ("other.mtl", other_materials()),
+                ("texture.dds", bc1_dds(4, 4)),
                 (
                     "face.xml",
                     br#"<config><model level="0" type="cape" path="./hat.model" material="./other.mtl"/></config>"#.to_vec(),
@@ -1546,6 +1798,8 @@ mod tests {
                 ),
                 ("Faces/Round/hair_high.model", card()),
                 ("Faces/Round/hair_high.mtl", card_materials()),
+                // The texture both `.mtl` files name: the player's through his linked face.
+                ("Faces/Round/texture.dds", bc1_dds(4, 4)),
             ],
             &[],
             &[],
@@ -1559,6 +1813,8 @@ mod tests {
             "deep_xml_absent",
             &[
                 ("hat.model", card()),
+                // Both name `./texture.dds`, which the folder lacks: with the xml's Error
+                // dropping the folder, their textures are not looked for either.
                 ("hat.mtl", card_materials()),
                 ("other.mtl", other_materials()),
                 // The second entry lists `hat.model` with a `.mtl` lacking its material: with
@@ -1593,6 +1849,7 @@ mod tests {
                 ("hat.mtl", other_materials()),
                 ("other.model", card()),
                 ("other.mtl", card_materials()),
+                ("texture.dds", bc1_dds(4, 4)),
                 (
                     "face.xml",
                     one_model_xml(r#"path="./other.model" material="./other.mtl""#),
@@ -1735,6 +1992,307 @@ mod tests {
         assert_eq!(
             findings[2].scope,
             IssueScope::File(path("Players/05 - B/portrait.png"))
+        );
+    }
+
+    /// The card head's material set with one material per entry of `materials`, each the card
+    /// material renamed, its one sampler repeated once per path it names.
+    fn materials_naming(materials: &[(&str, &[&str])]) -> Vec<u8> {
+        use pes_model::format::mtl::{MaterialEntry, MaterialSet};
+        let mut set = MaterialSet::read(&card_materials()).unwrap();
+        let card = set.materials[0].clone();
+        let MaterialEntry::Sampler(sampler) = &card.entries[0] else {
+            panic!("the card material's first entry is its sampler");
+        };
+        set.materials = materials
+            .iter()
+            .map(|(name, paths)| {
+                let mut material = card.clone();
+                material.name = (*name).to_owned();
+                let samplers = paths.iter().map(|path| {
+                    let mut named = sampler.clone();
+                    named.path = (*path).to_owned();
+                    MaterialEntry::Sampler(named)
+                });
+                material.entries.splice(0..1, samplers);
+                material
+            })
+            .collect();
+        set.write()
+    }
+
+    /// The texture finding `code` of the `.mtl` named `file` on `scope`, about `texture`,
+    /// named by `materials`; every texture finding keeps what holds the file.
+    fn mtl_texture(
+        code: &'static str,
+        scope: IssueScope,
+        file: &str,
+        texture: &str,
+        materials: &str,
+    ) -> ContentFinding {
+        ContentFinding {
+            code,
+            scope,
+            context: vec![
+                ("file", file.to_owned()),
+                ("texture", texture.to_owned()),
+                ("materials", materials.to_owned()),
+            ],
+            disposition: Disposition::Keep,
+            pass_through_eligible: false,
+        }
+    }
+
+    #[test]
+    fn a_shared_face_s_mtl_counts_its_own_textures_and_a_player_s_his_linked_face_s() {
+        let temp = scratch("deep_mtl_shared_face");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - A/Round.face", Vec::new()),
+                ("Players/05 - A/face_high.model", card()),
+                (
+                    "Players/05 - A/face_high.mtl",
+                    materials_naming(&[("card", &["./round.dds"])]),
+                ),
+                ("Players/05 - A/skin.dds", bc1_dds(4, 4)),
+                ("Faces/Round/hair_high.model", card()),
+                (
+                    "Faces/Round/hair_high.mtl",
+                    materials_naming(&[("card", &["./skin.dds"])]),
+                ),
+                ("Faces/Round/round.dds", bc1_dds(4, 4)),
+            ],
+            &[],
+            &[],
+        );
+        // A shared face is complete by itself: the player's `skin.dds` does not count for it.
+        assert_eq!(
+            findings,
+            [mtl_texture(
+                "mtl_texture_not_found",
+                folder("Faces/Round"),
+                "hair_high.mtl",
+                "./skin.dds",
+                "card"
+            )]
+        );
+    }
+
+    /// The player folder `player` holding the card head's `face_high.model`, a `face_high.mtl`
+    /// naming `./studs.dds` and a link to `Boots/Studs`, which holds the card head as
+    /// `boots.model`, a `boots.mtl` naming `./studs.dds`, and `studs.dds` itself.
+    fn studs_boots_layout(player: &str) -> Vec<(String, Vec<u8>)> {
+        let studs = || materials_naming(&[("card", &["./studs.dds"])]);
+        vec![
+            (format!("{player}/Studs.boots"), Vec::new()),
+            (format!("{player}/face_high.model"), card()),
+            (format!("{player}/face_high.mtl"), studs()),
+            ("Boots/Studs/boots.model".to_owned(), card()),
+            ("Boots/Studs/boots.mtl".to_owned(), studs()),
+            ("Boots/Studs/studs.dds".to_owned(), bc1_dds(4, 4)),
+        ]
+    }
+
+    /// `files` with borrowed paths, as the passes take them.
+    fn borrowed(files: &[(String, Vec<u8>)]) -> Vec<(&str, Vec<u8>)> {
+        files
+            .iter()
+            .map(|(path, bytes)| (path.as_str(), bytes.clone()))
+            .collect()
+    }
+
+    #[test]
+    fn a_referee_s_face_holds_his_combined_boots_textures_and_a_team_player_s_does_not() {
+        // A referee's every link feeds his own package, so his face packs the boots' textures.
+        let temp = scratch("deep_mtl_referee_boots");
+        let pass = export_pass(
+            "refs Midcup Deep",
+            Some(b"01 Ref A\n"),
+            PesVersion::Pes17,
+            temp.path(),
+            &borrowed(&studs_boots_layout("Players/Ref A")),
+            &[],
+            &[],
+        );
+        assert_eq!(pass.findings, []);
+        // A team player's boots link stays plain: his face holds no `studs.dds`.
+        let temp = scratch("deep_mtl_team_boots");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &borrowed(&studs_boots_layout("Players/05 - A")),
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [mtl_texture(
+                "mtl_texture_not_found",
+                folder("Players/05 - A"),
+                "face_high.mtl",
+                "./studs.dds",
+                "card"
+            )]
+        );
+    }
+
+    #[test]
+    fn the_stem_a_texture_link_stands_for_is_supplied() {
+        let temp = scratch("deep_mtl_texture_link");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - A/face_high.model", card()),
+                (
+                    "Players/05 - A/face_high.mtl",
+                    materials_naming(&[("card", &["./hair.dds"])]),
+                ),
+                ("Players/05 - A/hair.dds.common", Vec::new()),
+                ("Common/hair.dds", bc1_dds(4, 4)),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(findings, []);
+    }
+
+    #[test]
+    fn a_mtl_no_parsed_model_binds_reports_its_misses_as_info() {
+        let temp = scratch("deep_mtl_unpaired");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - A/face_high.model", card()),
+                ("Players/05 - A/face_high.mtl", card_materials()),
+                ("Players/05 - A/texture.dds", bc1_dds(4, 4)),
+                // No model's search finds it.
+                (
+                    "Players/05 - A/spare.mtl",
+                    materials_naming(&[("card", &["./gone.dds"])]),
+                ),
+                // The model does not parse, so it binds nothing.
+                ("Players/06 - B/face_high.model", b"not a model".to_vec()),
+                ("Players/06 - B/face_high.mtl", card_materials()),
+            ],
+            &[],
+            &[],
+        );
+        let error = pes_model::format::PreFoxModel::read(b"not a model")
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            findings,
+            [
+                mtl_texture(
+                    "mtl_texture_unused_missing",
+                    folder("Players/05 - A"),
+                    "spare.mtl",
+                    "./gone.dds",
+                    "card"
+                ),
+                dropping(
+                    "model_broken",
+                    "Players/06 - B",
+                    &[("file", "face_high.model"), ("error", error.as_str())]
+                ),
+                mtl_texture(
+                    "mtl_texture_unused_missing",
+                    folder("Players/06 - B"),
+                    "face_high.mtl",
+                    "./texture.dds",
+                    "card"
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_material_the_model_lists_but_no_mesh_binds_is_not_mesh_used() {
+        let temp = scratch("deep_mtl_listed_unused");
+        let file = pes_model::format::PreFoxModel::read(&card()).unwrap();
+        let mut model = pes_model::model::Model::from_file(&file).unwrap();
+        model.materials.push("spare".to_owned());
+        let listing_spare = model.to_file().unwrap().write().unwrap();
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - A/face_high.model", listing_spare),
+                (
+                    "Players/05 - A/face_high.mtl",
+                    materials_naming(&[("card", &["./skin.dds"]), ("spare", &["./gone.dds"])]),
+                ),
+                ("Players/05 - A/skin.dds", bc1_dds(4, 4)),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [
+                counted(
+                    "model_material_unused",
+                    &folder("Players/05 - A"),
+                    "face_high.model",
+                    1,
+                    Disposition::Keep,
+                    false
+                ),
+                mtl_texture(
+                    "mtl_texture_unused_missing",
+                    folder("Players/05 - A"),
+                    "face_high.mtl",
+                    "./gone.dds",
+                    "spare"
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_common_mtl_s_used_materials_are_the_common_models_and_its_miss_is_a_warning_on_the_file() {
+        let temp = scratch("deep_mtl_common");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Common/legs.model", card()),
+                (
+                    "Common/legs.mtl",
+                    materials_naming(&[("card", &["./gone.dds"])]),
+                ),
+                (
+                    "Common/spare.mtl",
+                    materials_naming(&[("other", &["./lost.dds"])]),
+                ),
+                // Its search finds `legs.mtl`, still kept, which defines `card`: nothing here.
+                ("Players/05 - B/legs.model.common", Vec::new()),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [
+                mtl_texture(
+                    "mtl_texture_not_found",
+                    IssueScope::File(path("Common/legs.mtl")),
+                    "legs.mtl",
+                    "./gone.dds",
+                    "card"
+                ),
+                mtl_texture(
+                    "mtl_texture_unused_missing",
+                    IssueScope::File(path("Common/spare.mtl")),
+                    "spare.mtl",
+                    "./lost.dds",
+                    "other"
+                ),
+            ]
         );
     }
 }

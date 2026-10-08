@@ -397,7 +397,26 @@ fn the_pre_fox_tracer_matches_the_reference_tree() {
             _ => None,
         })
         .collect();
-    assert_eq!(warnings, [], "the pre-Fox tracer compiles with notes only");
+    // The one warning Red gave too: Fumos's `face.mtl` names a texture the folder does not
+    // hold on a material its face binds, and the face played a cup as compiled, which is why
+    // `mtl_texture_not_found` is a Warning on pre-Fox (`messages.md`, the paragraph after
+    // "Texture existence is checked **deep**").
+    let fumos_texture = (
+        "mtl_texture_not_found".to_owned(),
+        vec![
+            ("file".to_owned(), "face.mtl".to_owned()),
+            (
+                "texture".to_owned(),
+                "./face_edithair_specular_roughness.dds".to_owned(),
+            ),
+            ("materials".to_owned(), "head_phong".to_owned()),
+        ],
+    );
+    assert_eq!(
+        warnings,
+        [fumos_texture],
+        "the pre-Fox tracer compiles with notes and Red's one warning"
+    );
 
     let ours = archive(&fs::read(output.join("4cc_99_test.cpk")).unwrap());
     let reference = tree(&fixture.join("red"));

@@ -1062,8 +1062,8 @@ TC-XML-06  GIVEN a user face.xml in a folder compiled for PES 21
 TC-XML-07  GIVEN face.mtl whose mesh-used material names a missing texture, and another whose
            missing texture is on a material no mesh uses
            WHEN each export is checked for PES 17
-           THEN mtl_texture_not_found drops the first; mtl_texture_unused_missing is an Info on
-                the second and the folder is kept
+           THEN mtl_texture_not_found is a Warning on the first and mtl_texture_unused_missing
+                an Info on the second, both folders kept
 TC-XML-08  GIVEN slot 05 holding face_high.model binding material "skin" and a face_high.mtl
            defining no material of that name
            WHEN the export is compiled for PES 17

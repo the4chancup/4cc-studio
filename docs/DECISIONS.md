@@ -5018,3 +5018,33 @@ disagree with the xml's (Fumos's `oral_glove_l_win32.model` searches to `boots.m
 check against the wrong `.mtl` would drop a working folder.
 Plan: `team_compiler/messages.md` "User-supplied `face.xml`" (the resolution paragraph);
 `team_compiler/README.md` TC-XML-01; `GLOSSARY.md` "User-supplied `face.xml`".
+
+## 2026-10-08 — team_compiler — The pre-Fox texture-existence check runs in the deep pass, by the stem rule the face task points `.mtl` paths with
+Decision: `mtl_texture_not_found` and `mtl_texture_unused_missing` are deep-pass findings on pre-Fox, so
+`check` reports them; Fox's `fmdl_texture_not_found` stays in the face task. A `.mtl` material
+is mesh-used when a model the pass pairs with that `.mtl` (the search, or the xml entry) binds
+its name; every `.mtl` of a folder is checked, an unpaired one's misses as Info. A sampler path
+is supplied, whatever directory it spells, when the folder holds its stem (own textures, the
+linked shared face's, a referee's combined boots' and gloves', a texture link's linked stem, a
+kit set's variant); past that a `./` or bare path is missing, a Common-form path is looked for
+in `Common/` and the installed CPKs (a lookup that cannot be made, or an export with no team
+ID, holds nothing), any other path and a `dummy_*` stem are not looked up. A shared face
+folder's `.mtl` files are checked against its own textures alone. A `Common/` `.mtl`'s mesh-used
+names are those every kept `Common/` model binds. `mtl_texture_not_found` is a Warning keeping
+the folder, not Fox's Error. A pre-Fox texture link is still never satisfied by an installed
+CPK.
+Why: the plan's row said E/W, but the pre-Fox tracer's Fumos face, a cup-played export, names
+`./face_edithair_specular_roughness.dds` on a mesh-used material and holds no such file: Red
+warned and compiled it, and the game played it. Which samplers a pre-Fox shader reads is not
+known, so an Error would refuse faces the game plays on a guess, and the parity standard is
+Red's output. TC-XML-07 says "checked", and the deep pass already pairs each model with its `.mtl` and
+has parsed both, so a compile-time check would carry the bound names into planning and read
+the `.mtl` a second time for nothing; Fox checks in the task only because the merged model's
+paths are pointed there. The stem rule is the pointing rule, so a path the check calls supplied
+is one the task points, and a path it calls missing is one the task leaves as written. A
+shared face is a complete face, so a texture only a combiner holds would make its check depend
+on who links it. A `Common/` `.mtl` is packed once for the team, before any player's pairing is
+known, so the Common models' names are the only used set the pass can state. Lifting the link
+rule needs the face task to point a targetless link by its own stem, a change of the task, not
+of this check.
+Plan: `team_compiler/messages.md`, the paragraph after "Texture existence is checked **deep**".

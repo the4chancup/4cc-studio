@@ -153,6 +153,14 @@ pub(crate) enum Code {
     /// PES 2015 to 2017: a player folder's own `face.xml` that is not UTF-8 text or not
     /// well-formed XML (the error names the line and column); the folder is left out.
     XmlBroken,
+    /// PES 2015 to 2017: a texture a `.mtl` names for a material one of its models' meshes
+    /// uses, which nobody supplies: not in the folder, and for a path into the team's Common
+    /// folder neither in the export's `Common/` nor in an installed CPK loaded before the
+    /// run's. A Warning that keeps the folder: the game plays faces with such a miss.
+    MtlTextureNotFound,
+    /// PES 2015 to 2017: a texture nobody supplies that only `.mtl` materials no mesh uses
+    /// name; the game never loads it, so nothing is left out.
+    MtlTextureUnusedMissing,
     /// A member's own `face.xml` whose root element is not `<config>`; the folder is left out.
     XmlRootTagInvalid,
     /// A `<model>` of a member's own `face.xml` without a `type`; the folder is left out.
@@ -342,7 +350,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 109] = [
+    const ALL: [Code; 111] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -391,6 +399,8 @@ impl Code {
         Code::FaceDiffInvalid,
         Code::XmlDifConflict,
         Code::XmlBroken,
+        Code::MtlTextureNotFound,
+        Code::MtlTextureUnusedMissing,
         Code::XmlRootTagInvalid,
         Code::XmlModelTypeMissing,
         Code::XmlModelPathMissing,
@@ -505,6 +515,8 @@ impl Code {
             Code::FaceDiffInvalid => "face_diff_invalid",
             Code::XmlDifConflict => "xml_dif_conflict",
             Code::XmlBroken => "xml_broken",
+            Code::MtlTextureNotFound => "mtl_texture_not_found",
+            Code::MtlTextureUnusedMissing => "mtl_texture_unused_missing",
             Code::XmlRootTagInvalid => "xml_root_tag_invalid",
             Code::XmlModelTypeMissing => "xml_model_type_missing",
             Code::XmlModelPathMissing => "xml_model_path_missing",
@@ -639,6 +651,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("face_diff_invalid", CatalogSeverity::Error),
     ("xml_dif_conflict", CatalogSeverity::Error),
     ("xml_broken", CatalogSeverity::Error),
+    ("mtl_texture_not_found", CatalogSeverity::Warning),
+    ("mtl_texture_unused_missing", CatalogSeverity::Info),
     ("xml_root_tag_invalid", CatalogSeverity::Error),
     ("xml_model_type_missing", CatalogSeverity::Error),
     ("xml_model_path_missing", CatalogSeverity::Error),

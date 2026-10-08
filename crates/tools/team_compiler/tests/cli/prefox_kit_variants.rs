@@ -173,6 +173,9 @@ fn a_variant_whose_mtl_is_in_another_directory_than_its_entry_implies_is_named()
         &sandbox,
         EXPORT,
         &[
+            // A `Common/` `.mtl`'s paths resolve in `Common/`, which holds no `pants_kit`
+            // texture, and its mesh-used materials are the `Common/` models' (none here).
+            "Info mtl_texture_unused_missing [Keep] at Common/pants_kit1.mtl (file=pants_kit1.mtl, texture=./pants_kitN.dds, materials=card)",
             FINDINGS[0],
             FINDINGS[1],
             "Warning kit_variant_mtl_differs [Keep] at Players/05 - A (model=pants_kit2.model, mtl=./pants_kit2.mtl, expected=model/character/uniform/common/714/pants_kit2.mtl)",

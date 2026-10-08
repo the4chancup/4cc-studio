@@ -451,6 +451,15 @@ link (`hair.dds.common`) may also name a texture such an earlier CPK holds in th
 folder when the export's `Common` folder has no `hair.dds`, and for these links `check` looks in
 those CPKs too.
 
+On PES 2015 to 2017, `check` and `compile` both look for the textures a `.mtl` names, and
+report what they find alike. A `./` path must name a texture of the player's folder (his
+linked shared face's count too), and a path into the team's Common folder
+(`model/character/uniform/common/XXX/...`) a texture of `Common` or of a CPK listed earlier, as
+above. A missing texture that a mesh uses is the warning `mtl_texture_not_found`: the folder
+is still compiled, since the game shows some such faces as they were made, but look at the
+player in the game. One that only a material no mesh uses names is an info line,
+`mtl_texture_unused_missing`. Paths into the game's own folders are not looked for.
+
 A folder named `templates` in the data folder holds files that replace the compiler's built-in
 copies of the same name, so a cup can swap one without a new version of the compiler. The names,
 spelled exactly as here, are `TeamColor.bin` and `UniColor.bin` (the team color and kit color

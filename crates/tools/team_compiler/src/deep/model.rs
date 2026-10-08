@@ -5,7 +5,7 @@
 use fmdl::{FmdlFile, Model};
 use model_convert::ops::hand_split::{fox_has_hand_weights, prefox_has_hand_weights};
 use pes_model::format::PreFoxModel;
-use pes_model::format::mtl::MaterialSet;
+use pes_model::format::mtl::{Material, MaterialEntry, MaterialSet};
 
 /// The format crates' far-vertex codes, both reported as `vertex_too_far_from_origin`.
 pub(crate) const FAR_VERTEX_CODES: [&str; 2] = [
@@ -76,12 +76,26 @@ pub(super) struct ModelRead {
     /// the face task splits it into two more `face.xml` entries. Always `false` for a material
     /// set.
     pub(super) hand_weighted: bool,
-    /// Its material names, in order: for a pre-Fox model the names it lists (`Model::materials`,
-    /// as `pes_model::check::check_bundle` compares them, a name no mesh uses included), for a
-    /// material set the names it defines; empty for an FMDL, whose materials are not paired
-    /// with a material set. The deep pass compares a model's with its `.mtl`'s
-    /// (`model_material_undefined`).
-    pub(super) materials: Vec<String>,
+    /// Its materials, in order: for a pre-Fox model the names it lists (`Model::materials`, as
+    /// `pes_model::check::check_bundle` compares them, a name no mesh uses included), for a
+    /// material set the ones it defines with their texture paths; empty for an FMDL, whose
+    /// materials are not paired with a material set. The deep pass compares a model's names
+    /// with its `.mtl`'s (`model_material_undefined`) and looks for the textures of the ones
+    /// its meshes bind (`mtl_texture_not_found`).
+    pub(super) materials: Vec<MaterialRead>,
+}
+
+/// One material a parsed pre-Fox file names (`ModelRead::materials`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct MaterialRead {
+    /// Its name: the one a model binds, or the one a material set defines.
+    pub(super) name: String,
+    /// The texture paths its samplers name, in order, as written; empty for a model.
+    pub(super) paths: Vec<String>,
+    /// For a model's, whether one of its meshes binds it: a name no mesh binds
+    /// (`model_material_unused`) is never drawn, so its textures are never loaded. `false` for
+    /// a material set's.
+    pub(super) mesh_used: bool,
 }
 
 /// What `bytes`, read as `kind`, tells the deep pass (`ModelRead`), or the reader's error text
@@ -105,13 +119,23 @@ pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> 
             let model = PreFoxModel::read(bytes)
                 .and_then(|file| pes_model::model::Model::from_file(&file))
                 .map_err(|error| error.to_string())?;
+            let materials = model
+                .materials
+                .iter()
+                .enumerate()
+                .map(|(index, name)| MaterialRead {
+                    name: name.clone(),
+                    paths: Vec::new(),
+                    mesh_used: model.meshes.iter().any(|mesh| mesh.material == index),
+                })
+                .collect();
             ModelRead {
                 fired: pes_model::check::check(&model)
                     .into_iter()
                     .map(Fired::pre_fox)
                     .collect(),
                 hand_weighted: prefox_has_hand_weights(&model),
-                materials: model.materials,
+                materials,
             }
         }
         ModelKind::Mtl => {
@@ -122,15 +146,29 @@ pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> 
                     .map(Fired::pre_fox)
                     .collect(),
                 hand_weighted: false,
-                materials: set
-                    .materials
-                    .into_iter()
-                    .map(|material| material.name)
-                    .collect(),
+                materials: set.materials.into_iter().map(material_read).collect(),
             }
         }
     };
     Ok(read)
+}
+
+/// `material` of a material set as the deep pass keeps it: its name and every sampler's
+/// texture path, a path two samplers name included.
+fn material_read(material: Material) -> MaterialRead {
+    let paths = material
+        .entries
+        .into_iter()
+        .filter_map(|entry| match entry {
+            MaterialEntry::Sampler(sampler) => Some(sampler.path),
+            MaterialEntry::State(_) | MaterialEntry::Vector(_) => None,
+        })
+        .collect();
+    MaterialRead {
+        name: material.name,
+        paths,
+        mesh_used: false,
+    }
 }
 
 /// `fired` with one entry per code, in the order each code first fired, its counts summed:
@@ -153,7 +191,7 @@ mod tests {
 
     use super::*;
     use crate::deep::tests::{
-        counted, edited, far_boots, findings_for, findings_of, fixture, folder,
+        bc1_dds, counted, edited, far_boots, findings_for, findings_of, fixture, folder,
         glove_over_the_face_limit, path, pre_fox_fixture, tracer_boots,
     };
     use crate::testing::scratch;
@@ -302,7 +340,8 @@ mod tests {
     #[test]
     fn a_pre_fox_model_s_mtl_may_be_reached_through_a_link_and_a_model_link_s_in_common() {
         let temp = scratch("deep_pre_fox_links");
-        // The card head's model and its material set, which defines the model's one material.
+        // The card head's model and its material set, which defines the model's one material
+        // and names `./texture.dds`.
         let card = || pre_fox_fixture("cardhead_face_high.model");
         let materials = || pre_fox_fixture("cardhead_materials.mtl");
         let findings = findings_for(
@@ -317,6 +356,7 @@ mod tests {
                 ("Players/05 - B/legs.model.common", Vec::new()),
                 ("Common/legs.model", card()),
                 ("Common/legs.mtl", materials()),
+                ("Common/texture.dds", bc1_dds(4, 4)),
             ],
             &[],
             &[],
@@ -447,6 +487,7 @@ mod tests {
                     "Players/03 - A/face_high.mtl",
                     pre_fox_fixture("cardhead_materials.mtl"),
                 ),
+                ("Players/03 - A/texture.dds", bc1_dds(4, 4)),
                 (
                     "Players/05 - B/face_high.model",
                     pre_fox_fixture("cardhead_face_high.model"),
@@ -455,6 +496,7 @@ mod tests {
                     "Players/05 - B/face_high.mtl",
                     pre_fox_fixture("cardhead_materials.mtl"),
                 ),
+                ("Players/05 - B/texture.dds", bc1_dds(4, 4)),
             ],
             &[],
             &[],
@@ -484,11 +526,13 @@ mod tests {
                     "Players/05 - B/legs.mtl",
                     pre_fox_fixture("cardhead_materials.mtl"),
                 ),
+                ("Players/05 - B/texture.dds", bc1_dds(4, 4)),
                 ("Common/legs.model", pre_fox_fixture("konami_card.model")),
                 // A `Common/` `.mtl`, named by its export path.
                 ("Players/07 - C/hat.model.common", Vec::new()),
                 ("Common/hat.model", pre_fox_fixture("konami_card.model")),
                 ("Common/hat.mtl", pre_fox_fixture("cardhead_materials.mtl")),
+                ("Common/texture.dds", bc1_dds(4, 4)),
             ],
             &[],
             &[],

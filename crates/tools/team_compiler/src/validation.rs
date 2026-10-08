@@ -274,18 +274,24 @@ fn check_source(
         }
     };
     let strict = inputs.settings.strict_file_type_check;
+    let team_id = team_id(inputs, &parsed);
     let context = ValidationContext {
         version: inputs.common.pes_version,
         strict_file_type_check: strict,
         pass_through: inputs.settings.pass_through,
-        installed_common_textures: installed_common_textures(inputs, installed, &parsed),
+        installed_common_textures: installed_common_textures(inputs, installed, team_id),
     };
     let mut report = parsed.validate(&context);
     // The deep pass reads only what the structure pass kept; its findings derive the report
     // again, so they drop, cascade and pass through as the structure pass's own do.
     let mut hand_weighted = BTreeSet::new();
     if let Some(validated) = &report.validated {
-        let pass = deep::content_findings(validated, &content, inputs.common.pes_version);
+        let pass = deep::content_findings(
+            validated,
+            &content,
+            inputs.common.pes_version,
+            installed_common_stems(inputs, installed, team_id),
+        );
         hand_weighted = pass.hand_weighted;
         if !pass.findings.is_empty() {
             report = report.with_content_findings(pass.findings, &context);
@@ -347,29 +353,52 @@ fn check_source(
     }
 }
 
-/// The stems of the textures the `installed` CPKs hold in the Common output of `parsed`'s
-/// team, which its texture `.common` links may name (`pipeline.md` "Resolved decisions", "A
-/// texture a model names must exist"). The team's ID is read from the teams list here, before
-/// validation resolves the identity; an export with none (a referee export, a team the list
-/// does not hold, a name with no team token) has an empty set, as has a pre-Fox target, where
-/// an installed Common texture does not satisfy a link yet.
+/// The ID of `parsed`'s team, read from the teams list before validation resolves the
+/// identity; `None` for an export with none (a referee export, a team the list does not hold,
+/// a name with no team token).
+fn team_id(inputs: &RunInputs, parsed: &ParsedAestheticsExport) -> Option<TeamId> {
+    parsed
+        .draft
+        .team_name
+        .as_ref()
+        .and_then(|name| inputs.teams_list.id_of(name))
+}
+
+/// The stems of the textures the `installed` CPKs hold in the Fox Common output of team
+/// `team_id`, which the export's texture `.common` links may name (`pipeline.md` "Resolved
+/// decisions", "A texture a model names must exist"). An export with no team ID has an empty
+/// set, as has a pre-Fox target, where an installed Common texture does not satisfy a link
+/// yet.
 fn installed_common_textures(
     inputs: &RunInputs,
     installed: &InstalledPaths,
-    parsed: &ParsedAestheticsExport,
+    team_id: Option<TeamId>,
 ) -> BTreeSet<String> {
     match inputs.common.pes_version.engine() {
         Engine::Fox => {}
         Engine::PreFox => return BTreeSet::new(),
     }
-    let team_id = parsed
-        .draft
-        .team_name
-        .as_ref()
-        .and_then(|name| inputs.teams_list.id_of(name));
     match team_id {
-        Some(team_id) => installed.common_texture_stems(team_id.get()),
+        Some(team_id) => installed.common_texture_stems(Engine::Fox, team_id.get()),
         None => BTreeSet::new(),
+    }
+}
+
+/// The stems, folded, of the textures the `installed` CPKs hold in the Common output of team
+/// `team_id` for the run's target, which the deep pass looks a pre-Fox `.mtl`'s Common path up
+/// in (`deep::content_findings`); `None` when the lookup cannot be made or the export has no
+/// team ID, so a texture not in the export may still be installed.
+fn installed_common_stems(
+    inputs: &RunInputs,
+    installed: &InstalledPaths,
+    team_id: Option<TeamId>,
+) -> Option<BTreeSet<String>> {
+    let team_id = team_id?;
+    match installed {
+        InstalledPaths::Unknown => None,
+        InstalledPaths::Known(_) => {
+            Some(installed.common_texture_stems(inputs.common.pes_version.engine(), team_id.get()))
+        }
     }
 }
 
