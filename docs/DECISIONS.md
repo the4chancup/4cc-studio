@@ -5310,3 +5310,26 @@ drop's own finding names the cause, as validation's `shared_folder_orphaned` is 
 for an orphan the member made.
 Plan: `team_compiler/pipeline.md` step 6 (the environment-cubemap paragraph), step 3 "Format
 conversion"; `team_compiler/messages.md` `kit_variant_model_fox`, `model_conversion_failed`.
+
+## 2026-10-08 — team_compiler — A Common FMDL converts once in the Common models task on PES 15-17; its link lists the conversion's `.mtl`
+Decision: On PES 15-17 an FMDL directly in `Common/` is converted once, by the export's Common
+models task, into the team's Common output as `oral_<stem>_win32.model` with its material set
+as `<stem>.mtl`, its paired `Common/<stem>.skl` the bind pose, its texture paths pointed at
+the Common texture directory and a metal material given the environment map, which the
+Common textures task emits as `env.dds` in the Common output unless a texture directly in
+`Common/` has the stem `env`. A member's `Common/<stem>.mtl` beside the FMDL is two files of
+one name and fails the task. An `x.fmdl.common` link is a Common model of the face as an
+`x.model.common` link is, listed at the Common path with that `.mtl`, never paired with a
+`.mtl` by the deep pass (its materials are the conversion's, the player's name-matched `.mtl`
+not layering over them); under `ingame_face` it is one more part of his boots or gloves,
+converted by the writer from the Common file as his own FMDL parts are.
+Why: the plan's per-stem selection and conversion say nothing about where a Common FMDL
+converts. Converting it once in the Common task is what the Common output is for (one file for
+many players), the face's entry naming it as it names a `.model.common`'s; converting it in
+each linking player's face would copy the `.model` into every face CPK, which the plan rejects
+for Common models on pre-Fox ("the link resolves to a real runtime reference"). Under the
+marker there is no XML to name the Common path, so the writer converts it into the part, the
+rule the marker already applies to a Common `.model`.
+Plan: `team_compiler/pipeline.md` step 7 "Packing" (the Common output sentences), step 6 (the
+environment-cubemap paragraph); `aesthetics_export/player_folders.md` the `ingame_face`
+paragraph.

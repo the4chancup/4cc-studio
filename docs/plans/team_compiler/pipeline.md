@@ -283,17 +283,21 @@ format:
    converter's own shader rule, so the pass and the conversion agree), whatever the target,
    and planning flags each model folder one of whose pre-Fox packages converts one (a
    player's face, an `ingame_face` player's boots or gloves, a shared boots or gloves
-   output): its textures task, planned even when the folder holds no texture, emits the
-   template environment cubemap as `env.dds` in the folder's texture home unless a source of
-   the folder holds an `env` texture or a texture link of that stem (`env.dds.common`), which
-   the sampler then names in the team's Common output as any linked texture; and the
+   output): its textures task, planned for the template even when the folder holds no
+   texture, emits the template environment cubemap as `env.dds` in the folder's texture home
+   unless a source of the folder holds an `env` texture or a texture link of that stem
+   (`env.dds.common`), which the sampler then names in the team's Common output as any linked
+   texture (a textures task with nothing to emit is not planned: the writer takes an empty
+   batch for a failed task's); and the
    converting package points each converted `Basic_CNSR` material with no `EnvironmentMap`
    sampler at it (the Unified model format plan's `environment` role), without consulting the
    flag: the converter writes `Basic_CNSR` for the family the pass flags with the converter's
    own rule, so the shader and the flag agree. The flag is planning's, not the converting
    task's, because the texture is the textures task's entry: a face CPK holds no DDS, and a
    task that emits what another task names would have to agree with it on the path, which
-   the plan settles once instead.
+   the plan settles once instead. A metal FMDL directly in `Common/` (PES 15-17) gets its
+   map the same way from the Common textures task, `env.dds` in the team's Common output
+   unless a texture directly in `Common/` has the stem `env`.
 
 ### 3. Per-model-folder parallel steps (rayon)
 
@@ -413,7 +417,15 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    search finds in Common, directly or through a `.mtl.common` link, names it as
    `model/character/uniform/common/{team_id}/<name>`; the player's face CPK holds neither. A
    texture link (`hair.png.common`) points a player's `.mtl` path at the Common texture the
-   same way. A
+   same way. An FMDL directly in `Common/` is converted once there, by the Common models
+   task, as the face converts a player's own (item 1): `oral_<stem>_win32.model` with its
+   material set as `<stem>.mtl`, its paired `Common/<stem>.skl` the bind pose, its texture
+   paths pointed at the Common texture directory, a metal material given the environment
+   map (step 6); a member's `Common/<stem>.mtl` beside it is two files of one name and fails
+   the task. An `x.fmdl.common` entry names them as a `.model.common` entry does
+   (`.../oral_<stem>_*.model` with `.../<stem>.mtl`), the link's own `.mtl` layering not
+   applying, the FMDL carrying its materials; under `ingame_face` the link's FMDL converts
+   in the boots and gloves writer as his own FMDL parts do, from the Common file. A
    model is packed as `oral_<stem>_win32.model` and its entry's `path` names it with `*` in
    the place of `win32` (`./oral_<stem>_*.model`), as the game's own XMLs and Red's do; the
    `material` names the `.mtl` as it is packed (`./face_high.mtl`). The generated file is the
