@@ -3115,6 +3115,15 @@ pruned when their phase closes; they stay in git history.
   and in the match walkout both times, with a GloveList row g0012 and his DB appearance row's
   PlayerGloves bit at 0. Still inconclusive: the row did not apply, but the bit may be what
   turns gloves off; the next run sets that bit on his row (the tool's `gloveflags` finds it).
+  Test 4c (2026-10-08; 4b's files rebuilt by `apptest build` with `APPTEST_GLOVES_FLAG=70701`,
+  one bit changed, no. 1's row body byte 10 bit 0, checked against 4b's tables; installed by
+  `.tmp/4_0/apptest/test4c.py`): no. 1's hands were bare again, in Edit mode on the 4cc exe
+  (the lead, `.tmp/4_0/ingame/t4d_p1_full.png`) and in a match (the maintainer). **The
+  PlayerGloves bit does not turn a GloveList.bin row on; on PES 17 the row never applied, with
+  the bit at 0 or 1, on either exe.** Pre-Fox gloves stay in the savefile (the full savefile
+  aesthetics patch, Test 1's design answers). Also settled by the maintainer: Edit mode shows
+  a player as a match does, goalkeepers included, so an in-game look test needs no match;
+  only an outfielder's 2nd+ kit needs one.
 - answered — referee collars, `referee_collar_<ID>` or `collar_<ID>`
   (Fox answered below: `collar_<ID>`; pre-Fox answered 2026-10-08 at the end: both, the drawn
   one being `referee_collar_<ID>`): the pre-Fox base
@@ -4490,3 +4499,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `target/` under `.tmp/` but the apptest tool's, and 4.7's laid-out timing exports and
   outputs (`timing_build.py` rebuilds them): 5.9 GB of 7.0. What else can go is checked at
   the end of the implementation work, not now. Scripts and the move list in `.tmp/sort_tmp/`.
+- **2026-10-08** — Test 4c (in-game, PES 17; Issues "pre-Fox player tables", the Test 4b
+  paragraph): no. 1's PlayerGloves bit set on his DB appearance row changed nothing, bare
+  hands in Edit mode (lead) and in a match (maintainer). A GloveList.bin row never applied
+  on PES 17; pre-Fox gloves stay in the savefile. The maintainer settled that Edit mode shows
+  a player as a match does (only outfielders' 2nd+ kits need a match), so in-game look tests
+  stop at Edit mode.
