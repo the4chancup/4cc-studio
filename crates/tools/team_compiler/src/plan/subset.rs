@@ -428,11 +428,9 @@ fn model_role(
 /// (`PlayerFile::PreFoxModel`): by its name directly in the folder or in `face/`; `parts` in
 /// `boots/`, the type boots take; in `gloves/` its hand's type, so a glove whose name gives no
 /// side has none, and `common/` holds no models. A per-kit model (one whose stem holds a kit
-/// token) has none yet: switching models with the kit is not built.
+/// token) is typed as its set is, read without the token (`face_xml::xml_type`): `pants_kit1`
+/// is `parts`, as `pants` is.
 fn pre_fox_model_type(position: Position, stem: &str) -> Option<String> {
-    if kit_token(stem).is_some() {
-        return None;
-    }
     match position {
         Position::Direct | Position::Face => Some(face_xml::xml_type(stem)),
         Position::Boots => Some("parts".to_owned()),
@@ -508,8 +506,9 @@ impl FolderModels {
     /// (`common_skeleton`). A per-kit model with a lower variant of its set beside it is left
     /// out (`model_variant_sets`). On pre-Fox: its `.model` files and its `.common` links to
     /// one with a role, every one of them a part of the face (`PlayerFile::PreFoxModel`,
-    /// `PlayerFile::PreFoxCommonModel`), which no skeleton pairs with; under `ingame_face`
-    /// none, the folder having no face (`PlayerFile::PreFoxPart`).
+    /// `PlayerFile::PreFoxCommonModel`), which no skeleton pairs with, every variant of a
+    /// per-kit set included; under `ingame_face` none, the folder having no face
+    /// (`PlayerFile::PreFoxPart`).
     pub(crate) fn of_player_files(
         folder: &ScopePath,
         files: &[FileDescriptor],
@@ -523,10 +522,14 @@ impl FolderModels {
             hair_stems: Vec::new(),
             boots_stems: Vec::new(),
             slotless_stems: Vec::new(),
-            left_out_variants: model_variant_sets(files)
-                .into_iter()
-                .flat_map(|set| set.left_out)
-                .collect(),
+            left_out_variants: match engine {
+                Engine::Fox => model_variant_sets(files)
+                    .into_iter()
+                    .flat_map(|set| set.left_out)
+                    .collect(),
+                // Every variant is packed there, and the face task lists the set once.
+                Engine::PreFox => Vec::new(),
+            },
         };
         for file in files {
             let Some(position) = position(folder, file) else {
@@ -730,6 +733,12 @@ fn pre_fox_file(
             if !models.ingame_face {
                 return Some(PlayerFile::PreFoxModel { xml_type });
             }
+            // A per-kit set is listed through a `face.xml` entry naming `kitN`, and under the
+            // marker there is none: as parts of his boots or gloves, every variant would be
+            // worn at once.
+            if kit_token(stem).is_some() {
+                return None;
+            }
             // No face, so no `face.xml` to type it: it goes where Fox puts it under the
             // marker. The two agree on which models have a role.
             model_role(position, stem, true)
@@ -754,18 +763,25 @@ fn pre_fox_file(
 
 /// The pre-Fox role of the `.common` link named `name` at `position`: a link to a `.model`
 /// takes the type a `.model` of the linked stem would have there (`pre_fox_model_type`; none
-/// for a per-kit model or a glove naming no hand), a link to a `.mtl` is a material link, a
-/// link to a texture stands for its stem, as on Fox. A link in `common/` has none (only
-/// textures may sit there, so validation never resolves a link there), nor has a link to
-/// anything else.
+/// for a glove naming no hand), a link to a `.mtl` is a material link, a link to a texture
+/// stands for its stem, as on Fox. A link to a per-kit model has none yet: the Common models
+/// task, which packs the linked model, would have to list its set. A link in `common/` has
+/// none (only textures may sit there, so validation never resolves a link there), nor has a
+/// link to anything else.
 fn pre_fox_link(position: Position, name: &str) -> Option<PlayerFile> {
     if position == Position::Common {
         return None;
     }
     let linked = common_link_name(name)?;
     match classify(&linked) {
-        FileKind::Model(ModelFormat::PesModel) => pre_fox_model_type(position, file_stem(&linked))
-            .map(|xml_type| PlayerFile::PreFoxCommonModel { xml_type }),
+        FileKind::Model(ModelFormat::PesModel) => {
+            let stem = file_stem(&linked);
+            if kit_token(stem).is_some() {
+                return None;
+            }
+            pre_fox_model_type(position, stem)
+                .map(|xml_type| PlayerFile::PreFoxCommonModel { xml_type })
+        }
         FileKind::Mtl => Some(PlayerFile::CommonMaterial),
         FileKind::Texture => linked_texture_stem(name).map(PlayerFile::CommonTexture),
         FileKind::Model(ModelFormat::Fmdl | ModelFormat::Gltf)
@@ -985,9 +1001,10 @@ pub(crate) fn first_not_compiled(
 /// folders they link, the export's `Common/` folder, its portraits and its logo. A refs export
 /// is named by the target. Otherwise, in this order: each mapped player folder's first file
 /// with no pre-Fox role (`player_file`: an `.fmdl`, a link to an `.fmdl`, a member's own
-/// `face.xml`, a per-kit model, among others) or, under `ingame_face`, with a role not built
-/// there yet (`compiled_under_ingame_face`), then the first item `pre_fox_shared_not_compiled`
-/// names in each shared folder a link of his feeds his own package from
+/// `face.xml`, a per-kit model under `ingame_face` or behind a link, among others) or, under
+/// `ingame_face`, with a role not built there yet (`compiled_under_ingame_face`), then the
+/// first item `pre_fox_shared_not_compiled` names in each shared folder a link of his feeds
+/// his own package from
 /// (`link_feeds_own_package`: the `Faces/` folder his face link names, the `Boots/` or
 /// `Gloves/` folder a link combines under the marker); then each shared boots folder taking an
 /// id, then each such gloves folder (`pre_fox_shared_not_compiled`); then the first kit (its
@@ -1208,9 +1225,10 @@ fn shared_not_compiled(
 /// target yet: its first file with no pre-Fox role (`player_file`), that is a `.common` link
 /// (kept by a non-strict file-type check, it resolves only from a player folder) or, in a boots
 /// or gloves folder, with a role other than a model, a `.mtl` or a texture (a face diff has no
-/// face there to shape); a folder with no model is named as a whole. A boots folder holding
-/// several models compiles: they are merged into its one `boots.model`. A `Faces/` folder's
-/// files are copied into each linking player's face, so its face files are kept.
+/// face there to shape), or that is a per-kit model; a folder with no model is named as a
+/// whole. A boots folder holding several models compiles: they are merged into its one
+/// `boots.model`. A `Faces/` folder's files are copied into each linking player's face, so its
+/// face files are kept, and its per-kit sets are listed there.
 fn pre_fox_shared_not_compiled(
     kind: SharedKind,
     folder: &SharedModelFolder,
@@ -1234,9 +1252,13 @@ fn pre_fox_shared_not_compiled(
             role,
             PlayerFile::PreFoxModel { .. } | PlayerFile::Material | PlayerFile::Texture(..)
         );
+        // The boots merge into one `boots.model` and the shared `glove.xml` lists every glove,
+        // so neither can list a per-kit set once yet: every variant would be worn at once.
+        let per_kit_model = matches!(role, PlayerFile::PreFoxModel { .. })
+            && kit_token(file_stem(file.path.name())).is_some();
         match kind {
             SharedKind::Face => {}
-            SharedKind::Boots | SharedKind::Gloves if loose_output_file => {}
+            SharedKind::Boots | SharedKind::Gloves if loose_output_file && !per_kit_model => {}
             SharedKind::Boots | SharedKind::Gloves => return Some(what_entry(file)),
         }
         has_model |= matches!(role, PlayerFile::PreFoxModel { .. });
@@ -1488,10 +1510,16 @@ mod tests {
         assert_eq!(pre_fox(&all[6..]), what("Kits/g1"));
         assert_eq!(pre_fox(&all[7..]), what(collar));
         assert_eq!(pre_fox(&all[8..]), what(common));
-        // A member's own `face.xml` and a per-kit model are later steps'.
-        for file in ["Players/03 - A/face.xml", "Players/03 - A/pants_kit1.model"] {
-            assert_eq!(pre_fox(&[file]), what(file), "{file}");
-        }
+        // A member's own `face.xml` is a later step's; a per-kit set compiles.
+        let own_xml = "Players/03 - A/face.xml";
+        assert_eq!(pre_fox(&[own_xml]), what(own_xml));
+        assert_eq!(
+            pre_fox(&[
+                "Players/03 - A/pants_kit1.model",
+                "Players/03 - A/pants_kit2.model"
+            ]),
+            None
+        );
     }
 
     #[test]
@@ -2691,7 +2719,7 @@ mod tests {
                 None,
                 None,
                 None,
-                None,
+                pre_fox_model("parts"),
                 None,
             ]
         );
@@ -2845,6 +2873,46 @@ mod tests {
                 pre_fox_model("gloveL"),
                 pre_fox_model("handR"),
             ]
+        );
+    }
+
+    #[test]
+    fn on_pre_fox_a_per_kit_model_is_typed_as_its_set_where_a_face_xml_lists_it() {
+        assert_eq!(
+            pre_fox_model_type(Position::Direct, "pants_kit1"),
+            Some("parts".to_owned())
+        );
+        assert_eq!(
+            pre_fox_model_type(Position::Direct, "boots_kit1"),
+            Some("parts".to_owned())
+        );
+        // Behind a link, or under `ingame_face`, no `face.xml` entry names the set.
+        assert_eq!(
+            pre_fox_link(Position::Direct, "pants_kit1.model.common"),
+            None
+        );
+        let folder = PlayerFolder {
+            ingame_face: true,
+            ..folder(&["boots_kit1.model"])
+        };
+        let models = FolderModels::of_player(&folder, Engine::PreFox);
+        assert_eq!(player_file(&folder.path, &folder.files[0], &models), None);
+    }
+
+    #[test]
+    fn on_pre_fox_a_shared_boots_or_gloves_folder_s_per_kit_model_is_named() {
+        let names = ["boots_kit1.model", "boots_kit2.model", "boots.mtl"];
+        assert_eq!(
+            pre_fox_shared_not_compiled(
+                SharedKind::Boots,
+                &shared_folder(SharedKind::Boots, &names)
+            ),
+            what("Boots/Crocs/boots_kit1.model")
+        );
+        // A shared face's set is copied into each linking player's face, which lists it.
+        assert_eq!(
+            pre_fox_shared_not_compiled(SharedKind::Face, &shared_folder(SharedKind::Face, &names)),
+            None
         );
     }
 

@@ -182,7 +182,11 @@ Rules:
 - **Per-kit models are pre-Fox only.** Model files `pants_kit1.glb` + `pants_kit2.glb` (any source
   format) form one variant set: pre-Fox emits a single `face.xml` entry naming `pants_kitN` and the
   variant files beside it; each variant's materials resolve by the normal stem name matching
-  (`pants.materials.toml` matches both). Fox has no model-path indirection, so the compiler uses the
+  (`pants.materials.toml` matches both). The entry names the lowest variant's material file, its
+  kit token respelled `kitN` when it carries one (`pants_kit1.mtl` is written `pants_kitN.mtl`),
+  since the game respells the whole entry for the kit picked; the other variants' material
+  files must then go by the respelled names, and `kit_variant_mtl_differs` (W) names one that
+  does not. Fox has no model-path indirection, so the compiler uses the
   lowest variant only and reports `kit_variant_model_fox` (W).
 - **Output naming.** The token passes through unchanged into emitted file names and into every path
   the compiler writes — FMDL path tables, `.mtl` sampler paths, `face.xml` model paths. Nothing in

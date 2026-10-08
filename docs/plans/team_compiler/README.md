@@ -1218,7 +1218,8 @@ TC-CMN-06  GIVEN slot 05's face model referencing dummy_kit and dummy_kit_srm, n
                 paths name dummy_kit and dummy_kit_srm verbatim
 TC-CMN-07  GIVEN slot 05 holding pants_kit1.model and pants_kit2.model with their .mtl files
            WHEN the export is compiled for PES 17
-           THEN the face.xml holds one entry naming pants_kitN, with both variant files beside it
+           THEN the face.xml holds one entry naming pants_kitN with material pants_kitN.mtl, and
+                both variant models and both .mtl files are packed beside it under their own names
 TC-CMN-08  GIVEN Collars/collar_12.model, and another export holding Collars/collar_117.model
            WHEN each is compiled for PES 17
            THEN the first CPK holds collar_012.model under

@@ -6,7 +6,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use aesthetics_export::{KitToken, kit_token};
 use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::{TexturePath, rewrite_texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
@@ -20,6 +19,7 @@ use vtree::ScopePath;
 use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_diff;
+use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::ModelFolder;
@@ -442,23 +442,13 @@ fn split_fmdl(bytes: &[u8]) -> anyhow::Result<SplitFmdl> {
 fn point_texture(path: &mut TexturePath, places: &[(&BTreeSet<String>, &str)], team_segment: &str) {
     let stem = file_stem(&path.file_name);
     let place = places.iter().find(|(stems, _)| {
-        stems.contains(&vtree::fold_name(stem)) || has_variant_among(stem, stems)
+        stems.contains(&vtree::fold_name(stem))
+            || has_variant_among(stem, stems.iter().map(String::as_str))
     });
     path.directory = match place {
         Some((_, directory)) => (*directory).to_owned(),
         None => path.directory.replace("/000/", team_segment),
     };
-}
-
-/// Whether `stem` is a kit reference (`pants_kitN`, never a file of its own) and `stems` hold a
-/// variant of its set (`pants_kit2`), compared as `stems` are, as spelled.
-fn has_variant_among(stem: &str, stems: &BTreeSet<String>) -> bool {
-    let Some((KitToken::Reference, reference)) = kit_token(stem) else {
-        return false;
-    };
-    stems.iter().any(|held| {
-        matches!(kit_token(held), Some((KitToken::Variant(_), held_reference)) if vtree::fold_name(&held_reference) == vtree::fold_name(&reference))
-    })
 }
 
 /// Whether a texture one of a part's meshes uses is supplied (`pipeline.md` "Resolved
@@ -493,10 +483,9 @@ fn texture_supply(
     {
         return TextureSupply::Supplied;
     }
-    if common_stems
-        .iter()
-        .any(|stems| stems.contains(&folded) || has_variant_among(stem, stems))
-    {
+    if common_stems.iter().any(|stems| {
+        stems.contains(&folded) || has_variant_among(stem, stems.iter().map(String::as_str))
+    }) {
         return TextureSupply::Supplied;
     }
     match installed_holds(stem) {

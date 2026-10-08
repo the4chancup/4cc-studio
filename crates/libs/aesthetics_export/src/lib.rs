@@ -22,6 +22,7 @@ pub use colors_txt::{ColorLineRefusal, ColorsTxt, RefusedColorLine, read_colors_
 pub use conventions::{
     FileKind, KitToken, Marker, MetadataFile, ModelFormat, ModelSuffix, SharedKind, classify,
     common_link_name, ends_with_name, is_small_metadata, kit_token, model_suffix, variant_stem,
+    without_kit_token,
 };
 pub use listing::{CanonicalListing, ListedEntry, ListedKind, SmallMetadata, ValidationContext};
 pub use parse::{

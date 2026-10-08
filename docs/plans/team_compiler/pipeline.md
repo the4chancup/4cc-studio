@@ -689,7 +689,22 @@ describes behavior, not a serial scheduling requirement:
   both engines: read from the whole stem, `boots_kit1` names no suffix and would be face
   content, its meshes merged into the face's `fcl_hair` instead of the boots. On Fox a model
   file that is a variant with a lower variant of its set in the same folder is not compiled,
-  and planning reports `kit_variant_model_fox` on the folder, once per set. The legacy
+  and planning reports `kit_variant_model_fox` on the folder, once per set. On pre-Fox every
+  variant is packed under its own name and the set is listed once: the lowest variant's
+  `face.xml` entries (its own, and its hands' when it is hand-split) with the kit token in
+  their `path` and `material` spelled `kitN`, so the game respells the whole entry for the kit
+  picked; the other variants get no entry. The set is found over the face's packed names
+  after a linked shared face's files are copied in under the player's own, so a set split
+  between the two (the shared folder's `pants_kit1` and `pants_kit2`, the player's own
+  `pants_kit2`) is one set, as the copy makes it. The entry's `material` is the lowest variant's
+  `.mtl` (the `.mtl` search), its token respelled when it carries the variant's own
+  (`pants_kit1.mtl` is written `pants_kitN.mtl`; a shared `pants.mtl` is written as it is), so
+  the game needs each other variant's `.mtl` under the respelled name: a variant whose own
+  search finds another file is `kit_variant_mtl_differs` (W), the model still packed. This
+  holds for a player's face, its reserved subfolders and a linked `Faces/` folder; a per-kit
+  model under `ingame_face` (no `face.xml` to name `kitN` in), in a shared `Boots/` or
+  `Gloves/` folder taking an id, or behind a `.common` link is not compiled yet (the pre-Fox
+  gate names it). The legacy
   `dummy_kit*` stems keep working as **reserved, game-substituted names**: the texture-existence
   checks (`mtl_texture_not_found`, `material_texture_not_found`, FMDL path checks) skip them and the
   path is emitted verbatim. Red's `dummy_kit_replace.py` — copying the team's kit 1 textures over

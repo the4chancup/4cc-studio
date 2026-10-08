@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14 is under way (slices a to d and e1 to e3 done, e4 next of e4 to e5), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14 is under way (slices a to d and e1 to e4 done, e5 next and last), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1469,6 +1469,30 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `pass_through` now fails `model_conversion_failed` (the import needs every material) where
   it was packed as it was. Gates green (225 of 256); `mutants-diff b75d16a` (local): 29
   (`model_convert` 6, `team_compiler` 23), 24 caught, 5 unviable, 0 missed.
+  (e4) done 2026-10-08 (Opus 5.5, one rework round of two findings, both raised by its own
+  report: a set was found per source folder, so one split between a linked shared face and
+  the player's own files was two sets of one, kit 2's model never listed, or listed twice;
+  and the `.mtl` check compared names without directories; two contradictions applied by
+  itself and accepted: `packed_model_name` lower-cases the reference, so the entry is
+  respelled after packing; the strict lookup of a set's listed material panicked; lead fix:
+  one unit test from the mutation survivor): a per-kit `.model` set is packed whole and
+  listed once in the generated `face.xml` through its lowest variant's entries (its own, and
+  its hands' when split), the kit token spelled `kitN` in `path` and `material`
+  (`prefox_face::kit_places` over the face's packed names after the shared face's copy-in,
+  `KitPlace`, `listed_material`, `respelled_material`); `kit_variant_mtl_differs` (W) for a
+  variant whose `.mtl`, as the entry would write it, is not the listed one's respelled for its
+  number; `point_materials` points a `kitN` texture reference at the place holding a variant
+  (`kit_variants::has_variant_among`, shared with the Fox pointing); `face_xml::xml_type` reads
+  the stem without its kit token (`aesthetics_export::without_kit_token` now `pub`); a per-kit
+  `.model` has a pre-Fox role, and the gate names one under `ingame_face`, in a shared
+  `Boots/`/`Gloves/` folder taking an id, or behind a `.common` link (decision entry). Open
+  for 4.16: completing a model set against the kit numbers (its line). Tests:
+  `tests/cli/prefox_kit_variants.rs` (TC-CMN-07, the `.mtl` off the rule, one `.mtl` for the
+  set, a split set both ways, the listed variant sorting after an unlisted one, a Common
+  `.mtl` against a face one), a hand-split set in `prefox_hand_split.rs`, units in
+  `kit_variants`, `subset`, `face_xml`, `prefox_face`. Gates green (226 of 256);
+  `mutants-diff 5964639` (local): 47, 40 caught, 6 unviable, 1 missed (`listed_material`'s
+  guard; its unit test added by the lead, caught by hand with the guard perturbed).
   IDs: TC-MOD-20..25, TC-MOD-35, TC-MOD-37..41, TC-CHK-08, TC-TEX-07, TC-XML-08, TC-CMN-07 (split from TC-CMN-05 at 4.11c). Crates: tc (`processing/model.rs`, `processing/material.rs`,
   `processing/texture.rs`, `paths.rs`) → verify: a `/co/` slot 05 folder with the smallest
   `pes_model` fixture pair as `face_high.model` + `face_high.mtl` and `skin.dds`, compiled for PES 17: the
@@ -1496,6 +1520,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `dds_compression` (`auto` follows `multicpk_mode`, `true`, `false`) wrapping every emitted DDS
   with `wezlib::compress` on PES 15-17 only, already-wrapped sources passed through, the level
   chosen by measuring levels 1, 3 and 6 on the tracer's DDS set and recorded in a decision entry.
+  Open for the maintainer here, once pre-Fox kit numbers exist: whether a per-kit *model* set
+  (4.14e4) is completed against them as a texture set is (the lowest variant copied under a
+  missing number) or left as the member made it; what the game does with a `face.xml` entry
+  whose respelled model is missing is unknown (no pre-Fox exe reads `kitN` yet).
   Plan: `pipeline.md` "4. Per-export non-model steps" (Kits: mask and srm); `settings.md`
   (`dds_compression`, "DDS compression cost"). IDs: TC-KIT-21..23, TC-KIT-28..29, TC-TEX-08,
   TC-BIN-04, TC-BIN-18. Crates:
@@ -3728,3 +3756,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     pre-Fox boots rule (Issues, pre-Fox player tables); gloves stay open there. Every file
     checked back to its baseline by hash after the runs (save, SYSTEM, the exe, the test CPK
     slot, the livecpk root).
+  - **4.14e4 done** (TC-CMN-07): on PES 15-17 a per-kit `.model` set is packed whole and
+    listed once in the generated `face.xml`, through its lowest variant's entries with the kit
+    token spelled `kitN` in `path` and `material` (decision entry: the exe to come respells
+    the whole entry); the set is found over the face's packed names, a linked shared face's
+    files and the player's own together; a variant whose `.mtl` is not the one the entry
+    implies is `kit_variant_mtl_differs`; a `.mtl` texture path naming `pants_kitN` is pointed
+    at the texture home. Still refused by name: a per-kit model under `ingame_face`, in a
+    shared boots or gloves folder, or behind a link. Next: 4.14e5.

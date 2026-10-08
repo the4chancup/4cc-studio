@@ -42,7 +42,11 @@ goalkeeper's `g1` goes with the number picked) with no texture of its own, the l
 copied for it, so the game never shows a missing texture, and the warning `kit_variant_missing`
 names the texture, the kit and the copied file. Per-kit models (`pants_kit1.fmdl` beside
 `pants_kit2.fmdl`) are not possible on PES 2018 to 2021: only the lowest one is used, and the
-warning `kit_variant_model_fox` says so. Six lines name a texture that cannot be
+warning `kit_variant_model_fox` says so. On PES 2015 to 2017 the set is listed once in the
+`face.xml`, as `pants_kitN`, every variant is packed and the game loads the one for the kit
+picked; each variant's `.mtl` goes by the same rule (`pants_kit1.mtl` and `pants_kit2.mtl`, or
+one `pants.mtl` for all), and the warning `kit_variant_mtl_differs` names a variant whose `.mtl`
+would not be found that way. Six lines name a texture that cannot be
 used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_div4` (for
 PES 2015 to 2017, a width or height that is not a multiple of 4: 1000 is one, 1002 is not),
 `texture_not_pow2` (a portrait whose width or height is not a power of two, or any other

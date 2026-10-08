@@ -3,14 +3,16 @@
 //! links, packed under their `oral_<stem>_win32.model` names, the `.mtl` files with their
 //! texture paths pointed at his common folder (a texture link's at the team's Common output),
 //! and the generated `face.xml` typing every model, his `.common` links to a Common model
-//! included, his face diff as its `<dif>`. A face with no `face_neck` model, the blank face of
-//! a folder with no model included, gets the bundled dummy as one. `materialize` packs the
-//! files into the face CPK.
+//! included, his face diff as its `<dif>`. A per-kit model set is packed whole and listed once,
+//! its kit token spelled `kitN` (`team_compiler/pipeline.md` "4. Per-export non-model steps",
+//! Kit-dependent assets). A face with no `face_neck` model, the blank face of a folder with no
+//! model included, gets the bundled dummy as one. `materialize` packs the files into the face
+//! CPK.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 
-use aesthetics_export::{FileDescriptor, common_link_name};
+use aesthetics_export::{FileDescriptor, KitToken, common_link_name, kit_token, variant_stem};
 use pes_model::format::mtl::MaterialSet;
 use pes_model::ops::paths::rewrite_texture_paths;
 use pes_version::Engine;
@@ -23,6 +25,7 @@ use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::deep::relative;
 use crate::face_diff;
 use crate::face_xml::{XmlEntry, face_xml, packed_model_name, ratio, version_type, xml_path};
+use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
@@ -50,10 +53,85 @@ struct FaceModel<'a> {
     /// Whether it is a link: the game loads the model from the team's Common output, and the
     /// face packs nothing of it.
     in_common: bool,
+    /// The `.mtl` its search finds from its source folder (`mtl_for`).
+    material: &'a FileDescriptor,
     /// Its source folder's export path.
     source_path: &'a ScopePath,
-    /// Its source folder's files.
-    source_files: &'a [FileDescriptor],
+}
+
+/// A face model's place in a per-kit set the face holds (`kit_places`).
+enum KitPlace {
+    /// Not a variant, or a variant with no other of its set: an ordinary model.
+    Alone,
+    /// The set's lowest variant, of kit number `kit`: its entries stand for the set, their kit
+    /// token spelled `kitN`.
+    Listed { kit: u8 },
+    /// Another variant of the set, of kit number `kit`, whose lowest variant is the face's
+    /// model at index `listed`: packed under its own name, listed by nothing.
+    Unlisted { kit: u8, listed: usize },
+}
+
+impl KitPlace {
+    /// The name an entry gives the model packed as `packed`: a set's lowest variant's with its
+    /// kit token spelled `kitN` (`oral_pants_kit1_win32.model` is named
+    /// `oral_pants_kitN_win32.model`), for the game to respell for the kit picked; any other
+    /// model's as it is packed.
+    fn entry_name(&self, packed: &str) -> String {
+        match self {
+            KitPlace::Listed { .. } => {
+                let stem = file_stem(packed);
+                // `packed_model_name` lower-cases the stem and adds `_`-delimited affixes, so
+                // the variant's token, already lower case, stays a token where it was. The
+                // reference is respelled here, after packing, because lower-casing it would
+                // lose its capital `N`.
+                let (_, reference) = kit_token(stem).expect(
+                    "a per-kit model's packed name keeps its kit token (`packed_model_name`)",
+                );
+                format!("{reference}{}", &packed[stem.len()..])
+            }
+            KitPlace::Alone | KitPlace::Unlisted { .. } => packed.to_owned(),
+        }
+    }
+}
+
+/// The place of each of `models`, the face's models in their order, in the per-kit sets the
+/// face holds: the models packed in the face (not a link's) whose packed names differ only in
+/// their kit token's digit form a set, its lowest number listed (of two of one number, the
+/// first in `models`) and its others unlisted, and a set of one is an ordinary model. Read
+/// from the packed names, so a set split between a linked shared face and the player's own
+/// files is the one set the face holds once the shared files are copied in under his.
+fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
+    // Each set's variants, by its folded reference: (kit number, index), in `models`' order.
+    let mut sets: BTreeMap<String, Vec<(u8, usize)>> = BTreeMap::new();
+    for (index, model) in models.iter().enumerate() {
+        if model.in_common {
+            continue;
+        }
+        if let Some((KitToken::Variant(kit), reference)) = kit_token(file_stem(&model.packed)) {
+            sets.entry(vtree::fold_name(&reference))
+                .or_default()
+                .push((kit, index));
+        }
+    }
+    let mut places: Vec<KitPlace> = models.iter().map(|_| KitPlace::Alone).collect();
+    for mut variants in sets.into_values() {
+        // A stable sort: of two models of one number, the first in `models` is listed.
+        variants.sort_by_key(|(kit, _)| *kit);
+        let Some(((listed_kit, listed), others)) = variants.split_first() else {
+            continue;
+        };
+        if others.is_empty() {
+            continue;
+        }
+        places[*listed] = KitPlace::Listed { kit: *listed_kit };
+        for (kit, index) in others {
+            places[*index] = KitPlace::Unlisted {
+                kit: *kit,
+                listed: *listed,
+            };
+        }
+    }
+    places
 }
 
 /// The files of `folder`'s pre-Fox face, compiled from its files' bytes in `files` for team
@@ -80,8 +158,16 @@ struct FaceModel<'a> {
 /// `dummy.mtl`, noted in `findings` as `xml_face_neck_added` when the face has a model. An
 /// entry's type is written for `ctx.version` (`version_type`): each entry whose type that
 /// rewrites (`uniform` to `uniform_sub` on PES 2015) is noted in `findings` as
-/// `xml_uniform_pes15`, naming its model below its source folder. Two files of one source
-/// packing under one name fail the task: neither can be dropped silently.
+/// `xml_uniform_pes15`, naming its model below its source folder. A per-kit set the face holds
+/// (`kit_places`, across its sources once the shared files are copied in) is packed whole,
+/// each variant under its own name, and listed once: its lowest variant's entries (its own,
+/// and its hands' when it is split) name it with the kit token spelled `kitN`, their
+/// `material` too when the `.mtl` carries the variant's own token (`pants_kit1.mtl` is named
+/// `pants_kitN.mtl`, a shared `pants.mtl` as it is); the game respells the whole entry for the
+/// kit picked. Each other variant has no entry, and one whose own `material`, as an entry
+/// would write it (directory included), is not the listed one's respelled for its kit number
+/// is noted in `findings` as `kit_variant_mtl_differs`. Two files of one source packing under
+/// one name fail the task: neither can be dropped silently.
 pub(super) fn face(
     folder: &ModelFolder,
     team_id: u16,
@@ -114,6 +200,14 @@ pub(super) fn face(
     for ((_, source_path, source_roles), source_files) in
         folder.roles().into_iter().zip(source_files)
     {
+        // Each model's `.mtl` is resolved here, before any entry: a set's other variants are
+        // checked against its listed one's, wherever it sorts.
+        let material_of = |file: &FileDescriptor| {
+            mtl_for(&file.path, source_path, source_files, &folder.common_files).expect(
+                "the deep pass drops a folder holding a `.model`, or a link to one, no `.mtl` is \
+                 found for (`model_material_undefined`)",
+            )
+        };
         let mut packed_here = Vec::new();
         for (file, role) in source_roles {
             match role {
@@ -131,8 +225,8 @@ pub(super) fn face(
                         xml_type,
                         packed,
                         in_common: false,
+                        material: material_of(file),
                         source_path,
-                        source_files,
                     });
                 }
                 // Packing nothing into the face, a link takes no name from a shared face's
@@ -153,8 +247,8 @@ pub(super) fn face(
                         xml_type,
                         packed: packed_model_name(stem),
                         in_common: true,
+                        material: material_of(file),
                         source_path,
-                        source_files,
                     });
                 }
                 PlayerFile::Material => {
@@ -206,32 +300,62 @@ pub(super) fn face(
 
     // The team's Common output, which a `face.xml` and a `.mtl` name a Common file in.
     let common_directory = paths::common_texture_directory(Engine::PreFox, team_id);
+    let kits = kit_places(&models);
+    // The `material` each model's entries write, as its directory and its name: `./` or, for
+    // a `.mtl` the search found in `Common/`, which is the Common output's and never packed
+    // here, the Common directory; the name respelled for a set's listed variant.
+    let written: Vec<(&str, String)> = models
+        .iter()
+        .zip(&kits)
+        .map(|(model, kit)| {
+            let directory = if is_direct_common_file(&model.material.path) {
+                common_directory.as_str()
+            } else {
+                "./"
+            };
+            let name = model.material.path.name();
+            let name = match kit {
+                KitPlace::Listed { kit } => listed_material(name, *kit),
+                KitPlace::Alone | KitPlace::Unlisted { .. } => name.to_owned(),
+            };
+            (directory, name)
+        })
+        .collect();
     let mut contents = PackageFiles::new();
     let mut entries = Vec::new();
-    for model in models {
-        let material = mtl_for(
-            &model.file.path,
-            model.source_path,
-            model.source_files,
-            &folder.common_files,
-        )
-        .expect(
-            "the deep pass drops a folder holding a `.model`, or a link to one, no `.mtl` is \
-             found for (`model_material_undefined`)",
-        );
-        // A `.mtl` the search found in `Common/` is the Common output's, never packed here.
-        let material_directory = if is_direct_common_file(&material.path) {
-            common_directory.as_str()
-        } else {
-            "./"
-        };
+    for ((model, place), (material_directory, material_name)) in
+        models.into_iter().zip(&kits).zip(&written)
+    {
+        let material = format!("{material_directory}{material_name}");
+        // The game looks for a set's other variant's `.mtl` where the set's entry, respelled
+        // for its kit number, names it.
+        if let KitPlace::Unlisted { kit, listed } = place {
+            let (listed_directory, listed_name) = &written[*listed];
+            let expected = format!(
+                "{listed_directory}{}",
+                respelled_material(listed_name, *kit)
+            );
+            if vtree::fold_name(&expected) != vtree::fold_name(&material) {
+                findings.push((
+                    Code::KitVariantMtlDiffers,
+                    Disposition::Keep,
+                    vec![
+                        ("model", model.file.path.name().to_owned()),
+                        ("mtl", material.clone()),
+                        ("expected", expected),
+                    ],
+                ));
+            }
+        }
         let model_directory = if model.in_common {
             common_directory.as_str()
         } else {
             "./"
         };
+        // A set's other variants are listed by its lowest variant's entries.
+        let listed = !matches!(place, KitPlace::Unlisted { .. });
         let xml_type = version_type(ctx.version, &model.xml_type).to_owned();
-        if xml_type != model.xml_type {
+        if listed && xml_type != model.xml_type {
             findings.push((
                 Code::XmlUniformPes15,
                 Disposition::Keep,
@@ -240,8 +364,8 @@ pub(super) fn face(
         }
         let entry = XmlEntry {
             xml_type,
-            path: xml_path(model_directory, &model.packed),
-            material: format!("{material_directory}{}", material.path.name()),
+            path: xml_path(model_directory, &place.entry_name(&model.packed)),
+            material,
             ratio: ratio(&model.stem).map(str::to_owned),
         };
         if model.in_common {
@@ -250,13 +374,15 @@ pub(super) fn face(
         }
         let bytes = take(files, model.file);
         if !folder.hand_split.contains(&model.file.path) {
-            entries.push(entry);
+            if listed {
+                entries.push(entry);
+            }
             insert(&mut contents, ModelPackage::Face, model.packed, bytes)?;
             continue;
         }
         // A split model's `.mtl` is read in place: it is packed below, with the face's other
         // `.mtl` files, and taken there.
-        let Some(mtl) = files.get(&material.path) else {
+        let Some(mtl) = files.get(&model.material.path) else {
             return Err(TaskFailure {
                 code: Code::ModelConversionFailed,
                 context: vec![
@@ -265,7 +391,7 @@ pub(super) fn face(
                         "error",
                         format!(
                             "its .mtl, {}, is a Common file, which the face does not read",
-                            material.path.as_str()
+                            model.material.path.as_str()
                         ),
                     ),
                 ],
@@ -280,19 +406,23 @@ pub(super) fn face(
         // and its gloves listed where its entry would be.
         if let Some(body) = split.body {
             insert(&mut contents, ModelPackage::Face, model.packed, body)?;
-            entries.push(entry.clone());
+            if listed {
+                entries.push(entry.clone());
+            }
         }
         for (hand, hand_type, part) in gloves {
             let Some(part) = part else {
                 continue;
             };
             let packed = packed_model_name(&format!("{}_{hand}", model.stem));
-            entries.push(XmlEntry {
-                xml_type: hand_type.to_owned(),
-                path: xml_path("./", &packed),
-                material: entry.material.clone(),
-                ratio: entry.ratio.clone(),
-            });
+            if listed {
+                entries.push(XmlEntry {
+                    xml_type: hand_type.to_owned(),
+                    path: xml_path("./", &place.entry_name(&packed)),
+                    material: entry.material.clone(),
+                    ratio: entry.ratio.clone(),
+                });
+            }
             insert(&mut contents, ModelPackage::Face, packed, part)?;
         }
     }
@@ -348,6 +478,32 @@ pub(super) fn face(
     Ok(contents)
 }
 
+/// The material the entry of a per-kit set's lowest variant, of kit number `kit`, gives for
+/// the `.mtl` named `name`: its kit token spelled `kitN` when it is the variant's own
+/// (`pants_kit1.mtl` gives `pants_kitN.mtl`), else `name` as it is (`pants.mtl`).
+fn listed_material(name: &str, kit: u8) -> String {
+    let stem = file_stem(name);
+    match kit_token(stem) {
+        Some((KitToken::Variant(own), reference)) if own == kit => {
+            format!("{reference}{}", &name[stem.len()..])
+        }
+        Some((KitToken::Variant(_) | KitToken::Reference, _)) | None => name.to_owned(),
+    }
+}
+
+/// The `.mtl` name the game looks for when kit `kit` is picked, given `listed`, the material
+/// a per-kit set's entry gives: its `kitN` respelled for `kit` (`pants_kitN.mtl` gives
+/// `pants_kit2.mtl`), else `listed` itself (`pants.mtl`).
+fn respelled_material(listed: &str, kit: u8) -> String {
+    let stem = file_stem(listed);
+    if let Some((KitToken::Reference, _)) = kit_token(stem)
+        && let Some(variant) = variant_stem(stem, kit)
+    {
+        return format!("{variant}{}", &listed[stem.len()..]);
+    }
+    listed.to_owned()
+}
+
 /// The stem of the `Common/` texture the `.common` texture link `file` of the player `folder`
 /// names, as `Common/` spells it: the name its DDS has in the team's Common output.
 pub(super) fn linked_texture_stem(folder: &ModelFolder, file: &FileDescriptor) -> String {
@@ -386,16 +542,27 @@ pub(super) fn read_materials(
 /// Points every texture path of `set` whose file stem (case-folded) is one of a place's
 /// textures at that place's directory as that texture's DDS, `<stem>.dds`: `places` are
 /// (textures, directory) pairs, each texture by its folded stem with its stem as spelled where
-/// it is packed, and the first place holding a stem wins. Any other path is left as it is.
+/// it is packed, and the first place holding a stem wins. A path whose stem no place holds but
+/// that is a kit reference (`pants_kitN`) is pointed at the directory of the first place
+/// holding a variant of its set (`has_variant_among`), its file name kept as it is: the game
+/// respells it for the kit picked. Any other path is left as it is.
 fn point_materials(set: &mut MaterialSet, places: &[(&BTreeMap<String, String>, &str)]) {
     rewrite_texture_paths(set, |path| {
-        let key = vtree::fold_name(file_stem(&path.file_name));
+        let stem = file_stem(&path.file_name);
+        let key = vtree::fold_name(stem);
         let found = places
             .iter()
             .find_map(|(textures, directory)| Some((textures.get(&key)?, *directory)));
         if let Some((stem, directory)) = found {
             directory.clone_into(&mut path.directory);
             path.file_name = format!("{stem}.dds");
+            return;
+        }
+        let variant_place = places
+            .iter()
+            .find(|(textures, _)| has_variant_among(stem, textures.values().map(String::as_str)));
+        if let Some((_, directory)) = variant_place {
+            (*directory).clone_into(&mut path.directory);
         }
     });
 }
@@ -416,4 +583,67 @@ pub(super) fn insert(
     }
     contents.insert(name, bytes);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::Path;
+
+    use pes_model::ops::paths::texture_paths;
+
+    use super::*;
+
+    /// The card-head template's material set, its one texture path `./texture.dds` renamed to
+    /// `./<file_name>`.
+    fn card_set_naming(file_name: &str) -> MaterialSet {
+        let bytes = fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../libs/pes_model/tests/fixtures/cardhead_materials.mtl"),
+        )
+        .unwrap();
+        let text = String::from_utf8(bytes).unwrap();
+        assert!(text.contains("./texture.dds"), "{text}");
+        MaterialSet::read(
+            text.replace("./texture.dds", &format!("./{file_name}"))
+                .as_bytes(),
+        )
+        .unwrap()
+    }
+
+    /// The texture paths of `set`, each its directory then its file name.
+    fn paths(set: &MaterialSet) -> Vec<String> {
+        texture_paths(set)
+            .into_iter()
+            .map(|path| format!("{}{}", path.directory, path.file_name))
+            .collect()
+    }
+
+    #[test]
+    fn a_kit_reference_with_a_variant_in_a_place_is_pointed_there_its_name_kept() {
+        let textures = BTreeMap::from([("pants_kit1".to_owned(), "Pants_kit1".to_owned())]);
+        let linked = BTreeMap::new();
+        let places = [(&textures, "home/"), (&linked, "common/")];
+
+        let mut set = card_set_naming("pants_kitN.dds");
+        point_materials(&mut set, &places);
+        assert_eq!(paths(&set), ["home/pants_kitN.dds"]);
+
+        // No variant of `other_kitN` anywhere: left as it is.
+        let mut set = card_set_naming("other_kitN.dds");
+        point_materials(&mut set, &places);
+        assert_eq!(paths(&set), ["./other_kitN.dds"]);
+    }
+
+    #[test]
+    fn a_listed_material_is_respelled_only_when_it_carries_the_variant_s_own_token() {
+        assert_eq!(listed_material("pants_kit1.mtl", 1), "pants_kitN.mtl");
+        // A shared `.mtl`, and one the search's "any `.mtl`" fallback found under another
+        // number's token (`a_kit2.mtl` for `pants_kit1.model`): the game must look for the
+        // name as it is.
+        assert_eq!(listed_material("pants.mtl", 1), "pants.mtl");
+        assert_eq!(listed_material("a_kit2.mtl", 1), "a_kit2.mtl");
+        assert_eq!(respelled_material("pants_kitN.mtl", 2), "pants_kit2.mtl");
+        assert_eq!(respelled_material("a_kit2.mtl", 1), "a_kit2.mtl");
+    }
 }

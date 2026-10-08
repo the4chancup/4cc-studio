@@ -132,6 +132,11 @@ pub(crate) enum Code {
     /// Per-kit model files (`pants_kit1.fmdl`, `pants_kit2.fmdl`) on a Fox target, which
     /// cannot switch models with the kit: the lowest variant is used, the others ignored.
     KitVariantModelFox,
+    /// PES 2015 to 2017: a per-kit model variant whose `.mtl` (the one its search finds, as a
+    /// `face.xml` entry would name it, directory included) is not the one its set's entry
+    /// names respelled for its kit number; the model is packed, and the game finds no `.mtl`
+    /// for that kit.
+    KitVariantMtlDiffers,
     /// A pre-Fox face holding a model none of whose `face.xml` entries is a `face_neck`: the
     /// bundled dummy model is listed last as the face's `face_neck` and packed with its `.mtl`.
     XmlFaceNeckAdded,
@@ -292,7 +297,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 92] = [
+    const ALL: [Code; 93] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -335,6 +340,7 @@ impl Code {
         Code::FaceFileNotUsed,
         Code::KitVariantMissing,
         Code::KitVariantModelFox,
+        Code::KitVariantMtlDiffers,
         Code::XmlFaceNeckAdded,
         Code::XmlUniformPes15,
         Code::FaceDiffInvalid,
@@ -432,6 +438,7 @@ impl Code {
             Code::FaceFileNotUsed => "face_file_not_used",
             Code::KitVariantMissing => "kit_variant_missing",
             Code::KitVariantModelFox => "kit_variant_model_fox",
+            Code::KitVariantMtlDiffers => "kit_variant_mtl_differs",
             Code::XmlFaceNeckAdded => "xml_face_neck_added",
             Code::XmlUniformPes15 => "xml_uniform_pes15",
             Code::FaceDiffInvalid => "face_diff_invalid",
@@ -549,6 +556,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("face_file_not_used", CatalogSeverity::Info),
     ("kit_variant_missing", CatalogSeverity::Warning),
     ("kit_variant_model_fox", CatalogSeverity::Warning),
+    ("kit_variant_mtl_differs", CatalogSeverity::Warning),
     ("xml_face_neck_added", CatalogSeverity::Info),
     ("xml_uniform_pes15", CatalogSeverity::Info),
     ("face_diff_invalid", CatalogSeverity::Error),

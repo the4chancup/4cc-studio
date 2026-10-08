@@ -32,7 +32,7 @@ pub fn variant_stem(stem: &str, kit: u8) -> Option<String> {
 /// when there is one, otherwise the one after (`boots_kit1` and `kit1_boots` give `boots`,
 /// `a_kit2_boots` gives `a_boots`): the stem a model's type and allowed name are read from,
 /// so a per-kit model is typed as its set is. Borrowed unchanged when `stem` holds no token.
-pub(crate) fn without_kit_token(stem: &str) -> Cow<'_, str> {
+pub fn without_kit_token(stem: &str) -> Cow<'_, str> {
     let Some((at, _)) = find_token(stem) else {
         return Cow::Borrowed(stem);
     };

@@ -1,7 +1,8 @@
 //! Kit-dependent assets (`model_format.md` "Kit-dependent assets (`kitN`)"): the kit number of
-//! a kit slot, and the per-kit model files a Fox target cannot use (`team_compiler/pipeline.md`
-//! "4. Per-export non-model steps", Kit-dependent assets). The token a file stem carries,
-//! `kit1` to `kit9` or `kitN`, is the export format's (`aesthetics_export::kit_token`).
+//! a kit slot, the per-kit model files a Fox target cannot use (`team_compiler/pipeline.md`
+//! "4. Per-export non-model steps", Kit-dependent assets), and whether a kit reference has a
+//! variant among some stems. The token a file stem carries, `kit1` to `kit9` or `kitN`, is the
+//! export format's (`aesthetics_export::kit_token`).
 
 use std::collections::BTreeMap;
 
@@ -90,6 +91,17 @@ pub(crate) fn model_variant_sets(files: &[FileDescriptor]) -> Vec<ModelVariantSe
         .collect()
 }
 
+/// Whether `stem` is a kit reference (`pants_kitN`, never a file of its own) and `stems` hold a
+/// variant of its set (`pants_kit2`), compared as `stems` are, as spelled.
+pub(crate) fn has_variant_among<'a>(stem: &str, stems: impl IntoIterator<Item = &'a str>) -> bool {
+    let Some((KitToken::Reference, reference)) = kit_token(stem) else {
+        return false;
+    };
+    stems.into_iter().any(|held| {
+        matches!(kit_token(held), Some((KitToken::Variant(_), held_reference)) if vtree::fold_name(&held_reference) == vtree::fold_name(&reference))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,5 +111,16 @@ mod tests {
         assert_eq!(kit_number(KitSlot::P1), Some(1));
         assert_eq!(kit_number(KitSlot::P9), Some(9));
         assert_eq!(kit_number(KitSlot::G1), None);
+    }
+
+    #[test]
+    fn a_kit_reference_has_a_variant_among_stems_holding_one_of_its_set() {
+        assert!(has_variant_among("pants_kitN", ["skin", "Pants_kit2"]));
+        assert!(!has_variant_among("pants_kitN", ["skin", "sock_kit2"]));
+        // `pants_kit1` is a variant, not a reference: it is found by its own stem.
+        assert!(!has_variant_among(
+            "pants_kit1",
+            ["pants_kit1", "pants_kit2"]
+        ));
     }
 }

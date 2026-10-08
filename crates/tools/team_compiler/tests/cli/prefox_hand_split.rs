@@ -10,7 +10,9 @@ use pes_model::model::Model;
 
 use crate::common::Sandbox;
 use crate::findings_of;
-use crate::prefox_faces::{compile_pes17, face_cpk, face_folder, nested_entries, pes17};
+use crate::prefox_faces::{
+    compile_pes17, face_cpk, face_folder, nested_entries, ordered_entries, pes17,
+};
 
 /// The `hand_split` fixture `name`: the full-body strip with both hands on, as a pre-Fox
 /// pair (`tests/fixtures/hand_split/README.md`).
@@ -21,21 +23,6 @@ fn hand_split_fixture(name: &str) -> Vec<u8> {
             .join(name),
     )
     .unwrap()
-}
-
-/// The (type, path, material) of every `<model>` of the `face.xml` `bytes`, in file order.
-fn ordered_entries(bytes: &[u8]) -> Vec<(String, String, String)> {
-    let text = std::str::from_utf8(bytes).unwrap();
-    let document = roxmltree::Document::parse(text).unwrap();
-    document
-        .root_element()
-        .children()
-        .filter(|node| node.has_tag_name("model"))
-        .map(|node| {
-            let attribute = |name: &str| node.attribute(name).unwrap().to_owned();
-            (attribute("type"), attribute("path"), attribute("material"))
-        })
-        .collect()
 }
 
 /// The (vertices, faces) of the `.model` `bytes`, read back with `pes_model`.
@@ -136,6 +123,69 @@ fn a_face_model_weighted_to_the_hand_bones_gives_its_face_two_glove_entries() {
         "{lines:#?}"
     );
     assert_eq!(check.exit_code(), 0, "{lines:#?}");
+}
+
+#[test]
+fn a_hand_weighted_per_kit_set_lists_its_hands_once_as_its_reference() {
+    let sandbox = Sandbox::new("prefox_hand_split_kit_variants");
+    let export = "co Midcup Hands";
+    let player = format!("exports/{export}/Players/05 - A");
+    for name in ["body_kit1.model", "body_kit2.model"] {
+        sandbox.write(
+            &format!("{player}/{name}"),
+            &hand_split_fixture("body.model"),
+        );
+    }
+    sandbox.write(
+        &format!("{player}/body.mtl"),
+        &hand_split_fixture("body.mtl"),
+    );
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body_kit1.model, gloves=glove_l, glove_r)",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body_kit2.model, gloves=glove_l, glove_r)",
+            "Info xml_face_neck_added [Keep] at Players/05 - A ()",
+        ],
+    );
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "body.mtl",
+            "dummy.mtl",
+            "face.xml",
+            "oral_body_kit1_glove_l_win32.model",
+            "oral_body_kit1_glove_r_win32.model",
+            "oral_body_kit1_win32.model",
+            "oral_body_kit2_glove_l_win32.model",
+            "oral_body_kit2_glove_r_win32.model",
+            "oral_body_kit2_win32.model",
+            "oral_dummy_win32.model",
+        ]
+    );
+    let entry = |xml_type: &str, path: &str, material: &str| {
+        (xml_type.to_owned(), path.to_owned(), material.to_owned())
+    };
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [
+            entry("parts", "./oral_body_kitN_*.model", "./body.mtl"),
+            entry("gloveL", "./oral_body_kitN_glove_l_*.model", "./body.mtl"),
+            entry("gloveR", "./oral_body_kitN_glove_r_*.model", "./body.mtl"),
+            entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ]
+    );
 }
 
 #[test]

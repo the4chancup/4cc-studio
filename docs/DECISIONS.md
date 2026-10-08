@@ -4954,3 +4954,24 @@ same pair. A team's `collar_077` would be the file the referee finds, so the res
 a real clash on pre-Fox too.
 Plan: `team_compiler/blue_port.md` "Referee export processing"; `team_compiler/README.md`
 TC-REF-04.
+
+## 2026-10-08 — team_compiler — A pre-Fox per-kit model set is listed by its lowest variant's entries, kit token spelled `kitN`, material included
+Decision: on PES 15-17 every variant of a per-kit `.model` set is packed under its own name and
+the set has one `face.xml` entry per entry of its lowest variant (its own, and its hands' when
+it is hand-split), with the kit token in `path` and `material` spelled `kitN`; the `material` is
+the lowest variant's `.mtl`, respelled when it carries that variant's token, so each other
+variant's `.mtl` must go by the respelled name, and a variant whose own search finds another
+file is `kit_variant_mtl_differs` (W), still packed. Not compiled yet, named by the pre-Fox
+gate: a per-kit model under `ingame_face`, in a shared `Boots/` or `Gloves/` folder taking an
+id, or behind a `.common` link.
+Why: the plan gave the model-path rule (one entry naming `pants_kitN`) and left the entry's
+material open. The pre-Fox exe change that reads `kitN` does not exist yet, so the compiler
+fixes the contract, and respelling the whole entry is what a load-path hook does with no special
+case (the legacy `u0XXXp0` magic rewrote any path holding its token); per-variant `.mtl` files
+then work under their natural names, while a shared `pants.mtl` carries no token and is written
+as it is. The three unlisted places have no `face.xml` entry to collapse (a shared boots folder
+merges into one `boots.model`; the shared `glove.xml` and the Common models task are later
+steps), and compiling them as Fox does would silently merge or double a variant.
+Plan: `team_compiler/pipeline.md` "Kit-dependent assets"; `model_format.md` "Kit-dependent
+assets (`kitN`)"; `team_compiler/messages.md` `kit_variant_mtl_differs`; `team_compiler/README.md`
+TC-CMN-07.

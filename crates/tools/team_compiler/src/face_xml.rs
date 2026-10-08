@@ -4,7 +4,7 @@
 //! itself, in the shape the game's own face CPKs carry; and the `glove.xml` of a shared gloves
 //! output, the same file without the face diff (step 7).
 
-use aesthetics_export::{ModelSuffix, ends_with_name, model_suffix};
+use aesthetics_export::{ModelSuffix, ends_with_name, model_suffix, without_kit_token};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use pes_version::PesVersion;
@@ -29,9 +29,12 @@ pub(crate) struct XmlEntry {
 /// the boots `parts`, each glove and hand its side's); else a native type name the stem ends
 /// with (`ends_with_name`); else `parts`. A packed name's `oral_` prefix needs no stripping: a
 /// suffix and a native name are read at the stem's end and `model_type_` anywhere in it, and
-/// `oral_` alone is the `oral` suffix, typed `parts` as an empty stem is.
+/// `oral_` alone is the `oral` suffix, typed `parts` as an empty stem is. The stem is read
+/// without its kit token (`without_kit_token`), so a per-kit model is typed as its set is:
+/// `cape_model_type_cape_kit2` is a `cape`.
 pub(crate) fn xml_type(stem: &str) -> String {
-    let stem = without_platform(stem);
+    let stem = without_kit_token(without_platform(stem));
+    let stem = stem.as_ref();
     // ASCII lower case keeps every byte offset, so the offset found indexes `stem`. An empty
     // name after the marker types nothing: the table's type is taken instead.
     if let Some(at) = stem.to_ascii_lowercase().find(MODEL_TYPE_MARKER) {
@@ -229,6 +232,17 @@ mod tests {
             ("torso", "parts"),
             ("oral_face_high_win32", "face_neck"),
             ("visor_ratio_2_parts", "parts"),
+        ] {
+            assert_eq!(xml_type(stem), expected, "{stem}");
+        }
+    }
+
+    #[test]
+    fn a_per_kit_model_is_typed_as_its_set_is() {
+        for (stem, expected) in [
+            ("body_uniform_kit1", "uniform"),
+            ("cape_model_type_cape_kit2", "cape"),
+            ("pants_kit1", "parts"),
         ] {
             assert_eq!(xml_type(stem), expected, "{stem}");
         }

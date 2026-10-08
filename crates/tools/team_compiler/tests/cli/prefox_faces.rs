@@ -51,7 +51,7 @@ pub(crate) fn card_materials() -> Vec<u8> {
 
 /// The card-head template's material set, its one texture path `./texture.dds` renamed to
 /// `./<stem>.dds`.
-fn materials_naming(stem: &str) -> Vec<u8> {
+pub(crate) fn materials_naming(stem: &str) -> Vec<u8> {
     let text = String::from_utf8(pre_fox_fixture("cardhead_materials.mtl")).unwrap();
     assert!(text.contains("./texture.dds"), "{text}");
     text.replace("./texture.dds", &format!("./{stem}.dds"))
@@ -163,6 +163,21 @@ fn expected_face_xml(entries: &[Entry], dif: &[u8]) -> Vec<u8> {
         STANDARD.encode(dif)
     ));
     text.into_bytes()
+}
+
+/// The (type, path, material) of every `<model>` of the `face.xml` `bytes`, in file order.
+pub(crate) fn ordered_entries(bytes: &[u8]) -> Vec<(String, String, String)> {
+    let text = std::str::from_utf8(bytes).unwrap();
+    let document = roxmltree::Document::parse(text).unwrap();
+    document
+        .root_element()
+        .children()
+        .filter(|node| node.has_tag_name("model"))
+        .map(|node| {
+            let attribute = |name: &str| node.attribute(name).unwrap().to_owned();
+            (attribute("type"), attribute("path"), attribute("material"))
+        })
+        .collect()
 }
 
 /// The (type, ratio, material) of every `<model>` of the `face.xml` `bytes`, sorted.
