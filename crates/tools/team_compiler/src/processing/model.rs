@@ -212,6 +212,9 @@ pub(super) fn package(
                 | PlayerFile::CommonMaterial
                 | PlayerFile::FaceXml
                 | PlayerFile::ConversionSkeleton => {}
+                // Planning drops a player folder holding one, and the subset gate refuses a
+                // shared folder's, so no task meets it.
+                PlayerFile::UnsupportedGltf => {}
             }
         }
         for part in &mut source_parts {

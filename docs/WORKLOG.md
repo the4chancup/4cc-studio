@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1882,6 +1882,25 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `.mtl` and a `.common` link to one), measured by a probe, no change; `dummy_bsm` measured
   (open item above); one rework round; mutants: 23, 21 caught, 2 unviable (`Default::default()`
   on `Code`, one `||` in a `let` chain), 0 missed).
+  (c2) done 2026-10-08 (`subset.rs`: `PlayerFile::UnsupportedGltf` for a `.glb`/`.gltf` with
+  no target-native model of its path stem beside it, at any position; `FolderModels::gltf_stems`
+  and `beaten` widened to the plan's order, target-native first, then glTF, then the other
+  engine's format (a glTF beats the opposite native model, is beaten by the target's own);
+  the player gates skip a beaten glTF, the shared gates still name a shared folder's glTF
+  (slice f); `plan/mod.rs` `drop_gltf_folders` right after `drop_other_engine_map`: one
+  `model_gltf_unsupported` (E, `DropFolder`, context `file` below the folder as
+  `xml_ignored_fox` names its file) per selected glTF of a mapped player folder, the folder's
+  roster slots removed as validation removes a dropped folder's, so it plans no task and
+  `check` never reports it; `Code::ModelGltfUnsupported`; help; `tests/cli/conversion.rs`
+  TC-MOD-28 (the first export's slot 07 added so a CPK is written and the absence of slot 05
+  proves something; `check` reports `export_identified` alone on both); unit tests for the
+  roles on both engines, `beaten` with glTF cases, the gate flips, the planning drop for a
+  team and a referee export; three contradictions accepted (the relative file name, a lead
+  fix; the role at any position; the pre-Fox gate's skip, a brief omission); measured: at
+  HEAD the gate named a `boots.glb` beside `boots.fmdl` too, now ignored; parked: a shared
+  folder linked only by a dropped folder could still report `kit_variant_model_fox` (no test
+  reaches it); mutants: 77, 69 caught, 8 unviable (`Default::default()` on types without
+  one), 0 missed).
 
 - [x] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
   on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
@@ -4180,3 +4199,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     Fox only for boots shipping the game's `boots.skl`, so it is deferred to slice (g), a
     two-crate step reconciling the poses first (DECISIONS 2026-10-08). Next: 4.17c2 (a
     selected glTF refused at planning, TC-MOD-28).
+  - **4.17c2 done** (TC-MOD-28): a `.glb`/`.gltf` with no model of the target's own format
+    of its stem beside it is its stem's selection, beating the other engine's model; planning
+    drops its player folder with `model_gltf_unsupported` instead of the gate refusing the
+    export, never compiling the beaten model in its place; a glTF the target's format beats
+    is ignored. A shared folder's glTF stays with the gate until slice f. Next: 4.17d (the
+    template environment cubemap for a converted metal material, TC-MOD-36).

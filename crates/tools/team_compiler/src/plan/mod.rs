@@ -43,7 +43,7 @@ pub(crate) struct PlanReport {
     pub(crate) manifest: BuildManifest,
     /// Planning's findings (`content_not_yet_compiled`, `team_colors_missing`, `link_combined`,
     /// `kit_texture_not_used`, `kit_config_generated`, `kit_placeholder`,
-    /// `kit_variant_model_fox`, `collar_id_conflict`).
+    /// `kit_variant_model_fox`, `collar_id_conflict`, `model_gltf_unsupported`).
     pub(crate) messages: Vec<Message>,
 }
 
@@ -332,7 +332,8 @@ impl ModelFolder {
                     | PlayerFile::Material
                     | PlayerFile::CommonMaterial
                     | PlayerFile::FaceXml
-                    | PlayerFile::ConversionSkeleton => None,
+                    | PlayerFile::ConversionSkeleton
+                    | PlayerFile::UnsupportedGltf => None,
                 };
                 if let Some(packs_as) = packs_as {
                     if packed.contains(&packs_as) {
@@ -731,9 +732,10 @@ pub(crate) struct ExportToPlan {
 }
 
 /// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
-/// `version`. An export holding anything Phase 3 cannot compile yet plans no task and reports
-/// `content_not_yet_compiled` naming the first such item. Every other export's note goes into
-/// the manifest, and a team export's colors; one with no root `colors.txt` reports
+/// `version`. A mapped player folder whose model is a selected glTF is dropped first
+/// (`drop_gltf_folders`). An export holding anything Phase 3 cannot compile yet plans no task
+/// and reports `content_not_yet_compiled` naming the first such item. Every other export's
+/// note goes into the manifest, and a team export's colors; one with no root `colors.txt` reports
 /// `team_colors_missing`, and its team keeps the colors it had. A team export's collar is
 /// claimed against the run-wide list of the collars earlier exports claimed
 /// (`collars::export_collar`), and every kit config of the team wears the collar it keeps. A
@@ -764,6 +766,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             &mut resolved.export.kits,
             &mut messages,
         );
+        drop_gltf_folders(export_id, &mut resolved, version, &mut messages);
         if let Some(item) = first_not_compiled(&resolved, version) {
             messages.push(tool_message(
                 Code::ContentNotYetCompiled,
@@ -1242,6 +1245,58 @@ fn drop_other_engine_map(
     }
 }
 
+/// Drops every mapped player folder of `export` holding a glTF model selected for its stem on
+/// `version` (`PlayerFile::UnsupportedGltf`), reporting `model_gltf_unsupported` on the folder
+/// once per such file, naming it below the folder, in the export's folder order (`pipeline.md` step 3 "Format
+/// conversion": a selected glTF drops the folder until Phase 7 rather than falling through to
+/// the other engine's format). The folder's roster slots are removed, as validation removes a
+/// dropped folder's, so it plans no task and its slots compile as empty ones do. It goes
+/// before the subset gate, which therefore never walks the folder. A shared folder's glTF is
+/// left to the gate (`shared_not_compiled`).
+fn drop_gltf_folders(
+    export_id: ExportId,
+    export: &mut ResolvedAestheticsExport,
+    version: PesVersion,
+    messages: &mut Vec<Message>,
+) {
+    let export = &mut export.export;
+    let mapped: Vec<PlayerIndex> = match &export.roster {
+        ValidatedRoster::Team(slots) => slots.values().copied().collect(),
+        ValidatedRoster::Referees(slots) => slots.values().copied().collect(),
+    };
+    let mut dropped = Vec::new();
+    for (index, folder) in export.players.iter().enumerate() {
+        let index = PlayerIndex(index);
+        if !mapped.contains(&index) {
+            continue;
+        }
+        let models = FolderModels::of_player(folder, version.engine());
+        for file in &folder.files {
+            if player_file(&folder.path, file, &models) != Some(PlayerFile::UnsupportedGltf) {
+                continue;
+            }
+            messages.push(tool_message(
+                Code::ModelGltfUnsupported,
+                Scope::Folder {
+                    export_id,
+                    path: folder.path.clone(),
+                },
+                Disposition::DropFolder,
+                // Named below the folder, as `xml_ignored_fox` names its file: two glTFs of one
+                // name in different subfolders are two findings a member can tell apart.
+                vec![("file", crate::deep::relative(&file.path, &folder.path))],
+            ));
+            if !dropped.contains(&index) {
+                dropped.push(index);
+            }
+        }
+    }
+    match &mut export.roster {
+        ValidatedRoster::Team(slots) => slots.retain(|_, index| !dropped.contains(index)),
+        ValidatedRoster::Referees(slots) => slots.retain(|_, index| !dropped.contains(index)),
+    }
+}
+
 /// `kit_variant_model_fox` for each set of per-kit model files (`pants_kit1.fmdl`,
 /// `pants_kit2.fmdl`) in a folder of `export` that is compiled, on that folder: a mapped player
 /// folder, or a shared folder (validation drops one no mapped player links). Each folder is
@@ -1401,7 +1456,8 @@ fn common_models(
                 | PlayerFile::PreFoxCommonModel { .. }
                 | PlayerFile::CommonMaterial
                 | PlayerFile::FaceXml
-                | PlayerFile::ConversionSkeleton => return None,
+                | PlayerFile::ConversionSkeleton
+                | PlayerFile::UnsupportedGltf => return None,
             };
             let linked = common_link_name(file.path.name())
                 .expect("a model link's role implies a `.common` link name");
@@ -1963,6 +2019,125 @@ mod tests {
         assert_eq!(
             report.manifest.tasks[4].kind.folder_path(),
             scope_path("Boots/Zebra")
+        );
+    }
+
+    #[test]
+    fn a_selected_gltf_drops_its_player_folder_at_planning_with_its_textures() {
+        let files = [
+            ("Players/05 - A/boots.glb", 4),
+            ("Players/05 - A/boots.model", 8),
+            ("Players/05 - A/skin.png", 2),
+            ("Players/07 - B/boots.fmdl", 16),
+        ];
+        let export = resolved("co Midcup Gltf", &files, &[], None);
+
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+
+        // Slot 05's folder plans nothing: no face 71405, no boots 625, no textures; the
+        // `.model` the glTF beats is not converted in its place.
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/07 - B [71407] charge 0",
+                "0 714 Boots Players/07 - B [627] charge 16",
+            ]
+        );
+        assert_eq!(
+            message_summary(&report),
+            [(
+                "model_gltf_unsupported",
+                "Players/05 - A",
+                Disposition::DropFolder
+            )]
+        );
+        let message = &report.messages[0];
+        assert_eq!(message.severity, Severity::Error);
+        assert_eq!(
+            message.context,
+            [("file".to_owned(), "boots.glb".to_owned())]
+        );
+
+        // On pre-Fox the glTF beats the FMDL beside it the same way, and each selected glTF
+        // is reported; a glTF a `.model` of its stem beats is ignored.
+        let files = [
+            ("Players/05 - A/boots.fmdl", 8),
+            ("Players/05 - A/boots.glb", 4),
+            ("Players/05 - A/face/hat.gltf", 4),
+            ("Players/07 - B/boots.glb", 4),
+            ("Players/07 - B/boots.model", 16),
+        ];
+        let export = resolved("co Midcup Gltf", &files, &[], None);
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes17,
+        );
+        let files: Vec<&str> = report
+            .messages
+            .iter()
+            .map(|message| message.context[0].1.as_str())
+            .collect();
+        assert_eq!(files, ["boots.glb", "face/hat.gltf"]);
+        assert_eq!(
+            message_summary(&report),
+            [
+                (
+                    "model_gltf_unsupported",
+                    "Players/05 - A",
+                    Disposition::DropFolder
+                ),
+                (
+                    "model_gltf_unsupported",
+                    "Players/05 - A",
+                    Disposition::DropFolder
+                ),
+            ]
+        );
+        let folders: Vec<ScopePath> = report
+            .manifest
+            .tasks
+            .iter()
+            .map(|task| task.kind.folder_path())
+            .collect();
+        assert!(
+            !folders.is_empty()
+                && folders
+                    .iter()
+                    .all(|folder| folder.as_str() == "Players/07 - B"),
+            "{folders:?}"
+        );
+
+        // A referee's folder leaves the referee roster the same way.
+        let referees = resolved(
+            "refs Cup",
+            &[
+                ("Players/Keeper/boots.glb", 4),
+                ("Players/Ref B/boots.fmdl", 16),
+            ],
+            &[],
+            Some(b"01 Keeper\n02 Ref B\n"),
+        );
+        let report = plan_run(
+            vec![to_plan(ExportId(0), referees, None, None)],
+            PesVersion::Pes21,
+        );
+        assert_eq!(
+            message_summary(&report),
+            [(
+                "model_gltf_unsupported",
+                "Players/Keeper",
+                Disposition::DropFolder
+            )]
+        );
+        assert_eq!(
+            summary(&report),
+            [
+                "0 999 Face Players/Ref B [referee 2] charge 0",
+                "0 999 Boots Players/Ref B [referee 2] charge 16",
+            ]
         );
     }
 

@@ -159,6 +159,9 @@ pub(super) fn package(
                 | PlayerFile::PreFoxCommonModel { .. }
                 | PlayerFile::FaceXml
                 | PlayerFile::ConversionSkeleton => {}
+                // Planning drops a player folder holding one, and the subset gate refuses a
+                // shared folder's, so no task meets it.
+                PlayerFile::UnsupportedGltf => {}
             }
         }
     }

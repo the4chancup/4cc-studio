@@ -286,6 +286,12 @@ pub(crate) enum Code {
     WeightClamped,
     /// A vertexless mesh's bone group was written empty: it skins nothing.
     EmptyMeshBoneGroupDropped,
+    /// A player folder's glTF model (`.glb` or `.gltf`) is its stem's selected representation,
+    /// no model of the target's own format of its stem beside it, and the compiler does not
+    /// read glTF yet: planning leaves the folder out, never compiling the other engine's
+    /// `.model` or `.fmdl` beside it instead. Reported by `compile` alone, before the folder's
+    /// tasks are made, so `pass_through` does not apply.
+    ModelGltfUnsupported,
     /// A model the compiler must convert (an FMDL for PES 15-17, a `.model` for PES 18-21, or a
     /// face model to hand auto-split) cannot be read, converted or written back, or its
     /// converted form trips an Error of its format's check (the rule's code is the error); its
@@ -408,7 +414,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 128] = [
+    const ALL: [Code; 129] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -499,6 +505,7 @@ impl Code {
         Code::StaticBoneAdded,
         Code::WeightClamped,
         Code::EmptyMeshBoneGroupDropped,
+        Code::ModelGltfUnsupported,
         Code::ModelConversionFailed,
         Code::VertexTooFarFromOrigin,
         Code::ModelBroken,
@@ -632,6 +639,7 @@ impl Code {
             Code::StaticBoneAdded => "static_bone_added",
             Code::WeightClamped => "weight_clamped",
             Code::EmptyMeshBoneGroupDropped => "empty_mesh_bone_group_dropped",
+            Code::ModelGltfUnsupported => "model_gltf_unsupported",
             Code::ModelConversionFailed => "model_conversion_failed",
             Code::VertexTooFarFromOrigin => "vertex_too_far_from_origin",
             Code::ModelBroken => "model_broken",
@@ -785,6 +793,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("static_bone_added", CatalogSeverity::Info),
     ("weight_clamped", CatalogSeverity::Info),
     ("empty_mesh_bone_group_dropped", CatalogSeverity::Info),
+    ("model_gltf_unsupported", CatalogSeverity::Error),
     ("model_conversion_failed", CatalogSeverity::Error),
     ("vertex_too_far_from_origin", CatalogSeverity::Error),
     ("model_broken", CatalogSeverity::Error),

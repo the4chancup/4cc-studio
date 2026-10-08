@@ -356,6 +356,9 @@ pub(super) fn face(
                 PlayerFile::FaceXml => {}
                 // Read with the FMDL it is the bind pose of, above.
                 PlayerFile::ConversionSkeleton => {}
+                // Planning drops a player folder holding one, and the subset gate refuses a
+                // shared folder's, so no task meets it.
+                PlayerFile::UnsupportedGltf => {}
                 // The Fox roles; a face file with no face model, which is not read; and an
                 // `ingame_face` player's part, which has no face.
                 PlayerFile::Model { .. }

@@ -58,7 +58,8 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
         | PlayerFile::Material
         | PlayerFile::CommonMaterial
         | PlayerFile::FaceXml
-        | PlayerFile::ConversionSkeleton => None,
+        | PlayerFile::ConversionSkeleton
+        | PlayerFile::UnsupportedGltf => None,
     }
 }
 

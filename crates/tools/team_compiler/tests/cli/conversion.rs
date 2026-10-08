@@ -20,6 +20,7 @@ use crate::prefox_faces::{
     CLEAN, card_materials, card_model, face_cpk, nested_entries, ordered_entries, pes17,
     sampler_paths, small_dds, write_slot_05_face,
 };
+use crate::textures::texture_fixture;
 use crate::{clean_model, findings_of};
 
 /// The outer CPK path of the tracer's player's face CPK: team 792, slot 05.
@@ -621,6 +622,82 @@ fn a_model_an_fmdl_beats_on_pes_21_drops_nothing_with_its_far_vertex() {
         fmdl_mesh_count(package.get("boots.fmdl").unwrap()),
         fmdl_mesh_count(&clean_model())
     );
+}
+
+// TC-MOD-28
+#[test]
+fn a_selected_gltf_drops_its_folder_on_pes_21_and_one_an_fmdl_beats_is_ignored() {
+    let export = "co Midcup Gltf";
+    let player = slot_05(export);
+    // The glTF is never read, so any bytes stand for one.
+    let gltf: &[u8] = b"glTF";
+    // The glTF beats the `.model` beside it, which has no `.mtl` it would need if it were
+    // converted.
+    let selected = Sandbox::new("conversion_gltf_selected");
+    selected.write(&format!("{player}/boots.glb"), gltf);
+    selected.write(&format!("{player}/boots.model"), &card_model());
+    selected.write(&format!("{player}/skin.png"), &texture_fixture("skin.png"));
+    // Slot 07 compiles, so the run writes a CPK slot 05 is missing from.
+    selected.write(
+        &format!("exports/{export}/Players/07 - B/boots.fmdl"),
+        &clean_model(),
+    );
+    // The FMDL beats the glTF beside it.
+    let beaten = Sandbox::new("conversion_gltf_beaten");
+    beaten.write(&format!("{player}/boots.glb"), gltf);
+    beaten.write(&format!("{player}/boots.fmdl"), &clean_model());
+    let identified = "Info export_identified [Keep] (team=/co/, id=714)";
+    let no_colors = "Info team_colors_missing [Keep] ()";
+
+    let (code, lines, entries) = compiled_for(&selected, 21, "", export);
+
+    assert_eq!(
+        lines,
+        [
+            identified,
+            "Error model_gltf_unsupported [DropFolder] at Players/05 - A (file=boots.glb)",
+            no_colors,
+        ]
+    );
+    assert_eq!(code, 1);
+    assert!(
+        entries.contains_key("Asset/model/character/boots/k0627/#Win/boots.fpk"),
+        "{:?}",
+        entries.keys()
+    );
+    assert!(
+        entries.keys().all(|path| !path.contains("k0625")
+            && !path.contains("71405")
+            && !path.contains("skin")),
+        "{:?}",
+        entries.keys()
+    );
+
+    let (code, lines, entries) = compiled_for(&beaten, 21, "", export);
+
+    assert_eq!(lines, [identified, no_colors]);
+    assert_eq!(code, 0);
+    assert_eq!(
+        package_names(&entries[BOOTS_FPK]),
+        ["boots.fmdl", "boots.skl"]
+    );
+    let package = fpk::FpkFile::read(&entries[BOOTS_FPK]).unwrap();
+    assert_eq!(
+        fmdl_mesh_count(package.get("boots.fmdl").unwrap()),
+        fmdl_mesh_count(&clean_model())
+    );
+
+    // `check` reports neither the glTF nor the `.model` it beats.
+    for sandbox in [&selected, &beaten] {
+        let run = sandbox.run(&pes_settings(sandbox, 21), &["check"]);
+        assert_eq!(
+            findings_of(&run.messages(), export),
+            [identified],
+            "{}",
+            sandbox.root.display()
+        );
+        assert_eq!(run.exit_code(), 0);
+    }
 }
 
 #[test]

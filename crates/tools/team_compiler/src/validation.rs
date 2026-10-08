@@ -613,7 +613,8 @@ fn file_role_messages(
                 | PlayerFile::Material
                 | PlayerFile::CommonMaterial
                 | PlayerFile::FaceXml
-                | PlayerFile::ConversionSkeleton,
+                | PlayerFile::ConversionSkeleton
+                | PlayerFile::UnsupportedGltf,
             )
             | None => continue,
         };

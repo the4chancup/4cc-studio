@@ -256,9 +256,9 @@ their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a
 texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
 only `.model`, `.mtl` and texture files, the kits, its `.model` collars, and the portraits and
 the logo, and a player's `.fmdl` models converted to `.model` files with their materials;
-`.glb`/`.gltf` and referee exports are named. A `.fmdl` beside a `.model` of the same name is
-left out for the `.model`, the `.skl` of a converted model's name gives its pose, and
-`fcl_hair_sim.fclo` is not used. A converted model moved onto that version's skeleton is noted
+a shared folder's `.glb`/`.gltf` and referee exports are named. A `.fmdl` beside a `.model`
+of the same name is left out for the `.model`, the `.skl` of a converted model's name gives
+its pose, and `fcl_hair_sim.fclo` is not used. A converted model moved onto that version's skeleton is noted
 as `skeleton_retargeted`, and one that cannot be converted leaves its player folder out with
 `model_conversion_failed`. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
@@ -270,15 +270,19 @@ the logo, `.fmdl` collars, linked shared `Faces`, `Boots` and `Gloves` folders, 
 texture files, its models reached through `.common` links (a model in a `gloves` subfolder
 whose name does not say which hand it is, a `.common` link to a material file, or a `.model`
 in a shared folder, among others); a player's own `.model` models are converted to `.fmdl`
-with the `.mtl` they use, and `.glb`/`.gltf` are named. A `.model` beside a `.fmdl` of the
-same name is left out for the `.fmdl`, with its `.mtl`. A converted model is checked again as
-the `.fmdl` it becomes: one that cannot be converted, or that comes out with a vertex more than
-5000 units from the origin, is reported as `model_conversion_failed` or
+with the `.mtl` they use, and a shared folder's `.glb`/`.gltf` is named. A `.model` beside a
+`.fmdl` of the same name is left out for the `.fmdl`, with its `.mtl`. A converted model is
+checked again as the `.fmdl` it becomes: one that cannot be converted, or that comes out with
+a vertex more than 5000 units from the origin, is reported as `model_conversion_failed` or
 `vertex_too_far_from_origin` and its package (face, boots or gloves) is left out, even with
 `pass_through` on. On every version, a converted model's Warnings and Infos name what the
 conversion changed: a bone folded onto another or its pose guessed, a material's shader
 guessed, a texture, a flag or a field the other game has no place for. `check` still checks
-those exports.
+those exports. A `.glb`/`.gltf` model in a player folder is not read yet: with no `.fmdl` (PES
+2018 to 2021) or `.model` (PES 2015 to 2017) of its name beside it, `compile` leaves its
+folder out with the error `model_gltf_unsupported`, naming it, and does not use the `.model`
+or `.fmdl` of the other game beside it instead; beside one of the game's own format it is
+ignored.
 
 A `Collars` folder holds custom collar models, each replacing one of the game's stock collars:
 model files (`.fmdl`, `.model`, `.glb` or `.gltf`) directly in the folder, named `collar_`

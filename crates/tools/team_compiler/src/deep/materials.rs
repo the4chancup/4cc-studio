@@ -179,7 +179,8 @@ pub(super) fn held_stems(
             | PlayerFile::CommonMaterial
             | PlayerFile::FaceXml
             | PlayerFile::UnusedFaceFile
-            | PlayerFile::ConversionSkeleton => None,
+            | PlayerFile::ConversionSkeleton
+            | PlayerFile::UnsupportedGltf => None,
         })
         .collect()
 }

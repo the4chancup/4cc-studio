@@ -287,16 +287,24 @@ pub(crate) enum PlayerFile {
     /// path stem a Fox skeleton pairs by: the conversion's bind pose
     /// (`NativeModelBundle::Fox { skl }`), packed nowhere.
     ConversionSkeleton,
+    /// A `.glb` or `.gltf` model with no model of the target's own format of its path stem
+    /// beside it: the selected representation of its stem, which beats a model of the other
+    /// engine's format beside it (`pipeline.md` step 3 "Format conversion"). The compiler does
+    /// not read glTF until Phase 7, so planning drops the player folder holding one
+    /// (`model_gltf_unsupported`) rather than compile the other format in its place: the
+    /// same export never compiles differently once glTF is read.
+    UnsupportedGltf,
 }
 
 impl PlayerFile {
     /// The package the file goes into; `None` for a texture, which goes to the player's
     /// common folder for every package to point at, for a `.common` link, whose file is the
     /// team's (Common's texture, `.model` or `.mtl`, packed once in the team's Common output),
-    /// and for a skeleton with no slot, an unused face file, a left-out kit variant and a
-    /// conversion's skeleton, which go nowhere (the face task reads the last,
-    /// `TaskKind::files`). A Fox model link's role is its Common model's, and so is a pre-Fox one's
-    /// under `ingame_face`, which planning puts in the link's place (`ModelFolder::roles`).
+    /// and for a skeleton with no slot, an unused face file, a left-out kit variant, a
+    /// conversion's skeleton and a glTF, which go nowhere (the face task reads the
+    /// conversion's skeleton, `TaskKind::files`; planning drops a glTF's folder). A Fox model
+    /// link's role is its Common model's, and so is a pre-Fox one's under `ingame_face`, which
+    /// planning puts in the link's place (`ModelFolder::roles`).
     pub(crate) fn package(&self) -> Option<ModelPackage> {
         match self {
             PlayerFile::Model { package, .. }
@@ -315,7 +323,8 @@ impl PlayerFile {
             | PlayerFile::CommonTexture(_)
             | PlayerFile::PreFoxCommonModel { .. }
             | PlayerFile::CommonMaterial
-            | PlayerFile::ConversionSkeleton => None,
+            | PlayerFile::ConversionSkeleton
+            | PlayerFile::UnsupportedGltf => None,
         }
     }
 }
@@ -546,10 +555,14 @@ pub(crate) struct FolderModels {
     /// skeleton pairs with one.
     left_out_variants: Vec<ScopePath>,
     /// The path stems of its models in the target engine's own format, `.fmdl` files on Fox
-    /// and `.model` files on pre-Fox, each of which beats a model of the other format of its
-    /// path stem (`pipeline.md` step 3 "Format conversion": target-native first), that model
-    /// then having no role and no finding (TC-MOD-26).
+    /// and `.model` files on pre-Fox, each of which beats a glTF or a model of the other format
+    /// of its path stem (`pipeline.md` step 3 "Format conversion": target-native first), that
+    /// model then having no role and no finding (TC-MOD-26).
     native_model_stems: Vec<String>,
+    /// The path stems of its `.glb` and `.gltf` models, each of which beats a model of the
+    /// other engine's format of its path stem and is beaten by one of the target's
+    /// (`pipeline.md` step 3 "Format conversion": target-native first, then glTF).
+    gltf_stems: Vec<String>,
     /// Pre-Fox, without `ingame_face`: the path stems of the `.fmdl` files the face converts
     /// (`PlayerFile::PreFoxModel`), each of whose skeletons is the conversion's bind pose
     /// (`PlayerFile::ConversionSkeleton`).
@@ -565,13 +578,13 @@ impl FolderModels {
 
     /// The models among `files` of the folder at `folder`, which holds `ingame_face` when
     /// `ingame_face` is set, for a target of `engine`. On Fox: its `.fmdl` files, its `.model`
-    /// files with no `.fmdl` of their path stem, which the Models task converts, and its
+    /// files with no `.fmdl` or glTF of their path stem, which the Models task converts, and its
     /// `.common` links to an FMDL, directly in it or in a reserved subfolder, each with its
     /// resolved role. A link counts as a model of its role's package, but pairs no skeleton of
     /// the folder's: a Common model's skeleton is Common's, resolved at planning
     /// (`common_skeleton`). A per-kit model with a lower variant of its set beside it is left
     /// out (`model_variant_sets`). On pre-Fox: its `.model` files, its `.fmdl` files with no
-    /// `.model` of their path stem, which the face converts, and its `.common` links to a
+    /// `.model` or glTF of their path stem, which the face converts, and its `.common` links to a
     /// `.model` with a role, every one of them a part of the face (`PlayerFile::PreFoxModel`,
     /// `PlayerFile::PreFoxCommonModel`), every variant of a per-kit set included; only a
     /// converted FMDL pairs a skeleton, its bind pose; under `ingame_face` none, the folder
@@ -598,15 +611,9 @@ impl FolderModels {
                 Engine::PreFox => Vec::new(),
             },
             // Read before the loop: on pre-Fox `boots.fmdl` sorts before the `boots.model`
-            // beating it.
-            native_model_stems: files
-                .iter()
-                .filter(|file| {
-                    file.kind == FileKind::Model(native_format(engine))
-                        && position(folder, file).is_some()
-                })
-                .map(|file| vtree::fold_name(path_stem(file)))
-                .collect(),
+            // or `boots.glb` beating it.
+            native_model_stems: model_stems(folder, files, native_format(engine)),
+            gltf_stems: model_stems(folder, files, ModelFormat::Gltf),
             converted_stems: Vec::new(),
         };
         for file in files {
@@ -626,8 +633,8 @@ impl FolderModels {
                             Some(PlayerFile::PreFoxCommonModel { .. })
                         );
                     let path_fold = vtree::fold_name(path_stem(file));
-                    let converted = file.kind == FileKind::Model(ModelFormat::Fmdl)
-                        && !models.native_model_stems.contains(&path_fold);
+                    let converted =
+                        file.kind == FileKind::Model(ModelFormat::Fmdl) && !models.beaten(file);
                     let typed = pre_fox_model_type(position, file_stem(name)).is_some();
                     if converted && typed {
                         models.converted_stems.push(path_fold);
@@ -646,11 +653,9 @@ impl FolderModels {
                 continue;
             }
             let file_name = file.path.name();
-            // A `.model` an FMDL of its path stem beats is no model of the folder's.
-            let converted = file.kind == FileKind::Model(ModelFormat::PesModel)
-                && !models
-                    .native_model_stems
-                    .contains(&vtree::fold_name(path_stem(file)));
+            // A `.model` an FMDL or a glTF of its path stem beats is no model of the folder's.
+            let converted =
+                file.kind == FileKind::Model(ModelFormat::PesModel) && !models.beaten(file);
             let (model_name, local) =
                 if file.kind == FileKind::Model(ModelFormat::Fmdl) || converted {
                     (file_name.to_owned(), true)
@@ -709,19 +714,27 @@ impl FolderModels {
         self.engine
     }
 
-    /// Whether `file` is a model the target's own format beats (`pipeline.md` step 3 "Format
-    /// conversion": target-native first): a model in the other engine's format, a `.model` on
-    /// Fox or an `.fmdl` on pre-Fox, with a model of the target's format of its path stem
-    /// beside it. The beaten model has no role and no finding (TC-MOD-26): nothing reads it.
+    /// Whether `file` is a model another representation of its path stem beats (`pipeline.md`
+    /// step 3 "Format conversion": target-native first, then glTF, then the other engine's
+    /// format): a glTF with a model of the target's format beside it, or a model in the other
+    /// engine's format, a `.model` on Fox or an `.fmdl` on pre-Fox, with a model of the
+    /// target's format or a glTF beside it. The beaten model has no role and no finding
+    /// (TC-MOD-26): nothing reads it.
     pub(crate) fn beaten(&self, file: &FileDescriptor) -> bool {
-        let other_format = match self.engine {
-            Engine::Fox => ModelFormat::PesModel,
-            Engine::PreFox => ModelFormat::Fmdl,
+        let FileKind::Model(format) = file.kind else {
+            return false;
         };
-        file.kind == FileKind::Model(other_format)
-            && self
-                .native_model_stems
-                .contains(&vtree::fold_name(path_stem(file)))
+        if format == native_format(self.engine) {
+            return false;
+        }
+        let stem = vtree::fold_name(path_stem(file));
+        let native_beside = self.native_model_stems.contains(&stem);
+        match format {
+            ModelFormat::Gltf => native_beside,
+            ModelFormat::Fmdl | ModelFormat::PesModel => {
+                native_beside || self.gltf_stems.contains(&stem)
+            }
+        }
     }
 
     /// The models of a player folder linking a shared face: the shared face is the player's
@@ -753,6 +766,16 @@ pub(crate) fn player_file(
     }
 }
 
+/// The folded path stems of the models of `format` among `files` of the folder at `folder`,
+/// directly in it or in a reserved subfolder.
+fn model_stems(folder: &ScopePath, files: &[FileDescriptor], format: ModelFormat) -> Vec<String> {
+    files
+        .iter()
+        .filter(|file| file.kind == FileKind::Model(format) && position(folder, file).is_some())
+        .map(|file| vtree::fold_name(path_stem(file)))
+        .collect()
+}
+
 /// The model format a target of `engine` reads natively: FMDL on Fox, `.model` on pre-Fox.
 fn native_format(engine: Engine) -> ModelFormat {
     match engine {
@@ -761,11 +784,12 @@ fn native_format(engine: Engine) -> ModelFormat {
     }
 }
 
-/// `player_file` on Fox, for `file` at `position`: a `.model` with no `.fmdl` of its path stem
-/// beside it takes the role an FMDL of its name would, the Models task converting it with the
-/// `.mtl` its search finds, and every `.mtl` outside `common/` is a material set such a
-/// conversion may read (`PlayerFile::Material`). A `.model` an FMDL of its path stem beats has
-/// no role.
+/// `player_file` on Fox, for `file` at `position`: a `.model` with no `.fmdl` or glTF of its
+/// path stem beside it takes the role an FMDL of its name would, the Models task converting it
+/// with the `.mtl` its search finds, every `.mtl` outside `common/` is a material set such a
+/// conversion may read (`PlayerFile::Material`), and a glTF with no `.fmdl` of its path stem
+/// beside it is `PlayerFile::UnsupportedGltf`. A model `FolderModels::beaten` names has no
+/// role.
 fn fox_file(
     position: Position,
     file: &FileDescriptor,
@@ -777,8 +801,8 @@ fn fox_file(
     match file.kind {
         // A left-out kit variant is one only where it would be a model: a file planning gives no
         // role keeps none.
-        FileKind::Model(format @ (ModelFormat::Fmdl | ModelFormat::PesModel)) => {
-            if format == ModelFormat::PesModel && models.native_model_stems.contains(&path_fold) {
+        FileKind::Model(ModelFormat::Fmdl | ModelFormat::PesModel) => {
+            if models.beaten(file) {
                 return None;
             }
             model_role(position, stem, models.ingame_face).map(|(package, name)| {
@@ -834,6 +858,9 @@ fn fox_file(
         FileKind::Texture | FileKind::Bin | FileKind::Xml => {
             texture_or_face_diff(position, file, models)
         }
+        FileKind::Model(ModelFormat::Gltf) if !models.beaten(file) => {
+            Some(PlayerFile::UnsupportedGltf)
+        }
         FileKind::Model(ModelFormat::Gltf)
         | FileKind::Skl
         | FileKind::Fclo
@@ -848,14 +875,14 @@ fn fox_file(
 
 /// `player_file` on pre-Fox, for `file` at `position`: a `.model` typed for the face's
 /// `face.xml` (`pre_fox_model_type`), or under `ingame_face` a part of the package Fox gives
-/// it (`pre_fox_part`), an `.fmdl` with no `.model` of its path stem beside it the same, the
-/// `.skl` paired with such an FMDL in the face its conversion's bind pose
-/// (`PlayerFile::ConversionSkeleton`), a `.mtl` beside the models, outside `common/`, and a
+/// it (`pre_fox_part`), an `.fmdl` with no `.model` or glTF of its path stem beside it the
+/// same, the `.skl` paired with such an FMDL in the face its conversion's bind pose
+/// (`PlayerFile::ConversionSkeleton`), a `.mtl` beside the models, outside `common/`, a
 /// `.common` link to a `.model`, a `.mtl` or a texture (`pre_fox_link`), under `ingame_face` a
-/// link to a `.model` being a part as the `.model` itself would be, and a member's own
-/// `face.xml`, a face file (`PlayerFile::FaceXml`). An `.fmdl` a `.model` of its path stem
-/// beats, any other `.skl` and `fcl_hair_sim.fclo` have no role, nor any other link or any
-/// `.xml` but the face diff.
+/// link to a `.model` being a part as the `.model` itself would be, a member's own `face.xml`,
+/// a face file (`PlayerFile::FaceXml`), and a glTF with no `.model` of its path stem beside it
+/// (`PlayerFile::UnsupportedGltf`). A model `FolderModels::beaten` names, any other `.skl` and
+/// `fcl_hair_sim.fclo` have no role, nor any other link or any `.xml` but the face diff.
 fn pre_fox_file(
     position: Position,
     file: &FileDescriptor,
@@ -863,8 +890,8 @@ fn pre_fox_file(
 ) -> Option<PlayerFile> {
     let path_fold = vtree::fold_name(path_stem(file));
     match file.kind {
-        FileKind::Model(format @ (ModelFormat::PesModel | ModelFormat::Fmdl)) => {
-            if format == ModelFormat::Fmdl && models.native_model_stems.contains(&path_fold) {
+        FileKind::Model(ModelFormat::PesModel | ModelFormat::Fmdl) => {
+            if models.beaten(file) {
                 return None;
             }
             let stem = file_stem(file.path.name());
@@ -891,6 +918,9 @@ fn pre_fox_file(
         }
         FileKind::Skl if models.converted_stems.contains(&path_fold) => {
             Some(PlayerFile::ConversionSkeleton)
+        }
+        FileKind::Model(ModelFormat::Gltf) if !models.beaten(file) => {
+            Some(PlayerFile::UnsupportedGltf)
         }
         FileKind::Model(ModelFormat::Gltf)
         | FileKind::Mtl
@@ -1199,13 +1229,17 @@ fn pre_fox_not_compiled(
         if let Some(file) = folder.files.iter().find(|file| {
             match player_file(&folder.path, file, &models) {
                 // A Fox file with no role is ignored (`pipeline.md` step 3 "Format
-                // conversion"): an `.fmdl` a `.model` of its stem beats, a `.skl` no converted
-                // FMDL pairs, `fcl_hair_sim.fclo`. The skip goes with this gate at 4.20, when a
-                // file with no role is simply ignored.
-                None => !matches!(
-                    file.kind,
-                    FileKind::Model(ModelFormat::Fmdl) | FileKind::Skl | FileKind::Fclo
-                ),
+                // conversion"): an `.fmdl` a `.model` or a glTF of its stem beats, a `.skl` no
+                // converted FMDL pairs, `fcl_hair_sim.fclo`; so is a glTF a `.model` of its
+                // stem beats. The skip goes with this gate at 4.20, when a file with no role
+                // is simply ignored.
+                None => {
+                    !models.beaten(file)
+                        && !matches!(
+                            file.kind,
+                            FileKind::Model(ModelFormat::Fmdl) | FileKind::Skl | FileKind::Fclo
+                        )
+                }
                 // Only the face converts an FMDL: an `ingame_face` player's boots and gloves
                 // read their parts as `.model` files.
                 Some(role) => {
@@ -1291,6 +1325,9 @@ fn compiled_under_ingame_face(role: &PlayerFile) -> bool {
         // Not met: under the marker the face files are not used, the xml among them
         // (`UnusedFaceFile`), and no FMDL is converted, so no skeleton is its bind pose.
         PlayerFile::FaceXml | PlayerFile::ConversionSkeleton => false,
+        // Not the gate's: planning drops the folder holding one before the gate walks it
+        // (`model_gltf_unsupported`).
+        PlayerFile::UnsupportedGltf => true,
         PlayerFile::Model { .. }
         | PlayerFile::CommonModel { .. }
         | PlayerFile::Packed { .. }
@@ -1371,12 +1408,14 @@ fn player_not_compiled(
     let models = FolderModels::of_player(folder, Engine::Fox);
     // A member's own `face.xml` has no Fox role and is ignored (`xml_ignored_fox`): Fox has no
     // `face.xml`, and the models compile as without it. A pre-Fox file with no role is ignored
-    // too (`pipeline.md` step 3 "Format conversion"): a `.model` an FMDL of its stem beats,
-    // a `.mtl` in `common/`. The skip goes with this gate at 4.20, when a file with no role is
-    // simply ignored.
+    // too (`pipeline.md` step 3 "Format conversion"): a `.model` an FMDL or a glTF of its stem
+    // beats, a `.mtl` in `common/`; so is a glTF an FMDL of its stem beats. The skip goes with
+    // this gate at 4.20, when a file with no role is simply ignored. A selected glTF has a
+    // role, and planning has dropped its folder before this walk.
     if let Some(file) = folder.files.iter().find(|file| {
         player_file(&folder.path, file, &models).is_none()
             && !is_user_face_xml(&folder.path, file)
+            && !models.beaten(file)
             && !matches!(
                 file.kind,
                 FileKind::Model(ModelFormat::PesModel) | FileKind::Mtl
@@ -1426,7 +1465,8 @@ fn shared_not_compiled(
         // A model of another package has no package here, a `.common` link (kept by a
         // non-strict file-type check) resolves only from a player folder, and a face file
         // with no face model has no place in a shared folder. Nor is a `.model` a shared
-        // folder holds converted yet, nor its `.mtl` read.
+        // folder holds converted yet, nor its `.mtl` read, nor is its glTF's folder dropped
+        // at planning as a player folder's is.
         if role.package().is_some_and(|owner| owner != package)
             || matches!(
                 file.kind,
@@ -1437,6 +1477,7 @@ fn shared_not_compiled(
                 PlayerFile::CommonModel { .. }
                     | PlayerFile::CommonTexture(_)
                     | PlayerFile::UnusedFaceFile
+                    | PlayerFile::UnsupportedGltf
             )
         {
             return Some(what_entry(file));
@@ -1472,7 +1513,8 @@ fn pre_fox_shared_not_compiled(
         };
         // A shared face's own `face.xml` is not supported yet: whether it rules every player
         // combining the face is an open question (`messages.md` "User-supplied `face.xml`").
-        // Nor is an FMDL a shared folder holds converted yet, nor its skeleton read.
+        // Nor is an FMDL a shared folder holds converted yet, nor its skeleton read, nor is
+        // its glTF's folder dropped at planning as a player folder's is.
         if matches!(
             role,
             PlayerFile::PreFoxCommonModel { .. }
@@ -1480,6 +1522,7 @@ fn pre_fox_shared_not_compiled(
                 | PlayerFile::CommonTexture(_)
                 | PlayerFile::FaceXml
                 | PlayerFile::ConversionSkeleton
+                | PlayerFile::UnsupportedGltf
         ) || file.kind == FileKind::Model(ModelFormat::Fmdl)
         {
             return Some(what_entry(file));
@@ -1664,10 +1707,23 @@ mod tests {
             ]),
             None
         );
-        // glTF, a shared folder's `.model` or `.mtl`, a `Common/` one and a link to it are
-        // still named.
+        // A glTF beats the `.model` of its stem, and its folder is planning's to drop
+        // (`model_gltf_unsupported`); one an FMDL of its stem beats is ignored.
         let glb = "Players/03 - A/boots.glb";
-        assert_eq!(gate(&["Players/03 - A/boots.model", glb]), what(glb));
+        assert_eq!(gate(&["Players/03 - A/boots.model", glb]), None);
+        assert_eq!(gate(&["Players/03 - A/boots.fmdl", glb]), None);
+        // A shared folder's glTF, `.model` or `.mtl`, a `Common/` one and a link to it are
+        // still named.
+        let shared_glb = "Boots/Crocs/boots.glb";
+        assert_eq!(
+            gate(&["Players/05 - B/Crocs.boots", shared_glb]),
+            what(shared_glb)
+        );
+        let face_glb = "Faces/Round/hair_high.glb";
+        assert_eq!(
+            gate(&["Players/05 - B/Round.face", face_glb]),
+            what(face_glb)
+        );
         let shared_model = "Boots/Crocs/boots.model";
         assert_eq!(
             gate(&["Players/05 - B/Crocs.boots", shared_model]),
@@ -1807,7 +1863,23 @@ mod tests {
             ]),
             None
         );
-        let gltf = "Players/05 - B/hat.glb";
+        // A glTF beats the FMDL of its stem, and its folder is planning's to drop
+        // (`model_gltf_unsupported`); one a `.model` of its stem beats is ignored. A shared
+        // folder's glTF is still named.
+        assert_eq!(
+            pre_fox(&["Players/03 - A/hat.fmdl", "Players/03 - A/hat.glb"]),
+            None
+        );
+        assert_eq!(
+            pre_fox(&["Players/03 - A/hat.model", "Players/03 - A/hat.glb"]),
+            None
+        );
+        let shared_glb = "Faces/Round/hat.glb";
+        assert_eq!(
+            pre_fox(&[round.as_slice(), &[shared_glb]].concat()),
+            what(shared_glb)
+        );
+        let fmdl_link = "Players/05 - B/x.fmdl.common";
         let face_link = "Players/05 - B/Round.face";
         let boots_link = "Players/05 - B/Crocs.boots";
         let boots_fmdl = "Boots/Crocs/boots.fmdl";
@@ -1820,7 +1892,7 @@ mod tests {
         // In a folder, its first file with no role, then its linked face folder's first; then
         // the shared boots and gloves folders, the kits' textures, the collars and `Common/`.
         let all = [
-            gltf,
+            fmdl_link,
             face_link,
             "Faces/Round/hair_high.model",
             hat,
@@ -1831,7 +1903,7 @@ mod tests {
             collar,
             common,
         ];
-        assert_eq!(pre_fox(&all), what(gltf));
+        assert_eq!(pre_fox(&all), what(fmdl_link));
         assert_eq!(pre_fox(&all[1..]), what(hat));
         assert_eq!(pre_fox(&all[4..]), what(boots_fmdl));
         assert_eq!(pre_fox(&all[6..]), what(kit_extra));
@@ -3437,10 +3509,20 @@ mod tests {
             "boots/boots.model",
             "face/hat.fmdl",
             "hat.model",
+            // A glTF is beaten by the target's format and beats the other engine's.
+            "boots.glb",
+            "face/hat.glb",
+            "boots/boots.gltf",
         ]);
         for (engine, expected) in [
-            (Engine::Fox, [false, true, false, false, false, false]),
-            (Engine::PreFox, [true, false, false, false, false, false]),
+            (
+                Engine::Fox,
+                [false, true, false, true, false, false, true, true, false],
+            ),
+            (
+                Engine::PreFox,
+                [true, false, false, false, true, false, true, false, true],
+            ),
         ] {
             let models = FolderModels::of_player(&folder, engine);
             let beaten: Vec<bool> = folder
@@ -3450,6 +3532,58 @@ mod tests {
                 .collect();
             assert_eq!(beaten, expected, "{engine:?}");
         }
+    }
+
+    #[test]
+    fn a_gltf_beats_the_other_engine_s_model_of_its_stem_and_loses_to_the_target_s() {
+        let gltf = || Some(PlayerFile::UnsupportedGltf);
+        for engine in [Engine::Fox, Engine::PreFox] {
+            // Alone, in either spelling and at any position, a glTF is its stem's selection.
+            for name in ["boots.glb", "boots.gltf", "Boots.GLB", "boots/boots.glb"] {
+                assert_eq!(engine_roles(&[name], engine), [gltf()], "{name} {engine:?}");
+            }
+            // In another directory of the folder it is another stem: the FMDL and the `.model`
+            // beside it decide nothing about it.
+            assert_eq!(
+                engine_roles(&["boots/boots.glb", "boots.fmdl", "boots.model"], engine)[0],
+                gltf(),
+                "{engine:?}"
+            );
+        }
+        for extension in ["glb", "gltf"] {
+            let gltf_name = format!("boots.{extension}");
+            // Fox: the FMDL beats the glTF, and the glTF the `.model`.
+            assert_eq!(
+                engine_roles(&["boots.fmdl", &gltf_name], Engine::Fox),
+                [model(ModelPackage::Boots, "boots"), None],
+                "{gltf_name}"
+            );
+            assert_eq!(
+                engine_roles(&[&gltf_name, "Boots.model"], Engine::Fox),
+                [gltf(), None],
+                "{gltf_name}"
+            );
+            // Pre-Fox: the glTF beats the FMDL, and the `.model` the glTF.
+            assert_eq!(
+                engine_roles(&["boots.fmdl", &gltf_name], Engine::PreFox),
+                [None, gltf()],
+                "{gltf_name}"
+            );
+            assert_eq!(
+                engine_roles(&[&gltf_name, "boots.model"], Engine::PreFox),
+                [None, pre_fox_model("parts")],
+                "{gltf_name}"
+            );
+        }
+        // A model the glTF beats is no model of the folder's: no skeleton pairs with it.
+        assert_eq!(
+            engine_roles(&["boots.glb", "boots.model", "boots.skl"], Engine::Fox),
+            [gltf(), None, None]
+        );
+        assert_eq!(
+            engine_roles(&["boots.fmdl", "boots.glb", "boots.skl"], Engine::PreFox),
+            [None, gltf(), None]
+        );
     }
 
     #[test]
