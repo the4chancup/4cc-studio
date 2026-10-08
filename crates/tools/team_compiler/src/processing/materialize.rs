@@ -259,6 +259,7 @@ mod tests {
             common_texture_stems: BTreeSet::new(),
             common_files: Vec::new(),
             hand_split: BTreeSet::new(),
+            environment_map: false,
             textures,
             engine: Engine::Fox,
         }

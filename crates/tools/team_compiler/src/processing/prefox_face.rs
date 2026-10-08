@@ -17,7 +17,7 @@ use std::iter;
 use aesthetics_export::{
     FileDescriptor, FileKind, KitToken, ModelFormat, common_link_name, kit_token, variant_stem,
 };
-use pes_model::format::mtl::MaterialSet;
+use pes_model::format::mtl::{Address, Filter, MaterialEntry, MaterialSet, Sampler};
 use pes_model::ops::paths::rewrite_texture_paths;
 use pes_version::{Engine, PesVersion};
 use studio_core::Disposition;
@@ -475,6 +475,9 @@ pub(super) fn face(
                 model: converted,
                 mut materials,
             }) => {
+                // Before the pointing, which respells the environment map's path as the
+                // folder spells its own `env` texture when it holds one.
+                add_environment_map(&mut materials, &home);
                 point_materials(&mut materials, &places);
                 point_reserved_kit_stems(&mut materials, &common_directory);
                 insert(
@@ -953,6 +956,57 @@ fn point_reserved_kit_stems(set: &mut MaterialSet, common_directory: &str) {
     });
 }
 
+/// The stem of the environment map a converted metal material names in the player's texture
+/// home: the folder's own `env` texture, else the template the textures task emits there
+/// (`ModelFolder::environment_map`).
+pub(super) const ENVIRONMENT_MAP_STEM: &str = "env";
+
+/// Gives every `Basic_CNSR` material of `set`, a converted model's material set, that has no
+/// `EnvironmentMap` sampler one naming `env.dds` in `home`, the player's texture home, with the
+/// `environment` role's sampler settings (`model_format.md`, the role table): the `R` of the
+/// shader is a reflection of that cubemap, which a material without one does not have.
+/// A Fox metal material converts to `Basic_CNSR` naming no environment texture, Fox having no
+/// such sampler. The sampler goes after the material's other samplers (a converted Fox
+/// material's base, normal and specular maps, which the converter writes before an
+/// environment sampler) and before its states and vectors. A material that has one is left as
+/// it is.
+fn add_environment_map(set: &mut MaterialSet, home: &str) {
+    for material in &mut set.materials {
+        if material.shader != "Basic_CNSR" {
+            continue;
+        }
+        let has_environment = material.entries.iter().any(|entry| {
+            matches!(entry, MaterialEntry::Sampler(sampler) if sampler.name == "EnvironmentMap")
+        });
+        if has_environment {
+            continue;
+        }
+        // The settings of `model_convert`'s `sampler_for_role(TextureRole::Environment)`, which
+        // the crate does not export.
+        let sampler = Sampler {
+            name: "EnvironmentMap".to_owned(),
+            path: format!("{home}{ENVIRONMENT_MAP_STEM}.dds"),
+            srgb: Some(false),
+            minfilter: Some(Filter::Anisotropic),
+            maxfilter: None,
+            magfilter: Some(Filter::Linear),
+            mipfilter: None,
+            uaddr: Some(Address::Wrap),
+            vaddr: Some(Address::Wrap),
+            waddr: Some(Address::Wrap),
+            maxaniso: Some(2),
+        };
+        let after_samplers = material
+            .entries
+            .iter()
+            .rposition(|entry| matches!(entry, MaterialEntry::Sampler(_)))
+            .map_or(0, |last| last + 1);
+        material
+            .entries
+            .insert(after_samplers, MaterialEntry::Sampler(sampler));
+    }
+}
+
 /// Adds `bytes` to `contents`, the files of `package`, as `name`; a name already there is an
 /// error naming it, since the package holds one file of a name and dropping either would lose
 /// a model or its materials without a word.
@@ -1003,6 +1057,112 @@ mod tests {
             .into_iter()
             .map(|path| format!("{}{}", path.directory, path.file_name))
             .collect()
+    }
+
+    /// A material set of two materials as a converted metal one and a converted shaded one
+    /// are written: `metal`, `Basic_CNSR` with its base map, a state and the two vectors, with
+    /// `environment` as its last sampler when given; `cloth`, `Basic_C` with its base map.
+    fn metal_and_cloth(environment: Option<&str>) -> MaterialSet {
+        let environment = environment.map_or(String::new(), |path| {
+            format!("<sampler name=\"EnvironmentMap\" path=\"{path}\" srgb=\"0\" />")
+        });
+        let text = format!(
+            "<materialset><material name=\"metal\" shader=\"Basic_CNSR\">\
+             <sampler name=\"DiffuseMap\" path=\"./metal.dds\" srgb=\"1\" />{environment}\
+             <state name=\"ztest\" value=\"1\" />\
+             <vector name=\"Reflection\" x=\"1\" y=\"1\" z=\"1\" w=\"0\" />\
+             <vector name=\"Shininess\" x=\"0.9\" y=\"0\" z=\"0\" w=\"1\" /></material>\
+             <material name=\"cloth\" shader=\"Basic_C\">\
+             <sampler name=\"DiffuseMap\" path=\"./cloth.dds\" srgb=\"1\" /></material>\
+             </materialset>"
+        );
+        MaterialSet::read(text.as_bytes()).unwrap()
+    }
+
+    /// Each material of `set` by name, with its entries' kinds and names in order.
+    fn layout(set: &MaterialSet) -> Vec<(String, Vec<String>)> {
+        set.materials
+            .iter()
+            .map(|material| {
+                let entries = material
+                    .entries
+                    .iter()
+                    .map(|entry| match entry {
+                        MaterialEntry::Sampler(sampler) => format!("sampler {}", sampler.name),
+                        MaterialEntry::State(state) => format!("state {}", state.name),
+                        MaterialEntry::Vector(vector) => format!("vector {}", vector.name),
+                    })
+                    .collect();
+                (material.name.clone(), entries)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_basic_cnsr_material_with_no_environment_sampler_gets_one_after_its_samplers() {
+        let mut set = metal_and_cloth(None);
+
+        add_environment_map(&mut set, "home/");
+
+        let owned = |names: &[&str]| names.iter().map(|name| (*name).to_owned()).collect();
+        assert_eq!(
+            layout(&set),
+            [
+                (
+                    "metal".to_owned(),
+                    owned(&[
+                        "sampler DiffuseMap",
+                        "sampler EnvironmentMap",
+                        "state ztest",
+                        "vector Reflection",
+                        "vector Shininess",
+                    ])
+                ),
+                ("cloth".to_owned(), owned(&["sampler DiffuseMap"])),
+            ]
+        );
+        let MaterialEntry::Sampler(added) = &set.materials[0].entries[1] else {
+            panic!("the second entry is a sampler");
+        };
+        assert_eq!(
+            *added,
+            Sampler {
+                name: "EnvironmentMap".to_owned(),
+                path: "home/env.dds".to_owned(),
+                srgb: Some(false),
+                minfilter: Some(Filter::Anisotropic),
+                maxfilter: None,
+                magfilter: Some(Filter::Linear),
+                mipfilter: None,
+                uaddr: Some(Address::Wrap),
+                vaddr: Some(Address::Wrap),
+                waddr: Some(Address::Wrap),
+                maxaniso: Some(2),
+            }
+        );
+    }
+
+    #[test]
+    fn a_basic_cnsr_material_with_an_environment_sampler_is_left_as_it_is() {
+        let mut set = metal_and_cloth(Some("./own_env.dds"));
+        let before = set.clone();
+
+        add_environment_map(&mut set, "home/");
+
+        assert_eq!(set, before);
+    }
+
+    #[test]
+    fn the_environment_map_is_respelled_as_the_folder_spells_its_own_env_texture() {
+        let textures = BTreeMap::from([("env".to_owned(), "Env".to_owned())]);
+        let linked = BTreeMap::new();
+        let places = [(&textures, "home/"), (&linked, "common/")];
+        let mut set = metal_and_cloth(None);
+
+        add_environment_map(&mut set, "home/");
+        point_materials(&mut set, &places);
+
+        assert_eq!(paths(&set), ["./metal.dds", "home/Env.dds", "./cloth.dds"]);
     }
 
     #[test]

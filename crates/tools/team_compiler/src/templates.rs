@@ -187,6 +187,19 @@ const DUMMY_MTL: Resource = Resource {
     format: Format::Unparsed,
 };
 
+/// The template environment map: a cubemap a PES 15-17 compile emits as `env.dds` into a
+/// player's texture home for a metal material converted from a Fox model that names no
+/// environment texture of its own, so its `Basic_CNSR` shader has a reflection to draw
+/// (`resources/templates/README.md`).
+const ENVIRONMENT_MAP: Resource = Resource {
+    name: "env.dds",
+    embedded: include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../resources/templates/env.dds"
+    )),
+    format: Format::Unparsed,
+};
+
 /// The cup's official `DpFileList.bin`, which a compile that deploys compares the installed
 /// list with: one list for every PES version (`resources/templates/README.md`).
 const DPFILELIST: Resource = Resource {
@@ -221,7 +234,7 @@ const REFEREE_MARKER: &[u8] = include_bytes!(concat!(
 ));
 
 /// Every resource a `templates/` file can replace, in the order the replacements are reported.
-const RESOURCES: [&Resource; 13] = [
+const RESOURCES: [&Resource; 14] = [
     &TEAM_COLOR,
     &UNI_COLOR,
     &UNIFORM_PARAMETER_18,
@@ -235,6 +248,7 @@ const RESOURCES: [&Resource; 13] = [
     &DUMMY_MTL,
     &DPFILELIST,
     &PLACEHOLDER_CPK,
+    &ENVIRONMENT_MAP,
 ];
 
 /// The folder of `templates/` whose files, each at its game path below it, replace the files
@@ -444,6 +458,14 @@ impl Templates {
         self.bytes(&DUMMY_MTL)
     }
 
+    /// The template environment map: the cubemap a PES 15-17 compile emits as `env.dds` in a
+    /// player's texture home when a Fox metal material (`fox3ddf_ggx`) converted for him names
+    /// no environment texture, unless his folder holds an `env` texture of its own. A DDS,
+    /// emitted as it is.
+    pub(crate) fn environment_map(&self) -> &[u8] {
+        self.bytes(&ENVIRONMENT_MAP)
+    }
+
     /// The `fcl_hair_sim.fclo` packed beside a `fcl_hair.fmdl` whose sources hold none.
     pub(crate) fn fcl_hair_sim(&self) -> &[u8] {
         self.bytes(&FCL_HAIR_SIM_FCLO)
@@ -618,7 +640,7 @@ mod tests {
     }
 
     /// Each resource's bytes in `templates`, through the accessors, in `RESOURCES` order.
-    fn every_resource(templates: &Templates) -> [&[u8]; 13] {
+    fn every_resource(templates: &Templates) -> [&[u8]; 14] {
         [
             templates.team_color(),
             templates.uni_color(),
@@ -633,6 +655,7 @@ mod tests {
             templates.dummy_mtl(),
             templates.official_list_file(),
             templates.placeholder_cpk(),
+            templates.environment_map(),
         ]
     }
 
@@ -672,7 +695,7 @@ mod tests {
 
         let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
 
-        let mut expected: [&[u8]; 13] = RESOURCES.map(|resource| resource.embedded);
+        let mut expected: [&[u8]; 14] = RESOURCES.map(|resource| resource.embedded);
         expected[1] = &kit_colors;
         expected[7] = b"face diff override";
         expected[10] = b"dummy material override";

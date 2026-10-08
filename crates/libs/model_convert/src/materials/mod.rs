@@ -8,6 +8,11 @@ pub(crate) mod to_fox;
 /// Resolving a material for a `.model` export.
 pub(crate) mod to_prefox;
 
+// The family rule is the one thing a caller needs before converting: the Team compiler's
+// deep pass asks it which FMDL materials are metal, to plan the environment map their
+// conversion names, with the same answer the conversion itself gives.
+pub use family::{InferredFamily, from_fox_shader};
+
 /// The shader family: what a material *is*, engine-neutral (format plan "Shader families").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MaterialFamily {

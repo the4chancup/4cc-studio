@@ -260,7 +260,10 @@ a shared folder's `.glb`/`.gltf` and referee exports are named. A `.fmdl` beside
 of the same name is left out for the `.model`, the `.skl` of a converted model's name gives
 its pose, and `fcl_hair_sim.fclo` is not used. A converted model moved onto that version's skeleton is noted
 as `skeleton_retargeted`, and one that cannot be converted leaves its player folder out with
-`model_conversion_failed`. For
+`model_conversion_failed`. A metal material (a Fox `fox3ddf_ggx` one) converted this way
+reflects the compiler's environment map, emitted beside the player's textures as `env.dds`;
+an `env` texture of the player's own in his folder (`env.dds`, `env.png`) is used instead, and `templates/env.dds` in the
+data folder replaces the built-in one. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
 or content other than a player's

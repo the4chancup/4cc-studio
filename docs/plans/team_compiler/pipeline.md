@@ -279,6 +279,17 @@ format:
    twice costs less than a task that hands its output to another. Pre-Fox targets get the split
    with their face compilation, and a `.model` source compiled for Fox with its conversion.
 
+   The same reading records the FMDLs holding a material of the `metal` family (the
+   converter's own shader rule, so the pass and the conversion agree), whatever the target,
+   and planning flags each player folder whose pre-Fox face converts one: its textures task,
+   planned even when the folder holds no texture, emits the template environment cubemap as
+   `env.dds` in the player's texture home unless a source of the folder holds an `env` texture,
+   and the face task points each converted `Basic_CNSR` material with no `EnvironmentMap`
+   sampler at it (the Unified model format plan's `environment` role). The flag is planning's,
+   not the face task's, because the texture is the textures task's entry: a face CPK holds no
+   DDS, and a task that emits what another task names would have to agree with it on the
+   path, which the plan settles once instead.
+
 ### 3. Per-model-folder parallel steps (rayon)
 
 After validation and export-identity resolution, a serial **run-level** planning phase resolves

@@ -5186,3 +5186,21 @@ whose only real trigger is a working file is a wrong check, and running it chang
 already play; the loss mapping does not depend on it.
 Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the pre-check sentence);
 `team_compiler/messages.md` the two rows.
+
+## 2026-10-08 — team_compiler, model_convert — The environment cubemap is the textures task's entry, flagged by the deep pass
+Decision: a Fox metal material converted for PES 15-17 (`Basic_CNSR` with no `EnvironmentMap`
+sampler, since Fox has none) is pointed at `env.dds` in the player's texture home, and the
+folder's textures task emits the template cubemap there (a member's own `env` texture wins by
+the stem rule every texture follows; `templates/env.dds` in the data folder replaces the
+built-in one). The deep pass records the FMDLs holding a metal material with the converter's
+own shader rule (`model_convert::materials::from_fox_shader`, re-exported for it), whatever
+the target, and planning sets `ModelFolder::environment_map` on a player folder whose pre-Fox
+face converts one, planning its textures task even when the folder holds no texture.
+Why: the plan says only "emitted into the player's common textures like any other fallback
+texture". A face CPK holds no DDS, so the texture is the textures task's to emit, and a task
+that emits what another names must agree with it on the path: planning settles it once, as it
+does the hand-split set, and the deep pass already parses every model. One family rule for
+the pass and the conversion keeps them agreeing on which material is metal (a `glass`+`ggx`
+shader is glass to both). The sampler is added before the face task points its materials, so
+a member's `Env.png` gets the path spelled as the textures task writes it.
+Plan: `team_compiler/pipeline.md` step 6, the paragraph after the hand-split one.

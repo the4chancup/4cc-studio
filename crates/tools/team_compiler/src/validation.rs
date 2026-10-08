@@ -63,6 +63,10 @@ pub(crate) struct CheckedSource {
     /// (`deep::ContentPass::hand_weighted`), which planning reads for the hand auto-split;
     /// empty when the deep pass did not run. Read only beside `resolved`.
     pub(crate) hand_weighted: BTreeSet<ScopePath>,
+    /// The export paths of the FMDLs the deep pass found holding a metal material
+    /// (`deep::ContentPass::metal_models`), which planning reads for the template environment
+    /// map on PES 15-17; empty when the deep pass did not run. Read only beside `resolved`.
+    pub(crate) metal_models: BTreeSet<ScopePath>,
     /// What the source looked like when it was listed, which `compile` checks its tasks'
     /// reads against; `None` when routing or the listing's parse set the source aside.
     /// `check` carries it and does nothing with it.
@@ -241,6 +245,7 @@ fn check_source(
         team_colors: None,
         notes: None,
         hand_weighted: BTreeSet::new(),
+        metal_models: BTreeSet::new(),
         revision: None,
     };
     let (listing, revision) = match route {
@@ -285,6 +290,7 @@ fn check_source(
     // The deep pass reads only what the structure pass kept; its findings derive the report
     // again, so they drop, cascade and pass through as the structure pass's own do.
     let mut hand_weighted = BTreeSet::new();
+    let mut metal_models = BTreeSet::new();
     if let Some(validated) = &report.validated {
         let pass = deep::content_findings(
             validated,
@@ -293,6 +299,7 @@ fn check_source(
             installed_common_stems(inputs, installed, team_id),
         );
         hand_weighted = pass.hand_weighted;
+        metal_models = pass.metal_models;
         if !pass.findings.is_empty() {
             report = report.with_content_findings(pass.findings, &context);
         }
@@ -349,6 +356,7 @@ fn check_source(
         team_colors,
         notes,
         hand_weighted,
+        metal_models,
         revision: Some(revision),
     }
 }
@@ -1049,6 +1057,7 @@ mod tests {
             team_colors: None,
             notes: None,
             hand_weighted: BTreeSet::new(),
+            metal_models: BTreeSet::new(),
             revision: None,
         }
     }
@@ -1071,6 +1080,7 @@ mod tests {
             team_colors: None,
             notes: None,
             hand_weighted: BTreeSet::new(),
+            metal_models: BTreeSet::new(),
             revision: None,
         }
     }

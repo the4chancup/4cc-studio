@@ -158,7 +158,8 @@ pub(crate) fn two_team_colors() -> Option<Vec<Rgb>> {
 }
 
 /// `export`, numbered `export_id`, as planning takes it with the root `colors.txt` colors
-/// `team_colors` and the note `notes`, the deep pass having found no model with hand weights.
+/// `team_colors` and the note `notes`, the deep pass having found no model with hand weights
+/// and none with a metal material.
 pub(crate) fn to_plan(
     export_id: ExportId,
     export: ResolvedAestheticsExport,
@@ -171,6 +172,7 @@ pub(crate) fn to_plan(
         team_colors,
         notes,
         hand_weighted: BTreeSet::new(),
+        metal_models: BTreeSet::new(),
     }
 }
 

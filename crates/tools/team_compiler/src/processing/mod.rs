@@ -452,6 +452,7 @@ mod tests {
             common_texture_stems: BTreeSet::new(),
             common_files: Vec::new(),
             hand_split: BTreeSet::new(),
+            environment_map: false,
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
             },
@@ -946,6 +947,7 @@ mod tests {
         files.extend(others.iter().map(|name| file(&format!("{PLAYER}/{name}"))));
         ModelFolder {
             hand_split: [ScopePath::new(&body).unwrap()].into(),
+            environment_map: false,
             ..player_with(files, Vec::new())
         }
     }
@@ -1195,6 +1197,7 @@ mod tests {
             common_texture_stems: BTreeSet::new(),
             common_files: Vec::new(),
             hand_split: BTreeSet::new(),
+            environment_map: false,
             textures: TextureHome::SharedOutput {
                 package: ModelPackage::Gloves,
                 id: 644,

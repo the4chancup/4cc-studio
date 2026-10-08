@@ -301,6 +301,7 @@ fn plan(
                 team_colors: checked.team_colors,
                 notes: checked.notes,
                 hand_weighted: checked.hand_weighted,
+                metal_models: checked.metal_models,
             });
         }
         sources.push((checked.source, checked.revision));
@@ -1040,6 +1041,7 @@ mod tests {
             common_texture_stems: BTreeSet::new(),
             common_files: Vec::new(),
             hand_split: BTreeSet::new(),
+            environment_map: false,
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
             },

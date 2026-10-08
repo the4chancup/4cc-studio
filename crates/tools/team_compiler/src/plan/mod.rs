@@ -170,6 +170,13 @@ pub(crate) struct ModelFolder {
     /// alone splits each one, packing its hands as two more `face.xml` entries, and no gloves
     /// task is planned for them. Empty for a shared folder, whose models are never split.
     pub(crate) hand_split: BTreeSet<ScopePath>,
+    /// The player folder's face converts an FMDL holding a metal material for PES 15-17
+    /// (`converts_metal`): its textures task emits the template environment map as `env.dds`
+    /// in its texture home, unless one of its sources holds an `env` texture, and is planned
+    /// for it even when the folder holds no texture; the face points each converted
+    /// `Basic_CNSR` material with no environment sampler at it (`model_format.md`, the
+    /// `environment` role). Never set on PES 18-21, nor for a shared folder.
+    pub(crate) environment_map: bool,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
 }
@@ -699,6 +706,22 @@ fn hand_split_parts(
         .collect()
 }
 
+/// Whether `folder`'s face converts an FMDL among `metal_models`, the FMDLs the deep pass found
+/// holding a metal material (`ModelFolder::environment_map`): one of its sources' files the
+/// face converts (`PlayerFile::PreFoxModel`, a role only a pre-Fox target gives; a `.model`
+/// with the role is never among the metal models, which are FMDLs). A folder holding its own
+/// `face.xml` converts none: the xml lists the face's models, and names no converted one.
+fn converts_metal(folder: &ModelFolder, metal_models: &BTreeSet<ScopePath>) -> bool {
+    if folder.own_face_xml().is_some() {
+        return false;
+    }
+    folder.roles().into_iter().any(|(_, _, files)| {
+        files.into_iter().any(|(file, role)| {
+            matches!(role, PlayerFile::PreFoxModel { .. }) && metal_models.contains(&file.path)
+        })
+    })
+}
+
 /// Every player folder a roster slot maps, in the export's folder order. A folder no slot maps
 /// is not compiled.
 pub(crate) fn mapped_players(export: &ValidatedAestheticsExport) -> Vec<&PlayerFolder> {
@@ -729,6 +752,10 @@ pub(crate) struct ExportToPlan {
     /// as the deep pass found them (`deep::ContentPass::hand_weighted`): a player's face model
     /// among them is hand auto-split (`ModelFolder::hand_split`).
     pub(crate) hand_weighted: BTreeSet<ScopePath>,
+    /// The export paths of its FMDLs holding a metal material, as the deep pass found them
+    /// (`deep::ContentPass::metal_models`): a player whose pre-Fox face converts one of them
+    /// gets the template environment map (`ModelFolder::environment_map`).
+    pub(crate) metal_models: BTreeSet<ScopePath>,
 }
 
 /// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
@@ -758,6 +785,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         team_colors: colors,
         notes: note,
         hand_weighted,
+        metal_models,
     } in exports
     {
         drop_other_engine_map(
@@ -873,6 +901,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     common_texture_stems: common_texture_stems.clone(),
                     common_files: Vec::new(),
                     hand_split: BTreeSet::new(),
+                    environment_map: false,
                     textures: TextureHome::SharedOutput {
                         package,
                         id: shared_id,
@@ -951,6 +980,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 common_texture_stems: common_texture_stems.clone(),
                 common_files: player_common_files.clone(),
                 hand_split: BTreeSet::new(),
+                environment_map: false,
                 path: folder.path,
                 files: folder.files,
                 ingame_face: folder.ingame_face,
@@ -959,6 +989,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             };
             model_folder.hand_split =
                 hand_split_parts(&model_folder, &hand_weighted, version.engine());
+            model_folder.environment_map = converts_metal(&model_folder, &metal_models);
             // Without a face folder the game shows the head made in its face editor, which
             // `ingame_face` asks for; every other player gets one, blank when it holds no
             // face model (the last part of FPC: the body brings its own head, or none).
@@ -1136,8 +1167,9 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
 /// folder's sources holds a model of (a face link alone makes the shared face the player's),
 /// for the face whatever the folder holds when `blank_face` is set, and on Fox for the gloves
 /// when the folder has a hand-split part (`ModelFolder::hand_split`), emitted under that
-/// package's keys, then, when the folder has textures, its `Textures` task completing its
-/// variant sets against `kits`, the export's kit numbers, the lot as one `TaskGroup`.
+/// package's keys, then, when the folder has textures or takes the template environment map
+/// (`ModelFolder::environment_map`), its `Textures` task completing its variant sets against
+/// `kits`, the export's kit numbers, the lot as one `TaskGroup`.
 fn folder_tasks(
     export_id: ExportId,
     team_id: u16,
@@ -1179,10 +1211,13 @@ fn folder_tasks(
             },
         ));
     }
-    if folder_files(&folder, |_, _, _, role| {
-        matches!(role, PlayerFile::Texture(..))
-    })
-    .is_empty()
+    // The template environment map is one of the folder's textures, so a folder holding no
+    // texture of its own still gets a textures task for it.
+    if !folder.environment_map
+        && folder_files(&folder, |_, _, _, role| {
+            matches!(role, PlayerFile::Texture(..))
+        })
+        .is_empty()
     {
         return;
     }
@@ -3852,6 +3887,99 @@ mod tests {
                 "Players/05 - A/body.mtl",
                 "Players/05 - A/face.xml",
             ]
+        );
+    }
+
+    /// The plan for `version` of slot 05 holding `boots.fmdl` with no texture, slot 06
+    /// `boots.fmdl` beside `boots.model` and its `.mtl`, which the `.model` beats on PES
+    /// 15-17, and slot 07 `boots.fmdl` beside its own `face.xml`; every FMDL is among the deep
+    /// pass's metal models.
+    fn metal_plan(version: PesVersion) -> PlanReport {
+        let export = resolved(
+            "co Midcup Metal",
+            &[
+                ("Players/05 - A/boots.fmdl", 3),
+                ("Players/06 - B/boots.fmdl", 3),
+                ("Players/06 - B/boots.model", 5),
+                ("Players/06 - B/boots.mtl", 1),
+                ("Players/07 - C/boots.fmdl", 3),
+                ("Players/07 - C/face.xml", 1),
+            ],
+            &[],
+            None,
+        );
+        let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
+        planned.metal_models = [
+            scope_path("Players/05 - A/boots.fmdl"),
+            scope_path("Players/06 - B/boots.fmdl"),
+            scope_path("Players/07 - C/boots.fmdl"),
+        ]
+        .into();
+        plan_run(vec![planned], version)
+    }
+
+    /// Each `Models` and `Textures` task of `report` as its folder's path with whether the
+    /// folder takes the template environment map.
+    fn environment_maps(report: &PlanReport) -> Vec<(String, &str, bool)> {
+        report
+            .manifest
+            .tasks
+            .iter()
+            .filter_map(|task| match &task.kind {
+                TaskKind::Models {
+                    folder, package, ..
+                } => Some((
+                    format!("{package:?}"),
+                    folder.path.as_str(),
+                    folder.environment_map,
+                )),
+                TaskKind::Textures { folder, .. } => Some((
+                    "textures".to_owned(),
+                    folder.path.as_str(),
+                    folder.environment_map,
+                )),
+                TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
+                | TaskKind::Portrait { .. }
+                | TaskKind::Kit { .. }
+                | TaskKind::Logo { .. }
+                | TaskKind::RefereeMarker { .. }
+                | TaskKind::Collar { .. } => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_folder_whose_pre_fox_face_converts_a_metal_fmdl_gets_a_textures_task_for_the_template() {
+        let report = metal_plan(PesVersion::Pes17);
+
+        // Slot 05's face converts its metal FMDL: its textures task is planned, with no
+        // texture of its own, to emit the template. Slot 06's `.model` beats its FMDL, and
+        // slot 07's own `face.xml` lists the face's models, so neither face converts one.
+        let owned = |package: &str| package.to_owned();
+        assert_eq!(
+            environment_maps(&report),
+            [
+                (owned("Face"), "Players/05 - A", true),
+                (owned("textures"), "Players/05 - A", true),
+                (owned("Face"), "Players/06 - B", false),
+                (owned("Face"), "Players/07 - C", false),
+            ]
+        );
+        let tasks = &report.manifest.tasks;
+        assert_eq!(task_files(&tasks[1]), Vec::<&str>::new());
+        assert_eq!(tasks[0].group, tasks[1].group);
+        assert!(tasks[1].group.is_some());
+
+        // PES 21 converts no FMDL: the same models plan no environment map, nor a textures
+        // task for one.
+        let report = metal_plan(PesVersion::Pes21);
+        assert!(
+            environment_maps(&report)
+                .iter()
+                .all(|(package, _, environment_map)| package != "textures" && !environment_map),
+            "{:?}",
+            environment_maps(&report)
         );
     }
 }

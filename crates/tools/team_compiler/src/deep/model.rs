@@ -3,6 +3,7 @@
 //! entry per code, and whether a model (`.fmdl` or `.model`) carries hand weights.
 
 use fmdl::{FmdlFile, Model};
+use model_convert::materials::{MaterialFamily, from_fox_shader};
 use model_convert::ops::hand_split::{fox_has_hand_weights, prefox_has_hand_weights};
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::{Material, MaterialEntry, MaterialSet};
@@ -77,6 +78,12 @@ pub(super) struct ModelRead {
     /// the face task splits it into two more `face.xml` entries. Always `false` for a material
     /// set.
     pub(super) hand_weighted: bool,
+    /// An FMDL with a material the converter reads as the `metal` family
+    /// (`model_convert::materials::from_fox_shader`, the family table's `metal` row in
+    /// `model_format.md`): converted for PES 15-17 it is a `Basic_CNSR` material, which needs
+    /// an environment map (`ContentPass::metal_models`). Always `false` for a pre-Fox model or
+    /// a material set.
+    pub(super) metal: bool,
     /// Its materials, in order: for a pre-Fox model the names it lists (`Model::materials`, as
     /// `pes_model::check::check_bundle` compares them, a name no mesh uses included), for a
     /// material set the ones it defines with their texture paths; empty for an FMDL, whose
@@ -113,6 +120,11 @@ pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> 
                     .map(Fired::fox)
                     .collect(),
                 hand_weighted: fox_has_hand_weights(&model),
+                // The converter's own family rule, so the deep pass and the conversion agree
+                // on which material is metal (a shader naming both `glass` and `ggx` is glass).
+                metal: model.materials.iter().any(|material| {
+                    from_fox_shader(&material.shader).family == MaterialFamily::Metal
+                }),
                 materials: Vec::new(),
             }
         }
@@ -136,6 +148,7 @@ pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> 
                     .map(Fired::pre_fox)
                     .collect(),
                 hand_weighted: prefox_has_hand_weights(&model),
+                metal: false,
                 materials,
             }
         }
@@ -147,6 +160,7 @@ pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> 
                     .map(Fired::pre_fox)
                     .collect(),
                 hand_weighted: false,
+                metal: false,
                 materials: set.materials.into_iter().map(material_read).collect(),
             }
         }

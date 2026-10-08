@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1762,7 +1762,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `Templates::environment_map()`, the `EnvironmentMap` sampler added to a converted `Metal`
   material, the cubemap emitted into the folder's texture home (TC-MOD-36); (e) collars across
   engines (TC-CMN-09; the `.model` → Fox and glTF collar rulings made then); (f) shared folders,
-  `Common/` models and `.common` links in the other format; (g) the same-engine pre-check, two
+  `Common/` models and `.common` links in the other format, with a test of a shared `Faces/`
+  metal FMDL's environment map (the flag reaches a linking player with no change, untested)
+  and a ruling on a texture link of stem `env` (today the sampler points at the link's Common
+  place and the template is still emitted in the player's home, unused); (g) the same-engine pre-check, two
   crates: `model_convert::needs_conversion`'s reference poses reconciled with the game's own
   skeleton files (the face against the version's own face table, not PES 19's Fox one; boots
   against the game's `boots.skl`; gloves against the hand pose), measured against the pre-Fox
@@ -1805,10 +1808,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`model/character/uniform/common/<team>/x.dds`) on Fox is called supplied by the deep check
   when `Common/` or an installed CPK holds its stem, but the Fox Models task points converted
   paths at the folder's own textures and its links only, so the packed FMDL keeps the pre-Fox
-  directory with no finding (slice f, with `Common/`). GPT review
+  directory with no finding (slice f, with `Common/`). From 4.17d: the converter's
+  `EnvironmentMap` sampler (`to_prefox::sampler_for_role`) writes no `mipfilter`, where the
+  legacy FBM template's `fbm.mtl` writes `mipfilter="linear"` beside the same settings (a
+  `model_convert` question, with slice g's poses). GPT review
   (c) queued: the two-crate 4.17a change (`model_convert` FMDL import's dummy rule,
   `team_compiler` conversion), sections `pipeline.md` step 3 "Format conversion", DECISIONS
-  2026-10-08 (both 4.17 entries).
+  2026-10-08 (both 4.17 entries). GPT review (d) queued: the two-crate 4.17d change
+  (`model_convert` re-exporting `from_fox_shader`; `team_compiler` the deep pass's metal
+  record, planning's `environment_map` flag, the textures task's template entry, the face
+  task's sampler), sections `pipeline.md` step 6 (the last two paragraphs),
+  `model_format.md` the `metal` and `environment` rows, TC-MOD-36, DECISIONS 2026-10-08
+  "environment cubemap".
   (a) done 2026-10-08 (`subset.rs`: an `.fmdl` with no `.model` of its path stem in the same
   directory is `PreFoxModel` on pre-Fox (`FolderModels::pre_fox_model_stems`,
   `converted_stems`), its paired `.skl` the new `PlayerFile::ConversionSkeleton`, every
@@ -1901,6 +1912,32 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   folder linked only by a dropped folder could still report `kit_variant_model_fox` (no test
   reaches it); mutants: 77, 69 caught, 8 unviable (`Default::default()` on types without
   one), 0 missed).
+  (d) done 2026-10-08 (`templates.rs`: `ENVIRONMENT_MAP` (`env.dds`, 14 resources, the
+  override reported as every other's) and `environment_map()`; `deep/model.rs`
+  `ModelRead::metal`, an FMDL with a material the converter's own rule reads as metal
+  (`model_convert::materials::from_fox_shader`, re-exported for it: a lead fix over the
+  sidekick's `ggx` substring, which read a `glass`+`ggx` shader as metal where the conversion
+  makes it glass); `deep/mod.rs` `ContentPass::metal_models`, the paths recorded whatever the
+  target as `hand_weighted` is (contradiction accepted: the pass does not know whose face
+  takes a file; the sidekick's Fox clear dropped as a second gate, a lead fix); carried
+  through `CheckedSource` and `ExportToPlan` to `plan/mod.rs` `converts_metal`: a folder
+  with no own `face.xml` whose `PlayerFile::PreFoxModel` file is among them gets
+  `ModelFolder::environment_map`, and `folder_tasks` plans its textures task even with no
+  texture; `processing/texture.rs` `folder_textures` chains `("env", template)` unless a
+  source's `Texture` role folds to `env`; `processing/prefox_face.rs`
+  `add_environment_map(set, home)` before `point_materials` (contradiction accepted: the
+  pointing respells the path as the folder spells its own `env` texture), the sampler after
+  the material's last sampler with `sampler_for_role(Environment)`'s settings copied by hand
+  (the converter's `to_prefox` is crate-private; `SamplerSettings` is its own type, so a
+  re-export would still need a mapping); help; `tests/cli/conversion.rs` TC-MOD-36 (the
+  template's bytes under the player's home, zlibbed, the sampler's settings and place, the
+  vectors), the member's own `env.dds` (written WESYS-wrapped, since a plain DDS is
+  re-encoded), the `templates/env.dds` override, TC-MOD-27's test asserting no sampler and
+  no `env.dds` for the tracer; unit tests in `deep` (metal on both targets, a glass+ggx
+  shader not), `plan` (slot 05 flagged with a fileless textures task in the face's group,
+  a beaten FMDL and an own-xml folder not, PES 21 nothing) and `prefox_face` (one sampler
+  added, one left, the respelling); three contradictions accepted, the `mipfilter` one
+  parked above; mutants: see the 4.17d log line).
 
 - [x] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
   on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
@@ -4205,3 +4242,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     export, never compiling the beaten model in its place; a glTF the target's format beats
     is ignored. A shared folder's glTF stays with the gate until slice f. Next: 4.17d (the
     template environment cubemap for a converted metal material, TC-MOD-36).
+  - **4.17d done** (TC-MOD-36): a Fox metal material converted for PES 15-17 gets an
+    `EnvironmentMap` sampler naming `env.dds` in the player's texture home, where the
+    textures task emits the template cubemap unless the folder holds an `env` texture of
+    its own; the deep pass records the metal FMDLs with the converter's own family rule and
+    planning flags the folder. Decision logged. Mutants: 27, 21 caught, 6 unviable (`Default::default()` on types without one), 0 missed. Next: 4.17e
+    (collars across engines, TC-CMN-09; plan edits and the rulings first).

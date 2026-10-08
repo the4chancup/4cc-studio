@@ -99,6 +99,12 @@ pub(crate) struct ContentPass {
     /// (`pipeline.md` "2. Per-export serial steps", step 6). A file that does not parse is
     /// not among them.
     pub(crate) hand_weighted: BTreeSet<ScopePath>,
+    /// The export paths of the FMDLs it parsed that hold a material of the `metal` family
+    /// (`model::ModelRead::metal`), whatever the target, as `hand_weighted` is recorded:
+    /// planning gives a player folder whose pre-Fox face converts one of them the template
+    /// environment map (`plan::ModelFolder::environment_map`), and no Fox folder converts
+    /// one. A file that does not parse is not among them.
+    pub(crate) metal_models: BTreeSet<ScopePath>,
     /// The export path of each pre-Fox `.model` and `.mtl` it parsed, with its materials
     /// (`model::ModelRead::materials`), which a model's `model_material_undefined` compares and
     /// a `.mtl`'s texture lookup reads. A file that does not parse is not among them.
@@ -114,11 +120,12 @@ impl ContentPass {
         }
     }
 
-    /// `other`'s findings after this pass's, and its weighted models and material names with
-    /// this pass's.
+    /// `other`'s findings after this pass's, and its weighted models, metal models and material
+    /// names with this pass's.
     fn append(&mut self, other: ContentPass) {
         self.findings.extend(other.findings);
         self.hand_weighted.extend(other.hand_weighted);
+        self.metal_models.extend(other.metal_models);
         self.materials.extend(other.materials);
     }
 }
@@ -155,7 +162,8 @@ impl KeptCommon {
 }
 
 /// The content findings of `export`, the sanitized export read from `content` and compiled for
-/// `version`, with the models among its files that carry hand weights (`ContentPass`). The
+/// `version`, with the models among its files that carry hand weights and the FMDLs among
+/// them holding a metal material (`ContentPass`). The
 /// findings come in file order: each player folder's models, material sets and textures, then
 /// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
 /// their face diff, boots, gloves), then `Common/`'s, then each `Collars/` file's, then each
@@ -1043,8 +1051,10 @@ fn file_findings(
 }
 
 /// `file_findings`, with `file` among the pass's weighted models when it is a model that parses
-/// and carries hand weights (`ContentPass::hand_weighted`), and with its material names when it
-/// is a pre-Fox model or material set that parses (`ContentPass::materials`).
+/// and carries hand weights (`ContentPass::hand_weighted`), among its metal models when it is an
+/// FMDL that parses and holds a metal material (`ContentPass::metal_models`), and with its
+/// material names when it is a pre-Fox model or material set that parses
+/// (`ContentPass::materials`).
 fn file_outcome(
     content: &ContentSource,
     file: &FileDescriptor,
@@ -1144,6 +1154,10 @@ fn file_outcome(
     if read.hand_weighted {
         hand_weighted.insert(file.path.clone());
     }
+    let mut metal_models = BTreeSet::new();
+    if read.metal {
+        metal_models.insert(file.path.clone());
+    }
     let mut materials = BTreeMap::new();
     match kind {
         ModelKind::PreFoxModel | ModelKind::Mtl => {
@@ -1154,6 +1168,7 @@ fn file_outcome(
     ContentPass {
         findings,
         hand_weighted,
+        metal_models,
         materials,
     }
 }
@@ -1514,6 +1529,43 @@ mod tests {
         // usual weights, and the broken file is `model_broken`.
         let codes: Vec<&str> = pass.findings.iter().map(|finding| finding.code).collect();
         assert_eq!(codes, ["fmdl_weights_not_normalized", "model_broken"]);
+    }
+
+    #[test]
+    fn the_fmdls_holding_a_metal_material_are_recorded_whatever_the_target() {
+        // The tracer's right glove with its material's shader spelled as Fox techniques are,
+        // which the converter's rule reads in any letter case; its boots with a shader the
+        // converter reads as glass although it names `ggx`; the tracer's own models are not
+        // metal.
+        let metal = edited(&tracer_file("glove_r.fmdl"), |model| {
+            "fox3DDF_GGX".clone_into(&mut model.materials[0].shader);
+        });
+        let glass = edited(&tracer_boots(), |model| {
+            "fox3ddf_glass_ggx".clone_into(&mut model.materials[0].shader);
+        });
+        let files = [
+            ("Players/05 - A/glove_r.fmdl", metal),
+            ("Players/05 - A/boots.fmdl", glass),
+            ("Players/06 - B/fcl_hair.fmdl", tracer_file("fcl_hair.fmdl")),
+            ("Players/06 - B/glove_l.fmdl", tracer_file("glove_l.fmdl")),
+        ];
+        let recorded = |version: PesVersion, name: &str| {
+            let temp = scratch(name);
+            let pass = pass_for(version, temp.path(), &files, &[], &[]);
+            pass.metal_models
+                .iter()
+                .map(|path| path.as_str().to_owned())
+                .collect::<Vec<_>>()
+        };
+        // Planning, not the pass, knows which target converts one (`plan::converts_metal`).
+        assert_eq!(
+            recorded(PesVersion::Pes17, "deep_metal_17"),
+            ["Players/05 - A/glove_r.fmdl"]
+        );
+        assert_eq!(
+            recorded(PesVersion::Pes21, "deep_metal_21"),
+            ["Players/05 - A/glove_r.fmdl"]
+        );
     }
 
     #[test]

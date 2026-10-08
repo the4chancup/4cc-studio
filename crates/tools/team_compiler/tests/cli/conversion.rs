@@ -16,9 +16,13 @@ use std::path::Path;
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes_settings, tracer_player_file};
 use crate::models::{body_skl, package_names};
+use pes_model::format::mtl::{
+    Address, Filter, Material, MaterialEntry, MaterialSet, Sampler, Vector,
+};
+
 use crate::prefox_faces::{
-    CLEAN, card_materials, card_model, face_cpk, nested_entries, ordered_entries, pes17,
-    sampler_paths, small_dds, write_slot_05_face,
+    CLEAN, card_materials, card_model, face_cpk, face_folder, nested_entries, ordered_entries,
+    pes17, sampler_paths, small_dds, write_slot_05_face,
 };
 use crate::textures::texture_fixture;
 use crate::{clean_model, findings_of};
@@ -200,6 +204,21 @@ fn the_tracer_s_fox_models_compile_for_pes_17_as_model_files_with_their_material
             assert!(path.starts_with(TRACER_COMMON), "{stem}.mtl: {path}");
         }
     }
+    // No material of the tracer is metal: no environment sampler, and no template
+    // environment map emitted (TC-MOD-36 has a metal one).
+    for stem in ["boots", "fcl_hair", "glove_l", "glove_r"] {
+        let set = MaterialSet::read(&face[&format!("{TRACER_FACE_FOLDER}{stem}.mtl")]).unwrap();
+        assert_eq!(
+            environment_samplers(&set),
+            Vec::<&Sampler>::new(),
+            "{stem}.mtl"
+        );
+    }
+    assert!(
+        entries.keys().all(|path| !path.ends_with("/env.dds")),
+        "{:?}",
+        entries.keys()
+    );
     let entry = |xml_type: &str, stem: &str| {
         (
             xml_type.to_owned(),
@@ -872,4 +891,187 @@ fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_as_skl_no_slot(
         package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
         ["face_diff.bin", "face_high.fmdl"]
     );
+}
+
+/// The `EnvironmentMap` samplers of `set`, every material's.
+fn environment_samplers(set: &MaterialSet) -> Vec<&Sampler> {
+    set.materials
+        .iter()
+        .flat_map(|material| &material.entries)
+        .filter_map(|entry| match entry {
+            MaterialEntry::Sampler(sampler) if sampler.name == "EnvironmentMap" => Some(sampler),
+            MaterialEntry::Sampler(_) | MaterialEntry::State(_) | MaterialEntry::Vector(_) => None,
+        })
+        .collect()
+}
+
+/// `clean_model()` (the tracer's right glove) with every material's shader set to
+/// `fox3ddf_ggx`, the Fox shader of the `metal` family, naming no environment texture.
+fn metal_model() -> Vec<u8> {
+    let mut model = fmdl::Model::from_file(&fmdl::FmdlFile::read(&clean_model()).unwrap()).unwrap();
+    for material in &mut model.materials {
+        "fox3ddf_ggx".clone_into(&mut material.shader);
+    }
+    model.to_file().unwrap().write()
+}
+
+/// The bundled template environment map, `resources/templates/env.dds`.
+fn environment_template() -> Vec<u8> {
+    fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/templates/env.dds"))
+        .unwrap()
+}
+
+/// Slot 05's texture home on PES 15-17, as a `.mtl` names it.
+const PRE_FOX_HOME_714_05: &str = "model/character/uniform/common/714/05 - A/";
+
+/// The CPK path of the environment map in slot 05's texture home on PES 15-17.
+const ENVIRONMENT_714_05: &str =
+    "common/character1/model/character/uniform/common/714/05 - A/env.dds";
+
+/// Writes slot 05 of the export `export` holding `boots.fmdl` made of `metal_model()`, compiles
+/// it for PES 17 with `dds_compression` on, and gives the run's lines, slot 05's face
+/// `boots.mtl` as `pes_model` reads it, and the bytes of the CPK's `env.dds` in the slot's
+/// texture home, unwrapped: it is zlibbed as every DDS the run emits. The run must exit 0.
+fn compiled_metal_boots(sandbox: &Sandbox, export: &str) -> (Vec<String>, MaterialSet, Vec<u8>) {
+    sandbox.write(&format!("{}/boots.fmdl", slot_05(export)), &metal_model());
+    let settings = format!(
+        "{}[team-compiler]\ndds_compression = true\n",
+        pes17(sandbox)
+    );
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let materials = MaterialSet::read(&face[&format!("{}boots.mtl", face_folder(5))]).unwrap();
+    let environment = entries
+        .get(ENVIRONMENT_714_05)
+        .unwrap_or_else(|| panic!("no {ENVIRONMENT_714_05}: {:?}", entries.keys()));
+    let environment = wezlib::decompress(environment).unwrap();
+    (lines, materials, environment)
+}
+
+/// Asserts that each of `materials` is the `metal` family's on PES 15-17: `Basic_CNSR`, its
+/// samplers ending with the environment sampler naming `env.dds` in slot 05's texture home,
+/// with the `environment` role's settings, and the `Reflection` and `Shininess` vectors.
+fn assert_metal(materials: &[Material]) {
+    let expected = Sampler {
+        name: "EnvironmentMap".to_owned(),
+        path: format!("{PRE_FOX_HOME_714_05}env.dds"),
+        srgb: Some(false),
+        minfilter: Some(Filter::Anisotropic),
+        maxfilter: None,
+        magfilter: Some(Filter::Linear),
+        mipfilter: None,
+        uaddr: Some(Address::Wrap),
+        vaddr: Some(Address::Wrap),
+        waddr: Some(Address::Wrap),
+        maxaniso: Some(2),
+    };
+    assert!(!materials.is_empty());
+    for material in materials {
+        assert_eq!(material.shader, "Basic_CNSR", "{}", material.name);
+        let samplers: Vec<&Sampler> = material
+            .entries
+            .iter()
+            .filter_map(|entry| match entry {
+                MaterialEntry::Sampler(sampler) => Some(sampler),
+                MaterialEntry::State(_) | MaterialEntry::Vector(_) => None,
+            })
+            .collect();
+        assert_eq!(samplers.last(), Some(&&expected), "{}", material.name);
+        assert_eq!(
+            samplers
+                .iter()
+                .filter(|sampler| sampler.name == "EnvironmentMap")
+                .count(),
+            1,
+            "{}",
+            material.name
+        );
+        // The samplers come first, as the converter writes them, the added one with them.
+        let first_other = material
+            .entries
+            .iter()
+            .position(|entry| !matches!(entry, MaterialEntry::Sampler(_)));
+        assert_eq!(first_other, Some(samplers.len()), "{}", material.name);
+        let vectors: Vec<&Vector> = material
+            .entries
+            .iter()
+            .filter_map(|entry| match entry {
+                MaterialEntry::Vector(vector) => Some(vector),
+                MaterialEntry::Sampler(_) | MaterialEntry::State(_) => None,
+            })
+            .collect();
+        assert_eq!(
+            vectors,
+            [
+                &Vector {
+                    name: "Reflection".to_owned(),
+                    components: vec![1.0, 1.0, 1.0, 0.0],
+                },
+                &Vector {
+                    name: "Shininess".to_owned(),
+                    components: vec![0.9, 0.0, 0.0, 1.0],
+                },
+            ],
+            "{}",
+            material.name
+        );
+    }
+}
+
+// TC-MOD-36
+#[test]
+fn a_fox_metal_material_compiled_for_pes_17_reflects_the_template_environment_map() {
+    let sandbox = Sandbox::new("conversion_metal_template");
+    let export = "co Midcup Metal";
+
+    let (lines, materials, environment) = compiled_metal_boots(&sandbox, export);
+
+    assert!(
+        lines
+            .iter()
+            .all(|line| !line.contains("template_override_active")),
+        "{lines:#?}"
+    );
+    assert_metal(&materials.materials);
+    assert!(
+        environment == environment_template(),
+        "env.dds is the bundled template"
+    );
+}
+
+#[test]
+fn a_member_s_own_env_dds_is_the_environment_map_a_metal_material_names() {
+    let sandbox = Sandbox::new("conversion_metal_own");
+    let export = "co Midcup Metal";
+    // Already WESYS-wrapped, so it is emitted as it is, not re-encoded, and its bytes tell it
+    // from any other.
+    sandbox.write(
+        &format!("{}/env.dds", slot_05(export)),
+        &wezlib::compress(&small_dds()),
+    );
+
+    let (_, materials, environment) = compiled_metal_boots(&sandbox, export);
+
+    assert_metal(&materials.materials);
+    assert!(environment == small_dds(), "env.dds is the member's");
+}
+
+#[test]
+fn a_templates_env_dds_replaces_the_bundled_environment_map() {
+    let sandbox = Sandbox::new("conversion_metal_override");
+    let export = "co Midcup Metal";
+    sandbox.write("data/templates/env.dds", &small_dds());
+
+    let (lines, materials, environment) = compiled_metal_boots(&sandbox, export);
+
+    let active = format!(
+        "Info template_override_active [Keep] (path={})",
+        sandbox.display("data/templates/env.dds")
+    );
+    assert!(lines.contains(&active), "{lines:#?}");
+    assert_metal(&materials.materials);
+    assert!(environment == small_dds(), "env.dds is the override");
 }
