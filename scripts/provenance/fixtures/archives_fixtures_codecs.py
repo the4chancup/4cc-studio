@@ -10,7 +10,7 @@ from pathlib import Path
 
 DEST = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\crates\libs\archives\tests\fixtures")
 SEVEN = r"C:\Program Files\7-Zip\7z.exe"
-WORK = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\archives_work_codecs")
+WORK = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\2_17\archives_work_codecs")
 
 NEW = {
     "sample_ppmd.7z": ["-t7z", "-m0=PPMd"],

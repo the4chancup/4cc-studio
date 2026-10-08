@@ -18,7 +18,7 @@ from pathlib import Path
 
 TEXCONV = r"C:\Data\4cc\4cc aet compiler\_old\4cc-aet-compiler\Engines\texconv.exe"
 DEST = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\crates\libs\dds_convert\tests\fixtures")
-WORK = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\dds_work_converge_r2")
+WORK = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\2_20\dds_work_converge_r2")
 shutil.rmtree(WORK, ignore_errors=True)
 WORK.mkdir(parents=True)
 

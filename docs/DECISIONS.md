@@ -2401,7 +2401,7 @@ missing from it would drop out of a bare `cargo test` without an error; `just ga
 `--workspace` anyway, and the build compiles fine where Python is installed, which every
 developer of this repo needs for its scripts. (2) cargo-mutants runs `cargo test`, which never
 compiles a `test = false` lib: all 46 mutants came back "missed" in 0 s, `--check` passed
-uncompilable ones. The hand run (11 mutants, one per behavior, `.tmp/pb_mutants/run.py`)
+uncompilable ones. The hand run (11 mutants, one per behavior, `.tmp/2_20/pb_mutants/run.py`)
 caught 10; the survivor drops `pyo3_log::init()`, which nothing observes while `fmdl` and
 `pes_model` do not log (the plan installs it ahead of that on purpose). (3) The shim hands the
 bytes to the codecs unchanged, and those codecs' censuses (2.20f-g, 2.20g-fmdl) already ran
@@ -3031,7 +3031,7 @@ choice: PES 2021's and PES 2017's installed files (`E:/PES2021`, `E:/PES2017`: 1
 portraits, the two `DpFileList.bin` files, the `nocloth` sets of the base data CPKs, team 701's
 logos, `TeamColor.bin` and `UniColor.bin` in `4cc_08_bins.cpk`), Red's code (`bins_update.py`,
 `referee_tools.py`, `export_move.py`) for the parts the game files do not show, and a corpus of 53
-VGL26 Team Notes for the color lines authors actually write (`.tmp/measurements_4_pre.md` names
+VGL26 Team Notes for the color lines authors actually write (`.tmp/4_pre/measurements_4_pre.md` names
 the sources). Guessing any of them would have been a plan sentence the first test contradicted.
 Plan: `aesthetics_export/player_folders.md` ("Portraits", "Root files" "Colors");
 `aesthetics_export/object_model.md` ("File-type allowlist"); `team_compiler/pipeline.md` (step 4,
@@ -3350,7 +3350,7 @@ Why: the earlier interim rule gave PES 15, 16, 18, 19 and 20 the intersection of
 (1-116, 901-913), which accepts collars PES 15 and 16 do not have (102-116, 905-913) and
 refuses ones PES 18 and 19 do. Counted on the maintainer's installs on the external drive
 (`F:\Games\PES2015` … `PES2021`), `collar_NNN` under `nocloth` in each `dt35` CPK
-(`.tmp/collar_sets/measure.py`, `summary.txt`). The reserved collars hold everywhere they are
+(`.tmp/4_7/collar_sets/measure.py`, `summary.txt`). The reserved collars hold everywhere they are
 used: 77 is stock in all six; 105 is absent from PES 15, where there is no FPC preset.
 Plan: `team_compiler/messages.md` `collar_id_invalid`.
 
@@ -3370,7 +3370,7 @@ PES 16, 344 of 407 on PES 17, 35 of 49 on PES 19 and 474 of 637 on PES 21. PES 1
 holds no team kit config; its FPC CPK has the same 15 files as PES 19's. The `None` for PES
 15 and 18 came from the wiki page, which is silent on both. Reserving collar 105 on every
 version, as `collar_id_conflict` does, was right all along. Tool and output:
-`.tmp/fpc_kits/` (`src/main.rs`, `summary.txt`).
+`.tmp/4_7/fpc_kits/` (`src/main.rs`, `summary.txt`).
 Plan: `libs/fpc.md` "`libs/fpc`" (`kit.rs`).
 
 ## 2026-10-03 — team_compiler, aesthetics_export — the deep pass: the compiler checks, the export crate drops
@@ -5055,7 +5055,7 @@ default `miniz_oxide` backend; the `zlib-rs` backend the plan suggested is not a
 Why: the plan asked for a measurement of levels 1-3 against 6 before choosing. On 36 real DDS
 files (40.8 MB: a PES 17 kit pack, a team's 2048² kit textures, a 5.6 MB Common body, five
 1.4 MB model textures) level 1 gives 8.6 % of the raw bytes in 47 ms, level 3 6.7 % in 161 ms,
-level 6 6.4 % in 302 ms, level 9 6.2 % in 713 ms (`.tmp/bench_wezlib/results.md`). The whole
+level 6 6.4 % in 302 ms, level 9 6.2 % in 713 ms (`.tmp/4_17/bench_wezlib/results.md`). The whole
 set takes a third of a second at level 6, so the lower levels save a tenth of a second per
 export and cost 5 % (level 3) or 35 % (level 1) more bytes in every CPK the game loads; level 9
 doubles the time for 3 %. Level 6 is also Red's, so a compressed CPK is as small as the cup is

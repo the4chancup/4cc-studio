@@ -1,7 +1,7 @@
 """Cut the /jp/ Summer 18 export down to the pre-Fox tracer's old-layout source: one player with
 face, boots and gloves (72820 Fumos, as XXX20) and kit g1, the large textures reduced.
 
-Writes .tmp/tracer_prefox/old/jp Tracer/ (refuses to run when it exists).
+Writes .tmp/4_16/tracer_prefox/old/jp Tracer/ (refuses to run when it exists).
 """
 
 import shutil
@@ -9,7 +9,7 @@ import struct
 from pathlib import Path
 
 SOURCE = Path(r"C:\Data\4cc\Teams_Main\JP\Exports\JP Aesthetic Export for Summer 18")
-TARGET = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\tracer_prefox") / "old" / "jp Tracer"
+TARGET = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\4_16\tracer_prefox") / "old" / "jp Tracer"
 FACE_SOURCE = SOURCE / "Faces" / "72820 - Fumos"
 FACE_TARGET = TARGET / "Faces" / "XXX20 - Fumos"
 

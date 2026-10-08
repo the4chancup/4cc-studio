@@ -50,7 +50,7 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   closed with its reviews queued, by the maintainer's directive of 2026-10-02).
 - **Queue:** 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
   and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
-  `.tmp/review_brief_3_6.md` is a template for the brief. 3.8 (b): `studio_core`'s `CliError`/
+  `.tmp/3_6/review_brief_3_6.md` is a template for the brief. 3.8 (b): `studio_core`'s `CliError`/
   `AppPaths`/location and the `team_compiler` CLI surface, from 3.8a's commit, against
   `core/architecture.md` "Tool plugin interface", `core/distribution.md` "Data location" and
   `team_compiler/settings.md` "CLI" (one review once 3.8 is done). 3.z (b): the shell slice,
@@ -68,7 +68,7 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   second whole-crate `just mutants` per crate (`AGENTS.md` "Closing a phase").
   4.0 (a)-style: the plan rewrite of the decision entries "aesthetics travel in the database
   tables" and "Fox first; game-behavior changes go through FoxDen" (2026-10-03, its commit), against
-  the step 4.0 row and `.tmp/apptest/results.txt` (the in-game evidence); the surfaces are the
+  the step 4.0 row and `.tmp/4_0/apptest/results.txt` (the in-game evidence); the surfaces are the
   plan files those entries list, `settings_toml.md` and `save_editor.md` "Stripped save" first.
   4.1 (a): the Phase 4 Acceptance section (`team_compiler/README.md`, the Phase 4 scope paragraph
   and TC-PRT/MOD/TEX/CHK/XML/KIT-10../ROOT-06../CMN/BIN/PLN/REF/OUT-07../DEP) and the decision
@@ -337,15 +337,15 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   loop, then runs GPT's loop with a full sidekick loop after each GPT round, calling GPT again
   only once that sidekick loop has ended and GPT's own loop has not; not yet in `AGENTS.md`
   (3.6: GPT 4 of 7 accepted, then sidekick S1 3 of 7, so both loops ended after one round
-  each). Prior rulings: `.tmp/review_rulings_3_6.md`. From 2026-10-04 the Devin lead runs the
+  each). Prior rulings: `.tmp/3_6/review_rulings_3_6.md`. From 2026-10-04 the Devin lead runs the
   whole queue below on the code as it now is (a diff a later step superseded is not reviewed
-  on its own), in queue order; its progress is `.tmp/review_queue.md`.
+  on its own), in queue order; its progress is `.tmp/lead/review_queue.md`.
 - Paused again on 2026-10-06 (maintainer). Status:
   - **Reviews done:** S1-S6 (`pipeline`, `studio_core` + `studio` Phase 3,
     `aesthetics_export`, the `team_compiler` Phase 3 skeleton, the 4.0 plan rewrite, the
     Phase 4 Acceptance section).
   - **Still queued:** S7-S16, from 4.3-4.4 to the Phase 3 close mutants. Each is mapped to
-    its queue item in `.tmp/review_queue.md`.
+    its queue item in `.tmp/lead/review_queue.md`.
   - **Code that lands meanwhile** joins the queue as usual. The S7+ reviews run on the code as
     it is then.
   - **Before 4.22 and 4.27:** read the 2026-10-06 test results in "Issues". The boots drop is
@@ -353,8 +353,8 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
     as loose files and `UniformParameter.bin` entries both (4.27b). Still open: the PES 17
     collar.
   - **4.9's stock-set rule stays** until Test 3 is run (postponed).
-  - **In-game tests:** the scratch tool and scripts are in `.tmp/apptest/` (see
-    `.tmp/review_queue.md` "RESUME HERE"). Each test has its own GUIDE and install/revert
+  - **In-game tests:** the scratch tool and scripts are in `.tmp/4_0/apptest/` (see
+    `.tmp/lead/review_queue.md` "RESUME HERE"). Each test has its own GUIDE and install/revert
     script; nothing is shared with the workspace build.
 - Decisions the maintainer must make (new dependencies, `unsafe` outside the listed sites, game-
   or format-facing behavior the plan does not settle) are still asked, not decided.
@@ -517,7 +517,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   entry "sideload mode and the overrides folder"). The from-scratch LiveCPK replacement the
   maintainer asked for is superseded by 4.0e: FoxDen already serves it
 - [x] 4.0e Sideloading through FoxDen (maintainer, 2026-10-03; study notes outside git,
-  `.tmp/sider_info/`): no Studio sideloader; sideload mode writes `{pes_folder_path}\livecpk\`,
+  `.tmp/4_7/sider_info/`): no Studio sideloader; sideload mode writes `{pes_folder_path}\livecpk\`,
   served by FoxDen on 18–21 and the user's Sider 3 on 17, refused on 15/16; `sideload_output_path`
   dropped; the untracked `docs/plans/sideloader.md` stub deleted; `fox_hook` → FoxDen in the
   Refs arranger plan; the PES 2020 history recorded (decision entry "sideloading through FoxDen")
@@ -542,13 +542,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   possibly moving up from Phase 19), Phase 5 savefile writing and the patch format, what an
   absent `settings.toml` key means, the Save editor's appearance, transplant and diff features,
   and Phase 6's "`settings.toml` from savefile aesthetics". Test 1 (PES 2021, team `/a/`) files
-  are prepared, outside git, in `.tmp/apptest/out/` with install, undo and reading instructions
+  are prepared, outside git, in `.tmp/4_0/apptest/out/` with install, undo and reading instructions
   in its `manifest.txt` and a step-by-step for the maintainer in `GUIDE.txt`. Follow-ups (field meaning in `Player.bin`, whether an in-game edit
   writes the record back, other PES versions: 2017 tables in `E:\PES2017\Data\dt10_win_files\
   common\etc\pesdb`) are planned from Test 1's result → done when: the result is recorded in the
   log and in a decision entry, and the plan changes it implies are written. Done 2026-10-03, seven
   runs on PES 2021 (the 2023 Winter Cup save and DLC; run records, scripts and every finding in
-  `.tmp/apptest/results.txt`, outside git): with the save's appearance id at -1 the game takes
+  `.tmp/4_0/apptest/results.txt`, outside git): with the save's appearance id at -1 the game takes
   the player's appearance from `PlayerAppearance.bin` (per player: Look A and Look B both showed),
   his boots from `BootsList.bin`, and with the stock exe his gloves from `GloveList.bin`, without
   needing a goalkeeper position in `Player.bin`; a kept id wins (the save's look and boots). The
@@ -568,7 +568,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   acceptance` (report mode) lists every new ID as unproven and reports no definition error;
   `rg -c "^TC-" docs/plans/team_compiler/README.md` equals 203 (77 plus 126). Done 2026-10-03:
   `just acceptance` 203 scenarios, 77 proven, the 126 new ones unproven, no definition error;
-  drafted and written by Fable from the lead's rulings (`.tmp/rulings_4_1.md`)
+  drafted and written by Fable from the lead's rulings (`.tmp/4_1/rulings_4_1.md`)
 
 - [x] 4.2 **Portraits (DDS, Fox targets)**: `TaskKind::Portrait`; a player folder's
   `portrait.dds` (every slot it is mapped to) and `Portraits/player_NN.dds` emitted byte for byte
@@ -856,8 +856,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     unchecked until the pre-Fox face steps. Gates green (110 of 209);
     `mutants-diff 90e5bfb`: 38, 25 caught, 13 unviable, 0 missed
   - The timing, done 2026-10-03 (lead; release build of `78fc7c2`, 16 logical CPUs, warm
-    file cache, median of 3; `.tmp/timing_build.py` lays an old-layout VGL26 export out as
-    `Players/NN - Name/`, `.tmp/timing_run.py` times it). FNG, the corpus's largest: 991 MB,
+    file cache, median of 3; `.tmp/4_7/timing_build.py` lays an old-layout VGL26 export out as
+    `Players/NN - Name/`, `.tmp/4_7/timing_run.py` times it). FNG, the corpus's largest: 991 MB,
     245 files, 880 MB of DDS (nine 8192x8192 textures of 67 to 90 MB), 111 MB of models;
     its solid `.7z` is 78 MiB. DBG: 604 MB, 214 files, 355 MB of models, 249 MB of DDS; its
     `.7z` is 111 MiB.
@@ -869,7 +869,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 
     `check` on a folder is nearly all deep pass, so the serial pass is 18% (FNG) to 47%
     (DBG) of a folder compile. Reading every file whole takes 0.41 to 0.50 s on FNG and
-    0.19 s on DBG (`.tmp/timing_read.py`): FNG's pass is whole-file reads of textures for
+    0.19 s on DBG (`.tmp/4_7/timing_read.py`): FNG's pass is whole-file reads of textures for
     their headers, DBG's is model parsing. Each `.7z` decompression costs about 2 s, and a
     compile of these exports does two, about 4 s of its 5.8 to 7.2 s (corrected at (f): first
     written as three of 1.0 to 1.4 s, the count assumed; the timing exports hold no metadata
@@ -921,7 +921,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     timing exports hold no metadata file, so routing never decompressed them and they
     measure the same as before (FNG `.7z`: `check` 2.17 → 2.28, `compile` 6.36 → 6.62,
     within the runs' spread). With a root `notes.txt` added to each
-    (`.tmp/timing_notes.py`):
+    (`.tmp/4_7/timing_notes.py`):
 
     | seconds, `.7z` with `notes.txt` | `check` | `compile` |
     |---|---|---|
@@ -1225,7 +1225,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   under the marker; an empty `face/` ignored; a player without face models and without the marker
   gets the blank face folder (its contents per engine: `pipeline.md` step 4), always with the
   bundled face diff; a face file left in a folder with no face model is `face_file_not_used`
-  (Info; 467 face folders of the VGL26 exports hold one, `.tmp/face_diff_blank_census.py`).
+  (Info; 467 face folders of the VGL26 exports hold one, `.tmp/4_7/face_diff_blank_census.py`).
   Plan: `player_folders.md` "`ingame_face` marker", "`ingame_face` with shared links";
   `pipeline.md` "2. Per-export serial steps" step 4. IDs: TC-MOD-16..19, TC-MOD-32 (new).
   Done 2026-10-04 (sidekick, one brief, landed with two lead fixes to tests): the reroute is
@@ -1746,7 +1746,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   split. Owns the mapping of `model_convert`'s loss codes to findings (the hand-split round
   trips drop them "until cross-format conversion maps them") and the other format in shared
   `Faces/`, `Boots/`, `Gloves/` folders, `Common/` models and `.common` links (4.20 presumes
-  it). Recon: `.tmp/recon_4_17.md`. Rulings: DECISIONS 2026-10-08 "Cross-format source
+  it). Recon: `.tmp/4_17/recon_4_17.md`. Rulings: DECISIONS 2026-10-08 "Cross-format source
   selection" (per stem; the other engine's companions ignored silently with their model; the
   paired `.skl` the conversion's bind pose; the converted `.mtl` packed as `<stem>.mtl`; the
   generated SKL on a member's `.skl` path; convert, then split).
@@ -1769,7 +1769,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   or `Gloves/` folder's FMDL and an `ingame_face` player's FMDL parts converted by the
   pre-Fox boots and gloves writer; (f3) `Common/` models and `.common` links in the other
   format and the leftovers, in three (exploration at this HEAD in
-  `.tmp/sk_4_17f3_explore.md`): (f3a) the leftovers, ruled in DECISIONS 2026-10-08 "An
+  `.tmp/4_17/sk_4_17f3_explore.md`): (f3a) the leftovers, ruled in DECISIONS 2026-10-08 "An
   `env` texture link, one sampler shape, every `model` context alike, no kit warning on a
   folder the glTF drop orphaned" (a texture link of stem `env` counting as the folder's
   `env`; the writer's `add_environment_map` unconditional as the face's; every `model`
@@ -1793,8 +1793,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   parity tracer (today true for all four of its models on PES 17, Red's target) and the Fox
   boots shipping the game's `boots.skl` (today true on every Fox version), then the compiler's
   call in the Fox Models task and the pre-Fox face from 4.17c1's drafts
-  (`.tmp/sk_4_17c1_fox_precheck.rs`, `.tmp/sk_4_17c1_prefox_precheck.rs`,
-  `.tmp/sk_4_17c1_prefox_face.diff`), the gloves task given the face's `.skl` for its
+  (`.tmp/4_17/sk_4_17c1_fox_precheck.rs`, `.tmp/4_17/sk_4_17c1_prefox_precheck.rs`,
+  `.tmp/4_17/sk_4_17c1_prefox_face.diff`), the gloves task given the face's `.skl` for its
   re-conversion, a slotless model's `.skl` read for the pre-check (DECISIONS 2026-10-08 "The
   same-engine pre-check waits"). Slice c was split: c1 the loss codes and the pre-check
   measurement, c2 the selected glTF (`model_gltf_unsupported`, TC-MOD-28).
@@ -1823,7 +1823,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   compiled (the xml's references, `xml_model_unlisted`, `XmlFace::pack` and the
   `model_material_undefined` comparison know `.model` files only; a plan ruling on how an xml
   names a converted model and its `<stem>.mtl` comes first; analysis in
-  `.tmp/sk_4_17a_report.md` R3); a converted material whose base is the game's `dummy_bsm`
+  `.tmp/4_17/sk_4_17a_report.md` R3); a converted material whose base is the game's `dummy_bsm`
   (Konami's `addon_oral.fmdl`) keeps its Fox path on pre-Fox
   (`/Assets/pes16/model/character/common/sourceimages/dummy_bsm.dds`), where the legacy
   converter wrote `./.dds`, a directory with the name dropped (measured at 4.17c1 on
@@ -2005,7 +2005,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   provenance change if ever needed); one rework round; mutants: see the 4.17e log line).
   (f1) done 2026-10-08 (lead first, `de62e60`: the plan's step 3 "Format conversion" on
   shared folders, the `model_gltf_unsupported` row, DECISIONS "A shared folder in the other
-  format", the slice list f1/f2/f3; exploration in `.tmp/sk_4_17f_explore.md`.
+  format", the slice list f1/f2/f3; exploration in `.tmp/4_17/sk_4_17f_explore.md`.
   `plan/subset.rs` `shared_not_compiled`: a shared folder's `.model` and `.mtl` no longer
   named on Fox (the Models task converts them as a player's; a `Material` role exempt from
   the other-package check, `PlayerFile::package` giving a `.mtl` its pre-Fox answer), a
@@ -2169,7 +2169,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `player_folders.md` "Multi-mapped processing". IDs: TC-REF-01, 02, 03, 05, 10; TC-OUT-09's
   referee half (`tests/cli/sideload.rs` gains the refs export, `livecpk/` equal to the team
   CPK's and the refs CPK's entries together); TC-DEP-11's refs export. Recon:
-  `.tmp/recon_4_19.md`. Slices:
+  `.tmp/4_19/recon_4_19.md`. Slices:
   4.19-lead done 2026-10-07: `resources/templates/referees_fox/` (Red's `refscpk_fox`, 31
   files, provenance in `resources/templates/README.md`); plan rulings (decision entry "the
   refs CPK among the run's CPKs, and the referee tree's names").
@@ -2801,7 +2801,7 @@ Phase 4 open questions (maintainer):
 
 - The sock table's look in-game (4.10): `KIT_LAYOUT_REMAP` approximates, in two bands, a map
   the models give to within about 10 px of 2048 (`pipeline.md` "Layout conversion"). Test 3
-  (`.tmp/apptest/out_test3/GUIDE.txt`, 2026-10-05) is ready for it. To
+  (`.tmp/4_0/apptest/out_test3/GUIDE.txt`, 2026-10-05) is ready for it. To
   settle: a pre-Fox kit with a design on its socks (hoops do not show it; a vertical stripe
   or a logo does), compiled for a Fox game with the `pre-fox` marker and looked at in-game.
 - Collars beyond the stock set (4.9, 4.27; the maintainer's idea, 2026-10-03): PES 15 loads
@@ -2815,7 +2815,7 @@ Phase 4 open questions (maintainer):
   that a visible model at a non-stock ID renders. To settle it: an in-game test per engine,
   a kit naming an ID above the version's stock set (200, say) with a visible collar model
   under that name. Until then 4.9 keeps the stock-set rule and the reserved 105 and 77.
-  Test 3 (`.tmp/apptest/out_test3/GUIDE.txt`, 2026-10-05) is ready for it: collar 200 on
+  Test 3 (`.tmp/4_0/apptest/out_test3/GUIDE.txt`, 2026-10-05) is ready for it: collar 200 on
   PES 21 and PES 17, a copy of each game's collar_107. Edit mode shows only kit 1 (and the
   GK kit), so Test 3b (`out_test3b/`, 2026-10-06) puts kit 2 (sock stripes B, collar 107)
   on kit 1 as a second load; collar 201 is on the GK kit in both games. The maintainer
@@ -2831,7 +2831,7 @@ spelling (4.30); the Fox referee marker as a reserved collar instead of a `dt00_
 upgrade to the one standard list is the path); one official `DpFileList.bin` for every version
 (4.25), whose 53 entries the game loads whole (the maintainer's in-game tests on PES 2015 and
 PES 2021: each install's own list extended to 53 entries with placeholder CPKs, the test CPK
-last, `.tmp/dpfl_pes15_53.py` and `.tmp/dpfl_pes21_53.py`; the versions between are taken to
+last, `.tmp/4_7/dpfl_pes15_53.py` and `.tmp/4_7/dpfl_pes21_53.py`; the versions between are taken to
 hold it too); `face_diff.xml` decoded with the `base64` crate (4.5d); a model's missing texture is an
 Error, with the installed CPKs searched for a partial export's Common textures (4.29), and
 `fmdl_no_texture_ids` is dropped; a format finding drops its folder by severity (4.7). The
@@ -2842,13 +2842,13 @@ beside it) and Red's pre-Fox referee template's `referee_prop.model` with its `.
 (`Engines/templates/refscpk_prefox/common/character1/model/character/parts/referee/`), and
 the square stays on the ground as a collar by static painting (`blue_port.md` "Referee
 export processing"). The far-vertex rule stands as it is (4.7): the lead's census of the
-VGL26 corpus (2,938 FMDL, 21 `.model`; `.tmp/fmdl_census/corpus_census.txt`, `far.txt`)
+VGL26 corpus (2,938 FMDL, 21 `.model`; `.tmp/4_7/fmdl_census/corpus_census.txt`, `far.txt`)
 found one Error class, `fmdl_vertex_far_from_origin`, in 89 `face_high`/`hair_high` files of
 7 exports, every vertex of each parked 14,660 units or more from the origin, and those
 parked placeholder faces and hair are the main cause of the matchday lag the rule exists
 for, so 4.7 drops their folders. The kit layout
 table (4.10) takes its numbers from the games' uniform models alone: the pair made with PES
-Master's two kit creators (scripts, renders and `FINDINGS.md` in `.tmp/kit_creator/`) agrees
+Master's two kit creators (scripts, renders and `FINDINGS.md` in `.tmp/4_7/kit_creator/`) agrees
 with them on the socks and not on the shorts, and the models win (`pipeline.md` "Layout
 conversion").
 
@@ -2932,7 +2932,7 @@ pruned when their phase closes; they stay in git history.
   `team_compiler` runs locally whole. The maintainer memtested the RAM (clean), turned XMP off
   after the second, and after the third set the paging file to 32 GB, the size it had before
   the crashes began. A killed run leaves its two `%TEMP%\cargo-mutants-4cc-studio-*.tmp`
-  copies (3.6 GB each; `.tmp/rm_mutant_copies.py` removes them, clearing the read-only flag
+  copies (3.6 GB each; `.tmp/lead/rm_mutant_copies.py` removes them, clearing the read-only flag
   a test leaves on one file). If a run crashes again at 32 GB, the next lever is one job
   (`--jobs 1` in `scripts/mutants.py`'s local config).
 - open (2026-10-08, 4.14e3's plan) — pre-Fox: a hand-weighted model behind a `.model.common`
@@ -3038,7 +3038,7 @@ pruned when their phase closes; they stay in git history.
   Phase 4 (4.22) drops the installed row of a compiled player the export gives no boots or
   gloves, so he has no row until Phase 5 writes the default-ID rows. A team player the `Full`
   export does not compile at all keeps his rows as they are (decision 2026-10-05; the plan
-  already says so). Test 2 (PES 21, `.tmp/apptest/out_test2/`, run 2026-10-06), same results
+  already says so). Test 2 (PES 21, `.tmp/4_0/apptest/out_test2/`, run 2026-10-06), same results
   on the 4cc exe and the stock exe:
   - **Boots:** a stripped player with no `BootsList` row wears the boots-0 model (plain black
     boots), not his save's boots field (1076). So a dropped row and a row naming 0 look the
@@ -3074,7 +3074,7 @@ pruned when their phase closes; they stay in git history.
   every compiled player's motions (`operations.md` "Aesthetics patch"). Untested: that the game
   uses a stripped record's motions (expected: they are outside the appearance block).
   Where a save's motions come from (2026-10-05): a PES 19+ EDIT generated by the game holds
-  no player records (the vanilla PES 21 one, `.tmp/apptest/vanilla21/`); the cup's players are
+  no player records (the vanilla PES 21 one, `.tmp/4_0/apptest/vanilla21/`); the cup's players are
   injected by `pes-db-generator`'s `player_edit.py`, every record one shared base body
   (`Player_Edit_Base_20.bin`: every motion stored 0, i.e. 1, the motion edit flag set). The
   Winter Cup 2023 save's 4,829 players with a motion other than 1 were edited after that.
@@ -3083,12 +3083,12 @@ pruned when their phase closes; they stay in git history.
   17's `dt00_win`), and in the cup's own `4cc_02_misc.cpk` on PES 15 and 17, with a row for
   every cup player id 70101-89223, all 1; `PlayerAppearance.bin` (13,242 rows of 60 bytes, as
   on Fox) and `RefereeAppearance.bin` (35 rows) in PES 17's `dt00_win`; no `PlayerAppearance.bin`
-  on PES 15 or 16 (`.tmp/apptest/prefox_bins/`). Unknown: whether a pre-Fox game reads them
+  on PES 15 or 16 (`.tmp/4_0/apptest/prefox_bins/`). Unknown: whether a pre-Fox game reads them
   for a save player (a Test 1 on PES 17 would tell), and what the cup's all-1 rows are for. If
   it does, pre-Fox could carry boots, gloves and (PES 17) appearance in the CPK as Fox does.
   The cup's all-1 rows are placeholders (maintainer). The cup's PES 17 `4cc_01_db.cpk` also
   ships a `PlayerAppearance.bin` with a row per save player. Test 4
-  (`.tmp/apptest/out_test4/GUIDE.txt`, 2026-10-05) repeats Test 1 on PES 17: /b/ stripped
+  (`.tmp/4_0/apptest/out_test4/GUIDE.txt`, 2026-10-05) repeats Test 1 on PES 17: /b/ stripped
   (appearance id at record byte 116, body 128 to 184; the same 72-byte block as PES 21's at
   240), the three tables as loose files in Sider's livecpk root. Results (run 2026-10-06):
   - **Appearance:** PES 17 reads `PlayerAppearance.bin` for a -1 record, per player (look A,
@@ -3104,13 +3104,13 @@ pruned when their phase closes; they stay in git history.
 
   So pre-Fox (PES 17 at least) could carry appearance and boots in the CPK as Fox does. What
   is still needed: the boots reading above, and gloves on a stock exe.
-  Test 4b (run 2026-10-08 by the lead through the in-game harness, `.tmp/ingame/game.py`;
-  files by `apptest build` with `APPTEST_CONTROL2`, installed by `.tmp/apptest/test4b.py`):
+  Test 4b (run 2026-10-08 by the lead through the in-game harness, `.tmp/4_0/ingame/game.py`;
+  files by `apptest build` with `APPTEST_CONTROL2`, installed by `.tmp/4_0/apptest/test4b.py`):
   Test 4 plus a second control, no. 4 ITS A TRAP, his appearance id kept, his save boots set
   to k0571 (grey sneakers) and his BootsList row k0563 (tan boots, everyone else's). In Edit
   mode (Edit Pony > Appearance) he wore k0571 while nos. 1 to 3 wore k0563, DESU (save boots
   0, row k0563) included: **a set save boots id wins; only a save boots id of 0 defers to
-  the row.** Gloves, on the 4cc exe and on the stock one (`.tmp/apptest/exe_swap17.py`; the
+  the row.** Gloves, on the 4cc exe and on the stock one (`.tmp/4_0/apptest/exe_swap17.py`; the
   stock exe is the oldest `.old` by mtime, 2016-10-20): no. 1's hands were bare in Edit mode
   and in the match walkout both times, with a GloveList row g0012 and his DB appearance row's
   PlayerGloves bit at 0. Still inconclusive: the row did not apply, but the bit may be what
@@ -3127,7 +3127,7 @@ pruned when their phase closes; they stay in git history.
   collar is drawn with the kit texture, so the marker texture becomes every referee kit's
   main texture (maintainer, 2026-10-05; referee models are full-body and ignore it), and the
   bundled marker models need collar materials. Settle before 4.27. Test 5
-  (`.tmp/apptest/out_test5/GUIDE.txt`, 2026-10-05) gives every referee config collar 77 and
+  (`.tmp/4_0/apptest/out_test5/GUIDE.txt`, 2026-10-05) gives every referee config collar 77 and
   ships different models as `referee_collar_077` and `collar_077`, on PES 17 and PES 21. Found
   building it: on the installed PES 21 the referee configs are entries of `4cc_08_bins.cpk`'s
   `UniformParameter.bin` (`referee_ACL_1..4.bin`, `referee_DEF_1..5.bin`), and the refs CPK
@@ -3155,7 +3155,7 @@ pruned when their phase closes; they stay in git history.
       head bones, with `uni_collar` as a material name, which the stock referee collar
       (`referee_collar_026.model`) does not use: its only material is `uni_shirts`.
 
-    Settled 2026-10-08 (the lead, in-game harness, `.tmp/apptest/test5b.py` and
+    Settled 2026-10-08 (the lead, in-game harness, `.tmp/4_0/apptest/test5b.py` and
     `test5c.py`): **PES 17 referees draw `referee_collar_<ID>`, and need `collar_<ID>` to
     exist.** Found first: the cup's `referee_collar_026.model` (`4cc_35_referees.cpk`, Red's
     template file) has no faces, so the referee's usual look has no collar model at all, and
@@ -3228,7 +3228,7 @@ pruned when their phase closes; they stay in git history.
 - open — the Export upgrader's `fpc_on` detection (`export_upgrader.md` step 8, "settings
   match the enable preset"): the cup's FPC players mostly ride their bodies in per-player
   boots IDs, so their boots field holds that ID, not 55, and Test 1's save had every /a/
-  player FPC while `is_fpc_player` found none (`.tmp/apptest/results.txt`, run 2). Matching
+  player FPC while `is_fpc_player` found none (`.tmp/4_0/apptest/results.txt`, run 2). Matching
   the strip fields alone would also mark a dressed player with long sleeves, tucked shirt and
   short socks. Settle the fields compared before Phase 6 (review S5.11 item 2).
 - open — strip-and-seed and a base-copied face: the `PlayerAppearance.bin` row carries no
@@ -3308,7 +3308,7 @@ pruned when their phase closes; they stay in git history.
   with team 701 x 0x40) that the reference reads only on PES 17 (at +28); the 18-21 tables have no
   `KitSlot*` rows. Measure 18/19 and add the rows when the Save editor needs kit bindings.
 - open — `pes_savefile` unmodeled player-record bits that real saves set (2.20i,
-  `.tmp/save_census/src/bin/gaps.rs` over every census save; retained on write, so nothing is
+  `.tmp/2_20/save_census/src/bin/gaps.rs` over every census save; retained on write, so nothing is
   lost): PES 18 bits 252-254 (3 bits, set in about a third of records; most likely `Star`,
   3 bits on 19/20, absent from the 18 schema); PES 16 bits 222 and 362 (437 records each).
   Model them when the Save editor needs them.
@@ -3332,7 +3332,7 @@ pruned when their phase closes; they stay in git history.
   gloves id of his own (`/a/`: 126/126 ... 148/148) rather than 55/11, which its doc comment
   already calls indistinguishable. The Save editor cannot use it to tell FPC teams apart; a hide
   strip (long sleeves, tucked, short socks) plus boots no other player wears marked them in the
-  survey (`.tmp/apptest`, `fpc` subcommand).
+  survey (`.tmp/4_0/apptest`, `fpc` subcommand).
 - **Texport write is unverified in-game** (2.17h): `Texport::new` synthesizes 18-21 files from
   measured templates and `to_bytes` rewrites read files; both round-trip byte-identical, but no
   generated file has been imported by the game yet (`verification.md` "Texport write": manual,
@@ -3571,7 +3571,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-28** - `settings.toml` gains top-level stock `boots_id`/`gloves_id` (0 to 100, `""` =
   default: FPC marker or savefile decides); plan-only change across ten documents (decision
   entry), code step 2.17i added. Test 1 files for the appearance-fallback idea are in
-  `.tmp/apptest/out/`, awaiting the maintainer's in-game run.
+  `.tmp/4_0/apptest/out/`, awaiting the maintainer's in-game run.
 - **2026-09-28** - Hard gate set (maintainer): step 4.0, the appearance-fallback test, stands at
   the end of Phase 3; no agent goes past it until the maintainer reports the result. Phase 2's
   remaining converge, 2.17i and Phase 3 proceed. Next: 2.20g `pes_model`.
@@ -3579,7 +3579,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the Konami-measured reader refused about 1900 of the machine's 6037 community `.model`
   files, cup exports among them, and no fixture, mutation run or reviewer would have found
   it; a census of every real file of the format now belongs in each format crate's converge
-  (`.tmp/model_census/` as the template). Next: 2.20g-fmdl census, then 2.20h.
+  (`.tmp/2_20/model_census/` as the template). Next: 2.20g-fmdl census, then 2.20h.
 - **2026-09-28** - 2.20g-fmdl census and 2.20h `model_convert` done. The fmdl census found only
   SKL tails, and every other failure was a correct refusal. The conversion census found about
   one failure in six (weights, split groups, bone order, flags, our own empty containers),
@@ -3592,10 +3592,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   rules, fix, rerun `just mutants pes_savefile`.
 - **2026-09-28** - Maintainer rulings: the CP1252 save stays refused (4ccEditor cannot load it),
   the 21845-face limit stays. Text fields hold their full length (decision entry). Test 1's
-  step-by-step guide is `.tmp/apptest/out/GUIDE.txt`. Next: the 2.20i text fix.
+  step-by-step guide is `.tmp/4_0/apptest/out/GUIDE.txt`. Next: the 2.20i text fix.
 - **2026-09-28** - 2.20i text fix landed (`cd3a1d1`); census clean. Whole-crate run done
-  (24 survivors, `.tmp/mutants_2_20i_whole/missed.txt`), the crate's last (maintainer). Lead
-  audit in `.tmp/audit_2_20i.md` (F1-F7). Next: slice A = survivors + F1-F4, F6, F7; slice B =
+  (24 survivors, `.tmp/2_20/mutants_2_20i_whole/missed.txt`), the crate's last (maintainer). Lead
+  audit in `.tmp/2_20/audit_2_20i.md` (F1-F7). Next: slice A = survivors + F1-F4, F6, F7; slice B =
   F5's pure moves; each checked with `mutants-diff`; then the reviewer.
 - **2026-09-28** - `just mutants` fixed: the remote half runs detached and survives a dropped
   link or a killed controller (`just mutants-collect`), and shells without
@@ -3603,14 +3603,14 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-09-28** - Maintainer check of the full-field shirt name (`EDIT00000000 prespoon`,
   PES 16): 4ccEditor shows `MEAT ON THE BON`, and the save crashes PES 16 after the start
   screen, cause unknown (the maintainer doubts the shirt name). `shirt_name_from` keeps its
-  free byte. Next: 2.20i slice A (`.tmp/brief_2_20i_a.md`).
+  free byte. Next: 2.20i slice A (`.tmp/2_20/brief_2_20i_a.md`).
 - **2026-09-29** - 2.20i slice A done (survivor tests, F1-F4, F6, F7; `mutants-diff`: 0
   missed). Correction: the `cd3a1d1` whole-crate run measured 1130 of 1611 mutants, not all
   of them (its VPS half died partway); the maintainer approved one run of the 486 unmeasured.
 - **2026-09-29** - 2.20i remainder run: 502 mutants, 4 missed (3 equivalent as written,
   rewritten; 1 test added), `mutants-diff`: 0 missed. Next: slice B.
 - **2026-09-29** - 2.20i slice B done: pure moves split `team_toml/team.rs` (tactics, items)
-  and `settings_toml/mod.rs` (document), checked by `.tmp/pure_move_check.py`. Next: the
+  and `settings_toml/mod.rs` (document), checked by `.tmp/2_20/pure_move_check.py`. Next: the
   reviewer.
 - **2026-09-29** - 2.20i done. The reviewer's round (3 of 4 accepted) found PES 18's
   dribbling-arm motion stored in 3 bits where the schema read 2; a census of set-but-unmodeled
@@ -3636,7 +3636,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   least 4 minutes, estimated from each crate's measured seconds per mutant
   (`target/mutants-cost.json`); the 2.20k diff's slower half took 502 s against 717 s local-only.
 - **2026-09-30** - Phase 2 closed: 2.21 done. An as-built audit of the Phase 2 plans against
-  the code (`.tmp/audit_2_21_as_built.md`) fixed stale crate trees, deps rows, two code blocks
+  the code (`.tmp/2_21/audit_2_21_as_built.md`) fixed stale crate trees, deps rows, two code blocks
   and unmarked Phase 8/19 parts. Step list collapsed. Next: 3.1, Phase 3's Acceptance section.
 - **2026-09-30** - 3.1 done: Phase 3's Acceptance section, the entry gates ("Validation
   semantics") and the CLI exit codes, after 8 GPT review rounds and 4 sidekick rounds. Reviewers
@@ -3666,7 +3666,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-01** - 3.6 cross-family review, GPT round 1: 7 concerns, 4 accepted (fold panics on
   real names → `vtree::fold_name`; flattening panic → insertion-built tree, no root findings on an
   undecided root; texture `.common` links and `Common/` join the stem check; TC-STR-09 uncited
-  until 3.8), 3 rejected; the GPT loop ends (rulings `.tmp/review_rulings_3_6.md`; plan + decision
+  until 3.8), 3 rejected; the GPT loop ends (rulings `.tmp/3_6/review_rulings_3_6.md`; plan + decision
   entry). `mutants-diff c936e0e`: 31, 2 missed, both given tests; rerun 26 caught, 5 unviable, 0 missed. Next: the sidekick
   review loop.
 - **2026-10-01** - 3.6 sidekick review S1: 7 concerns, 3 accepted (a kept disallowed `.common`
@@ -3964,7 +3964,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   names; the code's default `cpk_name` follows at 4.25a. The list file's edit went into commit
   `90e5bfb` with slice 4.7c2 (the lead's `git add -A`), not into a commit of its own.
 - **2026-10-03** — The installs' DpFileLists compared with the official one
-  (`.tmp/dpfl_compare.py`): 29 to 45 entries each, every listed CPK present in `download/`,
+  (`.tmp/4_7/dpfl_compare.py`): 29 to 45 entries each, every listed CPK present in `download/`,
   15 to 24 names per install that the official list retires. So the upgrade also writes a
   placeholder for each official entry with no file (decision entry), and two open questions
   are added: a 53-entry list in the game, and an old DLC under the new list. The plan's
@@ -4084,18 +4084,18 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-04** — Review queue, S1 `pipeline` (3.7 (b), 3.y (c)): sidekick S1.1 1 of 5
   accepted; GPT A1 3 of 3 (a finished player group's permit held by the coordinator hung the
   run when the next acquire needed it; the writer released a permit before its bytes;
-  `CpkStem`'s rule order untested). Rulings `.tmp/review_rulings_S1.md`.
+  `CpkStem`'s rule order untested). Rulings `.tmp/review_queue_S/review_rulings_S1.md`.
 - **2026-10-04** — Review queue, S2 `studio_core` + `studio` (3.8 (b), 3.z (b), 3.y (c)):
   sidekick S2.1 0 of 4 (one recorded under "Issues" for Phase 8); GPT A1 4 of 6 (an unwritable
   data folder stopped `compile` at the teams list; a TOML error's snippet broke the one-line
   console format; shared temp folders in settings tests; a `pub` with no consumer). Rulings
-  `.tmp/review_rulings_S2.md`.
+  `.tmp/review_queue_S/review_rulings_S2.md`.
 - **2026-10-04** — Review queue, S3 `aesthetics_export` (3.y (c), with its Phase 4 parts):
   sidekick S3.1 1 of 9 (an empty doubled layer folder kept as a phantom folder); GPT A1 4 of
   4 (two spellings of one Common model link panicked a compile; skeletons paired case-exactly
   where planning folds; roster findings on an undecided root; a flattened wrapper of empty
   folders kept); sidekick S3.2 2 of 3 (face file names and texture stems matched
-  case-exactly). Rulings `.tmp/review_rulings_S3.md`.
+  case-exactly). Rulings `.tmp/review_queue_S/review_rulings_S3.md`.
 - **2026-10-05** — Review queue, S4 the Team compiler's Phase 3 skeleton (3.8 (b) CLI half,
   3.9f (a), 3.y (c) team_compiler): sidekick S4.1 1 of 4 (the command-line root's refusal said
   no action); GPT A1 5 of 5 (a failed CPK write kept the whole cup processing; a teams list
@@ -4103,7 +4103,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `..`; the parity test normalized relocated references unchecked; TC-OUT-06's text stale);
   sidekick S4.2 0; GPT A2 1 of 1 (a `.7z` kept running after the cancel); sidekick S4.3 1 of 1
   (the cancel checked only between sources). From S4.3 the sidekick's role is a `swe-2-high`
-  subagent (AGENTS.md "Environment"). Rulings `.tmp/review_rulings_S4.md`.
+  subagent (AGENTS.md "Environment"). Rulings `.tmp/review_queue_S/review_rulings_S4.md`.
 - **2026-10-05** — Review queue, S5 the step 4.0 plan rewrite (docs only): sidekick loop S5.1
   to S5.8 (21, 9, 9, 5, 7, 5, 8, 3 accepted); GPT A1 14 of 14 (the Fox rows' stage in the
   diagram, pre-Fox face-XML IDs through the settings order, the patch written per published
@@ -4112,7 +4112,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   name, the face-editor recipe's recompile); sidekick S5.10 to S5.13 (10, 5, 6, 2: one rule
   for every reader of a stripped record, the presets' fields listed only in `libs/fpc.md`);
   GPT A3 4 of 4 (all worklog issues); sidekick S5.14 0 of 2. Thirteen open "Issues" came out
-  of it, five for the maintainer. Rulings `.tmp/review_rulings_S5.md`.
+  of it, five for the maintainer. Rulings `.tmp/review_queue_S/review_rulings_S5.md`.
 - **2026-10-05** — Review queue, S6 the Team compiler's Phase 4 Acceptance section (docs, plus
   test citations and two test fixes): sidekick loop S6.1 to S6.3 (30, 7, 4 accepted); GPT A1
   22 of 24 (unreachable scenarios withdrawn or rewritten, four new); sidekick S6.4, S6.5 (5,
@@ -4125,18 +4125,18 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   unless `Midcup`, PES 21 unless a version is named, and a GIVEN's implied least content.
   Five plan questions went to "open first" on their steps (4.9a(b) collar format, 4.14 MTL
   cascade, 4.19 pre-Fox referee boots) or "Issues" (DpFileList outside a deploying compile).
-  Acceptance 246 scenarios (2 withdrawn), 148 proven. Rulings `.tmp/review_rulings_S6.md`.
+  Acceptance 246 scenarios (2 withdrawn), 148 proven. Rulings `.tmp/review_queue_S/review_rulings_S6.md`.
 - **2026-10-05** — the maintainer answered four questions (decision entry): a collar in the
   other engine's format is converted (TC-CMN-09); sideload and test mode report
   `dpfilelist_missing` as a Warning (TC-OUT-18); a `Full` export keeps the rows of team
   players it does not compile; a referee folder is a player folder, so pre-Fox local boots
   ride in its `face.xml` (TC-REF-09). Test 2, a stripped player with no `BootsList`/
-  `GloveList` row, is ready for the maintainer (`.tmp/apptest/out_test2/GUIDE.txt`).
+  `GloveList` row, is ready for the maintainer (`.tmp/4_0/apptest/out_test2/GUIDE.txt`).
 - **2026-10-05** — more answers (decision entry): the PES 16 Common patch is treated as
   existing; `kitN` is FoxDen's on Fox; the stock collar sets need no confirmation (they were
   counted), so 4.9b waits only on where a collar's textures land; a refs export may hold
   shared boots and gloves, each linking referee's `k99XX`/`g99XX` (TC-REF-10). Test 3
-  (`.tmp/apptest/out_test3/`) checks the converted socks and collar 200 in game.
+  (`.tmp/4_0/apptest/out_test3/`) checks the converted socks and collar 200 in game.
 - **2026-10-05** — third set (decision entry): collars are models only, drawn with the kit
   texture (TC-CMN-08..10); multi-CPK keeps the seed rows; the `autopilot` root marker alone
   opts names in, the Fox patch carries motions, and a compile with nothing to patch backs the
@@ -4325,7 +4325,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     `.mtl` is a Common file is refused (decision entry).
   - **In-game tests run by the lead** (maintainer's authorization of 2026-10-08: PES 2017
     and 2021 on `E:` windowed, saves and game files backed up) through a Python harness,
-    `.tmp/ingame/game.py` (Sider then the game, not elevated; screenshots of the window's
+    `.tmp/4_0/ingame/game.py` (Sider then the game, not elevated; screenshots of the window's
     client area with `mss`; DirectInput keys with `pydirectinput`; `burst.py` tiles frames),
     every game-side change made and undone by a hashed install/revert script: Test 5b/5c
     settled the pre-Fox referee collar names (Issues, referee collars) and Test 4b the
@@ -4403,7 +4403,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     collar-worn as the `UniformParameter.bin` entries are on Fox, and the changed ones go out
     through the bins path (DECISIONS 2026-10-08). Next: 4.17 (cross-format conversion and
     source selection).
-  - **4.17-lead** (recon `.tmp/recon_4_17.md`, Opus, read-only): the step's text widened
+  - **4.17-lead** (recon `.tmp/4_17/recon_4_17.md`, Opus, read-only): the step's text widened
     (TC-MOD-26's PES 17 half, same-engine retargeting, the loss-code mapping, shared folders
     and links as slice f), the source-selection rulings logged (DECISIONS 2026-10-08), the
     template environment cubemap bundled with its provenance. Next: 4.17a (a Fox face
@@ -4481,3 +4481,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     (PES 18-21: a Common `.model` + `.mtl` converted in each linking player's Models task;
     per-kit `.model` sets; the pre-Fox Common texture path pointed at the Fox Common
     directory).
+- **2026-10-08** — `.tmp/` sorted (maintainer's request): one folder per subphase (`4_14a`
+  and `4_14b` under `4_14/`), `lead/` for the lead's live notes, `review_queue_S/` for the
+  S1-S6 review rounds, `reference/` for cup material; files with no step in their name went
+  by the subphase the log mentions most on their mtime day (about 550 of 2063 entries, so
+  some sit a step off). Every `.tmp/<name>` reference in the docs, `AGENTS.md`, the fixture
+  READMEs and `scripts/provenance/` repointed (85 + 7). Deleted as regenerable: every cargo
+  `target/` under `.tmp/` but the apptest tool's, and 4.7's laid-out timing exports and
+  outputs (`timing_build.py` rebuilds them): 5.9 GB of 7.0. What else can go is checked at
+  the end of the implementation work, not now. Scripts and the move list in `.tmp/sort_tmp/`.

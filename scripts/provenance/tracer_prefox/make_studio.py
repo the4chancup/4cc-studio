@@ -1,7 +1,7 @@
 """Migrate the pre-Fox tracer's old-layout source to the Studio layout by hand, for what
 `compile` handles: Players/20 - Fumos/, the team colors, and Kits/g1/ from 4.16.
 
-Writes .tmp/tracer_prefox/studio/jp Midcup Tracer/ (refuses to run when it exists).
+Writes .tmp/4_16/tracer_prefox/studio/jp Midcup Tracer/ (refuses to run when it exists).
 """
 
 import base64
@@ -9,7 +9,7 @@ import re
 import shutil
 from pathlib import Path
 
-HERE = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\tracer_prefox")
+HERE = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\4_16\tracer_prefox")
 # Pre-Fox kits compile from step 4.16a: until then a kit refused the whole export, so the twin
 # held none (the kit's rows were "not produced yet" in the parity test); since 4.16a it holds
 # `Kits/g1/`.

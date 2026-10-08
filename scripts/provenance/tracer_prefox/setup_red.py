@@ -1,10 +1,10 @@
-"""Copy Red to .tmp/tracer_prefox/red_run, configure it for the pre-Fox tracer (PES 17, no deploy, default bins), and stage the export."""
+"""Copy Red to .tmp/4_16/tracer_prefox/red_run, configure it for the pre-Fox tracer (PES 17, no deploy, default bins), and stage the export."""
 
 import shutil
 from pathlib import Path
 
 RED = Path(r"C:\Data\4cc\4cc aet compiler\4cc-aet-compiler-red")
-HERE = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\tracer_prefox")
+HERE = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\4_16\tracer_prefox")
 TARGET = HERE / "red_run"
 EXPORT = HERE / "old" / "jp Tracer"
 

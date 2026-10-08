@@ -50,7 +50,7 @@ consumer that justifies it (a crate, the CLI, the bindings, or a plan section na
 that reads a file format also gets a **census**: every file of that format on the maintainer's
 machine (found through the Everything index, archives opened) run through read, the semantic
 round trip and `check`, tallied by outcome, each failing class diagnosed before it is fixed or
-recorded as a refusal, and re-run after every fix with a regression check (`.tmp/model_census/`
+recorded as a refusal, and re-run after every fix with a regression check (`.tmp/2_20/model_census/`
 is the template). Fixtures and mutation runs only test the files someone thought to add; the
 first census, at 2.20g, found about 1900 community `.model` files the reader refused. A census of
 a bit-packed format also tallies the bits real records set that no schema field covers: a round
@@ -168,7 +168,7 @@ two attempts on the same premise have failed, the sidekick's included. **Batch, 
 renames, doc edits, one-file fixes with no new behavior are never reviewed on their own; their
 diffs ride along with the next (b) review, or with converge. Never more than one *scheduled*
 critique per step; the reactive one (d) is an escalation and is exempt from the ceiling. Hand the
-reviewer *pointers* (plan sections, file paths, a diff written to `.tmp/review.diff`, the
+reviewer *pointers* (plan sections, file paths, a diff written to `.tmp/lead/review.diff`, the
 acceptance IDs), never your own summary, which carries the assumptions it is there to catch. It
 returns every concern it found, ranked, each marked verified or suspected. Answer every one in the
 turn report: accepted → what changed; rejected → one line why. A concern silently dropped is the
@@ -363,7 +363,12 @@ remote half is running or uncollected. **A failed half is reported, never restar
 sidekick restarted the VPS half and waited on it although the local half had already tested
 every mutant). A brief that starts a whole-crate run says so.
 
-**An archived run keeps its summary, not its logs.** A run kept aside (in `.tmp/mutants_<step>_<what>/`, before
+**The session scratch `.tmp/` holds one folder per subphase** (`4_17/` for every 4.17 slice's
+briefs, reports, diffs, logs and probes; `lead/` for the lead's live notes; `reference/` for
+cup material; `review_queue_S/` for the S1-S6 review rounds), sorted that way on 2026-10-08
+after a flat top level had reached about two thousand files: a new scratch file goes in its
+step's folder. **An archived run keeps its summary, not its logs.** A run kept aside (in
+`.tmp/<subphase>/mutants_<step>_<what>/`, before
 the next run overwrites `mutants.out/`) copies only `*.txt` and `outcomes.json`, never the
 per-mutant `log/` or `remote/` trees: those are what reproduce a survivor, and a survivor is
 reproduced by re-running its mutant, not by reading a week-old log. Whole-folder copies had

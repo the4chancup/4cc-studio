@@ -1,7 +1,7 @@
 # Archive-source fixtures (step 3.8d)
 
 Written by the lead with Python's `zipfile` (fixed timestamps) and 7-Zip 7z.exe, from a script
-kept in the session scratch (`.tmp/make_source_fixtures.py`, not part of the repository).
+kept in the session scratch (`.tmp/3_8/make_source_fixtures.py`, not part of the repository).
 
 | File | Contents | For |
 |---|---|---|
@@ -10,10 +10,10 @@ kept in the session scratch (`.tmp/make_source_fixtures.py`, not part of the rep
 | `co Midcup Case.zip` | `players.txt` and `Players.txt` | TC-SRC-07: two names that fold to one |
 | `co Midcup Escape.zip` | `players.txt` and `../x` | TC-SRC-07: a path escaping the root |
 
-Added at step 3.9c, by the lead, from `.tmp/make_tracer_archives.py` (same tools; the eight files
+Added at step 3.9c, by the lead, from `.tmp/4_0/make_tracer_archives.py` (same tools; the eight files
 `../tracer/studio/egg Midcup Tracer/` held then, at the archive root; the `portrait.dds` it gained at
 step 4.2 is not in them, and the tests over these archives assert faces and kits only;
-rewritten at step 4.30 by `.tmp/make_tracer_archives_4_30.py`, the kit's icon file becoming the
+rewritten at step 4.30 by `.tmp/4_30/make_tracer_archives_4_30.py`, the kit's icon file becoming the
 empty marker `Kits/g1/icon_11`, every other entry's bytes kept):
 
 | File | Contents | For |
