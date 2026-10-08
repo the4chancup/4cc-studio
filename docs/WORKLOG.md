@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 next
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1765,7 +1765,44 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `Common/` models and `.common` links in the other format.
   Open for the maintainer here: which converted material of a collar becomes `uni_collar` and
   which `uni_shirts` (the stock referee collar uses `uni_shirts` alone; the recommendation for
-  slice e: the first material `uni_collar`, the rest `uni_shirts`), an in-game check.
+  slice e: the first material `uni_collar`, the rest `uni_shirts`), an in-game check; whether
+  the modded PES 15-17 exes substitute `dummy_kit` at
+  `model/character/uniform/common/<team>/dummy_kit.dds` for a converted face model (4.17a
+  points it there, where the legacy pre-Fox exports name it), an in-game check. Open for a
+  later slice: a converted FMDL in a folder with the member's own `face.xml` is silently not
+  compiled (the xml's references, `xml_model_unlisted`, `XmlFace::pack` and the
+  `model_material_undefined` comparison know `.model` files only; a plan ruling on how an xml
+  names a converted model and its `<stem>.mtl` comes first; analysis in
+  `.tmp/sk_4_17a_report.md` R3); a converted material whose base is the game's `dummy_bsm`
+  (Konami's `addon_oral.fmdl`) keeps its Fox path on pre-Fox (rule with slice c). GPT review
+  (c) queued: the two-crate 4.17a change (`model_convert` FMDL import's dummy rule,
+  `team_compiler` conversion), sections `pipeline.md` step 3 "Format conversion", DECISIONS
+  2026-10-08 (both 4.17 entries).
+  (a) done 2026-10-08 (`subset.rs`: an `.fmdl` with no `.model` of its path stem in the same
+  directory is `PreFoxModel` on pre-Fox (`FolderModels::pre_fox_model_stems`,
+  `converted_stems`), its paired `.skl` the new `PlayerFile::ConversionSkeleton`, every
+  exhaustive match extended; the gate's player walk skips a role-less `.fmdl`, `.skl` or
+  `.fclo` (commented as going with the gate at 4.20); an FMDL under `ingame_face` or in a
+  shared folder stays named (only the face converts); `TaskKind::files` lists the skeleton for
+  the face; new `processing/conversion.rs` `fmdl_for_pre_fox` (`convert` on a Fox bundle,
+  `model_conversion_failed` on error, `bone_folded_for_version` and `skeleton_retargeted`
+  reported with context `bone`/`bones`, the other loss codes dropped until slice c);
+  `prefox_face.rs` `FaceSource { Member, Converted }` so a converted `.model` never pairs a
+  member's `.mtl`, the set pointed by `point_materials` then `point_reserved_kit_stems`
+  (`dummy_kit*` to the team's Common directory) and packed as `<stem>.mtl`; `model_convert`
+  `is_game_dummy`: the FMDL import gives the game's `dummy_nrm`/`dummy_srm` no role (they stay
+  native samplers, a Fox round trip writes them back; `ir_to_model` reports no
+  `material_texture_unused` for them), so the oral legacy-reference test now matches the
+  legacy's `Basic_C` and sampler set; help; `tests/cli/conversion.rs` TC-MOD-27 (the tracer on
+  PES 17: four `.model` + `.mtl` pairs, FMDL meshes 3/3/1/1 to `.model` meshes 2/2/1/1, the
+  anti-blur mesh folded back, the `kit` material `Basic_C` with `DiffuseMap` alone at the team
+  Common `dummy_kit.dds`, no `/Assets/` path left), the PES 15 run reporting
+  `skeleton_retargeted bones=7` for the hair and the boots, a beaten FMDL silent, a corrupt
+  `.skl` failing the folder; `compile.rs` and `sideload.rs` flipped; one rework round (the
+  lead's ruling 5 premise wrong: the converted `.mtl` carried the Fox dummy paths; the
+  sidekick's import rule replaced the lead's, which broke Fox round trips); mutants: 92
+  (model_convert 17, team_compiler 75), 79 caught, 13 unviable (`Default::default()` on types
+  without one), 0 missed; `just bindings` green).
 
 - [x] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
   on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
@@ -4043,3 +4080,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     and links as slice f), the source-selection rulings logged (DECISIONS 2026-10-08), the
     template environment cubemap bundled with its provenance. Next: 4.17a (a Fox face
     converted for PES 17 through the face task).
+  - **4.17a done** (TC-MOD-27): on PES 15-17 a player's `.fmdl` with no `.model` twin is
+    converted through `model_convert` and packed by the face as a `.model` and `<stem>.mtl`,
+    its `.skl` the bind pose; the Fox tracer compiles whole for PES 17 and PES 15. The game's
+    dummy textures cross engines by rule (DECISIONS 2026-10-08): the FMDL import gives
+    `dummy_nrm`/`dummy_srm` no role, `dummy_kit*` is pointed at the team's Common directory.
+    Next: 4.17b (pre-Fox to Fox in the Models task, the selection rule on Fox).

@@ -186,9 +186,14 @@ pub fn fmdl_to_ir(
                 if sampler == "Base_Tex_LIN" {
                     base_linear = true;
                 }
+                // The game's dummy normal and specular maps stand for "no map": the role
+                // stays unset, so pre-Fox writes no sampler for it, and the sampler stays
+                // native, so a Fox export writes it back as the file had it (a material
+                // with a `fox` table gets no family dummies).
+                let dummy = super::is_game_dummy(&texture.directory, &texture.file_name);
                 match to_fox::role_for_sampler(sampler) {
                     // The first sampler a role gets wins; a second `Base_Tex_*` is native.
-                    Some(role) if !canonical.iter().any(|(seen, _)| *seen == role) => {
+                    Some(role) if !dummy && !canonical.iter().any(|(seen, _)| *seen == role) => {
                         canonical.push((role, texture_of(texture)));
                     }
                     _ => native.push((sampler.clone(), texture_of(texture))),

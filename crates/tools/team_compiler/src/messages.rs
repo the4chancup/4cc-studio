@@ -233,8 +233,14 @@ pub(crate) enum Code {
     /// A texture in a codec, or with a feature, `dds_convert` cannot convert in-process;
     /// discarded the same way.
     TextureCodecUnsupported,
-    /// A model the compiler must convert (today: a face model to hand auto-split) cannot be
-    /// read, converted or written back; its package is left out.
+    /// A used bone the target PES version's skeleton lacks had its weights transferred to the
+    /// fold table's (or nearest) bone, in a model converted for the target.
+    BoneFoldedForVersion,
+    /// A converted model's bind pose was re-bound from its source version's skeleton to the
+    /// target's (bones moved more than tolerance).
+    SkeletonRetargeted,
+    /// A model the compiler must convert (an FMDL for PES 15-17, or a face model to hand
+    /// auto-split) cannot be read, converted or written back; its package is left out.
     ModelConversionFailed,
     /// A model has a vertex more than 5000 units from the origin, which lags the game for the
     /// whole matchday; its folder is left out (a `Common/` model: the file), whatever
@@ -352,7 +358,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 111] = [
+    const ALL: [Code; 113] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -426,6 +432,8 @@ impl Code {
         Code::KitTextureTooBig,
         Code::TextureTypeMismatch,
         Code::TextureCodecUnsupported,
+        Code::BoneFoldedForVersion,
+        Code::SkeletonRetargeted,
         Code::ModelConversionFailed,
         Code::VertexTooFarFromOrigin,
         Code::ModelBroken,
@@ -542,6 +550,8 @@ impl Code {
             Code::KitTextureTooBig => "kit_texture_too_big",
             Code::TextureTypeMismatch => "texture_type_mismatch",
             Code::TextureCodecUnsupported => "texture_codec_unsupported",
+            Code::BoneFoldedForVersion => "bone_folded_for_version",
+            Code::SkeletonRetargeted => "skeleton_retargeted",
             Code::ModelConversionFailed => "model_conversion_failed",
             Code::VertexTooFarFromOrigin => "vertex_too_far_from_origin",
             Code::ModelBroken => "model_broken",
@@ -678,6 +688,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_texture_too_big", CatalogSeverity::Error),
     ("texture_type_mismatch", CatalogSeverity::Error),
     ("texture_codec_unsupported", CatalogSeverity::Error),
+    ("bone_folded_for_version", CatalogSeverity::Info),
+    ("skeleton_retargeted", CatalogSeverity::Info),
     ("model_conversion_failed", CatalogSeverity::Error),
     ("vertex_too_far_from_origin", CatalogSeverity::Error),
     ("model_broken", CatalogSeverity::Error),

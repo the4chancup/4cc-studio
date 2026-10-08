@@ -84,13 +84,18 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
             });
         }
         // The resolver carries nothing of the `fox` table: every native
-        // sampler or parameter it held is a loss worth reporting.
+        // sampler or parameter it held is a loss worth reporting, except the game's
+        // dummy maps, which stand for "no map" and so lose nothing here.
         if let Some(fox) = &material.fox {
-            for (name, _) in &fox.textures {
-                if !resolved
-                    .samplers
-                    .iter()
-                    .any(|(sampler, _, _)| sampler == name)
+            for (name, texture) in &fox.textures {
+                let texture = &ir.textures[*texture];
+                let dummy =
+                    super::super::fmdl::is_game_dummy(&texture.directory, &texture.file_name);
+                if !dummy
+                    && !resolved
+                        .samplers
+                        .iter()
+                        .any(|(sampler, _, _)| sampler == name)
                 {
                     findings.push(Finding {
                         code: "material_texture_unused",

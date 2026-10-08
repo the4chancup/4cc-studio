@@ -18,12 +18,12 @@ crates' `tests/fixtures/README.md`. Konami-derived files are Konami's, kept for 
 (`Engines.lib.convertFaceFolder` on a folder holding only the FMDL, 2026-09-14): the semantic
 reference the Fox→pre-Fox path is compared against. Its texture path is `./.dds` because the
 converter looks for the texture file next to the model and none was there; ours keeps the FMDL's
-path, so the comparison excludes the path. For the same reason its material is `Basic_C` with
-the diffuse sampler alone: the converter drops the normal and specular maps it cannot resolve on
-disk, while ours keeps the FMDL's `NormalMap_Tex_NRM`/`SpecularMap_Tex_LIN` and writes
-`Basic_CNS` with three samplers, as the plan's `Basic_*` ladder says. Geometry, bone matrix,
-states and the diffuse sampler's attributes are compared; the shader and sampler set are asserted
-as ours. The same run dropped `konami_highneck.fmdl` entirely
+path, so the comparison excludes the path. Its material is `Basic_C` with the diffuse sampler
+alone, and so is ours: the FMDL's `NormalMap_Tex_NRM`/`SpecularMap_Tex_LIN` name the game's
+`dummy_nrm`/`dummy_srm`, which stand for no map, so the import gives them no role and the
+`Basic_*` ladder stops at `C` (the converter dropped them for another reason, as maps it could
+not resolve on disk; the result is the same). Geometry, bone matrix, states, the shader, the
+sampler names and the diffuse sampler's attributes are compared. The same run dropped `konami_highneck.fmdl` entirely
 (its `translucent` shader is a decal the converter keeps only with a texture file present), so
 no highneck reference exists.
 

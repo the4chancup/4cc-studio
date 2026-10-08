@@ -1,6 +1,7 @@
 //! A player's pre-Fox face (`team_compiler/pipeline.md` "3. Per-model-folder parallel steps",
-//! steps 4, 6 and 7): his folder's `.model` files, and those of the shared face folder he
-//! links, packed under their `oral_<stem>_win32.model` names, the `.mtl` files with their
+//! steps 1, 4, 6 and 7): his folder's `.model` files, and those of the shared face folder he
+//! links, his `.fmdl` files converted to `.model` files with their material sets,
+//! packed under their `oral_<stem>_win32.model` names, the `.mtl` files with their
 //! texture paths pointed at his common folder (a texture link's at the team's Common output),
 //! and the generated `face.xml` typing every model, his `.common` links to a Common model
 //! included, his face diff as its `<dif>`. A per-kit model set is packed whole and listed once,
@@ -22,6 +23,7 @@ use pes_version::{Engine, PesVersion};
 use studio_core::Disposition;
 use vtree::ScopePath;
 
+use super::conversion::{PreFoxConversion, fmdl_for_pre_fox};
 use super::materialize::PackageFiles;
 use super::prefox_split::split_face_model;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
@@ -38,6 +40,7 @@ use crate::paths;
 use crate::plan::ModelFolder;
 use crate::plan::subset::{
     ModelPackage, PlayerFile, common_file, file_stem, in_folder_or_face, is_direct_common_file,
+    path_stem,
 };
 use crate::user_face_xml::{
     Child, FaceFiles, ModelElement, Reference, reference, resolve, variant_of,
@@ -47,8 +50,9 @@ use crate::user_face_xml::{
 /// none of it gets the dummy as its `face_neck`.
 const FACE_NECK: &str = "face_neck";
 
-/// One `.model` of the face, with the source folder it was found in: its `.mtl` is searched
-/// for there (`mtl_for`), a shared face's never in the player's folder.
+/// One `.model` of the face, or an `.fmdl` converted to one, with the source folder it was
+/// found in: its `.mtl` is searched for there (`mtl_for`), a shared face's never in the
+/// player's folder.
 struct FaceModel<'a> {
     /// The model file, or the `.common` link to a model of the team's Common output.
     file: &'a FileDescriptor,
@@ -62,10 +66,28 @@ struct FaceModel<'a> {
     /// Whether it is a link: the game loads the model from the team's Common output, and the
     /// face packs nothing of it.
     in_common: bool,
-    /// The `.mtl` its search finds from its source folder (`mtl_for`).
-    material: &'a FileDescriptor,
+    /// Where its packed bytes and its `.mtl` come from.
+    source: FaceSource<'a>,
     /// Its source folder's export path.
     source_path: &'a ScopePath,
+}
+
+/// Where a face model's packed bytes and its `.mtl` come from. One value carries both, so a
+/// converted `.model` is never packed with a member's `.mtl`, nor a member's with a converted
+/// one.
+enum FaceSource<'a> {
+    /// The member's own model, packed from its file (or split), named with the `.mtl` its
+    /// search finds from its source folder (`mtl_for`).
+    Member { material: &'a FileDescriptor },
+    /// An FMDL converted for the target (`fmdl_for_pre_fox`): the `.model` written, packed in
+    /// its place, and its material set, packed as `<stem>.mtl` (`converted_material_name`).
+    Converted(PreFoxConversion),
+}
+
+/// The name a converted model's material set is packed under: `<stem>.mtl`, the stem as the
+/// FMDL spells it.
+fn converted_material_name(stem: &str) -> String {
+    format!("{stem}.mtl")
 }
 
 /// A face model's place in a per-kit set the face holds (`kit_places`).
@@ -146,7 +168,11 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 /// The files of `folder`'s pre-Fox face, compiled from its files' bytes in `files` for team
 /// `team_id`, by their names in the face CPK: each `.model` under its packed name
 /// (`packed_model_name`) and an entry of the `face.xml`, in the order of the models' export
-/// paths, case-folded, each naming the `.mtl` its search finds from its own source folder; each
+/// paths, case-folded, each naming the `.mtl` its search finds from its own source folder; an
+/// `.fmdl` the face converts (`PlayerFile::PreFoxModel`) the same, as the `.model` its
+/// conversion writes (`fmdl_for_pre_fox`, the `.skl` of its path stem as the bind pose), named
+/// with the conversion's material set, packed as `<stem>.mtl` with its texture paths pointed as
+/// a `.mtl`'s below; each
 /// `.mtl` under its own name, every texture path naming one of the folder's textures by its
 /// stem pointed at the folder's texture home as that texture's DDS, and one naming a stem a
 /// texture link of the folder stands for at that texture in the team's Common output; and the
@@ -224,6 +250,12 @@ pub(super) fn face(
                  found for (`model_material_undefined`)",
             )
         };
+        // The skeletons of this source's FMDLs, each its FMDL's bind pose, paired by path stem.
+        let skeletons: Vec<&FileDescriptor> = source_roles
+            .iter()
+            .filter(|(_, role)| matches!(role, PlayerFile::ConversionSkeleton))
+            .map(|(file, _)| *file)
+            .collect();
         let mut packed_here = Vec::new();
         for (file, role) in source_roles {
             match role {
@@ -240,13 +272,33 @@ pub(super) fn face(
                         continue;
                     }
                     packed_here.push(key);
+                    let source = if file.kind == FileKind::Model(ModelFormat::Fmdl) {
+                        packed_here.push(vtree::fold_name(&converted_material_name(stem)));
+                        let path_fold = vtree::fold_name(path_stem(file));
+                        let skeleton = skeletons
+                            .iter()
+                            .find(|skeleton| vtree::fold_name(path_stem(skeleton)) == path_fold)
+                            .map(|skeleton| take(files, skeleton));
+                        let bytes = take(files, file);
+                        FaceSource::Converted(fmdl_for_pre_fox(
+                            file.path.name(),
+                            &bytes,
+                            skeleton.as_deref(),
+                            ctx,
+                            findings,
+                        )?)
+                    } else {
+                        FaceSource::Member {
+                            material: material_of(file),
+                        }
+                    };
                     models.push(FaceModel {
                         file,
                         stem: stem.to_owned(),
                         xml_type,
                         packed,
                         in_common: false,
-                        material: material_of(file),
+                        source,
                         source_path,
                     });
                 }
@@ -268,7 +320,9 @@ pub(super) fn face(
                         xml_type,
                         packed: packed_model_name(stem),
                         in_common: true,
-                        material: material_of(file),
+                        source: FaceSource::Member {
+                            material: material_of(file),
+                        },
                         source_path,
                     });
                 }
@@ -300,6 +354,8 @@ pub(super) fn face(
                 PlayerFile::CommonMaterial => {}
                 // Read after the sources, the first one (`own_xml`), by `user_xml_face`.
                 PlayerFile::FaceXml => {}
+                // Read with the FMDL it is the bind pose of, above.
+                PlayerFile::ConversionSkeleton => {}
                 // The Fox roles; a face file with no face model, which is not read; and an
                 // `ingame_face` player's part, which has no face.
                 PlayerFile::Model { .. }
@@ -343,15 +399,16 @@ pub(super) fn face(
         .iter()
         .zip(&kits)
         .map(|(model, kit)| {
-            let directory = if is_direct_common_file(&model.material.path) {
-                common_directory.as_str()
-            } else {
-                "./"
+            let (directory, name) = match &model.source {
+                FaceSource::Member { material } if is_direct_common_file(&material.path) => {
+                    (common_directory.as_str(), material.path.name().to_owned())
+                }
+                FaceSource::Member { material } => ("./", material.path.name().to_owned()),
+                FaceSource::Converted(_) => ("./", converted_material_name(&model.stem)),
             };
-            let name = model.material.path.name();
             let name = match kit {
-                KitPlace::Listed { kit } => listed_material(name, *kit),
-                KitPlace::Alone | KitPlace::Unlisted { .. } => name.to_owned(),
+                KitPlace::Listed { kit } => listed_material(&name, *kit),
+                KitPlace::Alone | KitPlace::Unlisted { .. } => name,
             };
             (directory, name)
         })
@@ -407,7 +464,25 @@ pub(super) fn face(
             entries.push(entry);
             continue;
         }
-        let bytes = take(files, model.file);
+        // A member's `.mtl` is packed below, with the face's other `.mtl` files; a converted
+        // model's material set is packed here, its texture paths pointed as a member's are.
+        let (bytes, member_material) = match model.source {
+            FaceSource::Member { material } => (take(files, model.file), Some(material)),
+            FaceSource::Converted(PreFoxConversion {
+                model: converted,
+                mut materials,
+            }) => {
+                point_materials(&mut materials, &places);
+                point_reserved_kit_stems(&mut materials, &common_directory);
+                insert(
+                    &mut contents,
+                    ModelPackage::Face,
+                    converted_material_name(&model.stem),
+                    materials.write(),
+                )?;
+                (converted, None)
+            }
+        };
         if !folder.hand_split.contains(&model.file.path) {
             if listed {
                 entries.push(entry);
@@ -415,10 +490,10 @@ pub(super) fn face(
             insert(&mut contents, ModelPackage::Face, model.packed, bytes)?;
             continue;
         }
-        // A split model's `.mtl` is read in place: it is packed below, with the face's other
-        // `.mtl` files, and taken there.
-        let Some(mtl) = files.get(&model.material.path) else {
-            return Err(TaskFailure {
+        // A split model's `.mtl` is read in place: a member's is taken below, a converted
+        // model's was packed above.
+        let mtl = match member_material {
+            Some(material) => files.get(&material.path).ok_or_else(|| TaskFailure {
                 code: Code::ModelConversionFailed,
                 context: vec![
                     ("model", model.file.path.name().to_owned()),
@@ -426,11 +501,14 @@ pub(super) fn face(
                         "error",
                         format!(
                             "its .mtl, {}, is a Common file, which the face does not read",
-                            model.material.path.as_str()
+                            material.path.as_str()
                         ),
                     ),
                 ],
-            });
+            })?,
+            None => contents
+                .get(&converted_material_name(&model.stem))
+                .expect("a converted model's material set is packed above"),
         };
         let split = split_face_model(model.file.path.name(), &bytes, mtl, ctx, findings)?;
         let gloves = [
@@ -855,6 +933,23 @@ fn point_materials(set: &mut MaterialSet, places: &[(&BTreeMap<String, String>, 
     });
 }
 
+/// Points every texture path of `set`, a converted model's material set, whose file stem is a
+/// reserved kit stem (`dummy_kit`, `dummy_kit_<role>`, case-folded) at `common_directory`, the
+/// team's Common texture directory, as `<stem>.dds`, the stem as spelled: the modded exes
+/// substitute the active kit's texture for that stem there, and the Fox directory a converted
+/// FMDL names means nothing to PES 15-17. A member's own `.mtl` already names the pre-Fox
+/// place and is emitted as written, so only a converted set goes through this.
+fn point_reserved_kit_stems(set: &mut MaterialSet, common_directory: &str) {
+    rewrite_texture_paths(set, |path| {
+        let stem = file_stem(&path.file_name);
+        let key = vtree::fold_name(stem);
+        if key == "dummy_kit" || key.starts_with("dummy_kit_") {
+            common_directory.clone_into(&mut path.directory);
+            path.file_name = format!("{stem}.dds");
+        }
+    });
+}
+
 /// Adds `bytes` to `contents`, the files of `package`, as `name`; a name already there is an
 /// error naming it, since the package holds one file of a name and dropping either would lose
 /// a model or its materials without a word.
@@ -921,6 +1016,74 @@ mod tests {
         let mut set = card_set_naming("other_kitN.dds");
         point_materials(&mut set, &places);
         assert_eq!(paths(&set), ["./other_kitN.dds"]);
+    }
+
+    #[test]
+    fn a_converted_material_set_is_pointed_as_a_member_s_mtl_its_fox_texture_name_included() {
+        // An FMDL names its textures as `.ftex` (or `.dds`) under a Fox directory; the stem
+        // alone decides where a path is pointed.
+        let set = card_set_naming("Skin.ftex");
+        let textures = BTreeMap::from([("skin".to_owned(), "Skin".to_owned())]);
+        let linked = BTreeMap::new();
+        let places = [(&textures, "home/"), (&linked, "common/")];
+        let path = ScopePath::new("Players/05 - A/face_high.mtl").unwrap();
+        let file = FileDescriptor {
+            size: 1,
+            kind: FileKind::Mtl,
+            source: path.clone(),
+            path,
+        };
+
+        let Ok(member) = rewritten_materials(&file, &set.write(), &places) else {
+            panic!("the member's `.mtl` reads");
+        };
+        let mut converted = set;
+        point_materials(&mut converted, &places);
+
+        assert_eq!(converted.write(), member);
+        assert_eq!(paths(&converted), ["home/Skin.dds"]);
+    }
+
+    #[test]
+    fn a_converted_model_s_reserved_kit_stem_is_pointed_at_the_team_s_common_directory() {
+        let fox_directory = "/Assets/pes16/model/character/common/000/sourceimages/";
+        let common = "model/character/uniform/common/792/";
+        // The card's `.mtl` with its one texture path under the Fox directory an FMDL names.
+        let fox_set = |file_name: &str| {
+            let mut set = card_set_naming(file_name);
+            rewrite_texture_paths(&mut set, |path| {
+                fox_directory.clone_into(&mut path.directory)
+            });
+            set
+        };
+        for (file_name, pointed) in [
+            ("dummy_kit.dds", "dummy_kit.dds"),
+            ("Dummy_Kit_SRM.ftex", "Dummy_Kit_SRM.dds"),
+        ] {
+            let mut set = fox_set(file_name);
+            point_reserved_kit_stems(&mut set, common);
+            assert_eq!(paths(&set), [format!("{common}{pointed}")]);
+        }
+        // The game's other dummies, and a stem that only starts alike, are not reserved.
+        for file_name in ["dummy_bsm.dds", "dummy_kitten.dds"] {
+            let mut set = fox_set(file_name);
+            point_reserved_kit_stems(&mut set, common);
+            assert_eq!(paths(&set), [format!("{fox_directory}{file_name}")]);
+        }
+        // A member's own `.mtl` keeps a reserved stem's path as written.
+        let textures = BTreeMap::new();
+        let places = [(&textures, "home/"), (&textures, common)];
+        let path = ScopePath::new("Players/05 - A/face_high.mtl").unwrap();
+        let file = FileDescriptor {
+            size: 1,
+            kind: FileKind::Mtl,
+            source: path.clone(),
+            path,
+        };
+        let Ok(member) = read_materials(&file, &fox_set("dummy_kit.dds").write(), &places) else {
+            panic!("the member's `.mtl` reads");
+        };
+        assert_eq!(paths(&member), [format!("{fox_directory}dummy_kit.dds")]);
     }
 
     #[test]

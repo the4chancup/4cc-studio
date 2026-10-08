@@ -17,6 +17,22 @@ pub use super::Imported;
 pub use export::{ExportedFox, ir_to_fmdl};
 pub use import::fmdl_to_ir;
 
+/// The directory the game's dummy normal and specular maps live in (the same dummies the
+/// anti-blur materials use).
+const TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/common/sourceimages/";
+
+/// Whether a texture is the game's dummy normal or specular map: a file in
+/// `TEXTURE_DIRECTORY` whose stem, case-folded, is `dummy_nrm` or `dummy_srm`, whatever its
+/// extension (Konami's own models name `.tga`, the export writes `.dds`). These stand for
+/// "no map" and mean nothing to PES 15-17.
+pub(crate) fn is_game_dummy(directory: &str, file_name: &str) -> bool {
+    let stem = file_name
+        .rsplit_once('.')
+        .map_or(file_name, |(stem, _)| stem);
+    directory == TEXTURE_DIRECTORY
+        && (stem.eq_ignore_ascii_case("dummy_nrm") || stem.eq_ignore_ascii_case("dummy_srm"))
+}
+
 /// The bind pose `name` carries in PES21's template tables, body first then face and hands.
 fn template_matrix(name: &str) -> Option<Affine> {
     skeletons::version_bone(skeletons(PesVersion::Pes21), name).map(|bone| bone.matrix)

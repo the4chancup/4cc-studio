@@ -596,6 +596,62 @@ fn missing_maps_get_the_game_dummies() {
 }
 
 #[test]
+fn the_game_s_dummy_maps_import_as_the_role_absent_and_export_again_unchanged() {
+    let mut ir = minimal_ir();
+    ir.textures = vec![Texture {
+        directory: "./".to_string(),
+        file_name: "t.dds".to_string(),
+    }];
+    ir.materials[0].textures = vec![(TextureRole::Base, 0)];
+    let first = ir_to_fmdl(&ir).expect("export").model;
+    let imported = fmdl_to_ir(&first, None).expect("import").model;
+    let material = &imported.materials[0];
+    assert_eq!(material.textures, vec![(TextureRole::Base, 0)]);
+    // The dummies stay native samplers, which only a Fox export writes.
+    assert_eq!(
+        material.fox.as_ref().expect("fox").textures,
+        vec![
+            ("NormalMap_Tex_NRM".to_string(), 1),
+            ("SpecularMap_Tex_LIN".to_string(), 2),
+        ]
+    );
+    let second = ir_to_fmdl(&imported).expect("export again").model;
+    assert_eq!(second.materials[0].textures, first.materials[0].textures);
+}
+
+#[test]
+fn a_dummy_map_is_the_game_s_by_directory_and_stem_whatever_the_case_and_extension() {
+    let texture = |directory: &str, file_name: &str| ::fmdl::Texture {
+        file_name: file_name.to_string(),
+        directory: directory.to_string(),
+    };
+    let game = "/Assets/pes16/model/character/common/sourceimages/";
+    let mut inst = instance("mat");
+    inst.textures = vec![
+        ("Base_Tex_SRGB".to_string(), texture("./", "t.dds")),
+        (
+            "NormalMap_Tex_NRM".to_string(),
+            texture(game, "Dummy_NRM.tga"),
+        ),
+        (
+            "SpecularMap_Tex_LIN".to_string(),
+            texture("./", "dummy_srm.dds"),
+        ),
+    ];
+    let imported = fmdl_to_ir(&fmdl_model(fmdl_mesh(0, 0), vec![inst]), None).expect("import");
+    let material = &imported.model.materials[0];
+    // A member's own `dummy_srm` beside the model is a real texture.
+    assert_eq!(
+        material.textures,
+        vec![(TextureRole::Base, 0), (TextureRole::Specular, 2)]
+    );
+    assert_eq!(
+        material.fox.as_ref().expect("fox").textures,
+        vec![("NormalMap_Tex_NRM".to_string(), 1)]
+    );
+}
+
+#[test]
 fn one_instance_two_flag_sets_splits() {
     let mesh = |alpha| ::fmdl::Mesh {
         vertices: ::fmdl::format::MeshVertices {

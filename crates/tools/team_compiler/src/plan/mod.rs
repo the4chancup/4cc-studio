@@ -331,7 +331,8 @@ impl ModelFolder {
                     | PlayerFile::PreFoxCommonModel { .. }
                     | PlayerFile::Material
                     | PlayerFile::CommonMaterial
-                    | PlayerFile::FaceXml => None,
+                    | PlayerFile::FaceXml
+                    | PlayerFile::ConversionSkeleton => None,
                 };
                 if let Some(packs_as) = packs_as {
                     if packed.contains(&packs_as) {
@@ -558,7 +559,8 @@ impl TaskKind {
 
     /// Every file the task reads from its export: a package's models (a `.common` link's
     /// Common model and skeleton, never the link) and the files packed beside them, the Fox
-    /// gloves' also the folder's hand-split face parts, whose hands they take; a folder's
+    /// gloves' also the folder's hand-split face parts, whose hands they take, the pre-Fox
+    /// face's also the skeleton of each FMDL it converts; a folder's
     /// textures; the Common textures; the Common models and `.mtl` files (pre-Fox); a
     /// portrait's one file; a kit's config and `colors.txt`,
     /// when it has them, and its effective textures; the logo's main file and its small one,
@@ -588,6 +590,9 @@ impl TaskKind {
                     // of his gloves (`PlayerFile::PreFoxPart`).
                     || (matches!(role, PlayerFile::Material)
                         && (*package == source || source_path == &folder.path))
+                    // The face converts the FMDL the skeleton is the bind pose of.
+                    || (matches!(role, PlayerFile::ConversionSkeleton)
+                        && *package == ModelPackage::Face)
             }),
             TaskKind::Textures { folder, .. } => folder_files(folder, |_, _, _, role| {
                 matches!(role, PlayerFile::Texture(..))
@@ -1369,7 +1374,8 @@ fn common_models(
                 | PlayerFile::Material
                 | PlayerFile::PreFoxCommonModel { .. }
                 | PlayerFile::CommonMaterial
-                | PlayerFile::FaceXml => return None,
+                | PlayerFile::FaceXml
+                | PlayerFile::ConversionSkeleton => return None,
             };
             let linked = common_link_name(file.path.name())
                 .expect("a model link's role implies a `.common` link name");
@@ -3134,6 +3140,43 @@ mod tests {
         );
         // PES 15-17 have no player tables to point a player at his boots.
         assert_eq!(report.manifest.item_rows, []);
+    }
+
+    #[test]
+    fn a_pre_fox_face_reads_the_skeleton_of_each_fmdl_it_converts_and_not_the_fclo() {
+        let export = resolved(
+            "co Midcup Convert",
+            &[
+                ("Players/05 - A/face_diff.bin", 1),
+                ("Players/05 - A/fcl_hair.fmdl", 4),
+                ("Players/05 - A/fcl_hair.skl", 2),
+                ("Players/05 - A/fcl_hair_sim.fclo", 8),
+                ("Players/05 - A/shirt.dds", 16),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes17,
+        );
+
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/05 - A [71405] charge 7",
+                "0 714 textures Players/05 - A charge 16",
+            ]
+        );
+        assert_eq!(
+            task_files(&report.manifest.tasks[0]),
+            [
+                "Players/05 - A/face_diff.bin",
+                "Players/05 - A/fcl_hair.fmdl",
+                "Players/05 - A/fcl_hair.skl",
+            ]
+        );
     }
 
     #[test]

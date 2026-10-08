@@ -12,6 +12,7 @@ mod collars;
 mod common_links;
 mod compile;
 mod compile_exports;
+mod conversion;
 mod dds_compression;
 mod deep;
 mod deploy;

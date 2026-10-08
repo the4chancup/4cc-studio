@@ -5110,3 +5110,24 @@ SKL rule keeps the generated skeleton from being a new case. Converting before t
 the split code engine-native at the cost of a second IR round trip, milliseconds.
 Plan: `team_compiler/pipeline.md` step 3 "Format conversion"; `model_conversion/ir.md`
 "Unskinned meshes on Fox".
+
+## 2026-10-08 — model_convert, team_compiler — The game's dummy textures cross engines by rule, not by path
+Decision: the FMDL import reads the Fox `dummy_nrm`/`dummy_srm` textures (the stems, under
+the game's `/Assets/pes16/model/character/common/sourceimages/`) as the role absent, so a
+converted `shaded` material gets no normal or specular sampler on pre-Fox and the `Basic_*`
+rung its real textures give; their samplers stay in the material's Fox native table, so a
+Fox-to-Fox round trip (the hand split, same-engine retargeting) writes them back exactly as
+the file had them, and dropping them on pre-Fox is no `material_texture_unused`. (The first
+wording, "restored through the family defaults", was wrong: the export adds the family
+dummies only to a material with no Fox table, and an imported material always has one.) A
+converted model's sampler naming a reserved `dummy_kit*` stem is pointed at the team's Common
+texture directory on pre-Fox, where a member's own `.mtl` names it.
+Why: 4.17a's first run wrote every converted `.mtl` with `Basic_CNS` and the three Fox dummy
+paths verbatim, which PES 15-17 cannot resolve: the plan already said those two textures are
+reached only through family defaults and that pre-Fox has no sampler for a missing map, but the
+import had no rule for them. The legacy pre-Fox exports name `dummy_kit` as
+`model/character/uniform/common/XXX/dummy_kit.dds` (Tenshi's and mrsafetycar's `.mtl`), so
+that directory is the target's convention. Whether the modded PES 15-17 exes substitute the
+stem at that path for a face model is for the maintainer to confirm in game.
+Plan: `team_compiler/pipeline.md` step 3 "Format conversion", the last sentences;
+`model_format.md` "Textures" already gives the pre-Fox fallbacks.

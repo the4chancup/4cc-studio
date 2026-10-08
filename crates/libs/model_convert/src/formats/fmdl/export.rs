@@ -7,11 +7,7 @@ use crate::materials::{MaterialFamily, to_fox, to_prefox};
 use crate::skeletons;
 
 use super::super::ConvertError;
-use super::template_matrix;
-
-/// The directory the game's dummy normal and specular maps live in (the same dummies the
-/// anti-blur materials use).
-const TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/common/sourceimages/";
+use super::{TEXTURE_DIRECTORY, template_matrix};
 
 /// A model exported to FMDL: the companion SKL only when a bone unknown to the template
 /// tables survives (a model on the standard skeleton gets none; the compiler injects the

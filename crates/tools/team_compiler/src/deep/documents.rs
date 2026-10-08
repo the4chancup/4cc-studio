@@ -57,7 +57,8 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
         | PlayerFile::PreFoxCommonModel { .. }
         | PlayerFile::Material
         | PlayerFile::CommonMaterial
-        | PlayerFile::FaceXml => None,
+        | PlayerFile::FaceXml
+        | PlayerFile::ConversionSkeleton => None,
     }
 }
 

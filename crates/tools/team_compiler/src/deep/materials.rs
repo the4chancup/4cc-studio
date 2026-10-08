@@ -177,7 +177,8 @@ pub(super) fn held_stems(
             | PlayerFile::PreFoxCommonModel { .. }
             | PlayerFile::CommonMaterial
             | PlayerFile::FaceXml
-            | PlayerFile::UnusedFaceFile => None,
+            | PlayerFile::UnusedFaceFile
+            | PlayerFile::ConversionSkeleton => None,
         })
         .collect()
 }

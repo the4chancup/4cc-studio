@@ -331,7 +331,15 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    that stem would (the slot's skeleton, the merge rules, `skl_no_slot` for a slotless role),
    so a generated skeleton is not a new case. A model with hand weights is converted first and
    split in the target's format as a native one is: the split code stays engine-native at the
-   cost of a second IR round trip, milliseconds.
+   cost of a second IR round trip, milliseconds. The game's own textures cross engines by
+   rule, not by path: the Fox `dummy_nrm`/`dummy_srm` an FMDL names are no texture at all (the
+   FMDL import reads them as the role absent, `model_format.md` "Textures": pre-Fox has no
+   sampler for a missing normal or specular map, so a converted `shaded` material takes the
+   `Basic_*` rung its real textures give), and a reserved `dummy_kit*` stem is pointed at the
+   target's convention, on pre-Fox the team's Common texture directory
+   (`model/character/uniform/common/<team>/dummy_kit.dds`, where a member's own pre-Fox `.mtl`
+   names it with `XXX` for the team), since the Fox directory means nothing to PES 15-17 and
+   the modded exes substitute the stem there.
 2. **ID replacement** — dummy team IDs are replaced in file contents (FMDL texture path tables via
    the `fmdl` crate's texture-path rewriting, `ops::paths::rewrite_texture_paths`; `.mtl` texture
    IDs pre-Fox) and in file names.

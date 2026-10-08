@@ -361,6 +361,20 @@ mod tests {
     #[test]
     fn fox_oral_to_pes16_matches_the_legacy_reference() {
         let converted = convert(fox(ORAL), PesVersion::Pes16).expect("convert");
+        // The game's dummy normal and specular maps the FMDL names stand for no map, so
+        // leaving them out of the `.mtl` loses nothing (no `material_texture_unused`).
+        assert_eq!(
+            codes(&converted.findings),
+            vec![
+                ("native_field_dropped", Subject::Model, "bone_matrices"),
+                (
+                    "native_field_dropped",
+                    Subject::Material(0),
+                    "no_shadow_cast"
+                ),
+                ("native_field_dropped", Subject::Material(0), "invisible"),
+            ]
+        );
         let NativeModelBundle::PreFox { model, mtl } = converted.bundle else {
             panic!("expected a pre-Fox bundle");
         };
@@ -422,14 +436,15 @@ mod tests {
             }
         }
 
-        // The material: the `Basic_*` ladder follows the roles present — `Basic_CNS`
-        // because the FMDL's Normal/Specular maps are kept (the legacy wrote `Basic_C`
-        // because its run had no texture files to resolve; tests/fixtures/README.md). The
-        // seven states and DiffuseMap's three attributes equal the legacy's; the path is
+        // The material: the FMDL's Normal/Specular maps are the game's dummies, which
+        // stand for no map, so the `Basic_*` ladder gives `Basic_C` with the diffuse
+        // sampler alone, as the legacy wrote. The shader, the sampler names, the seven
+        // states and DiffuseMap's three attributes equal the legacy's; the path is
         // excluded by design.
         let mat = mtl.materials.first().expect("a material");
         let legacy_mat = legacy_mtl.materials.first().expect("a legacy material");
-        assert_eq!(mat.shader, "Basic_CNS");
+        assert_eq!(mat.shader, legacy_mat.shader);
+        assert_eq!(mat.shader, "Basic_C");
         fn sampler<'a>(
             m: &'a ::pes_model::format::mtl::Material,
             name: &str,
@@ -439,14 +454,22 @@ mod tests {
                 _ => None,
             })
         }
-        for (name, file) in [
-            ("DiffuseMap", "dummy_bsm.dds"),
-            ("NormalMap", "dummy_nrm.dds"),
-            ("SpecularMap", "dummy_srm.dds"),
-        ] {
-            let s = sampler(mat, name).expect(name);
-            assert!(s.path.ends_with(file), "{name}: {}", s.path);
-        }
+        let sampler_names = |m: &::pes_model::format::mtl::Material| -> Vec<String> {
+            m.entries
+                .iter()
+                .filter_map(|e| match e {
+                    ::pes_model::format::mtl::MaterialEntry::Sampler(s) => Some(s.name.clone()),
+                    _ => None,
+                })
+                .collect()
+        };
+        assert_eq!(sampler_names(mat), sampler_names(legacy_mat));
+        let diffuse = sampler(mat, "DiffuseMap").expect("DiffuseMap");
+        assert!(
+            diffuse.path.ends_with("dummy_bsm.dds"),
+            "DiffuseMap: {}",
+            diffuse.path
+        );
         let states = |m: &::pes_model::format::mtl::Material| -> BTreeSet<(String, u32)> {
             m.entries
                 .iter()

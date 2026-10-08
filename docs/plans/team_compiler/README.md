@@ -817,7 +817,10 @@ TC-MOD-26  GIVEN slot 05 holding boots.fmdl posed for PES 21 and boots.model pos
 TC-MOD-27  GIVEN the tracer export (a Fox face: fcl_hair.fmdl)
            WHEN it is compiled for PES 17
            THEN the face CPK holds a .model and .mtl pair the pes_model reader accepts with the
-                FMDL's mesh count, and textures as DDS
+                FMDL's mesh count less its anti-blur meshes (folded back into their source
+                material), the .mtl naming the folder's textures as DDS under the player's
+                texture home and its dummy_kit texture under the team's Common directory,
+                with no sampler for the Fox dummy normal and specular maps
 TC-MOD-28  GIVEN slot 05 holding boots.glb, boots.model and skin.png, and another folder
            holding boots.glb beside boots.fmdl
            WHEN each export is compiled for PES 21, then checked

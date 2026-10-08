@@ -522,24 +522,37 @@ fn a_refs_export_needs_no_coverage_tag() {
 }
 
 #[test]
-fn a_pre_fox_compile_skips_an_export_of_fox_models_naming_the_first() {
+fn a_pre_fox_compile_converts_an_export_of_fox_models() {
     let sandbox = Sandbox::new("pre_fox_compile");
     sandbox.copy_tracer("egg Midcup Tracer");
 
-    let run = sandbox.run("[common]\npes_version = 17\n", &["compile", "--no-deploy"]);
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
-    // A pre-Fox target builds a player's `.model` files; converting an `.fmdl` is a later
-    // step's.
+    // A pre-Fox target converts a player's `.fmdl` files for his face (TC-MOD-27 has what
+    // the face holds): the whole export compiles.
     assert!(
-        lines.contains(
-            &"egg Midcup Tracer: Error content_not_yet_compiled [DropExport] (what=Players/05 - The Chad Stormworks Player/boots.fmdl)"
-                .to_owned()
-        ),
+        lines
+            .iter()
+            .all(|line| !line.contains("content_not_yet_compiled")),
         "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 1);
-    assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let mut paths = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"));
+    paths.sort();
+    assert_eq!(
+        paths,
+        [
+            "common/character0/model/character/face/real/79205.cpk",
+            "common/character0/model/character/uniform/team/792/792_DEF_GK1st_realUni.bin",
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            "common/character0/model/character/uniform/texture/u0792g1.dds",
+            "common/character0/model/character/uniform/texture/u0792g1_mask.dds",
+            "common/character1/model/character/uniform/common/792/05 - The Chad Stormworks Player/shirt.dds",
+            "common/etc/TeamColor.bin",
+            "common/render/symbol/player/player_79205.dds",
+        ]
+    );
 }
 
 #[test]

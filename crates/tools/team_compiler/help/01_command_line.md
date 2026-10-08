@@ -255,7 +255,12 @@ cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` 
 their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a `.mtl` or a
 texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
 only `.model`, `.mtl` and texture files, the kits, its `.model` collars, and the portraits and
-the logo; `.fmdl` files and referee exports are named. For
+the logo, and a player's `.fmdl` models converted to `.model` files with their materials;
+`.glb`/`.gltf` and referee exports are named. A `.fmdl` beside a `.model` of the same name is
+left out for the `.model`, the `.skl` of a converted model's name gives its pose, and
+`fcl_hair_sim.fclo` is not used. A converted model moved onto that version's skeleton is noted
+as `skeleton_retargeted`, and one that cannot be converted leaves its player folder out with
+`model_conversion_failed`. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
 or content other than a player's

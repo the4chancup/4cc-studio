@@ -163,19 +163,17 @@ fn sideload_is_refused_for_pes_2015_and_2016_and_writes_livecpk_for_pes_2017() {
     let sandbox = with_livecpk("sideload_pes17");
     let run = sideload(&sandbox, &pes_settings(&sandbox, 17));
 
-    // The tracer is Fox content, which a PES 2017 compile does not build yet: the gate names
-    // its first `.fmdl`.
-    assert!(
-        run.messages().iter().any(|line| line.ends_with(
-            "Error content_not_yet_compiled [DropExport] (what=Players/05 - The Chad Stormworks Player/boots.fmdl)"
-        )),
-        "{:#?}",
-        run.messages()
-    );
-    assert_eq!(run.exit_code(), 1);
+    // The tracer's Fox models are converted for PES 2017's face: the export compiles, and
+    // its player's face CPK is written with the rest.
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     let written = livecpk(&sandbox);
     assert_eq!(written[TEAM_COLOR], TEAM_COLOR_OVERRIDE);
     assert!(!written.contains_key("old.txt"));
+    assert!(
+        written.contains_key("common/character0/model/character/face/real/79205.cpk"),
+        "{:?}",
+        written.keys()
+    );
 }
 
 #[test]

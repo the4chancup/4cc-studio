@@ -154,7 +154,8 @@ pub(super) fn package(
                 | PlayerFile::PreFoxCommonModel { .. }
                 | PlayerFile::Material
                 | PlayerFile::CommonMaterial
-                | PlayerFile::FaceXml => {}
+                | PlayerFile::FaceXml
+                | PlayerFile::ConversionSkeleton => {}
             }
         }
         for part in &mut source_parts {

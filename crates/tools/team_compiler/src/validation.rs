@@ -612,7 +612,8 @@ fn file_role_messages(
                 | PlayerFile::PreFoxCommonModel { .. }
                 | PlayerFile::Material
                 | PlayerFile::CommonMaterial
-                | PlayerFile::FaceXml,
+                | PlayerFile::FaceXml
+                | PlayerFile::ConversionSkeleton,
             )
             | None => continue,
         };
@@ -845,15 +846,11 @@ mod tests {
                 "Info face_file_not_used [Keep] at Players/05 - B (file=fcl_hair_sim.fclo)",
             ]
         );
-        // Pre-Fox gives an `.fmdl` no role (a later step converts it) and a `.fclo` none, so
-        // every folder's face diff is unused and the simulation file is not reported.
+        // Pre-Fox converts an unmarked folder's `.fmdl` for the face, which uses its face
+        // diff, and gives a `.fclo` no role, so the simulation file is not reported.
         assert_eq!(
             names(&export, PesVersion::Pes17),
-            [
-                "Info face_file_not_used [Keep] at Players/03 - A (file=face_diff.bin)",
-                "Info face_file_not_used [Keep] at Players/05 - B (file=face_diff.xml)",
-                "Info face_file_not_used [Keep] at Players/07 - C (file=face_diff.bin)",
-            ]
+            ["Info face_file_not_used [Keep] at Players/03 - A (file=face_diff.bin)"]
         );
     }
 

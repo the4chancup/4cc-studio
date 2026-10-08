@@ -2,6 +2,7 @@
 //! steps", "4. Per-export non-model steps"): its source files, already read, converted and
 //! placed by `materialize` as the entries the task commits, whole or not at all.
 
+mod conversion;
 mod kit;
 mod kit_layout;
 mod materialize;
