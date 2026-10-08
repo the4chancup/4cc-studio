@@ -12,6 +12,7 @@ pub(crate) mod installed;
 pub(crate) mod kit_configs;
 pub(crate) mod player_tables;
 
+use std::collections::BTreeMap;
 use std::ops::Range;
 
 use anyhow::{Context, ensure};
@@ -368,6 +369,14 @@ pub(crate) struct WorkingBins {
     /// `PlayerAppearance.bin`'s bytes, whole 60-byte rows, as `boots_list`: it passes through
     /// unchanged.
     pub(crate) player_appearance: Option<Vec<u8>>,
+    /// PES 15-17's loose kit configs (`kit_configs::loose_kit_configs`), by entry name
+    /// (`714_DEF_1st_realUni.bin`), unwrapped: every `.bin` in a team's folder under
+    /// `uniform/team/` of the installed CPKs, the nearest CPK's copy of each. A `Midcup`
+    /// export edits those of the kits it does not resend, which are known only once the run is
+    /// planned, after the walk; the walk gathers them as it passes, since a second walk would
+    /// reopen every CPK for a few 120-byte files. A `Full` export never uses them. Empty on Fox,
+    /// whose kit configs are `uniform_parameter`'s entries, and when no walk is made.
+    pub(crate) loose_kit_configs: BTreeMap<String, Vec<u8>>,
 }
 
 impl WorkingBins {
@@ -386,6 +395,7 @@ impl WorkingBins {
             boots_list: None,
             glove_list: None,
             player_appearance: None,
+            loose_kit_configs: BTreeMap::new(),
         }
     }
 }

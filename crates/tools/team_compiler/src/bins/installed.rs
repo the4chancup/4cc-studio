@@ -8,8 +8,9 @@
 //! run writes one, since the run replaces it (`pipeline.md` "5. Writer", step 5). The same
 //! walk keeps every entry path of those CPKs, for the texture lookup (`pipeline.md` "Resolved
 //! decisions", "A texture a model names must exist"), which `check` makes too, reading no bin.
+//! On PES 15-17 it also gathers the loose kit configs (`WorkingBins::loose_kit_configs`).
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs::{self, File};
 use std::io::{self, BufReader};
 use std::path::{Path, PathBuf};
@@ -198,10 +199,20 @@ pub(crate) fn working_bins(
         .into_iter()
         .map(|bin| Wanted { bin, found: None })
         .collect();
+    // Only PES 15-17 keep a kit config as a loose file; Fox's are `UniformParameter.bin`'s
+    // entries.
+    let gathers_loose_kit_configs = match version.engine() {
+        Engine::Fox => false,
+        Engine::PreFox => true,
+    };
     let mut messages = Vec::new();
     let mut bins = WorkingBins::bundled(version, templates);
     let walked = walk(pes_folder, cpk_stem, refs, |cpk, name| {
-        take_bins(cpk, name, &mut wanted, &mut bins)
+        take_bins(cpk, name, &mut wanted, &mut bins)?;
+        if gathers_loose_kit_configs {
+            take_loose_kit_configs(cpk, &mut bins.loose_kit_configs)?;
+        }
+        Ok(())
     })?;
     let installed = match walked {
         Walk::NotMade => InstalledPaths::Unknown,
@@ -377,6 +388,46 @@ fn take_bins(
         wanted.found = Some(name.to_owned());
     }
     Ok(())
+}
+
+/// Takes into `configs`, by entry name, each loose kit config `cpk` holds whose name is not
+/// there yet, unwrapped when it is WESYS-compressed: the walk goes nearest CPK first, so the
+/// copy kept is the one the game loads. A config is not parsed here; one that does not decode
+/// is reported only if an edit needs it (`kit_configs::loose_kit_configs`).
+fn take_loose_kit_configs(
+    cpk: &mut InstalledCpk,
+    configs: &mut BTreeMap<String, Vec<u8>>,
+) -> anyhow::Result<()> {
+    let new: Vec<_> = cpk
+        .entries()
+        .iter()
+        .filter_map(|entry| {
+            let name = loose_kit_config_name(&entry.path)?;
+            (!configs.contains_key(name)).then(|| (name.to_owned(), entry.clone()))
+        })
+        .collect();
+    for (name, entry) in new {
+        let path_in_cpk = &entry.path;
+        let bytes = cpk
+            .read(&entry)
+            .with_context(|| format!("cannot read {path_in_cpk}"))?;
+        let bytes = wezlib::decompress_if_wrapped(&bytes)
+            .with_context(|| format!("cannot unwrap {path_in_cpk}"))?
+            .into_owned();
+        configs.insert(name, bytes);
+    }
+    Ok(())
+}
+
+/// The entry name of the loose kit config at `path` in a CPK, a `.bin` in a team's folder
+/// under `paths::TEAM_KIT_CONFIGS` (`paths::kit_config`); `None` for any other path, the
+/// referee kit configs' folder and the bins beside the team folders among them.
+fn loose_kit_config_name(path: &str) -> Option<&str> {
+    let (team_id, name) = path
+        .strip_prefix(paths::TEAM_KIT_CONFIGS)?
+        .split_once('/')?;
+    let is_team_folder = !team_id.is_empty() && team_id.bytes().all(|byte| byte.is_ascii_digit());
+    (is_team_folder && name.ends_with(".bin") && !name.contains('/')).then_some(name)
 }
 
 #[cfg(test)]
@@ -954,6 +1005,55 @@ mod tests {
         .unwrap();
         assert!(bins.uniform_parameter.is_none());
         assert_eq!(messages, all_bundled()[..2]);
+    }
+
+    #[test]
+    fn the_walk_gathers_the_nearest_loose_kit_configs_on_pes_17_and_none_on_pes_21() {
+        let temp = scratch("installed_loose_kit_configs");
+        let pes = temp.path();
+        install_list(
+            pes,
+            &["4cc_08_bins.cpk", "4cc_61_midcup.cpk", "4cc_99_test.cpk"],
+        );
+        let p1 = paths::kit_config(714, "714_DEF_1st_realUni.bin");
+        let p2 = paths::kit_config(714, "714_DEF_2nd_realUni.bin");
+        let wrapped = wezlib::compress(&[2; 120]);
+        install_cpk(
+            pes,
+            "4cc_08_bins.cpk",
+            &[
+                (&p1, &[8; 120]),
+                (&p2, &wrapped),
+                // Beside the team folders, and the referees' folder: no team's loose config.
+                (paths::UNI_COLOR, &uni_color_bin(8)),
+                (
+                    "common/character0/model/character/uniform/team/referee/referee_DEF_1.bin",
+                    &[9; 120],
+                ),
+                // In a team folder, but no `.bin`.
+                (
+                    "common/character0/model/character/uniform/team/714/notes.txt",
+                    b"notes",
+                ),
+            ],
+        );
+        install_cpk(pes, "4cc_61_midcup.cpk", &[(&p1, &[61; 120])]);
+        let gathered = |version| {
+            working_bins(pes, &stem(), None, version, true, &Templates::embedded())
+                .unwrap()
+                .0
+                .loose_kit_configs
+        };
+
+        assert_eq!(
+            gathered(PesVersion::Pes17),
+            BTreeMap::from([
+                ("714_DEF_1st_realUni.bin".to_owned(), vec![61; 120]),
+                ("714_DEF_2nd_realUni.bin".to_owned(), vec![2; 120]),
+            ]),
+            "p1 from the nearer CPK, p2 unwrapped"
+        );
+        assert_eq!(gathered(PesVersion::Pes21), BTreeMap::new());
     }
 
     #[test]

@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 in progress (a done: PES 15-17 kits with the mask template and loose configs; b done: `dds_compression`; c done: `.model` collars; d next), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 next
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1610,7 +1610,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   beside `deep/materials.rs`. `mutants-diff a98219b` (local): 72, 59 caught, 13 unviable (each a
   `Default::default()` on a type without one, or `||` inside a `let` chain), 0 missed.
 
-- [ ] 4.16 **Pre-Fox kits, bins and DDS compression**: a kit marked `fox` has its main texture
+- [x] 4.16 **Pre-Fox kits, bins and DDS compression**: a kit marked `fox` has its main texture
   and its own mask re-laid to the pre-Fox layout (`kit_layout::relaid`, TC-KIT-19), `kit_mask` injected from the mask template
   (lead first: the template as a lead-authored fixture with a provenance README) when absent,
   `kit_srm` dropped with `kit_texture_not_used`, kit configs emitted as loose per-team bins under
@@ -1703,6 +1703,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   does not resend only through 4.16d's re-emitted loose configs, so the help promises the
   export's kits until then; mutants: 26, 21 caught, 5 unviable (`Default::default()` on types
   without one), 0 missed)
+  (d) done 2026-10-08 (`WorkingBins::loose_kit_configs`, gathered on pre-Fox only by the
+  working-bin walk as it passes, `installed::take_loose_kit_configs`: every `.bin` directly in a
+  digits-only team folder under `paths::TEAM_KIT_CONFIGS`, nearest CPK first, unwrapped, not
+  parsed; `kit_configs::loose_kit_configs(installed, uni_color, team_kits, version)` returns the
+  configs a `Midcup` export's absent slots changed as `Entry`s at `paths::kit_config` plus the
+  FPC findings, a `Full` export nothing; `kit_configs` and it share `absent_slots` and the
+  bytes-based `edit_absent_slot`, `edit_config` now editing an `Option<Vec<u8>>` so the collar
+  edit chains on the FPC edit's bytes; the writer's `None` arm of `match uniform_parameter`
+  adds them through `add_bin`, so with teams parts they go to the bins CPK, in test mode under
+  the test prefix, overrides applied, never `dds_compression`-wrapped (DECISIONS 2026-10-08,
+  `fpc_toggle.md` "patched in place"); help; `tests/cli/bins.rs` TC-BIN-18, the collar
+  reaching an absent slot's loose config, a `Full` export re-emitting nothing, the nearest CPK
+  winning; the walk's cost on pre-Fox (one small read per listed CPK's team configs) is not
+  measured; mutants: 43, 32 caught, 11 unviable (`Default::default()` on types without one),
+  0 missed). 4.16 closed; the maintainer questions above stay open.
 
 - [ ] 4.17 **Cross-format conversion and source selection**: target-native first, then glTF, then
   the opposite native format converted through `model_convert::convert` (FMDL → `.model` + `.mtl`
@@ -3989,3 +4004,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     its FMDL does on Fox, written unchanged in place of the stock collar, the claim and the
     conflict rules the same; a `.fmdl` collar is named there until 4.17 converts it. Next:
     4.16d.
+  - **4.16d done; 4.16 closed** (TC-BIN-18): on PES 15-17 a `Midcup` export's absent kit slots
+    have their installed loose configs gathered by the working-bin walk, FPC-patched and
+    collar-worn as the `UniformParameter.bin` entries are on Fox, and the changed ones go out
+    through the bins path (DECISIONS 2026-10-08). Next: 4.17 (cross-format conversion and
+    source selection).

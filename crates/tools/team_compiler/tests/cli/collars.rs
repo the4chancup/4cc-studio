@@ -259,7 +259,7 @@ fn a_midcup_export_s_collar_goes_into_its_team_s_kits_it_does_not_resend() {
 
 /// Konami's pre-Fox shirt model `modD_shirt_tight_in_collar_052.model`, from `pes_model`'s
 /// fixtures: a `.model` that reads.
-fn pre_fox_model() -> Vec<u8> {
+pub(crate) fn pre_fox_model() -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../libs/pes_model/tests/fixtures/konami_collar_052.wesys.model"),

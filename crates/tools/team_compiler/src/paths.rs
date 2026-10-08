@@ -217,9 +217,13 @@ pub(crate) fn kit_texture(engine: Engine, name: &str) -> String {
     }
 }
 
+/// The folder holding a folder per team of loose kit configs, named for the team ID
+/// (`kit_config`).
+pub(crate) const TEAM_KIT_CONFIGS: &str = "common/character0/model/character/uniform/team/";
+
 /// The CPK path of one kit config, by its entry name (`792_DEF_GK1st_realUni.bin`).
 pub(crate) fn kit_config(team_id: u16, entry_name: &str) -> String {
-    format!("common/character0/model/character/uniform/team/{team_id}/{entry_name}")
+    format!("{TEAM_KIT_CONFIGS}{team_id}/{entry_name}")
 }
 
 /// The CPK path of one player's portrait, a DDS, by player id: the same folder on every

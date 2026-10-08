@@ -5075,3 +5075,16 @@ converted case is where the names come from another engine's materials and need 
 names to be found at all. Red wrote the file as it was.
 Plan: `team_compiler/pipeline.md` "Collars", the sentence "A collar already in the target's
 format".
+
+## 2026-10-08 — team_compiler — A re-emitted PES 15-17 kit config is written where the edited bins go
+Decision: on PES 15-17 the installed loose kit configs are gathered by the working-bin walk
+(nearest CPK first), and the ones a `Midcup` export patches (FPC values, collar) are written
+through the bins path: into the bins CPK with teams parts, under the test prefix in test mode,
+with the overrides applied, and never wrapped by `dds_compression`.
+Why: the plan said the pre-Fox configs are "located in the same installed CPKs, patched, and
+re-emitted" without saying which CPK carries them with parts or where test mode puts them. A
+patched config is an edit of the installed state, as the `UniformParameter.bin` edit is on
+Fox, not content the export supplied, so it goes where that edit goes; a team's part holds
+what the team sent. No path can collide: an absent slot has no kit task.
+Plan: `aesthetics_export/fpc_toggle.md` "Kit slots absent from the export are patched in
+place", the "Pre-Fox" sentence.

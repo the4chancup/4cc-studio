@@ -17,7 +17,7 @@ use kit_config::KitConfig;
 use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, Message, Scope};
 
-use crate::bins::kit_configs::kit_configs;
+use crate::bins::kit_configs::{kit_configs, loose_kit_configs};
 use crate::bins::player_tables::{ItemList, ItemTable, table_missing};
 use crate::bins::{KitColorEntry, Rgb, WorkingBins, kit_number};
 use crate::messages::{Code, tool_message};
@@ -344,19 +344,21 @@ impl CpkOutput {
     /// Writes the bins and closes the CPK, when a team's batch committed something or there is
     /// an override (else no file exists, no bin is built and nothing is reported):
     /// `UniformParameter.bin`, built on `bins`' by `kit_configs` from `team_kits` and the
-    /// committed kit configs, when that changed it (a committed kit config on a version without
-    /// the bin, PES 15-17, is an error); then `TeamColor.bin`, built on `bins`' with every
-    /// record's header set from its position and each of `team_colors` (team id, colors) set in
-    /// its team's record; then `UniColor.bin`, built on `bins`' the same way, each `Full`
-    /// export's team of `team_kits` keeping only its kit tasks' kits in its record, then each
-    /// committed kit's entry merged into its team's record in commit order; then the Fox player
-    /// tables `bins` holds, with `item_rows` applied (`add_player_tables`); with parts, the
-    /// teams parts are finished after the sink, the slots left over written as the placeholder
-    /// (no part and no placeholder when no file is written). Returns whether a
-    /// CPK was written and the findings to report: `kit_configs`' FPC findings, one
-    /// `bin_header_repaired` per working bin that had a header wrong, naming the teams, a
-    /// `player_table_missing` per list not found that committed rows were left out of, and a
-    /// `duplicate_path` for each bin an override replaced.
+    /// committed kit configs, when that changed it; on PES 15-17, which have no such bin (a
+    /// committed kit config there is an error), the installed loose kit configs that
+    /// `loose_kit_configs` edits for `team_kits`, each at its loose path; then `TeamColor.bin`,
+    /// built on `bins`' with every record's header set from its position and each of
+    /// `team_colors` (team id, colors) set in its team's record; then `UniColor.bin`, built on
+    /// `bins`' the same way, each `Full` export's team of `team_kits` keeping only its kit
+    /// tasks' kits in its record, then each committed kit's entry merged into its team's record
+    /// in commit order; then the Fox player tables `bins` holds, with `item_rows` applied
+    /// (`add_player_tables`); with parts, the teams parts are finished after the sink, the slots
+    /// left over written as the placeholder (no part and no placeholder when no file is
+    /// written). Returns whether a CPK was written and the findings to report: `kit_configs`'
+    /// (or `loose_kit_configs`') FPC findings, one `bin_header_repaired` per working bin that
+    /// had a header wrong, naming the teams, a `player_table_missing` per list not found that
+    /// committed rows were left out of, and a `duplicate_path` for each bin an override
+    /// replaced.
     fn finish_team(
         mut self,
         version: PesVersion,
@@ -378,6 +380,7 @@ impl CpkOutput {
             boots_list,
             glove_list,
             player_appearance,
+            loose_kit_configs: installed_kit_configs,
         } = bins;
         let mut messages = Vec::new();
         // The bins hold what every committed kit contributed, so they are built only once
@@ -394,10 +397,21 @@ impl CpkOutput {
                     self.add_bin(paths::UNIFORM_PARAMETER, &bin.write(), &mut messages)?;
                 }
             }
-            None => ensure!(
-                committed_configs.is_empty(),
-                "{version} has no UniformParameter.bin"
-            ),
+            None => {
+                // A committed kit's loose config is its task's entry on PES 15-17.
+                ensure!(
+                    committed_configs.is_empty(),
+                    "{version} has no UniformParameter.bin"
+                );
+                // As above, before `UniColor.bin` is edited. An absent slot has no kit task,
+                // so no committed entry shares its path.
+                let (configs, findings) =
+                    loose_kit_configs(&installed_kit_configs, &uni_color, team_kits, version)?;
+                messages.extend(findings);
+                for (path, config) in configs {
+                    self.add_bin(&path, &config, &mut messages)?;
+                }
+            }
         }
         let mut bin = team_color;
         messages.extend(header_repaired("TeamColor.bin", &bin.repair_headers()));

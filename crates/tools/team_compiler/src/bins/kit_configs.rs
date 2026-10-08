@@ -1,10 +1,13 @@
-//! A team's kit configs in `UniformParameter.bin` as a compile edits them besides adding its
-//! committed kits' configs (`team_compiler/pipeline.md` "Bins accumulation", "Collars"): a
-//! `Full` export's team loses the configs of kits it does not hold, and a `Midcup` export
-//! gives the configs of the kits the game offers the team that the export does not hold the
-//! FPC values, when its team's kit-FPC status is On, then its collar, when it has one. A
-//! team's configs are the entries named for its team ID (`KitSlot::config_name`:
-//! `714_DEF_1st_realUni.bin`).
+//! A team's kit configs as a compile edits them besides adding its committed kits' configs
+//! (`team_compiler/pipeline.md` "Bins accumulation", "Collars"): a `Full` export's team loses
+//! the configs of kits it does not hold, and a `Midcup` export gives the configs of the kits
+//! the game offers the team that the export does not hold the FPC values, when its team's
+//! kit-FPC status is On, then its collar, when it has one. A team's configs are the entries
+//! named for its team ID (`KitSlot::config_name`: `714_DEF_1st_realUni.bin`): in
+//! `UniformParameter.bin` on Fox (`kit_configs`), loose files on PES 15-17
+//! (`loose_kit_configs`).
+
+use std::collections::BTreeMap;
 
 use aesthetics_export::ExportCoverage;
 use kit_config::{KitConfig, KitSlot, apply_fpc, matches_fpc};
@@ -14,7 +17,9 @@ use uniparam::UniformParameter;
 
 use super::{UniColorBin, kit_slot};
 use crate::messages::{Code, tool_message};
+use crate::paths;
 use crate::plan::{EffectiveTeamKitFpc, TeamKitEdits, TeamKits};
+use crate::processing::Entry;
 
 /// What `patch_fpc` did to one kit slot's config.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,10 +37,8 @@ enum FpcPatch {
 /// `committed_configs` (name, bytes), the committed kits' configs (`pipeline.md` "Bins
 /// accumulation"). A `Full` export's team loses its configs of kits it does not hold
 /// (`remove_other_configs`), and nothing else of it is edited, there being no absent kit. A
-/// `Midcup` export edits the configs of the kits its team's record in `uni_color` holds,
-/// ascending, that it has no kit task for (`edit_absent_slot`); a kit number no slot has, a
-/// second goalkeeper kit, is skipped. Returns whether the bin changed (a config inserted,
-/// patched or removed) and the findings.
+/// `Midcup` export edits the configs of its `absent_slots` (`edit_absent_slot`). Returns
+/// whether the bin changed (a config inserted, patched or removed) and the findings.
 pub(crate) fn kit_configs(
     bin: &mut UniformParameter,
     uni_color: &UniColorBin,
@@ -46,26 +49,20 @@ pub(crate) fn kit_configs(
     let mut changed = false;
     let mut messages = Vec::new();
     for team in team_kits {
-        match (team.coverage, team.edits) {
-            (ExportCoverage::Full, TeamKitEdits { .. }) => {
+        match team.coverage {
+            ExportCoverage::Full => {
                 changed |= remove_other_configs(bin, team.team_id, &team.slots);
             }
-            // Nothing to give, so the team's record is not read.
-            (
-                ExportCoverage::Midcup,
-                TeamKitEdits {
-                    fpc: EffectiveTeamKitFpc::Unknown,
-                    collar: None,
-                },
-            ) => {}
-            (ExportCoverage::Midcup, TeamKitEdits { .. }) => {
-                let absent = uni_color
-                    .kits(team.team_id)?
-                    .into_iter()
-                    .filter_map(kit_slot)
-                    .filter(|slot| !team.slots.contains(slot));
-                for slot in absent {
-                    changed |= edit_absent_slot(bin, team, slot, version, &mut messages)?;
+            ExportCoverage::Midcup => {
+                for slot in absent_slots(uni_color, team)? {
+                    let name = slot.config_name(team.team_id);
+                    let current = bin.get(&name);
+                    if let Some(edited) =
+                        edit_absent_slot(current, team, slot, version, &mut messages)
+                    {
+                        bin.insert(name, edited)?;
+                        changed = true;
+                    }
                 }
             }
         }
@@ -77,23 +74,87 @@ pub(crate) fn kit_configs(
     Ok((changed, messages))
 }
 
-/// Edits `team`'s config of `slot`, a kit its `Midcup` export does not hold, in `bin` for
-/// `version`: when the team's kit-FPC status is On, it is given the FPC values (`patch_fpc`)
-/// and reported in `messages` on the export, naming the slot, as `kit_config_fpc_adjusted`
-/// when it lacked them or `kit_config_fpc_unpatched` when there is no config or it does not
-/// decode; then, when the export has a collar, the config wears it (`wear_collar`), with no
-/// finding: the FPC finding has said already when there is no config to edit. Returns whether
-/// the config changed.
+/// The PES 15-17 counterpart of `kit_configs` (`fpc_toggle.md` "Kit slots absent from the
+/// export are patched in place": on pre-Fox the team's current kit-config bins are located in
+/// the installed CPKs, patched, and re-emitted; `pipeline.md` "Bins accumulation";
+/// `messages.md` `kit_config_fpc_adjusted`, `kit_config_fpc_unpatched`). Each kit config is a
+/// loose file there, so for each `Midcup` export of `team_kits`, in order, the config of each
+/// of its `absent_slots` is taken from `installed` (the installed loose configs by entry name,
+/// `WorkingBins::loose_kit_configs`) and edited for `version` as on Fox (`edit_absent_slot`),
+/// with the same findings. Returns the configs the edit changed, each at its CPK path
+/// (`paths::kit_config`), for the output CPK to carry above the installed ones, and the
+/// findings; a config the edit left as it was is not returned, the installed copy standing. A
+/// `Full` export gives nothing: its own kits' configs are its kit tasks' entries already, and
+/// it cannot remove the installed ones of kits it does not hold (`pipeline.md`: "What a
+/// `Full` export cannot do is remove files").
+pub(crate) fn loose_kit_configs(
+    installed: &BTreeMap<String, Vec<u8>>,
+    uni_color: &UniColorBin,
+    team_kits: &[TeamKits],
+    version: PesVersion,
+) -> anyhow::Result<(Vec<Entry>, Vec<Message>)> {
+    let mut configs = Vec::new();
+    let mut messages = Vec::new();
+    for team in team_kits {
+        match team.coverage {
+            ExportCoverage::Full => {}
+            ExportCoverage::Midcup => {
+                for slot in absent_slots(uni_color, team)? {
+                    let name = slot.config_name(team.team_id);
+                    let current = installed.get(&name).map(Vec::as_slice);
+                    if let Some(edited) =
+                        edit_absent_slot(current, team, slot, version, &mut messages)
+                    {
+                        configs.push((paths::kit_config(team.team_id, &name), edited));
+                    }
+                }
+            }
+        }
+    }
+    Ok((configs, messages))
+}
+
+/// The slots of the kits `team`'s record in `uni_color` holds, ascending, that its `Midcup`
+/// export has no kit task for: the slots whose configs it edits (`pipeline.md` "Bins
+/// accumulation"). A kit number no slot has, a second goalkeeper kit, is skipped. None when the
+/// export has nothing to give (its FPC status Unknown and no collar), the record not being read
+/// then.
+fn absent_slots(uni_color: &UniColorBin, team: &TeamKits) -> anyhow::Result<Vec<KitSlot>> {
+    match team.edits {
+        TeamKitEdits {
+            fpc: EffectiveTeamKitFpc::Unknown,
+            collar: None,
+        } => Ok(Vec::new()),
+        TeamKitEdits { .. } => Ok(uni_color
+            .kits(team.team_id)?
+            .into_iter()
+            .filter_map(kit_slot)
+            .filter(|slot| !team.slots.contains(slot))
+            .collect()),
+    }
+}
+
+/// Edits `team`'s config of `slot`, a kit its `Midcup` export does not hold, for `version`;
+/// `current` is the config as installed, `None` when the slot has none. When the team's kit-FPC
+/// status is On, the config is given the FPC values (`patch_fpc`) and reported in `messages` on
+/// the export, naming the slot, as `kit_config_fpc_adjusted` when it lacked them or
+/// `kit_config_fpc_unpatched` when there is no config or it does not decode; then, when the
+/// export has a collar, the config wears it (`wear_collar`), with no finding: the FPC finding
+/// has said already when there is no config to edit. Returns the edited config when it
+/// changed.
 fn edit_absent_slot(
-    bin: &mut UniformParameter,
+    current: Option<&[u8]>,
     team: &TeamKits,
     slot: KitSlot,
     version: PesVersion,
     messages: &mut Vec<Message>,
-) -> anyhow::Result<bool> {
+) -> Option<Vec<u8>> {
+    let name = slot.config_name(team.team_id);
+    // A copy of the 120 bytes, so the collar edit starts from the FPC edit's result.
+    let mut config = current.map(<[u8]>::to_vec);
     let mut changed = false;
     let code = match team.edits.fpc {
-        EffectiveTeamKitFpc::On => match patch_fpc(bin, team.team_id, slot, version)? {
+        EffectiveTeamKitFpc::On => match patch_fpc(&mut config, &name, version) {
             FpcPatch::Adjusted => {
                 changed = true;
                 Some(Code::KitConfigFpcAdjusted)
@@ -114,9 +175,9 @@ fn edit_absent_slot(
         ));
     }
     if let Some(collar) = team.edits.collar {
-        changed |= wear_collar(bin, team.team_id, slot, collar, version)?;
+        changed |= wear_collar(&mut config, &name, collar, version);
     }
-    Ok(changed)
+    config.filter(|_| changed)
 }
 
 /// Removes from `bin` team `team_id`'s configs (the entries whose name starts with its
@@ -136,76 +197,62 @@ fn remove_other_configs(bin: &mut UniformParameter, team_id: u16, slots: &[KitSl
     !removed.is_empty()
 }
 
-/// Gives the FPC values to team `team_id`'s config of `slot` in `bin` when it lacks them
+/// Gives the FPC values to `config`, the slot's config named `name`, when it lacks them
 /// (`edit_config`).
-fn patch_fpc(
-    bin: &mut UniformParameter,
-    team_id: u16,
-    slot: KitSlot,
-    version: PesVersion,
-) -> anyhow::Result<FpcPatch> {
-    let patched = edit_config(bin, team_id, slot, version, |config| {
+fn patch_fpc(config: &mut Option<Vec<u8>>, name: &str, version: PesVersion) -> FpcPatch {
+    let patched = edit_config(config, name, version, |config| {
         if matches_fpc(config) {
             return false;
         }
         apply_fpc(config);
         true
-    })?;
-    Ok(match patched {
+    });
+    match patched {
         Some(true) => FpcPatch::Adjusted,
         Some(false) => FpcPatch::AlreadyFpc,
         None => FpcPatch::Unpatched,
-    })
+    }
 }
 
-/// Sets `collar` as the collar and the winter collar of team `team_id`'s config of `slot` in
-/// `bin` (`edit_config`). Returns whether the config changed: not when it wears the collar
-/// already, has no entry or does not decode.
-fn wear_collar(
-    bin: &mut UniformParameter,
-    team_id: u16,
-    slot: KitSlot,
-    collar: u8,
-    version: PesVersion,
-) -> anyhow::Result<bool> {
-    let worn = edit_config(bin, team_id, slot, version, |config| {
+/// Sets `collar` as the collar and the winter collar of `config`, the slot's config named
+/// `name` (`edit_config`). Returns whether the config changed: not when it wears the collar
+/// already, is absent or does not decode.
+fn wear_collar(config: &mut Option<Vec<u8>>, name: &str, collar: u8, version: PesVersion) -> bool {
+    let worn = edit_config(config, name, version, |config| {
         if (config.shirt.collar, config.shirt.winter_collar) == (collar, collar) {
             return false;
         }
         config.shirt.collar = collar;
         config.shirt.winter_collar = collar;
         true
-    })?;
-    Ok(worn == Some(true))
+    });
+    worn == Some(true)
 }
 
-/// Edits team `team_id`'s config of `slot` in `bin` with `edit`, which returns whether it
-/// changed the config: decoded for `version`, and, when changed, encoded again for `version`,
-/// its texture names kept, in its entry's place. `None` when the slot has no entry or its
-/// entry does not decode as a config, which is left alone; else whether it changed.
+/// Edits `config`, one kit slot's config bytes, named `name` (`None` when the slot has no
+/// config), with `edit`, which returns whether it changed the config: decoded for `version`,
+/// and, when changed, encoded again for `version`, its texture names kept, in place of the
+/// bytes. `None` when there is no config or it does not decode as one, which is left alone;
+/// else whether it changed.
 fn edit_config(
-    bin: &mut UniformParameter,
-    team_id: u16,
-    slot: KitSlot,
+    config: &mut Option<Vec<u8>>,
+    name: &str,
     version: PesVersion,
     edit: impl FnOnce(&mut KitConfig) -> bool,
-) -> anyhow::Result<Option<bool>> {
-    let name = slot.config_name(team_id);
-    let Some(bytes) = bin.get(&name) else {
-        return Ok(None);
-    };
-    let mut config = match KitConfig::decode(bytes, version) {
-        Ok(config) => config,
+) -> Option<bool> {
+    let bytes = config.as_deref()?;
+    let mut decoded = match KitConfig::decode(bytes, version) {
+        Ok(decoded) => decoded,
         Err(error) => {
             log::debug!("{name}: not a kit config, left alone: {error}");
-            return Ok(None);
+            return None;
         }
     };
-    if !edit(&mut config) {
-        return Ok(Some(false));
+    if !edit(&mut decoded) {
+        return Some(false);
     }
-    bin.insert(name, config.encode(version).to_vec())?;
-    Ok(Some(true))
+    *config = Some(decoded.encode(version).to_vec());
+    Some(true)
 }
 
 #[cfg(test)]
@@ -689,9 +736,9 @@ mod tests {
 
     #[test]
     fn a_config_lacking_the_fpc_values_gets_them_and_keeps_every_other_byte() {
-        let mut bin = installed(&[(714, KitSlot::P1)]);
+        let mut config = Some(shirt_144(714, KitSlot::P1));
 
-        let patched = patch_fpc(&mut bin, 714, KitSlot::P1, PesVersion::Pes21).unwrap();
+        let patched = patch_fpc(&mut config, "714_DEF_1st_realUni.bin", PesVersion::Pes21);
 
         assert_eq!(patched, FpcPatch::Adjusted);
         let installed = KitConfig::decode(&shirt_144(714, KitSlot::P1), PesVersion::Pes21).unwrap();
@@ -701,12 +748,12 @@ mod tests {
         expected.shirt.collar = 105;
         expected.shirt.winter_collar = 105;
         assert_eq!(
-            bin.get("714_DEF_1st_realUni.bin"),
+            config.as_deref(),
             Some(&expected.encode(PesVersion::Pes21)[..])
         );
         // Its five texture names, from 0x28 on, are the installed config's.
         assert_eq!(
-            bin.get("714_DEF_1st_realUni.bin").unwrap()[0x28..],
+            config.as_deref().unwrap()[0x28..],
             shirt_144(714, KitSlot::P1)[0x28..]
         );
         assert_eq!(&shirt_144(714, KitSlot::P1)[0x28..0x2f], b"u0714p1");
@@ -718,32 +765,130 @@ mod tests {
         assert!(matches_fpc(&config), "the template carries the FPC values");
         config.shirt.model = 176;
         let bytes = config.encode(PesVersion::Pes21).to_vec();
-        let mut bin = UniformParameter::new();
-        bin.insert("714_DEF_2nd_realUni.bin".to_owned(), bytes.clone())
-            .unwrap();
+        let mut config = Some(bytes.clone());
 
-        let patched = patch_fpc(&mut bin, 714, KitSlot::P2, PesVersion::Pes21).unwrap();
+        let patched = patch_fpc(&mut config, "714_DEF_2nd_realUni.bin", PesVersion::Pes21);
 
         assert_eq!(patched, FpcPatch::AlreadyFpc);
-        assert_eq!(bin.get("714_DEF_2nd_realUni.bin"), Some(&bytes[..]));
+        assert_eq!(config.as_deref(), Some(&bytes[..]));
     }
 
     #[test]
     fn a_slot_with_no_config_or_one_that_does_not_decode_is_unpatched() {
-        let mut bin = installed(&[(702, KitSlot::P3)]);
-        bin.insert("714_DEF_3rd_realUni.bin".to_owned(), vec![0; 119])
-            .unwrap();
+        let mut absent = None;
+        let mut undecodable = Some(vec![0; 119]);
 
-        for slot in [KitSlot::P2, KitSlot::P3] {
-            let patched = patch_fpc(&mut bin, 714, slot, PesVersion::Pes21).unwrap();
-            assert_eq!(patched, FpcPatch::Unpatched, "{slot:?}");
+        for config in [&mut absent, &mut undecodable] {
+            let patched = patch_fpc(config, "714_DEF_3rd_realUni.bin", PesVersion::Pes21);
+            assert_eq!(patched, FpcPatch::Unpatched, "{config:?}");
         }
 
-        assert_eq!(bin.get("714_DEF_3rd_realUni.bin"), Some(&[0; 119][..]));
-        assert_eq!(
-            names(&bin),
-            ["702_DEF_3rd_realUni.bin", "714_DEF_3rd_realUni.bin"],
-            "no config added"
+        assert_eq!(undecodable.as_deref(), Some(&[0; 119][..]));
+        assert_eq!(absent, None, "no config added");
+    }
+
+    /// The installed loose configs of PES 15-17 holding `shirt_144` of each of `configs` (team
+    /// ID, slot), by entry name.
+    fn installed_loose(configs: &[(u16, KitSlot)]) -> BTreeMap<String, Vec<u8>> {
+        configs
+            .iter()
+            .map(|(team_id, slot)| (slot.config_name(*team_id), shirt_144(*team_id, *slot)))
+            .collect()
+    }
+
+    /// The CPK path of team 714's loose p1 config.
+    const P1_LOOSE: &str =
+        "common/character0/model/character/uniform/team/714/714_DEF_1st_realUni.bin";
+
+    /// `loose_kit_configs` on `installed` for PES 17.
+    fn loose(
+        installed: &BTreeMap<String, Vec<u8>>,
+        uni_color: &UniColorBin,
+        team: TeamKits,
+    ) -> (Vec<Entry>, Vec<Message>) {
+        loose_kit_configs(installed, uni_color, &[team], PesVersion::Pes17).unwrap()
+    }
+
+    #[test]
+    fn a_midcup_fpc_on_export_re_emits_the_installed_loose_configs_it_patches() {
+        // p2's config is the export's; p3 has none.
+        let installed = installed_loose(&[(714, KitSlot::P1), (714, KitSlot::P2)]);
+
+        let (configs, messages) = loose(
+            &installed,
+            &uni_color_714(3, &[0, 1, 2]),
+            team_714(
+                ExportCoverage::Midcup,
+                EffectiveTeamKitFpc::On,
+                &[KitSlot::P2],
+            ),
         );
+
+        let mut expected =
+            KitConfig::decode(&shirt_144(714, KitSlot::P1), PesVersion::Pes17).unwrap();
+        apply_fpc(&mut expected);
+        assert_eq!(
+            configs,
+            [(
+                P1_LOOSE.to_owned(),
+                expected.encode(PesVersion::Pes17).to_vec()
+            )],
+            "p1 patched, nothing else re-emitted"
+        );
+        assert_eq!(
+            messages,
+            [
+                fpc_finding(Code::KitConfigFpcAdjusted, "p1"),
+                fpc_finding(Code::KitConfigFpcUnpatched, "p3"),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_midcup_export_s_collar_alone_re_emits_the_loose_configs_wearing_it_silently() {
+        let installed = installed_loose(&[(714, KitSlot::P1)]);
+
+        let (configs, messages) = loose(
+            &installed,
+            &uni_color_714(3, &[0, 1, 2]),
+            team_714_wearing(
+                ExportCoverage::Midcup,
+                EffectiveTeamKitFpc::Unknown,
+                Some(12),
+                &[KitSlot::P2],
+            ),
+        );
+
+        let mut expected =
+            KitConfig::decode(&shirt_144(714, KitSlot::P1), PesVersion::Pes17).unwrap();
+        expected.shirt.collar = 12;
+        expected.shirt.winter_collar = 12;
+        assert_eq!(
+            configs,
+            [(
+                P1_LOOSE.to_owned(),
+                expected.encode(PesVersion::Pes17).to_vec()
+            )],
+            "p1 wears the collar; p3 has no config to wear it"
+        );
+        assert_eq!(messages, [], "a collar reports nothing");
+    }
+
+    #[test]
+    fn a_full_export_re_emits_no_loose_config() {
+        let installed = installed_loose(&[(714, KitSlot::P1), (714, KitSlot::P3)]);
+
+        let (configs, messages) = loose(
+            &installed,
+            &uni_color_714(3, &[0, 1, 2]),
+            team_714_wearing(
+                ExportCoverage::Full,
+                EffectiveTeamKitFpc::On,
+                Some(12),
+                &[KitSlot::P2],
+            ),
+        );
+
+        assert_eq!((configs, messages), (Vec::new(), Vec::new()));
     }
 }

@@ -78,7 +78,11 @@ An export's **team kit-FPC status** is two-state — `EffectiveTeamKitFpc::{On, 
   cup CPKs (the bundled bases only serve from-scratch compiles), so a midcup compile patches the
   current cup state, and the `uniparam` container format is fully parsed (see the [library crates
   plan](../libs/README.md)), so locating a team's entries is routine. Pre-Fox: the team's current kit-config
-  bins are located in the same installed CPKs, patched, and re-emitted. Patched slots report
+  bins are located in the same installed CPKs, patched, and re-emitted: the walk that finds the
+  working bins gathers them as it passes (nearest CPK first, so each is the copy the game loads),
+  and a patched one is written where the edited bins go (the bins CPK with teams parts, the test
+  prefix in test mode), not with a team's content, because it is an edit of the installed state
+  as the bins are, not something the export supplied. Patched slots report
   `kit_config_fpc_adjusted` like supplied configs; a slot with no existing entry or config to patch
   reports `kit_config_fpc_unpatched` (warning) — that team genuinely needs a kit export. The
   slots are the kits the game offers the team (its `UniColor.bin` record), not all ten

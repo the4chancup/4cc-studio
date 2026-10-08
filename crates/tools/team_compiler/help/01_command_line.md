@@ -289,8 +289,10 @@ later one's file is the error `collar_id_conflict`, naming the export that holds
 left out and its kits keeping their own collars. An export holds one collar, so a second
 collar file of the same export is that error too, naming the export itself. On PES 2015 to
 2017, `compile` writes a team's `Collars/collar_<number>.model` as it is in place of that
-stock collar, and the kits the export holds wear it as their collar and winter collar, after
-the FPC values as above; the two rules on who keeps a collar are the same. A collar in the
+stock collar, and every kit of the team wears it as its collar and winter collar, as above:
+the kits the export holds, and for a midcup export the team's installed kits it does not send
+again, whose kit configs the CPK then carries changed. The two rules on who keeps a collar are
+the same. A collar in the
 other version's format (a `.model` for PES 2018 to 2021, a `.fmdl`
 for PES 2015 to 2017), or a `.glb` or `.gltf` one, is not converted yet: an export holding one
 is skipped with `content_not_yet_compiled`.
