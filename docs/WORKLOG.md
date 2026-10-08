@@ -1619,10 +1619,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `dds_compression` (`auto` follows `multicpk_mode`, `true`, `false`) wrapping every emitted DDS
   with `wezlib::compress` on PES 15-17 only, already-wrapped sources passed through, the level
   chosen by measuring levels 1, 3 and 6 on the tracer's DDS set and recorded in a decision entry.
-  Open for the maintainer here, once pre-Fox kit numbers exist: whether a per-kit *model* set
-  (4.14e4) is completed against them as a texture set is (the lowest variant copied under a
-  missing number) or left as the member made it; what the game does with a `face.xml` entry
-  whose respelled model is missing is unknown (no pre-Fox exe reads `kitN` yet). From the
+  Open for the maintainer (`docs/QUESTIONS.md` "Per-kit model sets on pre-Fox"). From the
   tracer's parity (4.16a): Red's kit config keeps the member's names for the four number
   textures the export does not ship (`u0731g1_back`, `_chest`, `_leg`, `_name`), where the
   compiler's encoder leaves an absent texture's name empty, on Fox as on pre-Fox. Whether PES
@@ -1811,14 +1808,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the Common models task never hand-splits (a Common `.model` is not split either); two
   converted parts merged under the marker with a material of one name but different
   texture places fail `merge_material_conflict`, which the merge rules do not cover.
-  Open for the maintainer here: whether a converted collar's first material as `uni_collar`
-  and the rest as `uni_shirts` (ruled at slice e, DECISIONS 2026-10-08 "Collars across
-  engines"; the stock referee collar uses `uni_shirts` alone) is drawn right, an in-game
-  check, and which version's stock `uniform.mtl` the templates should ship so a `.model`
-  collar can convert for PES 18-21 (until then the gate names it); whether
-  the modded PES 15-17 exes substitute `dummy_kit` at
-  `model/character/uniform/common/<team>/dummy_kit.dds` for a converted face model (4.17a
-  points it there, where the legacy pre-Fox exports name it), an in-game check. Open for a
+  Open for the maintainer (`docs/QUESTIONS.md` "Converted collars", "`dummy_kit` on the
+  modded PES 15-17 exes"). Open for a
   later slice: a converted FMDL in a folder with the member's own `face.xml` is silently not
   compiled (the xml's references, `xml_model_unlisted`, `XmlFace::pack` and the
   `model_material_undefined` comparison know `.model` files only; a plan ruling on how an xml
@@ -1830,9 +1821,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `legacy19to16_oral.mtl`): neither resolves on PES 15-17, so the game draws that material
   with its fallback either way, and the same model's hidden oral mesh (`invisible`, a flag a
   `.mtl` cannot express, now the Warning `mesh_flags_dropped`) shows on PES 17; open for the
-  maintainer: what the modded exes draw for such a material and whether a hidden Fox mesh
-  should be dropped from the `.model` instead of unhidden (a plan ruling, then a converter
-  change). From 4.17b:
+  maintainer (`docs/QUESTIONS.md` "Hidden Fox meshes converted to pre-Fox"). From 4.17b:
   the Warnings and Infos the target format's check fires on a converted form are not reported
   (rule with slice c: Warnings kept with their code, Infos dropped); the same-engine
   `needs_conversion` pre-check of a selected native model is not run yet (slice c); per-kit
@@ -2881,7 +2870,9 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 ## Issues
 
 Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolved issues are
-pruned when their phase closes; they stay in git history.
+pruned when their phase closes; they stay in git history. A question only the maintainer
+can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
+points there.
 
 - open (found at 4.14b's review) — pre-Fox faces: two files of one face packing under one
   name (`hat.model` beside `face/hat.model`, two `.mtl` of one name in the folder and
@@ -3058,7 +3049,7 @@ pruned when their phase closes; they stay in git history.
 - resolved (2026-10-05, maintainer) — generated `settings.toml` files and names: names are
   used only from an export with the `autopilot` root marker, so generated names do no harm
   (`settings_toml.md`, `operations.md` "Aesthetics patch").
-- open, needs the maintainer — the seed rows and multi-CPK mode: strip-and-seed puts its rows
+- answered (2026-10-05, below) — the seed rows and multi-CPK mode: strip-and-seed puts its rows
   into `4cc_08_bins.cpk` (decision 2026-10-05), but in multi-CPK mode that CPK is the
   compiler's own bins output (`settings.md` `bins_cpk_name`), and the bins walk starts below
   the output CPK (`pipeline.md` "Bins accumulation"). So the DLC builder's next multi-CPK
@@ -3066,7 +3057,7 @@ pruned when their phase closes; they stay in git history.
   without the seed rows of every player no export compiles. Resolved (2026-10-05,
   maintainer): in multi-CPK mode the player tables' walk starts at the bins CPK itself
   (`pipeline.md` "Bins accumulation").
-- open, needs the maintainer — motions on Fox: `settings.toml`'s `[appearance.motion]`
+- answered (2026-10-05, below) — motions on Fox: `settings.toml`'s `[appearance.motion]`
   (hunching, arm movement, kick motions, celebrations, dribbling) are player-record fields
   outside the appearance block (PES 20/21 bits 96 to 332), so neither the `PlayerAppearance.bin`
   row (the block's bytes) nor the Fox patch (names only) carries them: on Fox a compiled
@@ -3192,14 +3183,9 @@ pruned when their phase closes; they stay in git history.
     `referee_collar_105`), and the 77 reservation against teams keeps its point, since a
     team's `collar_077` would be the one the referee finds. "Absent" is an inference from the
     referee not appearing in any frame of a walkout where runs B, G and I show him.
-- open, needs the maintainer — FoxDen per-kit models (maintainer, 2026-10-05): a tag-less
-  `modelname` fills every kit number up to the team's kit count that has no
-  `modelname_kit<N>`, once any variant exists. The local FoxDen (`02_kitswappers.lua`) swaps
-  whole folders instead (`<id>p<kit>\#Win\`, kit 1 never swapping, legacy `u0TTTp0` and
-  25-id blocks). Needed before the plan changes: the file names FoxDen looks for (per model
-  inside the face package, or per-kit folders), how that meets Fox merging (one merged FMDL
-  per kit?), and whether the rule covers textures and pre-Fox. Then `kit_variant_model_fox`
-  and `model_format.md` "Kit-dependent assets" change.
+- open, needs the maintainer — FoxDen per-kit models: `docs/QUESTIONS.md` "FoxDen per-kit
+  models"; `kit_variant_model_fox` and `model_format.md` "Kit-dependent assets" change with
+  the answer.
 - open — the unknown bits across versions: `settings_toml.md` names them by record bit
   position per version and never converts them, but the ingame-face run's layout is the same
   on every version (`model.md` "The ingame-face run"), Team TOML prefix-copies it between
@@ -3272,17 +3258,13 @@ pruned when their phase closes; they stay in git history.
   planning needs every export validated first, and holding every `.7z` until then is the
   residency the budget forbids (`libs/pipeline.md` "What a solid `.7z` is charged"). Not
   designed: keeping the buffers that fit the budget and letting go of the rest. Cup exports
-  are nearly always compiled from folders, so this waits for the maintainer's word.
-- open — a face diff is engine-specific (maintainer, 2026-10-03): how the game uses the diff to
-  shape the face skeleton differs between pre-Fox and Fox, so a `face_diff.bin` (or the
-  `face_diff.xml` and `<dif>` text forms of it) authored for one engine misplaces the face on
-  the other, the same problem the kit layout has. Today the compiler passes a diff through
-  for whatever target it compiles and nothing records which engine a diff was made for. To
-  investigate, after Phase 4's kits work: what differs (the format, the bones it moves, or
-  the rest pose it is relative to), whether one engine's diff converts into the other's
-  automatically, and, if it does, how a folder says which engine its diff is for (the kit
-  layout's `pre-fox`/`fox` markers are the model). Until then a diff is the author's
-  responsibility, as with Red.
+  are nearly always compiled from folders, so this waits for the maintainer's word
+  (`docs/QUESTIONS.md` "Solid `.7z` exports over the memory budget").
+- open — a face diff is engine-specific (maintainer, 2026-10-03): a diff authored for one
+  engine misplaces the face on the other; the compiler passes a diff through for whatever
+  target it compiles, so a diff is the author's responsibility, as with Red. The
+  investigation waits for the maintainer's go (`docs/QUESTIONS.md` "Face diffs are
+  engine-specific").
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more
@@ -4510,3 +4492,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   on PES 17; pre-Fox gloves stay in the savefile. The maintainer settled that Edit mode shows
   a player as a match does (only outfielders' 2nd+ kits need a match), so in-game look tests
   stop at Edit mode.
+- **2026-10-08** — `docs/QUESTIONS.md` created (maintainer's request): the one list of the
+  questions only he can answer, fourteen moved out of the worklog's steps and issues (each
+  of those now points there); `AGENTS.md` "Working documents" gained the row.

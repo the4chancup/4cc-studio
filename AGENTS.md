@@ -9,15 +9,16 @@ the codebase works, and what to do when the plan runs out. Before writing or cha
 
 ## Working documents
 
-Five documents, five jobs. Do not let content leak between them; two homes means they drift.
+Six documents, six jobs. Do not let content leak between them; two homes means they drift.
 
 | Document | Holds |
 |---|---|
 | `docs/plans/*.md` | The *why* and the spec: architecture, formats, rationale, resolved decisions, and each tool's "Acceptance" section. Future tense while a phase is open; rewritten in the present tense when it closes, so the plan is always the description of what exists plus what comes next |
 | `docs/CONTRIBUTING.md` | How code is structured, written and verified |
 | `docs/GLOSSARY.md` | One line per domain term, pointing at the plan section that owns it |
-| `docs/WORKLOG.md` | *Where we are*: current status, phase/step checklist, current-state gotchas, open issues, dated log |
+| `docs/WORKLOG.md` | *Where we are*: current status, phase/step checklist, current-state gotchas, open issues (the lead's and the sidekick's), dated log |
 | `docs/DECISIONS.md` | Choices made where the plan was silent (append-only) |
+| `docs/QUESTIONS.md` | The questions only the maintainer can answer (in-game behavior, cup practice, a preference), grouped by what an answer unblocks; an entry leaves when answered and the answer lands in the plan and `DECISIONS.md`. Before this file, they were scattered across the worklog's steps and issues and nobody could see the list |
 
 **Before a step:** read the worklog's current status, then the plan section the step points at,
 from the document, not from memory. **After a step:** run the gates (`CONTRIBUTING.md`), mark the
@@ -433,7 +434,9 @@ a clear recommended choice for one of the cases above, it applies that choice an
 decision (plan edit, then decision entry), and the turn report names it so the maintainer can
 reverse it. It stops to ask only when the choice is truly ambiguous (no option is clearly
 better on the evidence) or needs information only the maintainer has (in-game behavior, cup
-practice, a preference). New dependencies and `unsafe` still need a yes first; a dependency the
+practice, a preference); such a question is written to `docs/QUESTIONS.md`, with the worklog
+issue or step that waits on it pointing there, and the work goes on with whatever does not
+depend on it. New dependencies and `unsafe` still need a yes first; a dependency the
 plan already names (`rayon`, `crossbeam-channel`, ...) is accounted for, not new.
 
 Logging a decision means, in this order: edit the relevant plan section so the plan stays the
