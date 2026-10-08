@@ -39,8 +39,8 @@ materials name no states (Red: an Info). The member's `face.xml` types the boots
   finds its `.mtl` by a name that starts or ends its stem: `face.mtl`, `boots.mtl`,
   `glove_l.mtl`, `glove_r.mtl`), their bytes unchanged.
 - `colors.txt`: the note's team colors, `058 080 177` and `255 255 255`.
-- No kit yet: pre-Fox kits compile from step 4.16, and until then a kit refuses the whole
-  export. `make_studio.py` writes `Kits/g1/` with `WITH_KIT = True`: `kit.dds` is
+- `Kits/g1/`, since step 4.16a (until then a kit refused the whole export on PES 15-17, and
+  the twin held none). `make_studio.py` writes it with `WITH_KIT = True`: `kit.dds` is
   `u0XXXg1.dds`, `config.toml` the GK config decoded as PES 17 by `kit_config`, `colors.txt`
   the note's `1st GK` entry, `#FFFFFF - #000000`.
 
@@ -67,9 +67,15 @@ What the comparison found when it was written (the test's tables carry each row)
   unwraps a WESYS `.mtl` too;
 - `face.xml`: the same `<dif>` bytes; the generated entries type the boots `parts`, as Red's own
   generator does (the member's file, which Red keeps, says `boots`);
-- `TeamColor.bin` is byte-identical; `UniColor.bin` and the kit's files wait for the kit (4.16);
-  Red's kit config keeps the names of the four number textures the cut does not ship, where
-  the compiler's encoder leaves an absent texture's name empty.
+- `TeamColor.bin` is byte-identical;
+- since 4.16a, with the twin's `Kits/g1/`: the mask is byte-identical (both write Red's
+  template, which the compiler bundles); `u0731g1.dds` has the same pixels, Red copying the
+  source file as it is (GIMP's reserved header bytes, no mip flags) and the compiler writing
+  its canonical header; Red's kit config keeps the names of the four number textures the cut
+  does not ship, where the compiler's encoder leaves an absent texture's name empty, and the
+  rest of the 120 bytes is the same; `UniColor.bin` holds the same `g1` entry for team 731,
+  and the rest of the compiler's file is the bundled base's, the team's past cup's record
+  included, where Red's fallback base held an empty record for the team.
 
 The reference tree is about 660 KB, small enough to commit whole rather than as a hash
 manifest (`testing.md` "Testing: parity against Red"), so the parity test runs anywhere, CI

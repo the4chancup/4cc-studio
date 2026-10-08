@@ -31,31 +31,38 @@ enum Row {
     Exact,
     /// The reference's nested face CPK: each entry compared per `NESTED`.
     FaceCpk,
-    /// Produced, compared from the step named: the reason.
-    Deferred(&'static str),
-    /// Not produced yet (tier 4): the reason.
-    NotProduced(&'static str),
+    /// Tier 2: a DDS with the same dimensions, codec and pixel payload (the reference copies
+    /// the source file as it is, GIMP's reserved bytes and no mip flags; the compiler writes
+    /// its header in one canonical form).
+    Texture,
+    /// Tier 2: the kit config, the same bytes outside the name fields of the four number
+    /// textures (`kit_back`, `kit_chest`, `kit_leg`, `kit_name`), which the reference keeps
+    /// from the member's config, respelled to the team, for textures the cut does not ship,
+    /// and the compiler's encoder leaves empty: an absent texture has no name
+    /// (`kit_config::encode_with_names`).
+    KitConfig,
+    /// Tier 2: `UniColor.bin`, compared per `compare_uni_color`.
+    UniColor,
 }
 
 const OUTER: &[(&str, Row)] = &[
     (FACE_CPK, Row::FaceCpk),
     (
         "common/character0/model/character/uniform/team/731/731_DEF_GK1st_realUni.bin",
-        Row::NotProduced("pre-Fox kits compile from 4.16; the twin holds no kit until then"),
+        Row::KitConfig,
     ),
     (
         "common/character0/model/character/uniform/team/UniColor.bin",
-        Row::Deferred(
-            "the reference's holds the GK kit's record; the twin holds no kit until 4.16",
-        ),
+        Row::UniColor,
     ),
     (
         "common/character0/model/character/uniform/texture/u0731g1.dds",
-        Row::NotProduced("pre-Fox kits compile from 4.16"),
+        Row::Texture,
     ),
+    // The kit has no mask of its own: both write Red's template, the compiler's bundled copy.
     (
         "common/character0/model/character/uniform/texture/u0731g1_mask.dds",
-        Row::NotProduced("pre-Fox kits compile from 4.16"),
+        Row::Exact,
     ),
     ("common/etc/TeamColor.bin", Row::Exact),
 ];
@@ -371,6 +378,78 @@ fn compare_face_xml(
     }
 }
 
+/// The kit config's name fields of the four number textures, `kit_back`, `kit_chest`, `kit_leg`
+/// and `kit_name`, 16 bytes each, after the main texture's at 0x28 (`kit_config`'s format
+/// table).
+const NUMBER_TEXTURE_NAMES: std::ops::Range<usize> = 0x38..0x78;
+
+/// Our kit config against the reference's per `Row::KitConfig`: the same bytes outside the
+/// four number-texture names, which the compiler leaves empty for the textures the kit does
+/// not ship and the reference keeps.
+fn compare_kit_config(failures: &mut Vec<String>, ours: &[u8], reference: &[u8]) {
+    let (start, end) = (NUMBER_TEXTURE_NAMES.start, NUMBER_TEXTURE_NAMES.end);
+    if ours[..start] != reference[..start] || ours[end..] != reference[end..] {
+        failures.push("tier2 kit config: bytes outside the number-texture names differ".to_owned());
+    }
+    if ours[NUMBER_TEXTURE_NAMES].iter().any(|byte| *byte != 0) {
+        failures
+            .push("tier2 kit config: a number texture the kit does not ship is named".to_owned());
+    }
+    if reference[NUMBER_TEXTURE_NAMES]
+        .iter()
+        .all(|byte| *byte == 0)
+    {
+        failures.push("the reference's kit config no longer keeps the absent textures' names: make the row Exact".to_owned());
+    }
+}
+
+/// The kit number of the first goalkeeper kit, `g1`, in a `UniColor.bin` entry
+/// (`resources/bins/README.md`: player kits count from 0, goalkeeper kits from 0x10).
+const GK1_KIT_NUMBER: u8 = 0x10;
+
+/// Team 731's 85-byte record in a `UniColor.bin`: the `u32` team ID, the kit count, then ten
+/// 8-byte entries of kit number, icon and two colors (`resources/bins/README.md`).
+const UNI_RECORD: std::ops::Range<usize> = (731 - 100) * 85..(731 - 100) * 85 + 85;
+
+/// Our `UniColor.bin` against the reference's per `Row::UniColor`: the tracer's one kit, `g1`,
+/// gives the same entry on both. The rest of our file is the bundled base's, team 731's past
+/// cup's record included, where the reference was built on Red's fallback base, whose record
+/// for the team was empty, so its record holds the one entry. Ours is therefore the base with
+/// the reference's `g1` entry set in the team's record (`pipeline.md` "Bins accumulation": the
+/// base's other kits are kept).
+fn compare_uni_color(failures: &mut Vec<String>, ours: &[u8], reference: &[u8]) {
+    let base = fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/bins/UniColor.bin"),
+    )
+    .unwrap();
+    let entry_of = |bin: &[u8]| {
+        bin[UNI_RECORD.start + 5..UNI_RECORD.end]
+            .chunks(8)
+            .position(|entry| entry[0] == GK1_KIT_NUMBER)
+            .map(|index| UNI_RECORD.start + 5 + 8 * index)
+    };
+    let red_record = &reference[UNI_RECORD];
+    if red_record[4] != 1 {
+        failures.push(format!(
+            "the reference's record holds {} kits, not the tracer's one",
+            red_record[4]
+        ));
+    }
+    let (Some(red_at), Some(base_at)) = (entry_of(reference), entry_of(&base)) else {
+        failures
+            .push("UniColor.bin: no g1 entry in the reference's or the base's record".to_owned());
+        return;
+    };
+    let mut expected = base;
+    expected[base_at..base_at + 8].copy_from_slice(&reference[red_at..red_at + 8]);
+    if ours != expected {
+        failures.push(
+            "tier2 UniColor.bin: not the bundled base with the reference's g1 entry set in team 731's record"
+                .to_owned(),
+        );
+    }
+}
+
 #[test]
 fn the_pre_fox_tracer_matches_the_reference_tree() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer_prefox");
@@ -425,42 +504,37 @@ fn the_pre_fox_tracer_matches_the_reference_tree() {
     let mut accounted: Vec<String> = Vec::new();
     for (path, row) in OUTER {
         let reference_bytes = &reference[*path];
+        accounted.push((*path).to_owned());
+        let Some(our_bytes) = ours.get(*path) else {
+            failures.push(format!("{path}: missing from our CPK"));
+            continue;
+        };
         match row {
             Row::Exact => {
-                accounted.push((*path).to_owned());
-                match ours.get(*path) {
-                    None => failures.push(format!("{path}: missing from our CPK")),
-                    Some(our_bytes) if our_bytes != reference_bytes => {
-                        failures.push(format!("tier1 {path}: bytes differ"));
-                    }
-                    Some(_) => {}
+                if our_bytes != reference_bytes {
+                    failures.push(format!("tier1 {path}: bytes differ"));
                 }
             }
-            Row::FaceCpk => {
-                accounted.push((*path).to_owned());
-                match ours.get(*path) {
-                    None => failures.push(format!("{path}: missing from our CPK")),
-                    Some(our_face) => accounted.extend(compare_face_cpk(
-                        &mut failures,
-                        our_face,
-                        reference_bytes,
-                        &ours,
-                    )),
-                }
-            }
-            Row::Deferred(reason) => {
-                accounted.push((*path).to_owned());
-                if !ours.contains_key(*path) {
+            Row::FaceCpk => accounted.extend(compare_face_cpk(
+                &mut failures,
+                our_bytes,
+                reference_bytes,
+                &ours,
+            )),
+            Row::Texture => {
+                let (width, height, codec, payload) = dds_content(our_bytes);
+                let (ref_width, ref_height, ref_codec, ref_payload) = dds_content(reference_bytes);
+                if (width, height) != (ref_width, ref_height) {
                     failures.push(format!(
-                        "{path}: missing from our CPK (compared later: {reason})"
+                        "tier2 {path}: {width}x{height}, reference {ref_width}x{ref_height}"
                     ));
                 }
-            }
-            Row::NotProduced(reason) => {
-                if ours.contains_key(*path) {
-                    failures.push(format!("tier4 {path}: produced anyway ({reason})"));
+                if (codec, payload) != (ref_codec, ref_payload) {
+                    failures.push(format!("tier2 {path}: codec or pixels differ"));
                 }
             }
+            Row::KitConfig => compare_kit_config(&mut failures, our_bytes, reference_bytes),
+            Row::UniColor => compare_uni_color(&mut failures, our_bytes, reference_bytes),
         }
     }
     for path in ours.keys() {
