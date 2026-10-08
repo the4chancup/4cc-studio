@@ -363,7 +363,12 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    its paired `.skl`, and a shared folder whose selected model is a glTF is removed at planning
    with every player folder linking it dropped by `model_gltf_unsupported` naming the shared
    file, as validation drops a player whose link names a dropped folder: a player without the
-   boots or face he linked would compile to something he did not ask for. A shared `Boots/`
+   boots or face he linked would compile to something he did not ask for. A `.model` directly
+   in `Common/` with its `.mtl`, on PES 18-21, converts in each linking player's Models task
+   as his own `.model` does, the link baked away as a Common FMDL's is (step 7), its `.mtl`
+   the one its search finds in `Common/`, the conversion's skeleton under `skl_no_slot`'s rule;
+   a Common `.model` no player links is ignored there with no finding, Fox having no Common
+   model output. A shared `Boots/`
    or `Gloves/` folder's FMDL on PES 15-17 converts in the folder's own boots or gloves task,
    and an `ingame_face` player's FMDL parts in his: the boots and gloves writer converts an
    FMDL as the face does, its paired `.skl` the bind pose, the `.model` in the FMDL's place
@@ -383,7 +388,11 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    target's convention, on pre-Fox the team's Common texture directory
    (`model/character/uniform/common/<team>/dummy_kit.dds`, where a member's own pre-Fox `.mtl`
    names it with `XXX` for the team), since the Fox directory means nothing to PES 15-17 and
-   the modded exes substitute the stem there.
+   the modded exes substitute the stem there. The other way, a `.mtl` path naming the
+   pre-Fox Common texture directory (`model/character/uniform/common/<team>/<stem>.dds`, how
+   a member's pre-Fox `.mtl` names a texture in `Common/`) is pointed at the Fox Common
+   texture directory when `Common/` holds the stem, the evidence on which the deep check
+   calls it supplied; otherwise it is left as written, as any path the folder does not hold.
 2. **ID replacement** — dummy team IDs are replaced in file contents (FMDL texture path tables via
    the `fmdl` crate's texture-path rewriting, `ops::paths::rewrite_texture_paths`; `.mtl` texture
    IDs pre-Fox) and in file names.
@@ -786,7 +795,10 @@ describes behavior, not a serial scheduling requirement:
   both engines: read from the whole stem, `boots_kit1` names no suffix and would be face
   content, its meshes merged into the face's `fcl_hair` instead of the boots. On Fox a model
   file that is a variant with a lower variant of its set in the same folder is not compiled,
-  and planning reports `kit_variant_model_fox` on the folder, once per set. On pre-Fox every
+  and planning reports `kit_variant_model_fox` on the folder, once per set; a set's variants
+  are its model files of either native format (`pants_kit1.fmdl` and `pants_kit2.model` are
+  one set), a variant present in both formats one variant, its FMDL the selected
+  representation. On pre-Fox every
   variant is packed under its own name and the set is listed once: the lowest variant's
   `face.xml` entries (its own, and its hands' when it is hand-split) with the kit token in
   their `path` and `material` spelled `kitN`, so the game respells the whole entry for the kit

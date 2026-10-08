@@ -5333,3 +5333,27 @@ rule the marker already applies to a Common `.model`.
 Plan: `team_compiler/pipeline.md` step 7 "Packing" (the Common output sentences), step 6 (the
 environment-cubemap paragraph); `aesthetics_export/player_folders.md` the `ingame_face`
 paragraph.
+
+## 2026-10-08 — team_compiler — A Common `.model` converts in each linking player's Models task on PES 18-21; per-kit sets span both formats; a pre-Fox Common texture path is pointed at the Fox Common directory
+Decision: On PES 18-21 a `.model` directly in `Common/` with its `.mtl`, linked by
+`x.model.common`, converts in each linking player's Models task as his own `.model` does and
+is baked into his package as a Common FMDL is, its `.mtl` the one the search finds in
+`Common/` (`model_material_undefined` when none), its Common textures pointed at the Fox
+Common texture directory, the conversion's skeleton under `skl_no_slot`'s rule; a Common
+`.model` or `.mtl` no player links is ignored with no finding. A per-kit model set's variants
+are the folder's model files of either native format, a variant present in both formats one
+variant with its FMDL selected, so `pants_kit1.model` + `pants_kit2.model` on Fox report
+`kit_variant_model_fox` and only the lowest converts. A converted `.mtl` path naming the
+pre-Fox Common texture directory (`model/character/uniform/common/<team>/<stem>.dds`) is
+pointed at the Fox Common texture directory when `Common/` holds the stem, else left as
+written.
+Why: the plan bakes a Common FMDL into each linking player on Fox because the engine cannot
+load a model from Common; a Common `.model` is the same case with a conversion in front, and
+the Models task already converts a player's `.model`. Converting it once into a shared output
+would need a Common model output Fox has none of. A per-kit set read from FMDLs alone let a
+`.model` set convert and merge every variant with no warning (noted at 4.17b). The deep check
+already calls the pre-Fox Common path supplied when `Common/` holds the stem, so leaving the
+path verbatim in the FMDL was a texture the game could not find with no finding: the same
+evidence must point it.
+Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the Common `.model` sentence
+and the Common-path sentence), "Kit-dependent assets" (the set's formats).
