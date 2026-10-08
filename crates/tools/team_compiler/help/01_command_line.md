@@ -255,15 +255,17 @@ cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` 
 their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a `.mtl` or a
 texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder holding
 only `.model`, `.mtl` and texture files, the kits, its `.model` and `.fmdl` collars, and the
-portraits and the logo, and a player's `.fmdl` models, and a linked shared `Faces` folder's,
-converted to `.model` files with their materials; a shared `Boots` or `Gloves` folder's `.fmdl`
-and referee exports are named. A `.fmdl` beside a `.model`
+portraits and the logo, and a player's `.fmdl` models (with `ingame_face`, the `.fmdl` parts
+of his own boots and gloves), and a linked shared `Faces`, `Boots` or `Gloves` folder's,
+converted to `.model` files with their materials; referee exports are named. A `.fmdl` beside
+a `.model`
 of the same name is left out for the `.model`, the `.skl` of a converted model's name gives
 its pose, and `fcl_hair_sim.fclo` is not used. A converted model moved onto that version's skeleton is noted
-as `skeleton_retargeted`, and one that cannot be converted leaves its player folder out with
-`model_conversion_failed`. A metal material (a Fox `fox3ddf_ggx` one) converted this way
-reflects the compiler's environment map, emitted beside the player's textures as `env.dds`;
-an `env` texture of the player's own in his folder (`env.dds`, `env.png`) is used instead, and `templates/env.dds` in the
+as `skeleton_retargeted`, and one that cannot be converted leaves the face, boots or gloves
+it is part of out with `model_conversion_failed`. A metal material (a Fox `fox3ddf_ggx` one)
+converted this way reflects the compiler's environment map, emitted beside the player's
+textures, or a shared `Boots` or `Gloves` folder's, as `env.dds`; an `env` texture of the
+folder's own (`env.dds`, `env.png`) is used instead, and `templates/env.dds` in the
 data folder replaces the built-in one. For
 PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
 (a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),

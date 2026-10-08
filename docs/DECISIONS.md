@@ -5260,3 +5260,28 @@ code or cascade. The pre-Fox boots and gloves writer has no conversion path, so 
 gate now would panic on the `.mtl` lookup.
 Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the shared-folder sentences);
 `team_compiler/messages.md` `model_gltf_unsupported`.
+
+## 2026-10-08 — team_compiler — The pre-Fox boots and gloves writer converts as the face does; a conversion finding names a shared source by its export path
+Decision: On PES 15-17 an FMDL in a shared `Boots/` or `Gloves/` folder, and an FMDL part of a
+player under `ingame_face`, convert in the boots or gloves task that packs them, as the face
+converts one: the paired `.skl` the bind pose, the `.model` in the FMDL's place, its material
+set where a member's `.mtl` goes (merged into `boots.mtl`; packed as `<stem>.mtl` lowercased
+beside the glove, named by its `glove.xml` entry), pointed in the face's order (the environment
+map when the folder has one planned, the folder's textures and links, the reserved kit stems).
+A shared boots or gloves folder holding a metal FMDL gets the template `env.dds` beside its
+models, its texture home. A conversion finding's `model` context is the source below the
+task's folder, or its export path when a player's task converts a shared folder's file. A Fox
+file with no role in a shared folder (an FMDL a `.model` beats, its `.skl`,
+`fcl_hair_sim.fclo`) is ignored on PES 15-17 as a player's is, `Faces/` included. A member's
+`.mtl` named like a converted glove's `<stem>.mtl` is two files of one name and fails the
+gloves task (`folder_pack_failed`), an error, not a wrong file. A marked player's skeletons
+are read by both his packages: his own files' source package is the boots, so a rule reading
+a skeleton only for its source package would convert his glove with no bind pose and nothing
+reporting it; the cost is a few unused bytes.
+Why: the plan's selection and conversion are per stem, with no word on which task converts a
+boots or gloves FMDL; the face already had the conversion path, and the writer's only
+difference is where a material set goes, which the output's shape already fixes. A bare file
+name is ambiguous once a player's task converts a shared folder's file (`hat.fmdl` could be
+his own or `Faces/Round/`'s), and `model_gltf_unsupported` set the export-path rule at f1.
+Plan: `team_compiler/pipeline.md` step 3 "Format conversion"; `team_compiler/messages.md`
+`model_conversion_failed`, `bone_folded_for_version`, `skeleton_retargeted`.

@@ -8,17 +8,19 @@
 //! `boots.model` and the `.mtl` it uses as `boots.mtl`, the names the game loads, several
 //! models merged into one (`pes_model::ops::merge`); gloves are each model and the `.mtl`
 //! files they use under their own names lowercased, listed in a generated `glove.xml`,
-//! unmerged. A shared folder's textures sit beside them (`TextureHome::SharedOutput`), the
-//! `.mtl` paths naming them `./<stem>.dds`; a player's are in his common folder
-//! (`TextureHome::PlayerCommon`), named as his face's `.mtl` files name them, and a Common
-//! `.mtl`'s stay in the team's Common output. `materialize` writes the files into the output's
-//! folder.
+//! unmerged. An `.fmdl` among the models is converted as the face converts one (`pipeline.md`
+//! step 3 "Format conversion"), its `.model` and material set taking the place of a member's
+//! `.model` and the `.mtl` it uses. A shared folder's textures sit beside them
+//! (`TextureHome::SharedOutput`), the `.mtl` paths naming them `./<stem>.dds`; a player's are
+//! in his common folder (`TextureHome::PlayerCommon`), named as his face's `.mtl` files name
+//! them, and a Common `.mtl`'s stay in the team's Common output. `materialize` writes the files
+//! into the output's folder.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 use std::sync::Arc;
 
-use aesthetics_export::{FileDescriptor, FileKind};
+use aesthetics_export::{FileDescriptor, FileKind, ModelFormat};
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 use pes_model::model::Model;
@@ -28,24 +30,28 @@ use pipeline::MemoryBudget;
 use studio_core::Disposition;
 use vtree::ScopePath;
 
+use super::conversion::{PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox, source_name};
 use super::materialize::PackageFiles;
-use super::prefox_face::{insert, linked_texture_stem, read_materials, rewritten_materials};
+use super::prefox_face::{
+    add_environment_map, insert, linked_texture_stem, point_materials, point_reserved_kit_stems,
+    read_materials, rewritten_materials,
+};
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_xml::{XmlEntry, glove_xml, ratio};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::ModelFolder;
-use crate::plan::subset::{ModelPackage, PlayerFile, file_stem, is_direct_common_file};
+use crate::plan::subset::{ModelPackage, PlayerFile, file_stem, is_direct_common_file, path_stem};
 
 /// What the deep pass guarantees of every `.model` a task reads on pre-Fox.
 const MTL_FOUND: &str = "the deep pass drops a folder holding a `.model` no `.mtl` is found for \
                          (`model_material_undefined`)";
 
-/// One `.model` of the output, with the source folder it was found in: its `.mtl` is searched
-/// for there (`mtl_for`), a combined folder's never in the player's folder. A Common model a
-/// marked player's link copies in has his folder as its source, its `.mtl` resolved at
-/// planning (`material_of`).
+/// One `.model` of the output, or an `.fmdl` converted to one, with the source folder it was
+/// found in: a `.model`'s `.mtl` is searched for there (`mtl_for`), a combined folder's never
+/// in the player's folder. A Common model a marked player's link copies in has his folder as
+/// its source, its `.mtl` resolved at planning (`material_of`).
 struct SourceModel<'a> {
     /// The model file.
     file: &'a FileDescriptor,
@@ -56,6 +62,28 @@ struct SourceModel<'a> {
     source_path: &'a ScopePath,
     /// Its source folder's files.
     source_files: &'a [FileDescriptor],
+    /// The `.skl` its source pairs with an FMDL by path stem, the conversion's bind pose
+    /// (`PlayerFile::ConversionSkeleton`), as the face pairs one; `None` for a `.model`, which
+    /// no such skeleton pairs with, and for an FMDL its source holds none for.
+    skeleton: Option<&'a FileDescriptor>,
+}
+
+impl SourceModel<'_> {
+    /// Whether the model is an FMDL, converted for the target (`fmdl_for_pre_fox`) rather than
+    /// packed from its bytes with the `.mtl` it uses.
+    fn converts(&self) -> bool {
+        self.file.kind == FileKind::Model(ModelFormat::Fmdl)
+    }
+
+    /// The name a gloves output packs the model under: its file name lowercased, an FMDL's as
+    /// the `.model` its conversion writes (`glove_l.fmdl` packs as `glove_l.model`).
+    fn packed_name(&self) -> String {
+        let name = self.file.path.name();
+        if self.converts() {
+            return format!("{}.model", file_stem(name)).to_ascii_lowercase();
+        }
+        name.to_ascii_lowercase()
+    }
 }
 
 /// One part of a boots output: its `.model`'s export path, which names it in an error, the
@@ -86,9 +114,18 @@ struct BootsPart<'a> {
 /// as the face's are (`rewritten_materials`); in a copied Common `.mtl` alone, a path naming
 /// neither but a texture directly in `Common/` is pointed at that texture in the team's Common
 /// output, while the folder's own `.mtl` files leave such a path as written. A Common model and
-/// its `.mtl` pack under their file names as the folder's own do.
-/// Two files packing under one name otherwise fail the task. A merge is charged to `ctx`'s
-/// memory budget.
+/// its `.mtl` pack under their file names as the folder's own do. An `.fmdl` is converted
+/// (`fmdl_for_pre_fox`, the `.skl` its source pairs with it as the bind pose, its findings
+/// naming it by `source_name`), its `.model` taking a member's `.model`'s place and its
+/// material set the place of the `.mtl` that model uses: merged into `boots.mtl`, or packed
+/// as `<stem>.mtl` lowercased beside `<stem>.model` and named by its `glove.xml` entry. The
+/// set's texture paths are pointed as the face points a converted one's: each metal material
+/// first given the environment map in the texture home when the folder has one planned
+/// (`ModelFolder::environment_map`), then the folder's textures and links as a `.mtl`'s, then
+/// the reserved kit stems at the team's Common texture directory. A conversion that fails
+/// fails the task. Two files packing under one name otherwise fail the task, a member's `.mtl`
+/// of a converted glove's `<stem>.mtl` name among them. A merge is charged to `ctx`'s memory
+/// budget.
 pub(super) fn package(
     folder: &ModelFolder,
     package: ModelPackage,
@@ -115,12 +152,25 @@ pub(super) fn package(
     for ((source_package, source_path, source_roles), source_files) in
         folder.roles().into_iter().zip(source_files)
     {
+        // The skeletons of this source's FMDLs, each its FMDL's bind pose.
+        let skeletons: Vec<&FileDescriptor> = source_roles
+            .iter()
+            .filter(|(_, role)| matches!(role, PlayerFile::ConversionSkeleton))
+            .map(|(file, _)| *file)
+            .collect();
         for (file, role) in source_roles {
-            let source_model = |xml_type| SourceModel {
-                file,
-                xml_type,
-                source_path,
-                source_files,
+            let source_model = |xml_type| {
+                let path_fold = vtree::fold_name(path_stem(file));
+                SourceModel {
+                    file,
+                    xml_type,
+                    source_path,
+                    source_files,
+                    skeleton: skeletons
+                        .iter()
+                        .find(|skeleton| vtree::fold_name(path_stem(skeleton)) == path_fold)
+                        .copied(),
+                }
             };
             match role {
                 // A shared folder's model is a part of the package the folder feeds, a
@@ -157,8 +207,9 @@ pub(super) fn package(
                 | PlayerFile::SlotlessSkeleton
                 | PlayerFile::LeftOutKitVariant
                 | PlayerFile::PreFoxCommonModel { .. }
-                | PlayerFile::FaceXml
-                | PlayerFile::ConversionSkeleton => {}
+                | PlayerFile::FaceXml => {}
+                // Read with the FMDL it is the bind pose of (`SourceModel::skeleton`).
+                PlayerFile::ConversionSkeleton => {}
                 // Planning drops a player folder holding one, and the subset gate refuses a
                 // shared folder's, so no task meets it.
                 PlayerFile::UnsupportedGltf => {}
@@ -192,12 +243,38 @@ pub(super) fn package(
     // The textures directly in `Common/` are a copied Common `.mtl`'s alone: a `.mtl` of the
     // folder's resolves a texture into Common only through a `.common` link (`model_format.md`
     // "Link files"), so an unlinked Common stem it names is left as written, as in the face.
-    let places_for = |material: &FileDescriptor| -> &[(&BTreeMap<String, String>, &str)] {
-        if is_direct_common_file(&material.path) {
+    // A converted FMDL's set goes by its FMDL, which is never a Common file: a link copies in
+    // only a `.model` (`PlayerFile::PreFoxPart`).
+    let places_for = |file: &FileDescriptor| -> &[(&BTreeMap<String, String>, &str)] {
+        if is_direct_common_file(&file.path) {
             &common_places
         } else {
             &own_places
         }
+    };
+    // An FMDL converted (`fmdl_for_pre_fox`, its source's skeleton of its path stem the bind
+    // pose, its findings naming it by `source_name`), its material set pointed as the face
+    // points a converted one, in the face's order: the environment map added first, since
+    // the pointing respells it as the folder spells its own `env` texture.
+    let convert = |model: &SourceModel<'_>,
+                   files: &mut TaskFiles,
+                   findings: &mut Vec<Finding>|
+     -> Result<PreFoxConversion, TaskFailure> {
+        let skeleton = model.skeleton.map(|skeleton| take(files, skeleton));
+        let mut conversion = fmdl_for_pre_fox(
+            &source_name(&model.file.path, &folder.path),
+            &take(files, model.file),
+            skeleton.as_deref(),
+            ctx,
+            findings,
+            PreFoxMaterials::Converted,
+        )?;
+        if folder.environment_map {
+            add_environment_map(&mut conversion.materials, &home);
+        }
+        point_materials(&mut conversion.materials, places_for(model.file));
+        point_reserved_kit_stems(&mut conversion.materials, &common_directory);
+        Ok(conversion)
     };
     let mut contents = PackageFiles::new();
     match package {
@@ -210,26 +287,36 @@ pub(super) fn package(
                     model.file.path.as_str().to_owned(),
                 )
             });
-            let used: Vec<&FileDescriptor> = models
-                .iter()
-                .map(|model| material_of(folder, model))
-                .collect();
-            // Each `.mtl` is read once, however many parts use it.
-            let mut sets: BTreeMap<&ScopePath, MaterialSet> = BTreeMap::new();
-            for material in &used {
-                if !sets.contains_key(&material.path) {
-                    let set =
-                        read_materials(material, &take(files, material), places_for(material))?;
-                    sets.insert(&material.path, set);
+            // The material sets the parts use, each part naming its own by index: a member's
+            // `.mtl` read once however many parts use it, a converted FMDL's own set.
+            let mut sets: Vec<MaterialSet> = Vec::new();
+            let mut member_sets: BTreeMap<&ScopePath, usize> = BTreeMap::new();
+            let mut sources: Vec<(&ScopePath, Vec<u8>, usize)> = Vec::new();
+            for model in &models {
+                if model.converts() {
+                    let conversion = convert(model, files, findings)?;
+                    sets.push(conversion.materials);
+                    sources.push((&model.file.path, conversion.model, sets.len() - 1));
+                    continue;
                 }
+                let material = material_of(folder, model);
+                let index = match member_sets.get(&material.path) {
+                    Some(index) => *index,
+                    None => {
+                        let bytes = take(files, material);
+                        sets.push(read_materials(material, &bytes, places_for(material))?);
+                        member_sets.insert(&material.path, sets.len() - 1);
+                        sets.len() - 1
+                    }
+                };
+                sources.push((&model.file.path, take(files, model.file), index));
             }
-            let parts = models
-                .iter()
-                .zip(&used)
-                .map(|(model, material)| BootsPart {
-                    path: &model.file.path,
-                    model: take(files, model.file),
-                    materials: &sets[&material.path],
+            let parts = sources
+                .into_iter()
+                .map(|(path, model, index)| BootsPart {
+                    path,
+                    model,
+                    materials: &sets[index],
                 })
                 .collect();
             let merged = models.len() > 1;
@@ -247,10 +334,7 @@ pub(super) fn package(
         ModelPackage::Gloves => {
             let own = |source_path: &ScopePath| source_path == &folder.path;
             let mut models = without_replaced(models, |model| {
-                (
-                    model.file.path.name().to_ascii_lowercase(),
-                    own(model.source_path),
-                )
+                (model.packed_name(), own(model.source_path))
             });
             // By export path, case-folded, then as spelled, so a recompile lists them alike.
             models.sort_by_cached_key(|model| {
@@ -264,19 +348,34 @@ pub(super) fn package(
             // holds it: a model's search finds one in its own source folder.
             let mut used: Vec<(&FileDescriptor, bool)> = Vec::new();
             for model in models {
-                let name = model.file.path.name();
-                let material = material_of(folder, &model);
-                if !used.iter().any(|(file, _)| file.path == material.path) {
-                    used.push((material, own(model.source_path)));
-                }
-                let packed = name.to_ascii_lowercase();
+                let packed = model.packed_name();
+                let (bytes, material) = if model.converts() {
+                    let conversion = convert(&model, files, findings)?;
+                    // Packed beside its model under the model's stem: a member's `.mtl` of
+                    // that name the folder also packs is two files of one name (`insert`).
+                    let material = format!("{}.mtl", file_stem(&packed));
+                    insert(
+                        &mut contents,
+                        package,
+                        material.clone(),
+                        conversion.materials.write(),
+                    )?;
+                    (conversion.model, material)
+                } else {
+                    let material = material_of(folder, &model);
+                    if !used.iter().any(|(file, _)| file.path == material.path) {
+                        used.push((material, own(model.source_path)));
+                    }
+                    let name = material.path.name().to_ascii_lowercase();
+                    (take(files, model.file), name)
+                };
                 entries.push(XmlEntry {
                     xml_type: model.xml_type,
                     path: format!("./{packed}"),
-                    material: format!("./{}", material.path.name().to_ascii_lowercase()),
-                    ratio: ratio(file_stem(name)).map(str::to_owned),
+                    material: format!("./{material}"),
+                    ratio: ratio(file_stem(model.file.path.name())).map(str::to_owned),
                 });
-                insert(&mut contents, package, packed, take(files, model.file))?;
+                insert(&mut contents, package, packed, bytes)?;
             }
             let used = without_replaced(used, |(file, own)| {
                 (file.path.name().to_ascii_lowercase(), *own)

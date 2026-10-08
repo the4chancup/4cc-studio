@@ -170,12 +170,14 @@ pub(crate) struct ModelFolder {
     /// alone splits each one, packing its hands as two more `face.xml` entries, and no gloves
     /// task is planned for them. Empty for a shared folder, whose models are never split.
     pub(crate) hand_split: BTreeSet<ScopePath>,
-    /// The player folder's face converts an FMDL holding a metal material for PES 15-17
-    /// (`converts_metal`): its textures task emits the template environment map as `env.dds`
-    /// in its texture home, unless one of its sources holds an `env` texture, and is planned
-    /// for it even when the folder holds no texture; the face points each converted
-    /// `Basic_CNSR` material with no environment sampler at it (`model_format.md`, the
-    /// `environment` role). Never set on PES 18-21, nor for a shared folder.
+    /// One of the folder's packages converts an FMDL holding a metal material for PES 15-17
+    /// (`converts_metal`): a player's face, an `ingame_face` player's boots or gloves, or a
+    /// shared boots or gloves output. Its textures task emits the template environment map as
+    /// `env.dds` in its texture home as that home spells it (a player's common folder; a shared
+    /// output's own folder, which its `.mtl` files name as `./`), unless one of its sources
+    /// holds an `env` texture, and is planned for it even when the folder holds no texture; the
+    /// converting package points each converted `Basic_CNSR` material with no environment
+    /// sampler at it (`model_format.md`, the `environment` role). Never set on PES 18-21.
     pub(crate) environment_map: bool,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
@@ -568,8 +570,8 @@ impl TaskKind {
     /// Every file the task reads from its export: a package's models (a `.common` link's
     /// Common model and skeleton, never the link) and the files packed beside them, the Fox
     /// gloves' also the folder's hand-split face parts, whose hands they take, a Fox package
-    /// converting a `.model` also the `.mtl` files of the model's source, the pre-Fox
-    /// face's also the skeleton of each FMDL it converts; a folder's
+    /// converting a `.model` also the `.mtl` files of the model's source, a pre-Fox package
+    /// also the skeleton of each FMDL it may convert; a folder's
     /// textures; the Common textures; the Common models and `.mtl` files (pre-Fox); a
     /// portrait's one file; a kit's config and `colors.txt`,
     /// when it has them, and its effective textures; the logo's main file and its small one,
@@ -601,9 +603,6 @@ impl TaskKind {
                         // boots or gloves folder's into its own output, a folder an
                         // `ingame_face` player combines into his package of its kind.
                         || (matches!(role, PlayerFile::PreFoxModel { .. }) && *package == source)
-                        // The face converts the FMDL the skeleton is the bind pose of.
-                        || (matches!(role, PlayerFile::ConversionSkeleton)
-                            && *package == ModelPackage::Face)
                 };
                 // On Fox only a package converting a `.model` reads a `.mtl`: the FMDLs carry
                 // their materials, and a `.mtl` beside a `.model` an FMDL beats is read by
@@ -625,6 +624,13 @@ impl TaskKind {
                         // parts of his boots and of his gloves (`PlayerFile::PreFoxPart`).
                         || (matches!(role, PlayerFile::Material)
                             && converts
+                            && (*package == source || source_path == &folder.path))
+                        // A pre-Fox FMDL's skeleton, its bind pose, goes where its models go,
+                        // as a `.mtl` does: the face's, a shared boots or gloves output's, a
+                        // combined folder's into the player's package of its kind, and an
+                        // `ingame_face` player's own into his boots and his gloves, either of
+                        // which may convert the FMDL it pairs with.
+                        || (matches!(role, PlayerFile::ConversionSkeleton)
                             && (*package == source || source_path == &folder.path))
                 })
             }
@@ -706,18 +712,28 @@ fn hand_split_parts(
         .collect()
 }
 
-/// Whether `folder`'s face converts an FMDL among `metal_models`, the FMDLs the deep pass found
-/// holding a metal material (`ModelFolder::environment_map`): one of its sources' files the
-/// face converts (`PlayerFile::PreFoxModel`, a role only a pre-Fox target gives; a `.model`
-/// with the role is never among the metal models, which are FMDLs). A folder holding its own
-/// `face.xml` converts none: the xml lists the face's models, and names no converted one.
+/// Whether one of `folder`'s packages converts an FMDL among `metal_models`, the FMDLs the deep
+/// pass found holding a metal material (`ModelFolder::environment_map`): one of its sources'
+/// files a pre-Fox package converts, a face's or a shared boots or gloves output's model
+/// (`PlayerFile::PreFoxModel`) or a part of an `ingame_face` player's boots or gloves
+/// (`PlayerFile::PreFoxPart`), roles only a pre-Fox target gives (a `.model` with one is never
+/// among the metal models, which are FMDLs). A folder holding its own `face.xml` converts
+/// none: the xml lists the face's models, and names no converted one.
 fn converts_metal(folder: &ModelFolder, metal_models: &BTreeSet<ScopePath>) -> bool {
     if folder.own_face_xml().is_some() {
         return false;
     }
     folder.roles().into_iter().any(|(_, _, files)| {
         files.into_iter().any(|(file, role)| {
-            matches!(role, PlayerFile::PreFoxModel { .. }) && metal_models.contains(&file.path)
+            let converted = matches!(
+                role,
+                PlayerFile::PreFoxModel { .. }
+                    | PlayerFile::PreFoxPart {
+                        package: ModelPackage::Boots | ModelPackage::Gloves,
+                        ..
+                    }
+            );
+            converted && metal_models.contains(&file.path)
         })
     })
 }
@@ -753,8 +769,8 @@ pub(crate) struct ExportToPlan {
     /// among them is hand auto-split (`ModelFolder::hand_split`).
     pub(crate) hand_weighted: BTreeSet<ScopePath>,
     /// The export paths of its FMDLs holding a metal material, as the deep pass found them
-    /// (`deep::ContentPass::metal_models`): a player whose pre-Fox face converts one of them
-    /// gets the template environment map (`ModelFolder::environment_map`).
+    /// (`deep::ContentPass::metal_models`): a model folder one of whose pre-Fox packages
+    /// converts one of them gets the template environment map (`ModelFolder::environment_map`).
     pub(crate) metal_models: BTreeSet<ScopePath>,
 }
 
@@ -892,7 +908,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     "a referee's links take no shared id, and the structure pass drops a \
                          team export whose shared pool is exhausted",
                 ));
-                let folder = ModelFolder {
+                let mut folder = ModelFolder {
                     path: folder.path.clone(),
                     files: folder.files.clone(),
                     ingame_face: false,
@@ -908,6 +924,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                         id: shared_id,
                     },
                 };
+                folder.environment_map = converts_metal(&folder, &metal_models);
                 shared.push((folder, package, shared_id));
             }
         }
@@ -3658,6 +3675,113 @@ mod tests {
                 "Gloves/Keeper/glove_r.model",
                 "Gloves/Keeper/glove_r.mtl",
             ]
+        );
+    }
+
+    /// The PES 17 plan of slot 05 holding `ingame_face`, a boots and a gloves FMDL each with
+    /// its skeleton, and linking `Gloves/Keeper/` (an FMDL with its skeleton), which his
+    /// gloves part combines; and of slot 07 linking `Boots/Crocs/` (an FMDL with its
+    /// skeleton) plainly. `metal_models` are the deep pass's metal models.
+    fn converting_plan(metal_models: &[&str]) -> PlanReport {
+        let export = resolved(
+            "co Midcup Convert",
+            &[
+                ("Players/05 - A/ingame_face", 0),
+                ("Players/05 - A/boots.fmdl", 4),
+                ("Players/05 - A/boots.skl", 1),
+                ("Players/05 - A/x_gloveL.fmdl", 2),
+                ("Players/05 - A/x_gloveL.skl", 1),
+                ("Players/05 - A/Keeper.gloves", 0),
+                ("Players/07 - B/Crocs.boots", 0),
+                ("Gloves/Keeper/glove_r.fmdl", 8),
+                ("Gloves/Keeper/glove_r.skl", 1),
+                ("Boots/Crocs/boots.fmdl", 16),
+                ("Boots/Crocs/boots.skl", 1),
+            ],
+            &[],
+            None,
+        );
+        let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
+        planned.metal_models = metal_models.iter().map(|path| scope_path(path)).collect();
+        plan_run(vec![planned], PesVersion::Pes17)
+    }
+
+    #[test]
+    fn a_pre_fox_boots_or_gloves_package_reads_the_skeleton_of_each_fmdl_it_may_convert() {
+        let report = converting_plan(&[]);
+
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Boots Players/05 - A [625] charge 6",
+                "0 714 Gloves Players/05 - A [625] charge 13",
+                "0 714 Face Players/07 - B [71407] charge 0",
+                "0 714 Boots Boots/Crocs [644] charge 17",
+            ]
+        );
+        // His own skeletons go into both his packages, as his `.mtl` files do, each of which
+        // converts the FMDL one pairs with; a combined folder's into his package of its kind,
+        // and a shared folder's into its own output.
+        let tasks = &report.manifest.tasks;
+        assert_eq!(
+            task_files(&tasks[0]),
+            [
+                "Players/05 - A/boots.fmdl",
+                "Players/05 - A/boots.skl",
+                "Players/05 - A/x_gloveL.skl",
+            ]
+        );
+        assert_eq!(
+            task_files(&tasks[1]),
+            [
+                "Players/05 - A/boots.skl",
+                "Players/05 - A/x_gloveL.fmdl",
+                "Players/05 - A/x_gloveL.skl",
+                "Gloves/Keeper/glove_r.fmdl",
+                "Gloves/Keeper/glove_r.skl",
+            ]
+        );
+        assert_eq!(
+            task_files(&tasks[3]),
+            ["Boots/Crocs/boots.fmdl", "Boots/Crocs/boots.skl"]
+        );
+    }
+
+    #[test]
+    fn a_marked_player_s_part_or_a_shared_folder_s_metal_fmdl_gets_the_template_in_its_home() {
+        let owned = |package: &str| package.to_owned();
+        // His gloves part and the shared boots: each folder gets the template, a textures task
+        // planned for it with no texture of its own.
+        let report = converting_plan(&["Players/05 - A/x_gloveL.fmdl", "Boots/Crocs/boots.fmdl"]);
+        assert_eq!(
+            environment_maps(&report),
+            [
+                (owned("Boots"), "Players/05 - A", true),
+                (owned("Gloves"), "Players/05 - A", true),
+                (owned("textures"), "Players/05 - A", true),
+                (owned("Face"), "Players/07 - B", false),
+                (owned("Boots"), "Boots/Crocs", true),
+                (owned("textures"), "Boots/Crocs", true),
+            ]
+        );
+        // A combined folder's metal FMDL is one his gloves convert.
+        let report = converting_plan(&["Gloves/Keeper/glove_r.fmdl"]);
+        assert_eq!(
+            environment_maps(&report)[..3],
+            [
+                (owned("Boots"), "Players/05 - A", true),
+                (owned("Gloves"), "Players/05 - A", true),
+                (owned("textures"), "Players/05 - A", true),
+            ]
+        );
+        // With none, no folder gets one.
+        let report = converting_plan(&[]);
+        assert!(
+            environment_maps(&report)
+                .iter()
+                .all(|(package, _, environment_map)| package != "textures" && !environment_map),
+            "{:?}",
+            environment_maps(&report)
         );
     }
 

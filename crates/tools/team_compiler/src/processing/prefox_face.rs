@@ -23,7 +23,7 @@ use pes_version::{Engine, PesVersion};
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::conversion::{PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox};
+use super::conversion::{PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox, source_name};
 use super::materialize::PackageFiles;
 use super::prefox_split::split_face_model;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
@@ -281,7 +281,7 @@ pub(super) fn face(
                             .map(|skeleton| take(files, skeleton));
                         let bytes = take(files, file);
                         FaceSource::Converted(fmdl_for_pre_fox(
-                            file.path.name(),
+                            &source_name(&file.path, &folder.path),
                             &bytes,
                             skeleton.as_deref(),
                             ctx,
@@ -919,7 +919,7 @@ pub(super) fn read_materials(
 /// that is a kit reference (`pants_kitN`) is pointed at the directory of the first place
 /// holding a variant of its set (`has_variant_among`), its file name kept as it is: the game
 /// respells it for the kit picked. Any other path is left as it is.
-fn point_materials(set: &mut MaterialSet, places: &[(&BTreeMap<String, String>, &str)]) {
+pub(super) fn point_materials(set: &mut MaterialSet, places: &[(&BTreeMap<String, String>, &str)]) {
     rewrite_texture_paths(set, |path| {
         let stem = file_stem(&path.file_name);
         let key = vtree::fold_name(stem);
@@ -946,7 +946,7 @@ fn point_materials(set: &mut MaterialSet, places: &[(&BTreeMap<String, String>, 
 /// substitute the active kit's texture for that stem there, and the Fox directory a converted
 /// FMDL names means nothing to PES 15-17. A member's own `.mtl` already names the pre-Fox
 /// place and is emitted as written, so only a converted set goes through this.
-fn point_reserved_kit_stems(set: &mut MaterialSet, common_directory: &str) {
+pub(super) fn point_reserved_kit_stems(set: &mut MaterialSet, common_directory: &str) {
     rewrite_texture_paths(set, |path| {
         let stem = file_stem(&path.file_name);
         let key = vtree::fold_name(stem);
@@ -957,13 +957,14 @@ fn point_reserved_kit_stems(set: &mut MaterialSet, common_directory: &str) {
     });
 }
 
-/// The stem of the environment map a converted metal material names in the player's texture
-/// home: the folder's own `env` texture, else the template the textures task emits there
-/// (`ModelFolder::environment_map`).
+/// The stem of the environment map a converted metal material names in its model folder's
+/// texture home: the folder's own `env` texture, else the template the textures task emits
+/// there (`ModelFolder::environment_map`).
 pub(super) const ENVIRONMENT_MAP_STEM: &str = "env";
 
 /// Gives every `Basic_CNSR` material of `set`, a converted model's material set, that has no
-/// `EnvironmentMap` sampler one naming `env.dds` in `home`, the player's texture home, with the
+/// `EnvironmentMap` sampler one naming `env.dds` in `home`, its model folder's texture home (a
+/// player's common folder, or `./` beside a shared boots or gloves output's models), with the
 /// `environment` role's sampler settings (`model_format.md`, the role table): the `R` of the
 /// shader is a reflection of that cubemap, which a material without one does not have.
 /// A Fox metal material converts to `Basic_CNSR` naming no environment texture, Fox having no
@@ -971,7 +972,7 @@ pub(super) const ENVIRONMENT_MAP_STEM: &str = "env";
 /// material's base, normal and specular maps, which the converter writes before an
 /// environment sampler) and before its states and vectors. A material that has one is left as
 /// it is.
-fn add_environment_map(set: &mut MaterialSet, home: &str) {
+pub(super) fn add_environment_map(set: &mut MaterialSet, home: &str) {
     for material in &mut set.materials {
         if material.shader != "Basic_CNSR" {
             continue;

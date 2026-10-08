@@ -355,8 +355,18 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    with every player folder linking it dropped by `model_gltf_unsupported` naming the shared
    file, as validation drops a player whose link names a dropped folder: a player without the
    boots or face he linked would compile to something he did not ask for. A shared `Boots/`
-   or `Gloves/` folder's FMDL on PES 15-17 waits for the pre-Fox boots and gloves writer to
-   convert (worklog step 4.17f2). The game's own textures cross engines by
+   or `Gloves/` folder's FMDL on PES 15-17 converts in the folder's own boots or gloves task,
+   and an `ingame_face` player's FMDL parts in his: the boots and gloves writer converts an
+   FMDL as the face does, its paired `.skl` the bind pose, the `.model` in the FMDL's place
+   and its material set where a member's `.mtl` goes (merged into `boots.mtl`; packed as
+   `<stem>.mtl` beside the glove and named by its `glove.xml` entry), its texture paths
+   pointed at the package's texture home, a metal material given the environment map, which
+   a shared folder's textures task emits beside its models. A conversion finding names its
+   source below the task's folder (`face/hat.fmdl`), or by its export path when a player's
+   task converts a shared folder's file (`Faces/Round/hat.fmdl`): a bare name would not say
+   whose. A Fox file with no role in a shared folder (an FMDL a `.model` of its stem beats,
+   its `.skl`, `fcl_hair_sim.fclo`) is ignored on PES 15-17 as a player's is. The game's own
+   textures cross engines by
    rule, not by path: the Fox `dummy_nrm`/`dummy_srm` an FMDL names are no texture at all (the
    FMDL import reads them as the role absent, `model_format.md` "Textures": pre-Fox has no
    sampler for a missing normal or specular map, so a converted `shaded` material takes the

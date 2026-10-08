@@ -12,9 +12,10 @@ use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 use pes_version::PesVersion;
 use studio_core::Disposition;
+use vtree::ScopePath;
 
 use super::{CompileContext, Finding, TaskFailure};
-use crate::deep::{FAR_VERTEX_CODES, Fired, summed};
+use crate::deep::{FAR_VERTEX_CODES, Fired, relative, summed};
 use crate::messages::Code;
 
 /// The material names an FMDL converted for a PES 15-17 target gets in its `.model`.
@@ -63,7 +64,8 @@ pub(super) struct FoxConversion {
     pub(super) skeleton: Option<Vec<u8>>,
 }
 
-/// The FMDL `name` (its file name), `bytes`, converted for `ctx.version`, a PES 15-17 target,
+/// The FMDL `name` (as its findings name it: `source_name`, a collar's file name), `bytes`,
+/// converted for `ctx.version`, a PES 15-17 target,
 /// `skeleton` being the bytes of its paired `.skl`, its bind pose, when its folder holds one
 /// (`None` binds it to the version's body table), its `.model`'s material names as
 /// `materials` says. The conversion's parsed forms are charged to the run's memory budget at
@@ -146,10 +148,10 @@ fn stock_collar_materials(model: &mut pes_model::model::Model) {
     }
 }
 
-/// The `.model` `name` (its file name), `bytes`, converted for `ctx.version`, a PES 18-21
-/// target, `mtl` being the bytes of the `.mtl` its search found (`mtl_search::mtl_for`), which
-/// defines its materials. Charged, reported and failed as `fmdl_for_pre_fox` is, the FMDL
-/// written checked by `fmdl`'s check.
+/// The `.model` `name` (as its findings name it, `source_name`), `bytes`, converted for
+/// `ctx.version`, a PES 18-21 target, `mtl` being the bytes of the `.mtl` its search found
+/// (`mtl_search::mtl_for`), which defines its materials. Charged, reported and failed as
+/// `fmdl_for_pre_fox` is, the FMDL written checked by `fmdl`'s check.
 pub(super) fn model_for_fox(
     name: &str,
     bytes: &[u8],
@@ -198,7 +200,25 @@ fn converted_model(
     }
 }
 
-/// `model_conversion_failed` for the model `name` (its file name), carrying `error`'s chain.
+/// How a finding of the task building the model folder at `folder` names the model it converts
+/// at `model`, its `model` context: below the folder (`face/hat.fmdl`) when the model is in it,
+/// as `model_gltf_unsupported` names a file; by its export path (`Faces/Round/hat.fmdl`) when
+/// it is a shared folder's that a player's task converts, the finding being on the player's
+/// folder.
+pub(super) fn source_name(model: &ScopePath, folder: &ScopePath) -> String {
+    let in_folder = model
+        .segments()
+        .take(folder.segments().count())
+        .eq(folder.segments());
+    if in_folder {
+        relative(model, folder)
+    } else {
+        model.as_str().to_owned()
+    }
+}
+
+/// `model_conversion_failed` for the model `name` (as its findings name it), carrying
+/// `error`'s chain.
 fn failed(name: &str, error: anyhow::Error) -> TaskFailure {
     TaskFailure {
         code: Code::ModelConversionFailed,
@@ -206,7 +226,7 @@ fn failed(name: &str, error: anyhow::Error) -> TaskFailure {
     }
 }
 
-/// The task failure the converted model `name` (its source's file name) is, `fired` being the
+/// The task failure the converted model `name` (as its findings name it) is, `fired` being the
 /// rules its format crate's check fired on it in its target form (`messages.md` "Model
 /// checks"); `Ok` when none of them is an Error. A far vertex is
 /// `vertex_too_far_from_origin`, naming the model and how many vertices are far, summed over
@@ -240,8 +260,8 @@ fn target_form_failure(name: &str, fired: Vec<Fired>) -> Result<(), TaskFailure>
     }
 }
 
-/// The finding the conversion's `loss` of the model `name` (its file name) is reported as, on
-/// the folder, at its catalog row's severity (`messages.md`, the conversion rows): its context
+/// The finding the conversion's `loss` of the model `name` (as its findings name it) is
+/// reported as, on the folder, at its catalog row's severity (`messages.md`, the conversion rows): its context
 /// is the model, then the index of the mesh, material or bone the loss is about, then the
 /// loss's detail under the row's key when the row names one. A fold's detail,
 /// `<bone> -> <target>`, names the bone itself and is given in the index's place.
@@ -393,6 +413,30 @@ mod tests {
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn a_model_is_named_below_its_task_s_folder_when_in_it_and_by_its_export_path_otherwise() {
+        let name = |model: &str, folder: &str| {
+            source_name(
+                &ScopePath::new(model).unwrap(),
+                &ScopePath::new(folder).unwrap(),
+            )
+        };
+        let player = "Players/05 - A";
+        assert_eq!(name("Players/05 - A/boots.fmdl", player), "boots.fmdl");
+        assert_eq!(
+            name("Players/05 - A/face/hat.fmdl", player),
+            "face/hat.fmdl"
+        );
+        // A shared folder's model a player's task converts, and one of a folder whose name
+        // merely starts with the player's.
+        assert_eq!(name("Faces/Round/hat.fmdl", player), "Faces/Round/hat.fmdl");
+        assert_eq!(
+            name("Players/05 - AB/hat.fmdl", player),
+            "Players/05 - AB/hat.fmdl"
+        );
+        assert_eq!(name("Boots/Mud/boots.fmdl", "Boots/Mud"), "boots.fmdl");
     }
 
     #[test]

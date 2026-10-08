@@ -1,7 +1,8 @@
 //! `compile` for PES 2017 of a player folder holding `ingame_face`, whose models other than
 //! gloves become his own boots, merged with a boots folder his link combines, and whose gloves
 //! become his own gloves folder, unmerged, with a gloves folder his link combines, each with
-//! the Common models and `.mtl` files his `.common` links copy in; and of the
+//! the Common models and `.mtl` files his `.common` links copy in, his `.fmdl` parts converted;
+//! and of the
 //! shared folders written in the same shapes: a `Boots/` folder holding several boots models,
 //! a `Gloves/` folder holding a `.mtl` no model uses.
 
@@ -9,7 +10,7 @@ use pes_model::format::PreFoxModel;
 use pes_model::model::Model;
 
 use crate::common::Sandbox;
-use crate::compile::cpk_entries;
+use crate::compile::{cpk_entries, tracer_player_file};
 use crate::findings_of;
 use crate::prefox_faces::{
     BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, face_cpk, pes17,
@@ -585,4 +586,92 @@ fn a_shared_gloves_folder_s_mtl_no_model_uses_is_not_written() {
             "g0644/left.dds",
         ]
     );
+}
+
+#[test]
+fn under_ingame_face_fmdl_parts_are_converted_into_the_player_s_own_boots_and_gloves() {
+    let sandbox = Sandbox::new("prefox_ingame_fmdl");
+    let export = "co Midcup Converted";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    // The tracer's hair as his boots, with its skeleton, the conversion's bind pose (the
+    // tracer's boots have none), its right glove and the texture both name.
+    sandbox.write(
+        &format!("{player}/boots.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        &format!("{player}/boots.skl"),
+        &tracer_player_file("fcl_hair.skl"),
+    );
+    sandbox.write(
+        &format!("{player}/glove_r.fmdl"),
+        &tracer_player_file("glove_r.fmdl"),
+    );
+    sandbox.write(
+        &format!("{player}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    // The `skl_parent` drops come from the skeleton, which the boots' conversion read.
+    let folder = "at Players/05 - A";
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            format!(
+                "Info fmdl_weights_not_normalized [Keep] {folder} (file=boots.fmdl, count=1662)"
+            ),
+            CLEAN[0].to_owned(),
+            CLEAN[1].to_owned(),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=boots.fmdl, field=bone_matrices)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=boots.fmdl, bone=8, field=skl_parent)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=boots.fmdl, bone=25, field=skl_parent)"
+            ),
+            format!(
+                "Warning mesh_flags_dropped [Keep] {folder} (model=boots.fmdl, material=1, field=no_shadow_cast)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=glove_r.fmdl, field=bone_matrices)"
+            ),
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+    let boots = entries_under(&entries, BOOTS_K0625);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl"]);
+    // The hair's anti-blur mesh folded back.
+    assert_eq!(mesh_count(boots["boots.model"]), 2);
+    let gloves = entries_under(&entries, GLOVES_G0625);
+    let names: Vec<&str> = gloves.keys().copied().collect();
+    assert_eq!(names, ["glove.xml", "glove_r.model", "glove_r.mtl"]);
+    assert_eq!(mesh_count(gloves["glove_r.model"]), 1);
+    assert_eq!(
+        String::from_utf8(gloves["glove.xml"].clone()).unwrap(),
+        glove_xml(&[("gloveR", "glove_r.model", "glove_r.mtl")])
+    );
+    // Each converted set's texture paths pointed as his face's would be: the hair's texture at
+    // his texture home, which the CPK holds, and the glove's reserved kit stem at the team's
+    // Common directory.
+    assert!(
+        sampler_paths(boots["boots.mtl"]).contains(&format!("{SLOT_05_HOME}shirt.dds")),
+        "{:?}",
+        sampler_paths(boots["boots.mtl"])
+    );
+    assert_eq!(
+        sampler_paths(gloves["glove_r.mtl"]),
+        ["model/character/uniform/common/714/dummy_kit.dds"]
+    );
+    let texture = format!("common/character1/{SLOT_05_HOME}shirt.dds");
+    assert!(entries.contains_key(&texture), "{texture}");
 }

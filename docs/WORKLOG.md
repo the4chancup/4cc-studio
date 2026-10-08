@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3 next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1771,7 +1771,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   format, per-kit `.model` variants on Fox, the converted `.mtl` path into the pre-Fox Common
   directory on Fox, `kit_variant_model_fox` on a shared folder linked only by a dropped
   folder, and a ruling on a texture link of stem `env` (today the sampler points at the
-  link's Common place and the template is still emitted in the player's home, unused); (g) the same-engine pre-check, two
+  link's Common place and the template is still emitted in the player's home, unused), plus
+  the `model` contexts f2 left naming the bare file (the face's split and its Common `.mtl`
+  split failure, `skl_no_slot` in the Fox Models task, the collar task, which has no folder)
+  made to name the source as `source_name` does, and the face's unconditional
+  `add_environment_map` against the writer's flag-gated one (unreachable difference while
+  the deep pass's metal rule is the converter's; one shape to pick); (g) the same-engine pre-check, two
   crates: `model_convert::needs_conversion`'s reference poses reconciled with the game's own
   skeleton files (the face against the version's own face table, not PES 19's Fox one; boots
   against the game's `boots.skl`; gloves against the hand pose), measured against the pre-Fox
@@ -2002,6 +2007,41 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   files in a shared folder on pre-Fox (`.skl` of a beaten FMDL, `fcl_hair_sim.fclo`) still
   named, a shared source's conversion findings naming it by its bare name on the player
   (`model=hat.fmdl` for `Faces/Round/hat.fmdl`); mutants: see the 4.17f1 log line).
+  (f2) done 2026-10-08 (DECISIONS "The pre-Fox boots and gloves writer converts as the face
+  does"; the plan's step 3 "Format conversion" and the `model_conversion_failed`,
+  `bone_folded_for_version`, `skeleton_retargeted` rows. `plan/subset.rs`
+  `FolderModels::of_player_files`: `converted_stems` filled under the marker too (an FMDL
+  with a part role, so a per-kit FMDL's `.skl` gets no role; the face still unset there),
+  `compiled_under_ingame_face` true for `ConversionSkeleton`, `ignored_without_role` (a
+  beaten model, a role-less `.fmdl`/`.skl`/`.fclo`) shared by the player gate and the shared
+  gate, `pre_fox_shared_not_compiled` accepting a boots or gloves folder's FMDL and its
+  skeleton; `plan/mod.rs` `TaskKind::files` reading a `ConversionSkeleton` for its source
+  package or the folder's own (contradiction accepted: a marked player's own files' source
+  package is the boots, so the brief's rule would have converted his glove with no bind pose
+  and nothing reporting it), `converts_metal` counting a `PreFoxPart` of the boots or gloves,
+  the shared `ModelFolder` flagged too (the shared texture home is `./`, so the flag alone
+  emits `env.dds` beside the models); `processing/conversion.rs` `source_name` (below the
+  task's folder when in it, by segments, else the export path), used by the face, the Fox
+  Models task and the writer; `processing/prefox_shared.rs` `SourceModel::skeleton`,
+  `converts`, `packed_name`, a `convert` closure (`fmdl_for_pre_fox` with the source's
+  skeleton, then `add_environment_map` under the flag, `point_materials`,
+  `point_reserved_kit_stems`, the three made `pub(super)`), the boots' sets indexed by part,
+  a converted glove packed as `<stem>.model` + `<stem>.mtl` lowercased and listed as such;
+  help. Tests: `tests/cli/prefox_faces.rs` a linked boots FMDL (the tracer's hair with its
+  `.skl`) converted into `boots.model` + `boots.mtl` with `./shirt.dds`, the `skl_parent`
+  drops proving the skeleton read, no `.fmdl`/`.skl` in the CPK; a linked gloves folder's
+  two FMDLs converted and listed in its `glove.xml`; the linked face's `model=` re-pinned to
+  `Faces/Round/hat.fmdl`; `tests/cli/prefox_ingame_face.rs` a marked player's `boots.fmdl`
+  and `glove_r.fmdl` converted into his own boots and gloves, paths pointed at his home and
+  the reserved kit stem at the team's Common directory; `tests/cli/conversion.rs` a shared
+  boots folder's metal FMDL reflecting `./env.dds` beside its models; unit tests on the
+  roles under the marker, both gates, the skeleton read, the flag, `source_name`. One
+  contradiction accepted (the skeleton rule), two brief errors (test 1's naming is below the
+  shared folder, its task's own; `clean_model()`'s `skx_` bones as a glove add 20 warnings)
+  substituted right; plan gaps: the other `model` contexts and the env-sampler asymmetry (to
+  f3), a member's `.mtl` colliding with a converted glove's set (an error, ruled in
+  DECISIONS), shared `Faces/` role-less Fox files ignored too (accepted); lead fixes: none;
+  mutants: see the 4.17f2 log line).
 
 - [x] 4.18 **Hand auto-split (Fox)**: `model_convert::ops::hand_split::split_by_skeleton_group`
   on every face-content FMDL with positive `skh_*_l`/`skh_*_r` weights (never on a boots- or
@@ -4325,3 +4365,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     27, 27 caught, 0 unviable, 0 missed. Next: 4.17f2 (a shared boots or gloves folder's FMDL and an `ingame_face`
     player's FMDL parts converted by the pre-Fox boots and gloves writer; the two plan gaps
     from f1).
+  - **4.17f2 done**: on PES 15-17 a shared boots or gloves folder's FMDL and an `ingame_face`
+    player's FMDL parts convert in the boots and gloves writer as the face converts one, the
+    gates no longer refusing them; a conversion finding names a shared source by its export
+    path; role-less Fox files in a shared folder ignored as a player's. Decision logged.
+    Mutants: 60, 57 caught, 3 unviable (`Default::default()` on types without one), 0 missed. Next: 4.17f3 (`Common/` models and `.common` links in the other
+    format, per-kit `.model` variants on Fox, the pre-Fox Common `.mtl` path on Fox,
+    `kit_variant_model_fox` on a shared folder linked only by a dropped folder, the `env`
+    link ruling, the remaining `model` contexts, the env-sampler asymmetry).

@@ -719,16 +719,16 @@ fn a_linked_face_folder_s_fmdl_is_converted_into_the_player_s_face_cpk() {
             "Info team_colors_missing [Keep] ()".to_owned(),
             format!("Info link_combined [Keep] {player} (link=Round.face)"),
             format!(
-                "Info native_field_dropped [Keep] {player} (model=hat.fmdl, field=bone_matrices)"
+                "Info native_field_dropped [Keep] {player} (model=Faces/Round/hat.fmdl, field=bone_matrices)"
             ),
             format!(
-                "Info native_field_dropped [Keep] {player} (model=hat.fmdl, bone=8, field=skl_parent)"
+                "Info native_field_dropped [Keep] {player} (model=Faces/Round/hat.fmdl, bone=8, field=skl_parent)"
             ),
             format!(
-                "Info native_field_dropped [Keep] {player} (model=hat.fmdl, bone=25, field=skl_parent)"
+                "Info native_field_dropped [Keep] {player} (model=Faces/Round/hat.fmdl, bone=25, field=skl_parent)"
             ),
             format!(
-                "Warning mesh_flags_dropped [Keep] {player} (model=hat.fmdl, material=1, field=no_shadow_cast)"
+                "Warning mesh_flags_dropped [Keep] {player} (model=Faces/Round/hat.fmdl, material=1, field=no_shadow_cast)"
             ),
             format!("Info xml_face_neck_added [Keep] {player} ()"),
         ],
@@ -791,28 +791,154 @@ fn a_linked_face_folder_s_fmdl_is_converted_into_the_player_s_face_cpk() {
 }
 
 #[test]
-fn a_linked_boots_folder_s_fmdl_still_skips_the_export_on_pes_17() {
+fn a_linked_boots_folder_s_fmdl_is_converted_into_boots_model_and_boots_mtl_on_pes_17() {
     let sandbox = Sandbox::new("prefox_shared_boots_fmdl");
     let export = "co Midcup Mud";
     write_slot_05_face(&sandbox, export);
     sandbox.write(&format!("exports/{export}/Players/05 - A/Mud.boots"), b"");
+    // The tracer's hair as the boots, its skeleton (the conversion's bind pose) and the
+    // texture it names: the tracer's boots have no skeleton of their own.
+    let mud = format!("exports/{export}/Boots/Mud");
     sandbox.write(
-        &format!("exports/{export}/Boots/Mud/boots.fmdl"),
-        &clean_model(),
+        &format!("{mud}/boots.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        &format!("{mud}/boots.skl"),
+        &tracer_player_file("fcl_hair.skl"),
+    );
+    sandbox.write(
+        &format!("{mud}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
     );
 
     let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
+    // The conversion's losses are the shared folder's task's, on the folder; the `skl_parent`
+    // drops come from the skeleton, which the conversion read.
+    let folder = "at Boots/Mud";
     assert_eq!(
         findings_of(&lines, export),
         [
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Boots/Mud/boots.fmdl)",
+            format!(
+                "Info fmdl_weights_not_normalized [Keep] {folder} (file=boots.fmdl, count=1662)"
+            ),
+            CLEAN[0].to_owned(),
+            CLEAN[1].to_owned(),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=boots.fmdl, field=bone_matrices)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=boots.fmdl, bone=8, field=skl_parent)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=boots.fmdl, bone=25, field=skl_parent)"
+            ),
+            format!(
+                "Warning mesh_flags_dropped [Keep] {folder} (model=boots.fmdl, material=1, field=no_shadow_cast)"
+            ),
         ],
         "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let boots = entries_under(&entries, BOOTS_K0644);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl", "shirt.dds"]);
+    // Converted: `pes_model` reads it, the hair's anti-blur mesh folded back.
+    let model = pes_model::format::PreFoxModel::read(boots["boots.model"]).unwrap();
+    assert_eq!(
+        pes_model::model::Model::from_file(&model)
+            .unwrap()
+            .meshes
+            .len(),
+        2
+    );
+    // The shared folder's textures sit beside its models.
+    assert!(
+        sampler_paths(boots["boots.mtl"]).contains(&"./shirt.dds".to_owned()),
+        "{:?}",
+        sampler_paths(boots["boots.mtl"])
+    );
+    assert!(
+        entries.keys().all(|path| [".fmdl", ".skl"]
+            .iter()
+            .all(|extension| !path.ends_with(extension))),
+        "{:?}",
+        entries.keys()
+    );
+}
+
+#[test]
+fn a_linked_gloves_folder_s_fmdls_are_converted_and_listed_in_its_glove_xml_on_pes_17() {
+    let sandbox = Sandbox::new("prefox_shared_gloves_fmdl");
+    let export = "co Midcup Keeper";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/Keeper.gloves"),
+        b"",
+    );
+    let keeper = format!("exports/{export}/Gloves/Keeper");
+    for hand in ["glove_l", "glove_r"] {
+        sandbox.write(
+            &format!("{keeper}/{hand}.fmdl"),
+            &tracer_player_file(&format!("{hand}.fmdl")),
+        );
+    }
+    sandbox.write(
+        &format!("{keeper}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    let folder = "at Gloves/Keeper";
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            format!(
+                "Info fmdl_weights_not_normalized [Keep] {folder} (file=glove_l.fmdl, count=2)"
+            ),
+            CLEAN[0].to_owned(),
+            CLEAN[1].to_owned(),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=glove_l.fmdl, field=bone_matrices)"
+            ),
+            format!(
+                "Info native_field_dropped [Keep] {folder} (model=glove_r.fmdl, field=bone_matrices)"
+            ),
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let gloves = entries_under(&entries, "common/character0/model/character/glove/g0644/");
+    let names: Vec<&str> = gloves.keys().copied().collect();
+    assert_eq!(
+        names,
+        [
+            "glove.xml",
+            "glove_l.model",
+            "glove_l.mtl",
+            "glove_r.model",
+            "glove_r.mtl",
+            "shirt.dds",
+        ]
+    );
+    for hand in ["glove_l", "glove_r"] {
+        let model = pes_model::format::PreFoxModel::read(gloves[format!("{hand}.model").as_str()]);
+        assert!(model.is_ok(), "{hand}.model: {model:?}");
+    }
+    assert_eq!(
+        String::from_utf8(gloves["glove.xml"].clone()).unwrap(),
+        "<?xml version='1.0' encoding='UTF-8'?>\r\n\
+         <config>\r\n   \
+         <model level=\"0\" type=\"gloveL\" path=\"./glove_l.model\" material=\"./glove_l.mtl\" />\r\n   \
+         <model level=\"0\" type=\"gloveR\" path=\"./glove_r.model\" material=\"./glove_r.mtl\" />\r\n\
+         </config>"
+    );
 }
 
 #[test]

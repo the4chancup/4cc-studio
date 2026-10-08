@@ -19,7 +19,7 @@ use pes_version::Engine;
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::conversion::model_for_fox;
+use super::conversion::{model_for_fox, source_name};
 use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_diff;
@@ -143,8 +143,9 @@ pub(super) fn package(
                         // The gloves task converts a hand-split face part again, for its
                         // hands: what the conversion reports is the face's to tell.
                         let mut reported = Vec::new();
+                        let model = source_name(&file.path, &folder.path);
                         let converted =
-                            model_for_fox(file.path.name(), &part.bytes, mtl, ctx, &mut reported)?;
+                            model_for_fox(&model, &part.bytes, mtl, ctx, &mut reported)?;
                         part.bytes = converted.model;
                         part.skeleton = converted.skeleton;
                         if skeleton_slot(owner, name).is_none() && part.skeleton.take().is_some() {
