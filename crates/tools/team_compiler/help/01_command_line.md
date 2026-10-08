@@ -646,6 +646,13 @@ the warning `cpk_size_over_limit` (`cpk=...`, `size=...`, `cap=...`) says so: th
 as it is and the CPK is written whole, but the cup DLC's repository cannot hold a file that
 large.
 
+For PES 2015 to 2017, the `dds_compression` setting zlib-compresses every `.dds` file `compile`
+writes, the way the game's own compressed files are, which the game reads as it reads a plain
+one and which makes the DLC smaller; a `.dds` of the export that is already compressed this
+way, in a format the version reads, is written as it is. It is `auto` unless you changed it,
+which compresses when `multicpk_mode` is on and not otherwise, `true` always compresses and
+`false` never does. PES 2018 to 2021 ignore it, since their textures are `.ftex` files.
+
 A relative path typed in the terminal is taken from the folder the terminal is in.
 
 When a command ends, its exit code tells a script how it went:

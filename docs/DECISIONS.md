@@ -5062,3 +5062,16 @@ doubles the time for 3 %. Level 6 is also Red's, so a compressed CPK is as small
 used to. `zlib-rs` is a new dependency, which needs the maintainer's yes, bought for a cost
 already under a second.
 Plan: `team_compiler/settings.md` "DDS compression cost".
+
+## 2026-10-08 — team_compiler — A `.model` collar compiled for PES 15-17 is written unchanged
+Decision: a collar already in the target's format (`collar_<ID>.model` on pre-Fox, as an FMDL
+on Fox) goes into the CPK byte for byte under the game's three-digit name; its material names
+are the author's. The renaming to the stock collars' names (`uni_collar`, `uni_shirts`) applies
+to a collar *converted* for pre-Fox (4.17), not to one passed through.
+Why: the plan said "a collar compiled for pre-Fox has its materials named as the stock collars'
+are" without saying whether a `.model` source is renamed too. The author of a `.model` collar
+made it for that engine against the shared `uniform.mtl`, as Red passed it through; the
+converted case is where the names come from another engine's materials and need the stock
+names to be found at all. Red wrote the file as it was.
+Plan: `team_compiler/pipeline.md` "Collars", the sentence "A collar already in the target's
+format".

@@ -186,6 +186,7 @@ mod tests {
                 engine: PesVersion::Pes17.engine(),
             },
             MemoryBudget::new(usize::MAX),
+            false,
         );
         let mut findings = Vec::new();
         let Err(failure) = split_face_model(

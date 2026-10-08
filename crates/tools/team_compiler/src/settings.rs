@@ -2,9 +2,12 @@
 //! settings"). A key enters with the phase whose code reads it, so the file never carries a
 //! setting nothing honors yet.
 
+use std::fmt;
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use pes_version::{Engine, PesVersion};
+use serde::de::{self, Unexpected, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// The Team compiler's settings, the keys this version reads.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -28,6 +31,8 @@ pub(crate) struct TeamCompilerSettings {
     /// The CPK, without `.cpk`, that holds the referees of a normal compile whose exports
     /// include a refs export, in single and multi-CPK mode alike.
     pub(crate) refs_cpk_name: String,
+    /// Whether every DDS a PES 15-17 run emits is WESYS-zlibbed (`compresses_dds`).
+    pub(crate) dds_compression: DdsCompression,
     /// Disallowed file types are errors when on, info notes when off.
     pub(crate) strict_file_type_check: bool,
     /// Keep folders with errors instead of discarding them.
@@ -48,9 +53,75 @@ impl Default for TeamCompilerSettings {
             cpk_part_max_size: 3_221_225_472,
             bins_cpk_name: "4cc_08_bins".to_owned(),
             refs_cpk_name: "4cc_18_referees".to_owned(),
+            dds_compression: DdsCompression::Auto,
             strict_file_type_check: true,
             pass_through: false,
             teams_list_path: PathBuf::from("teams_list.txt"),
+        }
+    }
+}
+
+/// `dds_compression` (`settings.md`): whether every DDS a PES 15-17 run emits is
+/// WESYS-zlibbed. `Auto` follows `multicpk_mode`: the cup DLC is what the size matters for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DdsCompression {
+    Auto,
+    On,
+    Off,
+}
+
+impl DdsCompression {
+    /// Whether DDS are compressed, given the run's `multicpk_mode`.
+    pub(crate) fn resolved(self, multicpk_mode: bool) -> bool {
+        match self {
+            DdsCompression::Auto => multicpk_mode,
+            DdsCompression::On => true,
+            DdsCompression::Off => false,
+        }
+    }
+}
+
+// Read through a visitor, not an untagged helper enum of a bool and a string: a value of the
+// wrong type then reads "invalid type: integer `1`, expected true, false or "auto"", where
+// serde's untagged error names the helper's Rust type to the member.
+impl<'de> Deserialize<'de> for DdsCompression {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(DdsCompressionVisitor)
+    }
+}
+
+/// Reads `dds_compression` as the settings file spells it: `true`, `false` or `"auto"`.
+struct DdsCompressionVisitor;
+
+impl Visitor<'_> for DdsCompressionVisitor {
+    type Value = DdsCompression;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("true, false or \"auto\"")
+    }
+
+    fn visit_bool<E: de::Error>(self, value: bool) -> Result<DdsCompression, E> {
+        Ok(if value {
+            DdsCompression::On
+        } else {
+            DdsCompression::Off
+        })
+    }
+
+    fn visit_str<E: de::Error>(self, value: &str) -> Result<DdsCompression, E> {
+        if value == "auto" {
+            return Ok(DdsCompression::Auto);
+        }
+        Err(E::invalid_value(Unexpected::Str(value), &self))
+    }
+}
+
+impl Serialize for DdsCompression {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            DdsCompression::Auto => serializer.serialize_str("auto"),
+            DdsCompression::On => serializer.serialize_bool(true),
+            DdsCompression::Off => serializer.serialize_bool(false),
         }
     }
 }
@@ -73,6 +144,16 @@ impl TeamCompilerSettings {
             &self.bins_cpk_name
         } else {
             &self.cpk_name
+        }
+    }
+
+    /// Whether a run for `version` WESYS-zlibs every DDS it emits: on PES 15-17 as
+    /// `dds_compression` resolves against `multicpk_mode`, in every output mode; never on Fox,
+    /// whose textures are FTEX (`settings.md`, `dds_compression`).
+    pub(crate) fn compresses_dds(&self, version: PesVersion) -> bool {
+        match version.engine() {
+            Engine::PreFox => self.dds_compression.resolved(self.multicpk_mode),
+            Engine::Fox => false,
         }
     }
 }
@@ -118,6 +199,84 @@ mod tests {
         let settings = from_table(&table).unwrap();
         assert!(settings.pass_through);
         assert_eq!(settings.cpk_name, "4cc_99_test");
+    }
+
+    #[test]
+    fn dds_compression_reads_true_false_and_auto_and_defaults_to_auto() {
+        for (text, expected) in [
+            ("dds_compression = true", DdsCompression::On),
+            ("dds_compression = false", DdsCompression::Off),
+            ("dds_compression = \"auto\"", DdsCompression::Auto),
+        ] {
+            let table: toml::Table = toml::from_str(text).unwrap();
+            assert_eq!(
+                from_table(&table).unwrap().dds_compression,
+                expected,
+                "{text}"
+            );
+        }
+        assert_eq!(
+            TeamCompilerSettings::default().dds_compression,
+            DdsCompression::Auto
+        );
+        assert_eq!(default_table()["dds_compression"].as_str(), Some("auto"));
+        for (value, written) in [
+            (DdsCompression::On, toml::Value::Boolean(true)),
+            (DdsCompression::Off, toml::Value::Boolean(false)),
+        ] {
+            let settings = TeamCompilerSettings {
+                dds_compression: value,
+                ..TeamCompilerSettings::default()
+            };
+            let table = toml::Table::try_from(&settings).unwrap();
+            assert_eq!(table["dds_compression"], written);
+            assert_eq!(from_table(&table).unwrap(), settings);
+        }
+    }
+
+    #[test]
+    fn a_dds_compression_other_than_true_false_or_auto_is_an_error_naming_it() {
+        for text in [
+            "dds_compression = 1",
+            "dds_compression = \"yes\"",
+            "dds_compression = \"Auto\"",
+        ] {
+            let table: toml::Table = toml::from_str(text).unwrap();
+            let error = from_table(&table).unwrap_err().to_string();
+            assert!(error.contains("dds_compression"), "{error}");
+            assert!(
+                error.contains("expected true, false or \"auto\""),
+                "{error}"
+            );
+        }
+    }
+
+    #[test]
+    fn auto_follows_multicpk_mode_and_true_and_false_ignore_it() {
+        for multicpk_mode in [false, true] {
+            assert_eq!(DdsCompression::Auto.resolved(multicpk_mode), multicpk_mode);
+            assert!(DdsCompression::On.resolved(multicpk_mode));
+            assert!(!DdsCompression::Off.resolved(multicpk_mode));
+        }
+    }
+
+    #[test]
+    fn only_pre_fox_runs_compress_dds() {
+        let settings = |dds_compression, multicpk_mode| TeamCompilerSettings {
+            dds_compression,
+            multicpk_mode,
+            ..TeamCompilerSettings::default()
+        };
+        assert!(settings(DdsCompression::On, false).compresses_dds(PesVersion::Pes17));
+        assert!(settings(DdsCompression::Auto, true).compresses_dds(PesVersion::Pes15));
+        assert!(!settings(DdsCompression::Auto, false).compresses_dds(PesVersion::Pes16));
+        assert!(!settings(DdsCompression::Off, true).compresses_dds(PesVersion::Pes17));
+        for version in [PesVersion::Pes18, PesVersion::Pes21] {
+            assert!(
+                !settings(DdsCompression::On, true).compresses_dds(version),
+                "{version}"
+            );
+        }
     }
 
     #[test]

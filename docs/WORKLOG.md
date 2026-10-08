@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 in progress (a done: PES 15-17 kits with the mask template and loose configs; b, c, d next), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 in progress (a done: PES 15-17 kits with the mask template and loose configs; b done: `dds_compression`; c, d next), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1671,6 +1671,25 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   after the lead's test for the two survivors on the re-lay guard: a marked placeholder kit's
   own mask re-laid, its number atlas and the placeholder not, TC-KIT-20 in
   `prefox_kits.rs`). The lead's parity fixture task of (a) follows as its own commit.
+  (b) done 2026-10-08 (`settings.rs` `DdsCompression { Auto, On, Off }` read through a serde
+  visitor so a wrong value tells the member "expected true, false or "auto"" (the sidekick's
+  contradiction of the untagged-helper ruling, accepted: the helper's error named a Rust type),
+  `TeamCompilerSettings::compresses_dds(version)` false on Fox; `CompileContext::compress_dds`
+  through `PlannedRun`; `processing::wrap_dds` on the worker right after `materialize`, the one
+  place every task's entries pass, `.dds` in any case, already-wrapped entries left (portraits
+  are DDS entries too and are wrapped like Red's zlib pass over the whole team tree did; no DDS
+  sits in a nested face CPK); `texture::convert` on pre-Fox returns a wrapped source verbatim
+  when `keeps_blocks` finds the converter's output holds the source's mip data byte for byte
+  (read from the output, the converter's keep rule being private to `dds_convert`: the source
+  is inflated a second time, a public predicate there would skip it, not worth a two-crate
+  change for milliseconds; the lead cut the predicate's format and size conjuncts, which the
+  data equality implies and which left two `&&` mutants no test could tell apart); help
+  paragraph; `tests/cli/dds_compression.rs` TC-TEX-08's six runs, the PES 21
+  ones without the face model (`.model` is `content_not_yet_compiled` on Fox until 4.17, the
+  portrait keeps "Fox ignores the setting" observable), config errors for `1` and `"yes"`; test
+  mode wraps its loose `.dds` too when the setting resolves on, by design (the setting follows
+  `multicpk_mode`, not the layout), untested; mutants: 26 after the predicate cut, 19 caught, 7
+  unviable (`Default::default()` on types without one, serde impls included), 0 missed)
 
 - [ ] 4.17 **Cross-format conversion and source selection**: target-native first, then glTF, then
   the opposite native format converted through `model_convert::convert` (FMDL → `.model` + `.mtl`
@@ -3944,3 +3963,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     `UniformParameter.bin`), the two color bins as on Fox and none of the Fox player bins.
     Red's mask template is bundled with its provenance (`resources/kits/README.md`). Next: the
     pre-Fox tracer's kit parity rows (lead), then 4.16b.
+  - **4.16a parity** (lead): the pre-Fox tracer's twin gains `Kits/g1/`, and the parity test's
+    four kit rows compare: the mask byte for byte, the texture by pixels, the config outside
+    the four number-texture names Red keeps for textures the export does not ship (a question
+    for the maintainer, in the 4.16 step), `UniColor.bin` as the bundled base with Red's `g1`
+    entry set (Red's fallback base held an empty record for the team).
+  - **4.16b done** (TC-TEX-08): `dds_compression` (`auto` follows `multicpk_mode`, `true`,
+    `false`) WESYS-zlibs every `.dds` a PES 15-17 run emits, on the worker that made it; a
+    wrapped source the conversion would keep is emitted as it is; Fox ignores the setting.
+    Next: 4.16c (collars for pre-Fox), 4.16d (installed loose kit configs patched).

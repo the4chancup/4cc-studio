@@ -633,8 +633,11 @@ describes behavior, not a serial scheduling requirement:
   data's `uniform_config.xml` gives `nocloth` collars the `collar` model type and the shared
   `uniform.mtl`; Fox: the exe assigns the type), so a collar has no textures or `.mtl` of its
   own. On Fox its materials are the ones embedded in its FMDL, the author's (the diffuse
-  overridden); on pre-Fox the shared `uniform.mtl` supplies them, so a collar compiled for
-  pre-Fox has its materials named as the stock collars' are (`uni_collar` and `uni_shirts`).
+  overridden); on pre-Fox the shared `uniform.mtl` supplies them, so a collar *converted* for
+  pre-Fox has its materials named as the stock collars' are (`uni_collar` and `uni_shirts`). A
+  collar already in the target's format, a `.model` on pre-Fox as an FMDL on Fox, is written
+  unchanged, its author's material names kept: the author made it for that engine, and
+  renaming what the game already finds would turn a working collar into a guess.
   These are
   custom collar models that replace one of PES's many stock collar models (the game's `nocloth`
   set); the compiler derives the

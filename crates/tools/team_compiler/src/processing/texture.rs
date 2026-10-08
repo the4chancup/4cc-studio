@@ -17,6 +17,8 @@ use dds_convert::{
     BlockCodec, ConvertError, SourceFormat, Target, TextureRole, decode, encode_dds, probe,
     source_hash,
 };
+use ftex::dds::read_layout;
+use pes_version::Engine;
 use pipeline::{MemoryBudget, Permit};
 use studio_core::Disposition;
 
@@ -289,7 +291,9 @@ pub(super) fn common_texture(
 /// The texture file `name`, in `format`, converted for the run's version through its
 /// converter: an FTEX on every Fox target, a DDS on pre-Fox, in the codec the version reads,
 /// with the mip chain a raster source lacks generated, in the role the file's stem gives it.
-/// Its signature and
+/// On pre-Fox a WESYS-wrapped DDS whose blocks the conversion keeps as they are is returned as
+/// it is, still wrapped, which the game reads as it reads a plain DDS (`settings.md`, "DDS
+/// compression cost"). Its signature and
 /// size are the deep pass's checks, done before planning; a texture that reaches this point
 /// either passed them or is kept by `pass_through`, so it is converted as it is.
 pub(super) fn convert(
@@ -311,9 +315,32 @@ pub(super) fn convert(
         .convert(source_hash(bytes), bytes, format, target, ctx.cache)
         .map_err(|error| conversion_failure(name, error))?;
     drop(charge);
+    let wrapped_dds = format == SourceFormat::Dds && wezlib::is_wrapped(bytes);
+    let pass_through = match ctx.version.engine() {
+        Engine::PreFox => wrapped_dds && keeps_blocks(bytes, &converted),
+        Engine::Fox => false,
+    };
+    if pass_through {
+        return Ok(bytes.to_vec());
+    }
     // The converter hands out the cache's own buffer, which it may hand out again for the same
     // source; the CPK entry owns its bytes, so the one copy of the texture is here.
     Ok(converted.to_vec())
+}
+
+/// Whether `converted`, the DDS the converter made of the WESYS-wrapped DDS `wrapped`, holds
+/// the source's blocks as they are: the same mip data after the header, only the header
+/// rebuilt. The data alone decides it: the blocks encode the codec, the size and the chain, so
+/// a converter that re-encoded, resized or re-chained the texture wrote other bytes. Read from
+/// the converter's output rather than decided again here, so the rule of which codecs a
+/// version keeps stays the converter's alone.
+fn keeps_blocks(wrapped: &[u8], converted: &[u8]) -> bool {
+    // The converter has just read both: it unwrapped and decoded `wrapped`, or a cache hit
+    // stands for the same bytes decoded before, and wrote `converted` itself.
+    let source = wezlib::decompress(wrapped).expect("the converter has unwrapped this DDS");
+    let from = read_layout(&source).expect("the converter has read this DDS's header");
+    let to = read_layout(converted).expect("the converter writes a DDS it can read");
+    source.get(from.data_offset..) == converted.get(to.data_offset..)
 }
 
 /// The charge to `budget` of decoding `bytes`, a texture in `format`: the RGBA size of every
@@ -404,6 +431,7 @@ mod tests {
                 engine: version.engine(),
             },
             budget: MemoryBudget::new(usize::MAX),
+            compress_dds: false,
         }
     }
 
@@ -447,6 +475,49 @@ mod tests {
             panic!("a DDS without its header is no finding");
         };
         assert_eq!(format!("{error}"), "kit.dds: cannot convert");
+    }
+
+    #[test]
+    fn a_wrapped_dds_whose_blocks_the_version_keeps_is_emitted_as_it_is_on_pre_fox_only() {
+        // The tracer's kit, BC1, which PES 17 reads as it is: the wrapped source verbatim.
+        let dds = tracer_kit();
+        let wrapped = wezlib::compress(&dds);
+        let on_pes_17 = convert(
+            &context(PesVersion::Pes17),
+            SourceFormat::Dds,
+            "kit.dds",
+            &wrapped,
+        )
+        .unwrap();
+        assert!(on_pes_17 == wrapped, "the wrapped source as it is");
+        // On Fox it is unwrapped and converted, to the FTEX its plain bytes give.
+        let decoded = decode(&dds, SourceFormat::Dds).unwrap();
+        let on_pes_21 = convert(
+            &context(PesVersion::Pes21),
+            SourceFormat::Dds,
+            "kit.dds",
+            &wrapped,
+        )
+        .unwrap();
+        let fox = Target {
+            version: PesVersion::Pes21,
+            role: TextureRole::Color,
+        };
+        assert!(on_pes_21 == dds_convert::convert(&decoded, fox).unwrap());
+        // A normal map keeps no BC1 blocks: the wrapped source is converted, to the BC3 its
+        // plain bytes give, and left to the entries' wrapping.
+        let normal = convert(
+            &context(PesVersion::Pes17),
+            SourceFormat::Dds,
+            "kit_nrm.dds",
+            &wrapped,
+        )
+        .unwrap();
+        let pre_fox_normal = Target {
+            version: PesVersion::Pes17,
+            role: TextureRole::Normal,
+        };
+        assert!(normal == dds_convert::convert(&decoded, pre_fox_normal).unwrap());
     }
 
     /// The bytes of `tests/fixtures/textures/<name>`.

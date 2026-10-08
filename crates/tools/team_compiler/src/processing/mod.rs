@@ -16,6 +16,7 @@ mod texture;
 
 use std::collections::BTreeMap;
 use std::ops::Range;
+use std::path::Path;
 use std::sync::Arc;
 
 use aesthetics_export::FileDescriptor;
@@ -61,12 +62,17 @@ pub(crate) struct CompileContext {
     /// The run's memory budget, the one the coordinator acquires each task's source bytes
     /// from: a running task charges what it allocates to it (`MemoryBudget::charge`).
     pub(crate) budget: Arc<MemoryBudget>,
+    /// Whether every `.dds` entry a task emits is WESYS-zlibbed (`wrap_dds`): the
+    /// `dds_compression` setting resolved for the run's version (`settings.md`,
+    /// `TeamCompilerSettings::compresses_dds`), never on Fox.
+    pub(crate) compress_dds: bool,
 }
 
 impl CompileContext {
     /// The context of a run for `version` compiling `compiled_exports` exports (those with at
     /// least one planned task) with `templates` and the `installed` CPKs' entry paths, its
-    /// entries going to `target`, its tasks charging `budget`, with a fresh converter.
+    /// entries going to `target`, its tasks charging `budget`, its DDS entries wrapped when
+    /// `compress_dds`, with a fresh converter.
     pub(crate) fn new(
         version: PesVersion,
         compiled_exports: usize,
@@ -74,6 +80,7 @@ impl CompileContext {
         installed: InstalledPaths,
         target: EntryTarget,
         budget: Arc<MemoryBudget>,
+        compress_dds: bool,
     ) -> CompileContext {
         CompileContext {
             version,
@@ -83,6 +90,7 @@ impl CompileContext {
             installed,
             target,
             budget,
+            compress_dds,
         }
     }
 }
@@ -301,6 +309,9 @@ pub(crate) fn process_task(
     match result {
         Ok((output, kit_bins)) => {
             batch.entries = materialize(output, &task, &ctx.target);
+            if ctx.compress_dds {
+                wrap_dds(&mut batch.entries);
+            }
             if let Some((uniform_parameter, colors)) = kit_bins {
                 batch.uniparam = uniform_parameter;
                 batch.uni_color = Some((task.team_id, colors));
@@ -337,6 +348,23 @@ pub(crate) fn process_task(
         }
     }
     batch
+}
+
+/// Replaces each `.dds` entry of `entries` (the extension in any case) by its bytes
+/// WESYS-zlibbed, which PES 15-17 read as they read a plain DDS (`settings.md`,
+/// `dds_compression`). An entry already wrapped (a source `texture::convert` passes through as
+/// it is) is left as it is. Called on the worker that made the entries, so the deflate runs in
+/// parallel and the writer stays a pass-through for bytes; a face CPK holds no DDS, its
+/// textures being entries of the folder's textures task.
+fn wrap_dds(entries: &mut [Entry]) {
+    for (path, bytes) in entries {
+        let is_dds = Path::new(path.as_str())
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("dds"));
+        if is_dds && !wezlib::is_wrapped(bytes) {
+            *bytes = wezlib::compress(bytes);
+        }
+    }
 }
 
 /// The manifest positions of the tasks of the `dropped` packages in `group`, for the writer
@@ -492,6 +520,7 @@ mod tests {
                     engine: version.engine(),
                 },
                 MemoryBudget::new(usize::MAX),
+                false,
             ),
         )
     }
@@ -588,6 +617,7 @@ mod tests {
                 engine: Engine::Fox,
             },
             Arc::clone(&budget),
+            false,
         );
 
         let batch = process_task(3, task, files, &context);
@@ -1245,6 +1275,7 @@ mod tests {
                     engine: Engine::Fox,
                 },
                 MemoryBudget::new(usize::MAX),
+                false,
             )
             .cache,
             CachePolicy::Bypass
@@ -1415,6 +1446,7 @@ mod tests {
                     engine: Engine::Fox,
                 },
                 MemoryBudget::new(usize::MAX),
+                false,
             ),
             dds_convert::SourceFormat::Dds,
             "ref_marker.dds",
@@ -2168,6 +2200,7 @@ mod tests {
                 engine: Engine::Fox,
             },
             MemoryBudget::new(usize::MAX),
+            false,
         );
         let as_it_is = |file_name: &str, bytes: &[u8]| {
             texture::convert(&context, dds_convert::SourceFormat::Dds, file_name, bytes).unwrap()
@@ -3534,5 +3567,30 @@ mod tests {
                 path: ScopePath::new(PLAYER).unwrap(),
             }
         );
+    }
+
+    #[test]
+    fn every_dds_entry_in_any_case_is_wrapped_once_and_nothing_else_is() {
+        let dds = std::fs::read(tracer().join("Kits/g1/kit.dds")).unwrap();
+        let wrapped = wezlib::compress(&dds);
+        let mtl = b"a material set".to_vec();
+        let mut entries = vec![
+            ("common/714/skin.dds".to_owned(), dds.clone()),
+            ("common/714/HAIR.DDS".to_owned(), dds.clone()),
+            ("common/714/eyes.dds".to_owned(), wrapped.clone()),
+            ("common/714/face_high.mtl".to_owned(), mtl.clone()),
+        ];
+
+        wrap_dds(&mut entries);
+
+        for (path, bytes) in &entries[..2] {
+            assert!(wezlib::is_wrapped(bytes), "{path}");
+            assert!(wezlib::decompress(bytes).unwrap() == dds, "{path}");
+        }
+        assert!(
+            entries[2].1 == wrapped,
+            "an entry already wrapped is left as it is"
+        );
+        assert!(entries[3].1 == mtl, "a `.mtl` is no DDS");
     }
 }

@@ -257,6 +257,8 @@ struct PlannedRun {
     /// tasks look in.
     installed: InstalledPaths,
     manifest: BuildManifest,
+    /// Whether the tasks WESYS-zlib every DDS they emit (`CompileContext::compress_dds`).
+    compress_dds: bool,
 }
 
 /// `compile`'s first half: the `overrides/` folder listed when `mode` applies it, the
@@ -318,6 +320,7 @@ fn plan(
         sources,
         installed,
         manifest: report.manifest,
+        compress_dds: inputs.settings.compresses_dds(version),
     })
 }
 
@@ -348,6 +351,7 @@ fn build(
         sources,
         installed,
         manifest,
+        compress_dds,
     } = planned;
     let tasks = manifest.tasks;
     let team_colors = manifest.team_colors;
@@ -437,6 +441,7 @@ fn build(
         installed,
         entry_target,
         Arc::clone(&budget),
+        compress_dds,
     );
     let (coordinated, (mut events, written)) = std::thread::scope(|scope| {
         let (batches_tx, batches_rx) = unbounded();
@@ -1119,6 +1124,7 @@ mod tests {
                 engine: Engine::Fox,
             },
             Arc::clone(budget),
+            false,
         )
     }
 

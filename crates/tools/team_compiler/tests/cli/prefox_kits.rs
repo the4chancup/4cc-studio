@@ -43,7 +43,7 @@ fn tracer_config() -> Vec<u8> {
 
 /// Writes `Kits/<slot>/kit.dds` (the tracer's) and `config.toml` (the tracer's) into the
 /// export `export`.
-fn write_kit(sandbox: &Sandbox, export: &str, slot: &str) {
+pub(crate) fn write_kit(sandbox: &Sandbox, export: &str, slot: &str) {
     let folder = format!("exports/{export}/Kits/{slot}");
     sandbox.write(&format!("{folder}/kit.dds"), &tracer_kit());
     sandbox.write(&format!("{folder}/config.toml"), &tracer_config());
