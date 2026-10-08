@@ -385,6 +385,44 @@ of the source never reach the game — the checks above are about content, not f
 knowledge moves a row: when an experiment shows a value works, it joins the generated vocabulary and
 stops warning; when one shows a value crashes, it becomes an error with the crash as its citation.
 
+How a `path` or `material` is resolved and written, Red's rules (`xml_check.py` `listed_file_check`,
+`update_xml_for_renamed_common_models`), since the one real member xml in the fixtures (the pre-Fox
+tracer's Fumos folder: `./face_high_*.model` beside `face_high_win32.model`) was written for them:
+
+- A `./<name>` reference names a file of the face (the player's own files, directly in the folder
+  or in `face/`, then a linked shared face's), compared case-folded with the reference's `*`
+  read as `win32`; the referenced file is **packed under the name the reference gives** (`*` as
+  `win32`, spelled as the xml spells it) and the reference is written as it is. We do not
+  rename the file to its `oral_<stem>_win32` packed name and respell the reference, because the
+  xml is the member's statement of what the game should load, and Red kept both as written.
+- A `model/character/uniform/common/<3 chars>/<name>` reference has the 3-character segment
+  replaced by the team ID (any other length is `xml_common_path_invalid`), and `<name>` (`*` as
+  `win32`) names a file directly in the export's `Common/`, case-folded, else `xml_model_not_found`.
+  A `.model` is written as the team's Common output packs it, `oral_<stem>_*.model` (the Common
+  output renames every model, as Red's `model_names_fix` does, and Red then respells the xml);
+  a `.mtl` keeps its name there.
+- A kit token in a referenced name (`pants_kitN.model`, `pants_kit2.mtl`) passes through: the
+  reference exists when a variant of its set is among the files searched (`kit_variants`), and a
+  `./` reference to a `.model` set packs every variant under its own file name, since the game
+  respells the entry for the kit picked.
+- A `material` is resolved the same way; an entry without one is written without one.
+- Any other path form is `xml_path_unchecked` and written as it is.
+
+What is emitted from such a folder: each referenced `.model` under its name, each referenced
+`.mtl` under its own name with its texture paths pointed as a generated face's are, the
+folder's textures as usual, and the xml. The `.mtl` the deep pass compares a listed model's
+material names with (`model_material_undefined`) is the entry's `material`, not the search's
+(`mtl_search`), which the xml overrides; an unlisted `.model` is `xml_model_unlisted` and is
+neither emitted nor compared. The xml's own `<dif>` is decoded as a `face_diff.xml`'s is and
+checked the same way (`face_diff_invalid`); beside a `face_diff.bin` or `face_diff.xml` it is
+`xml_dif_conflict`; with none of the three the bundled face diff is written. A `<model>`'s
+attributes are written in source order, verbatim but for `type` (the version rewrite) and the
+two references above; an unknown element is written verbatim with its attributes, text and
+children. A folder holding a `face.xml` has a face, whatever models it holds (an xml naming only
+Common models is one), so its face files are used. A `face.xml` in a shared face folder
+(`Faces/`) is not supported yet: the pre-Fox gate names it (open question: whether the shared
+xml is the authority for every player combining it, and what his own files add).
+
 Texture existence is checked **deep**, not shallow: `pes_model` parses the `.model` files and knows
 which MTL material each mesh actually binds, so a missing texture on a mesh-used material is a hard
 error, while a miss on a material no mesh uses can never break the model and is only reported as

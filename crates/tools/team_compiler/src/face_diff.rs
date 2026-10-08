@@ -1,7 +1,8 @@
 //! A face's `face_diff.bin`, the face parameter file the game reads beside a face's models:
 //! decoded from the text a `face_diff.xml` gives it in, and checked to be a face diff the game
 //! can read (`player_folders.md` "`face_diff.xml`"). The deep pass checks a folder's face diff
-//! in either form; packing decodes a `face_diff.xml` into the bytes it packs.
+//! in either form; packing decodes a `face_diff.xml` into the bytes it packs. A member's own
+//! `face.xml` gives it as a `<dif>` element, decoded the same way (`from_dif`).
 
 use std::fmt;
 
@@ -82,11 +83,36 @@ pub(crate) fn from_xml(bytes: &[u8]) -> Result<Vec<u8>, FaceDiffError> {
     let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
     let text = std::str::from_utf8(bytes).map_err(|_| FaceDiffError::NotUtf8)?;
     let text = text.trim_start_matches(|c: char| c.is_ascii_whitespace());
-    let payload = if text.starts_with('<') {
-        dif_text(text)?
-    } else {
-        text.to_owned()
-    };
+    if !text.starts_with('<') {
+        return decoded(text);
+    }
+    let document = roxmltree::Document::parse(text).map_err(FaceDiffError::Xml)?;
+    let root = document.root_element();
+    let name = root.tag_name().name();
+    if name != "dif" {
+        return Err(FaceDiffError::RootNotDif(name.to_owned()));
+    }
+    from_dif(root)
+}
+
+/// The `face_diff.bin` a `<dif>` element holds as base64 text, decoded and checked (`check`):
+/// the root of a `face_diff.xml`, or a child of a member's own `face.xml`'s `<config>`.
+pub(crate) fn from_dif(dif: roxmltree::Node) -> Result<Vec<u8>, FaceDiffError> {
+    if dif.children().any(|node| node.is_element()) {
+        return Err(FaceDiffError::DifHoldsElements);
+    }
+    // Text nodes only: a comment's text is not the payload.
+    let payload: String = dif
+        .children()
+        .filter(|node| node.is_text())
+        .filter_map(|node| node.text())
+        .collect();
+    decoded(&payload)
+}
+
+/// The face diff the base64 text `payload` encodes (standard alphabet, padded, whitespace
+/// anywhere), decoded and checked (`check`).
+fn decoded(payload: &str) -> Result<Vec<u8>, FaceDiffError> {
     let base64: Vec<u8> = payload
         .bytes()
         .filter(|byte| !byte.is_ascii_whitespace())
@@ -99,25 +125,6 @@ pub(crate) fn from_xml(bytes: &[u8]) -> Result<Vec<u8>, FaceDiffError> {
     let decoded = STANDARD.decode(&base64).map_err(FaceDiffError::Base64)?;
     check(&decoded)?;
     Ok(decoded)
-}
-
-/// The text of the `<dif>` root element of the XML document `text`, the base64 it holds.
-fn dif_text(text: &str) -> Result<String, FaceDiffError> {
-    let document = roxmltree::Document::parse(text).map_err(FaceDiffError::Xml)?;
-    let root = document.root_element();
-    let name = root.tag_name().name();
-    if name != "dif" {
-        return Err(FaceDiffError::RootNotDif(name.to_owned()));
-    }
-    if root.children().any(|node| node.is_element()) {
-        return Err(FaceDiffError::DifHoldsElements);
-    }
-    // Text nodes only: a comment's text is not the payload.
-    Ok(root
-        .children()
-        .filter(|node| node.is_text())
-        .filter_map(|node| node.text())
-        .collect())
 }
 
 impl fmt::Display for FaceDiffError {

@@ -60,6 +60,15 @@ pub(crate) fn xml_type(stem: &str) -> String {
     xml_type.to_owned()
 }
 
+/// Whether `xml_type` is a `face.xml` type this module generates: a native type name, a
+/// glove's or a hand's side, or `uniform_sub`, PES 2015's `uniform` (`version_type`). The
+/// vocabulary verified in the game; a member's own `face.xml` naming another type is reported
+/// (`xml_type_unknown`, `messages.md` "User-supplied `face.xml`").
+pub(crate) fn is_generated_type(xml_type: &str) -> bool {
+    NATIVE_TYPES.contains(&xml_type)
+        || ["gloveL", "gloveR", "handL", "handR", "uniform_sub"].contains(&xml_type)
+}
+
 /// The `face.xml` type `xml_type` is written as for `version`: `uniform` is `uniform_sub` on
 /// PES 2015, every other type, and every type on the other versions, as it is
 /// (`player_folders.md` "Model names", the `uniform` row; `messages.md` `xml_uniform_pes15`,

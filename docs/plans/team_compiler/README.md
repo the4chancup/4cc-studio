@@ -1034,8 +1034,11 @@ TC-XML-01  GIVEN slot 05 holding face_high.model, hat_parts.model and its own fa
            model/character/uniform/common/XXX/legs.model typed parts, which Common/ holds
            WHEN the export is compiled for PES 17
            THEN the emitted xml keeps cape, glow and level="1" verbatim, with xml_type_unknown,
-                xml_attribute_unknown (Warnings) and xml_level_lod (Info), and the Common path has
-                714 substituted
+                xml_attribute_unknown (Warnings) and xml_level_lod (Info); the ./ references are
+                written as they are and the face CPK holds face_high.model and hat_parts.model
+                under those names; the Common path is written
+                model/character/uniform/common/714/oral_legs_*.model, the name the Common output
+                packs legs.model under
 TC-XML-02  GIVEN the same folder with the face.xml removed
            WHEN it is compiled for PES 17
            THEN the generated face.xml lists face_high.model's emitted model as face_neck and

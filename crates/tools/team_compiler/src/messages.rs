@@ -147,9 +147,54 @@ pub(crate) enum Code {
     /// diff (decoded, or a `face_diff.bin`) without the magic `FACE` or shorter than its
     /// header gives; the folder holding it is left out.
     FaceDiffInvalid,
-    /// A folder holds both `face_diff.bin` and `face_diff.xml`, giving its face diff twice;
-    /// the folder is left out.
+    /// A folder gives its face diff twice: it holds both `face_diff.bin` and `face_diff.xml`,
+    /// or its own `face.xml` holds a `<dif>` beside either; the folder is left out.
     XmlDifConflict,
+    /// PES 2015 to 2017: a player folder's own `face.xml` that is not UTF-8 text or not
+    /// well-formed XML (the error names the line and column); the folder is left out.
+    XmlBroken,
+    /// A member's own `face.xml` whose root element is not `<config>`; the folder is left out.
+    XmlRootTagInvalid,
+    /// A `<model>` of a member's own `face.xml` without a `type`; the folder is left out.
+    XmlModelTypeMissing,
+    /// A `<model>` of a member's own `face.xml` without a `path`; the folder is left out.
+    XmlModelPathMissing,
+    /// A `path` or `material` of a member's own `face.xml` naming, by `./` or by the
+    /// uniform Common folder, a file the export does not hold; the folder is left out.
+    XmlModelNotFound,
+    /// A uniform Common `path` or `material` of a member's own `face.xml` whose folder after
+    /// `common/` (the team's ID) is not three characters long; the folder is left out.
+    XmlCommonPathInvalid,
+    /// PES 2016: a model of a member's own `face.xml` whose file name starts with none of
+    /// `face_high_`, `hair_high_`, `oral_`, which that game needs to load it; the folder is
+    /// left out.
+    XmlOralPrefixMissing,
+    /// A child of a member's own `face.xml`'s `<config>` other than `<model>` and `<dif>`: the
+    /// compiler cannot vouch for it, and keeps it as written.
+    XmlElementUnknown,
+    /// A `<model>` attribute of a member's own `face.xml` other than `level`, `type`, `path`,
+    /// `material` and `ratio`: kept as written.
+    XmlAttributeUnknown,
+    /// A `type` of a member's own `face.xml` that the compiler never generates, so not
+    /// verified in the game: kept as written.
+    XmlTypeUnknown,
+    /// A `level` other than 0 in a member's own `face.xml`: the model's level of detail,
+    /// uncommon but known to work; kept as written.
+    XmlLevelLod,
+    /// A `ratio` of a member's own `face.xml` that is not a number: kept as written.
+    XmlRatioInvalid,
+    /// A `path` or `material` of a member's own `face.xml` in a form the compiler cannot
+    /// resolve (a face Common path, any other game path): not checked to exist, kept as
+    /// written.
+    XmlPathUnchecked,
+    /// A member's own `face.xml` with more than one `face_neck` entry: kept as written.
+    XmlFaceNeckMultiple,
+    /// A `.model` in a folder with its own `face.xml` that no entry lists: it is not in the
+    /// game.
+    XmlModelUnlisted,
+    /// PES 2018 to 2021: a player folder's own `face.xml`, which Fox has no use for: it is
+    /// ignored, and the folder's models compile as without it.
+    XmlIgnoredFox,
     /// Two of a player's sources feeding different packages hold a texture of one stem with
     /// different bytes; the lower package in canonical order (face > boots > gloves) is left
     /// out with the textures only its sources hold.
@@ -297,7 +342,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 93] = [
+    const ALL: [Code; 109] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -345,6 +390,22 @@ impl Code {
         Code::XmlUniformPes15,
         Code::FaceDiffInvalid,
         Code::XmlDifConflict,
+        Code::XmlBroken,
+        Code::XmlRootTagInvalid,
+        Code::XmlModelTypeMissing,
+        Code::XmlModelPathMissing,
+        Code::XmlModelNotFound,
+        Code::XmlCommonPathInvalid,
+        Code::XmlOralPrefixMissing,
+        Code::XmlElementUnknown,
+        Code::XmlAttributeUnknown,
+        Code::XmlTypeUnknown,
+        Code::XmlLevelLod,
+        Code::XmlRatioInvalid,
+        Code::XmlPathUnchecked,
+        Code::XmlFaceNeckMultiple,
+        Code::XmlModelUnlisted,
+        Code::XmlIgnoredFox,
         Code::SharedTextureConflict,
         Code::MergedTextureConflict,
         Code::TextureTooSmall,
@@ -443,6 +504,22 @@ impl Code {
             Code::XmlUniformPes15 => "xml_uniform_pes15",
             Code::FaceDiffInvalid => "face_diff_invalid",
             Code::XmlDifConflict => "xml_dif_conflict",
+            Code::XmlBroken => "xml_broken",
+            Code::XmlRootTagInvalid => "xml_root_tag_invalid",
+            Code::XmlModelTypeMissing => "xml_model_type_missing",
+            Code::XmlModelPathMissing => "xml_model_path_missing",
+            Code::XmlModelNotFound => "xml_model_not_found",
+            Code::XmlCommonPathInvalid => "xml_common_path_invalid",
+            Code::XmlOralPrefixMissing => "xml_oral_prefix_missing",
+            Code::XmlElementUnknown => "xml_element_unknown",
+            Code::XmlAttributeUnknown => "xml_attribute_unknown",
+            Code::XmlTypeUnknown => "xml_type_unknown",
+            Code::XmlLevelLod => "xml_level_lod",
+            Code::XmlRatioInvalid => "xml_ratio_invalid",
+            Code::XmlPathUnchecked => "xml_path_unchecked",
+            Code::XmlFaceNeckMultiple => "xml_face_neck_multiple",
+            Code::XmlModelUnlisted => "xml_model_unlisted",
+            Code::XmlIgnoredFox => "xml_ignored_fox",
             Code::SharedTextureConflict => "shared_texture_conflict",
             Code::MergedTextureConflict => "merged_texture_conflict",
             Code::TextureTooSmall => "texture_too_small",
@@ -561,6 +638,22 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("xml_uniform_pes15", CatalogSeverity::Info),
     ("face_diff_invalid", CatalogSeverity::Error),
     ("xml_dif_conflict", CatalogSeverity::Error),
+    ("xml_broken", CatalogSeverity::Error),
+    ("xml_root_tag_invalid", CatalogSeverity::Error),
+    ("xml_model_type_missing", CatalogSeverity::Error),
+    ("xml_model_path_missing", CatalogSeverity::Error),
+    ("xml_model_not_found", CatalogSeverity::Error),
+    ("xml_common_path_invalid", CatalogSeverity::Error),
+    ("xml_oral_prefix_missing", CatalogSeverity::Error),
+    ("xml_element_unknown", CatalogSeverity::Warning),
+    ("xml_attribute_unknown", CatalogSeverity::Warning),
+    ("xml_type_unknown", CatalogSeverity::Warning),
+    ("xml_level_lod", CatalogSeverity::Info),
+    ("xml_ratio_invalid", CatalogSeverity::Warning),
+    ("xml_path_unchecked", CatalogSeverity::Warning),
+    ("xml_face_neck_multiple", CatalogSeverity::Warning),
+    ("xml_model_unlisted", CatalogSeverity::Warning),
+    ("xml_ignored_fox", CatalogSeverity::Info),
     ("shared_texture_conflict", CatalogSeverity::Error),
     ("merged_texture_conflict", CatalogSeverity::Error),
     ("texture_too_small", CatalogSeverity::Error),

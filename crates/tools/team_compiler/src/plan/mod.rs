@@ -330,7 +330,8 @@ impl ModelFolder {
                     | PlayerFile::PreFoxPart { .. }
                     | PlayerFile::PreFoxCommonModel { .. }
                     | PlayerFile::Material
-                    | PlayerFile::CommonMaterial => None,
+                    | PlayerFile::CommonMaterial
+                    | PlayerFile::FaceXml => None,
                 };
                 if let Some(packs_as) = packs_as {
                     if packed.contains(&packs_as) {
@@ -1336,7 +1337,8 @@ fn common_models(
                 | PlayerFile::PreFoxModel { .. }
                 | PlayerFile::Material
                 | PlayerFile::PreFoxCommonModel { .. }
-                | PlayerFile::CommonMaterial => return None,
+                | PlayerFile::CommonMaterial
+                | PlayerFile::FaceXml => return None,
             };
             let linked = common_link_name(file.path.name())
                 .expect("a model link's role implies a `.common` link name");

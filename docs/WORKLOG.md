@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued; 4.15 next), with its own checks until 4.31's pre-Fox parity
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 in progress (a1 done: the member's own `face.xml` read and checked; a2 next: emitted), with its own checks until 4.31's pre-Fox parity
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1517,16 +1517,51 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `face_neck` entry, whose MTL names `skin.dds` under `.../common/714/05 - .../`, and no `Asset/`
   entry
 
-- [ ] 4.15 **Pre-Fox XML and MTL checks, user `face.xml`**: every `xml_*` and `mtl_*` row of the
-  catalog, the Error/Warning/Info line of "User-supplied `face.xml`", `xml_ignored_fox`,
-  `mtl_texture_not_found` deep (mesh-used materials) against `mtl_texture_unused_missing`, the
-  states checks also on a converted model's `[prefox.states]`. Plan: `messages.md` "XML/MTL
-  content checks", "User-supplied `face.xml`". IDs: TC-XML-01..07, TC-XML-09 (TC-XML-08 is
-  4.14d's). Crates: tc
-  (`processing/material.rs`) → verify: the hand-written xml of `testing.md` ("user `face.xml`")
-  compiled for PES 17 is emitted with 714 substituted into its Common path, its unknown `type`
-  and extra attribute kept with `xml_type_unknown` and `xml_attribute_unknown`, `level="1"` kept
-  with `xml_level_lod`; a `<model>` without `path` drops the folder with `xml_model_path_missing`
+- [ ] 4.15 **Pre-Fox XML and MTL checks, user `face.xml`**: the Error/Warning/Info line of
+  "User-supplied `face.xml`" with its resolution paragraph, `xml_ignored_fox`,
+  `mtl_texture_not_found` (mesh-used materials) against `mtl_texture_unused_missing`. The
+  `mtl_material_duplicate` and `mtl_state_*` rows are already reported by the deep pass from
+  `pes_model::check::check_materials` (4.14d). Deferred, not gaps: the states checks on a
+  converted model's `[prefox.states]` wait for glTF sources to compile (Phase 7; the deep pass
+  does not read glTF); `xml_texture_path_missing` needs the texture suffix mapping table of the
+  same phase (today a sampler without `path` is `mtl_broken`); a `face.xml` in a shared face
+  folder stays refused by the pre-Fox gate (open question in the plan paragraph). Plan:
+  `messages.md` "XML/MTL content checks", "User-supplied `face.xml`". IDs: TC-XML-01..07,
+  TC-XML-09 (TC-XML-08 is 4.14d's). Slices: (a1) the xml read, checked and resolved
+  (`user_face_xml.rs`: parse, the content checks, reference resolution, serialization), its
+  findings in the deep pass with the listed models' `model_material_undefined` compared against
+  the entry's `.mtl`, the `FaceXml` role and a folder with an xml having a face,
+  `xml_ignored_fox` on Fox, the catalog rows (TC-XML-03, TC-XML-06, TC-XML-09, TC-XML-04's
+  first half); (a2) the face task emitting from the xml (references packed as the plan says,
+  the dummy and the version rewrite as for a generated xml, the `<dif>` sources), the gate
+  lifted for a player folder's own xml, the Fumos xml of the pre-Fox tracer compiled verbatim
+  as a second test (TC-XML-01, TC-XML-02, TC-XML-04, TC-XML-05); (b) `mtl_texture_not_found`
+  and `mtl_texture_unused_missing` at compile time under Fox's rule ("A texture a model names
+  must exist"), the model's bound material names carried from the deep pass as `hand_weighted`
+  is, a `./` or bare path whose stem no place holds being missing on pre-Fox (the face packs no
+  texture) (TC-XML-07). Crates: tc → verify: the hand-written xml of `testing.md` ("user
+  `face.xml`") compiled for PES 17 is emitted with 714 substituted into its Common path, its
+  unknown `type` and extra attribute kept with `xml_type_unknown` and `xml_attribute_unknown`,
+  `level="1"` kept with `xml_level_lod`; a `<model>` without `path` drops the folder with
+  `xml_model_path_missing`
+  (a1) done 2026-10-08 (Opus 5.5, fresh agent, landed first time; four departures from the
+  brief, all accepted: `check` takes the xml's name for `xml_dif_conflict`'s context,
+  `XmlError::Xml` carries the text's end position for the three parser errors roxmltree places
+  nowhere, the Fox gate lets a face's own `face.xml` through (TC-XML-06 needs it), the pre-Fox
+  gate names a shared face's own xml; lead fix: none): `user_face_xml.rs` (`parse` to
+  `UserFaceXml { children: Child::{Model, Dif, Other} }` keeping `<model>` attributes and
+  unknown elements verbatim, `reference` → `Local`/`Common`/`Unchecked`, `resolve` over the
+  folder's own files then the linked face's, a `.mtl.common` link counting as a `.mtl`, a
+  `kitN` name found through its lowest variant, `check` with every `xml_*` row but the two
+  rewrites); `face_diff::from_dif` shared with `face_diff.xml`; `PlayerFile::FaceXml`, a folder
+  with an xml having a face, the xml under `ingame_face` unused; the deep pass reads each own
+  xml (`xml_broken`/`xml_root_tag_invalid`/`face_diff_invalid` at parse, `check`'s findings
+  after) and compares only the listed models' materials with the entry's `.mtl`
+  (`undefined_materials` split from the search); `xml_ignored_fox` from the structure pass; 16
+  catalog codes (`ALL` 109); help. Gates 232 of 258 proven (TC-XML-03, 04, 06, 09).
+  `mutants-diff d4ea252` (local): 184, 150 caught, 30 unviable, 4 missed (the linked face's
+  files never reaching the deep pass, the two guards of `listed_materials`, `resolve`'s kind
+  check on a Common reference), each covered by a lead test; rerun 154 caught, 0 missed.
 
 - [ ] 4.16 **Pre-Fox kits, bins and DDS compression**: a kit marked `fox` has its main texture
   and its own mask re-laid to the pre-Fox layout (`kit_layout::relaid`, TC-KIT-19), `kit_mask` injected from the mask template
@@ -3788,3 +3823,17 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     `.mtl` names the Common textures in the team's Common output (decision entry). 4.14 has
     no refusal left for a pre-Fox player folder but a member's own `face.xml` (4.15). Next:
     4.15.
+  - **4.15 recon**: the `mtl_material_duplicate` and `mtl_state_*` rows were already reported
+    by the deep pass from `pes_model::check` (4.14d), so 4.15 is the member's own `face.xml`
+    and `mtl_texture_not_found`; three items deferred with reasons in the step. Red keeps a
+    member's xml and its file names as written (the pre-Fox tracer's Fumos folder: Red's output
+    names `./face_high_*.model` beside `face_high_win32.model`), so a `./` reference packs its
+    file under the referenced name and a Common reference is written as the Common output packs
+    the model (decision entry; plan paragraph "How a `path` or `material` is resolved"). The
+    step is sliced (a1) read/check, (a2) emit, (b) textures.
+  - **4.15a1 done** (TC-XML-03, TC-XML-04 first half, TC-XML-06, TC-XML-09): a member's own
+    `face.xml` is parsed, its references resolved and every content check of the table
+    reported by the deep pass, which compares a listed model's materials against the xml's
+    `.mtl` rather than the search's; the folder has a face; on Fox the xml is ignored with
+    `xml_ignored_fox` and the gate lets it through; the pre-Fox gate still names it (a2 emits
+    it). Next: 4.15a2.

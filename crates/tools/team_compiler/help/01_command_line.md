@@ -177,6 +177,17 @@ A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a folder with no fa
 used, and both commands report it as `face_file_not_used`. For PES 2015 to 2017 every `.model`
 of a player folder without `ingame_face`, boots and gloves included, goes into the player's
 face, listed in a `face.xml` that `compile` writes with each model's type read from its name.
+A player folder may hold its own `face.xml` instead (directly in the folder or in its `face`
+subfolder), and both commands check its content. What is known not to work leaves the folder
+out: a file that does not parse, a root other than `<config>`, a `<model>` without `type` or
+`path`, a `./` or Common reference to a file the export does not hold, a Common path without
+its 3-character folder, on PES 2016 a model name starting with none of `face_high_`,
+`hair_high_` and `oral_`, and a `<dif>` beside a `face_diff.bin` or `face_diff.xml`. What the
+compiler cannot vouch for is kept and warned about: an unknown element, attribute or `type`, a
+`ratio` that is not a number, a path it cannot check, and a `.model` of the folder the xml
+does not list. A `level` other than 0 is noted. `compile` does not build such a folder yet and
+names the file. For PES 2018 to 2021 the xml is ignored, reported as `xml_ignored_fox`, and the
+folder's models compile as they would without it.
 A face model there whose vertices are weighted to the hand bones (`skh_`) has its hands cut off
 at the wrist at compile time, which the note `model_hand_split` names: the rest keeps the
 model's place, and the hands of `body.model` become `body_glove_l.model` and

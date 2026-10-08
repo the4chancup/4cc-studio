@@ -4993,3 +4993,28 @@ link's model into the package the same way (`player_folders.md` "Common model li
 merging").
 Plan: `aesthetics_export/player_folders.md` "`ingame_face` with shared links";
 `team_compiler/README.md` TC-MOD-44, TC-MOD-45.
+
+## 2026-10-08 — team_compiler — A user `face.xml`'s `./` reference packs its file under the referenced name; a Common reference is written as the Common output packs the model
+Decision: on PES 15-17 a member's own `face.xml` is resolved and re-serialized by Red's rules:
+a `./<name>` reference (its `*` read as `win32`) names a file of the face, case-folded, which is
+packed under the referenced name as the xml spells it, the reference written as it is; a
+`model/character/uniform/common/<3 chars>/<name>` reference has the segment replaced by the
+team ID and names a file directly in `Common/`, a `.model` written as the Common output packs
+it (`oral_<stem>_*.model`), a `.mtl` under its name; a kit token passes through, the reference
+existing when a variant of its set is among the files; any other form is `xml_path_unchecked`,
+verbatim. The listed model's `.mtl` for `model_material_undefined` is the entry's `material`,
+not the search's. The xml's own `<dif>` is decoded and checked as a `face_diff.xml`'s is, and
+conflicts with a face diff file beside it. A folder holding a `face.xml` has a face, whatever
+models it holds. A `face.xml` in a shared face folder stays refused by the pre-Fox gate.
+Why: the plan left the file names open ("re-serialized", "the team ID substituted"). The one
+real member xml in the fixtures (the pre-Fox tracer's Fumos folder) names `./face_high_*.model`
+beside `face_high_win32.model`, and Red's output keeps both as written: renaming the file to
+its `oral_` packed name and respelling the reference would make the compiler rewrite the
+member's statement of what the game loads, the thing the plan's "kept verbatim" rule protects.
+Common models are the other way round because the Common output renames every model (Red's
+`model_names_fix`), and Red respells the xml to match (`update_xml_for_renamed_common_models`):
+a verbatim Common reference would name a file the output does not hold. The search's `.mtl` can
+disagree with the xml's (Fumos's `oral_glove_l_win32.model` searches to `boots.mtl`), and a
+check against the wrong `.mtl` would drop a working folder.
+Plan: `team_compiler/messages.md` "User-supplied `face.xml`" (the resolution paragraph);
+`team_compiler/README.md` TC-XML-01; `GLOSSARY.md` "User-supplied `face.xml`".

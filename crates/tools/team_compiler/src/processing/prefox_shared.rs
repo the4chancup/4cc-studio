@@ -156,7 +156,8 @@ pub(super) fn package(
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::SlotlessSkeleton
                 | PlayerFile::LeftOutKitVariant
-                | PlayerFile::PreFoxCommonModel { .. } => {}
+                | PlayerFile::PreFoxCommonModel { .. }
+                | PlayerFile::FaceXml => {}
             }
         }
     }

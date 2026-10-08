@@ -29,6 +29,11 @@
 //! config can name, and no collar the suite holds itself (`collar`); a collar model is then
 //! checked as any model, its Errors dropping the file.
 //!
+//! For PES 2015 to 2017 it also reads a face folder's own `face.xml` (`user_face_xml`) and
+//! reports its content checks (`team_compiler/messages.md` "XML/MTL content checks"); the xml
+//! then decides which `.mtl` a model's `model_material_undefined` compares with: the one its
+//! entry names, for the models it lists, instead of the one the search finds.
+//!
 //! Last, it reads the small data files whole (`documents`): the face diff of each player
 //! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), each kit's
 //! `config.toml` (`kit_config_invalid`), each player's `settings.toml`
@@ -51,7 +56,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, KitTextureSource,
-    ModelFormat, ValidatedAestheticsExport, common_link_name,
+    ModelFormat, PlayerFolder, SharedKind, ValidatedAestheticsExport, common_link_name,
 };
 use dds_convert::SourceFormat;
 use pes_version::{Engine, PesVersion};
@@ -62,9 +67,13 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::plan::subset::{
-    FolderModels, PlayerFile, common_file, is_direct_common_file, player_file, texture_format,
+    FolderModels, PlayerFile, common_file, is_direct_common_file, linked_folder, player_file,
+    texture_format,
 };
 use crate::reader::ContentSource;
+use crate::user_face_xml::{
+    self, Child, FaceFiles, UserFaceXml, XmlError, XmlFinding, reference, resolve,
+};
 use collar::collar_findings;
 use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
 use model::{ModelKind, fired, summed};
@@ -193,13 +202,16 @@ pub(crate) fn content_findings(
         .par_iter()
         .map(|player| {
             let folder = &player.path;
+            // Under the marker the face files are not used, his own `face.xml` among them.
+            let face = (!player.ingame_face).then(|| linked_face_files(export, player));
             let mut pass = folder_findings(
                 content,
                 folder,
                 &player.files,
                 &kept_common,
                 size_rule,
-                engine,
+                version,
+                face,
             );
             let findings = &mut pass.findings;
             findings.extend(face_diff_findings(
@@ -227,13 +239,15 @@ pub(crate) fn content_findings(
         .faces
         .par_iter()
         .map(|face| {
+            // A shared face links no other.
             let mut pass = folder_findings(
                 content,
                 &face.path,
                 &face.files,
                 &kept_common,
                 size_rule,
-                engine,
+                version,
+                Some(&[]),
             );
             pass.findings.extend(face_diff_findings(
                 content,
@@ -249,13 +263,15 @@ pub(crate) fn content_findings(
         .par_iter()
         .chain(&export.gloves)
         .map(|shared| {
+            // A boots or gloves folder has no face.
             folder_findings(
                 content,
                 &shared.path,
                 &shared.files,
                 &kept_common,
                 size_rule,
-                engine,
+                version,
+                None,
             )
         })
         .collect();
@@ -397,25 +413,71 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
     }
 }
 
+/// The files of the shared face folder `player` links in `export`, as planning resolves the
+/// link (`linked_folder`); empty when he links none.
+fn linked_face_files<'a>(
+    export: &'a ValidatedAestheticsExport,
+    player: &PlayerFolder,
+) -> &'a [FileDescriptor] {
+    player
+        .links
+        .iter()
+        .find(|link| matches!(link.kind, SharedKind::Face))
+        .and_then(|link| linked_folder(export, link))
+        .map_or(&[], |face| face.files.as_slice())
+}
+
 /// The findings of the files among `files`, those of the model folder at `folder`, that the
 /// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
-/// an Error dropping the folder, the file named below the folder; when the target's `engine`
+/// an Error dropping the folder, the file named below the folder; when the target `version`
 /// is pre-Fox, each `.model`'s, and each typed `.common` link's to one,
 /// `model_material_undefined` (`material_finding`, its `.mtl` searched among the folder's
 /// files and `common`'s), right after the model's own findings; with the models among them
 /// that carry hand weights and the material names of the pre-Fox ones. The files are read and
 /// checked in parallel, each worker holding one file, and the models' material names compared
 /// after, from the names each read kept.
+///
+/// `face` is `Some` when the folder's face files are used (a player folder without
+/// `ingame_face`, or a shared face folder), holding the files of the shared face the folder
+/// links (empty when none). Then each member's own `face.xml` among `files`
+/// (`PlayerFile::FaceXml`) is read and checked (`user_xml_findings`), its findings at its place
+/// in file order, and the xml overrides the search: `model_material_undefined` compares only
+/// the models it lists with the `.mtl` each entry names (`listed_materials`), and none at all
+/// when an xml has an Error, which drops the folder.
 fn folder_findings(
     content: &ContentSource,
     folder: &ScopePath,
     files: &[FileDescriptor],
     common: &KeptCommon,
     size_rule: SizeRule,
-    engine: Engine,
+    version: PesVersion,
+    face: Option<&[FileDescriptor]>,
 ) -> ContentPass {
+    let engine = version.engine();
     let models = FolderModels::of(folder, files, engine);
     let scope = IssueScope::Folder(folder.clone());
+    let xmls: Vec<(&FileDescriptor, XmlOutcome)> = match face {
+        Some(linked_face) => {
+            let face_files = FaceFiles {
+                own: files,
+                linked_face,
+                common: &common.files,
+                folder,
+            };
+            files
+                .iter()
+                .filter(|file| player_file(folder, file, &models) == Some(PlayerFile::FaceXml))
+                .map(|file| {
+                    let outcome = user_xml_findings(content, file, &face_files, version, &scope);
+                    (file, outcome)
+                })
+                .collect()
+        }
+        None => Vec::new(),
+    };
+    // With an xml, the models it lists and the `.mtl` each entry names; `None` when there is
+    // no xml, and the search pairs each model.
+    let listed = (!xmls.is_empty()).then(|| listed_materials(&xmls, files, common, folder));
     // Collected in file order (an indexed `collect`), whatever the scheduling.
     let mut per_file: Vec<ContentPass> = files
         .par_iter()
@@ -438,6 +500,23 @@ fn folder_findings(
     let mut pass = ContentPass::default();
     for (file, found) in files.iter().zip(per_file) {
         pass.append(found);
+        if let Some((_, outcome)) = xmls.iter().find(|(xml, _)| xml.path == file.path) {
+            pass.findings.extend(outcome.findings.iter().cloned());
+        }
+        if let Some(listed) = &listed {
+            for (_, mtl) in listed.iter().filter(|(model, _)| model.path == file.path) {
+                pass.findings.extend(undefined_materials(
+                    relative(&file.path, folder),
+                    &file.path,
+                    mtl,
+                    folder,
+                    common,
+                    &materials,
+                    &scope,
+                ));
+            }
+            continue;
+        }
         // On Fox a `.model` is not read yet: a `boots.model` beside `boots.fmdl` is never
         // the selected source, so dropping the folder for it would lose a working FMDL
         // (4.17 adds Fox where it is the source).
@@ -500,6 +579,24 @@ fn material_finding(
         Some(linked) => &common_file(&common.files, &linked)?.path,
         None => &file.path,
     };
+    undefined_materials(name, model, mtl, folder, common, folder_materials, scope)
+}
+
+/// `model_material_undefined` on `scope` for the model at `model`, which the finding names
+/// `name`, paired with `mtl`: the material names the model binds that the `.mtl` does not
+/// define, in the model's order, naming the `.mtl` below `folder` or by its export path in
+/// `Common/`; pass-through-eligible, the file packing as it is. `None` when every name is
+/// defined, or when either file did not parse. `folder_materials` and `common`'s are the
+/// material names of the parsed pre-Fox files (`ContentPass::materials`).
+fn undefined_materials(
+    name: String,
+    model: &ScopePath,
+    mtl: &FileDescriptor,
+    folder: &ScopePath,
+    common: &KeptCommon,
+    folder_materials: &BTreeMap<ScopePath, Vec<String>>,
+    scope: &IssueScope,
+) -> Option<ContentFinding> {
     let names_of = |path: &ScopePath| {
         folder_materials
             .get(path)
@@ -530,6 +627,114 @@ fn material_finding(
         disposition: Disposition::DropFolder,
         pass_through_eligible: true,
     })
+}
+
+/// What reading a member's own `face.xml` gave (`user_xml_findings`).
+struct XmlOutcome {
+    /// Its findings, each on the folder.
+    findings: Vec<ContentFinding>,
+    /// The xml, when it was read and parsed.
+    parsed: Option<UserFaceXml>,
+}
+
+/// The findings of the member's own `face.xml` `file` among `files`, for the target
+/// `version`, each on `scope` and never pass-through-eligible (a malformed xml can crash the
+/// game): when it cannot be read, `source_read_failed`; when it does not parse, one finding
+/// dropping the folder, `xml_broken` (not UTF-8, not well-formed XML), `xml_root_tag_invalid`
+/// (its root is not `<config>`) or `face_diff_invalid` (its `<dif>` is no face diff the game
+/// reads), naming the file and the reason; else `user_face_xml::check`'s, with the xml.
+fn user_xml_findings(
+    content: &ContentSource,
+    file: &FileDescriptor,
+    files: &FaceFiles,
+    version: PesVersion,
+    scope: &IssueScope,
+) -> XmlOutcome {
+    let finding = |(code, disposition, context): XmlFinding| ContentFinding {
+        code: code.as_str(),
+        scope: scope.clone(),
+        context,
+        disposition,
+        pass_through_eligible: false,
+    };
+    let unparsed = |findings| XmlOutcome {
+        findings,
+        parsed: None,
+    };
+    let bytes = match read(content, file, scope, Disposition::DropFolder) {
+        Ok(bytes) => bytes,
+        Err(unread) => return unparsed(vec![unread]),
+    };
+    let name = relative(&file.path, files.folder);
+    let xml = match user_face_xml::parse(&bytes) {
+        Ok(xml) => xml,
+        Err(error) => {
+            let (code, context) = match &error {
+                XmlError::Utf8 | XmlError::Xml { .. } => {
+                    (Code::XmlBroken, ("error", error.to_string()))
+                }
+                XmlError::Root(root) => (Code::XmlRootTagInvalid, ("root", root.clone())),
+                XmlError::Dif(reason) => (Code::FaceDiffInvalid, ("reason", reason.to_string())),
+            };
+            let context = vec![("file", name), context];
+            return unparsed(vec![finding((code, Disposition::DropFolder, context))]);
+        }
+    };
+    XmlOutcome {
+        findings: user_face_xml::check(&xml, &name, files, version)
+            .into_iter()
+            .map(finding)
+            .collect(),
+        parsed: Some(xml),
+    }
+}
+
+/// The `.model` files among `files`, those of the folder at `folder`, that the folder's own
+/// `face.xml` files list, each with the `.mtl` its entry names (`user_face_xml::resolve`),
+/// for `model_material_undefined` to compare: the xml overrides the search. An entry naming no
+/// `material`, or one the compiler cannot resolve, is compared with nothing, and a `material`
+/// naming no file is `xml_model_not_found` already. Empty when an xml did not parse or has an
+/// Error: the folder is dropped.
+fn listed_materials<'a>(
+    xmls: &[(&FileDescriptor, XmlOutcome)],
+    files: &'a [FileDescriptor],
+    common: &'a KeptCommon,
+    folder: &'a ScopePath,
+) -> Vec<(&'a FileDescriptor, &'a FileDescriptor)> {
+    let dropped = xmls.iter().any(|(_, outcome)| {
+        outcome.parsed.is_none()
+            || outcome
+                .findings
+                .iter()
+                .any(|finding| finding.disposition == Disposition::DropFolder)
+    });
+    if dropped {
+        return Vec::new();
+    }
+    // The shared face's files are not the folder's own: a model there is checked in that
+    // folder's pass.
+    let face_files = FaceFiles {
+        own: files,
+        linked_face: &[],
+        common: &common.files,
+        folder,
+    };
+    let model_kind = FileKind::Model(ModelFormat::PesModel);
+    xmls.iter()
+        .filter_map(|(_, outcome)| outcome.parsed.as_ref())
+        .flat_map(|xml| &xml.children)
+        .filter_map(|child| match child {
+            Child::Model(model) => Some(model),
+            Child::Dif(_) | Child::Other(_) => None,
+        })
+        .filter_map(|model| {
+            let path = reference(model.attribute("path")?);
+            let listed = resolve(&path, &face_files, model_kind)?;
+            let material = reference(model.attribute("material")?);
+            let mtl = resolve(&material, &face_files, FileKind::Mtl)?;
+            Some((listed, mtl))
+        })
+        .collect()
 }
 
 /// The bytes of `file`, or, when they cannot be read, its `source_read_failed` on `scope`
@@ -889,6 +1094,45 @@ mod tests {
         }
     }
 
+    /// The finding `code` on the folder `scope` with `context`, never passed through, with
+    /// `disposition`.
+    fn on_folder(
+        code: &'static str,
+        scope: &str,
+        context: &[(&'static str, &str)],
+        disposition: Disposition,
+    ) -> ContentFinding {
+        ContentFinding {
+            code,
+            scope: folder(scope),
+            context: context
+                .iter()
+                .map(|(key, value)| (*key, (*value).to_owned()))
+                .collect(),
+            disposition,
+            pass_through_eligible: false,
+        }
+    }
+
+    /// The finding `code` on the folder `scope`, dropping it and never passed through, with
+    /// `context`.
+    pub(super) fn dropping(
+        code: &'static str,
+        scope: &str,
+        context: &[(&'static str, &str)],
+    ) -> ContentFinding {
+        on_folder(code, scope, context, Disposition::DropFolder)
+    }
+
+    /// The finding `code` on the folder `scope`, which keeps it, with `context`.
+    fn keeping(
+        code: &'static str,
+        scope: &str,
+        context: &[(&'static str, &str)],
+    ) -> ContentFinding {
+        on_folder(code, scope, context, Disposition::Keep)
+    }
+
     #[test]
     fn a_common_model_s_far_vertex_drops_the_file() {
         let temp = scratch("deep_common");
@@ -1200,6 +1444,255 @@ mod tests {
             })
             .collect();
         assert_eq!(runs[0], expected);
+    }
+
+    /// The card head's model, clean, binding one material, `card`.
+    fn card() -> Vec<u8> {
+        pre_fox_fixture("cardhead_face_high.model")
+    }
+
+    /// The card head's material set, defining `card`.
+    fn card_materials() -> Vec<u8> {
+        pre_fox_fixture("cardhead_materials.mtl")
+    }
+
+    /// The card head's material set with its one material renamed `other`.
+    fn other_materials() -> Vec<u8> {
+        let mut set = pes_model::format::mtl::MaterialSet::read(&card_materials()).unwrap();
+        set.materials[0].name = "other".to_owned();
+        set.write()
+    }
+
+    /// The PES 17 deep pass's findings over `files`, slot 05's folder holding them by name.
+    fn slot_05_findings(name: &str, files: &[(&str, Vec<u8>)]) -> Vec<ContentFinding> {
+        let temp = scratch(name);
+        let files: Vec<(String, Vec<u8>)> = files
+            .iter()
+            .map(|(file, bytes)| (format!("Players/05 - A/{file}"), bytes.clone()))
+            .collect();
+        let files: Vec<(&str, Vec<u8>)> = files
+            .iter()
+            .map(|(path, bytes)| (path.as_str(), bytes.clone()))
+            .collect();
+        findings_for(PesVersion::Pes17, temp.path(), &files, &[], &[])
+    }
+
+    /// A `face.xml` whose one `<model>`, typed `parts`, holds `attributes`.
+    fn one_model_xml(attributes: &str) -> Vec<u8> {
+        format!(r#"<config><model level="0" type="parts" {attributes}/></config>"#).into_bytes()
+    }
+
+    #[test]
+    fn a_model_an_xml_lists_is_compared_with_the_mtl_its_entry_names_not_the_searched_one() {
+        let findings = slot_05_findings(
+            "deep_xml_material",
+            &[
+                ("hat.model", card()),
+                ("hat.mtl", card_materials()),
+                ("other.mtl", other_materials()),
+                (
+                    "face.xml",
+                    one_model_xml(r#"path="./hat.model" material="./other.mtl""#),
+                ),
+            ],
+        );
+        let undefined = ContentFinding {
+            code: "model_material_undefined",
+            scope: folder("Players/05 - A"),
+            context: vec![
+                ("file", "hat.model".to_owned()),
+                ("mtl", "other.mtl".to_owned()),
+                ("materials", "card".to_owned()),
+            ],
+            disposition: Disposition::DropFolder,
+            pass_through_eligible: true,
+        };
+        assert_eq!(findings, std::slice::from_ref(&undefined));
+        // A Warning on the xml keeps the folder, so the comparison still runs.
+        let findings = slot_05_findings(
+            "deep_xml_material_warned",
+            &[
+                ("hat.model", card()),
+                ("hat.mtl", card_materials()),
+                ("other.mtl", other_materials()),
+                (
+                    "face.xml",
+                    br#"<config><model level="0" type="cape" path="./hat.model" material="./other.mtl"/></config>"#.to_vec(),
+                ),
+            ],
+        );
+        assert_eq!(
+            findings,
+            [
+                keeping("xml_type_unknown", "Players/05 - A", &[("type", "cape")]),
+                undefined,
+            ]
+        );
+    }
+
+    #[test]
+    fn a_reference_to_a_linked_face_s_model_is_found_by_the_deep_pass() {
+        let temp = scratch("deep_xml_linked_face");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - A/hat.model", card()),
+                ("Players/05 - A/hat.mtl", card_materials()),
+                ("Players/05 - A/Round.face", Vec::new()),
+                (
+                    "Players/05 - A/face.xml",
+                    br#"<config><model level="0" type="parts" path="./hat.model" material="./hat.mtl"/><model level="0" type="parts" path="./hair_high.model" material="./hair_high.mtl"/></config>"#.to_vec(),
+                ),
+                ("Faces/Round/hair_high.model", card()),
+                ("Faces/Round/hair_high.mtl", card_materials()),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(findings, []);
+    }
+
+    #[test]
+    fn an_xml_naming_an_absent_model_drops_its_folder_and_compares_no_material() {
+        let findings = slot_05_findings(
+            "deep_xml_absent",
+            &[
+                ("hat.model", card()),
+                ("hat.mtl", card_materials()),
+                ("other.mtl", other_materials()),
+                // The second entry lists `hat.model` with a `.mtl` lacking its material: with
+                // the xml's Error dropping the folder, it is not compared.
+                (
+                    "face.xml",
+                    br#"<config><model level="0" type="parts" path="./absent.model" material="./other.mtl"/><model level="0" type="parts" path="./hat.model" material="./other.mtl"/></config>"#.to_vec(),
+                ),
+            ],
+        );
+        assert_eq!(
+            findings,
+            [dropping(
+                "xml_model_not_found",
+                "Players/05 - A",
+                &[("attribute", "path"), ("value", "./absent.model")]
+            )]
+        );
+    }
+
+    #[test]
+    fn a_model_the_xml_does_not_list_is_unlisted_and_not_compared() {
+        let unlisted = [keeping(
+            "xml_model_unlisted",
+            "Players/05 - A",
+            &[("file", "hat.model")],
+        )];
+        let findings = slot_05_findings(
+            "deep_xml_unlisted",
+            &[
+                ("hat.model", card()),
+                ("hat.mtl", other_materials()),
+                ("other.model", card()),
+                ("other.mtl", card_materials()),
+                (
+                    "face.xml",
+                    one_model_xml(r#"path="./other.model" material="./other.mtl""#),
+                ),
+            ],
+        );
+        assert_eq!(findings, unlisted);
+        // With no `.mtl` at all, the search would leave both models every material undefined.
+        let findings = slot_05_findings(
+            "deep_xml_unlisted_no_mtl",
+            &[
+                ("hat.model", card()),
+                ("other.model", card()),
+                ("face.xml", one_model_xml(r#"path="./other.model""#)),
+            ],
+        );
+        assert_eq!(findings, unlisted);
+    }
+
+    #[test]
+    fn an_xml_that_cannot_be_read_drops_its_folder_with_one_finding_and_compares_no_material() {
+        // The model has no `.mtl`: the search would make it `model_material_undefined`.
+        let broken = |name: &str, xml: &[u8]| {
+            slot_05_findings(name, &[("hat.model", card()), ("face.xml", xml.to_vec())])
+        };
+        assert_eq!(
+            broken("deep_xml_broken", b"<config><model"),
+            [dropping(
+                "xml_broken",
+                "Players/05 - A",
+                &[
+                    ("file", "face.xml"),
+                    (
+                        "error",
+                        "the file is not well-formed XML: the root node was opened but never closed at 1:15"
+                    ),
+                ]
+            )]
+        );
+        assert_eq!(
+            broken("deep_xml_root", b"<cfg/>"),
+            [dropping(
+                "xml_root_tag_invalid",
+                "Players/05 - A",
+                &[("file", "face.xml"), ("root", "cfg")]
+            )]
+        );
+        assert_eq!(
+            broken("deep_xml_dif", b"<config><dif>RkFD</dif></config>"),
+            [dropping(
+                "face_diff_invalid",
+                "Players/05 - A",
+                &[
+                    ("file", "face.xml"),
+                    (
+                        "reason",
+                        "the face diff is 3 bytes long, shorter than its 80-byte header"
+                    ),
+                ]
+            )]
+        );
+    }
+
+    #[test]
+    fn an_xml_is_read_in_face_but_not_under_ingame_face_nor_on_fox() {
+        let xml = b"<config><model/></config>".to_vec();
+        let missing = [
+            dropping(
+                "xml_model_type_missing",
+                "Players/05 - A",
+                &[("entry", "1")],
+            ),
+            dropping(
+                "xml_model_path_missing",
+                "Players/05 - A",
+                &[("entry", "1")],
+            ),
+        ];
+        assert_eq!(
+            slot_05_findings("deep_xml_in_face", &[("face/face.xml", xml.clone())]),
+            missing
+        );
+        assert_eq!(
+            slot_05_findings(
+                "deep_xml_marked",
+                &[("ingame_face", Vec::new()), ("face.xml", xml.clone())]
+            ),
+            []
+        );
+        let temp = scratch("deep_xml_fox");
+        assert_eq!(
+            findings_for(
+                PesVersion::Pes21,
+                temp.path(),
+                &[("Players/05 - A/face.xml", xml)],
+                &[],
+                &[]
+            ),
+            []
+        );
     }
 
     #[test]

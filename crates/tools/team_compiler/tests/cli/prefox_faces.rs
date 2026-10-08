@@ -110,6 +110,11 @@ pub(crate) fn pes17(sandbox: &Sandbox) -> String {
     pes_settings(sandbox, 17)
 }
 
+/// The PES 16 settings of `sandbox`, whose game folder does not exist.
+pub(crate) fn pes16(sandbox: &Sandbox) -> String {
+    pes_settings(sandbox, 16)
+}
+
 /// Runs `compile --no-deploy` for PES 17, asserts the export `name`'s findings are `findings`
 /// and the run succeeded, and returns the output CPK's entries.
 pub(crate) fn compile_pes17(

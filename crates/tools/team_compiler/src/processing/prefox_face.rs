@@ -277,6 +277,8 @@ pub(super) fn face(
                 }
                 // The search resolves a material link where it finds it (`mtl_for`).
                 PlayerFile::CommonMaterial => {}
+                // A member's own `face.xml` is not emitted yet: the subset gate names it.
+                PlayerFile::FaceXml => {}
                 // The Fox roles; a face file with no face model, which is not read; and an
                 // `ingame_face` player's part, which has no face.
                 PlayerFile::Model { .. }

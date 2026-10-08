@@ -29,7 +29,8 @@ use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids};
 use crate::plan::mapped_players;
 use crate::plan::subset::{
-    FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, player_file,
+    FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, is_user_face_xml,
+    player_file,
 };
 use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
@@ -471,7 +472,9 @@ fn pool_messages(
 /// slotless model's stem. The roles are `subset::player_file`'s, so a finding never disagrees
 /// with the routing: under `ingame_face` a model the hair would take is the boots', and no
 /// fallback. A pre-Fox target types a model by its name and gives an `.fmdl` or a `.skl` no
-/// role, so it reports only `face_file_not_used`.
+/// role, so it reports only `face_file_not_used`. A Fox target reports a folder's own
+/// `face.xml` (directly in it or in `face/`) as `xml_ignored_fox`: Fox has no `face.xml`, and
+/// the folder's models compile as without it.
 fn model_name_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -520,6 +523,23 @@ fn file_role_messages(
 ) {
     for file in files {
         let name = file.path.name();
+        // Fox has no `face.xml`: a member's own has no role there, and is ignored.
+        let ignored_xml = match models.engine() {
+            Engine::Fox => is_user_face_xml(path, file),
+            Engine::PreFox => false,
+        };
+        if ignored_xml {
+            messages.push(tool_message(
+                Code::XmlIgnoredFox,
+                Scope::Folder {
+                    export_id,
+                    path: path.clone(),
+                },
+                Disposition::Keep,
+                vec![("file", deep::relative(&file.path, path))],
+            ));
+            continue;
+        }
         let code = match player_file(path, file, models) {
             Some(PlayerFile::Model {
                 package: ModelPackage::Face,
@@ -562,7 +582,8 @@ fn file_role_messages(
                 | PlayerFile::PreFoxPart { .. }
                 | PlayerFile::PreFoxCommonModel { .. }
                 | PlayerFile::Material
-                | PlayerFile::CommonMaterial,
+                | PlayerFile::CommonMaterial
+                | PlayerFile::FaceXml,
             )
             | None => continue,
         };
@@ -805,6 +826,27 @@ mod tests {
                 "Info face_file_not_used [Keep] at Players/07 - C (file=face_diff.bin)",
             ]
         );
+    }
+
+    #[test]
+    fn a_face_s_own_face_xml_is_ignored_on_fox_only() {
+        let files = [
+            ("Players/03 - A/face_high.fmdl", 1),
+            ("Players/03 - A/face.xml", 1),
+            ("Players/05 - B/kit_boots.fmdl", 1),
+            ("Players/05 - B/face/face.xml", 1),
+            ("Players/05 - B/boots/face.xml", 1),
+        ];
+        let export = resolved("co Midcup Names", &files, &[], None);
+        // In a folder with no face model too; one in `boots/` is no face's.
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Info xml_ignored_fox [Keep] at Players/03 - A (file=face.xml)",
+                "Info xml_ignored_fox [Keep] at Players/05 - B (file=face/face.xml)",
+            ]
+        );
+        assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
     }
 
     #[test]

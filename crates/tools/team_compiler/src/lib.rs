@@ -29,6 +29,7 @@ mod templates;
 #[cfg(test)]
 mod testing;
 mod upgrade;
+mod user_face_xml;
 mod validation;
 mod view;
 

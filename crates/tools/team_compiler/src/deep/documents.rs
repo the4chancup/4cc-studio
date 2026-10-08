@@ -56,7 +56,8 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
         | PlayerFile::PreFoxPart { .. }
         | PlayerFile::PreFoxCommonModel { .. }
         | PlayerFile::Material
-        | PlayerFile::CommonMaterial => None,
+        | PlayerFile::CommonMaterial
+        | PlayerFile::FaceXml => None,
     }
 }
 
@@ -271,7 +272,7 @@ mod tests {
     use vtree::ScopePath;
 
     use crate::deep::tests::{
-        findings_for, findings_of, fixture, folder, path, texture, tracer_file,
+        dropping, findings_for, findings_of, fixture, folder, path, texture, tracer_file,
     };
     use crate::testing::scratch;
 
@@ -301,25 +302,6 @@ mod tests {
         assert!(xml[payload + 100].is_ascii_alphanumeric());
         xml[payload + 100] = b'*';
         xml
-    }
-
-    /// The finding `code` on the folder `scope`, dropping it and never passed through, with
-    /// `context`.
-    fn dropping(
-        code: &'static str,
-        scope: &str,
-        context: &[(&'static str, &str)],
-    ) -> ContentFinding {
-        ContentFinding {
-            code,
-            scope: folder(scope),
-            context: context
-                .iter()
-                .map(|(key, value)| (*key, (*value).to_owned()))
-                .collect(),
-            disposition: Disposition::DropFolder,
-            pass_through_eligible: false,
-        }
     }
 
     #[test]
