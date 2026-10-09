@@ -80,12 +80,6 @@ come from paint.net's DDS save dialog: A is "BC3 (sRGB, DX 10+)", C "BC3 (Linear
 
 ## Cup practice and preferences
 
-### Solid `.7z` exports over the memory budget
-From: step 4.7 (worklog Issues; `libs/pipeline.md` "What a solid `.7z` is charged"). A solid
-archive whose buffers exceed the budget is refused whole; keeping the buffers that fit and
-letting go of the rest is not designed. Cups are compiled from folders, so: does this case
-matter at all?
-
 ### Clef's first token
 From: the lead's note of 2026-10-07. After the maintainer took Workers Paid, the full pass's
 first request on token 1 (the maintainer's account) still got the "daily free allocation"

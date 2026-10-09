@@ -25,7 +25,8 @@ reported, a `Collars/` subfolder ignored; TC-BIN-23, TC-BIN-24, TC-CMN-16, TC-RE
 4.y-fix9 done 2026-10-09 (a shared face's `face.xml` rules its linking faces; TC-XML-14,
 TC-XML-15),
 4.y-fix11 opened 2026-10-09 (S7's, S8's, S12's and S13's SWE-2 rework),
-4.y-fix15 opened 2026-10-10 (S14's SWE-2 rework),
+4.y-fix15 opened 2026-10-10 (S14's SWE-2 rework), 4.y-7z opened 2026-10-10 (a small `.7z`
+export decompressed once),
 4.y-fix10 opened 2026-10-09 (a pre-Fox per-kit model set completed, the maintainer's
 answer), 4.y-harness and 4.y-ingame done 2026-10-10 (the converted collar and `dummy_kit`
 checked in game, the harness driven by a virtual pad and OBS), 4.y-fix12 opened 2026-10-09
@@ -3409,6 +3410,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `.common` link to a per-kit variant). Crates: tc
   → verify: a test per item, red first; S14 gets a second SWE-2 round on the rework diff.
 
+- [ ] 4.y-7z **A small solid `.7z` export stays decompressed from its check to its tasks**
+  (the maintainer's answer, 2026-10-10). `compile` keeps an archive's permit and buffers
+  from its check to its tasks when it is at most an eighth of the cap and, with it kept,
+  `MIN_FREE_BUDGET` (1 GiB, a `pipeline` constant) of the cap stays free of kept
+  archives; any other archive is opened again as now. Plan: `libs/pipeline.md` "What a
+  solid `.7z` is charged"; DECISIONS 2026-10-10. Crates: pipeline, tc
+  → verify: a test that a kept archive is decompressed once per run (a counting reader or
+  the budget's `peak`), one that an archive over the eighth or past the floor is opened
+  twice, red first; the 4.7f timing re-run on a 7z export (about 2 s less); the largest
+  single task charge over the census exports measured against the floor (the plan's 0.45
+  to 0.7 GB for an 8192x8192 texture is computed from `decode_charge`, not measured).
+
 - [x] 4.y-harness **The in-game harness moves into `scripts/ingame/`** (maintainer,
   2026-10-09). Lead: `game.py` (launch, screenshot, keys, close) and `burst.py` (frame
   bursts) from `.tmp/4_0/ingame/`, and one `install.py` generalizing the per-check
@@ -4095,10 +4108,8 @@ points there.
   extra decompression per export, about 2 s for a 0.6 to 1 GB export (4.7f's timing): about
   2 s of a 5.2 to 6.8 s compile. The buffer is not kept from the check to the tasks because
   planning needs every export validated first, and holding every `.7z` until then is the
-  residency the budget forbids (`libs/pipeline.md` "What a solid `.7z` is charged"). Not
-  designed: keeping the buffers that fit the budget and letting go of the rest. Cup exports
-  are nearly always compiled from folders, so this waits for the maintainer's word
-  (`docs/QUESTIONS.md` "Solid `.7z` exports over the memory budget").
+  residency the budget forbids (`libs/pipeline.md` "What a solid `.7z` is charged"). The
+  maintainer's answer (2026-10-10): a small archive is kept, step 4.y-7z.
 - open — a face diff is engine-specific (maintainer, 2026-10-03): a diff authored for one
   engine misplaces the face on the other; the compiler passes a diff through for whatever
   target it compiles, so a diff is the author's responsibility, as with Red. The
@@ -5645,3 +5656,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   stock ones do; `dummy_kit` draws kit 2's texture in Edit mode and a file at its path
   is not read (plan corrected, decision). The maintainer's ATF bot joins the plan as an
   unscheduled tool.
+- **2026-10-10** — The maintainer's answer on solid `.7z` exports: one at most an eighth of
+  the budget stays decompressed from its check to its tasks while 1 GiB stays free (step
+  4.y-7z; the maintainer's 512 MiB raised once the lead found 8192x8192 textures in a
+  VGL26 export, whose decode charges up to 0.7 GB).

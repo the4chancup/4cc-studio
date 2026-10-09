@@ -6118,3 +6118,23 @@ body's UVs sit in one patch (u 0.39-0.41, v 0.59-0.62), where kit 2's texture is
 `common/702/dummy_kit.dds` in the same CPK never showed. Missing textures draw white.
 Which kit a match substitutes was not checked (Edit mode shows kit 1 alone otherwise).
 Plan: `model_format.md`, the `dummy_kit` bullet.
+
+## 2026-10-10 — pipeline — a small solid `.7z` export stays decompressed from its check to its tasks
+Decision: `compile` keeps a solid `.7z` export decompressed from its check to its tasks when
+it is at most an eighth of the budget's cap and at least 1 GiB of the cap stays free of
+kept archives; a kept archive stays charged to the budget until its tasks drain. Any other
+archive is decompressed again for its tasks, as before.
+Why: the maintainer's account of the cup's runs (2026-10-10): an aesthetics maker compiles
+one to four folder exports; a helper building the whole DLC extracts its 32 to 48 exports
+to folders; a midcup compile takes 1 to 16 exports usually left compressed but small. The
+second decompression costs about 2 s per 0.6 to 1 GB export (4.7f), so only the midcup
+case pays it, and an eighth of an 8 GB budget covers every such export. A per-archive
+limit alone does not bound the total (sixteen archives under an eighth hold twice the
+budget), and kept archives filling the budget would stall the tasks that release them; the
+maintainer chose a fixed floor over a share. Its first value, 512 MiB ("half a GB is enough
+to process anything"), is under one texture decode real exports need: the lead's header
+scan of 42,726 DDS and PNG files found 34 at 8192x8192, nine of them a VGL26 export's
+boots, whose decode charges 0.45 to 0.7 GB (`decode_charge`: every mip level's pixels
+plus the source). A charge does not wait for room, so the run would pass the cap; the
+maintainer chose 1 GiB, which still keeps 7 GB of archives on an 8 GB budget.
+Plan: `libs/pipeline.md` "What a solid `.7z` is charged".
