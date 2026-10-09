@@ -413,13 +413,10 @@ reaches it). The `sidekick` tool has the `skill` tool, so its briefs keep the in
 **The sidekick's role can be played by a `swe-2-high` subagent** (same model, profile file with
 no `allowed-tools`, so it has the shell, `edit` and `write`; measured 2026-10-05): run it in the
 foreground (a background subagent has unapproved tools denied), resume the same one per task
-(`resume: <agent_id>` keeps its memory, as the sidekick's handoffs do), read its size with the
-`context-usage` script before each resume (its line names the profile and its first task), and
-start a fresh one once it is at 200K or more. A subagent's ceiling is lower than the sidekick's:
-two S5.14 review runs (2026-10-05) ended with an empty final message and no report at about
-260K, where the completed rounds before them had also stopped (254K to 260K). A review brief
-over a wide surface therefore names the diffs, the context to read around them and targeted
-greps instead of whole files, and asks for the report file to be written early. The
+(`resume: <agent_id>` keeps its memory, as the sidekick's handoffs do). SWE-2 has a 1M-token
+context (a post-trained Kimi K3): the two S5.14 review runs (2026-10-05) that ended with an
+empty final message at about 260K hit a 262K limit the ACP layer imposed, since lifted. A review over a wide surface is still split
+into two briefs run in parallel, because one round over a whole module runs well over an hour. The
 `sidekick` tool's single sidekick cannot be reset. **Compaction does not fire while a sidekick handoff or a background subagent is in
 flight**, so a run started "to save time" ahead of the `[[/compact]]` sentinel costs the
 compaction instead (2.20b's mutation runs were started that way and the sentinel was ignored).

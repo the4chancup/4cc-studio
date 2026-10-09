@@ -5894,3 +5894,43 @@ the cup's BC7 portraits are its "BC7 (Linear, DX 10+)"; the rule covers every sR
 that list, BC7's included.
 Plan: `player_folders.md` "Portraits"; `messages.md` `portrait_header_rewritten`; `team_compiler/
 README.md` TC-PRT-04.
+
+## 2026-10-09 — team_compiler — the deep pass checks what `compile` reads, and its lookups see what the report keeps
+Decision: the deep pass checks no file planning leaves unread (a model another representation
+of its stem beats, in a model folder or in `Common/`; a per-kit model variant left out; a kit
+texture the target does not emit), and its own lookups (a model's `.mtl` search, a `.mtl`'s
+texture stems) see the `Common/` files the validation report keeps, so under `pass_through` a
+`Common/` file an eligible Error keeps is found. The pass takes the `pass_through` setting.
+Why: S9's reviews (Astra and SWE-2, 2026-10-09) found seven places where the pass dropped
+what `compile` builds: a Fox kit's unread `kit_mask` with a bad header lost the kit, a broken
+`Common/` `.model` an FMDL beats dropped the FMDL's linking players, a broken
+`boots_kit2.fmdl` beside a valid `boots_kit1.fmdl` dropped the player, a `.model` with no role
+(Autumn Q 25's `galosengen` keeps one in his `common/`) and a file below a `Common/` subfolder
+(30 such subfolders in the census) were checked though no task reads them, a pre-Fox
+`face_diff.bin` the xml's `<dif>` replaces was checked, and a `Common/` `.mtl` with `mtl_state_invalid`
+(a format Error, eligible) packed under `pass_through` while its linking player was dropped
+with a non-eligible `model_material_undefined` (no `.mtl` found). The earlier choice, to leave
+every dropped `Common/` file out of the lookups because the pass did not know the setting, was
+written as "can only report a folder `compile` could have built"; that is the failure
+`pass_through` exists to prevent. One rule, "check what `compile` reads", instead of a case
+per role.
+Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" (deep format pass);
+`team_compiler/README.md` TC-KIT-31, TC-CMN-14, TC-CMN-15, TC-CHK-09, TC-XML-13, TC-MOD-62,
+TC-MOD-63.
+
+## 2026-10-09 — team_compiler — a member's `face.xml` pairings: Common models compared, a kit set by its lowest variant, a linked face's models not
+Decision: `model_material_undefined` compares every pairing a member's own `face.xml` resolves
+that the folder's pass can read: its own models and a Common model an entry names (the finding
+on the folder, naming the Common model by its export path). A set the xml names
+(`./pants_kitN.model`) is compared through its lowest variant only. A linked shared face's
+model the xml names is not compared with the entry's `.mtl`; the shared folder's own pass
+checks it with its search's.
+Why: the Common half is plan text the code missed (the report loop walked only the folder's
+own files); the Winter 26 referee export writes that shape (34 entries pairing a Common model
+with a local `.mtl`). The other two are narrowings: no export on this machine names a kit set
+in its xml (0 of 321 entries) or holds a link file at all, the higher variant's comparison
+would copy processing's respelling into the pass, and the linked face's comparison would need
+the shared folder's parsed materials inside the player's pass, which runs in parallel with it;
+the miss is a fallback material in game, not a crash or a wrong drop.
+Plan: `team_compiler/pipeline.md` "Kit-dependent assets"; `team_compiler/README.md`
+TC-XML-12.

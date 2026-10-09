@@ -962,6 +962,16 @@ TC-MOD-61  GIVEN slot 05 holding legs.model.common, a local legs.mtl (the Common
            THEN the converted legs in his face FPK name skin.dds at his texture home, where his
                 skin.ftex is written, Common's skin.ftex is in the team's Common output, and no
                 finding names a texture
+TC-MOD-62  GIVEN slot 05 holding face.fmdl, boots_kit1.fmdl and a boots_kit2.fmdl that does
+           not parse
+           WHEN the export is compiled for PES 21
+           THEN no finding names boots_kit2.fmdl but kit_variant_model_left_out, and slot
+                05's boots FPK holds boots_kit1's model
+TC-MOD-63  GIVEN slot 05 holding face_high.model, face_high.mtl and a common/parts_body.model
+           that does not parse, strict_file_type_check off
+           WHEN the export is compiled for PES 17
+           THEN no model_broken or model_material_undefined names common/parts_body.model,
+                and slot 05's face CPK is written
 TC-MOD-58  GIVEN Faces/Round holding fcl_hair.fmdl, boots.model and boots.mtl, slot 05 linking it
            as his face
            WHEN the export is compiled for PES 21
@@ -1103,6 +1113,11 @@ TC-CHK-08  GIVEN slot 05's face_high.model holding a mesh over a hard .model lim
            WHEN the export is checked, then compiled, for PES 17
            THEN model_mesh_over_vertex_limit is reported both times naming the file, and the
                 folder is left out of the CPK
+TC-CHK-09  GIVEN Common/ holding legs.model and a legs.mtl with ztest 0, slot 05 holding
+           legs.model.common, and pass_through on
+           WHEN the export is compiled for PES 17
+           THEN mtl_state_invalid is reported as passed through, no model_material_undefined
+                is reported, and slot 05's face CPK is written
 ```
 
 **Pre-Fox XML and MTL checks**
@@ -1163,6 +1178,17 @@ TC-XML-11  GIVEN slot 05 holding face_high.model, face_high.mtl, a face.xml carr
            THEN neither run reports xml_dif_conflict; the PES 17 face CPK's face.xml carries the
                 xml's <dif> and no finding names face_diff.bin; the PES 21 face.fpk holds the
                 folder's face_diff.bin byte for byte and xml_ignored_fox is reported
+TC-XML-12  GIVEN slot 05 holding face_high.model, face_high.mtl, a legs.mtl defining none of
+           Common/legs.model's materials, and a face.xml listing face_high and
+           model/character/uniform/common/714/legs.model with material ./legs.mtl
+           WHEN the export is compiled for PES 17
+           THEN model_material_undefined is reported naming Common/legs.model, legs.mtl and
+                the undefined names, and the folder is left out of the CPK
+TC-XML-13  GIVEN slot 05 holding face_high.model, face_high.mtl, a face.xml carrying a <dif>
+           and a face_diff.bin shorter than its counts
+           WHEN the export is compiled for PES 17
+           THEN no face_diff_invalid is reported and the face CPK's face.xml carries the
+                xml's <dif>
 ```
 
 **Kits**
@@ -1262,6 +1288,10 @@ TC-KIT-30  GIVEN p1/ holding kit.dds and kit_spec.dds
            WHEN the export is compiled for PES 21
            THEN kit_texture_not_used is reported naming kit_spec.dds and the CPK holds no texture
                 of that stem
+TC-KIT-31  GIVEN p1/ holding kit.dds and a kit_mask.dds whose header is a PNG's
+           WHEN the export is compiled for PES 21
+           THEN no texture finding names kit_mask.dds, kit_texture_not_used is reported
+                naming it, and u0714p1.ftex is in the CPK
 ```
 
 **Root files, Common and collars**
@@ -1362,6 +1392,15 @@ TC-CMN-13  GIVEN Common/sub/x.dds and strict_file_type_check off
            WHEN the export is compiled for PES 21
            THEN common_file_disallowed is reported as Info and the team's Common output holds no
                 texture of stem x
+TC-CMN-14  GIVEN Common/ holding boots.fmdl and a boots.model that does not parse, slot 05
+           holding boots.model.common
+           WHEN the export is compiled for PES 21
+           THEN no finding names boots.model, no link_target_dropped is reported, and slot
+                05's boots are compiled from Common/boots.fmdl
+TC-CMN-15  GIVEN Common/sub/legs.model that does not parse and strict_file_type_check off
+           WHEN the export is compiled for PES 17
+           THEN common_file_disallowed is reported as Info and no other finding names
+                Common/sub/legs.model
 ```
 
 **Bins**

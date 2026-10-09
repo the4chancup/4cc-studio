@@ -102,7 +102,17 @@ export format.
      plan](../aesthetics_export/object_model.md)). So a content finding follows the structure
      pass's rules: it drops the folder or file it names before any ID is planned for it, a
      dropped shared folder or `Common/` file takes the players linking it down, and
-     `pass_through` keeps what is eligible. A failure only processing can meet (a conversion,
+     `pass_through` keeps what is eligible. The pass checks what `compile` reads and
+     nothing else: a file planning leaves unread (a model another representation of its
+     stem beats, in a model folder or in `Common/`; a model with no role where it sits,
+     such as a `.model` in a player's `common/`; a per-kit model variant left out; a
+     file below a `Common/` subfolder; a kit texture the target does not emit; on PES
+     15-17 a `face_diff.bin` beside a member's `face.xml` holding a `<dif>`) is not
+     checked, since its findings would drop what `compile` builds without it. Its own
+     lookups (a model's `.mtl` search, a
+     `.mtl`'s texture stems) see the `Common/` files the report keeps, an eligible
+     Error's file included under `pass_through`, so the pass never drops a player for a
+     file `compile` packs. A failure only processing can meet (a conversion,
      a merge, a packing) stays a task failure: it drops the task's unit and cascades nowhere.
      Plain-folder full checks run both passes; packed archives run the structure pass during live
      checking and this deferred deep pass at compile start before eligibility is decided. The CLI
@@ -875,7 +885,11 @@ describes behavior, not a serial scheduling requirement:
   `.mtl` (the `.mtl` search), its token respelled when it carries the variant's own
   (`pants_kit1.mtl` is written `pants_kitN.mtl`; a shared `pants.mtl` is written as it is), so
   the game needs each other variant's `.mtl` under the respelled name: a variant whose own
-  search finds another file is `kit_variant_mtl_differs` (W), the model still packed. This
+  search finds another file is `kit_variant_mtl_differs` (W), the model still packed. A
+  member's own `face.xml` naming a set (`./pants_kitN.model`) is checked through its
+  lowest variant: `model_material_undefined` compares that variant with the `.mtl` the
+  entry names, and a higher variant's materials are not compared with its respelled
+  `.mtl`, a respelling that is processing's alone. This
   holds for a player's face, its reserved subfolders and a linked `Faces/` folder. Where no
   `face.xml` names the set, under `ingame_face` (his boots and gloves hold parts, not entries)
   and in a shared `Boots/` or `Gloves/` folder's own output (one `boots.model`, one `glove.xml`

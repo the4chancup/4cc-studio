@@ -3206,6 +3206,25 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   "BC3 (Linear, DXT5)" the legacy one; the cup's BC7 portraits are its "BC7 (Linear, DX 10+)".
   TC-PRT-04 proven (PES 21 then 17), plus a unit test of the raster route. Gates green
   (acceptance 287 of 287); `mutants-diff d368c8e`: 9 mutants, 8 caught, 1 unviable, 0 missed
+- [ ] 4.y-fix7 **The deep pass checks what `compile` reads** (S9's rework: Astra's round
+  S9.A1 and the SWE-2 loop after it, rulings in `.tmp/4_y/duck_rulings.md`). (1) A kit
+  texture planning drops (`drop_unused_kit_textures`: the other engine's map, a `kit_*`
+  stem outside the seven) is not checked: one predicate beside `KIT_TEXTURE_STEMS` for
+  both. (2) A `Common/` model another representation of its stem beats is not checked
+  (`selected_common_model`'s rule). (3) `KeptCommon` holds the `Common/` files the report
+  keeps, `pass_through` included (the pass takes the setting). (4) A user `face.xml`'s
+  pairing of a Common model with an entry's `.mtl` is compared and reported on the
+  folder. (5) A file is read and paired only when its role is one `compile` reads: not a
+  left-out kit variant (`PlayerFile::LeftOutKitVariant`), not a model with no role (a
+  `.model` in a player's `common/`; on pre-Fox `pairings` paired every `.model`). (6) A
+  `Common/` file below a subfolder is neither checked nor looked up. (7) On PES 15-17 a
+  `face_diff.bin` beside a member's `face.xml` holding a `<dif>` is not checked. (8)
+  `fmdl::check::Subject::Model` removed (no producer). (9) A second slice moves the
+  pairing code into `deep/pairings.rs` unchanged (`deep/mod.rs` past 1000 lines).
+  Plan: `pipeline.md` deep pass bullet and "Kit-dependent assets"; DECISIONS 2026-10-09.
+  TC-KIT-31, TC-CMN-14, TC-CMN-15, TC-CHK-09, TC-XML-12, TC-XML-13, TC-MOD-62,
+  TC-MOD-63. Crates: tc, fmdl
+  → verify: the eight scenarios proven, red first.
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -5299,3 +5318,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   re-headered, `portrait_header_rewritten`. TC-PRT-04 proven; acceptance 287 of 287. The
   maintainer traced the header to paint.net's "BC3 (sRGB, DX 10+)" save option. The reviews
   wait for the maintainer's instructions (every Devin daily quota spent on S9's attempts).
+- **2026-10-09** — S9's Astra round ran on the user's own ChatGPT Plus through Codex (one
+  whole-module review took 78% of the five-hour window and 12% of the weekly one): six
+  concerns, five accepted. The duck skill's SWE-2 loop after each Astra round, skipped for
+  S7 to S9 until the user asked, ran on S9 before the rework (two halves, one round each:
+  13 concerns, 5 accepted, both loops ended); S7's and S8's are queued. Step 4.y-fix7
+  opened.

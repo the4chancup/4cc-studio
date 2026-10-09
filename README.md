@@ -1,6 +1,6 @@
 # 4cc Studio
 
-One Rust suite for every tool the 4chan Cup community uses to run its PES (2015-2021) cups: a
+One suite for every tool the 4chan Cup community uses to run its PES (2015-2021) cups: a
 Team compiler (aesthetics exports to CPK archives), a save editor, and the smaller tools around
 them (kit configs, referees, balls, music, match tracking, model conversion), in a single binary
 that is both a GUI and a CLI.
