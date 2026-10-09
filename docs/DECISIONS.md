@@ -5836,3 +5836,19 @@ the band below 0.7 showed no real flag in the ten windows read, at a cost of som
 rulings per full pass. A lower threshold buys nothing measured; a higher one loses what the
 scan has actually found.
 Plan: `CONTRIBUTING.md` "Clef scan" (one sentence).
+
+## 2026-10-09 — team_compiler — a conversion-written skeleton compares by bytes in the Fox merge, like an authored `.skl`
+Decision: `player_folders.md` "Merge constraint" asked for a bone-transform comparison with
+tolerance whenever a part's skeleton comes from the IR; on Fox every skeleton a part brings,
+authored or written by the `.model` conversion, compares by bytes (`processing::model`
+`merged_skeleton`, `convert_part`), and the plan sentence now says so. The pre-Fox native
+merge keeps its measured `1e-4` per matrix component.
+Why: the converge review S7 (Astra, 2026-10-09) found the code short of the plan. The
+conversion writes a skeleton only for a model keeping a bone outside the game's tables
+(`conversion.rs`), two skeletons of one output name meet only through a boots or gloves link
+combined on Fox (a local file replaces a linked face's of the same name), no export on the
+maintainer's machine has such a link (71 census roots), and a mismatch is `skl_merge_conflict`
+with the package left out, never a wrong file. A tolerance rule needs each skeleton's origin
+carried through the merge, machinery for a case no export reaches, so the plan is narrowed
+rather than the code grown; DECISIONS 2026-10-03 already settled bytes for authored pairs.
+Plan: `aesthetics_export/player_folders.md` "Merge constraint".

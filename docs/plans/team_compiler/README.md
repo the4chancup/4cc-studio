@@ -949,6 +949,24 @@ TC-MOD-57  GIVEN Boots/Studs holding studs.dds and no model, Boots/Zebra holding
            WHEN the export is compiled for PES 17
            THEN shared_folder_no_model is reported on Boots/Studs as a Warning, no boots folder is
                 written for it, Zebra takes the block's first shared id, and the exit code is 0
+TC-MOD-58  GIVEN Faces/Round holding fcl_hair.fmdl, boots.model and boots.mtl, slot 05 linking it
+           as his face
+           WHEN the export is compiled for PES 21
+           THEN link_combined is reported, the boots folder of slot 05's exclusive id holds the
+                boots converted with Round's .mtl, his BootsList row names it, and the exit code
+                is 0
+TC-MOD-59  GIVEN Faces/Round holding fcl_hair.fmdl and boots.fmdl, Boots/Crocs holding boots.fmdl,
+           slot 05 holding no model and linking both (Round.face, Crocs.boots)
+           WHEN the export is compiled for PES 21
+           THEN link_combined is reported for both links, the boots folder of slot 05's exclusive
+                id holds Round's and Crocs's boots merged, his BootsList row names it, and no
+                shared boots folder is written for Crocs
+TC-MOD-60  GIVEN slot 05 holding a hand-weighted face model and Crocs.gloves, Gloves/Crocs holding
+           glove_l.fmdl and glove_r.fmdl
+           WHEN the export is compiled for PES 21
+           THEN link_combined is reported, the gloves folder of slot 05's exclusive id holds the
+                split hands and Crocs's gloves, his GloveList row names it, and no shared gloves
+                folder is written for Crocs
 ```
 
 **Textures**

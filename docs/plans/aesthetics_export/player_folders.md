@@ -386,9 +386,12 @@ the other's is uninvestigated (worklog "Issues").
 **Merge constraint** — parts merged into one output FMDL must reference the same skeleton. A part
 with a custom SKL and a part using the default template skeleton reference different skeletons, as
 do two parts with different custom SKLs. "Same" is decided by **content hash** for two `.skl`
-files (identical bytes under different filenames are one skeleton) and by **bone-transform
-comparison with tolerance** whenever a part's skeleton comes from the IR (glTF skins, `.model` bone
-tables). The pre-Fox native merge compares `.model` bone matrices within a measured `1e-4` per
+files (identical bytes under different filenames are one skeleton), a skeleton the `.model`
+conversion writes included: the conversion writes one only for a model keeping a bone outside
+the game's tables, two skeletons of one output name meet only through a combined boots or
+gloves link, and a mismatch fails loudly (`skl_merge_conflict`), so a tolerance comparison,
+which would carry each skeleton's origin through the merge, buys nothing an export reaches
+(`DECISIONS.md` 2026-10-09). The pre-Fox native merge compares `.model` bone matrices within a measured `1e-4` per
 component (Libraries plan, "`pes_model::ops::merge`"). A skeleton mismatch between merge
 parts is a hard error (`skl_merge_conflict`) that leaves that package out (`messages.md`).
 

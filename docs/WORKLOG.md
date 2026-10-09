@@ -3107,6 +3107,20 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the source (before: `folder_pack_failed`, 0 files); PES 21 writes his `env.ftex` and the
   `folder_pack_failed` is gone, the folder's `skl_merge_conflict` (his Fox skeletons differ; the
   pre-fix census tallies already show it on three refs roots) remaining as before
+- [ ] 4.y-fix4 **S7's rework: a shared face's `.model` boots convert with their `.mtl`; a link
+  combines with the player's effective parts** (the Astra review S7, 2026-10-09, rulings
+  `.tmp/4_y/duck_rulings.md` S7.A1-1 and S7.A1-2). (a) On Fox a package's `.mtl` inputs are
+  its own source's or the player folder's (`plan/mod.rs` `TaskKind::files`), so a linked face
+  folder's `boots.model` reaches the boots task without its `.mtl` and `processing/model.rs`
+  panics on the missing input: a `.mtl` is read by every package that reads a `.model` of its
+  source. (b) `roles.rs` `link_combines` asks `holds_model`, which reads the player's own files
+  alone, so a boots or gloves link does not combine with a linked face's boots/gloves parts or
+  with his hand-split gloves while `item_rows.rs` prefers his exclusive package's id, and the
+  link is worn by nobody (`player_folders.md` "A link plus local models combines",
+  `hand_split.md` "Pipeline integration"): the link combines when the player's effective
+  package of its kind has parts (own files, a linked face's files under his roles, the
+  hand-split set), and the id pass answers the same. TC-MOD-58, TC-MOD-59, TC-MOD-60.
+  Crates: tc → verify: the three scenarios proven, red first (58's red run is the panic).
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
