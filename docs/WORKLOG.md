@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g1 done: the pose measurement on the games' own files, the pre-check's rule settled as a blended-delta test; g2 done: `needs_conversion` is that test, `skf_*` pass through, tolerance 3e-3; g3a done: the Fox Models task pre-checks every selected FMDL with its `.skl`, the gloves task reads a hand-split part's `.skl`, a slotless conversion skeleton is dropped silently; g3b done: every pre-Fox `.model` pre-checked with the member's `.mtl` packed beside a moved one, the Common `.mtl` a link names read; 4.17's slices are done); 4.20 in progress (lead rulings and a done 2026-10-09: the gate gone, a file no role reads `file_not_used`; b1 next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g1 done: the pose measurement on the games' own files, the pre-check's rule settled as a blended-delta test; g2 done: `needs_conversion` is that test, `skf_*` pass through, tolerance 3e-3; g3a done: the Fox Models task pre-checks every selected FMDL with its `.skl`, the gloves task reads a hand-split part's `.skl`, a slotless conversion skeleton is dropped silently; g3b done: every pre-Fox `.model` pre-checked with the member's `.mtl` packed beside a moved one, the Common `.mtl` a link names read; 4.17's slices are done); 4.20 in progress (lead rulings and a done 2026-10-09: the gate gone, a file no role reads `file_not_used`; b1 done: unused kit stems, `shared_folder_no_model`, Common-set textures, the Common glTF order; b2 next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -2297,6 +2297,14 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   byte-identical to Blue's and across three Red versions; provenance section in
   `resources/templates/README.md`; `.gitattributes` marks the tree `-text`, three `.mtl` files
   being CRLF, which a plain `git add` had normalized).
+  Lead-first (2) 2026-10-09: `resources/templates/collar_empty.model`, FPC's `collar_105.model`
+  (852 bytes, one three-vertex mesh, byte-identical to FPC's `referee_collar_105.model`), the
+  empty `collar_077.model` the pre-Fox marker pair needs; README section. 4.19d takes 4.27's
+  pre-Fox half with it (DECISIONS 2026-10-09 "The pre-Fox marker goes out from the template
+  tree's `referee_prop` pair"): since 4.20a a pre-Fox refs export reaches the Fox-only marker
+  task, which writes an FMDL at the Fox collar path into the pre-Fox refs CPK. TC-REF-04 too.
+  Open after it lands: whether a nocloth `.model` reads the `.mtl` beside it (stock collars
+  ship none), an in-game check on PES 17 with the harness (`manual:` line for TC-REF-04).
 
 - [ ] 4.20 **Withdraw the Phase 3 subset gate**: `plan/subset.rs`'s gate (`first_not_compiled`
   and its walk) and `content_not_yet_compiled` removed (the catalog row reads withdrawn),
@@ -2325,10 +2333,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   at planning, `drop_common_gltfs`, the Common tasks direct-only, and, from its report, the
   deep pass's `.mtl` search resolving no shared folder's link (a lenient-mode panic the brief
   missed; `deep::pairings`); TC-MOD-53 to 55, TC-CMN-11 to 13, TC-REF-11. Mutants: 78 (62 caught, 16 unviable: type-driven defaults and an && inside a let chain; the first run's two survivors, the Fox Common .mtl filter's && and admitted, caught by R1's tests).
-  (b1) `kit_texture_not_used` stems, `shared_folder_no_model`, a Common-set part's texture
-  stems pointed at the Common output on Fox (found at a: TC-MOD-54's FMDL kept `./skin.dds`;
-  DECISIONS 2026-10-09), the Common glTF drop by the selection order (the same entry), the
-  help's refs sentence (TC-KIT-30, TC-MOD-57, TC-MOD-54's directory); (b2) per-kit variants on
+  (b1) done 2026-10-09: `kit_texture_not_used` for a `kit_*` stem the compiler does not build
+  (`drop_unused_kit_textures`), `shared_folder_no_model` (`ids::shared_folders_with_no_model`,
+  shared with `shared_folders_taking_ids`; a selected glTF counts as a model), a Common-set
+  part's texture stems pointed at the Common output on Fox (`PartTextures::CommonSet`; found at
+  a: TC-MOD-54's FMDL kept `./skin.dds`; DECISIONS 2026-10-09), the Common glTF drop by the
+  selection order with the beaten other-format model removed and a player whose link names it
+  dropped (`selected_common_gltfs`, `linked_common_gltf`; DECISIONS 2026-10-09, sidekick-found:
+  the brief's shape panicked), the help's refs and `kit_spec` sentences (TC-KIT-30, TC-MOD-57,
+  TC-MOD-54's directory). Mutants: 51 (38 caught, 12 unviable: type-driven defaults; one survivor, the `||` of `linked_common_gltf`'s link filter, caught by a lead input added to the Common glTF planning test, a `.mtl.common` link whose stem a selected glTF holds, which must not drop its player; the kill checked by a hand perturbation). Left for b2: the help passage still
+  describing the withdrawn gate (~line 291, "For PES 2018 to 2021 it names a referee export's
+  kit"), the help naming `shared_folder_no_model`, a refs kit reported twice (`file_not_used`
+  and the map's `kit_texture_not_used`: planning's kit drop runs over a refs export's kits). (b2) per-kit variants on
   pre-Fox and the shared `face.xml` (TC-MOD-56, TC-XML-10). For converge: on pre-Fox any typed
   `.model` gives a shared boots folder a face, so a `face_diff.bin` there takes a face role no
   task reads and is silent. Until 4.19d a pre-Fox
@@ -2636,10 +2652,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     deep pass does not check `ref_marker.dds` (only its conversion fails it); a
     `Common/ref_marker.dds` beside it gives both tasks one path; an `overrides/` file at
     `collar_077.fmdl` leaves the configs at 105.
-  - [ ] 4.27 pre-Fox half (after 4.19d): the marker as `referee_collar_077.model` with its
-    `.mtl` beside an empty `collar_077.model` (the pair the referee needs, in-game 2026-10-08:
-    decision entry; `blue_port.md` "Referee export processing"; TC-REF-04). The bundled
-    pre-Fox marker model is still to be made (`4.27-lead` made the Fox one).
+  - [ ] 4.27 pre-Fox half (folded into 4.19d on 2026-10-09): the marker as
+    `referee_collar_077.model` with its `.mtl` beside an empty `collar_077.model` (the pair the
+    referee needs, in-game 2026-10-08: decision entry; `blue_port.md` "Referee export
+    processing"; TC-REF-04). The marker model is the pre-Fox template tree's `referee_prop`
+    pair, the empty collar the bundled `collar_empty.model` (lead-first 2026-10-09).
   Moved out: TC-REF-07's `collar_id_conflict` half (landed with 4.9b1, which reserves 77
   beside 105); the pre-Fox marker (TC-REF-04) needs pre-Fox referees (4.19d).
   Settled 2026-10-07 (maintainer): the game needs the loose referee configs but reads their
@@ -4738,3 +4755,15 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (`resources/templates/referees_prefox/`, 51 files from Red `e12aa01`, byte-identical to
   Blue's), its provenance in the templates README, the tree marked `-text` in `.gitattributes`
   (three CRLF `.mtl` files). Nothing reads it yet: 4.19d chooses the tree by engine.
+- **2026-10-09** — 4.19d lead-first (2): `resources/templates/collar_empty.model` bundled (FPC's
+  empty collar, from `4cc_04_fpc.cpk`, provenance in the templates README); the marker paragraph
+  of `blue_port.md` names the `referee_prop` pair and the empty collar; decision entry; 4.27's
+  pre-Fox half folded into 4.19d; brief drafted.
+- **2026-10-09** — 4.20b1 landed (Opus sidekick, one round, no lead fix): unused kit stems,
+  `shared_folder_no_model`, a Common-set part's textures, the Common glTF order. One
+  contradiction applied by the sidekick and accepted with a decision entry (a player whose link
+  names a beaten Common model is dropped: the brief's shape panicked in every link reader), four
+  accepted (a selected glTF counts as a model, roster order is slot order, the readers of the
+  removal, TC-MOD-54's THEN), three observations sent to b2's brief (the help's gate passage,
+  `shared_folder_no_model` in the help, a refs kit reported twice). Gates 270 proven. Mutants:
+  51 (38 caught, 12 unviable: type-driven defaults; one survivor, the `||` of `linked_common_gltf`'s link filter, caught by a lead input added to the Common glTF planning test, a `.mtl.common` link whose stem a selected glTF holds, which must not drop its player; the kill checked by a hand perturbation).

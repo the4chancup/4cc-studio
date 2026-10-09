@@ -11,8 +11,7 @@ use aesthetics_export::{
 use pes_version::Engine;
 use teams_list::TeamId;
 
-use super::mapped_players;
-use super::roles::link_feeds_own_package;
+use super::roles::{FolderModels, PlayerFile, link_feeds_own_package, package_of, player_file};
 
 /// The first ID of the first team's block: IDs 0 to 100 are the stock band.
 const FIRST_BLOCK: u16 = 101;
@@ -64,29 +63,23 @@ impl PlannedModelIds {
 
 /// The shared folders of `kind` in `export` that take a shared ID when compiled for `engine`,
 /// in ID order: the folders at least one roster-mapped player folder links plainly, by name
-/// (case folded, ties by the plain spelling). A shared face never takes one (on Fox it merges
-/// into the player's face; pre-Fox it is copied per player), neither does a folder only
-/// unmapped folders link, since they are not compiled, and neither does a refs export's,
-/// whose every link feeds the referee's own slot package (`link_feeds_own_package`).
+/// (case folded, ties by the plain spelling), that hold a model of their kind
+/// (`holds_model_of_its_kind`). A shared boots or gloves folder holding no model of its kind
+/// takes no ID (`player_folders.md` "Assigns IDs automatically"): it has nothing to load, and an
+/// ID would shift the IDs of the folders sorted after it for an output that emits nothing
+/// (`shared_folders_with_no_model`). A shared face never takes one (on Fox it merges into the
+/// player's face; pre-Fox it is copied per player), neither does a folder only unmapped
+/// folders link, since they are not compiled, and neither does a refs export's, whose every
+/// link feeds the referee's own slot package (`link_feeds_own_package`).
 pub(crate) fn shared_folders_taking_ids(
     export: &ValidatedAestheticsExport,
     engine: Engine,
     kind: SharedKind,
 ) -> Vec<&SharedModelFolder> {
-    let folders = match kind {
-        SharedKind::Face => return Vec::new(),
-        SharedKind::Boots => &export.boots,
-        SharedKind::Gloves => &export.gloves,
-    };
-    let mapped = mapped_players(export);
-    let mut taking: Vec<&SharedModelFolder> = folders
-        .iter()
-        .filter(|folder| {
-            let name_key = vtree::fold_name(&folder.folder_name);
-            mapped
-                .iter()
-                .any(|player| links_plainly(&export.roster, player, engine, kind, &name_key))
-        })
+    let mut taking: Vec<&SharedModelFolder> = plainly_linked_folders(export, engine, kind)
+        .into_iter()
+        .map(|(folder, _)| folder)
+        .filter(|folder| holds_model_of_its_kind(folder, engine, kind))
         .collect();
     taking.sort_by_cached_key(|folder| {
         (
@@ -95,6 +88,79 @@ pub(crate) fn shared_folders_taking_ids(
         )
     });
     taking
+}
+
+/// The shared folders of `kind` in `export` that a roster-mapped player folder links plainly
+/// for `engine` but that hold no model of their kind, in the export's folder order, each with
+/// the first player folder linking it plainly, in roster order: the folders
+/// `shared_folders_taking_ids` leaves out for having nothing to load, which validation reports
+/// as `shared_folder_no_model`. A player linking one wears the game's own.
+pub(crate) fn shared_folders_with_no_model(
+    export: &ValidatedAestheticsExport,
+    engine: Engine,
+    kind: SharedKind,
+) -> Vec<(&SharedModelFolder, &PlayerFolder)> {
+    plainly_linked_folders(export, engine, kind)
+        .into_iter()
+        .filter(|(folder, _)| !holds_model_of_its_kind(folder, engine, kind))
+        .collect()
+}
+
+/// The shared folders of `kind` in `export` that at least one roster-mapped player folder
+/// links plainly for `engine`, in the export's folder order, each with the first such player
+/// folder in roster order; none for a shared face.
+fn plainly_linked_folders(
+    export: &ValidatedAestheticsExport,
+    engine: Engine,
+    kind: SharedKind,
+) -> Vec<(&SharedModelFolder, &PlayerFolder)> {
+    let folders = match kind {
+        SharedKind::Face => return Vec::new(),
+        SharedKind::Boots => &export.boots,
+        SharedKind::Gloves => &export.gloves,
+    };
+    let players = players_in_roster_order(export);
+    folders
+        .iter()
+        .filter_map(|folder| {
+            let name_key = vtree::fold_name(&folder.folder_name);
+            let player = players
+                .iter()
+                .find(|player| links_plainly(&export.roster, player, engine, kind, &name_key))?;
+            Some((folder, *player))
+        })
+        .collect()
+}
+
+/// Whether the shared boots or gloves `folder` of `kind` holds a model of its kind for a
+/// target of `engine`: on Fox a model its package takes (`PlayerFile::Model`), on pre-Fox a
+/// model its output packs (`PlayerFile::PreFoxModel`), or on either a glTF selected for its
+/// stem (`PlayerFile::UnsupportedGltf`). The glTF counts: planning drops the folder for it
+/// with `model_gltf_unsupported`, which is what the member is to be told, not that the folder
+/// has no model.
+fn holds_model_of_its_kind(folder: &SharedModelFolder, engine: Engine, kind: SharedKind) -> bool {
+    let models = FolderModels::of_shared(&folder.path, &folder.files, engine);
+    folder.files.iter().any(|file| {
+        let role = player_file(&folder.path, file, &models);
+        matches!(role, Some(PlayerFile::Model { package, .. }) if package == package_of(kind))
+            || matches!(
+                role,
+                Some(PlayerFile::PreFoxModel { .. } | PlayerFile::UnsupportedGltf)
+            )
+    })
+}
+
+/// Every player folder a roster slot maps, in roster order: slot order, a folder several
+/// referee slots map once per slot.
+fn players_in_roster_order(export: &ValidatedAestheticsExport) -> Vec<&PlayerFolder> {
+    let indices: Vec<usize> = match &export.roster {
+        ValidatedRoster::Team(slots) => slots.values().map(|index| index.0).collect(),
+        ValidatedRoster::Referees(slots) => slots.values().map(|index| index.0).collect(),
+    };
+    indices
+        .into_iter()
+        .map(|index| &export.players[index])
+        .collect()
 }
 
 /// Whether `player`, of an export whose roster is `roster`, links the shared folder of `kind`
@@ -238,6 +304,39 @@ mod tests {
         assert_eq!(
             taking(&marked, None, Engine::PreFox, SharedKind::Boots),
             ["Mud"]
+        );
+    }
+
+    #[test]
+    fn a_plainly_linked_folder_holding_no_model_takes_no_id() {
+        // Studs holds textures alone, so Zebra, sorted after it, takes the block's first
+        // shared id.
+        for (engine, model) in [
+            (Engine::Fox, "Boots/Zebra/boots.fmdl"),
+            (Engine::PreFox, "Boots/Zebra/boots.model"),
+        ] {
+            let files = [
+                "Players/05 - A/Studs.boots",
+                "Players/06 - B/Zebra.boots",
+                "Boots/Studs/studs.dds",
+                model,
+            ];
+            assert_eq!(
+                taking(&files, None, engine, SharedKind::Boots),
+                ["Zebra"],
+                "{engine:?}"
+            );
+        }
+        // Linked beside slot 05's own boots, Combi is a texture source of his boots: not in
+        // the list, with or without a model.
+        let files = [
+            "Players/05 - A/Combi.boots",
+            "Players/05 - A/boots.fmdl",
+            "Boots/Combi/combi.dds",
+        ];
+        assert_eq!(
+            taking(&files, None, Engine::Fox, SharedKind::Boots),
+            Vec::<String>::new()
         );
     }
 

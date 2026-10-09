@@ -120,8 +120,8 @@ pub(super) fn kit(
     }
     let mut derived = None;
     let mut entries = Vec::new();
-    // Planning has dropped the map the run's engine does not read (`drop_other_engine_map`),
-    // so a `kit_mask` here is a pre-Fox run's and a `kit_srm` a Fox run's.
+    // Planning has dropped every texture the run does not emit (`drop_unused_kit_textures`),
+    // so a `kit_mask` here is a pre-Fox run's, a `kit_srm` a Fox run's, and no other stem is.
     for (stem, name) in KIT_TEXTURE_STEMS.iter().zip(&game_names) {
         let texture = kit.textures.iter().find(|texture| texture.stem == *stem);
         let (file_name, bytes) = match texture {

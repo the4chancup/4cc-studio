@@ -849,8 +849,9 @@ describes behavior, not a serial scheduling requirement:
   file that is a variant with a lower variant of its set in the same folder is not compiled,
   and planning reports `kit_variant_model_left_out` on the folder, once per set; a set's variants
   are its model files of either native format (`pants_kit1.fmdl` and `pants_kit2.model` are
-  one set), a variant present in both formats one variant, its FMDL the selected
-  representation. On pre-Fox every
+  one set), a variant present in both formats one variant, the target's format (`.fmdl` on
+  Fox, `.model` on PES 15-17) its selected representation, as the selection order says. On
+  pre-Fox every
   variant is packed under its own name and the set is listed once: the lowest variant's
   `face.xml` entries (its own, and its hands' when it is hand-split) with the kit token in
   their `path` and `material` spelled `kitN`, so the game respells the whole entry for the kit
@@ -1718,7 +1719,11 @@ Resolved decisions:
   target-native first, then glTF, then the other engine's format): one with no model of the
   target's format of its stem beside it is dropped at planning with `model_gltf_unsupported`,
   the file alone, as a collar's is, and a model of the other engine's format of that stem is
-  beaten by it, read by nothing; one a target-native model beats is silent. A player's `.model`
+  beaten by it, read by nothing, and a mapped player whose `.common` link names that beaten
+  model is dropped with `model_gltf_unsupported` naming the glTF, as one linking a shared
+  folder whose model is a glTF is (the link would load the glTF, and compiling him without the
+  part would give him something he did not ask for); one a target-native model beats is silent.
+  A player's `.model`
   whose `.mtl` is a Common file (a `.mtl.common` link) has its texture stems pointed as a
   Common part's are: at the folder's texture home when the folder holds the stem, else at the
   team's Common output when `Common/` holds it, since the set names Common's textures; on PES

@@ -486,6 +486,29 @@ fn a_kit_mask_on_a_fox_target_is_reported_once_and_not_emitted() {
     assert_eq!(compiled_kits(&sandbox), ["u0714p1"]);
 }
 
+// TC-KIT-30
+#[test]
+fn a_kit_texture_stem_the_compiler_does_not_build_is_not_used() {
+    let sandbox = Sandbox::new("kit_spec_fox");
+    sandbox.write("exports/co Midcup Spec/Kits/p1/kit.dds", &tracer_kit());
+    sandbox.write("exports/co Midcup Spec/Kits/p1/kit_spec.dds", &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Spec"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_spec.dds)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p1"]);
+}
+
 // TC-STR-01
 #[test]
 fn content_nested_one_folder_down_compiles_as_if_at_the_root() {

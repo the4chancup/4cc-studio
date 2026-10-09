@@ -424,7 +424,8 @@ fn write_boots_model(sandbox: &Sandbox, export: &str, model: &[u8]) {
 const BOOTS_FPK: &str = "Asset/model/character/boots/k0625/#Win/boots.fpk";
 
 /// Slot 05's texture home on PES 21, as an FMDL names it.
-const HOME_714_05: &str = "/Assets/pes16/model/character/common/714/05 - A/sourceimages/";
+pub(crate) const HOME_714_05: &str =
+    "/Assets/pes16/model/character/common/714/05 - A/sourceimages/";
 
 // TC-MOD-26
 #[test]

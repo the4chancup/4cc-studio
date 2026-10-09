@@ -260,6 +260,8 @@ the link, and a link to a texture points the player's `.mtl` files at the Common
 kit folder with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. A
+kit texture whose name the compiler does not build (`kit_spec.dds`) is left out and reported
+as `kit_texture_not_used`, as the map the version does not read is. A
 kit's `config.toml` that cannot be read (not UTF-8 text, a value of the wrong type or out of
 range) is reported by both commands as `kit_config_invalid`, naming the error, and the kit is
 left out, even with `pass_through` on. For PES
@@ -357,6 +359,8 @@ its `players.txt` lists is built once and written for every slot it is listed un
 as the face `referee0NN` with the boots `k99NN` and the gloves `g99NN`, and the folder's
 textures go once into `common/999/<folder name>/`. A referee's link to a `Boots` or `Gloves`
 folder makes that folder the boots or gloves of each of his slots, merged with any of his own.
+A `refs` export's kits, logo, portraits and collars have no referee to go to: each is left
+out and reported as the warning `file_not_used`.
 The referees go into a CPK of their own, named by the `refs_cpk_name` setting
 (`4cc_18_referees.cpk`), never into the teams' CPKs, with `multicpk_mode` on or off. Beside
 the referees it also holds the referee kits and the referee appearance file the game needs,

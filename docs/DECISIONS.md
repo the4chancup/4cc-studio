@@ -5608,3 +5608,41 @@ files), and the pre-Fox face already resolves such a set there.
 Plan: `team_compiler/pipeline.md` "Common textures are one task of their export";
 `team_compiler/messages.md` `model_gltf_unsupported`; `team_compiler/README.md` TC-MOD-54 (the
 texture directory asserted at 4.20b1).
+
+## 2026-10-09 — team_compiler — The pre-Fox marker goes out from the template tree's `referee_prop` pair, its `.mtl` holding `judge_incom` alone
+Decision: on PES 15-17 the marker task writes the pre-Fox referee template tree's
+`parts/referee/referee_prop.model` as `referee_collar_077.model` unchanged, its `.mtl` as
+`referee_collar_077.mtl` holding the one material the model binds, `judge_incom`, with its
+diffuse map pointed at the converted `ref_marker.dds` in the referees' Common output, and the
+bundled `collar_empty.model` (FPC's `collar_105.model`, 852 bytes, one three-vertex mesh) as
+`collar_077.model`. Step 4.19d takes 4.27's pre-Fox half with it.
+Why: the tree already bundles the prop with its provenance, so no second copy of the model; the
+template `.mtl` holds four more materials (watch, pen, whistle, flag) naming textures the refs
+CPK never carries, and the compiler's rule elsewhere is that a packed set names only textures
+the CPK holds. The empty collar is FPC's own file, proven in game (run I of 2026-10-08), not a
+generated one whose loading is untested. Folding 4.27's half in: since 4.20a withdrew the gate a
+pre-Fox refs export reaches processing, and the Fox-only marker task then writes an FMDL at the
+Fox collar path into a pre-Fox refs CPK with no finding; choosing the tree by engine alone would
+keep that wrong output, and a temporary "no marker on pre-Fox" finding is machinery to remove.
+Unverified in game: whether a nocloth `.model` reads the `.mtl` beside it (stock collars ship
+none, their materials being the shared uniform set's); the manual TC-REF-04 check decides, and
+if not, the marker still draws, with the kit texture.
+Plan: `team_compiler/blue_port.md` "Referee export processing" (the marker model paragraph);
+`resources/templates/README.md` "`collar_empty.model`".
+
+## 2026-10-09 — team_compiler — A player whose link names a Common model a Common glTF beats is dropped with `model_gltf_unsupported`
+Decision: when a glTF directly in `Common/` is selected for its stem and dropped at planning, a
+mapped player whose `.common` model link names the other-format model of that stem (the one the
+glTF beats) is dropped with `model_gltf_unsupported` naming the glTF's export path, as a player
+linking a shared folder whose selected model is a glTF is; the beaten model is removed from the
+export's Common files, so no task or link resolves to it.
+Why: found by the 4.20b1 sidekick: with the beaten model removed, every reader of a link
+(`common_models`, the pre-Fox face, `ModelFolder::common_model`) `expect`s the linked file to
+exist, since validation resolved the link before planning, so the brief's shape panicked. The
+alternative, compiling the player without the part, needs skip logic in three readers and gives
+him a face, boots or gloves he did not ask for, with no finding of its own; the shared-folder
+glTF rule already drops such a player, and one rule for both link kinds is what a member can
+predict.
+Plan: `team_compiler/pipeline.md` "Common textures are one task of their export" (the Common
+glTF sentence); `team_compiler/messages.md` `model_gltf_unsupported`, `shared_folder_no_model`
+(a selected glTF counts as a model).

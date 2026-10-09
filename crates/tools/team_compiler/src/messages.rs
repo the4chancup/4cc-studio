@@ -132,6 +132,10 @@ pub(crate) enum Code {
     /// no role takes), a `Common/` file of a kind no task reads, or a refs export's kit,
     /// logo, portrait or collar: the file is not read.
     FileNotUsed,
+    /// A shared boots or gloves folder a mapped player links plainly holds no model of its
+    /// kind: it has nothing to load, so it takes no ID and gets no task, and that player wears
+    /// the game's own.
+    SharedFolderNoModel,
     /// A model folder's texture variant set (`pants_kit1`, `pants_kit3`) has no variant for
     /// a kit number the export defines: the lowest variant is copied into the gap.
     KitVariantMissing,
@@ -418,7 +422,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 129] = [
+    const ALL: [Code; 130] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -459,6 +463,7 @@ impl Code {
         Code::SklNoSlot,
         Code::FaceFileNotUsed,
         Code::FileNotUsed,
+        Code::SharedFolderNoModel,
         Code::KitVariantMissing,
         Code::KitVariantModelFox,
         Code::KitVariantMtlDiffers,
@@ -593,6 +598,7 @@ impl Code {
             Code::SklNoSlot => "skl_no_slot",
             Code::FaceFileNotUsed => "face_file_not_used",
             Code::FileNotUsed => "file_not_used",
+            Code::SharedFolderNoModel => "shared_folder_no_model",
             Code::KitVariantMissing => "kit_variant_missing",
             Code::KitVariantModelFox => "kit_variant_model_fox",
             Code::KitVariantMtlDiffers => "kit_variant_mtl_differs",
@@ -747,6 +753,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("skl_no_slot", CatalogSeverity::Warning),
     ("face_file_not_used", CatalogSeverity::Info),
     ("file_not_used", CatalogSeverity::Warning),
+    ("shared_folder_no_model", CatalogSeverity::Warning),
     ("kit_variant_missing", CatalogSeverity::Warning),
     ("kit_variant_model_fox", CatalogSeverity::Warning),
     ("kit_variant_mtl_differs", CatalogSeverity::Warning),

@@ -11,6 +11,7 @@ use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
 use crate::compile::{compiled_players, cpk_entries, pes21_settings, tracer_player_file};
+use crate::conversion::HOME_714_05;
 use crate::findings_of;
 use crate::models::{body_skl, face_package, package_names};
 use crate::prefox_faces::{card_materials, card_model, materials_naming, small_dds};
@@ -774,21 +775,24 @@ fn a_fox_model_whose_mtl_is_a_common_file_converts_with_it() {
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
-    // The converted model's materials, each its name and shader, read back with `fmdl`.
-    let materials = |sandbox: &Sandbox| -> Vec<(String, String)> {
+    // The converted model's materials, each its name and shader, read back with `fmdl`, and
+    // the directories its paths of the set's one texture, `./skin.dds`, name.
+    let materials = |sandbox: &Sandbox| -> (Vec<(String, String)>, Vec<String>) {
         let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
         let face = face_package(&entries);
         let fmdl = face.get("fcl_hair.fmdl").unwrap();
-        // The set's one sampler, naming `./skin.dds`, made it into the converted model.
-        assert!(!texture_directories(fmdl, "skin.dds").is_empty());
-        Model::from_file(&FmdlFile::read(fmdl).unwrap())
+        let directories = texture_directories(fmdl, "skin.dds");
+        // The set's one sampler made it into the converted model.
+        assert!(!directories.is_empty());
+        let materials = Model::from_file(&FmdlFile::read(fmdl).unwrap())
             .unwrap()
             .materials
             .into_iter()
             .map(|material| (material.name, material.shader))
-            .collect()
+            .collect();
+        (materials, directories)
     };
-    let linked = materials(&sandbox);
+    let (linked, directories) = materials(&sandbox);
     let set = MaterialSet::read(&card_materials()).unwrap();
     assert!(!set.materials.is_empty());
     for material in &set.materials {
@@ -797,6 +801,13 @@ fn a_fox_model_whose_mtl_is_a_common_file_converts_with_it() {
             "{linked:?}"
         );
     }
+    // The set is Common's, so the texture it names is Common's: the team's Common output.
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory == COMMON_DIRECTORY),
+        "{directories:?}"
+    );
     // The same as the set gives the model as a local `.mtl` of its folder.
     let local = Sandbox::new("cmn_fox_mtl_local");
     local.write(&format!("{player}/body.model"), &card_model());
@@ -804,7 +815,26 @@ fn a_fox_model_whose_mtl_is_a_common_file_converts_with_it() {
     local.write(&format!("{player}/skin.dds"), &small_dds());
     let run = local.run(&pes21_settings(&local), &["compile", "--no-deploy"]);
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
-    assert_eq!(linked, materials(&local));
+    let (local_materials, local_directories) = materials(&local);
+    assert_eq!(linked, local_materials);
+    // With `skin.dds` in the player's folder too, the folder's own texture wins, as the local
+    // set's does: the player's texture home.
+    let both = Sandbox::new("cmn_fox_mtl_link_own_texture");
+    both.write(&format!("{player}/body.model"), &card_model());
+    both.write(&format!("{player}/body.mtl.common"), b"");
+    both.write(&format!("{player}/skin.dds"), &small_dds());
+    both.write(&format!("{export}/Common/body.mtl"), &card_materials());
+    both.write(&format!("{export}/Common/skin.dds"), &small_dds());
+    let run = both.run(&pes21_settings(&both), &["compile", "--no-deploy"]);
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let (_, own_directories) = materials(&both);
+    assert!(
+        local_directories
+            .iter()
+            .all(|directory| directory == HOME_714_05),
+        "{local_directories:?}"
+    );
+    assert_eq!(own_directories, local_directories);
 }
 
 // TC-CMN-13

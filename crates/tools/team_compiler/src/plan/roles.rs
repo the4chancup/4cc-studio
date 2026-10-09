@@ -18,9 +18,9 @@ use crate::kit_variants::model_variant_sets;
 
 /// The kit texture stems `compile` builds: first the five the kit config names, in the order
 /// of its texture-name fields, then the two maps the games read by name convention alone,
-/// `kit_mask` (PES 15-17) and `kit_srm` (PES 18-21). Planning drops the map the target's
-/// engine does not read before the kit's task is made (`pipeline.md` "4. Per-export non-model
-/// steps", Kits: mask and srm are engine-specific).
+/// `kit_mask` (PES 15-17) and `kit_srm` (PES 18-21). Planning drops, before the kit's task is
+/// made, the map the target's engine does not read and any `kit_*` stem outside these seven
+/// (`pipeline.md` "4. Per-export non-model steps", Kits: mask and srm are engine-specific).
 pub(crate) const KIT_TEXTURE_STEMS: [&str; 7] = [
     "kit",
     "kit_back",
@@ -880,7 +880,7 @@ fn model_stems(folder: &ScopePath, files: &[FileDescriptor], format: ModelFormat
 }
 
 /// The model format a target of `engine` reads natively: FMDL on Fox, `.model` on pre-Fox.
-fn native_format(engine: Engine) -> ModelFormat {
+pub(crate) fn native_format(engine: Engine) -> ModelFormat {
     match engine {
         Engine::Fox => ModelFormat::Fmdl,
         Engine::PreFox => ModelFormat::PesModel,
@@ -1360,14 +1360,20 @@ mod tests {
 
     #[test]
     fn the_other_engine_s_map_is_dropped_before_the_kit_task() {
-        // (version, a face folder it compiles, the map it reads, the map it drops)
+        // (version, a face folder it compiles, the map it reads, the files it drops in the
+        // set's order: the other engine's map and `kit_spec`, a stem the compiler never builds)
         let cases = [
-            (PesVersion::Pes21, FACE.as_slice(), "kit_srm", "kit_mask"),
+            (
+                PesVersion::Pes21,
+                FACE.as_slice(),
+                "kit_srm",
+                ["kit_mask.dds", "kit_spec.dds"],
+            ),
             (
                 PesVersion::Pes17,
                 PRE_FOX_FACE.as_slice(),
                 "kit_mask",
-                "kit_srm",
+                ["kit_spec.dds", "kit_srm.dds"],
             ),
         ];
         for (version, face, kept, dropped) in cases {
@@ -1377,6 +1383,7 @@ mod tests {
                     "Kits/g1/config.toml",
                     "Kits/g1/kit.dds",
                     "Kits/g1/kit_mask.dds",
+                    "Kits/g1/kit_spec.dds",
                     "Kits/g1/kit_srm.dds",
                 ])
                 .map(|path| (*path, 1))
@@ -1388,29 +1395,29 @@ mod tests {
                 version,
             );
 
-            // The drop is reported once, on the kit, naming the file.
-            let [message] = report.messages.as_slice() else {
-                panic!("{version}: {:?}", report.messages);
-            };
-            assert_eq!(message.code.code, "kit_texture_not_used", "{version}");
-            assert_eq!(
-                message.scope,
-                studio_core::Scope::Folder {
-                    export_id: ExportId(0),
-                    path: ScopePath::new("Kits/g1").unwrap(),
-                },
-                "{version}"
-            );
-            assert_eq!(
-                message.disposition,
-                studio_core::Disposition::DropFile,
-                "{version}"
-            );
-            assert_eq!(
-                message.context,
-                [("file".to_owned(), format!("{dropped}.dds"))],
-                "{version}"
-            );
+            // Each drop is reported once, on the kit, naming the file.
+            assert_eq!(report.messages.len(), dropped.len(), "{version}");
+            for (message, dropped) in report.messages.iter().zip(dropped) {
+                assert_eq!(message.code.code, "kit_texture_not_used", "{version}");
+                assert_eq!(
+                    message.scope,
+                    studio_core::Scope::Folder {
+                        export_id: ExportId(0),
+                        path: ScopePath::new("Kits/g1").unwrap(),
+                    },
+                    "{version}"
+                );
+                assert_eq!(
+                    message.disposition,
+                    studio_core::Disposition::DropFile,
+                    "{version}"
+                );
+                assert_eq!(
+                    message.context,
+                    [("file".to_owned(), dropped.to_owned())],
+                    "{version}"
+                );
+            }
             let (kit, charge) = report
                 .manifest
                 .tasks
@@ -1431,7 +1438,7 @@ mod tests {
             assert_eq!(stems, ["kit", kept], "{version}");
             assert_eq!(
                 charge, 3,
-                "{version}: the config, the kit and the map read are read, the other is not"
+                "{version}: the config, the kit and the map read are read, the dropped files not"
             );
         }
     }

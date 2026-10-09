@@ -28,7 +28,9 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::ModelFolder;
-use crate::plan::roles::{ModelPackage, PlayerFile, file_stem, skeleton_slot};
+use crate::plan::roles::{
+    ModelPackage, PlayerFile, file_stem, is_direct_common_file, skeleton_slot,
+};
 use crate::user_face_xml::{Reference, reference};
 
 /// One model of the package: a part of the output model its allowed name names, from the
@@ -59,6 +61,11 @@ enum PartTextures {
     /// The team's Common output: the part is a Common model a `.common` link brings in, whose
     /// textures stay in `Common/` and are the export's Common textures task's, never relocated.
     Common,
+    /// The folder's texture home for a stem the folder holds, else the team's Common output
+    /// for a stem `Common/` holds: the part is the folder's `.model` converted with a `Common/`
+    /// `.mtl` (a `.mtl.common` link), a set that names Common's textures (`pipeline.md` "Common
+    /// textures are one task of their export").
+    CommonSet,
 }
 
 /// The files of `folder`'s `package`, compiled from its files' bytes in `files` for team
@@ -154,6 +161,11 @@ pub(super) fn package(
                             "the deep pass drops a folder holding a selected `.model` no `.mtl` \
                              is found for (`model_material_undefined`)",
                         );
+                        // A Common set names Common's textures, and the deep pass checked them
+                        // against `Common/`: a stem the folder lacks is looked for there.
+                        if is_direct_common_file(&mtl.path) {
+                            part.textures = PartTextures::CommonSet;
+                        }
                         let mtl = files.get(&mtl.path).expect(
                             "a package converting a `.model` reads its source's `.mtl` files \
                              (`TaskKind::files`)",
@@ -264,9 +276,11 @@ pub(super) fn package(
     // Common output, where the export's Common textures task puts it once for every player
     // (`pipeline.md` step 6: a texture resolved in Common is never relocated). A folder part
     // looks in the folder's textures first, and a path of its into the team's pre-Fox Common
-    // folder reaches `Common/`'s (`point_texture`). Validation refuses a player folder holding
-    // a texture and a link of one stem (`texture_stem_conflict`), but not a link beside a
-    // combined shared folder's texture of its stem: there the shared folder's texture wins.
+    // folder reaches `Common/`'s (`point_texture`); one converted with a `Common/` `.mtl`
+    // looks in the folder's, then in `Common/`'s (`PartTextures::CommonSet`). Validation
+    // refuses a player folder holding a texture and a link of one stem
+    // (`texture_stem_conflict`), but not a link beside a combined shared folder's texture of
+    // its stem: there the shared folder's texture wins.
     let texture_directory = folder.textures.directory(ctx.version.engine(), team_id);
     let common_directory = paths::common_texture_directory(Engine::Fox, team_id);
     let folder_places = [
@@ -274,6 +288,7 @@ pub(super) fn package(
         (&linked_stems, common_directory.as_str()),
     ];
     let common_places = [(&folder.common_texture_stems, common_directory.as_str())];
+    let common_set_places = [folder_places[0], folder_places[1], common_places[0]];
     // A texture pointed at the team's Common output is there when the export's Common
     // textures task packs it: a texture directly in `Common/`, or one a link stands for.
     let common_stems = [&folder.common_texture_stems, &linked_stems];
@@ -296,6 +311,7 @@ pub(super) fn package(
             let places: &[(&BTreeSet<String>, &str)] = match part.textures {
                 PartTextures::Folder => &folder_places,
                 PartTextures::Common => &common_places,
+                PartTextures::CommonSet => &common_set_places,
             };
             let mut model = FmdlFile::read(&part.bytes)?;
             rewrite_texture_paths(&mut model, |path| {

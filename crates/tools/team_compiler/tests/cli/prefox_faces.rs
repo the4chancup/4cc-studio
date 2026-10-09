@@ -495,6 +495,57 @@ fn a_linked_boots_folder_is_written_once_as_boots_model_and_boots_mtl_under_its_
     assert!(!xml.contains("\"./boots"), "{xml}");
 }
 
+// TC-MOD-57
+#[test]
+fn a_shared_boots_folder_with_no_model_takes_no_id_and_warns() {
+    let sandbox = Sandbox::new("prefox_shared_boots_no_model");
+    let export = "co Midcup Studs";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Studs.boots"), b"");
+    sandbox.write(&format!("exports/{export}/Players/06 - B/Zebra.boots"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Boots/Studs/studs.dds"),
+        &small_dds(),
+    );
+    let zebra = format!("exports/{export}/Boots/Zebra");
+    sandbox.write(&format!("{zebra}/boots.model"), &card_model());
+    sandbox.write(&format!("{zebra}/boots.mtl"), &materials_naming("zebra"));
+    sandbox.write(&format!("{zebra}/zebra.dds"), &small_dds());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            "Warning shared_folder_no_model [Keep] at Boots/Studs (player=Players/05 - A)",
+            CLEAN[1],
+        ],
+    );
+
+    // Zebra takes team 714's first shared id, 644 (101 + 13 * 40 + 23), and Studs none: no
+    // other boots folder is written.
+    let boots = entries_under(&entries, "common/character0/model/character/boots/");
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(
+        names,
+        ["k0644/boots.model", "k0644/boots.mtl", "k0644/zebra.dds"]
+    );
+    // Slot 05 wears the game's boots: his face names none, and Studs's texture goes nowhere.
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let xml = String::from_utf8(face[&format!("{}face.xml", face_folder(5))].clone()).unwrap();
+    assert!(!xml.contains("boots"), "{xml}");
+    assert!(
+        entries.keys().all(|path| !path.contains("studs")),
+        "{:?}",
+        entries.keys()
+    );
+    assert!(
+        face.keys().all(|path| !path.contains("studs")),
+        "{:?}",
+        face.keys()
+    );
+}
+
 #[test]
 fn a_shared_boots_folder_s_model_of_another_name_is_written_as_boots_model_with_its_own_mtl() {
     let sandbox = Sandbox::new("prefox_shared_boots_name");

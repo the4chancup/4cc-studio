@@ -31,10 +31,10 @@ use collars::export_collar;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
-    FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, file_stem,
-    is_direct_common_file, is_part_of, link_combines, link_feeds_own_package, link_name,
-    linked_folder, named_as_face, package_of, player_file, selected_common_model, skeleton_slot,
-    texture_format,
+    FolderModels, KIT_TEXTURE_STEMS, ModelPackage, PlayerFile, common_file, common_skeleton,
+    file_stem, is_direct_common_file, is_part_of, link_combines, link_feeds_own_package, link_name,
+    linked_folder, named_as_face, native_format, package_of, player_file, selected_common_model,
+    skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -920,8 +920,10 @@ pub(crate) struct ExportToPlan {
 /// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
 /// `version`. A mapped player folder whose model is a selected glTF is dropped first, and so
 /// is a shared folder whose model is one, with every player folder linking it
-/// (`drop_gltf_folders`), and a glTF directly in `Common/` with no `.model` or FMDL of its
-/// stem, the file alone (`drop_common_gltfs`). Every export's note goes into the manifest, and a
+/// (`drop_gltf_folders`), and a glTF directly in `Common/` with no model of the target's format
+/// of its stem, the file alone, with the other engine's model of its stem it beats
+/// (`drop_common_gltfs`). The textures a kit's set holds that the target does not emit are
+/// dropped from it (`drop_unused_kit_textures`). Every export's note goes into the manifest, and a
 /// team export's colors; one with no root `colors.txt` reports
 /// `team_colors_missing`, and its team keeps the colors it had. A team export's collar is
 /// claimed against the run-wide list of the collars earlier exports claimed
@@ -948,7 +950,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         metal_models,
     } in exports
     {
-        drop_other_engine_map(
+        drop_unused_kit_textures(
             version.engine(),
             export_id,
             &mut resolved.export.kits,
@@ -993,7 +995,12 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             .filter_map(|slot| kit_number(*slot))
             .collect();
         kit_variant_model_messages(export_id, &export, version.engine(), &mut messages);
-        drop_common_gltfs(export_id, &mut export.common, &mut messages);
+        drop_common_gltfs(
+            version.engine(),
+            export_id,
+            &mut export.common,
+            &mut messages,
+        );
         // The textures directly in `Common/`: one task of the export's, and the stems a Common
         // part's paths name that task's output for, which a model of any folder may name. A
         // texture below a subfolder, which only a lenient file-type check keeps, is not
@@ -1424,40 +1431,41 @@ fn folder_tasks(
     }
 }
 
-/// Removes from every kit's effective textures the map a target of `engine` does not read, its
-/// `kit_srm` on PES 15-17 and its `kit_mask` on PES 18-21, each reported as
-/// `kit_texture_not_used` on its kit folder, naming the file (`pipeline.md` "4. Per-export
-/// non-model steps", Kits: mask and srm are engine-specific, and neither is converted into
-/// the other). It goes before the kit's task is made, which therefore never reads it. A kit's
-/// effective set holds one file per stem, so one finding per kit.
-fn drop_other_engine_map(
+/// Removes from every kit's effective textures each one a target of `engine` does not emit,
+/// in the set's order: the other engine's map (its `kit_srm` on PES 15-17, its `kit_mask` on
+/// PES 18-21; neither is converted into the other) and a `kit_*` stem outside the seven the
+/// compiler builds (`KIT_TEXTURE_STEMS`, so `kit_spec`), each reported as `kit_texture_not_used`
+/// on its kit folder, naming the file (`pipeline.md` "4. Per-export non-model steps", Kits).
+/// It goes before the kit's task is made, which therefore never reads them.
+fn drop_unused_kit_textures(
     engine: Engine,
     export_id: ExportId,
     kits: &mut KitsFolder,
     messages: &mut Vec<Message>,
 ) {
-    let not_read = match engine {
+    let other_engine_map = match engine {
         Engine::PreFox => "kit_srm",
         Engine::Fox => "kit_mask",
     };
     for kit in kits.kits.values_mut() {
-        let Some(at) = kit
-            .textures
-            .iter()
-            .position(|texture| texture.stem == not_read)
-        else {
-            continue;
-        };
-        let map = kit.textures.remove(at);
-        messages.push(tool_message(
-            Code::KitTextureNotUsed,
-            Scope::Folder {
-                export_id,
-                path: kit.path.clone(),
-            },
-            Disposition::DropFile,
-            vec![("file", map.file.path.name().to_owned())],
-        ));
+        let (dropped, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut kit.textures)
+            .into_iter()
+            .partition(|texture| {
+                texture.stem == other_engine_map
+                    || !KIT_TEXTURE_STEMS.contains(&texture.stem.as_str())
+            });
+        kit.textures = kept;
+        for texture in dropped {
+            messages.push(tool_message(
+                Code::KitTextureNotUsed,
+                Scope::Folder {
+                    export_id,
+                    path: kit.path.clone(),
+                },
+                Disposition::DropFile,
+                vec![("file", texture.file.path.name().to_owned())],
+            ));
+        }
     }
 }
 
@@ -1466,9 +1474,12 @@ fn drop_other_engine_map(
 /// mapped player folder linking it (`pipeline.md` step 3 "Format conversion": a selected glTF
 /// drops its folder until Phase 7 rather than falling through to the other engine's format,
 /// and a player without the face, boots or gloves he linked would compile to something he did
-/// not ask for). `model_gltf_unsupported` is reported on the player folder once per such file:
-/// his own, named below his folder, or, when he holds none, those of the shared folders he
-/// links, named by their export paths; each in the export's folder order. The player folder's
+/// not ask for). A mapped player folder whose `.common` model link names a Common model a
+/// Common glTF of its stem beats (`selected_common_gltfs`) is dropped too: the link would load
+/// the glTF, and the model it names is not loaded in the glTF's place. `model_gltf_unsupported`
+/// is reported on the player folder once per such file: his own, named below his folder, or,
+/// when he holds none, those of the shared folders he links and the Common glTFs his links
+/// select, named by their export paths; each in the export's folder order. The player folder's
 /// roster slots are removed, as validation removes a dropped folder's, so it plans no task and
 /// its slots compile as empty ones do, and the shared folder is removed from the export, as is
 /// every shared folder no remaining mapped player links, with no finding of its own (the
@@ -1502,6 +1513,7 @@ fn drop_gltf_folders(
             }
         }
     }
+    let common_gltfs = selected_common_gltfs(&export.common, engine);
     let mut dropped = Vec::new();
     for (index, folder) in export.players.iter().enumerate() {
         let index = PlayerIndex(index);
@@ -1532,6 +1544,17 @@ fn drop_gltf_folders(
                 .filter(|(shared, _)| linked.contains(&shared))
                 .map(|(_, file)| file.as_str().to_owned())
                 .collect();
+            // A `.common` model link whose stem selects a Common glTF would load that glTF,
+            // which beats the model the link names, so it has nothing to load in its place.
+            for file in &folder.files {
+                let Some(gltf) = linked_common_gltf(&folder.path, file, &models, &common_gltfs)
+                else {
+                    continue;
+                };
+                if !files.contains(&gltf) {
+                    files.push(gltf);
+                }
+            }
         }
         if !files.is_empty() {
             dropped.push(index);
@@ -1573,36 +1596,79 @@ fn drop_gltf_folders(
     export.gloves.retain(|folder| linked.contains(&folder.path));
 }
 
-/// Removes from `common`, the export's `Common/` files, each glTF directly in `Common/` with no
-/// `.model` or FMDL of its stem beside it there, reporting `model_gltf_unsupported` on the file,
-/// named by its export path (`pipeline.md` "Common textures are one task of their export"): the
-/// compiler does not read glTF until Phase 7, and the file alone is dropped, as a collar's is,
-/// since a link loads a Common model by name and the rest of the export compiles without it. A
-/// glTF a model of its stem beats is left in place, read by nothing, with no finding.
-fn drop_common_gltfs(
-    export_id: ExportId,
-    common: &mut Vec<FileDescriptor>,
-    messages: &mut Vec<Message>,
-) {
-    let model_stems: BTreeSet<String> = common
+/// The glTFs directly in `common`, the export's `Common/` files, that a target of `engine`
+/// selects for their stem: those with no model of the target's own format of their stem beside
+/// them there (`pipeline.md` step 3 "Format conversion": target-native first, then glTF, then
+/// the other engine's format, the one rule for every model folder, `Common/` included). The
+/// compiler does not read glTF until Phase 7, so planning drops each (`drop_common_gltfs`).
+fn selected_common_gltfs(common: &[FileDescriptor], engine: Engine) -> Vec<&FileDescriptor> {
+    let native = FileKind::Model(native_format(engine));
+    let native_stems: BTreeSet<String> = common
         .iter()
-        .filter(|file| {
-            is_direct_common_file(&file.path)
-                && matches!(
-                    file.kind,
-                    FileKind::Model(ModelFormat::PesModel | ModelFormat::Fmdl)
-                )
-        })
+        .filter(|file| is_direct_common_file(&file.path) && file.kind == native)
         .map(|file| vtree::fold_name(file_stem(file.path.name())))
         .collect();
-    let dropped: Vec<ScopePath> = common
+    common
         .iter()
         .filter(|file| {
             is_direct_common_file(&file.path)
                 && file.kind == FileKind::Model(ModelFormat::Gltf)
-                && !model_stems.contains(&vtree::fold_name(file_stem(file.path.name())))
+                && !native_stems.contains(&vtree::fold_name(file_stem(file.path.name())))
         })
+        .collect()
+}
+
+/// The export path of the Common glTF that `file`, a file of the player folder at `folder`
+/// whose models are `models`, would load: `file` is a `.common` link to a model with a role,
+/// and `common_gltfs` (`selected_common_gltfs`) holds a glTF of the linked stem, which beats
+/// the model the link names. `None` for any other file.
+fn linked_common_gltf(
+    folder: &ScopePath,
+    file: &FileDescriptor,
+    models: &FolderModels,
+    common_gltfs: &[&FileDescriptor],
+) -> Option<String> {
+    if file.kind != FileKind::CommonLink
+        || !matches!(
+            player_file(folder, file, models)?,
+            PlayerFile::CommonModel { .. }
+                | PlayerFile::PreFoxCommonModel { .. }
+                | PlayerFile::PreFoxPart { .. }
+        )
+    {
+        return None;
+    }
+    let linked = vtree::fold_name(file_stem(&common_link_name(file.path.name())?));
+    common_gltfs
+        .iter()
+        .find(|gltf| vtree::fold_name(file_stem(gltf.path.name())) == linked)
+        .map(|gltf| gltf.path.as_str().to_owned())
+}
+
+/// Removes from `common`, the export's `Common/` files, each glTF directly in `Common/` a
+/// target of `engine` selects for its stem (`selected_common_gltfs`), reporting
+/// `model_gltf_unsupported` on the file, named by its export path (`pipeline.md` "Common
+/// textures are one task of their export"): the file alone is dropped, as a collar's is, and
+/// the rest of the export compiles without it. A model of the other engine's format of its stem
+/// directly in `Common/` is beaten by it and removed too, with no finding of its own, as a
+/// player folder's beaten model has none: removed rather than left in place, so that neither
+/// the pre-Fox Common models task nor a link resolves to it in the glTF's place (a mapped player
+/// folder linking it was dropped first, `drop_gltf_folders`). Its `.skl` stays, read by
+/// nothing: only a converted FMDL pairs one. A glTF a target-native model of its stem beats is
+/// left in place, read by nothing, with no finding.
+fn drop_common_gltfs(
+    engine: Engine,
+    export_id: ExportId,
+    common: &mut Vec<FileDescriptor>,
+    messages: &mut Vec<Message>,
+) {
+    let dropped: Vec<ScopePath> = selected_common_gltfs(common, engine)
+        .into_iter()
         .map(|file| file.path.clone())
+        .collect();
+    let dropped_stems: BTreeSet<String> = dropped
+        .iter()
+        .map(|path| vtree::fold_name(file_stem(path.name())))
         .collect();
     for path in &dropped {
         messages.push(tool_message(
@@ -1615,7 +1681,16 @@ fn drop_common_gltfs(
             vec![("file", path.as_str().to_owned())],
         ));
     }
-    common.retain(|file| !dropped.contains(&file.path));
+    let other_engine_format = match engine {
+        Engine::Fox => ModelFormat::PesModel,
+        Engine::PreFox => ModelFormat::Fmdl,
+    };
+    common.retain(|file| {
+        let beaten = is_direct_common_file(&file.path)
+            && file.kind == FileKind::Model(other_engine_format)
+            && dropped_stems.contains(&vtree::fold_name(file_stem(file.path.name())));
+        !beaten && !dropped.contains(&file.path)
+    });
 }
 
 /// `kit_variant_model_fox` for each set of per-kit model files (`pants_kit1.fmdl`,
@@ -2266,6 +2341,37 @@ mod tests {
                 ("0 Players/05 - A".to_owned(), &[1, 3][..]),
                 ("0 Common".to_owned(), &[1, 3][..]),
                 ("1 Players/05 - A".to_owned(), &[][..]),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_plainly_linked_boots_folder_with_no_model_gets_no_task() {
+        let export = resolved(
+            "co Midcup Studs",
+            &[
+                ("Players/05 - A/Studs.boots", 0),
+                ("Players/06 - B/Zebra.boots", 0),
+                ("Boots/Studs/studs.dds", 16),
+                ("Boots/Zebra/boots.fmdl", 8),
+            ],
+            &[],
+            None,
+        );
+
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+
+        // Neither a boots nor a textures task for Studs, and Zebra takes the first shared id.
+        assert!(report.messages.is_empty(), "{:?}", report.messages);
+        assert_eq!(
+            summary(&report),
+            [
+                "0 714 Face Players/05 - A [71405] charge 0",
+                "0 714 Face Players/06 - B [71406] charge 0",
+                "0 714 Boots Boots/Zebra [644] charge 8",
             ]
         );
     }
@@ -4458,44 +4564,89 @@ mod tests {
 
     #[test]
     fn a_common_gltf_with_no_model_of_its_stem_is_dropped_the_file_alone_on_either_engine() {
-        // `y.glb` beside a `.model` of its stem and `Z.glb` beside an FMDL of its folded stem
-        // are left as they are, read by nothing.
+        // A glTF directly in `Common/` is selected as a player folder's is: target-native
+        // first, then glTF, then the other engine's format. Slot 05 links `y.model`, slot 06
+        // `z.fmdl`; slot 07 links `y.mtl`, a material link, which no glTF beats, so he stays.
         let files = [
+            ("Players/05 - A/y.model.common", 0),
+            ("Players/06 - B/z.fmdl.common", 0),
+            ("Players/07 - C/y.mtl.common", 0),
             ("Common/x.glb", 1),
             ("Common/y.glb", 1),
             ("Common/y.model", 1),
+            ("Common/y.mtl", 1),
             ("Common/Z.glb", 1),
             ("Common/z.fmdl", 1),
             ("Common/shirt.dds", 1),
         ];
-        for version in [PesVersion::Pes21, PesVersion::Pes17] {
+        // (version, the findings, the files of the pre-Fox Common models task)
+        let cases: [(PesVersion, &[&str], &[&str]); 2] = [
+            // `Z.glb` is beaten by `z.fmdl`, silent; `y.glb` beats `y.model`, which no link
+            // then loads: slot 05 is dropped for the glTF his link's stem selects.
+            (
+                PesVersion::Pes21,
+                &[
+                    "model_gltf_unsupported DropFolder Players/05 - A Common/y.glb",
+                    "model_gltf_unsupported DropFile Common/x.glb Common/x.glb",
+                    "model_gltf_unsupported DropFile Common/y.glb Common/y.glb",
+                ],
+                &[],
+            ),
+            // The mirror: `y.glb` is beaten by `y.model`, packed; `Z.glb` beats `z.fmdl`, which
+            // the task does not convert, and slot 06 is dropped.
+            (
+                PesVersion::Pes17,
+                &[
+                    "model_gltf_unsupported DropFolder Players/06 - B Common/Z.glb",
+                    "model_gltf_unsupported DropFile Common/x.glb Common/x.glb",
+                    "model_gltf_unsupported DropFile Common/Z.glb Common/Z.glb",
+                ],
+                &["Common/y.model", "Common/y.mtl"],
+            ),
+        ];
+        for (version, findings, common_models) in cases {
             let export = resolved("co Midcup Common", &files, &[], None);
             let report = plan_run(
                 vec![to_plan(ExportId(0), export, two_team_colors(), None)],
                 version,
             );
-            let [dropped] = report.messages.as_slice() else {
-                panic!("{version}: {:?}", report.messages);
-            };
-            assert_eq!(dropped.code.code, "model_gltf_unsupported", "{version}");
-            assert_eq!(
-                (dropped.severity, dropped.disposition),
-                (Severity::Error, Disposition::DropFile),
-                "{version}"
-            );
-            assert_eq!(
-                dropped.scope,
-                Scope::File {
-                    export_id: ExportId(0),
-                    path: scope_path("Common/x.glb"),
-                },
-                "{version}"
-            );
-            assert_eq!(
-                dropped.context,
-                [("file".to_owned(), "Common/x.glb".to_owned())],
-                "{version}"
-            );
+            let lines: Vec<String> = report
+                .messages
+                .iter()
+                .map(|message| {
+                    assert_eq!(message.severity, Severity::Error, "{version}");
+                    let path = match &message.scope {
+                        Scope::Folder { path, .. } | Scope::File { path, .. } => path.as_str(),
+                        Scope::Run | Scope::Export { .. } | Scope::RosterEntry { .. } => {
+                            panic!("{version}: {:?}", message.scope)
+                        }
+                    };
+                    let [(key, file)] = message.context.as_slice() else {
+                        panic!("{version}: {:?}", message.context);
+                    };
+                    assert_eq!(key, "file", "{version}");
+                    format!(
+                        "{} {:?} {path} {file}",
+                        message.code.code, message.disposition
+                    )
+                })
+                .collect();
+            assert_eq!(lines, findings, "{version}");
+            let read: Vec<&str> = report
+                .manifest
+                .tasks
+                .iter()
+                .filter_map(|task| {
+                    if let TaskKind::CommonModels { files, .. } = &task.kind {
+                        Some(files)
+                    } else {
+                        None
+                    }
+                })
+                .flatten()
+                .map(|file| file.path.as_str())
+                .collect();
+            assert_eq!(read, common_models, "{version}");
             // The export still compiles its Common textures.
             assert!(
                 report

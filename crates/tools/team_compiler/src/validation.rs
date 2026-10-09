@@ -26,7 +26,7 @@ use crate::bins::{Rgb, TEAM_COLORS};
 use crate::cli::RunInputs;
 use crate::deep;
 use crate::messages::{Code, issue_message, tool_message};
-use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids};
+use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_with_no_model};
 use crate::plan::mapped_players;
 use crate::plan::roles::{
     FolderModels, ModelPackage, PlayerFile, admitted, common_skeleton, file_stem,
@@ -330,6 +330,11 @@ fn check_source(
                     inputs.common.pes_version,
                     source.export_id,
                 ));
+                messages.extend(no_model_messages(
+                    &resolved,
+                    inputs.common.pes_version,
+                    source.export_id,
+                ));
                 let exhausted = pool_messages(&resolved, inputs.common.pes_version, &export);
                 if exhausted.is_empty() {
                     Some(resolved)
@@ -494,6 +499,34 @@ fn pool_messages(
         })
     })
     .collect()
+}
+
+/// `shared_folder_no_model` on each shared boots or gloves folder a mapped player links
+/// plainly that holds no model of its kind for `version`, boots first, naming the first
+/// player folder linking it plainly, in roster order (`player_folders.md` "Assigns IDs
+/// automatically"): planning gives it no ID and no task, and that player wears the game's own.
+/// A shared face, or a folder linked beside the player's own model, is a texture source and
+/// gets nothing.
+fn no_model_messages(
+    resolved: &ResolvedAestheticsExport,
+    version: PesVersion,
+    export_id: ExportId,
+) -> Vec<Message> {
+    [SharedKind::Boots, SharedKind::Gloves]
+        .into_iter()
+        .flat_map(|kind| shared_folders_with_no_model(&resolved.export, version.engine(), kind))
+        .map(|(folder, player)| {
+            tool_message(
+                Code::SharedFolderNoModel,
+                Scope::Folder {
+                    export_id,
+                    path: folder.path.clone(),
+                },
+                Disposition::Keep,
+                vec![("player", player.path.as_str().to_owned())],
+            )
+        })
+        .collect()
 }
 
 /// `fmdl_fcl_hair_fallback` for each Fox model the `fcl_hair` merge takes without being named
@@ -816,34 +849,38 @@ mod tests {
     fn names(export: &ResolvedAestheticsExport, version: PesVersion) -> Vec<String> {
         model_name_messages(export, version, ExportId(2))
             .into_iter()
-            .map(|message| {
-                let location = match &message.scope {
-                    Scope::Folder { export_id, path } => {
-                        assert_eq!(*export_id, ExportId(2));
-                        format!(" at {}", path.as_str())
-                    }
-                    Scope::Export { export_id } => {
-                        assert_eq!(*export_id, ExportId(2));
-                        String::new()
-                    }
-                    Scope::Run | Scope::File { .. } | Scope::RosterEntry { .. } => {
-                        panic!("{:?}", message.scope)
-                    }
-                };
-                let context: Vec<String> = message
-                    .context
-                    .iter()
-                    .map(|(key, value)| format!("{key}={value}"))
-                    .collect();
-                format!(
-                    "{:?} {} [{:?}]{location} ({})",
-                    message.severity,
-                    message.code.code,
-                    message.disposition,
-                    context.join(", ")
-                )
-            })
+            .map(line)
             .collect()
+    }
+
+    /// `message`, a finding on export 2, as one line: severity, code, disposition, folder
+    /// (none for a finding on the export) and context.
+    fn line(message: Message) -> String {
+        let location = match &message.scope {
+            Scope::Folder { export_id, path } => {
+                assert_eq!(*export_id, ExportId(2));
+                format!(" at {}", path.as_str())
+            }
+            Scope::Export { export_id } => {
+                assert_eq!(*export_id, ExportId(2));
+                String::new()
+            }
+            Scope::Run | Scope::File { .. } | Scope::RosterEntry { .. } => {
+                panic!("{:?}", message.scope)
+            }
+        };
+        let context: Vec<String> = message
+            .context
+            .iter()
+            .map(|(key, value)| format!("{key}={value}"))
+            .collect();
+        format!(
+            "{:?} {} [{:?}]{location} ({})",
+            message.severity,
+            message.code.code,
+            message.disposition,
+            context.join(", ")
+        )
     }
 
     #[test]
@@ -1474,6 +1511,48 @@ mod tests {
                 Disposition::DropExport,
                 "18".to_owned()
             )]
+        );
+    }
+
+    #[test]
+    fn a_plainly_linked_boots_folder_with_no_model_is_reported_naming_its_first_linking_player() {
+        // Studs (textures only) is linked plainly by slots 05 and 09; Zebra holds a model and
+        // Glb a glTF, which planning drops it for. Round is a face, a texture source; Combi is
+        // linked beside slot 08's own boots on Fox, a texture source of his boots too.
+        let files = [
+            ("Players/05 - A/Studs.boots", 0),
+            ("Players/06 - B/Zebra.boots", 0),
+            ("Players/07 - C/Round.face", 0),
+            ("Players/07 - C/Glb.gloves", 0),
+            ("Players/08 - D/Combi.boots", 0),
+            ("Players/08 - D/boots.fmdl", 1),
+            ("Players/09 - E/Studs.boots", 0),
+            ("Boots/Studs/studs.dds", 1),
+            ("Boots/Zebra/boots.fmdl", 1),
+            ("Boots/Zebra/boots.model", 1),
+            ("Boots/Combi/combi.dds", 1),
+            ("Gloves/Glb/glove_l.glb", 1),
+            ("Faces/Round/round.dds", 1),
+        ];
+        let export = resolved("co Midcup Studs", &files, &[], None);
+        let lines = |version| -> Vec<String> {
+            no_model_messages(&export, version, ExportId(2))
+                .into_iter()
+                .map(line)
+                .collect()
+        };
+        assert_eq!(
+            lines(PesVersion::Pes21),
+            ["Warning shared_folder_no_model [Keep] at Boots/Studs (player=Players/05 - A)"]
+        );
+        // Pre-Fox, slot 08's link is plain (his boots model is a part of his face), so Combi
+        // is reported too, in the export's folder order.
+        assert_eq!(
+            lines(PesVersion::Pes17),
+            [
+                "Warning shared_folder_no_model [Keep] at Boots/Combi (player=Players/08 - D)",
+                "Warning shared_folder_no_model [Keep] at Boots/Studs (player=Players/05 - A)",
+            ]
         );
     }
 }
