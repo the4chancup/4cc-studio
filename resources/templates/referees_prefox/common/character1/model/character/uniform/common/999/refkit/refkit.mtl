@@ -1,0 +1,189 @@
+<materialset>
+
+    <material name="Boots_Game_mat" shader="Boots">
+        <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/boots_c.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <sampler name="NormalMap" path="model/character/uniform/common/refs/refkit/boots_n.dds" srgb="0" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <sampler name="SpecularMap" path="model/character/uniform/common/refs/refkit/boots_sr.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+
+        <state name="alpharef" value="0" />
+        <state name="blendmode" value="0" />
+        <state name="alphablend" value="0" />
+        <state name="alphatest" value="0" />
+        <state name="twosided" value="0" />
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+    </material>
+
+    <material name="Boots_Game_Alpha_mat" shader="Boots">
+        <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/boots_c.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <sampler name="NormalMap" path="model/character/uniform/common/refs/refkit/boots_n.dds" srgb="0" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <sampler name="SpecularMap" path="model/character/uniform/common/refs/refkit/boots_sr.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+
+        <state name="alpharef" value="0" />
+        <state name="blendmode" value="0" />
+        <state name="alphablend" value="1" />
+        <state name="alphatest" value="0" />
+        <state name="twosided" value="1" />
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="0" />
+    </material>
+
+  <material name="uni_shirts" shader="Shirt_NB">
+
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="1" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+
+    <sampler name="NormalMap" path="model/character/uniform/common/shirts_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="DetailMaterialMap" path="model/character/uniform/common/uni_pattern_mtm01.dds" />
+    <sampler name="DetailNormalMap" path="model/character/uniform/common/uni_pattern_nrm01.dds" />
+
+    <sampler name="SpecularMap" path="model/character/uniform/common/specular.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+
+    <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/texture.dds" srgb="1" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+
+  </material>
+
+
+  <material name="uni_shirts_tight" shader="Shirt_NB">
+
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+
+    <sampler name="NormalMap" path="model/character/uniform/common/shirts_tight_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="DetailMaterialMap" path="model/character/uniform/common/uni_pattern_mtm01.dds" />
+    <sampler name="DetailNormalMap" path="model/character/uniform/common/uni_pattern_nrm01.dds" />
+
+    <sampler name="SpecularMap" path="model/character/uniform/common/specular.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+
+    <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/texture.dds" srgb="1" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+
+  </material>
+
+
+  <material name="uni_collar" shader="Shirt_NB">
+
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+
+    <sampler name="NormalMap" path="model/character/uniform/common/shirts_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="DetailMaterialMap" path="model/character/uniform/common/uni_pattern_mtm01.dds" />
+    <sampler name="DetailNormalMap" path="model/character/uniform/common/uni_pattern_nrm01.dds" />
+
+    <sampler name="SpecularMap" path="model/character/uniform/common/specular.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+
+    <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/texture.dds" srgb="1" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+
+  </material>
+
+
+  <material name="uni_pants" shader="Pants_NB">
+
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+
+    <sampler name="NormalMap" path="model/character/uniform/common/pants_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="DetailMaterialMap" path="model/character/uniform/common/pants_pattern_mtm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="repeat" vaddr="repeat"/>
+    <sampler name="DetailNormalMap" path="model/character/uniform/common/pants_pattern_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="repeat" vaddr="repeat"/>
+
+    <sampler name="SpecularMap" path="model/character/uniform/common/specular.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+
+    <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/texture.dds" srgb="1" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+
+  </material>
+
+
+  <material name="uni_sleeve" shader="Sleeve">
+
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+    <vector name="DepthBias" x="0.0" />
+
+    <sampler name="NormalMap" path="model/character/uniform/common/sleeve_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="DetailMaterialMap" path="model/character/uniform/common/uni_pattern_mtm01.dds" />
+    <sampler name="DetailNormalMap" path="model/character/uniform/common/uni_pattern_nrm01.dds" />
+
+    <sampler name="SpecularMap" path="model/character/uniform/common/specular.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+
+    <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/texture.dds" srgb="1" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+
+  </material>
+
+
+  <material name="uni_sleeve_tight" shader="Sleeve">
+
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+    <vector name="DepthBias" x="0.0" />
+
+    <sampler name="NormalMap" path="model/character/uniform/common/sleeve_tight_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="DetailMaterialMap" path="model/character/uniform/common/uni_pattern_mtm01.dds" />
+    <sampler name="DetailNormalMap" path="model/character/uniform/common/uni_pattern_nrm01.dds" />
+
+    <sampler name="SpecularMap" path="model/character/uniform/common/specular.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+
+    <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/texture.dds" srgb="1" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+
+  </material>
+
+
+  <material name="uni_socks" shader="Uniform">
+
+    <sampler name="NormalMap" path="model/character/uniform/common/socks_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="DetailMaterialMap" path="model/character/uniform/common/socks_pattern_mtm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="repeat" vaddr="repeat"/>
+    <sampler name="DetailNormalMap" path="model/character/uniform/common/socks_pattern_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="repeat" vaddr="repeat"/>
+
+    <sampler name="SpecularMap" path="model/character/uniform/common/specular.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+
+    <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/texture.dds" srgb="1" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+
+  </material>
+
+
+  <material name="skin_limb" shader="Skin_New">
+
+    <sampler name="DiffuseMap" path="model/character/uniform/common/refs/refkit/skin_color.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="clamp" vaddr="clamp" waddr="wrap" maxaniso="2" />
+
+    <sampler name="SpecularMap" path="model/character/body/skin_specular_roughness.dds" srgb="0" minfilter="linear" magfilter="linear" />
+    <sampler name="NormalMap" path="model/character/body/skin_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" />
+
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="1" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="1" />
+    <state name="blendmode" value="0" />
+
+  </material>
+
+</materialset>

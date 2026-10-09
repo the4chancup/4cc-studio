@@ -2292,7 +2292,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `face.xml` entries, `refscpk_prefox` (Red `Engines/templates/refscpk_prefox/`, copied
   lead-first into `resources/templates/referees_prefox/` as 4.19-lead did for Fox), the
   tree chosen by engine in `writer.rs` `finish_referees`. TC-REF-09. Waits on 4.14 (pre-Fox
-  export) and 4.20 (the gate withdrawn for pre-Fox).
+  export) and 4.20 (the gate withdrawn for pre-Fox). Lead-first done 2026-10-09:
+  `resources/templates/referees_prefox/` (Red's `refscpk_prefox`, 51 files, Red at `e12aa01`,
+  byte-identical to Blue's and across three Red versions; provenance section in
+  `resources/templates/README.md`; `.gitattributes` marks the tree `-text`, three `.mtl` files
+  being CRLF, which a plain `git add` had normalized).
 
 - [ ] 4.20 **Withdraw the Phase 3 subset gate**: `plan/subset.rs`'s gate (`first_not_compiled`
   and its walk) and `content_not_yet_compiled` removed (the catalog row reads withdrawn),
@@ -4730,3 +4734,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   decision (a Common-set part's `./skin.dds`), six accepted (material count, TC-OUT-02's inputs,
   a line's form, the glTF rule's reading, which becomes b1's, face files in boots folders, the
   help). Gates 268 proven. Mutants: 78 (62 caught, 16 unviable: type-driven defaults and an && inside a let chain; the first run's two survivors, the Fox Common .mtl filter's && and admitted, caught by R1's tests).
+- **2026-10-09** — 4.19d lead-first: the pre-Fox referee template tree bundled
+  (`resources/templates/referees_prefox/`, 51 files from Red `e12aa01`, byte-identical to
+  Blue's), its provenance in the templates README, the tree marked `-text` in `.gitattributes`
+  (three CRLF `.mtl` files). Nothing reads it yet: 4.19d chooses the tree by engine.

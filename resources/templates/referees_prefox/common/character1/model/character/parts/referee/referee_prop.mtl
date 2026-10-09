@@ -1,0 +1,31 @@
+<materialset> 
+
+  <material name="judge_incom" shader="Constant">
+    <sampler name="DiffuseMap" path="./incom_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+		<state name="alpharef" value="0" />
+		<state name="blendmode" value="0" />
+		<state name="alphablend" value="1" />
+		<state name="alphatest" value="1" />
+		<state name="twosided" value="0" />
+		<state name="ztest" value="1" />
+		<state name="zwrite" value="1" />
+  </material>
+
+  <material name="judge_watch" shader="Basic_CN">
+    <sampler name="DiffuseMap" path="./watch_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	<sampler name="NormalMap" path="./watch_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" />
+  </material>
+  
+  <material name="judge_pen" shader="Basic_CN">
+    <sampler name="DiffuseMap" path="./pen_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	<sampler name="NormalMap" path="./pen_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" />
+  </material>
+  
+  <material name="judge_whistle" shader="Basic_CN">
+    <sampler name="DiffuseMap" path="./whistle_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	<sampler name="NormalMap" path="./whistle_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" />
+  </material>
+	<material name="referee_flag_mat" shader="Basic_C">
+		<sampler name="DiffuseMap" path="model/character/parts/referee/referee_flag.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	</material>
+</materialset> 

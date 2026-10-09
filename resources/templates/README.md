@@ -83,6 +83,44 @@ the same number (`referee_ACL_1.bin` is `referee_CL_1.bin`), as Red ships them. 
 kit textures are one texture, five times. The kit configs are loose files of the referee
 CPK, never entries of the bins CPK's `UniformParameter.bin` (`blue_port.md`).
 
+## `referees_prefox/`
+
+The pre-Fox referee template tree, the `referees_fox/` tree's twin for PES 2015 to 2017: every
+file of it goes into the referee CPK of a pre-Fox compile that compiles a refs export, at the
+path it has below this folder (Team compiler plan, worklog step 4.19d; `blue_port.md` "Referee
+export processing"). An override replaces one file: `templates/referees_prefox/<the same path>`
+in the data directory.
+
+Source: Red's `Engines/templates/refscpk_prefox/`, Red at commit `e12aa01`; the tree came in
+with `99cfb2c` ("Add Fox and Prefox referee cpk templates") and `c2b09d5` (2026-02-22, "Add
+blank socks noguard high model to template"). All 51 files are byte-identical to Blue's
+`lib/templates/refscpk_prefox/`, and identical across Red 4.3.1-dev1, 4.4.0 and `e12aa01`.
+Copied by `.tmp/4_19/copy_refscpk_prefox.py` on 2026-10-09 (not kept: a one-off copy, nothing
+to regenerate).
+
+| Path below `referees_prefox/` | Files | Bytes each | SHA-256 (first 16) |
+|---|---|---|---|
+| `common/character0/model/character/appearance/RefereeAppearance.bin` | 1 | 2,100 | `dc74ee96f87e7f83` |
+| `common/character0/model/character/boots/k0062/boots.{model,mtl}` | 2 | 42,080; 33 | `61c7c4d7cb7fd1fa`; `a6fbb5f3f04e12c8` |
+| `common/character0/model/character/uniform/nocloth/referee_collar_026.model` | 1 | 126,628 | `8ad8278433ebbd34` |
+| `common/character0/model/character/uniform/nocloth/referee_pants_016.model` | 1 | 97,993 | `2b49459a710871a7` |
+| `common/character0/model/character/uniform/team/referee/referee_{ACL,CL,DEF,LB,SDA}_{N}.bin` | 20: ACL 1-5, CL 1-4, DEF 1-5, LB 1-3, SDA 1-3 | 120 | `_1` `3d4209e8f299a770`, `_2` `4065b55a51732e14`, `_3` `99122b7ec76486c5`, `_4` `8072952e7fc91886`, `_5` `24132af110a4f276` |
+| `common/character0/model/character/uniform/texture/referee_{1..5}.dds` | 5, identical | 139,581 | `7898d6397a3168b4` |
+| `common/character1/model/character/parts/referee/incom_bsm.dds` | 1 | 906,819 | `a357e3e8133595cb` |
+| `common/character1/model/character/parts/referee/referee_prop.{model,mtl}` | 2 | 391; 1,506 | `5536a0e74e28e10a`; `b37187a39fd275c3` |
+| `common/character1/model/character/uniform/common/999/refkit/boots_{c,n,sr}.dds` | 3 | 36,230; 111,573; 28,922 | `14f0f3f240e96525`; `61c2735ef40bd0bf`; `ab4fa381cfb6c90c` |
+| `common/character1/model/character/uniform/common/999/refkit/oral_{arm,boots,hand_l,hand_r,pants_sub,pants,refshirt,sleeve,socks,thigh}_win32.model` | 10 | 60,661; 40,509; 112,056; 112,347; 19,398; 333,536; 132,689; 50,160; 58,383; 61,488 | `2faec22d86a5201c`; `33c859ecf557046f`; `ec9502583462885b`; `2e801f896a6104af`; `79cf1e2014ef047d`; `16d1d8364572f57c`; `17bec2adc9e973ff`; `6c286f5ceed632b4`; `293f16dc99a2b86b`; `b2eacc0cb4ee876a` |
+| `common/character1/model/character/uniform/common/999/refkit/refkit.mtl` | 1 | 10,813 | `9f82659b9a8c6d45` |
+| `common/character1/model/character/uniform/common/999/refkit/skin_color.dds` | 1 | 188,035 | `f112fe2c407bd52f` |
+| `common/character1/model/character/uniform/common/999/refkit/texture.dds` | 1 | 139,581 | `7898d6397a3168b4` (the kit texture again) |
+| `common/character1/model/character/uniform/nocloth/socks_noguard{,_high}.model` | 2, identical | 56,939 | `b82da41ec7e638dc` |
+
+As on Fox, the kit configs are five distinct files repeated under every competition's name
+with the same number, and the five kit textures are one texture, five times, which the refkit's
+`texture.dds` repeats once more. The pre-Fox referee marker is the `referee_prop.model` and
+`.mtl` here (worklog step 4.27's pre-Fox half), where the Fox marker is `referee_marker.fmdl`
+above.
+
 ## `referee_marker.fmdl`
 
 The Fox referee marker: the model a Fox compile writes into the referee CPK as collar 77 when
