@@ -1223,8 +1223,9 @@ fn a_model_link_whose_only_mtl_is_a_broken_common_one_drops_its_folder() {
     assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }
 
+// TC-CMN-12
 #[test]
-fn a_common_file_pre_fox_does_not_build_skips_the_export() {
+fn a_common_gltf_is_dropped_and_the_export_compiles() {
     let sandbox = Sandbox::new("prefox_common_glb");
     let export = "co Midcup Card";
     write_slot_05_face(&sandbox, export);
@@ -1237,11 +1238,20 @@ fn a_common_file_pre_fox_does_not_build_skips_the_export() {
         findings_of(&lines, export),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Common/x.glb)",
+            "Info team_colors_missing [Keep] ()",
+            "Error model_gltf_unsupported [DropFile] at Common/x.glb (file=Common/x.glb)",
         ],
         "{lines:#?}"
     );
+    // The Error drops the file alone, and still sets the run's exit code.
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    assert!(
+        face.contains_key(&format!("{}oral_face_high_win32.model", face_folder(5))),
+        "{:#?}",
+        face.keys()
+    );
 }
 
 /// Writes the export `export`: slot 05 with his own face (`write_slot_05_face`) and

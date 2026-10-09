@@ -10,7 +10,7 @@ use aesthetics_export::RefSlot;
 use anyhow::Context;
 use pes_version::{Engine, PesVersion};
 
-use crate::plan::subset::ModelPackage;
+use crate::plan::roles::ModelPackage;
 
 /// The team id the referees' content carries in game paths and FMDL texture paths
 /// (`common/999/Ref A/`, `pipeline.md` "3. Per-model-folder parallel steps", step 6). It is

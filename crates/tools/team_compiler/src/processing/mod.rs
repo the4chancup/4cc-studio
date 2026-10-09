@@ -31,7 +31,7 @@ use crate::bins::KitColorEntry;
 use crate::bins::installed::InstalledPaths;
 use crate::messages::{Code, tool_message};
 use crate::paths;
-use crate::plan::subset::{ModelPackage, texture_format};
+use crate::plan::roles::{ModelPackage, texture_format};
 use crate::plan::{BuildTask, TaskGroup, TaskKind};
 use crate::templates::Templates;
 use conversion::PreFoxMaterials;

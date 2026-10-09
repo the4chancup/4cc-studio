@@ -1129,6 +1129,43 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
     );
 }
 
+// TC-MOD-55
+#[test]
+fn a_shared_face_s_boots_model_is_a_part_of_the_linking_player_s_own_boots() {
+    let sandbox = Sandbox::new("mod_face_link_boots");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    let export = "exports/co Midcup Round";
+    sandbox.write(&format!("{export}/Players/05 - A/Round.face"), b"");
+    for name in ["fcl_hair.fmdl", "boots.fmdl"] {
+        sandbox.write(
+            &format!("{export}/Faces/Round/{name}"),
+            &tracer_player_file(name),
+        );
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Round"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // Slot 05's exclusive id in team 714's block: 101 + (714 - 701) * 40 + 5 - 1.
+    let boots = "Asset/model/character/boots/k0625/#Win/boots.fpk";
+    assert_eq!(package_names(&entries[boots]), ["boots.fmdl", "boots.skl"]);
+    assert_eq!(boots_mesh_count(&entries, boots), tracer_boots_mesh_count());
+    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 625)]);
+}
+
 // TC-MOD-04
 #[test]
 fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_the_boots() {

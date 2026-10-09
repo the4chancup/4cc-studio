@@ -15,7 +15,7 @@ use studio_core::Disposition;
 use super::{Entry, Finding, TaskFailure, TaskFiles, take, texture};
 use crate::messages::Code;
 use crate::paths;
-use crate::plan::subset::texture_format;
+use crate::plan::roles::texture_format;
 
 /// The largest logo the main file feeds, and so the side under which it is upscaled.
 const MAIN_LARGEST: u32 = 512;

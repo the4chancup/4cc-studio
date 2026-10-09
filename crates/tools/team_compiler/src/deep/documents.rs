@@ -21,7 +21,7 @@ use vtree::ScopePath;
 use super::{read, relative};
 use crate::face_diff;
 use crate::messages::Code;
-use crate::plan::subset::{FolderModels, PlayerFile, player_file};
+use crate::plan::roles::{FolderModels, PlayerFile, player_file};
 use crate::reader::ContentSource;
 
 /// The form a folder gives its face diff in.

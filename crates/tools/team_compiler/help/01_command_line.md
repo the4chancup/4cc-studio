@@ -262,16 +262,17 @@ no `kit` texture, an empty one included, is built with a magenta and black check
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. A
 kit's `config.toml` that cannot be read (not UTF-8 text, a value of the wrong type or out of
 range) is reported by both commands as `kit_config_invalid`, naming the error, and the kit is
-left out, even with `pass_through` on. `compile`
-skips any other export with the error `content_not_yet_compiled`, naming the first thing it
-cannot build yet. For PES 2015 to 2017 it builds a player folder's own `.model` files with
+left out, even with `pass_through` on. For PES
+2015 to 2017 `compile` builds a player folder's own `.model` files with
 their `.mtl` files, textures and face diff, its `.common` links to a `.model`, an `.fmdl`, a
-`.mtl` or a texture, the linked shared `Faces`, `Boots` and `Gloves` folders, a `Common` folder
-holding only `.model`, `.mtl`, `.fmdl` (converted, with its `.skl`) and texture files, the
+`.mtl` or a texture, the linked shared `Faces`, `Boots` and `Gloves` folders, the `.model`,
+`.mtl`, `.fmdl` (converted, with its `.skl`) and texture files of the `Common` folder, the
 kits, its `.model` and `.fmdl` collars, and the
 portraits and the logo, and a player's `.fmdl` models (with `ingame_face`, the `.fmdl` parts
 of his own boots and gloves), and a linked shared `Faces`, `Boots` or `Gloves` folder's,
-converted to `.model` files with their materials; referee exports are named. A `.fmdl` beside
+converted to `.model` files with their materials. A file in a model folder that no package
+reads (a model in `gloves/` naming no hand, a skeleton pairing no model, a link to a file of
+a kind nothing reads) is left out and reported as the warning `file_not_used`. A `.fmdl` beside
 a `.model`
 of the same name is left out for the `.model`, the `.skl` of a converted model's name gives
 its pose, and `fcl_hair_sim.fclo` is not used. A converted model moved onto that version's skeleton is noted
@@ -344,8 +345,10 @@ the same. A `.fmdl` collar compiled for PES 2015 to 2017 is converted to a `.mod
 materials named `uni_collar` (the first) and `uni_shirts` (the rest) as the game's own collars'
 are, so the game dresses it with the team's kit as it does them; no `.mtl` is written for it.
 One that cannot be converted is the error `model_conversion_failed`, and the collar file is
-left out. A `.model` collar for PES 2018 to 2021 is not converted yet: an export holding one
-is skipped with `content_not_yet_compiled`. A `.glb` or `.gltf` collar is not read yet:
+left out. A `.model` collar for PES 2018 to 2021 cannot be converted yet (its materials are
+the game's own `uniform.mtl`, which the export does not carry), so `compile` leaves it out with
+the error `model_conversion_failed` and the kits keep their configs' collars. A `.glb` or
+`.gltf` collar is not read yet:
 `compile` leaves it out with the error `model_gltf_unsupported`, and the rest of the export
 goes on.
 

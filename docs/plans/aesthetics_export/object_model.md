@@ -174,8 +174,10 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   deep pass's and processing's concern, not the allowlist's (Red's per-engine lists predate
   conversion). With `strict_file_type_check` off, `file_type_disallowed` and
   `common_file_disallowed` keep their item (`Keep`, which the consumer shows as Info) and the file
-  stays in the folder's files, to be packed as it is; a kit emits only its named textures, so a
-  kept kit simply does not use it.
+  stays in the folder's files; a task reads only the files its roles name, so a kept file no
+  role takes is not emitted (a kit emits only its named textures; the Common tasks only the
+  files directly in `Common/`; a `.common` link in a shared folder resolves nothing, links being
+  a player folder's), and that finding is the one line the member sees for it.
 - **OS artifacts.** `Thumbs.db`, `desktop.ini` and `.DS_Store` (any case, at any depth) are
   written by file browsers, never by authors: `parse_listing` leaves them out of the draft and
   reports nothing. On 2026-10-01 the maintainer's team exports held 209 `Thumbs.db` and 16

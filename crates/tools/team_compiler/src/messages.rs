@@ -88,8 +88,6 @@ pub(crate) enum Code {
     /// A logo source whose side the mode maps onto the target is under its largest target
     /// (512 pixels for the main file, 128 for the small one): it is emitted upscaled.
     LogoUpscaled,
-    /// Phase 3 only: the export holds content `compile` cannot build yet; it is skipped.
-    ContentNotYetCompiled,
     /// More shared boots folders take an id than the team's block has; the export is skipped.
     BootsIdPoolExhausted,
     /// More shared gloves folders take an id than the team's block has; the export is skipped.
@@ -129,6 +127,11 @@ pub(crate) enum Code {
     /// face model (with or without `ingame_face`): there is no face for it to shape, so the
     /// file is not read.
     FaceFileNotUsed,
+    /// A file a model folder admits that no package reads, planning giving it no role (a
+    /// `gloves/` model naming no hand, a `.skl` pairing no model, a `.common` link to a kind
+    /// no role takes), a `Common/` file of a kind no task reads, or a refs export's kit,
+    /// logo, portrait or collar: the file is not read.
+    FileNotUsed,
     /// A model folder's texture variant set (`pants_kit1`, `pants_kit3`) has no variant for
     /// a kit number the export defines: the lowest variant is copied into the gap.
     KitVariantMissing,
@@ -441,7 +444,6 @@ impl Code {
         Code::CollarIdConflict,
         Code::LogoFitApplied,
         Code::LogoUpscaled,
-        Code::ContentNotYetCompiled,
         Code::BootsIdPoolExhausted,
         Code::GlovesIdPoolExhausted,
         Code::PortraitConflict,
@@ -456,6 +458,7 @@ impl Code {
         Code::SklMergeConflict,
         Code::SklNoSlot,
         Code::FaceFileNotUsed,
+        Code::FileNotUsed,
         Code::KitVariantMissing,
         Code::KitVariantModelFox,
         Code::KitVariantMtlDiffers,
@@ -575,7 +578,6 @@ impl Code {
             Code::CollarIdConflict => "collar_id_conflict",
             Code::LogoFitApplied => "logo_fit_applied",
             Code::LogoUpscaled => "logo_upscaled",
-            Code::ContentNotYetCompiled => "content_not_yet_compiled",
             Code::BootsIdPoolExhausted => "boots_id_pool_exhausted",
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
             Code::PortraitConflict => "portrait_conflict",
@@ -590,6 +592,7 @@ impl Code {
             Code::SklMergeConflict => "skl_merge_conflict",
             Code::SklNoSlot => "skl_no_slot",
             Code::FaceFileNotUsed => "face_file_not_used",
+            Code::FileNotUsed => "file_not_used",
             Code::KitVariantMissing => "kit_variant_missing",
             Code::KitVariantModelFox => "kit_variant_model_fox",
             Code::KitVariantMtlDiffers => "kit_variant_mtl_differs",
@@ -729,7 +732,6 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("collar_id_conflict", CatalogSeverity::Error),
     ("logo_fit_applied", CatalogSeverity::Info),
     ("logo_upscaled", CatalogSeverity::Warning),
-    ("content_not_yet_compiled", CatalogSeverity::Error),
     ("boots_id_pool_exhausted", CatalogSeverity::Error),
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),
     ("portrait_conflict", CatalogSeverity::Error),
@@ -744,6 +746,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("skl_merge_conflict", CatalogSeverity::Error),
     ("skl_no_slot", CatalogSeverity::Warning),
     ("face_file_not_used", CatalogSeverity::Info),
+    ("file_not_used", CatalogSeverity::Warning),
     ("kit_variant_missing", CatalogSeverity::Warning),
     ("kit_variant_model_fox", CatalogSeverity::Warning),
     ("kit_variant_mtl_differs", CatalogSeverity::Warning),

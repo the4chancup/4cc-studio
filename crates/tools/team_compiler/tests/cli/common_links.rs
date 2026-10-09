@@ -1,7 +1,8 @@
 //! `compile` over `.common` links on Fox: a model link's Common model baked into the player's
 //! package as a part, its skeleton with it, its textures left in the team's Common output, where
 //! every texture directly in `Common/` goes once for the team; a texture link pointing the
-//! player's own models at that output; and what the gate still refuses around them.
+//! player's own models at that output; and what a lenient file-type check keeps around them,
+//! which nothing reads.
 
 use std::collections::BTreeMap;
 
@@ -9,7 +10,7 @@ use fmdl::ops::paths::texture_paths;
 use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, pes21_settings, tracer_player_file};
+use crate::compile::{compiled_players, cpk_entries, pes21_settings, tracer_player_file};
 use crate::findings_of;
 use crate::models::{body_skl, face_package, package_names};
 use crate::prefox_faces::{card_materials, card_model, materials_naming, small_dds};
@@ -749,64 +750,186 @@ fn a_texture_link_whose_target_is_not_in_common_drops_its_folder() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-MOD-54
 #[test]
-fn a_link_to_a_material_file_or_a_nested_common_file_is_refused_and_an_unlinked_common_model_is_not()
- {
-    // A `.common` link to a material file names the export's first thing `compile` cannot
-    // build.
-    let material_link = Sandbox::new("cmn_material_link");
-    let export = "exports/co Midcup Hair";
-    material_link.write(
-        &format!("{export}/Players/05 - A/face_high.fmdl"),
-        &tracer_player_file("fcl_hair.fmdl"),
-    );
-    material_link.write(&format!("{export}/Players/05 - A/body.mtl.common"), b"");
-    // A real material set, so the deep pass keeps it and the link reaches the gate.
-    let mtl = std::fs::read(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../libs/pes_model/tests/fixtures/konami_shadow.mtl"),
-    )
-    .unwrap();
-    material_link.write(&format!("{export}/Common/body.mtl"), &mtl);
-    let run = material_link.run(&pes21_settings(&material_link), &["compile", "--no-deploy"]);
-    assert_eq!(
-        findings_of(&run.messages(), "co Midcup Hair"),
-        [
-            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
-            "Info mtl_state_missing [Keep] at Common/body.mtl (file=body.mtl, count=7)",
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/05 - A/body.mtl.common)"
-        ]
-    );
-    assert_eq!(run.exit_code(), 1);
+fn a_fox_model_whose_mtl_is_a_common_file_converts_with_it() {
+    let sandbox = Sandbox::new("cmn_fox_mtl_link");
+    let export = "exports/co Midcup Body";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/body.model"), &card_model());
+    sandbox.write(&format!("{player}/body.mtl.common"), b"");
+    sandbox.write(&format!("{export}/Common/body.mtl"), &card_materials());
+    sandbox.write(&format!("{export}/Common/skin.dds"), &small_dds());
 
-    // A file under a subfolder of `Common/`, kept by the non-strict file-type check, is named.
-    let nested = Sandbox::new("cmn_nested");
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Body"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=body.model)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    // The converted model's materials, each its name and shader, read back with `fmdl`.
+    let materials = |sandbox: &Sandbox| -> Vec<(String, String)> {
+        let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+        let face = face_package(&entries);
+        let fmdl = face.get("fcl_hair.fmdl").unwrap();
+        // The set's one sampler, naming `./skin.dds`, made it into the converted model.
+        assert!(!texture_directories(fmdl, "skin.dds").is_empty());
+        Model::from_file(&FmdlFile::read(fmdl).unwrap())
+            .unwrap()
+            .materials
+            .into_iter()
+            .map(|material| (material.name, material.shader))
+            .collect()
+    };
+    let linked = materials(&sandbox);
+    let set = MaterialSet::read(&card_materials()).unwrap();
+    assert!(!set.materials.is_empty());
+    for material in &set.materials {
+        assert!(
+            linked.iter().any(|(name, _)| *name == material.name),
+            "{linked:?}"
+        );
+    }
+    // The same as the set gives the model as a local `.mtl` of its folder.
+    let local = Sandbox::new("cmn_fox_mtl_local");
+    local.write(&format!("{player}/body.model"), &card_model());
+    local.write(&format!("{player}/body.mtl"), &card_materials());
+    local.write(&format!("{player}/skin.dds"), &small_dds());
+    let run = local.run(&pes21_settings(&local), &["compile", "--no-deploy"]);
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    assert_eq!(linked, materials(&local));
+}
+
+// TC-CMN-13
+#[test]
+fn a_texture_below_a_common_subfolder_is_kept_by_the_lenient_check_and_not_emitted() {
+    let sandbox = Sandbox::new("cmn_nested");
     let export = "exports/co Midcup Nested";
-    nested.write(
+    sandbox.write(
         &format!("{export}/Players/05 - A/face_high.fmdl"),
         &tracer_player_file("fcl_hair.fmdl"),
     );
-    nested.write(
+    sandbox.write(
         &format!("{export}/Common/sub/x.dds"),
         &tracer_player_file("shirt.dds"),
     );
     let settings = format!(
         "{}[team-compiler]\nstrict_file_type_check = false\n",
-        pes21_settings(&nested)
+        pes21_settings(&sandbox)
     );
-    let run = nested.run(&settings, &["compile", "--no-deploy"]);
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
     assert_eq!(
-        findings_of(&run.messages(), "co Midcup Nested"),
+        findings_of(&lines, "co Midcup Nested"),
         [
             "Info common_file_disallowed [Keep] at Common/sub/x.dds ()",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Common/sub/x.dds)"
-        ]
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        entries
+            .keys()
+            .all(|path| !path.starts_with(&format!("{COMMON_TEXTURES}/x."))),
+        "{:#?}",
+        entries.keys()
+    );
+    assert!(entries.contains_key(FACE_05), "{:#?}", entries.keys());
+}
 
+#[test]
+fn a_shared_folder_s_common_link_is_disallowed_and_read_by_nothing() {
+    let sandbox = Sandbox::new("cmn_shared_link");
+    let export = "exports/co Midcup Crocs";
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(&format!("{export}/Boots/Crocs/legs.fmdl.common"), b"");
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes21_settings(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Crocs"),
+        [
+            "Info file_type_disallowed [Keep] at Boots/Crocs (file=legs.fmdl.common)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // The shared boots compile on their own, under the team's first shared id.
+    let shared_boots = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    assert_eq!(
+        package_names(&entries[shared_boots]),
+        ["boots.fmdl", "boots.skl"]
+    );
+    assert_no_common_path(&entries);
+}
+
+#[test]
+fn a_shared_folder_s_mtl_link_gives_its_model_no_material_set() {
+    // The deep pass's `.mtl` search resolves no link of a shared folder, as the boots task's
+    // does not: the `.model` has every material undefined, and the folder is dropped.
+    let sandbox = Sandbox::new("cmn_shared_mtl_link");
+    let export = "exports/co Midcup Crocs";
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    sandbox.write(
+        &format!("{export}/Players/07 - B/face_high.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(&format!("{export}/Boots/Crocs/boots.model"), &card_model());
+    sandbox.write(&format!("{export}/Boots/Crocs/boots.mtl.common"), b"");
+    sandbox.write(&format!("{export}/Common/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{export}/Common/skin.dds"), &small_dds());
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes21_settings(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Crocs"),
+        [
+            "Info file_type_disallowed [Keep] at Boots/Crocs (file=boots.mtl.common)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=face_high.fmdl, count=1662)",
+            "Error model_material_undefined [DropFolder] at Boots/Crocs (file=boots.model)",
+            "Error link_target_dropped [DropFolder] at Players/05 - A (link=Crocs.boots, target=Boots/Crocs, finding=model_material_undefined)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    assert_eq!(compiled_players(&sandbox), [71407]);
+}
+
+#[test]
+fn an_unlinked_common_model_builds_nothing() {
     // A Common model no link names is accepted and builds nothing.
     let unlinked = Sandbox::new("cmn_unlinked");
     let export = "exports/co Midcup Spare";

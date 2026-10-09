@@ -5458,3 +5458,153 @@ text would be false. A Common `.model` with no `.mtl` in `Common/` stays packed 
 links it), the one case left where a `.model` is not pre-checked.
 Plan: `model_conversion/hand_split.md` "Pipeline integration"; `team_compiler/pipeline.md` step
 3 "Format conversion" (the Common `.model` sentence).
+
+## 2026-10-09 — team_compiler — The subset gate goes; a file no package reads is `file_not_used`
+Decision: step 4.20 removes the Phase 3 subset gate (`plan/subset.rs` `first_not_compiled` and
+its walk) and `content_not_yet_compiled`; every export of either engine reaches processing. A
+file a model folder admits that planning gives no role (`player_file` → none) is not read and
+is reported `file_not_used`, a Warning, by validation (`validation.rs`, the role pass, extended
+from mapped player and `Faces/` folders to every shared folder, to `Common/`'s dead kinds and
+to a refs export's kits, logo, portraits and collars). Silent, as before: a beaten model and
+the other engine's companions, a left-out kit variant, a Fox `face.xml`, a Common model, `.mtl`
+or `.skl` nothing takes, and a file the structure pass already named. The role helpers stay as
+`plan/roles.rs`.
+Why: processing already reads only the files a role names (`ModelFolder::roles` skips a
+role-less file; every task's files come from it), so with the gate gone a role-less file is
+simply never read; the gate's one service was telling the member, and a Warning keeps that
+service without skipping the export. A member who put `gloves/keeper.fmdl` or a `.skl` in a
+folder meant something to wear it, so a Warning, where the face-file case is an Info. One code
+for every such file, rather than one per kind, because the rule is one: nothing reads it. The
+refs export's kits, logo, portraits and collars were kept out by planning with no finding; the
+same code tells why. Measured by the 4.20 reconnaissance (`.tmp/4_20/recon_4_20.md`): each
+gate class mapped to what validation, planning and processing do without it.
+Plan: `team_compiler/README.md` "Phase 3 scope", TC-OUT-06 withdrawn, TC-MOD-53, TC-REF-11;
+`team_compiler/pipeline.md` "2. Per-export serial steps" (the face-file paragraph);
+`team_compiler/messages.md` `file_not_used`, `content_not_yet_compiled`.
+
+## 2026-10-09 — team_compiler — A `.model` collar on PES 18-21 is `model_conversion_failed` at planning
+Decision: planning reports a `.model` collar compiled for PES 18-21 as `model_conversion_failed`
+(`DropFile`, `error` naming the game's `uniform.mtl` the export does not carry), claims no
+collar for it and makes no task; the team's kits keep their configs' collars.
+Why: the gate named it, and without the gate planning skipped it silently (`export_collar`'s
+`continue`). Its outcome is exactly a failed collar conversion's (the file left out, the kits
+wearing the game's own collar of the ID), and so is the member's fix (a collar in the target's
+format), so the existing code and disposition fit and a new code would distinguish nothing a
+member acts on differently. The reason stays open in `QUESTIONS.md` "Converted collars" (b).
+Plan: `team_compiler/pipeline.md` "Collars"; `team_compiler/messages.md`
+`model_conversion_failed`; `team_compiler/README.md` TC-CMN-11.
+
+## 2026-10-09 — team_compiler — A shared boots or gloves folder with no model takes no ID
+Decision: a shared `Boots/` or `Gloves/` folder a mapped player links plainly but which holds
+no model of its kind takes no shared ID and gets no task; validation reports
+`shared_folder_no_model` (Warning, `Keep`, context the first player linking it plainly), and
+that player wears the game's own (his row removed on a `Full` export, as a player with no
+custom boots). A `Faces/` folder with no model, or a boots or gloves folder linked beside the
+player's own model, is a texture source as any combined folder is, with no finding.
+Why: the gate refused the export; without it the folder took an ID (shifting the IDs of the
+folders sorted after it), its textures were converted and then discarded because no package
+committed, and nothing told the member. Taking no ID is what a folder with nothing to load
+should do, and a Warning rather than an Error (the `fmdl_name_invalid` analogy) because the
+export compiles correctly without it: the player simply has no custom boots.
+Plan: `aesthetics_export/player_folders.md` "Assigns IDs automatically";
+`team_compiler/messages.md` `shared_folder_no_model`; `team_compiler/README.md` TC-MOD-57.
+
+## 2026-10-09 — team_compiler — A `Faces/` folder's boots or glove model is a part of each linking player's own package on Fox
+Decision: on PES 18-21 a shared `Faces/` folder's boots- or glove-named model (any name is
+allowed there) is a part of each linking player's own boots or gloves package under his
+exclusive ID, as his own model of that name would be; his row names that package.
+Why: the gate named it as another package's model in a face folder; without the gate the
+combining rule already produces this (`folder_tasks` picks parts by `is_part_of` over every
+source, and `export_rows` prefers the player's own task), and it is what combining means: the
+face link copies the shared folder's files in under the player's own roles. Pre-Fox face
+folders carry boots and gloves parts as a matter of course, so a member's shared face holding
+them is a real case, not a hand-built one.
+Plan: `aesthetics_export/player_folders.md` "Shared folders" (the Fox bullet);
+`team_compiler/README.md` TC-MOD-55.
+
+## 2026-10-09 — team_compiler — Per-kit model variants where no `face.xml` names the set are left out on PES 15-17 too
+Decision: on PES 15-17, in a shared `Boots/` or `Gloves/` folder's own output and under
+`ingame_face`, the lowest variant of a per-kit model set is used and the others are left out,
+as on Fox; the finding is renamed from `kit_variant_model_fox` to `kit_variant_model_left_out`
+and reported there too. A `.common` link to a per-kit variant has no role on PES 15-17
+(`file_not_used`). A set in a player's face, its reserved subfolders or a linked `Faces/`
+folder is still listed once through its `face.xml` entry (4.14e4).
+Why: the gate named these; without it the shared boots writer merged every variant into the
+one `boots.model` and the gloves writer listed every variant in `glove.xml`, so every variant
+was worn at once, and under the marker no variant was used at all (`pre_fox_part` gave none a
+role). Fox already has the rule for an output with no model-path indirection, and these three
+pre-Fox outputs have none either, so one rule and one code; the name said "Fox" when the
+condition is "no `face.xml` names the set". The link case waits on the Common models task
+listing a set, and a Warning that the link did nothing is what a member needs meanwhile.
+Plan: `team_compiler/pipeline.md` "Kit-dependent assets" (both passages);
+`team_compiler/messages.md` `kit_variant_model_left_out`; `team_compiler/README.md` TC-MOD-56.
+
+## 2026-10-09 — team_compiler — A shared `Faces/` folder's `face.xml` is ignored on PES 15-17 with `xml_ignored_shared`
+Decision: on PES 15-17 a `Faces/` folder's own `face.xml` is ignored with the Info
+`xml_ignored_shared`, as a member's own is on Fox: the deep pass does not check it and pairs
+every model of the folder as it does without an xml, and each linking player's face lists the
+folder's models by the normal route. Whether the shared xml should rule every player combining
+the face is a maintainer question (`QUESTIONS.md`).
+Why: the gate named it as unsupported; without the gate the face task already ignored it
+(`prefox_face::face` has no arm reading a shared xml) while the deep pass checked it and paired
+only the models it listed, so a `.model` the xml did not list reached the face task with no
+`.mtl` paired and met an `expect`. Ignoring it on both sides, with a finding, is the smallest
+consistent state until the question is answered; reading it as the member's own would decide
+the question by default.
+Plan: `team_compiler/messages.md` "User-supplied `face.xml`" and `xml_ignored_shared`;
+`team_compiler/README.md` TC-XML-10; `QUESTIONS.md` "A shared face folder's `face.xml`".
+
+## 2026-10-09 — team_compiler — The Common tasks read direct files only; a Common glTF is dropped; a shared folder's link has no role
+Decision: three rulings for files only a lenient file-type check lets through, and one glTF
+case. (1) The Common textures task and the pre-Fox Common models task read the files directly
+in `Common/` alone; a file below a subfolder is not emitted. (2) A `.common` link in a shared
+folder has no role on either engine (`FolderModels` knows a shared folder from a player's), so
+planning neither resolves nor reads it. (3) A glTF directly in `Common/` with no native model
+of its stem beside it is dropped at planning with `model_gltf_unsupported`, the file alone, as
+a collar's is. Also, from the plan rather than new: a Fox player's `.mtl.common` link gives his
+`.model` its material set (`PlayerFile::CommonMaterial` on Fox too; the Models task reads the
+Common `.mtl` the link names, as the pre-Fox face has since 4.17g3b).
+Why: (1) the lenient-kept subfolder texture was written flattened into the flat Common output,
+and a stem clash with a direct file lost the CPK; the `common_file_disallowed` Info already
+tells the member. (2) a shared folder's link met planning's `expect` that every `.common` model
+link resolves (validation resolves links of player folders alone), a panic; the file already
+carries its `file_type_disallowed` line. (3) the gate named a Common glTF; the glTF refusal is
+the one refusal Phase 4 keeps, and a file-level drop is what `Collars/` does with one. The
+`.mtl.common` case was a panic under default settings once the gate stopped naming the link:
+`player_folders.md` says the link pulls `Common/body.mtl` into the folder's material
+resolution, and the deep pass already checked it that way.
+Plan: `team_compiler/pipeline.md` "Common textures are one task of their export";
+`aesthetics_export/object_model.md` (the lenient-check sentence); `team_compiler/messages.md`
+`model_gltf_unsupported`; `team_compiler/README.md` TC-MOD-54, TC-CMN-12, TC-CMN-13.
+
+## 2026-10-09 — team_compiler — `kit_texture_not_used` covers a `kit_*` stem the compiler does not build
+Decision: planning drops from each kit's effective set every texture the target does not emit,
+the other engine's map as before and a `kit_*` stem outside the seven the compiler builds
+(`kit_spec.dds`), reporting `kit_texture_not_used` once each; the kit task never reads it.
+Why: `kit_texture_name_invalid` lets any `kit*` stem through, the gate named the rest, and
+without the gate the kit task read and charged the file and never wrote it, with no finding.
+The existing code's meaning is "not emitted", which this is; the planning drop is where the
+map's already happens.
+Plan: `team_compiler/pipeline.md` "4. Per-export non-model steps" (Kits: mask and srm);
+`team_compiler/messages.md` `kit_texture_not_used`; `team_compiler/README.md` TC-KIT-30.
+
+## 2026-10-09 — team_compiler — A Common glTF is selected as a player folder's; a Common-set part names Common's textures
+Decision: (1) a glTF directly in `Common/` follows the model source selection order: dropped
+with `model_gltf_unsupported` when no model of the target's format of its stem is beside it, a
+model of the other engine's format of that stem then beaten by it (read by nothing), and silent
+when a target-native model beats it. (2) On PES 18-21 a player's `.model` whose `.mtl` is a
+Common file has each texture stem pointed at the folder's texture home when the folder holds
+it, else at the team's Common output when `Common/` holds it.
+Why: (1) 4.20a's first cut dropped a Common glTF only when no `.model` or FMDL of its stem was
+beside it, so on PES 15-17 a `Common/z.glb` beside `z.fmdl` converted the FMDL where a player
+folder's glTF would beat it; one selection rule for every model folder, `Common/` included,
+or a member sees a stem behave differently by folder. (2) The 4.20a sidekick found the
+converted FMDL of TC-MOD-54's case naming `./skin.dds` when `skin.dds` sat in `Common/`: the
+deep pass counted the Common `.mtl`'s texture as supplied (it checks a Common set against
+`Common/`), while the Models task pointed only the folder's own stems and a texture link's, so
+the game would not find the texture, with no finding. A set that is a Common file names
+Common's textures; that is what the link means (`player_folders.md`, the material definition
+files), and the pre-Fox face already resolves such a set there.
+Plan: `team_compiler/pipeline.md` "Common textures are one task of their export";
+`team_compiler/messages.md` `model_gltf_unsupported`; `team_compiler/README.md` TC-MOD-54 (the
+texture directory asserted at 4.20b1).

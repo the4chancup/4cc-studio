@@ -46,7 +46,7 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::ModelFolder;
-use crate::plan::subset::{ModelPackage, PlayerFile, file_stem, is_direct_common_file, path_stem};
+use crate::plan::roles::{ModelPackage, PlayerFile, file_stem, is_direct_common_file, path_stem};
 
 /// What the deep pass guarantees of every `.model` a task reads on pre-Fox.
 const MTL_FOUND: &str = "the deep pass drops a folder holding a `.model` no `.mtl` is found for \
@@ -203,9 +203,10 @@ pub(super) fn package(
                 // (`ModelFolder::roles`).
                 PlayerFile::Material | PlayerFile::CommonMaterial => {}
                 // A model of another package, and the roles planning gives none of the
-                // package's files: the subset gate names a shared boots or gloves folder's
-                // other files (`pre_fox_shared_not_compiled`), and a marked player's model
-                // link is a part (`PlayerFile::PreFoxPart`), not listed by reference.
+                // package's files: the other roles are no package's here and are not
+                // read (validation reports a file with no role as `file_not_used`), and a
+                // marked player's model link is a part (`PlayerFile::PreFoxPart`), not
+                // listed by reference.
                 PlayerFile::PreFoxModel { .. }
                 | PlayerFile::PreFoxPart { .. }
                 | PlayerFile::Model { .. }
@@ -220,8 +221,9 @@ pub(super) fn package(
                 | PlayerFile::FaceXml => {}
                 // Read with the FMDL it is the bind pose of (`SourceModel::skeleton`).
                 PlayerFile::ConversionSkeleton => {}
-                // Planning drops a player folder holding one, and the subset gate refuses a
-                // shared folder's, so no task meets it.
+                // Planning drops a player folder holding one, and `drop_gltf_folders` removes a
+                // shared folder whose selected model is one before any task is made, so no
+                // task meets it.
                 PlayerFile::UnsupportedGltf => {}
             }
         }

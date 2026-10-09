@@ -10,6 +10,14 @@ names where the question came from so the context can be read there.
 
 ## Blocking a plan ruling
 
+### A shared face folder's `face.xml`
+From: step 4.20 (DECISIONS 2026-10-09). A `Faces/` folder's own `face.xml` is ignored on PES
+15-17 with `xml_ignored_shared`, each linking player's face listing the folder's models by the
+normal route, as a member's own xml is ignored on Fox. Should the shared xml rule every player
+combining the face, and what would his own files add to it (entries appended, or his models
+replacing the entries of their names)? A plan ruling; then the face task reads it as the
+member's own and the deep pass checks it as one.
+
 ### FoxDen per-kit models
 From: step 4.11c, maintainer's note of 2026-10-05. The plan assumes a tag-less `modelname`
 fills every kit number up to the team's kit count that has no `modelname_kit<N>`, once any
@@ -31,7 +39,8 @@ From: step 4.17 (slice e's ruling, DECISIONS 2026-10-08 "Collars across engines"
 (a) is a converted collar drawn right with its first material as `uni_collar` and the rest as
 `uni_shirts`? The stock referee collar uses `uni_shirts` alone. An in-game check. (b) Which
 version's stock `uniform.mtl` should the templates ship, so a `.model` collar can convert for
-PES 18-21? Until then the gate names a `.model` collar on Fox.
+PES 18-21? Until then a `.model` collar on Fox is left out at planning with
+`model_conversion_failed`.
 
 ### `dummy_kit` on the modded PES 15-17 exes
 From: step 4.17a. Do the modded exes substitute `dummy_kit` at

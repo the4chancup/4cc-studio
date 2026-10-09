@@ -22,7 +22,7 @@ use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::face_xml::packed_model_name;
 use crate::mtl_search::mtl_for;
 use crate::paths;
-use crate::plan::subset::{common_skeleton, file_stem};
+use crate::plan::roles::{common_skeleton, file_stem};
 
 /// The Common output's entries for `common`, the files of the export's `Common/` folder at
 /// `folder` that planning lists (`TaskKind::CommonModels`), compiled from their bytes in

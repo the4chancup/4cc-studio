@@ -28,7 +28,7 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::ModelFolder;
-use crate::plan::subset::{ModelPackage, PlayerFile, file_stem, skeleton_slot};
+use crate::plan::roles::{ModelPackage, PlayerFile, file_stem, skeleton_slot};
 use crate::user_face_xml::{Reference, reference};
 
 /// One model of the package: a part of the output model its allowed name names, from the
@@ -224,15 +224,18 @@ pub(super) fn package(
                 PlayerFile::Material => {}
                 // Read before the models, above.
                 PlayerFile::Skeleton { .. } => {}
+                // The search resolves a material link where it finds it (`mtl_for`), and
+                // the task reads the Common `.mtl` it names (`TaskKind::files`).
+                PlayerFile::CommonMaterial => {}
                 // Pre-Fox roles: a Fox target gives no file one.
                 PlayerFile::PreFoxModel { .. }
                 | PlayerFile::PreFoxPart { .. }
                 | PlayerFile::PreFoxCommonModel { .. }
-                | PlayerFile::CommonMaterial
                 | PlayerFile::FaceXml
                 | PlayerFile::ConversionSkeleton => {}
-                // Planning drops a player folder holding one, and the subset gate refuses a
-                // shared folder's, so no task meets it.
+                // Planning drops a player folder holding one, and `drop_gltf_folders` removes a
+                // shared folder whose selected model is one before any task is made, so no
+                // task meets it.
                 PlayerFile::UnsupportedGltf => {}
             }
         }

@@ -12,7 +12,7 @@ use pes_version::Engine;
 use teams_list::TeamId;
 
 use super::mapped_players;
-use super::subset::link_feeds_own_package;
+use super::roles::link_feeds_own_package;
 
 /// The first ID of the first team's block: IDs 0 to 100 are the stock band.
 const FIRST_BLOCK: u16 = 101;

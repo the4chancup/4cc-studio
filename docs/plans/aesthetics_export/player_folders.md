@@ -211,7 +211,9 @@ pre-Fox is far more permissive:
 - **Fox**: there is no model type property, so per-player boots and gloves folders *are* required.
   Local boots/gloves models form a **new player-exclusive folder** with its own ID from the team's
   block, and a shared model referenced by a link becomes just another component of it, merged in
-  (see below). The shared folder is left untouched for the players that link it plainly. A shared
+  (see below). A face link brings the shared folder's files in under his own roles, so a
+  `Faces/` folder's boots- or glove-named model is a part of his own boots or gloves package, as
+  his own would be. The shared folder is left untouched for the players that link it plainly. A shared
   **face** link with no local face parts is the same mechanism one part deep: the shared face model
   becomes the player's face FMDL outright (a merge of one), since shared face folders take no ID and
   have no independent output to be left untouched. The face's other files (`face_diff.bin`,
@@ -608,6 +610,10 @@ At compile time, the pipeline:
    as the export's names are (`apple` before `Mango` before `Zebra`), so the order is the one a
    member sees in Explorer rather than one where every capital sorts first — deterministic, so
    recompiling an unchanged export yields the same IDs). Link files resolve to the assigned IDs.
+   A shared boots or gloves folder holding no model of its kind takes no ID: it has nothing to
+   load, so a player linking it plainly wears the game's own and is told
+   (`shared_folder_no_model`, `team_compiler/messages.md`); linked beside his own model it is a
+   texture source, as any combined folder is.
    Boots and gloves are **disjoint game namespaces** (separate `boots/{id}/` and `glove/{id}/`
    folders, `k`/`g` prefixes), so the identical block layout applies independently in each — no
    boots-versus-gloves split of the block is needed. Sizing rationale: at 220 teams (IDs 701–920),

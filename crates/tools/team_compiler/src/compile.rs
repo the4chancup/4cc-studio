@@ -997,7 +997,7 @@ mod tests {
 
     use super::*;
     use crate::paths::{PackageKey, TextureHome};
-    use crate::plan::subset::ModelPackage;
+    use crate::plan::roles::ModelPackage;
     use crate::plan::{EffectiveTeamKitFpc, ModelFolder, TaskGroup, TaskKind, TeamKitEdits};
     use crate::reader::{ExportSource, Route};
     use crate::settings::TeamCompilerSettings;

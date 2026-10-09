@@ -57,8 +57,8 @@ fn sandbox_with_export(name: &str, face_model: bool) -> Sandbox {
 
 /// Compiles the export with `compile --no-deploy` for PES `version` with the `[team-compiler]`
 /// lines `team_compiler`, in a sandbox of its own, `name`, and asserts the run succeeded. A
-/// PES 21 export holds no face model: a `.model` is not compiled for PES 2018 to 2021 yet
-/// (`content_not_yet_compiled` drops the export).
+/// PES 21 export holds no face model: the textures are what the tests here compare, and the
+/// `.model` face would only add a conversion to the run.
 fn compile(name: &str, version: u8, team_compiler: &str) -> Sandbox {
     let sandbox = sandbox_with_export(name, version == 17);
     let settings = format!(

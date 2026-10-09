@@ -20,7 +20,7 @@ use vtree::ScopePath;
 use super::model::MaterialRead;
 use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
-use crate::plan::subset::{FolderModels, PlayerFile, file_stem, player_file};
+use crate::plan::roles::{FolderModels, PlayerFile, file_stem, player_file};
 use crate::user_face_xml::{Reference, reference};
 
 /// Where the textures a `.mtl`'s paths name may come from, each by its folded stem.
@@ -151,7 +151,7 @@ pub(super) fn held_stems(
         .filter_map(|file| player_file(folder, file, models))
         .collect();
     for source in shared {
-        let source_models = FolderModels::of(&source.path, &source.files, engine);
+        let source_models = FolderModels::of_shared(&source.path, &source.files, engine);
         roles.extend(
             source
                 .files

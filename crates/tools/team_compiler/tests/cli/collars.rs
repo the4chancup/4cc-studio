@@ -515,12 +515,19 @@ fn assert_collar_left_out(sandbox: &Sandbox, version: PesVersion, collars: (u8, 
     );
 }
 
+// TC-CMN-11
 #[test]
-fn a_pes_21_model_collar_is_named_as_not_compiled_yet() {
+fn a_pes_21_model_collar_is_left_out_with_model_conversion_failed() {
     let sandbox = Sandbox::new("collar_fox_model");
     sandbox.write(
         &format!("{EXPORT}/Collars/collar_12.model"),
         &pre_fox_model(),
+    );
+    sandbox.write(&format!("{EXPORT}/{CLEAN_PLAYER}"), &clean_model());
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{EXPORT}/Kits/p1/config.toml"),
+        b"[shirt]\ncollar = 30\nwinter_collar = 31\n",
     );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
@@ -530,11 +537,16 @@ fn a_pes_21_model_collar_is_named_as_not_compiled_yet() {
         findings_of(&lines, "co Midcup Collars"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Collars/collar_12.model)",
+            TEAM_COLORS_MISSING,
+            "Error model_conversion_failed [DropFile] at Collars/collar_12.model (model=collar_12.model, error=a `.model` collar names materials of the game's `uniform.mtl`, which the export does not carry)",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ],
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    // No collar was claimed, so p1 keeps its config's own.
+    assert_collar_left_out(&sandbox, PesVersion::Pes21, (30, 31));
+    assert_eq!(compiled_players(&sandbox), [71403]);
 }
 
 #[test]

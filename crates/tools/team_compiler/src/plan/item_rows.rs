@@ -6,7 +6,7 @@
 use aesthetics_export::ExportCoverage;
 use vtree::ScopePath;
 
-use super::subset::ModelPackage;
+use super::roles::ModelPackage;
 use super::{BuildTask, TaskKind};
 use crate::bins::player_tables::ItemTable;
 use crate::paths::PackageKey;

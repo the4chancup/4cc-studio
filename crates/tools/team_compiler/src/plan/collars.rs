@@ -8,7 +8,7 @@ use aesthetics_export::FileDescriptor;
 use pes_version::Engine;
 use studio_core::{Disposition, ExportId, Message, Scope};
 
-use super::subset::{CollarFile, collar_file, file_stem};
+use super::roles::{CollarFile, collar_file, file_stem};
 use crate::deep::collar::named_id;
 use crate::messages::{Code, tool_message};
 
@@ -19,7 +19,8 @@ use crate::messages::{Code, tool_message};
 /// taken in path order: the first whose ID no earlier export claimed claims it; every other,
 /// its ID claimed already or the export holding a collar already (its own same ID included),
 /// reports `collar_id_conflict` on its file, naming the claimant, and is left out. A glTF
-/// reports `model_gltf_unsupported` on its file, dropping it, and claims nothing; a file of
+/// reports `model_gltf_unsupported` on its file, dropping it, and claims nothing, and so does
+/// a `.model` on Fox with `model_conversion_failed` (`CollarFile::NoMaterialSet`); a file of
 /// another kind claims nothing and reports nothing. `claimed` starts empty: the suite's own
 /// collars, 105 and 77, never get here, the deep pass having dropped a file named for either
 /// as a conflict.
@@ -49,7 +50,27 @@ pub(crate) fn export_collar(
                 ));
                 continue;
             }
-            CollarFile::NotCompiled | CollarFile::PassedOver => continue,
+            CollarFile::NoMaterialSet => {
+                messages.push(tool_message(
+                    Code::ModelConversionFailed,
+                    Scope::File {
+                        export_id,
+                        path: file.path.clone(),
+                    },
+                    Disposition::DropFile,
+                    vec![
+                        ("model", name.to_owned()),
+                        (
+                            "error",
+                            "a `.model` collar names materials of the game's `uniform.mtl`, \
+                             which the export does not carry"
+                                .to_owned(),
+                        ),
+                    ],
+                ));
+                continue;
+            }
+            CollarFile::PassedOver => continue,
         }
         let id = named_id(file_stem(name))
             .expect("the deep pass drops a collar file whose name gives no collar ID");
@@ -345,5 +366,35 @@ mod tests {
             Vec::<String>::new()
         );
         assert_eq!(kit_collars(&report), [(0, "p1", None)]);
+    }
+
+    #[test]
+    fn a_pes_21_model_collar_is_dropped_claiming_nothing_and_the_next_file_claims_its_collar() {
+        // Path order puts the `.model` first; the FMDL after it names the same collar.
+        let report = planned(
+            PesVersion::Pes21,
+            &[(
+                "co Midcup Collars",
+                &[
+                    "Collars/collar_012.model",
+                    "Collars/collar_12.fmdl",
+                    "Kits/p1/kit.dds",
+                ],
+            )],
+        );
+
+        assert_eq!(
+            dropped_files(&report, "model_conversion_failed"),
+            [
+                "0 Collars/collar_012.model model=collar_012.model error=a `.model` collar names \
+                 materials of the game's `uniform.mtl`, which the export does not carry"
+            ]
+        );
+        assert_eq!(collar_tasks(&report), [(0, "Collars/collar_12.fmdl", 12)]);
+        assert_eq!(
+            dropped_files(&report, "collar_id_conflict"),
+            Vec::<String>::new()
+        );
+        assert_eq!(kit_collars(&report), [(0, "p1", Some(12))]);
     }
 }

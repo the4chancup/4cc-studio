@@ -18,7 +18,7 @@ use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, kit_layout, 
 use crate::bins::{KIT_COLORS, KitColorEntry, Rgb, kit_number};
 use crate::messages::Code;
 use crate::paths::{self, REFEREE_MARKER_COLLAR};
-use crate::plan::subset::{KIT_TEXTURE_STEMS, texture_format};
+use crate::plan::roles::{KIT_TEXTURE_STEMS, texture_format};
 use crate::plan::{EffectiveTeamKitFpc, TeamKitEdits};
 
 /// The menu icon of a kit without an `icon_<N>` marker.

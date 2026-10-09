@@ -227,7 +227,24 @@ format:
    `fcl_hair_sim.fclo`), is not read and is reported as `face_file_not_used`, by `check` too:
    an Info, since the output is what it would be without the file, and 467 face folders of the
    VGL26 exports hold one. Under the marker the reroute itself reports nothing: the marker is
-   the member's own instruction. Conflicting portraits for the same
+   the member's own instruction. The same rule covers every other file a model folder
+   admits that no package reads, planning giving it no role (`plan/roles.rs` `player_file`): a
+   `gloves/` model naming no hand, a `.skl` pairing no model, a `.common` link to a kind no role
+   takes or sitting in a shared folder (links resolve from player folders alone), a
+   `materials.toml`, a `.xml`, `.bin` or `.fclo` under no face name. It is not read and is
+   reported `file_not_used`, a Warning, on the folder, by `check` too, over mapped player
+   folders and every shared folder: a Warning, where `face_file_not_used` is an Info, because
+   the member put a model, a skeleton or a link there and nothing wears it. Not reported: a
+   model another representation of its stem beats and the other engine's companions (step 3
+   "Format conversion"), a left-out kit variant (`kit_variant_model_left_out`), a Fox
+   `face.xml` (`xml_ignored_fox`), and a file the structure pass already named
+   (`file_type_disallowed`). A `Common/` file of a kind no task reads (`.fclo`, `.xml`, `.bin`,
+   `materials.toml`) is `file_not_used` too, on the export, while a Common model, `.mtl` or
+   `.skl` no link or conversion takes is silent: `Common/` is a library, and an entry nobody
+   uses is not a mistake. A refs export's kits, logo, portraits and collars are `file_not_used`
+   (README "Phase 3 scope"). Processing reads only the files a role names, so a file with no
+   role never reaches a task; the finding is validation's, and the two agree because both read
+   `player_file`. Conflicting portraits for the same
    number fail the export. Referee identity uses its separate slot-derived face paths and does not
    construct a normal `TeamId`. (Red: `portraits_move.py`, `export_move.py`)
 5. **Notes collection** — a root `notes.txt` is strict UTF-8; an optional UTF-8 BOM is stripped and
@@ -607,7 +624,9 @@ describes behavior, not a serial scheduling requirement:
   specular/roughness/metallic), so **neither is ever converted into the other** — a channel
   formula would be invented, not taken from anywhere. Rule: `kit_mask` is emitted for 15–17
   targets and `kit_srm` for 18–21; the one the target's engine does not read is **not emitted**
-  and reported once (`kit_texture_not_used`, I); a pre-Fox target lacking a mask gets the template
+  and reported once (`kit_texture_not_used`, I), as is a `kit_*` stem outside the seven the
+  compiler builds (`kit_spec`), both dropped from the set at planning so that the kit task never
+  reads them; a pre-Fox target lacking a mask gets the template
   as above; a Fox target lacking an srm gets nothing — Red never made one, the game falls back on
   its own, and 0 of 365 kits in the maintainer's library ship an `_srm` at all (14 ship a mask).
   This is what the community converters do for Fox→pre-Fox (drop the srm, write a flat
@@ -760,8 +779,10 @@ describes behavior, not a serial scheduling requirement:
   reverse, a `.model` collar compiled for PES 18-21, is not built: the `.model` names materials
   the game's `uniform.mtl` defines and the export carries no `.mtl` for it, and the converter
   builds an FMDL material from a `.mtl`'s shader and samplers, so there is nothing to convert
-  it with until the templates ship a stock `uniform.mtl` (open question: which version's); the
-  gate names it as not compiled yet (`content_not_yet_compiled`). A glTF collar is dropped at
+  it with until the templates ship a stock `uniform.mtl` (`QUESTIONS.md` "Converted collars");
+  planning leaves it out with `model_conversion_failed`, the file alone, as a collar whose
+  conversion fails in its task is left out, the team's kits wearing their configs' collars: the
+  outcome is the same and so is the member's fix. A glTF collar is dropped at
   planning with `model_gltf_unsupported` as a player folder's is, the file alone, since a
   collar is its own unit (its export compiles without it, as it does without a conflicting
   one). A
@@ -805,7 +826,7 @@ describes behavior, not a serial scheduling requirement:
   the ordinary texture-existence checks). Variant sets are completed against the
   export's kit numbers (`kit_variant_missing`, lowest variant copied) and per-kit *model* sets
   collapse to one `face.xml` entry on pre-Fox or to the lowest variant on Fox
-  (`kit_variant_model_fox`). Rules and rationale: "Kit-dependent assets" in the [Unified model
+  (`kit_variant_model_left_out`). Rules and rationale: "Kit-dependent assets" in the [Unified model
   format plan](../model_format.md). How the compiler finds a set: a *variant* is a file whose
   stem holds the token `kit1` to `kit9` (delimited by `_`, `-`, `.` or the stem's ends,
   spelled exactly so), and the files of one folder whose stems differ only in that token's
@@ -823,9 +844,10 @@ describes behavior, not a serial scheduling requirement:
   category and allowed name are read from its stem with the kit token and one delimiter next
   to it removed (`boots_kit1` and `kit1_boots` are boots, `face_high-kitN` a `face_high`), on
   both engines: read from the whole stem, `boots_kit1` names no suffix and would be face
-  content, its meshes merged into the face's `fcl_hair` instead of the boots. On Fox a model
+  content, its meshes merged into the face's `fcl_hair` instead of the boots. On Fox, and on
+  PES 15-17 where no `face.xml` names the set (below), a model
   file that is a variant with a lower variant of its set in the same folder is not compiled,
-  and planning reports `kit_variant_model_fox` on the folder, once per set; a set's variants
+  and planning reports `kit_variant_model_left_out` on the folder, once per set; a set's variants
   are its model files of either native format (`pants_kit1.fmdl` and `pants_kit2.model` are
   one set), a variant present in both formats one variant, its FMDL the selected
   representation. On pre-Fox every
@@ -840,10 +862,13 @@ describes behavior, not a serial scheduling requirement:
   (`pants_kit1.mtl` is written `pants_kitN.mtl`; a shared `pants.mtl` is written as it is), so
   the game needs each other variant's `.mtl` under the respelled name: a variant whose own
   search finds another file is `kit_variant_mtl_differs` (W), the model still packed. This
-  holds for a player's face, its reserved subfolders and a linked `Faces/` folder; a per-kit
-  model under `ingame_face` (no `face.xml` to name `kitN` in), in a shared `Boots/` or
-  `Gloves/` folder taking an id, or behind a `.common` link is not compiled yet (the pre-Fox
-  gate names it). The legacy
+  holds for a player's face, its reserved subfolders and a linked `Faces/` folder. Where no
+  `face.xml` names the set, under `ingame_face` (his boots and gloves hold parts, not entries)
+  and in a shared `Boots/` or `Gloves/` folder's own output (one `boots.model`, one `glove.xml`
+  listing every glove, so every variant would be worn at once), the lowest variant is used and
+  the others are left out with `kit_variant_model_left_out`, as on Fox: the member's base model
+  is what both engines agree on. A `.common` link to a per-kit variant has no role on PES 15-17
+  (`file_not_used`): the Common models task packs the linked model and lists no set. The legacy
   `dummy_kit*` stems keep working as **reserved, game-substituted names**: the texture-existence
   checks (`mtl_texture_not_found`, `material_texture_not_found`, FMDL path checks) skip them and the
   path is emitted verbatim. Red's `dummy_kit_replace.py` — copying the team's kit 1 textures over
@@ -1394,8 +1419,7 @@ pub(crate) fn plan_run(exports: Vec<(ExportId, ResolvedAestheticsExport)>, versi
     -> PlanReport;
 pub(crate) struct PlanReport {
     pub(crate) manifest: BuildManifest,      // Phase 3 has no run-level fatal in planning
-    pub(crate) messages: Vec<Message>,       // content_not_yet_compiled, kit_config_*, ...; an
-                                             // export the subset gate skips is its DropExport
+    pub(crate) messages: Vec<Message>,       // team_colors_missing, kit_config_*, ...
 }
 pub(crate) struct BuildManifest {
     pub(crate) tasks: Vec<BuildTask>,        // canonical order: export, then faces by first
@@ -1686,7 +1710,19 @@ Resolved decisions:
   failure the member fixes in one place, `Common/`. That is the rule for a failure of the
   conversion itself. A Common texture the deep pass finds wrong (`messages.md` "Textures") never
   reaches the task: the file is dropped before planning, and a player whose texture link names
-  it follows `link_target_dropped`, like any link to a dropped target.
+  it follows `link_target_dropped`, like any link to a dropped target. The Common tasks of
+  either engine read the files directly in `Common/` alone: a file below a subfolder, kept by a
+  lenient file-type check, is not emitted (its `common_file_disallowed` tells), since the
+  Common output is flat and a flattened copy could collide with a direct file's. A glTF
+  directly in `Common/` is selected as a player folder's is (step 3 "Format conversion":
+  target-native first, then glTF, then the other engine's format): one with no model of the
+  target's format of its stem beside it is dropped at planning with `model_gltf_unsupported`,
+  the file alone, as a collar's is, and a model of the other engine's format of that stem is
+  beaten by it, read by nothing; one a target-native model beats is silent. A player's `.model`
+  whose `.mtl` is a Common file (a `.mtl.common` link) has its texture stems pointed as a
+  Common part's are: at the folder's texture home when the folder holds the stem, else at the
+  team's Common output when `Common/` holds it, since the set names Common's textures; on PES
+  15-17 the face's `.mtl` search already names such a set in the Common output.
 - **Texture references are stem-based (input)**: all material references (FMDL path tables,
   `.mtl`, `.materials.toml`) name textures by stem (filename without extension) in their
   source/authoring form. Any image format (DDS, FTEX, PNG, JPEG, BMP, WebP, TGA, TIFF) may be

@@ -56,7 +56,7 @@ fn under_ingame_face_no_face_is_built_and_a_model_the_face_would_take_is_the_boo
     );
     let glove_fpk = "Asset/model/character/glove/g0625/#Win/glove.fpk";
 
-    // No `fmdl_fcl_hair_fallback` for `torso.fmdl` and no `content_not_yet_compiled`.
+    // No `fmdl_fcl_hair_fallback` for `torso.fmdl`, and no `file_not_used` for `torso.skl`.
     let entries = compile_clean(
         &sandbox,
         "co Midcup Ingame",

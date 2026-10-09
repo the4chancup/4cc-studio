@@ -14,9 +14,7 @@ use pes_version::PesVersion;
 
 use crate::common::{Run, Sandbox};
 use crate::common_links::texture_directories;
-use crate::compile::{
-    compiled_players, cpk_entries, kit_texture, pes21_settings, tracer_kit, tracer_player_file,
-};
+use crate::compile::{cpk_entries, kit_texture, pes21_settings, tracer_kit, tracer_player_file};
 use crate::compile_exports::TEAM_COLOR;
 use crate::deploy::{install_pes, templates_folder};
 use crate::models::package_names;
@@ -432,26 +430,42 @@ fn a_referee_s_link_to_shared_boots_is_written_as_each_of_his_slots_boots() {
     }
 }
 
+// TC-REF-11
 #[test]
-fn a_refs_export_s_kit_is_named_and_the_export_beside_it_compiled() {
-    let sandbox = Sandbox::new("ref_kit_named");
+fn a_refs_export_s_kit_is_file_not_used_and_the_referee_face_compiles() {
+    let sandbox = Sandbox::new("ref_kit_not_used");
     write_ref_a(&sandbox, &["01"]);
     sandbox.write(&format!("{REFS}/Kits/p1/kit.dds"), &tracer_kit());
-    sandbox.copy_tracer("egg Midcup Tracer");
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+    let (run, entries) = compile(&sandbox);
 
     let lines = run.messages();
-    assert!(
-        lines.contains(
-            &"refs Cup: Error content_not_yet_compiled [DropExport] (what=Kits/p1)".to_owned()
-        ),
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=referees)",
+            "Warning file_not_used [Keep] (file=Kits/p1)",
+        ],
         "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 1);
-    assert_eq!(compiled_players(&sandbox), [79205]);
-    // The refs export committed nothing, so no refs CPK replaces the installed referees.
-    assert_eq!(cpk_files(&sandbox.root.join("output")), ["4cc_99_test.cpk"]);
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        entries.contains_key(&referee_package("face/real/referee0", "01", "face")),
+        "{:#?}",
+        entries.keys()
+    );
+    // The referees wear the template tree's kits alone.
+    let kit_textures: Vec<&str> = entries
+        .keys()
+        .filter_map(|path| path.strip_prefix("Asset/model/character/uniform/texture/#windx11/"))
+        .collect();
+    assert!(!kit_textures.is_empty());
+    assert!(
+        kit_textures.iter().all(|name| name.starts_with("referee_")),
+        "no kit of the export's: {kit_textures:#?}"
+    );
 }
 
 /// Writes TC-REF-01's referee in slot 01 beside the tracer as /co/ (714).

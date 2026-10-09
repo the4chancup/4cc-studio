@@ -19,7 +19,7 @@ use crate::deep::relative;
 use crate::face_diff::{self, FaceDiffError};
 use crate::face_xml::is_generated_type;
 use crate::messages::Code;
-use crate::plan::subset::{common_file, file_stem, in_folder_or_face, is_direct_common_file};
+use crate::plan::roles::{common_file, file_stem, in_folder_or_face, is_direct_common_file};
 
 /// A finding `check` makes on the folder holding the xml: the code, what is done about it
 /// (`DropFolder` for an Error, `Keep` for a Warning or an Info) and its context.

@@ -25,7 +25,7 @@ use studio_core::Disposition;
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::messages::Code;
 use crate::paths;
-use crate::plan::subset::{ModelPackage, PlayerFile, file_stem, texture_format};
+use crate::plan::roles::{ModelPackage, PlayerFile, file_stem, texture_format};
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 
 /// Why a texture could not be converted.

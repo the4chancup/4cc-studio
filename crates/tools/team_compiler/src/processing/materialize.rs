@@ -16,7 +16,7 @@ use studio_core::ExportId;
 use super::Entry;
 use crate::output::sink::TOOL_VERSION;
 use crate::paths::{self, PackageKey};
-use crate::plan::subset::ModelPackage;
+use crate::plan::roles::ModelPackage;
 use crate::plan::{BuildTask, TaskKind};
 
 /// What goes before each bin's game path in test mode's tree: the bins sit in a folder of

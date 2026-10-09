@@ -331,31 +331,15 @@ pub(crate) fn compiled_kits(sandbox: &Sandbox) -> Vec<String> {
     kits
 }
 
-/// `exports/<name>`, an export whose roster maps a player folder holding a boots model and a
-/// model in `gloves/` whose name gives no hand, which no run compiles yet.
-fn not_yet_compiled_export(sandbox: &Sandbox, name: &str) {
-    sandbox.write(&format!("exports/{name}/players.txt"), b"03 Keeper\n");
-    for model in ["kit_boots.fmdl", "gloves/keeper.fmdl"] {
-        sandbox.write(
-            &format!("exports/{name}/Players/Keeper/{model}"),
-            &clean_model(),
-        );
-    }
-}
-
-// TC-OUT-06
+// TC-MOD-53
 #[test]
-fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_others() {
-    let sandbox = Sandbox::new("not_yet_compiled");
-    not_yet_compiled_export(&sandbox, "co Midcup Keeper");
-    sandbox.copy_tracer("egg Midcup Tracer");
-    sandbox.write("exports/dbg Midcup Kits/Kits/p1/kit.dds", &tracer_kit());
-    sandbox.write("exports/dbg Midcup Kits/players.txt", b"");
-    // No roster slot maps this folder, so it would emit nothing.
-    sandbox.write(
-        "exports/dbg Midcup Kits/Players/Keeper/gloves/keeper.fmdl",
-        &clean_model(),
-    );
+fn a_gloves_model_naming_no_hand_is_file_not_used_and_the_face_compiles() {
+    let sandbox = Sandbox::new("gloves_model_no_hand");
+    let player = "exports/co Midcup Keeper/Players/05 - A";
+    for model in ["face_high.fmdl", "gloves/keeper.fmdl"] {
+        sandbox.write(&format!("{player}/{model}"), &clean_model());
+    }
+    let not_used = "Warning file_not_used [Keep] at Players/05 - A (file=gloves/keeper.fmdl)";
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
@@ -364,21 +348,28 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
         findings_of(&lines, "co Midcup Keeper"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Error content_not_yet_compiled [DropExport] (what=Players/Keeper/gloves/keeper.fmdl)",
-        ]
+            not_used,
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert_eq!(compiled_players(&sandbox), [71405]);
     let entries = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"));
-    for texture in ["u0792g1", "u0790p1"] {
-        assert!(entries.contains(&kit_texture(texture)), "{entries:#?}");
-    }
+    assert!(
+        entries.iter().all(|path| !path.contains("/glove/")),
+        "{entries:#?}"
+    );
 
+    // `check` tells the member too.
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
     let lines = check.messages();
-    assert!(
-        lines
-            .iter()
-            .all(|line| !line.contains("content_not_yet_compiled")),
+    assert_eq!(
+        findings_of(&lines, "co Midcup Keeper"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            not_used
+        ],
         "{lines:#?}"
     );
 }
@@ -388,14 +379,10 @@ fn compile_skips_an_export_holding_content_it_cannot_build_yet_and_builds_the_ot
 fn a_compile_whose_every_export_is_skipped_leaves_the_previous_cpk_as_it_was() {
     let sandbox = Sandbox::new("every_export_skipped");
     sandbox.write("output/4cc_99_test.cpk", b"the previous CPK");
-    sandbox.write("exports/refs Cup/players.txt", b"01 Keeper\n");
-    sandbox.write(
-        "exports/refs Cup/Players/Keeper/face_high.fmdl",
-        &clean_model(),
-    );
-    // A referee has no kit slot: the kit keeps the refs export from compiling.
-    sandbox.write("exports/refs Cup/Kits/p1/kit.dds", &tracer_kit());
-    not_yet_compiled_export(&sandbox, "co Midcup Keeper");
+    // A team the teams list does not hold, and an export without its coverage tag.
+    for name in ["zz Midcup Spring", "co Spring 2026"] {
+        sandbox.write(&format!("exports/{name}/{CLEAN_PLAYER}"), &clean_model());
+    }
     let before = snapshot(&sandbox.root.join("output"));
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
@@ -531,12 +518,6 @@ fn a_pre_fox_compile_converts_an_export_of_fox_models() {
     let lines = run.messages();
     // A pre-Fox target converts a player's `.fmdl` files for his face (TC-MOD-27 has what
     // the face holds): the whole export compiles.
-    assert!(
-        lines
-            .iter()
-            .all(|line| !line.contains("content_not_yet_compiled")),
-        "{lines:#?}"
-    );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let mut paths = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"));
     paths.sort();
@@ -693,8 +674,7 @@ const DROP_CASES: [DropCase; 8] = [
             case_player_03(sandbox);
             sandbox.write(&format!("{CASE}/Boots/Solo/boots.fmdl"), b"");
         },
-        // Kept, Boots/Solo would make the export's content one Phase 3 does not compile,
-        // so the missing content_not_yet_compiled shows the folder was dropped.
+        // No player links Boots/Solo, so it is dropped and compiles nothing.
         findings: &[
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)",

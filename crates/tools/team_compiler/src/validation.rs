@@ -9,9 +9,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, ModelSuffix, ParsedAestheticsExport, ResolvedAestheticsExport,
-    SharedKind, SourceError, ValidatedAestheticsExport, ValidationContext, common_link_name,
-    model_suffix, parse_listing, read_colors_txt,
+    ExportIdentity, FileDescriptor, FileKind, ModelFormat, ModelSuffix, ParsedAestheticsExport,
+    ResolvedAestheticsExport, SharedKind, SourceError, ValidatedAestheticsExport,
+    ValidationContext, common_link_name, model_suffix, parse_listing, read_colors_txt,
 };
 use anyhow::Context;
 use pes_version::{Engine, PesVersion};
@@ -28,9 +28,9 @@ use crate::deep;
 use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids};
 use crate::plan::mapped_players;
-use crate::plan::subset::{
-    FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, is_user_face_xml,
-    player_file,
+use crate::plan::roles::{
+    FolderModels, ModelPackage, PlayerFile, admitted, common_skeleton, file_stem,
+    is_direct_common_file, is_user_face_xml, player_file,
 };
 use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
@@ -502,16 +502,19 @@ fn pool_messages(
 /// `oral` model, which has no slot to land in and is ignored (`player_folders.md` "Model
 /// names", "Reserved subfolders", "SKL pairing"; `team_compiler/README.md` TC-MOD-13), and
 /// `face_file_not_used` for each face file of a folder with no face model, which is not read
-/// (`pipeline.md` "2. Per-export serial steps", item 4; TC-MOD-32): over every mapped player
-/// folder and every shared face folder, each finding on the folder holding the file. A
-/// `.common` model link is reported like the model it brings in, naming the link: the
-/// fallback by the linked name's suffix, `skl_no_slot` when `Common/` holds the `.skl` of a
-/// slotless model's stem. The roles are `subset::player_file`'s, so a finding never disagrees
-/// with the routing: under `ingame_face` a model the hair would take is the boots', and no
-/// fallback. A pre-Fox target types a model by its name and gives an `.fmdl` or a `.skl` no
-/// role, so it reports only `face_file_not_used`. A Fox target reports a folder's own
-/// `face.xml` (directly in it or in `face/`) as `xml_ignored_fox`: Fox has no `face.xml`, and
-/// the folder's models compile as without it.
+/// (`pipeline.md` "2. Per-export serial steps", item 4; TC-MOD-32), and `file_not_used` for
+/// each file a model folder admits that no package reads, planning giving it no role (the same
+/// paragraph, item 4): over every mapped player folder and every shared folder, each finding
+/// on the folder holding the file. A `.common` model link is reported like the model it brings
+/// in, naming the link: the fallback by the linked name's suffix, `skl_no_slot` when `Common/`
+/// holds the `.skl` of a slotless model's stem. The roles are `roles::player_file`'s, so a
+/// finding never disagrees with the routing: under `ingame_face` a model the hair would take
+/// is the boots', and no fallback. A pre-Fox target types a model by its name, so it reports
+/// neither the fallback nor `skl_no_slot`. A Fox target reports a folder's own `face.xml`
+/// (directly in it or in `face/`) as `xml_ignored_fox`: Fox has no `face.xml`, and the
+/// folder's models compile as without it. Then `file_not_used` on the export for each file
+/// directly in `Common/` of a kind no task reads, and for a refs export's kits, logo,
+/// portraits and collars (`referee_messages`).
 fn model_name_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -531,10 +534,15 @@ fn model_name_messages(
             &mut messages,
         );
     }
-    // Validation drops a shared folder no mapped player links, so every face folder here is
-    // one some player's face is assembled from.
-    for folder in &export.faces {
-        let models = FolderModels::of(&folder.path, &folder.files, engine);
+    // Validation drops a shared folder no mapped player links, so every shared folder here is
+    // one some player's package is assembled from or one compiled on its own.
+    for folder in export
+        .faces
+        .iter()
+        .chain(&export.boots)
+        .chain(&export.gloves)
+    {
+        let models = FolderModels::of_shared(&folder.path, &folder.files, engine);
         file_role_messages(
             &folder.path,
             &folder.files,
@@ -544,7 +552,65 @@ fn model_name_messages(
             &mut messages,
         );
     }
+    // `Common/` is a library: a model, `.mtl` or `.skl` no link or conversion takes is no
+    // mistake, a texture is the Common textures task's and a glTF planning's
+    // (`model_gltf_unsupported`). A file below a subfolder is `common_file_disallowed`'s.
+    for file in export
+        .common
+        .iter()
+        .filter(|file| is_direct_common_file(&file.path))
+    {
+        let read_by_no_task = matches!(
+            file.kind,
+            FileKind::Fclo | FileKind::Xml | FileKind::Bin | FileKind::MaterialsToml
+        );
+        if read_by_no_task {
+            messages.push(export_file_not_used(export_id, file.path.as_str()));
+        }
+    }
+    match resolved.identity {
+        ExportIdentity::Team { .. } => {}
+        ExportIdentity::Referees => referee_messages(export, export_id, &mut messages),
+    }
     messages
+}
+
+/// `file_not_used` on the export for each of the refs `export`'s kit folders, its logo files,
+/// its portraits (a mapped folder's, then `Portraits/`) and its `Collars/` files, each named by
+/// its export path: a referee has no kit slot, team logo or player id, so none of them has a
+/// place to go, the referees' kits being the template tree's (`blue_port.md` "Referee export
+/// processing"), and planning keeps them out.
+fn referee_messages(
+    export: &ValidatedAestheticsExport,
+    export_id: ExportId,
+    messages: &mut Vec<Message>,
+) {
+    let kits = export.kits.kits.values().map(|kit| &kit.path);
+    let logo = export
+        .logo
+        .iter()
+        .flat_map(|logo| std::iter::once(&logo.main).chain(&logo.small))
+        .map(|file| &file.file.path);
+    let portraits = mapped_players(export)
+        .into_iter()
+        .filter_map(|folder| folder.portrait.as_ref())
+        .chain(export.portraits.values())
+        .map(|file| &file.path);
+    let collars = export.collars.iter().map(|file| &file.path);
+    for path in kits.chain(logo).chain(portraits).chain(collars) {
+        messages.push(export_file_not_used(export_id, path.as_str()));
+    }
+}
+
+/// `file_not_used` on the export `export_id`, naming the file (or a kit folder) at the export
+/// path `path`.
+fn export_file_not_used(export_id: ExportId, path: &str) -> Message {
+    tool_message(
+        Code::FileNotUsed,
+        Scope::Export { export_id },
+        Disposition::Keep,
+        vec![("file", path.to_owned())],
+    )
 }
 
 /// `model_name_messages`'s findings on `files`, the files of the folder at `path` whose models
@@ -623,8 +689,22 @@ fn file_role_messages(
                 | PlayerFile::FaceXml
                 | PlayerFile::ConversionSkeleton
                 | PlayerFile::UnsupportedGltf,
-            )
-            | None => continue,
+            ) => continue,
+            // Named below the folder, as `xml_ignored_fox` names its file: `gloves/keeper.fmdl`
+            // says where the member put it.
+            None if !unread_for_a_known_reason(path, file, models) => {
+                messages.push(tool_message(
+                    Code::FileNotUsed,
+                    Scope::Folder {
+                        export_id,
+                        path: path.clone(),
+                    },
+                    Disposition::Keep,
+                    vec![("file", deep::relative(&file.path, path))],
+                ));
+                continue;
+            }
+            None => continue,
         };
         messages.push(tool_message(
             code,
@@ -636,6 +716,34 @@ fn file_role_messages(
             vec![("file", name.to_owned())],
         ));
     }
+}
+
+/// Whether `file` of the model folder at `path`, which has no role among `models`, is left
+/// unread for a reason that needs no `file_not_used` (`messages.md` `file_not_used`, "Not
+/// reported"): a model another representation of its stem beats (TC-MOD-26); on PES 15-17 a
+/// Fox file the target has no counterpart for, an FMDL with no role, a `.skl` no converted
+/// FMDL pairs or a `.fclo` (`pipeline.md` step 3 "Format conversion"); a file the structure
+/// pass names when it is out of place (`file_type_disallowed`): a marker, metadata, a shared
+/// folder link or a file of no known kind, one outside the places a model folder admits a file
+/// with a role (`roles::admitted`), and a `.common` link in a shared folder.
+fn unread_for_a_known_reason(
+    path: &ScopePath,
+    file: &FileDescriptor,
+    models: &FolderModels,
+) -> bool {
+    let other_engine_companion = match models.engine() {
+        Engine::Fox => false,
+        Engine::PreFox => matches!(
+            file.kind,
+            FileKind::Model(ModelFormat::Fmdl) | FileKind::Skl | FileKind::Fclo
+        ),
+    };
+    let named_by_the_structure_pass = matches!(
+        file.kind,
+        FileKind::Marker(_) | FileKind::Metadata(_) | FileKind::SharedLink(_) | FileKind::Other
+    ) || !admitted(path, file)
+        || (models.is_shared() && file.kind == FileKind::CommonLink);
+    models.beaten(file) || other_engine_companion || named_by_the_structure_pass
 }
 
 /// `export_identified` naming the team and its id, or the referees.
@@ -704,26 +812,34 @@ mod tests {
     }
 
     /// `model_name_messages` over `export` for `version`, each as one line: severity, code,
-    /// disposition, folder and context.
+    /// disposition, folder (none for a finding on the export) and context.
     fn names(export: &ResolvedAestheticsExport, version: PesVersion) -> Vec<String> {
         model_name_messages(export, version, ExportId(2))
             .into_iter()
             .map(|message| {
-                let Scope::Folder { export_id, path } = &message.scope else {
-                    panic!("{:?}", message.scope);
+                let location = match &message.scope {
+                    Scope::Folder { export_id, path } => {
+                        assert_eq!(*export_id, ExportId(2));
+                        format!(" at {}", path.as_str())
+                    }
+                    Scope::Export { export_id } => {
+                        assert_eq!(*export_id, ExportId(2));
+                        String::new()
+                    }
+                    Scope::Run | Scope::File { .. } | Scope::RosterEntry { .. } => {
+                        panic!("{:?}", message.scope)
+                    }
                 };
-                assert_eq!(*export_id, ExportId(2));
                 let context: Vec<String> = message
                     .context
                     .iter()
                     .map(|(key, value)| format!("{key}={value}"))
                     .collect();
                 format!(
-                    "{:?} {} [{:?}] at {} ({})",
+                    "{:?} {} [{:?}]{location} ({})",
                     message.severity,
                     message.code.code,
                     message.disposition,
-                    path.as_str(),
                     context.join(", ")
                 )
             })
@@ -873,15 +989,18 @@ mod tests {
             ("Players/05 - B/boots/face.xml", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
-        // In a folder with no face model too; one in `boots/` is no face's.
+        // In a folder with no face model too; one in `boots/` is no face's, and nothing reads
+        // it on either engine.
+        let boots_xml = "Warning file_not_used [Keep] at Players/05 - B (file=boots/face.xml)";
         assert_eq!(
             names(&export, PesVersion::Pes21),
             [
                 "Info xml_ignored_fox [Keep] at Players/03 - A (file=face.xml)",
+                boots_xml,
                 "Info xml_ignored_fox [Keep] at Players/05 - B (file=face/face.xml)",
             ]
         );
-        assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
+        assert_eq!(names(&export, PesVersion::Pes17), [boots_xml]);
     }
 
     #[test]
@@ -896,6 +1015,143 @@ mod tests {
             Some(b"03 A\n"),
         );
         assert_eq!(issues, ["player_unlisted"]);
+        assert_eq!(names(&export, PesVersion::Pes21), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_file_no_package_reads_is_file_not_used_on_its_folder_named_below_it() {
+        let files = [
+            // A glove naming no hand, a face file where no face is, a glove's skeleton (no
+            // glove has a slot), a `.model` the FMDL of its stem beats.
+            ("Players/03 - A/boots.fmdl", 1),
+            ("Players/03 - A/boots.model", 1),
+            ("Players/03 - A/boots/face.xml", 1),
+            ("Players/03 - A/face_high.fmdl", 1),
+            ("Players/03 - A/glove_l.fmdl", 1),
+            ("Players/03 - A/glove_l.skl", 1),
+            ("Players/03 - A/gloves/keeper.fmdl", 1),
+            // A pre-Fox face, a glove naming no hand, and a skeleton pairing no model.
+            ("Players/05 - B/face_high.model", 1),
+            ("Players/05 - B/face_high.mtl", 1),
+            ("Players/05 - B/gloves/keeper.model", 1),
+            ("Players/05 - B/torso.skl", 1),
+        ];
+        let export = resolved("co Midcup Names", &files, &[], None);
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Warning file_not_used [Keep] at Players/03 - A (file=boots/face.xml)",
+                "Warning file_not_used [Keep] at Players/03 - A (file=glove_l.skl)",
+                "Warning file_not_used [Keep] at Players/03 - A (file=gloves/keeper.fmdl)",
+                "Warning file_not_used [Keep] at Players/05 - B (file=gloves/keeper.model)",
+                "Warning file_not_used [Keep] at Players/05 - B (file=torso.skl)",
+            ]
+        );
+        // Pre-Fox converts the FMDLs (`glove_l.skl` the bind pose of `glove_l.fmdl`), and an
+        // FMDL or a `.skl` with no role there is the other engine's companion: not reported.
+        assert_eq!(
+            names(&export, PesVersion::Pes17),
+            [
+                "Warning file_not_used [Keep] at Players/03 - A (file=boots/face.xml)",
+                "Warning file_not_used [Keep] at Players/05 - B (file=gloves/keeper.model)",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_file_the_structure_pass_named_is_not_file_not_used_again() {
+        let files = [
+            ("Players/05 - A/face_high.fmdl", 1),
+            ("Players/05 - A/torso.skl", 1),
+        ];
+        let mut export = resolved("co Midcup Names", &files, &[], None);
+        // Kept only with the strict file-type check off, which `resolved` has on: added as the
+        // structure pass would keep them, with their `file_type_disallowed`.
+        for name in ["extra/x.skl", "common/legs.fmdl.common"] {
+            let path = ScopePath::new(&format!("Players/05 - A/{name}")).unwrap();
+            export.export.players[0].files.push(FileDescriptor {
+                size: 0,
+                kind: aesthetics_export::classify(path.name()),
+                source: path.clone(),
+                path,
+            });
+        }
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            ["Warning file_not_used [Keep] at Players/05 - A (file=torso.skl)"]
+        );
+    }
+
+    #[test]
+    fn a_shared_folder_s_and_common_s_files_no_task_reads_are_file_not_used() {
+        let files = [
+            ("Players/03 - A/face_high.fmdl", 1),
+            ("Players/03 - A/Round.face", 0),
+            ("Players/03 - A/Grip.gloves", 0),
+            ("Faces/Round/hair_high.fmdl", 1),
+            ("Gloves/Grip/glove_l.fmdl", 1),
+            ("Gloves/Grip/glove_l.skl", 1),
+            ("Common/notes.xml", 1),
+            ("Common/x.mtl", 1),
+            ("Common/x.model", 1),
+            ("Common/x.skl", 1),
+            ("Common/x.dds", 1),
+        ];
+        let mut export = resolved("co Midcup Names", &files, &[], None);
+        // A `.common` link in a shared folder is kept only with the strict file-type check
+        // off, which `resolved` has on: added as the structure pass would keep it, with its
+        // `file_type_disallowed`.
+        let link = ScopePath::new("Faces/Round/legs.fmdl.common").unwrap();
+        export.export.faces[0].files.push(FileDescriptor {
+            size: 0,
+            kind: aesthetics_export::classify(link.name()),
+            source: link.clone(),
+            path: link,
+        });
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Warning file_not_used [Keep] at Gloves/Grip (file=glove_l.skl)",
+                "Warning file_not_used [Keep] (file=Common/notes.xml)",
+            ]
+        );
+        assert_eq!(
+            names(&export, PesVersion::Pes17),
+            ["Warning file_not_used [Keep] (file=Common/notes.xml)"]
+        );
+    }
+
+    #[test]
+    fn a_refs_export_s_kits_logo_portraits_and_collars_are_file_not_used_and_a_team_s_are_not() {
+        let content = [
+            ("Kits/p1/kit.dds", 1),
+            ("logo.png", 1),
+            ("Collars/collar_12.fmdl", 1),
+        ];
+        let referees: Vec<(&str, u64)> = [
+            ("Players/Ref A/face_high.fmdl", 1),
+            ("Players/Ref A/portrait.dds", 1),
+            ("Portraits/player_02.dds", 1),
+        ]
+        .into_iter()
+        .chain(content)
+        .collect();
+        let export = resolved("refs Cup", &referees, &[], Some(b"01 Ref A\n"));
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Warning file_not_used [Keep] (file=Kits/p1)",
+                "Warning file_not_used [Keep] (file=logo.png)",
+                "Warning file_not_used [Keep] (file=Players/Ref A/portrait.dds)",
+                "Warning file_not_used [Keep] (file=Portraits/player_02.dds)",
+                "Warning file_not_used [Keep] (file=Collars/collar_12.fmdl)",
+            ]
+        );
+        let team: Vec<(&str, u64)> = [("Players/03 - A/face_high.fmdl", 1)]
+            .into_iter()
+            .chain(content)
+            .collect();
+        let export = resolved("co Midcup Names", &team, &[], None);
         assert_eq!(names(&export, PesVersion::Pes21), Vec::<String>::new());
     }
 

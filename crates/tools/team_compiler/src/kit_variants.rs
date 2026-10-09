@@ -10,7 +10,7 @@ use aesthetics_export::{FileDescriptor, FileKind, KitToken, ModelFormat, kit_tok
 use kit_config::KitSlot;
 use vtree::ScopePath;
 
-use crate::plan::subset::file_stem;
+use crate::plan::roles::file_stem;
 
 /// The kit number of a player kit `slot` (`p1` is 1); `None` for the goalkeeper's `g1`, which
 /// is not a number of its own: the number picked in the game selects the outfield and the

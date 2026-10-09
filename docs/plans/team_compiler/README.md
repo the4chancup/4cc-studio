@@ -231,56 +231,21 @@ to be reachable (a face model in a player folder whose face compiles, a model in
 folder, a `kit.dds` in a kit whose texture is used, a kit in an export whose bin entries
 are observed), as the cited test sets up.
 
-**Phase 3 scope.** Discovery and export sources, `aesthetics_export`'s structure pass with its
-dispositions ("Validation semantics" in the Aesthetics export plan), export identity, the settings
-and CLI surface, the pipeline scaffolding compiling the tracer bullet's content (Fox player folders
-with face models, and kits) into a CPK, and the shell slice. Not in Phase 3, so not here: deep
-format validation, run planning (IDs, collisions, `duplicate_aesthetics_export`), other content,
-bins beyond the kits' `UniformParameter.bin`, deployment, the savefile, the test and sideload modes, and live validation. In Phase 3 every
-compile writes its CPK as `--no-deploy` does, deployment arriving in Phase 4, and `--mode
-test|sideload`, like `multicpk_mode` on, is refused by `compile` as an invalid invocation or
-configuration (exit code 2) until Phase 4 implements them, as is `upgrade-dpfl` (`check` takes no `--mode` and ignores
-`multicpk_mode`).
-
-Likewise until Phase 4, `compile` compiles only what the tracer path does, for a normal team
-targeting a Fox version (18–21): roster-mapped player folders holding one or more Fox face
-models, at most one per face name (`face_high`, `hair_high`, `oral`, `fcl_hair`), with their
-textures (DDS converted, FTEX as it is; the other image formats are Phase 4's) and the files a Fox face folder carries beside them (`fcl_hair.skl` beside `fcl_hair.fmdl`, `face_diff.bin`,
-`fcl_hair_sim.fclo`); and kits needing no layout conversion, their configs written into
-a `UniformParameter.bin` built on the bundled base, which the CPK carries only when it has kits
-(installed-bin lookup is Phase 4's). The test is over what would be emitted: content validation
-drops or leaves unmapped, an unused `all/`, a link whose missing target `pass_through` keeps, a
-`kit_mask` on a Fox target (Fox has no mask slot), a player's `settings.toml` and `fpc_off`
-(settings-side only), and the root and kit metadata files and the kit icon marker do not count
-(`notes.txt` and `icon_<N>` are validated and emit nothing yet; `colors.txt` waits for step 4.8, which implements its grammar
-("Root files", "Colors" in `player_folders.md`); `README.txt` is ignored). Everything else the
-validated export holds counts: a file a lenient setting keeps despite its finding, a portrait, an
-`ingame_face` or `fpc_on` marker
-(the second changes every kit config), any shared folder, logo, collar or Common file. The
-validated export does not mark what a lenient setting kept, and a refusal never writes a CPK
-that differs from Phase 4's. An export holding anything else, targeting PES
-15–17, or a refs export is skipped with the Error `content_not_yet_compiled` naming the first
-such item (context `what`: its path, the target or `refs`; for a missing injected file,
-context `missing`: its path), rather than writing an incomplete CPK. The first item is found
-in a fixed order: the target, `refs`, then the players in the export's order (each folder's
-files before its missing files), the shared folders, the kits by slot, then the rest. That includes a face
-folder missing a file Phase 4 would inject (`face_diff.bin`; with an `fcl_hair.fmdl`, also
-`fcl_hair_sim.fclo` and the `fcl_hair.skl` pairing it: "Fox mode fixups" in `pipeline.md`), so
-no compiled face lacks what Red's would hold. An empty kit folder, or one whose effective
-textures lack `kit`, compiles as the placeholder kit (the checkerboard and the template config;
-its UniColor entry waits for Phase 4's bins), which TC-SRC-01 needs. Two exports resolving to
-one team are each skipped with `duplicate_aesthetics_export` (step 4.13a; until then they met
-the writer's duplicate-path invariant, which stays as the backstop: `cpk_write_failed` aborts
-the run naming the path, and no CPK is written). `check` runs the
-structure pass on every export, including content `compile` refuses (deep format checks are
-Phase 4's). The code is withdrawn when Phase 4 compiles everything. Step 4.19 lifts the
-`refs` item for a Fox target: a refs export compiles, and in its place the gate names the
-refs export's first kit by slot, then its logo, then its first portrait (a mapped folder's
-`portrait.*` in folder order, then a `Portraits/` file), then its first collar file, since
-a referee has no kit slot, team logo or player id, and no kit of his own to wear a collar;
-the referees' kits are the template tree's (`blue_port.md` "Referee export processing"). A refs export plans no colors record (its `colors.txt` is not read), no
-`team_colors_missing`, no kits and no `BootsList.bin`/`GloveList.bin` rows: the game's
-referee hook loads slot NN's `k99NN`/`g99NN` by number.
+**Phase 3 scope.** Phase 3 delivered discovery and export sources, `aesthetics_export`'s
+structure pass with its dispositions ("Validation semantics" in the Aesthetics export plan),
+export identity, the settings and CLI surface, the pipeline scaffolding compiling the tracer
+bullet's content (Fox player folders with face models, and kits) into a CPK, and the shell
+slice. Until step 4.20 a subset gate skipped, with the Error `content_not_yet_compiled`, every
+export holding anything `compile` could not build yet, so that no CPK differing from the
+finished compiler's was written; the gate is withdrawn with its finding (TC-OUT-06), and every
+export of either engine reaches processing whatever it holds. What becomes of a file is its
+role's: a file no package reads is not read and is reported `file_not_used` (`pipeline.md`
+"2. Per-export serial steps", the face-file paragraph), the one refusal left being a model
+folder whose selected representation is glTF (`model_gltf_unsupported`, Phase 7). A refs export
+plans no colors record (its `colors.txt` is not read), no `team_colors_missing`, no kits and no
+`BootsList.bin`/`GloveList.bin` rows: the game's referee hook loads slot NN's `k99NN`/`g99NN`
+by number, and the referees' kits are the template tree's (`blue_port.md` "Referee export
+processing"), so a refs export's kits, logo, portraits and collars are `file_not_used`.
 Findings are observed
 in `check`'s and `compile`'s console output, one line per finding naming its code and scope; the
 compiled CPK's content is the parity test's (`testing.md`), not a scenario's. Of the events,
@@ -609,13 +574,8 @@ TC-OUT-05  GIVEN a previous <cpk_name>.cpk that another process holds open witho
            WHEN a run writes its new CPK completely and then replaces the previous one
            THEN output_commit_failed is reported, the exit code is 3, the previous CPK is
                 byte-identical to before, and no partial output is left beside it
-TC-OUT-06  GIVEN an export whose players.txt lists a folder holding a model in gloves/ whose name
-           gives no hand, beside the tracer bullet's export, and a third export holding a kit, an
-           empty players.txt and a player folder holding only such a gloves model
-           WHEN the root is compiled, then checked
-           THEN compile reports content_not_yet_compiled naming that gloves model for the first,
-                skips it, compiles the other two, and exits with 1; check reports no
-                content_not_yet_compiled
+TC-OUT-06  withdrawn: the subset gate it tested went at step 4.20; a gloves model naming no hand
+           is TC-MOD-53's
 ```
 
 **Shell slice**
@@ -965,6 +925,29 @@ TC-MOD-52  GIVEN slot 05 holding the cap as face_high.model and face_high.mtl.co
            WHEN the export is compiled for PES 15
            THEN the fold lines are reported on the player and the face CPK's model differs from
                 the source
+TC-MOD-53  GIVEN slot 05 holding face_high.fmdl and gloves/keeper.fmdl, a glove naming no hand
+           WHEN the export is compiled for PES 21
+           THEN file_not_used is reported on the folder naming gloves/keeper.fmdl as a Warning,
+                the face compiles, no gloves folder is written and the exit code is 0
+TC-MOD-54  GIVEN slot 05 holding body.model and body.mtl.common, Common/ holding body.mtl, the
+           model's set
+           WHEN the export is compiled for PES 21
+           THEN the face FPK holds the converted body FMDL with the set's materials, and no
+                finding names body.mtl.common
+TC-MOD-55  GIVEN Faces/Round holding fcl_hair.fmdl and boots.fmdl, slot 05 linking it as his face
+           WHEN the export is compiled for PES 21
+           THEN the boots folder of slot 05's exclusive id holds boots.fmdl and his BootsList row
+                names it
+TC-MOD-56  GIVEN Boots/Studs holding boots_kit1.model and boots_kit2.model with their .mtl, slot 05
+           linking it plainly
+           WHEN the export is compiled for PES 17
+           THEN kit_variant_model_left_out is reported on the folder and the shared boots.model
+                holds boots_kit1's meshes alone
+TC-MOD-57  GIVEN Boots/Studs holding studs.dds and no model, Boots/Zebra holding boots.model and
+           its .mtl, slot 05 linking Studs plainly and slot 06 Zebra
+           WHEN the export is compiled for PES 17
+           THEN shared_folder_no_model is reported on Boots/Studs as a Warning, no boots folder is
+                written for it, Zebra takes the block's first shared id, and the exit code is 0
 ```
 
 **Textures**
@@ -1120,6 +1103,11 @@ TC-XML-09  GIVEN slot 05 holding body_uniform.model and its own face.xml naming
            ./body_uniform.model
            WHEN the export is compiled for PES 16
            THEN xml_oral_prefix_missing is reported and the folder is dropped
+TC-XML-10  GIVEN Faces/Round holding face_high.model, face_high.mtl and a face.xml naming it, slot
+           05 linking the folder with no face.xml of his own
+           WHEN the export is compiled for PES 17
+           THEN xml_ignored_shared is reported on Faces/Round as Info and slot 05's face CPK holds
+                a generated face.xml listing face_high
 ```
 
 **Kits**
@@ -1215,6 +1203,10 @@ TC-KIT-29  GIVEN p1/ holding kit.dds, a kit_mask.dds whose sock islands differ f
            WHEN the export is compiled for PES 17
            THEN the mask's decoded top mip equals the no-marker compile's outside the sock
                 rectangles and differs inside them
+TC-KIT-30  GIVEN p1/ holding kit.dds and kit_spec.dds
+           WHEN the export is compiled for PES 21
+           THEN kit_texture_not_used is reported naming kit_spec.dds and the CPK holds no texture
+                of that stem
 ```
 
 **Root files, Common and collars**
@@ -1275,7 +1267,7 @@ TC-CMN-04  GIVEN slot 05's face model referencing pants_kitN, with pants_kit1.dd
                 pants_kit1's conversion, and the path table keeps the literal pants_kitN
 TC-CMN-05  GIVEN slot 05 holding pants_kit1.fmdl and pants_kit2.fmdl
            WHEN the export is compiled for PES 21
-           THEN kit_variant_model_fox is reported and only pants_kit1 is compiled
+           THEN kit_variant_model_left_out is reported and only pants_kit1 is compiled
 TC-CMN-06  GIVEN slot 05's face model referencing dummy_kit and dummy_kit_srm, neither present
            WHEN the export is checked, then compiled for PES 21
            THEN no texture-existence finding is reported either time, and the packed model's
@@ -1298,6 +1290,18 @@ TC-CMN-10  GIVEN Collars/collar_12.fmdl and Collars/collar_12.dds
            WHEN the export is checked
            THEN file_type_disallowed is reported for collar_12.dds, which is dropped, and
                 collar_12.fmdl is kept
+TC-CMN-11  GIVEN Collars/collar_12.model beside a compiling player
+           WHEN the export is compiled for PES 21
+           THEN model_conversion_failed is reported on the file at planning, no collar is written,
+                the kits keep their configs' collars and the player compiles
+TC-CMN-12  GIVEN Common/x.glb beside a compiling player
+           WHEN the export is compiled for PES 17
+           THEN model_gltf_unsupported is reported on Common/x.glb, which is dropped, and the
+                player compiles
+TC-CMN-13  GIVEN Common/sub/x.dds and strict_file_type_check off
+           WHEN the export is compiled for PES 21
+           THEN common_file_disallowed is reported as Info and the team's Common output holds no
+                texture of stem x
 ```
 
 **Bins**
@@ -1501,6 +1505,11 @@ TC-REF-10  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, 
            WHEN the root is compiled for PES 21
            THEN the referee CPK holds boots folders k9901 and k9920, each with the shared
                 boots model, and no other boots folder
+TC-REF-11  GIVEN a refs export holding Kits/p1 with kit.dds beside a mapped referee folder holding
+           a face model
+           WHEN the root is compiled for PES 21
+           THEN file_not_used is reported naming Kits/p1 as a Warning, the referee CPK holds no
+                kit, and the referee face compiles
 ```
 
 **Output modes, deployment, multi-CPK**

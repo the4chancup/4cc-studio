@@ -1796,14 +1796,8 @@ fn a_linked_face_folder_s_metal_material_reflects_the_environment_map_in_the_pla
     let sandbox = Sandbox::new("conversion_metal_shared_face");
     write_round_hat(&sandbox, "co Midcup Metal", &metal_model());
 
-    let (lines, materials, environment) = compiled_metal(&sandbox, "hat.mtl");
+    let (_, materials, environment) = compiled_metal(&sandbox, "hat.mtl");
 
-    assert!(
-        lines
-            .iter()
-            .all(|line| !line.contains("content_not_yet_compiled")),
-        "{lines:#?}"
-    );
     assert_metal(&materials.materials, PRE_FOX_HOME_714_05);
     assert!(
         environment == environment_template(),

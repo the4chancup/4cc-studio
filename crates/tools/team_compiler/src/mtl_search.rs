@@ -6,7 +6,7 @@
 use aesthetics_export::{FileDescriptor, FileKind, classify, common_link_name};
 use vtree::ScopePath;
 
-use crate::plan::subset::{common_file, file_stem, is_direct_common_file};
+use crate::plan::roles::{common_file, file_stem, is_direct_common_file};
 
 /// The `.mtl` that `model` uses: `model` is a `.model` among `files`, the files of the model
 /// folder at `folder`, or a `.common` link among them to a `.model` in the export's `Common/`
@@ -82,7 +82,8 @@ impl<'a> Candidate<'a> {
 /// The `.mtl` files directly in the folder `searched`, among `files`, each `.mtl.common` link
 /// there standing for the `common` file it names, in the search's order (`sorted`). A link
 /// naming no `Common/` file is not one: validation drops a player folder holding such a link,
-/// and a shared folder's links are not resolved (the subset gate names them).
+/// and a shared folder's links are not resolved (they have no role there, and its tasks are
+/// given no `Common/` files).
 fn mtls_in<'a>(
     searched: &ScopePath,
     files: &'a [FileDescriptor],

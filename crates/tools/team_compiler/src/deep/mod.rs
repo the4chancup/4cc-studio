@@ -71,7 +71,7 @@ use vtree::ScopePath;
 use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
-use crate::plan::subset::{
+use crate::plan::roles::{
     FolderModels, PlayerFile, file_stem, is_direct_common_file, link_feeds_own_package,
     linked_folder, player_file, selected_common_model, texture_format,
 };
@@ -261,8 +261,8 @@ pub(crate) fn content_findings(
                 content,
                 folder,
                 &player.files,
+                &FolderModels::of(folder, &player.files, engine),
                 &kept_common,
-                size_rule,
                 version,
                 FaceUse::of_player(export, player, engine),
             );
@@ -297,8 +297,8 @@ pub(crate) fn content_findings(
                 content,
                 &face.path,
                 &face.files,
+                &FolderModels::of_shared(&face.path, &face.files, engine),
                 &kept_common,
-                size_rule,
                 version,
                 FaceUse::Used {
                     linked_face: None,
@@ -309,7 +309,7 @@ pub(crate) fn content_findings(
                 content,
                 &face.path,
                 &face.files,
-                &FolderModels::of(&face.path, &face.files, engine),
+                &FolderModels::of_shared(&face.path, &face.files, engine),
             ));
             pass
         })
@@ -324,8 +324,8 @@ pub(crate) fn content_findings(
                 content,
                 &shared.path,
                 &shared.files,
+                &FolderModels::of_shared(&shared.path, &shared.files, engine),
                 &kept_common,
-                size_rule,
                 version,
                 FaceUse::Unused,
             )
@@ -595,13 +595,13 @@ fn folder_findings(
     content: &ContentSource,
     folder: &ScopePath,
     files: &[FileDescriptor],
+    models: &FolderModels,
     common: &KeptCommon,
-    size_rule: SizeRule,
     version: PesVersion,
     face: FaceUse,
 ) -> ContentPass {
     let engine = version.engine();
-    let models = FolderModels::of(folder, files, engine);
+    let size_rule = SizeRule::of(version);
     let scope = IssueScope::Folder(folder.clone());
     let xmls: Vec<(&FileDescriptor, XmlOutcome)> = match &face {
         FaceUse::Used { linked_face, .. } => {
@@ -613,7 +613,7 @@ fn folder_findings(
             };
             files
                 .iter()
-                .filter(|file| player_file(folder, file, &models) == Some(PlayerFile::FaceXml))
+                .filter(|file| player_file(folder, file, models) == Some(PlayerFile::FaceXml))
                 .map(|file| {
                     let outcome = user_xml_findings(content, file, &face_files, version, &scope);
                     (file, outcome)
@@ -638,7 +638,7 @@ fn folder_findings(
             listed_materials(&xmls, files, common, folder)
         }
     });
-    let pairings = pairings(folder, files, &models, engine, listed, common);
+    let pairings = pairings(folder, files, models, engine, listed, common);
     // A model the target's own format beats (`FolderModels::beaten`) is read by nothing, and
     // on Fox a `.mtl` is read only by the conversion of a `.model` paired with it, so one no
     // such model pairs with (beside only FMDLs, or a `.model` an FMDL beats) is read by
@@ -690,7 +690,7 @@ fn folder_findings(
         // The `.mtl` checked is the member's source, the same whatever the target, so on Fox
         // the one a selected `.model` pairs with, the only one the pass reads there, is looked
         // up as on pre-Fox (`messages.md`, the `mtl_texture_not_found` row).
-        Engine::Fox | Engine::PreFox => Some(held_stems(folder, files, &models, &shared, engine)),
+        Engine::Fox | Engine::PreFox => Some(held_stems(folder, files, models, &shared, engine)),
     };
     let sources = held.as_ref().map(|held| TextureSources {
         held,
@@ -785,7 +785,9 @@ struct Pairing<'a> {
 /// conversion writing its material set) with the `.mtl` its search finds among `files` and
 /// `common`'s; on Fox each `.model` with a role (`PlayerFile::Model`: no FMDL of its stem
 /// beats it) and each `.common` link with a role loading a Common `.model` (one loading a
-/// Common FMDL pairs none, the FMDL carrying its materials) the same way.
+/// Common FMDL pairs none, the FMDL carrying its materials) the same way. A shared folder's
+/// search sees no `Common/` file: its `.common` links resolve nothing (`FolderModels::shared`),
+/// as its tasks' search finds none, so a `.model` whose only `.mtl` is such a link has none.
 fn pairings<'a>(
     folder: &'a ScopePath,
     files: &'a [FileDescriptor],
@@ -804,6 +806,11 @@ fn pairings<'a>(
             })
             .collect();
     }
+    let link_targets: &[FileDescriptor] = if models.is_shared() {
+        &[]
+    } else {
+        &common.files
+    };
     files
         .iter()
         .filter(|file| match engine {
@@ -839,7 +846,7 @@ fn pairings<'a>(
             Pairing {
                 file,
                 model,
-                mtl: mtl_for(&file.path, folder, files, &common.files),
+                mtl: mtl_for(&file.path, folder, files, link_targets),
             }
         })
         .collect()
