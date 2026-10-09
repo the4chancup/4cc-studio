@@ -25,6 +25,7 @@ reported, a `Collars/` subfolder ignored; TC-BIN-23, TC-BIN-24, TC-CMN-16, TC-RE
 4.y-fix9 done 2026-10-09 (a shared face's `face.xml` rules its linking faces; TC-XML-14,
 TC-XML-15),
 4.y-fix11 opened 2026-10-09 (S7's, S8's, S12's and S13's SWE-2 rework),
+4.y-fix15 opened 2026-10-10 (S14's SWE-2 rework),
 4.y-fix10 opened 2026-10-09 (a pre-Fox per-kit model set completed, the maintainer's
 answer), 4.y-fix12, 4.y-harness and 4.y-ingame opened 2026-10-09 (PES 17's `uniform.mtl`
 in the templates; the in-game harness into `scripts/`; the converted collar and
@@ -3391,6 +3392,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   proven, red first; the census re-run over the six refs exports holding `Common/refkit/`:
   no `common_file_disallowed` and no `xml_path_unchecked` for it.
 
+- [ ] 4.y-fix15 **S14's SWE-2 rework** (rulings S14.1 in `.tmp/4_y/duck_rulings.md`).
+  (1) Under `ingame_face` the deep pass's `.mtl` check sees the textures of the combined
+  `Boots/` and `Gloves/` folders (`deep/mod.rs` `FaceUse::of_player` returns before
+  computing `combined`): a false `mtl_texture_not_found` today. (2) A `.face` link gives
+  the player a face only when the linked `Faces/` folder holds a face model
+  (`roles.rs` `with_linked_face`, `ModelFolder::roles`): today a texture-only face
+  folder's link packs the player's own `face_diff.bin` into the blank face. (3) Under
+  `ingame_face` on PES 15-17 a `.common` link to a per-kit variant has no role, as
+  unmarked (`roles.rs` `pre_fox_file`'s `CommonLink` arm, the `kit_token` guard of
+  `pre_fox_link`). Plan only (done with this step's opening): the
+  `face_file_not_used` row names a member's `face.xml` under the marker and gives
+  `fcl_hair_sim.fclo` to Fox. Plan: `player_folders.md` "`ingame_face` with shared
+  links", "A link plus local models combines"; `pipeline.md` step 4 (the blank face);
+  `messages.md` `face_file_not_used`, `mtl_texture_not_found`; DECISIONS 2026-10-09 (a
+  `.common` link to a per-kit variant). Crates: tc
+  → verify: a test per item, red first; S14 gets a second SWE-2 round on the rework diff.
+
 - [~] 4.y-harness **The in-game harness moves into `scripts/ingame/`** (maintainer,
   2026-10-09). Lead: `game.py` (launch, screenshot, keys, close) and `burst.py` (frame
   bursts) from `.tmp/4_0/ingame/`, and one `install.py` generalizing the per-check
@@ -5600,3 +5618,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   loops ended). Step 4.y-fix11 opened with S7's five and S8's three accepted concerns:
   a kit variant set spans the files a part is built from, and a shared boots or gloves
   folder's face file is not used (decisions).
+- **2026-10-10** — S14's SWE-2 loop ran (7 items, 5 accepted: a second round after the
+  rework, step 4.y-fix15). S15's first run ended at SWE-2's output-token limit before
+  its report; rerun.
