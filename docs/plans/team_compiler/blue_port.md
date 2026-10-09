@@ -110,7 +110,13 @@ The marker model is the one the legacy tools ship as a referee prop: a square ab
 wide lying on the ground, slightly tilted, under the referee. On Fox it is the 4cc's
 `referee_prop.fmdl` (one mesh, 4 vertices, material `judge_watch`, base texture
 `cup_logo.dds`), on pre-Fox the `referee_prop.model` and `.mtl` of Red's referee template
-(material `judge_incom`). Drawn as a collar it stays on the ground instead of following the
+(material `judge_incom`), the pair the pre-Fox template tree already carries under
+`parts/referee/`: the model goes out as `referee_collar_077.model` as it is, its `.mtl` as
+`referee_collar_077.mtl` holding the one material the model binds, `judge_incom`, with its
+diffuse map pointed at the marker texture (the template's four other materials are the
+referee's watch, pen, whistle and flag, naming textures the refs CPK does not carry), and the
+empty `collar_077.model` is the bundled `collar_empty.model`, FPC's own stand-in for collar 105
+(`resources/templates/README.md`). Drawn as a collar it stays on the ground instead of following the
 neck because of **static painting**, the cup community's trick: its vertices are weighted to
 a dummy vertex group, usually named `static`, that is no bone of the body skeleton, so no
 animation moves them. The referee step checks that the bundled models are painted that way.
