@@ -10,30 +10,6 @@ names where the question came from so the context can be read there.
 
 ## Blocking a plan ruling
 
-### A shared face folder's `face.xml`
-From: step 4.20 (DECISIONS 2026-10-09). A `Faces/` folder's own `face.xml` is ignored on PES
-15-17 with `xml_ignored_shared`, each linking player's face listing the folder's models by the
-normal route, as a member's own xml is ignored on Fox. Should the shared xml rule every player
-combining the face, and what would his own files add to it (entries appended, or his models
-replacing the entries of their names)? A plan ruling; then the face task reads it as the
-member's own and the deep pass checks it as one.
-
-### FoxDen per-kit models
-From: step 4.11c, maintainer's note of 2026-10-05. The plan assumes a tag-less `modelname`
-fills every kit number up to the team's kit count that has no `modelname_kit<N>`, once any
-variant exists (`model_format.md` "Kit-dependent assets", `kit_variant_model_fox`). The local
-FoxDen (`02_kitswappers.lua`) swaps whole folders instead (`<id>p<kit>\#Win\`, kit 1 never
-swapping, legacy `u0TTTp0` and 25-id blocks).
-Needed: the file names FoxDen looks for (per model inside the face package, or per-kit
-folders); how that meets Fox merging (one merged FMDL per kit?); whether the rule covers
-textures and pre-Fox. Then the plan's rule and the finding change.
-
-### Per-kit model sets on pre-Fox
-From: step 4.16. Once pre-Fox kit numbers exist: is a per-kit *model* set (4.14e4) completed
-against them as a texture set is (the lowest variant copied under a missing number), or left
-as the member made it? Also unknown: what the game does with a `face.xml` entry whose
-respelled model is missing (no pre-Fox exe reads `kitN` yet).
-
 ### Converted collars
 From: step 4.17 (slice e's ruling, DECISIONS 2026-10-08 "Collars across engines"). Two parts:
 (a) is a converted collar drawn right with its first material as `uni_collar` and the rest as

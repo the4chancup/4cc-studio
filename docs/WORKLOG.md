@@ -21,6 +21,9 @@ with 4.19d, 4.27b is done (4.27 done); 4.9 is done
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
 4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g1 done: the pose measurement on the games' own files, the pre-check's rule settled as a blended-delta test; g2 done: `needs_conversion` is that test, `skf_*` pass through, tolerance 3e-3; g3a done: the Fox Models task pre-checks every selected FMDL with its `.skl`, the gloves task reads a hand-split part's `.skl`, a slotless conversion skeleton is dropped silently; g3b done: every pre-Fox `.model` pre-checked with the member's `.mtl` packed beside a moved one, the Common `.mtl` a link names read; 4.17's slices are done); 4.20 in progress (lead rulings and a done 2026-10-09: the gate gone, a file no role reads `file_not_used`; b1 done: unused kit stems, `shared_folder_no_model`, Common-set textures, the Common glTF order; b2 done: per-kit sets left out on pre-Fox where no `face.xml` names them, a shared folder's `face.xml` ignored; 4.20 done); 4.19d done 2026-10-09 (with 4.27's pre-Fox half; the TC-REF-04 in-game check: checked 2026-10-09 by the lead on PES 17 through the harness (`.tmp/4_19/ingame/`, results in `.tmp/4_0/apptest/results.txt`): the referee present with the pair installed, nothing drawn; a `.mtl` beside a nocloth `.model` is read and stops the model drawing (runs E and F against 2026-10-08's run I), so the pre-Fox marker goes by Red's route instead: step 4.19f, DECISIONS 2026-10-09; the scene where the pre-Fox marker shows is a maintainer question); 4.27b done 2026-10-09 (the Fox referee configs also their `UniformParameter.bin` entries; a refs-only Fox run writes the team side); 4.19f done 2026-10-09 (the pre-Fox marker by Red's route: the template prop's texture replaced, no collar pair, `collar_empty.model` gone); 4.19e done 2026-10-09 (a referee's shared link his slot's folder alone on PES 15-17; no face folder for a referee without a face model); every Phase 4 step is done (the 4.14 and 4.17 parent bullets closed 2026-10-09, their verify criteria re-run); 4.y-conv in progress since 2026-10-09: the lead's audit done (verify re-run, acceptance, catalog producers, sweep, `pub` census, Clef, the export census), 4.y-fix1 done 2026-10-09 (eight small fixes, three issues closed by tests); the whole-crate mutation runs of `aesthetics_export` and `pipeline` done and triaged, `team_compiler`'s next; 4.y-fix2 done 2026-10-09 (`export_layout_old`, the dual-engine face diff, the survivors' tests), 4.y-fix3 done 2026-10-09 (a cube-map DDS goes out as Red ships it; TC-TEX-13, acceptance 280 of 280), 4.y-fix4 done 2026-10-09 (S7's rework: a linked face's `.model` boots convert with their `.mtl`, a boots or gloves link combines with the player's effective parts; TC-MOD-58 to 60), 4.y-fix5 done 2026-10-09 (S8's rework: a Common model's local `.mtl` resolves its textures in the folder, every DDS kind the decoder refuses is `texture_codec_unsupported`, an FTEX portrait gets the full chain; TC-MOD-61, TC-TEX-14, TC-TEX-15), 4.y-fix6 done 2026-10-09 (a DX10-header DDS portrait goes out re-headered: the VGL stream's PES 19 crash; TC-PRT-04, acceptance 287 of 287), 4.y-fix7 (a) done 2026-10-09 (the deep pass checks what
 `compile` reads: S9's rework; acceptance 295 of 295; (b), the pairing code's move, open), 4.y-fix8 opened 2026-10-09 (S10's and S11's rework),
+4.y-fix9 opened 2026-10-09 (a shared face's `face.xml` read, the maintainer's answer),
+4.y-fix10 opened 2026-10-09 (a pre-Fox per-kit model set completed, the maintainer's
+answer),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
@@ -3268,6 +3271,30 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   aesthetics_export
   → verify: the five scenarios proven, red first; the `colors_txt` cases pass.
 
+- [ ] 4.y-fix9 **A shared face folder's `face.xml` rules its linking faces** (the
+  maintainer's answer, 2026-10-09). On PES 15-17 a `Faces/` folder's `face.xml` is checked by
+  the deep pass as a member's own in the shared folder's pass, and is the xml of each
+  linking player's face, his models it does not name appended as generated entries before
+  the `face_neck` dummy and the `<dif>`; a player holding a `face.xml` and linking a
+  `Faces/` folder is `xml_shared_face_conflict` (E, `DropFolder`, not pass-through-eligible);
+  `xml_ignored_shared` stays for `Boots/` and `Gloves/` folders only. The help topic says
+  so in the same diff. Plan: `messages.md` "User-supplied `face.xml`" (the paragraph
+  starting "A `Faces/` folder's `face.xml`"), `xml_ignored_shared`,
+  `xml_shared_face_conflict`; DECISIONS 2026-10-09. TC-XML-14, TC-XML-15 (TC-XML-10
+  withdrawn: its test changes). Crates: tc
+  → verify: the two scenarios proven, red first.
+
+- [ ] 4.y-fix10 **A pre-Fox per-kit model set is completed against the kit numbers** (the
+  maintainer's answer, 2026-10-09). On PES 15-17 a model set a face's `face.xml` lists,
+  generated or the member's own, gets for each kit number the export defines that it lacks
+  the files the lowest variant's entries name packed again under that number's spelling
+  (its models, its `.mtl` when that carries the token), with `kit_variant_missing`
+  (context `model`), as the textures task completes a texture set. Plan: `pipeline.md`
+  "Kit-dependent assets" (the sentence starting "The set is completed as a texture set
+  is"), `model_format.md` "Per-kit models", `messages.md` `kit_variant_missing` and
+  "User-supplied `face.xml`"; DECISIONS 2026-10-09. TC-CMN-17. Crates: tc
+  → verify: TC-CMN-17 proven, red first; a member's own xml naming a set is completed too.
+
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -3460,6 +3487,11 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-09) — per-kit face packages on Fox wait on FoxDen (`model_format.md`
+  "Kit-dependent assets", DECISIONS 2026-10-09): each kit number gets a face package of its
+  own, merged from that number's variants of any file kind, once FoxDen loads one per kit
+  picked; the layout it reads is decided with FoxDen's work, then a step in the phase open
+  at the time builds it and retires `kit_variant_model_fox`. FoxDen is a work in progress.
 - open (4.y-fix7, 2026-10-09) — on PES 15-17 the deep pass reads a player folder's models
   with the roles of a folder without `ingame_face` (`FolderModels::of`), so under the marker
   a per-kit model variant that planning leaves out is still read and checked: a broken
@@ -5397,3 +5429,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   and 3 items, 1 and 2 accepted, both loops ended. Their reports, which `duck.py` overwrote
   with the reviewer's final reply, were recovered by resuming the sessions. Step 4.y-fix8
   opened for the two surfaces' eight accepted concerns.
+- **2026-10-09** — Two maintainer answers landed: a shared face folder's `face.xml` rules
+  its linking faces (step 4.y-fix9 opened), and on Fox each kit number gets a face package
+  of its own once FoxDen loads one (an open issue; no phase does FoxDen work).
+- **2026-10-09** — The maintainer's answer on pre-Fox per-kit model sets: completed against
+  the export's kit numbers as texture sets are (the game skips an entry whose respelled
+  model is missing); step 4.y-fix10 opened. `AGENTS.md`: an answer is open to discussion.

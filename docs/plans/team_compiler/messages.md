@@ -202,7 +202,7 @@ savefile messages are new.
 | `static_bone_added` | I | an unskinned mesh was weighted to the `static` bone an FMDL needs (context: `model`; `mesh`, the index) | none |
 | `weight_clamped` | I | a weight lane above 1 was clamped to the FMDL weight's maximum (context: `model`; `mesh`, the index; `count`, the vertices clamped) | none |
 | `empty_mesh_bone_group_dropped` | I | a vertexless mesh's bone group was written empty, it skins nothing (context: `model`; `mesh`, the index; `count`, the group's size) | none |
-| `kit_variant_missing` | W | a folder's texture variant set (`pants_kit1`, `pants_kit3`) has no variant for a kit number the export defines; on the folder, once per set and number (context: `texture`, the set's reference as `pants_kitN`; `kit`, the number; `copied`, the lowest variant's stem) | lowest existing variant copied into the gap |
+| `kit_variant_missing` | W | a folder's texture variant set (`pants_kit1`, `pants_kit3`), or on PES 15-17 a model set its face's `face.xml` lists, has no variant for a kit number the export defines; on the folder, once per set and number (context: `texture`, or `model` for a model set, the set's reference as `pants_kitN`; `kit`, the number; `copied`, the lowest variant's stem) | lowest existing variant copied into the gap (for a model set, the files its entries name) |
 | `kit_variant_model_left_out` | W | per-kit model variants (`*_kit1`, `*_kit2`, …) where no `face.xml` names the set: on a Fox target, which has no model-path indirection, and on PES 15-17 in a shared `Boots/` or `Gloves/` folder's own output (one `boots.model`, one `glove.xml` listing every glove) and under `ingame_face` (his boots and gloves hold parts, not entries); on the folder, once per set, a shared folder's only while a mapped player links it (planning's glTF drop removes the shared folders it leaves with no linking player, with no finding of their own: the drop's names the cause, and such a folder gets no id and no task) (context: `model`, the set's reference with the lowest variant's extension, `pants_kitN.fmdl` or `pants_kitN.model`; `used`, the lowest variant's file name, the target's format when both formats hold that number) | lowest variant used, others ignored; a variant in the other engine's format converts, a `.model` with its `.mtl` |
 | `kit_variant_mtl_differs` | W | on PES 15-17 a per-kit model variant whose `.mtl` (the one its search finds) is not the one its set's `face.xml` entry implies for its kit number (the entry's `material` respelled for it, directory included); on the folder (context: `model`, the variant's file name; `mtl`, the `.mtl` its search finds as the `face.xml` would write it, `./materials.mtl`; `expected`, the one the entry implies, `./pants_kit2.mtl`) | model packed; the game finds no `.mtl` for that kit |
 | `common_link_missing` | E | a `.common` link — model, material file or texture — names a file missing from the Common folder (context: the link file, whose name shows its kind, and the Common path looked for); a texture link is satisfied by an installed CPK holding the texture at the team's Common path (`pipeline.md` "Resolved decisions", "A texture a model names must exist") | folder discarded |
@@ -347,7 +347,8 @@ pass-through-eligible, and the logo goes as one unit.
 | `xml_face_neck_added` | I | no `face_neck` entry among a face's models; the dummy entry was appended (Red's rule); not on a blank face | dummy model + mtl emitted |
 | `xml_uniform_pes15` | I | PES15 target: `type="uniform"` rewritten to `uniform_sub` (Red's rule) | rewritten |
 | `xml_ignored_fox` | I | a user `face.xml` in a folder compiled for a Fox target | xml ignored; models compile by the normal route |
-| `xml_ignored_shared` | I | PES 15-17: a `face.xml` in a shared folder (`Faces/`; a `Boots/` or `Gloves/` folder's too, whose output no xml drives); whether a shared face's should rule every player combining the face is `QUESTIONS.md` "A shared face folder's `face.xml`" (context: `file`) | xml ignored and not checked; the deep pass pairs every model of the folder as without an xml, and each linking player's face lists the folder's models by the normal route |
+| `xml_ignored_shared` | I | PES 15-17: a `face.xml` in a shared `Boots/` or `Gloves/` folder, whose output (one model, a `glove.xml`) no face xml drives (context: `file`) | xml ignored and not checked; the deep pass pairs every model of the folder as without an xml |
+| `xml_shared_face_conflict` | E | PES 15-17: a player folder holding a `face.xml` links a `Faces/` folder, whether or not that folder holds one: a face takes one xml (context: `file`, the player's xml; `link`, the shared folder's export path) | folder discarded (`DropFolder`, not pass-through-eligible) |
 | `face_diff_invalid` | E | `face_diff.xml` is not base64 text or a `<dif>` holding it, or its decoded bytes, or a `face_diff.bin`, are not a face diff (`player_folders.md` "`face_diff.xml`"; context: the file, the reason) | folder discarded |
 | `mtl_material_duplicate` | E | material listed twice | folder discarded |
 | `mtl_state_invalid` | E | `ztest` ≠ 1 / `blendmode` ∉ {0,1} / `alphablend` ∉ {0,1} | folder discarded |
@@ -427,7 +428,8 @@ tracer's Fumos folder: `./face_high_*.model` beside `face_high_win32.model`) was
 - A kit token in a referenced name (`pants_kitN.model`, `pants_kit2.mtl`) passes through: the
   reference exists when a variant of its set is among the files searched (`kit_variants`), and a
   `./` reference to a `.model` set packs every variant under its own file name, since the game
-  respells the entry for the kit picked.
+  respells the entry for the kit picked, and completes the set as a generated face's is
+  (`pipeline.md` "Kit-dependent assets", `kit_variant_missing`).
 - A `material` is resolved the same way; an entry without one is written without one.
 - Any other path form is `xml_path_unchecked` and written as it is.
 
@@ -452,12 +454,26 @@ task when the dummy is appended, since two files cannot share a name; no export 
 user xml names the entry by its `path` value, since an entry need not resolve to a file. The hand
 auto-split does not apply to such a folder: the xml says what the face loads, and a split would
 add glove entries the member did not write. A folder holding a `face.xml` has a face, whatever
-models it holds (an xml naming only Common models is one), so its face files are used. A `face.xml` in a shared folder
-(`Faces/`, or a `Boots/` or `Gloves/` one, whose output no xml drives) is ignored on PES 15-17 as
-on Fox, with `xml_ignored_shared`: the deep pass pairs every
-model of the folder as it does without an xml, and each linking player's face lists the folder's
-models by the normal route; whether the shared xml should rule every player combining it, and
-what his own files would add, is `QUESTIONS.md` "A shared face folder's `face.xml`".
+models it holds (an xml naming only Common models is one), so its face files are used.
+
+A `Faces/` folder's `face.xml` is the xml of every face linking the folder. The deep pass
+checks it in the shared folder's own pass as a member's own (its `./` references naming the
+shared folder's files, a model of the folder it does not list `xml_model_unlisted`). A
+linking player's face is the shared folder's copy with his own files on top ("A link plus
+local models combines" in `aesthetics_export/player_folders.md`), and its xml is the shared
+one: a reference resolves over the face's files as above, his own file first, and each of
+his models the xml does not name gets the entry a generated xml would give it, appended
+after the xml's children and before the `face_neck` dummy and the `<dif>`. His own
+`face_diff.xml` or `face_diff.bin` is the face's diff over the shared xml's `<dif>`, as any
+of his files wins over the shared folder's. We append rather than generate a second list,
+because the shared xml is the author's statement of what the base face loads and the
+player's parts layer over it as his files do over the shared ones; the face has an xml, so
+the hand auto-split does not apply to it. A player folder linking a `Faces/` folder holds no
+`face.xml` of its own: two xmls for one face leave no rule for which one speaks, so his is
+`xml_shared_face_conflict` and the folder is discarded, whether or not the shared folder
+has one. With neither, the face's xml is generated as usual. A `Boots/` or `Gloves/`
+folder's `face.xml` is ignored on PES 15-17 as on Fox (`xml_ignored_shared`): its output is
+one model or a `glove.xml`, which no face xml drives.
 
 Texture existence is checked **deep**, not shallow: `pes_model` parses the `.model` files and knows
 which MTL material each mesh actually binds, so a missing texture on a mesh-used material is a hard

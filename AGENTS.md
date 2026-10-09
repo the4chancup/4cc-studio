@@ -449,7 +449,10 @@ reverse it. It stops to ask only when the choice is truly ambiguous (no option i
 better on the evidence) or needs information only the maintainer has (in-game behavior, cup
 practice, a preference); such a question is written to `docs/QUESTIONS.md`, with the worklog
 issue or step that waits on it pointing there, and the work goes on with whatever does not
-depend on it. New dependencies and `unsafe` still need a yes first; a dependency the
+depend on it. An answer is open to discussion, an earlier one included: when the lead sees a
+reason against it (a case it breaks, a cost it carries, a simpler rule), it says so with the
+evidence before landing it, and the maintainer decides; an answer it agrees with needs no
+argument. New dependencies and `unsafe` still need a yes first; a dependency the
 plan already names (`rayon`, `crossbeam-channel`, ...) is accounted for, not new.
 
 Logging a decision means, in this order: edit the relevant plan section so the plan stays the

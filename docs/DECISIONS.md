@@ -5952,3 +5952,54 @@ changed with no finding where a supplied config's clamp is reported. A new code,
 this one's is a kit export; one warning per slot, not two.
 Plan: `team_compiler/pipeline.md` "Collars", "Bins accumulation"; `team_compiler/messages.md`
 "Kits"; `team_compiler/README.md` TC-BIN-23, TC-BIN-24.
+
+## 2026-10-09 — team_compiler — a shared face folder's `face.xml` rules every face linking it; a player's own beside the link is an error
+Decision: on PES 15-17 a `Faces/` folder's `face.xml` is the xml of each linking player's
+face, checked by the deep pass in the shared folder's pass as a member's own; each of the
+player's models the xml does not name gets a generated entry appended before the `face_neck`
+dummy and the `<dif>`, and his own face diff file wins over the xml's `<dif>`. A player
+folder holding a `face.xml` and linking a `Faces/` folder is `xml_shared_face_conflict` (E,
+the folder discarded, not pass-through-eligible), whether or not the shared folder holds
+one. With neither, the xml is generated. `xml_ignored_shared` stays for `Boots/` and
+`Gloves/` folders only. Supersedes "A shared `Faces/` folder's `face.xml` is ignored on PES
+15-17 with `xml_ignored_shared`" (2026-10-09).
+Why: the maintainer's answer (2026-10-09): "When linking to a shared face folder, its face
+xml (if present) becomes the player's face xml and the other models from the player folder
+are appended to it as entries. The player folder must not have a face xml when it's linking
+to a shared face folder, otherwise that's an error and the folder is rejected. If neither
+folder has a face xml one is generated from scratch as usual." The lead's reading fills
+three points it leaves open: the entries go before the dummy and the `<dif>` because the
+game's files and the generator end that way; his diff file wins because any of his files
+replaces the shared folder's of its name; and the conflict is not pass-through-eligible
+because no choice of xml would build the face the member meant.
+Plan: `team_compiler/messages.md` "User-supplied `face.xml`", `xml_ignored_shared`,
+`xml_shared_face_conflict`; `team_compiler/README.md` TC-XML-10 (withdrawn), TC-XML-14,
+TC-XML-15.
+
+## 2026-10-09 — model_format — on Fox each kit number gets a face package of its own, once FoxDen loads one
+Decision: a per-kit set on Fox (any file of the face: models, textures, the face's other
+files) is built as one face package per kit number, its models merged from that number's
+variants, and FoxDen loads the package of the kit picked. The layout FoxDen reads is decided
+with FoxDen when it gains the support; until then the compiler keeps the lowest variant and
+`kit_variant_model_fox`.
+Why: the maintainer's answers (2026-10-09): the file names FoxDen looks for "we can decide
+as needed, FoxDen is a work in progress"; one merged FMDL per kit, "yes, each kit has the
+models merged separately"; the rule "covers any kind of file". The work waits on FoxDen,
+which no Studio phase builds, so it is an open issue, not a step.
+Plan: `model_format.md` "Kit-dependent assets"; `team_compiler/pipeline.md` "Kit-dependent
+assets".
+
+## 2026-10-09 — team_compiler — a pre-Fox per-kit model set is completed against the export's kit numbers
+Decision: on PES 15-17 a model set a face's `face.xml` lists (generated or the member's own)
+gets, for each kit number the export defines that it lacks, the files the lowest variant's
+entries name packed again under that number's spelling (its models, and its `.mtl` when that
+carries the variant's token), reported as `kit_variant_missing` with the context `model`, as
+a texture set is completed.
+Why: the maintainer's answer (2026-10-09): complete it, since filling in "allows a team to
+add a new kit and use it without having to add a new model file to every player which has
+kit-dependent models"; an error was the alternative considered. The game skips an entry
+whose respelled model is missing (the maintainer's knowledge of the exe), so a gap left as
+the member made it would show the player without the part for that kit, with no finding.
+Plan: `team_compiler/pipeline.md` "Kit-dependent assets"; `model_format.md` "Kit-dependent
+assets"; `team_compiler/messages.md` `kit_variant_missing`; `team_compiler/README.md`
+TC-CMN-17.

@@ -1167,11 +1167,7 @@ TC-XML-09  GIVEN slot 05 holding body_uniform.model and its own face.xml naming
            ./body_uniform.model
            WHEN the export is compiled for PES 16
            THEN xml_oral_prefix_missing is reported and the folder is dropped
-TC-XML-10  GIVEN Faces/Round holding face_high.model, face_high.mtl and a face.xml naming it, slot
-           05 linking the folder with no face.xml of his own
-           WHEN the export is compiled for PES 17
-           THEN xml_ignored_shared is reported on Faces/Round as Info and slot 05's face CPK holds
-                a generated face.xml listing face_high
+TC-XML-10  withdrawn: a shared face folder's face.xml is no longer ignored (TC-XML-14)
 TC-XML-11  GIVEN slot 05 holding face_high.model, face_high.mtl, a face.xml carrying a <dif> and
            a face_diff.bin
            WHEN the export is compiled for PES 17, then for PES 21
@@ -1189,6 +1185,18 @@ TC-XML-13  GIVEN slot 05 holding face_high.model, face_high.mtl, a face.xml carr
            WHEN the export is compiled for PES 17
            THEN no face_diff_invalid is reported and the face CPK's face.xml carries the
                 xml's <dif>
+TC-XML-14  GIVEN Faces/Round holding face_high.model, face_high.mtl and a face.xml naming
+           face_high, slot 05 linking the folder and holding hair.model and hair.mtl
+           WHEN the export is compiled for PES 17
+           THEN no xml_ignored_shared is reported, and slot 05's face CPK holds face_high.model,
+                hair.model and a face.xml whose entries are the shared xml's face_high
+                entry, then the entry a generated xml gives hair.model, then the face_neck
+                dummy
+TC-XML-15  GIVEN Faces/Round holding face_high.model and face_high.mtl, slot 05 linking it and
+           holding a face.xml naming ./face_high.model
+           WHEN the export is compiled for PES 17, then again with pass_through on
+           THEN both times xml_shared_face_conflict is reported on slot 05's folder, which is
+                left out of the CPK
 ```
 
 **Kits**
@@ -1405,6 +1413,13 @@ TC-CMN-16  GIVEN Collars/sub/collar_12.model and strict_file_type_check off
            WHEN the export is compiled for PES 17
            THEN file_type_disallowed is reported as Info naming it, the CPK holds no
                 collar_012.model, and the team's kit configs keep their collars
+TC-CMN-17  GIVEN Kits/p1, p2 and p3, and slot 05 holding pants_kit1.model with pants_kit1.mtl
+           and pants_kit2.model with pants_kit2.mtl
+           WHEN the export is compiled for PES 17
+           THEN kit_variant_missing is reported on slot 05's folder for model pants_kitN, kit
+                3, copied pants_kit1, and the face CPK holds the kit 3 spellings of
+                pants_kit1's packed model and .mtl with their bytes, beside the one
+                pants_kitN entry
 ```
 
 **Bins**

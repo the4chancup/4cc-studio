@@ -179,15 +179,22 @@ Rules:
   missing is `kit_variant_missing` (W) and the compiler **copies the lowest existing variant** into
   the gap, so the model never shows a missing texture in game. Variants for numbers the export does
   not define are emitted as they are (harmless).
-- **Per-kit models are pre-Fox only.** Model files `pants_kit1.glb` + `pants_kit2.glb` (any source
+- **Per-kit models.** Model files `pants_kit1.glb` + `pants_kit2.glb` (any source
   format) form one variant set: pre-Fox emits a single `face.xml` entry naming `pants_kitN` and the
   variant files beside it; each variant's materials resolve by the normal stem name matching
-  (`pants.materials.toml` matches both). The entry names the lowest variant's material file, its
+  (`pants.materials.toml` matches both). The set is completed against the export's kit
+  numbers as a texture set is (`kit_variant_missing`, the lowest variant's model and
+  material file copied under the missing number's name), since the game skips an entry
+  whose respelled model is missing. The entry names the lowest variant's material file, its
   kit token respelled `kitN` when it carries one (`pants_kit1.mtl` is written `pants_kitN.mtl`),
   since the game respells the whole entry for the kit picked; the other variants' material
   files must then go by the respelled names, and `kit_variant_mtl_differs` (W) names one that
-  does not. Fox has no model-path indirection, so the compiler uses the
-  lowest variant only and reports `kit_variant_model_fox` (W).
+  does not. Fox has no model-path indirection inside a face package, so there each kit
+  number gets a face package of its own, its models merged from that number's variants
+  (any file of the face may vary per kit: models, textures, the face's other files), and
+  FoxDen loads the package of the kit picked. The layout FoxDen reads (the packages' names
+  or folders) is decided with FoxDen when it gains the support, so the compiler builds it
+  then; until then it uses the lowest variant only and reports `kit_variant_model_fox` (W).
 - **Output naming.** The token passes through unchanged into emitted file names and into every path
   the compiler writes — FMDL path tables, `.mtl` sampler paths, `face.xml` model paths. Nothing in
   Studio, the Blender side included, ever produces `u0XXX`.

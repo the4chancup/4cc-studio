@@ -856,7 +856,7 @@ describes behavior, not a serial scheduling requirement:
   the ordinary texture-existence checks). Variant sets are completed against the
   export's kit numbers (`kit_variant_missing`, lowest variant copied) and per-kit *model* sets
   collapse to one `face.xml` entry on pre-Fox or to the lowest variant on Fox
-  (`kit_variant_model_left_out`). Rules and rationale: "Kit-dependent assets" in the [Unified model
+  (`kit_variant_model_left_out`), until FoxDen reads one face package per kit. Rules and rationale: "Kit-dependent assets" in the [Unified model
   format plan](../model_format.md). How the compiler finds a set: a *variant* is a file whose
   stem holds the token `kit1` to `kit9` (delimited by `_`, `-`, `.` or the stem's ends,
   spelled exactly so), and the files of one folder whose stems differ only in that token's
@@ -885,7 +885,14 @@ describes behavior, not a serial scheduling requirement:
   variant is packed under its own name and the set is listed once: the lowest variant's
   `face.xml` entries (its own, and its hands' when it is hand-split) with the kit token in
   their `path` and `material` spelled `kitN`, so the game respells the whole entry for the kit
-  picked; the other variants get no entry. The set is found over the face's packed names
+  picked; the other variants get no entry. The set is completed as a texture set is: for
+  each kit number the export defines that it lacks, the files the lowest variant's entries
+  name (its models, and its `.mtl` when that carries the variant's token) are packed again
+  under that number's spelling, and `kit_variant_missing` is reported on the folder, once
+  per set and number. The game skips an entry whose respelled model is missing, so without
+  the copy that kit would show the player without the part, and a team adding a kit would
+  have to add a model to every player with a set. The set is found over the face's
+  packed names
   after a linked shared face's files are copied in under the player's own, so a set split
   between the two (the shared folder's `pants_kit1` and `pants_kit2`, the player's own
   `pants_kit2`) is one set, as the copy makes it. The entry's `material` is the lowest variant's
