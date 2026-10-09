@@ -1414,6 +1414,16 @@ TC-CMN-15  GIVEN Common/sub/legs.model that does not parse and strict_file_type_
            WHEN the export is compiled for PES 17
            THEN common_file_disallowed is reported as Info and no other finding names
                 Common/sub/legs.model
+TC-CMN-18  GIVEN Common/refkit/oral_thigh_win32.model and Common/refkit/refkit.mtl, and slot 05's
+           own face.xml naming model/character/uniform/common/XXX/refkit/oral_thigh_*.model
+           with material .../common/XXX/refkit/refkit.mtl
+           WHEN the export is compiled for PES 17
+           THEN no xml_path_unchecked is reported, the team's Common output holds
+                refkit/oral_thigh_win32.model and refkit/refkit.mtl, and the entry is written
+                with the team's ID in place of XXX
+TC-CMN-19  GIVEN Collars/collar_12.fmdl with two materials
+           WHEN the export is compiled for PES 16
+           THEN the CPK's collar_012.model names uni_shirts alone
 TC-CMN-16  GIVEN Collars/sub/collar_12.model and strict_file_type_check off
            WHEN the export is compiled for PES 17
            THEN file_type_disallowed is reported as Info naming it, the CPK holds no
@@ -1669,6 +1679,18 @@ TC-REF-13  GIVEN TC-REF-10's refs export (Ref A in slots 01 and 20, holding only
 TC-REF-14  GIVEN a refs export whose root colors.txt holds a line that does not parse
            WHEN the export is checked
            THEN no color_entry_invalid is reported
+TC-REF-15  GIVEN a refs export whose Common/refkit/ holds a texture.dds other than the template's
+           WHEN it is compiled for PES 17
+           THEN the referee CPK's common/999/refkit/texture.dds is the export's, and the
+                template's other refkit files are beside it
+TC-REF-16  GIVEN a refs export whose Ref A holds face_high.model, face_high.mtl and fpc_off
+           WHEN it is compiled for PES 17
+           THEN his face.xml lists face_high, then the ten refkit body entries in the table's
+                order with material model/character/uniform/common/999/refkit/refkit.mtl,
+                then nothing else but the <dif>
+TC-REF-17  GIVEN TC-REF-16's Ref A also holding boots.model and boots.mtl
+           WHEN it is compiled for PES 17
+           THEN the refkit entries leave out oral_boots_*.model and his own boots stand
 ```
 
 **Output modes, deployment, multi-CPK**

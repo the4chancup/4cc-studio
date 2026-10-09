@@ -10,15 +10,6 @@ names where the question came from so the context can be read there.
 
 ## Blocking a plan ruling
 
-### `Common/refkit/` in the current referee exports
-Six of the cup's referee exports (Winter 26 Final Boss to Summer 26, `C:/Data/4cc/Refs/*/exports_to_add/`)
-hold a `Common/refkit/` folder: a whole referee kit model set (`oral_refshirt_win32.model`,
-`oral_pants_win32.model`, ..., `refkit.mtl`, textures and a `face.xml`) that no file under
-`Players/` references. The Studio format reads the files directly in `Common/` only, so the
-converge census (2026-10-09) reports every one of them `common_file_disallowed`. What did Red
-do with that folder (copy it under `common/999/refkit/` for the game's own referee kit?), and
-should Studio read it, flatten it, or leave it to the Export upgrader? Found at 4.y-conv.
-
 ## In-game checks
 
 ### Stock collar sets, and collars beyond the stock set

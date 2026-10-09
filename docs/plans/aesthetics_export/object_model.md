@@ -161,7 +161,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | directly in a player folder's `common/` | textures | `file_type_disallowed` |
   | directly in a shared folder | model content | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
-  | directly in `Common/` | model content | `common_file_disallowed` |
+  | anywhere in `Common/` | model content (a subfolder's is read on PES 15-17 alone, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
   | directly in `Collars/` | model files (any model format; the game draws a collar with the kit texture, so it has no textures or materials of its own, `team_compiler/pipeline.md` "Collars"); their `collar_<ID>` name is the compiler's to check, since which IDs exist depends on the target version (`collar_id_invalid`) | `file_type_disallowed` |
   | anywhere in `Kits/all/` | textures directly in it | `kit_all_file_ignored` |
   | anywhere in `Portraits/` | textures named `player_NN` directly in it | `portrait_name_invalid` |
@@ -175,7 +175,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   conversion). With `strict_file_type_check` off, `file_type_disallowed` and
   `common_file_disallowed` keep their item (`Keep`, which the consumer shows as Info) and the file
   stays in the folder's files; a task reads only the files its roles name, so a kept file no
-  role takes is not emitted (a kit emits only its named textures; the Common tasks only the
+  role takes is not emitted (a kit emits only its named textures; the Common tasks on PES 18-21 only the
   files directly in `Common/`; a `.common` link in a shared folder resolves nothing, links being
   a player folder's), and that finding is the one line the member sees for it.
 - **OS artifacts.** `Thumbs.db`, `desktop.ini` and `.DS_Store` (any case, at any depth) are

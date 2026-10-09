@@ -106,7 +106,7 @@ export format.
      nothing else: a file planning leaves unread (a model another representation of its
      stem beats, in a model folder or in `Common/`; a model with no role where it sits,
      such as a `.model` in a player's `common/`; a per-kit model variant left out; a
-     file below a `Common/` subfolder; a kit texture the target does not emit; on PES
+     file below a `Common/` subfolder on PES 18-21; a kit texture the target does not emit; on PES
      15-17 a `face_diff.bin` beside a member's `face.xml` holding a `<dif>`) is not
      checked, since its findings would drop what `compile` builds without it. Its own
      lookups (a model's `.mtl` search, a
@@ -790,11 +790,14 @@ describes behavior, not a serial scheduling requirement:
   `uniform.mtl`; Fox: the exe assigns the type), so a collar has no textures or `.mtl` of its
   own. On Fox its materials are the ones embedded in its FMDL, the author's (the diffuse
   overridden); on pre-Fox the shared `uniform.mtl` supplies them, so a collar *converted* for
-  pre-Fox has its materials named as the stock collars' are: the first material of the
-  converted form (the FMDL's first; a part the converter splits off it for meshes whose alpha
-  or shadow flags differ counts as another, the flags having no effect under `uniform.mtl`)
-  becomes `uni_collar` and every other `uni_shirts`, the list collapsed to those two names
-  with each mesh pointed at its name, since a `.model` lists a material once. The
+  pre-Fox has its materials named as the stock collars' are. On PES 17 the first material of
+  the converted form (the FMDL's first; a part the converter splits off it for meshes whose
+  alpha or shadow flags differ counts as another, the flags having no effect under
+  `uniform.mtl`) becomes `uni_collar` and every other `uni_shirts`, the list collapsed to
+  those two names with each mesh pointed at its name, since a `.model` lists a material once.
+  On PES 15-16 every material becomes `uni_shirts`: those versions' `uniform.mtl` defines no
+  `uni_collar`, and their stock collars use `uni_shirts` alone (measured on PES 16's collars
+  1, 50 and 105; PES 17's use both). The
   conversion's losses about a material (`mesh_flags_dropped`, `dummy_texture_added`, ...) are
   not reported for a collar: they describe the `.mtl` it never writes. A collar whose
   conversion fails is left out with `model_conversion_failed`, and the team's kits, which
@@ -848,7 +851,14 @@ describes behavior, not a serial scheduling requirement:
   reconciliation, so the custom ID deliberately overrides the FPC collar value in the configs.
 - **Common** — pre-Fox: `.mtl` texture IDs and relative→absolute path fixes; both modes: texture
   conversion, dummy ID replacement, `oral_`/`_win32` model-name prefixes, face XML references to
-  renamed common models updated.
+  renamed common models updated. On PES 15-17 a subfolder of `Common/` is packed under the
+  team's Common output at its own path (`Common/refkit/x.model` as
+  `common/<team>/refkit/x.model`), its files processed as `Common/`'s are, and a member's
+  `face.xml` Common path names it with the subfolder; a `.common` link still resolves only
+  directly in `Common/`, so a subfolder's file is reached by an xml alone. Red packed the whole
+  folder, and the referee exports' `Common/refkit/` ("Referee export processing" in
+  `blue_port.md`) is the one real use. On PES 18-21 nothing reads a subfolder's file (Fox has
+  no `face.xml`), and it is `file_not_used`.
 - **Kit-dependent assets** — `kitN`/`kit1`…`kit9` tokens in file names and written paths (FMDL
   path tables, `.mtl` sampler paths, `face.xml` model paths) pass through **verbatim**; the modded
   exes match that spelling directly, and the historical `u0XXXp0` magic is legacy that only the

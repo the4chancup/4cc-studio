@@ -27,7 +27,8 @@ reported, a `Collars/` subfolder ignored; TC-BIN-23, TC-BIN-24, TC-CMN-16, TC-RE
 answer), 4.y-fix12, 4.y-harness and 4.y-ingame opened 2026-10-09 (PES 17's `uniform.mtl`
 in the templates; the in-game harness into `scripts/`; the converted collar and
 `dummy_kit` checked in game by the lead), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
-`.model`),
+`.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
+`fpc_off`'s referee body),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
@@ -3320,6 +3321,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   conversion" (the `.model` collar sentence), `messages.md` `model_conversion_failed`;
   DECISIONS 2026-10-09. TC-CMN-11 (rewritten: its test changes). Crates: tc, resources
   → verify: TC-CMN-11 proven, red first; the flagged stock PES 17 collar posed on PES 15.
+  Also (lead's finding, 2026-10-09): a collar converted for PES 15-16 names `uni_shirts`
+  alone, PES 15's and 16's `uniform.mtl` defining no `uni_collar` (`pipeline.md`
+  "Collars"); TC-CMN-19.
 
 - [ ] 4.y-fix13 **A hidden Fox mesh is left out of a `.model` export** (the maintainer's
   answer, 2026-10-09). `model_convert`'s pre-Fox export skips a mesh whose `invisible`
@@ -3329,6 +3333,22 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   2026-10-09. TC-MOD-64. Crates: model_convert, tc (its consumers' tests: `just
   bindings` too) → verify: TC-MOD-64 proven, red first; a unit test of the export's
   skip and of the all-hidden error.
+
+- [ ] 4.y-fix14 **`Common/` subfolders, the referee body** (the maintainer's answers,
+  2026-10-09). Two slices. (a) On PES 15-17 a `Common/` subfolder is packed under the team's
+  Common output at its own path, processed as `Common/` is; a `face.xml` Common path naming
+  `<subfolder>/<name>` resolves there (no more `xml_path_unchecked`), in a refs export the
+  referee template's `common/999/` tree counting too; a refs export's Common files lay over
+  the template's of the same path; the allowlist admits model content anywhere in `Common/`;
+  the deep pass checks a subfolder's files on PES 15-17 (they are read). (b) A referee
+  folder's `fpc_off` on PES 15-17 appends the refkit body's ten entries (`blue_port.md`'s
+  table) to his face's xml, leaving out what the xml names and the boots or hands he has
+  his own of. Plan: `pipeline.md` "Common", `messages.md` "User-supplied `face.xml`" (the
+  Common reference bullet), `blue_port.md` "The referee body",
+  `aesthetics_export/object_model.md` allowlist; DECISIONS 2026-10-09. TC-CMN-18, TC-REF-15
+  (a); TC-REF-16, TC-REF-17 (b). Crates: tc, aesthetics_export → verify: the four scenarios
+  proven, red first; the census re-run over the six refs exports holding `Common/refkit/`:
+  no `common_file_disallowed` and no `xml_path_unchecked` for it.
 
 - [~] 4.y-harness **The in-game harness moves into `scripts/ingame/`** (maintainer,
   2026-10-09). Lead: `game.py` (launch, screenshot, keys, close) and `burst.py` (frame
@@ -3563,6 +3583,10 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-09) — a Fox referee's body under `fpc_off` waits on a Fox refkit, an FMDL
+  body the maintainer will make ("We'll make one later"; `blue_port.md` "The referee
+  body"): then the Fox referee template ships it and a step merges it into an `fpc_off`
+  referee's face package. Until then `fpc_off` applies its settings preset alone on Fox.
 - open (2026-10-09) — per-kit face packages on Fox wait on FoxDen (`model_format.md`
   "Kit-dependent assets", DECISIONS 2026-10-09): each kit number gets a face package of its
   own, merged from that number's variants of any file kind, once FoxDen loads one per kit
@@ -5522,3 +5546,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-09** — The maintainer's answer on hidden Fox meshes: left out of a `.model`
   export (step 4.y-fix13). S7's SWE-2 loop ran (6 concerns, 5 accepted: a second round after
   the rework, step 4.y-fix11 with S8's three).
+- **2026-10-09** — The maintainer's answers on `Common/refkit/`: every `Common/` subfolder is
+  packed on PES 15-17 (Red's rule), a refs export's Common lays over the referee template's,
+  and a referee's `fpc_off` appends the refkit body (Fox body later, an open issue); step
+  4.y-fix14. The lead found PES 15's and 16's `uniform.mtl` without `uni_collar` (their stock
+  collars use `uni_shirts` alone): a collar converted for them names `uni_shirts` alone, added
+  to step 4.y-fix12. S13's SWE-2 loop ran (ruled separately).

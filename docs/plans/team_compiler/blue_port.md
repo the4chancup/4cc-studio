@@ -50,6 +50,33 @@ referee folder with no face model gets no face folder, where a team player's get
 (the FPC rule, `pipeline.md` step 1): a referee has no FPC body to bring a head, so a blank
 face would leave him headless, and the game's own referee head stays.
 
+**The referee body (`refkit`, PES 15-17).** Referee teams are full FPC, so a head-only
+referee shows no body unless his face lists one. The referee template tree ships one at
+`common/999/refkit/` (Red's), and a refs export's `Common/refkit/` replaces its files of the
+same name, the template's others staying (the cup customizes it: the Winter 26 to Summer 26
+exports change 12 of its 16 files); every other file of the export's `Common/`, a subfolder's
+included, lays over the template's `common/999/` the same way. A member's `face.xml` names
+the body with Common paths (`model/character/uniform/common/999/refkit/oral_thigh_*.model`),
+or, more simply, the referee folder holds `fpc_off` ("this player needs his body",
+`aesthetics_export/fpc_toggle.md`): his face's xml, generated, his own or a linked shared
+face's, then gets these entries appended, before the `face_neck` dummy and the `<dif>`, each
+with `material` `model/character/uniform/common/999/refkit/refkit.mtl` (the list a cup
+referee's own xml used in game, Winter 26's `tsuoffside`):
+
+| `path` (`model/character/uniform/common/999/refkit/` +) | `type` |
+|---|---|
+| `oral_arm_*.model`, `oral_thigh_*.model`, `oral_refshirt_*.model`, `oral_pants_*.model`, `oral_pants_sub_*.model`, `oral_sleeve_*.model`, `oral_socks_*.model` | `parts` |
+| `oral_hand_l_*.model` | `gloveL` |
+| `oral_hand_r_*.model` | `gloveR` |
+| `oral_boots_*.model` | `boots` |
+
+An entry whose model the xml already names is left out, and so are the boots when he has
+boots of his own (a model or a link) and the hands when he has gloves, so he is never dressed
+twice; a partial body (his own shirt over the refkit's legs) is written by hand in his own
+xml, without `fpc_off`. A referee folder with no face model gets no face, so `fpc_off` adds
+nothing there. On PES 18-21 the body waits for a Fox refkit the maintainer will make (worklog
+"Issues"); until then `fpc_off` applies its settings preset alone there.
+
 **Preparing the slot mapping is a separate tool's job.** The slots are not drawn uniformly — each
 PES version has measured slot appearance rates (flat per-slot chances on 17–21, a pattern table on
 15/16 that demands matchday rotation) — and on PES 18–21 the community's Fox referee hook overrides

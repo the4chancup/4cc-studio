@@ -6027,3 +6027,48 @@ oral mesh with a `dummy_bsm` material no pre-Fox path resolves (4.17c1). No find
 the mesh showed nothing on Fox: nothing a member saw goes missing.
 Plan: `model_conversion/ir.md` "Material sources per format" (the `.model` pair's bullets);
 `team_compiler/messages.md` `mesh_flags_dropped`; `team_compiler/README.md` TC-MOD-64.
+
+## 2026-10-09 — team_compiler — on PES 15-17 a `Common/` subfolder is packed at its own path
+Decision: on PES 15-17 every subfolder of `Common/` is packed under the team's Common output at
+its own path, its files processed as `Common/`'s, and a `face.xml` Common path may name
+`<subfolder>/<name>`; a `.common` link still resolves only directly in `Common/`. On PES 18-21
+a subfolder's file is `file_not_used`. The allowlist admits model content anywhere in
+`Common/`. Supersedes, for PES 15-17, the rule that the Common tasks read only the files
+directly in `Common/`.
+Why: the maintainer's answer (2026-10-09): Red copied `Common/refkit/` under `common/999/refkit/`
+and Studio should handle it the same way, for player folders to point at it; then, asked
+between Red's general rule and a referee-only one, the general rule. Red packed every subfolder
+of every export; the census holds `refkit` in six refs exports and one test export's `body`,
+nothing else, and one rule needs no referee exception. A link stays flat because it names one
+file by its name, which a subfolder would make ambiguous.
+Plan: `team_compiler/pipeline.md` "Common"; `team_compiler/messages.md` "User-supplied
+`face.xml`"; `aesthetics_export/object_model.md` allowlist; `team_compiler/README.md` TC-CMN-18.
+
+## 2026-10-09 — team_compiler — the referee body: a refs export's `refkit` over the template's, and `fpc_off` appends it
+Decision: a refs export's `Common/` files lay over the referee template's `common/999/` tree,
+file by file; on PES 15-17 a referee folder holding `fpc_off` gets the refkit body's ten
+entries appended to his face's xml (generated, his own or a linked shared face's), each with
+`refkit.mtl`, leaving out a model the xml names and the boots or hands he has his own of; a
+referee with no face model gets nothing. On PES 18-21 the body waits on a Fox refkit (an open
+issue).
+Why: the maintainer's answers (2026-10-09): `refkit` is "a template folder with a full body
+minus the head, for head-only players to use since referee teams are fully FPC always"; "a
+simpler way to add a refkit body: the presence of the fpc_off marker", which already means
+"this player needs his body"; the limbs take `refkit.mtl` (not the referee's own `apc.mtl`);
+with his own xml the entries are appended, skipping what it names; Fox "needs a Fox body",
+"we'll make one later". The entry list and types are Winter 26's `tsuoffside`'s, which the
+cup used in game. The exports customize the refkit (12 of 16 files differ from the
+template's), so the export's must win; Red deleted the template's folder first, which gives
+the same files for these exports.
+Plan: `team_compiler/blue_port.md` "The referee body"; `team_compiler/README.md` TC-REF-15,
+TC-REF-16, TC-REF-17.
+
+## 2026-10-09 — team_compiler — a collar converted for PES 15-16 names `uni_shirts` alone
+Decision: a collar converted for PES 15-16 has every material named `uni_shirts`; on PES 17
+the first stays `uni_collar` and the rest `uni_shirts`, until the in-game check (step
+4.y-ingame) says otherwise.
+Why: PES 15's and 16's `uniform.mtl` (identical, `dt32`) define no `uni_collar`; PES 17's adds
+it, and its stock collars use both while PES 16's (collars 1, 50 and 105) use `uni_shirts`
+alone (the lead's measure, 2026-10-09, `.tmp/4_y/uniform_mtl/`). Naming `uni_collar` on PES
+15-16 names a material the game does not define.
+Plan: `team_compiler/pipeline.md` "Collars"; `team_compiler/README.md` TC-CMN-19.

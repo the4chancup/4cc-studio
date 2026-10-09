@@ -421,7 +421,12 @@ tracer's Fumos folder: `./face_high_*.model` beside `face_high_win32.model`) was
   xml is the member's statement of what the game should load, and Red kept both as written.
 - A `model/character/uniform/common/<3 chars>/<name>` reference has the 3-character segment
   replaced by the team ID (any other length is `xml_common_path_invalid`), and `<name>` (`*` as
-  `win32`) names a file directly in the export's `Common/`, case-folded, else `xml_model_not_found`.
+  `win32`) names a file directly in the export's `Common/`, case-folded, else `xml_model_not_found`;
+  `<subfolder>/<name>` (`.../common/999/refkit/oral_arm_*.model`) names a file in that
+  subfolder of `Common/`, which the team's Common output packs at its own path (`pipeline.md`
+  "Common"), and in a refs export a file of the referee template's `common/999/` tree counts
+  too when the export does not hold one of that path (`blue_port.md` "Referee export
+  processing").
   A `.model` is written as the team's Common output packs it, `oral_<stem>_*.model` (the Common
   output renames every model, as Red's `model_names_fix` does, and Red then respells the xml);
   a `.mtl` keeps its name there.
