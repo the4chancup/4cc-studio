@@ -20,7 +20,8 @@ with 4.19d, 4.27b is done (4.27 done); 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
 4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g1 done: the pose measurement on the games' own files, the pre-check's rule settled as a blended-delta test; g2 done: `needs_conversion` is that test, `skf_*` pass through, tolerance 3e-3; g3a done: the Fox Models task pre-checks every selected FMDL with its `.skl`, the gloves task reads a hand-split part's `.skl`, a slotless conversion skeleton is dropped silently; g3b done: every pre-Fox `.model` pre-checked with the member's `.mtl` packed beside a moved one, the Common `.mtl` a link names read; 4.17's slices are done); 4.20 in progress (lead rulings and a done 2026-10-09: the gate gone, a file no role reads `file_not_used`; b1 done: unused kit stems, `shared_folder_no_model`, Common-set textures, the Common glTF order; b2 done: per-kit sets left out on pre-Fox where no `face.xml` names them, a shared folder's `face.xml` ignored; 4.20 done); 4.19d done 2026-10-09 (with 4.27's pre-Fox half; the TC-REF-04 in-game check: checked 2026-10-09 by the lead on PES 17 through the harness (`.tmp/4_19/ingame/`, results in `.tmp/4_0/apptest/results.txt`): the referee present with the pair installed, nothing drawn; a `.mtl` beside a nocloth `.model` is read and stops the model drawing (runs E and F against 2026-10-08's run I), so the pre-Fox marker goes by Red's route instead: step 4.19f, DECISIONS 2026-10-09; the scene where the pre-Fox marker shows is a maintainer question); 4.27b done 2026-10-09 (the Fox referee configs also their `UniformParameter.bin` entries; a refs-only Fox run writes the team side); 4.19f done 2026-10-09 (the pre-Fox marker by Red's route: the template prop's texture replaced, no collar pair, `collar_empty.model` gone); 4.19e done 2026-10-09 (a referee's shared link his slot's folder alone on PES 15-17; no face folder for a referee without a face model); every Phase 4 step is done (the 4.14 and 4.17 parent bullets closed 2026-10-09, their verify criteria re-run); 4.y-conv in progress since 2026-10-09: the lead's audit done (verify re-run, acceptance, catalog producers, sweep, `pub` census, Clef, the export census), 4.y-fix1 done 2026-10-09 (eight small fixes, three issues closed by tests); the whole-crate mutation runs of `aesthetics_export` and `pipeline` done and triaged, `team_compiler`'s next; 4.y-fix2 done 2026-10-09 (`export_layout_old`, the dual-engine face diff, the survivors' tests), 4.y-fix3 done 2026-10-09 (a cube-map DDS goes out as Red ships it; TC-TEX-13, acceptance 280 of 280), 4.y-fix4 done 2026-10-09 (S7's rework: a linked face's `.model` boots convert with their `.mtl`, a boots or gloves link combines with the player's effective parts; TC-MOD-58 to 60), 4.y-fix5 done 2026-10-09 (S8's rework: a Common model's local `.mtl` resolves its textures in the folder, every DDS kind the decoder refuses is `texture_codec_unsupported`, an FTEX portrait gets the full chain; TC-MOD-61, TC-TEX-14, TC-TEX-15), 4.y-fix6 done 2026-10-09 (a DX10-header DDS portrait goes out re-headered: the VGL stream's PES 19 crash; TC-PRT-04, acceptance 287 of 287), 4.y-fix7 (a) done 2026-10-09 (the deep pass checks what
-`compile` reads: S9's rework; acceptance 295 of 295; (b), the pairing code's move, open), 4.y-fix8 opened 2026-10-09 (S10's and S11's rework),
+`compile` reads: S9's rework; acceptance 295 of 295; (b), the pairing code's move, open), 4.y-fix8 done 2026-10-09 (S10's and S11's rework: the absent slots' collar and clamp
+reported, a `Collars/` subfolder ignored; TC-BIN-23, TC-BIN-24, TC-CMN-16, TC-REF-14),
 4.y-fix9 opened 2026-10-09 (a shared face's `face.xml` read, the maintainer's answer),
 4.y-fix10 opened 2026-10-09 (a pre-Fox per-kit model set completed, the maintainer's
 answer),
@@ -3252,7 +3253,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   planning drops the glTF's linking players). Gates green (acceptance 295 of 295);
   `mutants-diff 944fb65`: 26 mutants, 23 caught, 3 unviable, 0 missed.
 
-- [ ] 4.y-fix8 **Kit colors and kit configs: S10's and S11's rework** (Astra's rounds
+- [x] 4.y-fix8 **Kit colors and kit configs: S10's and S11's rework** (Astra's rounds
   S10.A1 and S11.A1 and the SWE-2 loops after them, rulings in
   `.tmp/4_y/duck_rulings.md`). (1) The deep pass does not check a referee export's root
   `colors.txt`, which nothing reads (`deep/mod.rs`). (2) `colors_txt` unit cases for a
@@ -3270,6 +3271,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   DECISIONS 2026-10-09. TC-BIN-23, TC-BIN-24, TC-CMN-08, TC-CMN-16, TC-REF-14. Crates: tc,
   aesthetics_export
   → verify: the five scenarios proven, red first; the `colors_txt` cases pass.
+  Done 2026-10-09 (Opus 5.5, landed first time; one brief error caught: a config encoded for
+  PES 21 cannot hold Name Y 40, so the test sets the bits by hand). `edit_config` collects
+  what the encode clamps (`deep::version_clamped`, shared with `kit_config_findings`) and
+  `edit_absent_slot` reports it naming the slot; `wear_collar` returns `Option<bool>`;
+  `is_direct_common_file` became `is_direct_root_folder_file`. On PES 15-17 with no install a
+  Midcup export with a collar reports `kit_config_collar_unpatched` for each unexported kit the
+  bundled record lists (seven for `/co/`), as `kit_config_fpc_unpatched` does: kept. Lead
+  fixes: the help's clamp paragraph names the absent slots' clamp; three doc comments
+  rewrapped. Gates green but acceptance's two fix9 scenarios (TC-XML-14, TC-XML-15, opened
+  meanwhile); `mutants-diff 0bb67f8`: 86 mutants, 66 caught, 20 unviable, 0 missed.
 
 - [ ] 4.y-fix9 **A shared face folder's `face.xml` rules its linking faces** (the
   maintainer's answer, 2026-10-09). On PES 15-17 a `Faces/` folder's `face.xml` is checked by
@@ -3440,7 +3451,7 @@ conversion").
 
 ### Phase 5 — Savefile integration
 
-Steps are itemized when Phase 4 closes; one is fixed already:
+Steps are itemized when Phase 4 closes; these are fixed already:
 
 - [ ] 5.0 Check the latest commits made to the unofficial 4ccEditor fork (`Tools_4cc/4ccEditor-1`,
   origin `AnonymousClouds/4ccEditor`; `pes_savefile/README.md` names it the reference): it is
@@ -3466,6 +3477,19 @@ Steps are itemized when Phase 4 closes; one is fixed already:
   so no `visit-mut`; not `syn` 2, which leaves the tree as `binrw` and `pyo3` move on. → done when: run over `aesthetics_export`, its survivors
   triaged into real gaps and equivalents, and the count decides whether it joins converge
   (worth it when at least about half the survivors are real gaps)
+- [ ] 5.0c Red behavior inventory (maintainer, 2026-10-09; after Phase 4 closes, before Phase 5
+  builds on the compiler): go through Red's own code (`4cc-aet-compiler-red/Engines/python/`,
+  not its bundled site-packages) module by module, one subagent per module, and list every
+  observable effect it has on what it is given: each file it writes, renames, rewrites, skips
+  or refuses, and each value it changes. Map each row to the plan section or TC ID that covers
+  it, or to a decision entry recording a deliberate deviation; an unmapped row is a gap and
+  becomes a step. An inventory, not a line-by-line diff: Red is evidence of *what* to produce,
+  not of how the code is organized (`AGENTS.md` "Fundamental concepts"), and the parity tests
+  (`tests/parity_prefox.rs`, the Fox parity rows) cover only what their fixtures exercise. It
+  finds what Red does that the plan forgot; it cannot find defects in what Studio adds on top
+  (the export layout, links, kit tokens, conversion, the deep checks), which the reviews cover
+  → done when: every Red module's rows are mapped or turned into steps, the table kept under
+  `.tmp/5_0c/`, and its gap count in the log
 
 ### Phase 16 — Polish and distribution
 
@@ -5435,3 +5459,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-09** — The maintainer's answer on pre-Fox per-kit model sets: completed against
   the export's kit numbers as texture sets are (the game skips an entry whose respelled
   model is missing); step 4.y-fix10 opened. `AGENTS.md`: an answer is open to discussion.
+- **2026-10-09** — 4.y-fix8 done (sidekick, landed first time): S10's and S11's eight
+  accepted concerns. TC-BIN-23, TC-BIN-24, TC-CMN-16 and TC-REF-14 proven. S8's SWE-2 loop
+  ran (3 concerns, all accepted, the loop ended; step 4.y-fix11 to open with S7's). Step 5.0c
+  queued: a Red behavior inventory before Phase 5 (maintainer).

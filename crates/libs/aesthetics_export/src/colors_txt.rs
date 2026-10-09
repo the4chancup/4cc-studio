@@ -151,9 +151,11 @@ mod tests {
 
     #[test]
     fn each_valid_form_of_a_line_gives_its_color() {
-        let cases: [(&[u8], [u8; 3]); 8] = [
+        let cases: [(&[u8], [u8; 3]); 9] = [
             (b"211, 74, 79", [211, 74, 79]),
             (b"211,74,79", [211, 74, 79]),
+            // Leading zeros are read as decimal.
+            (b"007 010 255", [7, 10, 255]),
             (b"#C11200", RED),
             (b"  #c11200  ", RED),
             (b"- 1st: #c11200", RED),
@@ -189,6 +191,10 @@ mod tests {
             "1st:",
             "red",
             "-1 2 3",
+            // `u8::from_str` takes a leading `+`; the grammar does not.
+            "+12 34 56",
+            // Components are separated by spaces or commas, not tabs.
+            "12\t34 56",
         ];
         for line in lines {
             assert_eq!(

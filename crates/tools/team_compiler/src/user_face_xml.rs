@@ -19,7 +19,7 @@ use crate::deep::relative;
 use crate::face_diff::{self, FaceDiffError};
 use crate::face_xml::is_generated_type;
 use crate::messages::Code;
-use crate::plan::roles::{common_file, file_stem, in_folder_or_face, is_direct_common_file};
+use crate::plan::roles::{common_file, file_stem, in_folder_or_face, is_direct_root_folder_file};
 
 /// A finding `check` makes on the folder holding the xml: the code, what is done about it
 /// (`DropFolder` for an Error, `Keep` for a Warning or an Info) and its context.
@@ -273,7 +273,7 @@ pub(crate) fn resolve<'a>(
             let common: Vec<(String, &FileDescriptor)> = files
                 .common
                 .iter()
-                .filter(|file| file.kind == kind && is_direct_common_file(&file.path))
+                .filter(|file| file.kind == kind && is_direct_root_folder_file(&file.path))
                 .map(|file| (file.path.name().to_owned(), file))
                 .collect();
             named(&common, file_name)

@@ -179,7 +179,7 @@ impl TeamColorBin {
 /// One kit's entry in its team's `UniColor.bin` record.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct KitColorEntry {
-    /// The kit's number: 0 to 8 for `p1` to `p9`, 0x10 for `g1` (`kit_number`).
+    /// The kit's number: 0 to 8 for `p1` to `p9`, 0x10 for `g1` (`uni_color_kit_number`).
     pub(crate) kit: u8,
     /// The menu icon's number.
     pub(crate) icon: u8,
@@ -214,17 +214,17 @@ const KIT_SLOTS: [KitSlot; 10] = [
     KitSlot::G1,
 ];
 
-/// The slot of the kit `UniColor.bin` numbers `number` (`kit_number`'s inverse); `None` for a
-/// number no slot has, such as 0x11, a second goalkeeper kit.
+/// The slot of the kit `UniColor.bin` numbers `number` (`uni_color_kit_number`'s inverse);
+/// `None` for a number no slot has, such as 0x11, a second goalkeeper kit.
 pub(crate) fn kit_slot(number: u8) -> Option<KitSlot> {
     KIT_SLOTS
         .into_iter()
-        .find(|slot| kit_number(*slot) == number)
+        .find(|slot| uni_color_kit_number(*slot) == number)
 }
 
 /// The number `UniColor.bin` gives the kit in `slot`: player kits count from 0, the goalkeeper
 /// kit is 0x10.
-pub(crate) fn kit_number(slot: KitSlot) -> u8 {
+pub(crate) fn uni_color_kit_number(slot: KitSlot) -> u8 {
     match slot {
         KitSlot::P1 => 0,
         KitSlot::P2 => 1,
@@ -794,7 +794,7 @@ mod tests {
             KitSlot::G1,
         ]
         .into_iter()
-        .map(kit_number)
+        .map(uni_color_kit_number)
         .collect();
         assert_eq!(numbers, [0, 1, 2, 3, 4, 5, 6, 7, 8, 0x10]);
     }
@@ -802,7 +802,7 @@ mod tests {
     #[test]
     fn each_kit_number_of_a_slot_gives_the_slot_back_and_another_none() {
         for slot in KIT_SLOTS {
-            assert_eq!(kit_slot(kit_number(slot)), Some(slot));
+            assert_eq!(kit_slot(uni_color_kit_number(slot)), Some(slot));
         }
         assert_eq!(kit_slot(0), Some(KitSlot::P1));
         assert_eq!(kit_slot(0x10), Some(KitSlot::G1));

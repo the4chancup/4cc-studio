@@ -56,6 +56,11 @@ pub(crate) enum Code {
     /// `Midcup` export does not, has no installed config or one that does not decode: the slot
     /// is left alone, and the team needs a kit export for it.
     KitConfigFpcUnpatched,
+    /// A `Midcup` export has a collar and a kit its `UniColor.bin` record holds, which the
+    /// export does not, has no installed config or one that does not decode, and
+    /// `KitConfigFpcUnpatched` has not named the slot: the slot keeps its own collar, and the
+    /// team needs a kit export for it.
+    KitConfigCollarUnpatched,
     /// A kit whose effective textures lack `kit.dds` (an empty folder included): the bundled
     /// checkerboard stands in as its main texture.
     KitPlaceholder,
@@ -432,7 +437,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 132] = [
+    const ALL: [Code; 133] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -448,6 +453,7 @@ impl Code {
         Code::KitConfigVersionClamped,
         Code::KitConfigFpcAdjusted,
         Code::KitConfigFpcUnpatched,
+        Code::KitConfigCollarUnpatched,
         Code::KitPlaceholder,
         Code::KitTextureNotUsed,
         Code::KitColorsDerived,
@@ -585,6 +591,7 @@ impl Code {
             Code::KitConfigVersionClamped => "kit_config_version_clamped",
             Code::KitConfigFpcAdjusted => "kit_config_fpc_adjusted",
             Code::KitConfigFpcUnpatched => "kit_config_fpc_unpatched",
+            Code::KitConfigCollarUnpatched => "kit_config_collar_unpatched",
             Code::KitPlaceholder => "kit_placeholder",
             Code::KitTextureNotUsed => "kit_texture_not_used",
             Code::KitColorsDerived => "kit_colors_derived",
@@ -742,6 +749,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_config_version_clamped", CatalogSeverity::Warning),
     ("kit_config_fpc_adjusted", CatalogSeverity::Info),
     ("kit_config_fpc_unpatched", CatalogSeverity::Warning),
+    ("kit_config_collar_unpatched", CatalogSeverity::Warning),
     ("kit_placeholder", CatalogSeverity::Info),
     ("kit_texture_not_used", CatalogSeverity::Info),
     ("kit_colors_derived", CatalogSeverity::Info),

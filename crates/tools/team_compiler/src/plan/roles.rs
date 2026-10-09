@@ -428,10 +428,11 @@ fn linked_texture_stem(link_name: &str) -> Option<String> {
     Some(file_stem(&linked).to_owned())
 }
 
-/// Whether `path` is a file directly in the export's `Common/` folder: the only place a link
-/// resolves, and the only place `compile` reads a Common file from. Every other file of an
-/// export sits at least two folders deep (`Players/05 - A/x.mtl`).
-pub(crate) fn is_direct_common_file(path: &ScopePath) -> bool {
+/// Whether `path`, a file of one of the export's root folders (`Common/`, `Collars/`), is
+/// directly in that folder, not below a subfolder of it: the only place `compile` reads a
+/// Common file or a collar from, and the only place a link resolves. A player's or a kit's
+/// file sits at least two folders deep (`Players/05 - A/x.mtl`), so this holds for none.
+pub(crate) fn is_direct_root_folder_file(path: &ScopePath) -> bool {
     path.segments().count() == 2
 }
 
@@ -442,9 +443,9 @@ pub(crate) fn common_file<'a>(
     name: &str,
 ) -> Option<&'a FileDescriptor> {
     let key = vtree::fold_name(name);
-    common
-        .iter()
-        .find(|file| is_direct_common_file(&file.path) && vtree::fold_name(file.path.name()) == key)
+    common.iter().find(|file| {
+        is_direct_root_folder_file(&file.path) && vtree::fold_name(file.path.name()) == key
+    })
 }
 
 /// The `.skl` directly in `Common/` paired with the Common model named `model_name`

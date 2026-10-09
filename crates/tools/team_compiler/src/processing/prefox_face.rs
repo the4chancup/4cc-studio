@@ -40,8 +40,8 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, common_file, file_stem, in_folder_or_face, is_direct_common_file,
-    path_stem, selected_common_model,
+    ModelPackage, PlayerFile, common_file, file_stem, in_folder_or_face,
+    is_direct_root_folder_file, path_stem, selected_common_model,
 };
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 use crate::user_face_xml::{
@@ -446,7 +446,7 @@ pub(super) fn face(
         .zip(&kits)
         .map(|(model, kit)| {
             let (directory, name) = match &model.source {
-                FaceSource::Member { material } if is_direct_common_file(&material.path) => {
+                FaceSource::Member { material } if is_direct_root_folder_file(&material.path) => {
                     (common_directory.as_str(), material.path.name().to_owned())
                 }
                 FaceSource::Member { material } => ("./", material.path.name().to_owned()),
@@ -810,7 +810,7 @@ impl<'a> XmlFace<'a> {
         }
         let file = resolve(&Reference::Local(name.to_owned()), &self.named, kind)
             .ok_or_else(|| anyhow::anyhow!("{value} names no file of the face"))?;
-        if is_direct_common_file(&file.path) {
+        if is_direct_root_folder_file(&file.path) {
             return Ok(format!("{}{}", self.common_directory, file.path.name()));
         }
         self.pack(file, name, files)?;

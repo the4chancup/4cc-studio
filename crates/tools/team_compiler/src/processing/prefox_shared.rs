@@ -46,7 +46,9 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::ModelFolder;
-use crate::plan::roles::{ModelPackage, PlayerFile, file_stem, is_direct_common_file, path_stem};
+use crate::plan::roles::{
+    ModelPackage, PlayerFile, file_stem, is_direct_root_folder_file, path_stem,
+};
 
 /// What the deep pass guarantees of every `.model` a task reads on pre-Fox.
 const MTL_FOUND: &str = "the deep pass drops a folder holding a `.model` no `.mtl` is found for \
@@ -258,7 +260,7 @@ pub(super) fn package(
     // A converted FMDL's set goes by its FMDL: a Common one a link of his brings in names the
     // Common textures as a copied Common `.mtl` does.
     let places_for = |file: &FileDescriptor| -> &[(&BTreeMap<String, String>, &str)] {
-        if is_direct_common_file(&file.path) {
+        if is_direct_root_folder_file(&file.path) {
             &common_places
         } else {
             &own_places
@@ -439,7 +441,7 @@ pub(super) fn package(
 /// (`CommonModel::material`), since a search from the Common path would look in the wrong
 /// folders; for any other, the one its search finds in its source folder (`mtl_for`).
 fn material_of<'a>(folder: &'a ModelFolder, model: &SourceModel<'a>) -> &'a FileDescriptor {
-    if !is_direct_common_file(&model.file.path) {
+    if !is_direct_root_folder_file(&model.file.path) {
         return mtl_for(
             &model.file.path,
             model.source_path,

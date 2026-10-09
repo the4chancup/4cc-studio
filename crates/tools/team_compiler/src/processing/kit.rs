@@ -15,7 +15,7 @@ use studio_core::Disposition;
 
 use super::texture::TextureError;
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, kit_layout, take, texture};
-use crate::bins::{KIT_COLORS, KitColorEntry, Rgb, kit_number};
+use crate::bins::{KIT_COLORS, KitColorEntry, Rgb, uni_color_kit_number};
 use crate::messages::Code;
 use crate::paths::{self, REFEREE_MARKER_COLLAR};
 use crate::plan::roles::{KIT_TEXTURE_STEMS, texture_format};
@@ -218,7 +218,7 @@ pub(super) fn kit(
         }
     };
     let entry = KitColorEntry {
-        kit: kit_number(slot),
+        kit: uni_color_kit_number(slot),
         icon: kit.icon.unwrap_or(DEFAULT_ICON),
         colors,
     };

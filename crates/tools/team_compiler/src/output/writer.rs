@@ -19,7 +19,7 @@ use studio_core::{Disposition, Message, Scope};
 
 use crate::bins::kit_configs::{kit_configs, loose_kit_configs};
 use crate::bins::player_tables::{ItemList, ItemTable, table_missing};
-use crate::bins::{KitColorEntry, Rgb, WorkingBins, kit_number};
+use crate::bins::{KitColorEntry, Rgb, WorkingBins, uni_color_kit_number};
 use crate::messages::{Code, tool_message};
 use crate::output::parts::TeamsParts;
 use crate::output::sink::OutputSink;
@@ -476,8 +476,11 @@ impl CpkOutput {
         for team in team_kits {
             match team.coverage {
                 ExportCoverage::Full => {
-                    let numbers: Vec<u8> =
-                        team.slots.iter().map(|slot| kit_number(*slot)).collect();
+                    let numbers: Vec<u8> = team
+                        .slots
+                        .iter()
+                        .map(|slot| uni_color_kit_number(*slot))
+                        .collect();
                     bin.keep_kits(team.team_id, &numbers)?;
                 }
                 ExportCoverage::Midcup => {}

@@ -267,6 +267,19 @@ pub(crate) fn pre_fox_model() -> Vec<u8> {
     .unwrap()
 }
 
+/// What a PES 17 compile with no PES install reports last for an export of `/co/` holding a
+/// claimed collar and only `Kits/p1/`: the run finds no installed loose config of the other
+/// kits the bundled `UniColor.bin` lists for team 714 (`bundled_714_kits`) to wear it.
+const NO_LOOSE_CONFIGS: [&str; 7] = [
+    "Warning kit_config_collar_unpatched [Keep] (slot=p2)",
+    "Warning kit_config_collar_unpatched [Keep] (slot=p3)",
+    "Warning kit_config_collar_unpatched [Keep] (slot=p4)",
+    "Warning kit_config_collar_unpatched [Keep] (slot=p5)",
+    "Warning kit_config_collar_unpatched [Keep] (slot=p6)",
+    "Warning kit_config_collar_unpatched [Keep] (slot=p7)",
+    "Warning kit_config_collar_unpatched [Keep] (slot=g1)",
+];
+
 // TC-CMN-02
 #[test]
 fn a_collar_named_for_a_reserved_or_no_stock_collar_is_refused_and_dropped() {
@@ -336,14 +349,16 @@ fn a_pes_17_model_collar_is_compiled_unchanged_and_the_team_s_loose_configs_wear
     let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
+    let mut expected = vec![
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        TEAM_COLORS_MISSING,
+        "Info kit_config_generated [Keep] at Kits/p1 ()",
+        "Info kit_colors_derived [Keep] at Kits/p1 ()",
+    ];
+    expected.extend(NO_LOOSE_CONFIGS);
     assert_eq!(
         findings_of(&lines, "co Midcup Collars"),
-        [
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            TEAM_COLORS_MISSING,
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-        ],
+        expected,
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
@@ -393,16 +408,18 @@ fn a_pes_17_fmdl_collar_is_converted_with_the_stock_collars_material_names() {
     // The deep pass reads the FMDL as it is; the conversion reports what the `.model` has no
     // place for, on the collar file, but not its losses about a material (the boots' shadow
     // flag): no `.mtl` is written for a collar.
+    let mut expected = vec![
+        "Info fmdl_weights_not_normalized [Keep] at Collars/collar_12.fmdl (file=collar_12.fmdl, count=1662)",
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        TEAM_COLORS_MISSING,
+        "Info kit_config_generated [Keep] at Kits/p1 ()",
+        "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        "Info native_field_dropped [Keep] at Collars/collar_12.fmdl (model=collar_12.fmdl, field=bone_matrices)",
+    ];
+    expected.extend(NO_LOOSE_CONFIGS);
     assert_eq!(
         findings_of(&lines, "co Midcup Collars"),
-        [
-            "Info fmdl_weights_not_normalized [Keep] at Collars/collar_12.fmdl (file=collar_12.fmdl, count=1662)",
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            TEAM_COLORS_MISSING,
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "Info native_field_dropped [Keep] at Collars/collar_12.fmdl (model=collar_12.fmdl, field=bone_matrices)",
-        ],
+        expected,
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
@@ -482,14 +499,16 @@ fn a_pes_17_fmdl_collar_whose_conversion_fails_is_dropped_and_its_export_compile
     let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
+    let mut expected = vec![
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        TEAM_COLORS_MISSING,
+        "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        "Error model_conversion_failed [DropFile] at Collars/collar_12.fmdl (model=collar_12.fmdl, error=a name or path for the `.mtl` holds a character XML 1.0 cannot represent: \"kit\\u{1}\")",
+    ];
+    expected.extend(NO_LOOSE_CONFIGS);
     assert_eq!(
         findings_of(&lines, "co Midcup Collars"),
-        [
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            TEAM_COLORS_MISSING,
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "Error model_conversion_failed [DropFile] at Collars/collar_12.fmdl (model=collar_12.fmdl, error=a name or path for the `.mtl` holds a character XML 1.0 cannot represent: \"kit\\u{1}\")",
-        ],
+        expected,
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
@@ -590,17 +609,31 @@ fn a_pre_fox_collar_past_the_version_s_stock_set_is_refused() {
         &format!("{EXPORT}/Collars/collar_117.model"),
         &pre_fox_model(),
     );
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
 
-    let past = sandbox.run(&pes_settings(&sandbox, 17), &["check"]);
+    let past = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
+    let lines = past.messages();
     assert_eq!(
-        findings_of(&past.messages(), "co Midcup Collars"),
+        findings_of(&lines, "co Midcup Collars"),
         [
             "Error collar_id_invalid [DropFile] at Collars/collar_117.model (file=collar_117.model)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-        ]
+            TEAM_COLORS_MISSING,
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ],
+        "{lines:#?}"
     );
-    assert_eq!(past.exit_code(), 1);
+    assert_eq!(past.exit_code(), 1, "{lines:#?}");
+    let entries = compiled(&sandbox);
+    assert!(
+        entries
+            .keys()
+            .all(|path| !path.ends_with("collar_117.model") && !path.contains("/nocloth/")),
+        "no collar: {:#?}",
+        entries.keys()
+    );
 
     let sandbox = Sandbox::new("collar_pre_fox_last");
     sandbox.write(
@@ -615,6 +648,41 @@ fn a_pre_fox_collar_past_the_version_s_stock_set_is_refused() {
         ["Info export_identified [Keep] (team=/co/, id=714)"]
     );
     assert_eq!(last.exit_code(), 0);
+}
+
+// TC-CMN-16
+#[test]
+fn a_collar_below_a_collars_subfolder_is_kept_by_the_lenient_check_and_not_a_collar() {
+    let sandbox = Sandbox::new("collar_nested");
+    sandbox.write(
+        &format!("{EXPORT}/Collars/sub/collar_12.model"),
+        &pre_fox_model(),
+    );
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{EXPORT}/Kits/p1/config.toml"),
+        b"[shirt]\ncollar = 30\nwinter_collar = 31\n",
+    );
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes_settings(&sandbox, 17)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Collars"),
+        [
+            "Info file_type_disallowed [Keep] at Collars/sub/collar_12.model (file=sub/collar_12.model)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            TEAM_COLORS_MISSING,
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert_collar_left_out(&sandbox, PesVersion::Pes17, (30, 31));
 }
 
 #[test]

@@ -559,10 +559,65 @@ fn a_midcup_fpc_on_export_patches_the_installed_configs_of_the_kits_it_does_not_
     );
 }
 
+// TC-BIN-23
+#[test]
+fn a_midcup_export_s_collar_reports_the_kit_it_does_not_hold_that_has_no_config_to_wear_it() {
+    let sandbox = Sandbox::new("bins_collar_absent_slots");
+    install_list(&sandbox);
+    // Team 714 has p1's config and no p3 config.
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[
+            (TEAM_COLOR, &bundled_team_color()),
+            (UNI_COLOR, &uni_color_p1_p2_p3()),
+            (UNIFORM_PARAMETER, &installed_configs(&[(714, KitSlot::P1)])),
+        ],
+    );
+    p2_export(&sandbox);
+    sandbox.write(
+        "exports/co Midcup Kits/Collars/collar_12.fmdl",
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let mut expected = vec![
+        source("TeamColor.bin", "4cc_08_bins.cpk"),
+        source("UniColor.bin", "4cc_08_bins.cpk"),
+        source("UniformParameter.bin", "4cc_08_bins.cpk"),
+    ];
+    expected.extend(P2_FINDINGS.map(str::to_owned));
+    // p1 wears the collar with no finding; p2 is the export's.
+    expected
+        .push("co Midcup Kits: Warning kit_config_collar_unpatched [Keep] (slot=p3)".to_owned());
+    expected.push(deploy_skipped(&sandbox));
+    assert_eq!(run.messages(), expected);
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let configs = configs_of(&entries, "714_");
+    let names: Vec<&str> = configs.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(
+        names,
+        ["714_DEF_1st_realUni.bin", "714_DEF_2nd_realUni.bin"],
+        "no 714_DEF_3rd"
+    );
+    let p1 = KitConfig::decode(&configs[0].1, PesVersion::Pes21).unwrap();
+    assert_eq!((p1.shirt.collar, p1.shirt.winter_collar), (12, 12));
+}
+
 /// TC-BIN-18's install: `4cc_08_bins.cpk` holding the bundled `TeamColor.bin`,
 /// `uni_color_p1_p2_p3` and team 714's loose p1 config, shirt model 144 encoded for PES 17;
 /// team 714 has no p3 config.
 fn install_pre_fox_p1(sandbox: &Sandbox) {
+    install_pre_fox(
+        sandbox,
+        &shirt_144_config(PesVersion::Pes17, 714, KitSlot::P1, false),
+    );
+}
+
+/// `install_pre_fox_p1` with `p1` as team 714's loose p1 config.
+fn install_pre_fox(sandbox: &Sandbox, p1: &[u8]) {
     install_list(sandbox);
     install_cpk(
         sandbox,
@@ -570,10 +625,7 @@ fn install_pre_fox_p1(sandbox: &Sandbox) {
         &[
             (TEAM_COLOR, &bundled_team_color()),
             (UNI_COLOR, &uni_color_p1_p2_p3()),
-            (
-                &config_path("1st"),
-                &shirt_144_config(PesVersion::Pes17, 714, KitSlot::P1, false),
-            ),
+            (&config_path("1st"), p1),
         ],
     );
 }
@@ -634,6 +686,51 @@ fn a_midcup_fpc_on_pes_17_export_re_emits_the_loose_configs_of_the_kits_it_does_
     assert_eq!(bins, Vec::<&String>::new());
 }
 
+/// `config` with its Name Y bits (0x1C bits 3-7, 0x1D bit 0) set to `y` by hand: `encode`
+/// clamps Name Y to 39 at most, so it cannot write the value another tool may have.
+fn with_name_y(mut config: Vec<u8>, y: u8) -> Vec<u8> {
+    config[0x1C] = (config[0x1C] & 0x07) | ((y & 0x1F) << 3);
+    config[0x1D] = (config[0x1D] & !0x01) | (y >> 5);
+    assert_eq!(
+        KitConfig::decode(&config, PesVersion::Pes17)
+            .unwrap()
+            .name
+            .y,
+        y
+    );
+    config
+}
+
+// TC-BIN-24
+#[test]
+fn an_installed_loose_config_re_encoded_for_the_fpc_values_reports_the_value_it_clamps() {
+    let sandbox = Sandbox::new("bins_fpc_loose_clamped");
+    let installed = with_name_y(
+        shirt_144_config(PesVersion::Pes17, 714, KitSlot::P1, false),
+        40,
+    );
+    install_pre_fox(&sandbox, &installed);
+    p2_export(&sandbox);
+    write_fpc_player(&sandbox, "co Midcup Kits");
+
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
+
+    let expected = pre_fox_lines(
+        &sandbox,
+        &[
+            "co Midcup Kits: Info kit_config_fpc_adjusted [Keep] (slot=p1)",
+            "co Midcup Kits: Warning kit_config_version_clamped [Keep] (slot=p1, field=name.y, value=40, max=33)",
+            "co Midcup Kits: Warning kit_config_fpc_unpatched [Keep] (slot=p3)",
+        ],
+    );
+    assert_eq!(run.messages(), expected);
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let p1 = KitConfig::decode(&entries[&config_path("1st")], PesVersion::Pes17).unwrap();
+    assert!(kit_config::matches_fpc(&p1), "p1 carries the FPC values");
+    assert_eq!(p1.name.y, 33);
+}
+
 #[test]
 fn a_midcup_pes_17_export_s_collar_reaches_the_loose_configs_of_the_kits_it_does_not_hold() {
     let sandbox = Sandbox::new("bins_collar_loose_configs");
@@ -646,8 +743,14 @@ fn a_midcup_pes_17_export_s_collar_reaches_the_loose_configs_of_the_kits_it_does
 
     let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
-    // No FPC finding, and p3, which has no config to wear the collar, reports nothing.
-    assert_eq!(run.messages(), pre_fox_lines(&sandbox, &[]));
+    // No FPC finding; p3 has no config to wear the collar.
+    assert_eq!(
+        run.messages(),
+        pre_fox_lines(
+            &sandbox,
+            &["co Midcup Kits: Warning kit_config_collar_unpatched [Keep] (slot=p3)"]
+        )
+    );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let installed = shirt_144_config(PesVersion::Pes17, 714, KitSlot::P1, false);

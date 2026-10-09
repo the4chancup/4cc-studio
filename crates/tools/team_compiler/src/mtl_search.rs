@@ -6,7 +6,7 @@
 use aesthetics_export::{FileDescriptor, FileKind, classify, common_link_name};
 use vtree::ScopePath;
 
-use crate::plan::roles::{common_file, file_stem, is_direct_common_file};
+use crate::plan::roles::{common_file, file_stem, is_direct_root_folder_file};
 
 /// The `.mtl` that `model` uses: `model` is a `.model` among `files`, the files of the model
 /// folder at `folder`, or a `.common` link among them to a `.model` in the export's `Common/`
@@ -22,7 +22,7 @@ use crate::plan::roles::{common_file, file_stem, is_direct_common_file};
 /// case-folded name order within a kind. A `.mtl.common` link counts as a `.mtl` of the linked
 /// name in the folder holding it, and stands for the `Common/` file it names, which is what is
 /// returned when it is the one found: a caller tells a Common `.mtl` from the folder's own by
-/// its path (`is_direct_common_file`). `None` when the search finds no `.mtl`: the model has
+/// its path (`is_direct_root_folder_file`). `None` when the search finds no `.mtl`: the model has
 /// every material undefined (`model_material_undefined`).
 pub(crate) fn mtl_for<'a>(
     model: &ScopePath,
@@ -44,7 +44,7 @@ pub(crate) fn mtl_for<'a>(
     let model_stem = vtree::fold_name(file_stem(&linked));
     let in_common: Vec<Candidate> = common
         .iter()
-        .filter(|file| file.kind == FileKind::Mtl && is_direct_common_file(&file.path))
+        .filter(|file| file.kind == FileKind::Mtl && is_direct_root_folder_file(&file.path))
         .map(|file| Candidate::new(file.path.name(), false, file))
         .collect();
     name_matched(&own, &model_stem)

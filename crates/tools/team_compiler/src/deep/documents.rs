@@ -164,7 +164,27 @@ pub(super) fn kit_config_findings(
         Ok(config) => config,
         Err(invalid) => return vec![invalid],
     };
-    kit_config::validate(&config, version)
+    version_clamped(&config, version)
+        .into_iter()
+        .map(|context| ContentFinding {
+            code: Code::KitConfigVersionClamped.as_str(),
+            scope: IssueScope::File(file.path.clone()),
+            context,
+            disposition: Disposition::Keep,
+            pass_through_eligible: false,
+        })
+        .collect()
+}
+
+/// The context of one `kit_config_version_clamped` per value of `config` that `version`'s
+/// kit config cannot hold, in `kit_config::validate`'s order: the field, the value and the
+/// version's maximum. `encode` clamps each such value; `validate`'s other findings are not
+/// these.
+pub(crate) fn version_clamped(
+    config: &KitConfig,
+    version: PesVersion,
+) -> Vec<Vec<(&'static str, String)>> {
+    kit_config::validate(config, version)
         .into_iter()
         .filter(|finding| {
             matches!(
@@ -177,16 +197,12 @@ pub(super) fn kit_config_findings(
                 .context
                 .expect("`validate` names the field, value and limit of both range findings")
         })
-        .map(|out_of_range| ContentFinding {
-            code: Code::KitConfigVersionClamped.as_str(),
-            scope: IssueScope::File(file.path.clone()),
-            context: vec![
+        .map(|out_of_range| {
+            vec![
                 ("field", out_of_range.field.to_owned()),
                 ("value", out_of_range.value.to_string()),
                 ("max", out_of_range.max.to_string()),
-            ],
-            disposition: Disposition::Keep,
-            pass_through_eligible: false,
+            ]
         })
         .collect()
 }

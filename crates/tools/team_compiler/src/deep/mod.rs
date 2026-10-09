@@ -31,9 +31,10 @@
 //! `portrait_conflict`, which skips the export. A logo source is the one texture decoded in
 //! full: one that does not decode is `logo_file_invalid`.
 //!
-//! Each `Collars/` file's name must give a stock collar of the target version that a kit
-//! config can name, and no collar the suite holds itself (`collar`); a collar model is then
-//! checked as any model, its Errors dropping the file.
+//! Each file directly in `Collars/` (planning takes no other) must be named for a stock
+//! collar of the target version that a kit config can name, and no collar the suite holds
+//! itself (`collar`); a collar model is then checked as any model, its Errors dropping the
+//! file.
 //!
 //! For PES 2015 to 2017 it also reads a face folder's own `face.xml` (`user_face_xml`) and
 //! reports its content checks (`team_compiler/messages.md` "XML/MTL content checks"); the xml
@@ -45,8 +46,8 @@
 //! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), but on PES 2015
 //! to 2017 not a `face_diff.bin` beside a member's `face.xml` holding a `<dif>`, which
 //! replaces it; each kit's `config.toml` (`kit_config_invalid`), each player's `settings.toml`
-//! (`settings_toml_invalid`), and each kit's and the root `colors.txt`, one
-//! `color_entry_invalid` per line the file refuses.
+//! (`settings_toml_invalid`), and each kit's and a team export's root `colors.txt`, one
+//! `color_entry_invalid` per line the file refuses (a referee export's is read by nothing).
 //!
 //! The model folders and `Common/`'s files are checked in parallel on the caller's rayon
 //! pool, each worker reading and holding one file at a time, and the findings are collected
@@ -77,7 +78,7 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, emits_kit_texture, file_stem, is_direct_common_file,
+    FolderModels, PlayerFile, emits_kit_texture, file_stem, is_direct_root_folder_file,
     is_selected_common_model, link_feeds_own_package, linked_folder, player_file,
     selected_common_model, texture_format,
 };
@@ -92,6 +93,7 @@ use model::{MaterialRead, ModelKind, fired};
 use portrait::{folder_portrait, portrait_conflict, portrait_findings};
 use texture::{SizeRule, texture_finding};
 
+pub(crate) use documents::version_clamped;
 pub(crate) use model::{FAR_VERTEX_CODES, Fired, summed};
 
 /// What the deep pass found in one export (`content_findings`).
@@ -172,12 +174,12 @@ impl KeptCommon {
 /// them holding a metal material (`ContentPass`). The
 /// findings come in file order: each player folder's models, material sets and textures, then
 /// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
-/// their face diff, boots, gloves), then `Common/`'s, then each `Collars/` file's, then each
-/// `Portraits/` file with its slot's `portrait_conflict`, then each kit's `config.toml`,
-/// `colors.txt` and textures, then the logo's, then the root `colors.txt`'s. An Error on a
-/// folder's or a kit's file drops the folder; one on a `Common/` file drops the file, and the
-/// cascade then drops the players linking it; one on a collar, a portrait, a `settings.toml` or
-/// a logo file drops that file. A refused
+/// their face diff, boots, gloves), then `Common/`'s, then each collar's (a file directly in
+/// `Collars/`), then each `Portraits/` file with its slot's `portrait_conflict`, then each
+/// kit's `config.toml`, `colors.txt` and textures, then the logo's, then a team export's root
+/// `colors.txt`'s. An Error on a folder's or a kit's file drops the folder; one on a `Common/`
+/// file drops the file, and the cascade then drops the players linking it; one on a collar, a
+/// portrait, a `settings.toml` or a logo file drops that file. A refused
 /// `colors.txt` line is a Warning on the file, which drops nothing. `Common/`'s files are
 /// checked before the folders, whose models' `.mtl` search sees only the ones the validation
 /// report keeps, with `pass_through` as set, and whose models' materials are compared with
@@ -221,7 +223,7 @@ pub(crate) fn content_findings(
         .map(|file| {
             // The Common tasks read only the files directly in `Common/`, and a model there
             // only when the target selects it for its stem: nothing reads the others.
-            let unread = !is_direct_common_file(&file.path)
+            let unread = !is_direct_root_folder_file(&file.path)
                 || (matches!(file.kind, FileKind::Model(_))
                     && !is_selected_common_model(&export.common, file, engine));
             let Some(checked) = checked_as(file, size_rule).filter(|_| !unread) else {
@@ -248,7 +250,7 @@ pub(crate) fn content_findings(
         ..KeptCommon::default()
     };
     for (file, pass) in export.common.iter().zip(&common) {
-        if !is_direct_common_file(&file.path) || drops_file(&pass.findings, pass_through) {
+        if !is_direct_root_folder_file(&file.path) || drops_file(&pass.findings, pass_through) {
             continue;
         }
         kept_common.files.push(file.clone());
@@ -364,7 +366,12 @@ pub(crate) fn content_findings(
         }
     }
     let findings = &mut pass.findings;
-    for file in &export.collars {
+    // Planning takes a collar only directly in `Collars/`: nothing reads a subfolder's file.
+    let collars = export
+        .collars
+        .iter()
+        .filter(|file| is_direct_root_folder_file(&file.path));
+    for file in collars {
         findings.extend(collar_findings(content, file, version));
     }
     for (slot, file) in &export.portraits {
@@ -444,7 +451,10 @@ pub(crate) fn content_findings(
             file.path.name(),
         ));
     }
-    if let Some(colors) = &export.root.team_colors {
+    // A referee export has no team record, so nothing reads its root `colors.txt`.
+    if let Some(colors) = &export.root.team_colors
+        && !export.team_name.is_referees()
+    {
         findings.extend(colors_findings(content, colors, TEAM_COLORS));
     }
     pass
@@ -787,7 +797,9 @@ fn folder_findings(
                 // Fox has no Common model output: each linking player's Models task converts
                 // the Common `.model` with this `.mtl`, so its lookup is the folder's, right
                 // after the link's own finding.
-                Engine::Fox => pairing.mtl.filter(|mtl| is_direct_common_file(&mtl.path)),
+                Engine::Fox => pairing
+                    .mtl
+                    .filter(|mtl| is_direct_root_folder_file(&mtl.path)),
                 // Pre-Fox packs a Common `.mtl` once for the team and looks it up on its own
                 // file (`common_mtl_findings`).
                 Engine::PreFox => None,
@@ -1165,7 +1177,7 @@ pub(crate) fn relative(path: &ScopePath, folder: &ScopePath) -> String {
 /// (`relative`), or by its export path when it sits directly in `Common/`, outside the folder
 /// (`Common/legs.model`).
 fn named_on_folder(path: &ScopePath, folder: &ScopePath) -> String {
-    if is_direct_common_file(path) {
+    if is_direct_root_folder_file(path) {
         path.as_str().to_owned()
     } else {
         relative(path, folder)

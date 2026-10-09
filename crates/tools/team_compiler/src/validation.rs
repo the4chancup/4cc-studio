@@ -30,7 +30,7 @@ use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_w
 use crate::plan::mapped_players;
 use crate::plan::roles::{
     FolderModels, ModelPackage, PlayerFile, admitted, common_skeleton, file_stem,
-    is_direct_common_file, is_user_face_xml, player_file, shared_folders,
+    is_direct_root_folder_file, is_user_face_xml, player_file, shared_folders,
 };
 use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
@@ -602,7 +602,7 @@ fn model_name_messages(
     for file in export
         .common
         .iter()
-        .filter(|file| is_direct_common_file(&file.path))
+        .filter(|file| is_direct_root_folder_file(&file.path))
     {
         let read_by_no_task = matches!(
             file.kind,

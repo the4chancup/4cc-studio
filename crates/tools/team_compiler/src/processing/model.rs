@@ -29,7 +29,7 @@ use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::ModelFolder;
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, file_stem, is_direct_common_file, skeleton_slot,
+    ModelPackage, PlayerFile, file_stem, is_direct_root_folder_file, skeleton_slot,
 };
 use crate::user_face_xml::{Reference, reference};
 
@@ -167,7 +167,7 @@ pub(super) fn package(
                         );
                         // A Common set names Common's textures, and the deep pass checked them
                         // against `Common/`: a stem the folder lacks is looked for there.
-                        if is_direct_common_file(&mtl.path) {
+                        if is_direct_root_folder_file(&mtl.path) {
                             part.textures = PartTextures::CommonSet;
                         }
                         let mtl = files.get(&mtl.path).expect(
@@ -198,7 +198,7 @@ pub(super) fn package(
                         );
                         // The player's own `.mtl`, which the search prefers to `Common/`'s,
                         // set the stems: they are looked for in his folder first.
-                        if !is_direct_common_file(&mtl.path) {
+                        if !is_direct_root_folder_file(&mtl.path) {
                             part.textures = PartTextures::CommonSet;
                         }
                         let mtl = files.get(&mtl.path).expect(

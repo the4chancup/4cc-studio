@@ -32,7 +32,7 @@ use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
     FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, emits_kit_texture,
-    file_stem, is_direct_common_file, is_hand_split, is_part_of, is_selected_common_model,
+    file_stem, is_direct_root_folder_file, is_hand_split, is_part_of, is_selected_common_model,
     leaves_out_kit_variants, link_combines, link_feeds_own_package, link_name, linked_folder,
     native_format, package_of, player_file, selected_common_model, shared_folders, shared_kind_of,
     skeleton_slot, texture_format,
@@ -492,7 +492,7 @@ fn push_common_material<'a>(
     if let Some(material) = common
         .material
         .as_ref()
-        .filter(|material| is_direct_common_file(&material.path))
+        .filter(|material| is_direct_root_folder_file(&material.path))
     {
         push_common(roles, pushed, material, PlayerFile::Material);
     }
@@ -1023,7 +1023,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             .common
             .iter()
             .filter(|file| {
-                is_direct_common_file(&file.path) && texture_format(file.path.name()).is_some()
+                is_direct_root_folder_file(&file.path) && texture_format(file.path.name()).is_some()
             })
             .cloned()
             .collect();
@@ -1046,7 +1046,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                         .common
                         .iter()
                         .filter(|file| {
-                            file.kind == FileKind::Mtl && is_direct_common_file(&file.path)
+                            file.kind == FileKind::Mtl && is_direct_root_folder_file(&file.path)
                         })
                         .cloned()
                         .collect(),
@@ -1057,7 +1057,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                         .common
                         .iter()
                         .filter(|file| {
-                            is_direct_common_file(&file.path)
+                            is_direct_root_folder_file(&file.path)
                                 && matches!(
                                     file.kind,
                                     FileKind::Model(ModelFormat::PesModel | ModelFormat::Fmdl)
@@ -1611,13 +1611,13 @@ fn selected_common_gltfs(common: &[FileDescriptor], engine: Engine) -> Vec<&File
     let native = FileKind::Model(native_format(engine));
     let native_stems: BTreeSet<String> = common
         .iter()
-        .filter(|file| is_direct_common_file(&file.path) && file.kind == native)
+        .filter(|file| is_direct_root_folder_file(&file.path) && file.kind == native)
         .map(|file| vtree::fold_name(file_stem(file.path.name())))
         .collect();
     common
         .iter()
         .filter(|file| {
-            is_direct_common_file(&file.path)
+            is_direct_root_folder_file(&file.path)
                 && file.kind == FileKind::Model(ModelFormat::Gltf)
                 && !native_stems.contains(&vtree::fold_name(file_stem(file.path.name())))
         })
@@ -1692,7 +1692,7 @@ fn drop_common_gltfs(
         Engine::PreFox => ModelFormat::Fmdl,
     };
     common.retain(|file| {
-        let beaten = is_direct_common_file(&file.path)
+        let beaten = is_direct_root_folder_file(&file.path)
             && file.kind == FileKind::Model(other_engine_format)
             && dropped_stems.contains(&vtree::fold_name(file_stem(file.path.name())));
         !beaten && !dropped.contains(&file.path)
@@ -1844,7 +1844,7 @@ fn common_model_files(common: &[FileDescriptor]) -> Vec<FileDescriptor> {
         .collect();
     common
         .iter()
-        .filter(|file| is_direct_common_file(&file.path))
+        .filter(|file| is_direct_root_folder_file(&file.path))
         .filter(|file| match file.kind {
             FileKind::Model(ModelFormat::PesModel) | FileKind::Mtl => true,
             FileKind::Model(ModelFormat::Fmdl) => converted(file),

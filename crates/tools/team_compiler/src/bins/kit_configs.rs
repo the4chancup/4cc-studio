@@ -16,6 +16,7 @@ use studio_core::{Disposition, Message, Scope};
 use uniparam::UniformParameter;
 
 use super::{UniColorBin, kit_slot};
+use crate::deep::version_clamped;
 use crate::messages::{Code, tool_message};
 use crate::paths;
 use crate::plan::{EffectiveTeamKitFpc, TeamKitEdits, TeamKits};
@@ -139,9 +140,12 @@ fn absent_slots(uni_color: &UniColorBin, team: &TeamKits) -> anyhow::Result<Vec<
 /// status is On, the config is given the FPC values (`patch_fpc`) and reported in `messages` on
 /// the export, naming the slot, as `kit_config_fpc_adjusted` when it lacked them or
 /// `kit_config_fpc_unpatched` when there is no config or it does not decode; then, when the
-/// export has a collar, the config wears it (`wear_collar`), with no finding: the FPC finding
-/// has said already when there is no config to edit. Returns the edited config when it
-/// changed.
+/// export has a collar, the config wears it (`wear_collar`), with no finding when it can, and
+/// `kit_config_collar_unpatched` when there is no config or it does not decode, unless
+/// `kit_config_fpc_unpatched` has named the slot: one warning per slot. Each value an edit's
+/// encoding clamps (`edit_config`) is then reported as `kit_config_version_clamped`, naming
+/// the slot, the field, the value and the version's maximum. Returns the edited config when
+/// it changed.
 fn edit_absent_slot(
     current: Option<&[u8]>,
     team: &TeamKits,
@@ -153,8 +157,9 @@ fn edit_absent_slot(
     // A copy of the 120 bytes, so the collar edit starts from the FPC edit's result.
     let mut config = current.map(<[u8]>::to_vec);
     let mut changed = false;
+    let mut clamped = Vec::new();
     let code = match team.edits.fpc {
-        EffectiveTeamKitFpc::On => match patch_fpc(&mut config, &name, version) {
+        EffectiveTeamKitFpc::On => match patch_fpc(&mut config, &name, version, &mut clamped) {
             FpcPatch::Adjusted => {
                 changed = true;
                 Some(Code::KitConfigFpcAdjusted)
@@ -164,18 +169,31 @@ fn edit_absent_slot(
         },
         EffectiveTeamKitFpc::Unknown => None,
     };
-    if let Some(code) = code {
-        messages.push(tool_message(
+    let report = |code: Code, context: Vec<(&'static str, String)>| {
+        let mut slot_first = vec![("slot", slot.as_str().to_owned())];
+        slot_first.extend(context);
+        tool_message(
             code,
             Scope::Export {
                 export_id: team.export_id,
             },
             Disposition::Keep,
-            vec![("slot", slot.as_str().to_owned())],
-        ));
+            slot_first,
+        )
+    };
+    if let Some(code) = code {
+        messages.push(report(code, Vec::new()));
     }
     if let Some(collar) = team.edits.collar {
-        changed |= wear_collar(&mut config, &name, collar, version);
+        match wear_collar(&mut config, &name, collar, version, &mut clamped) {
+            Some(worn) => changed |= worn,
+            // The FPC patch found no config to edit either and has said so.
+            None if code == Some(Code::KitConfigFpcUnpatched) => {}
+            None => messages.push(report(Code::KitConfigCollarUnpatched, Vec::new())),
+        }
+    }
+    for context in clamped {
+        messages.push(report(Code::KitConfigVersionClamped, context));
     }
     config.filter(|_| changed)
 }
@@ -198,9 +216,14 @@ fn remove_other_configs(bin: &mut UniformParameter, team_id: u16, slots: &[KitSl
 }
 
 /// Gives the FPC values to `config`, the slot's config named `name`, when it lacks them
-/// (`edit_config`).
-fn patch_fpc(config: &mut Option<Vec<u8>>, name: &str, version: PesVersion) -> FpcPatch {
-    let patched = edit_config(config, name, version, |config| {
+/// (`edit_config`, which adds what the encoding clamps to `clamped`).
+fn patch_fpc(
+    config: &mut Option<Vec<u8>>,
+    name: &str,
+    version: PesVersion,
+    clamped: &mut Vec<Vec<(&'static str, String)>>,
+) -> FpcPatch {
+    let patched = edit_config(config, name, version, clamped, |config| {
         if matches_fpc(config) {
             return false;
         }
@@ -215,29 +238,39 @@ fn patch_fpc(config: &mut Option<Vec<u8>>, name: &str, version: PesVersion) -> F
 }
 
 /// Sets `collar` as the collar and the winter collar of `config`, the slot's config named
-/// `name` (`edit_config`). Returns whether the config changed: not when it wears the collar
-/// already, is absent or does not decode.
-fn wear_collar(config: &mut Option<Vec<u8>>, name: &str, collar: u8, version: PesVersion) -> bool {
-    let worn = edit_config(config, name, version, |config| {
+/// `name` (`edit_config`, which adds what the encoding clamps to `clamped`). `None` when there
+/// is no config or it does not decode, which cannot wear the collar; else whether the config
+/// changed: not when it wears the collar already.
+fn wear_collar(
+    config: &mut Option<Vec<u8>>,
+    name: &str,
+    collar: u8,
+    version: PesVersion,
+    clamped: &mut Vec<Vec<(&'static str, String)>>,
+) -> Option<bool> {
+    edit_config(config, name, version, clamped, |config| {
         if (config.shirt.collar, config.shirt.winter_collar) == (collar, collar) {
             return false;
         }
         config.shirt.collar = collar;
         config.shirt.winter_collar = collar;
         true
-    });
-    worn == Some(true)
+    })
 }
 
 /// Edits `config`, one kit slot's config bytes, named `name` (`None` when the slot has no
 /// config), with `edit`, which returns whether it changed the config: decoded for `version`,
 /// and, when changed, encoded again for `version`, its texture names kept, in place of the
-/// bytes. `None` when there is no config or it does not decode as one, which is left alone;
-/// else whether it changed.
+/// bytes. The encoding clamps each value past `version`'s limit, which the decoding reads at
+/// its field's full width, so the context of each (`version_clamped`) is added to `clamped`
+/// first; a later edit of the same config decodes the clamped value and adds nothing for it.
+/// `None` when there is no config or it does not decode as one, which is left alone; else
+/// whether it changed.
 fn edit_config(
     config: &mut Option<Vec<u8>>,
     name: &str,
     version: PesVersion,
+    clamped: &mut Vec<Vec<(&'static str, String)>>,
     edit: impl FnOnce(&mut KitConfig) -> bool,
 ) -> Option<bool> {
     let bytes = config.as_deref()?;
@@ -251,6 +284,7 @@ fn edit_config(
     if !edit(&mut decoded) {
         return Some(false);
     }
+    clamped.extend(version_clamped(&decoded, version));
     *config = Some(decoded.encode(version).to_vec());
     Some(true)
 }
@@ -347,7 +381,7 @@ mod tests {
     }
 
     /// The finding `code` on `EXPORT` naming `slot`.
-    fn fpc_finding(code: Code, slot: &str) -> Message {
+    fn slot_finding(code: Code, slot: &str) -> Message {
         tool_message(
             code,
             Scope::Export { export_id: EXPORT },
@@ -388,8 +422,8 @@ mod tests {
         assert_eq!(
             messages,
             [
-                fpc_finding(Code::KitConfigFpcAdjusted, "p1"),
-                fpc_finding(Code::KitConfigFpcUnpatched, "p3"),
+                slot_finding(Code::KitConfigFpcAdjusted, "p1"),
+                slot_finding(Code::KitConfigFpcUnpatched, "p3"),
             ]
         );
         assert_eq!(messages[1].severity, studio_core::Severity::Warning);
@@ -533,7 +567,14 @@ mod tests {
         );
 
         assert!(changed);
-        assert_eq!(messages, [], "a collar reports nothing");
+        assert_eq!(
+            messages,
+            [
+                slot_finding(Code::KitConfigCollarUnpatched, "p3"),
+                slot_finding(Code::KitConfigCollarUnpatched, "p4"),
+            ],
+            "a worn collar reports nothing"
+        );
         let after = contents(&bin);
         assert_eq!(
             names(&bin),
@@ -563,6 +604,119 @@ mod tests {
     }
 
     #[test]
+    fn with_its_status_unknown_a_collar_s_slot_with_no_config_is_reported_collar_unpatched() {
+        let mut bin = installed(&[(714, KitSlot::P1)]);
+
+        let (changed, messages) = patched(
+            &mut bin,
+            &uni_color_714(3, &[0, 1, 2]),
+            team_714_wearing(
+                ExportCoverage::Midcup,
+                EffectiveTeamKitFpc::Unknown,
+                Some(12),
+                &[KitSlot::P2],
+            ),
+        );
+
+        assert!(changed, "p1 wears the collar");
+        assert_eq!(
+            messages,
+            [slot_finding(Code::KitConfigCollarUnpatched, "p3")]
+        );
+        assert_eq!(messages[0].severity, studio_core::Severity::Warning);
+        assert_eq!(
+            names(&bin),
+            ["714_DEF_1st_realUni.bin"],
+            "no p3 config added"
+        );
+    }
+
+    #[test]
+    fn with_fpc_on_a_collar_s_slot_with_no_config_is_reported_fpc_unpatched_alone() {
+        let mut bin = installed(&[(714, KitSlot::P1)]);
+
+        let (changed, messages) = patched(
+            &mut bin,
+            &uni_color_714(3, &[0, 1, 2]),
+            team_714_wearing(
+                ExportCoverage::Midcup,
+                EffectiveTeamKitFpc::On,
+                Some(12),
+                &[KitSlot::P2],
+            ),
+        );
+
+        assert!(changed);
+        assert_eq!(
+            messages,
+            [
+                slot_finding(Code::KitConfigFpcAdjusted, "p1"),
+                slot_finding(Code::KitConfigFpcUnpatched, "p3"),
+            ],
+            "one warning for p3"
+        );
+    }
+
+    /// `config` with its Name Y bits (0x1C bits 3-7, 0x1D bit 0) set to `y`, which may be past
+    /// what `encode` writes for any version.
+    fn with_name_y(mut config: Vec<u8>, y: u8) -> Vec<u8> {
+        config[0x1C] = (config[0x1C] & 0x07) | ((y & 0x1F) << 3);
+        config[0x1D] = (config[0x1D] & !0x01) | (y >> 5);
+        assert_eq!(
+            KitConfig::decode(&config, PesVersion::Pes21)
+                .unwrap()
+                .name
+                .y,
+            y
+        );
+        config
+    }
+
+    #[test]
+    fn a_value_an_absent_slot_s_re_encode_clamps_is_reported_once_for_the_fpc_and_collar_edits() {
+        let mut bin = UniformParameter::new();
+        bin.insert(
+            "714_DEF_1st_realUni.bin".to_owned(),
+            with_name_y(shirt_144(714, KitSlot::P1), 40),
+        )
+        .unwrap();
+
+        let (changed, messages) = patched(
+            &mut bin,
+            &uni_color_714(1, &[0]),
+            team_714_wearing(
+                ExportCoverage::Midcup,
+                EffectiveTeamKitFpc::On,
+                Some(12),
+                &[],
+            ),
+        );
+
+        assert!(changed);
+        assert_eq!(
+            messages,
+            [
+                slot_finding(Code::KitConfigFpcAdjusted, "p1"),
+                tool_message(
+                    Code::KitConfigVersionClamped,
+                    Scope::Export { export_id: EXPORT },
+                    Disposition::Keep,
+                    vec![
+                        ("slot", "p1".to_owned()),
+                        ("field", "name.y".to_owned()),
+                        ("value", "40".to_owned()),
+                        ("max", "39".to_owned()),
+                    ],
+                ),
+            ],
+            "the collar edit decodes the FPC edit's clamped 39"
+        );
+        let p1 = bin.get("714_DEF_1st_realUni.bin").unwrap();
+        let p1 = KitConfig::decode(p1, PesVersion::Pes21).unwrap();
+        assert_eq!((p1.name.y, p1.shirt.collar), (39, 12));
+    }
+
+    #[test]
     fn with_fpc_on_an_absent_slot_gets_the_fpc_values_then_the_collar() {
         let mut bin = installed(&[(714, KitSlot::P1)]);
 
@@ -581,8 +735,8 @@ mod tests {
         assert_eq!(
             messages,
             [
-                fpc_finding(Code::KitConfigFpcAdjusted, "p1"),
-                fpc_finding(Code::KitConfigFpcUnpatched, "p2"),
+                slot_finding(Code::KitConfigFpcAdjusted, "p1"),
+                slot_finding(Code::KitConfigFpcUnpatched, "p2"),
             ]
         );
         let mut expected =
@@ -738,9 +892,16 @@ mod tests {
     fn a_config_lacking_the_fpc_values_gets_them_and_keeps_every_other_byte() {
         let mut config = Some(shirt_144(714, KitSlot::P1));
 
-        let patched = patch_fpc(&mut config, "714_DEF_1st_realUni.bin", PesVersion::Pes21);
+        let mut clamped = Vec::new();
+        let patched = patch_fpc(
+            &mut config,
+            "714_DEF_1st_realUni.bin",
+            PesVersion::Pes21,
+            &mut clamped,
+        );
 
         assert_eq!(patched, FpcPatch::Adjusted);
+        assert_eq!(clamped, Vec::<Vec<(&str, String)>>::new());
         let installed = KitConfig::decode(&shirt_144(714, KitSlot::P1), PesVersion::Pes21).unwrap();
         let mut expected = installed.clone();
         expected.shirt.model = 176;
@@ -767,7 +928,12 @@ mod tests {
         let bytes = config.encode(PesVersion::Pes21).to_vec();
         let mut config = Some(bytes.clone());
 
-        let patched = patch_fpc(&mut config, "714_DEF_2nd_realUni.bin", PesVersion::Pes21);
+        let patched = patch_fpc(
+            &mut config,
+            "714_DEF_2nd_realUni.bin",
+            PesVersion::Pes21,
+            &mut Vec::new(),
+        );
 
         assert_eq!(patched, FpcPatch::AlreadyFpc);
         assert_eq!(config.as_deref(), Some(&bytes[..]));
@@ -779,7 +945,12 @@ mod tests {
         let mut undecodable = Some(vec![0; 119]);
 
         for config in [&mut absent, &mut undecodable] {
-            let patched = patch_fpc(config, "714_DEF_3rd_realUni.bin", PesVersion::Pes21);
+            let patched = patch_fpc(
+                config,
+                "714_DEF_3rd_realUni.bin",
+                PesVersion::Pes21,
+                &mut Vec::new(),
+            );
             assert_eq!(patched, FpcPatch::Unpatched, "{config:?}");
         }
 
@@ -838,14 +1009,14 @@ mod tests {
         assert_eq!(
             messages,
             [
-                fpc_finding(Code::KitConfigFpcAdjusted, "p1"),
-                fpc_finding(Code::KitConfigFpcUnpatched, "p3"),
+                slot_finding(Code::KitConfigFpcAdjusted, "p1"),
+                slot_finding(Code::KitConfigFpcUnpatched, "p3"),
             ]
         );
     }
 
     #[test]
-    fn a_midcup_export_s_collar_alone_re_emits_the_loose_configs_wearing_it_silently() {
+    fn a_midcup_export_s_collar_alone_re_emits_the_loose_configs_wearing_it() {
         let installed = installed_loose(&[(714, KitSlot::P1)]);
 
         let (configs, messages) = loose(
@@ -871,7 +1042,10 @@ mod tests {
             )],
             "p1 wears the collar; p3 has no config to wear it"
         );
-        assert_eq!(messages, [], "a collar reports nothing");
+        assert_eq!(
+            messages,
+            [slot_finding(Code::KitConfigCollarUnpatched, "p3")]
+        );
     }
 
     #[test]

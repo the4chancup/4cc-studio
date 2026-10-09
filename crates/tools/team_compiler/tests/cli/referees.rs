@@ -262,6 +262,28 @@ fn a_referee_folder_is_emitted_under_each_of_his_slots_with_his_textures_once() 
     assert_tree_in(&entries, &referee_tree(Engine::Fox));
 }
 
+// TC-REF-14
+#[test]
+fn a_refs_export_s_root_colors_txt_is_not_read_so_not_checked() {
+    let sandbox = Sandbox::new("ref_root_colors");
+    write_ref_a(&sandbox, &["01"]);
+    sandbox.write(&format!("{REFS}/colors.txt"), b"not a color\n");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=referees)",
+        ],
+        "no color_entry_invalid: {lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+}
+
 /// The folder of referee slot `slot`'s pre-Fox face CPK: its CPK is `<folder>.cpk`, and every
 /// entry of it sits in `<folder>/`.
 fn pre_fox_referee_face(slot: &str) -> String {

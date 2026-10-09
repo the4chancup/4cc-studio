@@ -8,16 +8,18 @@ use aesthetics_export::FileDescriptor;
 use pes_version::Engine;
 use studio_core::{Disposition, ExportId, Message, Scope};
 
-use super::roles::{CollarFile, collar_file, file_stem};
+use super::roles::{CollarFile, collar_file, file_stem, is_direct_root_folder_file};
 use crate::deep::collar::named_id;
 use crate::messages::{Code, tool_message};
 
 /// The collar the export `export_id`, named `export_name`, keeps of its `Collars/` files
 /// `collars` for a target of `engine`, with the stock collar it replaces, claimed in `claimed`
 /// (each claimed collar's ID and its claimant's name, run-wide). Its models the target's
-/// collar task writes (`collar_file`: FMDLs on both engines, `.model` files on pre-Fox) are
-/// taken in path order: the first whose ID no earlier export claimed claims it; every other,
-/// its ID claimed already or the export holding a collar already (its own same ID included),
+/// collar task writes (`collar_file`: FMDLs on both engines, `.model` files on pre-Fox),
+/// directly in `Collars/` (a file below a subfolder is no collar, and claims and reports
+/// nothing), are taken in path order: the first whose ID no earlier export claimed claims it;
+/// every other, its ID claimed already or the export holding a collar already (its own same ID
+/// included),
 /// reports `collar_id_conflict` on its file, naming the claimant, and is left out. A glTF
 /// reports `model_gltf_unsupported` on its file, dropping it, and claims nothing, and so does
 /// a `.model` on Fox with `model_conversion_failed` (`CollarFile::NoMaterialSet`); a file of
@@ -35,6 +37,9 @@ pub(crate) fn export_collar(
     let mut kept: Option<(FileDescriptor, u8)> = None;
     // The structure pass lists a folder's files in path order.
     for file in collars {
+        if !is_direct_root_folder_file(&file.path) {
+            continue;
+        }
         let name = file.path.name();
         match collar_file(file, engine) {
             CollarFile::Compiled => {}
