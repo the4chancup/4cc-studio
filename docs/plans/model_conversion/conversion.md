@@ -220,14 +220,40 @@ through untouched, matrices included. The source bind pose is already in the IR'
    inverse bind matrices into the emitted `.model` bone table or generated `.skl`. Weights are
    untouched: `dsk_scapula_r` keeps driving the shoulder blade, sitting where PES15 expects it.
    Reported once per model as `skeleton_retargeted` (I, `detail` the moved-bone count) when any
-   bone's delta `Dᵢ` differs from the identity by more than a tolerance (1e-3 on any component);
+   bone's delta `Dᵢ` differs from the identity by more than a tolerance (3e-3 on any component:
+   Konami's own PES 17 glove `g101` sits 0.0025 off the hand table on three finger bones, and the
+   smallest difference between two versions' body tables is 0.0042, one hem bone of PES 15
+   against 17, so 3e-3 clears the games' own files and still catches every version difference;
+   measured at 4.17g1);
    a bone within tolerance is left exactly as it was, and a vertex none of whose bones moved is
    not touched, so a same-version compile is a no-op by construction, float noise included.
    Normals, tangents (xyz; `w` kept) and bitangents take the blended rotation and are
    renormalized. Bones the target's tables do not know at all (a genuine custom skeleton) keep
    the model's own matrices, as before.
-4. **Hands and face** conform the same way against the target's `hand_*`/`face` tables where it
-   ships them (Fox) and PES19's otherwise.
+
+   **When re-binding changes anything.** Under linear-blend skinning the game draws a vertex at
+   `Σᵢ wᵢ · Aᵢ · Dᵢ · v` (`Aᵢ` the animation about the rest pose, `Dᵢ` the bone's delta from the
+   model's bind pose to that rest pose); a re-bound model is drawn at `Σⱼ wⱼ · Aⱼ · Σᵢ wᵢ · Dᵢ · v`.
+   The two are equal for a vertex weighted to one bone, and for a vertex whose bones all share
+   one delta: such a model is moved rigidly, never distorted, in every pose. They differ only
+   for a vertex that blends bones whose deltas differ: that vertex flexes about the wrong pivots
+   once the joint animates, which is problem B. So **a model is on the target's skeleton when no
+   vertex blends bones with differing deltas**, whatever its deltas are, and that is the test the
+   native pre-check runs (`needs_conversion`): per bone the delta to the target's table, then one
+   pass over the vertex weights. The games' own files show why the per-bone comparison the plan
+   first described is wrong (measured at 4.17g1 on the stock PES 2017 and PES 2021 files and the
+   pre-Fox parity tracer): Konami's boots sit on a **boots pose** 7° off the body table on every
+   version, both feet in one mesh with opposite per-leg deltas, and the community's PES 15-posed
+   gloves sit 0.36 off PES 17's arm with every bone sharing one delta; all of them draw right,
+   and a per-bone check would have re-bound every one.
+4. **Hands** conform against the target's `hand_*` tables (Konami's gloves match them to 0.0025,
+   measured; the tables are byte-identical across PES 18-21 and pre-Fox ships none, so PES19's
+   serve every version). **A face's `skf_*` bones are not conformed and not re-bound**: their
+   pose is per face (Konami's PES 2017 faces sit up to 0.28 off `face.skl` and 0.26 off each
+   other; a PES 2021 face 0.34 off), the base table moved by the player's own face diff, so no
+   shared table is a reference for them; they keep the model's own matrices, as custom bones do,
+   and count as neither moved nor blended in the pre-check. A face's body bones (`sk_head`,
+   `sk_neck`, `dsk_*`) conform against the body table, which every stock face matches to 0.0000.
 
 The two legacy tables become regression fixtures: PES19→PES16 and PES17→PES15 must fold exactly the
 `missingBones` those tools folded, and must *not* fold the `movedBones` (retargeting handles them).
@@ -243,10 +269,12 @@ position is `Σ wᵢ Dᵢ v` over at most four weights (≈ 50 multiply-adds) an
 the rotational part (≈ 40 more) — on the order of 100 flops per vertex, done in place. A 20k-vertex
 player model is ~2 M flops, well under a millisecond single-threaded; the largest 4cc models
 (~100k vertices) stay in single-digit milliseconds. It is not measurable next to mesh splitting
-(10–50 ms per model) or texture encoding (hundreds of ms), and it runs at all only when a
-native-format pre-check (bone names and the two versions' tables, no geometry read) finds a used
-bone that the target lacks or poses differently beyond tolerance — same-version compiles, and
-cross-version compiles of models that only use unchanged bones, never enter the pass. What it does
+(10–50 ms per model) or texture encoding (hundreds of ms), and it runs at all only when the
+native-format pre-check (`needs_conversion`: bone names, the two versions' tables and one pass
+over the vertex weights, no vertex position read) finds a used bone that the target lacks or a
+vertex blending bones whose deltas to the target differ beyond tolerance (item 3, "When
+re-binding changes anything") — same-version compiles, and cross-version compiles of models
+whose blended bones moved together, never enter the pass. What it does
 add for a **same-format** cross-version compile (a PES21-authored FMDL for PES18) is the IR
 round-trip it needs to run at all, which is why it is listed with hand auto-split as an explicit
 exception to the "same format skips the IR" rule; that round-trip

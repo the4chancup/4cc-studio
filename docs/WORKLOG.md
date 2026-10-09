@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g1 done: the pose measurement on the games' own files, the pre-check's rule settled as a blended-delta test; g2 next)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1791,17 +1791,20 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   converted), and a converted `.mtl` path into the pre-Fox team Common directory
   (`model/character/uniform/common/<team>/x.dds`) pointed at the Fox Common texture
   directory when `Common/` holds the stem (today kept verbatim, the deep check calling it
-  supplied); (g) the same-engine pre-check, two
-  crates: `model_convert::needs_conversion`'s reference poses reconciled with the game's own
-  skeleton files (the face against the version's own face table, not PES 19's Fox one; boots
-  against the game's `boots.skl`; gloves against the hand pose), measured against the pre-Fox
-  parity tracer (today true for all four of its models on PES 17, Red's target) and the Fox
-  boots shipping the game's `boots.skl` (today true on every Fox version), then the compiler's
-  call in the Fox Models task and the pre-Fox face from 4.17c1's drafts
+  supplied); (g) the same-engine pre-check, in three slices: (g1, done 2026-10-09) the
+  measurement of which pose each real model is bound to (`.tmp/4_17/sk_4_17g1_report.md`: the
+  games' own files and the tracers), which withdrew the 2026-10-08 ruling (faces carry a
+  per-face `skf_*` pose, boots a boots pose 7° off the body on every version, the tracer gloves
+  PES 15's arm pose moved as one piece); (g2) `model_convert`: `needs_conversion` tests
+  whether any vertex blends bones whose deltas to the target differ (DECISIONS 2026-10-09),
+  `skf_*` out of the check and the re-bind, the tolerance 3e-3, the fixtures the lead copied
+  into `model_convert/tests/fixtures/` (stock PES 17 boots and glove, stock PES 21 boots with
+  its `.skl`, the pre-Fox tracer's three models) never flagged on their own version; (g3)
+  `team_compiler`: the call in the Fox Models task and the pre-Fox face from 4.17c1's drafts
   (`.tmp/4_17/sk_4_17c1_fox_precheck.rs`, `.tmp/4_17/sk_4_17c1_prefox_precheck.rs`,
   `.tmp/4_17/sk_4_17c1_prefox_face.diff`), the gloves task given the face's `.skl` for its
-  re-conversion, a slotless model's `.skl` read for the pre-check (DECISIONS 2026-10-08 "The
-  same-engine pre-check waits"). Slice c was split: c1 the loss codes and the pre-check
+  re-conversion, a slotless model's `.skl` read for the pre-check, `pipeline.md` step 3's
+  pre-check sentence rewritten. Slice c was split: c1 the loss codes and the pre-check
   measurement, c2 the selected glTF (`model_gltf_unsupported`, TC-MOD-28).
   Open for converge (design health): `output/writer.rs` `commit_folder` takes an empty
   textures batch for a failed task's (`TaskBatch::entries`'s doc, "empty when the task
@@ -4577,6 +4580,18 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     missed (`model_variant_sets`'s dedup rule for two files of one number and format),
     caught by the lead's added assertion (rerun on the function: 5 caught, 1 unviable).
     Next: 4.17g (the same-engine pre-check of a selected native model).
+  - **4.17g1 done** (measurement, no code): which pose each real model is bound to, on the
+    games' own files (stock PES 2017 faces, boots and gloves out of `dt33_win`/`dt36_win`,
+    stock PES 2021 boots and gloves FPKs out of `dt33_g4`) and the tracers
+    (`.tmp/4_17/sk_4_17g1_report.md`). Faces carry a per-face `skf_*` pose (Konami's up to
+    0.34 off `face.skl`); boots sit on one boots pose 7° off the body on every version, both
+    feet in one mesh; the pre-Fox tracer gloves sit on PES 15's arm pose with every bone
+    sharing one delta; a stock glove is 0.0025 off the hand table, the smallest version
+    difference 0.0042. Ruling (DECISIONS 2026-10-09): the pre-check tests whether a vertex
+    blends bones with differing deltas, `skf_*` take no part, tolerance 3e-3; no boots table.
+    Fixtures copied by the lead into `model_convert/tests/fixtures/` (stock PES 17 boots and
+    glove, stock PES 21 boots with its six-bone `.skl`, the tracer's three models). The
+    2026-10-08 ruling's three comparisons are withdrawn. Next: 4.17g2 (`model_convert`).
 - **2026-10-09** — Reviews run by the lead from now on: the maintainer wired the `duck` skill
   (Astra, SWE-2 rounds) for Claude Code, so cross-family reviews are no longer queued except on
   an Astra quota stop (five-hour quota, five or six reviews; retried hourly). The S7-S16
@@ -4587,3 +4602,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the installs, the converter's fixtures, the body-table version deltas), so g2 changes the
   converter from numbers, not from a reading of its code. The maintainer also noted that the
   in-game harness on PES 17 and 21 can answer `docs/QUESTIONS.md` entries without them.
+- **2026-10-09** — 4.17g1 (measurement): the sidekick's probe (`.tmp/4_17/sk_4_17g1_probe/`)
+  measured every real model's bind pose against the tables; the 2026-10-08 ruling (face table,
+  `boots.skl`, hand pose) is withdrawn and the pre-check becomes a blended-delta test
+  (`conversion.md` "When re-binding changes anything", DECISIONS 2026-10-09); fixtures added.
+  Test 3 on PES 17 run through the harness as far as Edit mode allows: team /a/'s outfielders
+  are all billboard or custom-body models, so kit 1's socks and collar 200 cannot be seen there
+  (only a match would); the keeper's collar 201 (no model anywhere) drew a plain neckline, no
+  crash. The PES 21 half and Test 3b are left for the maintainer; the apptest scripts'
+  absolute `.tmp/apptest` paths were repointed to `.tmp/4_0/apptest` (missed by the sort).

@@ -13,6 +13,10 @@ crates' `tests/fixtures/README.md`. Konami-derived files are Konami's, kept for 
 | `konami_card.model` + `konami_card_red.mtl` | `pes_model` | bitangents, one bone |
 | `konami_glasses_02.wesys.model` + `konami_accessory.mtl` | `pes_model` | two meshes, two materials, WESYS-wrapped |
 | `cardhead_face_high.model` + `cardhead_materials.mtl` | `pes_model` | add-on written, `Shadeless`, `Skeleton-Type: Simplified` header |
+| `konami17_boots_k0051.model` + `.mtl` | PES 2017 `dt33_win.cpk`, `common/character0/model/character/boots/k0051/` (WESYS unwrapped) | stock boots on the boots pose, 7° off the body table, both feet in one mesh: the pre-check must not flag it on PES 17 |
+| `konami17_glove_r_g101.model` + `.mtl` | PES 2017 `dt33_win.cpk`, `.../glove/g101/` | stock glove 0.0025 off the hand table on three finger bones: the tolerance's floor |
+| `konami21_boots_k0051.fmdl` + `.skl` | PES 2021 `dt33_g4.cpk`, `Asset/model/character/boots/k0051/#Win/boots.fpk` | stock Fox boots with their own six-bone `boots.skl` (the boots pose): not flagged on PES 21 |
+| `tracer_prefox_boots.model` + `.mtl`, `tracer_prefox_glove_l.model` + `.mtl`, `tracer_prefox_face_high.model` + `tracer_prefox_face.mtl` | `team_compiler`'s `tracer_prefox` fixture (the pre-Fox parity export, Fumos) | community models that draw right on PES 17: boots on the boots pose, gloves on PES 15's arm pose with every bone sharing one delta, a face with its own `skf_*` pose; none may be flagged on PES 17 |
 
 `legacy19to16_oral.model` + `.mtl` are the 19to16 converter's own output for `addon_oral.fmdl`
 (`Engines.lib.convertFaceFolder` on a folder holding only the FMDL, 2026-09-14): the semantic

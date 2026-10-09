@@ -5370,3 +5370,24 @@ savefile patch on pre-Fox, so a full pre-Fox DLC always needs it; writing the ot
 tables beside it would split one player's look between the CPK and the save and gain
 nothing (maintainer).
 Plan: `team_compiler/pipeline.md`, the output paths table (the three table rows).
+
+## 2026-10-09 — model_convert — The same-engine pre-check tests blended deltas, not poses against a table
+Decision: `needs_conversion` says true when a used standard bone is missing from the target or
+when some vertex blends bones whose deltas from the model's bind pose to the target's table
+differ beyond tolerance; a model whose every vertex blends bones sharing one delta is on the
+target's skeleton whatever that delta is. A face's `skf_*` bones take no part (not compared, not
+re-bound; they keep the model's own matrices as custom bones do). The tolerance is 3e-3 (was
+1e-3). No boots table is added, and the compiler's call (worklog 4.17g3) waits for this.
+Why: measured at 4.17g1 on the games' own files: Konami's boots sit on a boots pose 7° off the
+body table on every version, both feet in one mesh with opposite per-leg deltas; Konami's faces
+sit up to 0.34 off `face.skl` and 0.26 off each other (the per-face diff); the community's PES
+15-posed tracer gloves sit 0.36 off PES 17's arm with every bone sharing one delta; a stock glove
+sits 0.0025 off the hand table while the smallest version difference is 0.0042. All of these
+draw right, and the per-bone comparison the plan first described re-binds every one. Under
+linear-blend skinning a vertex weighted to bones sharing one delta is drawn the same before and
+after re-binding in every pose; only a vertex blending differing deltas flexes wrongly, so the
+blend test is the condition itself, not an approximation, and it needs no role, no boots table
+and no derived bones. The 2026-10-08 entry's "face against the face table, boots against
+`boots.skl`, gloves against the hand pose" is withdrawn by these measurements.
+Plan: `model_conversion/conversion.md` "Skeleton retargeting and bone conformance" items 3
+("When re-binding changes anything") and 4, and "Cost"; `resources/skeletons/README.md`.
