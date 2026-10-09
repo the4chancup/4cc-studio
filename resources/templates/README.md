@@ -155,3 +155,20 @@ pre-Fox referee exports that work in game (`Refs/legacy_prefox/robocopclassicplu
 `robocopclassicpoolclosed/`, the Spring 26 refs). A member export's `env.dds` of the same size
 (the Winter 18 export) differs: the template is the one the working exports share, not a
 member's own. Copied on 2026-10-08 by `.tmp/copy_env_template.py` (not kept: a one-off copy).
+
+## `uniform.mtl`
+
+PES 17's stock uniform material set: the `.mtl` a `.model` collar is read with, since a collar
+carries no materials of its own and the game draws it with the kit's (Team compiler plan,
+`pipeline.md` "Collars" and step 3 "Format conversion"; worklog step 4.y-fix12). Ten
+materials; the two a collar names, `uni_collar` and `uni_shirts`, are both shader `Shirt_NB`
+with no sampler. 4,678 bytes, LF line ends, SHA-256 `f585925ff774852f`.
+
+Source: PES 2017's `data/dt32_win.cpk`,
+`common/character1/model/character/uniform/common/uniform.mtl`, extracted on 2026-10-09 from
+the maintainer's install (`E:/PES2017`). PES 2015's and 2016's `dt32` copies (identical to
+each other, SHA-256 `70bb83195ed2c258`) have no `uni_collar`, which is why a collar converted
+for PES 15-16 names `uni_shirts` alone. The cup's `4cc_04_fpc.cpk` replaces the file in game
+on each version; its copies differ from the stock ones only in `skin_limb` (shader `Skin_New`
+with explicit states), which no collar names, and its PES 15-16 copy has no `uni_collar`
+either.

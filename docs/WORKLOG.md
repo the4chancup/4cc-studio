@@ -3360,6 +3360,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Also (lead's finding, 2026-10-09): a collar converted for PES 15-16 names `uni_shirts`
   alone, PES 15's and 16's `uniform.mtl` defining no `uni_collar` (`pipeline.md`
   "Collars"); TC-CMN-19.
+  Lead part done 2026-10-09: `resources/templates/uniform.mtl` is PES 17's `dt32_win.cpk`
+  copy, provenance in `resources/templates/README.md`, `-text` in `.gitattributes`. The
+  cup's `4cc_04_fpc.cpk` overrides the file in game on PES 15-17, differing only in
+  `skin_limb`; its PES 15-16 copy has no `uni_collar` either, so the PES 15-16 rule holds
+  on the cup's installs.
 
 - [ ] 4.y-fix13 **A hidden Fox mesh is left out of a `.model` export** (the maintainer's
   answer, 2026-10-09). `model_convert`'s pre-Fox export skips a mesh whose `invisible`

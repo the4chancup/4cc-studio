@@ -11,5 +11,8 @@ crates/libs/teams_list/data/teams_list.txt -text
 # A game file copied byte for byte from Red's templates (CRLF): packed as it is
 resources/templates/dummy.mtl -text
 
+# A game file extracted byte for byte from PES 2017's data CPK: read as it is
+resources/templates/uniform.mtl -text
+
 # The pre-Fox referee template tree, copied byte for byte from Red (three `.mtl` files are CRLF)
 resources/templates/referees_prefox/** -text

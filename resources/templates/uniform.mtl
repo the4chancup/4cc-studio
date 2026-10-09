@@ -1,0 +1,92 @@
+<materialset>
+  <material name="uni_shirts" shader="Shirt_NB">
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="1" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+    <sampler name="NormalMap" path="./shirts_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+  </material>
+
+  <material name="uni_shirts_tight" shader="Shirt_NB">
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+    <sampler name="NormalMap" path="./shirts_tight_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+  </material>
+
+  <material name="uni_collar" shader="Shirt_NB">
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+  </material>
+
+  <material name="uni_pants" shader="Pants_NB">
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+    <sampler name="NormalMap" path="./pants_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="DetailMaterialMap" path="./pants_pattern_mtm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="repeat" vaddr="repeat"/>
+    <sampler name="DetailNormalMap" path="./pants_pattern_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="repeat" vaddr="repeat"/>
+  </material>
+
+  <material name="uni_sleeve" shader="Sleeve">
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+    <vector name="DepthBias" x="0.0" />
+    <sampler name="NormalMap" path="./sleeve_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+  </material>
+
+  <material name="uni_sleeve_tight" shader="Sleeve">
+    <state name="ztest" value="1" />
+    <state name="zwrite" value="1" />
+    <state name="twosided" value="0" />
+    <state name="alphatest" value="0" />
+    <state name="alpharef" value="0" />
+    <state name="alphablend" value="0" />
+    <state name="blendmode" value="0" />
+    <vector name="DepthBias" x="0.0" />
+    <sampler name="NormalMap" path="./sleeve_tight_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+  </material>
+
+  <material name="uni_sleeve_inner" shader="Basic_CNS_MUV">
+    <sampler name="NormalMap" path="model/character/accessory/accessory_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="SpecularMap" path="model/character/accessory/accessory_spe.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>    
+    <sampler name="RoughnessMap" path="model/character/accessory/accessory_rgm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+  </material>
+
+  <material name="uni_socks" shader="Uniform">
+    <sampler name="NormalMap" path="./socks_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="clamp" vaddr="clamp"/>
+    <sampler name="DetailMaterialMap" path="./socks_pattern_mtm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="repeat" vaddr="repeat"/>
+    <sampler name="DetailNormalMap" path="./socks_pattern_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" uaddr="repeat" vaddr="repeat"/>
+  </material>
+
+  <material name="accessory" shader="Basic_CN">
+	<sampler name="DiffuseMap" path="model/character/accessory/accessory_bsm.dds" srgb="1" minfilter="linear" magfilter="linear" />
+	<sampler name="NormalMap" path="model/character/accessory/accessory_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" />
+  </material>
+  
+  	<material name="skin_limb" shader="Skin">
+		<sampler name="NormalMap" path="model/character/body/skin_nrm.dds" srgb="0" minfilter="linear" magfilter="linear" />
+	</material>
+
+</materialset>
