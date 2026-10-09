@@ -268,7 +268,13 @@ Requirements:
   (the mutated code computes the same value; its pattern goes into `.cargo/mutants.toml` with
   the equivalence named, so that file is the list of what the runs no longer measure), or
   unreachable code (a design finding). A survivor with no bucket is a review finding, not a
-  number to accept. Results land in `mutants.out/` (gitignored).
+  number to accept. Results land in `mutants.out/` (gitignored). What a clean run cannot
+  vouch for: `cargo-mutants` rewrites operators, a `!`, match arms and guards, a field, and a
+  function's whole return value; it never drops an `if` guard or changes a literal. So a guard
+  that refuses an input the standard library would accept (a leading `+`, which
+  `u8::from_str` takes), and a rule a literal decides (the separators a line is split on),
+  each get a test of their own when written: no run will ask for it (the color grammar had
+  neither, with all its mutants caught; S10's review, 2026-10-09).
 - **Clef scan.** The sweeps find what a pattern can see and the mutation runs what a missing
   test lets through; a logic slip in code its own tests agree with needs a reader. `just
   clef-diff [base]` asks Cloudflare's Clef decision model (27B, hosted on Workers AI) whether

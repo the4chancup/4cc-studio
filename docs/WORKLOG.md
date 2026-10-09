@@ -3381,6 +3381,22 @@ Steps are itemized when Phase 4 closes; one is fixed already:
   change (schema fields, write behavior, `.4ccs`/`.4cct`/Texport formats) is reflected in
   `pes_savefile` and its plans or recorded as not applying, before any Phase 5 writing code, and
   the commit reached is in the log
+- [ ] 5.0b Prototype the two mutation kinds `cargo-mutants` lacks (after Phase 4's converge, so
+  it competes with no review): (1) drop a guard, an `if` whose body returns, `continue`s,
+  `break`s or errs, its condition replaced with `false`; (2) remove one element of a literal
+  list a `split`, `contains` or `matches!` decides by. S10's review (2026-10-09) found the
+  color grammar's leading-`+` guard and tab refusal untested with every mutant of the file
+  caught (`CONTRIBUTING.md` "Mutation runs"). Upstream checked 2026-10-09: issue #180 "Delete
+  statements" open since 2023 with no milestone, its notes leaning against deleting statements
+  that hold a `return`; nothing on literals. Shape: a `syn`-based generator writing one patch
+  per mutant, run through `scripts/mutants.py`'s tree copy, timeouts and remote split.
+  **Needs the maintainer's yes first**: a new dev-tool crate (linked into no release binary)
+  and a direct `syn` dependency (agreed in principle 2026-10-09). `syn` 3 with `full` and
+  `visit`, features the workspace already builds it with, so it compiles nothing new (check:
+  a clean build compiles `syn` 3 once): the generator only reads the tree and patches text,
+  so no `visit-mut`; not `syn` 2, which leaves the tree as `binrw` and `pyo3` move on. → done when: run over `aesthetics_export`, its survivors
+  triaged into real gaps and equivalents, and the count decides whether it joins converge
+  (worth it when at least about half the survivors are real gaps)
 
 ### Phase 16 — Polish and distribution
 
