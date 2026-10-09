@@ -10,14 +10,18 @@ use std::fs;
 use std::path::Path;
 
 use kit_config::KitConfig;
-use pes_version::PesVersion;
+use pes_model::format::mtl::{MaterialEntry, MaterialSet};
+use pes_version::{Engine, PesVersion};
 
 use crate::common::{Run, Sandbox};
 use crate::common_links::texture_directories;
-use crate::compile::{cpk_entries, kit_texture, pes21_settings, tracer_kit, tracer_player_file};
+use crate::compile::{
+    cpk_entries, kit_texture, pes_settings, pes21_settings, tracer_kit, tracer_player_file,
+};
 use crate::compile_exports::TEAM_COLOR;
 use crate::deploy::{install_pes, templates_folder};
 use crate::models::package_names;
+use crate::prefox_faces::{nested_entries, ordered_entries};
 use crate::sideload::slashed;
 use crate::textures::{texture_fixture, tracer_model_renaming};
 use crate::{clean_model, findings_of, snapshot};
@@ -59,7 +63,13 @@ pub(crate) const REFS_CPK: &str = "4cc_18_referees.cpk";
 
 /// `compile --no-deploy` in `sandbox` for PES 21: the run and its refs CPK's entries.
 fn compile(sandbox: &Sandbox) -> (Run, BTreeMap<String, Vec<u8>>) {
-    let run = sandbox.run(&pes21_settings(sandbox), &["compile", "--no-deploy"]);
+    compile_for(sandbox, PesVersion::Pes21)
+}
+
+/// `compile` for `version`.
+fn compile_for(sandbox: &Sandbox, version: PesVersion) -> (Run, BTreeMap<String, Vec<u8>>) {
+    let settings = pes_settings(sandbox, version.number().try_into().unwrap());
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
     let entries = cpk_entries(&sandbox.root.join("output").join(REFS_CPK));
     (run, entries)
 }
@@ -76,19 +86,34 @@ fn skipped(sandbox: &Sandbox, name: &str) -> String {
 const REFEREE_APPEARANCE: &str =
     "common/character0/model/character/appearance/RefereeAppearance.bin";
 
-/// The Fox referee template tree as the repository holds it, `resources/templates/
-/// referees_fox/`: every file by its path below that folder, spelled with `/`, with its bytes.
-pub(crate) fn referee_tree() -> BTreeMap<String, Vec<u8>> {
-    snapshot(&templates_folder().join("referees_fox"))
-        .into_iter()
-        .map(|(path, bytes)| (slashed(&path), bytes))
-        .collect()
+/// The folder of `engine`'s referee template tree, below `resources/templates/` and below a
+/// data directory's `templates/`.
+fn tree_folder(engine: Engine) -> &'static str {
+    match engine {
+        Engine::Fox => "referees_fox",
+        Engine::PreFox => "referees_prefox",
+    }
 }
 
-/// Asserts that `entries` hold every file of `tree` (the referee template tree's 31), with its
-/// bytes.
+/// The referee template tree of `engine` as the repository holds it, `resources/templates/
+/// referees_fox/` (31 files) or `referees_prefox/` (51): every file by its path below that
+/// folder, spelled with `/`, with its bytes.
+fn referee_tree(engine: Engine) -> BTreeMap<String, Vec<u8>> {
+    let folder = tree_folder(engine);
+    let count = match engine {
+        Engine::Fox => 31,
+        Engine::PreFox => 51,
+    };
+    let tree: BTreeMap<String, Vec<u8>> = snapshot(&templates_folder().join(folder))
+        .into_iter()
+        .map(|(path, bytes)| (slashed(&path), bytes))
+        .collect();
+    assert_eq!(tree.len(), count, "the {folder} tree's files");
+    tree
+}
+
+/// Asserts that `entries` hold every file of `tree`, a referee template tree, with its bytes.
 fn assert_tree_in(entries: &BTreeMap<String, Vec<u8>>, tree: &BTreeMap<String, Vec<u8>>) {
-    assert_eq!(tree.len(), 31, "the tree's files");
     for (path, bytes) in tree {
         assert!(entries.get(path) == Some(bytes), "{path}");
     }
@@ -101,12 +126,38 @@ const MARKER_COLLAR: &str = "Asset/model/character/uniform/nocloth/#Win/collar_0
 const MARKER_TEXTURE: &str =
     "Asset/model/character/common/999/sourceimages/#windx11/ref_marker.ftex";
 
+/// The game path of the pre-Fox referees' marker model: stock collar 77's `referee_collar`
+/// model, the one a pre-Fox referee draws.
+const PRE_FOX_MARKER_MODEL: &str =
+    "common/character0/model/character/uniform/nocloth/referee_collar_077.model";
+
+/// The game path of the pre-Fox marker model's material set, beside it.
+const PRE_FOX_MARKER_MTL: &str =
+    "common/character0/model/character/uniform/nocloth/referee_collar_077.mtl";
+
+/// The game path of stock collar 77's pre-Fox model, which must exist for the referee to
+/// draw his `referee_collar_077`.
+const PRE_FOX_EMPTY_COLLAR: &str =
+    "common/character0/model/character/uniform/nocloth/collar_077.model";
+
+/// The game path of the converted pre-Fox marker texture, in the referees' Common output.
+const PRE_FOX_MARKER_TEXTURE: &str =
+    "common/character1/model/character/uniform/common/999/ref_marker.dds";
+
+/// The game path of the pre-Fox template tree's prop model, the marker's model.
+const REFEREE_PROP_MODEL: &str =
+    "common/character1/model/character/parts/referee/referee_prop.model";
+
+/// The game path of the pre-Fox template tree's prop `.mtl`, beside its model.
+const REFEREE_PROP_MTL: &str = "common/character1/model/character/parts/referee/referee_prop.mtl";
+
 /// The folder of the referee kit configs, in the template tree and in the refs CPK.
 const REFEREE_CONFIGS: &str = "common/character0/model/character/uniform/team/referee/";
 
-/// The referee kit configs of the template tree as the repository holds it, by game path.
-fn template_configs() -> BTreeMap<String, Vec<u8>> {
-    let configs: BTreeMap<String, Vec<u8>> = referee_tree()
+/// The referee kit configs of `engine`'s template tree as the repository holds it, by game
+/// path.
+fn template_configs(engine: Engine) -> BTreeMap<String, Vec<u8>> {
+    let configs: BTreeMap<String, Vec<u8>> = referee_tree(engine)
         .into_iter()
         .filter(|(path, _)| path.starts_with(REFEREE_CONFIGS))
         .collect();
@@ -183,7 +234,71 @@ fn a_referee_folder_is_emitted_under_each_of_his_slots_with_his_textures_once() 
     // No note is collected without one.
     assert!(!sandbox.root.join("output/teamnotes.txt").exists());
     // The referee kits and appearance the game needs come with them.
-    assert_tree_in(&entries, &referee_tree());
+    assert_tree_in(&entries, &referee_tree(Engine::Fox));
+}
+
+/// The folder of referee slot `slot`'s pre-Fox face CPK: its CPK is `<folder>.cpk`, and every
+/// entry of it sits in `<folder>/`.
+fn pre_fox_referee_face(slot: &str) -> String {
+    format!("common/character0/model/character/face/real/referee0{slot}")
+}
+
+// TC-REF-09
+#[test]
+fn on_pes_17_a_referee_folder_is_a_face_cpk_per_slot_his_boots_in_its_face_xml() {
+    let sandbox = Sandbox::new("ref_slots_pes17");
+    write_ref_a(&sandbox, &["01", "20", "35"]);
+
+    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    for slot in ["01", "20", "35"] {
+        let folder = pre_fox_referee_face(slot);
+        let face = nested_entries(&entries[&format!("{folder}.cpk")]);
+        let names: Vec<&str> = face
+            .keys()
+            .map(|path| path.strip_prefix(&format!("{folder}/")).unwrap())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "boots.mtl",
+                "face.xml",
+                "face_high.mtl",
+                "oral_boots_win32.model",
+                "oral_face_high_win32.model",
+            ],
+            "{slot}"
+        );
+        // His boots ride in the face, typed `parts` as a team player's own boots are.
+        let entry = |xml_type: &str, path: &str, material: &str| {
+            (xml_type.to_owned(), path.to_owned(), material.to_owned())
+        };
+        assert_eq!(
+            ordered_entries(&face[&format!("{folder}/face.xml")]),
+            [
+                entry("parts", "./oral_boots_*.model", "./boots.mtl"),
+                entry("face_neck", "./oral_face_high_*.model", "./face_high.mtl"),
+            ],
+            "{slot}"
+        );
+    }
+    // No boots folder of his: the only boots files are the template tree's (`k0062`, the
+    // referees' stock boots).
+    let boots: Vec<&str> = entries
+        .keys()
+        .filter_map(|path| path.strip_prefix("common/character0/model/character/boots/"))
+        .collect();
+    assert_eq!(boots, ["k0062/boots.model", "k0062/boots.mtl"]);
+    let skins: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.ends_with("/skin.dds"))
+        .collect();
+    assert_eq!(
+        skins,
+        ["common/character1/model/character/uniform/common/999/Ref A/skin.dds"]
+    );
+    assert_tree_in(&entries, &referee_tree(Engine::PreFox));
 }
 
 #[test]
@@ -212,15 +327,18 @@ fn a_refs_export_whose_only_folder_validation_drops_writes_no_refs_cpk_and_no_tr
     );
 }
 
-#[test]
-fn a_data_directory_file_at_a_tree_path_replaces_that_file_of_the_refs_cpk() {
-    let sandbox = Sandbox::new("ref_tree_override");
+/// Compiles Ref A for `version` in the sandbox `name` with a data directory file at the path of
+/// `version`'s template tree's `RefereeAppearance.bin`, and asserts that the file replaces that
+/// file of the refs CPK, reported first, the rest of the tree being the built-in one.
+fn assert_tree_override_replaces_its_file(name: &str, version: PesVersion) {
+    let sandbox = Sandbox::new(name);
     write_ref_a(&sandbox, &["01"]);
     let appearance = b"the cup's RefereeAppearance.bin";
-    let override_path = format!("data/templates/referees_fox/{REFEREE_APPEARANCE}");
+    let folder = tree_folder(version.engine());
+    let override_path = format!("data/templates/{folder}/{REFEREE_APPEARANCE}");
     sandbox.write(&override_path, appearance);
 
-    let (run, entries) = compile(&sandbox);
+    let (run, entries) = compile_for(&sandbox, version);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     assert_eq!(
@@ -231,10 +349,19 @@ fn a_data_directory_file_at_a_tree_path_replaces_that_file_of_the_refs_cpk() {
         ))
     );
     assert_eq!(entries[REFEREE_APPEARANCE], appearance);
-    // The rest of the tree is the built-in one.
-    let mut tree = referee_tree();
+    let mut tree = referee_tree(version.engine());
     tree.insert(REFEREE_APPEARANCE.to_owned(), appearance.to_vec());
     assert_tree_in(&entries, &tree);
+}
+
+#[test]
+fn a_data_directory_file_at_a_tree_path_replaces_that_file_of_the_refs_cpk() {
+    assert_tree_override_replaces_its_file("ref_tree_override", PesVersion::Pes21);
+}
+
+#[test]
+fn on_pes_17_a_data_directory_file_at_a_pre_fox_tree_path_replaces_that_file() {
+    assert_tree_override_replaces_its_file("ref_tree_override_pes17", PesVersion::Pes17);
 }
 
 // TC-REF-06
@@ -262,7 +389,7 @@ fn a_ref_marker_goes_into_the_refs_cpk_as_collar_77_which_every_referee_kit_wear
         texture_directories(collar, "cup_logo.dds"),
         Vec::<String>::new()
     );
-    for (path, template) in template_configs() {
+    for (path, template) in template_configs(Engine::Fox) {
         let config = KitConfig::decode(&entries[&path], PesVersion::Pes21).unwrap();
         assert_eq!(
             (config.shirt.collar, config.shirt.winter_collar),
@@ -277,22 +404,113 @@ fn a_ref_marker_goes_into_the_refs_cpk_as_collar_77_which_every_referee_kit_wear
     );
 }
 
-// TC-REF-08
-#[test]
-fn without_a_ref_marker_the_refs_cpk_holds_no_collar_and_the_template_kit_configs() {
-    let sandbox = Sandbox::new("ref_no_marker");
+/// Compiles Ref A without `ref_marker.dds` for `version` in the sandbox `name`, and asserts
+/// that the refs CPK holds none of `collars`, the marker's model files, no marker texture, and
+/// the kit configs of `version`'s template tree as they are.
+fn assert_compiles_without_marker(name: &str, version: PesVersion, collars: &[&str]) {
+    let sandbox = Sandbox::new(name);
     write_refs_with_marker(&sandbox, None);
 
-    let (run, entries) = compile(&sandbox);
+    let (run, entries) = compile_for(&sandbox, version);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
-    assert!(!entries.contains_key(MARKER_COLLAR), "no collar");
+    for collar in collars {
+        assert!(!entries.contains_key(*collar), "no {collar}");
+    }
     for path in entries.keys() {
         assert!(!path.contains("ref_marker"), "{path}");
     }
-    for (path, template) in template_configs() {
+    for (path, template) in template_configs(version.engine()) {
         assert!(entries[&path] == template, "{path}");
     }
+}
+
+// TC-REF-08
+#[test]
+fn without_a_ref_marker_the_refs_cpk_holds_no_collar_and_the_template_kit_configs() {
+    assert_compiles_without_marker("ref_no_marker", PesVersion::Pes21, &[MARKER_COLLAR]);
+}
+
+#[test]
+fn without_a_ref_marker_a_pes_17_refs_cpk_holds_no_collar_pair_and_the_template_kit_configs() {
+    assert_compiles_without_marker(
+        "ref_no_marker_pes17",
+        PesVersion::Pes17,
+        &[
+            PRE_FOX_MARKER_MODEL,
+            PRE_FOX_MARKER_MTL,
+            PRE_FOX_EMPTY_COLLAR,
+        ],
+    );
+}
+
+// TC-REF-04
+#[test]
+fn on_pes_17_a_ref_marker_goes_in_as_referee_collar_77_beside_an_empty_collar_77() {
+    let sandbox = Sandbox::new("ref_marker_pes17");
+    write_refs_with_marker(&sandbox, Some(&tracer_player_file("shirt.dds")));
+
+    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let tree = referee_tree(Engine::PreFox);
+    assert!(
+        entries.get(PRE_FOX_MARKER_MODEL) == Some(&tree[REFEREE_PROP_MODEL]),
+        "the template's prop model as it is"
+    );
+    // The template's `judge_incom` alone, its diffuse map naming the marker texture.
+    let template = MaterialSet::read(&tree[REFEREE_PROP_MTL]).unwrap();
+    let mut expected = template
+        .materials
+        .into_iter()
+        .find(|material| material.name == "judge_incom")
+        .unwrap();
+    for entry in &mut expected.entries {
+        if let MaterialEntry::Sampler(sampler) = entry {
+            assert_eq!(sampler.name, "DiffuseMap");
+            assert_eq!(sampler.path, "./incom_bsm.dds");
+            "model/character/uniform/common/999/ref_marker.dds".clone_into(&mut sampler.path);
+        }
+    }
+    let written = MaterialSet::read(&entries[PRE_FOX_MARKER_MTL]).unwrap();
+    assert_eq!(written.materials, [expected]);
+    let empty_collar = fs::read(templates_folder().join("collar_empty.model")).unwrap();
+    assert!(
+        entries.get(PRE_FOX_EMPTY_COLLAR) == Some(&empty_collar),
+        "the bundled empty collar"
+    );
+    assert!(
+        entries[PRE_FOX_MARKER_TEXTURE].starts_with(b"DDS "),
+        "the marker texture, a DDS"
+    );
+    for (path, template) in template_configs(Engine::PreFox) {
+        let config = KitConfig::decode(&entries[&path], PesVersion::Pes17).unwrap();
+        let mut expected = KitConfig::decode(&template, PesVersion::Pes17).unwrap();
+        expected.shirt.collar = 77;
+        expected.shirt.winter_collar = 77;
+        assert_eq!(config, expected, "{path}");
+        assert_ne!(entries[&path], template, "{path}");
+    }
+}
+
+#[test]
+fn a_data_directory_collar_empty_model_replaces_the_pre_fox_empty_collar_77() {
+    let sandbox = Sandbox::new("ref_empty_collar_override");
+    write_refs_with_marker(&sandbox, Some(&tracer_player_file("shirt.dds")));
+    let empty_collar = b"the cup's empty collar";
+    sandbox.write("data/templates/collar_empty.model", empty_collar);
+
+    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    assert_eq!(
+        run.messages().first(),
+        Some(&format!(
+            "Info template_override_active [Keep] (path={})",
+            sandbox.display("data/templates/collar_empty.model")
+        ))
+    );
+    assert_eq!(entries[PRE_FOX_EMPTY_COLLAR], empty_collar);
 }
 
 #[test]
@@ -318,7 +536,7 @@ fn a_ref_marker_that_fails_conversion_is_reported_and_left_out_with_its_collar()
     assert!(entries.contains_key(&referee_package("face/real/referee0", "01", "face")));
     assert!(!entries.contains_key(MARKER_COLLAR), "no collar");
     assert!(!entries.contains_key(MARKER_TEXTURE), "no marker texture");
-    for (path, template) in template_configs() {
+    for (path, template) in template_configs(Engine::Fox) {
         assert!(entries[&path] == template, "{path}");
     }
 }
@@ -376,7 +594,7 @@ fn test_mode_writes_a_referee_folder_s_processed_files_once() {
             "refs Cup/Players/Ref A/skin.ftex",
         ]
     );
-    let tree = referee_tree();
+    let tree = referee_tree(Engine::Fox);
     for path in snapshot(&sandbox.root.join("output/test_output")).keys() {
         let path = slashed(path);
         assert!(!path.contains("referee020"), "{path}");

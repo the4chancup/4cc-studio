@@ -427,9 +427,11 @@ fn build(
     let referees = match (mode, refs) {
         (OutputMode::Normal { .. }, Some(refs)) => {
             let path = staging.folder().join(deploy::cpk_file_name(refs));
-            Some(Referees::cpk(path, referee_tasks))
+            Some(Referees::cpk(path, referee_tasks, version.engine()))
         }
-        (OutputMode::Sideload { .. }, _) => Some(Referees::in_sink(referee_tasks)),
+        (OutputMode::Sideload { .. }, _) => {
+            Some(Referees::in_sink(referee_tasks, version.engine()))
+        }
         (OutputMode::Normal { .. }, None) | (OutputMode::Test, _) => None,
     };
     if let Some(referees) = referees {

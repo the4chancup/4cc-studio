@@ -5646,3 +5646,35 @@ predict.
 Plan: `team_compiler/pipeline.md` "Common textures are one task of their export" (the Common
 glTF sentence); `team_compiler/messages.md` `model_gltf_unsupported`, `shared_folder_no_model`
 (a selected glTF counts as a model).
+
+## 2026-10-09 — team_compiler — The pre-Fox marker model is unskinned, not painted to `static`
+Decision: the referee step's static-painting check is by engine: the Fox marker FMDL's vertices
+are weighted to `static` alone; the pre-Fox prop model (and the bundled empty collar) has no bone
+and no weight, and the check asserts that. The plan's sentence names both forms.
+Why: `pes_model` reads the tree's `referee_prop.model` as one mesh of four vertices, material
+`judge_incom`, an empty bone table, no bone group, no indices and no weights (the 4.19d sidekick's
+finding); a check naming `static` cannot be made on a model with no bones, and inventing one
+would test nothing. Whether an unskinned model in the collar slot stays on the ground in game is
+what the TC-REF-04 manual check on PES 17 observes.
+Plan: `team_compiler/blue_port.md` "Referee export processing" (the static painting sentences).
+
+## 2026-10-09 — team_compiler — The pre-Fox marker goes by Red's route: the template prop's texture replaced, no collar pair
+Decision: on PES 15-17 the referees' marker is the converted `ref_marker.dds` written as the
+template tree's `parts/referee/incom_bsm.dds`, the texture of the prop model the game draws
+under the referee by itself; no `referee_collar_077` pair, no `collar_077.model`, the template
+configs untouched (collar 26). The collar route stays Fox's. The 77 reservation stays on both
+engines. The bundled `collar_empty.model` goes (step 4.19f).
+Why: the in-game check on PES 17 (2026-10-09, the harness, `.tmp/4_19/ingame/`): with the
+4.19d pair installed the referee walks out and lines up with nothing drawn; with the base
+game's visible collar 26 as `referee_collar_077.model` and a `.mtl` beside it naming the marker
+texture, the collar is not drawn at all (both with the prop's `Constant` material set and with
+the kit's `Shirt_NB` one), where the same model without a `.mtl` drew its V collar on
+2026-10-08 (run I). So a `.mtl` beside a nocloth model is read, and it stops the model
+drawing: the collar cannot carry a texture of its own on pre-Fox, and the plan's "one method
+with no pre-Fox exception" rests on a mechanism the game does not have. Red's route is what
+the cups used for years; which scene shows the prop is the maintainer's to confirm, since the
+lead's frames (walkout, lineup, wide match camera) showed neither the template's own clover nor
+the test texture. The reservation is kept on both engines because an engine case in
+`collar_id_conflict` and `kit_collar_reserved` buys a team one stock collar ID on pre-Fox.
+Plan: `team_compiler/blue_port.md` "Referee export processing" (the marker intro and bullets,
+the marker model paragraph); `team_compiler/README.md` TC-REF-04.

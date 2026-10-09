@@ -68,9 +68,11 @@ What carries over from Red as compiler-internal behavior (invisible in the forma
 What does not carry over is how Red showed the referee marker (`ref_marker.dds`): pre-Fox it
 replaced a texture of the referee template (`parts/referee/incom_bsm.dds` in the refs CPK), and
 on Fox it wrote `cup_logo.ftex` into the system file `Data/dt00_x64.cpk` after an interactive
-prompt. Both engines show the marker through a **reserved collar** instead, one method with no
-pre-Fox exception, so nothing outside the refs CPK is ever written and no consent, backup or
-rollback is needed:
+prompt. Fox shows the marker through a **reserved collar** instead; pre-Fox keeps Red's route,
+the template prop's texture replaced (in game on PES 17, 2026-10-09: a `.mtl` beside a nocloth
+`.model` is read, and the collar model then stops drawing, so a collar cannot carry a texture
+of its own there). Either way nothing outside the refs CPK is ever written and no consent,
+backup or rollback is needed:
 
 - stock collar **77** is reserved for the referees, as 105 is for FPC (a stock collar of every
   target version, and one that none of the 4,635 kit configs on the maintainer's machine uses,
@@ -78,14 +80,18 @@ rollback is needed:
   effective collar or winter collar (after FPC reconciliation and custom-collar rewriting) is
   the reserved one reports `kit_collar_reserved` and is dropped, since its players would wear
   the referees' marker;
-- the refs CPK carries the marker model as that collar, at the collar's `nocloth` path ("Game
-  paths reference" in `pipeline.md`), in the target's format, bundled with the compiler like the
-  other referee templates. On Fox that is `collar_077.fmdl`, the file a Fox referee loads. On
-  pre-Fox the referee draws `referee_collar_<ID>.model` and needs `collar_<ID>.model` to exist
-  (a missing one drops him from the pre-match scenes; in-game on PES 17, 2026-10-08), so the
-  refs CPK carries the marker as `referee_collar_077.model` with its `.mtl`, beside an empty
-  `collar_077.model` (the cup's FPC collar 105 ships the same pair). The 77 reservation holds
-  on both engines: a team's `collar_077` would be the one the referee finds;
+- on Fox the refs CPK carries the marker model as that collar, at the collar's `nocloth` path
+  ("Game paths reference" in `pipeline.md`): `collar_077.fmdl`, the file a Fox referee loads,
+  bundled with the compiler like the other referee templates. On pre-Fox the refs CPK carries
+  the marker texture as the template tree's `parts/referee/incom_bsm.dds`, the texture of the
+  prop model the game draws by itself (the tree's `referee_prop.model`, a flat square bound to
+  `judge_incom`), in place of the tree's file: no collar pair, and the template configs keep
+  their collar 26. A pre-Fox referee draws `referee_collar_<ID>.model` and needs
+  `collar_<ID>.model` to exist (in game, 2026-10-08), but a `.mtl` beside that model stops it
+  drawing (in game, 2026-10-09, with the prop's material set and with the kit's), so a collar
+  cannot carry the marker there. The 77 reservation holds on both engines all the same, one
+  rule: on pre-Fox it costs a team one stock collar ID for nothing, cheaper than an engine case
+  in two findings;
 - the model's texture path names the marker texture in the referees' Common output, which is
   `ref_marker.dds` converted like any Common texture (the bundled Fox model's base texture,
   `common/000/sourceimages/cup_logo.dds`, is pointed at `common/999/sourceimages/ref_marker.dds`;
@@ -109,17 +115,17 @@ together, so the referees never wear a collar that names a texture the CPK lacks
 The marker model is the one the legacy tools ship as a referee prop: a square about 1.5 m
 wide lying on the ground, slightly tilted, under the referee. On Fox it is the 4cc's
 `referee_prop.fmdl` (one mesh, 4 vertices, material `judge_watch`, base texture
-`cup_logo.dds`), on pre-Fox the `referee_prop.model` and `.mtl` of Red's referee template
-(material `judge_incom`), the pair the pre-Fox template tree already carries under
-`parts/referee/`: the model goes out as `referee_collar_077.model` as it is, its `.mtl` as
-`referee_collar_077.mtl` holding the one material the model binds, `judge_incom`, with its
-diffuse map pointed at the marker texture (the template's four other materials are the
-referee's watch, pen, whistle and flag, naming textures the refs CPK does not carry), and the
-empty `collar_077.model` is the bundled `collar_empty.model`, FPC's own stand-in for collar 105
-(`resources/templates/README.md`). Drawn as a collar it stays on the ground instead of following the
-neck because of **static painting**, the cup community's trick: its vertices are weighted to
-a dummy vertex group, usually named `static`, that is no bone of the body skeleton, so no
-animation moves them. The referee step checks that the bundled models are painted that way.
+`cup_logo.dds`), on pre-Fox the `referee_prop.model` of Red's referee template (material
+`judge_incom`, its `.mtl` naming `./incom_bsm.dds`), which the pre-Fox template tree carries
+under `parts/referee/` and the game draws by itself: the marker texture goes out as that
+`incom_bsm.dds`, converted like a Common texture, and nothing else changes. Drawn as a Fox
+collar it stays on the ground instead of following the neck by **static painting**, the cup
+community's trick: its vertices are weighted to a dummy vertex group, usually named `static`,
+that is no bone of the body skeleton; the referee step checks that the bundled FMDL is painted
+that way (the pre-Fox prop is unskinned, no bone and no weight, and is the game's own prop,
+so it is not checked). Where the pre-Fox marker shows in game is the maintainer's to confirm
+(`QUESTIONS.md`): the lead's PES 17 runs of 2026-10-09 saw neither the template's own clover
+nor a test texture in the walkout, the lineup or the match's wide camera.
 
 ### Features that disappear in a compiled GUI app
 

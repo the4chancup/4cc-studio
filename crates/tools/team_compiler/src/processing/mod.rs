@@ -1538,6 +1538,36 @@ mod tests {
     }
 
     #[test]
+    fn the_pre_fox_marker_task_writes_the_texture_then_the_referee_collar_pair_and_empty_collar() {
+        let dds = std::fs::read(tracer().join(format!("{PLAYER}/shirt.dds"))).unwrap();
+        let (kind, files) = marker_task(dds);
+        let batch = process(kind, PesVersion::Pes17, None, files);
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let nocloth = "common/character0/model/character/uniform/nocloth";
+        assert_eq!(
+            paths(&batch),
+            [
+                "common/character1/model/character/uniform/common/999/ref_marker.dds",
+                &format!("{nocloth}/referee_collar_077.model"),
+                &format!("{nocloth}/referee_collar_077.mtl"),
+                &format!("{nocloth}/collar_077.model"),
+            ]
+        );
+        let templates = Templates::embedded();
+        assert!(
+            batch.entries[1].1
+                == templates
+                    .referee_tree_file(Engine::PreFox, crate::templates::REFEREE_PROP_MODEL),
+            "the prop model as it is"
+        );
+        assert!(
+            batch.entries[3].1 == templates.collar_empty(),
+            "the empty collar"
+        );
+    }
+
+    #[test]
     fn a_kit_commits_its_texture_and_its_config_as_entry_and_bin_entry() {
         let batch = run(TaskKind::Kit {
             slot: KitSlot::G1,

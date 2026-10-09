@@ -1471,10 +1471,11 @@ TC-REF-03  GIVEN a refs export with Faces/Base/ linked by Ref A and Ref B
                 own
 TC-REF-04  GIVEN a refs export with ref_marker.dds
            WHEN it is compiled for PES 17
-           THEN the referee CPK holds the marker model as referee_collar_077.model with its
-                .mtl beside an empty collar_077.model, the
-                marker texture in the referees' Common output, and loose referee kit configs
-                under common/character0/model/character/uniform/team/referee/ whose collar is 77
+           THEN the referee CPK holds the marker texture, converted, as the template tree's
+                common/character1/model/character/parts/referee/incom_bsm.dds in place of the
+                tree's file, no referee_collar_077 pair and no collar_077.model, and loose
+                referee kit configs under common/character0/model/character/uniform/team/referee/
+                equal to the template's
 TC-REF-05  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, compiled with
            --mode test
            WHEN it runs
@@ -1499,8 +1500,9 @@ TC-REF-09  GIVEN TC-REF-01's refs export
            WHEN the root is compiled for PES 17
            THEN the referee CPK holds common/character0/model/character/face/real/referee001.cpk,
                 referee020.cpk and referee035.cpk, each face.xml holding Ref A's boots model as a
-                boots entry, no common/character0/model/character/boots/ path, and one skin.dds
-                under common/character1/model/character/uniform/common/999/Ref A/
+                parts entry, no boots folder k99NN (the template tree's k0062 alone under
+                common/character0/model/character/boots/), and one skin.dds under
+                common/character1/model/character/uniform/common/999/Ref A/
 TC-REF-10  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, Ref A holding
            only a link to the shared folder Boots/Studs, which holds boots.fmdl
            WHEN the root is compiled for PES 21
@@ -1511,6 +1513,12 @@ TC-REF-11  GIVEN a refs export holding Kits/p1 with kit.dds beside a mapped refe
            WHEN the root is compiled for PES 21
            THEN file_not_used is reported naming Kits/p1 as a Warning, the referee CPK holds no
                 kit, and the referee face compiles
+TC-REF-13  GIVEN TC-REF-10's refs export (Ref A in slots 01 and 20, holding only a link to the
+           shared folder Boots/Studs, which holds boots.fmdl)
+           WHEN the root is compiled for PES 17
+           THEN the referee CPK holds boots folders k9901 and k9920, each with the shared boots
+                model converted, and no referee001.cpk or referee020.cpk: a link alone gives a
+                referee no face folder, as it gives a player none
 ```
 
 **Output modes, deployment, multi-CPK**

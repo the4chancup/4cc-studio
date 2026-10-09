@@ -78,6 +78,16 @@ Phase 4's kits work. To investigate then: what differs (format, bones moved, res
 whether one engine's diff converts into the other's, and how a folder says which engine its
 diff is for (the kit layout's `pre-fox`/`fox` markers are the model). Say when.
 
+### Where the pre-Fox referee marker shows
+From: step 4.19d's in-game check (DECISIONS 2026-10-09 "The pre-Fox marker goes by Red's
+route"). The plan says the marker is a square about 1.5 m wide on the ground under the
+referee. On PES 17 the lead's frames of the walkout, the lineup and the match's wide camera
+(`.tmp/4_19/ingame/frames/`) showed neither the cup's own clover (the template's
+`parts/referee/incom_bsm.dds`, installed in `4cc_35_referees.cpk`) nor a test texture. In
+which scene does the pre-Fox marker show, and does it with the cup's current refs CPK? Run D
+of `.tmp/4_19/ingame/test_ref04_runs.py` installs a magenta and yellow checker as that
+texture through the test CPK slot (`install D`, then `revert`; PES closed for both).
+
 ## Cup practice and preferences
 
 ### Solid `.7z` exports over the memory budget

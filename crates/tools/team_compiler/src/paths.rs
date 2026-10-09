@@ -208,6 +208,29 @@ pub(crate) fn collar(engine: Engine, id: u8) -> String {
     }
 }
 
+/// The CPK path of stock collar `id`'s referee model, pre-Fox only: a PES 2015 to 2017 referee
+/// wearing collar `id` draws `referee_collar_<ID>.model`, and needs `collar_<ID>.model`
+/// (`collar`) to exist beside it, or he is absent from the pre-match scenes (`blue_port.md`
+/// "Referee export processing"). A Fox referee draws the collar's own model.
+pub(crate) fn referee_collar(id: u8) -> String {
+    format!("common/character0/model/character/uniform/nocloth/referee_collar_{id:03}.model")
+}
+
+/// The CPK path of the `.mtl` beside stock collar `id`'s pre-Fox referee model
+/// (`referee_collar`).
+pub(crate) fn referee_collar_mtl(id: u8) -> String {
+    format!("common/character0/model/character/uniform/nocloth/referee_collar_{id:03}.mtl")
+}
+
+/// The CPK path of the referees' marker model for a target of `engine`: the marker collar's
+/// model on Fox, its referee model on pre-Fox. Only the marker task writes it.
+pub(crate) fn referee_marker_model(engine: Engine) -> String {
+    match engine {
+        Engine::Fox => collar(Engine::Fox, REFEREE_MARKER_COLLAR),
+        Engine::PreFox => referee_collar(REFEREE_MARKER_COLLAR),
+    }
+}
+
 /// The CPK path of one kit texture, by its game name (`u0792g1`, `u0792g1_back`), converted
 /// for a target of `engine`: an FTEX on Fox, a DDS on pre-Fox.
 pub(crate) fn kit_texture(engine: Engine, name: &str) -> String {
@@ -547,6 +570,38 @@ mod tests {
         assert_eq!(
             collar(Engine::PreFox, 12),
             "common/character0/model/character/uniform/nocloth/collar_012.model"
+        );
+    }
+
+    #[test]
+    fn a_pre_fox_referee_collar_is_a_model_and_mtl_beside_the_collar_s_own() {
+        assert_eq!(
+            referee_collar(77),
+            "common/character0/model/character/uniform/nocloth/referee_collar_077.model"
+        );
+        assert_eq!(
+            referee_collar_mtl(77),
+            "common/character0/model/character/uniform/nocloth/referee_collar_077.mtl"
+        );
+        assert_eq!(
+            referee_collar(5),
+            "common/character0/model/character/uniform/nocloth/referee_collar_005.model"
+        );
+        assert_eq!(
+            referee_collar_mtl(105),
+            "common/character0/model/character/uniform/nocloth/referee_collar_105.mtl"
+        );
+    }
+
+    #[test]
+    fn the_marker_model_is_collar_77_on_fox_and_its_referee_collar_on_pre_fox() {
+        assert_eq!(
+            referee_marker_model(Engine::Fox),
+            "Asset/model/character/uniform/nocloth/#Win/collar_077.fmdl"
+        );
+        assert_eq!(
+            referee_marker_model(Engine::PreFox),
+            "common/character0/model/character/uniform/nocloth/referee_collar_077.model"
         );
     }
 

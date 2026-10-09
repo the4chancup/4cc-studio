@@ -364,10 +364,12 @@ The referees go into a CPK of their own, named by the `refs_cpk_name` setting
 (`4cc_18_referees.cpk`), never into the teams' CPKs, with `multicpk_mode` on or off. Beside
 the referees it also holds the referee kits and the referee appearance file the game needs,
 the same in every compile; a file of these can be replaced from the data folder's
-`templates/referees_fox` folder (see `templates` below). A `ref_marker.dds` at the root of
+`templates/referees_fox` folder, or `templates/referees_prefox` on PES 2015 to 2017 (see
+`templates` below). A `ref_marker.dds` at the root of
 the `refs` export, the cup's logo for instance, is shown on the ground under every referee: it
-goes into the referees CPK with a flat square model written as collar 77, and the referee kits
-are set to wear that collar. A team's kit whose collar or winter collar is 77 would wear the
+goes into the referees CPK with a flat square model written as collar 77 (on PES 2015 to 2017
+as `referee_collar_077.model` with its `.mtl`, beside an empty `collar_077.model`), and the
+referee kits are set to wear that collar. A team's kit whose collar or winter collar is 77 would wear the
 marker too, so it is left out with the error `kit_collar_reserved`, naming the field. A
 `ref_marker.dds` that cannot be converted is reported with its texture error and left out, and
 the referee kits keep their own collar. The referees CPK is
@@ -541,10 +543,12 @@ a placeholder kit), `kit_mask.dds` (the mask a kit compiled for PES 2015 to 2017
 has none), `body.skl` (the skeleton a boots or hair model gets when its folder has
 none), `face_diff.bin` and `fcl_hair_sim.fclo` (the face file and the hair simulation file a
 face gets when its folder has none), `DpFileList.bin` (the cup's official list, which a
-compile compares the game's with and `upgrade-dpfl` installs), and `placeholder.cpk` (the empty
-CPK `upgrade-dpfl` writes for a CPK of the list that is not in the `download` folder). Its
-folder `referees_fox` holds files that replace those of the referee kits and appearance a PES
-2018 to 2021 referees CPK holds: a file there at the path it has in the CPK, spelled exactly,
+compile compares the game's with and `upgrade-dpfl` installs), `placeholder.cpk` (the empty
+CPK `upgrade-dpfl` writes for a CPK of the list that is not in the `download` folder), and
+`collar_empty.model` (the empty collar 77 written beside the referees' marker on PES 2015 to
+2017). Its folder `referees_fox` holds files that replace those of the referee kits and
+appearance a PES 2018 to 2021 referees CPK holds, and its folder `referees_prefox` those a PES
+2015 to 2017 referees CPK holds: a file there at the path it has in the CPK, spelled exactly,
 replaces that one file (for example
 `templates/referees_fox/common/character0/model/character/appearance/RefereeAppearance.bin`).
 Any other file in the folder is ignored. `compile` and `upgrade-dpfl` name each file they used with the
