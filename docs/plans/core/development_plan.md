@@ -711,4 +711,15 @@ embedded rulesets, VGL26 rebuilt from Blank through the forms (manual), logic up
 no invalid ruleset ever written, every random ruleset's witnesses legal over 1,000 seeds per
 preset.
 
+### Unscheduled tools
+
+Tools the suite will take in, with no phase or plan yet:
+
+- **Aesthetics ATF bot** (the maintainer's `Tools_4cc/4cc-aes-atf-bot`, Python): drives a
+  running PES's Edit mode with a virtual Xbox 360 pad and records every player of each team of
+  a teams list through OBS's WebSocket (a still, a dribbling clip, a corner-kick clip), so a
+  cup's aesthetics are checked without playing through the rosters by hand. Its pad and OBS
+  capture already drive the in-game check harness (`scripts/ingame/game.py` `pad` and
+  `obs-shot`).
+
 ---

@@ -10,13 +10,26 @@ Each command is one process call, so whoever drives a check reads a screenshot b
   python scripts/ingame/game.py keys GAME KEY [KEY ...]  press keys in order (pydirectinput names;
                                                          "wait:N" sleeps N seconds; "hold:KEY:N"
                                                          holds KEY N seconds)
+  python scripts/ingame/game.py pad-serve                plug in a virtual Xbox 360 pad and keep
+                                                         it plugged in (run it in the background)
+  python scripts/ingame/game.py pad GAME INPUT [INPUT ...]   press pad inputs in order through
+                                                         `pad-serve`'s pad (`PAD_BUTTONS`,
+                                                         `PAD_STICKS` names; "wait:N";
+                                                         "hold:INPUT:N")
+  python scripts/ingame/game.py pad-stop                 unplug the pad and end `pad-serve`
+  python scripts/ingame/game.py obs-shot OUT.png [WIDTH]  OBS's frame of its program scene
+                                                         (WIDTH scales it, height in proportion)
   python scripts/ingame/game.py status GAME              is the game running, where is its window
   python scripts/ingame/game.py close GAME               terminate the game process (and Sider's)
 
 GAME is a key of `GAMES` below (17 or 21), the one place the install paths are set.
-Keys are DirectInput scan codes (pydirectinput), the only kind the games read. The window is
-brought to the front before keys or a shot. Nothing here touches a save or a game file.
-Needs Windows, `mss` and `Pillow` (for `shot`) and `pydirectinput` (for `keys`).
+Keys are DirectInput scan codes (pydirectinput), which the game reads only from the foreground,
+so the window is brought to the front before keys or a shot. `pad` and `obs-shot` leave the
+focus where it is: the game reads a virtual pad (`vgamepad`, over the ViGEmBus driver) in the
+background, and OBS's Game Capture source draws the game even under other windows, so a check
+driven by them does not take the user's keyboard after `launch`. Nothing here touches a save or
+a game file. Needs Windows, `mss` and `Pillow` (for `shot`), `pydirectinput` (for `keys`),
+`vgamepad` (for `pad`) and `obs-websocket-py` with OBS's WebSocket server on (for `obs-shot`).
 """
 
 import ctypes
@@ -32,7 +45,32 @@ GAMES = {
     "17": {"dir": "E:/PES2017", "exe": "PES2017.exe", "sider": "Sider/sider.exe", "proc": "pes2017.exe"},
     "21": {"dir": "E:/PES2021", "exe": "PES2021.exe", "sider": "sider/sider.exe", "proc": "pes2021.exe"},
 }
-COMMANDS = ("launch", "shot", "keys", "status", "close")
+COMMANDS = ("launch", "shot", "keys", "pad", "status", "close")
+# OBS's WebSocket server (Tools > WebSocket Server Settings), authentication off.
+OBS = {"host": "localhost", "port": 4455, "password": ""}
+# Pad inputs by name: buttons, and stick directions as (stick, x, y) pushed fully. The menus
+# move with the d-pad in lists and the left stick in the top menus' tabs; the right stick turns
+# a player in Edit mode. Up is y -1.0, as the maintainer's ATF bot
+# (`Tools_4cc/4cc-aes-atf-bot`, `helpers.press_left_analog`) drives these menus.
+PAD_BUTTONS = {
+    "a": "A", "b": "B", "x": "X", "y": "Y", "start": "START", "back": "BACK",
+    "lb": "LEFT_SHOULDER", "rb": "RIGHT_SHOULDER",
+    "up": "DPAD_UP", "down": "DPAD_DOWN", "left": "DPAD_LEFT", "right": "DPAD_RIGHT",
+}
+PAD_STICKS = {
+    "ls-up": ("left", 0.0, -1.0), "ls-down": ("left", 0.0, 1.0),
+    "ls-left": ("left", -1.0, 0.0), "ls-right": ("left", 1.0, 0.0),
+    "rs-up": ("right", 0.0, -1.0), "rs-down": ("right", 0.0, 1.0),
+    "rs-left": ("right", -1.0, 0.0), "rs-right": ("right", 1.0, 0.0),
+}
+# How long a tap holds an input, and the pause after it: the games miss shorter taps.
+PAD_TAP_SECONDS = 0.2
+PAD_GAP_SECONDS = 0.3
+# A pad the driver has just plugged in is not read at once; the first inputs are lost without
+# this wait.
+PAD_CONNECT_SECONDS = 2.0
+# The local port `pad-serve` listens on for `pad`'s input lists.
+PAD_PORT = 47017
 user32 = ctypes.windll.user32
 
 
@@ -162,6 +200,112 @@ def cmd_keys(game: dict[str, str], keys: list[str]) -> None:
     print(f"sent: {' '.join(keys)}")
 
 
+def pad_set(pad, name: str, pressed: bool) -> None:
+    """Pushes (or releases) the pad input `name`, one of `PAD_BUTTONS` or `PAD_STICKS`."""
+    import vgamepad as vg
+    if name in PAD_BUTTONS:
+        button = getattr(vg.XUSB_BUTTON, f"XUSB_GAMEPAD_{PAD_BUTTONS[name]}")
+        if pressed:
+            pad.press_button(button=button)
+        else:
+            pad.release_button(button=button)
+    elif name in PAD_STICKS:
+        stick, x, y = PAD_STICKS[name]
+        if not pressed:
+            x, y = 0.0, 0.0
+        if stick == "left":
+            pad.left_joystick_float(x_value_float=x, y_value_float=y)
+        else:
+            pad.right_joystick_float(x_value_float=x, y_value_float=y)
+    else:
+        raise SystemExit(f"unknown pad input {name!r}")
+    pad.update()
+
+
+def check_pad_inputs(inputs: list[str]) -> None:
+    for item in inputs:
+        name = item.split(":")[1] if item.startswith("hold:") else item
+        if not item.startswith("wait:") and name not in PAD_BUTTONS and name not in PAD_STICKS:
+            raise SystemExit(f"unknown pad input {name!r}")
+
+
+def cmd_pad_serve() -> None:
+    """Plugs in one virtual pad and keeps it plugged in until `pad-stop`, playing each input
+    list `pad` sends. One pad for the whole session, not one per `pad` call: a pad plugged in
+    and out at every call is never taken by the game as its controller."""
+    import socket
+    import vgamepad as vg
+    pad = vg.VX360Gamepad()
+    time.sleep(PAD_CONNECT_SECONDS)
+    with socket.create_server(("127.0.0.1", PAD_PORT)) as server:
+        print(f"pad plugged in; serving on port {PAD_PORT}", flush=True)
+        while True:
+            connection, _ = server.accept()
+            with connection:
+                line = connection.makefile("r", encoding="utf-8").readline().split()
+                if line == ["stop"]:
+                    connection.sendall(b"stopped\n")
+                    return
+                play_pad_inputs(pad, line)
+                connection.sendall(b"sent\n")
+
+
+def send_to_pad_server(words: list[str]) -> str:
+    import socket
+    try:
+        with socket.create_connection(("127.0.0.1", PAD_PORT), timeout=5) as connection:
+            # Inputs may wait for a while; the reply comes when they are all played.
+            connection.settimeout(None)
+            connection.sendall((" ".join(words) + "\n").encode("utf-8"))
+            return connection.makefile("r", encoding="utf-8").readline().strip()
+    except ConnectionRefusedError:
+        raise SystemExit("no pad server: start `game.py pad-serve` first (in the background)")
+
+
+def cmd_pad(game: dict[str, str], inputs: list[str]) -> None:
+    check_pad_inputs(inputs)
+    window_or_die(game)
+    send_to_pad_server(inputs)
+    print(f"sent: {' '.join(inputs)}")
+
+
+def play_pad_inputs(pad, inputs: list[str]) -> None:
+    for item in inputs:
+        if item.startswith("wait:"):
+            time.sleep(float(item[5:]))
+            continue
+        if item.startswith("hold:"):
+            _, name, seconds = item.split(":")
+            hold = float(seconds)
+        else:
+            name, hold = item, PAD_TAP_SECONDS
+        pad_set(pad, name, True)
+        time.sleep(hold)
+        pad_set(pad, name, False)
+        time.sleep(PAD_GAP_SECONDS)
+
+
+def cmd_obs_shot(out: str, width: int | None) -> None:
+    import base64
+    from obswebsocket import obsws, requests
+    ws = obsws(OBS["host"], OBS["port"], OBS["password"])
+    ws.connect()
+    try:
+        scene = ws.call(requests.GetCurrentProgramScene()).datain["currentProgramSceneName"]
+        fields = {"sourceName": scene, "imageFormat": "png"}
+        if width:
+            fields["imageWidth"] = width
+        data = ws.call(requests.GetSourceScreenshot(**fields)).datain["imageData"]
+    finally:
+        ws.disconnect()
+    png = base64.b64decode(data.split(",", 1)[1])
+    temporary = out + ".tmp.png"
+    with open(temporary, "wb") as handle:
+        handle.write(png)
+    os.replace(temporary, out)
+    print(f"{out}: {len(png)} bytes, scene {scene!r}")
+
+
 def cmd_status(game: dict[str, str]) -> None:
     pids = pids_of(game["proc"])
     print(f"{game['proc']}: pids {pids}; sider.exe: {pids_of('sider.exe')}")
@@ -181,11 +325,21 @@ def cmd_close(game: dict[str, str]) -> None:
 
 
 def main(args: list[str]) -> int:
+    # These name no game: OBS captures whatever its scene shows, and the pad is the system's.
+    if len(args) in (2, 3) and args[0] == "obs-shot":
+        cmd_obs_shot(args[1], int(args[2]) if len(args) > 2 else None)
+        return 0
+    if args == ["pad-serve"]:
+        cmd_pad_serve()
+        return 0
+    if args == ["pad-stop"]:
+        print(send_to_pad_server(["stop"]))
+        return 0
     if len(args) < 2 or args[0] not in COMMANDS or args[1] not in GAMES:
         print(__doc__, file=sys.stderr)
         return 2
     command, game = args[0], GAMES[args[1]]
-    if command in ("shot", "keys") and len(args) < 3:
+    if command in ("shot", "keys", "pad") and len(args) < 3:
         print(__doc__, file=sys.stderr)
         return 2
     if command == "launch":
@@ -194,6 +348,8 @@ def main(args: list[str]) -> int:
         cmd_shot(game, args[2], float(args[3]) if len(args) > 3 else 1.0)
     elif command == "keys":
         cmd_keys(game, args[2:])
+    elif command == "pad":
+        cmd_pad(game, args[2:])
     elif command == "status":
         cmd_status(game)
     else:

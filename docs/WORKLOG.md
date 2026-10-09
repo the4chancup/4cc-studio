@@ -27,9 +27,9 @@ TC-XML-15),
 4.y-fix11 opened 2026-10-09 (S7's, S8's, S12's and S13's SWE-2 rework),
 4.y-fix15 opened 2026-10-10 (S14's SWE-2 rework),
 4.y-fix10 opened 2026-10-09 (a pre-Fox per-kit model set completed, the maintainer's
-answer), 4.y-fix12, 4.y-harness and 4.y-ingame opened 2026-10-09 (PES 17's `uniform.mtl`
-in the templates; the in-game harness into `scripts/`; the converted collar and
-`dummy_kit` checked in game by the lead), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
+answer), 4.y-harness and 4.y-ingame done 2026-10-10 (the converted collar and `dummy_kit`
+checked in game, the harness driven by a virtual pad and OBS), 4.y-fix12 opened 2026-10-09
+(PES 17's `uniform.mtl` in the templates, its lead part done), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
 `.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
@@ -3409,7 +3409,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `.common` link to a per-kit variant). Crates: tc
   → verify: a test per item, red first; S14 gets a second SWE-2 round on the rework diff.
 
-- [~] 4.y-harness **The in-game harness moves into `scripts/ingame/`** (maintainer,
+- [x] 4.y-harness **The in-game harness moves into `scripts/ingame/`** (maintainer,
   2026-10-09). Lead: `game.py` (launch, screenshot, keys, close) and `burst.py` (frame
   bursts) from `.tmp/4_0/ingame/`, and one `install.py` generalizing the per-check
   install and revert scripts (`.tmp/4_19/ingame/test_ref04.py`: a CPK into the test slot,
@@ -3426,8 +3426,14 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   transcript). The old `apptest merge -` had no base CPK, so installing a whole compiled CPK
   loses nothing. Exercised against a scratch slot only (refusals, a round trip); the verify
   run on PES 17 waits for 4.y-ingame. A check that needs a hand-built CPK builds it first.
+  Done 2026-10-10: verified by 4.y-ingame's three runs on PES 17 (install, launch, capture,
+  close, revert by hash), standing in for TC-REF-04's re-run. Added then: `pad-serve`,
+  `pad`, `pad-stop` (one virtual Xbox 360 pad kept plugged in, `vgamepad`) and `obs-shot`
+  (OBS's frame of its program scene), after the maintainer's ATF bot: neither takes the
+  keyboard focus, and PES 17 reads the pad in the background once its settings use
+  XInput. `keys` and `shot` stay as fallbacks.
 
-- [ ] 4.y-ingame **Two in-game checks on PES 17, by the lead** (the maintainer's answers,
+- [x] 4.y-ingame **Two in-game checks on PES 17, by the lead** (the maintainer's answers,
   2026-10-09; through `scripts/ingame/`, after 4.y-harness). (a) A converted collar: an
   FMDL collar compiled for PES 17 (its first material `uni_collar`, the rest `uni_shirts`,
   TC-CMN-09) drawn with the kit texture as the stock collars are, in Edit mode. (b)
@@ -3436,6 +3442,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the modded exe. Each result is a `manual: checked` line here and, when it contradicts the
   plan, a decision entry and a step. → verify: both checked, with frames kept under
   `.tmp/4_y/ingame/`.
+  Done 2026-10-10 through the harness, driven by a virtual pad and OBS (frames in
+  `.tmp/4_y/ingame/frames/`; the CPKs compiled by the release CLI at `e2eff85` as
+  `4cc_90_test`, PES 17 install read; slot restored by hash after each run).
+  manual: checked 2026-10-10 (a): PES 21's stock `collar_107.fmdl` as `Collars/collar_039.fmdl`
+  of an `/a/` Midcup export, converted for PES 17 (`uni_collar` then `uni_shirts`, two
+  meshes), drawn on the keeper WIDEFACE in Edit mode as the laced polo it is, in the GK
+  kit's black (`q03_neck.png`); the baseline, PES 17's own `collar_039.model` packed as
+  it is, draws a plain stand collar (`r02_neck.png`).
+  manual: checked 2026-10-10 (b): the tracer's `fcl_hair.fmdl` converted for slot 01 and
+  02, its body material naming `common/702/dummy_kit.dds`, draws kit 2's texture on
+  both (the keeper wears the GK kit, slot 02 kit 1), and a green checker shipped at that
+  path is not read (`p20_appearance.png`, `q04_slot02.png`): the plan's "active kit"
+  corrected, DECISIONS 2026-10-10; no compiler change.
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -5621,3 +5640,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-10** — S14's SWE-2 loop ran (7 items, 5 accepted: a second round after the
   rework, step 4.y-fix15). S15's first run ended at SWE-2's output-token limit before
   its report; rerun.
+- **2026-10-10** — 4.y-ingame done by the lead on PES 17, the harness now driven by a
+  virtual pad and OBS (no keyboard focus taken): the converted collar draws as the
+  stock ones do; `dummy_kit` draws kit 2's texture in Edit mode and a file at its path
+  is not read (plan corrected, decision). The maintainer's ATF bot joins the plan as an
+  unscheduled tool.

@@ -207,7 +207,8 @@ Rules:
   name's suffix is `uniform` gets the type; the suffix table in the Aesthetics export plan's "Model
   names"); it has no Fox counterpart and is not part of the cross-engine format.
 - `dummy_kit` (and `dummy_kit_back/_chest/_leg/_name/_nrm/_srm`), a reserved texture name the modded
-  exes replace at load time with the active kit texture of that role. It is legacy — a second
+  exes replace at load time with a kit texture of that role of the team (on PES 17 in Edit mode
+  kit 2's, whatever kit the player wears; a file at the path is not read). It is legacy — a second
   vocabulary for what `kitN` expresses with the export's own files — and gets **second-class
   support**: the compiler treats these stems as **game-provided** (like the Fox `dummy_nrm`/`dummy_srm`
   fallbacks), so a material may name them, the texture-existence check is skipped for them, and the

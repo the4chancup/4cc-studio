@@ -6094,3 +6094,27 @@ packed as the diff of a linking referee's pre-Fox face, unchecked (the deep pass
 only player and `Faces/` diffs). A boots or gloves link brings boots or gloves, not a
 face.
 Plan: `team_compiler/messages.md` `face_file_not_used`.
+
+## 2026-10-10 — core — the Aesthetics ATF bot is a future Studio tool, unscheduled
+Decision: the maintainer's ATF bot (`Tools_4cc/4cc-aes-atf-bot`: a virtual pad drives Edit mode,
+OBS records each player) joins the suite as a tool, its phase and plan to be chosen later; the
+in-game check harness borrows its pad and OBS capture now.
+Why: the maintainer wants it integrated eventually (2026-10-10). Keyboard input reaches PES only
+from the foreground, so the harness took the user's focus; the bot's virtual pad is read in the
+background (the maintainer's experience) and OBS's Game Capture draws the game under other
+windows.
+Plan: `core/development_plan.md` "Unscheduled tools".
+
+## 2026-10-10 — model_format — what the modded PES 17 exe draws for `dummy_kit`
+Decision: the plan describes the substitution as measured: the modded exe replaces a
+`dummy_kit` path with a kit texture of the team (in Edit mode kit 2's, whatever kit the
+player wears), and a file at that path is not read. The compiler is unchanged: it
+writes the path verbatim, which is what the exe needs.
+Why: the lead's in-game check (step 4.y-ingame, 2026-10-10, PES 17, `/a/`): a converted
+face whose body material names `model/character/uniform/common/702/dummy_kit.dds` drew
+flat pink on the keeper (black GK kit) and on slot 02 (kit 1, navy and magenta); the
+body's UVs sit in one patch (u 0.39-0.41, v 0.59-0.62), where kit 2's texture is
+255,166,198 and the frames measure 247-254,163-166,190-196. A green checker shipped as
+`common/702/dummy_kit.dds` in the same CPK never showed. Missing textures draw white.
+Which kit a match substitutes was not checked (Edit mode shows kit 1 alone otherwise).
+Plan: `model_format.md`, the `dummy_kit` bullet.
