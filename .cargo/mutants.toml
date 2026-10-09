@@ -142,4 +142,10 @@ exclude_re = [
     # the chain after chunk 0, leave the chunks equal, and stay in: the
     # pairwise-distinct test kills them.
     "replace > with >= in fresh_salt",
+    # team_compiler 4.y-conv equivalences (the whole-crate run of 2026-10-09):
+    # `centre_square`'s and `letterboxed`'s `width > height` -> `>=` are equivalent. Both
+    # are called by `squared` alone, after its `width == height` early return, so the two
+    # comparisons differ on no input they ever see (first ruled at 4.11a, left in by
+    # oversight until this run).
+    "replace > with >= in (centre_square|letterboxed)",
 ]

@@ -3041,7 +3041,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   15-17 the bin is ignored with no finding, on PES 18-21 the xml is `xml_ignored_fox` as today),
   TC-XML-11, TC-XML-04 and TC-MOD-42 unchanged; plus one test each for the whole-crate runs'
   survivors, `kits.rs` `direct_metadata` (`&&`) and `pipeline` `memory.rs` `available_memory`
-  (a bounds test on this machine). Three crates: GPT review (b) with the next `duck` batch.
+  (a bounds test on this machine); (e) three unit tests for `output/deploy.rs`'s surviving
+  error-kind guards (`sweep_run`'s lock open, `probe_download`'s access-denied and in-use
+  arms; two Windows-only). Three crates: GPT review (b) with the next `duck` batch.
   Crates: ae, tc, pipeline → verify: `check` on `C:/Data/4cc/Lab/Gud/EGG Aesthetics Export
   VGL26` prints one line, `Error export_layout_old [DropExport] (folder=Kit Configs)`, exit 1;
   `check` for PES 17 on `C:/Data/4cc/Refs/26_1-winter_refs/exports_to_add/refs for Winter 26
@@ -5089,6 +5091,16 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   counts for his boots, `merged_texture_conflict`). Whole-crate mutation runs of
   `aesthetics_export` (548 mutants, 2 survivors) and `pipeline` (72, 6 survivors, all one
   platform read) done and triaged into 4.y-fix2; `team_compiler`'s run next, over this tree.
+  `team_compiler`'s run done 13:34 (2,222 mutants over `23f68ae`, split: 1,111 a half, 2 h 25
+  local and 2 h 39 remote, the remote peak 9.00 GiB of 9G with no build killed; 1,866 caught,
+  347 unviable, 3 timeouts, 6 survivors; `.tmp/4_y/mutants_team_compiler/`): the timeouts
+  are an atlas eight times too long (`kit_layout.rs:331` `/`→`*`), an empty range that
+  never advances (`writer.rs:213` `+`→`*`) and an inverted poll (`gui_run.rs:52`), all
+  explained; the survivors: `team_assets.rs` `centre_square`/`letterboxed` `>`→`>=`
+  equivalent (4.11a's ruling, now in `.cargo/mutants.toml`), `deploy.rs` three error-kind
+  guards (`sweep_run` 180, `probe_download` 406 and 409) missing tests → 4.y-fix2 (e), and
+  `lib.rs:75` `settings_view`, a placeholder label no test reads until Phase 8 builds the
+  settings view (left as a missing test for that step).
 - **2026-10-09** — 4.31's verify criterion run at converge: Red rebuilt from the fixture's
   `old/`, every entry byte-identical to `red/` (the nested CPK's timestamp aside). 4.y-fix3's
   recon done and ruled: a cube-map DDS goes out as Red ships it on each engine (decision
