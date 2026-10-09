@@ -278,7 +278,9 @@ Requirements:
   on 2026-10-06 (`DECISIONS.md`): 19 of 21 one-edit defects injected into real windows caught,
   1 of 21 unmodified windows and 2 of 64 reviewed hunks flagged; with the scan's own windows,
   five reviewed commits gave 10 flagged windows of 203, all on the code a later fix changed
-  (the report merges overlapping flagged windows, here into three flags). It does not see a
+  (the report merges overlapping flagged windows, here into three flags); re-checked at Phase 4's
+  converge (`DECISIONS.md` 2026-10-09): of 66 ruled flags two were real, at 0.71 and 0.77, and the
+  ten highest windows under 0.7 all false, so 0.7 stays. It does not see a
   defect whose evidence is in another file or in the plan, and test code (a `tests/` folder,
   `tests.rs`, a module declared under `#[cfg(test)]` in a file of its own, the inline
   `#[cfg(test)] mod … {}`) is not scanned. The windows are positional,

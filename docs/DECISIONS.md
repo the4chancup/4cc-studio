@@ -5788,3 +5788,49 @@ two of them in one folder really are two sources.
 Plan: `team_compiler/messages.md` (the row and the user `face.xml` paragraph);
 `team_compiler/README.md` TC-XML-11 (TC-XML-04 and TC-MOD-42 keep the `face_diff.xml` cases).
 Step 4.y-fix2.
+
+## 2026-10-09 — review process — the Clef threshold stays at 0.7 (4.c-threshold)
+Decision (lead, measured): `THRESHOLD` in `scripts/clef_scan.py` stays 0.7, re-checked on the
+scan's own rulings and on the defects found since by other means, as the 2026-10-06 entry's
+injected-defect table could not be. Next re-check at Phase 5's converge, or once
+`scripts/clef_rulings.md` holds 200 rulings.
+Lead's reading: the data is the 66 ruled flags of the full pass (`53abc6f`, 2026-10-07, 1,498
+windows) and the converge audit's three crate scans (`6807bd6`, 2026-10-09, 648 windows), their
+scores re-read from `clef.out/cache.json` by re-tiling each scanned commit's production code with
+the scan's own functions (`.tmp/4_y/clef_threshold.py`, record `.tmp/4_y/clef_threshold.md`).
+
+| threshold | ruled flags at or above it | real (accepted) | false (rejected) |
+|---|---|---|---|
+| 0.7 | 66 | 2 | 64 |
+| 0.75 | 46 | 1 | 45 |
+| 0.8 | 33 | 0 | 33 |
+| 0.85 | 21 | 0 | 21 |
+| 0.9 | 8 | 0 | 8 |
+
+The two real flags are `pes_savefile/src/convert.rs:255` at P 0.71 (the ungated base-copy flag,
+4.c-fix1) and `team_compiler/src/processing/texture.rs:357` at P 0.77 (the decode charge released
+before the pass-through decision, 4.y-fix1 (b)): raising the threshold to 0.75 loses one of them
+and to 0.8 both, for 20 and 33 fewer false flags. Below 0.7, the full pass holds 38 more windows
+down to 0.6 and 85 down to 0.5 (103 and 150 against 65); the audit's scans 9 and 18 more (16 and
+25 against 7). The ten highest audit windows under 0.7 (0.59 to 0.68: `aesthetics_export`
+`parse/roster.rs:81-138`, `validate/folders.rs:321-380` and `241-300`,
+`conventions/kit_token.rs:41-74`; `team_compiler` `templates.rs:281-340`,
+`processing/team_assets.rs:41-100`, `cli.rs:401-460`, `processing/kit_layout.rs:121-180`,
+`processing/conversion.rs:121-180`, `mtl_search.rs:41-100`), read as flags are ruled, are all
+false: a roster lookup whose arms the plan states, two static path tables the compiler counts, a
+zip of two three-entry tables, a documented join, a stem-conflict grouping, a documented search
+order, the kit-token arithmetic ruled twice already. They have no flagged line to key a ruling
+row by, so this entry is their record. Defects found since the full pass by other means in code
+a scan had seen: one slip, `team_compiler/src/plan/mod.rs:460` at `6807bd6` (`own_package`
+counting a Fox `ingame_face` player's textures for a face he has no package of; the audit and a
+red test, 4.y-fix1 (h)), whose two windows scored 0.07 and 0.07, below any threshold, its
+evidence (what `ingame_face` means on Fox) lying in the plan and the planner rather than the
+window. The census's three findings (the `xml_dif_conflict` premise, window P 0.10; the cube-map
+route, P 0.09; 4.14d's material check, which did not exist as code when the pass ran) were
+missing rules, outside the scan's question, as `CONTRIBUTING.md` already says of a defect whose
+evidence is elsewhere.
+Why: the threshold is set by the real flags' scores, and both sit between 0.7 and 0.8, while
+the band below 0.7 showed no real flag in the ten windows read, at a cost of some forty more
+rulings per full pass. A lower threshold buys nothing measured; a higher one loses what the
+scan has actually found.
+Plan: `CONTRIBUTING.md` "Clef scan" (one sentence).
