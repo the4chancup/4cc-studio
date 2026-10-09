@@ -319,6 +319,7 @@ pass-through-eligible, and the logo goes as one unit.
 | `kit_texture_too_big` | E | a kit's main texture (`kit`, its own or the one inherited from `all/`) wider or taller than 2048 pixels, or with a side that is not a power of two; any target | discarded |
 | `texture_type_mismatch` | E | header doesn't match extension (renamed, not resaved) | discarded |
 | `texture_codec_unsupported` | E | codec not convertible in-process | discarded |
+| `portrait_header_rewritten` | I | a DDS portrait under a DX10 extension header went out under the legacy header of its format, an sRGB DXGI id as its UNORM twin, its pixel data unchanged (`player_folders.md` "Portraits": such a file crashed PES 19; context: `file`; `dxgi`, the id the source carried) | none |
 | `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: a model folder with its reserved subfolders (`hair.dds` beside `common/hair.dds`, or `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name), `Common/` (`hair.dds` beside `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`) |
 
 **XML/MTL content checks** (pre-Fox, plus `face_diff.xml` in Fox)

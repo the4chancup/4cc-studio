@@ -5869,3 +5869,24 @@ said the signed formats came back as `ConvertError::Unsupported`, which the code
 not a list of kinds, and the file-level consequence the member can act on.
 Plan: `libs/dds_convert.md` (the `decode` rejections paragraph); `team_compiler/README.md`
 TC-TEX-14.
+
+## 2026-10-09 — team_compiler — a DX10-header DDS portrait goes out re-headered, not byte for byte
+Decision: `portrait` passes a DDS source through unchanged only under the legacy 128-byte header.
+Under a DX10 extension header the file goes out with the header `ftex::dds::header_bytes` writes
+for its format (legacy FourCC for BC1, BC2 and BC3, an sRGB DXGI id as its UNORM twin; the masks
+header for BGRA8; a DX10 header with the UNORM id for BC7 and the other formats the legacy header
+cannot express), its pixel data untouched, reported `portrait_header_rewritten` (Info, kept); an
+uncompressed DX10 layout with no `PixelFormat` (RGBA8) is encoded like a raster source.
+Why: a member's 128x128 single-level BC3 portrait under a DX10 header with the sRGB id (DXGI 78)
+crashed PES 19 when its slot was hovered on the VGL stream (2026-10-09); resaved under a `DXT5`
+header by paint.net, the same blocks worked. Red copied the file as it was, and so did Studio
+(reproduced with the release exe on PES 17 and 21). The portrait is the one raw member DDS the
+game reads: pre-Fox textures go through the converter, which already rebuilds a DX10 header as
+a legacy one, and Fox textures become FTEX. Re-headering keeps the blocks (a re-encode is lossy,
+the legacy compilers' way) and holds under either reading of the crash (the DX10 header itself,
+or the sRGB id the game's table lacks): a format with a legacy header gets it, and nothing but a
+lossy re-encode could change a BC7 one. The cup corpus (`.tmp/lead/census_dds_headers.out`, 1218
+portraits) holds 520 single-level legacy portraits and 12 DX10 BC7 ones, so neither the single
+level nor BC7 is known to crash; which property does is a maintainer question (`QUESTIONS.md`).
+Plan: `player_folders.md` "Portraits"; `messages.md` `portrait_header_rewritten`; `team_compiler/
+README.md` TC-PRT-04.

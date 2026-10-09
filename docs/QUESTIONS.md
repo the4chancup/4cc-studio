@@ -119,6 +119,17 @@ today. Does an FTEX cube map of type 0xD render when a Fox material names it (a 
 pointed at a converted `env.ftex`, in Edit mode)? If it does not, the Fox form becomes a
 check-time finding on the file instead of Red's output.
 
+### Which DDS header property crashes the Fox games' portrait reader
+From: step 4.y-fix6 (the VGL stream's PES 19 crash, 2026-10-09). A 128x128 single-level BC3
+portrait under a DX10 header with the sRGB id (DXGI 78) crashed PES 19 on hover; the same
+blocks under a legacy `DXT5` header work. The compiler now re-headers every DX10-header
+portrait whose format has a legacy header and keeps a DX10 header (UNORM id) only for BC7,
+which 12 portraits of the current cup corpus carry (ESG XXX07-11, FGOG XXX13/21/23). To
+settle whether those must be re-encoded too: hover, on PES 21 or 19, the four variants in
+`C:/Data/4cc/Tools_Mine/temp/variants/` (A the crash file; B its DXGI id set to 77, BC3
+UNORM; C the legacy `DXT5` header, what the compiler now ships; D a cup BC7 DX10 portrait),
+or say whether the ESG and FGOG portraits display on stream. An in-game check.
+
 ## Cup practice and preferences
 
 ### Solid `.7z` exports over the memory budget

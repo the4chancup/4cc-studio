@@ -490,8 +490,20 @@ Kits/
 ```
 
 **Portraits** — a player's portrait normally lives in their player folder (stem `portrait`, any
-accepted image format). A DDS source passes through unchanged; any other accepted image format is
-encoded to BC3 (DXT5) at its own size with a full mip chain. The game is not fussy: the 1534
+accepted image format). A DDS source under the legacy 128-byte header passes through unchanged.
+One under a DX10 extension header goes out re-headered, its pixel data untouched: the legacy
+FourCC header for BC1, BC2 and BC3 (an sRGB DXGI id as its UNORM twin) and the masks header for
+BGRA8, a DX10 header with the UNORM id for a format the legacy header cannot express (BC7); an
+uncompressed DX10 layout the legacy header cannot express (RGBA8) is encoded like a raster
+source. Re-headered rather than re-encoded, because the blocks are fine and a re-encode is
+lossy (the legacy compilers re-encoded every DX10 header to DXT5). The game's own DDS reader
+is the reason: a 128x128 single-level BC3 portrait under a DX10 header with the sRGB id
+(DXGI 78) crashed PES 19 when its slot was hovered (VGL, 2026-10-09), and the same blocks under
+a `DXT5` header did not; of the cup corpus's 1218 portraits, 520 are single-level legacy
+ones and 12 DX10 BC7 ones, none under a DX10 sRGB id (`QUESTIONS.md` asks which header
+property the game cannot take). The rewrite is reported as `portrait_header_rewritten`. Any
+other accepted image format is encoded to BC3 (DXT5) at its own size with a full mip chain.
+The game is not fussy: the 1534
 portraits in the installed PES 2021 cup CPKs are all DDS passed through as their makers made them,
 in size classes from 64x64 DXT5 to 512x512 DXT5 (uncompressed BGRA8 included), and 128x128 DXT5
 with a full mip chain is the commonest class, so it is the one non-DDS sources are encoded to. The

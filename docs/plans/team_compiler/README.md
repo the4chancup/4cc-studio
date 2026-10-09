@@ -634,6 +634,12 @@ TC-PRT-02  GIVEN slot 05's folder holding portrait.dds and Portraits/player_05.d
 TC-PRT-03  GIVEN Portraits/player_05.dds whose side is 300 pixels
            WHEN the export is checked
            THEN texture_not_pow2 is reported and only that file is dropped
+TC-PRT-04  GIVEN slot 05's folder holding portrait.dds, a 128x128 single-level BC3 DDS under a
+           DX10 header with DXGI format 78 (BC3 sRGB), the shape that crashed PES 19
+           WHEN the export is compiled for PES 21, then for PES 17
+           THEN 71405.dds, then player_71405.dds, holds the source's pixel data under the legacy
+                DXT5 header (ftex::dds::header_bytes(Bc3, 128, 128, 1)), portrait_header_rewritten
+                is reported as an Info naming the file with dxgi=78, and nothing is dropped
 ```
 
 **Models**

@@ -3175,6 +3175,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   a local `.mtl` naming a stem only `Common/` holds gets `mtl_texture_not_found` (Keep)
   while the compile points it at Common's copy, as before this step. Gates green
   (acceptance 286 of 286); `mutants-diff 327a5ce`: 6 mutants, 5 caught, 1 unviable, 0 missed
+- [ ] 4.y-fix6 **A DX10-header DDS portrait goes out re-headered** (the VGL stream's PES 19 crash
+  of 2026-10-09: a member's `player_XXX11.dds`, a 128x128 single-level BC3 under a DX10 header
+  with the sRGB id DXGI 78, crashed the game when its slot was hovered; the same blocks under a
+  `DXT5` header, resaved with paint.net, did not. `processing/texture.rs` `portrait` ships a DDS
+  source byte for byte (reproduced with the release exe on PES 17 and 21, `.tmp/lead/
+  portrait_probe.py`), the only place a raw member DDS reaches the game: pre-Fox textures go
+  through the converter, which rebuilds the header, and Fox textures become FTEX. Rule
+  (`player_folders.md` "Portraits", DECISIONS 2026-10-09): a DX10-header DDS portrait is
+  re-headered with `ftex::dds::header_bytes` for its format (legacy FourCC for BC1-3, masks for
+  BGRA8, DX10 UNORM for the rest), data untouched, reported `portrait_header_rewritten` (Info);
+  an uncompressed DX10 layout with no `PixelFormat` (RGBA8) takes the raster route. Evidence:
+  `.tmp/lead/census_dds_headers.out` (1218 cup portraits: 520 single-level legacy, 12 DX10 BC7,
+  no DX10 sRGB); which header property the game refuses is a maintainer in-game question
+  (`QUESTIONS.md`, variants in `C:/Data/4cc/Tools_Mine/temp/variants/`). TC-PRT-04. Crates: tc
+  → verify: TC-PRT-04 proven, red first (today the file goes out byte-identical).
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -5258,3 +5273,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   9:45 PM"): one review per reset so far.
 - **2026-10-09** — 4.y-fix5 done (sidekick, landed first time): S8's three concerns.
   TC-MOD-61, TC-TEX-14 and TC-TEX-15 proven; acceptance 286 of 286.
+- **2026-10-09** — The Astra reviews moved to the Devin CLI (`duck.py --reviewer astra-devin`,
+  read-only, the user's three Devin logins rotated by `devin_account.py`; no Codex call until
+  the user says otherwise). S9's three runs that evening all died on the accounts' daily
+  usage (one review of this size exceeds a Pro plan's day; no export is written when a run
+  dies mid-turn), so S9 stays queued. Step 4.y-fix6 opened for the VGL stream's PES 19
+  crash on a DX10-header portrait (maintainer's report).
