@@ -5748,8 +5748,10 @@ Plan: `aesthetics_export/object_model.md` (the "only the Studio export format" p
 ## 2026-10-09 — team_compiler, ftex — a member's cube-map DDS goes out as Red ships it: as it is on PES 15-17, an FTEX cube map on PES 18-21
 Decision: a cube-map DDS in a model folder or `Common/` (the `DDSCAPS2` cube bit or the DX10
 cube flag, `ftex::dds::is_cube_map`, a new `pub` the compiler calls) is never decoded by
-`dds_convert`. On PES 15-17 the file goes out as it is, WESYS-wrapped or not, like the bundled
-template `env.dds`; on PES 18-21 it is written with `ftex::dds_to_ftex` as Red's `ddsToFtex`
+`dds_convert`. On PES 15-17 the file goes out as it is, like the bundled template `env.dds`;
+on PES 18-21 it is written with `ftex::dds_to_ftex` (which reads cube-ness by the same
+`is_cube_map`, so a DX10 file carrying the cube flag without the `DDSCAPS2` faces fails as an
+incomplete cube map instead of going out as a one-face 2D texture) as Red's `ddsToFtex`
 writes it (texture type 0xD: the normal-map type 0x9 the converter gives every Fox texture,
 with the cube bit). A WESYS-wrapped cube map is not recognized (the test reads the plain
 header; no export has one) and fails its task as today, as does a cube map the FTEX writer

@@ -227,6 +227,64 @@ mod tests {
         assert_eq!(dds::read_layout(BC1_DDS).unwrap().row_pitch, None);
     }
 
+    /// The bundled template environment map, `resources/templates/env.dds`: a 128x128 DXT5
+    /// cube map.
+    fn environment_template() -> Vec<u8> {
+        std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../resources/templates/env.dds"),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn is_cube_map_reads_the_legacy_cube_bit() {
+        let template = environment_template();
+        assert!(dds::is_cube_map(&template), "the template env.dds");
+        assert!(dds::is_cube_map(CUBE_DDS), "the game's default_reflection");
+        assert!(!dds::is_cube_map(BC1_DDS), "a 2D DXT1");
+        assert!(!dds::is_cube_map(&template[..100]), "a header cut short");
+
+        let mut bad_magic = CUBE_DDS.to_vec();
+        bad_magic[..4].copy_from_slice(b"NOPE");
+        assert!(!dds::is_cube_map(&bad_magic), "not a DDS");
+
+        // A legacy header whose data happens to carry the DX10 cube flag where a DX10
+        // header's misc_flags would be: only a DX10 FourCC has that header.
+        let mut legacy = BC1_DDS.to_vec();
+        legacy[136..140].copy_from_slice(&0x4u32.to_le_bytes());
+        assert!(
+            !dds::is_cube_map(&legacy),
+            "a 2D DXT1 with the flag in its data"
+        );
+    }
+
+    #[test]
+    fn is_cube_map_reads_the_dx10_cube_flag() {
+        let flat = dds::header_bytes(PixelFormat::Bc7, 4, 4, 1);
+        assert_eq!(&flat[84..88], b"DX10");
+        assert!(!dds::is_cube_map(&flat), "a 2D BC7");
+
+        // misc_flags, the third u32 of the DX10 header (dxgi_format, dimension, misc_flags).
+        let mut cube = flat;
+        cube[136..140].copy_from_slice(&0x4u32.to_le_bytes());
+        assert!(dds::is_cube_map(&cube), "a BC7 with the DX10 cube flag");
+    }
+
+    /// A DX10 cube flag without the `DDSCAPS2` faces is an incomplete cube map, not one 2D
+    /// face: `dds_to_ftex` reads cube-ness as `is_cube_map` does.
+    #[test]
+    fn dds_to_ftex_refuses_a_dx10_cube_flag_without_its_faces() {
+        let mut dds = dds::header_bytes(PixelFormat::Bc7, 4, 4, 1);
+        dds[136..140].copy_from_slice(&0x4u32.to_le_bytes());
+        // One 4x4 BC7 block: enough data for one face.
+        dds.extend_from_slice(&[0; 16]);
+        assert!(matches!(
+            dds_to_ftex(&dds, ColorSpace::Normal),
+            Err(FtexError::UnsupportedDds("incomplete cube map"))
+        ));
+    }
+
     /// DX10 headers: arrays, the cube flag, signed and alpha-less formats.
     #[test]
     fn read_layout_dx10_extension_rules() {

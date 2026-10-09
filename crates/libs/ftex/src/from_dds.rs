@@ -31,7 +31,10 @@ pub fn dds_to_ftex(dds: &[u8], color_space: ColorSpace) -> Result<Vec<u8>, FtexE
 
     let mipmap_count = mip_count(&dds_header);
 
-    let is_cube_map = if dds_header.capabilities2 & 0x200 != 0 {
+    // Cube-ness is read by the predicate the compiler routes a DDS here by: a DX10 cube flag
+    // read only there would let a cube map through as one 2D face, a wrong file and no error.
+    // Without the six DDSCAPS2 faces it is then an incomplete cube map.
+    let is_cube_map = if crate::dds::is_cube_map(dds) {
         if dds_header.capabilities2 & 0xfe00 != 0xfe00 {
             return Err(FtexError::UnsupportedDds("incomplete cube map"));
         }

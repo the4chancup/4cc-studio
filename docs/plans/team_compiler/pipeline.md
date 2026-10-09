@@ -510,8 +510,9 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    PES 19–21 retain supported BC7 inputs and use BC7 for newly encoded ordinary raster textures.
    Role-specific normal/data handling still applies; already-compatible blocks avoid re-encoding.
    A cube-map DDS (the `DDSCAPS2` cube bit, or the DX10 header's cube flag;
-   `ftex::dds::is_cube_map`) is not decoded: on PES 15-17 it goes out as it is, wrapped or not,
-   as the template `env.dds` does and as Red copies it; on PES 18-21 it is written as the FTEX
+   `ftex::dds::is_cube_map`, the predicate the FTEX writer reads cube-ness by too, so the two
+   cannot disagree) is not decoded: on PES 15-17 it goes out as it is, as the template
+   `env.dds` does and as Red copies it; on PES 18-21 it is written as the FTEX
    cube map Red writes (`ftex::dds_to_ftex`: the color space's texture type with the cube bit,
    0xD). A WESYS-wrapped cube map is not recognized (its header is compressed; no export has
    one) and fails its task as today. The only cube maps exports carry are referees'

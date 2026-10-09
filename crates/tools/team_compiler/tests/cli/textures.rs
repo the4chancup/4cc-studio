@@ -23,6 +23,7 @@ use crate::compile::{
     compiled_kits, compiled_players, cpk_entries, kit_texture, pass_through_settings, pes_settings,
     pes21_settings, tracer_kit, tracer_player_file,
 };
+use crate::deploy::templates_folder;
 use crate::models::face_package;
 use crate::prefox_faces::{card_materials, card_model, face_cpk, small_dds};
 use crate::{CLEAN_PLAYER, clean_model, command_args, findings_of};
@@ -1222,4 +1223,52 @@ fn dummy_kit_textures_are_never_looked_for_and_keep_their_names() {
         .map(|path| path.file_name)
         .collect();
     assert_eq!(names, ["dummy_kit.dds", "dummy_kit_srm.dds"]);
+}
+
+// TC-TEX-13
+#[test]
+fn a_cube_map_dds_goes_out_as_it_is_on_pes_17_and_as_an_ftex_cube_map_on_pes_21() {
+    let sandbox = Sandbox::new("tex_cube_map");
+    let export = "co Midcup Env";
+    // The bundled template environment map: a 128x128 DXT5 cube map with eight levels.
+    let source = fs::read(templates_folder().join("env.dds")).unwrap();
+    // No model: the textures task reads none, and the tracer's Fox model would add its PES 17
+    // conversion's findings (dropped bone matrices) to lines that are about the texture.
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/env.dds"), &source);
+    let findings = [
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        "Info team_colors_missing [Keep] ()",
+    ];
+
+    let run = sandbox.run(&pes_settings(&sandbox, 21), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(findings_of(&lines, export), findings, "PES 21: {lines:#?}");
+    assert_eq!(run.exit_code(), 0, "PES 21");
+    let mut entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let env = format!("{PLAYER_TEXTURES}/env.ftex");
+    let emitted = entries
+        .remove(&env)
+        .unwrap_or_else(|| panic!("PES 21: no {env} among {:?}", entries.keys()));
+    assert_eq!(
+        emitted,
+        ftex::dds_to_ftex(&source, ftex::ColorSpace::Normal).unwrap()
+    );
+    let info = ftex::info(&emitted).unwrap();
+    assert!(info.is_cube_map);
+    assert_eq!(
+        info.texture_type, 0xD,
+        "the normal-map type 0x9 with the cube bit"
+    );
+
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(findings_of(&lines, export), findings, "PES 17: {lines:#?}");
+    assert_eq!(run.exit_code(), 0, "PES 17");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let env = "common/character1/model/character/uniform/common/714/05 - A/env.dds";
+    let emitted = entries
+        .get(env)
+        .unwrap_or_else(|| panic!("PES 17: no {env} among {:?}", entries.keys()));
+    assert_eq!(*emitted, source, "PES 17");
 }

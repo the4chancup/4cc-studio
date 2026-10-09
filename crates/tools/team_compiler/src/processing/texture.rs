@@ -310,7 +310,8 @@ pub(super) fn common_texture(
 /// with the mip chain a raster source lacks generated, in the role the file's stem gives it.
 /// On pre-Fox a WESYS-wrapped DDS whose blocks the conversion keeps as they are is returned as
 /// it is, still wrapped, which the game reads as it reads a plain DDS (`settings.md`, "DDS
-/// compression cost"). Its signature and
+/// compression cost"). A plain cube-map DDS is never decoded: it goes out as it is on pre-Fox
+/// and as the FTEX cube map `ftex::dds_to_ftex` writes on Fox. Its signature and
 /// size are the deep pass's checks, done before planning; a texture that reaches this point
 /// either passed them or is kept by `pass_through`, so it is converted as it is.
 pub(super) fn convert(
@@ -319,6 +320,20 @@ pub(super) fn convert(
     name: &str,
     bytes: &[u8],
 ) -> Result<Vec<u8>, TextureError> {
+    // The converter decodes into one 2D image and refuses a cube map, which the game takes on
+    // both engines: on pre-Fox the DDS as it is, on Fox the FTEX cube map the container
+    // conversion writes from the DDS's own blocks. Nothing is decoded, so no decode is charged:
+    // the output is about the source's size, and the writer charges a task's entries. The
+    // texture type is the normal-map one, the type every Fox texture the converter writes
+    // carries, here with the cube bit. A WESYS-wrapped DDS's header is compressed, so a
+    // wrapped cube map is not recognized and fails in the converter.
+    if format == SourceFormat::Dds && ftex::dds::is_cube_map(bytes) {
+        return match ctx.version.engine() {
+            Engine::PreFox => Ok(bytes.to_vec()),
+            Engine::Fox => ftex::dds_to_ftex(bytes, ftex::ColorSpace::Normal)
+                .map_err(|error| conversion_failure(name, ConvertError::Ftex(error))),
+        };
+    }
     let target = Target {
         version: ctx.version,
         role: texture_role(file_stem(name)),

@@ -1019,8 +1019,9 @@ TC-TEX-12  GIVEN slot 05's face model naming hair, with hair.png.common, and Com
            THEN the first reports texture_too_small and link_target_dropped and slot 05 is left
                 out; the second reports the Common texture's failure and slot 05's face
                 package is in the CPK
-TC-TEX-13  GIVEN slot 05 holding the tracer's face model and an env.dds that is a 128x128 DXT5
-           cube map with eight mip levels (the bundled template's bytes)
+TC-TEX-13  GIVEN slot 05 holding no model and an env.dds that is a 128x128 DXT5 cube map with
+           eight mip levels (the bundled template's bytes); the textures task reads no model,
+           and a Fox model converted for PES 17 would add its own findings to the run
            WHEN the export is compiled for PES 17, then for PES 21
            THEN PES 17 writes slot 05's env.dds in his texture home byte for byte as the source,
                 PES 21 writes env.ftex there equal to ftex::dds_to_ftex of the source (an FTEX

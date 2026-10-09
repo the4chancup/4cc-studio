@@ -143,6 +143,25 @@ const DDSD_DEPTH: u32 = 0x800000;
 /// The DX10 `misc_flags` bit that marks a cube map.
 const DX10_MISC_CUBE: u32 = 0x4;
 
+/// Whether `dds` is a cube map: a DDS header whose `DDSCAPS2` carries the cube bit, or a DX10
+/// header whose `misc_flags` does. `false` for anything else, a buffer too short for the
+/// header included. The compiler asks this before any decode: `read_layout` and everything
+/// built on it walk a 2D texture and refuse a cube map, which the game takes on both engines.
+pub fn is_cube_map(dds: &[u8]) -> bool {
+    let mut cursor = Cursor::new(dds);
+    let Ok(header) = DdsHeader::read(&mut cursor) else {
+        return false;
+    };
+    if header.magic != *b"DDS " || header.header_size != 124 {
+        return false;
+    }
+    if header.capabilities2 & CAPS2_CUBE != 0 {
+        return true;
+    }
+    header.fourcc == *b"DX10"
+        && Dx10Header::read(&mut cursor).is_ok_and(|ext| ext.misc_flags & DX10_MISC_CUBE != 0)
+}
+
 /// Parses the DDS header(s) of a 2D texture. Cube maps and volume textures
 /// are `FtexError::UnsupportedDds("cube map")` / `("volume texture")`. The
 /// mip count is the count field alone, 0 meaning 1, as DirectXTex reads it
