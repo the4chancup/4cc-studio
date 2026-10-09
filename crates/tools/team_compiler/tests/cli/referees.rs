@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
+use dds_convert::{SourceFormat, Target, TextureRole, decode};
 use kit_config::KitConfig;
 use pes_version::{Engine, PesVersion};
 use uniparam::UniformParameter;
@@ -581,13 +582,21 @@ fn on_pes_17_a_ref_marker_replaces_the_template_prop_texture_and_nothing_else() 
     // The pre-Fox referee configs are loose files alone: no bin to change, no team CPK.
     assert_eq!(cpk_files(&sandbox.root.join("output")), [REFS_CPK]);
     let mut tree = referee_tree(Engine::PreFox);
-    let template_prop_texture = tree.remove(REFEREE_PROP_TEXTURE).unwrap();
-    let marker = &entries[REFEREE_PROP_TEXTURE];
-    assert!(marker.starts_with(b"DDS "), "the marker texture, a DDS");
     assert!(
-        *marker != template_prop_texture,
-        "the marker, not the template's texture"
+        tree.remove(REFEREE_PROP_TEXTURE).is_some(),
+        "the template holds the prop texture the marker replaces"
     );
+    let marker = &entries[REFEREE_PROP_TEXTURE];
+    let decoded = decode(&tracer_player_file("shirt.dds"), SourceFormat::Dds).unwrap();
+    let expected = dds_convert::convert(
+        &decoded,
+        Target {
+            version: PesVersion::Pes17,
+            role: TextureRole::Color,
+        },
+    )
+    .unwrap();
+    assert!(*marker == expected, "the marker converted for PES 17");
     for path in [
         PRE_FOX_MARKER_MODEL,
         PRE_FOX_MARKER_MTL,

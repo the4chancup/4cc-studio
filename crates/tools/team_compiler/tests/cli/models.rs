@@ -1264,6 +1264,69 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
     );
 }
 
+#[test]
+fn under_ingame_face_a_texture_the_player_and_a_combined_boots_folder_hold_differently_drops_him() {
+    let sandbox = Sandbox::new("mod_ingame_face_skin_differing");
+    let export = "exports/co Midcup Skin";
+    let player = format!("{export}/Players/05 - A");
+    // His own folder feeds the boots, there being no face: one package, two sources.
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(
+        &format!("{player}/kit_boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(
+        &format!("{player}/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(&format!("{export}/Boots/Crocs/skin.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/sole.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    // Slot 07: boots that compile, so the CPK is written.
+    sandbox.write(
+        &format!("{export}/Players/07 - B/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Skin"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+            "Error merged_texture_conflict [DropFolder] at Players/05 - A (texture=skin)"
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            "Asset/model/character/boots/k0627/#Win/boots.fpk",
+            "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "Asset/model/character/face/real/71407/#Win/face.fpk",
+            "Asset/model/character/face/real/71407/#Win/face.fpkd",
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            "common/etc/TeamColor.bin",
+        ],
+        "slot 07 alone: no k0625 and no texture of slot 05"
+    );
+}
+
 // TC-MOD-33
 #[test]
 fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_drops_the_player() {

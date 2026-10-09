@@ -323,20 +323,22 @@ pub(super) fn convert(
         version: ctx.version,
         role: texture_role(file_stem(name)),
     };
-    // The decode happens inside the converter, so it is charged before the call and released
-    // once the call has freed it. A cache hit decodes nothing, and is charged all the same.
+    // The decode happens inside the converter, so it is charged before the call. It is
+    // released only after the pass-through test, not right after the call: that test unwraps
+    // a wrapped source again, the copy the charge's source-size share covers. A cache hit
+    // decodes nothing, and is charged all the same.
     let charge = decode_charge(&ctx.budget, bytes, format)
         .map_err(|error| conversion_failure(name, error))?;
     let converted = ctx
         .converter
         .convert(source_hash(bytes), bytes, format, target, ctx.cache)
         .map_err(|error| conversion_failure(name, error))?;
-    drop(charge);
     let wrapped_dds = format == SourceFormat::Dds && wezlib::is_wrapped(bytes);
     let pass_through = match ctx.version.engine() {
         Engine::PreFox => wrapped_dds && keeps_blocks(bytes, &converted),
         Engine::Fox => false,
     };
+    drop(charge);
     if pass_through {
         return Ok(bytes.to_vec());
     }

@@ -724,6 +724,66 @@ fn a_texture_link_points_the_player_s_model_at_the_one_copy_in_the_team_s_common
     );
 }
 
+/// The texture link above with an FTEX for target: the link's stem is the name before
+/// `.ftex.common`, as before `.dds.common`.
+#[test]
+fn a_link_to_an_ftex_points_the_player_s_model_at_the_one_copy_in_the_team_s_common_output() {
+    let sandbox = Sandbox::new("cmn_texture_link_ftex");
+    let export = "exports/co Midcup Hair";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &model_naming_hair_and_skin(),
+    );
+    sandbox.write(
+        &format!("{player}/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/hair.ftex.common"), b"");
+    let hair_ftex =
+        ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap();
+    sandbox.write(&format!("{export}/Common/hair.ftex"), &hair_ftex);
+    let hair = format!("{COMMON_TEXTURES}/hair.ftex");
+    let skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Hair"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            skin,
+            hair.as_str(),
+            FACE_05,
+            FACE_05_FPKD,
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            "common/etc/TeamColor.bin"
+        ],
+        "hair once, in the team's Common output; the player's own folder holds skin alone"
+    );
+    assert_no_common_path(&entries);
+    let package = face_package(&entries);
+    let model = package.get("face_high.fmdl").unwrap();
+    let hair_directories = texture_directories(model, "hair.dds");
+    assert!(!hair_directories.is_empty());
+    assert!(
+        hair_directories
+            .iter()
+            .all(|directory| directory == COMMON_DIRECTORY),
+        "{hair_directories:?}"
+    );
+}
+
 #[test]
 fn a_texture_link_whose_target_is_not_in_common_drops_its_folder() {
     let sandbox = Sandbox::new("cmn_texture_link_missing");

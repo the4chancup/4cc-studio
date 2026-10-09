@@ -134,11 +134,22 @@ fn compile_installs_the_cpk_over_the_old_one_and_leaves_nothing_in_the_output_fo
     let sandbox = Sandbox::new("deploy_installs");
     install_pes(&sandbox);
     sandbox.write("PES/download/4cc_99_test.cpk", b"the old CPK");
+    let download_before = snapshot(&sandbox.root.join("PES/download"));
 
     let run = compile_tracer(&sandbox);
 
     assert_eq!(run.messages(), bundled_bins_then(TRACER_FINDINGS));
     assert_eq!(run.exit_code(), 0);
+    // Only the CPK changed in download/: the installed list already names it.
+    let mut expected_download = download_before;
+    expected_download.insert(PathBuf::from("4cc_99_test.cpk"), fs::read(&twin).unwrap());
+    let download_after = snapshot(&sandbox.root.join("PES/download"));
+    // Compared whole, not with `assert_eq!`, which would print every file's bytes.
+    assert!(
+        download_after == expected_download,
+        "download/ holds what it held, with the run's CPK over the old one: {:?}",
+        download_after.keys().collect::<Vec<_>>()
+    );
     let installed = sandbox.root.join("PES/download/4cc_99_test.cpk");
     assert_eq!(cpk_entries(&installed), cpk_entries(&twin));
     // Byte for byte too: the writer's output depends on the entries alone.

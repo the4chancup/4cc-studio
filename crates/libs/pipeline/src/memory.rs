@@ -10,7 +10,7 @@ pub fn memory_cap(percent: f64) -> usize {
 }
 
 /// What `memory_cap` assumes is available where the OS cannot say: 4 GiB.
-pub const FALLBACK_AVAILABLE: u64 = 4 << 30;
+const FALLBACK_AVAILABLE: u64 = 4 << 30;
 
 /// The physical memory available now, or `None` where the OS cannot say or
 /// the read fails. Windows asks `GlobalMemoryStatusEx` (`ullAvailPhys` counts

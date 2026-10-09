@@ -251,12 +251,25 @@ impl CpkOutput {
     /// would point at textures that are not. Otherwise each package that succeeded commits,
     /// then the textures, when at least one package did. A package the textures batch names
     /// as the loser of a `shared_texture_conflict` (`TaskBatch::skipped`) is left out the same
-    /// way: the textures only its sources hold are not in the CPK.
+    /// way: the textures only its sources hold are not in the CPK. A textures batch with no
+    /// entries is a failed one: planning gives a folder a textures task only when it has a
+    /// texture to emit, and a task that succeeds emits at least one (a stem a dropped package
+    /// loses stays with the package that won it). So it must carry the finding that drops the
+    /// folder; one that does not is the error, since nothing would tell the member why the
+    /// folder is missing.
     fn commit_folder(&mut self, batches: &mut [TaskBatch]) -> anyhow::Result<()> {
         let (textures, packages) = batches
             .split_last_mut()
             .expect("a player folder's group ends with its textures batch");
         if textures.entries.is_empty() {
+            ensure!(
+                textures
+                    .messages
+                    .iter()
+                    .any(|message| message.disposition != Disposition::Keep),
+                "task {} is a textures batch with no entries and no finding dropping its folder",
+                textures.index
+            );
             return Ok(());
         }
         let mut committed = false;
@@ -760,6 +773,76 @@ mod tests {
         assert_eq!(reported, [0, 1, 2, 3, 4, 5]);
     }
 
+    /// A writer to `name.cpk` in `folder` that has taken a player folder's face at 0, its
+    /// group at 0..2, still waiting for the textures batch at 1.
+    fn face_waiting_for_textures(folder: &Path, name: &str) -> CpkOutput {
+        let path = folder.join(format!("{name}.cpk"));
+        let mut output = CpkOutput::new(OutputSink::cpk(path), BTreeMap::new(), "", None);
+        let face = grouped(0, 0..2, &["face/face.fpk"]);
+        assert_eq!(
+            output.submit(face).unwrap(),
+            [],
+            "the face waits for its textures"
+        );
+        output
+    }
+
+    /// The textures batch at 1 of the group at 0..2, with no entries and `message` alone.
+    fn empty_textures(message: Message) -> TaskBatch {
+        TaskBatch {
+            messages: vec![message],
+            ..grouped(1, 0..2, &[])
+        }
+    }
+
+    #[test]
+    fn an_empty_textures_batch_dropping_its_folder_commits_nothing_of_the_folder() {
+        let temp = scratch("writer_group_textures_dropped");
+        let mut output = face_waiting_for_textures(temp.path(), "dropped");
+        let dropping = tool_message(
+            Code::FolderPackFailed,
+            Scope::Run,
+            Disposition::DropFolder,
+            Vec::new(),
+        );
+        let decided: Vec<usize> = output
+            .submit(empty_textures(dropping))
+            .unwrap()
+            .into_iter()
+            .map(|(index, _)| index)
+            .collect();
+        assert_eq!(decided, [0, 1]);
+        output
+            .submit(batch(2, &["kit/kit.ftex"], Some("kit")))
+            .unwrap();
+        assert!(finish_plain(output, PesVersion::Pes21).unwrap());
+        assert_eq!(
+            layout(&temp.path().join("dropped.cpk")),
+            [
+                "kit/kit.ftex",
+                paths::UNIFORM_PARAMETER,
+                paths::TEAM_COLOR,
+                paths::UNI_COLOR,
+            ]
+        );
+    }
+
+    #[test]
+    fn an_empty_textures_batch_with_no_finding_dropping_its_folder_is_the_error() {
+        let temp = scratch("writer_group_textures_unexplained");
+        let mut output = face_waiting_for_textures(temp.path(), "unexplained");
+        let kept = tool_message(
+            Code::KitVariantMissing,
+            Scope::Run,
+            Disposition::Keep,
+            Vec::new(),
+        );
+        assert_eq!(
+            output.submit(empty_textures(kept)).unwrap_err().to_string(),
+            "task 1 is a textures batch with no entries and no finding dropping its folder"
+        );
+    }
+
     #[test]
     fn a_folder_with_one_failed_package_commits_the_others_and_its_textures() {
         let temp = scratch("writer_group_package_failed");
@@ -893,11 +976,14 @@ mod tests {
         );
     }
 
+    /// A batch's message naming its `index`, dropping its folder as a failed task's finding
+    /// does, so a textures batch with no entries carries what the writer requires of a failed
+    /// one.
     fn note(index: usize) -> Message {
         tool_message(
             Code::FolderPackFailed,
             Scope::Run,
-            Disposition::Keep,
+            Disposition::DropFolder,
             vec![("task", index.to_string())],
         )
     }

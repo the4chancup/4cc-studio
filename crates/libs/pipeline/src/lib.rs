@@ -10,5 +10,5 @@ mod threads;
 
 pub use budget::{Cancelled, MemoryBudget, Permit};
 pub use cpk_stem::{CpkStem, CpkStemError};
-pub use memory::{FALLBACK_AVAILABLE, memory_cap};
+pub use memory::memory_cap;
 pub use threads::thread_count_detect;

@@ -337,7 +337,14 @@ that the split's fixed overhead, about a minute plus up to 30 s of polling, eats
 417 s and the remote half 502 s from its launch (the VPS ran about a fifth slower; the total
 wall time was not recorded). Manual ssh from
 Git Bash uses `/c/Windows/System32/OpenSSH/ssh.exe bonfire`: Git's own `ssh` cannot reach the
-Windows agent that holds the key.
+Windows agent that holds the key. **A whole-crate run copies the working tree when it starts**,
+so a chain of runs queued behind a sidekick's edits snapshots a half-edited crate: at 4.y-conv
+the `team_compiler` run started while 4.y-fix1 was being written and had to be stopped; nothing
+edits a crate while its run is queued or going. The lead launches a long chain detached, with
+PowerShell `Start-Process bash.exe <script> -WindowStyle Hidden` from a script under `.tmp/`,
+never with the Bash tool's background mode: its two-hour cap kills the chain, and stopping it
+kills the console the run's children need, after which every build fails with `0xC0000142`
+and cargo-mutants files the mutant as unviable (273 of 274 in 23 s at 4.y-conv's first attempt).
 
 **The VPS's production Fluxer instance comes first.** The remote half runs as the transient
 system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=9G` with no swap (6G

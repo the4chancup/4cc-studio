@@ -948,6 +948,35 @@ fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
     assert_eq!(record[13..21], entry);
 }
 
+#[test]
+fn an_all_kit_texture_that_does_not_decode_drops_each_kit_inheriting_it_and_not_the_others() {
+    let sandbox = Sandbox::new("kit_inherited_undecodable");
+    let export = "exports/co Midcup Shared";
+    // A PNG under a `.dds` name: the deep pass reads its header as another type's.
+    sandbox.write(
+        &format!("{export}/Kits/all/kit.dds"),
+        &texture_fixture("kit.png"),
+    );
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    fs::create_dir_all(sandbox.root.join(format!("{export}/Kits/p2"))).unwrap();
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    // The finding is p2's, the kit the file reaches, and none is at `Kits/all`.
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Shared"),
+        [
+            "Error texture_type_mismatch [DropFolder] at Kits/p2 (file=Kits/all/kit.dds)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p1"]);
+}
+
 // TC-KIT-12
 #[test]
 fn a_kit_colors_txt_with_one_valid_color_reports_its_bad_line_and_derives_both_colors() {
