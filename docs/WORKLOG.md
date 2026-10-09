@@ -3064,7 +3064,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the Linux half alone, so only the portable read-only test (406) was added; the sidekick
   also found the 4.14d-era note "the Linux half runs as root" wrong (`systemd-run
   --uid=debian`), corrected. Lead: the help chapter's `export_layout_old` sentence. Gates
-  green (acceptance 279 of 280, TC-TEX-13 left for 4.y-fix3)
+  green (acceptance 279 of 280, TC-TEX-13 left for 4.y-fix3). Verify re-run by the lead with
+  the release build of `d01a826` (`.tmp/4_y/census/run_census.py 17` and `21`, `check` over
+  the 71 roots; results `results_17.tsv`/`results_21.tsv`, the pre-fix tallies kept as
+  `*_before_fix2.tsv`): the 53 VGL26 exports print one line each, `Error export_layout_old
+  [DropExport] (folder=Kit Configs)`, on both versions; `xml_dif_conflict` fell from 10 rows
+  on PES 17 (the five referee folders of four exports) to none
 
 - [ ] 4.y-fix3 **Cube-map textures** (from the converge census: the referee robocopclassic's own
   `Common/env.dds`, a 128x128 DXT5 cube map with the bundled template's exact header, fails his
