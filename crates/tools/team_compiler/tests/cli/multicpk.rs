@@ -8,11 +8,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
+use uniparam::UniformParameter;
+
 use crate::bins::dpfl_bytes;
 use crate::common::{Run, Sandbox};
-use crate::compile::{cpk_entries, kit_texture, pes21_settings, tracer_export};
+use crate::compile::{cpk_entries, kit_texture, pes21_settings, tracer_export, tracer_player_file};
 use crate::compile_exports::{TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER};
 use crate::deploy::{install_pes, templates_folder};
+use crate::referees::{REFEREE_CONFIGS, write_refs_with_marker};
 use crate::snapshot;
 use crate::upgrade::pes17_list;
 
@@ -147,6 +150,56 @@ fn teams_fill_the_slots_first_fit_and_the_bins_go_into_the_bins_cpk() {
     expected_end.extend(TEAMS_SLOTS.map(|slot| skipped(&sandbox, slot)));
     assert_eq!(lines[lines.len() - 6..], expected_end);
     assert!(!output.join(".staging").exists());
+}
+
+#[test]
+fn a_refs_export_alone_on_fox_writes_the_bins_cpk_for_its_configs_and_every_part_a_placeholder() {
+    let sandbox = Sandbox::new("multicpk_refs_alone");
+    write_refs_with_marker(&sandbox, Some(&tracer_player_file("shirt.dds")));
+
+    let run = compile(&sandbox, &multicpk_settings(&sandbox, ""));
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let output = sandbox.root.join("output");
+    let mut expected_files: BTreeSet<String> = run_cpks().into_iter().collect();
+    expected_files.insert(REFS_CPK.to_owned());
+    assert_eq!(output_files(&sandbox), expected_files);
+    // The bins alone: no team committed anything.
+    let bins = cpk_entries(&output.join("4cc_08_bins.cpk"));
+    let mut expected_bins = vec![
+        TEAM_COLOR.to_owned(),
+        UNI_COLOR.to_owned(),
+        UNIFORM_PARAMETER.to_owned(),
+    ];
+    expected_bins.sort();
+    assert_eq!(bins.keys().cloned().collect::<Vec<_>>(), expected_bins);
+    let uniform_parameter = UniformParameter::read(&bins[UNIFORM_PARAMETER]).unwrap();
+    let refs = cpk_entries(&output.join(REFS_CPK));
+    let mut configs = 0;
+    for (path, bytes) in &refs {
+        let Some(name) = path.strip_prefix(REFEREE_CONFIGS) else {
+            continue;
+        };
+        configs += 1;
+        assert!(
+            uniform_parameter.get(name) == Some(bytes.as_slice()),
+            "{path}: the refs CPK's loose file"
+        );
+    }
+    assert_eq!(configs, 20);
+    for slot in TEAMS_SLOTS {
+        assert!(
+            fs::read(output.join(slot)).unwrap() == placeholder(),
+            "{slot} is the placeholder"
+        );
+    }
+    let mut expected_end: Vec<String> = run_cpks()
+        .iter()
+        .map(|name| skipped(&sandbox, name))
+        .collect();
+    expected_end.push(skipped(&sandbox, REFS_CPK));
+    assert_eq!(lines[lines.len() - 7..], expected_end);
 }
 
 /// Asserts `run` in `sandbox` was aborted with the Fatal `line` last, and wrote no CPK.

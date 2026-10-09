@@ -365,7 +365,10 @@ The referees go into a CPK of their own, named by the `refs_cpk_name` setting
 the referees it also holds the referee kits and the referee appearance file the game needs,
 the same in every compile; a file of these can be replaced from the data folder's
 `templates/referees_fox` folder, or `templates/referees_prefox` on PES 2015 to 2017 (see
-`templates` below). A `ref_marker.dds` at the root of
+`templates` below). On PES 2018 to 2021 each referee kit is also written, as it is in the
+referees CPK, as its entry in the team CPK's `UniformParameter.bin`, which the game reads the
+kits' values from, so a `refs` export compiled alone writes the team CPK too. A
+`ref_marker.dds` at the root of
 the `refs` export, the cup's logo for instance, is shown on the ground under every referee: it
 goes into the referees CPK with a flat square model written as collar 77 (on PES 2015 to 2017
 as `referee_collar_077.model` with its `.mtl`, beside an empty `collar_077.model`), and the
@@ -375,8 +378,9 @@ marker too, so it is left out with the error `kit_collar_reserved`, naming the f
 the referee kits keep their own collar. The referees CPK is
 installed into the game together with the teams' CPKs, all of them or none, or left in the
 output folder with them, after them. It is written only when the `refs` export builds
-something: a compile in which only the `refs` export builds something, with no file in the
-`overrides` folder, writes it alone, and the installed team CPK stays as it was. Since the
+something: on PES 2015 to 2017 a compile in which only the `refs` export builds something,
+with no file in the `overrides` folder, writes it alone, and the installed team CPK stays as
+it was. Since the
 compile replaces it, the installed referees CPK is not one of the CPKs the team colors, kit
 colors and other files every team shares are taken from. A `refs_cpk_name` that names the team CPK (`cpk_name`), or with `multicpk_mode` on the
 `bins_cpk_name` CPK or one of the numbered `teams_cpk_name` CPKs, letter case aside, stops the

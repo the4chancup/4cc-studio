@@ -46,7 +46,8 @@ pub(crate) struct CpkOutput {
     /// Batches that arrived before an earlier one, or a player folder's packages held for its
     /// textures batch, by manifest position.
     pending: BTreeMap<usize, TaskBatch>,
-    /// The committed kits' `UniformParameter.bin` entries.
+    /// The committed kits' and, on PES 18-21, the referee template tree's kit configs'
+    /// `UniformParameter.bin` entries.
     uniform_parameters: Vec<(String, Vec<u8>)>,
     /// The committed kits' `UniColor.bin` entries, each with its team ID, in commit order.
     kit_colors: Vec<(u16, KitColorEntry)>,
@@ -303,8 +304,9 @@ impl CpkOutput {
     /// path (`overridden`, its `duplicate_path` going to `messages`): into the refs CPK, or
     /// without one into the team side's sink, which it then starts. When the referees' marker went in, each referee
     /// kit config of the tree is written wearing its collar, encoded for `version`
-    /// (`wearing_marker`); a config that does not decode is the error. Closes the refs CPK, and
-    /// returns whether it was written.
+    /// (`wearing_marker`); a config that does not decode is the error. On PES 18-21 each kit
+    /// config written is also staged as the `UniformParameter.bin` entry of its file name, with
+    /// the bytes written. Closes the refs CPK, and returns whether it was written.
     fn finish_referees(
         &mut self,
         referees: Referees,
@@ -320,17 +322,32 @@ impl CpkOutput {
         } = referees;
         if committed {
             for (path, bytes) in templates.referee_tree(version.engine()) {
-                let bytes = if marker && path.starts_with(paths::REFEREE_KIT_CONFIGS) {
+                if self.overridden(path, messages) {
+                    continue;
+                }
+                let config_name = path.strip_prefix(paths::REFEREE_KIT_CONFIGS);
+                let bytes = if marker && config_name.is_some() {
                     Cow::Owned(wearing_marker(path, bytes, version)?)
                 } else {
                     Cow::Borrowed(bytes)
                 };
-                let Some(cpk) = &mut cpk else {
-                    self.add(path, &bytes, messages)?;
+                match &mut cpk {
+                    Some(cpk) => cpk.add(path, &bytes)?,
+                    None => {
+                        self.start()?;
+                        self.sink.add(path, &bytes)?;
+                    }
+                }
+                let Some(name) = config_name else {
                     continue;
                 };
-                if !self.overridden(path, messages) {
-                    cpk.add(path, &bytes)?;
+                match version.engine() {
+                    // The game reads a referee config's values from its entry and only loads
+                    // the loose file (`blue_port.md` "Referee export processing").
+                    Engine::Fox => self
+                        .uniform_parameters
+                        .push((name.to_owned(), bytes.into_owned())),
+                    Engine::PreFox => {}
                 }
             }
         }
@@ -343,8 +360,9 @@ impl CpkOutput {
         }
     }
 
-    /// Writes the bins and closes the CPK, when a team's batch committed something or there is
-    /// an override (else no file exists, no bin is built and nothing is reported):
+    /// Writes the bins and closes the CPK, when a team's batch committed something, there is
+    /// an override, or the referee configs changed the bins on PES 18-21 (else no file exists,
+    /// no bin is built and nothing is reported):
     /// `UniformParameter.bin`, built on `bins`' by `kit_configs` from `team_kits` and the
     /// committed kit configs, when that changed it; on PES 15-17, which have no such bin (a
     /// committed kit config there is an error), the installed loose kit configs that
@@ -370,8 +388,9 @@ impl CpkOutput {
         item_rows: &[ItemRow],
     ) -> anyhow::Result<(bool, Vec<Message>)> {
         // A run in which no team committed anything writes no file, so it adds no bin either,
-        // unless the overrides go into the CPK: they are written whatever the exports bring.
-        if !self.started && self.overrides.is_empty() {
+        // unless the overrides go into the CPK: they are written whatever the exports bring;
+        // or the referee configs changed the bins on PES 18-21: their entries need the bin.
+        if !self.started && self.overrides.is_empty() && self.uniform_parameters.is_empty() {
             return Ok((false, Vec::new()));
         }
         self.start()?;
@@ -1144,6 +1163,7 @@ mod tests {
             [
                 "team/a.bin",
                 "team/b.bin",
+                paths::UNIFORM_PARAMETER,
                 paths::TEAM_COLOR,
                 paths::UNI_COLOR
             ]
@@ -1157,7 +1177,7 @@ mod tests {
     }
 
     #[test]
-    fn a_run_whose_only_commit_is_the_refs_export_s_writes_the_refs_cpk_alone_with_no_bin() {
+    fn a_run_whose_only_commit_is_the_refs_export_s_writes_the_bins_for_the_referee_configs() {
         let temp = scratch("writer_refs_alone");
         let folder = temp.path();
         let mut output = with_refs_cpk(folder, BTreeMap::new(), 0..1);
@@ -1170,16 +1190,60 @@ mod tests {
         assert_eq!(
             written,
             Written {
+                team: true,
+                refs: true
+            }
+        );
+        assert_eq!(messages, []);
+        let refs = folder.join("refs.cpk");
+        assert_eq!(layout(&refs), then_tree(&["refs/a.bin"], &[]));
+        // The team side holds the bins alone, the referee configs' entries among them, and
+        // nothing of the failed kit's.
+        assert_eq!(
+            layout(&folder.join("cup.cpk")),
+            [
+                paths::UNIFORM_PARAMETER,
+                paths::TEAM_COLOR,
+                paths::UNI_COLOR
+            ]
+        );
+        let written: Vec<(&str, Vec<u8>)> = Templates::embedded()
+            .referee_tree(Engine::Fox)
+            .map(|(path, _)| (path, entry(&refs, path)))
+            .collect();
+        let bin = team_uniform_parameter(folder);
+        assert_config_entries(&bin, &written);
+        assert_eq!(bin.get("kit"), None);
+    }
+
+    #[test]
+    fn on_pes_17_a_run_whose_only_commit_is_the_refs_export_s_writes_the_refs_cpk_alone() {
+        let temp = scratch("writer_refs_alone_pes17");
+        let folder = temp.path();
+        let mut output = with_refs_cpk_for(folder, BTreeMap::new(), 0..1, Engine::PreFox);
+        output.submit(batch(0, &["refs/a.bin"], None)).unwrap();
+
+        let (written, messages) = output
+            .finish(
+                PesVersion::Pes17,
+                WorkingBins::bundled(PesVersion::Pes17, &Templates::embedded()),
+                &[],
+                &[],
+                &[],
+                &Templates::embedded(),
+            )
+            .unwrap();
+
+        // The pre-Fox referee configs are loose files alone: no bin to change.
+        assert_eq!(
+            written,
+            Written {
                 team: false,
                 refs: true
             }
         );
         assert_eq!(messages, []);
         assert!(!folder.join("cup.cpk").exists(), "no team CPK");
-        assert_eq!(
-            layout(&folder.join("refs.cpk")),
-            then_tree(&["refs/a.bin"], &[])
-        );
     }
 
     #[test]
@@ -1235,7 +1299,12 @@ mod tests {
         let team = folder.join("cup.cpk");
         assert_eq!(
             layout(&team),
-            [REFEREE_APPEARANCE, paths::TEAM_COLOR, paths::UNI_COLOR]
+            [
+                REFEREE_APPEARANCE,
+                paths::UNIFORM_PARAMETER,
+                paths::TEAM_COLOR,
+                paths::UNI_COLOR
+            ]
         );
         assert_eq!(
             entry(&team, REFEREE_APPEARANCE),
@@ -1313,6 +1382,84 @@ mod tests {
             }
             assert_eq!(configs, 20, "{version}");
         }
+    }
+
+    /// The `UniformParameter.bin` of the team CPK `cup.cpk` in `folder`.
+    fn team_uniform_parameter(folder: &Path) -> UniformParameter {
+        UniformParameter::read(&entry(&folder.join("cup.cpk"), paths::UNIFORM_PARAMETER)).unwrap()
+    }
+
+    /// Asserts that `bin` holds each of the 20 referee kit configs among `written` (game path,
+    /// bytes) as the entry of its file name, with its bytes.
+    fn assert_config_entries(bin: &UniformParameter, written: &[(&str, Vec<u8>)]) {
+        let mut configs = 0;
+        for (path, bytes) in written {
+            let Some(name) = path.strip_prefix(paths::REFEREE_KIT_CONFIGS) else {
+                continue;
+            };
+            configs += 1;
+            assert_eq!(bin.get(name), Some(bytes.as_slice()), "{path}");
+        }
+        assert_eq!(configs, 20);
+    }
+
+    #[test]
+    fn with_the_marker_every_referee_kit_config_is_also_its_entry_in_the_team_side_s_bin() {
+        let temp = scratch("writer_refs_marker_entries");
+        let marker = paths::collar(Engine::Fox, REFEREE_MARKER_COLLAR);
+        let templates = Templates::embedded();
+        for version in [
+            PesVersion::Pes18,
+            PesVersion::Pes19,
+            PesVersion::Pes20,
+            PesVersion::Pes21,
+        ] {
+            let folder = temp.path().join(version.to_string());
+            fs::create_dir_all(&folder).unwrap();
+            let written = refs_tree(&folder, version, &templates, &[&marker]);
+
+            // No team batch went in: the team side is written for the bin alone.
+            assert_eq!(
+                layout(&folder.join("cup.cpk")),
+                [
+                    paths::UNIFORM_PARAMETER,
+                    paths::TEAM_COLOR,
+                    paths::UNI_COLOR
+                ],
+                "{version}"
+            );
+            let bin = team_uniform_parameter(&folder);
+            assert_config_entries(&bin, &written);
+            assert_eq!(
+                bin.get("referee_DEF_1.bin").unwrap()[0x14..0x16],
+                [77, 77],
+                "{version}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_referee_kit_config_an_override_holds_gets_no_entry() {
+        let temp = scratch("writer_refs_config_override");
+        let folder = temp.path();
+        let def_1 = "common/character0/model/character/uniform/team/referee/referee_DEF_1.bin";
+        let overrides = overrides(folder, &[def_1]);
+        let mut output = with_refs_cpk(folder, overrides, 0..1);
+        let marker = paths::collar(Engine::Fox, REFEREE_MARKER_COLLAR);
+        output.submit(batch(0, &[&marker], None)).unwrap();
+
+        let (_, messages) = finish_pes21(output);
+
+        assert_eq!(messages, [duplicate(def_1)]);
+        let bin = team_uniform_parameter(folder);
+        // The base's entry stays, collar 105, while the configs written wear the marker's.
+        let base = bundled().uniform_parameter.unwrap();
+        assert_eq!(bin.get("referee_DEF_1.bin"), base.get("referee_DEF_1.bin"));
+        assert_eq!(
+            bin.get("referee_DEF_1.bin").unwrap()[0x14..0x16],
+            [105, 105]
+        );
+        assert_eq!(bin.get("referee_DEF_2.bin").unwrap()[0x14..0x16], [77, 77]);
     }
 
     #[test]
@@ -1456,8 +1603,19 @@ mod tests {
         );
         assert_eq!(messages, []);
         let mut expected = then_tree(&["refs/a.bin"], &[]);
-        expected.extend([paths::TEAM_COLOR.to_owned(), paths::UNI_COLOR.to_owned()]);
-        assert_eq!(layout(&folder.join("committed.cpk")), expected);
+        expected.extend([
+            paths::UNIFORM_PARAMETER.to_owned(),
+            paths::TEAM_COLOR.to_owned(),
+            paths::UNI_COLOR.to_owned(),
+        ]);
+        let committed = folder.join("committed.cpk");
+        assert_eq!(layout(&committed), expected);
+        let written: Vec<(&str, Vec<u8>)> = Templates::embedded()
+            .referee_tree(Engine::Fox)
+            .map(|(path, _)| (path, entry(&committed, path)))
+            .collect();
+        let bin = UniformParameter::read(&entry(&committed, paths::UNIFORM_PARAMETER)).unwrap();
+        assert_config_entries(&bin, &written);
 
         // The refs export's task failed: no tree, though a team's entry went in.
         let mut output = in_sink("failed.cpk");
@@ -1498,7 +1656,12 @@ mod tests {
         let team = folder.join("cup.cpk");
         assert_eq!(
             layout(&team),
-            ["refs/over.bin", paths::TEAM_COLOR, paths::UNI_COLOR]
+            [
+                "refs/over.bin",
+                paths::UNIFORM_PARAMETER,
+                paths::TEAM_COLOR,
+                paths::UNI_COLOR
+            ]
         );
         assert_eq!(
             entry(&team, "refs/over.bin"),

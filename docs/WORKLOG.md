@@ -16,10 +16,10 @@ cross-family review (a) is queued). Next:
 the next open Phase 4 step (see the list); 4.21 to 4.24 and 4.29
 and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) is done, 4.19e (a pre-Fox
 referee's shared boots link) is open; 4.27a (the Fox referee marker) is done, 4.27's pre-Fox half landed
-with 4.19d, 4.27b is next; 4.9 is done
+with 4.19d, 4.27b is done (4.27 done); 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g1 done: the pose measurement on the games' own files, the pre-check's rule settled as a blended-delta test; g2 done: `needs_conversion` is that test, `skf_*` pass through, tolerance 3e-3; g3a done: the Fox Models task pre-checks every selected FMDL with its `.skl`, the gloves task reads a hand-split part's `.skl`, a slotless conversion skeleton is dropped silently; g3b done: every pre-Fox `.model` pre-checked with the member's `.mtl` packed beside a moved one, the Common `.mtl` a link names read; 4.17's slices are done); 4.20 in progress (lead rulings and a done 2026-10-09: the gate gone, a file no role reads `file_not_used`; b1 done: unused kit stems, `shared_folder_no_model`, Common-set textures, the Common glTF order; b2 done: per-kit sets left out on pre-Fox where no `face.xml` names them, a shared folder's `face.xml` ignored; 4.20 done); 4.19d done 2026-10-09 (with 4.27's pre-Fox half; the TC-REF-04 in-game check: checked 2026-10-09 by the lead on PES 17 through the harness (`.tmp/4_19/ingame/`, results in `.tmp/4_0/apptest/results.txt`): the referee present with the pair installed, nothing drawn; a `.mtl` beside a nocloth `.model` is read and stops the model drawing (runs E and F against 2026-10-08's run I), so the pre-Fox marker goes by Red's route instead: step 4.19f, DECISIONS 2026-10-09; the scene where the pre-Fox marker shows is a maintainer question); next 4.27b, then 4.19f (the pre-Fox marker by Red's route), 4.19e, converge
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g1 done: the pose measurement on the games' own files, the pre-check's rule settled as a blended-delta test; g2 done: `needs_conversion` is that test, `skf_*` pass through, tolerance 3e-3; g3a done: the Fox Models task pre-checks every selected FMDL with its `.skl`, the gloves task reads a hand-split part's `.skl`, a slotless conversion skeleton is dropped silently; g3b done: every pre-Fox `.model` pre-checked with the member's `.mtl` packed beside a moved one, the Common `.mtl` a link names read; 4.17's slices are done); 4.20 in progress (lead rulings and a done 2026-10-09: the gate gone, a file no role reads `file_not_used`; b1 done: unused kit stems, `shared_folder_no_model`, Common-set textures, the Common glTF order; b2 done: per-kit sets left out on pre-Fox where no `face.xml` names them, a shared folder's `face.xml` ignored; 4.20 done); 4.19d done 2026-10-09 (with 4.27's pre-Fox half; the TC-REF-04 in-game check: checked 2026-10-09 by the lead on PES 17 through the harness (`.tmp/4_19/ingame/`, results in `.tmp/4_0/apptest/results.txt`): the referee present with the pair installed, nothing drawn; a `.mtl` beside a nocloth `.model` is read and stops the model drawing (runs E and F against 2026-10-08's run I), so the pre-Fox marker goes by Red's route instead: step 4.19f, DECISIONS 2026-10-09; the scene where the pre-Fox marker shows is a maintainer question); 4.27b done 2026-10-09 (the Fox referee configs also their `UniformParameter.bin` entries; a refs-only Fox run writes the team side); next 4.19f (the pre-Fox marker by Red's route), then 4.19e, converge
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -2675,7 +2675,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `4cc_42_teams.cpk` the third, `4cc_43`..`45` are each 6,272 bytes equal to the placeholder
   fixture, `4cc_08_bins.cpk` holds the bins and nothing else
 
-- [ ] 4.27 **Referee marker as reserved collar 77, both engines** (lead first: the two
+- [x] 4.27 **Referee marker as reserved collar 77, both engines** (lead first: the two
   marker models bundled as referee templates with a provenance README, from the sources
   named under "Phase 4 open questions", each checked to be painted to `static`): the marker model bundled as a
   referee template and emitted in the refs CPK as collar 77, its texture path naming
@@ -2718,15 +2718,26 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   beside 105); the pre-Fox marker (TC-REF-04) needs pre-Fox referees (4.19d).
   Settled 2026-10-07 (maintainer): the game needs the loose referee configs but reads their
   values from the `UniformParameter.bin` entries, as for team kits; so 4.27b.
-  - [ ] 4.27b **Fox referee configs as `UniformParameter.bin` entries too**: on Fox, each
+  - [x] 4.27b **Fox referee configs as `UniformParameter.bin` entries too** (done 2026-10-09,
+    Opus sidekick, one rework round, the multi-CPK refs-only test the sidekick itself flagged as uncovered; no lead fix: `writer.rs` `finish_referees` pushes each Fox
+    config written, the override check first, to `uniform_parameters`; `finish_team`'s early
+    return stays out when those are non-empty, so a refs-only Fox run writes the team side
+    (TC-REF-01 now both CPKs); TC-REF-12, TC-REF-08 extended, a `templates/referees_fox/`
+    config replacement as its entry, the help; one contradiction accepted: the bases hold
+    no `referee_1..5` entries, plan and decision entry corrected): on Fox, each
     referee kit config the refs CPK holds loose (the templates' or `templates/referees_fox/`'s,
     with collar 77 when the marker is emitted) also replaces the entry of its name in the
     bins CPK's `UniformParameter.bin`. Plan: `blue_port.md` "Referee export processing" (the
     paragraph on the template kit configs); `pipeline.md` "Bins accumulation". Crates: tc
-    (`writer.rs` `finish_referees`, the bins writer) → verify: a refs export with
-    `ref_marker.dds` compiled for PES 21: the bins CPK's `UniformParameter.bin` entries
-    `referee_ACL_1..4` and `referee_DEF_1..5` decode with collar 77 and equal the loose
-    files byte for byte; without `ref_marker.dds` they equal the templates' configs.
+    (`writer.rs` `finish_referees`, the bins writer). ID: TC-REF-12 → verify: a refs export
+    with `ref_marker.dds` compiled for PES 21 alone: the team CPK is written, and its
+    `UniformParameter.bin` entries named as the 20 loose configs (`referee_ACL_1.bin` to
+    `referee_SDA_3.bin`; the bases hold ACL and DEF, PES 18's CL too, every one at collar
+    105) decode with collar 77 and equal the loose files byte for byte, the other entries
+    the base's; without `ref_marker.dds` they equal the templates' configs; for PES 17 no
+    team CPK. The bases hold no `referee_1..5` entries, as the brief assumed from a byte grep
+    (those strings are kit texture names inside the configs; the sidekick's parser,
+    `.tmp/4_27/sk_probe/uniparam_names.py`). Brief `.tmp/4_27/brief_4_27b.md`.
 
 - [x] 4.28 **Complete memory accounting**: a running task charges the budget for what it
   allocates (decoded textures, parsed and merged models, its packed entries), without waiting;
@@ -4840,3 +4851,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   wording twice, the pre-Fox prop unskinned rather than painted to `static`, the pre-Fox
   configs' collar 26); the TC-REF-10 probe opened 4.19e (a pre-Fox referee's shared boots
   written twice). Gates 274 proven. Mutants: 55 (30 caught, 25 unviable: type-driven defaults and leaked-static replacements of the tree accessors, 0 missed).
+- **2026-10-09** — 4.27b landed (Opus sidekick, one rework round, the multi-CPK refs-only test the sidekick itself flagged as uncovered; no lead fix); 4.27 closes: on
+  PES 18-21 every referee kit config written to the refs CPK is also the entry of its file
+  name in the run's `UniformParameter.bin`, with the bytes written (collar 77 under the
+  marker, a `templates/referees_fox/` replacement's bytes), so a run whose only committing
+  export is the refs export writes the team side for the bin (multi-CPK: the bins CPK and
+  the placeholder parts); PES 15-17 unchanged. One contradiction accepted: the bundled
+  bases hold no `referee_1..5` entries (a byte grep had read kit texture names inside the
+  configs as entry names); the `LB` and `SDA` entries are new, inserted by name. Gates 275
+  proven. Mutants: 10 (8 caught, 2 unviable: type-driven defaults of finish_team's return, 0 missed).

@@ -924,7 +924,8 @@ describes behavior, not a serial scheduling requirement:
   bytes until an export with colors is compiled for that team; `bin_header_repaired` names the
   bin and the teams, so the corruption is noticed. Kit configs are staged for
   `UniformParameter.bin` compilation (Fox only; Red's `UniformParameter{18,19}.bin` are only its
-  bundled per-version fallback bases); when
+  bundled per-version fallback bases), the referee template tree's among them when a refs
+  export commits ("Referee export processing" in `blue_port.md`); when
   the team's kit-FPC status is On, kit slots absent from the export are FPC-patched from the
   installed cup content (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)).
   The slots patched are the kits the team's working `UniColor.bin` record holds, the ones the
@@ -1039,8 +1040,14 @@ describes behavior, not a serial scheduling requirement:
    it, and a refs export's `.common` texture link is therefore never satisfied by an
    installed texture). The refs export's entries never go into the team CPK, the teams
    parts or the bins CPK, and the team side is written only when a team export commits
-   something or there are overrides: a run whose only committing export is the refs
-   export writes the refs CPK alone, with no bins, since the referees change no bin. An
+   something, there are overrides, or, on PES 18-21, the referee template tree's kit
+   configs went out: each is also the entry of its name in `UniformParameter.bin`
+   ("Referee export processing" in `blue_port.md`), so a run whose only committing export
+   is the refs export writes the refs CPK and, on PES 18-21, the team side for the bins,
+   in multi-CPK mode the teams parts with it, every slot the placeholder (step 6: the mode
+   compiles the whole DLC from the root, and a root holding a refs export alone is a DLC
+   with no teams); on PES 15-17, whose configs are loose files alone, it writes the refs
+   CPK alone, with no bins, since the referees change none. An
    entry of the refs export at an override's path is left out like any other (the
    override goes into the team side, step 1). Every emitted CPK name (team, teams part,
    refs) is a validated `CpkStem` (shared `pipeline` type): filename stem only, 1–28 characters from

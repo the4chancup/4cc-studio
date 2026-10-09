@@ -12,13 +12,14 @@ use std::path::Path;
 use kit_config::KitConfig;
 use pes_model::format::mtl::{MaterialEntry, MaterialSet};
 use pes_version::{Engine, PesVersion};
+use uniparam::UniformParameter;
 
 use crate::common::{Run, Sandbox};
 use crate::common_links::texture_directories;
 use crate::compile::{
     cpk_entries, kit_texture, pes_settings, pes21_settings, tracer_kit, tracer_player_file,
 };
-use crate::compile_exports::TEAM_COLOR;
+use crate::compile_exports::{TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER, bundled_uniform_parameter};
 use crate::deploy::{install_pes, templates_folder};
 use crate::models::package_names;
 use crate::prefox_faces::{nested_entries, ordered_entries};
@@ -152,7 +153,7 @@ const REFEREE_PROP_MODEL: &str =
 const REFEREE_PROP_MTL: &str = "common/character1/model/character/parts/referee/referee_prop.mtl";
 
 /// The folder of the referee kit configs, in the template tree and in the refs CPK.
-const REFEREE_CONFIGS: &str = "common/character0/model/character/uniform/team/referee/";
+pub(crate) const REFEREE_CONFIGS: &str = "common/character0/model/character/uniform/team/referee/";
 
 /// The referee kit configs of `engine`'s template tree as the repository holds it, by game
 /// path.
@@ -167,7 +168,7 @@ fn template_configs(engine: Engine) -> BTreeMap<String, Vec<u8>> {
 
 /// Writes `Ref A` in slot 01 (`write_ref_a`) and, when given, `marker` as the refs export's
 /// `ref_marker.dds`.
-fn write_refs_with_marker(sandbox: &Sandbox, marker: Option<&[u8]>) {
+pub(crate) fn write_refs_with_marker(sandbox: &Sandbox, marker: Option<&[u8]>) {
     write_ref_a(sandbox, &["01"]);
     if let Some(marker) = marker {
         sandbox.write(&format!("{REFS}/ref_marker.dds"), marker);
@@ -183,6 +184,25 @@ fn cpk_files(folder: &Path) -> Vec<String> {
         .collect();
     names.sort();
     names
+}
+
+/// The team CPK's file name at the default `cpk_name`.
+const TEAM_CPK: &str = "4cc_99_test.cpk";
+
+/// The entries of the team CPK a `compile --no-deploy` in `sandbox` left in `output/`.
+fn team_entries(sandbox: &Sandbox) -> BTreeMap<String, Vec<u8>> {
+    cpk_entries(&sandbox.root.join("output").join(TEAM_CPK))
+}
+
+/// The `UniformParameter.bin` of the team CPK a `compile --no-deploy` in `sandbox` wrote.
+fn team_uniform_parameter(sandbox: &Sandbox) -> UniformParameter {
+    UniformParameter::read(&team_entries(sandbox)[UNIFORM_PARAMETER]).unwrap()
+}
+
+/// The name of the `UniformParameter.bin` entry of the referee kit config at game path
+/// `path`: its file name, `.bin` included.
+fn entry_name(path: &str) -> &str {
+    path.strip_prefix(REFEREE_CONFIGS).unwrap()
 }
 
 // TC-REF-01
@@ -205,8 +225,16 @@ fn a_referee_folder_is_emitted_under_each_of_his_slots_with_his_textures_once() 
     );
     assert_eq!(lines.last(), Some(&skipped(&sandbox, REFS_CPK)));
     assert_eq!(run.exit_code(), 0);
-    // The refs export alone commits: no team CPK, and no bin, since the referees change none.
-    assert_eq!(cpk_files(&sandbox.root.join("output")), [REFS_CPK]);
+    // The refs export alone commits: the team CPK holds the bins alone, for the referee kit
+    // configs' entries in UniformParameter.bin, so no 999 path and no referee path.
+    assert_eq!(
+        cpk_files(&sandbox.root.join("output")),
+        [REFS_CPK, TEAM_CPK]
+    );
+    let team: Vec<String> = team_entries(&sandbox).into_keys().collect();
+    let mut bins = [TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER];
+    bins.sort_unstable();
+    assert_eq!(team, bins);
     assert!(!entries.contains_key(TEAM_COLOR));
     for slot in ["01", "20", "35"] {
         for (kind, stem) in [("face/real/referee0", "face"), ("boots/k99", "boots")] {
@@ -364,6 +392,36 @@ fn on_pes_17_a_data_directory_file_at_a_pre_fox_tree_path_replaces_that_file() {
     assert_tree_override_replaces_its_file("ref_tree_override_pes17", PesVersion::Pes17);
 }
 
+#[test]
+fn a_data_directory_referee_kit_config_is_also_its_uniform_parameter_bin_entry() {
+    let sandbox = Sandbox::new("ref_tree_config_override");
+    write_ref_a(&sandbox, &["01"]);
+    let def_1 = format!("{REFEREE_CONFIGS}referee_DEF_1.bin");
+    let template = &template_configs(Engine::Fox)[&def_1];
+    let mut config = KitConfig::decode(template, PesVersion::Pes21).unwrap();
+    config.shirt.collar = 26;
+    config.shirt.winter_collar = 26;
+    let replacement = config.encode(PesVersion::Pes21).to_vec();
+    assert_ne!(&replacement, template);
+    sandbox.write(
+        &format!("data/templates/referees_fox/{def_1}"),
+        &replacement,
+    );
+
+    let (run, entries) = compile(&sandbox);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    // No marker: the replacement goes in as it is, collar 26.
+    assert!(
+        entries[&def_1] == replacement,
+        "the replacement in the refs CPK"
+    );
+    assert!(
+        team_uniform_parameter(&sandbox).get("referee_DEF_1.bin") == Some(replacement.as_slice()),
+        "the replacement as its entry"
+    );
+}
+
 // TC-REF-06
 #[test]
 fn a_ref_marker_goes_into_the_refs_cpk_as_collar_77_which_every_referee_kit_wears() {
@@ -404,10 +462,67 @@ fn a_ref_marker_goes_into_the_refs_cpk_as_collar_77_which_every_referee_kit_wear
     );
 }
 
+/// The entries of the `UniformParameter.bin` `bytes`, by name.
+fn uniform_parameter_entries(bytes: &[u8]) -> BTreeMap<String, Vec<u8>> {
+    UniformParameter::read(bytes)
+        .unwrap()
+        .entries()
+        .map(|(name, bytes)| (name.to_owned(), bytes.to_vec()))
+        .collect()
+}
+
+// TC-REF-12
+#[test]
+fn on_fox_every_referee_kit_config_is_also_its_entry_in_the_team_cpk_s_uniform_parameter_bin() {
+    let sandbox = Sandbox::new("ref_config_entries");
+    write_refs_with_marker(&sandbox, Some(&tracer_player_file("shirt.dds")));
+
+    let (run, entries) = compile(&sandbox);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert_eq!(
+        cpk_files(&sandbox.root.join("output")),
+        [REFS_CPK, TEAM_CPK]
+    );
+    assert_eq!(
+        lines[lines.len() - 2..],
+        [skipped(&sandbox, TEAM_CPK), skipped(&sandbox, REFS_CPK)],
+        "the team CPK's line, then the refs CPK's"
+    );
+    let team = team_entries(&sandbox);
+    for path in team.keys() {
+        assert!(
+            !path.contains("/999/") && !path.starts_with(REFEREE_CONFIGS),
+            "{path}"
+        );
+    }
+    let mut written = uniform_parameter_entries(&team[UNIFORM_PARAMETER]);
+    let mut base = uniform_parameter_entries(&bundled_uniform_parameter());
+    for path in template_configs(Engine::Fox).keys() {
+        let name = entry_name(path);
+        let entry = written
+            .remove(name)
+            .unwrap_or_else(|| panic!("no entry {name}"));
+        assert!(entry == entries[path], "{path}: the refs CPK's loose file");
+        let config = KitConfig::decode(&entry, PesVersion::Pes21).unwrap();
+        assert_eq!(
+            (config.shirt.collar, config.shirt.winter_collar),
+            (77, 77),
+            "{path}"
+        );
+        base.remove(name);
+    }
+    // The base's 2210 entries hold 10 of the 20 names (`referee_ACL_*`, `referee_DEF_*`): the
+    // other 2200, the teams', are kept as they are.
+    assert_eq!(base.len(), 2200);
+    assert!(written == base, "every other entry is the bundled base's");
+}
+
 /// Compiles Ref A without `ref_marker.dds` for `version` in the sandbox `name`, and asserts
 /// that the refs CPK holds none of `collars`, the marker's model files, no marker texture, and
-/// the kit configs of `version`'s template tree as they are.
-fn assert_compiles_without_marker(name: &str, version: PesVersion, collars: &[&str]) {
+/// the kit configs of `version`'s template tree as they are. Returns the sandbox.
+fn assert_compiles_without_marker(name: &str, version: PesVersion, collars: &[&str]) -> Sandbox {
     let sandbox = Sandbox::new(name);
     write_refs_with_marker(&sandbox, None);
 
@@ -423,12 +538,23 @@ fn assert_compiles_without_marker(name: &str, version: PesVersion, collars: &[&s
     for (path, template) in template_configs(version.engine()) {
         assert!(entries[&path] == template, "{path}");
     }
+    sandbox
 }
 
 // TC-REF-08
 #[test]
 fn without_a_ref_marker_the_refs_cpk_holds_no_collar_and_the_template_kit_configs() {
-    assert_compiles_without_marker("ref_no_marker", PesVersion::Pes21, &[MARKER_COLLAR]);
+    let sandbox =
+        assert_compiles_without_marker("ref_no_marker", PesVersion::Pes21, &[MARKER_COLLAR]);
+
+    // Each template config is also its entry, so the team CPK is written for the bin.
+    let bin = team_uniform_parameter(&sandbox);
+    for (path, template) in template_configs(Engine::Fox) {
+        assert!(
+            bin.get(entry_name(&path)) == Some(template.as_slice()),
+            "{path}"
+        );
+    }
 }
 
 #[test]
@@ -445,6 +571,7 @@ fn without_a_ref_marker_a_pes_17_refs_cpk_holds_no_collar_pair_and_the_template_
 }
 
 // TC-REF-04
+// TC-REF-12
 #[test]
 fn on_pes_17_a_ref_marker_goes_in_as_referee_collar_77_beside_an_empty_collar_77() {
     let sandbox = Sandbox::new("ref_marker_pes17");
@@ -453,6 +580,8 @@ fn on_pes_17_a_ref_marker_goes_in_as_referee_collar_77_beside_an_empty_collar_77
     let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    // The pre-Fox referee configs are loose files alone: no bin to change, no team CPK.
+    assert_eq!(cpk_files(&sandbox.root.join("output")), [REFS_CPK]);
     let tree = referee_tree(Engine::PreFox);
     assert!(
         entries.get(PRE_FOX_MARKER_MODEL) == Some(&tree[REFEREE_PROP_MODEL]),

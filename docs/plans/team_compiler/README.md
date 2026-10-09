@@ -1473,9 +1473,10 @@ TC-REF-04  GIVEN a refs export with ref_marker.dds
            WHEN it is compiled for PES 17
            THEN the referee CPK holds the marker texture, converted, as the template tree's
                 common/character1/model/character/parts/referee/incom_bsm.dds in place of the
-                tree's file, no referee_collar_077 pair and no collar_077.model, and loose
+                tree's file and nowhere else (no copy under common/999/), no referee_collar_077
+                pair and no collar_077.model, every other tree file as the template's, and loose
                 referee kit configs under common/character0/model/character/uniform/team/referee/
-                equal to the template's
+                equal to the template's; no team CPK is written
 TC-REF-05  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, compiled with
            --mode test
            WHEN it runs
@@ -1494,8 +1495,9 @@ TC-REF-07  GIVEN a /co/ export holding Collars/collar_77.fmdl, p1/config.toml wi
                 reported for p1 and for p2, each kit dropped
 TC-REF-08  GIVEN a refs export with no ref_marker.dds
            WHEN it is compiled for PES 21
-           THEN the referee CPK holds no collar_077.fmdl and no marker texture, and its kit
-                configs keep the template's collar
+           THEN the referee CPK holds no collar_077.fmdl and no marker texture, its kit
+                configs keep the template's collar, and the team CPK's UniformParameter.bin
+                entries of their names equal them
 TC-REF-09  GIVEN TC-REF-01's refs export
            WHEN the root is compiled for PES 17
            THEN the referee CPK holds common/character0/model/character/face/real/referee001.cpk,
@@ -1513,6 +1515,13 @@ TC-REF-11  GIVEN a refs export holding Kits/p1 with kit.dds beside a mapped refe
            WHEN the root is compiled for PES 21
            THEN file_not_used is reported naming Kits/p1 as a Warning, the referee CPK holds no
                 kit, and the referee face compiles
+TC-REF-12  GIVEN a refs export with ref_marker.dds
+           WHEN it is compiled for PES 21 with --no-deploy
+           THEN the team CPK is written holding UniformParameter.bin, whose entries named as
+                the 20 loose referee kit configs (referee_ACL_1.bin to referee_SDA_3.bin) equal
+                the referee CPK's loose files byte for byte, each with collar 77, and whose
+                other entries equal the installed or bundled bin's; the team CPK holds no 999
+                path and no loose referee config; compiled for PES 17, no team CPK is written
 TC-REF-13  GIVEN TC-REF-10's refs export (Ref A in slots 01 and 20, holding only a link to the
            shared folder Boots/Studs, which holds boots.fmdl)
            WHEN the root is compiled for PES 17

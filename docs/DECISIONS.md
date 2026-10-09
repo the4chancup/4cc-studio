@@ -5678,3 +5678,23 @@ the test texture. The reservation is kept on both engines because an engine case
 `collar_id_conflict` and `kit_collar_reserved` buys a team one stock collar ID on pre-Fox.
 Plan: `team_compiler/blue_port.md` "Referee export processing" (the marker intro and bullets,
 the marker model paragraph); `team_compiler/README.md` TC-REF-04.
+
+## 2026-10-09 — team_compiler — A refs export alone writes the team side on PES 18-21, for the referee entries
+Decision: on PES 18-21 each referee kit config written to the refs CPK (the template's, wearing
+the marker's collar when the marker went in, or a `templates/referees_fox/` replacement) is also
+the entry of its name (`referee_DEF_1.bin`, as the loose file) in the run's `UniformParameter.bin`,
+riding with the committed kits' configs; the team side is therefore written on a run whose only
+committing export is the refs export, in multi-CPK mode with the teams parts, every slot the
+placeholder, as for any run. All 20 configs of the tree get an entry, not only the ones the base
+bin already holds (ACL and DEF; PES 18's CL): the LB and SDA entries are new. PES 15-17 are
+unchanged: loose files alone.
+Why: the game reads a referee config's values from its entry and only loads the loose file
+(in-game, 2026-10-06), so the loose collar-77 configs alone leave the referees on collar 105
+under the marker. One rule for the 20 files is what a member can predict, and a team's own
+entries are inserted by name the same way whether or not the base held them. The multi-CPK
+placeholders follow the mode's own rule ("Every slot is always written"): the mode compiles the
+whole DLC from the root, and the alternative, a bins CPK without its parts, breaks that rule and
+the staged list for one case no maintainer's run reaches.
+Plan: `team_compiler/blue_port.md` "Referee export processing" (the kit configs bullet);
+`team_compiler/pipeline.md` "5. Writer" (the refs-only run's team side by engine), "Bins
+accumulation"; `team_compiler/README.md` TC-REF-12, TC-REF-08.
