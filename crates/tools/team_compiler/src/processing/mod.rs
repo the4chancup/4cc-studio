@@ -3636,7 +3636,9 @@ mod tests {
         let [message] = batch.messages.as_slice() else {
             panic!("{:?}", batch.messages);
         };
-        assert_eq!(message.code.code, "folder_pack_failed");
+        // A member's FMDL is read first by the conversion pre-check, whose read failure names
+        // the model (`conversion::fmdl_for_fox`).
+        assert_eq!(message.code.code, "model_conversion_failed");
         assert_eq!(
             (message.severity, message.disposition),
             (Severity::Error, Disposition::DropFolder)

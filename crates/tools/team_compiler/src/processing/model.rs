@@ -19,7 +19,7 @@ use pes_version::Engine;
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::conversion::{model_for_fox, source_name};
+use super::conversion::{fmdl_for_fox, model_for_fox, source_name};
 use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_diff;
@@ -39,10 +39,11 @@ struct Part {
     name: &'static str,
     /// The part's export path, which with its file name orders the parts of one output.
     path: ScopePath,
-    /// The part's bytes, an FMDL: a `.model`'s converted.
+    /// The part's bytes, an FMDL: a `.model`'s converted, a member's FMDL as it is or moved
+    /// onto the version's skeleton (`convert_part`).
     bytes: Vec<u8>,
     /// The skeleton paired with the part: the `.skl` of its stem in its own source folder, or
-    /// the one a `.model`'s conversion writes.
+    /// the one its conversion writes.
     skeleton: Option<Vec<u8>>,
     /// Where the part's own textures are packed.
     textures: PartTextures,
@@ -62,15 +63,18 @@ enum PartTextures {
 
 /// The files of `folder`'s `package`, compiled from its files' bytes in `files` for team
 /// `team_id`, by their names in the package, a file the game needs beside the models that no
-/// source holds taken from the run's templates. A `.model` with no `.fmdl` of its stem is
-/// converted first (`convert_part`), with the `.mtl` its search finds among its source's
-/// files, and so is a Common `.model` a `.common` link brings in, with the `.mtl` planning
-/// resolved for it (`ModelFolder::common_material`); either is then a part like a member's
-/// FMDL: the skeleton the conversion writes is the part's, as a member's `.skl` of its stem
-/// would be (one beside it of other bytes is `skl_merge_conflict`), and is left out with
-/// `skl_no_slot` for a role with no skeleton slot. A hand-split face part gives the face its body
-/// and the gloves its hands (`parts_of`), before any texture path is rewritten. A
-/// merge of several parts into one model is noted in `findings` as `fmdl_merged`. A texture a
+/// source holds taken from the run's templates. Every model is first put through
+/// `convert_part`: a `.model` with no `.fmdl` of its stem is converted, with the `.mtl` its
+/// search finds among its source's files, and so is a Common `.model` a `.common` link brings
+/// in, with the `.mtl` planning resolved for it (`ModelFolder::common_material`); an FMDL, a
+/// member's own, a shared folder's or a Common one, runs the conversion pre-check with the
+/// `.skl` of its stem as its bind pose, and is moved onto the version's skeleton when it is
+/// posed off it. The skeleton a conversion writes is the part's, as a member's `.skl` of its
+/// stem would be (one beside it of other bytes is `skl_merge_conflict`), and is dropped with
+/// no finding for a role with no skeleton slot. A hand-split face part, converted or moved
+/// first, gives the face its body and the gloves its hands (`parts_of`), the gloves reading
+/// the part's `.skl` for that, before any texture path is rewritten. A merge of several parts
+/// into one model is noted in `findings` as `fmdl_merged`. A texture a
 /// part's mesh uses that nothing supplies (`texture_supply`) fails the task with
 /// `fmdl_texture_not_found` at the first one, or, when the installed CPKs cannot be looked in,
 /// is noted in `findings` as `fmdl_texture_not_found`, once per texture.
@@ -97,28 +101,39 @@ pub(super) fn package(
             .iter()
             .map(|combined| &combined.folder.files),
     );
+    // A hand-split face part (`ModelFolder::hand_split`) is read by the face task, which keeps
+    // its body, and by the gloves task, which keeps its hands, each with the part's `.skl`.
+    let reads_hand_split = match package {
+        ModelPackage::Face | ModelPackage::Gloves => true,
+        ModelPackage::Boots => false,
+    };
     for ((_, source_path, source_roles), source_files) in
         folder.roles().into_iter().zip(source_files)
     {
         // A skeleton pairs with the model of its stem in the same directory: keyed by the
         // path up to the extension, case-folded as the file system folds it (planning pairs
         // a Common skeleton with its model folded too), since a player folder's reserved
-        // subfolder may hold a model of the same name as one directly in the folder.
+        // subfolder may hold a model of the same name as one directly in the folder. They are
+        // read before the models: a `.skl` may sort after its model, and an FMDL needs its
+        // skeleton, its bind pose, for the conversion pre-check.
         let mut skeletons: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-        let mut source_parts: Vec<Part> = Vec::new();
+        for (file, role) in &source_roles {
+            if let PlayerFile::Skeleton { package: owner, .. } = role
+                && (*owner == package || (reads_hand_split && folder.hand_split_skeleton(file)))
+            {
+                skeletons.insert(
+                    vtree::fold_name(file_stem(file.path.as_str())),
+                    take(files, file),
+                );
+            }
+        }
         for (file, role) in source_roles {
-            // A hand-split face part (`ModelFolder::hand_split`) is read by the face task, which
-            // keeps its body, and by the gloves task, which keeps its hands.
-            let hand_split = folder.hand_split.contains(&file.path)
-                && match package {
-                    ModelPackage::Face | ModelPackage::Gloves => true,
-                    ModelPackage::Boots => false,
-                };
+            let hand_split = reads_hand_split && folder.hand_split.contains(&file.path);
             let mut part = |name, textures| Part {
                 name,
                 path: file.path.clone(),
                 bytes: take(files, file),
-                skeleton: None,
+                skeleton: skeletons.remove(&vtree::fold_name(file_stem(file.path.as_str()))),
                 textures,
             };
             match role {
@@ -128,7 +143,7 @@ pub(super) fn package(
                 } if owner == package || hand_split => {
                     let mut part = part(name, PartTextures::Folder);
                     let model = source_name(&file.path, &folder.path);
-                    if file.kind == FileKind::Model(ModelFormat::PesModel) {
+                    let mtl = if file.kind == FileKind::Model(ModelFormat::PesModel) {
                         let mtl = mtl_for(
                             &file.path,
                             source_path,
@@ -143,10 +158,12 @@ pub(super) fn package(
                             "a package converting a `.model` reads its source's `.mtl` files \
                              (`TaskKind::files`)",
                         );
-                        convert_part(&mut part, &model, mtl, owner, package, ctx, findings)?;
-                    }
-                    let parts = parts_of(part, &model, hand_split, package, ctx, findings)?;
-                    source_parts.extend(parts);
+                        Some(mtl.as_slice())
+                    } else {
+                        None
+                    };
+                    convert_part(&mut part, &model, mtl, owner, package, ctx, findings)?;
+                    parts.extend(parts_of(part, &model, hand_split, package, ctx, findings)?);
                 }
                 // A Common `.model` converts here, in each linking player's task, as his own
                 // `.model` does: Fox has no Common model output for it to convert once into,
@@ -158,7 +175,7 @@ pub(super) fn package(
                 } if owner == package || hand_split => {
                     let mut part = part(name, PartTextures::Common);
                     let model = source_name(&file.path, &folder.path);
-                    if file.kind == FileKind::Model(ModelFormat::PesModel) {
+                    let mtl = if file.kind == FileKind::Model(ModelFormat::PesModel) {
                         let mtl = folder.common_material(&file.path).expect(
                             "planning resolves a Common `.model`'s `.mtl`, the deep pass having \
                              dropped a folder linking one with none (`model_material_undefined`)",
@@ -167,16 +184,12 @@ pub(super) fn package(
                             "a package converting a Common `.model` reads the `.mtl` planning \
                              resolved for it (`TaskKind::files`)",
                         );
-                        convert_part(&mut part, &model, mtl, owner, package, ctx, findings)?;
-                    }
-                    let parts = parts_of(part, &model, hand_split, package, ctx, findings)?;
-                    source_parts.extend(parts);
-                }
-                PlayerFile::Skeleton { package: owner, .. } if owner == package => {
-                    skeletons.insert(
-                        vtree::fold_name(file_stem(file.path.as_str())),
-                        take(files, file),
-                    );
+                        Some(mtl.as_slice())
+                    } else {
+                        None
+                    };
+                    convert_part(&mut part, &model, mtl, owner, package, ctx, findings)?;
+                    parts.extend(parts_of(part, &model, hand_split, package, ctx, findings)?);
                 }
                 PlayerFile::Packed {
                     package: owner,
@@ -202,7 +215,6 @@ pub(super) fn package(
                 }
                 PlayerFile::Model { .. }
                 | PlayerFile::CommonModel { .. }
-                | PlayerFile::Skeleton { .. }
                 | PlayerFile::SlotlessSkeleton
                 | PlayerFile::UnusedFaceFile
                 | PlayerFile::LeftOutKitVariant
@@ -210,6 +222,8 @@ pub(super) fn package(
                 | PlayerFile::Packed { .. } => {}
                 // Read in place with the `.model` it defines, above.
                 PlayerFile::Material => {}
+                // Read before the models, above.
+                PlayerFile::Skeleton { .. } => {}
                 // Pre-Fox roles: a Fox target gives no file one.
                 PlayerFile::PreFoxModel { .. }
                 | PlayerFile::PreFoxPart { .. }
@@ -222,18 +236,6 @@ pub(super) fn package(
                 PlayerFile::UnsupportedGltf => {}
             }
         }
-        for part in &mut source_parts {
-            let member = skeletons.remove(&vtree::fold_name(file_stem(part.path.as_str())));
-            // A converted `.model`'s own skeleton takes the path a member's `.skl` of its stem
-            // would: beside one, they are two skeletons of the part, one when they are equal.
-            part.skeleton = match (part.skeleton.take(), member) {
-                (Some(converted), Some(member)) if converted != member => {
-                    return Err(skeleton_conflict());
-                }
-                (converted, member) => member.or(converted),
-            };
-        }
-        parts.extend(source_parts);
     }
 
     // The parts of one output model go in alphabetical source order, by file name folded as
@@ -403,32 +405,53 @@ fn skeleton_conflict() -> TaskFailure {
     }
 }
 
-/// Converts `part`, a `.model` that the task's findings name `model`, to an FMDL with `mtl`,
-/// the material set its search found (`conversion::model_for_fox`): the part's bytes become
-/// the FMDL's and its skeleton the one the conversion writes, left out with `skl_no_slot` for
-/// a part of `owner` under a name with no skeleton slot. What the conversion reports goes to
-/// `findings` only when the task builds `owner`, its `package`: the gloves task converts a
-/// hand-split face part again, for its hands, and that is the face's to tell. A conversion
-/// that fails, or whose FMDL the game cannot load, fails the task.
+/// Converts `part`, a model that the task's findings name `model`, for the Fox target: a
+/// `.model`, with `mtl`, the material set its search found, becomes an FMDL
+/// (`conversion::model_for_fox`); an FMDL (`mtl` `None`) is packed as it is unless the
+/// pre-check finds it posed off the version's skeleton, when it is moved onto it
+/// (`conversion::fmdl_for_fox`). The skeleton the conversion writes takes the path a member's
+/// `.skl` of the part's stem would: beside one, they are two skeletons of the part, one when
+/// they are equal, and an FMDL moved off the pose its `.skl` describes drops that `.skl` for
+/// the conversion's (`pipeline.md` step 3 "Format conversion"). A part of `owner` under a name
+/// with no skeleton slot keeps none, with no finding: the member authored no file
+/// (`messages.md` `skl_no_slot`). What the conversion reports goes to `findings` only when the
+/// task builds `owner`, its `package`: the gloves task converts a hand-split face part again,
+/// for its hands, and that is the face's to tell. A conversion that fails, or whose FMDL the
+/// game cannot load, fails the task.
 fn convert_part(
     part: &mut Part,
     model: &str,
-    mtl: &[u8],
+    mtl: Option<&[u8]>,
     owner: ModelPackage,
     package: ModelPackage,
     ctx: &CompileContext,
     findings: &mut Vec<Finding>,
 ) -> Result<(), TaskFailure> {
     let mut reported = Vec::new();
-    let converted = model_for_fox(model, &part.bytes, mtl, ctx, &mut reported)?;
-    part.bytes = converted.model;
-    part.skeleton = converted.skeleton;
-    if skeleton_slot(owner, part.name).is_none() && part.skeleton.take().is_some() {
-        reported.push((
-            Code::SklNoSlot,
-            Disposition::Keep,
-            vec![("model", model.to_owned())],
-        ));
+    match mtl {
+        Some(mtl) => {
+            let converted = model_for_fox(model, &part.bytes, mtl, ctx, &mut reported)?;
+            part.bytes = converted.model;
+            part.skeleton = match (converted.skeleton, part.skeleton.take()) {
+                (Some(converted), Some(member)) if converted != member => {
+                    return Err(skeleton_conflict());
+                }
+                (converted, member) => member.or(converted),
+            };
+        }
+        None => {
+            let skeleton = part.skeleton.as_deref();
+            if let Some(converted) = fmdl_for_fox(model, &part.bytes, skeleton, ctx, &mut reported)?
+            {
+                part.bytes = converted.model;
+                part.skeleton = converted.skeleton;
+            }
+        }
+    }
+    // A member's own `.skl` of a slotless role never gets here (`PlayerFile::SlotlessSkeleton`,
+    // reported by validation and never read): only a conversion's can.
+    if skeleton_slot(owner, part.name).is_none() {
+        part.skeleton = None;
     }
     if owner == package {
         findings.extend(reported);

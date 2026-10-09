@@ -1066,8 +1066,8 @@ fn the_skeleton_a_conversion_writes_is_the_boots_or_beside_a_member_s_a_conflict
 }
 
 #[test]
-fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_as_skl_no_slot() {
-    // A model in a subfolder is named below the player's folder, as its conversion names it.
+fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_with_no_finding() {
+    // A model directly in the player's folder, and one in its reserved subfolder.
     for (sandbox_name, directory) in [
         ("conversion_skeleton_slotless", ""),
         ("conversion_skeleton_slotless_face", "face/"),
@@ -1087,16 +1087,8 @@ fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_as_skl_no_slot(
 
         let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
 
-        assert_eq!(
-            lines,
-            [
-                "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
-                "Info team_colors_missing [Keep] ()".to_owned(),
-                format!(
-                    "Warning skl_no_slot [Keep] at Players/05 - A (model={directory}face_high.model)"
-                ),
-            ]
-        );
+        // The member authored no skeleton: the one the conversion writes is dropped silently.
+        assert_eq!(lines, CLEAN, "{directory}");
         assert_eq!(code, 0);
         assert_eq!(
             package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
@@ -1113,9 +1105,11 @@ fn a_linked_common_model_s_conversion_is_reported_on_the_player_naming_its_expor
     let export = "co Midcup Face";
     sandbox.write(&format!("{}/face_high.model.common", slot_05(export)), b"");
     let common = format!("exports/{export}/Common");
+    // The card head's one bone, bound at the head's pose, named as the neck: the conversion
+    // moves it onto the neck's pose and says so.
     sandbox.write(
         &format!("{common}/face_high.model"),
-        &card_with_its_own_bone(),
+        &edited_card(|model| model.bones[0].name = "sk_neck".to_owned()),
     );
     sandbox.write(&format!("{common}/face_high.mtl"), &card_materials());
     sandbox.write(&format!("{common}/skin.dds"), &small_dds());
@@ -1127,9 +1121,216 @@ fn a_linked_common_model_s_conversion_is_reported_on_the_player_naming_its_expor
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Warning skl_no_slot [Keep] at Players/05 - A (model=Common/face_high.model)",
+            "Info skeleton_retargeted [Keep] at Players/05 - A (model=Common/face_high.model, bones=1)",
         ]
     );
+    assert_eq!(code, 0);
+    assert_eq!(
+        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
+        ["face_diff.bin", "face_high.fmdl"]
+    );
+}
+
+/// The bones and meshes of the FMDL `bytes`: what a move onto another skeleton changes, and
+/// what the texture paths the compiler points do not touch.
+fn fmdl_rig(bytes: &[u8]) -> (Vec<fmdl::Bone>, Vec<fmdl::Mesh>) {
+    let model = fmdl::Model::from_file(&fmdl::FmdlFile::read(bytes).unwrap()).unwrap();
+    (model.bones, model.meshes)
+}
+
+/// The bundled PES 2021 body skeleton with the bone `name` raised 5 cm.
+fn body_skl_raised(name: &str) -> Vec<u8> {
+    let mut skeleton = fmdl::SklFile::read(&body_skl("pes21")).unwrap();
+    let bone = skeleton
+        .bones
+        .iter_mut()
+        .find(|bone| bone.name == name)
+        .unwrap();
+    bone.translation[1] += 0.05;
+    skeleton.write()
+}
+
+// TC-MOD-46
+#[test]
+fn a_member_s_fmdl_posed_off_the_target_s_skeleton_is_moved_onto_it_and_one_posed_on_it_kept() {
+    let export = "co Midcup Boots";
+    let player = slot_05(export);
+    // The bundled PES 2021 body skeleton with `sk_hand_r`, a bone the tracer's boots use,
+    // raised: the member's model is posed off the game's skeleton, a vertex blending the
+    // hand with a bone that did not move. Every bone the boots use is in it.
+    let on_pose = body_skl("pes21");
+    let source = tracer_player_file("boots.fmdl");
+    let weights =
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)";
+
+    let moved = Sandbox::new("conversion_precheck_fox_moved");
+    moved.write(&format!("{player}/boots.fmdl"), &source);
+    moved.write(
+        &format!("{player}/boots.skl"),
+        &body_skl_raised("sk_hand_r"),
+    );
+
+    let (code, lines, entries) = compiled_for(&moved, 21, "", export);
+
+    assert_eq!(
+        lines,
+        [
+            weights,
+            CLEAN[0],
+            CLEAN[1],
+            "Info native_field_dropped [Keep] at Players/05 - A (model=boots.fmdl, field=bone_matrices)",
+            // The game's skeleton parents two of the boots' bones otherwise than the FMDL.
+            "Info native_field_dropped [Keep] at Players/05 - A (model=boots.fmdl, bone=2, field=skl_parent)",
+            "Info native_field_dropped [Keep] at Players/05 - A (model=boots.fmdl, bone=12, field=skl_parent)",
+            "Info skeleton_retargeted [Keep] at Players/05 - A (model=boots.fmdl, bones=1)",
+        ]
+    );
+    assert_eq!(code, 0);
+    let package = fpk::FpkFile::read(&entries[BOOTS_FPK]).unwrap();
+    let (_, meshes) = fmdl_rig(package.get("boots.fmdl").unwrap());
+    assert!(meshes != fmdl_rig(&source).1, "the vertices are re-bound");
+    // The member's skeleton describes the pose the model was moved off: every bone is the
+    // game's own, so the conversion writes none and the boots get the bundled one.
+    assert!(package.get("boots.skl").unwrap() == on_pose.as_slice());
+
+    // A member's skeleton that differs from the bundled one only in `dsk_ear_t_l`, a bone the
+    // boots do not use: every bone they use is posed on the game's skeleton.
+    let unused_moved = body_skl_raised("dsk_ear_t_l");
+    let kept = Sandbox::new("conversion_precheck_fox_kept");
+    kept.write(&format!("{player}/boots.fmdl"), &source);
+    kept.write(&format!("{player}/boots.skl"), &unused_moved);
+
+    let (code, lines, entries) = compiled_for(&kept, 21, "", export);
+
+    assert_eq!(lines, [weights, CLEAN[0], CLEAN[1]]);
+    assert_eq!(code, 0);
+    let package = fpk::FpkFile::read(&entries[BOOTS_FPK]).unwrap();
+    // Packed from its source bytes: its bones and meshes as the member wrote them (only its
+    // texture paths are pointed), and his skeleton beside it.
+    assert!(fmdl_rig(package.get("boots.fmdl").unwrap()) == fmdl_rig(&source));
+    assert!(package.get("boots.skl").unwrap() == unused_moved.as_slice());
+}
+
+// TC-MOD-47
+#[test]
+fn a_hand_split_face_s_skl_moves_its_hands_in_the_gloves_too() {
+    let export = "co Midcup Hands";
+    let player = slot_05(export);
+    // The hand-split strip (`tests/fixtures/hand_split/README.md`): its column 4 blends
+    // `sk_hand_l` with `skh_index_mcp_l`, so raising the hand alone gives the two bones
+    // different deltas; nothing on the right side moves.
+    let body =
+        fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hand_split/body.fmdl"))
+            .unwrap();
+    let compiled = |sandbox_name: &str, skeleton: &[u8]| {
+        let sandbox = Sandbox::new(sandbox_name);
+        sandbox.write(&format!("{player}/fcl_hair.fmdl"), &body);
+        sandbox.write(&format!("{player}/fcl_hair.skl"), skeleton);
+        compiled_for(&sandbox, 21, "", export)
+    };
+
+    let (moved_code, moved_lines, moved) = compiled(
+        "conversion_precheck_hands_moved",
+        &body_skl_raised("sk_hand_l"),
+    );
+    let (kept_code, kept_lines, kept) =
+        compiled("conversion_precheck_hands_kept", &body_skl("pes21"));
+
+    let retargeted =
+        "Info skeleton_retargeted [Keep] at Players/05 - A (model=fcl_hair.fmdl, bones=1)";
+    assert!(
+        moved_lines.iter().any(|line| line == retargeted),
+        "{moved_lines:#?}"
+    );
+    assert!(
+        !kept_lines
+            .iter()
+            .any(|line| line.contains("skeleton_retargeted")),
+        "{kept_lines:#?}"
+    );
+    assert_eq!((moved_code, kept_code), (0, 0));
+    let gloves = "Asset/model/character/glove/g0625/#Win/glove.fpk";
+    let face = "Asset/model/character/face/real/71405/#Win/face.fpk";
+    for entries in [&moved, &kept] {
+        assert_eq!(
+            [
+                face_count(entries, gloves, "glove_l.fmdl"),
+                face_count(entries, gloves, "glove_r.fmdl"),
+                face_count(entries, face, "fcl_hair.fmdl"),
+            ],
+            [8, 8, 24]
+        );
+    }
+    let glove_meshes = |entries: &BTreeMap<String, Vec<u8>>, name: &str| {
+        let package = fpk::FpkFile::read(&entries[gloves]).unwrap();
+        fmdl_rig(package.get(name).unwrap()).1
+    };
+    // The gloves task re-converts the face's model for its hands with the face's skeleton:
+    // the left hand is moved as the face's body is, the right one untouched.
+    assert!(
+        glove_meshes(&moved, "glove_l.fmdl") != glove_meshes(&kept, "glove_l.fmdl"),
+        "the left glove is re-bound"
+    );
+    assert!(glove_meshes(&moved, "glove_r.fmdl") == glove_meshes(&kept, "glove_r.fmdl"));
+}
+
+// TC-MOD-48
+#[test]
+fn a_pre_fox_face_converted_for_pes_21_reports_no_skl_no_slot() {
+    let sandbox = Sandbox::new("conversion_prefox_face_for_pes_21");
+    let export = "co Midcup Face";
+    let player = slot_05(export);
+    // The pre-Fox tracer's face: its `skf_*` bones keep their own pose through the
+    // conversion, so it writes a skeleton, which a face has no slot for.
+    let tracer = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/tracer_prefox/studio/jp Midcup Tracer/Players/20 - Fumos");
+    for name in [
+        "face_high.model",
+        "face.mtl",
+        "face_diff.bin",
+        "face.dds",
+        "face_normal.dds",
+        "face_normal_detail.dds",
+        "face_specular_roughness.dds",
+        "eye_occlusion.dds",
+    ] {
+        sandbox.write(
+            &format!("{player}/{name}"),
+            &fs::read(tracer.join(name)).unwrap(),
+        );
+    }
+
+    let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
+
+    assert!(
+        !lines.iter().any(|line| line.contains("skl_no_slot")),
+        "{lines:#?}"
+    );
+    // What the tracer's files and their conversion report, and nothing about a skeleton.
+    let converted = |rest: &str| format!("at Players/05 - A (model=face_high.model, {rest})");
+    let expected = [
+        "Info mtl_state_missing [Keep] at Players/05 - A (file=face.mtl, count=14)".to_owned(),
+        // The tracer's `.mtl` names a texture of its own the player folder does not hold.
+        "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=face.mtl, texture=./face_edithair_specular_roughness.dds, materials=head_phong)".to_owned(),
+        CLEAN[0].to_owned(),
+        CLEAN[1].to_owned(),
+        format!("Warning material_family_approximated [Keep] {}", converted("material=0, name=face_phong")),
+        format!("Warning material_family_approximated [Keep] {}", converted("material=3, name=head_phong")),
+        format!("Info native_field_dropped [Keep] {}", converted("mesh=0, field=tags")),
+        format!("Info native_field_dropped [Keep] {}", converted("mesh=1, field=tags")),
+        format!("Info native_field_dropped [Keep] {}", converted("mesh=2, field=tags")),
+        format!("Info native_field_dropped [Keep] {}", converted("mesh=3, field=tags")),
+        format!("Info material_texture_unused [Keep] {}", converted("material=0, texture=Normal2")),
+        format!("Info material_texture_unused [Keep] {}", converted("material=0, texture=Mapping")),
+        format!("Info material_texture_unused [Keep] {}", converted("material=0, texture=DetailBump")),
+        format!("Info material_parameter_dropped [Keep] {}", converted("material=2, parameter=DepthBias")),
+        format!("Info material_texture_unused [Keep] {}", converted("material=3, texture=Normal2")),
+        format!("Info material_texture_unused [Keep] {}", converted("material=3, texture=Mapping")),
+        format!("Info material_texture_unused [Keep] {}", converted("material=3, texture=DetailBump")),
+        format!("Info vertex_bitangents_dropped [Keep] {}", converted("mesh=0")),
+        format!("Info vertex_bitangents_dropped [Keep] {}", converted("mesh=3")),
+    ];
+    assert_eq!(lines, expected);
     assert_eq!(code, 0);
     assert_eq!(
         package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),

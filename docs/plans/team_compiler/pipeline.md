@@ -339,23 +339,35 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    through to the opposite native format, so the same export never compiles differently once
    glTF is read. Selection is per model stem, each stem on its own: a `hair_high.model` beside
    a `face_high.fmdl` is selected and converted, not dropped by a folder-wide choice, which
-   would lose it silently. A selected native model is packed from its source bytes, its
-   texture paths pointed; the conversion pre-check (`model_convert::needs_conversion`), which
-   would retarget a same-engine model of another version when a bone it uses differs
-   (`conversion.md` "Cost"), is not run until the converter's reference poses are reconciled
-   with the game's own skeleton files: measured at 4.17c1, it says true for every model of the
-   pre-Fox parity tracer on PES 17, Red's own target (the face's `skf_*` bones against PES 19's
-   Fox face table, the boots and the gloves against the body pose where they are bound to a
-   boots and a hand pose), and on every Fox version for boots shipping the game's own
-   `boots.skl` (feet at x ±0.09 against the body tables' ±0.194), so running it would re-bind
-   working community models (worklog step 4.17g). A file only the other engine reads is ignored with no finding when its
+   would lose it silently. A selected native model of the target's own engine runs the
+   conversion pre-check (`model_convert::needs_conversion`, `conversion.md` item 3 "When
+   re-binding changes anything": a used bone the target's skeleton lacks, or a vertex blending
+   bones whose deltas to the target's pose differ) and is then either packed from its source
+   bytes, its texture paths pointed, or converted like a model of the other engine, moved onto
+   the target's skeleton and noted as `skeleton_retargeted`. Its bind pose is the `.skl` paired
+   with it (a member's own, a Common model's, a hand-split face part's in the gloves task that
+   re-converts it, which reads the face's `.skl` for that); an FMDL with none is taken to sit
+   on PES 21's pose, the pose Red's template skeleton gave every Fox export, so without an
+   `.skl` the check can find only a bone the target lacks or a difference between PES 21's
+   tables and the target's. A collar is not pre-checked: no `.skl` is read beside one, and no
+   Fox version's body table differs from PES 21's on bones a measured model blends (4.17g3a:
+   the game's own high-neck collar, the tracer's four FMDLs and the hand-split body are not
+   flagged on any Fox version without an `.skl`). A file only the other engine reads is ignored with no finding when its
    model is not selected (a `.mtl` beside a `.model` an FMDL beats on Fox) or when the target
    has no counterpart for it (`fcl_hair_sim.fclo` on PES 15-17): TC-MOD-26 keeps the unselected
    model itself silent, and its companions follow it. The `.skl` paired with a selected FMDL is
-   the conversion's bind pose and is not packed. A converted model's material set is packed as
+   the conversion's bind pose and is not packed: moved onto the target's skeleton, the model
+   no longer sits on the pose it describes. A converted model's material set is packed as
    `<stem>.mtl` beside it. The SKL the conversion generates takes the path a member's `.skl` of
-   that stem would (the slot's skeleton, the merge rules, `skl_no_slot` for a slotless role),
-   so a generated skeleton is not a new case. A model with hand weights is converted first and
+   that stem would (the slot's skeleton, the merge rules), so a generated skeleton is not a
+   new case, except that for a role with no skeleton slot (`face_high`, `hair_high`, `oral`, a
+   glove) it is dropped with no finding, where a member's own `.skl` of such a role is
+   `skl_no_slot`: the member authored no file, and what the conversion changed its own
+   findings tell. Every converted face gets one, since its `skf_*` bones keep their own pose
+   (`conversion.md` item 4) and the SKL covers every bone off the template tables; the Fox face
+   output has no file for it (the game's own face packages ship no `.skl`; Konami's FMDLs carry
+   the bind pose in `bone_matrices`, which the converter does not yet write: worklog 4.17
+   "Open for converge"). A model with hand weights is converted first and
    split in the target's format as a native one is: the split code stays engine-native at the
    cost of a second IR round trip, milliseconds. Selection and conversion are the same in a
    shared folder as in a player's: a shared folder's `.model` converts in its Fox Models task
@@ -366,7 +378,8 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    boots or face he linked would compile to something he did not ask for. A `.model` directly
    in `Common/` with its `.mtl`, on PES 18-21, converts in each linking player's Models task
    as his own `.model` does, the link baked away as a Common FMDL's is (step 7), its `.mtl`
-   the one its search finds in `Common/`, the conversion's skeleton under `skl_no_slot`'s rule;
+   the one its search finds in `Common/`, the conversion's skeleton under the generated
+   skeleton's rule above;
    a Common `.model` no player links is ignored there with no finding, Fox having no Common
    model output. A shared `Boots/`
    or `Gloves/` folder's FMDL on PES 15-17 converts in the folder's own boots or gloves task,

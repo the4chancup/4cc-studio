@@ -398,6 +398,18 @@ impl ModelFolder {
             })
     }
 
+    /// Whether `file`, a skeleton (`PlayerFile::Skeleton`), is the `.skl` of one of the
+    /// folder's hand-split parts (`hand_split`), paired with it as the Models task pairs a
+    /// skeleton: by the path up to the extension, folded. The gloves task reads it, the bind
+    /// pose of the part it converts again for its hands (`pipeline.md` step 3 "Format
+    /// conversion").
+    pub(crate) fn hand_split_skeleton(&self, file: &FileDescriptor) -> bool {
+        let stem = vtree::fold_name(file_stem(file.path.as_str()));
+        self.hand_split
+            .iter()
+            .any(|model| vtree::fold_name(file_stem(model.as_str())) == stem)
+    }
+
     /// The Common model the folder's `.common` link at `link` resolved to (`common_models`).
     fn common_model(&self, link: &ScopePath) -> &CommonModel {
         self.common_models
@@ -637,7 +649,8 @@ impl TaskKind {
 
     /// Every file the task reads from its export: a package's models (a `.common` link's
     /// Common model and skeleton, never the link) and the files packed beside them, the Fox
-    /// gloves' also the folder's hand-split face parts, whose hands they take, a Fox package
+    /// gloves' also the folder's hand-split face parts, whose hands they take, with each part's
+    /// `.skl`, its bind pose (`ModelFolder::hand_split_skeleton`), a Fox package
     /// converting a `.model` also the `.mtl` files of the model's source (for a Common
     /// `.model`, the player's and the Common `.mtl` its search found), a pre-Fox package
     /// also the skeleton of each FMDL it may convert; a folder's
@@ -655,7 +668,9 @@ impl TaskKind {
                     let hands = match folder.engine {
                         Engine::Fox => {
                             *package == ModelPackage::Gloves
-                                && folder.hand_split.contains(&file.path)
+                                && (folder.hand_split.contains(&file.path)
+                                    || (matches!(role, PlayerFile::Skeleton { .. })
+                                        && folder.hand_split_skeleton(file)))
                         }
                         // A pre-Fox split model is the face's alone (`folder_tasks`).
                         Engine::PreFox => false,

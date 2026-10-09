@@ -5393,3 +5393,35 @@ and no derived bones. The 2026-10-08 entry's "face against the face table, boots
 `boots.skl`, gloves against the hand pose" is withdrawn by these measurements.
 Plan: `model_conversion/conversion.md` "Skeleton retargeting and bone conformance" items 3
 ("When re-binding changes anything") and 4, and "Cost"; `resources/skeletons/README.md`.
+
+## 2026-10-09 — team_compiler — The skeleton a conversion writes for a slotless role is dropped silently
+Decision: on PES 18-21 the `.skl` a conversion writes for a `face_high`, `hair_high`, `oral` or
+glove part is not packed and not reported; `skl_no_slot` stays the Warning for a member's own
+`.skl` of such a role. The plan had both under one `skl_no_slot` rule.
+Why: since 4.17g2 a face's `skf_*` bones keep their own pose through the conversion, and the
+exporter's SKL covers every bone off the template tables, so every converted face writes one;
+under the old rule every face a member converts for PES 18-21 would warn `skl_no_slot`, whose
+text ("a no-op file the user likely authored by mistake") would be false: the member authored
+no file and can change nothing. What the conversion changed its own findings tell
+(`skeleton_retargeted`, `bone_folded_*`, `bone_matrix_unknown`). The face's pose itself has no
+file in the Fox face output; carrying it in the FMDL's `bone_matrices`, as Konami does, is the
+converge item in worklog 4.17.
+Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the generated-skeleton
+sentences); `team_compiler/messages.md` `skl_no_slot`.
+
+## 2026-10-09 — team_compiler — The Fox same-engine pre-check runs on a member's FMDL with its `.skl`, not on collars
+Decision: on PES 18-21 every selected FMDL of a player folder, a shared folder or a `.common`
+link runs `needs_conversion` with the `.skl` paired with it as its bind pose (a hand-split face
+part's `.skl` reaching the gloves task too, which re-converts the part for its hands); an FMDL
+with no `.skl` is taken to sit on PES 21's pose. A Fox collar FMDL is packed as it is, with no
+pre-check.
+Why: a member's `.skl` is the one place a Fox FMDL's pose is written down (the converter does not
+read Konami's `bone_matrices` yet), so a model posed off the target's skeleton can be told only
+there; Red's template gave every Fox export PES 21's pose, which is what an FMDL without an
+`.skl` was built against. No `.skl` is read beside a collar, and measured on PES 18-21 without
+one (the game's own high-neck collar, the tracer's four FMDLs, the hand-split body) no model is
+flagged on any version: the Fox body tables differ too little on blended bones for the check to
+find anything in a collar, so a collar arm would be code no file reaches. The gloves task must
+see the face's `.skl` because it converts the same model the face task converts: with the pose
+read on one side only, the face's body would be moved and its hands not.
+Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the pre-check sentences).

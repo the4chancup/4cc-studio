@@ -924,6 +924,24 @@ TC-MOD-45  GIVEN slot 05 holding ingame_face, glove_l.model.common, glove_r.mode
                 glove_r.model and glove_r.mtl, and its glove.xml lists the two typed gloveL and
                 gloveR naming ./glove_l.mtl and ./glove_r.mtl
                 exists
+TC-MOD-46  GIVEN slot 05 holding the tracer's boots.fmdl and a boots.skl that is PES 21's body
+           skeleton with sk_hand_r raised 5 cm; and another export the same with dsk_ear_t_l
+           raised instead, a bone the boots do not use
+           WHEN both are compiled for PES 21
+           THEN the first's boots.fmdl is re-bound (its meshes differ from the source's),
+                skeleton_retargeted is reported and its boots.skl is the bundled body skeleton;
+                the second's boots.fmdl is packed as its source bytes with no finding, its
+                boots.skl the member's
+TC-MOD-47  GIVEN slot 05 holding the hand-split body as fcl_hair.fmdl and a fcl_hair.skl that is
+           PES 21's body skeleton with sk_hand_l raised 5 cm
+           WHEN the export is compiled for PES 21
+           THEN the face reports skeleton_retargeted, and glove_l.fmdl's meshes differ from
+                those compiled with the unmoved skeleton while glove_r.fmdl's are the same
+TC-MOD-48  GIVEN slot 05 holding the pre-Fox tracer's face_high.model with its face.mtl, textures
+           and face_diff.bin
+           WHEN the export is compiled for PES 21
+           THEN the face package holds face_high.fmdl and face_diff.bin and no .skl, and
+                skl_no_slot is not reported
 ```
 
 **Textures**

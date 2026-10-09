@@ -297,7 +297,10 @@ the `.mtl` they use. A `.model` beside a
 checked again as the `.fmdl` it becomes: one that cannot be converted, or that comes out with
 a vertex more than 5000 units from the origin, is reported as `model_conversion_failed` or
 `vertex_too_far_from_origin` and its package (face, boots or gloves) is left out, even with
-`pass_through` on. On every version, a converted model's Warnings and Infos name what the
+`pass_through` on. A player's own `.fmdl` whose `.skl` poses it on another skeleton than that
+version's is moved onto the version's skeleton, noted as `skeleton_retargeted`; one without an
+`.skl` is taken to sit on PES 2021's skeleton, the one every Fox export was built against. On
+every version, a converted model's Warnings and Infos name what the
 conversion changed: a bone folded onto another or its pose guessed, a material's shader
 guessed, a texture, a flag or a field the other game has no place for. `check` still checks
 those exports. A `.glb`/`.gltf` model in a player folder is not read yet: with no `.fmdl` (PES

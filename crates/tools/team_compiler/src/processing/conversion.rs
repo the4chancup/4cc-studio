@@ -3,11 +3,12 @@
 //! which also moves it onto the target version's skeleton: on PES 15-17 an `.fmdl`, with its
 //! paired `.skl` as the bind pose, written as a `.model` and its material set; on PES 18-21 a
 //! `.model`, with the `.mtl` its search finds, written as an FMDL and, when the conversion makes
-//! one, a skeleton. Every converted model is checked in its target form before it is written
-//! (`messages.md` `vertex_too_far_from_origin`): what the source passed, the conversion may
-//! still have moved or split past a limit.
+//! one, a skeleton, and so is an FMDL the conversion pre-check (`needs_conversion`) finds posed
+//! off the version's skeleton. Every converted model is checked in its target form before it
+//! is written (`messages.md` `vertex_too_far_from_origin`): what the source passed, the
+//! conversion may still have moved or split past a limit.
 
-use model_convert::{Converted, NativeModelBundle, Subject, convert, loss};
+use model_convert::{Converted, NativeModelBundle, Subject, convert, loss, needs_conversion};
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 use pes_version::PesVersion;
@@ -54,9 +55,10 @@ pub(super) struct PreFoxConversion {
     pub(super) materials: MaterialSet,
 }
 
-/// A `.model` converted for a PES 18-21 target.
+/// A model converted for a PES 18-21 target: a `.model`, or an FMDL the pre-check found posed
+/// off the version's skeleton (`fmdl_for_fox`).
 pub(super) struct FoxConversion {
-    /// The FMDL written, a part in the `.model`'s place.
+    /// The FMDL written, a part in the source's place.
     pub(super) model: Vec<u8>,
     /// The skeleton the conversion writes when a bone the model keeps is outside the game's
     /// skeleton tables (`ExportedFox::skl`): the part's skeleton, as a member's `.skl` of the
@@ -163,41 +165,82 @@ pub(super) fn model_for_fox(
         // The `.model`, its IR and the FMDL written, charged at the source's size, an estimate
         // of each form, while they are built.
         let _conversion_charge = ctx.budget.charge(bytes.len());
-        let (model, skeleton, losses) =
-            converted_model(bytes, mtl, ctx.version).map_err(|error| failed(name, error))?;
-        let fired = fmdl::check::check(&model).into_iter().map(Fired::fox);
-        target_form_failure(name, fired.collect())?;
-        let file = model
-            .to_file()
-            .map_err(|error| failed(name, error.into()))?;
-        let converted = FoxConversion {
-            model: file.write(),
-            skeleton: skeleton.map(|skeleton| skeleton.write()),
-        };
-        (converted, losses)
+        let bundle = pre_fox_bundle(bytes, mtl).map_err(|error| failed(name, error))?;
+        fox_written(name, bundle, ctx.version)?
     };
     findings.extend(losses.iter().filter_map(|loss| reported(name, loss)));
     Ok(converted)
 }
 
-/// The `.model` `bytes` converted for the PES 18-21 `version`, `mtl` defining its materials:
-/// the FMDL, the skeleton the conversion writes when it writes one, and the conversion's loss
-/// findings.
-fn converted_model(
+/// The member's FMDL `name` (as its findings name it, `source_name`), `bytes`, for a PES
+/// 18-21 target, with `skeleton`, the bytes of the `.skl` paired with it, as its bind pose
+/// (`None`: PES 21's pose, `needs_conversion`'s assumption), run through the conversion
+/// pre-check for `ctx.version`: `None` when re-binding would change nothing, and the caller
+/// packs `bytes` as they are; otherwise the FMDL moved onto the version's skeleton and the
+/// skeleton the conversion writes, if any. Charged, reported and failed as `fmdl_for_pre_fox`
+/// is, the FMDL written checked by `fmdl`'s check.
+pub(super) fn fmdl_for_fox(
+    name: &str,
     bytes: &[u8],
-    mtl: &[u8],
-    version: PesVersion,
-) -> anyhow::Result<(fmdl::Model, Option<fmdl::SklFile>, Vec<loss::Finding>)> {
+    skeleton: Option<&[u8]>,
+    ctx: &CompileContext,
+    findings: &mut Vec<Finding>,
+) -> Result<Option<FoxConversion>, TaskFailure> {
+    let (converted, losses) = {
+        // The FMDL, its IR and the FMDL written, charged at the source's size, an estimate of
+        // each form, while they are built.
+        let _conversion_charge = ctx.budget.charge(bytes.len());
+        let bundle = fox_bundle(bytes, skeleton).map_err(|error| failed(name, error))?;
+        if !needs_conversion(&bundle, ctx.version) {
+            return Ok(None);
+        }
+        fox_written(name, bundle, ctx.version)?
+    };
+    findings.extend(losses.iter().filter_map(|loss| reported(name, loss)));
+    Ok(Some(converted))
+}
+
+/// The `.model` `bytes` read, with the `.mtl` `mtl` defining its materials.
+fn pre_fox_bundle(bytes: &[u8], mtl: &[u8]) -> anyhow::Result<NativeModelBundle> {
     let model = pes_model::model::Model::from_file(&PreFoxModel::read(bytes)?)?;
     let mtl = MaterialSet::read(mtl)?;
+    Ok(NativeModelBundle::PreFox { model, mtl })
+}
+
+/// The FMDL `bytes` read, with the `.skl` `skeleton` as its bind pose when there is one.
+fn fox_bundle(bytes: &[u8], skeleton: Option<&[u8]>) -> anyhow::Result<NativeModelBundle> {
+    let model = fmdl::Model::from_file(&fmdl::FmdlFile::read(bytes)?)?;
+    let skl = skeleton.map(fmdl::SklFile::read).transpose()?;
+    Ok(NativeModelBundle::Fox { model, skl })
+}
+
+/// The model `name` (as its findings name it), `bundle`, converted for the PES 18-21
+/// `version` and written, with the conversion's loss findings: the FMDL, checked by `fmdl`'s
+/// check (`target_form_failure`), and the skeleton the conversion writes, if any. Failed with
+/// `model_conversion_failed`, naming the model, when it cannot be converted or written.
+fn fox_written(
+    name: &str,
+    bundle: NativeModelBundle,
+    version: PesVersion,
+) -> Result<(FoxConversion, Vec<loss::Finding>), TaskFailure> {
     let Converted { bundle, findings } =
-        convert(NativeModelBundle::PreFox { model, mtl }, version)?;
-    match bundle {
-        NativeModelBundle::Fox { model, skl } => Ok((model, skl, findings)),
+        convert(bundle, version).map_err(|error| failed(name, error.into()))?;
+    let (model, skeleton) = match bundle {
+        NativeModelBundle::Fox { model, skl } => (model, skl),
         NativeModelBundle::PreFox { .. } => {
             unreachable!("`convert` returns the target's format, an FMDL for PES 18-21")
         }
-    }
+    };
+    let fired = fmdl::check::check(&model).into_iter().map(Fired::fox);
+    target_form_failure(name, fired.collect())?;
+    let file = model
+        .to_file()
+        .map_err(|error| failed(name, error.into()))?;
+    let converted = FoxConversion {
+        model: file.write(),
+        skeleton: skeleton.map(|skeleton| skeleton.write()),
+    };
+    Ok((converted, findings))
 }
 
 /// How a finding of the task building the model folder at `folder` names the model it converts
