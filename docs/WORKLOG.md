@@ -3100,7 +3100,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   one-face 2D FTEX with no error: the rework round made the writer read it by the same
   `is_cube_map` (such a file now fails as an incomplete cube map, test added); the plan's and
   the decision's "as it is, wrapped or not" contradicted their own next sentence (a wrapped
-  cube map is not recognized), clause removed. Gates green (acceptance 280 of 280)
+  cube map is not recognized), clause removed. Gates green (acceptance 280 of 280);
+  `mutants-diff d7a63e4`: 21 mutants, 21 caught. Verify re-run by the lead with the release
+  build of `213b329` (`.tmp/4_y/census/verify_fix3.py 17` and `21`, logs beside it): PES 17
+  compiles the refs folder with exit 0, 15 files, robocopclassic's `env.dds` byte-identical to
+  the source (before: `folder_pack_failed`, 0 files); PES 21 writes his `env.ftex` and the
+  `folder_pack_failed` is gone, the folder's `skl_merge_conflict` (his Fox skeletons differ; the
+  pre-fix census tallies already show it on three refs roots) remaining as before
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
