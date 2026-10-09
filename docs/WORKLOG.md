@@ -24,6 +24,7 @@ with 4.19d, 4.27b is done (4.27 done); 4.9 is done
 reported, a `Collars/` subfolder ignored; TC-BIN-23, TC-BIN-24, TC-CMN-16, TC-REF-14),
 4.y-fix9 done 2026-10-09 (a shared face's `face.xml` rules its linking faces; TC-XML-14,
 TC-XML-15),
+4.y-fix11 opened 2026-10-09 (S7's, S8's, S12's and S13's SWE-2 rework),
 4.y-fix10 opened 2026-10-09 (a pre-Fox per-kit model set completed, the maintainer's
 answer), 4.y-fix12, 4.y-harness and 4.y-ingame opened 2026-10-09 (PES 17's `uniform.mtl`
 in the templates; the in-game harness into `scripts/`; the converted collar and
@@ -3324,6 +3325,27 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   and none of the set's variants gets a generated entry beside it (`names_model`'s `kitN`
   clause, 4.y-fix9's survivor: `delete !` at `prefox_face.rs` ~920 must be caught).
 
+- [ ] 4.y-fix11 **S7's, S8's, S12's and S13's SWE-2 rework** (rulings S7.1, S8.1, S12.1,
+  S13.1 in `.tmp/4_y/duck_rulings.md`). (1) A shared `Boots/` or `Gloves/` folder gives no
+  face: its face files are `face_file_not_used` (`roles.rs` `FolderModels::read`). (2) A
+  combined shared source's `.model` is searched with no `Common/` files, as the deep pass
+  does (`processing/model.rs` ~157-176: a kept `x.mtl.common` there panics today). (3) A
+  shared folder's roles take only the files directly in it (`of_shared`): a kept file
+  below its subfolder compiles today. (4) A refs export gives `complete_kit_variants` no
+  kit numbers (`plan/mod.rs` ~1004). (5) `FaceUse::Used::combined`'s doc reworded (team
+  players combine too). (6) A `kitN` texture stem is looked up in the installed CPKs with
+  `has_variant_among` over `InstalledPaths::common_texture_stems` (`processing/model.rs`
+  `texture_supply`), `None` staying `Unknown`. (7) A WESYS-wrapped DDS portrait goes out
+  unwrapped on PES 18-21 (`texture.rs` `portrait`). (8) `common_places` and
+  `point_texture`'s Common stems take the folder's `.common` texture links too. (9) A kit
+  variant set is formed over every file the part is built from, not per directory
+  (`kit_variants.rs` `model_variant_sets`). (10) Plan only: layout conversion keeps BC1
+  and BC3 blocks, a BC7 source encoded whole (no code change). Plan: `pipeline.md`
+  "Kit-dependent assets", "Layout conversion", `messages.md` `face_file_not_used`,
+  `object_model.md` "File-type allowlist"; DECISIONS 2026-10-09. Crates: tc
+  → verify: a test per item (1)-(4), (6)-(9), red first; S7 gets a second SWE-2 round
+  on the rework diff.
+
 - [ ] 4.y-fix12 **A `.model` collar converts with the templates' `uniform.mtl`** (the
   maintainer's answer, 2026-10-09). Lead first (a template is correctness-critical): PES 17's
   stock `uniform.mtl` extracted from its install's data CPK into `resources/templates/`,
@@ -5569,3 +5591,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-09** — 4.y-fix9 done (sidekick, landed first time): a shared face folder's
   `face.xml` is its linking faces' xml, a player's own beside the link
   `xml_shared_face_conflict`. TC-XML-14 and TC-XML-15 proven; acceptance 300 of 302.
+- **2026-10-09** — S12's and S13's SWE-2 loops ran (6 and 5 items, 1 accepted each, both
+  loops ended). Step 4.y-fix11 opened with S7's five and S8's three accepted concerns:
+  a kit variant set spans the files a part is built from, and a shared boots or gloves
+  folder's face file is not used (decisions).

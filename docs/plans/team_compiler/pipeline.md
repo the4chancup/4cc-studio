@@ -680,10 +680,12 @@ describes behavior, not a serial scheduling requirement:
   it), so rows never mix and a flat band stays flat. The Fox→pre-Fox table is the inverse of the pre-Fox→Fox
   one, so the two are one const read in either direction. Every texel outside the destination
   rectangles keeps its value (for pre-Fox→Fox that includes the strip the narrower Fox sock
-  leaves, u 376–448, which no Fox model reads), and a block-compressed source keeps the very
+  leaves, u 376–448, which no Fox model reads), and a BC1 or BC3 source keeps the very
   blocks no destination rectangle touches: the rectangles' outer edges are multiples of 8, so on a
   2048 or 1024 texture they fall on block edges and the rest of the kit is not compressed a
-  second time. The same move is applied to every mip level the source carries, the rectangles
+  second time. A BC7 source is encoded whole: a kit laid out for PES 15-17, which cannot read
+  BC7, is not held as BC7, and one laid out for Fox and compiled for PES 15-17 is re-encoded
+  anyway. The same move is applied to every mip level the source carries, the rectangles
   scaled to the level and rounded to whole texels (a band rounded to no width is skipped).
   **The games' own uniform models (the base data CPKs) are the source of truth** for the table,
   read by `scripts/provenance/kit_uv/`. *Outlines* (`kit_uv_diff.py`): the sock islands span u
@@ -886,7 +888,11 @@ describes behavior, not a serial scheduling requirement:
   both engines: read from the whole stem, `boots_kit1` names no suffix and would be face
   content, its meshes merged into the face's `fcl_hair` instead of the boots. On Fox, and on
   PES 15-17 where no `face.xml` names the set (below), a model
-  file that is a variant with a lower variant of its set in the same folder is not compiled,
+  file that is a variant with a lower variant of its set in the same folder (every file the
+  part is built from: the folder's own, directly and in `face/`, `boots/` or `gloves/`, and
+  a combined shared folder's, the player's own winning a name both hold; a set split
+  between them is one set, since the part merges them and two lone variants would both be
+  drawn) is not compiled,
   and planning reports `kit_variant_model_left_out` on the folder, once per set; a set's variants
   are its model files of either native format (`pants_kit1.fmdl` and `pants_kit2.model` are
   one set), a variant present in both formats one variant, the target's format (`.fmdl` on

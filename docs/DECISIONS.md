@@ -6072,3 +6072,25 @@ it, and its stock collars use both while PES 16's (collars 1, 50 and 105) use `u
 alone (the lead's measure, 2026-10-09, `.tmp/4_y/uniform_mtl/`). Naming `uni_collar` on PES
 15-16 names a material the game does not define.
 Plan: `team_compiler/pipeline.md` "Collars"; `team_compiler/README.md` TC-CMN-19.
+
+## 2026-10-09 — team_compiler — a kit variant set spans the files a part is built from
+Decision: where a left-out kit variant is not compiled (Fox; PES 15-17 with no `face.xml`
+naming the set), a set is formed over every file the part is built from: the player
+folder's own, directly and in `face/`, `boots/` or `gloves/`, and a combined shared
+folder's, the player's own winning a name both hold; not per directory.
+Why: SWE-2's S13 review: keyed per directory, `face/pants_kit1.fmdl` beside
+`pants_kit2.fmdl`, or a linked `Faces/` folder's `pants_kit1` beside the player's own
+`pants_kit2`, are two lone variants; both compile into one package and the game draws
+both, the outcome the left-out rule exists to prevent. The pre-Fox packed-name text
+already finds its set after the shared face's files are copied in.
+Plan: `team_compiler/pipeline.md` "Kit-dependent assets".
+
+## 2026-10-09 — team_compiler — a shared boots or gloves folder's face file is not used
+Decision: `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a shared `Boots/` or
+`Gloves/` folder is `face_file_not_used` (I), on both engines; only a player folder or a
+`Faces/` folder holding a face model gives a face.
+Why: SWE-2's S7 review: the folder's `.model` gave it a face, so its `face_diff.bin` was
+packed as the diff of a linking referee's pre-Fox face, unchecked (the deep pass reads
+only player and `Faces/` diffs). A boots or gloves link brings boots or gloves, not a
+face.
+Plan: `team_compiler/messages.md` `face_file_not_used`.
