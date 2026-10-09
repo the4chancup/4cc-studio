@@ -17,6 +17,7 @@ use dds_convert::{
     BlockCodec, ConvertError, SourceFormat, Target, TextureRole, decode, encode_dds, probe,
     source_hash,
 };
+use ftex::FtexError;
 use ftex::dds::read_layout;
 use pes_version::Engine;
 use pipeline::{MemoryBudget, Permit};
@@ -50,11 +51,16 @@ impl From<TextureError> for TaskFailure {
     }
 }
 
-/// The failure of converting the file `name`: `texture_codec_unsupported` for what
-/// `dds_convert` refuses to handle, the ordinary failure naming the file for anything else.
+/// The failure of converting the file `name`. What `dds_convert` refuses as a codec and what
+/// `ftex::dds::read_layout` refuses as a kind of DDS (a signed block format, a volume texture,
+/// an array, a paletted DDS, an incomplete cube map) are one class, a file of a kind the
+/// target cannot be given: the catalog's file-level `texture_codec_unsupported`. A header that
+/// cannot be read, or pixel data cut short, is the ordinary failure naming the file, which
+/// fails the task. The cube-map route's `ftex::dds_to_ftex` error is mapped here too, so its
+/// refusals take the same finding.
 pub(super) fn conversion_failure(name: &str, error: ConvertError) -> TextureError {
     match error {
-        ConvertError::Unsupported(_) => {
+        ConvertError::Unsupported(_) | ConvertError::Ftex(FtexError::UnsupportedDds(_)) => {
             TextureError::Finding(Code::TextureCodecUnsupported, name.to_owned())
         }
         ConvertError::Ftex(_)
@@ -404,10 +410,10 @@ pub(super) fn decode_charge(
 
 /// The portrait file `name`, in `format`, holding `bytes`, as the DDS every engine reads
 /// (`player_folders.md` "Portraits"): a DDS source as it is, any other accepted format
-/// encoded to BC3 at its own size with the full mip chain. Its signature and size are the deep
-/// pass's checks; a portrait that reaches this point passed them or is kept by
-/// `pass_through`, so it is packed whatever its size. The decode is charged to `budget` while
-/// it lives.
+/// encoded to BC3 at its own size with the full mip chain, an FTEX's own levels dropped. Its
+/// signature and size are the deep pass's checks; a portrait that reaches this point passed
+/// them or is kept by `pass_through`, so it is packed whatever its size. The decode is charged
+/// to `budget` while it lives.
 pub(super) fn portrait(
     budget: &Arc<MemoryBudget>,
     format: SourceFormat,
@@ -418,19 +424,27 @@ pub(super) fn portrait(
     // this decode is what fails the task of a portrait whose header or data is broken.
     let _decode_charge =
         decode_charge(budget, &bytes, format).map_err(|error| conversion_failure(name, error))?;
-    let decoded = decode(&bytes, format).map_err(|error| conversion_failure(name, error))?;
+    let mut decoded = decode(&bytes, format).map_err(|error| conversion_failure(name, error))?;
     match format {
-        SourceFormat::Dds => Ok(bytes),
-        SourceFormat::Ftex
-        | SourceFormat::Png
+        SourceFormat::Dds => return Ok(bytes),
+        // The plan gives every portrait that is not a DDS the full chain; an FTEX's authored
+        // levels, which the encoder would otherwise keep, are the one thing it would add over
+        // a raster source, and the plan does not ask for them. Its blocks go too: the encoder
+        // emits a source's blocks as they are when they are already BC3, whatever their level
+        // count, so a BC3 FTEX would keep its own chain.
+        SourceFormat::Ftex => {
+            decoded.mips.truncate(1);
+            decoded.authored_mips = false;
+            decoded.blocks = None;
+        }
+        SourceFormat::Png
         | SourceFormat::Jpeg
         | SourceFormat::Bmp
         | SourceFormat::WebP
         | SourceFormat::Tga
-        | SourceFormat::Tiff => {
-            encode_dds(&decoded, BlockCodec::Bc3).map_err(|error| conversion_failure(name, error))
-        }
+        | SourceFormat::Tiff => {}
     }
+    encode_dds(&decoded, BlockCodec::Bc3).map_err(|error| conversion_failure(name, error))
 }
 
 /// The role of a texture by its `stem`: a normal map when the stem ends in `_nrm` in any

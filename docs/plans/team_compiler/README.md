@@ -1051,14 +1051,14 @@ TC-TEX-13  GIVEN slot 05 holding no model and an env.dds that is a 128x128 DXT5 
            THEN PES 17 writes slot 05's env.dds in his texture home byte for byte as the source,
                 PES 21 writes env.ftex there equal to ftex::dds_to_ftex of the source (an FTEX
                 cube map, type 0xD), and no finding names the file in either run
-TC-TEX-14  GIVEN Common/ holding hair.dds, a DXT5, and bumps.dds, a DX10 BC5_SNORM DDS (a signed
+TC-TEX-14  GIVEN Common/ holding hair.dds, a DXT1, and bumps.dds, a DX10 BC5_SNORM DDS (a signed
            block format no target keeps)
            WHEN the export is compiled for PES 21
            THEN texture_codec_unsupported is reported naming bumps.dds and dropping that file
                 alone, hair.ftex is in the team's Common output, and no folder_pack_failed is
                 reported
-TC-TEX-15  GIVEN slot 05 holding portrait.ftex, a single-level FTEX (ftex::dds_to_ftex of a
-           single-level DDS)
+TC-TEX-15  GIVEN slot 05 holding portrait.ftex, a 128x128 single-level FTEX (ftex::dds_to_ftex of
+           a single-level BC3 DDS)
            WHEN the export is compiled for PES 21
            THEN his portrait DDS is BC3 at the source's size with the full mip chain down to 1x1
 ```

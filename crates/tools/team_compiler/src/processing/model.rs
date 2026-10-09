@@ -62,9 +62,13 @@ enum PartTextures {
     /// textures stay in `Common/` and are the export's Common textures task's, never relocated.
     Common,
     /// The folder's texture home for a stem the folder holds, else the team's Common output
-    /// for a stem `Common/` holds: the part is the folder's `.model` converted with a `Common/`
-    /// `.mtl` (a `.mtl.common` link), a set that names Common's textures (`pipeline.md` "Common
-    /// textures are one task of their export").
+    /// for a stem `Common/` holds: the part's model and material set come from different
+    /// places. Either it is the folder's `.model` converted with a `Common/` `.mtl` (a
+    /// `.mtl.common` link), a set that names Common's textures (`pipeline.md` "Common textures
+    /// are one task of their export"), or a Common `.model` converted with the folder's own
+    /// `.mtl`, which the search prefers to `Common/`'s: a stem resolves in the folder of the
+    /// material file that set it (`model_format.md` "Link files"), here the folder's, and one
+    /// the folder lacks still finds the Common model's own texture.
     CommonSet,
 }
 
@@ -192,6 +196,11 @@ pub(super) fn package(
                             "planning resolves a Common `.model`'s `.mtl`, the deep pass having \
                              dropped a folder linking one with none (`model_material_undefined`)",
                         );
+                        // The player's own `.mtl`, which the search prefers to `Common/`'s,
+                        // set the stems: they are looked for in his folder first.
+                        if !is_direct_common_file(&mtl.path) {
+                            part.textures = PartTextures::CommonSet;
+                        }
                         let mtl = files.get(&mtl.path).expect(
                             "a package converting a Common `.model` reads the `.mtl` planning \
                              resolved for it (`TaskKind::files`)",
@@ -276,8 +285,9 @@ pub(super) fn package(
     // Common output, where the export's Common textures task puts it once for every player
     // (`pipeline.md` step 6: a texture resolved in Common is never relocated). A folder part
     // looks in the folder's textures first, and a path of its into the team's pre-Fox Common
-    // folder reaches `Common/`'s (`point_texture`); one converted with a `Common/` `.mtl`
-    // looks in the folder's, then in `Common/`'s (`PartTextures::CommonSet`). Validation
+    // folder reaches `Common/`'s (`point_texture`); one converted with a `Common/` `.mtl`, and
+    // a Common part converted with the folder's own, looks in the folder's, then in
+    // `Common/`'s (`PartTextures::CommonSet`). Validation
     // refuses a player folder holding a texture and a link of one stem
     // (`texture_stem_conflict`), but not a link beside a combined shared folder's texture of
     // its stem: there the shared folder's texture wins.

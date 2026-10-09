@@ -1272,3 +1272,95 @@ fn a_cube_map_dds_goes_out_as_it_is_on_pes_17_and_as_an_ftex_cube_map_on_pes_21(
         .unwrap_or_else(|| panic!("PES 17: no {env} among {:?}", entries.keys()));
     assert_eq!(*emitted, source, "PES 17");
 }
+
+/// A 4x4 BC5_SNORM DDS (DX10 header), one zero block: a signed block format no target keeps,
+/// which the decoder refuses as a kind of DDS.
+fn bc5_snorm_dds() -> Vec<u8> {
+    let mut dds = ftex::dds::header_bytes(PixelFormat::Bc5, 4, 4, 1);
+    // The DX10 header's `dxgi_format`, right after the 4-byte magic and the 124-byte header.
+    let unorm = u32::from_le_bytes(dds[128..132].try_into().unwrap());
+    assert_eq!(unorm, 83, "DXGI_FORMAT_BC5_UNORM");
+    dds[128..132].copy_from_slice(&84u32.to_le_bytes());
+    dds.extend_from_slice(&[0; 16]);
+    dds
+}
+
+// TC-TEX-14
+#[test]
+fn a_dds_of_a_kind_the_decoder_refuses_in_common_drops_that_file_alone() {
+    let sandbox = Sandbox::new("tex_common_signed");
+    let export = "exports/co Midcup Signed";
+    sandbox.copy_tracer_face(&format!("{export}/Players/05 - A"));
+    sandbox.write(&format!("{export}/Common/hair.dds"), &tracer_kit());
+    sandbox.write(&format!("{export}/Common/bumps.dds"), &bc5_snorm_dds());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Signed"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Error texture_codec_unsupported [DropFile] at Common (file=bumps.dds)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let common: Vec<&str> = entries
+        .keys()
+        .filter_map(|path| path.strip_prefix("Asset/model/character/common/714/sourceimages/"))
+        .collect();
+    assert_eq!(common, ["#windx11/hair.ftex"], "hair kept, bumps left out");
+}
+
+// TC-TEX-15
+#[test]
+fn a_single_level_ftex_portrait_is_a_bc3_dds_with_the_full_mip_chain() {
+    let sandbox = Sandbox::new("tex_ftex_portrait");
+    let export = "co Midcup Portrait";
+    // A 128x128 BC3 DDS with one level, zero blocks: a portrait's sides must be powers of two
+    // whatever its level count (`texture_not_pow2`), so not `small_dds()`'s 12x12.
+    let mut dds = ftex::dds::header_bytes(PixelFormat::Bc3, 128, 128, 1);
+    dds.extend_from_slice(&[0; 128 * 128]);
+    // The color space does not change the pixels; the encoder gives every Fox texture this one.
+    let source = ftex::dds_to_ftex(&dds, ftex::ColorSpace::Normal).unwrap();
+    let source_info = ftex::info(&source).unwrap();
+    assert_eq!(source_info.mipmaps, 1, "a single-level source");
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/portrait.ftex"),
+        &source,
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let portrait = &entries["common/render/symbol/player/71405.dds"];
+    let decoded = decode(portrait, SourceFormat::Dds).unwrap();
+    assert!(
+        matches!(
+            decoded.blocks,
+            Some(Blocks {
+                codec: BlockCodec::Bc3,
+                ..
+            })
+        ),
+        "BC3 blocks"
+    );
+    let (width, height) = (u32::from(source_info.width), u32::from(source_info.height));
+    assert_eq!((decoded.width, decoded.height), (width, height));
+    let full_chain = width.max(height).ilog2() + 1;
+    assert_eq!(decoded.mips.len(), usize::try_from(full_chain).unwrap());
+}

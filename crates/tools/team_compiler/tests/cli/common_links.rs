@@ -10,7 +10,9 @@ use fmdl::ops::paths::texture_paths;
 use fmdl::{FmdlFile, Model};
 
 use crate::common::Sandbox;
-use crate::compile::{compiled_players, cpk_entries, pes21_settings, tracer_player_file};
+use crate::compile::{
+    compiled_players, cpk_entries, pes21_settings, tracer_kit, tracer_player_file,
+};
 use crate::conversion::HOME_714_05;
 use crate::findings_of;
 use crate::models::{body_skl, face_package, package_names};
@@ -465,6 +467,66 @@ fn a_common_model_link_converts_the_model_with_its_common_mtl_into_the_player_s_
             == "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"),
         "{face_directories:?}"
     );
+}
+
+// TC-MOD-61
+#[test]
+fn a_common_model_converted_with_the_player_s_own_mtl_names_his_texture_of_its_stem() {
+    let sandbox = Sandbox::new("cmn_model_local_mtl");
+    let export = "exports/co Midcup Card";
+    let player = format!("{export}/Players/05 - A");
+    let (torso, torso_materials) = own_card();
+    sandbox.write(&format!("{player}/torso.model"), &torso);
+    sandbox.write(&format!("{player}/torso.mtl"), &torso_materials);
+    sandbox.write(&format!("{player}/face.dds"), &small_dds());
+    sandbox.write(&format!("{player}/legs.model.common"), b"");
+    // His own `legs.mtl` beats `Common/`'s, and its `./skin.dds` is his own, other bytes than
+    // Common's `skin.dds`.
+    sandbox.write(&format!("{player}/legs.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &tracer_kit());
+    write_common_card(&sandbox, export);
+    let home = "Asset/model/character/common/714/05 - A/sourceimages/#windx11";
+    let common_skin = format!("{COMMON_TEXTURES}/skin.ftex");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Card"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.model.common)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.model)",
+            "Info team_colors_missing [Keep] ()",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert_eq!(
+        paths,
+        [
+            format!("{home}/face.ftex").as_str(),
+            format!("{home}/skin.ftex").as_str(),
+            common_skin.as_str(),
+            FACE_05,
+            FACE_05_FPKD,
+            "common/character0/model/character/uniform/team/UniColor.bin",
+            "common/etc/TeamColor.bin"
+        ],
+        "his skin at his home, Common's packed by the Common textures task all the same"
+    );
+    let package = face_package(&entries);
+    let merged = package.get("fcl_hair.fmdl").unwrap();
+    // His `legs.mtl` set `./skin.dds`, so it resolves in his folder, where his `skin.dds` is.
+    for file_name in ["skin.dds", "face.dds"] {
+        let directories = texture_directories(merged, file_name);
+        assert!(!directories.is_empty(), "{file_name}");
+        assert!(
+            directories.iter().all(|directory| directory == HOME_714_05),
+            "{file_name}: {directories:?}"
+        );
+    }
 }
 
 #[test]
