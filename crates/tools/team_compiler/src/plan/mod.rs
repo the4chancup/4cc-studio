@@ -32,8 +32,8 @@ use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
     FolderModels, KIT_TEXTURE_STEMS, ModelPackage, PlayerFile, common_file, common_skeleton,
-    file_stem, is_direct_common_file, is_part_of, leaves_out_kit_variants, link_combines,
-    link_feeds_own_package, link_name, linked_folder, named_as_face, native_format, package_of,
+    file_stem, is_direct_common_file, is_hand_split, is_part_of, leaves_out_kit_variants,
+    link_combines, link_feeds_own_package, link_name, linked_folder, native_format, package_of,
     player_file, selected_common_model, shared_folders, shared_kind_of, skeleton_slot,
     texture_format,
 };
@@ -708,27 +708,41 @@ impl TaskKind {
                         // `ingame_face` player combines into his package of its kind.
                         || (matches!(role, PlayerFile::PreFoxModel { .. }) && *package == source)
                 };
-                // On Fox only a package converting a `.model` reads a `.mtl`: the FMDLs carry
-                // their materials, and a `.mtl` beside a `.model` an FMDL beats is read by
-                // nothing (`pipeline.md` step 3 "Format conversion").
-                let converts = match folder.engine {
-                    Engine::Fox => folder_files(folder, |source, _, file, role| {
-                        reads_model(source, file, role)
+                // The sources of the `.model` files this package reads, whose `.mtl` files it
+                // reads too on Fox (below). There only a package converting a `.model` reads a
+                // `.mtl`: the FMDLs carry their materials, and a `.mtl` beside a `.model` an
+                // FMDL beats is read by nothing (`pipeline.md` step 3 "Format conversion").
+                let model_sources: BTreeSet<&ScopePath> = folder
+                    .roles()
+                    .into_iter()
+                    .filter(|(source, _, files)| {
+                        files.iter().any(|(file, role)| {
+                            file.kind == FileKind::Model(ModelFormat::PesModel)
+                                && reads_model(*source, file, role)
+                        })
                     })
-                    .iter()
-                    .any(|file| file.kind == FileKind::Model(ModelFormat::PesModel)),
-                    Engine::PreFox => true,
-                };
+                    .map(|(_, source_path, _)| source_path)
+                    .collect();
                 let mut read = folder_files(folder, |source, source_path, file, role| {
                     reads_model(source, file, role)
-                        // A `.mtl` goes where its source's models go, each package packing (on
-                        // Fox, converting with) the ones its models use (`mtl_for`): a combined
-                        // folder's into the player's package of its kind, the folder's own into
-                        // each of its packages, a pre-Fox `ingame_face` player's models being
-                        // parts of his boots and of his gloves (`PlayerFile::PreFoxPart`).
                         || (matches!(role, PlayerFile::Material)
-                            && converts
-                            && (*package == source || source_path == &folder.path))
+                            && match folder.engine {
+                                // A `.mtl` belongs to the `.model` files of its source, which
+                                // take their materials from it (`mtl_for`), so it goes wherever
+                                // one of them is read. Not by the package the source feeds: a
+                                // linked face folder's `boots.model`, a part of the player's
+                                // boots, takes that folder's `.mtl` into his boots, though the
+                                // folder feeds his face.
+                                Engine::Fox => model_sources.contains(source_path),
+                                // A `.mtl` goes where its source's models go, each package
+                                // packing the ones its models use: a combined folder's into
+                                // the player's package of its kind, the folder's own into each
+                                // of its packages, a `.common` link to a `.model` taking a
+                                // `.mtl` of its name from them though no package reads the
+                                // link (TC-MOD-24), and an `ingame_face` player's models being
+                                // parts of his boots and of his gloves.
+                                Engine::PreFox => *package == source || source_path == &folder.path,
+                            })
                         // A pre-Fox FMDL's skeleton, its bind pose, goes where its models go,
                         // as a `.mtl` does: the face's, a shared boots or gloves output's, a
                         // combined folder's into the player's package of its kind, and an
@@ -746,7 +760,7 @@ impl TaskKind {
                 // `PlayerFile::Material` already (`ModelFolder::roles`), as he does on Fox,
                 // where it is read once.
                 let reads_links = match folder.engine {
-                    Engine::Fox => converts,
+                    Engine::Fox => !model_sources.is_empty(),
                     Engine::PreFox => *package == ModelPackage::Face,
                 };
                 if reads_links {
@@ -822,15 +836,12 @@ fn linked_common_materials(folder: &ModelFolder) -> Vec<&FileDescriptor> {
 
 /// The export paths of `folder`'s hand-split parts on a target of `engine`
 /// (`ModelFolder::hand_split`): its face models whose path is among `hand_weighted`, the
-/// models the deep pass found carrying hand weights. On Fox those are its face parts, its own,
-/// a combined folder's or a Common model's. On pre-Fox they are the `.model` files its face
-/// packs and names as face content, its own and a combined shared face's: never a model a
-/// `.common` link brings in, which the face lists by reference in the team's Common output and
-/// packs nothing of, and never an `ingame_face` player's part, which has no face. A model
-/// named as boots or gloves is never one on either engine, whatever its weights: an authored
-/// glove is all hand, and a boots model is on the body skeleton already
-/// (`model_conversion/hand_split.md` "Pipeline integration"). A folder holding its own
-/// `face.xml` has none (`ModelFolder::own_face_xml`).
+/// models the deep pass found carrying hand weights (`is_hand_split`). On Fox those are its
+/// face parts, its own, a combined folder's or a Common model's. On pre-Fox they are the
+/// `.model` files its face packs and names as face content, its own and a combined shared
+/// face's: never a model a `.common` link brings in, which the face lists by reference in the
+/// team's Common output and packs nothing of, and never an `ingame_face` player's part, which
+/// has no face. A folder holding its own `face.xml` has none (`ModelFolder::own_face_xml`).
 fn hand_split_parts(
     folder: &ModelFolder,
     hand_weighted: &BTreeSet<ScopePath>,
@@ -845,15 +856,10 @@ fn hand_split_parts(
         .roles()
         .into_iter()
         .flat_map(|(_, source_path, files)| {
-            files.into_iter().filter(move |(file, role)| match engine {
-                Engine::Fox => is_part_of(role, ModelPackage::Face),
-                Engine::PreFox => {
-                    matches!(role, PlayerFile::PreFoxModel { .. })
-                        && named_as_face(source_path, file)
-                }
+            files.into_iter().filter(move |(file, role)| {
+                is_hand_split(engine, source_path, file, role, hand_weighted)
             })
         })
-        .filter(|(file, _)| hand_weighted.contains(&file.path))
         .map(|(file, _)| file.path.clone())
         .collect()
 }
@@ -1074,7 +1080,8 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
         for kind in [SharedKind::Boots, SharedKind::Gloves] {
             let package = package_of(kind);
-            let folders = shared_folders_taking_ids(&export, version.engine(), kind);
+            let folders =
+                shared_folders_taking_ids(&export, version.engine(), kind, &hand_weighted);
             for (index, folder) in folders.into_iter().enumerate() {
                 let shared_id = u32::from(model_ids.and_then(|ids| ids.shared(index)).expect(
                     "a referee's links take no shared id, and the structure pass drops a \
@@ -1142,11 +1149,11 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             // member nothing new.
             let mut combined = Vec::new();
             for link in folder.links.iter().filter(|link| {
-                link_feeds_own_package(&export.roster, version.engine(), &folder, link)
+                link_feeds_own_package(&export, version.engine(), &folder, link, &hand_weighted)
             }) {
                 let shared = linked_folder(&export, link)
                     .expect("validation drops a player folder whose link names no shared folder");
-                if link_combines(&folder, link, version.engine()) {
+                if link_combines(&export, &folder, link, version.engine(), &hand_weighted) {
                     messages.push(tool_message(
                         Code::LinkCombined,
                         Scope::Folder {

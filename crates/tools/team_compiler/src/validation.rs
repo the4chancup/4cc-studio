@@ -334,8 +334,14 @@ fn check_source(
                     &resolved,
                     inputs.common.pes_version,
                     source.export_id,
+                    &hand_weighted,
                 ));
-                let exhausted = pool_messages(&resolved, inputs.common.pes_version, &export);
+                let exhausted = pool_messages(
+                    &resolved,
+                    inputs.common.pes_version,
+                    &export,
+                    &hand_weighted,
+                );
                 if exhausted.is_empty() {
                     Some(resolved)
                 } else {
@@ -472,11 +478,13 @@ fn notes(export: &ValidatedAestheticsExport, content: &ContentSource) -> Option<
 /// `boots_id_pool_exhausted` and `gloves_id_pool_exhausted`, each when more shared folders of
 /// its kind take an id for `version` than the team's block holds, naming the count; the export
 /// is dropped (`team_compiler/README.md` TC-MOD-06). A referee export has no block: its ids
-/// are its slots' (`k99NN`).
+/// are its slots' (`k99NN`). `hand_weighted` is the deep pass's, as planning counts the
+/// folders with it (`shared_folders_taking_ids`).
 fn pool_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
     export: &Scope,
+    hand_weighted: &BTreeSet<ScopePath>,
 ) -> Vec<Message> {
     match resolved.identity {
         ExportIdentity::Team { .. } => {}
@@ -488,7 +496,9 @@ fn pool_messages(
     ]
     .into_iter()
     .filter_map(|(kind, code)| {
-        let count = shared_folders_taking_ids(&resolved.export, version.engine(), kind).len();
+        let count =
+            shared_folders_taking_ids(&resolved.export, version.engine(), kind, hand_weighted)
+                .len();
         (count > usize::from(SHARED_COUNT)).then(|| {
             tool_message(
                 code,
@@ -506,15 +516,18 @@ fn pool_messages(
 /// player folder linking it plainly, in roster order (`player_folders.md` "Assigns IDs
 /// automatically"): planning gives it no ID and no task, and that player wears the game's own.
 /// A shared face, or a folder linked beside the player's own model, is a texture source and
-/// gets nothing.
+/// gets nothing. `hand_weighted` as for `pool_messages`.
 fn no_model_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
     export_id: ExportId,
+    hand_weighted: &BTreeSet<ScopePath>,
 ) -> Vec<Message> {
     [SharedKind::Boots, SharedKind::Gloves]
         .into_iter()
-        .flat_map(|kind| shared_folders_with_no_model(&resolved.export, version.engine(), kind))
+        .flat_map(|kind| {
+            shared_folders_with_no_model(&resolved.export, version.engine(), kind, hand_weighted)
+        })
         .map(|(folder, player)| {
             tool_message(
                 Code::SharedFolderNoModel,
@@ -828,7 +841,7 @@ mod tests {
         let scope = Scope::Export {
             export_id: ExportId(0),
         };
-        pool_messages(export, version, &scope)
+        pool_messages(export, version, &scope, &BTreeSet::new())
             .into_iter()
             .map(|message| {
                 assert_eq!(message.scope, scope);
@@ -1570,7 +1583,7 @@ mod tests {
         ];
         let export = resolved("co Midcup Studs", &files, &[], None);
         let lines = |version| -> Vec<String> {
-            no_model_messages(&export, version, ExportId(2))
+            no_model_messages(&export, version, ExportId(2), &BTreeSet::new())
                 .into_iter()
                 .map(line)
                 .collect()

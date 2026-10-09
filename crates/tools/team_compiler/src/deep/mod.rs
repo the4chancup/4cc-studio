@@ -563,8 +563,12 @@ impl<'a> FaceUse<'a> {
             .iter()
             .filter(|link| match link.kind {
                 SharedKind::Face => false,
+                // This pass is what finds the hand-weighted models, so it cannot see a gloves
+                // link that combines only with split hands: that folder's textures do not count
+                // here for the player's `.mtl` paths, though planning puts them in his textures
+                // task.
                 SharedKind::Boots | SharedKind::Gloves => {
-                    link_feeds_own_package(&export.roster, engine, player, link)
+                    link_feeds_own_package(export, engine, player, link, &BTreeSet::new())
                 }
             })
             .filter_map(|link| Some((link.kind, linked_folder(export, link)?)))

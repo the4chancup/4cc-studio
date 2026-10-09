@@ -4,12 +4,15 @@
 //! every ID and processing never allocates one, and the same export always compiles to the same
 //! IDs.
 
+use std::collections::BTreeSet;
+
 use aesthetics_export::{
     PlayerFolder, PlayerSlot, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
     ValidatedRoster,
 };
 use pes_version::Engine;
 use teams_list::TeamId;
+use vtree::ScopePath;
 
 use super::roles::{FolderModels, PlayerFile, link_feeds_own_package, package_of, player_file};
 
@@ -70,17 +73,21 @@ impl PlannedModelIds {
 /// (`shared_folders_with_no_model`). A shared face never takes one (on Fox it merges into the
 /// player's face; pre-Fox it is copied per player), neither does a folder only unmapped
 /// folders link, since they are not compiled, and neither does a refs export's, whose every
-/// link feeds the referee's own slot package (`link_feeds_own_package`).
-pub(crate) fn shared_folders_taking_ids(
-    export: &ValidatedAestheticsExport,
+/// link feeds the referee's own slot package (`link_feeds_own_package`). `hand_weighted` is
+/// the models the deep pass found carrying hand weights, whose split hands make a player's
+/// gloves link combine.
+pub(crate) fn shared_folders_taking_ids<'a>(
+    export: &'a ValidatedAestheticsExport,
     engine: Engine,
     kind: SharedKind,
-) -> Vec<&SharedModelFolder> {
-    let mut taking: Vec<&SharedModelFolder> = plainly_linked_folders(export, engine, kind)
-        .into_iter()
-        .map(|(folder, _)| folder)
-        .filter(|folder| holds_model_of_its_kind(folder, engine, kind))
-        .collect();
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> Vec<&'a SharedModelFolder> {
+    let mut taking: Vec<&SharedModelFolder> =
+        plainly_linked_folders(export, engine, kind, hand_weighted)
+            .into_iter()
+            .map(|(folder, _)| folder)
+            .filter(|folder| holds_model_of_its_kind(folder, engine, kind))
+            .collect();
     taking.sort_by_cached_key(|folder| {
         (
             vtree::fold_name(&folder.folder_name),
@@ -94,13 +101,15 @@ pub(crate) fn shared_folders_taking_ids(
 /// for `engine` but that hold no model of their kind, in the export's folder order, each with
 /// the first player folder linking it plainly, in roster order: the folders
 /// `shared_folders_taking_ids` leaves out for having nothing to load, which validation reports
-/// as `shared_folder_no_model`. A player linking one wears the game's own.
-pub(crate) fn shared_folders_with_no_model(
-    export: &ValidatedAestheticsExport,
+/// as `shared_folder_no_model`. A player linking one wears the game's own. `hand_weighted` as
+/// for `shared_folders_taking_ids`.
+pub(crate) fn shared_folders_with_no_model<'a>(
+    export: &'a ValidatedAestheticsExport,
     engine: Engine,
     kind: SharedKind,
-) -> Vec<(&SharedModelFolder, &PlayerFolder)> {
-    plainly_linked_folders(export, engine, kind)
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> Vec<(&'a SharedModelFolder, &'a PlayerFolder)> {
+    plainly_linked_folders(export, engine, kind, hand_weighted)
         .into_iter()
         .filter(|(folder, _)| !holds_model_of_its_kind(folder, engine, kind))
         .collect()
@@ -109,11 +118,12 @@ pub(crate) fn shared_folders_with_no_model(
 /// The shared folders of `kind` in `export` that at least one roster-mapped player folder
 /// links plainly for `engine`, in the export's folder order, each with the first such player
 /// folder in roster order; none for a shared face.
-fn plainly_linked_folders(
-    export: &ValidatedAestheticsExport,
+fn plainly_linked_folders<'a>(
+    export: &'a ValidatedAestheticsExport,
     engine: Engine,
     kind: SharedKind,
-) -> Vec<(&SharedModelFolder, &PlayerFolder)> {
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> Vec<(&'a SharedModelFolder, &'a PlayerFolder)> {
     let folders = match kind {
         SharedKind::Face => return Vec::new(),
         SharedKind::Boots => &export.boots,
@@ -124,9 +134,9 @@ fn plainly_linked_folders(
         .iter()
         .filter_map(|folder| {
             let name_key = vtree::fold_name(&folder.folder_name);
-            let player = players
-                .iter()
-                .find(|player| links_plainly(&export.roster, player, engine, kind, &name_key))?;
+            let player = players.iter().find(|player| {
+                links_plainly(export, player, engine, kind, &name_key, hand_weighted)
+            })?;
             Some((folder, *player))
         })
         .collect()
@@ -163,20 +173,21 @@ fn players_in_roster_order(export: &ValidatedAestheticsExport) -> Vec<&PlayerFol
         .collect()
 }
 
-/// Whether `player`, of an export whose roster is `roster`, links the shared folder of `kind`
-/// whose folded name is `name_key` so that the shared output is loaded as it is: a link that
-/// does not feed the player's own package (`link_feeds_own_package`).
+/// Whether `player`, a player folder of `export`, links the shared folder of `kind` whose
+/// folded name is `name_key` so that the shared output is loaded as it is: a link that does
+/// not feed the player's own package (`link_feeds_own_package`, the answer planning gives).
 fn links_plainly(
-    roster: &ValidatedRoster,
+    export: &ValidatedAestheticsExport,
     player: &PlayerFolder,
     engine: Engine,
     kind: SharedKind,
     name_key: &str,
+    hand_weighted: &BTreeSet<ScopePath>,
 ) -> bool {
     player.links.iter().any(|link| {
         link.kind == kind
             && vtree::fold_name(&link.name) == name_key
-            && !link_feeds_own_package(roster, engine, player, link)
+            && !link_feeds_own_package(export, engine, player, link, hand_weighted)
     })
 }
 
@@ -233,7 +244,7 @@ mod tests {
     ) -> Vec<String> {
         let files: Vec<(&str, u64)> = files.iter().map(|path| (*path, 1)).collect();
         let export = resolved("co Midcup Shared", &files, &[], players_txt).export;
-        shared_folders_taking_ids(&export, engine, kind)
+        shared_folders_taking_ids(&export, engine, kind, &BTreeSet::new())
             .iter()
             .map(|folder| folder.folder_name.clone())
             .collect()
@@ -354,7 +365,8 @@ mod tests {
         .export;
         for engine in [Engine::Fox, Engine::PreFox] {
             assert!(
-                shared_folders_taking_ids(&export, engine, SharedKind::Boots).is_empty(),
+                shared_folders_taking_ids(&export, engine, SharedKind::Boots, &BTreeSet::new())
+                    .is_empty(),
                 "{engine:?}"
             );
         }
@@ -374,11 +386,15 @@ mod tests {
             Some(b"03 A\n"),
         );
         assert_eq!(issues, ["player_unlisted", "shared_folder_orphaned"]);
-        let names: Vec<&str> =
-            shared_folders_taking_ids(&export.export, Engine::Fox, SharedKind::Boots)
-                .iter()
-                .map(|folder| folder.folder_name.as_str())
-                .collect();
+        let names: Vec<&str> = shared_folders_taking_ids(
+            &export.export,
+            Engine::Fox,
+            SharedKind::Boots,
+            &BTreeSet::new(),
+        )
+        .iter()
+        .map(|folder| folder.folder_name.as_str())
+        .collect();
         assert_eq!(names, ["Crocs"]);
     }
 }

@@ -17,6 +17,7 @@ use fmdl::{FmdlFile, Model};
 use crate::bins::{BOOTS_LIST, GLOVE_LIST, install_tables, item_list, pairs_of};
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
+use crate::conversion::HOME_714_05;
 use crate::face_folders::assert_blank_face;
 use crate::prefox_faces::{
     BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, materials_naming,
@@ -1167,6 +1168,183 @@ fn a_shared_face_s_boots_model_is_a_part_of_the_linking_player_s_own_boots() {
     assert_eq!(package_names(&entries[boots]), ["boots.fmdl", "boots.skl"]);
     assert_eq!(boots_mesh_count(&entries, boots), tracer_boots_mesh_count());
     assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 625)]);
+}
+
+// TC-MOD-58
+#[test]
+fn a_shared_face_s_boots_model_converts_with_the_face_folder_s_mtl() {
+    let sandbox = Sandbox::new("mod_face_link_boots_model");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    let export = "exports/co Midcup Round";
+    sandbox.write(&format!("{export}/Players/05 - A/Round.face"), b"");
+    sandbox.write(
+        &format!("{export}/Faces/Round/fcl_hair.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(&format!("{export}/Faces/Round/boots.model"), &card_model());
+    sandbox.write(
+        &format!("{export}/Faces/Round/boots.mtl"),
+        &card_materials(),
+    );
+    // The texture the card's `.mtl` names, as beside the pair in a player folder.
+    sandbox.write(&format!("{export}/Faces/Round/skin.dds"), &small_dds());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Round"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // Slot 05's exclusive id in team 714's block.
+    let boots = "Asset/model/character/boots/k0625/#Win/boots.fpk";
+    assert_eq!(package_names(&entries[boots]), ["boots.fmdl", "boots.skl"]);
+    let package = fpk::FpkFile::read(&entries[boots]).unwrap();
+    // The card's one bone is the game's own: the conversion writes no skeleton, so the boots
+    // get the bundled one.
+    assert_eq!(package.get("boots.skl").unwrap(), body_skl("pes21"));
+    // The `.mtl`'s `./skin.dds`, pointed at the player's texture home, which the combined
+    // face folder's textures join.
+    let file = FmdlFile::read(package.get("boots.fmdl").unwrap()).unwrap();
+    let skin: Vec<(String, String)> = texture_paths(&file)
+        .unwrap()
+        .into_iter()
+        .filter(|path| path.file_name.starts_with("skin."))
+        .map(|path| (path.directory, path.file_name))
+        .collect();
+    assert!(!skin.is_empty(), "the boots converted with Round's .mtl");
+    for path in &skin {
+        assert_eq!(path, &(HOME_714_05.to_owned(), "skin.dds".to_owned()));
+    }
+    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 625)]);
+}
+
+// TC-MOD-59
+#[test]
+fn a_boots_link_combines_with_the_boots_of_the_player_s_shared_face() {
+    let sandbox = Sandbox::new("mod_face_link_boots_link");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    let export = "exports/co Midcup Round";
+    sandbox.write(&format!("{export}/Players/05 - A/Round.face"), b"");
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    for name in ["fcl_hair.fmdl", "boots.fmdl"] {
+        sandbox.write(
+            &format!("{export}/Faces/Round/{name}"),
+            &tracer_player_file(name),
+        );
+    }
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Round"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=fcl_hair.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // Slot 05's exclusive id in team 714's block.
+    let boots = "Asset/model/character/boots/k0625/#Win/boots.fpk";
+    assert_eq!(package_names(&entries[boots]), ["boots.fmdl", "boots.skl"]);
+    assert_eq!(
+        boots_mesh_count(&entries, boots),
+        2 * tracer_boots_mesh_count(),
+        "Round's meshes plus Crocs's"
+    );
+    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 625)]);
+    // The block's first shared id, which Crocs would take if a player linked it plainly.
+    assert!(
+        !entries
+            .keys()
+            .any(|path| path.starts_with("Asset/model/character/boots/k0644/")),
+        "{:?}",
+        entries.keys()
+    );
+}
+
+// TC-MOD-60
+#[test]
+fn a_gloves_link_combines_with_the_hands_split_from_the_player_s_face_model() {
+    let sandbox = Sandbox::new("mod_hand_split_gloves_link");
+    install_tables(&sandbox, &[(GLOVE_LIST, &item_list(&[]))]);
+    // A full-body model with both hands on (`tests/fixtures/hand_split/README.md`): 40 faces,
+    // of which each hand's split takes 8 and the body keeps 24.
+    let body =
+        fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hand_split/body.fmdl"))
+            .unwrap();
+    let export = "exports/co Midcup Hands";
+    sandbox.write(&format!("{export}/Players/05 - A/body.fmdl"), &body);
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.gloves"), b"");
+    // Crocs's gloves are the same strip under each glove's name, which is never split: their
+    // bones are the split hands' own, so the two merge. An authored glove's hand bone has a
+    // parent, which the strip's has not, and would not merge with them (the README).
+    for name in ["glove_l.fmdl", "glove_r.fmdl"] {
+        sandbox.write(&format!("{export}/Gloves/Crocs/{name}"), &body);
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Hands"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=body.fmdl)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.gloves)",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body.fmdl, gloves=glove_l, glove_r)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=glove_l.fmdl)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=glove_r.fmdl)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // Slot 05's exclusive id in team 714's block.
+    let gloves = "Asset/model/character/glove/g0625/#Win/glove.fpk";
+    assert_eq!(
+        package_names(&entries[gloves]),
+        ["glove_l.fmdl", "glove_r.fmdl"]
+    );
+    // Each hand's 8 split faces and Crocs's glove of that name, the whole strip.
+    assert_eq!(
+        [
+            face_count(&entries, gloves, "glove_l.fmdl"),
+            face_count(&entries, gloves, "glove_r.fmdl"),
+        ],
+        [8 + 40, 8 + 40]
+    );
+    assert_eq!(pairs_of(&entries, GLOVE_LIST), [(71405, 625)]);
+    // The block's first shared id, which Crocs would take if a player linked it plainly.
+    assert!(
+        !entries
+            .keys()
+            .any(|path| path.starts_with("Asset/model/character/glove/g0644/")),
+        "{:?}",
+        entries.keys()
+    );
 }
 
 // TC-MOD-04

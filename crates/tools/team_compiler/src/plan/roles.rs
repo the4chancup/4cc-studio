@@ -4,6 +4,8 @@
 //! findings (a file with no role is `file_not_used`) and planning for each task's files, so
 //! the two never disagree: a file no role names is never read.
 
+use std::collections::BTreeSet;
+
 use aesthetics_export::{
     FileDescriptor, FileKind, ModelFormat, ModelSuffix, PlayerFolder, SharedKind, SharedLink,
     SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, classify, common_link_name,
@@ -112,39 +114,48 @@ pub(crate) fn link_name(kind: SharedKind, name: &str) -> String {
     format!("{name}.{extension}")
 }
 
-/// Whether `player`'s `link` combines on a target of `engine`: the shared folder's models
-/// become parts of the player's own package instead of the shared output being loaded as it
-/// is. A face link always does, on both engines, a shared face having no output of its own: on
-/// Fox it is merged into the player's face, on pre-Fox copied into his face CPK. A boots or
-/// gloves link does when the player holds a model of that package (`holds_model`;
-/// `player_folders.md` "A link plus local models combines"): on Fox any such model, one
-/// `ingame_face` makes a boots part included; on pre-Fox only a part `ingame_face` gives him
-/// (`player_folders.md` "`ingame_face` with shared links"), since without the marker his boots
+/// Whether `player`'s `link`, `player` being a player folder of `export`, combines on a target
+/// of `engine`: the shared folder's models become parts of the player's own package instead of
+/// the shared output being loaded as it is. A face link always does, on both engines, a shared
+/// face having no output of its own: on Fox it is merged into the player's face, on pre-Fox
+/// copied into his face CPK. A boots or gloves link does when the player's effective package of
+/// that kind has a part (`has_effective_part`, `hand_weighted` being the models the deep pass
+/// found carrying hand weights; `player_folders.md` "A link plus local models combines"): on
+/// Fox one of his own, a linked face's boots or gloves model, or for his gloves the hands split
+/// off a face model; on pre-Fox only a part `ingame_face` gives him (`player_folders.md`
+/// "`ingame_face` with shared links"), since without the marker his and a linked face's boots
 /// and gloves models are parts of his face, and the link keeps its plain meaning.
-pub(crate) fn link_combines(player: &PlayerFolder, link: &SharedLink, engine: Engine) -> bool {
+pub(crate) fn link_combines(
+    export: &ValidatedAestheticsExport,
+    player: &PlayerFolder,
+    link: &SharedLink,
+    engine: Engine,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> bool {
     match link.kind {
         SharedKind::Face => true,
         SharedKind::Boots | SharedKind::Gloves => {
-            holds_model(player, package_of(link.kind), engine)
+            has_effective_part(export, player, package_of(link.kind), engine, hand_weighted)
         }
     }
 }
 
 /// Whether the shared folder `player`'s `link` names is built, for `engine`, into the
 /// player's own package of its kind instead of compiled on its own under a shared id;
-/// `roster` is the roster of the player's export. A referee's every link is: he has no team
-/// block to give the shared folder an id of its own, so it is written as his slot's
-/// `k99NN`/`g99NN` (`blue_port.md` "Referee export processing"). A team player's link is
-/// when it combines (`link_combines`).
+/// `player` is a player folder of `export`. A referee's every link is: he has no team block to
+/// give the shared folder an id of its own, so it is written as his slot's `k99NN`/`g99NN`
+/// (`blue_port.md` "Referee export processing"). A team player's link is when it combines
+/// (`link_combines`, with `hand_weighted`).
 pub(crate) fn link_feeds_own_package(
-    roster: &ValidatedRoster,
+    export: &ValidatedAestheticsExport,
     engine: Engine,
     player: &PlayerFolder,
     link: &SharedLink,
+    hand_weighted: &BTreeSet<ScopePath>,
 ) -> bool {
-    match roster {
+    match export.roster {
         ValidatedRoster::Referees(_) => true,
-        ValidatedRoster::Team(_) => link_combines(player, link, engine),
+        ValidatedRoster::Team(_) => link_combines(export, player, link, engine, hand_weighted),
     }
 }
 
@@ -1254,16 +1265,91 @@ pub(crate) fn named_as_face(folder: &ScopePath, file: &FileDescriptor) -> bool {
         .is_some_and(|(package, _)| package == ModelPackage::Face)
 }
 
-/// Whether the player folder `player` has a model that packs into `package` on a target of
-/// `engine`, under its `ingame_face` marker when it holds one (`is_part_of`): on Fox its own
-/// or one a `.common` link brings in; on pre-Fox a part of his own the marker gives him
-/// (`PlayerFile::PreFoxPart`), none without it. What gives a player his own package of that
-/// kind, which a link of its kind then combines with (`link_combines`).
-pub(crate) fn holds_model(player: &PlayerFolder, package: ModelPackage, engine: Engine) -> bool {
-    let models = FolderModels::of_player(player, engine);
-    player.files.iter().any(|file| {
-        player_file(&player.path, file, &models).is_some_and(|role| is_part_of(&role, package))
-    })
+/// Whether the model `file` of the source folder at `source`, whose role is `role`, is hand
+/// auto-split on a target of `engine` (`model_conversion/hand_split.md` "Pipeline
+/// integration"): it is among `hand_weighted`, the models the deep pass found carrying hand
+/// weights, and is face content. On Fox that is a part of the face; on pre-Fox a `.model` the
+/// face packs (`PlayerFile::PreFoxModel`) and names as face content (`named_as_face`). A model
+/// named as boots or gloves is never one on either engine, whatever its weights: an authored
+/// glove is all hand, and a boots model is on the body skeleton already.
+pub(crate) fn is_hand_split(
+    engine: Engine,
+    source: &ScopePath,
+    file: &FileDescriptor,
+    role: &PlayerFile,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> bool {
+    hand_weighted.contains(&file.path)
+        && match engine {
+            Engine::Fox => is_part_of(role, ModelPackage::Face),
+            Engine::PreFox => {
+                matches!(role, PlayerFile::PreFoxModel { .. }) && named_as_face(source, file)
+            }
+        }
+}
+
+/// Whether the effective package `package` of `player`, a player folder of `export`, has a
+/// part on a target of `engine` (`player_folders.md` "A link plus local models combines"):
+/// what gives him his own package of that kind, which a link of its kind then combines with
+/// (`link_combines`). The parts are those of his own files (`is_part_of`), under his
+/// `ingame_face` marker when he holds one, a `.common` link's Common model included; those of
+/// each shared face he links, its files under his roles, which on Fox makes a boots- or
+/// glove-named model there a part of his boots or gloves as his own would be, and on pre-Fox
+/// gives neither any part (a face's models are face content there); and on Fox, for his
+/// gloves, the hands split off a face part of his or of a linked face (`is_hand_split`),
+/// which join his gloves as authored ones would (`model_conversion/hand_split.md` "Pipeline
+/// integration"). On pre-Fox a split stays inside the face, which gives no gloves package; nor
+/// does a Fox player's own `face.xml` stop a split, Fox having no `face.xml` role.
+pub(crate) fn has_effective_part(
+    export: &ValidatedAestheticsExport,
+    player: &PlayerFolder,
+    package: ModelPackage,
+    engine: Engine,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> bool {
+    let splits_into_package = match engine {
+        Engine::Fox => package == ModelPackage::Gloves,
+        Engine::PreFox => false,
+    };
+    let own = (
+        &player.path,
+        player.files.as_slice(),
+        FolderModels::of_player(player, engine),
+    );
+    let faces = player
+        .links
+        .iter()
+        .filter(|link| link.kind == SharedKind::Face)
+        .filter_map(|link| linked_folder(export, link))
+        .map(|face| {
+            let models = FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine);
+            (&face.path, face.files.as_slice(), models)
+        });
+    std::iter::once(own)
+        .chain(faces)
+        .any(|(source, files, models)| {
+            files.iter().any(|file| {
+                let Some(role) = player_file(source, file, &models) else {
+                    return false;
+                };
+                if is_part_of(&role, package) {
+                    return true;
+                }
+                if !splits_into_package {
+                    return false;
+                }
+                // A link's Common model is split as the file the link loads, which is what
+                // the deep pass read.
+                let model = if file.kind == FileKind::CommonLink {
+                    common_link_name(file.path.name())
+                        .and_then(|linked| selected_common_model(&export.common, &linked, engine))
+                } else {
+                    Some(file)
+                };
+                model
+                    .is_some_and(|model| is_hand_split(engine, source, model, &role, hand_weighted))
+            })
+        })
 }
 
 /// A file name's stem: the name up to its last `.`.
@@ -2695,15 +2781,102 @@ mod tests {
         }
     }
 
+    /// `has_effective_part` for `package` of the one player folder of the export `co Midcup
+    /// Parts` holding `files`, compiled for `engine`, `hand_weighted` naming the models the deep
+    /// pass found carrying hand weights.
+    fn effective_part(
+        files: &[&str],
+        hand_weighted: &[&str],
+        package: ModelPackage,
+        engine: Engine,
+    ) -> bool {
+        let files: Vec<(&str, u64)> = files.iter().map(|path| (*path, 1)).collect();
+        let export = resolved("co Midcup Parts", &files, &[], None).export;
+        let hand_weighted: BTreeSet<ScopePath> = hand_weighted
+            .iter()
+            .map(|path| ScopePath::new(path).unwrap())
+            .collect();
+        has_effective_part(&export, &export.players[0], package, engine, &hand_weighted)
+    }
+
     #[test]
     fn a_folder_holds_a_package_s_model_from_its_subfolders_and_its_model_links() {
-        let subfolders = folder(&["boots/x.fmdl", "gloves/glove_l.fmdl"]);
-        assert!(holds_model(&subfolders, ModelPackage::Boots, Engine::Fox));
-        assert!(holds_model(&subfolders, ModelPackage::Gloves, Engine::Fox));
-        assert!(!holds_model(&subfolders, ModelPackage::Face, Engine::Fox));
-        let linked = folder(&["kit_boots.fmdl.common"]);
-        assert!(holds_model(&linked, ModelPackage::Boots, Engine::Fox));
-        assert!(!holds_model(&linked, ModelPackage::Face, Engine::Fox));
+        let subfolders = [
+            "Players/03 - A/boots/x.fmdl",
+            "Players/03 - A/gloves/glove_l.fmdl",
+        ];
+        let part = |package| effective_part(&subfolders, &[], package, Engine::Fox);
+        assert!(part(ModelPackage::Boots));
+        assert!(part(ModelPackage::Gloves));
+        assert!(!part(ModelPackage::Face));
+        let linked = [
+            "Players/03 - A/kit_boots.fmdl.common",
+            "Common/kit_boots.fmdl",
+        ];
+        let part = |package| effective_part(&linked, &[], package, Engine::Fox);
+        assert!(part(ModelPackage::Boots));
+        assert!(!part(ModelPackage::Face));
+    }
+
+    #[test]
+    fn a_linked_face_s_boots_model_is_a_part_of_the_player_s_boots_on_fox_alone() {
+        let files = [
+            "Players/03 - A/Round.face",
+            "Faces/Round/fcl_hair.fmdl",
+            "Faces/Round/boots.fmdl",
+        ];
+        assert!(effective_part(
+            &files,
+            &[],
+            ModelPackage::Boots,
+            Engine::Fox
+        ));
+        assert!(!effective_part(
+            &files,
+            &[],
+            ModelPackage::Gloves,
+            Engine::Fox
+        ));
+        // On pre-Fox the face's models are face content: his boots link stays plain.
+        assert!(!effective_part(
+            &files,
+            &[],
+            ModelPackage::Boots,
+            Engine::PreFox
+        ));
+    }
+
+    #[test]
+    fn a_hand_split_face_model_gives_the_player_s_gloves_a_part_on_fox_alone() {
+        // His own face model, a linked face's, and the Common model a link of his loads.
+        let cases: [(&[&str], &str); 3] = [
+            (&["Players/03 - A/body.fmdl"], "Players/03 - A/body.fmdl"),
+            (
+                &["Players/03 - A/Round.face", "Faces/Round/body.fmdl"],
+                "Faces/Round/body.fmdl",
+            ),
+            (
+                &["Players/03 - A/body.fmdl.common", "Common/body.fmdl"],
+                "Common/body.fmdl",
+            ),
+        ];
+        for (files, weighted) in cases {
+            let part = |hand_weighted: &[&str], engine| {
+                effective_part(files, hand_weighted, ModelPackage::Gloves, engine)
+            };
+            assert!(part(&[weighted], Engine::Fox), "{weighted}");
+            assert!(!part(&[], Engine::Fox), "{weighted}: no hand weights");
+            // On pre-Fox the split stays inside the face.
+            assert!(!part(&[weighted], Engine::PreFox), "{weighted}");
+        }
+        // A boots model is never split, whatever its weights.
+        let boots = ["Players/03 - A/boots.fmdl"];
+        assert!(!effective_part(
+            &boots,
+            &["Players/03 - A/boots.fmdl"],
+            ModelPackage::Gloves,
+            Engine::Fox
+        ));
     }
 
     #[test]
