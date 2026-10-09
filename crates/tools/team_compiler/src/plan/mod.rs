@@ -31,11 +31,11 @@ use collars::export_collar;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
-    FolderModels, KIT_TEXTURE_STEMS, ModelPackage, PlayerFile, common_file, common_skeleton,
-    file_stem, is_direct_common_file, is_hand_split, is_part_of, leaves_out_kit_variants,
-    link_combines, link_feeds_own_package, link_name, linked_folder, native_format, package_of,
-    player_file, selected_common_model, shared_folders, shared_kind_of, skeleton_slot,
-    texture_format,
+    FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, emits_kit_texture,
+    file_stem, is_direct_common_file, is_hand_split, is_part_of, is_selected_common_model,
+    leaves_out_kit_variants, link_combines, link_feeds_own_package, link_name, linked_folder,
+    native_format, package_of, player_file, selected_common_model, shared_folders, shared_kind_of,
+    skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -1448,11 +1448,12 @@ fn folder_tasks(
     }
 }
 
-/// Removes from every kit's effective textures each one a target of `engine` does not emit,
-/// in the set's order: the other engine's map (its `kit_srm` on PES 15-17, its `kit_mask` on
-/// PES 18-21; neither is converted into the other) and a `kit_*` stem outside the seven the
-/// compiler builds (`KIT_TEXTURE_STEMS`, so `kit_spec`), each reported as `kit_texture_not_used`
-/// on its kit folder, naming the file (`pipeline.md` "4. Per-export non-model steps", Kits).
+/// Removes from every kit's effective textures each one a target of `engine` does not emit
+/// (`emits_kit_texture`), in the set's order: the other engine's map (its `kit_srm` on PES
+/// 15-17, its `kit_mask` on PES 18-21; neither is converted into the other) and a `kit_*` stem
+/// outside the seven the compiler builds (`KIT_TEXTURE_STEMS`, so `kit_spec`), each reported
+/// as `kit_texture_not_used` on its kit folder, naming the file (`pipeline.md` "4. Per-export
+/// non-model steps", Kits).
 /// It goes before the kit's task is made, which therefore never reads them.
 fn drop_unused_kit_textures(
     engine: Engine,
@@ -1460,17 +1461,10 @@ fn drop_unused_kit_textures(
     kits: &mut KitsFolder,
     messages: &mut Vec<Message>,
 ) {
-    let other_engine_map = match engine {
-        Engine::PreFox => "kit_srm",
-        Engine::Fox => "kit_mask",
-    };
     for kit in kits.kits.values_mut() {
         let (dropped, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut kit.textures)
             .into_iter()
-            .partition(|texture| {
-                texture.stem == other_engine_map
-                    || !KIT_TEXTURE_STEMS.contains(&texture.stem.as_str())
-            });
+            .partition(|texture| !emits_kit_texture(engine, &texture.stem));
         kit.textures = kept;
         for texture in dropped {
             messages.push(tool_message(
@@ -1841,10 +1835,7 @@ fn player_folders<Slot: Copy>(
 /// below a subfolder, which only a lenient file-type check keeps: the Common output is flat,
 /// and a flattened copy could collide with a direct file's.
 fn common_model_files(common: &[FileDescriptor]) -> Vec<FileDescriptor> {
-    let converted = |file: &FileDescriptor| {
-        selected_common_model(common, file.path.name(), Engine::PreFox)
-            .is_some_and(|selected| selected.path == file.path)
-    };
+    let converted = |file: &FileDescriptor| is_selected_common_model(common, file, Engine::PreFox);
     // The stems, folded, of the FMDLs converted: a `.skl` of one of them is its bind pose.
     let converted_stems: BTreeSet<String> = common
         .iter()

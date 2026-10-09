@@ -4,11 +4,14 @@
 //! which derive the sanitized export again, so a finding drops, cascades and passes through by
 //! the structure pass's own rules.
 //!
-//! This module reads every native model (`.fmdl`, `.model`) and every `.mtl` of the player
-//! folders, the shared folders and `Common/`, whatever the target version (a model of either
-//! format is a source for either target), but for PES 2018 to 2021 a model folder's `.mtl` no
-//! `.model` of the folder is converted with, which nothing reads; and it reports what the
-//! format crates' checks find
+//! It checks what `compile` reads and nothing else: a file planning leaves unread has no
+//! finding, which would drop what `compile` builds without it. This module reads every native
+//! model (`.fmdl`, `.model`) and every `.mtl` of the player folders, the shared folders and
+//! `Common/` that a task of the target reads, whatever the target version (a model of either
+//! format is a source for either target): not a model another of its stem beats, a model with
+//! no role, a per-kit variant left out, a file below a `Common/` subfolder, nor for PES 2018
+//! to 2021 a model folder's `.mtl` no `.model` of the folder is converted with; and it reports
+//! what the format crates' checks find
 //! (`team_compiler/messages.md` "Model checks"): one finding per file and code, at the
 //! severity the format crate gives it. An Error drops what holds the file and may pass through;
 //! a Warning or an Info only informs. The far vertex, which both formats check, is reported as
@@ -20,13 +23,13 @@
 //! material it binds is `model_material_undefined` too, naming those materials, and may pass
 //! through. glTF models are not read (Phase 7).
 //!
-//! It also checks every texture of those folders, of `Common/`, of the kits and every portrait
-//! from its header alone (`team_compiler/messages.md` "Textures"): a file renamed from another
-//! format, a side under one block, and the size rules of a kit's main texture, of a mipmapped
-//! Fox texture and of a portrait. A slot whose two portraits, its player folder's and its
-//! `Portraits/` file, differ in bytes is `portrait_conflict`, which skips the export. A logo
-//! source is the one texture decoded in full: one that does not decode is
-//! `logo_file_invalid`.
+//! It also checks every texture of those folders, of `Common/`, of the kits (but one the target
+//! does not emit) and every portrait from its header alone (`team_compiler/messages.md`
+//! "Textures"): a file renamed from another format, a side under one block, and the size rules
+//! of a kit's main texture, of a mipmapped Fox texture and of a portrait. A slot whose two
+//! portraits, its player folder's and its `Portraits/` file, differ in bytes is
+//! `portrait_conflict`, which skips the export. A logo source is the one texture decoded in
+//! full: one that does not decode is `logo_file_invalid`.
 //!
 //! Each `Collars/` file's name must give a stock collar of the target version that a kit
 //! config can name, and no collar the suite holds itself (`collar`); a collar model is then
@@ -35,11 +38,13 @@
 //! For PES 2015 to 2017 it also reads a face folder's own `face.xml` (`user_face_xml`) and
 //! reports its content checks (`team_compiler/messages.md` "XML/MTL content checks"); the xml
 //! then decides which `.mtl` a model's `model_material_undefined` compares with: the one its
-//! entry names, for the models it lists, instead of the one the search finds.
+//! entry names, for the models it lists (a `Common/` model an entry names included), instead
+//! of the one the search finds.
 //!
 //! Last, it reads the small data files whole (`documents`): the face diff of each player
-//! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), each kit's
-//! `config.toml` (`kit_config_invalid`), each player's `settings.toml`
+//! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), but on PES 2015
+//! to 2017 not a `face_diff.bin` beside a member's `face.xml` holding a `<dif>`, which
+//! replaces it; each kit's `config.toml` (`kit_config_invalid`), each player's `settings.toml`
 //! (`settings_toml_invalid`), and each kit's and the root `colors.txt`, one
 //! `color_entry_invalid` per line the file refuses.
 //!
@@ -72,8 +77,9 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, file_stem, is_direct_common_file, link_feeds_own_package,
-    linked_folder, player_file, selected_common_model, texture_format,
+    FolderModels, PlayerFile, emits_kit_texture, file_stem, is_direct_common_file,
+    is_selected_common_model, link_feeds_own_package, linked_folder, player_file,
+    selected_common_model, texture_format,
 };
 use crate::reader::ContentSource;
 use crate::user_face_xml::{
@@ -173,8 +179,14 @@ impl KeptCommon {
 /// cascade then drops the players linking it; one on a collar, a portrait, a `settings.toml` or
 /// a logo file drops that file. A refused
 /// `colors.txt` line is a Warning on the file, which drops nothing. `Common/`'s files are
-/// checked before the folders, whose models' `.mtl` search sees only the ones kept, and whose
-/// models' materials are compared with the kept ones' names (`KeptCommon`).
+/// checked before the folders, whose models' `.mtl` search sees only the ones the validation
+/// report keeps, with `pass_through` as set, and whose models' materials are compared with
+/// the kept ones' names (`KeptCommon`).
+///
+/// It checks only what `compile` reads: not a file below a `Common/` subfolder, nor a
+/// `Common/` model another of its stem beats (`is_selected_common_model`), nor a kit texture
+/// the target does not emit (`emits_kit_texture`), nor a folder's file `folder_findings`
+/// leaves unread.
 ///
 /// For PES 2015 to 2017 each `.mtl`'s texture paths are looked up (`materials`), and for PES
 /// 2018 to 2021 those of each folder `.mtl` a selected `.model` pairs with, right after its own
@@ -197,6 +209,7 @@ pub(crate) fn content_findings(
     content: &ContentSource,
     version: PesVersion,
     installed: Option<BTreeSet<String>>,
+    pass_through: bool,
 ) -> ContentPass {
     let size_rule = SizeRule::of(version);
     let engine = version.engine();
@@ -206,7 +219,12 @@ pub(crate) fn content_findings(
         .common
         .par_iter()
         .map(|file| {
-            let Some(checked) = checked_as(file, size_rule) else {
+            // The Common tasks read only the files directly in `Common/`, and a model there
+            // only when the target selects it for its stem: nothing reads the others.
+            let unread = !is_direct_common_file(&file.path)
+                || (matches!(file.kind, FileKind::Model(_))
+                    && !is_selected_common_model(&export.common, file, engine));
+            let Some(checked) = checked_as(file, size_rule).filter(|_| !unread) else {
                 return ContentPass::default();
             };
             file_outcome(
@@ -219,19 +237,18 @@ pub(crate) fn content_findings(
             )
         })
         .collect();
-    // A model's `.mtl` search looks only among the `Common/` files this pass keeps: planning
+    // A model's `.mtl` search looks only among the `Common/` files the report keeps: planning
     // sees the export after the drops, so the face task searches the same files, and a model
     // whose only `.mtl` is a dropped Common one is `model_material_undefined` here rather than
-    // a material the face task cannot find. A file under `pass_through` that an eligible
-    // Error would keep is left out too: the pass does not know the setting, and leaving it
-    // out can only report a folder `compile` could have built, never let one through that
-    // it cannot.
+    // a material the face task cannot find. Under `pass_through` a file whose every Error is
+    // eligible is kept and packed, so it is found here too: leaving it out would drop a
+    // player for a file `compile` packs. A file below a subfolder is found by no lookup.
     let mut kept_common = KeptCommon {
         installed,
         ..KeptCommon::default()
     };
     for (file, pass) in export.common.iter().zip(&common) {
-        if drops_file(&pass.findings) {
+        if !is_direct_common_file(&file.path) || drops_file(&pass.findings, pass_through) {
             continue;
         }
         kept_common.files.push(file.clone());
@@ -257,7 +274,7 @@ pub(crate) fn content_findings(
         .map(|player| {
             let folder = &player.path;
             // Under the marker the face files are not used, his own `face.xml` among them.
-            let mut pass = folder_findings(
+            let (mut pass, xml_dif) = folder_findings(
                 content,
                 folder,
                 &player.files,
@@ -272,6 +289,7 @@ pub(crate) fn content_findings(
                 folder,
                 &player.files,
                 &FolderModels::of_player(player, engine),
+                xml_dif,
             ));
             // Not among the folder's files: a portrait and a `settings.toml` are dropped
             // alone, the folder keeping the rest.
@@ -293,7 +311,7 @@ pub(crate) fn content_findings(
         .par_iter()
         .map(|face| {
             // A shared face links no other.
-            let mut pass = folder_findings(
+            let (mut pass, xml_dif) = folder_findings(
                 content,
                 &face.path,
                 &face.files,
@@ -310,6 +328,7 @@ pub(crate) fn content_findings(
                 &face.path,
                 &face.files,
                 &FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine),
+                xml_dif,
             ));
             pass
         })
@@ -325,8 +344,8 @@ pub(crate) fn content_findings(
     let boots_and_gloves: Vec<ContentPass> = boots
         .chain(gloves)
         .map(|(kind, shared)| {
-            // A boots or gloves folder has no face.
-            folder_findings(
+            // A boots or gloves folder has no face, so no xml.
+            let (pass, _) = folder_findings(
                 content,
                 &shared.path,
                 &shared.files,
@@ -334,7 +353,8 @@ pub(crate) fn content_findings(
                 &kept_common,
                 version,
                 FaceUse::Unused,
-            )
+            );
+            pass
         })
         .collect();
     let mut pass = ContentPass::default();
@@ -362,7 +382,12 @@ pub(crate) fn content_findings(
             findings.extend(colors_findings(content, colors, KIT_COLORS));
         }
         let scope = IssueScope::Folder(kit.path.clone());
-        for texture in &kit.textures {
+        // Planning drops a texture the target does not emit before the kit's task reads any.
+        for texture in kit
+            .textures
+            .iter()
+            .filter(|texture| emits_kit_texture(engine, &texture.stem))
+        {
             let rule = if texture.stem == "kit" {
                 SizeRule::MainKit
             } else {
@@ -475,11 +500,14 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
     }
 }
 
-/// Whether `findings`, a `Common/` file's, drop it.
-fn drops_file(findings: &[ContentFinding]) -> bool {
-    findings
-        .iter()
-        .any(|finding| matches!(finding.disposition, Disposition::DropFile))
+/// Whether `findings`, a `Common/` file's, drop it from the validation report: one drops the
+/// file and `pass_through` cannot keep it, being off or the finding not eligible
+/// (`object_model.md` "Validation semantics").
+fn drops_file(findings: &[ContentFinding], pass_through: bool) -> bool {
+    findings.iter().any(|finding| {
+        finding.disposition == Disposition::DropFile
+            && !(pass_through && finding.pass_through_eligible)
+    })
 }
 
 /// The texture findings of each `.mtl` among `common`, the export's `Common/` files whose
@@ -582,10 +610,11 @@ impl<'a> FaceUse<'a> {
 
 /// The findings of the files among `files`, those of the model folder at `folder`, that the
 /// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
-/// an Error dropping the folder, the file named below the folder (not a model the target's own
-/// format beats, nor on Fox a `.mtl` no `.model` pairs with, which nothing reads); for each
-/// model `pairings` pairs (on pre-Fox each `.model` and each typed `.common` link to one, on
-/// Fox each `.model` no FMDL beats and each `.common` link loading a Common `.model`),
+/// an Error dropping the folder, the file named below the folder (not a file with no role, such
+/// as a model the target's own format beats, nor a per-kit model variant left out, nor on Fox
+/// a `.mtl` no `.model` pairs with, which nothing reads); for each model `pairings` pairs (on
+/// pre-Fox each `.model` with a role and each typed `.common` link to one, on Fox each
+/// `.model` no FMDL beats and each `.common` link loading a Common `.model`),
 /// `model_material_undefined` (`material_finding`, its `.mtl` searched among the folder's files
 /// and `common`'s), right after the model's own findings; each read `.mtl`'s texture lookup
 /// (`materials::texture_findings`), right after the `.mtl`'s own findings, and on Fox that of
@@ -598,9 +627,12 @@ impl<'a> FaceUse<'a> {
 /// `face.xml` among `files` (`PlayerFile::FaceXml`) is read and checked (`user_xml_findings`),
 /// its findings at its place in file order, and the xml overrides the search:
 /// `model_material_undefined` compares only the models it lists with the `.mtl` each entry
-/// names (`listed_materials`), and none at all when an xml has an Error, which drops the
-/// folder; nor is any `.mtl`'s texture looked up then. The textures of the shared folders the
-/// face packs count for the folder's `.mtl` paths, as they do for the face task.
+/// names (`listed_materials`), a `Common/` model an entry names included, its finding after
+/// every file's, naming it by its export path, and none at all when an xml has an Error,
+/// which drops the folder; nor is any `.mtl`'s texture looked up then. The textures of the
+/// shared folders the face packs count for the folder's `.mtl` paths, as they do for the face
+/// task. Returned with whether such an xml holds a `<dif>`, which the face writes in place of
+/// the folder's `face_diff.bin` (`face_diff_findings`).
 fn folder_findings(
     content: &ContentSource,
     folder: &ScopePath,
@@ -609,7 +641,7 @@ fn folder_findings(
     common: &KeptCommon,
     version: PesVersion,
     face: FaceUse,
-) -> ContentPass {
+) -> (ContentPass, bool) {
     let engine = version.engine();
     let size_rule = SizeRule::of(version);
     let scope = IssueScope::Folder(folder.clone());
@@ -649,22 +681,25 @@ fn folder_findings(
         }
     });
     let pairings = pairings(folder, files, models, engine, listed, common);
-    // A model the target's own format beats (`FolderModels::beaten`) is read by nothing, and
-    // on Fox a `.mtl` is read only by the conversion of a `.model` paired with it, so one no
+    // A file with no role (a model the target's own format beats, `FolderModels::beaten`; a
+    // model in `common/`) and a per-kit model variant left out are read by nothing, and on
+    // Fox a `.mtl` is read only by the conversion of a `.model` paired with it, so one no
     // such model pairs with (beside only FMDLs, or a `.model` an FMDL beats) is read by
-    // nothing either. Neither is checked: its findings would drop a folder `compile` builds
+    // nothing either. None is checked: its findings would drop a folder `compile` builds
     // without it (`pipeline.md` step 3 "Format conversion").
     let unread = |file: &FileDescriptor| {
-        models.beaten(file)
-            || match engine {
-                Engine::Fox => {
-                    file.kind == FileKind::Mtl
-                        && !pairings
-                            .iter()
-                            .any(|pairing| pairing.mtl.is_some_and(|mtl| mtl.path == file.path))
-                }
-                Engine::PreFox => false,
+        matches!(
+            player_file(folder, file, models),
+            None | Some(PlayerFile::LeftOutKitVariant)
+        ) || match engine {
+            Engine::Fox => {
+                file.kind == FileKind::Mtl
+                    && !pairings
+                        .iter()
+                        .any(|pairing| pairing.mtl.is_some_and(|mtl| mtl.path == file.path))
             }
+            Engine::PreFox => false,
+        }
     };
     // Collected in file order (an indexed `collect`), whatever the scheduling.
     let mut per_file: Vec<ContentPass> = files
@@ -772,8 +807,24 @@ fn folder_findings(
             }
         }
     }
+    // An xml entry may name a `Common/` model, which is no file of the folder's.
+    for pairing in pairings
+        .iter()
+        .filter(|pairing| !files.iter().any(|file| file.path == pairing.file.path))
+    {
+        pass.findings.extend(material_finding(
+            pairing, folder, common, &materials, &scope,
+        ));
+    }
+    let xml_dif = xmls.iter().any(|(_, outcome)| {
+        outcome.parsed.as_ref().is_some_and(|xml| {
+            xml.children
+                .iter()
+                .any(|child| matches!(child, Child::Dif(_)))
+        })
+    });
     pass.materials = materials;
-    pass
+    (pass, xml_dif)
 }
 
 /// A `.model` of a model folder paired with the `.mtl` it binds its materials from: what
@@ -794,8 +845,9 @@ struct Pairing<'a> {
 /// The pairings of the models among `files`, those of the model folder at `folder` whose
 /// models are `models`, read for a target of `engine`: with the folder's own `face.xml`, the
 /// models it lists with the `.mtl` each entry names (`listed`, empty when an xml drops the
-/// folder); without, on pre-Fox, each `.model` and each typed `.common` link loading a Common
-/// `.model` (`selected_common_model`; one loading a Common FMDL pairs none, the FMDL's
+/// folder); without, on pre-Fox, each `.model` the face or the boots and gloves read
+/// (`PlayerFile::PreFoxModel`, `PlayerFile::PreFoxPart`) and each typed `.common` link loading
+/// a Common `.model` (`selected_common_model`; one loading a Common FMDL pairs none, the FMDL's
 /// conversion writing its material set) with the `.mtl` its search finds among `files` and
 /// `common`'s; on Fox each `.model` with a role (`PlayerFile::Model`: no FMDL of its stem
 /// beats it) and each `.common` link with a role loading a Common `.model` (one loading a
@@ -841,13 +893,17 @@ fn pairings<'a>(
             // The roles are read without the `ingame_face` marker (`FolderModels::of`), so a
             // model link is `PreFoxCommonModel` here even in a marked folder, where planning
             // makes it a part of his boots or gloves whose `.mtl` is needed all the same. A
-            // link loading a Common FMDL pairs none: its material set is its conversion's.
+            // link loading a Common FMDL pairs none: its material set is its conversion's. A
+            // `.model` with no role, or a per-kit variant left out, is read by nothing.
             Engine::PreFox => {
-                file.kind == FileKind::Model(ModelFormat::PesModel)
-                    || (matches!(
-                        player_file(folder, file, models),
-                        Some(PlayerFile::PreFoxCommonModel { .. })
-                    ) && !links_common_fmdl(file, common, engine))
+                let role = player_file(folder, file, models);
+                (file.kind == FileKind::Model(ModelFormat::PesModel)
+                    && matches!(
+                        role,
+                        Some(PlayerFile::PreFoxModel { .. } | PlayerFile::PreFoxPart { .. })
+                    ))
+                    || (matches!(role, Some(PlayerFile::PreFoxCommonModel { .. }))
+                        && !links_common_fmdl(file, common, engine))
             }
         })
         .map(|file| {
@@ -903,15 +959,16 @@ fn used_names<'a>(
 /// `folder`; `folder_materials` are the materials of the folder's parsed pre-Fox files,
 /// `common`'s of the kept `Common/` ones (`ContentPass::materials`).
 ///
-/// When its search (`mtl_search::mtl_for`) finds no `.mtl`, the finding names the model and is
-/// not pass-through-eligible: the face's `face.xml` must name a material set for the model,
-/// and there is none to name. When it has one, the material names the model binds (a link's:
-/// the linked `Common/` model's) that the `.mtl` does not define are the finding's, in the
-/// model's order, naming the model, the `.mtl` (below the folder, or by its export path in
-/// `Common/`) and those names; it is pass-through-eligible: the file packs as it is, and the
-/// game renders those meshes with its fallback material. No finding when every name is
-/// defined, or when either file did not parse (its own `model_broken` or `mtl_broken` drops
-/// it).
+/// Each file is named below the folder, or by its export path in `Common/`
+/// (`named_on_folder`): an entry of the folder's `face.xml` may pair a `Common/` model with
+/// the folder's `.mtl`. When its search (`mtl_search::mtl_for`) finds no `.mtl`, the finding
+/// names the model and is not pass-through-eligible: the face's `face.xml` must name a
+/// material set for the model, and there is none to name. When it has one, the material
+/// names the model binds (a link's: the linked `Common/` model's) that the `.mtl` does not
+/// define are the finding's, in the model's order, naming the model, the `.mtl` and those
+/// names; it is pass-through-eligible: the file packs as it is, and the game renders those
+/// meshes with its fallback material. No finding when every name is defined, or when either
+/// file did not parse (its own `model_broken` or `mtl_broken` drops it).
 fn material_finding(
     pairing: &Pairing,
     folder: &ScopePath,
@@ -919,7 +976,7 @@ fn material_finding(
     folder_materials: &BTreeMap<ScopePath, Vec<MaterialRead>>,
     scope: &IssueScope,
 ) -> Option<ContentFinding> {
-    let name = relative(&pairing.file.path, folder);
+    let name = named_on_folder(&pairing.file.path, folder);
     let Some(mtl) = pairing.mtl else {
         return Some(ContentFinding {
             code: MODEL_MATERIAL_UNDEFINED,
@@ -942,10 +999,10 @@ fn material_finding(
 
 /// `model_material_undefined` on `scope` for the model at `model`, which the finding names
 /// `name`, paired with `mtl`: the material names the model binds that the `.mtl` does not
-/// define, in the model's order, naming the `.mtl` below `folder` or by its export path in
-/// `Common/`; pass-through-eligible, the file packing as it is. `None` when every name is
-/// defined, or when either file did not parse. `folder_materials` and `common`'s are the
-/// materials of the parsed pre-Fox files (`ContentPass::materials`).
+/// define, in the model's order, naming the `.mtl` (`named_on_folder`); pass-through-eligible,
+/// the file packing as it is. `None` when every name is defined, or when either file did not
+/// parse. `folder_materials` and `common`'s are the materials of the parsed pre-Fox files
+/// (`ContentPass::materials`).
 fn undefined_materials(
     name: String,
     model: &ScopePath,
@@ -965,17 +1022,12 @@ fn undefined_materials(
     if undefined.is_empty() {
         return None;
     }
-    let mtl_name = if is_direct_common_file(&mtl.path) {
-        mtl.path.as_str().to_owned()
-    } else {
-        relative(&mtl.path, folder)
-    };
     Some(ContentFinding {
         code: MODEL_MATERIAL_UNDEFINED,
         scope: scope.clone(),
         context: vec![
             ("file", name),
-            ("mtl", mtl_name),
+            ("mtl", named_on_folder(&mtl.path, folder)),
             ("materials", undefined.join(", ")),
         ],
         disposition: Disposition::DropFolder,
@@ -1107,6 +1159,17 @@ pub(crate) fn relative(path: &ScopePath, folder: &ScopePath) -> String {
         .skip(folder.segments().count())
         .collect::<Vec<_>>()
         .join("/")
+}
+
+/// How a finding on the model folder at `folder` names the file at `path`: below the folder
+/// (`relative`), or by its export path when it sits directly in `Common/`, outside the folder
+/// (`Common/legs.model`).
+fn named_on_folder(path: &ScopePath, folder: &ScopePath) -> String {
+    if is_direct_common_file(path) {
+        path.as_str().to_owned()
+    } else {
+        relative(path, folder)
+    }
 }
 
 /// The findings of `file`, read as `checked`, each on `scope` and naming the file `name`. A
@@ -1255,6 +1318,7 @@ fn file_outcome(
 mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
+    use std::slice;
 
     use aesthetics_export::{Disposition, IssueScope};
     use dds_convert::{BlockCodec, Blocks, Decoded, encode_dds};
@@ -1397,7 +1461,7 @@ mod tests {
             team_name: None,
         };
         let content = ContentSource::new(&source, &MemoryBudget::new(1 << 30));
-        content_findings(&resolved.export, &content, version, None)
+        content_findings(&resolved.export, &content, version, None, false)
     }
 
     /// The bytes of `tests/fixtures/textures/<name>` (that folder's `README.md`).
@@ -1668,6 +1732,29 @@ mod tests {
                 true
             )]
         );
+    }
+
+    #[test]
+    fn a_common_file_is_dropped_unless_pass_through_keeps_its_every_dropping_error() {
+        let file = IssueScope::File(path("Common/legs.mtl"));
+        let finding = |code, disposition, eligible| {
+            counted(code, &file, "legs.mtl", 1, disposition, eligible)
+        };
+        let eligible = finding("mtl_state_invalid", Disposition::DropFile, true);
+        let not_eligible = finding("mtl_broken", Disposition::DropFile, false);
+        let warning = finding("mtl_texture_not_found", Disposition::Keep, false);
+        for pass_through in [false, true] {
+            assert!(!drops_file(&[], pass_through));
+            assert!(!drops_file(slice::from_ref(&warning), pass_through));
+            assert!(drops_file(slice::from_ref(&not_eligible), pass_through));
+            assert!(drops_file(
+                &[eligible.clone(), not_eligible.clone()],
+                pass_through
+            ));
+        }
+        assert!(drops_file(slice::from_ref(&eligible), false));
+        assert!(!drops_file(slice::from_ref(&eligible), true));
+        assert!(!drops_file(&[eligible.clone(), warning.clone()], true));
     }
 
     #[test]

@@ -297,6 +297,7 @@ fn check_source(
             &content,
             inputs.common.pes_version,
             installed_common_stems(inputs, installed, team_id),
+            context.pass_through,
         );
         hand_weighted = pass.hand_weighted;
         metal_models = pass.metal_models;

@@ -1883,11 +1883,10 @@ fn per_kit_models_on_pes_21_compile_the_lowest_variant_alone_and_say_so() {
         &format!("{player}/pants_kit2.fmdl"),
         &tracer_player_file("boots.fmdl"),
     );
-    // The deep pass reads every model, the left-out variant included; it is not a part of
-    // the hair, so only `pants_kit1` is the hair's fallback.
+    // The deep pass does not read the left-out variant, which nothing reads; it is not a part
+    // of the hair, so only `pants_kit1` is the hair's fallback.
     let checked = [
         "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=pants_kit1.fmdl, count=1662)",
-        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=pants_kit2.fmdl, count=1662)",
         "Info export_identified [Keep] (team=/co/, id=714)",
         "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=pants_kit1.fmdl)",
     ];
@@ -1980,6 +1979,40 @@ fn per_kit_boots_on_pes_21_are_boots_read_without_their_kit_token() {
         face_package(&entries).get("fcl_hair.fmdl").is_none(),
         "a variant was merged into the face's hair"
     );
+}
+
+// TC-MOD-62
+#[test]
+fn a_left_out_kit_variant_that_does_not_parse_is_not_read_on_pes_21() {
+    let sandbox = Sandbox::new("mod_kit_variant_broken");
+    let player = "exports/co Midcup Variant Boots/Players/05 - A";
+    sandbox.write(&format!("{player}/face.fmdl"), &clean_model());
+    let boots = tracer_player_file("boots.fmdl");
+    sandbox.write(&format!("{player}/boots_kit1.fmdl"), &boots);
+    // Four bytes no FMDL reader accepts.
+    sandbox.write(&format!("{player}/boots_kit2.fmdl"), b"junk");
+
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Variant Boots",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots_kit1.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=face.fmdl)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
+        ],
+    );
+
+    let package =
+        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0625/#Win/boots.fpk"]).unwrap();
+    let meshes = |bytes: &[u8]| {
+        Model::from_file(&FmdlFile::read(bytes).unwrap())
+            .unwrap()
+            .meshes
+            .len()
+    };
+    assert_eq!(meshes(package.get("boots.fmdl").unwrap()), meshes(&boots));
 }
 
 #[test]

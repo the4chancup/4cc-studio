@@ -420,6 +420,42 @@ fn a_model_mesh_over_the_vertex_limit_drops_its_folder_at_check_and_compile() {
     assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }
 
+// TC-CHK-09
+#[test]
+fn pass_through_keeps_a_common_mtl_s_eligible_error_and_the_player_whose_link_pairs_with_it() {
+    let sandbox = Sandbox::new("deep_common_mtl_pass_through");
+    let export = "exports/co Midcup Legs";
+    sandbox.write(&format!("{export}/Players/05 - A/legs.model.common"), b"");
+    sandbox.write(&format!("{export}/Common/legs.model"), &card_model());
+    let materials = String::from_utf8(card_materials()).unwrap();
+    let ztest = r#"<state name="ztest" value="1" />"#;
+    assert!(materials.contains(ztest), "{materials}");
+    let ztest_zero = materials.replace(ztest, r#"<state name="ztest" value="0" />"#);
+    sandbox.write(&format!("{export}/Common/legs.mtl"), ztest_zero.as_bytes());
+    sandbox.write(&format!("{export}/Common/skin.dds"), &small_dds());
+    let settings = format!(
+        "{}[team-compiler]\npass_through = true\n",
+        pes_settings(&sandbox, 17)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Legs"),
+        [
+            "Error mtl_state_invalid [Keep] at Common/legs.mtl (file=legs.mtl, count=1)",
+            IDENTIFIED,
+            TEAM_COLORS_MISSING,
+            "Info xml_face_neck_added [Keep] at Players/05 - A ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+}
+
 // TC-CHK-07
 #[test]
 fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pass_through() {

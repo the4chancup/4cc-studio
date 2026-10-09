@@ -33,6 +33,18 @@ pub(crate) const KIT_TEXTURE_STEMS: [&str; 7] = [
     "kit_srm",
 ];
 
+/// Whether a target of `engine` emits a kit texture of `stem`: one of `KIT_TEXTURE_STEMS` but
+/// the other engine's map (`kit_srm` on PES 15-17, `kit_mask` on PES 18-21; neither is
+/// converted into the other). Planning drops every other kit texture before the kit's task is
+/// made, and the deep pass does not check one: nothing reads it.
+pub(crate) fn emits_kit_texture(engine: Engine, stem: &str) -> bool {
+    let other_engine_map = match engine {
+        Engine::PreFox => "kit_srm",
+        Engine::Fox => "kit_mask",
+    };
+    stem != other_engine_map && KIT_TEXTURE_STEMS.contains(&stem)
+}
+
 /// The source format of the texture file `name`, by its extension in any case: one of the
 /// image formats `dds_convert` converts (`libs/dds_convert.md` "Accepted image formats");
 /// `None` for a name without one.
@@ -467,6 +479,18 @@ pub(crate) fn selected_common_model<'a>(
     }
     let native = format!("{}.{native_extension}", file_stem(linked));
     Some(common_file(common, &native).unwrap_or(named))
+}
+
+/// Whether `file`, a model directly in `Common/` among `common` (the export's `Common/` files),
+/// is the one a target of `engine` selects for its stem (`selected_common_model`); false for a
+/// model another of its stem beats, which nothing reads.
+pub(crate) fn is_selected_common_model(
+    common: &[FileDescriptor],
+    file: &FileDescriptor,
+    engine: Engine,
+) -> bool {
+    selected_common_model(common, file.path.name(), engine)
+        .is_some_and(|selected| selected.path == file.path)
 }
 
 /// Where a file sits in its model folder: directly in it, or one level down in one of the
@@ -1474,6 +1498,57 @@ mod tests {
         assert_eq!(
             loaded_on(&model, "Legs.model", Engine::Fox).as_deref(),
             Some("Common/legs.model")
+        );
+        // The model a target selects for its stem is the only one of the two read.
+        let selected = |engine| {
+            both.iter()
+                .filter(|file| is_selected_common_model(&both, file, engine))
+                .map(|file| file.path.as_str())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(selected(Engine::PreFox), ["Common/LEGS.model"]);
+        assert_eq!(selected(Engine::Fox), ["Common/legs.fmdl"]);
+        assert!(is_selected_common_model(&model, &model[0], Engine::Fox));
+    }
+
+    #[test]
+    fn a_target_emits_the_seven_kit_textures_but_the_other_engine_s_map() {
+        let emitted = |engine| {
+            [
+                "kit",
+                "kit_back",
+                "kit_chest",
+                "kit_leg",
+                "kit_name",
+                "kit_mask",
+                "kit_srm",
+                "kit_spec",
+            ]
+            .into_iter()
+            .filter(|stem| emits_kit_texture(engine, stem))
+            .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            emitted(Engine::PreFox),
+            [
+                "kit",
+                "kit_back",
+                "kit_chest",
+                "kit_leg",
+                "kit_name",
+                "kit_mask"
+            ]
+        );
+        assert_eq!(
+            emitted(Engine::Fox),
+            [
+                "kit",
+                "kit_back",
+                "kit_chest",
+                "kit_leg",
+                "kit_name",
+                "kit_srm"
+            ]
         );
     }
 

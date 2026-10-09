@@ -44,8 +44,6 @@ pub enum Severity {
 /// What a finding is about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Subject {
-    /// The model as a whole.
-    Model,
     /// The mesh at this index.
     Mesh(usize),
     /// The material at this index.

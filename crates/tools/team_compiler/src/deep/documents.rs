@@ -71,12 +71,15 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
 /// copy would be packed. A folder holding both forms gives its face diff twice:
 /// `xml_dif_conflict`, naming the `.xml`, and neither file is read. Otherwise each is read
 /// and checked, a `face_diff.bin` as it is and a `face_diff.xml` decoded, and one the game
-/// cannot read is `face_diff_invalid` with the reason.
+/// cannot read is `face_diff_invalid` with the reason. When `xml_dif` says a member's own
+/// `face.xml` of the folder holds a `<dif>` (PES 15-17 only: Fox ignores the xml), the face
+/// writes that `<dif>` and packs no `face_diff.bin`, so a `face_diff.bin` is not read.
 pub(super) fn face_diff_findings(
     content: &ContentSource,
     folder: &ScopePath,
     files: &[FileDescriptor],
     models: &FolderModels,
+    xml_dif: bool,
 ) -> Vec<ContentFinding> {
     let face_diffs: Vec<(&FileDescriptor, FaceDiffForm)> = files
         .iter()
@@ -108,6 +111,9 @@ pub(super) fn face_diff_findings(
     }
     let mut findings = Vec::new();
     for (file, form) in face_diffs {
+        if xml_dif && form == FaceDiffForm::Bin {
+            continue;
+        }
         let bytes = match read(content, file, &scope, Disposition::DropFolder) {
             Ok(bytes) => bytes,
             Err(unread) => {

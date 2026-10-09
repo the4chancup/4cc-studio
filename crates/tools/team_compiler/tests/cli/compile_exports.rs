@@ -509,6 +509,35 @@ fn a_kit_texture_stem_the_compiler_does_not_build_is_not_used() {
     assert_eq!(compiled_kits(&sandbox), ["u0714p1"]);
 }
 
+// TC-KIT-31
+#[test]
+fn a_kit_mask_a_fox_target_does_not_emit_is_not_checked() {
+    let sandbox = Sandbox::new("kit_mask_fox_renamed");
+    sandbox.write("exports/co Midcup Mask/Kits/p1/kit.dds", &tracer_kit());
+    // A PNG renamed `.dds`: a kit texture the target emitted would be `texture_type_mismatch`.
+    sandbox.write(
+        "exports/co Midcup Mask/Kits/p1/kit_mask.dds",
+        &texture_fixture("portrait.png"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Mask"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_mask.dds)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p1"]);
+}
+
 // TC-STR-01
 #[test]
 fn content_nested_one_folder_down_compiles_as_if_at_the_root() {

@@ -163,6 +163,78 @@ fn a_dif_in_the_xml_beside_a_face_diff_bin_is_each_engine_s_own() {
     assert_eq!(face.get("face_diff.bin").unwrap(), bin);
 }
 
+// TC-XML-13
+#[test]
+fn on_pes_17_a_face_diff_bin_the_xml_s_dif_replaces_is_not_checked() {
+    let sandbox = Sandbox::new("user_xml_dif_bin_unread");
+    let export = "co Midcup Xml";
+    let dif_text = String::from_utf8(face_diff_fixture("dif.xml")).unwrap();
+    let start = dif_text.find("<dif>").unwrap() + "<dif>".len();
+    let end = dif_text.find("</dif>").unwrap();
+    let base64 = dif_text[start..end].trim();
+    let xml =
+        format!("<config>\n   <model level=\"0\" {FACE_HIGH}/>\n<dif>{base64}</dif>\n</config>\n");
+    write_folder(&sandbox, export, "05 - A", "face_high", &xml);
+    // One byte shorter than its header gives: `face_diff_invalid` were it read.
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/face_diff.bin"),
+        &face_diff_fixture("dif.bin")[..943],
+    );
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        ["face.xml", "face_high.model", "face_high.mtl"]
+    );
+    assert_eq!(decoded_dif(&face["face.xml"]), face_diff_fixture("dif.bin"));
+}
+
+// TC-XML-12
+#[test]
+fn a_member_s_xml_pairing_a_common_model_with_a_mtl_lacking_its_materials_drops_the_folder() {
+    let sandbox = Sandbox::new("user_xml_common_undefined");
+    let export = "co Midcup Xml";
+    let legs = r#"type="parts" path="model/character/uniform/common/714/legs.model" material="./legs.mtl""#;
+    write_folder(
+        &sandbox,
+        export,
+        "05 - A",
+        "face_high",
+        &face_xml(&[FACE_HIGH, legs]),
+    );
+    // The card model binds `card`; this set defines only `other`.
+    let materials = String::from_utf8(card_materials()).unwrap();
+    assert!(materials.contains(r#"name="card""#), "{materials}");
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/legs.mtl"),
+        materials
+            .replace(r#"name="card""#, r#"name="other""#)
+            .as_bytes(),
+    );
+    sandbox.write(
+        &format!("exports/{export}/Common/legs.model"),
+        &card_model(),
+    );
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Error model_material_undefined [DropFolder] at Players/05 - A (file=Common/legs.model, mtl=legs.mtl, materials=card)",
+            IDENTIFIED,
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+}
+
 // TC-XML-06
 #[test]
 fn on_pes_21_the_xml_is_ignored_and_the_folder_compiles_as_without_it() {

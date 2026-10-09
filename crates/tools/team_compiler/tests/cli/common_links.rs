@@ -1002,6 +1002,42 @@ fn a_texture_below_a_common_subfolder_is_kept_by_the_lenient_check_and_not_emitt
     assert!(entries.contains_key(FACE_05), "{:#?}", entries.keys());
 }
 
+// TC-CMN-14
+#[test]
+fn a_common_model_an_fmdl_of_its_stem_beats_is_not_checked_and_the_link_loads_the_fmdl() {
+    let sandbox = Sandbox::new("cmn_beaten_model");
+    let export = "exports/co Midcup Beaten";
+    sandbox.write(&format!("{export}/Players/05 - A/boots.model.common"), b"");
+    let boots = tracer_player_file("boots.fmdl");
+    sandbox.write(&format!("{export}/Common/boots.fmdl"), &boots);
+    // Four bytes no `.model` reader accepts.
+    sandbox.write(&format!("{export}/Common/boots.model"), b"junk");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Beaten"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Common/boots.fmdl (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        package_names(&entries[BOOTS_05]),
+        ["boots.fmdl", "boots.skl"]
+    );
+    let package = fpk::FpkFile::read(&entries[BOOTS_05]).unwrap();
+    assert_eq!(
+        mesh_count(package.get("boots.fmdl").unwrap()),
+        mesh_count(&boots)
+    );
+}
+
 #[test]
 fn a_shared_folder_s_common_link_is_disallowed_and_read_by_nothing() {
     let sandbox = Sandbox::new("cmn_shared_link");

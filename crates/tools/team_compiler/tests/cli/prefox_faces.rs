@@ -1305,6 +1305,78 @@ fn a_common_gltf_is_dropped_and_the_export_compiles() {
     );
 }
 
+// TC-CMN-15
+#[test]
+fn a_model_below_a_common_subfolder_is_kept_by_the_lenient_check_and_not_read() {
+    let sandbox = Sandbox::new("prefox_common_nested_model");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    // Four bytes no `.model` reader accepts.
+    sandbox.write(&format!("exports/{export}/Common/sub/legs.model"), b"junk");
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes17(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info common_file_disallowed [Keep] at Common/sub/legs.model ()",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key(&face_cpk(5)), "{:#?}", entries.keys());
+    assert!(
+        common_output(&entries)
+            .keys()
+            .all(|name| !name.contains("legs")),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
+#[test]
+fn a_texture_below_a_common_subfolder_is_no_common_texture_a_mtl_finds() {
+    // The Common textures task packs only the files directly in `Common/`, so
+    // `Common/legs.mtl`'s `./cloth.dds` finds nothing in `Common/sub/`.
+    let sandbox = Sandbox::new("prefox_common_nested_texture");
+    let export = "co Midcup Legs";
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/legs.model.common"),
+        b"",
+    );
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/legs.model"), &card_model());
+    sandbox.write(&format!("{common}/legs.mtl"), &materials_naming("cloth"));
+    sandbox.write(&format!("{common}/sub/cloth.dds"), &small_dds());
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes17(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info common_file_disallowed [Keep] at Common/sub/cloth.dds ()",
+            "Warning mtl_texture_not_found [Keep] at Common/legs.mtl (file=legs.mtl, texture=./cloth.dds, materials=card)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info xml_face_neck_added [Keep] at Players/05 - A ()",
+        ],
+        "{lines:#?}"
+    );
+}
+
 /// Writes the export `export`: slot 05 with his own face (`write_slot_05_face`) and
 /// `legs.fmdl.common`, and `Common/` holding `legs.fmdl` (the tracer's hair), `legs.skl` (its
 /// skeleton) and `shirt.dds`, the texture the hair names.
@@ -1589,4 +1661,76 @@ fn a_model_material_its_mtl_does_not_define_drops_the_folder_at_check_and_compil
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert!(entries.contains_key(&face_cpk(7)), "{:?}", entries.keys());
     assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+}
+
+// TC-MOD-63
+#[test]
+fn a_model_in_a_player_s_common_folder_has_no_role_and_is_not_read() {
+    let sandbox = Sandbox::new("prefox_common_subfolder_model");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    // Four bytes no `.model` reader accepts, where only textures have a role.
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/common/parts_body.model"),
+        b"junk",
+    );
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes17(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info file_type_disallowed [Keep] at Players/05 - A (file=common/parts_body.model)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    assert!(
+        face.contains_key(&format!("{}oral_face_high_win32.model", face_folder(5))),
+        "{:#?}",
+        face.keys()
+    );
+}
+
+// TC-MOD-63
+#[test]
+fn a_model_in_a_player_s_common_folder_is_paired_with_no_mtl() {
+    // The face in `face/`, so `common/parts_body.model`'s search, in `common/` then in the
+    // folder, finds no `.mtl`: were the model paired, it would be `model_material_undefined`.
+    let sandbox = Sandbox::new("prefox_common_subfolder_model_unpaired");
+    let export = "co Midcup Card";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face/face_high.model"), &card_model());
+    sandbox.write(&format!("{player}/face/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/face/skin.dds"), &small_dds());
+    sandbox.write(&format!("{player}/common/parts_body.model"), b"junk");
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes17(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info file_type_disallowed [Keep] at Players/05 - A (file=common/parts_body.model)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key(&face_cpk(5)), "{:#?}", entries.keys());
 }
