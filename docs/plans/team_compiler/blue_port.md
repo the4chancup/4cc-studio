@@ -44,7 +44,11 @@ Fox writes them as the slot's `k99XX`/`g99XX` folders. A refs export may hold sh
 `Gloves/` folders like a team's, but a referee has no team block to give one an ID of its own: a
 referee's link resolves to his slot's `k99XX`/`g99XX`, the shared folder written as that folder
 for every slot that links it (on Fox the referee's local parts merged in, as for a player's own
-folder).
+folder). On pre-Fox the link is written there alone, never copied into his `face.xml` as
+well: the game loads `k99XX` by slot, and a second copy in the face would dress him twice. A
+referee folder with no face model gets no face folder, where a team player's gets a blank one
+(the FPC rule, `pipeline.md` step 1): a referee has no FPC body to bring a head, so a blank
+face would leave him headless, and the game's own referee head stays.
 
 **Preparing the slot mapping is a separate tool's job.** The slots are not drawn uniformly — each
 PES version has measured slot appearance rates (flat per-slot chances on 17–21, a pattern table on

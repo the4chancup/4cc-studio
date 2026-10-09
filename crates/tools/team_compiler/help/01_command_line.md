@@ -353,11 +353,15 @@ the error `model_conversion_failed` and the kits keep their configs' collars. A 
 `compile` leaves it out with the error `model_gltf_unsupported`, and the rest of the export
 goes on.
 
-A `refs` export compiles on PES 2018 to 2021 like a team's player folders: each referee folder
-its `players.txt` lists is built once and written for every slot it is listed under, slot NN
-as the face `referee0NN` with the boots `k99NN` and the gloves `g99NN`, and the folder's
-textures go once into `common/999/<folder name>/`. A referee's link to a `Boots` or `Gloves`
-folder makes that folder the boots or gloves of each of his slots, merged with any of his own.
+A `refs` export compiles like a team's player folders: each referee folder its `players.txt`
+lists is built once and written for every slot it is listed under, slot NN as the face
+`referee0NN` with the boots `k99NN` and the gloves `g99NN`, and the folder's textures go once
+into `common/999/<folder name>/`. A referee's link to a `Boots` or `Gloves` folder makes that
+folder the boots or gloves of each of his slots: on PES 2018 to 2021 merged with any of his
+own, on PES 2015 to 2017 written as his slot's folder alone, his own boots and gloves riding in
+his face as a team player's do. A referee folder with no face model writes no face file, so the
+game's own referee head stays, where a team player's folder with no face model gets a blank
+face.
 A `refs` export's kits, logo, portraits and collars have no referee to go to: each is left
 out and reported as the warning `file_not_used`.
 The referees go into a CPK of their own, named by the `refs_cpk_name` setting

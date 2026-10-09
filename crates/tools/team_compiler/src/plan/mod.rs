@@ -696,14 +696,13 @@ impl TaskKind {
                         // A pre-Fox split model is the face's alone (`folder_tasks`).
                         Engine::PreFox => false,
                     };
-                    // A Fox `.mtl` is the face's only by `PlayerFile::package`'s pre-Fox
-                    // answer: it is read below, with the `.model` it may define.
-                    let fox_material = matches!(role, PlayerFile::Material)
-                        && match folder.engine {
-                            Engine::Fox => true,
-                            Engine::PreFox => false,
-                        };
-                    (role.package() == Some(*package) && !fox_material)
+                    // A `.mtl` and a pre-Fox model are the face's only by `PlayerFile::package`'s
+                    // pre-Fox answer, whatever their source: each is read by the package its
+                    // source feeds (below), so a pre-Fox face does not read the shared boots of
+                    // a referee's plain link, which his slot's boots folder writes alone.
+                    let read_by_source =
+                        matches!(role, PlayerFile::Material | PlayerFile::PreFoxModel { .. });
+                    (role.package() == Some(*package) && !read_by_source)
                         || hands
                         // A pre-Fox model goes into the package its source feeds: a shared
                         // boots or gloves folder's into its own output, a folder an
@@ -1183,9 +1182,12 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 hand_split_parts(&model_folder, &hand_weighted, version.engine());
             model_folder.environment_map = converts_metal(&model_folder, &metal_models);
             // Without a face folder the game shows the head made in its face editor, which
-            // `ingame_face` asks for; every other player gets one, blank when it holds no
-            // face model (the last part of FPC: the body brings its own head, or none).
-            let blank_face = !model_folder.ingame_face;
+            // `ingame_face` asks for; every other team player gets one, blank when it holds no
+            // face model (the last part of FPC: the body brings its own head, or none). A
+            // referee has no FPC body to bring a head, so a referee folder with no face model
+            // gets no face folder and the game's referee head stays (`blue_port.md` "Referee
+            // export processing").
+            let blank_face = !model_folder.ingame_face && team.is_some();
             folder_tasks(
                 export_id,
                 team_id,
@@ -1361,8 +1363,8 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
 
 /// Pushes `folder`'s tasks onto `tasks`: one `Models` task for each of `packages` any of the
 /// folder's sources holds a model of (a face link alone makes the shared face the player's),
-/// for the face whatever the folder holds when `blank_face` is set, and on Fox for the gloves
-/// when the folder has a hand-split part (`ModelFolder::hand_split`), emitted under that
+/// for a team's face whatever the folder holds when `blank_face` is set, and on Fox for the
+/// gloves when the folder has a hand-split part (`ModelFolder::hand_split`), emitted under that
 /// package's keys, then, when the folder has textures or takes the template environment map
 /// (`ModelFolder::environment_map`), its `Textures` task completing its variant sets against
 /// `kits`, the export's kit numbers, the lot as one `TaskGroup`.
@@ -2695,12 +2697,10 @@ mod tests {
                 Disposition::DropFolder
             )]
         );
+        // No blank face: a referee with no face model keeps the game's referee head.
         assert_eq!(
             summary(&report),
-            [
-                "0 999 Face Players/Ref B [referee 2] charge 0",
-                "0 999 Boots Players/Ref B [referee 2] charge 16",
-            ]
+            ["0 999 Boots Players/Ref B [referee 2] charge 16"]
         );
     }
 
@@ -3919,42 +3919,76 @@ mod tests {
     }
 
     #[test]
-    fn a_referee_s_plain_link_is_a_part_of_his_slots_own_package() {
-        let referees = resolved(
-            "refs Cup",
-            &[
-                ("Players/Ref A/Studs.boots", 0),
-                ("Boots/Studs/boots.fmdl", 20),
-            ],
-            &[],
-            Some(b"01 Ref A\n20 Ref A\n"),
-        );
+    fn a_referee_s_plain_link_is_a_part_of_his_slots_own_package_and_he_gets_no_face_task() {
+        for version in [PesVersion::Pes21, PesVersion::Pes17] {
+            let referees = resolved(
+                "refs Cup",
+                &[
+                    ("Players/Ref A/Studs.boots", 0),
+                    ("Boots/Studs/boots.fmdl", 20),
+                ],
+                &[],
+                Some(b"01 Ref A\n20 Ref A\n"),
+            );
 
-        let report = plan_run(
-            vec![to_plan(ExportId(0), referees, None, None)],
-            PesVersion::Pes21,
-        );
+            let report = plan_run(vec![to_plan(ExportId(0), referees, None, None)], version);
 
-        assert_eq!(
-            summary(&report),
-            [
-                "0 999 Face Players/Ref A [referee 1, referee 20] charge 0",
-                "0 999 Boots Players/Ref A [referee 1, referee 20] charge 20",
-            ],
-            "no task of Boots/Studs's own"
-        );
-        let TaskKind::Models { folder, .. } = &report.manifest.tasks[1].kind else {
-            panic!("the second task is the boots");
-        };
-        assert_eq!(
-            folder
-                .combined
-                .iter()
-                .map(|combined| (combined.package, combined.folder.path.as_str()))
-                .collect::<Vec<_>>(),
-            [(ModelPackage::Boots, "Boots/Studs")]
-        );
-        assert!(report.messages.is_empty(), "{:?}", report.messages);
+            // No blank face: a referee has no FPC body to bring a head.
+            assert_eq!(
+                summary(&report),
+                ["0 999 Boots Players/Ref A [referee 1, referee 20] charge 20"],
+                "{version:?}: no task of Boots/Studs's own"
+            );
+            let TaskKind::Models { folder, .. } = &report.manifest.tasks[0].kind else {
+                panic!("{version:?}: the one task is the boots");
+            };
+            assert_eq!(
+                folder
+                    .combined
+                    .iter()
+                    .map(|combined| (combined.package, combined.folder.path.as_str()))
+                    .collect::<Vec<_>>(),
+                [(ModelPackage::Boots, "Boots/Studs")],
+                "{version:?}"
+            );
+            assert!(
+                report.messages.is_empty(),
+                "{version:?}: {:?}",
+                report.messages
+            );
+        }
+    }
+
+    #[test]
+    fn a_referee_with_a_face_model_and_a_plain_link_gets_his_face_and_his_boots_tasks() {
+        for version in [PesVersion::Pes21, PesVersion::Pes17] {
+            let referees = resolved(
+                "refs Cup",
+                &[
+                    ("Players/Ref A/face_high.fmdl", 10),
+                    ("Players/Ref A/Studs.boots", 0),
+                    ("Boots/Studs/boots.fmdl", 20),
+                ],
+                &[],
+                Some(b"01 Ref A\n20 Ref A\n"),
+            );
+
+            let report = plan_run(vec![to_plan(ExportId(0), referees, None, None)], version);
+
+            assert_eq!(
+                summary(&report),
+                [
+                    "0 999 Face Players/Ref A [referee 1, referee 20] charge 10",
+                    "0 999 Boots Players/Ref A [referee 1, referee 20] charge 20",
+                ],
+                "{version:?}"
+            );
+            assert!(
+                report.messages.is_empty(),
+                "{version:?}: {:?}",
+                report.messages
+            );
+        }
     }
 
     #[test]

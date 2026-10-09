@@ -2656,6 +2656,88 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_pre_fox_face_packs_none_of_a_combined_boots_folder_s_files() {
+        let folder = ModelFolder {
+            engine: Engine::PreFox,
+            ..player_with(
+                vec![named(&format!("{PLAYER}/face_high.fmdl"), "fcl_hair.fmdl")],
+                vec![shared(
+                    ModelPackage::Boots,
+                    "Boots/Studs",
+                    vec![
+                        named("Boots/Studs/boots.fmdl", "boots.fmdl"),
+                        named("Boots/Studs/shirt.dds", "shirt.dds"),
+                    ],
+                )],
+            )
+        };
+
+        let batch = run_for(
+            TaskKind::Models {
+                folder,
+                package: ModelPackage::Face,
+                ids: vec![PackageKey::Id(79205)],
+            },
+            PesVersion::Pes17,
+        );
+
+        let codes: Vec<&str> = batch
+            .messages
+            .iter()
+            .map(|message| message.code.code.as_ref())
+            .collect();
+        assert!(!codes.contains(&"xml_face_neck_added"), "{codes:?}");
+        assert_eq!(batch.entries.len(), 1, "{:?}", paths(&batch));
+        let mut cpk = cpk::CpkArchive::open(std::io::Cursor::new(&batch.entries[0].1)).unwrap();
+        let entries = cpk.entries().to_vec();
+        let names: Vec<&str> = entries
+            .iter()
+            .map(|entry| {
+                entry
+                    .path
+                    .rsplit_once('/')
+                    .map_or(entry.path.as_str(), |(_, name)| name)
+            })
+            .collect();
+        // The shared boots are the Boots task's, written as their own folder.
+        assert_eq!(
+            names,
+            ["face.xml", "face_high.mtl", "oral_face_high_win32.model"]
+        );
+        let xml = entries
+            .iter()
+            .find(|entry| entry.path.ends_with("/face.xml"))
+            .unwrap();
+        let xml = String::from_utf8(cpk.read(xml).unwrap()).unwrap();
+        let document = roxmltree::Document::parse(&xml).unwrap();
+        let types: Vec<&str> = document
+            .root_element()
+            .children()
+            .filter(|node| node.has_tag_name("model"))
+            .map(|node| node.attribute("type").unwrap())
+            .collect();
+        assert_eq!(types, ["face_neck"]);
+        // The boots folder's `shirt.dds` goes to the player's texture home with his own
+        // textures, so the face's converted material naming it points there.
+        let mtl = entries
+            .iter()
+            .find(|entry| entry.path.ends_with("/face_high.mtl"))
+            .unwrap();
+        let set = pes_model::format::mtl::MaterialSet::read(&cpk.read(mtl).unwrap()).unwrap();
+        let shirts: Vec<String> = pes_model::ops::paths::texture_paths(&set)
+            .into_iter()
+            .filter(|path| path.file_name == "shirt.dds")
+            .map(|path| path.directory)
+            .collect();
+        assert!(!shirts.is_empty());
+        assert!(
+            shirts.iter().all(|directory| directory
+                == "model/character/uniform/common/792/05 - The Chad Stormworks Player/"),
+            "{shirts:?}"
+        );
+    }
+
     /// The tracer's hair model as a Common model of its own: its materials renamed with a
     /// `_common` tail and its `shirt.dds` renamed `cloth.dds`, so it merges with the hair itself
     /// with no material in common.

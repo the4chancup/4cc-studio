@@ -5698,3 +5698,19 @@ the staged list for one case no maintainer's run reaches.
 Plan: `team_compiler/blue_port.md` "Referee export processing" (the kit configs bullet);
 `team_compiler/pipeline.md` "5. Writer" (the refs-only run's team side by engine), "Bins
 accumulation"; `team_compiler/README.md` TC-REF-12, TC-REF-08.
+
+## 2026-10-09 — team_compiler — A referee folder with no face model gets no face folder; a pre-Fox referee's shared link is his slot's folder alone
+Decision: a referee folder with no face model gets no face folder on either engine, where a team
+player's gets the blank face (`pipeline.md` step 1); on PES 15-17 a referee's link to a shared
+`Boots/` or `Gloves/` folder is written as his slot's `k99XX`/`g99XX` folder alone and not copied
+into his `face.xml` as a `parts` entry too. A referee's local boots or gloves still ride in his
+face on pre-Fox, as a player's do.
+Why: the blank face exists for FPC bodies, which bring their own head; a referee has none, so a
+blank face would leave him headless, while the game's referee head stays when no face folder is
+written. The pre-Fox copy into the face was the general "combined folder's models are parts"
+mechanism reaching a referee's plain link, which the plan says is written as his slot's folder
+(`blue_port.md`); the game loads that folder by slot, so the copy dressed him twice (the 4.19d
+probe, 2026-10-09). The converted boots `.mtl` naming `common/999/dummy_kit.dds` is the general
+reserved-stem rule (`pipeline.md` step 3) and changes nothing for a referee.
+Plan: `team_compiler/pipeline.md` step 1 (the blank face rule's exception); `team_compiler/blue_port.md`
+"Referee export processing"; `team_compiler/README.md` TC-REF-10, TC-REF-13.

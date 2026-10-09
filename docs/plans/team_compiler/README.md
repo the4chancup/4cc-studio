@@ -1509,7 +1509,8 @@ TC-REF-10  GIVEN a refs export whose players.txt maps Ref A to slots 01 and 20, 
            only a link to the shared folder Boots/Studs, which holds boots.fmdl
            WHEN the root is compiled for PES 21
            THEN the referee CPK holds boots folders k9901 and k9920, each with the shared
-                boots model, and no other boots folder
+                boots model, no other boots folder, and no face/real/referee001 or
+                referee020 folder
 TC-REF-11  GIVEN a refs export holding Kits/p1 with kit.dds beside a mapped referee folder holding
            a face model
            WHEN the root is compiled for PES 21
@@ -1526,8 +1527,9 @@ TC-REF-13  GIVEN TC-REF-10's refs export (Ref A in slots 01 and 20, holding only
            shared folder Boots/Studs, which holds boots.fmdl)
            WHEN the root is compiled for PES 17
            THEN the referee CPK holds boots folders k9901 and k9920, each with the shared boots
-                model converted, and no referee001.cpk or referee020.cpk: a link alone gives a
-                referee no face folder, as it gives a player none
+                model converted, and no referee001.cpk or referee020.cpk: the link is not
+                copied into a face, and a referee folder with no face model gets no face
+                folder, the game's referee head staying (a team player's gets a blank one)
 ```
 
 **Output modes, deployment, multi-CPK**

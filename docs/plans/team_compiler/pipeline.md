@@ -213,7 +213,10 @@ format:
    (blank) face folder: the absence of the default PES face is the final element of FPC, so the
    folder must exist (Red's current behavior, kept). That holds for every roster-mapped player
    folder without the marker and without a face model, whatever else it holds: a portrait
-   alone, textures alone, a boots link alone, an empty `face/`, nothing. On Fox the blank folder is
+   alone, textures alone, a boots link alone, an empty `face/`, nothing. A referee folder is the
+   exception: with no face model it gets no face folder, since a referee has no FPC body to
+   bring a head and the game's own referee head must stay (`blue_port.md` "Referee export
+   processing"). On Fox the blank folder is
    `face/real/{id}{NN}/#Win/face.fpk` holding only the template `face_diff.bin`, plus `face.fpkd`
    (the template `generic.fpkd`): no model, no `.skl`, no `.fclo`. On pre-Fox it is
    `face/real/{id}{NN}.cpk` holding a `face.xml` with one

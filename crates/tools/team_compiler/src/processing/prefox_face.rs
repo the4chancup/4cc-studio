@@ -176,15 +176,17 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 }
 
 /// The files of `folder`'s pre-Fox face, compiled from its files' bytes in `files` for team
-/// `team_id`, by their names in the face CPK: each `.model` under its packed name
-/// (`packed_model_name`) and an entry of the `face.xml`, in the order of the models' export
-/// paths, case-folded, each naming the `.mtl` its search finds from its own source folder, the
-/// model moved onto `ctx.version`'s skeleton first when the conversion pre-check flags it
-/// (`model_for_pre_fox`, reading that `.mtl`, a Common one too), its `.mtl` packed as written; an
-/// `.fmdl` the face converts (`PlayerFile::PreFoxModel`) the same, as the `.model` its
-/// conversion writes (`fmdl_for_pre_fox`, the `.skl` of its path stem as the bind pose), named
-/// with the conversion's material set, packed as `<stem>.mtl` with its texture paths pointed as
-/// a `.mtl`'s below; each
+/// `team_id`, by their names in the face CPK. The face reads the sources feeding it (the
+/// folder's own files and a combined shared face's); of a combined boots or gloves folder,
+/// which its own package writes, it reads only the texture stems. Each `.model` under its
+/// packed name (`packed_model_name`) and an entry of the `face.xml`, in the order of the
+/// models' export paths, case-folded, each naming the `.mtl` its search finds from its own
+/// source folder, the model moved onto `ctx.version`'s skeleton first when the conversion
+/// pre-check flags it (`model_for_pre_fox`, reading that `.mtl`, a Common one too), its `.mtl`
+/// packed as written; an `.fmdl` the face converts (`PlayerFile::PreFoxModel`) the same, as
+/// the `.model` its conversion writes (`fmdl_for_pre_fox`, the `.skl` of its path stem as the
+/// bind pose), named with the conversion's material set, packed as `<stem>.mtl` with its
+/// texture paths pointed as a `.mtl`'s below; each
 /// `.mtl` under its own name, every texture path naming one of the folder's textures by its
 /// stem pointed at the folder's texture home as that texture's DDS, and one naming a stem a
 /// texture link of the folder stands for at that texture in the team's Common output; and the
@@ -253,9 +255,21 @@ pub(super) fn face(
             .iter()
             .map(|combined| &combined.folder.files),
     );
-    for ((_, source_path, source_roles), source_files) in
+    for ((package, source_path, source_roles), source_files) in
         folder.roles().into_iter().zip(source_files)
     {
+        // A source feeding another package, a referee's plain boots or gloves link, is that
+        // package's task's to write as his slot's `k99NN`/`g99NN` folder: packed here too as
+        // `parts` entries, it would dress him twice. Its textures still go to his texture
+        // home (the textures task reads every source), so the face's `.mtl` files point a
+        // path of one of their stems there.
+        let source_roles: Vec<(&FileDescriptor, PlayerFile)> = match package {
+            ModelPackage::Face => source_roles,
+            ModelPackage::Boots | ModelPackage::Gloves => source_roles
+                .into_iter()
+                .filter(|(_, role)| matches!(role, PlayerFile::Texture(..)))
+                .collect(),
+        };
         // Each model's `.mtl` is resolved here, before any entry: a set's other variants are
         // checked against its listed one's, wherever it sorts.
         let material_of = |file: &FileDescriptor| {

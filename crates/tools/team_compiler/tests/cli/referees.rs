@@ -697,10 +697,9 @@ fn test_mode_writes_a_referee_folder_s_processed_files_once() {
     }
 }
 
-// TC-REF-10
-#[test]
-fn a_referee_s_link_to_shared_boots_is_written_as_each_of_his_slots_boots() {
-    let sandbox = Sandbox::new("ref_shared_boots");
+/// Writes `Ref A` mapped to slots 01 and 20, holding only the link `Studs.boots` to the shared
+/// folder `Boots/Studs`, which holds `boots.fmdl` and `shirt.dds` (TC-REF-10's referee).
+fn write_ref_a_linking_studs(sandbox: &Sandbox) {
     sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n20 Ref A\n");
     sandbox.write(&format!("{REFS}/Players/Ref A/Studs.boots"), b"");
     sandbox.write(
@@ -711,10 +710,23 @@ fn a_referee_s_link_to_shared_boots_is_written_as_each_of_his_slots_boots() {
         &format!("{REFS}/Boots/Studs/shirt.dds"),
         &tracer_player_file("shirt.dds"),
     );
+}
+
+// TC-REF-10
+#[test]
+fn a_referee_s_link_to_shared_boots_is_written_as_each_of_his_slots_boots() {
+    let sandbox = Sandbox::new("ref_shared_boots");
+    write_ref_a_linking_studs(&sandbox);
 
     let (run, entries) = compile(&sandbox);
 
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    // No face folder: with no face model his slots keep the game's referee head.
+    let faces: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.starts_with("Asset/model/character/face/real/referee0"))
+        .collect();
+    assert!(faces.is_empty(), "{faces:?}");
     let boots: Vec<&str> = entries
         .keys()
         .filter_map(|path| path.strip_prefix("Asset/model/character/boots/"))
@@ -735,6 +747,59 @@ fn a_referee_s_link_to_shared_boots_is_written_as_each_of_his_slots_boots() {
             "{slot}: {names:?}"
         );
     }
+}
+
+// TC-REF-13
+#[test]
+fn on_pes_17_a_referee_s_link_to_shared_boots_is_each_slot_s_boots_folder_and_no_face() {
+    let sandbox = Sandbox::new("ref_shared_boots_pes17");
+    write_ref_a_linking_studs(&sandbox);
+
+    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    // The template tree's stock boots, and the shared boots converted as each slot's folder.
+    let boots: Vec<&str> = entries
+        .keys()
+        .filter_map(|path| path.strip_prefix("common/character0/model/character/boots/"))
+        .collect();
+    assert_eq!(
+        boots,
+        [
+            "k0062/boots.model",
+            "k0062/boots.mtl",
+            "k9901/boots.model",
+            "k9901/boots.mtl",
+            "k9920/boots.model",
+            "k9920/boots.mtl",
+        ]
+    );
+    let model = |slot: &str| {
+        &entries[&format!("common/character0/model/character/boots/k99{slot}/boots.model")]
+    };
+    assert_eq!(model("01"), model("20"));
+    pes_model::format::PreFoxModel::read(model("01")).unwrap();
+    // Not copied into a face as well, and no face of his own: the game's referee head stays.
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("xml_face_neck_added")),
+        "{lines:#?}"
+    );
+    let faces: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.starts_with("common/character0/model/character/face/real/referee0"))
+        .collect();
+    assert!(faces.is_empty(), "{faces:?}");
+    let shirts: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.ends_with("/shirt.dds"))
+        .collect();
+    assert_eq!(
+        shirts,
+        ["common/character1/model/character/uniform/common/999/Ref A/shirt.dds"]
+    );
 }
 
 // TC-REF-11
