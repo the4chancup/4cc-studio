@@ -1,8 +1,9 @@
 //! The pre-Fox Common output's models and `.mtl` files (`team_compiler/pipeline.md` "3.
 //! Per-model-folder parallel steps", step 4): every `.model` and `.mtl` directly in the
-//! export's `Common/` folder written once into the team's Common output, and every FMDL there
-//! converted once into a `.model` and its material set (step 1, "Format conversion"), where the
-//! game loads the ones a player's `face.xml` names through a `.common` link. The Common
+//! export's `Common/` folder written once into the team's Common output (a `.model` the
+//! conversion pre-check finds posed off the version's skeleton moved onto it), and every FMDL
+//! there converted once into a `.model` and its material set (step 1, "Format conversion"),
+//! where the game loads the ones a player's `face.xml` names through a `.common` link. The Common
 //! textures beside them, the template environment map a converted metal material names
 //! included, are the Common textures task's.
 
@@ -12,30 +13,34 @@ use aesthetics_export::{FileDescriptor, FileKind, ModelFormat};
 use pes_version::Engine;
 use vtree::ScopePath;
 
-use super::conversion::{PreFoxMaterials, fmdl_for_pre_fox, source_name};
+use super::conversion::{PreFoxMaterials, fmdl_for_pre_fox, model_for_pre_fox, source_name};
 use super::prefox_face::{
     add_environment_map, converted_material_name, point_materials, point_reserved_kit_stems,
     rewritten_materials,
 };
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::face_xml::packed_model_name;
+use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::subset::{common_skeleton, file_stem};
 
 /// The Common output's entries for `common`, the files of the export's `Common/` folder at
 /// `folder` that planning lists (`TaskKind::CommonModels`), compiled from their bytes in
-/// `files` for team `team_id`: each `.model` as it is under its packed name
-/// (`packed_model_name`), as the `face.xml` path naming it expects; each `.mtl` under its own
-/// name, every texture path naming one of `texture_stems` (the Common textures' stems, folded,
-/// each as spelled) pointed at that texture in the team's Common output as its DDS. Each FMDL
-/// is converted for `ctx.version` (`fmdl_for_pre_fox`, the `.skl` of its stem as its bind
-/// pose, its findings noted in `findings` naming it by its file name), its `.model` packed
-/// under its packed name and its material set as `<stem>.mtl`, pointed as the face points a
-/// converted set: each metal material first given the environment map in the team's Common
-/// output (`add_environment_map`), then the paths naming a Common texture, then the reserved
-/// kit stems. A conversion that fails fails the task. Two files packing under one name
-/// (case-folded), a member's `.mtl` of a converted FMDL's `<stem>.mtl` name among them, fail
-/// the task: neither can be dropped silently.
+/// `files` for team `team_id`: each `.model` under its packed name (`packed_model_name`), as
+/// the `face.xml` path naming it expects, as it is or, when the conversion pre-check flags it
+/// (`model_for_pre_fox`, with the `.mtl` its search finds in `Common/`, its findings naming it
+/// by its file name), moved onto `ctx.version`'s skeleton; a `.model` with no `.mtl` in
+/// `Common/` is packed as it is, the import having no set to read it with; each `.mtl` under
+/// its own name, every texture path naming one of `texture_stems` (the Common textures'
+/// stems, folded, each as spelled) pointed at that texture in the team's Common output as its
+/// DDS. Each FMDL is converted for `ctx.version` (`fmdl_for_pre_fox`, the `.skl` of its stem
+/// as its bind pose, its findings noted in `findings` naming it by its file name), its
+/// `.model` packed under its packed name and its material set as `<stem>.mtl`, pointed as the
+/// face points a converted set: each metal material first given the environment map in the
+/// team's Common output (`add_environment_map`), then the paths naming a Common texture, then
+/// the reserved kit stems. A conversion that fails fails the task. Two files packing under one
+/// name (case-folded), a member's `.mtl` of a converted FMDL's `<stem>.mtl` name among them,
+/// fail the task: neither can be dropped silently.
 pub(super) fn common_models(
     folder: &ScopePath,
     common: &[FileDescriptor],
@@ -53,7 +58,28 @@ pub(super) fn common_models(
         let stem = file_stem(name);
         match file.kind {
             FileKind::Model(ModelFormat::PesModel) => {
-                written.push((packed_model_name(stem), take(files, file)));
+                let source = take(files, file);
+                // `Common/` is both the model's folder and the Common folder its search
+                // looks in. With no `.mtl` there, the deep pass drops nothing: a linking
+                // player's own `.mtl` may define the model's materials (his link's search
+                // finds it), or no player links the model. The conversion's import needs a
+                // set, so such a model is packed as it is.
+                let bytes = match mtl_for(&file.path, folder, common, common) {
+                    Some(material) => {
+                        let mtl = files
+                            .get(&material.path)
+                            .expect("planning lists every `.mtl` of `Common/` for the task");
+                        model_for_pre_fox(
+                            &source_name(&file.path, folder),
+                            source,
+                            mtl,
+                            ctx,
+                            findings,
+                        )?
+                    }
+                    None => source,
+                };
+                written.push((packed_model_name(stem), bytes));
             }
             FileKind::Model(ModelFormat::Fmdl) => {
                 let skeleton = common_skeleton(common, name).map(|skeleton| take(files, skeleton));
@@ -77,7 +103,12 @@ pub(super) fn common_models(
             // The deep pass has dropped a `Common/` `.mtl` that does not read, so a failure of
             // `rewritten_materials` here is not a member's mistake.
             FileKind::Mtl => {
-                let bytes = rewritten_materials(file, &take(files, file), &places)?;
+                // Read in place, not taken: a `.model` sorting after it (`zz.model` using
+                // `materials.mtl`) reads it for its pre-check.
+                let source = files
+                    .get(&file.path)
+                    .expect("the coordinator reads every file `TaskKind::files` lists");
+                let bytes = rewritten_materials(file, source, &places)?;
                 written.push((name.to_owned(), bytes));
             }
             // A `.skl` is read with the FMDL of its stem, its bind pose, above; planning lists

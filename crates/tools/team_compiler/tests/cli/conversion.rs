@@ -1338,6 +1338,298 @@ fn a_pre_fox_face_converted_for_pes_21_reports_no_skl_no_slot() {
     );
 }
 
+/// The stock PES 2017 cap model (`konami_modD_cap.model`) and its `.mtl`: its mesh uses
+/// `dsk_deltoid_l` and `dsk_upperarm_long_l`, bones PES 2015's skeleton lacks, so the
+/// conversion pre-check flags it on PES 2015 alone.
+fn cap() -> (Vec<u8>, Vec<u8>) {
+    (
+        pre_fox_fixture("konami_modD_cap.model"),
+        pre_fox_fixture("konami_modD_cap.mtl"),
+    )
+}
+
+/// What moving the cap onto PES 2015's skeleton prints at `scope` (`at Players/05 - A`) for
+/// the model named `name`: its mesh's Konami tags, which the conversion does not carry, and
+/// the two bones PES 2015 lacks folded into `dsk_upperarm_l`. The bones it keeps sit on PES
+/// 2015's pose already, so none is re-bound and `skeleton_retargeted` is not printed.
+fn moved_cap_lines(scope: &str, name: &str) -> Vec<String> {
+    let line =
+        |code: &str, rest: &str| format!("Info {code} [Keep] {scope} (model={name}, {rest})");
+    vec![
+        line("native_field_dropped", "mesh=0, field=tags"),
+        line(
+            "bone_folded_for_version",
+            "bone=dsk_deltoid_l -> dsk_upperarm_l",
+        ),
+        line(
+            "bone_folded_for_version",
+            "bone=dsk_upperarm_long_l -> dsk_upperarm_l",
+        ),
+    ]
+}
+
+/// `lines` followed by `moved`, as one list of lines.
+fn followed_by(lines: &[&str], moved: Vec<String>) -> Vec<String> {
+    lines
+        .iter()
+        .map(|line| (*line).to_owned())
+        .chain(moved)
+        .collect()
+}
+
+/// Every material the `.model` `model` names is defined by the `.mtl` `mtl`.
+fn assert_materials_defined(model: &[u8], mtl: &[u8]) {
+    let materials = MaterialSet::read(mtl).unwrap();
+    let model =
+        pes_model::model::Model::from_file(&pes_model::format::PreFoxModel::read(model).unwrap())
+            .unwrap();
+    for name in &model.materials {
+        assert!(
+            materials
+                .materials
+                .iter()
+                .any(|material| &material.name == name),
+            "{name}"
+        );
+    }
+}
+
+// TC-MOD-49
+#[test]
+fn a_member_s_model_posed_off_pes_15_s_skeleton_is_moved_onto_it_its_mtl_packed_as_written() {
+    let export = "co Midcup Cap";
+    let (source, mtl) = cap();
+    let compiled = |version: u8| {
+        let sandbox = Sandbox::new(&format!("conversion_precheck_prefox_face_{version}"));
+        let player = slot_05(export);
+        sandbox.write(&format!("{player}/face_high.model"), &source);
+        sandbox.write(&format!("{player}/face_high.mtl"), &mtl);
+        let (code, lines, entries) = compiled_for(&sandbox, version, "", export);
+        assert_eq!(code, 0, "PES {version}: {lines:#?}");
+        (lines, nested_entries(&entries[&face_cpk(5)]))
+    };
+    let model = format!("{}oral_face_high_win32.model", face_folder(5));
+    let packed_mtl = format!("{}face_high.mtl", face_folder(5));
+
+    let (lines_15, face_15) = compiled(15);
+    let (lines_16, face_16) = compiled(16);
+
+    // Konami's `.mtl` sets few states, which the deep pass notes on every version.
+    let states = "Info mtl_state_missing [Keep] at Players/05 - A (file=face_high.mtl, count=7)";
+    assert_eq!(
+        lines_15,
+        followed_by(
+            &[states, CLEAN[0], CLEAN[1]],
+            moved_cap_lines("at Players/05 - A", "face_high.model")
+        )
+    );
+    assert_eq!(lines_16, [states, CLEAN[0], CLEAN[1]]);
+    // On PES 2016 the model is packed from its source bytes; on PES 2015 moved.
+    assert!(face_16[&model] == source);
+    assert!(face_15[&model] != source);
+    // The member's `.mtl` is the one packed, pointed as on any version: the move changes no
+    // material, and every material the moved model names is the member's.
+    assert!(face_15[&packed_mtl] == face_16[&packed_mtl]);
+    assert_materials_defined(&face_15[&model], &face_15[&packed_mtl]);
+}
+
+// TC-MOD-50
+#[test]
+fn a_shared_boots_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_onto_it() {
+    let export = "co Midcup Cap";
+    let (source, mtl) = cap();
+    let compiled = |version: u8| {
+        let sandbox = Sandbox::new(&format!("conversion_precheck_prefox_boots_{version}"));
+        sandbox.write(&format!("{}/Cap.boots", slot_05(export)), b"");
+        let boots = format!("exports/{export}/Boots/Cap");
+        sandbox.write(&format!("{boots}/boots.model"), &source);
+        sandbox.write(&format!("{boots}/boots.mtl"), &mtl);
+        let (code, lines, entries) = compiled_for(&sandbox, version, "", export);
+        assert_eq!(code, 0, "PES {version}: {lines:#?}");
+        let output = entries_under(&entries, BOOTS_K0644);
+        let names: Vec<&str> = output.keys().copied().collect();
+        assert_eq!(names, ["boots.model", "boots.mtl"], "PES {version}");
+        (
+            lines,
+            output["boots.model"].clone(),
+            output["boots.mtl"].clone(),
+        )
+    };
+
+    let (lines_15, model_15, mtl_15) = compiled(15);
+    let (lines_16, model_16, _) = compiled(16);
+
+    let states = "Info mtl_state_missing [Keep] at Boots/Cap (file=boots.mtl, count=7)";
+    // The shared folder's own task reports on the folder, naming the model below it.
+    assert_eq!(
+        lines_15,
+        followed_by(
+            &[states, CLEAN[0], CLEAN[1]],
+            moved_cap_lines("at Boots/Cap", "boots.model")
+        )
+    );
+    assert_eq!(lines_16, [states, CLEAN[0], CLEAN[1]]);
+    // One part: on PES 2016 the output's model is the source as it is.
+    assert!(model_16 == source);
+    assert!(model_15 != source);
+    assert_materials_defined(&model_15, &mtl_15);
+}
+
+#[test]
+fn a_shared_gloves_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_its_mtl_as_written() {
+    let export = "co Midcup Cap";
+    let (source, mtl) = cap();
+    let compiled = |version: u8| {
+        let sandbox = Sandbox::new(&format!("conversion_precheck_prefox_gloves_{version}"));
+        sandbox.write(&format!("{}/Cap.gloves", slot_05(export)), b"");
+        let gloves = format!("exports/{export}/Gloves/Cap");
+        sandbox.write(&format!("{gloves}/glove_l.model"), &source);
+        sandbox.write(&format!("{gloves}/glove_l.mtl"), &mtl);
+        let (code, lines, entries) = compiled_for(&sandbox, version, "", export);
+        assert_eq!(code, 0, "PES {version}: {lines:#?}");
+        let output = entries_under(&entries, "common/character0/model/character/glove/g0644/");
+        let names: Vec<&str> = output.keys().copied().collect();
+        assert_eq!(
+            names,
+            ["glove.xml", "glove_l.model", "glove_l.mtl"],
+            "PES {version}"
+        );
+        (
+            lines,
+            output["glove_l.model"].clone(),
+            output["glove_l.mtl"].clone(),
+        )
+    };
+
+    let (lines_15, model_15, mtl_15) = compiled(15);
+    let (lines_16, model_16, mtl_16) = compiled(16);
+
+    let states = "Info mtl_state_missing [Keep] at Gloves/Cap (file=glove_l.mtl, count=7)";
+    assert_eq!(
+        lines_15,
+        followed_by(
+            &[states, CLEAN[0], CLEAN[1]],
+            moved_cap_lines("at Gloves/Cap", "glove_l.model")
+        )
+    );
+    assert_eq!(lines_16, [states, CLEAN[0], CLEAN[1]]);
+    assert!(model_16 == source);
+    assert!(model_15 != source);
+    // The member's `.mtl`, packed as on any version.
+    assert!(mtl_15 == mtl_16);
+    assert_materials_defined(&model_15, &mtl_15);
+}
+
+// TC-MOD-51
+#[test]
+fn a_common_model_posed_off_pes_15_s_skeleton_is_moved_in_the_common_output() {
+    let export = "co Midcup Cap";
+    let (source, mtl) = cap();
+    let compiled = |version: u8| {
+        let sandbox = Sandbox::new(&format!("conversion_precheck_prefox_common_{version}"));
+        sandbox.write(&format!("{}/cap.model.common", slot_05(export)), b"");
+        let common = format!("exports/{export}/Common");
+        sandbox.write(&format!("{common}/cap.model"), &source);
+        sandbox.write(&format!("{common}/cap.mtl"), &mtl);
+        let (code, lines, entries) = compiled_for(&sandbox, version, "", export);
+        assert_eq!(code, 0, "PES {version}: {lines:#?}");
+        let output = common_output(&entries);
+        let names: Vec<&str> = output.keys().copied().collect();
+        assert_eq!(names, ["cap.mtl", "oral_cap_win32.model"], "PES {version}");
+        (
+            lines,
+            output["oral_cap_win32.model"].clone(),
+            output["cap.mtl"].clone(),
+        )
+    };
+
+    let (lines_15, model_15, mtl_15) = compiled(15);
+    let (lines_16, model_16, _) = compiled(16);
+
+    let states = "Info mtl_state_missing [Keep] at Common/cap.mtl (file=cap.mtl, count=7)";
+    // The cap is typed `parts`, so the face gets the dummy as its `face_neck`.
+    let face_neck = "Info xml_face_neck_added [Keep] at Players/05 - A ()";
+    // The Common models task reports on `Common`, naming the model below it.
+    assert_eq!(
+        lines_15,
+        followed_by(
+            &[states, CLEAN[0], CLEAN[1], face_neck],
+            moved_cap_lines("at Common", "cap.model")
+        )
+    );
+    assert_eq!(lines_16, [states, CLEAN[0], CLEAN[1], face_neck]);
+    assert!(model_16 == source);
+    assert!(model_15 != source);
+    assert_materials_defined(&model_15, &mtl_15);
+}
+
+// TC-MOD-52
+#[test]
+fn a_member_s_model_whose_mtl_is_a_common_file_is_moved_too() {
+    let sandbox = Sandbox::new("conversion_precheck_prefox_common_mtl");
+    let export = "co Midcup Cap";
+    let (source, mtl) = cap();
+    let player = slot_05(export);
+    sandbox.write(&format!("{player}/face_high.model"), &source);
+    sandbox.write(&format!("{player}/face_high.mtl.common"), b"");
+    sandbox.write(&format!("exports/{export}/Common/face_high.mtl"), &mtl);
+
+    let (code, lines, entries) = compiled_for(&sandbox, 15, "", export);
+
+    assert_eq!(
+        lines,
+        followed_by(
+            &[
+                "Info mtl_state_missing [Keep] at Common/face_high.mtl (file=face_high.mtl, count=7)",
+                CLEAN[0],
+                CLEAN[1],
+            ],
+            moved_cap_lines("at Players/05 - A", "face_high.model")
+        )
+    );
+    assert_eq!(code, 0);
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let model = &face[&format!("{}oral_face_high_win32.model", face_folder(5))];
+    assert!(*model != source);
+    let common = common_output(&entries);
+    assert_materials_defined(model, common["face_high.mtl"]);
+}
+
+#[test]
+fn two_mtl_common_links_read_both_common_mtl_files() {
+    // Two models, each with its own `.mtl.common` link to its own Common `.mtl`: the face task
+    // reads both Common files, and each model is pre-checked with its own.
+    let sandbox = Sandbox::new("conversion_precheck_prefox_two_common_mtl");
+    let export = "co Midcup Cap";
+    let (source, mtl) = cap();
+    let player = slot_05(export);
+    for stem in ["face_high", "hair_high"] {
+        sandbox.write(&format!("{player}/{stem}.model"), &source);
+        sandbox.write(&format!("{player}/{stem}.mtl.common"), b"");
+        sandbox.write(&format!("exports/{export}/Common/{stem}.mtl"), &mtl);
+    }
+
+    let (code, lines, entries) = compiled_for(&sandbox, 15, "", export);
+
+    let mut expected = followed_by(
+        &[
+            "Info mtl_state_missing [Keep] at Common/face_high.mtl (file=face_high.mtl, count=7)",
+            "Info mtl_state_missing [Keep] at Common/hair_high.mtl (file=hair_high.mtl, count=7)",
+            CLEAN[0],
+            CLEAN[1],
+        ],
+        moved_cap_lines("at Players/05 - A", "face_high.model"),
+    );
+    expected.extend(moved_cap_lines("at Players/05 - A", "hair_high.model"));
+    assert_eq!(lines, expected);
+    assert_eq!(code, 0);
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    for stem in ["face_high", "hair_high"] {
+        let model = &face[&format!("{}oral_{stem}_win32.model", face_folder(5))];
+        assert!(*model != source, "{stem}");
+    }
+}
+
 /// The `EnvironmentMap` samplers of `set`, every material's.
 fn environment_samplers(set: &MaterialSet) -> Vec<&Sampler> {
     set.materials
@@ -1672,6 +1964,38 @@ fn a_common_fmdl_s_metal_material_reflects_the_template_in_the_common_output() {
         environment == environment_template(),
         "env.dds is the bundled template"
     );
+}
+
+#[test]
+fn a_common_model_with_no_mtl_in_common_is_packed_as_it_is() {
+    // The cap, which PES 2015's pre-check flags, alone in `Common/`: its materials are the
+    // linking player's own `cap.mtl`, or nobody's when no player links it. The conversion
+    // has no set to read it with, so the Common output holds it as written.
+    let export = "co Midcup Cap";
+    let (source, mtl) = cap();
+    for (name, linked) in [
+        ("conversion_precheck_prefox_common_override", true),
+        ("conversion_precheck_prefox_common_unlinked", false),
+    ] {
+        let sandbox = Sandbox::new(name);
+        write_slot_05_face(&sandbox, export);
+        if linked {
+            let player = slot_05(export);
+            sandbox.write(&format!("{player}/cap.model.common"), b"");
+            sandbox.write(&format!("{player}/cap.mtl"), &mtl);
+        }
+        sandbox.write(&format!("exports/{export}/Common/cap.model"), &source);
+
+        let (code, lines, entries) = compiled_for(&sandbox, 15, "", export);
+
+        assert_eq!(code, 0, "{name}: {lines:#?}");
+        assert!(
+            !lines.iter().any(|line| line.contains("bone_folded")),
+            "{name}: {lines:#?}"
+        );
+        let output = common_output(&entries);
+        assert!(*output["oral_cap_win32.model"] == source, "{name}");
+    }
 }
 
 #[test]

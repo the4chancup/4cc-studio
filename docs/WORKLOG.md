@@ -18,7 +18,7 @@ and 4.25 are done; 4.26 is done; 4.19 (Fox referees) is done, 4.19d (pre-Fox) wa
 referee marker) is done, 4.27's rest (the pre-Fox marker) waits on 4.19d; 4.9 is done
 (collars on Fox; their pre-Fox and cross-format halves are in 4.16 and 4.17); 4.28
 (memory accounting), 4.32 (number atlases) and 4.18 (hand auto-split, Fox) are done, and
-4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g1 done: the pose measurement on the games' own files, the pre-check's rule settled as a blended-delta test; g2 done: `needs_conversion` is that test, `skf_*` pass through, tolerance 3e-3; g3a done: the Fox Models task pre-checks every selected FMDL with its `.skl`, the gloves task reads a hand-split part's `.skl`, a slotless conversion skeleton is dropped silently; g3b next)
+4.y moved to Phase 8; 4.14's slices are all done (a to d, e1 to e5; its GPT reviews (a) TC-MOD-43 and (b) e3 stay queued); 4.15 done (a1, a2, b: the member's own `face.xml` read, checked and emitted; `mtl_texture_not_found` a Warning on pre-Fox, Fumos's evidence); 4.16 done (a: PES 15-17 kits with the mask template and loose configs; b: `dds_compression`; c: `.model` collars; d: the installed loose kit configs of absent slots patched and re-emitted), with its own checks until 4.31's pre-Fox parity; 4.17 in progress (lead done: rulings and the environment cubemap; a done: a player's FMDL converted for PES 15-17 through the face task, its GPT review (c) queued; b done: a player's `.model` converted for PES 18-21 in the Models task, every converted model checked in its target form, a beaten model read by nothing; c1 done: every conversion loss reported at its catalog severity, the same-engine pre-check measured and deferred to slice g; c2 done: a selected glTF in a player folder refused at planning with `model_gltf_unsupported`, TC-MOD-28; d done: the template environment cubemap emitted for a converted metal material on PES 15-17, its GPT review (d) queued, TC-MOD-36; e done: an FMDL collar converted for PES 15-17 with the stock names, a glTF collar dropped at planning, TC-CMN-09; f1 done: a shared folder's other-format model converted as a player's, a shared folder's glTF dropping its linking players; f2 done: a shared boots or gloves folder's FMDL and an `ingame_face` player's FMDL parts converted by the pre-Fox boots and gloves writer, a conversion finding naming a shared source by its export path; f3a done: the glTF drop's orphans removed, an `env` link the environment map, every `model` context named alike, one sampler shape, `kit_variant_model_fox` Fox-only; f3b done: a Common FMDL converted once in the Common models task on PES 15-17, its link listing the conversion's `.mtl`; f3c done: a Common `.model` converted in each linking player's Models task on PES 18-21, per-kit sets of either format, a pre-Fox Common texture path pointed at the Fox Common directory; g1 done: the pose measurement on the games' own files, the pre-check's rule settled as a blended-delta test; g2 done: `needs_conversion` is that test, `skf_*` pass through, tolerance 3e-3; g3a done: the Fox Models task pre-checks every selected FMDL with its `.skl`, the gloves task reads a hand-split part's `.skl`, a slotless conversion skeleton is dropped silently; g3b done: every pre-Fox `.model` pre-checked with the member's `.mtl` packed beside a moved one, the Common `.mtl` a link names read; 4.17's slices are done, next 4.19d)
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
 4.5 to 4.8 and 4.10 to 4.13 are done (4.6c moved to Phase 8's cancellation). 2.5b (GPU BC7) is step 16.x (decision entries
@@ -1805,12 +1805,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   moved onto the version's skeleton when flagged, the gloves task reading a hand-split part's
   `.skl` for its re-conversion, the skeleton a conversion writes for a slotless role dropped
   with no finding, collars not pre-checked (DECISIONS 2026-10-09, two entries), `pipeline.md`
-  step 3's pre-check sentence rewritten, TC-MOD-46 to 48; (g3b) `team_compiler`, pre-Fox: the
-  call for a selected `.model` in the face, the shared boots and gloves writer, the Common
-  models task, the `ingame_face` parts, `.model` collars and the member's `face.xml` path, from
-  4.17c1's draft (`.tmp/4_17/sk_4_17c1_prefox_precheck.rs`,
-  `.tmp/4_17/sk_4_17c1_prefox_face.diff`), its test the stock cap model on PES 15 (the one
-  pre-Fox fixture flagged, a bone that version lacks; `.tmp/4_17/lead_g3a_probe/precheck_prefox.txt`).
+  step 3's pre-check sentence rewritten, TC-MOD-46 to 48; (g3b, done 2026-10-09)
+  `team_compiler`, pre-Fox: every `.model` the face, the shared boots and gloves writer (the
+  `ingame_face` parts included) and the Common models task pack pre-checked and moved when
+  flagged, the member's `.mtl` packed beside it, the Common `.mtl` a link names read by the
+  face task (which also ends the 2026-10-08 refusal of a hand split over a Common `.mtl`), a
+  `Common/` `.model` with no `.mtl` packed as it is; not pre-checked: a member's own `face.xml`'s
+  models and `.model` collars (DECISIONS 2026-10-09, three entries); TC-MOD-49 to 52 on the
+  stock cap model, the one pre-Fox fixture flagged (PES 15 folds two of its bones;
+  `.tmp/4_17/lead_g3a_probe/precheck_prefox.txt`).
   Slice c was split: c1 the loss codes and the pre-check
   measurement, c2 the selected glTF (`model_gltf_unsupported`, TC-MOD-28).
   Open for converge (design health): `output/writer.rs` `commit_folder` takes an empty
@@ -1829,7 +1832,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `a_converted_face_carries_its_own_skf_pose_in_the_skl_it_writes` moves to the block); until
   then the compiler drops a face's conversion-written `.skl` silently (DECISIONS 2026-10-09).
   Whether the Fox game reads the block or the face diff for a face's pose is
-  `docs/QUESTIONS.md` "Face diffs are engine-specific". Also for converge (maintainer, 2026-10-08):
+  `docs/QUESTIONS.md` "Face diffs are engine-specific". Also for converge (`model_convert`
+  and the collar task, found at 4.17g3b): a `.model` collar posed off the target's skeleton
+  is packed as it is (DECISIONS 2026-10-09), because the IR import refuses a model whose
+  material the set lacks and a collar's materials are the game's `uniform.mtl`; the stock
+  PES 17 collar is flagged on PES 15 (`.tmp/4_17/lead_g3a_probe/precheck_prefox.txt`), so a
+  real case waits on the import taking a `.model` without its set (its materials kept by name,
+  which the collar task renames to the stock names anyway). Also for converge
+  (`model_convert`, found at 4.17g3b): the IR carries no `.model` mesh tags (`Mesh::tags`), so
+  every conversion of a `.model`, a same-engine move included, drops them as
+  `native_field_dropped (field=tags)`; the stock cap's tag is `Captainmark`. Whether the game
+  reads a mesh tag is unknown; if it does, the IR needs the field. Also for converge (maintainer, 2026-10-08):
   `team_compiler` has outgrown mutation runs: 2,171 mutants (measured 2026-10-08 with
   `cargo mutants --list`), about 10 s each on the PC, so a whole-crate run is about six
   hours, twice per phase close, and local-only since 4.14d because the crate's test
@@ -4637,6 +4650,18 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     test's input replaced (the linked Common model's export-path naming, now through a renamed
     bone's `skeleton_retargeted`). Mutants: 29 (21 caught, 8 unviable: type-driven defaults and an `&&` inside a let chain, none missed). Next: 4.17g3b (`team_compiler`,
     pre-Fox).
+  - **4.17g3b done**: `conversion::model_for_pre_fox` (the `.model` taken, the bytes to pack
+    returned: the source as it is, or the model moved onto the version's skeleton), its
+    writing half `pre_fox_written` shared with `fmdl_for_pre_fox`; called by the face
+    (`FaceSource::Member`), the shared boots and gloves writer (`prefox_shared::package`, both
+    arms) and the Common models task; the face task's files include the Common `.mtl` each
+    `.mtl.common` link names (`plan::linked_common_materials`), so a model with a Common
+    `.mtl` is checked and converted too, and the hand split of such a model is no longer
+    refused (DECISIONS 2026-10-09); a `Common/` `.model` with no `.mtl` in `Common/` is packed
+    as it is (sidekick's finding: the `expect` fired on a linking player's own `.mtl` and on an
+    unlinked model). The cap folds two bones on PES 15 and re-binds none, so the tests pin the
+    fold lines, not `skeleton_retargeted` (TC-MOD-49 to 52 reworded). Two rework rounds: R1 the `model_for_pre_fox` shape (the bytes to pack returned) and the hand split over a Common `.mtl` allowed, both from the sidekick's own report; R2 one test for the mutation run's survivor.
+    Mutants: 26 (21 caught, 5 unviable: type-driven defaults; the first run's one survivor, the dedup in `linked_common_materials`, caught by R2's two-links test). Next: 4.19d.
 - **2026-10-09** — Reviews run by the lead from now on: the maintainer wired the `duck` skill
   (Astra, SWE-2 rounds) for Claude Code, so cross-family reviews are no longer queued except on
   an Astra quota stop (five-hour quota, five or six reviews; retried hourly). The S7-S16
@@ -4669,3 +4694,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   run), collars not pre-checked; two decision entries, plan edits first; TC-MOD-46 to 48.
   Gates 258 proven. Mutants: 29 (21 caught, 8 unviable: type-driven defaults and an `&&` inside a let chain, none missed). The `bone_matrices` converge item extended
   (exporter writes the block, `needs_skl` then skips `skf_*`).
+- **2026-10-09** — 4.17g3b landed (sidekick; two rework rounds: the `model_for_pre_fox` shape
+  and the hand split over a Common `.mtl` allowed, both from its own report; then one test for
+  the mutation run's survivor, two `.mtl.common` links to two Common files): the pre-Fox
+  pre-check call for every packed `.model`, the member's `.mtl` kept, the Common `.mtl` a link
+  names read by the face task; three contradictions accepted (the cap folds and re-binds
+  nothing, the IR drops `.model` mesh tags, the hand-split refusal lost its reason), one plan
+  gap accepted (a `Common/` `.model` with no `.mtl`); three decision entries. Gates 262 proven.
+  Mutants: 26 (21 caught, 5 unviable: type-driven defaults; the first run's one survivor, the dedup in `linked_common_materials`, caught by R2's two-links test). 4.17's slices are done; converge items filed (`.model` collars,
+  mesh tags, `bone_matrices`).

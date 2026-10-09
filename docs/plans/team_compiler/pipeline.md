@@ -349,10 +349,25 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    re-converts it, which reads the face's `.skl` for that); an FMDL with none is taken to sit
    on PES 21's pose, the pose Red's template skeleton gave every Fox export, so without an
    `.skl` the check can find only a bone the target lacks or a difference between PES 21's
-   tables and the target's. A collar is not pre-checked: no `.skl` is read beside one, and no
+   tables and the target's. On PES 15-17 a `.model`'s pose is its own bone table, so the check
+   needs no companion: the face, the shared boots and gloves writer (an `ingame_face` player's
+   parts included) and the Common models task run it on every `.model` they pack, a moved
+   model packed beside the member's own `.mtl` (the conversion's material set is dropped:
+   moving bones changes no material), and a `.model` whose `.mtl` is a Common file is read
+   with that `.mtl`, which the face task's files include for it. A `Common/` `.model` with no
+   `.mtl` in `Common/` is packed as it is (a linking player's own `.mtl` may define its
+   materials, or nobody links it; the import has no set to read it with). A flagged model the
+   import cannot read, a material its `.mtl` lacks (`model_material_undefined`, compiled only
+   under `pass_through`), fails as any conversion does. Not pre-checked: the models a
+   member's own `face.xml` lists (the member assembles that face, and the compiler packs what
+   it names), and collars on either engine. A Fox collar: no `.skl` is read beside one, and no
    Fox version's body table differs from PES 21's on bones a measured model blends (4.17g3a:
    the game's own high-neck collar, the tracer's four FMDLs and the hand-split body are not
-   flagged on any Fox version without an `.skl`). A file only the other engine reads is ignored with no finding when its
+   flagged on any Fox version without an `.skl`). A `.model` collar: its materials live in the
+   game's shared `uniform.mtl`, which the export does not hold and the IR import needs
+   (`MaterialUndefined`), so a flagged one (the stock PES 17 collar is flagged on PES 15,
+   measured at 4.17g3b) cannot be converted until the import takes a model without its set:
+   worklog 4.17 "Open for converge". A file only the other engine reads is ignored with no finding when its
    model is not selected (a `.mtl` beside a `.model` an FMDL beats on Fox) or when the target
    has no counterpart for it (`fcl_hair_sim.fclo` on PES 15-17): TC-MOD-26 keeps the unselected
    model itself silent, and its companions follow it. The `.skl` paired with a selected FMDL is
@@ -725,7 +740,9 @@ describes behavior, not a serial scheduling requirement:
   by `dds_convert::encode_png`. A DDS or FTEX source gives its top mip level.
 - **Collars** — an FMDL collar compiled for PES 15-17 is converted like any other model
   (`collar_12.fmdl` becomes `collar_012.model`, its skeleton the version's body table, as a
-  player's FMDL with no `.skl` beside it; its `.mtl` is not written). The game draws every
+  player's FMDL with no `.skl` beside it; its `.mtl` is not written). A collar in the target's
+  own format is packed as it is, without the same-engine pre-check (step 3 "Format
+  conversion" says why for each engine). The game draws every
   collar with the team's kit texture (pre-Fox: the base
   data's `uniform_config.xml` gives `nocloth` collars the `collar` model type and the shared
   `uniform.mtl`; Fox: the exe assigns the type), so a collar has no textures or `.mtl` of its

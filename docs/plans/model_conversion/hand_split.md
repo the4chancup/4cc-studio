@@ -94,10 +94,12 @@ written. The detection reads the `.model`'s own bone weights, as the FMDL check 
 hand-weighted model a `.model.common` link brings in is not split on pre-Fox: the face lists
 the Common output's file by reference and packs nothing of it, so splitting it would mean
 copying it into the face, which no export has needed (worklog "Issues"). A split needs the
-model's `.mtl` bytes, so a hand-weighted model whose `.mtl` is a Common file (a `.mtl.common`
-link, or a `Common/` `.mtl` its search finds) fails its folder with `model_conversion_failed`
-naming it, not a read of that Common file: the face task reads no Common file, and the rule
-stays one rule rather than one with a split-only exception for a case no export has.
+model's `.mtl` bytes; a hand-weighted model whose `.mtl` is a Common file (a `.mtl.common`
+link, or a `Common/` `.mtl` its search finds) is split with that file, which the face task's
+files include since the conversion pre-check reads it for every model
+(`team_compiler/pipeline.md` step 3 "Format conversion"), the hands' entries naming it as the
+body's does. Until then the case was refused with `model_conversion_failed`, the face reading
+no Common file; the refusal's reason went with the pre-check, and one rule covers both.
 
 A split model goes through the IR and back (FMDL → IR → split → FMDL; on pre-Fox `.model` → IR →
 split → `.model`). Measured at 4.18 on that

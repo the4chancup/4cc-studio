@@ -3,10 +3,11 @@
 //! which also moves it onto the target version's skeleton: on PES 15-17 an `.fmdl`, with its
 //! paired `.skl` as the bind pose, written as a `.model` and its material set; on PES 18-21 a
 //! `.model`, with the `.mtl` its search finds, written as an FMDL and, when the conversion makes
-//! one, a skeleton, and so is an FMDL the conversion pre-check (`needs_conversion`) finds posed
-//! off the version's skeleton. Every converted model is checked in its target form before it
-//! is written (`messages.md` `vertex_too_far_from_origin`): what the source passed, the
-//! conversion may still have moved or split past a limit.
+//! one, a skeleton. A model of the target's own format that the conversion pre-check
+//! (`needs_conversion`) finds posed off the version's skeleton is converted the same way: an
+//! FMDL on PES 18-21, a `.model` on PES 15-17. Every converted model is checked in its target
+//! form before it is written (`messages.md` `vertex_too_far_from_origin`): what the source
+//! passed, the conversion may still have moved or split past a limit.
 
 use model_convert::{Converted, NativeModelBundle, Subject, convert, loss, needs_conversion};
 use pes_model::format::PreFoxModel;
@@ -45,7 +46,8 @@ impl PreFoxMaterials {
     }
 }
 
-/// An FMDL converted for a PES 15-17 target.
+/// A model converted for a PES 15-17 target: an FMDL, or a `.model` the pre-check found posed
+/// off the version's skeleton (`model_for_pre_fox`, which keeps the `.model` alone).
 pub(super) struct PreFoxConversion {
     /// The `.model` written, packed in the FMDL's place.
     pub(super) model: Vec<u8>,
@@ -89,23 +91,8 @@ pub(super) fn fmdl_for_pre_fox(
         // The FMDL, its IR and the `.model` written, charged at the source's size, an estimate
         // of each form, while they are built.
         let _conversion_charge = ctx.budget.charge(bytes.len());
-        let (mut model, material_set, losses) =
-            converted_fmdl(bytes, skeleton, ctx.version).map_err(|error| failed(name, error))?;
-        match materials {
-            PreFoxMaterials::Converted => {}
-            PreFoxMaterials::StockCollar => stock_collar_materials(&mut model),
-        }
-        let fired = pes_model::check::check(&model)
-            .into_iter()
-            .map(Fired::pre_fox);
-        target_form_failure(name, fired.collect())?;
-        let written = model.to_file().and_then(|file| file.write());
-        let model = written.map_err(|error| failed(name, error.into()))?;
-        let converted = PreFoxConversion {
-            model,
-            materials: material_set,
-        };
-        (converted, losses)
+        let bundle = fox_bundle(bytes, skeleton).map_err(|error| failed(name, error))?;
+        pre_fox_written(name, bundle, ctx.version, materials)?
     };
     findings.extend(
         losses
@@ -116,22 +103,68 @@ pub(super) fn fmdl_for_pre_fox(
     Ok(converted)
 }
 
-/// The FMDL `bytes` converted for the PES 15-17 `version`, with the skeleton `skeleton` as its
-/// bind pose: the `.model`, its material set and the conversion's loss findings.
-fn converted_fmdl(
-    bytes: &[u8],
-    skeleton: Option<&[u8]>,
+/// The member's `.model` `name` (as its findings name it, `source_name`), `source`, for a PES
+/// 15-17 target, `mtl` being the bytes of the `.mtl` its search found, which the IR import
+/// reads its materials from, run through the conversion pre-check for `ctx.version`: the bytes
+/// to pack, `source` as it is when re-binding would change nothing, otherwise the `.model`
+/// moved onto the version's skeleton. The material set the conversion writes is dropped: the
+/// member's `.mtl` is packed and pointed as for any model of theirs, and moving the bones
+/// changes no material. Charged, reported and failed as `fmdl_for_pre_fox` is.
+pub(super) fn model_for_pre_fox(
+    name: &str,
+    source: Vec<u8>,
+    mtl: &[u8],
+    ctx: &CompileContext,
+    findings: &mut Vec<Finding>,
+) -> Result<Vec<u8>, TaskFailure> {
+    let (converted, losses) = {
+        // The `.model`, its IR and the `.model` written, charged at the source's size, an
+        // estimate of each form, while they are built.
+        let _conversion_charge = ctx.budget.charge(source.len());
+        let bundle = pre_fox_bundle(&source, mtl).map_err(|error| failed(name, error))?;
+        if !needs_conversion(&bundle, ctx.version) {
+            return Ok(source);
+        }
+        pre_fox_written(name, bundle, ctx.version, PreFoxMaterials::Converted)?
+    };
+    findings.extend(losses.iter().filter_map(|loss| reported(name, loss)));
+    Ok(converted.model)
+}
+
+/// The model `name` (as its findings name it), `bundle`, converted for the PES 15-17
+/// `version` and written, its materials named as `materials` says, with the conversion's loss
+/// findings: the `.model`, checked by `pes_model`'s check (`target_form_failure`), and the
+/// converter's material set. Failed with `model_conversion_failed`, naming the model, when it
+/// cannot be converted or written.
+fn pre_fox_written(
+    name: &str,
+    bundle: NativeModelBundle,
     version: PesVersion,
-) -> anyhow::Result<(pes_model::model::Model, MaterialSet, Vec<loss::Finding>)> {
-    let model = fmdl::Model::from_file(&fmdl::FmdlFile::read(bytes)?)?;
-    let skl = skeleton.map(fmdl::SklFile::read).transpose()?;
-    let Converted { bundle, findings } = convert(NativeModelBundle::Fox { model, skl }, version)?;
-    match bundle {
-        NativeModelBundle::PreFox { model, mtl } => Ok((model, mtl, findings)),
+    materials: PreFoxMaterials,
+) -> Result<(PreFoxConversion, Vec<loss::Finding>), TaskFailure> {
+    let Converted { bundle, findings } =
+        convert(bundle, version).map_err(|error| failed(name, error.into()))?;
+    let (mut model, material_set) = match bundle {
+        NativeModelBundle::PreFox { model, mtl } => (model, mtl),
         NativeModelBundle::Fox { .. } => {
             unreachable!("`convert` returns the target's format, a `.model` for PES 15-17")
         }
+    };
+    match materials {
+        PreFoxMaterials::Converted => {}
+        PreFoxMaterials::StockCollar => stock_collar_materials(&mut model),
     }
+    let fired = pes_model::check::check(&model)
+        .into_iter()
+        .map(Fired::pre_fox);
+    target_form_failure(name, fired.collect())?;
+    let written = model.to_file().and_then(|file| file.write());
+    let model = written.map_err(|error| failed(name, error.into()))?;
+    let converted = PreFoxConversion {
+        model,
+        materials: material_set,
+    };
+    Ok((converted, findings))
 }
 
 /// Renames the materials of `model`, an FMDL collar converted for pre-Fox, to the stock

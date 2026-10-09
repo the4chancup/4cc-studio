@@ -10,7 +10,9 @@
 //! files they use under their own names lowercased, listed in a generated `glove.xml`,
 //! unmerged. An `.fmdl` among the models is converted as the face converts one (`pipeline.md`
 //! step 3 "Format conversion"), its `.model` and material set taking the place of a member's
-//! `.model` and the `.mtl` it uses. A shared folder's textures sit beside them
+//! `.model` and the `.mtl` it uses; a `.model` the conversion pre-check finds posed off the
+//! version's skeleton is moved onto it as the face moves one, the `.mtl` it uses packed as
+//! written. A shared folder's textures sit beside them
 //! (`TextureHome::SharedOutput`), the `.mtl` paths naming them `./<stem>.dds`; a player's are
 //! in his common folder (`TextureHome::PlayerCommon`), named as his face's `.mtl` files name
 //! them, and a Common `.mtl`'s stay in the team's Common output. `materialize` writes the files
@@ -30,7 +32,9 @@ use pipeline::MemoryBudget;
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::conversion::{PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox, source_name};
+use super::conversion::{
+    PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox, model_for_pre_fox, source_name,
+};
 use super::materialize::PackageFiles;
 use super::prefox_face::{
     add_environment_map, insert, linked_texture_stem, point_materials, point_reserved_kit_stems,
@@ -71,7 +75,8 @@ struct SourceModel<'a> {
 
 impl SourceModel<'_> {
     /// Whether the model is an FMDL, converted for the target (`fmdl_for_pre_fox`) rather than
-    /// packed from its bytes with the `.mtl` it uses.
+    /// packed with the `.mtl` it uses, from its bytes or moved onto the version's skeleton
+    /// when the conversion pre-check flags it (`model_for_pre_fox`).
     fn converts(&self) -> bool {
         self.file.kind == FileKind::Model(ModelFormat::Fmdl)
     }
@@ -102,7 +107,10 @@ struct BootsPart<'a> {
 /// The files of `folder`'s pre-Fox `package`, boots or gloves, compiled from its files' bytes in
 /// `files` for team `team_id`, by their names in the output's folder. The models of the
 /// package are a shared folder's, or an `ingame_face` player's parts, the Common models his
-/// `.common` links copy in included, with a combined folder's of the package's kind. Boots:
+/// `.common` links copy in included, with a combined folder's of the package's kind. Each
+/// `.model` runs the conversion pre-check (`model_for_pre_fox`, with the `.mtl` it uses, its
+/// findings naming it by `source_name`) and, when flagged, is moved onto `ctx.version`'s
+/// skeleton before it is merged or packed, the `.mtl` packed as written. Boots:
 /// the models as `boots.model` and the `.mtl` each uses (`material_of`) as `boots.mtl`
 /// (`boots_files`), the merge of several noted in `findings` as
 /// `model_merged`. Gloves: each model under its file name lowercased, the `.mtl` each uses
@@ -293,9 +301,11 @@ pub(super) fn package(
                 )
             });
             // The material sets the parts use, each part naming its own by index: a member's
-            // `.mtl` read once however many parts use it, a converted FMDL's own set.
+            // `.mtl` read once however many parts use it, a converted FMDL's own set. A
+            // member's set keeps its source bytes beside its index, which the pre-check of
+            // each model using it reads.
             let mut sets: Vec<MaterialSet> = Vec::new();
-            let mut member_sets: BTreeMap<&ScopePath, usize> = BTreeMap::new();
+            let mut member_sets: BTreeMap<&ScopePath, (usize, Vec<u8>)> = BTreeMap::new();
             let mut sources: Vec<(&ScopePath, Vec<u8>, usize)> = Vec::new();
             for model in &models {
                 if model.converts() {
@@ -305,16 +315,20 @@ pub(super) fn package(
                     continue;
                 }
                 let material = material_of(folder, model);
-                let index = match member_sets.get(&material.path) {
-                    Some(index) => *index,
-                    None => {
-                        let bytes = take(files, material);
-                        sets.push(read_materials(material, &bytes, places_for(material))?);
-                        member_sets.insert(&material.path, sets.len() - 1);
-                        sets.len() - 1
-                    }
-                };
-                sources.push((&model.file.path, take(files, model.file), index));
+                if !member_sets.contains_key(&material.path) {
+                    let bytes = take(files, material);
+                    sets.push(read_materials(material, &bytes, places_for(material))?);
+                    member_sets.insert(&material.path, (sets.len() - 1, bytes));
+                }
+                let (index, mtl) = &member_sets[&material.path];
+                let bytes = model_for_pre_fox(
+                    &source_name(&model.file.path, &folder.path),
+                    take(files, model.file),
+                    mtl,
+                    ctx,
+                    findings,
+                )?;
+                sources.push((&model.file.path, bytes, *index));
             }
             let parts = sources
                 .into_iter()
@@ -372,7 +386,20 @@ pub(super) fn package(
                         used.push((material, own(model.source_path)));
                     }
                     let name = material.path.name().to_ascii_lowercase();
-                    (take(files, model.file), name)
+                    let source = take(files, model.file);
+                    // Read in place: the `.mtl` is packed below, through `used`.
+                    let mtl = files.get(&material.path).expect(
+                        "the task's files include every `.mtl` its models use, taken after \
+                         the models (`TaskKind::files`)",
+                    );
+                    let bytes = model_for_pre_fox(
+                        &source_name(&model.file.path, &folder.path),
+                        source,
+                        mtl,
+                        ctx,
+                        findings,
+                    )?;
+                    (bytes, name)
                 };
                 entries.push(XmlEntry {
                     xml_type: model.xml_type,

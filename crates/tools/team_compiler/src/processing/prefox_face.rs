@@ -23,7 +23,9 @@ use pes_version::{Engine, PesVersion};
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::conversion::{PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox, source_name};
+use super::conversion::{
+    PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox, model_for_pre_fox, source_name,
+};
 use super::materialize::PackageFiles;
 use super::prefox_split::split_face_model;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
@@ -76,8 +78,10 @@ struct FaceModel<'a> {
 /// converted `.model` is never packed with a member's `.mtl`, nor a member's with a converted
 /// one.
 enum FaceSource<'a> {
-    /// The member's own model, packed from its file (or split), named with the `.mtl` its
-    /// search finds from its source folder (`mtl_for`).
+    /// The member's own model, packed from its file, or moved onto the version's skeleton
+    /// when the conversion pre-check flags it (`model_for_pre_fox`), and split when it is
+    /// hand-split; named with the `.mtl` its search finds from its source folder (`mtl_for`),
+    /// packed as the member wrote it whichever way the model is.
     Member { material: &'a FileDescriptor },
     /// An FMDL converted for the target (`fmdl_for_pre_fox`): the `.model` written, packed in
     /// its place, and its material set, packed as `<stem>.mtl` (`converted_material_name`).
@@ -174,7 +178,9 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 /// The files of `folder`'s pre-Fox face, compiled from its files' bytes in `files` for team
 /// `team_id`, by their names in the face CPK: each `.model` under its packed name
 /// (`packed_model_name`) and an entry of the `face.xml`, in the order of the models' export
-/// paths, case-folded, each naming the `.mtl` its search finds from its own source folder; an
+/// paths, case-folded, each naming the `.mtl` its search finds from its own source folder, the
+/// model moved onto `ctx.version`'s skeleton first when the conversion pre-check flags it
+/// (`model_for_pre_fox`, reading that `.mtl`, a Common one too), its `.mtl` packed as written; an
 /// `.fmdl` the face converts (`PlayerFile::PreFoxModel`) the same, as the `.model` its
 /// conversion writes (`fmdl_for_pre_fox`, the `.skl` of its path stem as the bind pose), named
 /// with the conversion's material set, packed as `<stem>.mtl` with its texture paths pointed as
@@ -191,12 +197,13 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 /// face's files are copied in under the player's own: a model or `.mtl` packing under a name
 /// (case-folded) the player's folder already packs is left out, the player's file replacing it
 /// as a copy would (`player_folders.md` "A link plus local models combines"). A hand-split
-/// model (`ModelFolder::hand_split`) is split at the wrists (`split_face_model`): its body is
-/// packed and listed in its place, and each hand made follows it as
+/// model (`ModelFolder::hand_split`), moved first, is split at the wrists
+/// (`split_face_model`): its body is packed and listed in its place, and each hand made
+/// follows it as
 /// `oral_<stem>_glove_l_win32.model` or `oral_<stem>_glove_r_win32.model`, an entry typed
 /// `gloveL` or `gloveR` naming the model's `.mtl` and `ratio`; a split model whose `.mtl` is a
-/// Common file fails the task with `model_conversion_failed`. When no entry is
-/// a `face_neck`, the dummy is listed last and packed as `oral_dummy_win32.model` and
+/// Common file is split with that file, every entry naming it in the team's Common output.
+/// When no entry is a `face_neck`, the dummy is listed last and packed as `oral_dummy_win32.model` and
 /// `dummy.mtl`, noted in `findings` as `xml_face_neck_added` when the face has a model. An
 /// entry's type is written for `ctx.version` (`version_type`): each entry whose type that
 /// rewrites (`uniform` to `uniform_sub` on PES 2015) is noted in `findings` as
@@ -496,7 +503,15 @@ pub(super) fn face(
         // A member's `.mtl` is packed below, with the face's other `.mtl` files; a converted
         // model's material set is packed here, its texture paths pointed as a member's are.
         let (bytes, member_material) = match model.source {
-            FaceSource::Member { material } => (take(files, model.file), Some(material)),
+            FaceSource::Member { material } => {
+                let source = take(files, model.file);
+                let mtl = files.get(&material.path).expect(
+                    "the face task's files include every `.mtl` a member's model is paired \
+                     with, a Common one too (`TaskKind::files`)",
+                );
+                let bytes = model_for_pre_fox(&model_name, source, mtl, ctx, findings)?;
+                (bytes, Some(material))
+            }
             FaceSource::Converted(PreFoxConversion {
                 model: converted,
                 mut materials,
@@ -528,19 +543,10 @@ pub(super) fn face(
         // A split model's `.mtl` is read in place: a member's is taken below, a converted
         // model's was packed above.
         let mtl = match member_material {
-            Some(material) => files.get(&material.path).ok_or_else(|| TaskFailure {
-                code: Code::ModelConversionFailed,
-                context: vec![
-                    ("model", model_name.clone()),
-                    (
-                        "error",
-                        format!(
-                            "its .mtl, {}, is a Common file, which the face does not read",
-                            material.path.as_str()
-                        ),
-                    ),
-                ],
-            })?,
+            Some(material) => files.get(&material.path).expect(
+                "the face task's files include every `.mtl` a member's model is paired with, a \
+                 Common one too (`TaskKind::files`)",
+            ),
             None => contents
                 .get(&converted_material_name(&model.stem))
                 .expect("a converted model's material set is packed above"),

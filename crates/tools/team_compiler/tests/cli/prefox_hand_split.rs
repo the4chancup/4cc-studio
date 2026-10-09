@@ -233,7 +233,7 @@ fn a_hand_weighted_per_kit_set_lists_its_hands_once_as_its_reference() {
 }
 
 #[test]
-fn a_hand_weighted_model_whose_mtl_is_a_common_file_fails_its_folder() {
+fn a_hand_weighted_model_whose_mtl_is_a_common_file_is_split_with_it() {
     let sandbox = Sandbox::new("prefox_hand_split_common_mtl");
     let export = "co Midcup Hands";
     let player = format!("exports/{export}/Players/05 - A");
@@ -247,18 +247,56 @@ fn a_hand_weighted_model_whose_mtl_is_a_common_file_fails_its_folder() {
         &hand_split_fixture("body.mtl"),
     );
 
-    let compile = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
-    let lines = compile.messages();
-    assert_eq!(
-        findings_of(&lines, export),
-        [
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Error model_conversion_failed [DropFolder] at Players/05 - A (model=body.model, error=its .mtl, Common/body.mtl, is a Common file, which the face does not read)",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body.model, gloves=glove_l, glove_r)",
+            "Info xml_face_neck_added [Keep] at Players/05 - A ()",
         ],
-        "{lines:#?}"
     );
-    assert_eq!(compile.exit_code(), 1, "{lines:#?}");
-    let entries = crate::compile::cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+
+    // The body and its two hands, as with a local `.mtl`; the Common `.mtl` is the Common
+    // output's, not the face's.
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "dummy.mtl",
+            "face.xml",
+            "oral_body_glove_l_win32.model",
+            "oral_body_glove_r_win32.model",
+            "oral_body_win32.model",
+            "oral_dummy_win32.model",
+        ]
+    );
+    let entry = |xml_type: &str, path: &str, material: &str| {
+        (xml_type.to_owned(), path.to_owned(), material.to_owned())
+    };
+    // Each entry names the Common `.mtl` by its path in the team's Common output, as an
+    // unsplit model's entry does.
+    let common_mtl = "model/character/uniform/common/714/body.mtl";
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [
+            entry("parts", "./oral_body_*.model", common_mtl),
+            entry("gloveL", "./oral_body_glove_l_*.model", common_mtl),
+            entry("gloveR", "./oral_body_glove_r_*.model", common_mtl),
+            entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ]
+    );
+    let split = [
+        "oral_body_win32.model",
+        "oral_body_glove_l_win32.model",
+        "oral_body_glove_r_win32.model",
+    ]
+    .map(|name| counts(&face[&format!("{folder}{name}")]));
+    assert_eq!(split, [(21, 24), (9, 8), (9, 8)]);
 }

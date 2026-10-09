@@ -276,7 +276,10 @@ a `.model`
 of the same name is left out for the `.model`, the `.skl` of a converted model's name gives
 its pose, and `fcl_hair_sim.fclo` is not used. A converted model moved onto that version's skeleton is noted
 as `skeleton_retargeted`, and one that cannot be converted leaves the face, boots or gloves
-it is part of out with `model_conversion_failed`. A metal material (a Fox `fox3ddf_ggx` one)
+it is part of out with `model_conversion_failed`. A player's own `.model` whose bones sit on
+another version's skeleton is moved onto that version's too, its `.mtl` packed as written; a
+model a member's own `face.xml` lists, and a `.model` collar, are packed as they are.
+A metal material (a Fox `fox3ddf_ggx` one)
 converted this way reflects the compiler's environment map, emitted beside the player's
 textures, or a shared `Boots` or `Gloves` folder's, as `env.dds`; an `env` texture of the
 folder's own (`env.dds`, `env.png`), or the Common one its `env.dds.common` link names, is

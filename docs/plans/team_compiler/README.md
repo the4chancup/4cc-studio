@@ -942,6 +942,29 @@ TC-MOD-48  GIVEN slot 05 holding the pre-Fox tracer's face_high.model with its f
            WHEN the export is compiled for PES 21
            THEN the face package holds face_high.fmdl and face_diff.bin and no .skl, and
                 skl_no_slot is not reported
+TC-MOD-49  GIVEN slot 05 holding the stock PES 17 cap model as face_high.model with its .mtl, a
+           model whose bones PES 15's skeleton does not all hold
+           WHEN the export is compiled for PES 15, then PES 16
+           THEN on PES 15 bone_folded_for_version is reported for the two bones PES 15 lacks
+                (folded into dsk_upperarm_l; the bones it keeps sit on PES 15's pose, so nothing
+                is re-bound and skeleton_retargeted is not reported) and the face CPK's model
+                differs from the source while its face_high.mtl is the member's set, pointed; on
+                PES 16 the model is packed byte-identical to the source
+TC-MOD-50  GIVEN Boots/Cap/ holding the cap as boots.model with its .mtl, linked by slot 05
+           WHEN the export is compiled for PES 15, then PES 16
+           THEN on PES 15 the boots output's boots.model differs from the source and the fold
+                lines are reported on Boots/Cap, the shared folder's own task, naming
+                boots.model; on PES 16 it is byte-identical to the source
+TC-MOD-51  GIVEN Common/ holding the cap as cap.model with cap.mtl, and slot 05 holding
+           cap.model.common
+           WHEN the export is compiled for PES 15, then PES 16
+           THEN on PES 15 the Common output's model differs from the source and the fold
+                lines are reported on Common, naming cap.model; on PES 16 it is byte-identical
+TC-MOD-52  GIVEN slot 05 holding the cap as face_high.model and face_high.mtl.common, Common/
+           holding face_high.mtl, the cap's set
+           WHEN the export is compiled for PES 15
+           THEN the fold lines are reported on the player and the face CPK's model differs from
+                the source
 ```
 
 **Textures**

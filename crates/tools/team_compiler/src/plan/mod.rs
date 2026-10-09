@@ -653,7 +653,9 @@ impl TaskKind {
     /// `.skl`, its bind pose (`ModelFolder::hand_split_skeleton`), a Fox package
     /// converting a `.model` also the `.mtl` files of the model's source (for a Common
     /// `.model`, the player's and the Common `.mtl` its search found), a pre-Fox package
-    /// also the skeleton of each FMDL it may convert; a folder's
+    /// also the skeleton of each FMDL it may convert, and the pre-Fox face the Common `.mtl`
+    /// each `.mtl.common` link of the folder stands for, which the conversion pre-check of a
+    /// model using it reads; a folder's
     /// textures; the Common textures; the Common models and `.mtl` files, a converted Common
     /// FMDL's skeleton included (pre-Fox); a
     /// portrait's one file; a kit's config and `colors.txt`,
@@ -700,7 +702,7 @@ impl TaskKind {
                     .any(|file| file.kind == FileKind::Model(ModelFormat::PesModel)),
                     Engine::PreFox => true,
                 };
-                folder_files(folder, |source, source_path, file, role| {
+                let mut read = folder_files(folder, |source, source_path, file, role| {
                     reads_model(source, file, role)
                         // A `.mtl` goes where its source's models go, each package packing (on
                         // Fox, converting with) the ones its models use (`mtl_for`): a combined
@@ -717,7 +719,20 @@ impl TaskKind {
                         // which may convert the FMDL it pairs with.
                         || (matches!(role, PlayerFile::ConversionSkeleton)
                             && (*package == source || source_path == &folder.path))
-                })
+                });
+                // The pre-Fox face also reads the Common `.mtl` each `.mtl.common` link stands
+                // for: a member's model whose search finds it runs the conversion pre-check
+                // with it (`prefox_face::face`). Only the face: an `ingame_face` player, who
+                // has none, gets his link's Common `.mtl` as a `PlayerFile::Material` already
+                // (`ModelFolder::roles`).
+                let face_reads_links = match folder.engine {
+                    Engine::Fox => false,
+                    Engine::PreFox => *package == ModelPackage::Face,
+                };
+                if face_reads_links {
+                    read.extend(linked_common_materials(folder));
+                }
+                read
             }
             TaskKind::Textures { folder, .. } => folder_files(folder, |_, _, _, role| {
                 matches!(role, PlayerFile::Texture(..))
@@ -757,6 +772,28 @@ fn folder_files(
         }
     }
     wanted_files
+}
+
+/// The `Common/` `.mtl` files `folder`'s `.mtl.common` links stand for
+/// (`PlayerFile::CommonMaterial`), its own files' and its combined folders', each once however
+/// many links name it (`x.mtl.common` and `x.mtl.common.txt`).
+fn linked_common_materials(folder: &ModelFolder) -> Vec<&FileDescriptor> {
+    let mut materials: Vec<&FileDescriptor> = Vec::new();
+    for (_, _, files) in folder.roles() {
+        for (file, role) in files {
+            if !matches!(role, PlayerFile::CommonMaterial) {
+                continue;
+            }
+            let linked = common_link_name(file.path.name())
+                .expect("a CommonMaterial role implies a `.common` link name");
+            let material = common_file(&folder.common_files, &linked)
+                .expect("validation drops a player folder whose link names no Common file");
+            if !materials.iter().any(|known| known.path == material.path) {
+                materials.push(material);
+            }
+        }
+    }
+    materials
 }
 
 /// The export paths of `folder`'s hand-split parts on a target of `engine`

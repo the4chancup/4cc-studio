@@ -5425,3 +5425,36 @@ find anything in a collar, so a collar arm would be code no file reaches. The gl
 see the face's `.skl` because it converts the same model the face task converts: with the pose
 read on one side only, the face's body would be moved and its hands not.
 Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the pre-check sentences).
+
+## 2026-10-09 — team_compiler — The pre-Fox same-engine pre-check runs on every packed `.model` but a face.xml's and a collar's
+Decision: on PES 15-17 the face, the shared boots and gloves writer (an `ingame_face` player's
+parts included) and the Common models task run `needs_conversion` on every `.model` they pack
+and convert a flagged one through the IR, packing the member's own `.mtl` beside the moved
+model; a `.model` whose `.mtl` is a Common file is read with that `.mtl`, added to the face
+task's files. Not pre-checked: the models a member's own `face.xml` lists, and `.model` collars.
+Why: a `.model` carries its pose in its own bone table, so the check needs no companion file,
+and the member's `.mtl` stays the one packed because moving bones changes no material (the
+conversion's rewritten set would only respell what the member wrote). The Common `.mtl` is read
+rather than its model packed unchecked (4.17c1's draft) so that one rule covers every model:
+the check itself reads the model alone, and only a flagged model's conversion needs the set.
+A member's own `face.xml` is the authority on what that face loads (`messages.md`
+"User-supplied `face.xml`"): the compiler packs what it names and does not reason about those
+models. A `.model` collar's materials are the game's shared `uniform.mtl`, absent from the
+export, and the IR import refuses a model whose material the set lacks (`MaterialUndefined`);
+the stock PES 17 collar is flagged on PES 15 (measured at 4.17g3b), so the case is real and is
+filed for converge rather than solved with a synthetic set here.
+Plan: `team_compiler/pipeline.md` step 3 "Format conversion" (the pre-Fox pre-check sentences),
+"Collars".
+
+## 2026-10-09 — team_compiler — Pre-Fox hand split of a model whose `.mtl` is a Common file is no longer refused
+Decision: on pre-Fox a hand-weighted face model whose `.mtl` is a Common file is split with that
+file, like one with a local `.mtl`; the 2026-10-08 refusal (`model_conversion_failed`, "which
+the face does not read") is withdrawn.
+Why: the refusal's one reason was that the face task read no Common file. Since 4.17g3b it
+reads the Common `.mtl` every `.mtl.common` link names, for the conversion pre-check of the
+model using it (the entry above), so the split's read is no exception any more and the error
+text would be false. A Common `.model` with no `.mtl` in `Common/` stays packed as it is
+(nothing defines its materials for the import; a linking player's own `.mtl` may, or nobody
+links it), the one case left where a `.model` is not pre-checked.
+Plan: `model_conversion/hand_split.md` "Pipeline integration"; `team_compiler/pipeline.md` step
+3 "Format conversion" (the Common `.model` sentence).
