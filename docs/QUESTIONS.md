@@ -86,7 +86,9 @@ referee. On PES 17 the lead's frames of the walkout, the lineup and the match's 
 `parts/referee/incom_bsm.dds`, installed in `4cc_35_referees.cpk`) nor a test texture. In
 which scene does the pre-Fox marker show, and does it with the cup's current refs CPK? Run D
 of `.tmp/4_19/ingame/test_ref04_runs.py` installs a magenta and yellow checker as that
-texture through the test CPK slot (`install D`, then `revert`; PES closed for both).
+texture through the test CPK slot (`install D`, then `revert`; PES closed for both). The checker
+is a plain DDS where the template's own file is WESYS-compressed, as the compiler's output is
+(step 4.19f), so the same run also confirms the game reads a plain DDS at that path.
 
 ## Cup practice and preferences
 

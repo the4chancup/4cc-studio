@@ -89,12 +89,14 @@ pub(crate) struct Referees {
     /// Whether an entry of the tasks went in: a refs export that commits nothing writes no
     /// refs CPK and no tree, so the installed referees stay.
     committed: bool,
-    /// Whether the referees' marker went in: the referee kit configs of the tree are then
-    /// written wearing its collar.
+    /// Whether the referees' marker went in: the tree's file at `marker_path` is then left
+    /// out, and on PES 18-21 the referee kit configs of the tree are written wearing its
+    /// collar.
     marker: bool,
-    /// The game path of the marker's model for the run's engine
-    /// (`paths::referee_marker_model`), the entry that notes the marker.
-    marker_model: String,
+    /// The game path of the entry that is the marker for the run's engine
+    /// (`paths::referee_marker`): the collar's model on Fox, the prop texture on pre-Fox. The
+    /// entry that notes the marker.
+    marker_path: String,
 }
 
 impl Referees {
@@ -106,7 +108,7 @@ impl Referees {
             cpk: Some(OutputSink::cpk(path)),
             committed: false,
             marker: false,
-            marker_model: paths::referee_marker_model(engine),
+            marker_path: paths::referee_marker(engine),
         }
     }
 
@@ -118,12 +120,12 @@ impl Referees {
             cpk: None,
             committed: false,
             marker: false,
-            marker_model: paths::referee_marker_model(engine),
+            marker_path: paths::referee_marker(engine),
         }
     }
 
     /// Takes the entry `path` of the task at manifest position `index` when that task is the
-    /// refs export's: noted as committed (and as the marker, at the marker model's path), and
+    /// refs export's: noted as committed (and as the marker, at the marker's path), and
     /// written as `bytes` into the refs CPK when there is one. Whether the refs CPK took it; an
     /// entry it did not take goes to the team side.
     fn add(&mut self, index: usize, path: &str, bytes: &[u8]) -> anyhow::Result<bool> {
@@ -131,9 +133,9 @@ impl Referees {
             return Ok(false);
         }
         self.committed = true;
-        // The path alone tells: only the marker task writes the marker model, with its texture
-        // in the same batch, and a batch commits whole or not at all.
-        if path == self.marker_model {
+        // The path alone tells: only the marker task writes the marker's path (on Fox with its
+        // texture in the same batch, and a batch commits whole or not at all).
+        if path == self.marker_path {
             self.marker = true;
         }
         let Some(cpk) = &mut self.cpk else {
@@ -302,11 +304,13 @@ impl CpkOutput {
     /// When an entry of the refs export went in, adds `version`'s engine's referee template
     /// tree of `templates` after it, each file at its game path unless an override holds that
     /// path (`overridden`, its `duplicate_path` going to `messages`): into the refs CPK, or
-    /// without one into the team side's sink, which it then starts. When the referees' marker went in, each referee
-    /// kit config of the tree is written wearing its collar, encoded for `version`
-    /// (`wearing_marker`); a config that does not decode is the error. On PES 18-21 each kit
-    /// config written is also staged as the `UniformParameter.bin` entry of its file name, with
-    /// the bytes written. Closes the refs CPK, and returns whether it was written.
+    /// without one into the team side's sink, which it then starts. When the referees' marker
+    /// went in, the tree's file at the marker's path is left out (pre-Fox: the prop texture),
+    /// and on PES 18-21 each referee kit config of the tree is written wearing its collar,
+    /// encoded for `version` (`wearing_marker`); a config that does not decode is the error. On
+    /// PES 18-21 each kit config written is also staged as the `UniformParameter.bin` entry of
+    /// its file name, with the bytes written. Closes the refs CPK, and returns whether it was
+    /// written.
     fn finish_referees(
         &mut self,
         referees: Referees,
@@ -318,15 +322,27 @@ impl CpkOutput {
             mut cpk,
             committed,
             marker,
+            marker_path,
             ..
         } = referees;
+        // The pre-Fox marker is the prop's texture, no collar: the configs keep their own.
+        let configs_wear_marker = marker
+            && match version.engine() {
+                Engine::Fox => true,
+                Engine::PreFox => false,
+            };
         if committed {
             for (path, bytes) in templates.referee_tree(version.engine()) {
+                // The marker's task already wrote this path, and the sink refuses a duplicate
+                // path; the bytes there are the member's marker, not the template's file.
+                if marker && path == marker_path {
+                    continue;
+                }
                 if self.overridden(path, messages) {
                     continue;
                 }
                 let config_name = path.strip_prefix(paths::REFEREE_KIT_CONFIGS);
-                let bytes = if marker && config_name.is_some() {
+                let bytes = if configs_wear_marker && config_name.is_some() {
                     Cow::Owned(wearing_marker(path, bytes, version)?)
                 } else {
                     Cow::Borrowed(bytes)
@@ -1463,36 +1479,60 @@ mod tests {
     }
 
     #[test]
-    fn with_the_pre_fox_marker_a_pes_17_refs_cpk_holds_the_pre_fox_tree_its_configs_wearing_it() {
+    fn the_pre_fox_marker_replaces_the_tree_s_prop_texture_and_the_configs_keep_collar_26() {
         let temp = scratch("writer_refs_marker_pes17");
-        let marker = paths::referee_marker_model(Engine::PreFox);
+        let folder = temp.path();
+        let marker = paths::referee_marker(Engine::PreFox);
         let templates = Templates::embedded();
+        let mut output = with_refs_cpk_for(folder, BTreeMap::new(), 0..1, Engine::PreFox);
+        output
+            .submit(TaskBatch {
+                entries: vec![(marker.clone(), b"the member's marker".to_vec())],
+                ..batch(0, &[], None)
+            })
+            .unwrap();
 
-        let written = refs_tree(temp.path(), PesVersion::Pes17, &templates, &[&marker]);
+        output
+            .finish(
+                PesVersion::Pes17,
+                WorkingBins::bundled(PesVersion::Pes17, &templates),
+                &[],
+                &[],
+                &[],
+                &templates,
+            )
+            .unwrap();
 
-        assert_eq!(written.len(), 51, "the pre-Fox tree");
+        let refs = folder.join("refs.cpk");
+        let layout = layout(&refs);
+        assert_eq!(layout.len(), 51, "the marker and the 50 other tree files");
+        assert_eq!(layout[0], marker, "the marker first");
+        assert_eq!(entry(&refs, &marker), b"the member's marker");
         let mut configs = 0;
-        for ((path, written), (_, template)) in
-            written.iter().zip(templates.referee_tree(Engine::PreFox))
-        {
-            if !path.starts_with(paths::REFEREE_KIT_CONFIGS) {
-                assert!(written == template, "{path}");
+        let mut others = 0;
+        for (path, template) in templates.referee_tree(Engine::PreFox) {
+            if path == marker {
                 continue;
             }
-            configs += 1;
-            // The pre-Fox templates wear collar 26, whose referee model the tree carries.
-            assert_eq!(template[0x14..0x16], [26, 26], "{path}");
-            assert_eq!(differing_offsets(written, template), [0x14, 0x15], "{path}");
-            assert_eq!(written[0x14..0x16], [77, 77], "{path}");
+            others += 1;
+            assert!(entry(&refs, path) == template, "{path}");
+            if path.starts_with(paths::REFEREE_KIT_CONFIGS) {
+                configs += 1;
+                // The pre-Fox templates wear collar 26, whose referee model the tree carries.
+                assert_eq!(template[0x14..0x16], [26, 26], "{path}");
+            }
         }
-        assert_eq!(configs, 20);
+        assert_eq!((others, configs), (50, 20));
     }
 
     #[test]
-    fn a_pre_fox_referee_kit_config_decodes_for_pes_17_and_wears_the_marker_s_collar() {
+    fn wearing_marker_sets_only_the_collars_of_a_pes_17_kit_config() {
         let def_1 = "common/character0/model/character/uniform/team/referee/referee_DEF_1.bin";
         let templates = Templates::embedded();
-        let template = templates.referee_tree_file(Engine::PreFox, def_1);
+        let (_, template) = templates
+            .referee_tree(Engine::PreFox)
+            .find(|(path, _)| *path == def_1)
+            .unwrap();
         assert_eq!(template.len(), 120);
 
         let written = wearing_marker(def_1, template, PesVersion::Pes17).unwrap();

@@ -119,7 +119,9 @@ wide lying on the ground, slightly tilted, under the referee. On Fox it is the 4
 `cup_logo.dds`), on pre-Fox the `referee_prop.model` of Red's referee template (material
 `judge_incom`, its `.mtl` naming `./incom_bsm.dds`), which the pre-Fox template tree carries
 under `parts/referee/` and the game draws by itself: the marker texture goes out as that
-`incom_bsm.dds`, converted like a Common texture, and nothing else changes. Drawn as a Fox
+`incom_bsm.dds`, converted like a Common texture, and nothing else changes (the tree's own file
+is WESYS-compressed, 907 KB for a 5.6 MB DDS; the compiler writes a plain DDS in its place, as
+it writes every pre-Fox texture and as Red did there). Drawn as a Fox
 collar it stays on the ground instead of following the neck by **static painting**, the cup
 community's trick: its vertices are weighted to a dummy vertex group, usually named `static`,
 that is no bone of the body skeleton; the referee step checks that the bundled FMDL is painted

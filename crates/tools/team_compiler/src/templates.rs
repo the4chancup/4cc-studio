@@ -223,19 +223,6 @@ const PLACEHOLDER_CPK: Resource = Resource {
     format: Format::Unparsed,
 };
 
-/// The pre-Fox collar model that draws nothing: written as stock collar 77's
-/// `collar_077.model` beside the pre-Fox referee marker, since a pre-Fox referee draws
-/// `referee_collar_077.model` only when `collar_077.model` exists
-/// (`resources/templates/README.md`).
-const COLLAR_EMPTY: Resource = Resource {
-    name: "collar_empty.model",
-    embedded: include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../resources/templates/collar_empty.model"
-    )),
-    format: Format::Unparsed,
-};
-
 /// The Fox referee marker (`resources/templates/README.md`): the flat square under every
 /// referee, written into the refs CPK as the referees' collar when the refs export holds
 /// `ref_marker.dds`. Its base texture names `common/000/sourceimages/cup_logo.dds` until the
@@ -247,7 +234,7 @@ const REFEREE_MARKER: &[u8] = include_bytes!(concat!(
 ));
 
 /// Every resource a `templates/` file can replace, in the order the replacements are reported.
-const RESOURCES: [&Resource; 15] = [
+const RESOURCES: [&Resource; 14] = [
     &TEAM_COLOR,
     &UNI_COLOR,
     &UNIFORM_PARAMETER_18,
@@ -262,7 +249,6 @@ const RESOURCES: [&Resource; 15] = [
     &DPFILELIST,
     &PLACEHOLDER_CPK,
     &ENVIRONMENT_MAP,
-    &COLLAR_EMPTY,
 ];
 
 /// The folder of `templates/` whose files, each at its game path below it, replace the files
@@ -390,15 +376,6 @@ static REFEREES_PREFOX: [(&str, &[u8]); 51] = referee_tree![
     "common/character1/model/character/uniform/nocloth/socks_noguard.model",
     "common/character1/model/character/uniform/nocloth/socks_noguard_high.model",
 ];
-
-/// The game path of the pre-Fox referee template tree's prop model, the flat square the
-/// pre-Fox marker is drawn with.
-pub(crate) const REFEREE_PROP_MODEL: &str =
-    "common/character1/model/character/parts/referee/referee_prop.model";
-
-/// The game path of the pre-Fox referee template tree's prop `.mtl`, beside its model.
-pub(crate) const REFEREE_PROP_MTL: &str =
-    "common/character1/model/character/parts/referee/referee_prop.mtl";
 
 /// The referee template tree of `engine`: the folder of `templates/` whose files replace its
 /// files, and its embedded files.
@@ -609,12 +586,6 @@ impl Templates {
         REFEREE_MARKER
     }
 
-    /// The pre-Fox collar model that draws nothing, written as `collar_077.model` beside the
-    /// pre-Fox referee marker.
-    pub(crate) fn collar_empty(&self) -> &[u8] {
-        self.bytes(&COLLAR_EMPTY)
-    }
-
     /// The files of `engine`'s referee template tree, in path order, each as its game path and
     /// its bytes: its override when one was read, else the embedded ones.
     pub(crate) fn referee_tree(
@@ -630,18 +601,6 @@ impl Templates {
             let bytes = overrides.get(path).map_or(*embedded, Vec::as_slice);
             (*path, bytes)
         })
-    }
-
-    /// The file of `engine`'s referee template tree at the game path `path`, as
-    /// `referee_tree` gives it.
-    pub(crate) fn referee_tree_file(&self, engine: Engine, path: &str) -> &[u8] {
-        self.referee_tree(engine)
-            .find(|(tree_path, _)| *tree_path == path)
-            .map(|(_, bytes)| bytes)
-            .expect(
-                "the path is one of the tree's: the callers name a file of it by a constant of \
-                 this module, each checked by a test",
-            )
     }
 }
 
@@ -777,7 +736,7 @@ mod tests {
     }
 
     /// Each resource's bytes in `templates`, through the accessors, in `RESOURCES` order.
-    fn every_resource(templates: &Templates) -> [&[u8]; 15] {
+    fn every_resource(templates: &Templates) -> [&[u8]; 14] {
         [
             templates.team_color(),
             templates.uni_color(),
@@ -793,7 +752,6 @@ mod tests {
             templates.official_list_file(),
             templates.placeholder_cpk(),
             templates.environment_map(),
-            templates.collar_empty(),
         ]
     }
 
@@ -827,19 +785,17 @@ mod tests {
         fs::write(folder.join("placeholder.cpk"), b"placeholder override").unwrap();
         fs::write(folder.join("face_diff.bin"), b"face diff override").unwrap();
         fs::write(folder.join("dummy.mtl"), b"dummy material override").unwrap();
-        fs::write(folder.join("collar_empty.model"), b"empty collar override").unwrap();
         // One `UniColor.bin` record, which parses as the bin.
         let kit_colors = [1; 85];
         fs::write(folder.join("UniColor.bin"), kit_colors).unwrap();
 
         let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
 
-        let mut expected: [&[u8]; 15] = RESOURCES.map(|resource| resource.embedded);
+        let mut expected: [&[u8]; 14] = RESOURCES.map(|resource| resource.embedded);
         expected[1] = &kit_colors;
         expected[7] = b"face diff override";
         expected[10] = b"dummy material override";
         expected[12] = b"placeholder override";
-        expected[14] = b"empty collar override";
         assert!(every_resource(&templates) == expected);
         let active = |name: &str| {
             tool_message(
@@ -855,8 +811,7 @@ mod tests {
                 active("UniColor.bin"),
                 active("face_diff.bin"),
                 active("dummy.mtl"),
-                active("placeholder.cpk"),
-                active("collar_empty.model")
+                active("placeholder.cpk")
             ]
         );
         assert_eq!(messages[0].code.code, "template_override_active");
@@ -1026,18 +981,18 @@ mod tests {
     }
 
     #[test]
-    fn the_prop_paths_name_files_of_the_pre_fox_tree() {
+    fn the_prop_texture_path_names_a_file_of_the_pre_fox_tree() {
+        let path = crate::paths::REFEREE_PROP_TEXTURE;
+        let (_, embedded) = REFEREES_PREFOX
+            .iter()
+            .find(|(tree_path, _)| *tree_path == path)
+            .unwrap();
         let templates = Templates::embedded();
-        for path in [REFEREE_PROP_MODEL, REFEREE_PROP_MTL] {
-            let (_, embedded) = REFEREES_PREFOX
-                .iter()
-                .find(|(tree_path, _)| *tree_path == path)
-                .unwrap();
-            assert!(
-                templates.referee_tree_file(Engine::PreFox, path) == *embedded,
-                "{path}"
-            );
-        }
+        let (_, bytes) = templates
+            .referee_tree(Engine::PreFox)
+            .find(|(tree_path, _)| *tree_path == path)
+            .unwrap();
+        assert!(bytes == *embedded);
     }
 
     /// The game path of one of the kit configs, which both referee trees hold.

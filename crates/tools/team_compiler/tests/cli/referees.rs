@@ -10,7 +10,6 @@ use std::fs;
 use std::path::Path;
 
 use kit_config::KitConfig;
-use pes_model::format::mtl::{MaterialEntry, MaterialSet};
 use pes_version::{Engine, PesVersion};
 use uniparam::UniformParameter;
 
@@ -127,30 +126,27 @@ const MARKER_COLLAR: &str = "Asset/model/character/uniform/nocloth/#Win/collar_0
 const MARKER_TEXTURE: &str =
     "Asset/model/character/common/999/sourceimages/#windx11/ref_marker.ftex";
 
-/// The game path of the pre-Fox referees' marker model: stock collar 77's `referee_collar`
-/// model, the one a pre-Fox referee draws.
+/// The game path of stock collar 77's pre-Fox referee model, never written: the pre-Fox marker
+/// is no collar.
 const PRE_FOX_MARKER_MODEL: &str =
     "common/character0/model/character/uniform/nocloth/referee_collar_077.model";
 
-/// The game path of the pre-Fox marker model's material set, beside it.
+/// The game path of a `.mtl` beside stock collar 77's pre-Fox referee model, never written.
 const PRE_FOX_MARKER_MTL: &str =
     "common/character0/model/character/uniform/nocloth/referee_collar_077.mtl";
 
-/// The game path of stock collar 77's pre-Fox model, which must exist for the referee to
-/// draw his `referee_collar_077`.
+/// The game path of stock collar 77's pre-Fox model, never written.
 const PRE_FOX_EMPTY_COLLAR: &str =
     "common/character0/model/character/uniform/nocloth/collar_077.model";
 
-/// The game path of the converted pre-Fox marker texture, in the referees' Common output.
-const PRE_FOX_MARKER_TEXTURE: &str =
+/// The game path the marker texture would have in the pre-Fox referees' Common output, never
+/// written: the marker goes out at `REFEREE_PROP_TEXTURE` alone.
+const PRE_FOX_COMMON_MARKER_TEXTURE: &str =
     "common/character1/model/character/uniform/common/999/ref_marker.dds";
 
-/// The game path of the pre-Fox template tree's prop model, the marker's model.
-const REFEREE_PROP_MODEL: &str =
-    "common/character1/model/character/parts/referee/referee_prop.model";
-
-/// The game path of the pre-Fox template tree's prop `.mtl`, beside its model.
-const REFEREE_PROP_MTL: &str = "common/character1/model/character/parts/referee/referee_prop.mtl";
+/// The game path of the pre-Fox template tree's prop texture, which the converted marker
+/// replaces.
+const REFEREE_PROP_TEXTURE: &str = "common/character1/model/character/parts/referee/incom_bsm.dds";
 
 /// The folder of the referee kit configs, in the template tree and in the refs CPK.
 pub(crate) const REFEREE_CONFIGS: &str = "common/character0/model/character/uniform/team/referee/";
@@ -521,7 +517,8 @@ fn on_fox_every_referee_kit_config_is_also_its_entry_in_the_team_cpk_s_uniform_p
 
 /// Compiles Ref A without `ref_marker.dds` for `version` in the sandbox `name`, and asserts
 /// that the refs CPK holds none of `collars`, the marker's model files, no marker texture, and
-/// the kit configs of `version`'s template tree as they are. Returns the sandbox.
+/// every file of `version`'s template tree as it is (the pre-Fox prop texture and the kit
+/// configs among them). Returns the sandbox.
 fn assert_compiles_without_marker(name: &str, version: PesVersion, collars: &[&str]) -> Sandbox {
     let sandbox = Sandbox::new(name);
     write_refs_with_marker(&sandbox, None);
@@ -535,6 +532,7 @@ fn assert_compiles_without_marker(name: &str, version: PesVersion, collars: &[&s
     for path in entries.keys() {
         assert!(!path.contains("ref_marker"), "{path}");
     }
+    assert_tree_in(&entries, &referee_tree(version.engine()));
     for (path, template) in template_configs(version.engine()) {
         assert!(entries[&path] == template, "{path}");
     }
@@ -573,7 +571,7 @@ fn without_a_ref_marker_a_pes_17_refs_cpk_holds_no_collar_pair_and_the_template_
 // TC-REF-04
 // TC-REF-12
 #[test]
-fn on_pes_17_a_ref_marker_goes_in_as_referee_collar_77_beside_an_empty_collar_77() {
+fn on_pes_17_a_ref_marker_replaces_the_template_prop_texture_and_nothing_else() {
     let sandbox = Sandbox::new("ref_marker_pes17");
     write_refs_with_marker(&sandbox, Some(&tracer_player_file("shirt.dds")));
 
@@ -582,64 +580,26 @@ fn on_pes_17_a_ref_marker_goes_in_as_referee_collar_77_beside_an_empty_collar_77
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     // The pre-Fox referee configs are loose files alone: no bin to change, no team CPK.
     assert_eq!(cpk_files(&sandbox.root.join("output")), [REFS_CPK]);
-    let tree = referee_tree(Engine::PreFox);
+    let mut tree = referee_tree(Engine::PreFox);
+    let template_prop_texture = tree.remove(REFEREE_PROP_TEXTURE).unwrap();
+    let marker = &entries[REFEREE_PROP_TEXTURE];
+    assert!(marker.starts_with(b"DDS "), "the marker texture, a DDS");
     assert!(
-        entries.get(PRE_FOX_MARKER_MODEL) == Some(&tree[REFEREE_PROP_MODEL]),
-        "the template's prop model as it is"
+        *marker != template_prop_texture,
+        "the marker, not the template's texture"
     );
-    // The template's `judge_incom` alone, its diffuse map naming the marker texture.
-    let template = MaterialSet::read(&tree[REFEREE_PROP_MTL]).unwrap();
-    let mut expected = template
-        .materials
-        .into_iter()
-        .find(|material| material.name == "judge_incom")
-        .unwrap();
-    for entry in &mut expected.entries {
-        if let MaterialEntry::Sampler(sampler) = entry {
-            assert_eq!(sampler.name, "DiffuseMap");
-            assert_eq!(sampler.path, "./incom_bsm.dds");
-            "model/character/uniform/common/999/ref_marker.dds".clone_into(&mut sampler.path);
-        }
+    for path in [
+        PRE_FOX_MARKER_MODEL,
+        PRE_FOX_MARKER_MTL,
+        PRE_FOX_EMPTY_COLLAR,
+        PRE_FOX_COMMON_MARKER_TEXTURE,
+    ] {
+        assert!(!entries.contains_key(path), "no {path}");
     }
-    let written = MaterialSet::read(&entries[PRE_FOX_MARKER_MTL]).unwrap();
-    assert_eq!(written.materials, [expected]);
-    let empty_collar = fs::read(templates_folder().join("collar_empty.model")).unwrap();
-    assert!(
-        entries.get(PRE_FOX_EMPTY_COLLAR) == Some(&empty_collar),
-        "the bundled empty collar"
-    );
-    assert!(
-        entries[PRE_FOX_MARKER_TEXTURE].starts_with(b"DDS "),
-        "the marker texture, a DDS"
-    );
+    assert_tree_in(&entries, &tree);
     for (path, template) in template_configs(Engine::PreFox) {
-        let config = KitConfig::decode(&entries[&path], PesVersion::Pes17).unwrap();
-        let mut expected = KitConfig::decode(&template, PesVersion::Pes17).unwrap();
-        expected.shirt.collar = 77;
-        expected.shirt.winter_collar = 77;
-        assert_eq!(config, expected, "{path}");
-        assert_ne!(entries[&path], template, "{path}");
+        assert!(entries[&path] == template, "{path}");
     }
-}
-
-#[test]
-fn a_data_directory_collar_empty_model_replaces_the_pre_fox_empty_collar_77() {
-    let sandbox = Sandbox::new("ref_empty_collar_override");
-    write_refs_with_marker(&sandbox, Some(&tracer_player_file("shirt.dds")));
-    let empty_collar = b"the cup's empty collar";
-    sandbox.write("data/templates/collar_empty.model", empty_collar);
-
-    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
-
-    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
-    assert_eq!(
-        run.messages().first(),
-        Some(&format!(
-            "Info template_override_active [Keep] (path={})",
-            sandbox.display("data/templates/collar_empty.model")
-        ))
-    );
-    assert_eq!(entries[PRE_FOX_EMPTY_COLLAR], empty_collar);
 }
 
 #[test]

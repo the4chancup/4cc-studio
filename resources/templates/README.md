@@ -117,9 +117,9 @@ to regenerate).
 
 As on Fox, the kit configs are five distinct files repeated under every competition's name
 with the same number, and the five kit textures are one texture, five times, which the refkit's
-`texture.dds` repeats once more. The pre-Fox referee marker is the `referee_prop.model` and
-`.mtl` here (worklog step 4.27's pre-Fox half), where the Fox marker is `referee_marker.fmdl`
-above.
+`texture.dds` repeats once more. The pre-Fox referee marker replaces `incom_bsm.dds` here, the
+texture of the `referee_prop.model` the game draws under the referee by itself (worklog step
+4.19f), where the Fox marker is `referee_marker.fmdl` below.
 
 ## `referee_marker.fmdl`
 
@@ -139,23 +139,6 @@ Source: the 4cc refs compiler's `referee_prop.fmdl` (the maintainer's copy, date
 base texture's directory (`common/999/sourceimages/`, `common/sourceimages/`). Read with the
 `fmdl` crate on 2026-10-07 to check the weights; copied by `.tmp/copy_referee_marker.py`
 (not kept: a one-off copy).
-
-## `collar_empty.model`
-
-The pre-Fox collar that draws nothing: the `collar_077.model` a PES 2015 to 2017 compile writes
-into the referee CPK beside the marker, `referee_collar_077.model`, when the refs export holds
-`ref_marker.dds` (`blue_port.md` "Referee export processing"; worklog step 4.27's pre-Fox
-half). A pre-Fox referee draws `referee_collar_<ID>` and is absent from the pre-match scenes
-when `collar_<ID>` does not exist (in-game on PES 17, 2026-10-08, DECISIONS "Pre-Fox referee
-marker is `referee_collar_077.model` beside an empty `collar_077.model`"), so the pair is what
-the referee needs, and this file is the stand-in that exists without showing: one mesh of three
-vertices, material `accessory`, 852 bytes, SHA-256 `b03151c486929b24`.
-
-Source: the cup's FPC CPK `4cc_04_fpc.cpk` (the maintainer's PES 2017 install, `download/`,
-dated 2025-07-27), its `common/character0/model/character/uniform/nocloth/collar_105.model`,
-byte-identical to the `referee_collar_105.model` beside it: the pair FPC ships for its own
-reserved collar 105. Read with the `pes_model` crate on 2026-10-09; copied by
-`.tmp/4_19/copy_collar_empty.py` (not kept: a one-off copy).
 
 ## `env.dds`
 
