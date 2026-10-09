@@ -972,6 +972,10 @@ TC-MOD-63  GIVEN slot 05 holding face_high.model, face_high.mtl and a common/par
            WHEN the export is compiled for PES 17
            THEN no model_broken or model_material_undefined names common/parts_body.model,
                 and slot 05's face CPK is written
+TC-MOD-64  GIVEN slot 05 holding face_high.fmdl with two meshes, the second flagged invisible
+           WHEN the export is compiled for PES 17
+           THEN the face's .model holds the first mesh alone and no mesh_flags_dropped names
+                invisible
 TC-MOD-58  GIVEN Faces/Round holding fcl_hair.fmdl, boots.model and boots.mtl, slot 05 linking it
            as his face
            WHEN the export is compiled for PES 21
@@ -1390,8 +1394,9 @@ TC-CMN-10  GIVEN Collars/collar_12.fmdl and Collars/collar_12.dds
                 collar_12.fmdl is kept
 TC-CMN-11  GIVEN Collars/collar_12.model beside a compiling player
            WHEN the export is compiled for PES 21
-           THEN model_conversion_failed is reported on the file at planning, no collar is written,
-                the kits keep their configs' collars and the player compiles
+           THEN the CPK holds collar_012.fmdl under the Fox nocloth path, its materials
+                built from the templates' uniform.mtl, the kits' configs wear collar 12 and
+                the player compiles
 TC-CMN-12  GIVEN Common/x.glb beside a compiling player
            WHEN the export is compiled for PES 17
            THEN model_gltf_unsupported is reported on Common/x.glb, which is dropped, and the

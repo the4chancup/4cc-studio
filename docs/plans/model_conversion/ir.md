@@ -292,6 +292,12 @@ treat it:
   is a `native_field_dropped` finding whose `detail` names the field; the export writes no
   LODs (`LodRecord::for_levels(0)`), no tags, `order` 0, `flags` 0, and recomputes the mesh and
   model bounds from the positions.
+- **A hidden Fox mesh** (`invisible`, shadow flag bit 2) is left out of a `.model` export:
+  a `.mtl` cannot hide a mesh, and unhidden it draws what its author hid (Konami's oral
+  mesh in `addon_oral.fmdl`, whose `dummy_bsm` material resolves on no pre-Fox path). No
+  finding: the game showed nothing of it on Fox, so nothing a member saw goes missing, and
+  no 4cc export hides a mesh. An export left with no mesh is an error, as an empty model
+  is.
 - **Mesh names.** `.model` has no groups; the import makes one group per mesh named after the
   add-on's mesh name, `mesh_<index>` when the mesh has none (every Konami mesh), and the export
   names each mesh after the group that lists it (an add-on kind-128 annotation), `None` when no

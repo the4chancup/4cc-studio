@@ -10,27 +10,6 @@ names where the question came from so the context can be read there.
 
 ## Blocking a plan ruling
 
-### Converted collars
-From: step 4.17 (slice e's ruling, DECISIONS 2026-10-08 "Collars across engines"). Two parts:
-(a) is a converted collar drawn right with its first material as `uni_collar` and the rest as
-`uni_shirts`? The stock referee collar uses `uni_shirts` alone. An in-game check. (b) Which
-version's stock `uniform.mtl` should the templates ship, so a `.model` collar can convert for
-PES 18-21? Until then a `.model` collar on Fox is left out at planning with
-`model_conversion_failed`.
-
-### `dummy_kit` on the modded PES 15-17 exes
-From: step 4.17a. Do the modded exes substitute `dummy_kit` at
-`model/character/uniform/common/<team>/dummy_kit.dds` for a converted face model? 4.17a
-points converted materials there, where the legacy pre-Fox exports name it. An in-game check.
-
-### Hidden Fox meshes converted to pre-Fox
-From: step 4.17c1 (measured on `legacy19to16_oral.mtl`). A `.mtl` cannot express `invisible`,
-so a hidden Fox mesh (Konami's oral mesh in `addon_oral.fmdl`) shows on PES 17 after
-conversion (Warning `mesh_flags_dropped`), and its `dummy_bsm` material resolves on neither
-the Fox path the converter keeps nor the `./.dds` the legacy converter wrote. What do the
-modded exes draw for such a material, and should a hidden mesh be dropped from the `.model`
-instead of unhidden? A plan ruling, then a converter change.
-
 ### `Common/refkit/` in the current referee exports
 Six of the cup's referee exports (Winter 26 Final Boss to Summer 26, `C:/Data/4cc/Refs/*/exports_to_add/`)
 hold a `Common/refkit/` folder: a whole referee kit model set (`oral_refshirt_win32.model`,

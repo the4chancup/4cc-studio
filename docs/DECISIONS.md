@@ -6003,3 +6003,27 @@ the member made it would show the player without the part for that kit, with no 
 Plan: `team_compiler/pipeline.md` "Kit-dependent assets"; `model_format.md` "Kit-dependent
 assets"; `team_compiler/messages.md` `kit_variant_missing`; `team_compiler/README.md`
 TC-CMN-17.
+
+## 2026-10-09 — team_compiler — the templates ship PES 17's `uniform.mtl`, so a `.model` collar converts
+Decision: `resources/templates/` carries the stock `uniform.mtl` of PES 17, and a `.model`
+collar converts with it as its `.mtl`: for PES 18-21 (no longer `model_conversion_failed` at
+planning) and when the same-engine pre-check flags it on PES 15-16. One file for every
+version. Supersedes "A `.model` collar on PES 18-21 is `model_conversion_failed` at
+planning" (2026-10-09), and, for collars, the exception in "The pre-Fox same-engine
+pre-check runs on every packed `.model` but a face.xml's and a collar's" (2026-10-09).
+Why: the maintainer's answer (2026-10-09): "ship the latest one, the one from PES 17". The
+converter builds an FMDL material from a `.mtl`'s shader and samplers, and a collar's
+materials are the game's shared ones, which no export carries; PES 17 is the newest pre-Fox
+version, so the one a collar is most likely made against.
+Plan: `team_compiler/pipeline.md` "Collars", step 3 "Format conversion";
+`team_compiler/messages.md` `model_conversion_failed`; `team_compiler/README.md` TC-CMN-11.
+
+## 2026-10-09 — model_convert — a hidden Fox mesh is left out of a `.model` export
+Decision: the pre-Fox export skips a mesh whose `invisible` flag is set, with no finding;
+`mesh_flags_dropped` keeps `no_shadow_cast` alone. An export left with no mesh is an error.
+Why: the maintainer's answer (2026-10-09): no mesh used in the 4cc is ever `invisible`, so
+drop them from conversion. A `.mtl` cannot hide a mesh, and the unhidden one drew Konami's
+oral mesh with a `dummy_bsm` material no pre-Fox path resolves (4.17c1). No finding, because
+the mesh showed nothing on Fox: nothing a member saw goes missing.
+Plan: `model_conversion/ir.md` "Material sources per format" (the `.model` pair's bullets);
+`team_compiler/messages.md` `mesh_flags_dropped`; `team_compiler/README.md` TC-MOD-64.

@@ -24,7 +24,10 @@ with 4.19d, 4.27b is done (4.27 done); 4.9 is done
 reported, a `Collars/` subfolder ignored; TC-BIN-23, TC-BIN-24, TC-CMN-16, TC-REF-14),
 4.y-fix9 opened 2026-10-09 (a shared face's `face.xml` read, the maintainer's answer),
 4.y-fix10 opened 2026-10-09 (a pre-Fox per-kit model set completed, the maintainer's
-answer),
+answer), 4.y-fix12, 4.y-harness and 4.y-ingame opened 2026-10-09 (PES 17's `uniform.mtl`
+in the templates; the in-game harness into `scripts/`; the converted collar and
+`dummy_kit` checked in game by the lead), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
+`.model`),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
@@ -3306,6 +3309,48 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   "User-supplied `face.xml`"; DECISIONS 2026-10-09. TC-CMN-17. Crates: tc
   → verify: TC-CMN-17 proven, red first; a member's own xml naming a set is completed too.
 
+- [ ] 4.y-fix12 **A `.model` collar converts with the templates' `uniform.mtl`** (the
+  maintainer's answer, 2026-10-09). Lead first (a template is correctness-critical): PES 17's
+  stock `uniform.mtl` extracted from its install's data CPK into `resources/templates/`,
+  its provenance recorded as the other templates' is. Then the sidekick: a `.model` collar
+  compiled for PES 18-21 converts with it as its `.mtl` (no more `model_conversion_failed`
+  at planning), and a `.model` collar the same-engine pre-check flags on PES 15-16 is posed
+  with it as its set (the 4.17 "Open for converge" item: a collar posed off the target's
+  skeleton was packed as it is). Plan: `pipeline.md` "Collars" and step 3 "Format
+  conversion" (the `.model` collar sentence), `messages.md` `model_conversion_failed`;
+  DECISIONS 2026-10-09. TC-CMN-11 (rewritten: its test changes). Crates: tc, resources
+  → verify: TC-CMN-11 proven, red first; the flagged stock PES 17 collar posed on PES 15.
+
+- [ ] 4.y-fix13 **A hidden Fox mesh is left out of a `.model` export** (the maintainer's
+  answer, 2026-10-09). `model_convert`'s pre-Fox export skips a mesh whose `invisible`
+  flag is set, with no finding (`mesh_flags_dropped` keeps `no_shadow_cast` alone); an
+  export left with no mesh is an error. Plan: `model_conversion/ir.md` (the bullet
+  starting "A hidden Fox mesh"), `messages.md` `mesh_flags_dropped`; DECISIONS
+  2026-10-09. TC-MOD-64. Crates: model_convert, tc (its consumers' tests: `just
+  bindings` too) → verify: TC-MOD-64 proven, red first; a unit test of the export's
+  skip and of the all-hidden error.
+
+- [ ] 4.y-harness **The in-game harness moves into `scripts/ingame/`** (maintainer,
+  2026-10-09). Lead: `game.py` (launch, screenshot, keys, close) and `burst.py` (frame
+  bursts) from `.tmp/4_0/ingame/`, and one `install.py` generalizing the per-check
+  install and revert scripts (`.tmp/4_19/ingame/test_ref04.py`: a CPK into the test slot,
+  the installed copy kept aside and restored by hash), installing the compiler's own output
+  CPK, so the scratch `apptest` tool's extract and merge are not needed; a `README.md`
+  with the procedure (the slot, the key sequences to Edit mode and to a walkout, what is
+  never touched: saves, `DpFileList.bin`). Paths of the installs as settings at the top,
+  not buried. → verify: TC-REF-04's check re-run through it on PES 17, the slot restored
+  by hash.
+
+- [ ] 4.y-ingame **Two in-game checks on PES 17, by the lead** (the maintainer's answers,
+  2026-10-09; through `scripts/ingame/`, after 4.y-harness). (a) A converted collar: an
+  FMDL collar compiled for PES 17 (its first material `uni_collar`, the rest `uni_shirts`,
+  TC-CMN-09) drawn with the kit texture as the stock collars are, in Edit mode. (b)
+  `dummy_kit`: a face model converted for PES 17 whose material the conversion points at
+  `model/character/uniform/common/<team>/dummy_kit.dds` (4.17a) shows the kit texture on
+  the modded exe. Each result is a `manual: checked` line here and, when it contradicts the
+  plan, a decision entry and a step. → verify: both checked, with frames kept under
+  `.tmp/4_y/ingame/`.
+
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -5463,3 +5508,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   accepted concerns. TC-BIN-23, TC-BIN-24, TC-CMN-16 and TC-REF-14 proven. S8's SWE-2 loop
   ran (3 concerns, all accepted, the loop ended; step 4.y-fix11 to open with S7's). Step 5.0c
   queued: a Red behavior inventory before Phase 5 (maintainer).
+- **2026-10-09** — The maintainer's answers on converted collars and `dummy_kit`: the
+  templates ship PES 17's `uniform.mtl` (step 4.y-fix12), and the two in-game checks are
+  the lead's, through the harness moved into `scripts/ingame/` (steps 4.y-harness,
+  4.y-ingame).
+- **2026-10-09** — The maintainer's answer on hidden Fox meshes: left out of a `.model`
+  export (step 4.y-fix13). S7's SWE-2 loop ran (6 concerns, 5 accepted: a second round after
+  the rework, step 4.y-fix11 with S8's three).

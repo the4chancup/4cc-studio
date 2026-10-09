@@ -394,10 +394,10 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    Fox version's body table differs from PES 21's on bones a measured model blends (4.17g3a:
    the game's own high-neck collar, the tracer's four FMDLs and the hand-split body are not
    flagged on any Fox version without an `.skl`). A `.model` collar: its materials live in the
-   game's shared `uniform.mtl`, which the export does not hold and the IR import needs
-   (`MaterialUndefined`), so a flagged one (the stock PES 17 collar is flagged on PES 15,
-   measured at 4.17g3b) cannot be converted until the import takes a model without its set:
-   worklog 4.17 "Open for converge". A file only the other engine reads is ignored with no finding when its
+   game's shared `uniform.mtl`, which the export does not hold, so the conversion takes the
+   templates' copy of it (PES 17's, "Collars") as the collar's set, and a flagged one (the
+   stock PES 17 collar is flagged on PES 15, measured at 4.17g3b) is posed as any flagged
+   `.model` is. A file only the other engine reads is ignored with no finding when its
    model is not selected (a `.mtl` beside a `.model` an FMDL beats on Fox) or when the target
    has no counterpart for it (`fcl_hair_sim.fclo` on PES 15-17): TC-MOD-26 keeps the unselected
    model itself silent, and its companions follow it. The `.skl` paired with a selected FMDL is
@@ -799,13 +799,13 @@ describes behavior, not a serial scheduling requirement:
   not reported for a collar: they describe the `.mtl` it never writes. A collar whose
   conversion fails is left out with `model_conversion_failed`, and the team's kits, which
   planning pointed at its ID before the task ran, wear the game's own collar of that ID. The
-  reverse, a `.model` collar compiled for PES 18-21, is not built: the `.model` names materials
-  the game's `uniform.mtl` defines and the export carries no `.mtl` for it, and the converter
-  builds an FMDL material from a `.mtl`'s shader and samplers, so there is nothing to convert
-  it with until the templates ship a stock `uniform.mtl` (`QUESTIONS.md` "Converted collars");
-  planning leaves it out with `model_conversion_failed`, the file alone, as a collar whose
-  conversion fails in its task is left out, the team's kits wearing their configs' collars: the
-  outcome is the same and so is the member's fix. A glTF collar is dropped at
+  reverse, a `.model` collar compiled for PES 18-21, names materials the game's `uniform.mtl`
+  defines, and the converter builds an FMDL material from a `.mtl`'s shader and samplers: the
+  templates ship the stock `uniform.mtl` of PES 17, the newest pre-Fox version, and a
+  `.model` collar converts with it as its `.mtl`, as a player's `.model` converts with his.
+  One file for every version, not one per version: the collar materials it defines are what
+  the conversion reads, and the newest is the one a collar made for any pre-Fox version
+  was most likely made against. A glTF collar is dropped at
   planning with `model_gltf_unsupported` as a player folder's is, the file alone, since a
   collar is its own unit (its export compiles without it, as it does without a conflicting
   one). A
