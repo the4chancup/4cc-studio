@@ -3330,7 +3330,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   bindings` too) → verify: TC-MOD-64 proven, red first; a unit test of the export's
   skip and of the all-hidden error.
 
-- [ ] 4.y-harness **The in-game harness moves into `scripts/ingame/`** (maintainer,
+- [~] 4.y-harness **The in-game harness moves into `scripts/ingame/`** (maintainer,
   2026-10-09). Lead: `game.py` (launch, screenshot, keys, close) and `burst.py` (frame
   bursts) from `.tmp/4_0/ingame/`, and one `install.py` generalizing the per-check
   install and revert scripts (`.tmp/4_19/ingame/test_ref04.py`: a CPK into the test slot,
@@ -3340,6 +3340,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   never touched: saves, `DpFileList.bin`). Paths of the installs as settings at the top,
   not buried. → verify: TC-REF-04's check re-run through it on PES 17, the slot restored
   by hash.
+  Scripts landed 2026-10-09 (Opus 5.5 subagent, one round): `scripts/ingame/` `game.py`,
+  `burst.py` (imports `game.cmd_shot` instead of a subprocess), `install.py` (each copy through
+  a `.partial` file replaced in once its hash matches; the kept original and the last-installed
+  hash in `.tmp/ingame/pes17/`), `README.md` (the Edit-mode sequence recovered from the Test 3
+  transcript). The old `apptest merge -` had no base CPK, so installing a whole compiled CPK
+  loses nothing. Exercised against a scratch slot only (refusals, a round trip); the verify
+  run on PES 17 waits for 4.y-ingame. A check that needs a hand-built CPK builds it first.
 
 - [ ] 4.y-ingame **Two in-game checks on PES 17, by the lead** (the maintainer's answers,
   2026-10-09; through `scripts/ingame/`, after 4.y-harness). (a) A converted collar: an
