@@ -85,8 +85,10 @@ mod tests {
     #[test]
     fn the_os_reports_available_memory() {
         let available = available_memory().expect("the OS reports it");
-        // No machine that runs the tests has less memory free than this.
+        // Bounds any developer's PC and CI runner meets: more than 64 MiB free, and less than
+        // 1 TiB, which a wrong field (the 128 TiB virtual address space) would exceed.
         assert!(available > 64 << 20, "{available}");
+        assert!(available < 1 << 40, "{available}");
         assert!(memory_cap(50.0) > 32 << 20);
     }
 

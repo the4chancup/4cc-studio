@@ -114,6 +114,55 @@ fn a_dif_in_the_xml_beside_a_face_diff_xml_drops_the_folder() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-XML-11
+#[test]
+fn a_dif_in_the_xml_beside_a_face_diff_bin_is_each_engine_s_own() {
+    let sandbox = Sandbox::new("user_xml_dif_dual_engine");
+    let export = "co Midcup Xml";
+    let dif_text = String::from_utf8(face_diff_fixture("dif.xml")).unwrap();
+    let start = dif_text.find("<dif>").unwrap() + "<dif>".len();
+    let end = dif_text.find("</dif>").unwrap();
+    let base64 = dif_text[start..end].trim();
+    let xml =
+        format!("<config>\n   <model level=\"0\" {FACE_HIGH}/>\n<dif>{base64}</dif>\n</config>\n");
+    write_folder(&sandbox, export, "05 - A", "face_high", &xml);
+    // A real bin other than the one the xml's `<dif>` decodes to, so each engine's pick shows.
+    let bin = face_diff_fixture("plain.bin");
+    assert_ne!(bin, face_diff_fixture("dif.bin"));
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/face_diff.bin"),
+        &bin,
+    );
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        ["face.xml", "face_high.model", "face_high.mtl"]
+    );
+    assert_eq!(decoded_dif(&face["face.xml"]), face_diff_fixture("dif.bin"));
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    let findings = findings_of(&lines, export);
+    assert!(
+        findings.contains(&"Info xml_ignored_fox [Keep] at Players/05 - A (file=face.xml)"),
+        "{lines:#?}"
+    );
+    assert!(
+        findings
+            .iter()
+            .all(|line| !line.contains("xml_dif_conflict") && !line.contains("face_diff.bin")),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let face = fpk::FpkFile::read(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"])
+        .unwrap();
+    assert_eq!(face.get("face_diff.bin").unwrap(), bin);
+}
+
 // TC-XML-06
 #[test]
 fn on_pes_21_the_xml_is_ignored_and_the_folder_compiles_as_without_it() {

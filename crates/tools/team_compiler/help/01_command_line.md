@@ -197,7 +197,8 @@ subfolder), and both commands check its content. What is known not to work leave
 out: a file that does not parse, a root other than `<config>`, a `<model>` without `type` or
 `path`, a `./` or Common reference to a file the export does not hold, a Common path without
 its 3-character folder, on PES 2016 a model name starting with none of `face_high_`,
-`hair_high_` and `oral_`, and a `<dif>` beside a `face_diff.bin` or `face_diff.xml`. What the
+`hair_high_` and `oral_`, and a `<dif>` beside a `face_diff.xml` (not beside a `face_diff.bin`:
+the `<dif>` is for PES 2015 to 2017, the bin for PES 2018 to 2021). What the
 compiler cannot vouch for is kept and warned about: an unknown element, attribute or `type`, a
 `ratio` that is not a number, a path it cannot check, and a `.model` of the folder the xml
 does not list. A `level` other than 0 is noted. `compile` writes the xml back with its `./`
@@ -438,7 +439,10 @@ boots or gloves of each of its compiled players whose folder has none. A midcup 
 kits to those installed. Only the second word counts, so a `Full` later in the name changes
 nothing. A team export whose second word is neither is skipped with the error
 `export_tag_missing`, naming the export: rename it `<team> Full …` or `<team> Midcup …`. A
-referee export needs no tag.
+referee export needs no tag. An export still in the old layout (a root folder named `Kit
+Configs`, `Kit Textures` or `Other`) is skipped with the one error `export_layout_old`,
+naming the folder, and nothing else is reported about it: run it through the Export
+upgrader once.
 
 Both commands also read every `.fmdl` and `.model` model and every `.mtl` material file of the
 export, an archive's included, and report what is wrong or suspicious in each, one line per file

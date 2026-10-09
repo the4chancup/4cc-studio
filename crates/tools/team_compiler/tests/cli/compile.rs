@@ -468,6 +468,50 @@ fn an_export_without_its_coverage_tag_is_skipped_and_the_one_beside_it_compiled(
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-ROOT-14
+#[test]
+fn an_old_layout_export_is_export_layout_old_alone_and_skipped() {
+    let sandbox = Sandbox::new("layout_old");
+    for path in [
+        "Faces/01 - A/face.model",
+        "Boots/k0001 - Boots A/boots.model",
+        "Kit Configs/co_DEF_1st_realUni.bin",
+        "Kit Textures/u0714p1.dds",
+        "Portraits/player_01.dds",
+    ] {
+        sandbox.write(&format!("exports/co Spring 2026/{path}"), b"old");
+    }
+    sandbox.write(
+        &format!("exports/a Full Spring 2026/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+    let layout_old = ["Error export_layout_old [DropExport] (folder=Kit Configs)"];
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    let lines = check.messages();
+    assert_eq!(findings_of(&lines, "co Spring 2026"), layout_old);
+    assert_eq!(
+        lines,
+        [
+            "a Full Spring 2026: Info export_identified [Keep] (team=/a/, id=702)",
+            "co Spring 2026: Error export_layout_old [DropExport] (folder=Kit Configs)",
+        ]
+    );
+    assert_eq!(check.exit_code(), 1);
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(findings_of(&lines, "co Spring 2026"), layout_old);
+    assert_eq!(compiled_players(&sandbox), [70203]);
+    // /co/ is team 714: no face, portrait or kit entry carries its ID.
+    let paths = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(!paths.is_empty());
+    assert!(paths.iter().all(|path| !path.contains("714")), "{paths:?}");
+    assert_eq!(run.exit_code(), 1);
+}
+
 // TC-ID-06
 #[test]
 fn only_the_second_word_is_the_coverage_tag_in_any_letter_case() {

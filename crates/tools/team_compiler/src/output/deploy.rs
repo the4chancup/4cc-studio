@@ -990,6 +990,31 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::NotFound);
     }
 
+    // Assumes a user that is not root, as CI's runner and the remote mutation unit are: root
+    // opens a read-only file for writing.
+    #[test]
+    fn a_read_only_old_cpk_fails_the_probe_naming_the_cpk() {
+        let temp = scratch("probe_read_only_cpk");
+        let download = temp.path().join("download");
+        fs::create_dir_all(&download).unwrap();
+        let old = download.join("4cc_61_midcup.cpk");
+        fs::write(&old, "the old CPK").unwrap();
+        let writable = fs::metadata(&old).unwrap().permissions();
+        let mut read_only = writable.clone();
+        read_only.set_readonly(true);
+        fs::set_permissions(&old, read_only).unwrap();
+
+        let probed = probe_download(&download, "4cc_61_midcup.cpk");
+
+        // Writable again, so the scratch folder can be removed.
+        fs::set_permissions(&old, writable).unwrap();
+        let Err((path, error)) = probed else {
+            panic!("a read-only old CPK was probed as writable");
+        };
+        assert_eq!(path, old);
+        assert!(elevation::is_access_denied(&error), "{error}");
+    }
+
     // Windows only: there a folder cannot be opened as a file, the one portable way to make the
     // lock exist and not open; Linux opens and locks a folder.
     #[cfg(windows)]

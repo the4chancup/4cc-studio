@@ -79,6 +79,34 @@ fn a_team_export_without_its_coverage_tag_is_dropped() {
 }
 
 #[test]
+fn an_old_layout_export_is_export_layout_old_alone() {
+    for kit_configs in ["Kit Configs", "kit configs"] {
+        let report = report(
+            "co Spring 2026",
+            &[
+                ("Faces/01 - A/face.model", 10),
+                (&format!("{kit_configs}/co_DEF_1st_realUni.bin"), 10),
+                ("Kit Textures/u0714p1.dds", 10),
+                ("Portraits/player_01.dds", 10),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![("export_layout_old", Disposition::DropExport)],
+            "{kit_configs}"
+        );
+        assert_eq!(report.issues[0].scope, IssueScope::Export);
+        assert_eq!(
+            report.issues[0].context,
+            vec![("folder", kit_configs.to_owned())]
+        );
+        assert!(report.validated.is_none());
+    }
+}
+
+#[test]
 fn a_tagged_team_export_carries_its_coverage() {
     for (name, coverage) in [
         ("co Full Spring 2026", ExportCoverage::Full),
@@ -1938,6 +1966,32 @@ fn a_kit_file_below_a_subfolder_offends() {
         report.issues[0].context,
         vec![("file", "extra/kit_back.dds".to_owned())]
     );
+}
+
+#[test]
+fn a_kit_s_config_and_colors_below_a_subfolder_are_not_its_own() {
+    // Lenient, so the folder stays and its kit can be read.
+    let report = report_with(
+        &context_with(false, false),
+        "egg Midcup",
+        &[
+            ("Kits/p1/kit.dds", 9),
+            ("Kits/p1/sub/config.toml", 9),
+            ("Kits/p1/sub/colors.txt", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("file_type_disallowed", Disposition::Keep),
+            ("file_type_disallowed", Disposition::Keep),
+        ]
+    );
+    let kit = &report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1];
+    assert_eq!(kit.config, None);
+    assert_eq!(kit.colors, None);
 }
 
 #[test]

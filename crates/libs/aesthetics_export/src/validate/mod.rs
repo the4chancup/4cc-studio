@@ -16,6 +16,8 @@ mod tests;
 
 use std::collections::BTreeMap;
 
+use vtree::{ScopePath, fold_name};
+
 use crate::conventions::{SharedKind, is_logo_texture};
 use crate::listing::ValidationContext;
 use crate::parse::{ExportKind, FileDescriptor, ParsedAestheticsExport};
@@ -29,6 +31,10 @@ pub use issues::{ContentFinding, Disposition, ISSUE_CODES, IssueScope, Validatio
 pub(crate) use issues::{content_issue, dropped_scopes, issue, issue_in, strict_disposition};
 pub use roster::{PlayerIndex, ValidatedRoster};
 
+/// The folded names of the root folders only the old export layout has
+/// (`export_layout_old`); the Studio format keeps its kits in `Kits/`.
+const OLD_LAYOUT_FOLDERS: [&str; 3] = ["kit configs", "kit textures", "other"];
+
 /// `ParsedAestheticsExport::validate`'s report (or
 /// `with_content_findings`'s): the parse retained, the sanitized export when
 /// no issue drops it, and every issue.
@@ -40,7 +46,8 @@ pub struct ValidationReport {
     /// The sanitized export; `None` exactly when some issue's effective
     /// disposition is `DropExport`.
     pub validated: Option<ValidatedAestheticsExport>,
-    /// Every issue: `parsed.issues`, then validation's.
+    /// Every issue: `parsed.issues`, then validation's; for an old-layout
+    /// export, `export_layout_old` alone.
     pub issues: Vec<ValidationIssue>,
 }
 
@@ -139,6 +146,24 @@ impl ParsedAestheticsExport {
         context: &ValidationContext,
         content_findings: Vec<ContentFinding>,
     ) -> ValidationReport {
+        // An old-layout export is this one finding, the parse's included:
+        // every other finding would describe the old folders again.
+        let is_old_layout =
+            |folder: &&ScopePath| OLD_LAYOUT_FOLDERS.contains(&fold_name(folder.name()).as_str());
+        if let Some(folder) = self.draft.root_folders.iter().find(is_old_layout) {
+            let old_layout = issue(
+                "export_layout_old",
+                IssueScope::Export,
+                vec![("folder", folder.name().to_owned())],
+                Disposition::DropExport,
+            );
+            return ValidationReport {
+                parsed: self,
+                validated: None,
+                issues: vec![old_layout],
+            };
+        }
+
         let mut issues = self.issues.clone();
         let draft = &self.draft;
 

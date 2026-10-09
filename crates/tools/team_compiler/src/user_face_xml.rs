@@ -353,7 +353,8 @@ const PES16_PREFIXES: [&str; 3] = ["face_high_", "hair_high_", "oral_"];
 ///   reference whose segment is not three characters (`xml_common_path_invalid`); a `./` or
 ///   Common reference naming no file `resolve` finds (`xml_model_not_found`); on PES 2016 a
 ///   model file name starting with none of `face_high_`, `hair_high_`, `oral_`, in any case
-///   (`xml_oral_prefix_missing`); a `<dif>` beside a face diff file (`xml_dif_conflict`).
+///   (`xml_oral_prefix_missing`); a `<dif>` beside a `face_diff.xml` (`xml_dif_conflict`; a
+///   `face_diff.bin` beside it is the dual-engine layout, no finding).
 /// - Warnings, kept: an unknown element (`xml_element_unknown`) or `<model>` attribute
 ///   (`xml_attribute_unknown`), a type the compiler does not generate (`xml_type_unknown`), a
 ///   `ratio` that is no finite number (`xml_ratio_invalid`), a reference the compiler cannot
@@ -383,7 +384,7 @@ pub(crate) fn check(
                 }
                 findings.extend(model_findings(model, entry, files, version));
             }
-            Child::Dif(_) if holds_face_diff(files) => {
+            Child::Dif(_) if holds_face_diff_xml(files) => {
                 findings.push(error(Code::XmlDifConflict, vec![("file", name.to_owned())]))
             }
             Child::Dif(_) => {}
@@ -544,12 +545,12 @@ fn names_file(path: &str, file_name: &str) -> bool {
         || variant_of(&referenced, file_name).is_some()
 }
 
-/// Whether the folder holds a face diff file, `face_diff.bin` or `face_diff.xml`, directly in
-/// it or in `face/`: a second source beside a `<dif>`.
-fn holds_face_diff(files: &FaceFiles) -> bool {
+/// Whether the folder holds a `face_diff.xml`, directly in it or in `face/`: a second source
+/// beside a `<dif>`. A `face_diff.bin` is none: beside a `<dif>` it is the dual-engine layout,
+/// the `<dif>` going out on PES 15-17 and the bin on PES 18-21.
+fn holds_face_diff_xml(files: &FaceFiles) -> bool {
     files.own.iter().any(|file| {
-        let name = file.path.name();
-        (name.eq_ignore_ascii_case("face_diff.bin") || name.eq_ignore_ascii_case("face_diff.xml"))
+        file.path.name().eq_ignore_ascii_case("face_diff.xml")
             && in_folder_or_face(files.folder, file)
     })
 }
@@ -924,22 +925,26 @@ mod tests {
     }
 
     #[test]
-    fn a_dif_beside_a_face_diff_file_is_a_conflict() {
+    fn a_dif_beside_a_face_diff_xml_is_a_conflict_and_beside_a_bin_none() {
         let dif = base64::engine::general_purpose::STANDARD
             .encode(crate::templates::Templates::embedded().face_diff());
         let rest = format!("<dif>{dif}</dif>");
         assert_eq!(with_face(&rest, &[]), Vec::<String>::new());
+        // The dual-engine layout: the `<dif>` for PES 15-17, the bin for PES 18-21.
         assert_eq!(
             with_face(&rest, &["face/face_diff.bin"]),
-            ["xml_dif_conflict [DropFolder] (file=face.xml)"]
+            Vec::<String>::new()
         );
-        assert_eq!(
-            with_face(&rest, &["Face_Diff.xml"]),
-            ["xml_dif_conflict [DropFolder] (file=face.xml)"]
-        );
+        for face_diff_xml in ["Face_Diff.xml", "face/face_diff.xml"] {
+            assert_eq!(
+                with_face(&rest, &[face_diff_xml]),
+                ["xml_dif_conflict [DropFolder] (file=face.xml)"],
+                "{face_diff_xml}"
+            );
+        }
         // One in `boots/` is no face diff of the folder's.
         assert_eq!(
-            with_face(&rest, &["boots/face_diff.bin"]),
+            with_face(&rest, &["boots/face_diff.xml"]),
             Vec::<String>::new()
         );
     }
