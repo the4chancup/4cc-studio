@@ -240,7 +240,11 @@ through untouched, matrices included. The source bind pose is already in the IR'
    once the joint animates, which is problem B. So **a model is on the target's skeleton when no
    vertex blends bones with differing deltas**, whatever its deltas are, and that is the test the
    native pre-check runs (`needs_conversion`): per bone the delta to the target's table, then one
-   pass over the vertex weights. The games' own files show why the per-bone comparison the plan
+   pass over the vertex weights. A pre-Fox weight below half of Fox's 1/255 step counts as no
+   weight: community exporters leave float noise (2^-24) on the unused slots of a vertex weighted
+   whole to one bone (225 vertices of the parity tracer's boots carry it on the other leg's
+   bone), and a weight the Fox format would round to zero moves the drawn vertex by nothing
+   visible on either engine. The games' own files show why the per-bone comparison the plan
    first described is wrong (measured at 4.17g1 on the stock PES 2017 and PES 2021 files and the
    pre-Fox parity tracer): Konami's boots sit on a **boots pose** 7° off the body table on every
    version, both feet in one mesh with opposite per-leg deltas, and the community's PES 15-posed

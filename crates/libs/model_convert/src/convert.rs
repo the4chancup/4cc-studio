@@ -1,8 +1,8 @@
 //! Conversion routing: `convert` takes a PES *version*, not a format — the format follows
 //! from the engine, and the skeleton retargeting pass runs inside the same IR round trip,
 //! so every model the compiler emits is on the target's skeleton without a second pass.
-//! `needs_conversion` is the native pre-check: it reads bone names and poses only, never
-//! geometry.
+//! `needs_conversion` is the native pre-check: it reads bone names, poses and the vertex
+//! weight rows, never vertex positions.
 
 use std::collections::BTreeSet;
 
@@ -12,8 +12,10 @@ use crate::affine::Affine;
 use crate::formats::{ConvertError, Imported};
 use crate::loss::Finding;
 use crate::ops::hand_split::{fox_has_hand_weights, prefox_has_hand_weights};
-use crate::skeletons::retarget::{bone_moved, retarget};
-use crate::skeletons::{is_standard, skeletons, version_bone, version_bone_hand_first};
+use crate::skeletons::retarget::{bone_delta, bone_moved, retarget};
+use crate::skeletons::{
+    is_face_bone, is_standard, skeletons, version_bone, version_bone_hand_first,
+};
 
 /// A model in one of the native formats, at the semantic layer of its format crate.
 pub enum NativeModelBundle {
@@ -87,10 +89,16 @@ pub fn convert(bundle: NativeModelBundle, target: PesVersion) -> Result<Converte
     Ok(Converted { bundle, findings })
 }
 
-/// Whether `convert` would go through the IR: another engine, or a bone the bundle's groups
-/// use that `target` lacks or poses differently (bone tables only, no geometry read).
-/// A group entry past the bone table counts as needing conversion: such a bundle cannot be
-/// proven native here, and `convert`'s importer reports the bad index.
+/// Whether `convert` would go through the IR: another engine, a bone the bundle's groups use
+/// that `target` lacks, or a vertex blending bones whose deltas to `target`'s tables differ
+/// (`conversion.md` item 3, "When re-binding changes anything"). A vertex weighted to one
+/// bone, or to bones sharing one delta, draws the same re-bound or not, so a model off the
+/// target's pose but moved rigidly is native. A face's `skf_*` bones and custom bones take
+/// no part. Reads bone names, the source poses, the target's tables and the weight rows; no
+/// vertex position.
+/// A group entry past the bone table, or a weighted slot past its group, counts as needing
+/// conversion: such a bundle cannot be proven native here, and `convert`'s importer reports
+/// the bad index.
 pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool {
     match bundle {
         NativeModelBundle::Fox { model, skl } => {
@@ -103,18 +111,19 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
             // A model weighted to `skh_` bones conforms to the `hand_*`
             // tables (same rule retarget uses).
             let hand = fox_has_hand_weights(model);
+            let mut deltas: Vec<Option<Affine>> = vec![None; model.bones.len()];
             for index in used_bones(model.meshes.iter().map(|m| &m.bone_group)) {
                 let Some(bone) = model.bones.get(index) else {
                     return true;
                 };
-                if !is_standard(&bone.name) {
+                if !is_standard(&bone.name) || is_face_bone(&bone.name) {
                     continue;
                 }
                 let Some(table_bone) = conforming(tables, hand, &bone.name) else {
                     return true;
                 };
                 // The source pose: the SKL bone of that name, else PES21's tables; an
-                // unknown pose cannot be compared, so the bone is skipped.
+                // unknown pose has no delta, so the bone takes no part.
                 let Some(source) = skl
                     .as_ref()
                     .and_then(|skl| skl.bones.iter().find(|b| b.name == bone.name))
@@ -123,11 +132,22 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
                 else {
                     continue;
                 };
-                if bone_moved(&source, &table_bone.matrix) != Some(false) {
+                let Some(delta) = bone_delta(&source, &table_bone.matrix) else {
                     return true;
-                }
+                };
+                deltas[index] = Some(delta);
             }
-            false
+            blends_differing_deltas(
+                &deltas,
+                model.meshes.iter().map(|mesh| {
+                    (
+                        mesh.bone_group.as_slice(),
+                        mesh.vertices.bone_indices.as_deref(),
+                        mesh.vertices.bone_weights.as_deref(),
+                    )
+                }),
+                |weight: u8| weight > 0,
+            )
         }
         NativeModelBundle::PreFox { model, .. } => {
             match target.engine() {
@@ -136,11 +156,12 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
             }
             let tables = skeletons(target);
             let hand = prefox_has_hand_weights(model);
+            let mut deltas: Vec<Option<Affine>> = vec![None; model.bones.len()];
             for index in used_bones(model.meshes.iter().map(|m| &m.bone_group)) {
                 let Some(bone) = model.bones.get(index) else {
                     return true;
                 };
-                if !is_standard(&bone.name) {
+                if !is_standard(&bone.name) || is_face_bone(&bone.name) {
                     continue;
                 }
                 let Some(table_bone) = conforming(tables, hand, &bone.name) else {
@@ -148,21 +169,79 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
                 };
                 // The source pose is the inline inverse bind matrix, inverted; a singular
                 // one counts as needing conversion.
-                let Some(source) = Affine(bone.matrix).inverse() else {
+                let Some(delta) = Affine(bone.matrix)
+                    .inverse()
+                    .and_then(|source| bone_delta(&source, &table_bone.matrix))
+                else {
                     return true;
                 };
-                if bone_moved(&source, &table_bone.matrix) != Some(false) {
-                    return true;
-                }
+                deltas[index] = Some(delta);
             }
-            false
+            blends_differing_deltas(
+                &deltas,
+                model.meshes.iter().map(|mesh| {
+                    (
+                        mesh.bone_group.as_slice(),
+                        mesh.vertices.bone_indices.as_deref(),
+                        mesh.vertices.bone_weights.as_deref(),
+                    )
+                }),
+                |weight: f32| weight >= PREFOX_BLEND_WEIGHT,
+            )
         }
     }
 }
 
+/// The smallest pre-Fox weight that counts as blending a bone in the pre-check: half of Fox's
+/// 1/255 weight step, so a weight the Fox format would round to zero blends nothing on either
+/// engine. Community exporters leave float noise on the unused slots of a vertex weighted
+/// fully to one bone (2^-24 on the other leg's bone, on 225 vertices of the tracer's boots),
+/// which moves the drawn vertex by a negligible amount; with `> 0.0` it would flag such a
+/// model on every version.
+const PREFOX_BLEND_WEIGHT: f32 = 0.5 / 255.0;
+
 /// The bone indices any mesh's bone group references.
 fn used_bones<'a>(groups: impl Iterator<Item = &'a Vec<usize>>) -> BTreeSet<usize> {
     groups.flatten().copied().collect()
+}
+
+/// Whether some vertex blends two bones whose deltas differ beyond the moved tolerance.
+/// `deltas` holds each model bone's delta to the target (`None` for a bone that takes no
+/// part); each mesh comes as its bone group, index rows and weight rows, `weighted` telling
+/// a slot that carries weight (the weight type is the format's: `u8` on Fox, `f32` on
+/// pre-Fox). A weighted slot past its group counts as differing, for the importer to report.
+fn blends_differing_deltas<'a, W: Copy + 'a>(
+    deltas: &[Option<Affine>],
+    meshes: impl Iterator<Item = (&'a [usize], Option<&'a [[u8; 4]]>, Option<&'a [[W; 4]]>)>,
+    weighted: impl Fn(W) -> bool,
+) -> bool {
+    for (group, indices, weights) in meshes {
+        let (Some(indices), Some(weights)) = (indices, weights) else {
+            continue;
+        };
+        for (row, row_weights) in indices.iter().zip(weights) {
+            let mut blended: [Option<Affine>; 4] = [None; 4];
+            for (slot, (&entry, &weight)) in row.iter().zip(row_weights).enumerate() {
+                if !weighted(weight) {
+                    continue;
+                }
+                let Some(&bone) = group.get(usize::from(entry)) else {
+                    return true;
+                };
+                blended[slot] = deltas.get(bone).copied().flatten();
+            }
+            for (slot, first) in blended.iter().enumerate() {
+                for other in &blended[slot + 1..] {
+                    if let (Some(first), Some(other)) = (first, other)
+                        && bone_moved(first, other) != Some(false)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 /// `version_bone`, or `version_bone_hand_first` for a `skh_`-weighted model.
@@ -191,12 +270,35 @@ mod tests {
     const CAP_T: &[u8] = include_bytes!("../tests/fixtures/konami_modD_cap.mtl");
     const LEGACY_M: &[u8] = include_bytes!("../tests/fixtures/legacy19to16_oral.model");
     const LEGACY_T: &[u8] = include_bytes!("../tests/fixtures/legacy19to16_oral.mtl");
+    const BOOTS17_M: &[u8] = include_bytes!("../tests/fixtures/konami17_boots_k0051.model");
+    const BOOTS17_T: &[u8] = include_bytes!("../tests/fixtures/konami17_boots_k0051.mtl");
+    const GLOVE17_M: &[u8] = include_bytes!("../tests/fixtures/konami17_glove_r_g101.model");
+    const GLOVE17_T: &[u8] = include_bytes!("../tests/fixtures/konami17_glove_r_g101.mtl");
+    const BOOTS21_F: &[u8] = include_bytes!("../tests/fixtures/konami21_boots_k0051.fmdl");
+    const BOOTS21_S: &[u8] = include_bytes!("../tests/fixtures/konami21_boots_k0051.skl");
+    const TRACER_BOOTS_M: &[u8] = include_bytes!("../tests/fixtures/tracer_prefox_boots.model");
+    const TRACER_BOOTS_T: &[u8] = include_bytes!("../tests/fixtures/tracer_prefox_boots.mtl");
+    const TRACER_GLOVE_M: &[u8] = include_bytes!("../tests/fixtures/tracer_prefox_glove_l.model");
+    const TRACER_GLOVE_T: &[u8] = include_bytes!("../tests/fixtures/tracer_prefox_glove_l.mtl");
+    const TRACER_FACE_M: &[u8] = include_bytes!("../tests/fixtures/tracer_prefox_face_high.model");
+    const TRACER_FACE_T: &[u8] = include_bytes!("../tests/fixtures/tracer_prefox_face.mtl");
+    const CARD_M: &[u8] = include_bytes!("../tests/fixtures/konami_card.model");
+    const CARD_T: &[u8] = include_bytes!("../tests/fixtures/konami_card_red.mtl");
 
     fn fox(bytes: &[u8]) -> NativeModelBundle {
         NativeModelBundle::Fox {
             model: ::fmdl::Model::from_file(&::fmdl::FmdlFile::read(bytes).expect("fmdl"))
                 .expect("model"),
             skl: None,
+        }
+    }
+
+    /// An FMDL with its companion `.skl`.
+    fn fox_with_skl(fmdl: &[u8], skl: &[u8]) -> NativeModelBundle {
+        NativeModelBundle::Fox {
+            model: ::fmdl::Model::from_file(&::fmdl::FmdlFile::read(fmdl).expect("fmdl"))
+                .expect("model"),
+            skl: Some(::fmdl::SklFile::read(skl).expect("skl")),
         }
     }
 
@@ -241,6 +343,269 @@ mod tests {
         };
         assert_eq!(model, cap);
         assert_eq!(converted.findings, vec![]);
+    }
+
+    #[test]
+    fn nothing_drawn_right_is_flagged_on_its_own_version() {
+        use PesVersion::{Pes15, Pes16, Pes17, Pes18, Pes19, Pes21};
+        // Stock boots on the boots pose, a stock glove 0.0025 off the hand table, the
+        // community's PES 15-posed gloves, a face with its own `skf_*` pose, a one-bone
+        // model: every one draws right on these versions.
+        /// A fixture's name, how to read it, and the versions it draws right on.
+        type Case = (
+            &'static str,
+            fn() -> NativeModelBundle,
+            &'static [PesVersion],
+        );
+        let cases: [Case; 7] = [
+            (
+                "konami17_boots_k0051",
+                || prefox(BOOTS17_M, BOOTS17_T),
+                &[Pes17, Pes16, Pes15],
+            ),
+            (
+                "konami17_glove_r_g101",
+                || prefox(GLOVE17_M, GLOVE17_T),
+                &[Pes17, Pes16],
+            ),
+            (
+                "tracer_prefox_boots",
+                || prefox(TRACER_BOOTS_M, TRACER_BOOTS_T),
+                &[Pes17, Pes16, Pes15],
+            ),
+            (
+                "tracer_prefox_glove_l",
+                || prefox(TRACER_GLOVE_M, TRACER_GLOVE_T),
+                &[Pes17, Pes16, Pes15],
+            ),
+            (
+                "tracer_prefox_face_high",
+                || prefox(TRACER_FACE_M, TRACER_FACE_T),
+                &[Pes17],
+            ),
+            (
+                "konami21_boots_k0051",
+                || fox_with_skl(BOOTS21_F, BOOTS21_S),
+                &[Pes21, Pes19, Pes18],
+            ),
+            ("konami_card", || prefox(CARD_M, CARD_T), &[Pes15]),
+        ];
+        for (name, bundle, versions) in cases {
+            for &version in versions {
+                assert!(
+                    !needs_conversion(&bundle(), version),
+                    "{name} on {version:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_blend_of_differing_deltas_is_flagged() {
+        // The stock boots' first mesh blends `sk_foot_l` with `dsk_toe_l` and with
+        // `dsk_foot_l` (the right side likewise); the second blends nothing, and no
+        // vertex blends the two sides.
+        let moved = |names: &[&str]| {
+            let NativeModelBundle::Fox { model, skl } = fox_with_skl(BOOTS21_F, BOOTS21_S) else {
+                unreachable!()
+            };
+            let mut skl = skl.expect("skl");
+            for bone in &mut skl.bones {
+                if names.contains(&bone.name.as_str()) {
+                    bone.translation[0] += 0.05;
+                }
+            }
+            NativeModelBundle::Fox {
+                model,
+                skl: Some(skl),
+            }
+        };
+        assert!(needs_conversion(&moved(&["sk_foot_l"]), PesVersion::Pes21));
+        assert!(needs_conversion(&moved(&["dsk_foot_l"]), PesVersion::Pes21));
+        // The whole left foot moved together keeps one delta: drawn the same.
+        assert!(!needs_conversion(
+            &moved(&["sk_foot_l", "dsk_toe_l", "dsk_foot_l"]),
+            PesVersion::Pes21
+        ));
+    }
+
+    /// `blends_differing_deltas` over one mesh whose group is every bone in order.
+    fn blends(deltas: &[Option<Affine>], rows: &[([u8; 4], [f32; 4])]) -> bool {
+        let group: Vec<usize> = (0..deltas.len()).collect();
+        let indices: Vec<[u8; 4]> = rows.iter().map(|row| row.0).collect();
+        let weights: Vec<[f32; 4]> = rows.iter().map(|row| row.1).collect();
+        blends_differing_deltas(
+            deltas,
+            std::iter::once((
+                group.as_slice(),
+                Some(indices.as_slice()),
+                Some(weights.as_slice()),
+            )),
+            |weight: f32| weight > 0.0,
+        )
+    }
+
+    /// A translation by `x` along the x axis.
+    fn shifted(x: f32) -> Affine {
+        Affine::from_rotation_translation(
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            [x, 0.0, 0.0],
+        )
+    }
+
+    #[test]
+    fn only_a_vertex_blending_differing_deltas_counts() {
+        let differing = [Some(Affine::IDENTITY), Some(shifted(0.1))];
+        assert!(blends(&differing, &[([0, 1, 0, 0], [0.5, 0.5, 0.0, 0.0])]));
+        // Each bone alone in its own vertex: moved rigidly, drawn the same.
+        assert!(!blends(
+            &differing,
+            &[
+                ([0, 0, 0, 0], [1.0, 0.0, 0.0, 0.0]),
+                ([1, 0, 0, 0], [1.0, 0.0, 0.0, 0.0]),
+            ]
+        ));
+        // Two bones sharing one delta, however far it is from the identity.
+        let shared = [Some(shifted(0.1)), Some(shifted(0.1))];
+        assert!(!blends(&shared, &[([0, 1, 0, 0], [0.5, 0.5, 0.0, 0.0])]));
+        // A slot with weight zero blends nothing.
+        assert!(!blends(&differing, &[([0, 1, 0, 0], [1.0, 0.0, 0.0, 0.0])]));
+        // A bone with no delta takes no part, and every pair is compared, not
+        // only the first slot against the others.
+        let later = [None, Some(Affine::IDENTITY), Some(shifted(0.1))];
+        assert!(blends(&later, &[([0, 1, 2, 0], [0.4, 0.3, 0.3, 0.0])]));
+        // A weighted slot past the group cannot be proven native.
+        assert!(blends(&differing, &[([0, 7, 0, 0], [0.5, 0.5, 0.0, 0.0])]));
+        assert!(!blends(&differing, &[([0, 7, 0, 0], [1.0, 0.0, 0.0, 0.0])]));
+    }
+
+    /// A pre-Fox bundle with one bone per `(name, bind pose)` and one mesh of `rows`.
+    fn prefox_skinned(bones: &[(&str, Affine)], rows: &[([u8; 4], [f32; 4])]) -> NativeModelBundle {
+        let positions = vec![[0.0; 3]; rows.len()];
+        NativeModelBundle::PreFox {
+            model: ::pes_model::model::Model {
+                flags: 0,
+                bones: bones
+                    .iter()
+                    .map(|(name, pose)| ::pes_model::format::Bone {
+                        name: name.to_string(),
+                        matrix: pose.inverse().expect("invertible").0,
+                    })
+                    .collect(),
+                materials: vec!["mat".to_string()],
+                meshes: vec![::pes_model::model::Mesh {
+                    name: None,
+                    extension_headers: vec![],
+                    tags: vec![],
+                    vertices: ::pes_model::format::MeshVertices {
+                        positions: positions.clone(),
+                        normals: None,
+                        tangents: None,
+                        bitangents: None,
+                        colors: None,
+                        uvs: vec![],
+                        bone_indices: Some(rows.iter().map(|row| row.0).collect()),
+                        bone_weights: Some(rows.iter().map(|row| row.1).collect()),
+                        bone_weight_width: 4,
+                    },
+                    faces: vec![[0, 0, 0]],
+                    lower_lods: vec![],
+                    bone_group: (0..bones.len()).collect(),
+                    material: 0,
+                    bounds: ::pes_model::format::BoundingBox::of(&positions),
+                    order: 0,
+                    editor_data: vec![],
+                }],
+                extension_headers: vec![],
+                bounds: ::pes_model::format::BoundingBox::of(&positions),
+                lod: ::pes_model::format::LodRecord::for_levels(0),
+            },
+            mtl: ::pes_model::format::mtl::MaterialSet {
+                materials: vec![],
+                style: ::pes_model::format::mtl::MtlStyle::default(),
+            },
+        }
+    }
+
+    #[test]
+    fn a_face_bone_takes_no_part_in_the_pre_check() {
+        // `skf_eyelid_b_l` 0.1 off the face table, blended with `sk_head` on the
+        // body table: the face bone's pose is the face's own, so nothing differs.
+        let tables = skeletons(PesVersion::Pes17);
+        let head = tables.body.bone("sk_head").expect("sk_head").matrix;
+        let eyelid = shifted(0.1).multiply(
+            &tables
+                .face
+                .bone("skf_eyelid_b_l")
+                .expect("skf_eyelid_b_l")
+                .matrix,
+        );
+        let bundle = prefox_skinned(
+            &[("sk_head", head), ("skf_eyelid_b_l", eyelid)],
+            &[([0, 1, 0, 0], [0.5, 0.5, 0.0, 0.0])],
+        );
+        assert!(!needs_conversion(&bundle, PesVersion::Pes17));
+    }
+
+    #[test]
+    fn a_prefox_weight_below_a_fox_step_blends_nothing() {
+        // `sk_neck` 0.1 off the table, `sk_head` on it: float noise on the neck's
+        // slot (2^-24, as the tracer's boots carry) is no blend; half a 1/255 step is.
+        let body = &skeletons(PesVersion::Pes17).body;
+        let head = body.bone("sk_head").expect("sk_head").matrix;
+        let neck = shifted(0.1).multiply(&body.bone("sk_neck").expect("sk_neck").matrix);
+        let bones = [("sk_head", head), ("sk_neck", neck)];
+        let noise = 2.0f32.powi(-24);
+        assert!(!needs_conversion(
+            &prefox_skinned(&bones, &[([0, 1, 0, 0], [1.0, noise, 0.0, 0.0])]),
+            PesVersion::Pes17
+        ));
+        let step = 0.5 / 255.0;
+        assert!(needs_conversion(
+            &prefox_skinned(&bones, &[([0, 1, 0, 0], [1.0 - step, step, 0.0, 0.0])]),
+            PesVersion::Pes17
+        ));
+    }
+
+    #[test]
+    fn a_converted_face_carries_its_own_skf_pose_in_the_skl_it_writes() {
+        // The tracer's face sits up to 0.041 off the face table on its `skf_*` bones. Converted
+        // for PES 21 they are not re-bound, and the export writes an SKL for them, since a
+        // bone off the template's pose needs one for a reimport not to assume the template
+        // (`formats/fmdl/export.rs`): the eyelid's SKL pose is the face's own.
+        let NativeModelBundle::PreFox { model: source, .. } = prefox(TRACER_FACE_M, TRACER_FACE_T)
+        else {
+            unreachable!()
+        };
+        let source_pose = Affine(
+            source
+                .bones
+                .iter()
+                .find(|bone| bone.name == "skf_eyelid_b_l")
+                .expect("skf_eyelid_b_l")
+                .matrix,
+        )
+        .inverse()
+        .expect("invertible");
+        let Converted { bundle, .. } =
+            convert(prefox(TRACER_FACE_M, TRACER_FACE_T), PesVersion::Pes21).expect("convert");
+        let NativeModelBundle::Fox { skl, .. } = bundle else {
+            unreachable!()
+        };
+        let skl = skl.expect("a face off the template's skf_* pose writes an SKL");
+        let eyelid = skl
+            .bones
+            .iter()
+            .find(|bone| bone.name == "skf_eyelid_b_l")
+            .expect("skf_eyelid_b_l in the SKL");
+        let written = Affine::from_rotation_translation(eyelid.rotation, eyelid.translation);
+        assert_eq!(bone_moved(&source_pose, &written), Some(false));
+        let table = skeletons(PesVersion::Pes21)
+            .face
+            .bone("skf_eyelid_b_l")
+            .expect("table")
+            .matrix;
+        assert_eq!(bone_moved(&table, &written), Some(true));
     }
 
     #[test]
@@ -680,7 +1045,8 @@ mod tests {
     #[test]
     fn an_skl_pose_that_differs_needs_conversion() {
         // The SKL is the source pose; the PES21 table is only the fallback
-        // for a name the SKL lacks.
+        // for a name the SKL lacks. Highneck's vertices blend the moved bone
+        // with bones the SKL does not move.
         let NativeModelBundle::Fox { model, .. } = fox(HIGHNECK) else {
             unreachable!()
         };
@@ -825,7 +1191,9 @@ mod tests {
     #[test]
     fn a_body_bundle_stays_on_the_body_table() {
         // A `skh_` name in the group without weight is not a hand model: the
-        // shared forearm at the *body* pose is already native to PES15.
+        // shared forearm at the *body* pose is already native to PES15. It is
+        // blended with the upper arm, which no hand table holds, so a forearm
+        // conformed to the hand table would blend two differing deltas.
         let tables = skeletons(PesVersion::Pes15);
         let inverse = |skeleton: &crate::skeletons::Skeleton, name: &str| {
             skeleton
@@ -847,6 +1215,10 @@ mod tests {
                     name: "sk_forearm_l".to_string(),
                     matrix: inverse(&tables.body, "sk_forearm_l"),
                 },
+                ::pes_model::format::Bone {
+                    name: "sk_upperarm_l".to_string(),
+                    matrix: inverse(&tables.body, "sk_upperarm_l"),
+                },
             ],
             materials: vec!["mat".to_string()],
             meshes: vec![::pes_model::model::Mesh {
@@ -860,15 +1232,15 @@ mod tests {
                     bitangents: None,
                     colors: None,
                     uvs: vec![],
-                    bone_indices: Some(vec![[0, 1, 0, 0]]),
-                    // Weight lands on the forearm only: `skh_` is a group
-                    // entry, not a weighted bone.
-                    bone_weights: Some(vec![[0.0, 1.0, 0.0, 0.0]]),
+                    bone_indices: Some(vec![[0, 1, 2, 0]]),
+                    // Weight lands on the forearm and upper arm only: `skh_` is a
+                    // group entry, not a weighted bone.
+                    bone_weights: Some(vec![[0.0, 0.5, 0.5, 0.0]]),
                     bone_weight_width: 4,
                 },
                 faces: vec![[0, 0, 0]],
                 lower_lods: vec![],
-                bone_group: vec![0, 1],
+                bone_group: vec![0, 1, 2],
                 material: 0,
                 bounds: ::pes_model::format::BoundingBox::of(&[[0.0; 3]]),
                 order: 0,

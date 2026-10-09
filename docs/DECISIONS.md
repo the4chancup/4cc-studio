@@ -5377,7 +5377,9 @@ when some vertex blends bones whose deltas from the model's bind pose to the tar
 differ beyond tolerance; a model whose every vertex blends bones sharing one delta is on the
 target's skeleton whatever that delta is. A face's `skf_*` bones take no part (not compared, not
 re-bound; they keep the model's own matrices as custom bones do). The tolerance is 3e-3 (was
-1e-3). No boots table is added, and the compiler's call (worklog 4.17g3) waits for this.
+1e-3). A pre-Fox weight below half of Fox's 1/255 step counts as no weight (4.17g2's finding:
+the tracer's boots carry 2^-24 of noise on the other leg's bone, which flagged them). No boots
+table is added, and the compiler's call (worklog 4.17g3) waits for this.
 Why: measured at 4.17g1 on the games' own files: Konami's boots sit on a boots pose 7° off the
 body table on every version, both feet in one mesh with opposite per-leg deltas; Konami's faces
 sit up to 0.34 off `face.skl` and 0.26 off each other (the per-face diff); the community's PES

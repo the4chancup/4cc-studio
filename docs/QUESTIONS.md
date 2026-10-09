@@ -50,11 +50,16 @@ instead of unhidden? A plan ruling, then a converter change.
 
 ### Stock collar sets, and collars beyond the stock set
 From: step 4.9b. Whether the shipped collar sets look right in game, and what a collar ID
-beyond the stock set draws.
+beyond the stock set draws. Test 3 (`.tmp/4_0/apptest/out_test3/GUIDE.txt`) is built for it;
+the lead ran its PES 17 half through the harness on 2026-10-09 and could see only the keeper:
+collar 201 (no model anywhere) draws a plain neckline, no crash; kit 1's collar 200 was never
+visible because every outfielder of /a/ is a billboard or custom-body model in Edit mode. The
+PES 21 half, Test 3b and a match view are yours.
 
 ### The sock table's look
 From: step 4.10. Needs a kit with a vertical design on its socks, compiled for PES 17 and 21
-and compared in game.
+and compared in game. Test 3 holds that kit (design A on kit 1); see the collar entry above for
+why the lead's Edit-mode run on PES 17 could not show it.
 
 ### Face diffs are engine-specific
 From: maintainer, 2026-10-03 (worklog Issues). A `face_diff.bin` (or its `face_diff.xml` and

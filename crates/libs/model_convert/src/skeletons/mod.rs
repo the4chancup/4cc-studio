@@ -170,6 +170,13 @@ pub(crate) fn is_standard(name: &str) -> bool {
     .any(|version| version_bone(skeletons(*version), name).is_some())
 }
 
+/// Whether `name` is a face bone (`skf_*`): posed per face (the base face table moved by the
+/// player's own face diff), so no shared table is a reference for it. It keeps the model's own
+/// matrix through conformance, as a custom bone does (`conversion.md` item 4).
+pub(crate) fn is_face_bone(name: &str) -> bool {
+    name.starts_with("skf_")
+}
+
 /// The bone that takes `name`'s weight when a version lacks it (one hop; callers chain).
 pub(crate) fn fold_target(name: &str) -> Option<&'static str> {
     fold::FOLD_TARGETS

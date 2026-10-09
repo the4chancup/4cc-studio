@@ -11,12 +11,15 @@ use crate::ir::{Bone, CanonicalModel, validate};
 use crate::loss::{Finding, Subject};
 
 use super::{
-    PesBone, fold_target, is_standard, render_parent, skeletons, version_bone,
+    PesBone, fold_target, is_face_bone, is_standard, render_parent, skeletons, version_bone,
     version_bone_hand_first,
 };
 
-/// The moved threshold on a delta matrix's components (the plan's 1e-3).
-pub(crate) const MOVED_TOLERANCE: f32 = 1e-3;
+/// The moved threshold on a delta matrix's components (`conversion.md` item 3): above
+/// Konami's own PES 17 glove `g101`, 0.0025 off the hand table on three finger bones, and
+/// below the smallest difference between two versions' body tables, 0.0042 (one hem bone,
+/// PES 15 against 17), so the games' own files pass and every version difference is caught.
+pub(crate) const MOVED_TOLERANCE: f32 = 3e-3;
 
 /// `target · source⁻¹`, `None` when `source` is singular.
 pub(crate) fn bone_delta(source: &Affine, target: &Affine) -> Option<Affine> {
@@ -43,9 +46,9 @@ fn normalized(v: [f32; 3]) -> Option<[f32; 3]> {
 
 /// Conforms `ir` to `target`'s skeleton: folds standard bones the target lacks onto the
 /// bones that take their weight, then re-binds every surviving standard bone from its
-/// source pose (`Bone.matrix`) to the target's. Custom bones pass through. Takes the
-/// model by value, so an error can never leave a half-retargeted model behind; returns
-/// it with the losses.
+/// source pose (`Bone.matrix`) to the target's. Custom bones and a face's `skf_*` bones pass
+/// through with their own matrices. Takes the model by value, so an error can never leave a
+/// half-retargeted model behind; returns it with the losses.
 pub fn retarget(
     mut ir: CanonicalModel,
     target: PesVersion,
@@ -55,9 +58,12 @@ pub fn retarget(
     // A model with `skh_` weights conforms to the `hand_*` tables: shared
     // wrist/forearm names carry a different pose there than in `body`
     // (conversion.md "Hands and face"). Existence checks keep `version_bone`.
+    // A face's `skf_*` bones have no conforming bone: they keep their own matrices.
     let hand = crate::ops::hand_split::has_hand_weights(&ir);
     let conforming = |name: &str| -> Option<&PesBone> {
-        if hand {
+        if is_face_bone(name) {
+            None
+        } else if hand {
             version_bone_hand_first(tables, name)
         } else {
             version_bone(tables, name)
@@ -719,18 +725,19 @@ mod tests {
 
     #[test]
     fn a_delta_at_the_moved_bound_is_not_moved() {
-        // Exactly MOVED_TOLERANCE is not "moved"; anything past it is.
+        // Exactly 3e-3 is not "moved"; anything past it is. Konami's glove sits
+        // 0.0025 off its table, the closest two versions' tables differ by 0.0042.
         let target = Affine::IDENTITY;
-        let at = Affine::from_rotation_translation(
-            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-            [-MOVED_TOLERANCE, 0.0, 0.0],
-        );
-        assert_eq!(bone_moved(&at, &target), Some(false));
-        let past = Affine::from_rotation_translation(
-            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-            [-MOVED_TOLERANCE * 2.0, 0.0, 0.0],
-        );
-        assert_eq!(bone_moved(&past, &target), Some(true));
+        let off = |x: f32| {
+            Affine::from_rotation_translation(
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                [-x, 0.0, 0.0],
+            )
+        };
+        assert_eq!(bone_moved(&off(3e-3), &target), Some(false));
+        assert_eq!(bone_moved(&off(6e-3), &target), Some(true));
+        assert_eq!(bone_moved(&off(0.0025), &target), Some(false));
+        assert_eq!(bone_moved(&off(0.0042), &target), Some(true));
     }
 
     #[test]
@@ -837,6 +844,40 @@ mod tests {
         ir.bones[1].matrix = hand_pose;
         let (ir, _) = retarget(ir, PesVersion::Pes15).expect("retarget");
         assert_eq!(ir.bones[1].matrix, hand_pose);
+    }
+
+    #[test]
+    fn a_face_bone_keeps_its_own_matrix() {
+        // A face's `skf_*` pose is per face, so no table is a reference for it: the
+        // body bone off the target's pose re-binds, the `skf_*` bone keeps its matrix.
+        let mut ir = ir_with_bones(&["sk_head", "skf_eyelid_b_l"], PesVersion::Pes17);
+        let mut off = |name: &str| -> Affine {
+            let bone = ir
+                .bones
+                .iter_mut()
+                .find(|bone| bone.name == name)
+                .expect(name);
+            bone.matrix.0[3] += 0.1;
+            bone.matrix
+        };
+        let face_pose = off("skf_eyelid_b_l");
+        off("sk_head");
+        let (ir, findings) = retarget(ir, PesVersion::Pes17).expect("retarget");
+        let matrix = |name: &str| {
+            ir.bones
+                .iter()
+                .find(|bone| bone.name == name)
+                .expect(name)
+                .matrix
+        };
+        assert_eq!(matrix("skf_eyelid_b_l"), face_pose);
+        let head = skeletons(PesVersion::Pes17)
+            .body
+            .bone("sk_head")
+            .expect("sk_head")
+            .matrix;
+        assert_eq!(matrix("sk_head"), head);
+        assert_eq!(codes(&findings), [("skeleton_retargeted", "1")]);
     }
 
     #[test]
