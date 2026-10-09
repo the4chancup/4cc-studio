@@ -5852,3 +5852,20 @@ with the package left out, never a wrong file. A tolerance rule needs each skele
 carried through the merge, machinery for a case no export reaches, so the plan is narrowed
 rather than the code grown; DECISIONS 2026-10-03 already settled bytes for authored pairs.
 Plan: `aesthetics_export/player_folders.md` "Merge constraint".
+
+## 2026-10-09 — team_compiler — every DDS kind the decoder refuses is `texture_codec_unsupported`, the file dropped
+Decision: `conversion_failure` reports a `ConvertError::Ftex(FtexError::UnsupportedDds(..))` from
+the decode (a signed block format, a volume texture, a texture array, a paletted DDS, a header
+size other than 124, an incomplete cube map) as `texture_codec_unsupported`, the catalog's
+file-level finding, like `ConvertError::Unsupported`; a header that cannot be read (`BadMagic`,
+`Truncated`) and pixel data cut short still fail the task. This supersedes the sentence of the
+cube-map decision of the same day that left an incomplete cube map failing its task.
+Why: the converge review S8 (Astra, 2026-10-09) found that one BC5_SNORM DDS in `Common/`,
+which `ftex::dds::read_layout` refuses as "signed block format", failed the whole Common
+textures task (`folder_pack_failed`) and dropped every Common texture, where the catalog
+(`messages.md`) promises `texture_codec_unsupported` and the file alone; `libs/dds_convert.md`
+said the signed formats came back as `ConvertError::Unsupported`, which the code never did.
+"A DDS of a kind the decoder does not take" is one class whatever the kind, so one mapping,
+not a list of kinds, and the file-level consequence the member can act on.
+Plan: `libs/dds_convert.md` (the `decode` rejections paragraph); `team_compiler/README.md`
+TC-TEX-14.

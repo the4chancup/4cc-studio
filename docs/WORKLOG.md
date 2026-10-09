@@ -3141,6 +3141,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   link file-name order; the deep pass cannot take the same answer (Issues). Gates green
   (acceptance 283 of 283); `mutants-diff 59af87c`: 45 mutants, 35 caught, 10 unviable, 0
   missed, the remote half's peak 8.99 GiB of the 9G cap with one build job (no build killed)
+- [ ] 4.y-fix5 **S8's rework: a Common model's local `.mtl` resolves its textures in the folder;
+  every DDS kind the decoder refuses is `texture_codec_unsupported`; an FTEX portrait gets the
+  full chain** (the Astra review S8, 2026-10-09, rulings `.tmp/4_y/duck_rulings.md` S8.A1-1,
+  -2 and -4). (a) `processing/model.rs` gives every Common-linked model `PartTextures::Common`,
+  so a Common `.model` converted with the player's local `.mtl` override (`mtl_search`: a
+  name-matched local `.mtl` beats `Common/`'s) points its textures at the team's Common
+  output, against `model_format.md` "Link files" (a stem resolves in the folder of the
+  material file that set it): such a part looks in the folder first, then Common, as a
+  `.model` with a `.mtl.common` does (`CommonSet`). (b) `conversion_failure` maps
+  `ConvertError::Ftex(UnsupportedDds)` (a signed block format, a volume texture, an array, a
+  paletted DDS, an incomplete cube map) to the ordinary task failure, so one such file in
+  `Common/` drops every Common texture with `folder_pack_failed` where the catalog promises
+  `texture_codec_unsupported` and the file alone: every DDS kind the decoder refuses is that
+  finding (DECISIONS 2026-10-09). (c) `portrait` keeps an FTEX source's level count
+  (`authored_mips`) where `player_folders.md` "Portraits" gives every non-DDS source the
+  full chain: an FTEX portrait re-encodes with a generated chain like a raster one.
+  TC-MOD-61, TC-TEX-14, TC-TEX-15. Crates: tc → verify: the three scenarios proven, red first.
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates

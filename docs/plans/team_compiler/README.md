@@ -949,6 +949,13 @@ TC-MOD-57  GIVEN Boots/Studs holding studs.dds and no model, Boots/Zebra holding
            WHEN the export is compiled for PES 17
            THEN shared_folder_no_model is reported on Boots/Studs as a Warning, no boots folder is
                 written for it, Zebra takes the block's first shared id, and the exit code is 0
+TC-MOD-61  GIVEN slot 05 holding legs.model.common, a local legs.mtl (the Common one's materials,
+           naming ./skin.dds) and his own skin.dds, Common/ holding legs.model, legs.mtl and
+           skin.dds
+           WHEN the export is compiled for PES 21
+           THEN the converted legs in his face FPK name skin.dds at his texture home, where his
+                skin.ftex is written, Common's skin.ftex is in the team's Common output, and no
+                finding names a texture
 TC-MOD-58  GIVEN Faces/Round holding fcl_hair.fmdl, boots.model and boots.mtl, slot 05 linking it
            as his face
            WHEN the export is compiled for PES 21
@@ -1044,6 +1051,16 @@ TC-TEX-13  GIVEN slot 05 holding no model and an env.dds that is a 128x128 DXT5 
            THEN PES 17 writes slot 05's env.dds in his texture home byte for byte as the source,
                 PES 21 writes env.ftex there equal to ftex::dds_to_ftex of the source (an FTEX
                 cube map, type 0xD), and no finding names the file in either run
+TC-TEX-14  GIVEN Common/ holding hair.dds, a DXT5, and bumps.dds, a DX10 BC5_SNORM DDS (a signed
+           block format no target keeps)
+           WHEN the export is compiled for PES 21
+           THEN texture_codec_unsupported is reported naming bumps.dds and dropping that file
+                alone, hair.ftex is in the team's Common output, and no folder_pack_failed is
+                reported
+TC-TEX-15  GIVEN slot 05 holding portrait.ftex, a single-level FTEX (ftex::dds_to_ftex of a
+           single-level DDS)
+           WHEN the export is compiled for PES 21
+           THEN his portrait DDS is BC3 at the source's size with the full mip chain down to 1x1
 ```
 
 **Deep checks**
