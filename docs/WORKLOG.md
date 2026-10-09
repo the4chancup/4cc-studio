@@ -3047,13 +3047,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `Common/env.dds`, a 128x128 DXT5 cube map with the bundled template's exact header, fails his
   folder at `compile` on both engines with `folder_pack_failed (error=env.dds: cannot convert:
   ... unsupported dds: cube map)`, while the template `env.dds` is emitted as it is). Recon
-  first (a sidekick report, no code): what Red does with a cube-map DDS on each engine (copied
-  as it is on PES 15-17; on PES 18-21 texconv to an FTEX cube map?), whether `ftex` writes a
-  cube map (its `dds.rs` reads the flag), what the game's own `env` textures are on each engine.
-  Then the ruling and the step: a folder's own cube map goes out as the template does on
-  PES 15-17; on PES 18-21 per the recon; a cube map the target cannot take is a check-time
-  finding on the file, never `folder_pack_failed` at compile. Crates: tc (+ `ftex` if the
-  recon says so) → verify: `compile --mode test` of `C:/Data/4cc/4cc aet compiler/Test_stuff/refs`
+  done 2026-10-09 (sidekick, read-only; `.tmp/4_y/sk_fix3_recon_report.md`): both census files
+  are byte-identical to the template; the compiler fails in `convert` → `decode_charge` →
+  `dds_convert::probe` → `ftex::dds::read_layout`, before any engine branch; Red copies a DXT5
+  cube map as it is on PES 15-17 and on PES 18-21 writes it through `ddsToFtex` as a type 0xD
+  FTEX cube map, which `ftex::dds_to_ftex` already writes the same way; PES 17's own cube maps
+  have the template's shape, PES 21's are FTEX types 0x5/0x7, and the 4cc Fox CPKs hold none.
+  Ruling (DECISIONS 2026-10-09): a cube-map DDS is never decoded; PES 15-17 passes it as it
+  is, PES 18-21 writes Red's FTEX cube map (a WESYS-wrapped one stays refused); whether the game
+  draws type 0xD is a maintainer question. The step: `ftex::dds::is_cube_map` (`pub`, the
+  compiler's), the route in `processing/texture.rs` `convert` before the decode charge,
+  TC-TEX-13, the `dds_convert.md` sentence corrected. Crates: tc, ftex → verify: `compile --mode test` of `C:/Data/4cc/4cc aet compiler/Test_stuff/refs`
   for PES 17 writes robocopclassic's folder with `env.dds` byte-identical to the source.
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
@@ -3072,8 +3076,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   no deviation; `pipeline.md` "Run driver shapes (Phase 3)" is rewritten from the code at
   4.z-rewrite); every step's verify criterion re-run by a sidekick (`.tmp/4_y/converge_verify.md`:
   64 rows, 55 proven by a green test, 3 recorded, 1 superseded, 1 deferred, 3 without a
-  test that asserts the clause (4.19f, 4.24, 4.31's Red rebuild, a lead measurement still
-  to run), 1 stale criterion re-read, 4.25a); `just acceptance strict`: TC-OUT-18 was the one
+  test that asserts the clause (4.19f, 4.24, both given their assertion at 4.y-fix1; 4.31's
+  Red rebuild, run by the lead 2026-10-09 in the 2026-10-07 Red copy over the fixture's `old/`,
+  `.tmp/4_y/red_rebuild_compare.log` and `red_rebuild_nested.log`: every entry byte-identical
+  to the fixture's `red/`, the nested face CPK's twenty entries included, the nested CPK
+  itself differing in four bytes near its end, its write timestamp), 1 stale criterion
+  re-read, 4.25a); `just acceptance strict`: TC-OUT-18 was the one
   unproven scenario and got the lead's test (`tests/cli/bins.rs`); the catalog's producers
   (`.tmp/lead/messages_producers.py`: 25 rows with none, 23 deferred by the plan, 2 withdrawn,
   decision entry); the design-tell sweep over the whole Phase 4 diff (67,692 added lines,
@@ -5076,3 +5084,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   counts for his boots, `merged_texture_conflict`). Whole-crate mutation runs of
   `aesthetics_export` (548 mutants, 2 survivors) and `pipeline` (72, 6 survivors, all one
   platform read) done and triaged into 4.y-fix2; `team_compiler`'s run next, over this tree.
+- **2026-10-09** — 4.31's verify criterion run at converge: Red rebuilt from the fixture's
+  `old/`, every entry byte-identical to `red/` (the nested CPK's timestamp aside). 4.y-fix3's
+  recon done and ruled: a cube-map DDS goes out as Red ships it on each engine (decision
+  entry; a maintainer question on the Fox form). The `team_compiler` whole-crate mutation run
+  started over `23f68ae`.

@@ -5745,6 +5745,31 @@ takes on (Phase 6 keeps the rest), and the Studio format never uses them (kits l
 Plan: `aesthetics_export/object_model.md` (the "only the Studio export format" paragraph);
 `team_compiler/messages.md` (the row); `team_compiler/README.md` TC-ROOT-14. Step 4.y-fix2.
 
+## 2026-10-09 — team_compiler, ftex — a member's cube-map DDS goes out as Red ships it: as it is on PES 15-17, an FTEX cube map on PES 18-21
+Decision: a cube-map DDS in a model folder or `Common/` (the `DDSCAPS2` cube bit or the DX10
+cube flag, `ftex::dds::is_cube_map`, a new `pub` the compiler calls) is never decoded by
+`dds_convert`. On PES 15-17 the file goes out as it is, WESYS-wrapped or not, like the bundled
+template `env.dds`; on PES 18-21 it is written with `ftex::dds_to_ftex` as Red's `ddsToFtex`
+writes it (texture type 0xD: the normal-map type 0x9 the converter gives every Fox texture,
+with the cube bit). A WESYS-wrapped cube map is not recognized (the test reads the plain
+header; no export has one) and fails its task as today, as does a cube map the FTEX writer
+refuses (an incomplete one): no new finding.
+Why: the converge census (2026-10-09) found two referee exports carrying a `Common/env.dds`
+byte-identical to the template, which their pre-Fox `.mtl` materials name, and the compiler
+failed each folder with `folder_pack_failed` on both engines: `convert` charges the decode by
+`dds_convert::probe`, which runs `ftex::dds::read_layout`, the 2D layout walk that refuses a
+cube map, before any engine branch. Red copies a DXT5 cube map as it is on PES 15-17 (texconv
+runs only on a DX10 FourCC) and converts every `.dds` through `ddsToFtex` on PES 18-21, cube
+maps included. Following Red on both engines is one rule with Red's output as the parity
+standard, where a check-time refusal on PES 18-21 would drop what Red ships without knowing
+the game refuses it: PES 21's own cube maps are FTEX types 0x5 and 0x7 (BC1) and no 4cc Fox
+CPK holds an environment map, so whether type 0xD draws is unknown and asked in
+`docs/QUESTIONS.md` rather than guessed. `libs/dds_convert.md` said `decode` refuses a cube map
+with `ConvertError::Unsupported` and that no export holds one: the code returns
+`ConvertError::Ftex`, and the census found two; the sentence is corrected.
+Plan: `team_compiler/pipeline.md` step 5 "Texture conversion"; `libs/dds_convert.md`, the
+`decode` rejections paragraph; `team_compiler/README.md` TC-TEX-13.
+
 ## 2026-10-09 — team_compiler — a `face.xml`'s `<dif>` beside a `face_diff.bin` is the dual-engine layout, not a conflict
 Decision: `xml_dif_conflict` fires for a `face.xml` `<dif>` beside a `face_diff.xml`, and for a
 `face_diff.bin` beside a `face_diff.xml`, as before; a `<dif>` beside a `face_diff.bin` is no

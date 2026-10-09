@@ -211,8 +211,11 @@ impl Converter {
 
 `decode` rejects cube maps, volume textures (the caps2 bit, or a legacy header's `DDSD_DEPTH`
 with a depth above 1, as DirectXTex classifies them), texture arrays and the signed block formats (BC4/BC5
-SNORM, BC6H SF16) (`ConvertError::Unsupported`): nothing in an export is one, and a signed block
-relabelled unsigned would silently change the texture. It also rejects a zero width or height and
+SNORM, BC6H SF16): the formats as `ConvertError::Unsupported`, a cube map or volume texture as
+`ConvertError::Ftex(UnsupportedDds)` from `ftex::dds::read_layout`, which `probe` and `decode`
+both run first. The compiler sends no cube map here: it routes one by `ftex::dds::is_cube_map`
+before any decode (`team_compiler/pipeline.md` step 5), since referee exports carry copies of
+the template `env.dds`. A signed block relabelled unsigned would silently change the texture. It also rejects a zero width or height and
 a mip count past what the dimensions halve into (`log2(larger side) + 1`), as D3D and texconv's
 default loader do; `ftex`'s own FTEX↔DDS conversions keep pes-file-tools' acceptance of both. The
 mip count is the header's count field alone, as DirectXTex reads it; `dds_to_ftex` keeps
