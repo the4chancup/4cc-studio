@@ -1401,6 +1401,10 @@ TC-CMN-15  GIVEN Common/sub/legs.model that does not parse and strict_file_type_
            WHEN the export is compiled for PES 17
            THEN common_file_disallowed is reported as Info and no other finding names
                 Common/sub/legs.model
+TC-CMN-16  GIVEN Collars/sub/collar_12.model and strict_file_type_check off
+           WHEN the export is compiled for PES 17
+           THEN file_type_disallowed is reported as Info naming it, the CPK holds no
+                collar_012.model, and the team's kit configs keep their collars
 ```
 
 **Bins**
@@ -1515,6 +1519,20 @@ TC-BIN-22  GIVEN no PES install configured, and a /co/ export whose slot 05 hold
            WHEN it is compiled for PES 21
            THEN the CPK holds k0625's boots and no BootsList.bin, GloveList.bin or
                 PlayerAppearance.bin, and player_table_missing names BootsList.bin with 1 row
+TC-BIN-23  GIVEN an installed UniColor.bin whose team 714 record holds kits p1, p2 and p3, an
+           installed UniformParameter.bin holding team 714's p1 entry and no p3 entry, and
+           a Midcup /co/ export with Collars/collar_12.fmdl, only p2/ and no fpc_on
+           WHEN it is compiled for PES 21
+           THEN the emitted UniformParameter.bin's p1 entry wears collar 12 as its collar
+                and winter collar, and p3, which has no entry, reports
+                kit_config_collar_unpatched
+TC-BIN-24  GIVEN an installed CPK holding team 714's loose p1 kit config without the FPC values
+           (shirt model 144) and with Name Y 40, and a Midcup /co/ export with fpc_on and
+           only p2/
+           WHEN it is compiled for PES 17
+           THEN the CPK holds p1's config re-emitted with the FPC values and Name Y 33,
+                and kit_config_version_clamped is reported on the export naming slot p1,
+                the field, 40 and 33
 ```
 
 **Planning**
@@ -1628,6 +1646,9 @@ TC-REF-13  GIVEN TC-REF-10's refs export (Ref A in slots 01 and 20, holding only
                 model converted, and no referee001.cpk or referee020.cpk: the link is not
                 copied into a face, and a referee folder with no face model gets no face
                 folder, the game's referee head staying (a team player's gets a blank one)
+TC-REF-14  GIVEN a refs export whose root colors.txt holds a line that does not parse
+           WHEN the export is checked
+           THEN no color_entry_invalid is reported
 ```
 
 **Output modes, deployment, multi-CPK**

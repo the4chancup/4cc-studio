@@ -5934,3 +5934,21 @@ the shared folder's parsed materials inside the player's pass, which runs in par
 the miss is a fallback material in game, not a crash or a wrong drop.
 Plan: `team_compiler/pipeline.md` "Kit-dependent assets"; `team_compiler/README.md`
 TC-XML-12.
+
+## 2026-10-09 — team_compiler — an absent kit slot's collar edit reports the slot it cannot edit and the value it clamps
+Decision: when a `Midcup` export has a collar, an unexported kit slot (one its `UniColor.bin`
+record holds) whose installed config cannot wear it (none, or one that does not decode) is
+reported as `kit_config_collar_unpatched` (W, on the export, naming the slot), unless
+`kit_config_fpc_unpatched` has named the slot; and an installed config re-encoded for the FPC
+values or the collar reports `kit_config_version_clamped` on the export, naming the slot, for
+each value past the target version's limit.
+Why: S11's Astra round (2026-10-09) found both silent. With the team's kit-FPC status
+Unknown and a collar, a slot with no config kept its own collar with no word, while the
+same slot under status On is reported; the member sees the custom collar on some kits and
+not others and has nothing to go on. The re-encode clamps every field to the version's
+limits while the decoder reads the field's full width, so a config another tool installed
+changed with no finding where a supplied config's clamp is reported. A new code, not
+`kit_config_fpc_unpatched`'s text widened, because that code's fix is the FPC status and
+this one's is a kit export; one warning per slot, not two.
+Plan: `team_compiler/pipeline.md` "Collars", "Bins accumulation"; `team_compiler/messages.md`
+"Kits"; `team_compiler/README.md` TC-BIN-23, TC-BIN-24.

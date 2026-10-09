@@ -812,6 +812,9 @@ describes behavior, not a serial scheduling requirement:
   collar already in the target's format, a `.model` on pre-Fox as an FMDL on Fox, is written
   unchanged, its author's material names kept: the author made it for that engine, and
   renaming what the game already finds would turn a working collar into a guess.
+  Only a model directly in `Collars/` is a collar: one below a subfolder, kept when the
+  file-type check is lenient (`file_type_disallowed`, Info), is neither named, claimed
+  nor compiled, as a kit's or `Common/`'s subfolder file is not read.
   These are
   custom collar models that replace one of PES's many stock collar models (the game's `nocloth`
   set); the compiler derives the
@@ -837,7 +840,11 @@ describes behavior, not a serial scheduling requirement:
   `Midcup` export, the kit slots it does not resend: their entries in the working
   `UniformParameter.bin` get the collar in place, as they get the FPC values ([FPC
   toggle](../aesthetics_export/fpc_toggle.md) "Kit slots absent from the export are patched in
-  place"), after them. Custom collars are **compatible with team FPC**: collar rewriting runs after FPC
+  place"), after them. A slot whose installed config cannot wear it (there is none, or it
+  does not decode as a kit config) is left alone with `kit_config_collar_unpatched` (W, the
+  team export's, naming the slot), unless the FPC patch has named that slot already
+  (`kit_config_fpc_unpatched`): one warning per slot, whichever edit found it.
+  Custom collars are **compatible with team FPC**: collar rewriting runs after FPC
   reconciliation, so the custom ID deliberately overrides the FPC collar value in the configs.
 - **Common** — pre-Fox: `.mtl` texture IDs and relative→absolute path fixes; both modes: texture
   conversion, dummy ID replacement, `oral_`/`_win32` model-name prefixes, face XML references to
@@ -963,7 +970,11 @@ describes behavior, not a serial scheduling requirement:
   so its entry is not patched either. Each such slot's `UniformParameter.bin` entry is decoded,
   given the FPC values when it lacks them (`kit_config_fpc_adjusted`), and encoded again; a
   slot with no entry, or one that does not decode as a kit config, is left alone
-  (`kit_config_fpc_unpatched`). Both name the slot and are the team export's. The bin is written
+  (`kit_config_fpc_unpatched`). Both name the slot and are the team export's. A config so
+  edited, or given the export's collar ("Collars"), is encoded again for the target
+  version, so a value the installed config holds past that version's limit is clamped,
+  and reported as a supplied config's is (`kit_config_version_clamped`, the team export's,
+  naming the slot): the edit changes it, so the member hears of it. The bin is written
   whenever the run changes it: a committed kit config, a patched slot, a removed config. A kit's UniColor/UniformParameter entry is applied only
   if that kit's task actually commits — a failed kit never mutates the global bins. On Fox the
   **player appearance tables** accumulate the same way: every compiled player gets his
