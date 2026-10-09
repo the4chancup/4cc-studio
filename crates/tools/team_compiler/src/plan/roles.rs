@@ -343,10 +343,11 @@ pub(crate) enum PlayerFile {
     /// merging", the material definition files), reading the Common `.mtl`
     /// (`TaskKind::files`). Nothing reads the empty link.
     CommonMaterial,
-    /// Pre-Fox: a member's own `face.xml`, directly in the folder or in `face/`, the authority
-    /// on what the face loads in place of the one the compiler generates (`messages.md`
-    /// "User-supplied `face.xml`"): the deep pass reads and checks it (`user_face_xml`). Its
-    /// folder has a face whatever models it holds (`FolderModels::of_player_files`).
+    /// Pre-Fox: a member's own `face.xml`, directly in a player folder or a shared face folder
+    /// or in its `face/`, the authority on what the face loads in place of the one the compiler
+    /// generates (`messages.md` "User-supplied `face.xml`"), a shared face's that of each face
+    /// linking it: the deep pass reads and checks it (`user_face_xml`). Its folder has a face
+    /// whatever models it holds (`FolderModels::of_player_files`).
     FaceXml,
     /// Pre-Fox: the `.skl` paired with an `.fmdl` converted (`PreFoxModel`, or `PreFoxPart`
     /// under `ingame_face`), by the path stem a Fox skeleton pairs by: the conversion's bind
@@ -521,10 +522,11 @@ pub(crate) fn in_folder_or_face(folder: &ScopePath, file: &FileDescriptor) -> bo
 }
 
 /// Whether `file` of the folder at `folder` is a member's own `face.xml`: named so in any case,
-/// where a face's files go (`in_folder_or_face`). Pre-Fox reads a player folder's
-/// (`PlayerFile::FaceXml`); Fox has no `face.xml` and ignores it (`xml_ignored_fox`). A shared
-/// folder's is ignored on pre-Fox too (`xml_ignored_shared`): each player combining the face
-/// lists the folder's models as without it.
+/// where a face's files go (`in_folder_or_face`). Pre-Fox reads a player folder's and a shared
+/// face folder's (`PlayerFile::FaceXml`), the latter the xml of each face linking it; Fox has
+/// no `face.xml` and ignores it (`xml_ignored_fox`). A shared boots or gloves folder's is
+/// ignored on pre-Fox too (`xml_ignored_shared`): its output is one model or a `glove.xml`,
+/// which no face xml drives.
 pub(crate) fn is_user_face_xml(folder: &ScopePath, file: &FileDescriptor) -> bool {
     file.kind == FileKind::Xml
         && file.path.name().eq_ignore_ascii_case("face.xml")
@@ -810,11 +812,12 @@ impl FolderModels {
                         );
                     // A folder holding its own `face.xml` has a face whatever models it
                     // holds: the xml may name only Common models (`messages.md`
-                    // "User-supplied `face.xml`"). A shared folder's xml is ignored.
+                    // "User-supplied `face.xml`"). A shared boots or gloves folder's xml is
+                    // ignored.
                     models.face |= model_link
                         || ((file.kind == FileKind::Model(ModelFormat::PesModel) || converted)
                             && typed)
-                        || (!models.is_shared() && is_user_face_xml(folder, file));
+                        || (!models.is_shared_boots_or_gloves() && is_user_face_xml(folder, file));
                     continue;
                 }
             }
@@ -885,6 +888,13 @@ impl FolderModels {
     /// (`FolderModels::of_shared`), whose `.common` links have no role.
     pub(crate) fn is_shared(&self) -> bool {
         self.shared.is_some()
+    }
+
+    /// Whether the models are a shared `Boots/` or `Gloves/` folder's, whose `face.xml` no
+    /// face reads on pre-Fox (`xml_ignored_shared`): its output is one model or a
+    /// `glove.xml`.
+    pub(crate) fn is_shared_boots_or_gloves(&self) -> bool {
+        matches!(self.shared, Some(SharedKind::Boots | SharedKind::Gloves))
     }
 
     /// Whether `file` is a model another representation of its path stem beats (`pipeline.md`
@@ -1086,12 +1096,13 @@ fn fox_file(
 /// same, the `.skl` paired with such an FMDL its conversion's bind pose
 /// (`PlayerFile::ConversionSkeleton`), a `.mtl` beside the models, outside `common/`, a
 /// `.common` link to a `.model`, an FMDL, a `.mtl` or a texture (`pre_fox_link`), under
-/// `ingame_face` a link to a model being a part as the `.model` itself would be, a member's own `face.xml`,
-/// a face file (`PlayerFile::FaceXml`), and a glTF with no `.model` of its path stem beside it
-/// (`PlayerFile::UnsupportedGltf`). A model `FolderModels::left_out_variants` names is
-/// `PlayerFile::LeftOutKitVariant`. A model `FolderModels::beaten` names, any other `.skl` and
-/// `fcl_hair_sim.fclo` have no role, nor any other link, any link in a shared folder
-/// (`FolderModels::shared`), a shared folder's own `face.xml` or any `.xml` but the face diff.
+/// `ingame_face` a link to a model being a part as the `.model` itself would be, a member's own
+/// `face.xml` or a shared face folder's, a face file (`PlayerFile::FaceXml`), and a glTF with
+/// no `.model` of its path stem beside it (`PlayerFile::UnsupportedGltf`). A model
+/// `FolderModels::left_out_variants` names is `PlayerFile::LeftOutKitVariant`. A model
+/// `FolderModels::beaten` names, any other `.skl` and `fcl_hair_sim.fclo` have no role, nor any
+/// other link, any link in a shared folder (`FolderModels::shared`), a shared boots or gloves
+/// folder's own `face.xml` or any `.xml` but the face diff.
 fn pre_fox_file(
     position: Position,
     file: &FileDescriptor,
@@ -1129,10 +1140,11 @@ fn pre_fox_file(
             None => pre_fox_link(position, file.path.name()),
         },
         FileKind::CommonLink => pre_fox_link(position, file.path.name()),
-        // A shared folder's own xml is ignored (`xml_ignored_shared`): each player combining
-        // the face lists the folder's models as without it, and nothing checks it.
+        // A shared boots or gloves folder's own xml is ignored (`xml_ignored_shared`): its
+        // output is one model or a `glove.xml`, which no face xml drives, and nothing checks it.
         FileKind::Xml
-            if file.path.name().eq_ignore_ascii_case("face.xml") && models.is_shared() =>
+            if file.path.name().eq_ignore_ascii_case("face.xml")
+                && models.is_shared_boots_or_gloves() =>
         {
             None
         }
@@ -2518,12 +2530,38 @@ mod tests {
     }
 
     #[test]
-    fn on_pre_fox_a_shared_face_s_own_face_xml_has_no_role_and_a_player_s_is_a_face_file() {
+    fn on_pre_fox_a_boots_or_gloves_folder_s_face_xml_has_no_role_and_a_face_s_is_a_face_file() {
         let names = ["face_high.model", "face_high.mtl", "face.xml"];
         assert_eq!(
             shared_roles("Faces/Round", SharedKind::Face, &names, Engine::PreFox),
-            [pre_fox_model("face_neck"), Some(PlayerFile::Material), None]
+            [
+                pre_fox_model("face_neck"),
+                Some(PlayerFile::Material),
+                Some(PlayerFile::FaceXml)
+            ]
         );
+        // A face folder holding its xml alone has a face: the xml may name only Common models.
+        assert_eq!(
+            shared_roles(
+                "Faces/Round",
+                SharedKind::Face,
+                &["face.xml"],
+                Engine::PreFox
+            ),
+            [Some(PlayerFile::FaceXml)]
+        );
+        for kind in [SharedKind::Boots, SharedKind::Gloves] {
+            assert_eq!(
+                shared_roles(
+                    "Boots/Crocs",
+                    kind,
+                    &["boots.model", "face.xml"],
+                    Engine::PreFox
+                )[1],
+                None,
+                "{kind:?}"
+            );
+        }
         assert_eq!(
             engine_roles(&names, Engine::PreFox),
             [

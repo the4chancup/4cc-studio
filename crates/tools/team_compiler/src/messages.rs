@@ -220,9 +220,14 @@ pub(crate) enum Code {
     /// PES 2018 to 2021: a player folder's own `face.xml`, which Fox has no use for: it is
     /// ignored, and the folder's models compile as without it.
     XmlIgnoredFox,
-    /// PES 2015 to 2017: a shared face folder's own `face.xml`: it is ignored and not
-    /// checked, and each player combining the face lists the folder's models as without it.
+    /// PES 2015 to 2017: a shared boots or gloves folder's own `face.xml`, whose output (one
+    /// model, a `glove.xml`) no face xml drives: it is ignored and not checked, and the
+    /// folder's models are read as without it.
     XmlIgnoredShared,
+    /// PES 2015 to 2017: a player folder holding its own `face.xml` links a shared face
+    /// folder, whether or not that folder holds one: a face takes one xml, and the player's
+    /// folder is left out.
+    XmlSharedFaceConflict,
     /// Two of a player's sources feeding different packages hold a texture of one stem with
     /// different bytes; the lower package in canonical order (face > boots > gloves) is left
     /// out with the textures only its sources hold.
@@ -437,7 +442,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 133] = [
+    const ALL: [Code; 134] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -506,6 +511,7 @@ impl Code {
         Code::XmlModelUnlisted,
         Code::XmlIgnoredFox,
         Code::XmlIgnoredShared,
+        Code::XmlSharedFaceConflict,
         Code::SharedTextureConflict,
         Code::MergedTextureConflict,
         Code::TextureTooSmall,
@@ -644,6 +650,7 @@ impl Code {
             Code::XmlModelUnlisted => "xml_model_unlisted",
             Code::XmlIgnoredFox => "xml_ignored_fox",
             Code::XmlIgnoredShared => "xml_ignored_shared",
+            Code::XmlSharedFaceConflict => "xml_shared_face_conflict",
             Code::SharedTextureConflict => "shared_texture_conflict",
             Code::MergedTextureConflict => "merged_texture_conflict",
             Code::TextureTooSmall => "texture_too_small",
@@ -802,6 +809,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("xml_model_unlisted", CatalogSeverity::Warning),
     ("xml_ignored_fox", CatalogSeverity::Info),
     ("xml_ignored_shared", CatalogSeverity::Info),
+    ("xml_shared_face_conflict", CatalogSeverity::Error),
     ("shared_texture_conflict", CatalogSeverity::Error),
     ("merged_texture_conflict", CatalogSeverity::Error),
     ("texture_too_small", CatalogSeverity::Error),

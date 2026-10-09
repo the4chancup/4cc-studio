@@ -324,8 +324,13 @@ fn on_pes_16_a_model_name_without_its_prefix_drops_the_folder_and_on_pes_17_it_d
 
 /// Slot 05's face CPK among the output CPK's `entries`, each file by its name in the face.
 fn slot_05_face(entries: &BTreeMap<String, Vec<u8>>) -> BTreeMap<String, Vec<u8>> {
-    let folder = face_folder(5);
-    nested_entries(&entries[&face_cpk(5)])
+    slot_face(entries, 5)
+}
+
+/// Slot `slot`'s face CPK among the output CPK's `entries`, each file by its name in the face.
+fn slot_face(entries: &BTreeMap<String, Vec<u8>>, slot: u8) -> BTreeMap<String, Vec<u8>> {
+    let folder = face_folder(slot);
+    nested_entries(&entries[&face_cpk(slot)])
         .into_iter()
         .map(|(path, bytes)| {
             (
@@ -460,46 +465,238 @@ fn without_its_xml_the_same_folder_s_models_are_typed_by_their_names() {
     );
 }
 
-// TC-XML-10
-#[test]
-fn a_shared_face_s_own_face_xml_is_ignored_on_pes_17_and_the_face_lists_its_models() {
-    let sandbox = Sandbox::new("user_xml_shared_face");
-    let export = "co Midcup Xml";
-    sandbox.write(&format!("exports/{export}/Players/05 - A/Round.face"), b"");
+/// Writes `Faces/Round` of `export` holding the card head's model as `face_high.model`, its
+/// `.mtl` naming `skin.dds`, that texture, and the `face.xml` `xml` when given, and a link to
+/// it in each of the player folders `folders`.
+fn write_round(sandbox: &Sandbox, export: &str, xml: Option<&str>, folders: &[&str]) {
     let round = format!("exports/{export}/Faces/Round");
     sandbox.write(&format!("{round}/face_high.model"), &card_model());
     sandbox.write(&format!("{round}/face_high.mtl"), &card_materials());
     sandbox.write(&format!("{round}/skin.dds"), &small_dds());
-    let xml = face_xml(&[FACE_HIGH]);
-    sandbox.write(&format!("{round}/face.xml"), xml.as_bytes());
+    if let Some(xml) = xml {
+        sandbox.write(&format!("{round}/face.xml"), xml.as_bytes());
+    }
+    for folder in folders {
+        sandbox.write(
+            &format!("exports/{export}/Players/{folder}/Round.face"),
+            b"",
+        );
+    }
+}
+
+/// The shared face's `face_high` entry, typed `parts`: with no `face_neck` entry, the dummy
+/// shows where the appended entries go.
+const ROUND_FACE_HIGH: &str = r#"type="parts" path="./face_high.model" material="./face_high.mtl""#;
+
+// TC-XML-14
+#[test]
+fn a_shared_face_s_xml_is_its_linking_face_s_with_his_own_models_appended() {
+    let sandbox = Sandbox::new("user_xml_shared_face");
+    let export = "co Midcup Xml";
+    let xml = face_xml(&[ROUND_FACE_HIGH]);
+    write_round(&sandbox, export, Some(&xml), &["05 - A"]);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/hair.model"), &card_model());
+    sandbox.write(&format!("{player}/hair.mtl"), &card_materials());
 
     let entries = compile_pes17(
         &sandbox,
         export,
         &[
             IDENTIFIED,
-            "Info xml_ignored_shared [Keep] at Faces/Round (file=face.xml)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            FACE_NECK_ADDED,
+        ],
+    );
+
+    // The shared model under the name the xml gives it, his own under its generated one.
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        [
+            "dummy.mtl",
+            "face.xml",
+            "face_high.model",
+            "face_high.mtl",
+            "hair.mtl",
+            "oral_dummy_win32.model",
+            "oral_hair_win32.model",
+        ]
+    );
+    assert_eq!(face["face_high.model"], card_model());
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        owned_entries(&[
+            ("parts", "./face_high.model", "./face_high.mtl"),
+            ("parts", "./oral_hair_*.model", "./hair.mtl"),
+            ("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ])
+    );
+    for mtl in ["face_high.mtl", "hair.mtl"] {
+        assert_eq!(
+            sampler_paths(&face[mtl]),
+            [format!("{SLOT_05_HOME}skin.dds")],
+            "{mtl}"
+        );
+    }
+}
+
+#[test]
+fn a_file_of_his_replacing_one_the_shared_xml_names_is_that_entry_s_file_not_appended() {
+    let sandbox = Sandbox::new("user_xml_shared_face_replaced");
+    let export = "co Midcup Xml";
+    let xml = face_xml(&[FACE_HIGH]);
+    write_round(&sandbox, export, Some(&xml), &["05 - A"]);
+    // His own `face_high` pair, its `.mtl` naming his own texture.
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.model"), &card_model());
+    sandbox.write(&format!("{player}/face_high.mtl"), &materials_naming("his"));
+    sandbox.write(&format!("{player}/his.dds"), &small_dds());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            IDENTIFIED,
             "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
         ],
     );
 
-    // The face is generated as without the xml: the model packed under its generated name and
-    // listed by it, not the member's `./face_high.model` written back.
     let face = slot_05_face(&entries);
     assert_eq!(
         names(&face),
-        ["face.xml", "face_high.mtl", "oral_face_high_win32.model"]
+        ["face.xml", "face_high.model", "face_high.mtl"]
     );
     assert_eq!(
         ordered_entries(&face["face.xml"]),
-        [(
-            "face_neck".to_owned(),
-            "./oral_face_high_*.model".to_owned(),
-            "./face_high.mtl".to_owned()
-        )]
+        owned_entries(&[("face_neck", "./face_high.model", "./face_high.mtl")])
     );
-    assert!(face["face.xml"] != xml.as_bytes(), "the member's xml");
+    assert_eq!(
+        sampler_paths(&face["face_high.mtl"]),
+        [format!("{SLOT_05_HOME}his.dds")]
+    );
+}
+
+// TC-XML-15
+#[test]
+fn a_player_s_own_xml_beside_a_face_link_drops_his_folder_even_under_pass_through() {
+    let sandbox = Sandbox::new("user_xml_shared_face_conflict");
+    let export = "co Midcup Xml";
+    // The shared folder holds no xml: the player's own is the conflict all the same.
+    write_round(&sandbox, export, None, &["05 - A"]);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/face.xml"),
+        face_xml(&[r#"type="face_neck" path="./face_high.model""#]).as_bytes(),
+    );
+    // Another face, so the run writes a CPK the dropped one is missing from.
+    let other = format!("exports/{export}/Players/07 - B");
+    sandbox.write(&format!("{other}/face_high.model"), &card_model());
+    sandbox.write(&format!("{other}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{other}/skin.dds"), &small_dds());
+    let conflict = "Error xml_shared_face_conflict [DropFolder] at Players/05 - A (file=face.xml, link=Faces/Round)";
+    // With its one linking player dropped, nothing compiles the shared folder.
+    let orphaned = "Warning shared_folder_orphaned [DropFolder] at Faces/Round ()";
+
+    let run = sandbox.run(&pes17(&sandbox), &["check"]);
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [conflict, orphaned, IDENTIFIED],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+
+    for settings in [
+        pes17(&sandbox),
+        format!("{}[team-compiler]\npass_through = true\n", pes17(&sandbox)),
+    ] {
+        let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+        let lines = run.messages();
+        assert_eq!(
+            findings_of(&lines, export),
+            [
+                conflict,
+                orphaned,
+                IDENTIFIED,
+                "Info team_colors_missing [Keep] ()",
+            ],
+            "{lines:#?}"
+        );
+        assert_eq!(run.exit_code(), 1, "{lines:#?}");
+        let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+        assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+        assert!(entries.contains_key(&face_cpk(7)), "{:?}", entries.keys());
+    }
+}
+
+#[test]
+fn a_shared_face_s_xml_naming_an_absent_model_drops_the_folder_and_its_linking_player() {
+    let sandbox = Sandbox::new("user_xml_shared_face_not_found");
+    let export = "co Midcup Xml";
+    let xml = face_xml(&[FACE_HIGH, r#"type="parts" path="./missing.model""#]);
+    write_round(&sandbox, export, Some(&xml), &["05 - A"]);
+
+    let run = sandbox.run(&pes17(&sandbox), &["check"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Error xml_model_not_found [DropFolder] at Faces/Round (attribute=path, value=./missing.model)",
+            "Error link_target_dropped [DropFolder] at Players/05 - A (link=Round.face, target=Faces/Round, finding=xml_model_not_found)",
+            IDENTIFIED,
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+}
+
+#[test]
+fn his_own_face_diff_beside_a_face_link_wins_over_the_shared_xml_s_dif() {
+    let sandbox = Sandbox::new("user_xml_shared_face_dif");
+    let export = "co Midcup Xml";
+    let dif_text = String::from_utf8(face_diff_fixture("dif.xml")).unwrap();
+    let start = dif_text.find("<dif>").unwrap() + "<dif>".len();
+    let end = dif_text.find("</dif>").unwrap();
+    let base64 = dif_text[start..end].trim();
+    let xml =
+        format!("<config>\n   <model level=\"0\" {FACE_HIGH}/>\n<dif>{base64}</dif>\n</config>\n");
+    write_round(&sandbox, export, Some(&xml), &["05 - A", "07 - B"]);
+    // Slot 05's own face diff, another real one than the `<dif>`'s.
+    let own = face_diff_fixture("plain.xml");
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/face_diff.xml"),
+        &own,
+    );
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            IDENTIFIED,
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info link_combined [Keep] at Players/07 - B (link=Round.face)",
+        ],
+    );
+
+    // Both faces are the shared xml's; his file is his face's diff, the `<dif>` the other's.
+    let shared_entries = owned_entries(&[("face_neck", "./face_high.model", "./face_high.mtl")]);
+    let slot_05 = slot_face(&entries, 5);
+    assert_eq!(ordered_entries(&slot_05["face.xml"]), shared_entries);
+    assert_eq!(
+        decoded_dif(&slot_05["face.xml"]),
+        face_diff_fixture("plain.bin")
+    );
+    let slot_07 = slot_face(&entries, 7);
+    assert_eq!(ordered_entries(&slot_07["face.xml"]), shared_entries);
+    assert_eq!(
+        decoded_dif(&slot_07["face.xml"]),
+        face_diff_fixture("dif.bin")
+    );
 }
 
 /// The `face.xml` naming `./hat.model` typed `parts` with `./hat.mtl`, and no `face_neck`.

@@ -7,8 +7,10 @@
 //! included, his face diff as its `<dif>`. A per-kit model set is packed whole and listed once,
 //! its kit token spelled `kitN` (`team_compiler/pipeline.md` "4. Per-export non-model steps",
 //! Kit-dependent assets). A face with no `face_neck` model, the blank face of a folder with no
-//! model included, gets the bundled dummy as one. A folder holding the member's own `face.xml`
-//! gets that xml written back instead, with only the files it names packed (`user_xml_face`).
+//! model included, gets the bundled dummy as one. A face with the member's own `face.xml`, his
+//! folder's or his linked shared face's, gets that xml written back instead, with only the
+//! files it names packed, and beside a shared face's xml the generated entries of his own
+//! models it does not name appended (`user_xml_face`).
 //! `materialize` packs the files into the face CPK.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -45,7 +47,7 @@ use crate::plan::roles::{
 };
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 use crate::user_face_xml::{
-    Child, FaceFiles, ModelElement, Reference, reference, resolve, variant_of,
+    Child, FaceFiles, ModelElement, Reference, UserFaceXml, parse, reference, resolve, variant_of,
 };
 
 /// The `face.xml` type the game loads a player's face model as. A face whose models include
@@ -220,11 +222,16 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 /// is noted in `findings` as `kit_variant_mtl_differs`. Two files of one source packing under
 /// one name fail the task: neither can be dropped silently.
 ///
-/// A folder holding the member's own `face.xml` (`ModelFolder::own_face_xml`) has no generated
-/// xml: the textures and the face diff are read as above, and the xml is written back by
-/// `user_xml_face`, which packs only the models and `.mtl` files its references name, under
-/// the names they give (`messages.md` "User-supplied `face.xml`"). No model is typed by its
-/// name, split or listed by kit there; the hand split is not planned for such a folder.
+/// A face with a `face.xml` (`ModelFolder::face_xml`), the member's own or the one of the
+/// shared face he links, has no generated xml: the textures are read as above, and the xml is
+/// written back by `user_xml_face`, which packs only the models and `.mtl` files its
+/// references name, under the names they give (`messages.md` "User-supplied `face.xml`"). No
+/// model of the source holding the xml is typed by its name, split or listed by kit there; the
+/// hand split is not planned for such a face. Beside a shared face's xml, each of the player's
+/// own models the xml does not name (`names_model`) takes the route above, its generated entry
+/// written after the xml's children, and his `.mtl` files are packed as above. The face's diff
+/// is the player's own face diff beside a shared face's xml, else the xml's last `<dif>`, else
+/// the face diff of the folder holding the xml, else the bundled one.
 pub(super) fn face(
     folder: &ModelFolder,
     team_id: u16,
@@ -232,10 +239,15 @@ pub(super) fn face(
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
 ) -> Result<PackageFiles, TaskFailure> {
-    let own_xml = folder.own_face_xml();
+    let xml = folder.face_xml();
     let mut models = Vec::new();
     let mut materials = Vec::new();
+    // The face diff of a source other than the xml's, his own beside a shared face's xml,
+    // which wins over the xml's `<dif>` as any of his files wins over the shared folder's; and
+    // the one of the source holding the xml, which the `<dif>` replaces. `roles()` gives the
+    // face one face diff, so at most one of them is set.
     let mut dif = None;
+    let mut xml_source_dif = None;
     // The folder's texture stems, folded, each with its stem as the folder spells it: the
     // name its converted DDS has in the texture home (`folder_textures`).
     let mut textures: BTreeMap<String, String> = BTreeMap::new();
@@ -284,14 +296,24 @@ pub(super) fn face(
             .filter(|(_, role)| matches!(role, PlayerFile::ConversionSkeleton))
             .map(|(file, _)| *file)
             .collect();
+        // The source holding the face's xml: its models and `.mtl` files are the xml's to name.
+        let xml_source = xml.is_some_and(|(source, _)| source == source_path);
+        let source_dif = if xml_source {
+            &mut xml_source_dif
+        } else {
+            &mut dif
+        };
         let mut packed_here = Vec::new();
         for (file, role) in source_roles {
             match role {
-                // With the member's own xml the xml lists the face's models (`user_xml_face`),
-                // and the deep pass, which compared only the `.mtl` each entry names, does not
-                // promise a search finds one for every model (an entry may name none).
-                PlayerFile::PreFoxModel { .. } | PlayerFile::PreFoxCommonModel { .. }
-                    if own_xml.is_some() => {}
+                // The xml lists its folder's models (`user_xml_face`), and the deep pass, which
+                // compared only the `.mtl` each entry names, does not promise a search finds
+                // one for every model (an entry may name none). It packs only the `.mtl`
+                // files its entries name.
+                PlayerFile::PreFoxModel { .. }
+                | PlayerFile::PreFoxCommonModel { .. }
+                | PlayerFile::Material
+                    if xml_source => {}
                 PlayerFile::PreFoxModel { xml_type } => {
                     let stem = file_stem(file.path.name());
                     let packed = packed_model_name(stem);
@@ -378,13 +400,13 @@ pub(super) fn face(
                 }
                 // On pre-Fox the face diff is the one packed file (`fcl_hair_sim.fclo` has no
                 // role there); here it is the `<dif>`, never a file of the CPK.
-                PlayerFile::Packed { .. } => dif = Some(take(files, file)),
+                PlayerFile::Packed { .. } => *source_dif = Some(take(files, file)),
                 // The deep pass has dropped a folder whose face diff fails to decode, so a
                 // failure here is not a member's mistake.
                 PlayerFile::FaceDiffXml => {
                     let bytes = face_diff::from_xml(&take(files, file))
                         .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
-                    dif = Some(bytes);
+                    *source_dif = Some(bytes);
                 }
                 PlayerFile::Texture(stem, _) => {
                     textures.insert(vtree::fold_name(&stem), stem);
@@ -394,7 +416,7 @@ pub(super) fn face(
                 }
                 // The search resolves a material link where it finds it (`mtl_for`).
                 PlayerFile::CommonMaterial => {}
-                // Read after the sources, the first one (`own_xml`), by `user_xml_face`.
+                // Read after the sources, the first one (`ModelFolder::face_xml`).
                 PlayerFile::FaceXml => {}
                 // Read with the FMDL it is the bind pose of, above.
                 PlayerFile::ConversionSkeleton => {}
@@ -424,11 +446,25 @@ pub(super) fn face(
         (&textures, home.as_str()),
         (&linked, common_directory.as_str()),
     ];
-    let dif = dif.unwrap_or_else(|| ctx.templates.face_diff().to_vec());
-    if let Some(xml_file) = own_xml {
-        let face = XmlFace::new(folder, &common_directory, &places);
-        return user_xml_face(face, xml_file, ctx, files, findings, &dif);
+    // An xml that does not parse is an error: the deep pass dropped its folder.
+    let xml = match xml {
+        Some((_, file)) => Some(
+            parse(&take(files, file))
+                .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?,
+        ),
+        None => None,
+    };
+    // Beside a shared face's xml, a model of his it names is packed by its entry; the others
+    // are appended.
+    if let Some(xml) = &xml {
+        let named = face_files(folder);
+        models.retain(|model| !names_model(xml, model, &named));
     }
+    let xml_dif = xml.as_ref().and_then(last_dif).map(<[u8]>::to_vec);
+    let dif = dif
+        .or(xml_dif)
+        .or(xml_source_dif)
+        .unwrap_or_else(|| ctx.templates.face_diff().to_vec());
     // By export path, case-folded, then as spelled, so a recompile lists them alike.
     models.sort_by_cached_key(|model| {
         (
@@ -604,6 +640,10 @@ pub(super) fn face(
             bytes,
         )?;
     }
+    if let Some(xml) = xml {
+        let face = XmlFace::new(folder, &common_directory, &places, contents);
+        return user_xml_face(face, &xml, &entries, ctx, files, findings, &dif);
+    }
     if !entries.iter().any(|entry| entry.xml_type == FACE_NECK) {
         // The blank face's dummy is the compiler's own placeholder, which tells the member
         // nothing; a face with models lacks the type its author may have meant to give one.
@@ -668,32 +708,23 @@ struct XmlFace<'a> {
 }
 
 impl<'a> XmlFace<'a> {
-    /// The face of `folder` about to be written from its own xml, nothing packed yet; a
-    /// Common file is named in `common_directory` and a `.mtl` points its texture paths at
-    /// `places`.
+    /// The face of `folder` about to be written from its xml, `contents` packed already (the
+    /// player's own models the xml does not name, with his `.mtl` files): a reference naming
+    /// one of their names packs nothing more. A Common file is named in `common_directory` and
+    /// a `.mtl` points its texture paths at `places`.
     fn new(
         folder: &'a ModelFolder,
         common_directory: &'a str,
         places: &'a [(&'a BTreeMap<String, String>, &'a str)],
+        contents: PackageFiles,
     ) -> Self {
-        // The shared face the player combines, which a `./` reference looks in after his own
-        // files.
-        let linked_face = folder
-            .combined
-            .iter()
-            .find(|combined| combined.package == ModelPackage::Face)
-            .map_or(&[][..], |combined| combined.folder.files.as_slice());
+        let packed = contents.keys().map(|name| vtree::fold_name(name)).collect();
         XmlFace {
-            named: FaceFiles {
-                own: &folder.files,
-                linked_face,
-                common: &folder.common_files,
-                folder: &folder.path,
-            },
+            named: face_files(folder),
             common_directory,
             places,
-            contents: PackageFiles::new(),
-            packed: BTreeSet::new(),
+            contents,
+            packed,
         }
     }
 
@@ -842,40 +873,109 @@ impl<'a> XmlFace<'a> {
     }
 }
 
-/// The files of a pre-Fox face whose folder holds the member's own `face.xml`, `xml_file`, read
-/// from `files` (`messages.md` "User-supplied `face.xml`", "How a `path` or `material` is
-/// resolved and written" and "What is emitted from such a folder"): the xml written back
-/// (`user_face_xml`) with its children in their order, each `<model>` as `face.written_model`
-/// writes it and packing the files it names, any other element as the member wrote it; then,
-/// when no written `<model>` is a `face_neck`, the dummy's entry (`packed_dummy`), noted in
-/// `findings` as `xml_face_neck_added` when the xml has a `<model>`; then its last `<dif>`,
-/// else `dif`, the folder's face diff or the bundled one. Only what the references name is
-/// packed: no other `.model` (the deep pass reported each as `xml_model_unlisted`) and no
-/// other `.mtl`. An xml that does not parse is an error: the deep pass dropped its folder.
+/// The files a `face.xml` of `folder`'s face may name: the player's own, his linked shared
+/// face's, which a `./` reference looks in after his own, and the export's `Common/` models,
+/// `.mtl` files and textures (`ModelFolder::common_files`).
+fn face_files(folder: &ModelFolder) -> FaceFiles<'_> {
+    let linked_face = folder
+        .combined
+        .iter()
+        .find(|combined| combined.package == ModelPackage::Face)
+        .map_or(&[][..], |combined| combined.folder.files.as_slice());
+    FaceFiles {
+        own: &folder.files,
+        linked_face,
+        common: &folder.common_files,
+        folder: &folder.path,
+    }
+}
+
+/// Whether the face's `face.xml` `xml` names `model`, one of the player's own models beside a
+/// linked shared face's xml, so that the xml's entry packs it and no generated entry is
+/// appended for it: a `path` reference resolving to its `.model` among `named`, his own files
+/// first (`resolve`), or a `kitN` one naming a set it is a variant of, whose entry packs
+/// every variant of his (`XmlFace::written_local`); for a `.common` link, a Common reference
+/// resolving to the Common `.model` the link loads. An FMDL he holds is never named: a
+/// reference names a `.model`.
+fn names_model(xml: &UserFaceXml, model: &FaceModel, named: &FaceFiles) -> bool {
+    let model_kind = FileKind::Model(ModelFormat::PesModel);
+    let target = if model.in_common {
+        common_link_name(model.file.path.name())
+            .and_then(|linked| selected_common_model(named.common, &linked, Engine::PreFox))
+    } else {
+        Some(model.file)
+    };
+    let Some(target) = target.filter(|target| target.kind == model_kind) else {
+        return false;
+    };
+    xml.children
+        .iter()
+        .filter_map(|child| match child {
+            Child::Model(entry) => entry.attribute("path").map(reference),
+            Child::Dif(_) | Child::Other(_) => None,
+        })
+        .any(|path| {
+            let set_variant = match &path {
+                Reference::Local(name) => {
+                    !model.in_common
+                        && in_folder_or_face(named.folder, target)
+                        && variant_of(name, target.path.name()).is_some()
+                }
+                Reference::Common { .. } | Reference::Unchecked(_) => false,
+            };
+            set_variant
+                || resolve(&path, named, model_kind).is_some_and(|file| file.path == target.path)
+        })
+}
+
+/// The last `<dif>` of the `face.xml` `xml`, decoded, when it has one: the one written.
+fn last_dif(xml: &UserFaceXml) -> Option<&[u8]> {
+    xml.children.iter().rev().find_map(|child| match child {
+        Child::Dif(bytes) => Some(bytes.as_slice()),
+        Child::Model(_) | Child::Other(_) => None,
+    })
+}
+
+/// The files of a pre-Fox face with a `face.xml`, `xml` (the member's own or his linked shared
+/// face's), read from `files` (`messages.md` "User-supplied `face.xml`", "How a `path` or
+/// `material` is resolved and written" and "What is emitted from such a folder"): the xml
+/// written back (`user_face_xml`) with its children in their order, each `<model>` as
+/// `face.written_model` writes it and packing the files it names, any other element as the
+/// member wrote it; then `appended`, the generated entries of the player's own models the
+/// shared xml does not name, which `face` packed already; then, when no written `<model>` is a
+/// `face_neck`, the dummy's entry (`packed_dummy`), noted in `findings` as
+/// `xml_face_neck_added` when the face has a `<model>`; then `dif`, the face's diff. Only what
+/// the references name is packed beside what `face` holds: no other `.model` of the xml's
+/// folder (the deep pass reported each as `xml_model_unlisted`) and no other `.mtl` of it.
 fn user_xml_face(
     mut face: XmlFace,
-    xml_file: &FileDescriptor,
+    xml: &UserFaceXml,
+    appended: &[XmlEntry],
     ctx: &CompileContext,
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
     dif: &[u8],
 ) -> Result<PackageFiles, TaskFailure> {
-    let xml = crate::user_face_xml::parse(&take(files, xml_file))
-        .map_err(|error| anyhow::anyhow!("{}: {error}", xml_file.path.as_str()))?;
     let mut children = Vec::new();
-    let mut xml_dif = None;
-    let mut has_model = false;
     for child in &xml.children {
         match child {
             Child::Model(model) => {
-                has_model = true;
                 let attributes = face.written_model(model, ctx.version, files, findings)?;
                 children.push(WrittenChild::Model(attributes));
             }
-            Child::Dif(bytes) => xml_dif = Some(bytes.as_slice()),
+            // The face's diff, the last `<dif>` or another, is written last (`dif`).
+            Child::Dif(_) => {}
             Child::Other(element) => children.push(WrittenChild::Other(element)),
         }
     }
+    children.extend(
+        appended
+            .iter()
+            .map(|entry| WrittenChild::Model(entry.attributes())),
+    );
+    let has_model = children
+        .iter()
+        .any(|child| matches!(child, WrittenChild::Model(_)));
     let has_face_neck = children.iter().any(|child| match child {
         WrittenChild::Model(attributes) => attributes
             .iter()
@@ -890,7 +990,7 @@ fn user_xml_face(
         let dummy = packed_dummy(&mut face.contents, ctx)?;
         children.push(WrittenChild::Model(dummy.attributes()));
     }
-    let written = user_face_xml(&children, xml_dif.unwrap_or(dif));
+    let written = user_face_xml(&children, dif);
     insert(
         &mut face.contents,
         ModelPackage::Face,

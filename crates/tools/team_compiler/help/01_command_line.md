@@ -208,15 +208,21 @@ stand-in appended when no entry has that type (`xml_face_neck_added`), and for P
 `uniform` written `uniform_sub` (`xml_uniform_pes15`). Only the models and `.mtl` files the
 xml names are packed, and its own `<dif>`, else the folder's face diff, is the face's. For
 PES 2018 to 2021 the xml is ignored, reported as `xml_ignored_fox`, and the
-folder's models compile as they would without it. A `face.xml` in a shared face folder is
-ignored on every version, reported as `xml_ignored_shared` on PES 2015 to 2017, and each
-player combining the face lists its models as if it had none.
+folder's models compile as they would without it. On PES 2015 to 2017 a `face.xml` in a
+shared face folder is checked the same way, in that folder, and becomes the xml of every
+player's face linking it: each of his own models it does not name gets the entry a generated
+xml would give it, after the xml's own entries, and his own face diff, when he has one, wins
+over the xml's `<dif>`. A player folder linking a shared face holds no `face.xml` of its own,
+whether or not the shared folder has one: that is `xml_shared_face_conflict`, which leaves
+his folder out even with pass-through on. A `face.xml` in a shared boots or gloves folder is
+ignored, reported as `xml_ignored_shared`.
 A face model there whose vertices are weighted to the hand bones (`skh_`) has its hands cut off
 at the wrist at compile time, which the note `model_hand_split` names: the rest keeps the
 model's place, and the hands of `body.model` become `body_glove_l.model` and
 `body_glove_r.model` in the same face, listed as its left and right gloves with the same `.mtl`.
 A model named as boots or gloves, or one a `.common` link brings in, is never cut, nor is any
-model of a folder holding its own `face.xml`, which lists what the face loads.
+model of a face with a `face.xml`, its own or its linked shared face's, which lists what the
+face loads.
 With `ingame_face`, every `.model` but a glove (`shirt.model` and `torso.model` included)
 becomes part of the player's own boots, written as one `boots.model` with one `boots.mtl` in
 his own boots folder; several are merged into one, reported as `model_merged`, and a linked

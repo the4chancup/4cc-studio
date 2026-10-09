@@ -559,9 +559,9 @@ fn no_model_messages(
 /// is the boots', and no fallback. A pre-Fox target types a model by its name, so it reports
 /// neither the fallback nor `skl_no_slot`. A Fox target reports a folder's own `face.xml`
 /// (directly in it or in `face/`) as `xml_ignored_fox`: Fox has no `face.xml`, and the
-/// folder's models compile as without it. A pre-Fox target reports a shared folder's own as
-/// `xml_ignored_shared`: each player combining the face lists the folder's models as without
-/// it. Then `file_not_used` on the export for each file
+/// folder's models compile as without it. A pre-Fox target reports a shared boots or gloves
+/// folder's own as `xml_ignored_shared`: its output is one model or a `glove.xml`, which no
+/// face xml drives. Then `file_not_used` on the export for each file
 /// directly in `Common/` of a kind no task reads, and for a refs export's kits, logo,
 /// portraits and collars (`referee_messages`).
 fn model_name_messages(
@@ -671,11 +671,13 @@ fn file_role_messages(
     for file in files {
         let name = file.path.name();
         // Fox has no `face.xml`: a member's own has no role there, and is ignored. Pre-Fox
-        // ignores a shared folder's: each player combining the face lists its models as
-        // without it.
+        // ignores a shared boots or gloves folder's: its output is one model or a `glove.xml`,
+        // which no face xml drives.
         let ignored_xml = match models.engine() {
             Engine::Fox if is_user_face_xml(path, file) => Some(Code::XmlIgnoredFox),
-            Engine::PreFox if models.is_shared() && is_user_face_xml(path, file) => {
+            Engine::PreFox
+                if models.is_shared_boots_or_gloves() && is_user_face_xml(path, file) =>
+            {
                 Some(Code::XmlIgnoredShared)
             }
             Engine::Fox | Engine::PreFox => None,
@@ -1057,21 +1059,30 @@ mod tests {
     }
 
     #[test]
-    fn a_shared_face_s_own_face_xml_is_ignored_on_either_engine() {
+    fn a_shared_folder_s_own_face_xml_is_ignored_on_fox_and_in_boots_or_gloves_on_pre_fox() {
         let files = [
             ("Players/05 - A/Round.face", 0),
+            ("Players/05 - A/Crocs.boots", 0),
             ("Faces/Round/face_high.model", 1),
             ("Faces/Round/face_high.mtl", 1),
             ("Faces/Round/face.xml", 1),
+            ("Boots/Crocs/boots.model", 1),
+            ("Boots/Crocs/boots.mtl", 1),
+            ("Boots/Crocs/face.xml", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
+        // On pre-Fox a shared face's xml is the xml of each face linking it, read with no
+        // finding; a boots folder's output is one model, which no face xml drives.
         assert_eq!(
             names(&export, PesVersion::Pes17),
-            ["Info xml_ignored_shared [Keep] at Faces/Round (file=face.xml)"]
+            ["Info xml_ignored_shared [Keep] at Boots/Crocs (file=face.xml)"]
         );
         assert_eq!(
             names(&export, PesVersion::Pes21),
-            ["Info xml_ignored_fox [Keep] at Faces/Round (file=face.xml)"]
+            [
+                "Info xml_ignored_fox [Keep] at Faces/Round (file=face.xml)",
+                "Info xml_ignored_fox [Keep] at Boots/Crocs (file=face.xml)",
+            ]
         );
     }
 

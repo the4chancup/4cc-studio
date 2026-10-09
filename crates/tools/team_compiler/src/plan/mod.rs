@@ -392,15 +392,20 @@ impl ModelFolder {
         roles
     }
 
-    /// The member's own `face.xml` the face reads: the first of the folder's own files with the
-    /// role `PlayerFile::FaceXml` (pre-Fox, a face file, so never under `ingame_face`), when
-    /// there is one. The deep pass checked every one; the face task writes this one back in
-    /// place of a generated `face.xml` (`messages.md` "User-supplied `face.xml`").
-    pub(crate) fn own_face_xml(&self) -> Option<&FileDescriptor> {
-        let (_, _, own) = self.roles().into_iter().next()?;
-        own.into_iter()
-            .find(|(_, role)| *role == PlayerFile::FaceXml)
-            .map(|(file, _)| file)
+    /// The `face.xml` the face reads, with the export path of the source holding it: the
+    /// member's own, the first of the folder's own files with the role `PlayerFile::FaceXml`
+    /// (pre-Fox, a face file, so never under `ingame_face`), else the one of the shared face
+    /// folder the player combines; `None` when neither holds one (`messages.md`
+    /// "User-supplied `face.xml`"). The deep pass checked every one, and dropped a player
+    /// folder holding its own beside a face link (`xml_shared_face_conflict`); the face task
+    /// writes this one back in place of a generated `face.xml`.
+    pub(crate) fn face_xml(&self) -> Option<(&ScopePath, &FileDescriptor)> {
+        self.roles().into_iter().find_map(|(_, source, files)| {
+            files
+                .into_iter()
+                .find(|(_, role)| *role == PlayerFile::FaceXml)
+                .map(|(file, _)| (source, file))
+        })
     }
 
     /// Whether the folder's textures task emits the template environment map: the folder is
@@ -841,7 +846,8 @@ fn linked_common_materials(folder: &ModelFolder) -> Vec<&FileDescriptor> {
 /// `.model` files its face packs and names as face content, its own and a combined shared
 /// face's: never a model a `.common` link brings in, which the face lists by reference in the
 /// team's Common output and packs nothing of, and never an `ingame_face` player's part, which
-/// has no face. A folder holding its own `face.xml` has none (`ModelFolder::own_face_xml`).
+/// has no face. A face with a `face.xml`, the member's own or his linked shared face's, has
+/// none (`ModelFolder::face_xml`).
 fn hand_split_parts(
     folder: &ModelFolder,
     hand_weighted: &BTreeSet<ScopePath>,
@@ -849,7 +855,7 @@ fn hand_split_parts(
 ) -> BTreeSet<ScopePath> {
     // The member's xml says what the face loads: a split would add glove entries he did not
     // write (`messages.md` "User-supplied `face.xml`", the paragraph "What is emitted").
-    if folder.own_face_xml().is_some() {
+    if folder.face_xml().is_some() {
         return BTreeSet::new();
     }
     folder
@@ -870,12 +876,19 @@ fn hand_split_parts(
 /// (`PlayerFile::PreFoxModel`) or a part of an `ingame_face` player's boots or gloves
 /// (`PlayerFile::PreFoxPart`), roles only a pre-Fox target gives (a `.model` with one is never
 /// among the metal models, which are FMDLs). A folder holding its own `face.xml` converts
-/// none: the xml lists the face's models, and names no converted one.
+/// none: the xml lists the face's models, and names no converted one. With the `face.xml` of
+/// the shared face he links, that folder's models are the xml's, but his own are converted
+/// as without it (`ModelFolder::face_xml`).
 fn converts_metal(folder: &ModelFolder, metal_models: &BTreeSet<ScopePath>) -> bool {
-    if folder.own_face_xml().is_some() {
+    let xml_source = folder.face_xml().map(|(source, _)| source);
+    if xml_source == Some(&folder.path) {
         return false;
     }
-    folder.roles().into_iter().any(|(_, _, files)| {
+    let mut sources = folder
+        .roles()
+        .into_iter()
+        .filter(|(_, source, _)| Some(*source) != xml_source);
+    sources.any(|(_, _, files)| {
         files.into_iter().any(|(file, role)| {
             let converted = matches!(
                 role,
@@ -5038,23 +5051,40 @@ mod tests {
                 ("Players/05 - A/body.model", 3),
                 ("Players/05 - A/body.mtl", 1),
                 ("Players/05 - A/face.xml", 1),
+                // A face whose linked shared face holds the xml: his own model is not split
+                // either.
+                ("Players/07 - B/body.model", 3),
+                ("Players/07 - B/body.mtl", 1),
+                ("Players/07 - B/Round.face", 0),
+                ("Faces/Round/face_high.model", 5),
+                ("Faces/Round/face_high.mtl", 1),
+                ("Faces/Round/face.xml", 1),
             ],
             &[],
             None,
         );
         let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
-        planned.hand_weighted = [scope_path("Players/05 - A/body.model")].into();
+        planned.hand_weighted = [
+            scope_path("Players/05 - A/body.model"),
+            scope_path("Players/07 - B/body.model"),
+            scope_path("Faces/Round/face_high.model"),
+        ]
+        .into();
 
         let report = plan_run(vec![planned], PesVersion::Pes17);
 
         let tasks = &report.manifest.tasks;
         assert_eq!(
             summary(&report),
-            ["0 714 Face Players/05 - A [71405] charge 5"]
+            [
+                "0 714 Face Players/05 - A [71405] charge 5",
+                "0 714 Face Players/07 - B [71407] charge 11",
+            ]
         );
         // The xml says what the face loads: the face task splits nothing, so it reports no
         // `model_hand_split`, and lists no glove entry the member did not write.
         assert_eq!(models_folder(&tasks[0]).hand_split, BTreeSet::new());
+        assert_eq!(models_folder(&tasks[1]).hand_split, BTreeSet::new());
         // The face reads the xml beside the model and its `.mtl`.
         assert_eq!(
             task_files(&tasks[0]),
@@ -5068,8 +5098,9 @@ mod tests {
 
     /// The plan for `version` of slot 05 holding `boots.fmdl` with no texture, slot 06
     /// `boots.fmdl` beside `boots.model` and its `.mtl`, which the `.model` beats on PES
-    /// 15-17, and slot 07 `boots.fmdl` beside its own `face.xml`; every FMDL is among the deep
-    /// pass's metal models.
+    /// 15-17, slot 07 `boots.fmdl` beside its own `face.xml`, and slot 08 linking `Faces/Round`,
+    /// which holds `boots.fmdl` beside its `face.xml`; every FMDL is among the deep pass's metal
+    /// models.
     fn metal_plan(version: PesVersion) -> PlanReport {
         let export = resolved(
             "co Midcup Metal",
@@ -5080,6 +5111,9 @@ mod tests {
                 ("Players/06 - B/boots.mtl", 1),
                 ("Players/07 - C/boots.fmdl", 3),
                 ("Players/07 - C/face.xml", 1),
+                ("Players/08 - D/Round.face", 0),
+                ("Faces/Round/boots.fmdl", 3),
+                ("Faces/Round/face.xml", 1),
             ],
             &[],
             None,
@@ -5089,6 +5123,7 @@ mod tests {
             scope_path("Players/05 - A/boots.fmdl"),
             scope_path("Players/06 - B/boots.fmdl"),
             scope_path("Players/07 - C/boots.fmdl"),
+            scope_path("Faces/Round/boots.fmdl"),
         ]
         .into();
         plan_run(vec![planned], version)
@@ -5131,7 +5166,8 @@ mod tests {
 
         // Slot 05's face converts its metal FMDL: its textures task is planned, with no
         // texture of its own, to emit the template. Slot 06's `.model` beats its FMDL, and
-        // slot 07's own `face.xml` lists the face's models, so neither face converts one.
+        // slot 07's own `face.xml` and slot 08's linked one list the face's models, so no
+        // other face converts one.
         let owned = |package: &str| package.to_owned();
         assert_eq!(
             environment_maps(&report),
@@ -5140,6 +5176,7 @@ mod tests {
                 (owned("textures"), "Players/05 - A", true),
                 (owned("Face"), "Players/06 - B", false),
                 (owned("Face"), "Players/07 - C", false),
+                (owned("Face"), "Players/08 - D", false),
             ]
         );
         let tasks = &report.manifest.tasks;

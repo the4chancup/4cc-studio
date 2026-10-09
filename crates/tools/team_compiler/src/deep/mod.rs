@@ -36,11 +36,13 @@
 //! itself (`collar`); a collar model is then checked as any model, its Errors dropping the
 //! file.
 //!
-//! For PES 2015 to 2017 it also reads a face folder's own `face.xml` (`user_face_xml`) and
-//! reports its content checks (`team_compiler/messages.md` "XML/MTL content checks"); the xml
-//! then decides which `.mtl` a model's `model_material_undefined` compares with: the one its
-//! entry names, for the models it lists (a `Common/` model an entry names included), instead
-//! of the one the search finds.
+//! For PES 2015 to 2017 it also reads a face folder's own `face.xml` (`user_face_xml`), a
+//! player's or a shared face folder's, and reports its content checks (`team_compiler/messages.md`
+//! "XML/MTL content checks"); the xml then decides which `.mtl` a model's
+//! `model_material_undefined` compares with: the one its entry names, for the models it lists
+//! (a `Common/` model an entry names included), instead of the one the search finds. A player
+//! folder holding its own `face.xml` and linking a shared face folder is
+//! `xml_shared_face_conflict`: a face takes one xml.
 //!
 //! Last, it reads the small data files whole (`documents`): the face diff of each player
 //! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), but on PES 2015
@@ -79,7 +81,7 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::plan::roles::{
     FolderModels, PlayerFile, emits_kit_texture, file_stem, is_direct_root_folder_file,
-    is_selected_common_model, link_feeds_own_package, linked_folder, player_file,
+    is_selected_common_model, is_user_face_xml, link_feeds_own_package, linked_folder, player_file,
     selected_common_model, texture_format,
 };
 use crate::reader::ContentSource;
@@ -276,6 +278,8 @@ pub(crate) fn content_findings(
         .map(|player| {
             let folder = &player.path;
             // Under the marker the face files are not used, his own `face.xml` among them.
+            let face = FaceUse::of_player(export, player, engine);
+            let conflict = shared_face_conflict(folder, &player.files, &face, engine);
             let (mut pass, xml_dif) = folder_findings(
                 content,
                 folder,
@@ -283,9 +287,10 @@ pub(crate) fn content_findings(
                 &FolderModels::of(folder, &player.files, engine),
                 &kept_common,
                 version,
-                FaceUse::of_player(export, player, engine),
+                face,
             );
             let findings = &mut pass.findings;
+            findings.extend(conflict);
             findings.extend(face_diff_findings(
                 content,
                 folder,
@@ -616,6 +621,43 @@ impl<'a> FaceUse<'a> {
             combined,
         }
     }
+}
+
+/// `xml_shared_face_conflict` on the player folder at `folder`, holding `files`, when on
+/// pre-Fox it holds its own `face.xml` (`is_user_face_xml`) and its face links a shared face
+/// folder (`face`), whether or not that folder holds one: the face's xml is the shared
+/// folder's, or the one generated, and two xmls leave no rule for which one speaks
+/// (`messages.md` "User-supplied `face.xml`"). It names his xml below his folder and the shared
+/// folder by its export path, and drops his folder, never passing through: no choice of xml
+/// builds the face the member meant. Fox ignores every `face.xml` (`xml_ignored_fox`).
+fn shared_face_conflict(
+    folder: &ScopePath,
+    files: &[FileDescriptor],
+    face: &FaceUse,
+    engine: Engine,
+) -> Option<ContentFinding> {
+    match engine {
+        Engine::Fox => return None,
+        Engine::PreFox => {}
+    }
+    let FaceUse::Used {
+        linked_face: Some(shared),
+        ..
+    } = face
+    else {
+        return None;
+    };
+    let xml = files.iter().find(|file| is_user_face_xml(folder, file))?;
+    Some(ContentFinding {
+        code: Code::XmlSharedFaceConflict.as_str(),
+        scope: IssueScope::Folder(folder.clone()),
+        context: vec![
+            ("file", relative(&xml.path, folder)),
+            ("link", shared.path.as_str().to_owned()),
+        ],
+        disposition: Disposition::DropFolder,
+        pass_through_eligible: false,
+    })
 }
 
 /// The findings of the files among `files`, those of the model folder at `folder`, that the
@@ -2043,10 +2085,11 @@ mod tests {
     #[test]
     fn a_reference_to_a_linked_face_s_model_is_found_by_the_deep_pass() {
         let temp = scratch("deep_xml_linked_face");
-        let findings = findings_for(
-            PesVersion::Pes17,
-            temp.path(),
-            &[
+        let findings_on = |version| {
+            findings_for(
+                version,
+                temp.path(),
+                &[
                 ("Players/05 - A/hat.model", card()),
                 ("Players/05 - A/hat.mtl", card_materials()),
                 ("Players/05 - A/Round.face", Vec::new()),
@@ -2061,8 +2104,25 @@ mod tests {
             ],
             &[],
             &[],
+            )
+        };
+        // No `xml_model_not_found` and no `model_material_undefined`: the reference is found.
+        // His own xml beside the link is the one finding.
+        assert_eq!(
+            findings_on(PesVersion::Pes17),
+            [ContentFinding {
+                code: "xml_shared_face_conflict",
+                scope: IssueScope::Folder(ScopePath::new("Players/05 - A").unwrap()),
+                context: vec![
+                    ("file", "face.xml".to_owned()),
+                    ("link", "Faces/Round".to_owned()),
+                ],
+                disposition: Disposition::DropFolder,
+                pass_through_eligible: false,
+            }]
         );
-        assert_eq!(findings, []);
+        // Fox ignores every `face.xml` (`xml_ignored_fox`, a validation finding): no conflict.
+        assert_eq!(findings_on(PesVersion::Pes21), []);
     }
 
     #[test]
