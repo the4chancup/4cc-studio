@@ -5888,5 +5888,9 @@ or the sRGB id the game's table lacks): a format with a legacy header gets it, a
 lossy re-encode could change a BC7 one. The cup corpus (`.tmp/lead/census_dds_headers.out`, 1218
 portraits) holds 520 single-level legacy portraits and 12 DX10 BC7 ones, so neither the single
 level nor BC7 is known to crash; which property does is a maintainer question (`QUESTIONS.md`).
+The maintainer traced the header to paint.net, the community's editor: its DDS save dialog
+offers "BC3 (Linear, DXT5)" (the legacy header) beside "BC3 (sRGB, DX 10+)" (this one), and
+the cup's BC7 portraits are its "BC7 (Linear, DX 10+)"; the rule covers every sRGB entry of
+that list, BC7's included.
 Plan: `player_folders.md` "Portraits"; `messages.md` `portrait_header_rewritten`; `team_compiler/
 README.md` TC-PRT-04.

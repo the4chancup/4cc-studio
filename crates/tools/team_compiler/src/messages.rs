@@ -246,6 +246,11 @@ pub(crate) enum Code {
     /// A texture in a codec, or with a feature, `dds_convert` cannot convert in-process;
     /// discarded the same way.
     TextureCodecUnsupported,
+    /// A DDS portrait under a DX10 extension header went out under the header
+    /// `ftex::dds::header_bytes` writes for its format (the legacy one for BC1, BC2, BC3 and
+    /// BGRA8, an sRGB DXGI id as its UNORM twin), its pixel data unchanged: the game crashed on
+    /// such a portrait.
+    PortraitHeaderRewritten,
     /// A native sampler of the source engine's material table the target engine does not
     /// carry, dropped from a converted model's material (the conversion's form of the glTF
     /// role the target has no sampler for).
@@ -427,7 +432,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 131] = [
+    const ALL: [Code; 132] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -503,6 +508,7 @@ impl Code {
         Code::KitTextureTooBig,
         Code::TextureTypeMismatch,
         Code::TextureCodecUnsupported,
+        Code::PortraitHeaderRewritten,
         Code::MaterialTextureUnused,
         Code::BoneFoldedForVersion,
         Code::SkeletonRetargeted,
@@ -639,6 +645,7 @@ impl Code {
             Code::KitTextureTooBig => "kit_texture_too_big",
             Code::TextureTypeMismatch => "texture_type_mismatch",
             Code::TextureCodecUnsupported => "texture_codec_unsupported",
+            Code::PortraitHeaderRewritten => "portrait_header_rewritten",
             Code::MaterialTextureUnused => "material_texture_unused",
             Code::BoneFoldedForVersion => "bone_folded_for_version",
             Code::SkeletonRetargeted => "skeleton_retargeted",
@@ -795,6 +802,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_texture_too_big", CatalogSeverity::Error),
     ("texture_type_mismatch", CatalogSeverity::Error),
     ("texture_codec_unsupported", CatalogSeverity::Error),
+    ("portrait_header_rewritten", CatalogSeverity::Info),
     ("material_texture_unused", CatalogSeverity::Info),
     ("bone_folded_for_version", CatalogSeverity::Info),
     ("skeleton_retargeted", CatalogSeverity::Info),

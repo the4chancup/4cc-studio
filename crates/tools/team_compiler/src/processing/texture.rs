@@ -18,7 +18,7 @@ use dds_convert::{
     source_hash,
 };
 use ftex::FtexError;
-use ftex::dds::read_layout;
+use ftex::dds::{DdsPixel, read_layout};
 use pes_version::Engine;
 use pipeline::{MemoryBudget, Permit};
 use studio_core::Disposition;
@@ -409,16 +409,20 @@ pub(super) fn decode_charge(
 }
 
 /// The portrait file `name`, in `format`, holding `bytes`, as the DDS every engine reads
-/// (`player_folders.md` "Portraits"): a DDS source as it is, any other accepted format
-/// encoded to BC3 at its own size with the full mip chain, an FTEX's own levels dropped. Its
-/// signature and size are the deep pass's checks; a portrait that reaches this point passed
-/// them or is kept by `pass_through`, so it is packed whatever its size. The decode is charged
-/// to `budget` while it lives.
+/// (`player_folders.md` "Portraits"): a DDS source under the legacy 128-byte header as it is;
+/// one under a DX10 extension header with the header `ftex::dds::header_bytes` writes for its
+/// format and its pixel data unchanged, noted in `findings` as `portrait_header_rewritten`, or,
+/// for an uncompressed layout that has no `PixelFormat` or whose rows are padded, encoded like
+/// a raster source; any other accepted format encoded to BC3 at its own size with the full mip
+/// chain, an FTEX's own levels dropped. Its signature and size are the deep pass's checks; a
+/// portrait that reaches this point passed them or is kept by `pass_through`, so it is packed
+/// whatever its size. The decode is charged to `budget` while it lives.
 pub(super) fn portrait(
     budget: &Arc<MemoryBudget>,
     format: SourceFormat,
     name: &str,
     bytes: Vec<u8>,
+    findings: &mut Vec<Finding>,
 ) -> Result<Vec<u8>, TextureError> {
     // Decoded even when the DDS goes out as it is: the deep pass reads only the header, and
     // this decode is what fails the task of a portrait whose header or data is broken.
@@ -426,7 +430,46 @@ pub(super) fn portrait(
         decode_charge(budget, &bytes, format).map_err(|error| conversion_failure(name, error))?;
     let mut decoded = decode(&bytes, format).map_err(|error| conversion_failure(name, error))?;
     match format {
-        SourceFormat::Dds => return Ok(bytes),
+        // The game's own DDS reader crashed PES 19 on a BC3 portrait under a DX10 header with
+        // the sRGB id, and took the same blocks under the legacy header: the blocks are fine, so
+        // a DX10 header is rebuilt and the data kept (a re-encode would be lossy). An
+        // uncompressed DX10 layout has no header `header_bytes` can write, so it takes the
+        // raster route below, and so does one whose rows are padded past the tight row, since
+        // `header_bytes` declares tightly packed rows the kept data would not match.
+        SourceFormat::Dds => {
+            let plain = wezlib::decompress_if_wrapped(&bytes)
+                .map_err(|error| conversion_failure(name, ConvertError::Wesys(error)))?;
+            let layout = read_layout(&plain)
+                .map_err(|error| conversion_failure(name, ConvertError::Ftex(error)))?;
+            if layout.data_offset == 128 {
+                return Ok(bytes);
+            }
+            match layout.pixel {
+                DdsPixel::Format(pixel_format) if layout.row_pitch.is_none() => {
+                    // `read_layout` maps the DXGI id to a format and keeps neither; it is the
+                    // DX10 header's first field, right after the 128-byte legacy header.
+                    let dxgi = u32::from_le_bytes([plain[128], plain[129], plain[130], plain[131]]);
+                    let mut rewritten = ftex::dds::header_bytes(
+                        pixel_format,
+                        layout.width,
+                        layout.height,
+                        layout.mipmaps,
+                    );
+                    rewritten.extend_from_slice(&plain[layout.data_offset..]);
+                    findings.push((
+                        Code::PortraitHeaderRewritten,
+                        Disposition::Keep,
+                        vec![("file", name.to_owned()), ("dxgi", dxgi.to_string())],
+                    ));
+                    return Ok(rewritten);
+                }
+                DdsPixel::Format(_) | DdsPixel::Uncompressed { .. } => {
+                    decoded.mips.truncate(1);
+                    decoded.authored_mips = false;
+                    decoded.blocks = None;
+                }
+            }
+        }
         // The plan gives every portrait that is not a DDS the full chain; an FTEX's authored
         // levels, which the encoder would otherwise keep, are the one thing it would add over
         // a raster source, and the plan does not ask for them. Its blocks go too: the encoder
@@ -637,21 +680,31 @@ mod tests {
                 .join("tests/fixtures/tracer/studio/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/portrait.dds"),
         )
         .unwrap();
+        let mut findings = Vec::new();
         assert_eq!(
             portrait(
                 &unlimited(),
                 SourceFormat::Dds,
                 "portrait.dds",
-                tracer.clone()
+                tracer.clone(),
+                &mut findings
             )
             .unwrap(),
             tracer
         );
+        assert!(findings.is_empty(), "a legacy-header DDS: {findings:?}");
         for (name, format) in [
             ("portrait.png", SourceFormat::Png),
             ("portrait.webp", SourceFormat::WebP),
         ] {
-            let dds = portrait(&unlimited(), format, name, texture_fixture(name)).unwrap();
+            let dds = portrait(
+                &unlimited(),
+                format,
+                name,
+                texture_fixture(name),
+                &mut findings,
+            )
+            .unwrap();
             let decoded = decode(&dds, SourceFormat::Dds).unwrap();
             assert_eq!(
                 decoded.blocks.as_ref().map(|blocks| blocks.codec),
@@ -672,10 +725,12 @@ mod tests {
             SourceFormat::Png,
             "player_05.png",
             odd.clone(),
+            &mut findings,
         )
         .unwrap();
         let decoded = decode(&dds, SourceFormat::Dds).unwrap();
         assert_eq!((decoded.width, decoded.height), (300, 300));
+        assert!(findings.is_empty(), "raster sources: {findings:?}");
         // Every source is still decoded, a DDS included: a BC6H DDS is the codec finding, and
         // PNG bytes under a `.dds` name fail the task.
         assert_eq!(
@@ -683,16 +738,89 @@ mod tests {
                 &unlimited(),
                 SourceFormat::Dds,
                 "portrait.dds",
-                texture_fixture("bc6h.dds")
+                texture_fixture("bc6h.dds"),
+                &mut findings
             )),
             (Code::TextureCodecUnsupported, "portrait.dds".to_owned())
         );
-        let Err(TextureError::Other(error)) =
-            portrait(&unlimited(), SourceFormat::Dds, "portrait.dds", odd)
-        else {
+        let Err(TextureError::Other(error)) = portrait(
+            &unlimited(),
+            SourceFormat::Dds,
+            "portrait.dds",
+            odd,
+            &mut findings,
+        ) else {
             panic!("PNG bytes under a `.dds` name are not a DDS");
         };
         assert_eq!(format!("{error}"), "portrait.dds: cannot convert");
+    }
+
+    #[test]
+    fn an_uncompressed_dx10_portrait_is_encoded_like_a_raster_one() {
+        // A 4x4 R8G8B8A8 DDS under a DX10 header (DXGI 28), one level: no legacy header can
+        // carry it, so it is a BC3 DDS with the full chain, and no header was rewritten.
+        let mut dds = ftex::dds::header_bytes(ftex::PixelFormat::Bc7, 4, 4, 1);
+        dds[128..132].copy_from_slice(&28u32.to_le_bytes());
+        dds.extend_from_slice(&[0x80; 4 * 4 * 4]);
+        let mut findings = Vec::new();
+        let encoded = portrait(
+            &unlimited(),
+            SourceFormat::Dds,
+            "portrait.dds",
+            dds,
+            &mut findings,
+        )
+        .unwrap();
+        let decoded = decode(&encoded, SourceFormat::Dds).unwrap();
+        assert_eq!(
+            decoded.blocks.as_ref().map(|blocks| blocks.codec),
+            Some(BlockCodec::Bc3)
+        );
+        assert_eq!(
+            (decoded.width, decoded.height, decoded.mips.len()),
+            (4, 4, 3)
+        );
+        assert!(findings.is_empty(), "{findings:?}");
+    }
+
+    #[test]
+    fn a_dx10_bgra8_portrait_with_padded_rows_is_encoded_like_a_raster_one() {
+        // A 4x4 B8G8R8A8 DDS under a DX10 header (DXGI 87) declaring a 20-byte row pitch over
+        // 16-byte rows: the legacy header declares tight rows, so it is not re-headered.
+        let mut dds = ftex::dds::header_bytes(ftex::PixelFormat::Bc7, 4, 4, 1);
+        dds[128..132].copy_from_slice(&87u32.to_le_bytes());
+        // The header's flags (offset 8) gain DDSD_PITCH (0x8); the pitch is at offset 20.
+        let flags = u32::from_le_bytes(dds[8..12].try_into().unwrap()) | 0x8;
+        dds[8..12].copy_from_slice(&flags.to_le_bytes());
+        dds[20..24].copy_from_slice(&20u32.to_le_bytes());
+        for _ in 0..4 {
+            dds.extend_from_slice(&[0x80; 16]);
+            dds.extend_from_slice(&[0; 4]);
+        }
+        let layout = read_layout(&dds).unwrap();
+        assert_eq!(
+            (layout.pixel, layout.row_pitch),
+            (DdsPixel::Format(ftex::PixelFormat::Argb8), Some(20))
+        );
+        let mut findings = Vec::new();
+        let encoded = portrait(
+            &unlimited(),
+            SourceFormat::Dds,
+            "portrait.dds",
+            dds,
+            &mut findings,
+        )
+        .unwrap();
+        let decoded = decode(&encoded, SourceFormat::Dds).unwrap();
+        assert_eq!(
+            decoded.blocks.as_ref().map(|blocks| blocks.codec),
+            Some(BlockCodec::Bc3)
+        );
+        assert_eq!(
+            (decoded.width, decoded.height, decoded.mips.len()),
+            (4, 4, 3)
+        );
+        assert!(findings.is_empty(), "{findings:?}");
     }
 
     #[test]

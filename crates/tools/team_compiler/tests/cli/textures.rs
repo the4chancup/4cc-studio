@@ -1364,3 +1364,57 @@ fn a_single_level_ftex_portrait_is_a_bc3_dds_with_the_full_mip_chain() {
     let full_chain = width.max(height).ilog2() + 1;
     assert_eq!(decoded.mips.len(), usize::try_from(full_chain).unwrap());
 }
+
+// TC-PRT-04
+#[test]
+fn a_dx10_header_dds_portrait_goes_out_under_the_legacy_header_with_its_blocks() {
+    let sandbox = Sandbox::new("tex_dx10_portrait");
+    let export = "co Midcup Portrait";
+    // The shape of the portrait that crashed PES 19: 128x128 BC3, one level, under a DX10
+    // header whose DXGI id is 78 (BC3 sRGB). BC7's header is a DX10 one; its id is replaced.
+    let mut source = ftex::dds::header_bytes(PixelFormat::Bc7, 128, 128, 1);
+    assert_eq!(source.len(), 148, "a DX10 header");
+    source[128..132].copy_from_slice(&78u32.to_le_bytes());
+    let blocks: Vec<u8> = (0..=u8::MAX).cycle().take(128 * 128).collect();
+    source.extend_from_slice(&blocks);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/portrait.dds"),
+        &source,
+    );
+    let mut expected = ftex::dds::header_bytes(PixelFormat::Bc3, 128, 128, 1);
+    expected.extend_from_slice(&blocks);
+    assert_eq!(expected.len(), 16512);
+    assert_eq!(&expected[84..88], b"DXT5");
+
+    for (version, path) in [
+        (21, "common/render/symbol/player/71405.dds"),
+        (17, "common/render/symbol/player/player_71405.dds"),
+    ] {
+        let run = sandbox.run(
+            &pes_settings(&sandbox, version),
+            &["compile", "--no-deploy"],
+        );
+
+        let lines = run.messages();
+        assert_eq!(
+            findings_of(&lines, export),
+            [
+                "Info export_identified [Keep] (team=/co/, id=714)",
+                "Info team_colors_missing [Keep] ()",
+                "Info portrait_header_rewritten [Keep] at Players/05 - A/portrait.dds (file=portrait.dds, dxgi=78)",
+            ],
+            "PES {version}: {lines:#?}"
+        );
+        assert_eq!(run.exit_code(), 0, "PES {version}");
+        let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+        let portrait = entries
+            .get(path)
+            .unwrap_or_else(|| panic!("PES {version}: no {path} among {:?}", entries.keys()));
+        // Not `assert_eq!`: a mismatch would print 16 KB twice.
+        assert!(
+            *portrait == expected,
+            "PES {version}: {} bytes, not the source's blocks under the DXT5 header",
+            portrait.len()
+        );
+    }
+}

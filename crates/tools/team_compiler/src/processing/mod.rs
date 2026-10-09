@@ -270,12 +270,18 @@ pub(crate) fn process_task(
             let name = file.path.name();
             let format = texture_format(name)
                 .expect("planning lists a portrait by an extension `dds_convert` accepts");
-            texture::portrait(&ctx.budget, format, name, take(&mut files, file))
-                .map(|bytes| {
-                    let entry = (paths::portrait(ctx.version, *player_id), bytes);
-                    (TaskOutput::Entries(vec![entry]), None)
-                })
-                .map_err(TaskFailure::from)
+            texture::portrait(
+                &ctx.budget,
+                format,
+                name,
+                take(&mut files, file),
+                &mut findings,
+            )
+            .map(|bytes| {
+                let entry = (paths::portrait(ctx.version, *player_id), bytes);
+                (TaskOutput::Entries(vec![entry]), None)
+            })
+            .map_err(TaskFailure::from)
         }
         TaskKind::Kit { slot, kit, edits } => kit::kit(
             *slot,

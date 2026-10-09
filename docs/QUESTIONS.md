@@ -128,7 +128,9 @@ which 12 portraits of the current cup corpus carry (ESG XXX07-11, FGOG XXX13/21/
 settle whether those must be re-encoded too: hover, on PES 21 or 19, the four variants in
 `C:/Data/4cc/Tools_Mine/temp/variants/` (A the crash file; B its DXGI id set to 77, BC3
 UNORM; C the legacy `DXT5` header, what the compiler now ships; D a cup BC7 DX10 portrait),
-or say whether the ESG and FGOG portraits display on stream. An in-game check.
+or say whether the ESG and FGOG portraits display on stream. An in-game check. (The headers
+come from paint.net's DDS save dialog: A is "BC3 (sRGB, DX 10+)", C "BC3 (Linear, DXT5)", D
+"BC7 (Linear, DX 10+)"; the single level is not the cause: 520 cup portraits have one.)
 
 ## Cup practice and preferences
 
