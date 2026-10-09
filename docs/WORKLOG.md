@@ -42,12 +42,20 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   test's failing assertion in the commit's log line, since no report carries it), the honesty and
   design sweeps on your own diff, the gates, `mutants-diff` with every survivor triaged, one
   commit per reviewable slice (about 500 lines).
-- **Cross-family reviews are queued, not skipped and not substituted.** A same-family subagent
-  shares the blind spots the review exists to catch, so it is no replacement. Each checkpoint
-  that `AGENTS.md` "Second opinion" would trigger goes on the queue below with the commit range
-  and the plan sections it covers; the lead runs the queue when it returns. Work may continue
-  past a queued review, but no phase closes with one outstanding (one exception: Phase 3
-  closed with its reviews queued, by the maintainer's directive of 2026-10-02).
+- **Cross-family reviews run through the `duck` skill** (Astra, with SWE-2 rounds around it)
+  since 2026-10-09, when the maintainer gave the lead the means to run them itself; before
+  that they were queued here, never skipped and never substituted (a same-family subagent
+  shares the blind spots the review exists to catch). Astra has two quotas, a five-hour one
+  that five or six reviews can empty and a generous weekly one (about forty reviews): when a
+  call stops for quota, the review goes on the queue below (commit range, plan sections), the
+  lead retries once an hour, and once a call works the queue runs until the next stop. Work
+  continues past a queued review, but no phase closes with one outstanding (one exception:
+  Phase 3 closed with its reviews queued, by the maintainer's directive of 2026-10-02). The
+  backlog below (S7-S16 of `.tmp/lead/review_queue.md`, plus 4.14's (a) and (b) and 4.17's
+  (c) and (d)) runs as the first half of Phase 4's converge, on the finished code grouped by
+  module, by the maintainer's decision of 2026-10-09: the remaining slices (4.17g, 4.19d,
+  4.20, 4.27) rewrite parts of what those reviews would read, and converge reviews the
+  crate anyway.
 - **Queue:** 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
   and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
   `.tmp/3_6/review_brief_3_6.md` is a template for the brief. 3.8 (b): `studio_core`'s `CliError`/
@@ -4569,3 +4577,13 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
     missed (`model_variant_sets`'s dedup rule for two files of one number and format),
     caught by the lead's added assertion (rerun on the function: 5 caught, 1 unviable).
     Next: 4.17g (the same-engine pre-check of a selected native model).
+- **2026-10-09** — Reviews run by the lead from now on: the maintainer wired the `duck` skill
+  (Astra, SWE-2 rounds) for Claude Code, so cross-family reviews are no longer queued except on
+  an Astra quota stop (five-hour quota, five or six reviews; retried hourly). The S7-S16
+  backlog and the four queued 4.14/4.17 reviews run as the first half of converge, after the
+  remaining slices (maintainer: finish the crate first). "Handover" rule and `AGENTS.md`
+  "Second opinion" reworded. 4.17g started as g1, a measurement brief (`.tmp/4_17/brief_4_17g1.md`):
+  which game table each real model is bound to (the tracers, stock PES 17 and PES 21 models from
+  the installs, the converter's fixtures, the body-table version deltas), so g2 changes the
+  converter from numbers, not from a reading of its code. The maintainer also noted that the
+  in-game harness on PES 17 and 21 can answer `docs/QUESTIONS.md` entries without them.

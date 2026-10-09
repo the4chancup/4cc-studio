@@ -216,7 +216,11 @@ never says "do not pad" or names any number of concerns, as a cap or a target; i
 every concern found, ranked by reachability, and that a round with fewer than five accepted ends
 the loop, so a verified concern is never withheld to keep the list short; padding is caught by
 the accept rate, which is what that rule is for. At converge the surface is one crate (or one
-coupled pair), never the phase. The user can request a critique at any time with `/duck`.
+coupled pair), never the phase. The user can request a critique at any time with `/duck`, and
+since 2026-10-09 the lead runs the `duck` skill itself for every scheduled critique. Astra's
+five-hour quota holds five or six reviews (the weekly one about forty): a call stopped for quota
+puts the review on the worklog's "Handover" queue, the lead retries once an hour, and a working
+call runs the queue until the next stop; the work in between continues.
 
 ## Read order by task
 
