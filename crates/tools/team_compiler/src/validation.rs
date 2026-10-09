@@ -30,7 +30,7 @@ use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_w
 use crate::plan::mapped_players;
 use crate::plan::roles::{
     FolderModels, ModelPackage, PlayerFile, admitted, common_skeleton, file_stem,
-    is_direct_common_file, is_user_face_xml, player_file,
+    is_direct_common_file, is_user_face_xml, player_file, shared_folders,
 };
 use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
@@ -545,7 +545,9 @@ fn no_model_messages(
 /// is the boots', and no fallback. A pre-Fox target types a model by its name, so it reports
 /// neither the fallback nor `skl_no_slot`. A Fox target reports a folder's own `face.xml`
 /// (directly in it or in `face/`) as `xml_ignored_fox`: Fox has no `face.xml`, and the
-/// folder's models compile as without it. Then `file_not_used` on the export for each file
+/// folder's models compile as without it. A pre-Fox target reports a shared folder's own as
+/// `xml_ignored_shared`: each player combining the face lists the folder's models as without
+/// it. Then `file_not_used` on the export for each file
 /// directly in `Common/` of a kind no task reads, and for a refs export's kits, logo,
 /// portraits and collars (`referee_messages`).
 fn model_name_messages(
@@ -569,13 +571,8 @@ fn model_name_messages(
     }
     // Validation drops a shared folder no mapped player links, so every shared folder here is
     // one some player's package is assembled from or one compiled on its own.
-    for folder in export
-        .faces
-        .iter()
-        .chain(&export.boots)
-        .chain(&export.gloves)
-    {
-        let models = FolderModels::of_shared(&folder.path, &folder.files, engine);
+    for (kind, folder) in shared_folders(export) {
+        let models = FolderModels::of_shared(&folder.path, &folder.files, kind, engine);
         file_role_messages(
             &folder.path,
             &folder.files,
@@ -659,14 +656,19 @@ fn file_role_messages(
 ) {
     for file in files {
         let name = file.path.name();
-        // Fox has no `face.xml`: a member's own has no role there, and is ignored.
+        // Fox has no `face.xml`: a member's own has no role there, and is ignored. Pre-Fox
+        // ignores a shared folder's: each player combining the face lists its models as
+        // without it.
         let ignored_xml = match models.engine() {
-            Engine::Fox => is_user_face_xml(path, file),
-            Engine::PreFox => false,
+            Engine::Fox if is_user_face_xml(path, file) => Some(Code::XmlIgnoredFox),
+            Engine::PreFox if models.is_shared() && is_user_face_xml(path, file) => {
+                Some(Code::XmlIgnoredShared)
+            }
+            Engine::Fox | Engine::PreFox => None,
         };
-        if ignored_xml {
+        if let Some(code) = ignored_xml {
             messages.push(tool_message(
-                Code::XmlIgnoredFox,
+                code,
                 Scope::Folder {
                     export_id,
                     path: path.clone(),
@@ -1038,6 +1040,38 @@ mod tests {
             ]
         );
         assert_eq!(names(&export, PesVersion::Pes17), [boots_xml]);
+    }
+
+    #[test]
+    fn a_shared_face_s_own_face_xml_is_ignored_on_either_engine() {
+        let files = [
+            ("Players/05 - A/Round.face", 0),
+            ("Faces/Round/face_high.model", 1),
+            ("Faces/Round/face_high.mtl", 1),
+            ("Faces/Round/face.xml", 1),
+        ];
+        let export = resolved("co Midcup Names", &files, &[], None);
+        assert_eq!(
+            names(&export, PesVersion::Pes17),
+            ["Info xml_ignored_shared [Keep] at Faces/Round (file=face.xml)"]
+        );
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            ["Info xml_ignored_fox [Keep] at Faces/Round (file=face.xml)"]
+        );
+    }
+
+    #[test]
+    fn on_pre_fox_a_link_to_a_per_kit_model_is_file_not_used() {
+        let files = [
+            ("Players/05 - A/pants_kit1.model.common", 0),
+            ("Common/pants_kit1.model", 1),
+        ];
+        let export = resolved("co Midcup Names", &files, &[], None);
+        assert_eq!(
+            names(&export, PesVersion::Pes17),
+            ["Warning file_not_used [Keep] at Players/05 - A (file=pants_kit1.model.common)"]
+        );
     }
 
     #[test]

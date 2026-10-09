@@ -32,9 +32,10 @@ use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
     FolderModels, KIT_TEXTURE_STEMS, ModelPackage, PlayerFile, common_file, common_skeleton,
-    file_stem, is_direct_common_file, is_part_of, link_combines, link_feeds_own_package, link_name,
-    linked_folder, named_as_face, native_format, package_of, player_file, selected_common_model,
-    skeleton_slot, texture_format,
+    file_stem, is_direct_common_file, is_part_of, leaves_out_kit_variants, link_combines,
+    link_feeds_own_package, link_name, linked_folder, named_as_face, native_format, package_of,
+    player_file, selected_common_model, shared_folders, shared_kind_of, skeleton_slot,
+    texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -42,7 +43,7 @@ pub(crate) struct PlanReport {
     /// Every task of the run, in canonical order.
     pub(crate) manifest: BuildManifest,
     /// Planning's findings (`team_colors_missing`, `link_combined`, `kit_texture_not_used`,
-    /// `kit_config_generated`, `kit_placeholder`, `kit_variant_model_fox`,
+    /// `kit_config_generated`, `kit_placeholder`, `kit_variant_model_left_out`,
     /// `collar_id_conflict`, `model_conversion_failed` for a `.model` collar on Fox,
     /// `model_gltf_unsupported`).
     pub(crate) messages: Vec<Message>,
@@ -275,9 +276,12 @@ impl ModelFolder {
                 self.ingame_face,
                 self.engine,
             ),
-            TextureHome::SharedOutput { .. } => {
-                FolderModels::of_shared(&self.path, &self.files, self.engine)
-            }
+            TextureHome::SharedOutput { package, .. } => FolderModels::of_shared(
+                &self.path,
+                &self.files,
+                shared_kind_of(*package),
+                self.engine,
+            ),
         };
         if self
             .combined
@@ -290,7 +294,8 @@ impl ModelFolder {
         for shared in &self.combined {
             let path = &shared.folder.path;
             let files = &shared.folder.files;
-            let models = FolderModels::of_shared(path, files, self.engine);
+            let models =
+                FolderModels::of_shared(path, files, shared_kind_of(shared.package), self.engine);
             sources.push((shared.package, path, files, models));
         }
         // The names the face files kept so far pack as: a second copy of one file
@@ -922,9 +927,9 @@ pub(crate) struct ExportToPlan {
 /// is a shared folder whose model is one, with every player folder linking it
 /// (`drop_gltf_folders`), and a glTF directly in `Common/` with no model of the target's format
 /// of its stem, the file alone, with the other engine's model of its stem it beats
-/// (`drop_common_gltfs`). The textures a kit's set holds that the target does not emit are
-/// dropped from it (`drop_unused_kit_textures`). Every export's note goes into the manifest, and a
-/// team export's colors; one with no root `colors.txt` reports
+/// (`drop_common_gltfs`). The textures a team export's kit holds that the target does not emit
+/// are dropped from it (`drop_unused_kit_textures`). Every export's note goes into the
+/// manifest, and a team export's colors; one with no root `colors.txt` reports
 /// `team_colors_missing`, and its team keeps the colors it had. A team export's collar is
 /// claimed against the run-wide list of the collars earlier exports claimed
 /// (`collars::export_collar`), and every kit config of the team wears the collar it keeps. A
@@ -950,12 +955,6 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         metal_models,
     } in exports
     {
-        drop_unused_kit_textures(
-            version.engine(),
-            export_id,
-            &mut resolved.export.kits,
-            &mut messages,
-        );
         drop_gltf_folders(export_id, &mut resolved, version, &mut messages);
         // The referees have no team record (no colors, kits or rows) and no player ids, so
         // only their folders compile: planning keeps their kits, logo, portraits and collars
@@ -964,6 +963,16 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             ExportIdentity::Team { id, .. } => Some(id),
             ExportIdentity::Referees => None,
         };
+        // A refs export's kit folder is `file_not_used` whole and gets no task: its files are
+        // not reported again one by one.
+        if team.is_some() {
+            drop_unused_kit_textures(
+                version.engine(),
+                export_id,
+                &mut resolved.export.kits,
+                &mut messages,
+            );
+        }
         let team_id = team.map_or(REFEREE_TEAM_ID, TeamId::get);
         if team.is_some() {
             match colors {
@@ -1500,13 +1509,8 @@ fn drop_gltf_folders(
     // Each selected glTF of a shared folder, with that folder's path, faces first, then boots,
     // then gloves, as the export lists them.
     let mut shared_gltfs: Vec<(ScopePath, ScopePath)> = Vec::new();
-    for folder in export
-        .faces
-        .iter()
-        .chain(&export.boots)
-        .chain(&export.gloves)
-    {
-        let models = FolderModels::of_shared(&folder.path, &folder.files, engine);
+    for (kind, folder) in shared_folders(export) {
+        let models = FolderModels::of_shared(&folder.path, &folder.files, kind, engine);
         for file in &folder.files {
             if player_file(&folder.path, file, &models) == Some(PlayerFile::UnsupportedGltf) {
                 shared_gltfs.push((folder.path.clone(), file.path.clone()));
@@ -1693,36 +1697,37 @@ fn drop_common_gltfs(
     });
 }
 
-/// `kit_variant_model_fox` for each set of per-kit model files (`pants_kit1.fmdl`,
-/// `pants_kit2.model`) in a folder of `export` that is compiled, on that folder: a mapped player
-/// folder, or a shared folder a mapped player links (validation drops one no mapped player
-/// links, and `drop_gltf_folders` one only the players it dropped linked). Each folder is
-/// walked once, so a shared folder several players combine reports its set once. Nothing on a
-/// pre-Fox target, where the whole set is packed and listed once as `pants_kitN` for the game
-/// to respell (`pipeline.md` "Kit-dependent assets"), converted FMDLs included: the warning
-/// is about Fox having no such indirection.
+/// `kit_variant_model_left_out` for each set of per-kit model files (`pants_kit1.fmdl`,
+/// `pants_kit2.model`) where no `face.xml` names the set, in a folder of `export` that is
+/// compiled, on that folder: a mapped player folder, or a shared folder a mapped player links
+/// (validation drops one no mapped player links, and `drop_gltf_folders` one only the players
+/// it dropped linked). Which folders those are is `roles::leaves_out_kit_variants`: on Fox
+/// every one, Fox having no model-path indirection; on pre-Fox a mapped player folder holding
+/// `ingame_face` and a shared boots or gloves folder, since the shared boots writer merges every
+/// model into one `boots.model`, the gloves writer lists every glove in `glove.xml` and a
+/// marked player's parts are all worn. A pre-Fox face, a player's or a shared one, packs the
+/// whole set and lists it once as `pants_kitN` for the game to respell (`pipeline.md`
+/// "Kit-dependent assets"). Where no xml names it, the lowest variant is what both engines
+/// agree on. Each folder is walked once, so a shared folder several players combine reports
+/// its set once.
 fn kit_variant_model_messages(
     export_id: ExportId,
     export: &ValidatedAestheticsExport,
     engine: Engine,
     messages: &mut Vec<Message>,
 ) {
-    if engine == Engine::PreFox {
-        return;
-    }
     let players = mapped_players(export)
         .into_iter()
-        .map(|folder| (&folder.path, &folder.files));
-    let shared = export
-        .faces
-        .iter()
-        .chain(&export.boots)
-        .chain(&export.gloves)
-        .map(|folder| (&folder.path, &folder.files));
-    for (path, files) in players.chain(shared) {
-        for set in model_variant_sets(files) {
+        .map(|folder| (&folder.path, &folder.files, folder.ingame_face, None));
+    let shared = shared_folders(export)
+        .map(|(kind, folder)| (&folder.path, &folder.files, false, Some(kind)));
+    for (path, files, ingame_face, kind) in players.chain(shared) {
+        if !leaves_out_kit_variants(engine, ingame_face, kind) {
+            continue;
+        }
+        for set in model_variant_sets(files, engine) {
             messages.push(tool_message(
-                Code::KitVariantModelFox,
+                Code::KitVariantModelLeftOut,
                 Scope::Folder {
                     export_id,
                     path: path.clone(),
@@ -2206,7 +2211,7 @@ mod tests {
         let [message] = report.messages.as_slice() else {
             panic!("{:?}", report.messages);
         };
-        assert_eq!(message.code.code, "kit_variant_model_fox");
+        assert_eq!(message.code.code, "kit_variant_model_left_out");
         assert_eq!(
             (message.severity, message.disposition),
             (Severity::Warning, Disposition::Keep)
@@ -2278,6 +2283,66 @@ mod tests {
             .map(|file| file.path.name())
             .collect();
         assert_eq!(files, ["pants_kit1.fmdl", "pants_kit2.fmdl"]);
+    }
+
+    #[test]
+    fn on_pre_fox_a_set_no_face_xml_names_is_reported_once_per_folder_and_a_face_s_is_not() {
+        let plan = |files: &[(&str, u64)]| {
+            let export = resolved("co Midcup Variants", files, &[], None);
+            plan_run(
+                vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+                PesVersion::Pes17,
+            )
+        };
+
+        // Under `ingame_face` his boots hold parts, and a shared boots folder is one
+        // `boots.model`: neither has a `face.xml` to name the set.
+        let report = plan(&[
+            ("Players/05 - A/ingame_face", 0),
+            ("Players/05 - A/boots_kit1.model", 8),
+            ("Players/05 - A/boots_kit2.model", 8),
+            ("Players/07 - B/Studs.boots", 0),
+            ("Boots/Studs/boots_kit1.model", 8),
+            ("Boots/Studs/boots_kit2.model", 8),
+        ]);
+        assert_eq!(
+            message_summary(&report),
+            [
+                (
+                    "kit_variant_model_left_out",
+                    "Players/05 - A",
+                    Disposition::Keep
+                ),
+                (
+                    "kit_variant_model_left_out",
+                    "Boots/Studs",
+                    Disposition::Keep
+                ),
+            ]
+        );
+        for message in &report.messages {
+            assert_eq!(message.severity, Severity::Warning);
+            assert_eq!(
+                message.context,
+                [
+                    ("model".to_owned(), "boots_kitN.model".to_owned()),
+                    ("used".to_owned(), "boots_kit1.model".to_owned())
+                ]
+            );
+        }
+
+        // A player's face and a shared face list the set once through the `face.xml`.
+        let report = plan(&[
+            ("Players/05 - A/pants_kit1.model", 8),
+            ("Players/05 - A/pants_kit2.model", 8),
+            ("Players/07 - B/Round.face", 0),
+            ("Faces/Round/pants_kit1.model", 8),
+            ("Faces/Round/pants_kit2.model", 8),
+        ]);
+        assert_eq!(
+            message_summary(&report),
+            [("link_combined", "Players/07 - B", Disposition::Keep)]
+        );
     }
 
     #[test]
@@ -2778,14 +2843,18 @@ mod tests {
                     "Players/05 - A",
                     Disposition::DropFolder
                 ),
-                ("kit_variant_model_fox", "Faces/Round", Disposition::Keep),
+                (
+                    "kit_variant_model_left_out",
+                    "Faces/Round",
+                    Disposition::Keep
+                ),
                 ("link_combined", "Players/07 - C", Disposition::Keep),
             ]
         );
         let variants: Vec<&Message> = report
             .messages
             .iter()
-            .filter(|message| message.code.code == "kit_variant_model_fox")
+            .filter(|message| message.code.code == "kit_variant_model_left_out")
             .collect();
         assert_eq!(
             variants[0].context,

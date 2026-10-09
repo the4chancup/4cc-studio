@@ -41,9 +41,11 @@ in place of the `N`. When the team has a kit number (a `p1` to `p9` folder in `K
 goalkeeper's `g1` goes with the number picked) with no texture of its own, the lowest one is
 copied for it, so the game never shows a missing texture, and the warning `kit_variant_missing`
 names the texture, the kit and the copied file. Per-kit models (`pants_kit1.fmdl` beside
-`pants_kit2.fmdl`, or `.model` files, or a mix of the two) are not possible on PES 2018 to 2021:
-only the lowest one is used (a `.model` converted with its `.mtl`), and the warning
-`kit_variant_model_fox` says so. On PES 2015 to 2017 the set is listed once in the
+`pants_kit2.fmdl`, or `.model` files, or a mix of the two) need a `face.xml` to name them. On
+PES 2018 to 2021, and on PES 2015 to 2017 in a shared boots or gloves folder and in a folder
+holding `ingame_face`, only the lowest one is used (a model in the other game's format
+converted, a `.model` with its `.mtl`), and the warning `kit_variant_model_left_out` says so.
+On PES 2015 to 2017 a face's set is listed once in the
 `face.xml`, as `pants_kitN`, every variant is packed and the game loads the one for the kit
 picked; each variant's `.mtl` goes by the same rule (`pants_kit1.mtl` and `pants_kit2.mtl`, or
 one `pants.mtl` for all), and the warning `kit_variant_mtl_differs` names a variant whose `.mtl`
@@ -151,7 +153,9 @@ names it, so boots and gloves models must say so in their names. In a shared `Bo
 `Gloves` folder nothing can be face content: a model there whose name does not end in a boots
 or gloves name (`hat.model` in `Boots/Mud`) is the error `fmdl_name_invalid`
 (`model_name_invalid` for PES 2015 to 2017), and the folder is left out with the players
-linking it (`link_target_dropped`). A skeleton file named after a
+linking it (`link_target_dropped`). A shared boots or gloves folder holding no model of its
+kind gets no ID and is reported as the warning `shared_folder_no_model`; the player linking it
+wears the game's own. A skeleton file named after a
 model (`kit_boots.skl` beside `kit_boots.fmdl`, `fcl_hair.skl` beside `fcl_hair.fmdl`,
 `torso.skl` beside `torso.fmdl`, `boots.skl` beside a shared folder's `boots.fmdl`) is packed
 with it; boots and hair without one get the standard body skeleton. A skeleton named after a
@@ -203,7 +207,9 @@ stand-in appended when no entry has that type (`xml_face_neck_added`), and for P
 `uniform` written `uniform_sub` (`xml_uniform_pes15`). Only the models and `.mtl` files the
 xml names are packed, and its own `<dif>`, else the folder's face diff, is the face's. For
 PES 2018 to 2021 the xml is ignored, reported as `xml_ignored_fox`, and the
-folder's models compile as they would without it.
+folder's models compile as they would without it. A `face.xml` in a shared face folder is
+ignored on every version, reported as `xml_ignored_shared` on PES 2015 to 2017, and each
+player combining the face lists its models as if it had none.
 A face model there whose vertices are weighted to the hand bones (`skh_`) has its hands cut off
 at the wrist at compile time, which the note `model_hand_split` names: the rest keeps the
 model's place, and the hands of `body.model` become `body_glove_l.model` and
@@ -288,17 +294,10 @@ textures, or a shared `Boots` or `Gloves` folder's, as `env.dds`; an `env` textu
 folder's own (`env.dds`, `env.png`), or the Common one its `env.dds.common` link names, is
 used instead; a `Common` folder's `.fmdl` gets the map in the team's Common output, or the
 `env` texture of the `Common` folder; and `templates/env.dds` in the
-data folder replaces the built-in one. For
-PES 2018 to 2021 it names a referee export's kit, logo, portrait or collar
-(a referee has no kit slot, team logo or player id, and no kit of his own to put a collar on),
-or content other than a player's
-own face, boots and gloves models, their textures, portraits, the `ingame_face` marker, kits,
-the logo, `.fmdl` collars, linked shared `Faces`, `Boots` and `Gloves` folders, and a
-`Common` folder holding only `.fmdl`, `.model`, `.mtl`, `.skl` and
-texture files, its models reached through `.common` links (a model in a `gloves` subfolder
-whose name does not say which hand it is, or a `.common` link to a material file, among
-others); a player's own `.model` models, and a shared folder's, are converted to `.fmdl` with
-the `.mtl` they use. A `.model` beside a
+data folder replaces the built-in one. On every version a `refs` export's kits, logo,
+portraits and collars are left out with `file_not_used` (see the referees below), and every
+other export compiles. For PES 2018 to 2021 a player's own `.model` models, and a shared
+folder's, are converted to `.fmdl` with the `.mtl` they use. A `.model` beside a
 `.fmdl` of the same name is left out for the `.fmdl`, with its `.mtl`. A converted model is
 checked again as the `.fmdl` it becomes: one that cannot be converted, or that comes out with
 a vertex more than 5000 units from the origin, is reported as `model_conversion_failed` or

@@ -297,7 +297,7 @@ pub(crate) fn content_findings(
                 content,
                 &face.path,
                 &face.files,
-                &FolderModels::of_shared(&face.path, &face.files, engine),
+                &FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine),
                 &kept_common,
                 version,
                 FaceUse::Used {
@@ -309,22 +309,28 @@ pub(crate) fn content_findings(
                 content,
                 &face.path,
                 &face.files,
-                &FolderModels::of_shared(&face.path, &face.files, engine),
+                &FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine),
             ));
             pass
         })
         .collect();
-    let boots_and_gloves: Vec<ContentPass> = export
+    let boots = export
         .boots
         .par_iter()
-        .chain(&export.gloves)
-        .map(|shared| {
+        .map(|folder| (SharedKind::Boots, folder));
+    let gloves = export
+        .gloves
+        .par_iter()
+        .map(|folder| (SharedKind::Gloves, folder));
+    let boots_and_gloves: Vec<ContentPass> = boots
+        .chain(gloves)
+        .map(|(kind, shared)| {
             // A boots or gloves folder has no face.
             folder_findings(
                 content,
                 &shared.path,
                 &shared.files,
-                &FolderModels::of_shared(&shared.path, &shared.files, engine),
+                &FolderModels::of_shared(&shared.path, &shared.files, kind, engine),
                 &kept_common,
                 version,
                 FaceUse::Unused,
@@ -532,7 +538,7 @@ enum FaceUse<'a> {
         /// link feeds the player's own package (`link_feeds_own_package`): a referee's, every
         /// one of whose links does. Empty for a team player, whose boots and gloves links stay
         /// plain while his face is used.
-        combined: Vec<&'a SharedModelFolder>,
+        combined: Vec<(SharedKind, &'a SharedModelFolder)>,
     },
 }
 
@@ -561,7 +567,7 @@ impl<'a> FaceUse<'a> {
                     link_feeds_own_package(&export.roster, engine, player, link)
                 }
             })
-            .filter_map(|link| linked_folder(export, link))
+            .filter_map(|link| Some((link.kind, linked_folder(export, link)?)))
             .collect();
         FaceUse::Used {
             linked_face,
@@ -675,11 +681,15 @@ fn folder_findings(
     for found in &mut per_file {
         materials.append(&mut found.materials);
     }
-    let shared: Vec<&SharedModelFolder> = match &face {
+    let shared: Vec<(SharedKind, &SharedModelFolder)> = match &face {
         FaceUse::Used {
             linked_face,
             combined,
-        } => linked_face.iter().chain(combined).copied().collect(),
+        } => linked_face
+            .iter()
+            .map(|face| (SharedKind::Face, *face))
+            .chain(combined.iter().copied())
+            .collect(),
         FaceUse::Unused => Vec::new(),
     };
     let held = match engine {

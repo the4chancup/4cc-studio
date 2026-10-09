@@ -339,6 +339,48 @@ fn without_its_xml_the_same_folder_s_models_are_typed_by_their_names() {
     );
 }
 
+// TC-XML-10
+#[test]
+fn a_shared_face_s_own_face_xml_is_ignored_on_pes_17_and_the_face_lists_its_models() {
+    let sandbox = Sandbox::new("user_xml_shared_face");
+    let export = "co Midcup Xml";
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Round.face"), b"");
+    let round = format!("exports/{export}/Faces/Round");
+    sandbox.write(&format!("{round}/face_high.model"), &card_model());
+    sandbox.write(&format!("{round}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{round}/skin.dds"), &small_dds());
+    let xml = face_xml(&[FACE_HIGH]);
+    sandbox.write(&format!("{round}/face.xml"), xml.as_bytes());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            IDENTIFIED,
+            "Info xml_ignored_shared [Keep] at Faces/Round (file=face.xml)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+        ],
+    );
+
+    // The face is generated as without the xml: the model packed under its generated name and
+    // listed by it, not the member's `./face_high.model` written back.
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        ["face.xml", "face_high.mtl", "oral_face_high_win32.model"]
+    );
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        [(
+            "face_neck".to_owned(),
+            "./oral_face_high_*.model".to_owned(),
+            "./face_high.mtl".to_owned()
+        )]
+    );
+    assert!(face["face.xml"] != xml.as_bytes(), "the member's xml");
+}
+
 /// The `face.xml` naming `./hat.model` typed `parts` with `./hat.mtl`, and no `face_neck`.
 fn hat_xml() -> String {
     face_xml(&[r#"type="parts" path="./hat.model" material="./hat.mtl""#])

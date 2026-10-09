@@ -139,9 +139,11 @@ pub(crate) enum Code {
     /// A model folder's texture variant set (`pants_kit1`, `pants_kit3`) has no variant for
     /// a kit number the export defines: the lowest variant is copied into the gap.
     KitVariantMissing,
-    /// Per-kit model files (`pants_kit1.fmdl`, `pants_kit2.fmdl`) on a Fox target, which
-    /// cannot switch models with the kit: the lowest variant is used, the others ignored.
-    KitVariantModelFox,
+    /// Per-kit model files (`pants_kit1.fmdl`, `pants_kit2.fmdl`) where no `face.xml` names
+    /// the set, so nothing switches models with the kit: on a Fox target, and on PES 2015 to
+    /// 2017 in a shared boots or gloves folder and under `ingame_face`. The lowest variant is
+    /// used, the others ignored.
+    KitVariantModelLeftOut,
     /// PES 2015 to 2017: a per-kit model variant whose `.mtl` (the one its search finds, as a
     /// `face.xml` entry would name it, directory included) is not the one its set's entry
     /// names respelled for its kit number; the model is packed, and the game finds no `.mtl`
@@ -213,6 +215,9 @@ pub(crate) enum Code {
     /// PES 2018 to 2021: a player folder's own `face.xml`, which Fox has no use for: it is
     /// ignored, and the folder's models compile as without it.
     XmlIgnoredFox,
+    /// PES 2015 to 2017: a shared face folder's own `face.xml`: it is ignored and not
+    /// checked, and each player combining the face lists the folder's models as without it.
+    XmlIgnoredShared,
     /// Two of a player's sources feeding different packages hold a texture of one stem with
     /// different bytes; the lower package in canonical order (face > boots > gloves) is left
     /// out with the textures only its sources hold.
@@ -422,7 +427,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 130] = [
+    const ALL: [Code; 131] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -465,7 +470,7 @@ impl Code {
         Code::FileNotUsed,
         Code::SharedFolderNoModel,
         Code::KitVariantMissing,
-        Code::KitVariantModelFox,
+        Code::KitVariantModelLeftOut,
         Code::KitVariantMtlDiffers,
         Code::XmlFaceNeckAdded,
         Code::XmlUniformPes15,
@@ -489,6 +494,7 @@ impl Code {
         Code::XmlFaceNeckMultiple,
         Code::XmlModelUnlisted,
         Code::XmlIgnoredFox,
+        Code::XmlIgnoredShared,
         Code::SharedTextureConflict,
         Code::MergedTextureConflict,
         Code::TextureTooSmall,
@@ -600,7 +606,7 @@ impl Code {
             Code::FileNotUsed => "file_not_used",
             Code::SharedFolderNoModel => "shared_folder_no_model",
             Code::KitVariantMissing => "kit_variant_missing",
-            Code::KitVariantModelFox => "kit_variant_model_fox",
+            Code::KitVariantModelLeftOut => "kit_variant_model_left_out",
             Code::KitVariantMtlDiffers => "kit_variant_mtl_differs",
             Code::XmlFaceNeckAdded => "xml_face_neck_added",
             Code::XmlUniformPes15 => "xml_uniform_pes15",
@@ -624,6 +630,7 @@ impl Code {
             Code::XmlFaceNeckMultiple => "xml_face_neck_multiple",
             Code::XmlModelUnlisted => "xml_model_unlisted",
             Code::XmlIgnoredFox => "xml_ignored_fox",
+            Code::XmlIgnoredShared => "xml_ignored_shared",
             Code::SharedTextureConflict => "shared_texture_conflict",
             Code::MergedTextureConflict => "merged_texture_conflict",
             Code::TextureTooSmall => "texture_too_small",
@@ -755,7 +762,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("file_not_used", CatalogSeverity::Warning),
     ("shared_folder_no_model", CatalogSeverity::Warning),
     ("kit_variant_missing", CatalogSeverity::Warning),
-    ("kit_variant_model_fox", CatalogSeverity::Warning),
+    ("kit_variant_model_left_out", CatalogSeverity::Warning),
     ("kit_variant_mtl_differs", CatalogSeverity::Warning),
     ("xml_face_neck_added", CatalogSeverity::Info),
     ("xml_uniform_pes15", CatalogSeverity::Info),
@@ -779,6 +786,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("xml_face_neck_multiple", CatalogSeverity::Warning),
     ("xml_model_unlisted", CatalogSeverity::Warning),
     ("xml_ignored_fox", CatalogSeverity::Info),
+    ("xml_ignored_shared", CatalogSeverity::Info),
     ("shared_texture_conflict", CatalogSeverity::Error),
     ("merged_texture_conflict", CatalogSeverity::Error),
     ("texture_too_small", CatalogSeverity::Error),

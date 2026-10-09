@@ -868,7 +868,8 @@ describes behavior, not a serial scheduling requirement:
   and in a shared `Boots/` or `Gloves/` folder's own output (one `boots.model`, one `glove.xml`
   listing every glove, so every variant would be worn at once), the lowest variant is used and
   the others are left out with `kit_variant_model_left_out`, as on Fox: the member's base model
-  is what both engines agree on. A `.common` link to a per-kit variant has no role on PES 15-17
+  is what both engines agree on; a lone variant (`pants_kit1.model` with no other number) is an
+  ordinary model there, a part of his boots or gloves under the marker as any other. A `.common` link to a per-kit variant has no role on PES 15-17
   (`file_not_used`): the Common models task packs the linked model and lists no set. The legacy
   `dummy_kit*` stems keep working as **reserved, game-substituted names**: the texture-existence
   checks (`mtl_texture_not_found`, `material_texture_not_found`, FMDL path checks) skip them and the

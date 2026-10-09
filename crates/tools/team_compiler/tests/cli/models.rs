@@ -18,7 +18,10 @@ use crate::bins::{BOOTS_LIST, GLOVE_LIST, install_tables, item_list, pairs_of};
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
 use crate::face_folders::assert_blank_face;
-use crate::prefox_faces::{card_materials, card_model, small_dds};
+use crate::prefox_faces::{
+    BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, materials_naming,
+    small_dds,
+};
 use crate::{TEAM_COLORS_MISSING, clean_model, command_args, findings_of};
 
 /// The entry names of the FPK `bytes`.
@@ -1662,7 +1665,7 @@ fn per_kit_models_on_pes_21_compile_the_lowest_variant_alone_and_say_so() {
             &checked[..],
             &[
                 "Info team_colors_missing [Keep] ()",
-                "Warning kit_variant_model_fox [Keep] at Players/05 - A (model=pants_kitN.fmdl, used=pants_kit1.fmdl)",
+                "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=pants_kitN.fmdl, used=pants_kit1.fmdl)",
             ],
         ]
         .concat(),
@@ -1702,7 +1705,7 @@ fn per_kit_model_files_on_pes_21_are_a_set_and_only_the_lowest_is_converted() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=pants_kit1.model)",
             "Info team_colors_missing [Keep] ()",
-            "Warning kit_variant_model_fox [Keep] at Players/05 - A (model=pants_kitN.model, used=pants_kit1.model)",
+            "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=pants_kitN.model, used=pants_kit1.model)",
         ],
     );
 
@@ -1726,7 +1729,7 @@ fn per_kit_boots_on_pes_21_are_boots_read_without_their_kit_token() {
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Warning kit_variant_model_fox [Keep] at Players/05 - A (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
+            "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
         ],
     );
 
@@ -1766,7 +1769,7 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Warning kit_variant_model_fox [Keep] at Boots/Crocs (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
+            "Warning kit_variant_model_left_out [Keep] at Boots/Crocs (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
         ],
     );
     let variant_meshes = Model::from_file(&FmdlFile::read(&clean_model()).unwrap())
@@ -1777,6 +1780,51 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
         boots_mesh_count(&entries, "Asset/model/character/boots/k0644/#Win/boots.fpk"),
         variant_meshes,
         "kit 1's meshes alone"
+    );
+}
+
+// TC-MOD-56
+#[test]
+fn a_shared_boots_folder_s_per_kit_models_on_pes_17_collapse_to_the_lowest_variant() {
+    let sandbox = Sandbox::new("mod_kit_variant_shared_boots_pes17");
+    let export = "co Midcup Variant Studs";
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Studs.boots"), b"");
+    let studs = format!("exports/{export}/Boots/Studs");
+    for variant in ["boots_kit1", "boots_kit2"] {
+        sandbox.write(&format!("{studs}/{variant}.model"), &card_model());
+    }
+    sandbox.write(&format!("{studs}/boots.mtl"), &materials_naming("studs"));
+    sandbox.write(&format!("{studs}/studs.dds"), &small_dds());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            CLEAN[1],
+            "Warning kit_variant_model_left_out [Keep] at Boots/Studs (model=boots_kitN.model, used=boots_kit1.model)",
+        ],
+    );
+
+    // The one `boots.model` every linking player wears is kit 1's alone, not the two merged.
+    let boots = entries_under(&entries, BOOTS_K0644);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl", "studs.dds"]);
+    let mesh_count = |bytes: &[u8]| {
+        let file = pes_model::format::PreFoxModel::read(bytes).unwrap();
+        pes_model::model::Model::from_file(&file)
+            .unwrap()
+            .meshes
+            .len()
+    };
+    assert_eq!(
+        mesh_count(boots["boots.model"]),
+        mesh_count(&card_model()),
+        "kit 1's meshes alone"
+    );
+    assert!(
+        *boots["boots.model"] == card_model(),
+        "kit 1's model as it is"
     );
 }
 

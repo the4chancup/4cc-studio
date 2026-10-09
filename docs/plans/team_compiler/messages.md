@@ -345,7 +345,7 @@ pass-through-eligible, and the logo goes as one unit.
 | `xml_face_neck_added` | I | no `face_neck` entry among a face's models; the dummy entry was appended (Red's rule); not on a blank face | dummy model + mtl emitted |
 | `xml_uniform_pes15` | I | PES15 target: `type="uniform"` rewritten to `uniform_sub` (Red's rule) | rewritten |
 | `xml_ignored_fox` | I | a user `face.xml` in a folder compiled for a Fox target | xml ignored; models compile by the normal route |
-| `xml_ignored_shared` | I | PES 15-17: a `face.xml` in a shared `Faces/` folder; whether it should rule every player combining the face is `QUESTIONS.md` "A shared face folder's `face.xml`" (context: `file`) | xml ignored and not checked; the deep pass pairs every model of the folder as without an xml, and each linking player's face lists the folder's models by the normal route |
+| `xml_ignored_shared` | I | PES 15-17: a `face.xml` in a shared folder (`Faces/`; a `Boots/` or `Gloves/` folder's too, whose output no xml drives); whether a shared face's should rule every player combining the face is `QUESTIONS.md` "A shared face folder's `face.xml`" (context: `file`) | xml ignored and not checked; the deep pass pairs every model of the folder as without an xml, and each linking player's face lists the folder's models by the normal route |
 | `face_diff_invalid` | E | `face_diff.xml` is not base64 text or a `<dif>` holding it, or its decoded bytes, or a `face_diff.bin`, are not a face diff (`player_folders.md` "`face_diff.xml`"; context: the file, the reason) | folder discarded |
 | `mtl_material_duplicate` | E | material listed twice | folder discarded |
 | `mtl_state_invalid` | E | `ztest` ≠ 1 / `blendmode` ∉ {0,1} / `alphablend` ∉ {0,1} | folder discarded |
@@ -449,8 +449,9 @@ task when the dummy is appended, since two files cannot share a name; no export 
 user xml names the entry by its `path` value, since an entry need not resolve to a file. The hand
 auto-split does not apply to such a folder: the xml says what the face loads, and a split would
 add glove entries the member did not write. A folder holding a `face.xml` has a face, whatever
-models it holds (an xml naming only Common models is one), so its face files are used. A `face.xml` in a shared face folder
-(`Faces/`) is ignored on PES 15-17 as on Fox, with `xml_ignored_shared`: the deep pass pairs every
+models it holds (an xml naming only Common models is one), so its face files are used. A `face.xml` in a shared folder
+(`Faces/`, or a `Boots/` or `Gloves/` one, whose output no xml drives) is ignored on PES 15-17 as
+on Fox, with `xml_ignored_shared`: the deep pass pairs every
 model of the folder as it does without an xml, and each linking player's face lists the folder's
 models by the normal route; whether the shared xml should rule every player combining it, and
 what his own files would add, is `QUESTIONS.md` "A shared face folder's `face.xml`".

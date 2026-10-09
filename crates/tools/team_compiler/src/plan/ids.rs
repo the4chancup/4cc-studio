@@ -139,7 +139,7 @@ fn plainly_linked_folders(
 /// with `model_gltf_unsupported`, which is what the member is to be told, not that the folder
 /// has no model.
 fn holds_model_of_its_kind(folder: &SharedModelFolder, engine: Engine, kind: SharedKind) -> bool {
-    let models = FolderModels::of_shared(&folder.path, &folder.files, engine);
+    let models = FolderModels::of_shared(&folder.path, &folder.files, kind, engine);
     folder.files.iter().any(|file| {
         let role = player_file(&folder.path, file, &models);
         matches!(role, Some(PlayerFile::Model { package, .. }) if package == package_of(kind))

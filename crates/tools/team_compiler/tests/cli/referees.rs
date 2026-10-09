@@ -436,6 +436,9 @@ fn a_refs_export_s_kit_is_file_not_used_and_the_referee_face_compiles() {
     let sandbox = Sandbox::new("ref_kit_not_used");
     write_ref_a(&sandbox, &["01"]);
     sandbox.write(&format!("{REFS}/Kits/p1/kit.dds"), &tracer_kit());
+    // The map PES 2018 to 2021 does not read: the kit folder is reported whole, and nothing
+    // about its files.
+    sandbox.write(&format!("{REFS}/Kits/p1/kit_mask.dds"), &tracer_kit());
 
     let (run, entries) = compile(&sandbox);
 

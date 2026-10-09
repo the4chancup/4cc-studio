@@ -12,7 +12,7 @@
 use std::collections::BTreeSet;
 
 use aesthetics_export::{
-    ContentFinding, Disposition, FileDescriptor, IssueScope, SharedModelFolder,
+    ContentFinding, Disposition, FileDescriptor, IssueScope, SharedKind, SharedModelFolder,
 };
 use pes_version::Engine;
 use vtree::ScopePath;
@@ -143,15 +143,15 @@ pub(super) fn held_stems(
     folder: &ScopePath,
     files: &[FileDescriptor],
     models: &FolderModels,
-    shared: &[&SharedModelFolder],
+    shared: &[(SharedKind, &SharedModelFolder)],
     engine: Engine,
 ) -> BTreeSet<String> {
     let mut roles: Vec<PlayerFile> = files
         .iter()
         .filter_map(|file| player_file(folder, file, models))
         .collect();
-    for source in shared {
-        let source_models = FolderModels::of_shared(&source.path, &source.files, engine);
+    for (kind, source) in shared {
+        let source_models = FolderModels::of_shared(&source.path, &source.files, *kind, engine);
         roles.extend(
             source
                 .files
