@@ -393,7 +393,13 @@ pub struct ResolvedAestheticsExport {
 The compiler supports **only the Studio export format**. The old format (separate Faces/Boots/Gloves
 item folders with embedded IDs, Kit Configs/Kit Textures folders, the Other folder) is not supported
 — old exports are migrated with the Export upgrader tool (see the [Export upgrader
-plan](../export_upgrader.md)). Consequences:
+plan](../export_upgrader.md)). An old-layout export that reaches the compiler anyway is one
+finding, `export_layout_old`, and is skipped: a root folder named `Kit Configs`, `Kit Textures`
+or `Other`, which the Studio format never has, tells the two layouts apart with no other
+old-format knowledge, and the dozens of structure findings the old folders would otherwise
+earn (the converge census of 2026-10-09 ran 55 old exports: each a wall of
+`export_tag_missing`, `shared_folder_orphaned` and `portrait_name_invalid`) would only say
+the same thing badly. Consequences:
 
 - No `KitConfigFolder`/`KitTextureFolder`: kits live in the `Kits/` folder, one subfolder per kit.
 - No `Other` folder support.

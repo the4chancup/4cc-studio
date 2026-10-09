@@ -5714,3 +5714,52 @@ probe, 2026-10-09). The converted boots `.mtl` naming `common/999/dummy_kit.dds`
 reserved-stem rule (`pipeline.md` step 3) and changes nothing for a referee.
 Plan: `team_compiler/pipeline.md` step 1 (the blank face rule's exception); `team_compiler/blue_port.md`
 "Referee export processing"; `team_compiler/README.md` TC-REF-10, TC-REF-13.
+
+## 2026-10-09 — team_compiler — two catalog rows withdrawn at converge: `team_id_out_of_range`, `uniparam_compile_failed`
+Decision: both rows are `withdrawn` in `messages.md`; no code changes.
+Why: the converge audit's producer check (every code row against a `Code::` variant or string
+literal in `crates/`) found 25 rows with no producer; 23 are deferred by the plan to Phase 5
+(settings, savefile), Phase 7 (glTF materials, `model_source_ambiguous`,
+`xml_texture_path_missing`) or the GUI and updater (`teams_list_read_only`), and these two
+cannot be produced: `teams_list::TeamId` holds 701-920 only and a list line outside it is the
+list reader's error, so no export ever resolves to an out-of-range ID; the installed
+`UniformParameter.bin` is parsed as it is read since 4.21c (`installed_bin_unreadable`) and a
+failure writing it is `cpk_write_failed` (DECISIONS 2026-10-02), so nothing is left for a
+compile-failed row to report. A row nothing produces is a promise the help window makes and
+the compiler cannot keep.
+Plan: `team_compiler/messages.md`, the two rows.
+
+## 2026-10-09 — aesthetics_export — an old-layout export is one finding, `export_layout_old`
+Decision: an export whose root holds a folder named `Kit Configs`, `Kit Textures` or `Other`
+(case-insensitive) is `export_layout_old` (Error, export skipped, context `folder`), reported
+alone: the export's other structure findings are not computed. The hint says to run the export
+through the Export upgrader once.
+Why: the plan says the compiler reads the Studio format only and the upgrader migrates old
+exports, and was silent on what the compiler says when an old export reaches it anyway. The
+converge census (2026-10-09) ran the maintainer's 53 VGL26 exports and two older team exports
+through `check`: every one came out as `export_tag_missing` (old names carry no tag) plus up to
+fifty `shared_folder_orphaned`, `portrait_name_invalid` and `common_file_disallowed` lines,
+all of them the old layout described piecemeal, and a member reading them would start renaming
+folders by hand. The three folder names are the whole of the old-format knowledge the compiler
+takes on (Phase 6 keeps the rest), and the Studio format never uses them (kits live in `Kits/`).
+Plan: `aesthetics_export/object_model.md` (the "only the Studio export format" paragraph);
+`team_compiler/messages.md` (the row); `team_compiler/README.md` TC-ROOT-14. Step 4.y-fix2.
+
+## 2026-10-09 — team_compiler — a `face.xml`'s `<dif>` beside a `face_diff.bin` is the dual-engine layout, not a conflict
+Decision: `xml_dif_conflict` fires for a `face.xml` `<dif>` beside a `face_diff.xml`, and for a
+`face_diff.bin` beside a `face_diff.xml`, as before; a `<dif>` beside a `face_diff.bin` is no
+conflict: on PES 15-17 the xml's `<dif>` goes out and the `face_diff.bin` is ignored with no
+finding (a file only the other engine reads), on PES 18-21 the `face_diff.bin` goes out and the
+xml is `xml_ignored_fox`, as it already is.
+Why: the plan treated the xml's `<dif>` and a `face_diff.bin` as two sources of one datum. They
+are one datum for two engines: the converge census (2026-10-09) ran the cup's current referee
+exports (Autumn Q 25 to Summer 26) through `check` for PES 17, and five referee folders in four
+of them (FAA, coolguy, dissin, blindrefdog, blindreffinalboss) dropped with `xml_dif_conflict`,
+every one a Red-era folder authored for both engines with its `.model` parts, a `face.xml`
+holding the `<dif>` and a `face_diff.bin`. The plan promises that current-day referee exports
+compile as they are (`player_folders.md` "Reserved subfolders"); the `face_diff.xml` cases stay
+conflicts because that file is Studio's own authoring form, convertible to either engine, so
+two of them in one folder really are two sources.
+Plan: `team_compiler/messages.md` (the row and the user `face.xml` paragraph);
+`team_compiler/README.md` TC-XML-11 (TC-XML-04 and TC-MOD-42 keep the `face_diff.xml` cases).
+Step 4.y-fix2.

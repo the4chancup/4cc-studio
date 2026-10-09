@@ -58,12 +58,20 @@ REMOTE_MEMORY_MAX = "9G"
 # wayland) are the largest the workspace builds (maintainer, 3.z). 2 until
 # 4.14b, whose rerun peaked at the 9 GiB cap with three builds killed.
 REMOTE_BUILD_JOBS = 1
-# Crates whose mutants never go to the remote: their builds outgrow the cap
-# even at one build job (team_compiler: 4.14d's run lost two builds at 9 GiB
-# with REMOTE_BUILD_JOBS 1, and there is no lower setting), so a split would
-# only trade a local rerun of its killed mutants for the halving (maintainer,
-# 2026-10-07). A `mutants-diff` holding any of their mutants runs locally whole.
-LOCAL_ONLY_CRATES = frozenset({"team_compiler"})
+# Crates whose mutants never go to the remote because their builds outgrow the
+# cap even at one build job. A `mutants-diff` holding any of their mutants runs
+# locally whole. Empty since 4.y-conv: team_compiler was listed from 4.14d
+# (two builds killed at 9 GiB with REMOTE_BUILD_JOBS 1) until the converge
+# audit found the cause in the host's tmpfs `/tmp`, where cargo-mutants put
+# its two build copies (`REMOTE_TMPDIR` below); if a crate's builds are killed
+# again with the copies on disk, list it here.
+LOCAL_ONLY_CRATES: frozenset[str] = frozenset()
+# Where the remote half's cargo-mutants makes its two copies of the tree. The
+# host's `/tmp`, cargo-mutants' default, is a 7.8 GiB tmpfs (checked
+# 2026-10-09), so each copy's `target/` (4 GiB with egui linked) lived in RAM
+# and counted against the unit's MemoryMax: the 4.14d kills were per-mutant
+# rebuilds of 1-2 GiB on top of two such trees, not the egui build itself.
+REMOTE_TMPDIR = "$HOME/studio-mutants/tmp"
 # The detached remote half's files: `job.sh`, `pid` (the service's MainPID),
 # `log`, `exit` ("<code> <seconds>", written when cargo-mutants returns),
 # `memory_peak` (the unit cgroup's peak memory) and `collected` (written by
@@ -318,6 +326,8 @@ def launch_remote(host: str, selection: list[str]) -> None:
         "#!/bin/bash\n"
         "exec > ../run/log 2>&1\n"
         "start=$(date +%s)\n"
+        # On disk, not the tmpfs `/tmp`: see REMOTE_TMPDIR.
+        f'export TMPDIR="{REMOTE_TMPDIR}" && mkdir -p "$TMPDIR"\n'
         f". ~/.cargo/env && nice -n 19 ionice -c3 cargo mutants {remote_args} --jobs 2 "
         "--shard 1/2 --sharding round-robin --config ../mutants.remote.toml\n"
         "code=$?\n"

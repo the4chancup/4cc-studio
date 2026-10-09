@@ -142,8 +142,9 @@ savefile messages are new.
 | `nested_root_ambiguous` | E | several nested child folders are usable export roots | export skipped (`DropExport`) |
 | `nested_root_conflict` | E | loose root file collides with a flattened nested file at the same virtual path | export skipped (`DropExport`) |
 | `export_tag_missing` | E | a team export's name has neither `Full` nor `Midcup` as its second word (context `name`: the export's name) | export skipped; the hint says to rename it `<team> Full …` or `<team> Midcup …` (GUI: the row offers the two tags as buttons) |
+| `export_layout_old` | E | the export is in the old layout, which the compiler does not read: a root folder named `Kit Configs`, `Kit Textures` or `Other`, names the Studio format never has (its kits live in `Kits/`); context `folder`: the first such folder. Reported alone: the export's other structure findings are not computed, since every one of them would describe the old layout again | export skipped; the hint says to run the export through the Export upgrader once |
 | `team_name_unknown` | E | canonical `team_name` not in `teams_list.txt` | export skipped (GUI: ID cell becomes editable for inline assignment) |
-| `team_id_out_of_range` | E | resolved ID outside 701–920 | export skipped |
+| `team_id_out_of_range` | withdrawn | nothing produces it: `teams_list::TeamId` holds 701–920 only, and a list line whose ID is outside it is the list reader's own error, so no export resolves to an ID outside the range (converge 4.y-conv, 2026-10-09) | — |
 | `teams_list_read_only` | W | a teams-list write (ID cell, updater merge) failed because the data directory is not writable | write dropped; the in-memory list is unchanged (no elevation — see `pipeline.md` "Resolved decisions", "Teams list") |
 | `team_colors_missing` | I | no root `colors.txt` (it is optional) | the team's colors in `TeamColor.bin` are left as they are |
 | `color_entry_invalid` | W | a `colors.txt` line that does not parse as exactly one color (two colors on one line, the old Team Note kit entry, included), or a valid line past the file's color count (two for a kit, four for the team). Grammar: "Root files" (Colors) in `aesthetics_export/player_folders.md` | the line skipped |
@@ -333,7 +334,7 @@ pass-through-eligible, and the logo goes as one unit.
 | `xml_model_not_found` | E | `path` (or `material`) is a `./` or Common reference whose file is missing from the export | folder discarded |
 | `xml_common_path_invalid` | E | Common reference without 3-char subfolder | folder discarded |
 | `xml_oral_prefix_missing` | E | PES16 target: model file name starting with none of `face_high_`/`hair_high_`/`oral_` | folder discarded |
-| `xml_dif_conflict` | E | two sources for one datum in one folder: the xml carries a `<dif>` and the folder also has `face_diff.xml`, or (Fox) the folder has both `face_diff.bin` and `face_diff.xml` | folder discarded |
+| `xml_dif_conflict` | E | two sources for one datum in one folder: the xml carries a `<dif>` and the folder also has `face_diff.xml`, or (Fox) the folder has both `face_diff.bin` and `face_diff.xml`. A `<dif>` beside a `face_diff.bin` is no conflict: it is the dual-engine layout of the current referee exports, the xml's `<dif>` going out on PES 15-17 (the `face_diff.bin` ignored there with no finding, as a file only the other engine reads) and the `face_diff.bin` on PES 18-21 (where the xml is `xml_ignored_fox`) | folder discarded |
 | `xml_element_unknown` | W | a child of `<config>` other than `<model>`/`<dif>` | kept verbatim |
 | `xml_attribute_unknown` | W | a `<model>` attribute other than `level`/`type`/`path`/`material`/`ratio` | kept verbatim |
 | `xml_type_unknown` | W | `type` not in the generated vocabulary (the type table plus `uniform_sub`) | kept verbatim |
@@ -435,8 +436,9 @@ folder's textures as usual, and the xml. The `.mtl` the deep pass compares a lis
 material names with (`model_material_undefined`) is the entry's `material`, not the search's
 (`mtl_search`), which the xml overrides; an unlisted `.model` is `xml_model_unlisted` and is
 neither emitted nor compared. The xml's own `<dif>` is decoded as a `face_diff.xml`'s is and
-checked the same way (`face_diff_invalid`); beside a `face_diff.bin` or `face_diff.xml` it is
-`xml_dif_conflict`; with none of the three the bundled face diff is written. A `<model>`'s
+checked the same way (`face_diff_invalid`); beside a `face_diff.xml` it is `xml_dif_conflict`, while
+beside a `face_diff.bin` it is the dual-engine layout, each engine taking its own (the catalog
+row); with none of the three the bundled face diff is written. A `<model>`'s
 attributes are written in source order, verbatim but for `type` (the version rewrite) and the
 two references above; an unknown element is written verbatim with its attributes, text and
 children. The written order is the children in source order, then the `face_neck` dummy when
@@ -554,7 +556,7 @@ injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent`
 | `cpk_write_failed` | F | incremental CPK writing fails | run aborted and partial CPK discarded (`AbortRun`) |
 | `output_commit_failed` | F | a completed CPK/tree cannot be atomically committed to its final output path | run aborted; prior published outputs remain untouched (`AbortRun`) |
 | `teamnotes_write_failed` | E | `teamnotes.txt` cannot be written, or a previous one cannot be removed, in the output folder (context: `path`, `error`) | the run's CPK stays in place; the notes file is left as it was |
-| `uniparam_compile_failed` | F | UniformParameter compilation failed (output would crash PES) | run aborted |
+| `uniparam_compile_failed` | withdrawn | an installed `UniformParameter.bin` that does not parse is `installed_bin_unreadable` since 4.21c, and any failure writing the bin is `cpk_write_failed`; nothing between the two can fail (converge 4.y-conv, 2026-10-09) | — |
 | `pes_folder_not_found` | E | `pes_folder_path` invalid at deployment time (includes the no-PES-install machine; context: `path`, `output` the path the CPK is promoted to) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped |
 | `pes_version_mismatch` | W | `pes_folder_path` exists but holds no `PES20{pes_version}.exe` — a different-version exe suggests a wrong `pes_version` setting (Red's suppressible console notice becomes a plain per-run warning, dropping `state/ver_mismatch_warned.txt`; the GUI also surfaces this live via the version selector's red/yellow state — see the core plan's Sidebar; context: `path` the PES folder, `exe` the file looked for) | none; deployment proceeds |
 | `dpfilelist_missing` | E/W | no `DpFileList.bin` in download folder: an Error in a compile that deploys, a Warning in sideload and test mode and with `--no-deploy` (a clean run, "Post-processing"), which deploy nothing, so the user knows no bin from the download folder was used | E: deployment skipped; staged CPKs promoted to `output/`; savefile step skipped. W: none; the bins are built on the bundled bases (`bin_source` `bundled`) |

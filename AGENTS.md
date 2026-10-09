@@ -354,9 +354,14 @@ peaked at 8.43 GiB), so a peak near the cap changes nothing by itself. When a bu
 at the cap, the run fails and lists the untested mutants (`report_killed`), and the fix is
 then a lower `REMOTE_BUILD_JOBS`, never a higher cap; past one job, the crate joins
 `LOCAL_ONLY_CRATES` in `scripts/mutants.py`, whose mutants never go to the VPS (a whole-crate run
-and any diff holding one of them run locally whole): `team_compiler` since 4.14d, whose run lost
-two builds at the cap with one job. A running half is stopped with `sudo systemctl stop
-studio-mutants` on the host.
+and any diff holding one of them run locally whole). `team_compiler` was listed from 4.14d, whose
+run lost two builds at the cap with one job, until the Phase 4 converge audit (2026-10-09) found
+the cause: the host's `/tmp` is a 7.8 GiB tmpfs, cargo-mutants' default place for its two copies
+of the tree, so each copy's `target/` (4 GiB with egui linked) lived in the unit's memory and the
+per-mutant rebuilds of 1-2 GiB tipped it over the cap; the script now builds the remote half under
+`~/studio-mutants/tmp` on disk (`REMOTE_TMPDIR`). The build copies' size, not the build's memory,
+is what to look at first when a killed build shows up again. A running half is stopped with
+`sudo systemctl stop studio-mutants` on the host.
 
 **The remote half runs detached** from any ssh session (`~/studio-mutants/run/`: `job.sh`,
 `pid`, `log`, `exit`, `memory_peak`), and the script polls it every 30 s with short ssh calls. A dropped link

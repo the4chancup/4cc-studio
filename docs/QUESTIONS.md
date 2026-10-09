@@ -55,6 +55,15 @@ the Fox path the converter keeps nor the `./.dds` the legacy converter wrote. Wh
 modded exes draw for such a material, and should a hidden mesh be dropped from the `.model`
 instead of unhidden? A plan ruling, then a converter change.
 
+### `Common/refkit/` in the current referee exports
+Six of the cup's referee exports (Winter 26 Final Boss to Summer 26, `C:/Data/4cc/Refs/*/exports_to_add/`)
+hold a `Common/refkit/` folder: a whole referee kit model set (`oral_refshirt_win32.model`,
+`oral_pants_win32.model`, ..., `refkit.mtl`, textures and a `face.xml`) that no file under
+`Players/` references. The Studio format reads the files directly in `Common/` only, so the
+converge census (2026-10-09) reports every one of them `common_file_disallowed`. What did Red
+do with that folder (copy it under `common/999/refkit/` for the game's own referee kit?), and
+should Studio read it, flatten it, or leave it to the Export upgrader? Found at 4.y-conv.
+
 ## In-game checks
 
 ### Stock collar sets, and collars beyond the stock set
@@ -89,6 +98,16 @@ of `.tmp/4_19/ingame/test_ref04_runs.py` installs a magenta and yellow checker a
 texture through the test CPK slot (`install D`, then `revert`; PES closed for both). The checker
 is a plain DDS where the template's own file is WESYS-compressed, as the compiler's output is
 (step 4.19f), so the same run also confirms the game reads a plain DDS at that path.
+
+### A 192x512 mipped texture, and `.model` mesh tags
+The referee galosengen's `Common/scroll.dds` (Autumn Q 25 Day 1) is 192x512 with ten mip
+levels: the plan's rule refuses a mipped texture whose side is not a power of two
+(`texture_not_pow2`), and the census of 2026-10-09 drops his folder for it on both engines.
+Does PES 17 draw that texture as Red shipped it? If it does, the rule is Fox's (FTEX) only.
+Separately, the IR carries no `.model` mesh tags, so every conversion of a `.model` drops
+them (`native_field_dropped (field=tags)`; the stock cap's tag is `Captainmark`): does the
+pre-Fox game read a mesh tag, so that the IR needs the field (worklog 4.17 "Open for
+converge")?
 
 ## Cup practice and preferences
 

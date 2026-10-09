@@ -334,6 +334,32 @@ fn with_no_dpfilelist_the_bins_are_bundled_and_the_list_s_absence_reported() {
     assert_eq!(run.exit_code(), 0);
 }
 
+// TC-OUT-18
+#[test]
+fn test_and_sideload_modes_without_a_dpfilelist_warn_and_build_on_the_bundled_bins() {
+    let sandbox = Sandbox::new("bins_no_list_modes");
+    fs::create_dir_all(sandbox.root.join("PES/download")).unwrap();
+    sandbox.write("PES/PES2021.exe", b"the game");
+    p2_export(&sandbox);
+    let list = sandbox.display("PES/download/DpFileList.bin");
+    // Neither mode deploys a CPK, so the list's absence is a Warning in both, and neither
+    // ends with a deployment note.
+    let mut expected = vec![format!("Warning dpfilelist_missing [Keep] (path={list})")];
+    expected.extend([
+        source("TeamColor.bin", "bundled"),
+        source("UniColor.bin", "bundled"),
+        source("UniformParameter.bin", "bundled"),
+    ]);
+    expected.extend(P2_FINDINGS.map(str::to_owned));
+
+    for mode in ["test", "sideload"] {
+        let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--mode", mode]);
+
+        assert_eq!(run.messages(), expected, "--mode {mode}");
+        assert_eq!(run.exit_code(), 0, "--mode {mode}");
+    }
+}
+
 // TC-BIN-13
 #[test]
 fn an_installed_team_color_record_whose_header_holds_colors_gets_its_header_back() {

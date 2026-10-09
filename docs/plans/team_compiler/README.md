@@ -1109,6 +1109,12 @@ TC-XML-10  GIVEN Faces/Round holding face_high.model, face_high.mtl and a face.x
            WHEN the export is compiled for PES 17
            THEN xml_ignored_shared is reported on Faces/Round as Info and slot 05's face CPK holds
                 a generated face.xml listing face_high
+TC-XML-11  GIVEN slot 05 holding face_high.model, face_high.mtl, a face.xml carrying a <dif> and
+           a face_diff.bin
+           WHEN the export is compiled for PES 17, then for PES 21
+           THEN neither run reports xml_dif_conflict; the PES 17 face CPK's face.xml carries the
+                xml's <dif> and no finding names face_diff.bin; the PES 21 face.fpk holds the
+                folder's face_diff.bin byte for byte and xml_ignored_fox is reported
 ```
 
 **Kits**
@@ -1248,6 +1254,11 @@ TC-ROOT-13 GIVEN a root logo.png
            WHEN the export is compiled for PES 19
            THEN the CPK holds emblem_0714_r_ll.png, emblem_0714_r_l.png and emblem_0714_r.png
                 under common/render/symbol/flag/ and no e_000714_* name
+TC-ROOT-14 GIVEN an export in the old layout: root folders Faces, Boots, Kit Configs, Kit Textures
+           and Portraits, no Players folder, named without a Full or Midcup tag
+           WHEN it is checked, then compiled for PES 21
+           THEN each command reports export_layout_old naming Kit Configs and nothing else about
+                the export, it is skipped, and no CPK entry of its team is written
 TC-CMN-01  GIVEN Collars/collar_12.fmdl, p1/config.toml and fpc_on in slot 05's folder
            WHEN the export is compiled for PES 21
            THEN Asset/model/character/uniform/nocloth/#Win/collar_012.fmdl is in the CPK and every
