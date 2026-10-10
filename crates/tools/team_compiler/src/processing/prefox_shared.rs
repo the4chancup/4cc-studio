@@ -37,19 +37,19 @@ use super::conversion::{
 };
 use super::materialize::PackageFiles;
 use super::prefox_face::{
-    add_environment_map, insert, linked_texture_stem, point_materials, point_reserved_kit_stems,
-    read_materials, rewritten_materials,
+    FolderPlaces, MaterialPlaces, add_environment_map, insert, linked_texture_stem,
+    point_materials, point_reserved_kit_stems, read_materials, rewritten_materials,
 };
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_xml::{XmlEntry, glove_xml, ratio};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
-use crate::paths;
+use crate::paths::{self, TextureDirectory};
 use crate::plan::ModelFolder;
 use crate::plan::roles::{
     ModelPackage, PlayerFile, file_stem, is_direct_root_folder_file, path_stem,
 };
-use crate::texture_lookup::{TextureFolders, TexturePlace};
+use crate::texture_lookup::TextureFolders;
 
 /// What the deep pass guarantees of every `.model` a task reads on pre-Fox.
 const MTL_FOUND: &str = "the deep pass drops a folder holding a `.model` no `.mtl` is found for \
@@ -234,6 +234,7 @@ pub(super) fn package(
     }
     let home = folder.textures.directory(Engine::PreFox, team_id);
     let common_directory = paths::common_texture_directory(Engine::PreFox, team_id);
+    let common_home = TextureDirectory::plain(common_directory.clone());
     // The textures directly in `Common/`, each stem folded with its stem as `Common/` spells
     // it, which a Common `.mtl` copied in with a part names. A shared folder has none. A
     // subfolder's, among the files a member's `face.xml` may name, are packed under the
@@ -253,12 +254,19 @@ pub(super) fn package(
     // A converted FMDL's set goes by its FMDL: a Common one a link of his brings in names the
     // Common textures as a copied Common `.mtl` does.
     // A stem the folder holds, nearest first from the file's folder (`texture_lookup`), is its
-    // own, before one a texture link stands for, as in the face (`prefox_face::face`).
-    let places_for = |file: &FileDescriptor| -> Vec<(&TexturePlace, &str)> {
-        let mut places = textures.places(&folder.path, &file.path, &home);
-        places.push((&linked, common_directory.as_str()));
+    // own, before one a texture link stands for, and a path below the file's folder resolves
+    // at that path, as in the face (`prefox_face::face`).
+    let folder_places = FolderPlaces {
+        folder: &folder.path,
+        textures,
+        linked,
+        home: &home,
+        common_directory: &common_home,
+    };
+    let places_for = |file: &FileDescriptor| -> MaterialPlaces {
+        let mut places = folder_places.of(&file.path);
         if is_direct_root_folder_file(&file.path) {
-            places.push((&common_textures, common_directory.as_str()));
+            places.by_name.push((&common_textures, &common_home));
         }
         places
     };
@@ -284,7 +292,7 @@ pub(super) fn package(
         // with the converter's own rule, so the shader and the flag agree and the sampler
         // names the texture the textures task emits (or the folder's own `env`, or the Common
         // one its link names, `point_materials` respelling it below).
-        add_environment_map(&mut conversion.materials, &home);
+        add_environment_map(&mut conversion.materials, &home.of(""));
         point_materials(&mut conversion.materials, &places_for(model.file));
         point_reserved_kit_stems(&mut conversion.materials, &common_directory);
         Ok(conversion)

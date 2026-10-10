@@ -881,11 +881,20 @@ const COMMON_000: &str = "/Assets/pes16/model/character/common/000/sourceimages/
 /// of `renames` renamed and pointed at `COMMON_000`, through `fmdl`'s texture-path rewriting;
 /// asserts a mesh uses every renamed texture, so the compiler looks for it.
 pub(crate) fn tracer_model_renaming(model: &str, renames: &[(&str, &str)]) -> Vec<u8> {
+    tracer_model_pointing(model, renames, COMMON_000)
+}
+
+/// `tracer_model_renaming` with the renamed textures pointed at `directory` (`./textures/`).
+pub(crate) fn tracer_model_pointing(
+    model: &str,
+    renames: &[(&str, &str)],
+    directory: &str,
+) -> Vec<u8> {
     let mut file = FmdlFile::read(&tracer_player_file(model)).unwrap();
     rewrite_texture_paths(&mut file, |path| {
         if let Some((_, renamed)) = renames.iter().find(|(old, _)| path.file_name == *old) {
             path.file_name = (*renamed).to_owned();
-            path.directory = COMMON_000.to_owned();
+            path.directory = directory.to_owned();
         }
     })
     .unwrap();
@@ -893,7 +902,7 @@ pub(crate) fn tracer_model_renaming(model: &str, renames: &[(&str, &str)]) -> Ve
     for (_, renamed) in renames {
         assert!(
             used.iter()
-                .any(|path| path.file_name == *renamed && path.directory == COMMON_000),
+                .any(|path| path.file_name == *renamed && path.directory == directory),
             "{renamed} unused: {used:?}"
         );
     }

@@ -2,7 +2,9 @@
 //! "Subfolders"): a texture a model or a `.mtl` of a model folder names with no path resolves
 //! in the file's own folder first, then in each parent up to the model folder, then among the
 //! textures of the shared folders the model folder combines, which sit at the root of its
-//! texture home; a lookup never goes down into a subfolder. The face task and the Models task
+//! texture home; a lookup by name never goes down into a subfolder. One named with a path below
+//! the file's folder (`./textures/skin`, `path_below`) resolves at that path alone (`at`).
+//! The face task and the Models task
 //! point texture paths with it, and the deep pass looks a `.mtl`'s paths up with it, so a path
 //! the deep pass calls supplied is one the tasks point.
 
@@ -11,6 +13,7 @@ use std::collections::BTreeMap;
 use vtree::ScopePath;
 
 use crate::kit_variants::has_variant_among;
+use crate::paths::TextureDirectory;
 
 /// One folder's textures, each by its stem folded, with its path below its source folder
 /// without its extension, as spelled (`PlayerFile::Texture`'s `below`): the path its converted
@@ -54,7 +57,7 @@ impl TextureFolders {
     /// `folder`; then the combined shared folders'. A file of another folder (a combined shared
     /// folder's, a `Common/` model brought in by a link) resolves as one directly in `folder`.
     pub(crate) fn nearest_first(&self, folder: &ScopePath, path: &ScopePath) -> Vec<&TexturePlace> {
-        let directory = directory_below(folder, path);
+        let directory = directory_below(folder, path).unwrap_or_default();
         let segments: Vec<&str> = if directory.is_empty() {
             Vec::new()
         } else {
@@ -68,34 +71,70 @@ impl TextureFolders {
             .collect()
     }
 
-    /// `nearest_first`'s places, each with `home`, the directory the texture home's root is
-    /// named by, below which each texture sits at its path.
+    /// `nearest_first`'s places, each with `home`, the directory a model names the texture
+    /// home by, below whose root each texture sits at its path.
     pub(crate) fn places<'a>(
         &'a self,
         folder: &ScopePath,
         path: &ScopePath,
-        home: &'a str,
-    ) -> Vec<(&'a TexturePlace, &'a str)> {
+        home: &'a TextureDirectory,
+    ) -> Vec<(&'a TexturePlace, &'a TextureDirectory)> {
         self.nearest_first(folder, path)
             .into_iter()
             .map(|place| (place, home))
             .collect()
     }
+
+    /// The place of the folder `subdirectory` (`path_below`'s) below the folder of the file at
+    /// `file`, which a reference of that file naming a path resolves in alone. `None` when `file`
+    /// is not below `folder` (a combined shared folder's, a `Common/` file), when a segment of
+    /// `subdirectory` is `.` or `..` or empty, or when no texture sits there.
+    pub(crate) fn at(
+        &self,
+        folder: &ScopePath,
+        file: &ScopePath,
+        subdirectory: &str,
+    ) -> Option<&TexturePlace> {
+        let directory = directory_below(folder, file)?;
+        let subdirectory = subdirectory.strip_suffix('/').unwrap_or(subdirectory);
+        if subdirectory
+            .split('/')
+            .any(|segment| matches!(segment, "" | "." | ".."))
+        {
+            return None;
+        }
+        let key = if directory.is_empty() {
+            vtree::fold_name(subdirectory)
+        } else {
+            format!("{directory}/{}", vtree::fold_name(subdirectory))
+        };
+        self.own.get(&key)
+    }
+}
+
+/// The subdirectory a texture reference names below its file's folder (`model_format.md`
+/// "Stem-based texture references"): for a directory starting with `./` and carrying more,
+/// what follows the `./` (`./textures/` → `textures/`, `./a/b/` → `a/b/`). `None` for `./`,
+/// an empty directory, or any other (a game path: `/Assets/...`, `model/character/...`),
+/// whose references are looked up by name.
+pub(crate) fn path_below(directory: &str) -> Option<&str> {
+    directory
+        .strip_prefix("./")
+        .filter(|subdirectory| !subdirectory.is_empty())
 }
 
 /// The folder holding the file at `path` below the model folder at `folder`, folded: `""` for
-/// a file directly in it, or one not below it.
-fn directory_below(folder: &ScopePath, path: &ScopePath) -> String {
+/// a file directly in it; `None` for one not below it.
+fn directory_below(folder: &ScopePath, path: &ScopePath) -> Option<String> {
     let path = path.fold_key();
-    let Some(below) = path
+    let below = path
         .strip_prefix(&folder.fold_key())
-        .and_then(|rest| rest.strip_prefix('/'))
-    else {
-        return String::new();
-    };
-    below
-        .rsplit_once('/')
-        .map_or_else(String::new, |(directory, _)| directory.to_owned())
+        .and_then(|rest| rest.strip_prefix('/'))?;
+    Some(
+        below
+            .rsplit_once('/')
+            .map_or_else(String::new, |(directory, _)| directory.to_owned()),
+    )
 }
 
 /// A texture's path below the texture home (`TexturePlace`'s value) as its directory there,
@@ -142,8 +181,9 @@ mod tests {
     /// What the name `stem` resolves to for the file at `file` of slot 05: the first place
     /// holding it, as its path below the home.
     fn resolved(folders: &TextureFolders, file: &str, stem: &str) -> Option<String> {
+        let home = TextureDirectory::plain("home/".to_owned());
         folders
-            .places(&path("Players/05 - A"), &path(file), "home/")
+            .places(&path("Players/05 - A"), &path(file), &home)
             .into_iter()
             .find_map(|(place, _)| place.get(&vtree::fold_name(stem)).cloned())
     }
@@ -174,6 +214,58 @@ mod tests {
     }
 
     #[test]
+    fn a_directory_starting_with_dot_slash_and_carrying_more_names_a_path_below() {
+        assert_eq!(path_below("./textures/"), Some("textures/"));
+        assert_eq!(path_below("./a/b/"), Some("a/b/"));
+        for directory in [
+            "./",
+            "",
+            "/Assets/pes16/model/character/common/740/sourceimages/",
+            "model/character/uniform/common/740/",
+            "textures/",
+        ] {
+            assert_eq!(path_below(directory), None, "{directory}");
+        }
+    }
+
+    #[test]
+    fn a_path_below_a_file_s_folder_resolves_at_that_place_alone() {
+        let mut folders = slot_05();
+        folders.insert(true, "jessie/textures/skin");
+        let folder = path("Players/05 - A");
+        let in_jessie = path("Players/05 - A/jessie/x.mtl");
+        let place = folders.at(&folder, &in_jessie, "textures/").unwrap();
+        assert_eq!(place.values().collect::<Vec<_>>(), ["jessie/textures/skin"]);
+        // Folded as the folders' keys are.
+        assert_eq!(folders.at(&folder, &in_jessie, "Textures/"), Some(place));
+        // From the root, `body/` is not below it: `jessie/body/` is.
+        let root = path("Players/05 - A/face_high.mtl");
+        assert_eq!(folders.at(&folder, &root, "body/"), None);
+        assert_eq!(
+            folders
+                .at(&folder, &root, "jessie/body/")
+                .and_then(|place| place.get("hair"))
+                .map(String::as_str),
+            Some("jessie/body/hair")
+        );
+        // A file not below the folder, and a segment that is not a folder's name.
+        assert_eq!(
+            folders.at(&folder, &path("Faces/Long/textures/x.mtl"), "textures/"),
+            None
+        );
+        let in_body = path("Players/05 - A/jessie/body/x.mtl");
+        for subdirectory in ["/", "../x/", "../textures/", "./textures/", "textures//"] {
+            assert_eq!(
+                folders.at(&folder, &in_body, subdirectory),
+                None,
+                "{subdirectory}"
+            );
+        }
+        // From the root, `/` would otherwise name the root's own folder, which holds `skin`.
+        assert_eq!(folders.at(&folder, &root, "/"), None);
+    }
+
+    #[test]
     fn a_place_s_texture_splits_into_its_directory_below_the_home_and_its_name() {
         assert_eq!(split("jessie/body/skin"), ("jessie/body/", "skin"));
         assert_eq!(split("skin"), ("", "skin"));
@@ -183,10 +275,11 @@ mod tests {
     fn a_kit_reference_finds_a_variant_of_its_set() {
         let mut folders = TextureFolders::default();
         folders.insert(true, "jessie/pants_kit2");
+        let home = TextureDirectory::plain("home/".to_owned());
         let places = folders.places(
             &path("Players/05 - A"),
             &path("Players/05 - A/jessie/x.mtl"),
-            "home/",
+            &home,
         );
         assert_eq!(
             variant(places[0].0, "pants_kitN"),

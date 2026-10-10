@@ -45,7 +45,8 @@ gone, a refs export's AET layout refused per folder; (b1) done 2026-10-10: a sub
 textures at their paths, a texture name resolving nearest first, each folder its own stem
 namespace, the singletons root-only; (b2) done 2026-10-10: the pre-Fox face packs and
 lists a subfolder's files at their paths, `./sub/name` a checked local reference; (b3a)
-next), 4.y-fix20
+done 2026-10-10: a texture named by its path below its file's folder resolves there, a
+Fox subfolder texture before `sourceimages`; (b3b1) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4123,6 +4124,28 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`.tmp/4_y/gates_sub_b2_lead.log`, acceptance 313 of 318, the five open ones (b3)'s and
   (b4)'s); mutants r1 72 mutants, 55 caught, 17 unviable, 0 missed
   (`.tmp/4_y/mutants_sub_b2.log`), rework 72 mutants, 55 caught, 17 unviable, 0 missed (`.tmp/4_y/mutants_sub_b2_r1.log`).
+  (b3a) done 2026-10-10 (Opus 5.5, one run and one rework round; brief
+  `.tmp/4_y/brief_sub_b3a.md`, report `.tmp/4_y/sk_sub_b3a_report.md`): `paths::TextureDirectory`
+  (prefix, subdirectory, suffix) decides a texture home's directory in one place, a Fox
+  player's subfolder texture now at `.../<folder>/<sub>/sourceimages/#windx11/`, the FMDL
+  naming `.../<folder>/<sub>/sourceimages/` ((b1)'s layout tests updated); an FMDL directory
+  or `.mtl` path starting with `./` and carrying a directory (`texture_lookup::path_below`)
+  resolves at that place alone (`TextureFolders::at`), from the model or, for a converted
+  `.model`, its `.mtl` (`Part::references_from`), nothing there `fmdl_texture_not_found` /
+  `mtl_texture_not_found`; the pre-Fox face's, boots' and gloves' `.mtl`s point the same way
+  (`prefox_face::FolderPlaces`, `MaterialPlaces`), and the deep pass's `supply` decides it
+  (`HeldTextures::at`; (b2)'s `Local`-with-`/` arm gone). The sidekick's contradiction on
+  `prefox_shared` accepted (a shared folder's or an `ingame_face` player's `.mtl` follows the
+  rule, as the deep pass does); on `Common/` `.mtl`s half accepted: a Fox Common part's
+  `./sub/` path is `fmdl_texture_not_found` (Fox reads no Common subfolder file), while a
+  pre-Fox Common `.mtl`'s stays not looked for, since the Common output holds its
+  subfolder at its path; (b3b2) looks it up (and `prefox_common` still points such a path
+  by name). TC-MOD-71 proven. Files: `team_compiler` `paths.rs`, `texture_lookup.rs`,
+  `processing/{model, prefox_face, prefox_shared, prefox_common}.rs`, `deep/{materials,
+  mod}.rs`, `tests/cli/{models, prefox_faces, textures}.rs`. Gates green
+  (`.tmp/4_y/gates_sub_b3a_lead.log`, acceptance 314 of 318, the four open ones (b3b)'s and
+  (b4)'s); mutants r1 38 mutants, 31 caught, 7 unviable, 0 missed
+  (`.tmp/4_y/mutants_sub_b3a.log`), rework 39 mutants, 33 caught, 6 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3a_r1.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -6955,3 +6978,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   converter's materials checked against `resources/Materials.wikitext`.
 - **2026-10-10** — 4.y-sub (b2) landed: the pre-Fox face packs and lists a subfolder's files
   at their paths; a pre-Fox per-kit model set is one directory's (decision).
+- **2026-10-10** — 4.y-sub (b3a) landed: a texture named by its path below its file's folder
+  resolves there; a Fox player's subfolder texture sits before `sourceimages`.

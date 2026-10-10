@@ -31,6 +31,11 @@ pub(super) struct TextureSources<'a> {
     /// of the shared folders its face packs, and the stems its texture links stand for; for a
     /// `Common/` `.mtl`, `Common/`'s.
     pub(super) held: &'a [&'a TexturePlace],
+    /// For a path below the `.mtl`'s folder (`texture_lookup::path_below`), which resolves at
+    /// that path alone: its model folder's textures and the `.mtl`'s path (`HeldTextures::at`).
+    /// `None` for a `Common/` `.mtl`, whose path below its folder is not looked for: the
+    /// Common output holds that subfolder at its path, which `held` does not look in.
+    pub(super) below: Option<(&'a HeldTextures, &'a ScopePath)>,
     /// The stems of the textures in `Common/` the pass keeps, which the export's Common
     /// textures task packs into the team's Common output.
     pub(super) common: &'a BTreeSet<String>,
@@ -51,37 +56,50 @@ enum Supply {
 }
 
 /// Whether the texture `path`, a `.mtl` sampler's path as written, is supplied from `sources`.
-/// Whatever directory it spells, it is supplied when its stem (folded), or a variant of its set
-/// for a kit reference (`pants_kitN`, `texture_lookup::variant`), is one a place of
-/// `sources.held` holds: that is the stem the face task points at the folder's textures. A
-/// `dummy_` stem is never looked for. Past the folder, a
-/// `./` path and a bare name (read as `./`) are missing: the face packs no texture the folder
-/// does not hold; a `./` path into a subfolder (`./kit1/x.dds`) is not looked for. A path
-/// into the team's uniform Common folder
+/// A `dummy_` stem is never looked for. A path below the `.mtl`'s folder
+/// (`./shorts/y.dds`, `texture_lookup::path_below`), when `sources.below` is set, is supplied
+/// when the place that path names holds its stem (folded), or a variant of its set for a kit
+/// reference, and missing otherwise: it resolves there alone; for a `Common/` `.mtl`
+/// (`sources.below` unset) it is not looked for. Whatever directory any other
+/// path spells, it is supplied when its stem, or a variant of its set for a kit reference
+/// (`pants_kitN`, `texture_lookup::variant`), is one a place of `sources.held` holds: that is
+/// the stem the face task points at the folder's textures. Past the folder, a `./` path and a
+/// bare name (read as `./`) are missing: the face packs no texture the folder does not hold. A
+/// path into the team's uniform Common folder
 /// (`model/character/uniform/common/<team>/<name>`) is supplied when `Common/` or an installed
 /// CPK holds its stem; an installed lookup that cannot be made holds nothing. Any other path
 /// names the game's own files, which are not looked in.
 fn supply(path: &str, sources: &TextureSources) -> Supply {
-    let file_name = path.rsplit_once('/').map_or(path, |(_, name)| name);
+    let (directory, file_name) = texture_lookup::split(path);
     let stem = file_stem(file_name);
     let key = vtree::fold_name(stem);
     let holds = |stems: &BTreeSet<String>| {
         stems.contains(&key) || has_variant_among(stem, stems.iter().map(String::as_str))
     };
-    let held = sources
-        .held
-        .iter()
-        .any(|place| place.contains_key(&key) || texture_lookup::variant(place, stem).is_some());
-    if held || key.starts_with("dummy_") {
+    let place_holds = |place: &TexturePlace| {
+        place.contains_key(&key) || texture_lookup::variant(place, stem).is_some()
+    };
+    if key.starts_with("dummy_") {
+        return Supply::Supplied;
+    }
+    if let Some(subdirectory) = texture_lookup::path_below(directory) {
+        return match sources.below {
+            Some((held, mtl)) if held.at(mtl, subdirectory).is_some_and(place_holds) => {
+                Supply::Supplied
+            }
+            Some(_) => Supply::Missing,
+            // The Common output holds a `Common/` `.mtl`'s subfolder at its path, which
+            // `sources`, holding `Common/`'s own stems, does not look in: not looked for.
+            None => Supply::Supplied,
+        };
+    }
+    if sources.held.iter().any(|place| place_holds(place)) {
         return Supply::Supplied;
     }
     if !path.contains('/') {
         return Supply::Missing;
     }
     match reference(path) {
-        // A texture named with a path below the `.mtl`'s folder resolves at that path, which
-        // `sources.held`, keyed by stem, cannot look up: such a path is not looked for.
-        Reference::Local(below) if below.contains('/') => Supply::Supplied,
         Reference::Local(_) => Supply::Missing,
         // A Common subfolder's textures are not among `sources`, which hold `Common/`'s own
         // stems: such a path is not looked for, as a path of the game's own is not.
@@ -170,6 +188,12 @@ impl HeldTextures {
         places.push(&self.linked);
         places
     }
+
+    /// The place a path of the `.mtl` at `mtl` naming `subdirectory` below its folder
+    /// resolves in alone (`TextureFolders::at`).
+    pub(super) fn at(&self, mtl: &ScopePath, subdirectory: &str) -> Option<&TexturePlace> {
+        self.textures.at(&self.folder, mtl, subdirectory)
+    }
 }
 
 /// The textures the model folder at `folder` holds for its `.mtl` paths: each of its `files`
@@ -255,31 +279,74 @@ mod tests {
         let installed = installed.map(stems);
         let sources = TextureSources {
             held: &[&place(held)],
+            below: None,
             common: &stems(common),
             installed: installed.as_ref(),
         };
         supply(path, &sources)
     }
 
+    /// Slot 05's held textures, its own at each of `below` and its links standing for
+    /// `linked`.
+    fn slot_05(below: &[&str], linked: &[&str]) -> HeldTextures {
+        let mut held = HeldTextures {
+            folder: ScopePath::new("Players/05 - A").unwrap(),
+            textures: TextureFolders::default(),
+            linked: place(linked),
+        };
+        for below in below {
+            held.textures.insert(true, below);
+        }
+        held
+    }
+
+    /// What `supply` makes of `path` named by the `.mtl` at `mtl` of the folder holding `held`,
+    /// with nothing in `Common/` and no installed lookup.
+    fn supplied_to(held: &HeldTextures, mtl: &str, path: &str) -> Supply {
+        let mtl = ScopePath::new(mtl).unwrap();
+        let places = held.of(&mtl);
+        let sources = TextureSources {
+            held: &places,
+            below: Some((held, &mtl)),
+            common: &BTreeSet::new(),
+            installed: None,
+        };
+        supply(path, &sources)
+    }
+
+    #[test]
+    fn a_mtl_path_below_its_folder_is_supplied_by_the_texture_at_that_path_alone() {
+        let body = "Players/05 - A/jessie/body/x.mtl";
+        let root = "Players/05 - A/face_high.mtl";
+        let below = slot_05(
+            &["jessie/body/shorts/y", "jessie/body/shorts/pants_kit1"],
+            &[],
+        );
+        assert_eq!(
+            supplied_to(&below, body, "./shorts/y.dds"),
+            Supply::Supplied
+        );
+        assert_eq!(
+            supplied_to(&below, body, "./Shorts/pants_kitN.dds"),
+            Supply::Supplied
+        );
+        assert_eq!(supplied_to(&below, root, "./shorts/y.dds"), Supply::Missing);
+        // The root's own `y` and a link of its stem are not at that path.
+        let beside = slot_05(&["y"], &["y"]);
+        assert_eq!(
+            supplied_to(&beside, root, "./shorts/y.dds"),
+            Supply::Missing
+        );
+        assert_eq!(
+            supplied_to(&beside, root, "./shorts/dummy_kit.dds"),
+            Supply::Supplied
+        );
+    }
+
     #[test]
     fn a_mtl_s_texture_name_is_held_in_its_folder_or_a_parent_never_a_subfolder() {
-        let folder = ScopePath::new("Players/05 - A").unwrap();
-        let mut held = HeldTextures {
-            folder: folder.clone(),
-            textures: TextureFolders::default(),
-            linked: place(&["hair"]),
-        };
-        held.textures.insert(true, "jessie/skin");
-        held.textures.insert(true, "jessie/shorts");
-        let supplied_to = |mtl: &str, path: &str| {
-            let places = held.of(&ScopePath::new(mtl).unwrap());
-            let sources = TextureSources {
-                held: &places,
-                common: &BTreeSet::new(),
-                installed: None,
-            };
-            supply(path, &sources)
-        };
+        let held = slot_05(&["jessie/skin", "jessie/shorts"], &["hair"]);
+        let supplied_to = |mtl: &str, path: &str| supplied_to(&held, mtl, path);
         let deep = "Players/05 - A/jessie/body/x.mtl";
         assert_eq!(supplied_to(deep, "./skin.dds"), Supply::Supplied);
         assert_eq!(supplied_to(deep, "./hair.dds"), Supply::Supplied);
@@ -338,10 +405,15 @@ mod tests {
             ),
             Supply::Supplied
         );
-        // A `./` path into a subfolder names a texture at that path, which the held places,
-        // keyed by stem, cannot look up: it is not looked for.
+        // A `./` path into a subfolder of a `Common/` `.mtl` (no folder to look below) names a
+        // texture the Common output holds at that path, which `sources` do not look in: it is
+        // not looked for.
         assert_eq!(
             supplied("./sub/skin.dds", &[], &[], Some(&[])),
+            Supply::Supplied
+        );
+        assert_eq!(
+            supplied("./sub/skin.dds", &["skin"], &[], Some(&[])),
             Supply::Supplied
         );
         // A Common path into a subfolder is not looked up among `Common/`'s own stems.
@@ -401,6 +473,7 @@ mod tests {
         let common = stems(&["hair"]);
         let sources = TextureSources {
             held: &[],
+            below: None,
             common: &common,
             installed: None,
         };

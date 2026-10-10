@@ -126,40 +126,74 @@ pub(crate) enum TextureHome {
     },
 }
 
+/// The directory a model names a texture by, for a texture at a subdirectory below a texture
+/// home's root (`""` or ending in `/`, `texture_lookup::split`): `prefix`, the subdirectory,
+/// then `suffix`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TextureDirectory {
+    prefix: String,
+    suffix: &'static str,
+}
+
+impl TextureDirectory {
+    /// A directory below which a texture's subdirectory follows directly (suffix `""`): the
+    /// team's Common output's (`common_texture_directory`), and on pre-Fox a `Common/`
+    /// directory's place in it (`common_subpath`), whose textures a model names by stem alone.
+    pub(crate) fn plain(directory: String) -> TextureDirectory {
+        TextureDirectory {
+            prefix: directory,
+            suffix: "",
+        }
+    }
+
+    /// The directory a model names a texture at `subdirectory` below the home's root by.
+    pub(crate) fn of(&self, subdirectory: &str) -> String {
+        format!("{}{subdirectory}{}", self.prefix, self.suffix)
+    }
+}
+
 impl TextureHome {
     /// The directory a model's texture paths name for a texture here, on a target of `engine`,
     /// for team `team_id`: an FMDL texture-path table's on Fox, a `.mtl` sampler's on pre-Fox.
-    pub(crate) fn directory(&self, engine: Engine, team_id: u16) -> String {
-        match (engine, self) {
-            (Engine::Fox, TextureHome::PlayerCommon { folder_name }) => format!(
-                "/Assets/pes16/model/character/common/{team_id}/{folder_name}/sourceimages/"
+    /// A texture of a subfolder is named at its subdirectory below the folder's, which on a
+    /// Fox player's home comes before `sourceimages/`
+    /// (`/Assets/pes16/model/character/common/714/05 - A/jessie/sourceimages/` for `jessie/`),
+    /// the layout of a `Common/` subfolder's texture too.
+    pub(crate) fn directory(&self, engine: Engine, team_id: u16) -> TextureDirectory {
+        let (prefix, suffix) = match (engine, self) {
+            (Engine::Fox, TextureHome::PlayerCommon { folder_name }) => (
+                format!("/Assets/pes16/model/character/common/{team_id}/{folder_name}/"),
+                "sourceimages/",
             ),
-            (Engine::Fox, TextureHome::SharedOutput { package, id }) => {
+            (Engine::Fox, TextureHome::SharedOutput { package, id }) => (
                 format!(
                     "/Assets/pes16/{}/",
                     model_folder(*package, PackageKey::Id(*id))
-                )
-            }
-            (Engine::PreFox, TextureHome::PlayerCommon { folder_name }) => {
-                format!("model/character/uniform/common/{team_id}/{folder_name}/")
-            }
+                ),
+                "",
+            ),
+            (Engine::PreFox, TextureHome::PlayerCommon { folder_name }) => (
+                format!("model/character/uniform/common/{team_id}/{folder_name}/"),
+                "",
+            ),
             // The game's own boots `.mtl` files name their textures beside them.
-            (Engine::PreFox, TextureHome::SharedOutput { .. }) => "./".to_owned(),
-        }
+            (Engine::PreFox, TextureHome::SharedOutput { .. }) => ("./".to_owned(), ""),
+        };
+        TextureDirectory { prefix, suffix }
     }
 
     /// The CPK path of the texture at `below` here, its path below its source folder without
     /// its extension (`skin`, or `jessie/skin` for a subfolder's, `PlayerFile::Texture`),
     /// converted for a target of `engine` (an FTEX on Fox, a DDS on pre-Fox), for team
-    /// `team_id`: at that path below the directory a model names it in (`directory`). On Fox
-    /// the platform folder `#windx11` sits in the texture's own directory, just before its
-    /// name, which is where the game looks for the FTEX of a path a model names
-    /// (`sourceimages/jessie/#windx11/skin.ftex` for `sourceimages/jessie/skin`).
+    /// `team_id`: in the directory a model names it in (`directory`). On Fox the platform
+    /// folder `#windx11` sits in that directory, just before the texture's name, which is
+    /// where the game looks for the FTEX of a path a model names
+    /// (`jessie/sourceimages/#windx11/skin.ftex` for `jessie/sourceimages/skin`).
     pub(crate) fn texture(&self, engine: Engine, team_id: u16, below: &str) -> String {
         let (subdirectory, name) = texture_lookup::split(below);
         match (engine, self) {
             (Engine::Fox, TextureHome::PlayerCommon { folder_name }) => format!(
-                "Asset/model/character/common/{team_id}/{folder_name}/sourceimages/{subdirectory}#windx11/{name}.ftex"
+                "Asset/model/character/common/{team_id}/{folder_name}/{subdirectory}sourceimages/#windx11/{name}.ftex"
             ),
             (Engine::Fox, TextureHome::SharedOutput { package, id }) => format!(
                 "Asset/{}/{subdirectory}#windx11/{name}.ftex",
@@ -413,24 +447,29 @@ mod tests {
             folder_name: "05 - A".to_owned(),
         };
         assert_eq!(
-            player.directory(Engine::Fox, 714),
+            player.directory(Engine::Fox, 714).of(""),
             "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"
         );
         assert_eq!(
             player.texture(Engine::Fox, 714, "shirt"),
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex"
         );
-        // A subfolder's texture: the platform folder sits just before the name.
+        // A subfolder's texture: at its directory below the folder, then `sourceimages`, which
+        // a model names it in.
         assert_eq!(
             player.texture(Engine::Fox, 714, "jessie/shorts/shorts"),
-            "Asset/model/character/common/714/05 - A/sourceimages/jessie/shorts/#windx11/shorts.ftex"
+            "Asset/model/character/common/714/05 - A/jessie/shorts/sourceimages/#windx11/shorts.ftex"
+        );
+        assert_eq!(
+            player.directory(Engine::Fox, 714).of("jessie/shorts/"),
+            "/Assets/pes16/model/character/common/714/05 - A/jessie/shorts/sourceimages/"
         );
         let boots = TextureHome::SharedOutput {
             package: ModelPackage::Boots,
             id: 644,
         };
         assert_eq!(
-            boots.directory(Engine::Fox, 714),
+            boots.directory(Engine::Fox, 714).of(""),
             "/Assets/pes16/model/character/boots/k0644/"
         );
         assert_eq!(
@@ -442,7 +481,7 @@ mod tests {
             id: 644,
         };
         assert_eq!(
-            gloves.directory(Engine::Fox, 714),
+            gloves.directory(Engine::Fox, 714).of(""),
             "/Assets/pes16/model/character/glove/g0644/"
         );
         assert_eq!(
@@ -457,7 +496,7 @@ mod tests {
             folder_name: "05 - A".to_owned(),
         };
         assert_eq!(
-            player.directory(Engine::PreFox, 714),
+            player.directory(Engine::PreFox, 714).of(""),
             "model/character/uniform/common/714/05 - A/"
         );
         assert_eq!(
@@ -499,7 +538,7 @@ mod tests {
             package: ModelPackage::Boots,
             id: 644,
         };
-        assert_eq!(boots.directory(Engine::PreFox, 714), "./");
+        assert_eq!(boots.directory(Engine::PreFox, 714).of(""), "./");
         assert_eq!(
             boots.texture(Engine::PreFox, 714, "crocs"),
             "common/character0/model/character/boots/k0644/crocs.dds"
@@ -508,7 +547,7 @@ mod tests {
             package: ModelPackage::Gloves,
             id: 645,
         };
-        assert_eq!(gloves.directory(Engine::PreFox, 714), "./");
+        assert_eq!(gloves.directory(Engine::PreFox, 714).of(""), "./");
         assert_eq!(
             gloves.texture(Engine::PreFox, 714, "grip"),
             "common/character0/model/character/glove/g0645/grip.dds"

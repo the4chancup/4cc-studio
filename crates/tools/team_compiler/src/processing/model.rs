@@ -27,7 +27,7 @@ use crate::face_diff;
 use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
-use crate::paths;
+use crate::paths::{self, TextureDirectory};
 use crate::plan::ModelFolder;
 use crate::plan::roles::{
     ModelPackage, PlayerFile, file_stem, is_direct_root_folder_file, skeleton_slot,
@@ -43,6 +43,10 @@ struct Part {
     name: &'static str,
     /// The part's export path, which with its file name orders the parts of one output.
     path: ScopePath,
+    /// The file whose folder a texture path below it (`./textures/skin`) starts from: the
+    /// model itself, or for a `.model` converted for Fox, the `.mtl` it took its materials from
+    /// (`mtl_for`'s result), since the path was written in that `.mtl`.
+    references_from: ScopePath,
     /// The part's bytes, an FMDL: a `.model`'s converted, a member's FMDL as it is or moved
     /// onto the version's skeleton (`convert_part`).
     bytes: Vec<u8>,
@@ -145,6 +149,7 @@ pub(super) fn package(
             let mut part = |name, textures| Part {
                 name,
                 path: file.path.clone(),
+                references_from: file.path.clone(),
                 bytes: take(files, file),
                 skeleton: skeletons.remove(&vtree::fold_name(file_stem(file.path.as_str()))),
                 textures,
@@ -174,6 +179,7 @@ pub(super) fn package(
                         if is_direct_root_folder_file(&mtl.path) {
                             part.textures = PartTextures::Common;
                         }
+                        part.references_from = mtl.path.clone();
                         let mtl = files.get(&mtl.path).expect(
                             "a package converting a `.model` reads its source's `.mtl` files \
                              (`TaskKind::files`)",
@@ -205,6 +211,7 @@ pub(super) fn package(
                         if !is_direct_root_folder_file(&mtl.path) {
                             part.textures = PartTextures::CommonSet;
                         }
+                        part.references_from = mtl.path.clone();
                         let mtl = files.get(&mtl.path).expect(
                             "a package converting a Common `.model` reads the `.mtl` planning \
                              resolved for it (`TaskKind::files`)",
@@ -297,8 +304,12 @@ pub(super) fn package(
     // Validation refuses a player folder holding a texture and a link of one stem
     // (`texture_stem_conflict`), but not a link beside a combined shared folder's texture of
     // its stem: there the shared folder's texture wins.
+    // A texture named with a path below its file's folder (`./textures/skin`) resolves at that
+    // path alone, in the folder's texture home (`point_texture_below`); a Common part's paths
+    // are looked up by name, as every one of its paths is.
     let texture_directory = folder.textures.directory(ctx.version.engine(), team_id);
     let common_directory = paths::common_texture_directory(Engine::Fox, team_id);
+    let common_home = TextureDirectory::plain(common_directory.clone());
     // The textures in the team's Common output: the ones directly in `Common/`, which the
     // export's Common textures task packs, and the ones the folder's links stand for, an
     // earlier installed CPK's included. A Common part's path of one of these stems is pointed
@@ -316,7 +327,7 @@ pub(super) fn package(
     // A folder part's places: its folder's textures nearest first, then its links'.
     let folder_places = |part: &Part| {
         let mut places = textures.places(&folder.path, &part.path, &texture_directory);
-        places.push((&linked_stems, common_directory.as_str()));
+        places.push((&linked_stems, &common_home));
         places
     };
     let installed_holds = installed_lookup(&ctx.installed, team_id);
@@ -336,23 +347,31 @@ pub(super) fn package(
         // directories is the merge's `merge_material_conflict`, as intended.
         let mut models = Vec::with_capacity(parts.len());
         for part in &parts {
-            let places = match part.textures {
-                PartTextures::Folder => folder_places(part),
-                PartTextures::Common => vec![(&common_textures, common_directory.as_str())],
+            let (places, reads_paths_below) = match part.textures {
+                PartTextures::Folder => (folder_places(part), true),
+                PartTextures::Common => (vec![(&common_textures, &common_home)], false),
                 PartTextures::CommonSet => {
                     let mut places = folder_places(part);
-                    places.push((&common_textures, common_directory.as_str()));
-                    places
+                    places.push((&common_textures, &common_home));
+                    (places, true)
                 }
             };
             let mut model = FmdlFile::read(&part.bytes)?;
             rewrite_texture_paths(&mut model, |path| {
-                point_texture(
-                    path,
-                    &places,
-                    (&common_stems, &common_directory),
-                    &team_segment,
-                );
+                let below = texture_lookup::path_below(&path.directory)
+                    .filter(|_| reads_paths_below)
+                    .map(|subdirectory| {
+                        textures.at(&folder.path, &part.references_from, subdirectory)
+                    });
+                match below {
+                    Some(place) => point_texture_below(path, place, &texture_directory),
+                    None => point_texture(
+                        path,
+                        &places,
+                        (&common_stems, &common_directory),
+                        &team_segment,
+                    ),
+                }
             })?;
             for path in used_texture_paths(&model)? {
                 let context = || {
@@ -573,6 +592,7 @@ fn parts_of(
                 Some(Part {
                     name,
                     path: part.path.clone(),
+                    references_from: part.references_from.clone(),
                     bytes: bytes?,
                     skeleton: None,
                     textures: part.textures,
@@ -638,7 +658,7 @@ fn split_fmdl(bytes: &[u8]) -> anyhow::Result<SplitFmdl> {
 /// the kit picked.
 fn point_texture(
     path: &mut TexturePath,
-    places: &[(&TexturePlace, &str)],
+    places: &[(&TexturePlace, &TextureDirectory)],
     common: (&BTreeSet<String>, &str),
     team_segment: &str,
 ) {
@@ -661,7 +681,7 @@ fn point_texture(
                 .get(&key)
                 .map(String::as_str)
                 .or_else(|| texture_lookup::variant(textures, stem))?;
-            Some(format!("{directory}{}", texture_lookup::split(below).0))
+            Some(directory.of(texture_lookup::split(below).0))
         })
         .or_else(|| {
             (names_pre_fox_common() && holds(common_stems)).then(|| common_directory.to_owned())
@@ -670,6 +690,29 @@ fn point_texture(
         Some(directory) => directory,
         None => path.directory.replace("/000/", team_segment),
     };
+}
+
+/// Points `path`, a texture reference naming a path below its file's folder
+/// (`texture_lookup::path_below`), at the texture of `place`, the folder that path names
+/// (`TextureFolders::at`), in `home`, the folder's texture home: its stem's, or a variant of
+/// its set for a kit reference. With no such texture it is left as written, which
+/// `texture_supply` calls missing: such a path resolves there alone (`model_format.md`
+/// "Stem-based texture references").
+fn point_texture_below(
+    path: &mut TexturePath,
+    place: Option<&TexturePlace>,
+    home: &TextureDirectory,
+) {
+    let stem = file_stem(&path.file_name);
+    let below = place.and_then(|place| {
+        place
+            .get(&vtree::fold_name(stem))
+            .map(String::as_str)
+            .or_else(|| texture_lookup::variant(place, stem))
+    });
+    if let Some(below) = below {
+        path.directory = home.of(texture_lookup::split(below).0);
+    }
 }
 
 /// Whether a texture one of a part's meshes uses is supplied (`pipeline.md` "Resolved
@@ -686,8 +729,10 @@ enum TextureSupply {
 }
 
 /// Whether the texture at `path`, already pointed where it goes, is supplied: not looked for
-/// when its stem starts with `dummy_` or its directory is not `common_directory`, the team's
-/// Common texture directory; supplied when its stem, or a variant of its set for a kit
+/// when its stem starts with `dummy_`; missing when its directory still names a path below its
+/// file's folder (`texture_lookup::path_below`: no texture sat there); not looked for when its
+/// directory is not `common_directory`, the team's Common texture directory; supplied when
+/// its stem, or a variant of its set for a kit
 /// reference (`pants_kitN`), is among `common_stems` (the export's Common textures and the
 /// folder's links, folded), or when `installed_holds` says an installed CPK holds the stem's
 /// Common texture (`None`: they cannot be looked in). Directories and stems compare folded.
@@ -699,9 +744,13 @@ fn texture_supply(
 ) -> TextureSupply {
     let stem = file_stem(&path.file_name);
     let folded = vtree::fold_name(stem);
-    if folded.starts_with("dummy_")
-        || vtree::fold_name(&path.directory) != vtree::fold_name(common_directory)
-    {
+    if folded.starts_with("dummy_") {
+        return TextureSupply::Supplied;
+    }
+    if texture_lookup::path_below(&path.directory).is_some() {
+        return TextureSupply::Missing;
+    }
+    if vtree::fold_name(&path.directory) != vtree::fold_name(common_directory) {
         return TextureSupply::Supplied;
     }
     if common_stems.contains(&folded)
@@ -920,9 +969,10 @@ mod tests {
         };
         let (own, linked) = (place(own), place(linked));
         let linked_stems: BTreeSet<String> = linked.keys().cloned().collect();
+        let (home, common) = (plain("/home/"), plain("/common/"));
         point_texture(
             &mut path,
-            &[(&own, "/home/"), (&linked, "/common/")],
+            &[(&own, &home), (&linked, &common)],
             (&linked_stems, "/common/"),
             "/792/",
         );
@@ -942,12 +992,17 @@ mod tests {
         let common: BTreeSet<String> = common.iter().map(|stem| (*stem).to_owned()).collect();
         point_texture(
             &mut path,
-            &[(&own, "/home/")],
+            &[(&own, &plain("/home/"))],
             (&common, "/common/"),
             "/714/",
         );
         assert_eq!(path.file_name, file_name);
         path.directory
+    }
+
+    /// The directory `directory`, below which a subdirectory follows directly.
+    fn plain(directory: &str) -> TextureDirectory {
+        TextureDirectory::plain(directory.to_owned())
     }
 
     #[test]
@@ -1015,12 +1070,83 @@ mod tests {
         assert_eq!(pointed_between("hair.dds", &["hair"], &linked), "/home/");
     }
 
+    /// Slot 05's texture home for team 714 on Fox, as a model names it.
+    fn home_714_05() -> TextureDirectory {
+        paths::TextureHome::PlayerCommon {
+            folder_name: "05 - A".to_owned(),
+        }
+        .directory(Engine::Fox, 714)
+    }
+
     #[test]
     fn a_subfolder_s_texture_is_pointed_at_its_own_directory_below_the_home() {
-        assert_eq!(pointed("skin.dds", &["jessie/skin"]), "/home/jessie/");
+        let home = home_714_05();
+        let pointed = |file_name: &str, below: &[&str]| {
+            let mut path = TexturePath {
+                file_name: file_name.to_owned(),
+                directory: "/Assets/pes16/model/character/common/000/sourceimages/".to_owned(),
+            };
+            point_texture(
+                &mut path,
+                &[(&place(below), &home)],
+                (&BTreeSet::new(), "/common/"),
+                "/714/",
+            );
+            path.directory
+        };
+        // The subdirectory sits before `sourceimages/`.
+        assert_eq!(
+            pointed("skin.dds", &["jessie/skin"]),
+            "/Assets/pes16/model/character/common/714/05 - A/jessie/sourceimages/"
+        );
         assert_eq!(
             pointed("pants_kitN.dds", &["jessie/body/pants_kit2"]),
-            "/home/jessie/body/"
+            "/Assets/pes16/model/character/common/714/05 - A/jessie/body/sourceimages/"
+        );
+        assert_eq!(
+            pointed("skin.dds", &["skin"]),
+            "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"
+        );
+    }
+
+    #[test]
+    fn a_path_below_the_file_s_folder_is_pointed_at_the_texture_there_or_left_as_written() {
+        let home = home_714_05();
+        let pointed = |file_name: &str, place: Option<&TexturePlace>| {
+            let mut path = TexturePath {
+                file_name: file_name.to_owned(),
+                directory: "./textures/".to_owned(),
+            };
+            point_texture_below(&mut path, place, &home);
+            assert_eq!(path.file_name, file_name);
+            path.directory
+        };
+        let textures = place(&["textures/Skin", "textures/pants_kit2"]);
+        let there = "/Assets/pes16/model/character/common/714/05 - A/textures/sourceimages/";
+        assert_eq!(pointed("skin.dds", Some(&textures)), there);
+        assert_eq!(pointed("pants_kitN.dds", Some(&textures)), there);
+        // Nothing of its stem there, or no folder there: left as written.
+        assert_eq!(pointed("hair.dds", Some(&textures)), "./textures/");
+        assert_eq!(pointed("skin.dds", None), "./textures/");
+    }
+
+    #[test]
+    fn a_path_still_below_the_file_s_folder_after_pointing_is_missing() {
+        // Whatever a lookup in the installed CPKs would answer: nothing sat there.
+        for installed in [Some(true), None] {
+            assert_eq!(
+                supply("./textures/", "skin.dds", &["skin"], &[], installed),
+                TextureSupply::Missing
+            );
+        }
+        assert_eq!(
+            supply("./textures/", "dummy_kit.dds", &[], &[], Some(false)),
+            TextureSupply::Supplied
+        );
+        // A bare `./` names a texture by name, and pointing found none: not looked for.
+        assert_eq!(
+            supply("./", "skin.dds", &[], &[], Some(false)),
+            TextureSupply::Supplied
         );
     }
 

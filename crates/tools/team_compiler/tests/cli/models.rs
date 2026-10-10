@@ -24,7 +24,7 @@ use crate::prefox_faces::{
     BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, materials_naming,
     small_dds,
 };
-use crate::textures::tracer_model_renaming;
+use crate::textures::{tracer_model_pointing, tracer_model_renaming};
 use crate::{TEAM_COLORS_MISSING, clean_model, command_args, findings_of};
 
 /// The entry names of the FPK `bytes`.
@@ -2471,7 +2471,8 @@ fn a_face_model_weighted_to_the_hand_bones_gives_its_hands_to_the_player_s_glove
 }
 
 /// The FTEX of slot 05's texture at `below`, its path below the folder without extension, in
-/// team 714's PES 21 output: the platform folder just before the name.
+/// team 714's PES 21 output: at its directory below the folder, then `sourceimages/` and the
+/// platform folder.
 fn slot_05_ftex(below: &str) -> String {
     let (directory, name) = below
         .rsplit_once('/')
@@ -2481,7 +2482,13 @@ fn slot_05_ftex(below: &str) -> String {
     } else {
         format!("{directory}/")
     };
-    format!("Asset/model/character/common/714/05 - A/sourceimages/{directory}#windx11/{name}.ftex")
+    format!("Asset/model/character/common/714/05 - A/{directory}sourceimages/#windx11/{name}.ftex")
+}
+
+/// The directory an FMDL names slot 05's texture at `subdirectory` below the folder by (`""` or
+/// ending in `/`), in team 714's PES 21 output.
+fn slot_05_directory(subdirectory: &str) -> String {
+    format!("/Assets/pes16/model/character/common/714/05 - A/{subdirectory}sourceimages/")
 }
 
 // TC-MOD-65
@@ -2532,7 +2539,7 @@ fn a_subfolder_s_fmdl_names_the_texture_nearest_it_at_its_path_on_pes_21() {
     assert!(
         directories
             .iter()
-            .all(|directory| *directory == format!("{HOME_714_05}jessie/")),
+            .all(|directory| *directory == slot_05_directory("jessie/")),
         "{directories:?}"
     );
 }
@@ -2594,7 +2601,122 @@ fn a_subfolder_s_texture_comes_before_a_combined_shared_folder_s_of_its_stem_on_
     assert!(
         directories
             .iter()
-            .all(|directory| *directory == format!("{HOME_714_05}jessie/")),
+            .all(|directory| *directory == slot_05_directory("jessie/")),
         "{directories:?}"
     );
+}
+
+// TC-MOD-71
+#[test]
+fn a_fmdl_texture_named_by_its_path_below_the_model_s_folder_resolves_there_on_pes_21() {
+    let sandbox = Sandbox::new("mod_texture_path_below");
+    let export = "co Midcup Textures";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &tracer_model_pointing("fcl_hair.fmdl", &[("shirt.dds", "skin.dds")], "./textures/"),
+    );
+    sandbox.write(&format!("{player}/textures/skin.dds"), &small_dds());
+
+    // No finding names `skin`.
+    let entries = compile_clean(
+        &sandbox,
+        export,
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("face_high.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| *directory == slot_05_directory("textures/")),
+        "{directories:?}"
+    );
+    let skin = slot_05_ftex("textures/skin");
+    assert!(entries.contains_key(&skin), "{:#?}", entries.keys());
+}
+
+#[test]
+fn a_fmdl_texture_named_by_its_path_is_not_found_by_its_name_elsewhere_on_pes_21() {
+    // The root's `skin.dds` is not at `./textures/`.
+    let sandbox = Sandbox::new("mod_texture_path_below_missing");
+    let export = "co Midcup Textures";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &tracer_model_pointing("fcl_hair.fmdl", &[("shirt.dds", "skin.dds")], "./textures/"),
+    );
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    // Another player, so the run writes a CPK without slot 05's face.
+    sandbox.write(
+        &format!("exports/{export}/Players/03 - C/face_high.fmdl"),
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert!(
+        findings_of(&lines, export).contains(
+            &"Error fmdl_texture_not_found [DropFolder] at Players/05 - A (model=face_high.fmdl, texture=./textures/skin.dds)"
+        ),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        !entries
+            .keys()
+            .any(|path| path.contains("/face/real/71405/")),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
+#[test]
+fn a_converted_model_s_mtl_path_below_its_folder_names_the_texture_there_on_pes_21() {
+    // `jessie/x_hair_high.mtl` names `./shorts/y.dds`: the converted model names the texture
+    // at `jessie/shorts/`, not the root's `y` of other bytes.
+    let sandbox = Sandbox::new("mod_mtl_path_below_fox");
+    let export = "co Midcup Textures";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/jessie/x_hair_high.model"), &card_model());
+    sandbox.write(
+        &format!("{player}/jessie/x_hair_high.mtl"),
+        &materials_naming("shorts/y"),
+    );
+    sandbox.write(&format!("{player}/jessie/shorts/y.dds"), &small_dds());
+    sandbox.write(&format!("{player}/y.dds"), &tracer_player_file("shirt.dds"));
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        !findings_of(&lines, export)
+            .iter()
+            .any(|line| line.contains("texture_not_found")),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "y.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| *directory == slot_05_directory("jessie/shorts/")),
+        "{directories:?}"
+    );
+    let below = slot_05_ftex("jessie/shorts/y");
+    let root = slot_05_ftex("y");
+    assert!(entries.contains_key(&below), "{:#?}", entries.keys());
+    assert!(entries.contains_key(&root), "{:#?}", entries.keys());
+    assert_ne!(entries[&below], entries[&root]);
 }

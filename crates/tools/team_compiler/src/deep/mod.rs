@@ -738,6 +738,7 @@ fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], ke
             .collect();
         let sources = TextureSources {
             held: &[&held],
+            below: None,
             common: &kept.texture_stems,
             installed: kept.installed.as_ref(),
         };
@@ -1007,6 +1008,7 @@ fn folder_findings(
         .collect();
     let common_sources = TextureSources {
         held: &[&common_textures],
+        below: None,
         common: &common.texture_stems,
         installed: common.installed.as_ref(),
     };
@@ -1026,6 +1028,7 @@ fn folder_findings(
             let places = held.of(&file.path);
             let sources = TextureSources {
                 held: &places,
+                below: Some((held, &file.path)),
                 common: &common.texture_stems,
                 installed: common.installed.as_ref(),
             };

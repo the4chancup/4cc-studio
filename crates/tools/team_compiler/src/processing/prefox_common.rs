@@ -16,13 +16,13 @@ use vtree::ScopePath;
 
 use super::conversion::{ConvertedMaterials, fmdl_for_pre_fox, model_for_pre_fox, source_name};
 use super::prefox_face::{
-    add_environment_map, converted_material_name, point_materials, point_reserved_kit_stems,
-    rewritten_materials,
+    MaterialPlaces, add_environment_map, converted_material_name, point_materials,
+    point_reserved_kit_stems, rewritten_materials,
 };
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::face_xml::packed_model_name;
 use crate::mtl_search::mtl_for;
-use crate::paths;
+use crate::paths::{self, TextureDirectory};
 use crate::plan::roles::file_stem;
 
 /// The Common output's entries for `common`, the files of the `Common/` directory at `folder`
@@ -58,8 +58,11 @@ pub(super) fn common_models(
     // environment map and the reserved kit stems stay at the Common output's own directory,
     // where the map is emitted and the modded exes substitute the kit.
     let subpath = paths::common_subpath(folder);
-    let textures_directory = format!("{directory}{subpath}");
-    let places = [(texture_stems, textures_directory.as_str())];
+    let textures_directory = TextureDirectory::plain(format!("{directory}{subpath}"));
+    let places = MaterialPlaces {
+        by_name: vec![(texture_stems, &textures_directory)],
+        below: None,
+    };
     let mut written: Vec<(String, Vec<u8>)> = Vec::new();
     for file in common {
         let name = file.path.name();

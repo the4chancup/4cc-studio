@@ -2181,6 +2181,38 @@ fn a_subfolder_s_model_names_the_root_s_mtl_its_search_finds_there() {
 }
 
 #[test]
+fn a_mtl_path_below_its_folder_names_the_texture_at_that_path() {
+    // A member's textures sorted into a subfolder beside the model above them:
+    // `clothes/clothes.mtl` names `./boots/b.dds`, which `clothes/boots/` holds.
+    let sandbox = Sandbox::new("prefox_mtl_path_below");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/clothes/clothes.model"), &card_model());
+    sandbox.write(
+        &format!("{player}/clothes/clothes.mtl"),
+        &materials_naming("boots/b"),
+    );
+    sandbox.write(&format!("{player}/clothes/boots/b.dds"), &small_dds());
+
+    // No `mtl_texture_not_found`.
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let home = "model/character/uniform/common/714/05 - A/";
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    assert_eq!(
+        sampler_paths(&face[&format!("{folder}clothes/clothes.mtl")]),
+        [format!("{home}clothes/boots/b.dds")]
+    );
+    assert!(
+        entries.contains_key(&format!("common/character1/{home}clothes/boots/b.dds")),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
+#[test]
 fn a_mtl_is_supplied_by_a_texture_of_its_folder_or_a_parent_never_a_subfolder() {
     // `jessie/body/x.mtl` names `skin.dds`, which `jessie/` holds: nearest first, the lookup
     // goes up from the `.mtl`'s folder. The root's `face_high.mtl` names `shorts.dds`, which
