@@ -4327,7 +4327,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 - [ ] 4.y-fix22 **The S13, S15 rounds' rework: a left-out kit number's file stays out, a
   Common `.mtl`'s stems resolve in Common, a glTF-dropped folder's `fpc_on` does not count**
   (rulings `.tmp/4_y/duck_rulings.md` "S13.2", "S15.1a", "S15.1b"; after 4.y-fix21,
-  which owns `plan/mod.rs` and `validation.rs`; S18's first SWE-2 round may add items).
+  which owns `plan/mod.rs` and `validation.rs`; items (9)-(11) from S18's first SWE-2
+  round, "S18.1").
   (1) `kit_variants.rs` `model_variant_sets` dedups a second file of a left-out kit
   number as another part of that kit, so it merges into every kit's model: only the used
   number's files dedup, a left-out number's are left out and named (S13.2-1). (2)
@@ -4341,6 +4342,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (6) a unit test whose export order is not name order (S15.1a-2). (7) `keeps_archive`
   private (S15.1a-3). (8) `overrides::list`: only a missing path means no overrides,
   anything else unlistable is the error, with tests of both error arms (S15.1b-1, -3).
+  (9) `tests/cli/conversion.rs`'s "reserved subfolder" comment (S18.1-C1). (10)
+  `PreFoxPart::xml_type`'s doc names `face_xml::xml_type` (S18.1-C2). (11) a dropped
+  link's `model_hidden_dropped` merged into the player pass's findings at the link's
+  position, as the module doc's "file order" says (S18.1-C5). S18.1-C3 (a shared
+  face's nested file a member's xml packs) is slice (b2)'s, its brief carrying the test.
   → verify: tests red first for (1), (2), (3), (5), (8); gates green; `just
   mutants-diff` over the rework; S13's third SWE-2 round on its diff.
 
@@ -6754,3 +6760,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   visibility) and half b two of three (a file named `overrides` read as none, its test),
   both loops end. Step 4.y-fix22 opened. The retag (4.y-retag) is ready but its history
   rewrite was refused by the session's permission classifier: the maintainer runs it.
+- **2026-10-10** — S18's first SWE-2 round ran on Devin `work` (`36f646f`): five concerns,
+  four accepted (two stale comments and a finding's order into 4.y-fix22; a lenient
+  check's nested shared-face file resolved by a member's xml, into slice (b2)); a third
+  panic site of S18.A1-1's class rejected as the same defect (slice (b3)'s fix at the
+  search covers it). Its loop ends; the second Astra round follows 4.y-fix21.
