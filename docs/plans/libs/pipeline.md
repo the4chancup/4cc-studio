@@ -113,21 +113,29 @@ structure pass and the deep pass: it acquires the sum of the archive's `entries(
 the first read and drops the permit with the `Archive` when the deep pass ends, so one
 decompression serves both passes (each costs about 2 s on a 0.6 to 1 GB export, measured at
 4.7f). `compile` keeps an archive decompressed from its check to its tasks when it is at most
-an eighth of the budget's cap and, with it kept, at least `MIN_FREE_BUDGET` (1 GiB) of the
-cap stays free of kept archives, checked in the order the exports are checked; a kept
+an eighth of the budget's cap and, with it kept, the cap keeps free of kept archives at least
+the larger of `MIN_FREE_BUDGET` (1 GiB) and the decompressed size of the run's largest
+other `.7z` export, decided in the order the exports are checked (`keeps_archive`); a kept
 archive's permit is held until its tasks drain, so the budget still counts it. Any other
 archive is let go after its check and opened again for its tasks, charged again until they
 drain (`team_compiler/pipeline.md` step 3). Keeping every 7z export would hold all of them at
 once while the run is planned, which is the residency the budget exists to prevent; the
 eighth keeps the archives the cup compiles compressed (midcup exports, a few small ones per
 run) and leaves a whole DLC's large ones, which are compiled from folders anyway, to the
-second decompression (about 2 s for a 0.6 to 1 GB export). The floor bounds what the kept
-archives leave to the tasks, so a full budget cannot stall the tasks that would release them.
-A task's charges do not wait for room (`MemoryBudget::charge`), so one larger than the floor
-takes the run past the cap while it is held: the floor is set above the largest texture
-decode real exports need, an 8192x8192 texture's (about 358 MiB of pixels with its mips
-plus the source file, 0.45 to 0.7 GB; the VGL26 FNG export's boots hold nine), so only a
-larger texture overshoots, into the memory the cap leaves free.
+second decompression (about 2 s for a 0.6 to 1 GB export). The free part bounds what the kept
+archives leave to everything that still has to acquire: a kept permit is released only when
+the coordinator reaches its export, and an `acquire` waits (a later `.7z`'s check, an
+earlier export's archive or a task's admission in the coordinator), so a run with an acquire
+larger than what the kept archives leave would wait forever on permits released only after
+it; the largest other archive's size is the largest acquire the run knows before any check
+runs (every archive's header is read by routing), and an archive over the cap, which
+acquires only on an empty budget, keeps nothing. A task's charges do not wait for room
+(`MemoryBudget::charge`), so one larger than the floor takes the run past the cap while it
+is held: the floor is set above the largest charge real exports make, an 8192x8192 texture's
+decode (about 358 MiB of pixels with its mips plus the source file; measured at 4.y-7z as
+427 MiB on the VGL26 FNG export, whose boots hold nine), so only a larger texture
+overshoots, into the memory the cap leaves free, and a task's admission, of the same order,
+fits the floor.
 
 ## Memory cap
 

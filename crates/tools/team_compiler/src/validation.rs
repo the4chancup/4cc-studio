@@ -15,7 +15,7 @@ use aesthetics_export::{
 };
 use anyhow::Context;
 use pes_version::{Engine, PesVersion};
-use pipeline::MemoryBudget;
+use pipeline::{MIN_FREE_BUDGET, MemoryBudget};
 use rayon::prelude::*;
 use studio_core::{Disposition, ExportId, Message, Scope};
 use teams_list::TeamId;
@@ -71,6 +71,11 @@ pub(crate) struct CheckedSource {
     /// reads against; `None` when routing or the listing's parse set the source aside.
     /// `check` carries it and does nothing with it.
     pub(crate) revision: Option<SourceRevision>,
+    /// The source kept open from its check for its tasks: a `.7z` `keeps_archive` admits,
+    /// decompressed and holding its permit, so the coordinator reads the tasks' files out of
+    /// the same buffer; `None` for a folder or a `.zip` (opened cheaply by the coordinator),
+    /// for a `.7z` not kept, and under `check`, which has no tasks.
+    pub(crate) content: Option<ContentSource>,
 }
 
 /// The run's memory budget, at the share of the available memory the settings give.
@@ -91,16 +96,18 @@ pub(crate) fn run_pool(inputs: &RunInputs) -> anyhow::Result<rayon::ThreadPool> 
 
 /// Routes the run's `sources` (`reader::discover`'s) and runs the structure pass, the deep
 /// pass and identity on each one headed for validation, on `pool`; a `.7z` export is read once
-/// for both passes, charged to `budget`. A texture `.common` link may name a texture of the
-/// team's Common output that one of the `installed` CPKs holds. Then the exports of a team
-/// several resolve to are refused (`refuse_duplicate_teams`). No source at all is
-/// `no_exports_found`, on the run.
+/// for both passes, charged to `budget`, and with `keep_archives` (`compile`'s, not `check`'s)
+/// kept decompressed for its tasks when `keeps_archive` admits it. A texture `.common` link
+/// may name a texture of the team's Common output that one of the `installed` CPKs holds.
+/// Then the exports of a team several resolve to are refused (`refuse_duplicate_teams`). No
+/// source at all is `no_exports_found`, on the run.
 pub(crate) fn validation_pass(
     inputs: &RunInputs,
     sources: Vec<ExportSource>,
     installed: &InstalledPaths,
     budget: &Arc<MemoryBudget>,
     pool: &rayon::ThreadPool,
+    keep_archives: bool,
 ) -> anyhow::Result<ValidationPass> {
     let routes = pool.install(|| reader::route(&sources));
 
@@ -130,7 +137,8 @@ pub(crate) fn validation_pass(
         ));
     }
 
-    let mut sources = pool.install(|| check_sources(inputs, installed, sources, routes, budget));
+    let mut sources =
+        pool.install(|| check_sources(inputs, installed, sources, routes, budget, keep_archives));
     refuse_duplicate_teams(&mut sources);
     Ok(ValidationPass {
         run_messages,
@@ -174,18 +182,22 @@ fn refuse_duplicate_teams(sources: &mut [CheckedSource]) {
                 vec![("id", id.to_string()), ("exports", exports.clone())],
             ));
             checked.resolved = None;
+            // A refused export has no task, so a `.7z` kept for its tasks goes now.
+            checked.content = None;
         }
     }
 }
 
 /// Each source through `check_source` with its route, returned in discovery order: the
-/// folder and `.zip` sources in parallel, then the `.7z` sources one after another.
+/// folder and `.zip` sources in parallel, then the `.7z` sources one after another, each
+/// kept decompressed for its tasks when `keep_archives` and `keeps_archive` admit it.
 fn check_sources(
     inputs: &RunInputs,
     installed: &InstalledPaths,
     sources: Vec<ExportSource>,
     routes: Vec<Route>,
     budget: &Arc<MemoryBudget>,
+    keep_archives: bool,
 ) -> Vec<CheckedSource> {
     // Not one parallel iterator over every source: a `.7z`'s check waits for its whole-archive
     // permit, and a worker waiting on its own export's parallel checks takes other work. A
@@ -209,19 +221,78 @@ fn check_sources(
             )
         })
         .collect();
-    checked.extend(in_turn.into_iter().map(|(index, (source, route))| {
-        (
-            index,
-            check_source(inputs, installed, source, route, budget),
-        )
-    }));
+    // Every `.7z`'s size, known from its listing before any is checked: the keep rule leaves
+    // room for the largest of the others.
+    let sizes: Vec<usize> = in_turn
+        .iter()
+        .map(|(_, (_, route))| match route {
+            Route::Validate { decompressed, .. } => *decompressed,
+            Route::Unreadable(_) | Route::Disabled | Route::Balls | Route::ConflictingRefs => 0,
+        })
+        .collect();
+    // Decided here, in the order the `.7z` exports are checked, and before the next one's
+    // check: an archive not kept is let go at once, so the next check's whole-archive acquire
+    // never waits on a buffer no task will read.
+    let mut kept = 0;
+    for (position, (index, (source, route))) in in_turn.into_iter().enumerate() {
+        let mut outcome = check_source(inputs, installed, source, route, budget);
+        let held = outcome.content.as_ref().map_or(0, ContentSource::held);
+        let others = largest_other(&sizes, position);
+        // An export a finding dropped has no task to read the archive for.
+        if keep_archives
+            && outcome.resolved.is_some()
+            && keeps_archive(held, kept, budget.cap(), others)
+        {
+            kept += held;
+        } else {
+            outcome.content = None;
+        }
+        checked.push((index, outcome));
+    }
     checked.sort_by_key(|(index, _)| *index);
     checked.into_iter().map(|(_, checked)| checked).collect()
 }
 
+/// Whether `compile` keeps a solid `.7z` export of `size` decompressed bytes from its check to
+/// its tasks, with `kept` bytes of archives already kept, on a budget of `cap`, when the
+/// largest of the run's other `.7z` exports decompresses to `largest_other` bytes
+/// (`libs/pipeline.md` "What a solid `.7z` is charged"): when it is at most an eighth of the
+/// cap and, with it kept, the cap leaves free of kept archives at least `MIN_FREE_BUDGET` and
+/// at least `largest_other`.
+///
+/// The eighth keeps the small exports a midcup compiles from archives and leaves a large one
+/// to a second decompression. The floor leaves the tasks room to run: a task's charges do not
+/// wait for room, and kept archives filling the budget would stall the tasks that release
+/// them. The `largest_other` clause exists because `acquire` waits where `charge` does not,
+/// and a kept permit is released only when the coordinator reaches its source: a later
+/// check's whole-archive acquire, or an earlier source's in the coordinator, that needs more
+/// than the kept archives leave would wait forever. An archive over the cap acquires only on
+/// an empty budget, so with one in the run nothing is kept.
+pub(crate) fn keeps_archive(size: usize, kept: usize, cap: usize, largest_other: usize) -> bool {
+    // A sum past `usize` (a 32-bit host only) is over the cap, never a wrap into a keep.
+    size <= cap / 8
+        && kept
+            .checked_add(size)
+            .is_some_and(|total| total <= cap.saturating_sub(MIN_FREE_BUDGET.max(largest_other)))
+}
+
+/// The largest of `sizes` but the one at `index`; 0 when there is no other. Counting the
+/// archives already kept too is conservative (each holds its bytes already) and needs no
+/// record of which ones are.
+fn largest_other(sizes: &[usize], index: usize) -> usize {
+    sizes
+        .iter()
+        .enumerate()
+        .filter(|(other, _)| *other != index)
+        .map(|(_, size)| *size)
+        .max()
+        .unwrap_or(0)
+}
+
 /// One source through its route, the structure pass, the deep pass and identity. The small
 /// metadata and the deep pass's files are read through one `ContentSource`, so a `.7z` is
-/// decompressed once for both passes, under one permit released when the deep pass ends.
+/// decompressed once for both passes, under one permit; a `.7z`'s source comes back in
+/// `content` for the caller to keep for its tasks or let go.
 fn check_source(
     inputs: &RunInputs,
     installed: &InstalledPaths,
@@ -247,6 +318,7 @@ fn check_source(
         hand_weighted: BTreeSet::new(),
         metal_models: BTreeSet::new(),
         revision: None,
+        content: None,
     };
     let (listing, revision) = match route {
         Route::Unreadable(failure) => {
@@ -259,7 +331,9 @@ fn check_source(
         Route::Disabled => return skipped(source, Code::ExportDisabled, vec![]),
         Route::Balls => return skipped(source, Code::ExportBallsSkipped, vec![]),
         Route::ConflictingRefs => return skipped(source, Code::MultipleRefExports, vec![]),
-        Route::Validate { listing, revision } => (listing, revision),
+        Route::Validate {
+            listing, revision, ..
+        } => (listing, revision),
     };
 
     let content = ContentSource::new(&source, budget);
@@ -313,9 +387,13 @@ fn check_source(
         .validated
         .as_ref()
         .and_then(|validated| notes(validated, &content));
-    // Nothing past the deep pass reads the source: a `.7z`'s buffer and its permit go now,
-    // not after identity.
-    drop(content);
+    // Nothing past the deep pass reads the source. A folder or a zip is let go now: its tasks
+    // open it again cheaply. A `.7z` is returned for the caller to keep for its tasks or let
+    // go, which holds its buffer and permit through identity too, a few microseconds.
+    let content = match source.kind {
+        SourceKind::SevenZ => Some(content),
+        SourceKind::Folder | SourceKind::Zip => None,
+    };
     let mut messages: Vec<Message> = report
         .issues
         .iter()
@@ -370,6 +448,7 @@ fn check_source(
         hand_weighted,
         metal_models,
         revision: Some(revision),
+        content,
     }
 }
 
@@ -1409,6 +1488,7 @@ mod tests {
             hand_weighted: BTreeSet::new(),
             metal_models: BTreeSet::new(),
             revision: None,
+            content: None,
         }
     }
 
@@ -1432,6 +1512,7 @@ mod tests {
             hand_weighted: BTreeSet::new(),
             metal_models: BTreeSet::new(),
             revision: None,
+            content: None,
         }
     }
 
@@ -1496,6 +1577,156 @@ mod tests {
                 outcome("co Midcup B.zip", false, &[IDENTIFIED_714, duplicate]),
             ]
         );
+    }
+
+    #[test]
+    fn a_refused_duplicate_lets_go_of_the_source_kept_for_its_tasks() {
+        let budget = MemoryBudget::new(1 << 30);
+        let mut sources = vec![
+            identified(0, "a Midcup Home"),
+            identified(1, "co Midcup A"),
+            identified(2, "co Midcup B"),
+        ];
+        for checked in &mut sources {
+            checked.content = Some(ContentSource::new(&checked.source, &budget));
+        }
+
+        refuse_duplicate_teams(&mut sources);
+
+        let kept: Vec<bool> = sources
+            .iter()
+            .map(|checked| checked.content.is_some())
+            .collect();
+        assert_eq!(kept, [true, false, false]);
+    }
+
+    #[test]
+    fn an_archive_is_kept_when_at_most_an_eighth_of_the_cap_and_the_floor_stays_free() {
+        const GIB: usize = 1 << 30;
+        let cap = 8 * GIB;
+        assert!(keeps_archive(GIB, 0, cap, 0));
+        assert!(
+            !keeps_archive(GIB + 1, 0, cap, 0),
+            "over an eighth of the cap"
+        );
+        assert!(
+            keeps_archive(GIB, 6 * GIB, cap, 0),
+            "7 GiB kept leaves the floor"
+        );
+        assert!(
+            !keeps_archive(GIB, 6 * GIB + 1, cap, 0),
+            "the floor is not left"
+        );
+        // A cap of the floor alone leaves nothing to keep.
+        assert!(!keeps_archive(1, 0, GIB, 0));
+        assert!(!keeps_archive(GIB / 8, 0, GIB, 0));
+        // A total past `usize` is over the cap, not a wrap into a keep.
+        assert!(!keeps_archive(1, usize::MAX, usize::MAX, 0));
+    }
+
+    #[test]
+    fn an_archive_is_kept_only_when_the_largest_other_archive_still_fits_beside_the_kept() {
+        const GIB: usize = 1 << 30;
+        let cap = 8 * GIB;
+        // `cap - 7 GiB` leaves 1 GiB, exactly this archive.
+        assert!(keeps_archive(GIB, 0, cap, 7 * GIB));
+        assert!(!keeps_archive(GIB, 0, cap, 7 * GIB + 1));
+        // Another archive over the cap acquires only on an empty budget: nothing is kept.
+        assert!(!keeps_archive(GIB, 0, cap, 9 * GIB));
+        assert!(!keeps_archive(1, 0, cap, 9 * GIB));
+    }
+
+    /// The validation pass over the `.7z` fixtures `co Midcup Spring.7z` and `egg Midcup
+    /// Tracer.7z` on a budget of `cap` bytes, with `keep_archives`: each source's file name and
+    /// the bytes its kept content holds, `None` when none is kept.
+    fn seven_z_pass(
+        scratch_name: &str,
+        cap: usize,
+        keep_archives: bool,
+    ) -> Vec<(String, Option<usize>)> {
+        let temp = scratch(scratch_name);
+        let root = temp.path();
+        let exports = root.join("exports");
+        std::fs::create_dir_all(&exports).unwrap();
+        let fixtures =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/sources");
+        for name in ["co Midcup Spring.7z", "egg Midcup Tracer.7z"] {
+            std::fs::copy(fixtures.join(name), exports.join(name)).unwrap();
+        }
+        let inputs = RunInputs {
+            settings: crate::settings::TeamCompilerSettings::default(),
+            common: crate::testing::tool_context(root, "").common(),
+            teams_list: teams_list::TeamsList::parse("ID\tName\n714\t/co/\n792\t/egg/\n").unwrap(),
+            exports_root: exports.clone(),
+            exports: Vec::new(),
+        };
+        let sources = reader::discover(&exports, &[]).unwrap();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
+        let budget = MemoryBudget::new(cap);
+
+        let pass = validation_pass(
+            &inputs,
+            sources,
+            &InstalledPaths::Unknown,
+            &budget,
+            &pool,
+            keep_archives,
+        )
+        .unwrap();
+
+        pass.sources
+            .into_iter()
+            .map(|checked| {
+                let held = checked.content.as_ref().map(ContentSource::held);
+                (checked.source.file_name, held)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn compile_keeps_both_small_7z_exports_for_their_tasks_and_check_keeps_none() {
+        // The archives decompress to 34 and 153,538 bytes, 153,572 kept in all: far under an
+        // eighth of the cap, and the cap less the floor leaves room for both.
+        assert_eq!(
+            seven_z_pass("keep_7z_compile", 2 << 30, true),
+            [
+                ("co Midcup Spring.7z".to_owned(), Some(34)),
+                ("egg Midcup Tracer.7z".to_owned(), Some(153_538)),
+            ]
+        );
+        assert_eq!(
+            seven_z_pass("keep_7z_check", 2 << 30, false),
+            [
+                ("co Midcup Spring.7z".to_owned(), None),
+                ("egg Midcup Tracer.7z".to_owned(), None),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_archive_the_kept_ones_leave_no_room_for_is_not_kept() {
+        // The cap leaves 153,560 bytes past the floor: room for the first archive checked,
+        // `co Midcup Spring.7z` (34 bytes), or for the tracer (153,538) alone, but 12 bytes
+        // short of both (153,572), so the tracer, checked second, is let go.
+        assert_eq!(
+            seven_z_pass("keep_7z_running_total", (1 << 30) + 153_560, true),
+            [
+                ("co Midcup Spring.7z".to_owned(), Some(34)),
+                ("egg Midcup Tracer.7z".to_owned(), None),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_largest_other_size_leaves_out_the_one_at_its_index() {
+        let sizes = [5, 9, 7];
+        assert_eq!(largest_other(&sizes, 0), 9);
+        assert_eq!(largest_other(&sizes, 1), 7);
+        assert_eq!(largest_other(&sizes, 2), 9);
+        assert_eq!(largest_other(&[5], 0), 0);
     }
 
     #[test]

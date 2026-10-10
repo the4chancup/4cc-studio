@@ -14,8 +14,8 @@ use rayon::prelude::*;
 use studio_core::ExportId;
 use teams_list::TeamName;
 
-use source::list;
 pub(crate) use source::{ContentSource, SourceFailure, SourceRevision};
+use source::{Listed, list};
 
 /// One export source found by discovery: a folder or an archive.
 #[derive(Debug)]
@@ -73,6 +73,11 @@ pub(crate) enum Route {
         /// What the source looked like when it was listed, which `compile` checks its reads
         /// against.
         revision: SourceRevision,
+        /// The bytes a `.7z`'s first read decompresses and charges to the budget (the sum of
+        /// its entries' sizes, every entry the archive holds); 0 for a folder or a `.zip`.
+        /// `compile`'s keep rule reads it for every `.7z` before any is checked
+        /// (`validation::keeps_archive`).
+        decompressed: usize,
     },
 }
 
@@ -224,7 +229,11 @@ pub(crate) fn route(sources: &[ExportSource]) -> Vec<Route> {
 /// beyond its listing, so no `.7z` is decompressed by routing, and a disabled, balls or
 /// conflicting-refs one never is.
 fn route_source(source: &ExportSource) -> Route {
-    let (listing, revision) = match list(source) {
+    let Listed {
+        listing,
+        revision,
+        decompressed,
+    } = match list(source) {
         Ok(listed) => listed,
         Err(failure) => return Route::Unreadable(failure),
     };
@@ -234,7 +243,11 @@ fn route_source(source: &ExportSource) -> Route {
     if source.team_name.as_ref().is_some_and(TeamName::is_balls) {
         return Route::Balls;
     }
-    Route::Validate { listing, revision }
+    Route::Validate {
+        listing,
+        revision,
+        decompressed,
+    }
 }
 
 /// A `NO_USE` or `NO_USE.txt` file directly in the source's own root. Compared folded, as
@@ -510,5 +523,36 @@ mod tests {
         let routes = route(&sources);
         assert!(matches!(routes[0], Route::Validate { .. }), "{routes:?}");
         assert_eq!(routes[1], Route::Disabled);
+    }
+
+    #[test]
+    fn a_7z_is_routed_with_its_decompressed_size_and_a_zip_with_none() {
+        let temp = scratch("reader_decompressed_size");
+        let root = temp.path();
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/sources");
+        for name in ["egg Midcup Tracer.7z", "egg Midcup Tracer.zip"] {
+            fs::copy(fixtures.join(name), root.join(name)).unwrap();
+        }
+        let sources = discover(root, &[]).unwrap();
+
+        let sizes: Vec<(&str, usize)> = sources
+            .iter()
+            .zip(route(&sources))
+            .map(|(source, route)| {
+                let Route::Validate { decompressed, .. } = route else {
+                    panic!("{route:?}");
+                };
+                (source.file_name.as_str(), decompressed)
+            })
+            .collect();
+
+        // The sum of the `.7z`'s entries, what its first read acquires.
+        assert_eq!(
+            sizes,
+            [
+                ("egg Midcup Tracer.7z", 153_538),
+                ("egg Midcup Tracer.zip", 0)
+            ]
+        );
     }
 }

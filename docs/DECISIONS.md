@@ -6319,3 +6319,24 @@ player folder's `fpc_on`), which the pass has; the other option, a help sentence
 would leave the one case the Warning exists for unreported on the teams that use FPC.
 The clamps are unaffected: the FPC values touch no clamped field.
 Plan: `team_compiler/pipeline.md` "Kit configs"; `messages.md` `kit_config_option_ignored`.
+
+## 2026-10-10 — pipeline — a kept archive leaves room for the run's largest other `.7z`
+Decision: `compile` keeps a solid `.7z` export decompressed from its check to its tasks only
+when, with it kept, the cap keeps free of kept archives at least the larger of the 1 GiB
+floor and the decompressed size of the run's largest other `.7z` export (`keeps_archive`'s
+fourth argument), so a run holding an archive over the cap keeps nothing. The eighth and
+the floor stand as decided above.
+Why: the sidekick's contradiction at 4.y-7z, proved with a probe: the floor was chosen for
+charges, which never wait, but a kept permit is released only when the coordinator reaches
+its export, and an `acquire` waits: a later `.7z`'s check, or an earlier export's archive
+in the coordinator, that needs more than the kept archives leave of the cap waits forever
+on permits released only after it, and an archive over the cap, which acquires only on an
+empty budget, never runs once anything is kept (the plan's "a `.7z` over the memory cap
+still compiles" would break with a kept archive beside it). Every archive's decompressed
+size is known from its header before any check runs, so the largest other one is the
+largest acquire the run can reserve for up front; a task's admission acquire stays
+uncovered beyond the floor, which the measurement of the largest charge real exports make
+(427 MiB) puts out of reach. The alternative, deciding the keep after planning when every
+task's charge is known, would let an archive go only after holding it through planning,
+the residency the rule exists to bound.
+Plan: `libs/pipeline.md` "What a solid `.7z` is charged"; `team_compiler/pipeline.md` step 3.

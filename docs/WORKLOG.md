@@ -27,8 +27,9 @@ reported, a `Collars/` subfolder ignored; TC-BIN-23, TC-BIN-24, TC-CMN-16, TC-RE
 TC-XML-15),
 4.y-fix11 done 2026-10-10 (S7's, S8's, S12's and S13's SWE-2 rework: fourteen items; a kit
 variant set spans every file a part is built from),
-4.y-fix15 opened 2026-10-10 (S14's SWE-2 rework), 4.y-7z opened 2026-10-10 (a small `.7z`
-export decompressed once),
+4.y-fix15 opened 2026-10-10 (S14's SWE-2 rework), 4.y-7z done 2026-10-10 (a small `.7z`
+export decompressed once: kept from its check to its tasks under an eighth of the cap, the
+floor and the run's largest other archive left free),
 4.y-fix10 done 2026-10-10 (a pre-Fox per-kit model set completed against the kit
 numbers; TC-CMN-17), 4.y-harness and 4.y-ingame done 2026-10-10 (the converted collar and `dummy_kit`
 checked in game, the harness driven by a virtual pad and OBS), 4.y-ingame2 started
@@ -3663,7 +3664,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `prefox_faces.rs` (`expected_face_xml` shared). Gates green (`.tmp/4_y/gates_fix15.log`,
   acceptance 304 of 313); mutants over both steps MUTANTS (`.tmp/4_y/mutants_fix15.log`).
 
-- [ ] 4.y-7z **A small solid `.7z` export stays decompressed from its check to its tasks**
+- [x] 4.y-7z **A small solid `.7z` export stays decompressed from its check to its tasks**
   (the maintainer's answer, 2026-10-10). `compile` keeps an archive's permit and buffers
   from its check to its tasks when it is at most an eighth of the cap and, with it kept,
   `MIN_FREE_BUDGET` (1 GiB, a `pipeline` constant) of the cap stays free of kept
@@ -3674,6 +3675,29 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   twice, red first; the 4.7f timing re-run on a 7z export (about 2 s less); the largest
   single task charge over the census exports measured against the floor (the plan's 0.45
   to 0.7 GB for an 8192x8192 texture is computed from `decode_charge`, not measured).
+  Done 2026-10-10 (Opus 5.5, one run and two rework rounds). `pipeline`: `MIN_FREE_BUDGET`
+  (1 GiB) and `MemoryBudget::cap()`. `validation.rs`: `keeps_archive(size, kept, cap,
+  largest_other)`, `CheckedSource::content` (a `.7z` kept with its permit, `None` for a
+  folder, a zip, a refused archive or under `check`), `validation_pass(keep_archives)`
+  (`compile` true, `check` false), the serial `.7z` loop deciding each keep with a running
+  total; `compile.rs`: `CompileSource { source, revision, content }` for the coordinator,
+  whose `.7z` branch reads the kept buffer or opens the archive as before; a refused
+  duplicate team lets its kept content go. The sidekick's contradiction, accepted as a
+  decision: the floor covers charges, not the acquires that wait (a later `.7z`'s check,
+  an earlier archive in the coordinator, an archive over the cap), so the rule also
+  reserves the run's largest other `.7z` (DECISIONS 2026-10-10 "a kept archive leaves
+  room"; `libs/pipeline.md`; `team_compiler/pipeline.md` step 3 and "Admission"
+  rewritten). Tests: `keeps_archive` cases, the two-fixture loop test, the coordinator's
+  `peak < 2 * S` with the tracer `.7z` kept (red: exactly twice S), the CLI test of the
+  tracer compiled kept and refused (`memory_cap_percent` 0.01) to one CPK. Lead
+  measurements: the largest single charge over the census roots and the two timing
+  exports is 427 MiB (FNG's 8192x8192 decode; the census's 53 VGL26 exports are old-layout
+  and run no task; `.tmp/4_y/charge_probe/RESULT.md`), 0.42 of the floor; the timing
+  re-run (`.tmp/4_y/timing_7z/`, release builds of `b5bd74f` and this tree, median of 3):
+  compile of the FNG `.7z` 7.74 to 5.55 s and of the DBG one 6.48 to 4.57 s, the folder
+  compiles and the checks unchanged within noise. Gates green (`.tmp/4_y/gates_7z_r3.log`);
+  mutants 36, 26 caught, 10 unviable, 0 missed (`.tmp/4_y/mutants_7z_r2.log`; r1: 37, 24
+  caught, 2 missed, the floor's pin and the loop's running total, both tested in rework 2).
 
 - [x] 4.y-harness **The in-game harness moves into `scripts/ingame/`** (maintainer,
   2026-10-09). Lead: `game.py` (launch, screenshot, keys, close) and `burst.py` (frame
@@ -4777,7 +4801,9 @@ points there.
   2 s of a 5.2 to 6.8 s compile. The buffer is not kept from the check to the tasks because
   planning needs every export validated first, and holding every `.7z` until then is the
   residency the budget forbids (`libs/pipeline.md` "What a solid `.7z` is charged"). The
-  maintainer's answer (2026-10-10): a small archive is kept, step 4.y-7z.
+  maintainer's answer (2026-10-10): a small archive is kept, step 4.y-7z, done the same
+  day: the `.7z` half of this issue is closed; the folder half (the file cache's second
+  read) stands.
 - open — a face diff is engine-specific (maintainer, 2026-10-03): a diff authored for one
   engine misplaces the face on the other; the compiler passes a diff through for whatever
   target it compiles, so a diff is the author's responsibility, as with Red. The
@@ -6452,3 +6478,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   176, so a config written for 144 or 160 lost its option with no finding (decision).
 - **2026-10-10** — 4.y-fix7 slice (b) done (sidekick, landed first time), the step closed:
   the deep pass's pairing code moved into `deep/pairings.rs`, no line changed.
+- **2026-10-10** — 4.y-7z done (sidekick, two rework rounds): a solid `.7z` export under an
+  eighth of the cap stays decompressed from its check to its tasks; the sidekick found
+  that the floor alone lets a kept permit stall a later whole-archive acquire, so the
+  rule also reserves the run's largest other archive (decision).

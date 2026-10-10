@@ -1843,6 +1843,35 @@ fn a_7z_over_the_memory_cap_compiles() {
 }
 
 #[test]
+fn a_7z_kept_from_its_check_and_one_decompressed_again_compile_the_same_cpk() {
+    // The default cap keeps the archive's 150 KiB decompressed for its tasks (any cap of at
+    // least 1 GiB plus those 150 KiB keeps it). A cap of 0.01% of the available memory is
+    // under 1 GiB on any machine with less than 10 TiB available, so no archive is kept and
+    // the tasks decompress it again; it is above the archive's size wherever more than 1.5 GB
+    // is available, so the archive's permit is no oversized one there.
+    let mut outcomes = Vec::new();
+    for (name, cap) in [
+        ("seven_z_kept", ""),
+        ("seven_z_not_kept", "memory_cap_percent = 0.01\n"),
+    ] {
+        let sandbox = Sandbox::new(name);
+        sandbox.copy_fixture("egg Midcup Tracer.7z", "exports");
+        let settings = format!("{}{cap}", pes21_settings(&sandbox));
+
+        let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+        assert_eq!(run.exit_code(), 0, "{name}");
+        let cpk = fs::read(sandbox.root.join("output/4cc_99_test.cpk")).unwrap();
+        // The note names this sandbox's CPK, so it is checked here and the rest compared.
+        let mut messages = run.messages();
+        assert_eq!(messages.pop(), Some(deploy_skipped(&sandbox)), "{name}");
+        outcomes.push((messages, cpk));
+    }
+    assert_eq!(outcomes[0].0, outcomes[1].0);
+    assert!(outcomes[0].1 == outcomes[1].1, "the two CPKs differ");
+}
+
+#[test]
 fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none() {
     let sandbox = Sandbox::new("processed_order");
     sandbox.write("exports/co Midcup Kits/Kits/p1/kit.dds", &tracer_kit());

@@ -147,7 +147,11 @@ export format.
      parallel and no archive is decompressed for an export routing sets aside. A source's
      small metadata is read by its check, through the handle the deep pass then reads its
      contents from: a `.7z` is decompressed once for the metadata, the structure pass and the
-     deep pass, under one permit released when the deep pass ends. Measured
+     deep pass, under one permit. `check` releases it when the deep pass ends; `compile`
+     keeps a small archive's buffer and permit for its tasks (at most an eighth of the cap,
+     the cap left free of kept archives by at least `MIN_FREE_BUDGET` and the run's largest
+     other `.7z`: `libs/pipeline.md` "What a solid `.7z` is charged") and releases any
+     other's the same way. Measured
      at 4.7 on two VGL26 exports of 0.6 and 1 GB, the serial pass took 0.5 to 0.8 s of a 1.7 to
      3.1 s folder compile: most of it model parsing on one, whole-file reads of 8192-pixel
      textures (for their headers) on the other.
@@ -1573,10 +1577,12 @@ then hands the task to the pool; the writer, on its own thread, commits batches 
 order from a reorder buffer and drops each batch's permit after writing it. Every task admitted
 before the next one in writer order is already running or done, so the batch the writer waits
 for always holds its permit and the run cannot stall on canonical order ("Admission must
-remain progress-safe", `core/parallelism.md`). A `.7z` export is opened once for its tasks and
-charged once, by the sum of its entries' sizes (`libs/pipeline.md`); its tasks share that
-permit and acquire none of their own, since an oversized export permit would otherwise block
-its own tasks' requests forever. The coordinator reads all of a `.7z` export's tasks before
+remain progress-safe", `core/parallelism.md`). A `.7z` export's tasks read the buffer its
+check kept when the keep rule admitted it (`libs/pipeline.md` "What a solid `.7z` is
+charged"), else the archive opened once more for all of them; either way the export is charged
+once, by the sum of its entries' sizes, and its tasks share that permit and acquire none of
+their own, since an oversized export permit would otherwise block its own tasks' requests
+forever. The coordinator reads all of a `.7z` export's tasks before
 handing any to the pool, then frees the decompressed archive and gives each task a share of the
 export's permit (an `Arc`), so the charge stays held until the writer has the last of them.
 The writer reports each batch's messages as it commits it, so findings come out in manifest

@@ -238,6 +238,19 @@ fn working_bins(
     }
 }
 
+/// One export source as validation hands it to the coordinator.
+pub(crate) struct CompileSource {
+    /// The export's folder or archive as discovered (`reader::discover`).
+    source: ExportSource,
+    /// What the source looked like when it was listed, which its tasks' reads are checked
+    /// against; `None` when routing or the listing's parse set it aside.
+    revision: Option<SourceRevision>,
+    /// The `.7z` kept decompressed from its check for its tasks
+    /// (`validation::keeps_archive`), holding its permit; `None` when the coordinator opens
+    /// the source itself.
+    content: Option<ContentSource>,
+}
+
 /// A run validated and planned, which `build` compiles: its own function so a test can change
 /// an export's files between planning and building.
 struct PlannedRun {
@@ -251,8 +264,8 @@ struct PlannedRun {
     pool: rayon::ThreadPool,
     /// The `overrides/` folder's files, by CPK path.
     overrides: BTreeMap<String, PathBuf>,
-    /// Every source in export order, with its revision when it was validated.
-    sources: Vec<(ExportSource, Option<SourceRevision>)>,
+    /// Every source in export order, as the coordinator reads its tasks from it.
+    sources: Vec<CompileSource>,
     /// The entry paths of the installed CPKs walked, which validation looked in and the
     /// tasks look in.
     installed: InstalledPaths,
@@ -283,7 +296,7 @@ fn plan(
     };
     let budget = run_budget(inputs);
     let pool = run_pool(inputs)?;
-    let pass = validation_pass(inputs, sources, &installed, &budget, &pool)?;
+    let pass = validation_pass(inputs, sources, &installed, &budget, &pool, true)?;
     for message in pass.run_messages {
         events.message(message);
     }
@@ -304,7 +317,11 @@ fn plan(
                 metal_models: checked.metal_models,
             });
         }
-        sources.push((checked.source, checked.revision));
+        sources.push(CompileSource {
+            source: checked.source,
+            revision: checked.revision,
+            content: checked.content,
+        });
     }
 
     let report = plan_run(exports, version);
@@ -363,7 +380,7 @@ fn build(
     for (index, task) in tasks.iter().enumerate() {
         last_task_of.insert(task.export_id, index);
     }
-    for (source, _) in &sources {
+    for CompileSource { source, .. } in &sources {
         if !last_task_of.contains_key(&source.export_id) {
             events.processed(source.export_id);
         }
@@ -392,7 +409,7 @@ fn build(
     };
     let source_names: BTreeMap<ExportId, String> = sources
         .iter()
-        .map(|(source, _)| (source.export_id, source.file_name.clone()))
+        .map(|CompileSource { source, .. }| (source.export_id, source.file_name.clone()))
         .collect();
     let referee_tasks = referee_tasks(&tasks);
     // The refs export is no team to place in the parts: its entries go to the refs CPK.
@@ -466,7 +483,7 @@ fn build(
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {
-            coordinate(&sources, tasks, &context, &batches_tx, pool_scope)
+            coordinate(sources, tasks, &context, &batches_tx, pool_scope)
         });
         drop(batches_tx);
         let written = writer.join().expect("the writer thread does not panic");
@@ -764,14 +781,15 @@ struct SourceChange {
 /// The coordinator: every task's files read from its export's source, in manifest order, and
 /// the task handed to `pool` with its permit, acquired from the run's budget (`context`'s),
 /// each finished batch sent to `batches` with its entries' bytes charged to that budget. Each
-/// export's source is opened once for all its tasks, which the manifest keeps together. After
+/// export's source is opened once for all its tasks, which the manifest keeps together, or
+/// read through the `.7z` validation kept open for them. After
 /// each read the files read are checked against the source's revision; on a change no further
 /// task is read or spawned, the spawned ones finish, and the change is returned. A cancelled
 /// budget stops the coordinator before the next task's read and at a waiting acquire, with
 /// no change to report: the cancellation's only trigger is the writer's `cpk_write_failed`,
 /// which the writer reports itself.
 fn coordinate<'scope>(
-    sources: &[(ExportSource, Option<SourceRevision>)],
+    sources: Vec<CompileSource>,
     tasks: Vec<BuildTask>,
     context: &'scope CompileContext,
     batches: &'scope Sender<TaskBatch>,
@@ -796,8 +814,14 @@ fn coordinate<'scope>(
     // The coordinator reads, not the task: an archive is one sequential stream, so tasks
     // sharing it would only wait on each other, and processing needs no source handle.
     let mut tasks = tasks.into_iter().enumerate().peekable();
-    for (source, revision) in sources {
-        let content = ContentSource::new(source, budget);
+    for CompileSource {
+        source,
+        revision,
+        content,
+    } in sources
+    {
+        // A kept `.7z` is already decompressed and charged: its tasks read the same buffer.
+        let content = content.unwrap_or_else(|| ContentSource::new(&source, budget));
         if source.kind == SourceKind::SevenZ {
             // A `.7z` holds one permit for its whole decompressed buffer, and a task asking
             // for its own while that is held waits forever when the archive is over the cap.
@@ -818,7 +842,7 @@ fn coordinate<'scope>(
             // Once, after the one read that decompressed the archive for every task; the
             // archive's stamp is checked whatever the files.
             if !read.is_empty()
-                && let Some(change) = source_change(source, revision.as_ref(), [])
+                && let Some(change) = source_change(&source, revision.as_ref(), [])
             {
                 return Some(change);
             }
@@ -873,7 +897,7 @@ fn coordinate<'scope>(
                 // caught too. A file gone before the read is a change, not a failed read.
                 let read = task.kind.files();
                 let read = read.iter().map(|file| file.source.as_str());
-                if let Some(change) = source_change(source, revision.as_ref(), read) {
+                if let Some(change) = source_change(&source, revision.as_ref(), read) {
                     return Some(change);
                 }
                 spawn(index, task, files, Some(permit));
@@ -1052,12 +1076,16 @@ mod tests {
     }
 
     /// `source` with the revision its listing gives now, as validation hands it on.
-    fn listed(source: ExportSource) -> (ExportSource, Option<SourceRevision>) {
+    fn listed(source: ExportSource) -> CompileSource {
         let route = crate::reader::route(std::slice::from_ref(&source)).remove(0);
         let Route::Validate { revision, .. } = route else {
             panic!("{route:?}");
         };
-        (source, Some(revision))
+        CompileSource {
+            source,
+            revision: Some(revision),
+            content: None,
+        }
     }
 
     /// Three tasks of the tracer's player 05, as export 4: its face package and its textures
@@ -1145,7 +1173,7 @@ mod tests {
         let (done_tx, done) = std::sync::mpsc::channel();
         thread::spawn(move || {
             let budget = MemoryBudget::new(cap);
-            let sources = [listed(tracer_source())];
+            let sources = vec![listed(tracer_source())];
             let context = context_with(&budget);
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(2)
@@ -1158,7 +1186,7 @@ mod tests {
                 }
             });
             let change = pool
-                .in_place_scope(|scope| coordinate(&sources, tasks, &context, &batches_tx, scope));
+                .in_place_scope(|scope| coordinate(sources, tasks, &context, &batches_tx, scope));
             drop(batches_tx);
             done_tx.send((change, budget.peak())).unwrap();
         });
@@ -1169,7 +1197,7 @@ mod tests {
     /// what it returned, and every batch it sent, in manifest order.
     fn coordinated_on(
         budget: &Arc<MemoryBudget>,
-        sources: &[(ExportSource, Option<SourceRevision>)],
+        sources: Vec<CompileSource>,
         tasks: Vec<BuildTask>,
     ) -> (Option<SourceChange>, Vec<TaskBatch>) {
         let context = context_with(budget);
@@ -1190,7 +1218,7 @@ mod tests {
 
     /// `coordinated_on` a budget no test fills.
     fn coordinated(
-        sources: &[(ExportSource, Option<SourceRevision>)],
+        sources: Vec<CompileSource>,
         tasks: Vec<BuildTask>,
     ) -> (Option<SourceChange>, Vec<TaskBatch>) {
         coordinated_on(&MemoryBudget::new(1 << 30), sources, tasks)
@@ -1198,7 +1226,7 @@ mod tests {
 
     #[test]
     fn a_group_s_tasks_share_one_permit_of_the_group_s_charge_and_other_tasks_have_their_own() {
-        let (change, batches) = coordinated(&[listed(tracer_source())], tracer_tasks());
+        let (change, batches) = coordinated(vec![listed(tracer_source())], tracer_tasks());
 
         assert_eq!(change, None);
         let permits: Vec<&Arc<Permit>> = batches
@@ -1341,7 +1369,7 @@ mod tests {
         };
         let budget = MemoryBudget::new(1 << 30);
 
-        let (change, batches) = coordinated_on(&budget, &[listed(tracer_source())], vec![task]);
+        let (change, batches) = coordinated_on(&budget, vec![listed(tracer_source())], vec![task]);
 
         assert_eq!(change, None);
         assert_eq!(batches.len(), 1);
@@ -1353,7 +1381,8 @@ mod tests {
 
     #[test]
     fn a_batch_carries_its_entries_and_kit_config_s_bytes_as_its_output_charge() {
-        let (change, batches) = coordinated(&[listed(tracer_source())], vec![tracer_kit_task(5)]);
+        let (change, batches) =
+            coordinated(vec![listed(tracer_source())], vec![tracer_kit_task(5)]);
 
         assert_eq!(change, None);
         let batch = &batches[0];
@@ -1391,11 +1420,11 @@ mod tests {
             .build()
             .unwrap();
         let (batches_tx, batches_rx) = unbounded::<TaskBatch>();
-        let sources = [listed(tracer_source())];
+        let sources = vec![listed(tracer_source())];
 
         let change = pool.in_place_scope(|scope| {
             coordinate(
-                &sources,
+                sources,
                 grouped_tasks(&[], &[10, 20, 30]),
                 &context,
                 &batches_tx,
@@ -1424,18 +1453,11 @@ mod tests {
             .build()
             .unwrap();
         let (batches_tx, batches_rx) = unbounded::<TaskBatch>();
-        let source = ExportSource {
-            path: Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("tests/fixtures/sources/egg Midcup Tracer.7z"),
-            kind: SourceKind::SevenZ,
-            file_name: "egg Midcup Tracer.7z".to_owned(),
-            ..tracer_source()
-        };
-        let sources = [listed(source)];
+        let sources = vec![listed(tracer_7z_source())];
 
         let change = pool.in_place_scope(|scope| {
             coordinate(
-                &sources,
+                sources,
                 grouped_tasks(&[], &[10, 20, 30]),
                 &context,
                 &batches_tx,
@@ -1448,6 +1470,58 @@ mod tests {
         assert!(
             batches_rx.try_iter().next().is_none(),
             "a task was spawned on a cancelled budget"
+        );
+    }
+
+    /// The tracer export as the solid `.7z` fixture, as export 4.
+    fn tracer_7z_source() -> ExportSource {
+        ExportSource {
+            path: Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/sources/egg Midcup Tracer.7z"),
+            kind: SourceKind::SevenZ,
+            file_name: "egg Midcup Tracer.7z".to_owned(),
+            ..tracer_source()
+        }
+    }
+
+    #[test]
+    fn a_7z_kept_from_its_check_is_read_by_its_tasks_without_a_second_decompression() {
+        let budget = MemoryBudget::new(1 << 30);
+        let mut kept = listed(tracer_7z_source());
+        // As the check leaves it: decompressed by a read, holding its permit.
+        let content = ContentSource::new(&kept.source, &budget);
+        content.read(&format!("{PLAYER}/shirt.dds")).unwrap();
+        let decompressed = content.held();
+        assert!(decompressed > 0);
+        kept.content = Some(content);
+        // Kit tasks, whose decodes and outputs charge a few KB: the face package's tasks
+        // charge more than the archive's size, which would hide a second decompression.
+        let tasks = vec![tracer_kit_task(5), tracer_kit_task(5), tracer_kit_task(5)];
+
+        let (change, batches) = coordinated_on(&budget, vec![kept], tasks);
+
+        assert_eq!(change, None);
+        let permits: Vec<&Arc<Permit>> = batches
+            .iter()
+            .map(|batch| {
+                batch
+                    .permit
+                    .as_ref()
+                    .expect("every task holds the archive's")
+            })
+            .collect();
+        assert_eq!(permits.len(), 3);
+        assert!(
+            permits.iter().all(|permit| Arc::ptr_eq(permit, permits[0])),
+            "the tasks share one permit"
+        );
+        assert_eq!(permits[0].size(), decompressed, "the kept source's permit");
+        // Decompressed once: a second `ContentSource` would acquire `decompressed` again while
+        // the kept permit is held.
+        let peak = budget.peak();
+        assert!(
+            peak < 2 * decompressed,
+            "peak {peak}, decompressed {decompressed}"
         );
     }
 
@@ -1569,11 +1643,11 @@ mod tests {
             ..tracer_source()
         };
         let shirt = source.path.join(format!("{PLAYER}/shirt.dds"));
-        let sources = [listed(source)];
+        let sources = vec![listed(source)];
         // Read by the second task, the group's textures, and by the third, the portrait.
         fs::write(&shirt, b"saved over").unwrap();
 
-        let (change, batches) = coordinated(&sources, tracer_tasks());
+        let (change, batches) = coordinated(sources, tracer_tasks());
 
         let indices: Vec<usize> = batches.iter().map(|batch| batch.index).collect();
         assert_eq!(indices, [0], "only the first task's batch is sent");
@@ -1606,10 +1680,10 @@ mod tests {
             };
             fs::copy(&fixture, &source.path).unwrap();
             let archive = source.path.display().to_string();
-            let sources = [listed(source)];
-            move_modified_time(&sources[0].0.path);
+            let sources = vec![listed(source)];
+            move_modified_time(&sources[0].source.path);
 
-            let (change, batches) = coordinated(&sources, tracer_tasks());
+            let (change, batches) = coordinated(sources, tracer_tasks());
 
             assert!(batches.is_empty(), "{name}: {} batches", batches.len());
             assert_eq!(

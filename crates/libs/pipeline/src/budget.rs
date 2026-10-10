@@ -7,6 +7,14 @@
 
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
+/// The share of a budget's cap that archives kept decompressed from their check to their
+/// tasks must leave free: 1 GiB. A task's charges do not wait for room (`charge`), so kept
+/// archives filling the budget would stall the very tasks that release them; the value is
+/// above the largest texture decode real exports need, an 8192x8192 texture with its mips
+/// and its source file (0.45 to 0.7 GB), so only a larger texture takes the run past the cap
+/// while kept archives are held (`libs/pipeline.md` "What a solid `.7z` is charged").
+pub const MIN_FREE_BUDGET: usize = 1 << 30;
+
 /// A byte budget shared by a run's tasks: `acquire` blocks until the bytes
 /// fit.
 pub struct MemoryBudget {
@@ -49,6 +57,11 @@ impl MemoryBudget {
             }),
             notify: Condvar::new(),
         })
+    }
+
+    /// The budget's cap, the bytes `acquire` fits requests into.
+    pub fn cap(&self) -> usize {
+        self.cap
     }
 
     /// Blocks until `size` bytes fit (or, for a request over the cap, until
@@ -486,5 +499,17 @@ mod tests {
         assert!(!budget.is_cancelled());
         budget.cancel();
         assert!(budget.is_cancelled());
+    }
+
+    #[test]
+    fn cap_is_the_cap_the_budget_was_made_with() {
+        assert_eq!(MemoryBudget::new(100).cap(), 100);
+    }
+
+    #[test]
+    fn the_floor_kept_archives_leave_free_is_one_gib() {
+        // The literal is the point: the maintainer's value, written out so a slipped shift
+        // in the constant is caught.
+        assert_eq!(MIN_FREE_BUDGET, 1_073_741_824);
     }
 }

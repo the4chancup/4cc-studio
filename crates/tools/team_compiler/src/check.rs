@@ -25,7 +25,15 @@ pub(crate) fn run(inputs: &RunInputs, ctx: &ToolContext) -> anyhow::Result<Optio
         refs_name,
     );
     let pool = run_pool(inputs)?;
-    let pass = validation_pass(inputs, sources, &installed, &run_budget(inputs), &pool)?;
+    // No tasks follow a check, so no archive is kept past its check.
+    let pass = validation_pass(
+        inputs,
+        sources,
+        &installed,
+        &run_budget(inputs),
+        &pool,
+        false,
+    )?;
     let mut events = RunEvents::new(ctx);
     for message in pass.run_messages {
         events.message(message);

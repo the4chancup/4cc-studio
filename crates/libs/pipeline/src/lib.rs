@@ -8,7 +8,7 @@ mod cpk_stem;
 mod memory;
 mod threads;
 
-pub use budget::{Cancelled, MemoryBudget, Permit};
+pub use budget::{Cancelled, MIN_FREE_BUDGET, MemoryBudget, Permit};
 pub use cpk_stem::{CpkStem, CpkStemError};
 pub use memory::memory_cap;
 pub use threads::thread_count_detect;

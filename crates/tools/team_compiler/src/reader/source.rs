@@ -88,15 +88,27 @@ impl SourceRevision {
     }
 }
 
+/// One source as `list` found it.
+pub(super) struct Listed {
+    /// Every file (with its size) and every folder in the source.
+    pub(super) listing: CanonicalListing,
+    /// What the source looked like when it was listed.
+    pub(super) revision: SourceRevision,
+    /// The bytes a `.7z`'s first read decompresses and charges to the budget
+    /// (`decompressed_size`: the sum of every entry the archive holds, files the listing's
+    /// parse later drops included); 0 for a folder or a `.zip`, whose reads charge nothing.
+    pub(super) decompressed: usize,
+}
+
 /// Lists every file (with its size) and every folder in `source`, paths relative to its root
 /// joined with `/` (an archive's as `archives` normalized them), with the source's revision,
-/// taken from the same metadata. An archive is opened for its entry list only, nothing
-/// decompressed, and closed again. An archive that cannot be opened (damaged, encrypted, an
-/// entry named outside the root, two entries naming one path) is a failure naming the archive.
-pub(super) fn list(
-    source: &ExportSource,
-) -> Result<(CanonicalListing, SourceRevision), SourceFailure> {
+/// taken from the same metadata, and a `.7z`'s decompressed size. An archive is opened for its
+/// entry list only, nothing decompressed, and closed again. An archive that cannot be opened
+/// (damaged, encrypted, an entry named outside the root, two entries naming one path) is a
+/// failure naming the archive.
+pub(super) fn list(source: &ExportSource) -> Result<Listed, SourceFailure> {
     let mut entries = Vec::new();
+    let mut decompressed = 0;
     let revision = match source.kind {
         SourceKind::Folder => {
             let mut stamps = BTreeMap::new();
@@ -109,7 +121,11 @@ pub(super) fn list(
             let metadata =
                 fs::metadata(&source.path).map_err(|error| failure(&source.path, &error))?;
             let stamp = FileStamp::of(&source.path, &metadata)?;
-            let archive = open_archive(&source.path, source.kind == SourceKind::SevenZ)?;
+            let seven_z = source.kind == SourceKind::SevenZ;
+            let archive = open_archive(&source.path, seven_z)?;
+            if seven_z {
+                decompressed = decompressed_size(&archive);
+            }
             for entry in archive.entries() {
                 entries.push(ListedEntry {
                     path: entry.path.clone(),
@@ -131,15 +147,21 @@ pub(super) fn list(
         display_name: source.display_name.clone(),
         entries,
     };
-    Ok((listing, revision))
+    Ok(Listed {
+        listing,
+        revision,
+        decompressed,
+    })
 }
 
 /// The file contents of one export (`team_compiler/pipeline.md` "1. Reader", step 4, "Load"),
-/// read by its check (the small metadata, then the deep pass) and by its tasks, each through
-/// its own `ContentSource`. A folder reads each file from disk. An archive is opened on the
-/// first read and stays open for the later reads, so its header is read once per source; a
-/// `.7z` is decompressed whole on that first read and held under a permit for its whole
-/// decompressed size until the source is dropped or its permit handed on (`into_permit`).
+/// read by its check (the small metadata, then the deep pass) and by its tasks. A folder reads
+/// each file from disk. An archive is opened on the first read and stays open for the later
+/// reads, so its header is read once per source; a `.7z` is decompressed whole on that first
+/// read and held under a permit for its whole decompressed size until the source is dropped
+/// or its permit handed on (`into_permit`). A `.7z` that `compile` keeps from its check to its
+/// tasks (`validation::keeps_archive`) is read by both through the one source; any other
+/// export's tasks read through a source of their own.
 ///
 /// One source is shared by reference by the deep pass's workers. A folder's reads are
 /// independent; an archive is one handle, so its reads take turns behind a lock.
@@ -229,6 +251,13 @@ impl ContentSource {
             })
             .collect();
         SmallMetadata { files }
+    }
+
+    /// The bytes of the `.7z` permit this source holds: the archive's whole decompressed size
+    /// once it was read, 0 for a `.7z` never read, a folder or a `.zip`.
+    pub(crate) fn held(&self) -> usize {
+        let opened = self.opened.lock().unwrap();
+        opened.permit.as_ref().map_or(0, Permit::size)
     }
 
     /// Closes the source and returns the permit it holds: `Some` only for a `.7z` that was read,
@@ -393,7 +422,7 @@ mod tests {
         let budget = Arc::clone(budget);
         thread::spawn(move || {
             let source = archive_source(name);
-            let (listing, _) = list(&source).unwrap();
+            let listing = list(&source).unwrap().listing;
             let content = ContentSource::new(&source, &budget);
             let metadata = content.read_metadata(&listing);
             drop(content);
@@ -419,7 +448,7 @@ mod tests {
         fs::write(root.join("Players/03 - A/face_high.fmdl"), "12345").unwrap();
         fs::write(root.join("players.txt"), "03 A").unwrap();
 
-        let (listing, _) = list(&folder_source(root.to_path_buf())).unwrap();
+        let listing = list(&folder_source(root.to_path_buf())).unwrap().listing;
 
         assert_eq!(listing.display_name, "co Midcup Spring");
         assert_eq!(
@@ -452,7 +481,7 @@ mod tests {
     #[test]
     fn an_archive_lists_its_files_and_its_directory_entries() {
         for name in ["co Midcup Spring.zip", "co Midcup Spring.7z"] {
-            let (listing, _) = list(&archive_source(name)).unwrap();
+            let listing = list(&archive_source(name)).unwrap().listing;
             assert_eq!(listing.display_name, "co Midcup Spring");
             assert_eq!(
                 sorted_entries(&listing),
@@ -514,7 +543,7 @@ mod tests {
         let unheld = Arc::clone(&budget);
         thread::spawn(move || {
             let source = archive_source("co Midcup Spring.7z");
-            let (mut listing, _) = list(&source).unwrap();
+            let mut listing = list(&source).unwrap().listing;
             listing
                 .entries
                 .retain(|entry| matches!(entry.kind, ListedKind::Folder));
@@ -554,7 +583,7 @@ mod tests {
         let budget = MemoryBudget::new(1 << 30);
         for name in ["egg Midcup Tracer.zip", "egg Midcup Tracer.7z"] {
             let source = archive_source(name);
-            let (listing, _) = list(&source).unwrap();
+            let listing = list(&source).unwrap().listing;
             let paths: Vec<&str> = listing
                 .entries
                 .iter()
@@ -634,7 +663,7 @@ mod tests {
         // for one would never return.
         let budget = MemoryBudget::new(34);
         let source = archive_source("co Midcup Spring.7z");
-        let (listing, _) = list(&source).unwrap();
+        let listing = list(&source).unwrap().listing;
         let content = ContentSource::new(&source, &budget);
 
         let (content, metadata) = within_guard(move || {
@@ -774,7 +803,7 @@ mod tests {
         let budget = MemoryBudget::new(1 << 20);
         budget.cancel();
         let source = archive_source("co Midcup Spring.7z");
-        let (listing, _) = list(&source).unwrap();
+        let listing = list(&source).unwrap().listing;
 
         let metadata = ContentSource::new(&source, &budget).read_metadata(&listing);
 
@@ -839,7 +868,7 @@ mod tests {
         fs::write(root.join(FACE), "12345").unwrap();
         fs::write(root.join(ROSTER), "03 A").unwrap();
         let source = folder_source(root.to_path_buf());
-        let (_, revision) = list(&source).unwrap();
+        let revision = list(&source).unwrap().revision;
         (temp, source, revision)
     }
 
@@ -933,7 +962,7 @@ mod tests {
             ..archive_source("co Midcup Spring.zip")
         };
         fs::copy(&fixture.path, &source.path).unwrap();
-        let (_, revision) = list(&source).unwrap();
+        let revision = list(&source).unwrap().revision;
         assert!(matches!(revision, SourceRevision::Archive(_)));
         assert_eq!(revision.changed(&source, [ROSTER]), None);
 
