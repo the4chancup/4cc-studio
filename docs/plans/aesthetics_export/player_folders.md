@@ -161,8 +161,8 @@ such tree with nothing to name.
   player's packages and its textures go under the texture home at their directory, then
   `sourceimages/#windx11/` (`jessie/sourceimages/#windx11/skin.ftex`, the FMDL naming
   `jessie/sourceimages/skin`), the layout Red gives a `Common/` subfolder and a linked
-  `Common/` subfolder file has here too (`team_compiler/pipeline.md` step 6); still to be
-  checked in game for a player, `QUESTIONS.md` "In-game checks"). A `face.xml` or
+  `Common/` subfolder file has here too (`team_compiler/pipeline.md` step 6); PES 21 draws a
+  player's subfolder texture there, checked in game). A `face.xml` or
   `.mtl` reference that carries a path (`./jessie/body/oral_x_*.model`, `./shorts/y.dds`),
   or an FMDL texture whose directory does not start with `/` (`./shorts/` and `y`),
   resolves as written, relative to the referencing file: `./sub/name` is a local reference,

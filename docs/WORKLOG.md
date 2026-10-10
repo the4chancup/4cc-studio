@@ -3885,6 +3885,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the maintainer's (QUESTIONS, narrowed). The replay's free camera (mode 3 of the A
   button) is tethered to the target player and the pad holds one input at a time, so
   no close view of an official was reachable; the pad's `hold:left` rewinds there.
+  manual: checked 2026-10-10, a Fox subfolder texture before `sourceimages` (f): /@/'s
+  `hair_high.fmdl` (a whole head naming `face_bsm`) on /out/'s slots 01-03 in PES 21's
+  test slot (`.tmp/4_y/ingame_f/build_subtex_export.py`, compiled by the release build of
+  `565c802`): slot 01, the head and its own texture in the root, draws as /@/'s player;
+  slot 02, the head and a magenta `face_bsm.png` in `jessie/`, (b1)'s layout as compiled
+  (`.../02 - Old/sourceimages/jessie/#windx11/`), draws magenta; slot 03, the same in
+  green with the CPK patched to the chosen layout (`.../03 - New/jessie/sourceimages/
+  #windx11/`, the FMDL directory moved alike, `patch_new_layout.py`), draws green
+  (`s21_rows.png`, Edit Player's roster preview). The game reads a texture wherever the
+  FMDL's directory says, `#windx11/` inserted before the name, so slice (b3)'s layout move
+  is safe; (f) closed, its QUESTIONS entry removed.
 
 - [x] 4.y-fix16 **S9's second Astra round: the deep pass checks what `compile` reads,
   five more places** (rulings S9.A2 in `.tmp/4_y/duck_rulings.md`, all five accepted,
@@ -6857,3 +6868,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   prefix), a model names a subfolder's texture by its path (`./kitN/`, an FMDL directory not
   starting with `/`), kit-token folders form sets in any folder, and a shared folder's tree
   follows the player folder's rules. Plan, decision and slices (b3)/(b4) revised.
+- **2026-10-10** — In-game check (f) on PES 21: a player's subfolder texture draws both at
+  (b1)'s `sourceimages/jessie/#windx11/` and at the chosen `jessie/sourceimages/#windx11/`;
+  the QUESTIONS entry removed. Phase 16 gains a web guide before 1.0.0 (`565c802`).
