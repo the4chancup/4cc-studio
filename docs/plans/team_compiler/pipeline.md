@@ -593,7 +593,12 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    never down, one named with a path below the model's folder (`./kitN/x`) at that path, and
    each texture is emitted at its path below the texture home,
    `player_folders.md` "Subfolders") and each
-   shared face, boots or gloves folder it combines, and a source counts for the package it feeds: the player's own folder and a
+   shared face, boots or gloves folder it combines, each of whose files stands at its path
+   below the player folder, as his own file there would (a combined
+   `Faces/Round/jessie/hair_high.fmdl` resolves nearest first from `jessie/`, among his
+   textures and the combined folder's at each place, and its `jessie/skin.dds` is emitted at
+   `jessie/` in his texture home, which is why the lookup mirrors that tree: a name resolves
+   to the texture the game finds there), and a source counts for the package it feeds: the player's own folder and a
    combined face folder for the face, a combined boots (gloves) folder for the boots (gloves).
    Stems compare case-folded. Local files win over imported ones: a texture path the player's
    own folder holds, as a texture or as a texture link standing there, is his whatever the
@@ -642,11 +647,13 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    them with `pes_model::ops::merge`, as `ingame_face` does), a shared gloves folder's models
    and the `.mtl` files they use (a `.mtl` no model uses is not packed, the same rule as an
    `ingame_face` player's own gloves folder, which a `.mtl` of his boots must not reach)
-   under their own names lowercased, as a face's are but without the `oral_`
+   under their own names lowercased at their paths below the folder, as a face's are but
+   without the `oral_`
    and `_win32` affixes, listed in a generated `glove.xml` (the shape of the generated
    `face.xml` with no `<dif>`, each entry's `path` `./<name>.model` as Red and the DLC write
-   it, its type from the model-name table); either folder's textures as DDS beside its models,
-   the `.mtl` paths naming them `./<stem>.dds`. Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
+   it, `./<sub>/<name>.model` for a subfolder's as `face.xml` lists one, its type from the
+   model-name table); either folder's textures as DDS at their paths below the folder, each
+   `.mtl` path naming its texture relative to the packed `.mtl` (`./<stem>.dds` beside it). Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
    generated empty `.fpkd` (player-owned and merge-copied textures having been relocated to the per-player
    common subfolder; plain shared-output textures remain in that model's own texture location).
    Packed entries are emitted to the writer queue. (Blue: `contents_packing.py`)

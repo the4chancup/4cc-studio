@@ -53,7 +53,7 @@ packed once at its path in the team's Common output; (b3b3) done 2026-10-10: a p
 own texture or texture link wins over a combined folder's, `shared_texture_overridden`;
 (b3b4a) done 2026-10-10: on PES 15-17 a `Common/` `.mtl` resolves its textures from its
 own `Common/` directory; (b3b4b) done 2026-10-10: on Fox a linked `Common/` subfolder
-model's textures travel with it and resolve beside it; (b3c) next), 4.y-fix20
+model's textures travel with it and resolve beside it; (b3c1) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4031,7 +4031,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `shared_texture_overridden`, DECISIONS "a player's own texture or link wins over a
   combined folder's, as an Info", (b3b4) a `Common/` subfolder `.mtl` or model resolving
   its textures in its own `Common/` directory, sliced again: (b3b4a) PES 15-17, (b3b4b)
-  Fox, where a linked model's or `.mtl`'s directory's textures travel with it), (b3c) shared folders' subfolders; (b4) kit-token folders (`kit1` to
+  Fox, where a linked model's or `.mtl`'s directory's textures travel with it), (b3c) shared folders' trees, sliced again: (b3c1) a shared folder's
+  subfolders (TC-MOD-68, TC-MOD-73, TC-MOD-74), (b3c2) its `.common` links at any depth
+  (`pipeline.md` step 4's "links resolve from player folders alone" to rewrite first); (b4) kit-token folders (`kit1` to
   `kit9`) form variant sets (`kitN/<name>`) in any folder, completed against the export's kit
   numbers, their paths written verbatim (TC-CMN-21, TC-MOD-72: /hdg/'s per-kit Common folders
   through a `kitN/` folder of links); the Export upgrader's half (a legacy

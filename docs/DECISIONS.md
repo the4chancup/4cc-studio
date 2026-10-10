@@ -6626,3 +6626,22 @@ paths, kit variants, `dummy_`, the `.mtl` a player's own search picks), and a sl
 leaves a texture silently unpacked; the directory rule is the one `Common/` itself
 follows, whose direct textures are packed whether named or not.
 Plan: `team_compiler/pipeline.md` step 4 "Common"; `team_compiler/README.md` TC-CMN-25.
+
+## 2026-10-11 — team_compiler — a combined shared folder's files stand at their paths below the player folder
+Decision: when a player combines a shared face, boots or gloves folder holding subfolders,
+each of its files stands at its path below the player folder: a combined
+`Faces/Round/jessie/hair_high.fmdl` resolves its texture names nearest first from
+`jessie/`, among the player's textures and the combined folder's at each place, the
+player's own winning a path both hold, as his textures already win at the root. On PES
+15-17 a shared gloves folder packs a subfolder's models and `.mtl` files at their paths and
+its `glove.xml` lists them as `./<sub>/<name>.model`, as `face.xml` lists a face's.
+Why: the combined folder's textures are emitted at their paths in the player's texture home
+(step 3, item 6), so a lookup that mirrors that tree names the texture the game finds there; the
+lookup that held every combined texture in one flat place, the player's root, would have a
+combined `jessie/skin` and a root `skin` collide and send a combined subfolder model past
+its own neighbour. The gloves paths follow "a shared folder's tree is a player folder's"
+(paths are kept); packing them by bare name would collide two `glove_r.model` of different
+subfolders. Unchecked in game: that PES 15-17 reads a `glove.xml` path with a subfolder (it
+reads `face.xml`'s, Red's output).
+Plan: `team_compiler/pipeline.md` step 3, item 6 (the texture sources) and item 7 (the
+shared gloves output); `team_compiler/README.md` TC-MOD-73, TC-MOD-74.

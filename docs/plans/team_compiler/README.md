@@ -1012,6 +1012,19 @@ TC-MOD-72  GIVEN Kits/p1, Common/kit1/armor_bsm.dds, Boots/Crocs holding boots.f
            THEN the boots model names armor_bsm in
                 /Assets/pes16/model/character/common/<team>/kitN/sourceimages/, and neither
                 file_type_disallowed nor file_not_used is reported
+TC-MOD-73  GIVEN slot 05 holding face_high.fmdl and skin.dds, linking Faces/Round, which holds
+           jessie/hair_high.fmdl naming skin and jessie/skin.dds of other bytes
+           WHEN the export is compiled for PES 21
+           THEN the face package holds both models' meshes, hair_high's path names skin in
+                .../common/<team>/05 - A/jessie/sourceimages/, the player's texture home holds
+                both skin.ftex at their paths, and neither texture_stem_conflict nor
+                shared_texture_overridden is reported
+TC-MOD-74  GIVEN Gloves/Keeper holding glove_l.model with glove_l.mtl, and grip/glove_r.model
+           with grip/glove_r.mtl naming grip.dds, and grip/grip.dds, slot 05 linking it
+           WHEN the export is compiled for PES 17
+           THEN the gloves output holds grip/glove_r.model, grip/glove_r.mtl and grip/grip.dds
+                at those paths, glove.xml lists ./glove_l.model and ./grip/glove_r.model, and
+                glove_r.mtl's path names ./grip.dds
 TC-MOD-69  GIVEN slot 05 holding face_high.model with its .mtl, and oral.fmdl whose only mesh
            is flagged invisible
            WHEN the export is compiled for PES 17
