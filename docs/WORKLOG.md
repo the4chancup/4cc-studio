@@ -4905,8 +4905,8 @@ points there.
   version's encoding clamps, as `kit_config_version_clamped`, step 4.9a). The maintainer's
   rulings (2026-10-10): the three "requires model 144 or 160" warnings are reported as one
   Warning, `kit_config_option_ignored` (step 4.y-kitwarn); the two Infos
-  (`kit_shirt_model_unknown`, `kit_unknown_sleeve_value`) wait for the in-game checks of
-  step 4.y-ingame2 (e), which say whether the game ignores, clamps or crashes on them;
+  (`kit_shirt_model_unknown`, `kit_unknown_sleeve_value`) stay unreported (step 4.y-ingame2
+  (e): the game draws both values, no crash; DECISIONS 2026-10-10);
   `kit_collar_zero` (the lib's one Error; `messages.md` says `kit_config_invalid` covers a
   config that "fails to validate", which the deep pass does not do) waits for a collar
   census: before a kit is dropped for a zero collar, count how many real configs carry one
