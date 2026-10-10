@@ -832,7 +832,19 @@ describes behavior, not a serial scheduling requirement:
   `.model` collar converts with it as its `.mtl`, as a player's `.model` converts with his.
   One file for every version, not one per version: the collar materials it defines are what
   the conversion reads, and the newest is the one a collar made for any pre-Fox version
-  was most likely made against. A glTF collar is dropped at
+  was most likely made against. The FMDL's materials are then the stock collars' Fox set,
+  by name, not the converter's: `uni_collar` shader `pes_3ddf_collar` (technique
+  `pes3DDF_Collar_NC`), `uni_shirts` `pes_3ddf_shirt_nb` (`pes3DDF_Shirt_NB_NC`), each
+  binding the one sampler `Pattern_Tex_LIN` to the game's
+  `/Assets/pes16/model/character/common/sourceimages/uni_pattern.dds` and carrying the
+  stock collars' parameters (`MatParamIndex_0` 40, `BlendNormalYParam` 0.666,
+  `RepetitionParam` 80, `PatchAnisoRoughnessParam` 0.4, `PatternIndexParam` 1, the rest 0),
+  the meshes alpha 32 and shadow 0, as the game's own `collar_107.fmdl` has them; a material
+  of any other name fails the conversion. The converter's materials (`fox3ddf_blin` from
+  `uniform.mtl`'s `Shirt_NB`, with or without its samplers) draw nothing on PES 21: two
+  stock PES 17 collars converted that way showed the plain neckline of a collar ID with no
+  model, where a copy of the stock FMDL under the same ID drew its collar (4.y-ingame2,
+  2026-10-10). A glTF collar is dropped at
   planning with `model_gltf_unsupported` as a player folder's is, the file alone, since a
   collar is its own unit (its export compiles without it, as it does without a conflicting
   one). A

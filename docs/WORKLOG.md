@@ -42,7 +42,10 @@ AET referee layout refused per folder), 4.y-kitwarn and 4.y-retag opened 2026-10
 maintainer's answers: one Warning for a sleeve or fit option the shirt model ignores; the
 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
 (a `.model` collar converts with the templates' `uniform.mtl` on both engines, the
-pre-check moving a PES 15-17 one onto the version's skeleton; TC-CMN-11, TC-CMN-19), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
+pre-check moving a PES 15-17 one onto the version's skeleton; TC-CMN-11, TC-CMN-19), 4.y-fix17
+started 2026-10-10 (the marker's combined folders in `held_stems`, `texture_unreadable`, the
+real stock collar fixture), 4.y-fix18 opened 2026-10-10 (the converted Fox collar takes the
+stock collars' material set: PES 21 draws nothing for the converter's), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
 `.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
@@ -3647,6 +3650,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   captain is Ricardo Milos, red-headed in `t17m_rt_22.png`). The game draws a tagged mesh
   as an untagged one, so the IR keeps dropping tags (`ir.md`, DECISIONS 2026-10-10); the
   QUESTIONS entry removed. (c) closed.
+  manual: checked 2026-10-10, a `.model` collar converted for PES 21 (4.y-fix12's open
+  question): PES 17's stock `collar_001.model` and `collar_050.model` (the probe copies in
+  `.tmp/4_y/uniform_mtl/`) each as `Collars/collar_012.model` of an `/out/` export with
+  Test 3's kit 1 (`.tmp/4_y/ingame/build_collar21_export.py [050]`, the release build of
+  `104d8c8`; 200 is `collar_id_invalid`), the CPK's `collar_012.fmdl` in the test slot: row
+  19's standard body draws the same plain neckline for both (`c21_14_row19_neck.png`,
+  `c21_24_row19_neck.png`), the one a collar ID with no model draws (`p21_22_gk_front.png`),
+  where the stock `collar_107.fmdl` copy drew its folded collar (`p21_19_collar_front.png`).
+  The converted FMDL (the converter's `fox3ddf_blin`, every sampler dropped) is not drawn:
+  step 4.y-fix18 gives it the stock collars' Fox material set. The PES 21 Edit path drifts
+  when the title needs one `a` instead of two (Kick Off's submenu opens: `b` backs out).
   manual: checked 2026-10-10, the pre-Fox referee marker (b), no answer yet: run D (the
   checker as `parts/referee/incom_bsm.dds`) and run G (the template tree's
   `referee_prop.model` and `.mtl` with it, what the compiler writes) in PES 17's test
@@ -3779,6 +3793,43 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   stays `fix`), with an interactive-free rebase (`git rebase` with a script `exec`, never
   `-i`) run when no sidekick edits the tree and nothing is uncommitted, then a force push.
   → verify: `git log --oneline` shows the new types; `just gates` green at the new HEAD.
+
+- [~] 4.y-fix17 **Three small deep-pass and collar follow-ups** (brief
+  `.tmp/4_y/brief_fix17.md`, 2026-10-10). (1) `held_stems` takes a marked player's combined
+  boots and gloves folders (4.y-fix16's follow-up: `FaceUse` is `Unused` under the marker,
+  so his combined textures did not count for his own `.mtl` paths). (2) A texture the
+  decoder refuses is the deep pass's finding on the file: `texture_unreadable` (new) for a
+  header it cannot read, `texture_codec_unsupported` for a codec or DDS kind it refuses,
+  neither pass-through-eligible, instead of the Common textures task failing whole
+  (Issues 2026-10-10; DECISIONS 2026-10-10). (3) The collar tests convert the real stock
+  collar `konami_collar_001.wesys.model` (PES 17's `dt35_win.cpk`,
+  `uniform/nocloth/collar_001.model`; the lead's fixture, `smoke.py`'s count 18) in place
+  of the shirt fixture with a renamed material (4.y-fix12's contradiction). Plan:
+  `messages.md` `texture_unreadable`, `texture_codec_unsupported`; `pipeline.md`
+  "Collars". Crates: tc, pes_model (the fixture), python_bindings (the count)
+  → verify: a test per item, red first; `just bindings` green with 18 model fixtures.
+
+- [ ] 4.y-fix18 **A `.model` collar converted for PES 18-21 takes the stock collars' Fox
+  material set** (the lead's in-game check, 2026-10-10, under 4.y-ingame2). The FMDL
+  4.y-fix12 writes keeps the converter's `fox3ddf_blin` with no sampler, and PES 21 draws
+  nothing for it: PES 17's stock collars 1 and 50 converted under ID 12 both show the plain
+  neckline a collar ID with no model shows (`c21_14_row19_neck.png`,
+  `c21_24_row19_neck.png`, against the stock `collar_107.fmdl` copy's folded collar,
+  `p21_19_collar_front.png`). `collar_samplers_dropped` becomes the stock material set by
+  name: `uni_collar` gets shader `pes_3ddf_collar`, technique `pes3DDF_Collar_NC`;
+  `uni_shirts` `pes_3ddf_shirt_nb`, `pes3DDF_Shirt_NB_NC`; each binds the one sampler
+  `Pattern_Tex_LIN` to `/Assets/pes16/model/character/common/sourceimages/uni_pattern.dds`
+  and carries the stock params (`MatParamIndex_0 [40]`, `BlendNormalXParam 0`,
+  `BlendNormalYParam 0.666`, `RepetitionParam 80`, `BlendCoeffParam 0`, `BlendBoostParam 0`,
+  `PatchAnisoRoughnessParam 0.4`, `PatternIndexParam 1`; the sidekick's measure of the stock
+  `collar_107.fmdl`, `.tmp/4_y/sk_fix12/probe.txt`), meshes alpha 32, shadow 0; any other
+  material name is `model_conversion_failed` (a collar names those two alone). The help
+  text's "name no texture" sentence changes. If the stock FMDL differs from the converted
+  one past the materials (bones, mesh flags, vertex layout: compare with `fmdl`'s reader
+  and report), the brief grows. Plan: `pipeline.md` "Collars" (the Fox material set
+  paragraph); DECISIONS 2026-10-10. TC-CMN-11 (its materials assertion changes). Crates: tc
+  → verify: TC-CMN-11 proven with the stock set, red first; then the lead's PES 21 run of
+  `.tmp/4_y/ingame/build_collar21_export.py` shows a collar on row 19.
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -6052,3 +6103,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   with no finding and draws (the power-of-two rule stays Fox's), and the captain armband's
   `DCaptainmark` mesh tag changes nothing the game draws on a non-captain, in Edit mode or a
   match, so the IR keeps dropping tags (decision; the QUESTIONS entry removed).
+- **2026-10-10** — 4.y-fix17 started (sidekick): `held_stems` under the marker, a texture
+  the decoder refuses as the deep pass's finding (`texture_unreadable`, decision), the real
+  stock collar fixture (the lead's, from PES 17's `dt35_win.cpk`). In game on PES 21: a
+  `.model` collar converted by 4.y-fix12 draws nothing (the plain neckline of a collar with no
+  model, for two stock PES 17 collars), so step 4.y-fix18 gives the FMDL the stock collars'
+  material set (decision).

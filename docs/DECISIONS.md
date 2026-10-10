@@ -6245,3 +6245,33 @@ texture, so the power-of-two rule for mipped textures stays Fox's (`texture_not_
 pre-Fox keeping `texture_not_div4` alone as since 2026-10-07.
 Plan: `model_conversion/ir.md` "Lower LOD levels, Konami tags, editor data"; worklog 4.17
 "Open for converge".
+
+## 2026-10-10 — team_compiler — a texture the decoder refuses is the deep pass's finding, the file alone
+Decision: the deep pass reports a texture whose header cannot be read as `texture_unreadable`
+(new, Error, the file dropped, not pass-through-eligible) and one whose codec or DDS kind the
+converter refuses as `texture_codec_unsupported`, both from the header probe, instead of
+leaving the file for its task to fail on.
+Why: a texture the probe could not read got no finding (`deep/texture.rs` left the error for
+the task) and reached the Common textures task, which failed whole with `folder_pack_failed`
+at `Common/`: every Common texture lost for one unreadable file (4.y-fix16's review,
+2026-10-10). The pass checks what `compile` reads (DECISIONS 2026-10-09), and a file the task
+cannot open is a finding on that file, as a renamed one already is. One mapping serves both:
+what `processing::texture::conversion_failure` calls a codec refusal is `texture_codec_unsupported`,
+every other read error `texture_unreadable`.
+Plan: `team_compiler/messages.md` `texture_unreadable`, `texture_codec_unsupported`.
+
+## 2026-10-10 — team_compiler — a `.model` collar converted for PES 18-21 takes the stock collars' Fox material set
+Decision: the FMDL a `.model` collar converts to on PES 18-21 carries the game's own collar
+materials by name (`uni_collar`: `pes_3ddf_collar` / `pes3DDF_Collar_NC`; `uni_shirts`:
+`pes_3ddf_shirt_nb` / `pes3DDF_Shirt_NB_NC`; one sampler each, `Pattern_Tex_LIN` on the game's
+`uni_pattern.dds`; the stock parameters; meshes alpha 32, shadow 0), and a material of any
+other name fails the conversion; 4.y-fix12's "the converter's materials with every sampler
+dropped" is replaced (step 4.y-fix18).
+Why: PES 21 draws nothing for the converter's material (`fox3ddf_blin`, no sampler): PES 17's
+stock collars 1 and 50 converted under ID 12 both showed the plain neckline a collar ID with
+no model shows, where a copy of the stock `collar_107.fmdl` under an ID drew its folded collar
+(the lead's runs, 2026-10-10, under 4.y-ingame2). The game dresses a collar through its own
+shader and pattern texture, so the one material set known to draw is the stock one; a collar
+names those two materials alone, so mirroring them by name is a two-row table, not a mapping
+of the converter's shader families.
+Plan: `team_compiler/pipeline.md` "Collars" (the Fox material set sentences).

@@ -1413,9 +1413,11 @@ TC-CMN-10  GIVEN Collars/collar_12.fmdl and Collars/collar_12.dds
                 collar_12.fmdl is kept
 TC-CMN-11  GIVEN Collars/collar_12.model beside a compiling player
            WHEN the export is compiled for PES 21
-           THEN the CPK holds collar_012.fmdl under the Fox nocloth path, its materials
-                built from the templates' uniform.mtl, the kits' configs wear collar 12 and
-                the player compiles
+           THEN the CPK holds collar_012.fmdl under the Fox nocloth path, read with the
+                templates' uniform.mtl and its materials the stock collars' Fox set by name
+                (uni_collar pes_3ddf_collar, uni_shirts pes_3ddf_shirt_nb, each binding
+                Pattern_Tex_LIN to the game's uni_pattern.dds), the kits' configs wear
+                collar 12 and the player compiles
 TC-CMN-12  GIVEN Common/x.glb beside a compiling player
            WHEN the export is compiled for PES 17
            THEN model_gltf_unsupported is reported on Common/x.glb, which is dropped, and the
