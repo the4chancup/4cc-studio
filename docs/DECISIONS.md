@@ -6610,3 +6610,19 @@ visible.
 Plan: `team_compiler/pipeline.md` step 6 and "Merge-copy collisions"; `messages.md`
 `shared_texture_overridden`, `shared_texture_conflict`, `merged_texture_conflict`;
 `team_compiler/README.md` TC-MOD-04, TC-MOD-33, TC-TEX-16.
+
+## 2026-10-10 — team_compiler — on Fox a linked Common model's directory's textures travel with it
+Decision: on PES 18-21 a `.common` link to a model or `.mtl` in a `Common/` subfolder
+brings every texture directly in that directory into the team's Common output (none of
+them `file_not_used`), and a Common part's stems resolve nearest first from its own
+directory in `Common/`, each subfolder texture named at its path
+(`/Assets/pes16/model/character/common/<team>/jessie/sourceimages/`).
+Why: a stem resolves in the folder of the file that set it (`model_format.md` "Link
+files"), and a linked `Common/jessie/body.fmdl` naming `hair` beside
+`Common/jessie/hair.dds` otherwise names an unpacked texture. Not only the textures its
+materials name: planning has no model's texture references (the deep pass keeps none
+for an FMDL), so it would need a second resolver duplicating the task's (folding, `./sub/`
+paths, kit variants, `dummy_`, the `.mtl` a player's own search picks), and a slip in it
+leaves a texture silently unpacked; the directory rule is the one `Common/` itself
+follows, whose direct textures are packed whether named or not.
+Plan: `team_compiler/pipeline.md` step 4 "Common"; `team_compiler/README.md` TC-CMN-25.

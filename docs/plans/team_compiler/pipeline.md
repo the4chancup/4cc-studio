@@ -1855,7 +1855,9 @@ Resolved decisions:
   texture directly in `Common/` is converted once, by one task placed after the export's shared
   folders and before its portraits, into the team's Common output. A player package that bakes in a
   Common-linked model reads the Common model itself and points the part's stems that Common holds
-  at that output. The task commits on its own, not inside a player's group: its textures serve every
+  at that output, each resolving nearest first from the model's own directory in `Common/` (a
+  stem resolves in the folder of the file that set it, `model_format.md` "Link files"), a
+  subfolder's texture at its path in that output. The task commits on its own, not inside a player's group: its textures serve every
   linking player, so a group holding it would tie all of them together. When it fails, its failure
   is reported and the linking players still commit, as a player linking a shared output that failed
   does; dropping them instead would need the writer to track a dependency across groups, for a
@@ -1866,7 +1868,11 @@ Resolved decisions:
   tasks read the files directly in `Common/` and the subfolder files a `.common` link names
   (a link at the same path below a player or shared folder, `model_format.md` "Link files"),
   a linked model bringing the files beside it that travel with it (the models and `.skl` of
-  its stem, and the `.mtl` files its search may read, none of them `file_not_used`),
+  its stem, the `.mtl` files its search may read, and every texture directly in its
+  directory, which a `.mtl` link brings as well; none of them `file_not_used`), as every
+  texture directly in `Common/` is packed whether a model names it or not: knowing which of
+  them a model names would take a second texture resolver at planning, before any model is
+  read, that a slip in leaves a texture silently unpacked,
   each at its path before the platform
   folder, as Red packs a Common subfolder (`Common/kit1/x.dds` as
   `common/<team>/kit1/sourceimages/#windx11/x.ftex`), since Fox reaches Common through links
