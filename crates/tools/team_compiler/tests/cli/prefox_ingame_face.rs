@@ -923,10 +923,17 @@ fn under_ingame_face_a_link_to_a_per_kit_common_model_no_mtl_is_found_for_is_not
 
     let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
 
+    // With no part, he plans no package, so no textures task: his `skin.dds` is not used
+    // either.
     let lines = run.messages();
     assert_eq!(
         findings_of(&lines, export),
-        [CLEAN[0], PER_KIT_LINK_NOT_USED, CLEAN[1]],
+        [
+            CLEAN[0],
+            PER_KIT_LINK_NOT_USED,
+            "Warning file_not_used [Keep] at Players/05 - A (file=skin.dds)",
+            CLEAN[1]
+        ],
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");

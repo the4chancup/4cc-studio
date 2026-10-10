@@ -379,7 +379,8 @@ fn a_fox_model_whose_conversion_fails_drops_its_folder_naming_the_model() {
 fn a_hidden_fox_mesh_is_left_out_of_the_converted_model_with_no_finding() {
     let player = "exports/egg Midcup Tracer/Players/05 - The Chad Stormworks Player";
     // The tracer with `face_high.fmdl`, the tracer's one-mesh glove (`clean_model`), as it
-    // is; and with a copy of its mesh, on its material, flagged invisible.
+    // is; and with a copy of its mesh, on its material, moved 1 along x (so the test sees
+    // which of the two survives) and flagged invisible.
     let plain = Sandbox::new("conversion_hidden_mesh_plain");
     plain.copy_tracer("egg Midcup Tracer");
     plain.write(&format!("{player}/face_high.fmdl"), &clean_model());
@@ -387,7 +388,15 @@ fn a_hidden_fox_mesh_is_left_out_of_the_converted_model_with_no_finding() {
     hidden.copy_tracer("egg Midcup Tracer");
     let mut model = fmdl::Model::from_file(&fmdl::FmdlFile::read(&clean_model()).unwrap()).unwrap();
     assert_eq!(model.meshes.len(), 1);
-    let mut copy = model.meshes[0].clone();
+    let visible = &model.meshes[0];
+    let visible_faces = sorted_faces(std::iter::once((
+        visible.vertices.positions.as_slice(),
+        visible.faces.as_slice(),
+    )));
+    let mut copy = visible.clone();
+    for position in &mut copy.vertices.positions {
+        position[0] += 1.0;
+    }
     copy.shadow_flags |= 2;
     model.meshes.push(copy);
     model
@@ -414,6 +423,11 @@ fn a_hidden_fox_mesh_is_left_out_of_the_converted_model_with_no_finding() {
 
     let face_high = &face[&format!("{TRACER_FACE_FOLDER}oral_face_high_win32.model")];
     assert_eq!(model_mesh_count(face_high), 1);
+    assert_eq!(
+        model_faces_fox_winding(face_high),
+        visible_faces,
+        "the visible mesh survives, not the hidden one"
+    );
     assert!(
         !lines
             .iter()

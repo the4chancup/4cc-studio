@@ -327,6 +327,7 @@ pub(super) fn package(
                     mtl,
                     ctx,
                     findings,
+                    ConvertedMaterials::Converted,
                 )?;
                 sources.push((&model.file.path, bytes, *index));
             }
@@ -398,6 +399,7 @@ pub(super) fn package(
                         mtl,
                         ctx,
                         findings,
+                        ConvertedMaterials::Converted,
                     )?;
                     (bytes, name)
                 };

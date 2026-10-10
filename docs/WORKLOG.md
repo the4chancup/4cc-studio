@@ -46,7 +46,7 @@ textures at their paths, a texture name resolving nearest first, each folder its
 namespace, the singletons root-only; (b2) the pre-Fox face CPK's paths next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
-split's tests by faces), 4.y-fix21 opened 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
+split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
 TC-MOD-64's meshes told apart, a dropped shared link no link, a textures-only folder
 reported, a `.model` collar's material losses skipped), 4.y-fix22 opened 2026-10-10 (the S13
 and S15 rounds' rework; S12, S14, S15 and S17 closed), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
@@ -4300,7 +4300,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   position half, its test the rework), r2 37 mutants, 29 caught, 8 unviable, 0 missed
   (`.tmp/4_y/mutants_fix20_r2.log`).
 
-- [ ] 4.y-fix21 **The S18, S7 and S17 rounds' small fixes: TC-MOD-64 tells its meshes apart, a
+- [x] 4.y-fix21 **The S18, S7 and S17 rounds' small fixes: TC-MOD-64 tells its meshes apart, a
   dropped shared link is no link, a textures-only folder is reported, a `.model` collar skips
   material losses** (rulings `.tmp/4_y/duck_rulings.md`
   "S18.A1", five of five accepted, so a second Astra round follows this rework; brief
@@ -4334,6 +4334,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `processing/prefox_user_xml.rs`) and `deep/mod.rs` at 1,368.
   → verify: the three tests red first (the panic reproduced, the mesh swap, the dropped
   link counted); gates green; `just mutants-diff` over the rework.
+  Done 2026-10-10 (sidekick, landed first time): (2) TC-MOD-64's hidden copy moved 1 on x,
+  the survivor's faces asserted; (3) `links.rs` `standing_links` (the player's links less
+  the dropped ones) feeds the cascade, the orphan pass and a kept player's `links`; (4)
+  `roles.rs` `plans_a_package` (validation's reading of planning's rule, a unit test tying
+  it to `plan_run` on five shapes and both engines) and `is_package_model` shared with
+  `folder_tasks`, which plans no textures task without a package; (5), (7) comments; (6)
+  `model_for_pre_fox` takes `ConvertedMaterials` and uses it only to choose the reported
+  losses (a contradiction accepted: passing it to the writer renames a `.model` collar's
+  materials, which the plan says it keeps). Files: `aesthetics_export`
+  `validate/{links,mod,tests}.rs`; `team_compiler` `plan/{mod,roles}.rs`, `validation.rs`,
+  `processing/{conversion,mod,prefox_common,prefox_face,prefox_shared}.rs`, `tests/cli/
+  {conversion,prefox_ingame_face,referees}.rs`; `model_convert` `formats/fmdl/mod.rs`.
+  Mutants-diff `fbed127`: 30 mutants over both halves, 25 caught, 5 unviable, 0 missed.
+  Its report's three observations (a no-package folder's texture link unreported, and two
+  shapes to check) are 4.y-fix22 (12).
 
 - [ ] 4.y-fix22 **The S13, S15 rounds' rework: a left-out kit number's file stays out, a
   Common `.mtl`'s stems resolve in Common, a glTF-dropped folder's `fpc_on` does not count**
@@ -4358,6 +4373,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   link's `model_hidden_dropped` merged into the player pass's findings at the link's
   position, as the module doc's "file order" says (S18.1-C5). S18.1-C3 (a shared
   face's nested file a member's xml packs) is slice (b2)'s, its brief carrying the test.
+  (12) a no-package folder's texture link (`skin.dds.common`) is `file_not_used` too, and
+  two shapes 4.y-fix21's report named are checked (4.y-fix21's report, O1-O3).
   → verify: tests red first for (1), (2), (3), (5), (8); gates green; `just
   mutants-diff` over the rework; S13's third SWE-2 round on its diff.
 
@@ -6788,3 +6805,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   work): before `sourceimages`, as Red packs a `Common/` subfolder and /hdg/'s models name;
   (b1)'s `sourceimages/<sub>/#windx11/` moves there in slice (b3). The `file_not_used` row
   names a no-package folder's textures (4.y-fix21 (4)).
+- **2026-10-10** — 4.y-fix21 done (sidekick, landed first time, one contradiction
+  accepted): TC-MOD-64 tells its meshes apart, a dropped shared link is no link, a folder
+  planning no package plans no textures task and reports them `file_not_used`, a `.model`
+  collar skips material losses and keeps its names; mutants-diff 0 missed.

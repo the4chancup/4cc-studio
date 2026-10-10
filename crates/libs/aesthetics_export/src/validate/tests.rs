@@ -3070,6 +3070,37 @@ fn a_content_finding_dropping_a_common_file_and_the_link_naming_it_keeps_the_pla
 }
 
 #[test]
+fn a_content_finding_dropping_a_shared_link_leaves_no_link_and_orphans_its_folder() {
+    let report = with_findings(
+        &[
+            ("Players/05 - A/Crocs.boots", 0),
+            ("Players/05 - A/face_high.fmdl", 10),
+            ("Boots/Crocs/boots.fmdl", 10),
+        ],
+        vec![far_vertex(
+            file_scope("Players/05 - A/Crocs.boots"),
+            Disposition::DropFile,
+        )],
+    );
+    // A dropped link is no link: the folder it named is linked by no one.
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("vertex_too_far_from_origin", Disposition::DropFile),
+            ("shared_folder_orphaned", Disposition::DropFolder),
+        ]
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(player_paths(&validated), vec!["Players/05 - A"]);
+    assert!(validated.players[0].links.is_empty());
+    assert_eq!(
+        file_paths(&validated.players[0].files),
+        vec!["Players/05 - A/face_high.fmdl"]
+    );
+    assert!(validated.boots.is_empty());
+}
+
+#[test]
 fn pass_through_keeps_an_eligible_content_finding_s_folder_and_drops_a_not_eligible_one() {
     let context = context_with(true, true);
     let eligible = ContentFinding {

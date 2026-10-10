@@ -30,7 +30,7 @@ use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_w
 use crate::plan::mapped_players;
 use crate::plan::roles::{
     FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, is_read_common_file,
-    is_user_face_xml, player_file, role_position, shared_folders,
+    is_user_face_xml, plans_a_package, player_file, role_position, shared_folders,
 };
 use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
@@ -408,6 +408,7 @@ fn check_source(
                     &resolved,
                     inputs.common.pes_version,
                     source.export_id,
+                    &hand_weighted,
                 ));
                 messages.extend(no_model_messages(
                     &resolved,
@@ -623,30 +624,33 @@ fn no_model_messages(
 }
 
 /// `fmdl_fcl_hair_fallback` for each Fox model the `fcl_hair` merge takes without being named
-/// for it: one whose name says nothing about what it is, or one a `face/` subfolder makes
-/// face content, and `skl_no_slot` for each `.skl` paired with a `face_high`, `hair_high` or
-/// `oral` model, which has no slot to land in and is ignored (`player_folders.md` "Model
-/// names", "Reserved subfolders", "SKL pairing"; `team_compiler/README.md` TC-MOD-13), and
-/// `face_file_not_used` for each face file of a folder with no face model, which is not read
-/// (`pipeline.md` "2. Per-export serial steps", item 4; TC-MOD-32), and `file_not_used` for
-/// each file a model folder admits that no package reads, planning giving it no role (the same
-/// paragraph, item 4): over every mapped player folder and every shared folder, each finding
-/// on the folder holding the file. A `.common` model link is reported like the model it brings
-/// in, naming the link: the fallback by the linked name's suffix, `skl_no_slot` when `Common/`
-/// holds the `.skl` of a slotless model's stem. The roles are `roles::player_file`'s, so a
-/// finding never disagrees with the routing: under `ingame_face` a model the hair would take
-/// is the boots', and no fallback. A pre-Fox target types a model by its name, so it reports
-/// neither the fallback nor `skl_no_slot`. A Fox target reports a folder's own `face.xml`
-/// (directly in it or in `face/`) as `xml_ignored_fox`: Fox has no `face.xml`, and the
-/// folder's models compile as without it. A pre-Fox target reports a shared boots or gloves
-/// folder's own as `xml_ignored_shared`: its output is one model or a `glove.xml`, which no
-/// face xml drives. Then `file_not_used` on the export for each `Common/` file of a kind no
-/// task reads, on PES 18-21 also every file below a subfolder, and for a refs export's kits, logo,
-/// portraits and collars (`referee_messages`).
+/// for it, its name saying nothing about what it is (a model takes its role from its name,
+/// at any depth of the folder), and `skl_no_slot` for each `.skl` paired with a `face_high`,
+/// `hair_high` or `oral` model, which has no slot to land in and is ignored
+/// (`player_folders.md` "Model names", "Subfolders", "SKL pairing"; `team_compiler/README.md`
+/// TC-MOD-13), and `face_file_not_used` for each face file of a folder with no face model,
+/// which is not read (`pipeline.md` "2. Per-export serial steps", item 4; TC-MOD-32), and
+/// `file_not_used` for each file a model folder admits that no package reads, planning giving
+/// it no role (the same paragraph, item 4), or a texture of a mapped player folder planning no
+/// package (`plans_a_package`, with `hand_weighted` the models the deep pass found carrying
+/// hand weights), which gets no textures task: over every mapped player folder and every
+/// shared folder, each finding on the folder holding the file. A `.common` model link is
+/// reported like the model it brings in, naming the link: the fallback by the linked name's
+/// suffix, `skl_no_slot` when `Common/` holds the `.skl` of a slotless model's stem. The roles
+/// are `roles::player_file`'s, so a finding never disagrees with the routing: under
+/// `ingame_face` a model the hair would take is the boots', and no fallback. A pre-Fox target
+/// types a model by its name, so it reports neither the fallback nor `skl_no_slot`. A Fox
+/// target reports a folder's own `face.xml` (directly in it) as `xml_ignored_fox`: Fox has no
+/// `face.xml`, and the folder's models compile as without it. A pre-Fox target reports a
+/// shared boots or gloves folder's own as `xml_ignored_shared`: its output is one model or a
+/// `glove.xml`, which no face xml drives. Then `file_not_used` on the export for each
+/// `Common/` file of a kind no task reads, on PES 18-21 also every file below a subfolder, and
+/// for a refs export's kits, logo, portraits and collars (`referee_messages`).
 fn model_name_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
     export_id: ExportId,
+    hand_weighted: &BTreeSet<ScopePath>,
 ) -> Vec<Message> {
     let engine = version.engine();
     let export = &resolved.export;
@@ -657,19 +661,22 @@ fn model_name_messages(
             &folder.path,
             &folder.files,
             &models,
+            plans_a_package(export, folder, engine, hand_weighted),
             &export.common,
             export_id,
             &mut messages,
         );
     }
     // Validation drops a shared folder no mapped player links, so every shared folder here is
-    // one some player's package is assembled from or one compiled on its own.
+    // one some player's package is assembled from or one compiled on its own, which holds a
+    // model of its kind or is `shared_folder_no_model`.
     for (kind, folder) in shared_folders(export) {
         let models = FolderModels::of_shared(&folder.path, &folder.files, kind, engine);
         file_role_messages(
             &folder.path,
             &folder.files,
             &models,
+            true,
             &export.common,
             export_id,
             &mut messages,
@@ -735,12 +742,15 @@ fn export_file_not_used(export_id: ExportId, path: &str) -> Message {
 }
 
 /// `model_name_messages`'s findings on `files`, the files of the folder at `path` whose models
-/// are `models`, for the target `models` were computed for, in file order; `common` is the
-/// export's `Common/` files, where a `.common` link's model and skeleton are.
+/// are `models`, for the target `models` were computed for, in file order; `plans_package`
+/// says whether planning gives the folder a package task (`plans_a_package`), without which
+/// its textures are `file_not_used`; `common` is the export's `Common/` files, where a
+/// `.common` link's model and skeleton are.
 fn file_role_messages(
     path: &ScopePath,
     files: &[FileDescriptor],
     models: &FolderModels,
+    plans_package: bool,
     common: &[FileDescriptor],
     export_id: ExportId,
     messages: &mut Vec<Message>,
@@ -783,6 +793,8 @@ fn file_role_messages(
             }
             Some(PlayerFile::SlotlessSkeleton) => Code::SklNoSlot,
             Some(PlayerFile::UnusedFaceFile) => Code::FaceFileNotUsed,
+            // Planning gives a folder planning no package no textures task.
+            Some(PlayerFile::Texture { .. }) if !plans_package => Code::FileNotUsed,
             Some(PlayerFile::CommonModel {
                 package: ModelPackage::Face,
                 name: allowed,
@@ -947,7 +959,7 @@ mod tests {
     /// `model_name_messages` over `export` for `version`, each as one line: severity, code,
     /// disposition, folder (none for a finding on the export) and context.
     fn names(export: &ResolvedAestheticsExport, version: PesVersion) -> Vec<String> {
-        model_name_messages(export, version, ExportId(2))
+        model_name_messages(export, version, ExportId(2), &BTreeSet::new())
             .into_iter()
             .map(line)
             .collect()

@@ -1354,6 +1354,82 @@ pub(crate) fn is_part_of(role: &PlayerFile, package: ModelPackage) -> bool {
     )
 }
 
+/// Whether `role`, the role of a file of a source feeding the package `source` (the folder's
+/// own, or a combined shared folder's), is a model of `package`'s task: a part of it
+/// (`is_part_of`), or a pre-Fox model, which its source's package packs whatever its name.
+pub(crate) fn is_package_model(
+    role: &PlayerFile,
+    source: ModelPackage,
+    package: ModelPackage,
+) -> bool {
+    is_part_of(role, package)
+        || (matches!(role, PlayerFile::PreFoxModel { .. }) && package == source)
+}
+
+/// Whether planning gives the mapped player folder `player` of `export` a package task on a
+/// target of `engine` (`folder_tasks`), `hand_weighted` as for `link_combines`. A team player
+/// without `ingame_face` always gets his face, blank when it holds no part. Any other (a
+/// referee, a marked player) gets one when a source of his, his own files or a shared folder a
+/// link of his builds into his own package (`link_feeds_own_package`), holds a model of a
+/// package (`is_package_model`), or a glTF selected for its stem, for which planning drops the
+/// folder with `model_gltf_unsupported`. A folder planning no package plans no textures task,
+/// and validation reports each of its textures `file_not_used`.
+pub(crate) fn plans_a_package(
+    export: &ValidatedAestheticsExport,
+    player: &PlayerFolder,
+    engine: Engine,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> bool {
+    if matches!(export.roster, ValidatedRoster::Team(_)) && !player.ingame_face {
+        return true;
+    }
+    let combined: Vec<(SharedKind, &SharedModelFolder)> = player
+        .links
+        .iter()
+        .filter(|link| link_feeds_own_package(export, engine, player, link, hand_weighted))
+        .filter_map(|link| Some((link.kind, linked_folder(export, link)?)))
+        .collect();
+    let (own, combined_models) = part_source_models(
+        &player.path,
+        &player.files,
+        None,
+        player.ingame_face,
+        &combined,
+        engine,
+    );
+    // The package his own files feed, as `ModelFolder::own_package` gives it: a marked
+    // player has no face, his textures counting for his boots.
+    let own_package = if player.ingame_face {
+        ModelPackage::Boots
+    } else {
+        ModelPackage::Face
+    };
+    let combined_sources = combined
+        .iter()
+        .zip(combined_models)
+        .map(|((kind, shared), models)| {
+            (
+                package_of(*kind),
+                &shared.path,
+                shared.files.as_slice(),
+                models,
+            )
+        });
+    std::iter::once((own_package, &player.path, player.files.as_slice(), own))
+        .chain(combined_sources)
+        .any(|(source, path, files, models)| {
+            files
+                .iter()
+                .any(|file| match player_file(path, file, &models) {
+                    Some(PlayerFile::UnsupportedGltf) => true,
+                    Some(role) => ModelPackage::ALL
+                        .into_iter()
+                        .any(|package| is_package_model(&role, source, package)),
+                    None => false,
+                })
+        })
+}
+
 /// Whether the model `file` is named as face content: the package its name gives it
 /// (`model_role`, without the `ingame_face` marker) is the face. A pre-Fox face packs boots and
 /// gloves models beside its face models, all typed by `face.xml`, so this is what keeps a model

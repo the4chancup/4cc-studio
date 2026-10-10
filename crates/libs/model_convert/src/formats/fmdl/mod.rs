@@ -22,9 +22,10 @@ pub use import::fmdl_to_ir;
 const TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/common/sourceimages/";
 
 /// Whether a texture is the game's dummy normal or specular map: a file in
-/// `TEXTURE_DIRECTORY` whose stem, case-folded, is `dummy_nrm` or `dummy_srm`, whatever its
-/// extension (Konami's own models name `.tga`, the export writes `.dds`). These stand for
-/// "no map" and mean nothing to PES 15-17.
+/// `TEXTURE_DIRECTORY`, the directory compared exactly as the game spells it, whose stem,
+/// compared in any case, is `dummy_nrm` or `dummy_srm`, whatever its extension (Konami's own
+/// models name `.tga`, the export writes `.dds`). These stand for "no map" and mean nothing to
+/// PES 15-17.
 pub(crate) fn is_game_dummy(directory: &str, file_name: &str) -> bool {
     let stem = file_name
         .rsplit_once('.')

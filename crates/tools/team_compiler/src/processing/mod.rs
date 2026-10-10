@@ -343,9 +343,14 @@ pub(crate) fn process_task(
                     ConvertedMaterials::StockCollar,
                 )
                 .map(|converted| converted.model),
-                Engine::PreFox => {
-                    conversion::model_for_pre_fox(name, bytes, uniform_mtl, ctx, &mut findings)
-                }
+                Engine::PreFox => conversion::model_for_pre_fox(
+                    name,
+                    bytes,
+                    uniform_mtl,
+                    ctx,
+                    &mut findings,
+                    ConvertedMaterials::StockCollar,
+                ),
                 Engine::Fox if is_fmdl => Ok(bytes),
                 Engine::Fox => conversion::model_for_fox(
                     name,

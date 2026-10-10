@@ -29,10 +29,12 @@ pub(super) enum ConvertedMaterials {
     /// or gloves model.
     Converted,
     /// A collar's, which the game dresses with the kit (`pipeline.md` "Collars"): in a
-    /// `.model`, the stock collars' names, which the game's shared `uniform.mtl` defines
-    /// (`stock_collar_materials`); in an FMDL, the stock collars' materials by name
-    /// (`stock_collar_fox_materials`). A collar writes no material set of its own, so the
-    /// conversion's losses about a material are not reported (`reports`).
+    /// `.model` converted from an FMDL, the stock collars' names, which the game's shared
+    /// `uniform.mtl` defines (`stock_collar_materials`; a `.model` collar moved onto the
+    /// version's skeleton keeps its author's, `model_for_pre_fox`); in an FMDL, the stock
+    /// collars' materials by name (`stock_collar_fox_materials`). A collar writes no material
+    /// set of its own, so the conversion's losses about a material are not reported
+    /// (`reports`).
     StockCollar,
 }
 
@@ -115,13 +117,17 @@ pub(super) fn fmdl_for_pre_fox(
 /// re-binding would change nothing, otherwise the `.model` moved onto the version's skeleton.
 /// The material set the conversion writes is dropped: the member's `.mtl` is packed and
 /// pointed as for any model of theirs (a collar writes none), and moving the bones changes no
-/// material. Charged, reported and failed as `fmdl_for_pre_fox` is.
+/// material. The `.model` keeps its own material names whatever `materials` says: a collar
+/// already in the target's format keeps its author's (`pipeline.md` "Collars"), so
+/// `materials` decides only which losses are reported (`ConvertedMaterials::reports`).
+/// Charged, reported and failed as `fmdl_for_pre_fox` is.
 pub(super) fn model_for_pre_fox(
     name: &str,
     source: Vec<u8>,
     mtl: &[u8],
     ctx: &CompileContext,
     findings: &mut Vec<Finding>,
+    materials: ConvertedMaterials,
 ) -> Result<Vec<u8>, TaskFailure> {
     let (converted, losses) = {
         // The `.model`, its IR and the `.model` written, charged at the source's size, an
@@ -131,11 +137,17 @@ pub(super) fn model_for_pre_fox(
         if !needs_conversion(&bundle, ctx.version) {
             return Ok(source);
         }
-        // A `.model` has no hidden flag, so `EveryMeshHidden` cannot come of it.
+        // A `.model` has no hidden flag, so `EveryMeshHidden` cannot come of it. Written as
+        // `Converted`, which renames nothing: the names are the source's own.
         let converted = convert(bundle, ctx.version).map_err(|error| failed(name, error.into()))?;
         pre_fox_written(name, converted, ctx.version, ConvertedMaterials::Converted)?
     };
-    findings.extend(losses.iter().filter_map(|loss| reported(name, loss)));
+    findings.extend(
+        losses
+            .iter()
+            .filter(|loss| materials.reports(loss))
+            .filter_map(|loss| reported(name, loss)),
+    );
     Ok(converted.model)
 }
 
@@ -656,6 +668,57 @@ mod tests {
             ))
         );
         assert_eq!(findings, [], "a failed conversion reports nothing else");
+    }
+
+    #[test]
+    fn a_model_collar_moved_for_pre_fox_keeps_its_names_and_reports_no_material_loss() {
+        // PES 17's stock collar 1, posed off PES 15's skeleton, read with the templates'
+        // `uniform.mtl` whose `uni_shirts` has a shader no family rule knows, which the import
+        // reports as `material_family_approximated`, a loss about a material.
+        let source = pre_fox_fixture("konami_collar_001.wesys.model");
+        let mut set = MaterialSet::read(Templates::embedded().uniform_mtl()).unwrap();
+        set.materials
+            .iter_mut()
+            .find(|material| material.name == "uni_shirts")
+            .unwrap()
+            .shader = "Unknown_Collar_Shader".to_owned();
+        let mtl = set.write();
+        let moved = |materials: ConvertedMaterials| {
+            let mut findings = Vec::new();
+            let Ok(bytes) = model_for_pre_fox(
+                "collar_12.model",
+                source.clone(),
+                &mtl,
+                &context(PesVersion::Pes15),
+                &mut findings,
+                materials,
+            ) else {
+                panic!("the collar converts");
+            };
+            let model =
+                pes_model::model::Model::from_file(&PreFoxModel::read(&bytes).unwrap()).unwrap();
+            let codes: Vec<Code> = findings.into_iter().map(|(code, _, _)| code).collect();
+            (model.materials, codes)
+        };
+
+        // A player's `.model` is told of the approximated family.
+        let (names, codes) = moved(ConvertedMaterials::Converted);
+        assert_eq!(names, ["uni_shirts", "uni_collar"]);
+        assert!(
+            codes.contains(&Code::MaterialFamilyApproximated),
+            "{codes:?}"
+        );
+        // A collar skips it, its names kept and its bone losses still reported.
+        let (names, codes) = moved(ConvertedMaterials::StockCollar);
+        assert_eq!(names, ["uni_shirts", "uni_collar"]);
+        assert_eq!(
+            codes,
+            [
+                Code::BoneFoldedForVersion,
+                Code::BoneFoldedForVersion,
+                Code::SkeletonRetargeted
+            ]
+        );
     }
 
     #[test]

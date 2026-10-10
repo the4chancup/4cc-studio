@@ -33,7 +33,7 @@ use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
     FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, directory_stem,
-    emits_kit_texture, file_stem, is_direct_root_folder_file, is_hand_split, is_part_of,
+    emits_kit_texture, file_stem, is_direct_root_folder_file, is_hand_split, is_package_model,
     is_read_common_file, is_selected_common_model, leaves_out_kit_variants, link_combines,
     link_feeds_own_package, link_name, linked_folder, native_format, package_of,
     part_source_models, player_file, role_files, selected_common_model, shared_folders,
@@ -1449,8 +1449,9 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
 /// folder's sources holds a model of (a face link alone makes the shared face the player's),
 /// for a team's face whatever the folder holds when `blank_face` is set, and on Fox for the
 /// gloves when the folder has a hand-split part (`ModelFolder::hand_split`), emitted under that
-/// package's keys, then, when the folder has textures or takes the template environment map
-/// (`ModelFolder::environment_map`), its `Textures` task, the lot as one `TaskGroup`. The
+/// package's keys, then, when it planned one of those and the folder has textures or takes the
+/// template environment map (`ModelFolder::environment_map`), its `Textures` task, the lot as
+/// one `TaskGroup`. The
 /// textures task, and a pre-Fox face, complete their variant sets against `kits`, the
 /// export's kit numbers.
 fn folder_tasks(
@@ -1470,8 +1471,7 @@ fn folder_tasks(
         // `ingame_face` player combining a folder of their kind. His own parts say their
         // package.
         let models = folder_files(&folder, |source, _, _, role| {
-            is_part_of(role, *package)
-                || (matches!(role, PlayerFile::PreFoxModel { .. }) && *package == source)
+            is_package_model(role, source, *package)
         });
         let blank = blank_face && *package == ModelPackage::Face;
         let hands = match folder.engine {
@@ -1494,6 +1494,12 @@ fn folder_tasks(
                 kits: kits.to_vec(),
             },
         ));
+    }
+    // A folder planning no package plans no textures task: the writer commits a folder's
+    // textures after a package of it, and nothing would name them (validation reports each
+    // `file_not_used`, `plans_a_package`).
+    if held.is_empty() {
+        return;
     }
     // The template environment map is one of the folder's textures, so a folder holding no
     // texture of its own still gets a textures task for it. One emitting nothing is not
@@ -4037,6 +4043,96 @@ mod tests {
         assert!(report.manifest.team_colors.is_empty());
         assert!(report.manifest.team_kits.is_empty());
         assert!(report.manifest.item_rows.is_empty());
+    }
+
+    #[test]
+    fn a_folder_planning_no_package_plans_no_textures_task_as_plans_a_package_says() {
+        for version in [PesVersion::Pes21, PesVersion::Pes17] {
+            // Ref A and the marked 05 hold textures alone; Ref B and 07 a model beside them,
+            // Ref C a link to a boots folder his own package is built from.
+            let referees = resolved(
+                "refs Cup",
+                &[
+                    ("Players/Ref A/skin.dds", 5),
+                    ("Players/Ref B/face_high.fmdl", 10),
+                    ("Players/Ref B/skin.dds", 5),
+                    ("Players/Ref C/Studs.boots", 0),
+                    ("Players/Ref C/skin.dds", 5),
+                    ("Boots/Studs/boots.fmdl", 20),
+                ],
+                &[],
+                Some(b"01 Ref A\n02 Ref B\n03 Ref C\n"),
+            );
+            let team = resolved(
+                "co Midcup Faces",
+                &[
+                    ("Players/05 - A/ingame_face", 0),
+                    ("Players/05 - A/skin.dds", 5),
+                    ("Players/07 - B/ingame_face", 0),
+                    ("Players/07 - B/boots.fmdl", 16),
+                    ("Players/07 - B/skin.dds", 5),
+                ],
+                &[],
+                None,
+            );
+            let plans = |export: &ResolvedAestheticsExport| -> Vec<(String, bool)> {
+                mapped_players(&export.export)
+                    .into_iter()
+                    .map(|folder| {
+                        let plans = roles::plans_a_package(
+                            &export.export,
+                            folder,
+                            version.engine(),
+                            &BTreeSet::new(),
+                        );
+                        (folder.path.as_str().to_owned(), plans)
+                    })
+                    .collect()
+            };
+            let mut expected = plans(&referees);
+            expected.extend(plans(&team));
+            assert_eq!(
+                expected,
+                [
+                    ("Players/Ref A".to_owned(), false),
+                    ("Players/Ref B".to_owned(), true),
+                    ("Players/Ref C".to_owned(), true),
+                    ("Players/05 - A".to_owned(), false),
+                    ("Players/07 - B".to_owned(), true),
+                ],
+                "{version:?}"
+            );
+
+            let report = plan_run(
+                vec![
+                    to_plan(ExportId(0), referees, None, None),
+                    to_plan(ExportId(1), team, two_team_colors(), None),
+                ],
+                version,
+            );
+
+            let textures: Vec<&str> = report
+                .manifest
+                .tasks
+                .iter()
+                .filter_map(|task| match &task.kind {
+                    TaskKind::Textures { folder, .. } => Some(folder.path.as_str()),
+                    TaskKind::Models { .. }
+                    | TaskKind::CommonTextures { .. }
+                    | TaskKind::CommonModels { .. }
+                    | TaskKind::Portrait { .. }
+                    | TaskKind::Kit { .. }
+                    | TaskKind::Logo { .. }
+                    | TaskKind::RefereeMarker { .. }
+                    | TaskKind::Collar { .. } => None,
+                })
+                .collect();
+            assert_eq!(
+                textures,
+                ["Players/Ref B", "Players/Ref C", "Players/07 - B"],
+                "{version:?}"
+            );
+        }
     }
 
     #[test]

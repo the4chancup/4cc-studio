@@ -109,6 +109,20 @@ pub(crate) fn player_links(
     links
 }
 
+/// `player_links` less the links a finding dropped (`dropped_files`, as `dropped_scopes`
+/// reads them): a dropped link is no link, so it names no target for the cascade, the
+/// orphan pass or the kept player's `links` ("Dropped link targets").
+pub(crate) fn standing_links(
+    folder: &FolderDraft,
+    draft: &AestheticsExportDraft,
+    dropped_files: &BTreeSet<String>,
+) -> Vec<ResolvedLink> {
+    player_links(folder, draft)
+        .into_iter()
+        .filter(|link| !dropped_files.contains(&link.link_file.fold_key()))
+        .collect()
+}
+
 /// The first dropping issue code for a path, in issue order.
 fn first_drop(issues: &[ValidationIssue], key: &str) -> &'static str {
     issues
@@ -147,10 +161,7 @@ pub(crate) fn cascade(
         if !mapped.contains(&index) || player_dropped(index) {
             continue;
         }
-        for link in player_links(folder, draft) {
-            if dropped_files.contains(&link.link_file.fold_key()) {
-                continue;
-            }
+        for link in standing_links(folder, draft, &dropped_files) {
             let Some(target) = &link.target else { continue };
             let key = target.fold_key();
             let dropped = match link.kind {
@@ -175,7 +186,7 @@ pub(crate) fn cascade(
 
     // Refresh the drops after the cascade: a shared folder no surviving
     // player links is orphaned (a dropped one gets no finding).
-    let (dropped_folders, _) = dropped_scopes(issues);
+    let (dropped_folders, dropped_files) = dropped_scopes(issues);
     let player_dropped =
         |index: usize| dropped_folders.contains(&draft.players[index].path.fold_key());
     let mut linked: BTreeSet<String> = BTreeSet::new();
@@ -183,7 +194,7 @@ pub(crate) fn cascade(
         if player_dropped(*index) {
             continue;
         }
-        for link in player_links(&draft.players[*index], draft) {
+        for link in standing_links(&draft.players[*index], draft, &dropped_files) {
             if let Some(target) = link.target {
                 linked.insert(target.fold_key());
             }

@@ -286,9 +286,10 @@ impl ParsedAestheticsExport {
                 // A kept player loses references to what is absent: a missing
                 // shared target (pass_through) comes off `links`, a missing
                 // `Common` target off `files` (a texture link an installed CPK
-                // satisfies is not missing, and stays). A resolved link carries
-                // the target folder's own spelling.
-                let resolved = links::player_links(folder, draft);
+                // satisfies is not missing, and stays), and a link a finding
+                // dropped is no link. A resolved link carries the target
+                // folder's own spelling.
+                let resolved = links::standing_links(folder, draft, &dropped_files);
                 player.links = resolved
                     .iter()
                     .filter_map(|link| match (&link.kind, &link.target) {

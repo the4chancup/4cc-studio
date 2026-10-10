@@ -730,7 +730,14 @@ pub(super) fn face(
                     "the face task's files include every `.mtl` a member's model is paired \
                      with, a Common one too (`TaskKind::files`)",
                 );
-                let bytes = model_for_pre_fox(&model_name, source, mtl, ctx, findings)?;
+                let bytes = model_for_pre_fox(
+                    &model_name,
+                    source,
+                    mtl,
+                    ctx,
+                    findings,
+                    ConvertedMaterials::Converted,
+                )?;
                 (bytes, Some(material))
             }
             FaceSource::Converted(PreFoxConversion {

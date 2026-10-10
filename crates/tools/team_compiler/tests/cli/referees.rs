@@ -288,6 +288,48 @@ fn a_refs_export_s_root_colors_txt_is_not_read_so_not_checked() {
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
 }
 
+#[test]
+fn a_referee_folder_holding_textures_alone_reports_them_not_used_and_packs_none() {
+    let sandbox = Sandbox::new("ref_textures_alone");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    sandbox.write(
+        &format!("{REFS}/Players/Ref A/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    // No model, so no package: nothing would name the texture.
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    let lines = check.messages();
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Info export_identified [Keep] (team=referees)",
+            "Warning file_not_used [Keep] at Players/Ref A (file=skin.dds)",
+        ],
+        "{lines:#?}"
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        findings_of(&lines, "refs Cup")
+            .contains(&"Warning file_not_used [Keep] at Players/Ref A (file=skin.dds)"),
+        "{lines:#?}"
+    );
+    // Nothing of the refs export compiles, so no refs CPK is written, as when validation
+    // drops its only folder: no texture of his went anywhere.
+    assert!(!sandbox.root.join("output").join(REFS_CPK).exists());
+    for cpk in cpk_files(&sandbox.root.join("output")) {
+        let entries = cpk_entries(&sandbox.root.join("output").join(&cpk));
+        assert!(
+            entries.keys().all(|path| !path.contains("Ref A")),
+            "{cpk}: {:?}",
+            entries.keys()
+        );
+    }
+}
+
 /// The folder of referee slot `slot`'s pre-Fox face CPK: its CPK is `<folder>.cpk`, and every
 /// entry of it sits in `<folder>/`.
 fn pre_fox_referee_face(slot: &str) -> String {

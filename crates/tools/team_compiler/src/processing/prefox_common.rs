@@ -83,6 +83,7 @@ pub(super) fn common_models(
                             mtl,
                             ctx,
                             findings,
+                            ConvertedMaterials::Converted,
                         )?
                     }
                     None => source,
