@@ -108,8 +108,11 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    cannot simply become the stem `hair` — that would resolve in the player folder and fail — so the
    upgrader writes the stem **and creates the texture link** `hair.dds.common` in that folder, which
    is the Studio spelling of the same reference (see "Link files" in the [Unified model format
-   plan](model_format.md)). A Common-path reference whose file is not in the input's `Common/` is
-   reported and left as it was. This applies to structural migration, not only optional glTF conversion.
+   plan](model_format.md)). A reference into a Common subfolder gets the link's dotted form
+   (`common/???/u0???p0/sourceimages/armor_bsm` becomes the stem `armor_bsm` and the link
+   `kitN.armor_bsm.dds.common`, the kit magic below respelled in the folder name as in a file
+   name; a kit reference counts as present when a variant folder holds the file). A Common-path
+   reference whose file is not in the input's `Common/` is reported and left as it was. This applies to structural migration, not only optional glTF conversion.
    In the same pass, the legacy kit-dependent path magic is rewritten to the Studio spelling:
    `u0???p0` → `kitN`, `u0???p1`…`u0???p9` → `kit1`…`kit9`, in file and folder names and in
    `.mtl`/`face.xml` paths and FMDL path tables alike (see "Kit-dependent assets" in the [Unified

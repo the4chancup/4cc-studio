@@ -6447,3 +6447,41 @@ folder converted its textures and discarded them with no finding. Committing the
 would put dead content in the CPK at a path nothing names; the finding tells the member
 what the compiler did with the files.
 Plan: `team_compiler/pipeline.md` step 6, the writer's group sentence.
+
+## 2026-10-10 — aesthetics_export, team_compiler — a link means the same at any depth; a `.common` link's dotted prefix names folders below `Common/`
+Decision: a link below a player's subfolder is read as the root's. A `.common` link's name,
+less `.common` (and a stray `.txt`), is its whole target: the file kind's extension
+(`.materials.toml` counted whole), the stem right before it, and before the stem one folder
+below `Common/` per dot-separated part (`kitN.armor_bsm.dds.common` names
+`Common/kitN/armor_bsm.dds`, `jessie.body.fmdl.common` `Common/jessie/body.fmdl`,
+`body.fmdl.common` `Common/body.fmdl` as before, `body.materials.toml.common` the
+name-matched `Common/body.materials.toml` as before). The link counts in its folder under the
+stem alone (`armor_bsm`). A folder below `Common/` named `kit1` to `kit9` is a kit token: the
+files of one name in such sibling folders are a variant set whose reference is
+`kitN/<name>`, completed against the export's kit numbers as a stem set is, and a path
+written for it carries the folder as spelled (`common/<team>/kitN/sourceimages/armor_bsm`
+on Fox), for the modded exe to respell. On Fox a linked Common subfolder file is packed at
+its path before the platform folder, as Red packs a Common subfolder
+(`common/<team>/kit1/sourceimages/#windx11/armor_bsm.ftex`). The shared links (`.face`,
+`.boots`, `.gloves`) are read at any depth too, a subfolder's combining with the tree as a
+root link combines with local models; `shared_link_duplicate` counts the whole tree, two
+links naming one shared folder counting once. A stem or folder holding a dot cannot be
+linked. Supersedes the entry "a `.common` link below a player's subfolder names the file at
+the same path below `Common/`" (same day) and the "links are read directly in the player
+folder alone" half of the subfolder decision.
+Why: a link whose target follows its own position moves its target when its folder moves,
+so a player folder dropped into another ("a subfolder is a player folder") loses its links;
+and it cannot express /hdg/'s per-kit Common folders (`Common/u0XXXp1` to `p5`, `kit1` to
+`kit5` once upgraded, which every model of that export names as
+`common/000/u0XXXp0/sourceimages/`), since a root model never looks into a subfolder. A
+link whose content names the folder was rejected (the maintainer): Explorer would no longer
+show where a link points, which is what links have over paths in a `.mtl`. The naming is
+the maintainer's; the parse, the Fox placement and the duplicate count are the lead's
+(the placement is Red's `move_files_to_windx11` and /hdg/'s own paths). No `Common/` file
+of an export on the maintainer's machine has a dot in its stem (an Everything search of
+every unpacked folder named `Common`; archives not opened).
+Plan: `aesthetics_export/player_folders.md` "Subfolders", `object_model.md` "File-type
+allowlist", `model_format.md` "Link files" and "Kit-dependent assets",
+`team_compiler/pipeline.md` step 4's and step 6's Common sentences and "Kit-dependent
+assets", `export_upgrader.md` item on Common-path references; `team_compiler/README.md`
+TC-CMN-20, TC-CMN-21, TC-MOD-67, TC-MOD-70.

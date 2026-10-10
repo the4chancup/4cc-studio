@@ -177,17 +177,20 @@ such tree with nothing to name.
   different subfolders may each have a `skin.dds` of their own: the lookup namespace of
   `texture_stem_conflict` is one folder, not the player folder with its subfolders, and a
   collision is solved by keeping a texture beside the models that use it.
-- **Only the root's markers, settings and shared links count.** `ingame_face`, `fpc_on`,
-  `fpc_off`, `settings.toml` and the `.face`, `.boots` and `.gloves` links are read directly in
-  the player folder alone; inside a subfolder each is `file_type_disallowed`.
-- **A `.common` link mirrors `Common/`'s tree.** A `.common` link at any depth names the
-  `Common/` file at the link's own path below the player folder: `jessie/body.fmdl.common`
-  loads `Common/jessie/body.fmdl`, as a root link loads a direct `Common/` file. On both
-  engines the linked model joins the player's packages as a root link's does, and the Common
-  tasks pack a linked subfolder file at its path. This is the xml-less way to what a pre-Fox
-  `face.xml` does by naming `.../common/<team>/jessie/oral_body_*.model`, and on PES 18-21,
-  which has no xml, the only way; a `Common/` subfolder file no link names is `file_not_used`
-  there (`team_compiler/pipeline.md` step 6). A shared folder
+- **Only the root's markers and settings count.** `ingame_face`, `fpc_on`, `fpc_off` and
+  `settings.toml` are read directly in the player folder alone; inside a subfolder each is
+  `file_type_disallowed`.
+- **A link means the same at any depth.** A link below a subfolder is read as the root's, so
+  a player folder dropped into another keeps every link working. A shared link (`.face`,
+  `.boots`, `.gloves`) combines with the tree as a root link combines with local models, and
+  the one-per-category rule (`shared_link_duplicate`) counts the whole tree, two links naming
+  one shared folder counting once. A `.common` link names the `Common/` file its name spells,
+  a dotted prefix naming folders below `Common/` (`model_format.md` "Link files":
+  `jessie.body.fmdl.common` loads `Common/jessie/body.fmdl` from any folder of the tree). This
+  is the xml-less way to what a pre-Fox `face.xml` does by naming
+  `.../common/<team>/jessie/oral_body_*.model`, and on PES 18-21, which has no xml, the only
+  way; a `Common/` subfolder file no link names is `file_not_used` there
+  (`team_compiler/pipeline.md` step 6). A shared folder
   (`Faces/`, `Boots/`, `Gloves/`) takes only the files directly in it; a file below its subfolder
   is `file_type_disallowed` (the allowlist, `object_model.md`).
 - **No reserved names.** The names `face`, `boots`, `gloves` and `common` are plain subfolder names

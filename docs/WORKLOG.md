@@ -3972,15 +3972,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   TC-REF-18); (b) the pre-Fox face: paths kept in the face CPK and the texture home,
   `face.xml` entries by path, `./sub/name` a checked local reference, the `.mtl`
   search's folders, the nearest-first texture lookup and the per-folder
-  `texture_stem_conflict` namespace (TC-MOD-66); (b3) `.common` links mirror `Common/`'s
-  tree (the maintainer, 2026-10-10, DECISIONS "a `.common` link below a player's subfolder
-  names the file at the same path below `Common/`"): validation resolves a nested link
-  against `Common/<link path>` and admits it below a subfolder, `role_position` reads a
-  link at any depth, `common_file`/`common_link_name` take a path, `mtl_search` and
-  `linked_common_materials` load a nested material link's target (4.y-fix21's former item
-  (1)), the Fox Common tasks pack a linked subfolder file at its path (`is_read_common_file`)
-  and the Common output lists a pre-Fox link's model at its path (TC-CMN-20, TC-CMN-13
-  narrowed to an unlinked file); (c) Fox: a subfolder's models merged
+  `texture_stem_conflict` namespace (TC-MOD-66); (b3) a link means the same at any
+  depth (the maintainer, 2026-10-10, DECISIONS "a link means the same at any depth; a
+  `.common` link's dotted prefix names folders below `Common/`", superseding the
+  mirrored-path rule of the same day): validation admits every link below a subfolder and
+  resolves a `.common` link's dotted prefix as folders below `Common/` (`links.rs`, the
+  allowlist's Below row), `role_position` reads links at any depth, `shared_link_duplicate`
+  counts the tree (one folder twice counting once), `common_file`/`common_link_name` parse
+  the prefix, `mtl_search` and `linked_common_materials` load a nested or dotted material
+  link's target (4.y-fix21's former item (1); every panic site S18.A1-1 and S18.1-C4 named:
+  `processing/model.rs`, `prefox_face.rs`, `prefox_shared.rs` `material_of`), the Common
+  tasks pack a linked subfolder file at its path, before `sourceimages` on Fox
+  (`is_read_common_file`), and the pre-Fox Common output lists it at its path (TC-CMN-20,
+  TC-MOD-67 reworded, TC-MOD-70; TC-CMN-13 as it is); (b4) kit-token folders below
+  `Common/` are variant sets (`kitN/<name>`) completed against the export's kit numbers,
+  their paths written verbatim (TC-CMN-21: /hdg/'s per-kit Common folders); the Export
+  upgrader's half (a legacy `common/XXX/u0XXXp0/sourceimages/` path becomes a
+  `kitN.<name>.common` link) is its phase's, `export_upgrader.md`; (c) Fox: a subfolder's models merged
   into the packages, textures under the texture home at their path (TC-MOD-65); (d) the
   deep pass over the tree (what `compile` reads, DECISIONS 2026-10-09 "One rule"). The
   Export upgrader's carry-over is Phase 6's. Moot after this: S14.1-4 and the subfolder
@@ -4294,8 +4302,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   material losses** (rulings `.tmp/4_y/duck_rulings.md`
   "S18.A1", five of five accepted, so a second Astra round follows this rework; brief
   `.tmp/4_y/brief_fix21.md`, after 4.y-sub (b1) lands, never beside it). (1) moved to
-  4.y-sub (b3), the maintainer's rule of 2026-10-10: a nested material link is resolved at
-  the mirrored path below `Common/`, not excluded, which also closes the panic. Was: `mtl_search.rs`
+  4.y-sub (b3), the maintainer's rule of 2026-10-10: a nested link names the same Common
+  file as a root one, so the search resolves it, not excludes it, which also closes the panic. Was: `mtl_search.rs`
   `mtls_in` takes a `.mtl.common` link as a candidate wherever the model's folder is, while a
   link has a role directly in the player folder alone (`role_position`), so a nested link a
   lenient check keeps (`strict_file_type_check = false`, `parts/body.model` beside
@@ -6765,3 +6773,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   check's nested shared-face file resolved by a member's xml, into slice (b2)); a third
   panic site of S18.A1-1's class rejected as the same defect (slice (b3)'s fix at the
   search covers it). Its loop ends; the second Astra round follows 4.y-fix21.
+- **2026-10-10** — The maintainer withdrew the mirrored-path link rule of the same day: a
+  link must mean the same wherever it sits (a player folder dropped into another keeps its
+  links), and /hdg/'s per-kit `Common/kit1` to `kit5` folders, named by every model of that
+  export, need a link from the root. A link's content naming the folder was rejected
+  (Explorer would hide where links point); the maintainer's naming stands:
+  `kitN.armor_bsm.dds.common`, a dotted prefix naming folders below `Common/`. Kit-token
+  folders become variant sets, shared links count at any depth. Plan and decision updated;
+  slice (b3) rewritten, (b4) added.

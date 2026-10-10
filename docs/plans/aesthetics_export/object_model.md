@@ -163,7 +163,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | Where the file sits | Admits | Otherwise |
   |---|---|---|
   | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc_on` and `fpc_off` markers, `settings.toml` | `file_type_disallowed` |
-  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content, `.common` links (each naming the `Common/` file at the link's own path) | `file_type_disallowed` |
+  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content, links (read as the root's; a `.common` link names the `Common/` file its name spells, `model_format.md` "Link files") | `file_type_disallowed` |
   | directly in a shared folder | model content | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
   | anywhere in `Common/` | model content (a subfolder's is read on PES 15-17 alone, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |

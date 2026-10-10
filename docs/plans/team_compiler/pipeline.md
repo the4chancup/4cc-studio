@@ -916,8 +916,8 @@ describes behavior, not a serial scheduling requirement:
   renamed common models updated. On PES 15-17 a subfolder of `Common/` is packed under the
   team's Common output at its own path (`Common/refkit/x.model` as
   `common/<team>/refkit/x.model`), its files processed as `Common/`'s are, and a member's
-  `face.xml` Common path names it with the subfolder; a `.common` link still resolves only
-  directly in `Common/`, so a subfolder's file is reached by an xml alone. Red packed the whole
+  `face.xml` Common path names it with the subfolder, and a `.common` link by a dotted prefix
+  (`refkit.legs.model.common`, "Link files" in `model_format.md`). Red packed the whole
   folder, and the referee exports' `Common/refkit/` ("Referee export processing" in
   `blue_port.md`) is the one real use. On PES 18-21 nothing reads a subfolder's file (Fox has
   no `face.xml`), and it is `file_not_used`.
@@ -932,7 +932,11 @@ describes behavior, not a serial scheduling requirement:
   format plan](../model_format.md). How the compiler finds a set: a *variant* is a file whose
   stem holds the token `kit1` to `kit9` (delimited by `_`, `-`, `.` or the stem's ends,
   spelled exactly so), and the files of one folder whose stems differ only in that token's
-  digit are one set, whose *reference* is the stem with `kitN` in the token's place. A
+  digit are one set, whose *reference* is the stem with `kitN` in the token's place. In
+  `Common/` the token may be a whole folder name instead (`Common/kit1/x.dds`,
+  `Common/kit2/x.dds`): the files of one name in sibling folders `kit1` to `kit9` are one set,
+  whose reference is `kitN/x`, completed below as a stem set is, each copy in its number's
+  folder. A
   texture set is completed by the task that converts the folder's textures (a model folder's,
   or `Common/`'s): for each kit number the export defines (its `Kits/` folders `p1` to `p9`;
   `g1` is not a number of its own) that the set lacks, the lowest variant's converted bytes
@@ -1847,9 +1851,10 @@ Resolved decisions:
   reaches the task: the file is dropped before planning, and a player whose texture link names
   it follows `link_target_dropped`, like any link to a dropped target. On PES 18-21 the Common
   tasks read the files directly in `Common/` and the subfolder files a `.common` link names
-  (a link below a player's subfolder names the file at the link's own path below `Common/`,
-  `player_folders.md` "Subfolders"), since Fox reaches Common through links alone: a subfolder
-  file no link names is `file_not_used` there; on PES 15-17 a subfolder is packed at its own
+  (by a dotted prefix, `model_format.md` "Link files"), each at its path before the platform
+  folder, as Red packs a Common subfolder (`Common/kit1/x.dds` as
+  `common/<team>/kit1/sourceimages/#windx11/x.ftex`), since Fox reaches Common through links
+  alone: a subfolder file no link names is `file_not_used` there; on PES 15-17 a subfolder is packed at its own
   path ("Common" under step 4). A glTF
   directly in `Common/` is selected as a player folder's is (step 3 "Format conversion":
   target-native first, then glTF, then the other engine's format): one with no model of the

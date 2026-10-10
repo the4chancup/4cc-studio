@@ -989,13 +989,12 @@ TC-MOD-66  GIVEN slot 05 holding face_high.model with face_high.mtl naming skin.
                 paths, face.xml lists ./jessie/body/oral_x_*.model with ./jessie/body/x.mtl,
                 x.mtl's skin path names jessie/skin.dds under the texture home and face_high.mtl's
                 the root's skin.dds, and no texture_stem_conflict is reported
-TC-MOD-67  GIVEN slot 05 holding face_high.fmdl, jessie/ingame_face, jessie/Crocs.boots and
-           jessie/settings.toml
+TC-MOD-67  GIVEN slot 05 holding face_high.fmdl, jessie/ingame_face and jessie/settings.toml
            WHEN the export is checked, then compiled for PES 21 with
                 strict_file_type_check = false
-           THEN the check reports file_type_disallowed for each of the three and drops the
-                folder; the lenient compile keeps it with the three as Infos, none of them
-                counting (no marker, no link, no settings), and the player keeps his face
+           THEN the check reports file_type_disallowed for each of the two and drops the
+                folder; the lenient compile keeps it with the two as Infos, neither
+                counting (no marker, no settings), and the player keeps his face
 TC-MOD-68  GIVEN Boots/Crocs holding boots.fmdl and extra/x.fmdl, slot 05 linking it
            WHEN the export is checked for PES 21, then compiled with
                 strict_file_type_check = false
@@ -1007,6 +1006,12 @@ TC-MOD-69  GIVEN slot 05 holding face_high.model with its .mtl, and oral.fmdl wh
            WHEN the export is compiled for PES 17
            THEN the face package holds the face model, its .mtl and face.xml alone, the xml
                 names the face model alone, and model_hidden_dropped names oral.fmdl
+TC-MOD-70  GIVEN Boots/Crocs/boots.fmdl, Boots/Tabi/boots.fmdl, and slot 05 holding
+           face_high.fmdl, Crocs.boots and jessie/Crocs.boots
+           WHEN the export is compiled for PES 21, then checked with jessie/Tabi.boots in
+                place of jessie/Crocs.boots
+           THEN the compile reports no shared_link_duplicate and his boots are Crocs';
+                the check reports shared_link_duplicate and drops the folder
 TC-MOD-58  GIVEN Faces/Round holding fcl_hair.fmdl, boots.model and boots.mtl, slot 05 linking it
            as his face
            WHEN the export is compiled for PES 21
@@ -1463,11 +1468,19 @@ TC-CMN-18  GIVEN Common/refkit/oral_thigh_win32.model and Common/refkit/refkit.m
                 refkit/oral_thigh_win32.model and refkit/refkit.mtl, and the entry is written
                 with the team's ID in place of XXX
 TC-CMN-20  GIVEN Common/jessie/body.fmdl, and slot 05 holding face_high.fmdl and
-           jessie/body.fmdl.common
+           parts/jessie.body.fmdl.common
            WHEN the export is compiled for PES 21, then for PES 17
            THEN on PES 21 the face package holds body.fmdl's meshes beside face_high.fmdl's
                 and no file_not_used names Common/jessie/body.fmdl; on PES 17 the Common
                 output holds jessie/oral_body_win32.model and face.xml lists it by that path
+TC-CMN-21  GIVEN Kits/p1, p2 and p3, Common/kit1/armor_bsm.dds and Common/kit2/armor_bsm.dds,
+           and slot 05 holding face_high.fmdl naming armor_bsm and kitN.armor_bsm.dds.common
+           WHEN the export is compiled for PES 21
+           THEN the face package's model names armor_bsm in
+                /Assets/pes16/model/character/common/<team>/kitN/sourceimages/, the CPK
+                holds Asset/model/character/common/<team>/kit1/, kit2/ and kit3/
+                sourceimages/#windx11/armor_bsm.ftex, kit3's a copy of kit1's, and
+                kit_variant_missing names kit 3
 TC-CMN-19  GIVEN Collars/collar_12.fmdl with two materials
            WHEN the export is compiled for PES 16
            THEN the CPK's collar_012.model names uni_shirts alone
