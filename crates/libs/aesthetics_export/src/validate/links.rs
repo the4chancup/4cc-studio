@@ -71,7 +71,7 @@ pub(crate) fn player_links(
 ) -> Vec<ResolvedLink> {
     let mut links = Vec::new();
     for file in &folder.files {
-        if !counts_as_link(file, &folder.path) {
+        if !counts_as_link(file) {
             continue;
         }
         match file.kind {

@@ -2733,6 +2733,47 @@ fn a_fmdl_texture_named_by_its_path_below_the_model_s_folder_resolves_there_on_p
     assert!(entries.contains_key(&skin), "{:#?}", entries.keys());
 }
 
+// TC-MOD-71
+#[test]
+fn a_fmdl_texture_named_by_its_path_below_the_model_s_folder_resolves_to_a_link_there_on_pes_21() {
+    // `./jessie/` names `jessie/` below the folder, where the link stands for
+    // `Common/jessie/hair.dds`.
+    let sandbox = Sandbox::new("mod_texture_path_below_link");
+    let export = "co Midcup Textures";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &tracer_model_pointing("fcl_hair.fmdl", &[("shirt.dds", "hair.dds")], "./jessie/"),
+    );
+    sandbox.write(&format!("{player}/jessie/hair.dds.common"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/hair.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    // No finding names `hair`.
+    let entries = compile_clean(
+        &sandbox,
+        export,
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("face_high.fmdl").unwrap(), "hair.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/jessie/sourceimages/"),
+        "{directories:?}"
+    );
+    let hair = "Asset/model/character/common/714/jessie/sourceimages/#windx11/hair.ftex";
+    assert!(entries.contains_key(hair), "{:#?}", entries.keys());
+}
+
 #[test]
 fn a_fmdl_texture_named_by_its_path_is_not_found_by_its_name_elsewhere_on_pes_21() {
     // The root's `skin.dds` is not at `./textures/`.
@@ -2810,4 +2851,43 @@ fn a_converted_model_s_mtl_path_below_its_folder_names_the_texture_there_on_pes_
     assert!(entries.contains_key(&below), "{:#?}", entries.keys());
     assert!(entries.contains_key(&root), "{:#?}", entries.keys());
     assert_ne!(entries[&below], entries[&root]);
+}
+
+// TC-MOD-66
+#[test]
+fn a_converted_model_s_texture_names_resolve_in_its_mtl_s_folder_on_pes_21() {
+    // `jessie/hair_high.model`'s `.mtl` is the root's `hair_high.mtl`, which names `skin`:
+    // `skin` resolves in the `.mtl`'s own folder, the root, not in `jessie/`'s.
+    let sandbox = Sandbox::new("mod_mtl_stem_resolution_fox");
+    let export = "co Midcup Textures";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/jessie/hair_high.model"), &card_model());
+    sandbox.write(&format!("{player}/hair_high.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    sandbox.write(
+        &format!("{player}/jessie/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        !findings_of(&lines, export)
+            .iter()
+            .any(|line| line.contains("texture_not_found")),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| *directory == HOME_714_05),
+        "{directories:?}"
+    );
 }

@@ -43,8 +43,8 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureDirectory, TextureHome};
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, below_common, common_file, file_stem, is_common_file, path_stem,
-    role_position, selected_common_model,
+    ModelPackage, PlayerFile, below_common, common_texture_below, file_stem, is_common_file,
+    path_stem, role_position, selected_common_model,
 };
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 use crate::texture_lookup::{self, TextureFolders, TexturePlace};
@@ -443,11 +443,10 @@ pub(super) fn face(
     let mut dif = None;
     let mut xml_source_dif = None;
     // The folder's textures by the folder of its tree holding each, and its combined folders',
-    // each with the path its converted DDS has below the texture home (`folder_textures`).
+    // each with the path its converted DDS has below the texture home (`folder_textures`), and
+    // its texture links the same way (`texture_lookup`): a link counts as the `Common/`
+    // texture it stands for being present in the folder holding it.
     let mut textures = TextureFolders::default();
-    // The stems the folder's texture links stand for, folded, each with the stem of the
-    // `Common/` texture the link names: the name its DDS has in the team's Common output.
-    let mut linked: BTreeMap<String, String> = BTreeMap::new();
     // The Common models, by linked name folded, the face's model links have listed so far.
     let mut linked_models: BTreeSet<String> = BTreeSet::new();
     // The packed names, folded, of the sources before the one being read: the player's own
@@ -623,8 +622,9 @@ pub(super) fn face(
                 PlayerFile::Texture { below, .. } => {
                     textures.insert(source_path == &folder.path, &below);
                 }
-                PlayerFile::CommonTexture(stem) => {
-                    linked.insert(vtree::fold_name(&stem), linked_texture_stem(folder, file));
+                PlayerFile::CommonTexture(below) => {
+                    let below = common_texture_below(&folder.common_files, &below);
+                    textures.insert_link(source_path == &folder.path, &below);
                 }
                 // The search resolves a material link where it finds it (`mtl_for`).
                 PlayerFile::CommonMaterial => {}
@@ -656,7 +656,6 @@ pub(super) fn face(
     let places = FolderPlaces {
         folder: &folder.path,
         textures,
-        linked,
         home: &home,
         common_directory: &common_home,
     };
@@ -1473,19 +1472,16 @@ fn respelled_material(listed: &str, kit: u8) -> String {
 /// Where the `.mtl` files of a model folder's pre-Fox output, a player's face or a boots or
 /// gloves output (`prefox_shared`), point their texture paths (`point_materials`): a texture
 /// of the package's sources nearest first from the `.mtl`'s own folder (`texture_lookup`), in the
-/// folder's texture home, then a stem a texture link stands for, in the team's Common output;
-/// a path below the `.mtl`'s folder at that path alone. A stem the package's sources hold is
-/// the player's own before one a link stands for: a combined shared face's texture of a link's
-/// stem wins, as on Fox.
+/// folder's texture home, and each folder's texture links after its textures, in the team's
+/// Common output; a path below the `.mtl`'s folder at that path alone. A stem the package's
+/// sources hold is the player's own before one a link stands for: a link of the folder's
+/// wins over a combined shared folder's texture of its stem, as the folder's own texture does.
 pub(super) struct FolderPlaces<'a> {
     /// The model folder: the player folder, or a shared boots or gloves folder.
     pub(super) folder: &'a ScopePath,
     /// The textures of the package's sources, the model folder's own and its combined
-    /// folders'.
+    /// folders', and their texture links the same way (`texture_lookup`).
     pub(super) textures: TextureFolders,
-    /// The stems the folder's texture links stand for, folded, each with the stem of the
-    /// `Common/` texture the link names: the name its DDS has in the team's Common output.
-    pub(super) linked: TexturePlace,
     /// The directory a `.mtl` names the texture home by.
     pub(super) home: &'a TextureDirectory,
     /// The directory a `.mtl` names the team's Common output by.
@@ -1497,10 +1493,10 @@ impl FolderPlaces<'_> {
     /// model's) are pointed: a name in the places it resolves in, in order; a path below its
     /// folder at that path.
     pub(super) fn of(&self, path: &ScopePath) -> MaterialPlaces<'_> {
-        let mut by_name = self.textures.places(self.folder, path, self.home);
-        by_name.push((&self.linked, self.common_directory));
         MaterialPlaces {
-            by_name,
+            by_name: self
+                .textures
+                .places(self.folder, path, self.home, self.common_directory),
             below: Some((self, path.clone())),
         }
     }
@@ -1517,18 +1513,6 @@ pub(super) struct MaterialPlaces<'a> {
     /// folder included, are looked up by name among its directory's textures
     /// (`prefox_common::common_models`).
     pub(super) below: Option<(&'a FolderPlaces<'a>, ScopePath)>,
-}
-
-/// The stem of the `Common/` texture the `.common` texture link `file` of the player `folder`
-/// names, as `Common/` spells it: the name its DDS has in the team's Common output.
-pub(super) fn linked_texture_stem(folder: &ModelFolder, file: &FileDescriptor) -> String {
-    let linked_name = common_link_target(&file.path, &folder.path)
-        .expect("a CommonTexture role implies a `.common` link below its folder");
-    // On pre-Fox no installed texture satisfies a link (validation's
-    // `installed_common_textures` is empty there).
-    let target = common_file(&folder.common_files, &linked_name)
-        .expect("validation drops a player folder whose texture link names no Common file");
-    file_stem(target.path.name()).to_owned()
 }
 
 /// `bytes`, the `.mtl` `file`, with its texture paths pointed as `point_materials` points
@@ -1564,23 +1548,26 @@ pub(super) fn read_materials(
 /// holding a variant of its set (`texture_lookup::variant`), the variant's subdirectory
 /// included, its file name kept as it is: the game respells it for the kit picked. A path
 /// below the `.mtl`'s folder (`texture_lookup::path_below`), when `places.below` is set, is
-/// looked up the same way in the place that path names alone, in the folder's texture home.
-/// Any other path is left as it is.
+/// looked up the same way in the places that path names alone, each texture where its home
+/// puts it. Any other path is left as it is.
 pub(super) fn point_materials(set: &mut MaterialSet, places: &MaterialPlaces) {
     rewrite_texture_paths(set, |path| {
         let below = places.below.as_ref().and_then(|(folder, file)| {
             let subdirectory = texture_lookup::path_below(&path.directory)?;
-            Some((
-                *folder,
-                folder.textures.at(folder.folder, file, subdirectory),
-            ))
+            Some(
+                folder
+                    .textures
+                    .at(folder.folder, file, subdirectory)
+                    .into_iter()
+                    .map(|(place, which)| {
+                        (place, which.directory(folder.home, folder.common_directory))
+                    })
+                    .collect::<Vec<_>>(),
+            )
         });
         let lookup: Vec<(&TexturePlace, &TextureDirectory)> = match below {
             // Resolves at that path alone, and is left as written when nothing sits there.
-            Some((folder, place)) => place
-                .map(|place| (place, folder.home))
-                .into_iter()
-                .collect(),
+            Some(places) => places,
             None => places.by_name.clone(),
         };
         let stem = file_stem(&path.file_name);
@@ -1943,7 +1930,6 @@ mod tests {
         FolderPlaces {
             folder,
             textures,
-            linked: TexturePlace::new(),
             home: &HOME,
             common_directory: &COMMON,
         }

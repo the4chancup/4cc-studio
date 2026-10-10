@@ -15,6 +15,7 @@ use crate::prefox_faces::{
     BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, face_cpk, pes17,
     pre_fox_fixture, sampler_paths, small_dds, write_slot_05_face,
 };
+use crate::textures::tracer_model_renaming;
 use crate::{clean_model, findings_of};
 
 /// The folder slot 05's own boots are written to in team 714's export: his exclusive id.
@@ -197,6 +198,48 @@ fn under_ingame_face_a_subfolder_part_s_texture_comes_before_the_combined_boots_
         let texture = format!("common/character1/{SLOT_05_HOME}{texture}.dds");
         assert!(entries.contains_key(&texture), "{texture}");
     }
+}
+
+// TC-CMN-22
+#[test]
+fn under_ingame_face_a_subfolder_s_texture_link_comes_before_the_root_s_texture_of_its_stem() {
+    // His `jessie/boots.fmdl` names `skin`, which both `jessie/skin.dds.common` stands for in
+    // `jessie/` and his root's `skin.dds` is: the link's Common texture wins, as `jessie/`'s
+    // own texture would.
+    let sandbox = Sandbox::new("prefox_ingame_nested_texture_link");
+    let export = "co Midcup Linked";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(
+        &format!("{player}/jessie/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(&format!("{player}/jessie/skin.dds.common"), b"");
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/skin.dds"),
+        &small_dds(),
+    );
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=jessie/boots.fmdl, count=1662)",
+            CLEAN[0],
+            CLEAN[1],
+            "Info native_field_dropped [Keep] at Players/05 - A (model=jessie/boots.fmdl, field=bone_matrices)",
+            "Warning mesh_flags_dropped [Keep] at Players/05 - A (model=jessie/boots.fmdl, material=1, field=no_shadow_cast)",
+        ],
+    );
+
+    let boots = entries_under(&entries, BOOTS_K0625);
+    assert!(
+        sampler_paths(boots["boots.mtl"])
+            .contains(&"model/character/uniform/common/714/jessie/skin.dds".to_owned()),
+        "{:?}",
+        sampler_paths(boots["boots.mtl"])
+    );
 }
 
 /// Writes slot 07 of the export `export`: `face_high.model`, its `.mtl` and `skin.dds`, a

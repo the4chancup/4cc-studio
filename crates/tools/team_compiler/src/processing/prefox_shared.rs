@@ -37,8 +37,8 @@ use super::conversion::{
 };
 use super::materialize::PackageFiles;
 use super::prefox_face::{
-    FolderPlaces, MaterialPlaces, add_environment_map, insert, linked_texture_stem,
-    point_materials, point_reserved_kit_stems, read_materials, rewritten_materials,
+    FolderPlaces, MaterialPlaces, add_environment_map, insert, point_materials,
+    point_reserved_kit_stems, read_materials, rewritten_materials,
 };
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_xml::{XmlEntry, glove_xml, ratio};
@@ -47,7 +47,8 @@ use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureDirectory};
 use crate::plan::ModelFolder;
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, file_stem, is_common_file, is_direct_root_folder_file, path_stem,
+    ModelPackage, PlayerFile, common_texture_below, file_stem, is_common_file,
+    is_direct_root_folder_file, path_stem,
 };
 use crate::texture_lookup::TextureFolders;
 
@@ -150,11 +151,9 @@ pub(super) fn package(
     let mut models = Vec::new();
     // The folder's textures by the folder of its tree holding each (an `ingame_face` player's
     // parts may sit in his subfolders), and its combined folders', each with the path its
-    // converted DDS has below the texture home (`folder_textures`).
+    // converted DDS has below the texture home (`folder_textures`), and its texture links the
+    // same way (`texture_lookup`). A shared folder holds no link.
     let mut textures = TextureFolders::default();
-    // The stems the folder's texture links stand for, folded, each with the stem of the
-    // `Common/` texture the link names. A shared folder holds no link.
-    let mut linked: BTreeMap<String, String> = BTreeMap::new();
     // `roles()` yields the folder's own files, then each combined folder's in `combined`'s
     // order, so each source's roles pair with its own file list here.
     let source_files = iter::once(&folder.files).chain(
@@ -199,8 +198,9 @@ pub(super) fn package(
                 PlayerFile::Texture { below, .. } => {
                     textures.insert(source_path == &folder.path, &below);
                 }
-                PlayerFile::CommonTexture(stem) => {
-                    linked.insert(vtree::fold_name(&stem), linked_texture_stem(folder, file));
+                PlayerFile::CommonTexture(below) => {
+                    let below = common_texture_below(&folder.common_files, &below);
+                    textures.insert_link(source_path == &folder.path, &below);
                 }
                 // A `.mtl` is packed when a model uses it (`material_of`), below; a marked
                 // player's `.mtl` link has brought in the Common `.mtl` as one
@@ -259,7 +259,6 @@ pub(super) fn package(
     let folder_places = FolderPlaces {
         folder: &folder.path,
         textures,
-        linked,
         home: &home,
         common_directory: &common_home,
     };

@@ -1268,9 +1268,9 @@ mod tests {
         ];
         let mut export = resolved("co Midcup Names", &files, &[], None);
         // Kept only with the strict file-type check off, which `resolved` has on: added as the
-        // structure pass would keep them, with their `file_type_disallowed` (a texture link
-        // below a subfolder is out of place).
-        for name in ["extra/hair.dds.common", "common/hair.png.common"] {
+        // structure pass would keep them, with their `file_type_disallowed` (a per-player
+        // singleton below a subfolder and an unknown kind are out of place).
+        for name in ["extra/face_diff.bin", "common/x.exe"] {
             let path = ScopePath::new(&format!("Players/05 - A/{name}")).unwrap();
             export.export.players[0].files.push(FileDescriptor {
                 size: 0,
@@ -1354,26 +1354,15 @@ mod tests {
     }
 
     #[test]
-    fn on_fox_a_texture_link_below_a_subfolder_reaches_no_common_file() {
+    fn on_fox_a_texture_link_below_a_subfolder_reaches_the_common_file_at_its_path() {
         let files = [
             ("Players/05 - A/face_high.fmdl", 1),
+            ("Players/05 - A/jessie/hair.dds.common", 0),
             ("Common/jessie/hair.dds", 1),
         ];
-        let mut export = resolved("co Midcup Names", &files, &[], None);
-        // Kept only with the strict file-type check off, which `resolved` has on: added as the
-        // structure pass would keep it, with its `file_type_disallowed`. Out of place, it is no
-        // link, so its target is read by nothing.
-        let path = ScopePath::new("Players/05 - A/jessie/hair.dds.common").unwrap();
-        export.export.players[0].files.push(FileDescriptor {
-            size: 0,
-            kind: aesthetics_export::classify(path.name()),
-            source: path.clone(),
-            path,
-        });
-        assert_eq!(
-            names(&export, PesVersion::Pes21),
-            ["Warning file_not_used [Keep] (file=Common/jessie/hair.dds)"]
-        );
+        let export = resolved("co Midcup Names", &files, &[], None);
+        // The link stands for `Common/jessie/hair.dds`: no `file_not_used` names it.
+        assert_eq!(names(&export, PesVersion::Pes21), Vec::<String>::new());
     }
 
     #[test]

@@ -48,7 +48,8 @@ lists a subfolder's files at their paths, `./sub/name` a checked local reference
 done 2026-10-10: a texture named by its path below its file's folder resolves there, a
 Fox subfolder texture before `sourceimages`; (b3b1) done 2026-10-10: links at any depth, a
 `.common` model or material link standing for the `Common/` file at its path; (b3b2)
-next), 4.y-fix20
+done 2026-10-10: a texture link below a subfolder counts in its own folder, its texture
+packed once at its path in the team's Common output; (b3b3) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4021,7 +4022,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`./textures/`, TC-MOD-71), and a shared folder's subfolders follow the player folder's
   rules (TC-MOD-68 reworded); TC-CMN-13 as it is; briefed as three slices, (b3a) the
   texture named by its path and the Fox layout move, (b3b) nested `.common` links and the
-  Common tasks, (b3c) shared folders' subfolders; (b4) kit-token folders (`kit1` to
+  Common tasks (sliced again: (b3b1) model and material links, (b3b2) texture links,
+  (b3b3) a player's own texture or texture link winning over a combined folder's with
+  `shared_texture_overridden`, DECISIONS "a player's own texture or link wins over a
+  combined folder's, as an Info", (b3b4) a `Common/` subfolder `.mtl` or model resolving
+  its textures in its own `Common/` directory), (b3c) shared folders' subfolders; (b4) kit-token folders (`kit1` to
   `kit9`) form variant sets (`kitN/<name>`) in any folder, completed against the export's kit
   numbers, their paths written verbatim (TC-CMN-21, TC-MOD-72: /hdg/'s per-kit Common folders
   through a `kitN/` folder of links); the Export upgrader's half (a legacy
@@ -4141,7 +4146,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   rule, as the deep pass does); on `Common/` `.mtl`s half accepted: a Fox Common part's
   `./sub/` path is `fmdl_texture_not_found` (Fox reads no Common subfolder file), while a
   pre-Fox Common `.mtl`'s stays not looked for, since the Common output holds its
-  subfolder at its path; (b3b2) looks it up (and `prefox_common` still points such a path
+  subfolder at its path; (b3b4) looks it up (and `prefox_common` still points such a path
   by name). TC-MOD-71 proven. Files: `team_compiler` `paths.rs`, `texture_lookup.rs`,
   `processing/{model, prefox_face, prefox_shared, prefox_common}.rs`, `deep/{materials,
   mod}.rs`, `tests/cli/{models, prefox_faces, textures}.rs`. Gates green
@@ -4164,7 +4169,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   directory), `user_face_xml::candidate` and every `.expect` site switched; the pre-Fox face
   lists a nested link's model and `.mtl` at `common/<team>/<dir>/`. The sidekick's
   contradiction accepted: two tests the brief kept put a link in a player's `common/`
-  subfolder, which now names `Common/common/...`; rewritten to their intent. Left for (b3b2):
+  subfolder, which now names `Common/common/...`; rewritten to their intent. Left for (b3b4):
   under `ingame_face` on pre-Fox, a nested Common `.mtl` copied into his boots or gloves is
   still named by its file name, its textures pointed at `Common/`'s direct ones. TC-CMN-20 and
   TC-MOD-70 proven. Files: `aesthetics_export` `conventions/{file_types,mod}.rs`, `lib.rs`,
@@ -4174,6 +4179,30 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   prefox_faces}.rs`; model_format.md, pipeline.md (lead). Gates green
   (`.tmp/4_y/gates_sub_b3b1_lead.log`, acceptance 316 of 318, the two open ones (b4)'s);
   mutants r1 145 mutants, 124 caught, 20 unviable, 1 missed (`.tmp/4_y/mutants_sub_b3b1.log`: the lenient-kept texture link in `linked_common_files`' guard, a test added), rework 145 mutants, 125 caught, 20 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b1_r1.log`).
+  (b3b2) done 2026-10-10 (SWE-2 High through `devin_sidekick.py`, the trial's first slice;
+  brief `.tmp/4_y/brief_sub_b3b2.md`, reworks `_r1`, `_r2`, reports beside them): a
+  `.common` texture link counts at any depth (`counts_as_link`), claims its stem in its own
+  folder's namespace (`texture_claim`) and takes a role there (`role_position`);
+  `PlayerFile::CommonTexture` holds the linked texture's path below `Common/`;
+  `texture_lookup::TextureFolders` holds a folder's links beside its textures
+  (`PlaceHome`), nearest first each folder's textures then its links, so a root link now
+  precedes a combined folder's texture of its stem; `paths::common_home` and
+  `common_texture` put a Common subfolder texture before `sourceimages` on Fox; the Fox
+  Common tasks pack a subfolder's linked textures alone, an unlinked one `file_not_used`;
+  Fox's installed Common set reads nested paths, so an earlier midcup CPK satisfies a
+  nested link; `roles::common_texture_below` spells a link's path as `Common/` does. The
+  sidekick's contradiction accepted (a root link's stem stays among the Fox Common
+  stems, or its path would be `fmdl_texture_not_found`). Rework 1: the mutation run's six
+  test gaps and a dead filter; rework 2: S18's second Astra round (S18.A2-1, a converted
+  `.model`'s bare texture names resolve from its `.mtl`'s folder on Fox, as the deep pass
+  and pre-Fox do; S18.A2-2, TC-CMN-13's test checks the whole CPK). TC-CMN-22 proven.
+  Files: `aesthetics_export` `validate/{folders,links,tests}.rs`; `team_compiler`
+  `bins/installed.rs`, `deep/materials.rs`, `paths.rs`, `plan/{mod,roles}.rs`,
+  `processing/{model,prefox_face,prefox_shared}.rs`, `texture_lookup.rs`,
+  `validation.rs`, `tests/cli/{common_links,models,prefox_ingame_face,textures}.rs`;
+  README TC-CMN-22 (lead). Gates green (`.tmp/4_y/gates_sub_b3b2_r2.log`, acceptance 317
+  of 319, the two open ones (b4)'s); mutants r0 82 mutants, 61 caught, 14 unviable, 7
+  missed (`.tmp/4_y/mutants_sub_b3b2_r0/`), after the reworks 81 mutants, 67 caught, 14 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b2_r2.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7025,3 +7054,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   model or material link stands for the `Common/` file at its own path.
 - **2026-10-10** — Every CLI test of a tool cites a scenario (the maintainer's request; unit
   tests exempt): rule in `CONTRIBUTING.md`, step 4.y-scen.
+- **2026-10-10** — 4.y-sub (b3b2) landed (SWE-2's first slice): a texture link below a
+  player's subfolder stands for the `Common/` texture at its path.

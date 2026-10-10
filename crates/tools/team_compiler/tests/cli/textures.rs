@@ -1143,6 +1143,91 @@ fn a_texture_link_only_a_later_installed_cpk_satisfies_is_common_link_missing() 
     assert!(slot_06.is_empty(), "{slot_06:?}");
 }
 
+/// Writes slot 06 of TC-TEX-11's export: `jessie/hair_high.fmdl` naming `hair.dds` where the
+/// tracer names its `shirt.dds`, and `jessie/hair.dds.common` for `Common/jessie/hair.dds`,
+/// which is not in the export; and slot 03's clean face, so a CPK is written when slot 06 is
+/// dropped.
+fn write_nested_hair_link_player(sandbox: &Sandbox) {
+    let player = "exports/co Midcup Hair/Players/06 - A";
+    sandbox.write(
+        &format!("{player}/jessie/hair_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{player}/jessie/hair.dds.common"), b"");
+    sandbox.write(
+        &format!("exports/co Midcup Hair/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+}
+
+// TC-TEX-11
+#[test]
+fn a_nested_texture_link_an_installed_cpk_satisfies_points_the_model_at_its_own_path() {
+    let sandbox = Sandbox::new("tex_nested_link_installed");
+    write_nested_hair_link_player(&sandbox);
+    let installed = "Asset/model/character/common/714/jessie/sourceimages/#windx11/hair.ftex";
+    install_names(&sandbox, &["4cc_61_midcup.cpk", "4cc_62_midcup.cpk"]);
+    install_cpk(&sandbox, "4cc_61_midcup.cpk", &[(installed, b"earlier")]);
+    let settings = midcup_62_settings(&sandbox);
+
+    for (command, findings) in hair_link_findings(
+        "Info fmdl_weights_not_normalized [Keep] at Players/06 - A (file=jessie/hair_high.fmdl, count=1662)",
+    ) {
+        let run = sandbox.run(&settings, &command_args(command));
+        let messages = run.messages();
+        assert_eq!(
+            findings_of(&messages, "co Midcup Hair"),
+            findings,
+            "{command}"
+        );
+        assert!(
+            messages
+                .iter()
+                .all(|line| !line.contains("common_link_missing")
+                    && !line.contains("fmdl_texture_not_found")),
+            "{command}: {messages:?}"
+        );
+        assert_eq!(run.exit_code(), 0, "{command}");
+    }
+
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    let package =
+        fpk::FpkFile::read(&entries["Asset/model/character/face/real/71406/#Win/face.fpk"])
+            .unwrap();
+    // The tracer's hair names its `shirt.dds`, renamed `hair.dds`, in two entries.
+    let hair = texture_directories(package.get("hair_high.fmdl").unwrap(), "hair.dds");
+    assert_eq!(
+        hair,
+        ["/Assets/pes16/model/character/common/714/jessie/sourceimages/"; 2]
+    );
+    let packed_hair: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.ends_with("hair.ftex"))
+        .collect();
+    assert!(packed_hair.is_empty(), "{packed_hair:?}");
+}
+
+// TC-TEX-11
+#[test]
+fn a_nested_texture_link_only_the_direct_installed_texture_satisfies_is_common_link_missing() {
+    let sandbox = Sandbox::new("tex_nested_link_installed_direct");
+    write_nested_hair_link_player(&sandbox);
+    install_hair_in(&sandbox, "4cc_61_midcup.cpk");
+    let settings = midcup_62_settings(&sandbox);
+
+    for (command, findings) in hair_link_findings(
+        "Error common_link_missing [DropFolder] at Players/06 - A (link=hair.dds.common, path=Common/jessie/hair.dds)",
+    ) {
+        let run = sandbox.run(&settings, &command_args(command));
+        assert_eq!(
+            findings_of(&run.messages(), "co Midcup Hair"),
+            findings,
+            "{command}"
+        );
+        assert_eq!(run.exit_code(), 1, "{command}");
+    }
+}
+
 #[test]
 fn a_texture_entry_no_mesh_uses_is_not_looked_for() {
     let sandbox = Sandbox::new("tex_unused_entry");

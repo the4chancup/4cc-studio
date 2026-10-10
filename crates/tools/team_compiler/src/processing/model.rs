@@ -29,7 +29,9 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureDirectory};
 use crate::plan::ModelFolder;
-use crate::plan::roles::{ModelPackage, PlayerFile, file_stem, is_common_file, skeleton_slot};
+use crate::plan::roles::{
+    ModelPackage, PlayerFile, common_texture_below, file_stem, is_common_file, skeleton_slot,
+};
 use crate::texture_lookup::{self, TextureFolders, TexturePlace};
 use crate::user_face_xml::{Reference, reference};
 
@@ -101,11 +103,13 @@ pub(super) fn package(
     findings: &mut Vec<Finding>,
 ) -> Result<PackageFiles, TaskFailure> {
     let mut parts: Vec<Part> = Vec::new();
-    // The folder's textures by the folder of its tree holding each, and its combined folders'
-    // (`texture_lookup`); and the stems of the Common textures its `.common` links stand for,
-    // each folded with itself.
+    // The folder's textures by the folder of its tree holding each, and its combined folders',
+    // its texture links the same way (`texture_lookup`): a link counts as the `Common/`
+    // texture it stands for being present in the folder holding it; and the folded `below` of
+    // each, which `texture_supply` counts held at the team's Common output, validation having
+    // checked the link.
     let mut textures = TextureFolders::default();
-    let mut linked_stems = TexturePlace::new();
+    let mut linked_stems = BTreeSet::new();
     let mut contents = PackageFiles::new();
     // `roles()` yields the folder's own files, then each combined folder's in `combined`'s
     // order, so each source's roles pair with its own file list here: a `.model`'s `.mtl` is
@@ -240,9 +244,10 @@ pub(super) fn package(
                 PlayerFile::Texture { below, .. } => {
                     textures.insert(source_path == &folder.path, &below);
                 }
-                PlayerFile::CommonTexture(stem) => {
-                    let key = vtree::fold_name(&stem);
-                    linked_stems.insert(key.clone(), key);
+                PlayerFile::CommonTexture(below) => {
+                    let below = common_texture_below(&folder.common_files, &below);
+                    textures.insert_link(source_path == &folder.path, &below);
+                    linked_stems.insert(vtree::fold_name(&below));
                 }
                 PlayerFile::Model { .. }
                 | PlayerFile::CommonModel { .. }
@@ -291,23 +296,24 @@ pub(super) fn package(
 
     // A folder's textures sit in its one texture home, once however many ids the package is
     // emitted under: every copy of the model points at that one location, a texture name
-    // resolving nearest first from the part's own folder (`texture_lookup`). A texture resolved
+    // resolving nearest first from the part's own folder (`texture_lookup`), a texture link
+    // counting as the Common texture it stands for in the folder holding it. A texture resolved
     // in Common, a Common part's own or one a folder's link stands for, stays in the team's
     // Common output, where the export's Common textures task puts it once for every player
     // (`pipeline.md` step 6: a texture resolved in Common is never relocated). A folder part
-    // looks in the folder's textures first, and a path of its into the team's pre-Fox Common
+    // looks in the folder's places first, and a path of its into the team's pre-Fox Common
     // folder reaches `Common/`'s (`point_texture`); one converted with a `Common/` `.mtl` looks
     // in `Common/`'s alone (`PartTextures::Common`), and a Common part converted with the
     // folder's own `.mtl` in the folder's, then in `Common/`'s (`PartTextures::CommonSet`).
-    // Validation refuses a player folder holding a texture and a link of one stem
-    // (`texture_stem_conflict`), but not a link beside a combined shared folder's texture of
-    // its stem: there the shared folder's texture wins.
+    // Validation refuses a player folder holding a texture and a link of one stem in one of its
+    // folders (`texture_stem_conflict`), but not a link beside a combined shared folder's
+    // texture of its stem: there the link wins, as the folder's own texture of its stem does.
     // A texture named with a path below its file's folder (`./textures/skin`) resolves at that
-    // path alone, in the folder's texture home (`point_texture_below`); a Common part's paths
+    // path alone (`point_texture_below`); a Common part's paths
     // are looked up by name, as every one of its paths is.
     let texture_directory = folder.textures.directory(ctx.version.engine(), team_id);
     let common_directory = paths::common_texture_directory(Engine::Fox, team_id);
-    let common_home = TextureDirectory::plain(common_directory.clone());
+    let common_home = paths::common_home(Engine::Fox, team_id);
     // The textures in the team's Common output: the ones directly in `Common/`, which the
     // export's Common textures task packs, and the ones the folder's links stand for, an
     // earlier installed CPK's included. A Common part's path of one of these stems is pointed
@@ -315,18 +321,24 @@ pub(super) fn package(
     let common_stems: BTreeSet<String> = folder
         .common_texture_stems
         .iter()
-        .chain(linked_stems.keys())
+        .chain(&linked_stems)
         .cloned()
         .collect();
     let common_textures: TexturePlace = common_stems
         .iter()
         .map(|stem| (stem.clone(), stem.clone()))
         .collect();
-    // A folder part's places: its folder's textures nearest first, then its links'.
+    // A folder part's places: its folder's textures and links nearest first, each in its
+    // home, resolved from the material file's folder (`Part::references_from`): a stem
+    // resolves in the folder of the material file that set it (`model_format.md` "Link
+    // files"), which for a `.model` converted with a `.mtl` of another folder is that `.mtl`'s.
     let folder_places = |part: &Part| {
-        let mut places = textures.places(&folder.path, &part.path, &texture_directory);
-        places.push((&linked_stems, &common_home));
-        places
+        textures.places(
+            &folder.path,
+            &part.references_from,
+            &texture_directory,
+            &common_home,
+        )
     };
     let installed_holds = installed_lookup(&ctx.installed, team_id);
     // A texture the part's source does not hold is one of the game's own; its directory names
@@ -359,10 +371,16 @@ pub(super) fn package(
                 let below = texture_lookup::path_below(&path.directory)
                     .filter(|_| reads_paths_below)
                     .map(|subdirectory| {
-                        textures.at(&folder.path, &part.references_from, subdirectory)
+                        textures
+                            .at(&folder.path, &part.references_from, subdirectory)
+                            .into_iter()
+                            .map(|(place, which)| {
+                                (place, which.directory(&texture_directory, &common_home))
+                            })
+                            .collect::<Vec<_>>()
                     });
                 match below {
-                    Some(place) => point_texture_below(path, place, &texture_directory),
+                    Some(places) => point_texture_below(path, &places),
                     None => point_texture(
                         path,
                         &places,
@@ -691,25 +709,22 @@ fn point_texture(
 }
 
 /// Points `path`, a texture reference naming a path below its file's folder
-/// (`texture_lookup::path_below`), at the texture of `place`, the folder that path names
-/// (`TextureFolders::at`), in `home`, the folder's texture home: its stem's, or a variant of
-/// its set for a kit reference. With no such texture it is left as written, which
-/// `texture_supply` calls missing: such a path resolves there alone (`model_format.md`
-/// "Stem-based texture references").
-fn point_texture_below(
-    path: &mut TexturePath,
-    place: Option<&TexturePlace>,
-    home: &TextureDirectory,
-) {
+/// (`texture_lookup::path_below`), at the texture of the first of `places` holding its stem
+/// (`TextureFolders::at`: the folder that path names, its textures then its links, each with
+/// the directory its home names it by), or a variant of its set for a kit reference. With no
+/// such texture it is left as written, which `texture_supply` calls missing: such a path
+/// resolves there alone (`model_format.md` "Stem-based texture references").
+fn point_texture_below(path: &mut TexturePath, places: &[(&TexturePlace, &TextureDirectory)]) {
     let stem = file_stem(&path.file_name);
-    let below = place.and_then(|place| {
-        place
+    let found = places.iter().find_map(|(place, directory)| {
+        let below = place
             .get(&vtree::fold_name(stem))
             .map(String::as_str)
-            .or_else(|| texture_lookup::variant(place, stem))
+            .or_else(|| texture_lookup::variant(place, stem))?;
+        Some((directory, below))
     });
-    if let Some(below) = below {
-        path.directory = home.of(texture_lookup::split(below).0);
+    if let Some((directory, below)) = found {
+        path.directory = directory.of(texture_lookup::split(below).0);
     }
 }
 
@@ -729,10 +744,15 @@ enum TextureSupply {
 /// Whether the texture at `path`, already pointed where it goes, is supplied: not looked for
 /// when its stem starts with `dummy_`; missing when its directory still names a path below its
 /// file's folder (`texture_lookup::path_below`: no texture sat there); not looked for when its
-/// directory is not `common_directory`, the team's Common texture directory; supplied when
+/// directory is not `common_directory`, the team's Common texture directory, a path a link
+/// below a subfolder points into a `Common/` subfolder's directory (`.../<team>/jessie/
+/// sourceimages/`) included: validation has checked the link (`common_link_missing`), so
+/// only a `Common/` subfolder file nothing links would go unproven, and that is
+/// `file_not_used`'s; supplied when
 /// its stem, or a variant of its set for a kit
-/// reference (`pants_kitN`), is among `common_stems` (the export's Common textures and the
-/// folder's links, folded), or when `installed_holds` says an installed CPK holds the stem's
+/// reference (`pants_kitN`), is among `common_stems` (the export's `Common/` textures and the
+/// paths the folder's texture links stand for, folded), or when `installed_holds` says an
+/// installed CPK holds the stem's
 /// Common texture (`None`: they cannot be looked in). Directories and stems compare folded.
 fn texture_supply(
     path: &TexturePath,
@@ -1115,7 +1135,9 @@ mod tests {
                 file_name: file_name.to_owned(),
                 directory: "./textures/".to_owned(),
             };
-            point_texture_below(&mut path, place, &home);
+            let places: Vec<(&TexturePlace, &TextureDirectory)> =
+                place.map(|place| (place, &home)).into_iter().collect();
+            point_texture_below(&mut path, &places);
             assert_eq!(path.file_name, file_name);
             path.directory
         };

@@ -360,27 +360,20 @@ fn is_model_content(kind: FileKind) -> bool {
     )
 }
 
-/// What a file below a subfolder of the player folder at `folder` may be: model content, but a
+/// What a file below a subfolder of the player folder may be: model content, but a
 /// per-player singleton (`is_player_singleton`), which counts directly in the player folder
 /// alone, and a link where one counts (`counts_as_link`).
-fn player_below_allowed(file: &FileDescriptor, folder: &ScopePath) -> bool {
-    (is_model_content(file.kind) && !is_player_singleton(file.path.name()))
-        || counts_as_link(file, folder)
+fn player_below_allowed(file: &FileDescriptor) -> bool {
+    (is_model_content(file.kind) && !is_player_singleton(file.path.name())) || counts_as_link(file)
 }
 
-/// Whether `file`, a file of the player folder at `folder`, is a link where it sits: a shared
-/// link at any depth, read as one in the root, and a `.common` link directly in the folder or,
-/// at any depth below it, to anything but a texture (`player_folders.md` "Subfolders"). A
-/// texture link below a subfolder stays out of place until texture links below a subfolder
-/// claim their folder's stem (`texture_claim`).
-pub(crate) fn counts_as_link(file: &FileDescriptor, folder: &ScopePath) -> bool {
+/// Whether `file`, a file of a player folder, is a link where it sits: a shared
+/// link at any depth, read as one in the root, and a `.common` link at any depth,
+/// standing for the `Common/` file at its own path below the folder
+/// (`player_folders.md` "Subfolders", `model_format.md` "Link files").
+pub(crate) fn counts_as_link(file: &FileDescriptor) -> bool {
     match file.kind {
-        FileKind::SharedLink(_) => true,
-        FileKind::CommonLink => {
-            directly_in(&file.path, folder)
-                || common_link_name(file.path.name())
-                    .is_some_and(|name| classify(&name) != FileKind::Texture)
-        }
+        FileKind::SharedLink(_) | FileKind::CommonLink => true,
         FileKind::Model(_)
         | FileKind::Texture
         | FileKind::Skl
@@ -477,7 +470,7 @@ pub(crate) fn check_player(
     for file in &folder.files {
         let allowed = match position(&file.path, &folder.path) {
             Position::Direct => player_direct_allowed(file.kind),
-            Position::Below => player_below_allowed(file, &folder.path),
+            Position::Below => player_below_allowed(file),
         };
         if !allowed {
             issues.push(issue_in(
@@ -604,12 +597,12 @@ pub(crate) fn check_player(
     // 7. Texture stems collide within one folder of the player folder's tree, the
     // root or one subfolder: a texture name resolves nearest first, in its model's
     // folder before each parent (`player_folders.md` "Subfolders"), so the root's
-    // `hair.dds` and a subfolder's are no conflict. A texture `.common` link counts
-    // in the root under its linked name (a link counts as the linked file being
-    // local, `model_format.md` "Rules"); links are read in the root alone.
+    // `hair.dds` and a subfolder's are no conflict. A texture `.common` link claims
+    // its linked name in the folder holding it (a link counts as the linked file being
+    // local, `model_format.md` "Rules").
     let mut namespaces: BTreeMap<Option<String>, Vec<(String, String)>> = BTreeMap::new();
     for file in &folder.files {
-        let Some(name) = texture_claim(file, &folder.path) else {
+        let Some(name) = texture_claim(file) else {
             continue;
         };
         let namespace = file.path.parent().map(|parent| parent.fold_key());
@@ -626,14 +619,14 @@ pub(crate) fn check_player(
     edithair_files(folder, context, issues);
 }
 
-/// The name `file` of the player folder at `folder` claims in its folder's texture namespace:
-/// a texture's own, or the linked name of a texture `.common` link directly in the folder;
+/// The name `file`, a file of a player folder, claims in the texture namespace of the folder
+/// holding it: a texture's own, or the linked name of a texture `.common` link at any depth;
 /// `None` for any other file.
-fn texture_claim(file: &FileDescriptor, folder: &ScopePath) -> Option<String> {
+fn texture_claim(file: &FileDescriptor) -> Option<String> {
     if file.kind == FileKind::Texture {
         return Some(file.path.name().to_owned());
     }
-    if file.kind != FileKind::CommonLink || !directly_in(&file.path, folder) {
+    if file.kind != FileKind::CommonLink {
         return None;
     }
     common_link_name(file.path.name()).filter(|name| classify(name) == FileKind::Texture)

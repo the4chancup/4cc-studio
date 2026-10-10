@@ -300,10 +300,14 @@ pub(crate) enum PlayerFile {
         /// The format the texture is converted from.
         format: SourceFormat,
     },
-    /// A `.common` link to a texture (`hair.dds.common` → `Common/hair.dds`): the stem, here
-    /// `hair`, stands for the Common texture, which the export's Common textures task packs
-    /// once in the team's Common output (`model_format.md` "Link files (`.common`)"). The
-    /// folder's models point the stem there; nothing reads the empty link.
+    /// A `.common` link to a texture (`hair.dds.common` → `Common/hair.dds`,
+    /// `jessie/hair.dds.common` → `Common/jessie/hair.dds`): the linked texture's path below
+    /// `Common/` without its extension, as the link spells it (`hair`, `jessie/hair`), stands
+    /// for the Common texture, which a Common textures task packs once in the team's Common
+    /// output (`model_format.md` "Link files (`.common`)"). In the folder the link sits in it
+    /// counts as the texture being present there under its name, so the folder's models point
+    /// the name at the texture's path below the team's Common output; nothing reads the empty
+    /// link.
     CommonTexture(String),
     /// Pre-Fox: a `.model`, packed into the player's face CPK as `oral_<stem>_win32.model`
     /// and listed in its generated `face.xml` under `xml_type` (`face_xml::xml_type`, by its
@@ -450,11 +454,13 @@ fn linked_model(link_name: &str) -> Option<String> {
     })
 }
 
-/// The stem of the texture a `.common` link named `link_name` stands for, as the link spells
-/// it (`hair.dds.common` → `hair`), when the linked name is in an image format `dds_convert`
-/// converts; `None` for a link to anything else (a model, a material file).
-fn linked_texture_stem(link_name: &str) -> Option<String> {
-    let linked = common_link_name(link_name)?;
+/// The path below `Common/` of the texture `file`, a `.common` link of the model folder at
+/// `folder`, stands for, without its extension, as the link spells it (`hair.dds.common` →
+/// `hair`, `jessie/hair.dds.common` → `jessie/hair`), when the linked name is in an image
+/// format `dds_convert` converts; `None` for a link to anything else (a model, a material
+/// file).
+fn linked_texture_below(folder: &ScopePath, file: &FileDescriptor) -> Option<String> {
+    let linked = common_link_target(&file.path, folder)?;
     texture_format(&linked)?;
     Some(file_stem(&linked).to_owned())
 }
@@ -553,6 +559,23 @@ pub(crate) fn common_file<'a>(
         .find(|file| vtree::fold_name(below_common(&file.path)) == key)
 }
 
+/// The path below `Common/` of the texture `below` names (`PlayerFile::CommonTexture`'s,
+/// without its extension), as `Common/` spells it: `jessie/hair` for `Common/jessie/Hair.dds`.
+/// `below` itself when `common`, the folder's `common_files`, holds no file of its stem: the
+/// Fox installed case, a link an installed CPK satisfies, whose target is not in the export
+/// (`common_link_missing`'s exception).
+pub(crate) fn common_texture_below(common: &[FileDescriptor], below: &str) -> String {
+    let key = vtree::fold_name(below);
+    common
+        .iter()
+        .find(|file| {
+            file.kind == FileKind::Texture
+                && vtree::fold_name(file_stem(below_common(&file.path))) == key
+        })
+        .map(|file| file_stem(below_common(&file.path)).to_owned())
+        .unwrap_or_else(|| below.to_owned())
+}
+
 /// The `.skl` beside the Common model at `model` below `Common/`, in its directory, paired with
 /// it by stem (`legs.skl` for `legs.fmdl`, `jessie/legs.skl` for `jessie/legs.fmdl`), when
 /// there is one: the skeleton that travels with a `.common` link (`player_folders.md` "SKL
@@ -639,11 +662,9 @@ fn directly_in(folder: &ScopePath, file: &FileDescriptor) -> bool {
 
 /// Whether `file` of the model folder at `folder`, a shared one when `shared`, sits where it may
 /// take a role: a player folder's file anywhere below it (`below`), a `.common` link included,
-/// which stands for the `Common/` file at its own path below the folder (`common_link_target`),
-/// but a texture link below a subfolder, which validation's allowlist names out of place
-/// (`object_model.md` "File-type allowlist") and resolves to nothing; and a shared folder's
-/// file directly in it alone. Nothing reads a file below a shared folder's subfolder, which
-/// the allowlist names. The per-player singletons (`face.xml`, `face_diff.bin`,
+/// which stands for the `Common/` file at its own path below the folder (`common_link_target`);
+/// and a shared folder's file directly in it alone. Nothing reads a file below a shared
+/// folder's subfolder, which the allowlist names. The per-player singletons (`face.xml`, `face_diff.bin`,
 /// `face_diff.xml`, `fcl_hair_sim.fclo`, `is_player_singleton`) take a role directly in the
 /// player folder alone: a player has one of each, and a subfolder's, kept by a lenient check,
 /// would be a second. A file anywhere else is one the structure pass names
@@ -651,11 +672,6 @@ fn directly_in(folder: &ScopePath, file: &FileDescriptor) -> bool {
 pub(crate) fn role_position(folder: &ScopePath, file: &FileDescriptor, shared: bool) -> bool {
     if shared || is_player_singleton(file.path.name()) {
         return directly_in(folder, file);
-    }
-    if file.kind == FileKind::CommonLink && !directly_in(folder, file) {
-        return below(folder, file)
-            && common_link_name(file.path.name())
-                .is_some_and(|linked| classify(&linked) != FileKind::Texture);
     }
     below(folder, file)
 }
@@ -866,7 +882,6 @@ impl FolderModels {
             match engine {
                 Engine::Fox => {}
                 Engine::PreFox => {
-                    let name = file.path.name();
                     // An FMDL is converted where its role puts it: the face, or under the
                     // marker his boots or gloves (`pre_fox_part`).
                     let converted =
@@ -884,7 +899,7 @@ impl FolderModels {
                     let model_link = file.kind == FileKind::CommonLink
                         && !models.is_shared()
                         && matches!(
-                            pre_fox_link(name, false),
+                            pre_fox_link(folder, file, false),
                             Some(PlayerFile::PreFoxCommonModel { .. })
                         );
                     // A folder holding its own `face.xml` has a face whatever models it
@@ -1203,7 +1218,7 @@ fn fox_file(
             {
                 Some(PlayerFile::CommonMaterial)
             }
-            None => linked_texture_stem(name).map(PlayerFile::CommonTexture),
+            None => linked_texture_below(folder, file).map(PlayerFile::CommonTexture),
         },
         // The game loads a skeleton under its slot's name; the export names it after the
         // model it pairs with, and without that model the skeleton has nothing to drive.
@@ -1292,7 +1307,7 @@ fn pre_fox_file(
         FileKind::Mtl => Some(PlayerFile::Material),
         // As on Fox: a link a lenient file-type check keeps in a shared folder names nothing.
         FileKind::CommonLink if models.is_shared() => None,
-        FileKind::CommonLink => pre_fox_link(file.path.name(), models.ingame_face),
+        FileKind::CommonLink => pre_fox_link(folder, file, models.ingame_face),
         // A shared boots or gloves folder's own xml is ignored (`xml_ignored_shared`): its
         // output is one model or a `glove.xml`, which no face xml drives, and nothing checks it.
         FileKind::Xml
@@ -1341,17 +1356,22 @@ fn pre_fox_part(stem: &str) -> PlayerFile {
     }
 }
 
-/// The pre-Fox role of the `.common` link named `name`: a link to a `.model` or an FMDL takes
-/// the type a `.model` of the linked stem would have (`face_xml::xml_type`), the Common models
+/// The pre-Fox role of `file`, a `.common` link of the model folder at `folder`: a link to a
+/// `.model` or an FMDL takes the type a `.model` of the linked stem would have
+/// (`face_xml::xml_type`), the Common models
 /// task having packed the `.model`, or converted the FMDL, into the team's Common output; under
 /// `ingame_face` (`ingame_face` set) such a link stands for the Common model as a part of his
 /// own instead, copied in or converted (`pre_fox_part`), since no `face.xml` names the Common
-/// path. A link to a `.mtl` is a material link, a link to a texture stands for its stem, as on
-/// Fox. A link to a per-kit model has none yet, with the marker or without: the Common models
-/// task, which packs the linked model, would have to list its set, and as a part every variant
-/// would be worn at once. A link to anything else has none.
-fn pre_fox_link(name: &str, ingame_face: bool) -> Option<PlayerFile> {
-    let linked = common_link_name(name)?;
+/// path. A link to a `.mtl` is a material link, a link to a texture stands for its path below
+/// `Common/`, as on Fox. A link to a per-kit model has none yet, with the marker or without:
+/// the Common models task, which packs the linked model, would have to list its set, and as a
+/// part every variant would be worn at once. A link to anything else has none.
+fn pre_fox_link(
+    folder: &ScopePath,
+    file: &FileDescriptor,
+    ingame_face: bool,
+) -> Option<PlayerFile> {
+    let linked = common_link_name(file.path.name())?;
     match classify(&linked) {
         FileKind::Model(ModelFormat::PesModel | ModelFormat::Fmdl) => {
             let stem = file_stem(&linked);
@@ -1366,7 +1386,7 @@ fn pre_fox_link(name: &str, ingame_face: bool) -> Option<PlayerFile> {
             })
         }
         FileKind::Mtl => Some(PlayerFile::CommonMaterial),
-        FileKind::Texture => linked_texture_stem(name).map(PlayerFile::CommonTexture),
+        FileKind::Texture => linked_texture_below(folder, file).map(PlayerFile::CommonTexture),
         FileKind::Model(ModelFormat::Gltf)
         | FileKind::Skl
         | FileKind::Fclo
@@ -2037,6 +2057,12 @@ mod tests {
         })
     }
 
+    /// `pre_fox_link` on the file `name` of `Players/03 - A`.
+    fn link_role(name: &str, ingame_face: bool) -> Option<PlayerFile> {
+        let folder = folder(&[name]);
+        pre_fox_link(&folder.path, &folder.files[0], ingame_face)
+    }
+
     #[test]
     fn on_pre_fox_a_model_a_material_set_and_an_fmdl_to_convert_have_roles_and_the_fclo_none() {
         assert_eq!(
@@ -2681,9 +2707,9 @@ mod tests {
             [pre_fox_model("parts"), pre_fox_model("parts")]
         );
         // Behind a link no `face.xml` entry names the set: the link has no role.
-        assert_eq!(pre_fox_link("pants_kit1.model.common", false), None);
+        assert_eq!(link_role("pants_kit1.model.common", false), None);
         // Nor is it a part under `ingame_face`: every variant would be worn at once.
-        assert_eq!(pre_fox_link("boots_kit1.model.common", true), None);
+        assert_eq!(link_role("boots_kit1.model.common", true), None);
         // Nor under `ingame_face`, his boots holding parts: the lowest variant is a part, the
         // others are left out.
         let names = ["boots_kit1.model", "boots_kit2.model"];
@@ -3102,23 +3128,40 @@ mod tests {
                 }),
             ]
         );
-        // With the tolerated `.txt` tail too. Below a subfolder of any name a texture link is
-        // out of place (`file_type_disallowed`), so it has no role; a `.mtl` link is one as in
-        // the root.
+        // With the tolerated `.txt` tail too. Below a subfolder of any name a link counts as
+        // in the root, standing for the `Common/` file at its own path: `face/hair.ftex.common`
+        // for `Common/face/hair.ftex`, `common/body.mtl.common` for `Common/common/body.mtl`.
         assert_eq!(roles(&["Hair.DDS.common.txt"]), [texture("Hair")]);
+        assert_eq!(roles(&["face/hair.ftex.common"]), [texture("face/hair")]);
         assert_eq!(
-            roles(&["common/body.mtl.common"]),
-            [Some(PlayerFile::CommonMaterial)]
+            roles(&["common/hair.dds.common", "common/body.mtl.common"]),
+            [texture("common/hair"), Some(PlayerFile::CommonMaterial)]
         );
-        for refused in [
-            "face/hair.ftex.common",
-            "common/hair.dds.common",
-            "hair.gif.common",
-            "body.materials.toml.common",
-        ] {
+        for refused in ["hair.gif.common", "body.materials.toml.common"] {
             assert_eq!(roles(&[refused]), [None], "{refused}");
         }
         assert_eq!(PlayerFile::CommonTexture("hair".to_owned()).package(), None);
+    }
+
+    #[test]
+    fn a_linked_texture_s_path_is_spelled_as_the_common_texture_is() {
+        let file = |path: &str| {
+            let path = ScopePath::new(path).unwrap();
+            FileDescriptor {
+                size: 1,
+                kind: classify(path.name()),
+                source: path.clone(),
+                path,
+            }
+        };
+        let common = vec![
+            file("Common/jessie/Hair.mtl"),
+            file("Common/jessie/HAIR.dds"),
+        ];
+        // The `.mtl` of the same stem sorts first: the spelling is the texture's alone.
+        assert_eq!(common_texture_below(&common, "jessie/hair"), "jessie/HAIR");
+        // Absent from `Common/`: the link's own spelling.
+        assert_eq!(common_texture_below(&common, "jessie/skin"), "jessie/skin");
     }
 
     #[test]
@@ -3215,11 +3258,10 @@ mod tests {
             // A link below a subfolder stands for the `Common/` file at its own path.
             "extra/x.fmdl.common",
             "extra/deeper/x.mtl.common",
+            "boots/x.dds.common",
         ] {
             assert!(admitted_at("Players/05 - A", name, false), "{name}");
         }
-        // But a texture link there, which the structure pass names (`file_type_disallowed`).
-        assert!(!admitted_at("Players/05 - A", "boots/x.dds.common", false));
         // A shared folder admits a file directly in it alone.
         assert!(admitted_at("Boots/Crocs", "x.skl", true));
         assert!(!admitted_at("Boots/Crocs", "boots/x.skl", true));

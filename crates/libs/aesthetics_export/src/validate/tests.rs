@@ -284,37 +284,37 @@ fn each_folder_of_a_player_s_tree_is_a_stem_namespace_of_its_own() {
 }
 
 #[test]
-fn a_texture_link_below_a_subfolder_claims_no_stem_in_that_subfolder() {
-    // Links are read in the root alone: `jessie/hair.png.common` is disallowed, and no
-    // second `hair` of `jessie/`'s, whichever way the file-type check goes.
+fn a_texture_link_below_a_subfolder_claims_its_stem_in_its_own_folder() {
+    // A link claims its linked stem in the folder holding it: beside `jessie/`'s own
+    // `hair.dds` they are one stem twice; beside the root's they are not.
     let files = [
-        ("Common/hair.png", 9),
+        ("Common/jessie/hair.png", 9),
         ("Players/03 - A/face_high.model", 10),
         ("Players/03 - A/jessie/hair.dds", 9),
         ("Players/03 - A/jessie/hair.png.common", 0),
     ];
-    for (strict, disposition, players) in [
-        (true, Disposition::DropFolder, 0),
-        (false, Disposition::Keep, 1),
-    ] {
-        let report = report_with(&context_with(strict, false), "egg Midcup", &files, &[], &[]);
-        assert_eq!(
-            issue_codes(&report),
-            [("file_type_disallowed", disposition)],
-            "strict {strict}: {:?}",
-            report.issues
-        );
-        assert_eq!(
-            report.issues[0].context,
-            [("file", "jessie/hair.png.common".to_owned())],
-            "strict {strict}"
-        );
-        assert_eq!(
-            report.validated.unwrap().players.len(),
-            players,
-            "strict {strict}"
-        );
-    }
+    let conflict = report("egg Midcup", &files, &[], &[]);
+    assert_eq!(
+        issue_codes(&conflict),
+        [("texture_stem_conflict", Disposition::DropFolder)],
+        "{:?}",
+        conflict.issues
+    );
+    assert!(conflict.validated.unwrap().players.is_empty());
+
+    let clean = report(
+        "egg Midcup",
+        &[
+            ("Common/jessie/hair.png", 9),
+            ("Players/03 - A/face_high.model", 10),
+            ("Players/03 - A/hair.dds", 9),
+            ("Players/03 - A/jessie/hair.png.common", 0),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&clean), vec![], "{:?}", clean.issues);
+    assert_eq!(clean.validated.unwrap().players.len(), 1);
 }
 
 #[test]
@@ -1287,11 +1287,26 @@ fn a_common_link_below_a_subfolder_names_no_direct_common_file() {
 }
 
 #[test]
-fn a_texture_link_below_a_subfolder_is_still_file_type_disallowed() {
-    let report = report(
+fn a_texture_link_below_a_subfolder_stands_for_the_common_texture_at_its_path() {
+    let files = [
+        ("Common/jessie/hair.dds", 9),
+        ("Players/03 - A/face_high.fmdl", 10),
+        ("Players/03 - A/jessie/hair.dds.common", 0),
+    ];
+    let compiled = report("egg Midcup", &files, &[], &[]);
+    assert_eq!(issue_codes(&compiled), vec![], "{:?}", compiled.issues);
+    let draft = crate::testing::parsed("egg Midcup", &files, &[], &[]).draft;
+    let targets: Vec<Option<String>> = links::player_links(&draft.players[0], &draft)
+        .into_iter()
+        .map(|link| link.target.map(|target| target.as_str().to_owned()))
+        .collect();
+    assert_eq!(targets, [Some("Common/jessie/hair.dds".to_owned())]);
+
+    // With only a direct `Common/hair.dds`, the link still looks at its own path.
+    let missing = report(
         "egg Midcup",
         &[
-            ("Common/jessie/hair.dds", 9),
+            ("Common/hair.dds", 9),
             ("Players/03 - A/face_high.fmdl", 10),
             ("Players/03 - A/jessie/hair.dds.common", 0),
         ],
@@ -1299,12 +1314,31 @@ fn a_texture_link_below_a_subfolder_is_still_file_type_disallowed() {
         &[],
     );
     assert_eq!(
-        issue_codes(&report),
-        vec![("file_type_disallowed", Disposition::DropFolder)]
+        issue_codes(&missing),
+        vec![("common_link_missing", Disposition::DropFolder)]
     );
     assert_eq!(
-        report.issues[0].context,
-        vec![("file", "jessie/hair.dds.common".to_owned())]
+        missing.issues[0].context,
+        vec![
+            ("link", "hair.dds.common".to_owned()),
+            ("path", "Common/jessie/hair.dds".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn a_texture_link_below_a_subfolder_an_installed_cpk_satisfies_stays_with_no_finding() {
+    let files = [
+        ("Players/03 - A/face_high.fmdl", 10),
+        ("Players/03 - A/jessie/hair.dds.common", 0),
+    ];
+    let report = report_with(&installed(&["jessie/hair"]), "egg Midcup", &files, &[], &[]);
+    assert_eq!(issue_codes(&report), vec![], "{:?}", report.issues);
+    // `hair` alone installed is not `jessie/hair`.
+    let missing = report_with(&installed(&["hair"]), "egg Midcup", &files, &[], &[]);
+    assert_eq!(
+        issue_codes(&missing),
+        vec![("common_link_missing", Disposition::DropFolder)]
     );
 }
 
@@ -2606,10 +2640,10 @@ fn two_collisions_on_one_loose_path_report_once() {
 }
 
 #[test]
-fn a_common_link_below_common_is_no_texture() {
-    // A texture link below a subfolder is out of place: the file is
-    // disallowed there but never joins the stem namespace.
-    let report = report(
+fn a_common_link_below_common_is_a_link_to_common_common() {
+    // `common/` is a plain subfolder, so the link stands for `Common/common/hair.png`,
+    // claiming `hair` in `common/`'s own namespace, not the root's.
+    let missing = report(
         "egg Midcup",
         &[
             ("Common/hair.png", 9),
@@ -2620,22 +2654,41 @@ fn a_common_link_below_common_is_no_texture() {
         &[],
     );
     assert_eq!(
-        issue_codes(&report),
-        vec![("file_type_disallowed", Disposition::DropFolder)]
+        issue_codes(&missing),
+        vec![("common_link_missing", Disposition::DropFolder)]
     );
+    assert_eq!(
+        missing.issues[0].context,
+        vec![
+            ("link", "hair.png.common".to_owned()),
+            ("path", "Common/common/hair.png".to_owned()),
+        ]
+    );
+
+    let clean = report(
+        "egg Midcup",
+        &[
+            ("Common/common/hair.png", 9),
+            ("Players/03 - A/hair.dds", 9),
+            ("Players/03 - A/common/hair.png.common", 0),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&clean), vec![], "{:?}", clean.issues);
 }
 
 #[test]
 fn a_kept_disallowed_common_file_stays_in_the_players_files() {
-    // A texture link below a subfolder is out of place: its disallowed
-    // finding keeps it (strict off), so it stays in `files`.
+    // A file below a subfolder the allowlist refuses keeps its finding (strict off), so it
+    // stays in `files`.
     let report = report_with(
         &context_with(false, false),
         "egg Midcup",
         &[
             ("Common/hair.dds", 10),
             ("Players/03 - A/face_high.fmdl", 10),
-            ("Players/03 - A/common/hair.dds.common", 0),
+            ("Players/03 - A/common/x.exe", 0),
         ],
         &[],
         &[],
@@ -2649,7 +2702,7 @@ fn a_kept_disallowed_common_file_stays_in_the_players_files() {
         player
             .files
             .iter()
-            .any(|f| f.path.as_str() == "Players/03 - A/common/hair.dds.common"),
+            .any(|f| f.path.as_str() == "Players/03 - A/common/x.exe"),
         "{:?}",
         player
             .files

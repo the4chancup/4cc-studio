@@ -223,14 +223,33 @@ pub(crate) fn common_texture_directory(engine: Engine, team_id: u16) -> String {
     }
 }
 
-/// The CPK path of the texture `stem` of the team's Common output, converted for a target of
-/// `engine` (an FTEX on Fox, a DDS on pre-Fox), for team `team_id`.
-pub(crate) fn common_texture(engine: Engine, team_id: u16, stem: &str) -> String {
+/// The directory a model names a texture of the team's Common output at `subdirectory`
+/// below `Common/` by (`TextureDirectory::of`): on Fox `/Assets/pes16/model/character/common/<team>/`,
+/// the subdirectory, then `sourceimages/`, as a player's home names its subfolder's; on
+/// pre-Fox `common_texture_directory` and the subdirectory. `of("")` is `common_texture_directory`.
+pub(crate) fn common_home(engine: Engine, team_id: u16) -> TextureDirectory {
+    match engine {
+        Engine::Fox => TextureDirectory {
+            prefix: format!("/Assets/pes16/model/character/common/{team_id}/"),
+            suffix: "sourceimages/",
+        },
+        Engine::PreFox => TextureDirectory::plain(common_texture_directory(engine, team_id)),
+    }
+}
+
+/// The CPK path of the texture at `below` below `Common/` without its extension (`hair`,
+/// `jessie/hair`) of the team's Common output, converted for a target of `engine` (an FTEX on
+/// Fox, a DDS on pre-Fox), for team `team_id`: on Fox its directory goes before
+/// `sourceimages/`, as a texture of a `Common/` subfolder packs (`pipeline.md` "Common").
+pub(crate) fn common_texture(engine: Engine, team_id: u16, below: &str) -> String {
+    let (subdirectory, name) = texture_lookup::split(below);
     match engine {
         Engine::Fox => {
-            format!("Asset/model/character/common/{team_id}/sourceimages/#windx11/{stem}.ftex")
+            format!(
+                "Asset/model/character/common/{team_id}/{subdirectory}sourceimages/#windx11/{name}.ftex"
+            )
         }
-        Engine::PreFox => pre_fox_common_file(team_id, &format!("{stem}.dds")),
+        Engine::PreFox => pre_fox_common_file(team_id, &format!("{below}.dds")),
     }
 }
 
@@ -564,6 +583,19 @@ mod tests {
             common_texture(Engine::Fox, 714, "cloth"),
             "Asset/model/character/common/714/sourceimages/#windx11/cloth.ftex"
         );
+        assert_eq!(
+            common_home(Engine::Fox, 714).of(""),
+            common_texture_directory(Engine::Fox, 714)
+        );
+        // A `Common/` subfolder's texture, its directory before `sourceimages/`.
+        assert_eq!(
+            common_home(Engine::Fox, 714).of("jessie/"),
+            "/Assets/pes16/model/character/common/714/jessie/sourceimages/"
+        );
+        assert_eq!(
+            common_texture(Engine::Fox, 714, "jessie/cloth"),
+            "Asset/model/character/common/714/jessie/sourceimages/#windx11/cloth.ftex"
+        );
     }
 
     #[test]
@@ -573,8 +605,16 @@ mod tests {
             "model/character/uniform/common/714/"
         );
         assert_eq!(
+            common_home(Engine::PreFox, 714).of(""),
+            common_texture_directory(Engine::PreFox, 714)
+        );
+        assert_eq!(
             common_texture(Engine::PreFox, 714, "Cloth"),
             "common/character1/model/character/uniform/common/714/Cloth.dds"
+        );
+        assert_eq!(
+            common_texture(Engine::PreFox, 714, "jessie/Cloth"),
+            "common/character1/model/character/uniform/common/714/jessie/Cloth.dds"
         );
         assert_eq!(
             pre_fox_common_file(714, "oral_legs_win32.model"),

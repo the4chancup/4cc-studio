@@ -84,7 +84,12 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
     }
     if let Some(subdirectory) = texture_lookup::path_below(directory) {
         return match sources.below {
-            Some((held, mtl)) if held.at(mtl, subdirectory).is_some_and(place_holds) => {
+            Some((held, mtl))
+                if held
+                    .at(mtl, subdirectory)
+                    .iter()
+                    .any(|place| place_holds(place)) =>
+            {
                 Supply::Supplied
             }
             Some(_) => Supply::Missing,
@@ -172,34 +177,41 @@ pub(super) fn texture_findings(
 pub(super) struct HeldTextures {
     /// The model folder.
     folder: ScopePath,
-    /// Its textures (`PlayerFile::Texture`) by the folder of its tree holding each, and those
-    /// of the shared folders its packages are built from.
+    /// Its textures (`PlayerFile::Texture`) by the folder of its tree holding each, those of
+    /// the shared folders its packages are built from, and their texture links the same way
+    /// (`PlayerFile::CommonTexture`): a link counts as the texture it stands for being present
+    /// in the folder holding it.
     textures: TextureFolders,
-    /// The stems its texture links stand for (`PlayerFile::CommonTexture`), each folded with
-    /// itself.
-    linked: TexturePlace,
 }
 
 impl HeldTextures {
     /// The places a texture name of the `.mtl` at `mtl` resolves in, nearest first from its
-    /// own folder (`texture_lookup`), the links last.
+    /// own folder (`texture_lookup`): each folder's textures, then its links.
     pub(super) fn of(&self, mtl: &ScopePath) -> Vec<&TexturePlace> {
-        let mut places = self.textures.nearest_first(&self.folder, mtl);
-        places.push(&self.linked);
-        places
+        self.textures
+            .nearest_first(&self.folder, mtl)
+            .into_iter()
+            .map(|(place, _)| place)
+            .collect()
     }
 
-    /// The place a path of the `.mtl` at `mtl` naming `subdirectory` below its folder
+    /// The places a path of the `.mtl` at `mtl` naming `subdirectory` below its folder
     /// resolves in alone (`TextureFolders::at`).
-    pub(super) fn at(&self, mtl: &ScopePath, subdirectory: &str) -> Option<&TexturePlace> {
-        self.textures.at(&self.folder, mtl, subdirectory)
+    pub(super) fn at(&self, mtl: &ScopePath, subdirectory: &str) -> Vec<&TexturePlace> {
+        self.textures
+            .at(&self.folder, mtl, subdirectory)
+            .into_iter()
+            .map(|(place, _)| place)
+            .collect()
     }
 }
 
 /// The textures the model folder at `folder` holds for its `.mtl` paths: each of its `files`
 /// and of the files of the `shared` folders its packages are built from that is a texture
-/// (`PlayerFile::Texture`), and the stem each texture link among them stands for
-/// (`PlayerFile::CommonTexture`); `models` are the folder's, read for a target of `engine`.
+/// (`PlayerFile::Texture`), and the `Common/` path each texture link among them stands for
+/// (`PlayerFile::CommonTexture`; the link's own spelling, `Common/`'s being read only at task
+/// time, and only the stems being looked up here); `models` are the folder's, read for a
+/// target of `engine`.
 pub(super) fn held_textures(
     folder: &ScopePath,
     files: &[FileDescriptor],
@@ -210,7 +222,6 @@ pub(super) fn held_textures(
     let mut held = HeldTextures {
         folder: folder.clone(),
         textures: TextureFolders::default(),
-        linked: TexturePlace::new(),
     };
     // Each role with whether it is one of the folder's own files.
     let mut roles: Vec<(bool, PlayerFile)> = files
@@ -231,10 +242,7 @@ pub(super) fn held_textures(
     for (own, role) in roles {
         match role {
             PlayerFile::Texture { below, .. } => held.textures.insert(own, &below),
-            PlayerFile::CommonTexture(stem) => {
-                let key = vtree::fold_name(&stem);
-                held.linked.insert(key.clone(), key);
-            }
+            PlayerFile::CommonTexture(below) => held.textures.insert_link(own, &below),
             PlayerFile::Model { .. }
             | PlayerFile::CommonModel { .. }
             | PlayerFile::Packed { .. }
@@ -292,10 +300,12 @@ mod tests {
         let mut held = HeldTextures {
             folder: ScopePath::new("Players/05 - A").unwrap(),
             textures: TextureFolders::default(),
-            linked: place(linked),
         };
         for below in below {
             held.textures.insert(true, below);
+        }
+        for linked in linked {
+            held.textures.insert_link(true, linked);
         }
         held
     }

@@ -169,7 +169,9 @@ pub(crate) struct ModelFolder {
     /// the player folder stands for (`common_link_target`); on Fox its `.mtl` files directly in
     /// it and those below a subfolder a player's link reaches (`linked_common_files`), which a
     /// `.mtl.common` link of the folder stands for in its `.model`'s search
-    /// (`mtl_search::mtl_for`), Fox's Common parts being resolved at planning
+    /// (`mtl_search::mtl_for`), and its textures below a subfolder a link reaches, which the
+    /// folder's texture links stand for and the tasks spell as `Common/` does
+    /// (`roles::common_texture_below`), Fox's Common parts being resolved at planning
     /// (`common_models`); empty for a shared folder, whose links have no role. The face task
     /// tells a model link's Common `.model` from a Common FMDL the Common models task converts
     /// (`roles::selected_common_model`), its `.mtl` search looks in Common for a `.model.common`
@@ -420,16 +422,17 @@ impl ModelFolder {
     /// Whether the folder's textures task emits the template environment map: the folder is
     /// flagged (`environment_map`) and none of its sources holds an `env` texture directly in
     /// it or a texture link of that stem (`env.dds.common`), the one the converted metal
-    /// materials then name. A subfolder's `env` sits at its own path, so the template, at the
-    /// root of the texture home, does not collide with it, and a model beside it names it
-    /// first (`texture_lookup`).
+    /// materials then name. A link's `below` carries its whole path below `Common/`, so only a
+    /// root link matches: a subfolder's `env`, its own or its link's (`jessie/env.dds.common`),
+    /// sits at its own path, so the template, at the root of the texture home, does not
+    /// collide with it, and a model beside it names it first (`texture_lookup`).
     pub(crate) fn takes_template_environment_map(&self) -> bool {
         self.environment_map
             && !self.roles().into_iter().any(|(_, _, files)| {
                 files.into_iter().any(|(_, role)| {
-                    matches!(&role, PlayerFile::Texture { below: stem, .. } | PlayerFile::CommonTexture(stem)
-                        if vtree::fold_name(stem) == ENVIRONMENT_MAP_STEM)
-                })
+                matches!(&role, PlayerFile::Texture { below, .. } | PlayerFile::CommonTexture(below)
+                        if vtree::fold_name(below) == ENVIRONMENT_MAP_STEM)
+            })
             })
     }
 
@@ -1083,14 +1086,17 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         // in `Common/` and the subfolder ones a link reaches (`linked_common_files`): a player
         // whose links stand elsewhere has those of another's too, which no search of his looks
         // at, a `.model` link searching its own model's directory and a `.mtl` link naming its
-        // file. Nothing reads any other `Common/` file.
+        // file. A texture link's Common texture is there too, the tasks spelling its path as
+        // `Common/` does (`roles::common_texture_below`). Nothing reads any other `Common/`
+        // file.
         let player_common_files: Vec<FileDescriptor> = match version.engine() {
             Engine::Fox => export
                 .common
                 .iter()
                 .filter(|file| {
-                    file.kind == FileKind::Mtl
-                        && is_read_common_file(&file.path, Engine::Fox, &linked_common)
+                    (file.kind == FileKind::Mtl
+                        && is_read_common_file(&file.path, Engine::Fox, &linked_common))
+                        || (file.kind == FileKind::Texture && linked_common.contains(&file.path))
                 })
                 .cloned()
                 .collect(),
@@ -1276,20 +1282,29 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             ));
         }
         // A Common textures task and a Common models task per directory of `Common/` a target
-        // packs: every one on PES 15-17, `Common/` itself on Fox, each over that directory's own
-        // files, its output under the directory's path. A subfolder file a Fox link reaches
-        // (`linked_common_files`, a model and what travels with it) is read by the linking
-        // player's own tasks, never by a task of its directory: Fox has no Common model
-        // output, and the subfolder's textures have no task until a link names one.
+        // packs: every one on PES 15-17, each over that directory's own files, its output under
+        // the directory's path. On PES 18-21 `Common/` itself as today and each subfolder
+        // directory with the textures in `linked_common_files` alone, a textures task only:
+        // Fox has no Common model output, so no models task, and the template environment map
+        // is `Common/`'s own. A subfolder file a Fox link reaches that is no texture (a model
+        // and what travels with it) is read by the linking player's own tasks, never by a
+        // task of its directory.
         // Each with the files its models task reads.
         let mut read_directories: Vec<(ScopePath, Vec<FileDescriptor>, Vec<FileDescriptor>)> =
             common_directories(&export.common)
                 .into_iter()
-                .filter(|(directory, _)| match version.engine() {
-                    Engine::PreFox => true,
-                    Engine::Fox => directory.segments().count() == 1,
-                })
                 .map(|(directory, files)| {
+                    // On PES 18-21 a subfolder's task packs the textures a link reaches
+                    // (`linked_common_files`) alone; the directory's other files are the
+                    // linking players' or are read by nothing (`file_not_used`), and a
+                    // subfolder no link reaches is left with no files and plans no task.
+                    let files = match version.engine() {
+                        Engine::Fox if directory.segments().count() > 1 => files
+                            .into_iter()
+                            .filter(|file| linked_common.contains(&file.path))
+                            .collect(),
+                        Engine::Fox | Engine::PreFox => files,
+                    };
                     let model_files = match version.engine() {
                         Engine::Fox => Vec::new(),
                         Engine::PreFox => common_model_files(&files),

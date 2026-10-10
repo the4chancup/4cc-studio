@@ -1492,6 +1492,15 @@ TC-CMN-21  GIVEN Kits/p1, p2 and p3, Common/kit1/armor_bsm.dds and Common/kit2/a
                 holds Asset/model/character/common/<team>/kit1/, kit2/ and kit3/
                 sourceimages/#windx11/armor_bsm.ftex, kit3's a copy of kit1's, and
                 kit_variant_missing names kit 3
+TC-CMN-22  GIVEN Common/jessie/hair.dds, and slot 05 holding face_high.fmdl, jessie/hair_high.fmdl
+           naming hair, and jessie/hair.dds.common
+           WHEN the export is compiled for PES 21, then for PES 17
+           THEN on PES 21 the hair model names hair in
+                /Assets/pes16/model/character/common/<team>/jessie/sourceimages/, the CPK holds
+                Asset/model/character/common/<team>/jessie/sourceimages/#windx11/hair.ftex, and
+                neither file_type_disallowed nor file_not_used is reported; on PES 17 the
+                converted model's .mtl names model/character/uniform/common/<team>/jessie/hair.dds,
+                which the Common output holds
 TC-CMN-19  GIVEN Collars/collar_12.fmdl with two materials
            WHEN the export is compiled for PES 16
            THEN the CPK's collar_012.model names uni_shirts alone
