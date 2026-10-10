@@ -975,11 +975,13 @@ TC-MOD-64  GIVEN slot 05 holding face_high.fmdl with two meshes, the second flag
            WHEN the export is compiled for PES 17
            THEN the face's .model holds the first mesh alone and no mesh_flags_dropped names
                 invisible
-TC-MOD-65  GIVEN slot 05 holding face_high.fmdl, and jessie/hair_high.fmdl whose material names
-           shorts.dds, with jessie/shorts/shorts.dds
+TC-MOD-65  GIVEN slot 05 holding face_high.fmdl, shorts.dds, and jessie/hair_high.fmdl whose
+           material names shorts.dds, with jessie/shorts.dds of other bytes
            WHEN the export is compiled for PES 21
-           THEN the face package holds both models' meshes, shorts.dds sits under the player's
-                texture home at jessie/shorts/shorts.dds, and the model's path names it there
+           THEN the face package holds both models, both textures sit under the player's
+                texture home at their paths (shorts.ftex and jessie/shorts.ftex, each in its
+                own #windx11 folder), hair_high.fmdl's path names the nearer one at jessie/,
+                and no texture_stem_conflict is reported
 TC-MOD-66  GIVEN slot 05 holding face_high.model with face_high.mtl naming skin.dds, skin.dds,
            and jessie/body/x.model with jessie/body/x.mtl naming skin.dds, with jessie/skin.dds
            WHEN the export is compiled for PES 17
@@ -1440,7 +1442,7 @@ TC-CMN-12  GIVEN Common/x.glb beside a compiling player
            WHEN the export is compiled for PES 17
            THEN model_gltf_unsupported is reported on Common/x.glb, which is dropped, and the
                 player compiles
-TC-CMN-13  GIVEN Common/sub/x.dds
+TC-CMN-13  GIVEN Common/sub/x.dds, which no link at any depth names
            WHEN the export is compiled for PES 21
            THEN file_not_used is reported on Common/sub/x.dds and the team's Common output
                 holds no texture of stem x
@@ -1460,6 +1462,12 @@ TC-CMN-18  GIVEN Common/refkit/oral_thigh_win32.model and Common/refkit/refkit.m
            THEN no xml_path_unchecked is reported, the team's Common output holds
                 refkit/oral_thigh_win32.model and refkit/refkit.mtl, and the entry is written
                 with the team's ID in place of XXX
+TC-CMN-20  GIVEN Common/jessie/body.fmdl, and slot 05 holding face_high.fmdl and
+           jessie/body.fmdl.common
+           WHEN the export is compiled for PES 21, then for PES 17
+           THEN on PES 21 the face package holds body.fmdl's meshes beside face_high.fmdl's
+                and no file_not_used names Common/jessie/body.fmdl; on PES 17 the Common
+                output holds jessie/oral_body_win32.model and face.xml lists it by that path
 TC-CMN-19  GIVEN Collars/collar_12.fmdl with two materials
            WHEN the export is compiled for PES 16
            THEN the CPK's collar_012.model names uni_shirts alone

@@ -52,7 +52,7 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
         | PlayerFile::SlotlessSkeleton
         | PlayerFile::UnusedFaceFile
         | PlayerFile::LeftOutKitVariant
-        | PlayerFile::Texture(..)
+        | PlayerFile::Texture { .. }
         | PlayerFile::CommonTexture(_)
         | PlayerFile::PreFoxModel { .. }
         | PlayerFile::PreFoxPart { .. }
@@ -384,7 +384,7 @@ mod tests {
                 ("Players/03 - A/face_high.fmdl", clean_model()),
                 ("Players/03 - A/face_diff.bin", face_diff("dif.bin")),
                 ("Players/05 - B/face_high.fmdl", clean_model()),
-                ("Players/05 - B/face/face_diff.bin", cut_face_diff()),
+                ("Players/05 - B/face_diff.bin", cut_face_diff()),
             ],
             &[],
         );
@@ -393,7 +393,7 @@ mod tests {
             [dropping(
                 "face_diff_invalid",
                 "Players/05 - B",
-                &[("file", "face/face_diff.bin"), ("reason", CUT_REASON)]
+                &[("file", "face_diff.bin"), ("reason", CUT_REASON)]
             )]
         );
     }
@@ -432,7 +432,7 @@ mod tests {
             temp.path(),
             &[
                 ("Players/03 - A/face_high.fmdl", clean_model()),
-                ("Players/03 - A/face/face_diff.bin", cut_face_diff()),
+                ("Players/03 - A/face_diff.bin", cut_face_diff()),
                 ("Players/03 - A/face_diff.xml", corrupt_face_diff_xml()),
             ],
             &[],

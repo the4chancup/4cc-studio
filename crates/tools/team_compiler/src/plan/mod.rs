@@ -304,8 +304,9 @@ impl ModelFolder {
                 models,
             ));
         }
-        // The names the face files kept so far pack as: a second copy of one file
-        // (`face_diff.bin` beside `face/face_diff.bin`) is left out like an earlier source's.
+        // The names the face files kept so far pack as: a combined face folder's copy of one
+        // the player folder holds (`face_diff.bin` in each) is left out. One source holds one
+        // of each: the singletons take a role directly in the folder alone (`role_position`).
         let mut packed: Vec<&'static str> = Vec::new();
         let mut roles = Vec::new();
         for (package, path, files, models) in sources {
@@ -374,7 +375,7 @@ impl ModelFolder {
                     | PlayerFile::SlotlessSkeleton
                     | PlayerFile::UnusedFaceFile
                     | PlayerFile::LeftOutKitVariant
-                    | PlayerFile::Texture(..)
+                    | PlayerFile::Texture { .. }
                     | PlayerFile::CommonTexture(_)
                     | PlayerFile::PreFoxModel { .. }
                     | PlayerFile::PreFoxPart { .. }
@@ -415,13 +416,16 @@ impl ModelFolder {
     }
 
     /// Whether the folder's textures task emits the template environment map: the folder is
-    /// flagged (`environment_map`) and none of its sources holds an `env` texture or a texture
-    /// link of that stem (`env.dds.common`), the one the converted metal materials then name.
+    /// flagged (`environment_map`) and none of its sources holds an `env` texture directly in
+    /// it or a texture link of that stem (`env.dds.common`), the one the converted metal
+    /// materials then name. A subfolder's `env` sits at its own path, so the template, at the
+    /// root of the texture home, does not collide with it, and a model beside it names it
+    /// first (`texture_lookup`).
     pub(crate) fn takes_template_environment_map(&self) -> bool {
         self.environment_map
             && !self.roles().into_iter().any(|(_, _, files)| {
                 files.into_iter().any(|(_, role)| {
-                    matches!(&role, PlayerFile::Texture(stem, _) | PlayerFile::CommonTexture(stem)
+                    matches!(&role, PlayerFile::Texture { below: stem, .. } | PlayerFile::CommonTexture(stem)
                         if vtree::fold_name(stem) == ENVIRONMENT_MAP_STEM)
                 })
             })
@@ -792,7 +796,7 @@ impl TaskKind {
                 read
             }
             TaskKind::Textures { folder, .. } => folder_files(folder, |_, _, _, role| {
-                matches!(role, PlayerFile::Texture(..))
+                matches!(role, PlayerFile::Texture { .. })
             }),
             TaskKind::CommonTextures { textures, .. } => textures.iter().collect(),
             TaskKind::CommonModels { files, .. } => files.iter().collect(),
@@ -1496,7 +1500,7 @@ fn folder_tasks(
     // planned: the writer takes an empty textures batch for a failed one and drops the folder.
     if !folder.takes_template_environment_map()
         && folder_files(&folder, |_, _, _, role| {
-            matches!(role, PlayerFile::Texture(..))
+            matches!(role, PlayerFile::Texture { .. })
         })
         .is_empty()
     {
@@ -2032,7 +2036,7 @@ fn common_models(
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::SlotlessSkeleton
                 | PlayerFile::LeftOutKitVariant
-                | PlayerFile::Texture(..)
+                | PlayerFile::Texture { .. }
                 | PlayerFile::CommonTexture(_)
                 | PlayerFile::PreFoxModel { .. }
                 | PlayerFile::Material
@@ -3449,15 +3453,6 @@ mod tests {
             face_task_files(&["face_diff.bin"], &["face_diff.xml"]),
             [
                 "Players/05 - A/face_diff.bin",
-                "Faces/Longhair/hair_high.fmdl"
-            ]
-        );
-        // Two copies of one form, one in `face/`, are one file: the first in the folder's
-        // order is kept.
-        assert_eq!(
-            face_task_files(&["face_diff.xml", "face/face_diff.xml"], &[]),
-            [
-                "Players/05 - A/face/face_diff.xml",
                 "Faces/Longhair/hair_high.fmdl"
             ]
         );

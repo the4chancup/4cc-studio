@@ -9,7 +9,7 @@ use vtree::ScopePath;
 use crate::FileKind;
 use crate::conventions::{
     Marker, MetadataFile, SharedKind, classify, common_link_name, is_boots, is_explicit_face,
-    is_gloves, model_suffix, shared_link_name, split_folder_name,
+    is_gloves, is_player_singleton, model_suffix, shared_link_name, split_folder_name,
 };
 use crate::listing::ValidationContext;
 use crate::parse::{AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft};
@@ -357,6 +357,12 @@ fn is_model_content(kind: FileKind) -> bool {
     )
 }
 
+/// What a file below a subfolder of a player folder may be: model content, but a per-player
+/// singleton (`is_player_singleton`), which counts directly in the player folder alone.
+fn player_below_allowed(file: &FileDescriptor) -> bool {
+    is_model_content(file.kind) && !is_player_singleton(file.path.name())
+}
+
 /// What a file directly in a player folder may be (allowlist row 1).
 fn player_direct_allowed(kind: FileKind) -> bool {
     is_model_content(kind)
@@ -439,7 +445,7 @@ pub(crate) fn check_player(
     for file in &folder.files {
         let allowed = match position(&file.path, &folder.path) {
             Position::Direct => player_direct_allowed(file.kind),
-            Position::Below => is_model_content(file.kind),
+            Position::Below => player_below_allowed(file),
         };
         if !allowed {
             issues.push(issue_in(
@@ -569,43 +575,42 @@ pub(crate) fn check_player(
         }
     }
 
-    // 7. Texture stems collide within the folder's own namespace: the textures
-    // directly in it, plus each texture `.common` link under its linked name (a
-    // link counts as the linked file being local — `model_format.md` "Rules").
-    // A subfolder's textures are not in it: a subfolder is a folder of its own,
-    // whose texture names resolve beside its models first (`player_folders.md`
-    // "Subfolders"); its own namespace is not checked yet.
-    let direct = |file: &&FileDescriptor| directly_in(&file.path, &folder.path);
-    stem_conflicts(
-        context,
-        scope.clone(),
-        folder
-            .files
-            .iter()
-            .filter(direct)
-            .filter(|file| file.kind == FileKind::Texture)
-            .map(|file| {
-                (
-                    fold(stem(file.path.name())),
-                    relative(&file.path, &folder.path),
-                )
-            })
-            .chain(folder.files.iter().filter(direct).filter_map(|file| {
-                if file.kind != FileKind::CommonLink {
-                    return None;
-                }
-                let name = common_link_name(file.path.name())?;
-                if matches!(classify(&name), FileKind::Texture) {
-                    Some((fold(stem(&name)), relative(&file.path, &folder.path)))
-                } else {
-                    None
-                }
-            })),
-        issues,
-    );
+    // 7. Texture stems collide within one folder of the player folder's tree, the
+    // root or one subfolder: a texture name resolves nearest first, in its model's
+    // folder before each parent (`player_folders.md` "Subfolders"), so the root's
+    // `hair.dds` and a subfolder's are no conflict. A texture `.common` link counts
+    // in the root under its linked name (a link counts as the linked file being
+    // local, `model_format.md` "Rules"); links are read in the root alone.
+    let mut namespaces: BTreeMap<Option<String>, Vec<(String, String)>> = BTreeMap::new();
+    for file in &folder.files {
+        let Some(name) = texture_claim(file, &folder.path) else {
+            continue;
+        };
+        let namespace = file.path.parent().map(|parent| parent.fold_key());
+        namespaces
+            .entry(namespace)
+            .or_default()
+            .push((fold(stem(&name)), relative(&file.path, &folder.path)));
+    }
+    for stems in namespaces.into_values() {
+        stem_conflicts(context, scope.clone(), stems.into_iter(), issues);
+    }
 
     // 8. The edit-hair files.
     edithair_files(folder, context, issues);
+}
+
+/// The name `file` of the player folder at `folder` claims in its folder's texture namespace:
+/// a texture's own, or the linked name of a texture `.common` link directly in the folder;
+/// `None` for any other file.
+fn texture_claim(file: &FileDescriptor, folder: &ScopePath) -> Option<String> {
+    if file.kind == FileKind::Texture {
+        return Some(file.path.name().to_owned());
+    }
+    if file.kind != FileKind::CommonLink || !directly_in(&file.path, folder) {
+        return None;
+    }
+    common_link_name(file.path.name()).filter(|name| classify(name) == FileKind::Texture)
 }
 
 /// The draft's shared folders of `kind`.

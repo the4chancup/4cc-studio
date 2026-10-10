@@ -44,8 +44,9 @@ subfolder's files take their roles from their names at any depth, the reserved s
 gone, a refs export's AET layout refused per folder; (b) the pre-Fox face next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
-split's tests by faces), 4.y-fix21 opened 2026-10-10 (S18's Astra round: a nested material
-link no candidate, TC-MOD-64's meshes told apart, a dropped shared link no link), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+split's tests by faces), 4.y-fix21 opened 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
+TC-MOD-64's meshes told apart, a dropped shared link no link, a textures-only folder
+reported, a `.model` collar's material losses skipped), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag opened 2026-10-10 (the maintainer's answer:
 the 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
@@ -3966,7 +3967,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   TC-REF-18); (b) the pre-Fox face: paths kept in the face CPK and the texture home,
   `face.xml` entries by path, `./sub/name` a checked local reference, the `.mtl`
   search's folders, the nearest-first texture lookup and the per-folder
-  `texture_stem_conflict` namespace (TC-MOD-66); (c) Fox: a subfolder's models merged
+  `texture_stem_conflict` namespace (TC-MOD-66); (b3) `.common` links mirror `Common/`'s
+  tree (the maintainer, 2026-10-10, DECISIONS "a `.common` link below a player's subfolder
+  names the file at the same path below `Common/`"): validation resolves a nested link
+  against `Common/<link path>` and admits it below a subfolder, `role_position` reads a
+  link at any depth, `common_file`/`common_link_name` take a path, `mtl_search` and
+  `linked_common_materials` load a nested material link's target (4.y-fix21's former item
+  (1)), the Fox Common tasks pack a linked subfolder file at its path (`is_read_common_file`)
+  and the Common output lists a pre-Fox link's model at its path (TC-CMN-20, TC-CMN-13
+  narrowed to an unlinked file); (c) Fox: a subfolder's models merged
   into the packages, textures under the texture home at their path (TC-MOD-65); (d) the
   deep pass over the tree (what `compile` reads, DECISIONS 2026-10-09 "One rule"). The
   Export upgrader's carry-over is Phase 6's. Moot after this: S14.1-4 and the subfolder
@@ -4236,10 +4245,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   position half, its test the rework), r2 37 mutants, 29 caught, 8 unviable, 0 missed
   (`.tmp/4_y/mutants_fix20_r2.log`).
 
-- [ ] 4.y-fix21 **S18's Astra round: a nested material link is no candidate, TC-MOD-64 tells
-  its meshes apart, a dropped shared link is no link** (rulings `.tmp/4_y/duck_rulings.md`
+- [ ] 4.y-fix21 **The S18, S7 and S17 rounds' small fixes: TC-MOD-64 tells its meshes apart, a
+  dropped shared link is no link, a textures-only folder is reported, a `.model` collar skips
+  material losses** (rulings `.tmp/4_y/duck_rulings.md`
   "S18.A1", five of five accepted, so a second Astra round follows this rework; brief
-  `.tmp/4_y/brief_fix21.md`, after 4.y-sub (b1) lands, never beside it). (1) `mtl_search.rs`
+  `.tmp/4_y/brief_fix21.md`, after 4.y-sub (b1) lands, never beside it). (1) moved to
+  4.y-sub (b3), the maintainer's rule of 2026-10-10: a nested material link is resolved at
+  the mirrored path below `Common/`, not excluded, which also closes the panic. Was: `mtl_search.rs`
   `mtls_in` takes a `.mtl.common` link as a candidate wherever the model's folder is, while a
   link has a role directly in the player folder alone (`role_position`), so a nested link a
   lenient check keeps (`strict_file_type_check = false`, `parts/body.model` beside

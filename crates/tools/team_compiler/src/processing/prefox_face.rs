@@ -38,7 +38,6 @@ use crate::face_xml::{
     WrittenChild, XmlEntry, face_xml, packed_model_name, ratio, suffix, user_face_xml,
     version_type, xml_path,
 };
-use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureHome};
@@ -47,6 +46,7 @@ use crate::plan::roles::{
     role_position, selected_common_model,
 };
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
+use crate::texture_lookup::{self, TextureFolders, TexturePlace};
 use crate::user_face_xml::{
     Child, FaceFiles, ModelElement, Reference, UserFaceXml, parse, reference, resolve, variant_of,
 };
@@ -406,9 +406,9 @@ pub(super) fn face(
     // face one face diff, so at most one of them is set.
     let mut dif = None;
     let mut xml_source_dif = None;
-    // The folder's texture stems, folded, each with its stem as the folder spells it: the
-    // name its converted DDS has in the texture home (`folder_textures`).
-    let mut textures: BTreeMap<String, String> = BTreeMap::new();
+    // The folder's textures by the folder of its tree holding each, and its combined folders',
+    // each with the path its converted DDS has below the texture home (`folder_textures`).
+    let mut textures = TextureFolders::default();
     // The stems the folder's texture links stand for, folded, each with the stem of the
     // `Common/` texture the link names: the name its DDS has in the team's Common output.
     let mut linked: BTreeMap<String, String> = BTreeMap::new();
@@ -437,7 +437,7 @@ pub(super) fn face(
             ModelPackage::Face => source_roles,
             ModelPackage::Boots | ModelPackage::Gloves => source_roles
                 .into_iter()
-                .filter(|(_, role)| matches!(role, PlayerFile::Texture(..)))
+                .filter(|(_, role)| matches!(role, PlayerFile::Texture { .. }))
                 .collect(),
         };
         // Each model's `.mtl` is resolved here, before any entry: a set's other variants are
@@ -575,8 +575,8 @@ pub(super) fn face(
                         .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
                     *source_dif = Some(bytes);
                 }
-                PlayerFile::Texture(stem, _) => {
-                    textures.insert(vtree::fold_name(&stem), stem);
+                PlayerFile::Texture { below, .. } => {
+                    textures.insert(source_path == &folder.path, &below);
                 }
                 PlayerFile::CommonTexture(stem) => {
                     linked.insert(vtree::fold_name(&stem), linked_texture_stem(folder, file));
@@ -607,12 +607,13 @@ pub(super) fn face(
     // The team's Common output, which a `face.xml` and a `.mtl` name a Common file in.
     let common_directory = paths::common_texture_directory(Engine::PreFox, team_id);
     let home = folder.textures.directory(Engine::PreFox, team_id);
-    // A stem the folder holds is the player's own, before one a texture link stands for: a
-    // combined shared face's texture of a link's stem wins, as on Fox.
-    let places = [
-        (&textures, home.as_str()),
-        (&linked, common_directory.as_str()),
-    ];
+    let places = FacePlaces {
+        folder: &folder.path,
+        textures,
+        linked,
+        home: &home,
+        common_directory: &common_directory,
+    };
     // An xml that does not parse is an error: the deep pass dropped its folder.
     let xml = match xml {
         Some((_, file)) => Some(
@@ -739,7 +740,7 @@ pub(super) fn face(
                 // Before the pointing, which respells the environment map's path as the
                 // folder spells its own `env` texture when it holds one.
                 add_environment_map(&mut materials, &home);
-                point_materials(&mut materials, &places);
+                point_materials(&mut materials, &places.of(&model.file.path));
                 point_reserved_kit_stems(&mut materials, &common_directory);
                 insert(
                     &mut contents,
@@ -801,7 +802,7 @@ pub(super) fn face(
         }
     }
     for file in materials {
-        let bytes = rewritten_materials(file, &take(files, file), &places)?;
+        let bytes = rewritten_materials(file, &take(files, file), &places.of(&file.path))?;
         insert(
             &mut contents,
             ModelPackage::Face,
@@ -994,7 +995,7 @@ struct XmlFace<'a> {
     common_directory: &'a str,
     /// Where a packed `.mtl`'s texture paths are pointed (`point_materials`), as for a
     /// generated face.
-    places: &'a [(&'a BTreeMap<String, String>, &'a str)],
+    places: &'a FacePlaces<'a>,
     /// The face's files packed so far, by their names in the face.
     contents: PackageFiles,
     /// Their names, folded: a reference naming a file already packed packs nothing more.
@@ -1011,7 +1012,7 @@ impl<'a> XmlFace<'a> {
         folder: &'a ModelFolder,
         kits: &'a [u8],
         common_directory: &'a str,
-        places: &'a [(&'a BTreeMap<String, String>, &'a str)],
+        places: &'a FacePlaces<'a>,
         contents: PackageFiles,
     ) -> Self {
         let packed = contents.keys().map(|name| vtree::fold_name(name)).collect();
@@ -1224,7 +1225,7 @@ impl<'a> XmlFace<'a> {
         }
         let mut bytes = take(files, file);
         if file.kind == FileKind::Mtl {
-            bytes = rewritten_materials(file, &bytes, self.places)?;
+            bytes = rewritten_materials(file, &bytes, &self.places.of(&file.path))?;
         }
         insert(
             &mut self.contents,
@@ -1393,6 +1394,35 @@ fn respelled_material(listed: &str, kit: u8) -> String {
     listed.to_owned()
 }
 
+/// Where the `.mtl` files of a player's face point their texture paths (`point_materials`): a
+/// texture of the face's sources nearest first from the `.mtl`'s own folder
+/// (`texture_lookup`), in the folder's texture home, then a stem a texture link stands for, in
+/// the team's Common output. A stem the face's sources hold is the player's own before one a
+/// link stands for: a combined shared face's texture of a link's stem wins, as on Fox.
+struct FacePlaces<'a> {
+    /// The player folder.
+    folder: &'a ScopePath,
+    /// The textures of the face's sources, the player folder's own and its combined folders'.
+    textures: TextureFolders,
+    /// The stems the folder's texture links stand for, folded, each with the stem of the
+    /// `Common/` texture the link names: the name its DDS has in the team's Common output.
+    linked: TexturePlace,
+    /// The directory a `.mtl` names the texture home's root by.
+    home: &'a str,
+    /// The directory a `.mtl` names the team's Common output by.
+    common_directory: &'a str,
+}
+
+impl FacePlaces<'_> {
+    /// The places a texture name of the `.mtl` at `path` (a converted model's material set:
+    /// its model's) resolves in, in order.
+    fn of(&self, path: &ScopePath) -> Vec<(&TexturePlace, &str)> {
+        let mut places = self.textures.places(self.folder, path, self.home);
+        places.push((&self.linked, self.common_directory));
+        places
+    }
+}
+
 /// The stem of the `Common/` texture the `.common` texture link `file` of the player `folder`
 /// names, as `Common/` spells it: the name its DDS has in the team's Common output.
 pub(super) fn linked_texture_stem(folder: &ModelFolder, file: &FileDescriptor) -> String {
@@ -1410,7 +1440,7 @@ pub(super) fn linked_texture_stem(folder: &ModelFolder, file: &FileDescriptor) -
 pub(super) fn rewritten_materials(
     file: &FileDescriptor,
     bytes: &[u8],
-    places: &[(&BTreeMap<String, String>, &str)],
+    places: &[(&TexturePlace, &str)],
 ) -> Result<Vec<u8>, TaskFailure> {
     Ok(read_materials(file, bytes, places)?.write())
 }
@@ -1420,7 +1450,7 @@ pub(super) fn rewritten_materials(
 pub(super) fn read_materials(
     file: &FileDescriptor,
     bytes: &[u8],
-    places: &[(&BTreeMap<String, String>, &str)],
+    places: &[(&TexturePlace, &str)],
 ) -> Result<MaterialSet, TaskFailure> {
     let mut set = MaterialSet::read(bytes)
         .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
@@ -1429,29 +1459,33 @@ pub(super) fn read_materials(
 }
 
 /// Points every texture path of `set` whose file stem (case-folded) is one of a place's
-/// textures at that place's directory as that texture's DDS, `<stem>.dds`: `places` are
-/// (textures, directory) pairs, each texture by its folded stem with its stem as spelled where
-/// it is packed, and the first place holding a stem wins. A path whose stem no place holds but
-/// that is a kit reference (`pants_kitN`) is pointed at the directory of the first place
-/// holding a variant of its set (`has_variant_among`), its file name kept as it is: the game
-/// respells it for the kit picked. Any other path is left as it is.
-pub(super) fn point_materials(set: &mut MaterialSet, places: &[(&BTreeMap<String, String>, &str)]) {
+/// textures at that texture's DDS where it is packed: `places` are (textures, directory) pairs
+/// in lookup order, each texture by its folded stem with its path below the directory as
+/// spelled (`texture_lookup::TexturePlace`), and the first place holding a stem wins, the path
+/// becoming the directory, the texture's own subdirectory below it (`jessie/`) and
+/// `<stem>.dds`. A path whose stem no place holds but that is a kit reference (`pants_kitN`) is
+/// pointed at the directory of the first place holding a variant of its set
+/// (`texture_lookup::variant`), the variant's subdirectory included, its file name kept as it
+/// is: the game respells it for the kit picked. Any other path is left as it is.
+pub(super) fn point_materials(set: &mut MaterialSet, places: &[(&TexturePlace, &str)]) {
     rewrite_texture_paths(set, |path| {
         let stem = file_stem(&path.file_name);
         let key = vtree::fold_name(stem);
         let found = places
             .iter()
             .find_map(|(textures, directory)| Some((textures.get(&key)?, *directory)));
-        if let Some((stem, directory)) = found {
-            directory.clone_into(&mut path.directory);
-            path.file_name = format!("{stem}.dds");
+        if let Some((below, directory)) = found {
+            let (subdirectory, name) = texture_lookup::split(below);
+            path.directory = format!("{directory}{subdirectory}");
+            path.file_name = format!("{name}.dds");
             return;
         }
-        let variant_place = places
-            .iter()
-            .find(|(textures, _)| has_variant_among(stem, textures.values().map(String::as_str)));
-        if let Some((_, directory)) = variant_place {
-            (*directory).clone_into(&mut path.directory);
+        let variant_place = places.iter().find_map(|(textures, directory)| {
+            Some((texture_lookup::variant(textures, stem)?, *directory))
+        });
+        if let Some((below, directory)) = variant_place {
+            let (subdirectory, _) = texture_lookup::split(below);
+            path.directory = format!("{directory}{subdirectory}");
         }
     });
 }
@@ -1767,6 +1801,43 @@ mod tests {
         assert_eq!(paths(&member), [format!("{fox_directory}dummy_kit.dds")]);
     }
 
+    /// The places of a face of the player folder `folder` whose own textures are `below`,
+    /// each its path below the folder, its texture home `home/` and no texture link.
+    fn face_places<'a>(folder: &'a ScopePath, below: &[&str]) -> FacePlaces<'a> {
+        let mut textures = TextureFolders::default();
+        for below in below {
+            textures.insert(true, below);
+        }
+        FacePlaces {
+            folder,
+            textures,
+            linked: TexturePlace::new(),
+            home: "home/",
+            common_directory: "common/",
+        }
+    }
+
+    #[test]
+    fn a_mtl_points_a_texture_name_at_the_nearest_folder_holding_it() {
+        let folder = ScopePath::new("Players/05 - A").unwrap();
+        let places = face_places(&folder, &["skin", "jessie/skin", "jessie/pants_kit2"]);
+        let pointed = |mtl: &str, file_name: &str| {
+            let mut set = card_set_naming(file_name);
+            point_materials(&mut set, &places.of(&ScopePath::new(mtl).unwrap()));
+            paths(&set)
+        };
+        let deep = "Players/05 - A/jessie/body/x.mtl";
+        assert_eq!(pointed(deep, "skin.dds"), ["home/jessie/skin.dds"]);
+        assert_eq!(
+            pointed(deep, "pants_kitN.dds"),
+            ["home/jessie/pants_kitN.dds"]
+        );
+        let root = "Players/05 - A/face_high.mtl";
+        assert_eq!(pointed(root, "skin.dds"), ["home/skin.dds"]);
+        // The root's lookup never goes down into `jessie/`.
+        assert_eq!(pointed(root, "pants_kitN.dds"), ["./pants_kitN.dds"]);
+    }
+
     #[test]
     fn a_listed_material_is_respelled_only_when_it_carries_the_variant_s_own_token() {
         assert_eq!(listed_material("pants_kit1.mtl", 1), "pants_kitN.mtl");
@@ -1789,9 +1860,7 @@ mod tests {
             source: path.clone(),
             path: path.clone(),
         }];
-        let textures = BTreeMap::from([("skin".to_owned(), "Skin".to_owned())]);
-        let linked = BTreeMap::new();
-        let places = [(&textures, "home/"), (&linked, "common/")];
+        let places = face_places(&folder, &["Skin"]);
         let mut face = XmlFace {
             named: FaceFiles {
                 own: &own,
@@ -1841,9 +1910,7 @@ mod tests {
             descriptor("pants_kit1.mtl", FileKind::Mtl),
             descriptor("pants_kit2.model", model),
         ];
-        let textures = BTreeMap::new();
-        let linked = BTreeMap::new();
-        let places = [(&textures, "home/"), (&linked, "common/")];
+        let places = face_places(&folder, &[]);
         let mut face = XmlFace {
             named: FaceFiles {
                 own: &own,

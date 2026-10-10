@@ -21,14 +21,16 @@ use super::model::MaterialRead;
 use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
 use crate::plan::roles::{FolderModels, PlayerFile, file_stem, player_file};
+use crate::texture_lookup::{self, TextureFolders, TexturePlace};
 use crate::user_face_xml::{Reference, reference};
 
 /// Where the textures a `.mtl`'s paths name may come from, each by its folded stem.
 pub(super) struct TextureSources<'a> {
-    /// The stems the `.mtl`'s folder holds: its own textures, those of the shared folders its
-    /// face packs, and the stems its texture links stand for (`held_stems`); for a `Common/`
-    /// `.mtl`, `Common/`'s.
-    pub(super) held: &'a BTreeSet<String>,
+    /// The places a texture name of the `.mtl` resolves in, nearest first
+    /// (`HeldTextures::of`): its model folder's textures from the `.mtl`'s own folder up, those
+    /// of the shared folders its face packs, and the stems its texture links stand for; for a
+    /// `Common/` `.mtl`, `Common/`'s.
+    pub(super) held: &'a [&'a TexturePlace],
     /// The stems of the textures in `Common/` the pass keeps, which the export's Common
     /// textures task packs into the team's Common output.
     pub(super) common: &'a BTreeSet<String>,
@@ -50,8 +52,9 @@ enum Supply {
 
 /// Whether the texture `path`, a `.mtl` sampler's path as written, is supplied from `sources`.
 /// Whatever directory it spells, it is supplied when its stem (folded), or a variant of its set
-/// for a kit reference (`pants_kitN`), is one `sources.held` holds: that is the stem the face
-/// task points at the folder's textures. A `dummy_` stem is never looked for. Past the folder, a
+/// for a kit reference (`pants_kitN`, `texture_lookup::variant`), is one a place of
+/// `sources.held` holds: that is the stem the face task points at the folder's textures. A
+/// `dummy_` stem is never looked for. Past the folder, a
 /// `./` path and a bare name (read as `./`) are missing: the face packs no texture the folder
 /// does not hold. A path into the team's uniform Common folder
 /// (`model/character/uniform/common/<team>/<name>`) is supplied when `Common/` or an installed
@@ -64,7 +67,11 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
     let holds = |stems: &BTreeSet<String>| {
         stems.contains(&key) || has_variant_among(stem, stems.iter().map(String::as_str))
     };
-    if holds(sources.held) || key.starts_with("dummy_") {
+    let held = sources
+        .held
+        .iter()
+        .any(|place| place.contains_key(&key) || texture_lookup::variant(place, stem).is_some());
+    if held || key.starts_with("dummy_") {
         return Supply::Supplied;
     }
     if !path.contains('/') {
@@ -137,21 +144,51 @@ pub(super) fn texture_findings(
         .collect()
 }
 
-/// The folded stems the model folder at `folder` holds for its `.mtl` paths, as the face task
-/// collects them (`processing::prefox_face::face`): the stem of each of its `files` and of the
-/// files of the `shared` folders its packages are built from that is a texture
+/// The textures a model folder's `.mtl` paths may name, as the face task collects them
+/// (`processing::prefox_face::face`), built once per folder (`held_textures`) and sliced per
+/// `.mtl` (`of`).
+pub(super) struct HeldTextures {
+    /// The model folder.
+    folder: ScopePath,
+    /// Its textures (`PlayerFile::Texture`) by the folder of its tree holding each, and those
+    /// of the shared folders its packages are built from.
+    textures: TextureFolders,
+    /// The stems its texture links stand for (`PlayerFile::CommonTexture`), each folded with
+    /// itself.
+    linked: TexturePlace,
+}
+
+impl HeldTextures {
+    /// The places a texture name of the `.mtl` at `mtl` resolves in, nearest first from its
+    /// own folder (`texture_lookup`), the links last.
+    pub(super) fn of(&self, mtl: &ScopePath) -> Vec<&TexturePlace> {
+        let mut places = self.textures.nearest_first(&self.folder, mtl);
+        places.push(&self.linked);
+        places
+    }
+}
+
+/// The textures the model folder at `folder` holds for its `.mtl` paths: each of its `files`
+/// and of the files of the `shared` folders its packages are built from that is a texture
 /// (`PlayerFile::Texture`), and the stem each texture link among them stands for
 /// (`PlayerFile::CommonTexture`); `models` are the folder's, read for a target of `engine`.
-pub(super) fn held_stems(
+pub(super) fn held_textures(
     folder: &ScopePath,
     files: &[FileDescriptor],
     models: &FolderModels,
     shared: &[(SharedKind, &SharedModelFolder)],
     engine: Engine,
-) -> BTreeSet<String> {
-    let mut roles: Vec<PlayerFile> = files
+) -> HeldTextures {
+    let mut held = HeldTextures {
+        folder: folder.clone(),
+        textures: TextureFolders::default(),
+        linked: TexturePlace::new(),
+    };
+    // Each role with whether it is one of the folder's own files.
+    let mut roles: Vec<(bool, PlayerFile)> = files
         .iter()
         .filter_map(|file| player_file(folder, file, models))
+        .map(|role| (true, role))
         .collect();
     for (kind, source) in shared {
         let source_models = FolderModels::of_shared(&source.path, &source.files, *kind, engine);
@@ -159,14 +196,16 @@ pub(super) fn held_stems(
             source
                 .files
                 .iter()
-                .filter_map(|file| player_file(&source.path, file, &source_models)),
+                .filter_map(|file| player_file(&source.path, file, &source_models))
+                .map(|role| (false, role)),
         );
     }
-    roles
-        .into_iter()
-        .filter_map(|role| match role {
-            PlayerFile::Texture(stem, _) | PlayerFile::CommonTexture(stem) => {
-                Some(vtree::fold_name(&stem))
+    for (own, role) in roles {
+        match role {
+            PlayerFile::Texture { below, .. } => held.textures.insert(own, &below),
+            PlayerFile::CommonTexture(stem) => {
+                let key = vtree::fold_name(&stem);
+                held.linked.insert(key.clone(), key);
             }
             PlayerFile::Model { .. }
             | PlayerFile::CommonModel { .. }
@@ -183,9 +222,10 @@ pub(super) fn held_stems(
             | PlayerFile::FaceXml
             | PlayerFile::UnusedFaceFile
             | PlayerFile::ConversionSkeleton
-            | PlayerFile::UnsupportedGltf => None,
-        })
-        .collect()
+            | PlayerFile::UnsupportedGltf => {}
+        }
+    }
+    held
 }
 
 #[cfg(test)]
@@ -197,16 +237,51 @@ mod tests {
         stems.iter().map(|stem| (*stem).to_owned()).collect()
     }
 
+    /// A place holding the textures `stems`, each directly in its folder.
+    fn place(stems: &[&str]) -> TexturePlace {
+        stems
+            .iter()
+            .map(|stem| (vtree::fold_name(stem), (*stem).to_owned()))
+            .collect()
+    }
+
     /// What `supply` makes of `path` with the folder holding `held`, `Common/` `common` and the
     /// installed CPKs `installed`.
     fn supplied(path: &str, held: &[&str], common: &[&str], installed: Option<&[&str]>) -> Supply {
         let installed = installed.map(stems);
         let sources = TextureSources {
-            held: &stems(held),
+            held: &[&place(held)],
             common: &stems(common),
             installed: installed.as_ref(),
         };
         supply(path, &sources)
+    }
+
+    #[test]
+    fn a_mtl_s_texture_name_is_held_in_its_folder_or_a_parent_never_a_subfolder() {
+        let folder = ScopePath::new("Players/05 - A").unwrap();
+        let mut held = HeldTextures {
+            folder: folder.clone(),
+            textures: TextureFolders::default(),
+            linked: place(&["hair"]),
+        };
+        held.textures.insert(true, "jessie/skin");
+        held.textures.insert(true, "jessie/shorts");
+        let supplied_to = |mtl: &str, path: &str| {
+            let places = held.of(&ScopePath::new(mtl).unwrap());
+            let sources = TextureSources {
+                held: &places,
+                common: &BTreeSet::new(),
+                installed: None,
+            };
+            supply(path, &sources)
+        };
+        let deep = "Players/05 - A/jessie/body/x.mtl";
+        assert_eq!(supplied_to(deep, "./skin.dds"), Supply::Supplied);
+        assert_eq!(supplied_to(deep, "./hair.dds"), Supply::Supplied);
+        let root = "Players/05 - A/face_high.mtl";
+        assert_eq!(supplied_to(root, "./shorts.dds"), Supply::Missing);
+        assert_eq!(supplied_to(root, "./hair.dds"), Supply::Supplied);
     }
 
     const COMMON_HAIR: &str = "model/character/uniform/common/XXX/hair.dds";
@@ -321,7 +396,7 @@ mod tests {
     fn findings(materials: &[MaterialRead], used: &[&str]) -> Vec<ContentFinding> {
         let common = stems(&["hair"]);
         let sources = TextureSources {
-            held: &BTreeSet::new(),
+            held: &[],
             common: &common,
             installed: None,
         };

@@ -72,6 +72,28 @@ pub fn ends_with_name(stem: &str, name: &str) -> bool {
     start == 0 || stem[..start].ends_with('_')
 }
 
+/// The per-player singletons: a player has one of each, so each counts directly
+/// in the player folder alone, as the markers do; two from different folders
+/// of his tree would have no merge (`player_folders.md` "Subfolders"). Their
+/// kinds (`Xml`, `Bin`, `Fclo`) admit other files below a subfolder, so they
+/// are told by name.
+const PLAYER_SINGLETONS: [&str; 4] = [
+    "face.xml",
+    "face_diff.bin",
+    "face_diff.xml",
+    "fcl_hair_sim.fclo",
+];
+
+/// Whether `file_name` names a per-player singleton (`face.xml`,
+/// `face_diff.bin`, `face_diff.xml`, `fcl_hair_sim.fclo`),
+/// ASCII-case-insensitively as `classify` matches names: a file that counts
+/// directly in a player folder alone, below a subfolder `file_type_disallowed`.
+pub fn is_player_singleton(file_name: &str) -> bool {
+    PLAYER_SINGLETONS
+        .iter()
+        .any(|singleton| file_name.eq_ignore_ascii_case(singleton))
+}
+
 /// The explicitly-named face models (`face_high`, `hair_high`, `oral`): they
 /// have no skeleton slot and cannot exist under `ingame_face`.
 pub(crate) fn is_explicit_face(suffix: ModelSuffix) -> bool {

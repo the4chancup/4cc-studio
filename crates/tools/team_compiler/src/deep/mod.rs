@@ -92,12 +92,13 @@ use crate::plan::roles::{
 };
 use crate::reader::ContentSource;
 use crate::templates;
+use crate::texture_lookup::TexturePlace;
 use crate::user_face_xml::{
     self, Child, FaceFiles, UserFaceXml, XmlError, XmlFinding, names_file, reference, resolve,
 };
 use collar::collar_findings;
 use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
-use materials::{TextureSources, held_stems, texture_findings};
+use materials::{TextureSources, held_textures, texture_findings};
 use model::{MaterialRead, ModelKind, fired};
 use pairings::{material_finding, pairings, searched_common_mtls, used_names};
 use portrait::{folder_portrait, portrait_conflict, portrait_findings};
@@ -720,17 +721,20 @@ fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], ke
             continue;
         };
         let directory = file.path.parent().map(|parent| parent.fold_key());
-        let held: BTreeSet<String> = kept
+        let held: TexturePlace = kept
             .files
             .iter()
             .filter(|texture| {
                 texture.kind == FileKind::Texture
                     && texture.path.parent().map(|parent| parent.fold_key()) == directory
             })
-            .map(|texture| vtree::fold_name(file_stem(texture.path.name())))
+            .map(|texture| {
+                let stem = file_stem(texture.path.name());
+                (vtree::fold_name(stem), stem.to_owned())
+            })
             .collect();
         let sources = TextureSources {
-            held: &held,
+            held: &[&held],
             common: &kept.texture_stems,
             installed: kept.installed.as_ref(),
         };
@@ -1001,18 +1005,18 @@ fn folder_findings(
         // The `.mtl` checked is the member's source, the same whatever the target, so on Fox
         // the one a selected `.model` pairs with, the only one the pass reads there, is looked
         // up as on pre-Fox (`messages.md`, the `mtl_texture_not_found` row).
-        Engine::Fox | Engine::PreFox => Some(held_stems(folder, files, models, &shared, engine)),
+        Engine::Fox | Engine::PreFox => Some(held_textures(folder, files, models, &shared, engine)),
     };
-    let sources = held.as_ref().map(|held| TextureSources {
-        held,
-        common: &common.texture_stems,
-        installed: common.installed.as_ref(),
-    });
     // A Common part's texture paths are pointed among `Common/`'s textures alone
     // (`processing::model`), so a Common `.mtl` is looked up against them, as pre-Fox looks up
     // its Common `.mtl` files (`common_mtl_findings`).
+    let common_textures: TexturePlace = common
+        .texture_stems
+        .iter()
+        .map(|stem| (stem.clone(), stem.clone()))
+        .collect();
     let common_sources = TextureSources {
-        held: &common.texture_stems,
+        held: &[&common_textures],
         common: &common.texture_stems,
         installed: common.installed.as_ref(),
     };
@@ -1022,16 +1026,22 @@ fn folder_findings(
     let mut pass = ContentPass::default();
     for (file, found) in files.iter().zip(per_file) {
         pass.append(found);
-        if let Some(sources) = &sources
+        if let Some(held) = &held
             && file.kind == FileKind::Mtl
             && let Some(read) = materials.get(&file.path)
         {
             let used = used_names(&pairings, &file.path, &materials, common);
+            let places = held.of(&file.path);
+            let sources = TextureSources {
+                held: &places,
+                common: &common.texture_stems,
+                installed: common.installed.as_ref(),
+            };
             pass.findings.extend(texture_findings(
                 &relative(&file.path, folder),
                 read,
                 &used,
-                sources,
+                &sources,
                 &scope,
             ));
         }
@@ -2412,7 +2422,7 @@ mod tests {
             ),
         ];
         assert_eq!(
-            slot_05_findings("deep_xml_in_face", &[("face/face.xml", xml.clone())]),
+            slot_05_findings("deep_xml_in_face", &[("face.xml", xml.clone())]),
             missing
         );
         assert_eq!(

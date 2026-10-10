@@ -152,6 +152,53 @@ fn under_ingame_face_a_texture_only_the_combined_boots_folder_holds_supplies_his
     assert!(entries.contains_key(&texture), "{texture}");
 }
 
+#[test]
+fn under_ingame_face_a_subfolder_part_s_texture_comes_before_the_combined_boots_folder_s() {
+    // His `parts/boots.mtl` and Crocs's `boots.mtl` both name `skin.dds`: his part's resolves
+    // in `parts/` first, Crocs's, whose folder is no folder of his tree, as his root's would,
+    // among the combined folder's textures.
+    let sandbox = Sandbox::new("prefox_ingame_subfolder_texture");
+    let export = "co Midcup Linked";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/parts/boots.model"), &card_model());
+    sandbox.write(&format!("{player}/parts/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/parts/skin.dds"), &small_dds());
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    let crocs = format!("exports/{export}/Boots/Crocs");
+    sandbox.write(&format!("{crocs}/boots.model"), &card_naming("crocs"));
+    sandbox.write(&format!("{crocs}/boots.mtl"), &materials("crocs", "skin"));
+    sandbox.write(
+        &format!("{crocs}/skin.png"),
+        &crate::textures::texture_fixture("skin.png"),
+    );
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            CLEAN[1],
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info model_merged [Keep] at Players/05 - A (model=boots.model)",
+        ],
+    );
+
+    // The parts merge into one `boots.model` and `boots.mtl`, Crocs's part first.
+    let boots = entries_under(&entries, BOOTS_K0625);
+    assert_eq!(
+        sampler_paths(boots["boots.mtl"]),
+        [
+            format!("{SLOT_05_HOME}skin.dds"),
+            format!("{SLOT_05_HOME}parts/skin.dds")
+        ]
+    );
+    for texture in ["skin", "parts/skin"] {
+        let texture = format!("common/character1/{SLOT_05_HOME}{texture}.dds");
+        assert!(entries.contains_key(&texture), "{texture}");
+    }
+}
+
 /// Writes slot 07 of the export `export`: `face_high.model`, its `.mtl` and `skin.dds`, a
 /// clean player beside slot 05, so the CPK is written whatever slot 05 gives.
 fn write_slot_07_face(sandbox: &Sandbox, export: &str) {

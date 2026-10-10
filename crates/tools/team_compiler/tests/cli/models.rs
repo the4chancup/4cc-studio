@@ -16,6 +16,7 @@ use fmdl::{FmdlFile, Model};
 
 use crate::bins::{BOOTS_LIST, GLOVE_LIST, install_tables, item_list, pairs_of};
 use crate::common::Sandbox;
+use crate::common_links::texture_directories;
 use crate::compile::{cpk_entries, pes21_settings, pixels_cut_dds, tracer_kit, tracer_player_file};
 use crate::conversion::HOME_714_05;
 use crate::face_folders::assert_blank_face;
@@ -23,6 +24,7 @@ use crate::prefox_faces::{
     BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, materials_naming,
     small_dds,
 };
+use crate::textures::tracer_model_renaming;
 use crate::{TEAM_COLORS_MISSING, clean_model, command_args, findings_of};
 
 /// The entry names of the FPK `bytes`.
@@ -2379,5 +2381,134 @@ fn a_face_model_weighted_to_the_hand_bones_gives_its_hands_to_the_player_s_glove
         pairs_of(&entries, BOOTS_LIST),
         [(71406, 626)],
         "slot 06's boots"
+    );
+}
+
+/// The FTEX of slot 05's texture at `below`, its path below the folder without extension, in
+/// team 714's PES 21 output: the platform folder just before the name.
+fn slot_05_ftex(below: &str) -> String {
+    let (directory, name) = below
+        .rsplit_once('/')
+        .map_or(("", below), |(directory, name)| (directory, name));
+    let directory = if directory.is_empty() {
+        String::new()
+    } else {
+        format!("{directory}/")
+    };
+    format!("Asset/model/character/common/714/05 - A/sourceimages/{directory}#windx11/{name}.ftex")
+}
+
+// TC-MOD-65
+#[test]
+fn a_subfolder_s_fmdl_names_the_texture_nearest_it_at_its_path_on_pes_21() {
+    // The root's `shorts.dds` and `jessie/shorts.dds` are two textures, each at its own path;
+    // `jessie/hair_high.fmdl` names the nearer one.
+    let sandbox = Sandbox::new("mod_subfolder_textures_fox");
+    let export = "co Midcup Subfolders";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(
+        &format!("{player}/jessie/hair_high.fmdl"),
+        &tracer_model_renaming("fcl_hair.fmdl", &[("shirt.dds", "shorts.dds")]),
+    );
+    sandbox.write(
+        &format!("{player}/shorts.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/jessie/shorts.dds"), &small_dds());
+
+    let entries = compile_clean(
+        &sandbox,
+        export,
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=jessie/hair_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let root = slot_05_ftex("shorts");
+    let nearest = slot_05_ftex("jessie/shorts");
+    assert!(entries.contains_key(&root), "{:#?}", entries.keys());
+    assert!(entries.contains_key(&nearest), "{:#?}", entries.keys());
+    assert_ne!(entries[&root], entries[&nearest]);
+    // The subfolder's face part is a model of the face package beside the root's.
+    let package = face_package(&entries);
+    let models: Vec<&str> = package
+        .entries()
+        .map(|(name, _)| name)
+        .filter(|name| name.ends_with(".fmdl"))
+        .collect();
+    assert_eq!(models, ["face_high.fmdl", "hair_high.fmdl"]);
+    // Every entry of its texture table naming `shorts.dds` names the nearer one.
+    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "shorts.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| *directory == format!("{HOME_714_05}jessie/")),
+        "{directories:?}"
+    );
+}
+
+#[test]
+fn a_subfolder_s_texture_comes_before_a_combined_shared_folder_s_of_its_stem_on_pes_21() {
+    // `Boots/Crocs`, combined into slot 05's boots, holds a `skin.dds` of other bytes, which
+    // sits at the root of his texture home; `jessie/hair_high.fmdl` names its own folder's.
+    let sandbox = Sandbox::new("mod_subfolder_texture_before_combined");
+    let export = "co Midcup Subfolders";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(
+        &format!("{player}/jessie/hair_high.fmdl"),
+        &tracer_model_renaming("fcl_hair.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(&format!("{player}/jessie/skin.dds"), &small_dds());
+    // His own boots, which the link combines with, and the texture the tracer's boots name.
+    sandbox.write(
+        &format!("{player}/kit_boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(
+        &format!("{player}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Boots/Crocs/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(
+        &format!("exports/{export}/Boots/Crocs/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let entries = compile_clean(
+        &sandbox,
+        export,
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=jessie/hair_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+        ],
+    );
+
+    let subfolder = slot_05_ftex("jessie/skin");
+    let combined = slot_05_ftex("skin");
+    assert!(entries.contains_key(&subfolder), "{:#?}", entries.keys());
+    assert!(entries.contains_key(&combined), "{:#?}", entries.keys());
+    assert_ne!(entries[&subfolder], entries[&combined]);
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| *directory == format!("{HOME_714_05}jessie/")),
+        "{directories:?}"
     );
 }

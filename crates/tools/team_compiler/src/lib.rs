@@ -28,6 +28,7 @@ mod settings;
 mod templates;
 #[cfg(test)]
 mod testing;
+mod texture_lookup;
 mod upgrade;
 mod user_face_xml;
 mod validation;

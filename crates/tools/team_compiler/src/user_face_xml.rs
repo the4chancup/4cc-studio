@@ -1107,15 +1107,17 @@ mod tests {
         let rest = format!("<dif>{dif}</dif>");
         assert_eq!(with_face(&rest, &[]), Vec::<String>::new());
         // The dual-engine layout: the `<dif>` for PES 15-17, the bin for PES 18-21.
+        assert_eq!(with_face(&rest, &["face_diff.bin"]), Vec::<String>::new());
         assert_eq!(
-            with_face(&rest, &["face/face_diff.bin"]),
-            Vec::<String>::new()
+            with_face(&rest, &["Face_Diff.xml"]),
+            ["xml_dif_conflict [DropFolder] (file=face.xml)"]
         );
-        // A face diff anywhere in the folder is the folder's.
-        for face_diff_xml in ["Face_Diff.xml", "face/face_diff.xml", "boots/face_diff.xml"] {
+        // A subfolder's face diff is none of the folder's: the structure pass names it
+        // (`file_type_disallowed`), and a lenient check keeps it unread.
+        for face_diff_xml in ["face/face_diff.xml", "boots/face_diff.xml"] {
             assert_eq!(
                 with_face(&rest, &[face_diff_xml]),
-                ["xml_dif_conflict [DropFolder] (file=face.xml)"],
+                Vec::<String>::new(),
                 "{face_diff_xml}"
             );
         }

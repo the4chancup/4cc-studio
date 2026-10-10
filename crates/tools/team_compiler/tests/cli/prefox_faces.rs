@@ -1977,3 +1977,76 @@ fn a_model_material_its_mtl_does_not_define_drops_the_folder_at_check_and_compil
     assert!(entries.contains_key(&face_cpk(7)), "{:?}", entries.keys());
     assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }
+
+#[test]
+fn a_subfolder_s_texture_sits_at_its_path_and_a_mtl_names_the_nearest_one() {
+    // The root's `skin.dds` and `jessie/skin.png` are two textures, each at its own path in
+    // the texture home (`player_folders.md` "Subfolders"); `jessie/body/x.mtl` names the
+    // nearer one, `face_high.mtl` the root's.
+    let sandbox = Sandbox::new("prefox_subfolder_textures");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/jessie/skin.png"),
+        &crate::textures::texture_fixture("skin.png"),
+    );
+    sandbox.write(&format!("{player}/jessie/body/x.model"), &card_model());
+    sandbox.write(&format!("{player}/jessie/body/x.mtl"), &card_materials());
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let home = "model/character/uniform/common/714/05 - A/";
+    let textures = entries_under(&entries, &format!("common/character1/{home}"));
+    assert_eq!(
+        textures.keys().copied().collect::<Vec<_>>(),
+        ["jessie/skin.dds", "skin.dds"],
+        "{:#?}",
+        entries.keys()
+    );
+    assert_ne!(textures["jessie/skin.dds"], textures["skin.dds"]);
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    assert_eq!(
+        sampler_paths(&face[&format!("{folder}face_high.mtl")]),
+        [format!("{home}skin.dds")]
+    );
+    let x_mtl = face
+        .iter()
+        .find(|(path, _)| path.ends_with("x.mtl"))
+        .map(|(_, bytes)| bytes)
+        .unwrap_or_else(|| panic!("{:#?}", face.keys()));
+    assert_eq!(sampler_paths(x_mtl), [format!("{home}jessie/skin.dds")]);
+}
+
+#[test]
+fn a_mtl_is_supplied_by_a_texture_of_its_folder_or_a_parent_never_a_subfolder() {
+    // `jessie/body/x.mtl` names `skin.dds`, which `jessie/` holds: nearest first, the lookup
+    // goes up from the `.mtl`'s folder. The root's `face_high.mtl` names `shorts.dds`, which
+    // only `jessie/` holds: the lookup never goes down.
+    let sandbox = Sandbox::new("prefox_subfolder_texture_lookup");
+    let export = "co Midcup Card";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.model"), &card_model());
+    sandbox.write(
+        &format!("{player}/face_high.mtl"),
+        &materials_naming("shorts"),
+    );
+    sandbox.write(&format!("{player}/jessie/body/x.model"), &card_model());
+    sandbox.write(&format!("{player}/jessie/body/x.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/jessie/skin.dds"), &small_dds());
+    sandbox.write(&format!("{player}/jessie/shorts.dds"), &small_dds());
+
+    let run = sandbox.run(&pes17(&sandbox), &["check"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=face_high.mtl, texture=./shorts.dds, materials=card)",
+            CLEAN[0],
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+}

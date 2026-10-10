@@ -248,6 +248,118 @@ fn a_subfolder_s_texture_shares_no_stem_with_the_root_s() {
 }
 
 #[test]
+fn each_folder_of_a_player_s_tree_is_a_stem_namespace_of_its_own() {
+    // The root's `hair.dds` and `jessie/hair.dds` share no namespace; `jessie/`'s two do, and
+    // so do `jessie/body/`'s, each folder's conflict reported once.
+    let report = report(
+        "egg Midcup",
+        &[
+            ("Players/03 - A/hair.dds", 9),
+            ("Players/03 - A/jessie/hair.dds", 9),
+            ("Players/03 - A/jessie/hair.png", 9),
+            ("Players/03 - A/jessie/body/Skin.dds", 9),
+            ("Players/03 - A/jessie/body/skin.tga", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("texture_stem_conflict", Disposition::DropFolder); 2]
+    );
+    assert_eq!(report.issues[0].scope, folder("Players/03 - A"));
+    let files: Vec<&str> = report
+        .issues
+        .iter()
+        .map(|issue| issue.context[1].1.as_str())
+        .collect();
+    assert_eq!(
+        files,
+        [
+            "jessie/hair.dds,jessie/hair.png",
+            "jessie/body/Skin.dds,jessie/body/skin.tga"
+        ]
+    );
+    assert!(report.validated.unwrap().players.is_empty());
+}
+
+#[test]
+fn a_texture_link_below_a_subfolder_claims_no_stem_in_that_subfolder() {
+    // Links are read in the root alone: `jessie/hair.png.common` is disallowed, and no
+    // second `hair` of `jessie/`'s, whichever way the file-type check goes.
+    let files = [
+        ("Common/hair.png", 9),
+        ("Players/03 - A/face_high.model", 10),
+        ("Players/03 - A/jessie/hair.dds", 9),
+        ("Players/03 - A/jessie/hair.png.common", 0),
+    ];
+    for (strict, disposition, players) in [
+        (true, Disposition::DropFolder, 0),
+        (false, Disposition::Keep, 1),
+    ] {
+        let report = report_with(&context_with(strict, false), "egg Midcup", &files, &[], &[]);
+        assert_eq!(
+            issue_codes(&report),
+            [("file_type_disallowed", disposition)],
+            "strict {strict}: {:?}",
+            report.issues
+        );
+        assert_eq!(
+            report.issues[0].context,
+            [("file", "jessie/hair.png.common".to_owned())],
+            "strict {strict}"
+        );
+        assert_eq!(
+            report.validated.unwrap().players.len(),
+            players,
+            "strict {strict}"
+        );
+    }
+}
+
+#[test]
+fn a_per_player_singleton_below_a_subfolder_is_file_type_disallowed() {
+    let report = report(
+        "egg Midcup",
+        &[
+            ("Players/03 - A/face_high.model", 10),
+            ("Players/03 - A/face.xml", 10),
+            ("Players/03 - A/face_diff.bin", 10),
+            ("Players/03 - A/jessie/Face.XML", 10),
+            ("Players/03 - A/jessie/face_diff.bin", 10),
+            ("Players/03 - A/jessie/body/face_diff.xml", 10),
+            ("Players/03 - A/jessie/fcl_hair_sim.fclo", 10),
+            // Another `.xml`, `.bin` or `.fclo` below a subfolder is model content.
+            ("Players/03 - A/jessie/glove.xml", 10),
+            ("Players/03 - A/jessie/x.bin", 10),
+            ("Players/03 - A/jessie/x.fclo", 10),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("file_type_disallowed", Disposition::DropFolder); 4]
+    );
+    let named: Vec<&str> = report
+        .issues
+        .iter()
+        .map(|issue| issue.context[0].1.as_str())
+        .collect();
+    assert_eq!(
+        named,
+        [
+            "jessie/body/face_diff.xml",
+            "jessie/Face.XML",
+            "jessie/face_diff.bin",
+            "jessie/fcl_hair_sim.fclo",
+        ]
+    );
+    // As a subfolder's marker does under the strict check, it drops the player folder.
+    assert!(report.validated.unwrap().players.is_empty());
+}
+
+#[test]
 fn fpc_off_alone_is_an_off_directive() {
     let report = report(
         "egg Midcup",

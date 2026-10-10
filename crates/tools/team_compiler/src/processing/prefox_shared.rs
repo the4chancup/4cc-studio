@@ -49,6 +49,7 @@ use crate::plan::ModelFolder;
 use crate::plan::roles::{
     ModelPackage, PlayerFile, file_stem, is_direct_root_folder_file, path_stem,
 };
+use crate::texture_lookup::{TextureFolders, TexturePlace};
 
 /// What the deep pass guarantees of every `.model` a task reads on pre-Fox.
 const MTL_FOUND: &str = "the deep pass drops a folder holding a `.model` no `.mtl` is found for \
@@ -147,9 +148,10 @@ pub(super) fn package(
     findings: &mut Vec<Finding>,
 ) -> Result<PackageFiles, TaskFailure> {
     let mut models = Vec::new();
-    // The folder's texture stems, folded, each with its stem as the folder spells it: the
-    // name its converted DDS has in the texture home (`folder_textures`).
-    let mut textures: BTreeMap<String, String> = BTreeMap::new();
+    // The folder's textures by the folder of its tree holding each (an `ingame_face` player's
+    // parts may sit in his subfolders), and its combined folders', each with the path its
+    // converted DDS has below the texture home (`folder_textures`).
+    let mut textures = TextureFolders::default();
     // The stems the folder's texture links stand for, folded, each with the stem of the
     // `Common/` texture the link names. A shared folder holds no link.
     let mut linked: BTreeMap<String, String> = BTreeMap::new();
@@ -194,8 +196,8 @@ pub(super) fn package(
                     package: owner,
                     xml_type,
                 } if owner == package => models.push(source_model(xml_type)),
-                PlayerFile::Texture(stem, _) => {
-                    textures.insert(vtree::fold_name(&stem), stem);
+                PlayerFile::Texture { below, .. } => {
+                    textures.insert(source_path == &folder.path, &below);
                 }
                 PlayerFile::CommonTexture(stem) => {
                     linked.insert(vtree::fold_name(&stem), linked_texture_stem(folder, file));
@@ -245,28 +247,20 @@ pub(super) fn package(
             (vtree::fold_name(stem), stem.to_owned())
         })
         .collect();
-    // A stem the folder holds is its own, before one a texture link stands for, as in the
-    // face (`prefox_face::face`).
-    let own_places = [
-        (&textures, home.as_str()),
-        (&linked, common_directory.as_str()),
-    ];
-    let common_places = [
-        own_places[0],
-        own_places[1],
-        (&common_textures, common_directory.as_str()),
-    ];
     // The textures directly in `Common/` are a copied Common `.mtl`'s alone: a `.mtl` of the
     // folder's resolves a texture into Common only through a `.common` link (`model_format.md`
     // "Link files"), so an unlinked Common stem it names is left as written, as in the face.
     // A converted FMDL's set goes by its FMDL: a Common one a link of his brings in names the
     // Common textures as a copied Common `.mtl` does.
-    let places_for = |file: &FileDescriptor| -> &[(&BTreeMap<String, String>, &str)] {
+    // A stem the folder holds, nearest first from the file's folder (`texture_lookup`), is its
+    // own, before one a texture link stands for, as in the face (`prefox_face::face`).
+    let places_for = |file: &FileDescriptor| -> Vec<(&TexturePlace, &str)> {
+        let mut places = textures.places(&folder.path, &file.path, &home);
+        places.push((&linked, common_directory.as_str()));
         if is_direct_root_folder_file(&file.path) {
-            &common_places
-        } else {
-            &own_places
+            places.push((&common_textures, common_directory.as_str()));
         }
+        places
     };
     // An FMDL converted (`fmdl_for_pre_fox`, its source's skeleton of its path stem the bind
     // pose, its findings naming it by `source_name`), its material set pointed as the face
@@ -291,7 +285,7 @@ pub(super) fn package(
         // names the texture the textures task emits (or the folder's own `env`, or the Common
         // one its link names, `point_materials` respelling it below).
         add_environment_map(&mut conversion.materials, &home);
-        point_materials(&mut conversion.materials, places_for(model.file));
+        point_materials(&mut conversion.materials, &places_for(model.file));
         point_reserved_kit_stems(&mut conversion.materials, &common_directory);
         Ok(conversion)
     };
@@ -323,7 +317,7 @@ pub(super) fn package(
                 let material = material_of(folder, model);
                 if !member_sets.contains_key(&material.path) {
                     let bytes = take(files, material);
-                    sets.push(read_materials(material, &bytes, places_for(material))?);
+                    sets.push(read_materials(material, &bytes, &places_for(material))?);
                     member_sets.insert(&material.path, (sets.len() - 1, bytes));
                 }
                 let (index, mtl) = &member_sets[&material.path];
@@ -419,7 +413,7 @@ pub(super) fn package(
                 (file.path.name().to_ascii_lowercase(), *own)
             });
             for (file, _) in used {
-                let bytes = rewritten_materials(file, &take(files, file), places_for(file))?;
+                let bytes = rewritten_materials(file, &take(files, file), &places_for(file))?;
                 let name = file.path.name().to_ascii_lowercase();
                 insert(&mut contents, package, name, bytes)?;
             }

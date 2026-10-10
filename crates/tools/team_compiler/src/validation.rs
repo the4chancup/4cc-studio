@@ -810,7 +810,7 @@ fn file_role_messages(
                 | PlayerFile::FaceDiffXml
                 | PlayerFile::Skeleton { .. }
                 | PlayerFile::LeftOutKitVariant
-                | PlayerFile::Texture(..)
+                | PlayerFile::Texture { .. }
                 | PlayerFile::CommonTexture(_)
                 | PlayerFile::PreFoxModel { .. }
                 | PlayerFile::PreFoxPart { .. }
@@ -1118,17 +1118,15 @@ mod tests {
             ("Players/03 - A/face_high.fmdl", 1),
             ("Players/03 - A/face.xml", 1),
             ("Players/05 - B/kit_boots.fmdl", 1),
-            ("Players/05 - B/face/face.xml", 1),
-            ("Players/05 - B/boots/face.xml", 1),
+            ("Players/05 - B/face.xml", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
-        // In a folder with no face model too, and in any of its subfolders.
+        // In a folder with no face model too.
         assert_eq!(
             names(&export, PesVersion::Pes21),
             [
                 "Info xml_ignored_fox [Keep] at Players/03 - A (file=face.xml)",
-                "Info xml_ignored_fox [Keep] at Players/05 - B (file=boots/face.xml)",
-                "Info xml_ignored_fox [Keep] at Players/05 - B (file=face/face.xml)",
+                "Info xml_ignored_fox [Keep] at Players/05 - B (file=face.xml)",
             ]
         );
         assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());

@@ -12,6 +12,7 @@ use pes_version::{Engine, PesVersion};
 use vtree::ScopePath;
 
 use crate::plan::roles::ModelPackage;
+use crate::texture_lookup;
 
 /// The team id the referees' content carries in game paths and FMDL texture paths
 /// (`common/999/Ref A/`, `pipeline.md` "3. Per-model-folder parallel steps", step 6). It is
@@ -147,22 +148,28 @@ impl TextureHome {
         }
     }
 
-    /// The CPK path of the texture `stem` here, converted for a target of `engine` (an FTEX on
-    /// Fox, a DDS on pre-Fox), for team `team_id`.
-    pub(crate) fn texture(&self, engine: Engine, team_id: u16, stem: &str) -> String {
+    /// The CPK path of the texture at `below` here, its path below its source folder without
+    /// its extension (`skin`, or `jessie/skin` for a subfolder's, `PlayerFile::Texture`),
+    /// converted for a target of `engine` (an FTEX on Fox, a DDS on pre-Fox), for team
+    /// `team_id`: at that path below the directory a model names it in (`directory`). On Fox
+    /// the platform folder `#windx11` sits in the texture's own directory, just before its
+    /// name, which is where the game looks for the FTEX of a path a model names
+    /// (`sourceimages/jessie/#windx11/skin.ftex` for `sourceimages/jessie/skin`).
+    pub(crate) fn texture(&self, engine: Engine, team_id: u16, below: &str) -> String {
+        let (subdirectory, name) = texture_lookup::split(below);
         match (engine, self) {
             (Engine::Fox, TextureHome::PlayerCommon { folder_name }) => format!(
-                "Asset/model/character/common/{team_id}/{folder_name}/sourceimages/#windx11/{stem}.ftex"
+                "Asset/model/character/common/{team_id}/{folder_name}/sourceimages/{subdirectory}#windx11/{name}.ftex"
             ),
             (Engine::Fox, TextureHome::SharedOutput { package, id }) => format!(
-                "Asset/{}/#windx11/{stem}.ftex",
+                "Asset/{}/{subdirectory}#windx11/{name}.ftex",
                 model_folder(*package, PackageKey::Id(*id))
             ),
             (Engine::PreFox, TextureHome::PlayerCommon { folder_name }) => format!(
-                "common/character1/model/character/uniform/common/{team_id}/{folder_name}/{stem}.dds"
+                "common/character1/model/character/uniform/common/{team_id}/{folder_name}/{below}.dds"
             ),
             (Engine::PreFox, TextureHome::SharedOutput { package, id }) => format!(
-                "{}/{stem}.dds",
+                "{}/{below}.dds",
                 pre_fox_package_folder(*package, PackageKey::Id(*id))
             ),
         }
@@ -413,6 +420,11 @@ mod tests {
             player.texture(Engine::Fox, 714, "shirt"),
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex"
         );
+        // A subfolder's texture: the platform folder sits just before the name.
+        assert_eq!(
+            player.texture(Engine::Fox, 714, "jessie/shorts/shorts"),
+            "Asset/model/character/common/714/05 - A/sourceimages/jessie/shorts/#windx11/shorts.ftex"
+        );
         let boots = TextureHome::SharedOutput {
             package: ModelPackage::Boots,
             id: 644,
@@ -451,6 +463,10 @@ mod tests {
         assert_eq!(
             player.texture(Engine::PreFox, 714, "skin"),
             "common/character1/model/character/uniform/common/714/05 - A/skin.dds"
+        );
+        assert_eq!(
+            player.texture(Engine::PreFox, 714, "jessie/skin"),
+            "common/character1/model/character/uniform/common/714/05 - A/jessie/skin.dds"
         );
     }
 

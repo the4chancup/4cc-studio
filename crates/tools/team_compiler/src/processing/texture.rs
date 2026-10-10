@@ -76,26 +76,31 @@ pub(super) fn conversion_failure(name: &str, error: ConvertError) -> TextureErro
     }
 }
 
-/// One source's copy of a texture: the package the source feeds, the stem as the source
-/// spells it, and the FTEX bytes.
+/// One source's copy of a texture: the package the source feeds, the texture's path below the
+/// source folder without its extension as the source spells it (`PlayerFile::Texture`), and
+/// the converted bytes.
 struct TextureCopy {
     package: ModelPackage,
-    stem: String,
+    below: String,
     bytes: Vec<u8>,
 }
 
 /// The textures of `folder`, its own and its combined folders', converted from their bytes in
-/// `files` into the folder's texture home for team `team_id`, by stem compared case-folded:
-/// one entry per stem, however many of the folder's models use it and however many ids its
-/// packages are emitted under. A stem several sources hold is one entry when their bytes agree.
+/// `files` into the folder's texture home for team `team_id`, each at its path below its source
+/// folder (`PlayerFile::Texture`), compared case-folded: one entry per path, however many of the
+/// folder's models use it and however many ids its packages are emitted under, so a
+/// subfolder's `jessie/skin.dds` and the root's `skin.dds` are two entries
+/// (`player_folders.md` "Subfolders"). A combined shared folder's textures are all directly in
+/// it, so its copy of a stem shares the root's path. A path several sources hold is one entry
+/// when their bytes agree.
 /// When they differ within one package the task fails with `merged_texture_conflict`: the one
 /// model those sources build has no winner. When they differ across packages the higher
 /// package in canonical order (face > boots > gloves) wins, `shared_texture_conflict` is noted
-/// in `findings` per stem and lower package, and the lower package is dropped: its textures
+/// in `findings` per path and lower package, and the lower package is dropped: its textures
 /// task's entries leave out every texture only its sources hold, and the dropped packages are
 /// returned for the writer to skip their tasks. A folder taking the template environment map
 /// (`ModelFolder::takes_template_environment_map`) gets it as `env.dds`, emitted as it is. The
-/// stems kept then have their kit variant sets completed against `kits`
+/// textures kept then have their kit variant sets completed against `kits`
 /// (`complete_kit_variants`).
 pub(super) fn folder_textures(
     folder: &ModelFolder,
@@ -105,28 +110,28 @@ pub(super) fn folder_textures(
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
 ) -> Result<(Vec<Entry>, Vec<ModelPackage>), TaskFailure> {
-    // Each stem's copies in source order: the player's own folder's, then each combined
+    // Each path's copies in source order: the player's own folder's, then each combined
     // folder's.
     let mut copies: BTreeMap<String, Vec<TextureCopy>> = BTreeMap::new();
     for (package, _, source_files) in folder.roles() {
         for (file, role) in source_files {
-            let PlayerFile::Texture(stem, format) = role else {
+            let PlayerFile::Texture { below, format } = role else {
                 continue;
             };
             let bytes = convert(ctx, format, file.path.name(), &take(files, file))?;
             copies
-                .entry(vtree::fold_name(&stem))
+                .entry(vtree::fold_name(&below))
                 .or_default()
                 .push(TextureCopy {
                     package,
-                    stem,
+                    below,
                     bytes,
                 });
         }
     }
     let mut dropped: Vec<ModelPackage> = Vec::new();
-    for stem_copies in copies.values() {
-        resolve_stem(stem_copies, &mut dropped, findings)?;
+    for path_copies in copies.values() {
+        resolve_path(path_copies, &mut dropped, findings)?;
     }
     let environment_map = folder.takes_template_environment_map().then(|| {
         (
@@ -136,38 +141,40 @@ pub(super) fn folder_textures(
     });
     let mut textures: Vec<(String, Vec<u8>)> = copies
         .into_values()
-        .filter_map(|stem_copies| {
-            // The stem's one copy: the highest package's that is kept, the first of its
+        .filter_map(|path_copies| {
+            // The path's one copy: the highest package's that is kept, the first of its
             // sources'; the copies kept agree, so which of them is written changes no byte.
             let kept = ModelPackage::ALL
                 .into_iter()
                 .filter(|package| !dropped.contains(package))
-                .find(|package| stem_copies.iter().any(|copy| copy.package == *package))?;
-            let copy = stem_copies.into_iter().find(|copy| copy.package == kept)?;
-            Some((copy.stem, copy.bytes))
+                .find(|package| path_copies.iter().any(|copy| copy.package == *package))?;
+            let copy = path_copies.into_iter().find(|copy| copy.package == kept)?;
+            Some((copy.below, copy.bytes))
         })
         .chain(environment_map)
         .collect();
     complete_kit_variants(&mut textures, kits, findings);
     let entries = textures
         .into_iter()
-        .map(|(stem, bytes)| {
+        .map(|(below, bytes)| {
             let path = folder
                 .textures
-                .texture(ctx.version.engine(), team_id, &stem);
+                .texture(ctx.version.engine(), team_id, &below);
             (path, bytes)
         })
         .collect();
     Ok((entries, dropped))
 }
 
-/// Completes the kit variant sets among `textures`, each a stem as spelled with its converted
-/// bytes, against `kits`, the export's kit numbers (`pipeline.md` "4. Per-export non-model
-/// steps", Kit-dependent assets): the variants of one reference, compared case-folded, are a
-/// set, and for each of `kits` a set has no variant of, in ascending order, the lowest
-/// variant's bytes are added under that number's name and `kit_variant_missing` is noted in
-/// `findings`, so the game never shows a missing texture for a kit the team has. A variant of a
-/// number `kits` does not hold stays as it is.
+/// Completes the kit variant sets among `textures`, each a path below its folder without its
+/// extension as spelled (a stem, for a texture directly in it) with its converted bytes,
+/// against `kits`, the export's kit numbers (`pipeline.md` "4. Per-export non-model steps",
+/// Kit-dependent assets): the variants of one reference, compared case-folded, are a set, and
+/// for each of `kits` a set has no variant of, in ascending order, the lowest variant's bytes
+/// are added under that number's name and `kit_variant_missing` is noted in `findings`, so the
+/// game never shows a missing texture for a kit the team has. A variant of a number `kits` does
+/// not hold stays as it is. Only the textures directly in the folder form sets: a subfolder's
+/// variants are emitted as they are.
 fn complete_kit_variants(
     textures: &mut Vec<(String, Vec<u8>)>,
     kits: &[u8],
@@ -178,6 +185,9 @@ fn complete_kit_variants(
     let mut variants: Vec<(String, u8, usize, String)> = textures
         .iter()
         .enumerate()
+        // A token is read in the whole text, a subfolder's name included (`old_kit2_hair/skin`
+        // would read as a variant), so only a stem directly in the folder is read for one.
+        .filter(|(_, (below, _))| !below.contains('/'))
         .filter_map(|(index, (stem, _))| match kit_token(stem)? {
             (KitToken::Variant(kit), reference) => {
                 Some((vtree::fold_name(&reference), kit, index, reference))
@@ -210,10 +220,10 @@ fn complete_kit_variants(
     }
 }
 
-/// Decides one stem held by `copies`, several sources' in source order: a disagreement within
+/// Decides one path held by `copies`, several sources' in source order: a disagreement within
 /// one package fails the task; across packages, each package lower than the highest one holding
-/// the stem whose bytes differ from its is noted and added to `dropped`.
-fn resolve_stem(
+/// the path whose bytes differ from its is noted and added to `dropped`.
+fn resolve_path(
     copies: &[TextureCopy],
     dropped: &mut Vec<ModelPackage>,
     findings: &mut Vec<Finding>,
@@ -225,7 +235,7 @@ fn resolve_stem(
         {
             return Err(TaskFailure {
                 code: Code::MergedTextureConflict,
-                context: vec![("texture", first.stem.clone())],
+                context: vec![("texture", first.below.clone())],
             });
         }
     }
@@ -243,7 +253,7 @@ fn resolve_stem(
             Code::SharedTextureConflict,
             Disposition::DropFolder,
             vec![
-                ("texture", winner.stem.clone()),
+                ("texture", winner.below.clone()),
                 ("dropped", copy.package.name().to_owned()),
             ],
         ));

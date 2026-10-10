@@ -32,6 +32,7 @@ use crate::plan::ModelFolder;
 use crate::plan::roles::{
     ModelPackage, PlayerFile, file_stem, is_direct_root_folder_file, skeleton_slot,
 };
+use crate::texture_lookup::{self, TextureFolders, TexturePlace};
 use crate::user_face_xml::{Reference, reference};
 
 /// One model of the package: a part of the output model its allowed name names, from the
@@ -99,10 +100,11 @@ pub(super) fn package(
     findings: &mut Vec<Finding>,
 ) -> Result<PackageFiles, TaskFailure> {
     let mut parts: Vec<Part> = Vec::new();
-    // The stems of the folder's own textures, and of the Common textures its `.common` links
-    // stand for.
-    let mut texture_stems = BTreeSet::new();
-    let mut linked_stems = BTreeSet::new();
+    // The folder's textures by the folder of its tree holding each, and its combined folders'
+    // (`texture_lookup`); and the stems of the Common textures its `.common` links stand for,
+    // each folded with itself.
+    let mut textures = TextureFolders::default();
+    let mut linked_stems = TexturePlace::new();
     let mut contents = PackageFiles::new();
     // `roles()` yields the folder's own files, then each combined folder's in `combined`'s
     // order, so each source's roles pair with its own file list here: a `.model`'s `.mtl` is
@@ -231,11 +233,12 @@ pub(super) fn package(
                 // The textures are the textures task's, and a linked one the Common textures
                 // task's; this task only points its models at them. Stems fold, as validation
                 // folds the name a texture claims.
-                PlayerFile::Texture(stem, _) => {
-                    texture_stems.insert(vtree::fold_name(&stem));
+                PlayerFile::Texture { below, .. } => {
+                    textures.insert(source_path == &folder.path, &below);
                 }
                 PlayerFile::CommonTexture(stem) => {
-                    linked_stems.insert(vtree::fold_name(&stem));
+                    let key = vtree::fold_name(&stem);
+                    linked_stems.insert(key.clone(), key);
                 }
                 PlayerFile::Model { .. }
                 | PlayerFile::CommonModel { .. }
@@ -283,7 +286,8 @@ pub(super) fn package(
     }
 
     // A folder's textures sit in its one texture home, once however many ids the package is
-    // emitted under: every copy of the model points at that one location. A texture resolved
+    // emitted under: every copy of the model points at that one location, a texture name
+    // resolving nearest first from the part's own folder (`texture_lookup`). A texture resolved
     // in Common, a Common part's own or one a folder's link stands for, stays in the team's
     // Common output, where the export's Common textures task puts it once for every player
     // (`pipeline.md` step 6: a texture resolved in Common is never relocated). A folder part
@@ -302,15 +306,20 @@ pub(super) fn package(
     // there, and one pointed there is supplied.
     let common_stems: BTreeSet<String> = folder
         .common_texture_stems
-        .union(&linked_stems)
+        .iter()
+        .chain(linked_stems.keys())
         .cloned()
         .collect();
-    let folder_places = [
-        (&texture_stems, texture_directory.as_str()),
-        (&linked_stems, common_directory.as_str()),
-    ];
-    let common_places = [(&common_stems, common_directory.as_str())];
-    let common_set_places = [folder_places[0], folder_places[1], common_places[0]];
+    let common_textures: TexturePlace = common_stems
+        .iter()
+        .map(|stem| (stem.clone(), stem.clone()))
+        .collect();
+    // A folder part's places: its folder's textures nearest first, then its links'.
+    let folder_places = |part: &Part| {
+        let mut places = textures.places(&folder.path, &part.path, &texture_directory);
+        places.push((&linked_stems, common_directory.as_str()));
+        places
+    };
     let installed_holds = installed_lookup(&ctx.installed, team_id);
     // A texture the part's source does not hold is one of the game's own; its directory names
     // the team as `000`, which becomes the team's id.
@@ -328,14 +337,23 @@ pub(super) fn package(
         // directories is the merge's `merge_material_conflict`, as intended.
         let mut models = Vec::with_capacity(parts.len());
         for part in &parts {
-            let places: &[(&BTreeSet<String>, &str)] = match part.textures {
-                PartTextures::Folder => &folder_places,
-                PartTextures::Common => &common_places,
-                PartTextures::CommonSet => &common_set_places,
+            let places = match part.textures {
+                PartTextures::Folder => folder_places(part),
+                PartTextures::Common => vec![(&common_textures, common_directory.as_str())],
+                PartTextures::CommonSet => {
+                    let mut places = folder_places(part);
+                    places.push((&common_textures, common_directory.as_str()));
+                    places
+                }
             };
             let mut model = FmdlFile::read(&part.bytes)?;
             rewrite_texture_paths(&mut model, |path| {
-                point_texture(path, places, common_places[0], &team_segment);
+                point_texture(
+                    path,
+                    &places,
+                    (&common_stems, &common_directory),
+                    &team_segment,
+                );
             })?;
             for path in used_texture_paths(&model)? {
                 let context = || {
@@ -607,26 +625,28 @@ fn split_fmdl(bytes: &[u8]) -> anyhow::Result<SplitFmdl> {
     })
 }
 
-/// Points `path`, one texture reference of a part, at where its texture is: the directory of
-/// the first of `places`, each the stems of the textures packed in a directory for the part,
-/// that holds its stem, or a variant of its set when it is a kit reference (`pants_kitN`).
-/// Else a path into the team's pre-Fox Common folder (`model/character/uniform/common/<team>/`,
-/// how a member's pre-Fox `.mtl` names a texture of `Common/`), read as the deep pass reads it
-/// (`user_face_xml::reference`), goes to the directory of `common`, the `Common/` textures, when
-/// they hold its stem: the evidence on which the deep pass calls it supplied (`pipeline.md`
-/// step 3 "Format conversion"). Any other texture is one of the game's own, whose directory
-/// names the team as `000`, replaced by `team_segment`. The file name is never changed: the
-/// game itself respells a reference for the kit picked.
+/// Points `path`, one texture reference of a part, at where its texture is: the first of
+/// `places`, each the textures packed in a directory for the part in lookup order
+/// (`texture_lookup::TexturePlace`), that holds its stem, or a variant of its set when it is a
+/// kit reference (`pants_kitN`), gives the directory, with that texture's own subdirectory
+/// below it (`jessie/`). Else a path into the team's pre-Fox Common folder
+/// (`model/character/uniform/common/<team>/`, how a member's pre-Fox `.mtl` names a texture of
+/// `Common/`), read as the deep pass reads it (`user_face_xml::reference`), goes to the
+/// directory of `common`, the `Common/` textures, when they hold its stem: the evidence on
+/// which the deep pass calls it supplied (`pipeline.md` step 3 "Format conversion"). Any other
+/// texture is one of the game's own, whose directory names the team as `000`, replaced by
+/// `team_segment`. The file name is never changed: the game itself respells a reference for
+/// the kit picked.
 fn point_texture(
     path: &mut TexturePath,
-    places: &[(&BTreeSet<String>, &str)],
+    places: &[(&TexturePlace, &str)],
     common: (&BTreeSet<String>, &str),
     team_segment: &str,
 ) {
     let stem = file_stem(&path.file_name);
+    let key = vtree::fold_name(stem);
     let holds = |stems: &BTreeSet<String>| {
-        stems.contains(&vtree::fold_name(stem))
-            || has_variant_among(stem, stems.iter().map(String::as_str))
+        stems.contains(&key) || has_variant_among(stem, stems.iter().map(String::as_str))
     };
     // A Common path into a subfolder names a file Fox never reads (a link names a direct
     // file), so only a direct one reaches `Common/`'s textures.
@@ -637,11 +657,18 @@ fn point_texture(
     let (common_stems, common_directory) = common;
     let place = places
         .iter()
-        .find(|(stems, _)| holds(stems))
-        .map(|(_, directory)| *directory)
-        .or_else(|| (names_pre_fox_common() && holds(common_stems)).then_some(common_directory));
+        .find_map(|(textures, directory)| {
+            let below = textures
+                .get(&key)
+                .map(String::as_str)
+                .or_else(|| texture_lookup::variant(textures, stem))?;
+            Some(format!("{directory}{}", texture_lookup::split(below).0))
+        })
+        .or_else(|| {
+            (names_pre_fox_common() && holds(common_stems)).then(|| common_directory.to_owned())
+        });
     path.directory = match place {
-        Some(directory) => directory.to_owned(),
+        Some(directory) => directory,
         None => path.directory.replace("/000/", team_segment),
     };
 }
@@ -869,6 +896,18 @@ mod tests {
         );
     }
 
+    /// A place holding the textures `below`, each its path below the place's directory, by its
+    /// folded stem.
+    fn place(below: &[&str]) -> TexturePlace {
+        below
+            .iter()
+            .map(|below| {
+                let (_, name) = texture_lookup::split(below);
+                (vtree::fold_name(name), (*below).to_owned())
+            })
+            .collect()
+    }
+
     /// The directory `point_texture` gives the path `file_name` in the game's team `000`
     /// folder for team 792, the part's own stems being `own`, going to `/home/`, and its
     /// linked stems `linked`, going to `/common/`; asserts the file name is kept.
@@ -877,14 +916,12 @@ mod tests {
             file_name: file_name.to_owned(),
             directory: "/Assets/pes16/model/character/common/000/sourceimages/".to_owned(),
         };
-        let set = |stems: &[&str]| -> BTreeSet<String> {
-            stems.iter().map(|stem| (*stem).to_owned()).collect()
-        };
-        let (own, linked) = (set(own), set(linked));
+        let (own, linked) = (place(own), place(linked));
+        let linked_stems: BTreeSet<String> = linked.keys().cloned().collect();
         point_texture(
             &mut path,
             &[(&own, "/home/"), (&linked, "/common/")],
-            (&linked, "/common/"),
+            (&linked_stems, "/common/"),
             "/792/",
         );
         assert_eq!(path.file_name, file_name);
@@ -899,10 +936,8 @@ mod tests {
             file_name: file_name.to_owned(),
             directory: directory.to_owned(),
         };
-        let set = |stems: &[&str]| -> BTreeSet<String> {
-            stems.iter().map(|stem| (*stem).to_owned()).collect()
-        };
-        let (own, common) = (set(own), set(common));
+        let own = place(own);
+        let common: BTreeSet<String> = common.iter().map(|stem| (*stem).to_owned()).collect();
         point_texture(
             &mut path,
             &[(&own, "/home/")],
@@ -976,6 +1011,15 @@ mod tests {
         assert_eq!(pointed_between("other.dds", &own, &linked), game);
         // A stem held in both places goes to the first.
         assert_eq!(pointed_between("hair.dds", &["hair"], &linked), "/home/");
+    }
+
+    #[test]
+    fn a_subfolder_s_texture_is_pointed_at_its_own_directory_below_the_home() {
+        assert_eq!(pointed("skin.dds", &["jessie/skin"]), "/home/jessie/");
+        assert_eq!(
+            pointed("pants_kitN.dds", &["jessie/body/pants_kit2"]),
+            "/home/jessie/body/"
+        );
     }
 
     #[test]

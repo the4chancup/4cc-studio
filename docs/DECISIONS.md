@@ -6396,3 +6396,23 @@ The structure pass never dropped a folder's own file (`settings.toml` and `portr
 removed by name), so the general rule was never written down. A dropped link references
 nothing, so nothing of the player depends on the target.
 Plan: `aesthetics_export/object_model.md` "What a scope drops", "Dropped link targets".
+
+## 2026-10-10 — aesthetics_export, team_compiler — a `.common` link below a player's subfolder names the file at the same path below `Common/`
+Decision: a `.common` link is read at any depth of a player folder's tree and names the
+`Common/` file at the link's own path below the player folder (`jessie/body.fmdl.common`
+loads `Common/jessie/body.fmdl`; a root link names a direct `Common/` file as before), on
+both engines: the link's model joins the player's packages as a root link's does, its
+material and texture links resolve the same way, and the Common tasks pack a linked
+subfolder file at its path on PES 18-21 too. A `Common/` subfolder file no link at any depth
+names stays `file_not_used` on PES 18-21 (TC-CMN-13). The shared links (`.face`, `.boots`,
+`.gloves`), which carry no path, stay directly in the player folder alone. Supersedes the
+"links are read directly in the player folder alone" half of the 2026-10-10 subfolder
+decision and 4.y-fix21's first item (a nested material link is resolved, not excluded).
+Why: the maintainer's rule: everything a pre-Fox `face.xml` can do must be doable without
+the xml, and on Fox there is no xml. A `face.xml` names a Common subfolder's file by its
+path (`.../common/<team>/jessie/oral_body_*.model`); the xml-less way is a link at the
+mirrored path, and a Common subfolder's file is therefore reachable on Fox, where the
+earlier reading ("a link names a direct file") had made it dead.
+Plan: `aesthetics_export/player_folders.md` "Subfolders" (the links bullet),
+`object_model.md` "File-type allowlist", `team_compiler/pipeline.md` step 6's Common
+sentence; `team_compiler/README.md` TC-CMN-13, TC-CMN-20.

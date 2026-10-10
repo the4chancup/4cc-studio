@@ -9,12 +9,13 @@ use std::collections::BTreeSet;
 use aesthetics_export::{
     FileDescriptor, FileKind, ModelFormat, ModelSuffix, PlayerFolder, SharedKind, SharedLink,
     SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, classify, common_link_name,
-    kit_token, model_suffix,
+    is_player_singleton, kit_token, model_suffix,
 };
 use dds_convert::SourceFormat;
 use pes_version::Engine;
 use vtree::ScopePath;
 
+use crate::deep::relative;
 use crate::face_xml;
 use crate::kit_variants::model_variant_sets;
 
@@ -268,9 +269,18 @@ pub(crate) enum PlayerFile {
     /// `kit_variant_model_left_out` and the file is never read
     /// (`kit_variants::model_variant_sets`).
     LeftOutKitVariant,
-    /// A texture with this stem and source format, converted once into the player's common
-    /// folder.
-    Texture(String, SourceFormat),
+    /// A texture, converted once into the folder's texture home at its path below its source
+    /// folder (`player_folders.md` "Subfolders", "Paths are kept"). A model's texture name
+    /// resolves to it nearest first (`texture_lookup`).
+    Texture {
+        /// The texture's path below its source folder without its extension, as spelled:
+        /// `jessie/skin` for `Players/05 - A/jessie/skin.dds`, `skin` for a file directly in
+        /// the folder (a shared folder's always). Not a stem: two of a player's textures may
+        /// share a stem in different folders of his tree.
+        below: String,
+        /// The format the texture is converted from.
+        format: SourceFormat,
+    },
     /// A `.common` link to a texture (`hair.dds.common` → `Common/hair.dds`): the stem, here
     /// `hair`, stands for the Common texture, which the export's Common textures task packs
     /// once in the team's Common output (`model_format.md` "Link files (`.common`)"). The
@@ -344,8 +354,8 @@ pub(crate) enum PlayerFile {
     /// merging", the material definition files), reading the Common `.mtl`
     /// (`TaskKind::files`). Nothing reads the empty link.
     CommonMaterial,
-    /// Pre-Fox: a member's own `face.xml`, anywhere in a player folder or directly in a shared
-    /// face folder (`role_position`), the authority on what the face loads in place of the one
+    /// Pre-Fox: a member's own `face.xml`, directly in a player folder or a shared face folder
+    /// (`role_position`), the authority on what the face loads in place of the one
     /// the compiler generates (`messages.md` "User-supplied `face.xml`"), a shared face's that
     /// of each face linking it: the deep pass reads and checks it (`user_face_xml`). Its folder
     /// has a face whatever models it holds (`FolderModels::of_player_files`).
@@ -387,7 +397,7 @@ impl PlayerFile {
             PlayerFile::UnusedFaceFile
             | PlayerFile::SlotlessSkeleton
             | PlayerFile::LeftOutKitVariant
-            | PlayerFile::Texture(..)
+            | PlayerFile::Texture { .. }
             | PlayerFile::CommonTexture(_)
             | PlayerFile::PreFoxCommonModel { .. }
             | PlayerFile::CommonMaterial
@@ -549,11 +559,13 @@ fn directly_in(folder: &ScopePath, file: &FileDescriptor) -> bool {
 /// below a shared folder's subfolder, which the allowlist names (`object_model.md` "File-type
 /// allowlist"). Links are read directly in the player folder alone (`player_folders.md`
 /// "Subfolders"): validation resolves no link below a subfolder, so one a lenient file-type
-/// check keeps there names nothing planning can read. A file anywhere else is one the
-/// structure pass names (`file_type_disallowed`), so validation does not report it again as
-/// `file_not_used`.
+/// check keeps there names nothing planning can read. The per-player singletons (`face.xml`,
+/// `face_diff.bin`, `face_diff.xml`, `fcl_hair_sim.fclo`, `is_player_singleton`) take a role
+/// directly in the player folder alone too: a player has one of each, and a subfolder's, kept
+/// by a lenient check, would be a second. A file anywhere else is one the structure pass names
+/// (`file_type_disallowed`), so validation does not report it again as `file_not_used`.
 pub(crate) fn role_position(folder: &ScopePath, file: &FileDescriptor, shared: bool) -> bool {
-    if shared || file.kind == FileKind::CommonLink {
+    if shared || file.kind == FileKind::CommonLink || is_player_singleton(file.path.name()) {
         directly_in(folder, file)
     } else {
         below(folder, file)
@@ -994,9 +1006,9 @@ pub(crate) fn part_source_models(
 /// no task reads it, and validation reports it as `file_not_used` unless something else
 /// explains it (`validation::file_role_messages`). A file below a subfolder of a player folder
 /// is a part of the folder like a file directly in it, its role given by its name as in the
-/// root (`model_role`), but for a `.common` link, read directly in the folder alone, and one
-/// below a shared folder's subfolder has none (`role_position`); its textures are the folder's
-/// own, and the face's files may sit anywhere in it. Each engine builds its own model format
+/// root (`model_role`), but for a `.common` link and a per-player singleton, read directly in
+/// the folder alone, and one below a shared folder's subfolder has none (`role_position`); its
+/// textures are the folder's own, each at its path. Each engine builds its own model format
 /// (`fox_file`, `pre_fox_file`); the textures and the face diff take the same roles on both
 /// (`texture_or_face_diff`).
 pub(crate) fn player_file(
@@ -1008,8 +1020,8 @@ pub(crate) fn player_file(
         return None;
     }
     match models.engine {
-        Engine::Fox => fox_file(file, models),
-        Engine::PreFox => pre_fox_file(file, models),
+        Engine::Fox => fox_file(folder, file, models),
+        Engine::PreFox => pre_fox_file(folder, file, models),
     }
 }
 
@@ -1064,7 +1076,11 @@ pub(crate) fn native_format(engine: Engine) -> ModelFormat {
 /// (`PlayerFile::CommonMaterial`), and a glTF with no `.fmdl` of its path stem beside it is
 /// `PlayerFile::UnsupportedGltf`. A model `FolderModels::beaten` names has no
 /// role, nor has a `.common` link in a shared folder (`FolderModels::shared`).
-fn fox_file(file: &FileDescriptor, models: &FolderModels) -> Option<PlayerFile> {
+fn fox_file(
+    folder: &ScopePath,
+    file: &FileDescriptor,
+    models: &FolderModels,
+) -> Option<PlayerFile> {
     let name = file.path.name();
     let stem = file_stem(name);
     let path_fold = vtree::fold_name(path_stem(file));
@@ -1132,7 +1148,9 @@ fn fox_file(file: &FileDescriptor, models: &FolderModels) -> Option<PlayerFile> 
             },
         ),
         FileKind::Mtl => Some(PlayerFile::Material),
-        FileKind::Texture | FileKind::Bin | FileKind::Xml => texture_or_face_diff(file, models),
+        FileKind::Texture | FileKind::Bin | FileKind::Xml => {
+            texture_or_face_diff(folder, file, models)
+        }
         FileKind::Model(ModelFormat::Gltf) if !models.beaten(file) => {
             Some(PlayerFile::UnsupportedGltf)
         }
@@ -1160,7 +1178,11 @@ fn fox_file(file: &FileDescriptor, models: &FolderModels) -> Option<PlayerFile> 
 /// `FolderModels::beaten` names, any other `.skl` and `fcl_hair_sim.fclo` have no role, nor any
 /// other link, any link in a shared folder (`FolderModels::shared`), a shared boots or gloves
 /// folder's own `face.xml` or any `.xml` but the face diff.
-fn pre_fox_file(file: &FileDescriptor, models: &FolderModels) -> Option<PlayerFile> {
+fn pre_fox_file(
+    folder: &ScopePath,
+    file: &FileDescriptor,
+    models: &FolderModels,
+) -> Option<PlayerFile> {
     let path_fold = vtree::fold_name(path_stem(file));
     match file.kind {
         FileKind::Model(ModelFormat::PesModel | ModelFormat::Fmdl) => {
@@ -1194,7 +1216,9 @@ fn pre_fox_file(file: &FileDescriptor, models: &FolderModels) -> Option<PlayerFi
         FileKind::Xml if file.path.name().eq_ignore_ascii_case("face.xml") => {
             face_file(models, PlayerFile::FaceXml)
         }
-        FileKind::Texture | FileKind::Bin | FileKind::Xml => texture_or_face_diff(file, models),
+        FileKind::Texture | FileKind::Bin | FileKind::Xml => {
+            texture_or_face_diff(folder, file, models)
+        }
         FileKind::Skl if models.converted_stems.contains(&path_fold) => {
             Some(PlayerFile::ConversionSkeleton)
         }
@@ -1269,13 +1293,20 @@ fn pre_fox_link(name: &str, ingame_face: bool) -> Option<PlayerFile> {
     }
 }
 
-/// The role of `file` that both engines give alike: a texture by its stem, and the face diff,
-/// `face_diff.bin` or `face_diff.xml`, a face file (`face_file`); `None` for any other file.
-fn texture_or_face_diff(file: &FileDescriptor, models: &FolderModels) -> Option<PlayerFile> {
+/// The role of `file` of the folder at `folder` that both engines give alike: a texture by its
+/// path below the folder (`PlayerFile::Texture`), and the face diff, `face_diff.bin` or
+/// `face_diff.xml`, a face file (`face_file`); `None` for any other file.
+fn texture_or_face_diff(
+    folder: &ScopePath,
+    file: &FileDescriptor,
+    models: &FolderModels,
+) -> Option<PlayerFile> {
     let name = file.path.name();
     match file.kind {
-        FileKind::Texture => texture_format(name)
-            .map(|format| PlayerFile::Texture(file_stem(name).to_owned(), format)),
+        FileKind::Texture => texture_format(name).map(|format| PlayerFile::Texture {
+            below: file_stem(&relative(&file.path, folder)).to_owned(),
+            format,
+        }),
         FileKind::Bin if name.eq_ignore_ascii_case("face_diff.bin") => face_file(
             models,
             PlayerFile::Packed {
@@ -1860,7 +1891,10 @@ mod tests {
             [
                 pre_fox_model("face_neck"),
                 Some(PlayerFile::Material),
-                Some(PlayerFile::Texture("skin".to_owned(), SourceFormat::Dds)),
+                Some(PlayerFile::Texture {
+                    below: "skin".to_owned(),
+                    format: SourceFormat::Dds,
+                }),
                 packed(ModelPackage::Face, "face_diff.bin"),
                 pre_fox_model("parts"),
                 // Named for no part: typed by its name, as in the root.
@@ -1903,16 +1937,12 @@ mod tests {
 
     #[test]
     fn on_pre_fox_a_member_s_own_face_xml_is_a_face_file_and_gives_the_folder_a_face() {
-        // Anywhere in the folder, in any case; never on Fox.
-        let names = ["face.xml", "face/Face.XML", "boots/face.xml", "other.xml"];
+        // Directly in the folder, in any case; a subfolder's is none (the structure pass names
+        // it, `file_type_disallowed`); never on Fox.
+        let names = ["Face.XML", "face/face.xml", "boots/face.xml", "other.xml"];
         assert_eq!(
             engine_roles(&names, Engine::PreFox),
-            [
-                Some(PlayerFile::FaceXml),
-                Some(PlayerFile::FaceXml),
-                Some(PlayerFile::FaceXml),
-                None
-            ]
+            [Some(PlayerFile::FaceXml), None, None, None]
         );
         assert_eq!(engine_roles(&names, Engine::Fox), [None, None, None, None]);
         assert_eq!(PlayerFile::FaceXml.package(), Some(ModelPackage::Face));
@@ -2299,7 +2329,10 @@ mod tests {
             engine_roles(&["face_diff.xml", "skin.dds"], Engine::PreFox),
             [
                 Some(PlayerFile::UnusedFaceFile),
-                Some(PlayerFile::Texture("skin".to_owned(), SourceFormat::Dds))
+                Some(PlayerFile::Texture {
+                    below: "skin".to_owned(),
+                    format: SourceFormat::Dds,
+                })
             ]
         );
         assert_eq!(
@@ -2700,15 +2733,24 @@ mod tests {
     fn each_other_player_file_has_its_role_or_none() {
         assert_eq!(
             role("skin.dds"),
-            Some(PlayerFile::Texture("skin".to_owned(), SourceFormat::Dds))
+            Some(PlayerFile::Texture {
+                below: "skin".to_owned(),
+                format: SourceFormat::Dds,
+            })
         );
         assert_eq!(
             role("skin.ftex"),
-            Some(PlayerFile::Texture("skin".to_owned(), SourceFormat::Ftex))
+            Some(PlayerFile::Texture {
+                below: "skin".to_owned(),
+                format: SourceFormat::Ftex,
+            })
         );
         assert_eq!(
             role("skin.png"),
-            Some(PlayerFile::Texture("skin".to_owned(), SourceFormat::Png))
+            Some(PlayerFile::Texture {
+                below: "skin".to_owned(),
+                format: SourceFormat::Png,
+            })
         );
         assert_eq!(
             role("fcl_hair.skl"),
@@ -2777,17 +2819,18 @@ mod tests {
         ] {
             assert_eq!(roles(&[name]), [model(package, allowed)], "{name}");
         }
-        // Textures are the player's own at any depth.
+        // Textures are the player's own at any depth, each by its path below the folder.
         for (name, expected) in [
-            ("common/skin.dds", "skin"),
-            ("COMMON/skin.FTEX", "skin"),
-            ("jessie/shorts/shorts.dds", "shorts"),
+            ("skin.dds", "skin"),
+            ("common/skin.dds", "common/skin"),
+            ("COMMON/skin.FTEX", "COMMON/skin"),
+            ("jessie/shorts/shorts.dds", "jessie/shorts/shorts"),
         ] {
             let roles = roles(&[name]);
-            let [Some(PlayerFile::Texture(stem, _))] = roles.as_slice() else {
+            let [Some(PlayerFile::Texture { below, .. })] = roles.as_slice() else {
                 panic!("{name}");
             };
-            assert_eq!(stem, expected, "{name}");
+            assert_eq!(below, expected, "{name}");
         }
     }
 
@@ -3186,19 +3229,22 @@ mod tests {
                 skeleton(ModelPackage::Face, "fcl_hair_sim.skl")
             ]
         );
-        // The face's files may sit in any subfolder, given a face model anywhere in the folder.
+        // The face's files count directly in the folder alone, whatever model a subfolder
+        // holds: a subfolder's are none (the structure pass names them).
         assert_eq!(
             roles(&[
                 "parts/face_diff.bin",
                 "parts/fcl_hair_sim.fclo",
-                "torso.fmdl",
-                "a/b/face_diff.xml"
+                "parts/torso.fmdl",
+                "a/b/face_diff.xml",
+                "fcl_hair_sim.fclo"
             ]),
             [
-                packed(ModelPackage::Face, "face_diff.bin"),
-                packed(ModelPackage::Face, "fcl_hair_sim.fclo"),
+                None,
+                None,
                 model(ModelPackage::Face, "fcl_hair"),
-                Some(PlayerFile::FaceDiffXml)
+                None,
+                packed(ModelPackage::Face, "fcl_hair_sim.fclo")
             ]
         );
         assert_eq!(
@@ -3366,31 +3412,26 @@ mod tests {
     fn a_face_file_is_not_used_without_a_face_model_and_packed_with_one() {
         let unused = || Some(PlayerFile::UnusedFaceFile);
         assert_eq!(
-            roles(&[
-                "boots.fmdl",
-                "face_diff.bin",
-                "face/face_diff.xml",
-                "fcl_hair_sim.fclo"
-            ]),
+            roles(&["boots.fmdl", "face_diff.xml", "fcl_hair_sim.fclo"]),
+            [model(ModelPackage::Boots, "boots"), unused(), unused()]
+        );
+        assert_eq!(
+            roles(&["boots.fmdl", "face_diff.bin"]),
+            [model(ModelPackage::Boots, "boots"), unused()]
+        );
+        assert_eq!(
+            roles(&["face_high.fmdl", "face_diff.xml", "fcl_hair_sim.fclo"]),
             [
-                model(ModelPackage::Boots, "boots"),
-                unused(),
-                unused(),
-                unused()
+                model(ModelPackage::Face, "face_high"),
+                Some(PlayerFile::FaceDiffXml),
+                packed(ModelPackage::Face, "fcl_hair_sim.fclo")
             ]
         );
         assert_eq!(
-            roles(&[
-                "face_high.fmdl",
-                "face_diff.bin",
-                "face/face_diff.xml",
-                "fcl_hair_sim.fclo"
-            ]),
+            roles(&["face_high.fmdl", "face_diff.bin"]),
             [
                 model(ModelPackage::Face, "face_high"),
-                packed(ModelPackage::Face, "face_diff.bin"),
-                Some(PlayerFile::FaceDiffXml),
-                packed(ModelPackage::Face, "fcl_hair_sim.fclo")
+                packed(ModelPackage::Face, "face_diff.bin")
             ]
         );
         assert_eq!(PlayerFile::UnusedFaceFile.package(), None);
@@ -3398,7 +3439,10 @@ mod tests {
 
     #[test]
     fn a_package_is_the_models_and_packed_files_but_not_the_textures() {
-        let texture = PlayerFile::Texture("skin".to_owned(), SourceFormat::Dds);
+        let texture = PlayerFile::Texture {
+            below: "skin".to_owned(),
+            format: SourceFormat::Dds,
+        };
         assert_eq!(texture.package(), None);
         assert_eq!(PlayerFile::SlotlessSkeleton.package(), None);
         assert_eq!(
