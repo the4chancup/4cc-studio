@@ -48,10 +48,12 @@ REMOTE_UNIT = "studio-mutants"
 # The unit's MemoryMax (with MemorySwapMax=0): at the cap the kernel
 # OOM-kills inside this unit only, never in Fluxer's. 6 GiB until 3.z, when
 # eframe's dependency tree outgrew it while building; 8 GiB until 4.6b,
-# whose run peaked at 7.90 GiB; 9 GiB since (maintainer): the 16 GB host
-# keeps more than 10 GiB free beside Fluxer and has 1.5 GiB of swap for it.
-# If a run nears this cap too, lower REMOTE_BUILD_JOBS instead of raising it.
-REMOTE_MEMORY_MAX = "9G"
+# whose run peaked at 7.90 GiB; 9 GiB from then while Fluxer ran beside it (the
+# 16 GB host kept more than 10 GiB free and 1.5 GiB of swap for it); 10 GiB
+# since 2026-10-10, Fluxer shelved and 11.4 GB free (maintainer), 1.4 GB left
+# for the host itself. The cap follows the host's free memory, the maintainer's
+# word: if a run nears it, lower REMOTE_BUILD_JOBS before asking for more.
+REMOTE_MEMORY_MAX = "10G"
 # Build jobs per remote cargo process (two run at once): fewer than the
 # remote's half-the-CPUs test threads, because a build's memory grows with
 # its parallel rustc processes and the GUI crates' dependencies (naga, wgpu,
@@ -524,8 +526,8 @@ def report_killed(code: int) -> int:
         "(the remote half's memory cap, or out of memory), and cargo-mutants "
         "counted them as unviable. Rerun them locally "
         "(STUDIO_MUTANTS_REMOTE= just mutants-diff <base>). If the remote "
-        f"half's peak reached its cap ({REMOTE_MEMORY_MAX}, which cannot be "
-        f"raised), lower REMOTE_BUILD_JOBS (now {REMOTE_BUILD_JOBS}) in "
+        f"half's peak reached its cap ({REMOTE_MEMORY_MAX}, raised only on the "
+        f"maintainer's word), lower REMOTE_BUILD_JOBS (now {REMOTE_BUILD_JOBS}) in "
         "scripts/mutants.py:"
     )
     for name in killed:

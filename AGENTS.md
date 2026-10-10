@@ -347,19 +347,22 @@ kills the console the run's children need, after which every build fails with `0
 and cargo-mutants files the mutant as unviable (273 of 274 in 23 s at 4.y-conv's first attempt).
 
 **The VPS's production Fluxer instance comes first.** The remote half runs as the transient
-system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=9G` with no swap (6G
+system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=10G` with no swap (6G
 until 3.z, when eframe's dependency tree outgrew it; since then each remote cargo process also
 builds with few jobs, `REMOTE_BUILD_JOBS`, 1 since 4.14b's run hit the cap; 8G until 4.6b, whose run
-peaked at 7.90 GiB; past 9G the next lever is fewer build jobs, not more memory), so a
+peaked at 7.90 GiB; 9G while Fluxer ran beside it; 10G since 2026-10-10, Fluxer shelved and
+11.4 GB free, the maintainer's word; near the cap the first lever is fewer build jobs), so a
 runaway mutant is OOM-killed inside the unit and counts as caught; `OOMPolicy=continue`, so that
 kill does not stop cargo-mutants; `CPUWeight=idle`, because `nice` cannot keep a `user.slice`
 process off Fluxer's CPU under cgroup v2. On 2026-09-29 the old uncapped half filled the host's
 RAM and swap (`display_name` with `i *= 1`, a loop that grows a `Vec` forever), and the global
 OOM killer, which could as well have picked Postgres, took the test. The run prints its peak
-(`remote memory peak`). The cap is final: the host has no more memory to give (4.7b's run
-peaked at 8.43 GiB), so a peak near the cap changes nothing by itself. When a build is killed
-at the cap, the run fails and lists the untested mutants (`report_killed`), and the fix is
-then a lower `REMOTE_BUILD_JOBS`, never a higher cap; past one job, the crate joins
+(`remote memory peak`). The cap follows the host's free memory, which only the maintainer
+knows (4.7b's run peaked at 8.43 GiB under 9G; every split run since the tmpfs fix peaks at
+the cap, which is the cgroup's page cache being reclaimed, not a kill), so a peak near the
+cap changes nothing by itself. When a build is killed at the cap, the run fails and lists the
+untested mutants (`report_killed`), and the fix is then a lower `REMOTE_BUILD_JOBS`, a higher
+cap only with the maintainer's word on the free memory; past one job, the crate joins
 `LOCAL_ONLY_CRATES` in `scripts/mutants.py`, whose mutants never go to the VPS (a whole-crate run
 and any diff holding one of them run locally whole). `team_compiler` was listed from 4.14d, whose
 run lost two builds at the cap with one job, until the Phase 4 converge audit (2026-10-09) found
