@@ -6899,3 +6899,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-10** — S13's third SWE-2 round (after 4.y-fix22): three concerns, all accepted
   into 4.y-fix23 (a per-kit set across two shared folders unreported, a standalone shared
   folder's off-package model unreported, `combined_folders` reused); S13's loop ends.
+- **2026-10-10** — The referee marker's routes confirmed by the maintainer: pre-Fox keeps the
+  prop (a collar with the kit's material has no alpha test, so no transparent logo), Fox keeps
+  collar 77 (`dt00_x64.cpk` loads over every CPK, so the Fox prop is reached only by writing
+  it); `blue_port.md`'s rationale says so.

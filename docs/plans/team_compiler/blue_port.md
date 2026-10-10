@@ -103,7 +103,10 @@ on Fox it wrote `cup_logo.ftex` into the system file `Data/dt00_x64.cpk` after a
 prompt. Fox shows the marker through a **reserved collar** instead; pre-Fox keeps Red's route,
 the template prop's texture replaced (in game on PES 17, 2026-10-09: a `.mtl` beside a nocloth
 `.model` is read, and the collar model then stops drawing, so a collar cannot carry a texture
-of its own there). Either way nothing outside the refs CPK is ever written and no consent,
+of its own there; and a collar drawn with the kit's own material has no alpha test, so it could
+not show a logo with transparency anyway). The Fox prop cannot be reached from the refs CPK:
+`dt00_x64.cpk` holds the shaders and is loaded over every other CPK, `download/` ones included,
+so a texture of its own is replaced only by writing `dt00` itself, which is what Red did. Either way nothing outside the refs CPK is ever written and no consent,
 backup or rollback is needed:
 
 - stock collar **77** is reserved for the referees, as 105 is for FPC (a stock collar of every
