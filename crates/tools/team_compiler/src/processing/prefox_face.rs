@@ -3,6 +3,7 @@
 //! links, his `.fmdl` files converted to `.model` files with their material sets,
 //! packed under their `oral_<stem>_win32.model` names, the `.mtl` files with their
 //! texture paths pointed at his common folder (a texture link's at the team's Common output),
+//! each file at its path below its folder (`jessie/body/oral_x_win32.model`),
 //! and the generated `face.xml` typing every model, his `.common` links to a Common model
 //! included, his face diff as its `<dif>`. A per-kit model set is packed whole and listed once,
 //! its kit token spelled `kitN` (`team_compiler/pipeline.md` "4. Per-export non-model steps",
@@ -88,6 +89,10 @@ struct FaceModel<'a> {
     /// The name it is packed under (`packed_model_name`), in the face or, for a link, in the
     /// team's Common output.
     packed: String,
+    /// The directory it sits in below its source folder, `/`-terminated (`jessie/body/`),
+    /// empty for a file directly in it and for a link: the face packs it, its hands and a
+    /// converted model's material set in that directory, and lists them there.
+    directory: String,
     /// Whether it is a link: the game loads the model from the team's Common output, and the
     /// face packs nothing of it.
     in_common: bool,
@@ -121,6 +126,15 @@ enum FaceSource<'a> {
 /// FMDL spells it.
 pub(super) fn converted_material_name(stem: &str) -> String {
     format!("{stem}.mtl")
+}
+
+/// The directory the file at `path` sits in below its source folder at `source_path`,
+/// `/`-terminated as spelled (`jessie/body/`), empty for a file directly in it: where the face
+/// packs the file, as the player folder holds it (`player_folders.md` "Subfolders").
+fn directory_below(path: &ScopePath, source_path: &ScopePath) -> String {
+    texture_lookup::split(&relative(path, source_path))
+        .0
+        .to_owned()
 }
 
 /// A face model's place in a per-kit set the face holds (`kit_places`).
@@ -159,20 +173,23 @@ impl KitPlace {
 }
 
 /// The place of each of `models`, the face's models in their order, in the per-kit sets the
-/// face holds: the models packed in the face (not a link's) whose packed names differ only in
-/// their kit token's digit form a set, its lowest number listed (of two of one number, the
-/// first in `models`) and its others unlisted, and a set of one is an ordinary model. Read
-/// from the packed names, so a set split between a linked shared face and the player's own
-/// files is the one set the face holds once the shared files are copied in under his.
+/// face holds: the models packed in the face (not a link's) in one directory whose packed
+/// names differ only in their kit token's digit form a set, its lowest number listed (of two
+/// of one number, the first in `models`) and its others unlisted, and a set of one is an
+/// ordinary model. Read from the packed paths, so a set split between a linked shared face and
+/// the player's own root files is the one set the face holds once the shared files are copied
+/// in under his; a set never spans two directories, since the game respells the listed
+/// variant's entry, directory included, for the kit picked.
 fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
-    // Each set's variants, by its folded reference: (kit number, index), in `models`' order.
+    // Each set's variants, by its folded directory and reference: (kit number, index), in
+    // `models`' order.
     let mut sets: BTreeMap<String, Vec<(u8, usize)>> = BTreeMap::new();
     for (index, model) in models.iter().enumerate() {
         if model.in_common {
             continue;
         }
         if let Some((KitToken::Variant(kit), reference)) = kit_token(file_stem(&model.packed)) {
-            sets.entry(vtree::fold_name(&reference))
+            sets.entry(vtree::fold_name(&format!("{}{reference}", model.directory)))
                 .or_default()
                 .push((kit, index));
         }
@@ -201,13 +218,15 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 /// A per-kit set a generated `face.xml` lists, short of some of the export's kit numbers: the
 /// files to pack again for each number it lacks, and what its `kit_variant_missing` names.
 struct SetCompletion {
-    /// The set's reference, as its lowest variant's stem spells it (`pants_kitN`).
+    /// The set's reference, as its lowest variant's stem spells it, after the set's directory
+    /// below its source folder (`pants_kitN`, `jessie/pants_kitN`).
     reference: String,
-    /// The lowest variant's stem (`pants_kit1`), whose files are copied.
+    /// The lowest variant's stem, whose files are copied, after the same directory
+    /// (`pants_kit1`, `jessie/pants_kit1`).
     copied: String,
     /// The export's kit numbers the set has no variant of, ascending.
     missing: Vec<u8>,
-    /// The names, in the face, of the files the lowest variant's entries name that the face
+    /// The paths, in the face, of the files the lowest variant's entries name that the face
     /// packs: its model, its hands' when it is hand-split, and its `.mtl` when that carries
     /// the variant's token and is the face's (a Common one is the Common output's, and a
     /// shared `pants.mtl` serves every number as it is).
@@ -221,7 +240,7 @@ struct SetCompletion {
 fn set_completions(
     models: &[FaceModel],
     places: &[KitPlace],
-    written: &[(&str, String)],
+    written: &[(String, String)],
     hand_split: &BTreeSet<ScopePath>,
     kit_numbers: &[u8],
 ) -> Vec<SetCompletion> {
@@ -251,22 +270,28 @@ fn set_completions(
         if missing.is_empty() {
             continue;
         }
-        let mut names = vec![model.packed.clone()];
+        let mut names = vec![format!("{}{}", model.directory, model.packed)];
         if hand_split.contains(&model.file.path) {
-            names.extend(
-                ["glove_l", "glove_r"]
-                    .map(|hand| packed_model_name(&format!("{}_{hand}", model.stem))),
-            );
+            names.extend(["glove_l", "glove_r"].map(|hand| {
+                let packed = packed_model_name(&format!("{}_{hand}", model.stem));
+                format!("{}{packed}", model.directory)
+            }));
         }
         // The entry's `material` is respelled `kitN` only when the `.mtl` carries the
-        // variant's token; the face packs it under the listed variant's spelling.
+        // variant's token; the face packs it under the listed variant's spelling. A `./`
+        // directory is the face's own, the `.mtl` packed below it; any other is the team's
+        // Common output.
         let packed_material = respelled_material(material, *kit);
-        if *directory == "./" && packed_material != *material {
-            names.push(packed_material);
+        if let Some(below) = directory.strip_prefix("./")
+            && packed_material != *material
+        {
+            names.push(format!("{below}{packed_material}"));
         }
+        // Named with the set's directory, as a member's `face.xml` names a subfolder's set: a
+        // root set of the same stems is another set.
         completions.push(SetCompletion {
-            reference,
-            copied: model.stem.clone(),
+            reference: format!("{}{reference}", model.directory),
+            copied: format!("{}{}", model.directory, model.stem),
             missing,
             names,
         });
@@ -274,16 +299,20 @@ fn set_completions(
     completions
 }
 
-/// The file name `name`, which holds a kit token, with that token spelled for `kit`
-/// (`oral_pants_kit1_win32.model` and 3 give `oral_pants_kit3_win32.model`).
-fn variant_name(name: &str, kit: u8) -> String {
+/// The file path `path`, whose file name holds a kit token, with that token spelled for `kit`
+/// (`oral_pants_kit1_win32.model` and 3 give `oral_pants_kit3_win32.model`,
+/// `jessie/oral_pants_kit1_win32.model` gives `jessie/oral_pants_kit3_win32.model`); the
+/// directory is kept as it is.
+fn variant_name(path: &str, kit: u8) -> String {
+    let (directory, name) = texture_lookup::split(path);
     let stem = file_stem(name);
     let variant = variant_stem(stem, kit).expect("a per-kit set's file names hold a kit token");
-    format!("{variant}{}", &name[stem.len()..])
+    format!("{directory}{variant}{}", &name[stem.len()..])
 }
 
-/// Packs the file `contents` holds as `name` (case-folded) again under its kit-`kit` spelling
-/// (`variant_name`), its bytes as packed, and returns whether it did. Nothing is packed when
+/// Packs the file `contents` holds as `name`, its path in the face (case-folded), again under
+/// its kit-`kit` spelling in its directory (`variant_name`), its bytes as packed, and returns
+/// whether it did. Nothing is packed when
 /// a file of that spelling, case-folded, is packed already, the member's own being the one
 /// for that number (a `pants_kit3.mtl` of his beside a set with no `pants_kit3` model), or
 /// when `contents` holds no `name`: a hand-split model that was all hand packs no body.
@@ -345,7 +374,12 @@ fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
 /// the team's Common output, where the export's Common models task packs it, or converts a
 /// Common FMDL, the entry then naming the converted `<stem>.mtl` there; a `.mtl` the
 /// search finds in `Common/`, directly or through a link, is named there too, and the face
-/// packs neither (`pipeline.md` "3. Per-model-folder parallel steps", step 4). A linked shared
+/// packs neither (`pipeline.md` "3. Per-model-folder parallel steps", step 4). A file of a
+/// subfolder of its source folder is packed and listed at its path below that folder
+/// (`jessie/body/x.model` as `jessie/body/oral_x_win32.model`, listed
+/// `./jessie/body/oral_x_*.model`), its hands and converted material set beside it, and its
+/// entry names its `.mtl` where the search found it (`./jessie/body/x.mtl` beside it, `./x.mtl`
+/// in the root; `player_folders.md` "Subfolders"). A linked shared
 /// face's files are copied in under the player's own: a model or `.mtl` packing under a name
 /// (case-folded) the player's folder already packs is left out, the player's file replacing it
 /// as a copy would (`player_folders.md` "A link plus local models combines"). A hand-split
@@ -483,13 +517,17 @@ pub(super) fn face(
                 PlayerFile::PreFoxModel { xml_type } => {
                     let stem = file_stem(file.path.name());
                     let packed = packed_model_name(stem);
-                    let key = vtree::fold_name(&packed);
+                    let directory = directory_below(&file.path, source_path);
+                    let key = vtree::fold_name(&format!("{directory}{packed}"));
                     if earlier.contains(&key) {
                         continue;
                     }
                     packed_here.push(key);
                     let source = if file.kind == FileKind::Model(ModelFormat::Fmdl) {
-                        packed_here.push(vtree::fold_name(&converted_material_name(stem)));
+                        packed_here.push(vtree::fold_name(&format!(
+                            "{directory}{}",
+                            converted_material_name(stem)
+                        )));
                         let path_fold = vtree::fold_name(path_stem(file));
                         let skeleton = skeletons
                             .iter()
@@ -515,6 +553,7 @@ pub(super) fn face(
                         stem: stem.to_owned(),
                         xml_type,
                         packed,
+                        directory,
                         in_common: false,
                         source,
                         source_path,
@@ -552,18 +591,20 @@ pub(super) fn face(
                         stem: stem.to_owned(),
                         xml_type,
                         packed: packed_model_name(stem),
+                        directory: String::new(),
                         in_common: true,
                         source,
                         source_path,
                     });
                 }
                 PlayerFile::Material => {
-                    let key = vtree::fold_name(file.path.name());
+                    let below = relative(&file.path, source_path);
+                    let key = vtree::fold_name(&below);
                     if earlier.contains(&key) {
                         continue;
                     }
                     packed_here.push(key);
-                    materials.push(file);
+                    materials.push((file, below));
                 }
                 // On pre-Fox the face diff is the one packed file (`fcl_hair_sim.fclo` has no
                 // role there); here it is the `<dif>`, never a file of the CPK.
@@ -642,21 +683,29 @@ pub(super) fn face(
     });
 
     let kits = kit_places(&models);
-    // The `material` each model's entries write, as its directory and its name: `./` or, for
-    // a `.mtl` the search found in `Common/`, which is the Common output's and never packed
+    // The `material` each model's entries write, as its directory and its name: `./` and the
+    // `.mtl`'s directory below its source folder where the search found it (`./jessie/body/`
+    // beside a subfolder's model, `./` in the root), a converted set's its model's, or, for a
+    // `.mtl` the search found in `Common/`, which is the Common output's and never packed
     // here, the Common directory; the name respelled for a set's listed variant.
-    let written: Vec<(&str, String)> = models
+    let written: Vec<(String, String)> = models
         .iter()
         .zip(&kits)
         .map(|(model, kit)| {
             let (directory, name) = match &model.source {
                 FaceSource::Member { material } if is_direct_root_folder_file(&material.path) => {
-                    (common_directory.as_str(), material.path.name().to_owned())
+                    (common_directory.clone(), material.path.name().to_owned())
                 }
-                FaceSource::Member { material } => ("./", material.path.name().to_owned()),
-                FaceSource::Converted(_) => ("./", converted_material_name(&model.stem)),
+                FaceSource::Member { material } => (
+                    format!("./{}", directory_below(&material.path, model.source_path)),
+                    material.path.name().to_owned(),
+                ),
+                FaceSource::Converted(_) => (
+                    format!("./{}", model.directory),
+                    converted_material_name(&model.stem),
+                ),
                 FaceSource::CommonConversion => (
-                    common_directory.as_str(),
+                    common_directory.clone(),
                     converted_material_name(&model.stem),
                 ),
             };
@@ -696,10 +745,11 @@ pub(super) fn face(
                 ));
             }
         }
+        // An own model is listed and packed at its path below its source folder.
         let model_directory = if model.in_common {
-            common_directory.as_str()
+            common_directory.clone()
         } else {
-            "./"
+            format!("./{}", model.directory)
         };
         // A set's other variants are listed by its lowest variant's entries.
         let listed = !matches!(place, KitPlace::Unlisted { .. });
@@ -713,7 +763,7 @@ pub(super) fn face(
         }
         let entry = XmlEntry {
             xml_type,
-            path: xml_path(model_directory, &place.entry_name(&model.packed)),
+            path: xml_path(&model_directory, &place.entry_name(&model.packed)),
             material,
             ratio: ratio(&model.stem).map(str::to_owned),
         };
@@ -723,6 +773,12 @@ pub(super) fn face(
         }
         // A member's `.mtl` is packed below, with the face's other `.mtl` files; a converted
         // model's material set is packed here, its texture paths pointed as a member's are.
+        let packed_path = format!("{}{}", model.directory, model.packed);
+        let converted_material_path = format!(
+            "{}{}",
+            model.directory,
+            converted_material_name(&model.stem)
+        );
         let (bytes, member_material) = match model.source {
             FaceSource::Member { material } => {
                 let source = take(files, model.file);
@@ -752,7 +808,7 @@ pub(super) fn face(
                 insert(
                     &mut contents,
                     ModelPackage::Face,
-                    converted_material_name(&model.stem),
+                    converted_material_path.clone(),
                     materials.write(),
                 )?;
                 (converted, None)
@@ -765,7 +821,7 @@ pub(super) fn face(
             if listed {
                 entries.push(entry);
             }
-            insert(&mut contents, ModelPackage::Face, model.packed, bytes)?;
+            insert(&mut contents, ModelPackage::Face, packed_path, bytes)?;
             continue;
         }
         // A split model's `.mtl` is read in place: a member's is taken below, a converted
@@ -776,7 +832,7 @@ pub(super) fn face(
                  Common one too (`TaskKind::files`)",
             ),
             None => contents
-                .get(&converted_material_name(&model.stem))
+                .get(&converted_material_path)
                 .expect("a converted model's material set is packed above"),
         };
         let split = split_face_model(&model_name, &bytes, mtl, ctx, findings)?;
@@ -787,7 +843,7 @@ pub(super) fn face(
         // A model that was all hand leaves no body: no entry, nothing packed under its name,
         // and its gloves listed where its entry would be.
         if let Some(body) = split.body {
-            insert(&mut contents, ModelPackage::Face, model.packed, body)?;
+            insert(&mut contents, ModelPackage::Face, packed_path, body)?;
             if listed {
                 entries.push(entry.clone());
             }
@@ -800,22 +856,23 @@ pub(super) fn face(
             if listed {
                 entries.push(XmlEntry {
                     xml_type: hand_type.to_owned(),
-                    path: xml_path("./", &place.entry_name(&packed)),
+                    path: xml_path(&model_directory, &place.entry_name(&packed)),
                     material: entry.material.clone(),
                     ratio: entry.ratio.clone(),
                 });
             }
-            insert(&mut contents, ModelPackage::Face, packed, part)?;
+            insert(
+                &mut contents,
+                ModelPackage::Face,
+                format!("{}{packed}", model.directory),
+                part,
+            )?;
         }
     }
-    for file in materials {
+    // Each at its path below its source folder.
+    for (file, below) in materials {
         let bytes = rewritten_materials(file, &take(files, file), &places.of(&file.path))?;
-        insert(
-            &mut contents,
-            ModelPackage::Face,
-            file.path.name().to_owned(),
-            bytes,
-        )?;
+        insert(&mut contents, ModelPackage::Face, below, bytes)?;
     }
     // After every file is packed, a split model's hands and its `.mtl` included.
     for completion in completions {
@@ -1003,9 +1060,9 @@ struct XmlFace<'a> {
     /// Where a packed `.mtl`'s texture paths are pointed (`point_materials`), as for a
     /// generated face.
     places: &'a FacePlaces<'a>,
-    /// The face's files packed so far, by their names in the face.
+    /// The face's files packed so far, by their paths in the face.
     contents: PackageFiles,
-    /// Their names, folded: a reference naming a file already packed packs nothing more.
+    /// Their paths, folded: a reference naming a file already packed packs nothing more.
     packed: BTreeSet<String>,
 }
 
@@ -1128,99 +1185,99 @@ impl<'a> XmlFace<'a> {
         }
     }
 
-    /// The `./` reference `value`, naming the file `name` of `kind`, as written, the file
-    /// packed from `files` under `name` as the reference spells it: `value` as it is. A `kitN`
-    /// name packs every variant of its set among the player's own files (anywhere in his
-    /// folder, `role_position`) and his linked shared face's, each under its own name, for the
-    /// game to pick by kit, and completes the set (`complete_set`, noting in `findings`). A
-    /// `.mtl` that is a `Common/` one, which a `.mtl.common` link stands for, is not packed: it
-    /// is named in the team's Common output, where the Common models task packs it. A name
+    /// The `./` reference `value`, naming the file at `path` (relative to the xml's folder) of
+    /// `kind`, as written, the file packed from `files` at `path` as the reference spells it,
+    /// directory included: `value` as it is. A `kitN` name packs every variant of its set in
+    /// the directory it names among the player's own files and his linked shared face's
+    /// (`FaceFiles::own_local`, `FaceFiles::linked_local`), each at its own path, for the game
+    /// to pick by kit, and completes the set (`complete_set`, noting in `findings`). A `.mtl`
+    /// that is a `Common/` one, which a `.mtl.common` link stands for, is not packed: it is
+    /// named in the team's Common output, where the Common models task packs it. A path
     /// naming no file is an error: the deep pass dropped such a folder (`xml_model_not_found`).
     fn written_local(
         &mut self,
         value: &str,
-        name: &str,
+        path: &str,
         kind: FileKind,
         files: &mut TaskFiles,
         findings: &mut Vec<Finding>,
     ) -> Result<String, TaskFailure> {
-        if let Some((KitToken::Reference, _)) = kit_token(file_stem(name)) {
-            let FaceFiles {
-                own,
-                linked_face,
-                folder,
-                shared,
-                ..
-            } = self.named;
-            let variants: Vec<&FileDescriptor> = own
-                .iter()
-                .filter(|file| role_position(folder, file, shared))
-                .chain(linked_face)
-                .filter(|file| file.kind == kind && variant_of(name, file.path.name()).is_some())
+        if let Some((KitToken::Reference, _)) = kit_token(file_stem(texture_lookup::split(path).1))
+        {
+            let variants: Vec<(String, &FileDescriptor)> = self
+                .named
+                .own_local(kind)
+                .into_iter()
+                .chain(self.named.linked_local(kind))
+                // A `.mtl.common` link's Common file is the Common output's, never packed here.
+                .filter(|(below, file)| {
+                    !is_direct_root_folder_file(&file.path) && variant_of(path, below).is_some()
+                })
                 .collect();
             if variants.is_empty() {
                 return Err(anyhow::anyhow!("{value} names no file of the face").into());
             }
-            for file in &variants {
-                self.pack(file, file.path.name(), files)?;
+            for (below, file) in &variants {
+                self.pack(file, below, files)?;
             }
-            self.complete_set(name, kind, &variants, findings);
+            self.complete_set(path, kind, &variants, findings);
             return Ok(value.to_owned());
         }
-        let file = resolve(&Reference::Local(name.to_owned()), &self.named, kind)
+        let file = resolve(&Reference::Local(path.to_owned()), &self.named, kind)
             .ok_or_else(|| anyhow::anyhow!("{value} names no file of the face"))?;
         if is_direct_root_folder_file(&file.path) {
             return Ok(format!("{}{}", self.common_directory, file.path.name()));
         }
-        self.pack(file, name, files)?;
+        self.pack(file, path, files)?;
         Ok(value.to_owned())
     }
 
-    /// Completes the set `variants`, the packed files of `kind` the `kitN` name `referenced`
-    /// names, against the export's kit numbers: for each one none of them is a variant of,
-    /// ascending, the lowest variant is packed again under that number's spelling
-    /// (`pack_variant_copy`), and for a `.model` set the copy is noted in `findings` as
-    /// `kit_variant_missing`. A second reference to the set finds the copy packed and notes
-    /// nothing more, nor does the `.mtl` set an entry names beside its model set.
+    /// Completes the set `variants`, the packed files of `kind` (each by its path in the face)
+    /// the `kitN` path `referenced` names, against the export's kit numbers: for each one none
+    /// of them is a variant of, ascending, the lowest variant is packed again under that
+    /// number's spelling in its directory (`pack_variant_copy`), and for a `.model` set the copy
+    /// is noted in `findings` as `kit_variant_missing`. A second reference to the set finds the
+    /// copy packed and notes nothing more, nor does the `.mtl` set an entry names beside its
+    /// model set.
     fn complete_set(
         &mut self,
         referenced: &str,
         kind: FileKind,
-        variants: &[&FileDescriptor],
+        variants: &[(String, &FileDescriptor)],
         findings: &mut Vec<Finding>,
     ) {
-        let numbered: Vec<(u8, &FileDescriptor)> = variants
+        let numbered: Vec<(u8, &str)> = variants
             .iter()
-            .filter_map(|file| Some((variant_of(referenced, file.path.name())?, *file)))
+            .filter_map(|(below, _)| Some((variant_of(referenced, below)?, below.as_str())))
             .collect();
         // Of two variants of one number, the first, the player's own before his linked
         // face's, as `pack` packs it.
         let Some(&(_, lowest)) = numbered.iter().min_by_key(|(kit, _)| *kit) else {
             return;
         };
-        let lowest_name = lowest.path.name();
         for &kit in self.kits {
             if numbered.iter().any(|(held, _)| *held == kit) {
                 continue;
             }
-            if !pack_variant_copy(&mut self.contents, lowest_name, kit) {
+            if !pack_variant_copy(&mut self.contents, lowest, kit) {
                 continue;
             }
             self.packed
-                .insert(vtree::fold_name(&variant_name(lowest_name, kit)));
+                .insert(vtree::fold_name(&variant_name(lowest, kit)));
             if kind == FileKind::Model(ModelFormat::PesModel) {
                 findings.push(model_variant_missing(
                     file_stem(referenced),
                     kit,
-                    file_stem(lowest_name),
+                    file_stem(lowest),
                 ));
             }
         }
     }
 
-    /// Packs `file`, read from `files`, under `name`, a `.mtl` with its texture paths pointed
-    /// at `places` (`rewritten_materials`), unless a file of that name, case-folded, is packed
-    /// already: two references to one file pack it once, under the first one's spelling.
+    /// Packs `file`, read from `files`, at `name`, its path in the face, a `.mtl` with its
+    /// texture paths pointed at `places` (`rewritten_materials`), unless a file of that path,
+    /// case-folded, is packed already: two references to one file pack it once, under the
+    /// first one's spelling.
     fn pack(
         &mut self,
         file: &FileDescriptor,
@@ -1253,7 +1310,7 @@ fn face_files(folder: &ModelFolder) -> FaceFiles<'_> {
         .combined
         .iter()
         .find(|combined| combined.package == ModelPackage::Face)
-        .map_or(&[][..], |combined| combined.folder.files.as_slice());
+        .map(|combined| &combined.folder);
     FaceFiles {
         own: &folder.files,
         linked_face,
@@ -1291,10 +1348,10 @@ fn names_model(xml: &UserFaceXml, model: &FaceModel, named: &FaceFiles) -> bool 
         })
         .any(|path| {
             let set_variant = match &path {
-                Reference::Local(name) => {
+                Reference::Local(referenced) => {
                     !model.in_common
                         && role_position(named.folder, target, named.shared)
-                        && variant_of(name, target.path.name()).is_some()
+                        && variant_of(referenced, &relative(&target.path, named.folder)).is_some()
                 }
                 Reference::Common { .. } | Reference::Unchecked(_) => false,
             };
@@ -1871,7 +1928,7 @@ mod tests {
         let mut face = XmlFace {
             named: FaceFiles {
                 own: &own,
-                linked_face: &[],
+                linked_face: None,
                 common: &[],
                 template_common: &[],
                 folder: &folder,
@@ -1921,7 +1978,7 @@ mod tests {
         let mut face = XmlFace {
             named: FaceFiles {
                 own: &own,
-                linked_face: &[],
+                linked_face: None,
                 common: &[],
                 template_common: &[],
                 folder: &folder,

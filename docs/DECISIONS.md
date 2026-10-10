@@ -6566,3 +6566,15 @@ and no Fox material samples a cube map (`resources/Materials.wikitext`: a Fox re
 the GGX shader's own or the Glass shader's 2D `GlassReflection_Tex_SRGB`). A finding would
 name a harmless file no member can act on in a way the game shows.
 Plan: `team_compiler/pipeline.md` step 3, the cube-map paragraph.
+
+## 2026-10-10 — team_compiler — a pre-Fox per-kit model set is one directory's
+Decision: on PES 15-17 the models of a per-kit set (`pants_kit1`, `pants_kit2`) form one
+set only within one directory of the player folder: `jessie/pants_kit1.model` and a root
+`pants_kit2.model` are two sets, each listed and completed at its own path
+(`./jessie/oral_pants_kitN_*.model`).
+Why: the face packs a subfolder's files at their paths (slice 4.y-sub (b2)), and the game
+respells the listed entry, its directory included, for the kit picked: a set spanning two
+directories would list a path the other variants are not at. The sidekick's contradiction
+in (b2), accepted. Fox merges each number's files into its package wherever they sit, so
+there the set still spans the tree.
+Plan: `model_format.md` "Kit-dependent assets", the "Per-kit models" bullet.

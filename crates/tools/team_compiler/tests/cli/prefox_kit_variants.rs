@@ -517,6 +517,85 @@ fn each_per_kit_model_set_is_completed_against_its_own_variants() {
 }
 
 #[test]
+fn a_per_kit_model_set_in_a_subfolder_is_its_folder_s_own_and_completed_at_its_path() {
+    let sandbox = Sandbox::new("prefox_kit_variants_subfolder");
+    // `jessie/` holds kits 1 and 2 of `pants`, each with its own `.mtl`; the root's
+    // `pants_kit3.model` is no variant of that set: the game respells an entry in its own
+    // directory.
+    sandbox.write(
+        &format!("{PLAYER}/jessie/pants_kit1.model"),
+        &pre_fox_fixture("cardhead_face_high.model"),
+    );
+    sandbox.write(
+        &format!("{PLAYER}/jessie/pants_kit2.model"),
+        &pre_fox_fixture("cardhead_doublesided_face_high.model"),
+    );
+    for (kit, texture) in [(1, "skin"), (2, "skin2")] {
+        sandbox.write(
+            &format!("{PLAYER}/jessie/pants_kit{kit}.mtl"),
+            &materials_naming(texture),
+        );
+        sandbox.write(&format!("{PLAYER}/{texture}.dds"), &small_dds());
+    }
+    sandbox.write(
+        &format!("{PLAYER}/pants_kit3.model"),
+        &pre_fox_fixture("cardhead_face_high.model"),
+    );
+    sandbox.write(
+        &format!("{PLAYER}/pants_kit3.mtl"),
+        &materials_naming("skin"),
+    );
+    write_kits(&sandbox, &[1, 2, 3]);
+
+    let expected = kit_findings(
+        3,
+        &[
+            "Warning kit_variant_missing [Keep] at Players/05 - A (model=jessie/pants_kitN, kit=3, copied=jessie/pants_kit1)",
+        ],
+    );
+    let entries = compile_pes17(
+        &sandbox,
+        EXPORT,
+        &expected.iter().map(String::as_str).collect::<Vec<_>>(),
+    );
+
+    let face = face_files(&entries);
+    assert_eq!(
+        face.keys().map(String::as_str).collect::<Vec<_>>(),
+        [
+            "dummy.mtl",
+            "face.xml",
+            "jessie/oral_pants_kit1_win32.model",
+            "jessie/oral_pants_kit2_win32.model",
+            "jessie/oral_pants_kit3_win32.model",
+            "jessie/pants_kit1.mtl",
+            "jessie/pants_kit2.mtl",
+            "jessie/pants_kit3.mtl",
+            "oral_dummy_win32.model",
+            "oral_pants_kit3_win32.model",
+            "pants_kit3.mtl",
+        ]
+    );
+    assert_eq!(
+        face["jessie/oral_pants_kit3_win32.model"],
+        face["jessie/oral_pants_kit1_win32.model"]
+    );
+    assert_eq!(face["jessie/pants_kit3.mtl"], face["jessie/pants_kit1.mtl"]);
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        [
+            entry(
+                "parts",
+                "./jessie/oral_pants_kitN_*.model",
+                "./jessie/pants_kitN.mtl"
+            ),
+            entry("parts", "./oral_pants_kit3_*.model", "./pants_kit3.mtl"),
+            entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ]
+    );
+}
+
+#[test]
 fn a_per_kit_model_set_covering_the_export_s_kits_gets_no_copy() {
     let sandbox = Sandbox::new("prefox_kit_variants_covered");
     write_variants_with_own_mtls(&sandbox);

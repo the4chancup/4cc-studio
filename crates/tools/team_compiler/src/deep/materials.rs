@@ -56,7 +56,8 @@ enum Supply {
 /// `sources.held` holds: that is the stem the face task points at the folder's textures. A
 /// `dummy_` stem is never looked for. Past the folder, a
 /// `./` path and a bare name (read as `./`) are missing: the face packs no texture the folder
-/// does not hold. A path into the team's uniform Common folder
+/// does not hold; a `./` path into a subfolder (`./kit1/x.dds`) is not looked for. A path
+/// into the team's uniform Common folder
 /// (`model/character/uniform/common/<team>/<name>`) is supplied when `Common/` or an installed
 /// CPK holds its stem; an installed lookup that cannot be made holds nothing. Any other path
 /// names the game's own files, which are not looked in.
@@ -78,6 +79,9 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
         return Supply::Missing;
     }
     match reference(path) {
+        // A texture named with a path below the `.mtl`'s folder resolves at that path, which
+        // `sources.held`, keyed by stem, cannot look up: such a path is not looked for.
+        Reference::Local(below) if below.contains('/') => Supply::Supplied,
         Reference::Local(_) => Supply::Missing,
         // A Common subfolder's textures are not among `sources`, which hold `Common/`'s own
         // stems: such a path is not looked for, as a path of the game's own is not.
@@ -334,8 +338,8 @@ mod tests {
             ),
             Supply::Supplied
         );
-        // A `./` path into a subfolder is no `./` reference (`reference` reads it as any
-        // other form), so it is not looked up, although the face packs no subfolder.
+        // A `./` path into a subfolder names a texture at that path, which the held places,
+        // keyed by stem, cannot look up: it is not looked for.
         assert_eq!(
             supplied("./sub/skin.dds", &[], &[], Some(&[])),
             Supply::Supplied

@@ -492,6 +492,99 @@ fn a_member_s_xml_names_a_common_subfolder_s_files_which_pack_at_their_own_path(
     assert_eq!(String::from_utf8_lossy(&face["face.xml"]), expected);
 }
 
+/// The entry naming slot 05's subfolder model and its `.mtl` by their paths
+/// (`write_subfolder_xml`).
+const SUBFOLDER_X: &str =
+    r#"type="parts" path="./jessie/body/oral_x_*.model" material="./jessie/body/x.mtl""#;
+
+/// Writes slot 05 of `export` holding `face_high.model`, its `.mtl` and `skin.dds`, the card
+/// head's model as `jessie/body/oral_x_win32.model` with `jessie/body/x.mtl` naming `skin.dds`,
+/// and a `face.xml` listing both models by their paths (`FACE_HIGH`, `SUBFOLDER_X`).
+fn write_subfolder_xml(sandbox: &Sandbox, export: &str) {
+    write_folder(
+        sandbox,
+        export,
+        "05 - A",
+        "face_high",
+        &face_xml(&[FACE_HIGH, SUBFOLDER_X]),
+    );
+    let body = format!("exports/{export}/Players/05 - A/jessie/body");
+    sandbox.write(&format!("{body}/oral_x_win32.model"), &card_model());
+    sandbox.write(&format!("{body}/x.mtl"), &card_materials());
+}
+
+#[test]
+fn a_local_reference_into_a_subfolder_is_checked_and_a_bare_name_names_the_folder_s_own_file() {
+    let sandbox = Sandbox::new("user_xml_subfolder_check");
+    let export = "co Midcup Xml";
+    write_subfolder_xml(&sandbox, export);
+    // `./x_*.model` names a file directly in the folder, which holds none: the subfolder's
+    // `x_win32.model` is not it.
+    write_folder(
+        &sandbox,
+        export,
+        "07 - B",
+        "face_high",
+        &face_xml(&[FACE_HIGH, r#"type="parts" path="./x_*.model""#]),
+    );
+    let body = format!("exports/{export}/Players/07 - B/jessie/body");
+    sandbox.write(&format!("{body}/x_win32.model"), &card_model());
+    sandbox.write(&format!("{body}/x.mtl"), &card_materials());
+
+    let run = sandbox.run(&pes17(&sandbox), &["check"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Error xml_model_not_found [DropFolder] at Players/07 - B (attribute=path, value=./x_*.model)",
+            "Warning xml_model_unlisted [Keep] at Players/07 - B (file=jessie/body/x_win32.model)",
+            IDENTIFIED,
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1);
+}
+
+#[test]
+fn a_member_s_xml_naming_a_subfolder_s_files_packs_them_at_their_paths() {
+    let sandbox = Sandbox::new("user_xml_subfolder_compiled");
+    let export = "co Midcup Xml";
+    write_subfolder_xml(&sandbox, export);
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[IDENTIFIED, "Info team_colors_missing [Keep] ()"],
+    );
+
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        [
+            "face.xml",
+            "face_high.model",
+            "face_high.mtl",
+            "jessie/body/oral_x_win32.model",
+            "jessie/body/x.mtl",
+        ]
+    );
+    assert_eq!(face["jessie/body/oral_x_win32.model"], card_model());
+    let expected = format!(
+        "{HEAD}   \
+         <model level=\"0\" type=\"face_neck\" path=\"./face_high.model\" material=\"./face_high.mtl\" />\r\n   \
+         <model level=\"0\" type=\"parts\" path=\"./jessie/body/oral_x_*.model\" material=\"./jessie/body/x.mtl\" />\r\n\
+         {}",
+        dif_tail(&template("face_diff.bin"))
+    );
+    assert_eq!(String::from_utf8_lossy(&face["face.xml"]), expected);
+    // Nearest first from `jessie/body/`, the root's `skin.dds`.
+    assert_eq!(
+        sampler_paths(&face["jessie/body/x.mtl"]),
+        [format!("{SLOT_05_HOME}skin.dds")]
+    );
+}
+
 // TC-XML-02
 #[test]
 fn without_its_xml_the_same_folder_s_models_are_typed_by_their_names() {
@@ -594,6 +687,52 @@ fn a_shared_face_s_xml_is_its_linking_face_s_with_his_own_models_appended() {
             "{mtl}"
         );
     }
+}
+
+#[test]
+fn his_subfolder_s_model_of_a_name_the_shared_xml_names_is_appended_at_its_path() {
+    let sandbox = Sandbox::new("user_xml_shared_face_subfolder");
+    let export = "co Midcup Xml";
+    let xml = face_xml(&[ROUND_FACE_HIGH]);
+    write_round(&sandbox, export, Some(&xml), &["05 - A"]);
+    // `./face_high.model` names a file directly in his folder, then the shared face's: his
+    // `jessie/face_high.model` is neither, so it gets its generated entry.
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/jessie/face_high.model"), &card_model());
+    sandbox.write(&format!("{player}/jessie/face_high.mtl"), &card_materials());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            IDENTIFIED,
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+        ],
+    );
+
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        [
+            "face.xml",
+            "face_high.model",
+            "face_high.mtl",
+            "jessie/face_high.mtl",
+            "jessie/oral_face_high_win32.model",
+        ]
+    );
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        owned_entries(&[
+            ("parts", "./face_high.model", "./face_high.mtl"),
+            (
+                "face_neck",
+                "./jessie/oral_face_high_*.model",
+                "./jessie/face_high.mtl"
+            ),
+        ])
+    );
 }
 
 #[test]
@@ -1002,6 +1141,88 @@ fn assert_a_kit_reference_completes_its_model_and_mtl_sets(name: &str, pants: &s
         owned_entries(&[
             ("face_neck", "./face_high.model", "./face_high.mtl"),
             ("parts", "./pants_kitN.model", "./pants_kitN.mtl"),
+        ])
+    );
+}
+
+#[test]
+fn a_kit_reference_into_a_subfolder_names_the_set_there_and_completes_it_at_its_path() {
+    let sandbox = Sandbox::new("user_xml_kit_set_subfolder");
+    let export = "co Midcup Xml";
+    let player = format!("exports/{export}/Players/05 - A");
+    write_folder(
+        &sandbox,
+        export,
+        "05 - A",
+        "face_high",
+        &face_xml(&[
+            FACE_HIGH,
+            r#"type="parts" path="./jessie/pants_kitN.model" material="./jessie/pants_kitN.mtl""#,
+        ]),
+    );
+    for kit in [1, 2] {
+        sandbox.write(
+            &format!("{player}/jessie/pants_kit{kit}.model"),
+            &card_model(),
+        );
+        sandbox.write(
+            &format!("{player}/jessie/pants_kit{kit}.mtl"),
+            &card_materials(),
+        );
+    }
+    // A variant of the root's set, which the reference into `jessie/` does not name.
+    sandbox.write(&format!("{player}/pants_kit3.model"), &card_model());
+    for kit in 1..=3 {
+        sandbox.write(
+            &format!("exports/{export}/Kits/p{kit}/kit.dds"),
+            &tracer_kit(),
+        );
+    }
+
+    let generated =
+        (1..=3).map(|kit| format!("Info kit_config_generated [Keep] at Kits/p{kit} ()"));
+    let derived = (1..=3).map(|kit| format!("Info kit_colors_derived [Keep] at Kits/p{kit} ()"));
+    let expected: Vec<String> = [
+        "Warning xml_model_unlisted [Keep] at Players/05 - A (file=pants_kit3.model)".to_owned(),
+    ]
+    .into_iter()
+    .chain(CLEAN.iter().map(|line| (*line).to_owned()))
+    .chain(generated)
+    .chain([
+        "Warning kit_variant_missing [Keep] at Players/05 - A (model=jessie/pants_kitN, kit=3, copied=jessie/pants_kit1)".to_owned(),
+    ])
+    .chain(derived)
+    .collect();
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &expected.iter().map(String::as_str).collect::<Vec<_>>(),
+    );
+
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        [
+            "face.xml",
+            "face_high.model",
+            "face_high.mtl",
+            "jessie/pants_kit1.model",
+            "jessie/pants_kit1.mtl",
+            "jessie/pants_kit2.model",
+            "jessie/pants_kit2.mtl",
+            "jessie/pants_kit3.model",
+            "jessie/pants_kit3.mtl",
+        ]
+    );
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        owned_entries(&[
+            ("face_neck", "./face_high.model", "./face_high.mtl"),
+            (
+                "parts",
+                "./jessie/pants_kitN.model",
+                "./jessie/pants_kitN.mtl"
+            ),
         ])
     );
 }

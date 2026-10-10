@@ -9,8 +9,8 @@
 use std::fmt;
 
 use aesthetics_export::{
-    Disposition, FileDescriptor, FileKind, KitToken, ModelFormat, classify, common_link_name,
-    kit_token,
+    Disposition, FileDescriptor, FileKind, KitToken, ModelFormat, SharedModelFolder, classify,
+    common_link_name, kit_token,
 };
 use pes_version::PesVersion;
 use vtree::ScopePath;
@@ -20,6 +20,7 @@ use crate::face_diff::{self, FaceDiffError};
 use crate::face_xml::is_generated_type;
 use crate::messages::Code;
 use crate::plan::roles::{common_file, file_stem, role_position};
+use crate::texture_lookup::split;
 
 /// A finding `check` makes on the folder holding the xml: the code, what is done about it
 /// (`DropFolder` for an Error, `Keep` for a Warning or an Info) and its context.
@@ -78,8 +79,10 @@ pub(crate) struct Element {
 /// What a `path` or `material` value names.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Reference {
-    /// `./<name>`: a file of the face, its `*` read as `win32` (`./face_high_*.model` names
-    /// `face_high_win32.model`).
+    /// `./<path>`: a file of the face at that path relative to the xml's folder, the file
+    /// name's `*` read as `win32` (`./face_high_*.model` names `face_high_win32.model` directly
+    /// in the folder, `./jessie/body/oral_x_*.model` names `jessie/body/oral_x_win32.model`).
+    /// Holds the path, its directory as written.
     Local(String),
     /// `model/character/uniform/common/<segment>/<name>`: a file directly in the export's
     /// `Common/`, its `*` read as `win32`; `<segment>/<subfolder>/<name>`, a file of that
@@ -94,7 +97,8 @@ pub(crate) enum Reference {
         file_name: String,
     },
     /// Any other form, which the compiler cannot resolve (`xml_path_unchecked`): a face Common
-    /// path, a `./` path into a subfolder, a bare name. Holds the value as written.
+    /// path, a `./` path with an empty, `.` or `..` segment, a bare name. Holds the value as
+    /// written.
     Unchecked(String),
 }
 
@@ -104,10 +108,14 @@ const UNIFORM_COMMON: &str = "model/character/uniform/common/";
 
 /// What the `path` or `material` value `value` names (`Reference`).
 pub(crate) fn reference(value: &str) -> Reference {
-    if let Some(name) = value.strip_prefix("./")
-        && !name.contains('/')
+    if let Some(path) = value.strip_prefix("./")
+        && path
+            .split('/')
+            .all(|segment| !segment.is_empty() && segment != "." && segment != "..")
     {
-        return Reference::Local(name.replace('*', "win32"));
+        // Only the file name's `*` is the game's placeholder; a directory is named as written.
+        let (directory, name) = split(path);
+        return Reference::Local(format!("{directory}{}", name.replace('*', "win32")));
     }
     if let Some(rest) = value.strip_prefix(UNIFORM_COMMON)
         && let Some((segment, path)) = rest.split_once('/')
@@ -240,11 +248,12 @@ fn attributes(node: roxmltree::Node) -> Vec<(String, String)> {
 /// The files a face folder's `face.xml` may name.
 pub(crate) struct FaceFiles<'a> {
     /// The folder's own files; a `./` reference looks among those where they take a role
-    /// (`role_position`).
+    /// (`role_position`), by their paths relative to the folder.
     pub(crate) own: &'a [FileDescriptor],
-    /// The files of the shared face folder the player links, which a `./` reference looks
-    /// among after his own; empty when he links none.
-    pub(crate) linked_face: &'a [FileDescriptor],
+    /// The shared face folder the player links, whose files directly in it a `./` reference
+    /// looks among after his own (a shared folder's file takes a role there alone); `None`
+    /// when he links none.
+    pub(crate) linked_face: Option<&'a SharedModelFolder>,
     /// The export's `Common/` files a target reads; a Common reference looks among them by
     /// their path relative to `Common/`.
     pub(crate) common: &'a [FileDescriptor],
@@ -260,35 +269,50 @@ pub(crate) struct FaceFiles<'a> {
     pub(crate) shared: bool,
 }
 
+impl<'a> FaceFiles<'a> {
+    /// The folder's own files a `./` reference to a file of `kind` may name, where they take a
+    /// role (`role_position`), each by its path relative to the folder with the file it stands
+    /// for (`candidate`).
+    pub(crate) fn own_local(&self, kind: FileKind) -> Vec<(String, &'a FileDescriptor)> {
+        self.own
+            .iter()
+            .filter(|file| role_position(self.folder, file, self.shared))
+            .filter_map(|file| candidate(file, self.folder, kind, self.common))
+            .collect()
+    }
+
+    /// The linked shared face's files of `kind` a `./` reference may name, those directly in
+    /// its folder (`role_position`), each by its name, which is its path relative to that
+    /// folder.
+    pub(crate) fn linked_local(&self, kind: FileKind) -> Vec<(String, &'a FileDescriptor)> {
+        let Some(face) = self.linked_face else {
+            return Vec::new();
+        };
+        face.files
+            .iter()
+            .filter(|file| file.kind == kind && role_position(&face.path, file, true))
+            .map(|file| (relative(&file.path, &face.path), file))
+            .collect()
+    }
+}
+
 /// The file `reference` names among `files`, of `kind` (`FileKind::Model(PesModel)` for a
-/// `path`, `FileKind::Mtl` for a `material`), its name compared case-folded: a `Local` one
-/// among the folder's own files where they take a role (`role_position`), a `.mtl.common`
-/// link there
-/// counting as a `.mtl` of its linked name and standing for the `Common/` file it names, then
-/// among the linked shared face's; a `Common` one among `Common/`'s files by their path
-/// relative to `Common/`, a subfolder's included. A name with a `kitN`
-/// token names its set, found when a variant of it is there, the lowest one returned. `None`
-/// when none is there, and for an `Unchecked` reference.
+/// `path`, `FileKind::Mtl` for a `material`), its path compared case-folded: a `Local` one
+/// among the folder's own files by their paths relative to the folder (`own_local`, a
+/// `.mtl.common` link counting as a `.mtl` of its linked name and standing for the `Common/`
+/// file it names), then among the linked shared face's (`linked_local`); a `Common` one among
+/// `Common/`'s files by their path relative to `Common/`, a subfolder's included. A name with
+/// a `kitN` token names its set in the directory it names, found when a variant of it is
+/// there, the lowest one returned. `None` when none is there, and for an `Unchecked`
+/// reference.
 pub(crate) fn resolve<'a>(
     reference: &Reference,
     files: &FaceFiles<'a>,
     kind: FileKind,
 ) -> Option<&'a FileDescriptor> {
     match reference {
-        Reference::Local(name) => {
-            let own: Vec<(String, &FileDescriptor)> = files
-                .own
-                .iter()
-                .filter(|file| role_position(files.folder, file, files.shared))
-                .filter_map(|file| candidate(file, kind, files.common))
-                .collect();
-            let linked: Vec<(String, &FileDescriptor)> = files
-                .linked_face
-                .iter()
-                .filter(|file| file.kind == kind)
-                .map(|file| (file.path.name().to_owned(), file))
-                .collect();
-            named(&own, name).or_else(|| named(&linked, name))
+        Reference::Local(path) => {
+            named(&files.own_local(kind), path).or_else(|| named(&files.linked_local(kind), path))
         }
         Reference::Common { file_name, .. } => {
             // Each by its path relative to `Common/`, which for a direct file is its name.
@@ -307,17 +331,19 @@ pub(crate) fn resolve<'a>(
     }
 }
 
-/// The name `file`, one of the folder's own, goes by for a reference to a file of `kind`, with
-/// the file it stands for: its own name, or for a `.mtl` a `.mtl.common` link's linked name
-/// and the `common` file it names (as `mtl_search` counts one). `None` for a file of another
-/// kind.
+/// The path `file`, one of the own files of the folder at `folder`, goes by for a reference to
+/// a file of `kind`, with the file it stands for: its own path relative to the folder, or for
+/// a `.mtl` a `.mtl.common` link's linked name in the link's directory and the `common` file
+/// it names (as `mtl_search` counts one). `None` for a file of another kind.
 fn candidate<'a>(
     file: &'a FileDescriptor,
+    folder: &ScopePath,
     kind: FileKind,
     common: &'a [FileDescriptor],
 ) -> Option<(String, &'a FileDescriptor)> {
+    let path = relative(&file.path, folder);
     if file.kind == kind {
-        return Some((file.path.name().to_owned(), file));
+        return Some((path, file));
     }
     if kind != FileKind::Mtl || file.kind != FileKind::CommonLink {
         return None;
@@ -327,11 +353,13 @@ fn candidate<'a>(
         return None;
     }
     let target = common_file(common, &linked)?;
-    Some((linked, target))
+    let (directory, _) = split(&path);
+    Some((format!("{directory}{linked}"), target))
 }
 
-/// The file among `candidates` (name, file) that the referenced name `referenced` names: the
-/// one of its name, case-folded, else, for a `kitN` reference, the lowest variant of its set.
+/// The file among `candidates` (path, file) that the referenced path `referenced` names: the
+/// one of its path, case-folded, else, for a `kitN` reference, the lowest variant of its set
+/// (`variant_of`).
 fn named<'a>(
     candidates: &[(String, &'a FileDescriptor)],
     referenced: &str,
@@ -339,22 +367,29 @@ fn named<'a>(
     let key = vtree::fold_name(referenced);
     if let Some((_, file)) = candidates
         .iter()
-        .find(|(name, _)| vtree::fold_name(name) == key)
+        .find(|(path, _)| vtree::fold_name(path) == key)
     {
         return Some(file);
     }
     candidates
         .iter()
-        .filter_map(|(name, file)| variant_of(referenced, name).map(|kit| (kit, *file)))
+        .filter_map(|(path, file)| variant_of(referenced, path).map(|kit| (kit, *file)))
         .min_by_key(|(kit, _)| *kit)
         .map(|(_, file)| file)
 }
 
-/// The kit number of the file named `name` when it is a variant of the set the `kitN` name
-/// `referenced` names (`pants_kit2.model` of `pants_kitN.model`), the stems compared
-/// case-folded; `None` otherwise, and when `referenced` is no kit reference.
-pub(crate) fn variant_of(referenced: &str, name: &str) -> Option<u8> {
-    let Some((KitToken::Reference, set)) = kit_token(file_stem(referenced)) else {
+/// The kit number of the file at `path` when it is a variant of the set the `kitN` path
+/// `referenced` names (`pants_kit2.model` of `pants_kitN.model`, `jessie/pants_kit2.model` of
+/// `jessie/pants_kitN.model`): in the same directory, and its stem of the same set, both
+/// compared case-folded; `None` otherwise, and when `referenced` is no kit reference. A bare
+/// name is a path with no directory.
+pub(crate) fn variant_of(referenced: &str, path: &str) -> Option<u8> {
+    let (referenced_directory, referenced_name) = split(referenced);
+    let (directory, name) = split(path);
+    if vtree::fold_name(referenced_directory) != vtree::fold_name(directory) {
+        return None;
+    }
+    let Some((KitToken::Reference, set)) = kit_token(file_stem(referenced_name)) else {
         return None;
     };
     let Some((KitToken::Variant(kit), held_set)) = kit_token(file_stem(name)) else {
@@ -385,8 +420,9 @@ const PES16_PREFIXES: [&str; 3] = ["face_high_", "hair_high_", "oral_"];
 ///   `ratio` that is no finite number (`xml_ratio_invalid`), a reference the compiler cannot
 ///   resolve (`xml_path_unchecked`), more than one `face_neck` entry
 ///   (`xml_face_neck_multiple`, once, after the entries), and each `.model` of the folder's
-///   own, directly in it or in `face/`, that no `path` names (`xml_model_unlisted`, last, in
-///   the files' order; a `kitN` reference names every variant of its set).
+///   own, where it takes a role, that no `path` names by its path relative to the folder
+///   (`names_file`; `xml_model_unlisted`, last, in the files' order; a `kitN` reference names
+///   every variant of its set).
 /// - Info: a `level` other than `0` (`xml_level_lod`).
 ///
 /// An entry without `material` is not a finding: it is written without one. An empty `type`
@@ -434,14 +470,12 @@ pub(crate) fn check(
         })
         .collect();
     for file in files.own {
+        let below = relative(&file.path, files.folder);
         let unlisted = file.kind == FileKind::Model(ModelFormat::PesModel)
             && role_position(files.folder, file, files.shared)
-            && !paths.iter().any(|path| names_file(path, file.path.name()));
+            && !paths.iter().any(|path| names_file(path, &below));
         if unlisted {
-            findings.push(kept(
-                Code::XmlModelUnlisted,
-                vec![("file", relative(&file.path, files.folder))],
-            ));
+            findings.push(kept(Code::XmlModelUnlisted, vec![("file", below)]));
         }
     }
     findings
@@ -572,14 +606,15 @@ fn has_pes16_prefix(path: &str) -> bool {
     PES16_PREFIXES.iter().any(|prefix| name.starts_with(prefix))
 }
 
-/// Whether the `path` or `material` value `path` names the file `file_name` of the folder: a
-/// `./` reference to its name, case-folded, or to the `kitN` set it is a variant of.
-pub(crate) fn names_file(path: &str, file_name: &str) -> bool {
+/// Whether the `path` or `material` value `path` names the file of the folder at `below`, its
+/// path relative to the folder (`jessie/body/x.model`, its name for a file directly in it): a
+/// `./` reference to that path, case-folded, or to the `kitN` set it is a variant of.
+pub(crate) fn names_file(path: &str, below: &str) -> bool {
     let Reference::Local(referenced) = reference(path) else {
         return false;
     };
-    vtree::fold_name(&referenced) == vtree::fold_name(file_name)
-        || variant_of(&referenced, file_name).is_some()
+    vtree::fold_name(&referenced) == vtree::fold_name(below)
+        || variant_of(&referenced, below).is_some()
 }
 
 /// Whether the folder holds a `face_diff.xml` where it takes a role: a second source
@@ -659,6 +694,15 @@ mod tests {
             .collect()
     }
 
+    /// The shared face folder `Faces/Round` holding the files `names`.
+    fn round(names: &[&str]) -> SharedModelFolder {
+        SharedModelFolder {
+            path: ScopePath::new("Faces/Round").unwrap(),
+            folder_name: "Round".to_owned(),
+            files: files_in("Faces/Round", names),
+        }
+    }
+
     /// The export's `Common/` files the tests name.
     fn common() -> Vec<FileDescriptor> {
         files_in("Common", &["legs.model", "body.mtl"])
@@ -686,12 +730,12 @@ mod tests {
     /// the shared face `Faces/Round` holding `hair_high.model`, for `version`.
     fn checked(text: &str, own: &[&str], version: PesVersion) -> Vec<String> {
         let own = files_in(FOLDER, own);
-        let linked_face = files_in("Faces/Round", &["hair_high.model"]);
+        let linked_face = round(&["hair_high.model"]);
         let common = common();
         let folder = ScopePath::new(FOLDER).unwrap();
         let files = FaceFiles {
             own: &own,
-            linked_face: &linked_face,
+            linked_face: Some(&linked_face),
             common: &common,
             template_common: &[],
             folder: &folder,
@@ -779,7 +823,7 @@ mod tests {
         let folder = ScopePath::new(FOLDER).unwrap();
         let files = FaceFiles {
             own: &own,
-            linked_face: &[],
+            linked_face: None,
             common: &common,
             template_common: &[],
             folder: &folder,
@@ -823,9 +867,24 @@ mod tests {
                 file_name: "a/b_win32.model".to_owned(),
             }
         );
+        // A `./` path into a subfolder names the file at that path, relative to the xml's
+        // folder: only its file name's `*` is read as `win32`.
+        assert_eq!(
+            reference("./jessie/body/oral_x_*.model"),
+            Reference::Local("jessie/body/oral_x_win32.model".to_owned())
+        );
+        assert_eq!(
+            reference("./Jessie/*_kit/x.mtl"),
+            Reference::Local("Jessie/*_kit/x.mtl".to_owned())
+        );
         for unchecked in [
             "model/character/face/common/x.model",
-            "./a/b.model",
+            "./",
+            "./a/",
+            "./a//b.model",
+            "./a/./b.model",
+            "./../b.model",
+            "./a/../b.model",
             "x.model",
             "model/character/uniform/common/legs.model",
             "model/character/uniform/common/XXX/a/",
@@ -852,12 +911,12 @@ mod tests {
                 "body.mtl.common",
             ],
         );
-        let linked_face = files_in("Faces/Round", &["hair_high.model", "face_high.model"]);
+        let linked_face = round(&["hair_high.model", "face_high.model"]);
         let common = common();
         let folder = ScopePath::new(FOLDER).unwrap();
         let files = FaceFiles {
             own: &own,
-            linked_face: &linked_face,
+            linked_face: Some(&linked_face),
             common: &common,
             template_common: &[],
             folder: &folder,
@@ -874,18 +933,22 @@ mod tests {
             path("Players/05 - A/Face_High.model")
         );
         assert_eq!(
-            found("./hat.model", model),
-            path("Players/05 - A/face/hat.model")
-        );
-        assert_eq!(
             found("./hair_high.model", model),
             path("Faces/Round/hair_high.model")
         );
-        // The folder's own files are searched by name at any depth.
+        // A subfolder's file is named by its path below the folder, case-folded, and by
+        // nothing else: `./name` names a file directly in the folder.
         assert_eq!(
-            found("./deep.model", model),
+            found("./FACE/hat.model", model),
+            path("Players/05 - A/face/hat.model")
+        );
+        assert_eq!(found("./hat.model", model), None);
+        assert_eq!(
+            found("./boots/deep.model", model),
             path("Players/05 - A/boots/deep.model")
         );
+        assert_eq!(found("./deep.model", model), None);
+        assert_eq!(found("./face/deep.model", model), None);
         // A kit set's reference finds its lowest variant.
         assert_eq!(
             found("./pants_kitN.model", model),
@@ -907,6 +970,81 @@ mod tests {
     }
 
     #[test]
+    fn a_local_reference_names_a_file_at_its_path_relative_to_the_xml_s_folder() {
+        let own = files_in(
+            FOLDER,
+            &[
+                "face_high.model",
+                "jessie/body/x_win32.model",
+                "jessie/pants_kit2.model",
+                "jessie/pants_kit1.model",
+                "pants_kit3.model",
+            ],
+        );
+        // A file below the shared face folder, kept by a lenient check, takes no role there.
+        let linked_face = round(&["hair_high.model", "extra/x_win32.model"]);
+        let common = common();
+        let folder = ScopePath::new(FOLDER).unwrap();
+        let files = FaceFiles {
+            own: &own,
+            linked_face: Some(&linked_face),
+            common: &common,
+            template_common: &[],
+            folder: &folder,
+            shared: false,
+        };
+        let model = FileKind::Model(ModelFormat::PesModel);
+        let found = |value: &str| {
+            resolve(&reference(value), &files, model).map(|file| file.path.as_str().to_owned())
+        };
+        assert_eq!(found("./x_*.model"), None);
+        assert_eq!(found("./x_win32.model"), None);
+        assert_eq!(
+            found("./jessie/body/x_*.model").as_deref(),
+            Some("Players/05 - A/jessie/body/x_win32.model")
+        );
+        assert_eq!(
+            found("./Jessie/Body/X_win32.model").as_deref(),
+            Some("Players/05 - A/jessie/body/x_win32.model")
+        );
+        assert_eq!(found("./body/x_win32.model"), None);
+        // A kit reference with a directory names the set in that directory alone.
+        assert_eq!(
+            found("./jessie/pants_kitN.model").as_deref(),
+            Some("Players/05 - A/jessie/pants_kit1.model")
+        );
+        assert_eq!(
+            found("./pants_kitN.model").as_deref(),
+            Some("Players/05 - A/pants_kit3.model")
+        );
+        assert_eq!(found("./body/pants_kitN.model"), None);
+    }
+
+    #[test]
+    fn a_linked_face_s_file_below_its_folder_is_named_by_no_local_reference() {
+        let folder = ScopePath::new(FOLDER).unwrap();
+        let linked_face = round(&["hair_high.model", "extra/x_win32.model"]);
+        let files = FaceFiles {
+            own: &[],
+            linked_face: Some(&linked_face),
+            common: &[],
+            template_common: &[],
+            folder: &folder,
+            shared: false,
+        };
+        let model = FileKind::Model(ModelFormat::PesModel);
+        let found = |value: &str| {
+            resolve(&reference(value), &files, model).map(|file| file.path.as_str().to_owned())
+        };
+        assert_eq!(
+            found("./hair_high.model").as_deref(),
+            Some("Faces/Round/hair_high.model")
+        );
+        assert_eq!(found("./x_win32.model"), None);
+        assert_eq!(found("./extra/x_win32.model"), None);
+    }
+
+    #[test]
     fn a_common_reference_names_a_file_by_its_path_below_common() {
         let common = files_in(
             "Common",
@@ -919,7 +1057,7 @@ mod tests {
         let folder = ScopePath::new(FOLDER).unwrap();
         let files = FaceFiles {
             own: &[],
-            linked_face: &[],
+            linked_face: None,
             common: &common,
             template_common: &[],
             folder: &folder,
@@ -970,7 +1108,7 @@ mod tests {
         let checked_with = |template_common: &[String], path: &str| {
             let files = FaceFiles {
                 own: &[],
-                linked_face: &[],
+                linked_face: None,
                 common: &[],
                 template_common,
                 folder: &folder,
@@ -1158,9 +1296,9 @@ mod tests {
                 &[],
             ),
             (
-                r#"<model type="parts" path="./a/b.model" material="model/character/face/common/x.mtl"/>"#,
+                r#"<model type="parts" path="./a/../b.model" material="model/character/face/common/x.mtl"/>"#,
                 &[
-                    "xml_path_unchecked [Keep] (attribute=path, value=./a/b.model)",
+                    "xml_path_unchecked [Keep] (attribute=path, value=./a/../b.model)",
                     "xml_path_unchecked [Keep] (attribute=material, value=model/character/face/common/x.mtl)",
                 ],
             ),

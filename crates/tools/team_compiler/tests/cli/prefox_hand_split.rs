@@ -142,6 +142,71 @@ fn a_face_model_weighted_to_the_hand_bones_gives_its_face_two_glove_entries() {
 }
 
 #[test]
+fn a_subfolder_s_hand_split_model_packs_and_lists_its_hands_beside_it() {
+    let sandbox = Sandbox::new("prefox_hand_split_subfolder");
+    let export = "co Midcup Hands";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/jessie/body.model"),
+        &hand_split_fixture("body.model"),
+    );
+    sandbox.write(
+        &format!("{player}/jessie/body.mtl"),
+        &hand_split_fixture("body.mtl"),
+    );
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info model_hand_split [Keep] at Players/05 - A (model=jessie/body.model, gloves=glove_l, glove_r)",
+            "Info xml_face_neck_added [Keep] at Players/05 - A ()",
+        ],
+    );
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "dummy.mtl",
+            "face.xml",
+            "jessie/body.mtl",
+            "jessie/oral_body_glove_l_win32.model",
+            "jessie/oral_body_glove_r_win32.model",
+            "jessie/oral_body_win32.model",
+            "oral_dummy_win32.model",
+        ]
+    );
+    let entry = |xml_type: &str, path: &str, material: &str| {
+        (xml_type.to_owned(), path.to_owned(), material.to_owned())
+    };
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [
+            entry("parts", "./jessie/oral_body_*.model", "./jessie/body.mtl"),
+            entry(
+                "gloveL",
+                "./jessie/oral_body_glove_l_*.model",
+                "./jessie/body.mtl"
+            ),
+            entry(
+                "gloveR",
+                "./jessie/oral_body_glove_r_*.model",
+                "./jessie/body.mtl"
+            ),
+            entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ]
+    );
+}
+
+#[test]
 fn a_linked_face_folder_s_hand_split_model_is_named_by_its_export_path() {
     let sandbox = Sandbox::new("prefox_hand_split_shared");
     let export = "co Midcup Hands";

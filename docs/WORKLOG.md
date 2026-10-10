@@ -43,7 +43,9 @@ collars; `common_model_beaten_dropped`), 4.y-sub in progress since 2026-10-10
 subfolder's files take their roles from their names at any depth, the reserved subfolders
 gone, a refs export's AET layout refused per folder; (b1) done 2026-10-10: a subfolder's
 textures at their paths, a texture name resolving nearest first, each folder its own stem
-namespace, the singletons root-only; (b2) the pre-Fox face CPK's paths next), 4.y-fix20
+namespace, the singletons root-only; (b2) done 2026-10-10: the pre-Fox face packs and
+lists a subfolder's files at their paths, `./sub/name` a checked local reference; (b3a)
+next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4099,6 +4101,28 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   them), r2 99 mutants, 1 missed (`texture_claim`'s `||`: a texture link below a subfolder
   counted in its namespace, the second rework's unit test; `.tmp/4_y/mutants_sub_b1_r2.log`),
   r3 99 mutants, 86 caught, 13 unviable, 0 missed (`.tmp/4_y/mutants_sub_b1_r3.log`).
+  (b2) done 2026-10-10 (Opus 5.5, one run and one rework item; brief
+  `.tmp/4_y/brief_sub_b2.md`, report `.tmp/4_y/sk_sub_b2_report.md`): `Reference::Local`
+  holds a path relative to the referencing file's folder (`./jessie/body/oral_x_*.model`,
+  only the file name's `*` read as `win32`; an empty, `.` or `..` segment stays
+  `Unchecked`), resolved among the folder's own files by that path (`FaceFiles::own_local`)
+  and a linked shared face's direct files (`linked_local`, `linked_face` now the
+  `SharedModelFolder`: S18.1-C3 closed), a `kitN` reference naming the set in its own
+  directory (`variant_of`), `names_file` by the relative path; the generated face packs
+  and lists each own model at its path (`FaceModel::directory`), its hands and converted
+  material set beside it, every `.mtl` at its path, and names the `.mtl` where the search
+  found it; a member's xml packs what it names at the reference's path. The sidekick's
+  contradictions, accepted: the `role_position` filter stays in `resolve` (a shared face's
+  subfolder file takes no role), and a pre-Fox per-kit model set is one directory's
+  (DECISIONS "a pre-Fox per-kit model set is one directory's"); `supply`'s `./sub/x.dds`
+  stays `Supplied` until (b3a). Rework: the generated face's `kit_variant_missing` names
+  a subfolder set with its directory, as the xml route does. TC-MOD-66 proven. Files:
+  `team_compiler` `user_face_xml.rs`, `processing/prefox_face.rs`, `deep/{materials,
+  mod}.rs`, `tests/cli/{prefox_faces, prefox_user_xml, prefox_kit_variants,
+  prefox_hand_split}.rs`; DECISIONS, model_format.md (lead). Gates green
+  (`.tmp/4_y/gates_sub_b2_lead.log`, acceptance 313 of 318, the five open ones (b3)'s and
+  (b4)'s); mutants r1 72 mutants, 55 caught, 17 unviable, 0 missed
+  (`.tmp/4_y/mutants_sub_b2.log`), rework 72 mutants, 55 caught, 17 unviable, 0 missed (`.tmp/4_y/mutants_sub_b2_r1.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -6929,3 +6953,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   compiler keeps writing as Red does; the QUESTIONS entry removed.
 - **2026-10-10** — Step 4.y-mattable opened (the maintainer): the material table and the
   converter's materials checked against `resources/Materials.wikitext`.
+- **2026-10-10** — 4.y-sub (b2) landed: the pre-Fox face packs and lists a subfolder's files
+  at their paths; a pre-Fox per-kit model set is one directory's (decision).

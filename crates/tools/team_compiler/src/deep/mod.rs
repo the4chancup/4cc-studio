@@ -894,7 +894,7 @@ fn folder_findings(
         FaceUse::Used { linked_face, .. } => {
             let face_files = FaceFiles {
                 own: files,
-                linked_face: linked_face.map_or(&[], |face| face.files.as_slice()),
+                linked_face: *linked_face,
                 common: &common.files,
                 template_common: &common.template_paths,
                 folder,
@@ -1192,7 +1192,7 @@ fn xml_unnamed(
             Child::Model(model) => model.attribute(attribute),
             Child::Dif(_) | Child::Other(_) => None,
         })
-        .any(|value| names_file(value, file.path.name()));
+        .any(|value| names_file(value, &relative(&file.path, folder)));
     !(named && role_position(folder, file, shared))
 }
 
@@ -1214,7 +1214,7 @@ fn listed_materials<'a>(
     // folder's pass.
     let face_files = FaceFiles {
         own: files,
-        linked_face: &[],
+        linked_face: None,
         common: &common.files,
         template_common: &common.template_paths,
         folder,

@@ -2045,6 +2045,141 @@ fn a_subfolder_s_texture_sits_at_its_path_and_a_mtl_names_the_nearest_one() {
     assert_eq!(sampler_paths(x_mtl), [format!("{home}jessie/skin.dds")]);
 }
 
+// TC-MOD-66
+#[test]
+fn a_subfolder_s_model_and_mtl_are_packed_and_listed_at_their_paths() {
+    let sandbox = Sandbox::new("prefox_subfolder_model");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/jessie/body/x.model"), &card_model());
+    sandbox.write(&format!("{player}/jessie/body/x.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/jessie/skin.dds"), &small_dds());
+
+    // No `texture_stem_conflict`: the root's `skin.dds` and `jessie/skin.dds` are in two
+    // folders.
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let folder = face_folder(5);
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "face.xml",
+            "face_high.mtl",
+            "jessie/body/oral_x_win32.model",
+            "jessie/body/x.mtl",
+            "oral_face_high_win32.model",
+        ]
+    );
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [
+            (
+                "face_neck".to_owned(),
+                "./oral_face_high_*.model".to_owned(),
+                "./face_high.mtl".to_owned()
+            ),
+            (
+                "parts".to_owned(),
+                "./jessie/body/oral_x_*.model".to_owned(),
+                "./jessie/body/x.mtl".to_owned()
+            ),
+        ]
+    );
+    let home = "model/character/uniform/common/714/05 - A/";
+    assert_eq!(
+        sampler_paths(&face[&format!("{folder}jessie/body/x.mtl")]),
+        [format!("{home}jessie/skin.dds")]
+    );
+    assert_eq!(
+        sampler_paths(&face[&format!("{folder}face_high.mtl")]),
+        [format!("{home}skin.dds")]
+    );
+}
+
+#[test]
+fn a_subfolder_s_fmdl_is_converted_with_its_material_set_beside_it() {
+    let sandbox = Sandbox::new("prefox_subfolder_fmdl");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/jessie/hat.fmdl"), &clean_model());
+
+    // The conversion's own notes (its renamed hand bones' matrices) are not what this test
+    // is about.
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+
+    let folder = face_folder(5);
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "face.xml",
+            "face_high.mtl",
+            "jessie/hat.mtl",
+            "jessie/oral_hat_win32.model",
+            "oral_face_high_win32.model",
+        ]
+    );
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")])[1],
+        (
+            "parts".to_owned(),
+            "./jessie/oral_hat_*.model".to_owned(),
+            "./jessie/hat.mtl".to_owned()
+        )
+    );
+}
+
+#[test]
+fn a_subfolder_s_model_names_the_root_s_mtl_its_search_finds_there() {
+    let sandbox = Sandbox::new("prefox_subfolder_model_root_mtl");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/jessie/body/x.model"), &card_model());
+    sandbox.write(&format!("{player}/x.mtl"), &card_materials());
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let folder = face_folder(5);
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "face.xml",
+            "face_high.mtl",
+            "jessie/body/oral_x_win32.model",
+            "oral_face_high_win32.model",
+            "x.mtl",
+        ]
+    );
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")])[1],
+        (
+            "parts".to_owned(),
+            "./jessie/body/oral_x_*.model".to_owned(),
+            "./x.mtl".to_owned()
+        )
+    );
+}
+
 #[test]
 fn a_mtl_is_supplied_by_a_texture_of_its_folder_or_a_parent_never_a_subfolder() {
     // `jessie/body/x.mtl` names `skin.dds`, which `jessie/` holds: nearest first, the lookup

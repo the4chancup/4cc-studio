@@ -202,7 +202,9 @@ Rules:
   kit token respelled `kitN` when it carries one (`pants_kit1.mtl` is written `pants_kitN.mtl`),
   since the game respells the whole entry for the kit picked; the other variants' material
   files must then go by the respelled names, and `kit_variant_mtl_differs` (W) names one that
-  does not. Fox has no model-path indirection inside a face package, so there each kit
+  does not. On pre-Fox a set is one directory's files: `jessie/pants_kit1.model` and a root
+  `pants_kit2.model` are two sets, since the game respells the listed entry, its directory
+  included, for the kit picked. Fox has no model-path indirection inside a face package, so there each kit
   number gets a face package of its own, its models merged from that number's variants
   (any file of the face may vary per kit: models, textures, the face's other files), and
   FoxDen loads the package of the kit picked. The layout FoxDen reads (the packages' names
