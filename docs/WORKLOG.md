@@ -51,8 +51,8 @@ TC-MOD-64's meshes told apart, a dropped shared link no link, a textures-only fo
 reported, a `.model` collar's material losses skipped), 4.y-fix22 opened 2026-10-10 (the S13
 and S15 rounds' rework; S12, S14, S15 and S17 closed), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
-values applied first on an FPC team), 4.y-retag opened 2026-10-10 (the maintainer's answer:
-the 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
+values applied first on an FPC team), 4.y-retag done 2026-10-10 (no retype needed; 76 long subjects cut, history rewritten
+and force-pushed), 4.y-fix12 done 2026-10-10
 (a `.model` collar converts with the templates' `uniform.mtl` on both engines, the
 pre-check moving a PES 15-17 one onto the version's skeleton; TC-CMN-11, TC-CMN-19), 4.y-fix17
 done 2026-10-10 (the marker's combined folders in `held_stems`, `texture_unreadable` and
@@ -4099,7 +4099,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (lead). Gates green (`.tmp/4_y/gates_kitwarn_r2.log`, acceptance 309 of 314); mutants
   13/0/1 (`.tmp/4_y/mutants_kitwarn_r2.log`).
 
-- [ ] 4.y-retag **The 2026-10-05 retags reviewed** (the maintainer's answer, 2026-10-10:
+- [x] 4.y-retag **The 2026-10-05 retags reviewed** (the maintainer's answer, 2026-10-10:
   "whichever fits Conventional Commits best"; rebasing and force-pushing are fine, the
   repository being unannounced). The commits retagged from `review` to `fix` that day (the
   reviewer-round and survivor-triage commits of 2026-09-28 to 2026-10-05: `git log
@@ -4117,6 +4117,14 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   → verify: `git log --oneline` shows the new types and no subject over 120 characters
   (`git log --format=%s | awk 'length > 120'` prints nothing); `just gates` green at the
   new HEAD.
+  Done 2026-10-10: the re-read found no commit to retype (every reviewer-round and triage
+  commit changes behavior or mixes tests with fixes, so `fix` stands); the 76 subjects
+  over 120 characters were cut to their type, scope and gist by `git filter-branch
+  --msg-filter` from `.tmp/4_y/retag/messages.tsv` over `b197139^..HEAD`, each old subject
+  kept as the body's first paragraph ("Subject as first written: ..."). 583 commits before
+  and after, an empty tree diff, gates green, force-pushed (`bd5bc82`). Every hash from
+  `b197139` on changed; hashes quoted in `.tmp/` notes and reports before the rewrite are
+  the old ones.
 
 - [x] 4.y-fix17 **Three small deep-pass and collar follow-ups** (brief
   `.tmp/4_y/brief_fix17.md`, 2026-10-10). (1) `held_stems` takes a marked player's combined
@@ -6809,3 +6817,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   accepted): TC-MOD-64 tells its meshes apart, a dropped shared link is no link, a folder
   planning no package plans no textures task and reports them `file_not_used`, a `.model`
   collar skips material losses and keeps its names; mutants-diff 0 missed.
+- **2026-10-10** — 4.y-retag done: no commit needed a new type; the 76 subjects over 120
+  characters cut, each old subject kept in its body; history from `b197139` rewritten and
+  force-pushed (`bd5bc82`), gates green.
