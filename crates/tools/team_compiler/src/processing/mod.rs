@@ -34,7 +34,7 @@ use crate::paths;
 use crate::plan::roles::{ModelPackage, texture_format};
 use crate::plan::{BuildTask, TaskGroup, TaskKind};
 use crate::templates::Templates;
-use conversion::PreFoxMaterials;
+use conversion::ConvertedMaterials;
 pub(crate) use materialize::{EntryTarget, TEST_BINS_PREFIX};
 use materialize::{TaskOutput, materialize};
 
@@ -314,25 +314,44 @@ pub(crate) fn process_task(
         }
         // The deep pass has read and checked the model. One in the format the target reads
         // keeps the materials its author gave it (embedded in an FMDL, named against the
-        // shared `uniform.mtl` in a `.model`), so its bytes go out as they are, a WESYS-wrapped
-        // `.model` still wrapped: the game reads both. An FMDL for PES 15-17 is converted on
-        // the version's body table, no `.skl` being read beside a collar, its materials named
-        // as the stock collars' for the shared `uniform.mtl`, which dresses it: its own
-        // material set is not written.
+        // shared `uniform.mtl` in a `.model`). An FMDL on Fox goes out as it is. A `.model` on
+        // PES 15-17 runs the same-engine pre-check, read with the templates' `uniform.mtl` as
+        // its set since a collar carries none: one posed off the version's skeleton is moved
+        // onto it, its material names kept, and any other goes out as it is, a WESYS-wrapped
+        // one still wrapped: the game reads both. An FMDL for PES 15-17 is converted on the
+        // version's body table, no `.skl` being read beside a collar, its materials named as
+        // the stock collars' for the shared `uniform.mtl`, which dresses it: its own material
+        // set is not written. A `.model` for PES 18-21 is converted with the templates'
+        // `uniform.mtl` as its `.mtl`, its samplers dropped; the skeleton the conversion may
+        // write is dropped with no finding, a collar having no skeleton slot.
         TaskKind::Collar { file, id } => {
             let bytes = take(&mut files, file);
+            let name = file.path.name();
             let is_fmdl = file.kind == FileKind::Model(ModelFormat::Fmdl);
+            let uniform_mtl = ctx.templates.uniform_mtl();
             let written = match ctx.version.engine() {
                 Engine::PreFox if is_fmdl => conversion::fmdl_for_pre_fox(
-                    file.path.name(),
+                    name,
                     &bytes,
                     None,
                     ctx,
                     &mut findings,
-                    PreFoxMaterials::StockCollar,
+                    ConvertedMaterials::StockCollar,
                 )
                 .map(|converted| converted.model),
-                Engine::PreFox | Engine::Fox => Ok(bytes),
+                Engine::PreFox => {
+                    conversion::model_for_pre_fox(name, bytes, uniform_mtl, ctx, &mut findings)
+                }
+                Engine::Fox if is_fmdl => Ok(bytes),
+                Engine::Fox => conversion::model_for_fox(
+                    name,
+                    &bytes,
+                    uniform_mtl,
+                    ctx,
+                    &mut findings,
+                    ConvertedMaterials::StockCollar,
+                )
+                .map(|converted| converted.model),
             };
             written.map(|bytes| {
                 let entry = (paths::collar(ctx.version.engine(), *id), bytes);

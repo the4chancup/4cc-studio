@@ -13,7 +13,7 @@ use aesthetics_export::{FileDescriptor, FileKind, ModelFormat};
 use pes_version::Engine;
 use vtree::ScopePath;
 
-use super::conversion::{PreFoxMaterials, fmdl_for_pre_fox, model_for_pre_fox, source_name};
+use super::conversion::{ConvertedMaterials, fmdl_for_pre_fox, model_for_pre_fox, source_name};
 use super::prefox_face::{
     add_environment_map, converted_material_name, point_materials, point_reserved_kit_stems,
     rewritten_materials,
@@ -89,7 +89,7 @@ pub(super) fn common_models(
                     skeleton.as_deref(),
                     ctx,
                     findings,
-                    PreFoxMaterials::Converted,
+                    ConvertedMaterials::Converted,
                 )?;
                 let mut materials = conversion.materials;
                 // Before the pointing, which respells the environment map's path as `Common/`

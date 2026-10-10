@@ -1502,14 +1502,11 @@ pub(crate) fn file_stem(name: &str) -> &str {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CollarFile {
     /// A model the target's collar task writes: in the format the engine reads (an FMDL on Fox,
-    /// a `.model` on pre-Fox), written unchanged with its author's material names, or an FMDL
-    /// on pre-Fox, converted to a `.model` with the stock collars' material names. It claims
-    /// the stock collar its name gives and is written in its place.
+    /// a `.model` on pre-Fox), written with its author's material names, or in the other
+    /// engine's format, converted (an FMDL on pre-Fox to a `.model` with the stock collars'
+    /// material names, a `.model` on Fox to an FMDL with the templates' `uniform.mtl` as its
+    /// `.mtl`). It claims the stock collar its name gives and is written in its place.
     Compiled,
-    /// A `.model` on Fox: its materials are the game's `uniform.mtl`, which the export does
-    /// not carry, so there is nothing to convert it with (`pipeline.md` "Collars"). Planning
-    /// leaves it out with `model_conversion_failed`, the file alone.
-    NoMaterialSet,
     /// A glTF, which the compiler does not read until Phase 7: planning drops it with
     /// `model_gltf_unsupported`, the file alone, and the export compiles without it.
     Unsupported,
@@ -1522,9 +1519,9 @@ pub(crate) enum CollarFile {
 pub(crate) fn collar_file(file: &FileDescriptor, engine: Engine) -> CollarFile {
     match file.kind {
         FileKind::Model(format) => match (engine, format) {
-            (Engine::Fox | Engine::PreFox, ModelFormat::Fmdl)
-            | (Engine::PreFox, ModelFormat::PesModel) => CollarFile::Compiled,
-            (Engine::Fox, ModelFormat::PesModel) => CollarFile::NoMaterialSet,
+            (Engine::Fox | Engine::PreFox, ModelFormat::Fmdl | ModelFormat::PesModel) => {
+                CollarFile::Compiled
+            }
             (Engine::Fox | Engine::PreFox, ModelFormat::Gltf) => CollarFile::Unsupported,
         },
         FileKind::Texture
@@ -1684,7 +1681,7 @@ mod tests {
             ("collar_12.fmdl", CollarFile::Compiled, CollarFile::Compiled),
             (
                 "collar_12.model",
-                CollarFile::NoMaterialSet,
+                CollarFile::Compiled,
                 CollarFile::Compiled,
             ),
             (

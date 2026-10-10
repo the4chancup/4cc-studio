@@ -40,8 +40,9 @@ collars; `common_model_beaten_dropped`), 4.y-sub opened 2026-10-10
 (a subfolder of a player folder is a player folder of its own; the reserved subfolders gone, the
 AET referee layout refused per folder), 4.y-kitwarn and 4.y-retag opened 2026-10-10 (the
 maintainer's answers: one Warning for a sleeve or fit option the shirt model ignores; the
-2026-10-05 retags reviewed), 4.y-fix12 opened 2026-10-09
-(PES 17's `uniform.mtl` in the templates, its lead part done), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
+2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
+(a `.model` collar converts with the templates' `uniform.mtl` on both engines, the
+pre-check moving a PES 15-17 one onto the version's skeleton; TC-CMN-11, TC-CMN-19), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
 `.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
@@ -3403,7 +3404,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `kit_layout.rs`, `models.rs`, `prefox_kit_variants.rs`, `prefox_kits.rs`,
   `prefox_user_xml.rs`, `referees.rs`, `textures.rs`.
 
-- [ ] 4.y-fix12 **A `.model` collar converts with the templates' `uniform.mtl`** (the
+- [x] 4.y-fix12 **A `.model` collar converts with the templates' `uniform.mtl`** (the
   maintainer's answer, 2026-10-09). Lead first (a template is correctness-critical): PES 17's
   stock `uniform.mtl` extracted from its install's data CPK into `resources/templates/`,
   its provenance recorded as the other templates' is. Then the sidekick: a `.model` collar
@@ -3422,6 +3423,37 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   cup's `4cc_04_fpc.cpk` overrides the file in game on PES 15-17, differing only in
   `skin_limb`; its PES 15-16 copy has no `uni_collar` either, so the PES 15-16 rule holds
   on the cup's installs.
+  Done 2026-10-10 (sidekick, one run; brief `.tmp/4_y/brief_fix12.md`, report
+  `.tmp/4_y/sk_fix12_report.md`): `Templates::uniform_mtl()` (the fifteenth overridable
+  resource); `CollarFile::NoMaterialSet` gone, a `.model` collar `Compiled` on both engines;
+  the collar task runs a PES 18-21 `.model` through `model_for_fox` with the template as
+  its `.mtl` and `ConvertedMaterials::StockCollar` (`PreFoxMaterials` renamed, now a
+  parameter of `model_for_fox` and `fox_written` too), which drops every sampler of the
+  FMDL (`collar_samplers_dropped`: the game's own collars bind only `Pattern_Tex_LIN`, a
+  sampler the converter never writes, so the brief's "replace with the stock path" branch
+  could never fire and was not built) and reports no loss about a material; the skeleton
+  the conversion may write is dropped with no finding; a PES 15-17 `.model` collar goes
+  through `model_for_pre_fox` with the template as its set, so one the pre-check flags is
+  moved onto the version's skeleton; `stock_collar_materials(model, version)` names
+  `uni_shirts` alone on PES 15-16. TC-CMN-11 rewritten and proven, TC-CMN-19 proven, the
+  pre-check test on PES 15 against PES 17 byte for byte. The brief's fixture was wrong:
+  `konami_collar_052.wesys.model` is Konami's `modD_shirt_tight_in_collar_052.model`, one
+  material `modD_phone`, which the template does not define, so the tests convert it with
+  that material renamed `uni_shirts` (`uniform_collar_model()`); a real stock collar as a
+  fixture (the lead's, with its provenance: PES 17's are not in `dt32_win.cpk`, their CPK
+  still to find) goes to the next rework brief. New on PES 15: a `.model` collar the
+  pre-check flags whose material the template lacks is `model_conversion_failed` (it was
+  packed); on PES 16-17 such a collar still packs. Open for 4.y-ingame2: the converted Fox
+  collar keeps the converter's `fox3ddf_blin` with no sampler, where the stock PES 21
+  collars use `pes_3ddf_collar` and `pes_3ddf_shirt_nb` with `Pattern_Tex_LIN` (to see
+  on PES 21); and real PES 17 collars list `uni_shirts` first, `uni_collar` second, mesh
+  0 on `uni_shirts`, against the plan's "first material becomes `uni_collar`". Files:
+  `templates.rs`, `plan/collars.rs`, `plan/roles.rs`, `processing/conversion.rs`,
+  `processing/mod.rs`, `processing/model.rs`, the three `prefox_*.rs` imports,
+  `tests/cli/collars.rs`, `help/01_command_line.md`; `pipeline.md` "Collars" and the
+  templates README's sampler sentence (lead). Gates green (`.tmp/4_y/gates_fix12_lead.log`,
+  acceptance 302 of 312); mutants 23 caught, 0 missed, 10 unviable
+  (`.tmp/4_y/mutants_fix12.log`).
 
 - [ ] 4.y-fix13 **A hidden Fox mesh is left out of a `.model` export** (the maintainer's
   answer, 2026-10-09). `model_convert`'s pre-Fox export skips a mesh whose `invisible`
@@ -5986,3 +6018,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (`held_stems` under the marker) to the next rework brief. In game (4.y-ingame2 (b)): the
   pre-Fox marker's scene still unknown; the maintainer's PES 17 install draws no referee
   figure at all, and no marker, with the cup's refs CPK or the test slot's prop pair.
+- **2026-10-10** — 4.y-fix12 done (sidekick, one run): a `.model` collar converts with the
+  templates' `uniform.mtl` on both engines (`Templates::uniform_mtl()`,
+  `ConvertedMaterials`, the Fox FMDL's samplers dropped), the pre-check moving a PES 15-17
+  one onto the version's skeleton; `uni_shirts` alone on PES 15-16. TC-CMN-11 rewritten,
+  TC-CMN-19 proven. The brief's fixture was not a collar (its material `modD_phone`): a
+  real stock collar fixture goes to the next rework brief, with the converted Fox collar's
+  shader and samplers to see on PES 21.

@@ -33,7 +33,7 @@ use studio_core::Disposition;
 use vtree::ScopePath;
 
 use super::conversion::{
-    PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox, model_for_pre_fox, source_name,
+    ConvertedMaterials, PreFoxConversion, fmdl_for_pre_fox, model_for_pre_fox, source_name,
 };
 use super::materialize::PackageFiles;
 use super::prefox_face::{
@@ -281,7 +281,7 @@ pub(super) fn package(
             skeleton.as_deref(),
             ctx,
             findings,
-            PreFoxMaterials::Converted,
+            ConvertedMaterials::Converted,
         )?;
         // The flag is not consulted, as the face does not: only a `Basic_CNSR` material gets
         // the sampler, which the converter writes for the `metal` family the deep pass flags

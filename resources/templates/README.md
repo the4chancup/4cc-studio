@@ -161,8 +161,10 @@ member's own. Copied on 2026-10-08 by `.tmp/copy_env_template.py` (not kept: a o
 PES 17's stock uniform material set: the `.mtl` a `.model` collar is read with, since a collar
 carries no materials of its own and the game draws it with the kit's (Team compiler plan,
 `pipeline.md` "Collars" and step 3 "Format conversion"; worklog step 4.y-fix12). Ten
-materials; the two a collar names, `uni_collar` and `uni_shirts`, are both shader `Shirt_NB`
-with no sampler. 4,678 bytes, LF line ends, SHA-256 `f585925ff774852f`.
+materials; the two a collar names, `uni_collar` and `uni_shirts`, are both shader `Shirt_NB`,
+`uni_collar` with no sampler and `uni_shirts` with a `NormalMap` sampler, `./shirts_nrm.dds`
+(a collar converted for PES 18-21 drops every sampler, the game's own Fox collars binding none
+of the converter's). 4,678 bytes, LF line ends, SHA-256 `f585925ff774852f`.
 
 Source: PES 2017's `data/dt32_win.cpk`,
 `common/character1/model/character/uniform/common/uniform.mtl`, extracted on 2026-10-09 from

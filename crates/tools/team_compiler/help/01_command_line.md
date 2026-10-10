@@ -350,17 +350,19 @@ later one's file is the error `collar_id_conflict`, naming the export that holds
 left out and its kits keeping their own collars. An export holds one collar, so a second
 collar file of the same export is that error too, naming the export itself. On PES 2015 to
 2017, `compile` writes a team's `Collars/collar_<number>.model` as it is in place of that
-stock collar, and every kit of the team wears it as its collar and winter collar, as above:
-the kits the export holds, and for a midcup export the team's installed kits it does not send
-again, whose kit configs the CPK then carries changed. The two rules on who keeps a collar are
-the same. A `.fmdl` collar compiled for PES 2015 to 2017 is converted to a `.model`, its
-materials named `uni_collar` (the first) and `uni_shirts` (the rest) as the game's own collars'
-are, so the game dresses it with the team's kit as it does them; no `.mtl` is written for it.
-One that cannot be converted is the error `model_conversion_failed`, and the collar file is
-left out. A `.model` collar for PES 2018 to 2021 cannot be converted yet (its materials are
-the game's own `uniform.mtl`, which the export does not carry), so `compile` leaves it out with
-the error `model_conversion_failed` and the kits keep their configs' collars. A `.glb` or
-`.gltf` collar is not read yet:
+stock collar (one posed off the version's body, as PES 2017's own collars are on PES 2015, is
+first moved onto it, its material names kept), and every kit of the team wears it as its
+collar and winter collar, as above: the kits the export holds, and for a midcup export the
+team's installed kits it does not send again, whose kit configs the CPK then carries changed.
+The two rules on who keeps a collar are the same. A `.fmdl` collar compiled for PES 2015 to
+2017 is converted to a `.model`, its materials named as the game's own collars' are: on PES
+2017 `uni_collar` (the first) and `uni_shirts` (the rest), on PES 2015 and 2016 all
+`uni_shirts`, so the game dresses it with the team's kit as it does them; no `.mtl` is written
+for it. A `.model` collar compiled for PES 2018 to 2021 is converted to a `.fmdl` with PES
+2017's own `uniform.mtl`, which the compiler carries, as its material set: its materials keep
+their names and name no texture, the game dressing it with the team's kit. One that cannot be
+converted, either way, is the error `model_conversion_failed`, and the collar file is left
+out. A `.glb` or `.gltf` collar is not read yet:
 `compile` leaves it out with the error `model_gltf_unsupported`, and the rest of the export
 goes on.
 

@@ -450,6 +450,34 @@ fn a_pes_17_fmdl_collar_is_converted_with_the_stock_collars_material_names() {
     assert_eq!((p1.shirt.collar, p1.shirt.winter_collar), (12, 12));
 }
 
+// TC-CMN-19
+#[test]
+fn a_pes_16_fmdl_collar_is_converted_with_every_material_named_uni_shirts() {
+    let sandbox = Sandbox::new("collar_pes_16_fmdl");
+    // The tracer's boots, two materials and two meshes once their antiblur mesh folds in
+    // (TC-CMN-09's source).
+    sandbox.write(
+        &format!("{EXPORT}/Collars/collar_12.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes_settings(&sandbox, 16), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = compiled(&sandbox);
+    let Some(collar) = entries.get(PRE_FOX_COLLAR_12) else {
+        panic!("no converted collar: {:#?}", entries.keys());
+    };
+    let model =
+        pes_model::model::Model::from_file(&pes_model::format::PreFoxModel::read(collar).unwrap())
+            .unwrap();
+    assert_eq!(model.materials, ["uni_shirts"]);
+    let bindings: Vec<usize> = model.meshes.iter().map(|mesh| mesh.material).collect();
+    assert_eq!(bindings, [0, 0]);
+}
+
 #[test]
 fn a_gltf_collar_is_dropped_and_its_export_compiled_without_it() {
     for (number, version) in [(21, PesVersion::Pes21), (17, PesVersion::Pes17)] {
@@ -534,13 +562,24 @@ fn assert_collar_left_out(sandbox: &Sandbox, version: PesVersion, collars: (u8, 
     );
 }
 
+/// `pre_fox_model()` with its one material, `modD_phone`, renamed `uni_shirts` (the name PES
+/// 16's stock collars give their one material), WESYS-wrapped as the fixture is: a `.model`
+/// collar whose material the templates' `uniform.mtl` defines, posed off PES 15's skeleton.
+fn uniform_collar_model() -> Vec<u8> {
+    let file = pes_model::format::PreFoxModel::read(&pre_fox_model()).unwrap();
+    let mut model = pes_model::model::Model::from_file(&file).unwrap();
+    assert_eq!(model.materials, ["modD_phone"]);
+    model.materials = vec!["uni_shirts".to_owned()];
+    wezlib::compress(&model.to_file().unwrap().write().unwrap())
+}
+
 // TC-CMN-11
 #[test]
-fn a_pes_21_model_collar_is_left_out_with_model_conversion_failed() {
+fn a_pes_21_model_collar_is_converted_with_the_templates_uniform_mtl() {
     let sandbox = Sandbox::new("collar_fox_model");
     sandbox.write(
         &format!("{EXPORT}/Collars/collar_12.model"),
-        &pre_fox_model(),
+        &uniform_collar_model(),
     );
     sandbox.write(&format!("{EXPORT}/{CLEAN_PLAYER}"), &clean_model());
     sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
@@ -552,20 +591,112 @@ fn a_pes_21_model_collar_is_left_out_with_model_conversion_failed() {
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
+    // What the FMDL has no place for, and the bones moved onto PES 21's; no loss about a
+    // material (the dummy specular map the converter adds), the collar writing none.
     assert_eq!(
         findings_of(&lines, "co Midcup Collars"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             TEAM_COLORS_MISSING,
-            "Error model_conversion_failed [DropFile] at Collars/collar_12.model (model=collar_12.model, error=a `.model` collar names materials of the game's `uniform.mtl`, which the export does not carry)",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info native_field_dropped [Keep] at Collars/collar_12.model (model=collar_12.model, mesh=0, field=lower_lods)",
+            "Info native_field_dropped [Keep] at Collars/collar_12.model (model=collar_12.model, mesh=0, field=tags)",
+            "Info skeleton_retargeted [Keep] at Collars/collar_12.model (model=collar_12.model, bones=2)",
+            "Info vertex_bitangents_dropped [Keep] at Collars/collar_12.model (model=collar_12.model, mesh=0)",
         ],
         "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 1, "{lines:#?}");
-    // No collar was claimed, so p1 keeps its config's own.
-    assert_collar_left_out(&sandbox, PesVersion::Pes21, (30, 31));
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = compiled(&sandbox);
+    let Some(collar) = entries.get(COLLAR_12) else {
+        panic!("no converted collar: {:#?}", entries.keys());
+    };
+    let model = fmdl::Model::from_file(&fmdl::FmdlFile::read(collar).unwrap()).unwrap();
+    // The `.model`'s material name, its shader the converter's for `uniform.mtl`'s `Shirt_NB`,
+    // and no sampler: the converter's point at nothing a collar has.
+    let materials: Vec<(&str, &str, usize)> = model
+        .materials
+        .iter()
+        .map(|material| {
+            (
+                material.name.as_str(),
+                material.shader.as_str(),
+                material.textures.len(),
+            )
+        })
+        .collect();
+    assert_eq!(materials, [("uni_shirts", "fox3ddf_blin", 0)]);
+    assert!(
+        entries
+            .keys()
+            .all(|path| !path.contains("/nocloth/") || path == COLLAR_12),
+        "the collar alone, no skeleton beside it: {:#?}",
+        entries.keys()
+    );
+    // p1 and every other kit of the team the bundled `UniColor.bin` offers wear the collar.
+    let p1 = emitted_config(&entries, "1st", PesVersion::Pes21);
+    assert_eq!((p1.shirt.collar, p1.shirt.winter_collar), (12, 12));
+    let configs = team_configs(&entries[UNIFORM_PARAMETER], 714);
+    for name in bundled_714_kits() {
+        let config = &configs[&name];
+        let collars = (config.shirt.collar, config.shirt.winter_collar);
+        assert_eq!(collars, (12, 12), "{name}");
+    }
     assert_eq!(compiled_players(&sandbox), [71403]);
+}
+
+// The same-engine pre-check on a `.model` collar (`pipeline.md` "Collars").
+#[test]
+fn a_model_collar_posed_off_the_version_s_skeleton_is_moved_onto_it_and_kept_wrapped_otherwise() {
+    let source = uniform_collar_model();
+    // Flagged on PES 15: moved onto its skeleton, written plain as every converted model is,
+    // its material name kept.
+    let sandbox = Sandbox::new("collar_pre_fox_moved");
+    sandbox.write(&format!("{EXPORT}/Collars/collar_12.model"), &source);
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes_settings(&sandbox, 15), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    let mut expected = vec![
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        TEAM_COLORS_MISSING,
+        "Info kit_config_generated [Keep] at Kits/p1 ()",
+        "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        "Info native_field_dropped [Keep] at Collars/collar_12.model (model=collar_12.model, mesh=0, field=lower_lods)",
+        "Info native_field_dropped [Keep] at Collars/collar_12.model (model=collar_12.model, mesh=0, field=tags)",
+        "Info bone_folded_for_version [Keep] at Collars/collar_12.model (model=collar_12.model, bone=dsk_deltoid_l -> dsk_upperarm_l)",
+        "Info bone_folded_for_version [Keep] at Collars/collar_12.model (model=collar_12.model, bone=dsk_deltoid_r -> dsk_upperarm_r)",
+        "Info bone_folded_for_version [Keep] at Collars/collar_12.model (model=collar_12.model, bone=dsk_upperarm_long_l -> dsk_upperarm_l)",
+        "Info bone_folded_for_version [Keep] at Collars/collar_12.model (model=collar_12.model, bone=dsk_upperarm_long_r -> dsk_upperarm_r)",
+        "Info skeleton_retargeted [Keep] at Collars/collar_12.model (model=collar_12.model, bones=4)",
+    ];
+    expected.extend(NO_LOOSE_CONFIGS);
+    assert_eq!(
+        findings_of(&lines, "co Midcup Collars"),
+        expected,
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = compiled(&sandbox);
+    let Some(collar) = entries.get(PRE_FOX_COLLAR_12) else {
+        panic!("no collar: {:#?}", entries.keys());
+    };
+    assert_ne!(collar, &source, "moved onto PES 15's skeleton");
+    assert!(!wezlib::is_wrapped(collar), "written plain");
+    let model =
+        pes_model::model::Model::from_file(&pes_model::format::PreFoxModel::read(collar).unwrap())
+            .unwrap();
+    assert_eq!(model.materials, ["uni_shirts"]);
+
+    // Not flagged on PES 17: packed byte for byte, still wrapped.
+    let sandbox = Sandbox::new("collar_pre_fox_kept");
+    sandbox.write(&format!("{EXPORT}/Collars/collar_12.model"), &source);
+
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    assert!(compiled(&sandbox).get(PRE_FOX_COLLAR_12) == Some(&source));
 }
 
 #[test]

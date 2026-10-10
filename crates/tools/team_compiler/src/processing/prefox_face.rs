@@ -26,7 +26,7 @@ use studio_core::Disposition;
 use vtree::ScopePath;
 
 use super::conversion::{
-    PreFoxConversion, PreFoxMaterials, fmdl_for_pre_fox, model_for_pre_fox, source_name,
+    ConvertedMaterials, PreFoxConversion, fmdl_for_pre_fox, model_for_pre_fox, source_name,
 };
 use super::materialize::PackageFiles;
 use super::prefox_split::split_face_model;
@@ -477,7 +477,7 @@ pub(super) fn face(
                             skeleton.as_deref(),
                             ctx,
                             findings,
-                            PreFoxMaterials::Converted,
+                            ConvertedMaterials::Converted,
                         )?)
                     } else {
                         FaceSource::Member {

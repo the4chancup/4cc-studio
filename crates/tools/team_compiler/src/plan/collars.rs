@@ -15,14 +15,13 @@ use crate::messages::{Code, tool_message};
 /// The collar the export `export_id`, named `export_name`, keeps of its `Collars/` files
 /// `collars` for a target of `engine`, with the stock collar it replaces, claimed in `claimed`
 /// (each claimed collar's ID and its claimant's name, run-wide). Its models the target's
-/// collar task writes (`collar_file`: FMDLs on both engines, `.model` files on pre-Fox),
+/// collar task writes (`collar_file`: FMDLs and `.model` files on both engines),
 /// directly in `Collars/` (a file below a subfolder is no collar, and claims and reports
 /// nothing), are taken in path order: the first whose ID no earlier export claimed claims it;
 /// every other, its ID claimed already or the export holding a collar already (its own same ID
 /// included),
 /// reports `collar_id_conflict` on its file, naming the claimant, and is left out. A glTF
-/// reports `model_gltf_unsupported` on its file, dropping it, and claims nothing, and so does
-/// a `.model` on Fox with `model_conversion_failed` (`CollarFile::NoMaterialSet`); a file of
+/// reports `model_gltf_unsupported` on its file, dropping it, and claims nothing; a file of
 /// another kind claims nothing and reports nothing. `claimed` starts empty: the suite's own
 /// collars, 105 and 77, never get here, the deep pass having dropped a file named for either
 /// as a conflict.
@@ -52,26 +51,6 @@ pub(crate) fn export_collar(
                     },
                     Disposition::DropFile,
                     vec![("file", name.to_owned())],
-                ));
-                continue;
-            }
-            CollarFile::NoMaterialSet => {
-                messages.push(tool_message(
-                    Code::ModelConversionFailed,
-                    Scope::File {
-                        export_id,
-                        path: file.path.clone(),
-                    },
-                    Disposition::DropFile,
-                    vec![
-                        ("model", name.to_owned()),
-                        (
-                            "error",
-                            "a `.model` collar names materials of the game's `uniform.mtl`, \
-                             which the export does not carry"
-                                .to_owned(),
-                        ),
-                    ],
                 ));
                 continue;
             }
@@ -374,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn a_pes_21_model_collar_is_dropped_claiming_nothing_and_the_next_file_claims_its_collar() {
+    fn a_pes_21_model_collar_claims_its_collar_as_an_fmdl_does() {
         // Path order puts the `.model` first; the FMDL after it names the same collar.
         let report = planned(
             PesVersion::Pes21,
@@ -390,15 +369,12 @@ mod tests {
 
         assert_eq!(
             dropped_files(&report, "model_conversion_failed"),
-            [
-                "0 Collars/collar_012.model model=collar_012.model error=a `.model` collar names \
-                 materials of the game's `uniform.mtl`, which the export does not carry"
-            ]
+            Vec::<String>::new()
         );
-        assert_eq!(collar_tasks(&report), [(0, "Collars/collar_12.fmdl", 12)]);
+        assert_eq!(collar_tasks(&report), [(0, "Collars/collar_012.model", 12)]);
         assert_eq!(
             dropped_files(&report, "collar_id_conflict"),
-            Vec::<String>::new()
+            ["0 Collars/collar_12.fmdl file=collar_12.fmdl claimant=co Midcup Collars"]
         );
         assert_eq!(kit_collars(&report), [(0, "p1", Some(12))]);
     }

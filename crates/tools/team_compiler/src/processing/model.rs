@@ -19,7 +19,7 @@ use pes_version::Engine;
 use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::conversion::{fmdl_for_fox, model_for_fox, source_name};
+use super::conversion::{ConvertedMaterials, fmdl_for_fox, model_for_fox, source_name};
 use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::bins::installed::InstalledPaths;
@@ -465,7 +465,14 @@ fn convert_part(
     let mut reported = Vec::new();
     match mtl {
         Some(mtl) => {
-            let converted = model_for_fox(model, &part.bytes, mtl, ctx, &mut reported)?;
+            let converted = model_for_fox(
+                model,
+                &part.bytes,
+                mtl,
+                ctx,
+                &mut reported,
+                ConvertedMaterials::Converted,
+            )?;
             part.bytes = converted.model;
             part.skeleton = match (converted.skeleton, part.skeleton.take()) {
                 (Some(converted), Some(member)) if converted != member => {

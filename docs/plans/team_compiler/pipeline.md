@@ -804,8 +804,11 @@ describes behavior, not a serial scheduling requirement:
 - **Collars** — an FMDL collar compiled for PES 15-17 is converted like any other model
   (`collar_12.fmdl` becomes `collar_012.model`, its skeleton the version's body table, as a
   player's FMDL with no `.skl` beside it; its `.mtl` is not written). A collar in the target's
-  own format is packed as it is, without the same-engine pre-check (step 3 "Format
-  conversion" says why for each engine). The game draws every
+  own format is packed as it is: an FMDL on PES 18-21 without the same-engine pre-check
+  (step 3 "Format conversion" says why), a `.model` on PES 15-17 through it, read with the
+  templates' `uniform.mtl` as its set (below), so that one posed off the version's skeleton
+  (the stock PES 17 collar is, on PES 15) is moved onto it as a player's `.model` is, its
+  author's material names kept. The game draws every
   collar with the team's kit texture (pre-Fox: the base
   data's `uniform_config.xml` gives `nocloth` collars the `collar` model type and the shared
   `uniform.mtl`; Fox: the exe assigns the type), so a collar has no textures or `.mtl` of its

@@ -187,6 +187,17 @@ const DUMMY_MTL: Resource = Resource {
     format: Format::Unparsed,
 };
 
+/// PES 17's stock `uniform.mtl`, the material set a `.model` collar is read with
+/// (`resources/templates/README.md`).
+const UNIFORM_MTL: Resource = Resource {
+    name: "uniform.mtl",
+    embedded: include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../resources/templates/uniform.mtl"
+    )),
+    format: Format::Unparsed,
+};
+
 /// The template environment map: a cubemap a PES 15-17 compile emits as `env.dds` into a
 /// player's texture home for a metal material converted from a Fox model that names no
 /// environment texture of its own, so its `Basic_CNSR` shader has a reflection to draw
@@ -234,7 +245,7 @@ const REFEREE_MARKER: &[u8] = include_bytes!(concat!(
 ));
 
 /// Every resource a `templates/` file can replace, in the order the replacements are reported.
-const RESOURCES: [&Resource; 14] = [
+const RESOURCES: [&Resource; 15] = [
     &TEAM_COLOR,
     &UNI_COLOR,
     &UNIFORM_PARAMETER_18,
@@ -249,6 +260,7 @@ const RESOURCES: [&Resource; 14] = [
     &DPFILELIST,
     &PLACEHOLDER_CPK,
     &ENVIRONMENT_MAP,
+    &UNIFORM_MTL,
 ];
 
 /// The folder of `templates/` whose files, each at its game path below it, replace the files
@@ -549,6 +561,14 @@ impl Templates {
         self.bytes(&DUMMY_MTL)
     }
 
+    /// PES 17's stock `uniform.mtl`: the material set a `.model` collar is read with on both
+    /// engines, its `.mtl` when it converts for PES 18-21 and its set for the same-engine
+    /// pre-check on PES 15-17, since a collar carries no materials of its own and no export
+    /// holds the game's shared set (`pipeline.md` "Collars").
+    pub(crate) fn uniform_mtl(&self) -> &[u8] {
+        self.bytes(&UNIFORM_MTL)
+    }
+
     /// The template environment map: the cubemap a PES 15-17 compile emits as `env.dds` in a
     /// player's texture home when a Fox metal material (`fox3ddf_ggx`) converted for him names
     /// no environment texture, unless his folder holds an `env` texture of its own. A DDS,
@@ -730,13 +750,28 @@ mod tests {
     }
 
     #[test]
+    fn the_uniform_mtl_template_defines_both_collar_materials() {
+        let set =
+            pes_model::format::mtl::MaterialSet::read(Templates::embedded().uniform_mtl()).unwrap();
+        let names: Vec<&str> = set
+            .materials
+            .iter()
+            .map(|material| material.name.as_str())
+            .collect();
+        assert!(
+            names.contains(&"uni_collar") && names.contains(&"uni_shirts"),
+            "{names:?}"
+        );
+    }
+
+    #[test]
     fn every_resource_has_a_name_of_its_own() {
         let names: BTreeSet<&str> = RESOURCES.iter().map(|resource| resource.name).collect();
         assert_eq!(names.len(), RESOURCES.len());
     }
 
     /// Each resource's bytes in `templates`, through the accessors, in `RESOURCES` order.
-    fn every_resource(templates: &Templates) -> [&[u8]; 14] {
+    fn every_resource(templates: &Templates) -> [&[u8]; 15] {
         [
             templates.team_color(),
             templates.uni_color(),
@@ -752,6 +787,7 @@ mod tests {
             templates.official_list_file(),
             templates.placeholder_cpk(),
             templates.environment_map(),
+            templates.uniform_mtl(),
         ]
     }
 
@@ -791,7 +827,7 @@ mod tests {
 
         let (templates, messages) = Templates::read(Some(temp.path())).unwrap();
 
-        let mut expected: [&[u8]; 14] = RESOURCES.map(|resource| resource.embedded);
+        let mut expected: [&[u8]; 15] = RESOURCES.map(|resource| resource.embedded);
         expected[1] = &kit_colors;
         expected[7] = b"face diff override";
         expected[10] = b"dummy material override";
