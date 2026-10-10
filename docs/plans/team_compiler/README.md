@@ -995,6 +995,11 @@ TC-MOD-68  GIVEN Boots/Crocs holding boots.fmdl and extra/x.fmdl, slot 05 linkin
            WHEN the export is checked for PES 21
            THEN file_type_disallowed names extra/x.fmdl and the boots package holds boots.fmdl
                 alone
+TC-MOD-69  GIVEN slot 05 holding face_high.fmdl and oral.fmdl whose only mesh is flagged
+           invisible
+           WHEN the export is compiled for PES 17
+           THEN the face package holds face_high.model and nothing of the oral, its xml
+                names no oral, and model_hidden_dropped names oral.fmdl
 TC-MOD-58  GIVEN Faces/Round holding fcl_hair.fmdl, boots.model and boots.mtl, slot 05 linking it
            as his face
            WHEN the export is compiled for PES 21

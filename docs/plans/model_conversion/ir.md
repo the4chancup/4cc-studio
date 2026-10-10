@@ -295,12 +295,18 @@ treat it:
   is a `native_field_dropped` finding whose `detail` names the field; the export writes no
   LODs (`LodRecord::for_levels(0)`), no tags, `order` 0, `flags` 0, and recomputes the mesh and
   model bounds from the positions.
-- **A hidden Fox mesh** (`invisible`, shadow flag bit 2) is left out of a `.model` export:
-  a `.mtl` cannot hide a mesh, and unhidden it draws what its author hid (Konami's oral
-  mesh in `addon_oral.fmdl`, whose `dummy_bsm` material resolves on no pre-Fox path). No
-  finding: the game showed nothing of it on Fox, so nothing a member saw goes missing, and
-  no 4cc export hides a mesh. An export left with no mesh is an error, as an empty model
-  is.
+- **A hidden Fox mesh** (`invisible`, shadow flag bit 2, the add-on's "invisible" box) is
+  left out of a `.model` export: a `.mtl` cannot hide a mesh, and unhidden it draws what
+  its author hid (the blank head's oral mesh in `addon_oral.fmdl`, whose `dummy_bsm`
+  material resolves on no pre-Fox path). No finding: the game showed nothing of it on
+  Fox, so nothing a member saw goes missing. Members hide meshes on purpose, as
+  placeholders: of 35,251 meshes in the 7,315 FMDLs on the maintainer's machine, 61 are
+  hidden, and in 38 files every mesh is (26 blank-head `oral.fmdl`, 8 one-sided
+  `glove_*.fmdl`, 3 stadium shadow models); the rest are shadow-only glove meshes and a
+  few face parts. An export left with no mesh is `ConvertError::EveryMeshHidden`, which
+  a consumer treats as a model that draws nothing (the compiler leaves it out of the
+  output with the Info `model_hidden_dropped`), not as an empty model: the player's
+  other models stand. Findings keep naming meshes by their source index.
 - **Mesh names.** `.model` has no groups; the import makes one group per mesh named after the
   add-on's mesh name, `mesh_<index>` when the mesh has none (every Konami mesh), and the export
   names each mesh after the group that lists it (an add-on kind-128 annotation), `None` when no

@@ -6275,3 +6275,22 @@ shader and pattern texture, so the one material set known to draw is the stock o
 names those two materials alone, so mirroring them by name is a two-row table, not a mapping
 of the converter's shader families.
 Plan: `team_compiler/pipeline.md` "Collars" (the Fox material set sentences).
+
+## 2026-10-10 — model_convert, team_compiler — a Fox model whose every mesh is hidden draws nothing on pre-Fox too
+Decision: the pre-Fox export's skip of a hidden mesh stands (2026-10-09), but an export
+left with no mesh is `ConvertError::EveryMeshHidden`, not the empty model's error, and the
+compiler treats it as a model that draws nothing: nothing of it is written on PES 15-17
+(no `.model`, no `.mtl`, no xml entry, no collar file) with the Info
+`model_hidden_dropped`, the folder's other models standing. Supersedes the 2026-10-09
+entry's "an export left with no mesh is an error".
+Why: the maintainer's answer rested on "no mesh used in the 4cc is ever invisible", and a
+scan of every FMDL on the maintainer's machine (`.tmp/4_y/fmdl_flags/`, 2026-10-10) found
+the flag used on purpose: 61 hidden meshes of 35,251 in 7,315 files, 38 files with every
+mesh hidden, among them 26 blank-head `oral.fmdl` (MARISA's whole roster, Red's BLANK
+face) and 8 one-sided `glove_l`/`glove_r.fmdl` placeholders, the add-on's "invisible" box
+(`UI.py` `FMDL_Material_Flags_invisible_set`, bit 2) being how a member hides one. An
+error there would drop a package for a file that draws nothing on Fox; leaving the model
+out is what Fox shows. An Info rather than silence: a whole file producing nothing is
+worth one line, where a mesh is not.
+Plan: `model_conversion/ir.md` "A hidden Fox mesh"; `team_compiler/messages.md`
+`model_hidden_dropped`; `team_compiler/README.md` TC-MOD-69.

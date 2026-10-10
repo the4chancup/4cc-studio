@@ -3461,14 +3461,20 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   acceptance 302 of 312); mutants 23 caught, 0 missed, 10 unviable
   (`.tmp/4_y/mutants_fix12.log`).
 
-- [ ] 4.y-fix13 **A hidden Fox mesh is left out of a `.model` export** (the maintainer's
-  answer, 2026-10-09). `model_convert`'s pre-Fox export skips a mesh whose `invisible`
-  flag is set, with no finding (`mesh_flags_dropped` keeps `no_shadow_cast` alone); an
-  export left with no mesh is an error. Plan: `model_conversion/ir.md` (the bullet
-  starting "A hidden Fox mesh"), `messages.md` `mesh_flags_dropped`; DECISIONS
-  2026-10-09. TC-MOD-64. Crates: model_convert, tc (its consumers' tests: `just
-  bindings` too) → verify: TC-MOD-64 proven, red first; a unit test of the export's
-  skip and of the all-hidden error.
+- [ ] 4.y-fix13 **A hidden Fox mesh is left out of a `.model` export; a model with every
+  mesh hidden is left out whole** (the maintainer's answer, 2026-10-09; the lead's FMDL
+  scan, 2026-10-10: `.tmp/4_y/fmdl_flags/flags.tsv`, 61 hidden meshes of 35,251 in
+  7,315 files, 38 files all hidden: blank-head orals, one-sided gloves, stadium shadow
+  models). `model_convert`'s pre-Fox export skips a mesh whose `invisible` flag is set,
+  with no finding (`mesh_flags_dropped` keeps `no_shadow_cast` alone); an export left
+  with no mesh is `ConvertError::EveryMeshHidden`, which the compiler's
+  `fmdl_for_pre_fox` turns into "nothing written" with the Info `model_hidden_dropped`
+  at each of its four callers (face, shared boots and gloves, Common, collar). Plan:
+  `model_conversion/ir.md` (the bullet starting "A hidden Fox mesh"), `messages.md`
+  `mesh_flags_dropped` and `model_hidden_dropped`; DECISIONS 2026-10-09 and 2026-10-10.
+  TC-MOD-64, TC-MOD-69. Crates: model_convert, tc (its consumers' tests: `just bindings`
+  too) → verify: both scenarios proven, red first; unit tests of the export's skip and
+  of the all-hidden error; the legacy oral parity kept with the bit cleared.
 
 - [ ] 4.y-fix14 **`Common/` subfolders, the referee body** (the maintainer's answers,
   2026-10-09). Two slices. (a) On PES 15-17 a `Common/` subfolder is packed under the team's
