@@ -4446,6 +4446,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (7) `kit_variant_model_messages` reads `combined_folders`.
   → verify: (1)-(3), (5), (6) tests red first; gates green; `just mutants-diff`.
 
+- [ ] 4.y-mattable **The material table checked against the community's shader reference**
+  (the maintainer, 2026-10-10). `resources/Materials.wikitext` (the cup wiki's "Materials"
+  page: pre-Fox `.mtl` settings and the `Basic_C`, `Basic_CNSR` and `Shadeless` shaders; Fox
+  material settings, texture paths and the Generic, Metallic, Fresnel, Constant, Glass and
+  UV-scroll/step shaders, each with its shader, technique, parameters and texture roles) is
+  compared, row by row, with `model_format.md` "Shader families", "Textures", the
+  `[mat.fox]` and `[mat.prefox]` tables, and with what `model_convert` writes
+  (`materials/{family, to_fox, to_prefox}.rs`): each family's shader and technique names,
+  its texture roles and their color spaces (`_SRGB`/`_LIN`/`_NRM`), the parameters and
+  their default values (`MatParamIndex_0`, `Reflection`, `Shininess`, `Incidence_*`), and the
+  required defaults the wiki names (Metallic's `SpecularMap_Tex_LIN` at `#FF6C3A`,
+  `MetalnessMap_Tex_LIN` at `#FFFFFF`). A shader the wiki has and the table lacks is listed,
+  not added: whether a family is worth having is the plan's call. Each mismatch is ruled:
+  the plan or the code wrong (a step of its own, briefed), or the wiki (noted, with the
+  evidence, a game file or an in-game check). → verify: a table of every row compared and
+  its outcome in `.tmp/4_y/mattable/`; each mismatch a ruling, and a step where it is ours.
+
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -6910,3 +6927,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-10** — In-game item (d) answered by the maintainer: no Fox material samples a
   cube map (`resources/Materials.wikitext`, added), so a Fox `env.ftex` is a leftover the
   compiler keeps writing as Red does; the QUESTIONS entry removed.
+- **2026-10-10** — Step 4.y-mattable opened (the maintainer): the material table and the
+  converter's materials checked against `resources/Materials.wikitext`.
