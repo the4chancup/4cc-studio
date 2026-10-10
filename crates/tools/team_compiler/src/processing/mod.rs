@@ -322,8 +322,9 @@ pub(crate) fn process_task(
         // version's body table, no `.skl` being read beside a collar, its materials named as
         // the stock collars' for the shared `uniform.mtl`, which dresses it: its own material
         // set is not written. A `.model` for PES 18-21 is converted with the templates'
-        // `uniform.mtl` as its `.mtl`, its samplers dropped; the skeleton the conversion may
-        // write is dropped with no finding, a collar having no skeleton slot.
+        // `uniform.mtl` as its `.mtl`, its materials the stock collars' Fox set by name; the
+        // skeleton the conversion may write is dropped with no finding, a collar having no
+        // skeleton slot.
         TaskKind::Collar { file, id } => {
             let bytes = take(&mut files, file);
             let name = file.path.name();

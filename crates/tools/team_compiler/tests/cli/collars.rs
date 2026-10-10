@@ -612,25 +612,52 @@ fn a_pes_21_model_collar_is_converted_with_the_templates_uniform_mtl() {
         panic!("no converted collar: {:#?}", entries.keys());
     };
     let model = fmdl::Model::from_file(&fmdl::FmdlFile::read(collar).unwrap()).unwrap();
-    // The `.model`'s material names in its order, each shader the converter's for
-    // `uniform.mtl`'s `Shirt_NB`, and no sampler: the converter's point at nothing a collar has.
-    let materials: Vec<(&str, &str, usize)> = model
-        .materials
+    // The `.model`'s material names in its order, each the stock PES 21 collar's material of
+    // that name (`collar_107.fmdl`): its shader and technique, the game's pattern texture as
+    // its one sampler, and its parameters.
+    let pattern = vec![(
+        "Pattern_Tex_LIN".to_owned(),
+        fmdl::Texture {
+            file_name: "uni_pattern.dds".to_owned(),
+            directory: "/Assets/pes16/model/character/common/sourceimages/".to_owned(),
+        },
+    )];
+    let parameters: Vec<(String, [f32; 4])> = [
+        ("MatParamIndex_0", [40.0, 0.0, 0.0, 0.0]),
+        ("BlendNormalXParam", [0.0, 0.0, 0.0, 0.0]),
+        ("BlendNormalYParam", [0.666, 0.0, 0.0, 0.0]),
+        ("RepetitionParam", [80.0, 0.0, 0.0, 0.0]),
+        ("BlendCoeffParam", [0.0, 0.0, 0.0, 0.0]),
+        ("BlendBoostParam", [0.0, 0.0, 0.0, 0.0]),
+        ("PatchAnisoRoughnessParam", [0.4, 0.0, 0.0, 0.0]),
+        ("PatternIndexParam", [1.0, 0.0, 0.0, 0.0]),
+    ]
+    .into_iter()
+    .map(|(name, value)| (name.to_owned(), value))
+    .collect();
+    let stock = |name: &str, shader: &str, technique: &str| fmdl::MaterialInstance {
+        name: name.to_owned(),
+        shader: shader.to_owned(),
+        technique: technique.to_owned(),
+        textures: pattern.clone(),
+        parameters: parameters.clone(),
+    };
+    assert_eq!(
+        model.materials,
+        [
+            stock("uni_shirts", "pes_3ddf_shirt_nb", "pes3DDF_Shirt_NB_NC"),
+            stock("uni_collar", "pes_3ddf_collar", "pes3DDF_Collar_NC"),
+        ]
+    );
+    let mesh_flags: Vec<(u8, u8)> = model
+        .meshes
         .iter()
-        .map(|material| {
-            (
-                material.name.as_str(),
-                material.shader.as_str(),
-                material.textures.len(),
-            )
-        })
+        .map(|mesh| (mesh.alpha_flags, mesh.shadow_flags))
         .collect();
     assert_eq!(
-        materials,
-        [
-            ("uni_shirts", "fox3ddf_blin", 0),
-            ("uni_collar", "fox3ddf_blin", 0)
-        ]
+        mesh_flags,
+        [(32, 0), (32, 0)],
+        "as the stock collar's meshes"
     );
     assert!(
         entries

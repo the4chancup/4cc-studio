@@ -44,8 +44,9 @@ maintainer's answers: one Warning for a sleeve or fit option the shirt model ign
 (a `.model` collar converts with the templates' `uniform.mtl` on both engines, the
 pre-check moving a PES 15-17 one onto the version's skeleton; TC-CMN-11, TC-CMN-19), 4.y-fix17
 done 2026-10-10 (the marker's combined folders in `held_stems`, `texture_unreadable` and
-`texture_codec_unsupported` from the deep pass's probe, the real stock collar fixture), 4.y-fix18 opened 2026-10-10 (the converted Fox collar takes the
-stock collars' material set: PES 21 draws nothing for the converter's), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
+`texture_codec_unsupported` from the deep pass's probe, the real stock collar fixture), 4.y-fix18 done 2026-10-10 (the converted Fox collar takes the
+stock collars' material set by name, its meshes two-sided: PES 21 drew nothing for the
+converter's and draws it now, checked in game), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
 `.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
@@ -3661,6 +3662,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   The converted FMDL (the converter's `fox3ddf_blin`, every sampler dropped) is not drawn:
   step 4.y-fix18 gives it the stock collars' Fox material set. The PES 21 Edit path drifts
   when the title needs one `a` instead of two (Kick Off's submenu opens: `b` backs out).
+  manual: checked 2026-10-10, the same `collar_050.model` under ID 12 with 4.y-fix18's
+  release build (the stock collars' Fox material set): row 19's standard body draws a
+  folded collar in the kit's colour at the neck (`f18_05_row19_neck.png`, against
+  `c21_24_row19_neck.png`'s plain neckline), so the material set was the whole cause;
+  the missing vertex colour stream and the four unweighted bones the converted FMDL lacks
+  (4.y-fix18's comparison) change nothing visible. Compiled with the CLI from the test
+  folder (`team-compiler compile --no-deploy --export`; the version is the settings').
   manual: checked 2026-10-10, the pre-Fox referee marker (b), no answer yet: run D (the
   checker as `parts/referee/incom_bsm.dds`) and run G (the template tree's
   `referee_prop.model` and `.mtl` with it, what the compiler writes) in PES 17's test
@@ -3839,7 +3847,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   bindings` green (37 fixtures); mutants 10 caught, 0 missed, 3 unviable
   (`.tmp/4_y/mutants_fix17.log`).
 
-- [ ] 4.y-fix18 **A `.model` collar converted for PES 18-21 takes the stock collars' Fox
+- [x] 4.y-fix18 **A `.model` collar converted for PES 18-21 takes the stock collars' Fox
   material set** (the lead's in-game check, 2026-10-10, under 4.y-ingame2). The FMDL
   4.y-fix12 writes keeps the converter's `fox3ddf_blin` with no sampler, and PES 21 draws
   nothing for it: PES 17's stock collars 1 and 50 converted under ID 12 both show the plain
@@ -3860,6 +3868,22 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   paragraph); DECISIONS 2026-10-10. TC-CMN-11 (its materials assertion changes). Crates: tc
   → verify: TC-CMN-11 proven with the stock set, red first; then the lead's PES 21 run of
   `.tmp/4_y/ingame/build_collar21_export.py` shows a collar on row 19.
+  Done 2026-10-10 (Opus 5.5, one run): `stock_collar_fox_materials` (a `match` on the
+  material name, the eight parameters a `const`, `anyhow` as `failed` takes), run before
+  the `fmdl` check, every mesh set to alpha 32 and shadow 0 (the sidekick's catch, applied:
+  the brief read the one-mesh probe, but `uniform.mtl`'s `uni_collar` is one-sided, so
+  the fixture's second mesh converted at alpha 0); TC-CMN-11 asserts both materials in
+  full in the `.model`'s order and the mesh flags, red first; a unit test refuses a collar
+  naming `skin_limb`. The stock `collar_107.fmdl` against the converted one past the
+  materials (`.tmp/4_y/sk_fix18_report.md` (4)): the stock carries a vertex colour stream
+  (a grey ramp, 64 to 255), the converted none (the `.model` has none); 16 bones to 12
+  (`sk_belly`, the deltoids and an underarm bone, weighted by no vertex), every stock
+  `dsk_*` a root at `sk_belly`; eight levels of detail to one; the same region. In game
+  (4.y-ingame2's manual line): the collar draws, so none of these matters. Files:
+  `processing/conversion.rs`, `processing/mod.rs`, `help/01_command_line.md`,
+  `tests/cli/collars.rs`. Gates green (`.tmp/4_y/gates_fix18.log`, acceptance 302 of
+  312); mutants 1 caught, 0 missed, 3 unviable (`.tmp/4_y/mutants_fix18.log`; the
+  unviables are whole-function replacements of types with no `Default`).
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -6152,3 +6176,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   probe, the sidekick's catch); the collar tests convert the real stock collar. The catalog's
   "file alone" wording corrected (the place's disposition); a same-engine collar's
   `uni_collar` on PES 15-16 is a new issue.
+- **2026-10-10** — 4.y-fix18 done (sidekick, one run): a `.model` collar converted for
+  PES 18-21 takes the stock collars' Fox material set by name, every mesh two-sided (the
+  sidekick's catch); in game on PES 21 the converted collar draws its fold where the
+  converter's material set drew nothing (4.y-ingame2's manual line).

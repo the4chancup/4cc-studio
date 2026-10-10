@@ -30,8 +30,8 @@ pub(super) enum ConvertedMaterials {
     Converted,
     /// A collar's, which the game dresses with the kit (`pipeline.md` "Collars"): in a
     /// `.model`, the stock collars' names, which the game's shared `uniform.mtl` defines
-    /// (`stock_collar_materials`); in an FMDL, the converter's materials with no texture
-    /// (`collar_samplers_dropped`). A collar writes no material set of its own, so the
+    /// (`stock_collar_materials`); in an FMDL, the stock collars' materials by name
+    /// (`stock_collar_fox_materials`). A collar writes no material set of its own, so the
     /// conversion's losses about a material are not reported (`reports`).
     StockCollar,
 }
@@ -39,8 +39,8 @@ pub(super) enum ConvertedMaterials {
 impl ConvertedMaterials {
     /// Whether the conversion's `loss` is reported for a model whose materials are so. A
     /// collar's skips every loss about a material: it writes no material set and its
-    /// materials are renamed or stripped, so such a loss describes nothing in the output the
-    /// member can change.
+    /// materials are renamed or replaced by the stock ones, so such a loss describes nothing in
+    /// the output the member can change.
     fn reports(self, loss: &loss::Finding) -> bool {
         match self {
             ConvertedMaterials::Converted => true,
@@ -295,7 +295,9 @@ fn fox_written(
     };
     match materials {
         ConvertedMaterials::Converted => {}
-        ConvertedMaterials::StockCollar => collar_samplers_dropped(&mut model),
+        ConvertedMaterials::StockCollar => {
+            stock_collar_fox_materials(&mut model).map_err(|error| failed(name, error))?;
+        }
     }
     let fired = fmdl::check::check(&model).into_iter().map(Fired::fox);
     target_form_failure(name, fired.collect())?;
@@ -309,17 +311,61 @@ fn fox_written(
     Ok((converted, findings))
 }
 
-/// Drops every texture of `model`'s materials, a `.model` collar converted for Fox
-/// (`pipeline.md` "Collars"), keeping their names and the converter's shader. The converter
-/// binds the `.mtl`'s textures (`uniform.mtl`'s `./shirts_nrm.dds`, relative to a collar
-/// folder that holds none) and the dummies its shader family takes; the game's own collars
-/// bind only `Pattern_Tex_LIN`, a sampler the converter never writes, so no sampler it writes
-/// has a stock collar's texture to point at, and the FMDL names no texture the game's
-/// collars do not.
-fn collar_samplers_dropped(model: &mut fmdl::Model) {
-    for material in &mut model.materials {
-        material.textures.clear();
+/// The parameters both of the game's own collar materials carry on Fox, in file order, as
+/// PES 21's `collar_107.fmdl` has them (`pipeline.md` "Collars").
+const STOCK_COLLAR_PARAMETERS: [(&str, [f32; 4]); 8] = [
+    ("MatParamIndex_0", [40.0, 0.0, 0.0, 0.0]),
+    ("BlendNormalXParam", [0.0, 0.0, 0.0, 0.0]),
+    ("BlendNormalYParam", [0.666, 0.0, 0.0, 0.0]),
+    ("RepetitionParam", [80.0, 0.0, 0.0, 0.0]),
+    ("BlendCoeffParam", [0.0, 0.0, 0.0, 0.0]),
+    ("BlendBoostParam", [0.0, 0.0, 0.0, 0.0]),
+    ("PatchAnisoRoughnessParam", [0.4, 0.0, 0.0, 0.0]),
+    ("PatternIndexParam", [1.0, 0.0, 0.0, 0.0]),
+];
+
+/// Gives each material of `model`, a `.model` collar converted for Fox (`pipeline.md`
+/// "Collars"), the game's own collar material of its name, as PES 21's `collar_107.fmdl`
+/// has it: `uni_collar` shader `pes_3ddf_collar`, `uni_shirts` `pes_3ddf_shirt_nb`, each
+/// binding the one sampler `Pattern_Tex_LIN` to the game's `uni_pattern.dds` and carrying
+/// `STOCK_COLLAR_PARAMETERS`; every mesh drawn as that file's are, two-sided (alpha flags 32)
+/// and with shadow flags 0. A material of any other name is an error naming it: a collar uses
+/// those two names alone.
+fn stock_collar_fox_materials(model: &mut fmdl::Model) -> anyhow::Result<()> {
+    // The converter takes a mesh's draw flags from its `.mtl` material, and `uniform.mtl`'s
+    // `uni_collar` is one-sided (`twosided` 0), so its meshes would come out at alpha flags 0
+    // where every mesh of the game's own collar is two-sided.
+    for mesh in &mut model.meshes {
+        mesh.alpha_flags = 32;
+        mesh.shadow_flags = 0;
     }
+    for material in &mut model.materials {
+        // The game draws a collar through these two shaders and its pattern texture, which
+        // the kit dresses; the converter's material for `uniform.mtl`'s `Shirt_NB`
+        // (`fox3ddf_blin`, with or without its samplers) drew nothing on PES 21, so the stock
+        // material is copied by name rather than mapped from the converter's.
+        let (shader, technique) = match material.name.as_str() {
+            "uni_collar" => ("pes_3ddf_collar", "pes3DDF_Collar_NC"),
+            "uni_shirts" => ("pes_3ddf_shirt_nb", "pes3DDF_Shirt_NB_NC"),
+            other => anyhow::bail!(
+                "collar material `{other}` is not one a collar may use (`uni_collar`, `uni_shirts`)"
+            ),
+        };
+        shader.clone_into(&mut material.shader);
+        technique.clone_into(&mut material.technique);
+        material.textures = vec![(
+            "Pattern_Tex_LIN".to_owned(),
+            fmdl::Texture {
+                file_name: "uni_pattern.dds".to_owned(),
+                directory: "/Assets/pes16/model/character/common/sourceimages/".to_owned(),
+            },
+        )];
+        material.parameters = STOCK_COLLAR_PARAMETERS
+            .iter()
+            .map(|(name, value)| ((*name).to_owned(), *value))
+            .collect();
+    }
+    Ok(())
 }
 
 /// How a finding of the task building the model folder at `folder` names the model it converts
@@ -654,6 +700,45 @@ mod tests {
                 "{version}"
             );
         }
+    }
+
+    #[test]
+    fn a_model_collar_naming_a_material_no_stock_collar_has_fails_its_fox_conversion() {
+        // PES 17's stock collar 1, its `uni_collar` renamed `skin_limb`: a material the
+        // templates' `uniform.mtl` defines, so the conversion reads it and only the stock
+        // collar materials' table refuses it.
+        let file = PreFoxModel::read(&pre_fox_fixture("konami_collar_001.wesys.model")).unwrap();
+        let mut model = pes_model::model::Model::from_file(&file).unwrap();
+        for name in &mut model.materials {
+            if name == "uni_collar" {
+                "skin_limb".clone_into(name);
+            }
+        }
+        let source = model.to_file().unwrap().write().unwrap();
+        let ctx = context(PesVersion::Pes21);
+        let mut findings = Vec::new();
+        assert_eq!(
+            failure(model_for_fox(
+                "collar_12.model",
+                &source,
+                ctx.templates.uniform_mtl(),
+                &ctx,
+                &mut findings,
+                ConvertedMaterials::StockCollar,
+            )),
+            Some((
+                Code::ModelConversionFailed,
+                vec![
+                    ("model", "collar_12.model".to_owned()),
+                    (
+                        "error",
+                        "collar material `skin_limb` is not one a collar may use \
+                         (`uni_collar`, `uni_shirts`)"
+                            .to_owned()
+                    )
+                ]
+            ))
+        );
     }
 
     #[test]
