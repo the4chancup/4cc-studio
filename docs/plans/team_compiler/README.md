@@ -667,8 +667,8 @@ TC-MOD-04  GIVEN slot 05 holding a face model, skin.dds and kit_boots.fmdl, and 
            with different ones
            WHEN each is compiled
            THEN the first packs skin once with no texture finding; the second reports
-                shared_texture_conflict, keeps the face and the player's skin, and k0625 is
-                absent, sole.ftex with it
+                shared_texture_overridden naming skin and Boots/Crocs, keeps the face, k0625
+                and sole.ftex, and the skin.ftex packed is the player's
 TC-MOD-05  GIVEN Boots/Crocs/ and Boots/Mud/ each holding boots.fmdl and a texture, Crocs linked by
            slots 03 and 07, Mud by slot 11
            WHEN the export is compiled for PES 21
@@ -816,8 +816,9 @@ TC-MOD-32  GIVEN slot 05 holding boots.fmdl and a face_diff.bin that is not the 
 TC-MOD-33  GIVEN slot 05 holding face_high.fmdl and skin.dds, and linking Faces/Round, whose
            folder holds hair_high.fmdl and a skin.dds of other bytes
            WHEN the export is compiled for PES 21
-           THEN merged_texture_conflict is reported and slot 05's folder is dropped: no 71405
-                face package and nothing at slot 05's texture folder
+           THEN shared_texture_overridden names skin and Faces/Round, 71405's face package is
+                in the CPK, and slot 05's texture folder holds the skin.ftex converted from the
+                player's skin.dds
 TC-MOD-34  GIVEN slot 05 holding boots.model and boots.mtl naming skin, and skin.dds
            WHEN the export is compiled for PES 21
            THEN k0625 holds a boots.fmdl the fmdl reader accepts with the source's mesh count
@@ -1110,6 +1111,12 @@ TC-TEX-12  GIVEN slot 05's face model naming hair, with hair.png.common, and Com
            THEN the first reports texture_too_small and link_target_dropped and slot 05 is left
                 out; the second reports the Common texture's failure and slot 05's face
                 package is in the CPK
+TC-TEX-16  GIVEN slot 05 holding face_high.fmdl naming hair, hair.dds.common and Common/hair.dds,
+           and linking Faces/Round, whose folder holds hair_high.fmdl naming hair and hair.dds
+           WHEN the export is compiled for PES 21
+           THEN both models in 71405's face package name hair in
+                /Assets/pes16/model/character/common/714/sourceimages/, no hair.ftex is in slot
+                05's texture folder, and shared_texture_overridden names hair and Faces/Round
 TC-TEX-13  GIVEN slot 05 holding no model and an env.dds that is a 128x128 DXT5 cube map with
            eight mip levels (the bundled template's bytes); the textures task reads no model,
            and a Fox model converted for PES 17 would add its own findings to the run

@@ -584,9 +584,10 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    `…/common/{team ID}/sourceimages/` (Fox), which is Red's Common location on each engine.) The
    shared textures commit
    once, after all of the player's face/boots/gloves tasks report: identical destination bytes
-   deduplicate, while the same destination with different bytes reports `shared_texture_conflict`
-   and drops the losing task, chosen by canonical order (`face` > `boots` > `gloves`), never rayon
-   completion order. The player's texture sources are its own folder (its subfolders included,
+   deduplicate, while the same destination with different bytes from two combined folders
+   reports `shared_texture_conflict` and drops the losing task, chosen by canonical order (`face`
+   > `boots` > `gloves`), never rayon completion order; the player's own copy wins over a
+   combined folder's (below). The player's texture sources are its own folder (its subfolders included,
    each a texture namespace of its own where one stem twice is `texture_stem_conflict`; a model's
    texture name resolves in its own folder first, then in each parent up to the player's root,
    never down, one named with a path below the model's folder (`./kitN/x`) at that path, and
@@ -594,10 +595,15 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    `player_folders.md` "Subfolders") and each
    shared face, boots or gloves folder it combines, and a source counts for the package it feeds: the player's own folder and a
    combined face folder for the face, a combined boots (gloves) folder for the boots (gloves).
-   Stems compare case-folded. Two sources of different packages holding one stem with different
-   bytes is `shared_texture_conflict`, the lower package dropped with every texture only its
-   sources hold; two sources of one package is `merged_texture_conflict`, since the one model
-   they build has no winner, and drops the folder. Planning cannot tell which model names which
+   Stems compare case-folded. Local files win over imported ones: a texture path the player's
+   own folder holds, as a texture or as a texture link standing there, is his whatever the
+   packages, every model of his naming it (a combined folder's merged part included) and the
+   combined folder's copy left out, with `shared_texture_overridden` (I) when the two differ or
+   his is a link, so a member overriding a shared face's texture sees it was meant; a player's
+   material files layer over a Common-linked model's the same way. Two combined folders of
+   different packages holding one stem with different bytes is `shared_texture_conflict`, the
+   lower package dropped with every texture only its sources hold; two of one package cannot
+   occur, a player combining one folder of each kind. Planning cannot tell which model names which
    texture (it reads no model bytes), so a source stands for its package. The writer commits a player folder's tasks as one group: it holds the
    folder's face/boots/gloves batches until the folder's textures batch arrives, then commits the
    packages that succeeded and the textures; if the textures fail (`folder_pack_failed`), none
@@ -1838,12 +1844,13 @@ Resolved decisions:
   replacement of the same size that keeps the modified time (or lands inside the file system's
   time granularity) goes unseen. The GUI watcher (Phase 8) keys its stale-result envelopes on
   the same value.
-- **Merge-copy collisions within one child** use the dedicated `merged_texture_conflict`: when two
-  parts merged into the same output FMDL (Fox baking of local, shared, and `.common`-linked models
-  into one allowed name) copy the same texture destination with different bytes, no canonical winner
-  exists — the parts are equal-standing inputs of one model, so the child drops rather than silently
-  corrupting one part's look. Group-wide collisions across a player's face/boots/gloves tasks keep
-  the `shared_texture_conflict` rule, which does have a canonical winner (face > boots > gloves).
+- **Merge-copy collisions within one child** have a winner: the parts merged into one output
+  FMDL (Fox baking of local, shared, and `.common`-linked models into one allowed name) come from
+  the player's folder, at most one combined folder of the package and `Common/`, whose textures
+  stay in the team's Common output, so two copies of one destination are the player's and the
+  combined folder's, and the player's wins (step 6, `shared_texture_overridden`). Group-wide
+  collisions between two combined folders keep the `shared_texture_conflict` rule, which has a
+  canonical winner (face > boots > gloves).
 - **Common textures are one task of their export, which no player task waits on (Fox).** Every
   texture directly in `Common/` is converted once, by one task placed after the export's shared
   folders and before its portraits, into the team's Common output. A player package that bakes in a

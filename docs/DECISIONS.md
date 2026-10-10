@@ -6590,3 +6590,23 @@ behavior no scenario stated. Unit tests check internals, which scenarios never d
 making them cite would mean scenarios about helpers, or citations the scanner counts as proof
 of a scenario the test does not prove.
 Plan: `CONTRIBUTING.md` "Acceptance IDs"; worklog step 4.y-scen.
+
+## 2026-10-10 — team_compiler — a player's own texture or link wins over a combined folder's, as an Info
+Decision: a texture path the player's own folder holds (a texture, or a texture link standing
+at that path) and a shared folder he combines also holds is his, whatever the two packages:
+every model of his, the combined folder's merged parts included, names his; the combined
+folder's copy is left out; `shared_texture_overridden` (I) names the texture and the folder
+when the copies differ or his is a link. `merged_texture_conflict` is withdrawn (its one case,
+the player's folder against his combined face folder, is this one now), and
+`shared_texture_conflict` is left to two combined folders of different packages. In the
+nearest-first lookup a folder's texture links come right after its textures, so a root link
+precedes a combined folder's texture of its stem.
+Why: the maintainer's rule, local files always win over imported ones and a link counts as
+local, the one material files already follow (a player's over a Common-linked model's).
+Supersedes the 2026-10-03 entry "texture conflicts by source package" for the player's own
+folder: it held the parts merged into one model equal and dropped the player, which made a
+member's deliberate override of a shared face's texture fatal; the Info keeps the override
+visible.
+Plan: `team_compiler/pipeline.md` step 6 and "Merge-copy collisions"; `messages.md`
+`shared_texture_overridden`, `shared_texture_conflict`, `merged_texture_conflict`;
+`team_compiler/README.md` TC-MOD-04, TC-MOD-33, TC-TEX-16.
