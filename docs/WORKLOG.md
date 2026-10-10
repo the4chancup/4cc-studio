@@ -1880,8 +1880,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   which the collar task renames to the stock names anyway). Also for converge
   (`model_convert`, found at 4.17g3b): the IR carries no `.model` mesh tags (`Mesh::tags`), so
   every conversion of a `.model`, a same-engine move included, drops them as
-  `native_field_dropped (field=tags)`; the stock cap's tag is `Captainmark`. Whether the game
-  reads a mesh tag is unknown; if it does, the IR needs the field. Also for converge (maintainer, 2026-10-08):
+  `native_field_dropped (field=tags)`; the stock cap's tag is `Captainmark`. Answered at
+  4.y-ingame2 (2026-10-10): PES 17 draws the tagged mesh on a non-captain as it draws the
+  untagged one, in Edit mode and in a match, so the IR does not need the field (DECISIONS
+  2026-10-10). Also for converge (maintainer, 2026-10-08):
   `team_compiler` has outgrown mutation runs: 2,171 mutants (measured 2026-10-08 with
   `cargo mutants --list`), about 10 s each on the PC, so a whole-crate run is about six
   hours, twice per phase close, and local-only since 4.14d because the crate's test
@@ -3624,6 +3626,27 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`s17_47_sleeves_long.png`), no crash. Both stay unreported by the compiler
   (DECISIONS 2026-10-10); open item (e) closed, (a) closed but for PES 21's lower
   sock.
+  manual: checked 2026-10-10, the 192x512 mipped texture (c, first half): galosengen's
+  `Common/scroll.dds` (192x512, DXT5, ten levels) compiles for PES 17 with no finding
+  (the pre-Fox rule has been `texture_not_div4` alone since 2026-10-07; the question's
+  "both engines" was stale) and, as the `face.dds` of the Fumos head on eight `/out/`
+  players, draws its content (black with brick-red squares, `scroll_source.png`) on
+  their heads in Edit mode's roster preview (`t17_rows_sheet2.png`, rows 16-23, against
+  the fixture's red texture on rows 1-15): PES 17 reads a mipped texture whose sides are
+  not powers of two, so `texture_not_pow2` stays Fox's. Export built by
+  `.tmp/4_y/ingame/build_tagtex_export.py`.
+  manual: checked 2026-10-10, the `.model` mesh tag (c, second half): the stock
+  `konami_modD_cap.model` is PES 17's captain armband (its one mesh tagged
+  `DCaptainmark`, material `modD_cap_phone` with no texture), put as `cap.model` on
+  `/out/` players with a blank face: the tagged one and a copy with the tag renamed
+  `DZaptainmark` both draw the white band on the left arm in Edit mode's Appearance view
+  (`t17c_face_01.png`, `t17c_face_08.png`; none on the control, `t17c_face_16.png`), and
+  in an exhibition match (/acccc/ against /wsg/, the tagged band on /wsg/'s slots 01-11
+  with blank faces, the untagged one on 12-23 under the Fumos head) a headless
+  non-captain wears the band in the replay's ground camera (`t17m_free_left.png`; the
+  captain is Ricardo Milos, red-headed in `t17m_rt_22.png`). The game draws a tagged mesh
+  as an untagged one, so the IR keeps dropping tags (`ir.md`, DECISIONS 2026-10-10); the
+  QUESTIONS entry removed. (c) closed.
   manual: checked 2026-10-10, the pre-Fox referee marker (b), no answer yet: run D (the
   checker as `parts/referee/incom_bsm.dds`) and run G (the template tree's
   `referee_prop.model` and `.mtl` with it, what the compiler writes) in PES 17's test
@@ -6025,3 +6048,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   TC-CMN-19 proven. The brief's fixture was not a collar (its material `modD_phone`): a
   real stock collar fixture goes to the next rework brief, with the converted Fox collar's
   shader and samplers to see on PES 21.
+- **2026-10-10** — 4.y-ingame2 (c) done on PES 17: a 192x512 ten-level texture compiles
+  with no finding and draws (the power-of-two rule stays Fox's), and the captain armband's
+  `DCaptainmark` mesh tag changes nothing the game draws on a non-captain, in Edit mode or a
+  match, so the IR keeps dropping tags (decision; the QUESTIONS entry removed).

@@ -6231,3 +6231,17 @@ colors.
 Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" (deep format pass);
 `team_compiler/messages.md` `common_model_beaten_dropped`, `xml_model_unlisted`, the `.mtl`
 checks paragraph.
+
+## 2026-10-10 — model_convert — `.model` mesh tags stay out of the IR
+Decision: the IR carries no `.model` mesh tags; every conversion of a `.model` keeps dropping
+them with `native_field_dropped (field=tags)`, and the 4.17 "Open for converge" item on them
+is closed.
+Why: the one tag a stock model carries that could change what the game draws,
+`DCaptainmark` on the captain armband's mesh (`konami_modD_cap.model`), does not: on PES 17
+the tagged mesh and a copy with the tag renamed draw alike on a non-captain, in Edit mode's
+Appearance view and in a match's replay (4.y-ingame2, 2026-10-10). A field the game ignores
+has nothing to round-trip for. The same run showed PES 17 drawing a 192x512 ten-level DXT5
+texture, so the power-of-two rule for mipped textures stays Fox's (`texture_not_pow2`),
+pre-Fox keeping `texture_not_div4` alone as since 2026-10-07.
+Plan: `model_conversion/ir.md` "Lower LOD levels, Konami tags, editor data"; worklog 4.17
+"Open for converge".

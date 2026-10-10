@@ -288,7 +288,10 @@ treat it:
   source has none and the export writes none, as the 19→16 converter did.
 - **Faces** reverse winding on import and again on export (the IR keeps FMDL's).
 - **Lower LOD levels, Konami tags, editor data, a nonzero mesh `order`, nonzero model
-  `flags`**: not in the IR (no 4cc export carries them). Each non-default one the import drops
+  `flags`**: not in the IR (no 4cc export carries them, and a tag changes nothing the game
+  draws: PES 17 draws the stock captain armband's `DCaptainmark`-tagged mesh on a
+  non-captain, in Edit mode and in a match, exactly as it draws the same mesh with the tag
+  renamed, measured at 4.y-ingame2). Each non-default one the import drops
   is a `native_field_dropped` finding whose `detail` names the field; the export writes no
   LODs (`LodRecord::for_levels(0)`), no tags, `order` 0, `flags` 0, and recomputes the mesh and
   model bounds from the positions.

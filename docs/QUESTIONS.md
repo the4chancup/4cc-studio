@@ -38,16 +38,6 @@ prop, if a visible referee is what it takes? The checker is a plain DDS where th
 template's own file is WESYS-compressed, as the compiler's output is (step 4.19f), so a
 run that shows it also confirms the game reads a plain DDS at that path.
 
-### A 192x512 mipped texture, and `.model` mesh tags
-The referee galosengen's `Common/scroll.dds` (Autumn Q 25 Day 1) is 192x512 with ten mip
-levels: the plan's rule refuses a mipped texture whose side is not a power of two
-(`texture_not_pow2`), and the census of 2026-10-09 drops his folder for it on both engines.
-Does PES 17 draw that texture as Red shipped it? If it does, the rule is Fox's (FTEX) only.
-Separately, the IR carries no `.model` mesh tags, so every conversion of a `.model` drops
-them (`native_field_dropped (field=tags)`; the stock cap's tag is `Captainmark`): does the
-pre-Fox game read a mesh tag, so that the IR needs the field (worklog 4.17 "Open for
-converge")?
-
 ### A Fox cube map of Red's type
 Red writes a member's cube-map DDS on PES 18-21 as an FTEX of texture type 0xD (the normal-map
 type 0x9 with the cube bit), a type the game's own cube maps never use (theirs are 0x5 and
