@@ -35,8 +35,8 @@ use roles::{
     FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, emits_kit_texture,
     file_stem, is_direct_root_folder_file, is_hand_split, is_part_of, is_selected_common_model,
     leaves_out_kit_variants, link_combines, link_feeds_own_package, link_name, linked_folder,
-    native_format, package_of, player_file, role_files, selected_common_model, shared_folders,
-    shared_kind_of, skeleton_slot, texture_format,
+    native_format, package_of, part_source_models, player_file, role_files, selected_common_model,
+    shared_folders, shared_kind_of, skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -274,54 +274,27 @@ impl ModelFolder {
             TextureHome::PlayerCommon { .. } => None,
             TextureHome::SharedOutput { package, .. } => Some(shared_kind_of(*package)),
         };
-        // Where no `face.xml` names a per-kit set, the part merges every source's models, so a
-        // set split between the player's own files and a combined folder's is one set. A
-        // pre-Fox face lists every variant, and a pre-Fox referee's combined boots or gloves
-        // are an output of their own, not parts of his face: there each source is its own.
-        let part_files: Vec<Vec<&FileDescriptor>> =
-            iter::once(role_files(&self.path, &self.files, own_kind.is_some()))
-                .chain(
-                    self.combined
-                        .iter()
-                        .map(|shared| role_files(&shared.folder.path, &shared.folder.files, true)),
-                )
-                .collect();
-        let spans_sources = leaves_out_kit_variants(self.engine, self.ingame_face, own_kind);
-        let part_sources = |index: usize| {
-            if spans_sources {
-                &part_files[..]
-            } else {
-                &part_files[index..=index]
-            }
-        };
-        let mut own = FolderModels::of_part_source(
-            &self.path,
-            &self.files,
-            part_sources(0),
-            self.ingame_face,
-            own_kind,
-            self.engine,
-        );
-        if self
+        let combined: Vec<(SharedKind, &SharedModelFolder)> = self
             .combined
             .iter()
-            .any(|shared| shared.package == ModelPackage::Face)
-        {
-            own = own.with_linked_face();
-        }
+            .map(|shared| (shared_kind_of(shared.package), &shared.folder))
+            .collect();
+        let (own, combined_models) = part_source_models(
+            &self.path,
+            &self.files,
+            own_kind,
+            self.ingame_face,
+            &combined,
+            self.engine,
+        );
         let mut sources = vec![(self.own_package(), &self.path, &self.files, own)];
-        for (index, shared) in self.combined.iter().enumerate() {
-            let path = &shared.folder.path;
-            let files = &shared.folder.files;
-            let models = FolderModels::of_part_source(
-                path,
-                files,
-                part_sources(index + 1),
-                false,
-                Some(shared_kind_of(shared.package)),
-                self.engine,
-            );
-            sources.push((shared.package, path, files, models));
+        for (shared, models) in self.combined.iter().zip(combined_models) {
+            sources.push((
+                shared.package,
+                &shared.folder.path,
+                &shared.folder.files,
+                models,
+            ));
         }
         // The names the face files kept so far pack as: a second copy of one file
         // (`face_diff.bin` beside `face/face_diff.bin`) is left out like an earlier source's.

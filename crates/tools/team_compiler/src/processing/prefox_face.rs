@@ -417,8 +417,16 @@ pub(super) fn face(
         };
         // Each model's `.mtl` is resolved here, before any entry: a set's other variants are
         // checked against its listed one's, wherever it sorts.
+        // A combined shared folder's search sees no `Common/` file, as the deep pass's does
+        // (`deep::pairings`): its `.common` links have no role, and the Common `.mtl` one names
+        // is not among the task's files.
+        let common: &[FileDescriptor] = if source_path == &folder.path {
+            &folder.common_files
+        } else {
+            &[]
+        };
         let material_of = |file: &FileDescriptor| {
-            mtl_for(&file.path, source_path, source_files, &folder.common_files).expect(
+            mtl_for(&file.path, source_path, source_files, common).expect(
                 "the deep pass drops a folder holding a `.model`, or a link to one, no `.mtl` is \
                  found for (`model_material_undefined`)",
             )

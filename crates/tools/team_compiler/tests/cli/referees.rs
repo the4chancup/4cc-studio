@@ -22,7 +22,10 @@ use crate::compile::{
 use crate::compile_exports::{TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER, bundled_uniform_parameter};
 use crate::deploy::{install_pes, templates_folder};
 use crate::models::package_names;
-use crate::prefox_faces::{card_materials, card_model, nested_entries, ordered_entries, small_dds};
+use crate::prefox_faces::{
+    card_materials, card_model, materials_naming, nested_entries, ordered_entries, sampler_paths,
+    small_dds,
+};
 use crate::prefox_kits::write_kit;
 use crate::sideload::slashed;
 use crate::textures::{texture_fixture, tracer_model_renaming};
@@ -869,6 +872,82 @@ fn on_pes_17_a_referee_s_own_boots_variant_leaves_out_none_of_his_linked_boots()
     assert_eq!(boots, ["boots.model", "boots.mtl"]);
 }
 
+#[test]
+fn on_pes_17_a_referee_s_linked_boots_model_takes_its_own_mtl_and_not_a_common_one() {
+    let sandbox = Sandbox::new("ref_shared_boots_mtl_link_pes17");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    sandbox.write(&format!("{REFS}/Players/Ref A/Studs.boots"), b"");
+    let studs = format!("{REFS}/Boots/Studs");
+    sandbox.write(&format!("{studs}/boots.model"), &card_model());
+    sandbox.write(&format!("{studs}/materials.mtl"), &card_materials());
+    sandbox.write(&format!("{studs}/skin.dds"), &small_dds());
+    // Kept by the lenient check alone: a shared folder's link resolves nothing, so the
+    // search, name-matching it first, must not reach `Common/boots.mtl` through it.
+    sandbox.write(&format!("{studs}/boots.mtl.common"), b"");
+    sandbox.write(
+        &format!("{REFS}/Common/boots.mtl"),
+        &materials_naming("cloth"),
+    );
+    sandbox.write(&format!("{REFS}/Common/cloth.dds"), &small_dds());
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes_settings(&sandbox, 17)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output").join(REFS_CPK));
+    let boots = "common/character0/model/character/boots/k9901/";
+    let names: Vec<&str> = entries
+        .keys()
+        .filter_map(|path| path.strip_prefix(boots))
+        .collect();
+    assert_eq!(names, ["boots.model", "boots.mtl"]);
+    // `materials.mtl`'s one texture, `skin.dds`, not the Common set's `cloth.dds`.
+    let paths = sampler_paths(&entries[&format!("{boots}boots.mtl")]);
+    assert_eq!(paths.len(), 1, "{paths:?}");
+    assert!(paths[0].ends_with("/skin.dds"), "{paths:?}");
+}
+
+#[test]
+fn on_pes_17_a_referee_s_linked_boots_folder_leaves_out_its_own_set_s_higher_variant() {
+    let sandbox = Sandbox::new("ref_shared_boots_own_set_pes17");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    sandbox.write(&format!("{REFS}/Players/Ref A/Studs.boots"), b"");
+    let studs = format!("{REFS}/Boots/Studs");
+    for variant in ["boots_kit1", "boots_kit2"] {
+        sandbox.write(&format!("{studs}/{variant}.model"), &card_model());
+    }
+    sandbox.write(&format!("{studs}/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{studs}/skin.dds"), &small_dds());
+
+    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Info export_identified [Keep] (team=referees)",
+            "Warning kit_variant_model_left_out [Keep] at Boots/Studs (model=boots_kitN.model, used=boots_kit1.model)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let meshes = |bytes: &[u8]| {
+        pes_model::model::Model::from_file(&pes_model::format::PreFoxModel::read(bytes).unwrap())
+            .unwrap()
+            .meshes
+            .len()
+    };
+    assert_eq!(
+        meshes(&entries["common/character0/model/character/boots/k9901/boots.model"]),
+        meshes(&card_model()),
+        "one variant's meshes, not two merged"
+    );
+}
+
 // TC-REF-11
 #[test]
 fn a_refs_export_s_kit_is_file_not_used_and_the_referee_face_compiles() {
@@ -907,6 +986,43 @@ fn a_refs_export_s_kit_is_file_not_used_and_the_referee_face_compiles() {
     assert!(
         kit_textures.iter().all(|name| name.starts_with("referee_")),
         "no kit of the export's: {kit_textures:#?}"
+    );
+}
+
+#[test]
+fn a_refs_export_s_kits_logo_portraits_and_collars_are_not_read() {
+    let sandbox = Sandbox::new("ref_unread_files");
+    write_ref_a(&sandbox, &["01"]);
+    // Each of them broken: nothing reads them, so none is checked.
+    sandbox.write(&format!("{REFS}/Kits/p1/config.toml"), b"not toml");
+    sandbox.write(&format!("{REFS}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(&format!("{REFS}/logo.png"), b"junk");
+    sandbox.write(&format!("{REFS}/Portraits/player_01.dds"), b"junk");
+    sandbox.write(&format!("{REFS}/Players/Ref A/portrait.dds"), b"junk");
+    sandbox.write(&format!("{REFS}/Collars/collar_12.fmdl"), b"junk");
+
+    let (run, entries) = compile(&sandbox);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=referees)",
+            "Warning file_not_used [Keep] (file=Kits/p1)",
+            "Warning file_not_used [Keep] (file=logo.png)",
+            "Warning file_not_used [Keep] (file=Players/Ref A/portrait.dds)",
+            "Warning file_not_used [Keep] (file=Portraits/player_01.dds)",
+            "Warning file_not_used [Keep] (file=Collars/collar_12.fmdl)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        entries.contains_key(&referee_package("face/real/referee0", "01", "face")),
+        "{:#?}",
+        entries.keys()
     );
 }
 

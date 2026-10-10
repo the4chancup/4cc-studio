@@ -1970,18 +1970,17 @@ fn a_per_kit_set_split_between_a_player_and_a_boots_folder_he_combines_is_one_se
     let sandbox = Sandbox::new("mod_kit_variant_combined");
     let export = "exports/co Midcup Variant Crocs";
     let boots = tracer_player_file("boots.fmdl");
-    sandbox.write(&format!("{export}/Players/05 - A/boots_kit2.fmdl"), &boots);
+    // Four bytes no FMDL reader accepts: the deep pass reads his roles over both sources, as
+    // his boots package does, so it leaves `boots_kit2` unread.
+    sandbox.write(&format!("{export}/Players/05 - A/boots_kit2.fmdl"), b"junk");
     sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
     sandbox.write(&format!("{export}/Boots/Crocs/boots.fmdl"), &boots);
     sandbox.write(&format!("{export}/Boots/Crocs/boots_kit1.fmdl"), &boots);
 
-    // The deep pass checks each folder's models by its own roles, so it reads `boots_kit2`,
-    // which the player's boots package leaves out.
     let entries = compile_clean(
         &sandbox,
         "co Midcup Variant Crocs",
         &[
-            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots_kit2.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots_kit1.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
@@ -2157,7 +2156,6 @@ fn a_model_below_a_shared_boots_folder_s_subfolder_is_not_used() {
         [
             "Info file_type_disallowed [Keep] at Boots/Crocs (file=boots/extra.fmdl)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning file_not_used [Keep] at Boots/Crocs (file=boots/extra.fmdl)",
             "Info team_colors_missing [Keep] ()",
         ],
         "{lines:#?}"

@@ -6211,3 +6211,23 @@ nothing, a look the member sees in game and may well mean. A finding that cannot
 mistake from a choice is noise in a compile log; the editor, where the member picks the
 value, is where the documented set belongs.
 Plan: `team_compiler/pipeline.md` "Kit configs" (the sentence on the two Infos).
+
+## 2026-10-10 — team_compiler — a beaten `Common/` model is dropped with its winner
+Decision: when the deep pass drops a `Common/` model, the other representation of its stem
+that the winner beats (unread by the pass) is dropped with it, one Info naming the winner
+(`common_model_beaten_dropped`, `DropFile`), on both engines; the players linking the stem
+follow `link_target_dropped` as they do today. Under `pass_through` a kept winner keeps it.
+Why: S9's second Astra round (2026-10-10, S9.A2-2): the pass leaves the beaten file unread
+(the rule of 2026-10-09, "check what `compile` reads"), but the kept-Common list kept it, so
+once the winner was dropped planning's `selected_common_model` (and the pre-Fox Common
+models task) selected the beaten file, never parsed. The alternative, checking the beaten
+file as well, would drop a working winner for a broken file nothing reads; dropping it with
+the winner keeps the one rule: what the pass did not check, planning does not read. The same
+rule gives the rest of the round: the pass reads a folder's roles as planning does (with the
+`ingame_face` marker, over every source the part is built from), reads in an xml-controlled
+pre-Fox source only what the xml references, on PES 18-21 only the `Common/` `.mtl` files a
+search reads, and skips a refs export's kits, logo, portraits and collars as it skips its root
+colors.
+Plan: `team_compiler/pipeline.md` "2. Per-export serial steps" (deep format pass);
+`team_compiler/messages.md` `common_model_beaten_dropped`, `xml_model_unlisted`, the `.mtl`
+checks paragraph.

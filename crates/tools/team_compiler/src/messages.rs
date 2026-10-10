@@ -338,6 +338,10 @@ pub(crate) enum Code {
     /// A `.mtl` that does not parse; its folder is left out (a `Common/` file: the file),
     /// whatever `pass_through` says.
     MtlBroken,
+    /// A `Common/` model another representation of its stem beats, which the deep pass does not
+    /// read, when the pass drops the winner: the file is left out with it, so planning never
+    /// selects a file the pass did not check.
+    CommonModelBeatenDropped,
     /// A texture one of a Fox model's meshes uses, named in the team's Common output, that
     /// neither the export's `Common/`, the folder's links nor an installed CPK loaded before
     /// the run's supplies: the model's package is left out, or kept when the installed CPKs
@@ -444,7 +448,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 134] = [
+    const ALL: [Code; 135] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -545,6 +549,7 @@ impl Code {
         Code::VertexTooFarFromOrigin,
         Code::ModelBroken,
         Code::MtlBroken,
+        Code::CommonModelBeatenDropped,
         Code::FmdlTextureNotFound,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
@@ -684,6 +689,7 @@ impl Code {
             Code::VertexTooFarFromOrigin => "vertex_too_far_from_origin",
             Code::ModelBroken => "model_broken",
             Code::MtlBroken => "mtl_broken",
+            Code::CommonModelBeatenDropped => "common_model_beaten_dropped",
             Code::FmdlTextureNotFound => "fmdl_texture_not_found",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
@@ -843,6 +849,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("vertex_too_far_from_origin", CatalogSeverity::Error),
     ("model_broken", CatalogSeverity::Error),
     ("mtl_broken", CatalogSeverity::Error),
+    ("common_model_beaten_dropped", CatalogSeverity::Info),
     ("fmdl_texture_not_found", CatalogSeverity::ErrorUnlessKept),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("dpfilelist_missing", CatalogSeverity::ErrorOrWarning),

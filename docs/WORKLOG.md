@@ -33,7 +33,10 @@ numbers; TC-CMN-17), 4.y-harness and 4.y-ingame done 2026-10-10 (the converted c
 checked in game, the harness driven by a virtual pad and OBS), 4.y-ingame2 started
 2026-10-10 (the remaining in-game checks: collars beyond the stock set load on PES 21,
 the sock table seen on PES 21, the DX10 header crashes PES 21's BC3 portrait reader),
-4.y-fix16 opened 2026-10-10 (S9's second Astra round, five concerns), 4.y-sub opened 2026-10-10
+4.y-fix16 done 2026-10-10 (S9's second Astra round: the deep pass reads a player's roles as
+planning does, drops a beaten Common model with its winner, leaves an xml's unnamed files and
+Fox's unsearched Common `.mtl` files unread, skips a refs export's kits, logo, portraits and
+collars; `common_model_beaten_dropped`), 4.y-sub opened 2026-10-10
 (a subfolder of a player folder is a player folder of its own; the reserved subfolders gone, the
 AET referee layout refused per folder), 4.y-kitwarn and 4.y-retag opened 2026-10-10 (the
 maintainer's answers: one Warning for a sleeve or fit option the shirt model ignores; the
@@ -3589,8 +3592,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`s17_47_sleeves_long.png`), no crash. Both stay unreported by the compiler
   (DECISIONS 2026-10-10); open item (e) closed, (a) closed but for PES 21's lower
   sock.
+  manual: checked 2026-10-10, the pre-Fox referee marker (b), no answer yet: run D (the
+  checker as `parts/referee/incom_bsm.dds`) and run G (the template tree's
+  `referee_prop.model` and `.mtl` with it, what the compiler writes) in PES 17's test
+  slot, an exhibition match of `/4cccc/` against `/wsg/` driven by the pad: no magenta
+  and yellow square anywhere in the walkout, the kickoff's wide camera or the replay's
+  top-down and free cameras at 0:00 (`r17_walk_*`, `r17g_kick_*`, `r17g_top_03.png`),
+  and no referee figure at all in any of them (a player leads the walkout; the only
+  figures on the pitch wear the two kits). The cup's own `4cc_35_referees.cpk` holds the
+  same prop pair and its clover `incom_bsm.dds` (5.6 MB), 35 referee face CPKs and the
+  referee kit textures, and Sider's LiveCPK root (`C:/Data/4cc/0Livecpk`) holds no referee
+  file, so the install's referee is drawn by nothing the lead can see: whether the
+  referee is hidden on purpose on this install, and which scene draws the prop, stays
+  the maintainer's (QUESTIONS, narrowed). The replay's free camera (mode 3 of the A
+  button) is tethered to the target player and the pad holds one input at a time, so
+  no close view of an official was reachable; the pad's `hold:left` rewinds there.
 
-- [ ] 4.y-fix16 **S9's second Astra round: the deep pass checks what `compile` reads,
+- [x] 4.y-fix16 **S9's second Astra round: the deep pass checks what `compile` reads,
   five more places** (rulings S9.A2 in `.tmp/4_y/duck_rulings.md`, all five accepted,
   each traced in the code). (1) `folder_findings` reads a folder's roles with the
   `ingame_face` marker (`FolderModels::of_player_files(.., marker, ..)`), so a marked
@@ -3630,6 +3648,38 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   xml; a malformed Common `.mtl` beside an FMDL player with a `.mtl.common` link on
   PES 21; a refs export with a broken copied kit config exits 0); S9 gets a third
   Astra round after the rework, with its SWE-2 loop.
+  Done 2026-10-10 (sidekick, one run; brief `.tmp/4_y/brief_fix16.md`, report
+  `.tmp/4_y/sk_fix16_report.md`): `roles::part_source_models` computes a folder's and its
+  combined folders' models for planning and the deep pass alike (`FolderModels::of` gone);
+  `pre_fox_link` holds the kit-token rule for both arms; a beaten `Common/` model is
+  dropped with its winner (`common_model_beaten_dropped`, Info, `DropFile`; DECISIONS
+  2026-10-10); `deep::xml_unnamed` leaves what an xml does not name unread (an FMDL there
+  always, since the face converts none in an xml-controlled source; a `kitN` name names its
+  set); on Fox `searched_common_mtls` is the set of Common `.mtl` files any player's search
+  reads, the pairing rule in one `pairs_with_mtl`; a refs export's kits, logo, portraits
+  (the folder's too) and collars skipped with its root colors; `admitted` through
+  `role_position`; the two pre-Fox search sites pass no Common files for a combined source
+  (both panics reproduced). The rulings' shapes held but for the red runs (a `boots.mtl`
+  name-matched the link's search; a `.fmdl.common` link was already dropped, the hole was a
+  `.model.common` one; the mirror reports `model_material_undefined`, not a cascade) and
+  (8) b's output name (`boots.mtl`). The shared folders' own checks stay over their own
+  files: one check serves every linker, and a plain link or the shared output reads the
+  folder whole, so a file left out only in one linker's context is still read (accepted
+  residual). Follow-up to the next rework brief: `held_stems` takes its shared folders
+  from `FaceUse`, `Unused` under the marker, so a marked player's combined boots or gloves
+  textures do not count for his own `.mtl` paths (a possible false `mtl_texture_not_found`,
+  folder kept): build the list from `combined_folders`. Files: `deep/mod.rs`,
+  `messages.rs`, `plan/mod.rs`, `plan/roles.rs`, `processing/prefox_face.rs`,
+  `processing/prefox_shared.rs`, `user_face_xml.rs`, `validation.rs`, five CLI test files;
+  `pipeline.md`, `messages.md`, DECISIONS (lead). Gates green (`.tmp/4_y/gates_fix16_lead.log`,
+  acceptance 301 of 312); mutation diff (`.tmp/4_y/mutants_fix16.log`): 40 mutants, 33
+  caught, 7 unviable, 1 missed (`drop_beaten_common_models`' `is_direct_model`, `&&` to
+  `||`: a dropped Common texture of the stem would count as the winner), closed by a lead
+  CLI test in `common_links.rs` (red with the perturbation by hand, reverted); the remote
+  half peaked at 8.60 GiB of the 9G cap. Found by that test's first shape: a `Common/`
+  texture whose bytes carry no header the deep pass knows (four junk bytes) gets no finding
+  and fails the Common textures task (`folder_pack_failed` at `Common`, every Common
+  texture lost): issue below.
 
 - [ ] 4.y-sub **A subfolder of a player folder is a player folder of its own** (the
   maintainer's rule, DECISIONS 2026-10-10, two entries; plan `player_folders.md`
@@ -3890,12 +3940,18 @@ points there.
   own, merged from that number's variants of any file kind, once FoxDen loads one per kit
   picked; the layout it reads is decided with FoxDen's work, then a step in the phase open
   at the time builds it and retires `kit_variant_model_fox`. FoxDen is a work in progress.
-- open (4.y-fix7, 2026-10-09) — on PES 15-17 the deep pass reads a player folder's models
+- resolved (2026-10-10, 4.y-fix16) — on PES 15-17 the deep pass reads a player folder's models
   with the roles of a folder without `ingame_face` (`FolderModels::of`), so under the marker
   a per-kit model variant that planning leaves out is still read and checked: a broken
   `boots_kit2.model` beside a valid `boots_kit1.model` drops a marked folder `compile`
-  would build. No census export holds a kit set; the fix gives `unread` the marked roles
-  (`FolderModels::of_player`), which `folder_findings` does not receive today.
+  would build. The pass now reads the roles as planning does (`part_source_models`).
+- open (4.y-fix16's review, 2026-10-10) — a texture whose bytes open with no signature the
+  deep pass knows (four junk bytes as `Common/boots.dds`) gets no finding there (the texture
+  check reads headers, `texture_finding`), reaches the Common textures task and fails it
+  with `folder_pack_failed` at `Common` (`DropFolder`: every Common texture lost, the
+  players keeping theirs). The rule says the pass checks what `compile` reads; a texture
+  the decoder refuses should be its finding (`texture_codec_unsupported` or a header code
+  of its own, the file alone), on a folder's texture too. For the next rework brief.
 - open (converge census, 2026-10-09) — a pre-Fox face of several `.model` parts converted
   for PES 18-21 fails to merge: each part's conversion generates its own skeleton (the bones it
   uses) and the face merge refuses the differing skeletons (`skl_merge_conflict`,
@@ -5921,3 +5977,12 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   model 150 a sleeveless shirt on both engines and an undocumented sleeve value drawn
   without sleeves, no crash: `kit_config`'s two Infos stay unreported (decision). The
   `/a/` save hides standard bodies, which cost three runs before `/out/` was used.
+- **2026-10-10** — 4.y-fix16 done (sidekick, one run): the deep pass reads a player's
+  roles as planning does (`part_source_models`, shared by both), drops a beaten `Common/`
+  model with its winner (`common_model_beaten_dropped`, decision), leaves an xml's
+  unnamed models and `.mtl` files and Fox's unsearched Common `.mtl` files unread, skips a
+  refs export's kits, logo, portraits and collars; `admitted` through `role_position`, the
+  pre-Fox search sites' Common files, the `part_sources` survivor's test. One follow-up
+  (`held_stems` under the marker) to the next rework brief. In game (4.y-ingame2 (b)): the
+  pre-Fox marker's scene still unknown; the maintainer's PES 17 install draws no referee
+  figure at all, and no marker, with the cup's refs CPK or the test slot's prop pair.

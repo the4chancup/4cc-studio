@@ -170,6 +170,7 @@ savefile messages are new.
 | `players_txt_target_missing` | E | `players.txt` entry names a nonexistent folder | `RosterEntry` scoped assignment skipped (`DropSlot`) |
 | `link_target_missing` | E | link file references a nonexistent shared folder | folder discarded |
 | `link_target_dropped` | E | a shared-folder or `.common` link names a target the structure pass dropped, by its effective disposition (context: the link, the target and its finding) | folder discarded (`DropFolder`); not reported when `pass_through` keeps the target; never itself pass-through-eligible |
+| `common_model_beaten_dropped` | I | a `Common/` model another representation of its stem beats (`boots.model` beside `boots.fmdl` on PES 18-21, the reverse on PES 15-17), which the deep pass does not read, when the pass drops the winner: without this the winner's drop would leave the unread file as the stem's selected model (context: `file`, the beaten file's export path; `winner`, the dropped file's) | file discarded (`DropFile`), so planning never selects a file the pass did not check; the players linking the stem follow `link_target_dropped`; not reported when `pass_through` keeps the winner; never itself pass-through-eligible |
 | `shared_link_duplicate` | E | player folder has more than one shared link for any category (face, boots, or gloves) | folder discarded (`DropFolder`) |
 | `link_combined` | I | link file plus local models for the same category; the shared models become parts of the player's own set (Fox: mesh-merged, own ID) | none |
 | `shared_folder_orphaned` | W | shared folder referenced by no player | folder skipped |
@@ -277,7 +278,9 @@ rule about one of them (two empty meshes count 2). A finding on a
 | `model_material_unused` | I | pre-Fox: a material name no mesh uses | none |
 
 The `.mtl` checks (`mtl_material_duplicate`, `mtl_state_*`) are in "XML/MTL content checks"
-below; the deep pass runs them on every `.mtl`. It also reports `model_material_undefined` for
+below; the deep pass runs them on every `.mtl` it reads: on PES 15-17 every one, on PES 18-21
+the one a selected `.model` or a Common `.model` link pairs with, in a model folder or in
+`Common/` (the `mtl_texture_not_found` row). It also reports `model_material_undefined` for
 each pre-Fox `.model` (or `.common` link to one) of a model folder, pairing it with the `.mtl`
 the face step's search finds (`model_format.md` "Pre-Fox: the `.mtl` a `.model` uses"), so
 `check` reports it too.
@@ -344,7 +347,7 @@ pass-through-eligible, and the logo goes as one unit.
 | `xml_ratio_invalid` | W | `ratio` that is not a number | kept verbatim |
 | `xml_path_unchecked` | W | `path`/`material` in a form the compiler cannot resolve (`model/character/face/common/…` or any other game path): not verified to exist | kept verbatim |
 | `xml_face_neck_multiple` | W | more than one `face_neck` entry | kept verbatim |
-| `xml_model_unlisted` | W | a model file in the folder that the xml does not reference | file not emitted |
+| `xml_model_unlisted` | W | a model file in the folder that the xml does not reference (a reference to a per-kit set names every variant of the set) | file not emitted, nor read by the deep pass; a `.mtl` the xml does not name is unread the same way, with no finding |
 | `xml_face_neck_added` | I | no `face_neck` entry among a face's models; the dummy entry was appended (Red's rule); not on a blank face | dummy model + mtl emitted |
 | `xml_uniform_pes15` | I | PES15 target: `type="uniform"` rewritten to `uniform_sub` (Red's rule) | rewritten |
 | `xml_ignored_fox` | I | a user `face.xml` in a folder compiled for a Fox target | xml ignored; models compile by the normal route |

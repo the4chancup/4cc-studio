@@ -105,10 +105,19 @@ export format.
      `pass_through` keeps what is eligible. The pass checks what `compile` reads and
      nothing else: a file planning leaves unread (a model another representation of its
      stem beats, in a model folder or in `Common/`; a model with no role where it sits,
-     such as a `.model` in a player's `common/`; a per-kit model variant left out; a
-     file below a `Common/` subfolder on PES 18-21; a kit texture the target does not emit; on PES
+     such as a `.model` in a player's `common/`; a per-kit model variant left out, the
+     folder's roles read as planning reads them, with the folder's `ingame_face` marker and
+     over every source the part is built from, `ModelFolder::roles`; in a pre-Fox source its
+     own `face.xml` controls, a model or `.mtl` the xml does not reference, a referenced
+     set's variants counting as referenced; a file below a `Common/` subfolder on PES
+     18-21, and there a `Common/` `.mtl` no selected `.model`'s search and no Common
+     `.model` link's search reads; a kit texture the target does not emit; a refs export's
+     kits, logo, portraits and collars, as its root `colors.txt`; on PES
      15-17 a `face_diff.bin` beside a member's `face.xml` holding a `<dif>`) is not
-     checked, since its findings would drop what `compile` builds without it. Its own
+     checked, since its findings would drop what `compile` builds without it. A `Common/`
+     model another representation of its stem beats is dropped with its winner
+     (`common_model_beaten_dropped`), so planning never selects a file the pass did not
+     check. Its own
      lookups (a model's `.mtl` search, a
      `.mtl`'s texture stems) see the `Common/` files the report keeps, an eligible
      Error's file included under `pass_through`, so the pass never drops a player for a

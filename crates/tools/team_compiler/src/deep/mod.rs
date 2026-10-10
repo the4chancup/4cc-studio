@@ -8,9 +8,12 @@
 //! finding, which would drop what `compile` builds without it. This module reads every native
 //! model (`.fmdl`, `.model`) and every `.mtl` of the player folders, the shared folders and
 //! `Common/` that a task of the target reads, whatever the target version (a model of either
-//! format is a source for either target): not a model another of its stem beats, a model with
-//! no role, a per-kit variant left out, a file below a `Common/` subfolder, nor for PES 2018
-//! to 2021 a model folder's `.mtl` no `.model` of the folder is converted with; and it reports
+//! format is a source for either target): not a model another of its stem beats (a `Common/`
+//! one is dropped with its winner), a model with no role, a per-kit variant left out (the
+//! roles read as planning reads them), a model or `.mtl` a pre-Fox source's own `face.xml`
+//! does not name, a file below a `Common/` subfolder, nor for PES 2018 to 2021 a `.mtl` no
+//! `.model` is converted with, a model folder's or a `Common/` one; nor a refs export's kits,
+//! logo, portraits and collars; and it reports
 //! what the format crates' checks find
 //! (`team_compiler/messages.md` "Model checks"): one finding per file and code, at the
 //! severity the format crate gives it. An Error drops what holds the file and may pass through;
@@ -80,13 +83,13 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, emits_kit_texture, file_stem, is_direct_root_folder_file,
-    is_selected_common_model, is_user_face_xml, link_feeds_own_package, linked_folder, player_file,
-    selected_common_model, texture_format,
+    FolderModels, PlayerFile, emits_kit_texture, file_stem, in_folder_or_face,
+    is_direct_root_folder_file, is_selected_common_model, is_user_face_xml, link_feeds_own_package,
+    linked_folder, part_source_models, player_file, selected_common_model, texture_format,
 };
 use crate::reader::ContentSource;
 use crate::user_face_xml::{
-    self, Child, FaceFiles, UserFaceXml, XmlError, XmlFinding, reference, resolve,
+    self, Child, FaceFiles, UserFaceXml, XmlError, XmlFinding, names_file, reference, resolve,
 };
 use collar::collar_findings;
 use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
@@ -178,19 +181,23 @@ impl KeptCommon {
 /// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
 /// their face diff, boots, gloves), then `Common/`'s, then each collar's (a file directly in
 /// `Collars/`), then each `Portraits/` file with its slot's `portrait_conflict`, then each
-/// kit's `config.toml`, `colors.txt` and textures, then the logo's, then a team export's root
-/// `colors.txt`'s. An Error on a folder's or a kit's file drops the folder; one on a `Common/`
-/// file drops the file, and the cascade then drops the players linking it; one on a collar, a
-/// portrait, a `settings.toml` or a logo file drops that file. A refused
+/// kit's `config.toml`, `colors.txt` and textures, then the logo's, then the root
+/// `colors.txt`'s; a refs export's collars, portraits, kits, logo and root `colors.txt` are
+/// read by nothing and not checked. An Error on a folder's or a kit's file drops the folder;
+/// one on a `Common/` file drops the file, and the cascade then drops the players linking it;
+/// one on a collar, a portrait, a `settings.toml` or a logo file drops that file. A refused
 /// `colors.txt` line is a Warning on the file, which drops nothing. `Common/`'s files are
 /// checked before the folders, whose models' `.mtl` search sees only the ones the validation
 /// report keeps, with `pass_through` as set, and whose models' materials are compared with
 /// the kept ones' names (`KeptCommon`).
 ///
 /// It checks only what `compile` reads: not a file below a `Common/` subfolder, nor a
-/// `Common/` model another of its stem beats (`is_selected_common_model`), nor a kit texture
-/// the target does not emit (`emits_kit_texture`), nor a folder's file `folder_findings`
-/// leaves unread.
+/// `Common/` model another of its stem beats (`is_selected_common_model`), which is dropped
+/// with that winner instead (`drop_beaten_common_models`), nor for PES 2018 to 2021 a
+/// `Common/` `.mtl` no player folder's search reads (`searched_common_mtls`), nor a kit
+/// texture the target does not emit (`emits_kit_texture`), nor a folder's file
+/// `folder_findings` leaves unread, each player folder's roles read as planning reads them
+/// (`part_source_models`).
 ///
 /// For PES 2015 to 2017 each `.mtl`'s texture paths are looked up (`materials`), and for PES
 /// 2018 to 2021 those of each folder `.mtl` a selected `.model` pairs with, right after its own
@@ -217,6 +224,35 @@ pub(crate) fn content_findings(
 ) -> ContentPass {
     let size_rule = SizeRule::of(version);
     let engine = version.engine();
+    let referees = export.team_name.is_referees();
+    // Each player's sources and his roles as planning reads them: under his marker, and over
+    // every source a part is built from, so a per-kit variant his package leaves out is not
+    // read. Read before `Common/`, whose `.mtl` files on Fox only the players' searches read.
+    let player_sources: Vec<(Vec<(SharedKind, &SharedModelFolder)>, FolderModels)> = export
+        .players
+        .iter()
+        .map(|player| {
+            let combined = combined_folders(export, player, engine);
+            let (models, _) = part_source_models(
+                &player.path,
+                &player.files,
+                None,
+                player.ingame_face,
+                &combined,
+                engine,
+            );
+            (combined, models)
+        })
+        .collect();
+    // On Fox a `Common/` `.mtl` is read only by the search of a model converted with it.
+    let searched_mtls = match engine {
+        Engine::Fox => {
+            let models: Vec<&FolderModels> =
+                player_sources.iter().map(|(_, models)| models).collect();
+            Some(searched_common_mtls(export, &models))
+        }
+        Engine::PreFox => None,
+    };
     // Each group below is collected in its items' order (rayon's indexed `collect`), so the
     // findings come out in file order whatever the workers' scheduling.
     let mut common: Vec<ContentPass> = export
@@ -224,10 +260,15 @@ pub(crate) fn content_findings(
         .par_iter()
         .map(|file| {
             // The Common tasks read only the files directly in `Common/`, and a model there
-            // only when the target selects it for its stem: nothing reads the others.
+            // only when the target selects it for its stem, and on Fox a `.mtl` only when a
+            // search finds it: nothing reads the others.
             let unread = !is_direct_root_folder_file(&file.path)
                 || (matches!(file.kind, FileKind::Model(_))
-                    && !is_selected_common_model(&export.common, file, engine));
+                    && !is_selected_common_model(&export.common, file, engine))
+                || (file.kind == FileKind::Mtl
+                    && searched_mtls
+                        .as_ref()
+                        .is_some_and(|searched| !searched.contains(&file.path)));
             let Some(checked) = checked_as(file, size_rule).filter(|_| !unread) else {
                 return ContentPass::default();
             };
@@ -241,6 +282,7 @@ pub(crate) fn content_findings(
             )
         })
         .collect();
+    drop_beaten_common_models(&export.common, &mut common, engine, pass_through);
     // A model's `.mtl` search looks only among the `Common/` files the report keeps: planning
     // sees the export after the drops, so the face task searches the same files, and a model
     // whose only `.mtl` is a dropped Common one is `model_material_undefined` here rather than
@@ -275,16 +317,17 @@ pub(crate) fn content_findings(
     let players: Vec<ContentPass> = export
         .players
         .par_iter()
-        .map(|player| {
+        .zip(player_sources.par_iter())
+        .map(|(player, (combined, models))| {
             let folder = &player.path;
             // Under the marker the face files are not used, his own `face.xml` among them.
-            let face = FaceUse::of_player(export, player, engine);
+            let face = FaceUse::of_player(player, combined);
             let conflict = shared_face_conflict(folder, &player.files, &face, engine);
             let (mut pass, xml_dif) = folder_findings(
                 content,
                 folder,
                 &player.files,
-                &FolderModels::of(folder, &player.files, engine),
+                models,
                 &kept_common,
                 version,
                 face,
@@ -295,12 +338,14 @@ pub(crate) fn content_findings(
                 content,
                 folder,
                 &player.files,
-                &FolderModels::of_player(player, engine),
+                models,
                 xml_dif,
             ));
             // Not among the folder's files: a portrait and a `settings.toml` are dropped
-            // alone, the folder keeping the rest.
-            if let Some(portrait) = &player.portrait {
+            // alone, the folder keeping the rest. A referee's portrait is read by nothing.
+            if let Some(portrait) = &player.portrait
+                && !referees
+            {
                 findings.extend(portrait_findings(
                     content,
                     portrait,
@@ -369,6 +414,12 @@ pub(crate) fn content_findings(
         for found in group {
             pass.append(found);
         }
+    }
+    // A referee has no kit slot, team record, logo or player id, so planning gives a refs
+    // export's collars, portraits, kits, logo and root `colors.txt` no reader
+    // (`file_not_used`): nothing below is read for it.
+    if referees {
+        return pass;
     }
     let findings = &mut pass.findings;
     // Planning takes a collar only directly in `Collars/`: nothing reads a subfolder's file.
@@ -456,10 +507,7 @@ pub(crate) fn content_findings(
             file.path.name(),
         ));
     }
-    // A referee export has no team record, so nothing reads its root `colors.txt`.
-    if let Some(colors) = &export.root.team_colors
-        && !export.team_name.is_referees()
-    {
+    if let Some(colors) = &export.root.team_colors {
         findings.extend(colors_findings(content, colors, TEAM_COLORS));
     }
     pass
@@ -525,6 +573,52 @@ fn drops_file(findings: &[ContentFinding], pass_through: bool) -> bool {
     })
 }
 
+/// Appends `common_model_beaten_dropped` to the pass, among `passes`, of each model directly in
+/// `Common/` among `common` (the export's `Common/` files, whose passes are `passes`) that a
+/// target of `engine` does not select for its stem (`is_selected_common_model`), when the pass
+/// dropped the model of its stem that beats it (`drops_file`, with `pass_through`): the finding
+/// names the file and that winner, and drops the file, never passing through. The deep pass
+/// leaves a beaten model unread, so without the winner planning would select it for the stem
+/// (`selected_common_model`) though nothing checked it.
+fn drop_beaten_common_models(
+    common: &[FileDescriptor],
+    passes: &mut [ContentPass],
+    engine: Engine,
+    pass_through: bool,
+) {
+    let stem = |file: &FileDescriptor| vtree::fold_name(file_stem(file.path.name()));
+    let is_direct_model = |file: &FileDescriptor| {
+        matches!(file.kind, FileKind::Model(_)) && is_direct_root_folder_file(&file.path)
+    };
+    let dropped_winners: Vec<&FileDescriptor> = common
+        .iter()
+        .zip(passes.iter())
+        .filter(|(file, pass)| is_direct_model(file) && drops_file(&pass.findings, pass_through))
+        .map(|(file, _)| file)
+        .collect();
+    for (file, pass) in common.iter().zip(passes) {
+        if !is_direct_model(file) || is_selected_common_model(common, file, engine) {
+            continue;
+        }
+        let Some(winner) = dropped_winners
+            .iter()
+            .find(|winner| stem(winner) == stem(file))
+        else {
+            continue;
+        };
+        pass.findings.push(ContentFinding {
+            code: Code::CommonModelBeatenDropped.as_str(),
+            scope: IssueScope::File(file.path.clone()),
+            context: vec![
+                ("file", file.path.as_str().to_owned()),
+                ("winner", winner.path.as_str().to_owned()),
+            ],
+            disposition: Disposition::DropFile,
+            pass_through_eligible: false,
+        });
+    }
+}
+
 /// The texture findings of each `.mtl` among `common`, the export's `Common/` files whose
 /// passes are `passes`, that `kept` holds, a pre-Fox target's (`materials::texture_findings`):
 /// each on its file, keeping it, appended to its pass after its own findings. A `Common/`
@@ -586,41 +680,52 @@ enum FaceUse<'a> {
 }
 
 impl<'a> FaceUse<'a> {
-    /// How the face files of `player`, a player folder of `export` compiled for a target of
-    /// `engine`, are used, its links resolved as planning resolves them (`linked_folder`).
+    /// How the face files of `player` are used, `combined` being the shared folders his
+    /// package is built from (`combined_folders`).
     fn of_player(
-        export: &'a ValidatedAestheticsExport,
         player: &PlayerFolder,
-        engine: Engine,
+        combined: &[(SharedKind, &'a SharedModelFolder)],
     ) -> FaceUse<'a> {
         if player.ingame_face {
             return FaceUse::Unused;
         }
-        let linked_face = player
-            .links
+        let linked_face = combined
             .iter()
-            .find(|link| matches!(link.kind, SharedKind::Face))
-            .and_then(|link| linked_folder(export, link));
-        let combined = player
-            .links
+            .find(|(kind, _)| matches!(kind, SharedKind::Face))
+            .map(|(_, face)| *face);
+        let combined = combined
             .iter()
-            .filter(|link| match link.kind {
+            .filter(|(kind, _)| match kind {
                 SharedKind::Face => false,
-                // This pass is what finds the hand-weighted models, so it cannot see a gloves
-                // link that combines only with split hands: that folder's textures do not count
-                // here for the player's `.mtl` paths, though planning puts them in his textures
-                // task.
-                SharedKind::Boots | SharedKind::Gloves => {
-                    link_feeds_own_package(export, engine, player, link, &BTreeSet::new())
-                }
+                SharedKind::Boots | SharedKind::Gloves => true,
             })
-            .filter_map(|link| Some((link.kind, linked_folder(export, link)?)))
+            .copied()
             .collect();
         FaceUse::Used {
             linked_face,
             combined,
         }
     }
+}
+
+/// The shared folders `player`, a player folder of `export` compiled for a target of `engine`,
+/// builds his own packages from, in link order, resolved as planning resolves them
+/// (`linked_folder`): his face link's, and each boots or gloves link's that feeds his own
+/// package (`link_feeds_own_package`), the `ModelFolder::combined` planning gives him.
+fn combined_folders<'a>(
+    export: &'a ValidatedAestheticsExport,
+    player: &PlayerFolder,
+    engine: Engine,
+) -> Vec<(SharedKind, &'a SharedModelFolder)> {
+    // This pass is what finds the hand-weighted models, so it cannot see a gloves link that
+    // combines only with split hands: that folder is not a source of his here, though
+    // planning makes it one.
+    player
+        .links
+        .iter()
+        .filter(|link| link_feeds_own_package(export, engine, player, link, &BTreeSet::new()))
+        .filter_map(|link| Some((link.kind, linked_folder(export, link)?)))
+        .collect()
 }
 
 /// `xml_shared_face_conflict` on the player folder at `folder`, holding `files`, when on
@@ -664,7 +769,9 @@ fn shared_face_conflict(
 /// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
 /// an Error dropping the folder, the file named below the folder (not a file with no role, such
 /// as a model the target's own format beats, nor a per-kit model variant left out, nor on Fox
-/// a `.mtl` no `.model` pairs with, which nothing reads); for each model `pairings` pairs (on
+/// a `.mtl` no `.model` pairs with, nor on pre-Fox, where the folder's own `face.xml` controls
+/// the face, a model or a `.mtl` it does not name (`xml_unnamed`), which nothing reads); for
+/// each model `pairings` pairs (on
 /// pre-Fox each `.model` with a role and each typed `.common` link to one, on Fox each
 /// `.model` no FMDL beats and each `.common` link loading a Common `.model`),
 /// `model_material_undefined` (`material_finding`, its `.mtl` searched among the folder's files
@@ -732,13 +839,17 @@ fn folder_findings(
             listed_materials(&xmls, files, common, folder)
         }
     });
+    // The face of a folder holding its own `face.xml` packs only what its entries name.
+    let xml_controls = !xmls.is_empty() && !xml_drops_folder;
     let pairings = pairings(folder, files, models, engine, listed, common);
     // A file with no role (a model the target's own format beats, `FolderModels::beaten`; a
     // model in `common/`) and a per-kit model variant left out are read by nothing, and on
     // Fox a `.mtl` is read only by the conversion of a `.model` paired with it, so one no
     // such model pairs with (beside only FMDLs, or a `.model` an FMDL beats) is read by
-    // nothing either. None is checked: its findings would drop a folder `compile` builds
-    // without it (`pipeline.md` step 3 "Format conversion").
+    // nothing either; on pre-Fox, where the folder's own `face.xml` controls the face, nor is
+    // a model or a `.mtl` it does not name (`xml_unnamed`). None is checked: its findings
+    // would drop a folder `compile` builds without it (`pipeline.md` step 3 "Format
+    // conversion").
     let unread = |file: &FileDescriptor| {
         matches!(
             player_file(folder, file, models),
@@ -750,7 +861,7 @@ fn folder_findings(
                         .iter()
                         .any(|pairing| pairing.mtl.is_some_and(|mtl| mtl.path == file.path))
             }
-            Engine::PreFox => false,
+            Engine::PreFox => xml_controls && xml_unnamed(folder, file, &xmls),
         }
     };
     // Collected in file order (an indexed `collect`), whatever the scheduling.
@@ -900,8 +1011,9 @@ struct Pairing<'a> {
 /// models are `models`, read for a target of `engine`: with the folder's own `face.xml`, the
 /// models it lists with the `.mtl` each entry names (`listed`, empty when an xml drops the
 /// folder); without, on pre-Fox, each `.model` the face or the boots and gloves read
-/// (`PlayerFile::PreFoxModel`, `PlayerFile::PreFoxPart`) and each typed `.common` link loading
-/// a Common `.model` (`selected_common_model`; one loading a Common FMDL pairs none, the FMDL's
+/// (`PlayerFile::PreFoxModel`, `PlayerFile::PreFoxPart`) and each `.common` link the face types
+/// or, under `ingame_face`, his boots or gloves take, loading a Common `.model`
+/// (`selected_common_model`; one loading a Common FMDL pairs none, the FMDL's
 /// conversion writing its material set) with the `.mtl` its search finds among `files` and
 /// `common`'s; on Fox each `.model` with a role (`PlayerFile::Model`: no FMDL of its stem
 /// beats it) and each `.common` link with a role loading a Common `.model` (one loading a
@@ -933,33 +1045,7 @@ fn pairings<'a>(
     };
     files
         .iter()
-        .filter(|file| match engine {
-            // On Fox a selected `.model` is converted with the `.mtl` its search finds, and so
-            // is a linked Common `.model`. One an FMDL of its stem beats has no role and is read
-            // by nothing: dropping the folder for it would lose a working FMDL.
-            Engine::Fox => {
-                let role = player_file(folder, file, models);
-                (file.kind == FileKind::Model(ModelFormat::PesModel)
-                    && matches!(role, Some(PlayerFile::Model { .. })))
-                    || (matches!(role, Some(PlayerFile::CommonModel { .. }))
-                        && !links_common_fmdl(file, common, engine))
-            }
-            // The roles are read without the `ingame_face` marker (`FolderModels::of`), so a
-            // model link is `PreFoxCommonModel` here even in a marked folder, where planning
-            // makes it a part of his boots or gloves whose `.mtl` is needed all the same. A
-            // link loading a Common FMDL pairs none: its material set is its conversion's. A
-            // `.model` with no role, or a per-kit variant left out, is read by nothing.
-            Engine::PreFox => {
-                let role = player_file(folder, file, models);
-                (file.kind == FileKind::Model(ModelFormat::PesModel)
-                    && matches!(
-                        role,
-                        Some(PlayerFile::PreFoxModel { .. } | PlayerFile::PreFoxPart { .. })
-                    ))
-                    || (matches!(role, Some(PlayerFile::PreFoxCommonModel { .. }))
-                        && !links_common_fmdl(file, common, engine))
-            }
-        })
+        .filter(|file| pairs_with_mtl(folder, file, models, &common.files))
         .map(|file| {
             let model = match common_link_name(file.path.name()) {
                 Some(linked) => {
@@ -976,18 +1062,89 @@ fn pairings<'a>(
         .collect()
 }
 
+/// Whether `file`, of the model folder at `folder` whose models are `models`, is a model a
+/// task converts or writes with the `.mtl` its search finds (`pairings`), its `.common` link
+/// resolved among `common`, `Common/`'s files (`links_common_fmdl`); for the target engine
+/// `models` were read for.
+fn pairs_with_mtl(
+    folder: &ScopePath,
+    file: &FileDescriptor,
+    models: &FolderModels,
+    common: &[FileDescriptor],
+) -> bool {
+    let engine = models.engine();
+    let role = player_file(folder, file, models);
+    match engine {
+        // On Fox a selected `.model` is converted with the `.mtl` its search finds, and so is
+        // a linked Common `.model`. One an FMDL of its stem beats has no role and is read by
+        // nothing: dropping the folder for it would lose a working FMDL.
+        Engine::Fox => {
+            (file.kind == FileKind::Model(ModelFormat::PesModel)
+                && matches!(role, Some(PlayerFile::Model { .. })))
+                || (matches!(role, Some(PlayerFile::CommonModel { .. }))
+                    && !links_common_fmdl(file, common, engine))
+        }
+        // A model link is a part of the face's `face.xml` (`PreFoxCommonModel`), or in a
+        // folder holding `ingame_face` a part of his boots or gloves (`PreFoxPart`), whose
+        // Common `.model` is written with the `.mtl` its search finds. A link loading a
+        // Common FMDL pairs none: its material set is its conversion's. A `.model` with no
+        // role, or a per-kit variant left out, is read by nothing.
+        Engine::PreFox => {
+            let model_link = matches!(role, Some(PlayerFile::PreFoxCommonModel { .. }))
+                || (file.kind == FileKind::CommonLink
+                    && matches!(role, Some(PlayerFile::PreFoxPart { .. })));
+            (file.kind == FileKind::Model(ModelFormat::PesModel)
+                && matches!(
+                    role,
+                    Some(PlayerFile::PreFoxModel { .. } | PlayerFile::PreFoxPart { .. })
+                ))
+                || (model_link && !links_common_fmdl(file, common, engine))
+        }
+    }
+}
+
 /// Whether the `.common` model link `file` loads a Common FMDL on a target of `engine`, which
 /// takes no `.mtl`: on Fox it carries its materials, on pre-Fox the Common models task converts
 /// it with the material set its conversion writes. The Common model it loads is among
-/// `common`'s kept files (`selected_common_model`), or, when the pass dropped that file, the
-/// model its name links.
-fn links_common_fmdl(file: &FileDescriptor, common: &KeptCommon, engine: Engine) -> bool {
+/// `common` (`selected_common_model`), or, when that list lacks the file (the kept files,
+/// after the pass dropped it), the model its name links.
+fn links_common_fmdl(file: &FileDescriptor, common: &[FileDescriptor], engine: Engine) -> bool {
     let Some(linked) = common_link_name(file.path.name()) else {
         return false;
     };
-    let kind = selected_common_model(&common.files, &linked, engine)
+    let kind = selected_common_model(common, &linked, engine)
         .map_or_else(|| classify(&linked), |model| model.kind);
     kind == FileKind::Model(ModelFormat::Fmdl)
+}
+
+/// The export paths of the `.mtl` files directly in `export`'s `Common/` that a search of a
+/// player folder reads on PES 2018 to 2021, `player_models` being each player folder's models
+/// (`part_source_models`): the `.mtl` a selected `.model`'s search or a Common `.model` link's
+/// search finds (`pairs_with_mtl`, `mtl_for`) when it is a `Common/` file. Fox has no Common
+/// models task, so no other reads one. A shared folder's search sees no `Common/` file
+/// (`pairings`), so it adds none.
+fn searched_common_mtls<'a>(
+    export: &'a ValidatedAestheticsExport,
+    player_models: &[&FolderModels],
+) -> BTreeSet<&'a ScopePath> {
+    // The search runs here over every direct `Common/` file and in the folders' pass over the
+    // kept ones, so a `.mtl` found here and dropped leaves a second candidate that later search
+    // finds unchecked: a case this set leaves.
+    let mut searched = BTreeSet::new();
+    for (player, models) in export.players.iter().zip(player_models) {
+        let folder = &player.path;
+        for file in &player.files {
+            if !pairs_with_mtl(folder, file, models, &export.common) {
+                continue;
+            }
+            if let Some(mtl) = mtl_for(&file.path, folder, &player.files, &export.common)
+                && is_direct_root_folder_file(&mtl.path)
+            {
+                searched.insert(&mtl.path);
+            }
+        }
+    }
+    searched
 }
 
 /// The names of the materials the meshes of the models `pairings` pair with the `.mtl` at
@@ -1147,6 +1304,47 @@ fn user_xml_findings(
             .collect(),
         parsed: Some(xml),
     }
+}
+
+/// Whether `file`, of the model folder at `folder` whose own `face.xml` files are `xmls`, is
+/// a model or a `.mtl` the face those xmls control does not pack: an FMDL, which such a face
+/// never converts (a reference resolves a `.model` alone, `xml_model_not_found` otherwise), a
+/// file outside the folder and its `face/`, or one no entry names, by its `path` for a
+/// `.model` and its `material` for a `.mtl`, a `kitN` name naming every variant of its set
+/// (`user_face_xml::names_file`, the rule of `xml_model_unlisted` and of the face task).
+/// False for any other file.
+fn xml_unnamed(
+    folder: &ScopePath,
+    file: &FileDescriptor,
+    xmls: &[(&FileDescriptor, XmlOutcome)],
+) -> bool {
+    let attribute = match file.kind {
+        FileKind::Model(ModelFormat::Fmdl) => return true,
+        FileKind::Model(ModelFormat::PesModel) => "path",
+        FileKind::Mtl => "material",
+        FileKind::Model(ModelFormat::Gltf)
+        | FileKind::Texture
+        | FileKind::Skl
+        | FileKind::Fclo
+        | FileKind::Xml
+        | FileKind::MaterialsToml
+        | FileKind::Bin
+        | FileKind::SharedLink(_)
+        | FileKind::CommonLink
+        | FileKind::Marker(_)
+        | FileKind::Metadata(_)
+        | FileKind::Other => return false,
+    };
+    let named = xmls
+        .iter()
+        .filter_map(|(_, outcome)| outcome.parsed.as_ref())
+        .flat_map(|xml| &xml.children)
+        .filter_map(|child| match child {
+            Child::Model(model) => model.attribute(attribute),
+            Child::Dif(_) | Child::Other(_) => None,
+        })
+        .any(|value| names_file(value, file.path.name()));
+    !(named && in_folder_or_face(folder, file))
 }
 
 /// The `.model` files among `files`, those of the folder at `folder`, that the folder's own
@@ -2160,11 +2358,13 @@ mod tests {
             "Players/05 - A",
             &[("file", "hat.model")],
         )];
+        // Neither the model nor the `.mtl` the xml does not name is read: four bytes no reader
+        // accepts give no finding.
         let findings = slot_05_findings(
             "deep_xml_unlisted",
             &[
-                ("hat.model", card()),
-                ("hat.mtl", other_materials()),
+                ("hat.model", b"junk".to_vec()),
+                ("hat.mtl", b"junk".to_vec()),
                 ("other.model", card()),
                 ("other.mtl", card_materials()),
                 ("texture.dds", bc1_dds(4, 4)),
@@ -2179,12 +2379,41 @@ mod tests {
         let findings = slot_05_findings(
             "deep_xml_unlisted_no_mtl",
             &[
-                ("hat.model", card()),
+                ("hat.model", b"junk".to_vec()),
                 ("other.model", card()),
                 ("face.xml", one_model_xml(r#"path="./other.model""#)),
             ],
         );
         assert_eq!(findings, unlisted);
+    }
+
+    #[test]
+    fn a_set_the_xml_names_is_read_whole() {
+        // `./pants_kitN.model` names every variant of the set: kit 2's is read too.
+        let findings = slot_05_findings(
+            "deep_xml_set",
+            &[
+                ("pants_kit1.model", card()),
+                ("pants_kit2.model", b"junk".to_vec()),
+                ("pants.mtl", card_materials()),
+                ("texture.dds", bc1_dds(4, 4)),
+                (
+                    "face.xml",
+                    one_model_xml(r#"path="./pants_kitN.model" material="./pants.mtl""#),
+                ),
+            ],
+        );
+        assert_eq!(
+            findings,
+            [dropping(
+                "model_broken",
+                "Players/05 - A",
+                &[
+                    ("file", "pants_kit2.model"),
+                    ("error", "model is truncated")
+                ]
+            )]
+        );
     }
 
     #[test]

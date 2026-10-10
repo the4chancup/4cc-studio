@@ -535,9 +535,9 @@ fn has_pes16_prefix(path: &str) -> bool {
     PES16_PREFIXES.iter().any(|prefix| name.starts_with(prefix))
 }
 
-/// Whether the `path` value `path` names the file `file_name` of the folder: a `./` reference
-/// to its name, case-folded, or to the `kitN` set it is a variant of.
-fn names_file(path: &str, file_name: &str) -> bool {
+/// Whether the `path` or `material` value `path` names the file `file_name` of the folder: a
+/// `./` reference to its name, case-folded, or to the `kitN` set it is a variant of.
+pub(crate) fn names_file(path: &str, file_name: &str) -> bool {
     let Reference::Local(referenced) = reference(path) else {
         return false;
     };

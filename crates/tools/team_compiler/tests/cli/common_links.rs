@@ -15,9 +15,10 @@ use crate::compile::{
     compiled_players, cpk_entries, pes21_settings, tracer_kit, tracer_player_file,
 };
 use crate::conversion::HOME_714_05;
-use crate::findings_of;
 use crate::models::{body_skl, face_package, package_names};
 use crate::prefox_faces::{card_materials, card_model, materials_naming, small_dds};
+use crate::textures::texture_fixture;
+use crate::{clean_model, findings_of};
 use pes_model::format::mtl::MaterialSet;
 
 const FACE_05: &str = "Asset/model/character/face/real/71405/#Win/face.fpk";
@@ -1105,6 +1106,145 @@ fn a_common_model_an_fmdl_of_its_stem_beats_is_not_checked_and_the_link_loads_th
         mesh_count(package.get("boots.fmdl").unwrap()),
         mesh_count(&boots)
     );
+}
+
+#[test]
+fn a_common_model_an_fmdl_the_deep_pass_drops_beats_is_dropped_with_it() {
+    let sandbox = Sandbox::new("cmn_beaten_model_dropped");
+    let export = "exports/co Midcup Beaten";
+    sandbox.write(&format!("{export}/Players/05 - A/boots.fmdl.common"), b"");
+    sandbox.write(
+        &format!("{export}/Players/07 - B/face_high.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    // A link naming the beaten `.model`, which loads the FMDL of its stem.
+    sandbox.write(&format!("{export}/Players/09 - C/boots.model.common"), b"");
+    // Four bytes no FMDL reader accepts, beside a `.model` it beats, which nothing reads.
+    sandbox.write(&format!("{export}/Common/boots.fmdl"), b"junk");
+    sandbox.write(&format!("{export}/Common/boots.model"), &card_model());
+    sandbox.write(&format!("{export}/Common/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{export}/Common/skin.dds"), &small_dds());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Beaten"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=face_high.fmdl, count=1662)",
+            "Error model_broken [DropFile] at Common/boots.fmdl (file=boots.fmdl, error=fmdl is truncated)",
+            "Info common_model_beaten_dropped [DropFile] at Common/boots.model (file=Common/boots.model, winner=Common/boots.fmdl)",
+            "Error link_target_dropped [DropFolder] at Players/05 - A (link=boots.fmdl.common, target=Common/boots.fmdl, finding=model_broken)",
+            "Error link_target_dropped [DropFolder] at Players/09 - C (link=boots.model.common, target=Common/boots.model, finding=common_model_beaten_dropped)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    // No boots converted from the `.model`, nor any other: slot 07's face alone.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        entries
+            .keys()
+            .all(|path| !path.starts_with("Asset/model/character/boots/")),
+        "{:#?}",
+        entries.keys()
+    );
+    assert_eq!(compiled_players(&sandbox), [71407]);
+}
+
+#[test]
+fn a_beaten_common_model_is_not_dropped_for_a_dropped_file_of_its_stem_that_is_no_model() {
+    let sandbox = Sandbox::new("cmn_beaten_model_texture_dropped");
+    let export = "exports/co Midcup Beaten";
+    sandbox.write(&format!("{export}/Players/05 - A/boots.fmdl.common"), b"");
+    sandbox.write(&format!("{export}/Common/boots.fmdl"), &clean_model());
+    sandbox.write(&format!("{export}/Common/boots.model"), &card_model());
+    // A texture of the stem the deep pass drops (a PNG under a `.dds` name): it beats no
+    // model, so the `.model` the FMDL beats stays, unread, and the link loads the FMDL.
+    sandbox.write(
+        &format!("{export}/Common/boots.dds"),
+        &texture_fixture("kit.png"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Beaten"),
+        [
+            "Error texture_type_mismatch [DropFile] at Common/boots.dds (file=boots.dds)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        package_names(&entries[BOOTS_05]),
+        ["boots.fmdl", "boots.skl"]
+    );
+}
+
+/// Writes the export `export`: slot 05 holding `model_name` (`model`) and `boots.mtl.common`,
+/// and `Common/boots.mtl` holding bytes no `.mtl` reader accepts.
+fn write_broken_common_mtl(sandbox: &Sandbox, export: &str, model_name: &str, model: &[u8]) {
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/{model_name}"), model);
+    sandbox.write(&format!("{player}/boots.mtl.common"), b"");
+    sandbox.write(&format!("{export}/Common/boots.mtl"), b"not a material set");
+}
+
+#[test]
+fn a_common_mtl_no_search_reads_is_not_checked_on_pes_21() {
+    let sandbox = Sandbox::new("cmn_fox_mtl_unread");
+    let export = "exports/co Midcup Boots";
+    // An FMDL carries its materials: no search reads the Common `.mtl` his link names.
+    write_broken_common_mtl(&sandbox, export, "boots.fmdl", &clean_model());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Boots"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        package_names(&entries[BOOTS_05]),
+        ["boots.fmdl", "boots.skl"]
+    );
+
+    // A `.model` in its place is converted with the `.mtl` its search finds through the link:
+    // that one is read, and its Error drops the file, after which his search finds none.
+    let model = Sandbox::new("cmn_fox_mtl_searched");
+    write_broken_common_mtl(&model, export, "boots.model", &card_model());
+    let run = model.run(&pes21_settings(&model), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    let error = pes_model::format::mtl::MaterialSet::read(b"not a material set")
+        .unwrap_err()
+        .to_string();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Boots"),
+        [
+            "Error model_material_undefined [DropFolder] at Players/05 - A (file=boots.model)",
+            format!(
+                "Error mtl_broken [DropFile] at Common/boots.mtl (file=boots.mtl, error={error})"
+            )
+            .as_str(),
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
 }
 
 #[test]

@@ -28,9 +28,15 @@ referee. On PES 17 the lead's frames of the walkout, the lineup and the match's 
 `parts/referee/incom_bsm.dds`, installed in `4cc_35_referees.cpk`) nor a test texture. In
 which scene does the pre-Fox marker show, and does it with the cup's current refs CPK? Run D
 of `.tmp/4_19/ingame/test_ref04_runs.py` installs a magenta and yellow checker as that
-texture through the test CPK slot (`install D`, then `revert`; PES closed for both). The checker
-is a plain DDS where the template's own file is WESYS-compressed, as the compiler's output is
-(step 4.19f), so the same run also confirms the game reads a plain DDS at that path.
+texture through the test CPK slot (`install D`, then `revert`; PES closed for both), run G
+the template's prop pair with it. The lead ran both on 2026-10-10 (worklog 4.y-ingame2):
+no square in the walkout, the kickoff's wide camera or the replay's cameras at 0:00, and
+no referee figure at all in an exhibition match on the maintainer's install (the cup's
+`4cc_35_referees.cpk` holds the same prop pair and its clover texture). So two questions:
+is the referee hidden on purpose on this install (and how), and which scene draws the
+prop, if a visible referee is what it takes? The checker is a plain DDS where the
+template's own file is WESYS-compressed, as the compiler's output is (step 4.19f), so a
+run that shows it also confirms the game reads a plain DDS at that path.
 
 ### A 192x512 mipped texture, and `.model` mesh tags
 The referee galosengen's `Common/scroll.dds` (Autumn Q 25 Day 1) is 192x512 with ten mip

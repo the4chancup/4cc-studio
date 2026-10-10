@@ -842,6 +842,43 @@ fn a_linked_face_folder_s_fmdl_is_converted_into_the_player_s_face_cpk() {
 }
 
 #[test]
+fn a_linked_face_folder_s_model_takes_its_own_mtl_and_not_a_common_one_its_link_names() {
+    let sandbox = Sandbox::new("prefox_shared_face_mtl_link");
+    let export = "co Midcup Round";
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Round.face"), b"");
+    let round = format!("exports/{export}/Faces/Round");
+    sandbox.write(&format!("{round}/hair_high.model"), &card_model());
+    sandbox.write(&format!("{round}/materials.mtl"), &card_materials());
+    sandbox.write(&format!("{round}/skin.dds"), &small_dds());
+    // Kept by the lenient check alone: a shared folder's link resolves nothing, so the
+    // search, name-matching it first, must not reach `Common/hair_high.mtl` through it.
+    sandbox.write(&format!("{round}/hair_high.mtl.common"), b"");
+    let common = format!("exports/{export}/Common");
+    sandbox.write(
+        &format!("{common}/hair_high.mtl"),
+        &materials_naming("cloth"),
+    );
+    sandbox.write(&format!("{common}/cloth.dds"), &small_dds());
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes17(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let xml = String::from_utf8(face[&format!("{folder}face.xml")].clone()).unwrap();
+    assert!(
+        xml.contains(r#"path="./oral_hair_high_*.model" material="./materials.mtl""#),
+        "{xml}"
+    );
+}
+
+#[test]
 fn a_linked_boots_folder_s_fmdl_is_converted_into_boots_model_and_boots_mtl_on_pes_17() {
     let sandbox = Sandbox::new("prefox_shared_boots_fmdl");
     let export = "co Midcup Mud";
@@ -1134,6 +1171,44 @@ fn a_common_model_link_takes_a_local_mtl_of_its_name_over_the_common_one() {
     let names: Vec<&str> = common.keys().copied().collect();
     assert_eq!(names, ["cloth.dds", "legs.mtl", "oral_legs_win32.model"]);
     assert_eq!(slot_05_common(&entries), ["skin.dds"]);
+}
+
+#[test]
+fn a_common_fmdl_a_model_the_deep_pass_drops_beats_is_dropped_with_it() {
+    let sandbox = Sandbox::new("prefox_common_beaten_dropped");
+    let export = "co Midcup Beaten";
+    write_slot_05_face(&sandbox, export);
+    let common = format!("exports/{export}/Common");
+    // Four bytes no `.model` reader accepts, beside an FMDL it beats, which nothing reads.
+    sandbox.write(&format!("{common}/boots.model"), b"junk");
+    sandbox.write(
+        &format!("{common}/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            // In `Common/`'s file order: the beaten FMDL sorts first.
+            "Info common_model_beaten_dropped [DropFile] at Common/boots.fmdl (file=Common/boots.fmdl, winner=Common/boots.model)",
+            "Error model_broken [DropFile] at Common/boots.model (file=boots.model, error=model is truncated)",
+            CLEAN[0],
+            CLEAN[1],
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    // The Common models task converts no `boots`: the FMDL went out with the `.model`.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+    let common = common_output(&entries);
+    assert!(
+        common.keys().all(|name| !name.contains("boots")),
+        "{common:?}"
+    );
 }
 
 // TC-MOD-37

@@ -739,3 +739,89 @@ fn under_ingame_face_a_common_fmdl_link_is_converted_into_the_player_s_own_boots
         entries.keys()
     );
 }
+
+#[test]
+fn under_ingame_face_a_left_out_boots_variant_that_does_not_parse_is_not_read() {
+    let sandbox = Sandbox::new("prefox_ingame_variant_broken");
+    let export = "co Midcup Variant Boots";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/boots_kit1.model"), &card_model());
+    sandbox.write(&format!("{player}/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    // Four bytes no `.model` reader accepts, in the variant his boots leave out.
+    sandbox.write(&format!("{player}/boots_kit2.model"), b"junk");
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            CLEAN[1],
+            "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=boots_kitN.model, used=boots_kit1.model)",
+        ],
+    );
+
+    let boots = entries_under(&entries, BOOTS_K0625);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl"]);
+    assert_eq!(*boots["boots.model"], card_model(), "kit 1's model alone");
+}
+
+/// Writes slot 05 of the export `export` holding `ingame_face`, `skin.dds` and a link to the
+/// per-kit Common model `boots_kit1.model`, which `Common/` holds with no `.mtl`; with his own
+/// `boots.model` and `boots.mtl` when `own_boots`.
+fn write_per_kit_common_link(sandbox: &Sandbox, export: &str, own_boots: bool) {
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    if own_boots {
+        sandbox.write(&format!("{player}/boots.model"), &card_model());
+        sandbox.write(&format!("{player}/boots.mtl"), &card_materials());
+    }
+    sandbox.write(&format!("{player}/boots_kit1.model.common"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Common/boots_kit1.model"),
+        &card_model(),
+    );
+}
+
+/// The finding on slot 05's link to a per-kit Common model, which no part of his takes.
+const PER_KIT_LINK_NOT_USED: &str =
+    "Warning file_not_used [Keep] at Players/05 - A (file=boots_kit1.model.common)";
+
+#[test]
+fn under_ingame_face_a_link_to_a_per_kit_common_model_is_not_used() {
+    let sandbox = Sandbox::new("prefox_ingame_common_variant");
+    let export = "co Midcup Studs";
+    write_per_kit_common_link(&sandbox, export, true);
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[CLEAN[0], PER_KIT_LINK_NOT_USED, CLEAN[1]],
+    );
+
+    let boots = entries_under(&entries, BOOTS_K0625);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl"]);
+    assert_eq!(*boots["boots.model"], card_model(), "his own model alone");
+}
+
+#[test]
+fn under_ingame_face_a_link_to_a_per_kit_common_model_no_mtl_is_found_for_is_not_used() {
+    let sandbox = Sandbox::new("prefox_ingame_common_variant_alone");
+    let export = "co Midcup Studs";
+    // No `.mtl` anywhere: as a part, the link would have none to be written with.
+    write_per_kit_common_link(&sandbox, export, false);
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [CLEAN[0], PER_KIT_LINK_NOT_USED, CLEAN[1]],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+}

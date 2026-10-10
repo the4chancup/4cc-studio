@@ -439,14 +439,24 @@ pub(super) fn package(
 /// The `.mtl` that `model`, a model of `folder`'s package, uses: for a Common model a marked
 /// player's `.common` link copies in, the one planning found from the link
 /// (`CommonModel::material`), since a search from the Common path would look in the wrong
-/// folders; for any other, the one its search finds in its source folder (`mtl_for`).
+/// folders; for any other, the one its search finds in its source folder (`mtl_for`), among
+/// `Common/`'s files only in the player's own folder.
 fn material_of<'a>(folder: &'a ModelFolder, model: &SourceModel<'a>) -> &'a FileDescriptor {
     if !is_direct_root_folder_file(&model.file.path) {
+        // A combined shared folder's search sees no `Common/` file, as the deep pass's does
+        // (`deep::pairings`): its `.common` links have no role, and the Common `.mtl` one
+        // names is not among the task's files. A shared output's own folder has none either
+        // (`ModelFolder::common_files`).
+        let common: &[FileDescriptor] = if model.source_path == &folder.path {
+            &folder.common_files
+        } else {
+            &[]
+        };
         return mtl_for(
             &model.file.path,
             model.source_path,
             model.source_files,
-            &folder.common_files,
+            common,
         )
         .expect(MTL_FOUND);
     }

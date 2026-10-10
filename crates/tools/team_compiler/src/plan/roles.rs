@@ -297,8 +297,9 @@ pub(crate) enum PlayerFile {
     /// parts merged; the gloves are written unmerged, each model under its own name and listed
     /// in the gloves' `glove.xml` (`player_folders.md` "`ingame_face` marker"). The folder's
     /// `.mtl` files go into each of the two, which packs the ones its parts use
-    /// (`TaskKind::files`). A `.common` link to a `.model` or an FMDL takes this role too, as a
-    /// `.model` of the linked stem would in its place: with no `face.xml` to name the Common
+    /// (`TaskKind::files`). A `.common` link to a `.model` or an FMDL takes this role too (but
+    /// one to a per-kit model, which has none, `pre_fox_link`), as a `.model` of the linked
+    /// stem would in its place: with no `face.xml` to name the Common
     /// path, the Common model is copied in as the part, planning putting it in the link's place
     /// with the `.mtl` its search finds, or a Common FMDL with the `.skl` of its stem, its
     /// bind pose, to convert as his own FMDL parts are (`ModelFolder::roles`;
@@ -533,13 +534,14 @@ pub(crate) fn is_user_face_xml(folder: &ScopePath, file: &FileDescriptor) -> boo
         && in_folder_or_face(folder, file)
 }
 
-/// Whether `file` sits where a model folder at `folder` admits files that may have a role:
-/// directly in it, or in its `face/`, `boots/` or `gloves/`. Anywhere else, in `common/`
-/// (which admits textures alone, and a texture always has a role) or below any other
-/// subfolder, a file without a role is one the structure pass names (`file_type_disallowed`),
-/// so validation does not report it again as `file_not_used`.
-pub(crate) fn admitted(folder: &ScopePath, file: &FileDescriptor) -> bool {
-    position(folder, file).is_some_and(|position| position != Position::Common)
+/// Whether `file` sits where a model folder at `folder`, a shared one when `shared`, admits
+/// files that may have a role (`role_position`): directly in it, or in a player folder's
+/// `face/`, `boots/` or `gloves/`. Anywhere else, in a player folder's `common/` (which admits
+/// textures alone, and a texture always has a role) or below any other subfolder, a shared
+/// folder's reserved ones included, a file without a role is one the structure pass names
+/// (`file_type_disallowed`), so validation does not report it again as `file_not_used`.
+pub(crate) fn admitted(folder: &ScopePath, file: &FileDescriptor, shared: bool) -> bool {
+    role_position(folder, file, shared).is_some_and(|position| position != Position::Common)
 }
 
 /// `file`'s position in the folder at `folder`; `None` for any other nesting. The reserved
@@ -727,12 +729,6 @@ pub(crate) struct FolderModels {
 }
 
 impl FolderModels {
-    /// The models among `files` of the player folder at `folder`, a folder without
-    /// `ingame_face`, for a target of `engine` (`of_player_files`).
-    pub(crate) fn of(folder: &ScopePath, files: &[FileDescriptor], engine: Engine) -> FolderModels {
-        FolderModels::of_player_files(folder, files, false, engine)
-    }
-
     /// The models among `files` of the shared folder of `kind` at `folder` (`Faces/`, `Boots/`
     /// or `Gloves/`), for a target of `engine`: as a player folder's without `ingame_face`, but
     /// a `.common` link there has no role (`FolderModels::shared`).
@@ -842,7 +838,7 @@ impl FolderModels {
                     let model_link = file.kind == FileKind::CommonLink
                         && !models.is_shared()
                         && matches!(
-                            pre_fox_link(position, name),
+                            pre_fox_link(position, name, false),
                             Some(PlayerFile::PreFoxCommonModel { .. })
                         );
                     // A folder holding its own `face.xml` has a face whatever models it
@@ -968,6 +964,72 @@ impl FolderModels {
         self.face = true;
         self
     }
+}
+
+/// The models of a model folder and of each shared folder it combines, as planning reads them
+/// (`ModelFolder::roles`) and the deep pass checks them, for a target of `engine`: the folder
+/// at `folder` holding `files`, a shared one of the kind `own_kind` or a player folder
+/// (`None`) holding `ingame_face` when `ingame_face` is set, and `combined`, the shared folders
+/// it combines, in link order. Returned: the folder's own models, a combined face counting as
+/// a face model of the folder's (`with_linked_face`), then each combined folder's, in
+/// `combined`'s order.
+pub(crate) fn part_source_models(
+    folder: &ScopePath,
+    files: &[FileDescriptor],
+    own_kind: Option<SharedKind>,
+    ingame_face: bool,
+    combined: &[(SharedKind, &SharedModelFolder)],
+    engine: Engine,
+) -> (FolderModels, Vec<FolderModels>) {
+    // Where no `face.xml` names a per-kit set, the part merges every source's models, so a
+    // set split between the player's own files and a combined folder's is one set. A
+    // pre-Fox face lists every variant, and a pre-Fox referee's combined boots or gloves
+    // are an output of their own, not parts of his face: there each source is its own.
+    let part_files: Vec<Vec<&FileDescriptor>> =
+        std::iter::once(role_files(folder, files, own_kind.is_some()))
+            .chain(
+                combined
+                    .iter()
+                    .map(|(_, shared)| role_files(&shared.path, &shared.files, true)),
+            )
+            .collect();
+    let spans_sources = leaves_out_kit_variants(engine, ingame_face, own_kind);
+    let part_sources = |index: usize| {
+        if spans_sources {
+            &part_files[..]
+        } else {
+            &part_files[index..=index]
+        }
+    };
+    let mut own = FolderModels::of_part_source(
+        folder,
+        files,
+        part_sources(0),
+        ingame_face,
+        own_kind,
+        engine,
+    );
+    if combined
+        .iter()
+        .any(|(kind, _)| matches!(kind, SharedKind::Face))
+    {
+        own = own.with_linked_face();
+    }
+    let shared = combined
+        .iter()
+        .enumerate()
+        .map(|(index, (kind, shared))| {
+            FolderModels::of_part_source(
+                &shared.path,
+                &shared.files,
+                part_sources(index + 1),
+                false,
+                Some(*kind),
+                engine,
+            )
+        })
+        .collect();
+    (own, shared)
 }
 
 /// What `file` of the player folder at `folder`, whose models are `models`, becomes in the
@@ -1174,13 +1236,7 @@ fn pre_fox_file(
         FileKind::Mtl if position != Position::Common => Some(PlayerFile::Material),
         // As on Fox: a link a lenient file-type check keeps in a shared folder names nothing.
         FileKind::CommonLink if models.is_shared() => None,
-        // Under the marker a link to a `.model` or an FMDL stands for the Common model as a
-        // part of his own, copied in or converted, since no `face.xml` names the Common path.
-        FileKind::CommonLink if models.ingame_face => match linked_model(file.path.name()) {
-            Some(linked) => pre_fox_part(position, file_stem(&linked)),
-            None => pre_fox_link(position, file.path.name()),
-        },
-        FileKind::CommonLink => pre_fox_link(position, file.path.name()),
+        FileKind::CommonLink => pre_fox_link(position, file.path.name(), models.ingame_face),
         // A shared boots or gloves folder's own xml is ignored (`xml_ignored_shared`): its
         // output is one model or a `glove.xml`, which no face xml drives, and nothing checks it.
         FileKind::Xml
@@ -1232,12 +1288,15 @@ fn pre_fox_part(position: Position, stem: &str) -> Option<PlayerFile> {
 /// The pre-Fox role of the `.common` link named `name` at `position`: a link to a `.model` or
 /// an FMDL takes the type a `.model` of the linked stem would have there
 /// (`pre_fox_model_type`; none for a glove naming no hand), the Common models task having
-/// packed the `.model`, or converted the FMDL, into the team's Common output; a link to a
-/// `.mtl` is a material link, a link to a texture stands for its stem, as on Fox. A link to a
-/// per-kit model has none yet: the Common models task, which packs the linked model, would
-/// have to list its set. A link in `common/` has none (only textures may sit there, so
+/// packed the `.model`, or converted the FMDL, into the team's Common output; under
+/// `ingame_face` (`ingame_face` set) such a link stands for the Common model as a part of his
+/// own instead, copied in or converted (`pre_fox_part`), since no `face.xml` names the Common
+/// path. A link to a `.mtl` is a material link, a link to a texture stands for its stem, as on
+/// Fox. A link to a per-kit model has none yet, with the marker or without: the Common models
+/// task, which packs the linked model, would have to list its set, and as a part every variant
+/// would be worn at once. A link in `common/` has none (only textures may sit there, so
 /// validation never resolves a link there), nor has a link to anything else.
-fn pre_fox_link(position: Position, name: &str) -> Option<PlayerFile> {
+fn pre_fox_link(position: Position, name: &str, ingame_face: bool) -> Option<PlayerFile> {
     if position == Position::Common {
         return None;
     }
@@ -1247,6 +1306,9 @@ fn pre_fox_link(position: Position, name: &str) -> Option<PlayerFile> {
             let stem = file_stem(&linked);
             if kit_token(stem).is_some() {
                 return None;
+            }
+            if ingame_face {
+                return pre_fox_part(position, stem);
             }
             pre_fox_model_type(position, stem)
                 .map(|xml_type| PlayerFile::PreFoxCommonModel { xml_type })
@@ -1760,7 +1822,7 @@ mod tests {
     /// The role of each file of `names` in `Players/03 - A`.
     fn roles(names: &[&str]) -> Vec<Option<PlayerFile>> {
         let folder = folder(names);
-        let models = FolderModels::of(&folder.path, &folder.files, Engine::Fox);
+        let models = FolderModels::of_player_files(&folder.path, &folder.files, false, Engine::Fox);
         folder
             .files
             .iter()
@@ -2485,7 +2547,12 @@ mod tests {
         );
         // Behind a link no `face.xml` entry names the set: the link has no role.
         assert_eq!(
-            pre_fox_link(Position::Direct, "pants_kit1.model.common"),
+            pre_fox_link(Position::Direct, "pants_kit1.model.common", false),
+            None
+        );
+        // Nor is it a part under `ingame_face`: every variant would be worn at once.
+        assert_eq!(
+            pre_fox_link(Position::Direct, "boots_kit1.model.common", true),
             None
         );
         // Nor under `ingame_face`, his boots holding parts: the lowest variant is a part, the
@@ -2961,7 +3028,7 @@ mod tests {
             let models = if shared {
                 FolderModels::of_shared(&folder, &files, SharedKind::Boots, engine)
             } else {
-                FolderModels::of(&folder, &files, engine)
+                FolderModels::of_player_files(&folder, &files, false, engine)
             };
             files
                 .iter()
@@ -3004,23 +3071,26 @@ mod tests {
 
     #[test]
     fn admitted_is_the_folder_and_its_face_boots_and_gloves_subfolders() {
-        let folder = ScopePath::new("Players/05 - A").unwrap();
-        let admitted_at = |name: &str| {
-            let path = ScopePath::new(&format!("Players/05 - A/{name}")).unwrap();
+        let admitted_at = |folder: &str, name: &str, shared: bool| {
+            let path = ScopePath::new(&format!("{folder}/{name}")).unwrap();
             let file = FileDescriptor {
                 size: 0,
                 kind: classify(path.name()),
                 source: path.clone(),
                 path,
             };
-            admitted(&folder, &file)
+            admitted(&ScopePath::new(folder).unwrap(), &file, shared)
         };
         for name in ["x.skl", "face/x.skl", "boots/x.skl", "gloves/x.skl"] {
-            assert!(admitted_at(name), "{name}");
+            assert!(admitted_at("Players/05 - A", name, false), "{name}");
         }
         for name in ["common/x.skl", "extra/x.skl", "face/deeper/x.skl"] {
-            assert!(!admitted_at(name), "{name}");
+            assert!(!admitted_at("Players/05 - A", name, false), "{name}");
         }
+        // A shared folder admits a file directly in it alone: the reserved subfolders are a
+        // player folder's layout.
+        assert!(admitted_at("Boots/Crocs", "x.skl", true));
+        assert!(!admitted_at("Boots/Crocs", "boots/x.skl", true));
     }
 
     /// `has_effective_part` for `package` of the one player folder of the export `co Midcup
@@ -3339,7 +3409,8 @@ mod tests {
             ]
         );
         let folder = folder(&["boots.fmdl", "face_diff.bin", "fcl_hair_sim.fclo"]);
-        let models = FolderModels::of(&folder.path, &folder.files, Engine::Fox).with_linked_face();
+        let models = FolderModels::of_player_files(&folder.path, &folder.files, false, Engine::Fox)
+            .with_linked_face();
         let linked: Vec<Option<PlayerFile>> = folder
             .files
             .iter()

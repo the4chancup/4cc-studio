@@ -792,7 +792,7 @@ fn unread_for_a_known_reason(
     let named_by_the_structure_pass = matches!(
         file.kind,
         FileKind::Marker(_) | FileKind::Metadata(_) | FileKind::SharedLink(_) | FileKind::Other
-    ) || !admitted(path, file)
+    ) || !admitted(path, file, models.is_shared())
         || (models.is_shared() && file.kind == FileKind::CommonLink);
     models.beaten(file) || other_engine_companion || named_by_the_structure_pass
 }
