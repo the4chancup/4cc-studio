@@ -1,6 +1,6 @@
 //! The role of each file of a model folder in the output of the target's engine: a player
-//! folder's, a shared `Faces/`, `Boots/` or `Gloves/` folder's, and the files directly in
-//! `Common/` that a `.common` link names. One classification, which validation reads for its
+//! folder's, a shared `Faces/`, `Boots/` or `Gloves/` folder's, and the `Common/` files that a
+//! `.common` link names. One classification, which validation reads for its
 //! findings (a file with no role is `file_not_used`) and planning for each task's files, so
 //! the two never disagree: a file no role names is never read.
 
@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use aesthetics_export::{
     FileDescriptor, FileKind, ModelFormat, ModelSuffix, PlayerFolder, SharedKind, SharedLink,
     SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, classify, common_link_name,
-    is_player_singleton, kit_token, model_suffix,
+    common_link_target, is_player_singleton, kit_token, model_suffix,
 };
 use dds_convert::SourceFormat;
 use pes_version::Engine;
@@ -461,52 +461,117 @@ fn linked_texture_stem(link_name: &str) -> Option<String> {
 
 /// Whether `path`, a file of one of the export's root folders (`Common/`, `Collars/`), is
 /// directly in that folder, not below a subfolder of it: the only place `compile` reads a
-/// Common file or a collar from, and the only place a link resolves. A player's or a kit's
-/// file sits at least two folders deep (`Players/05 - A/x.mtl`), so this holds for none.
+/// collar from, the textures directly in `Common/` being the ones a part's stems name in the
+/// team's Common output. A player's or a kit's file sits at least two folders deep
+/// (`Players/05 - A/x.mtl`), so this holds for none.
 pub(crate) fn is_direct_root_folder_file(path: &ScopePath) -> bool {
     path.segments().count() == 2
 }
 
+/// Whether `path` is a file of the export's `Common/` folder, at any depth: a file a `.common`
+/// link stands for, or a `.mtl` a Common model's search found there, rather than one of a
+/// player or shared folder's own.
+pub(crate) fn is_common_file(path: &ScopePath) -> bool {
+    path.segments()
+        .next()
+        .is_some_and(|root| vtree::fold_name(root) == "common")
+}
+
+/// The path of `path`, a file of the export's `Common/` folder, below that folder, as spelled
+/// (`jessie/body.fmdl` for `Common/jessie/body.fmdl`, `body.fmdl` for a direct file): the path
+/// a `.common` link names it by (`common_link_target`) and the one it has below the team's
+/// Common output.
+pub(crate) fn below_common(path: &ScopePath) -> &str {
+    path.as_str().split_once('/').map_or("", |(_, below)| below)
+}
+
 /// Whether a target of `engine` reads the `Common/` file at `path` at all: on PES 15-17 every
 /// directory of `Common/` is a Common folder of its own, packed at its own path (`pipeline.md`
-/// "Common"), so any file; on PES 18-21 only a file directly in `Common/`, since Fox reaches
-/// Common through links alone, and a link names a direct file.
-pub(crate) fn is_read_common_file(path: &ScopePath, engine: Engine) -> bool {
+/// "Common"), so any file; on PES 18-21 a file directly in `Common/`, and below a subfolder
+/// only one of `linked` (`linked_common_files`), since Fox reaches Common through links alone.
+pub(crate) fn is_read_common_file(
+    path: &ScopePath,
+    engine: Engine,
+    linked: &BTreeSet<ScopePath>,
+) -> bool {
     match engine {
         Engine::PreFox => true,
-        Engine::Fox => is_direct_root_folder_file(path),
+        Engine::Fox => is_direct_root_folder_file(path) || linked.contains(path),
     }
 }
 
-/// The file named `name` directly in `Common/`, among `common` (the export's `Common/` files),
-/// matched as validation matched a link's target: by case-folded name.
+/// The `Common/` files below a subfolder that a standing `.common` link of a kept player folder
+/// of `export` reaches, by their export paths: the file a link names (`common_link_target`, a
+/// link mirroring `Common/`'s tree: `model_format.md` "Link files"), and for a link naming a
+/// model the files that travel with it in its directory: the models of its stem in any format
+/// (the target selects one, `selected_common_model`), the `.skl` of its stem and every `.mtl`
+/// (the ones its `.mtl` search may land on, `mtl_search::mtl_for`). What PES 18-21 reads of a
+/// subfolder (`is_read_common_file`); computed once per export, from the validated export.
+pub(crate) fn linked_common_files(export: &ValidatedAestheticsExport) -> BTreeSet<ScopePath> {
+    let mut linked = BTreeSet::new();
+    for player in &export.players {
+        for file in &player.files {
+            if file.kind != FileKind::CommonLink || !role_position(&player.path, file, false) {
+                continue;
+            }
+            let Some(target) = common_link_target(&file.path, &player.path)
+                .and_then(|below| common_file(&export.common, &below))
+            else {
+                continue;
+            };
+            if is_direct_root_folder_file(&target.path) {
+                continue;
+            }
+            linked.insert(target.path.clone());
+            if !matches!(target.kind, FileKind::Model(_)) {
+                continue;
+            }
+            let (directory, stem) = directory_stem(target);
+            let travelling = export.common.iter().filter(|other| {
+                let (other_directory, other_stem) = directory_stem(other);
+                other_directory == directory
+                    && (other.kind == FileKind::Mtl
+                        || (other_stem == stem
+                            && matches!(other.kind, FileKind::Model(_) | FileKind::Skl)))
+            });
+            linked.extend(travelling.map(|other| other.path.clone()));
+        }
+    }
+    linked
+}
+
+/// The file of `common` (the export's `Common/` files) at the path `below` below `Common/`
+/// (`body.fmdl` directly in it, `jessie/body.fmdl` in its subfolder `jessie/`), matched as
+/// validation matches a link's target: by case-folded path.
 pub(crate) fn common_file<'a>(
     common: &'a [FileDescriptor],
-    name: &str,
+    below: &str,
 ) -> Option<&'a FileDescriptor> {
-    let key = vtree::fold_name(name);
-    common.iter().find(|file| {
-        is_direct_root_folder_file(&file.path) && vtree::fold_name(file.path.name()) == key
-    })
+    let key = vtree::fold_name(below);
+    common
+        .iter()
+        .find(|file| vtree::fold_name(below_common(&file.path)) == key)
 }
 
-/// The `.skl` directly in `Common/` paired with the Common model named `model_name`
-/// (`legs.skl` for `legs.fmdl`), when there is one: the skeleton that travels with a `.common`
-/// link (`player_folders.md` "SKL pairing").
+/// The `.skl` beside the Common model at `model` below `Common/`, in its directory, paired with
+/// it by stem (`legs.skl` for `legs.fmdl`, `jessie/legs.skl` for `jessie/legs.fmdl`), when
+/// there is one: the skeleton that travels with a `.common` link (`player_folders.md` "SKL
+/// pairing").
 pub(crate) fn common_skeleton<'a>(
     common: &'a [FileDescriptor],
-    model_name: &str,
+    model: &str,
 ) -> Option<&'a FileDescriptor> {
-    common_file(common, &format!("{}.skl", file_stem(model_name)))
+    common_file(common, &format!("{}.skl", file_stem(model)))
 }
 
-/// The Common model a `.common` link to the model named `linked` loads on a target of `engine`,
-/// among `common` (the export's `Common/` files): the file of that name directly in `Common/`,
-/// found as validation found it, unless a model of its stem there in the target's own format
-/// beats it (per-stem selection, target-native first: `pipeline.md` step 3 "Format
-/// conversion"), a `.model` beating an FMDL on pre-Fox and an FMDL a `.model` on Fox. Such a
-/// link loads the target's own model, found by the linked stem, and the beaten one is ignored
-/// as a player folder's beaten model is. `None` when `common` holds no file of the name.
+/// The Common model a `.common` link to the model at `linked` below `Common/`
+/// (`common_link_target`) loads on a target of `engine`, among `common` (the export's `Common/`
+/// files): the file at that path, found as validation found it, unless a model of its stem
+/// beside it in the target's own format beats it (per-stem selection, target-native first:
+/// `pipeline.md` step 3 "Format conversion"), a `.model` beating an FMDL on pre-Fox and an
+/// FMDL a `.model` on Fox. Such a link loads the target's own model, found by the linked path
+/// stem, and the beaten one is ignored as a player folder's beaten model is. `None` when
+/// `common` holds no file at the path.
 pub(crate) fn selected_common_model<'a>(
     common: &'a [FileDescriptor],
     linked: &str,
@@ -573,22 +638,26 @@ fn directly_in(folder: &ScopePath, file: &FileDescriptor) -> bool {
 }
 
 /// Whether `file` of the model folder at `folder`, a shared one when `shared`, sits where it may
-/// take a role: a player folder's file anywhere below it (`below`), but its `.common` links
-/// directly in it alone, and a shared folder's file directly in it alone. Nothing reads a file
-/// below a shared folder's subfolder, which the allowlist names (`object_model.md` "File-type
-/// allowlist"). Links are read directly in the player folder alone (`player_folders.md`
-/// "Subfolders"): validation resolves no link below a subfolder, so one a lenient file-type
-/// check keeps there names nothing planning can read. The per-player singletons (`face.xml`,
-/// `face_diff.bin`, `face_diff.xml`, `fcl_hair_sim.fclo`, `is_player_singleton`) take a role
-/// directly in the player folder alone too: a player has one of each, and a subfolder's, kept
-/// by a lenient check, would be a second. A file anywhere else is one the structure pass names
+/// take a role: a player folder's file anywhere below it (`below`), a `.common` link included,
+/// which stands for the `Common/` file at its own path below the folder (`common_link_target`),
+/// but a texture link below a subfolder, which validation's allowlist names out of place
+/// (`object_model.md` "File-type allowlist") and resolves to nothing; and a shared folder's
+/// file directly in it alone. Nothing reads a file below a shared folder's subfolder, which
+/// the allowlist names. The per-player singletons (`face.xml`, `face_diff.bin`,
+/// `face_diff.xml`, `fcl_hair_sim.fclo`, `is_player_singleton`) take a role directly in the
+/// player folder alone: a player has one of each, and a subfolder's, kept by a lenient check,
+/// would be a second. A file anywhere else is one the structure pass names
 /// (`file_type_disallowed`), so validation does not report it again as `file_not_used`.
 pub(crate) fn role_position(folder: &ScopePath, file: &FileDescriptor, shared: bool) -> bool {
-    if shared || file.kind == FileKind::CommonLink || is_player_singleton(file.path.name()) {
-        directly_in(folder, file)
-    } else {
-        below(folder, file)
+    if shared || is_player_singleton(file.path.name()) {
+        return directly_in(folder, file);
     }
+    if file.kind == FileKind::CommonLink && !directly_in(folder, file) {
+        return below(folder, file)
+            && common_link_name(file.path.name())
+                .is_some_and(|linked| classify(&linked) != FileKind::Texture);
+    }
+    below(folder, file)
 }
 
 /// Whether `file` of the folder at `folder` is a member's own `face.xml`: named so in any case,
@@ -1534,7 +1603,7 @@ pub(crate) fn has_effective_part(
                 // A link's Common model is split as the file the link loads, which is what
                 // the deep pass read.
                 let model = if file.kind == FileKind::CommonLink {
-                    common_link_name(file.path.name())
+                    common_link_target(&file.path, source)
                         .and_then(|linked| selected_common_model(&export.common, &linked, engine))
                 } else {
                     Some(file)
@@ -2101,11 +2170,12 @@ mod tests {
                 Some(PlayerFile::CommonMaterial),
                 Some(PlayerFile::CommonTexture("hair".to_owned())),
                 common_model("parts"),
-                // A link below a subfolder is no link (`role_position`).
-                None,
-                None,
-                None,
-                None,
+                // A link below a subfolder is one as in the root (`role_position`).
+                common_model("parts"),
+                Some(PlayerFile::CommonMaterial),
+                common_model("parts"),
+                common_model("parts"),
+                // A per-kit model and a glTF have none.
                 None,
                 None,
                 None,
@@ -2954,17 +3024,28 @@ mod tests {
                 "{link}"
             );
         }
-        // A link below a subfolder of any name is no link: links are read directly in the
-        // player folder alone.
-        for refused in [
-            "materials.toml.common",
-            "boots/kit_boots.fmdl.common",
-            "gloves/handR.model.common",
-            "common/legs.fmdl.common",
-            "other/deep/legs.fmdl.common",
+        // A link below a subfolder of any name takes its role as one in the root, by the
+        // linked model's name.
+        for (link, package, allowed) in [
+            ("boots/kit_boots.fmdl.common", ModelPackage::Boots, "boots"),
+            ("gloves/handR.model.common", ModelPackage::Gloves, "glove_r"),
+            ("common/legs.fmdl.common", ModelPackage::Face, "fcl_hair"),
+            (
+                "other/deep/legs.fmdl.common",
+                ModelPackage::Face,
+                "fcl_hair",
+            ),
         ] {
-            assert_eq!(roles(&[refused]), [None], "{refused}");
+            assert_eq!(
+                roles(&[link]),
+                [Some(PlayerFile::CommonModel {
+                    package,
+                    name: allowed
+                })],
+                "{link}"
+            );
         }
+        assert_eq!(roles(&["materials.toml.common"]), [None]);
         // The link is a face model for the face's files, but pairs no skeleton of the
         // folder's: the Common model's skeleton is Common's.
         assert_eq!(
@@ -3021,13 +3102,17 @@ mod tests {
                 }),
             ]
         );
-        // With the tolerated `.txt` tail too. Below a subfolder of any name a link is not
-        // resolved (`file_type_disallowed`), so it has no role.
+        // With the tolerated `.txt` tail too. Below a subfolder of any name a texture link is
+        // out of place (`file_type_disallowed`), so it has no role; a `.mtl` link is one as in
+        // the root.
         assert_eq!(roles(&["Hair.DDS.common.txt"]), [texture("Hair")]);
+        assert_eq!(
+            roles(&["common/body.mtl.common"]),
+            [Some(PlayerFile::CommonMaterial)]
+        );
         for refused in [
             "face/hair.ftex.common",
             "common/hair.dds.common",
-            "common/body.mtl.common",
             "hair.gif.common",
             "body.materials.toml.common",
         ] {
@@ -3126,14 +3211,15 @@ mod tests {
             "extra/x.skl",
             "face/deeper/x.skl",
             "x.fmdl.common",
+            "x.dds.common",
+            // A link below a subfolder stands for the `Common/` file at its own path.
+            "extra/x.fmdl.common",
+            "extra/deeper/x.mtl.common",
         ] {
             assert!(admitted_at("Players/05 - A", name, false), "{name}");
         }
-        // A link is read directly in the player folder alone: below a subfolder it is no link,
-        // which the structure pass names (`file_type_disallowed`).
-        for name in ["extra/x.fmdl.common", "boots/x.dds.common"] {
-            assert!(!admitted_at("Players/05 - A", name, false), "{name}");
-        }
+        // But a texture link there, which the structure pass names (`file_type_disallowed`).
+        assert!(!admitted_at("Players/05 - A", "boots/x.dds.common", false));
         // A shared folder admits a file directly in it alone.
         assert!(admitted_at("Boots/Crocs", "x.skl", true));
         assert!(!admitted_at("Boots/Crocs", "boots/x.skl", true));
@@ -3313,6 +3399,60 @@ mod tests {
             Some("Common/legs.skl")
         );
         assert_eq!(common_skeleton(&common, "torso.fmdl"), None);
+    }
+
+    #[test]
+    fn a_common_file_below_a_subfolder_is_found_by_its_path_and_its_companions_beside_it() {
+        let common: Vec<FileDescriptor> = [
+            "Common/x.skl",
+            "Common/sub/x.fmdl",
+            "Common/jessie/body.fmdl",
+            "Common/jessie/Body.model",
+            "Common/jessie/body.skl",
+            "Common/body.model",
+        ]
+        .iter()
+        .map(|path| {
+            let path = ScopePath::new(path).unwrap();
+            FileDescriptor {
+                size: 0,
+                kind: aesthetics_export::classify(path.name()),
+                source: path.clone(),
+                path,
+            }
+        })
+        .collect();
+        let found = |file: Option<&FileDescriptor>| file.map(|file| file.path.as_str().to_owned());
+        assert_eq!(
+            found(common_file(&common, "SUB/x.fmdl")).as_deref(),
+            Some("Common/sub/x.fmdl")
+        );
+        assert_eq!(common_file(&common, "x.fmdl"), None);
+        assert_eq!(common_file(&common, "jessie/sub/x.fmdl"), None);
+        // The skeleton and the beating model are looked for beside the named file.
+        assert_eq!(
+            found(common_skeleton(&common, "jessie/body.fmdl")).as_deref(),
+            Some("Common/jessie/body.skl")
+        );
+        assert_eq!(common_skeleton(&common, "sub/x.fmdl"), None);
+        assert_eq!(
+            found(selected_common_model(
+                &common,
+                "jessie/body.fmdl",
+                Engine::PreFox
+            ))
+            .as_deref(),
+            Some("Common/jessie/Body.model")
+        );
+        assert_eq!(
+            found(selected_common_model(
+                &common,
+                "jessie/body.fmdl",
+                Engine::Fox
+            ))
+            .as_deref(),
+            Some("Common/jessie/body.fmdl")
+        );
     }
 
     #[test]

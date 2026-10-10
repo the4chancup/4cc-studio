@@ -47,7 +47,7 @@ use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureDirectory};
 use crate::plan::ModelFolder;
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, file_stem, is_direct_root_folder_file, path_stem,
+    ModelPackage, PlayerFile, file_stem, is_common_file, is_direct_root_folder_file, path_stem,
 };
 use crate::texture_lookup::TextureFolders;
 
@@ -265,7 +265,7 @@ pub(super) fn package(
     };
     let places_for = |file: &FileDescriptor| -> MaterialPlaces {
         let mut places = folder_places.of(&file.path);
-        if is_direct_root_folder_file(&file.path) {
+        if is_common_file(&file.path) {
             places.by_name.push((&common_textures, &common_home));
         }
         places
@@ -448,7 +448,7 @@ pub(super) fn package(
 /// folders; for any other, the one its search finds in its source folder (`mtl_for`), among
 /// `Common/`'s files only in the player's own folder.
 fn material_of<'a>(folder: &'a ModelFolder, model: &SourceModel<'a>) -> &'a FileDescriptor {
-    if !is_direct_root_folder_file(&model.file.path) {
+    if !is_common_file(&model.file.path) {
         // A combined shared folder's search sees no `Common/` file, as the deep pass's does
         // (`deep::pairings`): its `.common` links have no role, and the Common `.mtl` one
         // names is not among the task's files. A shared output's own folder has none either

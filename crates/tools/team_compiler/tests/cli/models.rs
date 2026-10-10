@@ -825,16 +825,16 @@ fn lenient(settings: &str) -> String {
 
 // TC-MOD-67
 #[test]
-fn a_subfolder_s_marker_link_and_settings_are_file_type_disallowed_and_count_for_nothing() {
+fn a_subfolder_s_marker_and_settings_are_file_type_disallowed_and_count_for_nothing() {
     let sandbox = Sandbox::new("mod_subfolder_root_files");
     let export = "co Midcup Subfolders";
     let player = format!("exports/{export}/Players/05 - A");
     sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
-    for name in ["ingame_face", "Crocs.boots", "settings.toml"] {
+    for name in ["ingame_face", "settings.toml"] {
         sandbox.write(&format!("{player}/jessie/{name}"), b"");
     }
     let disallowed = |severity: &str, disposition: &str| -> Vec<String> {
-        ["Crocs.boots", "ingame_face", "settings.toml"]
+        ["ingame_face", "settings.toml"]
             .iter()
             .map(|name| {
                 format!(
@@ -846,8 +846,7 @@ fn a_subfolder_s_marker_link_and_settings_are_file_type_disallowed_and_count_for
 
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
 
-    // Each is out of place, and nothing more: no marker beside his face model, no missing
-    // link target.
+    // Each is out of place, and nothing more: no marker beside his face model.
     let lines = check.messages();
     let mut expected = disallowed("Error", "DropFolder");
     expected.push("Info export_identified [Keep] (team=/co/, id=714)".to_owned());
@@ -921,6 +920,98 @@ fn a_shared_folder_s_subfolder_file_is_file_type_disallowed_and_never_in_its_pac
     assert_eq!(
         package_names(&entries["Asset/model/character/boots/k0644/#Win/boots.fpk"]),
         ["boots.fmdl", "boots.skl"]
+    );
+}
+
+// TC-MOD-70
+#[test]
+fn a_subfolder_s_shared_link_is_the_root_s_and_names_one_folder_once() {
+    let sandbox = Sandbox::new("mod_subfolder_shared_link");
+    let export = "co Midcup Subfolders";
+    let root = format!("exports/{export}");
+    let player = format!("{root}/Players/05 - A");
+    sandbox.write(
+        &format!("{root}/Boots/Crocs/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    // Another model than Crocs', so his boots tell the two apart.
+    sandbox.write(&format!("{root}/Boots/Tabi/boots.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    sandbox.write(&format!("{player}/jessie/Crocs.boots"), b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    // No `shared_link_duplicate`: both links name Crocs. Tabi, which no one links, is orphaned.
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Warning shared_folder_orphaned [DropFolder] at Boots/Tabi ()",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let k0644 = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    assert_eq!(
+        boots_mesh_count(&entries, k0644),
+        tracer_boots_mesh_count(),
+        "Crocs' boots, once"
+    );
+
+    fs::remove_file(sandbox.root.join(format!("{player}/jessie/Crocs.boots"))).unwrap();
+    sandbox.write(&format!("{player}/jessie/Tabi.boots"), b"");
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    // Two folders of one kind: the player is dropped, and neither folder is linked.
+    let lines = check.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Error shared_link_duplicate [DropFolder] at Players/05 - A (kind=boots)",
+            "Warning shared_folder_orphaned [DropFolder] at Boots/Crocs ()",
+            "Warning shared_folder_orphaned [DropFolder] at Boots/Tabi ()",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+        "{lines:#?}"
+    );
+}
+
+#[test]
+fn a_folder_linked_from_the_root_and_a_subfolder_beside_a_local_boots_model_combines_once() {
+    let sandbox = Sandbox::new("mod_subfolder_link_combined");
+    let export = "exports/co Midcup Combined";
+    let player = format!("{export}/Players/05 - A");
+    write_player(&sandbox, &player, "kit_boots.fmdl");
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    sandbox.write(&format!("{player}/jessie/Crocs.boots"), b"");
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let combined: Vec<&str> = findings_of(&lines, "co Midcup Combined")
+        .into_iter()
+        .filter(|line| line.contains("link_combined"))
+        .collect();
+    assert_eq!(
+        combined,
+        ["Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)"]
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        boots_mesh_count(&entries, "Asset/model/character/boots/k0625/#Win/boots.fpk"),
+        2 * tracer_boots_mesh_count(),
+        "Crocs's meshes once, plus the local model's"
     );
 }
 

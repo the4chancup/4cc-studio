@@ -288,19 +288,24 @@ impl ParsedAestheticsExport {
                 // `Common` target off `files` (a texture link an installed CPK
                 // satisfies is not missing, and stays), and a link a finding
                 // dropped is no link. A resolved link carries the target
-                // folder's own spelling.
+                // folder's own spelling, so two links naming one folder (a
+                // subfolder's beside the root's) are one entry here, and the
+                // folder is combined once.
                 let resolved = links::standing_links(folder, draft, &dropped_files);
-                player.links = resolved
-                    .iter()
-                    .filter_map(|link| match (&link.kind, &link.target) {
-                        (links::ResolvedLinkKind::Shared(kind), Some(target)) => Some(SharedLink {
+                player.links = Vec::new();
+                for link in &resolved {
+                    let shared = match (&link.kind, &link.target) {
+                        (links::ResolvedLinkKind::Shared(kind), Some(target)) => SharedLink {
                             kind: *kind,
                             name: target.name().to_owned(),
-                        }),
+                        },
                         (links::ResolvedLinkKind::Shared(_), None)
-                        | (links::ResolvedLinkKind::Common(_), _) => None,
-                    })
-                    .collect();
+                        | (links::ResolvedLinkKind::Common(_), _) => continue,
+                    };
+                    if !player.links.contains(&shared) {
+                        player.links.push(shared);
+                    }
+                }
                 player.files.retain(|file| {
                     // Only a resolved `.common` link whose target is absent
                     // (pass_through) comes off; a `.common` file at a

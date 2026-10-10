@@ -11,7 +11,8 @@ use std::sync::Arc;
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, FileKind, ModelFormat, ModelSuffix, ParsedAestheticsExport,
     ResolvedAestheticsExport, SharedKind, SourceError, ValidatedAestheticsExport,
-    ValidationContext, common_link_name, model_suffix, parse_listing, read_colors_txt,
+    ValidationContext, common_link_name, common_link_target, model_suffix, parse_listing,
+    read_colors_txt,
 };
 use anyhow::Context;
 use pes_version::{Engine, PesVersion};
@@ -30,8 +31,8 @@ use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_w
 use crate::plan::mapped_players;
 use crate::plan::roles::{
     FolderModels, ModelPackage, PlayerFile, combined_folders, common_skeleton, file_stem,
-    is_read_common_file, is_user_face_xml, part_source_models, plans_a_package, player_file,
-    role_position, shared_folders,
+    is_read_common_file, is_user_face_xml, linked_common_files, part_source_models,
+    plans_a_package, player_file, role_position, shared_folders,
 };
 use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
@@ -697,10 +698,12 @@ fn model_name_messages(
     }
     // `Common/` is a library: a model, `.mtl` or `.skl` no link or conversion takes is no
     // mistake, a texture is the Common textures task's and a glTF planning's
-    // (`model_gltf_unsupported`). A file of a directory the target does not read
-    // (`is_read_common_file`: on Fox a subfolder's) is read by nothing whatever its kind.
+    // (`model_gltf_unsupported`). A file the target does not read (`is_read_common_file`: on
+    // Fox a subfolder's that no link reaches, `linked_common_files`) is read by nothing
+    // whatever its kind.
+    let linked_common = linked_common_files(export);
     for file in &export.common {
-        let read_by_no_task = !is_read_common_file(&file.path, engine)
+        let read_by_no_task = !is_read_common_file(&file.path, engine, &linked_common)
             || matches!(
                 file.kind,
                 FileKind::Fclo | FileKind::Xml | FileKind::Bin | FileKind::MaterialsToml
@@ -822,7 +825,10 @@ fn file_role_messages(
                         continue;
                     }
                     Code::FmdlFclHairFallback
-                } else if common_skeleton(common, &linked).is_some() {
+                } else if common_link_target(&file.path, path)
+                    .and_then(|target| common_skeleton(common, &target))
+                    .is_some()
+                {
                     Code::SklNoSlot
                 } else {
                     continue;
@@ -1262,9 +1268,9 @@ mod tests {
         ];
         let mut export = resolved("co Midcup Names", &files, &[], None);
         // Kept only with the strict file-type check off, which `resolved` has on: added as the
-        // structure pass would keep them, with their `file_type_disallowed` (a link below a
-        // subfolder is no link).
-        for name in ["extra/hair.dds.common", "common/legs.fmdl.common"] {
+        // structure pass would keep them, with their `file_type_disallowed` (a texture link
+        // below a subfolder is out of place).
+        for name in ["extra/hair.dds.common", "common/hair.png.common"] {
             let path = ScopePath::new(&format!("Players/05 - A/{name}")).unwrap();
             export.export.players[0].files.push(FileDescriptor {
                 size: 0,
@@ -1315,6 +1321,58 @@ mod tests {
         assert_eq!(
             names(&export, PesVersion::Pes17),
             ["Warning file_not_used [Keep] (file=Common/notes.xml)"]
+        );
+    }
+
+    #[test]
+    fn on_fox_a_common_subfolder_s_file_a_link_reaches_is_read_and_the_others_are_not_used() {
+        let files = [
+            ("Players/03 - A/face_high.fmdl", 1),
+            ("Players/03 - A/jessie/boots.model.common", 0),
+            // The linked model, the FMDL of its stem the target selects, its skeleton and the
+            // `.mtl` files its search may land on travel with it.
+            ("Common/jessie/boots.model", 1),
+            ("Common/jessie/boots.fmdl", 1),
+            ("Common/jessie/boots.skl", 1),
+            ("Common/jessie/cloth.mtl", 1),
+            // No link reaches these.
+            ("Common/jessie/hat.fmdl", 1),
+            ("Common/jessie/skin.dds", 1),
+            ("Common/other/boots.fmdl", 1),
+        ];
+        let export = resolved("co Midcup Names", &files, &[], None);
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Warning file_not_used [Keep] (file=Common/jessie/hat.fmdl)",
+                "Warning file_not_used [Keep] (file=Common/jessie/skin.dds)",
+                "Warning file_not_used [Keep] (file=Common/other/boots.fmdl)",
+            ]
+        );
+        // Pre-Fox reads every directory.
+        assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
+    }
+
+    #[test]
+    fn on_fox_a_texture_link_below_a_subfolder_reaches_no_common_file() {
+        let files = [
+            ("Players/05 - A/face_high.fmdl", 1),
+            ("Common/jessie/hair.dds", 1),
+        ];
+        let mut export = resolved("co Midcup Names", &files, &[], None);
+        // Kept only with the strict file-type check off, which `resolved` has on: added as the
+        // structure pass would keep it, with its `file_type_disallowed`. Out of place, it is no
+        // link, so its target is read by nothing.
+        let path = ScopePath::new("Players/05 - A/jessie/hair.dds.common").unwrap();
+        export.export.players[0].files.push(FileDescriptor {
+            size: 0,
+            kind: aesthetics_export::classify(path.name()),
+            source: path.clone(),
+            path,
+        });
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            ["Warning file_not_used [Keep] (file=Common/jessie/hair.dds)"]
         );
     }
 

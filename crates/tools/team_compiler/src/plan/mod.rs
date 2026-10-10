@@ -15,7 +15,7 @@ use std::ops::Range;
 use aesthetics_export::{
     ExportCoverage, ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitFolder, KitsFolder,
     LogoFiles, ModelFormat, PlayerFolder, PlayerIndex, ResolvedAestheticsExport, SharedKind,
-    SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, common_link_name,
+    SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, common_link_target,
 };
 use kit_config::KitSlot;
 use pes_version::{Engine, PesVersion};
@@ -32,12 +32,12 @@ use collars::export_collar;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
-    FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, directory_stem,
-    emits_kit_texture, file_stem, is_direct_root_folder_file, is_hand_split, is_package_model,
-    is_read_common_file, is_selected_common_model, leaves_out_kit_variants, link_combines,
-    link_feeds_own_package, link_name, linked_folder, native_format, package_of,
-    part_source_models, player_file, role_files, selected_common_model, shared_folders,
-    shared_kind_of, skeleton_slot, texture_format,
+    FolderModels, ModelPackage, PlayerFile, below_common, common_file, common_skeleton,
+    directory_stem, emits_kit_texture, file_stem, is_common_file, is_direct_root_folder_file,
+    is_hand_split, is_package_model, is_read_common_file, is_selected_common_model,
+    leaves_out_kit_variants, link_combines, link_feeds_own_package, link_name, linked_common_files,
+    linked_folder, native_format, package_of, part_source_models, player_file, role_files,
+    selected_common_model, shared_folders, shared_kind_of, skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -165,8 +165,9 @@ pub(crate) struct ModelFolder {
     pub(crate) common_texture_stems: BTreeSet<String>,
     /// The `.model`, FMDL, `.mtl` and texture files of every directory of the export's
     /// `Common/` folder, on a pre-Fox target for a player folder, a subfolder's being what a
-    /// member's `face.xml` names with `<subfolder>/<name>` (a link resolves only a direct file);
-    /// on Fox its `.mtl` files directly in it alone, which a
+    /// member's `face.xml` names with `<subfolder>/<name>` and a link at the same path below
+    /// the player folder stands for (`common_link_target`); on Fox its `.mtl` files directly in
+    /// it and those below a subfolder a player's link reaches (`linked_common_files`), which a
     /// `.mtl.common` link of the folder stands for in its `.model`'s search
     /// (`mtl_search::mtl_for`), Fox's Common parts being resolved at planning
     /// (`common_models`); empty for a shared folder, whose links have no role. The face task
@@ -221,10 +222,10 @@ pub(crate) struct CommonModel {
     /// target's own format when `Common/` holds both (`roles::selected_common_model`): what
     /// the Models task reads.
     pub(crate) model: FileDescriptor,
-    /// The `.skl` of the model's stem directly in `Common/` (`Common/legs.skl`), when there is
-    /// one and, on Fox, the role has a skeleton slot, on pre-Fox the model is an FMDL, whose
-    /// conversion takes it as its bind pose; `None` otherwise, a slotless Fox role's skeleton
-    /// being the structure pass's `skl_no_slot`.
+    /// The `.skl` of the model's stem beside it in `Common/` (`Common/legs.skl`,
+    /// `Common/jessie/legs.skl`), when there is one and, on Fox, the role has a skeleton slot,
+    /// on pre-Fox the model is an FMDL, whose conversion takes it as its bind pose; `None`
+    /// otherwise, a slotless Fox role's skeleton being the structure pass's `skl_no_slot`.
     pub(crate) skeleton: Option<FileDescriptor>,
     /// For a Common `.model`, the `.mtl` the link's search finds (`mtl_search::mtl_for`): a
     /// `Common/` one, or the player's own override of it. On Fox the Models task converts the
@@ -357,8 +358,9 @@ impl ModelFolder {
                     // (copied in on pre-Fox, read for the conversion on Fox); the link stays
                     // too, for the part's search to see among his files.
                     PlayerFile::CommonMaterial if self.ingame_face => {
-                        let linked = common_link_name(file.path.name())
-                            .expect("a CommonMaterial role implies a `.common` link name");
+                        let linked = common_link_target(&file.path, path).expect(
+                            "a CommonMaterial role implies a `.common` link below its folder",
+                        );
                         let material = common_file(&self.common_files, &linked).expect(
                             "validation drops a player folder whose link names no Common file",
                         );
@@ -505,7 +507,7 @@ fn push_common_material<'a>(
     if let Some(material) = common
         .material
         .as_ref()
-        .filter(|material| is_direct_root_folder_file(&material.path))
+        .filter(|material| is_common_file(&material.path))
     {
         push_common(roles, pushed, material, PlayerFile::Material);
     }
@@ -841,13 +843,13 @@ fn folder_files(
 /// many links name it (`x.mtl.common` and `x.mtl.common.txt`).
 fn linked_common_materials(folder: &ModelFolder) -> Vec<&FileDescriptor> {
     let mut materials: Vec<&FileDescriptor> = Vec::new();
-    for (_, _, files) in folder.roles() {
+    for (_, source_path, files) in folder.roles() {
         for (file, role) in files {
             if !matches!(role, PlayerFile::CommonMaterial) {
                 continue;
             }
-            let linked = common_link_name(file.path.name())
-                .expect("a CommonMaterial role implies a `.common` link name");
+            let linked = common_link_target(&file.path, source_path)
+                .expect("a CommonMaterial role implies a `.common` link below its folder");
             let material = common_file(&folder.common_files, &linked)
                 .expect("validation drops a player folder whose link names no Common file");
             if !materials.iter().any(|known| known.path == material.path) {
@@ -1050,10 +1052,13 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             &hand_weighted,
             &mut messages,
         );
+        // What PES 18-21 reads of a `Common/` subfolder: the files a player's link reaches.
+        let linked_common = linked_common_files(&export);
         drop_common_gltfs(
             version.engine(),
             export_id,
             &mut export.common,
+            &linked_common,
             &mut messages,
         );
         // The stems of the textures directly in `Common/`, which the Common textures task emits
@@ -1074,13 +1079,19 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         // finds among the model, `.mtl` and texture files. Fox reads Common through a player's
         // links alone: a model link's Common model is resolved per folder (`common_models`),
         // and a `.mtl.common` link's Common `.mtl` is among the `.mtl` files a player's
-        // `.model` search resolves the link against (`mtl_search::mtl_for`). Nothing reads any
-        // other `Common/` file.
+        // `.model` search resolves the link against (`mtl_search::mtl_for`), the ones directly
+        // in `Common/` and the subfolder ones a link reaches (`linked_common_files`): a player
+        // whose links stand elsewhere has those of another's too, which no search of his looks
+        // at, a `.model` link searching its own model's directory and a `.mtl` link naming its
+        // file. Nothing reads any other `Common/` file.
         let player_common_files: Vec<FileDescriptor> = match version.engine() {
             Engine::Fox => export
                 .common
                 .iter()
-                .filter(|file| file.kind == FileKind::Mtl && is_direct_root_folder_file(&file.path))
+                .filter(|file| {
+                    file.kind == FileKind::Mtl
+                        && is_read_common_file(&file.path, Engine::Fox, &linked_common)
+                })
                 .cloned()
                 .collect(),
             Engine::PreFox => export
@@ -1265,17 +1276,18 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             ));
         }
         // A Common textures task and a Common models task per directory of `Common/` a target
-        // reads (`is_read_common_file`: every one on PES 15-17, `Common/` itself on Fox), each
-        // over that directory's own files, its output under the directory's path.
-        // One directory's files are all direct or all below a subfolder, so all are read or none.
+        // packs: every one on PES 15-17, `Common/` itself on Fox, each over that directory's own
+        // files, its output under the directory's path. A subfolder file a Fox link reaches
+        // (`linked_common_files`, a model and what travels with it) is read by the linking
+        // player's own tasks, never by a task of its directory: Fox has no Common model
+        // output, and the subfolder's textures have no task until a link names one.
         // Each with the files its models task reads.
         let mut read_directories: Vec<(ScopePath, Vec<FileDescriptor>, Vec<FileDescriptor>)> =
             common_directories(&export.common)
                 .into_iter()
-                .filter(|(_, files)| {
-                    files
-                        .iter()
-                        .all(|file| is_read_common_file(&file.path, version.engine()))
+                .filter(|(directory, _)| match version.engine() {
+                    Engine::PreFox => true,
+                    Engine::Fox => directory.segments().count() == 1,
                 })
                 .map(|(directory, files)| {
                     let model_files = match version.engine() {
@@ -1606,7 +1618,8 @@ fn drop_gltf_folders(
             }
         }
     }
-    let common_gltfs = selected_common_gltfs(&export.common, engine);
+    let linked_common = linked_common_files(export);
+    let common_gltfs = selected_common_gltfs(&export.common, engine, &linked_common);
     let mut dropped = Vec::new();
     for (index, folder) in export.players.iter().enumerate() {
         let index = PlayerIndex(index);
@@ -1689,13 +1702,18 @@ fn drop_gltf_folders(
     export.gloves.retain(|folder| linked.contains(&folder.path));
 }
 
-/// The glTFs among `common`, the export's `Common/` files, in a directory a target of `engine`
-/// reads (`is_read_common_file`), that it selects for their stem: those with no model of the
+/// The glTFs among `common`, the export's `Common/` files, that a target of `engine` reads
+/// (`is_read_common_file`, `linked` the subfolder files a link reaches) and selects for their
+/// stem: those with no model of the
 /// target's own format of their stem beside them in their directory (`pipeline.md` step 3
 /// "Format conversion": target-native first, then glTF, then the other engine's format, the one
 /// rule for every model folder, each Common directory included). The compiler does not read
 /// glTF until Phase 7, so planning drops each (`drop_common_gltfs`).
-fn selected_common_gltfs(common: &[FileDescriptor], engine: Engine) -> Vec<&FileDescriptor> {
+fn selected_common_gltfs<'a>(
+    common: &'a [FileDescriptor],
+    engine: Engine,
+    linked: &BTreeSet<ScopePath>,
+) -> Vec<&'a FileDescriptor> {
     let native = FileKind::Model(native_format(engine));
     let native_stems: BTreeSet<(Option<String>, String)> = common
         .iter()
@@ -1705,7 +1723,7 @@ fn selected_common_gltfs(common: &[FileDescriptor], engine: Engine) -> Vec<&File
     common
         .iter()
         .filter(|file| {
-            is_read_common_file(&file.path, engine)
+            is_read_common_file(&file.path, engine, linked)
                 && file.kind == FileKind::Model(ModelFormat::Gltf)
                 && !native_stems.contains(&directory_stem(file))
         })
@@ -1732,14 +1750,12 @@ fn linked_common_gltf(
     {
         return None;
     }
-    let linked = vtree::fold_name(file_stem(&common_link_name(file.path.name())?));
-    // A link resolves directly in `Common/` alone, so a subfolder's glTF beats nothing it names.
+    // The glTF beside the linked model, of its path stem (`jessie/body` for
+    // `jessie/body.fmdl.common`).
+    let linked = vtree::fold_name(file_stem(&common_link_target(&file.path, folder)?));
     common_gltfs
         .iter()
-        .find(|gltf| {
-            is_direct_root_folder_file(&gltf.path)
-                && vtree::fold_name(file_stem(gltf.path.name())) == linked
-        })
+        .find(|gltf| vtree::fold_name(file_stem(below_common(&gltf.path))) == linked)
         .map(|gltf| gltf.path.as_str().to_owned())
 }
 
@@ -1758,9 +1774,10 @@ fn drop_common_gltfs(
     engine: Engine,
     export_id: ExportId,
     common: &mut Vec<FileDescriptor>,
+    linked: &BTreeSet<ScopePath>,
     messages: &mut Vec<Message>,
 ) {
-    let selected = selected_common_gltfs(common, engine);
+    let selected = selected_common_gltfs(common, engine, linked);
     let dropped_stems: BTreeSet<(Option<String>, String)> =
         selected.iter().map(|file| directory_stem(file)).collect();
     let dropped: Vec<ScopePath> = selected.into_iter().map(|file| file.path.clone()).collect();
@@ -2005,8 +2022,9 @@ fn common_model_files(common: &[FileDescriptor]) -> Vec<FileDescriptor> {
 }
 
 /// The `.common` model links of the player folder `folder` of `export` resolved against the
-/// export's `Common/` files, exactly as validation resolved them (a file directly in
-/// `Common/`, matched by case-folded name), each with the Common model it loads on a target of
+/// export's `Common/` files, exactly as validation resolved them (the file at the link's own
+/// path below the folder, `common_link_target`, matched by case-folded path), each with the
+/// Common model it loads on a target of
 /// `engine`
 /// (`selected_common_model`: a model of the linked stem in the target's own format beats the
 /// other one). On Fox each link to an FMDL or a `.model` (`PlayerFile::CommonModel`), with,
@@ -2053,8 +2071,8 @@ fn common_models(
                 | PlayerFile::ConversionSkeleton
                 | PlayerFile::UnsupportedGltf => return None,
             };
-            let linked = common_link_name(file.path.name())
-                .expect("a model link's role implies a `.common` link name");
+            let linked = common_link_target(&file.path, &folder.path)
+                .expect("a model link's role implies a `.common` link below its folder");
             let model = selected_common_model(common, &linked, engine)
                 .expect("validation drops a player folder whose link names no Common file");
             let fmdl = model.kind == FileKind::Model(ModelFormat::Fmdl);
@@ -5236,6 +5254,48 @@ mod tests {
                 "Common/sub/x.mtl"
             ]
         );
+    }
+
+    #[test]
+    fn on_fox_a_folder_s_common_files_hold_the_mtl_a_subfolder_s_link_names() {
+        let export = resolved(
+            "co Midcup Common",
+            &[
+                ("Players/03 - A/face_high.model", 1),
+                ("Players/03 - A/jessie/body.mtl.common", 0),
+                ("Common/body.mtl", 1),
+                ("Common/jessie/body.mtl", 1),
+                ("Common/other/x.mtl", 1),
+            ],
+            &[],
+            None,
+        );
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes21,
+        );
+        let folder = report
+            .manifest
+            .tasks
+            .iter()
+            .find_map(|task| match &task.kind {
+                TaskKind::Models { folder, .. } => Some(folder),
+                TaskKind::Textures { .. }
+                | TaskKind::CommonTextures { .. }
+                | TaskKind::CommonModels { .. }
+                | TaskKind::Portrait { .. }
+                | TaskKind::Kit { .. }
+                | TaskKind::Logo { .. }
+                | TaskKind::RefereeMarker { .. }
+                | TaskKind::Collar { .. } => None,
+            })
+            .expect("the player's face task");
+        let paths: Vec<&str> = folder
+            .common_files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect();
+        assert_eq!(paths, ["Common/body.mtl", "Common/jessie/body.mtl"]);
     }
 
     fn scope_path(text: &str) -> ScopePath {

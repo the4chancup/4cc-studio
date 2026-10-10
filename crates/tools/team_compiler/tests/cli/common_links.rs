@@ -16,7 +16,10 @@ use crate::compile::{
 };
 use crate::conversion::HOME_714_05;
 use crate::models::{body_skl, face_package, package_names};
-use crate::prefox_faces::{card_materials, card_model, materials_naming, small_dds};
+use crate::prefox_faces::{
+    card_materials, card_model, entries_under, face_cpk, face_folder, materials_naming,
+    nested_entries, pes17, small_dds,
+};
 use crate::textures::texture_fixture;
 use crate::{clean_model, findings_of};
 use pes_model::format::mtl::MaterialSet;
@@ -1110,6 +1113,105 @@ fn a_texture_below_a_common_subfolder_is_not_used_on_fox() {
         entries.keys()
     );
     assert!(entries.contains_key(FACE_05), "{:#?}", entries.keys());
+}
+
+// TC-CMN-20
+#[test]
+fn a_common_link_below_a_subfolder_stands_for_the_common_file_at_its_path() {
+    let sandbox = Sandbox::new("cmn_nested_link");
+    let export = "co Midcup Nested";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/jessie/body.fmdl.common"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/body.fmdl"),
+        &clean_model(),
+    );
+
+    let fox = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    // No `file_not_used` names `Common/jessie/body.fmdl`: the link reads it.
+    let lines = fox.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=jessie/body.fmdl.common)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(fox.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let package = face_package(&entries);
+    let names = package_names(&entries[FACE_05]);
+    assert!(
+        names.contains(&"face_high.fmdl".to_owned()) && names.contains(&"fcl_hair.fmdl".to_owned()),
+        "{names:?}"
+    );
+    // `body.fmdl` is the face's `fcl_hair` part (its name's fallback), beside `face_high`.
+    assert_eq!(
+        mesh_count(package.get("fcl_hair.fmdl").unwrap()),
+        mesh_count(&clean_model())
+    );
+    assert_no_common_path(&entries);
+
+    let pre_fox = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    // The conversions' losses aside, nothing is missing or unread.
+    let lines = pre_fox.messages();
+    assert!(
+        findings_of(&lines, export)
+            .iter()
+            .all(|line| !line.contains("file_not_used") && !line.contains("common_link_missing")),
+        "{lines:#?}"
+    );
+    assert_eq!(pre_fox.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let common = entries_under(
+        &entries,
+        "common/character1/model/character/uniform/common/714/jessie/",
+    );
+    // The Common FMDL converted once, at its path below the team's Common output.
+    let names: Vec<&str> = common.keys().copied().collect();
+    assert_eq!(names, ["body.mtl", "oral_body_win32.model"]);
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let xml = String::from_utf8(face[&format!("{}face.xml", face_folder(5))].clone()).unwrap();
+    assert!(
+        xml.contains(
+            "path=\"model/character/uniform/common/714/jessie/oral_body_*.model\" material=\"model/character/uniform/common/714/jessie/body.mtl\""
+        ),
+        "{xml}"
+    );
+}
+
+#[test]
+fn a_common_link_below_a_subfolder_with_only_a_direct_common_file_is_common_link_missing() {
+    let sandbox = Sandbox::new("cmn_nested_link_missing");
+    let export = "co Midcup Nested";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/jessie/body.fmdl.common"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Common/body.fmdl"),
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    // The player is dropped, his face with him, and the run stops for the error, no panic.
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Error common_link_missing [DropFolder] at Players/05 - A (link=body.fmdl.common, path=Common/jessie/body.fmdl)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
 }
 
 // TC-CMN-14

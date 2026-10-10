@@ -4,6 +4,8 @@
 //! suffix after a link or marker name is tolerated (Windows hides known
 //! extensions, so users create `Crocs.boots.txt` with Notepad).
 
+use vtree::ScopePath;
+
 /// What a file in an export is, semantically.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FileKind {
@@ -181,6 +183,32 @@ pub fn common_link_name(name: &str) -> Option<String> {
     strip_suffix_ci(name, ".common")
         .filter(|stem| !stem.is_empty())
         .map(str::to_owned)
+}
+
+/// The `Common/` path a `.common` link at `link` stands for, below `Common/`: the link's
+/// path below `folder` (the player folder holding it) with `.common` (and a tolerated
+/// `.txt`) taken off its name (`jessie/body.fmdl.common` → `jessie/body.fmdl`; a link
+/// directly in `folder` gives its name alone). `None` when `link` is not below `folder` or
+/// its name is no `.common` link (`model_format.md` "Link files": a link mirrors `Common/`'s
+/// tree).
+pub fn common_link_target(link: &ScopePath, folder: &ScopePath) -> Option<String> {
+    // Folding is per segment, so the folded folder is a prefix of the folded link exactly
+    // when the folder's segments are the link's first ones.
+    let in_folder = link
+        .fold_key()
+        .strip_prefix(&folder.fold_key())
+        .is_some_and(|rest| rest.starts_with('/'));
+    if !in_folder {
+        return None;
+    }
+    let mut below: Vec<String> = link
+        .segments()
+        .skip(folder.segments().count())
+        .map(str::to_owned)
+        .collect();
+    let name = below.pop()?;
+    below.push(common_link_name(&name)?);
+    Some(below.join("/"))
 }
 
 impl SharedKind {
@@ -363,6 +391,31 @@ mod tests {
         for (name, expected) in cases {
             assert_eq!(classify(name), expected, "{name:?}");
         }
+    }
+
+    #[test]
+    fn a_common_link_stands_for_the_common_path_at_its_own_path_below_its_folder() {
+        let path = |text: &str| ScopePath::new(text).unwrap();
+        let folder = path("Players/05 - A");
+        let target = |link: &str| common_link_target(&path(link), &folder);
+        assert_eq!(
+            target("Players/05 - A/jessie/body.fmdl.common").as_deref(),
+            Some("jessie/body.fmdl")
+        );
+        assert_eq!(
+            target("Players/05 - A/a/B/legs.model.common.txt").as_deref(),
+            Some("a/B/legs.model")
+        );
+        // A link directly in the folder names a direct file, by its name alone; the folder's
+        // spelling is folded.
+        assert_eq!(
+            target("players/05 - a/body.fmdl.common").as_deref(),
+            Some("body.fmdl")
+        );
+        // Not a link, or not below the folder.
+        assert_eq!(target("Players/05 - A/jessie/body.fmdl"), None);
+        assert_eq!(target("Players/05 - AB/body.fmdl.common"), None);
+        assert_eq!(target("Players/06 - B/body.fmdl.common"), None);
     }
 
     #[test]

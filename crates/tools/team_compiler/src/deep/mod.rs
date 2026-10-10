@@ -74,7 +74,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, KitTextureSource,
     ModelFormat, PlayerFolder, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
-    common_link_name,
+    common_link_target,
 };
 use dds_convert::SourceFormat;
 use pes_version::{Engine, PesVersion};
@@ -86,8 +86,9 @@ use crate::messages::Code;
 use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::roles::{
     FolderModels, PlayerFile, combined_folders, common_file, directory_stem, emits_kit_texture,
-    file_stem, is_direct_root_folder_file, is_read_common_file, is_selected_common_model,
-    is_user_face_xml, part_source_models, player_file, role_position, texture_format,
+    file_stem, is_common_file, is_direct_root_folder_file, is_read_common_file,
+    is_selected_common_model, is_user_face_xml, linked_common_files, part_source_models,
+    player_file, role_position, texture_format,
 };
 use crate::reader::ContentSource;
 use crate::templates;
@@ -208,7 +209,7 @@ impl KeptCommon {
 /// (`templates::referee_common_paths`).
 ///
 /// It checks only what `compile` reads: not for PES 2018 to 2021 a file below a `Common/`
-/// subfolder (`is_read_common_file`), nor a
+/// subfolder that no player's link reaches (`is_read_common_file`, `linked_common_files`), nor a
 /// `Common/` model another of its stem beats (`is_selected_common_model`), which is dropped
 /// with that winner instead (`drop_beaten_common_models`), nor for PES 2018 to 2021 a
 /// `Common/` `.mtl` no player folder's search may read (`searched_common_mtls`), nor a kit
@@ -264,6 +265,8 @@ pub(crate) fn content_findings(
             (combined, models)
         })
         .collect();
+    // What PES 18-21 reads of a `Common/` subfolder: the files a player's link reaches.
+    let linked_common = linked_common_files(export);
     // On Fox a `Common/` `.mtl` is read only by the search of a model converted with it.
     let searched_mtls = match engine {
         Engine::Fox => {
@@ -279,11 +282,11 @@ pub(crate) fn content_findings(
         .common
         .par_iter()
         .map(|file| {
-            // The Common tasks read only the files of a directory the target reads
-            // (`is_read_common_file`: on Fox `Common/` itself alone), and a model there only
-            // when the target selects it for its stem, and on Fox a `.mtl` only when a search
-            // finds it: nothing reads the others.
-            let unread = !is_read_common_file(&file.path, engine)
+            // The Common tasks and the linking players read only the files the target reads
+            // (`is_read_common_file`: on Fox `Common/` itself and the subfolder files a link
+            // reaches), and a model there only when the target selects it for its stem, and on
+            // Fox a `.mtl` only when a search finds it: nothing reads the others.
+            let unread = !is_read_common_file(&file.path, engine, &linked_common)
                 || (matches!(file.kind, FileKind::Model(_))
                     && !is_selected_common_model(&export.common, file, engine))
                 || (file.kind == FileKind::Mtl
@@ -304,7 +307,13 @@ pub(crate) fn content_findings(
             )
         })
         .collect();
-    drop_beaten_common_models(&export.common, &mut common, engine, pass_through);
+    drop_beaten_common_models(
+        &export.common,
+        &mut common,
+        engine,
+        &linked_common,
+        pass_through,
+    );
     // The `Common/` FMDLs dropped as hidden, which a player's link naming one is dropped with.
     let hidden_common: Vec<FileDescriptor> = export
         .common
@@ -325,15 +334,17 @@ pub(crate) fn content_findings(
     // a material the face task cannot find. Under `pass_through` a file whose every Error is
     // eligible is kept and packed, so it is found here too: leaving it out would drop a
     // player for a file `compile` packs. On PES 15-17 a subfolder's file is kept too: a
-    // member's `face.xml` names it, and the Common tasks read it; a link's lookups look
-    // directly in `Common/` alone.
+    // member's `face.xml` names it, and the Common tasks read it; on PES 18-21 a subfolder's
+    // file a link reaches is kept, which the linking player's tasks read.
     let mut kept_common = KeptCommon {
         installed,
         template_paths,
         ..KeptCommon::default()
     };
     for (file, pass) in export.common.iter().zip(&common) {
-        if !is_read_common_file(&file.path, engine) || drops_file(&pass.findings, pass_through) {
+        if !is_read_common_file(&file.path, engine, &linked_common)
+            || drops_file(&pass.findings, pass_through)
+        {
             continue;
         }
         kept_common.files.push(file.clone());
@@ -619,8 +630,9 @@ fn drops_file(findings: &[ContentFinding], pass_through: bool) -> bool {
     })
 }
 
-/// Appends `common_model_beaten_dropped` to the pass, among `passes`, of each model in a
-/// directory of `Common/` a target of `engine` reads (`is_read_common_file`), among `common`
+/// Appends `common_model_beaten_dropped` to the pass, among `passes`, of each model of
+/// `Common/` a target of `engine` reads (`is_read_common_file`, `linked` the subfolder files a
+/// link reaches), among `common`
 /// (the export's `Common/` files, whose passes are `passes`), that the target does not select
 /// for its stem (`is_selected_common_model`), when the pass dropped the model of its stem in
 /// its directory that beats it (`drops_file`, with `pass_through`): the finding
@@ -631,10 +643,11 @@ fn drop_beaten_common_models(
     common: &[FileDescriptor],
     passes: &mut [ContentPass],
     engine: Engine,
+    linked: &BTreeSet<ScopePath>,
     pass_through: bool,
 ) {
     let is_read_model = |file: &FileDescriptor| {
-        matches!(file.kind, FileKind::Model(_)) && is_read_common_file(&file.path, engine)
+        matches!(file.kind, FileKind::Model(_)) && is_read_common_file(&file.path, engine, linked)
     };
     let dropped_winners: Vec<&FileDescriptor> = common
         .iter()
@@ -667,9 +680,9 @@ fn drop_beaten_common_models(
 }
 
 /// `model_hidden_dropped` on `file` of the player folder at `folder` when it is a `.common`
-/// link directly in the folder whose target, the file of its name directly in `Common/`
-/// matched as validation matches it (`common_file`), is among `hidden`, the `Common/` FMDLs the
-/// pass dropped as hidden: an Info on the link that drops the link alone, never passing
+/// link, at any depth of the folder, whose target, the `Common/` file at the link's own path
+/// (`common_link_target`) matched as validation matches it (`common_file`), is among `hidden`,
+/// the `Common/` FMDLs the pass dropped as hidden: an Info on the link that drops the link alone, never passing
 /// through, naming the link below the folder and the Common file by its export path. A dropped
 /// link is no link, so the player is not taken down with its target (`link_target_dropped`),
 /// and his folder and other files stand.
@@ -678,11 +691,10 @@ fn hidden_link_finding(
     file: &FileDescriptor,
     hidden: &[FileDescriptor],
 ) -> Option<ContentFinding> {
-    // Validation resolves a link directly in the player folder alone.
-    if file.kind != FileKind::CommonLink || file.path.parent().as_ref() != Some(folder) {
+    if file.kind != FileKind::CommonLink {
         return None;
     }
-    let linked = common_link_name(file.path.name())?;
+    let linked = common_link_target(&file.path, folder)?;
     let model = common_file(hidden, &linked)?;
     Some(ContentFinding {
         code: Code::ModelHiddenDropped.as_str(),
@@ -1054,9 +1066,7 @@ fn folder_findings(
                 // Fox has no Common model output: each linking player's Models task converts
                 // the Common `.model` with this `.mtl`, so its lookup is the folder's, right
                 // after the link's own finding.
-                Engine::Fox => pairing
-                    .mtl
-                    .filter(|mtl| is_direct_root_folder_file(&mtl.path)),
+                Engine::Fox => pairing.mtl.filter(|mtl| is_common_file(&mtl.path)),
                 // Pre-Fox packs a Common `.mtl` once for the team and looks it up on its own
                 // file (`common_mtl_findings`).
                 Engine::PreFox => None,
@@ -1475,7 +1485,7 @@ mod tests {
 
     use super::*;
     use crate::reader::{ExportSource, SourceKind};
-    use crate::testing::{resolved_with_check, resolved_with_issues, scratch};
+    use crate::testing::{resolved_with_issues, scratch};
 
     /// The bytes of `tests/fixtures/<relative>`.
     pub(super) fn fixture(relative: &str) -> Vec<u8> {
@@ -1603,21 +1613,6 @@ mod tests {
         let (resolved, codes) = resolved_with_issues(name, &listed, &[], players_txt);
         assert_eq!(codes, structure_codes, "the structure pass's findings");
         pass_over(name, root, &resolved.export, version)
-    }
-
-    /// `findings_for` with no unwritten file and the file-type check lenient: a disallowed
-    /// file's `file_type_disallowed` keeps it in its folder's files.
-    pub(super) fn lenient_findings_for(
-        version: PesVersion,
-        root: &Path,
-        files: &[(&str, Vec<u8>)],
-        structure_codes: &[&str],
-    ) -> Vec<ContentFinding> {
-        let name = "co Midcup Deep";
-        let listed = written(root, files, &[]);
-        let (resolved, codes) = resolved_with_check(name, &listed, &[], None, false);
-        assert_eq!(codes, structure_codes, "the structure pass's findings");
-        pass_over(name, root, &resolved.export, version).findings
     }
 
     /// Writes `files` below `root` and lists them with `unwritten`, each of those one byte.

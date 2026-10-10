@@ -3,10 +3,11 @@
 //! names it. The deep pass reports a model it finds none for, and the face task names the one
 //! it finds, so the two never disagree.
 
-use aesthetics_export::{FileDescriptor, FileKind, classify, common_link_name};
+use aesthetics_export::{FileDescriptor, FileKind, classify, common_link_target};
 use vtree::ScopePath;
 
-use crate::plan::roles::{common_file, file_stem, is_direct_root_folder_file};
+use crate::plan::roles::{below_common, common_file, file_stem};
+use crate::texture_lookup::split;
 
 /// The `.mtl` that `model` uses: `model` is a `.model` among `files`, the files of the model
 /// folder at `folder`, or a `.common` link among them to a `.model` in the export's `Common/`
@@ -15,14 +16,16 @@ use crate::plan::roles::{common_file, file_stem, is_direct_root_folder_file};
 /// A `.model` is searched for in its own folder, then in the model folder (the player folder,
 /// when the model sits in one of its subfolders). A link is searched for in its own
 /// folder for a name-matched `.mtl` only (a local override of the shared model's materials),
-/// then in `Common/` (where the model really is), then in its own folder, then in the model
-/// folder; its stem is the linked model's (`legs` for `legs.model.common.txt`). Each folder is
+/// then in the linked model's folder in `Common/` (where the model really is: `Common/jessie/`
+/// for `jessie/legs.model.common`, the link standing for the `Common/` file at its own path,
+/// `common_link_target`), then in its own folder, then in the model folder; its stem is the
+/// linked model's (`legs` for `legs.model.common.txt`). Each folder is
 /// searched for a name-matched `.mtl` (its stem, case-folded, starts or ends the model's stem:
 /// `body.mtl` for `body_high.model`), then `materials.mtl`, then any `.mtl`, the first in
 /// case-folded name order within a kind. A `.mtl.common` link counts as a `.mtl` of the linked
-/// name in the folder holding it, and stands for the `Common/` file it names, which is what is
-/// returned when it is the one found: a caller tells a Common `.mtl` from the folder's own by
-/// its path (`is_direct_root_folder_file`). `None` when the search finds no `.mtl`: the model has
+/// name in the folder holding it, and stands for the `Common/` file at its path, which is what
+/// is returned when it is the one found: a caller tells a Common `.mtl` from the folder's own by
+/// its path (`is_common_file`). `None` when the search finds no `.mtl`: the model has
 /// every material undefined (`model_material_undefined`).
 pub(crate) fn mtl_for<'a>(
     model: &ScopePath,
@@ -33,24 +36,29 @@ pub(crate) fn mtl_for<'a>(
     let own_folder = model
         .parent()
         .expect("a model file sits in a folder: its model folder or a subfolder of it");
-    let own = mtls_in(&own_folder, files, common);
-    let Some(linked) = common_link_name(model.name()) else {
+    let own = mtls_in(&own_folder, folder, files, common);
+    let Some(linked) = common_link_target(model, folder) else {
         let model_stem = vtree::fold_name(file_stem(model.name()));
         // A model directly in the model folder searches that folder twice, finding nothing
         // new.
         return first_of_kinds(&own, &model_stem)
-            .or_else(|| first_of_kinds(&mtls_in(folder, files, common), &model_stem));
+            .or_else(|| first_of_kinds(&mtls_in(folder, folder, files, common), &model_stem));
     };
-    let model_stem = vtree::fold_name(file_stem(&linked));
+    let (linked_directory, linked_name) = split(&linked);
+    let model_stem = vtree::fold_name(file_stem(linked_name));
     let in_common: Vec<Candidate> = common
         .iter()
-        .filter(|file| file.kind == FileKind::Mtl && is_direct_root_folder_file(&file.path))
+        .filter(|file| {
+            let (directory, _) = split(below_common(&file.path));
+            file.kind == FileKind::Mtl
+                && vtree::fold_name(directory) == vtree::fold_name(linked_directory)
+        })
         .map(|file| Candidate::new(file.path.name(), false, file))
         .collect();
     name_matched(&own, &model_stem)
         .or_else(|| first_of_kinds(&sorted(in_common), &model_stem))
         .or_else(|| first_of_kinds(&own, &model_stem))
-        .or_else(|| first_of_kinds(&mtls_in(folder, files, common), &model_stem))
+        .or_else(|| first_of_kinds(&mtls_in(folder, folder, files, common), &model_stem))
 }
 
 /// A `.mtl` one folder offers a model: the name it goes by there and the file the model would
@@ -79,13 +87,15 @@ impl<'a> Candidate<'a> {
     }
 }
 
-/// The `.mtl` files directly in the folder `searched`, among `files`, each `.mtl.common` link
-/// there standing for the `common` file it names, in the search's order (`sorted`). A link
-/// naming no `Common/` file is not one: validation drops a player folder holding such a link,
+/// The `.mtl` files directly in the folder `searched`, among `files` (those of the model folder
+/// at `folder`), each `.mtl.common` link there standing for the `common` file at its path
+/// (`common_link_target`), in the search's order (`sorted`). A link naming no `Common/` file is
+/// not one: validation drops a player folder holding such a link,
 /// and a shared folder's links are not resolved (they have no role there, and its tasks are
 /// given no `Common/` files).
 fn mtls_in<'a>(
     searched: &ScopePath,
+    folder: &ScopePath,
     files: &'a [FileDescriptor],
     common: &'a [FileDescriptor],
 ) -> Vec<Candidate<'a>> {
@@ -99,12 +109,13 @@ fn mtls_in<'a>(
             if file.kind != FileKind::CommonLink {
                 return None;
             }
-            let linked = common_link_name(file.path.name())?;
-            if classify(&linked) != FileKind::Mtl {
+            let linked = common_link_target(&file.path, folder)?;
+            let (_, linked_name) = split(&linked);
+            if classify(linked_name) != FileKind::Mtl {
                 return None;
             }
             let target = common_file(common, &linked)?;
-            Some(Candidate::new(&linked, true, target))
+            Some(Candidate::new(linked_name, true, target))
         })
         .collect();
     sorted(found)
@@ -312,12 +323,13 @@ mod tests {
             .as_deref(),
             Some("Common/cloth.mtl")
         );
-        // With nothing in Common, the link's folder, then the model folder.
+        // With nothing in the linked model's folder in Common, the link's folder, then the
+        // model folder: a `.mtl` directly in `Common/` is not the linked model's.
         assert_eq!(
             found_with(
                 "face/legs.model.common",
                 &["face/legs.model.common", "face/x.mtl", "legs.mtl"],
-                &["legs.model"]
+                &["face/legs.model", "legs.mtl"]
             )
             .as_deref(),
             Some("face/x.mtl")
@@ -326,10 +338,34 @@ mod tests {
             found_with(
                 "face/legs.model.common",
                 &["face/legs.model.common", "legs.mtl"],
-                &["legs.model"]
+                &["face/legs.model"]
             )
             .as_deref(),
             Some("legs.mtl")
+        );
+    }
+
+    #[test]
+    fn a_model_link_below_a_subfolder_looks_in_its_model_s_folder_in_common() {
+        // `face/legs.model.common` links `Common/face/legs.model`, whose `.mtl` is beside it.
+        assert_eq!(
+            found_with(
+                "face/legs.model.common",
+                &["face/legs.model.common", "materials.mtl"],
+                &["face/legs.model", "face/legs.mtl", "legs.mtl"]
+            )
+            .as_deref(),
+            Some("Common/face/legs.mtl")
+        );
+        // A material link below a subfolder stands for the `Common/` file at its own path.
+        assert_eq!(
+            found_with(
+                "face/hat.model",
+                &["face/hat.model", "face/hat.mtl.common"],
+                &["hat.mtl", "face/hat.mtl"]
+            )
+            .as_deref(),
+            Some("Common/face/hat.mtl")
         );
     }
 

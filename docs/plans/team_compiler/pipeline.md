@@ -924,8 +924,9 @@ describes behavior, not a serial scheduling requirement:
   same path below the player folder (`refkit/legs.model.common`, "Link files" in
   `model_format.md`). Red packed the whole
   folder, and the referee exports' `Common/refkit/` ("Referee export processing" in
-  `blue_port.md`) is the one real use. On PES 18-21 nothing reads a subfolder's file (Fox has
-  no `face.xml`), and it is `file_not_used`.
+  `blue_port.md`) is the one real use. On PES 18-21 a subfolder's file is read only through
+  a `.common` link at its path below a player folder (step 6), and one no link reaches is
+  `file_not_used`.
 - **Kit-dependent assets** — `kitN`/`kit1`…`kit9` tokens in file names and written paths (FMDL
   path tables, `.mtl` sampler paths, `face.xml` model paths) pass through **verbatim**; the modded
   exes match that spelling directly, and the historical `u0XXXp0` magic is legacy that only the
@@ -1857,6 +1858,8 @@ Resolved decisions:
   it follows `link_target_dropped`, like any link to a dropped target. On PES 18-21 the Common
   tasks read the files directly in `Common/` and the subfolder files a `.common` link names
   (a link at the same path below a player or shared folder, `model_format.md` "Link files"),
+  a linked model bringing the files beside it that travel with it (the models and `.skl` of
+  its stem, and the `.mtl` files its search may read, none of them `file_not_used`),
   each at its path before the platform
   folder, as Red packs a Common subfolder (`Common/kit1/x.dds` as
   `common/<team>/kit1/sourceimages/#windx11/x.ftex`), since Fox reaches Common through links

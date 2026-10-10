@@ -1402,6 +1402,50 @@ fn a_common_model_link_takes_a_local_mtl_of_its_name_over_the_common_one() {
 }
 
 #[test]
+fn a_common_model_link_below_a_subfolder_names_the_common_model_and_mtl_at_its_path() {
+    let sandbox = Sandbox::new("prefox_common_legs_nested");
+    let export = "co Midcup Legs";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/jessie/legs.model.common"),
+        b"",
+    );
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/jessie/legs.model"), &card_model());
+    sandbox.write(&format!("{common}/jessie/legs.mtl"), &card_materials());
+    sandbox.write(&format!("{common}/jessie/skin.dds"), &small_dds());
+
+    // No `model_material_undefined`: the link's search finds `Common/jessie/legs.mtl`.
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    assert_eq!(
+        face[&format!("{folder}face.xml")],
+        expected_face_xml(
+            &[
+                (
+                    "face_neck",
+                    "./oral_face_high_*.model",
+                    "./face_high.mtl",
+                    None
+                ),
+                (
+                    "parts",
+                    "model/character/uniform/common/714/jessie/oral_legs_*.model",
+                    "model/character/uniform/common/714/jessie/legs.mtl",
+                    None
+                ),
+            ],
+            &template("face_diff.bin")
+        )
+    );
+    let common = entries_under(&entries, &format!("{COMMON_714}jessie/"));
+    let names: Vec<&str> = common.keys().copied().collect();
+    assert_eq!(names, ["legs.mtl", "oral_legs_win32.model", "skin.dds"]);
+}
+
+#[test]
 fn a_common_fmdl_a_model_the_deep_pass_drops_beats_is_dropped_with_it() {
     let sandbox = Sandbox::new("prefox_common_beaten_dropped");
     let export = "co Midcup Beaten";

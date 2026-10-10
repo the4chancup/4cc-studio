@@ -10,7 +10,7 @@ use std::fmt;
 
 use aesthetics_export::{
     Disposition, FileDescriptor, FileKind, KitToken, ModelFormat, SharedModelFolder, classify,
-    common_link_name, kit_token,
+    common_link_target, kit_token,
 };
 use pes_version::PesVersion;
 use vtree::ScopePath;
@@ -334,7 +334,8 @@ pub(crate) fn resolve<'a>(
 /// The path `file`, one of the own files of the folder at `folder`, goes by for a reference to
 /// a file of `kind`, with the file it stands for: its own path relative to the folder, or for
 /// a `.mtl` a `.mtl.common` link's linked name in the link's directory and the `common` file
-/// it names (as `mtl_search` counts one). `None` for a file of another kind.
+/// at that path (`common_link_target`, as `mtl_search` counts one). `None` for a file of
+/// another kind.
 fn candidate<'a>(
     file: &'a FileDescriptor,
     folder: &ScopePath,
@@ -348,13 +349,12 @@ fn candidate<'a>(
     if kind != FileKind::Mtl || file.kind != FileKind::CommonLink {
         return None;
     }
-    let linked = common_link_name(file.path.name())?;
-    if classify(&linked) != FileKind::Mtl {
+    let linked = common_link_target(&file.path, folder)?;
+    if classify(split(&linked).1) != FileKind::Mtl {
         return None;
     }
     let target = common_file(common, &linked)?;
-    let (directory, _) = split(&path);
-    Some((format!("{directory}{linked}"), target))
+    Some((linked, target))
 }
 
 /// The file among `candidates` (path, file) that the referenced path `referenced` names: the

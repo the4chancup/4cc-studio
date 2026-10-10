@@ -46,7 +46,9 @@ textures at their paths, a texture name resolving nearest first, each folder its
 namespace, the singletons root-only; (b2) done 2026-10-10: the pre-Fox face packs and
 lists a subfolder's files at their paths, `./sub/name` a checked local reference; (b3a)
 done 2026-10-10: a texture named by its path below its file's folder resolves there, a
-Fox subfolder texture before `sourceimages`; (b3b1) next), 4.y-fix20
+Fox subfolder texture before `sourceimages`; (b3b1) done 2026-10-10: links at any depth, a
+`.common` model or material link standing for the `Common/` file at its path; (b3b2)
+next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4146,6 +4148,32 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`.tmp/4_y/gates_sub_b3a_lead.log`, acceptance 314 of 318, the four open ones (b3b)'s and
   (b4)'s); mutants r1 38 mutants, 31 caught, 7 unviable, 0 missed
   (`.tmp/4_y/mutants_sub_b3a.log`), rework 39 mutants, 33 caught, 6 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3a_r1.log`).
+  (b3b1) done 2026-10-10 (Opus 5.5, one run; brief `.tmp/4_y/brief_sub_b3b1.md`, report
+  `.tmp/4_y/sk_sub_b3b1_report.md`): `aesthetics_export::common_link_target` (the path below
+  `Common/` a link stands for); `counts_as_link` the one rule (a shared link at any depth, a
+  `.common` link directly in the folder or below a subfolder unless it names a texture, which
+  stays `file_type_disallowed` until (b3b2)); `player_links` resolving at the link's path,
+  `common_link_missing` naming `Common/<path>`; `shared_link_duplicate` counting distinct
+  folders over the tree, a folder linked twice one entry of the kept player's `links` and
+  combined once; `ingame_face` and the cascade reading links at any depth. `team_compiler`:
+  `common_file` by folded path below `Common/` (`common_skeleton`, `selected_common_model`
+  beside it), `is_common_file`/`below_common`, `linked_common_files` (what Fox reads of a
+  Common subfolder: a link's target and what travels with a linked model) feeding
+  `is_read_common_file`, the deep pass, `file_not_used` and planning, the Fox Common tasks on
+  `Common/` itself alone; `role_position`, `mtl_search` (the linked model's own `Common/`
+  directory), `user_face_xml::candidate` and every `.expect` site switched; the pre-Fox face
+  lists a nested link's model and `.mtl` at `common/<team>/<dir>/`. The sidekick's
+  contradiction accepted: two tests the brief kept put a link in a player's `common/`
+  subfolder, which now names `Common/common/...`; rewritten to their intent. Left for (b3b2):
+  under `ingame_face` on pre-Fox, a nested Common `.mtl` copied into his boots or gloves is
+  still named by its file name, its textures pointed at `Common/`'s direct ones. TC-CMN-20 and
+  TC-MOD-70 proven. Files: `aesthetics_export` `conventions/{file_types,mod}.rs`, `lib.rs`,
+  `validate/{folders,links,mod,tests}.rs`; `team_compiler` `plan/{roles,mod}.rs`,
+  `mtl_search.rs`, `user_face_xml.rs`, `validation.rs`, `deep/{mod,model,pairings}.rs`,
+  `processing/{model,prefox_face,prefox_shared}.rs`, `tests/cli/{common_links,models,
+  prefox_faces}.rs`; model_format.md, pipeline.md (lead). Gates green
+  (`.tmp/4_y/gates_sub_b3b1_lead.log`, acceptance 316 of 318, the two open ones (b4)'s);
+  mutants r1 145 mutants, 124 caught, 20 unviable, 1 missed (`.tmp/4_y/mutants_sub_b3b1.log`: the lenient-kept texture link in `linked_common_files`' guard, a test added), rework 145 mutants, 125 caught, 20 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b1_r1.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -6980,3 +7008,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   at their paths; a pre-Fox per-kit model set is one directory's (decision).
 - **2026-10-10** — 4.y-sub (b3a) landed: a texture named by its path below its file's folder
   resolves there; a Fox player's subfolder texture sits before `sourceimages`.
+- **2026-10-10** — 4.y-sub (b3b1) landed: links at any depth of a player folder; a `.common`
+  model or material link stands for the `Common/` file at its own path.

@@ -8,10 +8,10 @@ use std::collections::BTreeSet;
 
 use vtree::ScopePath;
 
-use super::folders::{Position, fold, is_direct_common_file, position, shared_folders, stem};
+use super::folders::{counts_as_link, fold, shared_folders, stem};
 use super::roster::SlotMap;
 use crate::FileKind;
-use crate::conventions::{SharedKind, classify, common_link_name, shared_link_name};
+use crate::conventions::{SharedKind, classify, common_link_target, shared_link_name};
 use crate::listing::ValidationContext;
 use crate::parse::{AestheticsExportDraft, FolderDraft};
 use crate::validate::{Disposition, IssueScope, ValidationIssue, dropped_scopes, issue_in};
@@ -20,7 +20,7 @@ use crate::validate::{Disposition, IssueScope, ValidationIssue, dropped_scopes, 
 pub(crate) enum ResolvedLinkKind {
     /// A shared-folder link (`Crocs.boots`).
     Shared(SharedKind),
-    /// A `.common` link; the name it looked for directly under `Common/`.
+    /// A `.common` link; the path below `Common/` it looked for (`common_link_target`).
     Common(String),
 }
 
@@ -60,18 +60,22 @@ fn is_installed_texture(name: &str, context: &ValidationContext) -> bool {
             .contains(&fold(stem(name)))
 }
 
-/// Every player folder's link files resolved to their targets: its direct
-/// `SharedLink` and `CommonLink` files. A link below a subfolder is no link
-/// (the allowlist names it out of place, `player_folders.md` "Subfolders").
+/// Every player folder's link files resolved to their targets: its `SharedLink` and
+/// `CommonLink` files wherever they count as links (`counts_as_link`): at any depth, a link
+/// below a subfolder acting as one in the root (`player_folders.md` "Subfolders"). A `.common`
+/// link's target is the `Common/` file at the link's own path below the folder
+/// (`common_link_target`), at any depth of `Common/`.
 pub(crate) fn player_links(
     folder: &FolderDraft,
     draft: &AestheticsExportDraft,
 ) -> Vec<ResolvedLink> {
     let mut links = Vec::new();
     for file in &folder.files {
-        let file_position = position(&file.path, &folder.path);
+        if !counts_as_link(file, &folder.path) {
+            continue;
+        }
         match file.kind {
-            FileKind::SharedLink(kind) if file_position == Position::Direct => {
+            FileKind::SharedLink(kind) => {
                 let (_, name) = shared_link_name(file.path.name())
                     .expect("a SharedLink kind implies a non-empty link stem");
                 let target = shared_folders(draft, kind)
@@ -85,21 +89,22 @@ pub(crate) fn player_links(
                     target,
                 });
             }
-            FileKind::CommonLink if file_position == Position::Direct => {
-                let name = common_link_name(file.path.name())
-                    .expect("a CommonLink kind implies a non-empty link stem");
+            FileKind::CommonLink => {
+                let below = common_link_target(&file.path, &folder.path)
+                    .expect("a CommonLink file of the folder names a path below `Common/`");
+                let key = fold(&below);
                 let target = draft
                     .common
                     .iter()
                     .find(|candidate| {
-                        is_direct_common_file(&candidate.path)
-                            && fold(candidate.path.name()) == fold(&name)
+                        let in_common: Vec<&str> = candidate.path.segments().skip(1).collect();
+                        fold(&in_common.join("/")) == key
                     })
                     .map(|candidate| candidate.path.clone());
                 links.push(ResolvedLink {
                     link_file: file.path.clone(),
                     link_name: file.path.name().to_owned(),
-                    kind: ResolvedLinkKind::Common(name),
+                    kind: ResolvedLinkKind::Common(below),
                     target,
                 });
             }

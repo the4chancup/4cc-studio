@@ -2,7 +2,7 @@
 //! file lists, and each folder kind's own checks (the file-type allowlist,
 //! links, markers and naming rules of "Validation semantics").
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use vtree::ScopePath;
 
@@ -34,9 +34,11 @@ pub struct PlayerFolder {
     pub player_name: String,
     /// Names, sizes, kinds — contents load later, per task.
     pub files: Vec<FileDescriptor>,
-    /// Shared-folder link files (`Crocs.boots` → shared `Boots/Crocs/`);
-    /// `.common` links are `files` entries of link kind, resolved against
-    /// `Common/` by the pipeline.
+    /// Shared-folder link files (`Crocs.boots` → shared `Boots/Crocs/`), at
+    /// any depth of the folder, each linked folder once however many links
+    /// name it (`jessie/Crocs.boots` beside a root `Crocs.boots`); `.common`
+    /// links are `files` entries of link kind, resolved against `Common/` by
+    /// the pipeline.
     pub links: Vec<SharedLink>,
     /// A recognized `ingame_face` / `ingame_face.txt` marker.
     pub ingame_face: bool,
@@ -99,10 +101,11 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
     let mut portrait = None;
     let mut settings = None;
     for file in &draft.files {
-        // Only a file directly in the folder can be a link, marker, settings
-        // or portrait; everything below a subfolder is pipeline content (the
-        // allowlist names such a file out of place).
-        if file.path.segments().count() != depth {
+        // Only a file directly in the folder can be a marker, settings or
+        // portrait; everything else below a subfolder is pipeline content (the
+        // allowlist names such a file out of place). A shared link counts at
+        // any depth, as one in the root (`player_folders.md` "Subfolders").
+        if file.path.segments().count() != depth && !matches!(file.kind, FileKind::SharedLink(_)) {
             files.push(file.clone());
             continue;
         }
@@ -245,10 +248,10 @@ pub(crate) fn shared_model_folder(draft: &FolderDraft) -> SharedModelFolder {
 /// A file's position relative to the player folder holding it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Position {
-    /// Directly in the folder, where the markers, settings and links are read.
+    /// Directly in the folder, where the markers and settings are read.
     Direct,
     /// Anywhere below one of its subfolders, at any depth: a player folder of
-    /// its own, holding model content alone (`player_folders.md` "Subfolders").
+    /// its own, holding model content and links (`player_folders.md` "Subfolders").
     Below,
 }
 
@@ -357,10 +360,39 @@ fn is_model_content(kind: FileKind) -> bool {
     )
 }
 
-/// What a file below a subfolder of a player folder may be: model content, but a per-player
-/// singleton (`is_player_singleton`), which counts directly in the player folder alone.
-fn player_below_allowed(file: &FileDescriptor) -> bool {
-    is_model_content(file.kind) && !is_player_singleton(file.path.name())
+/// What a file below a subfolder of the player folder at `folder` may be: model content, but a
+/// per-player singleton (`is_player_singleton`), which counts directly in the player folder
+/// alone, and a link where one counts (`counts_as_link`).
+fn player_below_allowed(file: &FileDescriptor, folder: &ScopePath) -> bool {
+    (is_model_content(file.kind) && !is_player_singleton(file.path.name()))
+        || counts_as_link(file, folder)
+}
+
+/// Whether `file`, a file of the player folder at `folder`, is a link where it sits: a shared
+/// link at any depth, read as one in the root, and a `.common` link directly in the folder or,
+/// at any depth below it, to anything but a texture (`player_folders.md` "Subfolders"). A
+/// texture link below a subfolder stays out of place until texture links below a subfolder
+/// claim their folder's stem (`texture_claim`).
+pub(crate) fn counts_as_link(file: &FileDescriptor, folder: &ScopePath) -> bool {
+    match file.kind {
+        FileKind::SharedLink(_) => true,
+        FileKind::CommonLink => {
+            directly_in(&file.path, folder)
+                || common_link_name(file.path.name())
+                    .is_some_and(|name| classify(&name) != FileKind::Texture)
+        }
+        FileKind::Model(_)
+        | FileKind::Texture
+        | FileKind::Skl
+        | FileKind::Fclo
+        | FileKind::Xml
+        | FileKind::Mtl
+        | FileKind::MaterialsToml
+        | FileKind::Bin
+        | FileKind::Marker(_)
+        | FileKind::Metadata(_)
+        | FileKind::Other => false,
+    }
 }
 
 /// What a file directly in a player folder may be (allowlist row 1).
@@ -445,7 +477,7 @@ pub(crate) fn check_player(
     for file in &folder.files {
         let allowed = match position(&file.path, &folder.path) {
             Position::Direct => player_direct_allowed(file.kind),
-            Position::Below => player_below_allowed(file),
+            Position::Below => player_below_allowed(file, &folder.path),
         };
         if !allowed {
             issues.push(issue_in(
@@ -458,18 +490,17 @@ pub(crate) fn check_player(
         }
     }
 
-    // 2. One shared link per kind.
+    // 2. One shared folder per kind, over the whole tree: two links naming one folder (a
+    // subfolder's beside the root's, or `Crocs.boots` beside `crocs.boots.txt`) name it once.
     for kind in [SharedKind::Face, SharedKind::Boots, SharedKind::Gloves] {
-        if folder
+        let named: BTreeSet<String> = folder
             .files
             .iter()
-            .filter(|file| {
-                position(&file.path, &folder.path) == Position::Direct
-                    && file.kind == FileKind::SharedLink(kind)
-            })
-            .count()
-            > 1
-        {
+            .filter(|file| file.kind == FileKind::SharedLink(kind))
+            .filter_map(|file| shared_link_name(file.path.name()))
+            .map(|(_, name)| fold(&name))
+            .collect();
+        if named.len() > 1 {
             issues.push(issue_in(
                 context,
                 "shared_link_duplicate",
@@ -537,32 +568,27 @@ pub(crate) fn check_player(
             && position(&file.path, &folder.path) == Position::Direct
     });
     if ingame_face {
-        // A model is face content by its name wherever it sits; a link counts
-        // directly in the folder alone, where links are read.
-        let trigger = folder.files.iter().find(|file| {
-            let direct = position(&file.path, &folder.path) == Position::Direct;
-            match file.kind {
-                FileKind::SharedLink(SharedKind::Face) => direct,
-                FileKind::SharedLink(SharedKind::Boots | SharedKind::Gloves) => false,
-                FileKind::Model(_) => {
-                    model_suffix(stem(file.path.name())).is_some_and(is_explicit_face)
-                }
-                FileKind::CommonLink => {
-                    direct
-                        && common_link_name(file.path.name())
-                            .is_some_and(|name| is_explicit_model_file(&name))
-                }
-                FileKind::Texture
-                | FileKind::Skl
-                | FileKind::Fclo
-                | FileKind::Xml
-                | FileKind::Mtl
-                | FileKind::MaterialsToml
-                | FileKind::Bin
-                | FileKind::Marker(_)
-                | FileKind::Metadata(_)
-                | FileKind::Other => false,
+        // A model is face content by its name wherever it sits, and so is a link: a face link
+        // and a model link count as links at any depth (`counts_as_link`).
+        let trigger = folder.files.iter().find(|file| match file.kind {
+            FileKind::SharedLink(SharedKind::Face) => true,
+            FileKind::SharedLink(SharedKind::Boots | SharedKind::Gloves) => false,
+            FileKind::Model(_) => {
+                model_suffix(stem(file.path.name())).is_some_and(is_explicit_face)
             }
+            FileKind::CommonLink => {
+                common_link_name(file.path.name()).is_some_and(|name| is_explicit_model_file(&name))
+            }
+            FileKind::Texture
+            | FileKind::Skl
+            | FileKind::Fclo
+            | FileKind::Xml
+            | FileKind::Mtl
+            | FileKind::MaterialsToml
+            | FileKind::Bin
+            | FileKind::Marker(_)
+            | FileKind::Metadata(_)
+            | FileKind::Other => false,
         });
         if let Some(file) = trigger {
             issues.push(issue_in(

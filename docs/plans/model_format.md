@@ -468,8 +468,9 @@ player or shared folder and the *file's folder* is the one directly holding the 
 
 - a `.model`: the file's folder, then the model folder;
 - a `.model.common` link: the link's folder for a name-matched `.mtl` only (a local override of
-  the shared model's materials), then `Common/` (where the model really is), then the link's
-  folder, then the model folder, each for all three kinds.
+  the shared model's materials), then the linked model's folder in `Common/` (where the model
+  really is: `Common/jessie/` for `jessie/legs.model.common`, a link mirroring `Common/`'s
+  tree), then the link's folder, then the model folder, each for all three kinds.
 
 A model the search finds no `.mtl` for has every material undefined, which is
 `model_material_undefined` (E). This is Red's `find_mtl_file` (`xml_editing.py`), with two

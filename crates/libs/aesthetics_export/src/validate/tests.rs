@@ -1198,7 +1198,7 @@ fn a_nested_common_model_file_is_admitted_but_no_link_target() {
 
 // TC-MOD-67
 #[test]
-fn a_subfolder_s_markers_settings_and_links_are_file_type_disallowed() {
+fn a_subfolder_s_markers_and_settings_are_file_type_disallowed() {
     let report = report_with(
         &context_with(false, false),
         "egg Midcup",
@@ -1206,18 +1206,14 @@ fn a_subfolder_s_markers_settings_and_links_are_file_type_disallowed() {
             ("Players/03 - A/face_high.fmdl", 10),
             ("Players/03 - A/jessie/ingame_face", 0),
             ("Players/03 - A/jessie/fpc_off", 0),
-            ("Players/03 - A/jessie/Crocs.boots", 0),
             ("Players/03 - A/jessie/settings.toml", 20),
-            // `boots/` is no reserved name: a link there is no link either.
-            ("Players/03 - A/boots/torso.fmdl.common", 0),
-            ("Common/torso.fmdl", 10),
         ],
         &[],
         &[],
     );
     assert_eq!(
         issue_codes(&report),
-        vec![("file_type_disallowed", Disposition::Keep); 5]
+        vec![("file_type_disallowed", Disposition::Keep); 3]
     );
     let named: Vec<&str> = report
         .issues
@@ -1227,29 +1223,154 @@ fn a_subfolder_s_markers_settings_and_links_are_file_type_disallowed() {
     assert_eq!(
         named,
         [
-            "boots/torso.fmdl.common",
-            "jessie/Crocs.boots",
             "jessie/fpc_off",
             "jessie/ingame_face",
             "jessie/settings.toml",
         ]
     );
-    // None of them counts: the player keeps his face, with no marker, link or settings.
+    // None of them counts: the player keeps his face, with no marker or settings.
     let player = &report.validated.unwrap().players[0];
     assert!(!player.ingame_face);
     assert_eq!(player.fpc, None);
-    assert!(player.links.is_empty());
     assert_eq!(player.settings, None);
 }
 
 #[test]
-fn ingame_face_and_common_links_act_by_target_and_position() {
+fn a_common_link_below_a_subfolder_stands_for_the_common_file_at_its_path() {
+    let files = [
+        ("Common/jessie/body.fmdl", 10),
+        ("Players/03 - A/face_high.fmdl", 10),
+        ("Players/03 - A/jessie/body.fmdl.common", 0),
+    ];
+    let report = report("egg Midcup", &files, &[], &[]);
+    assert_eq!(issue_codes(&report), vec![]);
+    let player = &report.validated.unwrap().players[0];
+    assert!(
+        player
+            .files
+            .iter()
+            .any(|file| file.path.as_str() == "Players/03 - A/jessie/body.fmdl.common")
+    );
+    let draft = crate::testing::parsed("egg Midcup", &files, &[], &[]).draft;
+    let targets: Vec<Option<String>> = links::player_links(&draft.players[0], &draft)
+        .into_iter()
+        .map(|link| link.target.map(|target| target.as_str().to_owned()))
+        .collect();
+    assert_eq!(targets, [Some("Common/jessie/body.fmdl".to_owned())]);
+}
+
+#[test]
+fn a_common_link_below_a_subfolder_names_no_direct_common_file() {
+    let report = report(
+        "egg Midcup",
+        &[
+            ("Common/body.fmdl", 10),
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Players/03 - A/jessie/body.fmdl.common", 0),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("common_link_missing", Disposition::DropFolder)]
+    );
+    assert_eq!(report.issues[0].scope, folder("Players/03 - A"));
+    assert_eq!(
+        report.issues[0].context,
+        vec![
+            ("link", "body.fmdl.common".to_owned()),
+            ("path", "Common/jessie/body.fmdl".to_owned()),
+        ]
+    );
+    assert!(report.validated.unwrap().players.is_empty());
+}
+
+#[test]
+fn a_texture_link_below_a_subfolder_is_still_file_type_disallowed() {
+    let report = report(
+        "egg Midcup",
+        &[
+            ("Common/jessie/hair.dds", 9),
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Players/03 - A/jessie/hair.dds.common", 0),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("file_type_disallowed", Disposition::DropFolder)]
+    );
+    assert_eq!(
+        report.issues[0].context,
+        vec![("file", "jessie/hair.dds.common".to_owned())]
+    );
+}
+
+// TC-MOD-70
+#[test]
+fn a_subfolder_s_shared_link_is_the_root_s_and_one_folder_linked_twice_counts_once() {
+    let files = |subfolder_link: &str| {
+        [
+            ("Boots/Crocs/boots.fmdl".to_owned(), 10),
+            ("Boots/Tabi/boots.fmdl".to_owned(), 10),
+            ("Players/03 - A/face_high.fmdl".to_owned(), 10),
+            ("Players/03 - A/Crocs.boots".to_owned(), 0),
+            (format!("Players/03 - A/jessie/{subfolder_link}"), 0),
+        ]
+    };
+    fn borrowed(files: &[(String, u64)]) -> Vec<(&str, u64)> {
+        files
+            .iter()
+            .map(|(path, size)| (path.as_str(), *size))
+            .collect()
+    }
+
+    let once = files("Crocs.boots");
+    let compiled = report("egg Midcup", &borrowed(&once), &[], &[]);
+    // Tabi, which no one links, is orphaned; Crocs is linked, once.
+    assert_eq!(
+        issue_codes(&compiled),
+        vec![("shared_folder_orphaned", Disposition::DropFolder)]
+    );
+    assert_eq!(compiled.issues[0].scope, folder("Boots/Tabi"));
+    let validated = compiled.validated.unwrap();
+    assert_eq!(
+        validated.players[0].links,
+        vec![SharedLink {
+            kind: SharedKind::Boots,
+            name: "Crocs".to_owned(),
+        }]
+    );
+
+    let twice = files("Tabi.boots");
+    let checked = report("egg Midcup", &borrowed(&twice), &[], &[]);
+    assert_eq!(
+        issue_codes(&checked),
+        vec![
+            ("shared_link_duplicate", Disposition::DropFolder),
+            ("shared_folder_orphaned", Disposition::DropFolder),
+            ("shared_folder_orphaned", Disposition::DropFolder),
+        ]
+    );
+    assert_eq!(checked.issues[0].scope, folder("Players/03 - A"));
+    assert_eq!(
+        checked.issues[0].context,
+        vec![("kind", "boots".to_owned())]
+    );
+    assert!(checked.validated.unwrap().players.is_empty());
+}
+
+#[test]
+fn ingame_face_and_common_links_act_by_target_at_any_depth() {
     let report = report(
         "egg Midcup",
         &[
             ("Common/face_high.fmdl", 10),
             ("Common/torso.fmdl", 10),
             ("Common/face_high.dds", 9),
+            ("Common/boots/face_high.fmdl", 10),
             ("Players/01 - A/ingame_face", 0),
             ("Players/01 - A/face_high.fmdl.common", 0),
             ("Players/02 - B/ingame_face", 0),
@@ -1262,14 +1383,11 @@ fn ingame_face_and_common_links_act_by_target_and_position() {
         &[],
         &[],
     );
-    // Only A's explicit-face-model link contradicts the marker: D's, below a subfolder, is no
-    // link (only the root's links count), so it is out of place and nothing more.
+    // A's and D's explicit-face-model links contradict the marker, D's below a subfolder as
+    // one in the root would; B's torso and C's texture do not.
     assert_eq!(
         issue_codes(&report),
-        vec![
-            ("ingame_face_explicit_face_model", Disposition::DropFolder),
-            ("file_type_disallowed", Disposition::DropFolder),
-        ]
+        vec![("ingame_face_explicit_face_model", Disposition::DropFolder); 2]
     );
     assert_eq!(report.issues[0].scope, folder("Players/01 - A"));
     assert_eq!(report.issues[1].scope, folder("Players/04 - D"));
@@ -1303,30 +1421,36 @@ fn a_shared_folder_with_different_kinds_of_one_stem_is_fine() {
 }
 
 #[test]
-fn a_link_file_below_any_subfolder_is_no_link() {
-    // Neither link is resolved: the shared folder no one links is orphaned, and the `.common`
-    // link naming nothing in `Common/` is no `common_link_missing`.
-    let report = report_with(
-        &context_with(false, false),
+fn a_link_file_below_any_subfolder_is_a_link_as_in_the_root() {
+    // Both links resolve: the shared folder is linked, not orphaned, and the `.common` link
+    // names the `Common/` file at its own path.
+    let report = report(
         "egg Midcup",
         &[
             ("Players/03 - A/extra/Crocs.boots", 0),
-            ("Players/03 - A/face/missing.fmdl.common", 0),
+            ("Players/03 - A/face/torso.fmdl.common", 0),
             ("Boots/Crocs/boots.fmdl", 10),
+            ("Common/face/torso.fmdl", 10),
         ],
         &[],
         &[],
     );
-    assert_eq!(
-        issue_codes(&report),
-        vec![
-            ("file_type_disallowed", Disposition::Keep),
-            ("file_type_disallowed", Disposition::Keep),
-            ("shared_folder_orphaned", Disposition::DropFolder),
-        ]
-    );
+    assert_eq!(issue_codes(&report), vec![]);
     let player = &report.validated.unwrap().players[0];
-    assert!(player.links.is_empty());
+    assert_eq!(
+        player.links,
+        vec![SharedLink {
+            kind: SharedKind::Boots,
+            name: "Crocs".to_owned(),
+        }]
+    );
+    assert!(
+        player
+            .files
+            .iter()
+            .all(|file| file.path.as_str() != "Players/03 - A/extra/Crocs.boots"),
+        "a shared link is no pipeline file"
+    );
 }
 
 #[test]
@@ -1378,16 +1502,33 @@ fn a_referee_folder_with_category_subfolders_is_player_layout_proto_alone_a_team
 
 #[test]
 fn a_common_link_in_common_is_no_link_either() {
+    // A link in the export's `Common/` is no model content there; a player's subfolder named
+    // `common/` is a subfolder like any other, its link naming `Common/common/x.fmdl`.
     let report = report_with(
         &context_with(false, false),
         "egg Midcup",
-        &[("Players/03 - A/common/x.fmdl.common", 0)],
+        &[
+            ("Common/x.fmdl", 10),
+            ("Common/sub/x.fmdl.common", 0),
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Players/03 - A/common/x.fmdl.common", 0),
+        ],
         &[],
         &[],
     );
     assert_eq!(
         issue_codes(&report),
-        vec![("file_type_disallowed", Disposition::Keep)]
+        vec![
+            ("common_link_missing", Disposition::DropFolder),
+            ("common_file_disallowed", Disposition::Keep),
+        ]
+    );
+    assert_eq!(
+        report.issues[0].context,
+        vec![
+            ("link", "x.fmdl.common".to_owned()),
+            ("path", "Common/common/x.fmdl".to_owned()),
+        ]
     );
 }
 
@@ -2466,8 +2607,8 @@ fn two_collisions_on_one_loose_path_report_once() {
 
 #[test]
 fn a_common_link_below_common_is_no_texture() {
-    // `common/` is not a link position: the file is disallowed there but
-    // never joins the stem namespace.
+    // A texture link below a subfolder is out of place: the file is
+    // disallowed there but never joins the stem namespace.
     let report = report(
         "egg Midcup",
         &[
@@ -2486,15 +2627,15 @@ fn a_common_link_below_common_is_no_texture() {
 
 #[test]
 fn a_kept_disallowed_common_file_stays_in_the_players_files() {
-    // A `.common` file below `common/` is never a link position: its
-    // disallowed finding keeps it (strict off), so it stays in `files`.
+    // A texture link below a subfolder is out of place: its disallowed
+    // finding keeps it (strict off), so it stays in `files`.
     let report = report_with(
         &context_with(false, false),
         "egg Midcup",
         &[
-            ("Common/torso.fmdl", 10),
+            ("Common/hair.dds", 10),
             ("Players/03 - A/face_high.fmdl", 10),
-            ("Players/03 - A/common/torso.fmdl.common", 0),
+            ("Players/03 - A/common/hair.dds.common", 0),
         ],
         &[],
         &[],
@@ -2508,7 +2649,7 @@ fn a_kept_disallowed_common_file_stays_in_the_players_files() {
         player
             .files
             .iter()
-            .any(|f| f.path.as_str() == "Players/03 - A/common/torso.fmdl.common"),
+            .any(|f| f.path.as_str() == "Players/03 - A/common/hair.dds.common"),
         "{:?}",
         player
             .files

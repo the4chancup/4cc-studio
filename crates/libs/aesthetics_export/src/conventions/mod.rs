@@ -7,6 +7,7 @@ mod player_folder;
 
 pub use file_types::{
     FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify, common_link_name,
+    common_link_target,
 };
 pub(crate) use file_types::{icon_number, is_logo_texture, shared_link_name, strip_prefix_ci};
 pub use kit_token::{KitToken, kit_token, variant_stem, without_kit_token};

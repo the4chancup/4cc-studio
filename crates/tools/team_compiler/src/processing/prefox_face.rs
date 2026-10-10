@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 
 use aesthetics_export::{
-    FileDescriptor, FileKind, KitToken, ModelFormat, ModelSuffix, common_link_name, kit_token,
+    FileDescriptor, FileKind, KitToken, ModelFormat, ModelSuffix, common_link_target, kit_token,
     variant_stem,
 };
 use pes_model::format::mtl::{Address, Filter, MaterialEntry, MaterialSet, Sampler};
@@ -43,7 +43,7 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureDirectory, TextureHome};
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, common_file, file_stem, is_direct_root_folder_file, path_stem,
+    ModelPackage, PlayerFile, below_common, common_file, file_stem, is_common_file, path_stem,
     role_position, selected_common_model,
 };
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
@@ -90,8 +90,10 @@ struct FaceModel<'a> {
     /// team's Common output.
     packed: String,
     /// The directory it sits in below its source folder, `/`-terminated (`jessie/body/`),
-    /// empty for a file directly in it and for a link: the face packs it, its hands and a
-    /// converted model's material set in that directory, and lists them there.
+    /// empty for a file directly in it: the face packs it, its hands and a converted model's
+    /// material set in that directory, and lists them there. For a link, the linked model's
+    /// directory below `Common/` (`jessie/` for `jessie/legs.model.common`, empty for a root
+    /// link), where the team's Common output holds it and the face lists it.
     directory: String,
     /// Whether it is a link: the game loads the model from the team's Common output, and the
     /// face packs nothing of it.
@@ -562,15 +564,17 @@ pub(super) fn face(
                 // Packing nothing into the face, a link takes no name from a shared face's
                 // file.
                 PlayerFile::PreFoxCommonModel { xml_type } => {
-                    let linked_name = common_link_name(file.path.name())
-                        .expect("a PreFoxCommonModel role implies a `.common` link name");
+                    let linked_name = common_link_target(&file.path, source_path).expect(
+                        "a PreFoxCommonModel role implies a `.common` link below its folder",
+                    );
                     // Two spellings of one link (`legs.model.common` and the tolerated
                     // `legs.model.common.txt`) are one model, listed once: the first in the
                     // folder's file order.
                     if !linked_models.insert(vtree::fold_name(&linked_name)) {
                         continue;
                     }
-                    let stem = file_stem(&linked_name);
+                    let (directory, linked_file) = texture_lookup::split(&linked_name);
+                    let stem = file_stem(linked_file);
                     let linked_model =
                         selected_common_model(&folder.common_files, &linked_name, Engine::PreFox)
                             .expect(
@@ -591,7 +595,7 @@ pub(super) fn face(
                         stem: stem.to_owned(),
                         xml_type,
                         packed: packed_model_name(stem),
-                        directory: String::new(),
+                        directory: directory.to_owned(),
                         in_common: true,
                         source,
                         source_path,
@@ -688,14 +692,16 @@ pub(super) fn face(
     // `.mtl`'s directory below its source folder where the search found it (`./jessie/body/`
     // beside a subfolder's model, `./` in the root), a converted set's its model's, or, for a
     // `.mtl` the search found in `Common/`, which is the Common output's and never packed
-    // here, the Common directory; the name respelled for a set's listed variant.
+    // here, its directory in the Common output (`jessie/` for `Common/jessie/legs.mtl`); the
+    // name respelled for a set's listed variant.
     let written: Vec<(String, String)> = models
         .iter()
         .zip(&kits)
         .map(|(model, kit)| {
             let (directory, name) = match &model.source {
-                FaceSource::Member { material } if is_direct_root_folder_file(&material.path) => {
-                    (common_directory.clone(), material.path.name().to_owned())
+                FaceSource::Member { material } if is_common_file(&material.path) => {
+                    let (directory, name) = texture_lookup::split(below_common(&material.path));
+                    (format!("{common_directory}{directory}"), name.to_owned())
                 }
                 FaceSource::Member { material } => (
                     format!("./{}", directory_below(&material.path, model.source_path)),
@@ -706,7 +712,7 @@ pub(super) fn face(
                     converted_material_name(&model.stem),
                 ),
                 FaceSource::CommonConversion => (
-                    common_directory.clone(),
+                    format!("{common_directory}{}", model.directory),
                     converted_material_name(&model.stem),
                 ),
             };
@@ -746,9 +752,10 @@ pub(super) fn face(
                 ));
             }
         }
-        // An own model is listed and packed at its path below its source folder.
+        // An own model is listed and packed at its path below its source folder, a link's
+        // model at its path below the team's Common output.
         let model_directory = if model.in_common {
-            common_directory.clone()
+            format!("{common_directory}{}", model.directory)
         } else {
             format!("./{}", model.directory)
         };
@@ -1212,7 +1219,7 @@ impl<'a> XmlFace<'a> {
                 .chain(self.named.linked_local(kind))
                 // A `.mtl.common` link's Common file is the Common output's, never packed here.
                 .filter(|(below, file)| {
-                    !is_direct_root_folder_file(&file.path) && variant_of(path, below).is_some()
+                    !is_common_file(&file.path) && variant_of(path, below).is_some()
                 })
                 .collect();
             if variants.is_empty() {
@@ -1226,8 +1233,12 @@ impl<'a> XmlFace<'a> {
         }
         let file = resolve(&Reference::Local(path.to_owned()), &self.named, kind)
             .ok_or_else(|| anyhow::anyhow!("{value} names no file of the face"))?;
-        if is_direct_root_folder_file(&file.path) {
-            return Ok(format!("{}{}", self.common_directory, file.path.name()));
+        if is_common_file(&file.path) {
+            return Ok(format!(
+                "{}{}",
+                self.common_directory,
+                below_common(&file.path)
+            ));
         }
         self.pack(file, path, files)?;
         Ok(value.to_owned())
@@ -1333,7 +1344,7 @@ fn face_files(folder: &ModelFolder) -> FaceFiles<'_> {
 fn names_model(xml: &UserFaceXml, model: &FaceModel, named: &FaceFiles) -> bool {
     let model_kind = FileKind::Model(ModelFormat::PesModel);
     let target = if model.in_common {
-        common_link_name(model.file.path.name())
+        common_link_target(&model.file.path, model.source_path)
             .and_then(|linked| selected_common_model(named.common, &linked, Engine::PreFox))
     } else {
         Some(model.file)
@@ -1511,8 +1522,8 @@ pub(super) struct MaterialPlaces<'a> {
 /// The stem of the `Common/` texture the `.common` texture link `file` of the player `folder`
 /// names, as `Common/` spells it: the name its DDS has in the team's Common output.
 pub(super) fn linked_texture_stem(folder: &ModelFolder, file: &FileDescriptor) -> String {
-    let linked_name = common_link_name(file.path.name())
-        .expect("a CommonTexture role implies a `.common` link name");
+    let linked_name = common_link_target(&file.path, &folder.path)
+        .expect("a CommonTexture role implies a `.common` link below its folder");
     // On pre-Fox no installed texture satisfies a link (validation's
     // `installed_common_textures` is empty there).
     let target = common_file(&folder.common_files, &linked_name)

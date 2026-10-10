@@ -29,9 +29,7 @@ use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureDirectory};
 use crate::plan::ModelFolder;
-use crate::plan::roles::{
-    ModelPackage, PlayerFile, file_stem, is_direct_root_folder_file, skeleton_slot,
-};
+use crate::plan::roles::{ModelPackage, PlayerFile, file_stem, is_common_file, skeleton_slot};
 use crate::texture_lookup::{self, TextureFolders, TexturePlace};
 use crate::user_face_xml::{Reference, reference};
 
@@ -176,7 +174,7 @@ pub(super) fn package(
                         );
                         // A Common set's stems resolve in `Common/`, where the deep pass checked
                         // them: a texture of the folder's of one of those stems shadows nothing.
-                        if is_direct_root_folder_file(&mtl.path) {
+                        if is_common_file(&mtl.path) {
                             part.textures = PartTextures::Common;
                         }
                         part.references_from = mtl.path.clone();
@@ -208,7 +206,7 @@ pub(super) fn package(
                         );
                         // The player's own `.mtl`, which the search prefers to `Common/`'s,
                         // set the stems: they are looked for in his folder first.
-                        if !is_direct_root_folder_file(&mtl.path) {
+                        if !is_common_file(&mtl.path) {
                             part.textures = PartTextures::CommonSet;
                         }
                         part.references_from = mtl.path.clone();

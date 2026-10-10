@@ -217,8 +217,7 @@ mod tests {
     use super::*;
     use crate::deep::tests::{
         bc1_dds, counted, edited, far_boots, findings_for, findings_of, fixture, folder,
-        glove_over_the_face_limit, lenient_findings_for, mtl_texture, path, pre_fox_fixture,
-        tracer_boots, tracer_file,
+        glove_over_the_face_limit, mtl_texture, path, pre_fox_fixture, tracer_boots, tracer_file,
     };
     use crate::testing::scratch;
 
@@ -846,22 +845,33 @@ mod tests {
     }
 
     #[test]
-    fn a_common_link_below_a_subfolder_is_no_link_and_keeps_its_place_beside_a_hidden_target() {
-        // The lenient file-type check keeps the link below the subfolder in the folder's
-        // files (`file_type_disallowed`, an Info), where it links nothing.
+    fn a_common_link_below_a_subfolder_is_dropped_with_the_hidden_target_at_its_path() {
+        // `sub/oral.fmdl.common` links `Common/sub/oral.fmdl`, not the direct `Common/oral.fmdl`.
         let temp = scratch("deep_hidden_subfolder_link");
-        let findings = lenient_findings_for(
+        let findings = findings_for(
             PesVersion::Pes17,
             temp.path(),
             &[
                 ("Players/05 - B/sub/oral.fmdl.common", Vec::new()),
                 ("Common/oral.fmdl", hidden_oral()),
+                ("Common/sub/oral.fmdl", hidden_oral()),
             ],
-            &["file_type_disallowed"],
+            &[],
+            &[],
         );
         assert_eq!(
             findings,
-            [hidden_dropped("Common/oral.fmdl", &[("file", "oral.fmdl")])]
+            [
+                hidden_dropped(
+                    "Players/05 - B/sub/oral.fmdl.common",
+                    &[
+                        ("file", "sub/oral.fmdl.common"),
+                        ("model", "Common/sub/oral.fmdl")
+                    ]
+                ),
+                hidden_dropped("Common/oral.fmdl", &[("file", "oral.fmdl")]),
+                hidden_dropped("Common/sub/oral.fmdl", &[("file", "oral.fmdl")]),
+            ]
         );
     }
 

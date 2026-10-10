@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, ModelFormat,
-    ValidatedAestheticsExport, classify, common_link_name,
+    ValidatedAestheticsExport, classify, common_link_target,
 };
 use pes_version::Engine;
 use vtree::ScopePath;
@@ -19,7 +19,7 @@ use super::model::MaterialRead;
 use super::{KeptCommon, MODEL_MATERIAL_UNDEFINED, named_on_folder};
 use crate::mtl_search::mtl_for;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, is_direct_root_folder_file, player_file, selected_common_model,
+    FolderModels, PlayerFile, is_common_file, player_file, selected_common_model,
 };
 
 /// A `.model` of a model folder paired with the `.mtl` it binds its materials from: what
@@ -77,7 +77,7 @@ pub(super) fn pairings<'a>(
         .iter()
         .filter(|file| pairs_with_mtl(folder, file, models, &common.files))
         .map(|file| {
-            let model = match common_link_name(file.path.name()) {
+            let model = match common_link_target(&file.path, folder) {
                 Some(linked) => {
                     selected_common_model(&common.files, &linked, engine).map(|model| &model.path)
                 }
@@ -112,7 +112,7 @@ fn pairs_with_mtl(
             (file.kind == FileKind::Model(ModelFormat::PesModel)
                 && matches!(role, Some(PlayerFile::Model { .. })))
                 || (matches!(role, Some(PlayerFile::CommonModel { .. }))
-                    && !links_common_fmdl(file, common, engine))
+                    && !links_common_fmdl(folder, file, common, engine))
         }
         // A model link is a part of the face's `face.xml` (`PreFoxCommonModel`), or in a
         // folder holding `ingame_face` a part of his boots or gloves (`PreFoxPart`), whose
@@ -128,18 +128,24 @@ fn pairs_with_mtl(
                     role,
                     Some(PlayerFile::PreFoxModel { .. } | PlayerFile::PreFoxPart { .. })
                 ))
-                || (model_link && !links_common_fmdl(file, common, engine))
+                || (model_link && !links_common_fmdl(folder, file, common, engine))
         }
     }
 }
 
-/// Whether the `.common` model link `file` loads a Common FMDL on a target of `engine`, which
-/// takes no `.mtl`: on Fox it carries its materials, on pre-Fox the Common models task converts
-/// it with the material set its conversion writes. The Common model it loads is among
-/// `common` (`selected_common_model`), or, when that list lacks the file (the kept files,
-/// after the pass dropped it), the model its name links.
-fn links_common_fmdl(file: &FileDescriptor, common: &[FileDescriptor], engine: Engine) -> bool {
-    let Some(linked) = common_link_name(file.path.name()) else {
+/// Whether the `.common` model link `file` of the model folder at `folder` loads a Common FMDL
+/// on a target of `engine`, which takes no `.mtl`: on Fox it carries its materials, on pre-Fox
+/// the Common models task converts it with the material set its conversion writes. The Common
+/// model it loads, at the link's path (`common_link_target`), is among `common`
+/// (`selected_common_model`), or, when that list lacks the file (the kept files, after the pass
+/// dropped it), the model its name links.
+fn links_common_fmdl(
+    folder: &ScopePath,
+    file: &FileDescriptor,
+    common: &[FileDescriptor],
+    engine: Engine,
+) -> bool {
+    let Some(linked) = common_link_target(&file.path, folder) else {
         return false;
     };
     let kind = selected_common_model(common, &linked, engine)
@@ -151,8 +157,8 @@ fn links_common_fmdl(file: &FileDescriptor, common: &[FileDescriptor], engine: E
 /// folder may read on PES 2018 to 2021, `player_models` being each player folder's models
 /// (`part_source_models`): every one of them when the search of a selected `.model` or of a
 /// Common `.model` link (`pairs_with_mtl`, `mtl_for`) finds a `Common/` file, none otherwise.
-/// A subfolder's `.mtl` is in the set too, which changes nothing: the caller asks the set
-/// about a direct `Common/` file alone, a subfolder's being unread whatever the set holds.
+/// A subfolder's `.mtl` is in the set too, which the caller reads only for a file it reads
+/// (`is_read_common_file`: on Fox a subfolder's a link reaches).
 /// Fox has no Common models task, so no other reads one. A shared folder's search sees no
 /// `Common/` file (`pairings`), so it adds none.
 pub(super) fn searched_common_mtls<'a>(
@@ -168,7 +174,7 @@ pub(super) fn searched_common_mtls<'a>(
             player.files.iter().any(|file| {
                 pairs_with_mtl(folder, file, models, &export.common)
                     && mtl_for(&file.path, folder, &player.files, &export.common)
-                        .is_some_and(|mtl| is_direct_root_folder_file(&mtl.path))
+                        .is_some_and(|mtl| is_common_file(&mtl.path))
             })
         });
     if !lands_in_common {
