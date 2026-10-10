@@ -48,8 +48,8 @@ done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the de
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
 TC-MOD-64's meshes told apart, a dropped shared link no link, a textures-only folder
-reported, a `.model` collar's material losses skipped), 4.y-fix22 opened 2026-10-10 (the S13
-and S15 rounds' rework; S12, S14, S15 and S17 closed), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+reported, a `.model` collar's material losses skipped), 4.y-fix22 done 2026-10-10 (the S13
+and S15 rounds' rework; S12, S14, S15 and S17 closed), 4.y-fix23 opened (its residuals), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag done 2026-10-10 (no retype needed; 76 long subjects cut, history rewritten
 and force-pushed), 4.y-fix12 done 2026-10-10
@@ -4358,7 +4358,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Its report's three observations (a no-package folder's texture link unreported, and two
   shapes to check) are 4.y-fix22 (12).
 
-- [ ] 4.y-fix22 **The S13, S15 rounds' rework: a left-out kit number's file stays out, a
+- [x] 4.y-fix22 **The S13, S15 rounds' rework: a left-out kit number's file stays out, a
   Common `.mtl`'s stems resolve in Common, a glTF-dropped folder's `fpc_on` does not count**
   (rulings `.tmp/4_y/duck_rulings.md` "S13.2", "S15.1a", "S15.1b"; after 4.y-fix21,
   which owns `plan/mod.rs` and `validation.rs`; items (9)-(11) from S18's first SWE-2
@@ -4385,6 +4385,28 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   two shapes 4.y-fix21's report named are checked (4.y-fix21's report, O1-O3).
   → verify: tests red first for (1), (2), (3), (5), (8); gates green; `just
   mutants-diff` over the rework; S13's third SWE-2 round on its diff.
+  Done 2026-10-10 (sidekick, landed first time): all twelve as briefed; `combined_folders`
+  moved to `plan/roles.rs` taking `hand_weighted`, one copy for planning, the deep pass
+  and validation; a shared folder's roles read from its own files, as the deep pass
+  does; TC-MOD-54's last case updated to the ruled rule (and its plan text with
+  `pipeline.md`'s, which still said folder first). Files: `team_compiler`
+  `deep/mod.rs`, `kit_variants.rs`, `plan/{mod,overrides,roles}.rs`,
+  `processing/model.rs`, `validation.rs`, `tests/cli/{common_links,conversion,models,
+  prefox_faces,referees}.rs`. The `#[cfg(unix)]` non-UTF-8 test runs first in CI.
+  Residuals, step 4.y-fix23.
+
+- [ ] 4.y-fix23 **4.y-fix22's residuals** (its report, `.tmp/4_y/sk_fix22_report.md`).
+  (1) A PES 17 referee whose only model is a `.model.common` link gets no face
+  (`is_package_model` does not count the link), while the converted Common model is still
+  written into the refs CPK with nothing naming it: the link must count as his face part,
+  as a team player's does. (2) A Fox referee planning no package who links a face folder
+  holding textures alone: compile reports `link_combined` and writes nothing, with no
+  finding on the textures. (3) The deep pass computes the kit-FPC status before planning
+  drops glTF folders, so `check` still counts a glTF-dropped folder's `fpc_on` where
+  `compile` does not (4.y-fix22 (5)). (4) A combined shared face's own left-out variant
+  still gets `fmdl_fcl_hair_fallback` on the shared folder, read alone (one player linking
+  it leaves it out, another may not): by design, noted.
+  → verify: (1)-(3) tests red first; gates green; `just mutants-diff`.
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -6820,3 +6842,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-10** — 4.y-retag done: no commit needed a new type; the 76 subjects over 120
   characters cut, each old subject kept in its body; history from `b197139` rewritten and
   force-pushed (`bd5bc82`), gates green.
+- **2026-10-10** — 4.y-fix22 done (sidekick, landed first time): a left-out kit number's
+  files stay out wherever they sit, validation reads variant sets as compile does, a
+  Common `.mtl`'s stems resolve in Common, a glTF-dropped folder's `fpc_on` does not count,
+  an `overrides` file is an error, a no-package folder's texture links are not used, two
+  comments and a finding's order. Its residuals are step 4.y-fix23.

@@ -72,12 +72,13 @@ struct Variant<'a> {
 /// and a set of one is an ordinary model. A variant present in both formats is one variant,
 /// the target's format (`.fmdl` on Fox, `.model` on pre-Fox) its selected representation, as
 /// the selection order says: the file of the other format beside it is neither `used` nor
-/// left out, a model the target's beats (`FolderModels::beaten`). Of two variants of one number
-/// in two directories, the earlier source's is the variant (the player's own wins a name he
-/// and a combined folder both hold) and the other is neither used nor left out: another part
-/// of that kit, which the part merges with it. Of two in one directory, two spellings of one
-/// name on a case-sensitive file system, the first is used and the other left out. Ordered by
-/// reference.
+/// left out, a model the target's beats (`FolderModels::beaten`), for every number. Of two
+/// files of the used (lowest) number in two directories, the earlier source's is the variant
+/// (the player's own wins a name he and a combined folder both hold) and the other is neither
+/// used nor left out: another part of that kit, which the part merges with it. Every file of
+/// another number is left out, wherever it sits: merged, it would show in every kit's model.
+/// Of two of the used number in one directory, two spellings of one name on a case-sensitive
+/// file system, the first is used and the other left out. Ordered by reference.
 pub(crate) fn model_variant_sets(
     sources: &[Vec<&FileDescriptor>],
     engine: Engine,
@@ -126,10 +127,14 @@ pub(crate) fn model_variant_sets(
             // A stable sort: of the files of one number, the earlier source's first, and in
             // one source the target's format before the other's, then the sources' order.
             variants.sort_by_key(|variant| (variant.kit, variant.source, variant.other_format));
+            let used_kit = variants.first()?.kit;
             variants.dedup_by(|later, kept| {
-                later.kit == kept.kit
-                    && (later.directory != kept.directory
-                        || (later.other_format && !kept.other_format))
+                let beaten =
+                    later.directory == kept.directory && later.other_format && !kept.other_format;
+                // Another part of the used kit is merged with it; a left-out number's other
+                // parts are left out with it, or they would merge into every kit's model.
+                let used_kit_part = later.kit == used_kit && later.directory != kept.directory;
+                later.kit == kept.kit && (beaten || used_kit_part)
             });
             let (used, others) = variants.split_first()?;
             if others.is_empty() {
@@ -266,6 +271,63 @@ mod tests {
         // In one source too: a `face/` variant of the number of one directly in the folder is
         // another part of that kit.
         assert_eq!(sets(&["P/pants_kit1.fmdl", "P/face/pants_kit1.fmdl"]), []);
+    }
+
+    #[test]
+    fn every_file_of_a_left_out_kit_number_is_left_out_wherever_it_sits() {
+        // Crocs' `pants_kit2` is a second part of kit 2, which no kit compiles: merged, it
+        // would show in every kit's model.
+        assert_eq!(
+            source_sets(
+                &[
+                    &["P/pants_kit1.fmdl", "P/pants_kit2.fmdl"],
+                    &["Faces/Crocs/pants_kit2.fmdl"]
+                ],
+                Engine::Fox
+            ),
+            [(
+                "pants_kitN.fmdl".to_owned(),
+                "pants_kit1.fmdl".to_owned(),
+                vec![
+                    "P/pants_kit2.fmdl".to_owned(),
+                    "Faces/Crocs/pants_kit2.fmdl".to_owned()
+                ]
+            )]
+        );
+        // Of either format: nothing beside the Crocs `.model` beats it, so it is left out too.
+        assert_eq!(
+            source_sets(
+                &[
+                    &["P/pants_kit1.fmdl", "P/pants_kit2.fmdl"],
+                    &["Faces/Crocs/pants_kit2.model"]
+                ],
+                Engine::Fox
+            ),
+            [(
+                "pants_kitN.fmdl".to_owned(),
+                "pants_kit1.fmdl".to_owned(),
+                vec![
+                    "P/pants_kit2.fmdl".to_owned(),
+                    "Faces/Crocs/pants_kit2.model".to_owned()
+                ]
+            )]
+        );
+        // In one source too: a `face/` file of a left-out number is left out.
+        assert_eq!(
+            sets(&[
+                "P/pants_kit1.fmdl",
+                "P/pants_kit2.fmdl",
+                "P/face/pants_kit2.fmdl"
+            ]),
+            [(
+                "pants_kitN.fmdl".to_owned(),
+                "pants_kit1.fmdl".to_owned(),
+                vec![
+                    "P/pants_kit2.fmdl".to_owned(),
+                    "P/face/pants_kit2.fmdl".to_owned()
+                ]
+            )]
+        );
     }
 
     #[test]

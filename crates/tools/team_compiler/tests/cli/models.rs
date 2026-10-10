@@ -2060,6 +2060,92 @@ fn a_per_kit_set_split_between_a_player_folder_and_its_face_subfolder_is_one_set
 }
 
 #[test]
+fn a_left_out_kit_number_s_file_in_a_linked_face_is_left_out_too_on_pes_21() {
+    let sandbox = Sandbox::new("mod_kit_variant_left_out_face");
+    let export = "exports/co Midcup Variants";
+    let player = format!("{export}/Players/05 - A");
+    let kit_1 = tracer_player_file("fcl_hair.fmdl");
+    sandbox.write(&format!("{player}/pants_kit1.fmdl"), &kit_1);
+    sandbox.write(
+        &format!("{player}/pants_kit2.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(&format!("{player}/Crocs.face"), b"");
+    // A second part of kit 2, which no kit compiles: merged, it would add its mesh to the
+    // hair of every kit.
+    sandbox.write(
+        &format!("{export}/Faces/Crocs/pants_kit2.fmdl"),
+        &clean_model(),
+    );
+
+    // Crocs' own files are reported as Crocs' (`fmdl_fcl_hair_fallback`): another player
+    // linking it may compile them.
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Variants",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=pants_kit1.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=pants_kit1.fmdl)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Faces/Crocs (file=pants_kit2.fmdl)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=pants_kitN.fmdl, used=pants_kit1.fmdl)",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.face)",
+        ],
+    );
+
+    let meshes = |bytes: &[u8]| {
+        Model::from_file(&FmdlFile::read(bytes).unwrap())
+            .unwrap()
+            .meshes
+            .len()
+    };
+    assert_eq!(
+        meshes(face_package(&entries).get("fcl_hair.fmdl").unwrap()),
+        meshes(&kit_1),
+        "kit 1's meshes alone"
+    );
+}
+
+#[test]
+fn check_reads_a_kit_set_split_between_a_player_and_his_face_as_compile_does_on_pes_21() {
+    let sandbox = Sandbox::new("mod_kit_variant_check_face");
+    let export = "exports/co Midcup Variants";
+    sandbox.write(
+        &format!("{export}/Players/05 - A/pants_kit2.fmdl"),
+        &clean_model(),
+    );
+    sandbox.write(&format!("{export}/Players/05 - A/X.face"), b"");
+    sandbox.write(&format!("{export}/Faces/X/pants_kit1.fmdl"), &clean_model());
+    // His `pants_kit2` is left out of his face, so it is no hair fallback of his.
+    let checked = [
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        "Info fmdl_fcl_hair_fallback [Keep] at Faces/X (file=pants_kit1.fmdl)",
+    ];
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    assert_eq!(
+        findings_of(&check.messages(), "co Midcup Variants"),
+        checked
+    );
+    assert_eq!(check.exit_code(), 0);
+
+    compile_clean(
+        &sandbox,
+        "co Midcup Variants",
+        &[
+            &checked[..],
+            &[
+                "Info team_colors_missing [Keep] ()",
+                "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=pants_kitN.fmdl, used=pants_kit1.fmdl)",
+                "Info link_combined [Keep] at Players/05 - A (link=X.face)",
+            ],
+        ]
+        .concat(),
+    );
+}
+
+#[test]
 fn a_per_kit_set_split_between_a_player_and_a_boots_folder_he_combines_is_one_set_on_pes_21() {
     let sandbox = Sandbox::new("mod_kit_variant_combined");
     let export = "exports/co Midcup Variant Crocs";

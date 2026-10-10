@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
@@ -17,9 +18,10 @@ const FOLDER_NAME: &str = "overrides";
 /// Every file below `<data_dir>/overrides/`, by CPK path (its path below the folder,
 /// `/`-separated) with where it is on disk, and the `overrides_active` note reporting them. A
 /// `BTreeMap` keeps the paths in byte order, so the CPK lays the overrides out the same on every
-/// file system. Nothing, and no note, without a data directory, without the folder, or with no
-/// file in it. A folder that cannot be listed, or a name that is not UTF-8, is an error naming
-/// the path.
+/// file system. Nothing, and no note, without a data directory, when nothing exists at the
+/// folder's path, or with no file in it. Anything else at that path that cannot be listed (a
+/// file named `overrides`, a folder the operator cannot read), or a name that is not UTF-8, is
+/// an error naming the path.
 pub(crate) fn list(
     data_dir: Option<&Path>,
 ) -> anyhow::Result<(BTreeMap<String, PathBuf>, Option<Message>)> {
@@ -28,7 +30,9 @@ pub(crate) fn list(
         return Ok((files, None));
     };
     let folder = data_dir.join(FOLDER_NAME);
-    if !folder.is_dir() {
+    if let Err(error) = fs::metadata(&folder)
+        && error.kind() == io::ErrorKind::NotFound
+    {
         return Ok((files, None));
     }
     walk(&folder, "", &mut files)?;
@@ -136,5 +140,41 @@ mod tests {
         // A folder holding only folders holds no file.
         fs::create_dir_all(data_dir.join("overrides/common/etc")).unwrap();
         assert_eq!(list(Some(data_dir)).unwrap(), (BTreeMap::new(), None));
+    }
+
+    #[test]
+    fn a_file_named_overrides_is_an_error_naming_it() {
+        let temp = scratch("overrides_file");
+        let data_dir = temp.path();
+        let file = data_dir.join("overrides");
+        fs::write(&file, b"").unwrap();
+
+        let error = list(Some(data_dir)).unwrap_err().to_string();
+
+        assert_eq!(
+            error,
+            format!("{}: cannot read the overrides folder", file.display())
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_name_that_is_not_utf_8_is_an_error_naming_it() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let temp = scratch("overrides_not_utf_8");
+        let data_dir = temp.path();
+        let folder = data_dir.join("overrides");
+        fs::create_dir(&folder).unwrap();
+        let file = folder.join(OsStr::from_bytes(b"team\xff.bin"));
+        fs::write(&file, b"").unwrap();
+
+        let error = list(Some(data_dir)).unwrap_err().to_string();
+
+        assert_eq!(
+            error,
+            format!("{}: the name is not valid UTF-8", file.display())
+        );
     }
 }

@@ -1865,10 +1865,13 @@ Resolved decisions:
   folder whose model is a glTF is (the link would load the glTF, and compiling him without the
   part would give him something he did not ask for); one a target-native model beats is silent.
   A player's `.model`
-  whose `.mtl` is a Common file (a `.mtl.common` link) has its texture stems pointed as a
-  Common part's are: at the folder's texture home when the folder holds the stem, else at the
-  team's Common output when `Common/` holds it, since the set names Common's textures; on PES
-  15-17 the face's `.mtl` search already names such a set in the Common output.
+  whose `.mtl` is a Common file (a `.mtl.common` link, or the search reaching `Common/`) has
+  its texture stems pointed as a Common part's are, at the team's Common output, a texture of
+  the folder's of one of those stems shadowing nothing: a stem resolves in the folder of the
+  material file that set it (`model_format.md` "Link files"), where the deep pass checks it.
+  A Common `.model` converted with the folder's own `.mtl` is the other way round: its stems
+  resolve in the folder first, then in `Common/`. On PES 15-17 the face's `.mtl` search
+  already names such a set in the Common output.
 - **Texture references are stem-based (input)**: all material references (FMDL path tables,
   `.mtl`, `.materials.toml`) name textures by stem (filename without extension) in their
   source/authoring form. Any image format (DDS, FTEX, PNG, JPEG, BMP, WebP, TGA, TIFF) may be

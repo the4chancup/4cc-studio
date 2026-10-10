@@ -530,6 +530,32 @@ fn a_link_to_a_common_fox_model_whose_every_mesh_is_hidden_is_dropped_with_it() 
 }
 
 #[test]
+fn a_dropped_link_s_finding_comes_at_the_link_s_place_in_file_order() {
+    let sandbox = Sandbox::new("prefox_hidden_link_order");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/aa.fmdl.common"), b"");
+    sandbox.write(&format!("exports/{export}/Common/aa.fmdl"), &hidden_oral());
+    sandbox.write(&format!("{player}/zz.fmdl"), &hidden_oral());
+
+    let run = sandbox.run(&pes17(&sandbox), &["check"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info model_hidden_dropped [DropFile] at Players/05 - A/aa.fmdl.common (file=aa.fmdl.common, model=Common/aa.fmdl)",
+            "Info model_hidden_dropped [DropFile] at Players/05 - A/zz.fmdl (file=zz.fmdl)",
+            "Info model_hidden_dropped [DropFile] at Common/aa.fmdl (file=aa.fmdl)",
+            CLEAN[0],
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+}
+
+#[test]
 fn a_shared_boots_folder_whose_every_fmdl_is_hidden_has_no_model_on_pes_17() {
     let sandbox = Sandbox::new("prefox_shared_boots_hidden");
     let export = "co Midcup Hidden";

@@ -1185,7 +1185,7 @@ fn the_skeleton_a_conversion_writes_is_the_boots_or_beside_a_member_s_a_conflict
 
 #[test]
 fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_with_no_finding() {
-    // A model directly in the player's folder, and one in its reserved subfolder.
+    // A model directly in the player's folder, and one in a subfolder.
     for (sandbox_name, directory) in [
         ("conversion_skeleton_slotless", ""),
         ("conversion_skeleton_slotless_face", "face/"),

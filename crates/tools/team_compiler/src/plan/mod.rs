@@ -653,11 +653,12 @@ pub(crate) enum EffectiveTeamKitFpc {
 
 impl EffectiveTeamKitFpc {
     /// The status of the team of `export`, the validated export: `On` when one of its player
-    /// folders carries `fpc_on`. A folder validation dropped is not among them, so its marker
-    /// does not count, and `fpc_off` is a statement about its own player alone.
+    /// folders a roster slot maps (`mapped_players`) carries `fpc_on`. A folder validation
+    /// dropped, or planning dropped for a selected glTF (`drop_gltf_folders`, which removes its
+    /// slots), compiles no player, so its marker does not count, and `fpc_off` is a statement
+    /// about its own player alone.
     pub(crate) fn of(export: &ValidatedAestheticsExport) -> EffectiveTeamKitFpc {
-        if export
-            .players
+        if mapped_players(export)
             .iter()
             .any(|folder| folder.fpc == Some(FpcDirective::On))
         {
@@ -3855,6 +3856,17 @@ mod tests {
             kit_fpc(&[a, b, on], Some(b"03 03 - A\n"), &["player_unlisted"]),
             [Unknown, Unknown]
         );
+    }
+
+    #[test]
+    fn an_fpc_on_folder_planning_drops_for_its_gltf_does_not_count() {
+        use EffectiveTeamKitFpc::Unknown;
+        let a = ("Players/03 - A/face_high.fmdl", 1);
+        // A selected glTF: planning drops the folder, which compiles no player.
+        let b = ("Players/05 - B/face_high.glb", 1);
+        let on = ("Players/05 - B/fpc_on", 0);
+
+        assert_eq!(kit_fpc(&[a, b, on], None, &[]), [Unknown, Unknown]);
     }
 
     #[test]

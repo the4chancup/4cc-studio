@@ -60,17 +60,16 @@ enum PartTextures {
     /// The folder's texture home: the part is the folder's own or a combined folder's, and
     /// its textures are the folder's textures task's.
     Folder,
-    /// The team's Common output: the part is a Common model a `.common` link brings in, whose
-    /// textures stay in `Common/` and are the export's Common textures task's, never relocated.
+    /// The team's Common output: the part is a Common model a `.common` link brings in, or a
+    /// folder's `.model` converted with a `Common/` `.mtl` (a `.mtl.common` link, or the search
+    /// reaching `Common/`), whose stems resolve in `Common/` (`model_format.md` "Link files": a
+    /// stem resolves in the folder of the material file that set it). Its textures stay in
+    /// `Common/` and are the export's Common textures task's, never relocated.
     Common,
     /// The folder's texture home for a stem the folder holds, else the team's Common output
-    /// for a stem `Common/` holds: the part's model and material set come from different
-    /// places. Either it is the folder's `.model` converted with a `Common/` `.mtl` (a
-    /// `.mtl.common` link), a set that names Common's textures (`pipeline.md` "Common textures
-    /// are one task of their export"), or a Common `.model` converted with the folder's own
-    /// `.mtl`, which the search prefers to `Common/`'s: a stem resolves in the folder of the
-    /// material file that set it (`model_format.md` "Link files"), here the folder's, and one
-    /// the folder lacks still finds the Common model's own texture.
+    /// for a stem `Common/` holds: a Common `.model` converted with the folder's own `.mtl`,
+    /// which the search prefers to `Common/`'s. Its stems resolve in the folder, where its
+    /// `.mtl` set them, and one the folder lacks still finds the Common model's own texture.
     CommonSet,
 }
 
@@ -170,10 +169,10 @@ pub(super) fn package(
                             "the deep pass drops a folder holding a selected `.model` no `.mtl` \
                              is found for (`model_material_undefined`)",
                         );
-                        // A Common set names Common's textures, and the deep pass checked them
-                        // against `Common/`: a stem the folder lacks is looked for there.
+                        // A Common set's stems resolve in `Common/`, where the deep pass checked
+                        // them: a texture of the folder's of one of those stems shadows nothing.
                         if is_direct_root_folder_file(&mtl.path) {
-                            part.textures = PartTextures::CommonSet;
+                            part.textures = PartTextures::Common;
                         }
                         let mtl = files.get(&mtl.path).expect(
                             "a package converting a `.model` reads its source's `.mtl` files \
@@ -292,10 +291,10 @@ pub(super) fn package(
     // Common output, where the export's Common textures task puts it once for every player
     // (`pipeline.md` step 6: a texture resolved in Common is never relocated). A folder part
     // looks in the folder's textures first, and a path of its into the team's pre-Fox Common
-    // folder reaches `Common/`'s (`point_texture`); one converted with a `Common/` `.mtl`, and
-    // a Common part converted with the folder's own, looks in the folder's, then in
-    // `Common/`'s (`PartTextures::CommonSet`). Validation
-    // refuses a player folder holding a texture and a link of one stem
+    // folder reaches `Common/`'s (`point_texture`); one converted with a `Common/` `.mtl` looks
+    // in `Common/`'s alone (`PartTextures::Common`), and a Common part converted with the
+    // folder's own `.mtl` in the folder's, then in `Common/`'s (`PartTextures::CommonSet`).
+    // Validation refuses a player folder holding a texture and a link of one stem
     // (`texture_stem_conflict`), but not a link beside a combined shared folder's texture of
     // its stem: there the shared folder's texture wins.
     let texture_directory = folder.textures.directory(ctx.version.engine(), team_id);
@@ -362,7 +361,7 @@ pub(super) fn package(
                         ("texture", format!("{}{}", path.directory, path.file_name)),
                     ]
                 };
-                match texture_supply(&path, &[&common_stems], &common_directory, &installed_holds) {
+                match texture_supply(&path, &common_stems, &common_directory, &installed_holds) {
                     TextureSupply::Supplied => {}
                     TextureSupply::Missing => {
                         return Err(TaskFailure {
@@ -694,7 +693,7 @@ enum TextureSupply {
 /// Common texture (`None`: they cannot be looked in). Directories and stems compare folded.
 fn texture_supply(
     path: &TexturePath,
-    common_stems: &[&BTreeSet<String>],
+    common_stems: &BTreeSet<String>,
     common_directory: &str,
     installed_holds: impl Fn(&str) -> Option<bool>,
 ) -> TextureSupply {
@@ -705,9 +704,9 @@ fn texture_supply(
     {
         return TextureSupply::Supplied;
     }
-    if common_stems.iter().any(|stems| {
-        stems.contains(&folded) || has_variant_among(stem, stems.iter().map(String::as_str))
-    }) {
+    if common_stems.contains(&folded)
+        || has_variant_among(stem, common_stems.iter().map(String::as_str))
+    {
         return TextureSupply::Supplied;
     }
     match installed_holds(stem) {
@@ -787,11 +786,12 @@ mod tests {
             file_name: file_name.to_owned(),
             directory: directory.to_owned(),
         };
-        let set = |stems: &[&str]| -> BTreeSet<String> {
-            stems.iter().map(|stem| (*stem).to_owned()).collect()
-        };
-        let (common, linked) = (set(common), set(linked));
-        texture_supply(&path, &[&common, &linked], COMMON_714, |_| installed)
+        let stems: BTreeSet<String> = common
+            .iter()
+            .chain(linked)
+            .map(|stem| (*stem).to_owned())
+            .collect();
+        texture_supply(&path, &stems, COMMON_714, |_| installed)
     }
 
     #[test]
@@ -878,7 +878,9 @@ mod tests {
             .into(),
         );
         let lookup = installed_lookup(&installed, 714);
-        let supplied = |file_name: &str| texture_supply(&path(file_name), &[], COMMON_714, &lookup);
+        let none = BTreeSet::new();
+        let supplied =
+            |file_name: &str| texture_supply(&path(file_name), &none, COMMON_714, &lookup);
         assert_eq!(supplied("pants_kitN.dds"), TextureSupply::Supplied);
         assert_eq!(supplied("pants_kit1.dds"), TextureSupply::Supplied);
         assert_eq!(supplied("socks_kitN.dds"), TextureSupply::Missing);
@@ -886,12 +888,12 @@ mod tests {
         // Another team's Common output holds nothing of team 714's.
         let other_team = installed_lookup(&installed, 702);
         assert_eq!(
-            texture_supply(&path("pants_kitN.dds"), &[], COMMON_714, &other_team),
+            texture_supply(&path("pants_kitN.dds"), &none, COMMON_714, &other_team),
             TextureSupply::Missing
         );
         let unknown = installed_lookup(&InstalledPaths::Unknown, 714);
         assert_eq!(
-            texture_supply(&path("pants_kitN.dds"), &[], COMMON_714, &unknown),
+            texture_supply(&path("pants_kitN.dds"), &none, COMMON_714, &unknown),
             TextureSupply::Unknown
         );
     }

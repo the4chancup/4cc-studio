@@ -940,8 +940,9 @@ TC-MOD-54  GIVEN slot 05 holding body.model and body.mtl.common, Common/ holding
            model's set
            WHEN the export is compiled for PES 21
            THEN the face FPK holds the converted body FMDL with the set's materials, its skin.dds
-                paths naming the team's Common output (the folder's own home when the folder
-                holds skin.dds too), and no finding names body.mtl.common
+                paths naming the team's Common output (when the folder holds a skin.dds too:
+                the set's stems resolve where the set is), and no finding names
+                body.mtl.common
 TC-MOD-55  GIVEN Faces/Round holding fcl_hair.fmdl and boots.fmdl, slot 05 linking it as his face
            WHEN the export is compiled for PES 21
            THEN the boots folder of slot 05's exclusive id holds boots.fmdl and his BootsList row

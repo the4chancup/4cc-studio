@@ -190,6 +190,25 @@ pub(crate) fn linked_folder<'a>(
         .find(|folder| vtree::fold_name(&folder.folder_name) == name_key)
 }
 
+/// The shared folders `player`, a player folder of `export` compiled for a target of `engine`,
+/// builds his own packages from, in link order, resolved as planning resolves them
+/// (`linked_folder`): his face link's, and each boots or gloves link's that feeds his own
+/// package (`link_feeds_own_package`, with `hand_weighted`), the `ModelFolder::combined`
+/// planning gives him.
+pub(crate) fn combined_folders<'a>(
+    export: &'a ValidatedAestheticsExport,
+    player: &PlayerFolder,
+    engine: Engine,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> Vec<(SharedKind, &'a SharedModelFolder)> {
+    player
+        .links
+        .iter()
+        .filter(|link| link_feeds_own_package(export, engine, player, link, hand_weighted))
+        .filter_map(|link| Some((link.kind, linked_folder(export, link)?)))
+        .collect()
+}
+
 /// Every shared folder of `export` with its kind: the faces, then the boots, then the gloves,
 /// each in the export's order.
 pub(crate) fn shared_folders(
@@ -318,7 +337,7 @@ pub(crate) enum PlayerFile {
         /// The package the model is a part of.
         package: ModelPackage,
         /// The type a `glove.xml` lists the model under, as it types a shared gloves folder's
-        /// (`pre_fox_model_type`). The boots list no model, so a part of theirs leaves it
+        /// (`face_xml::xml_type`). The boots list no model, so a part of theirs leaves it
         /// unread.
         xml_type: String,
     },
@@ -1373,7 +1392,7 @@ pub(crate) fn is_package_model(
 /// link of his builds into his own package (`link_feeds_own_package`), holds a model of a
 /// package (`is_package_model`), or a glTF selected for its stem, for which planning drops the
 /// folder with `model_gltf_unsupported`. A folder planning no package plans no textures task,
-/// and validation reports each of its textures `file_not_used`.
+/// and validation reports each of its textures and texture links `file_not_used`.
 pub(crate) fn plans_a_package(
     export: &ValidatedAestheticsExport,
     player: &PlayerFolder,
@@ -1383,12 +1402,7 @@ pub(crate) fn plans_a_package(
     if matches!(export.roster, ValidatedRoster::Team(_)) && !player.ingame_face {
         return true;
     }
-    let combined: Vec<(SharedKind, &SharedModelFolder)> = player
-        .links
-        .iter()
-        .filter(|link| link_feeds_own_package(export, engine, player, link, hand_weighted))
-        .filter_map(|link| Some((link.kind, linked_folder(export, link)?)))
-        .collect();
+    let combined = combined_folders(export, player, engine, hand_weighted);
     let (own, combined_models) = part_source_models(
         &player.path,
         &player.files,
@@ -1470,7 +1484,9 @@ pub(crate) fn is_hand_split(
 /// gloves, the hands split off a face part of his or of a linked face (`is_hand_split`),
 /// which join his gloves as authored ones would (`model_conversion/hand_split.md` "Pipeline
 /// integration"). On pre-Fox a split stays inside the face, which gives no gloves package; nor
-/// does a Fox player's own `face.xml` stop a split, Fox having no `face.xml` role.
+/// does a Fox player's own `face.xml` stop a split, Fox having no `face.xml` role. His and his
+/// faces' roles are read over both, as his face is built (`part_source_models`): a per-kit
+/// variant a lower one of its set leaves out is no part.
 pub(crate) fn has_effective_part(
     export: &ValidatedAestheticsExport,
     player: &PlayerFolder,
@@ -1482,22 +1498,28 @@ pub(crate) fn has_effective_part(
         Engine::Fox => package == ModelPackage::Gloves,
         Engine::PreFox => false,
     };
-    let own = (
-        &player.path,
-        player.files.as_slice(),
-        FolderModels::of_player(player, export, engine),
-    );
-    let faces = player
+    // His faces always combine; his boots and gloves links combine on what this decides, so
+    // they are not among the sources read here.
+    let faces: Vec<(SharedKind, &SharedModelFolder)> = player
         .links
         .iter()
         .filter(|link| link.kind == SharedKind::Face)
-        .filter_map(|link| linked_folder(export, link))
-        .map(|face| {
-            let models = FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine);
-            (&face.path, face.files.as_slice(), models)
-        });
-    std::iter::once(own)
-        .chain(faces)
+        .filter_map(|link| Some((link.kind, linked_folder(export, link)?)))
+        .collect();
+    let (own, face_models) = part_source_models(
+        &player.path,
+        &player.files,
+        None,
+        player.ingame_face,
+        &faces,
+        engine,
+    );
+    let face_sources = faces
+        .iter()
+        .zip(face_models)
+        .map(|((_, face), models)| (&face.path, face.files.as_slice(), models));
+    std::iter::once((&player.path, player.files.as_slice(), own))
+        .chain(face_sources)
         .any(|(source, files, models)| {
             files.iter().any(|file| {
                 let Some(role) = player_file(source, file, &models) else {
@@ -3190,6 +3212,30 @@ mod tests {
             &[],
             ModelPackage::Boots,
             Engine::PreFox
+        ));
+    }
+
+    #[test]
+    fn a_kit_variant_his_linked_face_s_lower_one_leaves_out_is_no_part_of_his() {
+        // The face's `pants_kit1` is the set's used variant, as his face is built: his own
+        // `pants_kit2` is no part, so its hands split off nothing for his gloves.
+        let weighted = ["Players/03 - A/pants_kit2.fmdl"];
+        let files = [
+            weighted[0],
+            "Players/03 - A/Round.face",
+            "Faces/Round/pants_kit1.fmdl",
+        ];
+        assert!(!effective_part(
+            &files,
+            &weighted,
+            ModelPackage::Gloves,
+            Engine::Fox
+        ));
+        assert!(effective_part(
+            &weighted,
+            &weighted,
+            ModelPackage::Gloves,
+            Engine::Fox
         ));
     }
 

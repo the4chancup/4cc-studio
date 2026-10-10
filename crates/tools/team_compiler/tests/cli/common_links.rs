@@ -534,6 +534,49 @@ fn a_common_model_converted_with_the_player_s_own_mtl_names_his_texture_of_its_s
 }
 
 #[test]
+fn a_player_s_model_converted_with_a_common_mtl_names_common_s_texture_of_its_stem() {
+    let sandbox = Sandbox::new("cmn_own_model_common_mtl");
+    let export = "exports/co Midcup Card";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/legs.model"), &card_model());
+    sandbox.write(&format!("{player}/legs.mtl.common"), b"");
+    // His own `skin.dds`, other bytes than Common's: `Common/legs.mtl` set `./skin.dds`, so it
+    // resolves in `Common/`, his own shadowing nothing.
+    sandbox.write(&format!("{player}/skin.dds"), &tracer_kit());
+    write_common_card(&sandbox, export);
+    let home_skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
+    let common_skin = format!("{COMMON_TEXTURES}/skin.ftex");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Card"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.model)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        entries[&common_skin] != entries[home_skin],
+        "Common's skin, not his, in the team's Common output"
+    );
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("fcl_hair.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory == COMMON_DIRECTORY),
+        "{directories:?}"
+    );
+}
+
+#[test]
 fn two_players_linking_one_common_model_each_convert_it_and_share_its_texture() {
     let sandbox = Sandbox::new("cmn_model_link_twice");
     let export = "exports/co Midcup Cards";
@@ -1010,8 +1053,8 @@ fn a_fox_model_whose_mtl_is_a_common_file_converts_with_it() {
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     let (local_materials, local_directories) = materials(&local);
     assert_eq!(linked, local_materials);
-    // With `skin.dds` in the player's folder too, the folder's own texture wins, as the local
-    // set's does: the player's texture home.
+    // With `skin.dds` in the player's folder too, the set's stem still resolves where the set
+    // is, in `Common/`: the team's Common output, where the local set's resolves at his home.
     let both = Sandbox::new("cmn_fox_mtl_link_own_texture");
     both.write(&format!("{player}/body.model"), &card_model());
     both.write(&format!("{player}/body.mtl.common"), b"");
@@ -1027,7 +1070,7 @@ fn a_fox_model_whose_mtl_is_a_common_file_converts_with_it() {
             .all(|directory| directory == HOME_714_05),
         "{local_directories:?}"
     );
-    assert_eq!(own_directories, local_directories);
+    assert_eq!(own_directories, directories);
 }
 
 // TC-CMN-13

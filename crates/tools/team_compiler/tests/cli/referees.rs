@@ -330,6 +330,30 @@ fn a_referee_folder_holding_textures_alone_reports_them_not_used_and_packs_none(
     }
 }
 
+#[test]
+fn a_referee_folder_holding_a_texture_link_alone_reports_it_not_used() {
+    let sandbox = Sandbox::new("ref_texture_link_alone");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    sandbox.write(&format!("{REFS}/Players/Ref A/skin.dds.common"), b"");
+    sandbox.write(
+        &format!("{REFS}/Common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    // No model, so no package: nothing would name the texture the link stands for.
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    let lines = check.messages();
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Info export_identified [Keep] (team=referees)",
+            "Warning file_not_used [Keep] at Players/Ref A (file=skin.dds.common)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(check.exit_code(), 0, "{lines:#?}");
+}
+
 /// The folder of referee slot `slot`'s pre-Fox face CPK: its CPK is `<folder>.cpk`, and every
 /// entry of it sits in `<folder>/`.
 fn pre_fox_referee_face(slot: &str) -> String {

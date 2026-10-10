@@ -29,8 +29,9 @@ use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_with_no_model};
 use crate::plan::mapped_players;
 use crate::plan::roles::{
-    FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, is_read_common_file,
-    is_user_face_xml, plans_a_package, player_file, role_position, shared_folders,
+    FolderModels, ModelPackage, PlayerFile, combined_folders, common_skeleton, file_stem,
+    is_read_common_file, is_user_face_xml, part_source_models, plans_a_package, player_file,
+    role_position, shared_folders,
 };
 use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
@@ -268,7 +269,7 @@ fn check_sources(
 /// check's whole-archive acquire, or an earlier source's in the coordinator, that needs more
 /// than the kept archives leave would wait forever. An archive over the cap acquires only on
 /// an empty budget, so with one in the run nothing is kept.
-pub(crate) fn keeps_archive(size: usize, kept: usize, cap: usize, largest_other: usize) -> bool {
+fn keeps_archive(size: usize, kept: usize, cap: usize, largest_other: usize) -> bool {
     // A sum past `usize` (a 32-bit host only) is over the cap, never a wrap into a keep.
     size <= cap / 8
         && kept
@@ -631,9 +632,10 @@ fn no_model_messages(
 /// TC-MOD-13), and `face_file_not_used` for each face file of a folder with no face model,
 /// which is not read (`pipeline.md` "2. Per-export serial steps", item 4; TC-MOD-32), and
 /// `file_not_used` for each file a model folder admits that no package reads, planning giving
-/// it no role (the same paragraph, item 4), or a texture of a mapped player folder planning no
-/// package (`plans_a_package`, with `hand_weighted` the models the deep pass found carrying
-/// hand weights), which gets no textures task: over every mapped player folder and every
+/// it no role (the same paragraph, item 4), or a texture or a texture link of a mapped player
+/// folder planning no package (`plans_a_package`, with `hand_weighted` the models the deep pass
+/// found carrying hand weights), which gets no textures task: over every mapped player folder,
+/// read over every source his packages are built from (`part_source_models`), and every
 /// shared folder, each finding on the folder holding the file. A `.common` model link is
 /// reported like the model it brings in, naming the link: the fallback by the linked name's
 /// suffix, `skl_no_slot` when `Common/` holds the `.skl` of a slotless model's stem. The roles
@@ -656,7 +658,17 @@ fn model_name_messages(
     let export = &resolved.export;
     let mut messages = Vec::new();
     for folder in mapped_players(export) {
-        let models = FolderModels::of_player(folder, export, engine);
+        // Read over every source his packages are built from, as planning reads them: a
+        // per-kit variant a combined folder's lower one leaves out has no role.
+        let combined = combined_folders(export, folder, engine, hand_weighted);
+        let (models, _) = part_source_models(
+            &folder.path,
+            &folder.files,
+            None,
+            folder.ingame_face,
+            &combined,
+            engine,
+        );
         file_role_messages(
             &folder.path,
             &folder.files,
@@ -669,7 +681,8 @@ fn model_name_messages(
     }
     // Validation drops a shared folder no mapped player links, so every shared folder here is
     // one some player's package is assembled from or one compiled on its own, which holds a
-    // model of its kind or is `shared_folder_no_model`.
+    // model of its kind or is `shared_folder_no_model`. Its own files are read alone, as the
+    // deep pass reads them: players combining it may each leave out other variants.
     for (kind, folder) in shared_folders(export) {
         let models = FolderModels::of_shared(&folder.path, &folder.files, kind, engine);
         file_role_messages(
@@ -744,8 +757,8 @@ fn export_file_not_used(export_id: ExportId, path: &str) -> Message {
 /// `model_name_messages`'s findings on `files`, the files of the folder at `path` whose models
 /// are `models`, for the target `models` were computed for, in file order; `plans_package`
 /// says whether planning gives the folder a package task (`plans_a_package`), without which
-/// its textures are `file_not_used`; `common` is the export's `Common/` files, where a
-/// `.common` link's model and skeleton are.
+/// its textures and texture links are `file_not_used`; `common` is the export's `Common/`
+/// files, where a `.common` link's model and skeleton are.
 fn file_role_messages(
     path: &ScopePath,
     files: &[FileDescriptor],
@@ -793,8 +806,11 @@ fn file_role_messages(
             }
             Some(PlayerFile::SlotlessSkeleton) => Code::SklNoSlot,
             Some(PlayerFile::UnusedFaceFile) => Code::FaceFileNotUsed,
-            // Planning gives a folder planning no package no textures task.
-            Some(PlayerFile::Texture { .. }) if !plans_package => Code::FileNotUsed,
+            // Planning gives a folder planning no package no textures task, and no model of
+            // his names the texture a link of his stands for.
+            Some(PlayerFile::Texture { .. } | PlayerFile::CommonTexture(_)) if !plans_package => {
+                Code::FileNotUsed
+            }
             Some(PlayerFile::CommonModel {
                 package: ModelPackage::Face,
                 name: allowed,
@@ -1768,6 +1784,21 @@ mod tests {
                 outcome("co Midcup A", false, &[IDENTIFIED_714, duplicate]),
                 outcome("co Midcup B.zip", false, &[IDENTIFIED_714, duplicate]),
                 outcome("co Midcup C.7z", false, &[IDENTIFIED_714, duplicate]),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_duplicate_names_the_exports_in_export_order_not_name_order() {
+        let duplicate = "Error duplicate_aesthetics_export [DropExport] (id=714, exports=co Midcup zz, co Midcup aa)";
+        assert_eq!(
+            after_duplicate_rule(vec![
+                identified(0, "co Midcup zz"),
+                identified(1, "co Midcup aa"),
+            ]),
+            [
+                outcome("co Midcup zz", false, &[IDENTIFIED_714, duplicate]),
+                outcome("co Midcup aa", false, &[IDENTIFIED_714, duplicate]),
             ]
         );
     }

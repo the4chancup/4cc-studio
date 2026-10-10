@@ -85,10 +85,9 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, common_file, directory_stem, emits_kit_texture, file_stem,
-    is_direct_root_folder_file, is_read_common_file, is_selected_common_model, is_user_face_xml,
-    link_feeds_own_package, linked_folder, part_source_models, player_file, role_position,
-    texture_format,
+    FolderModels, PlayerFile, combined_folders, common_file, directory_stem, emits_kit_texture,
+    file_stem, is_direct_root_folder_file, is_read_common_file, is_selected_common_model,
+    is_user_face_xml, part_source_models, player_file, role_position, texture_format,
 };
 use crate::reader::ContentSource;
 use crate::templates;
@@ -250,7 +249,10 @@ pub(crate) fn content_findings(
         .players
         .iter()
         .map(|player| {
-            let combined = combined_folders(export, player, engine);
+            // This pass is what finds the hand-weighted models, so it cannot see a gloves link
+            // that combines only with split hands: that folder is not a source of his here,
+            // though planning makes it one.
+            let combined = combined_folders(export, player, engine, &BTreeSet::new());
             let (models, _) = part_source_models(
                 &player.path,
                 &player.files,
@@ -366,10 +368,10 @@ pub(crate) fn content_findings(
                 files: &player.files,
                 models,
                 combined,
+                hidden_common: &hidden_common,
             };
             let (mut pass, xml_dif) = folder_findings(content, &read, &kept_common, version, face);
             let findings = &mut pass.findings;
-            findings.extend(hidden_link_findings(player, &hidden_common));
             findings.extend(conflict);
             findings.extend(face_diff_findings(
                 content,
@@ -401,12 +403,13 @@ pub(crate) fn content_findings(
         .par_iter()
         .map(|face| {
             let models = FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine);
-            // A shared face links no other.
+            // A shared face links no other, and its `.common` links have no role.
             let read = ReadFolder {
                 path: &face.path,
                 files: &face.files,
                 models: &models,
                 combined: &[],
+                hidden_common: &[],
             };
             let (mut pass, xml_dif) = folder_findings(
                 content,
@@ -441,6 +444,7 @@ pub(crate) fn content_findings(
                 files: &shared.files,
                 models: &FolderModels::of_shared(&shared.path, &shared.files, kind, engine),
                 combined: &[],
+                hidden_common: &[],
             };
             // A boots or gloves folder has no face, so no xml.
             let (pass, _) = folder_findings(content, &read, &kept_common, version, FaceUse::Unused);
@@ -662,35 +666,34 @@ fn drop_beaten_common_models(
     }
 }
 
-/// `model_hidden_dropped` on each `.common` link directly in `player`'s folder whose target, the
-/// file of its name directly in `Common/` matched as validation matches it (`common_file`), is
-/// among `hidden`, the `Common/` FMDLs the pass dropped as hidden: an Info on the link that drops
-/// the link alone, never passing through, naming the link below the folder and the Common file
-/// by its export path. A dropped link is no link, so the player is not taken down with its
-/// target (`link_target_dropped`), and his folder and other files stand.
-fn hidden_link_findings(player: &PlayerFolder, hidden: &[FileDescriptor]) -> Vec<ContentFinding> {
-    player
-        .files
-        .iter()
-        // Validation resolves a link directly in the player folder alone.
-        .filter(|file| {
-            file.kind == FileKind::CommonLink && file.path.parent().as_ref() == Some(&player.path)
-        })
-        .filter_map(|link| {
-            let linked = common_link_name(link.path.name())?;
-            let model = common_file(hidden, &linked)?;
-            Some(ContentFinding {
-                code: Code::ModelHiddenDropped.as_str(),
-                scope: IssueScope::File(link.path.clone()),
-                context: vec![
-                    ("file", relative(&link.path, &player.path)),
-                    ("model", model.path.as_str().to_owned()),
-                ],
-                disposition: Disposition::DropFile,
-                pass_through_eligible: false,
-            })
-        })
-        .collect()
+/// `model_hidden_dropped` on `file` of the player folder at `folder` when it is a `.common`
+/// link directly in the folder whose target, the file of its name directly in `Common/`
+/// matched as validation matches it (`common_file`), is among `hidden`, the `Common/` FMDLs the
+/// pass dropped as hidden: an Info on the link that drops the link alone, never passing
+/// through, naming the link below the folder and the Common file by its export path. A dropped
+/// link is no link, so the player is not taken down with its target (`link_target_dropped`),
+/// and his folder and other files stand.
+fn hidden_link_finding(
+    folder: &ScopePath,
+    file: &FileDescriptor,
+    hidden: &[FileDescriptor],
+) -> Option<ContentFinding> {
+    // Validation resolves a link directly in the player folder alone.
+    if file.kind != FileKind::CommonLink || file.path.parent().as_ref() != Some(folder) {
+        return None;
+    }
+    let linked = common_link_name(file.path.name())?;
+    let model = common_file(hidden, &linked)?;
+    Some(ContentFinding {
+        code: Code::ModelHiddenDropped.as_str(),
+        scope: IssueScope::File(file.path.clone()),
+        context: vec![
+            ("file", relative(&file.path, folder)),
+            ("model", model.path.as_str().to_owned()),
+        ],
+        disposition: Disposition::DropFile,
+        pass_through_eligible: false,
+    })
 }
 
 /// The texture findings of each `.mtl` among `common`, the export's `Common/` files whose
@@ -780,26 +783,6 @@ impl<'a> FaceUse<'a> {
     }
 }
 
-/// The shared folders `player`, a player folder of `export` compiled for a target of `engine`,
-/// builds his own packages from, in link order, resolved as planning resolves them
-/// (`linked_folder`): his face link's, and each boots or gloves link's that feeds his own
-/// package (`link_feeds_own_package`), the `ModelFolder::combined` planning gives him.
-fn combined_folders<'a>(
-    export: &'a ValidatedAestheticsExport,
-    player: &PlayerFolder,
-    engine: Engine,
-) -> Vec<(SharedKind, &'a SharedModelFolder)> {
-    // This pass is what finds the hand-weighted models, so it cannot see a gloves link that
-    // combines only with split hands: that folder is not a source of his here, though
-    // planning makes it one.
-    player
-        .links
-        .iter()
-        .filter(|link| link_feeds_own_package(export, engine, player, link, &BTreeSet::new()))
-        .filter_map(|link| Some((link.kind, linked_folder(export, link)?)))
-        .collect()
-}
-
 /// `xml_shared_face_conflict` on the player folder at `folder`, holding `files`, when on
 /// pre-Fox it holds its own `face.xml` (`is_user_face_xml`) and its face links a shared face
 /// folder (`face`), whether or not that folder holds one: the face's xml is the shared
@@ -852,6 +835,10 @@ struct ReadFolder<'a> {
     /// The shared folders a player folder's packages are built from (`combined_folders`);
     /// empty for a shared folder.
     combined: &'a [(SharedKind, &'a SharedModelFolder)],
+    /// The `Common/` FMDLs the pass dropped as hidden, which a player folder's `.common` link
+    /// naming one is dropped with (`hidden_link_finding`); empty for a shared folder, whose
+    /// links have no role.
+    hidden_common: &'a [FileDescriptor],
 }
 
 /// The findings of the files of the model folder `read` that the deep pass reads
@@ -867,8 +854,10 @@ struct ReadFolder<'a> {
 /// and `common`'s), right after the model's own findings; each read `.mtl`'s texture lookup
 /// (`materials::texture_findings`), right after the `.mtl`'s own findings, and on Fox that of
 /// a `Common/` `.mtl` a link pairs with, against `Common/`'s textures, right after the link's
-/// (once per folder); with the models among them that carry hand weights and the materials of the
-/// pre-Fox ones. The files are read and checked in parallel, each worker holding one file, and
+/// (once per folder); and for a player folder's `.common` link whose target the pass dropped as
+/// hidden, its `model_hidden_dropped` at its place (`hidden_link_finding`); with the models
+/// among them that carry hand weights and the materials of the pre-Fox ones. The files are
+/// read and checked in parallel, each worker holding one file, and
 /// the models' materials compared after, from what each read kept.
 ///
 /// When `face` says the folder's face files are used (`FaceUse::Used`), each member's own
@@ -896,6 +885,7 @@ fn folder_findings(
         files,
         models,
         combined,
+        hidden_common,
     } = *read;
     let engine = version.engine();
     let size_rule = SizeRule::of(version);
@@ -1026,6 +1016,8 @@ fn folder_findings(
     let mut pass = ContentPass::default();
     for (file, found) in files.iter().zip(per_file) {
         pass.append(found);
+        pass.findings
+            .extend(hidden_link_finding(folder, file, hidden_common));
         if let Some(held) = &held
             && file.kind == FileKind::Mtl
             && let Some(read) = materials.get(&file.path)
