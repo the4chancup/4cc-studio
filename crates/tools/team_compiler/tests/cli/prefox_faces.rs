@@ -1426,34 +1426,32 @@ fn a_common_gltf_is_dropped_and_the_export_compiles() {
 
 // TC-CMN-15
 #[test]
-fn a_model_below_a_common_subfolder_is_kept_by_the_lenient_check_and_not_read() {
+fn a_broken_model_below_a_common_subfolder_is_checked_and_dropped() {
     let sandbox = Sandbox::new("prefox_common_nested_model");
     let export = "co Midcup Card";
     write_slot_05_face(&sandbox, export);
     // Four bytes no `.model` reader accepts.
     sandbox.write(&format!("exports/{export}/Common/sub/legs.model"), b"junk");
-    let settings = format!(
-        "{}[team-compiler]\nstrict_file_type_check = false\n",
-        pes17(&sandbox)
-    );
 
-    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
         findings_of(&lines, export),
         [
-            "Info common_file_disallowed [Keep] at Common/sub/legs.model ()",
+            "Error model_broken [DropFile] at Common/sub/legs.model (file=legs.model, error=model is truncated)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
         ],
         "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    // The Error drops the file alone, and still sets the run's exit code.
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert!(entries.contains_key(&face_cpk(5)), "{:#?}", entries.keys());
+    // Neither directly in the Common output nor below `sub/`.
     assert!(
-        common_output(&entries)
+        entries_under(&entries, COMMON_714)
             .keys()
             .all(|name| !name.contains("legs")),
         "{:#?}",
@@ -1463,8 +1461,9 @@ fn a_model_below_a_common_subfolder_is_kept_by_the_lenient_check_and_not_read() 
 
 #[test]
 fn a_texture_below_a_common_subfolder_is_no_common_texture_a_mtl_finds() {
-    // The Common textures task packs only the files directly in `Common/`, so
-    // `Common/legs.mtl`'s `./cloth.dds` finds nothing in `Common/sub/`.
+    // A Common `.mtl`'s paths are pointed among its own directory's textures, and
+    // `Common/sub/`'s are packed under `sub/`, so `Common/legs.mtl`'s `./cloth.dds` finds
+    // nothing in `Common/sub/`.
     let sandbox = Sandbox::new("prefox_common_nested_texture");
     let export = "co Midcup Legs";
     sandbox.write(
@@ -1475,18 +1474,13 @@ fn a_texture_below_a_common_subfolder_is_no_common_texture_a_mtl_finds() {
     sandbox.write(&format!("{common}/legs.model"), &card_model());
     sandbox.write(&format!("{common}/legs.mtl"), &materials_naming("cloth"));
     sandbox.write(&format!("{common}/sub/cloth.dds"), &small_dds());
-    let settings = format!(
-        "{}[team-compiler]\nstrict_file_type_check = false\n",
-        pes17(&sandbox)
-    );
 
-    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
         findings_of(&lines, export),
         [
-            "Info common_file_disallowed [Keep] at Common/sub/cloth.dds ()",
             "Warning mtl_texture_not_found [Keep] at Common/legs.mtl (file=legs.mtl, texture=./cloth.dds, materials=card)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
@@ -1494,6 +1488,50 @@ fn a_texture_below_a_common_subfolder_is_no_common_texture_a_mtl_finds() {
         ],
         "{lines:#?}"
     );
+    // The subfolder's texture is packed at its own path, not beside `legs.mtl`.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let common = entries_under(&entries, COMMON_714);
+    assert!(
+        common.contains_key("sub/cloth.dds"),
+        "{:#?}",
+        entries.keys()
+    );
+    assert!(!common.contains_key("cloth.dds"), "{:#?}", entries.keys());
+}
+
+#[test]
+fn a_common_path_is_supplied_by_a_texture_directly_in_common_alone() {
+    // Slot 05's own `.mtl` names `cloth.dds` in the team's Common output, which only a
+    // texture directly in `Common/` supplies: not a subfolder's texture of the stem, packed
+    // under `sub/`, nor a direct file of the stem that is no texture.
+    let path = "model/character/uniform/common/XXX/cloth.dds";
+    let missing = format!(
+        "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=face_high.mtl, texture={path}, materials=card)"
+    );
+    for (case, common_file, bytes) in [
+        ("sub", "sub/cloth.dds", small_dds()),
+        ("model", "cloth.model", card_model()),
+    ] {
+        let sandbox = Sandbox::new(&format!("prefox_common_path_{case}"));
+        let export = "co Midcup Cloth";
+        let player = format!("exports/{export}/Players/05 - A");
+        sandbox.write(&format!("{player}/face_high.model"), &card_model());
+        let materials = String::from_utf8(materials_naming("texture")).unwrap();
+        sandbox.write(
+            &format!("{player}/face_high.mtl"),
+            materials.replace("./texture.dds", path).as_bytes(),
+        );
+        sandbox.write(&format!("exports/{export}/Common/{common_file}"), &bytes);
+
+        let run = sandbox.run(&pes17(&sandbox), &["check"]);
+
+        let lines = run.messages();
+        assert_eq!(
+            findings_of(&lines, export),
+            [missing.as_str(), CLEAN[0]],
+            "{case}: {lines:#?}"
+        );
+    }
 }
 
 /// Writes the export `export`: slot 05 with his own face (`write_slot_05_face`) and

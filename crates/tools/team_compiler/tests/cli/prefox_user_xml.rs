@@ -14,9 +14,9 @@ use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes21_settings, tracer_kit};
 use crate::models::{face_diff_fixture, template};
 use crate::prefox_faces::{
-    CLEAN, card_materials, card_model, common_output, compile_pes17, face_cpk, face_folder,
-    materials_naming, nested_entries, ordered_entries, pes15, pes16, pes17, pre_fox_fixture,
-    sampler_paths, small_dds,
+    CLEAN, card_materials, card_model, common_output, compile_pes17, entries_under, face_cpk,
+    face_folder, materials_naming, nested_entries, ordered_entries, pes15, pes16, pes17,
+    pre_fox_fixture, sampler_paths, small_dds,
 };
 use crate::{clean_model, findings_of};
 
@@ -436,6 +436,60 @@ fn a_member_s_xml_is_written_back_with_its_own_names_and_the_common_model_s_pack
         common_names,
         ["legs.mtl", "oral_legs_win32.model", "studs.dds"]
     );
+}
+
+// TC-CMN-18
+#[test]
+fn a_member_s_xml_names_a_common_subfolder_s_files_which_pack_at_their_own_path() {
+    let sandbox = Sandbox::new("user_xml_common_subfolder");
+    let export = "co Midcup Xml";
+    let refkit = "model/character/uniform/common/XXX/refkit/";
+    let thigh =
+        format!(r#"type="parts" path="{refkit}oral_thigh_*.model" material="{refkit}refkit.mtl""#);
+    write_folder(
+        &sandbox,
+        export,
+        "05 - A",
+        "face_high",
+        &face_xml(&[FACE_HIGH, &thigh]),
+    );
+    let common = format!("exports/{export}/Common/refkit");
+    sandbox.write(&format!("{common}/oral_thigh_win32.model"), &card_model());
+    sandbox.write(&format!("{common}/refkit.mtl"), &card_materials());
+    sandbox.write(&format!("{common}/skin.dds"), &small_dds());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[IDENTIFIED, "Info team_colors_missing [Keep] ()"],
+    );
+
+    let common_714 = "common/character1/model/character/uniform/common/714/";
+    let common: Vec<&str> = entries_under(&entries, common_714).into_keys().collect();
+    assert_eq!(
+        common,
+        [
+            "05 - A/skin.dds",
+            "refkit/oral_thigh_win32.model",
+            "refkit/refkit.mtl",
+            "refkit/skin.dds",
+        ]
+    );
+    // The subfolder's `.mtl` names its own texture at the subfolder's path.
+    let refkit_mtl = &entries[&format!("{common_714}refkit/refkit.mtl")];
+    assert_eq!(
+        sampler_paths(refkit_mtl),
+        ["model/character/uniform/common/714/refkit/skin.dds"]
+    );
+    let face = slot_05_face(&entries);
+    let expected = format!(
+        "{HEAD}   \
+         <model level=\"0\" type=\"face_neck\" path=\"./face_high.model\" material=\"./face_high.mtl\" />\r\n   \
+         <model level=\"0\" type=\"parts\" path=\"model/character/uniform/common/714/refkit/oral_thigh_*.model\" material=\"model/character/uniform/common/714/refkit/refkit.mtl\" />\r\n\
+         {}",
+        dif_tail(&template("face_diff.bin"))
+    );
+    assert_eq!(String::from_utf8_lossy(&face["face.xml"]), expected);
 }
 
 // TC-XML-02

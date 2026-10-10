@@ -1,6 +1,7 @@
 //! The pre-Fox Common output's models and `.mtl` files (`team_compiler/pipeline.md` "3.
-//! Per-model-folder parallel steps", step 4): every `.model` and `.mtl` directly in the
-//! export's `Common/` folder written once into the team's Common output (a `.model` the
+//! Per-model-folder parallel steps", step 4): every `.model` and `.mtl` of a directory of the
+//! export's `Common/` folder (`Common/` itself or a subfolder, packed at its own path:
+//! `pipeline.md` "Common") written once into the team's Common output (a `.model` the
 //! conversion pre-check finds posed off the version's skeleton moved onto it), and every FMDL
 //! there converted once into a `.model` and its material set (step 1, "Format conversion"),
 //! where the game loads the ones a player's `face.xml` names through a `.common` link. The Common
@@ -22,16 +23,17 @@ use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::face_xml::packed_model_name;
 use crate::mtl_search::mtl_for;
 use crate::paths;
-use crate::plan::roles::{common_skeleton, file_stem};
+use crate::plan::roles::file_stem;
 
-/// The Common output's entries for `common`, the files of the export's `Common/` folder at
-/// `folder` that planning lists (`TaskKind::CommonModels`), compiled from their bytes in
-/// `files` for team `team_id`: each `.model` under its packed name (`packed_model_name`), as
+/// The Common output's entries for `common`, the files of the `Common/` directory at `folder`
+/// that planning lists (`TaskKind::CommonModels`), compiled from their bytes in `files` for
+/// team `team_id`, each below the directory's own path in the team's Common output
+/// (`paths::common_subpath`): each `.model` under its packed name (`packed_model_name`), as
 /// the `face.xml` path naming it expects, as it is or, when the conversion pre-check flags it
-/// (`model_for_pre_fox`, with the `.mtl` its search finds in `Common/`, its findings naming it
-/// by its file name), moved onto `ctx.version`'s skeleton; a `.model` with no `.mtl` in
-/// `Common/` is packed as it is, the import having no set to read it with; each `.mtl` under
-/// its own name, every texture path naming one of `texture_stems` (the Common textures'
+/// (`model_for_pre_fox`, with the `.mtl` its search finds in the directory, its findings naming
+/// it by its file name), moved onto `ctx.version`'s skeleton; a `.model` with no `.mtl` in the
+/// directory is packed as it is, the import having no set to read it with; each `.mtl` under
+/// its own name, every texture path naming one of `texture_stems` (the directory's textures'
 /// stems, folded, each as spelled) pointed at that texture in the team's Common output as its
 /// DDS. Each FMDL is converted for `ctx.version` (`fmdl_for_pre_fox`, the `.skl` of its stem
 /// as its bind pose, its findings noted in `findings` naming it by its file name), its
@@ -52,7 +54,13 @@ pub(super) fn common_models(
     findings: &mut Vec<Finding>,
 ) -> Result<Vec<Entry>, TaskFailure> {
     let directory = paths::common_texture_directory(Engine::PreFox, team_id);
-    let places = [(texture_stems, directory.as_str())];
+    // The directory's own place in the team's Common output, where its textures are packed
+    // (`texture::common_textures`): a path naming one of them is pointed there. The
+    // environment map and the reserved kit stems stay at the Common output's own directory,
+    // where the map is emitted and the modded exes substitute the kit.
+    let subpath = paths::common_subpath(folder);
+    let textures_directory = format!("{directory}{subpath}");
+    let places = [(texture_stems, textures_directory.as_str())];
     let mut written: Vec<(String, Vec<u8>)> = Vec::new();
     for file in common {
         let name = file.path.name();
@@ -83,7 +91,7 @@ pub(super) fn common_models(
                 written.push((packed_model_name(stem), bytes));
             }
             FileKind::Model(ModelFormat::Fmdl) => {
-                let skeleton = common_skeleton(common, name).map(|skeleton| take(files, skeleton));
+                let skeleton = skeleton_beside(common, name).map(|skeleton| take(files, skeleton));
                 let Some(conversion) = fmdl_for_pre_fox(
                     &source_name(&file.path, folder),
                     &take(files, file),
@@ -141,8 +149,25 @@ pub(super) fn common_models(
     }
     let mut entries: Vec<Entry> = written
         .into_iter()
-        .map(|(name, bytes)| (paths::pre_fox_common_file(team_id, &name), bytes))
+        .map(|(name, bytes)| {
+            let path = paths::pre_fox_common_file(team_id, &format!("{subpath}{name}"));
+            (path, bytes)
+        })
         .collect();
     entries.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(entries)
+}
+
+/// The `.skl` among `common`, the files of one `Common/` directory, paired with its model named
+/// `model_name` (`legs.skl` for `legs.fmdl`), matched by case-folded name, when there is one:
+/// the bind pose of the FMDL the task converts. Not `roles::common_skeleton`, which looks
+/// directly in `Common/` alone, as a link does: a subfolder's FMDL pairs its own directory's.
+fn skeleton_beside<'a>(
+    common: &'a [FileDescriptor],
+    model_name: &str,
+) -> Option<&'a FileDescriptor> {
+    let key = vtree::fold_name(&format!("{}.skl", file_stem(model_name)));
+    common
+        .iter()
+        .find(|file| vtree::fold_name(file.path.name()) == key)
 }

@@ -19,7 +19,7 @@ use crate::deep::relative;
 use crate::face_diff::{self, FaceDiffError};
 use crate::face_xml::is_generated_type;
 use crate::messages::Code;
-use crate::plan::roles::{common_file, file_stem, in_folder_or_face, is_direct_root_folder_file};
+use crate::plan::roles::{common_file, file_stem, in_folder_or_face};
 
 /// A finding `check` makes on the folder holding the xml: the code, what is done about it
 /// (`DropFolder` for an Error, `Keep` for a Warning or an Info) and its context.
@@ -82,12 +82,15 @@ pub(crate) enum Reference {
     /// `face_high_win32.model`).
     Local(String),
     /// `model/character/uniform/common/<segment>/<name>`: a file directly in the export's
-    /// `Common/`, its `*` read as `win32`. The segment stands for the team ID and must be three
-    /// characters long (`xml_common_path_invalid`).
+    /// `Common/`, its `*` read as `win32`; `<segment>/<subfolder>/<name>`, a file of that
+    /// subfolder of `Common/`, which on PES 15-17 the team's Common output packs at its own
+    /// path. The segment stands for the team ID and must be three characters long
+    /// (`xml_common_path_invalid`).
     Common {
         /// The folder segment after `common/`, as written.
         segment: String,
-        /// The file name, `*` read as `win32`.
+        /// The file's path relative to `Common/` (its name for a direct file), the file name's
+        /// `*` read as `win32`.
         file_name: String,
     },
     /// Any other form, which the compiler cannot resolve (`xml_path_unchecked`): a face Common
@@ -95,7 +98,8 @@ pub(crate) enum Reference {
     Unchecked(String),
 }
 
-/// The game folder a `Common` reference names its file in, before the team's segment.
+/// The game folder a `Common` reference names its file in, before the team's segment and the
+/// file's path relative to `Common/`.
 const UNIFORM_COMMON: &str = "model/character/uniform/common/";
 
 /// What the `path` or `material` value `value` names (`Reference`).
@@ -106,12 +110,18 @@ pub(crate) fn reference(value: &str) -> Reference {
         return Reference::Local(name.replace('*', "win32"));
     }
     if let Some(rest) = value.strip_prefix(UNIFORM_COMMON)
-        && let Some((segment, name)) = rest.split_once('/')
-        && !name.contains('/')
+        && let Some((segment, path)) = rest.split_once('/')
+        && !path.is_empty()
+        && !path.ends_with('/')
     {
+        // Only the file name's `*` is the game's placeholder; a subfolder is named as written.
+        let file_name = match path.rsplit_once('/') {
+            Some((directory, name)) => format!("{directory}/{}", name.replace('*', "win32")),
+            None => path.replace('*', "win32"),
+        };
         return Reference::Common {
             segment: segment.to_owned(),
-            file_name: name.replace('*', "win32"),
+            file_name,
         };
     }
     Reference::Unchecked(value.to_owned())
@@ -235,7 +245,8 @@ pub(crate) struct FaceFiles<'a> {
     /// The files of the shared face folder the player links, which a `./` reference looks
     /// among after his own; empty when he links none.
     pub(crate) linked_face: &'a [FileDescriptor],
-    /// The export's `Common/` files; a Common reference looks among those directly in it.
+    /// The export's `Common/` files a target reads; a Common reference looks among them by
+    /// their path relative to `Common/`.
     pub(crate) common: &'a [FileDescriptor],
     /// The face folder holding the xml.
     pub(crate) folder: &'a ScopePath,
@@ -245,7 +256,8 @@ pub(crate) struct FaceFiles<'a> {
 /// `path`, `FileKind::Mtl` for a `material`), its name compared case-folded: a `Local` one
 /// among the folder's own files directly in it or in `face/`, a `.mtl.common` link there
 /// counting as a `.mtl` of its linked name and standing for the `Common/` file it names, then
-/// among the linked shared face's; a `Common` one directly in `Common/`. A name with a `kitN`
+/// among the linked shared face's; a `Common` one among `Common/`'s files by their path
+/// relative to `Common/`, a subfolder's included. A name with a `kitN`
 /// token names its set, found when a variant of it is there, the lowest one returned. `None`
 /// when none is there, and for an `Unchecked` reference.
 pub(crate) fn resolve<'a>(
@@ -270,11 +282,15 @@ pub(crate) fn resolve<'a>(
             named(&own, name).or_else(|| named(&linked, name))
         }
         Reference::Common { file_name, .. } => {
+            // Each by its path relative to `Common/`, which for a direct file is its name.
             let common: Vec<(String, &FileDescriptor)> = files
                 .common
                 .iter()
-                .filter(|file| file.kind == kind && is_direct_root_folder_file(&file.path))
-                .map(|file| (file.path.name().to_owned(), file))
+                .filter(|file| file.kind == kind)
+                .map(|file| {
+                    let relative: Vec<&str> = file.path.segments().skip(1).collect();
+                    (relative.join("/"), file)
+                })
                 .collect();
             named(&common, file_name)
         }
@@ -767,12 +783,28 @@ mod tests {
                 file_name: "legs_win32.model".to_owned(),
             }
         );
+        // A subfolder of `Common/` is named as written, the file name's `*` read as `win32`.
+        assert_eq!(
+            reference("model/character/uniform/common/XXX/a/b.model"),
+            Reference::Common {
+                segment: "XXX".to_owned(),
+                file_name: "a/b.model".to_owned(),
+            }
+        );
+        assert_eq!(
+            reference("model/character/uniform/common/XXX/a/b_*.model"),
+            Reference::Common {
+                segment: "XXX".to_owned(),
+                file_name: "a/b_win32.model".to_owned(),
+            }
+        );
         for unchecked in [
             "model/character/face/common/x.model",
             "./a/b.model",
             "x.model",
             "model/character/uniform/common/legs.model",
-            "model/character/uniform/common/XXX/a/b.model",
+            "model/character/uniform/common/XXX/a/",
+            "model/character/uniform/common/XXX/",
         ] {
             assert_eq!(
                 reference(unchecked),
@@ -840,6 +872,60 @@ mod tests {
         // A Common file of another kind is not the one named.
         assert_eq!(
             found("model/character/uniform/common/XXX/body.mtl", model),
+            None
+        );
+    }
+
+    #[test]
+    fn a_common_reference_names_a_file_by_its_path_below_common() {
+        let common = files_in(
+            "Common",
+            &[
+                "legs.model",
+                "refkit/Oral_Thigh_win32.model",
+                "refkit/refkit.mtl",
+            ],
+        );
+        let folder = ScopePath::new(FOLDER).unwrap();
+        let files = FaceFiles {
+            own: &[],
+            linked_face: &[],
+            common: &common,
+            folder: &folder,
+        };
+        let model = FileKind::Model(ModelFormat::PesModel);
+        let found = |value: &str, kind| {
+            resolve(&reference(value), &files, kind).map(|file| file.path.as_str().to_owned())
+        };
+        assert_eq!(
+            found(
+                "model/character/uniform/common/XXX/refkit/oral_thigh_*.model",
+                model
+            )
+            .as_deref(),
+            Some("Common/refkit/Oral_Thigh_win32.model")
+        );
+        assert_eq!(
+            found(
+                "model/character/uniform/common/XXX/REFKIT/refkit.mtl",
+                FileKind::Mtl
+            )
+            .as_deref(),
+            Some("Common/refkit/refkit.mtl")
+        );
+        // A subfolder's file is no direct one, and a direct file is in no subfolder.
+        assert_eq!(
+            found(
+                "model/character/uniform/common/XXX/oral_thigh_win32.model",
+                model
+            ),
+            None
+        );
+        assert_eq!(
+            found(
+                "model/character/uniform/common/XXX/refkit/legs.model",
+                model
+            ),
             None
         );
     }

@@ -72,6 +72,9 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
     }
     match reference(path) {
         Reference::Local(_) => Supply::Missing,
+        // A Common subfolder's textures are not among `sources`, which hold `Common/`'s own
+        // stems: such a path is not looked for, as a path of the game's own is not.
+        Reference::Common { file_name, .. } if file_name.contains('/') => Supply::Supplied,
         Reference::Common { .. } if holds(sources.common) => Supply::Supplied,
         Reference::Common { .. } if sources.installed.is_some_and(holds) => Supply::Supplied,
         Reference::Common { .. } => Supply::Missing,
@@ -260,6 +263,16 @@ mod tests {
         // other form), so it is not looked up, although the face packs no subfolder.
         assert_eq!(
             supplied("./sub/skin.dds", &[], &[], Some(&[])),
+            Supply::Supplied
+        );
+        // A Common path into a subfolder is not looked up among `Common/`'s own stems.
+        assert_eq!(
+            supplied(
+                "model/character/uniform/common/XXX/refkit/skin.dds",
+                &[],
+                &[],
+                Some(&[])
+            ),
             Supply::Supplied
         );
     }

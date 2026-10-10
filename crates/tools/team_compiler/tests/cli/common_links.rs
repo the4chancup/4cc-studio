@@ -1030,7 +1030,7 @@ fn a_fox_model_whose_mtl_is_a_common_file_converts_with_it() {
 
 // TC-CMN-13
 #[test]
-fn a_texture_below_a_common_subfolder_is_kept_by_the_lenient_check_and_not_emitted() {
+fn a_texture_below_a_common_subfolder_is_not_used_on_fox() {
     let sandbox = Sandbox::new("cmn_nested");
     let export = "exports/co Midcup Nested";
     sandbox.write(
@@ -1041,20 +1041,16 @@ fn a_texture_below_a_common_subfolder_is_kept_by_the_lenient_check_and_not_emitt
         &format!("{export}/Common/sub/x.dds"),
         &tracer_player_file("shirt.dds"),
     );
-    let settings = format!(
-        "{}[team-compiler]\nstrict_file_type_check = false\n",
-        pes21_settings(&sandbox)
-    );
 
-    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
         findings_of(&lines, "co Midcup Nested"),
         [
-            "Info common_file_disallowed [Keep] at Common/sub/x.dds ()",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning file_not_used [Keep] (file=Common/sub/x.dds)",
             "Info team_colors_missing [Keep] ()"
         ],
         "{lines:#?}"

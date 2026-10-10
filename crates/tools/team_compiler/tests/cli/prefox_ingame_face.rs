@@ -525,6 +525,31 @@ fn under_ingame_face_only_a_copied_common_mtl_names_a_common_texture_it_has_no_l
     );
 }
 
+#[test]
+fn under_ingame_face_a_copied_common_mtl_names_no_subfolder_texture() {
+    let sandbox = Sandbox::new("prefox_ingame_common_subfolder_texture");
+    let export = "co Midcup Studs";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/kit_boots.model.common"), b"");
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/kit_boots.model"), &card_naming("studs"));
+    sandbox.write(
+        &format!("{common}/kit_boots.mtl"),
+        &materials("studs", "cloth"),
+    );
+    // Packed under `sub/` in the Common output, so not the `cloth.dds` the `.mtl` names.
+    sandbox.write(&format!("{common}/sub/cloth.dds"), &small_dds());
+
+    let missing = "Warning mtl_texture_not_found [Keep] at Common/kit_boots.mtl (file=kit_boots.mtl, texture=./cloth.dds, materials=studs)";
+    let entries = compile_pes17(&sandbox, export, &[missing, CLEAN[0], CLEAN[1]]);
+
+    // The copied Common `.mtl`'s path is left as written: the Common output holds no
+    // `cloth.dds` of its own.
+    let boots = entries_under(&entries, BOOTS_K0625);
+    assert_eq!(sampler_paths(boots["boots.mtl"]), ["./cloth.dds"]);
+}
+
 // TC-MOD-45
 #[test]
 fn under_ingame_face_common_links_are_copied_into_the_player_s_own_gloves_folder() {

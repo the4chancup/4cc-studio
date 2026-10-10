@@ -52,7 +52,9 @@ converter's and draws it now, checked in game), 4.y-fix13 done 2026-10-10 (a hid
 gives no face: his own face files `face_file_not_used`, the blank face with the bundled
 diff; its items (1) and (3) had landed with 4.y-fix17 and 4.y-fix16), 4.y-fix19 done
 2026-10-10 (S9's third Astra round: every direct Common `.mtl` read once a link's search
-lands in `Common/`; a non-model file in `Collars/` gets no collar finding), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
+lands in `Common/`; a non-model file in `Collars/` gets no collar finding), 4.y-fix14 (a1) done 2026-10-10 (on PES 15-17 every directory of `Common/` is packed
+at its own path and a member's `face.xml` names a subfolder's file; on PES 18-21 a
+subfolder's file is `file_not_used`; (a2) and (b) open), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
@@ -3510,7 +3512,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   313), `just bindings` green (37 fixtures); mutants 13 caught, 0 missed, 3 unviable; the remote half peaked at the 9G cap with no build killed (`.tmp/4_y/mutants_fix13.log`).
 
 - [ ] 4.y-fix14 **`Common/` subfolders, the referee body** (the maintainer's answers,
-  2026-10-09). Two slices. (a) On PES 15-17 a `Common/` subfolder is packed under the team's
+  2026-10-09). Three slices, (a) split in two at briefing: (a1) the subfolders packed at
+  their own path and named by a member's xml, (a2) the refs export's `Common/` over the
+  referee template's `common/999/` tree and the tree as an xml source, (b) `fpc_off`.
+  (a) On PES 15-17 a `Common/` subfolder is packed under the team's
   Common output at its own path, processed as `Common/` is; a `face.xml` Common path naming
   `<subfolder>/<name>` resolves there (no more `xml_path_unchecked`), in a refs export the
   referee template's `common/999/` tree counting too; a refs export's Common files lay over
@@ -3524,6 +3529,41 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (a); TC-REF-16, TC-REF-17 (b). Crates: tc, aesthetics_export → verify: the four scenarios
   proven, red first; the census re-run over the six refs exports holding `Common/refkit/`:
   no `common_file_disallowed` and no `xml_path_unchecked` for it.
+  (a1) done 2026-10-10 (Opus 5.5, one run and two rework rounds): the allowlist admits
+  model content anywhere in `Common/` (`check_common`, the stem check over the direct
+  textures alone); `roles::is_read_common_file` (every directory on PES 15-17, `Common/`
+  itself on Fox) and `directory_stem` (per-stem selection within a directory) replace the
+  direct-file guards in planning, the deep pass and `validation.rs` (a Fox subfolder's file
+  `file_not_used`); `plan_run` plans one `CommonTextures` and one `CommonModels` task per
+  read directory (`common_directories`), the environment map flag for `Common/` itself
+  when any read directory converts a metal FMDL (the rework round: a subfolder's converted
+  material names the root `env.dds`); outputs take `paths::common_subpath` (`texture.rs`
+  `common_texture_entries`, `prefox_common.rs`, whose `skeleton_beside` pairs a subfolder
+  FMDL's `.skl` in its directory); a `Reference::Common` holds the path relative to
+  `Common/` (`user_face_xml.rs` `reference`, `resolve`; `XmlFace::written_path` keeps the
+  subfolder; a direct-only guard in Fox `point_texture`, `deep/materials.rs` `supply` and
+  `prefox_shared`'s Common textures, which a link alone reaches); `common_mtl_findings`
+  resolves a `.mtl`'s textures in its own directory; `named_on_folder` names a subfolder's
+  file by its export path. A subfolder's glTF is selected within its directory and dropped
+  with `model_gltf_unsupported` (one rule). Tests: TC-CMN-18 (`prefox_user_xml.rs`: the
+  refkit thigh and `.mtl` packed under `refkit/`, the xml entry with the team ID), TC-CMN-13
+  and TC-CMN-15 rewritten (`file_not_used` on PES 21, `model_broken` on PES 17), the nested
+  texture test asserting `sub/cloth.dds`, unit tests for `reference`, `resolve`,
+  `common_directories`, `common_subpath`, `named_on_folder`, the flag. Contradictions ruled:
+  `file_not_used` is a Warning (the README said Info: corrected); the flag (accepted, the
+  rework); an empty `<rest>` is `Unchecked` rather than `xml_model_not_found` (accepted: the
+  plan's catch-all). Not run: the census over the six refs exports (their `refkit.mtl`'s
+  textures and TC-REF-15 are (a2)'s; run it after (a2)). Files: `aesthetics_export`
+  `validate/folders.rs`, `tests.rs`; `team_compiler` `deep/materials.rs`, `deep/mod.rs`,
+  `paths.rs`, `plan/mod.rs`, `plan/roles.rs`, `processing/mod.rs`, `model.rs`,
+  `prefox_common.rs`, `prefox_face.rs`, `prefox_shared.rs`, `texture.rs`,
+  `user_face_xml.rs`, `validation.rs`, `tests/cli/common_links.rs`, `prefox_faces.rs`,
+  `prefox_user_xml.rs`; README TC-CMN-13/15 (lead). Gates green
+  (`.tmp/4_y/gates_fix14a1.log`, acceptance 305 of 313); mutants MUTANTS
+  (`.tmp/4_y/mutants_fix14a1.log`; the second rework round: the two survivors were the
+  direct-texture filters of the deep pass's Common stem set and of the shared package's
+  Common texture map, each now with a test of a `.mtl` path naming a subfolder texture's
+  or a direct model's stem).
 
 - [x] 4.y-fix15 **S14's SWE-2 rework** (rulings S14.1 in `.tmp/4_y/duck_rulings.md`).
   (1) Under `ingame_face` the deep pass's `.mtl` check sees the textures of the combined
@@ -6311,3 +6351,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (the blank face's `.fpkd` is generated empty, not the template `generic.fpkd` the plan
   named: Red's file is that empty package, the face parity row proves the bytes), so the
   S14 Astra loop ends at its first round; its second SWE-2 round is still owed.
+- **2026-10-10** — 4.y-fix14 (a1) done (sidekick, one run and one rework round): every
+  directory of `Common/` is a Common folder of its own on PES 15-17, packed at its own
+  path, a member's `face.xml` naming a subfolder's file; the allowlist admits model
+  content anywhere in `Common/`; a Fox subfolder's file is `file_not_used`. The step's
+  (a) was split at briefing: the refs overlay and the template tree as an xml source are
+  (a2), `fpc_off` (b).

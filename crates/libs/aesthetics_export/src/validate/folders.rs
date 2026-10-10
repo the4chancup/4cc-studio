@@ -727,15 +727,17 @@ fn edithair_files(
     }
 }
 
-/// The `Common/` allowlist and its own stem namespace: direct files only,
-/// model content only; conflicting textures drop each other.
+/// The `Common/` allowlist and its own stem namespace: model content only, at
+/// any depth (on PES 15-17 a subfolder is packed at its own path); conflicting
+/// direct textures drop each other. A subfolder's textures are left out of the
+/// stem check: they pack under their own path, so they collide with no direct one.
 pub(crate) fn check_common(
     draft: &AestheticsExportDraft,
     context: &ValidationContext,
     issues: &mut Vec<ValidationIssue>,
 ) {
     for file in &draft.common {
-        if !is_direct_common_file(&file.path) || !is_model_content(file.kind) {
+        if !is_model_content(file.kind) {
             issues.push(issue_in(
                 context,
                 "common_file_disallowed",

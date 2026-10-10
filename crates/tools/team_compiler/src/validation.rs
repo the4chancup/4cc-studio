@@ -30,7 +30,7 @@ use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_w
 use crate::plan::mapped_players;
 use crate::plan::roles::{
     FolderModels, ModelPackage, PlayerFile, admitted, common_skeleton, file_stem,
-    is_direct_root_folder_file, is_user_face_xml, player_file, shared_folders,
+    is_read_common_file, is_user_face_xml, player_file, shared_folders,
 };
 use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
@@ -561,8 +561,8 @@ fn no_model_messages(
 /// (directly in it or in `face/`) as `xml_ignored_fox`: Fox has no `face.xml`, and the
 /// folder's models compile as without it. A pre-Fox target reports a shared boots or gloves
 /// folder's own as `xml_ignored_shared`: its output is one model or a `glove.xml`, which no
-/// face xml drives. Then `file_not_used` on the export for each file
-/// directly in `Common/` of a kind no task reads, and for a refs export's kits, logo,
+/// face xml drives. Then `file_not_used` on the export for each `Common/` file of a kind no
+/// task reads, on PES 18-21 also every file below a subfolder, and for a refs export's kits, logo,
 /// portraits and collars (`referee_messages`).
 fn model_name_messages(
     resolved: &ResolvedAestheticsExport,
@@ -598,16 +598,14 @@ fn model_name_messages(
     }
     // `Common/` is a library: a model, `.mtl` or `.skl` no link or conversion takes is no
     // mistake, a texture is the Common textures task's and a glTF planning's
-    // (`model_gltf_unsupported`). A file below a subfolder is `common_file_disallowed`'s.
-    for file in export
-        .common
-        .iter()
-        .filter(|file| is_direct_root_folder_file(&file.path))
-    {
-        let read_by_no_task = matches!(
-            file.kind,
-            FileKind::Fclo | FileKind::Xml | FileKind::Bin | FileKind::MaterialsToml
-        );
+    // (`model_gltf_unsupported`). A file of a directory the target does not read
+    // (`is_read_common_file`: on Fox a subfolder's) is read by nothing whatever its kind.
+    for file in &export.common {
+        let read_by_no_task = !is_read_common_file(&file.path, engine)
+            || matches!(
+                file.kind,
+                FileKind::Fclo | FileKind::Xml | FileKind::Bin | FileKind::MaterialsToml
+            );
         if read_by_no_task {
             messages.push(export_file_not_used(export_id, file.path.as_str()));
         }

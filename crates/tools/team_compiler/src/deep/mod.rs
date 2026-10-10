@@ -83,9 +83,10 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, emits_kit_texture, file_stem, in_folder_or_face,
-    is_direct_root_folder_file, is_selected_common_model, is_user_face_xml, link_feeds_own_package,
-    linked_folder, part_source_models, player_file, selected_common_model, texture_format,
+    FolderModels, PlayerFile, directory_stem, emits_kit_texture, file_stem, in_folder_or_face,
+    is_direct_root_folder_file, is_read_common_file, is_selected_common_model, is_user_face_xml,
+    link_feeds_own_package, linked_folder, part_source_models, player_file, selected_common_model,
+    texture_format,
 };
 use crate::reader::ContentSource;
 use crate::user_face_xml::{
@@ -191,7 +192,8 @@ impl KeptCommon {
 /// report keeps, with `pass_through` as set, and whose models' materials are compared with
 /// the kept ones' names (`KeptCommon`).
 ///
-/// It checks only what `compile` reads: not a file below a `Common/` subfolder, nor a
+/// It checks only what `compile` reads: not for PES 2018 to 2021 a file below a `Common/`
+/// subfolder (`is_read_common_file`), nor a
 /// `Common/` model another of its stem beats (`is_selected_common_model`), which is dropped
 /// with that winner instead (`drop_beaten_common_models`), nor for PES 2018 to 2021 a
 /// `Common/` `.mtl` no player folder's search may read (`searched_common_mtls`), nor a kit
@@ -259,10 +261,11 @@ pub(crate) fn content_findings(
         .common
         .par_iter()
         .map(|file| {
-            // The Common tasks read only the files directly in `Common/`, and a model there
-            // only when the target selects it for its stem, and on Fox a `.mtl` only when a
-            // search finds it: nothing reads the others.
-            let unread = !is_direct_root_folder_file(&file.path)
+            // The Common tasks read only the files of a directory the target reads
+            // (`is_read_common_file`: on Fox `Common/` itself alone), and a model there only
+            // when the target selects it for its stem, and on Fox a `.mtl` only when a search
+            // finds it: nothing reads the others.
+            let unread = !is_read_common_file(&file.path, engine)
                 || (matches!(file.kind, FileKind::Model(_))
                     && !is_selected_common_model(&export.common, file, engine))
                 || (file.kind == FileKind::Mtl
@@ -288,13 +291,15 @@ pub(crate) fn content_findings(
     // whose only `.mtl` is a dropped Common one is `model_material_undefined` here rather than
     // a material the face task cannot find. Under `pass_through` a file whose every Error is
     // eligible is kept and packed, so it is found here too: leaving it out would drop a
-    // player for a file `compile` packs. A file below a subfolder is found by no lookup.
+    // player for a file `compile` packs. On PES 15-17 a subfolder's file is kept too: a
+    // member's `face.xml` names it, and the Common tasks read it; a link's lookups look
+    // directly in `Common/` alone.
     let mut kept_common = KeptCommon {
         installed,
         ..KeptCommon::default()
     };
     for (file, pass) in export.common.iter().zip(&common) {
-        if !is_direct_root_folder_file(&file.path) || drops_file(&pass.findings, pass_through) {
+        if !is_read_common_file(&file.path, engine) || drops_file(&pass.findings, pass_through) {
             continue;
         }
         kept_common.files.push(file.clone());
@@ -304,10 +309,11 @@ pub(crate) fn content_findings(
                 .insert(file.path.clone(), read.clone());
         }
     }
+    // A subfolder's textures are packed under its own path, which no player's paths name.
     kept_common.texture_stems = kept_common
         .files
         .iter()
-        .filter(|file| file.kind == FileKind::Texture)
+        .filter(|file| file.kind == FileKind::Texture && is_direct_root_folder_file(&file.path))
         .map(|file| vtree::fold_name(file_stem(file.path.name())))
         .collect();
     match engine {
@@ -571,10 +577,11 @@ fn drops_file(findings: &[ContentFinding], pass_through: bool) -> bool {
     })
 }
 
-/// Appends `common_model_beaten_dropped` to the pass, among `passes`, of each model directly in
-/// `Common/` among `common` (the export's `Common/` files, whose passes are `passes`) that a
-/// target of `engine` does not select for its stem (`is_selected_common_model`), when the pass
-/// dropped the model of its stem that beats it (`drops_file`, with `pass_through`): the finding
+/// Appends `common_model_beaten_dropped` to the pass, among `passes`, of each model in a
+/// directory of `Common/` a target of `engine` reads (`is_read_common_file`), among `common`
+/// (the export's `Common/` files, whose passes are `passes`), that the target does not select
+/// for its stem (`is_selected_common_model`), when the pass dropped the model of its stem in
+/// its directory that beats it (`drops_file`, with `pass_through`): the finding
 /// names the file and that winner, and drops the file, never passing through. The deep pass
 /// leaves a beaten model unread, so without the winner planning would select it for the stem
 /// (`selected_common_model`) though nothing checked it.
@@ -584,23 +591,23 @@ fn drop_beaten_common_models(
     engine: Engine,
     pass_through: bool,
 ) {
-    let stem = |file: &FileDescriptor| vtree::fold_name(file_stem(file.path.name()));
-    let is_direct_model = |file: &FileDescriptor| {
-        matches!(file.kind, FileKind::Model(_)) && is_direct_root_folder_file(&file.path)
+    let is_read_model = |file: &FileDescriptor| {
+        matches!(file.kind, FileKind::Model(_)) && is_read_common_file(&file.path, engine)
     };
     let dropped_winners: Vec<&FileDescriptor> = common
         .iter()
         .zip(passes.iter())
-        .filter(|(file, pass)| is_direct_model(file) && drops_file(&pass.findings, pass_through))
+        .filter(|(file, pass)| is_read_model(file) && drops_file(&pass.findings, pass_through))
         .map(|(file, _)| file)
         .collect();
     for (file, pass) in common.iter().zip(passes) {
-        if !is_direct_model(file) || is_selected_common_model(common, file, engine) {
+        if !is_read_model(file) || is_selected_common_model(common, file, engine) {
             continue;
         }
+        // A model and the one beating it share a directory and a stem.
         let Some(winner) = dropped_winners
             .iter()
-            .find(|winner| stem(winner) == stem(file))
+            .find(|winner| directory_stem(winner) == directory_stem(file))
         else {
             continue;
         };
@@ -622,7 +629,9 @@ fn drop_beaten_common_models(
 /// each on its file, keeping it, appended to its pass after its own findings. A `Common/`
 /// `.mtl` is packed once for the team, before any player's pairing is known, so its mesh-used
 /// materials are those every kept `Common/` model's meshes bind, and its paths resolve among
-/// the kept `Common/` textures and the installed CPKs alone.
+/// the kept textures of its own directory (the ones its Common models task points it at:
+/// `Common/`'s for a direct `.mtl`, a subfolder's for one in that subfolder), then for a Common
+/// path the kept textures directly in `Common/` and the installed CPKs.
 fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], kept: &KeptCommon) {
     let model_kind = FileKind::Model(ModelFormat::PesModel);
     let used: BTreeSet<&str> = kept
@@ -634,11 +643,6 @@ fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], ke
         .filter(|material| material.mesh_used)
         .map(|material| material.name.as_str())
         .collect();
-    let sources = TextureSources {
-        held: &kept.texture_stems,
-        common: &kept.texture_stems,
-        installed: kept.installed.as_ref(),
-    };
     for (file, pass) in common.iter().zip(passes) {
         if file.kind != FileKind::Mtl {
             continue;
@@ -646,6 +650,21 @@ fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], ke
         // A file the pass dropped, or that did not parse, has no kept materials.
         let Some(read) = kept.materials.get(&file.path) else {
             continue;
+        };
+        let directory = file.path.parent().map(|parent| parent.fold_key());
+        let held: BTreeSet<String> = kept
+            .files
+            .iter()
+            .filter(|texture| {
+                texture.kind == FileKind::Texture
+                    && texture.path.parent().map(|parent| parent.fold_key()) == directory
+            })
+            .map(|texture| vtree::fold_name(file_stem(texture.path.name())))
+            .collect();
+        let sources = TextureSources {
+            held: &held,
+            common: &kept.texture_stems,
+            installed: kept.installed.as_ref(),
         };
         pass.findings.extend(texture_findings(
             file.path.name(),
@@ -1428,13 +1447,18 @@ pub(crate) fn relative(path: &ScopePath, folder: &ScopePath) -> String {
 }
 
 /// How a finding on the model folder at `folder` names the file at `path`: below the folder
-/// (`relative`), or by its export path when it sits directly in `Common/`, outside the folder
-/// (`Common/legs.model`).
+/// (`relative`), or by its export path when it sits in `Common/`, outside the folder
+/// (`Common/legs.model`, `Common/refkit/oral_arm_win32.model`, which a member's `face.xml`
+/// may name).
 fn named_on_folder(path: &ScopePath, folder: &ScopePath) -> String {
-    if is_direct_root_folder_file(path) {
-        path.as_str().to_owned()
-    } else {
+    let below_folder = path
+        .as_str()
+        .strip_prefix(folder.as_str())
+        .is_some_and(|rest| rest.starts_with('/'));
+    if below_folder {
         relative(path, folder)
+    } else {
+        path.as_str().to_owned()
     }
 }
 
@@ -1634,6 +1658,19 @@ mod tests {
     /// The tracer's boots model with one vertex 6000 units from the origin.
     pub(super) fn far_boots() -> Vec<u8> {
         fixture("deep/boots_far.fmdl")
+    }
+
+    #[test]
+    fn a_folder_names_its_own_file_below_it_and_a_common_one_by_its_export_path() {
+        let folder = ScopePath::new("Players/05 - A").unwrap();
+        let named = |path: &str| named_on_folder(&ScopePath::new(path).unwrap(), &folder);
+        assert_eq!(named("Players/05 - A/face/hat.model"), "face/hat.model");
+        assert_eq!(named("Common/legs.model"), "Common/legs.model");
+        // A subfolder's file, which a member's `face.xml` may name, keeps its whole path.
+        assert_eq!(
+            named("Common/refkit/oral_thigh_win32.model"),
+            "Common/refkit/oral_thigh_win32.model"
+        );
     }
 
     /// The tracer's own boots model, all of it near the origin; 1662 of its vertices carry

@@ -32,11 +32,12 @@ use collars::export_collar;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
-    FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, emits_kit_texture,
-    file_stem, is_direct_root_folder_file, is_hand_split, is_part_of, is_selected_common_model,
-    leaves_out_kit_variants, link_combines, link_feeds_own_package, link_name, linked_folder,
-    native_format, package_of, part_source_models, player_file, role_files, selected_common_model,
-    shared_folders, shared_kind_of, skeleton_slot, texture_format,
+    FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, directory_stem,
+    emits_kit_texture, file_stem, is_direct_root_folder_file, is_hand_split, is_part_of,
+    is_read_common_file, is_selected_common_model, leaves_out_kit_variants, link_combines,
+    link_feeds_own_package, link_name, linked_folder, native_format, package_of,
+    part_source_models, player_file, role_files, selected_common_model, shared_folders,
+    shared_kind_of, skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -162,8 +163,10 @@ pub(crate) struct ModelFolder {
     /// names in that output is supplied when its stem is among them ("Resolved decisions", "A
     /// texture a model names must exist").
     pub(crate) common_texture_stems: BTreeSet<String>,
-    /// The `.model`, FMDL, `.mtl` and texture files directly in the export's `Common/` folder,
-    /// on a pre-Fox target for a player folder; on Fox its `.mtl` files alone, which a
+    /// The `.model`, FMDL, `.mtl` and texture files of every directory of the export's
+    /// `Common/` folder, on a pre-Fox target for a player folder, a subfolder's being what a
+    /// member's `face.xml` names with `<subfolder>/<name>` (a link resolves only a direct file);
+    /// on Fox its `.mtl` files directly in it alone, which a
     /// `.mtl.common` link of the folder stands for in its `.model`'s search
     /// (`mtl_search::mtl_for`), Fox's Common parts being resolved at planning
     /// (`common_models`); empty for a shared folder, whose links have no role. The face task
@@ -529,34 +532,41 @@ pub(crate) enum TaskKind {
         /// The export's kit numbers, against which its texture variant sets are completed.
         kits: Vec<u8>,
     },
-    /// The textures directly in the export's `Common/` folder, converted once into the team's
-    /// Common output, whether or not a `.common` link uses them (`pipeline.md` "Resolved
-    /// decisions", "Common textures are one task of their export"). One task per export, in no
-    /// group: its textures serve every linking player, so it commits on its own, and when it
-    /// fails the linking players still commit.
+    /// The textures of a directory of the export's `Common/` folder (`Common/` itself, or on
+    /// PES 15-17 a subfolder, packed at its own path; `pipeline.md` "Common"), converted once
+    /// into the team's Common output, whether or not a `.common` link uses them (`pipeline.md`
+    /// "Resolved decisions", "Common textures are one task of their export"). One task per
+    /// such directory, in no group: its textures serve every linking player, so it commits on
+    /// its own, and when it fails the linking players still commit.
     CommonTextures {
-        /// The `Common/` folder's export path, the scope the task's findings name.
+        /// The directory's export path, the scope the task's findings name and, below
+        /// `Common/`, the path its output takes under the team's Common output.
         folder: ScopePath,
         /// Its textures directly in it, in any accepted image format.
         textures: Vec<FileDescriptor>,
         /// The export's kit numbers, against which its texture variant sets are completed.
         kits: Vec<u8>,
-        /// The Common models task converts an FMDL holding a metal material for PES 15-17
-        /// (`ExportToPlan::metal_models`) and no texture directly in `Common/` has the stem
-        /// `env`: the task emits the template environment map as `env.dds` in the team's Common
-        /// output, and is planned for it even when `Common/` holds no texture; the conversion
-        /// points each converted `Basic_CNSR` material with no environment sampler at it
-        /// (`model_format.md`, the `environment` role). Never set on PES 18-21.
+        /// A Common models task of any directory of `Common/` converts an FMDL holding a metal
+        /// material for PES 15-17 (`ExportToPlan::metal_models`) and no texture directly in
+        /// `Common/` has the stem `env`: `Common/`'s own task emits the template environment map
+        /// as `env.dds` in the team's Common output, and is planned for it even when `Common/`
+        /// holds no texture (or no file); the conversion points each converted `Basic_CNSR`
+        /// material with no environment sampler, whichever directory its FMDL sits in, at it
+        /// (`model_format.md`, the `environment` role). Never set on PES 18-21, nor on a
+        /// subfolder's task.
         environment_map: bool,
     },
-    /// Pre-Fox: the `.model` and `.mtl` files directly in the export's `Common/` folder,
-    /// written once into the team's Common output, whether or not a `.common` link names them
-    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 4): the game loads a linked
-    /// Common model or `.mtl` from there. An FMDL there no `.model` of its stem beats is
-    /// converted once into a `.model` and its material set, the `.skl` of its stem its bind
-    /// pose. One task per export holding such a file, in no group, as `CommonTextures`.
+    /// Pre-Fox: the `.model` and `.mtl` files of a directory of the export's `Common/` folder
+    /// (`Common/` itself or a subfolder, packed at its own path; `pipeline.md` "Common"),
+    /// written once into the team's Common output, whether or not a `.common` link or a
+    /// member's `face.xml` names them (`pipeline.md` "3. Per-model-folder parallel steps", step
+    /// 4): the game loads a linked Common model or `.mtl` from there. An FMDL there no `.model`
+    /// of its stem beats is converted once into a `.model` and its material set, the `.skl` of
+    /// its stem its bind pose. One task per directory holding such a file, in no group, as
+    /// `CommonTextures`.
     CommonModels {
-        /// The `Common/` folder's export path, the scope the task's findings name.
+        /// The directory's export path, the scope the task's findings name and, below
+        /// `Common/`, the path its output takes under the team's Common output.
         folder: ScopePath,
         /// Its `.model` and `.mtl` files directly in it, and each FMDL it converts with the
         /// `.skl` of that FMDL's stem (`common_model_files`).
@@ -1038,67 +1048,45 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             &mut export.common,
             &mut messages,
         );
-        // The textures directly in `Common/`: one task of the export's, and the stems a Common
-        // part's paths name that task's output for, which a model of any folder may name. A
-        // texture below a subfolder, which only a lenient file-type check keeps, is not
-        // emitted: the Common output is flat, and a flattened copy could collide with a direct
-        // file's (its `common_file_disallowed` tells the member).
-        let common_textures: Vec<FileDescriptor> = export
+        // The stems of the textures directly in `Common/`, which the Common textures task emits
+        // into the team's Common output and a Common part's paths, in a model of any folder,
+        // name that output for. A subfolder's textures are packed under its own path, which no
+        // player's model points at.
+        let common_texture_stems: BTreeSet<String> = export
             .common
             .iter()
             .filter(|file| {
                 is_direct_root_folder_file(&file.path) && texture_format(file.path.name()).is_some()
             })
-            .cloned()
-            .collect();
-        let common_texture_stems: BTreeSet<String> = common_textures
-            .iter()
             .map(|file| vtree::fold_name(file_stem(file.path.name())))
             .collect();
         // Pre-Fox loads Common at run time: its `.model` and `.mtl` files, and its FMDLs
-        // converted, are one more task of the export's, and a player's face names them and its
-        // textures, which its task finds among the model, `.mtl` and texture files. Fox reads
-        // Common through a player's links alone: a model link's Common model is resolved per
-        // folder (`common_models`), and a `.mtl.common` link's Common `.mtl` is among the
-        // `.mtl` files a player's `.model` search resolves the link against
-        // (`mtl_search::mtl_for`). Nothing reads any other `Common/` file.
-        let (common_model_files, player_common_files): (Vec<FileDescriptor>, Vec<FileDescriptor>) =
-            match version.engine() {
-                Engine::Fox => (
-                    Vec::new(),
-                    export
-                        .common
-                        .iter()
-                        .filter(|file| {
-                            file.kind == FileKind::Mtl && is_direct_root_folder_file(&file.path)
-                        })
-                        .cloned()
-                        .collect(),
-                ),
-                Engine::PreFox => (
-                    common_model_files(&export.common),
-                    export
-                        .common
-                        .iter()
-                        .filter(|file| {
-                            is_direct_root_folder_file(&file.path)
-                                && matches!(
-                                    file.kind,
-                                    FileKind::Model(ModelFormat::PesModel | ModelFormat::Fmdl)
-                                        | FileKind::Mtl
-                                )
-                        })
-                        .chain(&common_textures)
-                        .cloned()
-                        .collect(),
-                ),
-            };
-        // The template environment map goes into the team's Common output for a converted
-        // Common FMDL holding a metal material, unless `Common/` holds an `env` texture, which
-        // the converted material then names.
-        let common_environment_map = common_model_files.iter().any(|file| {
-            file.kind == FileKind::Model(ModelFormat::Fmdl) && metal_models.contains(&file.path)
-        }) && !common_texture_stems.contains(ENVIRONMENT_MAP_STEM);
+        // converted, are one more task of the export's per directory, and a player's face
+        // names them and its textures, a member's `face.xml` a subfolder's too, which its task
+        // finds among the model, `.mtl` and texture files. Fox reads Common through a player's
+        // links alone: a model link's Common model is resolved per folder (`common_models`),
+        // and a `.mtl.common` link's Common `.mtl` is among the `.mtl` files a player's
+        // `.model` search resolves the link against (`mtl_search::mtl_for`). Nothing reads any
+        // other `Common/` file.
+        let player_common_files: Vec<FileDescriptor> = match version.engine() {
+            Engine::Fox => export
+                .common
+                .iter()
+                .filter(|file| file.kind == FileKind::Mtl && is_direct_root_folder_file(&file.path))
+                .cloned()
+                .collect(),
+            Engine::PreFox => export
+                .common
+                .iter()
+                .filter(|file| {
+                    matches!(
+                        file.kind,
+                        FileKind::Model(ModelFormat::PesModel | ModelFormat::Fmdl) | FileKind::Mtl
+                    ) || texture_format(file.path.name()).is_some()
+                })
+                .cloned()
+                .collect(),
+        };
         // The shared folders taking an id, each with its package and that id, in the id order
         // of the kind: the boots folders, then the gloves folders.
         let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
@@ -1256,48 +1244,95 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 export.coverage,
             ));
         }
-        // The stems the Common `.mtl` files' paths are pointed at, each as `Common/` spells it:
-        // the name its converted DDS has in the team's Common output.
-        let texture_stems: BTreeMap<String, String> = common_textures
+        // A Common textures task and a Common models task per directory of `Common/` a target
+        // reads (`is_read_common_file`: every one on PES 15-17, `Common/` itself on Fox), each
+        // over that directory's own files, its output under the directory's path.
+        // One directory's files are all direct or all below a subfolder, so all are read or none.
+        // Each with the files its models task reads.
+        let mut read_directories: Vec<(ScopePath, Vec<FileDescriptor>, Vec<FileDescriptor>)> =
+            common_directories(&export.common)
+                .into_iter()
+                .filter(|(_, files)| {
+                    files
+                        .iter()
+                        .all(|file| is_read_common_file(&file.path, version.engine()))
+                })
+                .map(|(directory, files)| {
+                    let model_files = match version.engine() {
+                        Engine::Fox => Vec::new(),
+                        Engine::PreFox => common_model_files(&files),
+                    };
+                    (directory, files, model_files)
+                })
+                .collect();
+        // Whether any directory's models task converts an FMDL holding a metal material: its
+        // material names the template environment map at the Common output's own directory,
+        // whichever directory it sits in, so `Common/`'s textures task must emit it. Known
+        // before the loop, which plans `Common/` itself first.
+        let converts_metal = read_directories
             .iter()
-            .map(|file| {
-                let stem = file_stem(file.path.name());
-                (vtree::fold_name(stem), stem.to_owned())
-            })
-            .collect();
-        // Planned for the template environment map alone when `Common/` holds no texture.
-        if !common_textures.is_empty() || common_environment_map {
-            let folder = common_textures
-                .iter()
-                .chain(&common_model_files)
-                .next()
-                .and_then(|first| first.path.parent())
-                .expect("a Common texture or model sits in the export's Common/ folder");
-            tasks.push(task(
-                export_id,
-                team_id,
-                TaskKind::CommonTextures {
-                    folder,
-                    textures: common_textures,
-                    kits,
-                    environment_map: common_environment_map,
-                },
-            ));
+            .flat_map(|(_, _, model_files)| model_files)
+            .any(|file| {
+                file.kind == FileKind::Model(ModelFormat::Fmdl) && metal_models.contains(&file.path)
+            });
+        // `Common/` holding no file of its own (only subfolders) has no entry, but still emits
+        // the map: an empty entry for it, first, as `common_directories` orders it.
+        if converts_metal
+            && let Some((first, _, _)) = read_directories.first()
+            && first.segments().count() > 1
+        {
+            let mut common = first.clone();
+            while let Some(parent) = common.parent() {
+                common = parent;
+            }
+            read_directories.insert(0, (common, Vec::new(), Vec::new()));
         }
-        if let Some(first) = common_model_files.first() {
-            let folder = first
-                .path
-                .parent()
-                .expect("a Common model or `.mtl` sits in the export's Common/ folder");
-            tasks.push(task(
-                export_id,
-                team_id,
-                TaskKind::CommonModels {
-                    folder,
-                    files: common_model_files,
-                    texture_stems,
-                },
-            ));
+        for (directory, files, model_files) in read_directories {
+            let textures: Vec<FileDescriptor> = files
+                .iter()
+                .filter(|file| texture_format(file.path.name()).is_some())
+                .cloned()
+                .collect();
+            // The stems the directory's `.mtl` files' paths are pointed at, each as the
+            // directory spells it: the name its converted DDS has in the team's Common output.
+            let texture_stems: BTreeMap<String, String> = textures
+                .iter()
+                .map(|file| {
+                    let stem = file_stem(file.path.name());
+                    (vtree::fold_name(stem), stem.to_owned())
+                })
+                .collect();
+            // The template environment map goes into the team's Common output, by `Common/`'s
+            // own task, for a converted FMDL of any directory holding a metal material, unless
+            // `Common/` holds an `env` texture, which the converted material then names. A
+            // subfolder's task never emits it.
+            let environment_map = directory.segments().count() == 1
+                && converts_metal
+                && !texture_stems.contains_key(ENVIRONMENT_MAP_STEM);
+            // Planned for the template environment map alone when `Common/` holds no texture.
+            if !textures.is_empty() || environment_map {
+                tasks.push(task(
+                    export_id,
+                    team_id,
+                    TaskKind::CommonTextures {
+                        folder: directory.clone(),
+                        textures,
+                        kits: kits.clone(),
+                        environment_map,
+                    },
+                ));
+            }
+            if !model_files.is_empty() {
+                tasks.push(task(
+                    export_id,
+                    team_id,
+                    TaskKind::CommonModels {
+                        folder: directory,
+                        files: model_files,
+                        texture_stems,
+                    },
+                ));
+            }
         }
         // Validation keeps a `ref_marker.dds` on a refs export alone. Its task lies in the
         // export's range, so its entries go where the referees' do.
@@ -1628,24 +1663,25 @@ fn drop_gltf_folders(
     export.gloves.retain(|folder| linked.contains(&folder.path));
 }
 
-/// The glTFs directly in `common`, the export's `Common/` files, that a target of `engine`
-/// selects for their stem: those with no model of the target's own format of their stem beside
-/// them there (`pipeline.md` step 3 "Format conversion": target-native first, then glTF, then
-/// the other engine's format, the one rule for every model folder, `Common/` included). The
-/// compiler does not read glTF until Phase 7, so planning drops each (`drop_common_gltfs`).
+/// The glTFs among `common`, the export's `Common/` files, in a directory a target of `engine`
+/// reads (`is_read_common_file`), that it selects for their stem: those with no model of the
+/// target's own format of their stem beside them in their directory (`pipeline.md` step 3
+/// "Format conversion": target-native first, then glTF, then the other engine's format, the one
+/// rule for every model folder, each Common directory included). The compiler does not read
+/// glTF until Phase 7, so planning drops each (`drop_common_gltfs`).
 fn selected_common_gltfs(common: &[FileDescriptor], engine: Engine) -> Vec<&FileDescriptor> {
     let native = FileKind::Model(native_format(engine));
-    let native_stems: BTreeSet<String> = common
+    let native_stems: BTreeSet<(Option<String>, String)> = common
         .iter()
-        .filter(|file| is_direct_root_folder_file(&file.path) && file.kind == native)
-        .map(|file| vtree::fold_name(file_stem(file.path.name())))
+        .filter(|file| file.kind == native)
+        .map(directory_stem)
         .collect();
     common
         .iter()
         .filter(|file| {
-            is_direct_root_folder_file(&file.path)
+            is_read_common_file(&file.path, engine)
                 && file.kind == FileKind::Model(ModelFormat::Gltf)
-                && !native_stems.contains(&vtree::fold_name(file_stem(file.path.name())))
+                && !native_stems.contains(&directory_stem(file))
         })
         .collect()
 }
@@ -1671,18 +1707,22 @@ fn linked_common_gltf(
         return None;
     }
     let linked = vtree::fold_name(file_stem(&common_link_name(file.path.name())?));
+    // A link resolves directly in `Common/` alone, so a subfolder's glTF beats nothing it names.
     common_gltfs
         .iter()
-        .find(|gltf| vtree::fold_name(file_stem(gltf.path.name())) == linked)
+        .find(|gltf| {
+            is_direct_root_folder_file(&gltf.path)
+                && vtree::fold_name(file_stem(gltf.path.name())) == linked
+        })
         .map(|gltf| gltf.path.as_str().to_owned())
 }
 
-/// Removes from `common`, the export's `Common/` files, each glTF directly in `Common/` a
-/// target of `engine` selects for its stem (`selected_common_gltfs`), reporting
+/// Removes from `common`, the export's `Common/` files, each glTF a target of `engine` selects
+/// for its stem in its directory (`selected_common_gltfs`), reporting
 /// `model_gltf_unsupported` on the file, named by its export path (`pipeline.md` "Common
 /// textures are one task of their export"): the file alone is dropped, as a collar's is, and
 /// the rest of the export compiles without it. A model of the other engine's format of its stem
-/// directly in `Common/` is beaten by it and removed too, with no finding of its own, as a
+/// in its directory is beaten by it and removed too, with no finding of its own, as a
 /// player folder's beaten model has none: removed rather than left in place, so that neither
 /// the pre-Fox Common models task nor a link resolves to it in the glTF's place (a mapped player
 /// folder linking it was dropped first, `drop_gltf_folders`). Its `.skl` stays, read by
@@ -1694,14 +1734,10 @@ fn drop_common_gltfs(
     common: &mut Vec<FileDescriptor>,
     messages: &mut Vec<Message>,
 ) {
-    let dropped: Vec<ScopePath> = selected_common_gltfs(common, engine)
-        .into_iter()
-        .map(|file| file.path.clone())
-        .collect();
-    let dropped_stems: BTreeSet<String> = dropped
-        .iter()
-        .map(|path| vtree::fold_name(file_stem(path.name())))
-        .collect();
+    let selected = selected_common_gltfs(common, engine);
+    let dropped_stems: BTreeSet<(Option<String>, String)> =
+        selected.iter().map(|file| directory_stem(file)).collect();
+    let dropped: Vec<ScopePath> = selected.into_iter().map(|file| file.path.clone()).collect();
     for path in &dropped {
         messages.push(tool_message(
             Code::ModelGltfUnsupported,
@@ -1718,9 +1754,8 @@ fn drop_common_gltfs(
         Engine::PreFox => ModelFormat::Fmdl,
     };
     common.retain(|file| {
-        let beaten = is_direct_root_folder_file(&file.path)
-            && file.kind == FileKind::Model(other_engine_format)
-            && dropped_stems.contains(&vtree::fold_name(file_stem(file.path.name())));
+        let beaten = file.kind == FileKind::Model(other_engine_format)
+            && dropped_stems.contains(&directory_stem(file));
         !beaten && !dropped.contains(&file.path)
     });
 }
@@ -1884,13 +1919,33 @@ fn player_folders<Slot: Copy>(
         .collect()
 }
 
-/// The files among `common`, the export's `Common/` files, that the pre-Fox Common models task
-/// reads (`TaskKind::CommonModels`), in `common`'s order, each directly in `Common/`: every
-/// `.model` and `.mtl`, every FMDL no `.model` of its stem beats (`selected_common_model`), which
-/// the task converts, and the `.skl` of each such FMDL's stem, its bind pose. A beaten FMDL and
-/// a `.skl` no converted FMDL pairs are ignored, as a player folder's are, and so is a file
-/// below a subfolder, which only a lenient file-type check keeps: the Common output is flat,
-/// and a flattened copy could collide with a direct file's.
+/// The files of `Common/` grouped by the directory holding them (`Common/` itself, or a
+/// subfolder at any depth), in path order, `Common/` itself first, each directory's files in
+/// `common`'s order; a directory holding no file has no entry. On PES 15-17 each is a Common
+/// folder of its own, planned and packed at its own path (`pipeline.md` "Common").
+fn common_directories(common: &[FileDescriptor]) -> Vec<(ScopePath, Vec<FileDescriptor>)> {
+    // Keyed case-folded, as the game's file system folds paths.
+    let mut directories: BTreeMap<String, (ScopePath, Vec<FileDescriptor>)> = BTreeMap::new();
+    for file in common {
+        let directory = file
+            .path
+            .parent()
+            .expect("a Common file sits in the export's Common/ folder or below it");
+        directories
+            .entry(directory.fold_key())
+            .or_insert_with(|| (directory, Vec::new()))
+            .1
+            .push(file.clone());
+    }
+    directories.into_values().collect()
+}
+
+/// The files among `common`, the files of one directory of `Common/` (`common_directories`),
+/// that the pre-Fox Common models task reads (`TaskKind::CommonModels`), in `common`'s order:
+/// every `.model` and `.mtl`, every FMDL no `.model` of its stem beats
+/// (`is_selected_common_model`), which the task converts, and the `.skl` of each such FMDL's
+/// stem, its bind pose. A beaten FMDL and a `.skl` no converted FMDL pairs are ignored, as a
+/// player folder's are.
 fn common_model_files(common: &[FileDescriptor]) -> Vec<FileDescriptor> {
     let converted = |file: &FileDescriptor| is_selected_common_model(common, file, Engine::PreFox);
     // The stems, folded, of the FMDLs converted: a `.skl` of one of them is its bind pose.
@@ -1901,7 +1956,6 @@ fn common_model_files(common: &[FileDescriptor]) -> Vec<FileDescriptor> {
         .collect();
     common
         .iter()
-        .filter(|file| is_direct_root_folder_file(&file.path))
         .filter(|file| match file.kind {
             FileKind::Model(ModelFormat::PesModel) | FileKind::Mtl => true,
             FileKind::Model(ModelFormat::Fmdl) => converted(file),
@@ -4723,10 +4777,72 @@ mod tests {
     }
 
     #[test]
+    fn a_subfolder_s_metal_fmdl_plans_the_template_environment_map_in_common_s_own_task() {
+        // (folder, texture count, environment map) of each Common textures task, and the
+        // folder of each Common models task, of the PES 17 plan of `files` with
+        // `Common/sub/legs.fmdl` holding a metal material.
+        let planned = |files: &[(&str, u64)]| {
+            let export = resolved("co Midcup Common", files, &[], None);
+            let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
+            planned.metal_models = [scope_path("Common/sub/legs.fmdl")].into();
+            let report = plan_run(vec![planned], PesVersion::Pes17);
+            let mut textures = Vec::new();
+            let mut models = Vec::new();
+            for task in &report.manifest.tasks {
+                match &task.kind {
+                    TaskKind::CommonTextures {
+                        folder,
+                        textures: files,
+                        environment_map,
+                        ..
+                    } => textures.push((folder.as_str().to_owned(), files.len(), *environment_map)),
+                    TaskKind::CommonModels { folder, .. } => {
+                        models.push(folder.as_str().to_owned())
+                    }
+                    TaskKind::Models { .. }
+                    | TaskKind::Textures { .. }
+                    | TaskKind::Portrait { .. }
+                    | TaskKind::Kit { .. }
+                    | TaskKind::Logo { .. }
+                    | TaskKind::RefereeMarker { .. }
+                    | TaskKind::Collar { .. } => {}
+                }
+            }
+            (textures, models)
+        };
+        // `Common/` holds no texture: its task is planned for the map alone.
+        assert_eq!(
+            planned(&[("Common/hat.model", 1), ("Common/sub/legs.fmdl", 1)]),
+            (
+                vec![("Common".to_owned(), 0, true)],
+                vec!["Common".to_owned(), "Common/sub".to_owned()]
+            )
+        );
+        // Nor any file: still planned, for the map.
+        assert_eq!(
+            planned(&[("Common/sub/legs.fmdl", 1)]),
+            (
+                vec![("Common".to_owned(), 0, true)],
+                vec!["Common/sub".to_owned()]
+            )
+        );
+        // `Common/`'s own `env` texture is the map.
+        assert_eq!(
+            planned(&[("Common/env.dds", 1), ("Common/sub/legs.fmdl", 1)]),
+            (
+                vec![("Common".to_owned(), 1, false)],
+                vec!["Common/sub".to_owned()]
+            )
+        );
+    }
+
+    #[test]
     fn a_common_gltf_with_no_model_of_its_stem_is_dropped_the_file_alone_on_either_engine() {
         // A glTF directly in `Common/` is selected as a player folder's is: target-native
         // first, then glTF, then the other engine's format. Slot 05 links `y.model`, slot 06
         // `z.fmdl`; slot 07 links `y.mtl`, a material link, which no glTF beats, so he stays.
+        // On PES 15-17 a subfolder is selected within itself: `sub/y.glb` beats `sub/y.fmdl`
+        // alone, and no link reaches it.
         let files = [
             ("Players/05 - A/y.model.common", 0),
             ("Players/06 - B/z.fmdl.common", 0),
@@ -4738,6 +4854,8 @@ mod tests {
             ("Common/Z.glb", 1),
             ("Common/z.fmdl", 1),
             ("Common/shirt.dds", 1),
+            ("Common/sub/y.glb", 1),
+            ("Common/sub/y.fmdl", 1),
         ];
         // (version, the findings, the files of the pre-Fox Common models task)
         let cases: [(PesVersion, &[&str], &[&str]); 2] = [
@@ -4758,6 +4876,7 @@ mod tests {
                 PesVersion::Pes17,
                 &[
                     "model_gltf_unsupported DropFolder Players/06 - B Common/Z.glb",
+                    "model_gltf_unsupported DropFile Common/sub/y.glb Common/sub/y.glb",
                     "model_gltf_unsupported DropFile Common/x.glb Common/x.glb",
                     "model_gltf_unsupported DropFile Common/Z.glb Common/Z.glb",
                 ],
@@ -4820,18 +4939,21 @@ mod tests {
     }
 
     #[test]
-    fn the_pre_fox_common_models_task_reads_the_files_directly_in_common_alone() {
-        // Below a subfolder, kept only by a lenient file-type check, nothing is read: not the
-        // `.model` or `.mtl`, and not a `.skl` named after a converted FMDL.
+    fn each_common_directory_s_models_task_reads_its_own_files() {
+        // Each directory is grouped on its own, `Common/` first; a `.skl` pairs a converted
+        // FMDL of its own directory only, and a `.model` beats an FMDL of its stem there alone.
         let common: Vec<FileDescriptor> = [
             "Common/legs.model",
             "Common/legs.mtl",
-            "Common/x.fmdl",
-            "Common/x.skl",
             "Common/sub/hat.model",
+            "Common/sub/hat.fmdl",
             "Common/sub/hat.mtl",
             "Common/sub/x.skl",
             "Common/sub/y.fmdl",
+            "Common/sub/legs.fmdl",
+            "Common/x.fmdl",
+            "Common/x.skl",
+            "Common/sub/deep/hat.fmdl",
         ]
         .iter()
         .map(|path| {
@@ -4844,19 +4966,44 @@ mod tests {
             }
         })
         .collect();
-        let read: Vec<String> = common_model_files(&common)
+        let read: Vec<(String, Vec<String>)> = common_directories(&common)
             .into_iter()
-            .map(|file| file.path.as_str().to_owned())
+            .map(|(directory, files)| {
+                let read = common_model_files(&files)
+                    .into_iter()
+                    .map(|file| file.path.as_str().to_owned())
+                    .collect();
+                (directory.as_str().to_owned(), read)
+            })
             .collect();
-        assert_eq!(
-            read,
-            [
-                "Common/legs.model",
-                "Common/legs.mtl",
-                "Common/x.fmdl",
-                "Common/x.skl"
-            ]
-        );
+        let expected: Vec<(String, Vec<String>)> = [
+            (
+                "Common",
+                &[
+                    "Common/legs.model",
+                    "Common/legs.mtl",
+                    "Common/x.fmdl",
+                    "Common/x.skl",
+                ][..],
+            ),
+            (
+                "Common/sub",
+                &[
+                    "Common/sub/hat.model",
+                    "Common/sub/hat.mtl",
+                    "Common/sub/y.fmdl",
+                    "Common/sub/legs.fmdl",
+                ][..],
+            ),
+            ("Common/sub/deep", &["Common/sub/deep/hat.fmdl"][..]),
+        ]
+        .iter()
+        .map(|(directory, files)| {
+            let files = files.iter().map(|file| (*file).to_owned()).collect();
+            ((*directory).to_owned(), files)
+        })
+        .collect();
+        assert_eq!(read, expected);
     }
 
     #[test]
@@ -4877,8 +5024,7 @@ mod tests {
                 &[],
                 None,
             );
-            // Below a subfolder only a lenient file-type check keeps a file, which `resolved`
-            // has strict: added as the structure pass would keep it.
+            // Added after `Common/`'s files, as the structure pass would keep it.
             let nested = scope_path("Common/sub/x.mtl");
             export.export.common.push(FileDescriptor {
                 size: 1,
@@ -4916,11 +5062,16 @@ mod tests {
                 .collect()
         };
         assert_eq!(common_files(PesVersion::Pes21), ["Common/body.mtl"]);
-        // Pre-Fox: the direct models and `.mtl` files in `Common/`'s order, then the direct
-        // textures; the nested `.mtl`, kept only by a lenient file-type check, is no task's.
+        // Pre-Fox: every model, `.mtl` and texture in `Common/`'s order, a subfolder's
+        // included, which a member's `face.xml` may name; never a `.skl`.
         assert_eq!(
             common_files(PesVersion::Pes17),
-            ["Common/body.mtl", "Common/legs.fmdl", "Common/skin.dds"]
+            [
+                "Common/body.mtl",
+                "Common/legs.fmdl",
+                "Common/skin.dds",
+                "Common/sub/x.mtl"
+            ]
         );
     }
 

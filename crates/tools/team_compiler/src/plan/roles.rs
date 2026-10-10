@@ -438,6 +438,17 @@ pub(crate) fn is_direct_root_folder_file(path: &ScopePath) -> bool {
     path.segments().count() == 2
 }
 
+/// Whether a target of `engine` reads the `Common/` file at `path` at all: on PES 15-17 every
+/// directory of `Common/` is a Common folder of its own, packed at its own path (`pipeline.md`
+/// "Common"), so any file; on PES 18-21 only a file directly in `Common/`, since Fox reaches
+/// Common through links alone, and a link names a direct file.
+pub(crate) fn is_read_common_file(path: &ScopePath, engine: Engine) -> bool {
+    match engine {
+        Engine::PreFox => true,
+        Engine::Fox => is_direct_root_folder_file(path),
+    }
+}
+
 /// The file named `name` directly in `Common/`, among `common` (the export's `Common/` files),
 /// matched as validation matched a link's target: by case-folded name.
 pub(crate) fn common_file<'a>(
@@ -484,16 +495,37 @@ pub(crate) fn selected_common_model<'a>(
     Some(common_file(common, &native).unwrap_or(named))
 }
 
-/// Whether `file`, a model directly in `Common/` among `common` (the export's `Common/` files),
-/// is the one a target of `engine` selects for its stem (`selected_common_model`); false for a
-/// model another of its stem beats, which nothing reads.
+/// Whether `file`, a model among `common` (the export's `Common/` files), is the one a target
+/// of `engine` selects for its stem in its own directory, by the rule `selected_common_model`
+/// applies to a link: false for a model of the other engine's format beside a target-native
+/// one of its stem, which nothing reads. Compared within the directory, not directly in
+/// `Common/` alone: on PES 15-17 each subfolder is a Common folder of its own
+/// (`is_read_common_file`).
 pub(crate) fn is_selected_common_model(
     common: &[FileDescriptor],
     file: &FileDescriptor,
     engine: Engine,
 ) -> bool {
-    selected_common_model(common, file.path.name(), engine)
-        .is_some_and(|selected| selected.path == file.path)
+    let beaten = match engine {
+        Engine::Fox => ModelFormat::PesModel,
+        Engine::PreFox => ModelFormat::Fmdl,
+    };
+    if file.kind != FileKind::Model(beaten) {
+        return true;
+    }
+    let native = FileKind::Model(native_format(engine));
+    !common
+        .iter()
+        .any(|other| other.kind == native && directory_stem(other) == directory_stem(file))
+}
+
+/// The directory of `file` and its stem, both case-folded: what tells two models of one stem in
+/// one `Common/` directory, the unit per-stem selection compares within.
+pub(crate) fn directory_stem(file: &FileDescriptor) -> (Option<String>, String) {
+    (
+        file.path.parent().map(|parent| parent.fold_key()),
+        vtree::fold_name(file_stem(file.path.name())),
+    )
 }
 
 /// Where a file sits in its model folder: directly in it, or one level down in one of the

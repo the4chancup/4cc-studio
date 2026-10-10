@@ -239,20 +239,23 @@ pub(crate) fn process_task(
                 })
         }
         TaskKind::CommonTextures {
+            folder,
             textures,
             kits,
             environment_map,
-            ..
         } => texture::common_textures(
             textures,
             kits,
             *environment_map,
-            task.team_id,
             ctx,
             &mut files,
             &mut findings,
         )
-        .map(|entries| (TaskOutput::Entries(entries), None)),
+        .map(|converted| {
+            let engine = ctx.version.engine();
+            let entries = texture::common_texture_entries(folder, task.team_id, engine, converted);
+            (TaskOutput::Entries(entries), None)
+        }),
         TaskKind::CommonModels {
             folder,
             files: common,

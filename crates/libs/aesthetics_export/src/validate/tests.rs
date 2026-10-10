@@ -1047,11 +1047,12 @@ fn wrong_suffixed_models_drop_their_shared_folders_and_linkers() {
 }
 
 #[test]
-fn a_nested_common_file_is_disallowed_and_no_link_target() {
+fn a_nested_common_model_file_is_admitted_but_no_link_target() {
     let report = report(
         "egg Midcup",
         &[
             ("Common/sub/torso.fmdl", 10),
+            ("Common/sub/notes.txt", 4),
             ("Players/03 - A/torso.fmdl.common", 0),
         ],
         &[],
@@ -1067,8 +1068,15 @@ fn a_nested_common_file_is_disallowed_and_no_link_target() {
     assert_eq!(report.issues[0].scope, folder("Players/03 - A"));
     assert_eq!(
         report.issues[1].scope,
-        IssueScope::File(ScopePath::new("Common/sub/torso.fmdl").unwrap())
+        IssueScope::File(ScopePath::new("Common/sub/notes.txt").unwrap())
     );
+    let validated = report.validated.unwrap();
+    let common: Vec<&str> = validated
+        .common
+        .iter()
+        .map(|file| file.path.as_str())
+        .collect();
+    assert_eq!(common, vec!["Common/sub/torso.fmdl"]);
 }
 
 #[test]

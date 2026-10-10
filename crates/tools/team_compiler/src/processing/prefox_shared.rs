@@ -235,11 +235,13 @@ pub(super) fn package(
     let home = folder.textures.directory(Engine::PreFox, team_id);
     let common_directory = paths::common_texture_directory(Engine::PreFox, team_id);
     // The textures directly in `Common/`, each stem folded with its stem as `Common/` spells
-    // it, which a Common `.mtl` copied in with a part names. A shared folder has none.
+    // it, which a Common `.mtl` copied in with a part names. A shared folder has none. A
+    // subfolder's, among the files a member's `face.xml` may name, are packed under the
+    // subfolder's own path, which no link reaches.
     let common_textures: BTreeMap<String, String> = folder
         .common_files
         .iter()
-        .filter(|file| file.kind == FileKind::Texture)
+        .filter(|file| file.kind == FileKind::Texture && is_direct_root_folder_file(&file.path))
         .map(|file| {
             let stem = file_stem(file.path.name());
             (vtree::fold_name(stem), stem.to_owned())

@@ -23,6 +23,7 @@ use ftex::dds::{DdsPixel, read_layout};
 use pes_version::Engine;
 use pipeline::{MemoryBudget, Permit};
 use studio_core::Disposition;
+use vtree::ScopePath;
 
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
 use crate::messages::Code;
@@ -253,10 +254,10 @@ fn resolve_stem(
     Ok(())
 }
 
-/// The export's Common `textures`, converted from their bytes in `files` into the team's Common
-/// output for team `team_id` on the run's engine (`paths::common_texture`: FTEX on Fox, DDS on
-/// pre-Fox), each under its stem as spelled: one entry per texture, whether or
-/// not a `.common` link uses it. The deep pass has already dropped a texture its checks find
+/// The Common `textures` of one `Common/` directory, converted from their bytes in `files` for
+/// the run's engine (FTEX on Fox, DDS on pre-Fox), each by its stem as spelled: one per
+/// texture, whether or not a `.common` link uses it, placed in the team's Common output by
+/// `common_texture_entries`. The deep pass has already dropped a texture its checks find
 /// wrong. A texture conversion reports a finding on (`texture_codec_unsupported`) is left out
 /// alone, the finding noted in `findings` with `DropFile`, and the rest emitted; any other
 /// failure fails the task, and with it every Common texture. The players linking a Common
@@ -267,11 +268,10 @@ pub(super) fn common_textures(
     textures: &[FileDescriptor],
     kits: &[u8],
     environment_map: bool,
-    team_id: u16,
     ctx: &CompileContext,
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
-) -> Result<Vec<Entry>, TaskFailure> {
+) -> Result<Vec<(String, Vec<u8>)>, TaskFailure> {
     let mut converted = Vec::with_capacity(textures.len());
     for file in textures {
         let name = file.path.name();
@@ -290,11 +290,26 @@ pub(super) fn common_textures(
         ));
     }
     complete_kit_variants(&mut converted, kits, findings);
-    let engine = ctx.version.engine();
-    Ok(converted
+    Ok(converted)
+}
+
+/// The entries of `converted`, the textures of the `Common/` directory `folder` by their stems
+/// (`common_textures`), in team `team_id`'s Common output on a target of `engine`
+/// (`paths::common_texture`), below the directory's own path there (`paths::common_subpath`).
+pub(super) fn common_texture_entries(
+    folder: &ScopePath,
+    team_id: u16,
+    engine: Engine,
+    converted: Vec<(String, Vec<u8>)>,
+) -> Vec<Entry> {
+    let subpath = paths::common_subpath(folder);
+    converted
         .into_iter()
-        .map(|(stem, bytes)| (paths::common_texture(engine, team_id, &stem), bytes))
-        .collect())
+        .map(|(stem, bytes)| {
+            let path = paths::common_texture(engine, team_id, &format!("{subpath}{stem}"));
+            (path, bytes)
+        })
+        .collect()
 }
 
 /// One texture of a team's Common output, `file`, converted from its bytes in `files` as any

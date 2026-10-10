@@ -9,6 +9,7 @@ use std::path::Path;
 use aesthetics_export::RefSlot;
 use anyhow::Context;
 use pes_version::{Engine, PesVersion};
+use vtree::ScopePath;
 
 use crate::plan::roles::ModelPackage;
 
@@ -200,6 +201,18 @@ pub(crate) fn pre_fox_common_file(team_id: u16, name: &str) -> String {
         "common/character1/{}{name}",
         common_texture_directory(Engine::PreFox, team_id)
     )
+}
+
+/// The place the output of the `Common/` directory `folder` takes under the team's Common
+/// output, prefixed to each of its file names: each segment of `folder` after `Common` followed
+/// by `/` (`""` for `Common` itself, `"refkit/"` for `Common/refkit`), since on PES 15-17 a
+/// subfolder is packed at its own path (`pipeline.md` "Common").
+pub(crate) fn common_subpath(folder: &ScopePath) -> String {
+    folder
+        .segments()
+        .skip(1)
+        .map(|segment| format!("{segment}/"))
+        .collect()
 }
 
 /// The CPK path of stock collar `id`'s model for a target of `engine`, which a model at that
@@ -516,6 +529,14 @@ mod tests {
             pre_fox_common_file(714, "Legs.mtl"),
             "common/character1/model/character/uniform/common/714/Legs.mtl"
         );
+    }
+
+    #[test]
+    fn a_common_directory_s_subpath_is_its_segments_below_common() {
+        let subpath = |folder: &str| common_subpath(&ScopePath::new(folder).unwrap());
+        assert_eq!(subpath("Common"), "");
+        assert_eq!(subpath("Common/refkit"), "refkit/");
+        assert_eq!(subpath("Common/a/b"), "a/b/");
     }
 
     #[test]

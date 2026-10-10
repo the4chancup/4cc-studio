@@ -1429,8 +1429,8 @@ TC-CMN-12  GIVEN Common/x.glb beside a compiling player
                 player compiles
 TC-CMN-13  GIVEN Common/sub/x.dds
            WHEN the export is compiled for PES 21
-           THEN file_not_used is reported as Info on Common/sub/x.dds and the team's Common
-                output holds no texture of stem x
+           THEN file_not_used is reported on Common/sub/x.dds and the team's Common output
+                holds no texture of stem x
 TC-CMN-14  GIVEN Common/ holding boots.fmdl and a boots.model that does not parse, slot 05
            holding boots.model.common
            WHEN the export is compiled for PES 21

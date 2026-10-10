@@ -938,8 +938,9 @@ impl<'a> XmlFace<'a> {
 
     /// The `path` value `value` as written: a `./` reference as it is, its file packed
     /// (`written_local`, noting in `findings`); a Common one naming the model as the team's
-    /// Common output packs it (`oral_<stem>_*.model`, the team ID in place of the 3-character
-    /// segment), packing nothing; any other form as it is.
+    /// Common output packs it (`oral_<stem>_*.model`, below its subfolder's path for a
+    /// subfolder's file, the team ID in place of the 3-character segment), packing nothing; any
+    /// other form as it is.
     fn written_path(
         &mut self,
         value: &str,
@@ -955,11 +956,18 @@ impl<'a> XmlFace<'a> {
                 findings,
             ),
             // The Common output packs every `Common/` model under its packed name, so the
-            // member's spelling would name a file it does not hold (`prefox_common`).
-            Reference::Common { file_name, .. } => Ok(xml_path(
-                self.common_directory,
-                &packed_model_name(file_stem(&file_name)),
-            )),
+            // member's spelling would name a file it does not hold (`prefox_common`); a
+            // subfolder's, below the subfolder's own path there, kept as written.
+            Reference::Common { file_name, .. } => {
+                let (directory, name) = match file_name.rsplit_once('/') {
+                    Some((directory, name)) => (format!("{directory}/"), name),
+                    None => (String::new(), file_name.as_str()),
+                };
+                Ok(xml_path(
+                    self.common_directory,
+                    &format!("{directory}{}", packed_model_name(file_stem(name))),
+                ))
+            }
             Reference::Unchecked(_) => Ok(value.to_owned()),
         }
     }

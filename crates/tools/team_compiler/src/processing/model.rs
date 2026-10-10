@@ -628,9 +628,11 @@ fn point_texture(
         stems.contains(&vtree::fold_name(stem))
             || has_variant_among(stem, stems.iter().map(String::as_str))
     };
+    // A Common path into a subfolder names a file Fox never reads (a link names a direct
+    // file), so only a direct one reaches `Common/`'s textures.
     let names_pre_fox_common = || {
         let written = format!("{}{}", path.directory, path.file_name);
-        matches!(reference(&written), Reference::Common { .. })
+        matches!(reference(&written), Reference::Common { file_name, .. } if !file_name.contains('/'))
     };
     let (common_stems, common_directory) = common;
     let place = places
