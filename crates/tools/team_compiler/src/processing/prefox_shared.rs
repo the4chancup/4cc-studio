@@ -135,7 +135,9 @@ struct BootsPart<'a> {
 /// first given the environment map in the texture home (`add_environment_map`, as the face
 /// does), then the folder's textures and links as a `.mtl`'s (a Common FMDL's also the
 /// textures directly in `Common/`, as a copied Common `.mtl`'s), then the reserved kit stems at
-/// the team's Common texture directory. A conversion that fails fails the task. Two files
+/// the team's Common texture directory. An FMDL whose every mesh is hidden is left out: no
+/// part, no file and no `glove.xml` entry (`model_hidden_dropped`), the folder's other models
+/// written as they would be without it. A conversion that fails fails the task. Two files
 /// packing under one name otherwise fail the task, a member's `.mtl` of a converted glove's
 /// `<stem>.mtl` name among them. A merge is charged to `ctx`'s memory budget.
 pub(super) fn package(
@@ -269,20 +271,24 @@ pub(super) fn package(
     // An FMDL converted (`fmdl_for_pre_fox`, its source's skeleton of its path stem the bind
     // pose, its findings naming it by `source_name`), its material set pointed as the face
     // points a converted one, in the face's order: the environment map added first, since
-    // the pointing respells it as the folder spells its own `env` texture.
+    // the pointing respells it as the folder spells its own `env` texture. `None` for an FMDL
+    // whose every mesh is hidden, which the output leaves out.
     let convert = |model: &SourceModel<'_>,
                    files: &mut TaskFiles,
                    findings: &mut Vec<Finding>|
-     -> Result<PreFoxConversion, TaskFailure> {
+     -> Result<Option<PreFoxConversion>, TaskFailure> {
         let skeleton = model.skeleton.map(|skeleton| take(files, skeleton));
-        let mut conversion = fmdl_for_pre_fox(
+        let Some(mut conversion) = fmdl_for_pre_fox(
             &source_name(&model.file.path, &folder.path),
             &take(files, model.file),
             skeleton.as_deref(),
             ctx,
             findings,
             ConvertedMaterials::Converted,
-        )?;
+        )?
+        else {
+            return Ok(None);
+        };
         // The flag is not consulted, as the face does not: only a `Basic_CNSR` material gets
         // the sampler, which the converter writes for the `metal` family the deep pass flags
         // with the converter's own rule, so the shader and the flag agree and the sampler
@@ -291,7 +297,7 @@ pub(super) fn package(
         add_environment_map(&mut conversion.materials, &home);
         point_materials(&mut conversion.materials, places_for(model.file));
         point_reserved_kit_stems(&mut conversion.materials, &common_directory);
-        Ok(conversion)
+        Ok(Some(conversion))
     };
     let mut contents = PackageFiles::new();
     match package {
@@ -313,7 +319,10 @@ pub(super) fn package(
             let mut sources: Vec<(&ScopePath, Vec<u8>, usize)> = Vec::new();
             for model in &models {
                 if model.converts() {
-                    let conversion = convert(model, files, findings)?;
+                    // A part that draws nothing is not merged.
+                    let Some(conversion) = convert(model, files, findings)? else {
+                        continue;
+                    };
                     sets.push(conversion.materials);
                     sources.push((&model.file.path, conversion.model, sets.len() - 1));
                     continue;
@@ -334,6 +343,7 @@ pub(super) fn package(
                 )?;
                 sources.push((&model.file.path, bytes, *index));
             }
+            let merged = sources.len() > 1;
             let parts = sources
                 .into_iter()
                 .map(|(path, model, index)| BootsPart {
@@ -342,7 +352,6 @@ pub(super) fn package(
                     materials: &sets[index],
                 })
                 .collect();
-            let merged = models.len() > 1;
             let (model, materials) = boots_files(&ctx.budget, parts)?;
             if merged {
                 findings.push((
@@ -373,7 +382,10 @@ pub(super) fn package(
             for model in models {
                 let packed = model.packed_name();
                 let (bytes, material) = if model.converts() {
-                    let conversion = convert(&model, files, findings)?;
+                    // A side that draws nothing has no entry and no file; the other stands.
+                    let Some(conversion) = convert(&model, files, findings)? else {
+                        continue;
+                    };
                     // Packed beside its model under the model's stem: a member's `.mtl` of
                     // that name the folder also packs is two files of one name (`insert`).
                     let material = format!("{}.mtl", file_stem(&packed));

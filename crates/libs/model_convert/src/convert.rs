@@ -725,7 +725,20 @@ mod tests {
 
     #[test]
     fn fox_oral_to_pes16_matches_the_legacy_reference() {
-        let converted = convert(fox(ORAL), PesVersion::Pes16).expect("convert");
+        // The fixture's one mesh is hidden, so as it is it converts to nothing; the legacy
+        // converter ignored the flag, so the parity runs on the mesh unhidden.
+        assert!(matches!(
+            convert(fox(ORAL), PesVersion::Pes16),
+            Err(ConvertError::EveryMeshHidden)
+        ));
+        let NativeModelBundle::Fox { mut model, skl } = fox(ORAL) else {
+            unreachable!()
+        };
+        for mesh in &mut model.meshes {
+            mesh.shadow_flags &= !crate::materials::to_fox::INVISIBLE_BIT;
+        }
+        let converted =
+            convert(NativeModelBundle::Fox { model, skl }, PesVersion::Pes16).expect("convert");
         // The game's dummy normal and specular maps the FMDL names stand for no map, so
         // leaving them out of the `.mtl` loses nothing (no `material_texture_unused`).
         assert_eq!(
@@ -737,7 +750,6 @@ mod tests {
                     Subject::Material(0),
                     "no_shadow_cast"
                 ),
-                ("native_field_dropped", Subject::Material(0), "invisible"),
             ]
         );
         let NativeModelBundle::PreFox { model, mtl } = converted.bundle else {

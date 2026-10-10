@@ -46,8 +46,9 @@ pre-check moving a PES 15-17 one onto the version's skeleton; TC-CMN-11, TC-CMN-
 done 2026-10-10 (the marker's combined folders in `held_stems`, `texture_unreadable` and
 `texture_codec_unsupported` from the deep pass's probe, the real stock collar fixture), 4.y-fix18 done 2026-10-10 (the converted Fox collar takes the
 stock collars' material set by name, its meshes two-sided: PES 21 drew nothing for the
-converter's and draws it now, checked in game), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
-`.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
+converter's and draws it now, checked in game), 4.y-fix13 done 2026-10-10 (a hidden Fox mesh left out of a
+`.model`; a model with every mesh hidden left out whole with the Info
+`model_hidden_dropped`, after the lead's scan of every FMDL on the machine), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
@@ -3461,7 +3462,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   acceptance 302 of 312); mutants 23 caught, 0 missed, 10 unviable
   (`.tmp/4_y/mutants_fix12.log`).
 
-- [ ] 4.y-fix13 **A hidden Fox mesh is left out of a `.model` export; a model with every
+- [x] 4.y-fix13 **A hidden Fox mesh is left out of a `.model` export; a model with every
   mesh hidden is left out whole** (the maintainer's answer, 2026-10-09; the lead's FMDL
   scan, 2026-10-10: `.tmp/4_y/fmdl_flags/flags.tsv`, 61 hidden meshes of 35,251 in
   7,315 files, 38 files all hidden: blank-head orals, one-sided gloves, stadium shadow
@@ -3475,6 +3476,33 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   TC-MOD-64, TC-MOD-69. Crates: model_convert, tc (its consumers' tests: `just bindings`
   too) → verify: both scenarios proven, red first; unit tests of the export's skip and
   of the all-hidden error; the legacy oral parity kept with the bit cleared.
+  Done 2026-10-10 (Opus 5.5, one run): `ir_to_model` records which materials hide their
+  meshes, files `native_field_dropped` for `no_shadow_cast` alone, skips a hidden mesh
+  whole (its own findings too), takes the bounds from the written meshes and returns
+  `ConvertError::EveryMeshHidden` when none is; `pre_fox_written` takes a `Converted`, so
+  `fmdl_for_pre_fox` runs `convert` itself and returns `Option`, `None` with the Info
+  `model_hidden_dropped`; each caller leaves the model out (the face neither packs nor
+  lists it, its packed names still replacing a linked shared face's; a boots part not
+  merged, `model_merged` counting the parts written; a glove side with no entry and no
+  file; a Common FMDL with no `.model` and no `.mtl`; a collar with no entry). Tests:
+  TC-MOD-64 (the tracer's glove as `face_high.fmdl` with a copy of its mesh hidden: one
+  mesh written, no `invisible` Warning, the plain run's findings plus the import's
+  `material_split_by_flags` for the shared material, which stays, the import having split
+  it), TC-MOD-69 (the blank head's `addon_oral.fmdl` beside a `.model` face: the face's
+  three files alone, the xml naming the face model alone, the Info naming `oral.fmdl`),
+  three unit tests in `model_convert` and the legacy oral parity with the bit cleared on
+  the parsed model. Contradictions, four, all brief errors accepted: the tracer has no
+  `face_high.fmdl` (`clean_model()` used); the split Info (ruled above); every packed
+  pre-Fox face model is named `oral_<stem>_win32.model`, so "no entry holding `oral`"
+  could not hold (TC-MOD-69's text aligned to the `.model` face `write_slot_05_face`
+  writes); the parity test clears the bit on the parsed model. Edge cases it left as they
+  are, filed as issues below: an all-hidden boots folder, an all-hidden gloves folder, a
+  `.fmdl.common` link to an all-hidden Common FMDL. Files: `model_convert` `formats/mod.rs`,
+  `formats/pes_model/export.rs` and `tests.rs`, `convert.rs`, `loss.rs`; `team_compiler`
+  `messages.rs`, `processing/conversion.rs`, `mod.rs`, `prefox_face.rs`,
+  `prefox_shared.rs`, `prefox_common.rs`, `tests/cli/conversion.rs`, `prefox_faces.rs`;
+  README TC-MOD-69 (lead). Gates green (`.tmp/4_y/gates_fix13.log`, acceptance 304 of
+  313), `just bindings` green (37 fixtures); mutants 13 caught, 0 missed, 3 unviable; the remote half peaked at the 9G cap with no build killed (`.tmp/4_y/mutants_fix13.log`).
 
 - [ ] 4.y-fix14 **`Common/` subfolders, the referee body** (the maintainer's answers,
   2026-10-09). Two slices. (a) On PES 15-17 a `Common/` subfolder is packed under the team's
@@ -3675,6 +3703,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the missing vertex colour stream and the four unweighted bones the converted FMDL lacks
   (4.y-fix18's comparison) change nothing visible. Compiled with the CLI from the test
   folder (`team-compiler compile --no-deploy --export`; the version is the settings').
+  manual: not run 2026-10-10, the Fox cube map of type 0xD (d): no material of the refs
+  export (robocopclassic's `apc.mtl`, `face.mtl`) and no bundled `.mtl` names `env.dds`,
+  and the 4cc Fox CPKs hold no cube map (4.y-fix3's recon), so a Fox material pointed at a
+  converted `env.ftex` exists in no export: the check needs a hand-made FMDL, which no
+  reachability rule puts ahead of the queue. The QUESTIONS entry stands as written.
   manual: checked 2026-10-10, the pre-Fox referee marker (b), no answer yet: run D (the
   checker as `parts/referee/incom_bsm.dds`) and run G (the template tree's
   `referee_prop.model` and `.mtl` with it, what the compiler writes) in PES 17's test
@@ -4097,6 +4130,14 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-10) — a Fox model whose every mesh is hidden, beyond the files the scan
+  found (4.y-fix13: blank-head orals, one-sided gloves): a boots folder whose every part is
+  hidden fails its task with "no parts to merge" instead of writing no boots; a gloves
+  folder whose every side is hidden writes a `glove.xml` with no entries (unknown whether
+  the game reads one); a player's `.fmdl.common` link to an all-hidden Common FMDL leaves
+  his face xml naming a Common file the Common task no longer writes. None of the 7,315
+  FMDLs on the maintainer's machine reaches these; each is the general rule (nothing
+  written, nothing naming it) applied one step further when a file does.
 - open (2026-10-09) — a Fox referee's body under `fpc_off` waits on a Fox refkit, an FMDL
   body the maintainer will make ("We'll make one later"; `blue_port.md` "The referee
   body"): then the Fox referee template ships it and a step merges it into an `fpc_off`
@@ -4860,7 +4901,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   live check reports them at once; maintenance mode is a Phase 16 deliverable with its outline in
   `core/development_plan.md`, not per-file ADRs (decision entries).
 - **2026-09-27** - `just mutants <crate>` splits the run with the maintainer's VPS when
-  `STUDIO_MUTANTS_REMOTE` is set (`scripts/mutants.py`; `AGENTS.md` "Environment" has the
+  `STUDIO_13 caught, 0 missed, 3 unviable; the remote half peaked at the 9G cap with no build killed_REMOTE` is set (`scripts/mutants.py`; `AGENTS.md` "Environment" has the
   benchmark). Verified on `archives`: the split's totals equal a local run's (24 caught, 6
   unviable). Its first whole-crate use is 2.20g's `pes_model` run.
 - **2026-09-27** - Maintainer decisions: `fmdl`/`pes_model` `check` flag vertices more than 5000
@@ -4901,7 +4942,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   F5's pure moves; each checked with `mutants-diff`; then the reviewer.
 - **2026-09-28** - `just mutants` fixed: the remote half runs detached and survives a dropped
   link or a killed controller (`just mutants-collect`), and shells without
-  `STUDIO_MUTANTS_REMOTE` read it from the registry.
+  `STUDIO_13 caught, 0 missed, 3 unviable; the remote half peaked at the 9G cap with no build killed_REMOTE` read it from the registry.
 - **2026-09-28** - Maintainer check of the full-field shirt name (`EDIT00000000 prespoon`,
   PES 16): 4ccEditor shows `MEAT ON THE BON`, and the save crashes PES 16 after the start
   screen, cause unknown (the maintainer doubts the shirt name). `shirt_name_from` keeps its
@@ -6186,3 +6227,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   PES 18-21 takes the stock collars' Fox material set by name, every mesh two-sided (the
   sidekick's catch); in game on PES 21 the converted collar draws its fold where the
   converter's material set drew nothing (4.y-ingame2's manual line).
+- **2026-10-10** — 4.y-fix13 done (sidekick, one run): the `.model` export skips a hidden
+  Fox mesh with no finding; a model whose every mesh is hidden is
+  `ConvertError::EveryMeshHidden`, which the compiler's four pre-Fox callers turn into
+  nothing written with the Info `model_hidden_dropped` (the step respecified in the
+  morning from the lead's FMDL scan: 61 hidden meshes, 38 all-hidden files, deliberate
+  placeholders). Three all-hidden edge cases no file reaches filed as one issue.

@@ -374,6 +374,67 @@ fn a_fox_model_whose_conversion_fails_drops_its_folder_naming_the_model() {
     );
 }
 
+// TC-MOD-64
+#[test]
+fn a_hidden_fox_mesh_is_left_out_of_the_converted_model_with_no_finding() {
+    let player = "exports/egg Midcup Tracer/Players/05 - The Chad Stormworks Player";
+    // The tracer with `face_high.fmdl`, the tracer's one-mesh glove (`clean_model`), as it
+    // is; and with a copy of its mesh, on its material, flagged invisible.
+    let plain = Sandbox::new("conversion_hidden_mesh_plain");
+    plain.copy_tracer("egg Midcup Tracer");
+    plain.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    let hidden = Sandbox::new("conversion_hidden_mesh");
+    hidden.copy_tracer("egg Midcup Tracer");
+    let mut model = fmdl::Model::from_file(&fmdl::FmdlFile::read(&clean_model()).unwrap()).unwrap();
+    assert_eq!(model.meshes.len(), 1);
+    let mut copy = model.meshes[0].clone();
+    copy.shadow_flags |= 2;
+    model.meshes.push(copy);
+    model
+        .mesh_groups
+        .iter_mut()
+        .find(|group| group.meshes.contains(&0))
+        .unwrap()
+        .meshes
+        .push(1);
+    hidden.write(
+        &format!("{player}/face_high.fmdl"),
+        &model.to_file().unwrap().write(),
+    );
+
+    let compiled = |sandbox: &Sandbox| {
+        let run = sandbox.run(&pes_settings(sandbox, 17), &["compile", "--no-deploy"]);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{lines:#?}");
+        let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+        (lines, nested_entries(&entries[TRACER_FACE_CPK]))
+    };
+    let (plain_lines, _) = compiled(&plain);
+    let (lines, face) = compiled(&hidden);
+
+    let face_high = &face[&format!("{TRACER_FACE_FOLDER}oral_face_high_win32.model")];
+    assert_eq!(model_mesh_count(face_high), 1);
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("mesh_flags_dropped") && line.contains("field=invisible")),
+        "{lines:#?}"
+    );
+    // The plain tracer's findings, and one more: the import splits the FMDL material the two
+    // meshes share by their flags, and the `.mtl` keeps the hidden mesh's half.
+    let mut expected = findings_of(&plain_lines, "egg Midcup Tracer");
+    let after_face_high = expected
+        .iter()
+        .position(|line| line.contains("(model=fcl_hair.fmdl"))
+        .unwrap();
+    expected.insert(
+        after_face_high,
+        "Info material_split_by_flags [Keep] at Players/05 - The Chad Stormworks Player \
+         (model=face_high.fmdl, material=1, name=kit_2)",
+    );
+    assert_eq!(findings_of(&lines, "egg Midcup Tracer"), expected);
+}
+
 /// Slot 05's folder in the export `export` of team /co/ 714.
 fn slot_05(export: &str) -> String {
     format!("exports/{export}/Players/05 - A")

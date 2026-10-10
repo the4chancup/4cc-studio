@@ -315,7 +315,9 @@ fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
 /// packed as written; an `.fmdl` the face converts (`PlayerFile::PreFoxModel`) the same, as
 /// the `.model` its conversion writes (`fmdl_for_pre_fox`, the `.skl` of its path stem as the
 /// bind pose), named with the conversion's material set, packed as `<stem>.mtl` with its
-/// texture paths pointed as a `.mtl`'s below; each
+/// texture paths pointed as a `.mtl`'s below, or neither packed nor listed when its every
+/// mesh is hidden (`model_hidden_dropped`, its packed names still replacing a linked shared
+/// face's); each
 /// `.mtl` under its own name, every texture path naming one of the folder's textures by its
 /// stem pointed at the folder's texture home as that texture's DDS, and one naming a stem a
 /// texture link of the folder stands for at that texture in the team's Common output; and the
@@ -471,14 +473,21 @@ pub(super) fn face(
                             .find(|skeleton| vtree::fold_name(path_stem(skeleton)) == path_fold)
                             .map(|skeleton| take(files, skeleton));
                         let bytes = take(files, file);
-                        FaceSource::Converted(fmdl_for_pre_fox(
+                        let Some(conversion) = fmdl_for_pre_fox(
                             &source_name(&file.path, &folder.path),
                             &bytes,
                             skeleton.as_deref(),
                             ctx,
                             findings,
                             ConvertedMaterials::Converted,
-                        )?)
+                        )?
+                        else {
+                            // Every mesh hidden: it drew nothing on Fox, so the face neither
+                            // packs nor lists it. Its names stay taken, so a linked shared
+                            // face's file of its name stays replaced by it, as on Fox.
+                            continue;
+                        };
+                        FaceSource::Converted(conversion)
                     } else {
                         FaceSource::Member {
                             material: material_of(file),

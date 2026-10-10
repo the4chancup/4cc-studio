@@ -10,7 +10,9 @@
 //! `vertex_too_far_from_origin`): what the source passed, the conversion may still have moved
 //! or split past a limit.
 
-use model_convert::{Converted, NativeModelBundle, Subject, convert, loss, needs_conversion};
+use model_convert::{
+    ConvertError, Converted, NativeModelBundle, Subject, convert, loss, needs_conversion,
+};
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 use pes_version::PesVersion;
@@ -78,7 +80,10 @@ pub(super) struct FoxConversion {
 /// `materials` says. The conversion's parsed forms are charged to the run's memory budget at
 /// the source's size while they live. What the conversion reports that the member is told is
 /// noted in `findings` naming the model (`reported`), but for a collar's losses about a
-/// material (`ConvertedMaterials::reports`). A model or skeleton the conversion
+/// material (`ConvertedMaterials::reports`). `None` when every mesh of the model is hidden
+/// (`invisible`): it drew nothing on Fox, so the caller writes nothing of it and nothing
+/// naming it, and `findings` gets `model_hidden_dropped` naming the model instead of its
+/// losses (`model_conversion/ir.md` "A hidden Fox mesh"). A model or skeleton the conversion
 /// cannot read, convert or write fails the task with `model_conversion_failed`, naming the
 /// model, and so does a `.model` written that `pes_model`'s check finds an Error in
 /// (`target_form_failure`).
@@ -89,13 +94,26 @@ pub(super) fn fmdl_for_pre_fox(
     ctx: &CompileContext,
     findings: &mut Vec<Finding>,
     materials: ConvertedMaterials,
-) -> Result<PreFoxConversion, TaskFailure> {
+) -> Result<Option<PreFoxConversion>, TaskFailure> {
     let (converted, losses) = {
         // The FMDL, its IR and the `.model` written, charged at the source's size, an estimate
         // of each form, while they are built.
         let _conversion_charge = ctx.budget.charge(bytes.len());
         let bundle = fox_bundle(bytes, skeleton).map_err(|error| failed(name, error))?;
-        pre_fox_written(name, bundle, ctx.version, materials)?
+        let converted = match convert(bundle, ctx.version) {
+            // A model that draws nothing is no failure: the package it belongs to stands
+            // without it, as it looked on Fox.
+            Err(ConvertError::EveryMeshHidden) => {
+                findings.push((
+                    Code::ModelHiddenDropped,
+                    Disposition::Keep,
+                    vec![("model", name.to_owned())],
+                ));
+                return Ok(None);
+            }
+            result => result.map_err(|error| failed(name, error.into()))?,
+        };
+        pre_fox_written(name, converted, ctx.version, materials)?
     };
     findings.extend(
         losses
@@ -103,7 +121,7 @@ pub(super) fn fmdl_for_pre_fox(
             .filter(|loss| materials.reports(loss))
             .filter_map(|loss| reported(name, loss)),
     );
-    Ok(converted)
+    Ok(Some(converted))
 }
 
 /// The member's `.model` `name` (as its findings name it, `source_name`), `source`, for a PES
@@ -129,25 +147,26 @@ pub(super) fn model_for_pre_fox(
         if !needs_conversion(&bundle, ctx.version) {
             return Ok(source);
         }
-        pre_fox_written(name, bundle, ctx.version, ConvertedMaterials::Converted)?
+        // A `.model` has no hidden flag, so `EveryMeshHidden` cannot come of it.
+        let converted = convert(bundle, ctx.version).map_err(|error| failed(name, error.into()))?;
+        pre_fox_written(name, converted, ctx.version, ConvertedMaterials::Converted)?
     };
     findings.extend(losses.iter().filter_map(|loss| reported(name, loss)));
     Ok(converted.model)
 }
 
-/// The model `name` (as its findings name it), `bundle`, converted for the PES 15-17
-/// `version` and written, its materials named as `materials` says, with the conversion's loss
-/// findings: the `.model`, checked by `pes_model`'s check (`target_form_failure`), and the
-/// converter's material set. Failed with `model_conversion_failed`, naming the model, when it
-/// cannot be converted or written.
+/// The model `name` (as its findings name it), `converted` for the PES 15-17 `version`,
+/// written, its materials named as `materials` says, with the conversion's loss findings: the
+/// `.model`, checked by `pes_model`'s check (`target_form_failure`), and the converter's
+/// material set. Failed with `model_conversion_failed`, naming the model, when it cannot be
+/// written.
 fn pre_fox_written(
     name: &str,
-    bundle: NativeModelBundle,
+    converted: Converted,
     version: PesVersion,
     materials: ConvertedMaterials,
 ) -> Result<(PreFoxConversion, Vec<loss::Finding>), TaskFailure> {
-    let Converted { bundle, findings } =
-        convert(bundle, version).map_err(|error| failed(name, error.into()))?;
+    let Converted { bundle, findings } = converted;
     let (mut model, material_set) = match bundle {
         NativeModelBundle::PreFox { model, mtl } => (model, mtl),
         NativeModelBundle::Fox { .. } => {
@@ -433,9 +452,9 @@ fn target_form_failure(name: &str, fired: Vec<Fired>) -> Result<(), TaskFailure>
 /// is the model, then the index of the mesh, material or bone the loss is about, then the
 /// loss's detail under the row's key when the row names one. A fold's detail,
 /// `<bone> -> <target>`, names the bone itself and is given in the index's place.
-/// `native_field_dropped` of a Fox mesh flag a `.mtl` cannot express (`invisible`,
-/// `no_shadow_cast`) is `mesh_flags_dropped`, a Warning: the mesh shows where the source hid
-/// it. `None` for a code `model_convert::loss` does not document.
+/// `native_field_dropped` of the Fox mesh flag a `.mtl` cannot express, `no_shadow_cast`, is
+/// `mesh_flags_dropped`, a Warning: the mesh casts a shadow where the source did not. `None`
+/// for a code `model_convert::loss` does not document.
 fn reported(name: &str, loss: &loss::Finding) -> Option<Finding> {
     let (code, detail_key) = match loss.code {
         "bone_matrix_unknown" => (Code::BoneMatrixUnknown, Some("name")),
@@ -448,7 +467,7 @@ fn reported(name: &str, loss: &loss::Finding) -> Option<Finding> {
         "vertex_bitangents_dropped" => (Code::VertexBitangentsDropped, None),
         "dummy_texture_added" => (Code::DummyTextureAdded, Some("sampler")),
         "native_field_dropped" => match loss.detail.as_str() {
-            "invisible" | "no_shadow_cast" => (Code::MeshFlagsDropped, Some("field")),
+            "no_shadow_cast" => (Code::MeshFlagsDropped, Some("field")),
             _ => (Code::NativeFieldDropped, Some("field")),
         },
         "bone_folded_for_version" => (Code::BoneFoldedForVersion, Some("bone")),
@@ -932,9 +951,9 @@ mod tests {
             (
                 "native_field_dropped",
                 Subject::Material(1),
-                "invisible",
+                "no_shadow_cast",
                 Code::MeshFlagsDropped,
-                &[("material", "1"), ("field", "invisible")],
+                &[("material", "1"), ("field", "no_shadow_cast")],
             ),
             // A PES 2017 model folded for PES 2015, as `model_convert`'s retargeting reports
             // it: the detail names the bone, in the index's place.
@@ -994,19 +1013,7 @@ mod tests {
                 "{code} {detail}"
             );
         }
-        // The other Fox mesh flag, and a `native_field_dropped` on a bone.
-        assert_eq!(
-            reported(
-                "boots.fmdl",
-                &loss(
-                    "native_field_dropped",
-                    Subject::Material(1),
-                    "no_shadow_cast"
-                )
-            )
-            .map(|(code, _, _)| code),
-            Some(Code::MeshFlagsDropped)
-        );
+        // A `native_field_dropped` on a bone.
         assert_eq!(
             reported(
                 "fcl_hair.fmdl",

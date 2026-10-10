@@ -61,6 +61,10 @@ fn mtl_text(text: &str) -> Result<(), ConvertError> {
 /// IR → `.model` + `.mtl`. Validates, resolves each material for pre-Fox, writes the
 /// inverse bind matrices back, and runs the format crate's encoders in the legacy
 /// `saveModel` order (the vertex-loop convention, then mesh splitting).
+///
+/// A mesh whose material is hidden (the Fox `invisible` flag) is left out, with no
+/// finding; every mesh hidden is `ConvertError::EveryMeshHidden`. Findings name a mesh by
+/// its IR index, which is not its `.model` index once a hidden mesh before it is left out.
 pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> {
     validate(ir)?;
     let mut findings = Vec::new();
@@ -68,6 +72,8 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
     let resolved: Vec<to_prefox::ResolvedPreFox> =
         ir.materials.iter().map(to_prefox::resolve).collect();
     let mut mtl_materials = Vec::with_capacity(ir.materials.len());
+    // Whether each material, by index, hides its meshes.
+    let mut hidden = vec![false; ir.materials.len()];
     for (index, (material, resolved)) in ir.materials.iter().zip(&resolved).enumerate() {
         for role in &resolved.unused_roles {
             findings.push(Finding {
@@ -125,7 +131,8 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
                 }
             }
             // The `.mtl` schema has no home for the shadow flags' two
-            // engine-only bits (the plan's "Engine mapping" flag rule).
+            // engine-only bits (the plan's "Engine mapping" flag rule): the no-shadow
+            // bit is a finding, the invisible bit leaves the material's meshes out.
             let mut shadow_flags = fox.shadow_flags;
             if let Some(cast_shadow) = fox.cast_shadow {
                 shadow_flags = if cast_shadow {
@@ -141,18 +148,14 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
                     shadow_flags & !to_fox::INVISIBLE_BIT
                 };
             }
-            for (bit, name) in [
-                (to_fox::NO_SHADOW_CAST_BIT, "no_shadow_cast"),
-                (to_fox::INVISIBLE_BIT, "invisible"),
-            ] {
-                if shadow_flags & bit != 0 {
-                    findings.push(Finding {
-                        code: "native_field_dropped",
-                        subject: Subject::Material(index),
-                        detail: name.to_string(),
-                    });
-                }
+            if shadow_flags & to_fox::NO_SHADOW_CAST_BIT != 0 {
+                findings.push(Finding {
+                    code: "native_field_dropped",
+                    subject: Subject::Material(index),
+                    detail: "no_shadow_cast".to_string(),
+                });
             }
+            hidden[index] = shadow_flags & to_fox::INVISIBLE_BIT != 0;
         }
         mtl_text(&material.name)?;
         let mut entries = Vec::new();
@@ -212,6 +215,12 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
 
     let mut meshes = Vec::with_capacity(ir.meshes.len());
     for (index, mesh) in ir.meshes.iter().enumerate() {
+        // A `.mtl` cannot hide a mesh, and the game drew nothing of this one on Fox:
+        // written, it would draw what its author hid. Nothing of it is in the output,
+        // so none of its findings are filed either.
+        if hidden[mesh.material] {
+            continue;
+        }
         let name = ir
             .mesh_groups
             .iter()
@@ -257,8 +266,11 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
         });
     }
 
-    let positions: Vec<[f32; 3]> = ir
-        .meshes
+    if meshes.is_empty() && !ir.meshes.is_empty() {
+        return Err(ConvertError::EveryMeshHidden);
+    }
+
+    let positions: Vec<[f32; 3]> = meshes
         .iter()
         .flat_map(|mesh| mesh.vertices.positions.iter().copied())
         .collect();

@@ -569,7 +569,7 @@ fn fox_ir_exports_to_pre_fox() {
 }
 
 #[test]
-fn cast_shadow_and_invisible_override_the_finding_bits() {
+fn cast_shadow_and_invisible_override_the_raw_flag_bits() {
     let ir_for = |cast_shadow: Option<bool>, invisible: Option<bool>, shadow_flags| {
         let mut ir = ir_over(
             Vertices {
@@ -600,40 +600,41 @@ fn cast_shadow_and_invisible_override_the_finding_bits() {
             .map(|f| f.detail)
             .collect::<Vec<_>>()
     };
+    // The one mesh hidden leaves the export with no mesh.
+    let hidden =
+        |ir: &CanonicalModel| matches!(ir_to_model(ir), Err(ConvertError::EveryMeshHidden));
     // `cast_shadow = false` sets the no-shadow bit even when the raw flags
     // don't carry it; `invisible = true` sets the invisible bit.
     assert_eq!(
-        dropped_details(&ir_for(Some(false), Some(true), 0)),
-        ["no_shadow_cast".to_string(), "invisible".to_string()],
+        dropped_details(&ir_for(Some(false), Some(false), 0)),
+        ["no_shadow_cast".to_string()],
     );
-    // A set raw bit stays set when the boolean agrees with it.
+    assert!(hidden(&ir_for(None, Some(true), 0)));
+    assert!(hidden(&ir_for(Some(false), Some(true), 0)));
+    // A set raw bit stays set when the boolean agrees with it, or says nothing.
     assert_eq!(
         dropped_details(&ir_for(Some(false), None, to_fox::NO_SHADOW_CAST_BIT)),
         ["no_shadow_cast".to_string()],
     );
-    assert_eq!(
-        dropped_details(&ir_for(None, Some(true), to_fox::INVISIBLE_BIT)),
-        ["invisible".to_string()],
-    );
+    assert!(hidden(&ir_for(None, Some(true), to_fox::INVISIBLE_BIT)));
+    assert!(hidden(&ir_for(None, None, to_fox::INVISIBLE_BIT)));
     // `cast_shadow = true` clears a set raw bit — the material casts shadows.
     assert_eq!(
         dropped_details(&ir_for(Some(true), None, to_fox::NO_SHADOW_CAST_BIT)),
         Vec::<String>::new(),
     );
-    // `invisible = false` clears a set raw bit — the material is visible.
+    // `invisible = false` clears a set raw bit — the material is visible, its
+    // mesh written.
     assert_eq!(
         dropped_details(&ir_for(None, Some(false), to_fox::INVISIBLE_BIT)),
         Vec::<String>::new(),
     );
     // Clearing one bit must not clobber the other.
-    assert_eq!(
-        dropped_details(&ir_for(
-            Some(true),
-            None,
-            to_fox::NO_SHADOW_CAST_BIT | to_fox::INVISIBLE_BIT
-        )),
-        ["invisible".to_string()],
-    );
+    assert!(hidden(&ir_for(
+        Some(true),
+        None,
+        to_fox::NO_SHADOW_CAST_BIT | to_fox::INVISIBLE_BIT
+    )));
     assert_eq!(
         dropped_details(&ir_for(
             None,
@@ -645,27 +646,89 @@ fn cast_shadow_and_invisible_override_the_finding_bits() {
 }
 
 #[test]
-fn fox_shadow_flag_bits_are_findings() {
-    // `addon_oral`'s `shadow_flags = 131` carries both engine-only bits;
-    // the `.mtl` has no home for them.
-    let oral = fmdl::fmdl_to_ir(
+fn a_hidden_fox_oral_exports_nothing_and_its_shadow_bit_is_a_finding() {
+    // `addon_oral`'s `shadow_flags = 131` carries both engine-only bits: its
+    // one mesh is hidden, so the export has nothing to write.
+    let mut oral = fmdl::fmdl_to_ir(
         &::fmdl::Model::from_file(&::fmdl::FmdlFile::read(ORAL).expect("parse")).expect("model"),
         None,
     )
-    .expect("import");
-    let exported = ir_to_model(&oral.model).expect("export");
-    let flag_findings: Vec<(Subject, String)> = exported
-        .findings
-        .iter()
-        .filter(|f| f.code == "native_field_dropped")
-        .map(|f| (f.subject.clone(), f.detail.clone()))
-        .collect();
-    for name in ["no_shadow_cast", "invisible"] {
-        assert!(
-            flag_findings.iter().any(|(_, detail)| detail == name),
-            "missing a native_field_dropped for {name}: {flag_findings:?}"
-        );
+    .expect("import")
+    .model;
+    assert!(matches!(
+        ir_to_model(&oral),
+        Err(ConvertError::EveryMeshHidden)
+    ));
+    // Unhidden, the mesh is written and the no-shadow bit, which the `.mtl`
+    // has no home for, is the one flag finding.
+    for material in &mut oral.materials {
+        material.fox.as_mut().expect("a Fox material").invisible = Some(false);
     }
+    let exported = ir_to_model(&oral).expect("export");
+    let flag_details: Vec<String> = exported
+        .findings
+        .into_iter()
+        .filter(|f| f.code == "native_field_dropped" && matches!(f.subject, Subject::Material(_)))
+        .map(|f| f.detail)
+        .collect();
+    assert_eq!(flag_details, ["no_shadow_cast".to_string()]);
+}
+
+#[test]
+fn a_hidden_mesh_is_left_out_of_the_export() {
+    let mut ir = ir_over(
+        Vertices {
+            positions: vec![[0.0; 3]],
+            ..Vertices::default()
+        },
+        vec![[0, 0, 0]],
+    );
+    // Mesh 1, on material 1 whose raw flags hide it, carries a normal `w` the
+    // `.model` could not keep and a vertex far outside mesh 0's box.
+    ir.meshes.push(Mesh {
+        vertices: Vertices {
+            positions: vec![[10.0, 10.0, 10.0]],
+            normals: Some(vec![[0.0, 0.0, 1.0, 0.5]]),
+            ..Vertices::default()
+        },
+        faces: vec![[0, 0, 0]],
+        bone_group: vec![0],
+        material: 1,
+        extension_headers: Default::default(),
+        custom_bounding_box: None,
+    });
+    ir.mesh_groups[0].meshes.push(1);
+    let mut hidden = ir.materials[0].clone();
+    hidden.name = "hidden".to_string();
+    hidden.fox = Some(FoxMaterial {
+        shader: "fox3ddf_blin".to_string(),
+        technique: "fox3DDF_Blin".to_string(),
+        alpha_flags: 0,
+        shadow_flags: to_fox::INVISIBLE_BIT,
+        cast_shadow: None,
+        invisible: None,
+        base_linear: false,
+        textures: vec![],
+        parameters: vec![],
+    });
+    ir.materials.push(hidden);
+
+    let exported = ir_to_model(&ir).expect("export");
+    assert_eq!(exported.model.meshes.len(), 1);
+    assert_eq!(exported.model.meshes[0].material, 0);
+    // The model's box is mesh 0's alone.
+    assert_eq!(exported.model.bounds.max, [0.0; 4]);
+    // The hidden mesh's material stays in the model and the `.mtl`.
+    assert_eq!(exported.model.materials, ["mat", "hidden"]);
+    assert_eq!(exported.mtl.materials.len(), 2);
+    assert!(
+        !exported
+            .findings
+            .iter()
+            .any(|f| f.detail == "invisible" || f.subject == Subject::Mesh(1)),
+        "{:?}",
+        exported.findings
+    );
 }
 
 #[test]

@@ -390,6 +390,50 @@ fn a_player_folder_with_no_model_gets_the_pre_fox_blank_face_with_the_bundled_fa
     assert_eq!(face[&format!("{folder}dummy.mtl")], template("dummy.mtl"));
 }
 
+// TC-MOD-69
+#[test]
+fn a_fox_model_whose_every_mesh_is_hidden_leaves_nothing_of_it_in_the_face() {
+    let sandbox = Sandbox::new("prefox_hidden_oral");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    // A blank head's oral mesh, its one mesh flagged invisible.
+    let oral = fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../libs/model_convert/tests/fixtures/addon_oral.fmdl"),
+    )
+    .unwrap();
+    sandbox.write(&format!("exports/{export}/Players/05 - A/oral.fmdl"), &oral);
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info model_hidden_dropped [Keep] at Players/05 - A (model=oral.fmdl)",
+        ],
+    );
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        ["face.xml", "face_high.mtl", "oral_face_high_win32.model"]
+    );
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [(
+            "face_neck".to_owned(),
+            "./oral_face_high_*.model".to_owned(),
+            "./face_high.mtl".to_owned()
+        )]
+    );
+}
+
 #[test]
 fn a_model_with_no_mtl_drops_its_folder_and_a_face_without_face_neck_gets_the_dummy() {
     let sandbox = Sandbox::new("prefox_undefined");

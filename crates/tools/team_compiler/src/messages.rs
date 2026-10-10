@@ -310,9 +310,16 @@ pub(crate) enum Code {
     /// would show (an FMDL's redundant local-space bone matrices, a `.skl` parent the FMDL's
     /// wins over, a normal or tangent `w` a `.model` cannot carry, a `.model` field).
     NativeFieldDropped,
-    /// A Fox mesh flag a `.mtl` cannot express, `invisible` or `no_shadow_cast`, dropped: the
-    /// mesh shows, or casts a shadow, where the source hid it.
+    /// The Fox mesh flag a `.mtl` cannot express, `no_shadow_cast`, dropped: the mesh casts a
+    /// shadow where the source did not. (A hidden mesh, `invisible`, is left out of the
+    /// `.model` with no finding.)
     MeshFlagsDropped,
+    /// Every mesh of a Fox model converted for PES 15-17 is hidden (`invisible`), so the game
+    /// drew nothing of it on Fox and the output holds nothing of it: no `.model`, no `.mtl`,
+    /// nothing naming it, the folder's other models standing (a blank head's `oral.fmdl`, a
+    /// one-sided gloves folder's other side). Context: `model`, as `model_conversion_failed`
+    /// names it.
+    ModelHiddenDropped,
     /// An unskinned mesh was weighted to the `static` bone an FMDL needs.
     StaticBoneAdded,
     /// A converted mesh's vertices carried a weight above 1, clamped to the FMDL weight's
@@ -453,7 +460,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 136] = [
+    const ALL: [Code; 137] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -547,6 +554,7 @@ impl Code {
         Code::DummyTextureAdded,
         Code::NativeFieldDropped,
         Code::MeshFlagsDropped,
+        Code::ModelHiddenDropped,
         Code::StaticBoneAdded,
         Code::WeightClamped,
         Code::EmptyMeshBoneGroupDropped,
@@ -688,6 +696,7 @@ impl Code {
             Code::DummyTextureAdded => "dummy_texture_added",
             Code::NativeFieldDropped => "native_field_dropped",
             Code::MeshFlagsDropped => "mesh_flags_dropped",
+            Code::ModelHiddenDropped => "model_hidden_dropped",
             Code::StaticBoneAdded => "static_bone_added",
             Code::WeightClamped => "weight_clamped",
             Code::EmptyMeshBoneGroupDropped => "empty_mesh_bone_group_dropped",
@@ -849,6 +858,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("dummy_texture_added", CatalogSeverity::Info),
     ("native_field_dropped", CatalogSeverity::Info),
     ("mesh_flags_dropped", CatalogSeverity::Warning),
+    ("model_hidden_dropped", CatalogSeverity::Info),
     ("static_bone_added", CatalogSeverity::Info),
     ("weight_clamped", CatalogSeverity::Info),
     ("empty_mesh_bone_group_dropped", CatalogSeverity::Info),

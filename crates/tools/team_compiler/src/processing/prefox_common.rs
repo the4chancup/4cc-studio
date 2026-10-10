@@ -38,7 +38,8 @@ use crate::plan::roles::{common_skeleton, file_stem};
 /// `.model` packed under its packed name and its material set as `<stem>.mtl`, pointed as the
 /// face points a converted set: each metal material first given the environment map in the
 /// team's Common output (`add_environment_map`), then the paths naming a Common texture, then
-/// the reserved kit stems. A conversion that fails fails the task. Two files packing under one
+/// the reserved kit stems; an FMDL whose every mesh is hidden packs neither
+/// (`model_hidden_dropped`). A conversion that fails fails the task. Two files packing under one
 /// name (case-folded), a member's `.mtl` of a converted FMDL's `<stem>.mtl` name among them,
 /// fail the task: neither can be dropped silently.
 pub(super) fn common_models(
@@ -83,14 +84,18 @@ pub(super) fn common_models(
             }
             FileKind::Model(ModelFormat::Fmdl) => {
                 let skeleton = common_skeleton(common, name).map(|skeleton| take(files, skeleton));
-                let conversion = fmdl_for_pre_fox(
+                let Some(conversion) = fmdl_for_pre_fox(
                     &source_name(&file.path, folder),
                     &take(files, file),
                     skeleton.as_deref(),
                     ctx,
                     findings,
                     ConvertedMaterials::Converted,
-                )?;
+                )?
+                else {
+                    // Every mesh hidden: it drew nothing on Fox, so nothing of it is packed.
+                    continue;
+                };
                 let mut materials = conversion.materials;
                 // Before the pointing, which respells the environment map's path as `Common/`
                 // spells its own `env` texture when it holds one.

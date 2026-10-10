@@ -339,11 +339,12 @@ pub(crate) fn process_task(
                     &mut findings,
                     ConvertedMaterials::StockCollar,
                 )
-                .map(|converted| converted.model),
+                .map(|converted| converted.map(|converted| converted.model)),
                 Engine::PreFox => {
                     conversion::model_for_pre_fox(name, bytes, uniform_mtl, ctx, &mut findings)
+                        .map(Some)
                 }
-                Engine::Fox if is_fmdl => Ok(bytes),
+                Engine::Fox if is_fmdl => Ok(Some(bytes)),
                 Engine::Fox => conversion::model_for_fox(
                     name,
                     &bytes,
@@ -352,11 +353,16 @@ pub(crate) fn process_task(
                     &mut findings,
                     ConvertedMaterials::StockCollar,
                 )
-                .map(|converted| converted.model),
+                .map(|converted| Some(converted.model)),
             };
+            // `None`, an FMDL collar whose every mesh is hidden, writes nothing: the kits wear
+            // the game's own collar of the ID, as for a collar whose conversion failed.
             written.map(|bytes| {
-                let entry = (paths::collar(ctx.version.engine(), *id), bytes);
-                (TaskOutput::Entries(vec![entry]), None)
+                let entries = bytes
+                    .map(|bytes| (paths::collar(ctx.version.engine(), *id), bytes))
+                    .into_iter()
+                    .collect();
+                (TaskOutput::Entries(entries), None)
             })
         }
     };

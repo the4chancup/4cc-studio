@@ -44,6 +44,10 @@ pub enum ConvertError {
     /// The IR failed validation.
     #[error(transparent)]
     Validation(#[from] crate::ir::ValidationError),
+    /// Every mesh of the model is hidden (`invisible`): the export would hold no mesh, for a
+    /// model that draws nothing on Fox.
+    #[error("every mesh is hidden: the model draws nothing")]
+    EveryMeshHidden,
 }
 
 /// Zeroes every weighted slot that points past `group_len` and renormalizes only the
