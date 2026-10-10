@@ -651,7 +651,7 @@ pub(super) fn face(
     }
     // The team's Common output, which a `face.xml` and a `.mtl` name a Common file in.
     let common_directory = paths::common_texture_directory(Engine::PreFox, team_id);
-    let common_home = TextureDirectory::plain(common_directory.clone());
+    let common_home = paths::common_home(Engine::PreFox, team_id);
     let home = folder.textures.directory(Engine::PreFox, team_id);
     let places = FolderPlaces {
         folder: &folder.path,

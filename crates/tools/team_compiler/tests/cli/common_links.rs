@@ -18,7 +18,8 @@ use crate::conversion::HOME_714_05;
 use crate::models::{body_skl, face_package, package_names};
 use crate::prefox_faces::{
     CLEAN, card_materials, card_model, compile_pes17, entries_under, face_cpk, face_folder,
-    materials_naming, nested_entries, pes17, sampler_paths, small_dds, write_slot_05_face,
+    materials_naming, nested_entries, pes17, pre_fox_fixture, sampler_paths, small_dds,
+    write_slot_05_face,
 };
 use crate::textures::texture_fixture;
 use crate::{clean_model, findings_of};
@@ -1227,6 +1228,97 @@ fn a_common_link_below_a_subfolder_stands_for_the_common_file_at_its_path() {
             "path=\"model/character/uniform/common/714/jessie/oral_body_*.model\" material=\"model/character/uniform/common/714/jessie/body.mtl\""
         ),
         "{xml}"
+    );
+}
+
+// TC-CMN-25
+#[test]
+fn a_linked_common_model_s_textures_travel_with_it_and_resolve_beside_it() {
+    let sandbox = Sandbox::new("cmn_nested_model_textures");
+    let export = "co Midcup Nested";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/jessie/body.fmdl.common"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/body.fmdl"),
+        &model_naming_game_hair(),
+    );
+    // The model's `hair`, beside it; `Common/`'s own `hair.dds` of other bytes, which the
+    // name resolves past to the nearer one.
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/hair.dds"),
+        &small_dds(),
+    );
+    sandbox.write(
+        &format!("exports/{export}/Common/hair.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert!(
+        findings_of(&lines, export)
+            .iter()
+            .all(|line| !line.contains("file_not_used")),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // Packed once, at `jessie/`'s path below the team's Common output, converted from
+    // `Common/jessie/hair.dds`, not `Common/`'s.
+    let hair = "Asset/model/character/common/714/jessie/sourceimages/#windx11/hair.ftex";
+    assert_eq!(
+        entries.get(hair),
+        Some(&ftex::dds_to_ftex(&small_dds(), ftex::ColorSpace::Normal).unwrap()),
+        "{:#?}",
+        entries.keys()
+    );
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("fcl_hair.fmdl").unwrap(), "hair.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/jessie/sourceimages/"),
+        "{directories:?}"
+    );
+}
+
+// TC-CMN-25
+#[test]
+fn a_common_path_into_a_subfolder_resolves_at_that_path_on_pes_21() {
+    let sandbox = Sandbox::new("cmn_nested_common_path");
+    let export = "co Midcup Nested";
+    let player = format!("exports/{export}/Players/05 - A");
+    // `face_high.mtl` names `skin` by a pre-Fox Common path into `Common/jessie/`, as a
+    // member's `.mtl` written before the move spells it.
+    sandbox.write(&format!("{player}/face_high.model"), &card_model());
+    let mtl = String::from_utf8(pre_fox_fixture("cardhead_materials.mtl"))
+        .unwrap()
+        .replace(
+            "./texture.dds",
+            "model/character/uniform/common/000/jessie/skin.dds",
+        )
+        .into_bytes();
+    sandbox.write(&format!("{player}/face_high.mtl"), &mtl);
+    sandbox.write(&format!("{player}/jessie/skin.dds.common"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/skin.dds"),
+        &small_dds(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("face_high.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/jessie/sourceimages/"),
+        "{directories:?}"
     );
 }
 

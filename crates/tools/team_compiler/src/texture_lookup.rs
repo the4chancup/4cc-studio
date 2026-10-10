@@ -123,18 +123,23 @@ impl TextureFolders {
         // The file's own folder first, the model folder itself last.
         (0..=segments.len())
             .rev()
-            .flat_map(|depth| {
-                let key = segments[..depth].join("/");
-                self.own
-                    .get(&key)
-                    .map(|place| (place, PlaceHome::Folder))
-                    .into_iter()
-                    .chain(self.links.get(&key).map(|place| (place, PlaceHome::Common)))
-            })
+            .flat_map(|depth| self.folder(&segments[..depth].join("/")))
             .chain([
                 (&self.combined, PlaceHome::Folder),
                 (&self.combined_links, PlaceHome::Common),
             ])
+            .collect()
+    }
+
+    /// The places of the folder at `directory`, a path below the model folder (`""` for the
+    /// model folder itself): its textures, then its links, each with its home.
+    pub(crate) fn folder(&self, directory: &str) -> Vec<(&TexturePlace, PlaceHome)> {
+        let key = vtree::fold_name(directory.trim_end_matches('/'));
+        self.own
+            .get(&key)
+            .map(|place| (place, PlaceHome::Folder))
+            .into_iter()
+            .chain(self.links.get(&key).map(|place| (place, PlaceHome::Common)))
             .collect()
     }
 
@@ -175,16 +180,11 @@ impl TextureFolders {
             return Vec::new();
         }
         let key = if directory.is_empty() {
-            vtree::fold_name(subdirectory)
+            subdirectory.to_owned()
         } else {
-            format!("{directory}/{}", vtree::fold_name(subdirectory))
+            format!("{directory}/{subdirectory}")
         };
-        self.own
-            .get(&key)
-            .map(|place| (place, PlaceHome::Folder))
-            .into_iter()
-            .chain(self.links.get(&key).map(|place| (place, PlaceHome::Common)))
-            .collect()
+        self.folder(&key)
     }
 }
 

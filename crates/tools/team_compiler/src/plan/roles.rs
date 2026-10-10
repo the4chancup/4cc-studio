@@ -515,17 +515,30 @@ pub(crate) fn is_read_common_file(
 }
 
 /// The `Common/` files below a subfolder that a standing `.common` link of a kept player folder
-/// of `export` reaches, by their export paths: the file a link names (`common_link_target`, a
-/// link mirroring `Common/`'s tree: `model_format.md` "Link files"), and for a link naming a
+/// of `export` reaches, by their export paths: the file a link taking a role names
+/// (`common_link_target`, a link mirroring `Common/`'s tree: `model_format.md` "Link files";
+/// `player_file` gives none to a link to anything but a model, a `.mtl` or a texture), and for
+/// a link naming a
 /// model the files that travel with it in its directory: the models of its stem in any format
-/// (the target selects one, `selected_common_model`), the `.skl` of its stem and every `.mtl`
-/// (the ones its `.mtl` search may land on, `mtl_search::mtl_for`). What PES 18-21 reads of a
+/// (the target selects one, `selected_common_model`), the `.skl` of its stem, every `.mtl`
+/// (the ones its `.mtl` search may land on, `mtl_search::mtl_for`) and every texture directly
+/// in it, which a link naming a `.mtl` brings as well: the shared model keeps the textures
+/// beside it, as `Common/`'s own direct textures are packed whether a model names them or not
+/// (`pipeline.md` step 4 "Common"). What PES 18-21 reads of a
 /// subfolder (`is_read_common_file`); computed once per export, from the validated export.
 pub(crate) fn linked_common_files(export: &ValidatedAestheticsExport) -> BTreeSet<ScopePath> {
     let mut linked = BTreeSet::new();
     for player in &export.players {
+        let models = FolderModels::of_player_files(
+            &player.path,
+            &player.files,
+            player.ingame_face,
+            Engine::Fox,
+        );
         for file in &player.files {
-            if file.kind != FileKind::CommonLink || !role_position(&player.path, file, false) {
+            if file.kind != FileKind::CommonLink
+                || player_file(&player.path, file, &models).is_none()
+            {
                 continue;
             }
             let Some(target) = common_link_target(&file.path, &player.path)
@@ -537,16 +550,30 @@ pub(crate) fn linked_common_files(export: &ValidatedAestheticsExport) -> BTreeSe
                 continue;
             }
             linked.insert(target.path.clone());
-            if !matches!(target.kind, FileKind::Model(_)) {
-                continue;
-            }
             let (directory, stem) = directory_stem(target);
             let travelling = export.common.iter().filter(|other| {
                 let (other_directory, other_stem) = directory_stem(other);
                 other_directory == directory
-                    && (other.kind == FileKind::Mtl
-                        || (other_stem == stem
-                            && matches!(other.kind, FileKind::Model(_) | FileKind::Skl)))
+                    && match target.kind {
+                        FileKind::Model(_) => {
+                            other.kind == FileKind::Texture
+                                || other.kind == FileKind::Mtl
+                                || (other_stem == stem
+                                    && matches!(other.kind, FileKind::Model(_) | FileKind::Skl))
+                        }
+                        FileKind::Mtl => other.kind == FileKind::Texture,
+                        FileKind::Texture
+                        | FileKind::Skl
+                        | FileKind::Fclo
+                        | FileKind::Xml
+                        | FileKind::MaterialsToml
+                        | FileKind::Bin
+                        | FileKind::SharedLink(_)
+                        | FileKind::CommonLink
+                        | FileKind::Marker(_)
+                        | FileKind::Metadata(_)
+                        | FileKind::Other => false,
+                    }
             });
             linked.extend(travelling.map(|other| other.path.clone()));
         }
@@ -1117,8 +1144,9 @@ pub(crate) fn part_source_models(
 /// no task reads it, and validation reports it as `file_not_used` unless something else
 /// explains it (`validation::file_role_messages`). A file below a subfolder of a player folder
 /// is a part of the folder like a file directly in it, its role given by its name as in the
-/// root (`model_role`), but for a `.common` link and a per-player singleton, read directly in
-/// the folder alone, and one below a shared folder's subfolder has none (`role_position`); its
+/// root (`model_role`), a `.common` link included, which stands for the `Common/` file at its
+/// own path below the folder; only a per-player singleton is read directly in the folder
+/// alone, and a file below a shared folder's subfolder has none (`role_position`); its
 /// textures are the folder's own, each at its path. Each engine builds its own model format
 /// (`fox_file`, `pre_fox_file`); the textures and the face diff take the same roles on both
 /// (`texture_or_face_diff`).
@@ -1695,7 +1723,7 @@ mod tests {
 
     use super::*;
     use crate::plan::{TaskKind, plan_run};
-    use crate::testing::{resolved, to_plan, two_team_colors};
+    use crate::testing::{resolved, resolved_with_issues, to_plan, two_team_colors};
 
     /// A Fox face folder: a face model and `face_diff.bin`.
     const FACE: [&str; 2] = [
@@ -3502,6 +3530,65 @@ mod tests {
             ))
             .as_deref(),
             Some("Common/jessie/body.fmdl")
+        );
+    }
+
+    #[test]
+    fn a_link_to_a_common_subfolder_s_model_or_mtl_brings_the_textures_beside_it() {
+        // The export paths `linked_common_files` reports for `Players/03 - A` holding `link`.
+        let linked = |link: &str| -> BTreeSet<String> {
+            let (export, _) = resolved_with_issues(
+                "co Midcup Link",
+                &[
+                    ("Players/03 - A/face_high.fmdl", 1),
+                    (link, 0),
+                    ("Common/jessie/body.fmdl", 1),
+                    ("Common/jessie/body.skl", 1),
+                    ("Common/jessie/body.mtl", 1),
+                    ("Common/jessie/other.mtl", 1),
+                    ("Common/jessie/hair.dds", 1),
+                    ("Common/jessie/sub/x.dds", 1),
+                    ("Common/body.fmdl", 1),
+                    ("Common/hair.dds", 1),
+                ],
+                &[],
+                None,
+            );
+            linked_common_files(&export.export)
+                .iter()
+                .map(|path| path.as_str().to_owned())
+                .collect()
+        };
+        // A model link brings its stem's models and `.skl`, every `.mtl` and every texture
+        // directly in the directory; a `.mtl` link the textures alone; neither goes below
+        // `sub/` nor up to `Common/`'s own.
+        assert_eq!(
+            linked("Players/03 - A/jessie/body.fmdl.common"),
+            [
+                "Common/jessie/body.fmdl",
+                "Common/jessie/body.mtl",
+                "Common/jessie/body.skl",
+                "Common/jessie/hair.dds",
+                "Common/jessie/other.mtl",
+            ]
+            .iter()
+            .map(|path| (*path).to_owned())
+            .collect()
+        );
+        assert_eq!(
+            linked("Players/03 - A/jessie/body.mtl.common"),
+            ["Common/jessie/body.mtl", "Common/jessie/hair.dds"]
+                .iter()
+                .map(|path| (*path).to_owned())
+                .collect()
+        );
+        // A texture link still brings nothing beside it.
+        assert_eq!(
+            linked("Players/03 - A/jessie/hair.dds.common"),
+            ["Common/jessie/hair.dds"]
+                .iter()
+                .map(|path| (*path).to_owned())
+                .collect()
         );
     }
 

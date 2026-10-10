@@ -52,7 +52,8 @@ done 2026-10-10: a texture link below a subfolder counts in its own folder, its 
 packed once at its path in the team's Common output; (b3b3) done 2026-10-10: a player's
 own texture or texture link wins over a combined folder's, `shared_texture_overridden`;
 (b3b4a) done 2026-10-10: on PES 15-17 a `Common/` `.mtl` resolves its textures from its
-own `Common/` directory; (b3b4b) next), 4.y-fix20
+own `Common/` directory; (b3b4b) done 2026-10-10: on Fox a linked `Common/` subfolder
+model's textures travel with it and resolve beside it; (b3c) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4247,6 +4248,30 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   green on the VPS (`just gates-remote`, `.tmp/4_y/gates_sub_b3b4a_r1.log`, acceptance
   320 of 322); mutants r0 15 mutants, 10 caught, 5 unviable, 0 missed
   (`.tmp/4_y/mutants_sub_b3b4a_r0/`), after the rework 18 mutants, 11 caught, 7 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b4a_r1.log`).
+  (b3b4b) done 2026-10-10 (SWE-2 High; brief `.tmp/4_y/brief_sub_b3b4b.md`, reworks `_r1`,
+  `_r2`, reports beside them; plan change `e45f37c`, DECISIONS "on Fox a linked Common model's
+  directory's textures travel with it"): `roles::linked_common_files` brings every
+  texture directly in a linked model's or `.mtl`'s `Common/` subfolder (packed, not
+  `file_not_used`), and only a link that takes a role reads its target (S18.2-3); a Fox
+  Common part's stems resolve in one `TextureFolders` over the Common textures Fox packs
+  (`processing/model.rs` `common_folders`, `common_folder()` the model folder, nearest
+  first from the part's file, `./sub/` at its path), the stems the folder's texture links
+  stand for inserted as links (the sidekick's contradiction, accepted: an installed CPK's
+  texture link must stay found); a pre-Fox Common path into a subfolder is resolved there
+  too, not kept as written (S18.2-1); the deep pass checks a Fox Common `.mtl` from its own
+  directory (`held_common`), `TextureSources::below` no longer optional;
+  `aesthetics_export` checks stem conflicts per `Common/` directory (S18.2-2: two textures
+  of one stem in a subfolder were a run-fatal duplicate CPK path). TC-CMN-25 (lead)
+  proven. Files: `aesthetics_export` `validate/{folders,tests}.rs`; `team_compiler`
+  `deep/{materials,mod}.rs`, `plan/{mod,roles}.rs`, `processing/{model,prefox_face}.rs`,
+  `texture_lookup.rs`, `validation.rs`, `tests/cli/common_links.rs`; README TC-CMN-25
+  (its THEN reworded: the linked `body.fmdl` packs under the face fallback name
+  `fcl_hair.fmdl`, so "the model built from body.fmdl"). Gates green on the VPS
+  (`.tmp/4_y/gates_sub_b3b4b_r2.log`); mutants r0 18 mutants, 15 caught, 3 unviable,
+  0 missed (`.tmp/4_y/mutants_sub_b3b4b_r0/`); r1 46 mutants, 35 caught, 8 unviable, 3
+  missed (`.tmp/4_y/mutants_sub_b3b4b_r1/`: the deep pass's Fox Common subfolder path
+  untested end to end, two tests added; an always-true guard dropped; the engine
+  decided by one `match`); after r2 44 mutants, 36 caught, 8 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b4b_r2.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7104,3 +7129,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   a combined shared folder's, as the Info `shared_texture_overridden`.
 - **2026-10-10** — 4.y-sub (b3b4a) landed: on PES 15-17 a `Common/` `.mtl` resolves its
   textures from its own `Common/` directory, a player's texture shadowing nothing.
+- **2026-10-10** — 4.y-sub (b3b4b) landed: on Fox a linked `Common/` subfolder model's
+  textures travel with it and resolve beside it; S18.2's accepted findings with it.

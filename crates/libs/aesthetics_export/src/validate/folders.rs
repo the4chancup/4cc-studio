@@ -261,11 +261,6 @@ pub(crate) fn directly_in(path: &ScopePath, folder: &ScopePath) -> bool {
         .is_some_and(|parent| parent.fold_key() == folder.fold_key())
 }
 
-/// Whether `path` is a file directly in `Common/` (two segments).
-pub(crate) fn is_direct_common_file(path: &ScopePath) -> bool {
-    path.segments().count() == 2
-}
-
 /// `path`'s position under `folder`, one of whose own files it is.
 pub(crate) fn position(path: &ScopePath, folder: &ScopePath) -> Position {
     if directly_in(path, folder) {
@@ -752,10 +747,11 @@ fn edithair_files(
     }
 }
 
-/// The `Common/` allowlist and its own stem namespace: model content only, at
+/// The `Common/` allowlist and its own stem namespaces: model content only, at
 /// any depth (on PES 15-17 a subfolder is packed at its own path); conflicting
-/// direct textures drop each other. A subfolder's textures are left out of the
-/// stem check: they pack under their own path, so they collide with no direct one.
+/// textures drop each other. The stem check is per directory of `Common/`, as
+/// `check_player`'s is per folder of a player's tree: every directory packs at
+/// its own path, so two textures of one stem collide only within one directory.
 pub(crate) fn check_common(
     draft: &AestheticsExportDraft,
     context: &ValidationContext,
@@ -772,14 +768,18 @@ pub(crate) fn check_common(
             ));
         }
     }
-    file_stem_conflicts(
-        context,
-        draft
-            .common
-            .iter()
-            .filter(|file| file.kind == FileKind::Texture && is_direct_common_file(&file.path)),
-        issues,
-    );
+    let mut directories: BTreeMap<Option<String>, Vec<&FileDescriptor>> = BTreeMap::new();
+    for file in &draft.common {
+        if file.kind == FileKind::Texture {
+            directories
+                .entry(file.path.parent().map(|parent| parent.fold_key()))
+                .or_default()
+                .push(file);
+        }
+    }
+    for files in directories.into_values() {
+        file_stem_conflicts(context, files.into_iter(), issues);
+    }
 }
 
 /// The `Collars/` allowlist: model files directly in the folder, in any model format. The game

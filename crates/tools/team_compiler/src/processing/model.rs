@@ -30,7 +30,8 @@ use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureDirectory};
 use crate::plan::ModelFolder;
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, common_texture_below, file_stem, is_common_file, skeleton_slot,
+    ModelPackage, PlayerFile, below_common, common_folder, common_texture_below, file_stem,
+    is_common_file, skeleton_slot,
 };
 use crate::texture_lookup::{self, TextureFolders, TexturePlace};
 use crate::user_face_xml::{Reference, reference};
@@ -106,8 +107,8 @@ pub(super) fn package(
     // The folder's textures by the folder of its tree holding each, and its combined folders',
     // its texture links the same way (`texture_lookup`): a link counts as the `Common/`
     // texture it stands for being present in the folder holding it; and the folded `below` of
-    // each, which `texture_supply` counts held at the team's Common output, validation having
-    // checked the link.
+    // each, which a Common part's lookup counts as a `Common/` texture and `texture_supply`
+    // held at the team's Common output, validation having checked the link.
     let mut textures = TextureFolders::default();
     let mut linked_stems = BTreeSet::new();
     let mut contents = PackageFiles::new();
@@ -309,25 +310,45 @@ pub(super) fn package(
     // folders (`texture_stem_conflict`), but not a link beside a combined shared folder's
     // texture of its stem: there the link wins, as the folder's own texture of its stem does.
     // A texture named with a path below its file's folder (`./textures/skin`) resolves at that
-    // path alone (`point_texture_below`); a Common part's paths
-    // are looked up by name, as every one of its paths is.
+    // path alone (`point_texture_below`), for a Common part at that path below its own file's
+    // directory in `Common/`.
     let texture_directory = folder.textures.directory(ctx.version.engine(), team_id);
     let common_directory = paths::common_texture_directory(Engine::Fox, team_id);
     let common_home = paths::common_home(Engine::Fox, team_id);
-    // The textures in the team's Common output: the ones directly in `Common/`, which the
-    // export's Common textures task packs, and the ones the folder's links stand for, an
-    // earlier installed CPK's included. A Common part's path of one of these stems is pointed
-    // there, and one pointed there is supplied.
+    // The stems in the team's Common output: the textures directly in `Common/`, which the
+    // export's Common textures task packs, and the paths the folder's texture links stand for,
+    // an earlier installed CPK's included. A texture pointed there is supplied.
     let common_stems: BTreeSet<String> = folder
         .common_texture_stems
         .iter()
         .chain(&linked_stems)
         .cloned()
         .collect();
-    let common_textures: TexturePlace = common_stems
-        .iter()
-        .map(|stem| (stem.clone(), stem.clone()))
-        .collect();
+    // The Common textures Fox packs, each at its path below `Common/` without its extension:
+    // `Common/`'s own (`common_texture_stems`) and the subfolder ones a link reaches
+    // (`common_files`). A Common part's stems resolve among them as a `Common/` `.mtl`'s do
+    // (`prefox_common::common_models`): `Common/` the model folder, a name nearest first from
+    // the file's own directory up to it, a path below the file's directory at that path.
+    let common_scope = common_folder();
+    let mut common_folders = TextureFolders::default();
+    for stem in &folder.common_texture_stems {
+        common_folders.insert(true, stem);
+    }
+    for file in &folder.common_files {
+        if file.kind == FileKind::Texture {
+            common_folders.insert(true, file_stem(below_common(&file.path)));
+        }
+    }
+    // And each texture a link of the folder's stands for, an installed CPK's included, as its
+    // own file: a real `Common/` texture of its stem resolves first (`nearest_first` gives a
+    // folder's textures before its links).
+    for below in &linked_stems {
+        common_folders.insert_link(true, below);
+    }
+    // A Common part's places (`FolderPlaces::common`, the pre-Fox shape): every place is the
+    // team's Common output, so `common_home` stands for both homes.
+    let common_places =
+        |path: &ScopePath| common_folders.places(&common_scope, path, &common_home, &common_home);
     // A folder part's places: its folder's textures and links nearest first, each in its
     // home, resolved from the material file's folder (`Part::references_from`): a stem
     // resolves in the folder of the material file that set it (`model_format.md` "Link
@@ -357,34 +378,43 @@ pub(super) fn package(
         // directories is the merge's `merge_material_conflict`, as intended.
         let mut models = Vec::with_capacity(parts.len());
         for part in &parts {
-            let (places, reads_paths_below) = match part.textures {
-                PartTextures::Folder => (folder_places(part), true),
-                PartTextures::Common => (vec![(&common_textures, &common_home)], false),
+            let places = match part.textures {
+                PartTextures::Folder => folder_places(part),
+                PartTextures::Common => common_places(&part.references_from),
                 PartTextures::CommonSet => {
                     let mut places = folder_places(part);
-                    places.push((&common_textures, &common_home));
-                    (places, true)
+                    places.extend(common_places(&part.references_from));
+                    places
                 }
             };
             let mut model = FmdlFile::read(&part.bytes)?;
             rewrite_texture_paths(&mut model, |path| {
-                let below = texture_lookup::path_below(&path.directory)
-                    .filter(|_| reads_paths_below)
-                    .map(|subdirectory| {
-                        textures
+                let below = texture_lookup::path_below(&path.directory).map(|subdirectory| {
+                    match part.textures {
+                        PartTextures::Common => common_folders
+                            .at(&common_scope, &part.references_from, subdirectory)
+                            .into_iter()
+                            .map(|(place, which)| {
+                                (place, which.directory(&common_home, &common_home))
+                            })
+                            .collect::<Vec<_>>(),
+                        PartTextures::Folder | PartTextures::CommonSet => textures
                             .at(&folder.path, &part.references_from, subdirectory)
                             .into_iter()
                             .map(|(place, which)| {
                                 (place, which.directory(&texture_directory, &common_home))
                             })
-                            .collect::<Vec<_>>()
-                    });
+                            .collect::<Vec<_>>(),
+                    }
+                });
                 match below {
                     Some(places) => point_texture_below(path, &places),
                     None => point_texture(
                         path,
                         &places,
                         (&common_stems, &common_directory),
+                        &common_folders,
+                        &common_home,
                         &team_segment,
                     ),
                 }
@@ -668,7 +698,9 @@ fn split_fmdl(bytes: &[u8]) -> anyhow::Result<SplitFmdl> {
 /// (`model/character/uniform/common/<team>/`, how a member's pre-Fox `.mtl` names a texture of
 /// `Common/`), read as the deep pass reads it (`user_face_xml::reference`), goes to the
 /// directory of `common`, the `Common/` textures, when they hold its stem: the evidence on
-/// which the deep pass calls it supplied (`pipeline.md` step 3 "Format conversion"). Any other
+/// which the deep pass calls it supplied (`pipeline.md` step 3 "Format conversion"). One into
+/// a `Common/` subfolder resolves at that path alone, in the places `common_folders` gives for
+/// the directory it names below `Common/`, named by `common_home`. Any other
 /// texture is one of the game's own, whose directory names the team as `000`, replaced by
 /// `team_segment`. The file name is never changed: the game itself respells a reference for
 /// the kit picked.
@@ -676,18 +708,14 @@ fn point_texture(
     path: &mut TexturePath,
     places: &[(&TexturePlace, &TextureDirectory)],
     common: (&BTreeSet<String>, &str),
+    common_folders: &TextureFolders,
+    common_home: &TextureDirectory,
     team_segment: &str,
 ) {
     let stem = file_stem(&path.file_name);
     let key = vtree::fold_name(stem);
     let holds = |stems: &BTreeSet<String>| {
         stems.contains(&key) || has_variant_among(stem, stems.iter().map(String::as_str))
-    };
-    // A Common path into a subfolder names a file Fox never reads (a link names a direct
-    // file), so only a direct one reaches `Common/`'s textures.
-    let names_pre_fox_common = || {
-        let written = format!("{}{}", path.directory, path.file_name);
-        matches!(reference(&written), Reference::Common { file_name, .. } if !file_name.contains('/'))
     };
     let (common_stems, common_directory) = common;
     let place = places
@@ -700,7 +728,34 @@ fn point_texture(
             Some(directory.of(texture_lookup::split(below).0))
         })
         .or_else(|| {
-            (names_pre_fox_common() && holds(common_stems)).then(|| common_directory.to_owned())
+            let written = format!("{}{}", path.directory, path.file_name);
+            match reference(&written) {
+                // A direct Common path names a texture directly in `Common/`, which
+                // `common`'s stems hold.
+                Reference::Common { file_name, .. } if !file_name.contains('/') => {
+                    holds(common_stems).then(|| common_directory.to_owned())
+                }
+                // One into a `Common/` subfolder resolves at that path alone, among the
+                // Common textures Fox packs (the arm above already took the direct ones).
+                Reference::Common { file_name, .. } => {
+                    let (subdirectory, _) = texture_lookup::split(&file_name);
+                    common_folders
+                        .folder(subdirectory)
+                        .iter()
+                        .find_map(|(place, which)| {
+                            let below = place
+                                .get(&key)
+                                .map(String::as_str)
+                                .or_else(|| texture_lookup::variant(place, stem))?;
+                            Some(
+                                which
+                                    .directory(common_home, common_home)
+                                    .of(texture_lookup::split(below).0),
+                            )
+                        })
+                }
+                _ => None,
+            }
         });
     path.directory = match place {
         Some(directory) => directory,
@@ -743,7 +798,10 @@ enum TextureSupply {
 
 /// Whether the texture at `path`, already pointed where it goes, is supplied: not looked for
 /// when its stem starts with `dummy_`; missing when its directory still names a path below its
-/// file's folder (`texture_lookup::path_below`: no texture sat there); not looked for when its
+/// file's folder (`texture_lookup::path_below`: no texture sat there); missing when its
+/// directory still spells a Common path into a `Common/` subfolder (`point_texture` found no
+/// texture at that path among the Common textures Fox packs) that no installed CPK holds at
+/// that path either; not looked for when its
 /// directory is not `common_directory`, the team's Common texture directory, a path a link
 /// below a subfolder points into a `Common/` subfolder's directory (`.../<team>/jessie/
 /// sourceimages/`) included: validation has checked the link (`common_link_missing`), so
@@ -769,6 +827,20 @@ fn texture_supply(
         return TextureSupply::Missing;
     }
     if vtree::fold_name(&path.directory) != vtree::fold_name(common_directory) {
+        // The path a Common subfolder reference kept when nothing at it resolved:
+        // `model/character/uniform/common/<team>/jessie/skin.dds`. An installed CPK's
+        // texture at that path below `Common/` supplies it; any other directory is a
+        // texture of the game's own or the folder's, which are not looked in.
+        let written = format!("{}{}", path.directory, path.file_name);
+        if let Reference::Common { file_name, .. } = reference(&written)
+            && file_name.contains('/')
+        {
+            return match installed_holds(file_stem(&file_name)) {
+                Some(true) => TextureSupply::Supplied,
+                Some(false) => TextureSupply::Missing,
+                None => TextureSupply::Unknown,
+            };
+        }
         return TextureSupply::Supplied;
     }
     if common_stems.contains(&folded)
@@ -988,10 +1060,13 @@ mod tests {
         let (own, linked) = (place(own), place(linked));
         let linked_stems: BTreeSet<String> = linked.keys().cloned().collect();
         let (home, common) = (plain("/home/"), plain("/common/"));
+        let folders = TextureFolders::default();
         point_texture(
             &mut path,
             &[(&own, &home), (&linked, &common)],
             (&linked_stems, "/common/"),
+            &folders,
+            &common,
             "/792/",
         );
         assert_eq!(path.file_name, file_name);
@@ -1008,10 +1083,13 @@ mod tests {
         };
         let own = place(own);
         let common: BTreeSet<String> = common.iter().map(|stem| (*stem).to_owned()).collect();
+        let folders = TextureFolders::default();
         point_texture(
             &mut path,
             &[(&own, &plain("/home/"))],
             (&common, "/common/"),
+            &folders,
+            &plain("/common/"),
             "/714/",
         );
         assert_eq!(path.file_name, file_name);
@@ -1065,6 +1143,46 @@ mod tests {
         }
     }
 
+    /// `pointed_from` with the `Common/` textures `below`, each at its path below `Common/`:
+    /// a Common path into a subfolder resolves at that path alone.
+    fn pointed_at_below(directory: &str, file_name: &str, below: &[&str]) -> String {
+        let mut path = TexturePath {
+            file_name: file_name.to_owned(),
+            directory: directory.to_owned(),
+        };
+        let mut folders = TextureFolders::default();
+        for &below in below {
+            folders.insert(true, below);
+        }
+        let none = BTreeSet::new();
+        point_texture(
+            &mut path,
+            &[],
+            (&none, "/common/"),
+            &folders,
+            &plain("/common/"),
+            "/714/",
+        );
+        path.directory
+    }
+
+    #[test]
+    fn a_common_path_into_a_subfolder_resolves_at_that_path_alone() {
+        let pre_fox = "model/character/uniform/common/000/jessie/";
+        assert_eq!(
+            pointed_at_below(pre_fox, "skin.dds", &["jessie/skin"]),
+            "/common/jessie/"
+        );
+        // With nothing there it is left as written, the `/000/` replaced by the team's.
+        for below in [&["other/skin"][..], &[][..]] {
+            assert_eq!(
+                pointed_at_below(pre_fox, "skin.dds", below),
+                "model/character/uniform/common/714/jessie/",
+                "{below:?}"
+            );
+        }
+    }
+
     /// `pointed_between` with the part's own stems `stems` and no linked stem.
     fn pointed(file_name: &str, stems: &[&str]) -> String {
         pointed_between(file_name, stems, &[])
@@ -1104,10 +1222,13 @@ mod tests {
                 file_name: file_name.to_owned(),
                 directory: "/Assets/pes16/model/character/common/000/sourceimages/".to_owned(),
             };
+            let folders = TextureFolders::default();
             point_texture(
                 &mut path,
                 &[(&place(below), &home)],
                 (&BTreeSet::new(), "/common/"),
+                &folders,
+                &plain("/common/"),
                 "/714/",
             );
             path.directory

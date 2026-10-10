@@ -1329,28 +1329,50 @@ mod tests {
         let files = [
             ("Players/03 - A/face_high.fmdl", 1),
             ("Players/03 - A/jessie/boots.model.common", 0),
-            // The linked model, the FMDL of its stem the target selects, its skeleton and the
-            // `.mtl` files its search may land on travel with it.
+            // The linked model, the FMDL of its stem the target selects, its skeleton, the
+            // `.mtl` files its search may land on and the textures of its directory travel
+            // with it.
             ("Common/jessie/boots.model", 1),
             ("Common/jessie/boots.fmdl", 1),
             ("Common/jessie/boots.skl", 1),
             ("Common/jessie/cloth.mtl", 1),
+            ("Common/jessie/skin.dds", 1),
             // No link reaches these.
             ("Common/jessie/hat.fmdl", 1),
-            ("Common/jessie/skin.dds", 1),
             ("Common/other/boots.fmdl", 1),
+            ("Common/other/skin.dds", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
         assert_eq!(
             names(&export, PesVersion::Pes21),
             [
                 "Warning file_not_used [Keep] (file=Common/jessie/hat.fmdl)",
-                "Warning file_not_used [Keep] (file=Common/jessie/skin.dds)",
                 "Warning file_not_used [Keep] (file=Common/other/boots.fmdl)",
+                "Warning file_not_used [Keep] (file=Common/other/skin.dds)",
             ]
         );
         // Pre-Fox reads every directory.
         assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
+    }
+
+    #[test]
+    fn on_fox_a_link_taking_no_role_marks_no_common_file_read() {
+        // `jessie/legs.skl.common` is a link kind `player_file` gives no role to: nothing
+        // reads `Common/jessie/legs.skl` for it, and the link itself is reported on its
+        // folder.
+        let files = [
+            ("Players/03 - A/face_high.fmdl", 1),
+            ("Players/03 - A/jessie/legs.skl.common", 0),
+            ("Common/jessie/legs.skl", 1),
+        ];
+        let export = resolved("co Midcup Names", &files, &[], None);
+        assert_eq!(
+            names(&export, PesVersion::Pes21),
+            [
+                "Warning file_not_used [Keep] at Players/03 - A (file=jessie/legs.skl.common)",
+                "Warning file_not_used [Keep] (file=Common/jessie/legs.skl)",
+            ]
+        );
     }
 
     #[test]

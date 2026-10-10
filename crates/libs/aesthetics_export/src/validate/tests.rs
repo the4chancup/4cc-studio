@@ -2619,6 +2619,36 @@ fn common_textures_conflict_each_other_and_drop_the_linker() {
 }
 
 #[test]
+fn common_textures_of_one_stem_conflict_per_common_directory() {
+    // `Common/`'s stem namespace is per directory, each packing at its own path: two
+    // textures of one stem in `jessie/` collide at one CPK path, as two direct ones do.
+    let same = report(
+        "egg Midcup",
+        &[("Common/jessie/hair.dds", 9), ("Common/jessie/hair.png", 9)],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&same),
+        vec![
+            ("texture_stem_conflict", Disposition::DropFile),
+            ("texture_stem_conflict", Disposition::DropFile),
+        ]
+    );
+    assert_eq!(same.issues[0].scope, file_scope("Common/jessie/hair.dds"));
+    assert_eq!(same.issues[1].scope, file_scope("Common/jessie/hair.png"));
+    assert!(same.validated.unwrap().common.is_empty());
+    // In different directories of `Common/` the stem is no collision.
+    let apart = report(
+        "egg Midcup",
+        &[("Common/jessie/hair.dds", 9), ("Common/other/hair.png", 9)],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&apart), vec![]);
+}
+
+#[test]
 fn two_collisions_on_one_loose_path_report_once() {
     // Both flattened names claim `docs/`'s spelling: one finding.
     let report = report(

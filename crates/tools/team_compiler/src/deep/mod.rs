@@ -85,14 +85,13 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, combined_folders, common_file, directory_stem, emits_kit_texture,
-    file_stem, is_common_file, is_direct_root_folder_file, is_read_common_file,
+    FolderModels, PlayerFile, below_common, combined_folders, common_file, directory_stem,
+    emits_kit_texture, file_stem, is_common_file, is_direct_root_folder_file, is_read_common_file,
     is_selected_common_model, is_user_face_xml, linked_common_files, part_source_models,
     player_file, role_position, texture_format,
 };
 use crate::reader::ContentSource;
 use crate::templates;
-use crate::texture_lookup::TexturePlace;
 use crate::user_face_xml::{
     self, Child, FaceFiles, UserFaceXml, XmlError, XmlFinding, names_file, reference, resolve,
 };
@@ -740,8 +739,9 @@ fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], ke
         let places = held.of(&file.path);
         let sources = TextureSources {
             held: &places,
-            below: Some((&held, &file.path)),
+            below: (&held, &file.path),
             common: &kept.texture_stems,
+            common_below: None,
             installed: kept.installed.as_ref(),
         };
         pass.findings.extend(texture_findings(
@@ -1000,19 +1000,24 @@ fn folder_findings(
         // up as on pre-Fox (`messages.md`, the `mtl_texture_not_found` row).
         Engine::Fox | Engine::PreFox => Some(held_textures(folder, files, models, &shared, engine)),
     };
-    // A Common part's texture paths are pointed among `Common/`'s textures alone
-    // (`processing::model`), so a Common `.mtl` is looked up against them, as pre-Fox looks up
-    // its Common `.mtl` files (`common_mtl_findings`).
-    let common_textures: TexturePlace = common
-        .texture_stems
-        .iter()
-        .map(|stem| (stem.clone(), stem.clone()))
-        .collect();
-    let common_sources = TextureSources {
-        held: &[&common_textures],
-        below: None,
-        common: &common.texture_stems,
-        installed: common.installed.as_ref(),
+    // A Common part's texture paths resolve in `Common/` (`processing::model`), as a
+    // `Common/` `.mtl`'s do (`common_mtl_findings`): the kept Common textures, `Common/` the
+    // model folder, a name nearest first from the `.mtl`'s own directory up to it, a path
+    // below that directory at that path alone.
+    let common_held = held_common(&common.files);
+    // The kept Common textures by their paths below `Common/` without their extensions, which
+    // a Common path into a `Common/` subfolder resolves at on Fox; pre-Fox does not look such
+    // a path up.
+    let common_below: Option<BTreeSet<String>> = match engine {
+        Engine::Fox => Some(
+            common
+                .files
+                .iter()
+                .filter(|file| file.kind == FileKind::Texture)
+                .map(|file| vtree::fold_name(file_stem(below_common(&file.path))))
+                .collect(),
+        ),
+        Engine::PreFox => None,
     };
     // The Common `.mtl` files looked up for this folder so far: two links finding one are one
     // lookup.
@@ -1030,8 +1035,9 @@ fn folder_findings(
             let places = held.of(&file.path);
             let sources = TextureSources {
                 held: &places,
-                below: Some((held, &file.path)),
+                below: (held, &file.path),
                 common: &common.texture_stems,
+                common_below: common_below.as_ref(),
                 installed: common.installed.as_ref(),
             };
             pass.findings.extend(texture_findings(
@@ -1054,8 +1060,8 @@ fn folder_findings(
             ));
             let common_mtl = match engine {
                 // Fox has no Common model output: each linking player's Models task converts
-                // the Common `.model` with this `.mtl`, so its lookup is the folder's, right
-                // after the link's own finding.
+                // the Common `.model` with this `.mtl`, so its lookup runs on his folder's
+                // pass, right after the link's own finding.
                 Engine::Fox => pairing.mtl.filter(|mtl| is_common_file(&mtl.path)),
                 // Pre-Fox packs a Common `.mtl` once for the team and looks it up on its own
                 // file (`common_mtl_findings`).
@@ -1066,11 +1072,19 @@ fn folder_findings(
                 && let Some(read) = common.materials.get(&mtl.path)
             {
                 let used = used_names(&pairings, &mtl.path, &materials, common);
+                let places = common_held.of(&mtl.path);
+                let sources = TextureSources {
+                    held: &places,
+                    below: (&common_held, &mtl.path),
+                    common: &common.texture_stems,
+                    common_below: common_below.as_ref(),
+                    installed: common.installed.as_ref(),
+                };
                 pass.findings.extend(texture_findings(
                     mtl.path.as_str(),
                     read,
                     &used,
-                    &common_sources,
+                    &sources,
                     &scope,
                 ));
             }
@@ -2800,6 +2814,96 @@ mod tests {
                 "./sub/hair.dds",
                 "card"
             )]
+        );
+    }
+
+    #[test]
+    fn on_fox_a_common_mtl_resolves_its_textures_from_its_own_common_directory() {
+        // `Common/jessie/x.mtl`, which `legs.model.common`'s search lands on, names
+        // `./hair.dds`: it resolves in `jessie/`, whose texture the model link brings.
+        let temp = scratch("deep_fox_common_mtl_directory");
+        let findings = findings_for(
+            PesVersion::Pes21,
+            temp.path(),
+            &[
+                ("Players/05 - B/jessie/legs.model.common", Vec::new()),
+                ("Common/jessie/legs.model", card()),
+                (
+                    "Common/jessie/x.mtl",
+                    materials_naming(&[("card", &["./hair.dds"])]),
+                ),
+                ("Common/jessie/hair.dds", bc1_dds(4, 4)),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(findings, [], "{findings:#?}");
+    }
+
+    #[test]
+    fn on_fox_a_player_mtl_s_common_path_into_a_subfolder_resolves_at_that_path() {
+        // `face_high.mtl` names a pre-Fox Common path into `Common/jessie/`; the texture
+        // link keeps `Common/jessie/skin.dds`, which supplies it at that path.
+        let temp = scratch("deep_fox_common_path_sub");
+        let findings = findings_for(
+            PesVersion::Pes21,
+            temp.path(),
+            &[
+                ("Players/05 - B/face_high.model", card()),
+                (
+                    "Players/05 - B/face_high.mtl",
+                    materials_naming(&[(
+                        "card",
+                        &["model/character/uniform/common/000/jessie/skin.dds"],
+                    )]),
+                ),
+                ("Players/05 - B/jessie/skin.dds.common", Vec::new()),
+                ("Common/jessie/skin.dds", bc1_dds(4, 4)),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(findings, [], "{findings:#?}");
+    }
+
+    #[test]
+    fn on_fox_a_player_mtl_s_common_path_into_a_subfolder_is_missing_without_the_texture() {
+        // `Common/jessie/` holds a kept model and `.mtl` (the kept files a non-texture
+        // filter would wrongly feed the lookup) but no texture at `jessie/skin`.
+        let temp = scratch("deep_fox_common_path_sub_missing");
+        let findings = findings_for(
+            PesVersion::Pes21,
+            temp.path(),
+            &[
+                ("Players/05 - B/face_high.model", card()),
+                (
+                    "Players/05 - B/face_high.mtl",
+                    materials_naming(&[(
+                        "card",
+                        &["model/character/uniform/common/000/jessie/skin.dds"],
+                    )]),
+                ),
+                ("Players/05 - B/jessie/legs.model.common", Vec::new()),
+                ("Common/jessie/legs.model", card()),
+                (
+                    "Common/jessie/other.mtl",
+                    materials_naming(&[("card", &["./hair.dds"])]),
+                ),
+                ("Common/hair.dds", bc1_dds(4, 4)),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [mtl_texture(
+                "mtl_texture_not_found",
+                folder("Players/05 - B"),
+                "face_high.mtl",
+                "model/character/uniform/common/000/jessie/skin.dds",
+                "card"
+            )],
+            "{findings:#?}"
         );
     }
 }

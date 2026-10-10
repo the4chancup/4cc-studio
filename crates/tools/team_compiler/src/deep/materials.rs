@@ -36,13 +36,15 @@ pub(super) struct TextureSources<'a> {
     pub(super) held: &'a [&'a TexturePlace],
     /// For a path below the `.mtl`'s folder (`texture_lookup::path_below`), which resolves at
     /// that path alone: its model folder's textures and the `.mtl`'s path (`HeldTextures::at`).
-    /// `None` for a `Common/` `.mtl` a Fox player's Models task converts (`common_sources`):
-    /// Fox's Common lookup is the folder's, where a path below its directory is not looked
-    /// for.
-    pub(super) below: Option<(&'a HeldTextures, &'a ScopePath)>,
+    pub(super) below: (&'a HeldTextures, &'a ScopePath),
     /// The stems of the textures in `Common/` the pass keeps, which the export's Common
     /// textures task packs into the team's Common output.
     pub(super) common: &'a BTreeSet<String>,
+    /// The paths below `Common/` without their extensions, folded (`jessie/skin`), of the
+    /// `Common/` textures the pass keeps, which a Common path below a subfolder resolves at
+    /// (`supply`), with `installed` answering for the installed CPKs'. `None` on pre-Fox,
+    /// where such a path is not looked for.
+    pub(super) common_below: Option<&'a BTreeSet<String>>,
     /// The stems the installed CPKs listed before the run's hold in the team's Common output;
     /// `None` when that lookup cannot be made or the export has no team ID, which holds
     /// nothing.
@@ -61,10 +63,9 @@ enum Supply {
 
 /// Whether the texture `path`, a `.mtl` sampler's path as written, is supplied from `sources`.
 /// A `dummy_` stem is never looked for. A path below the `.mtl`'s folder
-/// (`./shorts/y.dds`, `texture_lookup::path_below`), when `sources.below` is set, is supplied
-/// when the place that path names holds its stem (folded), or a variant of its set for a kit
-/// reference, and missing otherwise: it resolves there alone; for a `Common/` `.mtl` a Fox
-/// lookup checks (`sources.below` unset) it is not looked for. Whatever directory any other
+/// (`./shorts/y.dds`, `texture_lookup::path_below`) is supplied when the place that path names
+/// holds its stem (folded), or a variant of its set for a kit reference, and missing
+/// otherwise: it resolves there alone. Whatever directory any other
 /// path spells, it is supplied when its stem, or a variant of its set for a kit reference
 /// (`pants_kitN`, `texture_lookup::variant`), is one a place of `sources.held` holds: that is
 /// the stem the face task points at the folder's textures. Past the folder, a `./` path and a
@@ -87,19 +88,15 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
         return Supply::Supplied;
     }
     if let Some(subdirectory) = texture_lookup::path_below(directory) {
-        return match sources.below {
-            Some((held, mtl))
-                if held
-                    .at(mtl, subdirectory)
-                    .iter()
-                    .any(|place| place_holds(place)) =>
-            {
-                Supply::Supplied
-            }
-            Some(_) => Supply::Missing,
-            // A `Common/` `.mtl` on Fox, whose lookup is the player's folder's (`below`
-            // unset): a path below its directory is not looked for.
-            None => Supply::Supplied,
+        let (held, mtl) = sources.below;
+        return if held
+            .at(mtl, subdirectory)
+            .iter()
+            .any(|place| place_holds(place))
+        {
+            Supply::Supplied
+        } else {
+            Supply::Missing
         };
     }
     if sources.held.iter().any(|place| place_holds(place)) {
@@ -110,9 +107,25 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
     }
     match reference(path) {
         Reference::Local(_) => Supply::Missing,
-        // A Common subfolder's textures are not among `sources`, which hold `Common/`'s own
-        // stems: such a path is not looked for, as a path of the game's own is not.
-        Reference::Common { file_name, .. } if file_name.contains('/') => Supply::Supplied,
+        // A Common path into a `Common/` subfolder resolves at its path below `Common/`
+        // among the Common textures Fox packs (`sources.common_below`), then the installed
+        // CPKs'; on pre-Fox, where no `sources` name it, such a path is not looked for, as a
+        // path of the game's own is not.
+        Reference::Common { file_name, .. } if file_name.contains('/') => {
+            let below = vtree::fold_name(file_stem(&file_name));
+            let holds_below = |stems: &BTreeSet<String>| {
+                stems.contains(&below)
+                    || has_variant_among(file_stem(&file_name), stems.iter().map(String::as_str))
+            };
+            match sources.common_below {
+                Some(kept) if holds_below(kept) => Supply::Supplied,
+                Some(_) => match sources.installed {
+                    Some(installed) if holds_below(installed) => Supply::Supplied,
+                    _ => Supply::Missing,
+                },
+                None => Supply::Supplied,
+            }
+        }
         Reference::Common { .. } if holds(sources.common) => Supply::Supplied,
         Reference::Common { .. } if sources.installed.is_some_and(holds) => Supply::Supplied,
         Reference::Common { .. } => Supply::Missing,
@@ -306,10 +319,32 @@ mod tests {
     /// installed CPKs `installed`.
     fn supplied(path: &str, held: &[&str], common: &[&str], installed: Option<&[&str]>) -> Supply {
         let installed = installed.map(stems);
+        let folders = slot_05(&[], &[]);
+        let mtl = ScopePath::new("Players/05 - A/x.mtl").unwrap();
         let sources = TextureSources {
             held: &[&place(held)],
-            below: None,
+            below: (&folders, &mtl),
             common: &stems(common),
+            common_below: None,
+            installed: installed.as_ref(),
+        };
+        supply(path, &sources)
+    }
+
+    /// What `supply` makes of `path`, a Common path into a `Common/` subfolder, with the
+    /// kept `Common/` textures at `kept` below `Common/` without their extensions and the
+    /// installed CPKs' `installed` the same way, on Fox (`common_below` set).
+    fn supplied_below(path: &str, kept: &[&str], installed: Option<&[&str]>) -> Supply {
+        let installed = installed.map(stems);
+        let kept = stems(kept);
+        let none = BTreeSet::new();
+        let folders = slot_05(&[], &[]);
+        let mtl = ScopePath::new("Players/05 - A/x.mtl").unwrap();
+        let sources = TextureSources {
+            held: &[],
+            below: (&folders, &mtl),
+            common: &none,
+            common_below: Some(&kept),
             installed: installed.as_ref(),
         };
         supply(path, &sources)
@@ -338,8 +373,9 @@ mod tests {
         let places = held.of(&mtl);
         let sources = TextureSources {
             held: &places,
-            below: Some((held, &mtl)),
+            below: (held, &mtl),
             common: &BTreeSet::new(),
+            common_below: None,
             installed: None,
         };
         supply(path, &sources)
@@ -492,6 +528,32 @@ mod tests {
     }
 
     #[test]
+    fn a_common_path_below_a_subfolder_resolves_at_that_path_among_the_common_textures_a_link_reaches()
+     {
+        // `model/character/uniform/common/000/jessie/skin.dds` names `Common/jessie/skin.dds`:
+        // supplied when that file is among the textures the pass keeps, or an installed CPK
+        // holds it at that path below `Common/`; missing otherwise.
+        let path = "model/character/uniform/common/000/jessie/skin.dds";
+        assert_eq!(
+            supplied_below(path, &["jessie/skin"], None),
+            Supply::Supplied
+        );
+        assert_eq!(
+            supplied_below(path, &[], Some(&["jessie/skin"])),
+            Supply::Supplied
+        );
+        // Nothing at that path is a miss, `Common/skin.dds` included: it resolves at
+        // `jessie/` alone.
+        for held in [&[][..], &["skin"][..], &["other/skin"][..]] {
+            assert_eq!(
+                supplied_below(path, held, Some(&[])),
+                Supply::Missing,
+                "{held:?}"
+            );
+        }
+    }
+
+    #[test]
     fn a_common_path_is_supplied_by_common_or_an_installed_cpk_and_missing_without_a_lookup() {
         assert_eq!(
             supplied(COMMON_HAIR, &[], &["hair"], None),
@@ -522,10 +584,13 @@ mod tests {
     /// `used` mesh-used, nothing held but `Common/`'s `hair` and no installed lookup.
     fn findings(materials: &[MaterialRead], used: &[&str]) -> Vec<ContentFinding> {
         let common = stems(&["hair"]);
+        let folders = slot_05(&[], &[]);
+        let mtl = ScopePath::new("Players/05 - A/face.mtl").unwrap();
         let sources = TextureSources {
             held: &[],
-            below: None,
+            below: (&folders, &mtl),
             common: &common,
+            common_below: None,
             installed: None,
         };
         let scope = IssueScope::Folder(ScopePath::new("Players/05 - A").unwrap());

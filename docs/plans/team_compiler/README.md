@@ -1525,7 +1525,7 @@ TC-CMN-24  GIVEN slot 05 holding ingame_face, studs.dds and jessie/kit_boots.mod
 TC-CMN-25  GIVEN Common/jessie/body.fmdl naming hair, Common/jessie/hair.dds and Common/hair.dds
            of other bytes, and slot 05 holding face_high.fmdl and jessie/body.fmdl.common
            WHEN the export is compiled for PES 21
-           THEN the face package's body.fmdl names hair in
+           THEN the face package's model built from body.fmdl names hair in
                 /Assets/pes16/model/character/common/<team>/jessie/sourceimages/, the CPK
                 holds Asset/model/character/common/<team>/jessie/sourceimages/#windx11/hair.ftex
                 converted from Common/jessie/hair.dds, and no file_not_used names it
