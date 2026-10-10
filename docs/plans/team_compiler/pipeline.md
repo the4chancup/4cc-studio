@@ -907,7 +907,10 @@ describes behavior, not a serial scheduling requirement:
   under that number's spelling, and `kit_variant_missing` is reported on the folder, once
   per set and number. The game skips an entry whose respelled model is missing, so without
   the copy that kit would show the player without the part, and a team adding a kit would
-  have to add a model to every player with a set. The set is found over the face's
+  have to add a model to every player with a set. A lone variant (`pants_kit1.model` with
+  no other number) is an ordinary model, listed under its own name and not completed: the
+  game loads it for every kit, which is what completing it would give, minus the copies
+  and the warning. The set is found over the face's
   packed names
   after a linked shared face's files are copied in under the player's own, so a set split
   between the two (the shared folder's `pants_kit1` and `pants_kit2`, the player's own

@@ -49,7 +49,11 @@ On PES 2015 to 2017 a face's set is listed once in the
 `face.xml`, as `pants_kitN`, every variant is packed and the game loads the one for the kit
 picked; each variant's `.mtl` goes by the same rule (`pants_kit1.mtl` and `pants_kit2.mtl`, or
 one `pants.mtl` for all), and the warning `kit_variant_mtl_differs` names a variant whose `.mtl`
-would not be found that way. Six lines name a texture that cannot be
+would not be found that way. A kit number the team has with no model of the set gets the
+lowest one copied for it, as a texture does (its `.mtl` too when that is the variant's own,
+`pants_kit1.mtl`), so the game never shows the player without that part, and the warning
+`kit_variant_missing` names the set, the kit and the copied model; the same holds for a set a
+player's own `face.xml` names. Six lines name a texture that cannot be
 used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_div4` (for
 PES 2015 to 2017, a width or height that is not a multiple of 4: 1000 is one, 1002 is not),
 `texture_not_pow2` (a portrait whose width or height is not a power of two, or any other

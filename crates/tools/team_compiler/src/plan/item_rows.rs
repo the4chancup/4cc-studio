@@ -130,6 +130,7 @@ fn models_task<'a>(
                 folder,
                 package: built,
                 ids,
+                ..
             } = &task.kind
                 && folder.path == *path
                 && *built == package

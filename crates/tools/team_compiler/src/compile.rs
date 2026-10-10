@@ -1087,6 +1087,7 @@ mod tests {
                     folder: folder.clone(),
                     package: ModelPackage::Face,
                     ids: vec![PackageKey::Id(79205)],
+                    kits: Vec::new(),
                 },
                 10,
                 Some(group.clone()),
@@ -1227,6 +1228,7 @@ mod tests {
             folder: folder.clone(),
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205)],
+            kits: Vec::new(),
         };
         let task = |group| BuildTask {
             export_id: ExportId(4),
@@ -1508,6 +1510,7 @@ mod tests {
                 folder,
                 package: ModelPackage::Face,
                 ids: vec![PackageKey::Id(79205)],
+                kits: Vec::new(),
             },
             charge: 0,
             group: None,

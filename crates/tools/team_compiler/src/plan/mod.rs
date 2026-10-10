@@ -519,6 +519,9 @@ pub(crate) enum TaskKind {
         /// boots/gloves id for the other two; a referee slot's own key for all three); for a
         /// shared folder its one shared id.
         ids: Vec<PackageKey>,
+        /// The export's kit numbers, against which a pre-Fox face completes the per-kit model
+        /// sets its `face.xml` lists.
+        kits: Vec<u8>,
     },
     /// A model folder's own textures, converted once into the folder's texture home, which
     /// every package of the folder points at. Always the last task of the folder's `TaskGroup`.
@@ -1013,7 +1016,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         let model_ids = team.map(PlannedModelIds::for_team);
         let fpc = EffectiveTeamKitFpc::of(&export);
         // The kit numbers the export defines, ascending (its kits go by slot), which each
-        // textures task completes its variant sets against.
+        // textures task, and each pre-Fox face, completes its variant sets against.
         let kits: Vec<u8> = export
             .kits
             .kits
@@ -1385,8 +1388,9 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
 /// for a team's face whatever the folder holds when `blank_face` is set, and on Fox for the
 /// gloves when the folder has a hand-split part (`ModelFolder::hand_split`), emitted under that
 /// package's keys, then, when the folder has textures or takes the template environment map
-/// (`ModelFolder::environment_map`), its `Textures` task completing its variant sets against
-/// `kits`, the export's kit numbers, the lot as one `TaskGroup`.
+/// (`ModelFolder::environment_map`), its `Textures` task, the lot as one `TaskGroup`. The
+/// textures task, and a pre-Fox face, complete their variant sets against `kits`, the
+/// export's kit numbers.
 fn folder_tasks(
     export_id: ExportId,
     team_id: u16,
@@ -1425,6 +1429,7 @@ fn folder_tasks(
                 folder: folder.clone(),
                 package: *package,
                 ids: ids.clone(),
+                kits: kits.to_vec(),
             },
         ));
     }
@@ -1997,6 +2002,7 @@ mod tests {
                         folder,
                         package,
                         ids,
+                        ..
                     } => format!("{package:?} {} {}", folder.path.as_str(), keys_text(ids)),
                     TaskKind::Textures { folder, .. } => {
                         format!("textures {}", folder.path.as_str())

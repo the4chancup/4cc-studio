@@ -201,6 +201,7 @@ pub(crate) fn process_task(
             folder,
             package,
             ids,
+            kits,
         } => match (ctx.version.engine(), package) {
             (Engine::Fox, _) => model::package(
                 folder,
@@ -211,7 +212,7 @@ pub(crate) fn process_task(
                 &mut findings,
             ),
             (Engine::PreFox, ModelPackage::Face) => {
-                prefox_face::face(folder, task.team_id, ctx, &mut files, &mut findings)
+                prefox_face::face(folder, kits, task.team_id, ctx, &mut files, &mut findings)
             }
             (Engine::PreFox, ModelPackage::Boots | ModelPackage::Gloves) => prefox_shared::package(
                 folder,
@@ -635,6 +636,7 @@ mod tests {
             folder: whole_player(),
             package: ModelPackage::Gloves,
             ids: vec![PackageKey::Id(79205)],
+            kits: Vec::new(),
         };
         let files: TaskFiles = kind
             .files()
@@ -682,6 +684,7 @@ mod tests {
             folder: whole_player(),
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205), PackageKey::Id(79207)],
+            kits: Vec::new(),
         });
 
         assert_eq!(batch.index, 3);
@@ -755,6 +758,7 @@ mod tests {
             folder: player(&["fcl_hair.fmdl"]),
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205)],
+            kits: Vec::new(),
         });
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
@@ -788,6 +792,7 @@ mod tests {
                 folder: player(&["fcl_hair.fmdl", "fcl_hair.skl"]),
                 package: ModelPackage::Face,
                 ids: vec![PackageKey::Id(79205)],
+                kits: Vec::new(),
             },
             &[(&format!("{PLAYER}/fcl_hair.skl"), &custom)],
         );
@@ -806,6 +811,7 @@ mod tests {
             ),
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205)],
+            kits: Vec::new(),
         });
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
         let package = FpkFile::read(&batch.entries[0].1).unwrap();
@@ -826,6 +832,7 @@ mod tests {
             folder,
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205)],
+            kits: Vec::new(),
         };
         assert!(kind.files().is_empty(), "the face reads nothing");
 
@@ -864,6 +871,7 @@ mod tests {
                 ),
                 package: ModelPackage::Face,
                 ids: vec![PackageKey::Id(79205)],
+                kits: Vec::new(),
             },
             &[(&format!("{PLAYER}/torso.skl"), &custom)],
         );
@@ -893,6 +901,7 @@ mod tests {
             folder: whole_player(),
             package: ModelPackage::Boots,
             ids: vec![PackageKey::Id(3745)],
+            kits: Vec::new(),
         });
 
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
@@ -929,6 +938,7 @@ mod tests {
                 folder,
                 package: ModelPackage::Boots,
                 ids: vec![PackageKey::Id(3745), PackageKey::Id(3747)],
+                kits: Vec::new(),
             },
             &[(&format!("{PLAYER}/kit_boots.skl"), &custom)],
         );
@@ -955,6 +965,7 @@ mod tests {
             folder: whole_player(),
             package: ModelPackage::Gloves,
             ids: vec![PackageKey::Id(3745)],
+            kits: Vec::new(),
         });
 
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
@@ -1008,6 +1019,7 @@ mod tests {
                 folder,
                 package,
                 ids: vec![PackageKey::Id(id)],
+                kits: Vec::new(),
             },
             &[(&body_path, body)],
         )
@@ -1102,6 +1114,7 @@ mod tests {
             folder,
             package: ModelPackage::Gloves,
             ids: vec![PackageKey::Id(625)],
+            kits: Vec::new(),
         };
         let body_path = format!("{PLAYER}/body.fmdl");
 
@@ -1250,6 +1263,7 @@ mod tests {
             folder: folder.clone(),
             package: ModelPackage::Gloves,
             ids: vec![PackageKey::Id(644)],
+            kits: Vec::new(),
         });
         let textures = run(TaskKind::Textures {
             folder,
@@ -2346,6 +2360,7 @@ mod tests {
             folder,
             package: ModelPackage::Boots,
             ids: vec![PackageKey::Id(3745)],
+            kits: Vec::new(),
         }
     }
 
@@ -2649,6 +2664,7 @@ mod tests {
             folder,
             package: ModelPackage::Gloves,
             ids: vec![PackageKey::Id(3745)],
+            kits: Vec::new(),
         });
 
         assert!(batch.messages.is_empty(), "{:?}", batch.messages);
@@ -2684,6 +2700,7 @@ mod tests {
                 folder,
                 package: ModelPackage::Face,
                 ids: vec![PackageKey::Id(79205)],
+                kits: Vec::new(),
             },
             PesVersion::Pes17,
         );
@@ -3166,6 +3183,7 @@ mod tests {
             folder,
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205)],
+            kits: Vec::new(),
         }
     }
 
@@ -3732,6 +3750,7 @@ mod tests {
             folder,
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205)],
+            kits: Vec::new(),
         });
 
         assert!(batch.entries.is_empty() && batch.uniparam.is_none());

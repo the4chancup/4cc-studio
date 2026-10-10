@@ -11,12 +11,12 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, pes21_settings};
+use crate::compile::{cpk_entries, pes21_settings, tracer_kit};
 use crate::models::{face_diff_fixture, template};
 use crate::prefox_faces::{
     CLEAN, card_materials, card_model, common_output, compile_pes17, face_cpk, face_folder,
-    materials_naming, nested_entries, ordered_entries, pes15, pes16, pes17, sampler_paths,
-    small_dds,
+    materials_naming, nested_entries, ordered_entries, pes15, pes16, pes17, pre_fox_fixture,
+    sampler_paths, small_dds,
 };
 use crate::{clean_model, findings_of};
 
@@ -846,6 +846,178 @@ fn a_kit_reference_packs_every_variant_of_its_model_and_mtl_sets_under_their_own
         [format!("{SLOT_05_HOME}skin.dds")]
     );
     // The game respells the entry for the kit picked.
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        owned_entries(&[
+            ("face_neck", "./face_high.model", "./face_high.mtl"),
+            ("parts", "./pants_kitN.model", "./pants_kitN.mtl"),
+        ])
+    );
+}
+
+/// Compiles slot 05 holding `face_high` and the per-kit set `pants_kit1` and `pants_kit2`
+/// (two different models, their `.mtl` files naming different textures), with the `face.xml`
+/// naming `face_high` and the `<model>` attributes `pants`, against the kit folders `Kits/p1`
+/// to `Kits/p4`; asserts the set is completed for kits 3 and 4, one finding each, its model
+/// and `.mtl` copied from `pants_kit1`, and the xml written as the member wrote it.
+fn assert_a_kit_reference_completes_its_model_and_mtl_sets(name: &str, pants: &str) {
+    let sandbox = Sandbox::new(name);
+    let export = "co Midcup Xml";
+    let player = format!("exports/{export}/Players/05 - A");
+    write_folder(
+        &sandbox,
+        export,
+        "05 - A",
+        "face_high",
+        &face_xml(&[FACE_HIGH, pants]),
+    );
+    sandbox.write(&format!("{player}/pants_kit1.model"), &card_model());
+    sandbox.write(
+        &format!("{player}/pants_kit2.model"),
+        &pre_fox_fixture("cardhead_doublesided_face_high.model"),
+    );
+    sandbox.write(&format!("{player}/pants_kit1.mtl"), &card_materials());
+    sandbox.write(
+        &format!("{player}/pants_kit2.mtl"),
+        &materials_naming("his"),
+    );
+    sandbox.write(&format!("{player}/his.dds"), &small_dds());
+    for kit in 1..=4 {
+        sandbox.write(
+            &format!("exports/{export}/Kits/p{kit}/kit.dds"),
+            &tracer_kit(),
+        );
+    }
+
+    let generated =
+        (1..=4).map(|kit| format!("Info kit_config_generated [Keep] at Kits/p{kit} ()"));
+    let missing = [3, 4].map(|kit| {
+        format!(
+            "Warning kit_variant_missing [Keep] at Players/05 - A (model=pants_kitN, kit={kit}, copied=pants_kit1)"
+        )
+    });
+    let derived = (1..=4).map(|kit| format!("Info kit_colors_derived [Keep] at Kits/p{kit} ()"));
+    let expected: Vec<String> = CLEAN
+        .iter()
+        .map(|line| (*line).to_owned())
+        .chain(generated)
+        .chain(missing)
+        .chain(derived)
+        .collect();
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &expected.iter().map(String::as_str).collect::<Vec<_>>(),
+    );
+
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        [
+            "face.xml",
+            "face_high.model",
+            "face_high.mtl",
+            "pants_kit1.model",
+            "pants_kit1.mtl",
+            "pants_kit2.model",
+            "pants_kit2.mtl",
+            "pants_kit3.model",
+            "pants_kit3.mtl",
+            "pants_kit4.model",
+            "pants_kit4.mtl",
+        ]
+    );
+    for kit in [3, 4] {
+        assert_eq!(
+            face[&format!("pants_kit{kit}.model")],
+            card_model(),
+            "{kit}"
+        );
+        assert_eq!(
+            face[&format!("pants_kit{kit}.mtl")],
+            face["pants_kit1.mtl"],
+            "{kit}"
+        );
+    }
+    assert_eq!(
+        sampler_paths(&face["pants_kit3.mtl"]),
+        [format!("{SLOT_05_HOME}skin.dds")]
+    );
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        owned_entries(&[
+            ("face_neck", "./face_high.model", "./face_high.mtl"),
+            ("parts", "./pants_kitN.model", "./pants_kitN.mtl"),
+        ])
+    );
+}
+
+#[test]
+fn a_kit_reference_completes_its_model_and_mtl_sets_against_the_export_s_kits() {
+    assert_a_kit_reference_completes_its_model_and_mtl_sets(
+        "user_xml_kit_set_completed",
+        r#"type="parts" path="./pants_kitN.model" material="./pants_kitN.mtl""#,
+    );
+}
+
+// The `.mtl` set, completed first, reports nothing: the finding is the model set's.
+#[test]
+fn a_kit_reference_naming_its_mtl_first_reports_each_number_once() {
+    assert_a_kit_reference_completes_its_model_and_mtl_sets(
+        "user_xml_kit_set_completed_mtl_first",
+        r#"type="parts" material="./pants_kitN.mtl" path="./pants_kitN.model""#,
+    );
+}
+
+// The player's own variants of the set the shared xml names are packed by its entry, not
+// appended under generated ones: his lowest, which the reference resolves to, and his
+// higher one, which only the set names.
+#[test]
+fn a_shared_xml_s_kit_reference_names_the_linking_player_s_own_variants() {
+    let sandbox = Sandbox::new("user_xml_shared_kit_set");
+    let export = "co Midcup Xml";
+    let xml = face_xml(&[
+        FACE_HIGH,
+        r#"type="parts" path="./pants_kitN.model" material="./pants_kitN.mtl""#,
+    ]);
+    write_round(&sandbox, export, Some(&xml), &["05 - A"]);
+    let round = format!("exports/{export}/Faces/Round");
+    sandbox.write(&format!("{round}/pants_kit1.model"), &card_model());
+    sandbox.write(&format!("{round}/pants_kit1.mtl"), &card_materials());
+    let player = format!("exports/{export}/Players/05 - A");
+    let his = pre_fox_fixture("cardhead_doublesided_face_high.model");
+    for kit in [2, 3] {
+        sandbox.write(&format!("{player}/pants_kit{kit}.model"), &his);
+        sandbox.write(&format!("{player}/pants_kit{kit}.mtl"), &card_materials());
+    }
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            IDENTIFIED,
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+        ],
+    );
+
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        [
+            "face.xml",
+            "face_high.model",
+            "face_high.mtl",
+            "pants_kit1.model",
+            "pants_kit1.mtl",
+            "pants_kit2.model",
+            "pants_kit2.mtl",
+            "pants_kit3.model",
+            "pants_kit3.mtl",
+        ]
+    );
+    assert_eq!(face["pants_kit2.model"], his);
+    assert_eq!(face["pants_kit3.model"], his);
     assert_eq!(
         ordered_entries(&face["face.xml"]),
         owned_entries(&[

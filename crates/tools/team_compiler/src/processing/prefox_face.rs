@@ -177,6 +177,133 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
     places
 }
 
+/// A per-kit set a generated `face.xml` lists, short of some of the export's kit numbers: the
+/// files to pack again for each number it lacks, and what its `kit_variant_missing` names.
+struct SetCompletion {
+    /// The set's reference, as its lowest variant's stem spells it (`pants_kitN`).
+    reference: String,
+    /// The lowest variant's stem (`pants_kit1`), whose files are copied.
+    copied: String,
+    /// The export's kit numbers the set has no variant of, ascending.
+    missing: Vec<u8>,
+    /// The names, in the face, of the files the lowest variant's entries name that the face
+    /// packs: its model, its hands' when it is hand-split, and its `.mtl` when that carries
+    /// the variant's token and is the face's (a Common one is the Common output's, and a
+    /// shared `pants.mtl` serves every number as it is).
+    names: Vec<String>,
+}
+
+/// The completion of each per-kit set `models` holds (`places`, from `kit_places`) against
+/// `kit_numbers`, the export's kit numbers, each model's entries naming the `material` of
+/// `written` (directory, name); a set lacking none of them needs none. `hand_split` holds the
+/// export paths of the models split at the wrists, whose hands are packed beside them.
+fn set_completions(
+    models: &[FaceModel],
+    places: &[KitPlace],
+    written: &[(&str, String)],
+    hand_split: &BTreeSet<ScopePath>,
+    kit_numbers: &[u8],
+) -> Vec<SetCompletion> {
+    let mut completions = Vec::new();
+    for (index, ((model, place), (directory, material))) in
+        models.iter().zip(places).zip(written).enumerate()
+    {
+        let KitPlace::Listed { kit } = place else {
+            continue;
+        };
+        // `kit_places` reads the packed name, lower-cased; a stem whose token is not spelled
+        // `kit1` to `kit9` exactly (`pants_KIT1`) is no variant (`pipeline.md` "Kit-dependent
+        // assets"), so it has no reference to complete.
+        let Some((_, reference)) = kit_token(&model.stem) else {
+            continue;
+        };
+        let others = places.iter().filter_map(|other| match other {
+            KitPlace::Unlisted { kit, listed } if *listed == index => Some(*kit),
+            KitPlace::Unlisted { .. } | KitPlace::Alone | KitPlace::Listed { .. } => None,
+        });
+        let held: Vec<u8> = iter::once(*kit).chain(others).collect();
+        let missing: Vec<u8> = kit_numbers
+            .iter()
+            .copied()
+            .filter(|number| !held.contains(number))
+            .collect();
+        if missing.is_empty() {
+            continue;
+        }
+        let mut names = vec![model.packed.clone()];
+        if hand_split.contains(&model.file.path) {
+            names.extend(
+                ["glove_l", "glove_r"]
+                    .map(|hand| packed_model_name(&format!("{}_{hand}", model.stem))),
+            );
+        }
+        // The entry's `material` is respelled `kitN` only when the `.mtl` carries the
+        // variant's token; the face packs it under the listed variant's spelling.
+        let packed_material = respelled_material(material, *kit);
+        if *directory == "./" && packed_material != *material {
+            names.push(packed_material);
+        }
+        completions.push(SetCompletion {
+            reference,
+            copied: model.stem.clone(),
+            missing,
+            names,
+        });
+    }
+    completions
+}
+
+/// The file name `name`, which holds a kit token, with that token spelled for `kit`
+/// (`oral_pants_kit1_win32.model` and 3 give `oral_pants_kit3_win32.model`).
+fn variant_name(name: &str, kit: u8) -> String {
+    let stem = file_stem(name);
+    let variant = variant_stem(stem, kit).expect("a per-kit set's file names hold a kit token");
+    format!("{variant}{}", &name[stem.len()..])
+}
+
+/// Packs the file `contents` holds as `name` (case-folded) again under its kit-`kit` spelling
+/// (`variant_name`), its bytes as packed, and returns whether it did. Nothing is packed when
+/// a file of that spelling, case-folded, is packed already, the member's own being the one
+/// for that number (a `pants_kit3.mtl` of his beside a set with no `pants_kit3` model), or
+/// when `contents` holds no `name`: a hand-split model that was all hand packs no body.
+fn pack_variant_copy(contents: &mut PackageFiles, name: &str, kit: u8) -> bool {
+    let copy = variant_name(name, kit);
+    let copy_key = vtree::fold_name(&copy);
+    if contents
+        .keys()
+        .any(|packed| vtree::fold_name(packed) == copy_key)
+    {
+        return false;
+    }
+    let key = vtree::fold_name(name);
+    let Some(bytes) = contents
+        .iter()
+        .find(|(packed, _)| vtree::fold_name(packed) == key)
+        .map(|(_, bytes)| bytes)
+    else {
+        return false;
+    };
+    // Each name of the package owns its bytes: the copy is a second buffer.
+    let bytes = bytes.clone();
+    contents.insert(copy, bytes);
+    true
+}
+
+/// The `kit_variant_missing` of a per-kit model set, its reference spelled `reference`
+/// (`pants_kitN`), completed for kit `kit` with the files of its lowest variant, `copied`
+/// (`pants_kit1`).
+fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
+    (
+        Code::KitVariantMissing,
+        Disposition::Keep,
+        vec![
+            ("model", reference.to_owned()),
+            ("kit", kit.to_string()),
+            ("copied", copied.to_owned()),
+        ],
+    )
+}
+
 /// The files of `folder`'s pre-Fox face, compiled from its files' bytes in `files` for team
 /// `team_id`, by their names in the face CPK. The face reads the sources feeding it (the
 /// folder's own files and a combined shared face's); of a combined boots or gloves folder,
@@ -219,13 +346,18 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 /// `pants_kitN.mtl`, a shared `pants.mtl` as it is); the game respells the whole entry for the
 /// kit picked. Each other variant has no entry, and one whose own `material`, as an entry
 /// would write it (directory included), is not the listed one's respelled for its kit number
-/// is noted in `findings` as `kit_variant_mtl_differs`. Two files of one source packing under
-/// one name fail the task: neither can be dropped silently.
+/// is noted in `findings` as `kit_variant_mtl_differs`. A set is completed against
+/// `kit_numbers`, the export's kit numbers (`set_completions`): for each one it has no variant
+/// of, the files its lowest variant's entries name that the face packs are packed again under
+/// that number's spelling, as packed, and `kit_variant_missing` is noted in `findings`, since
+/// the game skips an entry whose respelled model is missing. Two files of one source packing
+/// under one name fail the task: neither can be dropped silently.
 ///
 /// A face with a `face.xml` (`ModelFolder::face_xml`), the member's own or the one of the
 /// shared face he links, has no generated xml: the textures are read as above, and the xml is
 /// written back by `user_xml_face`, which packs only the models and `.mtl` files its
-/// references name, under the names they give (`messages.md` "User-supplied `face.xml`"). No
+/// references name, under the names they give, a `kitN` reference's set completed against
+/// `kit_numbers` too (`messages.md` "User-supplied `face.xml`"). No
 /// model of the source holding the xml is typed by its name, split or listed by kit there; the
 /// hand split is not planned for such a face. Beside a shared face's xml, each of the player's
 /// own models the xml does not name (`names_model`) takes the route above, its generated entry
@@ -234,6 +366,7 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 /// the face diff of the folder holding the xml, else the bundled one.
 pub(super) fn face(
     folder: &ModelFolder,
+    kit_numbers: &[u8],
     team_id: u16,
     ctx: &CompileContext,
     files: &mut TaskFiles,
@@ -499,6 +632,8 @@ pub(super) fn face(
             (directory, name)
         })
         .collect();
+    // Read before the loop below moves the models.
+    let completions = set_completions(&models, &kits, &written, &folder.hand_split, kit_numbers);
     let mut contents = PackageFiles::new();
     let mut entries = Vec::new();
     for ((model, place), (material_directory, material_name)) in
@@ -640,8 +775,21 @@ pub(super) fn face(
             bytes,
         )?;
     }
+    // After every file is packed, a split model's hands and its `.mtl` included.
+    for completion in completions {
+        for kit in completion.missing {
+            for name in &completion.names {
+                pack_variant_copy(&mut contents, name, kit);
+            }
+            findings.push(model_variant_missing(
+                &completion.reference,
+                kit,
+                &completion.copied,
+            ));
+        }
+    }
     if let Some(xml) = xml {
-        let face = XmlFace::new(folder, &common_directory, &places, contents);
+        let face = XmlFace::new(folder, kit_numbers, &common_directory, &places, contents);
         return user_xml_face(face, &xml, &entries, ctx, files, findings, &dif);
     }
     if !entries.iter().any(|entry| entry.xml_type == FACE_NECK) {
@@ -696,6 +844,8 @@ struct XmlFace<'a> {
     /// export's `Common/` models, `.mtl` files and textures (`ModelFolder::common_files`; a
     /// Common `path` reference resolves nothing here, `written_path`).
     named: FaceFiles<'a>,
+    /// The export's kit numbers, against which a `kitN` reference's set is completed.
+    kits: &'a [u8],
     /// The team's Common output, where the game loads a Common file from.
     common_directory: &'a str,
     /// Where a packed `.mtl`'s texture paths are pointed (`point_materials`), as for a
@@ -710,10 +860,12 @@ struct XmlFace<'a> {
 impl<'a> XmlFace<'a> {
     /// The face of `folder` about to be written from its xml, `contents` packed already (the
     /// player's own models the xml does not name, with his `.mtl` files): a reference naming
-    /// one of their names packs nothing more. A Common file is named in `common_directory` and
-    /// a `.mtl` points its texture paths at `places`.
+    /// one of their names packs nothing more. A `kitN` reference's set is completed against
+    /// `kits`, a Common file is named in `common_directory` and a `.mtl` points its texture
+    /// paths at `places`.
     fn new(
         folder: &'a ModelFolder,
+        kits: &'a [u8],
         common_directory: &'a str,
         places: &'a [(&'a BTreeMap<String, String>, &'a str)],
         contents: PackageFiles,
@@ -721,6 +873,7 @@ impl<'a> XmlFace<'a> {
         let packed = contents.keys().map(|name| vtree::fold_name(name)).collect();
         XmlFace {
             named: face_files(folder),
+            kits,
             common_directory,
             places,
             contents,
@@ -757,8 +910,8 @@ impl<'a> XmlFace<'a> {
                     }
                     xml_type.to_owned()
                 }
-                "path" => self.written_path(value, files)?,
-                "material" => self.written_material(value, files)?,
+                "path" => self.written_path(value, files, findings)?,
+                "material" => self.written_material(value, files, findings)?,
                 _ => value.clone(),
             };
             written.push((name.clone(), value));
@@ -767,14 +920,23 @@ impl<'a> XmlFace<'a> {
     }
 
     /// The `path` value `value` as written: a `./` reference as it is, its file packed
-    /// (`written_local`); a Common one naming the model as the team's Common output packs it
-    /// (`oral_<stem>_*.model`, the team ID in place of the 3-character segment), packing
-    /// nothing; any other form as it is.
-    fn written_path(&mut self, value: &str, files: &mut TaskFiles) -> Result<String, TaskFailure> {
+    /// (`written_local`, noting in `findings`); a Common one naming the model as the team's
+    /// Common output packs it (`oral_<stem>_*.model`, the team ID in place of the 3-character
+    /// segment), packing nothing; any other form as it is.
+    fn written_path(
+        &mut self,
+        value: &str,
+        files: &mut TaskFiles,
+        findings: &mut Vec<Finding>,
+    ) -> Result<String, TaskFailure> {
         match reference(value) {
-            Reference::Local(name) => {
-                self.written_local(value, &name, FileKind::Model(ModelFormat::PesModel), files)
-            }
+            Reference::Local(name) => self.written_local(
+                value,
+                &name,
+                FileKind::Model(ModelFormat::PesModel),
+                files,
+                findings,
+            ),
             // The Common output packs every `Common/` model under its packed name, so the
             // member's spelling would name a file it does not hold (`prefox_common`).
             Reference::Common { file_name, .. } => Ok(xml_path(
@@ -786,16 +948,19 @@ impl<'a> XmlFace<'a> {
     }
 
     /// The `material` value `value` as written: a `./` reference as it is, its `.mtl` packed,
-    /// or naming the Common one a `.mtl.common` link stands for (`written_local`); a Common
-    /// one naming the `.mtl` in the team's Common output under its name, packing nothing; any
-    /// other form as it is.
+    /// or naming the Common one a `.mtl.common` link stands for (`written_local`, noting in
+    /// `findings`); a Common one naming the `.mtl` in the team's Common output under its name,
+    /// packing nothing; any other form as it is.
     fn written_material(
         &mut self,
         value: &str,
         files: &mut TaskFiles,
+        findings: &mut Vec<Finding>,
     ) -> Result<String, TaskFailure> {
         match reference(value) {
-            Reference::Local(name) => self.written_local(value, &name, FileKind::Mtl, files),
+            Reference::Local(name) => {
+                self.written_local(value, &name, FileKind::Mtl, files, findings)
+            }
             Reference::Common { file_name, .. } => {
                 Ok(format!("{}{file_name}", self.common_directory))
             }
@@ -807,16 +972,17 @@ impl<'a> XmlFace<'a> {
     /// packed from `files` under `name` as the reference spells it: `value` as it is. A `kitN`
     /// name packs every variant of its set among the player's own files (directly in his
     /// folder or in `face/`) and his linked shared face's, each under its own name, for the
-    /// game to pick by kit. A `.mtl` that is a `Common/` one, which a `.mtl.common` link stands
-    /// for, is not packed: it is named in the team's Common output, where the Common models
-    /// task packs it. A name naming no file is an error: the deep pass dropped such a folder
-    /// (`xml_model_not_found`).
+    /// game to pick by kit, and completes the set (`complete_set`, noting in `findings`). A
+    /// `.mtl` that is a `Common/` one, which a `.mtl.common` link stands for, is not packed: it
+    /// is named in the team's Common output, where the Common models task packs it. A name
+    /// naming no file is an error: the deep pass dropped such a folder (`xml_model_not_found`).
     fn written_local(
         &mut self,
         value: &str,
         name: &str,
         kind: FileKind,
         files: &mut TaskFiles,
+        findings: &mut Vec<Finding>,
     ) -> Result<String, TaskFailure> {
         if let Some((KitToken::Reference, _)) = kit_token(file_stem(name)) {
             let FaceFiles {
@@ -834,9 +1000,10 @@ impl<'a> XmlFace<'a> {
             if variants.is_empty() {
                 return Err(anyhow::anyhow!("{value} names no file of the face").into());
             }
-            for file in variants {
+            for file in &variants {
                 self.pack(file, file.path.name(), files)?;
             }
+            self.complete_set(name, kind, &variants, findings);
             return Ok(value.to_owned());
         }
         let file = resolve(&Reference::Local(name.to_owned()), &self.named, kind)
@@ -846,6 +1013,48 @@ impl<'a> XmlFace<'a> {
         }
         self.pack(file, name, files)?;
         Ok(value.to_owned())
+    }
+
+    /// Completes the set `variants`, the packed files of `kind` the `kitN` name `referenced`
+    /// names, against the export's kit numbers: for each one none of them is a variant of,
+    /// ascending, the lowest variant is packed again under that number's spelling
+    /// (`pack_variant_copy`), and for a `.model` set the copy is noted in `findings` as
+    /// `kit_variant_missing`. A second reference to the set finds the copy packed and notes
+    /// nothing more, nor does the `.mtl` set an entry names beside its model set.
+    fn complete_set(
+        &mut self,
+        referenced: &str,
+        kind: FileKind,
+        variants: &[&FileDescriptor],
+        findings: &mut Vec<Finding>,
+    ) {
+        let numbered: Vec<(u8, &FileDescriptor)> = variants
+            .iter()
+            .filter_map(|file| Some((variant_of(referenced, file.path.name())?, *file)))
+            .collect();
+        // Of two variants of one number, the first, the player's own before his linked
+        // face's, as `pack` packs it.
+        let Some(&(_, lowest)) = numbered.iter().min_by_key(|(kit, _)| *kit) else {
+            return;
+        };
+        let lowest_name = lowest.path.name();
+        for &kit in self.kits {
+            if numbered.iter().any(|(held, _)| *held == kit) {
+                continue;
+            }
+            if !pack_variant_copy(&mut self.contents, lowest_name, kit) {
+                continue;
+            }
+            self.packed
+                .insert(vtree::fold_name(&variant_name(lowest_name, kit)));
+            if kind == FileKind::Model(ModelFormat::PesModel) {
+                findings.push(model_variant_missing(
+                    file_stem(referenced),
+                    kit,
+                    file_stem(lowest_name),
+                ));
+            }
+        }
     }
 
     /// Packs `file`, read from `files`, under `name`, a `.mtl` with its texture paths pointed
@@ -1427,6 +1636,7 @@ mod tests {
                 common: &[],
                 folder: &folder,
             },
+            kits: &[],
             common_directory: "common/",
             places: &places,
             contents: PackageFiles::new(),
@@ -1435,7 +1645,7 @@ mod tests {
         let mut files = TaskFiles::from([(path, card_set_naming("skin.dds").write())]);
 
         for value in ["./Face.mtl", "./face.mtl"] {
-            let Ok(written) = face.written_material(value, &mut files) else {
+            let Ok(written) = face.written_material(value, &mut files, &mut Vec::new()) else {
                 panic!("{value} is not written");
             };
             assert_eq!(written, value);
@@ -1476,6 +1686,7 @@ mod tests {
                 common: &[],
                 folder: &folder,
             },
+            kits: &[],
             common_directory: "common/",
             places: &places,
             contents: PackageFiles::new(),
@@ -1487,7 +1698,8 @@ mod tests {
             (own[2].path.clone(), b"kit2".to_vec()),
         ]);
 
-        let Ok(written) = face.written_path("./pants_kitN.model", &mut files) else {
+        let Ok(written) = face.written_path("./pants_kitN.model", &mut files, &mut Vec::new())
+        else {
             panic!("the kit reference is not written");
         };
 

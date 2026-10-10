@@ -141,8 +141,10 @@ pub(crate) enum Code {
     /// kind: it has nothing to load, so it takes no ID and gets no task, and that player wears
     /// the game's own.
     SharedFolderNoModel,
-    /// A model folder's texture variant set (`pants_kit1`, `pants_kit3`) has no variant for
-    /// a kit number the export defines: the lowest variant is copied into the gap.
+    /// A model folder's texture variant set (`pants_kit1`, `pants_kit3`), or on PES 2015 to
+    /// 2017 a model set its face's `face.xml` lists, has no variant for a kit number the
+    /// export defines: the lowest variant is copied into the gap (for a model set, the files
+    /// its entries name).
     KitVariantMissing,
     /// Per-kit model files (`pants_kit1.fmdl`, `pants_kit2.fmdl`) where no `face.xml` names
     /// the set, so nothing switches models with the kit: on a Fox target, and on PES 2015 to

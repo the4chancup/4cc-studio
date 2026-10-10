@@ -1,11 +1,13 @@
 //! `compile` for PES 2017: a per-kit model set (`pants_kit1.model`, `pants_kit2.model`) in a
 //! player folder, every variant packed into his face CPK under its own name and the set listed
 //! once in the generated `face.xml`, its kit token spelled `kitN` in the entry's path and
-//! material, for the game to respell for the kit picked.
+//! material, for the game to respell for the kit picked, and completed against the export's
+//! kit numbers.
 
 use std::collections::BTreeMap;
 
 use crate::common::Sandbox;
+use crate::compile::tracer_kit;
 use crate::prefox_faces::{
     compile_pes17, face_cpk, face_folder, materials_naming, nested_entries, ordered_entries,
     pre_fox_fixture, sampler_paths, small_dds,
@@ -351,6 +353,140 @@ fn a_set_sharing_one_mtl_names_it_as_it_is() {
         [
             entry("parts", "./oral_pants_kitN_*.model", "./pants.mtl"),
             entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ]
+    );
+}
+
+/// Writes `EXPORT`'s kit folders `Kits/p<n>` for each of `kits`, each holding a kit texture.
+fn write_kits(sandbox: &Sandbox, kits: &[u8]) {
+    for kit in kits {
+        sandbox.write(
+            &format!("exports/{EXPORT}/Kits/p{kit}/kit.dds"),
+            &tracer_kit(),
+        );
+    }
+}
+
+/// The findings of `EXPORT` with the kit folders `Kits/p1` to `Kits/p<last>`, with nothing
+/// wrong in its set, `missing` placed where the face task reports them.
+fn kit_findings(last: u8, missing: &[&str]) -> Vec<String> {
+    let mut findings: Vec<String> = FINDINGS[..2]
+        .iter()
+        .map(|line| (*line).to_owned())
+        .collect();
+    findings.extend(
+        (1..=last).map(|kit| format!("Info kit_config_generated [Keep] at Kits/p{kit} ()")),
+    );
+    findings.extend(missing.iter().map(|line| (*line).to_owned()));
+    findings.push(FINDINGS[2].to_owned());
+    findings
+        .extend((1..=last).map(|kit| format!("Info kit_colors_derived [Keep] at Kits/p{kit} ()")));
+    findings
+}
+
+/// Writes slot 05's two variant models (as `write_variants`, without its texture set), each
+/// with its own `.mtl`, the two naming different textures so their packed bytes differ.
+fn write_variants_with_own_mtls(sandbox: &Sandbox) {
+    sandbox.write(
+        &format!("{PLAYER}/pants_kit1.model"),
+        &pre_fox_fixture("cardhead_face_high.model"),
+    );
+    sandbox.write(
+        &format!("{PLAYER}/pants_kit2.model"),
+        &pre_fox_fixture("cardhead_doublesided_face_high.model"),
+    );
+    for (kit, texture) in [(1, "skin"), (2, "skin2")] {
+        sandbox.write(
+            &format!("{PLAYER}/pants_kit{kit}.mtl"),
+            &materials_naming(texture),
+        );
+        sandbox.write(&format!("{PLAYER}/{texture}.dds"), &small_dds());
+    }
+}
+
+// TC-CMN-17
+#[test]
+fn a_kit_number_a_per_kit_model_set_lacks_gets_its_lowest_variant_s_model_and_mtl() {
+    let sandbox = Sandbox::new("prefox_kit_variants_completed");
+    write_variants_with_own_mtls(&sandbox);
+    write_kits(&sandbox, &[1, 2, 3]);
+
+    let expected = kit_findings(
+        3,
+        &[
+            "Warning kit_variant_missing [Keep] at Players/05 - A (model=pants_kitN, kit=3, copied=pants_kit1)",
+        ],
+    );
+    let entries = compile_pes17(
+        &sandbox,
+        EXPORT,
+        &expected.iter().map(String::as_str).collect::<Vec<_>>(),
+    );
+
+    let face = face_files(&entries);
+    assert_eq!(
+        face.keys().map(String::as_str).collect::<Vec<_>>(),
+        [
+            "dummy.mtl",
+            "face.xml",
+            "oral_dummy_win32.model",
+            "oral_pants_kit1_win32.model",
+            "oral_pants_kit2_win32.model",
+            "oral_pants_kit3_win32.model",
+            "pants_kit1.mtl",
+            "pants_kit2.mtl",
+            "pants_kit3.mtl",
+        ]
+    );
+    // The lowest variant's packed bytes, its `.mtl` with its texture paths pointed.
+    assert_eq!(
+        face["oral_pants_kit3_win32.model"],
+        face["oral_pants_kit1_win32.model"]
+    );
+    assert_ne!(
+        face["oral_pants_kit3_win32.model"],
+        face["oral_pants_kit2_win32.model"]
+    );
+    assert_eq!(face["pants_kit3.mtl"], face["pants_kit1.mtl"]);
+    assert_ne!(face["pants_kit3.mtl"], face["pants_kit2.mtl"]);
+    assert_eq!(
+        sampler_paths(&face["pants_kit3.mtl"]),
+        [format!("{TEXTURE_HOME}skin.dds")]
+    );
+    // One entry for every number.
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        [
+            entry("parts", "./oral_pants_kitN_*.model", "./pants_kitN.mtl"),
+            entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ]
+    );
+}
+
+#[test]
+fn a_per_kit_model_set_covering_the_export_s_kits_gets_no_copy() {
+    let sandbox = Sandbox::new("prefox_kit_variants_covered");
+    write_variants_with_own_mtls(&sandbox);
+    write_kits(&sandbox, &[1, 2]);
+
+    let expected = kit_findings(2, &[]);
+    let entries = compile_pes17(
+        &sandbox,
+        EXPORT,
+        &expected.iter().map(String::as_str).collect::<Vec<_>>(),
+    );
+
+    let face = face_files(&entries);
+    assert_eq!(
+        face.keys().map(String::as_str).collect::<Vec<_>>(),
+        [
+            "dummy.mtl",
+            "face.xml",
+            "oral_dummy_win32.model",
+            "oral_pants_kit1_win32.model",
+            "oral_pants_kit2_win32.model",
+            "pants_kit1.mtl",
+            "pants_kit2.mtl",
         ]
     );
 }

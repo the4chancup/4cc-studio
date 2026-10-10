@@ -348,6 +348,7 @@ mod tests {
             folder: player(),
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205)],
+            kits: Vec::new(),
         };
         let output = package(ModelPackage::Face, &[79205], face_files());
 
@@ -368,6 +369,7 @@ mod tests {
             folder: player(),
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205)],
+            kits: Vec::new(),
         };
         let output = package(ModelPackage::Face, &[79205], face_files());
 
@@ -391,6 +393,7 @@ mod tests {
             folder: player(),
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205), PackageKey::Id(79206)],
+            kits: Vec::new(),
         });
         let output = || package(ModelPackage::Face, &[79205, 79206], face_files());
 
@@ -427,6 +430,7 @@ mod tests {
             folder: player(),
             package: ModelPackage::Face,
             ids: vec![PackageKey::Id(79205), PackageKey::Id(79206)],
+            kits: Vec::new(),
         });
         let files = BTreeMap::from([
             ("face.xml".to_owned(), b"xml".to_vec()),
@@ -478,6 +482,7 @@ mod tests {
             ),
             package: ModelPackage::Gloves,
             ids: vec![PackageKey::Id(644)],
+            kits: Vec::new(),
         });
         let files = BTreeMap::from([
             ("glove.xml".to_owned(), b"xml".to_vec()),
@@ -521,6 +526,7 @@ mod tests {
             folder: shared,
             package: ModelPackage::Boots,
             ids: vec![PackageKey::Id(644)],
+            kits: Vec::new(),
         });
         let files = BTreeMap::from([
             ("boots.fmdl".to_owned(), b"boots".to_vec()),

@@ -27,8 +27,8 @@ TC-XML-15),
 4.y-fix11 opened 2026-10-09 (S7's, S8's, S12's and S13's SWE-2 rework),
 4.y-fix15 opened 2026-10-10 (S14's SWE-2 rework), 4.y-7z opened 2026-10-10 (a small `.7z`
 export decompressed once),
-4.y-fix10 opened 2026-10-09 (a pre-Fox per-kit model set completed, the maintainer's
-answer), 4.y-harness and 4.y-ingame done 2026-10-10 (the converted collar and `dummy_kit`
+4.y-fix10 done 2026-10-10 (a pre-Fox per-kit model set completed against the kit
+numbers; TC-CMN-17), 4.y-harness and 4.y-ingame done 2026-10-10 (the converted collar and `dummy_kit`
 checked in game, the harness driven by a virtual pad and OBS), 4.y-fix12 opened 2026-10-09
 (PES 17's `uniform.mtl` in the templates, its lead part done), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
 `.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
@@ -3314,7 +3314,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `mutants-diff ca18f43`: 52 mutants, 45 caught, 6 unviable, 1 missed (`names_model`'s
   `kitN` clause untested: carried into 4.y-fix10, whose sets it decides).
 
-- [ ] 4.y-fix10 **A pre-Fox per-kit model set is completed against the kit numbers** (the
+- [x] 4.y-fix10 **A pre-Fox per-kit model set is completed against the kit numbers** (the
   maintainer's answer, 2026-10-09). On PES 15-17 a model set a face's `face.xml` lists,
   generated or the member's own, gets for each kit number the export defines that it lacks
   the files the lowest variant's entries name packed again under that number's spelling
@@ -3326,6 +3326,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   → verify: TC-CMN-17 proven, red first; a member's own xml naming a set is completed too,
   and none of the set's variants gets a generated entry beside it (`names_model`'s `kitN`
   clause, 4.y-fix9's survivor: `delete !` at `prefox_face.rs` ~920 must be caught).
+  Done 2026-10-10 (sidekick, two runs: the first was killed with the session, the
+  second finished from its staged work): the export's kit numbers ride on
+  `TaskKind::Models` to the pre-Fox face; `set_completions` copies the lowest variant's
+  model, hands and own `.mtl` under each missing number's spelling after the packing
+  loop, and `XmlFace::complete_set` does the same for a `kitN` reference of a member's
+  xml (the `.mtl` set silently). A lone variant stays an ordinary model (plan sentence
+  added). TC-CMN-17 proven; six tests, red first; the fix9 survivor's scenario had to
+  give the player two higher variants to kill the mutant (the sidekick's contradiction,
+  accepted). Acceptance 301 of 307. `mutants-diff f644ec1`: 22 mutants, 18 caught, 2 unviable, 2 missed, both
+  tests to add (fix11 items 13 and 14): `set_completions`' guard that an unlisted
+  variant belongs to the set at hand (two sets in one face), and `complete_set`'s
+  finding on a `.model` reference whose set has one shared `.mtl`.
+  Files: `plan/mod.rs`, `plan/item_rows.rs`, `processing/mod.rs`,
+  `processing/prefox_face.rs`, `messages.rs`, `help/01_command_line.md`,
+  `tests/cli/prefox_kit_variants.rs`, `prefox_hand_split.rs`, `prefox_user_xml.rs`.
 
 - [ ] 4.y-fix11 **S7's, S8's, S12's and S13's SWE-2 rework** (rulings S7.1, S8.1, S12.1,
   S13.1 in `.tmp/4_y/duck_rulings.md`). (1) A shared `Boots/` or `Gloves/` folder gives no
@@ -5660,3 +5675,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the budget stays decompressed from its check to its tasks while 1 GiB stays free (step
   4.y-7z; the maintainer's 512 MiB raised once the lead found 8192x8192 textures in a
   VGL26 export, whose decode charges up to 0.7 GB).
+- **2026-10-10** — 4.y-fix10 done (sidekick): a pre-Fox per-kit model set is completed
+  against the export's kit numbers, a member's xml's set too; TC-CMN-17 proven, the
+  fix9 survivor caught. A lone variant stays an ordinary model (plan).

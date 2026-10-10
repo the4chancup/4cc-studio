@@ -9,6 +9,7 @@ use pes_model::format::PreFoxModel;
 use pes_model::model::Model;
 
 use crate::common::Sandbox;
+use crate::compile::tracer_kit;
 use crate::findings_of;
 use crate::prefox_faces::{
     compile_pes17, face_cpk, face_folder, nested_entries, ordered_entries, pes17,
@@ -230,6 +231,78 @@ fn a_hand_weighted_per_kit_set_lists_its_hands_once_as_its_reference() {
             entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
         ]
     );
+}
+
+#[test]
+fn a_hand_weighted_per_kit_set_lacking_a_kit_number_gets_its_lowest_body_and_hands() {
+    let sandbox = Sandbox::new("prefox_hand_split_kit_variant_missing");
+    let export = "co Midcup Hands";
+    let player = format!("exports/{export}/Players/05 - A");
+    for name in ["body_kit1.model", "body_kit2.model"] {
+        sandbox.write(
+            &format!("{player}/{name}"),
+            &hand_split_fixture("body.model"),
+        );
+    }
+    sandbox.write(
+        &format!("{player}/body.mtl"),
+        &hand_split_fixture("body.mtl"),
+    );
+    for kit in ["p1", "p2", "p3"] {
+        sandbox.write(
+            &format!("exports/{export}/Kits/{kit}/kit.dds"),
+            &tracer_kit(),
+        );
+    }
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p3 ()",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body_kit1.model, gloves=glove_l, glove_r)",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body_kit2.model, gloves=glove_l, glove_r)",
+            "Warning kit_variant_missing [Keep] at Players/05 - A (model=body_kitN, kit=3, copied=body_kit1)",
+            "Info xml_face_neck_added [Keep] at Players/05 - A ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p3 ()",
+        ],
+    );
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    // The shared `body.mtl` serves every number as it is.
+    assert_eq!(
+        names,
+        [
+            "body.mtl",
+            "dummy.mtl",
+            "face.xml",
+            "oral_body_kit1_glove_l_win32.model",
+            "oral_body_kit1_glove_r_win32.model",
+            "oral_body_kit1_win32.model",
+            "oral_body_kit2_glove_l_win32.model",
+            "oral_body_kit2_glove_r_win32.model",
+            "oral_body_kit2_win32.model",
+            "oral_body_kit3_glove_l_win32.model",
+            "oral_body_kit3_glove_r_win32.model",
+            "oral_body_kit3_win32.model",
+            "oral_dummy_win32.model",
+        ]
+    );
+    for part in ["", "_glove_l", "_glove_r"] {
+        let packed = |kit: u8| &face[&format!("{folder}oral_body_kit{kit}{part}_win32.model")];
+        assert_eq!(packed(3), packed(1), "{part}");
+    }
 }
 
 #[test]
