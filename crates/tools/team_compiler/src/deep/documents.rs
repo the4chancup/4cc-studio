@@ -36,8 +36,8 @@ enum FaceDiffForm {
 }
 
 /// The form of face diff a file of `role` is, or `None` for any other file. The roles are
-/// planning's (`player_file`), so a file planning gives no package (a `face_diff.bin` in
-/// `boots/`, or one not used in a folder with no face) is not read.
+/// planning's (`player_file`), so a file planning gives no package (a `face_diff.bin` not
+/// used in a folder with no face) is not read.
 fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
     match role? {
         PlayerFile::Packed {
@@ -68,7 +68,7 @@ fn face_diff_form(role: Option<PlayerFile>) -> Option<FaceDiffForm> {
 /// The face diff findings of the model folder at `folder` holding `files`, whose models are
 /// `models`, for the target `models` were computed for, over the files planning gives a face
 /// diff's role (`player_file`), each dropping
-/// the folder before any ID is planned for it. A second copy in `face/`, which planning
+/// the folder before any ID is planned for it. A second copy in a subfolder, which planning
 /// leaves out, is checked too: a broken file in the folder is worth its finding, whichever
 /// copy would be packed. A folder holding both forms gives its face diff twice:
 /// `xml_dif_conflict`, naming the `.xml`, and neither file is read. Otherwise each is read
@@ -472,13 +472,10 @@ mod tests {
     #[test]
     fn a_face_diff_bin_planning_gives_no_role_is_not_read() {
         let temp = scratch("deep_face_diff_no_role");
-        // In `boots/`, a face file has no package to go in; in a folder with no face model
-        // and no face link, neither.
+        // In a folder with no face model and no face link, a face file has no package to go in.
         let findings = findings_of(
             temp.path(),
             &[
-                ("Players/03 - A/face_high.fmdl", clean_model()),
-                ("Players/03 - A/boots/face_diff.bin", cut_face_diff()),
                 ("Players/05 - B/kit_boots.fmdl", clean_model()),
                 ("Players/05 - B/face_diff.bin", cut_face_diff()),
             ],

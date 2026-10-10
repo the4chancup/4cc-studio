@@ -29,8 +29,8 @@ use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_with_no_model};
 use crate::plan::mapped_players;
 use crate::plan::roles::{
-    FolderModels, ModelPackage, PlayerFile, admitted, common_skeleton, file_stem,
-    is_read_common_file, is_user_face_xml, player_file, shared_folders,
+    FolderModels, ModelPackage, PlayerFile, common_skeleton, file_stem, is_read_common_file,
+    is_user_face_xml, player_file, role_position, shared_folders,
 };
 use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, SourceRevision};
 
@@ -751,9 +751,12 @@ fn file_role_messages(
         // ignores a shared boots or gloves folder's: its output is one model or a `glove.xml`,
         // which no face xml drives.
         let ignored_xml = match models.engine() {
-            Engine::Fox if is_user_face_xml(path, file) => Some(Code::XmlIgnoredFox),
+            Engine::Fox if is_user_face_xml(path, file, models.is_shared()) => {
+                Some(Code::XmlIgnoredFox)
+            }
             Engine::PreFox
-                if models.is_shared_boots_or_gloves() && is_user_face_xml(path, file) =>
+                if models.is_shared_boots_or_gloves()
+                    && is_user_face_xml(path, file, models.is_shared()) =>
             {
                 Some(Code::XmlIgnoredShared)
             }
@@ -834,6 +837,8 @@ fn file_role_messages(
             }
             None => continue,
         };
+        // Named below the folder, as `file_not_used` names its file: `gloves/keeper.fmdl`
+        // takes its role from its name, and the path says where the member put it.
         messages.push(tool_message(
             code,
             Scope::Folder {
@@ -841,7 +846,7 @@ fn file_role_messages(
                 path: path.clone(),
             },
             Disposition::Keep,
-            vec![("file", name.to_owned())],
+            vec![("file", deep::relative(&file.path, path))],
         ));
     }
 }
@@ -853,7 +858,7 @@ fn file_role_messages(
 /// FMDL pairs or a `.fclo` (`pipeline.md` step 3 "Format conversion"); a file the structure
 /// pass names when it is out of place (`file_type_disallowed`): a marker, metadata, a shared
 /// folder link or a file of no known kind, one outside the places a model folder admits a file
-/// with a role (`roles::admitted`), and a `.common` link in a shared folder.
+/// with a role (`roles::role_position`), and a `.common` link in a shared folder.
 fn unread_for_a_known_reason(
     path: &ScopePath,
     file: &FileDescriptor,
@@ -869,7 +874,7 @@ fn unread_for_a_known_reason(
     let named_by_the_structure_pass = matches!(
         file.kind,
         FileKind::Marker(_) | FileKind::Metadata(_) | FileKind::SharedLink(_) | FileKind::Other
-    ) || !admitted(path, file, models.is_shared())
+    ) || !role_position(path, file, models.is_shared())
         || (models.is_shared() && file.kind == FileKind::CommonLink);
     models.beaten(file) || other_engine_companion || named_by_the_structure_pass
 }
@@ -1011,25 +1016,25 @@ mod tests {
     }
 
     #[test]
-    fn a_face_subfolder_s_forced_hair_part_is_reported_and_a_boots_subfolder_s_skeleton_is_not() {
+    fn a_subfolder_s_part_is_reported_by_its_own_name_naming_it_below_the_folder() {
         let files = [
             ("Players/03 - A/boots/hair_high.fmdl", 1),
             ("Players/03 - A/boots/hair_high.skl", 1),
             ("Players/03 - A/face/boots.fmdl", 1),
             ("Players/03 - A/face/torso.fmdl", 1),
-            ("Players/03 - A/face/face_high.fmdl", 1),
-            ("Players/03 - A/face/face_high.skl", 1),
+            ("Players/03 - A/gloves/keeper.fmdl", 1),
             ("Players/03 - A/fcl_hair.fmdl", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
-        // `boots/` makes `hair_high` the boots, so its skeleton has a slot; `face/` makes
-        // `boots.fmdl` hair content, reported like an unsuffixed model.
+        // No subfolder name forces a category: `hair_high` in `boots/` is face content, whose
+        // skeleton has no slot, `boots.fmdl` in `face/` the boots, and a model named for no part
+        // in `face/` or `gloves/` hair content, each named below the folder.
         assert_eq!(
             names(&export, PesVersion::Pes21),
             [
-                "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=boots.fmdl)",
-                "Warning skl_no_slot [Keep] at Players/03 - A (file=face_high.skl)",
-                "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=torso.fmdl)",
+                "Warning skl_no_slot [Keep] at Players/03 - A (file=boots/hair_high.skl)",
+                "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=face/torso.fmdl)",
+                "Info fmdl_fcl_hair_fallback [Keep] at Players/03 - A (file=gloves/keeper.fmdl)",
             ]
         );
     }
@@ -1041,20 +1046,16 @@ mod tests {
             ("Players/03 - A/x_fcl_hair.fmdl.common", 0),
             ("Players/03 - A/face_high.fmdl.common", 0),
             ("Players/03 - A/oral.fmdl.common.txt", 0),
-            ("Players/03 - A/boots/hair_high.fmdl.common", 0),
             ("Common/legs.fmdl", 1),
             ("Common/legs.skl", 1),
             ("Common/x_fcl_hair.fmdl", 1),
             ("Common/face_high.fmdl", 1),
             ("Common/face_high.skl", 1),
             ("Common/oral.fmdl", 1),
-            ("Common/hair_high.fmdl", 1),
-            ("Common/hair_high.skl", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
         // `legs` is hair content by its name; `face_high` has no slot for Common's skeleton,
-        // `oral` has none to report, and `boots/` makes `hair_high` the boots, whose skeleton
-        // has a slot.
+        // and `oral` has none to report.
         assert_eq!(
             names(&export, PesVersion::Pes21),
             [
@@ -1121,18 +1122,16 @@ mod tests {
             ("Players/05 - B/boots/face.xml", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
-        // In a folder with no face model too; one in `boots/` is no face's, and nothing reads
-        // it on either engine.
-        let boots_xml = "Warning file_not_used [Keep] at Players/05 - B (file=boots/face.xml)";
+        // In a folder with no face model too, and in any of its subfolders.
         assert_eq!(
             names(&export, PesVersion::Pes21),
             [
                 "Info xml_ignored_fox [Keep] at Players/03 - A (file=face.xml)",
-                boots_xml,
+                "Info xml_ignored_fox [Keep] at Players/05 - B (file=boots/face.xml)",
                 "Info xml_ignored_fox [Keep] at Players/05 - B (file=face/face.xml)",
             ]
         );
-        assert_eq!(names(&export, PesVersion::Pes17), [boots_xml]);
+        assert_eq!(names(&export, PesVersion::Pes17), Vec::<String>::new());
     }
 
     #[test]
@@ -1194,29 +1193,27 @@ mod tests {
     #[test]
     fn a_file_no_package_reads_is_file_not_used_on_its_folder_named_below_it() {
         let files = [
-            // A glove naming no hand, a face file where no face is, a glove's skeleton (no
-            // glove has a slot), a `.model` the FMDL of its stem beats.
+            // A `.bin` other than the face diff, below a subfolder; a glove's skeleton (no glove
+            // has a slot); a `.model` the FMDL of its stem beats.
             ("Players/03 - A/boots.fmdl", 1),
             ("Players/03 - A/boots.model", 1),
-            ("Players/03 - A/boots/face.xml", 1),
+            ("Players/03 - A/boots/extra.bin", 1),
             ("Players/03 - A/face_high.fmdl", 1),
             ("Players/03 - A/glove_l.fmdl", 1),
             ("Players/03 - A/glove_l.skl", 1),
-            ("Players/03 - A/gloves/keeper.fmdl", 1),
-            // A pre-Fox face, a glove naming no hand, and a skeleton pairing no model.
+            // A pre-Fox face, a `.bin` deeper down, and a skeleton pairing no model.
             ("Players/05 - B/face_high.model", 1),
             ("Players/05 - B/face_high.mtl", 1),
-            ("Players/05 - B/gloves/keeper.model", 1),
+            ("Players/05 - B/parts/old/extra.bin", 1),
             ("Players/05 - B/torso.skl", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
         assert_eq!(
             names(&export, PesVersion::Pes21),
             [
-                "Warning file_not_used [Keep] at Players/03 - A (file=boots/face.xml)",
+                "Warning file_not_used [Keep] at Players/03 - A (file=boots/extra.bin)",
                 "Warning file_not_used [Keep] at Players/03 - A (file=glove_l.skl)",
-                "Warning file_not_used [Keep] at Players/03 - A (file=gloves/keeper.fmdl)",
-                "Warning file_not_used [Keep] at Players/05 - B (file=gloves/keeper.model)",
+                "Warning file_not_used [Keep] at Players/05 - B (file=parts/old/extra.bin)",
                 "Warning file_not_used [Keep] at Players/05 - B (file=torso.skl)",
             ]
         );
@@ -1225,8 +1222,8 @@ mod tests {
         assert_eq!(
             names(&export, PesVersion::Pes17),
             [
-                "Warning file_not_used [Keep] at Players/03 - A (file=boots/face.xml)",
-                "Warning file_not_used [Keep] at Players/05 - B (file=gloves/keeper.model)",
+                "Warning file_not_used [Keep] at Players/03 - A (file=boots/extra.bin)",
+                "Warning file_not_used [Keep] at Players/05 - B (file=parts/old/extra.bin)",
             ]
         );
     }
@@ -1239,8 +1236,9 @@ mod tests {
         ];
         let mut export = resolved("co Midcup Names", &files, &[], None);
         // Kept only with the strict file-type check off, which `resolved` has on: added as the
-        // structure pass would keep them, with their `file_type_disallowed`.
-        for name in ["extra/x.skl", "common/legs.fmdl.common"] {
+        // structure pass would keep them, with their `file_type_disallowed` (a link below a
+        // subfolder is no link).
+        for name in ["extra/hair.dds.common", "common/legs.fmdl.common"] {
             let path = ScopePath::new(&format!("Players/05 - A/{name}")).unwrap();
             export.export.players[0].files.push(FileDescriptor {
                 size: 0,

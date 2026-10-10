@@ -12,7 +12,7 @@ use crate::conventions::{
     is_gloves, model_suffix, shared_link_name, split_folder_name,
 };
 use crate::listing::ValidationContext;
-use crate::parse::{AestheticsExportDraft, FileDescriptor, FolderDraft};
+use crate::parse::{AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft};
 use crate::validate::{Disposition, IssueScope, ValidationIssue};
 use crate::validate::{issue_in, strict_disposition};
 
@@ -23,8 +23,8 @@ use super::links;
 /// slots. Typed fields hold the savefile-stage inputs and folder-level
 /// references; `files` holds the model-pipeline content (models, textures,
 /// material files, skeletons), however it reaches the output — files inside a
-/// reserved subfolder (`face/`, `boots/`, `gloves/`, `common/`) are ordinary
-/// `files` entries, the path keeping the subfolder.
+/// subfolder, of any name and at any depth, are ordinary `files` entries, the
+/// path keeping the subfolder (`player_folders.md` "Subfolders").
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerFolder {
     /// The folder's path (`Players/03 - A`): the scope its issues name.
@@ -100,7 +100,8 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
     let mut settings = None;
     for file in &draft.files {
         // Only a file directly in the folder can be a link, marker, settings
-        // or portrait; everything below a subfolder is pipeline content.
+        // or portrait; everything below a subfolder is pipeline content (the
+        // allowlist names such a file out of place).
         if file.path.segments().count() != depth {
             files.push(file.clone());
             continue;
@@ -241,30 +242,14 @@ pub(crate) fn shared_model_folder(draft: &FolderDraft) -> SharedModelFolder {
     }
 }
 
-/// A reserved player-folder subfolder's kind (matched
-/// ASCII-case-insensitively, one level deep).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Reserved {
-    /// `face/` — face parts wholesale.
-    Face,
-    /// `boots/` — boots parts wholesale.
-    Boots,
-    /// `gloves/` — gloves parts wholesale.
-    Gloves,
-    /// `common/` — textures only.
-    Common,
-}
-
-/// A file's position relative to a player folder: directly inside it,
-/// directly inside a reserved child, or anywhere else.
+/// A file's position relative to the player folder holding it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Position {
-    /// Directly in the folder.
+    /// Directly in the folder, where the markers, settings and links are read.
     Direct,
-    /// Directly inside a `face`/`boots`/`gloves`/`common` child.
-    Reserved(Reserved),
-    /// Deeper, or under another child folder.
-    Other,
+    /// Anywhere below one of its subfolders, at any depth: a player folder of
+    /// its own, holding model content alone (`player_folders.md` "Subfolders").
+    Below,
 }
 
 /// Whether `path` is a file directly in `folder`.
@@ -278,26 +263,12 @@ pub(crate) fn is_direct_common_file(path: &ScopePath) -> bool {
     path.segments().count() == 2
 }
 
-/// `path`'s position under `folder` (any depth down).
+/// `path`'s position under `folder`, one of whose own files it is.
 pub(crate) fn position(path: &ScopePath, folder: &ScopePath) -> Position {
     if directly_in(path, folder) {
-        return Position::Direct;
-    }
-    let Some(parent) = path.parent() else {
-        return Position::Other;
-    };
-    let Some(grandparent) = parent.parent() else {
-        return Position::Other;
-    };
-    if grandparent.fold_key() != folder.fold_key() {
-        return Position::Other;
-    }
-    match parent.name() {
-        name if name.eq_ignore_ascii_case("face") => Position::Reserved(Reserved::Face),
-        name if name.eq_ignore_ascii_case("boots") => Position::Reserved(Reserved::Boots),
-        name if name.eq_ignore_ascii_case("gloves") => Position::Reserved(Reserved::Gloves),
-        name if name.eq_ignore_ascii_case("common") => Position::Reserved(Reserved::Common),
-        _ => Position::Other,
+        Position::Direct
+    } else {
+        Position::Below
     }
 }
 
@@ -398,19 +369,50 @@ fn player_direct_allowed(kind: FileKind) -> bool {
         )
 }
 
-/// What a file directly in `face/`/`boots/`/`gloves/` may be (allowlist row 2).
-fn reserved_allowed(kind: FileKind) -> bool {
-    is_model_content(kind) || kind == FileKind::CommonLink
-}
-
 /// A stem's tail: the name before its last `.` (`hair.dds` → `hair`).
 pub(crate) fn stem(name: &str) -> &str {
     name.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(name)
 }
 
-/// A player folder's own findings, in the order the semantics list them:
-/// allowlist, duplicate links, missing targets, markers, stems, then the
-/// edit-hair files.
+/// The category subfolders of the prototype referee layout, one per category
+/// inside each referee's folder, matched in any case.
+const PROTO_SUBFOLDERS: [&str; 4] = ["face", "boots", "gloves", "common"];
+
+/// In a referee export, the first direct subfolder of `folder`, in its files'
+/// order, named as one of `PROTO_SUBFOLDERS`, spelled as the export spells it:
+/// the prototype referee layout, which types a subfolder's files by the subfolder's
+/// name where a Studio subfolder's files are typed by their own names
+/// (`player_folders.md` "Subfolders"). `None` in a team export, where the names
+/// are plain subfolders.
+fn proto_layout_subfolder<'a>(
+    draft: &AestheticsExportDraft,
+    folder: &'a FolderDraft,
+) -> Option<&'a str> {
+    match draft.kind() {
+        ExportKind::Referees => {}
+        ExportKind::Team => return None,
+    }
+    let depth = folder.path.segments().count();
+    folder
+        .files
+        .iter()
+        .filter_map(|file| {
+            let mut below = file.path.segments().skip(depth);
+            let first = below.next()?;
+            // A file directly in the folder has no subfolder.
+            below.next()?;
+            Some(first)
+        })
+        .find(|name| {
+            PROTO_SUBFOLDERS
+                .iter()
+                .any(|proto| name.eq_ignore_ascii_case(proto))
+        })
+}
+
+/// A player folder's own findings, in the order the semantics list them: the
+/// prototype referee layout (alone when found), allowlist, duplicate links, missing
+/// targets, markers, stems, then the edit-hair files.
 pub(crate) fn check_player(
     draft: &AestheticsExportDraft,
     folder: &FolderDraft,
@@ -419,13 +421,25 @@ pub(crate) fn check_player(
 ) {
     let scope = IssueScope::Folder(folder.path.clone());
 
+    // 0. A referee folder in the prototype layout is that layout's one finding,
+    // as `export_layout_old` is the old export layout's: every other finding
+    // would describe the old layout again.
+    if let Some(subfolder) = proto_layout_subfolder(draft, folder) {
+        issues.push(issue_in(
+            context,
+            "player_layout_proto",
+            scope,
+            vec![("folder", subfolder.to_owned())],
+            Disposition::DropFolder,
+        ));
+        return;
+    }
+
     // 1. The file-type allowlist.
     for file in &folder.files {
         let allowed = match position(&file.path, &folder.path) {
             Position::Direct => player_direct_allowed(file.kind),
-            Position::Reserved(Reserved::Common) => file.kind == FileKind::Texture,
-            Position::Reserved(_) => reserved_allowed(file.kind),
-            Position::Other => false,
+            Position::Below => is_model_content(file.kind),
         };
         if !allowed {
             issues.push(issue_in(
@@ -517,22 +531,18 @@ pub(crate) fn check_player(
             && position(&file.path, &folder.path) == Position::Direct
     });
     if ingame_face {
+        // A model is face content by its name wherever it sits; a link counts
+        // directly in the folder alone, where links are read.
         let trigger = folder.files.iter().find(|file| {
-            let face_position = matches!(
-                position(&file.path, &folder.path),
-                Position::Direct | Position::Reserved(Reserved::Face)
-            );
+            let direct = position(&file.path, &folder.path) == Position::Direct;
             match file.kind {
-                FileKind::SharedLink(SharedKind::Face) => {
-                    position(&file.path, &folder.path) == Position::Direct
-                }
+                FileKind::SharedLink(SharedKind::Face) => direct,
                 FileKind::SharedLink(SharedKind::Boots | SharedKind::Gloves) => false,
                 FileKind::Model(_) => {
-                    face_position
-                        && model_suffix(stem(file.path.name())).is_some_and(is_explicit_face)
+                    model_suffix(stem(file.path.name())).is_some_and(is_explicit_face)
                 }
                 FileKind::CommonLink => {
-                    face_position
+                    direct
                         && common_link_name(file.path.name())
                             .is_some_and(|name| is_explicit_model_file(&name))
                 }
@@ -559,38 +569,29 @@ pub(crate) fn check_player(
         }
     }
 
-    // 7. Texture stems collide across the whole namespace (direct + reserved):
-    // textures, plus each texture `.common` link under its linked name (a link
-    // counts as the linked file being local — `model_format.md` "Rules").
+    // 7. Texture stems collide within the folder's own namespace: the textures
+    // directly in it, plus each texture `.common` link under its linked name (a
+    // link counts as the linked file being local — `model_format.md` "Rules").
+    // A subfolder's textures are not in it: a subfolder is a folder of its own,
+    // whose texture names resolve beside its models first (`player_folders.md`
+    // "Subfolders"); its own namespace is not checked yet.
+    let direct = |file: &&FileDescriptor| directly_in(&file.path, &folder.path);
     stem_conflicts(
         context,
         scope.clone(),
         folder
             .files
             .iter()
-            .filter(|file| {
-                file.kind == FileKind::Texture
-                    && matches!(
-                        position(&file.path, &folder.path),
-                        Position::Direct | Position::Reserved(_)
-                    )
-            })
+            .filter(direct)
+            .filter(|file| file.kind == FileKind::Texture)
             .map(|file| {
                 (
                     fold(stem(file.path.name())),
                     relative(&file.path, &folder.path),
                 )
             })
-            .chain(folder.files.iter().filter_map(|file| {
-                if file.kind != FileKind::CommonLink
-                    || !matches!(
-                        position(&file.path, &folder.path),
-                        Position::Direct
-                            | Position::Reserved(
-                                Reserved::Face | Reserved::Boots | Reserved::Gloves,
-                            )
-                    )
-                {
+            .chain(folder.files.iter().filter(direct).filter_map(|file| {
+                if file.kind != FileKind::CommonLink {
                     return None;
                 }
                 let name = common_link_name(file.path.name())?;

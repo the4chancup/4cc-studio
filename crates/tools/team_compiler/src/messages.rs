@@ -137,7 +137,7 @@ pub(crate) enum Code {
     /// file is not read.
     FaceFileNotUsed,
     /// A file a model folder admits that no package reads, planning giving it no role (a
-    /// `gloves/` model naming no hand, a `.skl` pairing no model, a `.common` link to a kind
+    /// `.skl` pairing no model, a `.common` link to a kind
     /// no role takes), a `Common/` file of a kind no task reads, or a refs export's kit,
     /// logo, portrait or collar: the file is not read.
     FileNotUsed,
@@ -962,6 +962,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("player_number_duplicate", CatalogSeverity::Error),
     ("file_type_disallowed", CatalogSeverity::ErrorOrInfo),
     ("common_file_disallowed", CatalogSeverity::ErrorOrInfo),
+    ("player_layout_proto", CatalogSeverity::Error),
     ("shared_link_duplicate", CatalogSeverity::Error),
     ("link_target_missing", CatalogSeverity::Error),
     ("common_link_missing", CatalogSeverity::Error),

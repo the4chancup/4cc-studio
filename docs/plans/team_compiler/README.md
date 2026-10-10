@@ -335,17 +335,18 @@ TC-STR-11  GIVEN an ingame_face player folder that also holds face_high.fmdl, or
 TC-STR-12  GIVEN a player folder holding both fpc_on and fpc_off
            WHEN it is checked
            THEN fpc_conflict is reported and that player folder is dropped
-TC-STR-13  GIVEN a player folder holding hair.dds and hair.png, and another holding hair.dds and
-           common/hair.dds
+TC-STR-13  GIVEN a player folder holding hair.dds and hair.png
+           WHEN it is checked
+           THEN texture_stem_conflict is reported and the player folder is dropped (a subfolder's
+                hair.dds is no second hair of the root's: a subfolder is a folder of its own,
+                TC-MOD-66)
+TC-STR-14  GIVEN ingame_face player folders holding, in turn, parts/boots.fmdl with
+           parts/glove_l.fmdl and parts/skin.dds; parts/hair_high.fmdl; and common/body.fmdl
+           with common/extra/readme.txt
            WHEN they are checked
-           THEN texture_stem_conflict is reported for each and both player folders are dropped
-TC-STR-14  GIVEN ingame_face player folders holding, in turn, boots/hair_high.fmdl with
-           gloves/glove_l.fmdl and common/skin.dds; face/hair_high.fmdl; and a model in common/
-           with a file in a subfolder extra/
-           WHEN they are checked
-           THEN the first reports no finding (its hair_high is a boots part, by its subfolder);
-                the second reports ingame_face_explicit_face_model and is dropped; the third
-                reports file_type_disallowed for both files
+           THEN the first reports no finding (each model takes its role from its name, wherever
+                it sits); the second reports ingame_face_explicit_face_model and is dropped; the
+                third reports file_type_disallowed for readme.txt alone
 TC-STR-15  GIVEN player folders linking Common/torso.fmdl as torso.fmdl.common and as
            torso.fmdl.common.txt, and a third linking missing.fmdl.common
            WHEN the export is checked
@@ -713,10 +714,9 @@ TC-MOD-12  GIVEN slot 05 holding fcl_hair.fmdl only (no face_diff.bin, no fcl_ha
 TC-MOD-13  GIVEN slot 05 holding face_high.fmdl and face_high.skl
            WHEN the export is checked, then compiled, for PES 21
            THEN skl_no_slot is reported and the folder is kept, the .skl not emitted
-TC-MOD-14  GIVEN slot 05 holding boots/hair_high.fmdl and common/skin.dds
+TC-MOD-14  GIVEN slot 05 holding ingame_face, parts/boots.fmdl and parts/skin.dds
            WHEN the export is compiled for PES 21
-           THEN hair_high.fmdl is a boots part (k0625 holds it as boots.fmdl) and skin.ftex sits in
-                the player's common subfolder
+           THEN k0625 holds boots.fmdl (the model typed by its name, wherever it sits)
 TC-MOD-15  GIVEN slot 05 holding a face model and face_diff.xml, and another holding a face model
            and a face_diff.xml whose base64 payload is corrupt
            WHEN each export is compiled for PES 21
@@ -931,10 +931,11 @@ TC-MOD-52  GIVEN slot 05 holding the cap as face_high.model and face_high.mtl.co
            WHEN the export is compiled for PES 15
            THEN the fold lines are reported on the player and the face CPK's model differs from
                 the source
-TC-MOD-53  GIVEN slot 05 holding face_high.fmdl and gloves/keeper.fmdl, a glove naming no hand
+TC-MOD-53  GIVEN slot 05 holding face_high.fmdl and gloves/keeper.fmdl, a model named for no part
            WHEN the export is compiled for PES 21
-           THEN file_not_used is reported on the folder naming gloves/keeper.fmdl as a Warning,
-                the face compiles, no gloves folder is written and the exit code is 0
+           THEN fmdl_fcl_hair_fallback names gloves/keeper.fmdl, the face package holds its meshes
+                (the subfolder's name forces nothing), no gloves package is written and the exit
+                code is 0
 TC-MOD-54  GIVEN slot 05 holding body.model and body.mtl.common, Common/ holding body.mtl, the
            model's set
            WHEN the export is compiled for PES 21
@@ -967,11 +968,9 @@ TC-MOD-62  GIVEN slot 05 holding face.fmdl, boots_kit1.fmdl and a boots_kit2.fmd
            WHEN the export is compiled for PES 21
            THEN no finding names boots_kit2.fmdl but kit_variant_model_left_out, and slot
                 05's boots FPK holds boots_kit1's model
-TC-MOD-63  GIVEN slot 05 holding face_high.model, face_high.mtl and a common/parts_body.model
-           that does not parse, strict_file_type_check off
-           WHEN the export is compiled for PES 17
-           THEN no model_broken or model_material_undefined names common/parts_body.model,
-                and slot 05's face CPK is written
+TC-MOD-63  withdrawn: a subfolder's model is a face part by its name (4.y-sub), so a broken
+           common/parts_body.model is model_broken like any face model's; the premise, a
+           common/ file no task reads, is gone
 TC-MOD-64  GIVEN slot 05 holding face_high.fmdl with two meshes, the second flagged invisible
            WHEN the export is compiled for PES 17
            THEN the face's .model holds the first mesh alone and no mesh_flags_dropped names
@@ -1728,9 +1727,9 @@ TC-REF-17  GIVEN TC-REF-16's Ref A also holding boots.model and boots.mtl
 TC-REF-18  GIVEN a refs export whose Ref A holds face_high.model and boots/boots.model, and a
            team export whose slot 05 holds the same two files
            WHEN both are checked
-           THEN player_layout_proto is reported on Ref A naming boots/ with the hint naming the
-                Export upgrader and Ref A is dropped, while slot 05 is valid with boots/ a
-                subfolder of his own
+           THEN player_layout_proto is reported on Ref A naming boots (context folder) with the
+                hint naming the Export upgrader and Ref A is dropped, while slot 05 is valid
+                with boots/ a subfolder of his own
 ```
 
 **Output modes, deployment, multi-CPK**

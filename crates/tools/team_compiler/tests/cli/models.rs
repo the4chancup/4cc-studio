@@ -780,55 +780,145 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
 
 // TC-MOD-14
 #[test]
-fn a_boots_subfolder_s_model_is_the_boots_and_a_common_subfolder_s_texture_is_the_player_s() {
-    let sandbox = Sandbox::new("mod_reserved_subfolders");
+fn a_subfolder_s_model_is_the_part_its_name_gives_wherever_it_sits() {
+    let sandbox = Sandbox::new("mod_subfolder_model");
     let player = "exports/co Midcup Subfolders/Players/05 - A";
+    sandbox.write(&format!("{player}/ingame_face"), b"");
     sandbox.write(
-        &format!("{player}/boots/hair_high.fmdl"),
+        &format!("{player}/parts/boots.fmdl"),
         &tracer_player_file("boots.fmdl"),
     );
     sandbox.write(
-        &format!("{player}/common/skin.dds"),
+        &format!("{player}/parts/skin.dds"),
         &tracer_player_file("shirt.dds"),
     );
     let boots_fpk = "Asset/model/character/boots/k0625/#Win/boots.fpk";
-    let skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
 
     let entries = compile_clean(
         &sandbox,
         "co Midcup Subfolders",
         &[
-            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots/hair_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=parts/boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
 
-    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
-    assert_eq!(
-        paths,
-        [
-            boots_fpk,
-            "Asset/model/character/boots/k0625/#Win/boots.fpkd",
-            skin,
-            "Asset/model/character/face/real/71405/#Win/face.fpk",
-            "Asset/model/character/face/real/71405/#Win/face.fpkd",
-            "common/character0/model/character/uniform/team/UniColor.bin",
-            "common/etc/TeamColor.bin",
-        ],
-        "the blank face for a folder whose only model is in boots/"
-    );
-    assert_eq!(
-        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
-        ["face_diff.bin"]
-    );
+    // The model is the boots by its name, and under the marker the player has no face.
     assert_eq!(
         package_names(&entries[boots_fpk]),
         ["boots.fmdl", "boots.skl"]
     );
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert!(
+        paths.iter().all(|path| !path.contains("/face/real/")),
+        "{paths:#?}"
+    );
+}
+
+/// `settings` with the strict file-type check off: a disallowed file is kept, as Info.
+fn lenient(settings: &str) -> String {
+    format!("{settings}[team-compiler]\nstrict_file_type_check = false\n")
+}
+
+// TC-MOD-67
+#[test]
+fn a_subfolder_s_marker_link_and_settings_are_file_type_disallowed_and_count_for_nothing() {
+    let sandbox = Sandbox::new("mod_subfolder_root_files");
+    let export = "co Midcup Subfolders";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    for name in ["ingame_face", "Crocs.boots", "settings.toml"] {
+        sandbox.write(&format!("{player}/jessie/{name}"), b"");
+    }
+    let disallowed = |severity: &str, disposition: &str| -> Vec<String> {
+        ["Crocs.boots", "ingame_face", "settings.toml"]
+            .iter()
+            .map(|name| {
+                format!(
+                    "{severity} file_type_disallowed [{disposition}] at Players/05 - A (file=jessie/{name})"
+                )
+            })
+            .collect()
+    };
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    // Each is out of place, and nothing more: no marker beside his face model, no missing
+    // link target.
+    let lines = check.messages();
+    let mut expected = disallowed("Error", "DropFolder");
+    expected.push("Info export_identified [Keep] (team=/co/, id=714)".to_owned());
+    assert_eq!(findings_of(&lines, export), expected, "{lines:#?}");
+
+    // Kept, they count for nothing: the player keeps his face.
+    let run = sandbox.run(
+        &lenient(&pes21_settings(&sandbox)),
+        &["compile", "--no-deploy"],
+    );
+
+    let lines = run.messages();
+    let mut expected = disallowed("Info", "Keep");
+    expected.extend(CLEAN.map(str::to_owned));
+    assert_eq!(findings_of(&lines, export), expected, "{lines:#?}");
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
-        entries[skin],
-        ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
+        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
+        ["face_diff.bin", "face_high.fmdl"]
+    );
+}
+
+// TC-MOD-68
+#[test]
+fn a_shared_folder_s_subfolder_file_is_file_type_disallowed_and_never_in_its_package() {
+    let sandbox = Sandbox::new("mod_shared_subfolder_file");
+    let export = "co Midcup Subfolders";
+    let root = format!("exports/{export}");
+    sandbox.write(&format!("{root}/Players/05 - A/Crocs.boots"), b"");
+    for model in ["boots.fmdl", "extra/x.fmdl"] {
+        sandbox.write(
+            &format!("{root}/Boots/Crocs/{model}"),
+            &tracer_player_file("boots.fmdl"),
+        );
+    }
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    let lines = check.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Error file_type_disallowed [DropFolder] at Boots/Crocs (file=extra/x.fmdl)",
+            "Error link_target_dropped [DropFolder] at Players/05 - A (link=Crocs.boots, target=Boots/Crocs, finding=file_type_disallowed)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+        "{lines:#?}"
+    );
+
+    // Kept, it is in no package: the shared boots hold `boots.fmdl` alone, and no finding
+    // names a read of `x.fmdl`.
+    let run = sandbox.run(
+        &lenient(&pes21_settings(&sandbox)),
+        &["compile", "--no-deploy"],
+    );
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info file_type_disallowed [Keep] at Boots/Crocs (file=extra/x.fmdl)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        package_names(&entries["Asset/model/character/boots/k0644/#Win/boots.fpk"]),
+        ["boots.fmdl", "boots.skl"]
     );
 }
 
@@ -1011,7 +1101,7 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=torso.fmdl)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=face/torso.fmdl)",
             "Info team_colors_missing [Keep] ()",
             "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
         ]
@@ -1947,7 +2037,7 @@ fn a_per_kit_set_split_between_a_player_folder_and_its_face_subfolder_is_one_set
         &[
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face/pants_kit1.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=pants_kit1.fmdl)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=face/pants_kit1.fmdl)",
             "Info team_colors_missing [Keep] ()",
             "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=pants_kitN.fmdl, used=pants_kit1.fmdl)",
         ],

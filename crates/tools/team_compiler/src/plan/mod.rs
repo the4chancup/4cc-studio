@@ -448,10 +448,8 @@ impl ModelFolder {
     }
 
     /// The `.mtl` planning resolved for the Common `.model` at `model`, which a `.common` link
-    /// of the folder loads (`CommonModel::material`); `None` for a Common FMDL. Every link to
-    /// one model searches from the folder holding it, which may differ (`boots/` or the folder
-    /// itself), but `roles` reads the model once, under its first link's role, so the first
-    /// link's `.mtl` is the one.
+    /// of the folder loads (`CommonModel::material`); `None` for a Common FMDL. `roles` reads
+    /// the model once, under its first link's role, so the first link's `.mtl` is the one.
     pub(crate) fn common_material(&self, model: &ScopePath) -> Option<&FileDescriptor> {
         self.common_models
             .iter()
@@ -877,10 +875,10 @@ fn hand_split_parts(
     folder
         .roles()
         .into_iter()
-        .flat_map(|(_, source_path, files)| {
-            files.into_iter().filter(move |(file, role)| {
-                is_hand_split(engine, source_path, file, role, hand_weighted)
-            })
+        .flat_map(|(_, _, files)| {
+            files
+                .into_iter()
+                .filter(move |(file, role)| is_hand_split(engine, file, role, hand_weighted))
         })
         .map(|(file, _)| file.path.clone())
         .collect()
@@ -3102,7 +3100,7 @@ mod tests {
     }
 
     #[test]
-    fn a_reserved_subfolder_s_parts_join_their_category_s_task_and_a_link_of_it_combines() {
+    fn a_subfolder_s_parts_join_the_task_their_names_give_and_a_link_beside_them_combines() {
         let export = resolved(
             "co Midcup Subfolders",
             &[
@@ -3162,7 +3160,7 @@ mod tests {
             &[
                 ("Players/05 - A/torso.fmdl", 8),
                 ("Players/05 - A/legs.fmdl.common", 0),
-                ("Players/05 - A/boots/Kit_Boots.fmdl.common", 0),
+                ("Players/05 - A/Kit_Boots.fmdl.common", 0),
                 ("Players/05 - A/face_high.fmdl.common", 0),
                 ("Players/05 - A/skin.dds", 4),
                 ("Players/07 - B/legs.fmdl.common", 0),
@@ -3243,14 +3241,14 @@ mod tests {
             links,
             [
                 (
-                    "Players/05 - A/boots/Kit_Boots.fmdl.common",
-                    "Common/kit_boots.fmdl",
-                    Some("Common/kit_boots.skl")
-                ),
-                (
                     "Players/05 - A/face_high.fmdl.common",
                     "Common/face_high.fmdl",
                     None
+                ),
+                (
+                    "Players/05 - A/Kit_Boots.fmdl.common",
+                    "Common/kit_boots.fmdl",
+                    Some("Common/kit_boots.skl")
                 ),
                 (
                     "Players/05 - A/legs.fmdl.common",
@@ -3287,7 +3285,7 @@ mod tests {
                 ("Players/05 - A/hair.dds.common", 0),
                 ("Players/07 - B/face_high.fmdl", 16),
                 ("Players/07 - B/hair.dds.common", 0),
-                ("Players/07 - B/boots/sole.png.common", 0),
+                ("Players/07 - B/sole.png.common", 0),
                 ("Common/hair.dds", 32),
                 ("Common/sole.png", 64),
             ],

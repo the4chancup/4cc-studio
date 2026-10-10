@@ -172,19 +172,21 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
 fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_share_its_texture() {
     let sandbox = Sandbox::new("cmn_boots_link");
     let export = "exports/co Midcup Boots";
+    // Named for the boots: a link is read directly in the player folder alone, and the linked
+    // model's name gives its role.
     for slot in ["05 - A", "07 - B"] {
         sandbox.write(
-            &format!("{export}/Players/{slot}/boots/legs.fmdl.common"),
+            &format!("{export}/Players/{slot}/kit_boots.fmdl.common"),
             b"",
         );
     }
     sandbox.write(
-        &format!("{export}/Common/legs.fmdl"),
+        &format!("{export}/Common/kit_boots.fmdl"),
         &tracer_player_file("boots.fmdl"),
     );
     let custom = body_skl("pes19");
     assert_ne!(custom, body_skl("pes21"));
-    sandbox.write(&format!("{export}/Common/legs.skl"), &custom);
+    sandbox.write(&format!("{export}/Common/kit_boots.skl"), &custom);
     sandbox.write(
         &format!("{export}/Common/shirt.dds"),
         &tracer_player_file("shirt.dds"),
@@ -196,7 +198,7 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Boots"),
         [
-            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Common/kit_boots.fmdl (file=kit_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()"
         ]

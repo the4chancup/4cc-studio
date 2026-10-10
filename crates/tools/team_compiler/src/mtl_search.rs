@@ -13,7 +13,7 @@ use crate::plan::roles::{common_file, file_stem, is_direct_root_folder_file};
 /// folder, whose files are `common`.
 ///
 /// A `.model` is searched for in its own folder, then in the model folder (the player folder,
-/// when the model sits in one of its reserved subfolders). A link is searched for in its own
+/// when the model sits in one of its subfolders). A link is searched for in its own
 /// folder for a name-matched `.mtl` only (a local override of the shared model's materials),
 /// then in `Common/` (where the model really is), then in its own folder, then in the model
 /// folder; its stem is the linked model's (`legs` for `legs.model.common.txt`). Each folder is
@@ -32,7 +32,7 @@ pub(crate) fn mtl_for<'a>(
 ) -> Option<&'a FileDescriptor> {
     let own_folder = model
         .parent()
-        .expect("a model file sits in a folder: its model folder or a reserved subfolder");
+        .expect("a model file sits in a folder: its model folder or a subfolder of it");
     let own = mtls_in(&own_folder, files, common);
     let Some(linked) = common_link_name(model.name()) else {
         let model_stem = vtree::fold_name(file_stem(model.name()));

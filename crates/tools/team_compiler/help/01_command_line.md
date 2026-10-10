@@ -107,10 +107,10 @@ shared folder is still built on its own for any player linking it plainly. A lin
 face models become part of the player's face, beside any face models of the player's own, and
 its `face_diff.bin` and `fcl_hair_sim.fclo` are used only when the player's folder has none of
 its own. A player can also load a model kept in the export's `Common` folder through an empty
-link file named after it plus `.common` (`legs.fmdl.common` in the player's folder, or in its
-`face`, `boots` or `gloves` subfolder, names `Common/legs.fmdl`): the game cannot read a model
+link file named after it plus `.common` (`legs.fmdl.common` directly in the player's folder
+names `Common/legs.fmdl`): the game cannot read a model
 from there, so the Common model is built into the player's own face, boots or gloves as if it
-were a model of the player's folder, under the name its own name or the subfolder gives it
+were a model of the player's folder, under the name its own name gives it
 (`legs.fmdl.common` is face content, reported as `fmdl_fcl_hair_fallback` like a local
 `legs.fmdl`), and merged with the player's models of that name. A skeleton file named after it
 in `Common` (`Common/legs.skl`) comes with it. A `.model` in `Common` works the same way
@@ -123,8 +123,8 @@ model's `.mtl` path into the team's PES 2015 to 2017 Common folder
 (image files directly in it) are built once for the whole team, whether a player uses them or not, and a
 Common model's textures of those names are read from there, so twenty players sharing one
 Common model share one copy of its textures. A player's own models can use a texture in
-`Common` the same way: an empty file named after it plus `.common` (`hair.dds.common` in the
-player's folder, or in its `face`, `boots` or `gloves` subfolder, for `Common/hair.dds`) makes
+`Common` the same way: an empty file named after it plus `.common` (`hair.dds.common` directly
+in the player's folder, for `Common/hair.dds`) makes
 the player's models use the team's one copy of `hair`, instead of a copy of the player's own.
 The player's folder must not also hold a texture of that name (`texture_stem_conflict`). A
 model of the player's own and a Common model
@@ -176,28 +176,28 @@ the end of), and a folder holding both `face_diff.bin` and `face_diff.xml` as
 `xml_dif_conflict`, so `check` finds them too. Either leaves the whole folder out of the CPK,
 even with `pass_through` on, and a player linking a `Faces` folder left out this way is left
 out too, with the line `link_target_dropped`. A player's folder may sort its
-files into the subfolders `face`, `boots`, `gloves` and `common` (the layout of older referee
-exports): every model in `boots` is the boots and every model in `face` is a face part,
-whatever their names (`boots/hair_high.fmdl` is packed as `boots.fmdl`; a model in `face`
-whose name is not a face name goes into `fcl_hair.fmdl` and is reported as
-`fmdl_fcl_hair_fallback`), a model in `gloves` must still say which hand it is, and `common`
-holds textures. The files in these subfolders work like files in the folder itself: a skeleton
-file pairs with the model beside it in the same subfolder, textures from any of them go to the
+files into subfolders of any name and depth. Each file there is what its name says, exactly
+as in the folder itself: `parts/boots.fmdl` is the boots, and a model in any subfolder whose
+name is not a face, boots or gloves name goes into `fcl_hair.fmdl` and is reported as
+`fmdl_fcl_hair_fallback`, naming it with its subfolder (`parts/torso.fmdl`). A skeleton file
+pairs with the model beside it in the same subfolder, textures from any subfolder go to the
 player's common folder, and parts in a subfolder are merged with the folder's own models and
-with a linked shared folder of the same kind. A player folder with no face model still gets a
-face folder, an empty one, so the game shows no head for that player: the usual case for a
+with a linked shared folder of the same kind. Only the files directly in the player's folder
+count as `ingame_face`, `fpc_on` or `fpc_off`, `settings.toml` or a link file: one of those
+inside a subfolder is reported as `file_type_disallowed`. A player folder with no face model
+still gets a face folder, an empty one, so the game shows no head for that player: the usual case for a
 body model that brings its own head. An empty file named `ingame_face` in the player's folder
 keeps the head made in the game's face editor instead: no face folder is built, and a model
-that would have gone into the face (`torso.fmdl`, `fcl_hair.fmdl`, a model in the `face`
-subfolder) becomes part of the player's boots, with its skeleton file, and is not reported as
+that would have gone into the face (`torso.fmdl`, `fcl_hair.fmdl`) becomes part of the
+player's boots, with its skeleton file, and is not reported as
 `fmdl_fcl_hair_fallback`. A `face_high`, `hair_high` or `oral` model or a `Faces` link beside
 the marker is the error `ingame_face_explicit_face_model`, and the player's folder is left out.
 A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a folder with no face model is not
 used, and both commands report it as `face_file_not_used`. For PES 2015 to 2017 every `.model`
 of a player folder without `ingame_face`, boots and gloves included, goes into the player's
 face, listed in a `face.xml` that `compile` writes with each model's type read from its name.
-A player folder may hold its own `face.xml` instead (directly in the folder or in its `face`
-subfolder), and both commands check its content. What is known not to work leaves the folder
+A player folder may hold its own `face.xml` instead (anywhere in the folder), and both
+commands check its content. What is known not to work leaves the folder
 out: a file that does not parse, a root other than `<config>`, a `<model>` without `type` or
 `path`, a `./` or Common reference to a file the export does not hold, a Common path without
 its 3-character folder, on PES 2016 a model name starting with none of `face_high_`,
@@ -455,7 +455,11 @@ nothing. A team export whose second word is neither is skipped with the error
 referee export needs no tag. An export still in the old layout (a root folder named `Kit
 Configs`, `Kit Textures` or `Other`) is skipped with the one error `export_layout_old`,
 naming the folder, and nothing else is reported about it: run it through the Export
-upgrader once.
+upgrader once. A referee export's player folder sorted into `face`, `boots`, `gloves` or
+`common` subfolders, the layout of older referee exports, is left out with the one error
+`player_layout_proto`, naming the subfolder, and nothing else is reported about it: run the
+export through the Export upgrader once. In a team export those names are ordinary
+subfolders.
 
 Both commands also read every `.fmdl` and `.model` model and every `.mtl` material file of the
 export, an archive's included, and report what is wrong or suspicious in each, one line per file

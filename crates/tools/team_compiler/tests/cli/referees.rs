@@ -576,6 +576,44 @@ fn on_pes_17_a_referee_holding_fpc_off_and_his_own_boots_takes_the_refkit_body_b
     assert_eq!(ordered_entries(&face["face.xml"]), expected);
 }
 
+// TC-REF-18
+#[test]
+fn a_referee_folder_with_a_category_subfolder_is_player_layout_proto_and_a_team_s_is_plain() {
+    let sandbox = Sandbox::new("ref_layout_proto");
+    let team = "co Midcup Subfolders";
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    for folder in [
+        format!("{REFS}/Players/Ref A"),
+        format!("exports/{team}/Players/05 - A"),
+    ] {
+        for model in ["face_high", "boots/boots"] {
+            sandbox.write(&format!("{folder}/{model}.model"), &card_model());
+            sandbox.write(&format!("{folder}/{model}.mtl"), &card_materials());
+        }
+        sandbox.write(&format!("{folder}/skin.dds"), &small_dds());
+    }
+
+    let check = sandbox.run(&pes_settings(&sandbox, 17), &["check"]);
+
+    // The referee's folder is the prototype layout, refused alone; the team player's
+    // `boots/` is a subfolder of his own, his `boots.model` the boots by its name.
+    let lines = check.messages();
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Error player_layout_proto [DropFolder] at Players/Ref A (folder=boots)",
+            "Info export_identified [Keep] (team=referees)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(
+        findings_of(&lines, team),
+        ["Info export_identified [Keep] (team=/co/, id=714)"],
+        "{lines:#?}"
+    );
+    assert_eq!(check.exit_code(), 1, "{lines:#?}");
+}
+
 #[test]
 fn on_pes_17_a_referee_s_own_face_xml_with_fpc_off_takes_the_refkit_body_it_does_not_name() {
     let sandbox = Sandbox::new("ref_xml_refkit_body");
@@ -622,10 +660,10 @@ fn on_pes_17_a_referee_s_own_boots_or_gloves_leave_out_the_refkit_s() {
     // Each case: the model (a `.model` with its `.mtl`) it adds to TC-REF-16's Ref A, the link
     // to its shared folder when it is in one, and the refkit entries it leaves out.
     let cases: [(&str, &str, Option<&str>, &[&str]); 5] = [
-        // Any model in `boots/` is his boots, whatever its name.
+        // A model named for the boots in a subfolder of his is his boots, as in his folder.
         (
-            "boots_folder",
-            "Players/Ref A/boots/studs",
+            "boots_subfolder",
+            "Players/Ref A/parts/studs_boots",
             None,
             &["boots"],
         ),
@@ -641,8 +679,8 @@ fn on_pes_17_a_referee_s_own_boots_or_gloves_leave_out_the_refkit_s() {
         ),
         // One glove is gloves: both refkit hands are left out.
         (
-            "gloves_folder",
-            "Players/Ref A/gloves/glove_l",
+            "gloves_subfolder",
+            "Players/Ref A/parts/glove_l",
             None,
             &["hand_l", "hand_r"],
         ),

@@ -8,9 +8,7 @@ use std::collections::BTreeSet;
 
 use vtree::ScopePath;
 
-use super::folders::{
-    Position, Reserved, fold, is_direct_common_file, position, shared_folders, stem,
-};
+use super::folders::{Position, fold, is_direct_common_file, position, shared_folders, stem};
 use super::roster::SlotMap;
 use crate::FileKind;
 use crate::conventions::{SharedKind, classify, common_link_name, shared_link_name};
@@ -62,9 +60,9 @@ fn is_installed_texture(name: &str, context: &ValidationContext) -> bool {
             .contains(&fold(stem(name)))
 }
 
-/// Every player folder's link files resolved to their targets: direct
-/// `SharedLink` files, and `CommonLink` files where the link check sees them
-/// (direct or in `face/`/`boots/`/`gloves/`).
+/// Every player folder's link files resolved to their targets: its direct
+/// `SharedLink` and `CommonLink` files. A link below a subfolder is no link
+/// (the allowlist names it out of place, `player_folders.md` "Subfolders").
 pub(crate) fn player_links(
     folder: &FolderDraft,
     draft: &AestheticsExportDraft,
@@ -87,13 +85,7 @@ pub(crate) fn player_links(
                     target,
                 });
             }
-            FileKind::CommonLink
-                if matches!(
-                    file_position,
-                    Position::Direct
-                        | Position::Reserved(Reserved::Face | Reserved::Boots | Reserved::Gloves)
-                ) =>
-            {
+            FileKind::CommonLink if file_position == Position::Direct => {
                 let name = common_link_name(file.path.name())
                     .expect("a CommonLink kind implies a non-empty link stem");
                 let target = draft

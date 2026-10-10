@@ -84,9 +84,10 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, directory_stem, emits_kit_texture, file_stem, in_folder_or_face,
+    FolderModels, PlayerFile, directory_stem, emits_kit_texture, file_stem,
     is_direct_root_folder_file, is_read_common_file, is_selected_common_model, is_user_face_xml,
-    link_feeds_own_package, linked_folder, part_source_models, player_file, texture_format,
+    link_feeds_own_package, linked_folder, part_source_models, player_file, role_position,
+    texture_format,
 };
 use crate::reader::ContentSource;
 use crate::templates;
@@ -768,7 +769,9 @@ fn shared_face_conflict(
     else {
         return None;
     };
-    let xml = files.iter().find(|file| is_user_face_xml(folder, file))?;
+    let xml = files
+        .iter()
+        .find(|file| is_user_face_xml(folder, file, false))?;
     Some(ContentFinding {
         code: Code::XmlSharedFaceConflict.as_str(),
         scope: IssueScope::Folder(folder.clone()),
@@ -850,6 +853,7 @@ fn folder_findings(
                 common: &common.files,
                 template_common: &common.template_paths,
                 folder,
+                shared: models.is_shared(),
             };
             files
                 .iter()
@@ -875,14 +879,15 @@ fn folder_findings(
         if xml_drops_folder {
             Vec::new()
         } else {
-            listed_materials(&xmls, files, common, folder)
+            listed_materials(&xmls, files, common, folder, models.is_shared())
         }
     });
     // The face of a folder holding its own `face.xml` packs only what its entries name.
     let xml_controls = !xmls.is_empty() && !xml_drops_folder;
     let pairings = pairings(folder, files, models, engine, listed, common);
     // A file with no role (a model the target's own format beats, `FolderModels::beaten`; a
-    // model in `common/`) and a per-kit model variant left out are read by nothing, and on
+    // file below a shared folder's subfolder) and a per-kit model variant left out are read
+    // by nothing, and on
     // Fox a `.mtl` is read only by the conversion of a `.model` paired with it, so one no
     // such model pairs with (beside only FMDLs, or a `.model` an FMDL beats) is read by
     // nothing either; on pre-Fox, where the folder's own `face.xml` controls the face, nor is
@@ -900,7 +905,7 @@ fn folder_findings(
                         .iter()
                         .any(|pairing| pairing.mtl.is_some_and(|mtl| mtl.path == file.path))
             }
-            Engine::PreFox => xml_controls && xml_unnamed(folder, file, &xmls),
+            Engine::PreFox => xml_controls && xml_unnamed(folder, file, models.is_shared(), &xmls),
         }
     };
     // Collected in file order (an indexed `collect`), whatever the scheduling.
@@ -1094,16 +1099,18 @@ fn user_xml_findings(
     }
 }
 
-/// Whether `file`, of the model folder at `folder` whose own `face.xml` files are `xmls`, is
-/// a model or a `.mtl` the face those xmls control does not pack: an FMDL, which such a face
-/// never converts (a reference resolves a `.model` alone, `xml_model_not_found` otherwise), a
-/// file outside the folder and its `face/`, or one no entry names, by its `path` for a
+/// Whether `file`, of the model folder at `folder` (a shared one when `shared`) whose own
+/// `face.xml` files are `xmls`, is a model or a `.mtl` the face those xmls control does not
+/// pack: an FMDL, which such a face never converts (a reference resolves a `.model` alone,
+/// `xml_model_not_found` otherwise), a file where it takes no role (`role_position`), or one
+/// no entry names, by its `path` for a
 /// `.model` and its `material` for a `.mtl`, a `kitN` name naming every variant of its set
 /// (`user_face_xml::names_file`, the rule of `xml_model_unlisted` and of the face task).
 /// False for any other file.
 fn xml_unnamed(
     folder: &ScopePath,
     file: &FileDescriptor,
+    shared: bool,
     xmls: &[(&FileDescriptor, XmlOutcome)],
 ) -> bool {
     let attribute = match file.kind {
@@ -1132,10 +1139,11 @@ fn xml_unnamed(
             Child::Dif(_) | Child::Other(_) => None,
         })
         .any(|value| names_file(value, file.path.name()));
-    !(named && in_folder_or_face(folder, file))
+    !(named && role_position(folder, file, shared))
 }
 
-/// The `.model` files among `files`, those of the folder at `folder`, that the folder's own
+/// The `.model` files among `files`, those of the folder at `folder` (a shared one when
+/// `shared`), that the folder's own
 /// `face.xml` files list, each with the `.mtl` its entry names (`user_face_xml::resolve`),
 /// for `model_material_undefined` to compare: the xml overrides the search. An entry naming no
 /// `material`, or one the compiler cannot resolve, is compared with nothing, and a `material`
@@ -1146,6 +1154,7 @@ fn listed_materials<'a>(
     files: &'a [FileDescriptor],
     common: &'a KeptCommon,
     folder: &'a ScopePath,
+    shared: bool,
 ) -> Vec<(&'a FileDescriptor, &'a FileDescriptor)> {
     // The shared face's files are not the folder's own: a model there is checked in that
     // folder's pass.
@@ -1155,6 +1164,7 @@ fn listed_materials<'a>(
         common: &common.files,
         template_common: &common.template_paths,
         folder,
+        shared,
     };
     let model_kind = FileKind::Model(ModelFormat::PesModel);
     xmls.iter()

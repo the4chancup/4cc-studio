@@ -41,10 +41,10 @@ use crate::face_xml::{
 use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
-use crate::paths;
+use crate::paths::{self, TextureHome};
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, common_file, file_stem, in_boots_folder, in_folder_or_face,
-    is_direct_root_folder_file, path_stem, selected_common_model,
+    ModelPackage, PlayerFile, common_file, file_stem, is_direct_root_folder_file, path_stem,
+    role_position, selected_common_model,
 };
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 use crate::user_face_xml::{
@@ -676,9 +676,6 @@ pub(super) fn face(
         .collect();
     // Read before the loop below moves the models.
     let completions = set_completions(&models, &kits, &written, &folder.hand_split, kit_numbers);
-    let boots_folder_model = models
-        .iter()
-        .any(|model| in_boots_folder(model.source_path, model.file));
     let mut contents = PackageFiles::new();
     let mut entries = Vec::new();
     for ((model, place), (material_directory, material_name)) in
@@ -836,7 +833,7 @@ pub(super) fn face(
     // After every model of his, before the `face_neck` dummy: with an xml, through
     // `appended`, after the xml's children.
     if folder.refkit_body {
-        let body = refkit_body(folder, &entries, xml.as_ref(), boots_folder_model);
+        let body = refkit_body(folder, &entries, xml.as_ref());
         entries.extend(body);
     }
     if let Some(xml) = xml {
@@ -900,14 +897,13 @@ fn refkit_directory() -> String {
 /// holding `fpc_off` (`ModelFolder::refkit_body`), lists after the models it lists already:
 /// `entries`, its generated entries, and the `<model>` children of `xml`, his own or his
 /// linked shared face's. What he has of his own is read from those, the refkit's own
-/// directory left out: boots, a listed model named for the boots (`boots.model`), a model of
-/// his `boots/` (`boots_folder_model`) or his boots link; gloves, a listed entry typed as a
-/// glove or a hand (a hand split's included) or his gloves link (`refkit_body_entries`).
+/// directory left out: boots, a listed model named for the boots (`boots.model`) or his
+/// boots link; gloves, a listed entry typed as a glove or a hand (a hand split's included)
+/// or his gloves link (`refkit_body_entries`).
 fn refkit_body(
     folder: &ModelFolder,
     entries: &[XmlEntry],
     xml: Option<&UserFaceXml>,
-    boots_folder_model: bool,
 ) -> Vec<XmlEntry> {
     let directory = refkit_directory();
     let xml_models: Vec<&ModelElement> = xml
@@ -947,8 +943,7 @@ fn refkit_body(
             .iter()
             .any(|combined| combined.package == package)
     };
-    let own_boots = boots_folder_model
-        || combines(ModelPackage::Boots)
+    let own_boots = combines(ModelPackage::Boots)
         || own
             .iter()
             .any(|(_, name)| suffix(file_stem(name)) == Some(ModelSuffix::Boots));
@@ -1135,8 +1130,8 @@ impl<'a> XmlFace<'a> {
 
     /// The `./` reference `value`, naming the file `name` of `kind`, as written, the file
     /// packed from `files` under `name` as the reference spells it: `value` as it is. A `kitN`
-    /// name packs every variant of its set among the player's own files (directly in his
-    /// folder or in `face/`) and his linked shared face's, each under its own name, for the
+    /// name packs every variant of its set among the player's own files (anywhere in his
+    /// folder, `role_position`) and his linked shared face's, each under its own name, for the
     /// game to pick by kit, and completes the set (`complete_set`, noting in `findings`). A
     /// `.mtl` that is a `Common/` one, which a `.mtl.common` link stands for, is not packed: it
     /// is named in the team's Common output, where the Common models task packs it. A name
@@ -1154,11 +1149,12 @@ impl<'a> XmlFace<'a> {
                 own,
                 linked_face,
                 folder,
+                shared,
                 ..
             } = self.named;
             let variants: Vec<&FileDescriptor> = own
                 .iter()
-                .filter(|file| in_folder_or_face(folder, file))
+                .filter(|file| role_position(folder, file, shared))
                 .chain(linked_face)
                 .filter(|file| file.kind == kind && variant_of(name, file.path.name()).is_some())
                 .collect();
@@ -1264,6 +1260,8 @@ fn face_files(folder: &ModelFolder) -> FaceFiles<'_> {
         common: &folder.common_files,
         template_common: &[],
         folder: &folder.path,
+        // As `ModelFolder::roles` tells a shared folder: by where its textures go.
+        shared: matches!(folder.textures, TextureHome::SharedOutput { .. }),
     }
 }
 
@@ -1295,7 +1293,7 @@ fn names_model(xml: &UserFaceXml, model: &FaceModel, named: &FaceFiles) -> bool 
             let set_variant = match &path {
                 Reference::Local(name) => {
                     !model.in_common
-                        && in_folder_or_face(named.folder, target)
+                        && role_position(named.folder, target, named.shared)
                         && variant_of(name, target.path.name()).is_some()
                 }
                 Reference::Common { .. } | Reference::Unchecked(_) => false,
@@ -1804,6 +1802,7 @@ mod tests {
                 common: &[],
                 template_common: &[],
                 folder: &folder,
+                shared: false,
             },
             kits: &[],
             common_directory: "common/",
@@ -1855,6 +1854,7 @@ mod tests {
                 common: &[],
                 template_common: &[],
                 folder: &folder,
+                shared: false,
             },
             kits: &[],
             common_directory: "common/",

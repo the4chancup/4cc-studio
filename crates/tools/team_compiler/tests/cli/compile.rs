@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::common::{Run, Sandbox};
+use crate::models::package_names;
 use crate::{CLEAN_PLAYER, bundled_bins_then, clean_model, findings_of, snapshot};
 
 impl Sandbox {
@@ -340,13 +341,14 @@ pub(crate) fn compiled_kits(sandbox: &Sandbox) -> Vec<String> {
 
 // TC-MOD-53
 #[test]
-fn a_gloves_model_naming_no_hand_is_file_not_used_and_the_face_compiles() {
+fn a_gloves_subfolder_s_model_naming_no_part_is_face_content_and_no_gloves_package_is_written() {
     let sandbox = Sandbox::new("gloves_model_no_hand");
     let player = "exports/co Midcup Keeper/Players/05 - A";
     for model in ["face_high.fmdl", "gloves/keeper.fmdl"] {
         sandbox.write(&format!("{player}/{model}"), &clean_model());
     }
-    let not_used = "Warning file_not_used [Keep] at Players/05 - A (file=gloves/keeper.fmdl)";
+    // The subfolder's name forces nothing: a model named for no part is the hair's.
+    let fallback = "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=gloves/keeper.fmdl)";
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
@@ -355,17 +357,28 @@ fn a_gloves_model_naming_no_hand_is_file_not_used_and_the_face_compiles() {
         findings_of(&lines, "co Midcup Keeper"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            not_used,
+            fallback,
             "Info team_colors_missing [Keep] ()",
         ],
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     assert_eq!(compiled_players(&sandbox), [71405]);
-    let entries = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert!(
-        entries.iter().all(|path| !path.contains("/glove/")),
-        "{entries:#?}"
+        entries.keys().all(|path| !path.contains("/glove/")),
+        "{:#?}",
+        entries.keys()
+    );
+    assert_eq!(
+        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
+        [
+            "face_diff.bin",
+            "face_high.fmdl",
+            "fcl_hair.fmdl",
+            "fcl_hair_sim.fclo",
+            "fcl_hair_sim.skl"
+        ]
     );
 
     // `check` tells the member too.
@@ -375,7 +388,7 @@ fn a_gloves_model_naming_no_hand_is_file_not_used_and_the_face_compiles() {
         findings_of(&lines, "co Midcup Keeper"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            not_used
+            fallback
         ],
         "{lines:#?}"
     );

@@ -229,6 +229,7 @@ pub const ISSUE_CODES: &[&str] = &[
     "player_number_duplicate",
     "file_type_disallowed",
     "common_file_disallowed",
+    "player_layout_proto",
     "shared_link_duplicate",
     "link_target_missing",
     "common_link_missing",

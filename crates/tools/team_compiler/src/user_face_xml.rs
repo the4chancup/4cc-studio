@@ -19,7 +19,7 @@ use crate::deep::relative;
 use crate::face_diff::{self, FaceDiffError};
 use crate::face_xml::is_generated_type;
 use crate::messages::Code;
-use crate::plan::roles::{common_file, file_stem, in_folder_or_face};
+use crate::plan::roles::{common_file, file_stem, role_position};
 
 /// A finding `check` makes on the folder holding the xml: the code, what is done about it
 /// (`DropFolder` for an Error, `Keep` for a Warning or an Info) and its context.
@@ -239,8 +239,8 @@ fn attributes(node: roxmltree::Node) -> Vec<(String, String)> {
 
 /// The files a face folder's `face.xml` may name.
 pub(crate) struct FaceFiles<'a> {
-    /// The folder's own files; a `./` reference looks among those directly in it or in its
-    /// `face/`.
+    /// The folder's own files; a `./` reference looks among those where they take a role
+    /// (`role_position`).
     pub(crate) own: &'a [FileDescriptor],
     /// The files of the shared face folder the player links, which a `./` reference looks
     /// among after his own; empty when he links none.
@@ -255,11 +255,15 @@ pub(crate) struct FaceFiles<'a> {
     pub(crate) template_common: &'a [String],
     /// The face folder holding the xml.
     pub(crate) folder: &'a ScopePath,
+    /// Whether `folder` is a shared face folder, whose files count directly in it alone
+    /// (`role_position`).
+    pub(crate) shared: bool,
 }
 
 /// The file `reference` names among `files`, of `kind` (`FileKind::Model(PesModel)` for a
 /// `path`, `FileKind::Mtl` for a `material`), its name compared case-folded: a `Local` one
-/// among the folder's own files directly in it or in `face/`, a `.mtl.common` link there
+/// among the folder's own files where they take a role (`role_position`), a `.mtl.common`
+/// link there
 /// counting as a `.mtl` of its linked name and standing for the `Common/` file it names, then
 /// among the linked shared face's; a `Common` one among `Common/`'s files by their path
 /// relative to `Common/`, a subfolder's included. A name with a `kitN`
@@ -275,7 +279,7 @@ pub(crate) fn resolve<'a>(
             let own: Vec<(String, &FileDescriptor)> = files
                 .own
                 .iter()
-                .filter(|file| in_folder_or_face(files.folder, file))
+                .filter(|file| role_position(files.folder, file, files.shared))
                 .filter_map(|file| candidate(file, kind, files.common))
                 .collect();
             let linked: Vec<(String, &FileDescriptor)> = files
@@ -431,7 +435,7 @@ pub(crate) fn check(
         .collect();
     for file in files.own {
         let unlisted = file.kind == FileKind::Model(ModelFormat::PesModel)
-            && in_folder_or_face(files.folder, file)
+            && role_position(files.folder, file, files.shared)
             && !paths.iter().any(|path| names_file(path, file.path.name()));
         if unlisted {
             findings.push(kept(
@@ -578,13 +582,13 @@ pub(crate) fn names_file(path: &str, file_name: &str) -> bool {
         || variant_of(&referenced, file_name).is_some()
 }
 
-/// Whether the folder holds a `face_diff.xml`, directly in it or in `face/`: a second source
+/// Whether the folder holds a `face_diff.xml` where it takes a role: a second source
 /// beside a `<dif>`. A `face_diff.bin` is none: beside a `<dif>` it is the dual-engine layout,
 /// the `<dif>` going out on PES 15-17 and the bin on PES 18-21.
 fn holds_face_diff_xml(files: &FaceFiles) -> bool {
     files.own.iter().any(|file| {
         file.path.name().eq_ignore_ascii_case("face_diff.xml")
-            && in_folder_or_face(files.folder, file)
+            && role_position(files.folder, file, files.shared)
     })
 }
 
@@ -691,6 +695,7 @@ mod tests {
             common: &common,
             template_common: &[],
             folder: &folder,
+            shared: false,
         };
         lines(check(
             &parse(text.as_bytes()).unwrap(),
@@ -778,6 +783,7 @@ mod tests {
             common: &common,
             template_common: &[],
             folder: &folder,
+            shared: false,
         };
         let xml = parse(FUMOS_XML).unwrap();
         for version in [PesVersion::Pes16, PesVersion::Pes17] {
@@ -855,6 +861,7 @@ mod tests {
             common: &common,
             template_common: &[],
             folder: &folder,
+            shared: false,
         };
         let model = FileKind::Model(ModelFormat::PesModel);
         let found = |value: &str, kind| {
@@ -874,8 +881,11 @@ mod tests {
             found("./hair_high.model", model),
             path("Faces/Round/hair_high.model")
         );
-        // Only the folder and its `face/` are searched.
-        assert_eq!(found("./deep.model", model), None);
+        // The folder's own files are searched by name at any depth.
+        assert_eq!(
+            found("./deep.model", model),
+            path("Players/05 - A/boots/deep.model")
+        );
         // A kit set's reference finds its lowest variant.
         assert_eq!(
             found("./pants_kitN.model", model),
@@ -913,6 +923,7 @@ mod tests {
             common: &common,
             template_common: &[],
             folder: &folder,
+            shared: false,
         };
         let model = FileKind::Model(ModelFormat::PesModel);
         let found = |value: &str, kind| {
@@ -963,6 +974,7 @@ mod tests {
                 common: &[],
                 template_common,
                 folder: &folder,
+                shared: false,
             };
             let text = format!(
                 r#"<config><model level="0" type="parts" path="{path}" material="model/character/uniform/common/999/refkit/refkit.mtl"/></config>"#
@@ -1099,18 +1111,14 @@ mod tests {
             with_face(&rest, &["face/face_diff.bin"]),
             Vec::<String>::new()
         );
-        for face_diff_xml in ["Face_Diff.xml", "face/face_diff.xml"] {
+        // A face diff anywhere in the folder is the folder's.
+        for face_diff_xml in ["Face_Diff.xml", "face/face_diff.xml", "boots/face_diff.xml"] {
             assert_eq!(
                 with_face(&rest, &[face_diff_xml]),
                 ["xml_dif_conflict [DropFolder] (file=face.xml)"],
                 "{face_diff_xml}"
             );
         }
-        // One in `boots/` is no face diff of the folder's.
-        assert_eq!(
-            with_face(&rest, &["boots/face_diff.xml"]),
-            Vec::<String>::new()
-        );
     }
 
     #[test]
@@ -1184,6 +1192,7 @@ mod tests {
             ),
             [
                 "xml_model_unlisted [Keep] (file=face/hat.model)",
+                "xml_model_unlisted [Keep] (file=boots/x.model)",
                 "xml_model_unlisted [Keep] (file=torso.model)",
             ]
         );

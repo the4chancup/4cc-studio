@@ -38,9 +38,10 @@ the sock table seen on PES 21, the DX10 header crashes PES 21's BC3 portrait rea
 4.y-fix16 done 2026-10-10 (S9's second Astra round: the deep pass reads a player's roles as
 planning does, drops a beaten Common model with its winner, leaves an xml's unnamed files and
 Fox's unsearched Common `.mtl` files unread, skips a refs export's kits, logo, portraits and
-collars; `common_model_beaten_dropped`), 4.y-sub opened 2026-10-10
-(a subfolder of a player folder is a player folder of its own; the reserved subfolders gone, the
-AET referee layout refused per folder), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+collars; `common_model_beaten_dropped`), 4.y-sub in progress since 2026-10-10
+(a subfolder of a player folder is a player folder of its own; (a) done 2026-10-10: a
+subfolder's files take their roles from their names at any depth, the reserved subfolders
+gone, a refs export's AET layout refused per folder; (b) the pre-Fox face next), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag opened 2026-10-10 (the maintainer's answer:
 the 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
@@ -3969,6 +3970,36 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   → verify: TC-MOD-65 to TC-MOD-68 and TC-REF-18 proven, red first; the census export
   `HAHA Aesthetic Export VTL9 i3` (`C:/Data/4cc/Lab/`, 23 players, 688 nested files)
   compiles for PES 17 with every player kept and its face CPKs holding the tree.
+  (a) done 2026-10-10 (Opus 5.5, one run and one rework round; brief
+  `.tmp/4_y/brief_sub_a.md`, report `.tmp/4_y/sk_sub_a_report.md`). `aesthetics_export`
+  `validate/folders.rs`: `Position { Direct, Below }` (`Reserved` gone), the allowlist
+  admitting model content at any depth below a player folder and the markers, settings
+  and links directly in it alone (a subfolder's `file_type_disallowed`); `PROTO_SUBFOLDERS`
+  and `player_layout_proto` (Error, drops the folder, context the subfolder as spelled, one
+  finding per folder) for a refs export's `face`, `boots`, `gloves` or `common` subfolder;
+  links resolve direct files alone; `ISSUE_CODES` row. `team_compiler` `plan/roles.rs`:
+  `role_position(folder, file, shared)` (a shared folder's file or a `.common` link counts
+  directly in the folder, any other file anywhere below it: the sidekick's own ruling,
+  accepted, since a kept subfolder link under strict-off would reach a role nobody resolved
+  and panic in `common_models`), `model_role(stem, ingame_face)` by name alone,
+  `is_user_face_xml`, `named_as_face`; `Position`, `in_folder_or_face`, `in_boots_folder`,
+  `pre_fox_model_type` and `admitted` gone; the role messages name a subfolder's file with
+  its subfolder (`gloves/keeper.fmdl`); `prefox_face.rs` lost `boots_model` (redundant with
+  the listed boots-suffix check, the sidekick's contradiction); `messages.rs` row; help
+  `01_command_line.md` rewritten to the rule, with a `player_layout_proto` sentence. Interim
+  until (b): a `face.xml`'s `./name` reference finds a file of that name at any depth, two
+  `face.xml` in one folder both take the role (the first wins), and `texture_stem_conflict`
+  runs over direct files alone. Tests: TC-MOD-67, TC-MOD-68, TC-REF-18 (`models.rs`,
+  `referees.rs`), TC-MOD-14 and TC-MOD-53 rewritten to the rule, TC-STR-13 rewritten to its
+  first case (a subfolder's `hair.dds` is TC-MOD-66's), TC-MOD-63 withdrawn (its premise, a
+  `common/` file no task reads, is gone), the `role_position` unit test red by hand for
+  another folder's file. Files: `aesthetics_export` `parse/draft.rs`, `validate/{folders,
+  issues, links, tests}.rs`; `team_compiler` `deep/{documents, mod}.rs`, `messages.rs`,
+  `mtl_search.rs`, `plan/{mod, roles}.rs`, `processing/{model, prefox_face}.rs`,
+  `user_face_xml.rs`, `validation.rs`, `help/01_command_line.md`, `tests/cli/{common_links,
+  compile, models, prefox_faces, referees}.rs`; README (lead). Gates green
+  (`.tmp/4_y/gates_sub_a_r2.log`, acceptance 311 of 313, TC-MOD-65 and TC-MOD-66 waiting on
+  (c) and (b)); mutants 124 mutants, 103 caught, 21 unviable, 0 missed (`.tmp/4_y/mutants_sub_a_r2.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -6482,3 +6513,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   eighth of the cap stays decompressed from its check to its tasks; the sidekick found
   that the floor alone lets a kept permit stall a later whole-archive acquire, so the
   rule also reserves the run's largest other archive (decision).
+- **2026-10-10** — 4.y-sub slice (a) done (sidekick, one rework round): a player folder's
+  subfolder files take their roles from their names at any depth, the reserved `face`,
+  `boots`, `gloves` and `common` subfolders are gone, and a refs export still laid out that
+  way is refused per folder with `player_layout_proto`; the sidekick found that a kept
+  subfolder link would reach a role nobody resolved, so a `.common` link counts directly
+  in the folder alone.

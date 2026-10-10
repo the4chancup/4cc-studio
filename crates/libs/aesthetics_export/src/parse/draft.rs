@@ -59,7 +59,7 @@ impl AestheticsExportDraft {
 }
 
 /// One child folder of a content folder, structure only: its files are every
-/// file below it, reserved subfolders included.
+/// file below it, its subfolders' included.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FolderDraft {
     /// The folder's canonical path (`Players/03 - A`, `Kits/p1 - Lakers`).

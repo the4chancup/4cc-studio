@@ -124,8 +124,8 @@ pub(super) fn package(
     {
         // A skeleton pairs with the model of its stem in the same directory: keyed by the
         // path up to the extension, case-folded as the file system folds it (planning pairs
-        // a Common skeleton with its model folded too), since a player folder's reserved
-        // subfolder may hold a model of the same name as one directly in the folder. They are
+        // a Common skeleton with its model folded too), since a player folder's subfolder
+        // may hold a model of the same name as one directly in the folder. They are
         // read before the models: a `.skl` may sort after its model, and an FMDL needs its
         // skeleton, its bind pose, for the conversion pre-check.
         let mut skeletons: BTreeMap<String, Vec<u8>> = BTreeMap::new();
