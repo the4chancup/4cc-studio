@@ -581,9 +581,12 @@ pub(crate) enum TaskKind {
         /// Its `.model` and `.mtl` files directly in it, and each FMDL it converts with the
         /// `.skl` of that FMDL's stem (`common_model_files`).
         files: Vec<FileDescriptor>,
-        /// The stems of its textures directly in it, folded, each as the folder spells it: a
-        /// `.mtl` path naming one is pointed at that texture in the team's Common output.
-        texture_stems: BTreeMap<String, String>,
+        /// The paths below `Common/` of the export's Common textures, without their
+        /// extensions (`below_common`, `file_stem`): the places the task's `.mtl` files
+        /// resolve their texture paths in as a model folder's do, `Common/` their model
+        /// folder: a name nearest first from the `.mtl`'s directory up to `Common/`, a
+        /// path below its directory at that path (`prefox_common`).
+        textures: Vec<String>,
     },
     /// One player's portrait, emitted as a DDS under the target version's file name: a DDS
     /// source as it is, any other accepted format encoded to BC3 (`player_folders.md`
@@ -1332,20 +1335,20 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             }
             read_directories.insert(0, (common, Vec::new(), Vec::new()));
         }
+        // The export's Common textures' paths below `Common/` without their extensions,
+        // which a `Common/` `.mtl` resolves its texture paths in as a model folder's does
+        // (`prefox_common`), `Common/` its model folder.
+        let common_texture_below: Vec<String> = export
+            .common
+            .iter()
+            .filter(|file| texture_format(file.path.name()).is_some())
+            .map(|file| file_stem(below_common(&file.path)).to_owned())
+            .collect();
         for (directory, files, model_files) in read_directories {
             let textures: Vec<FileDescriptor> = files
                 .iter()
                 .filter(|file| texture_format(file.path.name()).is_some())
                 .cloned()
-                .collect();
-            // The stems the directory's `.mtl` files' paths are pointed at, each as the
-            // directory spells it: the name its converted DDS has in the team's Common output.
-            let texture_stems: BTreeMap<String, String> = textures
-                .iter()
-                .map(|file| {
-                    let stem = file_stem(file.path.name());
-                    (vtree::fold_name(stem), stem.to_owned())
-                })
                 .collect();
             // The template environment map goes into the team's Common output, by `Common/`'s
             // own task, for a converted FMDL of any directory holding a metal material, unless
@@ -1353,7 +1356,9 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             // subfolder's task never emits it.
             let environment_map = directory.segments().count() == 1
                 && converts_metal
-                && !texture_stems.contains_key(ENVIRONMENT_MAP_STEM);
+                && !textures.iter().any(|file| {
+                    vtree::fold_name(file_stem(file.path.name())) == ENVIRONMENT_MAP_STEM
+                });
             // Planned for the template environment map alone when `Common/` holds no texture.
             if !textures.is_empty() || environment_map {
                 tasks.push(task(
@@ -1374,7 +1379,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     TaskKind::CommonModels {
                         folder: directory,
                         files: model_files,
-                        texture_stems,
+                        textures: common_texture_below.clone(),
                     },
                 ));
             }

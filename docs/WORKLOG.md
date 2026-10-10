@@ -51,7 +51,8 @@ Fox subfolder texture before `sourceimages`; (b3b1) done 2026-10-10: links at an
 done 2026-10-10: a texture link below a subfolder counts in its own folder, its texture
 packed once at its path in the team's Common output; (b3b3) done 2026-10-10: a player's
 own texture or texture link wins over a combined folder's, `shared_texture_overridden`;
-(b3b4) next), 4.y-fix20
+(b3b4a) done 2026-10-10: on PES 15-17 a `Common/` `.mtl` resolves its textures from its
+own `Common/` directory; (b3b4b) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4028,7 +4029,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (b3b3) a player's own texture or texture link winning over a combined folder's with
   `shared_texture_overridden`, DECISIONS "a player's own texture or link wins over a
   combined folder's, as an Info", (b3b4) a `Common/` subfolder `.mtl` or model resolving
-  its textures in its own `Common/` directory), (b3c) shared folders' subfolders; (b4) kit-token folders (`kit1` to
+  its textures in its own `Common/` directory, sliced again: (b3b4a) PES 15-17, (b3b4b)
+  Fox, where a linked model's or `.mtl`'s directory's textures travel with it), (b3c) shared folders' subfolders; (b4) kit-token folders (`kit1` to
   `kit9`) form variant sets (`kitN/<name>`) in any folder, completed against the export's kit
   numbers, their paths written verbatim (TC-CMN-21, TC-MOD-72: /hdg/'s per-kit Common folders
   through a `kitN/` folder of links); the Export upgrader's half (a legacy
@@ -4226,6 +4228,25 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`.tmp/4_y/gates_sub_b3b3_r1.log`, acceptance 318 of 320, the two open ones (b4)'s);
   mutants r0 21 mutants, 16 caught, 3 unviable, 2 missed (`.tmp/4_y/mutants_sub_b3b3_r0/`),
   after the rework 20 mutants, 16 caught, 4 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b3_r1.log`).
+  (b3b4a) done 2026-10-10 (SWE-2 High; brief `.tmp/4_y/brief_sub_b3b4a.md`, continue
+  `_c1` after a Devin server incident, rework `_r1`, reports beside them): on PES 15-17 a
+  `Common/` `.mtl` and a converted Common FMDL's set resolve their textures as a model
+  folder's `.mtl` does, `Common/` their model folder (`prefox_face::FolderPlaces::common`
+  over every kept Common texture at its path, `roles::common_folder`): a name nearest
+  first from the `.mtl`'s directory up to `Common/`, a `./sub/` path at that path, each
+  texture named at its own path in the team's Common output. The Common models task
+  (`prefox_common`, planning handing it the Common textures' paths instead of one
+  directory's stems) and the `ingame_face` boots and gloves copy (`prefox_shared`, which
+  no longer consults the player's folders for a Common `.mtl`, as pipeline step 4 says)
+  share it; the deep pass looks a Common `.mtl`'s `./sub/` path up at that path
+  (`deep::materials::held_common`). `skeleton_beside` removed (`common_skeleton` takes
+  the model's path); `MaterialPlaces::below` no longer optional. TC-CMN-23 and TC-CMN-24
+  (lead) proven. Files: `team_compiler` `deep/{materials,mod}.rs`, `plan/{mod,roles}.rs`,
+  `processing/{mod,prefox_common,prefox_face,prefox_shared}.rs`, `texture_lookup.rs`,
+  `tests/cli/{common_links,prefox_ingame_face}.rs`; README TC-CMN-23, TC-CMN-24. Gates
+  green on the VPS (`just gates-remote`, `.tmp/4_y/gates_sub_b3b4a_r1.log`, acceptance
+  320 of 322); mutants r0 15 mutants, 10 caught, 5 unviable, 0 missed
+  (`.tmp/4_y/mutants_sub_b3b4a_r0/`), after the rework 18 mutants, 11 caught, 7 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b4a_r1.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7081,3 +7102,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   player's subfolder stands for the `Common/` texture at its path.
 - **2026-10-10** — 4.y-sub (b3b3) landed: a player's own texture or texture link wins over
   a combined shared folder's, as the Info `shared_texture_overridden`.
+- **2026-10-10** — 4.y-sub (b3b4a) landed: on PES 15-17 a `Common/` `.mtl` resolves its
+  textures from its own `Common/` directory, a player's texture shadowing nothing.

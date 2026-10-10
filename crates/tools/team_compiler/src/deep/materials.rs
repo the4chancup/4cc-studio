@@ -12,7 +12,8 @@
 use std::collections::BTreeSet;
 
 use aesthetics_export::{
-    ContentFinding, Disposition, FileDescriptor, IssueScope, SharedKind, SharedModelFolder,
+    ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, SharedKind,
+    SharedModelFolder,
 };
 use pes_version::Engine;
 use vtree::ScopePath;
@@ -20,7 +21,9 @@ use vtree::ScopePath;
 use super::model::MaterialRead;
 use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
-use crate::plan::roles::{FolderModels, PlayerFile, file_stem, player_file};
+use crate::plan::roles::{
+    FolderModels, PlayerFile, below_common, common_folder, file_stem, player_file,
+};
 use crate::texture_lookup::{self, TextureFolders, TexturePlace};
 use crate::user_face_xml::{Reference, reference};
 
@@ -33,8 +36,9 @@ pub(super) struct TextureSources<'a> {
     pub(super) held: &'a [&'a TexturePlace],
     /// For a path below the `.mtl`'s folder (`texture_lookup::path_below`), which resolves at
     /// that path alone: its model folder's textures and the `.mtl`'s path (`HeldTextures::at`).
-    /// `None` for a `Common/` `.mtl`, whose path below its folder is not looked for: the
-    /// Common output holds that subfolder at its path, which `held` does not look in.
+    /// `None` for a `Common/` `.mtl` a Fox player's Models task converts (`common_sources`):
+    /// Fox's Common lookup is the folder's, where a path below its directory is not looked
+    /// for.
     pub(super) below: Option<(&'a HeldTextures, &'a ScopePath)>,
     /// The stems of the textures in `Common/` the pass keeps, which the export's Common
     /// textures task packs into the team's Common output.
@@ -59,8 +63,8 @@ enum Supply {
 /// A `dummy_` stem is never looked for. A path below the `.mtl`'s folder
 /// (`./shorts/y.dds`, `texture_lookup::path_below`), when `sources.below` is set, is supplied
 /// when the place that path names holds its stem (folded), or a variant of its set for a kit
-/// reference, and missing otherwise: it resolves there alone; for a `Common/` `.mtl`
-/// (`sources.below` unset) it is not looked for. Whatever directory any other
+/// reference, and missing otherwise: it resolves there alone; for a `Common/` `.mtl` a Fox
+/// lookup checks (`sources.below` unset) it is not looked for. Whatever directory any other
 /// path spells, it is supplied when its stem, or a variant of its set for a kit reference
 /// (`pants_kitN`, `texture_lookup::variant`), is one a place of `sources.held` holds: that is
 /// the stem the face task points at the folder's textures. Past the folder, a `./` path and a
@@ -93,8 +97,8 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
                 Supply::Supplied
             }
             Some(_) => Supply::Missing,
-            // The Common output holds a `Common/` `.mtl`'s subfolder at its path, which
-            // `sources`, holding `Common/`'s own stems, does not look in: not looked for.
+            // A `Common/` `.mtl` on Fox, whose lookup is the player's folder's (`below`
+            // unset): a path below its directory is not looked for.
             None => Supply::Supplied,
         };
     }
@@ -264,6 +268,23 @@ pub(super) fn held_textures(
     held
 }
 
+/// The textures `Common/`'s `.mtl` paths may name (`common_mtl_findings`): the kept
+/// `Common/` textures, each its folder's own at its path below `Common/` without its
+/// extension (`below_common`, `file_stem`), `Common/` itself the model folder a name
+/// resolves nearest first from and a `.mtl`'s path below its directory resolves at.
+pub(super) fn held_common(kept: &[FileDescriptor]) -> HeldTextures {
+    let mut textures = TextureFolders::default();
+    for file in kept {
+        if file.kind == FileKind::Texture {
+            textures.insert(true, file_stem(below_common(&file.path)));
+        }
+    }
+    HeldTextures {
+        folder: common_folder(),
+        textures,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,6 +343,19 @@ mod tests {
             installed: None,
         };
         supply(path, &sources)
+    }
+
+    /// `Common/`'s `HeldTextures`, its textures `held` each at its path below `Common/`
+    /// without its extension, as `held_common` builds them for `common_mtl_findings`.
+    fn common_held(held: &[&str]) -> HeldTextures {
+        let mut textures = HeldTextures {
+            folder: common_folder(),
+            textures: TextureFolders::default(),
+        };
+        for below in held {
+            textures.textures.insert(true, below);
+        }
+        textures
     }
 
     #[test]
@@ -415,17 +449,24 @@ mod tests {
             ),
             Supply::Supplied
         );
-        // A `./` path into a subfolder of a `Common/` `.mtl` (no folder to look below) names a
-        // texture the Common output holds at that path, which `sources` do not look in: it is
-        // not looked for.
+        // A `./` path into a subfolder of a `Common/` `.mtl` resolves at that path in
+        // `Common/` alone: `Common/jessie/sub/skin.dds` supplies it, `Common/sub/skin.dds`
+        // or `Common/jessie/skin.dds` does not.
+        let held = common_held(&["jessie/sub/skin", "jessie/skin"]);
         assert_eq!(
-            supplied("./sub/skin.dds", &[], &[], Some(&[])),
+            supplied_to(&held, "Common/jessie/x.mtl", "./sub/skin.dds"),
             Supply::Supplied
         );
-        assert_eq!(
-            supplied("./sub/skin.dds", &["skin"], &[], Some(&[])),
-            Supply::Supplied
-        );
+        for held in [
+            common_held(&["jessie/skin"]),
+            common_held(&["sub/skin"]),
+            common_held(&[]),
+        ] {
+            assert_eq!(
+                supplied_to(&held, "Common/jessie/x.mtl", "./sub/skin.dds"),
+                Supply::Missing
+            );
+        }
         // A Common path into a subfolder is not looked up among `Common/`'s own stems.
         assert_eq!(
             supplied(

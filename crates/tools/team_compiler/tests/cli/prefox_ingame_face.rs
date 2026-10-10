@@ -640,6 +640,76 @@ fn under_ingame_face_a_copied_common_mtl_names_no_subfolder_texture() {
     assert_eq!(sampler_paths(boots["boots.mtl"]), ["./cloth.dds"]);
 }
 
+// TC-CMN-24
+#[test]
+fn under_ingame_face_a_copied_common_mtl_s_texture_resolves_in_its_own_directory() {
+    let sandbox = Sandbox::new("prefox_ingame_common_mtl_nested");
+    let export = "co Midcup Studs";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    // His own `studs.dds`, of other bytes than the Common one, shadows nothing: the copied
+    // Common `.mtl` resolves where it is, never in his folder.
+    sandbox.write(&format!("{player}/studs.dds"), &small_dds());
+    sandbox.write(&format!("{player}/jessie/kit_boots.model.common"), b"");
+    let common = format!("exports/{export}/Common");
+    sandbox.write(
+        &format!("{common}/jessie/kit_boots.model"),
+        &card_naming("studs"),
+    );
+    sandbox.write(
+        &format!("{common}/jessie/kit_boots.mtl"),
+        &materials("studs", "studs"),
+    );
+    sandbox.write(
+        &format!("{common}/jessie/studs.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    // `./studs.dds` resolves in `Common/jessie/`, which holds it: the Common output's own
+    // path below `Common/`, not his folder's.
+    let boots = entries_under(&entries, BOOTS_K0625);
+    assert_eq!(
+        sampler_paths(boots["boots.mtl"]),
+        [format!("{COMMON_714}jessie/studs.dds")]
+    );
+    let texture = format!("common/character1/{COMMON_714}jessie/studs.dds");
+    assert!(entries.contains_key(&texture), "{texture}");
+}
+
+// TC-CMN-24
+#[test]
+fn under_ingame_face_a_copied_root_common_mtl_s_texture_resolves_in_common() {
+    let sandbox = Sandbox::new("prefox_ingame_common_mtl_root");
+    let export = "co Midcup Studs";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    // His own `studs.dds`, of other bytes than the Common one, shadows nothing.
+    sandbox.write(&format!("{player}/studs.dds"), &small_dds());
+    sandbox.write(&format!("{player}/kit_boots.model.common"), b"");
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/kit_boots.model"), &card_naming("studs"));
+    sandbox.write(
+        &format!("{common}/kit_boots.mtl"),
+        &materials("studs", "studs"),
+    );
+    sandbox.write(
+        &format!("{common}/studs.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let boots = entries_under(&entries, BOOTS_K0625);
+    assert_eq!(
+        sampler_paths(boots["boots.mtl"]),
+        [format!("{COMMON_714}studs.dds")]
+    );
+    let texture = format!("common/character1/{COMMON_714}studs.dds");
+    assert!(entries.contains_key(&texture), "{texture}");
+}
+
 // TC-MOD-45
 #[test]
 fn under_ingame_face_common_links_are_copied_into_the_player_s_own_gloves_folder() {

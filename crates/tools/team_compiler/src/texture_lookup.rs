@@ -238,6 +238,8 @@ pub(crate) fn variant<'a>(place: &'a TexturePlace, stem: &str) -> Option<&'a str
 mod tests {
     use super::*;
 
+    use crate::plan::roles::common_folder;
+
     fn path(text: &str) -> ScopePath {
         ScopePath::new(text).unwrap()
     }
@@ -398,6 +400,19 @@ mod tests {
         let (place, home) = places[0];
         assert_eq!(home, PlaceHome::Common);
         assert_eq!(place.values().collect::<Vec<_>>(), ["jessie/hair"]);
+    }
+
+    #[test]
+    fn the_common_folder_matches_whatever_case_the_export_spells_it_in() {
+        // `common_folder` is compared folded (`directory_below`), so a `common/` export's
+        // `.mtl` resolves below `Common/` as a `Common/` one's does.
+        let mut folders = TextureFolders::default();
+        folders.insert(true, "jessie/hair");
+        let places = folders.nearest_first(&common_folder(), &path("common/jessie/hair.mtl"));
+        assert_eq!(
+            places[0].0.get("hair").map(String::as_str),
+            Some("jessie/hair")
+        );
     }
 
     #[test]

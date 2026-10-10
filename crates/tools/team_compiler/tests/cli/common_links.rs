@@ -17,8 +17,8 @@ use crate::compile::{
 use crate::conversion::HOME_714_05;
 use crate::models::{body_skl, face_package, package_names};
 use crate::prefox_faces::{
-    card_materials, card_model, entries_under, face_cpk, face_folder, materials_naming,
-    nested_entries, pes17, sampler_paths, small_dds,
+    CLEAN, card_materials, card_model, compile_pes17, entries_under, face_cpk, face_folder,
+    materials_naming, nested_entries, pes17, sampler_paths, small_dds, write_slot_05_face,
 };
 use crate::textures::texture_fixture;
 use crate::{clean_model, findings_of};
@@ -1225,6 +1225,54 @@ fn a_common_link_below_a_subfolder_stands_for_the_common_file_at_its_path() {
     assert!(
         xml.contains(
             "path=\"model/character/uniform/common/714/jessie/oral_body_*.model\" material=\"model/character/uniform/common/714/jessie/body.mtl\""
+        ),
+        "{xml}"
+    );
+}
+
+// TC-CMN-23
+#[test]
+fn a_common_mtl_names_a_texture_below_its_own_directory_on_pes_17() {
+    let sandbox = Sandbox::new("cmn_nested_mtl_sub_texture");
+    let export = "co Midcup Nested";
+    write_slot_05_face(&sandbox, export);
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/jessie/hair_high.model.common"), b"");
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/jessie/hair_high.model"), &card_model());
+    sandbox.write(
+        &format!("{common}/jessie/hair_high.mtl"),
+        &materials_naming("sub/hair"),
+    );
+    sandbox.write(&format!("{common}/jessie/sub/hair.dds"), &small_dds());
+    // Of other bytes than `sub/hair.dds`, which `hair` must resolve to: the `.mtl` names a
+    // path below its own directory, which a lookup among `jessie/`'s own would point wrong.
+    sandbox.write(
+        &format!("{common}/jessie/hair.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    // The Common `.mtl`, packed at its own path, points `hair` at the texture below its
+    // directory, which the Common output holds at that path.
+    let common = entries_under(
+        &entries,
+        "common/character1/model/character/uniform/common/714/jessie/",
+    );
+    assert_eq!(
+        sampler_paths(common["hair_high.mtl"]),
+        ["model/character/uniform/common/714/jessie/sub/hair.dds"]
+    );
+    assert!(
+        common.contains_key("sub/hair.dds") && common.contains_key("hair.dds"),
+        "{common:?}"
+    );
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let xml = String::from_utf8(face[&format!("{}face.xml", face_folder(5))].clone()).unwrap();
+    assert!(
+        xml.contains(
+            "path=\"model/character/uniform/common/714/jessie/oral_hair_high_*.model\" material=\"model/character/uniform/common/714/jessie/hair_high.mtl\""
         ),
         "{xml}"
     );

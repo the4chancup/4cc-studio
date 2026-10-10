@@ -483,6 +483,14 @@ pub(crate) fn is_common_file(path: &ScopePath) -> bool {
         .is_some_and(|root| vtree::fold_name(root) == "common")
 }
 
+/// The export's `Common/` folder as a scope: the model folder a `Common/` `.mtl` resolves
+/// its textures in (`prefox_face::FolderPlaces::common`, `deep::materials::held_common`).
+/// Lookups compare it folded (`texture_lookup`), so it matches whatever case the export
+/// spells the folder in (`is_common_file`).
+pub(crate) fn common_folder() -> ScopePath {
+    ScopePath::new("Common").expect("`Common` is a scope path")
+}
+
 /// The path of `path`, a file of the export's `Common/` folder, below that folder, as spelled
 /// (`jessie/body.fmdl` for `Common/jessie/body.fmdl`, `body.fmdl` for a direct file): the path
 /// a `.common` link names it by (`common_link_target`) and the one it has below the team's

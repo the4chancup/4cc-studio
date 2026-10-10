@@ -1469,15 +1469,16 @@ fn respelled_material(listed: &str, kit: u8) -> String {
     listed.to_owned()
 }
 
-/// Where the `.mtl` files of a model folder's pre-Fox output, a player's face or a boots or
-/// gloves output (`prefox_shared`), point their texture paths (`point_materials`): a texture
-/// of the package's sources nearest first from the `.mtl`'s own folder (`texture_lookup`), in the
-/// folder's texture home, and each folder's texture links after its textures, in the team's
-/// Common output; a path below the `.mtl`'s folder at that path alone. A stem the package's
-/// sources hold is the player's own before one a link stands for: a link of the folder's
-/// wins over a combined shared folder's texture of its stem, as the folder's own texture does.
+/// Where the `.mtl` files of a model folder's pre-Fox output (a player's face, a boots or
+/// gloves output (`prefox_shared`), or the team's Common output (`prefox_common`)) point
+/// their texture paths (`point_materials`): a texture of the package's sources nearest
+/// first from the `.mtl`'s own folder (`texture_lookup`), in the folder's texture home, and
+/// each folder's texture links after its textures, in the team's Common output; a path
+/// below the `.mtl`'s folder at that path alone. A stem the package's sources hold is the
+/// player's own before one a link stands for: a link of the folder's wins over a combined
+/// shared folder's texture of its stem, as the folder's own texture does.
 pub(super) struct FolderPlaces<'a> {
-    /// The model folder: the player folder, or a shared boots or gloves folder.
+    /// The model folder: the player folder, a shared boots or gloves folder, or `Common/`.
     pub(super) folder: &'a ScopePath,
     /// The textures of the package's sources, the model folder's own and its combined
     /// folders', and their texture links the same way (`texture_lookup`).
@@ -1488,7 +1489,30 @@ pub(super) struct FolderPlaces<'a> {
     pub(super) common_directory: &'a TextureDirectory,
 }
 
-impl FolderPlaces<'_> {
+impl<'a> FolderPlaces<'a> {
+    /// The places of a `Common/` `.mtl` (and of a converted Common FMDL's material set), as
+    /// a model folder's `.mtl` resolves (`of`): `common`, the export's `Common/` folder,
+    /// its model folder; `textures`, the Common textures' paths below it without their
+    /// extensions (`below_common`, `file_stem`), each the folder's own at its path; and
+    /// `directory`, the team's Common output, which every texture there is named by
+    /// (`common_home`). Nothing of a player's folder is consulted for a `Common/` `.mtl`.
+    pub(super) fn common(
+        common: &'a ScopePath,
+        textures: &[String],
+        directory: &'a TextureDirectory,
+    ) -> FolderPlaces<'a> {
+        let mut folders = TextureFolders::default();
+        for below in textures {
+            folders.insert(true, below);
+        }
+        FolderPlaces {
+            folder: common,
+            textures: folders,
+            home: directory,
+            common_directory: directory,
+        }
+    }
+
     /// Where the paths of the `.mtl` at `path` (a converted model's material set: its
     /// model's) are pointed: a name in the places it resolves in, in order; a path below its
     /// folder at that path.
@@ -1497,7 +1521,7 @@ impl FolderPlaces<'_> {
             by_name: self
                 .textures
                 .places(self.folder, path, self.home, self.common_directory),
-            below: Some((self, path.clone())),
+            below: (self, path.clone()),
         }
     }
 }
@@ -1509,10 +1533,8 @@ pub(super) struct MaterialPlaces<'a> {
     pub(super) by_name: Vec<(&'a TexturePlace, &'a TextureDirectory)>,
     /// For a path below the `.mtl`'s folder (`texture_lookup::path_below`), which resolves at
     /// that path alone (`TextureFolders::at`): the model folder's places and the `.mtl`'s path
-    /// (a converted set's model's). `None` for a `Common/` `.mtl`, whose paths, one below its
-    /// folder included, are looked up by name among its directory's textures
-    /// (`prefox_common::common_models`).
-    pub(super) below: Option<(&'a FolderPlaces<'a>, ScopePath)>,
+    /// (a converted set's model's).
+    pub(super) below: (&'a FolderPlaces<'a>, ScopePath),
 }
 
 /// `bytes`, the `.mtl` `file`, with its texture paths pointed as `point_materials` points
@@ -1547,23 +1569,21 @@ pub(super) fn read_materials(
 /// that is a kit reference (`pants_kitN`) is pointed at the directory of the first place
 /// holding a variant of its set (`texture_lookup::variant`), the variant's subdirectory
 /// included, its file name kept as it is: the game respells it for the kit picked. A path
-/// below the `.mtl`'s folder (`texture_lookup::path_below`), when `places.below` is set, is
-/// looked up the same way in the places that path names alone, each texture where its home
-/// puts it. Any other path is left as it is.
+/// below the `.mtl`'s folder (`texture_lookup::path_below`) is looked up the same way in
+/// the places that path names alone, each texture where its home puts it. Any other path is
+/// left as it is.
 pub(super) fn point_materials(set: &mut MaterialSet, places: &MaterialPlaces) {
     rewrite_texture_paths(set, |path| {
-        let below = places.below.as_ref().and_then(|(folder, file)| {
-            let subdirectory = texture_lookup::path_below(&path.directory)?;
-            Some(
-                folder
-                    .textures
-                    .at(folder.folder, file, subdirectory)
-                    .into_iter()
-                    .map(|(place, which)| {
-                        (place, which.directory(folder.home, folder.common_directory))
-                    })
-                    .collect::<Vec<_>>(),
-            )
+        let (folder, file) = &places.below;
+        let below = texture_lookup::path_below(&path.directory).map(|subdirectory| {
+            folder
+                .textures
+                .at(folder.folder, file, subdirectory)
+                .into_iter()
+                .map(|(place, which)| {
+                    (place, which.directory(folder.home, folder.common_directory))
+                })
+                .collect::<Vec<_>>()
         });
         let lookup: Vec<(&TexturePlace, &TextureDirectory)> = match below {
             // Resolves at that path alone, and is left as written when nothing sits there.
@@ -1911,12 +1931,20 @@ mod tests {
     static COMMON: LazyLock<TextureDirectory> =
         LazyLock::new(|| TextureDirectory::plain("common/".to_owned()));
 
-    /// The places of `places` for a texture name, with no path below the `.mtl`'s folder
-    /// looked up at its path.
+    /// The places of `places` for a texture name, `below` an empty `FolderPlaces` no `./`
+    /// path below a `.mtl`'s folder finds anything in.
     fn by_name<'a>(places: &[(&'a TexturePlace, &'a TextureDirectory)]) -> MaterialPlaces<'a> {
+        static FOLDER: LazyLock<ScopePath> =
+            LazyLock::new(|| ScopePath::new("Players/05 - A").unwrap());
+        static PLACES: LazyLock<FolderPlaces<'static>> = LazyLock::new(|| FolderPlaces {
+            folder: &FOLDER,
+            textures: TextureFolders::default(),
+            home: &HOME,
+            common_directory: &COMMON,
+        });
         MaterialPlaces {
             by_name: places.to_vec(),
-            below: None,
+            below: (&*PLACES, (*FOLDER).clone()),
         }
     }
 
@@ -1980,11 +2008,6 @@ mod tests {
         // From the root, `shorts/` holds nothing: left as written, the root's `y` unused.
         let root = "Players/05 - A/face_high.mtl";
         assert_eq!(pointed(root, "shorts/y.dds"), ["./shorts/y.dds"]);
-        // A `Common/` `.mtl`'s places look every path up by name.
-        let common = TexturePlace::from([("y".to_owned(), "Y".to_owned())]);
-        let mut set = card_set_naming("shorts/y.dds");
-        point_materials(&mut set, &by_name(&[(&common, &COMMON)]));
-        assert_eq!(paths(&set), ["common/Y.dds"]);
     }
 
     #[test]

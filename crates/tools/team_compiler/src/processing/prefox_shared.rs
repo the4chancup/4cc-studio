@@ -44,11 +44,11 @@ use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::face_xml::{XmlEntry, glove_xml, ratio};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
-use crate::paths::{self, TextureDirectory};
+use crate::paths;
 use crate::plan::ModelFolder;
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, common_texture_below, file_stem, is_common_file,
-    is_direct_root_folder_file, path_stem,
+    ModelPackage, PlayerFile, below_common, common_folder, common_texture_below, file_stem,
+    is_common_file, path_stem,
 };
 use crate::texture_lookup::TextureFolders;
 
@@ -124,9 +124,11 @@ struct BootsPart<'a> {
 /// A `.mtl` no model uses is not packed. Every `.mtl` packed has each texture path naming one
 /// of the folder's textures by its stem pointed at the folder's texture home, and one naming a
 /// stem a texture link of the folder stands for at that texture in the team's Common output,
-/// as the face's are (`rewritten_materials`); in a copied Common `.mtl` alone, a path naming
-/// neither but a texture directly in `Common/` is pointed at that texture in the team's Common
-/// output, while the folder's own `.mtl` files leave such a path as written. A Common model and
+/// as the face's are (`rewritten_materials`); a copied Common `.mtl` resolves in `Common/`
+/// alone, `Common/` its model folder (a name nearest first from its directory up to `Common/`,
+/// a path below its directory at that path), each texture named at its own path below
+/// `Common/` in the team's Common output, while the folder's own `.mtl` files reach `Common/`
+/// only through a `.common` link and leave any other Common path as written. A Common model and
 /// its `.mtl` pack under their file names as the folder's own do. An `.fmdl` is converted
 /// (`fmdl_for_pre_fox`, the `.skl` its source pairs with it as the bind pose, a Common FMDL's
 /// the Common `.skl` of its stem, its findings naming it by `source_name`, a Common one by its
@@ -135,8 +137,8 @@ struct BootsPart<'a> {
 /// as `<stem>.mtl` lowercased beside `<stem>.model` and named by its `glove.xml` entry. The
 /// set's texture paths are pointed as the face points a converted one's: each metal material
 /// first given the environment map in the texture home (`add_environment_map`, as the face
-/// does), then the folder's textures and links as a `.mtl`'s (a Common FMDL's also the
-/// textures directly in `Common/`, as a copied Common `.mtl`'s), then the reserved kit stems at
+/// does), then the folder's textures and links as a `.mtl`'s, a Common FMDL's set resolving in
+/// `Common/` as a copied Common `.mtl` does, then the reserved kit stems at
 /// the team's Common texture directory. A conversion that fails fails the task. Two files
 /// packing under one name otherwise fail the task, a member's `.mtl` of a converted glove's
 /// `<stem>.mtl` name among them. A merge is charged to `ctx`'s memory budget.
@@ -234,40 +236,36 @@ pub(super) fn package(
     }
     let home = folder.textures.directory(Engine::PreFox, team_id);
     let common_directory = paths::common_texture_directory(Engine::PreFox, team_id);
-    let common_home = TextureDirectory::plain(common_directory.clone());
-    // The textures directly in `Common/`, each stem folded with its stem as `Common/` spells
-    // it, which a Common `.mtl` copied in with a part names. A shared folder has none. A
-    // subfolder's, among the files a member's `face.xml` may name, are packed under the
-    // subfolder's own path, which no link reaches.
-    let common_textures: BTreeMap<String, String> = folder
-        .common_files
-        .iter()
-        .filter(|file| file.kind == FileKind::Texture && is_direct_root_folder_file(&file.path))
-        .map(|file| {
-            let stem = file_stem(file.path.name());
-            (vtree::fold_name(stem), stem.to_owned())
-        })
-        .collect();
-    // The textures directly in `Common/` are a copied Common `.mtl`'s alone: a `.mtl` of the
-    // folder's resolves a texture into Common only through a `.common` link (`model_format.md`
-    // "Link files"), so an unlinked Common stem it names is left as written, as in the face.
-    // A converted FMDL's set goes by its FMDL: a Common one a link of his brings in names the
-    // Common textures as a copied Common `.mtl` does.
-    // A stem the folder holds, nearest first from the file's folder (`texture_lookup`), is its
-    // own, before one a texture link stands for, and a path below the file's folder resolves
-    // at that path, as in the face (`prefox_face::face`).
+    let common_home = paths::common_home(Engine::PreFox, team_id);
+    // The places of the folder's own `.mtl` files, nearest first from the file's folder
+    // (`texture_lookup`): its own stem before one a texture link stands for, a path below
+    // the file's folder at that path, as in the face (`prefox_face::face`). A `Common/`
+    // texture is reached only through a `.common` link (`model_format.md` "Link files"),
+    // so an unlinked Common stem one names is left as written.
     let folder_places = FolderPlaces {
         folder: &folder.path,
         textures,
         home: &home,
         common_directory: &common_home,
     };
+    // The places a `Common/` `.mtl` copied in with a part, and a converted Common FMDL's
+    // set, resolve in: `Common/`'s own, `Common/` their model folder and the team's Common
+    // output their home (`FolderPlaces::common`). Nothing of the player's folder is
+    // consulted for a `Common/` `.mtl`: a texture of his shadows nothing it names.
+    let common_scope = common_folder();
+    let common_below: Vec<String> = folder
+        .common_files
+        .iter()
+        .filter(|file| file.kind == FileKind::Texture)
+        .map(|file| file_stem(below_common(&file.path)).to_owned())
+        .collect();
+    let common_places = FolderPlaces::common(&common_scope, &common_below, &common_home);
     let places_for = |file: &FileDescriptor| -> MaterialPlaces {
-        let mut places = folder_places.of(&file.path);
         if is_common_file(&file.path) {
-            places.by_name.push((&common_textures, &common_home));
+            common_places.of(&file.path)
+        } else {
+            folder_places.of(&file.path)
         }
-        places
     };
     // An FMDL converted (`fmdl_for_pre_fox`, its source's skeleton of its path stem the bind
     // pose, its findings naming it by `source_name`), its material set pointed as the face

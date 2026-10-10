@@ -98,7 +98,7 @@ use crate::user_face_xml::{
 };
 use collar::collar_findings;
 use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
-use materials::{TextureSources, held_textures, texture_findings};
+use materials::{TextureSources, held_common, held_textures, texture_findings};
 use model::{MaterialRead, ModelKind, fired};
 use pairings::{material_finding, pairings, searched_common_mtls, used_names};
 use portrait::{folder_portrait, portrait_conflict, portrait_findings};
@@ -712,10 +712,11 @@ fn hidden_link_finding(
 /// passes are `passes`, that `kept` holds, a pre-Fox target's (`materials::texture_findings`):
 /// each on its file, keeping it, appended to its pass after its own findings. A `Common/`
 /// `.mtl` is packed once for the team, before any player's pairing is known, so its mesh-used
-/// materials are those every kept `Common/` model's meshes bind, and its paths resolve among
-/// the kept textures of its own directory (the ones its Common models task points it at:
-/// `Common/`'s for a direct `.mtl`, a subfolder's for one in that subfolder), then for a Common
-/// path the kept textures directly in `Common/` and the installed CPKs.
+/// materials are those every kept `Common/` model's meshes bind, and its paths resolve as
+/// its Common models task points them (`prefox_common::common_models`), `Common/` its model
+/// folder: a name nearest first from its own directory up to `Common/` among the kept
+/// Common textures, a path below its directory at that path alone (`held_common`), then
+/// for a Common path the kept textures directly in `Common/` and the installed CPKs.
 fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], kept: &KeptCommon) {
     let model_kind = FileKind::Model(ModelFormat::PesModel);
     let used: BTreeSet<&str> = kept
@@ -727,6 +728,7 @@ fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], ke
         .filter(|material| material.mesh_used)
         .map(|material| material.name.as_str())
         .collect();
+    let held = held_common(&kept.files);
     for (file, pass) in common.iter().zip(passes) {
         if file.kind != FileKind::Mtl {
             continue;
@@ -735,22 +737,10 @@ fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], ke
         let Some(read) = kept.materials.get(&file.path) else {
             continue;
         };
-        let directory = file.path.parent().map(|parent| parent.fold_key());
-        let held: TexturePlace = kept
-            .files
-            .iter()
-            .filter(|texture| {
-                texture.kind == FileKind::Texture
-                    && texture.path.parent().map(|parent| parent.fold_key()) == directory
-            })
-            .map(|texture| {
-                let stem = file_stem(texture.path.name());
-                (vtree::fold_name(stem), stem.to_owned())
-            })
-            .collect();
+        let places = held.of(&file.path);
         let sources = TextureSources {
-            held: &[&held],
-            below: None,
+            held: &places,
+            below: Some((&held, &file.path)),
             common: &kept.texture_stems,
             installed: kept.installed.as_ref(),
         };
@@ -2776,6 +2766,40 @@ mod tests {
                     "other"
                 ),
             ]
+        );
+    }
+
+    #[test]
+    fn a_common_mtl_s_path_below_its_directory_is_looked_for_at_that_path_in_common() {
+        let temp = scratch("deep_mtl_common_below");
+        let mtl = (
+            "Common/jessie/hair.mtl",
+            materials_naming(&[("card", &["./sub/hair.dds"])]),
+        );
+        let files = [
+            ("Common/jessie/legs.model", card()),
+            mtl.clone(),
+            ("Common/jessie/sub/hair.dds", bc1_dds(4, 4)),
+        ];
+        let findings = findings_for(PesVersion::Pes17, temp.path(), &files, &[], &[]);
+        assert_eq!(findings, [], "{findings:?}");
+
+        let without = [
+            ("Common/jessie/legs.model", card()),
+            mtl,
+            // `jessie/`'s own `hair.dds` is not at the path `./sub/` names.
+            ("Common/jessie/hair.dds", bc1_dds(4, 4)),
+        ];
+        let findings = findings_for(PesVersion::Pes17, temp.path(), &without, &[], &[]);
+        assert_eq!(
+            findings,
+            [mtl_texture(
+                "mtl_texture_not_found",
+                IssueScope::File(path("Common/jessie/hair.mtl")),
+                "hair.mtl",
+                "./sub/hair.dds",
+                "card"
+            )]
         );
     }
 }

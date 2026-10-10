@@ -1508,6 +1508,20 @@ TC-CMN-22  GIVEN Common/jessie/hair.dds, and slot 05 holding face_high.fmdl, jes
                 neither file_type_disallowed nor file_not_used is reported; on PES 17 the
                 converted model's .mtl names model/character/uniform/common/<team>/jessie/hair.dds,
                 which the Common output holds
+TC-CMN-23  GIVEN Common/jessie/hair_high.model with Common/jessie/hair_high.mtl naming
+           ./sub/hair.dds, Common/jessie/sub/hair.dds and Common/jessie/hair.dds of other
+           bytes, and slot 05 holding face_high.model and jessie/hair_high.model.common
+           WHEN the export is compiled for PES 17
+           THEN the .mtl face.xml names for the hair model points hair at
+                model/character/uniform/common/<team>/jessie/sub/hair.dds, which the Common
+                output holds, and no mtl_texture_not_found is reported
+TC-CMN-24  GIVEN slot 05 holding ingame_face, studs.dds and jessie/kit_boots.model.common,
+           and Common/jessie/kit_boots.model with Common/jessie/kit_boots.mtl naming
+           ./studs.dds and Common/jessie/studs.dds
+           WHEN the export is compiled for PES 17
+           THEN the boots.mtl in k0625's package names
+                model/character/uniform/common/<team>/jessie/studs.dds, the Common output
+                holds it, and no mtl_texture_not_found is reported
 TC-CMN-19  GIVEN Collars/collar_12.fmdl with two materials
            WHEN the export is compiled for PES 16
            THEN the CPK's collar_012.model names uni_shirts alone

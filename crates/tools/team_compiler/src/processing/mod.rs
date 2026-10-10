@@ -259,11 +259,11 @@ pub(crate) fn process_task(
         TaskKind::CommonModels {
             folder,
             files: common,
-            texture_stems,
+            textures,
         } => prefox_common::common_models(
             folder,
             common,
-            texture_stems,
+            textures,
             task.team_id,
             ctx,
             &mut files,
