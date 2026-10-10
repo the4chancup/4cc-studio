@@ -976,6 +976,25 @@ TC-MOD-64  GIVEN slot 05 holding face_high.fmdl with two meshes, the second flag
            WHEN the export is compiled for PES 17
            THEN the face's .model holds the first mesh alone and no mesh_flags_dropped names
                 invisible
+TC-MOD-65  GIVEN slot 05 holding face_high.fmdl, and jessie/hair_high.fmdl whose material names
+           shorts.dds, with jessie/shorts/shorts.dds
+           WHEN the export is compiled for PES 21
+           THEN the face package holds both models' meshes, shorts.dds sits under the player's
+                texture home at jessie/shorts/shorts.dds, and the model's path names it there
+TC-MOD-66  GIVEN slot 05 holding face_high.model with face_high.mtl naming skin.dds, skin.dds,
+           and jessie/body/x.model with jessie/body/x.mtl naming skin.dds, with jessie/skin.dds
+           WHEN the export is compiled for PES 17
+           THEN the face CPK holds jessie/body/x.model and jessie/body/x.mtl at those paths,
+                face.xml lists ./jessie/body/x.model, x.mtl's skin path names jessie/skin.dds
+                and face_high.mtl's the root's skin.dds, and no texture_stem_conflict is reported
+TC-MOD-67  GIVEN slot 05 holding face_high.fmdl, jessie/ingame_face, jessie/Crocs.boots and
+           jessie/settings.toml
+           WHEN the export is checked
+           THEN file_type_disallowed names each of the three and the player keeps his face
+TC-MOD-68  GIVEN Boots/Crocs holding boots.fmdl and extra/x.fmdl, slot 05 linking it
+           WHEN the export is checked for PES 21
+           THEN file_type_disallowed names extra/x.fmdl and the boots package holds boots.fmdl
+                alone
 TC-MOD-58  GIVEN Faces/Round holding fcl_hair.fmdl, boots.model and boots.mtl, slot 05 linking it
            as his face
            WHEN the export is compiled for PES 21
@@ -1691,6 +1710,12 @@ TC-REF-16  GIVEN a refs export whose Ref A holds face_high.model, face_high.mtl 
 TC-REF-17  GIVEN TC-REF-16's Ref A also holding boots.model and boots.mtl
            WHEN it is compiled for PES 17
            THEN the refkit entries leave out oral_boots_*.model and his own boots stand
+TC-REF-18  GIVEN a refs export whose Ref A holds face_high.model and boots/boots.model, and a
+           team export whose slot 05 holds the same two files
+           WHEN both are checked
+           THEN player_layout_proto is reported on Ref A naming boots/ with the hint naming the
+                Export upgrader and Ref A is dropped, while slot 05 is valid with boots/ a
+                subfolder of his own
 ```
 
 **Output modes, deployment, multi-CPK**

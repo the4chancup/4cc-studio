@@ -32,7 +32,9 @@ numbers; TC-CMN-17), 4.y-harness and 4.y-ingame done 2026-10-10 (the converted c
 checked in game, the harness driven by a virtual pad and OBS), 4.y-ingame2 started
 2026-10-10 (the remaining in-game checks: collars beyond the stock set load on PES 21,
 the sock table seen on PES 21, the DX10 header crashes PES 21's BC3 portrait reader),
-4.y-fix16 opened 2026-10-10 (S9's second Astra round, five concerns), 4.y-fix12 opened 2026-10-09
+4.y-fix16 opened 2026-10-10 (S9's second Astra round, five concerns), 4.y-sub opened 2026-10-10
+(a subfolder of a player folder is a player folder of its own; the reserved subfolders gone, the
+AET referee layout refused per folder), 4.y-fix12 opened 2026-10-09
 (PES 17's `uniform.mtl` in the templates, its lead part done), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
 `.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
@@ -3557,6 +3559,29 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   PES 21; a refs export with a broken copied kit config exits 0); S9 gets a third
   Astra round after the rework, with its SWE-2 loop.
 
+- [ ] 4.y-sub **A subfolder of a player folder is a player folder of its own** (the
+  maintainer's rule, DECISIONS 2026-10-10, two entries; plan `player_folders.md`
+  "Subfolders", `object_model.md` "File-type allowlist", `messages.md`
+  `player_layout_proto`, `texture_stem_conflict` and "User-supplied `face.xml`",
+  `pipeline.md` step 6, `model_format.md`, `blue_port.md`, `export_upgrader.md` items 9
+  and 12). Briefed in slices, each its own commit: (a) roles and the allowlist: the
+  reserved subfolders removed from `roles.rs` (`position`, `model_role`'s forced
+  categories, `face_file`), a subfolder's files typed by their names at any depth, the
+  root's markers, settings and links alone counting, a shared folder's subfolder files
+  `file_type_disallowed`, the refs `player_layout_proto` refusal (TC-MOD-67, TC-MOD-68,
+  TC-REF-18); (b) the pre-Fox face: paths kept in the face CPK and the texture home,
+  `face.xml` entries by path, `./sub/name` a checked local reference, the `.mtl`
+  search's folders, the nearest-first texture lookup and the per-folder
+  `texture_stem_conflict` namespace (TC-MOD-66); (c) Fox: a subfolder's models merged
+  into the packages, textures under the texture home at their path (TC-MOD-65); (d) the
+  deep pass over the tree (what `compile` reads, DECISIONS 2026-10-09 "One rule"). The
+  Export upgrader's carry-over is Phase 6's. Moot after this: S14.1-4 and the subfolder
+  half of S7.1-3 (a shared folder keeps the "directly in" rule, 4.y-fix11 item 3). Crates:
+  ae, tc
+  → verify: TC-MOD-65 to TC-MOD-68 and TC-REF-18 proven, red first; the census export
+  `HAHA Aesthetic Export VTL9 i3` (`C:/Data/4cc/Lab/`, 23 players, 688 nested files)
+  compiles for PES 17 with every player kept and its face CPKs holding the tree.
+
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -3792,12 +3817,12 @@ points there.
   `model_material_undefined` drops the folder (ANF, four cup exports). The xml's `material`
   attributes could drive the conversion's pairing on Fox; a plan ruling first. Low priority:
   these referees are pre-Fox material.
-- open (converge census, 2026-10-09) — two reserved subfolders holding one texture under one
-  stem with identical bytes (`boots/outline.dds` and `gloves/outline.dds`, the maintainer's
-  `refs fox test` and `refs lan party` exports) are `texture_stem_conflict` and drop the
-  folder, where `merged_texture_conflict` deduplicates identical bytes. The conflict is the
-  structure pass's (no bytes read there); none of the cup's real referee exports does it.
-  Revisit if one does: the deep pass would withdraw the finding for identical bytes.
+- closed 2026-10-10 (by the subfolder rule, step 4.y-sub) — two reserved subfolders holding
+  one texture under one stem with identical bytes (`boots/outline.dds` and
+  `gloves/outline.dds`, the maintainer's `refs fox test` and `refs lan party` exports) were
+  `texture_stem_conflict`. Under the rule each subfolder is a namespace of its own, so the
+  pair is no conflict; those two exports are AET referee layouts, refused with
+  `player_layout_proto` until upgraded.
 - open (converge census, 2026-10-09; diagnosed as the plan's rules, no change) — the census's
   other refusals of the cup's referee exports: `common_file_disallowed` on `Common/refkit/`
   (a maintainer question, `docs/QUESTIONS.md`); `file_type_disallowed` on files two levels
@@ -5763,3 +5788,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-10** — S9's second Astra round ran on the brother's ChatGPT Plus (five
   concerns, all accepted after an evidence pass over the worktree: step 4.y-fix16; a
   third round after the rework).
+- **2026-10-10** — The maintainer's subfolder rule landed in the plans (step 4.y-sub opened):
+  any subfolder of a player folder is a player folder of its own merged into the root's,
+  paths kept, a texture name resolving nearest first, only the root's markers and links
+  counting; the reserved subfolders are gone and a refs export's AET-layout folder is
+  refused with `player_layout_proto`, naming the upgrader (two decision entries;
+  TC-MOD-65 to 68, TC-REF-18). The glossary gains AET and ATF (AATF, Aesthetics ATF)
+  from the maintainer's definitions.

@@ -164,6 +164,7 @@ savefile messages are new.
 | `refs_txt_ignored` | W | referee export has both `players.txt` and the legacy `refs.txt` alias | `players.txt` used, alias ignored |
 | `players_txt_slot_duplicate` | E | authoritative `players.txt` assigns the same slot more than once, making roster identity ambiguous | export skipped (`DropExport`) |
 | `player_unlisted` | W | authoritative `players.txt` is present but does not list this player folder, regardless of any number in its name | folder ignored |
+| `player_layout_proto` | E | a referee export's player folder has a direct `face/`, `boots/`, `gloves/` or `common/` subfolder: the AET referee layout, Red's prototype of the player folder, whose subfolders type their files by the subfolder's name where the Studio rule types a subfolder's files by their names (`player_folders.md` "Subfolders"); in a team export those names are plain subfolders (context `folder`: the first such subfolder) | folder discarded (`DropFolder`); the hint says to run the export through the Export upgrader once |
 | `players_txt_line_invalid` | E | one nonblank `players.txt` line cannot be parsed into decimal slot + folder name | that `RosterEntry` skipped (`DropSlot`) |
 | `players_txt_invalid` | E | file-level encoding failure or roster-wide ambiguity prevents trustworthy normalization, or a referee roster retains zero valid assignments | export skipped (`DropExport`; foundational). An empty normal-team roster remains valid for a kit-only export |
 | `players_txt_target_missing` | E | `players.txt` entry names a nonexistent folder | `RosterEntry` scoped assignment skipped (`DropSlot`) |
@@ -320,7 +321,7 @@ pass-through-eligible, and the logo goes as one unit.
 | `texture_type_mismatch` | E | header doesn't match extension (renamed, not resaved) | discarded |
 | `texture_codec_unsupported` | E | codec not convertible in-process | discarded |
 | `portrait_header_rewritten` | I | a DDS portrait under a DX10 extension header went out under the legacy header of its format, an sRGB DXGI id as its UNORM twin, its pixel data unchanged (`player_folders.md` "Portraits": such a file crashed PES 19; context: `file`; `dxgi`, the id the source carried) | none |
-| `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: a model folder with its reserved subfolders (`hair.dds` beside `common/hair.dds`, or `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name), `Common/` (`hair.dds` beside `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`) |
+| `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: one folder of a player folder's tree, the root or one subfolder (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name; `hair.dds` beside `jessie/hair.dds` is no conflict, a model's texture name resolving nearest first, `player_folders.md` "Subfolders"), `Common/` (`hair.dds` beside `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`) |
 
 **XML/MTL content checks** (pre-Fox, plus `face_diff.xml` in Fox)
 
@@ -413,8 +414,10 @@ How a `path` or `material` is resolved and written, Red's rules (`xml_check.py` 
 `update_xml_for_renamed_common_models`), since the one real member xml in the fixtures (the pre-Fox
 tracer's Fumos folder: `./face_high_*.model` beside `face_high_win32.model`) was written for them:
 
-- A `./<name>` reference names a file of the face (the player's own files, directly in the folder
-  or in `face/`, then a linked shared face's), compared case-folded with the reference's `*`
+- A `./<name>` reference names a file of the face (the player's own files, directly in the folder,
+  then a linked shared face's), and `./<path>/<name>` (`./jessie/body/x.model`) a file of the
+  player's subfolder at that path, relative to the referencing file (`player_folders.md`
+  "Subfolders"), compared case-folded with the reference's `*`
   read as `win32`; the referenced file is **packed under the name the reference gives** (`*` as
   `win32`, spelled as the xml spells it) and the reference is written as it is. We do not
   rename the file to its `oral_<stem>_win32` packed name and respell the reference, because the

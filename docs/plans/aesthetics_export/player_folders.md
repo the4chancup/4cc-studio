@@ -34,9 +34,9 @@ Players/
 │   ├── ingame_face           (optional empty marker: remove custom face parts, keep other categories)
 │   ├── fpc_on                (optional empty marker: apply the FPC preset at compile time; see `fpc_toggle.md` "FPC toggle")
 │   ├── settings.toml         (the player's settings: on Fox they compile into the CPK's database tables, on pre-Fox into the savefile; see below)
-│   ├── face/  boots/  gloves/  common/
-│   │                         (optional reserved subfolders: their files are that category's parts
-│   │                          wholesale, common/ holds textures; see "Reserved subfolders")
+│   ├── jessie/  shorts/  ...
+│   │                         (optional subfolders of any name and depth: each is a player folder
+│   │                          of its own, merged into this one; see "Subfolders")
 │   └── ...
 └── 16 - Another Player/
     └── ...
@@ -142,40 +142,47 @@ the team's Common output, which the copy names). A **face** link under
 the player folder with `ingame_face_explicit_face_model`, exactly like explicitly-named local face
 models.
 
-**Reserved subfolders.** Inside a player folder, the subfolder names `face`, `boots`, `gloves` and
-`common` are reserved (case-insensitive). This is the layout of Red's referee exports — the
-prototype of the player-folder format — kept in the Studio format as **legacy support**, so that
-current-day referee exports (and Red Pre-Studio aesthetics exports using the same subfolders) compile as
-they are; it costs little. The flat player folder is the canonical layout — it lists a player's
-contents more explicitly — so Studio-generated exports never use the subfolders and the Export
-upgrader flattens them (see "Referee export processing" in the [Team compiler plan](../team_compiler/blue_port.md) and the Export upgrader plan). Any other
-subfolder is `file_type_disallowed` for its files, as today. Red implements the same reservations
-(its `pre_studio_plan.md`, "Reserved subfolders"); the two differ only in conflict handling, noted
-below.
+**Subfolders.** A subfolder of a player folder, of any name and at any depth, is a player folder
+of its own whose output is merged into the root player's: its files take their roles from their
+names exactly as the root's files do (`jessie/hair_high.fmdl` is a face model, `jessie/body/boots.model`
+a boots model, `shorts/shorts.dds` a texture), and its face, boots and gloves parts merge into the
+root player's packages as a combined shared folder's do (`link_combined`'s rule, "A link plus
+local models combines"). The AET-era exports keep a member's parts in folders of the author's own
+choosing (one VTL9 export holds 23 players with 688 files nested three deep), and Red compiles
+them in place; a rule that admitted only a flat folder, or only a few reserved names, would drop
+that content as `file_type_disallowed`. One rule, "a subfolder is a player folder", covers every
+such tree with nothing to name.
 
-- A `face/`, `boots/` or `gloves/` subfolder's files are **that category's parts wholesale**: they
-  skip filename categorization (a `hair_high.fmdl` inside `boots/` is a boots part), otherwise they
-  are ordinary local parts — they take part in the same allowed-name resolution, SKL pairing, texture
-  stem resolution (stems resolve across the player folder including its reserved subfolders) and
-  merging as loose root files of the same category. Their textures follow the normal texture
-  relocation to the per-player common output.
-- `common/` holds textures only: they are texture sources like any other image in the player folder,
-  and are emitted into the per-player common output as they are. Model files in `common/` are
-  `file_type_disallowed`.
-- **Combination follows the plan-wide rule, not Red's.** Red treats a labelled subfolder combined
-  with a same-category link file, or with loose same-category root files, as a conflict that drops
-  the player folder (it cannot merge). Studio can, so a subfolder's parts **combine** with a
-  same-category link (`link_combined`, the shared folder as the base) and with loose root files of
-  the same category, exactly as two loose files would — there is no subfolder-versus-file conflict.
-  The one contradiction that remains is `ingame_face` plus a `face/` subfolder: the subfolder's
-  files are face parts and follow the marker's rules (explicitly-named face models drop the folder
-  with `ingame_face_explicit_face_model`; arbitrary-named models reroute to boots).
-- An **empty `face/`** counts as face content: the player gets a blank face folder, as a player with
-  no face models does (the FPC requirement — see the pipeline walkthrough); under `ingame_face` an
-  empty `face/` is simply ignored (nothing to contradict). Empty `boots/`, `gloves/` and `common/`
-  are ignored.
-- Root normalization never treats a reserved subfolder as a nested export root, and `Players/`
-  detection is unaffected: the reserved names are matched one level below a player folder only.
+- **Paths are kept.** On PES 15-17 the face CPK and the player's texture home hold each file at
+  its path below the player folder (`jessie/body/x.model` is packed as `jessie/body/x.model`),
+  as Red packs the tree. On PES 18-21 a subfolder's models merge into the player's packages and
+  its textures go under the texture home at their path. A `face.xml` or `.mtl` reference that
+  carries a path (`./jessie/body/x.model`, `./shorts/y.dds`) resolves as written, relative to the
+  referencing file: `./sub/name` is a local reference, checked like `./name`
+  (`team_compiler/messages.md` "User-supplied `face.xml`"), not `xml_path_unchecked`. The
+  generated `face.xml` lists a subfolder's models by their path.
+- **A texture name resolves nearest first.** A texture named with no path resolves in the model's
+  own folder first, then in each parent up to the player's root, nearest first. Two models in
+  different subfolders may each have a `skin.dds` of their own: the lookup namespace of
+  `texture_stem_conflict` is one folder, not the player folder with its subfolders, and a
+  collision is solved by keeping a texture beside the models that use it.
+- **Only the root's markers, settings and links count.** `ingame_face`, `fpc_on`, `fpc_off`,
+  `settings.toml` and the `.face`, `.boots`, `.gloves` and `.common` links are read directly in the
+  player folder alone; inside a subfolder each is `file_type_disallowed`. A shared folder
+  (`Faces/`, `Boots/`, `Gloves/`) takes only the files directly in it; a file below its subfolder
+  is `file_type_disallowed` (the allowlist, `object_model.md`).
+- **No reserved names.** The names `face`, `boots`, `gloves` and `common` are plain subfolder names
+  in a team export. They exist only in the AET referee layout, Red's prototype of the player
+  folder (one subfolder per category inside each referee's folder), which the Export upgrader
+  flattens (its item 12); a referee export in the Studio layout never has them. A referee export's
+  player folder with a direct `face/`, `boots/`, `gloves/` or `common/` subfolder is therefore
+  that layout, and the compiler refuses the folder with `player_layout_proto`, naming the
+  upgrader, rather than compile the tree as subfolders and give the referee a different output
+  than Red's (the AET layout types a subfolder's files by the subfolder's name, this rule by the
+  file's name). In a team export the same names stay plain subfolders: the census found an
+  AET-era team folder whose `face.xml` names its `boots/` as an ordinary part folder.
+- Root normalization never treats a subfolder as a nested export root, and `Players/` detection
+  is unaffected.
 
 **Shared models** live in Faces/Boots/Gloves folders identified by **name only** (no embedded IDs —
 player folders are the main reference point for each player). A player folder references a shared

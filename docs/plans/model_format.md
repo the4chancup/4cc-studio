@@ -443,7 +443,8 @@ folded, starts or ends the model's stem: `body.mtl` for `body_high.model`), then
 case-folded name order wins (the order Explorer shows). A `.mtl.common` link counts as a `.mtl` of
 its target's name in the folder holding the link. The folders, where the *model folder* is the
 player or shared folder and the *file's folder* is the one directly holding the model or link
-(the model folder or one of its reserved subfolders, `face/`, `boots/`, `gloves/`, `common/`):
+(the model folder or one of its subfolders, each a player folder of its own,
+`aesthetics_export/player_folders.md` "Subfolders"):
 
 - a `.model`: the file's folder, then the model folder;
 - a `.model.common` link: the link's folder for a name-matched `.mtl` only (a local override of

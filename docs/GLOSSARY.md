@@ -11,6 +11,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 |---|---|---|
 | **4cc** | The 4chan Cup community: PES-based virtual football cups between board teams. Studio is its tool suite. | `plans/core/README.md` "Overview" |
 | **Acceptance ID** | Stable identifier (`TC-KIT-03`) of one testable, user-observable behavior in a tool plan's "Acceptance" section; tests cite it. | `CONTRIBUTING.md` "Testing" |
+| **ATF** | The Autism Task Force ("autism" in the meme sense, obsessively dedicated): the community members who checked every tactical export by hand before each cup. **AATF**, the Auto ATF, is the rules check that does that job now (`libs/aatf`). The **Aesthetics ATF** is the semi-manual check of a cup's aesthetics exports, aided by the maintainer's aes-atf-bot. | `plans/aatf_rules.md`; `plans/core/development_plan.md` "Unscheduled tools" |
 | **Converge** | End-of-phase audit of code against the plan section and acceptance IDs; gaps become worklog steps. | `AGENTS.md` "Working documents" |
 | **Finding** | A lib crate's structured report of a condition (stable code + context), free of user-facing text; tools map findings to messages. | `AGENTS.md` "Fundamental concepts" |
 | **Gate** | One of the verification commands that must pass before a step is done (`fmt`, `clippy -D warnings`, `test`, `wasm32` check). | `CONTRIBUTING.md` "Testing and verification" |
@@ -37,6 +38,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 
 | Term | Meaning | Owner |
 |---|---|---|
+| **AET** | The Aesthetics Export Template, the layout of aesthetics exports before Studio (Red's input: `Faces/`, `Boots/`, `Gloves/` item folders with embedded IDs, `Kit Configs/`, `Kit Textures/`, `Other/`; the wiki page is `resources/AET.wikitext`), and the name of an export in it; the plans also say "old layout". The compiler does not read it; the Export upgrader migrates it once. | `plans/export_upgrader.md` |
 | **Aesthetics export** | A team's folder or archive of player folders, kits, portraits and `settings.toml`; the Team compiler's unit of work and the project's primary motivation. | `plans/aesthetics_export/README.md` |
 | **Autopilot team** | A cup team without a manager: its aesthetics export is made by a caretaker and its tactical export by the 4cc council, often before the destination team is known, so its players' names come from the names in the aesthetics export (the aesthetics patch). Not the music player's Autopilot mode. | `plans/pes_savefile/operations.md` "Aesthetics patch" |
 | **Referee export** | An aesthetics export under the reserved `/refs/` team name; prepared by the Refs arranger, compiled by the Team compiler. Only one may be enabled. | `plans/refs_arranger.md`; `plans/team_compiler/README.md` |
@@ -46,7 +48,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | **`BuildTask`** | One planned unit of compile work (a folder, a kit, a bin update) with its owning scope and planned model-ID assignments. | `plans/team_compiler/pipeline.md` "Per-export serial steps" |
 | **Deep / shallow check** | Shallow: validate what is visible without extracting an archive (`PartialOk`/`PartialError`); deep: full validation (`FullOk`/`Error`). | `plans/core/architecture.md` "Event system" (`FolderStatus`) |
 | **Export revision** | The pinned identity of an export's source contents for one run; a change mid-run is `source_changed_during_run` (`AbortRun`). | `plans/team_compiler/messages.md` "Message catalog" |
-| **Export upgrader** | The tool that migrates old-layout exports to the Studio player-folder format once; the compiler does not read old layouts. | `plans/export_upgrader.md` |
+| **Export upgrader** | The tool that migrates AET exports (the old layout) to the Studio player-folder format once; the compiler does not read the AET layout. | `plans/export_upgrader.md` |
 | **Coverage tag** | `Full` or `Midcup`, the second word of a team export's name: whether the export is everything the team has (the compiler rebuilds the team's records from it alone) or additions to what is installed (only what it holds is replaced). A name with neither is an error. | `plans/aesthetics_export/object_model.md` "Validation semantics" |
 | **FPC** | Full Player Customization: the appearance + kit-config settings that hide a player's default body so the model supplies it. Toggled per player by `fpc_on` / `fpc_off` marker files. | `plans/aesthetics_export/fpc_toggle.md` "FPC toggle"; `plans/save_editor.md` |
 | **Music export (`.4ccm`)** | A team's match-day audio package (anthem, goalhorns, chants, conditions) for the Music player. The `.4ccm` format stays canonical. | `plans/music_player.md` |
@@ -112,7 +114,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 
 | Term | Meaning | Owner |
 |---|---|---|
-| **AATF rules** | The 4cc rule set constraining player stats and medals ("Auto-ATF" in the community); checked and applied by `libs/aatf` from a rules file. Expansion of the acronym is not given in the plans. | `plans/aatf_rules.md` |
+| **AATF rules** | The 4cc rule set constraining player stats and medals, the Auto ATF's (see "ATF"); checked and applied by `libs/aatf` from a rules file. | `plans/aatf_rules.md` |
 | **Ruleset / rules file** | One AATF ruleset as a `.rhai` file: the data (`RULESET`: tiers, heights, card economy, specials), the generic interpreter Studio writes into every file, and optional custom checks. The official one is embedded; invitationals make their own in the Ruleset editor. | `plans/aatf_rules.md` "The rules file" |
 | **Tier** | A class of player in a ruleset (gold, silver, bronze, regular, …) with its own stat targets, form, limits and per-team count; a player's tier is recognized from their rating. "Medal" is the community's word for the non-regular tiers. | `plans/aatf_rules.md` "The ruleset schema" |
 | **Special** | A conditional rule of a ruleset: *players matching these conditions get these effects* (a stat bonus, extra or free cards, a height allowance, a forbid…). | `plans/aatf_rules.md` "The ruleset schema" |
@@ -144,7 +146,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | Term | Meaning | Owner |
 |---|---|---|
 | **4ccEditor** | C++ PES save editor; source for savefile schema and editing behavior. | `plans/save_editor.md` |
-| **Blue / Red** | The two Python AET (aesthetics export) compilers. Red is the CPK-output parity standard; Blue supplies parser variants. | `plans/team_compiler/README.md` "Relationship to the older compilers" |
+| **Blue / Red** | The two Python compilers of AET exports (see "AET"). Red is the CPK-output parity standard; Blue supplies parser variants. | `plans/team_compiler/README.md` "Relationship to the older compilers" |
 | **Midcupping** | Python scripts for save crypto, transplant and aesthetics diff. | `plans/pes_savefile/README.md` |
 | **pes-fmdl / pes-model** | Blender addons for FMDL and `.model`; their hot paths move into the `python_bindings` wheel. | `plans/model_conversion/gltf.md` "Blender integration" |
 | **Rigdio / RigDJ** | Music player and music export editor being replaced. | `plans/music_player.md`; `plans/music_export_editor.md` |

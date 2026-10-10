@@ -6138,3 +6138,48 @@ boots, whose decode charges 0.45 to 0.7 GB (`decode_charge`: every mip level's p
 plus the source). A charge does not wait for room, so the run would pass the cap; the
 maintainer chose 1 GiB, which still keeps 7 GB of archives on an 8 GB budget.
 Plan: `libs/pipeline.md` "What a solid `.7z` is charged".
+
+## 2026-10-10 — aesthetics_export, team_compiler — a subfolder of a player folder is a player folder of its own
+Decision: any subfolder of a player folder, of any name and at any depth, is compiled as a
+player folder of its own and its output merged into the root player's (face with face, boots
+with boots, gloves with gloves, as a combined shared folder's is); its files keep their paths
+in the pre-Fox face CPK and in the texture home; a `face.xml` or `.mtl` reference carrying a
+path resolves relative to the referencing file and is checked as a local reference; a texture
+named with no path resolves in the model's own folder first, then in each parent up to the
+player's root; only the root's markers, settings and links count, a subfolder's being
+`file_type_disallowed`; a shared folder still takes only the files directly in it.
+Why: the maintainer's rule (2026-10-10): the AET-era exports keep a member's parts in folders
+of the author's choosing (the HAHA export of VTL9: 23 players, 688 files nested three deep,
+`.mtl` paths relative to the `.mtl`'s folder), Red compiles the tree in place, and the
+compiler's census of 2026-10-09 dropped such folders as `file_type_disallowed`. Nested rather
+than flattened, because flattening collides (that export's folder 17 holds 13 names twice with
+different bytes). The nearest-first texture lookup is the lead's addition to the maintainer's
+"collisions are solved by keeping a texture beside the models that use it", so a texture the
+root holds once serves every subfolder without a copy per folder; the maintainer approved it.
+Plan: `aesthetics_export/player_folders.md` "Subfolders" (replacing "Reserved subfolders"),
+`object_model.md` "File-type allowlist", `team_compiler/pipeline.md` step 6 and
+"Kit-dependent assets", `team_compiler/messages.md` `texture_stem_conflict` and
+"User-supplied `face.xml`", `model_format.md` (the `.mtl` search's folders);
+`team_compiler/README.md` TC-MOD-65 to TC-MOD-68.
+
+## 2026-10-10 — team_compiler, export_upgrader — the reserved subfolders are gone; the AET referee layout is refused per folder with `player_layout_proto`
+Decision: `face/`, `boots/`, `gloves/` and `common/` are no longer reserved names inside a
+player folder. In a team export they are plain subfolders under the rule above. In a refs
+export a player folder with a direct subfolder of one of those names is refused with
+`player_layout_proto` (E, `DropFolder`, context `folder`), the message naming the Export
+upgrader, whose item 12 flattens them and renames nothing; the upgrader carries any other
+subfolder over unchanged.
+Why: the reserved names existed only so that AET referee exports compile as they are
+(`player_folders.md`, former "Reserved subfolders"), and the maintainer rules that the upgrader
+converts them instead (2026-10-10): one rule for subfolders replaces a second rule for four
+names, and the AET layout types a subfolder's files by the subfolder's name where the Studio
+rule types them by the file's name, so compiling an AET referee as subfolders would give a
+different output than Red's without a finding. A per-folder refusal rather than
+`export_layout_old`, by the maintainer's choice, so a refs export half converted still compiles
+its Studio-layout referees. In a team export the names stay plain because the census found an
+AET-era team folder (`XXX05/boots/`) named in its `face.xml` as an ordinary part folder. No
+renaming in the upgrader: the census of the Lab's exports (`.tmp/4_y/boots_census.txt`, 203
+models in `boots/` folders) found every file named as the root would name it.
+Plan: `aesthetics_export/player_folders.md` "Subfolders", `team_compiler/messages.md`
+(the `player_layout_proto` row), `team_compiler/blue_port.md` "Referee export processing",
+`export_upgrader.md` items 9 and 12; `team_compiler/README.md` TC-REF-18.

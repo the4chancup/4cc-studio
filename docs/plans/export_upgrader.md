@@ -1,7 +1,7 @@
 # 4cc Studio — Export upgrader plan
 
 The Export upgrader (`crates/tools/export_upgrader`) migrates exports from the old
-format to the Studio player-folder format defined in the
+format (the AET layout, `GLOSSARY.md` "AET") to the Studio player-folder format defined in the
 [Team compiler plan](team_compiler/README.md) — the compiler only supports the Studio format,
 so this is the one-time migration path for every existing export.
 Platform context is in the [core plan](core/README.md).
@@ -142,9 +142,9 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    `libs/fpc`'s FPC enable preset get an `fpc_on` marker file instead of the raw strip settings,
    and their boots/gloves keys stay at the default `""`, since the marker supplies the hide IDs.
 9. **Migrates referee exports**: the old referee layout (`refs.txt` + per-referee
-   face/boots/gloves/common subfolders — the prototype of the player-folder format) compiles as it is
-   thanks to the compiler's legacy acceptance (reserved subfolders, `refs.txt` alias), but is
-   upgraded to the fully unified layout all the same: `refs.txt` becomes a root `players.txt`
+   face/boots/gloves/common subfolders — the prototype of the player-folder format) is refused by
+   the compiler per referee folder (`player_layout_proto`, naming this tool; only the `refs.txt`
+   alias is accepted), so it is upgraded to the fully unified layout: `refs.txt` becomes a root `players.txt`
    carrying the slot mapping (including repeated entries — the same model backing multiple of the 35
    referee slots for rarity control) in `aesthetics_export`'s canonical UTF-8/LF roster grammar shared with
    the Refs arranger, and the `refs.txt` is removed; each referee's subfolders are **flattened** into
@@ -168,12 +168,15 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     states the assumed pairings, and no `settings.toml` aesthetic data can be generated (step 8 is
     skipped, apart from `name` handling, which needs no savefile). Red's Pre-Studio upgrader
     implements this same mode (its `export_upgrade.py`).
-12. **Flattens legacy reserved subfolders**: `face/`, `boots/`, `gloves/` and `common/` inside a
-    player folder (see the Aesthetics export plan's "Reserved subfolders") are folded into the player
-    folder root, since the flat layout is the canonical one. A file name present in two locations
-    with identical bytes is deduplicated; with different bytes it is reported as unmigrated
-    content (step 10) and the folder is left as it was — the legacy layout still compiles, so
-    nothing is lost by declining to flatten. A model file in `common/` is reported likewise.
+12. **Flattens the AET referee layout's subfolders**: `face/`, `boots/`, `gloves/` and `common/`
+    directly inside a referee's player folder (the layout the compiler refuses with
+    `player_layout_proto`, `player_folders.md` "Subfolders") are folded into the player folder
+    root; no file is renamed (the census of 2026-10-10 found every such `boots/` holding files
+    named as the root would name them: `boots.fmdl`, `boots.model`, `oral_boots_win32.model`).
+    A file name present in two locations with identical bytes is deduplicated; with different
+    bytes it is reported as unmigrated content (step 10) and the folder is left as it was, for
+    the author to resolve. Any other subfolder of a player folder, in a team export or a referee
+    export, is a player folder of its own under the Studio rule and is carried over unchanged.
 13. **Optional glTF conversion** (`--convert-to-gltf`, off by default) — after the structural
     migration is complete and verified (step 10's report is clean), a second pass converts all
     model files to glTF in place: every `.fmdl` (Fox exports) or `.model`+`.mtl` (pre-Fox exports)

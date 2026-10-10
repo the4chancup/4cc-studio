@@ -157,8 +157,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | Where the file sits | Admits | Otherwise |
   |---|---|---|
   | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc_on` and `fpc_off` markers, `settings.toml` | `file_type_disallowed` |
-  | directly in a player folder's `face/`, `boots/` or `gloves/` | model content, `.common` links | `file_type_disallowed` |
-  | directly in a player folder's `common/` | textures | `file_type_disallowed` |
+  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content | `file_type_disallowed` |
   | directly in a shared folder | model content | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
   | anywhere in `Common/` | model content (a subfolder's is read on PES 15-17 alone, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
@@ -168,7 +167,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures, a team export's `autopilot` marker; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
 
   A file below a subfolder the table does not name takes the code of the folder holding that
-  subfolder (`Players/03 - A/extra/x.dds` is `file_type_disallowed`). The list is the same for
+  subfolder (`Boots/Crocs/extra/x.fmdl` is `file_type_disallowed`). The list is the same for
   every target: each model
   format is a source for either engine through conversion, so what a target does not emit is the
   deep pass's and processing's concern, not the allowlist's (Red's per-engine lists predate
@@ -527,7 +526,7 @@ impl AestheticsExportDraft {
 }
 pub struct FolderDraft {
     pub path: vtree::ScopePath,               // `Players/03 - A`, `Kits/p1 - Lakers`
-    pub files: Vec<FileDescriptor>,           // every file below it, reserved subfolders included
+    pub files: Vec<FileDescriptor>,           // every file below it, subfolders included
 }
 pub enum ExportKind { Team, Referees }
 
@@ -698,10 +697,10 @@ pub struct PlayerFolder {
 // the output: emitted transformed, converted, or embedded by conversion. Typed
 // fields hold savefile-stage inputs (settings, portrait, FPC markers) and
 // folder-level references (links). Typed metadata and glTF dependencies are not
-// also retained as pass-through output files. Files inside a reserved
-// subfolder (face/, boots/, gloves/, common/ — see "Reserved subfolders") are
-// ordinary `files` entries: their ScopePath keeps the subfolder, and
-// categorization reads the forced category from it instead of the file name.
+// also retained as pass-through output files. Files inside a subfolder (a
+// player folder of its own — see "Subfolders") are ordinary `files` entries:
+// their ScopePath keeps the subfolder, and categorization reads their roles
+// from their names as it reads the root's.
 
 pub struct SharedLink {
     pub kind: SharedKind,           // Face / Boots / Gloves

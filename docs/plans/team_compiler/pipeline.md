@@ -561,8 +561,10 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    once, after all of the player's face/boots/gloves tasks report: identical destination bytes
    deduplicate, while the same destination with different bytes reports `shared_texture_conflict`
    and drops the losing task, chosen by canonical order (`face` > `boots` > `gloves`), never rayon
-   completion order. The player's texture sources are its own folder (its reserved subfolders included:
-   they share its texture namespace, where one stem twice is `texture_stem_conflict`) and each
+   completion order. The player's texture sources are its own folder (its subfolders included,
+   each a texture namespace of its own where one stem twice is `texture_stem_conflict`; a model's
+   texture name resolves in its own folder first, then in each parent up to the player's root,
+   `player_folders.md` "Subfolders") and each
    shared face, boots or gloves folder it combines, and a source counts for the package it feeds: the player's own folder and a
    combined face folder for the face, a combined boots (gloves) folder for the boots (gloves).
    Stems compare case-folded. Two sources of different packages holding one stem with different
@@ -923,7 +925,7 @@ describes behavior, not a serial scheduling requirement:
   lowest variant: `model_material_undefined` compares that variant with the `.mtl` the
   entry names, and a higher variant's materials are not compared with its respelled
   `.mtl`, a respelling that is processing's alone. This
-  holds for a player's face, its reserved subfolders and a linked `Faces/` folder. Where no
+  holds for a player's face, its subfolders and a linked `Faces/` folder. Where no
   `face.xml` names the set, under `ingame_face` (his boots and gloves hold parts, not entries)
   and in a shared `Boots/` or `Gloves/` folder's own output (one `boots.model`, one `glove.xml`
   listing every glove, so every variant would be worn at once), the lowest variant is used and

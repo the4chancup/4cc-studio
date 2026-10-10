@@ -17,12 +17,13 @@ specification.
 number→name mappings plus per-referee face/boots/gloves/common subfolders — was the prototype of the
 player-folder format, tested only on referees. Referee exports adopt the **unified player-folder
 format**: a `refs` export contains `Players/` folders exactly like a team's aesthetics export, with shared models
-in named shared folders + link files. Since the per-referee subfolders are the format's reserved
-subfolders (see "Reserved subfolders" in the [Aesthetics export plan](../aesthetics_export/README.md)) and `refs.txt` is accepted as a
-legacy alias of `players.txt` (see "Player numbering"), a current-day referee export **compiles as it
-is**. The Export upgrader still upgrades it to the fully unified layout — flat player folders and
-`players.txt` — like every other legacy export, since the flat layout lists a player's contents more
-explicitly; the legacy acceptance exists because it costs little, not as a second dialect to author
+in named shared folders + link files. The per-referee subfolders of the AET layout are not read
+by the compiler: a referee folder holding one is refused with `player_layout_proto`, naming the
+Export upgrader, which flattens them into the Studio layout (see "Subfolders" in
+[`player_folders.md`](../aesthetics_export/player_folders.md), and the upgrader plan's item 12);
+`refs.txt` is accepted as a legacy alias of `players.txt` (see "Player numbering"), and the upgrader
+renames it too. The flat layout lists a referee's contents more explicitly, and the compiler reading
+the AET layout would be a second dialect to author
 in.
 
 **How a referee CPK is composed.** Every PES version has **35 referee slots**

@@ -715,7 +715,8 @@ preset.
 
 Tools the suite will take in, with no phase or plan yet:
 
-- **Aesthetics ATF bot** (the maintainer's `Tools_4cc/4cc-aes-atf-bot`, Python): drives a
+- **Aesthetics ATF bot** (the maintainer's `Tools_4cc/4cc-aes-atf-bot`, Python; the Aesthetics
+  ATF is the semi-manual check of a cup's aesthetics exports, `GLOSSARY.md` "ATF"): drives a
   running PES's Edit mode with a virtual Xbox 360 pad and records every player of each team of
   a teams list through OBS's WebSocket (a still, a dribbling clip, a corner-kick clip), so a
   cup's aesthetics are checked without playing through the rosters by hand. Its pad and OBS
