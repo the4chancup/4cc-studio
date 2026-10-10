@@ -324,7 +324,10 @@ The first line is `type(scope): summary` (Conventional Commits), scope being the
 (`fix(vtree): ...`, `feat(studio_core): ...`, `docs(plans): ...`, `chore(workspace): ...`; a
 multi-crate step uses its phase, `feat(phase2): ...`). Types: `feat`, `fix`, `docs`, `test`,
 `refactor`, `perf` (a change made for speed or memory that changes no behavior), `chore`
-(workspace, dependencies, CI). The body says why, not what; the diff says
+(workspace, dependencies, CI). The first line is at most 120 characters: it is what `git log
+--oneline` and every tool's history view show, and a subject that lists every change of the
+commit is a body written on the wrong line (the maintainer's rule, 2026-10-10, after subjects
+of up to 368 characters). The body says why, not what; the diff says
 what. This is for maintainers reading history (`git log --grep '^fix('` when bisecting), not for
 members: `CHANGELOG.md` stays hand-written per the core plan's "Changelog and version display" and
 is never generated from commit messages. From the first release on, a commit that changes

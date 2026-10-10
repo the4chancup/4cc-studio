@@ -4042,7 +4042,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `test`; one that moves code without changing behavior is `refactor`; one fixing a defect
   stays `fix`), with an interactive-free rebase (`git rebase` with a script `exec`, never
   `-i`) run when no sidekick edits the tree and nothing is uncommitted, then a force push.
-  → verify: `git log --oneline` shows the new types; `just gates` green at the new HEAD.
+  The same rebase cuts every subject over 120 characters (the maintainer's rule,
+  2026-10-10, `CONTRIBUTING.md` "Commits"; the longest today is 368): the subject keeps
+  its type, scope and the one-line gist, and what it listed moves to the body's first
+  paragraph when the body does not already say it. The rebase script rewrites messages
+  from a table the lead writes by hand (`.tmp/4_y/retag/messages.tsv`: hash, new subject),
+  one row per commit touched, reviewed before the run.
+  → verify: `git log --oneline` shows the new types and no subject over 120 characters
+  (`git log --format=%s | awk 'length > 120'` prints nothing); `just gates` green at the
+  new HEAD.
 
 - [x] 4.y-fix17 **Three small deep-pass and collar follow-ups** (brief
   `.tmp/4_y/brief_fix17.md`, 2026-10-10). (1) `held_stems` takes a marked player's combined
