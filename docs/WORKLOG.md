@@ -4308,7 +4308,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   orphan pass counts a dropped link, short of "a dropped link is no link" (DECISIONS
   2026-10-10): both leave a dropped link out; test: a consumer `DropFile` on `Crocs.boots`
   leaves the player's links empty and `Boots/Crocs` `shared_folder_orphaned`. S18.A1-2 (the
-  singletons below a subfolder) is slice (b1)'s, checked at its review.
+  singletons below a subfolder) is slice (b1)'s, checked at its review. From S7's second
+  SWE-2 round and S17's first (rulings "S7.2", "S17.1"): (4) a folder that plans no
+  package plans no textures task and each of its textures is `file_not_used` (decision;
+  today `folder_tasks` plans the task with no package and `commit_folder` discards the
+  converted textures with no finding); (5) `validation.rs` `model_name_messages`'s doc
+  comment still cites "Reserved subfolders" and "in `face/`"; (6) `model_for_pre_fox`
+  takes a `ConvertedMaterials` like its three siblings and the pre-Fox collar arm of
+  `process_task` passes `StockCollar`, so a `.model` collar's conversion skips the material
+  losses the plan's "Collars" paragraph says it skips; (7) `is_game_dummy`'s doc comment
+  says the stem folds and the directory is exact. Deferred to the design-health pass, after
+  (b2): `prefox_face.rs` at about 1,550 production lines (S17.1-3: the user-xml half as
+  `processing/prefox_user_xml.rs`) and `deep/mod.rs` at 1,368.
   → verify: the three tests red first (the panic reproduced, the mesh swap, the dropped
   link counted); gates green; `just mutants-diff` over the rework.
 
@@ -6701,3 +6712,14 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   texture's own directory, decision and in-game item (f); the shared writer resolves
   nearest first too; a nested singleton gets no role); TC-MOD-65 reworded to the rule
   and proven.
+- **2026-10-10** — S7's second SWE-2 round and S17's first ran on Devin `work` (the
+  maintainer: SWE-2 runs free there whatever its usage) from the review worktree
+  (`36f646f`): S7 five concerns, four accepted (two already closed by 4.y-sub (b1), a
+  textures-only folder's textures discarded with no finding (decision), stale doc text;
+  the cross-folder kit-set edge case rejected), its loop ends; S17 three concerns, three
+  accepted (the `.model` collar's conversion cannot skip material losses, a comment, the
+  `prefox_face.rs` size for the design-health pass), its loop ends and S17 is closed.
+  Step 4.y-fix21 takes items (4) to (7). S14's second SWE-2 round ran beside them: no
+  defect (the subfolder singletons seen again, slice (b1)'s), its loop ends and S14 is
+  closed; its note that the 4.12 step's "known, not fixed" list is stale (item 1 fixed
+  by 4.y-fix1 (h), item 3's parenthetical wrong since 4.y-fix15) is for the collapse.

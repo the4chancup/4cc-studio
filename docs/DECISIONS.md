@@ -6435,3 +6435,15 @@ knows not to load. Not checked in game yet: 4.y-ingame2 (f), `QUESTIONS.md` "In-
 checks"; if it does not draw, the fallback is a flat home with a renamed texture.
 Plan: `aesthetics_export/player_folders.md` "Paths are kept"; `team_compiler/pipeline.md`
 step 3's texture-sources sentence and the installed-CPK lookup sentence ("Format conversion").
+
+## 2026-10-10 — team_compiler — a folder that plans no package plans no textures task; its textures are `file_not_used`
+Decision: planning gives a player, referee or shared folder a textures task only beside at
+least one package task; a folder with textures and no model (a referee folder holding
+`skin.dds` alone, an `ingame_face` player with no part) gets no task and each of its textures
+is reported `file_not_used`, as a file no package reads.
+Why: S7's second SWE-2 round: `folder_tasks` planned the textures task with an empty package
+list and the writer commits a folder's textures only after a package committed, so such a
+folder converted its textures and discarded them with no finding. Committing them anyway
+would put dead content in the CPK at a path nothing names; the finding tells the member
+what the compiler did with the files.
+Plan: `team_compiler/pipeline.md` step 6, the writer's group sentence.
