@@ -1328,6 +1328,14 @@ TC-KIT-31  GIVEN p1/ holding kit.dds and a kit_mask.dds whose header is a PNG's
            WHEN the export is compiled for PES 21
            THEN no texture finding names kit_mask.dds, kit_texture_not_used is reported
                 naming it, and u0714p1.ftex is in the CPK
+TC-KIT-32  GIVEN p1/config.toml holding shirt model 176 with short_sleeves = "cut-out", p2's
+           model 176 with long_sleeves = "undershirt-only", p3's model 176 with tight = true,
+           and p4's model 144 with all three
+           WHEN the export is checked, then compiled, for PES 21
+           THEN kit_config_option_ignored is reported both times for p1, p2 and p3, once each,
+                naming the option (shirt.short_sleeves, shirt.long_sleeves, shirt.tight) and
+                the model 176, nothing names p4, and p1's emitted config still holds the
+                cut-out sleeves
 ```
 
 **Root files, Common and collars**

@@ -6305,3 +6305,17 @@ Astra's S14 round read as a missing override and a missing finding. A wording fi
 resource nobody can meaningfully replace.
 Plan: `team_compiler/pipeline.md` step 2's blank-face paragraph, step 3's packing sentence,
 "Templates and fallback bins".
+
+## 2026-10-10 — team_compiler — `kit_config_option_ignored` checks the config as emitted
+Decision: the deep pass applies the FPC values to its copy of a supplied kit config before
+it looks for a sleeve or fit option the shirt model ignores, when the team's kit-FPC
+status is On (`EffectiveTeamKitFpc::of`), so a config written for model 144 or 160 with
+cut-out short sleeves, undershirt-only long sleeves or the tight fit is reported with the
+model it goes out on, 176.
+Why: the sidekick's contradiction at 4.y-kitwarn: `apply_fpc` sets the shirt model to
+176, so on an FPC team such a config lost its option in game with no finding, the pass
+checking the config as written. The status is known from the validated export (any
+player folder's `fpc_on`), which the pass has; the other option, a help sentence alone,
+would leave the one case the Warning exists for unreported on the teams that use FPC.
+The clamps are unaffected: the FPC values touch no clamped field.
+Plan: `team_compiler/pipeline.md` "Kit configs"; `messages.md` `kit_config_option_ignored`.

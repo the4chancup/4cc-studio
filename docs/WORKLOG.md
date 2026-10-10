@@ -38,9 +38,10 @@ planning does, drops a beaten Common model with its winner, leaves an xml's unna
 Fox's unsearched Common `.mtl` files unread, skips a refs export's kits, logo, portraits and
 collars; `common_model_beaten_dropped`), 4.y-sub opened 2026-10-10
 (a subfolder of a player folder is a player folder of its own; the reserved subfolders gone, the
-AET referee layout refused per folder), 4.y-kitwarn and 4.y-retag opened 2026-10-10 (the
-maintainer's answers: one Warning for a sleeve or fit option the shirt model ignores; the
-2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
+AET referee layout refused per folder), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
+values applied first on an FPC team), 4.y-retag opened 2026-10-10 (the maintainer's answer:
+the 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
 (a `.model` collar converts with the templates' `uniform.mtl` on both engines, the
 pre-check moving a PES 15-17 one onto the version's skeleton; TC-CMN-11, TC-CMN-19), 4.y-fix17
 done 2026-10-10 (the marker's combined folders in `held_stems`, `texture_unreadable` and
@@ -3935,7 +3936,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `HAHA Aesthetic Export VTL9 i3` (`C:/Data/4cc/Lab/`, 23 players, 688 nested files)
   compiles for PES 17 with every player kept and its face CPKs holding the tree.
 
-- [ ] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
+- [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
   three `kit_*_requires_model_144_or_160` findings to `kit_config_option_ignored` (W, kept,
   context the file, the option and the shirt model), as it maps the two clamps to
@@ -3944,6 +3945,25 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   → verify: a CLI test per option (cut-out short sleeves, undershirt-only long sleeves, the
   tight fit, each on a shirt model outside 144 and 160), red first; a config on model 144
   with the three options reports nothing.
+  Done 2026-10-10 (Opus 5.5, one run and one rework round): `Code::KitConfigOptionIgnored`
+  (Warning); `deep/documents.rs` `option_ignored` maps the three `validate` findings to the
+  option's TOML key (`shirt.short_sleeves`, `shirt.long_sleeves`, `shirt.tight`) and the
+  shirt model, reported by `kit_config_findings` after the clamps, on the file, kept. The
+  rework, the sidekick's contradiction: the config is checked as emitted, the FPC values
+  applied first when the team's kit-FPC status is On (`EffectiveTeamKitFpc::of`, now
+  `pub(crate)`), since `apply_fpc` sets the shirt model to 176 and a config written for
+  144 or 160 lost its option in game with no finding (DECISIONS 2026-10-10 "checks the
+  config as emitted"; pipeline.md, messages.md; the status read before the deep pass's
+  own drops, a plan note). `bins/kit_configs.rs`'s installed-config
+  patch is untouched (it changes no sleeve or fit value). Help paragraph in
+  `01_command_line.md`. Tests: TC-KIT-32 (`compile_exports.rs`: `check` and `compile`
+  for PES 21, three Warnings, nothing on model 144, p1's config emitted with its cut-out
+  sleeves), the `fpc_on` variant (model 144 reported as 176), the `documents.rs` unit
+  test (order after the clamps, the FPC case). Files: `team_compiler` `messages.rs`,
+  `deep/documents.rs`, `deep/mod.rs`, `plan/mod.rs`, `help/01_command_line.md`,
+  `tests/cli/compile_exports.rs`; README TC-KIT-32, pipeline.md, messages.md, DECISIONS
+  (lead). Gates green (`.tmp/4_y/gates_kitwarn_r2.log`, acceptance 309 of 314); mutants
+  13/0/1 (`.tmp/4_y/mutants_kitwarn_r2.log`).
 
 - [ ] 4.y-retag **The 2026-10-05 retags reviewed** (the maintainer's answer, 2026-10-10:
   "whichever fits Conventional Commits best"; rebasing and force-pushing are fine, the
@@ -6416,3 +6436,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-10** — 4.y-fix14 (b) done (sidekick, one run, no rework), the step closed: on
   PES 15-17 a referee folder holding `fpc_off` lists the referee template's refkit body
   after his own models, but for the boots or hands he has of his own.
+- **2026-10-10** — 4.y-kitwarn done (sidekick, one run and one rework round): a sleeve
+  or fit option the kit's shirt model ignores is one Warning, `kit_config_option_ignored`,
+  on the config as emitted: the sidekick found that the FPC values set the shirt model to
+  176, so a config written for 144 or 160 lost its option with no finding (decision).

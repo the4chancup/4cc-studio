@@ -653,7 +653,7 @@ impl EffectiveTeamKitFpc {
     /// The status of the team of `export`, the validated export: `On` when one of its player
     /// folders carries `fpc_on`. A folder validation dropped is not among them, so its marker
     /// does not count, and `fpc_off` is a statement about its own player alone.
-    fn of(export: &ValidatedAestheticsExport) -> EffectiveTeamKitFpc {
+    pub(crate) fn of(export: &ValidatedAestheticsExport) -> EffectiveTeamKitFpc {
         if export
             .players
             .iter()

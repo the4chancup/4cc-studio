@@ -606,6 +606,13 @@ lowers such a value in an installed config it changes for a kit the export does 
 FPC values or the collar above), and reports it the same way, naming the kit. The same `y` puts
 the name at the same height on every version, so a config needs no change to move between them.
 
+A kit config that asks for cut-out short sleeves, undershirt-only long sleeves or the tight fit
+on a shirt model other than 144 or 160 is reported by both commands as the warning
+`kit_config_option_ignored`, naming the option and the model. The config is built as written,
+and the game ignores the option on that model. On a team whose kit-FPC status is on, the FPC
+values set the shirt model to 176, so a config written for model 144 or 160 with one of these
+options is reported with model 176, the model it is built with.
+
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `4cc-studio` unless you changed it). To use another folder for one run, give its path as
 `exports-root`; the setting is not changed. The `exports/` folder beside `4cc-studio` is created

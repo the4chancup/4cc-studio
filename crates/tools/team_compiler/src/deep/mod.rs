@@ -82,6 +82,7 @@ use vtree::ScopePath;
 use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
+use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::roles::{
     FolderModels, PlayerFile, directory_stem, emits_kit_texture, file_stem, in_folder_or_face,
     is_direct_root_folder_file, is_read_common_file, is_selected_common_model, is_user_face_xml,
@@ -457,8 +458,9 @@ pub(crate) fn content_findings(
     // An `all/` texture is read once, however many kits inherit it, and its findings are kept
     // by its path; each inheriting kit gets them on its own scope.
     let mut inherited: BTreeMap<&str, Vec<ContentFinding>> = BTreeMap::new();
+    let fpc = EffectiveTeamKitFpc::of(export);
     for kit in export.kits.kits.values() {
-        findings.extend(kit_config_findings(content, kit, version));
+        findings.extend(kit_config_findings(content, kit, version, fpc));
         if let Some(colors) = &kit.colors {
             findings.extend(colors_findings(content, colors, KIT_COLORS));
         }

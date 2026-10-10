@@ -6,7 +6,7 @@ use std::fs;
 use std::path::Path;
 
 use dds_convert::{BlockCodec, SourceFormat, decode};
-use kit_config::{KitConfig, KitSlot};
+use kit_config::{KitConfig, KitSlot, ShortSleeves};
 use pes_version::PesVersion;
 use studio_core::PipelineEvent;
 
@@ -1516,6 +1516,85 @@ fn a_kit_config_value_the_version_cannot_hold_is_reported_and_clamped() {
     let lines = check.messages();
     assert!(
         findings_of(&lines, "co Midcup Clamp").contains(&clamped),
+        "{lines:#?}"
+    );
+}
+
+// TC-KIT-32
+#[test]
+fn a_sleeve_or_fit_option_the_shirt_model_ignores_is_reported_and_the_config_kept() {
+    let sandbox = Sandbox::new("kit_config_option_ignored");
+    let export = "exports/co Midcup Ignored";
+    let configs: [(&str, &[u8]); 4] = [
+        ("p1", b"[shirt]\nmodel = 176\nshort_sleeves = \"cut-out\"\n"),
+        ("p2", b"[shirt]\nmodel = 176\nlong_sleeves = \"undershirt-only\"\n"),
+        ("p3", b"[shirt]\nmodel = 176\ntight = true\n"),
+        (
+            "p4",
+            b"[shirt]\nmodel = 144\nshort_sleeves = \"cut-out\"\nlong_sleeves = \"undershirt-only\"\ntight = true\n",
+        ),
+    ];
+    for (slot, config) in configs {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+        sandbox.write(&format!("{export}/Kits/{slot}/config.toml"), config);
+    }
+    let ignored = [
+        "Warning kit_config_option_ignored [Keep] at Kits/p1/config.toml (option=shirt.short_sleeves, model=176)",
+        "Warning kit_config_option_ignored [Keep] at Kits/p2/config.toml (option=shirt.long_sleeves, model=176)",
+        "Warning kit_config_option_ignored [Keep] at Kits/p3/config.toml (option=shirt.tight, model=176)",
+    ];
+    let reported = |lines: &[String]| -> Vec<String> {
+        findings_of(lines, "co Midcup Ignored")
+            .into_iter()
+            .filter(|line| line.contains("kit_config_option_ignored"))
+            .map(str::to_owned)
+            .collect()
+    };
+
+    let check = sandbox.run(&pes_settings(&sandbox, 21), &["check"]);
+    let lines = check.messages();
+    assert_eq!(reported(&lines), ignored, "{lines:#?}");
+    assert_eq!(check.exit_code(), 0);
+
+    let run = sandbox.run(&pes_settings(&sandbox, 21), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(reported(&lines), ignored, "{lines:#?}");
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let p1 = emitted_config(&entries, "1st", PesVersion::Pes21);
+    assert_eq!(p1.shirt.short_sleeves, ShortSleeves::CutOut);
+    assert_eq!(p1.shirt.model, 176);
+}
+
+#[test]
+fn with_fpc_on_a_model_144_config_s_options_are_reported_with_the_fpc_model_176() {
+    let sandbox = Sandbox::new("kit_config_option_ignored_fpc_on");
+    let export = "exports/co Midcup Ignored";
+    sandbox.write(
+        &format!("{export}/Players/05 - A/face_high.fmdl"),
+        &clean_model(),
+    );
+    sandbox.write(&format!("{export}/Players/05 - A/fpc_on"), b"");
+    sandbox.write(&format!("{export}/Kits/p4/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Kits/p4/config.toml"),
+        b"[shirt]\nmodel = 144\nshort_sleeves = \"cut-out\"\nlong_sleeves = \"undershirt-only\"\ntight = true\n",
+    );
+
+    let check = sandbox.run(&pes_settings(&sandbox, 21), &["check"]);
+
+    let lines = check.messages();
+    let reported: Vec<&str> = findings_of(&lines, "co Midcup Ignored")
+        .into_iter()
+        .filter(|line| line.contains("kit_config_option_ignored"))
+        .collect();
+    assert_eq!(
+        reported,
+        [
+            "Warning kit_config_option_ignored [Keep] at Kits/p4/config.toml (option=shirt.short_sleeves, model=176)",
+            "Warning kit_config_option_ignored [Keep] at Kits/p4/config.toml (option=shirt.long_sleeves, model=176)",
+            "Warning kit_config_option_ignored [Keep] at Kits/p4/config.toml (option=shirt.tight, model=176)",
+        ],
         "{lines:#?}"
     );
 }

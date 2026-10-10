@@ -767,7 +767,15 @@ describes behavior, not a serial scheduling requirement:
   (`kit_config`'s three `kit_*_requires_model_144_or_160` findings: cut-out short sleeves,
   undershirt-only long sleeves, the tight fit) is one Warning, `kit_config_option_ignored`,
   naming the option and the shirt model: three rows for one condition, "this model ignores
-  that option", would say the same thing three ways. `kit_config`'s two Infos (a shirt model
+  that option", would say the same thing three ways. The config is checked as it is emitted,
+  not as written: on a team whose kit-FPC status is On the FPC values set the shirt model to
+  176 (above), so a config written for model 144 or 160 with one of the options goes out on a
+  model that ignores it, and the Warning names 176. The status is read from the export the
+  structure pass kept, before the deep pass's own drops: a team whose only `fpc_on` folder the
+  deep pass drops gets the Warning with 176 while planning, which reads the status after the
+  drops, emits the config unpatched; that folder's Error is in the same report, and a second
+  status computation for one false Warning on a broken export is not worth its rule.
+  `kit_config`'s two Infos (a shirt model
   outside the documented set, an undocumented sleeve value) are not reported by the compiler:
   in game a shirt model outside the set is a model the game has (150 is a sleeveless shirt on
   both engines) and a raw sleeve value draws the long-sleeve variant without sleeves, so neither

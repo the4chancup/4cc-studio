@@ -48,6 +48,10 @@ pub(crate) enum Code {
     /// A value of a kit's `config.toml` that the target version's kit config cannot hold;
     /// it is clamped to one the version holds when the config is emitted.
     KitConfigVersionClamped,
+    /// A sleeve or fit option of a kit's `config.toml` that its shirt model does not take
+    /// (cut-out short sleeves, undershirt-only long sleeves, the tight fit on a model other than
+    /// 144 or 160); the config is emitted as written, the game ignoring the option.
+    KitConfigOptionIgnored,
     /// The team's kit-FPC status is On and a kit config lacks the FPC values: a supplied one,
     /// which they are written into as it is emitted, or the installed one of a kit the team's
     /// `UniColor.bin` record holds that a `Midcup` export does not, patched in place.
@@ -460,7 +464,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 137] = [
+    const ALL: [Code; 138] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -474,6 +478,7 @@ impl Code {
         Code::KitConfigGenerated,
         Code::KitConfigInvalid,
         Code::KitConfigVersionClamped,
+        Code::KitConfigOptionIgnored,
         Code::KitConfigFpcAdjusted,
         Code::KitConfigFpcUnpatched,
         Code::KitConfigCollarUnpatched,
@@ -616,6 +621,7 @@ impl Code {
             Code::KitConfigGenerated => "kit_config_generated",
             Code::KitConfigInvalid => "kit_config_invalid",
             Code::KitConfigVersionClamped => "kit_config_version_clamped",
+            Code::KitConfigOptionIgnored => "kit_config_option_ignored",
             Code::KitConfigFpcAdjusted => "kit_config_fpc_adjusted",
             Code::KitConfigFpcUnpatched => "kit_config_fpc_unpatched",
             Code::KitConfigCollarUnpatched => "kit_config_collar_unpatched",
@@ -778,6 +784,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("kit_config_generated", CatalogSeverity::Info),
     ("kit_config_invalid", CatalogSeverity::Error),
     ("kit_config_version_clamped", CatalogSeverity::Warning),
+    ("kit_config_option_ignored", CatalogSeverity::Warning),
     ("kit_config_fpc_adjusted", CatalogSeverity::Info),
     ("kit_config_fpc_unpatched", CatalogSeverity::Warning),
     ("kit_config_collar_unpatched", CatalogSeverity::Warning),

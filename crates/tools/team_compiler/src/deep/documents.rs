@@ -2,10 +2,11 @@
 //! folder's face diff (`player_folders.md` "`face_diff.xml`"), a kit's `config.toml`, a
 //! player's `settings.toml` and a kit's or the root `colors.txt` (`player_folders.md` "Root
 //! files", "Colors") (`team_compiler/messages.md`: `face_diff_invalid`, `xml_dif_conflict`,
-//! `kit_config_invalid`, `kit_config_version_clamped`, `settings_toml_invalid`,
-//! `color_entry_invalid`). None of their findings is pass-through-eligible: a file that cannot
-//! be read leaves no value to keep, and a clamped config value and a refused `colors.txt` line
-//! are Warnings, which drop nothing.
+//! `kit_config_invalid`, `kit_config_version_clamped`, `kit_config_option_ignored`,
+//! `settings_toml_invalid`, `color_entry_invalid`). None of their findings is
+//! pass-through-eligible: a file that cannot be read leaves no value to keep, and a clamped
+//! config value, an ignored config option and a refused `colors.txt` line are Warnings, which
+//! drop nothing.
 
 use std::fmt;
 
@@ -13,7 +14,7 @@ use aesthetics_export::{
     ColorLineRefusal, ContentFinding, Disposition, FileDescriptor, IssueScope, KitFolder,
     PlayerFolder, read_colors_txt,
 };
-use kit_config::KitConfig;
+use kit_config::{KitConfig, apply_fpc};
 use pes_savefile::settings_toml::PlayerSettings;
 use pes_version::PesVersion;
 use vtree::ScopePath;
@@ -21,6 +22,7 @@ use vtree::ScopePath;
 use super::{read, relative};
 use crate::face_diff;
 use crate::messages::Code;
+use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::roles::{FolderModels, PlayerFile, player_file};
 use crate::reader::ContentSource;
 
@@ -143,17 +145,25 @@ pub(super) fn face_diff_findings(
 /// dropped, its textures with it, since the config names them. Otherwise one
 /// `kit_config_version_clamped` per value the version's kit config cannot hold, on the file
 /// and kept, naming the field, the value and the version's maximum, in `kit_config::validate`'s
-/// order: the value is clamped when the config is emitted. `validate`'s other findings are not
-/// reported.
+/// order: the value is clamped when the config is emitted. After them, one
+/// `kit_config_option_ignored` per sleeve or fit option the config's shirt model does not take,
+/// on the file and kept, naming the option and the model: the config is emitted as written and
+/// the game ignores the option. `validate`'s other findings (its two Infos and
+/// `kit_collar_zero`) are not reported (`team_compiler/pipeline.md` "Kit configs").
+///
+/// The config is checked as it is emitted: when the team's kit-FPC status `fpc` is `On`, with
+/// the FPC values applied, because they set the shirt model to 176, which takes none of the
+/// options.
 pub(super) fn kit_config_findings(
     content: &ContentSource,
     kit: &KitFolder,
     version: PesVersion,
+    fpc: EffectiveTeamKitFpc,
 ) -> Vec<ContentFinding> {
     let Some(file) = kit.config.as_ref() else {
         return Vec::new();
     };
-    let config = match parsed_toml(
+    let mut config = match parsed_toml(
         content,
         file,
         Code::KitConfigInvalid,
@@ -164,14 +174,50 @@ pub(super) fn kit_config_findings(
         Ok(config) => config,
         Err(invalid) => return vec![invalid],
     };
-    version_clamped(&config, version)
+    // Once, before both checks: the FPC values touch no field the version clamps, so the
+    // clamps come out the same either way.
+    match fpc {
+        EffectiveTeamKitFpc::On => apply_fpc(&mut config),
+        EffectiveTeamKitFpc::Unknown => {}
+    }
+    let clamped = version_clamped(&config, version)
         .into_iter()
-        .map(|context| ContentFinding {
-            code: Code::KitConfigVersionClamped.as_str(),
+        .map(|context| (Code::KitConfigVersionClamped, context));
+    let ignored = option_ignored(&config, version)
+        .into_iter()
+        .map(|context| (Code::KitConfigOptionIgnored, context));
+    clamped
+        .chain(ignored)
+        .map(|(code, context)| ContentFinding {
+            code: code.as_str(),
             scope: IssueScope::File(file.path.clone()),
             context,
             disposition: Disposition::Keep,
             pass_through_eligible: false,
+        })
+        .collect()
+}
+
+/// The context of one `kit_config_option_ignored` per sleeve or fit option of `config` that
+/// its shirt model does not take (`kit_config::validate`'s three
+/// `kit_*_requires_model_144_or_160` findings), in `validate`'s order: the option's TOML key
+/// and the shirt model.
+fn option_ignored(config: &KitConfig, version: PesVersion) -> Vec<Vec<(&'static str, String)>> {
+    kit_config::validate(config, version)
+        .into_iter()
+        // `validate`'s codes are strings, not one of our enums, so the catch-all arm is the
+        // only form: it is every finding this function does not report.
+        .filter_map(|finding| match finding.code {
+            "kit_cut_out_requires_model_144_or_160" => Some("shirt.short_sleeves"),
+            "kit_undershirt_only_requires_model_144_or_160" => Some("shirt.long_sleeves"),
+            "kit_tight_requires_model_144_or_160" => Some("shirt.tight"),
+            _ => None,
+        })
+        .map(|option| {
+            vec![
+                ("option", option.to_owned()),
+                ("model", config.shirt.model.to_string()),
+            ]
         })
         .collect()
 }
@@ -298,6 +344,7 @@ mod tests {
     use crate::deep::tests::{
         dropping, findings_for, findings_of, fixture, folder, path, texture, tracer_file,
     };
+    use crate::plan::EffectiveTeamKitFpc;
     use crate::testing::scratch;
 
     /// A Fox model in which `fmdl`'s check finds nothing (the tracer's right glove), for a
@@ -451,22 +498,35 @@ mod tests {
 
     /// The deep pass's findings on a kit `p1` whose `config.toml` holds `config`.
     fn kit_findings(name: &str, config: &[u8]) -> Vec<ContentFinding> {
-        kit_findings_for(name, PesVersion::Pes21, config)
+        kit_findings_for(
+            name,
+            PesVersion::Pes21,
+            EffectiveTeamKitFpc::Unknown,
+            config,
+        )
     }
 
-    /// `kit_findings` for PES `version`.
-    fn kit_findings_for(name: &str, version: PesVersion, config: &[u8]) -> Vec<ContentFinding> {
+    /// `kit_findings` for PES `version`, the team's kit-FPC status `fpc`: when `On`, slot 05's
+    /// folder, holding a face model, carries `fpc_on`.
+    fn kit_findings_for(
+        name: &str,
+        version: PesVersion,
+        fpc: EffectiveTeamKitFpc,
+        config: &[u8],
+    ) -> Vec<ContentFinding> {
         let temp = scratch(name);
-        findings_for(
-            version,
-            temp.path(),
-            &[
-                ("Kits/p1/kit.png", texture("kit.png")),
-                ("Kits/p1/config.toml", config.to_vec()),
-            ],
-            &[],
-            &[],
-        )
+        let mut files = vec![
+            ("Kits/p1/kit.png", texture("kit.png")),
+            ("Kits/p1/config.toml", config.to_vec()),
+        ];
+        match fpc {
+            EffectiveTeamKitFpc::On => files.extend([
+                ("Players/05 - A/face_high.fmdl", clean_model()),
+                ("Players/05 - A/fpc_on", Vec::new()),
+            ]),
+            EffectiveTeamKitFpc::Unknown => {}
+        }
+        findings_for(version, temp.path(), &files, &[], &[])
     }
 
     /// `kit_config_version_clamped` on `Kits/p1/config.toml`, kept, for `field`, `value` and
@@ -487,18 +547,30 @@ mod tests {
 
     #[test]
     fn a_kit_config_value_over_the_version_s_maximum_is_reported_and_kept() {
+        let unknown = EffectiveTeamKitFpc::Unknown;
         assert_eq!(
-            kit_findings_for("deep_kit_name_y_18", PesVersion::Pes18, b"[name]\ny = 36\n"),
+            kit_findings_for(
+                "deep_kit_name_y_18",
+                PesVersion::Pes18,
+                unknown,
+                b"[name]\ny = 36\n"
+            ),
             [clamped("name.y", "36", "33")]
         );
         assert_eq!(
-            kit_findings_for("deep_kit_name_y_21", PesVersion::Pes21, b"[name]\ny = 39\n"),
+            kit_findings_for(
+                "deep_kit_name_y_21",
+                PesVersion::Pes21,
+                unknown,
+                b"[name]\ny = 39\n"
+            ),
             []
         );
         assert_eq!(
             kit_findings_for(
                 "deep_kit_pattern_15",
                 PesVersion::Pes15,
+                unknown,
                 b"[shirt]\npattern = 12\n"
             ),
             [clamped("shirt.pattern", "12", "11")]
@@ -508,12 +580,71 @@ mod tests {
             kit_findings_for(
                 "deep_kit_two_clamped_15",
                 PesVersion::Pes15,
+                unknown,
                 b"[shirt]\npattern = 12\n\n[name]\ny = 36\n"
             ),
             [
                 clamped("name.y", "36", "33"),
                 clamped("shirt.pattern", "12", "11")
             ]
+        );
+    }
+
+    /// `kit_config_option_ignored` on `Kits/p1/config.toml`, kept, for `option` and `model`.
+    fn ignored(option: &str, model: &str) -> ContentFinding {
+        ContentFinding {
+            code: "kit_config_option_ignored",
+            scope: IssueScope::File(path("Kits/p1/config.toml")),
+            context: vec![("option", option.to_owned()), ("model", model.to_owned())],
+            disposition: Disposition::Keep,
+            pass_through_eligible: false,
+        }
+    }
+
+    #[test]
+    fn a_sleeve_or_fit_option_the_shirt_model_does_not_take_is_reported_and_kept() {
+        let three =
+            "short_sleeves = \"cut-out\"\nlong_sleeves = \"undershirt-only\"\ntight = true\n";
+        assert_eq!(
+            kit_findings(
+                "deep_kit_options_176",
+                format!("[shirt]\nmodel = 176\n{three}").as_bytes()
+            ),
+            [
+                ignored("shirt.short_sleeves", "176"),
+                ignored("shirt.long_sleeves", "176"),
+                ignored("shirt.tight", "176"),
+            ]
+        );
+        let model_144 = format!("[shirt]\nmodel = 144\n{three}");
+        assert_eq!(
+            kit_findings("deep_kit_options_144", model_144.as_bytes()),
+            []
+        );
+        // With the team's kit-FPC status On the config is emitted with shirt model 176, which
+        // takes none of the three.
+        assert_eq!(
+            kit_findings_for(
+                "deep_kit_options_144_fpc_on",
+                PesVersion::Pes21,
+                EffectiveTeamKitFpc::On,
+                model_144.as_bytes()
+            ),
+            [
+                ignored("shirt.short_sleeves", "176"),
+                ignored("shirt.long_sleeves", "176"),
+                ignored("shirt.tight", "176"),
+            ]
+        );
+        // After the clamped values.
+        assert_eq!(
+            kit_findings_for(
+                "deep_kit_option_after_clamp",
+                PesVersion::Pes18,
+                EffectiveTeamKitFpc::Unknown,
+                b"[shirt]\nmodel = 176\ntight = true\n\n[name]\ny = 36\n"
+            ),
+            [clamped("name.y", "36", "33"), ignored("shirt.tight", "176")]
         );
     }
 
