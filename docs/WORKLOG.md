@@ -24,7 +24,8 @@ with 4.19d, 4.27b is done (4.27 done); 4.9 is done
 reported, a `Collars/` subfolder ignored; TC-BIN-23, TC-BIN-24, TC-CMN-16, TC-REF-14),
 4.y-fix9 done 2026-10-09 (a shared face's `face.xml` rules its linking faces; TC-XML-14,
 TC-XML-15),
-4.y-fix11 opened 2026-10-09 (S7's, S8's, S12's and S13's SWE-2 rework),
+4.y-fix11 done 2026-10-10 (S7's, S8's, S12's and S13's SWE-2 rework: fourteen items; a kit
+variant set spans every file a part is built from),
 4.y-fix15 opened 2026-10-10 (S14's SWE-2 rework), 4.y-7z opened 2026-10-10 (a small `.7z`
 export decompressed once),
 4.y-fix10 done 2026-10-10 (a pre-Fox per-kit model set completed against the kit
@@ -3349,7 +3350,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `processing/prefox_face.rs`, `messages.rs`, `help/01_command_line.md`,
   `tests/cli/prefox_kit_variants.rs`, `prefox_hand_split.rs`, `prefox_user_xml.rs`.
 
-- [ ] 4.y-fix11 **S7's, S8's, S12's and S13's SWE-2 rework** (rulings S7.1, S8.1, S12.1,
+- [x] 4.y-fix11 **S7's, S8's, S12's and S13's SWE-2 rework** (rulings S7.1, S8.1, S12.1,
   S13.1 in `.tmp/4_y/duck_rulings.md`). (1) A shared `Boots/` or `Gloves/` folder gives no
   face: its face files are `face_file_not_used` (`roles.rs` `FolderModels::read`). (2) A
   combined shared source's `.model` is searched with no `Common/` files, as the deep pass
@@ -3376,6 +3377,28 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   as color. Crates: tc
   → verify: a test per item (1)-(4), (6)-(9), (11), (12), red first; S7 gets a second
   SWE-2 round on the rework diff, and S12 and S13 their SWE-2 rounds on it.
+  Done 2026-10-10 (sidekick, one run): every item landed with its test, red first;
+  item (9) as the sidekick's two contradictions, both accepted: a part's sets span all
+  its sources only where the player's own folder leaves out variants (a pre-Fox
+  referee's combined boots are an output of their own, and spanning them emptied his
+  boots folder in a test), and a set is reported on the player only when it holds a
+  file of his own (the literal rule reported a shared folder's set once per linking
+  player, which an existing test forbids); two files of one kit number in two
+  directories stay "neither used nor left out". Brief errors the sidekick caught: (1)'s
+  Fox case and (2)'s scenario could not go red (a face-named `crocs.fmdl` and a
+  `materials.mtl` beside a name-matched link did), (13)'s lone `socks_kit1` is never
+  completed (`socks_kit3` added). (7): `processing::wrap_dds` re-wraps the portrait on
+  PES 15-17 when `dds_compression` is on. (8) is reachable only through a texture link
+  an earlier installed CPK satisfies (a midcup export). Gates green, acceptance 301 of
+  312 (the eleven unproven are open steps'). `mutants-diff 069703f`: 43 mutants, 32
+  caught, 10 unviable, 1 missed (`part_sources(index + 1)` in `ModelFolder::roles`:
+  fix16 item (9)). Follow-ups to fix16: the deep pass's per-folder roles (6), the
+  `admitted` double report (7), the pre-Fox siblings of (2) (8). The TC-KIT-19 margin
+  is an issue below.
+  Files: `src/deep/mod.rs`, `src/kit_variants.rs`, `src/plan/mod.rs`, `src/plan/roles.rs`,
+  `src/processing/model.rs`, `src/processing/texture.rs`, `tests/cli/common_links.rs`,
+  `kit_layout.rs`, `models.rs`, `prefox_kit_variants.rs`, `prefox_kits.rs`,
+  `prefox_user_xml.rs`, `referees.rs`, `textures.rs`.
 
 - [ ] 4.y-fix12 **A `.model` collar converts with the templates' `uniform.mtl`** (the
   maintainer's answer, 2026-10-09). Lead first (a template is correctness-critical): PES 17's
@@ -3551,7 +3574,24 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   variants count as referenced). (4) On Fox a Common `.mtl` is unread unless a selected
   `.model`'s conversion or a Common `.model` link's search reads it; `messages.md` ~278
   reworded to match ~330. (5) A refs export's kits, logo, portraits and collars are not
-  checked, as its root colors are not. Plan: `pipeline.md` "Deep validation" (~105),
+  checked, as its root colors are not. From 4.y-fix11's review (2026-10-10): (6) the
+  deep pass reads a player's models by his folder's roles alone, so a variant left out
+  only across sources (a combined `Boots/` folder's `boots_kit2.fmdl` beside the
+  player's `boots_kit1.fmdl`, which his boots package leaves out) is still read and
+  checked, and a broken one drops the folder: the pass takes the roles over the
+  sources, as `ModelFolder::roles` does. (7) `roles::admitted` (`validation.rs` ~795)
+  goes through `role_position`, so a file below a shared folder's subfolder is
+  `file_type_disallowed` alone, not `file_not_used` again (the fix11 test in
+  `models.rs` pins the double report today: update it). (8) `prefox_face.rs` ~421 and
+  `prefox_shared.rs` ~445 search a combined source's `.model` with the player's
+  `common_files`, as `processing/model.rs` did before fix11 item (2): the same rule,
+  a test per site on PES 17 (a combined `Boots/` holding `materials.mtl` and a
+  name-matched `boots.mtl.common` link), reported if no failure reproduces. (9) fix11's
+  mutation survivor: `ModelFolder::roles`'s `part_sources(index + 1)` (`plan/mod.rs`
+  ~319) with `*` for `+` gives a pre-Fox face's first combined folder the player's own
+  files as its source, so the folder's own set is not left out; test: a PES 17 referee
+  linking `Boots/Studs` holding `boots_kit1.model` and `boots_kit2.model`, whose
+  `k99NN` boots hold kit 1's model alone. Plan: `pipeline.md` "Deep validation" (~105),
   `messages.md` `file_not_used`, `xml_model_unlisted`, ~278; DECISIONS 2026-10-09 "One
   rule". Crates: tc
   → verify: a test per item, red first (a marked folder with a broken higher variant
@@ -4006,6 +4046,14 @@ points there.
   config that "fails to validate", which the deep pass does not do) waits for a collar
   census: before a kit is dropped for a zero collar, count how many real configs carry one
   (the AET exports' `Kit Configs/` and the installs' CPKs), eventually.
+
+- open (4.y-fix11's review, 2026-10-10) — read in the Fox-to-pre-Fox direction,
+  `KIT_LAYOUT_REMAP` puts two right-sock stripes (pre-Fox 2008-2040 and 1656-1688)
+  exactly 6.00 units off their range's centre, TC-KIT-19's tolerance: the test passes
+  at its edge, and one texel more would fail it. Nothing in game shows it (the
+  maintainer's PES 21 view of design A sits as drawn, 4.y-ingame2). Check the right
+  sock's column of the table against the models at the design-health pass before
+  widening the tolerance.
 
 - open — the headless egui test harness (a frame with AccessKit on, a node by label, a click as
   press and release frames) exists twice, in `studio_core/src/shell/mod.rs` and
@@ -5831,3 +5879,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   model-gated warnings become one `kit_config_option_ignored` (step 4.y-kitwarn,
   decision), its two Infos wait for the in-game checks of 4.y-ingame2 (e) and
   `kit_collar_zero` for a collar census.
+- **2026-10-10** — 4.y-fix11 done (sidekick): the fourteen review items landed, a kit
+  variant set spanning every file a part is built from where the folder leaves variants
+  out, a shared boots or gloves folder giving no face, a `kitN` reference looked up in
+  the installed CPKs as a set, a WESYS-wrapped portrait unwrapped on Fox, TC-KIT-19
+  proving the inverse table's stripe centres. Two contradictions accepted; four
+  follow-ups to fix16; the right sock's table margin an issue.

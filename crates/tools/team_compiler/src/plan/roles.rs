@@ -564,6 +564,31 @@ fn position(folder: &ScopePath, file: &FileDescriptor) -> Option<Position> {
     .map(|(_, position)| position)
 }
 
+/// `file`'s position in the folder at `folder` when the file may take a role there: a player
+/// folder's anywhere `position` places it, a shared folder's (`shared`) only directly in it.
+/// Nothing reads a file below a shared folder's subfolder, as nothing reads one below
+/// `Common/`'s or `Collars/`'s: the reserved subfolders are a player folder's layout.
+fn role_position(folder: &ScopePath, file: &FileDescriptor, shared: bool) -> Option<Position> {
+    position(folder, file).filter(|position| !shared || *position == Position::Direct)
+}
+
+/// The files among `files` of the folder at `folder`, a shared one when `shared` is set, where a
+/// model may take a role (`role_position`, outside a player folder's `common/`, which holds
+/// textures alone): the per-kit model files there are one source of a part's sets
+/// (`FolderModels::of_part_source`), and a file nothing reads is no variant.
+pub(crate) fn role_files<'a>(
+    folder: &ScopePath,
+    files: &'a [FileDescriptor],
+    shared: bool,
+) -> Vec<&'a FileDescriptor> {
+    files
+        .iter()
+        .filter(|file| {
+            role_position(folder, file, shared).is_some_and(|position| position != Position::Common)
+        })
+        .collect()
+}
+
 /// The package and allowed name a model named `<free part>_<suffix>` goes to by its suffix
 /// alone (`player_folders.md` "Model names").
 fn suffix_role(suffix: Option<ModelSuffix>) -> (ModelPackage, &'static str) {
@@ -663,7 +688,8 @@ pub(crate) struct FolderModels {
     /// check, names nothing planning can read: it has no role.
     shared: Option<SharedKind>,
     /// The folder's face files have a package to go in: it holds a face model, on pre-Fox its
-    /// own `face.xml`, or links a shared face (`with_linked_face`).
+    /// own `face.xml`, or links a shared face (`with_linked_face`). Never set for a shared
+    /// boots or gloves folder, which gives no face.
     face: bool,
     /// The path stems of its `fcl_hair` parts, a model with no recognized suffix included
     /// (`player_folders.md` "Model names": face content the hair merge takes), each of whose
@@ -677,9 +703,10 @@ pub(crate) struct FolderModels {
     /// skeleton slot: a skeleton named after one is `skl_no_slot`. The gloves have none
     /// either, and no `.skl` pairs with a glove.
     slotless_stems: Vec<String>,
-    /// The export paths of its per-kit models with a lower variant of their set beside them,
-    /// where no `face.xml` names the set (`leaves_out_kit_variants`: on Fox; on pre-Fox under
-    /// `ingame_face` and in a shared boots or gloves folder): they are not models of the folder
+    /// The export paths of its per-kit models with a lower variant of their set beside them or
+    /// in another source of their part (`of_part_source`), where no `face.xml` names the set
+    /// (`leaves_out_kit_variants`: on Fox; on pre-Fox under `ingame_face` and in a shared boots
+    /// or gloves folder): they are not models of the folder
     /// (`PlayerFile::LeftOutKitVariant`), no skeleton pairs with one and none makes a face.
     /// Empty for a pre-Fox face, which packs every variant.
     left_out_variants: Vec<ScopePath>,
@@ -715,7 +742,8 @@ impl FolderModels {
         kind: SharedKind,
         engine: Engine,
     ) -> FolderModels {
-        FolderModels::read(folder, files, false, Some(kind), engine)
+        let sources = [role_files(folder, files, true)];
+        FolderModels::of_part_source(folder, files, &sources, false, Some(kind), engine)
     }
 
     /// The models among `files` of the folder at `folder`, which holds `ingame_face` when
@@ -738,14 +766,21 @@ impl FolderModels {
         ingame_face: bool,
         engine: Engine,
     ) -> FolderModels {
-        FolderModels::read(folder, files, ingame_face, None, engine)
+        let sources = [role_files(folder, files, false)];
+        FolderModels::of_part_source(folder, files, &sources, ingame_face, None, engine)
     }
 
-    /// `of_player_files` for a player folder, or for a shared one of the kind `shared` names,
-    /// whose `.common` links count as no model.
-    fn read(
+    /// `of_player_files` for a player folder, or `of_shared` for a shared one of the kind
+    /// `shared` names, whose `.common` links count as no model, the folder being one source of
+    /// a part whose per-kit model sets span `sources` (`kit_variants::model_variant_sets`):
+    /// the files of every folder the part is built from that may take a role there
+    /// (`role_files`), this folder's among them, the player's own first and then each combined
+    /// shared folder's. A set split between them is one set, its variants in this folder left
+    /// out but for its lowest (`ModelFolder::roles`).
+    pub(crate) fn of_part_source(
         folder: &ScopePath,
         files: &[FileDescriptor],
+        sources: &[Vec<&FileDescriptor>],
         ingame_face: bool,
         shared: Option<SharedKind>,
         engine: Engine,
@@ -759,7 +794,7 @@ impl FolderModels {
             boots_stems: Vec::new(),
             slotless_stems: Vec::new(),
             left_out_variants: if leaves_out_kit_variants(engine, ingame_face, shared) {
-                model_variant_sets(files, engine)
+                model_variant_sets(sources, engine)
                     .into_iter()
                     .flat_map(|set| set.left_out)
                     .collect()
@@ -773,7 +808,7 @@ impl FolderModels {
             converted_stems: Vec::new(),
         };
         for file in files {
-            let Some(position) = position(folder, file) else {
+            let Some(position) = role_position(folder, file, models.is_shared()) else {
                 continue;
             };
             if models.left_out_variants.contains(&file.path) {
@@ -812,12 +847,11 @@ impl FolderModels {
                         );
                     // A folder holding its own `face.xml` has a face whatever models it
                     // holds: the xml may name only Common models (`messages.md`
-                    // "User-supplied `face.xml`"). A shared boots or gloves folder's xml is
-                    // ignored.
+                    // "User-supplied `face.xml`").
                     models.face |= model_link
                         || ((file.kind == FileKind::Model(ModelFormat::PesModel) || converted)
                             && typed)
-                        || (!models.is_shared_boots_or_gloves() && is_user_face_xml(folder, file));
+                        || is_user_face_xml(folder, file);
                     continue;
                 }
             }
@@ -859,6 +893,12 @@ impl FolderModels {
                 (ModelPackage::Boots, _) => models.boots_stems.push(stem),
                 (ModelPackage::Gloves, _) => {}
             }
+        }
+        // A shared boots or gloves folder's output is one boots model or a `glove.xml`, and
+        // no face, whatever models it holds: its face files and its own `face.xml` are not
+        // used.
+        if models.is_shared_boots_or_gloves() {
+            models.face = false;
         }
         models
     }
@@ -933,9 +973,10 @@ impl FolderModels {
 /// What `file` of the player folder at `folder`, whose models are `models`, becomes in the
 /// output of a target of the engine `models` were computed for; `None` when it has no role:
 /// no task reads it, and validation reports it as `file_not_used` unless something else
-/// explains it (`validation::file_role_messages`). A file in a reserved subfolder is a part of
-/// the folder like a file directly in it, its category forced by the subfolder's name
-/// (`model_role`); its textures
+/// explains it (`validation::file_role_messages`). A file in a reserved subfolder of a player
+/// folder is a part of the folder like a file directly in it, its category forced by the
+/// subfolder's name (`model_role`), and one below a shared folder's subfolder has none
+/// (`role_position`); its textures
 /// are the folder's own, and the face's files may sit in `face/`. Each engine builds its own
 /// model format (`fox_file`, `pre_fox_file`); the textures and the face diff take the same
 /// roles on both (`texture_or_face_diff`).
@@ -944,7 +985,7 @@ pub(crate) fn player_file(
     file: &FileDescriptor,
     models: &FolderModels,
 ) -> Option<PlayerFile> {
-    let position = position(folder, file)?;
+    let position = role_position(folder, file, models.is_shared())?;
     match models.engine {
         Engine::Fox => fox_file(position, file, models),
         Engine::PreFox => pre_fox_file(position, file, models),
@@ -2568,6 +2609,93 @@ mod tests {
                 pre_fox_model("face_neck"),
                 Some(PlayerFile::Material),
                 Some(PlayerFile::FaceXml)
+            ]
+        );
+    }
+
+    #[test]
+    fn a_shared_boots_or_gloves_folder_gives_no_face_whatever_models_it_holds() {
+        for kind in [SharedKind::Boots, SharedKind::Gloves] {
+            for (names, engine) in [
+                (["boots.model", "face_diff.bin"], Engine::PreFox),
+                (["boots.fmdl", "face_diff.bin"], Engine::Fox),
+                // A model named as face content, a part of the hair in a player's folder.
+                (["crocs.fmdl", "face_diff.bin"], Engine::Fox),
+            ] {
+                assert_eq!(
+                    shared_roles("Boots/Crocs", kind, &names, engine)[1],
+                    Some(PlayerFile::UnusedFaceFile),
+                    "{kind:?} {names:?}"
+                );
+            }
+        }
+        // A shared face folder's face diff is its face's.
+        assert_eq!(
+            shared_roles(
+                "Faces/Round",
+                SharedKind::Face,
+                &["crocs.fmdl", "face_diff.bin"],
+                Engine::Fox
+            )[1],
+            Some(PlayerFile::Packed {
+                package: ModelPackage::Face,
+                name: "face_diff.bin"
+            })
+        );
+    }
+
+    #[test]
+    fn a_shared_folder_s_roles_take_only_the_files_directly_in_it() {
+        assert_eq!(
+            shared_roles(
+                "Boots/Crocs",
+                SharedKind::Boots,
+                &["boots.fmdl", "boots/extra.fmdl"],
+                Engine::Fox
+            ),
+            [
+                Some(PlayerFile::Model {
+                    package: ModelPackage::Boots,
+                    name: "boots"
+                }),
+                None
+            ]
+        );
+        assert_eq!(
+            shared_roles(
+                "Boots/Crocs",
+                SharedKind::Boots,
+                &["boots.model", "boots/extra.model", "common/skin.dds"],
+                Engine::PreFox
+            ),
+            [pre_fox_model("parts"), None, None]
+        );
+        // Nor is a variant there one of a set: the variant directly in the folder is no left-out
+        // one beside it.
+        assert_eq!(
+            shared_roles(
+                "Boots/Crocs",
+                SharedKind::Boots,
+                &["boots_kit2.fmdl", "boots/boots_kit1.fmdl"],
+                Engine::Fox
+            ),
+            [
+                Some(PlayerFile::Model {
+                    package: ModelPackage::Boots,
+                    name: "boots"
+                }),
+                None
+            ]
+        );
+        // As a model in a player's `common/`, which holds textures alone.
+        assert_eq!(
+            engine_roles(&["pants_kit2.fmdl", "common/pants_kit1.fmdl"], Engine::Fox),
+            [
+                Some(PlayerFile::Model {
+                    package: ModelPackage::Face,
+                    name: "fcl_hair"
+                }),
+                None
             ]
         );
     }

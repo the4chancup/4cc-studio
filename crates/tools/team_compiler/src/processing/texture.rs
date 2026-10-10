@@ -9,10 +9,11 @@
 //! (`texture_codec_unsupported`, `messages.md` "Textures") is a finding on the file, and what
 //! it drops is the task's business.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use aesthetics_export::{FileDescriptor, KitToken, kit_token, variant_stem};
+use aesthetics_export::{FileDescriptor, KitToken, kit_token, variant_stem, without_kit_token};
 use dds_convert::{
     BlockCodec, ConvertError, SourceFormat, Target, TextureRole, decode, encode_dds, probe,
     source_hash,
@@ -409,7 +410,8 @@ pub(super) fn decode_charge(
 }
 
 /// The portrait file `name`, in `format`, holding `bytes`, as the DDS every engine reads
-/// (`player_folders.md` "Portraits"): a DDS source under the legacy 128-byte header as it is;
+/// (`player_folders.md` "Portraits"): a DDS source under the legacy 128-byte header as it is,
+/// unwrapped when it is WESYS-wrapped;
 /// one under a DX10 extension header with the header `ftex::dds::header_bytes` writes for its
 /// format and its pixel data unchanged, noted in `findings` as `portrait_header_rewritten`, or,
 /// for an uncompressed layout that has no `PixelFormat` or whose rows are padded, encoded like
@@ -442,7 +444,12 @@ pub(super) fn portrait(
             let layout = read_layout(&plain)
                 .map_err(|error| conversion_failure(name, ConvertError::Ftex(error)))?;
             if layout.data_offset == 128 {
-                return Ok(bytes);
+                // Unwrapped: nothing a PES 18-21 target reads is WESYS-wrapped, and a PES
+                // 15-17 run wraps every DDS entry afresh when it compresses them.
+                return Ok(match plain {
+                    Cow::Owned(unwrapped) => unwrapped,
+                    Cow::Borrowed(_) => bytes,
+                });
             }
             match layout.pixel {
                 DdsPixel::Format(pixel_format) if layout.row_pitch.is_none() => {
@@ -491,8 +498,11 @@ pub(super) fn portrait(
 }
 
 /// The role of a texture by its `stem`: a normal map when the stem ends in `_nrm` in any
-/// case, the suffix of the game's own normal maps (`skin_nrm`, `oral_nrm`); color otherwise.
+/// case, the suffix of the game's own normal maps (`skin_nrm`, `oral_nrm`), read without a
+/// kit token, which sits after the role suffix (`pants_nrm_kit1`, `model_format.md`
+/// "Kit-dependent assets"); color otherwise.
 pub(super) fn texture_role(stem: &str) -> TextureRole {
+    let stem = without_kit_token(stem);
     let bytes = stem.as_bytes();
     let tail = bytes.len().checked_sub(4).map(|at| &bytes[at..]);
     if tail.is_some_and(|tail| tail.eq_ignore_ascii_case(b"_nrm")) {
@@ -756,6 +766,28 @@ mod tests {
     }
 
     #[test]
+    fn a_wesys_wrapped_dds_portrait_goes_out_unwrapped() {
+        // The tracer's portrait: BC3 under the legacy header.
+        let tracer = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/tracer/studio/egg Midcup Tracer/Players/05 - The Chad Stormworks Player/portrait.dds"),
+        )
+        .unwrap();
+        let mut findings = Vec::new();
+        let unwrapped = portrait(
+            &unlimited(),
+            SourceFormat::Dds,
+            "portrait.dds",
+            wezlib::compress(&tracer),
+            &mut findings,
+        )
+        .unwrap();
+        assert!(unwrapped.starts_with(b"DDS "));
+        assert!(unwrapped == tracer, "the unwrapped source");
+        assert!(findings.is_empty(), "{findings:?}");
+    }
+
+    #[test]
     fn an_uncompressed_dx10_portrait_is_encoded_like_a_raster_one() {
         // A 4x4 R8G8B8A8 DDS under a DX10 header (DXGI 28), one level: no legacy header can
         // carry it, so it is a BC3 DDS with the full chain, and no header was rewritten.
@@ -860,10 +892,26 @@ mod tests {
 
     #[test]
     fn a_stem_ending_in_nrm_in_any_case_is_a_normal_map() {
-        for normal in ["skin_nrm", "SKIN_NRM", "oral_Nrm", "_nrm"] {
+        // A per-kit normal map carries its kit token after the role suffix.
+        for normal in [
+            "skin_nrm",
+            "SKIN_NRM",
+            "oral_Nrm",
+            "_nrm",
+            "pants_nrm_kit1",
+            "pants_nrm_kit2",
+        ] {
             assert_eq!(texture_role(normal), TextureRole::Normal, "{normal}");
         }
-        for color in ["skin", "nrm", "skin_nrm2", "skin-nrm", "kit", ""] {
+        for color in [
+            "skin",
+            "nrm",
+            "skin_nrm2",
+            "skin-nrm",
+            "kit",
+            "",
+            "pants_kit1",
+        ] {
             assert_eq!(texture_role(color), TextureRole::Color, "{color}");
         }
     }

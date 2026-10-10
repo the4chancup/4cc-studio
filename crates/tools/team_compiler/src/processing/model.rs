@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 
-use aesthetics_export::{FileKind, ModelFormat};
+use aesthetics_export::{FileDescriptor, FileKind, ModelFormat};
 use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::{TexturePath, rewrite_texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
@@ -22,6 +22,7 @@ use vtree::ScopePath;
 use super::conversion::{fmdl_for_fox, model_for_fox, source_name};
 use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
+use crate::bins::installed::InstalledPaths;
 use crate::face_diff;
 use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
@@ -155,13 +156,15 @@ pub(super) fn package(
                     let mut part = part(name, PartTextures::Folder);
                     let model = source_name(&file.path, &folder.path);
                     let mtl = if file.kind == FileKind::Model(ModelFormat::PesModel) {
-                        let mtl = mtl_for(
-                            &file.path,
-                            source_path,
-                            source_files,
-                            &folder.common_files,
-                        )
-                        .expect(
+                        // A combined shared folder's search sees no `Common/` file, as the deep
+                        // pass's does (`deep::pairings`): its `.common` links have no role, and
+                        // the Common `.mtl` one names is not among the task's files.
+                        let common: &[FileDescriptor] = if source_path == &folder.path {
+                            &folder.common_files
+                        } else {
+                            &[]
+                        };
+                        let mtl = mtl_for(&file.path, source_path, source_files, common).expect(
                             "the deep pass drops a folder holding a selected `.model` no `.mtl` \
                              is found for (`model_material_undefined`)",
                         );
@@ -293,15 +296,22 @@ pub(super) fn package(
     // its stem: there the shared folder's texture wins.
     let texture_directory = folder.textures.directory(ctx.version.engine(), team_id);
     let common_directory = paths::common_texture_directory(Engine::Fox, team_id);
+    // The textures in the team's Common output: the ones directly in `Common/`, which the
+    // export's Common textures task packs, and the ones the folder's links stand for, an
+    // earlier installed CPK's included. A Common part's path of one of these stems is pointed
+    // there, and one pointed there is supplied.
+    let common_stems: BTreeSet<String> = folder
+        .common_texture_stems
+        .union(&linked_stems)
+        .cloned()
+        .collect();
     let folder_places = [
         (&texture_stems, texture_directory.as_str()),
         (&linked_stems, common_directory.as_str()),
     ];
-    let common_places = [(&folder.common_texture_stems, common_directory.as_str())];
+    let common_places = [(&common_stems, common_directory.as_str())];
     let common_set_places = [folder_places[0], folder_places[1], common_places[0]];
-    // A texture pointed at the team's Common output is there when the export's Common
-    // textures task packs it: a texture directly in `Common/`, or one a link stands for.
-    let common_stems = [&folder.common_texture_stems, &linked_stems];
+    let installed_holds = installed_lookup(&ctx.installed, team_id);
     // A texture the part's source does not hold is one of the game's own; its directory names
     // the team as `000`, which becomes the team's id.
     let team_segment = format!("/{team_id}/");
@@ -328,17 +338,13 @@ pub(super) fn package(
                 point_texture(path, places, common_places[0], &team_segment);
             })?;
             for path in used_texture_paths(&model)? {
-                let installed_holds = |stem: &str| {
-                    ctx.installed
-                        .holds(&paths::common_texture(Engine::Fox, team_id, stem))
-                };
                 let context = || {
                     vec![
                         ("model", source_name(&part.path, &folder.path)),
                         ("texture", format!("{}{}", path.directory, path.file_name)),
                     ]
                 };
-                match texture_supply(&path, &common_stems, &common_directory, installed_holds) {
+                match texture_supply(&path, &[&common_stems], &common_directory, &installed_holds) {
                     TextureSupply::Supplied => {}
                     TextureSupply::Missing => {
                         return Err(TaskFailure {
@@ -675,6 +681,22 @@ fn texture_supply(
     }
 }
 
+/// `texture_supply`'s question to the `installed` CPKs for team `team_id`: whether one holds
+/// the Common texture of a stem, or for a kit reference (`pants_kitN`, never a file) a variant
+/// of its set (`pants_kit1`), which the game respells the reference to; `None` when they
+/// cannot be looked in. Their Common stems are gathered once, for every texture it is asked.
+fn installed_lookup(
+    installed: &InstalledPaths,
+    team_id: u16,
+) -> impl Fn(&str) -> Option<bool> + '_ {
+    let stems = installed.common_texture_stems(Engine::Fox, team_id);
+    move |stem| {
+        installed
+            .holds(&paths::common_texture(Engine::Fox, team_id, stem))
+            .map(|held| held || has_variant_among(stem, stems.iter().map(String::as_str)))
+    }
+}
+
 /// `parts`, several models resolving to one allowed name with their texture paths rewritten,
 /// merged into one FMDL in the given order.
 fn merge_parts(parts: &[FmdlFile]) -> Result<FmdlFile, TaskFailure> {
@@ -801,6 +823,39 @@ mod tests {
         );
         assert_eq!(
             supply(COMMON_714, "hair.dds", &["skin"], &["face"], None),
+            TextureSupply::Unknown
+        );
+    }
+
+    #[test]
+    fn an_installed_cpk_holding_a_variant_of_a_kit_reference_s_set_supplies_it() {
+        let path = |file_name: &str| TexturePath {
+            file_name: file_name.to_owned(),
+            directory: COMMON_714.to_owned(),
+        };
+        let installed = InstalledPaths::Known(
+            [vtree::fold_name(&paths::common_texture(
+                Engine::Fox,
+                714,
+                "pants_kit1",
+            ))]
+            .into(),
+        );
+        let lookup = installed_lookup(&installed, 714);
+        let supplied = |file_name: &str| texture_supply(&path(file_name), &[], COMMON_714, &lookup);
+        assert_eq!(supplied("pants_kitN.dds"), TextureSupply::Supplied);
+        assert_eq!(supplied("pants_kit1.dds"), TextureSupply::Supplied);
+        assert_eq!(supplied("socks_kitN.dds"), TextureSupply::Missing);
+        assert_eq!(supplied("pants_kit2.dds"), TextureSupply::Missing);
+        // Another team's Common output holds nothing of team 714's.
+        let other_team = installed_lookup(&installed, 702);
+        assert_eq!(
+            texture_supply(&path("pants_kitN.dds"), &[], COMMON_714, &other_team),
+            TextureSupply::Missing
+        );
+        let unknown = installed_lookup(&InstalledPaths::Unknown, 714);
+        assert_eq!(
+            texture_supply(&path("pants_kitN.dds"), &[], COMMON_714, &unknown),
             TextureSupply::Unknown
         );
     }

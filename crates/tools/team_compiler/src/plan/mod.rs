@@ -9,6 +9,7 @@ pub(crate) mod overrides;
 pub(crate) mod roles;
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::iter;
 use std::ops::Range;
 
 use aesthetics_export::{
@@ -34,8 +35,8 @@ use roles::{
     FolderModels, ModelPackage, PlayerFile, common_file, common_skeleton, emits_kit_texture,
     file_stem, is_direct_root_folder_file, is_hand_split, is_part_of, is_selected_common_model,
     leaves_out_kit_variants, link_combines, link_feeds_own_package, link_name, linked_folder,
-    native_format, package_of, player_file, selected_common_model, shared_folders, shared_kind_of,
-    skeleton_slot, texture_format,
+    native_format, package_of, player_file, role_files, selected_common_model, shared_folders,
+    shared_kind_of, skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -269,20 +270,38 @@ impl ModelFolder {
     /// link likewise brings in its Common `.mtl` as one, the link kept beside it. Each Common
     /// file comes once per source, however many links stand for it.
     pub(crate) fn roles(&self) -> Vec<SourceRoles<'_>> {
-        let mut own = match &self.textures {
-            TextureHome::PlayerCommon { .. } => FolderModels::of_player_files(
-                &self.path,
-                &self.files,
-                self.ingame_face,
-                self.engine,
-            ),
-            TextureHome::SharedOutput { package, .. } => FolderModels::of_shared(
-                &self.path,
-                &self.files,
-                shared_kind_of(*package),
-                self.engine,
-            ),
+        let own_kind = match &self.textures {
+            TextureHome::PlayerCommon { .. } => None,
+            TextureHome::SharedOutput { package, .. } => Some(shared_kind_of(*package)),
         };
+        // Where no `face.xml` names a per-kit set, the part merges every source's models, so a
+        // set split between the player's own files and a combined folder's is one set. A
+        // pre-Fox face lists every variant, and a pre-Fox referee's combined boots or gloves
+        // are an output of their own, not parts of his face: there each source is its own.
+        let part_files: Vec<Vec<&FileDescriptor>> =
+            iter::once(role_files(&self.path, &self.files, own_kind.is_some()))
+                .chain(
+                    self.combined
+                        .iter()
+                        .map(|shared| role_files(&shared.folder.path, &shared.folder.files, true)),
+                )
+                .collect();
+        let spans_sources = leaves_out_kit_variants(self.engine, self.ingame_face, own_kind);
+        let part_sources = |index: usize| {
+            if spans_sources {
+                &part_files[..]
+            } else {
+                &part_files[index..=index]
+            }
+        };
+        let mut own = FolderModels::of_part_source(
+            &self.path,
+            &self.files,
+            part_sources(0),
+            self.ingame_face,
+            own_kind,
+            self.engine,
+        );
         if self
             .combined
             .iter()
@@ -291,11 +310,17 @@ impl ModelFolder {
             own = own.with_linked_face();
         }
         let mut sources = vec![(self.own_package(), &self.path, &self.files, own)];
-        for shared in &self.combined {
+        for (index, shared) in self.combined.iter().enumerate() {
             let path = &shared.folder.path;
             let files = &shared.folder.files;
-            let models =
-                FolderModels::of_shared(path, files, shared_kind_of(shared.package), self.engine);
+            let models = FolderModels::of_part_source(
+                path,
+                files,
+                part_sources(index + 1),
+                false,
+                Some(shared_kind_of(shared.package)),
+                self.engine,
+            );
             sources.push((shared.package, path, files, models));
         }
         // The names the face files kept so far pack as: a second copy of one file
@@ -1016,14 +1041,24 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         let model_ids = team.map(PlannedModelIds::for_team);
         let fpc = EffectiveTeamKitFpc::of(&export);
         // The kit numbers the export defines, ascending (its kits go by slot), which each
-        // textures task, and each pre-Fox face, completes its variant sets against.
-        let kits: Vec<u8> = export
-            .kits
-            .kits
-            .keys()
-            .filter_map(|slot| kit_number(*slot))
-            .collect();
-        kit_variant_model_messages(export_id, &export, version.engine(), &mut messages);
+        // textures task, and each pre-Fox face, completes its variant sets against. A refs
+        // export's kit folder is `file_not_used` whole: it defines none.
+        let kits: Vec<u8> = match team {
+            Some(_) => export
+                .kits
+                .kits
+                .keys()
+                .filter_map(|slot| kit_number(*slot))
+                .collect(),
+            None => Vec::new(),
+        };
+        kit_variant_model_messages(
+            export_id,
+            &export,
+            version.engine(),
+            &hand_weighted,
+            &mut messages,
+        );
         drop_common_gltfs(
             version.engine(),
             export_id,
@@ -1728,24 +1763,52 @@ fn drop_common_gltfs(
 /// marked player's parts are all worn. A pre-Fox face, a player's or a shared one, packs the
 /// whole set and lists it once as `pants_kitN` for the game to respell (`pipeline.md`
 /// "Kit-dependent assets"). Where no xml names it, the lowest variant is what both engines
-/// agree on. Each folder is walked once, so a shared folder several players combine reports
-/// its set once.
+/// agree on. A mapped player's sets span his own files and those of the shared folders whose
+/// link feeds his own package (`link_feeds_own_package`, `hand_weighted` being the models the
+/// deep pass found carrying hand weights), as his packages are built
+/// (`ModelFolder::roles`), and are reported on him when they hold a file of his own, a set
+/// split between him and such a folder included; a shared folder reports the sets of its own
+/// files, once however many players combine it.
 fn kit_variant_model_messages(
     export_id: ExportId,
     export: &ValidatedAestheticsExport,
     engine: Engine,
+    hand_weighted: &BTreeSet<ScopePath>,
     messages: &mut Vec<Message>,
 ) {
-    let players = mapped_players(export)
-        .into_iter()
-        .map(|folder| (&folder.path, &folder.files, folder.ingame_face, None));
-    let shared = shared_folders(export)
-        .map(|(kind, folder)| (&folder.path, &folder.files, false, Some(kind)));
-    for (path, files, ingame_face, kind) in players.chain(shared) {
-        if !leaves_out_kit_variants(engine, ingame_face, kind) {
+    let mut folders: Vec<(&ScopePath, Vec<Vec<&FileDescriptor>>)> = Vec::new();
+    for player in mapped_players(export) {
+        if !leaves_out_kit_variants(engine, player.ingame_face, None) {
             continue;
         }
-        for set in model_variant_sets(files, engine) {
+        let combined = player
+            .links
+            .iter()
+            .filter(|link| link_feeds_own_package(export, engine, player, link, hand_weighted))
+            .filter_map(|link| linked_folder(export, link))
+            .map(|shared| role_files(&shared.path, &shared.files, true));
+        let sources = iter::once(role_files(&player.path, &player.files, false))
+            .chain(combined)
+            .collect();
+        folders.push((&player.path, sources));
+    }
+    for (kind, shared) in shared_folders(export) {
+        if leaves_out_kit_variants(engine, false, Some(kind)) {
+            folders.push((
+                &shared.path,
+                vec![role_files(&shared.path, &shared.files, true)],
+            ));
+        }
+    }
+    for (path, sources) in folders {
+        let own = &sources[0];
+        for set in model_variant_sets(&sources, engine) {
+            let holds_own = own
+                .iter()
+                .any(|file| file.path == set.used || set.left_out.contains(&file.path));
+            if !holds_own {
+                continue;
+            }
             messages.push(tool_message(
                 Code::KitVariantModelLeftOut,
                 Scope::Folder {
@@ -1753,7 +1816,10 @@ fn kit_variant_model_messages(
                     path: path.clone(),
                 },
                 Disposition::Keep,
-                vec![("model", set.reference), ("used", set.used)],
+                vec![
+                    ("model", set.reference),
+                    ("used", set.used.name().to_owned()),
+                ],
             ));
         }
     }

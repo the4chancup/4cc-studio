@@ -29,12 +29,54 @@ fn kit_layout_fixture(name: &str) -> Vec<u8> {
 /// `pre_fox_stripes.png` as a BC1 DDS with its full mip chain: lossless, since every color of
 /// the fixture is exact in BC1 and every edge sits on a block edge.
 pub(crate) fn stripes_dds() -> Vec<u8> {
-    let png = decode(
+    encode_dds(&stripes_image(), BlockCodec::Bc1).unwrap()
+}
+
+/// `pre_fox_stripes.png` decoded, its one level 1024 texels wide in RGBA8.
+fn stripes_image() -> dds_convert::Decoded {
+    decode(
         &kit_layout_fixture("pre_fox_stripes.png"),
         SourceFormat::Png,
     )
-    .unwrap();
-    encode_dds(&png, BlockCodec::Bc1).unwrap()
+    .unwrap()
+}
+
+/// How wide, in 2048-px units, `stripes_dds_at_fox` draws each stripe: narrower than the
+/// fixture's 32, since the models put two neighbouring stripes' centres as little as 21 apart.
+const FOX_STRIPE_WIDTH: f64 = 16.0;
+
+/// `pre_fox_stripes.png` drawn for the Fox layout instead, as a BC1 DDS with its full mip
+/// chain: each sock's Fox island (`FOX_LEFT`, `FOX_RIGHT` over `ISLAND_ROWS`) cleared to black,
+/// a color no stripe is near, and each stripe of `sock_stripes.txt` drawn in it centred at the
+/// Fox u the games' models put it at, `FOX_STRIPE_WIDTH` wide. Re-laid for PES 15-17, each
+/// stripe should land back on its pre-Fox range. Its edges sit off the 4-texel blocks, so a
+/// block of two stripes encodes lossily; `stripe_centre` leaves such texels out by color.
+pub(crate) fn stripes_dds_at_fox() -> Vec<u8> {
+    let mut image = stripes_image();
+    let pixels = &mut image.mips[0];
+    let mut paint = |x: u32, y: u32, color: [u8; 3]| {
+        let at = ((y * 1024 + x) * 4) as usize;
+        pixels[at..at + 3].copy_from_slice(&color);
+    };
+    for y in ISLAND_ROWS {
+        for x in FOX_LEFT.chain(FOX_RIGHT) {
+            paint(x, y, [0, 0, 0]);
+        }
+    }
+    for stripe in stripes() {
+        let half = FOX_STRIPE_WIDTH / 2.0;
+        // The texels whose centre, in 2048-px units, falls within the stripe.
+        let columns = island_columns(&stripe, &FOX_ISLANDS).filter(|x| {
+            let centre = (f64::from(*x) + 0.5) * 2.0;
+            (stripe.fox_centre - half..stripe.fox_centre + half).contains(&centre)
+        });
+        for x in columns {
+            for y in ISLAND_ROWS {
+                paint(x, y, stripe.color);
+            }
+        }
+    }
+    encode_dds(&image, BlockCodec::Bc1).unwrap()
 }
 
 /// The top level of the kit texture `name` the sandbox's last `compile` wrote, decoded to
@@ -52,6 +94,13 @@ const ISLAND_ROWS: Range<u32> = 316..580;
 /// (8 to 376 of 2048) and the right (1672 to 2040).
 const FOX_LEFT: Range<u32> = 4..188;
 const FOX_RIGHT: Range<u32> = 836..1020;
+
+/// The left and the right sock's Fox island columns, as `stripe_centre` measures them.
+pub(crate) const FOX_ISLANDS: [Range<u32>; 2] = [FOX_LEFT, FOX_RIGHT];
+
+/// The left and the right sock's pre-Fox island columns on the 1024-texel texture, each its two
+/// bands together (`PRE_FOX_BANDS`): 8 to 448 of 2048, and its mirror image.
+pub(crate) const PRE_FOX_ISLANDS: [Range<u32>; 2] = [4..224, 800..1020];
 
 /// The four Fox rectangles' columns on the 1024-texel texture: left band 1 and 2, right band
 /// 1 and 2.
@@ -93,16 +142,17 @@ pub(crate) fn assert_moved_inside_bands_only(relaid: &[u8], as_drawn: &[u8], ban
 /// far more, so a texel blending two stripes is left out.
 const STRIPE_COLOR_DISTANCE: u32 = 12;
 
-/// One line of `sock_stripes.txt`: the island, the stripe's color and the Fox u the games'
-/// models put its centre at, in 2048-px units.
-struct Stripe {
-    island: String,
-    pre_fox: String,
-    color: [u8; 3],
-    fox_centre: f64,
+/// One line of `sock_stripes.txt`: the island, the stripe's pre-Fox u range, its color and the
+/// Fox u the games' models put its centre at, in 2048-px units.
+pub(crate) struct Stripe {
+    pub(crate) island: String,
+    pub(crate) pre_fox: String,
+    pub(crate) pre_fox_centre: f64,
+    pub(crate) color: [u8; 3],
+    pub(crate) fox_centre: f64,
 }
 
-fn stripes() -> Vec<Stripe> {
+pub(crate) fn stripes() -> Vec<Stripe> {
     let text = String::from_utf8(kit_layout_fixture("sock_stripes.txt")).unwrap();
     text.lines()
         .filter(|line| !line.starts_with('#') && !line.trim().is_empty())
@@ -111,9 +161,11 @@ fn stripes() -> Vec<Stripe> {
             let [island, start, end, r, g, b, centre] = fields[..] else {
                 panic!("not a stripe line: {line}");
             };
+            let (start, end): (f64, f64) = (start.parse().unwrap(), end.parse().unwrap());
             Stripe {
                 island: island.to_owned(),
                 pre_fox: format!("{start}-{end}"),
+                pre_fox_centre: (start + end) / 2.0,
                 color: [r.parse().unwrap(), g.parse().unwrap(), b.parse().unwrap()],
                 fox_centre: centre.parse().unwrap(),
             }
@@ -121,15 +173,24 @@ fn stripes() -> Vec<Stripe> {
         .collect()
 }
 
-/// The mean u, in 2048-px units, of the texels within `STRIPE_COLOR_DISTANCE` of `stripe`'s
-/// color, over the island's rows and its sock's Fox columns of the top level `pixels`, 1024
-/// texels wide; `None` when no texel is.
-fn stripe_centre(pixels: &[u8], stripe: &Stripe) -> Option<f64> {
-    let columns = match stripe.island.as_str() {
-        "left" => FOX_LEFT,
-        "right" => FOX_RIGHT,
+/// The columns of `stripe`'s sock among `islands`, the left sock's then the right's.
+fn island_columns(stripe: &Stripe, islands: &[Range<u32>; 2]) -> Range<u32> {
+    match stripe.island.as_str() {
+        "left" => islands[0].clone(),
+        "right" => islands[1].clone(),
         other => panic!("no island {other}"),
-    };
+    }
+}
+
+/// The mean u, in 2048-px units, of the texels within `STRIPE_COLOR_DISTANCE` of `stripe`'s
+/// color, over the island's rows and its sock's columns among `islands` (`FOX_ISLANDS` or
+/// `PRE_FOX_ISLANDS`) of the top level `pixels`, 1024 texels wide; `None` when no texel is.
+pub(crate) fn stripe_centre(
+    pixels: &[u8],
+    stripe: &Stripe,
+    islands: &[Range<u32>; 2],
+) -> Option<f64> {
+    let columns = island_columns(stripe, islands);
     let (mut sum, mut count) = (0.0, 0u32);
     for y in ISLAND_ROWS {
         for x in columns.clone() {
@@ -199,7 +260,7 @@ fn a_kit_marked_pre_fox_compiled_for_pes_21_has_its_socks_where_the_fox_models_r
     assert_moved_inside_bands_only(&relaid, &as_drawn, &FOX_BANDS);
 
     for stripe in stripes() {
-        let Some(centre) = stripe_centre(&relaid, &stripe) else {
+        let Some(centre) = stripe_centre(&relaid, &stripe, &FOX_ISLANDS) else {
             panic!(
                 "{} stripe {} {:?}: no texel of its color",
                 stripe.island, stripe.pre_fox, stripe.color

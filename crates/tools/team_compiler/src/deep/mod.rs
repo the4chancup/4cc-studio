@@ -578,9 +578,9 @@ enum FaceUse<'a> {
         /// player linking none.
         linked_face: Option<&'a SharedModelFolder>,
         /// The shared boots and gloves folders whose textures the face packs too, those whose
-        /// link feeds the player's own package (`link_feeds_own_package`): a referee's, every
-        /// one of whose links does. Empty for a team player, whose boots and gloves links stay
-        /// plain while his face is used.
+        /// link feeds the player's own package (`link_feeds_own_package`): every one of a
+        /// referee's, and a team player's those beside a part of his own of that package,
+        /// which combine (`link_combines`). Empty for a shared face folder.
         combined: Vec<(SharedKind, &'a SharedModelFolder)>,
     },
 }

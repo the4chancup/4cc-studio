@@ -31,85 +31,114 @@ pub(crate) fn kit_number(slot: KitSlot) -> Option<u8> {
     }
 }
 
-/// Per-kit model files of one directory of a model folder (`pants_kit1.fmdl`,
-/// `pants_kit2.model`): where no `face.xml` names the set, nothing switches models with the
-/// kit, so only the lowest variant is compiled.
+/// Per-kit model files of one part (`pants_kit1.fmdl`, `pants_kit2.model`): where no `face.xml`
+/// names the set, nothing switches models with the kit, so only the lowest variant is
+/// compiled.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ModelVariantSet {
     /// The set's reference with the lowest variant's extension, as
     /// `kit_variant_model_left_out` names it (`pants_kitN.fmdl`).
     pub(crate) reference: String,
-    /// The file name of the lowest variant, the one compiled (`pants_kit1.fmdl`).
-    pub(crate) used: String,
+    /// The export path of the lowest variant, the one compiled
+    /// (`Players/05 - A/pants_kit1.fmdl`).
+    pub(crate) used: ScopePath,
     /// The export paths of the other variants, which nothing reads.
     pub(crate) left_out: Vec<ScopePath>,
 }
 
-/// The sets of per-kit model files among `files`, a model folder's, on a target of `engine`:
-/// the `.fmdl` and `.model` variants whose stems differ only in their token's digit (compared
-/// case-folded, as the file system compares names) in one directory form a set, whatever
-/// their format (`pipeline.md` "Kit-dependent assets"), and a set of one is an ordinary model.
-/// A variant present in both formats is one variant, the target's format (`.fmdl` on Fox,
-/// `.model` on pre-Fox) its selected representation, as the selection order says: the file of
-/// the other format beside it is neither `used` nor left out, a model the target's beats
-/// (`FolderModels::beaten`). Ordered by directory, then reference.
-pub(crate) fn model_variant_sets(files: &[FileDescriptor], engine: Engine) -> Vec<ModelVariantSet> {
-    // Each set's variants by directory and folded reference stem: (kit number, whether it is
-    // in the other engine's format, file name, path, reference name), in the folder's file
-    // order.
-    type Variant<'a> = (u8, bool, &'a str, &'a ScopePath, String);
-    let mut sets: BTreeMap<(String, String), Vec<Variant<'_>>> = BTreeMap::new();
-    for file in files {
-        let other_format = match file.kind {
-            FileKind::Model(format @ (ModelFormat::Fmdl | ModelFormat::PesModel)) => {
-                format != native_format(engine)
-            }
-            FileKind::Model(ModelFormat::Gltf)
-            | FileKind::Texture
-            | FileKind::Skl
-            | FileKind::Fclo
-            | FileKind::Xml
-            | FileKind::Mtl
-            | FileKind::MaterialsToml
-            | FileKind::Bin
-            | FileKind::SharedLink(_)
-            | FileKind::CommonLink
-            | FileKind::Marker(_)
-            | FileKind::Metadata(_)
-            | FileKind::Other => continue,
-        };
-        let name = file.path.name();
-        let stem = file_stem(name);
-        let Some((KitToken::Variant(kit), reference)) = kit_token(stem) else {
-            continue;
-        };
-        let reference_name = format!("{reference}{}", &name[stem.len()..]);
-        let directory = file
-            .path
-            .parent()
-            .map_or_else(String::new, |parent| parent.as_str().to_owned());
-        sets.entry((directory, vtree::fold_name(&reference)))
-            .or_default()
-            .push((kit, other_format, name, &file.path, reference_name));
+/// One per-kit model file of a set, as `model_variant_sets` orders them.
+struct Variant<'a> {
+    /// Its kit number.
+    kit: u8,
+    /// The index of its source among the sources given.
+    source: usize,
+    /// It is in the other engine's format, which the target's format beats.
+    other_format: bool,
+    /// Its directory's export path.
+    directory: Option<ScopePath>,
+    /// Its export path.
+    path: &'a ScopePath,
+    /// Its set's reference with its own extension (`pants_kitN.fmdl`).
+    reference: String,
+}
+
+/// The sets of per-kit model files among `sources`, the files of each folder one part is built
+/// from that may take a role there (`roles::role_files`), the player's own first and then each
+/// combined shared folder's in link order, on a target of `engine`: the `.fmdl` and `.model`
+/// variants whose stems differ only in their token's digit (compared case-folded, as the file
+/// system compares names) form a set, whatever their format and wherever they sit among the
+/// sources (`pipeline.md` "Kit-dependent assets": the part merges them, so a set split between
+/// a folder and its `face/`, or between a player and a shared folder he combines, is one set),
+/// and a set of one is an ordinary model. A variant present in both formats is one variant,
+/// the target's format (`.fmdl` on Fox, `.model` on pre-Fox) its selected representation, as
+/// the selection order says: the file of the other format beside it is neither `used` nor
+/// left out, a model the target's beats (`FolderModels::beaten`). Of two variants of one number
+/// in two directories, the earlier source's is the variant (the player's own wins a name he
+/// and a combined folder both hold) and the other is neither used nor left out: another part
+/// of that kit, which the part merges with it. Of two in one directory, two spellings of one
+/// name on a case-sensitive file system, the first is used and the other left out. Ordered by
+/// reference.
+pub(crate) fn model_variant_sets(
+    sources: &[Vec<&FileDescriptor>],
+    engine: Engine,
+) -> Vec<ModelVariantSet> {
+    // Each set's variants by folded reference stem, in the sources' file order.
+    let mut sets: BTreeMap<String, Vec<Variant<'_>>> = BTreeMap::new();
+    for (source, files) in sources.iter().enumerate() {
+        for file in files {
+            let other_format = match file.kind {
+                FileKind::Model(format @ (ModelFormat::Fmdl | ModelFormat::PesModel)) => {
+                    format != native_format(engine)
+                }
+                FileKind::Model(ModelFormat::Gltf)
+                | FileKind::Texture
+                | FileKind::Skl
+                | FileKind::Fclo
+                | FileKind::Xml
+                | FileKind::Mtl
+                | FileKind::MaterialsToml
+                | FileKind::Bin
+                | FileKind::SharedLink(_)
+                | FileKind::CommonLink
+                | FileKind::Marker(_)
+                | FileKind::Metadata(_)
+                | FileKind::Other => continue,
+            };
+            let name = file.path.name();
+            let stem = file_stem(name);
+            let Some((KitToken::Variant(kit), reference)) = kit_token(stem) else {
+                continue;
+            };
+            sets.entry(vtree::fold_name(&reference))
+                .or_default()
+                .push(Variant {
+                    kit,
+                    source,
+                    other_format,
+                    directory: file.path.parent(),
+                    path: &file.path,
+                    reference: format!("{reference}{}", &name[stem.len()..]),
+                });
+        }
     }
     sets.into_values()
         .filter_map(|mut variants| {
-            // A stable sort: of two files of one number and format, the first in the folder is
-            // used; the target's format comes before the other format's file of its number,
-            // which is then no variant.
-            variants.sort_by_key(|(kit, other_format, ..)| (*kit, *other_format));
-            variants.dedup_by(|later, kept| later.0 == kept.0 && later.1 && !kept.1);
-            let ((_, _, used, _, reference), others) = variants.split_first()?;
+            // A stable sort: of the files of one number, the earlier source's first, and in
+            // one source the target's format before the other's, then the sources' order.
+            variants.sort_by_key(|variant| (variant.kit, variant.source, variant.other_format));
+            variants.dedup_by(|later, kept| {
+                later.kit == kept.kit
+                    && (later.directory != kept.directory
+                        || (later.other_format && !kept.other_format))
+            });
+            let (used, others) = variants.split_first()?;
             if others.is_empty() {
                 return None;
             }
             Some(ModelVariantSet {
-                reference: reference.clone(),
-                used: (*used).to_owned(),
-                left_out: others
-                    .iter()
-                    .map(|(_, _, _, path, _)| (*path).clone())
-                    .collect(),
+                reference: used.reference.clone(),
+                used: used.path.clone(),
+                left_out: others.iter().map(|variant| variant.path.clone()).collect(),
             })
         })
         .collect()
@@ -162,7 +191,16 @@ mod tests {
     /// `model_variant_sets` of the files at `paths` on a target of `engine`, as (reference,
     /// used, left-out paths).
     fn engine_sets(paths: &[&str], engine: Engine) -> Vec<(String, String, Vec<String>)> {
-        model_variant_sets(&files(paths), engine)
+        source_sets(&[paths], engine)
+    }
+
+    /// `model_variant_sets` of the sources whose files are at `sources` on a target of
+    /// `engine`, as (reference, used file name, left-out paths).
+    fn source_sets(sources: &[&[&str]], engine: Engine) -> Vec<(String, String, Vec<String>)> {
+        let files: Vec<Vec<FileDescriptor>> = sources.iter().map(|paths| files(paths)).collect();
+        let sources: Vec<Vec<&FileDescriptor>> =
+            files.iter().map(|files| files.iter().collect()).collect();
+        model_variant_sets(&sources, engine)
             .into_iter()
             .map(|set| {
                 let left_out = set
@@ -170,9 +208,64 @@ mod tests {
                     .iter()
                     .map(|path| path.as_str().to_owned())
                     .collect();
-                (set.reference, set.used, left_out)
+                (set.reference, set.used.name().to_owned(), left_out)
             })
             .collect()
+    }
+
+    #[test]
+    fn a_set_spans_the_directories_and_sources_of_its_part() {
+        // Split between a player folder and its `face/`: one set.
+        assert_eq!(
+            sets(&["P/pants_kit2.fmdl", "P/face/pants_kit1.fmdl"]),
+            [(
+                "pants_kitN.fmdl".to_owned(),
+                "pants_kit1.fmdl".to_owned(),
+                vec!["P/pants_kit2.fmdl".to_owned()]
+            )]
+        );
+        // Split between the player and a shared folder he combines: one set, whichever holds
+        // the lower variant.
+        assert_eq!(
+            source_sets(
+                &[
+                    &["P/boots_kit2.fmdl"],
+                    &["B/boots.fmdl", "B/boots_kit1.fmdl"]
+                ],
+                Engine::Fox
+            ),
+            [(
+                "boots_kitN.fmdl".to_owned(),
+                "boots_kit1.fmdl".to_owned(),
+                vec!["P/boots_kit2.fmdl".to_owned()]
+            )]
+        );
+        // One number in two sources: the player's own is the variant, the shared one of its
+        // number another part of that kit, neither used nor left out.
+        assert_eq!(
+            source_sets(
+                &[
+                    &["P/boots_kit1.fmdl"],
+                    &["B/boots_kit1.fmdl", "B/boots_kit2.fmdl"]
+                ],
+                Engine::Fox
+            ),
+            [(
+                "boots_kitN.fmdl".to_owned(),
+                "boots_kit1.fmdl".to_owned(),
+                vec!["B/boots_kit2.fmdl".to_owned()]
+            )]
+        );
+        assert_eq!(
+            source_sets(
+                &[&["P/boots_kit1.model"], &["B/boots_kit1.fmdl"]],
+                Engine::Fox
+            ),
+            []
+        );
+        // In one source too: a `face/` variant of the number of one directly in the folder is
+        // another part of that kit.
+        assert_eq!(sets(&["P/pants_kit1.fmdl", "P/face/pants_kit1.fmdl"]), []);
     }
 
     #[test]

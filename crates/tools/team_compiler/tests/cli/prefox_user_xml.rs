@@ -969,6 +969,67 @@ fn a_kit_reference_naming_its_mtl_first_reports_each_number_once() {
     );
 }
 
+// The model set alone reports its missing number when its entry names one shared `.mtl`,
+// which serves every number as it is and is not copied.
+#[test]
+fn a_kit_reference_naming_one_shared_mtl_reports_its_model_set_and_copies_no_mtl() {
+    let sandbox = Sandbox::new("user_xml_kit_set_one_mtl");
+    let export = "co Midcup Xml";
+    let player = format!("exports/{export}/Players/05 - A");
+    write_folder(
+        &sandbox,
+        export,
+        "05 - A",
+        "face_high",
+        &face_xml(&[
+            FACE_HIGH,
+            r#"type="parts" path="./pants_kitN.model" material="./pants.mtl""#,
+        ]),
+    );
+    sandbox.write(&format!("{player}/pants_kit1.model"), &card_model());
+    sandbox.write(&format!("{player}/pants.mtl"), &card_materials());
+    for kit in [1, 2] {
+        sandbox.write(
+            &format!("exports/{export}/Kits/p{kit}/kit.dds"),
+            &tracer_kit(),
+        );
+    }
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            CLEAN[1],
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Warning kit_variant_missing [Keep] at Players/05 - A (model=pants_kitN, kit=2, copied=pants_kit1)",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+        ],
+    );
+
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        [
+            "face.xml",
+            "face_high.model",
+            "face_high.mtl",
+            "pants.mtl",
+            "pants_kit1.model",
+            "pants_kit2.model",
+        ]
+    );
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        owned_entries(&[
+            ("face_neck", "./face_high.model", "./face_high.mtl"),
+            ("parts", "./pants_kitN.model", "./pants.mtl"),
+        ])
+    );
+}
+
 // The player's own variants of the set the shared xml names are packed by its entry, not
 // appended under generated ones: his lowest, which the reference resolves to, and his
 // higher one, which only the set names.

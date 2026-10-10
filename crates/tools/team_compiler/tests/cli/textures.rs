@@ -183,6 +183,30 @@ fn a_raster_nrm_texture_is_a_bc3_normal_map_on_pes_21() {
     assert_eq!((info.width, info.height, info.mipmaps), (256, 128, 9));
 }
 
+#[test]
+fn a_per_kit_raster_nrm_texture_is_a_bc3_normal_map_on_pes_21() {
+    let sandbox = Sandbox::new("tex_png_nrm_kit");
+    // The kit token sits after the role suffix: `pants_nrm_kit1` is a normal map.
+    write_skin_player(
+        &sandbox,
+        "co Midcup Nrm",
+        "05",
+        "pants_nrm_kit1.png",
+        &texture_fixture("kit.png"),
+    );
+
+    let emitted = compile_entry(
+        &sandbox,
+        "co Midcup Nrm",
+        21,
+        &format!("{PLAYER_TEXTURES}/pants_nrm_kit1.ftex"),
+    );
+
+    let info = ftex::info(&emitted).unwrap();
+    assert_eq!(info.format, PixelFormat::Bc3);
+    assert_eq!((info.width, info.height, info.mipmaps), (256, 128, 9));
+}
+
 /// The tracer's hair model naming `skin.dds` and `skin_nrm.dds`: its `shirt.dds` and
 /// `dummy_nrm.dds` renamed.
 fn hair_model_naming_skin_and_nrm() -> Vec<u8> {

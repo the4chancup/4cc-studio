@@ -17,8 +17,9 @@ use crate::compile_exports::{
 };
 use crate::findings_of;
 use crate::kit_layout::{
-    PRE_FOX_BANDS, STRIPES_FINDINGS, assert_moved_inside_bands_only, bc1_dds, compiled_entries,
-    compiled_pre_fox_top_level, stripes_dds, write_stripes_export,
+    PRE_FOX_BANDS, PRE_FOX_ISLANDS, STRIPES_FINDINGS, assert_moved_inside_bands_only, bc1_dds,
+    compiled_entries, compiled_pre_fox_top_level, stripe_centre, stripes, stripes_dds,
+    stripes_dds_at_fox, write_stripes_export,
 };
 use crate::prefox_faces::{
     CLEAN, card_materials, card_model, compile_pes17, materials_naming, pes17, small_dds,
@@ -200,6 +201,31 @@ fn a_pes_17_kit_marked_pre_fox_is_as_unmarked_and_one_marked_fox_is_re_laid() {
     let (as_drawn, _, _) = compiled_pre_fox_top_level(&unmarked, "u0714p1");
     assert_eq!(width, 1024);
     assert_moved_inside_bands_only(&relaid, &as_drawn, &PRE_FOX_BANDS);
+
+    // The stripes drawn where the games' Fox models read them land back on their pre-Fox
+    // ranges.
+    let drawn_for_fox = Sandbox::new("prefox_kit_layout_fox_stripes");
+    drawn_for_fox.write(
+        "exports/co Midcup Layout/Kits/p1/kit.dds",
+        &stripes_dds_at_fox(),
+    );
+    drawn_for_fox.write("exports/co Midcup Layout/Kits/p1/fox", b"");
+    compile_pes17(&drawn_for_fox, "co Midcup Layout", &converted);
+    let (relaid, _, _) = compiled_pre_fox_top_level(&drawn_for_fox, "u0714p1");
+    for stripe in stripes() {
+        let Some(centre) = stripe_centre(&relaid, &stripe, &PRE_FOX_ISLANDS) else {
+            panic!(
+                "{} stripe {} {:?}: no texel of its color",
+                stripe.island, stripe.pre_fox, stripe.color
+            );
+        };
+        assert!(
+            (centre - stripe.pre_fox_centre).abs() <= 6.0,
+            "{} stripe {}: centre {centre:.1}",
+            stripe.island,
+            stripe.pre_fox
+        );
+    }
 }
 
 // TC-KIT-29

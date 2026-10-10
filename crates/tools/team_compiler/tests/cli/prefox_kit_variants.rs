@@ -464,6 +464,59 @@ fn a_kit_number_a_per_kit_model_set_lacks_gets_its_lowest_variant_s_model_and_mt
 }
 
 #[test]
+fn each_per_kit_model_set_is_completed_against_its_own_variants() {
+    let sandbox = Sandbox::new("prefox_kit_variants_two_sets");
+    // `pants` holds kits 1 and 2; `socks` kits 1 and 3, so it lacks kit 2, which `pants_kit2`
+    // does not give it.
+    for name in [
+        "pants_kit1.model",
+        "pants_kit2.model",
+        "socks_kit1.model",
+        "socks_kit3.model",
+    ] {
+        sandbox.write(
+            &format!("{PLAYER}/{name}"),
+            &pre_fox_fixture("cardhead_face_high.model"),
+        );
+    }
+    for mtl in ["pants.mtl", "socks.mtl"] {
+        sandbox.write(&format!("{PLAYER}/{mtl}"), &materials_naming("skin"));
+    }
+    sandbox.write(&format!("{PLAYER}/skin.dds"), &small_dds());
+    write_kits(&sandbox, &[1, 2]);
+
+    let expected = kit_findings(
+        2,
+        &[
+            "Warning kit_variant_missing [Keep] at Players/05 - A (model=socks_kitN, kit=2, copied=socks_kit1)",
+        ],
+    );
+    let entries = compile_pes17(
+        &sandbox,
+        EXPORT,
+        &expected.iter().map(String::as_str).collect::<Vec<_>>(),
+    );
+
+    let face = face_files(&entries);
+    let models: Vec<&str> = face
+        .keys()
+        .map(String::as_str)
+        .filter(|name| name.ends_with(".model"))
+        .collect();
+    assert_eq!(
+        models,
+        [
+            "oral_dummy_win32.model",
+            "oral_pants_kit1_win32.model",
+            "oral_pants_kit2_win32.model",
+            "oral_socks_kit1_win32.model",
+            "oral_socks_kit2_win32.model",
+            "oral_socks_kit3_win32.model",
+        ]
+    );
+}
+
+#[test]
 fn a_per_kit_model_set_covering_the_export_s_kits_gets_no_copy() {
     let sandbox = Sandbox::new("prefox_kit_variants_covered");
     write_variants_with_own_mtls(&sandbox);

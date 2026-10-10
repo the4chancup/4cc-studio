@@ -22,7 +22,8 @@ use crate::compile::{
 use crate::compile_exports::{TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER, bundled_uniform_parameter};
 use crate::deploy::{install_pes, templates_folder};
 use crate::models::package_names;
-use crate::prefox_faces::{nested_entries, ordered_entries};
+use crate::prefox_faces::{card_materials, card_model, nested_entries, ordered_entries, small_dds};
+use crate::prefox_kits::write_kit;
 use crate::sideload::slashed;
 use crate::textures::{texture_fixture, tracer_model_renaming};
 use crate::{clean_model, findings_of, snapshot};
@@ -833,6 +834,41 @@ fn on_pes_17_a_referee_s_link_to_shared_boots_is_each_slot_s_boots_folder_and_no
     );
 }
 
+// His own per-kit boots are parts of his face, which lists their set; the shared boots are an
+// output of their own, so their variant of another number is no variant of his face's set.
+#[test]
+fn on_pes_17_a_referee_s_own_boots_variant_leaves_out_none_of_his_linked_boots() {
+    let sandbox = Sandbox::new("ref_shared_boots_variants_pes17");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    let player = format!("{REFS}/Players/Ref A");
+    let studs = format!("{REFS}/Boots/Studs");
+    sandbox.write(&format!("{player}/Studs.boots"), b"");
+    for folder in [&player, &studs] {
+        sandbox.write(&format!("{folder}/boots.mtl"), &card_materials());
+        sandbox.write(&format!("{folder}/skin.dds"), &small_dds());
+    }
+    sandbox.write(&format!("{player}/boots_kit1.model"), &card_model());
+    sandbox.write(&format!("{studs}/boots_kit2.model"), &card_model());
+
+    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Info export_identified [Keep] (team=referees)",
+            "Info xml_face_neck_added [Keep] at Players/Ref A ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let boots: Vec<&str> = entries
+        .keys()
+        .filter_map(|path| path.strip_prefix("common/character0/model/character/boots/k9901/"))
+        .collect();
+    assert_eq!(boots, ["boots.model", "boots.mtl"]);
+}
+
 // TC-REF-11
 #[test]
 fn a_refs_export_s_kit_is_file_not_used_and_the_referee_face_compiles() {
@@ -871,6 +907,48 @@ fn a_refs_export_s_kit_is_file_not_used_and_the_referee_face_compiles() {
     assert!(
         kit_textures.iter().all(|name| name.starts_with("referee_")),
         "no kit of the export's: {kit_textures:#?}"
+    );
+}
+
+#[test]
+fn a_refs_export_s_kits_define_no_kit_number_to_complete_a_referee_s_texture_set_against() {
+    let sandbox = Sandbox::new("ref_kit_numbers_pes17");
+    write_ref_a(&sandbox, &["01"]);
+    for slot in ["p1", "p2"] {
+        write_kit(&sandbox, "refs Cup", slot);
+    }
+    sandbox.write(
+        &format!("{REFS}/Players/Ref A/pants_kit1.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
+
+    let lines = run.messages();
+    // No `kit_variant_missing`: kit 2 is no number of a refs export's.
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=referees)",
+            "Warning file_not_used [Keep] (file=Kits/p1)",
+            "Warning file_not_used [Keep] (file=Kits/p2)",
+            "Info native_field_dropped [Keep] at Players/Ref A (model=boots.fmdl, field=bone_matrices)",
+            "Warning mesh_flags_dropped [Keep] at Players/Ref A (model=boots.fmdl, material=1, field=no_shadow_cast)",
+            "Info native_field_dropped [Keep] at Players/Ref A (model=face_high.fmdl, field=bone_matrices)",
+            "Warning mesh_flags_dropped [Keep] at Players/Ref A (model=face_high.fmdl, material=1, field=no_shadow_cast)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let pants: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.contains("/pants_kit"))
+        .collect();
+    assert_eq!(
+        pants,
+        ["common/character1/model/character/uniform/common/999/Ref A/pants_kit1.dds"]
     );
 }
 

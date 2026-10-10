@@ -1929,6 +1929,81 @@ fn per_kit_models_on_pes_21_compile_the_lowest_variant_alone_and_say_so() {
 }
 
 #[test]
+fn a_per_kit_set_split_between_a_player_folder_and_its_face_subfolder_is_one_set_on_pes_21() {
+    let sandbox = Sandbox::new("mod_kit_variant_face_subfolder");
+    let player = "exports/co Midcup Variants/Players/05 - A";
+    let kit_1 = tracer_player_file("fcl_hair.fmdl");
+    sandbox.write(&format!("{player}/face/pants_kit1.fmdl"), &kit_1);
+    sandbox.write(
+        &format!("{player}/pants_kit2.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Variants",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face/pants_kit1.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=pants_kit1.fmdl)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=pants_kitN.fmdl, used=pants_kit1.fmdl)",
+        ],
+    );
+
+    let hair = face_package(&entries);
+    let meshes = |bytes: &[u8]| {
+        Model::from_file(&FmdlFile::read(bytes).unwrap())
+            .unwrap()
+            .meshes
+            .len()
+    };
+    assert_eq!(
+        meshes(hair.get("fcl_hair.fmdl").unwrap()),
+        meshes(&kit_1),
+        "kit 1's meshes alone"
+    );
+}
+
+#[test]
+fn a_per_kit_set_split_between_a_player_and_a_boots_folder_he_combines_is_one_set_on_pes_21() {
+    let sandbox = Sandbox::new("mod_kit_variant_combined");
+    let export = "exports/co Midcup Variant Crocs";
+    let boots = tracer_player_file("boots.fmdl");
+    sandbox.write(&format!("{export}/Players/05 - A/boots_kit2.fmdl"), &boots);
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    sandbox.write(&format!("{export}/Boots/Crocs/boots.fmdl"), &boots);
+    sandbox.write(&format!("{export}/Boots/Crocs/boots_kit1.fmdl"), &boots);
+
+    // The deep pass checks each folder's models by its own roles, so it reads `boots_kit2`,
+    // which the player's boots package leaves out.
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Variant Crocs",
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots_kit2.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots_kit1.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+        ],
+    );
+
+    let meshes = Model::from_file(&FmdlFile::read(&boots).unwrap())
+        .unwrap()
+        .meshes
+        .len();
+    assert_eq!(
+        boots_mesh_count(&entries, "Asset/model/character/boots/k0625/#Win/boots.fpk"),
+        2 * meshes,
+        "the shared `boots.fmdl` and kit 1's, not kit 2's"
+    );
+}
+
+#[test]
 fn per_kit_model_files_on_pes_21_are_a_set_and_only_the_lowest_is_converted() {
     let sandbox = Sandbox::new("mod_kit_variant_pre_fox_models");
     let player = "exports/co Midcup Variant Cards/Players/05 - A";
@@ -2054,6 +2129,49 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
         boots_mesh_count(&entries, "Asset/model/character/boots/k0644/#Win/boots.fpk"),
         variant_meshes,
         "kit 1's meshes alone"
+    );
+}
+
+#[test]
+fn a_model_below_a_shared_boots_folder_s_subfolder_is_not_used() {
+    let sandbox = Sandbox::new("mod_shared_boots_nested");
+    let export = "exports/co Midcup Nested Crocs";
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    sandbox.write(&format!("{export}/Boots/Crocs/boots.fmdl"), &clean_model());
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/boots/extra.fmdl"),
+        &clean_model(),
+    );
+
+    // The structure pass refuses a shared folder's subfolder; a lenient check keeps its file.
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes21_settings(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Nested Crocs"),
+        [
+            "Info file_type_disallowed [Keep] at Boots/Crocs (file=boots/extra.fmdl)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning file_not_used [Keep] at Boots/Crocs (file=boots/extra.fmdl)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let meshes = Model::from_file(&FmdlFile::read(&clean_model()).unwrap())
+        .unwrap()
+        .meshes
+        .len();
+    assert_eq!(
+        boots_mesh_count(&entries, "Asset/model/character/boots/k0644/#Win/boots.fpk"),
+        meshes,
+        "`boots.fmdl`'s meshes alone"
     );
 }
 
