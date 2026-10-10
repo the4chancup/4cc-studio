@@ -6645,3 +6645,18 @@ subfolders. Unchecked in game: that PES 15-17 reads a `glove.xml` path with a su
 reads `face.xml`'s, Red's output).
 Plan: `team_compiler/pipeline.md` step 3, item 6 (the texture sources) and item 7 (the
 shared gloves output); `team_compiler/README.md` TC-MOD-73, TC-MOD-74.
+
+## 2026-10-11 — team_compiler — a linked Common file brings the textures above it too
+Decision: on PES 18-21 a `.common` link to a model or `.mtl` in a `Common/` subfolder
+brings every texture directly in that directory and in each directory above it up to
+`Common/` (`Common/jessie/parts/body.fmdl` brings `Common/jessie/parts/*` and
+`Common/jessie/*` textures; `Common/`'s own are packed anyway). Amends "on Fox a linked
+Common model's directory's textures travel with it" (2026-10-10), which brought its own
+directory's alone.
+Why: the part's names resolve nearest first from its directory up to `Common/`, among the
+textures Fox packs; with only its own directory packed, `skin` in that model skipped the
+nearer `Common/jessie/skin.dds` (left `file_not_used`) and took `Common/skin.dds`, which is
+not the texture the member placed beside it (Astra, S18.A3-1). The packed set now covers
+every place the lookup walks; subfolders below stay out, since a bare name never resolves
+down.
+Plan: `team_compiler/pipeline.md` step 4 "Common".

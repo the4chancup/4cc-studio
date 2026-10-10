@@ -213,8 +213,9 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
 - **Texture stems.** A lookup namespace (`team_compiler/messages.md` `texture_stem_conflict`)
   holds its textures plus, in a player folder, each texture `.common` link under its linked name
   (`hair.png.common` is `hair`), as a link counts as the linked file being local
-  (`model_format.md` "Rules"). `Common/` is one namespace: its conflicting files drop each other
-  (`File`, `DropFile`), and the cascade then drops the players linking them.
+  (`model_format.md` "Rules"). Each directory of `Common/` is a namespace of its own, as each
+  folder of a player's tree is: its conflicting files drop each other (`File`, `DropFile`),
+  and the cascade then drops the players linking them.
 - **Kits, portraits, logo.** A `kit_folder_invalid` folder gets no other finding: which
   allowlist its contents answer to is unknown (it may be a misspelled `all`), and it is dropped
   whole anyway. `all` counts as a slot for `kit_slot_duplicate`. `all/` textures

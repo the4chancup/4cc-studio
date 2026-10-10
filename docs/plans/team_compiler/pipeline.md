@@ -1876,7 +1876,8 @@ Resolved decisions:
   (a link at the same path below a player or shared folder, `model_format.md` "Link files"),
   a linked model bringing the files beside it that travel with it (the models and `.skl` of
   its stem, the `.mtl` files its search may read, and every texture directly in its
-  directory, which a `.mtl` link brings as well; none of them `file_not_used`), as every
+  directory or in one above it up to `Common/`, where its names resolve nearest first, which
+  a `.mtl` link brings as well; none of them `file_not_used`), as every
   texture directly in `Common/` is packed whether a model names it or not: knowing which of
   them a model names would take a second texture resolver at planning, before any model is
   read, that a slip in leaves a texture silently unpacked,
