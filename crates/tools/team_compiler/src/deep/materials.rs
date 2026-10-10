@@ -136,9 +136,9 @@ pub(super) fn texture_findings(
 
 /// The folded stems the model folder at `folder` holds for its `.mtl` paths, as the face task
 /// collects them (`processing::prefox_face::face`): the stem of each of its `files` and of the
-/// files of the `shared` folders its face packs that is a texture (`PlayerFile::Texture`), and
-/// the stem each texture link among them stands for (`PlayerFile::CommonTexture`); `models`
-/// are the folder's, read for a target of `engine`.
+/// files of the `shared` folders its packages are built from that is a texture
+/// (`PlayerFile::Texture`), and the stem each texture link among them stands for
+/// (`PlayerFile::CommonTexture`); `models` are the folder's, read for a target of `engine`.
 pub(super) fn held_stems(
     folder: &ScopePath,
     files: &[FileDescriptor],

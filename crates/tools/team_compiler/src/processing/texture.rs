@@ -58,7 +58,8 @@ impl From<TextureError> for TaskFailure {
 /// target cannot be given: the catalog's file-level `texture_codec_unsupported`. A header that
 /// cannot be read, or pixel data cut short, is the ordinary failure naming the file, which
 /// fails the task. The cube-map route's `ftex::dds_to_ftex` error is mapped here too, so its
-/// refusals take the same finding.
+/// refusals take the same finding. The deep pass maps a header probe's errors by the same two
+/// arms (`deep::texture::probe_failure`).
 pub(super) fn conversion_failure(name: &str, error: ConvertError) -> TextureError {
     match error {
         ConvertError::Unsupported(_) | ConvertError::Ftex(FtexError::UnsupportedDds(_)) => {

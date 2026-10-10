@@ -323,15 +323,13 @@ pub(crate) fn content_findings(
             // Under the marker the face files are not used, his own `face.xml` among them.
             let face = FaceUse::of_player(player, combined);
             let conflict = shared_face_conflict(folder, &player.files, &face, engine);
-            let (mut pass, xml_dif) = folder_findings(
-                content,
-                folder,
-                &player.files,
+            let read = ReadFolder {
+                path: folder,
+                files: &player.files,
                 models,
-                &kept_common,
-                version,
-                face,
-            );
+                combined,
+            };
+            let (mut pass, xml_dif) = folder_findings(content, &read, &kept_common, version, face);
             let findings = &mut pass.findings;
             findings.extend(conflict);
             findings.extend(face_diff_findings(
@@ -362,24 +360,26 @@ pub(crate) fn content_findings(
         .faces
         .par_iter()
         .map(|face| {
+            let models = FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine);
             // A shared face links no other.
+            let read = ReadFolder {
+                path: &face.path,
+                files: &face.files,
+                models: &models,
+                combined: &[],
+            };
             let (mut pass, xml_dif) = folder_findings(
                 content,
-                &face.path,
-                &face.files,
-                &FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine),
+                &read,
                 &kept_common,
                 version,
-                FaceUse::Used {
-                    linked_face: None,
-                    combined: Vec::new(),
-                },
+                FaceUse::Used { linked_face: None },
             );
             pass.findings.extend(face_diff_findings(
                 content,
                 &face.path,
                 &face.files,
-                &FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine),
+                &models,
                 xml_dif,
             ));
             pass
@@ -396,16 +396,14 @@ pub(crate) fn content_findings(
     let boots_and_gloves: Vec<ContentPass> = boots
         .chain(gloves)
         .map(|(kind, shared)| {
+            let read = ReadFolder {
+                path: &shared.path,
+                files: &shared.files,
+                models: &FolderModels::of_shared(&shared.path, &shared.files, kind, engine),
+                combined: &[],
+            };
             // A boots or gloves folder has no face, so no xml.
-            let (pass, _) = folder_findings(
-                content,
-                &shared.path,
-                &shared.files,
-                &FolderModels::of_shared(&shared.path, &shared.files, kind, engine),
-                &kept_common,
-                version,
-                FaceUse::Unused,
-            );
+            let (pass, _) = folder_findings(content, &read, &kept_common, version, FaceUse::Unused);
             pass
         })
         .collect();
@@ -659,8 +657,7 @@ fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], ke
     }
 }
 
-/// Whether a model folder's face files are used, and which shared folders the face packs
-/// (`folder_findings`).
+/// Whether a model folder's face files are used (`folder_findings`).
 enum FaceUse<'a> {
     /// The face files are not used: a boots or gloves folder, or a player under `ingame_face`.
     Unused,
@@ -671,11 +668,6 @@ enum FaceUse<'a> {
         /// whose textures its `.mtl` paths may name; `None` for a shared face folder and a
         /// player linking none.
         linked_face: Option<&'a SharedModelFolder>,
-        /// The shared boots and gloves folders whose textures the face packs too, those whose
-        /// link feeds the player's own package (`link_feeds_own_package`): every one of a
-        /// referee's, and a team player's those beside a part of his own of that package,
-        /// which combine (`link_combines`). Empty for a shared face folder.
-        combined: Vec<(SharedKind, &'a SharedModelFolder)>,
     },
 }
 
@@ -693,18 +685,7 @@ impl<'a> FaceUse<'a> {
             .iter()
             .find(|(kind, _)| matches!(kind, SharedKind::Face))
             .map(|(_, face)| *face);
-        let combined = combined
-            .iter()
-            .filter(|(kind, _)| match kind {
-                SharedKind::Face => false,
-                SharedKind::Boots | SharedKind::Gloves => true,
-            })
-            .copied()
-            .collect();
-        FaceUse::Used {
-            linked_face,
-            combined,
-        }
+        FaceUse::Used { linked_face }
     }
 }
 
@@ -765,8 +746,23 @@ fn shared_face_conflict(
     })
 }
 
-/// The findings of the files among `files`, those of the model folder at `folder`, that the
-/// deep pass reads (`checked_as`, textures held to `size_rule`): each on the folder's scope,
+/// A model folder as `folder_findings` reads it: a player folder, or a shared face, boots or
+/// gloves folder.
+struct ReadFolder<'a> {
+    /// The folder's export path, the scope its findings name.
+    path: &'a ScopePath,
+    /// Its own files.
+    files: &'a [FileDescriptor],
+    /// Its models as planning reads them (`part_source_models` for a player folder,
+    /// `FolderModels::of_shared` for a shared one).
+    models: &'a FolderModels,
+    /// The shared folders a player folder's packages are built from (`combined_folders`);
+    /// empty for a shared folder.
+    combined: &'a [(SharedKind, &'a SharedModelFolder)],
+}
+
+/// The findings of the files of the model folder `read` that the deep pass reads
+/// (`checked_as`, textures held to `size_rule`): each on the folder's scope,
 /// an Error dropping the folder, the file named below the folder (not a file with no role, such
 /// as a model the target's own format beats, nor a per-kit model variant left out, nor on Fox
 /// a `.mtl` no `.model` pairs with, nor on pre-Fox, where the folder's own `face.xml` controls
@@ -783,24 +779,31 @@ fn shared_face_conflict(
 /// the models' materials compared after, from what each read kept.
 ///
 /// When `face` says the folder's face files are used (`FaceUse::Used`), each member's own
-/// `face.xml` among `files` (`PlayerFile::FaceXml`) is read and checked (`user_xml_findings`),
+/// `face.xml` among its files (`PlayerFile::FaceXml`) is read and checked (`user_xml_findings`),
 /// its findings at its place in file order, and the xml overrides the search:
 /// `model_material_undefined` compares only the models it lists with the `.mtl` each entry
 /// names (`listed_materials`), a `Common/` model an entry names included, its finding after
 /// every file's, naming it by its export path, and none at all when an xml has an Error,
 /// which drops the folder; nor is any `.mtl`'s texture looked up then. The textures of the
-/// shared folders the face packs count for the folder's `.mtl` paths, as they do for the face
-/// task. Returned with whether such an xml holds a `<dif>`, which the face writes in place of
-/// the folder's `face_diff.bin` (`face_diff_findings`).
+/// shared folders the folder's packages are built from count for the folder's `.mtl` paths, as
+/// they do for the task building them: the linked face's when the face files are used, and the
+/// boots and gloves folders among its `combined` whether or not they are: under `ingame_face`
+/// the marker leaves the face files unused, not the parts his boots and gloves are built from.
+/// Returned with whether such an xml holds a `<dif>`, which the face writes in place of the
+/// folder's `face_diff.bin` (`face_diff_findings`).
 fn folder_findings(
     content: &ContentSource,
-    folder: &ScopePath,
-    files: &[FileDescriptor],
-    models: &FolderModels,
+    read: &ReadFolder,
     common: &KeptCommon,
     version: PesVersion,
     face: FaceUse,
 ) -> (ContentPass, bool) {
+    let ReadFolder {
+        path: folder,
+        files,
+        models,
+        combined,
+    } = *read;
     let engine = version.engine();
     let size_rule = SizeRule::of(version);
     let scope = IssueScope::Folder(folder.clone());
@@ -883,17 +886,20 @@ fn folder_findings(
     for found in &mut per_file {
         materials.append(&mut found.materials);
     }
-    let shared: Vec<(SharedKind, &SharedModelFolder)> = match &face {
-        FaceUse::Used {
-            linked_face,
-            combined,
-        } => linked_face
-            .iter()
-            .map(|face| (SharedKind::Face, *face))
-            .chain(combined.iter().copied())
-            .collect(),
-        FaceUse::Unused => Vec::new(),
+    let linked_face = match &face {
+        FaceUse::Used { linked_face } => *linked_face,
+        FaceUse::Unused => None,
     };
+    // A face link is in `combined` too; it counts only through `linked_face`, when the face
+    // files are used.
+    let shared: Vec<(SharedKind, &SharedModelFolder)> = linked_face
+        .map(|face| (SharedKind::Face, face))
+        .into_iter()
+        .chain(combined.iter().copied().filter(|(kind, _)| match kind {
+            SharedKind::Face => false,
+            SharedKind::Boots | SharedKind::Gloves => true,
+        }))
+        .collect();
     let held = match engine {
         // A folder an xml Error drops gets no texture finding (`messages.md`, the paragraph
         // starting "On pre-Fox the check runs in the deep pass"): the member fixes the xml
@@ -1475,14 +1481,20 @@ fn file_outcome(
         Checked::Texture(format, rule) => {
             let found = texture_finding(format, rule, &bytes)
                 .map(|code| {
-                    // A renamed file cannot be converted as the format its name declares; nor
-                    // can a pre-Fox side that is no multiple of 4 be kept: every pre-Fox
-                    // texture is written block-compressed, and Direct3D 9 cannot create a
-                    // block-compressed texture whose sides are not multiples of 4. A texture
-                    // of another odd size converts, and what the game makes of it is the
-                    // member's risk.
-                    let eligible =
-                        !matches!(code, Code::TextureTypeMismatch | Code::TextureNotDiv4);
+                    // A renamed file cannot be converted as the format its name declares, nor
+                    // can one whose header cannot be read or whose codec or kind the converter
+                    // refuses: packed, each would fail its task; nor can a pre-Fox side that is
+                    // no multiple of 4 be kept: every pre-Fox texture is written
+                    // block-compressed, and Direct3D 9 cannot create a block-compressed texture
+                    // whose sides are not multiples of 4. A texture of another odd size
+                    // converts, and what the game makes of it is the member's risk.
+                    let eligible = !matches!(
+                        code,
+                        Code::TextureTypeMismatch
+                            | Code::TextureUnreadable
+                            | Code::TextureCodecUnsupported
+                            | Code::TextureNotDiv4
+                    );
                     finding(
                         code.as_str(),
                         vec![("file", name.to_owned())],

@@ -255,7 +255,12 @@ pub(crate) enum Code {
     /// A texture whose bytes open with another accepted format's signature than its
     /// extension's (renamed, not resaved); discarded the same way.
     TextureTypeMismatch,
-    /// A texture in a codec, or with a feature, `dds_convert` cannot convert in-process;
+    /// A texture whose header cannot be read as the format its name declares, and whose bytes
+    /// open with no other accepted format's signature (not a texture, or cut short before its
+    /// header ends); discarded the same way.
+    TextureUnreadable,
+    /// A texture in a codec, or a DDS of a kind (a signed block format, a volume, an array, a
+    /// paletted DDS, an incomplete cube map), `dds_convert` cannot convert in-process;
     /// discarded the same way.
     TextureCodecUnsupported,
     /// A DDS portrait under a DX10 extension header went out under the header
@@ -448,7 +453,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 135] = [
+    const ALL: [Code; 136] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -525,6 +530,7 @@ impl Code {
         Code::TextureNotDiv4,
         Code::KitTextureTooBig,
         Code::TextureTypeMismatch,
+        Code::TextureUnreadable,
         Code::TextureCodecUnsupported,
         Code::PortraitHeaderRewritten,
         Code::MaterialTextureUnused,
@@ -665,6 +671,7 @@ impl Code {
             Code::TextureNotDiv4 => "texture_not_div4",
             Code::KitTextureTooBig => "kit_texture_too_big",
             Code::TextureTypeMismatch => "texture_type_mismatch",
+            Code::TextureUnreadable => "texture_unreadable",
             Code::TextureCodecUnsupported => "texture_codec_unsupported",
             Code::PortraitHeaderRewritten => "portrait_header_rewritten",
             Code::MaterialTextureUnused => "material_texture_unused",
@@ -825,6 +832,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("texture_not_div4", CatalogSeverity::Error),
     ("kit_texture_too_big", CatalogSeverity::Error),
     ("texture_type_mismatch", CatalogSeverity::Error),
+    ("texture_unreadable", CatalogSeverity::Error),
     ("texture_codec_unsupported", CatalogSeverity::Error),
     ("portrait_header_rewritten", CatalogSeverity::Info),
     ("material_texture_unused", CatalogSeverity::Info),

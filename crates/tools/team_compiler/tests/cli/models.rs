@@ -16,7 +16,7 @@ use fmdl::{FmdlFile, Model};
 
 use crate::bins::{BOOTS_LIST, GLOVE_LIST, install_tables, item_list, pairs_of};
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, pes21_settings, tracer_kit, tracer_player_file};
+use crate::compile::{cpk_entries, pes21_settings, pixels_cut_dds, tracer_kit, tracer_player_file};
 use crate::conversion::HOME_714_05;
 use crate::face_folders::assert_blank_face;
 use crate::prefox_faces::{
@@ -357,9 +357,11 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
         "exports/co Midcup Broken/Players/05 - A",
         "boots.fmdl",
     );
-    // The DDS with its header cut off: nothing can read it as a texture.
-    let cut = tracer_player_file("shirt.dds")[128..].to_vec();
-    sandbox.write("exports/co Midcup Broken/Players/05 - A/shirt.dds", &cut);
+    // A header the deep pass reads, over pixel data cut short: the conversion fails.
+    sandbox.write(
+        "exports/co Midcup Broken/Players/05 - A/shirt.dds",
+        &pixels_cut_dds(),
+    );
     write_player(
         &sandbox,
         "exports/co Midcup Broken/Players/07 - B",

@@ -13,7 +13,7 @@ use studio_core::PipelineEvent;
 use crate::common::Sandbox;
 use crate::compile::{
     compiled_kits, compiled_players, compiled_portraits, cpk_entries, pass_through_settings,
-    pes_settings, pes21_settings, tracer_kit, tracer_player_file, tracer_portrait,
+    pes_settings, pes21_settings, pixels_cut_dds, tracer_kit, tracer_player_file, tracer_portrait,
 };
 use crate::textures::{bc1_dds, texture_fixture};
 use crate::{
@@ -1073,8 +1073,8 @@ fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits()
         &format!("{export}/Kits/p1/colors.txt"),
         b"#0a1b2c\n#d4e5f6\n",
     );
-    // Bytes no decoder reads, which the deep pass does not refuse: the kit's task fails.
-    sandbox.write(&format!("{export}/Kits/p2/kit.dds"), b"not a texture");
+    // A header the deep pass reads, over pixel data cut short: the kit's task fails.
+    sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &pixels_cut_dds());
     sandbox.write(
         &format!("{export}/Kits/p2/colors.txt"),
         b"#111111\n#222222\n",
@@ -1158,8 +1158,8 @@ fn a_full_export_rebuilds_its_team_s_record_from_its_kits_and_a_failed_kit_s_bas
     for slot in ["p1", "p2", "g1"] {
         sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
     }
-    // Bytes no decoder reads, which the deep pass does not refuse: the kit's task fails.
-    sandbox.write(&format!("{export}/Kits/p3/kit.dds"), b"not a texture");
+    // A header the deep pass reads, over pixel data cut short: the kit's task fails.
+    sandbox.write(&format!("{export}/Kits/p3/kit.dds"), &pixels_cut_dds());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
@@ -1768,7 +1768,7 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
     let sandbox = Sandbox::new("processed_order");
     sandbox.write("exports/co Midcup Kits/Kits/p1/kit.dds", &tracer_kit());
     // Fails on the pool, so its finding is the writer's to report.
-    sandbox.write("exports/co Midcup Kits/Kits/g1/kit.dds", b"not a texture");
+    sandbox.write("exports/co Midcup Kits/Kits/g1/kit.dds", &pixels_cut_dds());
     sandbox.write("exports/dbg Midcup Off/NO_USE", b"");
     sandbox.write(
         &format!("exports/dbg Midcup Off/{CLEAN_PLAYER}"),

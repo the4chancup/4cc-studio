@@ -303,10 +303,16 @@ the file cannot be converted as the format its name declares; nor is `texture_no
 every pre-Fox texture is written block-compressed (BC1 or BC3), and the pre-Fox games' Direct3D 9
 renderer cannot create a block-compressed texture whose sides are not multiples of 4. The other
 three size findings are eligible: the texture converts, and what the game makes of it is the
-member's risk. A texture whose header cannot
-be read gets no finding here; converting it fails its task (`folder_pack_failed`), as does
-one whose pixel data is cut short, which no header shows. `texture_codec_unsupported` is
-conversion's own finding, reported when the file is compiled, not by `check`.
+member's risk. A texture whose header the
+probe refuses is a finding here too, at the same place as a mismatched file's:
+`texture_unreadable` when the header cannot be read at all (bytes that are no texture, a header
+cut short), `texture_codec_unsupported` when the probe refuses its codec or its kind of DDS, the
+two arms conversion itself calls a codec refusal (`processing::texture::conversion_failure`), so
+that the file never reaches a task that would fail whole with it (a Common texture's task packs
+every Common texture). A cube map skips the probe: the 2D reader refuses every cube map, and the
+compile never decodes one (it goes out as it is, or through the FTEX container conversion), so
+a cube map the Fox route refuses still fails its task. Pixel data cut short, which no header
+shows, still fails the task (`folder_pack_failed`).
 
 A portrait (a `Portraits/` file or a player folder's `portrait.*`) is checked the same way and
 dropped alone, its player folder keeping everything else. Its sides must be powers of two
@@ -322,8 +328,8 @@ pass-through-eligible, and the logo goes as one unit.
 | `texture_not_div4` | E | pre-Fox: a side that is not a multiple of 4 (every pre-Fox texture is written block-compressed); not pass-through-eligible | discarded |
 | `kit_texture_too_big` | E | a kit's main texture (`kit`, its own or the one inherited from `all/`) wider or taller than 2048 pixels, or with a side that is not a power of two; any target | discarded |
 | `texture_type_mismatch` | E | header doesn't match extension (renamed, not resaved) | discarded |
-| `texture_unreadable` | E | the header cannot be read as the format the name declares and matches no other accepted format's signature (not a texture, or cut short before its header ends); reported by the deep pass, the file alone, so a folder's other textures are kept; not pass-through-eligible | discarded |
-| `texture_codec_unsupported` | E | codec not convertible in-process (`dds_convert` refuses the codec, or the DDS is of a kind the target cannot be given: a signed block format, a volume, an array, a paletted DDS, an incomplete cube map); reported by the deep pass from the header, the file alone; not pass-through-eligible | discarded |
+| `texture_unreadable` | E | the header cannot be read as the format the name declares and matches no other accepted format's signature (not a texture, or cut short before its header ends); reported by the deep pass from the header at the place's disposition, as `texture_type_mismatch` is (the file alone in `Common/`, so its other textures are kept; the folder for a model folder's or a kit's); not pass-through-eligible | discarded |
+| `texture_codec_unsupported` | E | codec not convertible in-process (`dds_convert` refuses the codec, or the DDS reader refuses the file as a DDS: a signed block format, a volume, an array, a paletted DDS, a header of the wrong size, a zero side, an impossible level count, premultiplied alpha, an unknown four-character code); reported by the deep pass from the header at the place's disposition, as `texture_unreadable` is, and by the Fox cube-map route when `dds_to_ftex` refuses one; not pass-through-eligible | discarded |
 | `portrait_header_rewritten` | I | a DDS portrait under a DX10 extension header went out under the legacy header of its format, an sRGB DXGI id as its UNORM twin, its pixel data unchanged (`player_folders.md` "Portraits": such a file crashed PES 19; context: `file`; `dxgi`, the id the source carried) | none |
 | `texture_stem_conflict` | E | two image files with the same stem in one lookup namespace, whatever their extensions: one folder of a player folder's tree, the root or one subfolder (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name; `hair.dds` beside `jessie/hair.dds` is no conflict, a model's texture name resolving nearest first, `player_folders.md` "Subfolders"), `Common/` (`hair.dds` beside `hair.png`), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`) | folder discarded (the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`) |
 

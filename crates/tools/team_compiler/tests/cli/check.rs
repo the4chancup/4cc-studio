@@ -3,6 +3,7 @@
 use studio_core::{ExportId, PipelineEvent, RunId};
 
 use crate::common::Sandbox;
+use crate::compile::tracer_kit;
 use crate::{CLEAN_PLAYER, clean_model, snapshot};
 
 #[test]
@@ -89,7 +90,11 @@ fn two_refs_exports_are_both_skipped_and_a_disabled_one_is_left_out() {
 #[test]
 fn a_disallowed_file_is_an_error_when_strict_and_an_info_when_lenient() {
     let sandbox = Sandbox::new("strict_file_type_check");
-    sandbox.write("exports/co Midcup Spring/Players/03 - A/hair.dds", b"");
+    // A texture the deep pass passes, so the lenient run's findings are the disallowed file's.
+    sandbox.write(
+        "exports/co Midcup Spring/Players/03 - A/hair.dds",
+        &tracer_kit(),
+    );
     sandbox.write("exports/co Midcup Spring/Players/03 - A/readme.txt", b"");
 
     let strict = sandbox.run(

@@ -118,6 +118,40 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_merges_into_the_player_s_
     }
 }
 
+#[test]
+fn under_ingame_face_a_texture_only_the_combined_boots_folder_holds_supplies_his_own_mtl() {
+    let sandbox = Sandbox::new("prefox_ingame_link_texture");
+    let export = "co Midcup Linked";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/boots.model"), &card_model());
+    // His own `.mtl` names `studs.dds`, which only the boots folder his link combines holds.
+    sandbox.write(&format!("{player}/boots.mtl"), &materials("card", "studs"));
+    sandbox.write(&format!("{player}/Studs.boots"), b"");
+    let studs = format!("exports/{export}/Boots/Studs");
+    sandbox.write(&format!("{studs}/boots.model"), &card_naming("studs"));
+    sandbox.write(&format!("{studs}/boots.mtl"), &materials("studs", "studs"));
+    sandbox.write(&format!("{studs}/studs.dds"), &small_dds());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            CLEAN[1],
+            "Info link_combined [Keep] at Players/05 - A (link=Studs.boots)",
+            "Info model_merged [Keep] at Players/05 - A (model=boots.model)",
+        ],
+    );
+
+    // Both parts' paths name the one texture in his common folder, which the CPK holds.
+    let boots = entries_under(&entries, BOOTS_K0625);
+    let studs = format!("{SLOT_05_HOME}studs.dds");
+    assert_eq!(sampler_paths(boots["boots.mtl"]), [studs.clone(), studs]);
+    let texture = format!("common/character1/{SLOT_05_HOME}studs.dds");
+    assert!(entries.contains_key(&texture), "{texture}");
+}
+
 /// Writes slot 07 of the export `export`: `face_high.model`, its `.mtl` and `skin.dds`, a
 /// clean player beside slot 05, so the CPK is written whatever slot 05 gives.
 fn write_slot_07_face(sandbox: &Sandbox, export: &str) {

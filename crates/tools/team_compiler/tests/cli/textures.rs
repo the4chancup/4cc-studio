@@ -21,7 +21,7 @@ use crate::common::Sandbox;
 use crate::common_links::texture_directories;
 use crate::compile::{
     compiled_kits, compiled_players, cpk_entries, kit_texture, pass_through_settings, pes_settings,
-    pes21_settings, tracer_kit, tracer_player_file,
+    pes21_settings, pixels_cut_dds, tracer_kit, tracer_player_file,
 };
 use crate::deploy::templates_folder;
 use crate::models::face_package;
@@ -672,15 +672,15 @@ fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
         &format!("{dropped}/Common/hair.png"),
         &texture_fixture("tiny.png"),
     );
-    // Bytes no decoder reads give no deep-pass finding: the conversion fails the export's
-    // Common task instead, which commits on its own.
+    // A header the deep pass reads, over pixel data cut short: no deep-pass finding, the
+    // conversion fails the export's Common task instead, which commits on its own.
     let failed = "exports/dbg Midcup Failed";
     sandbox.write(
         &format!("{failed}/Players/05 - A/fcl_hair.fmdl"),
         &hair_model_naming("hair.dds"),
     );
     sandbox.write(&format!("{failed}/Players/05 - A/hair.dds.common"), b"");
-    sandbox.write(&format!("{failed}/Common/hair.dds"), b"not a texture");
+    sandbox.write(&format!("{failed}/Common/hair.dds"), &pixels_cut_dds());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
@@ -1326,9 +1326,10 @@ fn a_dds_of_a_kind_the_decoder_refuses_in_common_drops_that_file_alone() {
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
+            // The deep pass's, from the header, on the file before planning.
+            "Error texture_codec_unsupported [DropFile] at Common/bumps.dds (file=bumps.dds)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Error texture_codec_unsupported [DropFile] at Common (file=bumps.dds)",
         ]
     );
     assert_eq!(run.exit_code(), 1);

@@ -32,7 +32,7 @@ CASES = [
     (native.fmdl.Fmdl, sorted(FMDL_FIXTURES.glob("*.fmdl")), 5,
      lambda name: name.startswith("konami_")),
     (native.fmdl.Skl, sorted(FMDL_FIXTURES.glob("*.skl")), 4, lambda name: True),
-    (native.pes_model.Model, sorted(MODEL_FIXTURES.glob("*.model")), 17, lambda name: False),
+    (native.pes_model.Model, sorted(MODEL_FIXTURES.glob("*.model")), 18, lambda name: False),
     (native.pes_model.MaterialSet, sorted(MODEL_FIXTURES.glob("*.mtl")), 10,
      lambda name: name in MTL_BYTE_IDENTICAL),
 ]

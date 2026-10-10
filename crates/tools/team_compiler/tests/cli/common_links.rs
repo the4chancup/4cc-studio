@@ -12,7 +12,7 @@ use fmdl::{FmdlFile, Model};
 use crate::bins::{install_cpk, install_names};
 use crate::common::Sandbox;
 use crate::compile::{
-    compiled_players, cpk_entries, pes21_settings, tracer_kit, tracer_player_file,
+    compiled_players, cpk_entries, pes21_settings, pixels_cut_dds, tracer_kit, tracer_player_file,
 };
 use crate::conversion::HOME_714_05;
 use crate::models::{body_skl, face_package, package_names};
@@ -656,9 +656,8 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
         &format!("{export}/Common/legs.fmdl"),
         &tracer_player_file("fcl_hair.fmdl"),
     );
-    // The DDS with its header cut off: nothing can read it as a texture.
-    let cut = tracer_player_file("shirt.dds")[128..].to_vec();
-    sandbox.write(&format!("{export}/Common/broken.dds"), &cut);
+    // A header the deep pass reads, over pixel data cut short: the conversion fails.
+    sandbox.write(&format!("{export}/Common/broken.dds"), &pixels_cut_dds());
     sandbox.write(
         &format!("{export}/Common/cloth.dds"),
         &tracer_player_file("shirt.dds"),
@@ -1186,6 +1185,40 @@ fn a_beaten_common_model_is_not_dropped_for_a_dropped_file_of_its_stem_that_is_n
         package_names(&entries[BOOTS_05]),
         ["boots.fmdl", "boots.skl"]
     );
+}
+
+#[test]
+fn a_common_texture_the_decoder_refuses_is_dropped_alone_and_the_others_are_packed() {
+    let sandbox = Sandbox::new("cmn_texture_unreadable");
+    let export = "exports/co Midcup Studs";
+    sandbox.write(&format!("{export}/Players/05 - A/studs.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/studs.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    // Four bytes that open with no accepted format's signature: no header to read.
+    sandbox.write(&format!("{export}/Common/boots.dds"), b"junk");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Studs"),
+        [
+            "Error texture_unreadable [DropFile] at Common/boots.dds (file=boots.dds)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let common: Vec<&str> = entries
+        .keys()
+        .map(String::as_str)
+        .filter(|path| path.starts_with(COMMON_TEXTURES))
+        .collect();
+    assert_eq!(common, [format!("{COMMON_TEXTURES}/studs.ftex")]);
 }
 
 /// Writes the export `export`: slot 05 holding `model_name` (`model`) and `boots.mtl.common`,

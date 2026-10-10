@@ -1,8 +1,10 @@
 //! The deep pass's texture checks (`team_compiler/messages.md` "Textures"), from a
-//! texture's header alone: a file renamed from another format, a side under one block, and
-//! the size rules a texture is held to by where it is and the target's engine.
+//! texture's header alone: a file renamed from another format, a header the converter cannot
+//! read or refuses, a side under one block, and the size rules a texture is held to by where
+//! it is and the target's engine.
 
-use dds_convert::SourceFormat;
+use dds_convert::{ConvertError, SourceFormat};
+use ftex::FtexError;
 use pes_version::{Engine, PesVersion};
 
 use crate::messages::Code;
@@ -61,14 +63,21 @@ fn signature_format(bytes: &[u8]) -> Option<SourceFormat> {
 /// rule that fires: `texture_type_mismatch` when they open with another accepted format's
 /// signature (a file renamed, not resaved; its header is not read), then, from the header,
 /// `texture_too_small` on a side under 4 pixels (one block), then the size rule. A header
-/// that cannot be read is no finding: converting the texture fails its task.
+/// the probe refuses is a finding on the file too (`probe_failure`), so the texture's task never
+/// meets it: a Common texture's would fail every Common texture with it.
 pub(super) fn texture_finding(format: SourceFormat, rule: SizeRule, bytes: &[u8]) -> Option<Code> {
     if signature_format(bytes).is_some_and(|sniffed| sniffed != format) {
         return Some(Code::TextureTypeMismatch);
     }
-    // The error is not reported here: the texture's task meets it again and fails on it.
-    let Ok(probe) = dds_convert::probe(bytes, format) else {
+    // The probe walks a 2D texture and refuses a cube map, which the game takes and the
+    // compile never decodes (`processing::texture::convert` sends it out as it is, or through
+    // the FTEX container conversion): its header is not read here.
+    if format == SourceFormat::Dds && ftex::dds::is_cube_map(bytes) {
         return None;
+    }
+    let probe = match dds_convert::probe(bytes, format) {
+        Ok(probe) => probe,
+        Err(error) => return Some(probe_failure(&error)),
     };
     if probe.width < 4 || probe.height < 4 {
         return Some(Code::TextureTooSmall);
@@ -84,6 +93,25 @@ pub(super) fn texture_finding(format: SourceFormat, rule: SizeRule, bytes: &[u8]
             (probe.width % 4 != 0 || probe.height % 4 != 0).then_some(Code::TextureNotDiv4)
         }
         SizeRule::Portrait => (!power_of_two).then_some(Code::TextureNotPow2),
+    }
+}
+
+/// The finding on a texture whose header `dds_convert::probe` refuses with `error`: a codec
+/// `dds_convert` cannot convert, or a kind of DDS `ftex::dds::read_layout` refuses (a signed
+/// block format, a volume, an array, a paletted DDS), is `texture_codec_unsupported`; any
+/// other error, a header cut short or bytes that are no texture, `texture_unreadable`. The
+/// two codec arms are the ones `processing::texture::conversion_failure` calls a codec
+/// refusal; kept apart from it, since that one builds a task failure and this a code.
+fn probe_failure(error: &ConvertError) -> Code {
+    match error {
+        ConvertError::Unsupported(_) | ConvertError::Ftex(FtexError::UnsupportedDds(_)) => {
+            Code::TextureCodecUnsupported
+        }
+        ConvertError::Ftex(_)
+        | ConvertError::Wesys(_)
+        | ConvertError::Image(_)
+        | ConvertError::InvalidDecoded(_)
+        | ConvertError::Truncated => Code::TextureUnreadable,
     }
 }
 
@@ -231,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn a_texture_whose_header_is_cut_gets_no_finding() {
+    fn a_texture_whose_header_is_cut_is_unreadable_and_drops_its_folder() {
         let temp = scratch("deep_texture_cut");
         let findings = findings_of(
             temp.path(),
@@ -247,7 +275,37 @@ mod tests {
             ],
             &[],
         );
-        assert_eq!(findings, []);
+        // Each in file order, on the folder as every texture finding in a model folder, and
+        // never eligible: packed, the folder's texture task would fail on it.
+        assert_eq!(
+            findings,
+            ["hair.png", "skin.dds"].map(|file| texture_finding_on(
+                "texture_unreadable",
+                &folder("Players/03 - A"),
+                file,
+                Disposition::DropFolder,
+                false
+            ))
+        );
+    }
+
+    #[test]
+    fn a_texture_the_probe_refuses_is_unreadable_or_of_an_unsupported_codec() {
+        let rule = SizeRule::FoxMipmapped;
+        assert_eq!(
+            texture_finding(SourceFormat::Dds, rule, b"junk"),
+            Some(Code::TextureUnreadable)
+        );
+        // A 4x4 BC1 DDS with `DDSCAPS2_VOLUME` (0x200000) set in its `capabilities2`, the
+        // 4-byte field at file offset 112 (the magic, then 108 bytes into the header): a
+        // volume texture, a kind of DDS the target cannot be given.
+        let mut volume = bc1_dds(4, 4);
+        assert_eq!(texture_finding(SourceFormat::Dds, rule, &volume), None);
+        volume[112..116].copy_from_slice(&0x0020_0000_u32.to_le_bytes());
+        assert_eq!(
+            texture_finding(SourceFormat::Dds, rule, &volume),
+            Some(Code::TextureCodecUnsupported)
+        );
     }
 
     #[test]

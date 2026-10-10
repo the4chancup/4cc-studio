@@ -43,8 +43,8 @@ maintainer's answers: one Warning for a sleeve or fit option the shirt model ign
 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
 (a `.model` collar converts with the templates' `uniform.mtl` on both engines, the
 pre-check moving a PES 15-17 one onto the version's skeleton; TC-CMN-11, TC-CMN-19), 4.y-fix17
-started 2026-10-10 (the marker's combined folders in `held_stems`, `texture_unreadable`, the
-real stock collar fixture), 4.y-fix18 opened 2026-10-10 (the converted Fox collar takes the
+done 2026-10-10 (the marker's combined folders in `held_stems`, `texture_unreadable` and
+`texture_codec_unsupported` from the deep pass's probe, the real stock collar fixture), 4.y-fix18 opened 2026-10-10 (the converted Fox collar takes the
 stock collars' material set: PES 21 draws nothing for the converter's), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
 `.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
@@ -3794,7 +3794,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `-i`) run when no sidekick edits the tree and nothing is uncommitted, then a force push.
   → verify: `git log --oneline` shows the new types; `just gates` green at the new HEAD.
 
-- [~] 4.y-fix17 **Three small deep-pass and collar follow-ups** (brief
+- [x] 4.y-fix17 **Three small deep-pass and collar follow-ups** (brief
   `.tmp/4_y/brief_fix17.md`, 2026-10-10). (1) `held_stems` takes a marked player's combined
   boots and gloves folders (4.y-fix16's follow-up: `FaceUse` is `Unused` under the marker,
   so his combined textures did not count for his own `.mtl` paths). (2) A texture the
@@ -3808,6 +3808,36 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `messages.md` `texture_unreadable`, `texture_codec_unsupported`; `pipeline.md`
   "Collars". Crates: tc, pes_model (the fixture), python_bindings (the count)
   → verify: a test per item, red first; `just bindings` green with 18 model fixtures.
+  Done 2026-10-10 (sidekick, one run; brief `.tmp/4_y/brief_fix17.md`, report
+  `.tmp/4_y/sk_fix17_report.md`): (1) `folder_findings` takes a `ReadFolder` (path, files,
+  models, the player's combined folders, the eighth argument grouped rather than a lint
+  opt-out), and the `.mtl` lookup's shared folders are the linked face when the face files
+  are used plus every combined boots or gloves folder, marker or not; `FaceUse::Used` lost
+  its `combined` field (narrowed). The brief's link shape was wrong (a shared boots folder
+  is linked as `Studs.boots`, and the link combines under the marker only beside a
+  `boots.model` of his own): the test in `prefox_ingame_face.rs` uses the real one. (2)
+  `deep::texture::probe_failure` maps the probe's error as `conversion_failure` does
+  (`texture_codec_unsupported` for the two codec arms, the new `texture_unreadable` for the
+  rest), neither pass-through-eligible; a cube map skips the probe (the sidekick's applied
+  contradiction, accepted: the 2D reader refuses every cube map and the compile never decodes
+  one; TC-TEX-13's `env.dds` was dropped under the brief's rule), so a cube map the Fox route
+  refuses still fails its task (`messages.md`). Nine tests that fed a task junk bytes to make
+  it fail now feed it `pixels_cut_dds()` (a whole header over pixel data cut short), TC-STR-09's
+  empty `hair.dds` real bytes, and TC-TEX-14's finding moved from the task to the deep pass
+  (TC-KIT-14's and TC-BIN-14's wording updated). (3) The collar tests convert the stock
+  `konami_collar_001.wesys.model` (12 bones, two meshes on `uni_shirts` then `uni_collar`, no
+  annotation; unwrapped it equals the lead's probe copy): on PES 21 only bitangents drop, no
+  bone moves; on PES 15 the trapezius bones fold onto the shoulders and four retarget; PES 16
+  and 17 byte for byte. Contradictions ruled: the catalog's "the file alone" was a new rule
+  (the pass has no per-code disposition: the place's, as `texture_type_mismatch`), row
+  reworded; `texture_codec_unsupported`'s row lists the DDS reader's other refusals; a
+  PES 17 `.model` collar packed as is or moved for PES 15-16 keeps `uni_collar`, which
+  their `uniform.mtl` does not define (Issues). Files: `deep/mod.rs`, `deep/texture.rs`,
+  `deep/materials.rs`, `messages.rs`, `processing/texture.rs`, nine CLI test files;
+  `pes_model` fixture + README row, `smoke.py` (lead); `messages.md`, `README.md` TC texts
+  (lead). Gates green (`.tmp/4_y/gates_fix17_lead.log`, acceptance 302 of 312), `just
+  bindings` green (37 fixtures); mutants 10 caught, 0 missed, 3 unviable
+  (`.tmp/4_y/mutants_fix17.log`).
 
 - [ ] 4.y-fix18 **A `.model` collar converted for PES 18-21 takes the stock collars' Fox
   material set** (the lead's in-game check, 2026-10-10, under 4.y-ingame2). The FMDL
@@ -4051,7 +4081,14 @@ points there.
   a per-kit model variant that planning leaves out is still read and checked: a broken
   `boots_kit2.model` beside a valid `boots_kit1.model` drops a marked folder `compile`
   would build. The pass now reads the roles as planning does (`part_source_models`).
-- open (4.y-fix16's review, 2026-10-10) — a texture whose bytes open with no signature the
+- open (4.y-fix17's review, 2026-10-10) — a PES 17 `.model` collar compiled for PES 15 or 16
+  keeps its `uni_collar` material, packed as is when the pre-check does not flag it (PES 16)
+  or moved onto the skeleton when it does (PES 15), while those versions' `uniform.mtl`
+  defines no `uni_collar` (the FMDL conversion names `uni_shirts` alone for them, DECISIONS
+  2026-10-09). What the game draws for a collar material its `uniform.mtl` lacks is unknown:
+  an in-game check on PES 16 (the F: install), and if it draws nothing, the same-engine
+  collar gets the version's names as the converted one does.
+- resolved 2026-10-10 (4.y-fix17) — a texture whose bytes open with no signature the
   deep pass knows (four junk bytes as `Common/boots.dds`) gets no finding there (the texture
   check reads headers, `texture_finding`), reaches the Common textures task and fails it
   with `folder_pack_failed` at `Common` (`DropFolder`: every Common texture lost, the
@@ -6109,3 +6146,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `.model` collar converted by 4.y-fix12 draws nothing (the plain neckline of a collar with no
   model, for two stock PES 17 collars), so step 4.y-fix18 gives the FMDL the stock collars'
   material set (decision).
+- **2026-10-10** — 4.y-fix17 done (sidekick, one run): the `.mtl` lookup counts a marked
+  player's combined boots and gloves folders; a texture the probe refuses is
+  `texture_unreadable` or `texture_codec_unsupported` on the file (a cube map skips the
+  probe, the sidekick's catch); the collar tests convert the real stock collar. The catalog's
+  "file alone" wording corrected (the place's disposition); a same-engine collar's
+  `uni_collar` on PES 15-16 is a new issue.

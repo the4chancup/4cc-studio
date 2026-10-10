@@ -46,6 +46,13 @@ pub(crate) fn tracer_kit() -> Vec<u8> {
     fs::read(Path::new(&tracer_export()).join("Kits/g1/kit.dds")).unwrap()
 }
 
+/// `tracer_kit()` cut to its first 200 bytes: the whole header and the start of the pixel
+/// data. The deep pass reads headers alone and passes it; converting it fails the task that
+/// packs it.
+pub(crate) fn pixels_cut_dds() -> Vec<u8> {
+    tracer_kit()[..200].to_vec()
+}
+
 /// The bytes of the file `name` of the tracer bullet's player folder, the one
 /// `copy_tracer_face` copies.
 pub(crate) fn tracer_player_file(name: &str) -> Vec<u8> {

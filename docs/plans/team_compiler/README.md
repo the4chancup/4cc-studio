@@ -1243,7 +1243,7 @@ TC-KIT-13  GIVEN a p1/icon_7 marker, and p2 without an icon marker
            WHEN the export is compiled
            THEN p1's UniColor entry carries icon 7 and p2's icon 3
 TC-KIT-14  GIVEN a Midcup /co/ export with kits p1 and p2, p2's task failing (its kit.dds holds
-           bytes no decoder reads)
+           a whole header over pixel data cut short, which the deep pass passes)
            WHEN the export is compiled
            THEN p2 has no UniColor or UniformParameter entry change, and p1's entries are
                 written
@@ -1528,7 +1528,7 @@ TC-BIN-13  GIVEN an installed TeamColor.bin whose record for team 799 starts wit
                 count 4, every other installed record is unchanged, and bin_header_repaired
                 is reported once, naming TeamColor.bin and team 799
 TC-BIN-14  GIVEN a Full /co/ export with kits p1, p2, p3 and g1, p3's task failing (its kit.dds
-           holds bytes no decoder reads), and no PES install configured (the bundled
+           holds a whole header over pixel data cut short), and no PES install configured (the bundled
            UniColor.bin's record for team 714 holds a past cup's eight kits: 0 to 6 and 0x10)
            WHEN it is compiled for PES 21
            THEN team 714's UniColor.bin record has a kit count of 4 and holds p1's, p2's and
