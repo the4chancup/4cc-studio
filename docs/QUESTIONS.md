@@ -20,24 +20,6 @@ Phase 4's kits work. To investigate then: what differs (format, bones moved, res
 whether one engine's diff converts into the other's, and how a folder says which engine its
 diff is for (the kit layout's `pre-fox`/`fox` markers are the model). Say when.
 
-### Where the pre-Fox referee marker shows
-From: step 4.19d's in-game check (DECISIONS 2026-10-09 "The pre-Fox marker goes by Red's
-route"). The plan says the marker is a square about 1.5 m wide on the ground under the
-referee. On PES 17 the lead's frames of the walkout, the lineup and the match's wide camera
-(`.tmp/4_19/ingame/frames/`) showed neither the cup's own clover (the template's
-`parts/referee/incom_bsm.dds`, installed in `4cc_35_referees.cpk`) nor a test texture. In
-which scene does the pre-Fox marker show, and does it with the cup's current refs CPK? Run D
-of `.tmp/4_19/ingame/test_ref04_runs.py` installs a magenta and yellow checker as that
-texture through the test CPK slot (`install D`, then `revert`; PES closed for both), run G
-the template's prop pair with it. The lead ran both on 2026-10-10 (worklog 4.y-ingame2):
-no square in the walkout, the kickoff's wide camera or the replay's cameras at 0:00, and
-no referee figure at all in an exhibition match on the maintainer's install (the cup's
-`4cc_35_referees.cpk` holds the same prop pair and its clover texture). So two questions:
-is the referee hidden on purpose on this install (and how), and which scene draws the
-prop, if a visible referee is what it takes? The checker is a plain DDS where the
-template's own file is WESYS-compressed, as the compiler's output is (step 4.19f), so a
-run that shows it also confirms the game reads a plain DDS at that path.
-
 ### A Fox cube map of Red's type
 Red writes a member's cube-map DDS on PES 18-21 as an FTEX of texture type 0xD (the normal-map
 type 0x9 with the cube bit), a type the game's own cube maps never use (theirs are 0x5 and

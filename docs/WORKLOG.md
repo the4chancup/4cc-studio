@@ -3896,6 +3896,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`s21_rows.png`, Edit Player's roster preview). The game reads a texture wherever the
   FMDL's directory says, `#windx11/` inserted before the name, so slice (b3)'s layout move
   is safe; (f) closed, its QUESTIONS entry removed.
+  manual: checked 2026-10-10 by the maintainer, the pre-Fox referee marker (b): PES 17 with
+  the cup's current `4cc_35_referees.cpk` (the template's prop pair and clover, what the
+  compiler writes, step 4.19f) draws the clover on the ground under each of the three
+  officials in every scene (a walkout in the black Void stadium, the maintainer's
+  screenshot). That CPK's clover is a plain 5.6 MB DDS, the form the compiler writes there
+  (`blue_port.md`), so the plain-DDS half is answered too. Why the lead's runs D and G (a
+  plain checker through the test slot) showed no marker is not known: the marker does not
+  scale with a small referee (the maintainer), so a missed official does not explain it.
+  (b) closed, its QUESTIONS entry removed.
 
 - [x] 4.y-fix16 **S9's second Astra round: the deep pass checks what `compile` reads,
   five more places** (rulings S9.A2 in `.tmp/4_y/duck_rulings.md`, all five accepted,
@@ -6877,3 +6886,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   and `.mtl` alike: a converted `.model` carries its `.mtl`'s game paths into the FMDL without a
   leading `/`. A census of the 6,897 FMDLs on the maintainer's machine (outside the studio's
   tree) found no relative texture directory but a bare `./` (49 files), which stays a name.
+- **2026-10-10** — In-game item (b) answered by the maintainer: the pre-Fox referee marker
+  shows under every official in every scene; the lead's runs missed the small referees.
