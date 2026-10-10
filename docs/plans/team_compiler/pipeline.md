@@ -549,8 +549,11 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    0xD). A WESYS-wrapped cube map is not recognized (its header is compressed; no export has
    one) and fails its task as today. The only cube maps exports carry are referees'
    copies of the template `env.dds`, named by their pre-Fox `.mtl` materials (the converge
-   census, 2026-10-09); whether PES 18-21 draws the Fox form is a maintainer question
-   (`docs/QUESTIONS.md`), so the rule follows Red rather than refusing what Red ships.
+   census, 2026-10-09), a leftover of the pre-Fox template on PES 18-21: no Fox material
+   samples a cube map (the community's shader reference, `resources/Materials.wikitext`: a
+   Fox reflection is the GGX shader's own or the Glass shader's 2D
+   `GlassReflection_Tex_SRGB`), so the Fox form is drawn by nothing, and the rule keeps
+   Red's harmless output rather than adding a finding for it.
    A texture's role comes from its stem: one ending in `_nrm` (any case) is a normal map, any
    other is color, the suffix of the role table in the [Unified model format
    plan](../model_format.md) and of the game's own maps (`skin_nrm`, `oral_nrm`, `dummy_nrm`).

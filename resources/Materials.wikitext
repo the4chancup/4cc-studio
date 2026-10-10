@@ -1,0 +1,478 @@
+= Pre-Fox =
+== .mtl file ==
+An .mtl assigns the shader and texture settings to .model files in PES. For this example we'll use the ''glove_l.mtl'' file. It also advised for these files to open them with Notepad++. Keep in mind that some .mtl files might still be [[Pro Evolution Soccer 2016/zlib|zlibbed]], so unzlib them first if necessary. '''Also here it is advised to copy an existing .mtl file and edit it to your needs instead of making one from scratch yourself in most situations.'''
+
+ <materialset>
+     <material name="Boots_Game_mat" shader="Boots">
+         <sampler name="DiffuseMap" path="./g001_c.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+         <sampler name="NormalMap" path="./g001_n.dds" srgb="0" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+         <sampler name="SpecularMap" path="./g001_sr.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+         <state name="alpharef" value="0" />
+         <state name="blendmode" value="0" />
+         <state name="alphablend" value="0" />
+         <state name="alphatest" value="0" />
+         <state name="twosided" value="0" />
+         <state name="ztest" value="1" />
+         <state name="zwrite" value="1" />
+     </material>
+     <material name="Boots_Game_Alpha_mat" shader="Boots">
+         <sampler name="DiffuseMap" path="./g001_c.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+         <sampler name="NormalMap" path="./g001_n.dds" srgb="0" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+         <sampler name="SpecularMap" path="./g001_sr.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+         <state name="alpharef" value="0" />
+         <state name="blendmode" value="0" />
+         <state name="alphablend" value="1" />
+         <state name="alphatest" value="0" />
+         <state name="twosided" value="1" />
+         <state name="ztest" value="1" />
+         <state name="zwrite" value="0" />
+     </material>
+ </materialset>
+
+* The '''''<materialset> </materialset>''''' note the start and the end of the .mtl files, everything outside these tags will not be read.
+* The '''''<material> </material>''''' note the end and start of a single entry for a single mesh in the .model file.
+* The '''''name''''' is the name of the mesh in the .model file the next material settings will be applied to. If you use [[RigEx]], it is the name you gave to the mesh, also shown in the ''Object:'' box.
+* The '''''shader''''' is the shader (or rather, a shader config file) that will be used for the mesh. There are a lot of different shaders in PES, almost all of them can be found in ''dt15.cpk\common\render\shader\surfaceShaders''. If you have no idea what shader to use, use the one that came with the .mtl file or a very similar one in the same file. If you have a shader that does not fit, you will notice it very quickly because the object will turn red, black, white or just look weird in general.
+* The '''''sampler''''' is a texture entry for the .model
+* The '''''name''''' of the sampler is the type of the texture that will be used. If you have no idea what a specific Map is, just google it. A mesh can only have the samplers that the shaders allows it to have. So open the .xml of the shader in the dt15.cpk folder and you'll see what samplers the shader has.
+* The '''''path''''' of the sampler is the texture that will be used for that specific sampler.
+* All the other sampler settings should be left alone in most cases. Only change them if you really know what you are doing.
+* The '''''alpharef''''' is used when the alphatest is enabled''. This is a 0-255 scale, every pixel that has a transparency of and below the alpharef view will not be rendered.
+* The '''''blendmode''''' determines how the mesh is blended into the meshes below it.
+* The '''''alphablend''''' will render the .model with the transparency of the DiffuseMap if this is 1.
+* The '''''alphatest''''' will render the .model with transparency of the DiffuseMap, but it depends on the alpharef whether a pixel is rendered or not.
+* The '''''twosided''''' will make the .model visible from both sides. If you have set up the normals correctly in Blender it can be left at 0 as it required extra CPU and GPU power when enabled.
+* The '''''ztest''''' and '''''zwrite''''' are better left at their default values.
+
+Keep in mind that not all shaders allow all the state settings, for example kit shaders will always ignore the alpha settings. And again watch out with using spaces in file names, the .mtl file treats spaces as separators. So it is advised to use underscores for filenames.
+
+Because there are so many different .mtl files with different settings the example above cannot be used for any situation. So again, please copy an existing file and edit that instead of writing one from scratch yourself.
+
+<br><span style="font-size:120%">'''The .mtl file lacks specific settings'''<br></span>
+For some situations, like kits, the game does not use a specific DiffuseMap for a .model and will only list a few settings. You can still add the DiffuseMap sampler yourself, but it might not always work as the game will overwrite this setting. This is usually very dependent on the type in the .xml files. Sometimes states are missing because they are not needed, but they can still work if you add them yourself.
+
+== Shaders ==
+{{incomplete}}
+To change a shader, edit the '''bolded''' part in your .mtl file. Note that shader names are case-sensitive.
+
+  <material name="(material name)" shader="'''(shader name)'''">
+
+=== <u>Basic_C</u> ===
+A very basic shader, as the name implies. Similar to the blin shader from FOX PES.
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| sampler name="DiffuseMap" || This is the sampler for the main texture you'll use on your model.
+|}
+
+=== <u>Basic_CNSR</u> ===
+A reflective shader, mostly used for metallic models. Similar to the metallic shader from FOX PES.
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| sampler name="DiffuseMap" || This is the sampler for the main texture you'll use on your model.
+|-
+| sampler name="SpecularMap" || This is the sampler for the reflectivity of your model.<br>[[wikipedia:Specularity]]
+|-
+| sampler name="RoughnessMap" ||
+|-
+| sampler name="EnvironmentMap" || This is the sampler for the reflection. Uses a cubemap.<br>[[wikipedia:Reflection_mapping]]
+|}
+
+'''<u>Other parameters</u>'''<br>
+Other entries that effect the reflectivity of your model. The effects of each variable haven't been fully figured out yet, but the values below should work fine.
+ <vector name="Reflection" 	x="1" 	y="1" z="1" w="0" />
+ <vector name="Shininess" 	x="0.9" y="0" z="0" w="1.0" />
+
+=== <u>Shadeless</u> ===
+Also known as "Anime Shader", "Cartoon Shader" or "Shadeless shader". A model with this shader will ignore lighting.
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| sampler name="DiffuseMap" || This is the sampler for the main texture you'll use on your model.
+|}
+
+= Fox Engine =
+[[File:DDF_semitransparency.png|300px|thumbnail|Deferred shader semitransparency example.<br>Left image is in PES; right is the texture.]]
+[[File:DDF_srm.png|300px|thumbnail|Deferred shader specular map example.]]
+[[File:DDF_Shaders_Guide.png|300px|thumbnail|Guide to make deferred shaders models look better.]]
+
+Unlike pre-Fox PES which was fully {{tt|forward rendered|Each object is rendered in sequence in one pass.}}, Fox Engine PES uses both forward and {{tt|deferred rendering|A first pass calculates everything in the scene but the lighting, which is 'deferred' to a second pass.}}. Both have downsides:
+* '''Deferred rendering doesn't support semitransparency'''; semitransparent textures will instead be '''dithered''' (see image on the right).
+* '''Forward-rendered materials will appear blurry when moving'''. There is a workaround for this (see the [[#Material settings|material settings]] section below).
+
+== Material settings ==
+Materials for Fox Engine models are configured in the '''Blender materials tab'''.
+* Materials can be named anything. You can use the same material for multiple meshes.
+* Only the settings under the '''FMDL Material Settings''' header are relevant; none of the regular Blender settings are used.
+
+[[File:Fox_material_settings.png|frameless|400px|none]]
+{{div col|colwidth=60em|rules=yes}}
+# '''Preset.''' Click to select a material preset. See [[#Other shaders|other shaders]] if you want to use a material without a preset.
+# '''Shader and technique.''' These are set automatically when selecting a preset.
+# '''Antiblur.''' Eliminates the blur caused by forward materials by creating a slightly smaller duplicate of the mesh with a deferred material on export. If your model has an outline, only the outline needs antiblur.
+# '''Alpha and shadow flags.''' These are set by the checkboxes below and you can ignore them if using a preset.
+# '''Twosided.''' This will make the game draw both sides of faces instead of only the front.
+# '''Transparent.''' Enables (dithered) transparency for deferred materials. Forward materials always allow transparency.
+# '''Cast Shadow.''' Makes the mesh cast a shadow.
+# '''Invisible.''' Prevents the mesh from being drawn. Invisible meshes can still cast shadows.
+# '''Material parameters.''' Material-specific parameters. See material sections below. You may have to add these yourself. Although they have four values, usually only the first one is relevant.
+{{div col end}}
+
+== Texture path ==
+The '''texture tab''' is where you specify the filenames of your textures and which directories to load them from. Selecting a PES material preset will automatically create corresponding entries for that material in the texture tab.
+[[File:Fox_texture_path.png|x250px|frameless|none]]
+
+You can '''omit the file extension''' in the filename. <br>
+Select a '''directory preset''' to load a texture from the '''same folder''' as the model; the ''0000'' ID will automatically be substituted on export. (Ignore the ''pes16''.)
+* To load a texture from a '''subfolder''' of the team common folder, insert the name of the subfolder between '''''/000/''''' and '''''/sourceimages/''''' in the ''Directory'' field at the bottom.
+* The ''PES common folder'' is for loading '''''dummy_nrm.tga''''' and '''''dummy_srm.tga''''' for ''NormalMap_Tex_NRM'' and ''SpecularMap_Tex_LIN'' respectively if you don't want to use those. The plugin sets them to these by default.
+* The names of the texture objects in the list '''do not matter''' and do not need to contain the texture type in brackets.
+
+== Shaders ==
+
+=== <u>Generic</u> ===
+This is a Deferred (3DDF) shader.
+
+'''<u>FMDL Material Settings</u>'''
+:'''Shader:''' fox3ddf_blin
+
+:'''Technique:''' fox3DDF_Blin
+
+'''<u>Material Parameters</u>'''
+{| class="wikitable"
+|-
+! Name !! Example values
+|-
+| MatParamIndex_0 || 0 0 0 0
+|}
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| Base_Tex_SRGB || This is the role for the main texture you'll use on your model.
+|-
+| NormalMap_Tex_NRM || https://en.wikipedia.org/wiki/Normal_mapping
+|-
+| SpecularMap_Tex_LIN || https://en.wikipedia.org/wiki/Specularity#In_computer_graphics
+|}
+
+=== <u>Metallic</u> ===
+This is a Deferred (3DDF) shader.
+
+'''<u>FMDL Material Settings</u>'''
+:'''Shader:''' fox3ddf_ggx
+
+:'''Technique:''' fox3DDF_GGX
+
+'''<u>Material Parameters</u>'''
+{| class="wikitable"
+|-
+! Name !! Example values
+|-
+| MatParamIndex_0 || 0 0 0 0
+|}
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| Base_Tex_SRGB || This is the role for the main texture you'll use on your model.
+|-
+| NormalMap_Tex_NRM || https://en.wikipedia.org/wiki/Normal_mapping
+|-
+| SpecularMap_Tex_LIN || https://en.wikipedia.org/wiki/Specularity#In_computer_graphics<br>It is required and needs to be set to #FF6C3A by default. You can experiment more with it if you want.
+|-
+| MetalnessMap_Tex_LIN || It is required and needs to be set to #FFFFFF by default. You can experiment more with it if you want.
+|}
+
+=== <u>Fresnel</u> ===
+[[File:Fresnel.jpg|x450px|thumb|right|Fresnel examples]]
+Adds a rim lighting effect by applying a color to the model based on the angle of incidence.
+<br>This is a Deferred (3DDF) shader.
+
+'''<u>FMDL Material Settings</u>'''
+:'''Shader:''' fox3ddf_blin_incidence
+
+:'''Technique:''' fox3DDF_Incidence
+
+'''<u>Material Parameters</u>'''
+{| class="wikitable"
+|-
+! Name !! Example values !! Description
+|-
+| MatParamIndex_0 || 0 0 0 0
+|-
+| Incidence_Roughness ||   10  0   0 0 || The higher the roughness, the higher the camera angle the fresnel effect requires.
+|-
+| Incidence_Color      ||   1  1   1 50 || Color of the fresnel in RGBA.
+|-
+|}
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| Base_Tex_SRGB || This is the role for the main texture you'll use on your model.
+|-
+| NormalMap_Tex_NRM || https://en.wikipedia.org/wiki/Normal_mapping
+|-
+| SpecularMap_Tex_LIN || https://en.wikipedia.org/wiki/Specularity#In_computer_graphics
+|}
+
+=== <u>Constant</u> ===
+Also known as "Anime Shader", "Cartoon Shader" or "Shadeless shader".
+<br>
+This is a Forward (3DFW) shader.
+
+'''<u>FMDL Material Settings</u>'''
+:'''Shader:''' fox3dfw_constant_srgb_ndr
+
+:'''Technique:''' fox3DFW_ConstantSRGB_NDR
+
+
+For even less lighting effect you can try:
+<br>
+:'''Shader:''' fox3dfw_constant_srgb_plain
+
+:'''Technique:''' fox3DFW_ConstantSRGB_Plain
+
+'''<u>Material Parameters</u>'''
+<br>
+None.
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| Base_Tex_SRGB || This is the role for the main texture you'll use on your model.<br>Mipmaps aren't obligatory with this shader.
+|}
+
+=== <u>Glass</u> ===
+This is a Forward (3DFW) shader.
+
+'''<u>FMDL Material Settings</u>'''
+:'''Shader:''' pes3dfw_glass2
+
+:'''Technique:''' pes3DFW_Glass2
+
+'''<u>Material Parameters</u>'''
+{| class="wikitable"
+|-
+! Name !! Example values !! Note
+|-
+| MatParamIndex_0     ||  54  0   0 0 ||
+|-
+| ReflectionIntensity ||   1  0   0 0 || The first value can be tweaked to increase or decrease the reflection intensity.
+|-
+| GlassRoughness      ||   0  0   0 0 || The first value can be tweaked to increase or decrease the mesh surface roughness.
+|-
+| GlassFlatness       ||   0  0   0 0 ||
+|-
+| PCBoxCenter         ||   0 15   0 0 ||
+|-
+| PCBoxSize           || 250 80 250 0 ||
+|}
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| Base_Tex_LIN || This is the role for the main texture you'll use on your model.
+|-
+| NormalMap_Tex_NRM || https://en.wikipedia.org/wiki/Normal_mapping
+|-
+| GlassReflection_Tex_SRGB || The texture will show on the reflection of the mesh.
+|-
+| GlassReflectionMask_Tex_LIN || https://en.wikipedia.org/wiki/Reflection_mapping<br>Texture probably needs to be DXT1, #000000 results in no reflection and you can set other colors to be reflected.
+|}
+
+=== <u>UV Scroll (lit)</u> ===
+This is a Deferred (3DDF) shader.
+<br>'''NOTE:''' UV scrolling is frame rate dependent; to lock the game to 60 FPS, '''V-sync''' must be '''disabled'''.
+
+'''<u>FMDL Material Settings</u>'''
+:'''Shader:''' fox3ddf_blin_uvscroll
+
+:'''Technique:''' fox3DDF_Blin_UVScroll
+
+'''<u>Material Parameters</u>'''
+{| class="wikitable"
+|-
+! Name !! Example values !! Note
+|-
+| UV0_Speed_U     ||  -0.2  0  0  0 || How many times to fully scroll the UVs on the U axis per second.
+|-
+| UV0_Speed_V ||   1.5  0  0  0 || How many times to fully scroll the UVs on the V axis per second.
+|-
+| Offset      ||   0  0  0  0 || Starting UV offset?
+|-
+|}
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| Base_Tex_SRGB || This is the role for the main texture you'll use on your model.
+|-
+| NormalMap_Tex_NRM || https://en.wikipedia.org/wiki/Normal_mapping
+|-
+| SpecularMap_Tex_LIN || https://en.wikipedia.org/wiki/Specularity#In_computer_graphics
+|}
+
+=== <u>UV Scroll (unlit) </u> ===
+This is a Forward (3DFW) shader.
+<br>'''NOTE:''' UV scrolling is frame rate dependent; to lock the game to 60 FPS, '''V-sync''' must be '''disabled'''.
+
+'''<u>FMDL Material Settings</u>'''
+:'''Shader:''' fox3dfw_constant_srgb_ndr_uvscroll
+
+:'''Technique:''' fox3DFW_ConstantSRGB_NDR_UVScroll
+
+'''<u>Material Parameters</u>'''
+{| class="wikitable"
+|-
+! Name !! Example values !! Note
+|-
+| UV0_Speed_U     ||  -0.2  0  0  0 || How many times to fully scroll the UVs on the U axis per second.
+|-
+| UV0_Speed_V ||   1.5  0  0  0 || How many times to fully scroll the UVs on the V axis per second.
+|-
+| Offset      ||   0  0  0  0 || Starting UV offset?
+|-
+|}
+
+=== <u>UV Step (lit)</u> ===
+This is a Deferred (3DDF) shader.
+<br>'''NOTE:''' UV scrolling is frame rate dependent; to lock the game to 60 FPS, '''V-sync''' must be '''disabled'''.
+<br>[[UVStep shader|More info]].
+
+'''<u>FMDL Material Settings</u>'''
+:'''Shader:''' fox3ddf_blin_uvstep
+
+:'''Technique:''' fox3DDF_Blin_UVStep
+
+'''<u>Material Parameters</u>'''
+{| class="wikitable"
+|-
+! Name !! Example values !! Note
+|-
+| Tile_Count_U     ||  8  0  0  0 || The number of animation frames on the U axis.
+|-
+| Tile_Count_V ||   6  0  0  0 || The number of animation frames on the V axis.
+|-
+| Tiles_Used      ||   42  0  0  0 || The number of animation frames to use (out of ''Tile_Count_U'' x ''Tile_Count_V''). <br> Set it to a lower number if you have unused frames.
+|-
+| Scale_UVs_To_Tiles      ||   1  0  0  0 || Setting this to 1 automatically scales the UVs to the size of an animation frame on export. <br> Set it to 0 if you want to do it manually and have it appear correctly in Blender.
+|-
+| Seconds_Per_Animation_Cycle      ||   2.4  0  0  0 || The time it takes to cycle through all animation frames. <br> Ignored if ''Use_Timing_Texture'' is set to 1.
+|-
+| Use_Timing_Texture      ||   1  0  0  0 || Whether to use a [[UVStep shader#Timing textures|timing texture]] or not.
+|-
+| Seconds_Per_Timing_U_Cycle      ||   5  0  0  0 || How long it takes to fully scroll the timing UVs on the U axis. <br> Ignored if ''Use_Timing_Texture'' is set to 0.
+|-
+| Seconds_Per_Timing_V_Cycle      ||   1.5  0  0  0 || How long it takes to fully scroll the timing UVs on the V axis . <br> Ignored if ''Use_Timing_Texture'' is set to 0.
+|-
+|}
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| Base_Tex_SRGB || This is the role for the main texture you'll use on your model.
+|-
+| NormalMap_Tex_NRM || https://en.wikipedia.org/wiki/Normal_mapping
+|-
+| SpecularMap_Tex_LIN || https://en.wikipedia.org/wiki/Specularity#In_computer_graphics
+|-
+| Timing_Tex_LIN || [[UVStep shader#Timing textures|Timing texture]] for advanced uses.
+|}
+
+=== <u>UV Step (unlit) </u> ===
+This is a Forward (3DFW) shader.
+<br>'''NOTE:''' UV scrolling is frame rate dependent; to lock the game to 60 FPS, '''V-sync''' must be '''disabled'''.
+<br>[[UVStep shader|More info]].
+
+'''<u>FMDL Material Settings</u>'''
+:'''Shader:''' fox3dfw_constant_srgb_ndr_uvstep
+
+:'''Technique:''' fox3DFW_ConstantSRGB_NDR_UVStep
+
+'''<u>Material Parameters</u>'''
+{| class="wikitable"
+|-
+! Name !! Example values !! Note
+|-
+| Tile_Count_U     ||  8  0  0  0 || The number of animation frames on the U axis.
+|-
+| Tile_Count_V ||   6  0  0  0 || The number of animation frames on the V axis.
+|-
+| Tiles_Used      ||   42  0  0  0 || The number of animation frames to use (out of ''Tile_Count_U'' x ''Tile_Count_V''). <br> Set it to a lower number if you have unused frames.
+|-
+| Scale_UVs_To_Tiles      ||   1  0  0  0 || Setting this to 1 automatically scales the UVs to the size of an animation frame on export. <br> Set it to 0 if you want to do it manually and have it appear correctly in Blender.
+|-
+| Seconds_Per_Animation_Cycle      ||   2.4  0  0  0 || The time it takes to cycle through all animation frames. <br> Ignored if ''Use_Timing_Texture'' is set to 1.
+|-
+| Use_Timing_Texture      ||   1  0  0  0 || Whether to use a [[UVStep shader#Timing textures|timing texture]] or not.
+|-
+| Seconds_Per_Timing_U_Cycle      ||   5  0  0  0 || How long it takes to fully scroll the timing UVs on the U axis. <br> Ignored if ''Use_Timing_Texture'' is set to 0.
+|-
+| Seconds_Per_Timing_V_Cycle      ||   1.5  0  0  0 || How long it takes to fully scroll the timing UVs on the V axis . <br> Ignored if ''Use_Timing_Texture'' is set to 0.
+|-
+|}
+
+'''<u>Textures</u>'''
+{| class="wikitable"
+|-
+! Role !! Description
+|-
+| Base_Tex_SRGB || This is the role for the main texture you'll use on your model.<br>Mipmaps aren't obligatory with this shader.
+|-
+| Timing_Tex_LIN || [[UVStep shader#Timing textures|Timing texture]] for advanced uses.
+|}
+
+== Other shaders ==
+If you want to use a shader that's not selectable as a preset, you'll have to track down a player that uses it or dig through Discord and enter the ''shader'' and ''technique'' manually.
+<br>You'll also have to set the alpha and shadow flags manually:
+
+<span style="font-size:120%"><u>'''Deferred shaders:'''</u><br></span>
+'''Alpha enum'''
+*   0 - No transparency, one-sided.
+*  32 - No transparency, two-sided.
+* 128 - Transparency, one-sided.
+* 160 - Transparency, two-sided.
+
+'''Shadow enum'''
+* 0 - Casts shadow.
+* 1 - No shadow.
+* 2 - Invisible, casts shadow.
+* 3 - Invisible, no shadow.
+
+<span style="font-size:120%"><u>'''Forward shaders:'''</u><br></span>
+'''Alpha enum'''
+*  16 - Transparency, one-sided.
+*  48 - Transparency, two-sided.
+
+'''Shadow enum'''
+* 2 - Invisible, casts shadow.
+* 4 - Casts shadow.
+* 5 - No shadow.
+
+[[Category: Aesthetics]]

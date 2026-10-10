@@ -6557,3 +6557,12 @@ approved; a census of 6,897 FMDLs found no relative directory but a bare `./`, s
 changes meaning.
 Plan: `model_format.md` "Stem-based texture references"; `aesthetics_export/player_folders.md`
 "Paths are kept"; `team_compiler/messages.md` `fmdl_texture_not_found`, `mtl_texture_not_found`.
+
+## 2026-10-10 — team_compiler — a Fox cube map stays Red's output, drawn by nothing
+Decision: on PES 18-21 a cube-map DDS keeps going out as Red's FTEX cube map (type 0xD), with
+no finding. Answers the open question of the 2026-10-09 entry (4.y-fix3).
+Why: the maintainer: a Fox referee export's `env.dds` is a leftover of the pre-Fox template,
+and no Fox material samples a cube map (`resources/Materials.wikitext`: a Fox reflection is
+the GGX shader's own or the Glass shader's 2D `GlassReflection_Tex_SRGB`). A finding would
+name a harmless file no member can act on in a way the game shows.
+Plan: `team_compiler/pipeline.md` step 3, the cube-map paragraph.

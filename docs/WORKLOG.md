@@ -3865,6 +3865,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the missing vertex colour stream and the four unweighted bones the converted FMDL lacks
   (4.y-fix18's comparison) change nothing visible. Compiled with the CLI from the test
   folder (`team-compiler compile --no-deploy --export`; the version is the settings').
+  (d) answered by the maintainer 2026-10-10, no run needed: a Fox referee export's `env.dds`
+  is a pre-Fox leftover, and no Fox material samples a cube map
+  (`resources/Materials.wikitext`), so the 0xD form is drawn by nothing and stays Red's
+  harmless output (`pipeline.md` step 3); the QUESTIONS entry removed. The earlier note:
   manual: not run 2026-10-10, the Fox cube map of type 0xD (d): no material of the refs
   export (robocopclassic's `apc.mtl`, `face.mtl`) and no bundled `.mtl` names `env.dds`,
   and the 4cc Fox CPKs hold no cube map (4.y-fix3's recon), so a Fox material pointed at a
@@ -6903,3 +6907,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   prop (a collar with the kit's material has no alpha test, so no transparent logo), Fox keeps
   collar 77 (`dt00_x64.cpk` loads over every CPK, so the Fox prop is reached only by writing
   it); `blue_port.md`'s rationale says so.
+- **2026-10-10** — In-game item (d) answered by the maintainer: no Fox material samples a
+  cube map (`resources/Materials.wikitext`, added), so a Fox `env.ftex` is a leftover the
+  compiler keeps writing as Red does; the QUESTIONS entry removed.
