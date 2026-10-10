@@ -164,7 +164,7 @@ such tree with nothing to name.
   `Common/` subfolder file has here too (`team_compiler/pipeline.md` step 6); PES 21 draws a
   player's subfolder texture there, checked in game). A `face.xml` or
   `.mtl` reference that carries a path (`./jessie/body/oral_x_*.model`, `./shorts/y.dds`),
-  or an FMDL texture whose directory does not start with `/` (`./shorts/` and `y`),
+  or an FMDL texture whose directory starts with `./` (`./shorts/` and `y`),
   resolves as written, relative to the referencing file: `./sub/name` is a local reference,
   checked like `./name` (`team_compiler/messages.md` "User-supplied `face.xml`"), not
   `xml_path_unchecked`; `./name` names a file of the xml's own folder alone. The generated

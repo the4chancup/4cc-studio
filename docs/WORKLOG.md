@@ -3999,9 +3999,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `sourceimages/<sub>/#windx11/` (`TextureHome::texture`, the FMDL directory; DECISIONS "on
   Fox a subfolder's texture sits before `sourceimages`"), and the pre-Fox Common output lists
   it at its path (TC-CMN-20, TC-MOD-67, TC-MOD-70); a texture named with a path below the
-  model's folder resolves at that path, an FMDL directory not starting with `/` read as one
+  model's folder resolves at that path, an FMDL directory starting with `./` read as one
   (`./textures/`, TC-MOD-71), and a shared folder's subfolders follow the player folder's
-  rules (TC-MOD-68 reworded); TC-CMN-13 as it is; (b4) kit-token folders (`kit1` to
+  rules (TC-MOD-68 reworded); TC-CMN-13 as it is; briefed as three slices, (b3a) the
+  texture named by its path and the Fox layout move, (b3b) nested `.common` links and the
+  Common tasks, (b3c) shared folders' subfolders; (b4) kit-token folders (`kit1` to
   `kit9`) form variant sets (`kitN/<name>`) in any folder, completed against the export's kit
   numbers, their paths written verbatim (TC-CMN-21, TC-MOD-72: /hdg/'s per-kit Common folders
   through a `kitN/` folder of links); the Export upgrader's half (a legacy
@@ -6871,3 +6873,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-10** — In-game check (f) on PES 21: a player's subfolder texture draws both at
   (b1)'s `sourceimages/jessie/#windx11/` and at the chosen `jessie/sourceimages/#windx11/`;
   the QUESTIONS entry removed. Phase 16 gains a web guide before 1.0.0 (`565c802`).
+- **2026-10-10** — A texture named by its path is one whose directory starts with `./`, FMDL
+  and `.mtl` alike: a converted `.model` carries its `.mtl`'s game paths into the FMDL without a
+  leading `/`. A census of the 6,897 FMDLs on the maintainer's machine (outside the studio's
+  tree) found no relative texture directory but a bare `./` (49 files), which stays a name.

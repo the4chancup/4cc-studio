@@ -121,10 +121,14 @@ material toml, so the same `.glb` compiles typed on pre-Fox and merged into its 
   claim the same reference, and the compiler can't pick one. The rule applies within a single model
   folder; different folders may reuse the same stem independently. A reference may carry a path
   below the referencing file's folder, so textures can sit in subfolders beside the model: a
-  `.mtl` path `./kitN/armor_bsm.dds`, or an FMDL texture whose directory does not start with `/`
-  (`./kitN/` and `armor_bsm`). It resolves at that path, to a texture or a link sitting there; a
-  bare stem resolves nearest first (`aesthetics_export/player_folders.md` "Subfolders"). An
-  FMDL directory starting with `/` keeps its meaning (the file name is looked up).
+  `.mtl` path `./kitN/armor_bsm.dds`, or an FMDL texture whose directory starts with `./`
+  (`./kitN/` and `armor_bsm`). It resolves at that path alone, to a texture or a link sitting
+  there, and one nothing sits at is not found; a bare stem (`./skin.dds`, an FMDL directory
+  `./` or empty) resolves nearest first (`aesthetics_export/player_folders.md` "Subfolders").
+  Any other directory keeps its meaning and the file name is looked up, as before: a game
+  path (`/Assets/...` in an FMDL, `model/character/...` in a `.mtl`), which a converted
+  `.model` carries into its FMDL as written, without a leading `/`, so the `./` is what
+  marks a path below the folder, not a missing `/`.
 - **PNG is the expected norm.** Blender cannot write DDS natively, so glTF-authored models naturally
   carry PNG textures; conversion to the target texture format happens at compile time (see the
   [library crates plan](libs/README.md)).

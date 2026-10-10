@@ -6543,3 +6543,17 @@ Why: the maintainer's request. The `help/` chapters are per-tool and in-app; the
 layout rules (subfolders, link files, shared folders, kit sets) are learned before the app is
 opened, and pictures of a folder tree teach them better than prose.
 Plan: `core/development_plan.md` Phase 16 "Web guide".
+
+## 2026-10-10 — team_compiler — a texture named by its path starts with `./`
+Decision: an FMDL texture directory or a `.mtl` texture path names a texture below the
+referencing file's folder when it starts with `./` and carries a directory (`./kitN/`); it
+resolves there alone, and nothing there is `fmdl_texture_not_found` (`mtl_texture_not_found`
+on a `.mtl`). A bare `./` or empty directory is a name, nearest first; any other directory
+keeps its meaning. Narrows the same day's "an FMDL directory not starting with `/`".
+Why: a converted `.model` carries its `.mtl`'s game paths (`model/character/uniform/...`) into
+its FMDL as written, without a leading `/`, so "not starting with `/`" would read those as
+paths below the folder and drop the package. `./kitN/` is the spelling the maintainer
+approved; a census of 6,897 FMDLs found no relative directory but a bare `./`, so no file
+changes meaning.
+Plan: `model_format.md` "Stem-based texture references"; `aesthetics_export/player_folders.md`
+"Paths are kept"; `team_compiler/messages.md` `fmdl_texture_not_found`, `mtl_texture_not_found`.
