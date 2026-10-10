@@ -617,6 +617,12 @@ merge, and the maintenance-mode section; this phase completes them.
 - Documentation: every shipped tool's `help/` chapter written for members (a tool shipping in a
   `0.x` release carries its chapter from that release); the bundled readme stays a pointer (the
   window itself is Phase 8)
+- Web guide: after the pre-release testing and before 1.0.0, a guide to the whole suite in web
+  format, with as many visual elements as can be made (screenshots, annotated folder trees,
+  diagrams), above all on preparing a Studio aesthetics export (player folders, subfolders,
+  link files, shared folders, `Common/`, kit sets). The `help/` chapters stay the in-app
+  reference; the guide is where a member learns the layout before opening the app, because
+  the export's flexibility is what a new manager gets wrong first
 - Maintenance mode: the `AGENTS.md` section on how the project changes once released is written
   at Release 0.1.0 (not earlier: a procedure written far ahead of its use goes stale) and reviewed
   here for 1.0.0. Agreed outline: the plans stay the spec, edited in place, and `DECISIONS.md` stays the

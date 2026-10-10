@@ -6535,3 +6535,11 @@ allowlist", `model_format.md` "Stem-based texture references", "Link files",
 step 6's Common sentences and the kit-set paragraph; `messages.md` `file_not_used`;
 `export_upgrader.md`; `team_compiler/README.md` TC-CMN-20, TC-CMN-21, TC-MOD-68,
 TC-MOD-71, TC-MOD-72.
+
+## 2026-10-10 — development plan — a web guide before 1.0.0
+Decision: Phase 16 gains a web guide to the whole suite, written after the pre-release testing
+and before 1.0.0, as visual as can be made, centred on preparing a Studio aesthetics export.
+Why: the maintainer's request. The `help/` chapters are per-tool and in-app; the export's
+layout rules (subfolders, link files, shared folders, kit sets) are learned before the app is
+opened, and pictures of a folder tree teach them better than prose.
+Plan: `core/development_plan.md` Phase 16 "Web guide".
