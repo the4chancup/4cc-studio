@@ -117,7 +117,14 @@ export format.
      checked, since its findings would drop what `compile` builds without it. A `Common/`
      model another representation of its stem beats is dropped with its winner
      (`common_model_beaten_dropped`), so planning never selects a file the pass did not
-     check. Its own
+     check. On PES 15-17 an FMDL whose every mesh is hidden (`invisible`) is dropped the
+     same way with the Info `model_hidden_dropped`, and a `.common` link naming it with the
+     same Info on the link (a drop rides on a finding, so none is silent), so no task
+     converts or names a model that draws nothing: the
+     task converting a model is not always the one naming it (a Common model's linking
+     face lists it, a shared boots folder's merge takes it), and a task-time omission
+     left the other task naming a file nobody wrote. On PES 18-21 the file is packed as
+     it is, the game drawing nothing of it as the member saw. Its own
      lookups (a model's `.mtl` search, a
      `.mtl`'s texture stems) see the `Common/` files the report keeps, an eligible
      Error's file included under `pass_through`, so the pass never drops a player for a
@@ -367,7 +374,8 @@ inside one export are refused or merged before its tasks are planned; collars ha
 and the writer's duplicate invariant is the backstop. A step that adds an output two tasks
 can claim adds the check with it. Folder-internal names that depend on deep parsing — glTF material-role image names, model
 fallback/merge products — are resolved deterministically inside that task and checked for collisions
-within its allocated namespace. All identity, allocation, roster, portrait-conflict, and run-global
+within its allocated namespace, by name folded as the file system folds it (`insert`: two files of
+one package whose names differ in case alone collide, as planning's own duplicate check folds). All identity, allocation, roster, portrait-conflict, and run-global
 collision checks finish before tasks are dispatched. Deep task failures may be at most `DropFolder`
 unless the writer can roll back the whole export. Each planned face/boots/gloves model folder is
 then processed as an independent parallel task (Blue: `coordinator._model_folder_task`, Red:

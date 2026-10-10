@@ -304,9 +304,11 @@ treat it:
   hidden, and in 38 files every mesh is (26 blank-head `oral.fmdl`, 8 one-sided
   `glove_*.fmdl`, 3 stadium shadow models); the rest are shadow-only glove meshes and a
   few face parts. An export left with no mesh is `ConvertError::EveryMeshHidden`, which
-  a consumer treats as a model that draws nothing (the compiler leaves it out of the
-  output with the Info `model_hidden_dropped`), not as an empty model: the player's
-  other models stand. Findings keep naming meshes by their source index.
+  a consumer treats as a model that draws nothing, not as an empty model. The compiler
+  never reaches it: its deep pass drops such a file before any task converts or names it
+  (`team_compiler/messages.md` `model_hidden_dropped`), since the task converting a model
+  is not always the one naming it (a Common model's linking face, a shared folder's
+  merge), and the player's other models stand. Findings keep naming meshes by their source index.
 - **Mesh names.** `.model` has no groups; the import makes one group per mesh named after the
   add-on's mesh name, `mesh_<index>` when the mesh has none (every Konami mesh), and the export
   names each mesh after the group that lists it (an add-on kind-128 annotation), `None` when no

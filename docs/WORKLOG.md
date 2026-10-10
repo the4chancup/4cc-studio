@@ -41,7 +41,9 @@ Fox's unsearched Common `.mtl` files unread, skips a refs export's kits, logo, p
 collars; `common_model_beaten_dropped`), 4.y-sub in progress since 2026-10-10
 (a subfolder of a player folder is a player folder of its own; (a) done 2026-10-10: a
 subfolder's files take their roles from their names at any depth, the reserved subfolders
-gone, a refs export's AET layout refused per folder; (b) the pre-Fox face next), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+gone, a refs export's AET layout refused per folder; (b) the pre-Fox face next), 4.y-fix20
+opened 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
+a package's names folded, the hand split's test by faces), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag opened 2026-10-10 (the maintainer's answer:
 the 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
@@ -105,8 +107,9 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   crate anyway.
 - **Queue:** the Phase 4 Astra re-audit (directive above; briefs in `.tmp/duck_brief_S*.md`,
   rulings in `.tmp/4_y/duck_rulings.md`): 4.14's (a) and (b) and 4.17's (c) and (d) as one
-  surface, S17 (the conversion pair `model_convert` + `team_compiler`'s conversion paths),
-  its brief still to write; followed by its SWE-2 loop. S7 to S15 need none: their Astra
+  surface, S17 (the conversion pair `model_convert` + `team_compiler`'s conversion paths):
+  its Astra round 1 ran 2026-10-10 (rulings S17.A1, four concerns, all accepted, under
+  five, so its Astra loop ends with step 4.y-fix20); its SWE-2 loop follows the rework. S7 to S15 need none: their Astra
   loops ended under five accepted (S9 at its third round, S15 at its first with no concerns,
   S14 at its first with one plan correction). 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
   and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
@@ -4159,6 +4162,31 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   this step's). Files: `deep/mod.rs`, `deep/collar.rs`, `tests/cli/common_links.rs`,
   `collars.rs`. Gates and mutants: with 4.y-fix15's.
 
+- [ ] 4.y-fix20 **S17's Astra round: the hidden-model drop moves to the deep pass, a
+  package's names collide case-folded, the hand split's test proves every face packed
+  once** (rulings S17.A1 in `.tmp/4_y/duck_rulings.md`; four of four accepted, under
+  five, so the S17 Astra loop ends with this rework; DECISIONS 2026-10-10 "dropped by the
+  deep pass"). (1) On PES 15-17 the deep pass drops an FMDL whose every mesh is hidden
+  with the Info `model_hidden_dropped` (on the file, `DropFile`, not pass-through-eligible,
+  both commands), a `.common` link naming it with the same Info on the link (a drop rides
+  on a finding), so no task converts or names it: the face's `in_common` entry for an all-hidden Common model named a
+  `.model` the Common task never wrote, and a shared boots folder whose every FMDL was
+  all-hidden reached `merge` with no part (`folder_pack_failed`). `fmdl_for_pre_fox`
+  returns the conversion, `EveryMeshHidden` a failure like any other, and the `None`
+  plumbing in the face, shared, Common and collar tasks goes; a planning finding that
+  follows from the drop (a shared folder left with no model) stands as it is and is
+  reported in the brief's closing section. (2) `prefox_face.rs` `insert` refuses a name
+  already in the package case-folded (`vtree::fold_name`). (3) `tests/cli/prefox_hand_split.rs`
+  (~104) and `tests/cli/conversion.rs` (~1065) compare the source's oriented-face multiset
+  against the union read back from the three packaged models, not counts. Plan:
+  `pipeline.md` "Deep format pass", `messages.md` `model_hidden_dropped`, `ir.md`.
+  Crates: tc
+  → verify: TC-MOD-69 proven through the deep pass (`check` reports it too); a test per
+  item, red first: a player linking an all-hidden `Common/oral.fmdl` compiled for PES 17
+  gets a face naming nothing of it; a shared boots folder holding one all-hidden FMDL
+  compiled for PES 17 fails no task; `Face_High.fmdl` beside `face_high.mtl` is the
+  insert error; the hand split test fails when a hand's faces are packed twice.
+
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -6519,3 +6547,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   way is refused per folder with `player_layout_proto`; the sidekick found that a kept
   subfolder link would reach a role nobody resolved, so a `.common` link counts directly
   in the folder alone.
+- **2026-10-10** — S17's Astra round 1 ruled (four concerns, all accepted): a Fox model
+  whose every mesh is hidden is dropped by the deep pass instead of left out by each task,
+  since the face listed an all-hidden Common model the Common task never wrote and a shared
+  boots merge of none failed (decision); a package's names collide case-folded; the hand
+  split's test compares faces, not counts. Step 4.y-fix20 opened.

@@ -6340,3 +6340,25 @@ uncovered beyond the floor, which the measurement of the largest charge real exp
 task's charge is known, would let an archive go only after holding it through planning,
 the residency the rule exists to bound.
 Plan: `libs/pipeline.md` "What a solid `.7z` is charged"; `team_compiler/pipeline.md` step 3.
+
+## 2026-10-10 — team_compiler — a Fox model whose every mesh is hidden is dropped by the deep pass, not left out by each task
+Decision: on a PES 15-17 run, the deep pass drops an FMDL whose every mesh is hidden
+(`invisible`) with the Info `model_hidden_dropped`, as it drops a beaten Common model, and
+a `.common` link naming it with the same Info on the link (a drop rides on a finding, so
+none is silent); `fmdl_for_pre_fox` no longer
+returns `None` for `ConvertError::EveryMeshHidden`, which is a conversion failure like
+any other (unreachable from a plan the pass has filtered). Supersedes the 2026-10-10 entry
+"a Fox model whose every mesh is hidden draws nothing on pre-Fox too" in where the
+omission is decided, not in what it means. A package's names collide case-folded
+(`insert`), as planning's duplicate check folds.
+Why: S17's Astra round (rulings S17.A1): the task converting a model is not always the one
+naming it. A player linking an all-hidden `Common/oral.fmdl` got a `face.xml` entry for a
+`.model` the Common models task never wrote, and a shared boots folder whose every FMDL
+was all-hidden reached `merge` with no part and failed as `folder_pack_failed`, an Error
+where the rule says an Info. Deciding the omission once, before the tasks are planned, is
+the one place every task agrees on, and `check` then reports it too, as it reports every
+other drop. The folded collision: `insert` caught `face_high.mtl` packed twice but not
+`Face_High.mtl` beside it, a hole in an existing check rather than a new case.
+Plan: `team_compiler/pipeline.md` "Deep format pass" (the drop sentence) and the
+folder-internal names sentence; `team_compiler/messages.md` `model_hidden_dropped`;
+`model_conversion/ir.md` "A hidden Fox mesh".
