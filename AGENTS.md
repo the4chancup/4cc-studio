@@ -347,11 +347,12 @@ kills the console the run's children need, after which every build fails with `0
 and cargo-mutants files the mutant as unviable (273 of 274 in 23 s at 4.y-conv's first attempt).
 
 **The VPS's production Fluxer instance comes first.** The remote half runs as the transient
-system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=10G` with no swap (6G
+system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=11G` with no swap (6G
 until 3.z, when eframe's dependency tree outgrew it; since then each remote cargo process also
 builds with few jobs, `REMOTE_BUILD_JOBS`, 1 since 4.14b's run hit the cap; 8G until 4.6b, whose run
-peaked at 7.90 GiB; 9G while Fluxer ran beside it; 10G since 2026-10-10, Fluxer shelved and
-11.4 GB free, the maintainer's word; near the cap the first lever is fewer build jobs), so a
+peaked at 7.90 GiB; 9G while Fluxer ran beside it; 10G from 2026-10-10, Fluxer shelved and
+11.4 GB free, the maintainer's word; 11G later that day, a staging Fluxer stopped and 12.1 GB
+available; near the cap the first lever is fewer build jobs), so a
 runaway mutant is OOM-killed inside the unit and counts as caught; `OOMPolicy=continue`, so that
 kill does not stop cargo-mutants; `CPUWeight=idle`, because `nice` cannot keep a `user.slice`
 process off Fluxer's CPU under cgroup v2. On 2026-09-29 the old uncapped half filled the host's

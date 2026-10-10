@@ -50,10 +50,11 @@ REMOTE_UNIT = "studio-mutants"
 # eframe's dependency tree outgrew it while building; 8 GiB until 4.6b,
 # whose run peaked at 7.90 GiB; 9 GiB from then while Fluxer ran beside it (the
 # 16 GB host kept more than 10 GiB free and 1.5 GiB of swap for it); 10 GiB
-# since 2026-10-10, Fluxer shelved and 11.4 GB free (maintainer), 1.4 GB left
-# for the host itself. The cap follows the host's free memory, the maintainer's
+# from 2026-10-10, Fluxer shelved and 11.4 GB free (maintainer), 1.4 GB left
+# for the host itself; 11 GiB later that day, a staging Fluxer stopped and 12.1 GB
+# available (maintainer), about 1.1 GB left for the host. The cap follows the host's free memory, the maintainer's
 # word: if a run nears it, lower REMOTE_BUILD_JOBS before asking for more.
-REMOTE_MEMORY_MAX = "10G"
+REMOTE_MEMORY_MAX = "11G"
 # Build jobs per remote cargo process (two run at once): fewer than the
 # remote's half-the-CPUs test threads, because a build's memory grows with
 # its parallel rustc processes and the GUI crates' dependencies (naga, wgpu,
