@@ -9,9 +9,9 @@ Part of the [Aesthetics export plan](README.md). Section headings are unchanged 
 yet. A "player folder" holds all of a player's models —
 face, boots, and gloves — in a single folder, without the old split into separate Faces/Boots/Gloves
 item folders. (Red's referee export layout was the prototype of this idea, tested only on referees;
-the unified format keeps its per-referee face/boots/gloves/common subfolders as optional **reserved
-subfolders** — see below — and is used by team and referee exports alike — see "Referee export
-processing" in the [Team compiler plan](../team_compiler/README.md).)
+its per-referee face/boots/gloves/common subfolders are not kept, the Export upgrader flattens
+them ("Subfolders" below), and the unified format is used by team and referee exports alike — see
+"Referee export processing" in the [Team compiler plan](../team_compiler/README.md).)
 
 ```
 Players/
@@ -154,13 +154,21 @@ that content as `file_type_disallowed`. One rule, "a subfolder is a player folde
 such tree with nothing to name.
 
 - **Paths are kept.** On PES 15-17 the face CPK and the player's texture home hold each file at
-  its path below the player folder (`jessie/body/x.model` is packed as `jessie/body/x.model`),
-  as Red packs the tree. On PES 18-21 a subfolder's models merge into the player's packages and
-  its textures go under the texture home at their path. A `face.xml` or `.mtl` reference that
-  carries a path (`./jessie/body/x.model`, `./shorts/y.dds`) resolves as written, relative to the
-  referencing file: `./sub/name` is a local reference, checked like `./name`
-  (`team_compiler/messages.md` "User-supplied `face.xml`"), not `xml_path_unchecked`. The
-  generated `face.xml` lists a subfolder's models by their path.
+  its path below the player folder, the model under its packed name (`jessie/body/x.model` is
+  packed as `jessie/body/oral_x_win32.model`, `jessie/body/x.mtl` and `jessie/skin.dds` as they
+  are), as Red packs the tree (its `model_names_fix` renames in every subfolder, and its xml
+  names `./jessie/body/oral_x_*.model`). On PES 18-21 a subfolder's models merge into the
+  player's packages and its textures go under the texture home at their path. A `face.xml` or
+  `.mtl` reference that carries a path (`./jessie/body/oral_x_*.model`, `./shorts/y.dds`)
+  resolves as written, relative to the referencing file: `./sub/name` is a local reference,
+  checked like `./name` (`team_compiler/messages.md` "User-supplied `face.xml`"), not
+  `xml_path_unchecked`; `./name` names a file of the xml's own folder alone. The generated
+  `face.xml` lists a subfolder's models by their path, and names each one's `.mtl` where the
+  search found it (`./jessie/body/x.mtl` beside the model, `./x.mtl` in the root).
+- **The per-player singletons are the root's.** A `face.xml`, `face_diff.bin`, `face_diff.xml`
+  or `fcl_hair_sim.fclo` counts directly in the player folder alone, as the markers do: a player
+  has one of each, and two from different folders would have no merge. Inside a subfolder each
+  is `file_type_disallowed`.
 - **A texture name resolves nearest first.** A texture named with no path resolves in the model's
   own folder first, then in each parent up to the player's root, nearest first. Two models in
   different subfolders may each have a `skin.dds` of their own: the lookup namespace of

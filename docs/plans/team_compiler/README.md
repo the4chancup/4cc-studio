@@ -983,9 +983,10 @@ TC-MOD-65  GIVEN slot 05 holding face_high.fmdl, and jessie/hair_high.fmdl whose
 TC-MOD-66  GIVEN slot 05 holding face_high.model with face_high.mtl naming skin.dds, skin.dds,
            and jessie/body/x.model with jessie/body/x.mtl naming skin.dds, with jessie/skin.dds
            WHEN the export is compiled for PES 17
-           THEN the face CPK holds jessie/body/x.model and jessie/body/x.mtl at those paths,
-                face.xml lists ./jessie/body/x.model, x.mtl's skin path names jessie/skin.dds
-                and face_high.mtl's the root's skin.dds, and no texture_stem_conflict is reported
+           THEN the face CPK holds jessie/body/oral_x_win32.model and jessie/body/x.mtl at those
+                paths, face.xml lists ./jessie/body/oral_x_*.model with ./jessie/body/x.mtl,
+                x.mtl's skin path names jessie/skin.dds under the texture home and face_high.mtl's
+                the root's skin.dds, and no texture_stem_conflict is reported
 TC-MOD-67  GIVEN slot 05 holding face_high.fmdl, jessie/ingame_face, jessie/Crocs.boots and
            jessie/settings.toml
            WHEN the export is checked

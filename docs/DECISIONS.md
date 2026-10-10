@@ -6362,3 +6362,22 @@ other drop. The folded collision: `insert` caught `face_high.mtl` packed twice b
 Plan: `team_compiler/pipeline.md` "Deep format pass" (the drop sentence) and the
 folder-internal names sentence; `team_compiler/messages.md` `model_hidden_dropped`;
 `model_conversion/ir.md` "A hidden Fox mesh".
+
+## 2026-10-10 — team_compiler, aesthetics_export — a subfolder's model is packed under its packed name at its path; the per-player singletons are the root's
+Decision: on PES 15-17 a subfolder's `.model` is packed at its path below the player folder
+under the name `packed_model_name` gives it (`jessie/body/x.model` as
+`jessie/body/oral_x_win32.model`, listed `./jessie/body/oral_x_*.model`), its `.mtl` and
+textures at their paths as they are, and the entry names the `.mtl` where the search found it
+(`./jessie/body/x.mtl` beside the model, `./x.mtl` in the root); a `./name` reference names a
+file of the xml's own folder alone. A `face.xml`, `face_diff.bin`, `face_diff.xml` or
+`fcl_hair_sim.fclo` counts directly in the player folder alone, `file_type_disallowed` in a
+subfolder. Corrects TC-MOD-66's packed names and the "Paths are kept" example, which packed
+`jessie/body/x.model` under its own name.
+Why: Red's `name_editing.py` `model_names_fix` renames models "in the folder and its
+subfolders", and its `xml_create` lists a subfolder's model as
+`./<subfolder>/<name with * for win32>` with the `.mtl` at the model's folder when found there
+(`link_folder`) and at the root otherwise: the plan said "as Red packs the tree", and the
+example did not match Red. The singletons: a player has one face diff and one xml, and merging
+two from different folders has no rule; a subfolder's is a stray, like a marker.
+Plan: `aesthetics_export/player_folders.md` "Subfolders" ("Paths are kept", "The per-player
+singletons are the root's"); `team_compiler/README.md` TC-MOD-66.
