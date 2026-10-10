@@ -29,7 +29,8 @@ keyboard. Use the pad and OBS; keys and the screen are the fallback when OBS is 
 ## Requirements
 
 - Windows (the window and process calls are Win32), Python 3.10 or later.
-- The games installed where `GAMES` in `game.py` says (`E:/PES2017`, `E:/PES2021`), each with
+- The games installed where `GAMES` in `game.py` says (`E:/PES2017`, `F:/Games/PES2019`,
+  `E:/PES2021`), each with
   Sider at the path given there. `game.py launch` starts Sider first, then the game, not elevated.
 - For the pad: the ViGEmBus driver and `pip install vgamepad`, and the game's settings tool set
   to XInput controllers (with DirectInput and no pad assigned, the game ignores the pad).
@@ -38,9 +39,10 @@ keyboard. Use the pad and OBS; keys and the screen are the fallback when OBS is 
   authentication off: `OBS` in `game.py`), and `pip install obs-websocket-py`.
 - For keys and the screen: `pip install mss Pillow pydirectinput` (`pydirectinput` sends
   DirectInput scan codes, the only keys the games read).
-- `install.py` knows PES 17's test slot only: `download/4cc_90_test.cpk`, the last entry of its
-  DpFileList, so it overrides every other CPK. Another game needs its own `TEST_SLOTS` entry:
-  the slot's file and the SHA-256 of the file installed there.
+- `install.py` knows the test slots of PES 17 (`download/4cc_90_test.cpk`), PES 19
+  (`download/4cc_69_midcup.cpk`) and PES 21 (`download/4cc_99_test.cpk`), each the last entry of
+  its DpFileList, so it overrides every other CPK. Another game needs its own `TEST_SLOTS`
+  entry: the slot's file and the SHA-256 of the file installed there.
 
 ## One check, end to end (PES 17)
 

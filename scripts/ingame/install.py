@@ -6,7 +6,7 @@
 
 The test slot is one CPK the game already loads last, so whatever it holds overrides every
 other CPK; the compiled CPK replaces it whole. That one file is the only game file written: no
-save, no DpFileList.bin, no other CPK. GAME is a key of `TEST_SLOTS` below (17 for now); the
+save, no DpFileList.bin, no other CPK. GAME is a key of `TEST_SLOTS` below (17, 19 or 21); the
 install folder comes from game.py's `GAMES`.
 
 Every copy is checked by SHA-256. Both commands refuse while the game runs, and refuse to write
@@ -32,6 +32,16 @@ TEST_SLOTS = {
     "17": {
         "file": "download/4cc_90_test.cpk",
         "original_sha256": "b1eb59079817d8d3aedc7b0714b1ed8cadc6d786f1269bec9abc43e49bd93a2a",
+    },
+    # PES 19's and 21's slots (the maintainer's, 2026-10-10) are the last entries of their
+    # DpFileLists too; each holds the cup's 6 KB placeholder CPK.
+    "19": {
+        "file": "download/4cc_69_midcup.cpk",
+        "original_sha256": "9aba63a7cb351a858aae33e89caf16dc9b0e9bc6dc62e1441ef4dd5730d31eba",
+    },
+    "21": {
+        "file": "download/4cc_99_test.cpk",
+        "original_sha256": "9aba63a7cb351a858aae33e89caf16dc9b0e9bc6dc62e1441ef4dd5730d31eba",
     },
 }
 STATE_DIR = Path(__file__).resolve().parents[2] / ".tmp" / "ingame"

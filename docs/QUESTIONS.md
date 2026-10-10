@@ -12,18 +12,20 @@ names where the question came from so the context can be read there.
 
 ## In-game checks
 
-### Stock collar sets, and collars beyond the stock set
-From: step 4.9b. Whether the shipped collar sets look right in game, and what a collar ID
-beyond the stock set draws. Test 3 (`.tmp/4_0/apptest/out_test3/GUIDE.txt`) is built for it;
-the lead ran its PES 17 half through the harness on 2026-10-09 and could see only the keeper:
-collar 201 (no model anywhere) draws a plain neckline, no crash; kit 1's collar 200 was never
-visible because every outfielder of /a/ is a billboard or custom-body model in Edit mode. The
-PES 21 half, Test 3b and a match view are yours.
+### The stock collar sets' look
+From: step 4.9b. Whether the shipped collar sets look right in game. A collar ID beyond
+the stock set is settled (worklog 4.y-ingame2, 2026-10-10): on PES 21 it loads when its
+model exists (Test 3's collar 200, a copy of `collar_107.fmdl`, draws the folded collar),
+and one with no model draws a plain neckline, no crash, on PES 17 and 21. The stock sets
+themselves wait for a standard-body team on PES 17 whose outfielders show in Edit mode
+(`/a/`'s are billboards), or a match view.
 
 ### The sock table's look
 From: step 4.10. Needs a kit with a vertical design on its socks, compiled for PES 17 and 21
-and compared in game. Test 3 holds that kit (design A on kit 1); see the collar entry above for
-why the lead's Edit-mode run on PES 17 could not show it.
+and compared in game. Test 3 holds that kit (design A on kit 1). The PES 21 half is seen
+(worklog 4.y-ingame2, 2026-10-10: the stripes straight and in place on the visible upper
+sock); the PES 17 reference and the lower sock need a standard-body team whose boots do
+not cover the socks (`/a/`'s outfielders are billboards, `/out/` wears gaiters).
 
 ### Face diffs are engine-specific
 From: maintainer, 2026-10-03 (worklog Issues). A `face_diff.bin` (or its `face_diff.xml` and
@@ -64,19 +66,6 @@ type 0x9 with the cube bit), a type the game's own cube maps never use (theirs a
 today. Does an FTEX cube map of type 0xD render when a Fox material names it (a Fox FMDL
 pointed at a converted `env.ftex`, in Edit mode)? If it does not, the Fox form becomes a
 check-time finding on the file instead of Red's output.
-
-### Which DDS header property crashes the Fox games' portrait reader
-From: step 4.y-fix6 (the VGL stream's PES 19 crash, 2026-10-09). A 128x128 single-level BC3
-portrait under a DX10 header with the sRGB id (DXGI 78) crashed PES 19 on hover; the same
-blocks under a legacy `DXT5` header work. The compiler now re-headers every DX10-header
-portrait whose format has a legacy header and keeps a DX10 header (UNORM id) only for BC7,
-which 12 portraits of the current cup corpus carry (ESG XXX07-11, FGOG XXX13/21/23). To
-settle whether those must be re-encoded too: hover, on PES 21 or 19, the four variants in
-`C:/Data/4cc/Tools_Mine/temp/variants/` (A the crash file; B its DXGI id set to 77, BC3
-UNORM; C the legacy `DXT5` header, what the compiler now ships; D a cup BC7 DX10 portrait),
-or say whether the ESG and FGOG portraits display on stream. An in-game check. (The headers
-come from paint.net's DDS save dialog: A is "BC3 (sRGB, DX 10+)", C "BC3 (Linear, DXT5)", D
-"BC7 (Linear, DX 10+)"; the single level is not the cause: 520 cup portraits have one.)
 
 ## Cup practice and preferences
 

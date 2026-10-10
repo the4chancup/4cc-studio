@@ -14,15 +14,16 @@ Each command is one process call, so whoever drives a check reads a screenshot b
                                                          it plugged in (run it in the background)
   python scripts/ingame/game.py pad GAME INPUT [INPUT ...]   press pad inputs in order through
                                                          `pad-serve`'s pad (`PAD_BUTTONS`,
-                                                         `PAD_STICKS` names; "wait:N";
-                                                         "hold:INPUT:N")
+                                                         `PAD_STICKS`, `PAD_TRIGGERS` names;
+                                                         "INPUT:N" taps it N times; "wait:N";
+                                                         "hold:INPUT:N" holds it N seconds)
   python scripts/ingame/game.py pad-stop                 unplug the pad and end `pad-serve`
   python scripts/ingame/game.py obs-shot OUT.png [WIDTH]  OBS's frame of its program scene
                                                          (WIDTH scales it, height in proportion)
   python scripts/ingame/game.py status GAME              is the game running, where is its window
   python scripts/ingame/game.py close GAME               terminate the game process (and Sider's)
 
-GAME is a key of `GAMES` below (17 or 21), the one place the install paths are set.
+GAME is a key of `GAMES` below (17, 19 or 21), the one place the install paths are set.
 Keys are DirectInput scan codes (pydirectinput), which the game reads only from the foreground,
 so the window is brought to the front before keys or a shot. `pad` and `obs-shot` leave the
 focus where it is: the game reads a virtual pad (`vgamepad`, over the ViGEmBus driver) in the
@@ -43,6 +44,7 @@ import time
 # and the process name tasklist shows for the running game.
 GAMES = {
     "17": {"dir": "E:/PES2017", "exe": "PES2017.exe", "sider": "Sider/sider.exe", "proc": "pes2017.exe"},
+    "19": {"dir": "F:/Games/PES2019", "exe": "PES2019.exe", "sider": "sider-5.4.2/sider.exe", "proc": "pes2019.exe"},
     "21": {"dir": "E:/PES2021", "exe": "PES2021.exe", "sider": "sider/sider.exe", "proc": "pes2021.exe"},
 }
 COMMANDS = ("launch", "shot", "keys", "pad", "status", "close")
@@ -63,6 +65,8 @@ PAD_STICKS = {
     "rs-up": ("right", 0.0, -1.0), "rs-down": ("right", 0.0, 1.0),
     "rs-left": ("right", -1.0, 0.0), "rs-right": ("right", 1.0, 0.0),
 }
+# The triggers, pulled fully: Edit mode's Appearance view zooms with them.
+PAD_TRIGGERS = {"lt": "left", "rt": "right"}
 # How long a tap holds an input, and the pause after it: the games miss shorter taps.
 PAD_TAP_SECONDS = 0.2
 PAD_GAP_SECONDS = 0.3
@@ -217,6 +221,12 @@ def pad_set(pad, name: str, pressed: bool) -> None:
             pad.left_joystick_float(x_value_float=x, y_value_float=y)
         else:
             pad.right_joystick_float(x_value_float=x, y_value_float=y)
+    elif name in PAD_TRIGGERS:
+        value = 1.0 if pressed else 0.0
+        if PAD_TRIGGERS[name] == "left":
+            pad.left_trigger_float(value_float=value)
+        else:
+            pad.right_trigger_float(value_float=value)
     else:
         raise SystemExit(f"unknown pad input {name!r}")
     pad.update()
@@ -224,9 +234,14 @@ def pad_set(pad, name: str, pressed: bool) -> None:
 
 def check_pad_inputs(inputs: list[str]) -> None:
     for item in inputs:
-        name = item.split(":")[1] if item.startswith("hold:") else item
-        if not item.startswith("wait:") and name not in PAD_BUTTONS and name not in PAD_STICKS:
+        if item.startswith("wait:"):
+            continue
+        name, count = (item.split(":")[1], "") if item.startswith("hold:") else item.partition(":")[::2]
+        known = name in PAD_BUTTONS or name in PAD_STICKS or name in PAD_TRIGGERS
+        if not known:
             raise SystemExit(f"unknown pad input {name!r}")
+        if count and not count.isdigit():
+            raise SystemExit(f"a repeat count is a whole number: {item!r}")
 
 
 def cmd_pad_serve() -> None:
@@ -276,13 +291,17 @@ def play_pad_inputs(pad, inputs: list[str]) -> None:
             continue
         if item.startswith("hold:"):
             _, name, seconds = item.split(":")
-            hold = float(seconds)
+            hold, repeats = float(seconds), 1
         else:
-            name, hold = item, PAD_TAP_SECONDS
-        pad_set(pad, name, True)
-        time.sleep(hold)
-        pad_set(pad, name, False)
-        time.sleep(PAD_GAP_SECONDS)
+            # `down:39` taps the input 39 times: a long list of a menu's rows walked in one
+            # item, its count visible at a glance.
+            name, _, count = item.partition(":")
+            hold, repeats = PAD_TAP_SECONDS, int(count) if count else 1
+        for _ in range(repeats):
+            pad_set(pad, name, True)
+            time.sleep(hold)
+            pad_set(pad, name, False)
+            time.sleep(PAD_GAP_SECONDS)
 
 
 def cmd_obs_shot(out: str, width: int | None) -> None:

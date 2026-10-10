@@ -29,7 +29,10 @@ TC-XML-15),
 export decompressed once),
 4.y-fix10 done 2026-10-10 (a pre-Fox per-kit model set completed against the kit
 numbers; TC-CMN-17), 4.y-harness and 4.y-ingame done 2026-10-10 (the converted collar and `dummy_kit`
-checked in game, the harness driven by a virtual pad and OBS), 4.y-fix12 opened 2026-10-09
+checked in game, the harness driven by a virtual pad and OBS), 4.y-ingame2 started
+2026-10-10 (the remaining in-game checks: collars beyond the stock set load on PES 21,
+the sock table seen on PES 21, the DX10 header crashes PES 21's BC3 portrait reader),
+4.y-fix16 opened 2026-10-10 (S9's second Astra round, five concerns), 4.y-fix12 opened 2026-10-09
 (PES 17's `uniform.mtl` in the templates, its lead part done), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
 `.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
@@ -3359,9 +3362,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`kit_variants.rs` `model_variant_sets`). (10) Plan only: layout conversion keeps BC1
   and BC3 blocks, a BC7 source encoded whole (no code change). Plan: `pipeline.md`
   "Kit-dependent assets", "Layout conversion", `messages.md` `face_file_not_used`,
-  `object_model.md` "File-type allowlist"; DECISIONS 2026-10-09. Crates: tc
-  → verify: a test per item (1)-(4), (6)-(9), red first; S7 gets a second SWE-2 round
-  on the rework diff.
+  `object_model.md` "File-type allowlist"; DECISIONS 2026-10-09. Astra's rounds on S12
+  and S13 (rulings S12.A1, S13.A1, one concern each, both accepted): (11) TC-KIT-19's
+  Fox-to-pre-Fox half asserts the re-laid stripe centres at the inverse table's
+  positions, as TC-KIT-18 does, not only that nothing outside the bands moved (test
+  only). (12) `texture.rs` `texture_role` reads the stem without its kit token
+  (`without_kit_token`), so a per-kit normal map `pants_nrm_kit1` (`model_format.md`
+  "Per-kit models": `{m}{suffix}_kitN`) is encoded as a normal map on PES 18-21, not
+  as color. Crates: tc
+  → verify: a test per item (1)-(4), (6)-(9), (11), (12), red first; S7 gets a second
+  SWE-2 round on the rework diff, and S12 and S13 their SWE-2 rounds on it.
 
 - [ ] 4.y-fix12 **A `.model` collar converts with the templates' `uniform.mtl`** (the
   maintainer's answer, 2026-10-09). Lead first (a template is correctness-critical): PES 17's
@@ -3483,6 +3493,69 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   both (the keeper wears the GK kit, slot 02 kit 1), and a green checker shipped at that
   path is not read (`p20_appearance.png`, `q04_slot02.png`): the plan's "active kit"
   corrected, DECISIONS 2026-10-10; no compiler change.
+
+- [~] 4.y-ingame2 **The remaining in-game checks, by the lead** (the maintainer,
+  2026-10-10: every `QUESTIONS.md` "In-game checks" entry but the face-diff
+  investigation; PES 21's test slot `download/4cc_99_test.cpk` and PES 19's
+  `download/4cc_69_midcup.cpk`, both the cup's placeholder, in `install.py`
+  `TEST_SLOTS`, PES 19 in `game.py` `GAMES`, the triggers as pad inputs). Each result
+  is a `manual: checked` line here, its QUESTIONS entry removed or narrowed, and a
+  decision and a step when it contradicts the plan. Open: (a) the stock collar sets'
+  look and the two checks' PES 17 half on a standard-body team whose boots do not
+  cover the socks (`/out/`'s gaiters hide the lower sock); (b) the pre-Fox referee
+  marker scene (PES 17, run D of `.tmp/4_19/ingame/test_ref04_runs.py`); (c) the
+  192x512 mipped texture and a `.model` mesh tag (PES 17); (d) the Fox cube map of
+  type 0xD (PES 21, a Fox FMDL pointed at a converted `env.ftex`); (e)
+  `kit_config::validate`'s two Infos (a shirt model outside 144, 160 and 176; an
+  undocumented sleeve value; PES 17 and 21). → verify: each a `manual: checked` line
+  with its frames under `.tmp/4_y/ingame/frames/`.
+  manual: checked 2026-10-10, the portrait header variants on PES 21: the four files
+  of `C:/Data/4cc/Tools_Mine/temp/variants/` as the portraits of `/out/` bench players
+  (`.tmp/4_y/ingame/build_portraits_cpk.py`), each hovered alone in Kick Off's team
+  sheet after its neighbour (the maintainer's method): A (DX10 header, BC3, sRGB id,
+  one level) and B (the same with the UNORM id) crash the game on hover; C (the
+  legacy `DXT5` header) and D (BC7 under DX10, full chain) draw
+  (`v21_portraits_sheet.png`). So the DX10 header itself, not the colour-space id,
+  crashes the Fox games' BC3 portrait reader, and the compiler's re-headering (4.y-fix6)
+  is the right fix; BC7 stays under DX10, which draws. The cup's eight BC7 portraits (ESG
+  XXX07-11, FGOG XXX13/21/23) are 128x128 with eight levels under DXGI 98, D's shape, so
+  nothing of the question is left (its QUESTIONS entry removed).
+  manual: checked 2026-10-10, collars beyond the stock set on PES 21: Test 3's CPK
+  (`.tmp/4_0/apptest/out_test3/pes21/`, team `/out/`: kit 1's collar 200, a copy of the
+  game's `collar_107.fmdl` under that ID; the GK kit's collar 201, no model anywhere)
+  in the test slot, Edit mode's Appearance view: the outfielder draws a folded collar
+  (`p21_19_collar_front.png`), the keeper a plain neckline, no crash
+  (`p21_22_gk_front.png`): an ID beyond the stock set loads when its model exists.
+  manual: checked 2026-10-10, the sock table on PES 21, in part: sock design A
+  (`socks_design_prefox.png`, converted) on `/out/`'s kit 1: the thick white stripe at
+  the front, the thin red one and the yellow disc on the outer side, both socks alike,
+  the stripes straight, no seam at the visible part (`p21_legs_sheet.png`); the
+  diagonal and the hoop sit under the team's gaiter boots, and the PES 17 reference
+  view is still to take (open item (a)).
+
+- [ ] 4.y-fix16 **S9's second Astra round: the deep pass checks what `compile` reads,
+  five more places** (rulings S9.A2 in `.tmp/4_y/duck_rulings.md`, all five accepted,
+  each traced in the code). (1) `folder_findings` reads a folder's roles with the
+  `ingame_face` marker (`FolderModels::of_player_files(.., marker, ..)`), so a marked
+  PES 15-17 folder's left-out higher kit variants are unread; and planning's marker
+  branch (`roles.rs` ~1138) keeps `pre_fox_link`'s kit-token rule (a `.common` link
+  to a per-kit variant has no role, `file_not_used`), closing the `mtl_for` panic at
+  `plan/mod.rs` ~1941. (2) A beaten Common representation is dropped with its dropped
+  winner (one Info naming the winner), so planning never selects a file the pass did
+  not check; both engines; decision entry. (3) In an xml-controlled pre-Fox source the
+  models and `.mtl` files the xml does not reference are unread (a referenced set's
+  variants count as referenced). (4) On Fox a Common `.mtl` is unread unless a selected
+  `.model`'s conversion or a Common `.model` link's search reads it; `messages.md` ~278
+  reworded to match ~330. (5) A refs export's kits, logo, portraits and collars are not
+  checked, as its root colors are not. Plan: `pipeline.md` "Deep validation" (~105),
+  `messages.md` `file_not_used`, `xml_model_unlisted`, ~278; DECISIONS 2026-10-09 "One
+  rule". Crates: tc
+  → verify: a test per item, red first (a marked folder with a broken higher variant
+  compiles; a kit-token link under the marker is `file_not_used`; a dropped winner's
+  beaten file is not converted, both engines; a broken unlisted model beside a valid
+  xml; a malformed Common `.mtl` beside an FMDL player with a `.mtl.common` link on
+  PES 21; a refs export with a broken copied kit config exits 0); S9 gets a third
+  Astra round after the rework, with its SWE-2 loop.
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -5678,3 +5751,15 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-10** — 4.y-fix10 done (sidekick): a pre-Fox per-kit model set is completed
   against the export's kit numbers, a member's xml's set too; TC-CMN-17 proven, the
   fix9 survivor caught. A lone variant stays an ordinary model (plan).
+- **2026-10-10** — Astra's rounds on S12 and S13 ran on the maintainer's own ChatGPT
+  Plus (one concern each, both accepted: fix11 items (11) and (12); both loops ended).
+  Step 4.y-ingame2 started: the harness knows PES 19's and 21's test slots and the
+  pad's triggers; on PES 21 a collar ID beyond the stock set loads when its model
+  exists (201, no model, draws a plain neckline), and sock design A's visible part
+  sits as drawn. The portrait header variants hovered one at a time in Kick Off's
+  team sheet: the DX10 header crashes PES 21's BC3 portrait reader with either
+  colour-space id, the legacy header and full-chain BC7 under DX10 draw; the cup's BC7
+  portraits all have D's shape, so the QUESTIONS entry is closed.
+- **2026-10-10** — S9's second Astra round ran on the brother's ChatGPT Plus (five
+  concerns, all accepted after an evidence pass over the worktree: step 4.y-fix16; a
+  third round after the rework).
