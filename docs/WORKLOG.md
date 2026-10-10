@@ -4431,8 +4431,16 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   drops glTF folders, so `check` still counts a glTF-dropped folder's `fpc_on` where
   `compile` does not (4.y-fix22 (5)). (4) A combined shared face's own left-out variant
   still gets `fmdl_fcl_hair_fallback` on the shared folder, read alone (one player linking
-  it leaves it out, another may not): by design, noted.
-  → verify: (1)-(3) tests red first; gates green; `just mutants-diff`.
+  it leaves it out, another may not): by design, noted. S13's third SWE-2 round (rulings
+  S13.3, all three accepted; S13's loop ends): (5) a per-kit set spanning two combined
+  shared folders, or in a pre-Fox `ingame_face` player's linked face, is left out with no
+  `kit_variant_model_left_out` (`kit_variant_model_messages`'s `holds_own`): a player
+  reports such a set unless every file of it sits in one shared folder that reports its
+  own sets; (6) on Fox a shared `Boots/` or `Gloves/` folder no linking player combines,
+  holding a model of another package's name (`glove_l.fmdl`, `face_high.fmdl`,
+  `pants.fmdl`), reports `file_not_used` for it, not silence or `fmdl_fcl_hair_fallback`;
+  (7) `kit_variant_model_messages` reads `combined_folders`.
+  → verify: (1)-(3), (5), (6) tests red first; gates green; `just mutants-diff`.
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -6888,3 +6896,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   tree) found no relative texture directory but a bare `./` (49 files), which stays a name.
 - **2026-10-10** — In-game item (b) answered by the maintainer: the pre-Fox referee marker
   shows under every official in every scene; the lead's runs missed the small referees.
+- **2026-10-10** — S13's third SWE-2 round (after 4.y-fix22): three concerns, all accepted
+  into 4.y-fix23 (a per-kit set across two shared folders unreported, a standalone shared
+  folder's off-package model unreported, `combined_folders` reused); S13's loop ends.
