@@ -6578,3 +6578,15 @@ directories would list a path the other variants are not at. The sidekick's cont
 in (b2), accepted. Fox merges each number's files into its package wherever they sit, so
 there the set still spans the tree.
 Plan: `model_format.md` "Kit-dependent assets", the "Per-kit models" bullet.
+
+## 2026-10-10 — workflow — every CLI test of a tool cites a scenario
+Decision: each test of a tool's CLI suite (`crates/tools/<tool>/tests/cli/`) cites at least
+one acceptance scenario; unit tests cite none. `scripts/acceptance.py` reports an uncited CLI
+test and fails on one in `strict` (converge) mode.
+Why: the maintainer wants the scenarios to describe the compiler's behavior in its
+entirety, readable without the plan files or the code. The CLI suite observes exactly what
+scenarios describe, and at 4.y-sub (b3b1) 235 of `team_compiler`'s 526 CLI tests cited none:
+behavior no scenario stated. Unit tests check internals, which scenarios never describe;
+making them cite would mean scenarios about helpers, or citations the scanner counts as proof
+of a scenario the test does not prove.
+Plan: `CONTRIBUTING.md` "Acceptance IDs"; worklog step 4.y-scen.

@@ -241,6 +241,14 @@ Requirements:
   TC-KIT-04`, or one ID per comment line, all directly above the `#[test]`); one ID may need
   several tests. A scenario without a citing test is what the phase-closing converge audit looks
   for.
+- Every test of a tool's CLI suite (`crates/tools/<tool>/tests/cli/`) cites at least one
+  scenario. The suite runs the tool end to end and observes what a member sees (findings, the
+  files written, the exit code), which is what scenarios describe, so a CLI test citing none
+  is behavior the Acceptance section does not state: add the scenario, or widen the one the
+  test varies (another engine, file kind or not-found case); a test pinning a past bug cites
+  the scenario of the behavior it protects. Unit tests cite none: they check internals, which
+  scenarios never describe, and a citation is read as proof of the scenario it names. The
+  scenarios then read as the tool's whole behavior, without the plan files or the code.
 - A scenario no automated test can prove (GUI interaction, a native dialog, a running PES) is
   marked `manual` after its ID in the Acceptance section. Its proof is a line in the worklog's
   converge step (`TC-GUI-04 manual: checked 2026-11-02, <what was done>`), and the converge check

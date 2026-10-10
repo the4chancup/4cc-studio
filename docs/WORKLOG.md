@@ -4538,6 +4538,19 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   evidence, a game file or an in-game check). → verify: a table of every row compared and
   its outcome in `.tmp/4_y/mattable/`; each mismatch a ruling, and a step where it is ours.
 
+- [ ] 4.y-scen **Every CLI test cites a scenario** (the maintainer, 2026-10-10;
+  `CONTRIBUTING.md` "Acceptance IDs", DECISIONS "every CLI test of a tool cites a
+  scenario"). `scripts/acceptance.py` gains the check, by the lead (the scanner is
+  correctness-critical), with its case in `scripts/acceptance_test.py`: every `#[test]` in a
+  tool's `tests/cli/` carries an ID comment directly above it, listed by `report`, failing
+  `strict`. Then the uncited `team_compiler` CLI tests (235 of 526 after 4.y-sub (b3b1), counted
+  by `.tmp/lead/scenario_coverage.py`) are triaged: each cites the scenario it proves, or an
+  existing scenario is widened where the test is a variant of it, or a new scenario states
+  the behavior; written by the lead in `team_compiler/README.md`'s Acceptance section, the
+  citations added by a briefed sidekick. After 4.y-sub, whose slices add CLI tests with their
+  scenarios. The new and widened scenarios get the cross-family critique `AGENTS.md` asks for
+  after Acceptance text. → verify: `just acceptance strict` lists no uncited CLI test; the
+  scenario count before and after; the critique's rulings.
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -7010,3 +7023,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   resolves there; a Fox player's subfolder texture sits before `sourceimages`.
 - **2026-10-10** — 4.y-sub (b3b1) landed: links at any depth of a player folder; a `.common`
   model or material link stands for the `Common/` file at its own path.
+- **2026-10-10** — Every CLI test of a tool cites a scenario (the maintainer's request; unit
+  tests exempt): rule in `CONTRIBUTING.md`, step 4.y-scen.
