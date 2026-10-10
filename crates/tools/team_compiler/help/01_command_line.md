@@ -144,11 +144,13 @@ player with boots only and no face model of his own shows no head): treat the fo
 until the error is fixed. A
 texture under one name in two of the places a player's models come from (the player's own
 folder, a shared folder it combines) is packed once when the two files are the same. When they
-differ, the face's copy wins over the boots' and the boots' over the gloves': the losing part
-is left out of the CPK, with the textures only it brought, and the line
-`shared_texture_conflict` names the texture and what was left out. When the two files belong
-to the face itself (the player's folder and a shared `Faces` folder), nothing can choose
-between them: nothing of that player is built, reported as `merged_texture_conflict`. An export
+differ, the player's own file wins, as a texture link of his in that place does: every model
+of his, the shared folder's included, uses his, and the line `shared_texture_overridden`
+names the texture and the shared folder, so an override you meant is visible and one you did
+not is caught. When two shared folders he combines hold different files of one name, the
+face's copy wins over the boots' and the boots' over the gloves': the losing part is left out
+of the CPK, with the textures only it brought, and the line `shared_texture_conflict` names
+the texture and what was left out. An export
 using more than 17 shared boots folders, or more than 17 shared gloves folders, is skipped by
 both commands with the error `boots_id_pool_exhausted` or `gloves_id_pool_exhausted`, naming
 the count. A model whose name says nothing about what it is (`torso.fmdl`) is taken for face

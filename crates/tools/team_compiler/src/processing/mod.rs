@@ -3427,7 +3427,7 @@ mod tests {
     }
 
     #[test]
-    fn a_stem_two_packages_hold_with_different_bytes_drops_the_lower_package_with_its_textures() {
+    fn a_stem_the_player_and_a_combined_boots_folder_hold_differently_is_the_player_s() {
         let folder = player_with(
             vec![
                 named(&format!("{PLAYER}/face_diff.bin"), "face_diff.bin"),
@@ -3449,28 +3449,24 @@ mod tests {
         let batch = textures_in_group(folder);
 
         assert_eq!(
-            message_codes(&batch),
-            [(
-                "shared_texture_conflict",
+            one_message(&batch),
+            (
+                "shared_texture_overridden",
+                Severity::Info,
+                Disposition::Keep,
                 &[
                     ("texture".to_owned(), "shirt".to_owned()),
-                    ("dropped".to_owned(), "boots".to_owned())
+                    ("folder".to_owned(), "Boots/Crocs".to_owned()),
                 ][..]
-            )]
+            )
         );
-        let message = &batch.messages[0];
-        assert_eq!(
-            (message.severity, message.disposition),
-            (Severity::Error, Disposition::DropFolder)
-        );
-        // The face wins: its `shirt` is written, and the boots' `sole`, which only the
-        // dropped folder holds, is not. The boots task sits at the group's second position.
-        assert_eq!(paths(&batch), [COMMON]);
+        // His `shirt` is written, the boots' `sole` with it, and no package is skipped.
+        assert_eq!(batch.skipped, Vec::<usize>::new());
+        assert_eq!(paths(&batch), [COMMON, player_texture("sole").as_str()]);
         assert_eq!(
             batch.entries[0].1,
             ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
         );
-        assert_eq!(batch.skipped, [1]);
     }
 
     #[test]
@@ -3529,7 +3525,7 @@ mod tests {
     }
 
     #[test]
-    fn a_stem_two_sources_of_one_package_hold_with_different_bytes_fails_the_textures() {
+    fn a_stem_the_player_and_a_combined_face_folder_hold_differently_is_the_player_s() {
         let folder = player_with(
             vec![
                 named(&format!("{PLAYER}/face_diff.bin"), "face_diff.bin"),
@@ -3548,15 +3544,184 @@ mod tests {
 
         let batch = textures_in_group(folder);
 
+        assert_eq!(paths(&batch), [COMMON]);
+        assert_eq!(batch.skipped, Vec::<usize>::new());
+        assert_eq!(
+            batch.entries[0].1,
+            ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
+        );
+        assert_eq!(
+            one_message(&batch),
+            (
+                "shared_texture_overridden",
+                Severity::Info,
+                Disposition::Keep,
+                &[
+                    ("texture".to_owned(), "shirt".to_owned()),
+                    ("folder".to_owned(), "Faces/Round".to_owned()),
+                ][..]
+            )
+        );
+    }
+
+    #[test]
+    fn a_stem_the_player_and_a_combined_face_folder_hold_alike_is_packed_once_and_silent() {
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/face_diff.bin"), "face_diff.bin"),
+                named(&format!("{PLAYER}/fcl_hair.fmdl"), "fcl_hair.fmdl"),
+                named(&format!("{PLAYER}/shirt.dds"), "shirt.dds"),
+            ],
+            vec![shared(
+                ModelPackage::Face,
+                "Faces/Round",
+                vec![
+                    named("Faces/Round/hair_high.fmdl", "boots.fmdl"),
+                    named("Faces/Round/Shirt.dds", "shirt.dds"),
+                ],
+            )],
+        );
+
+        let batch = textures_in_group(folder);
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(batch.skipped, Vec::<usize>::new());
+        assert_eq!(paths(&batch), [COMMON]);
+    }
+
+    #[test]
+    fn a_stem_two_combined_folders_of_different_packages_hold_differently_drops_the_lower() {
+        // The player's own folder holds no `shirt`: the path is the packages', and the
+        // combined face's copy wins over the combined boots', as it does today.
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/face_diff.bin"), "face_diff.bin"),
+                named(&format!("{PLAYER}/fcl_hair.fmdl"), "fcl_hair.fmdl"),
+                named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+            ],
+            vec![
+                shared(
+                    ModelPackage::Face,
+                    "Faces/Round",
+                    vec![
+                        named("Faces/Round/hair_high.fmdl", "boots.fmdl"),
+                        named("Faces/Round/shirt.dds", "shirt.dds"),
+                    ],
+                ),
+                shared(
+                    ModelPackage::Boots,
+                    "Boots/Crocs",
+                    vec![
+                        named("Boots/Crocs/boots.fmdl", "boots.fmdl"),
+                        other_dds("Boots/Crocs/shirt.dds"),
+                        named("Boots/Crocs/sole.dds", "shirt.dds"),
+                    ],
+                ),
+            ],
+        );
+
+        let batch = textures_in_group(folder);
+
+        assert_eq!(
+            message_codes(&batch),
+            [(
+                "shared_texture_conflict",
+                &[
+                    ("texture".to_owned(), "shirt".to_owned()),
+                    ("dropped".to_owned(), "boots".to_owned()),
+                ][..]
+            )]
+        );
+        let message = &batch.messages[0];
+        assert_eq!(
+            (message.severity, message.disposition),
+            (Severity::Error, Disposition::DropFolder)
+        );
+        // The face's `shirt` is written; the boots' `sole`, which only they hold, is not.
+        assert_eq!(paths(&batch), [COMMON]);
+        assert_eq!(
+            batch.entries[0].1,
+            ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
+        );
+        assert_eq!(batch.skipped, [1]);
+    }
+
+    #[test]
+    fn a_stem_two_combined_folders_of_different_packages_hold_alike_is_packed_once_and_silent() {
+        // The face's `shirt` is written and everything else of the two is packed with it,
+        // no drop and no finding.
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/face_diff.bin"), "face_diff.bin"),
+                named(&format!("{PLAYER}/fcl_hair.fmdl"), "fcl_hair.fmdl"),
+                named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+            ],
+            vec![
+                shared(
+                    ModelPackage::Face,
+                    "Faces/Round",
+                    vec![
+                        named("Faces/Round/hair_high.fmdl", "boots.fmdl"),
+                        named("Faces/Round/shirt.dds", "shirt.dds"),
+                    ],
+                ),
+                shared(
+                    ModelPackage::Boots,
+                    "Boots/Crocs",
+                    vec![
+                        named("Boots/Crocs/boots.fmdl", "boots.fmdl"),
+                        named("Boots/Crocs/shirt.dds", "shirt.dds"),
+                        named("Boots/Crocs/sole.dds", "shirt.dds"),
+                    ],
+                ),
+            ],
+        );
+
+        let batch = textures_in_group(folder);
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(batch.skipped, Vec::<usize>::new());
+        assert_eq!(paths(&batch), [COMMON, player_texture("sole").as_str()]);
+        assert_eq!(
+            batch.entries[0].1,
+            ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_link_standing_at_a_stem_a_combined_folder_holds_leaves_its_copy_out() {
+        // `shirt.dds.common` stands at `shirt` for `Common/shirt.dds`: the combined face
+        // folder's `shirt.dds` is left out of his texture home entirely.
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/face_diff.bin"), "face_diff.bin"),
+                named(&format!("{PLAYER}/fcl_hair.fmdl"), "fcl_hair.fmdl"),
+                named(&format!("{PLAYER}/shirt.dds.common"), "shirt.dds"),
+            ],
+            vec![shared(
+                ModelPackage::Face,
+                "Faces/Round",
+                vec![
+                    named("Faces/Round/hair_high.fmdl", "boots.fmdl"),
+                    other_dds("Faces/Round/shirt.dds"),
+                ],
+            )],
+        );
+
+        let batch = textures_in_group(folder);
+
         assert!(batch.entries.is_empty(), "{:?}", paths(&batch));
         assert_eq!(batch.skipped, Vec::<usize>::new());
         assert_eq!(
             one_message(&batch),
             (
-                "merged_texture_conflict",
-                Severity::Error,
-                Disposition::DropFolder,
-                &[("texture".to_owned(), "shirt".to_owned())][..]
+                "shared_texture_overridden",
+                Severity::Info,
+                Disposition::Keep,
+                &[
+                    ("texture".to_owned(), "shirt".to_owned()),
+                    ("folder".to_owned(), "Faces/Round".to_owned()),
+                ][..]
             )
         );
     }

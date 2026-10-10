@@ -49,7 +49,9 @@ done 2026-10-10: a texture named by its path below its file's folder resolves th
 Fox subfolder texture before `sourceimages`; (b3b1) done 2026-10-10: links at any depth, a
 `.common` model or material link standing for the `Common/` file at its path; (b3b2)
 done 2026-10-10: a texture link below a subfolder counts in its own folder, its texture
-packed once at its path in the team's Common output; (b3b3) next), 4.y-fix20
+packed once at its path in the team's Common output; (b3b3) done 2026-10-10: a player's
+own texture or texture link wins over a combined folder's, `shared_texture_overridden`;
+(b3b4) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4203,6 +4205,27 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   README TC-CMN-22 (lead). Gates green (`.tmp/4_y/gates_sub_b3b2_r2.log`, acceptance 317
   of 319, the two open ones (b4)'s); mutants r0 82 mutants, 61 caught, 14 unviable, 7
   missed (`.tmp/4_y/mutants_sub_b3b2_r0/`), after the reworks 81 mutants, 67 caught, 14 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b2_r2.log`).
+  (b3b3) done 2026-10-10 (SWE-2 High, the trial's second slice; brief
+  `.tmp/4_y/brief_sub_b3b3.md`, continue `_c1` after a Devin CLI crash, rework `_r1`,
+  reports beside them): `processing/texture.rs` `folder_textures`/`resolve_path` let a
+  path the player's own folder holds, as a texture or a texture link standing there, win
+  over every combined folder's copy whatever the packages, the combined copy left out and
+  `shared_texture_overridden` (I, `Keep`) noted when the bytes differ or his is a link;
+  `shared_texture_conflict` left to two combined folders of different packages;
+  `merged_texture_conflict` removed from `messages.rs` (withdrawn in `messages.md`). The
+  writer's `commit_folder` no longer takes an empty textures batch for a failed one: a
+  batch whose every path a link of the player's won carries only `Keep` findings and its
+  packages commit (a gap of the brief, caught by the sidekick). Help text rewritten.
+  TC-MOD-04 and TC-MOD-33's tests rewritten to the new scenarios, TC-TEX-16 proven; the
+  uncited `under_ingame_face_..._is_his` test (a TC-MOD-04 variant) left for 4.y-scen.
+  Rework 1: the mutation run's two survivors (two combined folders holding identical
+  bytes stay silent, a test added; a dead guard on the link arm removed, a shared
+  folder's link having no role) and three stale doc comments. Files: `team_compiler`
+  `help/01_command_line.md`, `messages.rs`, `output/writer.rs`, `plan/mod.rs`,
+  `processing/{mod,texture}.rs`, `tests/cli/{models,textures}.rs`. Gates green
+  (`.tmp/4_y/gates_sub_b3b3_r1.log`, acceptance 318 of 320, the two open ones (b4)'s);
+  mutants r0 21 mutants, 16 caught, 3 unviable, 2 missed (`.tmp/4_y/mutants_sub_b3b3_r0/`),
+  after the rework 20 mutants, 16 caught, 4 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b3_r1.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7056,3 +7079,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   tests exempt): rule in `CONTRIBUTING.md`, step 4.y-scen.
 - **2026-10-10** — 4.y-sub (b3b2) landed (SWE-2's first slice): a texture link below a
   player's subfolder stands for the `Common/` texture at its path.
+- **2026-10-10** — 4.y-sub (b3b3) landed: a player's own texture or texture link wins over
+  a combined shared folder's, as the Info `shared_texture_overridden`.

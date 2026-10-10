@@ -234,14 +234,16 @@ pub(crate) enum Code {
     /// folder, whether or not that folder holds one: a face takes one xml, and the player's
     /// folder is left out.
     XmlSharedFaceConflict,
-    /// Two of a player's sources feeding different packages hold a texture of one stem with
-    /// different bytes; the lower package in canonical order (face > boots > gloves) is left
-    /// out with the textures only its sources hold.
+    /// Two shared folders a player combines, of different packages, hold a texture of one
+    /// stem with different bytes; the lower package in canonical order (face > boots >
+    /// gloves) is left out with the textures only its sources hold. The player's own copy
+    /// of a stem wins over either (`SharedTextureOverridden`).
     SharedTextureConflict,
-    /// Two of a player's sources feeding one package hold a texture of one stem with
-    /// different bytes, which the one model they build cannot choose between; the folder is
-    /// left out.
-    MergedTextureConflict,
+    /// A texture path the player's own folder holds, as a texture or as a texture `.common`
+    /// link standing there, that a shared folder he combines also holds, the two copies
+    /// differing or his a link: his is the one every model of his names, and the shared
+    /// folder's copy is left out.
+    SharedTextureOverridden,
     /// A texture with a side under 4 pixels, smaller than one block; the texture is discarded
     /// with what depends on it (`messages.md` "Textures": the model folder, the kit, the
     /// portrait; in `Common/`, the file alone).
@@ -536,7 +538,7 @@ impl Code {
         Code::XmlIgnoredShared,
         Code::XmlSharedFaceConflict,
         Code::SharedTextureConflict,
-        Code::MergedTextureConflict,
+        Code::SharedTextureOverridden,
         Code::TextureTooSmall,
         Code::TextureNotPow2,
         Code::TextureNotDiv4,
@@ -679,7 +681,7 @@ impl Code {
             Code::XmlIgnoredShared => "xml_ignored_shared",
             Code::XmlSharedFaceConflict => "xml_shared_face_conflict",
             Code::SharedTextureConflict => "shared_texture_conflict",
-            Code::MergedTextureConflict => "merged_texture_conflict",
+            Code::SharedTextureOverridden => "shared_texture_overridden",
             Code::TextureTooSmall => "texture_too_small",
             Code::TextureNotPow2 => "texture_not_pow2",
             Code::TextureNotDiv4 => "texture_not_div4",
@@ -842,7 +844,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("xml_ignored_shared", CatalogSeverity::Info),
     ("xml_shared_face_conflict", CatalogSeverity::Error),
     ("shared_texture_conflict", CatalogSeverity::Error),
-    ("merged_texture_conflict", CatalogSeverity::Error),
+    ("shared_texture_overridden", CatalogSeverity::Info),
     ("texture_too_small", CatalogSeverity::Error),
     ("texture_not_pow2", CatalogSeverity::Error),
     ("texture_not_div4", CatalogSeverity::Error),

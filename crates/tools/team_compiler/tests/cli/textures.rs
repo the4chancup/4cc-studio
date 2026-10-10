@@ -1228,6 +1228,66 @@ fn a_nested_texture_link_only_the_direct_installed_texture_satisfies_is_common_l
     }
 }
 
+// TC-TEX-16
+#[test]
+fn a_texture_link_of_the_player_s_wins_over_a_combined_folder_s_texture_of_the_stem() {
+    let sandbox = Sandbox::new("tex_link_overrides_shared");
+    let export = "exports/co Midcup Hair";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{player}/hair.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/hair.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    sandbox.write(
+        &format!("{export}/Faces/Round/hair_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{export}/Faces/Round/hair.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Hair"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hair_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info shared_texture_overridden [Keep] at Players/05 - A (texture=hair, folder=Faces/Round)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // Both models of the face package name `hair` in the team's Common output, where the
+    // link points it; the shared folder's copy is left out of slot 05's texture folder.
+    let package = face_package(&entries);
+    for model in ["face_high.fmdl", "hair_high.fmdl"] {
+        assert_eq!(
+            texture_directories(package.get(model).unwrap(), "hair.dds"),
+            ["/Assets/pes16/model/character/common/714/sourceimages/"; 2],
+            "{model}"
+        );
+    }
+    let packed_hair: Vec<&str> = entries
+        .keys()
+        .filter(|path| path.ends_with("hair.ftex"))
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        packed_hair,
+        ["Asset/model/character/common/714/sourceimages/#windx11/hair.ftex"]
+    );
+}
+
 #[test]
 fn a_texture_entry_no_mesh_uses_is_not_looked_for() {
     let sandbox = Sandbox::new("tex_unused_entry");

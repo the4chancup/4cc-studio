@@ -1534,7 +1534,7 @@ fn a_gloves_link_combines_with_the_hands_split_from_the_player_s_face_model() {
 
 // TC-MOD-04
 #[test]
-fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_the_boots() {
+fn a_texture_the_player_and_a_combined_boots_folder_hold_is_packed_once_or_overridden() {
     let export = "exports/co Midcup Skin";
     let skin = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex";
     let k0625 = "Asset/model/character/boots/k0625/#Win/boots.fpk";
@@ -1589,8 +1589,8 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
         ]
     );
 
-    // Different bytes: the face wins, the boots are left out with the texture only they
-    // brought, and the player's own `skin` is the one packed.
+    // Different bytes: the player's own `skin` is the one packed, the shared folder's copy
+    // left out, the face, the boots and the texture only they brought all kept.
     let differing = Sandbox::new("mod_skin_differing");
     write(&differing, &tracer_kit());
     let run = differing.run(&pes21_settings(&differing), &["compile", "--no-deploy"]);
@@ -1604,22 +1604,25 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
             "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
-            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, dropped=boots)"
+            "Info shared_texture_overridden [Keep] at Players/05 - A (texture=skin, folder=Boots/Crocs)"
         ]
     );
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&differing.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
         [
+            k0625,
+            "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             skin,
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/sole.ftex",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
-        "no k0625 and no sole"
+        "the same paths as the same-bytes run"
     );
     assert_eq!(
         entries[skin],
@@ -1628,11 +1631,12 @@ fn a_texture_the_face_and_a_combined_boots_folder_hold_is_packed_once_or_drops_t
 }
 
 #[test]
-fn under_ingame_face_a_texture_the_player_and_a_combined_boots_folder_hold_differently_drops_him() {
+fn under_ingame_face_a_texture_the_player_and_a_combined_boots_folder_hold_differently_is_his() {
     let sandbox = Sandbox::new("mod_ingame_face_skin_differing");
     let export = "exports/co Midcup Skin";
     let player = format!("{export}/Players/05 - A");
-    // His own folder feeds the boots, there being no face: one package, two sources.
+    // His own folder feeds the boots, there being no face: two sources of one package, and
+    // the local file still wins.
     sandbox.write(&format!("{player}/ingame_face"), b"");
     sandbox.write(
         &format!("{player}/kit_boots.fmdl"),
@@ -1670,30 +1674,34 @@ fn under_ingame_face_a_texture_the_player_and_a_combined_boots_folder_hold_diffe
             "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
-            "Error merged_texture_conflict [DropFolder] at Players/05 - A (texture=skin)"
+            "Info shared_texture_overridden [Keep] at Players/05 - A (texture=skin, folder=Boots/Crocs)"
         ]
     );
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
         paths,
         [
+            "Asset/model/character/boots/k0625/#Win/boots.fpk",
+            "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex",
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/sole.ftex",
             "Asset/model/character/face/real/71407/#Win/face.fpk",
             "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
-        "slot 07 alone: no k0625 and no texture of slot 05"
+        "slot 05's boots and textures kept, no face under the marker"
     );
 }
 
 // TC-MOD-33
 #[test]
-fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_drops_the_player() {
-    let sandbox = Sandbox::new("mod_face_texture_conflict");
+fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_is_the_player_s() {
+    let sandbox = Sandbox::new("mod_face_texture_overridden");
     let export = "exports/co Midcup Conflict";
     write_face(&sandbox, &format!("{export}/Players/05 - A"), "skin.dds");
     sandbox.write(&format!("{export}/Players/05 - A/Round.face"), b"");
@@ -1719,10 +1727,10 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_dro
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
-            "Error merged_texture_conflict [DropFolder] at Players/05 - A (texture=skin)"
+            "Info shared_texture_overridden [Keep] at Players/05 - A (texture=skin, folder=Faces/Round)"
         ]
     );
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
     assert_eq!(
@@ -1730,12 +1738,24 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_dro
         [
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex",
+            "Asset/model/character/face/real/71405/#Win/face.fpk",
+            "Asset/model/character/face/real/71405/#Win/face.fpkd",
             "Asset/model/character/face/real/71407/#Win/face.fpk",
             "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
-        "nothing of slot 05; slot 07's face is blank"
+        "slot 05 kept, the shared folder's skin left out of his texture folder"
+    );
+    // The player's `skin` is the one packed; the merge of his face with Round's went ahead.
+    assert_eq!(
+        entries["Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex"],
+        ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
+    );
+    assert_eq!(
+        package_names(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"]),
+        ["face_diff.bin", "face_high.fmdl", "hair_high.fmdl"]
     );
 }
 

@@ -466,14 +466,12 @@ impl ModelFolder {
             .and_then(|common| common.material.as_ref())
     }
 
-    /// The package the folder's own files feed, which its own textures count for when a stem
-    /// conflicts and its pre-Fox models (`PlayerFile::PreFoxModel`) go into: a player folder's
-    /// stand for its face, a shared folder's for its one package. A player holding
-    /// `ingame_face` has no face on either engine, so his textures count for his boots, and a
-    /// stem his folder and a combined boots folder hold differently is a conflict within one
-    /// package. His models are parts of his boots or gloves, each role saying which
-    /// (`PlayerFile::PreFoxPart` on pre-Fox), and his pre-Fox `.mtl` files are read by both
-    /// (`TaskKind::files`): this answer is not where they go.
+    /// The package the folder's own files feed, which its pre-Fox models
+    /// (`PlayerFile::PreFoxModel`) go into: a player folder's stand for its face, a shared
+    /// folder's for its one package. A player holding `ingame_face` has no face on either
+    /// engine, so his own files feed his boots. His models are parts of his boots or
+    /// gloves, each role saying which (`PlayerFile::PreFoxPart` on pre-Fox), and his pre-Fox
+    /// `.mtl` files are read by both (`TaskKind::files`): this answer is not where they go.
     fn own_package(&self) -> ModelPackage {
         match &self.textures {
             TextureHome::PlayerCommon { .. } if self.ingame_face => ModelPackage::Boots,

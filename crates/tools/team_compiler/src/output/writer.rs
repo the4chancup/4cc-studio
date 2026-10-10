@@ -257,25 +257,22 @@ impl CpkOutput {
     /// would point at textures that are not. Otherwise each package that succeeded commits,
     /// then the textures, when at least one package did. A package the textures batch names
     /// as the loser of a `shared_texture_conflict` (`TaskBatch::skipped`) is left out the same
-    /// way: the textures only its sources hold are not in the CPK. A textures batch with no
-    /// entries is a failed one: planning gives a folder a textures task only when it has a
-    /// texture to emit, and a task that succeeds emits at least one (a stem a dropped package
-    /// loses stays with the package that won it). So it must carry the finding that drops the
-    /// folder; one that does not is the error, since nothing would tell the member why the
-    /// folder is missing.
+    /// way: the textures only its sources hold are not in the CPK. A batch that failed has
+    /// no entries; one that succeeded emits at least one (a stem a dropped package loses
+    /// stays with the package that won it), unless a texture link of the player's stood at
+    /// every path a combined folder supplied, the Common texture each link names serving the
+    /// models that look for them: its findings then all keep the folder
+    /// (`shared_texture_overridden`), and the packages commit all the same.
     fn commit_folder(&mut self, batches: &mut [TaskBatch]) -> anyhow::Result<()> {
         let (textures, packages) = batches
             .split_last_mut()
             .expect("a player folder's group ends with its textures batch");
-        if textures.entries.is_empty() {
-            ensure!(
-                textures
-                    .messages
-                    .iter()
-                    .any(|message| message.disposition != Disposition::Keep),
-                "task {} is a textures batch with no entries and no finding dropping its folder",
-                textures.index
-            );
+        if textures.entries.is_empty()
+            && textures
+                .messages
+                .iter()
+                .any(|message| message.disposition != Disposition::Keep)
+        {
             return Ok(());
         }
         let mut committed = false;
@@ -843,18 +840,28 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_textures_batch_with_no_finding_dropping_its_folder_is_the_error() {
-        let temp = scratch("writer_group_textures_unexplained");
-        let mut output = face_waiting_for_textures(temp.path(), "unexplained");
+    fn an_empty_textures_batch_keeping_its_folder_commits_the_packages() {
+        // The batch of a folder whose every texture a link of the player's won over a
+        // combined folder's: nothing to write, its findings all `Keep`.
+        let temp = scratch("writer_group_textures_overridden");
+        let mut output = face_waiting_for_textures(temp.path(), "overridden");
         let kept = tool_message(
-            Code::KitVariantMissing,
+            Code::SharedTextureOverridden,
             Scope::Run,
             Disposition::Keep,
             Vec::new(),
         );
+        let decided: Vec<usize> = output
+            .submit(empty_textures(kept))
+            .unwrap()
+            .into_iter()
+            .map(|(index, _)| index)
+            .collect();
+        assert_eq!(decided, [0, 1]);
+        assert!(finish_plain(output, PesVersion::Pes21).unwrap());
         assert_eq!(
-            output.submit(empty_textures(kept)).unwrap_err().to_string(),
-            "task 1 is a textures batch with no entries and no finding dropping its folder"
+            layout(&temp.path().join("overridden.cpk")),
+            ["face/face.fpk", paths::TEAM_COLOR, paths::UNI_COLOR,]
         );
     }
 
