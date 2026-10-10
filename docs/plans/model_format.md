@@ -119,7 +119,12 @@ material toml, so the same `.glb` compiles typed on pre-Fox and merged into its 
   each referenced stem to the actual file. Two image files with the same stem but different
   extensions (e.g. `face.dds` and `face.png`) is a conflict (`texture_stem_conflict`) — both would
   claim the same reference, and the compiler can't pick one. The rule applies within a single model
-  folder; different folders may reuse the same stem independently.
+  folder; different folders may reuse the same stem independently. A reference may carry a path
+  below the referencing file's folder, so textures can sit in subfolders beside the model: a
+  `.mtl` path `./kitN/armor_bsm.dds`, or an FMDL texture whose directory does not start with `/`
+  (`./kitN/` and `armor_bsm`). It resolves at that path, to a texture or a link sitting there; a
+  bare stem resolves nearest first (`aesthetics_export/player_folders.md` "Subfolders"). An
+  FMDL directory starting with `/` keeps its meaning (the file name is looked up).
 - **PNG is the expected norm.** Blender cannot write DDS natively, so glTF-authored models naturally
   carry PNG textures; conversion to the target texture format happens at compile time (see the
   [library crates plan](libs/README.md)).
@@ -166,10 +171,11 @@ Rules:
 
 - The token is a stem fragment delimited by `_`, `-`, `.`, or the ends of the name — `pants_kitN`,
   `kitN_pants`, `kitN` — anywhere in a texture stem or a model file name. The conventional place is
-  the suffix. `skitN` is not a token. In `Common/` a whole folder name may be the token instead:
-  `Common/kit1/armor_bsm.dds`, `Common/kit2/armor_bsm.dds` is the set `kitN/armor_bsm`, which a
-  link names as `kitN.armor_bsm.dds.common` ("Link files"), one folder per kit holding a whole
-  set of a kit's textures under their plain names.
+  the suffix. `skitN` is not a token. A whole folder name may be the token instead, in any
+  folder: `kit1/armor_bsm.dds`, `kit2/armor_bsm.dds` is the set `kitN/armor_bsm`, which a model
+  names as `./kitN/armor_bsm`, one folder per kit holding a whole set of a kit's textures under
+  their plain names; in `Common/`, a player's `kitN/` folder of links reaches it ("Link
+  files").
 - **A `kitN` reference never exists as a file.** A material role set to `pants_kitN` means "the
   files `pants_kit1`, `pants_kit2`, … in this folder" (the folder of the material file that set the
   stem — so variants in `Common`, referenced from a `*.materials.toml.common` link or by a
@@ -396,7 +402,7 @@ supports all of these:
 | `body.materials.toml.common` | `Common/body.materials.toml` | this folder's `body*`/`*body` glTFs, name-matched by stem `body` |
 | `body.mtl.common` | `Common/body.mtl` | this folder's `body*`/`*body` `.model` files, via Red's MTL cascade |
 | `hair.png.common` | `Common/hair.png` | the texture stem `hair` in this folder — for auto-detection, `""`, and explicit stems in any material file, and for native `.mtl`/FMDL references alike |
-| `kitN.armor_bsm.dds.common` | `Common/kitN/armor_bsm.dds` | the texture stem `armor_bsm` in this folder, as `hair.png.common`; the part before the stem is a folder below `Common/`, here a kit-token one, so the set `Common/kit1/armor_bsm.dds`, `Common/kit2/armor_bsm.dds`, … |
+| `kitN/armor_bsm.dds.common` | `Common/kitN/armor_bsm.dds` | the texture `./kitN/armor_bsm` a model names, as `hair.png.common` serves `hair`; in a kit-token folder, so the set `Common/kit1/armor_bsm.dds`, `Common/kit2/armor_bsm.dds`, … |
 
 There is no in-toml spelling for "this texture is in Common" (a `<common>/hair` tag was considered):
 one link mechanism covers models, material files and textures; a texture link works with
@@ -407,14 +413,10 @@ file per shared texture per player folder, which is what the other link kinds al
 
 Rules:
 
-- **A link's name is its whole target.** Less `.common`, the name is the file kind's
-  extension (`.materials.toml` counted whole), the stem right before it, and before the stem
-  one folder below `Common/` per dot-separated part (`jessie.body.fmdl.common` names
-  `Common/jessie/body.fmdl`). The link counts in its folder under the stem alone, and means
-  the same wherever it sits in a player folder's tree, so a folder carried into another keeps
-  its links. A stem or folder holding a dot cannot be linked. The target is never written
-  inside the link: Explorer shows where every link points, which is what a link has over a
-  path in a material file.
+- **A link mirrors `Common/`'s tree.** A link stands for the `Common/` file at its own path
+  below its player or shared folder (`jessie/body.fmdl.common` for `Common/jessie/body.fmdl`),
+  so a model names the same path whether the file is local or linked, and Explorer shows
+  where every link points: nothing is written inside a link.
 - A link participates in name matching and layering **exactly as if the linked file were local
   with the same stem**. A folder with both `materials.toml` and `materials.toml.common` layers the
   Common file below the local one (field-level merge, local wins); `material_link_layered` (I)

@@ -163,7 +163,8 @@ such tree with nothing to name.
   `jessie/sourceimages/skin`), the layout Red gives a `Common/` subfolder and a linked
   `Common/` subfolder file has here too (`team_compiler/pipeline.md` step 6); still to be
   checked in game for a player, `QUESTIONS.md` "In-game checks"). A `face.xml` or
-  `.mtl` reference that carries a path (`./jessie/body/oral_x_*.model`, `./shorts/y.dds`)
+  `.mtl` reference that carries a path (`./jessie/body/oral_x_*.model`, `./shorts/y.dds`),
+  or an FMDL texture whose directory does not start with `/` (`./shorts/` and `y`),
   resolves as written, relative to the referencing file: `./sub/name` is a local reference,
   checked like `./name` (`team_compiler/messages.md` "User-supplied `face.xml`"), not
   `xml_path_unchecked`; `./name` names a file of the xml's own folder alone. The generated
@@ -174,26 +175,35 @@ such tree with nothing to name.
   has one of each, and two from different folders would have no merge. Inside a subfolder each
   is `file_type_disallowed`.
 - **A texture name resolves nearest first.** A texture named with no path resolves in the model's
-  own folder first, then in each parent up to the player's root, nearest first. Two models in
+  own folder first, then in each parent up to the player's root, nearest first, never down;
+  one named with a path below the model's folder (`./textures/skin`) resolves at that path,
+  which is how a member sorts textures into subfolders beside a model above them. Two models in
   different subfolders may each have a `skin.dds` of their own: the lookup namespace of
   `texture_stem_conflict` is one folder, not the player folder with its subfolders, and a
   collision is solved by keeping a texture beside the models that use it.
 - **Only the root's markers and settings count.** `ingame_face`, `fpc_on`, `fpc_off` and
   `settings.toml` are read directly in the player folder alone; inside a subfolder each is
   `file_type_disallowed`.
-- **A link means the same at any depth.** A link below a subfolder is read as the root's, so
-  a player folder dropped into another keeps every link working. A shared link (`.face`,
-  `.boots`, `.gloves`) combines with the tree as a root link combines with local models, and
-  the one-per-category rule (`shared_link_duplicate`) counts the whole tree, two links naming
-  one shared folder counting once. A `.common` link names the `Common/` file its name spells,
-  a dotted prefix naming folders below `Common/` (`model_format.md` "Link files":
-  `jessie.body.fmdl.common` loads `Common/jessie/body.fmdl` from any folder of the tree). This
-  is the xml-less way to what a pre-Fox `face.xml` does by naming
+- **Shared links count at any depth.** A shared link (`.face`, `.boots`, `.gloves`) below a
+  subfolder combines with the tree as a root link combines with local models, and the
+  one-per-category rule (`shared_link_duplicate`) counts the whole tree, two links naming one
+  shared folder counting once.
+- **A `.common` link mirrors `Common/`'s tree.** A `.common` link stands for the `Common/`
+  file at its own path below the folder: `kitN/armor_bsm.dds.common` for
+  `Common/kitN/armor_bsm.dds`, `jessie/body.fmdl.common` for `Common/jessie/body.fmdl`, a root
+  link for a direct file. A model names the same path whether its texture is local or linked
+  (`./kitN/armor_bsm`), so sharing a texture is replacing it by a link of its name in its
+  place, and a player's `kitN/` folder of links reaches a per-kit set in `Common/`. This is
+  also the xml-less way to what a pre-Fox `face.xml` does by naming
   `.../common/<team>/jessie/oral_body_*.model`, and on PES 18-21, which has no xml, the only
   way; a `Common/` subfolder file no link names is `file_not_used` there
-  (`team_compiler/pipeline.md` step 6). A shared folder
-  (`Faces/`, `Boots/`, `Gloves/`) takes only the files directly in it; a file below its subfolder
-  is `file_type_disallowed` (the allowlist, `object_model.md`).
+  (`team_compiler/pipeline.md` step 6). A player folder moved into another keeps its files'
+  roles but not its links' targets (they then name `Common/<its name>/...`): such composition
+  is not a goal the link rule serves.
+- **A shared folder's tree is a player folder's.** A shared folder (`Faces/`, `Boots/`,
+  `Gloves/`) may hold subfolders under the same rules: their models are parts of its package,
+  its textures keep their paths and resolve nearest first, and its `.common` links count at
+  any depth. It holds no shared link, marker or settings, as before.
 - **No reserved names.** The names `face`, `boots`, `gloves` and `common` are plain subfolder names
   in a team export. They exist only in the AET referee layout, Red's prototype of the player
   folder (one subfolder per category inside each referee's folder), which the Export upgrader

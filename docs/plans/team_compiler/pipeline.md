@@ -586,7 +586,8 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    completion order. The player's texture sources are its own folder (its subfolders included,
    each a texture namespace of its own where one stem twice is `texture_stem_conflict`; a model's
    texture name resolves in its own folder first, then in each parent up to the player's root,
-   never down, and each texture is emitted at its path below the texture home,
+   never down, one named with a path below the model's folder (`./kitN/x`) at that path, and
+   each texture is emitted at its path below the texture home,
    `player_folders.md` "Subfolders") and each
    shared face, boots or gloves folder it combines, and a source counts for the package it feeds: the player's own folder and a
    combined face folder for the face, a combined boots (gloves) folder for the boots (gloves).
@@ -916,8 +917,9 @@ describes behavior, not a serial scheduling requirement:
   renamed common models updated. On PES 15-17 a subfolder of `Common/` is packed under the
   team's Common output at its own path (`Common/refkit/x.model` as
   `common/<team>/refkit/x.model`), its files processed as `Common/`'s are, and a member's
-  `face.xml` Common path names it with the subfolder, and a `.common` link by a dotted prefix
-  (`refkit.legs.model.common`, "Link files" in `model_format.md`). Red packed the whole
+  `face.xml` Common path names it with the subfolder, and a `.common` link by sitting at the
+  same path below the player folder (`refkit/legs.model.common`, "Link files" in
+  `model_format.md`). Red packed the whole
   folder, and the referee exports' `Common/refkit/` ("Referee export processing" in
   `blue_port.md`) is the one real use. On PES 18-21 nothing reads a subfolder's file (Fox has
   no `face.xml`), and it is `file_not_used`.
@@ -933,8 +935,8 @@ describes behavior, not a serial scheduling requirement:
   stem holds the token `kit1` to `kit9` (delimited by `_`, `-`, `.` or the stem's ends,
   spelled exactly so), and the files of one folder whose stems differ only in that token's
   digit are one set, whose *reference* is the stem with `kitN` in the token's place. In
-  `Common/` the token may be a whole folder name instead (`Common/kit1/x.dds`,
-  `Common/kit2/x.dds`): the files of one name in sibling folders `kit1` to `kit9` are one set,
+  any folder the token may be a whole folder name instead (`kit1/x.dds`, `kit2/x.dds`): the
+  files of one name in sibling folders `kit1` to `kit9` are one set,
   whose reference is `kitN/x`, completed below as a stem set is, each copy in its number's
   folder. A
   texture set is completed by the task that converts the folder's textures (a model folder's,
@@ -1851,7 +1853,8 @@ Resolved decisions:
   reaches the task: the file is dropped before planning, and a player whose texture link names
   it follows `link_target_dropped`, like any link to a dropped target. On PES 18-21 the Common
   tasks read the files directly in `Common/` and the subfolder files a `.common` link names
-  (by a dotted prefix, `model_format.md` "Link files"), each at its path before the platform
+  (a link at the same path below a player or shared folder, `model_format.md` "Link files"),
+  each at its path before the platform
   folder, as Red packs a Common subfolder (`Common/kit1/x.dds` as
   `common/<team>/kit1/sourceimages/#windx11/x.ftex`), since Fox reaches Common through links
   alone: a subfolder file no link names is `file_not_used` there; on PES 15-17 a subfolder is packed at its own

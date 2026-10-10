@@ -103,6 +103,17 @@ when possible) with the loader module's bootstrap:
 `blender --python <bootstrap> -- <manifest.json>` (exact invocation is an
 implementation detail; the manifest is the contract).
 
+**Folder tree.** The summary shows the selected folder's tree as the compiler reads it, so
+the format's flexibility is seen rather than inferred: each subfolder, each `.common` link with
+the `Common/` file it stands for (the file at the link's own path below `Common/`) and whether
+it resolves, each shared link with its folder, kit-token folders (`kit1` to `kit9`) grouped as
+one set with the kit numbers the export defines and those it lacks, and for each texture a
+model names, where it resolves (beside the model, a parent folder, a subfolder path the model
+names, a link into `Common/`, or nowhere). The resolution is `aesthetics_export`'s and the
+compiler's planning, not a second implementation in the tool, so the view cannot disagree with
+the compile. Rules: `aesthetics_export/player_folders.md` "Subfolders", `model_format.md`
+"Link files" and "Kit-dependent assets".
+
 **Settings panel.** A form over the selected folder's `settings.toml` — the name rule (absent /
 `true` / explicit string) and **every `PlayerSettings` key**, grouped as the schema groups them
 (appearance, physique, strip, motion, colours, ingame-face parameters) — plus the

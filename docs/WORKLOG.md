@@ -3972,26 +3972,30 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   TC-REF-18); (b) the pre-Fox face: paths kept in the face CPK and the texture home,
   `face.xml` entries by path, `./sub/name` a checked local reference, the `.mtl`
   search's folders, the nearest-first texture lookup and the per-folder
-  `texture_stem_conflict` namespace (TC-MOD-66); (b3) a link means the same at any
-  depth (the maintainer, 2026-10-10, DECISIONS "a link means the same at any depth; a
-  `.common` link's dotted prefix names folders below `Common/`", superseding the
-  mirrored-path rule of the same day): validation admits every link below a subfolder and
-  resolves a `.common` link's dotted prefix as folders below `Common/` (`links.rs`, the
-  allowlist's Below row), `role_position` reads links at any depth, `shared_link_duplicate`
-  counts the tree (one folder twice counting once), `common_file`/`common_link_name` parse
-  the prefix, `mtl_search` and `linked_common_materials` load a nested or dotted material
-  link's target (4.y-fix21's former item (1); every panic site S18.A1-1 and S18.1-C4 named:
+  `texture_stem_conflict` namespace (TC-MOD-66); (b3) links mirror `Common/`'s tree,
+  a model names a subfolder's texture by its path, shared folders take subfolders (the
+  maintainer, 2026-10-10, DECISIONS "links mirror `Common/`'s tree; a model names a
+  subfolder's texture by its path; shared folders take subfolders and links", superseding the
+  dotted-prefix rule of the same day): validation admits every link below a subfolder and
+  resolves a `.common` link against `Common/<its path>` (`links.rs`, the allowlist's rows),
+  `role_position` reads links at any depth, `shared_link_duplicate` counts the tree (one
+  folder twice counting once), `common_file`/`common_link_name` take the link's path,
+  `mtl_search` and `linked_common_materials` load a nested material link's target
+  (4.y-fix21's former item (1); every panic site S18.A1-1 and S18.1-C4 named:
   `processing/model.rs`, `prefox_face.rs`, `prefox_shared.rs` `material_of`), the Common
   tasks pack a linked subfolder file at its path, before `sourceimages` on Fox
   (`is_read_common_file`), a player's subfolder texture moving there too from (b1)'s
-  `sourceimages/<sub>/#windx11/` (`TextureHome::texture`, the FMDL directory; DECISIONS
-  "on Fox a subfolder's texture sits before `sourceimages`"), and the pre-Fox Common
-  output lists it at its path (TC-CMN-20,
-  TC-MOD-67 reworded, TC-MOD-70; TC-CMN-13 as it is); (b4) kit-token folders below
-  `Common/` are variant sets (`kitN/<name>`) completed against the export's kit numbers,
-  their paths written verbatim (TC-CMN-21: /hdg/'s per-kit Common folders); the Export
-  upgrader's half (a legacy `common/XXX/u0XXXp0/sourceimages/` path becomes a
-  `kitN.<name>.common` link) is its phase's, `export_upgrader.md`; (c) Fox: a subfolder's models merged
+  `sourceimages/<sub>/#windx11/` (`TextureHome::texture`, the FMDL directory; DECISIONS "on
+  Fox a subfolder's texture sits before `sourceimages`"), and the pre-Fox Common output lists
+  it at its path (TC-CMN-20, TC-MOD-67, TC-MOD-70); a texture named with a path below the
+  model's folder resolves at that path, an FMDL directory not starting with `/` read as one
+  (`./textures/`, TC-MOD-71), and a shared folder's subfolders follow the player folder's
+  rules (TC-MOD-68 reworded); TC-CMN-13 as it is; (b4) kit-token folders (`kit1` to
+  `kit9`) form variant sets (`kitN/<name>`) in any folder, completed against the export's kit
+  numbers, their paths written verbatim (TC-CMN-21, TC-MOD-72: /hdg/'s per-kit Common folders
+  through a `kitN/` folder of links); the Export upgrader's half (a legacy
+  `common/XXX/u0XXXp0/sourceimages/` path becomes `./kitN/` and a `kitN/<name>.common` link)
+  is its phase's, `export_upgrader.md`; (c) Fox: a subfolder's models merged
   into the packages, textures under the texture home at their path (TC-MOD-65); (d) the
   deep pass over the tree (what `compile` reads, DECISIONS 2026-10-09 "One rule"). The
   Export upgrader's carry-over is Phase 6's. Moot after this: S14.1-4 and the subfolder
@@ -6847,3 +6851,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   Common `.mtl`'s stems resolve in Common, a glTF-dropped folder's `fpc_on` does not count,
   an `overrides` file is an error, a no-package folder's texture links are not used, two
   comments and a finding's order. Its residuals are step 4.y-fix23.
+- **2026-10-10** — The maintainer set the priority: members sort a player's textures into
+  subfolders (/haha/), and /hdg/'s per-kit Common textures take one `kitN/` folder of links;
+  composition is a low-priority goal. So links mirror `Common/`'s tree again (no dotted
+  prefix), a model names a subfolder's texture by its path (`./kitN/`, an FMDL directory not
+  starting with `/`), kit-token folders form sets in any folder, and a shared folder's tree
+  follows the player folder's rules. Plan, decision and slices (b3)/(b4) revised.

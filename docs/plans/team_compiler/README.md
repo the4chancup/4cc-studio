@@ -997,11 +997,20 @@ TC-MOD-67  GIVEN slot 05 holding face_high.fmdl, jessie/ingame_face and jessie/s
                 folder; the lenient compile keeps it with the two as Infos, neither
                 counting (no marker, no settings), and the player keeps his face
 TC-MOD-68  GIVEN Boots/Crocs holding boots.fmdl and extra/x.fmdl, slot 05 linking it
-           WHEN the export is checked for PES 21, then compiled with
-                strict_file_type_check = false
-           THEN the check reports file_type_disallowed for extra/x.fmdl, drops the folder and
-                the link with it; the lenient compile keeps both and the boots package holds
-                boots.fmdl alone, x.fmdl never read
+           WHEN the export is compiled for PES 21
+           THEN no file_type_disallowed is reported and the boots package holds
+                boots.fmdl's and x.fmdl's meshes, merged
+TC-MOD-71  GIVEN slot 05 holding face_high.fmdl naming ./textures/skin, and textures/skin.dds
+           WHEN the export is compiled for PES 21
+           THEN the face package's model names skin in the directory
+                .../common/<team>/05 - A/textures/sourceimages/, the CPK holds that
+                directory's #windx11/skin.ftex, and no finding names skin
+TC-MOD-72  GIVEN Kits/p1, Common/kit1/armor_bsm.dds, Boots/Crocs holding boots.fmdl naming
+           ./kitN/armor_bsm and kitN/armor_bsm.dds.common, and slot 05 linking Crocs.boots
+           WHEN the export is compiled for PES 21
+           THEN the boots model names armor_bsm in
+                /Assets/pes16/model/character/common/<team>/kitN/sourceimages/, and neither
+                file_type_disallowed nor file_not_used is reported
 TC-MOD-69  GIVEN slot 05 holding face_high.model with its .mtl, and oral.fmdl whose only mesh
            is flagged invisible
            WHEN the export is compiled for PES 17
@@ -1469,13 +1478,14 @@ TC-CMN-18  GIVEN Common/refkit/oral_thigh_win32.model and Common/refkit/refkit.m
                 refkit/oral_thigh_win32.model and refkit/refkit.mtl, and the entry is written
                 with the team's ID in place of XXX
 TC-CMN-20  GIVEN Common/jessie/body.fmdl, and slot 05 holding face_high.fmdl and
-           parts/jessie.body.fmdl.common
+           jessie/body.fmdl.common
            WHEN the export is compiled for PES 21, then for PES 17
            THEN on PES 21 the face package holds body.fmdl's meshes beside face_high.fmdl's
                 and no file_not_used names Common/jessie/body.fmdl; on PES 17 the Common
                 output holds jessie/oral_body_win32.model and face.xml lists it by that path
 TC-CMN-21  GIVEN Kits/p1, p2 and p3, Common/kit1/armor_bsm.dds and Common/kit2/armor_bsm.dds,
-           and slot 05 holding face_high.fmdl naming armor_bsm and kitN.armor_bsm.dds.common
+           and slot 05 holding face_high.fmdl naming ./kitN/armor_bsm and
+           kitN/armor_bsm.dds.common
            WHEN the export is compiled for PES 21
            THEN the face package's model names armor_bsm in
                 /Assets/pes16/model/character/common/<team>/kitN/sourceimages/, the CPK

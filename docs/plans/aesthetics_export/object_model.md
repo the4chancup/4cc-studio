@@ -163,17 +163,17 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | Where the file sits | Admits | Otherwise |
   |---|---|---|
   | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc_on` and `fpc_off` markers, `settings.toml` | `file_type_disallowed` |
-  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content, links (read as the root's; a `.common` link names the `Common/` file its name spells, `model_format.md` "Link files") | `file_type_disallowed` |
-  | directly in a shared folder | model content | `file_type_disallowed` |
+  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content, links (a shared link read as the root's; a `.common` link stands for the `Common/` file at its own path, `model_format.md` "Link files") | `file_type_disallowed` |
+  | anywhere in a shared folder (its subfolders are its own, `player_folders.md` "Subfolders") | model content, `.common` links | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
-  | anywhere in `Common/` | model content (a subfolder's is read on PES 15-17 alone, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
+  | anywhere in `Common/` | model content (a subfolder's is read on PES 18-21 when a link names it, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
   | directly in `Collars/` | model files (any model format; the game draws a collar with the kit texture, so it has no textures or materials of its own, `team_compiler/pipeline.md` "Collars"); their `collar_<ID>` name is the compiler's to check, since which IDs exist depends on the target version (`collar_id_invalid`) | `file_type_disallowed` |
   | anywhere in `Kits/all/` | textures directly in it | `kit_all_file_ignored` |
   | anywhere in `Portraits/` | textures named `player_NN` directly in it | `portrait_name_invalid` |
   | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures, a team export's `autopilot` marker; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
 
   A file below a subfolder the table does not name takes the code of the folder holding that
-  subfolder (`Boots/Crocs/extra/x.fmdl` is `file_type_disallowed`). The list is the same for
+  subfolder (`Kits/p1/extra/x.dds` is `file_type_disallowed`). The list is the same for
   every target: each model
   format is a source for either engine through conversion, so what a target does not emit is the
   deep pass's and processing's concern, not the allowlist's (Red's per-engine lists predate
@@ -181,8 +181,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   `common_file_disallowed` keep their item (`Keep`, which the consumer shows as Info) and the file
   stays in the folder's files; a task reads only the files its roles name, so a kept file no
   role takes is not emitted (a kit emits only its named textures; the Common tasks on PES 18-21 only the
-  files directly in `Common/`; a `.common` link in a shared folder resolves nothing, links being
-  a player folder's), and that finding is the one line the member sees for it.
+  files directly in `Common/` and those a link names), and that finding is the one line the
+  member sees for it.
 - **OS artifacts.** `Thumbs.db`, `desktop.ini` and `.DS_Store` (any case, at any depth) are
   written by file browsers, never by authors: `parse_listing` leaves them out of the draft and
   reports nothing. On 2026-10-01 the maintainer's team exports held 209 `Thumbs.db` and 16

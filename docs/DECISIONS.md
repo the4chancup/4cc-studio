@@ -6502,3 +6502,36 @@ reading of the game's lookup, unproven. The earlier entry cited Red's layout as 
 and then placed the subfolder after `sourceimages`, a misreading.
 Plan: `aesthetics_export/player_folders.md` "Paths are kept"; `team_compiler/pipeline.md`
 the installed-CPK lookup sentence; `QUESTIONS.md` "A Fox subfolder texture".
+
+## 2026-10-10 — aesthetics_export, team_compiler — links mirror `Common/`'s tree; a model names a subfolder's texture by its path; shared folders take subfolders and links
+Decision: a `.common` link stands for the `Common/` file at its own path below its player or
+shared folder (`kitN/armor_bsm.dds.common` for `Common/kitN/armor_bsm.dds`,
+`jessie/body.fmdl.common` for `Common/jessie/body.fmdl`, a root link for a direct file as
+before); no dotted prefix. A model may name a texture by a path below its own folder: a
+`.mtl` path `./kitN/armor_bsm.dds`, an FMDL texture directory that does not start with `/`
+(`./kitN/`); such a name resolves at that path, whether a texture or a link sits there, and a
+bare name still resolves nearest first, never down. A folder named `kit1` to `kit9` is a kit
+token in any folder (player, shared or `Common/`): the files of one name in sibling kit
+folders are a variant set, `kitN/<name>`. A shared folder's tree follows the player folder's
+rules: its subfolders' models are parts of its package, its textures keep their paths, and
+`.common` links count in it at any depth. The shared links (`.face`, `.boots`, `.gloves`)
+stay readable at any depth of a player folder (the entry before this one). Supersedes the
+dotted-prefix half of "a link means the same at any depth" (same day), and the rule that a
+shared folder takes only the files directly in it.
+Why: the maintainer's priority is that members can sort a player's textures into subfolders
+instead of cluttering his root, as /haha/ does (`clothes/clothes.mtl` naming
+`./boots/boots_u0853p0.dds`), and that /hdg/'s per-kit Common textures need one `kitN/`
+folder of links per player rather than a link per texture at the root. A position-free link
+would spell its folder twice there (`kitN/kitN.armor_bsm.dds.common`); with mirrored links
+the player's tree mirrors `Common/`'s, a model names the same path whether its texture is
+local or shared, and sharing a texture is replacing it by a link of its name in its place.
+Dropping one player folder into another ("composition") is a low-priority goal the
+maintainer gave up for this: a moved folder's links then name `Common/<its name>/...`.
+/hdg/'s shared boots and gloves name the per-kit armor too, hence the shared folders. The
+FMDL spelling `./kitN/` mirrors the `.mtl`'s; an absolute directory keeps its meaning.
+Plan: `aesthetics_export/player_folders.md` "Subfolders", `object_model.md` "File-type
+allowlist", `model_format.md` "Stem-based texture references", "Link files",
+"Kit-dependent assets"; `team_compiler/pipeline.md` step 3's texture sources, step 4's and
+step 6's Common sentences and the kit-set paragraph; `messages.md` `file_not_used`;
+`export_upgrader.md`; `team_compiler/README.md` TC-CMN-20, TC-CMN-21, TC-MOD-68,
+TC-MOD-71, TC-MOD-72.
