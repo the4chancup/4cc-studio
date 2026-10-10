@@ -68,6 +68,8 @@ def main(argv: list[str]) -> int:
     host = mutants.remote_host()
     local_only = sorted(mutants.LOCAL_ONLY_CRATES.intersection(counts))
     if host is not None and estimated >= mutants.SPLIT_THRESHOLD_SECONDS and not local_only:
+        half = mutants.estimate_seconds(crates, share=0.5)
+        print(f"mutants_diff: split, about {half:.0f} s a half, plus the transfer and polling")
         return mutants.split(["--in-diff", diff_path], host)
     if host is not None and local_only:
         print(f"mutants_diff: {', '.join(local_only)} is local-only (LOCAL_ONLY_CRATES)")

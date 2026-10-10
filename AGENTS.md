@@ -323,7 +323,10 @@ its size, a never-measured baseline to 60 s), because cost follows a crate's tes
 the mutant count (0.7-1.4 s for most crates, 33-37 s for `pes_savefile`). The baseline is a
 cold build in a fresh copy of the tree, about a minute, and the mean counts each job's cold
 first build and every timeout: until 3.z the estimate left all three out, and a 38-mutant diff
-estimated at 80 s took 270 s (now 266 s). The local half runs at below-normal priority with
+estimated at 80 s took 270 s (now 266 s). That estimate is for the whole run here; a split
+run prints its own, the baseline plus half the rest (each half builds a baseline, so a split
+does not halve the estimate), and ends with its wall time, which adds the transfer, polling
+and fetch. The local half runs at below-normal priority with
 each of its two cargo processes given half the logical CPUs (`sized_config`, the remote half's
 sizing), not with two CPUs held back: the machine stays usable by priority, and the run gets
 what the user leaves idle (measured level with the old cap on the 3.z diff). A starved test can
@@ -332,7 +335,7 @@ A build killed for memory (the remote half's cap) is filed by
 cargo-mutants as unviable, which hides an untested mutant: at 3.z eframe's dependency tree
 outgrew the 6 GiB cap and 12 remote mutants went untested that way, so the scripts now list
 every killed build and fail the run. Below
-that the split's fixed overhead, about a minute plus up to 30 s of polling, eats the gain. At
+that the split's fixed overhead, about a minute plus up to 15 s of polling, eats the gain. At
 2.20k a 32-mutant `pes_savefile` diff took 11 min 57 s locally; split, the local half took
 417 s and the remote half 502 s from its launch (the VPS ran about a fifth slower; the total
 wall time was not recorded). Manual ssh from
@@ -375,7 +378,7 @@ is what to look at first when a killed build shows up again. A running half is s
 `sudo systemctl stop studio-mutants` on the host.
 
 **The remote half runs detached** from any ssh session (`~/studio-mutants/run/`: `job.sh`,
-`pid`, `log`, `exit`, `memory_peak`), and the script polls it every 30 s with short ssh calls. A dropped link
+`pid`, `log`, `exit`, `memory_peak`), and the script polls it every 15 s with short ssh calls (30 s until 2026-10-10). A dropped link
 costs a poll, not the run: at 2.20i the remote half still hung off one long ssh session and
 died with it. If `just mutants` itself stops, `just mutants-collect` waits for the remote half
 and fetches it, including a died half's partial results. A new run refuses to start while a
@@ -393,8 +396,10 @@ step's folder. **An archived run keeps its summary, not its logs.** A run kept a
 the next run overwrites `mutants.out/`) copies only `*.txt` and `outcomes.json`, never the
 per-mutant `log/` or `remote/` trees: those are what reproduce a survivor, and a survivor is
 reproduced by re-running its mutant, not by reading a week-old log. Whole-folder copies had
-grown `.tmp/` to 17 GB by 3.8. Each local run builds in a `%TEMP%\cargo-mutants-4cc-studio-*.tmp`
-copy of the tree, deleted when the run ends normally; a killed run leaves its copy behind
+grown `.tmp/` to 17 GB by 3.8. Each local run builds in a
+`%TEMP%\studio-mutants\cargo-mutants-4cc-studio-*.tmp` copy of the tree (one fixed parent,
+`LOCAL_TMPDIR`, so one antivirus exclusion covers every run; until 2026-10-10 directly in
+`%TEMP%`), deleted when the run ends normally; a killed run leaves its copy behind
 (some with a multi-GB `target/`), so after stopping one, delete its copy. `.cargo/mutants.toml`
 sets `gitignore = true` so the copies leave out `.tmp/` and `target/`: before 3.8 each copy
 carried all of `.tmp/`, and two 3.7 runs died of a full disk.

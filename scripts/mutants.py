@@ -75,6 +75,11 @@ LOCAL_ONLY_CRATES: frozenset[str] = frozenset()
 # and counted against the unit's MemoryMax: the 4.14d kills were per-mutant
 # rebuilds of 1-2 GiB on top of two such trees, not the egui build itself.
 REMOTE_TMPDIR = "$HOME/studio-mutants/tmp"
+# Where the local half's cargo-mutants makes its copies of the tree (and its
+# builds and tests their temporary files): one fixed folder, so a single
+# antivirus exclusion covers every run's randomly named copy, whose tests write
+# a sandbox export per CLI test.
+LOCAL_TMPDIR = Path(tempfile.gettempdir()) / "studio-mutants"
 # The detached remote half's files: `job.sh`, `pid` (the service's MainPID),
 # `log`, `exit` ("<code> <seconds>", written when cargo-mutants returns),
 # `memory_peak` (the unit cgroup's peak memory) and `collected` (written by
@@ -88,14 +93,17 @@ COST_CACHE = ROOT / "target" / "mutants-cost.json"
 # of the tree) of a crate no local run has measured yet: the 3.z run's
 # 56 s + 8 s for team_compiler, studio_core and studio, rounded.
 DEFAULT_BASELINE_SECONDS = 60.0
-POLL_SECONDS = 30
+# Polling starts when the local half ends, so this is the wait after a remote
+# half that finishes last (about half the runs to 4.y-sub b3a), a mean of half
+# the interval; each poll is one short ssh call.
+POLL_SECONDS = 15
 # Below this estimated local wall time a diff run stays local: the split's
 # fixed overhead (about a minute plus up to POLL_SECONDS of polling) eats
 # the halving.
 SPLIT_THRESHOLD_SECONDS = 240
-# Consecutive failed polls before giving up (an hour at 30 s); the remote half
+# Consecutive failed polls before giving up (an hour at 15 s); the remote half
 # keeps running and `just mutants-collect` picks it up later.
-MAX_POLL_FAILURES = 120
+MAX_POLL_FAILURES = 240
 # Keepalives let a dead link fail a call in about a minute instead of hanging it.
 SSH_OPTIONS = [
     "-o", "BatchMode=yes",
@@ -257,10 +265,15 @@ def below_normal() -> dict:
 
 def local_mutants(args: list[str]) -> subprocess.CompletedProcess:
     """Runs `cargo mutants <args> --jobs 2` here, sized by `local_config` and at
-    `below_normal` priority."""
+    `below_normal` priority, its copies of the tree in `LOCAL_TMPDIR`: Rust's
+    `temp_dir`, which cargo-mutants copies into, reads `TMP` then `TEMP` on
+    Windows and `TMPDIR` elsewhere."""
+    LOCAL_TMPDIR.mkdir(parents=True, exist_ok=True)
+    folder = str(LOCAL_TMPDIR)
     return subprocess.run(
         ["cargo", "mutants", *args, "--jobs", "2", "--config", str(local_config())],
         cwd=ROOT,
+        env={**os.environ, "TMP": folder, "TEMP": folder, "TMPDIR": folder},
         **below_normal(),
     )
 
@@ -607,21 +620,24 @@ def cost_per_mutant(crate: str, cache: dict[str, dict[str, float]]) -> float:
     return 1 + nonblank / 1000
 
 
-def estimate_seconds(crates: list[str]) -> float:
+def estimate_seconds(crates: list[str], share: float = 1.0) -> float:
     """The estimated wall seconds of running these mutants (one crate name per
     mutant) locally only: the unmutated baseline, which runs alone first,
     then every mutant's cost over the two jobs. The baseline is the largest
     measured for any of the crates: a cold build of the mutated packages in a
     fresh copy of the tree, a minute where a mutant takes seconds, so it
     dominates a small diff (3.z: 64 s of a 270 s run, while counting it as
-    one mutant estimated the run at 80 s)."""
+    one mutant estimated the run at 80 s). `share` 0.5 gives one half of a
+    split run: each half builds its own baseline, so a split takes the
+    baseline plus half the rest, not half the estimate (over 29 split diffs to
+    4.y-sub b3a, the local half came within a median 2% of this)."""
     cache = load_cost_cache()
     costs = [cost_per_mutant(crate, cache) for crate in crates]
     baseline = max(
         (cache["baseline"].get(crate, DEFAULT_BASELINE_SECONDS) for crate in set(crates)),
         default=0.0,
     )
-    return baseline + sum(costs) / 2
+    return baseline + sum(costs) / 2 * share
 
 
 def update_cost_cache() -> None:
@@ -662,6 +678,7 @@ def split(selection: list[str], host: str) -> int:
     """The whole split run for one selection: the busy-remote refusal, the
     snapshot, the version check, both halves, the fetch and the summary."""
     print(f"splitting the run with {host}", flush=True)
+    started = time.monotonic()
     # The remote must be free before the transfer rewrites its tree.
     state = remote_run_state(host)
     if state is None:
@@ -697,11 +714,15 @@ def split(selection: list[str], host: str) -> int:
     )
     update_cost_cache()
     fetch_remote(host)
-    return summarize(
+    code = summarize(
         local_code, remote_code,
         ROOT / "mutants.out" / "remote" / "remote_console.txt",
         (local_seconds, remote_seconds),
     )
+    # The halves' seconds leave out the transfer, the polling and the fetch;
+    # this is what the user waited.
+    print(f"split run: {time.monotonic() - started:.0f} s wall")
+    return code
 
 
 def remote_host() -> str | None:
