@@ -48,7 +48,11 @@ done 2026-10-10 (the marker's combined folders in `held_stems`, `texture_unreada
 stock collars' material set by name, its meshes two-sided: PES 21 drew nothing for the
 converter's and draws it now, checked in game), 4.y-fix13 done 2026-10-10 (a hidden Fox mesh left out of a
 `.model`; a model with every mesh hidden left out whole with the Info
-`model_hidden_dropped`, after the lead's scan of every FMDL on the machine), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
+`model_hidden_dropped`, after the lead's scan of every FMDL on the machine), 4.y-fix15 done 2026-10-10 (a `.face` link to a `Faces/` folder holding textures alone
+gives no face: his own face files `face_file_not_used`, the blank face with the bundled
+diff; its items (1) and (3) had landed with 4.y-fix17 and 4.y-fix16), 4.y-fix19 done
+2026-10-10 (S9's third Astra round: every direct Common `.mtl` read once a link's search
+lands in `Common/`; a non-model file in `Collars/` gets no collar finding), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
@@ -93,10 +97,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   4.20, 4.27) rewrite parts of what those reviews would read, and converge reviews the
   crate anyway.
 - **Queue:** the Phase 4 Astra re-audit (directive above; briefs in `.tmp/duck_brief_S*.md`,
-  rulings in `.tmp/4_y/duck_rulings.md`): S9's round 2 on the 4.y-fix7 rework (its round 1
-  accepted five); S12 to S15's first rounds; 4.14's (a) and (b) and 4.17's (c) and (d); each
-  followed by its SWE-2 loop. S7, S8, S10 and S11 need none: their Astra loops ended under
-  five accepted. 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
+  rulings in `.tmp/4_y/duck_rulings.md`): S14's first round, after 4.y-fix15 (its SWE-2
+  rework) so the round does not refind S14.1's defects; 4.14's (a) and (b) and 4.17's (c)
+  and (d), their briefs still to write; each followed by its SWE-2 loop. S7 to S13 and S15
+  need none: their Astra loops ended under five accepted (S9 at its third round, S15 at its
+  first, with no concerns). 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
   and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
   `.tmp/3_6/review_brief_3_6.md` is a template for the brief. 3.8 (b): `studio_core`'s `CliError`/
   `AppPaths`/location and the `team_compiler` CLI surface, from 3.8a's commit, against
@@ -3520,7 +3525,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   proven, red first; the census re-run over the six refs exports holding `Common/refkit/`:
   no `common_file_disallowed` and no `xml_path_unchecked` for it.
 
-- [ ] 4.y-fix15 **S14's SWE-2 rework** (rulings S14.1 in `.tmp/4_y/duck_rulings.md`).
+- [x] 4.y-fix15 **S14's SWE-2 rework** (rulings S14.1 in `.tmp/4_y/duck_rulings.md`).
   (1) Under `ingame_face` the deep pass's `.mtl` check sees the textures of the combined
   `Boots/` and `Gloves/` folders: landed with 4.y-fix17 (`ReadFolder`, the test
   `under_ingame_face_a_texture_only_the_combined_boots_folder_holds_supplies_his_own_mtl`).
@@ -3539,6 +3544,22 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `messages.md` `face_file_not_used`, `mtl_texture_not_found`; DECISIONS 2026-10-09 (a
   `.common` link to a per-kit variant). Crates: tc
   → verify: a test per item, red first; S14 gets a second SWE-2 round on the rework diff.
+  Done 2026-10-10 (Opus 5.5, one run with 4.y-fix19): item (2): `FolderModels::of_player`
+  takes the export, resolves each face link (`linked_folder`) and counts it as a face of
+  the player's only when the linked folder's own models give one (`of_shared(...).face`);
+  `part_source_models` computes the combined folders first and asks the same of a combined
+  face; `common_models` takes the export. Test: `face_folders.rs`
+  `a_link_to_a_face_folder_holding_textures_alone_gives_no_face` (the tracer's boots and
+  diff with a `Round.face` link to a folder holding `skin.dds` alone: PES 21 `check` and
+  `compile` give `face_file_not_used` and the blank face, `link_combined` standing, the
+  folder's textures being a source of his; PES 17 with the boots removed, since a direct
+  `boots.fmdl` is a typed face part there, gives the dummy pair and the bundled diff).
+  Contradictions ruled: the PES 17 half cannot keep the brief's boots (accepted, the test
+  removes them); the test cites no acceptance ID, TC-MOD-32's scenario having no link
+  (accepted: the `face_file_not_used` row already states the link case, no new scenario).
+  Files: `plan/roles.rs`, `plan/mod.rs`, `validation.rs`, `tests/cli/face_folders.rs`,
+  `prefox_faces.rs` (`expected_face_xml` shared). Gates green (`.tmp/4_y/gates_fix15.log`,
+  acceptance 304 of 313); mutants over both steps MUTANTS (`.tmp/4_y/mutants_fix15.log`).
 
 - [ ] 4.y-7z **A small solid `.7z` export stays decompressed from its check to its tasks**
   (the maintainer's answer, 2026-10-10). `compile` keeps an archive's permit and buffers
@@ -3926,6 +3947,41 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `tests/cli/collars.rs`. Gates green (`.tmp/4_y/gates_fix18.log`, acceptance 302 of
   312); mutants 1 caught, 0 missed, 3 unviable (`.tmp/4_y/mutants_fix18.log`; the
   unviables are whole-function replacements of types with no `Default`).
+
+- [x] 4.y-fix19 **S9's third Astra round: the deep pass reads every Common `.mtl` a link's
+  search may fall back to, and a non-model file in `Collars/` gets no collar finding**
+  (rulings S9.A3 in `.tmp/4_y/duck_rulings.md`; two of three accepted, so the S9 Astra loop
+  ends with this rework). (1) `deep/mod.rs` `searched_common_mtls`: when a link's search
+  finds its `.mtl` in `Common/`, the set takes every direct `Common/` `.mtl`, since the
+  search's chain there ends with any `.mtl` in name order and a dropped first find leaves
+  the next one unread (its own comment said so); `model_material_undefined` then fires on
+  the fallback. (2) `deep/collar.rs` `collar_findings`: the file's kind is matched before
+  the stem is read as a collar ID, so a `Collars/README.txt` the lenient structure pass
+  keeps is passed over as planning passes it over, not `collar_id_invalid`. Plan:
+  `pipeline.md` "Deep format pass" (unchanged: the pass checks what `compile` reads);
+  `messages.md` `collar_id_invalid`. Crates: tc → verify: a test per item, red first.
+  Done 2026-10-10 (Opus 5.5, one run with 4.y-fix15; the step was ruled with `f8de614`,
+  whose edit script lost its insertion). (1) `searched_common_mtls` returns every direct
+  `Common/` `.mtl` once any player's search lands on a `Common/` file, none otherwise; the
+  cost, accepted: a broken Common `.mtl` nothing reads is `mtl_broken` too, one rule over a
+  per-candidate chain. Test: `common_links.rs`
+  `a_common_mtl_a_link_s_search_falls_back_to_is_checked_on_pes_21` (a broken `legs.mtl`
+  beside a `materials.mtl` with the card's material renamed: `mtl_broken` on the one,
+  `model_material_undefined` naming the other, exit 1; red: `mtl_broken` alone and the
+  folder planned). (2) `collar_findings` matches the kind first: a non-model kind gets no
+  finding; a glTF is a model whose name is checked and whose content is not, as before,
+  since `check` reports nothing else of it (the brief's two readings, the sidekick's kept;
+  a `neck.glb` row pins it in the unit test). Test: `collars.rs`
+  `a_file_of_no_model_kind_in_collars_kept_by_the_lenient_check_gets_no_collar_finding`
+  (`Info file_type_disallowed` alone, exit 0, the collar left out; red: `collar_id_invalid`
+  and exit 1). Mutants: one survivor, the set filter's `&& is_direct_root_folder_file`,
+  equivalent (the caller asks the set about a direct `Common/` file alone), the redundant
+  half dropped by the lead with the doc saying why; the rework test the lead asked for
+  against the wrong `&&` (`a_common_mtl_no_link_names_is_not_checked_when_a_model_pairs_locally_on_pes_21`)
+  stays as the direct proof of the "none otherwise" branch, the sidekick having caught the
+  misreading. A Common `.mtl` nothing links gets no finding at all today (seen there; not
+  this step's). Files: `deep/mod.rs`, `deep/collar.rs`, `tests/cli/common_links.rs`,
+  `collars.rs`. Gates and mutants: with 4.y-fix15's.
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -6243,3 +6299,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   kit variant: a hand-built shape). Under five accepted, so the S9 Astra loop ends with the
   rework, step 4.y-fix19, briefed with 4.y-fix15's one open item ((1) and (3) landed with
   4.y-fix17 and 4.y-fix16).
+- **2026-10-10** — S15's first Astra round ran on the brother's ChatGPT Plus (a fresh
+  five-hour window, 48% of it): no concerns over run planning, the overrides and source
+  pinning, so the S15 Astra loop ends at its first round; its SWE-2 round is still owed.
+- **2026-10-10** — 4.y-fix15 and 4.y-fix19 done (sidekick, one run): a `.face` link counts
+  as a face only when the linked folder gives one; the deep pass reads every direct Common
+  `.mtl` once a link's search lands in `Common/`; a non-model file in `Collars/` gets no
+  collar finding. S14's second SWE-2 round and its first Astra round run on the rework.

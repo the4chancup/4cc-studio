@@ -1197,7 +1197,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 textures: TextureHome::PlayerCommon {
                     folder_name: folder.path.name().to_owned(),
                 },
-                common_models: common_models(&folder, &export.common, version.engine()),
+                common_models: common_models(&folder, &export, version.engine()),
                 common_texture_stems: common_texture_stems.clone(),
                 common_files: player_common_files.clone(),
                 hand_split: BTreeSet::new(),
@@ -1552,7 +1552,7 @@ fn drop_gltf_folders(
         if !mapped.contains(&index) {
             continue;
         }
-        let models = FolderModels::of_player(folder, engine);
+        let models = FolderModels::of_player(folder, export, engine);
         // Named below the folder, as `xml_ignored_fox` names its file: two glTFs of one name
         // in different subfolders are two findings a member can tell apart.
         let mut files: Vec<String> = folder
@@ -1924,9 +1924,10 @@ fn common_model_files(common: &[FileDescriptor]) -> Vec<FileDescriptor> {
         .collect()
 }
 
-/// The player folder's `.common` model links resolved against `common`, the export's `Common/`
-/// files, exactly as validation resolved them (a file directly in `Common/`, matched by
-/// case-folded name), each with the Common model it loads on a target of `engine`
+/// The `.common` model links of the player folder `folder` of `export` resolved against the
+/// export's `Common/` files, exactly as validation resolved them (a file directly in
+/// `Common/`, matched by case-folded name), each with the Common model it loads on a target of
+/// `engine`
 /// (`selected_common_model`: a model of the linked stem in the target's own format beats the
 /// other one). On Fox each link to an FMDL or a `.model` (`PlayerFile::CommonModel`), with,
 /// when the link's role has a skeleton slot, the Common `.skl` of the model's stem; on
@@ -1940,10 +1941,11 @@ fn common_model_files(common: &[FileDescriptor]) -> Vec<FileDescriptor> {
 /// drops a folder whose link names no Common file, so every link here resolves.
 fn common_models(
     folder: &PlayerFolder,
-    common: &[FileDescriptor],
+    export: &ValidatedAestheticsExport,
     engine: Engine,
 ) -> Vec<CommonModel> {
-    let models = FolderModels::of_player(folder, engine);
+    let common = export.common.as_slice();
+    let models = FolderModels::of_player(folder, export, engine);
     folder
         .files
         .iter()

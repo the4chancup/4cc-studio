@@ -573,7 +573,7 @@ fn model_name_messages(
     let export = &resolved.export;
     let mut messages = Vec::new();
     for folder in mapped_players(export) {
-        let models = FolderModels::of_player(folder, engine);
+        let models = FolderModels::of_player(folder, export, engine);
         file_role_messages(
             &folder.path,
             &folder.files,

@@ -160,7 +160,7 @@ type Entry<'a> = (&'a str, &'a str, &'a str, Option<&'a str>);
 /// The `face.xml` the compiler generates for `entries` and the face diff `dif`, written out
 /// here on its own: the XML declaration, `<config>`, one three-space-indented `<model>` per
 /// entry, the `<dif>` base64 on one line, CRLF line ends, no final line end.
-fn expected_face_xml(entries: &[Entry], dif: &[u8]) -> Vec<u8> {
+pub(crate) fn expected_face_xml(entries: &[Entry], dif: &[u8]) -> Vec<u8> {
     let mut text = String::from("<?xml version='1.0' encoding='UTF-8'?>\r\n<config>\r\n");
     for (xml_type, path, material, ratio) in entries {
         let ratio = ratio.map_or(String::new(), |ratio| format!(" ratio=\"{ratio}\""));

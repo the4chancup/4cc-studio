@@ -847,6 +847,37 @@ fn a_collar_below_a_collars_subfolder_is_kept_by_the_lenient_check_and_not_a_col
 }
 
 #[test]
+fn a_file_of_no_model_kind_in_collars_kept_by_the_lenient_check_gets_no_collar_finding() {
+    let sandbox = Sandbox::new("collar_readme");
+    sandbox.write(&format!("{EXPORT}/Collars/README.txt"), b"collar notes");
+    sandbox.write(&format!("{EXPORT}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{EXPORT}/Kits/p1/config.toml"),
+        b"[shirt]\ncollar = 30\nwinter_collar = 31\n",
+    );
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = false\n",
+        pes_settings(&sandbox, 17)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Collars"),
+        [
+            "Info file_type_disallowed [Keep] at Collars/README.txt (file=README.txt)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            TEAM_COLORS_MISSING,
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert_collar_left_out(&sandbox, PesVersion::Pes17, (30, 31));
+}
+
+#[test]
 fn an_export_whose_only_collar_is_dropped_compiles_without_it() {
     let sandbox = Sandbox::new("collar_dropped");
     sandbox.write(&format!("{EXPORT}/{CLEAN_PLAYER}"), &clean_model());

@@ -1281,6 +1281,75 @@ fn a_common_mtl_no_search_reads_is_not_checked_on_pes_21() {
 }
 
 #[test]
+fn a_common_mtl_no_link_names_is_not_checked_when_a_model_pairs_locally_on_pes_21() {
+    let sandbox = Sandbox::new("cmn_fox_mtl_local_pair");
+    let export = "exports/co Midcup Boots";
+    let player = format!("{export}/Players/05 - A");
+    // His `.model` pairs with his own `.mtl`: his search never reaches `Common/`.
+    sandbox.write(&format!("{player}/boots.model"), &card_model());
+    sandbox.write(&format!("{player}/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{export}/Common/stray.mtl"), b"not a material set");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Boots"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        package_names(&entries[BOOTS_05]),
+        ["boots.fmdl", "boots.skl"]
+    );
+}
+
+#[test]
+fn a_common_mtl_a_link_s_search_falls_back_to_is_checked_on_pes_21() {
+    let sandbox = Sandbox::new("cmn_fox_mtl_fallback");
+    let export = "exports/co Midcup Legs";
+    sandbox.write(&format!("{export}/Players/05 - A/legs.model.common"), b"");
+    sandbox.write(&format!("{export}/Common/legs.model"), &card_model());
+    // The search's first candidate, dropped: the folders' pass then lands on `materials.mtl`.
+    sandbox.write(&format!("{export}/Common/legs.mtl"), b"not a material set");
+    // The card's material set with its one material, `card`, renamed: the fallback defines
+    // no material the card binds.
+    let text = String::from_utf8(card_materials()).unwrap();
+    assert!(text.contains("name=\"card\""), "{text}");
+    sandbox.write(
+        &format!("{export}/Common/materials.mtl"),
+        text.replace("name=\"card\"", "name=\"sleeve\"").as_bytes(),
+    );
+    sandbox.write(&format!("{export}/Common/skin.dds"), &small_dds());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    let lines = run.messages();
+    let error = MaterialSet::read(b"not a material set")
+        .unwrap_err()
+        .to_string();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Legs"),
+        [
+            "Error model_material_undefined [DropFolder] at Players/05 - A (file=legs.model.common, mtl=Common/materials.mtl, materials=card)",
+            format!(
+                "Error mtl_broken [DropFile] at Common/legs.mtl (file=legs.mtl, error={error})"
+            )
+            .as_str(),
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+}
+
+#[test]
 fn a_shared_folder_s_common_link_is_disallowed_and_read_by_nothing() {
     let sandbox = Sandbox::new("cmn_shared_link");
     let export = "exports/co Midcup Crocs";

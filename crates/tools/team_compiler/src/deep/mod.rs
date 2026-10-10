@@ -194,7 +194,7 @@ impl KeptCommon {
 /// It checks only what `compile` reads: not a file below a `Common/` subfolder, nor a
 /// `Common/` model another of its stem beats (`is_selected_common_model`), which is dropped
 /// with that winner instead (`drop_beaten_common_models`), nor for PES 2018 to 2021 a
-/// `Common/` `.mtl` no player folder's search reads (`searched_common_mtls`), nor a kit
+/// `Common/` `.mtl` no player folder's search may read (`searched_common_mtls`), nor a kit
 /// texture the target does not emit (`emits_kit_texture`), nor a folder's file
 /// `folder_findings` leaves unread, each player folder's roles read as planning reads them
 /// (`part_source_models`).
@@ -1123,34 +1123,42 @@ fn links_common_fmdl(file: &FileDescriptor, common: &[FileDescriptor], engine: E
     kind == FileKind::Model(ModelFormat::Fmdl)
 }
 
-/// The export paths of the `.mtl` files directly in `export`'s `Common/` that a search of a
-/// player folder reads on PES 2018 to 2021, `player_models` being each player folder's models
-/// (`part_source_models`): the `.mtl` a selected `.model`'s search or a Common `.model` link's
-/// search finds (`pairs_with_mtl`, `mtl_for`) when it is a `Common/` file. Fox has no Common
-/// models task, so no other reads one. A shared folder's search sees no `Common/` file
-/// (`pairings`), so it adds none.
+/// The export paths of the `.mtl` files of `export`'s `Common/` that a search of a player
+/// folder may read on PES 2018 to 2021, `player_models` being each player folder's models
+/// (`part_source_models`): every one of them when the search of a selected `.model` or of a
+/// Common `.model` link (`pairs_with_mtl`, `mtl_for`) finds a `Common/` file, none otherwise.
+/// A subfolder's `.mtl` is in the set too, which changes nothing: the caller asks the set
+/// about a direct `Common/` file alone, a subfolder's being unread whatever the set holds.
+/// Fox has no Common models task, so no other reads one. A shared folder's search sees no
+/// `Common/` file (`pairings`), so it adds none.
 fn searched_common_mtls<'a>(
     export: &'a ValidatedAestheticsExport,
     player_models: &[&FolderModels],
 ) -> BTreeSet<&'a ScopePath> {
-    // The search runs here over every direct `Common/` file and in the folders' pass over the
-    // kept ones, so a `.mtl` found here and dropped leaves a second candidate that later search
-    // finds unchecked: a case this set leaves.
-    let mut searched = BTreeSet::new();
-    for (player, models) in export.players.iter().zip(player_models) {
-        let folder = &player.path;
-        for file in &player.files {
-            if !pairs_with_mtl(folder, file, models, &export.common) {
-                continue;
-            }
-            if let Some(mtl) = mtl_for(&file.path, folder, &player.files, &export.common)
-                && is_direct_root_folder_file(&mtl.path)
-            {
-                searched.insert(&mtl.path);
-            }
-        }
+    let lands_in_common = export
+        .players
+        .iter()
+        .zip(player_models)
+        .any(|(player, models)| {
+            let folder = &player.path;
+            player.files.iter().any(|file| {
+                pairs_with_mtl(folder, file, models, &export.common)
+                    && mtl_for(&file.path, folder, &player.files, &export.common)
+                        .is_some_and(|mtl| is_direct_root_folder_file(&mtl.path))
+            })
+        });
+    if !lands_in_common {
+        return BTreeSet::new();
     }
-    searched
+    // Every one, not only the file the search finds here: the search runs again in the
+    // folders' pass over the kept files, and its chain in `Common/` ends with any `.mtl`, so
+    // when this pass drops the one found, any other may be the one that search lands on.
+    export
+        .common
+        .iter()
+        .filter(|file| file.kind == FileKind::Mtl)
+        .map(|file| &file.path)
+        .collect()
 }
 
 /// The names of the materials the meshes of the models `pairings` pair with the `.mtl` at

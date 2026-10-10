@@ -26,12 +26,14 @@ enum Refusal {
     Invalid,
 }
 
-/// The findings of the collar file `file` compiled for `version`, each on the file. A name that
-/// gives no stock collar to replace is the one finding: `collar_id_conflict` for a collar the
-/// suite holds (checked first), else `collar_id_invalid`, either dropping the file and never
-/// passing through, as there is no collar to keep. A Fox or pre-Fox model is then checked as
-/// any model is (`file_findings`): an Error drops the file, anything below it keeps it, and a
-/// model that cannot be read or parsed drops it. A glTF collar is not read.
+/// The findings of the collar file `file` compiled for `version`, each on the file. A file that
+/// is no model (one a lenient file-type check keeps) gets none: it is no collar, and planning
+/// passes it over. For a model, a name that gives no stock collar to replace is the one
+/// finding: `collar_id_conflict` for a collar the suite holds (checked first), else
+/// `collar_id_invalid`, either dropping the file and never passing through, as there is no
+/// collar to keep. A Fox or pre-Fox model is then checked as any model is (`file_findings`): an
+/// Error drops the file, anything below it keeps it, and a model that cannot be read or parsed
+/// drops it. A glTF collar is not read.
 pub(super) fn collar_findings(
     content: &ContentSource,
     file: &FileDescriptor,
@@ -48,6 +50,26 @@ pub(super) fn collar_findings(
             pass_through_eligible: false,
         }]
     };
+    let kind = match file.kind {
+        FileKind::Model(ModelFormat::Fmdl) => Some(ModelKind::Fmdl),
+        FileKind::Model(ModelFormat::PesModel) => Some(ModelKind::PreFoxModel),
+        // glTF is read from Phase 7: its name is checked, its content not.
+        FileKind::Model(ModelFormat::Gltf) => None,
+        // The structure pass admits only models here, and keeps another kind only with the
+        // strict check off, for `compile` to pass over: it names no collar.
+        FileKind::Texture
+        | FileKind::Skl
+        | FileKind::Fclo
+        | FileKind::Xml
+        | FileKind::Mtl
+        | FileKind::MaterialsToml
+        | FileKind::Bin
+        | FileKind::SharedLink(_)
+        | FileKind::CommonLink
+        | FileKind::Marker(_)
+        | FileKind::Metadata(_)
+        | FileKind::Other => return Vec::new(),
+    };
     let stem = name.rsplit_once('.').map_or(name, |(stem, _)| stem);
     match replaced_collar(stem, version) {
         Ok(_) => {}
@@ -61,24 +83,8 @@ pub(super) fn collar_findings(
             return refused(Code::CollarIdInvalid, vec![("file", name.to_owned())]);
         }
     }
-    let kind = match file.kind {
-        FileKind::Model(ModelFormat::Fmdl) => ModelKind::Fmdl,
-        FileKind::Model(ModelFormat::PesModel) => ModelKind::PreFoxModel,
-        // glTF is read from Phase 7; the structure pass admits only models here, and keeps
-        // another kind only with the strict check off, for `compile` to pass over.
-        FileKind::Model(ModelFormat::Gltf)
-        | FileKind::Texture
-        | FileKind::Skl
-        | FileKind::Fclo
-        | FileKind::Xml
-        | FileKind::Mtl
-        | FileKind::MaterialsToml
-        | FileKind::Bin
-        | FileKind::SharedLink(_)
-        | FileKind::CommonLink
-        | FileKind::Marker(_)
-        | FileKind::Metadata(_)
-        | FileKind::Other => return Vec::new(),
+    let Some(kind) = kind else {
+        return Vec::new();
     };
     file_findings(
         content,
@@ -236,6 +242,7 @@ mod tests {
                 ("Collars/collar_105.fmdl", far_boots()),
                 ("Collars/collar_77.fmdl", far_boots()),
                 ("Collars/neck.fmdl", far_boots()),
+                ("Collars/neck.glb", b"not a model".to_vec()),
                 ("Collars/collar_12.fmdl", b"not a model".to_vec()),
                 ("Collars/collar_13.fmdl", far_boots()),
                 ("Collars/collar_14.model", b"not a model".to_vec()),
@@ -263,7 +270,7 @@ mod tests {
         let pre_fox_error = PreFoxModel::read(b"not a model").unwrap_err().to_string();
         // In the files' order. A refused name is not read; a collar that reads gets its
         // model checks' findings on its file, an Error dropping it and anything below keeping
-        // it; a glTF collar is not read.
+        // it; a glTF collar is not read, but its name is checked.
         assert_eq!(
             findings,
             [
@@ -320,6 +327,7 @@ mod tests {
                     vec![named("collar_77.fmdl"), ("claimant", "referees".to_owned())],
                 ),
                 finding("neck.fmdl", "collar_id_invalid", vec![named("neck.fmdl")]),
+                finding("neck.glb", "collar_id_invalid", vec![named("neck.glb")]),
             ]
         );
     }

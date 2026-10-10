@@ -7,10 +7,11 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use crate::common::Sandbox;
-use crate::compile::{cpk_entries, pes21_settings, tracer_player_file};
+use crate::compile::{cpk_entries, pes_settings, pes21_settings, tracer_player_file};
 use crate::models::{
     body_skl, boots_mesh_count, compile_clean, package_names, template, tracer_boots_mesh_count,
 };
+use crate::prefox_faces::{expected_face_xml, face_cpk, face_folder, nested_entries, small_dds};
 use crate::{TEAM_COLORS_MISSING, findings_of};
 
 const BOOTS_05: &str = "Asset/model/character/boots/k0625/#Win/boots.fpk";
@@ -289,4 +290,73 @@ fn a_face_file_in_a_folder_with_no_face_model_is_not_used_and_reported() {
         "no face/real/71407/ path"
     );
     assert_blank_face(&entries, FACE_05);
+}
+
+#[test]
+fn a_link_to_a_face_folder_holding_textures_alone_gives_no_face() {
+    let sandbox = Sandbox::new("face_link_textures_only");
+    let export = "exports/co Midcup Unused";
+    let player = format!("{export}/Players/05 - A");
+    let own = tracer_player_file("face_diff.bin");
+    assert_ne!(own, template("face_diff.bin"));
+    sandbox.write(
+        &format!("{player}/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(&format!("{player}/face_diff.bin"), &own);
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    // A texture source, not a face: the player's own diff has no face model to go with.
+    sandbox.write(&format!("{export}/Faces/Round/skin.dds"), &small_dds());
+    let validated = [
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        "Info face_file_not_used [Keep] at Players/05 - A (file=face_diff.bin)",
+    ];
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    assert_eq!(
+        findings_of(&check.messages(), "co Midcup Unused"),
+        validated
+    );
+    assert_eq!(check.exit_code(), 0);
+    // The link is still reported as combining: the folder's textures are a source of his.
+    let link_combined = "Info link_combined [Keep] at Players/05 - A (link=Round.face)";
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Unused",
+        &[&validated[..], &[TEAM_COLORS_MISSING, link_combined]].concat(),
+    );
+    assert_blank_face(&entries, FACE_05);
+
+    // On PES 17 his boots model would be a part of his face, so he holds the diff and the
+    // link alone there.
+    fs::remove_file(sandbox.root.join(format!("{player}/boots.fmdl"))).unwrap();
+    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Unused"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info face_file_not_used [Keep] at Players/05 - A (file=face_diff.bin)",
+            TEAM_COLORS_MISSING,
+            link_combined,
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(names, ["dummy.mtl", "face.xml", "oral_dummy_win32.model"]);
+    assert_eq!(
+        face[&format!("{folder}face.xml")],
+        expected_face_xml(
+            &[("face_neck", "./oral_dummy_*.model", "./dummy.mtl", None)],
+            &template("face_diff.bin")
+        )
+    );
 }
