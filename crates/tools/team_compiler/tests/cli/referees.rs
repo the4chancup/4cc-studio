@@ -352,6 +352,122 @@ fn on_pes_17_a_referee_folder_is_a_face_cpk_per_slot_his_boots_in_its_face_xml()
     assert_tree_in(&entries, &referee_tree(Engine::PreFox));
 }
 
+/// The game path of the referee template tree's refkit body files, in the referees' pre-Fox
+/// Common output.
+const REFKIT: &str = "common/character1/model/character/uniform/common/999/refkit/";
+
+// TC-REF-15
+#[test]
+fn on_pes_17_a_refs_export_s_refkit_texture_replaces_the_template_s_beside_its_other_files() {
+    let sandbox = Sandbox::new("ref_refkit_texture");
+    write_ref_a(&sandbox, &["01"]);
+    let texture = small_dds();
+    let tree = referee_tree(Engine::PreFox);
+    let texture_path = format!("{REFKIT}texture.dds");
+    assert_ne!(
+        tree[&texture_path], texture,
+        "a texture other than the template's"
+    );
+    sandbox.write(&format!("{REFS}/Common/refkit/texture.dds"), &texture);
+
+    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
+
+    let lines = run.messages();
+    // His FMDLs' conversion findings alone.
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Players/Ref A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=referees)",
+            "Info native_field_dropped [Keep] at Players/Ref A (model=boots.fmdl, field=bone_matrices)",
+            "Warning mesh_flags_dropped [Keep] at Players/Ref A (model=boots.fmdl, material=1, field=no_shadow_cast)",
+            "Info native_field_dropped [Keep] at Players/Ref A (model=face_high.fmdl, field=bone_matrices)",
+            "Warning mesh_flags_dropped [Keep] at Players/Ref A (model=face_high.fmdl, material=1, field=no_shadow_cast)",
+        ],
+        "no duplicate_path, no common_file_disallowed: {lines:#?}"
+    );
+    assert!(
+        lines.iter().all(|line| !line.contains("duplicate_path")),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let decoded = decode(&texture, SourceFormat::Dds).unwrap();
+    let expected = dds_convert::convert(
+        &decoded,
+        Target {
+            version: PesVersion::Pes17,
+            role: TextureRole::Color,
+        },
+    )
+    .unwrap();
+    assert_ne!(tree[&texture_path], expected);
+    assert!(
+        entries[&texture_path] == expected,
+        "the export's texture, converted for PES 17"
+    );
+    let others: Vec<&String> = tree
+        .keys()
+        .filter(|path| path.starts_with(REFKIT) && **path != texture_path)
+        .collect();
+    assert_eq!(others.len(), 15, "{others:#?}");
+    for path in others {
+        assert!(entries.get(path) == tree.get(path), "{path}");
+    }
+}
+
+#[test]
+fn on_pes_17_a_referee_s_face_xml_names_the_template_s_refkit_files_the_export_lacks() {
+    let sandbox = Sandbox::new("ref_xml_refkit");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    let folder = format!("{REFS}/Players/Ref A");
+    // A `face.xml` names a `.model` alone, never an FMDL: the card head stands in for his face.
+    sandbox.write(
+        &format!("{folder}/oral_face_high_win32.model"),
+        &card_model(),
+    );
+    sandbox.write(&format!("{folder}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{folder}/skin.dds"), &small_dds());
+    let arm = "model/character/uniform/common/999/refkit/oral_arm_*.model";
+    let refkit_mtl = "model/character/uniform/common/999/refkit/refkit.mtl";
+    let xml = format!(
+        "<config>\n   \
+         <model level=\"0\" type=\"face_neck\" path=\"./oral_face_high_*.model\" material=\"./face_high.mtl\"/>\n   \
+         <model level=\"0\" type=\"parts\" path=\"{arm}\" material=\"{refkit_mtl}\"/>\n\
+         </config>\n"
+    );
+    sandbox.write(&format!("{folder}/face.xml"), xml.as_bytes());
+
+    let (run, entries) = compile_for(&sandbox, PesVersion::Pes17);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        ["Info export_identified [Keep] (team=referees)"],
+        "no xml_model_not_found: {lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let face_folder = pre_fox_referee_face("01");
+    let face = nested_entries(&entries[&format!("{face_folder}.cpk")]);
+    let entry = |xml_type: &str, path: &str, material: &str| {
+        (xml_type.to_owned(), path.to_owned(), material.to_owned())
+    };
+    assert_eq!(
+        ordered_entries(&face[&format!("{face_folder}/face.xml")]),
+        [
+            entry("face_neck", "./oral_face_high_*.model", "./face_high.mtl"),
+            entry("parts", arm, refkit_mtl),
+        ]
+    );
+    // The face packs nothing for the template's file: the refs CPK carries it.
+    assert!(
+        face.keys().all(|path| !path.contains("oral_arm")),
+        "{:#?}",
+        face.keys()
+    );
+    assert_tree_in(&entries, &referee_tree(Engine::PreFox));
+}
+
 #[test]
 fn a_refs_export_whose_only_folder_validation_drops_writes_no_refs_cpk_and_no_tree() {
     let sandbox = Sandbox::new("ref_folder_dropped");

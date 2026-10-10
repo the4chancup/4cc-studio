@@ -89,6 +89,7 @@ use crate::plan::roles::{
     texture_format,
 };
 use crate::reader::ContentSource;
+use crate::templates;
 use crate::user_face_xml::{
     self, Child, FaceFiles, UserFaceXml, XmlError, XmlFinding, names_file, reference, resolve,
 };
@@ -159,6 +160,10 @@ struct KeptCommon {
     /// The stems, folded, the installed CPKs loaded before the run's hold in the team's Common
     /// output; `None` when that lookup cannot be made or the export has no team ID.
     installed: Option<BTreeSet<String>>,
+    /// For a refs export, the referee template tree's files in the referees' Common output
+    /// (`templates::referee_common_paths`), which a `face.xml` Common reference may name too
+    /// (`FaceFiles::template_common`); empty for a team export.
+    template_paths: Vec<String>,
 }
 
 impl KeptCommon {
@@ -190,7 +195,9 @@ impl KeptCommon {
 /// `colors.txt` line is a Warning on the file, which drops nothing. `Common/`'s files are
 /// checked before the folders, whose models' `.mtl` search sees only the ones the validation
 /// report keeps, with `pass_through` as set, and whose models' materials are compared with
-/// the kept ones' names (`KeptCommon`).
+/// the kept ones' names (`KeptCommon`). A refs export's `face.xml` Common reference may also
+/// name a file of the referee template tree's `common/999/`, which the refs CPK carries
+/// (`templates::referee_common_paths`).
 ///
 /// It checks only what `compile` reads: not for PES 2018 to 2021 a file below a `Common/`
 /// subfolder (`is_read_common_file`), nor a
@@ -286,6 +293,12 @@ pub(crate) fn content_findings(
         })
         .collect();
     drop_beaten_common_models(&export.common, &mut common, engine, pass_through);
+    // The refs CPK carries the referee template tree beside the export's own files.
+    let template_paths = if referees {
+        templates::referee_common_paths(engine)
+    } else {
+        Vec::new()
+    };
     // A model's `.mtl` search looks only among the `Common/` files the report keeps: planning
     // sees the export after the drops, so the face task searches the same files, and a model
     // whose only `.mtl` is a dropped Common one is `model_material_undefined` here rather than
@@ -296,6 +309,7 @@ pub(crate) fn content_findings(
     // directly in `Common/` alone.
     let mut kept_common = KeptCommon {
         installed,
+        template_paths,
         ..KeptCommon::default()
     };
     for (file, pass) in export.common.iter().zip(&common) {
@@ -832,6 +846,7 @@ fn folder_findings(
                 own: files,
                 linked_face: linked_face.map_or(&[], |face| face.files.as_slice()),
                 common: &common.files,
+                template_common: &common.template_paths,
                 folder,
             };
             files
@@ -1398,6 +1413,7 @@ fn listed_materials<'a>(
         own: files,
         linked_face: &[],
         common: &common.files,
+        template_common: &common.template_paths,
         folder,
     };
     let model_kind = FileKind::Model(ModelFormat::PesModel);

@@ -248,6 +248,11 @@ pub(crate) struct FaceFiles<'a> {
     /// The export's `Common/` files a target reads; a Common reference looks among them by
     /// their path relative to `Common/`.
     pub(crate) common: &'a [FileDescriptor],
+    /// In a refs export on PES 15-17, the referee template tree's files in the referees'
+    /// Common output (`templates::referee_common_paths`), by their paths relative to it,
+    /// case-folded: a Common reference `common` holds nothing for may name one of them, which
+    /// the refs CPK carries; empty for a team export and on PES 18-21.
+    pub(crate) template_common: &'a [String],
     /// The face folder holding the xml.
     pub(crate) folder: &'a ScopePath,
 }
@@ -519,7 +524,8 @@ fn model_findings(
 /// The finding on the `attribute` (`path` or `material`) of value `value`, naming a file of
 /// `kind`: `xml_path_unchecked` for a form the compiler cannot resolve,
 /// `xml_common_path_invalid` for a Common reference whose segment is not three characters,
-/// `xml_model_not_found` when the file it names is not among `files`.
+/// `xml_model_not_found` when the file it names is not among `files`: neither one `resolve`
+/// finds nor, for a Common reference, one of `files.template_common` of that kind.
 fn reference_finding(
     attribute: &'static str,
     value: &str,
@@ -538,9 +544,20 @@ fn reference_finding(
         }
         Reference::Local(_) | Reference::Common { .. } => {}
     }
-    resolve(&reference, files, kind)
-        .is_none()
-        .then(|| error(Code::XmlModelNotFound, context))
+    if resolve(&reference, files, kind).is_some() {
+        return None;
+    }
+    // Not through `resolve`, which returns the export file named: a template file is none,
+    // and the face packs nothing for it, naming it in the Common output where the refs CPK
+    // holds it unless the export's file of that path replaced it.
+    let in_template = match &reference {
+        Reference::Common { file_name, .. } => {
+            classify(file_name) == kind
+                && files.template_common.contains(&vtree::fold_name(file_name))
+        }
+        Reference::Local(_) | Reference::Unchecked(_) => false,
+    };
+    (!in_template).then(|| error(Code::XmlModelNotFound, context))
 }
 
 /// Whether the model file name the `path` value `path` ends with (after its last `/`, the
@@ -672,6 +689,7 @@ mod tests {
             own: &own,
             linked_face: &linked_face,
             common: &common,
+            template_common: &[],
             folder: &folder,
         };
         lines(check(
@@ -758,6 +776,7 @@ mod tests {
             own: &own,
             linked_face: &[],
             common: &common,
+            template_common: &[],
             folder: &folder,
         };
         let xml = parse(FUMOS_XML).unwrap();
@@ -834,6 +853,7 @@ mod tests {
             own: &own,
             linked_face: &linked_face,
             common: &common,
+            template_common: &[],
             folder: &folder,
         };
         let model = FileKind::Model(ModelFormat::PesModel);
@@ -891,6 +911,7 @@ mod tests {
             own: &[],
             linked_face: &[],
             common: &common,
+            template_common: &[],
             folder: &folder,
         };
         let model = FileKind::Model(ModelFormat::PesModel);
@@ -927,6 +948,63 @@ mod tests {
                 model
             ),
             None
+        );
+    }
+
+    #[test]
+    fn a_common_reference_the_export_lacks_may_name_a_file_of_the_template_tree() {
+        let folder = ScopePath::new(FOLDER).unwrap();
+        let template_common =
+            ["refkit/oral_arm_win32.model", "refkit/refkit.mtl"].map(str::to_owned);
+        let checked_with = |template_common: &[String], path: &str| {
+            let files = FaceFiles {
+                own: &[],
+                linked_face: &[],
+                common: &[],
+                template_common,
+                folder: &folder,
+            };
+            let text = format!(
+                r#"<config><model level="0" type="parts" path="{path}" material="model/character/uniform/common/999/refkit/refkit.mtl"/></config>"#
+            );
+            lines(check(
+                &parse(text.as_bytes()).unwrap(),
+                "face.xml",
+                &files,
+                PesVersion::Pes17,
+            ))
+        };
+        let arm = "model/character/uniform/common/999/refkit/oral_arm_*.model";
+        assert_eq!(checked_with(&template_common, arm), Vec::<String>::new());
+        // Compared case-folded, as the export's own files are.
+        let arm_upper = "model/character/uniform/common/999/REFKIT/Oral_Arm_*.model";
+        assert_eq!(
+            checked_with(&template_common, arm_upper),
+            Vec::<String>::new()
+        );
+        let nothing = "model/character/uniform/common/999/refkit/oral_nothing_*.model";
+        assert_eq!(
+            checked_with(&template_common, nothing),
+            [format!(
+                "xml_model_not_found [DropFolder] (attribute=path, value={nothing})"
+            )]
+        );
+        // A file of the tree is named by its own kind only.
+        let mtl_as_model = "model/character/uniform/common/999/refkit/refkit.mtl";
+        assert_eq!(
+            checked_with(&template_common, mtl_as_model),
+            [format!(
+                "xml_model_not_found [DropFolder] (attribute=path, value={mtl_as_model})"
+            )]
+        );
+        // Without the tree, a team export's, neither file is there.
+        let material = "model/character/uniform/common/999/refkit/refkit.mtl";
+        assert_eq!(
+            checked_with(&[], arm),
+            [
+                format!("xml_model_not_found [DropFolder] (attribute=path, value={arm})"),
+                format!("xml_model_not_found [DropFolder] (attribute=material, value={material})"),
+            ]
         );
     }
 

@@ -54,7 +54,9 @@ diff; its items (1) and (3) had landed with 4.y-fix17 and 4.y-fix16), 4.y-fix19 
 2026-10-10 (S9's third Astra round: every direct Common `.mtl` read once a link's search
 lands in `Common/`; a non-model file in `Collars/` gets no collar finding), 4.y-fix14 (a1) done 2026-10-10 (on PES 15-17 every directory of `Common/` is packed
 at its own path and a member's `face.xml` names a subfolder's file; on PES 18-21 a
-subfolder's file is `file_not_used`; (a2) and (b) open), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
+subfolder's file is `file_not_used`), (a2) done 2026-10-10 (a refs export's `Common/`
+files lay over the referee template's `common/999/` tree, and a referee's `face.xml` may
+name a tree file the export lacks; (b) open), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
@@ -3559,11 +3561,42 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `prefox_common.rs`, `prefox_face.rs`, `prefox_shared.rs`, `texture.rs`,
   `user_face_xml.rs`, `validation.rs`, `tests/cli/common_links.rs`, `prefox_faces.rs`,
   `prefox_user_xml.rs`; README TC-CMN-13/15 (lead). Gates green
-  (`.tmp/4_y/gates_fix14a1.log`, acceptance 305 of 313); mutants MUTANTS
+  (`.tmp/4_y/gates_fix14a1.log`, acceptance 305 of 313); mutants 96/0/16
   (`.tmp/4_y/mutants_fix14a1.log`; the second rework round: the two survivors were the
   direct-texture filters of the deep pass's Common stem set and of the shared package's
   Common texture map, each now with a test of a `.mtl` path naming a subfolder texture's
   or a direct model's stem).
+  (a2) done 2026-10-10 (Opus 5.5, one run, no rework): `output/writer.rs` `Referees`
+  keeps the path of every refs-task entry that went in (`entry_paths`, noted in `add`, so
+  sideload mode too) and `finish_referees` leaves the tree's file at such a path out with
+  no finding, compared exactly as the CPK's duplicate check compares (the marker's path and
+  an override's `duplicate_path` as before); `templates::referee_common_paths(engine)`, a
+  free function rather than the brief's `Templates` method (the sidekick's contradiction,
+  accepted: the deep pass runs in `check`, which reads no templates, and an override
+  replaces a tree file's bytes, never adds a path), gives the tree's `common/999/` files by
+  their path relative to it, folded (16 on PES 15-17, none on Fox); `FaceFiles` carries
+  them as `template_common` and `reference_finding` admits a Common reference `resolve`
+  misses when the list holds its path and the file is of the referenced kind; the deep pass
+  builds the list once per refs export (`KeptCommon::template_paths`). The face task passes
+  an empty list (the lead's choice over the sidekick's refs-only branch, which nothing
+  read: `written_path` and `written_material` write a Common reference by its path,
+  packing nothing, so a template file's entry is written as the member spelled it). Tests:
+  TC-REF-15 (`referees.rs`: the export's `refkit/texture.dds`, converted for PES 17, in the
+  refs CPK with the tree's fifteen other refkit files beside it, no `duplicate_path`), a
+  referee's xml naming the tree's `oral_arm_*.model` and `refkit.mtl` the export lacks
+  (no `xml_model_not_found`, the entry as written with `999`, no arm file in the face
+  CPK), writer and `templates.rs` and `user_face_xml.rs` unit tests. Files:
+  `team_compiler` `deep/mod.rs`, `output/writer.rs`, `processing/prefox_face.rs`,
+  `templates.rs`, `user_face_xml.rs`, `tests/cli/referees.rs`. Gates green
+  (`.tmp/4_y/gates_fix14a2.log`, acceptance 306 of 313); mutants 16/0/5
+  (`.tmp/4_y/mutants_fix14a2.log`). The census re-run over the twelve refs exports
+  (`.tmp/4_y/census/roots_refs.txt`, `logs_17_refs/`, PES 17 `check` and `compile`): no
+  `common_file_disallowed`, `xml_path_unchecked` or `duplicate_path` anywhere; the six
+  that failed the allowlist now fail on `model_material_undefined` alone, a real defect
+  (one referee's face names `head_phong`, its `.mtl` defines `head`; one's gloves name
+  `skin_limb`, undefined too); their `refkit.mtl` is read (`mtl_state_*` Infos) and a
+  stray `Common/refkit/face.xml` is `file_not_used`; a `--no-deploy` refs CPK holds each
+  `common/999/refkit/` file once beside the referees' own subfolders.
 
 - [x] 4.y-fix15 **S14's SWE-2 rework** (rulings S14.1 in `.tmp/4_y/duck_rulings.md`).
   (1) Under `ingame_face` the deep pass's `.mtl` check sees the textures of the combined
@@ -6357,3 +6390,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   content anywhere in `Common/`; a Fox subfolder's file is `file_not_used`. The step's
   (a) was split at briefing: the refs overlay and the template tree as an xml source are
   (a2), `fpc_off` (b).
+- **2026-10-10** — 4.y-fix14 (a2) done (sidekick, one run, no rework): a refs export's
+  file at a referee template tree path replaces the tree's in the refs CPK, and a
+  referee's `face.xml` names a tree file the export does not hold (the template tree is
+  an xml source in a refs export). The refs census re-run: the six exports that failed
+  the allowlist now compile but for a real material defect of theirs.

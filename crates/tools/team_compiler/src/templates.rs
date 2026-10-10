@@ -15,6 +15,7 @@ use uniparam::UniformParameter;
 use crate::bins::{TeamColorBin, UniColorBin, dpfl};
 use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
+use crate::paths;
 
 /// The folder's name in the data directory.
 const FOLDER_NAME: &str = "templates";
@@ -396,6 +397,22 @@ fn referee_tree_of(engine: Engine) -> (&'static str, &'static [(&'static str, &'
         Engine::Fox => (REFEREES_FOX_FOLDER, &REFEREES_FOX),
         Engine::PreFox => (REFEREES_PREFOX_FOLDER, &REFEREES_PREFOX),
     }
+}
+
+/// The files of `engine`'s referee template tree in the referees' pre-Fox Common output
+/// (`common/999/`, the `refkit` body), each by its path relative to it, case-folded, in path
+/// order: what a refs export's `face.xml` Common reference may name besides the export's own
+/// `Common/` files (`messages.md` "User-supplied `face.xml`"). Empty on Fox, whose tree holds
+/// none. A free function, not a `Templates` method: a `templates/` override replaces a tree
+/// file's bytes and never adds a path, and the deep pass, which needs the list, runs in `check`
+/// too, where no templates are read.
+pub(crate) fn referee_common_paths(engine: Engine) -> Vec<String> {
+    let common = paths::pre_fox_common_file(paths::REFEREE_TEAM_ID, "");
+    let (_, tree) = referee_tree_of(engine);
+    tree.iter()
+        .filter_map(|(path, _)| path.strip_prefix(common.as_str()))
+        .map(vtree::fold_name)
+        .collect()
 }
 
 /// An override in `templates/` that cannot be read, or one of the bins or the list that does
@@ -1014,6 +1031,38 @@ mod tests {
                 assert!(bytes == files[path].as_slice(), "{engine:?}: {path}");
             }
         }
+    }
+
+    #[test]
+    fn the_referee_common_paths_are_the_pre_fox_refkit_files_and_none_on_fox() {
+        assert_eq!(
+            referee_common_paths(Engine::PreFox),
+            [
+                "refkit/boots_c.dds",
+                "refkit/boots_n.dds",
+                "refkit/boots_sr.dds",
+                "refkit/oral_arm_win32.model",
+                "refkit/oral_boots_win32.model",
+                "refkit/oral_hand_l_win32.model",
+                "refkit/oral_hand_r_win32.model",
+                "refkit/oral_pants_sub_win32.model",
+                "refkit/oral_pants_win32.model",
+                "refkit/oral_refshirt_win32.model",
+                "refkit/oral_sleeve_win32.model",
+                "refkit/oral_socks_win32.model",
+                "refkit/oral_thigh_win32.model",
+                "refkit/refkit.mtl",
+                "refkit/skin_color.dds",
+                "refkit/texture.dds",
+            ]
+        );
+        // The Fox tree holds no file under any `common/999/`.
+        assert!(
+            REFEREES_FOX
+                .iter()
+                .all(|(path, _)| !path.contains("/common/999/"))
+        );
+        assert_eq!(referee_common_paths(Engine::Fox), Vec::<String>::new());
     }
 
     #[test]

@@ -89,6 +89,9 @@ pub(crate) struct Referees {
     /// Whether an entry of the tasks went in: a refs export that commits nothing writes no
     /// refs CPK and no tree, so the installed referees stay.
     committed: bool,
+    /// The paths of the tasks' entries that went in, wherever they went: the tree's file at
+    /// one of them is left out, the member's file laying over the template's.
+    entry_paths: BTreeSet<String>,
     /// Whether the referees' marker went in: the tree's file at `marker_path` is then left
     /// out, and on PES 18-21 the referee kit configs of the tree are written wearing its
     /// collar.
@@ -107,6 +110,7 @@ impl Referees {
             tasks,
             cpk: Some(OutputSink::cpk(path)),
             committed: false,
+            entry_paths: BTreeSet::new(),
             marker: false,
             marker_path: paths::referee_marker(engine),
         }
@@ -119,20 +123,22 @@ impl Referees {
             tasks,
             cpk: None,
             committed: false,
+            entry_paths: BTreeSet::new(),
             marker: false,
             marker_path: paths::referee_marker(engine),
         }
     }
 
     /// Takes the entry `path` of the task at manifest position `index` when that task is the
-    /// refs export's: noted as committed (and as the marker, at the marker's path), and
-    /// written as `bytes` into the refs CPK when there is one. Whether the refs CPK took it; an
-    /// entry it did not take goes to the team side.
+    /// refs export's: noted as committed, its path noted (and as the marker, at the marker's
+    /// path), and written as `bytes` into the refs CPK when there is one. Whether the refs CPK
+    /// took it; an entry it did not take goes to the team side.
     fn add(&mut self, index: usize, path: &str, bytes: &[u8]) -> anyhow::Result<bool> {
         if !self.tasks.contains(&index) {
             return Ok(false);
         }
         self.committed = true;
+        self.entry_paths.insert(path.to_owned());
         // The path alone tells: only the marker task writes the marker's path (on Fox with its
         // texture in the same batch, and a batch commits whole or not at all).
         if path == self.marker_path {
@@ -315,15 +321,16 @@ impl CpkOutput {
     }
 
     /// When an entry of the refs export went in, adds `version`'s engine's referee template
-    /// tree of `templates` after it, each file at its game path unless an override holds that
-    /// path (`overridden`, its `duplicate_path` going to `messages`): into the refs CPK, or
-    /// without one into the team side's sink, which it then starts. When the referees' marker
-    /// went in, the tree's file at the marker's path is left out (pre-Fox: the prop texture),
-    /// and on PES 18-21 each referee kit config of the tree is written wearing its collar,
-    /// encoded for `version` (`wearing_marker`); a config that does not decode is the error. On
-    /// PES 18-21 each kit config written is also staged as the `UniformParameter.bin` entry of
-    /// its file name, with the bytes written. Closes the refs CPK, and returns whether it was
-    /// written.
+    /// tree of `templates` after it, each file at its game path unless an entry of the refs
+    /// export went in at that path (left out with no finding: the member's file lays over the
+    /// template's, `blue_port.md` "The referee body") or an override holds it (`overridden`,
+    /// its `duplicate_path` going to `messages`): into the refs CPK, or without one into the
+    /// team side's sink, which it then starts. When the referees' marker went in, the tree's
+    /// file at the marker's path is left out (pre-Fox: the prop texture), and on PES 18-21
+    /// each referee kit config of the tree is written wearing its collar, encoded for
+    /// `version` (`wearing_marker`); a config that does not decode is the error. On PES 18-21
+    /// each kit config written is also staged as the `UniformParameter.bin` entry of its file
+    /// name, with the bytes written. Closes the refs CPK, and returns whether it was written.
     fn finish_referees(
         &mut self,
         referees: Referees,
@@ -334,6 +341,7 @@ impl CpkOutput {
         let Referees {
             mut cpk,
             committed,
+            entry_paths,
             marker,
             marker_path,
             ..
@@ -349,6 +357,10 @@ impl CpkOutput {
                 // The marker's task already wrote this path, and the sink refuses a duplicate
                 // path; the bytes there are the member's marker, not the template's file.
                 if marker && path == marker_path {
+                    continue;
+                }
+                // Exact comparison, as the CPK's own duplicate check compares.
+                if entry_paths.contains(path) {
                     continue;
                 }
                 if self.overridden(path, messages) {
@@ -1415,6 +1427,59 @@ mod tests {
             entry(&team, REFEREE_APPEARANCE),
             override_bytes(REFEREE_APPEARANCE)
         );
+    }
+
+    #[test]
+    fn a_refs_task_s_entry_at_a_tree_path_replaces_the_tree_s_file_with_no_finding() {
+        let temp = scratch("writer_refs_tree_replaced");
+        let folder = temp.path();
+        let texture = "common/character1/model/character/uniform/common/999/refkit/texture.dds";
+        let templates = Templates::embedded();
+        let mut output = with_refs_cpk_for(folder, BTreeMap::new(), 0..1, Engine::PreFox);
+        output
+            .submit(TaskBatch {
+                entries: vec![(texture.to_owned(), b"the member's refkit texture".to_vec())],
+                ..batch(0, &[], None)
+            })
+            .unwrap();
+
+        let (written, messages) = output
+            .finish(
+                PesVersion::Pes17,
+                WorkingBins::bundled(PesVersion::Pes17, &templates),
+                &[],
+                &[],
+                &[],
+                &templates,
+            )
+            .unwrap();
+
+        assert_eq!(
+            written,
+            Written {
+                team: false,
+                refs: true
+            }
+        );
+        assert_eq!(messages, []);
+        let refs = folder.join("refs.cpk");
+        let layout = layout(&refs);
+        assert_eq!(
+            layout.len(),
+            51,
+            "the task's texture and the 50 other tree files"
+        );
+        assert_eq!(layout[0], texture, "the task's entry first");
+        assert_eq!(entry(&refs, texture), b"the member's refkit texture");
+        let mut others = 0;
+        for (path, template) in templates.referee_tree(Engine::PreFox) {
+            if path == texture {
+                continue;
+            }
+            others += 1;
+            assert!(entry(&refs, path) == template, "{path}");
+        }
+        assert_eq!(others, 50);
     }
 
     /// The refs CPK written into `folder` for `version` with `templates` when the refs export's

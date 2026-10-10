@@ -1109,7 +1109,9 @@ impl<'a> XmlFace<'a> {
 
 /// The files a `face.xml` of `folder`'s face may name: the player's own, his linked shared
 /// face's, which a `./` reference looks in after his own, and the export's `Common/` models,
-/// `.mtl` files and textures (`ModelFolder::common_files`).
+/// `.mtl` files and textures (`ModelFolder::common_files`). The referee template tree's files
+/// (`FaceFiles::template_common`) are left out: the deep pass admitted a reference naming one,
+/// and the face writes such a reference by its path, resolving nothing against the tree.
 fn face_files(folder: &ModelFolder) -> FaceFiles<'_> {
     let linked_face = folder
         .combined
@@ -1120,6 +1122,7 @@ fn face_files(folder: &ModelFolder) -> FaceFiles<'_> {
         own: &folder.files,
         linked_face,
         common: &folder.common_files,
+        template_common: &[],
         folder: &folder.path,
     }
 }
@@ -1659,6 +1662,7 @@ mod tests {
                 own: &own,
                 linked_face: &[],
                 common: &[],
+                template_common: &[],
                 folder: &folder,
             },
             kits: &[],
@@ -1709,6 +1713,7 @@ mod tests {
                 own: &own,
                 linked_face: &[],
                 common: &[],
+                template_common: &[],
                 folder: &folder,
             },
             kits: &[],
