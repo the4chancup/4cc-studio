@@ -3,6 +3,7 @@
 //! entry per code, and whether a model (`.fmdl` or `.model`) carries hand weights.
 
 use fmdl::{FmdlFile, Model};
+use model_convert::formats::fmdl::every_mesh_hidden;
 use model_convert::materials::{MaterialFamily, from_fox_shader};
 use model_convert::ops::hand_split::{fox_has_hand_weights, prefox_has_hand_weights};
 use pes_model::format::PreFoxModel;
@@ -84,6 +85,12 @@ pub(super) struct ModelRead {
     /// an environment map (`ContentPass::metal_models`). Always `false` for a pre-Fox model or
     /// a material set.
     pub(super) metal: bool,
+    /// An FMDL every mesh of which is hidden (`invisible`), so that its PES 15-17 conversion
+    /// leaves nothing of it: the `.model` export's own rule
+    /// (`model_convert::formats::fmdl::every_mesh_hidden`), an FMDL with no mesh not counting.
+    /// On a PES 15-17 run the deep pass drops such a file (`model_hidden_dropped`). Always
+    /// `false` for a pre-Fox model or a material set.
+    pub(super) hidden: bool,
     /// Its materials, in order: for a pre-Fox model the names it lists (`Model::materials`, as
     /// `pes_model::check::check_bundle` compares them, a name no mesh uses included), for a
     /// material set the ones it defines with their texture paths; empty for an FMDL, whose
@@ -125,6 +132,7 @@ pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> 
                 metal: model.materials.iter().any(|material| {
                     from_fox_shader(&material.shader).family == MaterialFamily::Metal
                 }),
+                hidden: every_mesh_hidden(&model),
                 materials: Vec::new(),
             }
         }
@@ -149,6 +157,7 @@ pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> 
                     .collect(),
                 hand_weighted: prefox_has_hand_weights(&model),
                 metal: false,
+                hidden: false,
                 materials,
             }
         }
@@ -161,6 +170,7 @@ pub(super) fn fired(kind: ModelKind, bytes: &[u8]) -> Result<ModelRead, String> 
                     .collect(),
                 hand_weighted: false,
                 metal: false,
+                hidden: false,
                 materials: set.materials.into_iter().map(material_read).collect(),
             }
         }
@@ -207,7 +217,8 @@ mod tests {
     use super::*;
     use crate::deep::tests::{
         bc1_dds, counted, edited, far_boots, findings_for, findings_of, fixture, folder,
-        glove_over_the_face_limit, mtl_texture, path, pre_fox_fixture, tracer_boots, tracer_file,
+        glove_over_the_face_limit, lenient_findings_for, mtl_texture, path, pre_fox_fixture,
+        tracer_boots, tracer_file,
     };
     use crate::testing::scratch;
 
@@ -773,6 +784,85 @@ mod tests {
         )
         .unwrap();
         assert!(!card.hand_weighted);
+    }
+
+    /// A blank head's oral model, an FMDL whose one mesh is flagged invisible.
+    fn hidden_oral() -> Vec<u8> {
+        std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../libs/model_convert/tests/fixtures/addon_oral.fmdl"),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn an_fmdl_whose_every_mesh_is_hidden_reads_hidden() {
+        assert!(fired(ModelKind::Fmdl, &hidden_oral()).unwrap().hidden);
+        assert!(!fired(ModelKind::Fmdl, &tracer_boots()).unwrap().hidden);
+    }
+
+    /// `model_hidden_dropped` on the file at `file`, with `context`.
+    fn hidden_dropped(file: &str, context: &[(&'static str, &str)]) -> ContentFinding {
+        ContentFinding {
+            code: "model_hidden_dropped",
+            scope: IssueScope::File(path(file)),
+            context: context
+                .iter()
+                .map(|(key, value)| (*key, (*value).to_owned()))
+                .collect(),
+            disposition: Disposition::DropFile,
+            pass_through_eligible: false,
+        }
+    }
+
+    // TC-MOD-69
+    #[test]
+    fn on_pes_17_an_fmdl_whose_every_mesh_is_hidden_is_dropped_with_a_link_naming_it() {
+        let files = [
+            ("Players/03 - A/oral.fmdl", hidden_oral()),
+            ("Players/05 - B/oral.fmdl.common", Vec::new()),
+            ("Common/oral.fmdl", hidden_oral()),
+            ("Collars/collar_001.fmdl", hidden_oral()),
+        ];
+        let temp = scratch("deep_hidden_pes17");
+        assert_eq!(
+            findings_for(PesVersion::Pes17, temp.path(), &files, &[], &[]),
+            [
+                hidden_dropped("Players/03 - A/oral.fmdl", &[("file", "oral.fmdl")]),
+                hidden_dropped(
+                    "Players/05 - B/oral.fmdl.common",
+                    &[("file", "oral.fmdl.common"), ("model", "Common/oral.fmdl")]
+                ),
+                hidden_dropped("Common/oral.fmdl", &[("file", "oral.fmdl")]),
+                hidden_dropped("Collars/collar_001.fmdl", &[("file", "collar_001.fmdl")]),
+            ]
+        );
+        // On Fox each is packed as it is, the game drawing nothing of it.
+        let temp = scratch("deep_hidden_pes21");
+        assert_eq!(
+            findings_for(PesVersion::Pes21, temp.path(), &files, &[], &[]),
+            []
+        );
+    }
+
+    #[test]
+    fn a_common_link_below_a_subfolder_is_no_link_and_keeps_its_place_beside_a_hidden_target() {
+        // The lenient file-type check keeps the link below the subfolder in the folder's
+        // files (`file_type_disallowed`, an Info), where it links nothing.
+        let temp = scratch("deep_hidden_subfolder_link");
+        let findings = lenient_findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - B/sub/oral.fmdl.common", Vec::new()),
+                ("Common/oral.fmdl", hidden_oral()),
+            ],
+            &["file_type_disallowed"],
+        );
+        assert_eq!(
+            findings,
+            [hidden_dropped("Common/oral.fmdl", &[("file", "oral.fmdl")])]
+        );
     }
 
     #[test]

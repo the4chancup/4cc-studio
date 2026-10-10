@@ -26,7 +26,7 @@ use crate::prefox_faces::{
     write_round_hat, write_slot_05_face,
 };
 use crate::textures::texture_fixture;
-use crate::{clean_model, findings_of};
+use crate::{Face, clean_model, findings_of, sorted_faces};
 
 /// The outer CPK path of the tracer's player's face CPK: team 792, slot 05.
 const TRACER_FACE_CPK: &str = "common/character0/model/character/face/real/79205.cpk";
@@ -1017,6 +1017,40 @@ fn face_count(entries: &BTreeMap<String, Vec<u8>>, path: &str, name: &str) -> us
     model.meshes.iter().map(|mesh| mesh.faces.len()).sum()
 }
 
+/// The faces of the model `name` in the package at `path` in `entries`, read back with
+/// `fmdl`, sorted (`sorted_faces`).
+fn fmdl_faces(entries: &BTreeMap<String, Vec<u8>>, path: &str, name: &str) -> Vec<Face> {
+    let package = fpk::FpkFile::read(&entries[path]).unwrap();
+    let file = fmdl::FmdlFile::read(package.get(name).unwrap()).unwrap();
+    let model = fmdl::Model::from_file(&file).unwrap();
+    sorted_faces(
+        model
+            .meshes
+            .iter()
+            .map(|mesh| (mesh.vertices.positions.as_slice(), mesh.faces.as_slice())),
+    )
+}
+
+/// The faces of the `.model` `bytes`, read back with `pes_model`, in FMDL winding: a `.model`
+/// lists a face's last two vertices the other way round (`[a, c, b]` for an FMDL's
+/// `[a, b, c]`), so each is swapped back. Sorted (`sorted_faces`).
+fn model_faces_fox_winding(bytes: &[u8]) -> Vec<Face> {
+    let file = pes_model::format::PreFoxModel::read(bytes).unwrap();
+    let model = pes_model::model::Model::from_file(&file).unwrap();
+    let swapped: Vec<Vec<[u16; 3]>> = model
+        .meshes
+        .iter()
+        .map(|mesh| mesh.faces.iter().map(|&[a, c, b]| [a, b, c]).collect())
+        .collect();
+    sorted_faces(
+        model
+            .meshes
+            .iter()
+            .zip(&swapped)
+            .map(|(mesh, faces)| (mesh.vertices.positions.as_slice(), faces.as_slice())),
+    )
+}
+
 #[test]
 fn a_hand_weighted_model_is_converted_then_gives_its_hands_to_the_player_s_gloves() {
     let sandbox = Sandbox::new("conversion_hand_split");
@@ -1064,9 +1098,17 @@ fn a_hand_weighted_model_is_converted_then_gives_its_hands_to_the_player_s_glove
         face_count(&entries, face, "fcl_hair.fmdl"),
     ];
     assert_eq!(split, [8, 8, 24]);
+    // In FMDL winding, the source's faces swapped back from the `.model`'s.
+    let mut packed = [
+        fmdl_faces(&entries, gloves, "glove_l.fmdl"),
+        fmdl_faces(&entries, gloves, "glove_r.fmdl"),
+        fmdl_faces(&entries, face, "fcl_hair.fmdl"),
+    ]
+    .concat();
+    packed.sort_unstable();
     assert_eq!(
-        split.iter().sum::<usize>(),
-        40,
+        packed,
+        model_faces_fox_winding(&fixture("body.model")),
         "every face of the source, once"
     );
 }

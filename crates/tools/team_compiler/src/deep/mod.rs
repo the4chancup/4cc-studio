@@ -74,6 +74,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, FileKind, IssueScope, KitTextureSource,
     ModelFormat, PlayerFolder, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
+    common_link_name,
 };
 use dds_convert::SourceFormat;
 use pes_version::{Engine, PesVersion};
@@ -84,7 +85,7 @@ use crate::bins::{KIT_COLORS, TEAM_COLORS};
 use crate::messages::Code;
 use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, directory_stem, emits_kit_texture, file_stem,
+    FolderModels, PlayerFile, common_file, directory_stem, emits_kit_texture, file_stem,
     is_direct_root_folder_file, is_read_common_file, is_selected_common_model, is_user_face_xml,
     link_feeds_own_package, linked_folder, part_source_models, player_file, role_position,
     texture_format,
@@ -126,6 +127,10 @@ pub(crate) struct ContentPass {
     /// (`model::ModelRead::materials`), which a model's `model_material_undefined` compares and
     /// a `.mtl`'s texture lookup reads. A file that does not parse is not among them.
     materials: BTreeMap<ScopePath, Vec<MaterialRead>>,
+    /// The export paths of the FMDLs it dropped on a PES 15-17 run because every mesh of them
+    /// is hidden (`model_hidden_dropped`), which a `.common` link naming one is dropped with
+    /// (`hidden_link_findings`).
+    hidden_models: BTreeSet<ScopePath>,
 }
 
 impl ContentPass {
@@ -137,13 +142,14 @@ impl ContentPass {
         }
     }
 
-    /// `other`'s findings after this pass's, and its weighted models, metal models and material
-    /// names with this pass's.
+    /// `other`'s findings after this pass's, and its weighted models, metal models, material
+    /// names and hidden models with this pass's.
     fn append(&mut self, other: ContentPass) {
         self.findings.extend(other.findings);
         self.hand_weighted.extend(other.hand_weighted);
         self.metal_models.extend(other.metal_models);
         self.materials.extend(other.materials);
+        self.hidden_models.extend(other.hidden_models);
     }
 }
 
@@ -291,10 +297,19 @@ pub(crate) fn content_findings(
                 &IssueScope::File(file.path.clone()),
                 Disposition::DropFile,
                 file.path.name(),
+                engine,
             )
         })
         .collect();
     drop_beaten_common_models(&export.common, &mut common, engine, pass_through);
+    // The `Common/` FMDLs dropped as hidden, which a player's link naming one is dropped with.
+    let hidden_common: Vec<FileDescriptor> = export
+        .common
+        .iter()
+        .zip(&common)
+        .filter(|(file, pass)| pass.hidden_models.contains(&file.path))
+        .map(|(file, _)| file.clone())
+        .collect();
     // The refs CPK carries the referee template tree beside the export's own files.
     let template_paths = if referees {
         templates::referee_common_paths(engine)
@@ -353,6 +368,7 @@ pub(crate) fn content_findings(
             };
             let (mut pass, xml_dif) = folder_findings(content, &read, &kept_common, version, face);
             let findings = &mut pass.findings;
+            findings.extend(hidden_link_findings(player, &hidden_common));
             findings.extend(conflict);
             findings.extend(face_diff_findings(
                 content,
@@ -370,6 +386,7 @@ pub(crate) fn content_findings(
                     content,
                     portrait,
                     &relative(&portrait.path, folder),
+                    engine,
                 ));
             }
             findings.extend(settings_finding(content, player));
@@ -451,7 +468,7 @@ pub(crate) fn content_findings(
         findings.extend(collar_findings(content, file, version));
     }
     for (slot, file) in &export.portraits {
-        findings.extend(portrait_findings(content, file, file.path.name()));
+        findings.extend(portrait_findings(content, file, file.path.name(), engine));
         if let Some(folder_portrait) = folder_portrait(export, *slot) {
             findings.extend(portrait_conflict(content, folder_portrait, file));
         }
@@ -488,6 +505,7 @@ pub(crate) fn content_findings(
                     &scope,
                     Disposition::DropFolder,
                     &relative(&texture.file.path, &kit.path),
+                    engine,
                 )),
                 KitTextureSource::Shared => {
                     // Named by its path in the export, so the member sees it is not in the
@@ -501,6 +519,7 @@ pub(crate) fn content_findings(
                             &scope,
                             Disposition::DropFolder,
                             path,
+                            engine,
                         )
                     });
                     findings.extend(found.iter().map(|finding| ContentFinding {
@@ -526,6 +545,7 @@ pub(crate) fn content_findings(
             &IssueScope::File(file.path.clone()),
             Disposition::DropFile,
             file.path.name(),
+            engine,
         ));
     }
     if let Some(colors) = &export.root.team_colors {
@@ -639,6 +659,37 @@ fn drop_beaten_common_models(
             pass_through_eligible: false,
         });
     }
+}
+
+/// `model_hidden_dropped` on each `.common` link directly in `player`'s folder whose target, the
+/// file of its name directly in `Common/` matched as validation matches it (`common_file`), is
+/// among `hidden`, the `Common/` FMDLs the pass dropped as hidden: an Info on the link that drops
+/// the link alone, never passing through, naming the link below the folder and the Common file
+/// by its export path. A dropped link is no link, so the player is not taken down with its
+/// target (`link_target_dropped`), and his folder and other files stand.
+fn hidden_link_findings(player: &PlayerFolder, hidden: &[FileDescriptor]) -> Vec<ContentFinding> {
+    player
+        .files
+        .iter()
+        // Validation resolves a link directly in the player folder alone.
+        .filter(|file| {
+            file.kind == FileKind::CommonLink && file.path.parent().as_ref() == Some(&player.path)
+        })
+        .filter_map(|link| {
+            let linked = common_link_name(link.path.name())?;
+            let model = common_file(hidden, &linked)?;
+            Some(ContentFinding {
+                code: Code::ModelHiddenDropped.as_str(),
+                scope: IssueScope::File(link.path.clone()),
+                context: vec![
+                    ("file", relative(&link.path, &player.path)),
+                    ("model", model.path.as_str().to_owned()),
+                ],
+                disposition: Disposition::DropFile,
+                pass_through_eligible: false,
+            })
+        })
+        .collect()
 }
 
 /// The texture findings of each `.mtl` among `common`, the export's `Common/` files whose
@@ -919,6 +970,7 @@ fn folder_findings(
                 &scope,
                 Disposition::DropFolder,
                 &relative(&file.path, folder),
+                engine,
             ),
             Some(_) | None => ContentPass::default(),
         })
@@ -1236,6 +1288,13 @@ fn named_on_folder(path: &ScopePath, folder: &ScopePath) -> String {
 /// (`texture_finding`), with `disposition`. A logo source that does not decode is
 /// `logo_file_invalid`, with `disposition` and never eligible: no logo can be made from it. A
 /// file that cannot be read is `source_read_failed`, with `disposition` and never eligible.
+///
+/// For a target of `engine` PES 15-17, an FMDL that parses and whose every mesh is hidden
+/// (`model::ModelRead::hidden`) also gets `model_hidden_dropped`, after its format findings: an
+/// Info on the file itself that drops the file alone, whatever `scope` and `disposition` are,
+/// and never passes through. Its conversion would leave nothing of it, and dropping it here,
+/// before any task is planned, keeps every task from naming it: the task converting a model is
+/// not always the one naming it (a Common model's linking face, a shared folder's merge).
 fn file_findings(
     content: &ContentSource,
     file: &FileDescriptor,
@@ -1243,13 +1302,15 @@ fn file_findings(
     scope: &IssueScope,
     disposition: Disposition,
     name: &str,
+    engine: Engine,
 ) -> Vec<ContentFinding> {
-    file_outcome(content, file, checked, scope, disposition, name).findings
+    file_outcome(content, file, checked, scope, disposition, name, engine).findings
 }
 
 /// `file_findings`, with `file` among the pass's weighted models when it is a model that parses
 /// and carries hand weights (`ContentPass::hand_weighted`), among its metal models when it is an
-/// FMDL that parses and holds a metal material (`ContentPass::metal_models`), and with its
+/// FMDL that parses and holds a metal material (`ContentPass::metal_models`), among its hidden
+/// models when it gets `model_hidden_dropped` (`ContentPass::hidden_models`), and with its
 /// material names when it is a pre-Fox model or material set that parses
 /// (`ContentPass::materials`).
 fn file_outcome(
@@ -1259,6 +1320,7 @@ fn file_outcome(
     scope: &IssueScope,
     disposition: Disposition,
     name: &str,
+    engine: Engine,
 ) -> ContentPass {
     let finding = |code: &'static str,
                    context: Vec<(&'static str, String)>,
@@ -1335,7 +1397,7 @@ fn file_outcome(
             )]);
         }
     };
-    let findings = summed(read.fired)
+    let mut findings: Vec<ContentFinding> = summed(read.fired)
         .into_iter()
         .map(|rule| {
             let far = FAR_VERTEX_CODES.contains(&rule.code);
@@ -1353,6 +1415,22 @@ fn file_outcome(
             }
         })
         .collect();
+    // On Fox the file is packed as it is, the game drawing nothing of it as the member saw.
+    let dropped_hidden = match engine {
+        Engine::PreFox => read.hidden,
+        Engine::Fox => false,
+    };
+    let mut hidden_models = BTreeSet::new();
+    if dropped_hidden {
+        findings.push(ContentFinding {
+            code: Code::ModelHiddenDropped.as_str(),
+            scope: IssueScope::File(file.path.clone()),
+            context: vec![("file", name.to_owned())],
+            disposition: Disposition::DropFile,
+            pass_through_eligible: false,
+        });
+        hidden_models.insert(file.path.clone());
+    }
     let mut hand_weighted = BTreeSet::new();
     if read.hand_weighted {
         hand_weighted.insert(file.path.clone());
@@ -1373,6 +1451,7 @@ fn file_outcome(
         hand_weighted,
         metal_models,
         materials,
+        hidden_models,
     }
 }
 
@@ -1391,7 +1470,7 @@ mod tests {
 
     use super::*;
     use crate::reader::{ExportSource, SourceKind};
-    use crate::testing::{resolved_with_issues, scratch};
+    use crate::testing::{resolved_with_check, resolved_with_issues, scratch};
 
     /// The bytes of `tests/fixtures/<relative>`.
     pub(super) fn fixture(relative: &str) -> Vec<u8> {
@@ -1515,18 +1594,52 @@ mod tests {
         unwritten: &[&str],
         structure_codes: &[&str],
     ) -> ContentPass {
+        let listed = written(root, files, unwritten);
+        let (resolved, codes) = resolved_with_issues(name, &listed, &[], players_txt);
+        assert_eq!(codes, structure_codes, "the structure pass's findings");
+        pass_over(name, root, &resolved.export, version)
+    }
+
+    /// `findings_for` with no unwritten file and the file-type check lenient: a disallowed
+    /// file's `file_type_disallowed` keeps it in its folder's files.
+    pub(super) fn lenient_findings_for(
+        version: PesVersion,
+        root: &Path,
+        files: &[(&str, Vec<u8>)],
+        structure_codes: &[&str],
+    ) -> Vec<ContentFinding> {
+        let name = "co Midcup Deep";
+        let listed = written(root, files, &[]);
+        let (resolved, codes) = resolved_with_check(name, &listed, &[], None, false);
+        assert_eq!(codes, structure_codes, "the structure pass's findings");
+        pass_over(name, root, &resolved.export, version).findings
+    }
+
+    /// Writes `files` below `root` and lists them with `unwritten`, each of those one byte.
+    fn written<'a>(
+        root: &Path,
+        files: &[(&'a str, Vec<u8>)],
+        unwritten: &[&'a str],
+    ) -> Vec<(&'a str, u64)> {
         for (path, bytes) in files {
             let path = root.join(path);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, bytes).unwrap();
         }
-        let listed: Vec<(&str, u64)> = files
+        files
             .iter()
             .map(|(path, bytes)| (*path, bytes.len() as u64))
             .chain(unwritten.iter().map(|path| (*path, 1)))
-            .collect();
-        let (resolved, codes) = resolved_with_issues(name, &listed, &[], players_txt);
-        assert_eq!(codes, structure_codes, "the structure pass's findings");
+            .collect()
+    }
+
+    /// The deep pass over `export`, the folder export `name` at `root`, for `version`.
+    fn pass_over(
+        name: &str,
+        root: &Path,
+        export: &ValidatedAestheticsExport,
+        version: PesVersion,
+    ) -> ContentPass {
         let source = ExportSource {
             export_id: ExportId(0),
             path: root.to_path_buf(),
@@ -1536,7 +1649,7 @@ mod tests {
             team_name: None,
         };
         let content = ContentSource::new(&source, &MemoryBudget::new(1 << 30));
-        content_findings(&resolved.export, &content, version, None, false)
+        content_findings(export, &content, version, None, false)
     }
 
     /// The bytes of `tests/fixtures/textures/<name>` (that folder's `README.md`).

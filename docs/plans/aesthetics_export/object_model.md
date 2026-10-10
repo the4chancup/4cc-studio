@@ -114,9 +114,12 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   player linking a shared folder or `Common/` file that a content finding drops gets
   `link_target_dropped` naming that finding, and a shared folder left with no linking player
   `shared_folder_orphaned`. What a scope drops: a `Folder` scope a player, shared or kit
-  folder; a `File` scope a `Common/` file, a `Portraits/` file, a `Collars/` file, a logo file
-  (the logo goes as one unit), or a player folder's `settings.toml` or `portrait.*`, the folder
-  keeping everything else; `DropExport` on the `Export` scope leaves `validated: None`.
+  folder; a `File` scope that file alone, wherever it sits (a `Common/`, `Portraits/` or
+  `Collars/` file, a logo file, the logo going as one unit, a player or shared folder's own
+  file, `settings.toml` and `portrait.*` included), the folder keeping everything else; until
+  4.y-fix20 a player or shared folder's own file stayed in the folder's file list after its
+  `DropFile`, so a task still read it; `DropExport` on the `Export` scope leaves
+  `validated: None`.
 - **Roster entries.** A finding about one `players.txt` (or `refs.txt`) line is `RosterEntry`-scoped:
   the file, the 1-based line number, and the slot when it parsed. Line-local findings
   (`players_txt_line_invalid`, `players_txt_slot_invalid`, `players_txt_target_missing`) are
@@ -139,7 +142,10 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   (a shared folder discarded for a disallowed file, a Common file discarded as disallowed) is
   dropped too, with `link_target_dropped` naming the link and the target's own finding. The
   trigger is the target's effective disposition: under `pass_through` a kept target keeps its
-  dependants and no `link_target_dropped` is reported.
+  dependants and no `link_target_dropped` is reported. A link a finding drops itself, with its
+  target (the deep pass's `model_hidden_dropped` on a `.common` link to a Common model that
+  draws nothing), is no link: nothing references the target, so no `link_target_dropped`, and
+  the player stands with his other files.
 - **Unread metadata.** The CLI's `check` and `compile` read every small metadata file, from a
   solid `.7z` too (the buffer that read decompresses is released before the next archive is
   admitted; compiling decompresses again); only the GUI's shallow live check leaves a solid archive's roster unread, and

@@ -42,8 +42,9 @@ collars; `common_model_beaten_dropped`), 4.y-sub in progress since 2026-10-10
 (a subfolder of a player folder is a player folder of its own; (a) done 2026-10-10: a
 subfolder's files take their roles from their names at any depth, the reserved subfolders
 gone, a refs export's AET layout refused per folder; (b) the pre-Fox face next), 4.y-fix20
-opened 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
-a package's names folded, the hand split's test by faces), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
+which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
+split's tests by faces), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag opened 2026-10-10 (the maintainer's answer:
 the 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
@@ -4170,7 +4171,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   this step's). Files: `deep/mod.rs`, `deep/collar.rs`, `tests/cli/common_links.rs`,
   `collars.rs`. Gates and mutants: with 4.y-fix15's.
 
-- [ ] 4.y-fix20 **S17's Astra round: the hidden-model drop moves to the deep pass, a
+- [x] 4.y-fix20 **S17's Astra round: the hidden-model drop moves to the deep pass, a
   package's names collide case-folded, the hand split's test proves every face packed
   once** (rulings S17.A1 in `.tmp/4_y/duck_rulings.md`; four of four accepted, under
   five, so the S17 Astra loop ends with this rework; DECISIONS 2026-10-10 "dropped by the
@@ -4194,6 +4195,45 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   gets a face naming nothing of it; a shared boots folder holding one all-hidden FMDL
   compiled for PES 17 fails no task; `Face_High.fmdl` beside `face_high.mtl` is the
   insert error; the hand split test fails when a hand's faces are packed twice.
+  Done 2026-10-10 (Opus 5.5, one run and one rework round; brief
+  `.tmp/4_y/brief_fix20.md`, report `.tmp/4_y/sk_fix20_report.md`). (1)
+  `model_convert::formats::fmdl::every_mesh_hidden`
+  is the `.model` export's rule (every mesh carries the `invisible` shadow bit; a model with
+  no mesh is not hidden), tied to `ir_to_model`'s `EveryMeshHidden` by a six-model test;
+  `deep/model.rs` `ModelRead.hidden`; `deep/mod.rs` `file_outcome` emits
+  `model_hidden_dropped` (Info, `DropFile`, not eligible, context `file`) on a PES 15-17 run
+  for a player, shared, `Common/` or `Collars/` FMDL, `ContentPass.hidden_models`, and
+  `hidden_link_findings` puts the same finding on a player's `.common` link to a dropped
+  Common FMDL (context `file` the link, `model` the export path); `fmdl_for_pre_fox` returns
+  the conversion, the `Option` plumbing gone from the face, shared, Common and collar tasks.
+  The sidekick's contradiction, applied and accepted (DECISIONS 2026-10-10 "a `DropFile`
+  finding on a player or shared folder's own file takes the file off"): `aesthetics_export`
+  never removed a player or shared folder's own file on `DropFile` (only `settings.toml` and
+  `portrait.*` by name) and the cascade followed a dropped link, so the drop did not happen;
+  `validate/mod.rs` retains the kept files, `links.rs` skips a dropped link
+  (`object_model.md` "What a scope drops", "Dropped link targets"). What follows: a shared
+  boots folder left with no model is `shared_folder_no_model` and the player wears the
+  game's own; a hidden collar FMDL is dropped and the kits keep their config's collar; a
+  `.skl` beside a dropped FMDL gets no role and no finding (minor, Issues); a player's own
+  all-hidden FMDL no longer shadows a linked shared folder's file of its name on PES 15-17
+  (on Fox it still does, drawing nothing; rare, noted). (2) `prefox_face.rs` `insert`
+  refuses a name the package holds in another case (`vtree::fold_name`); the CLI shape is
+  reachable (`Face_High.fmdl` beside `face_high.mtl`: `folder_pack_failed`, where both
+  `.mtl` files were packed before). (3) `tests/cli/main.rs` `Face` and `sorted_faces`: the
+  hand split tests compare the multiset of faces (positions as `f32` bits, winding kept)
+  of the source with the three packages', the Fox test swapping the `.model`'s winding
+  back; both red with the right glove's bytes replaced by the left's. Tests: TC-MOD-69
+  through the deep pass (`check` reports it too), the Common link and shared boots CLI
+  tests, the deep unit test over the four kinds on PES 17 and PES 21, two ae tests, the
+  `every_mesh_hidden` test, the `insert` unit and CLI tests. Files: `model_convert`
+  `formats/fmdl/{mod,tests}.rs`; `aesthetics_export` `validate/{mod,links,tests}.rs`;
+  `team_compiler` `deep/{mod,model,collar,portrait}.rs`, `processing/{conversion, mod,
+  prefox_common, prefox_face, prefox_shared}.rs`, `tests/cli/{main, conversion,
+  prefox_faces, prefox_hand_split}.rs`; object_model.md, messages.md, DECISIONS (lead).
+  Gates green (`.tmp/4_y/gates_fix20_r2.log`, acceptance 311 of 313, TC-MOD-65/66 waiting on
+  4.y-sub); `just bindings` 37 fixtures; mutants r1 37/28/8/1 missed (the link filter's
+  position half, its test the rework), r2 37 mutants, 29 caught, 8 unviable, 0 missed
+  (`.tmp/4_y/mutants_fix20_r2.log`).
 
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
@@ -4401,14 +4441,16 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
-- open (2026-10-10) — a Fox model whose every mesh is hidden, beyond the files the scan
-  found (4.y-fix13: blank-head orals, one-sided gloves): a boots folder whose every part is
-  hidden fails its task with "no parts to merge" instead of writing no boots; a gloves
-  folder whose every side is hidden writes a `glove.xml` with no entries (unknown whether
-  the game reads one); a player's `.fmdl.common` link to an all-hidden Common FMDL leaves
-  his face xml naming a Common file the Common task no longer writes. None of the 7,315
-  FMDLs on the maintainer's machine reaches these; each is the general rule (nothing
-  written, nothing naming it) applied one step further when a file does.
+- resolved (2026-10-10, 4.y-fix20) — a Fox model whose every mesh is hidden, beyond the
+  files the scan found (4.y-fix13): a boots folder whose every part is hidden failed its
+  task with "no parts to merge", a gloves folder whose every side is hidden wrote a
+  `glove.xml` with no entries, and a player's `.fmdl.common` link to an all-hidden Common
+  FMDL left his face xml naming a file the Common task never wrote. The deep pass now drops
+  such a file before any task is planned, so a shared folder left with no model is
+  `shared_folder_no_model` and a link is dropped with its target. Left minor: a `.skl`
+  beside a dropped FMDL gets no role and no finding (the sidekick's probe); and a player's
+  own all-hidden FMDL no longer shadows a linked shared face's file of its name on PES
+  15-17, where on Fox it still does (nothing drawn either way for his own part).
 - open (2026-10-09) — a Fox referee's body under `fpc_off` waits on a Fox refkit, an FMDL
   body the maintainer will make ("We'll make one later"; `blue_port.md` "The referee
   body"): then the Fox referee template ships it and a step merges it into an `fpc_off`
@@ -6560,3 +6602,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   since the face listed an all-hidden Common model the Common task never wrote and a shared
   boots merge of none failed (decision); a package's names collide case-folded; the hand
   split's test compares faces, not counts. Step 4.y-fix20 opened.
+- **2026-10-10** — 4.y-fix20 done (sidekick, one rework round): a Fox model whose every
+  mesh is hidden is dropped by the deep pass on PES 15-17, with the `.common` link naming
+  it; the sidekick found that `aesthetics_export` never took a player or shared folder's
+  own file off on `DropFile` and that the cascade followed a dropped link (decision);
+  a package's names collide case-folded; the hand split's tests compare faces.

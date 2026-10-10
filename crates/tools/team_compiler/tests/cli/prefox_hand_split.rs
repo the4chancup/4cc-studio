@@ -10,10 +10,10 @@ use pes_model::model::Model;
 
 use crate::common::Sandbox;
 use crate::compile::tracer_kit;
-use crate::findings_of;
 use crate::prefox_faces::{
     compile_pes17, face_cpk, face_folder, nested_entries, ordered_entries, pes17,
 };
+use crate::{Face, findings_of, sorted_faces};
 
 /// The `hand_split` fixture `name`: the full-body strip with both hands on, as a pre-Fox
 /// pair (`tests/fixtures/hand_split/README.md`).
@@ -24,6 +24,18 @@ fn hand_split_fixture(name: &str) -> Vec<u8> {
             .join(name),
     )
     .unwrap()
+}
+
+/// The faces of the `.model` `bytes`, read back with `pes_model`, each in the `.model`'s own
+/// winding, sorted (`sorted_faces`).
+fn faces(bytes: &[u8]) -> Vec<Face> {
+    let model = Model::from_file(&PreFoxModel::read(bytes).unwrap()).unwrap();
+    sorted_faces(
+        model
+            .meshes
+            .iter()
+            .map(|mesh| (mesh.vertices.positions.as_slice(), mesh.faces.as_slice())),
+    )
 }
 
 /// The (vertices, faces) of the `.model` `bytes`, read back with `pes_model`.
@@ -95,16 +107,19 @@ fn a_face_model_weighted_to_the_hand_bones_gives_its_face_two_glove_entries() {
             entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
         ]
     );
-    let split = [
+    let parts = [
         "oral_body_win32.model",
         "oral_body_glove_l_win32.model",
         "oral_body_glove_r_win32.model",
     ]
-    .map(|name| counts(&face[&format!("{folder}{name}")]));
-    assert_eq!(split, [(21, 24), (9, 8), (9, 8)]);
+    .map(|name| &face[&format!("{folder}{name}")]);
+    assert_eq!(parts.map(|part| counts(part)), [(21, 24), (9, 8), (9, 8)]);
+    // Source and parts are all `.model` files, compared in that format's winding.
+    let mut packed: Vec<Face> = parts.iter().flat_map(|part| faces(part)).collect();
+    packed.sort_unstable();
     assert_eq!(
-        split.iter().map(|(_, faces)| faces).sum::<usize>(),
-        counts(&hand_split_fixture("body.model")).1,
+        packed,
+        faces(&hand_split_fixture("body.model")),
         "every face of the source, once"
     );
     assert!(

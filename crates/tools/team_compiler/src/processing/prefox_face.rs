@@ -336,11 +336,9 @@ fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
 /// packed as written; an `.fmdl` the face converts (`PlayerFile::PreFoxModel`) the same, as
 /// the `.model` its conversion writes (`fmdl_for_pre_fox`, the `.skl` of its path stem as the
 /// bind pose), named with the conversion's material set, packed as `<stem>.mtl` with its
-/// texture paths pointed as a `.mtl`'s below, or neither packed nor listed when its every
-/// mesh is hidden (`model_hidden_dropped`, its packed names still replacing a linked shared
-/// face's); each
-/// `.mtl` under its own name, every texture path naming one of the folder's textures by its
-/// stem pointed at the folder's texture home as that texture's DDS, and one naming a stem a
+/// texture paths pointed as a `.mtl`'s below; each `.mtl` under its own name, every texture
+/// path naming one of the folder's textures by its stem pointed at the folder's texture home
+/// as that texture's DDS, and one naming a stem a
 /// texture link of the folder stands for at that texture in the team's Common output; and the
 /// `face.xml`, its `<dif>` the folder's face diff (`face_diff.bin`, else `face_diff.xml`
 /// decoded, else the bundled one). A `.common` link to a model is an entry naming the model in
@@ -498,20 +496,14 @@ pub(super) fn face(
                             .find(|skeleton| vtree::fold_name(path_stem(skeleton)) == path_fold)
                             .map(|skeleton| take(files, skeleton));
                         let bytes = take(files, file);
-                        let Some(conversion) = fmdl_for_pre_fox(
+                        let conversion = fmdl_for_pre_fox(
                             &source_name(&file.path, &folder.path),
                             &bytes,
                             skeleton.as_deref(),
                             ctx,
                             findings,
                             ConvertedMaterials::Converted,
-                        )?
-                        else {
-                            // Every mesh hidden: it drew nothing on Fox, so the face neither
-                            // packs nor lists it. Its names stay taken, so a linked shared
-                            // face's file of its name stays replaced by it, as on Fox.
-                            continue;
-                        };
+                        )?;
                         FaceSource::Converted(conversion)
                     } else {
                         FaceSource::Member {
@@ -1528,16 +1520,21 @@ pub(super) fn add_environment_map(set: &mut MaterialSet, home: &str) {
     }
 }
 
-/// Adds `bytes` to `contents`, the files of `package`, as `name`; a name already there is an
-/// error naming it, since the package holds one file of a name and dropping either would lose
-/// a model or its materials without a word.
+/// Adds `bytes` to `contents`, the files of `package`, as `name`; a name already there, in any
+/// letter case (`vtree::fold_name`, as the file system and planning's duplicate check fold), is
+/// an error naming `name`, since the package holds one file of a name and dropping either
+/// would lose a model or its materials without a word.
 pub(super) fn insert(
     contents: &mut PackageFiles,
     package: ModelPackage,
     name: String,
     bytes: Vec<u8>,
 ) -> Result<(), TaskFailure> {
-    if contents.contains_key(&name) {
+    let key = vtree::fold_name(&name);
+    if contents
+        .keys()
+        .any(|packed| vtree::fold_name(packed) == key)
+    {
         return Err(
             anyhow::anyhow!("two files of the {} are packed as {name}", package.name()).into(),
         );
@@ -1876,5 +1873,39 @@ mod tests {
         assert_eq!(written, "./pants_kitN.model");
         let names: Vec<&str> = face.contents.keys().map(String::as_str).collect();
         assert_eq!(names, ["pants_kit1.model", "pants_kit2.model"]);
+    }
+
+    #[test]
+    fn a_name_the_package_holds_in_another_letter_case_is_two_files_of_one_name() {
+        let mut contents = PackageFiles::new();
+        assert!(
+            insert(
+                &mut contents,
+                ModelPackage::Face,
+                "face_high.mtl".to_owned(),
+                Vec::new(),
+            )
+            .is_ok()
+        );
+        let failure = insert(
+            &mut contents,
+            ModelPackage::Face,
+            "Face_High.mtl".to_owned(),
+            Vec::new(),
+        )
+        .unwrap_err();
+        assert_eq!(failure.code, Code::FolderPackFailed);
+        assert_eq!(
+            failure.context,
+            [(
+                "error",
+                format!(
+                    "two files of the {} are packed as Face_High.mtl",
+                    ModelPackage::Face.name()
+                )
+            )]
+        );
+        let names: Vec<&str> = contents.keys().map(String::as_str).collect();
+        assert_eq!(names, ["face_high.mtl"]);
     }
 }

@@ -308,8 +308,10 @@ impl ParsedAestheticsExport {
                         link.common_target_missing(context) && link.link_file == file.path
                     })
                 });
-                // A dropped `settings.toml` or portrait leaves the rest of
-                // the folder standing.
+                // A dropped `settings.toml`, portrait or other file of the
+                // folder (a content finding's) leaves the rest of the folder
+                // standing.
+                player.files.retain(file_kept);
                 player.settings = player.settings.filter(file_kept);
                 player.portrait = player.portrait.filter(file_kept);
                 kept.push(player);
@@ -351,11 +353,17 @@ impl ParsedAestheticsExport {
                     ValidatedRoster::Referees(renumber(&assignments, &index_of))
                 }
             };
+            // A shared folder keeps its files but the ones a content
+            // finding drops, as a player folder does.
             let kept_folders = |drafts: &[crate::parse::FolderDraft]| {
                 drafts
                     .iter()
                     .filter(|folder| !dropped_folders.contains(&folder.path.fold_key()))
-                    .map(folders::shared_model_folder)
+                    .map(|folder| {
+                        let mut shared = folders::shared_model_folder(folder);
+                        shared.files.retain(file_kept);
+                        shared
+                    })
                     .collect()
             };
             Some(ValidatedAestheticsExport {

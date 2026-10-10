@@ -33,6 +33,19 @@ pub(crate) fn is_game_dummy(directory: &str, file_name: &str) -> bool {
         && (stem.eq_ignore_ascii_case("dummy_nrm") || stem.eq_ignore_ascii_case("dummy_srm"))
 }
 
+/// Whether the PES 15-17 conversion of `model` leaves nothing of it: it has a mesh, and every
+/// mesh carries the `invisible` shadow flag, which the `.model` export leaves out (the import
+/// lifts each mesh's flags to its material, and `ir_to_model` returns
+/// `ConvertError::EveryMeshHidden` when no mesh is left). The game draws nothing of such a model
+/// on Fox either. A model with no mesh is not hidden.
+pub fn every_mesh_hidden(model: &::fmdl::Model) -> bool {
+    !model.meshes.is_empty()
+        && model
+            .meshes
+            .iter()
+            .all(|mesh| mesh.shadow_flags & crate::materials::to_fox::INVISIBLE_BIT != 0)
+}
+
 /// The bind pose `name` carries in PES21's template tables, body first then face and hands.
 fn template_matrix(name: &str) -> Option<Affine> {
     skeletons::version_bone(skeletons(PesVersion::Pes21), name).map(|bone| bone.matrix)

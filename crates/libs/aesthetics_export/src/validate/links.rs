@@ -141,12 +141,16 @@ pub(crate) fn cascade(
         |index: usize| dropped_folders.contains(&draft.players[index].path.fold_key());
 
     // link_target_dropped: every player not yet dropped whose link names a
-    // dropped target. Never pass-through-eligible itself.
+    // dropped target. Never pass-through-eligible itself. A link a finding
+    // drops itself (a content finding's, with its target) is no link.
     for (index, folder) in draft.players.iter().enumerate() {
         if !mapped.contains(&index) || player_dropped(index) {
             continue;
         }
         for link in player_links(folder, draft) {
+            if dropped_files.contains(&link.link_file.fold_key()) {
+                continue;
+            }
             let Some(target) = &link.target else { continue };
             let key = target.fold_key();
             let dropped = match link.kind {

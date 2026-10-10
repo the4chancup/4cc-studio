@@ -10,9 +10,7 @@
 //! `vertex_too_far_from_origin`): what the source passed, the conversion may still have moved
 //! or split past a limit.
 
-use model_convert::{
-    ConvertError, Converted, NativeModelBundle, Subject, convert, loss, needs_conversion,
-};
+use model_convert::{Converted, NativeModelBundle, Subject, convert, loss, needs_conversion};
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 use pes_version::PesVersion;
@@ -80,13 +78,11 @@ pub(super) struct FoxConversion {
 /// `materials` says. The conversion's parsed forms are charged to the run's memory budget at
 /// the source's size while they live. What the conversion reports that the member is told is
 /// noted in `findings` naming the model (`reported`), but for a collar's losses about a
-/// material (`ConvertedMaterials::reports`). `None` when every mesh of the model is hidden
-/// (`invisible`): it drew nothing on Fox, so the caller writes nothing of it and nothing
-/// naming it, and `findings` gets `model_hidden_dropped` naming the model instead of its
-/// losses (`model_conversion/ir.md` "A hidden Fox mesh"). A model or skeleton the conversion
-/// cannot read, convert or write fails the task with `model_conversion_failed`, naming the
-/// model, and so does a `.model` written that `pes_model`'s check finds an Error in
-/// (`target_form_failure`).
+/// material (`ConvertedMaterials::reports`). A model or skeleton the conversion cannot read,
+/// convert or write fails the task with `model_conversion_failed`, naming the model, and so
+/// does a `.model` written that `pes_model`'s check finds an Error in (`target_form_failure`).
+/// The deep pass drops an FMDL whose every mesh is hidden before any task is planned
+/// (`model_hidden_dropped`).
 pub(super) fn fmdl_for_pre_fox(
     name: &str,
     bytes: &[u8],
@@ -94,25 +90,13 @@ pub(super) fn fmdl_for_pre_fox(
     ctx: &CompileContext,
     findings: &mut Vec<Finding>,
     materials: ConvertedMaterials,
-) -> Result<Option<PreFoxConversion>, TaskFailure> {
+) -> Result<PreFoxConversion, TaskFailure> {
     let (converted, losses) = {
         // The FMDL, its IR and the `.model` written, charged at the source's size, an estimate
         // of each form, while they are built.
         let _conversion_charge = ctx.budget.charge(bytes.len());
         let bundle = fox_bundle(bytes, skeleton).map_err(|error| failed(name, error))?;
-        let converted = match convert(bundle, ctx.version) {
-            // A model that draws nothing is no failure: the package it belongs to stands
-            // without it, as it looked on Fox.
-            Err(ConvertError::EveryMeshHidden) => {
-                findings.push((
-                    Code::ModelHiddenDropped,
-                    Disposition::Keep,
-                    vec![("model", name.to_owned())],
-                ));
-                return Ok(None);
-            }
-            result => result.map_err(|error| failed(name, error.into()))?,
-        };
+        let converted = convert(bundle, ctx.version).map_err(|error| failed(name, error.into()))?;
         pre_fox_written(name, converted, ctx.version, materials)?
     };
     findings.extend(
@@ -121,7 +105,7 @@ pub(super) fn fmdl_for_pre_fox(
             .filter(|loss| materials.reports(loss))
             .filter_map(|loss| reported(name, loss)),
     );
-    Ok(Some(converted))
+    Ok(converted)
 }
 
 /// The member's `.model` `name` (as its findings name it, `source_name`), `source`, for a PES

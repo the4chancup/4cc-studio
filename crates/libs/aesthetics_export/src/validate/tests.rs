@@ -2881,6 +2881,82 @@ fn a_content_finding_dropping_a_common_file_drops_the_player_linking_it() {
     );
 }
 
+/// The paths of `files`.
+fn file_paths(files: &[FileDescriptor]) -> Vec<&str> {
+    files.iter().map(|file| file.path.as_str()).collect()
+}
+
+#[test]
+fn a_content_finding_dropping_a_model_folder_s_file_takes_only_that_file_off() {
+    let report = with_findings(
+        &[
+            ("Players/03 - A/oral.fmdl", 10),
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Boots/Crocs/boots.fmdl", 10),
+            ("Boots/Crocs/boots.dds", 9),
+        ],
+        vec![
+            far_vertex(
+                file_scope("Players/03 - A/oral.fmdl"),
+                Disposition::DropFile,
+            ),
+            far_vertex(file_scope("Boots/Crocs/boots.fmdl"), Disposition::DropFile),
+        ],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("vertex_too_far_from_origin", Disposition::DropFile),
+            ("vertex_too_far_from_origin", Disposition::DropFile),
+        ]
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(player_paths(&validated), vec!["Players/03 - A"]);
+    assert_eq!(
+        file_paths(&validated.players[0].files),
+        vec!["Players/03 - A/face_high.fmdl"]
+    );
+    assert_eq!(validated.boots.len(), 1);
+    assert_eq!(
+        file_paths(&validated.boots[0].files),
+        vec!["Boots/Crocs/boots.dds"]
+    );
+}
+
+#[test]
+fn a_content_finding_dropping_a_common_file_and_the_link_naming_it_keeps_the_player() {
+    let report = with_findings(
+        &[
+            ("Common/legs.fmdl", 10),
+            ("Players/03 - A/legs.fmdl.common", 0),
+            ("Players/03 - A/face_high.fmdl", 10),
+        ],
+        vec![
+            far_vertex(
+                file_scope("Players/03 - A/legs.fmdl.common"),
+                Disposition::DropFile,
+            ),
+            far_vertex(file_scope("Common/legs.fmdl"), Disposition::DropFile),
+        ],
+    );
+    // A dropped link is no link: no `link_target_dropped`.
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("vertex_too_far_from_origin", Disposition::DropFile),
+            ("vertex_too_far_from_origin", Disposition::DropFile),
+        ]
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(player_paths(&validated), vec!["Players/03 - A"]);
+    assert_eq!(
+        file_paths(&validated.players[0].files),
+        vec!["Players/03 - A/face_high.fmdl"]
+    );
+    assert!(validated.common.is_empty());
+}
+
 #[test]
 fn pass_through_keeps_an_eligible_content_finding_s_folder_and_drops_a_not_eligible_one() {
     let context = context_with(true, true);

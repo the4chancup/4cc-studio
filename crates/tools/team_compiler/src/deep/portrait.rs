@@ -6,6 +6,7 @@ use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, IssueScope, PlayerSlot, ValidatedAestheticsExport,
     ValidatedRoster,
 };
+use pes_version::Engine;
 
 use super::texture::SizeRule;
 use super::{checked_as, file_findings};
@@ -13,11 +14,12 @@ use crate::messages::Code;
 use crate::reader::ContentSource;
 
 /// The findings of the portrait `file`, named `name`, held to the portrait's size rule on any
-/// target: each on the file's own scope, dropping that file alone.
+/// target (`engine` the target's): each on the file's own scope, dropping that file alone.
 pub(super) fn portrait_findings(
     content: &ContentSource,
     file: &FileDescriptor,
     name: &str,
+    engine: Engine,
 ) -> Vec<ContentFinding> {
     let Some(checked) = checked_as(file, SizeRule::Portrait) else {
         return Vec::new();
@@ -29,6 +31,7 @@ pub(super) fn portrait_findings(
         &IssueScope::File(file.path.clone()),
         Disposition::DropFile,
         name,
+        engine,
     )
 }
 

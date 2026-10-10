@@ -93,6 +93,7 @@ pub(super) fn collar_findings(
         &scope,
         Disposition::DropFile,
         name,
+        version.engine(),
     )
 }
 

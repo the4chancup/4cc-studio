@@ -1209,3 +1209,43 @@ fn out_of_range_parents_error() {
         }))
     ));
 }
+
+#[test]
+fn every_mesh_hidden_is_the_pre_fox_export_s_every_mesh_hidden() {
+    let flagged = |bytes: &[u8], meshes: &[usize]| {
+        let mut model = read_fmdl(bytes);
+        for &index in meshes {
+            model.meshes[index].shadow_flags |= crate::materials::to_fox::INVISIBLE_BIT;
+        }
+        model
+    };
+    let mut unhidden = read_fmdl(ORAL);
+    for mesh in &mut unhidden.meshes {
+        mesh.shadow_flags &= !crate::materials::to_fox::INVISIBLE_BIT;
+    }
+    // Konami's parts model, whose several meshes the skeleton binds.
+    let skl = ::fmdl::SklFile::read(AU_SKL).expect("skl");
+    let au_meshes: Vec<usize> = (0..read_fmdl(AU).meshes.len()).collect();
+    assert!(au_meshes.len() > 1);
+    for (model, skl, hidden) in [
+        (read_fmdl(ORAL), None, true),
+        (unhidden, None, false),
+        (read_fmdl(HIGHNECK), None, false),
+        (read_fmdl(AU), Some(&skl), false),
+        (flagged(AU, &au_meshes[1..]), Some(&skl), false),
+        (flagged(AU, &au_meshes), Some(&skl), true),
+    ] {
+        assert_eq!(every_mesh_hidden(&model), hidden);
+        let ir = fmdl_to_ir(&model, skl).expect("import").model;
+        assert_eq!(
+            matches!(
+                crate::formats::pes_model::ir_to_model(&ir),
+                Err(ConvertError::EveryMeshHidden)
+            ),
+            hidden
+        );
+    }
+    let mut empty = read_fmdl(ORAL);
+    empty.meshes.clear();
+    assert!(!every_mesh_hidden(&empty));
+}

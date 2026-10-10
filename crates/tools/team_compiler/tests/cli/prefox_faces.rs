@@ -420,29 +420,40 @@ fn a_player_folder_with_no_model_gets_the_pre_fox_blank_face_with_the_bundled_fa
     assert_eq!(face[&format!("{folder}dummy.mtl")], template("dummy.mtl"));
 }
 
+/// A blank head's oral model (`model_convert`'s fixture `addon_oral.fmdl`), an FMDL whose one
+/// mesh is flagged invisible.
+fn hidden_oral() -> Vec<u8> {
+    fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../libs/model_convert/tests/fixtures/addon_oral.fmdl"),
+    )
+    .unwrap()
+}
+
 // TC-MOD-69
 #[test]
 fn a_fox_model_whose_every_mesh_is_hidden_leaves_nothing_of_it_in_the_face() {
     let sandbox = Sandbox::new("prefox_hidden_oral");
     let export = "co Midcup Card";
     write_slot_05_face(&sandbox, export);
-    // A blank head's oral mesh, its one mesh flagged invisible.
-    let oral = fs::read(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../libs/model_convert/tests/fixtures/addon_oral.fmdl"),
-    )
-    .unwrap();
-    sandbox.write(&format!("exports/{export}/Players/05 - A/oral.fmdl"), &oral);
-
-    let entries = compile_pes17(
-        &sandbox,
-        export,
-        &[
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info team_colors_missing [Keep] ()",
-            "Info model_hidden_dropped [Keep] at Players/05 - A (model=oral.fmdl)",
-        ],
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/oral.fmdl"),
+        &hidden_oral(),
     );
+    let hidden =
+        "Info model_hidden_dropped [DropFile] at Players/05 - A/oral.fmdl (file=oral.fmdl)";
+
+    // The deep pass drops it, so `check` reports it as `compile` does.
+    let run = sandbox.run(&pes17(&sandbox), &["check"]);
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [hidden, CLEAN[0]],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+
+    let entries = compile_pes17(&sandbox, export, &[hidden, CLEAN[0], CLEAN[1]]);
 
     let face = nested_entries(&entries[&face_cpk(5)]);
     let folder = face_folder(5);
@@ -462,6 +473,123 @@ fn a_fox_model_whose_every_mesh_is_hidden_leaves_nothing_of_it_in_the_face() {
             "./face_high.mtl".to_owned()
         )]
     );
+}
+
+// TC-MOD-69
+#[test]
+fn a_link_to_a_common_fox_model_whose_every_mesh_is_hidden_is_dropped_with_it() {
+    let sandbox = Sandbox::new("prefox_hidden_common_oral");
+    let export = "co Midcup Card";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/oral.fmdl.common"),
+        b"",
+    );
+    sandbox.write(
+        &format!("exports/{export}/Common/oral.fmdl"),
+        &hidden_oral(),
+    );
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info model_hidden_dropped [DropFile] at Players/05 - A/oral.fmdl.common (file=oral.fmdl.common, model=Common/oral.fmdl)",
+            "Info model_hidden_dropped [DropFile] at Common/oral.fmdl (file=oral.fmdl)",
+            CLEAN[0],
+            CLEAN[1],
+        ],
+    );
+
+    // The player's face stands, naming his own model alone.
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        ["face.xml", "face_high.mtl", "oral_face_high_win32.model"]
+    );
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [(
+            "face_neck".to_owned(),
+            "./oral_face_high_*.model".to_owned(),
+            "./face_high.mtl".to_owned()
+        )]
+    );
+    assert!(
+        entries_under(&entries, COMMON_714)
+            .keys()
+            .all(|name| !name.contains("oral")),
+        "{:?}",
+        entries.keys()
+    );
+}
+
+#[test]
+fn a_shared_boots_folder_whose_every_fmdl_is_hidden_has_no_model_on_pes_17() {
+    let sandbox = Sandbox::new("prefox_shared_boots_hidden");
+    let export = "co Midcup Hidden";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/Hidden.boots"),
+        b"",
+    );
+    sandbox.write(
+        &format!("exports/{export}/Boots/Hidden/boots.fmdl"),
+        &hidden_oral(),
+    );
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info model_hidden_dropped [DropFile] at Boots/Hidden/boots.fmdl (file=boots.fmdl)",
+            CLEAN[0],
+            "Warning shared_folder_no_model [Keep] at Boots/Hidden (player=Players/05 - A)",
+            CLEAN[1],
+        ],
+    );
+
+    // No boots folder is written, and slot 05 wears the game's boots.
+    let boots = entries_under(&entries, "common/character0/model/character/boots/");
+    assert_eq!(
+        boots.keys().copied().collect::<Vec<&str>>(),
+        Vec::<&str>::new()
+    );
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let xml = String::from_utf8(face[&format!("{}face.xml", face_folder(5))].clone()).unwrap();
+    assert!(!xml.contains("boots"), "{xml}");
+}
+
+#[test]
+fn a_converted_fmdl_s_material_set_and_a_member_s_mtl_differing_in_case_are_two_files_of_one_name()
+{
+    let sandbox = Sandbox::new("prefox_face_mtl_case");
+    let export = "co Midcup Case";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/Face_High.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    // The conversion's set is packed as `Face_High.mtl`, then the member's `face_high.mtl`: a
+    // file system folding case would keep one of them.
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            CLEAN[0],
+            CLEAN[1],
+            "Error folder_pack_failed [DropFolder] at Players/05 - A (error=two files of the face are packed as face_high.mtl)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
 }
 
 #[test]

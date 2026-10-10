@@ -197,6 +197,18 @@ pub(crate) fn resolved_with_issues(
     folders: &[&str],
     players_txt: Option<&[u8]>,
 ) -> (ResolvedAestheticsExport, Vec<&'static str>) {
+    resolved_with_check(name, files, folders, players_txt, true)
+}
+
+/// `resolved_with_issues`, the file-type check strict or lenient as `strict_file_type_check`
+/// says: lenient, a disallowed file keeps its item and stays in its folder's files.
+pub(crate) fn resolved_with_check(
+    name: &str,
+    files: &[(&str, u64)],
+    folders: &[&str],
+    players_txt: Option<&[u8]>,
+    strict_file_type_check: bool,
+) -> (ResolvedAestheticsExport, Vec<&'static str>) {
     let roster = players_txt.map(|bytes| ("players.txt", bytes.len() as u64));
     let files = files
         .iter()
@@ -223,7 +235,7 @@ pub(crate) fn resolved_with_issues(
         .unwrap()
         .validate(&ValidationContext {
             version: PesVersion::Pes21,
-            strict_file_type_check: true,
+            strict_file_type_check,
             pass_through: false,
             installed_common_textures: BTreeSet::new(),
         });

@@ -6381,3 +6381,18 @@ example did not match Red. The singletons: a player has one face diff and one xm
 two from different folders has no rule; a subfolder's is a stray, like a marker.
 Plan: `aesthetics_export/player_folders.md` "Subfolders" ("Paths are kept", "The per-player
 singletons are the root's"); `team_compiler/README.md` TC-MOD-66.
+
+## 2026-10-10 — aesthetics_export — a `DropFile` finding on a player or shared folder's own file takes the file off; a dropped link is no link
+Decision: the sanitized export's player and shared folders keep every file but the ones a
+content finding drops (`DropFile`, not kept by `pass_through`), as `Common/`, `Portraits/`
+and `Collars/` already did; and the cascade skips a `.common` or shared link whose own file
+a finding dropped, so a dropped link's target drops no player (`link_target_dropped` is for a
+link that stands).
+Why: 4.y-fix20's deep-pass drop of an all-hidden FMDL (the sidekick's contradiction, applied):
+with the finding alone, a player's or shared folder's `oral.fmdl` stayed in the folder's file
+list and a task still read it (a shared boots folder still failed with `folder_pack_failed`),
+and the link finding did not save the player (`link_target_dropped` named the hidden model).
+The structure pass never dropped a folder's own file (`settings.toml` and `portrait.*` were
+removed by name), so the general rule was never written down. A dropped link references
+nothing, so nothing of the player depends on the target.
+Plan: `aesthetics_export/object_model.md` "What a scope drops", "Dropped link targets".

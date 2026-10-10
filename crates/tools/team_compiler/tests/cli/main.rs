@@ -187,6 +187,25 @@ fn findings_of<'a>(lines: &'a [String], source: &str) -> Vec<&'a str> {
         .collect()
 }
 
+/// One face of a model: its three vertex positions in the order the face lists its vertices,
+/// each coordinate as its `f32` bit pattern, so a face is the same whatever its vertices'
+/// indices, and a face whose winding is flipped is another face.
+type Face = [[u32; 3]; 3];
+
+/// The faces of the meshes `meshes`, each given as its (positions, faces), sorted: compared
+/// with another model's, the multiset of the faces each draws.
+fn sorted_faces<'a>(meshes: impl Iterator<Item = (&'a [[f32; 3]], &'a [[u16; 3]])>) -> Vec<Face> {
+    let mut faces: Vec<Face> = meshes
+        .flat_map(|(positions, faces)| {
+            faces
+                .iter()
+                .map(|face| face.map(|index| positions[usize::from(index)].map(f32::to_bits)))
+        })
+        .collect();
+    faces.sort_unstable();
+    faces
+}
+
 /// The findings a PES 21 `compile --no-deploy` reports first when its PES folder does not
 /// exist: each working bin taken from its bundled base.
 const BUNDLED_BINS: [&str; 3] = [
