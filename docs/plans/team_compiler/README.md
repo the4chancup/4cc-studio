@@ -1427,19 +1427,19 @@ TC-CMN-12  GIVEN Common/x.glb beside a compiling player
            WHEN the export is compiled for PES 17
            THEN model_gltf_unsupported is reported on Common/x.glb, which is dropped, and the
                 player compiles
-TC-CMN-13  GIVEN Common/sub/x.dds and strict_file_type_check off
+TC-CMN-13  GIVEN Common/sub/x.dds
            WHEN the export is compiled for PES 21
-           THEN common_file_disallowed is reported as Info and the team's Common output holds no
-                texture of stem x
+           THEN file_not_used is reported as Info on Common/sub/x.dds and the team's Common
+                output holds no texture of stem x
 TC-CMN-14  GIVEN Common/ holding boots.fmdl and a boots.model that does not parse, slot 05
            holding boots.model.common
            WHEN the export is compiled for PES 21
            THEN no finding names boots.model, no link_target_dropped is reported, and slot
                 05's boots are compiled from Common/boots.fmdl
-TC-CMN-15  GIVEN Common/sub/legs.model that does not parse and strict_file_type_check off
+TC-CMN-15  GIVEN Common/sub/legs.model that does not parse
            WHEN the export is compiled for PES 17
-           THEN common_file_disallowed is reported as Info and no other finding names
-                Common/sub/legs.model
+           THEN model_broken is reported on Common/sub/legs.model, which is dropped, and the
+                team's Common output holds no model of stem legs
 TC-CMN-18  GIVEN Common/refkit/oral_thigh_win32.model and Common/refkit/refkit.mtl, and slot 05's
            own face.xml naming model/character/uniform/common/XXX/refkit/oral_thigh_*.model
            with material .../common/XXX/refkit/refkit.mtl

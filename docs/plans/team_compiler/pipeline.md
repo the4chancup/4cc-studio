@@ -1818,10 +1818,10 @@ Resolved decisions:
   failure the member fixes in one place, `Common/`. That is the rule for a failure of the
   conversion itself. A Common texture the deep pass finds wrong (`messages.md` "Textures") never
   reaches the task: the file is dropped before planning, and a player whose texture link names
-  it follows `link_target_dropped`, like any link to a dropped target. The Common tasks of
-  either engine read the files directly in `Common/` alone: a file below a subfolder, kept by a
-  lenient file-type check, is not emitted (its `common_file_disallowed` tells), since the
-  Common output is flat and a flattened copy could collide with a direct file's. A glTF
+  it follows `link_target_dropped`, like any link to a dropped target. On PES 18-21 the Common
+  tasks read the files directly in `Common/` alone, since Fox reaches Common through links, which
+  name a direct file: a file below a subfolder is `file_not_used` there; on PES 15-17 a
+  subfolder is packed at its own path ("Common" under step 4). A glTF
   directly in `Common/` is selected as a player folder's is (step 3 "Format conversion":
   target-native first, then glTF, then the other engine's format): one with no model of the
   target's format of its stem beside it is dropped at planning with `model_gltf_unsupported`,
