@@ -44,7 +44,8 @@ subfolder's files take their roles from their names at any depth, the reserved s
 gone, a refs export's AET layout refused per folder; (b) the pre-Fox face next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
-split's tests by faces), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+split's tests by faces), 4.y-fix21 opened 2026-10-10 (S18's Astra round: a nested material
+link no candidate, TC-MOD-64's meshes told apart, a dropped shared link no link), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag opened 2026-10-10 (the maintainer's answer:
 the 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
@@ -4235,6 +4236,27 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   position half, its test the rework), r2 37 mutants, 29 caught, 8 unviable, 0 missed
   (`.tmp/4_y/mutants_fix20_r2.log`).
 
+- [ ] 4.y-fix21 **S18's Astra round: a nested material link is no candidate, TC-MOD-64 tells
+  its meshes apart, a dropped shared link is no link** (rulings `.tmp/4_y/duck_rulings.md`
+  "S18.A1", five of five accepted, so a second Astra round follows this rework; brief
+  `.tmp/4_y/brief_fix21.md`, after 4.y-sub (b1) lands, never beside it). (1) `mtl_search.rs`
+  `mtls_in` takes a `.mtl.common` link as a candidate wherever the model's folder is, while a
+  link has a role directly in the player folder alone (`role_position`), so a nested link a
+  lenient check keeps (`strict_file_type_check = false`, `parts/body.model` beside
+  `parts/body.mtl.common`) is found by the search and its Common `.mtl` was never loaded:
+  `files.get(..).expect` panics in `processing/model.rs` and `prefox_face.rs`. The search
+  counts a link directly in the player folder alone, the nested one names nothing and the
+  deep pass reports `model_material_undefined`. (2) TC-MOD-64's test clones the visible mesh
+  as the hidden one, so dropping the wrong mesh passes: the hidden mesh gets its own
+  geometry and the test asserts the survivor's is the visible mesh's. (3) `aesthetics_export`
+  `validate/mod.rs` rebuilds a kept player's `links` from the unfiltered draft and `links.rs`'s
+  orphan pass counts a dropped link, short of "a dropped link is no link" (DECISIONS
+  2026-10-10): both leave a dropped link out; test: a consumer `DropFile` on `Crocs.boots`
+  leaves the player's links empty and `Boots/Crocs` `shared_folder_orphaned`. S18.A1-2 (the
+  singletons below a subfolder) is slice (b1)'s, checked at its review.
+  → verify: the three tests red first (the panic reproduced, the mesh swap, the dropped
+  link counted); gates green; `just mutants-diff` over the rework.
+
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -6607,3 +6629,13 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   it; the sidekick found that `aesthetics_export` never took a player or shared folder's
   own file off on `DropFile` and that the cascade followed a dropped link (decision);
   a package's names collide case-folded; the hand split's tests compare faces.
+- **2026-10-10** — S18's first Astra round (4.y-sub (a) and 4.y-fix20 together, the
+  brother's ChatGPT Plus, 54% of a fresh five-hour window; the slot is off until its
+  weekly reset, Friday): five concerns, five accepted (a nested `.mtl.common` link
+  panics a lenient compile; the singletons below a subfolder, already slice (b1)'s;
+  TC-MOD-64's two identical meshes; TC-MOD-67 and TC-MOD-68 claiming a strict run's
+  survival, corrected; a dropped shared link still counted), so a second Astra round
+  follows the rework, step 4.y-fix21 opened. The maintainer: SWE-2 runs free on Devin
+  `work` whatever its usage, so the queued SWE-2 rounds run now: S7's and S14's second
+  rounds and S17's first launched at 13:55 from the review worktree (`36f646f`); S12's
+  and S13's post-Astra rounds, S15's two halves and S18's first follow.

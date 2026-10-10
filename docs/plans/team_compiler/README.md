@@ -989,12 +989,17 @@ TC-MOD-66  GIVEN slot 05 holding face_high.model with face_high.mtl naming skin.
                 the root's skin.dds, and no texture_stem_conflict is reported
 TC-MOD-67  GIVEN slot 05 holding face_high.fmdl, jessie/ingame_face, jessie/Crocs.boots and
            jessie/settings.toml
-           WHEN the export is checked
-           THEN file_type_disallowed names each of the three and the player keeps his face
+           WHEN the export is checked, then compiled for PES 21 with
+                strict_file_type_check = false
+           THEN the check reports file_type_disallowed for each of the three and drops the
+                folder; the lenient compile keeps it with the three as Infos, none of them
+                counting (no marker, no link, no settings), and the player keeps his face
 TC-MOD-68  GIVEN Boots/Crocs holding boots.fmdl and extra/x.fmdl, slot 05 linking it
-           WHEN the export is checked for PES 21
-           THEN file_type_disallowed names extra/x.fmdl and the boots package holds boots.fmdl
-                alone
+           WHEN the export is checked for PES 21, then compiled with
+                strict_file_type_check = false
+           THEN the check reports file_type_disallowed for extra/x.fmdl, drops the folder and
+                the link with it; the lenient compile keeps both and the boots package holds
+                boots.fmdl alone, x.fmdl never read
 TC-MOD-69  GIVEN slot 05 holding face_high.model with its .mtl, and oral.fmdl whose only mesh
            is flagged invisible
            WHEN the export is compiled for PES 17
