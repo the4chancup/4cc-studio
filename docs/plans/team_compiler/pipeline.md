@@ -1916,7 +1916,7 @@ Resolved decisions:
   (`/Assets/pes16/model/character/common/<team>/sourceimages/`); an installed CPK holds it when
   its table of contents lists the path the Common textures task writes for that stem
   (`Asset/model/character/common/<team>/sourceimages/#windx11/<stem>.ftex` on Fox; a player's
-  subfolder texture sits at `.../<folder>/sourceimages/<sub>/#windx11/<name>.ftex`). Both
+  subfolder texture sits at `.../<folder>/<sub>/sourceimages/#windx11/<name>.ftex`). Both
   compare folded, as stems fold everywhere else. A texture is used when the material instance
   of one of the model's meshes names it; an entry of the texture table no mesh uses is not
   looked up, since the game never loads it. A stem starting with `dummy_` is never looked up,

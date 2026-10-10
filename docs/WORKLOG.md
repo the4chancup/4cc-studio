@@ -3769,8 +3769,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   192x512 mipped texture and a `.model` mesh tag (PES 17); (d) the Fox cube map of
   type 0xD (PES 21, a Fox FMDL pointed at a converted `env.ftex`); (e)
   `kit_config::validate`'s two Infos (a shirt model outside 144, 160 and 176; an
-  undocumented sleeve value; PES 17 and 21); (f) a Fox subfolder texture in its own
-  platform folder (`sourceimages/jessie/#windx11/skin.ftex`, 4.y-sub (b1), `QUESTIONS.md`
+  undocumented sleeve value; PES 17 and 21); (f) a Fox subfolder texture before
+  `sourceimages` (`jessie/sourceimages/#windx11/skin.ftex`, 4.y-sub (b3), `QUESTIONS.md`
   "In-game checks"; PES 21). → verify: each a `manual: checked` line
   with its frames under `.tmp/4_y/ingame/frames/`.
   manual: checked 2026-10-10, the portrait header variants on PES 21: the four files
@@ -3983,7 +3983,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   link's target (4.y-fix21's former item (1); every panic site S18.A1-1 and S18.1-C4 named:
   `processing/model.rs`, `prefox_face.rs`, `prefox_shared.rs` `material_of`), the Common
   tasks pack a linked subfolder file at its path, before `sourceimages` on Fox
-  (`is_read_common_file`), and the pre-Fox Common output lists it at its path (TC-CMN-20,
+  (`is_read_common_file`), a player's subfolder texture moving there too from (b1)'s
+  `sourceimages/<sub>/#windx11/` (`TextureHome::texture`, the FMDL directory; DECISIONS
+  "on Fox a subfolder's texture sits before `sourceimages`"), and the pre-Fox Common
+  output lists it at its path (TC-CMN-20,
   TC-MOD-67 reworded, TC-MOD-70; TC-CMN-13 as it is); (b4) kit-token folders below
   `Common/` are variant sets (`kitN/<name>`) completed against the export's kit numbers,
   their paths written verbatim (TC-CMN-21: /hdg/'s per-kit Common folders); the Export
@@ -6781,3 +6784,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `kitN.armor_bsm.dds.common`, a dotted prefix naming folders below `Common/`. Kit-token
   folders become variant sets, shared links count at any depth. Plan and decision updated;
   slice (b3) rewritten, (b4) added.
+- **2026-10-10** — One Fox layout for a subfolder's texture (the maintainer: align if both
+  work): before `sourceimages`, as Red packs a `Common/` subfolder and /hdg/'s models name;
+  (b1)'s `sourceimages/<sub>/#windx11/` moves there in slice (b3). The `file_not_used` row
+  names a no-package folder's textures (4.y-fix21 (4)).

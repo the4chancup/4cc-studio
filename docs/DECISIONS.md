@@ -6485,3 +6485,20 @@ allowlist", `model_format.md` "Link files" and "Kit-dependent assets",
 `team_compiler/pipeline.md` step 4's and step 6's Common sentences and "Kit-dependent
 assets", `export_upgrader.md` item on Common-path references; `team_compiler/README.md`
 TC-CMN-20, TC-CMN-21, TC-MOD-67, TC-MOD-70.
+
+## 2026-10-10 — team_compiler — on Fox a subfolder's texture sits before `sourceimages`, a player's as a Common one's
+Decision: on PES 18-21 a texture below a subfolder goes out at its directory, then
+`sourceimages/#windx11/` (a player's `jessie/skin.dds` as
+`Asset/model/character/common/<team>/<folder>/jessie/sourceimages/#windx11/skin.ftex`, the
+FMDL naming `.../<folder>/jessie/sourceimages/skin`), the layout a linked `Common/`
+subfolder's file has (`common/<team>/kit1/sourceimages/#windx11/x.ftex`). Supersedes the
+placement of the entry "a Fox subfolder texture sits in its own platform folder" (same
+day), `sourceimages/jessie/#windx11/`.
+Why: one layout for both (the maintainer: either is fine if both work), and this one is the
+evidenced one: Red packs every `Common/` subfolder as `<sub>/sourceimages/#windx11/`
+(`file_management.py` `move_files_to_windx11`), and /hdg/'s models name exactly that
+(`common/000/u0XXXp0/sourceimages/`), while `sourceimages/<sub>/#windx11/` is the lead's
+reading of the game's lookup, unproven. The earlier entry cited Red's layout as its evidence
+and then placed the subfolder after `sourceimages`, a misreading.
+Plan: `aesthetics_export/player_folders.md` "Paths are kept"; `team_compiler/pipeline.md`
+the installed-CPK lookup sentence; `QUESTIONS.md` "A Fox subfolder texture".

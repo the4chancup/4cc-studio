@@ -48,11 +48,12 @@ today. Does an FTEX cube map of type 0xD render when a Fox material names it (a 
 pointed at a converted `env.ftex`, in Edit mode)? If it does not, the Fox form becomes a
 check-time finding on the file instead of Red's output.
 
-### A Fox subfolder texture in its own platform folder
-From: step 4.y-sub (b1), DECISIONS 2026-10-10 "a Fox subfolder texture sits in its own
-platform folder". A player folder's `jessie/skin.dds` goes out on PES 18-21 as
-`.../05 - A/sourceimages/jessie/#windx11/skin.ftex`, the FMDL naming
-`.../sourceimages/jessie/skin`, the layout Red gives `Common/` subfolders. Does a face model
+### A Fox subfolder texture before `sourceimages`
+From: step 4.y-sub (b1), DECISIONS 2026-10-10 "on Fox a subfolder's texture sits before
+`sourceimages`". A player folder's `jessie/skin.dds` goes out on PES 18-21 as
+`.../05 - A/jessie/sourceimages/#windx11/skin.ftex`, the FMDL naming
+`.../05 - A/jessie/sourceimages/skin`, the layout Red gives `Common/` subfolders (and
+/hdg/'s per-kit Common folders draw from, if their armor showed in the cup). Does a face model
 in a subfolder draw with its texture there (PES 21, Edit mode: a player whose
 `jessie/hair_high.fmdl` names a `jessie/skin.dds` of a colour the root's `skin.dds` is
 not)? If not, the fallback is a flat texture home with the subfolder's textures renamed.
