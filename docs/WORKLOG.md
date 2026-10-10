@@ -48,7 +48,8 @@ done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the de
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 opened 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
 TC-MOD-64's meshes told apart, a dropped shared link no link, a textures-only folder
-reported, a `.model` collar's material losses skipped), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+reported, a `.model` collar's material losses skipped), 4.y-fix22 opened 2026-10-10 (the S13
+and S15 rounds' rework; S12, S14, S15 and S17 closed), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag opened 2026-10-10 (the maintainer's answer:
 the 2026-10-05 retags reviewed), 4.y-fix12 done 2026-10-10
@@ -4323,6 +4324,26 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   → verify: the three tests red first (the panic reproduced, the mesh swap, the dropped
   link counted); gates green; `just mutants-diff` over the rework.
 
+- [ ] 4.y-fix22 **The S13, S15 rounds' rework: a left-out kit number's file stays out, a
+  Common `.mtl`'s stems resolve in Common, a glTF-dropped folder's `fpc_on` does not count**
+  (rulings `.tmp/4_y/duck_rulings.md` "S13.2", "S15.1a", "S15.1b"; after 4.y-fix21,
+  which owns `plan/mod.rs` and `validation.rs`; S18's first SWE-2 round may add items).
+  (1) `kit_variants.rs` `model_variant_sets` dedups a second file of a left-out kit
+  number as another part of that kit, so it merges into every kit's model: only the used
+  number's files dedup, a left-out number's are left out and named (S13.2-1). (2)
+  `file_role_messages` and `has_effective_part` read variant sets from the folder's own
+  files, compile from the part's sources: both read `part_source_models` (S13.2-2). (3) a
+  folder `.model` converted with a `Common/` `.mtl` looks in the folder first
+  (`PartTextures::CommonSet`), against "a stem resolves in the folder of the material
+  file that set it": it points at Common's textures alone (S13.2-3). (4)
+  `texture_supply` takes one set (S13.2-4). (5) `EffectiveTeamKitFpc::of` reads the
+  roster-mapped folders, so a glTF-dropped folder's `fpc_on` does not count (S15.1a-1).
+  (6) a unit test whose export order is not name order (S15.1a-2). (7) `keeps_archive`
+  private (S15.1a-3). (8) `overrides::list`: only a missing path means no overrides,
+  anything else unlistable is the error, with tests of both error arms (S15.1b-1, -3).
+  → verify: tests red first for (1), (2), (3), (5), (8); gates green; `just
+  mutants-diff` over the rework; S13's third SWE-2 round on its diff.
+
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -6723,3 +6744,13 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   defect (the subfolder singletons seen again, slice (b1)'s), its loop ends and S14 is
   closed; its note that the 4.12 step's "known, not fixed" list is stale (item 1 fixed
   by 4.y-fix1 (h), item 3's parenthetical wrong since 4.y-fix15) is for the collapse.
+- **2026-10-10** — S12's and S13's post-Astra SWE-2 rounds and S15's two halves ran on
+  Devin `work` from the review worktree (`36f646f`): S12 five concerns, two accepted (plan
+  text: a codec the suite cannot encode is encoded whole; `resize`'s consumers), its loop
+  ends and S12 is closed; S13 six concerns, five accepted (a left-out kit number's second
+  file merged, validation's one-folder variant sets, a Common `.mtl`'s stems looked for in
+  the folder first, a slice parameter, plan text), so a third round follows the rework;
+  S15 half a three of three (a glTF-dropped folder's `fpc_on` counted, an order test, a
+  visibility) and half b two of three (a file named `overrides` read as none, its test),
+  both loops end. Step 4.y-fix22 opened. The retag (4.y-retag) is ready but its history
+  rewrite was refused by the session's permission classifier: the maintainer runs it.
