@@ -260,6 +260,7 @@ mod tests {
             common_files: Vec::new(),
             hand_split: BTreeSet::new(),
             environment_map: false,
+            refkit_body: false,
             textures,
             engine: Engine::Fox,
         }

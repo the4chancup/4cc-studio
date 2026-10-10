@@ -1044,6 +1044,7 @@ mod tests {
             common_files: Vec::new(),
             hand_split: BTreeSet::new(),
             environment_map: false,
+            refkit_body: false,
             textures: TextureHome::PlayerCommon {
                 folder_name: "05 - The Chad Stormworks Player".to_owned(),
             },

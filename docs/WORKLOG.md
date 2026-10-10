@@ -52,12 +52,11 @@ converter's and draws it now, checked in game), 4.y-fix13 done 2026-10-10 (a hid
 gives no face: his own face files `face_file_not_used`, the blank face with the bundled
 diff; its items (1) and (3) had landed with 4.y-fix17 and 4.y-fix16), 4.y-fix19 done
 2026-10-10 (S9's third Astra round: every direct Common `.mtl` read once a link's search
-lands in `Common/`; a non-model file in `Collars/` gets no collar finding), 4.y-fix14 (a1) done 2026-10-10 (on PES 15-17 every directory of `Common/` is packed
-at its own path and a member's `face.xml` names a subfolder's file; on PES 18-21 a
-subfolder's file is `file_not_used`), (a2) done 2026-10-10 (a refs export's `Common/`
-files lay over the referee template's `common/999/` tree, and a referee's `face.xml` may
-name a tree file the export lacks; (b) open), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
-`fpc_off`'s referee body),
+lands in `Common/`; a non-model file in `Collars/` gets no collar finding), 4.y-fix14 done 2026-10-10 (on PES 15-17 every directory of `Common/` is packed at its
+own path and a member's `face.xml` names a subfolder's file, a refs export's `Common/` lays
+over the referee template's `common/999/` tree, which a referee's `face.xml` may name, and
+a referee folder holding `fpc_off` lists the refkit body; on PES 18-21 a subfolder's file
+is `file_not_used`),
 then the `duck` reviews (started 2026-10-09; Astra's five-hour quota stopped the first two mid-review, retried from 14:50), 4.c-threshold done 2026-10-09 (0.7 kept), 4.z-rewrite
 reference exists (4.31 done: `tests/parity_prefox.rs`); 4.33, 4.34, 4.c-pass and
 4.c-fix1 are done; 4.30,
@@ -3513,7 +3512,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   README TC-MOD-69 (lead). Gates green (`.tmp/4_y/gates_fix13.log`, acceptance 304 of
   313), `just bindings` green (37 fixtures); mutants 13 caught, 0 missed, 3 unviable; the remote half peaked at the 9G cap with no build killed (`.tmp/4_y/mutants_fix13.log`).
 
-- [ ] 4.y-fix14 **`Common/` subfolders, the referee body** (the maintainer's answers,
+- [x] 4.y-fix14 **`Common/` subfolders, the referee body** (the maintainer's answers,
   2026-10-09). Three slices, (a) split in two at briefing: (a1) the subfolders packed at
   their own path and named by a member's xml, (a2) the refs export's `Common/` over the
   referee template's `common/999/` tree and the tree as an xml source, (b) `fpc_off`.
@@ -3597,6 +3596,25 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `skin_limb`, undefined too); their `refkit.mtl` is read (`mtl_state_*` Infos) and a
   stray `Common/refkit/face.xml` is `file_not_used`; a `--no-deploy` refs CPK holds each
   `common/999/refkit/` file once beside the referees' own subfolders.
+  (b) done 2026-10-10 (Opus 5.5, one run, no rework): `ModelFolder::refkit_body`, set by
+  `plan_run` for a refs export's folder holding `fpc_off` on PES 15-17 alone (a team
+  player's body is the kit's; the Fox refkit is not made); the face task (`prefox_face.rs`
+  `refkit_body`, `refkit_body_entries`, the `REFKIT_BODY` table in the plan's order) appends
+  the template's ten entries after every model of his, generated or his xml's, before the
+  `face_neck` dummy, naming `model/character/uniform/common/999/refkit/oral_<name>_*.model`
+  with `refkit.mtl`, packing nothing; left out: a model the face lists already (a refkit
+  entry he wrote by hand counts once and is not his own boots or gloves), the boots when
+  he has his own (a `boots.model` name, a model in `boots/`, a boots link), the two hands
+  when he has gloves (a glove or hand entry, a gloves link); `roles::in_boots_folder`. A
+  face listing no model of his own now gets `xml_face_neck_added` with the dummy beside the
+  refkit entries (no real export reaches it). Tests: TC-REF-16 and TC-REF-17
+  (`referees.rs`), the member xml naming one refkit part, the five own-boots and own-gloves
+  cases, a refkit hand listed by hand, a team player's `fpc_off` (`prefox_faces.rs`), the
+  planning unit test. Files: `team_compiler` `plan/mod.rs`, `plan/roles.rs`,
+  `processing/prefox_face.rs`, the `ModelFolder` test constructions, `tests/cli/referees.rs`,
+  `prefox_faces.rs`. Gates green (`.tmp/4_y/gates_fix14b.log`, acceptance 308 of 314);
+  mutants 26/0/3 (`.tmp/4_y/mutants_fix14b.log`). Verify re-run at the close: TC-CMN-18,
+  TC-REF-15, TC-REF-16 and TC-REF-17 proven, red first; the refs census as (a2) reports it.
 
 - [x] 4.y-fix15 **S14's SWE-2 rework** (rulings S14.1 in `.tmp/4_y/duck_rulings.md`).
   (1) Under `ingame_face` the deep pass's `.mtl` check sees the textures of the combined
@@ -6395,3 +6413,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   referee's `face.xml` names a tree file the export does not hold (the template tree is
   an xml source in a refs export). The refs census re-run: the six exports that failed
   the allowlist now compile but for a real material defect of theirs.
+- **2026-10-10** — 4.y-fix14 (b) done (sidekick, one run, no rework), the step closed: on
+  PES 15-17 a referee folder holding `fpc_off` lists the referee template's refkit body
+  after his own models, but for the boots or hands he has of his own.

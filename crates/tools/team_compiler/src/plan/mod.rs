@@ -197,6 +197,11 @@ pub(crate) struct ModelFolder {
     /// sampler at it (`model_format.md`, the `environment` role), at a link's in the team's
     /// Common output. Never set on PES 18-21.
     pub(crate) environment_map: bool,
+    /// The face's xml takes the referee template's body entries after the folder's own
+    /// (`blue_port.md` "The referee body"): a referee folder holding `fpc_off`, on PES 15-17,
+    /// with a face to put them in. Never set for a team player (the body is the referee
+    /// template's) nor on PES 18-21 (the Fox refkit is not made yet).
+    pub(crate) refkit_body: bool,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
 }
@@ -1110,6 +1115,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     common_files: Vec::new(),
                     hand_split: BTreeSet::new(),
                     environment_map: false,
+                    refkit_body: false,
                     textures: TextureHome::SharedOutput {
                         package,
                         id: shared_id,
@@ -1181,6 +1187,16 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     folder: shared.clone(),
                 });
             }
+            // A referee's `fpc_off` says he needs his body, which a refs export takes from the
+            // referee template's `refkit` (`blue_port.md` "The referee body"); a team player's
+            // body is the kit's. Fox has no refkit yet, so there the marker sets the preset
+            // alone.
+            let refkit_body = team.is_none()
+                && folder.fpc == Some(FpcDirective::Off)
+                && match version.engine() {
+                    Engine::PreFox => true,
+                    Engine::Fox => false,
+                };
             let mut model_folder = ModelFolder {
                 textures: TextureHome::PlayerCommon {
                     folder_name: folder.path.name().to_owned(),
@@ -1190,6 +1206,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 common_files: player_common_files.clone(),
                 hand_split: BTreeSet::new(),
                 environment_map: false,
+                refkit_body,
                 path: folder.path,
                 files: folder.files,
                 ingame_face: folder.ingame_face,
@@ -4100,6 +4117,51 @@ mod tests {
                 report.messages
             );
         }
+    }
+
+    #[test]
+    fn a_pre_fox_referee_holding_fpc_off_takes_the_refkit_body_and_no_one_else_does() {
+        let refs_face = |version: PesVersion| {
+            let referees = resolved(
+                "refs Cup",
+                &[
+                    ("Players/Ref A/face_high.fmdl", 10),
+                    ("Players/Ref A/fpc_off", 0),
+                ],
+                &[],
+                Some(b"01 Ref A\n"),
+            );
+            let report = plan_run(vec![to_plan(ExportId(0), referees, None, None)], version);
+            assert_eq!(
+                summary(&report),
+                ["0 999 Face Players/Ref A [referee 1] charge 10"],
+                "{version:?}"
+            );
+            models_folder(&report.manifest.tasks[0]).refkit_body
+        };
+        assert!(refs_face(PesVersion::Pes17));
+        // The Fox refkit is not made yet.
+        assert!(!refs_face(PesVersion::Pes21));
+
+        // A team player's body is the kit's, `fpc_off` or not.
+        let team = resolved(
+            "co Midcup One",
+            &[
+                ("Players/05 - A/face_high.fmdl", 10),
+                ("Players/05 - A/fpc_off", 0),
+            ],
+            &[],
+            None,
+        );
+        let report = plan_run(
+            vec![to_plan(ExportId(0), team, two_team_colors(), None)],
+            PesVersion::Pes17,
+        );
+        assert_eq!(
+            summary(&report),
+            ["0 714 Face Players/05 - A [71405] charge 10"]
+        );
+        assert!(!models_folder(&report.manifest.tasks[0]).refkit_body);
     }
 
     #[test]

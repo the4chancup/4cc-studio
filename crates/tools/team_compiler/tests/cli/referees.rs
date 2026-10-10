@@ -468,6 +468,256 @@ fn on_pes_17_a_referee_s_face_xml_names_the_template_s_refkit_files_the_export_l
     assert_tree_in(&entries, &referee_tree(Engine::PreFox));
 }
 
+/// The referee template's body as a referee's `face.xml` lists it when his folder holds
+/// `fpc_off`, in the plan's table order (`blue_port.md` "The referee body"): each model's name
+/// below `refkit/`, without `oral_` and `_*.model`, with its type.
+const REFKIT_BODY: [(&str, &str); 10] = [
+    ("arm", "parts"),
+    ("thigh", "parts"),
+    ("refshirt", "parts"),
+    ("pants", "parts"),
+    ("pants_sub", "parts"),
+    ("sleeve", "parts"),
+    ("socks", "parts"),
+    ("hand_l", "gloveL"),
+    ("hand_r", "gloveR"),
+    ("boots", "boots"),
+];
+
+/// The (type, path, material) of `REFKIT_BODY`'s entries but those of `left_out`, in order.
+fn refkit_entries(left_out: &[&str]) -> Vec<(String, String, String)> {
+    REFKIT_BODY
+        .iter()
+        .filter(|(name, _)| !left_out.contains(name))
+        .map(|(name, xml_type)| {
+            (
+                (*xml_type).to_owned(),
+                format!("model/character/uniform/common/999/refkit/oral_{name}_*.model"),
+                "model/character/uniform/common/999/refkit/refkit.mtl".to_owned(),
+            )
+        })
+        .collect()
+}
+
+/// Writes `Ref A` in slot 01 holding the card head as `face_high.model` with its
+/// `face_high.mtl` and `skin.dds`, and `fpc_off`.
+fn write_ref_a_needing_his_body(sandbox: &Sandbox) -> String {
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    let folder = format!("{REFS}/Players/Ref A");
+    sandbox.write(&format!("{folder}/face_high.model"), &card_model());
+    sandbox.write(&format!("{folder}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{folder}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{folder}/fpc_off"), b"");
+    folder
+}
+
+/// `compile_for` PES 17 asserting the run's findings are `export_identified` alone: slot 01's
+/// face CPK's files, each by its name in the CPK's folder.
+fn compile_ref_a_face_pes17(sandbox: &Sandbox) -> BTreeMap<String, Vec<u8>> {
+    let (run, entries) = compile_for(sandbox, PesVersion::Pes17);
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "refs Cup"),
+        ["Info export_identified [Keep] (team=referees)"],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let folder = pre_fox_referee_face("01");
+    nested_entries(&entries[&format!("{folder}.cpk")])
+        .into_iter()
+        .map(|(path, bytes)| {
+            let name = path.strip_prefix(&format!("{folder}/")).unwrap().to_owned();
+            (name, bytes)
+        })
+        .collect()
+}
+
+// TC-REF-16
+#[test]
+fn on_pes_17_a_referee_folder_holding_fpc_off_lists_the_refkit_body_after_his_face() {
+    let sandbox = Sandbox::new("ref_refkit_body");
+    write_ref_a_needing_his_body(&sandbox);
+
+    let face = compile_ref_a_face_pes17(&sandbox);
+
+    let mut expected = vec![(
+        "face_neck".to_owned(),
+        "./oral_face_high_*.model".to_owned(),
+        "./face_high.mtl".to_owned(),
+    )];
+    expected.extend(refkit_entries(&[]));
+    assert_eq!(ordered_entries(&face["face.xml"]), expected);
+    // The body is the template tree's, in the refs CPK: the face packs none of it.
+    let names: Vec<&String> = face.keys().collect();
+    assert_eq!(
+        names,
+        ["face.xml", "face_high.mtl", "oral_face_high_win32.model"]
+    );
+}
+
+// TC-REF-17
+#[test]
+fn on_pes_17_a_referee_holding_fpc_off_and_his_own_boots_takes_the_refkit_body_but_its_boots() {
+    let sandbox = Sandbox::new("ref_refkit_own_boots");
+    let folder = write_ref_a_needing_his_body(&sandbox);
+    sandbox.write(&format!("{folder}/boots.model"), &card_model());
+    sandbox.write(&format!("{folder}/boots.mtl"), &card_materials());
+
+    let face = compile_ref_a_face_pes17(&sandbox);
+
+    let entry = |xml_type: &str, path: &str, material: &str| {
+        (xml_type.to_owned(), path.to_owned(), material.to_owned())
+    };
+    let mut expected = vec![
+        entry("parts", "./oral_boots_*.model", "./boots.mtl"),
+        entry("face_neck", "./oral_face_high_*.model", "./face_high.mtl"),
+    ];
+    expected.extend(refkit_entries(&["boots"]));
+    assert_eq!(ordered_entries(&face["face.xml"]), expected);
+}
+
+#[test]
+fn on_pes_17_a_referee_s_own_face_xml_with_fpc_off_takes_the_refkit_body_it_does_not_name() {
+    let sandbox = Sandbox::new("ref_xml_refkit_body");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    let folder = format!("{REFS}/Players/Ref A");
+    sandbox.write(
+        &format!("{folder}/oral_face_high_win32.model"),
+        &card_model(),
+    );
+    sandbox.write(&format!("{folder}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{folder}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{folder}/fpc_off"), b"");
+    let arm = "model/character/uniform/common/999/refkit/oral_arm_*.model";
+    let refkit_mtl = "model/character/uniform/common/999/refkit/refkit.mtl";
+    let xml = format!(
+        "<config>\n   \
+         <model level=\"0\" type=\"face_neck\" path=\"./oral_face_high_*.model\" material=\"./face_high.mtl\"/>\n   \
+         <model level=\"0\" type=\"parts\" path=\"{arm}\" material=\"{refkit_mtl}\"/>\n\
+         </config>\n"
+    );
+    sandbox.write(&format!("{folder}/face.xml"), xml.as_bytes());
+
+    let face = compile_ref_a_face_pes17(&sandbox);
+
+    let entry = |xml_type: &str, path: &str, material: &str| {
+        (xml_type.to_owned(), path.to_owned(), material.to_owned())
+    };
+    // His own two entries as he wrote them, then the body's others: his `oral_arm` is the
+    // refkit's, listed once.
+    let mut expected = vec![
+        entry("face_neck", "./oral_face_high_*.model", "./face_high.mtl"),
+        entry("parts", arm, refkit_mtl),
+    ];
+    expected.extend(refkit_entries(&["arm"]));
+    assert_eq!(ordered_entries(&face["face.xml"]), expected);
+}
+
+#[test]
+fn on_pes_17_a_referee_s_own_boots_or_gloves_leave_out_the_refkit_s() {
+    let card = |sandbox: &Sandbox, path: &str| {
+        sandbox.write(&format!("{REFS}/{path}.model"), &card_model());
+        sandbox.write(&format!("{REFS}/{path}.mtl"), &card_materials());
+    };
+    // Each case: the model (a `.model` with its `.mtl`) it adds to TC-REF-16's Ref A, the link
+    // to its shared folder when it is in one, and the refkit entries it leaves out.
+    let cases: [(&str, &str, Option<&str>, &[&str]); 5] = [
+        // Any model in `boots/` is his boots, whatever its name.
+        (
+            "boots_folder",
+            "Players/Ref A/boots/studs",
+            None,
+            &["boots"],
+        ),
+        // A model named for the boots is his boots, packed under another name than the
+        // refkit's.
+        ("kit_boots", "Players/Ref A/kit_boots", None, &["boots"]),
+        // A link is his slot's `k9901`, which the refkit's boots would cover.
+        (
+            "boots_link",
+            "Boots/Studs/boots",
+            Some("Studs.boots"),
+            &["boots"],
+        ),
+        // One glove is gloves: both refkit hands are left out.
+        (
+            "gloves_folder",
+            "Players/Ref A/gloves/glove_l",
+            None,
+            &["hand_l", "hand_r"],
+        ),
+        (
+            "gloves_link",
+            "Gloves/Wool/glove_l",
+            Some("Wool.gloves"),
+            &["hand_l", "hand_r"],
+        ),
+    ];
+    for (name, model, link, left_out) in cases {
+        let sandbox = Sandbox::new(&format!("ref_refkit_{name}"));
+        write_ref_a_needing_his_body(&sandbox);
+        card(&sandbox, model);
+        if let Some(link) = link {
+            sandbox.write(&format!("{REFS}/Players/Ref A/{link}"), b"");
+            // The shared folder's own texture, which its `.mtl` names.
+            let (shared, _) = model.rsplit_once('/').unwrap();
+            sandbox.write(&format!("{REFS}/{shared}/skin.dds"), &small_dds());
+        }
+
+        let face = compile_ref_a_face_pes17(&sandbox);
+
+        assert_eq!(
+            refkit_entries_of(&face["face.xml"]),
+            refkit_entries(left_out),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn on_pes_17_a_refkit_hand_a_referee_s_face_xml_lists_leaves_the_other_hand_appended() {
+    let sandbox = Sandbox::new("ref_refkit_hand_by_hand");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    let folder = format!("{REFS}/Players/Ref A");
+    // A `face.xml` names a packed name: the card head is written under it.
+    sandbox.write(
+        &format!("{folder}/oral_face_high_win32.model"),
+        &card_model(),
+    );
+    sandbox.write(&format!("{folder}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{folder}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{folder}/fpc_off"), b"");
+    let hand_l = "model/character/uniform/common/999/refkit/oral_hand_l_*.model";
+    let refkit_mtl = "model/character/uniform/common/999/refkit/refkit.mtl";
+    let xml = format!(
+        "<config>\n   \
+         <model level=\"0\" type=\"face_neck\" path=\"./oral_face_high_*.model\" material=\"./face_high.mtl\"/>\n   \
+         <model level=\"0\" type=\"gloveL\" path=\"{hand_l}\" material=\"{refkit_mtl}\"/>\n\
+         </config>\n"
+    );
+    sandbox.write(&format!("{folder}/face.xml"), xml.as_bytes());
+
+    let face = compile_ref_a_face_pes17(&sandbox);
+
+    // The refkit's hand he lists is no glove of his own: only that hand is not appended.
+    let mut expected = vec![(
+        "gloveL".to_owned(),
+        hand_l.to_owned(),
+        refkit_mtl.to_owned(),
+    )];
+    expected.extend(refkit_entries(&["hand_l"]));
+    assert_eq!(refkit_entries_of(&face["face.xml"]), expected);
+}
+
+/// The (type, path, material) of the entries of the `face.xml` `bytes` naming a model of the
+/// referee template's body, in order.
+fn refkit_entries_of(bytes: &[u8]) -> Vec<(String, String, String)> {
+    ordered_entries(bytes)
+        .into_iter()
+        .filter(|(_, path, _)| path.starts_with("model/character/uniform/common/999/refkit/"))
+        .collect()
+}
+
 #[test]
 fn a_refs_export_whose_only_folder_validation_drops_writes_no_refs_cpk_and_no_tree() {
     let sandbox = Sandbox::new("ref_folder_dropped");

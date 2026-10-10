@@ -17,7 +17,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 
 use aesthetics_export::{
-    FileDescriptor, FileKind, KitToken, ModelFormat, common_link_name, kit_token, variant_stem,
+    FileDescriptor, FileKind, KitToken, ModelFormat, ModelSuffix, common_link_name, kit_token,
+    variant_stem,
 };
 use pes_model::format::mtl::{Address, Filter, MaterialEntry, MaterialSet, Sampler};
 use pes_model::ops::paths::rewrite_texture_paths;
@@ -34,15 +35,15 @@ use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::deep::relative;
 use crate::face_diff;
 use crate::face_xml::{
-    WrittenChild, XmlEntry, face_xml, packed_model_name, ratio, user_face_xml, version_type,
-    xml_path,
+    WrittenChild, XmlEntry, face_xml, packed_model_name, ratio, suffix, user_face_xml,
+    version_type, xml_path,
 };
 use crate::kit_variants::has_variant_among;
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths;
 use crate::plan::roles::{
-    ModelPackage, PlayerFile, common_file, file_stem, in_folder_or_face,
+    ModelPackage, PlayerFile, common_file, file_stem, in_boots_folder, in_folder_or_face,
     is_direct_root_folder_file, path_stem, selected_common_model,
 };
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
@@ -53,6 +54,26 @@ use crate::user_face_xml::{
 /// The `face.xml` type the game loads a player's face model as. A face whose models include
 /// none of it gets the dummy as its `face_neck`.
 const FACE_NECK: &str = "face_neck";
+
+/// The referee template's body (`blue_port.md` "The referee body"): each model's name below
+/// the template tree's `common/999/refkit/`, without `_win32.model`, and the `face.xml` type
+/// it is listed under, in the order a cup referee's own xml listed them in game.
+const REFKIT_BODY: [(&str, &str); 10] = [
+    ("oral_arm", "parts"),
+    ("oral_thigh", "parts"),
+    ("oral_refshirt", "parts"),
+    ("oral_pants", "parts"),
+    ("oral_pants_sub", "parts"),
+    ("oral_sleeve", "parts"),
+    ("oral_socks", "parts"),
+    ("oral_hand_l", "gloveL"),
+    ("oral_hand_r", "gloveR"),
+    ("oral_boots", "boots"),
+];
+
+/// The `face.xml` types a model dressing a hand is listed under: a glove's and a hand's, both
+/// the gloves' on Fox (`suffix_role`).
+const HAND_TYPES: [&str; 4] = ["gloveL", "gloveR", "handL", "handR"];
 
 /// One `.model` of the face, or an `.fmdl` converted to one, with the source folder it was
 /// found in: its `.mtl` is searched for there (`mtl_for`), a shared face's never in the
@@ -366,6 +387,10 @@ fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
 /// written after the xml's children, and his `.mtl` files are packed as above. The face's diff
 /// is the player's own face diff beside a shared face's xml, else the xml's last `<dif>`, else
 /// the face diff of the folder holding the xml, else the bundled one.
+///
+/// A referee folder holding `fpc_off` (`ModelFolder::refkit_body`) lists the referee
+/// template's body after every model of his, generated or his xml's, and before the dummy
+/// (`refkit_body`): the face packs none of it, the refs CPK carrying the template's files.
 pub(super) fn face(
     folder: &ModelFolder,
     kit_numbers: &[u8],
@@ -651,6 +676,9 @@ pub(super) fn face(
         .collect();
     // Read before the loop below moves the models.
     let completions = set_completions(&models, &kits, &written, &folder.hand_split, kit_numbers);
+    let boots_folder_model = models
+        .iter()
+        .any(|model| in_boots_folder(model.source_path, model.file));
     let mut contents = PackageFiles::new();
     let mut entries = Vec::new();
     for ((model, place), (material_directory, material_name)) in
@@ -805,6 +833,12 @@ pub(super) fn face(
             ));
         }
     }
+    // After every model of his, before the `face_neck` dummy: with an xml, through
+    // `appended`, after the xml's children.
+    if folder.refkit_body {
+        let body = refkit_body(folder, &entries, xml.as_ref(), boots_folder_model);
+        entries.extend(body);
+    }
     if let Some(xml) = xml {
         let face = XmlFace::new(folder, kit_numbers, &common_directory, &places, contents);
         return user_xml_face(face, &xml, &entries, ctx, files, findings, &dif);
@@ -852,6 +886,112 @@ fn packed_dummy(
         ctx.templates.dummy_mtl().to_vec(),
     )?;
     Ok(entry)
+}
+
+/// The directory a `face.xml` names the referee template's body in: its `refkit/` folder in
+/// the referees' Common output, `model/character/uniform/common/999/refkit/`, where the refs
+/// CPK carries the template tree's files (a refs export's `Common/refkit/` laid over them).
+fn refkit_directory() -> String {
+    let common = paths::common_texture_directory(Engine::PreFox, paths::REFEREE_TEAM_ID);
+    format!("{common}refkit/")
+}
+
+/// The referee template's body entries (`REFKIT_BODY`) the face of `folder`, a referee folder
+/// holding `fpc_off` (`ModelFolder::refkit_body`), lists after the models it lists already:
+/// `entries`, its generated entries, and the `<model>` children of `xml`, his own or his
+/// linked shared face's. What he has of his own is read from those, the refkit's own
+/// directory left out: boots, a listed model named for the boots (`boots.model`), a model of
+/// his `boots/` (`boots_folder_model`) or his boots link; gloves, a listed entry typed as a
+/// glove or a hand (a hand split's included) or his gloves link (`refkit_body_entries`).
+fn refkit_body(
+    folder: &ModelFolder,
+    entries: &[XmlEntry],
+    xml: Option<&UserFaceXml>,
+    boots_folder_model: bool,
+) -> Vec<XmlEntry> {
+    let directory = refkit_directory();
+    let xml_models: Vec<&ModelElement> = xml
+        .into_iter()
+        .flat_map(|xml| &xml.children)
+        .filter_map(|child| match child {
+            Child::Model(model) => Some(model),
+            Child::Dif(_) | Child::Other(_) => None,
+        })
+        .collect();
+    // The (type, path) of each listed model: an xml element lacking one names nothing by it.
+    let listed: Vec<(Option<&str>, Option<&str>)> = entries
+        .iter()
+        .map(|entry| (Some(entry.xml_type.as_str()), Some(entry.path.as_str())))
+        .chain(
+            xml_models
+                .iter()
+                .map(|model| (model.attribute("type"), model.attribute("path"))),
+        )
+        .collect();
+    let named: Vec<String> = listed
+        .iter()
+        .filter_map(|(_, path)| path.map(listed_model_name))
+        .collect();
+    // The refkit's entries he lists by hand are the template's body, not his own boots or
+    // gloves: one refkit hand listed by hand leaves the other to be appended.
+    let fold_directory = vtree::fold_name(&directory);
+    let own: Vec<(Option<&str>, String)> = listed
+        .iter()
+        .filter_map(|(xml_type, path)| Some((*xml_type, (*path)?)))
+        .filter(|(_, path)| !vtree::fold_name(path).starts_with(&fold_directory))
+        .map(|(xml_type, path)| (xml_type, listed_model_name(path)))
+        .collect();
+    let combines = |package: ModelPackage| {
+        folder
+            .combined
+            .iter()
+            .any(|combined| combined.package == package)
+    };
+    let own_boots = boots_folder_model
+        || combines(ModelPackage::Boots)
+        || own
+            .iter()
+            .any(|(_, name)| suffix(file_stem(name)) == Some(ModelSuffix::Boots));
+    let own_gloves = combines(ModelPackage::Gloves)
+        || own
+            .iter()
+            .any(|(xml_type, _)| xml_type.is_some_and(|xml_type| HAND_TYPES.contains(&xml_type)));
+    refkit_body_entries(&named, own_boots, own_gloves)
+}
+
+/// The packed name, folded, of the model a `face.xml` `path` names: its last segment, `*`
+/// read as `win32` (`./oral_face_high_*.model` names `oral_face_high_win32.model`).
+fn listed_model_name(path: &str) -> String {
+    let name = path.rsplit_once('/').map_or(path, |(_, name)| name);
+    vtree::fold_name(&name.replace('*', "win32"))
+}
+
+/// The referee template's body as a referee's `face.xml` lists it (`blue_port.md` "The
+/// referee body"): an entry per model of `REFKIT_BODY` in its order, naming the model in the
+/// referees' Common output's `refkit/` with the `refkit.mtl` beside it, which the limbs take
+/// rather than his own skin's `.mtl`. Left out, so he is never dressed twice: a model whose
+/// packed name, folded, is among `named`, the face's listed models; the boots when
+/// `own_boots`; the two hands when `own_gloves`.
+fn refkit_body_entries(named: &[String], own_boots: bool, own_gloves: bool) -> Vec<XmlEntry> {
+    let directory = refkit_directory();
+    let material = format!("{directory}refkit.mtl");
+    REFKIT_BODY
+        .iter()
+        .filter(|(name, xml_type)| {
+            let packed = packed_model_name(name);
+            // His own boots stand on his feet, and his gloves on his hands; one model the
+            // face lists already is listed once.
+            let dressed = (own_boots && *xml_type == "boots")
+                || (own_gloves && HAND_TYPES.contains(xml_type));
+            !dressed && !named.contains(&vtree::fold_name(&packed))
+        })
+        .map(|(name, xml_type)| XmlEntry {
+            xml_type: (*xml_type).to_owned(),
+            path: xml_path(&directory, &packed_model_name(name)),
+            material: material.clone(),
+            ratio: None,
+        })
+        .collect()
 }
 
 /// A member's own `face.xml` being written back (`user_xml_face`): the files its references

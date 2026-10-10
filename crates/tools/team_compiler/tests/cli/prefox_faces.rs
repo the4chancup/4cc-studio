@@ -291,6 +291,36 @@ fn a_player_s_face_model_compiles_into_its_face_cpk_with_the_generated_face_xml(
     );
 }
 
+#[test]
+fn a_team_player_holding_fpc_off_takes_no_refkit_body() {
+    let sandbox = Sandbox::new("prefox_fpc_off");
+    let player = "exports/co Midcup Card/Players/05 - A";
+    sandbox.write(&format!("{player}/face_high.model"), &card_model());
+    sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{player}/fpc_off"), b"");
+
+    let entries = compile_pes17(
+        &sandbox,
+        "co Midcup Card",
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    // The referee template's body is a referee's: a team player's is his kit's.
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    assert_eq!(
+        ordered_entries(&face[&format!("{}face.xml", face_folder(5))]),
+        [(
+            "face_neck".to_owned(),
+            "./oral_face_high_*.model".to_owned(),
+            "./face_high.mtl".to_owned()
+        )]
+    );
+}
+
 // TC-MOD-21
 #[test]
 fn every_model_of_a_player_folder_is_typed_in_its_face_xml_boots_and_gloves_included() {

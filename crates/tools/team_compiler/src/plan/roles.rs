@@ -554,6 +554,12 @@ pub(crate) fn in_folder_or_face(folder: &ScopePath, file: &FileDescriptor) -> bo
     )
 }
 
+/// Whether `file` sits in the `boots/` of the folder at `folder`, where every model is the
+/// boots whatever its name.
+pub(crate) fn in_boots_folder(folder: &ScopePath, file: &FileDescriptor) -> bool {
+    position(folder, file) == Some(Position::Boots)
+}
+
 /// Whether `file` of the folder at `folder` is a member's own `face.xml`: named so in any case,
 /// where a face's files go (`in_folder_or_face`). Pre-Fox reads a player folder's and a shared
 /// face folder's (`PlayerFile::FaceXml`), the latter the xml of each face linking it; Fox has
