@@ -158,7 +158,10 @@ such tree with nothing to name.
   packed as `jessie/body/oral_x_win32.model`, `jessie/body/x.mtl` and `jessie/skin.dds` as they
   are), as Red packs the tree (its `model_names_fix` renames in every subfolder, and its xml
   names `./jessie/body/oral_x_*.model`). On PES 18-21 a subfolder's models merge into the
-  player's packages and its textures go under the texture home at their path. A `face.xml` or
+  player's packages and its textures go under the texture home at their path, each in its
+  own platform folder (`sourceimages/jessie/#windx11/skin.ftex`, the FMDL naming
+  `sourceimages/jessie/skin`: the game inserts `#windx11` before the file name; still to be
+  checked in game, `QUESTIONS.md` "In-game checks"). A `face.xml` or
   `.mtl` reference that carries a path (`./jessie/body/oral_x_*.model`, `./shorts/y.dds`)
   resolves as written, relative to the referencing file: `./sub/name` is a local reference,
   checked like `./name` (`team_compiler/messages.md` "User-supplied `face.xml`"), not

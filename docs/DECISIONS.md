@@ -6416,3 +6416,22 @@ earlier reading ("a link names a direct file") had made it dead.
 Plan: `aesthetics_export/player_folders.md` "Subfolders" (the links bullet),
 `object_model.md` "File-type allowlist", `team_compiler/pipeline.md` step 6's Common
 sentence; `team_compiler/README.md` TC-CMN-13, TC-CMN-20.
+
+## 2026-10-10 — team_compiler — a Fox subfolder texture sits in its own platform folder, `sourceimages/jessie/#windx11/skin.ftex`
+Decision: on PES 18-21 a subfolder's texture goes under the player's texture home at its path
+with the platform folder `#windx11` in the texture's own directory, just before its name
+(`Asset/model/character/common/<team>/<folder>/sourceimages/jessie/#windx11/skin.ftex`), and
+the FMDL names it as `.../sourceimages/jessie/skin`; a shared folder's textures are direct
+files and keep the root layout. Not `sourceimages/#windx11/jessie/skin.ftex`, which slice
+(b1)'s brief had assumed.
+Why: the game resolves a path a model names by inserting the platform folder before the
+file name, so the texture of `sourceimages/jessie/skin` is looked for in
+`sourceimages/jessie/#windx11/`; Red's Common packing gives every `Common/` subfolder its
+own terminal `<sub>/sourceimages/#windx11/` (`file_management.py` `move_files_to_windx11`),
+the layout the cups' Common subfolders ship with, while Red's face packing dumps a face
+folder's subfolders under `sourceimages/#windx11/<sub>/` with a comment that model folders
+do not load textures from subfolders (`model_packing.py`): the brief's shape is the one Red
+knows not to load. Not checked in game yet: 4.y-ingame2 (f), `QUESTIONS.md` "In-game
+checks"; if it does not draw, the fallback is a flat home with a renamed texture.
+Plan: `aesthetics_export/player_folders.md` "Paths are kept"; `team_compiler/pipeline.md`
+step 3's texture-sources sentence and the installed-CPK lookup sentence ("Format conversion").

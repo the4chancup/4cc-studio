@@ -41,7 +41,9 @@ Fox's unsearched Common `.mtl` files unread, skips a refs export's kits, logo, p
 collars; `common_model_beaten_dropped`), 4.y-sub in progress since 2026-10-10
 (a subfolder of a player folder is a player folder of its own; (a) done 2026-10-10: a
 subfolder's files take their roles from their names at any depth, the reserved subfolders
-gone, a refs export's AET layout refused per folder; (b) the pre-Fox face next), 4.y-fix20
+gone, a refs export's AET layout refused per folder; (b1) done 2026-10-10: a subfolder's
+textures at their paths, a texture name resolving nearest first, each folder its own stem
+namespace, the singletons root-only; (b2) the pre-Fox face CPK's paths next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 opened 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -3766,7 +3768,9 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   192x512 mipped texture and a `.model` mesh tag (PES 17); (d) the Fox cube map of
   type 0xD (PES 21, a Fox FMDL pointed at a converted `env.ftex`); (e)
   `kit_config::validate`'s two Infos (a shirt model outside 144, 160 and 176; an
-  undocumented sleeve value; PES 17 and 21). → verify: each a `manual: checked` line
+  undocumented sleeve value; PES 17 and 21); (f) a Fox subfolder texture in its own
+  platform folder (`sourceimages/jessie/#windx11/skin.ftex`, 4.y-sub (b1), `QUESTIONS.md`
+  "In-game checks"; PES 21). → verify: each a `manual: checked` line
   with its frames under `.tmp/4_y/ingame/frames/`.
   manual: checked 2026-10-10, the portrait header variants on PES 21: the four files
   of `C:/Data/4cc/Tools_Mine/temp/variants/` as the portraits of `/out/` bench players
@@ -4014,6 +4018,45 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   compile, models, prefox_faces, referees}.rs`; README (lead). Gates green
   (`.tmp/4_y/gates_sub_a_r2.log`, acceptance 311 of 313, TC-MOD-65 and TC-MOD-66 waiting on
   (c) and (b)); mutants 124 mutants, 103 caught, 21 unviable, 0 missed (`.tmp/4_y/mutants_sub_a_r2.log`).
+  (b1) done 2026-10-10 (Opus 5.5, one run and two rework rounds; brief
+  `.tmp/4_y/brief_sub_b1.md`, report
+  `.tmp/4_y/sk_sub_b1_report.md`): a subfolder's texture is emitted at its path below the
+  texture home on both engines (`PlayerFile::Texture { below, format }`, `below` the path
+  below the source folder without extension; `TextureHome::texture(engine, team_id, below)`,
+  on Fox the platform folder in the texture's own directory, decision "a Fox subfolder
+  texture sits in its own platform folder", the sidekick's contradiction accepted on Red's
+  Common layout, in-game item (f)); the new `texture_lookup.rs` (`TexturePlace`,
+  `TextureFolders::{insert, nearest_first, places}`, `split`, `variant`) resolves a
+  texture name in the file's own folder, then each parent up to the root, then the
+  combined shared folders, then the links, never down; the face task (`FacePlaces::of` per
+  `.mtl`), the shared writer (`places_for`, an `ingame_face` player's parts sit in his
+  subfolders: the sidekick's contradiction, accepted) and the Fox Models task
+  (`point_texture` with the texture's subdirectory) point with it, and the deep pass looks
+  a `.mtl` up with it (`HeldTextures::of`, `held_stems` gone); the textures task keys
+  copies by path (`resolve_path`), so a root `skin.dds` and `jessie/skin.dds` are two
+  entries, and only root textures form kit variant sets (a subfolder named `old_kit2_x/`
+  would read as a variant); a kit token is matched as spelled everywhere now (Fox and the
+  deep pass folded the name before, pre-Fox and the set completion did not: `find_token`
+  matches `kit` lower-case). `aesthetics_export`: each folder of a player's tree is its own
+  `texture_stem_conflict` namespace (`texture_claim`), the four singletons are
+  `file_type_disallowed` below a subfolder (`pub fn is_player_singleton`, consumer
+  `roles.rs` `role_position`, which gives a nested singleton no role under a lenient
+  check: the sidekick's contradiction, accepted, S18.A1-2). TC-MOD-65 reworded by the lead
+  (its texture sat below the model's folder, which nearest-first never reaches; now
+  `jessie/shorts.dds` beside a root `shorts.dds` of other bytes) and proven by the Fox CLI
+  test; nine unit tests that put a singleton in `face/` rewritten to the rule. Tests red
+  first (nine runs pasted). Files: `aesthetics_export` `conventions/{mod,
+  player_folder}.rs`, `lib.rs`, `validate/{folders, tests}.rs`; `team_compiler`
+  `texture_lookup.rs` (new), `lib.rs`, `paths.rs`, `plan/{mod, roles}.rs`, `deep/{documents,
+  materials, mod}.rs`, `processing/{model, prefox_face, prefox_shared, texture}.rs`,
+  `user_face_xml.rs`, `validation.rs`, `tests/cli/{models, prefox_faces}.rs`; DECISIONS,
+  player_folders.md, pipeline.md, QUESTIONS, README (lead). Gates green
+  (`.tmp/4_y/gates_sub_b1.log`, acceptance 312 of 313, TC-MOD-66 waiting on (b2));
+  mutants r1 99 mutants, 2 missed (the own/combined flag of the texture places at the Fox
+  and pre-Fox sites, `.tmp/4_y/mutants_sub_b1.log`; the first rework's two CLI tests catch
+  them), r2 99 mutants, 1 missed (`texture_claim`'s `||`: a texture link below a subfolder
+  counted in its namespace, the second rework's unit test; `.tmp/4_y/mutants_sub_b1_r2.log`),
+  r3 99 mutants, 86 caught, 13 unviable, 0 missed (`.tmp/4_y/mutants_sub_b1_r3.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -6651,3 +6694,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `work` whatever its usage, so the queued SWE-2 rounds run now: S7's and S14's second
   rounds and S17's first launched at 13:55 from the review worktree (`36f646f`); S12's
   and S13's post-Astra rounds, S15's two halves and S18's first follow.
+- **2026-10-10** — 4.y-sub (b1) done (sidekick, two rework rounds, one survivor each): a subfolder's textures at their
+  paths under the texture home on both engines, a texture name resolving nearest first
+  (`texture_lookup`), each folder its own stem namespace, the singletons root-only in
+  roles too; three contradictions accepted (the Fox platform folder sits in the
+  texture's own directory, decision and in-game item (f); the shared writer resolves
+  nearest first too; a nested singleton gets no role); TC-MOD-65 reworded to the rule
+  and proven.

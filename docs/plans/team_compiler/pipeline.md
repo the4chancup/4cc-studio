@@ -586,6 +586,7 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    completion order. The player's texture sources are its own folder (its subfolders included,
    each a texture namespace of its own where one stem twice is `texture_stem_conflict`; a model's
    texture name resolves in its own folder first, then in each parent up to the player's root,
+   never down, and each texture is emitted at its path below the texture home,
    `player_folders.md` "Subfolders") and each
    shared face, boots or gloves folder it combines, and a source counts for the package it feeds: the player's own folder and a
    combined face folder for the face, a combined boots (gloves) folder for the boots (gloves).
@@ -1905,7 +1906,8 @@ Resolved decisions:
   the team's ID, is the team's Common texture directory
   (`/Assets/pes16/model/character/common/<team>/sourceimages/`); an installed CPK holds it when
   its table of contents lists the path the Common textures task writes for that stem
-  (`Asset/model/character/common/<team>/sourceimages/#windx11/<stem>.ftex` on Fox). Both
+  (`Asset/model/character/common/<team>/sourceimages/#windx11/<stem>.ftex` on Fox; a player's
+  subfolder texture sits at `.../<folder>/sourceimages/<sub>/#windx11/<name>.ftex`). Both
   compare folded, as stems fold everywhere else. A texture is used when the material instance
   of one of the model's meshes names it; an entry of the texture table no mesh uses is not
   looked up, since the game never loads it. A stem starting with `dummy_` is never looked up,
