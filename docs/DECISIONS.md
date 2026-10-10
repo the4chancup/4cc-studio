@@ -6294,3 +6294,14 @@ out is what Fox shows. An Info rather than silence: a whole file producing nothi
 worth one line, where a mesh is not.
 Plan: `model_conversion/ir.md` "A hidden Fox mesh"; `team_compiler/messages.md`
 `model_hidden_dropped`; `team_compiler/README.md` TC-MOD-69.
+
+## 2026-10-10 — team_compiler — the blank face's `.fpkd` is generated empty, not a template
+Decision: `pipeline.md` no longer names `generic.fpkd` among the templates: every Fox
+package's `.fpkd` is written as an empty FPKD (`materialize.rs` `packed`), the blank face's
+included, and no `templates/` file replaces it.
+Why: Red's `generic.fpkd` is a 48-byte empty FPKD, the bytes the compiler already writes (the
+face parity row in `tests/parity.rs`), so a `Resource` for it would override nothing, which
+Astra's S14 round read as a missing override and a missing finding. A wording fix over a
+resource nobody can meaningfully replace.
+Plan: `team_compiler/pipeline.md` step 2's blank-face paragraph, step 3's packing sentence,
+"Templates and fallback bins".

@@ -97,11 +97,11 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   4.20, 4.27) rewrite parts of what those reviews would read, and converge reviews the
   crate anyway.
 - **Queue:** the Phase 4 Astra re-audit (directive above; briefs in `.tmp/duck_brief_S*.md`,
-  rulings in `.tmp/4_y/duck_rulings.md`): S14's first round, after 4.y-fix15 (its SWE-2
-  rework) so the round does not refind S14.1's defects; 4.14's (a) and (b) and 4.17's (c)
-  and (d), their briefs still to write; each followed by its SWE-2 loop. S7 to S13 and S15
-  need none: their Astra loops ended under five accepted (S9 at its third round, S15 at its
-  first, with no concerns). 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
+  rulings in `.tmp/4_y/duck_rulings.md`): 4.14's (a) and (b) and 4.17's (c) and (d) as one
+  surface, S17 (the conversion pair `model_convert` + `team_compiler`'s conversion paths),
+  its brief still to write; followed by its SWE-2 loop. S7 to S15 need none: their Astra
+  loops ended under five accepted (S9 at its third round, S15 at its first with no concerns,
+  S14 at its first with one plan correction). 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
   and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
   `.tmp/3_6/review_brief_3_6.md` is a template for the brief. 3.8 (b): `studio_core`'s `CliError`/
   `AppPaths`/location and the `team_compiler` CLI surface, from 3.8a's commit, against
@@ -6306,3 +6306,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   as a face only when the linked folder gives one; the deep pass reads every direct Common
   `.mtl` once a link's search lands in `Common/`; a non-model file in `Collars/` gets no
   collar finding. S14's second SWE-2 round and its first Astra round run on the rework.
+- **2026-10-10** — S14's first Astra round ran on the brother's ChatGPT Plus (41% of the
+  window) on the 4.y-fix15 rework: one concern, accepted as a plan correction with no code
+  (the blank face's `.fpkd` is generated empty, not the template `generic.fpkd` the plan
+  named: Red's file is that empty package, the face parity row proves the bytes), so the
+  S14 Astra loop ends at its first round; its second SWE-2 round is still owed.

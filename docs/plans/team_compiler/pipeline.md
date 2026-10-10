@@ -236,8 +236,9 @@ format:
    exception: with no face model it gets no face folder, since a referee has no FPC body to
    bring a head and the game's own referee head must stay (`blue_port.md` "Referee export
    processing"). On Fox the blank folder is
-   `face/real/{id}{NN}/#Win/face.fpk` holding only the template `face_diff.bin`, plus `face.fpkd`
-   (the template `generic.fpkd`): no model, no `.skl`, no `.fclo`. On pre-Fox it is
+   `face/real/{id}{NN}/#Win/face.fpk` holding only the template `face_diff.bin`, plus an empty
+   `face.fpkd`, generated as every package's is (Red's `generic.fpkd` is that empty package;
+   there is nothing in it to replace): no model, no `.skl`, no `.fclo`. On pre-Fox it is
    `face/real/{id}{NN}.cpk` holding a `face.xml` with one
    `<model level="0" type="face_neck" path="./oral_dummy_*.model" material="./dummy.mtl" />` and
    a `<dif>` from the template `face_diff.bin`, plus `oral_dummy_win32.model` (the template
@@ -620,7 +621,7 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    `face.xml` with no `<dif>`, each entry's `path` `./<name>.model` as Red and the DLC write
    it, its type from the model-name table); either folder's textures as DDS beside its models,
    the `.mtl` paths naming them `./<stem>.dds`. Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
-   template `.fpkd` (player-owned and merge-copied textures having been relocated to the per-player
+   generated empty `.fpkd` (player-owned and merge-copied textures having been relocated to the per-player
    common subfolder; plain shared-output textures remain in that model's own texture location).
    Packed entries are emitted to the writer queue. (Blue: `contents_packing.py`)
 
@@ -1708,7 +1709,7 @@ Resolved decisions:
   from `resources/skeletons/` — Red's single `body.skl` generalized, see the Model conversion plan's
   "Skeleton data" — `face_diff.bin`, the template environment cubemap that the material schema's
   `metal` family falls back to on pre-Fox (see the Unified model format plan's "Textures"),
-  `kit_mask.dds` and the checkerboard `kit.dds` for placeholder kits, dummy model/MTL, `generic.fpkd`,
+  `kit_mask.dds` and the checkerboard `kit.dds` for placeholder kits, dummy model/MTL,
   `fcl_hair_sim.fclo`, the generic kit config, the
   `TeamColor`/`UniColor`/`UniformParameter` fallback bases (in `resources/bins/`, Red's own: PES 18
   builds on `UniformParameter18.bin`, 19–21 on `UniformParameter19.bin`), and the current official
