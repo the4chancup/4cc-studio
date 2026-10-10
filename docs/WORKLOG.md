@@ -3522,14 +3522,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 
 - [ ] 4.y-fix15 **S14's SWE-2 rework** (rulings S14.1 in `.tmp/4_y/duck_rulings.md`).
   (1) Under `ingame_face` the deep pass's `.mtl` check sees the textures of the combined
-  `Boots/` and `Gloves/` folders (`deep/mod.rs` `FaceUse::of_player` returns before
-  computing `combined`): a false `mtl_texture_not_found` today. (2) A `.face` link gives
-  the player a face only when the linked `Faces/` folder holds a face model
-  (`roles.rs` `with_linked_face`, `ModelFolder::roles`): today a texture-only face
-  folder's link packs the player's own `face_diff.bin` into the blank face. (3) Under
-  `ingame_face` on PES 15-17 a `.common` link to a per-kit variant has no role, as
-  unmarked (`roles.rs` `pre_fox_file`'s `CommonLink` arm, the `kit_token` guard of
-  `pre_fox_link`). Plan only (done with this step's opening): the
+  `Boots/` and `Gloves/` folders: landed with 4.y-fix17 (`ReadFolder`, the test
+  `under_ingame_face_a_texture_only_the_combined_boots_folder_holds_supplies_his_own_mtl`).
+  (2) A `.face` link gives the player a face only when the linked `Faces/` folder gives
+  one (`roles.rs` `FolderModels::of_player` and `part_source_models` call
+  `with_linked_face` for any face link): today a texture-only face folder's link packs
+  the player's own `face_diff.bin` into the blank face on both engines, where the plan
+  gives the blank face the bundled diff and calls the file `face_file_not_used`. (3)
+  Under `ingame_face` on PES 15-17 a `.common` link to a per-kit variant has no role:
+  landed with 4.y-fix16 (`pre_fox_link`'s `kit_token` guard serves both arms, the test
+  `under_ingame_face_a_link_to_a_per_kit_common_model_is_not_used`). Plan only (done
+  with this step's opening): the
   `face_file_not_used` row names a member's `face.xml` under the marker and gives
   `fcl_hair_sim.fclo` to Fox. Plan: `player_folders.md` "`ingame_face` with shared
   links", "A link plus local models combines"; `pipeline.md` step 4 (the blank face);
@@ -6233,3 +6236,10 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   nothing written with the Info `model_hidden_dropped` (the step respecified in the
   morning from the lead's FMDL scan: 61 hidden meshes, 38 all-hidden files, deliberate
   placeholders). Three all-hidden edge cases no file reaches filed as one issue.
+- **2026-10-10** — S9's third Astra round ran on the user's own ChatGPT Plus (a fresh
+  five-hour window, 85% of it): three concerns, two accepted (a link's search may fall back
+  to a Common `.mtl` the pass never read; a non-model file in `Collars/` under the lenient
+  check is a false `collar_id_invalid`), one rejected (a shared folder holding only a higher
+  kit variant: a hand-built shape). Under five accepted, so the S9 Astra loop ends with the
+  rework, step 4.y-fix19, briefed with 4.y-fix15's one open item ((1) and (3) landed with
+  4.y-fix17 and 4.y-fix16).
