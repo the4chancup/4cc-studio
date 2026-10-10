@@ -163,8 +163,10 @@ repeatable sequences, each of which the plan names somewhere: `just deps-check` 
 the `fmdl`/`pes_model` denylist, plus the `cargo deny` license allowlist; see "License" in the
 core plan; run it right after any change that adds a package to `Cargo.lock`, a transitive one
 included, because `just gates` does not run it: 3.z's `eframe` brought two `BSL-1.0` crates that
-only CI saw), `just acceptance strict` (the scanner's converge mode, under "Requirements"), `just parity`,
-`just bindings` (the `maturin` build of `python_bindings`), `just release <version>`, `just
+only CI saw), `just acceptance strict` (the scanner's converge mode, under "Requirements"), `just parity`
+(the two Red-parity tests alone, `tests/parity.rs` and `tests/parity_prefox.rs`, which `just test`
+also runs), `just bindings` (the `maturin` build of `python_bindings`), `just release <version>`
+(arrives with release 0.1.0, `core/development_plan.md` "Release 0.1.0"), `just
 mutants <crate>`, `just mutants-collect` and `just mutants-diff [base]` (the mutation runs,
 below), `just clef-diff [base]` and `just clef <crate>` (the Clef scan, below). `just --list` shows
 them with a one-line description each.
@@ -301,9 +303,11 @@ Requirements:
   `scripts/clef_rulings.md`, so a ruled flag is not raised again while its code is unchanged,
   and the rulings are the data the threshold is re-checked against. The token comes from
   `CLOUDFLARE_API_TOKEN`, or from the file `STUDIO_CLEF_TOKEN_FILE` names, outside the
-  repository, one token per line, used in order. The free tier allows each account 10,000
-  neurons a UTC day (about 450K tokens, some thirty step diffs); a token that reaches it is
-  skipped for the rest of the day and the next one takes over. When every token is spent, the
+  repository, one token per line, used in order: the first is the maintainer's free-tier
+  account, which allows 10,000 neurons a UTC day (about 450K tokens, some thirty step diffs)
+  and is used first on purpose to contain costs; the second is the paid plan, with no daily
+  cap. A token that reaches its allocation (error 4006 on the first token is the expected
+  case) is skipped for the rest of the day and the next one takes over. When every token is spent, the
   scan is queued with the code as it is then and the run exits 0 saying `QUEUED`: the work goes
   on without Clef, and the first scan after the UTC date changes runs the queue first, its flags
   ruled like any others.

@@ -6183,3 +6183,18 @@ models in `boots/` folders) found every file named as the root would name it.
 Plan: `aesthetics_export/player_folders.md` "Subfolders", `team_compiler/messages.md`
 (the `player_layout_proto` row), `team_compiler/blue_port.md` "Referee export processing",
 `export_upgrader.md` items 9 and 12; `team_compiler/README.md` TC-REF-18.
+
+## 2026-10-10 — team_compiler — a sleeve or fit option the shirt model ignores is one Warning
+Decision: the three `kit_config` findings `kit_cut_out_requires_model_144_or_160`,
+`kit_undershirt_only_requires_model_144_or_160` and `kit_tight_requires_model_144_or_160`
+are reported by the deep pass as one Warning, `kit_config_option_ignored`, naming the option
+and the shirt model (step 4.y-kitwarn). The lib's two Infos (`kit_shirt_model_unknown`,
+`kit_unknown_sleeve_value`) stay unreported until the in-game checks of step 4.y-ingame2 (e)
+say what the game does with such a value; `kit_collar_zero` until a census of real configs
+says how many carry a zero collar.
+Why: the maintainer's answer (2026-10-10) to the QUESTIONS entry: one row for one condition
+("this shirt model ignores that option") rather than three rows saying it three ways, and a
+Warning because the kit compiles and the game draws it, with the option silently dropped. The
+Infos' in-game behavior is unknown, and a finding that may describe a crash as an Info, or a
+harmless value as a Warning, is worse than none until it is seen.
+Plan: `team_compiler/pipeline.md` "Kit configs", `team_compiler/messages.md` (the row).

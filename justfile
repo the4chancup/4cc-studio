@@ -57,6 +57,10 @@ clef crate:
 bindings interpreter=python:
     {{python}} scripts/bindings_check.py --python {{quote(interpreter)}}
 
+# The two Red-parity tests alone (the Fox and the pre-Fox tracer exports against Red's CPKs)
+parity:
+    cargo test -p team_compiler --test parity --test parity_prefox
+
 # Guardrail 4 (fmdl/pes_model dependency denylist) and the license allowlist (deny.toml)
 deps-check:
     {{python}} scripts/deps_check.py

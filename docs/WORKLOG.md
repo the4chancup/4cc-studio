@@ -34,7 +34,9 @@ checked in game, the harness driven by a virtual pad and OBS), 4.y-ingame2 start
 the sock table seen on PES 21, the DX10 header crashes PES 21's BC3 portrait reader),
 4.y-fix16 opened 2026-10-10 (S9's second Astra round, five concerns), 4.y-sub opened 2026-10-10
 (a subfolder of a player folder is a player folder of its own; the reserved subfolders gone, the
-AET referee layout refused per folder), 4.y-fix12 opened 2026-10-09
+AET referee layout refused per folder), 4.y-kitwarn and 4.y-retag opened 2026-10-10 (the
+maintainer's answers: one Warning for a sleeve or fit option the shirt model ignores; the
+2026-10-05 retags reviewed), 4.y-fix12 opened 2026-10-09
 (PES 17's `uniform.mtl` in the templates, its lead part done), 4.y-fix13 opened 2026-10-09 (a hidden Fox mesh left out of a
 `.model`), 4.y-fix14 opened 2026-10-09 (`Common/` subfolders on PES 15-17, the refkit,
 `fpc_off`'s referee body),
@@ -3582,6 +3584,27 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `HAHA Aesthetic Export VTL9 i3` (`C:/Data/4cc/Lab/`, 23 players, 688 nested files)
   compiles for PES 17 with every player kept and its face CPKs holding the tree.
 
+- [ ] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
+  maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
+  three `kit_*_requires_model_144_or_160` findings to `kit_config_option_ignored` (W, kept,
+  context the file, the option and the shirt model), as it maps the two clamps to
+  `kit_config_version_clamped`. Plan: `pipeline.md` "Kit configs", `messages.md` row.
+  Crates: tc
+  → verify: a CLI test per option (cut-out short sleeves, undershirt-only long sleeves, the
+  tight fit, each on a shirt model outside 144 and 160), red first; a config on model 144
+  with the three options reports nothing.
+
+- [ ] 4.y-retag **The 2026-10-05 retags reviewed** (the maintainer's answer, 2026-10-10:
+  "whichever fits Conventional Commits best"; rebasing and force-pushing are fine, the
+  repository being unannounced). The commits retagged from `review` to `fix` that day (the
+  reviewer-round and survivor-triage commits of 2026-09-28 to 2026-10-05: `git log
+  --format='%h %s' | grep -i "round\|triage\|S[0-9]"`) are re-read one by one and retagged
+  `refactor` or `test` where the diff is one of those (a commit that only adds tests is
+  `test`; one that moves code without changing behavior is `refactor`; one fixing a defect
+  stays `fix`), with an interactive-free rebase (`git rebase` with a script `exec`, never
+  `-i`) run when no sidekick edits the tree and nothing is uncommitted, then a force push.
+  → verify: `git log --oneline` shows the new types; `just gates` green at the new HEAD.
+
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -3722,8 +3745,9 @@ parked placeholder faces and hair are the main cause of the matchday lag the rul
 for, so 4.7 drops their folders. The kit layout
 table (4.10) takes its numbers from the games' uniform models alone: the pair made with PES
 Master's two kit creators (scripts, renders and `FINDINGS.md` in `.tmp/4_7/kit_creator/`) agrees
-with them on the socks and not on the shorts, and the models win (`pipeline.md` "Layout
-conversion").
+with them on the socks; the shorts keep their layout across engines, so the table covers the
+socks alone (DECISIONS 2026-10-04; the maintainer confirmed it 2026-10-10: "time will tell";
+`pipeline.md` "Layout conversion").
 
 ### Phase 5 — Savefile integration
 
@@ -3973,12 +3997,15 @@ points there.
   Common output (seen at 4.29b, older than it; not tested). Decide whether a `.ftex` link is
   refused or read.
 - open — the compiler reports only two of `kit_config::validate`'s findings (the two a
-  version's encoding clamps, as `kit_config_version_clamped`, step 4.9a). The others have no
-  row in `messages.md`: `kit_collar_zero` (the lib's one Error; `messages.md` says
-  `kit_config_invalid` covers a config that "fails to validate", which the deep pass does
-  not do), `kit_shirt_model_unknown`, the three "requires model 144 or 160" warnings and
-  `kit_unknown_sleeve_value`. Before a kit is dropped for a zero collar, count how many real
-  configs carry one (the old-format exports' `Kit Configs/` and the installs' CPKs).
+  version's encoding clamps, as `kit_config_version_clamped`, step 4.9a). The maintainer's
+  rulings (2026-10-10): the three "requires model 144 or 160" warnings are reported as one
+  Warning, `kit_config_option_ignored` (step 4.y-kitwarn); the two Infos
+  (`kit_shirt_model_unknown`, `kit_unknown_sleeve_value`) wait for the in-game checks of
+  step 4.y-ingame2 (e), which say whether the game ignores, clamps or crashes on them;
+  `kit_collar_zero` (the lib's one Error; `messages.md` says `kit_config_invalid` covers a
+  config that "fails to validate", which the deep pass does not do) waits for a collar
+  census: before a kit is dropped for a zero collar, count how many real configs carry one
+  (the AET exports' `Kit Configs/` and the installs' CPKs), eventually.
 
 - open — the headless egui test harness (a frame with AccessKit on, a node by label, a click as
   press and release frames) exists twice, in `studio_core/src/shell/mod.rs` and
@@ -5159,8 +5186,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   maintainer asks for autonomous work, decisions only they can take logged for later):
   - **4.33:** `name.y` is PES 21's value on every version.
   - **Clef full pass (4.c-pass):** 54 flags, 53 rejected and 1 accepted (step 4.c-fix1). The
-    scan now leaves out test modules in files of their own. The maintainer took Workers Paid,
-    so Clef has no daily limit now.
+    scan now leaves out test modules in files of their own. The maintainer took Workers Paid
+    on the second account: the first token stays on the free tier and is used first on
+    purpose (`CONTRIBUTING.md` "Clef scan").
   - **4.34a:** the coverage tag is read and required.
   - **Maintainer's rulings:** every team needs one player kit and one goalkeeper kit, so a
     `Full` export without them compiles an empty `p1/` or `g1/` (TC-BIN-19, 20; TC-BIN-14
@@ -5795,3 +5823,11 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   refused with `player_layout_proto`, naming the upgrader (two decision entries;
   TC-MOD-65 to 68, TC-REF-18). The glossary gains AET and ATF (AATF, Aesthetics ATF)
   from the maintainer's definitions.
+- **2026-10-10** — The maintainer's answers to the QUESTIONS entries landed: Clef's paid
+  plan is on the second token, the free first one used first on purpose
+  (`CONTRIBUTING.md` "Clef scan"); the 2026-10-05 retags get a review step (4.y-retag);
+  `just parity` runs the two parity tests and `just release` arrives with 0.1.0; the
+  shorts keep their layout (the 2026-10-04 decision confirmed); `kit_config`'s three
+  model-gated warnings become one `kit_config_option_ignored` (step 4.y-kitwarn,
+  decision), its two Infos wait for the in-game checks of 4.y-ingame2 (e) and
+  `kit_collar_zero` for a collar census.

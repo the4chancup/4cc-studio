@@ -69,26 +69,4 @@ check-time finding on the file instead of Red's output.
 
 ## Cup practice and preferences
 
-### Clef's first token
-From: the lead's note of 2026-10-07. After the maintainer took Workers Paid, the full pass's
-first request on token 1 (the maintainer's account) still got the "daily free allocation"
-error (4006), so the pass ran on token 2. Is the paid plan on the first account, and active?
-No code change either way.
-
-### Commit retags
-From: the 2026-10-05 retag of `review` commits to `fix`. Should any of them rather be
-`refactor` or `test`?
-
 ## Small confirmations
-
-### `just parity` and `just release`
-`CONTRIBUTING.md` names both recipes; the justfile lacks them. Add the recipes, or drop the
-mentions?
-
-### Shorts not re-laid across engines
-A decision entry reversed the plan's reading (the shorts keep their layout). Fine as is, or
-reverse?
-
-### `kit_config::validate`'s unreported findings
-The compiler reports two of the lib's findings; `kit_collar_zero` and four more go
-unreported. Report them in the compiler too, or leave them to the Kit config editor?

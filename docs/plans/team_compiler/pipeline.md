@@ -753,8 +753,14 @@ describes behavior, not a serial scheduling requirement:
   reported by the deep pass, so by `check` as by `compile` (`kit_config_version_clamped` on the
   file, kept, naming the field, the value and the version's maximum: `kit_config`'s
   `kit_value_out_of_range` and `kit_pattern_unsupported_pes15` findings), and clamped when the
-  binary is emitted. `kit_config`'s other findings are not reported by the compiler yet
-  (worklog "Issues").
+  binary is emitted. A sleeve or fit option the config's shirt model does not take
+  (`kit_config`'s three `kit_*_requires_model_144_or_160` findings: cut-out short sleeves,
+  undershirt-only long sleeves, the tight fit) is one Warning, `kit_config_option_ignored`,
+  naming the option and the shirt model: three rows for one condition, "this model ignores
+  that option", would say the same thing three ways. `kit_config`'s two Infos (a shirt model
+  outside the documented set, an undocumented sleeve value) and its `kit_collar_zero` are not
+  reported by the compiler yet (worklog "Issues": the Infos wait for an in-game check of what
+  the game does with such a value, the collar on a census of real configs).
 - **Logo** — the game's three PNGs are *produced*, not passed through: the main `logo*` file is
   decoded (`image`, via `dds_convert`'s decoders), made square per its fit tag (`crop` /
   `stretch` / `fit`, default `fit`), resampled with Lanczos3 to 512² and 256², and encoded as
