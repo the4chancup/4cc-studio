@@ -6198,3 +6198,16 @@ Warning because the kit compiles and the game draws it, with the option silently
 Infos' in-game behavior is unknown, and a finding that may describe a crash as an Info, or a
 harmless value as a Warning, is worse than none until it is seen.
 Plan: `team_compiler/pipeline.md` "Kit configs", `team_compiler/messages.md` (the row).
+
+## 2026-10-10 — team_compiler — `kit_config`'s two Infos stay unreported by the compiler
+Decision: `kit_shirt_model_unknown` (a shirt model outside 144, 160 and 176) and
+`kit_unknown_sleeve_value` (a sleeve value outside the documented two) are not mapped to
+compiler findings; the lib keeps them for the Kit config editor.
+Why: the in-game checks of 2026-10-10 (worklog 4.y-ingame2): shirt model 150 is a model
+the game has, a sleeveless shirt drawn on PES 17 and PES 21, so the lib's set of three is
+the documentation's, not the game's, and a finding on 150 would call a working kit
+suspect; a raw sleeve value draws the long-sleeve variant without sleeves and crashes
+nothing, a look the member sees in game and may well mean. A finding that cannot tell a
+mistake from a choice is noise in a compile log; the editor, where the member picks the
+value, is where the documented set belongs.
+Plan: `team_compiler/pipeline.md` "Kit configs" (the sentence on the two Infos).

@@ -758,9 +758,11 @@ describes behavior, not a serial scheduling requirement:
   undershirt-only long sleeves, the tight fit) is one Warning, `kit_config_option_ignored`,
   naming the option and the shirt model: three rows for one condition, "this model ignores
   that option", would say the same thing three ways. `kit_config`'s two Infos (a shirt model
-  outside the documented set, an undocumented sleeve value) and its `kit_collar_zero` are not
-  reported by the compiler yet (worklog "Issues": the Infos wait for an in-game check of what
-  the game does with such a value, the collar on a census of real configs).
+  outside the documented set, an undocumented sleeve value) are not reported by the compiler:
+  in game a shirt model outside the set is a model the game has (150 is a sleeveless shirt on
+  both engines) and a raw sleeve value draws the long-sleeve variant without sleeves, so neither
+  tells a mistake from a choice; they are the Kit config editor's. Its `kit_collar_zero` waits
+  for a census of real configs (worklog "Issues").
 - **Logo** — the game's three PNGs are *produced*, not passed through: the main `logo*` file is
   decoded (`image`, via `dds_convert`'s decoders), made square per its fit tag (`crop` /
   `stretch` / `fit`, default `fit`), resampled with Lanczos3 to 512² and 256², and encoded as

@@ -68,10 +68,28 @@ Run every command from the repository root. Screenshots go under `.tmp/` (gitign
      whose cursor starts on APPLY LIVE UPDATE; EDIT is one tile up.
    - **Edit mode, a player's appearance**: `pad 17 up wait:1 a wait:6` (Edit), `a wait:4`
      (Ponies), `down wait:1 a wait:4` (Edit Pony), `a wait:3` (4chan Cup), `down wait:1 a wait:4`
-     (/a/, the second team), then on the roster's first player `a wait:4` and
-     `down down down down down wait:1 a wait:5` (Appearance). `b wait:2 b wait:3` returns to the
-     roster, `down` moves to the next player. `obs-shot` with no width gives the full 1920x1080
-     frame to crop.
+     (/a/, the second team; the list is alphabetical from /3/, so `down:39 wait:2 a wait:5`
+     is /out/), then on the roster's first player `a wait:4` and
+     `down:5 wait:1 a wait:5` (Appearance, the sixth item of the Edit Pony menu). `b wait:2
+     b wait:3` returns to the roster, `down` moves to the next player. `obs-shot` with no
+     width gives the full 1920x1080 frame to crop. The Face view opens zoomed on the head and
+     draws the face package alone; `hold:lt:3` zooms out to the whole body, `hold:rt:2` then
+     `hold:rs-down:2` to the socks, `hold:rs-left:1` turns the player half round. Strip Style
+     (`down:3 a` from Face) holds the Sleeves row five rows down (`down:4`, `right` toggles
+     Long), which is how a long-sleeve kit variant is seen. Pick the team by what its save
+     holds: /a/'s players are billboard models whose save hides the standard body, so a face
+     put on an /a/ slot draws with no body at all (three runs lost to that on 2026-10-10);
+     /out/'s PES 17 players are standard bodies in the game's boots, which show a kit whole.
+   - **PES 21, the same view**: `pad 21 wait:25 a wait:5 wait:12 a wait:6` passes the title
+     and the "Rigging" load. The top menu is a grid of icons moved by the left stick:
+     `ls-right:3 wait:1 a wait:3` opens Settings (the wrench), whose first item is Edit;
+     `a wait:4` opens it behind an "Image List Load Data Not Found" box that `a wait:3`
+     dismisses onto the Edit Menu with the cursor on Players; `a wait:3` (Players), `down
+     wait:1 a wait:4` (Edit Player), `a wait:3` (4chan Cup Main), `down:39 wait:2 a wait:5`
+     (/out/), `down:N wait:1 a wait:4` (a row), `down:5 wait:1 a wait:7` (Appearance). Never
+     send a blind `ls-down` on the Edit Menu: it wraps to Load, whose `a` asks to erase the
+     edit data (B declines). A sequence that drifts into a training drill is left with
+     `start`, `down:5 a`, `right a` (Top Menu).
    - **A match's walkout** (keys; the enters accept the last match's teams, which the game
      remembers only when that match was quit from the pause menu):
      `keys 17 wait:12 enter wait:3 enter wait:12 enter wait:5 enter wait:5 enter wait:2 enter

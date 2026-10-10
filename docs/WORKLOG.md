@@ -3559,6 +3559,36 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the stripes straight, no seam at the visible part (`p21_legs_sheet.png`); the
   diagonal and the hoop sit under the team's gaiter boots, and the PES 17 reference
   view is still to take (open item (a)).
+  manual: checked 2026-10-10, the sock table's PES 17 reference and the lower sock:
+  Test 3's kit (design A, laid out for PES 15-17, so no conversion) compiled for
+  `/out/` on PES 17 with the cup's own heads, whose PES 17 players wear the game's
+  boots: the thick white stripe at the front, the thin red one at the back, the
+  yellow disc on the outer side, the green diagonal band on the lower calf and the
+  orange hoop at the ankle, as drawn (`s17_34_out_legs.png`, `s17_35_out_legs_side.png`,
+  `s17_36_out_legs_back.png`); PES 21's converted upper part matches it feature for
+  feature. The lower part on PES 21 still waits for a player without the gaiters: a
+  `settings.toml` with `boots_id = 0` writes no table before Phase 5, and a blank
+  `face.fpk` in the test slot did not replace `/out/`'s cup heads in PES 21's Edit
+  mode (`w21_24_roster.png`), an observation for Phase 5's own checks. Method:
+  `/a/`'s save hides its players' standard bodies (billboard models), so any face put
+  on an `/a/` slot draws with no body on PES 17; the Face view draws the face package
+  alone, and the whole body shows in the Appearance view zoomed out or in Strip Style
+  (`scripts/ingame/README.md`).
+  manual: checked 2026-10-10, the stock collar set: the template config's collar and
+  the version's last stock ID (116 on PES 17, 131 on PES 21) each draw a collar on
+  `/out/`'s standard bodies, a crew neck with the kit's own V at the back, 116 a
+  V-neck under the long-sleeve toggle (`s17_38_collar_front.png`,
+  `s17_42_c116_collar.png`, `s17_47_sleeves_long.png`, `w21_17_row5.png`); the
+  QUESTIONS entry closed.
+  manual: checked 2026-10-10, `kit_config::validate`'s two Infos: shirt model 150
+  (outside the documented 144, 160 and 176) draws a sleeveless shirt on PES 17 and
+  PES 21, no crash (`s17_40_model150.png`, `w21_17_row5.png`), a model the game has,
+  so `kit_shirt_model_unknown` names a documentation gap, not a bad value;
+  `long_sleeves = 3`, an undocumented raw value, leaves the short-sleeve view as it
+  is and draws the long-sleeve variant without sleeves on PES 17
+  (`s17_47_sleeves_long.png`), no crash. Both stay unreported by the compiler
+  (DECISIONS 2026-10-10); open item (e) closed, (a) closed but for PES 21's lower
+  sock.
 
 - [ ] 4.y-fix16 **S9's second Astra round: the deep pass checks what `compile` reads,
   five more places** (rulings S9.A2 in `.tmp/4_y/duck_rulings.md`, all five accepted,
@@ -5885,3 +5915,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the installed CPKs as a set, a WESYS-wrapped portrait unwrapped on Fox, TC-KIT-19
   proving the inverse table's stripe centres. Two contradictions accepted; four
   follow-ups to fix16; the right sock's table margin an issue.
+- **2026-10-10** — 4.y-ingame2, the PES 17 half: the sock table's reference view on
+  `/out/`'s standard bodies (every feature of design A where it was drawn, the lower
+  sock included), the stock collar IDs drawing (the template's, 116, 131), shirt
+  model 150 a sleeveless shirt on both engines and an undocumented sleeve value drawn
+  without sleeves, no crash: `kit_config`'s two Infos stay unreported (decision). The
+  `/a/` save hides standard bodies, which cost three runs before `/out/` was used.

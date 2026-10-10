@@ -12,21 +12,6 @@ names where the question came from so the context can be read there.
 
 ## In-game checks
 
-### The stock collar sets' look
-From: step 4.9b. Whether the shipped collar sets look right in game. A collar ID beyond
-the stock set is settled (worklog 4.y-ingame2, 2026-10-10): on PES 21 it loads when its
-model exists (Test 3's collar 200, a copy of `collar_107.fmdl`, draws the folded collar),
-and one with no model draws a plain neckline, no crash, on PES 17 and 21. The stock sets
-themselves wait for a standard-body team on PES 17 whose outfielders show in Edit mode
-(`/a/`'s are billboards), or a match view.
-
-### The sock table's look
-From: step 4.10. Needs a kit with a vertical design on its socks, compiled for PES 17 and 21
-and compared in game. Test 3 holds that kit (design A on kit 1). The PES 21 half is seen
-(worklog 4.y-ingame2, 2026-10-10: the stripes straight and in place on the visible upper
-sock); the PES 17 reference and the lower sock need a standard-body team whose boots do
-not cover the socks (`/a/`'s outfielders are billboards, `/out/` wears gaiters).
-
 ### Face diffs are engine-specific
 From: maintainer, 2026-10-03 (worklog Issues). A `face_diff.bin` (or its `face_diff.xml` and
 `<dif>` text forms) authored for one engine misplaces the face on the other, as the kit layout
