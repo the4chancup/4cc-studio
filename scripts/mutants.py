@@ -28,6 +28,7 @@ version (the pinned toolchain installs itself on first use inside the tree).
 import io
 import json
 import os
+import shutil
 import statistics
 import subprocess
 import sys
@@ -325,10 +326,11 @@ def remote_run_state(host: str) -> str | None:
     return state
 
 
-def launch_remote(host: str, selection: list[str]) -> None:
+def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
     """Writes `run/job.sh` (and `run/in.diff` for a `--in-diff` selection,
     the same diff the local half reads) and starts it as the `REMOTE_UNIT`
-    transient service (`sudo -n systemd-run`), detached from this ssh session
+    transient service (`sudo -n systemd-run`): shard 1/2 of the selection, or
+    all of it when `whole` (`remote_only`). The service is detached from this ssh session
     by construction: the unit is memory-capped (`MemoryMax`, no swap) and
     CPU-idle so Fluxer's production services on the host win, and
     `OOMPolicy=continue` keeps cargo-mutants alive past an in-unit OOM kill.
@@ -338,6 +340,7 @@ def launch_remote(host: str, selection: list[str]) -> None:
         remote_args = '--in-diff "$HOME/studio-mutants/run/in.diff"'
     else:
         remote_args = " ".join(selection)
+    shard = "" if whole else "--shard 1/2 --sharding round-robin "
     job = (
         "#!/bin/bash\n"
         "exec > ../run/log 2>&1\n"
@@ -345,7 +348,7 @@ def launch_remote(host: str, selection: list[str]) -> None:
         # On disk, not the tmpfs `/tmp`: see REMOTE_TMPDIR.
         f'export TMPDIR="{REMOTE_TMPDIR}" && mkdir -p "$TMPDIR"\n'
         f". ~/.cargo/env && nice -n 19 ionice -c3 cargo mutants {remote_args} --jobs 2 "
-        "--shard 1/2 --sharding round-robin --config ../mutants.remote.toml\n"
+        f"{shard}--config ../mutants.remote.toml\n"
         "code=$?\n"
         # `memory.peak` of this unit's cgroup tells whether the cap is tight;
         # `exit` stays the last file written: pollers treat it as finished.
@@ -421,15 +424,17 @@ def wait_remote(host: str) -> tuple[int, float]:
 
 def run_split(
     selection: list[str], host: str, tree: str, remote_head: str | None,
-    remote_tree: str | None, nproc: int,
-) -> tuple[int, int, float, float]:
+    remote_tree: str | None, nproc: int, local: bool = True,
+) -> tuple[int, int, float | None, float]:
     """The local shard starts at once, in the foreground with console output as
     today; a thread transfers the snapshot, writes the remote config and launches
     the remote shard, so the transfer counts against the remote side only.
     `selection` is the mutant-selection arguments (`["-p", crate]` or
     `["--in-diff", path]`); the remote reads an uploaded copy of a diff.
-    Returns the (local, remote) codes and seconds: the local half's from the
-    common start, the remote half's from its own launch."""
+    Without `local` (`remote_only`) the remote runs the whole selection and
+    nothing runs here. Returns the (local, remote) codes and seconds: the local
+    half's from the common start (None without one), the remote half's from its
+    own launch."""
     start = time.monotonic()
     remote: dict = {}
 
@@ -440,12 +445,18 @@ def run_split(
             else:
                 transfer(host, remote_head)
             remote_config(host, nproc)
-            launch_remote(host, selection)
+            launch_remote(host, selection, whole=not local)
             print("remote half launched", flush=True)
         except (OSError, subprocess.CalledProcessError, TypeError) as error:
             # Re-raised in the main thread once the local half is done.
             remote["error"] = error
 
+    if not local:
+        remote_half()
+        if "error" in remote:
+            raise RuntimeError("the remote run failed before running") from remote["error"]
+        remote_code, remote_seconds = wait_remote(host)
+        return 0, remote_code, None, remote_seconds
     thread = threading.Thread(target=remote_half)
     thread.start()
     local = local_mutants([*selection, "--shard", "0/2", "--sharding", "round-robin"])
@@ -674,10 +685,16 @@ def update_cost_cache() -> None:
     os.replace(temp, COST_CACHE)
 
 
-def split(selection: list[str], host: str) -> int:
+def split(selection: list[str], host: str, local: bool = True) -> int:
     """The whole split run for one selection: the busy-remote refusal, the
-    snapshot, the version check, both halves, the fetch and the summary."""
-    print(f"splitting the run with {host}", flush=True)
+    snapshot, the version check, both halves, the fetch and the summary.
+    Without `local` (`remote_only`) the remote runs every mutant and the last
+    run's local `mutants.out` is set aside first, as cargo-mutants itself does,
+    so the summary counts this run's results alone."""
+    if local:
+        print(f"splitting the run with {host}", flush=True)
+    else:
+        print(f"running every mutant on {host} (STUDIO_REMOTE_ONLY)", flush=True)
     started = time.monotonic()
     # The remote must be free before the transfer rewrites its tree.
     state = remote_run_state(host)
@@ -709,8 +726,15 @@ def split(selection: list[str], host: str) -> int:
         )
         return 1
 
+    if not local:
+        out = ROOT / "mutants.out"
+        old = ROOT / "mutants.out.old"
+        if out.exists():
+            if old.exists():
+                shutil.rmtree(old)
+            out.rename(old)
     local_code, remote_code, local_seconds, remote_seconds = run_split(
-        selection, host, tree, remote_head, remote_tree, nproc
+        selection, host, tree, remote_head, remote_tree, nproc, local
     )
     update_cost_cache()
     fetch_remote(host)
@@ -721,7 +745,7 @@ def split(selection: list[str], host: str) -> int:
     )
     # The halves' seconds leave out the transfer, the polling and the fetch;
     # this is what the user waited.
-    print(f"split run: {time.monotonic() - started:.0f} s wall")
+    print(f"{'split' if local else 'remote'} run: {time.monotonic() - started:.0f} s wall")
     return code
 
 
@@ -730,16 +754,33 @@ def remote_host() -> str | None:
     registry environment. A process started before the variable was set, such as
     an IDE's or an agent's shell, does not see it, and would silently run every
     mutant locally. An empty value in the process opts out."""
-    host = os.environ.get("STUDIO_MUTANTS_REMOTE")
-    if host is None and os.name == "nt":
+    return user_environment("STUDIO_MUTANTS_REMOTE")
+
+
+def remote_only() -> bool:
+    """Whether `STUDIO_REMOTE_ONLY` is set (read as `remote_host` reads its
+    variable): every mutant of `just mutants` and `just mutants-diff` then runs on
+    the remote, whatever the size or `LOCAL_ONLY_CRATES`, and nothing here. Set on
+    2026-10-10 while this machine was suspected of crashing under the runs' load
+    (four MEMORY_MANAGEMENT bugchecks, the last during a run); the gates have
+    `just gates-remote` for the same reason."""
+    return user_environment("STUDIO_REMOTE_ONLY") is not None
+
+
+def user_environment(name: str) -> str | None:
+    """`name` from the process, else (Windows) from the user's registry
+    environment, which a shell started before the variable was set does not
+    see; None when unset or empty (an empty value in the process opts out)."""
+    value = os.environ.get(name)
+    if value is None and os.name == "nt":
         import winreg
 
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
-                host = winreg.QueryValueEx(key, "STUDIO_MUTANTS_REMOTE")[0]
+                value = winreg.QueryValueEx(key, name)[0]
         except OSError:
-            host = None
-    return host or None
+            value = None
+    return value or None
 
 
 def main(argv: list[str]) -> int:
@@ -750,6 +791,8 @@ def main(argv: list[str]) -> int:
             return 1
         return collect(host)
     crate = argv[1]
+    if host is not None and remote_only():
+        return split(["-p", crate], host, local=False)
     if host is None or crate in LOCAL_ONLY_CRATES:
         reason = (
             "STUDIO_MUTANTS_REMOTE is not set" if host is None

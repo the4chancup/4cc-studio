@@ -11,6 +11,10 @@ python := if os_family() == "windows" { "python" } else { "python3" }
 # The five verification gates, in order. CI runs this same recipe.
 gates: fmt-check clippy test wasm-check acceptance
 
+# The same gates on the mutants host (STUDIO_MUTANTS_REMOTE) against the working tree, while this machine should not carry the load
+gates-remote:
+    {{python}} scripts/remote_gates.py
+
 # Gate 1: formatting
 fmt-check:
     cargo fmt --all --check
