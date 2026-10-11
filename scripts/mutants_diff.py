@@ -100,6 +100,7 @@ def run(diff_path: str, tree: str) -> int:
         return 1
     print("mutants_diff: running here", flush=True)
     print(f"mutants_diff: cargo mutants --in-diff {diff_path}", flush=True)
+    mutants.set_aside_last_run()
     code = mutants.local_mutants(["--in-diff", diff_path]).returncode
     mutants.update_cost_cache()
     return mutants.report_killed(code)

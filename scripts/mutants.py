@@ -18,9 +18,9 @@ polls it with short ssh calls, so a dropped connection costs one poll, not the r
 cargo-mutants cannot resume, and a remote half tied to one long ssh session
 died with it (2.20i). If this script itself stops, `just mutants-collect`
 waits for the remote half and fetches it. A new run refuses to start while a
-remote half is running or finished but not yet collected, or while `just
-gates-remote` runs there, and a local run refuses while a remote half is
-uncollected, since the collection summarizes the local `mutants.out` with it. A
+remote half is running or finished but not yet collected, since the collection
+summarizes the local `mutants.out` with it, and a run that uses the remote also
+while `just gates-remote` runs there. A
 running half is stopped by hand with `sudo systemctl stop studio-mutants` on
 the host.
 
@@ -360,13 +360,12 @@ def remote_run_state(host: str) -> str | None:
 
 
 def remote_refusal(host: str, remote: bool) -> str | None:
-    """Why a new run cannot start, or None. Any run refuses while a remote half is uncollected,
-    as it is for an uncollected
-    remote half, whose collection summarizes the local `mutants.out` with it,
-    which a new local half would replace. A run that uses the remote (`remote`)
-    also waits for a reachable host and for `just gates-remote`, since each
-    rewrites the remote clone under the other; a local one starts when the host
-    cannot be reached, which is no reason to stop it."""
+    """Why a new run cannot start, or None. Any run refuses while a remote half is running
+    or finished but uncollected, whose collection summarizes the local `mutants.out` with
+    it, which a new local half would replace. A run that uses the remote (`remote`) also
+    refuses while the host cannot be reached or `just gates-remote` runs there, since each
+    rewrites the remote clone under the other; a local one starts when the host cannot be
+    reached, which is no reason to stop it."""
     state = remote_run_state(host)
     if state is None:
         return f"cannot reach {host}" if remote else None
@@ -617,13 +616,14 @@ def never_ran(out_dir: Path) -> tuple[int, int] | None:
     midway leaves lists that look like a complete, shorter run."""
     selection = out_dir / "mutants.json"
     outcomes = out_dir / "outcomes.json"
-    if not selection.exists() or not outcomes.exists():
+    if not selection.exists():
         return None
     selected = len(json.loads(selection.read_text(encoding="utf-8")))
+    # A half stopped during its baseline has written its selection and no outcome yet.
     ran = sum(
         isinstance(outcome["scenario"], dict)
         for outcome in json.loads(outcomes.read_text(encoding="utf-8"))["outcomes"]
-    )
+    ) if outcomes.exists() else 0
     return (ran, selected) if ran < selected else None
 
 
@@ -845,6 +845,19 @@ def update_cost_cache() -> None:
     os.replace(temp, COST_CACHE)
 
 
+def set_aside_last_run() -> None:
+    """Move the last run's `mutants.out` to `mutants.out.old` before a run starts, as
+    cargo-mutants itself does, so nothing of it is read as this run's: a cargo-mutants that
+    fails before its own rotation (a config or diff error) would leave it in place, and the
+    killed-build report and the cost cache would read it."""
+    out = ROOT / "mutants.out"
+    old = ROOT / "mutants.out.old"
+    if out.exists():
+        if old.exists():
+            shutil.rmtree(old)
+        out.rename(old)
+
+
 def split(
     selection: list[str], host: str, local: bool = True, tree: str | None = None
 ) -> int:
@@ -878,15 +891,7 @@ def split(
         )
         return 1
 
-    # The last run's `mutants.out` goes aside before either half starts, as cargo-mutants
-    # itself does, so nothing of it is summarized as this run's: a local half that fails
-    # before cargo-mutants rotates it (a config or diff error) would leave it in place.
-    out = ROOT / "mutants.out"
-    old = ROOT / "mutants.out.old"
-    if out.exists():
-        if old.exists():
-            shutil.rmtree(old)
-        out.rename(old)
+    set_aside_last_run()
     local_code, remote_code, local_seconds, remote_seconds = run_split(
         selection, host, tree, remote_head, remote_tree, nproc, local
     )
@@ -939,6 +944,7 @@ def main(argv: list[str]) -> int:
             print(refusal)
             return 1
         print(f"{reason}: running every mutant on this machine", flush=True)
+        set_aside_last_run()
         code = local_mutants(["-p", crate]).returncode
         update_cost_cache()
         return report_killed(code)
