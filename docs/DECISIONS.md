@@ -6846,3 +6846,13 @@ package salvage could also leave a kept model naming a texture only the dropped 
 Plan: `team_compiler/pipeline.md` step 6 ("The shared textures commit"); `messages.md`
 `shared_texture_conflict`, `multiple_ref_exports`; `aesthetics_export/object_model.md` "Export
 findings of `validate`"; TC-TEX-18.
+
+## 2026-10-11 — aesthetics_export — no `config.toml` bridge in the crate; `kit_config` owns its TOML form
+Decision: the planned `aesthetics_export/kit_config_toml.rs` is not built; a kit's `config.toml`
+is read and written by `kit_config`'s `KitConfig::from_toml`, `to_toml` and the
+comment-preserving `update_toml`, which the compiler's deep pass and kit task call directly.
+Why: the format crate owns both forms of its format, and `aesthetics_export` reads no file
+content; a bridge here would be a wrapper around three `kit_config` functions with the compiler
+its only caller (found at 4.z-rewrite: Phase 4's kit step never needed it).
+Plan: `aesthetics_export/object_model.md` (the crate layout and the paragraph after
+`ExportSlot`).

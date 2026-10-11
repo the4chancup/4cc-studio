@@ -237,10 +237,10 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   icon).
   `Portraits/player_NN.*` maps to slot NN; two files of one stem there are
   `texture_stem_conflict`, dropping both files. `portrait_conflict` compares contents, so it
-  belongs to the deep pass (Phase 4). Every root file whose stem starts with `logo` is a logo
+  belongs to the deep pass. Every root file whose stem starts with `logo` is a logo
   candidate; `logo_file_invalid`, `logo_role_duplicate` and `logo_small_without_main` each drop
   the logo as one unit (`File`-scoped on the offending file, `DropFile`, `logo: None`).
-  `team_colors_missing` belongs to the bins stage (Phase 4).
+  `team_colors_missing` belongs to the bins stage.
 
 ### `aesthetics_export` crate layout
 
@@ -272,8 +272,7 @@ crates/libs/aesthetics_export/src/
 │   └── issues.rs       #   ValidationIssue, ISSUE_CODES (stable code, scope, context) — no message text
 ├── resolve.rs          # ValidatedAestheticsExport + teams_list::TeamsList → ResolvedAestheticsExport (ExportIdentity, TeamId)
 ├── colors_txt.rs       # colors.txt reader: the "Colors" grammar, bytes in, colors and refused lines out
-├── players_txt.rs      # players.txt writer (Refs arranger) with atomic replacement
-└── kit_config_toml.rs  # config.toml ↔ kit_config binary bridge for exports (comment-preserving)
+└── players_txt.rs      # players.txt writer (Refs arranger) with atomic replacement
 ```
 
 Placement rules:
@@ -369,7 +368,7 @@ pub struct KitFolder {
                                              // the scope a consumer's kit findings name
     pub label: Option<String>,               // the free part after ` - `; GUI/editor display only
     pub config: Option<FileDescriptor>,      // config.toml (absent → generated at compile time)
-    pub colors: Option<FileDescriptor>,      // colors.txt (grammar: Phase 4)
+    pub colors: Option<FileDescriptor>,      // colors.txt (grammar: colors_txt.rs)
     pub icon: Option<u8>,                    // the icon_<N> marker's number, 0–23; None: absent or kit_icon_invalid (the default 3 applies)
     pub layout: Option<KitLayout>,           // `fox` / `pre-fox` marker file; None = drawn for the target engine
     pub textures: Vec<KitTexture>,           // the *effective* set: own files, plus `all/` files for stems the kit lacks
@@ -451,7 +450,7 @@ impl ValidatedAestheticsExport {
 // produces the immutable manifest; scoped failures drop tasks/exports while
 // a manifest for valid siblings still proceeds (partial planning). `plan_run`,
 // `process_task` and their types are the tool's own: their shapes live in
-// `team_compiler/pipeline.md` "Run driver shapes (Phase 3)", not here.
+// `team_compiler/pipeline.md` "Run driver shapes", not here.
 // Model tasks carry immutable IDs assigned by plan_run; processing only consumes
 // those assignments, never allocates. The writer commits successful batches and
 // releases their permits.
@@ -611,9 +610,11 @@ impl RefSlot {
 ```
 
 Kits key on `kit_config::KitSlot` ("Design constraints"). `ExportSlot` (a team or referee slot,
-`split_player`'s input) and `BootsId`/`GlovesId` belong to the Team compiler's Phase 4 planning,
-not to this crate. `players_txt.rs` and `kit_config_toml.rs` get their shapes with their
-consumers (the Refs arranger; the Phase 4 kit step).
+`split_player`'s input) and `BootsId`/`GlovesId` belong to the Team compiler's planning,
+not to this crate. `players_txt.rs` gets its shape with its consumer, the Refs arranger. A
+kit's `config.toml` is read and written by `kit_config`'s own TOML form (`KitConfig::from_toml`,
+`to_toml`, the comment-preserving `update_toml`), not by a bridge here: the format crate owns
+both forms of its format, and this crate reads no file content.
 
 ### Model files
 

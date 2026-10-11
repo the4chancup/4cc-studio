@@ -207,14 +207,14 @@ planning, processing, packing, bins, GUI, and CLI — lives in this crate and th
   in the [Aesthetics export plan](../aesthetics_export/object_model.md)), the Team compiler
   settings/CLI surface, the reader/coordinator/writer over `libs/pipeline` compiling the subset
   in "Phase 3 scope" below, and the shell slice's view.
-- **Phase 4 prerequisites:** finalize output enumeration/namespace allocation, including
-  folder-internal deep-derived names, and freeze every model task's planned ID assignments in the
-  manifest.
-- **Phase 4 — processing logic:** implement deep validation, model/non-model processing (including
-  cross-format conversion via the Phase 2 `model_convert`), packing, bins, and referee behavior on
-  synthetic Studio-format fixtures. This phase can test its components and outputs, but its full Red
-  parity gate depends on Phase 6's Export upgrader (and savefile/ID integration from Phase 5), so
-  end-to-end upgraded-export parity runs only after those phases land.
+- **Phase 4 — processing logic:** the deep pass, model and non-model processing on both engines
+  (cross-format conversion through the Phase 2 `model_convert`), packing, bins, referees, the
+  output modes and deployment, on synthetic Studio-format fixtures, with planning fixing every
+  output name and every model task's planned IDs before processing; what `compile` builds is
+  "Phase 4 scope" below. Its parity with Red covers the tracer export (Fox) and the pre-Fox
+  reference (`testing.md`); the full Red parity gate over upgraded old exports depends on
+  Phase 6's Export upgrader (and on Phase 5's savefile and ID integration), so it runs once
+  those phases land.
 
 This documents the dependency without changing the phase order in the core plan.
 

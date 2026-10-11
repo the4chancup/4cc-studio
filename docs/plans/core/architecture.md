@@ -607,8 +607,8 @@ need a header to be read:
 
 The source name comes from the export's `ExportStarted` event; the scope is the folder or file
 path, `<file> line <n>` for a roster entry, and nothing for the export itself or a run-wide
-finding; the context fields follow in parentheses, in template order. Other events print nothing
-until a tool needs them (Phase 4's progress).
+finding; the context fields follow in parentheses, in template order. Other events print
+nothing.
 **GUI** receives events via channels and renders them as egui UI updates (grid cell colors, log
 lines, run strip). The line above is `studio_core`'s `EventLines` (in `events.rs`), shared by
 the console printer and the tools' plain logs, so a finding reads the same in the terminal and in

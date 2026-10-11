@@ -43,8 +43,10 @@ differing new default is a deliberate decision, explained in the Controls column
 
 In the settings file the 0/1 settings are TOML booleans (`run_pes = false`). A setting enters
 `TeamCompilerSettings` and `default_settings()` with the phase whose code reads it, not before,
-so no key is written that nothing honors yet; Phase 3 reads `cpk_name`, `output_folder_path`,
-`multicpk_mode`, `strict_file_type_check`, `pass_through` and `teams_list_path`. A missing key
+so no key is written that nothing honors yet; the compiler reads `cpk_name`,
+`output_folder_path`, `multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`,
+`bins_cpk_name`, `refs_cpk_name`, `dds_compression`, `strict_file_type_check`, `pass_through`
+and `teams_list_path`. A missing key
 loads as its default; a key of the wrong type is a configuration error (exit code 2, naming the
 key). A missing `teams_list.txt`, or no data directory yet, reads the embedded list without
 writing it (only `compile` creates the file); one that exists but cannot be read or parsed stops

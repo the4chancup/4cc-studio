@@ -9,20 +9,21 @@ the codebase works, and what to do when the plan runs out. Before writing or cha
 
 ## Working documents
 
-Six documents, six jobs. Do not let content leak between them; two homes means they drift.
+Seven documents, seven jobs. Do not let content leak between them; two homes means they drift.
 
 | Document | Holds |
 |---|---|
 | `docs/plans/*.md` | The *why* and the spec: architecture, formats, rationale, resolved decisions, and each tool's "Acceptance" section. Future tense while a phase is open; rewritten in the present tense when it closes, so the plan is always the description of what exists plus what comes next |
 | `docs/CONTRIBUTING.md` | How code is structured, written and verified |
 | `docs/GLOSSARY.md` | One line per domain term, pointing at the plan section that owns it |
-| `docs/WORKLOG.md` | *Where we are*: current status, phase/step checklist, current-state gotchas, open issues (the lead's and the sidekick's), dated log |
+| `docs/WORKLOG.md` | *Where we are*: current status, phase/step checklist, current-state gotchas, open issues (the lead's and the sidekick's) |
+| `docs/LOG.md` | *What happened*: the dated log, three lines at most per entry, newest last (append-only) |
 | `docs/DECISIONS.md` | Choices made where the plan was silent (append-only) |
 | `docs/QUESTIONS.md` | The questions only the maintainer can answer (in-game behavior, cup practice, a preference), grouped by what an answer unblocks; an entry leaves when answered and the answer lands in the plan and `DECISIONS.md`. Before this file, they were scattered across the worklog's steps and issues and nobody could see the list |
 
 **Before a step:** read the worklog's current status, then the plan section the step points at,
 from the document, not from memory. **After a step:** run the gates (`CONTRIBUTING.md`), mark the
-step done with a one-line summary and the files touched, update "Current status", add a log line,
+step done with a one-line summary and the files touched, update "Current status", add a line to `docs/LOG.md`,
 commit (`git commit -F <file>`; PowerShell has no heredocs). Once a release exists, the review
 before that commit also asks whether a member would notice the change against the last release,
 and if so checks the diff for its `CHANGELOG.md` `[Unreleased]` line (`CONTRIBUTING.md`

@@ -1111,10 +1111,10 @@ describes behavior, not a serial scheduling requirement:
   if that kit's task actually commits — a failed kit never mutates the global bins. On Fox the
   **player appearance tables** accumulate the same way: every compiled player gets his
   `PlayerAppearance.bin` row (the appearance bytes built from his resolved `settings.toml`, its
-  defaults for absent keys, nothing from the installed row; Phase 5, Phase 4 passing the bin
-  through unchanged) and his `BootsList.bin` and
-  `GloveList.bin` rows (the resolved IDs, Phase 5; Phase 4 writes a row only for a committed
-  output; a category whose output failed keeps its installed row),
+  defaults for absent keys, nothing from the installed row; Phase 5, the bin passing through
+  unchanged until then) and his `BootsList.bin` and
+  `GloveList.bin` rows (the resolved IDs, Phase 5; until then a row is written only for a
+  committed output; a category whose output failed keeps its installed row),
   a compiled player of a `Full` export's team whose folder holds no boots or no gloves loses
   that installed row (a failed output still keeps it; a `Full` export rebuilds its team's rows from the export alone; until
   Phase 5 writes the default-ID rows he then has none, TC-BIN-17), and every other player
@@ -1588,57 +1588,101 @@ describes behavior, not a serial scheduling requirement:
   launcher: both start the same exe the same way, and the GUI phase is where its only manual
   check lives.
 
-### Run driver shapes (Phase 3)
+### Run driver shapes
 
-The Phase 3 subset of the walkthrough above, in the crate's own types (`pub(crate)`; Phase 4's
-entry gate may reshape them when run planning arrives). Field types not spelled out are the
-`aesthetics_export` types the validated export already carries.
+The walkthrough above in the crate's own types (`pub(crate)`), as the code has them. Field
+types not spelled out are the `aesthetics_export` types the validated export already carries.
 
 ```rust
 // plan/: serial, over the identity-resolved exports in ExportId order.
-pub(crate) fn plan_run(exports: Vec<(ExportId, ResolvedAestheticsExport)>, version: PesVersion)
-    -> PlanReport;
+pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanReport;
+pub(crate) struct ExportToPlan {
+    pub(crate) export_id: ExportId,
+    pub(crate) export: ResolvedAestheticsExport,
+    pub(crate) team_colors: Option<Vec<Rgb>>,         // its root colors.txt; None: no file
+    pub(crate) notes: Option<String>,                 // its root notes.txt
+    pub(crate) hand_weighted: BTreeSet<ScopePath>,    // models with hand weights (deep pass)
+    pub(crate) metal_models: BTreeSet<ScopePath>,     // FMDLs with a metal material (deep pass)
+}
 pub(crate) struct PlanReport {
-    pub(crate) manifest: BuildManifest,      // Phase 3 has no run-level fatal in planning
-    pub(crate) messages: Vec<Message>,       // team_colors_missing, kit_config_*, ...
+    pub(crate) manifest: BuildManifest,
+    pub(crate) messages: Vec<Message>,       // team_colors_missing, kit_config_generated, ...
 }
 pub(crate) struct BuildManifest {
-    pub(crate) tasks: Vec<BuildTask>,        // canonical order: export, then faces by first
-                                             // roster slot, then kits by KitSlot
+    pub(crate) tasks: Vec<BuildTask>,        // canonical order: by export, then each player
+                                             // folder's packages and textures by first roster
+                                             // slot, shared boots then gloves folders by id,
+                                             // Common, portraits, kits by slot, logo, collar
+    pub(crate) team_colors: Vec<(u16, Vec<Rgb>)>,     // TeamColor.bin
+    pub(crate) team_kits: Vec<TeamKits>,              // UniColor.bin, UniformParameter.bin
+    pub(crate) item_rows: Vec<ItemRow>,               // BootsList.bin, GloveList.bin rows
+    pub(crate) notes: Vec<(String, String)>,          // teamnotes.txt
 }
 pub(crate) struct BuildTask {
     pub(crate) export_id: ExportId,
-    pub(crate) team_id: u16,
+    pub(crate) team_id: u16,                 // 999 for a refs export
     pub(crate) kind: TaskKind,
     pub(crate) charge: usize,                // source bytes it reads; see "Memory budget"
+    pub(crate) group: Option<TaskGroup>,     // its model folder's group, when it has textures
+}
+pub(crate) struct TaskGroup {
+    pub(crate) tasks: Range<usize>,          // the folder's packages, then its textures task
+    pub(crate) charge: usize,                // the members' charges, one shared permit
 }
 pub(crate) enum TaskKind {
-    Face { folder: /* the mapped player folder */, player_ids: Vec<u32> }, // one task per folder:
-                                             // textures once, one face.fpk per roster slot
-    Kit { slot: KitSlot, kit: /* the validated kit, all/ inheritance applied */ },
+    Models { folder: ModelFolder, package: ModelPackage, ids: Vec<PackageKey>, kits: Vec<u8> },
+                                             // one package, built once, emitted per key
+    Textures { folder: ModelFolder, kits: Vec<u8> },  // the folder's textures, once
+    CommonTextures { folder: ScopePath, textures: Vec<FileDescriptor>, kits: Vec<u8>,
+                     environment_map: bool }, // one per texture directory of Common/
+    CommonModels { folder: ScopePath, files: Vec<FileDescriptor>, textures: Vec<String> },
+                                             // pre-Fox: one per Common/ directory with models
+    Portrait { player_id: u32, file: FileDescriptor },
+    Kit { slot: KitSlot, kit: KitFolder, edits: TeamKitEdits }, // all/ inheritance applied
+    Logo { logo: LogoFiles },
+    RefereeMarker { marker: FileDescriptor },
+    Collar { file: FileDescriptor, id: u8 },
 }
 // processing/: one task. The coordinator reads its files from the export's content source
 // (opened once per export) and hands task and bytes to the pool, which only converts and packs.
 pub(crate) fn process_task(index: usize, task: BuildTask, files: TaskFiles, ctx: &CompileContext)
-    -> TaskBatch;                            // TaskFiles: the bytes of every file the task reads
+    -> TaskBatch;
+pub(crate) type TaskFiles = BTreeMap<ScopePath, Vec<u8>>;    // every file the task reads
+pub(crate) type Entry = (String, Vec<u8>);                   // output path, bytes
+pub(crate) type Finding = (Code, Vec<(&'static str, String)>); // a succeeding task's note
 pub(crate) struct TaskBatch {
     pub(crate) index: usize,                 // its manifest position: the writer's order
-    pub(crate) entries: Vec<(String, Vec<u8>)>, // CPK path, bytes; empty when the task failed
-    pub(crate) uniparam: Option<(String, Vec<u8>)>, // a kit's config, applied only if committed
+    pub(crate) entries: Vec<Entry>,          // empty when the task failed
+    pub(crate) group: Option<Range<usize>>,  // decided with its group's textures batch
+    pub(crate) uniparam: Option<Entry>,      // a kit's config, applied only if committed
+    pub(crate) uni_color: Option<(u16, KitColorEntry)>, // a kit's UniColor.bin entry
     pub(crate) messages: Vec<Message>,
     pub(crate) permit: Option<Arc<pipeline::Permit>>, // released when the writer has the
-                                             // entries; shared by a `.7z` export's tasks
+                                             // entries; shared by a group's or a `.7z`
+                                             // export's tasks
     pub(crate) output: Option<pipeline::Permit>, // its entries' bytes, charged when the
                                              // task returns, released with `permit`
 }
 ```
+
+`ModelFolder` is a mapped player folder or a plainly linked shared boots or gloves folder,
+with what its packages read beside its own files (the shared folders it combines, its
+`.common` model links, the `Common/` files it may reach) and its `TextureHome`, where its
+textures go: the team's per-player Common subfolder, or a shared output's own folder. A task's
+output is placed by `processing/materialize.rs`, the one output-mode seam (`EntryTarget`: game
+paths, or test mode's per-export folders), and written through `output/sink.rs`'s
+`OutputSink` (one CPK, or a folder of loose files) by the writer's `CpkOutput`, which commits
+in manifest order and decides a model folder's group once its textures batch is in.
 
 **Admission.** One coordinator thread acquires each task's permit in manifest order and only
 then hands the task to the pool; the writer, on its own thread, commits batches in manifest
 order from a reorder buffer and drops each batch's permit after writing it. Every task admitted
 before the next one in writer order is already running or done, so the batch the writer waits
 for always holds its permit and the run cannot stall on canonical order ("Admission must
-remain progress-safe", `core/parallelism.md`). A `.7z` export's tasks read the buffer its
+remain progress-safe", `core/parallelism.md`). A model folder's group (`TaskGroup`) is
+admitted as one, its members' charges acquired together as one permit they share: the writer
+holds the folder's packages until its textures batch arrives, so packages holding permits of
+their own could leave the textures task waiting for memory only they free. A `.7z` export's tasks read the buffer its
 check kept when the keep rule admitted it (`libs/pipeline.md` "What a solid `.7z` is
 charged"), else the archive opened once more for all of them; either way the export is charged
 once, by the sum of its entries' sizes, and its tasks share that permit and acquire none of
@@ -1677,8 +1721,8 @@ folder); the run's folder is then removed, and `.staging/` too when no other run
 in it, so a finished run leaves nothing but the CPK; a run that emits no entry writes nothing and leaves the previous CPK. The output
 folder is created and probed for writing (a file created and removed) before any export is
 read; a refusal is the CLI's exit 3 naming the path (TC-CLI-06), not a pipeline message.
-`deploy_skipped_by_flag` is emitted, naming the promoted path, when `--no-deploy` is given;
-without it Phase 3 promotes the same way and says nothing more (deployment is Phase 4's).
+That is the normal mode's promotion; deployment into `download/`, its fallback to this
+promotion, and the test and sideload trees are "Deploy CPKs" and "5. Writer" above.
 
 ### Game paths reference
 
@@ -1862,7 +1906,7 @@ Resolved decisions:
   (see the [library crates plan](../libs/README.md)): traversal/absolute paths rejected, separators
   normalized, case/Unicode collisions detected before extraction or packing; `aesthetics_export` uses the
   shared type.
-- **Source snapshot** (Phase 4): a source's revision is taken when the reader lists it: for a
+- **Source snapshot**: a source's revision is taken when the reader lists it: for a
   folder, each listed file's size and modified time; for an archive, the archive file's size and
   modified time. `compile` checks it after each task's read: a folder's task checks the files it
   read, an archive's task the archive file (a `.7z`, read once for all its tasks, is checked once,
@@ -2049,7 +2093,7 @@ phase that owns them):
   UTF-8 BOM is tolerated on read and never written; blank lines are dropped; CRLF or LF read, CRLF
   written (the file Red's current version writes: 220 rows, all ASCII). Still open: atomic writes
   and concurrency between the grid's ID-cell write, the updater merge and the savefile import
-  (callers own I/O; Phase 3's one writer, `compile`, only creates a missing file, so the
+  (callers own I/O; the one writer so far, `compile`, only creates a missing file, so the
   question opens with the grid's ID-cell write in Phase 8 and the update merge of Release 0.1.0).
 - **Run-result semantics.** Define separate compile and deployment outcome types so scoped errors,
   `pass_through`, failed moves, and failed savefile writes map predictably to GUI state and CLI exit

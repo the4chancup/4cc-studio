@@ -227,9 +227,10 @@ failed or ignored; `just bindings` green.
 ### Phase 3: Team compiler skeleton (`tools/team_compiler`)
 
 The Team compiler checks and compiles the tracer bullet's content end to end, from the command
-line and from a minimal window. What `compile` accepts until Phase 4, and what it refuses with
-`content_not_yet_compiled`, is the Team compiler plan's "Phase 3 scope" (in its "Acceptance");
-the behavior contract is that section's TC scenarios, every automated one cited by a test. Its
+line and from a minimal window. What `compile` accepted at the phase's close is the Team
+compiler plan's "Phase 3 scope" (in its "Acceptance"; Phase 4 withdrew the gate that refused
+the rest with `content_not_yet_compiled`); the behavior contract is that section's TC
+scenarios, every automated one cited by a test. Its
 entry gates (normal-team/referee `ExportIdentity`, the sanitized validated-versus-eligible
 projection, roster-entry scope and disposition semantics) are in the [Aesthetics
 export](../aesthetics_export/object_model.md) plan's "Validation semantics".
@@ -240,7 +241,7 @@ export](../aesthetics_export/object_model.md) plan's "Validation semantics".
   `team_compiler/tests/parity.rs`, compares the result against Red's output for the same source
   export by the parity tiers that apply to it (tier 1 for textures, tier 2 for the FMDL through
   `fmdl`'s decoded model, tier 3 for the containers; "Testing: parity against Red" in the Team
-  compiler plan), and now runs through `compile`; it grows with Phase 4. The fixture
+  compiler plan), and now runs through `compile`; Phase 4 grew it. The fixture
   (`tests/fixtures/tracer/`) is a small old-layout export migrated to the Studio layout by hand,
   since the Export upgrader (Phase 6) does not exist yet; that same pair later becomes the
   upgrader's own input/expected fixture. The tracer's scaffolding (a hardcoded walk of the one
@@ -260,7 +261,7 @@ export](../aesthetics_export/object_model.md) plan's "Validation semantics".
   `process_task` stay in `team_compiler`.
 - The pipeline orchestration (reader, coordinator, writer) on `rayon`, over `libs/pipeline`'s
   memory budget, thread count and `CpkStem`; the run driver's shapes are the Team compiler
-  plan's "Run driver shapes (Phase 3)" (`pipeline.md`).
+  plan's "Run driver shapes" (`pipeline.md`).
 - CLI execution with console output (`4cc-studio team-compiler compile ...`), one line per
   finding (`core/architecture.md` "Event system").
 - **Shell slice, last.** The thinnest GUI path that runs: `studio_core`'s app shell reduced to a
@@ -290,25 +291,31 @@ test; the shell slice's two manual scenarios (TC-GUI-01/02) checked by the maint
 (Linux not yet, no machine with a display). Converge ran a whole-crate mutation run over each of
 the phase's crates, every survivor triaged. At the close (2026-10-02): `just gates` green, 1402
 tests in 50 test runs, none failed or ignored; acceptance 77 scenarios, 77 proven. Full
-packed-output comparison belongs to Phase 4.
+packed-output comparison was left to Phase 4.
 
 ### Phase 4: Processing logic
 
-**Entry gates:** finalize analyzed-output enumeration/namespace allocation, including
-folder-internal deep-derived names without adding a separate run phase/type, and freeze every model
-`BuildTask`'s planned model-ID assignments.
+The Team compiler compiles every Studio-format export, normal teams and referees, into
+game-facing output for every target version, PES 15 to 21: the CPK (or several, in multi-CPK
+mode), the test or sideload tree, and the bins it updates, deployed into the PES install.
+Cross-format model conversion goes through Phase 2's `model_convert`; savefile writing is Phase
+5's, and a glTF model source is refused until Phase 7. The work is organized by the Team
+compiler's stages, each specified in "Crate layout" and the "Per-export pipeline walkthrough" of
+the [Team compiler plan](../team_compiler/pipeline.md); what `compile` builds and refuses is that
+plan's "Phase 4 scope" (in its "Acceptance"), whose TC scenarios are the behavior contract,
+every automated one cited by a test. Red module names in parentheses locate reference
+*behavior*; they prescribe nothing about the Rust code.
 
-Turn the Phase 3 skeleton into a compiler that produces game-facing output for Studio-format
-exports. `model_convert` (Phase 2) already exists, so cross-format conversion is in scope; savefile
-writing arrives with Phase 5. The work is organized by the Team compiler's stages — see "Crate layout" and
-the "Per-export pipeline walkthrough" in the [Team compiler plan](../team_compiler/pipeline.md) for the
-specification of each. Red module names in parentheses locate reference *behavior*; they prescribe
-nothing about the Rust code.
+**Planning before processing.** Planning enumerates every output and allocates its namespace,
+folder-internal deep-derived names included, without a run phase or type of its own, and fixes
+every model `BuildTask`'s planned model IDs before any task runs; these were the phase's entry
+gates.
 
-- **Deep validation** — content-level rules in `libs/aesthetics_export` on top of Phase 3's
-  structural ones, and `fmdl`/`pes_model` `check.rs` findings, all mapped through the Team
-  compiler's message catalog (`export_check`, `xml_check`, `texture_check`). Live-grid scheduling in
-  `check/` waits for Phase 8.
+- **Deep validation** — the compiler's `deep/` pass: content-level rules on top of
+  `aesthetics_export`'s structural ones (that crate reads no file content: the Aesthetics export
+  plan's "Content findings"), and the `fmdl`/`pes_model` `check.rs` findings, all mapped through
+  the Team compiler's message catalog (`export_check`, `xml_check`, `texture_check`). `check`
+  and `compile` run the same pass. Live-grid scheduling in `check/` waits for Phase 8.
 - **`plan/`** — `BuildManifest` from a `ResolvedAestheticsExport`, `PlannedModelIds` (40-ID team
   blocks, deterministic boots/gloves assignment — assignment only; the savefile write is Phase 5),
   duplicate-refs preflight, `overrides/` precedence (`team_id_get`).
@@ -344,12 +351,11 @@ nothing about the Rust code.
   through with no row changed. Phase 5 adds the stock and default-ID rows and the appearance rows
   from `settings.toml`: this split is the only one in which Phase 4's CPK is game-correct for what
   it compiled without reading `settings.toml`.
-- **`output/`** — Phase 3 already writes one CPK through the canonical-order writer, staging and
-  promotion to `output/`, with the output folder's writability preflight (TC-OUT-*, TC-CLI-06);
-  Phase 4 adds `OutputSink` (CPK vs loose folder for test/sideload), the `.partial` copy into
-  `download/` for deployment, multi-CPK; access-denied output paths
-  fail cleanly via `libs/elevation` (the GUI's elevated-relaunch prompt is Phase 8).
-  `output/savefile.rs` is Phase 5.
+- **`output/`** — Phase 3's canonical-order writer, staging and promotion to `output/`, with
+  the output folder's writability preflight (TC-OUT-*, TC-CLI-06), behind `OutputSink` (CPK, or
+  a loose folder for test and sideload), the `.partial` copy into `download/` for deployment,
+  and multi-CPK; access-denied output paths fail cleanly via `libs/elevation` (the GUI's
+  elevated-relaunch prompt is Phase 8). `output/savefile.rs` is Phase 5.
 - `dummy_kit_replace` is not ported — `dummy_kit*` stems are reserved game-substituted names, see
   the Unified model format plan's "Kit-dependent assets".
 
