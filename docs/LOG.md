@@ -1745,3 +1745,6 @@ worklog passed 7,000 lines.
 - **2026-10-11** — 4.y-scen done: every `team_compiler` CLI test cites the scenario it proves;
   363 scenarios (20 new, about 60 widened), all proven; six Astra rounds on the text, 56
   concerns, all accepted.
+- **2026-10-11** — 4.z-rewrite, first part: Phase 4's plan sections in the present tense, the run
+  driver shapes copied from the code, this log moved out of the worklog. 5.0 done: no savefile
+  change in the 4ccEditor fork since `4a95b7c`; reached `Autumn_2026_AATF` `f66e8b4`; VGL27 at `VGL27.B`.

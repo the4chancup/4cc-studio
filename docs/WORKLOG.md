@@ -5160,14 +5160,26 @@ socks alone (DECISIONS 2026-10-04; the maintainer confirmed it 2026-10-10: "time
 
 Steps are itemized when Phase 4 closes; these are fixed already:
 
-- [ ] 5.0 Check the latest commits made to the unofficial 4ccEditor fork (`Tools_4cc/4ccEditor-1`,
+- [x] 5.0 Check the latest commits made to the unofficial 4ccEditor fork (`Tools_4cc/4ccEditor-1`,
   origin `AnonymousClouds/4ccEditor`; `pes_savefile/README.md` names it the reference): it is
   under constant development. Fetch, then read every commit after `4a95b7c` (2026-06-19, "Add
   Tactics tab for 16-21. Add ability to import Texports from 15-21"), the local clone's head at
   Phase 2's close → done when: each savefile-relevant
   change (schema fields, write behavior, `.4ccs`/`.4cct`/Texport formats) is reflected in
   `pes_savefile` and its plans or recorded as not applying, before any Phase 5 writing code, and
-  the commit reached is in the log
+  the commit reached is in the log.
+  Done 2026-10-11 (survey `.tmp/5_0/fork_commits.md`, every branch's commits since `4a95b7c`
+  read or classified; 37 of the 145 are new work, the rest the base's pre-squash history and
+  the VGL fork's): no savefile schema or encoding change; the save-relevant commits fix the
+  editor's own bugs (the `.4ccs` tactics seek, a Texport's master key over the save's, imported
+  players not persisted), which `pes_savefile`'s design does not share. Reached: the cup's line
+  `Autumn_2026_AATF` at `f66e8b4`; the next check starts from every branch head (`git log --all
+  --not f66e8b4 c6838c5 206e510 4f3800a a986376 7ef1c3b 91f1599 b42778d`). `aatf_rules.md`'s
+  VGL27 moved to `VGL27.B`, whose checker now matches the rules page on Heading, medals' injury
+  resistance, out-of-bracket heights and the quota counts. Not applying: `vgl27-Ruleset-qol`'s
+  pooled height rule and its fix-database-on-save option (an unreleased third-party branch, the
+  latter against the confirmation dialog `save_editor.md` chose). The medal name colour is an
+  issue below.
 - [ ] 5.0b Prototype the two mutation kinds `cargo-mutants` lacks (after Phase 4's converge, so
   it competes with no review): (1) drop a guard, an `if` whose body returns, `continue`s,
   `break`s or errs, its condition replaced with `false`; (2) remove one element of a literal
@@ -5218,6 +5230,13 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-11, 5.0; for Phase 5's AATF itemization) — `apply_tier` cannot make a VTL11
+  medal legal: VTL11 requires a medal's name to carry a gold or silver colour code (a
+  `name_colors` condition), which no tier target expresses, so the quick action writes no name
+  and the checker then rejects the player, against `aatf_rules.md`'s "neither tool can produce
+  a player the checker then rejects". The VGL fork's editor writes the colour itself (`9951666`,
+  and `vgl27-Ruleset-qol`'s `auto_color_names`). Recommended: a tier target for the name colour,
+  which `apply_tier` writes (and strips from a tier that forbids one), over a separate action.
 - open (2026-10-11, 4.y-mattable row 27; deferred until the cup next plays a pre-Fox version) —
   the cup wiki says a `.mtl` splits a path at spaces, and 212 of 60,027 texture names in real
   FMDLs hold one (`Kit 1_u0XXXp0.dds`), so a Fox model converted for PES 15-17 may write a

@@ -57,15 +57,17 @@ custom check, not schema); the game's skill card limit raised to 11 on PES 21; a
 only, team tactics settings (no man marking set up, auto substitution, offside trap and preset
 change off).
 
-VGL27 (4ccEditor-VGL, branch `vgl27`, tag `VGL27.A`) reshapes VGL26 toward the official layout:
+VGL27 (4ccEditor-VGL, branch `vgl27`, tag `VGL27.B`) reshapes VGL26 toward the official layout:
 no buffed tier and no per-stat targets, tiers recognized by rating alone, height brackets back
 (one exact height each, one set of quotas) and the official manlet bonus.
 
 The VGL26 and VGL27 rules pages (the VGL wiki's "Chapter III: Squad") state rules their checkers
 do not test, or test loosely: every position a player is fielded at in the first preset must be
-one of his A positions (VGL27's checker only asks that the registered position appear somewhere);
+one of his A positions (VGL27's checker only asks that the registered position appear in the
+first preset);
 no man marking; every support setting off except preset switching, which must be on; injury
-resistance exactly 2 for medals and 1 for non-medals (the checkers allow less); and, in VGL26, no
+resistance exactly 2 for medals and 1 for non-medals (the checkers allow less, but for VGL27's
+medals); and, in VGL26, no
 formation of three defenders, four midfielders and three forwards (3-4-3 and its variants), fluid
 formations included. A VGL ruleset here follows its rules page where the two disagree.
 
@@ -551,7 +553,7 @@ next rule allows auto attack/defence levels at fixed values, so that setting is 
 ## VGL27
 
 A test ruleset (not a template), transcribed from the VGL27 rules page and 4ccEditor-VGL's `vgl27`
-branch (tip `45ce31d`, tag `VGL27.A`; the ruleset is commit `4447996`). What it exercises that the
+branch (tip `e2add10`, tag `VGL27.B`; the ruleset is commit `4447996`). What it exercises that the
 others do not:
 
 | Feature | VGL27 |
@@ -564,14 +566,14 @@ others do not:
 | Rating stats, suggestions | as VGL26 |
 
 Where the data reads differently from `aatf_single_vgl`, on purpose: the rules page is followed
-where it is stricter (exact injury resistance; Heading, which the checker counts as a free trick,
-is a paid card; the team settings are checked); the checker's positional test (the registered
-position appears in some formation of any preset) gives way to the page's first-preset A-position
-rule. A rating between two tiers' targets (96) is placed by expected rating, as in the official
-file, where `aatf_single_vgl` reports no tier; a height in no bracket is a `Height` violation for
-that player, where `aatf_single_vgl` only misses a quota. Its quota messages print the 185 cm
-count for every bracket (an upstream defect, reported), so parity compares which quotas fail, not
-the printed counts.
+where it is stricter (exact injury resistance for non-medals, which the checker lets go below 1;
+the team settings are checked); the checker's positional test (the registered position appears
+in the first preset) gives way to the page's first-preset A-position rule, which judges every
+position a player is fielded at there. A rating between two tiers' targets (96) is placed by
+expected rating, as in the official file, where `aatf_single_vgl` reports no tier. `VGL27.B`
+brought the checker to the page on the rest: Heading is a paid card, a medal's injury
+resistance is exact, a height in no bracket is a violation for that player, and each quota
+message prints its own bracket's count (before it, the 185 cm count for every bracket).
 
 ---
 
@@ -791,7 +793,7 @@ Verification:
   cup save (`C:\Data\4cc\Saves\EDIT00000000_VTL11`, 2026-10-06), every team. The PES 16 team
   settings get fixture teams of their own: by its size (11 MB) the save is a PES 21 one, where
   VTLEditor skips them.
-- **Parity, VGL27.** The same against `vgl27`'s `aatf_single_vgl` on the VGL26 cup save's teams:
+- **Parity, VGL27.** The same against `vgl27`'s `aatf_single_vgl` (`VGL27.B`) on the VGL26 cup save's teams:
   built for VGL26, most fail, and what is compared is the findings, not legality. A VGL27 cup
   save replaces it when one exists.
 - Per ruleset, known-legal teams report nothing; each known-violating fixture reports exactly its
