@@ -12,17 +12,19 @@
 
 use std::collections::BTreeMap;
 
+use aesthetics_export::kit_path_token;
 use vtree::ScopePath;
 
-use crate::kit_variants::{has_variant_among, kit_lookup_key};
+use crate::kit_variants::kit_lookup_keys;
 use crate::paths::TextureDirectory;
 
-/// One folder's textures, each by its lookup key (`kit_lookup_key`: the stem folded, or the
-/// set's folded `kitN` reference for a `kitF` fallback, which a path never finds by its own
-/// spelling). Each value is the texture's source path below its folder without its
-/// extension, as spelled (`PlayerFile::Texture`'s `below`): the path its converted file has
-/// under the texture home (`paths::TextureHome::texture`), which for a `kitF` entry
-/// (`pants_kitF`, filed under its set's `kitN` key) never is — a consumer points a
+/// One folder's textures, each by its lookup keys (`kit_lookup_keys`: the stem folded, a kit
+/// set's member under its set's folded `kitN` reference too, a `kitF` member under that
+/// alone, which a path never finds by its own spelling). Each value is the texture's source
+/// path below its folder without its extension, as spelled (`PlayerFile::Texture`'s
+/// `below`), or for a member filed under its set's `kitN` key the set's reference spelling
+/// (`kitN/armor_bsm`, `pants_kitN`): the path its converted file has under the texture home
+/// (`paths::TextureHome::texture`), which for a `kitF` entry never is — a consumer points a
 /// directory at it, never writes its name.
 pub(crate) type TexturePlace = BTreeMap<String, String>;
 
@@ -95,22 +97,35 @@ impl TextureFolders {
     }
 
     /// `insert` and `insert_link`'s one place insert: `link` picks the texture-link maps.
+    /// `below` is filed under each of its lookup keys (`kit_lookup_keys`), each key in the
+    /// place of the key's own directory, so a `kitN` reference's place holds its set's
+    /// members: a variant's `kit1/armor_bsm` files `kit1/armor_bsm` beside `kitn/armor_bsm`,
+    /// a `kitF` member's only the latter, a path naming `kitF` finding nothing. Under a
+    /// member's reference key the value is the reference's spelling (`kitN/armor_bsm`, as
+    /// `kit_path_token` respells it), so a path naming the set is pointed at the `kitN`
+    /// directory the output writes.
     fn place(&mut self, own: bool, link: bool, below: &str) {
-        let (directory, name) = split(below);
-        let key = vtree::fold_name(directory.trim_end_matches('/'));
         let places = match (own, link) {
             (true, false) => &mut self.own,
             (true, true) => &mut self.links,
             (false, false) => &mut self.combined,
             (false, true) => &mut self.combined_links,
         };
-        places
-            .entry(key)
-            .or_default()
-            // A `kitF` file goes in under its set's `kitN` key, which a path naming its own
-            // spelling never finds while the set's reference does (`variant`).
-            .entry(kit_lookup_key(name))
-            .or_insert_with(|| below.to_owned());
+        let own_key = vtree::fold_name(below);
+        let reference = kit_path_token(below).map(|(_, reference)| reference);
+        for key in kit_lookup_keys(below) {
+            let (directory, name) = split(&key);
+            let value = if key == own_key {
+                below
+            } else {
+                reference.as_deref().unwrap_or(below)
+            };
+            places
+                .entry(vtree::fold_name(directory.trim_end_matches('/')))
+                .or_default()
+                .entry(name.to_owned())
+                .or_insert_with(|| value.to_owned());
+        }
     }
 
     /// The places a texture name of the file at `path` resolves in, nearest first, each with
@@ -236,19 +251,6 @@ pub(crate) fn split(below: &str) -> (&str, &str) {
         Some(slash) => (&below[..=slash], &below[slash + 1..]),
         None => ("", below),
     }
-}
-
-/// The path below the texture home of the first texture of `place` that is a member of the
-/// kit reference `stem`'s set (`pants_kitN`; `has_variant_among`, on the name as spelled, a
-/// token being spelled exactly) — a variant of it, or its `kitF` fallback — which a path
-/// naming the reference is pointed beside: the game
-/// respells the reference for the kit picked. `None` when `stem` is no kit reference or `place`
-/// holds no member of its set.
-pub(crate) fn variant<'a>(place: &'a TexturePlace, stem: &str) -> Option<&'a str> {
-    place
-        .values()
-        .find(|below| has_variant_among(stem, [split(below).1]))
-        .map(String::as_str)
 }
 
 #[cfg(test)]
@@ -505,12 +507,19 @@ mod tests {
             &home,
             &common,
         );
+        let place = places[0].0;
+        // The variant files under its set's `kitN` key beside its own, the reference's
+        // spelling as the reference key's value: `pants_kitN` finds the set, another
+        // reference does not.
         assert_eq!(
-            variant(places[0].0, "pants_kitN"),
-            Some("jessie/pants_kit2")
+            place.get("pants_kitn"),
+            Some(&"jessie/pants_kitN".to_owned())
         );
-        assert_eq!(variant(places[0].0, "socks_kitN"), None);
-        assert_eq!(variant(places[0].0, "pants_kit2"), None);
+        assert_eq!(
+            place.get("pants_kit2"),
+            Some(&"jessie/pants_kit2".to_owned())
+        );
+        assert_eq!(place.get("socks_kitn"), None);
     }
 
     #[test]
@@ -526,14 +535,37 @@ mod tests {
             &common,
         );
         let place = places[0].0;
-        // `kitF` goes by its set's `kitN` key: a `kitN` reference finds the set, a `kitF`
-        // name finds nothing.
-        assert_eq!(variant(place, "pants_kitN"), Some("jessie/pants_kitF"));
+        // `kitF` goes by its set's `kitN` key alone: a `kitN` reference finds the set, a
+        // `kitF` name finds nothing.
         assert_eq!(
             place.get("pants_kitn"),
-            Some(&"jessie/pants_kitF".to_owned())
+            Some(&"jessie/pants_kitN".to_owned())
         );
         assert_eq!(place.get("pants_kitf"), None);
-        assert_eq!(variant(place, "pants_kitF"), None);
+    }
+
+    #[test]
+    fn a_kit_folder_s_members_file_the_set_s_reference_in_its_place() {
+        let mut folders = TextureFolders::default();
+        folders.insert(true, "kit1/armor_bsm");
+        folders.insert(true, "kitF/armor_bsm");
+        let folder = path("Players/05 - A");
+        let file = path("Players/05 - A/face_high.fmdl");
+        // `./kitN/` names the set, resolved at its place alone: the reference's spelling
+        // is what it is pointed at, the `kitN/` directory the output writes.
+        let places = folders.at(&folder, &file, "kitN/");
+        let resolved = places.iter().find_map(|(place, _)| place.get("armor_bsm"));
+        assert_eq!(resolved.map(String::as_str), Some("kitN/armor_bsm"));
+        // `./kitF/` finds nothing: the `kitF` member is never a file under its own name.
+        let places = folders.at(&folder, &file, "kitF/");
+        assert!(
+            places
+                .iter()
+                .all(|(place, _)| !place.contains_key("armor_bsm"))
+        );
+        // `./kit1/` names the variant's own folder.
+        let places = folders.at(&folder, &file, "kit1/");
+        let resolved = places.iter().find_map(|(place, _)| place.get("armor_bsm"));
+        assert_eq!(resolved.map(String::as_str), Some("kit1/armor_bsm"));
     }
 }

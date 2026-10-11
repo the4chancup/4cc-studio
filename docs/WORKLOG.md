@@ -63,7 +63,8 @@ texture links counting on Fox; (b3c2b) done 2026-10-11: on Fox its model and
 material-file links count too; (b4a) done 2026-10-11: a kit set's `kitF` fallback, written
 once as `kitN` on Fox; (b4b1) done 2026-10-11: a `.common` texture link naming a kit set
 finds it; (b4b2a) done 2026-10-11: a kit-token folder set completed, `Common/kit1/` and
-`Common/kit2/` as one; (b4b2b) next), 4.y-fix20
+`Common/kit2/` as one; (b4b2b1) done 2026-10-11: a `kitN/` texture path finds its set, a
+`kitF` one nothing; (b4b2b2) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4102,12 +4103,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
         folders): a kit-token folder's `Common/` textures join the textures task of the
         directory above it, so `Common/kit1/` and `Common/kit2/` complete as one set; test
         mode keeps a texture's subfolders. Done.
-      - (b4b2b) a texture path into a `kitN/` directory supplied when a file of its set is,
-        `kitF` included, on both engines (`texture_lookup`, `processing/model.rs`,
-        `deep/materials.rs`; unchecked since (b3b4d): `kit_variants::kit_reference_directory`
-        and its two tests retired); a member a content finding drops counted as absent, a
-        gap the completion fills, and a `.common` link dropped only when every member it
-        reaches is (today the representative's drop alone cascades; Astra B4B1.A2-2).
+      - (b4b2b1) a texture path into a `kitN/` directory, or naming a `kitN` stem, supplied
+        when a file of its set is, `kitF` included, and a path naming `kitF` found by none, on
+        both engines: every texture key set files a member under its set's `kitN` key too
+        (`kit_lookup_keys`), the `kit_reference_directory` guard retired; an installed CPK's
+        `kit1/` copy supplies `kitN/` (TC-CMN-29, TC-CMN-30). Done.
+      - (b4b2b2) a `.common` link to a kit set dropped only when every member it reaches is,
+        a dropped member an absent one the completion fills (`aesthetics_export/object_model.md`
+        "Dropped link targets"; Astra B4B1.A2-2; TC-CMN-31); then one Astra review over
+        (b4b2b1) and (b4b2b2) together.
       - A `.common` link to a per-kit model or material-file set (`boots_kitN.fmdl.common`)
         is a literal lookup, `common_link_missing`, until the per-kit model pipeline serves
         Common models (Fox per-kit packages, the fallback model, same-member format
@@ -4520,6 +4524,18 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   decided at the materialize seam), `plan/mod.rs`,
   `processing/{materialize,mod,referee_marker,texture}.rs`,
   `tests/cli/{common_links,test_mode}.rs`; plan `team_compiler/pipeline.md`. Gates green locally (`.tmp/4_y/gates_sub_b4b2a_r1.log`); mutants on bonfire, each round 0 missed: r0 51 (43 caught, 8 unviable), r1 66 (58, 8) (`.tmp/4_y/mutants_sub_b4b2a{,_r1}/`).
+  (b4b2b1) done 2026-10-11 (SWE-2 High, one run, 26 minutes; no Astra round of its own:
+  reviewed with (b4b2b2) in one round on the Devin `work` slot; brief
+  `.tmp/4_y/brief_sub_b4b2b1.md`, report `.tmp/4_y/brief_sub_b4b2b1.notes.md`).
+  `team_compiler`: `kit_variants::kit_lookup_keys` replaces `kit_lookup_key` (a variant
+  under its own folded path and its set's `kitN` reference, a `kitF` member under the
+  reference alone), and every texture key set files by it: `TextureFolders::place` (the
+  reference key's value the reference's spelling, so a path naming the set is pointed at the
+  `kitN/` directory the output writes), the deep pass's Common sets, an installed CPK's
+  Common stems. Every lookup is then a plain folded match: `has_variant_among`,
+  `texture_lookup::variant` and the `kit_reference_directory` guard retired. Files:
+  `bins/installed.rs`, `deep/{materials,mod}.rs`, `kit_variants.rs`, `plan/mod.rs`,
+  `processing/{model,prefox_face}.rs`, `texture_lookup.rs`, `tests/cli/textures.rs`. Gates green locally (`.tmp/4_y/gates_sub_b4b2b1_r0.log`); mutants on bonfire 26, 22 caught, 0 missed, 4 unviable (`.tmp/4_y/mutants_sub_b4b2b1_r0/`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -4902,7 +4918,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
   `settings.md` and every TC ID; `just acceptance strict`; the design-health pass (design-tell
   sweep, `just mutants` per crate with every survivor triaged, `just clef` per crate with every
-  flag ruled, `pub` census); the census over
+  flag ruled, `pub` census, and a simplification pass: low-hanging cuts only, each a special
+  case a general rule already covers, or machinery whose only gain is salvaging more of an
+  export that already reports an error, which a person looks at anyway; the cuts briefed as one
+  slice, no redesign); the census over
   every export on the maintainer's machine (Everything index) run through `check` and `compile
   --mode test`, tallied by outcome; then the cross-family reviewer loop, one surface per crate
   (queued per the handover if no reviewer is available); each gap a new step above this one →
@@ -7426,3 +7445,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-11** — 4.y-sub (b4b2a) landed: a kit-token folder set (`kit1/armor_bsm`,
   `kit2/armor_bsm`) is completed as a stem set is, `Common/kit1/` and `Common/kit2/` as one
   (TC-CMN-21); test mode keeps a texture's subfolders.
+- **2026-10-11** — 4.y-sub (b4b2b1) landed: a model's texture path into a `kitN/` folder,
+  or a Common path into one, finds the kit set's members; a path naming `kitF` finds nothing
+  (TC-CMN-29, TC-CMN-30).

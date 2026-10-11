@@ -19,7 +19,6 @@ use pes_version::Engine;
 use vtree::ScopePath;
 
 use super::model::MaterialRead;
-use crate::kit_variants::{has_variant_among, kit_reference_directory};
 use crate::messages::Code;
 use crate::plan::roles::{
     FolderModels, PlayerFile, below_common, common_folder, file_stem, player_file,
@@ -65,11 +64,12 @@ enum Supply {
 /// Whether the texture `path`, a `.mtl` sampler's path as written, is supplied from `sources`.
 /// A `dummy_` stem is never looked for. A path below the `.mtl`'s folder
 /// (`./shorts/y.dds`, `texture_lookup::path_below`) is supplied when the place that path names
-/// holds its stem (folded), or a member of its set for a kit reference, and missing
+/// holds its stem (folded; the places file each kit set's member under its set's `kitN`
+/// key, so a `kitN` reference finds a member and a `kitF` path none), and missing
 /// otherwise: it resolves there alone. Whatever directory any other
-/// path spells, it is supplied when its stem, or a member of its set for a kit reference
-/// (`pants_kitN`, `texture_lookup::variant`), is one a place of `sources.held` holds: that is
-/// the stem the face task points at the folder's textures. Past the folder, a `./` path and a
+/// path spells, it is supplied when its stem, folded, is one a place of `sources.held`
+/// holds: that is the stem the face task points at the folder's textures. Past the folder, a
+/// `./` path and a
 /// bare name (read as `./`) are missing: the face packs no texture the folder does not hold. A
 /// path into the team's uniform Common folder
 /// (`model/character/uniform/common/<team>/<name>`, `<name>` a name or a `Common/` subfolder's
@@ -82,12 +82,8 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
     let (directory, file_name) = texture_lookup::split(path);
     let stem = file_stem(file_name);
     let key = vtree::fold_name(stem);
-    let holds = |stems: &BTreeSet<String>| {
-        stems.contains(&key) || has_variant_among(stem, stems.iter().map(String::as_str))
-    };
-    let place_holds = |place: &TexturePlace| {
-        place.contains_key(&key) || texture_lookup::variant(place, stem).is_some()
-    };
+    let holds = |stems: &BTreeSet<String>| stems.contains(&key);
+    let place_holds = |place: &TexturePlace| place.contains_key(&key);
     if key.starts_with("dummy_") {
         return Supply::Supplied;
     }
@@ -113,18 +109,10 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
         Reference::Local(_) => Supply::Missing,
         // A Common path into a `Common/` subfolder resolves at its path below `Common/`
         // among the Common textures the export packs there (`sources.common_below`), then
-        // the installed CPKs'; a `kitN` directory stands for the kit set of its
-        // `kit1`-`kit9` siblings, resolved in slice (b4): not looked for.
+        // the installed CPKs'.
         Reference::Common { file_name, .. } if file_name.contains('/') => {
-            let (subdirectory, _) = texture_lookup::split(&file_name);
-            if kit_reference_directory(subdirectory) {
-                return Supply::Supplied;
-            }
             let below = vtree::fold_name(file_stem(&file_name));
-            let holds_below = |stems: &BTreeSet<String>| {
-                stems.contains(&below)
-                    || has_variant_among(file_stem(&file_name), stems.iter().map(String::as_str))
-            };
+            let holds_below = |stems: &BTreeSet<String>| stems.contains(&below);
             if holds_below(sources.common_below) {
                 Supply::Supplied
             } else {
@@ -318,31 +306,46 @@ pub(super) fn held_common(kept: &[FileDescriptor]) -> HeldTextures {
 mod tests {
     use super::*;
 
-    use crate::kit_variants::kit_lookup_key;
-
-    /// The folded stems `stems`.
-    fn stems(stems: &[&str]) -> BTreeSet<String> {
-        stems.iter().map(|stem| (*stem).to_owned()).collect()
-    }
+    use crate::kit_variants::kit_lookup_keys;
 
     /// A place holding the textures `stems`, each directly in its folder, by their lookup
-    /// key as `held_textures` files them (a `kitF` under its set's `kitN` reference).
+    /// keys as `held_textures` files them (a set's member under its `kitN` reference too,
+    /// its value the reference's spelling; a `kitF` under that alone).
     fn place(stems: &[&str]) -> TexturePlace {
         stems
             .iter()
-            .map(|stem| (kit_lookup_key(stem), (*stem).to_owned()))
+            .flat_map(|stem| {
+                kit_lookup_keys(stem).into_iter().map(|key| {
+                    let value = if key == vtree::fold_name(stem) {
+                        (*stem).to_owned()
+                    } else {
+                        aesthetics_export::kit_path_token(stem)
+                            .expect("a key beyond a stem's own means it holds a token")
+                            .1
+                    };
+                    (key, value)
+                })
+            })
             .collect()
     }
 
     /// What `supply` makes of `path` with the folder holding `held`, `Common/` `common` and the
     /// installed CPKs `installed`, nothing at any path below `Common/`. `common` is keyed as
-    /// the pass files it (`kit_lookup_key`: a `kitF` under its set's `kitN` reference).
+    /// the pass files it (`kit_lookup_keys`).
     fn supplied(path: &str, held: &[&str], common: &[&str], installed: Option<&[&str]>) -> Supply {
-        let installed = installed.map(stems);
+        let installed = installed.map(|stems| {
+            stems
+                .iter()
+                .flat_map(|stem| kit_lookup_keys(stem))
+                .collect()
+        });
         let folders = slot_05(&[], &[]);
         let mtl = ScopePath::new("Players/05 - A/x.mtl").unwrap();
-        let common_below = stems(&[]);
-        let common: BTreeSet<String> = common.iter().map(|stem| kit_lookup_key(stem)).collect();
+        let common_below = BTreeSet::new();
+        let common: BTreeSet<String> = common
+            .iter()
+            .flat_map(|stem| kit_lookup_keys(stem))
+            .collect();
         let sources = TextureSources {
             held: &[&place(held)],
             below: (&folders, &mtl),
@@ -355,11 +358,16 @@ mod tests {
 
     /// What `supply` makes of `path`, a Common path into a `Common/` subfolder, with the
     /// kept `Common/` textures at `kept` below `Common/` without their extensions — keyed
-    /// as the pass files them (`kit_lookup_key`) — and the installed CPKs' `installed` the
+    /// as the pass files them (`kit_lookup_keys`) — and the installed CPKs' `installed` the
     /// same way.
     fn supplied_below(path: &str, kept: &[&str], installed: Option<&[&str]>) -> Supply {
-        let installed = installed.map(stems);
-        let kept = kept.iter().map(|stem| kit_lookup_key(stem)).collect();
+        let installed = installed.map(|stems| {
+            stems
+                .iter()
+                .flat_map(|stem| kit_lookup_keys(stem))
+                .collect()
+        });
+        let kept = kept.iter().flat_map(|stem| kit_lookup_keys(stem)).collect();
         let none = BTreeSet::new();
         let folders = slot_05(&[], &[]);
         let mtl = ScopePath::new("Players/05 - A/x.mtl").unwrap();
@@ -674,15 +682,29 @@ mod tests {
     }
 
     #[test]
-    fn a_common_path_into_a_kitn_directory_is_not_looked_for() {
-        // A `kitN` directory stands for the set of its `kit1`-`kit9` siblings, which no
-        // lookup resolves yet (slice (b4)): the path stays unlooked-up, a variant held or
-        // not.
+    fn a_common_path_into_a_kitn_directory_is_supplied_by_a_member_of_its_set() {
+        // The `kitN` directory stands for the set of its `kit1`-`kit9` siblings:
+        // `Common/kit1/armor.dds`, `Common/kitF/armor.dds` and an installed CPK's `kit1/`
+        // copy each supply it; missing with none of them.
         let path = "model/character/uniform/common/000/kitN/armor.dds";
-        assert_eq!(supplied_below(path, &[], Some(&[])), Supply::Supplied);
         assert_eq!(
-            supplied_below(path, &["kit1/armor"], Some(&[])),
+            supplied_below(path, &["kit1/armor"], None),
             Supply::Supplied
+        );
+        assert_eq!(
+            supplied_below(path, &["kitF/armor"], None),
+            Supply::Supplied
+        );
+        assert_eq!(
+            supplied_below(path, &[], Some(&["kit1/armor"])),
+            Supply::Supplied
+        );
+        assert_eq!(supplied_below(path, &[], Some(&[])), Supply::Missing);
+        // A `kitF` path names no file: missing even when `Common/kitF/armor.dds` is held.
+        let kitf = "model/character/uniform/common/000/kitF/armor.dds";
+        assert_eq!(
+            supplied_below(kitf, &["kitF/armor"], Some(&[])),
+            Supply::Missing
         );
     }
 
@@ -698,7 +720,7 @@ mod tests {
     /// The findings of `texture_findings` for `materials` of `face.mtl` in `Players/05 - A`,
     /// `used` mesh-used, nothing held but `Common/`'s `hair` and no installed lookup.
     fn findings(materials: &[MaterialRead], used: &[&str]) -> Vec<ContentFinding> {
-        let common = stems(&["hair"]);
+        let common = BTreeSet::from(["hair".to_owned()]);
         let folders = slot_05(&[], &[]);
         let mtl = ScopePath::new("Players/05 - A/face.mtl").unwrap();
         let common_below = BTreeSet::new();

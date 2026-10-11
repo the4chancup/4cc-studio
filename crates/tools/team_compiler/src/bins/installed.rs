@@ -24,6 +24,7 @@ use uniparam::UniformParameter;
 
 use super::player_tables::{ItemList, ItemTable, read_player_appearance};
 use super::{TeamColorBin, UniColorBin, WorkingBins, dpfl};
+use crate::kit_variants::kit_lookup_keys;
 use crate::messages::{Code, deploy_message, tool_message};
 use crate::output::deploy;
 use crate::paths;
@@ -60,7 +61,9 @@ impl InstalledPaths {
 
     /// The paths below `Common/` without their extensions, folded (`hair`, `jessie/hair`), of
     /// the textures these CPKs hold in team `team_id`'s Common output for a target of `engine`
-    /// (`paths::common_texture`, read back): on Fox the ones a texture `.common` link at any
+    /// (`paths::common_texture`, read back), each under its lookup keys (`kit_lookup_keys`,
+    /// which reads the folded spelling's token: a `kit1` copy supplies its set's `kitn`
+    /// reference): on Fox the ones a texture `.common` link at any
     /// depth may name instead of a file in the export's `Common/` (a player's own textures sit
     /// in a folder below the team's Common one, under the same head, and a link may name them
     /// too), on pre-Fox the stems a `.mtl`'s Common path may name, a subfolder's included
@@ -91,6 +94,7 @@ impl InstalledPaths {
                         let name = name.strip_suffix(".ftex")?;
                         (!name.contains('/')).then(|| format!("{directory}{name}"))
                     })
+                    .flat_map(|below| kit_lookup_keys(&below))
                     .collect()
             }
             Engine::PreFox => {
@@ -103,7 +107,7 @@ impl InstalledPaths {
                 paths
                     .iter()
                     .filter_map(|path| path.strip_prefix(prefix)?.strip_suffix(".dds"))
-                    .map(str::to_owned)
+                    .flat_map(kit_lookup_keys)
                     .collect()
             }
         }

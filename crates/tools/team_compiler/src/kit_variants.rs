@@ -1,13 +1,15 @@
 //! Kit-dependent assets (`model_format.md` "Kit-dependent assets (`kitN`)"): the kit number of
 //! a kit slot, the per-kit model files an output no `face.xml` lists cannot use
 //! (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kit-dependent assets), and
-//! whether a kit reference has a member of its set among some stems. The token a file stem
-//! carries, `kit1` to `kit9`, `kitN` or the `kitF` fallback, is the export format's
+//! the keys a texture's path goes by in the lookups (`kit_lookup_keys`). The token a file
+//! stem carries, `kit1` to `kit9`, `kitN` or the `kitF` fallback, is the export format's
 //! (`aesthetics_export::kit_token`).
 
 use std::collections::BTreeMap;
 
-use aesthetics_export::{FileDescriptor, FileKind, KitToken, ModelFormat, kit_token};
+use aesthetics_export::{
+    FileDescriptor, FileKind, KitToken, ModelFormat, kit_path_token, kit_token,
+};
 use kit_config::KitSlot;
 use pes_version::Engine;
 use vtree::ScopePath;
@@ -192,36 +194,6 @@ pub(crate) fn model_variant_sets(
         .collect()
 }
 
-/// Whether `directory`, a path of `/`-separated folder names (a `Common/` file's below
-/// `Common/`, a texture's below its home), holds a `kitN` segment, which stands for the set
-/// of its `kit1` to `kit9` siblings (`pipeline.md` "Kit-dependent assets"). A texture path
-/// naming such a directory is supplied when a variant is, which no lookup resolves yet
-/// (slice (b4)): it is not looked up. The segment compares folded, as directories do: a
-/// file system folds `kitN` and `kitn` to one folder.
-pub(crate) fn kit_reference_directory(directory: &str) -> bool {
-    directory
-        .split('/')
-        .any(|segment| vtree::fold_name(segment) == "kitn")
-}
-
-/// Whether `stem` is a kit reference (`pants_kitN`, never a file of its own) and `stems` hold
-/// a member of its set — a variant (`pants_kit2`) or its `kitF` fallback — compared as
-/// `stems` are, as spelled. A `stem` may name a directory (`jessie/kitN_pants`): the token
-/// is read in the file name alone, and only a held stem of that directory, folded, counts —
-/// the set a path names is the one at its path.
-pub(crate) fn has_variant_among<'a>(stem: &str, stems: impl IntoIterator<Item = &'a str>) -> bool {
-    let (directory, name) = stem.rsplit_once('/').unwrap_or(("", stem));
-    let Some((KitToken::Reference, reference)) = kit_token(name) else {
-        return false;
-    };
-    let directory = vtree::fold_name(directory);
-    stems.into_iter().any(|held| {
-        let (held_directory, held_name) = held.rsplit_once('/').unwrap_or(("", held));
-        vtree::fold_name(held_directory) == directory
-            && matches!(kit_token(held_name), Some((KitToken::Variant(_) | KitToken::Fallback, held_reference)) if vtree::fold_name(&held_reference) == vtree::fold_name(&reference))
-    })
-}
-
 /// Whether `stem` is a set's `kitF` fallback file (`pants_kitF`).
 pub(crate) fn kit_fallback_stem(stem: &str) -> bool {
     matches!(kit_token(stem), Some((KitToken::Fallback, _)))
@@ -244,23 +216,22 @@ pub(crate) fn packed_fallback_stem(stem: &str) -> bool {
     })
 }
 
-/// The key `stem`, a texture's name without its extension (or its path below its folder,
-/// `jessie/pants_kitF`), goes by in a by-stem lookup, folded as the lookups compare: the
-/// set's `kitF` fallback under the set's folded reference (`pants_kitn`), since it is
-/// never a file under its own name — a path naming `pants_kitF` finds nothing while its
-/// set's `kitN` reference finds it — any other name under its own folded spelling. The
-/// token reads in the file name alone (`kitF_pants` is the fallback, as `pants_kitF` is),
-/// the directory kept.
-pub(crate) fn kit_lookup_key(stem: &str) -> String {
-    let (directory, name) = match stem.rfind('/') {
-        Some(at) => (&stem[..at + 1], &stem[at + 1..]),
-        None => ("", stem),
-    };
-    match kit_token(name) {
-        Some((KitToken::Fallback, reference)) => {
-            vtree::fold_name(&format!("{directory}{reference}"))
+/// The keys `path`, a texture's path below its folder without its extension
+/// (`jessie/pants_kitF`, `kit1/armor_bsm`), goes by in a by-stem lookup, folded as the
+/// lookups compare, its own first when it has one: a kit set's variant (`kit1/armor_bsm`,
+/// `pants_kit1`) under its own folded path and its set's folded `kitN` reference
+/// (`kitn/armor_bsm`, `pants_kitn`); a `kitF` member under the reference's alone, it being
+/// never a file under its own name — a path naming `kitF` finds nothing while its set's
+/// `kitN` reference finds it; anything else, the `kitN` reference itself included, under its
+/// own folded spelling. The member's token is `kit_path_token`'s: the file name's first, else
+/// the first directory segment spelled exactly as one.
+pub(crate) fn kit_lookup_keys(path: &str) -> Vec<String> {
+    match kit_path_token(path) {
+        Some((KitToken::Variant(_), reference)) => {
+            vec![vtree::fold_name(path), vtree::fold_name(&reference)]
         }
-        _ => vtree::fold_name(stem),
+        Some((KitToken::Fallback, reference)) => vec![vtree::fold_name(&reference)],
+        Some((KitToken::Reference, _)) | None => vec![vtree::fold_name(path)],
     }
 }
 
@@ -530,14 +501,6 @@ mod tests {
     }
 
     #[test]
-    fn a_kit_reference_is_supplied_by_the_set_s_fallback_too() {
-        assert!(has_variant_among("pants_kitN", ["skin", "pants_kitF"]));
-        assert!(!has_variant_among("pants_kitN", ["skin", "socks_kitF"]));
-        // A `kitF` name is no reference: it is not looked up.
-        assert!(!has_variant_among("pants_kitF", ["pants_kitF"]));
-    }
-
-    #[test]
     fn a_packed_name_s_fallback_is_its_kitf_token_between_delimiters() {
         // `kitf` in any case, as a packed name carries it, delimited as the token is.
         for stem in [
@@ -554,19 +517,34 @@ mod tests {
     }
 
     #[test]
-    fn a_fallback_goes_by_its_set_s_reference_key_in_a_by_stem_lookup() {
-        assert_eq!(kit_lookup_key("pants_kitF"), "pants_kitn");
-        assert_eq!(kit_lookup_key("jessie/pants_kitF"), "jessie/pants_kitn");
-        // The token reads in the file name alone: a `kitF`-prefixed file is a fallback
-        // too, its directory kept.
-        assert_eq!(kit_lookup_key("jessie/kitF_pants"), "jessie/kitn_pants");
-        assert_eq!(kit_lookup_key("jessie/pants_kitF"), "jessie/pants_kitn");
-        assert_eq!(kit_lookup_key("Pants_Kit1"), "pants_kit1");
-        assert_eq!(kit_lookup_key("skin"), "skin");
+    fn a_fallback_stem_is_the_kitf_token_s_spelling_alone() {
         assert!(kit_fallback_stem("pants_kitF"));
         assert!(!kit_fallback_stem("pants_kit1"));
         assert!(!kit_fallback_stem("pants_kitf"));
         assert!(!kit_fallback_stem("skin"));
+    }
+
+    #[test]
+    fn a_set_member_goes_by_its_own_key_and_its_reference_s_the_fallback_by_the_reference_alone() {
+        // A variant under its own folded path and its set's folded reference.
+        assert_eq!(
+            kit_lookup_keys("kit1/armor_bsm"),
+            ["kit1/armor_bsm", "kitn/armor_bsm"]
+        );
+        assert_eq!(kit_lookup_keys("pants_kit2"), ["pants_kit2", "pants_kitn"]);
+        // The `kitF` member under the reference's alone: a path naming its own spelling
+        // finds nothing.
+        assert_eq!(kit_lookup_keys("kitF/armor_bsm"), ["kitn/armor_bsm"]);
+        assert_eq!(kit_lookup_keys("pants_kitF"), ["pants_kitn"]);
+        // The `kitN` reference's own key is its reference's.
+        assert_eq!(kit_lookup_keys("kitN/armor_bsm"), ["kitn/armor_bsm"]);
+        // No token, its own folded path alone; the token reads in the file name or a
+        // whole directory segment.
+        assert_eq!(kit_lookup_keys("jessie/hair"), ["jessie/hair"]);
+        assert_eq!(kit_lookup_keys("jessie/kitF_pants"), ["jessie/kitn_pants"]);
+        // `Kit1` is no token (the token is spelled exactly so): folded alone.
+        assert_eq!(kit_lookup_keys("Pants_Kit1"), ["pants_kit1"]);
+        assert_eq!(kit_lookup_keys("skin"), ["skin"]);
     }
 
     #[test]
@@ -614,36 +592,5 @@ mod tests {
                 left_out
             )]
         );
-    }
-
-    #[test]
-    fn a_kit_reference_has_a_variant_among_stems_holding_one_of_its_set() {
-        assert!(has_variant_among("pants_kitN", ["skin", "Pants_kit2"]));
-        assert!(!has_variant_among("pants_kitN", ["skin", "sock_kit2"]));
-        // `pants_kit1` is a variant, not a reference: it is found by its own stem.
-        assert!(!has_variant_among(
-            "pants_kit1",
-            ["pants_kit1", "pants_kit2"]
-        ));
-    }
-
-    #[test]
-    fn a_kit_reference_names_the_set_of_the_directory_it_names() {
-        // The token reads in the file name, the directories compared folded: the set at
-        // the path the reference names, and no other.
-        assert!(has_variant_among(
-            "jessie/kitN_pants",
-            ["jessie/kit1_pants"]
-        ));
-        assert!(has_variant_among(
-            "Jessie/kitN_pants",
-            ["jessie/kit1_pants"]
-        ));
-        assert!(!has_variant_among("jessie/kitN_pants", ["kit1_pants"]));
-        assert!(!has_variant_among("pants_kitN", ["jessie/pants_kit1"]));
-        assert!(!has_variant_among(
-            "jessie/kitN_pants",
-            ["jessie/sock_kit1"]
-        ));
     }
 }

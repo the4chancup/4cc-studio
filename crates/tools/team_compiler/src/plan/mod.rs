@@ -1084,7 +1084,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         // into the team's Common output and a Common part's paths, in a model of any folder,
         // name that output for. A subfolder's textures are packed under its own path, which no
         // player's model points at. As spelled, not folded: the Models task's Common lookup
-        // reads a `kitF` file's token from its spelling (`kit_lookup_key`).
+        // reads a `kitF` file's token from its spelling (`kit_lookup_keys`).
         let common_texture_stems: BTreeSet<String> = export
             .common
             .iter()

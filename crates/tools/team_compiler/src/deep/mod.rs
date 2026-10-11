@@ -82,7 +82,7 @@ use rayon::prelude::*;
 use vtree::ScopePath;
 
 use crate::bins::{KIT_COLORS, TEAM_COLORS};
-use crate::kit_variants::kit_lookup_key;
+use crate::kit_variants::kit_lookup_keys;
 use crate::messages::Code;
 use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::roles::{
@@ -164,15 +164,18 @@ struct KeptCommon {
     files: Vec<FileDescriptor>,
     /// The materials of the kept pre-Fox models and material sets, by export path.
     materials: BTreeMap<ScopePath, Vec<MaterialRead>>,
-    /// The stems, folded, of the kept textures, which the export's Common textures task packs.
+    /// The stems, folded, of the kept textures, which the export's Common textures task packs,
+    /// each kit set's member under its set's `kitN` reference key too (`kit_lookup_keys`).
     texture_stems: BTreeSet<String>,
     /// The paths below `Common/` without their extensions, folded (`jessie/skin`), of the
-    /// kept textures: on pre-Fox every one is packed at that path, on Fox the subfolder ones
+    /// kept textures, each kit set's member under its set's `kitN` reference key too
+    /// (`kit_lookup_keys`): on pre-Fox every one is packed at that path, on Fox the subfolder ones
     /// a link reaches are, so a Common path into a `Common/` subfolder resolves among them
     /// (`materials::supply`), on both engines.
     texture_belows: BTreeSet<String>,
     /// The stems, folded, the installed CPKs loaded before the run's hold in the team's Common
-    /// output; `None` when that lookup cannot be made or the export has no team ID.
+    /// output, each kit set's member under its set's `kitN` reference key too; `None` when
+    /// that lookup cannot be made or the export has no team ID.
     installed: Option<BTreeSet<String>>,
     /// For a refs export, the referee template tree's files in the referees' Common output
     /// (`templates::referee_common_paths`), which a `face.xml` Common reference may name too
@@ -362,19 +365,20 @@ pub(crate) fn content_findings(
         }
     }
     // A subfolder's textures are packed under its own path, which no player's paths name.
-    // A `kitF` file goes into the sets under its set's `kitN` reference (`kit_lookup_key`):
-    // a path naming its own spelling finds nothing.
+    // A kit set's member goes in under its set's `kitN` reference key beside its own
+    // (`kit_lookup_keys`), a `kitF` member under that alone: a path naming its own spelling
+    // finds nothing.
     kept_common.texture_stems = kept_common
         .files
         .iter()
         .filter(|file| file.kind == FileKind::Texture && is_direct_root_folder_file(&file.path))
-        .map(|file| kit_lookup_key(file_stem(file.path.name())))
+        .flat_map(|file| kit_lookup_keys(file_stem(file.path.name())))
         .collect();
     kept_common.texture_belows = kept_common
         .files
         .iter()
         .filter(|file| file.kind == FileKind::Texture)
-        .map(|file| kit_lookup_key(file_stem(below_common(&file.path))))
+        .flat_map(|file| kit_lookup_keys(file_stem(below_common(&file.path))))
         .collect();
     match engine {
         Engine::Fox => {}
@@ -1028,7 +1032,7 @@ fn folder_findings(
     for file in files {
         if let Some(PlayerFile::CommonTexture(below)) = player_file(folder, file, models) {
             common_held.insert_link(&below);
-            common_below.insert(kit_lookup_key(&below));
+            common_below.extend(kit_lookup_keys(&below));
         }
     }
     // The combined folders' texture links too, standing at their paths as the Models
@@ -1040,7 +1044,7 @@ fn folder_findings(
                 player_file(&source.path, file, &source_models)
             {
                 common_held.insert_link(&below);
-                common_below.insert(kit_lookup_key(&below));
+                common_below.extend(kit_lookup_keys(&below));
             }
         }
     }

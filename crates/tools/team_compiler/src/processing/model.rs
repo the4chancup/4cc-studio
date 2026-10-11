@@ -24,7 +24,6 @@ use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::bins::installed::InstalledPaths;
 use crate::face_diff;
-use crate::kit_variants::{has_variant_among, kit_reference_directory};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureDirectory};
@@ -112,7 +111,7 @@ pub(super) fn package(
     // texture it stands for being present in the folder holding it; and the `below` of each,
     // which a Common part's lookup counts as a `Common/` texture and `texture_supply` held at
     // the team's Common output, validation having checked the link. Kept as spelled, not
-    // folded: a `kitF` file's token is read from its spelling (`kit_lookup_key`).
+    // folded: a `kitF` file's token is read from its spelling (`kit_lookup_keys`).
     let mut textures = TextureFolders::default();
     let mut linked_stems = BTreeSet::new();
     let mut contents = PackageFiles::new();
@@ -748,8 +747,9 @@ fn split_fmdl(bytes: &[u8]) -> anyhow::Result<SplitFmdl> {
 
 /// Points `path`, one texture reference of a part, at where its texture is: the first of
 /// `places`, each the textures packed in a directory for the part in lookup order
-/// (`texture_lookup::TexturePlace`), that holds its stem, or a variant of its set when it is a
-/// kit reference (`pants_kitN`), gives the directory, with that texture's own subdirectory
+/// (`texture_lookup::TexturePlace`), that holds its stem — the places filing each kit set's
+/// member under its set's `kitN` key too, so a `kitN` reference finds a member and a `kitF`
+/// name none — gives the directory, with that texture's own subdirectory
 /// below it (`jessie/`), and the texture is supplied. Else a path into the team's pre-Fox
 /// Common folder
 /// (`model/character/uniform/common/<team>/`, how a member's pre-Fox `.mtl` names a texture of
@@ -771,10 +771,7 @@ fn point_texture(
     let stem = file_stem(&path.file_name);
     let key = vtree::fold_name(stem);
     let place = places.iter().find_map(|(textures, directory)| {
-        let below = textures
-            .get(&key)
-            .map(String::as_str)
-            .or_else(|| texture_lookup::variant(textures, stem))?;
+        let below = textures.get(&key).map(String::as_str)?;
         Some(directory.of(texture_lookup::split(below).0))
     });
     let (place, supply) = match place {
@@ -805,20 +802,16 @@ fn point_texture(
 /// Points `path`, a texture reference naming a path below its file's folder
 /// (`texture_lookup::path_below`), at the texture of the first of `places` holding its stem
 /// (`TextureFolders::at`: the folder that path names, its textures then its links, each with
-/// the directory its home names it by), or a variant of its set for a kit reference,
-/// returning whether one did. With none it is left as written, which `texture_supply` calls
-/// missing: such a path resolves there alone (`model_format.md` "Stem-based texture
-/// references").
+/// the directory its home names it by), returning whether one did. With none it is left as
+/// written, which `texture_supply` calls missing: such a path resolves there alone
+/// (`model_format.md` "Stem-based texture references").
 fn point_texture_below(
     path: &mut TexturePath,
     places: &[(&TexturePlace, &TextureDirectory)],
 ) -> bool {
     let stem = file_stem(&path.file_name);
     let found = places.iter().find_map(|(place, directory)| {
-        let below = place
-            .get(&vtree::fold_name(stem))
-            .map(String::as_str)
-            .or_else(|| texture_lookup::variant(place, stem))?;
+        let below = place.get(&vtree::fold_name(stem)).map(String::as_str)?;
         Some((directory, below))
     });
     let Some((directory, below)) = found else {
@@ -830,27 +823,22 @@ fn point_texture_below(
 
 /// Whether the texture `below`, its path below `Common/` without its extension
 /// (`jessie/hair`), is supplied: the Common textures Fox packs at the subdirectory `below`
-/// names (`common_folders`' places there, `""` for `Common/` itself, holding the stem or a
-/// variant of its set), else what `installed_holds` answers for `below` (`None` when the
-/// installed CPKs cannot be looked in). A `kitN` segment in the subdirectory stands for the
-/// kit set of its `kit1`-`kit9` siblings, resolved in slice (b4): the path is not looked
-/// for.
+/// names (`common_folders`' places there, `""` for `Common/` itself, holding the stem —
+/// the places file each kit set's member under its set's `kitN` key too, so a `kitN`
+/// subdirectory or reference finds a member and a `kitF` path none), else what
+/// `installed_holds` answers for `below` (`None` when the installed CPKs cannot be looked
+/// in).
 fn common_below_supply(
     below: &str,
     common_folders: &TextureFolders,
     installed_holds: &impl Fn(&str) -> Option<bool>,
 ) -> TextureSupply {
     let (subdirectory, name) = texture_lookup::split(below);
-    if kit_reference_directory(subdirectory) {
-        return TextureSupply::Supplied;
-    }
     let key = vtree::fold_name(name);
     let held = common_folders
         .folder(subdirectory)
         .iter()
-        .any(|(place, _)| {
-            place.contains_key(&key) || texture_lookup::variant(place, name).is_some()
-        });
+        .any(|(place, _)| place.contains_key(&key));
     if held {
         return TextureSupply::Supplied;
     }
@@ -884,8 +872,8 @@ enum TextureSupply {
 /// among the Common textures packed at that subdirectory (`common_below_supply`): the
 /// export's `Common/` textures and the paths the folder's texture links stand for, then the
 /// installed CPKs' answer (`None`: they cannot be looked in); not looked for when its
-/// directory is no `of` spelling of `common_home` (the game's own), nor into a `kitN`
-/// subdirectory (`common_below_supply`). Directories and stems compare folded.
+/// directory is no `of` spelling of `common_home` (the game's own). Directories and stems
+/// compare folded.
 fn texture_supply(
     path: &TexturePath,
     supplies: &BTreeMap<String, TextureSupply>,
@@ -915,9 +903,11 @@ fn texture_supply(
 }
 
 /// `texture_supply`'s question to the `installed` CPKs for team `team_id`: whether one holds
-/// the Common texture of a stem, or for a kit reference (`pants_kitN`, never a file) a variant
-/// of its set (`pants_kit1`), which the game respells the reference to; `None` when they
-/// cannot be looked in. Their Common stems are gathered once, for every texture it is asked.
+/// the Common texture a path below `Common/` names — its own path, or a member of the kit
+/// set its folded key is the `kitN` reference of among the stems the CPKs hold
+/// (`common_texture_stems` files each under its `kitN` key too, so an installed `kit1/` copy
+/// supplies `kitN/`); `None` when they cannot be looked in. Their Common stems are gathered
+/// once, for every texture it is asked.
 fn installed_lookup(
     installed: &InstalledPaths,
     team_id: u16,
@@ -926,7 +916,7 @@ fn installed_lookup(
     move |stem| {
         installed
             .holds(&paths::common_texture(Engine::Fox, team_id, stem))
-            .map(|held| held || has_variant_among(stem, stems.iter().map(String::as_str)))
+            .map(|held| held || stems.contains(&vtree::fold_name(stem)))
     }
 }
 
@@ -967,7 +957,7 @@ impl From<MergeError> for TaskFailure {
 mod tests {
     use super::*;
 
-    use crate::kit_variants::kit_lookup_key;
+    use crate::kit_variants::kit_lookup_keys;
 
     /// Team 714's Common texture directory.
     const COMMON_714: &str = "/Assets/pes16/model/character/common/714/sourceimages/";
@@ -1116,6 +1106,33 @@ mod tests {
     }
 
     #[test]
+    fn an_installed_cpk_holding_a_kit_folder_member_supplies_the_set_s_reference() {
+        // The installed CPK's `kit1/armor_bsm` alone supplies the `kitN/` subdirectory the
+        // model names, `common_texture_stems` filing it under the set's `kitN` key too.
+        let kitn = "/Assets/pes16/model/character/common/714/kitN/sourceimages/";
+        let path = |file_name: &str| TexturePath {
+            file_name: file_name.to_owned(),
+            directory: kitn.to_owned(),
+        };
+        let installed = InstalledPaths::Known(
+            [vtree::fold_name(&paths::common_texture(
+                Engine::Fox,
+                714,
+                "kit1/armor_bsm",
+            ))]
+            .into(),
+        );
+        let lookup = installed_lookup(&installed, 714);
+        let none = TextureFolders::default();
+        let no_verdict = BTreeMap::new();
+        let home = paths::common_home(Engine::Fox, 714);
+        let supplied =
+            |file_name: &str| texture_supply(&path(file_name), &no_verdict, &none, &home, &lookup);
+        assert_eq!(supplied("armor_bsm.dds"), TextureSupply::Supplied);
+        assert_eq!(supplied("other.dds"), TextureSupply::Missing);
+    }
+
+    #[test]
     fn a_fox_path_into_a_common_subfolder_is_looked_up_at_that_path() {
         let jessie = "/Assets/pes16/model/character/common/714/jessie/sourceimages/";
         // What nobody there holds is the installed CPKs' answer, `Unknown` when they cannot
@@ -1150,32 +1167,61 @@ mod tests {
     }
 
     #[test]
-    fn a_common_path_into_a_kitn_folder_is_not_looked_for() {
-        // A `kitN` folder stands for the set of its `kit1`-`kit9` siblings, which no
-        // lookup resolves yet (slice (b4)): the path stays unlooked-up, a variant held
-        // or not.
+    fn a_common_path_into_a_kitn_folder_is_supplied_by_a_member_of_its_set() {
+        // The `kitN/` subdirectory stands for the set of its `kit1`-`kit9` siblings:
+        // `Common/kit1/armor.dds`, `Common/kitF/armor.dds`, a link standing for one, and
+        // an installed CPK's copy each supply it; missing with none of them.
         let kitn = "/Assets/pes16/model/character/common/714/kitN/sourceimages/";
-        for installed in [Some(true), Some(false), None] {
-            assert_eq!(
-                supply(kitn, "armor.dds", &[], &[], installed),
-                TextureSupply::Supplied,
-                "{installed:?}"
-            );
-        }
         assert_eq!(
             supply(kitn, "armor.dds", &["kit1/armor"], &[], Some(false)),
             TextureSupply::Supplied
         );
+        assert_eq!(
+            supply(kitn, "armor.dds", &["kitF/armor"], &[], Some(false)),
+            TextureSupply::Supplied
+        );
+        assert_eq!(
+            supply(kitn, "armor.dds", &[], &["kit1/armor"], Some(false)),
+            TextureSupply::Supplied
+        );
+        assert_eq!(
+            supply(kitn, "armor.dds", &[], &[], Some(true)),
+            TextureSupply::Supplied
+        );
+        assert_eq!(
+            supply(kitn, "armor.dds", &[], &[], Some(false)),
+            TextureSupply::Missing
+        );
+        assert_eq!(
+            supply(kitn, "armor.dds", &[], &[], None),
+            TextureSupply::Unknown
+        );
+        // A `kitF/` path names no file: missing even when `Common/kitF/armor.dds` is held.
+        let kitf = "/Assets/pes16/model/character/common/714/kitF/sourceimages/";
+        assert_eq!(
+            supply(kitf, "armor.dds", &["kitF/armor"], &[], Some(false)),
+            TextureSupply::Missing
+        );
     }
 
-    /// A place holding the textures `below`, each its path below the place's directory, by its
-    /// lookup key, a `kitF` file under its set's `kitN` reference as `insert` files it.
+    /// A place holding the textures `below`, each its path below the place's directory, by the
+    /// lookup keys of its name as `insert` files them (a set's member under its `kitN`
+    /// reference too, its value the reference's spelling; a `kitF` under that alone).
     fn place(below: &[&str]) -> TexturePlace {
         below
             .iter()
-            .map(|below| {
+            .flat_map(|below| {
                 let (_, name) = texture_lookup::split(below);
-                (kit_lookup_key(name), (*below).to_owned())
+                kit_lookup_keys(name).into_iter().map(|key| {
+                    let value = if key == vtree::fold_name(name) {
+                        (*below).to_owned()
+                    } else {
+                        aesthetics_export::kit_path_token(below)
+                            .expect("a key beyond a name's own means it holds a token")
+                            .1
+                    };
+                    (key, value)
+                })
             })
             .collect()
     }

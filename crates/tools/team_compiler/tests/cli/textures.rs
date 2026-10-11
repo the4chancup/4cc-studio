@@ -18,7 +18,7 @@ use pes_version::PesVersion;
 
 use crate::bins::{install_cpk, install_names};
 use crate::common::Sandbox;
-use crate::common_links::texture_directories;
+use crate::common_links::{model_naming_in, texture_directories};
 use crate::compile::{
     compiled_kits, compiled_players, cpk_entries, kit_texture, pass_through_settings, pes_settings,
     pes21_settings, pixels_cut_dds, tracer_kit, tracer_player_file,
@@ -933,6 +933,101 @@ fn a_kits_fallback_texture_is_written_as_kit_n_and_never_its_own_name() {
         &ftex::dds_to_ftex(&tracer_kit(), ftex::ColorSpace::Normal).unwrap(),
         "the `kitF` file's conversion under `kitN`"
     );
+}
+
+// TC-CMN-29
+#[test]
+fn a_kit_folder_s_set_is_found_by_the_model_naming_its_reference_and_its_fallback_written_as_kit_n()
+{
+    let sandbox = Sandbox::new("tex_kit_folder_set");
+    let export = "exports/co Midcup Kit Folder";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &model_naming_in("armor_bsm.dds", "./kitN/"),
+    );
+    // Different images: the variant the tracer's shirt, the fallback its kit.
+    sandbox.write(
+        &format!("{player}/kit1/armor_bsm.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/kitF/armor_bsm.dds"), &tracer_kit());
+    for slot in ["p1", "p2"] {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Kit Folder"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let armor = |folder: &str| {
+        format!(
+            "Asset/model/character/common/714/05 - A/{folder}/sourceimages/#windx11/armor_bsm.ftex"
+        )
+    };
+    let kit1 = entries.get(&armor("kit1")).expect("kit1/ armor_bsm.ftex");
+    let kitn = entries.get(&armor("kitN")).expect("kitN/ armor_bsm.ftex");
+    assert_eq!(
+        kitn,
+        &ftex::dds_to_ftex(&tracer_kit(), ftex::ColorSpace::Normal).unwrap(),
+        "the `kitF` file's conversion under `kitN`"
+    );
+    assert_ne!(kitn, kit1, "kit 1 keeps its own image");
+    for path in [&armor("kit2"), &armor("kitF")] {
+        assert!(
+            !entries.contains_key(path),
+            "{path} among {:?}",
+            entries.keys()
+        );
+    }
+    // The face's model names `armor_bsm` in the set's `kitN/` directory of the folder's
+    // texture home.
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("face_high.fmdl").unwrap(), "armor_bsm.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/05 - A/kitN/sourceimages/"),
+        "{directories:?}"
+    );
+}
+
+// TC-CMN-30
+#[test]
+fn a_model_naming_a_kit_f_folder_finds_nothing() {
+    let sandbox = Sandbox::new("tex_kit_fallback_missing");
+    let export = "exports/co Midcup Kit Fallback";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &model_naming_in("armor_bsm.dds", "./kitF/"),
+    );
+    sandbox.write(&format!("{player}/kitF/armor_bsm.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Kit Fallback"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Error fmdl_texture_not_found [DropFolder] at Players/05 - A (model=face_high.fmdl, texture=./kitF/armor_bsm.dds)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 1);
 }
 
 /// The game's team-`000` Common texture directory, which a compile makes the team's.

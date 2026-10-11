@@ -1740,13 +1740,13 @@ pub(super) fn read_materials(
 
 /// Points every texture path of `set` whose file stem (case-folded) is one of a place's
 /// textures at that texture's DDS where it is packed: `places.by_name` are (textures,
-/// directory) pairs in lookup order, each texture by its folded stem with its path below the
-/// directory as spelled (`texture_lookup::TexturePlace`), and the first place holding a stem
+/// directory) pairs in lookup order, each texture by its lookup keys with its path below the
+/// directory (`texture_lookup::TexturePlace`: a kit set's member under its set's `kitN` key
+/// too, its value the reference's spelling, so a `pants_kitN` reference finds the set's
+/// `kitN` entry and a `kitF` name none), and the first place holding a stem
 /// wins, the path becoming the directory with the texture's own subdirectory below it
-/// (`jessie/`, `TextureDirectory::of`) and `<stem>.dds`. A path whose stem no place holds but
-/// that is a kit reference (`pants_kitN`) is pointed at the directory of the first place
-/// holding a variant of its set (`texture_lookup::variant`), the variant's subdirectory
-/// included, its file name kept as it is: the game respells it for the kit picked. A path
+/// (`jessie/`, `TextureDirectory::of`) and `<stem>.dds`, the `kitN` spelling a member's
+/// `kitN` entry holds respelling the reference the game respells for the kit picked. A path
 /// below the `.mtl`'s folder (`texture_lookup::path_below`) is looked up the same way in
 /// the places that path names alone, each texture where its home puts it. Any other path is
 /// left as it is.
@@ -1770,25 +1770,16 @@ pub(super) fn point_materials(set: &mut MaterialSet, places: &MaterialPlaces) {
         };
         let stem = file_stem(&path.file_name);
         let key = vtree::fold_name(stem);
+        // A `kitN`-keyed entry's value is the reference's spelling (`kit_lookup_keys`), so
+        // a kit reference is pointed at the `kitN` spelling the game respells for the kit
+        // picked, and a `kitF` name finds nothing.
         let found = lookup.iter().find_map(|(textures, directory)| {
-            let below = textures.get(&key)?;
-            // A `kitF` file sits under its set's `kitN` key (`kit_lookup_key`): the name a
-            // path gives it is never its own, so it answers as a member of its set below.
-            (vtree::fold_name(texture_lookup::split(below).1) == key)
-                .then_some((below.as_str(), *directory))
+            textures.get(&key).map(|below| (below.as_str(), *directory))
         });
         if let Some((below, directory)) = found {
             let (subdirectory, name) = texture_lookup::split(below);
             path.directory = directory.of_below(subdirectory, &places.packed);
             path.file_name = format!("{name}.dds");
-            return;
-        }
-        let variant_place = lookup.iter().find_map(|(textures, directory)| {
-            Some((texture_lookup::variant(textures, stem)?, *directory))
-        });
-        if let Some((below, directory)) = variant_place {
-            let (subdirectory, _) = texture_lookup::split(below);
-            path.directory = directory.of_below(subdirectory, &places.packed);
         }
     });
 }
@@ -2023,13 +2014,20 @@ mod tests {
 
     #[test]
     fn a_kit_reference_with_a_variant_in_a_place_is_pointed_there_its_name_kept() {
-        let textures = BTreeMap::from([("pants_kit1".to_owned(), "Pants_kit1".to_owned())]);
+        // The place `insert` files `pants_kit1` into: its own and its set's `kitN` key.
+        let textures = BTreeMap::from([
+            ("pants_kit1".to_owned(), "Pants_kit1".to_owned()),
+            ("pants_kitn".to_owned(), "Pants_kitN".to_owned()),
+        ]);
         let linked = BTreeMap::new();
         let places = by_name(&[(&textures, &HOME), (&linked, &COMMON)]);
 
         let mut set = card_set_naming("pants_kitN.dds");
         point_materials(&mut set, &places);
-        assert_eq!(paths(&set), ["home/pants_kitN.dds"]);
+        // The `kitN`-keyed entry's value is the reference's spelling as `kit_lookup_keys`
+        // gives it — the member's `kitN` respelling — which the game respells for the kit
+        // picked.
+        assert_eq!(paths(&set), ["home/Pants_kitN.dds"]);
 
         // No variant of `other_kitN` anywhere: left as it is.
         let mut set = card_set_naming("other_kitN.dds");

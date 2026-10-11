@@ -1638,6 +1638,15 @@ TC-CMN-28  GIVEN slot 05 holding pants_kit1.fmdl and pants_kitF.fmdl
            WHEN the export is compiled for PES 21
            THEN kit_variant_model_left_out is reported with used pants_kitF.fmdl, and the face
                 package's model is built from pants_kitF alone
+TC-CMN-29  GIVEN Kits/p1 and p2, and slot 05 holding kit1/armor_bsm.dds, kitF/armor_bsm.dds of
+           other bytes, and face_high.fmdl naming ./kitN/armor_bsm
+           WHEN the export is compiled for PES 21
+           THEN no finding names armor_bsm, the face package's model names armor_bsm in the
+                folder's kitN/sourceimages/ directory, and the CPK holds the folder's kit1/
+                and kitN/ armor_bsm.ftex, kitN's kitF's conversion, and no kitF/ one
+TC-CMN-30  GIVEN slot 05 holding kitF/armor_bsm.dds and face_high.fmdl naming ./kitF/armor_bsm
+           WHEN the export is compiled for PES 21
+           THEN the face model's texture armor_bsm is reported not found
 ```
 
 **Bins**
