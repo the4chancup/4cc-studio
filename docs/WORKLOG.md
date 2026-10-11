@@ -4047,7 +4047,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
         - (b3b4d) S19.1-A1's code half: a path into a subdirectory of the team's Common output
           (`common/000/kit1/sourceimages/`, written by a Fox model, not only respelled from a
           pre-Fox path) is checked like a direct one, and the installed-CPK lookup looks at the
-          path's subdirectory (it looks for the stem at the Common root today, both engines;
+          path's subdirectory, a `kitN/` one standing for its set (S19.2-A1) (it looks for
+          the stem at the Common root today, both engines;
           `pipeline.md` "A texture a model names must exist", `messages.md`'s paragraph after
           "Texture existence is checked **deep**").
         - (b3b4e) PES 15-17: a texture `.common` link whose target is not in the export
@@ -7189,3 +7190,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the step's slice plan restructured as a nested list.
 - **2026-10-11** — S19.1 (SWE-2 on the subfolder and Common-texture plan text): 12 of 16
   accepted; plan fixes landed, (b3b4d) and (b3b4e) added to 4.y-sub.
+- **2026-10-11** — S19.2 (SWE-2 round 2 on the plan text): 10 of 13 accepted; plan fixes
+  landed, (b3b4d) widened to `kitN/` Common paths.

@@ -6688,3 +6688,16 @@ subfolder's is face content.
 Plan: `aesthetics_export/player_folders.md` "Subfolders"; `object_model.md` "File-type
 allowlist"; `team_compiler/messages.md` `fmdl_name_invalid`, `model_name_invalid`;
 `team_compiler/README.md` TC-MOD-68.
+
+## 2026-10-11 — team_compiler — a `kitN` Common path stands for its set in the texture check; a Fox shared output's subfolder texture goes into its own platform folder
+Decision: a model's texture path into a `kitN` subdirectory of the team's Common output
+(`common/<team>/kitN/sourceimages/armor_bsm`) is supplied when a variant of its set is, in
+`Common/kit1/` to `kit9/` or an installed CPK, as a `pants_kitN` stem is. On PES 18-21 a shared
+boots or gloves output's subfolder texture goes out at its directory, then `#windx11/`
+(`boots/k{id}/jessie/#windx11/sole.ftex`, the FMDL naming `.../boots/k{id}/jessie/`).
+Why: `kitN` names a set, never a file, so a literal lookup of `Common/kitN/armor_bsm.dds` would
+call every /hdg/ per-kit path missing (S19.2-A1). The platform folder per directory is how Red
+packs every folder's textures (`move_files_to_windx11`) and how a `Common/` subfolder's and a
+player home's subfolder textures already sit (S19.2-B2).
+Plan: `team_compiler/pipeline.md` "A texture a model names must exist" and "Game paths
+reference"; `messages.md`, the paragraph after "Texture existence is checked **deep**".

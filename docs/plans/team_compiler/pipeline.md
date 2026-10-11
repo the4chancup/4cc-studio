@@ -104,8 +104,7 @@ export format.
      dropped shared folder or `Common/` file takes the players linking it down, and
      `pass_through` keeps what is eligible. The pass checks what `compile` reads and
      nothing else: a file planning leaves unread (a model another representation of its
-     stem beats, in a model folder or in `Common/`; a model with no role where it sits,
-     such as a `.model` in a player's `common/`; a per-kit model variant left out, the
+     stem beats, in a model folder or in `Common/`; a per-kit model variant left out, the
      folder's roles read as planning reads them, with the folder's `ingame_face` marker and
      over every source the part is built from, `ModelFolder::roles`; in a pre-Fox source its
      own `face.xml` controls, a model or `.mtl` the xml does not reference, a referenced
@@ -263,7 +262,7 @@ format:
    VGL26 exports hold one. Under the marker the reroute itself reports nothing: the marker is
    the member's own instruction. The same rule covers every other file a model folder
    admits that no package reads, planning giving it no role (`plan/roles.rs` `player_file`): a
-   `gloves/` model naming no hand, a `.skl` pairing no model, a `.common` link to a kind no role
+   `.skl` pairing no model, a `.common` link to a kind no role
    takes or sitting in a shared folder (links resolve from player folders alone), a
    `materials.toml`, a `.xml`, `.bin` or `.fclo` under no face name. It is not read and is
    reported `file_not_used`, a Warning, on the folder, by `check` too, over mapped player
@@ -653,7 +652,9 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    `face.xml` with no `<dif>`, each entry's `path` `./<name>.model` as Red and the DLC write
    it, `./<sub>/<name>.model` for a subfolder's as `face.xml` lists one, its type from the
    model-name table); either folder's textures as DDS at their paths below the folder, each
-   `.mtl` path naming its texture relative to the packed `.mtl` (`./<stem>.dds` beside it). Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
+   `.mtl` path naming its texture relative to the packed `.mtl` (`./<stem>.dds` beside it,
+   `../<stem>.dds` for the folder's root texture a subfolder's `.mtl` resolves nearest first;
+   unchecked in game, `QUESTIONS.md`). Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
    generated empty `.fpkd` (player-owned and merge-copied textures having been relocated to the per-player
    common subfolder; plain shared-output textures remain in that model's own texture location).
    Packed entries are emitted to the writer queue. (Blue: `contents_packing.py`)
@@ -1662,7 +1663,7 @@ without it Phase 3 promotes the same way and says nothing more (deployment is Ph
 | Faces | `common/character0/model/character/face/real/{id}.cpk` | `Asset/model/character/face/real/{id}/#Win/` |
 | Boots | `common/character0/model/character/boots/k{id}/` (four digits, `k0625`, as the Fox folder) | `Asset/model/character/boots/k{id}/#Win/` |
 | Gloves | `common/character0/model/character/glove/g{id}/` | `Asset/model/character/glove/g{id}/#Win/` |
-| Shared boots/gloves output's own textures | the folder itself | `Asset/model/character/boots/k{id}/#windx11/` (FMDL paths `/Assets/pes16/model/character/boots/k{id}/`), `…/glove/g{id}/#windx11/` (`/Assets/pes16/model/character/glove/g{id}/`) |
+| Shared boots/gloves output's own textures | the folder itself | `Asset/model/character/boots/k{id}/#windx11/` (FMDL paths `/Assets/pes16/model/character/boots/k{id}/`), `…/glove/g{id}/#windx11/` (`/Assets/pes16/model/character/glove/g{id}/`); a subfolder's at its directory, then the platform folder (`k{id}/jessie/#windx11/`, FMDL `.../boots/k{id}/jessie/`), as every folder's textures go into a platform folder of their own (Red's `move_files_to_windx11`) |
 | Kit configs | `common/character0/model/character/uniform/team/{team_id}/` | same |
 | Kit textures | `common/character0/model/character/uniform/texture/` | `Asset/model/character/uniform/texture/#windx11/` |
 | Collars | `common/character0/model/character/uniform/nocloth/` | `Asset/model/character/uniform/nocloth/#Win/` |
@@ -1947,17 +1948,21 @@ Resolved decisions:
   that keeps the folder and says the textures could not be looked for. What the rule
   compares: a path names the team's Common output when its directory, once its `000` became
   the team's ID, is the team's Common texture directory
-  (`/Assets/pes16/model/character/common/<team>/sourceimages/`) or a subdirectory's below it
-  (`.../common/<team>/kit1/sourceimages/`, a `Common/` subfolder's, which /hdg/'s models name
-  for their per-kit sets; on PES 15-17 `model/character/uniform/common/<team>/` and the
-  subdirectory). The export's `Common/` holds it when it holds the stem at that subdirectory
+  (`/Assets/pes16/model/character/common/<team>/sourceimages/`) or, for a subdirectory of the
+  Common output, `.../common/<team>/<sub>/sourceimages/` (a `Common/` subfolder's, which
+  /hdg/'s models name for their per-kit sets; on PES 15-17
+  `model/character/uniform/common/<team>/<sub>/`). The export's `Common/` holds it when it holds the stem at that subdirectory
   among the files the target packs (on PES 18-21 a subfolder file only when a link names it,
   "Common textures" above); an installed CPK holds it when its table of contents lists the
   path the Common textures task writes for that stem there
   (`Asset/model/character/common/<team>/<sub>/sourceimages/#windx11/<stem>.ftex` on Fox,
   `<sub>/` empty for a direct file). A player's texture home has the same shape
   (`.../common/<team>/<folder>/sourceimages/`), so a path naming one an earlier CPK packed is
-  found the same way. Both compare folded, as stems fold everywhere else. A texture is used when the material instance
+  found the same way. A `kitN` subdirectory (`common/<team>/kitN/sourceimages/armor_bsm`, the
+  spelling "Kit-dependent assets" writes for a set of `kit1` to `kit9` folders) stands for
+  its set: the path is supplied when a variant is (`Common/kit1/armor_bsm.dds`, or an
+  installed CPK's `kit1/` copy), as a `pants_kitN` stem is by a variant of its set. Both
+  compare folded, as stems fold everywhere else. A texture is used when the material instance
   of one of the model's meshes names it; an entry of the texture table no mesh uses is not
   looked up, since the game never loads it. A stem starting with `dummy_` is never looked up,
   wherever its path points: the game substitutes it. The check is made where the model is

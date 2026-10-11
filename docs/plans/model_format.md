@@ -209,7 +209,7 @@ Rules:
   (any file of the face may vary per kit: models, textures, the face's other files), and
   FoxDen loads the package of the kit picked. The layout FoxDen reads (the packages' names
   or folders) is decided with FoxDen when it gains the support, so the compiler builds it
-  then; until then it uses the lowest variant only and reports `kit_variant_model_fox` (W).
+  then; until then it uses the lowest variant only and reports `kit_variant_model_left_out` (W).
 - **Output naming.** The token passes through unchanged into emitted file names and into every path
   the compiler writes — FMDL path tables, `.mtl` sampler paths, `face.xml` model paths. Nothing in
   Studio, the Blender side included, ever produces `u0XXX`.
@@ -754,7 +754,7 @@ DepthBias = [0.005, 0, 0, 0]
 | `gltf_embedded_image_ignored` | I | the glTF embeds texture bytes; only the folder's image files are texture sources |
 | `gltf_bone_unknown` | E | a skin joint has no `PES_bone` metadata and no name in the template skeleton |
 | `kit_variant_missing` | W | a `kitN` reference lacks the variant for a kit number the export defines (lowest variant copied) |
-| `kit_variant_model_fox` | W | per-kit model variants on a Fox target (lowest variant used) |
+| `kit_variant_model_left_out` | W | per-kit model variants on a Fox target (lowest variant used) |
 | `mtl_state_invalid` / `mtl_blendmode_nonzero` / `mtl_state_nonrecommended` | E / W / I | `[prefox.states]` checks, shared with `.mtl` validation |
 
 Consequences follow the Team compiler's disposition rules (E → folder discarded). The full

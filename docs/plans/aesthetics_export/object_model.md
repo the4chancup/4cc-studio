@@ -165,7 +165,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | Where the file sits | Admits | Otherwise |
   |---|---|---|
   | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc_on` and `fpc_off` markers, `settings.toml` | `file_type_disallowed` |
-  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content but the per-player singletons (`face.xml`, the face diffs, `fcl_hair_sim.fclo`, which count in the root alone), links (a shared link read as the root's; a `.common` link stands for the `Common/` file at its own path, `model_format.md` "Link files") | `file_type_disallowed` |
+  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content but the per-player singletons (`face.xml`, the face diffs, `fcl_hair_sim.fclo`, which count in the root alone), links (a shared link read as the root's; a `.common` link stands for the `Common/` file at the link's own path below the folder, `model_format.md` "Link files") | `file_type_disallowed` |
   | anywhere in a shared folder (its subfolders are its own, `player_folders.md` "Subfolders") | model content (below a subfolder, but the singletons, as below a player folder's), `.common` links | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
   | anywhere in `Common/` | model content (a subfolder's is read on PES 18-21 when a link names it, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
@@ -213,7 +213,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   its files are not yet the export's root files). A name the teams list lacks is
   `resolve_identity`'s `IdentityError`.
 - **Texture stems.** A lookup namespace (`team_compiler/messages.md` `texture_stem_conflict`)
-  holds its textures plus, in a player folder, each texture `.common` link under its linked name
+  holds its textures plus, in a player or shared folder, each texture `.common` link under its
+  linked name
   (`hair.png.common` is `hair`), as a link counts as the linked file being local
   (`model_format.md` "Rules"). Each directory of `Common/` is a namespace of its own, as each
   folder of a player's tree is: its conflicting files drop each other (`File`, `DropFile`),

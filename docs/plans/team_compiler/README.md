@@ -346,7 +346,7 @@ TC-STR-14  GIVEN ingame_face player folders holding, in turn, parts/boots.fmdl w
            WHEN they are checked
            THEN the first reports no finding (each model takes its role from its name, wherever
                 it sits); the second reports ingame_face_explicit_face_model and is dropped; the
-                third reports file_type_disallowed for readme.txt alone
+                third reports file_type_disallowed for readme.txt alone and is dropped
 TC-STR-15  GIVEN player folders linking Common/torso.fmdl as torso.fmdl.common and as
            torso.fmdl.common.txt, and a third linking missing.fmdl.common
            WHEN the export is checked
