@@ -335,7 +335,8 @@ multi-crate step uses its phase, `feat(phase2): ...`). Types: `feat`, `fix`, `do
 (workspace, dependencies, CI). The first line is at most 120 characters: it is what `git log
 --oneline` and every tool's history view show, and a subject that lists every change of the
 commit is a body written on the wrong line (the maintainer's rule, 2026-10-10, after subjects
-of up to 368 characters). The body says why, not what; the diff says
+of up to 368 characters). A worklog step tag (`4.y-sub b3b4c`) goes in the body, not the first
+line: the first line is for what changed. The body says why, not what; the diff says
 what. This is for maintainers reading history (`git log --grep '^fix('` when bisecting), not for
 members: `CHANGELOG.md` stays hand-written per the core plan's "Changelog and version display" and
 is never generated from commit messages. From the first release on, a commit that changes
