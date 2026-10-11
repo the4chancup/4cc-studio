@@ -932,7 +932,7 @@ describes behavior, not a serial scheduling requirement:
   conversion, dummy ID replacement, `oral_`/`_win32` model-name prefixes, face XML references to
   renamed common models updated. On PES 15-17 a subfolder of `Common/` is packed under the
   team's Common output at its own path (`Common/refkit/x.model` as
-  `common/<team>/refkit/x.model`), its files processed as `Common/`'s are, and a member's
+  `common/<team>/refkit/oral_x_win32.model`, a model under its packed name), its files processed as `Common/`'s are, and a member's
   `face.xml` Common path names it with the subfolder, and a `.common` link by sitting at the
   same path below the player folder (`refkit/legs.model.common`, "Link files" in
   `model_format.md`). Red packed the whole
@@ -1926,11 +1926,12 @@ Resolved decisions:
   the game plays such a face (`messages.md`, the paragraph after "Texture existence is checked
   **deep**"). A texture used by one of the model's meshes is supplied when
   (1) its stem resolves in the model's folder, links included; or (2) its path names the team's
-  Common output and the export's `Common/` holds the stem; or (3) its path names the team's
+  Common output and the export's `Common/` holds it; or (3) its path names the team's
   Common output and an **installed CPK** holds that path. Case 3 is the midcup export: a partial
   export ships a changed player whose model points at Common textures compiled on an earlier
-  day, and its `Common/` is not in the export. For the same reason a texture `.common` link
-  whose target is not in the export (`common_link_missing`) is satisfied by an installed CPK
+  day, and its `Common/` is not in the export. For the same reason, on PES 18-21, a texture
+  `.common` link whose target is not in the export (`common_link_missing`) is satisfied by an
+  installed CPK
   holding the texture at the team's Common path; a model link is not, since a Fox merge needs
   the source model. The CPKs searched are those the installed `DpFileList.bin` lists **before**
   the CPK being compiled, nearest first, and never a later one: compiling `4cc_67_midcup` looks
@@ -1946,11 +1947,17 @@ Resolved decisions:
   that keeps the folder and says the textures could not be looked for. What the rule
   compares: a path names the team's Common output when its directory, once its `000` became
   the team's ID, is the team's Common texture directory
-  (`/Assets/pes16/model/character/common/<team>/sourceimages/`); an installed CPK holds it when
-  its table of contents lists the path the Common textures task writes for that stem
-  (`Asset/model/character/common/<team>/sourceimages/#windx11/<stem>.ftex` on Fox; a player's
-  subfolder texture sits at `.../<folder>/<sub>/sourceimages/#windx11/<name>.ftex`). Both
-  compare folded, as stems fold everywhere else. A texture is used when the material instance
+  (`/Assets/pes16/model/character/common/<team>/sourceimages/`) or a subdirectory's below it
+  (`.../common/<team>/kit1/sourceimages/`, a `Common/` subfolder's, which /hdg/'s models name
+  for their per-kit sets; on PES 15-17 `model/character/uniform/common/<team>/` and the
+  subdirectory). The export's `Common/` holds it when it holds the stem at that subdirectory
+  among the files the target packs (on PES 18-21 a subfolder file only when a link names it,
+  "Common textures" above); an installed CPK holds it when its table of contents lists the
+  path the Common textures task writes for that stem there
+  (`Asset/model/character/common/<team>/<sub>/sourceimages/#windx11/<stem>.ftex` on Fox,
+  `<sub>/` empty for a direct file). A player's texture home has the same shape
+  (`.../common/<team>/<folder>/sourceimages/`), so a path naming one an earlier CPK packed is
+  found the same way. Both compare folded, as stems fold everywhere else. A texture is used when the material instance
   of one of the model's meshes names it; an entry of the texture table no mesh uses is not
   looked up, since the game never loads it. A stem starting with `dummy_` is never looked up,
   wherever its path points: the game substitutes it. The check is made where the model is

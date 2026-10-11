@@ -202,8 +202,11 @@ such tree with nothing to name.
   is not a goal the link rule serves.
 - **A shared folder's tree is a player folder's.** A shared folder (`Faces/`, `Boots/`,
   `Gloves/`) may hold subfolders under the same rules: their models are parts of its package,
-  its textures keep their paths and resolve nearest first, and its `.common` links count at
-  any depth. It holds no shared link, marker or settings, as before.
+  named as its direct ones are (a boots or gloves folder's say so by suffix at any depth,
+  `extra/x_boots.fmdl`), its textures keep their paths and resolve nearest first, and its
+  `.common` links count at any depth. It holds no shared link, marker or settings, as before,
+  and its singletons (`face.xml`, the face diffs, `fcl_hair_sim.fclo`) count directly in it
+  alone, `file_type_disallowed` below a subfolder.
 - **No reserved names.** The names `face`, `boots`, `gloves` and `common` are plain subfolder names
   in a team export. They exist only in the AET referee layout, Red's prototype of the player
   folder (one subfolder per category inside each referee's folder), which the Export upgrader

@@ -4044,6 +4044,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
           file brings the textures of each directory above its own too; a player `.mtl` over a
           Common model falls back to the Common model's own directory; on Fox a Common texture
           path is pointed at Fox's Common output, installed-supplied included. Done.
+        - (b3b4d) S19.1-A1's code half: a path into a subdirectory of the team's Common output
+          (`common/000/kit1/sourceimages/`, written by a Fox model, not only respelled from a
+          pre-Fox path) is checked like a direct one, and the installed-CPK lookup looks at the
+          path's subdirectory (it looks for the stem at the Common root today, both engines;
+          `pipeline.md` "A texture a model names must exist", `messages.md`'s paragraph after
+          "Texture existence is checked **deep**").
+        - (b3b4e) PES 15-17: a texture `.common` link whose target is not in the export
+          satisfied by an installed CPK, as on Fox (the face task then points the link by its
+          own stem; `messages.md`, the same paragraph's end).
     - (b3c) shared folders' trees, sliced:
       - (b3c1) a shared folder's subfolders (TC-MOD-68, TC-MOD-73, TC-MOD-74). Next.
       - (b3c2) its `.common` links at any depth (`pipeline.md`'s "links resolve from player
@@ -4896,6 +4905,10 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-11, S19.1-B3) — which material files a glTF in a player or shared folder's
+  subfolder reads (`model_format.md` "Name matching" is written for one flat folder; the
+  `.mtl` search's two folders, the file's then the model folder's, are the likely answer):
+  for Phase 7's plan pass, when glTF sources are planned.
 - resolved (2026-10-10, 4.y-fix20) — a Fox model whose every mesh is hidden, beyond the
   files the scan found (4.y-fix13): a boots folder whose every part is hidden failed its
   task with "no parts to merge", a gloves folder whose every side is hidden wrote a
@@ -7174,3 +7187,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   textures travel with it and resolve beside it; S18.2's accepted findings with it.
 - **2026-10-11** — 4.y-sub (b3b4c) landed: S18.A3's three fixes to the Fox Common parts;
   the step's slice plan restructured as a nested list.
+- **2026-10-11** — S19.1 (SWE-2 on the subfolder and Common-texture plan text): 12 of 16
+  accepted; plan fixes landed, (b3b4d) and (b3b4e) added to 4.y-sub.

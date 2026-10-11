@@ -6660,3 +6660,31 @@ not the texture the member placed beside it (Astra, S18.A3-1). The packed set no
 every place the lookup walks; subfolders below stay out, since a bare name never resolves
 down.
 Plan: `team_compiler/pipeline.md` step 4 "Common".
+
+## 2026-10-11 — team_compiler — the Common output's subdirectories are Common output to the texture check
+Decision: a model's texture path names the team's Common output, for "a texture a model names
+must exist", when its directory is the Common texture directory or a subdirectory's below it
+(`common/<team>/kit1/sourceimages/` on Fox, `uniform/common/<team>/kit1/` on PES 15-17); the
+export's `Common/` supplies it when it holds the stem at that subdirectory among the files the
+target packs, and an installed CPK when it lists the path the Common textures task writes there.
+Why: the rule compared the root directory alone, so every path into a `Common/` subfolder,
+which /hdg/'s models write for their per-kit sets, was kept unchecked: a texture missing there
+compiled with no finding (S19.1-A1). A player's texture home has the same shape, so a path an
+earlier CPK packed for a player is found the same way, with no second rule.
+Plan: `team_compiler/pipeline.md` "A texture a model names must exist"; `messages.md`, the
+paragraph after "Texture existence is checked **deep**"; worklog 4.y-sub (b3b4d).
+
+## 2026-10-11 — aesthetics_export — a shared folder's subfolder names its models and holds its singletons as a player folder's
+Decision: a boots or gloves folder's models say so by suffix at any depth (`extra/x_boots.fmdl`;
+an unsuffixed `extra/x.fmdl` is `fmdl_name_invalid`), and a shared folder's singletons
+(`face.xml`, the face diffs, `fcl_hair_sim.fclo`) count directly in it alone,
+`file_type_disallowed` below a subfolder. TC-MOD-68's subfolder model is renamed
+`extra/x_boots.fmdl` accordingly.
+Why: "a shared folder's tree is a player folder's" is the rule; TC-MOD-68 compiled an unsuffixed
+subfolder model into the boots package, which would have made a subfolder's names exempt from
+the rule its folder's direct files obey (S19.1-A3, B1). Exempting them was the alternative; it
+needs a second rule and makes a subfolder's `torso.fmdl` a boots part where a player
+subfolder's is face content.
+Plan: `aesthetics_export/player_folders.md` "Subfolders"; `object_model.md` "File-type
+allowlist"; `team_compiler/messages.md` `fmdl_name_invalid`, `model_name_invalid`;
+`team_compiler/README.md` TC-MOD-68.

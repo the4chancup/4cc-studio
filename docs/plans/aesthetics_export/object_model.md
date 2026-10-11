@@ -90,7 +90,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   each row states. Settings that change a
   consequence reach the crate through `ValidationContext`: the target `PesVersion` (Fox or pre-Fox
   allowed names), `strict_file_type_check`, `pass_through`, and the texture stems the installed
-  CPKs hold in the team's Common output, which satisfy a texture `.common` link whose target is
+  CPKs hold in the team's Common output, which on PES 18-21 satisfy a texture `.common` link
+  whose target is
   not in `Common/` (`team_compiler/pipeline.md` "Resolved decisions", "A texture a model names
   must exist").
 - **Sanitized versus eligible.** `ValidatedAestheticsExport` holds exactly the eligible content:
@@ -114,7 +115,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   player linking a shared folder or `Common/` file that a content finding drops gets
   `link_target_dropped` naming that finding, and a shared folder left with no linking player
   `shared_folder_orphaned`. What a scope drops: a `Folder` scope a player, shared or kit
-  folder; a `File` scope that file alone, wherever it sits (a `Common/`, `Portraits/` or
+  folder, whole (a finding on a file below a subfolder is its root folder's, whose output the
+  subfolder's is merged into); a `File` scope that file alone, wherever it sits (a `Common/`, `Portraits/` or
   `Collars/` file, a logo file, the logo going as one unit, a player or shared folder's own
   file, `settings.toml` and `portrait.*` included), the folder keeping everything else; until
   4.y-fix20 a player or shared folder's own file stayed in the folder's file list after its
@@ -163,8 +165,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | Where the file sits | Admits | Otherwise |
   |---|---|---|
   | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc_on` and `fpc_off` markers, `settings.toml` | `file_type_disallowed` |
-  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content, links (a shared link read as the root's; a `.common` link stands for the `Common/` file at its own path, `model_format.md` "Link files") | `file_type_disallowed` |
-  | anywhere in a shared folder (its subfolders are its own, `player_folders.md` "Subfolders") | model content, `.common` links | `file_type_disallowed` |
+  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content but the per-player singletons (`face.xml`, the face diffs, `fcl_hair_sim.fclo`, which count in the root alone), links (a shared link read as the root's; a `.common` link stands for the `Common/` file at its own path, `model_format.md` "Link files") | `file_type_disallowed` |
+  | anywhere in a shared folder (its subfolders are its own, `player_folders.md` "Subfolders") | model content (below a subfolder, but the singletons, as below a player folder's), `.common` links | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
   | anywhere in `Common/` | model content (a subfolder's is read on PES 18-21 when a link names it, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
   | directly in `Collars/` | model files (any model format; the game draws a collar with the kit texture, so it has no textures or materials of its own, `team_compiler/pipeline.md` "Collars"); their `collar_<ID>` name is the compiler's to check, since which IDs exist depends on the target version (`collar_id_invalid`) | `file_type_disallowed` |

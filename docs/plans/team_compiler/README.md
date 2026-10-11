@@ -997,10 +997,10 @@ TC-MOD-67  GIVEN slot 05 holding face_high.fmdl, jessie/ingame_face and jessie/s
            THEN the check reports file_type_disallowed for each of the two and drops the
                 folder; the lenient compile keeps it with the two as Infos, neither
                 counting (no marker, no settings), and the player keeps his face
-TC-MOD-68  GIVEN Boots/Crocs holding boots.fmdl and extra/x.fmdl, slot 05 linking it
+TC-MOD-68  GIVEN Boots/Crocs holding boots.fmdl and extra/x_boots.fmdl, slot 05 linking it
            WHEN the export is compiled for PES 21
            THEN no file_type_disallowed is reported and the boots package holds
-                boots.fmdl's and x.fmdl's meshes, merged
+                boots.fmdl's and x_boots.fmdl's meshes, merged
 TC-MOD-71  GIVEN slot 05 holding face_high.fmdl naming ./textures/skin, and textures/skin.dds
            WHEN the export is compiled for PES 21
            THEN the face package's model names skin in the directory
@@ -1119,10 +1119,10 @@ TC-TEX-11  GIVEN slot 06 holding a face model naming hair and hair.dds.common, n
                 common_link_missing and drops the folder
 TC-TEX-12  GIVEN slot 05's face model naming hair, with hair.png.common, and Common/hair.png of
            3x3 pixels; and another export whose slot 05 links hair.dds.common to a
-           Common/hair.dds holding bytes no decoder reads
+           Common/hair.dds whose header reads but whose pixel data is cut short
            WHEN each export is compiled for PES 21
            THEN the first reports texture_too_small and link_target_dropped and slot 05 is left
-                out; the second reports the Common texture's failure and slot 05's face
+                out; the second reports folder_pack_failed at Common and slot 05's face
                 package is in the CPK
 TC-TEX-16  GIVEN slot 05 holding face_high.fmdl naming hair, hair.dds.common and Common/hair.dds,
            and linking Faces/Round, whose folder holds hair_high.fmdl naming hair and hair.dds
