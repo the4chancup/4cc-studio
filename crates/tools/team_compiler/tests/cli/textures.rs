@@ -770,6 +770,52 @@ fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
     );
 }
 
+// TC-TEX-12
+#[test]
+fn a_common_texture_only_conversion_refuses_fails_the_task_and_the_linking_player_commits() {
+    // `Common/hair.dds` is BC6H, which the deep pass's header probe passes and only
+    // conversion refuses: the Common task fails with `texture_codec_unsupported`, so no
+    // Common texture is emitted — the sound `Common/skin.dds` included — while the player
+    // linking the texture still commits.
+    let sandbox = Sandbox::new("tex_common_codec");
+    let export = "exports/co Midcup Codec";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/fcl_hair.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{player}/hair.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/hair.dds"),
+        &texture_fixture("bc6h.dds"),
+    );
+    sandbox.write(&format!("{export}/Common/skin.dds"), &small_dds());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Codec"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Error texture_codec_unsupported [DropFolder] at Common (file=hair.dds)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        entries
+            .keys()
+            .all(|path| !path.starts_with("Asset/model/character/common/714/sourceimages/")),
+        "{:#?}",
+        entries.keys()
+    );
+    assert_eq!(compiled_players(&sandbox), [71405]);
+}
+
 #[test]
 fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
     let sandbox = Sandbox::new("tex_common_drop");
@@ -1881,9 +1927,8 @@ fn a_combined_link_and_a_link_of_his_report_nothing() {
 // TC-TEX-18
 #[test]
 fn a_combined_texture_and_another_package_s_link_at_one_path_conflict() {
-    // Mirror of the link's win: `Faces/Round`'s `skin.dds` copy and `Boots/Crocs`'
-    // `skin.dds.common` — the link counts as differing, the face's file wins, and the
-    // boots task is the one discarded.
+    // `Faces/Round`'s `skin.dds` copy and `Boots/Crocs`' `skin.dds.common`: the link
+    // counts as differing, and the conflict leaves the whole player folder out.
     let sandbox = Sandbox::new("tex_combined_file_conflict");
     let export = "exports/co Midcup Skin";
     let player = format!("{export}/Players/05 - A");
@@ -1930,25 +1975,15 @@ fn a_combined_texture_and_another_package_s_link_at_one_path_conflict() {
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
-            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, dropped=boots)",
+            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, packages=face,boots)",
         ],
         "{lines:#?}"
     );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    assert!(compiled_players(&sandbox).is_empty(), "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    // The face's copy wins: `hair_high` names `skin` in his texture home, which holds
-    // `skin.ftex`; the dropped boots package is not in the CPK.
-    let package = face_package(&entries);
-    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "skin.dds");
-    assert!(!directories.is_empty());
     assert!(
-        directories.iter().all(|directory| directory
-            == "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"),
-        "{directories:?}"
-    );
-    assert!(
-        entries.contains_key(
-            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex"
-        ),
+        entries.keys().all(|path| !path.contains("05 - A")),
         "{:#?}",
         entries.keys()
     );
@@ -2060,8 +2095,7 @@ fn two_combined_links_at_one_path_deduplicate() {
 #[test]
 fn a_combined_copy_and_a_lower_package_s_link_at_one_path_conflict() {
     // `Boots/Crocs`'s `skin.dds` copy and `Gloves/X`'s `skin.dds.common`, the gloves
-    // combined by his own `glove_l.fmdl`: the boots copy wins canonically, the gloves
-    // task is the one discarded, and `skin.ftex` is written from it.
+    // combined by his own `glove_l.fmdl`: the conflict leaves the player folder out.
     let sandbox = Sandbox::new("tex_copy_vs_glove_link");
     let export = "exports/co Midcup Skin";
     let player = format!("{export}/Players/05 - A");
@@ -2095,26 +2129,26 @@ fn a_combined_copy_and_a_lower_package_s_link_at_one_path_conflict() {
     let lines = run.messages();
     let findings = findings_of(&lines, "co Midcup Skin");
     assert!(
-        findings
-            .iter()
-            .any(|line| line.contains("shared_texture_conflict")
-                && line.contains("dropped=gloves")),
+        findings.contains(&"Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, packages=boots,gloves)"),
         "{lines:#?}"
     );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    assert!(compiled_players(&sandbox).is_empty(), "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    // The boots copy won: `skin.ftex` is in his texture home.
     assert!(
-        entries.contains_key(
-            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex"
-        ),
+        entries.keys().all(|path| !path.contains("05 - A")),
         "{:#?}",
         entries.keys()
     );
-    // The gloves package is the one discarded.
     assert!(
         entries
             .keys()
             .all(|path| !path.contains("/glove/") || !path.ends_with("glove.fpk")),
+        "{:#?}",
+        entries.keys()
+    );
+    assert!(
+        !entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpk"),
         "{:#?}",
         entries.keys()
     );
@@ -2125,7 +2159,7 @@ fn a_combined_copy_and_a_lower_package_s_link_at_one_path_conflict() {
 fn a_combined_link_and_another_package_s_texture_at_one_path_conflict() {
     // `Faces/Round`'s `skin.dds.common` and `Boots/Crocs`'s `skin.dds` hold one path below
     // the player folder: a link counts as differing from a file, so `skin` is a conflict
-    // the face wins in canonical order, and the boots task is the one discarded.
+    // leaving the whole player folder out.
     let sandbox = Sandbox::new("tex_combined_link_conflict");
     let export = "exports/co Midcup Skin";
     let player = format!("{export}/Players/05 - A");
@@ -2172,32 +2206,15 @@ fn a_combined_link_and_another_package_s_texture_at_one_path_conflict() {
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
-            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, dropped=boots)",
+            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, packages=face,boots)",
         ],
         "{lines:#?}"
     );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    assert!(compiled_players(&sandbox).is_empty(), "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    // The face package's `hair_high` names `skin` at the team's Common output, the link's
-    // win standing for `Common/skin.dds`; the player's home holds no `skin.ftex`, and the
-    // dropped boots package is not in the CPK.
-    let package = face_package(&entries);
-    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "skin.dds");
-    assert!(!directories.is_empty());
     assert!(
-        directories
-            .iter()
-            .all(|directory| directory == "/Assets/pes16/model/character/common/714/sourceimages/"),
-        "{directories:?}"
-    );
-    assert!(
-        entries.contains_key("Asset/model/character/common/714/sourceimages/#windx11/skin.ftex"),
-        "{:#?}",
-        entries.keys()
-    );
-    assert!(
-        !entries.contains_key(
-            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex"
-        ),
+        entries.keys().all(|path| !path.contains("05 - A")),
         "{:#?}",
         entries.keys()
     );

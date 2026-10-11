@@ -36,9 +36,9 @@ use roles::{
     common_folder, common_skeleton, directory_stem, emits_kit_texture, file_stem, is_common_file,
     is_direct_root_folder_file, is_hand_split, is_package_model, is_read_common_file,
     is_selected_common_model, leaves_out_kit_variants, link_combines, link_feeds_own_package,
-    link_name, linked_common_files, linked_folder, native_format, package_of, part_source_models,
-    player_file, role_files, selected_common_model, shared_folders, shared_kind_of, skeleton_slot,
-    texture_format,
+    link_name, linked_common_files, linked_folder, native_format, other_format, package_of,
+    part_source_models, player_file, role_files, selected_common_model, shared_folders,
+    shared_kind_of, skeleton_slot, texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -47,8 +47,7 @@ pub(crate) struct PlanReport {
     pub(crate) manifest: BuildManifest,
     /// Planning's findings (`team_colors_missing`, `link_combined`, `kit_texture_not_used`,
     /// `kit_config_generated`, `kit_placeholder`, `kit_variant_model_left_out`,
-    /// `collar_id_conflict`, `model_conversion_failed` for a `.model` collar on Fox,
-    /// `model_gltf_unsupported`).
+    /// `collar_id_conflict`, `model_gltf_unsupported`).
     pub(crate) messages: Vec<Message>,
 }
 
@@ -118,10 +117,6 @@ pub(crate) struct BuildTask {
 pub(crate) struct TaskGroup {
     /// The group's manifest positions, the textures task at `tasks.end - 1`.
     pub(crate) tasks: Range<usize>,
-    /// The package each `Models` task of the group compiles, in manifest order: `packages[i]`
-    /// is the package of task `tasks.start + i`, so the textures batch can name the task of a
-    /// package it drops (`shared_texture_conflict`) for the writer to skip.
-    pub(crate) packages: Vec<ModelPackage>,
     /// The sum of the members' charges: the coordinator acquires it once, as one permit the
     /// members share, since a textures task waiting for a permit of its own while the writer
     /// holds its packages' would wait forever.
@@ -1537,7 +1532,6 @@ fn folder_tasks(
     tasks: &mut Vec<BuildTask>,
 ) {
     let first = tasks.len();
-    let mut held = Vec::new();
     for (package, ids) in packages {
         // A pre-Fox model is a part of the package its source feeds, whatever its `face.xml`
         // type: a player's face, a shared folder's boots or gloves, the boots or gloves of an
@@ -1556,7 +1550,6 @@ fn folder_tasks(
         if models.is_empty() && !blank && !hands {
             continue;
         }
-        held.push(*package);
         tasks.push(task(
             export_id,
             team_id,
@@ -1571,7 +1564,7 @@ fn folder_tasks(
     // A folder planning no package plans no textures task: the writer commits a folder's
     // textures after a package of it, and nothing would name them (validation reports each
     // `file_not_used`, `plans_a_package`).
-    if held.is_empty() {
+    if tasks.len() == first {
         return;
     }
     // The template environment map is one of the folder's textures, so a folder holding no
@@ -1599,7 +1592,6 @@ fn folder_tasks(
         .fold(0usize, |sum, task| sum.saturating_add(task.charge));
     let group = TaskGroup {
         tasks: first..first + members.len(),
-        packages: held,
         charge,
     };
     for task in members {
@@ -1686,7 +1678,8 @@ fn drop_gltf_folders(
         if !mapped.contains(&index) {
             continue;
         }
-        let models = FolderModels::of_player(folder, export, engine);
+        let models =
+            FolderModels::of_player_files(&folder.path, &folder.files, folder.ingame_face, engine);
         // Named below the folder, as `xml_ignored_fox` names its file: two glTFs of one name
         // in different subfolders are two findings a member can tell apart.
         let mut files: Vec<String> = folder
@@ -1867,13 +1860,10 @@ fn drop_common_gltfs(
             vec![("file", path.as_str().to_owned())],
         ));
     }
-    let other_engine_format = match engine {
-        Engine::Fox => ModelFormat::PesModel,
-        Engine::PreFox => ModelFormat::Fmdl,
-    };
+    let other_engine_format = FileKind::Model(other_format(engine));
     common.retain(|file| {
-        let beaten = file.kind == FileKind::Model(other_engine_format)
-            && dropped_stems.contains(&directory_stem(file));
+        let beaten =
+            file.kind == other_engine_format && dropped_stems.contains(&directory_stem(file));
         !beaten && !dropped.contains(&file.path)
     });
 }
@@ -2342,7 +2332,6 @@ mod tests {
             .collect();
         let zed = Some(TaskGroup {
             tasks: 0..2,
-            packages: vec![ModelPackage::Face],
             charge: 15,
         });
         assert_eq!(groups, [zed.clone(), zed, None, None, None, None, None]);
@@ -2427,7 +2416,6 @@ mod tests {
         );
         let group = Some(TaskGroup {
             tasks: 0..4,
-            packages: ModelPackage::ALL.to_vec(),
             charge: 63,
         });
         for index in 0..4 {
@@ -2759,12 +2747,10 @@ mod tests {
             .collect();
         let zebra = Some(TaskGroup {
             tasks: 4..6,
-            packages: vec![ModelPackage::Boots],
             charge: 26,
         });
         let grip = Some(TaskGroup {
             tasks: 6..8,
-            packages: vec![ModelPackage::Gloves],
             charge: 192,
         });
         assert_eq!(
@@ -3270,7 +3256,6 @@ mod tests {
         );
         let group = Some(TaskGroup {
             tasks: 0..4,
-            packages: ModelPackage::ALL.to_vec(),
             charge: 127,
         });
         for index in 0..4 {
@@ -3448,7 +3433,6 @@ mod tests {
             report.manifest.tasks[2].group,
             Some(TaskGroup {
                 tasks: 0..3,
-                packages: vec![ModelPackage::Face, ModelPackage::Boots],
                 charge: 253,
             })
         );
@@ -3617,7 +3601,6 @@ mod tests {
         assert_eq!(folder.combined[0].package, ModelPackage::Face);
         let group = Some(TaskGroup {
             tasks: 0..2,
-            packages: vec![ModelPackage::Face],
             charge: 56,
         });
         assert_eq!(report.manifest.tasks[0].group, group);

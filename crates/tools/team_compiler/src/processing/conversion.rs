@@ -14,11 +14,9 @@ use model_convert::{Converted, NativeModelBundle, Subject, convert, loss, needs_
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 use pes_version::PesVersion;
-use studio_core::Disposition;
-use vtree::ScopePath;
 
 use super::{CompileContext, Finding, TaskFailure};
-use crate::deep::{FAR_VERTEX_CODES, Fired, relative, summed};
+use crate::deep::{FAR_VERTEX_CODES, Fired, summed};
 use crate::messages::Code;
 
 /// What the materials of a model converted to the other engine's format are.
@@ -73,7 +71,7 @@ pub(super) struct FoxConversion {
     pub(super) skeleton: Option<Vec<u8>>,
 }
 
-/// The FMDL `name` (as its findings name it: `source_name`, a collar's file name), `bytes`,
+/// The FMDL `name` (as its findings name it: `named_on_folder`, a collar's file name), `bytes`,
 /// converted for `ctx.version`, a PES 15-17 target,
 /// `skeleton` being the bytes of its paired `.skl`, its bind pose, when its folder holds one
 /// (`None` binds it to the version's body table), its `.model`'s material names as
@@ -110,7 +108,7 @@ pub(super) fn fmdl_for_pre_fox(
     Ok(converted)
 }
 
-/// The member's `.model` `name` (as its findings name it, `source_name`), `source`, for a PES
+/// The member's `.model` `name` (as its findings name it, `named_on_folder`), `source`, for a PES
 /// 15-17 target, `mtl` being the bytes of the `.mtl` its search found (a collar's, the
 /// templates' `uniform.mtl`), which the IR import reads its materials from, run through the
 /// conversion pre-check for `ctx.version`: the bytes to pack, `source` as it is when
@@ -218,7 +216,7 @@ fn stock_collar_materials(model: &mut pes_model::model::Model, version: PesVersi
     }
 }
 
-/// The `.model` `name` (as its findings name it, `source_name`), `bytes`, converted for
+/// The `.model` `name` (as its findings name it, `named_on_folder`), `bytes`, converted for
 /// `ctx.version`, a PES 18-21 target, `mtl` being the bytes of the `.mtl` its search found
 /// (`mtl_search::mtl_for`), or a collar's, the templates' `uniform.mtl`, which defines its
 /// materials, the FMDL's materials as `materials` says. Charged, reported and failed as
@@ -247,7 +245,7 @@ pub(super) fn model_for_fox(
     Ok(converted)
 }
 
-/// The member's FMDL `name` (as its findings name it, `source_name`), `bytes`, for a PES
+/// The member's FMDL `name` (as its findings name it, `named_on_folder`), `bytes`, for a PES
 /// 18-21 target, with `skeleton`, the bytes of the `.skl` paired with it, as its bind pose
 /// (`None`: PES 21's pose, `needs_conversion`'s assumption), run through the conversion
 /// pre-check for `ctx.version`: `None` when re-binding would change nothing, and the caller
@@ -383,23 +381,6 @@ fn stock_collar_fox_materials(model: &mut fmdl::Model) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// How a finding of the task building the model folder at `folder` names the model it converts
-/// at `model`, its `model` context: below the folder (`face/hat.fmdl`) when the model is in it,
-/// as `model_gltf_unsupported` names a file; by its export path (`Faces/Round/hat.fmdl`) when
-/// it is a shared folder's that a player's task converts, the finding being on the player's
-/// folder.
-pub(super) fn source_name(model: &ScopePath, folder: &ScopePath) -> String {
-    let in_folder = model
-        .segments()
-        .take(folder.segments().count())
-        .eq(folder.segments());
-    if in_folder {
-        relative(model, folder)
-    } else {
-        model.as_str().to_owned()
-    }
-}
-
 /// `model_conversion_failed` for the model `name` (as its findings name it), carrying
 /// `error`'s chain.
 fn failed(name: &str, error: anyhow::Error) -> TaskFailure {
@@ -491,7 +472,7 @@ fn reported(name: &str, loss: &loss::Finding) -> Option<Finding> {
     if let Some(key) = detail_key {
         context.push((key, loss.detail.clone()));
     }
-    Some((code, Disposition::Keep, context))
+    Some((code, context))
 }
 
 #[cfg(test)]
@@ -582,45 +563,15 @@ mod tests {
             [
                 (
                     Code::DummyTextureAdded,
-                    Disposition::Keep,
                     model_named(&[("material", "0"), ("sampler", "NormalMap_Tex_NRM")])
                 ),
                 (
                     Code::DummyTextureAdded,
-                    Disposition::Keep,
                     model_named(&[("material", "0"), ("sampler", "SpecularMap_Tex_LIN")])
                 ),
-                (
-                    Code::VertexBitangentsDropped,
-                    Disposition::Keep,
-                    model_named(&[("mesh", "0")])
-                ),
+                (Code::VertexBitangentsDropped, model_named(&[("mesh", "0")])),
             ]
         );
-    }
-
-    #[test]
-    fn a_model_is_named_below_its_task_s_folder_when_in_it_and_by_its_export_path_otherwise() {
-        let name = |model: &str, folder: &str| {
-            source_name(
-                &ScopePath::new(model).unwrap(),
-                &ScopePath::new(folder).unwrap(),
-            )
-        };
-        let player = "Players/05 - A";
-        assert_eq!(name("Players/05 - A/boots.fmdl", player), "boots.fmdl");
-        assert_eq!(
-            name("Players/05 - A/face/hat.fmdl", player),
-            "face/hat.fmdl"
-        );
-        // A shared folder's model a player's task converts, and one of a folder whose name
-        // merely starts with the player's.
-        assert_eq!(name("Faces/Round/hat.fmdl", player), "Faces/Round/hat.fmdl");
-        assert_eq!(
-            name("Players/05 - AB/hat.fmdl", player),
-            "Players/05 - AB/hat.fmdl"
-        );
-        assert_eq!(name("Boots/Mud/boots.fmdl", "Boots/Mud"), "boots.fmdl");
     }
 
     #[test]
@@ -697,7 +648,7 @@ mod tests {
             };
             let model =
                 pes_model::model::Model::from_file(&PreFoxModel::read(&bytes).unwrap()).unwrap();
-            let codes: Vec<Code> = findings.into_iter().map(|(code, _, _)| code).collect();
+            let codes: Vec<Code> = findings.into_iter().map(|(code, _)| code).collect();
             (model.materials, codes)
         };
 
@@ -829,7 +780,7 @@ mod tests {
             findings
         };
         let names_a_material =
-            |finding: &Finding| finding.2.iter().any(|(key, _)| *key == "material");
+            |finding: &Finding| finding.1.iter().any(|(key, _)| *key == "material");
 
         let converted = findings_of(ConvertedMaterials::Converted);
         assert!(
@@ -843,7 +794,6 @@ mod tests {
         assert!(
             collar.contains(&(
                 Code::NativeFieldDropped,
-                Disposition::Keep,
                 vec![
                     ("model", "boots.fmdl".to_owned()),
                     ("field", "bone_matrices".to_owned())
@@ -1056,7 +1006,7 @@ mod tests {
             );
             assert_eq!(
                 reported("boots.fmdl", &loss(code, subject, detail)),
-                Some((expected, Disposition::Keep, expected_context)),
+                Some((expected, expected_context)),
                 "{code} {detail}"
             );
         }
@@ -1068,7 +1018,6 @@ mod tests {
             ),
             Some((
                 Code::NativeFieldDropped,
-                Disposition::Keep,
                 vec![
                     ("model", "fcl_hair.fmdl".to_owned()),
                     ("bone", "8".to_owned()),

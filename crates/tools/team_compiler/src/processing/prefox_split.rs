@@ -10,7 +10,6 @@ use model_convert::ops::hand_split::split_by_skeleton_group;
 use pes_model::format::PreFoxModel;
 use pes_model::format::mtl::MaterialSet;
 use pes_model::model::Model;
-use studio_core::Disposition;
 
 use super::{CompileContext, Finding, TaskFailure};
 use crate::messages::Code;
@@ -25,7 +24,7 @@ pub(super) struct SplitModel {
     pub(super) glove_r: Option<Vec<u8>>,
 }
 
-/// The face model `name` (as its task's findings name it, `conversion::source_name`), `bytes`,
+/// The face model `name` (as its task's findings name it, `deep::named_on_folder`), `bytes`,
 /// split at the wrists, `mtl` being the bytes of the `.mtl` its search found, and noted in
 /// `findings` as `model_hand_split` naming the model and the gloves made (`glove_l`, `glove_r`
 /// or both). The split's parsed forms are charged to the run's memory budget at the source's
@@ -54,7 +53,6 @@ pub(super) fn split_face_model(
         .collect();
     findings.push((
         Code::ModelHandSplit,
-        Disposition::Keep,
         vec![("model", name.to_owned()), ("gloves", made.join(", "))],
     ));
     Ok(split)

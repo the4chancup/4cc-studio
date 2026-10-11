@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use super::folders::{fold, stem};
+use super::folders::stem;
 use crate::FileKind;
 use crate::conventions::{MetadataFile, strip_prefix_ci};
 use crate::listing::{SmallMetadata, ValidationContext, metadata_text};
@@ -40,17 +40,11 @@ pub(crate) fn check_portraits(
             ));
         }
     }
-    // Two files claiming one stem (`player_NN`) conflict, each dropped;
-    // `file_stem_conflicts` is `Common/`'s same namespace rule.
+    // Two files claiming one stem (`player_NN`) conflict, each dropped — the caller's
+    // `retain` applies the drop; `file_stem_conflicts` is `Common/`'s same namespace rule.
     super::folders::file_stem_conflicts(context, slotted.iter().map(|(_, file)| *file), issues);
-    let mut stems: BTreeMap<String, usize> = BTreeMap::new();
-    for (_, file) in &slotted {
-        *stems.entry(fold(stem(file.path.name()))).or_default() += 1;
-    }
     for (slot, file) in slotted {
-        if stems[&fold(stem(file.path.name()))] == 1 {
-            portraits.insert(slot, file.clone());
-        }
+        portraits.insert(slot, file.clone());
     }
     portraits
 }

@@ -16,13 +16,13 @@ use model_convert::formats::fmdl::{fmdl_to_ir, ir_to_fmdl};
 use model_convert::ir::CanonicalModel;
 use model_convert::ops::hand_split::split_by_skeleton_group;
 use pes_version::Engine;
-use studio_core::Disposition;
 use vtree::ScopePath;
 
-use super::conversion::{ConvertedMaterials, fmdl_for_fox, model_for_fox, source_name};
+use super::conversion::{ConvertedMaterials, fmdl_for_fox, model_for_fox};
 use super::materialize::PackageFiles;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
 use crate::bins::installed::InstalledPaths;
+use crate::deep::named_on_folder;
 use crate::face_diff;
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
@@ -172,7 +172,7 @@ pub(super) fn package(
                     name,
                 } if owner == package || hand_split => {
                     let mut part = part(name, PartTextures::Folder);
-                    let model = source_name(&file.path, &folder.path);
+                    let model = named_on_folder(&file.path, &folder.path);
                     let mtl = if file.kind == FileKind::Model(ModelFormat::PesModel) {
                         // A combined source's search resolves its `.mtl.common` links in
                         // `Common/` as the folder's own does: `folder.common_files` holds
@@ -213,7 +213,7 @@ pub(super) fn package(
                     name,
                 } if owner == package || hand_split => {
                     let mut part = part(name, PartTextures::Common);
-                    let model = source_name(&file.path, &folder.path);
+                    let model = named_on_folder(&file.path, &folder.path);
                     let mtl = if file.kind == FileKind::Model(ModelFormat::PesModel) {
                         let mtl = folder.common_material(&file.path).expect(
                             "planning resolves a Common `.model`'s `.mtl`, the deep pass having \
@@ -304,14 +304,12 @@ pub(super) fn package(
         }
     }
     for (_, claimants) in claims {
-        let winner = ModelPackage::ALL
-            .into_iter()
-            .find(|package| {
-                claimants
-                    .iter()
-                    .any(|(candidate, _, _)| candidate == package)
-            })
-            .expect("a path's claimants are non-empty");
+        let winner = ModelPackage::first_claimed(|package| {
+            claimants
+                .iter()
+                .any(|(candidate, _, _)| *candidate == package)
+        })
+        .expect("a path's claimants are non-empty");
         let (_, link, below) = claimants
             .into_iter()
             .find(|(package, _, _)| *package == winner)
@@ -470,7 +468,7 @@ pub(super) fn package(
             for path in used_texture_paths(&model)? {
                 let context = || {
                     vec![
-                        ("model", source_name(&part.path, &folder.path)),
+                        ("model", named_on_folder(&part.path, &folder.path)),
                         ("texture", format!("{}{}", path.directory, path.file_name)),
                     ]
                 };
@@ -490,7 +488,7 @@ pub(super) fn package(
                     }
                     // Once per texture: two entries of the table may name one path.
                     TextureSupply::Unknown => {
-                        let finding = (Code::FmdlTextureNotFound, Disposition::Keep, context());
+                        let finding = (Code::FmdlTextureNotFound, context());
                         if !findings.contains(&finding) {
                             findings.push(finding);
                         }
@@ -503,11 +501,7 @@ pub(super) fn package(
             [model] => model.write(),
             _ => {
                 let merged = merge_parts(&models)?;
-                findings.push((
-                    Code::FmdlMerged,
-                    Disposition::Keep,
-                    vec![("model", format!("{name}.fmdl"))],
-                ));
+                findings.push((Code::FmdlMerged, vec![("model", format!("{name}.fmdl"))]));
                 merged.write()
             }
         };
@@ -638,7 +632,7 @@ fn convert_part(
 }
 
 /// The parts `part`, a model of the folder's that its task's findings name `model`
-/// (`conversion::source_name`), gives `package`: the part itself, or, when it is a hand-split
+/// (`deep::named_on_folder`), gives `package`: the part itself, or, when it is a hand-split
 /// face part (`hand_split`), what the hand auto-split leaves the package
 /// (`model_conversion/hand_split.md`). The face keeps the body, under the part's name and
 /// path, so it pairs the part's skeleton, and is told so by `model_hand_split` naming the
@@ -677,7 +671,6 @@ fn parts_of(
                 .collect();
             findings.push((
                 Code::ModelHandSplit,
-                Disposition::Keep,
                 vec![("model", model.to_owned()), ("gloves", made.join(", "))],
             ));
             Ok(split

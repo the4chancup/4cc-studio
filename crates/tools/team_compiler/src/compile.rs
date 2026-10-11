@@ -976,7 +976,6 @@ fn task_batch(
             index,
             entries: Vec::new(),
             group: task.group.as_ref().map(|group| group.tasks.clone()),
-            skipped: Vec::new(),
             uniparam: None,
             uni_color: None,
             messages: vec![tool_message(
@@ -1100,7 +1099,6 @@ mod tests {
         ]);
         let group = TaskGroup {
             tasks: 0..2,
-            packages: vec![ModelPackage::Face],
             charge: 30,
         };
         let task = |kind, charge, group| BuildTask {
@@ -1270,7 +1268,6 @@ mod tests {
         for (start, end, charge) in groups {
             let group = TaskGroup {
                 tasks: *start..*end,
-                packages: vec![ModelPackage::Face],
                 charge: *charge,
             };
             for _ in *start..*end {
@@ -1544,7 +1541,6 @@ mod tests {
                 index: 0,
                 entries: vec![("common/etc/TeamColor.bin".to_owned(), b"bin".to_vec())],
                 group: None,
-                skipped: Vec::new(),
                 uniparam: None,
                 uni_color: None,
                 messages: Vec::new(),

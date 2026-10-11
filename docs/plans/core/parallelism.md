@@ -37,7 +37,7 @@ manifest.tasks.into_par_iter().for_each(|task| {
 
 This is the full design; Phase 3 built the subset in `team_compiler/pipeline.md` "Run driver
 shapes (Phase 3)", whose names are the code's (the duplicate-refs preflight is `reader::route`
-plus a run-scoped `multiple_ref_exports`, and the coordinator admits tasks into the pool in
+plus an export-scoped `multiple_ref_exports` on each conflicting refs export, and the coordinator admits tasks into the pool in
 manifest order instead of `into_par_iter`). `PlanReport` carries the manifest, all planning
 messages, and the IDs of exports dropped by scoped planning failures (from Phase 4; in Phase 3
 a dropped export is only its `DropExport` message, which nothing yet needs to look up by ID). The Team compiler separately performs duplicate-refs discovery preflight before

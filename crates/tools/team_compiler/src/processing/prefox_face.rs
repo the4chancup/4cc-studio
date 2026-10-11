@@ -24,16 +24,15 @@ use aesthetics_export::{
 use pes_model::format::mtl::{Address, Filter, MaterialEntry, MaterialSet, Sampler};
 use pes_model::ops::paths::rewrite_texture_paths;
 use pes_version::{Engine, PesVersion};
-use studio_core::Disposition;
 use vtree::ScopePath;
 
 use super::conversion::{
-    ConvertedMaterials, PreFoxConversion, fmdl_for_pre_fox, model_for_pre_fox, source_name,
+    ConvertedMaterials, PreFoxConversion, fmdl_for_pre_fox, model_for_pre_fox,
 };
 use super::materialize::PackageFiles;
 use super::prefox_split::split_face_model;
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
-use crate::deep::relative;
+use crate::deep::{named_on_folder, relative};
 use crate::face_diff;
 use crate::face_xml::{
     WrittenChild, XmlEntry, face_xml, packed_model_name, ratio, suffix, user_face_xml,
@@ -472,7 +471,6 @@ fn pack_variant_copy(contents: &mut PackageFiles, source: &str, spelled: &str, k
 fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
     (
         Code::KitVariantMissing,
-        Disposition::Keep,
         vec![
             ("model", reference.to_owned()),
             ("kit", kit.to_string()),
@@ -684,7 +682,7 @@ fn face_contents(
                             .map(|skeleton| take(files, skeleton));
                         let bytes = take(files, file);
                         let conversion = fmdl_for_pre_fox(
-                            &source_name(&file.path, &folder.path),
+                            &named_on_folder(&file.path, &folder.path),
                             &bytes,
                             skeleton.as_deref(),
                             ctx,
@@ -877,7 +875,7 @@ fn face_contents(
         models.into_iter().zip(&kits).zip(&written)
     {
         let material = format!("{material_directory}{material_name}");
-        let model_name = source_name(&model.file.path, &folder.path);
+        let model_name = named_on_folder(&model.file.path, &folder.path);
         // The game looks for a set's other variant's `.mtl` where the set's entry, respelled
         // for its kit number, names it.
         if let KitPlace::Unlisted { kit, listed } = place {
@@ -889,7 +887,6 @@ fn face_contents(
             if vtree::fold_name(&expected) != vtree::fold_name(&material) {
                 findings.push((
                     Code::KitVariantMtlDiffers,
-                    Disposition::Keep,
                     vec![
                         ("model", model_name.clone()),
                         ("mtl", material.clone()),
@@ -912,7 +909,6 @@ fn face_contents(
         if listed && xml_type != model.xml_type {
             findings.push((
                 Code::XmlUniformPes15,
-                Disposition::Keep,
                 vec![("file", relative(&model.file.path, model.source_path))],
             ));
         }
@@ -1057,7 +1053,7 @@ fn face_contents(
         // The blank face's dummy is the compiler's own placeholder, which tells the member
         // nothing; a face with models lacks the type its author may have meant to give one.
         if !entries.is_empty() {
-            findings.push((Code::XmlFaceNeckAdded, Disposition::Keep, Vec::new()));
+            findings.push((Code::XmlFaceNeckAdded, Vec::new()));
         }
         entries.push(packed_dummy(&mut contents, ctx)?);
     }
@@ -1267,11 +1263,7 @@ impl<'a> XmlFace<'a> {
                         let path = model
                             .attribute("path")
                             .map(|path| ("path", path.to_owned()));
-                        findings.push((
-                            Code::XmlUniformPes15,
-                            Disposition::Keep,
-                            path.into_iter().collect(),
-                        ));
+                        findings.push((Code::XmlUniformPes15, path.into_iter().collect()));
                     }
                     xml_type.to_owned()
                 }
@@ -1592,7 +1584,7 @@ fn user_xml_face(
     if !has_face_neck {
         // An xml with no `<model>` is the member's blank face: the dummy tells him nothing.
         if has_model {
-            findings.push((Code::XmlFaceNeckAdded, Disposition::Keep, Vec::new()));
+            findings.push((Code::XmlFaceNeckAdded, Vec::new()));
         }
         let dummy = packed_dummy(&mut face.contents, ctx)?;
         children.push(WrittenChild::Model(dummy.attributes()));

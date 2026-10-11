@@ -589,8 +589,8 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    once, after all of the player's face/boots/gloves tasks report: identical destination bytes
    deduplicate, while the same destination with different bytes from two combined folders
    (a texture `.common` link standing at a path counting as differing from a file there, two
-   links as the one `Common/` texture they name) reports `shared_texture_conflict` and drops the losing task, chosen by canonical order (`face`
-   > `boots` > `gloves`), never rayon completion order; the player's own copy wins over a
+   links as the one `Common/` texture they name) reports `shared_texture_conflict`, which
+   fails the player's textures task and so leaves his folder out; the player's own copy wins over a
    combined folder's (below). The player's texture sources are its own folder (its subfolders included, each texture
    resolved and emitted as `player_folders.md` "Subfolders" says) and each
    shared face, boots or gloves folder it combines, each of whose files stands at its path
@@ -607,8 +607,10 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    his is a link, so a member overriding a shared face's texture sees it was meant; a player's
    material files layer over a Common-linked model's the same way. Two combined folders of
    different packages holding one texture path with different bytes is
-   `shared_texture_conflict`, the
-   lower package dropped with every texture only its sources hold; two of one package cannot
+   `shared_texture_conflict`, and the player folder is left out, not only the lower package:
+   the conflict is an Error a member fixes either way, and keeping the higher package would
+   salvage part of a folder already reported broken while a kept model could still name a
+   texture only the dropped package held; two of one package cannot
    occur, a player combining one folder of each kind. Planning cannot tell which model names which
    texture (it reads no model bytes), so a source stands for its package. The writer commits a player folder's tasks as one group: it holds the
    folder's face/boots/gloves batches until the folder's textures batch arrives, then commits the
@@ -1879,11 +1881,12 @@ Resolved decisions:
   the player's folder, at most one combined folder of the package and `Common/`, whose textures
   stay in the team's Common output, so two copies of one destination are the player's and the
   combined folder's, and the player's wins (step 6, `shared_texture_overridden`). Group-wide
-  collisions between two combined folders keep the `shared_texture_conflict` rule, which has a
-  canonical winner (face > boots > gloves).
-- **Common textures are one task of their export, which no player task waits on (Fox).** Every
-  texture directly in `Common/` is converted once, by one task placed after the export's shared
-  folders and before its portraits, into the team's Common output. A player package that bakes in a
+  collisions between two combined folders keep the `shared_texture_conflict` rule, which leaves
+  the player folder out.
+- **Common textures are one task per directory of `Common/`, which no player task waits on
+  (Fox).** The textures of each directory (`Common/` itself, or a subfolder with the kit-token
+  folders below it) are converted once, by one task placed after the export's shared folders
+  and before its portraits, into the team's Common output. A player package that bakes in a
   Common-linked model reads the Common model itself and points the part's stems that Common holds
   at that output, each resolving nearest first from the model's own directory in `Common/` (a
   stem resolves in the folder of the file that set it, `model_format.md` "Link files"), a

@@ -183,8 +183,8 @@ Hence the name: the tool arranges, the compiler compiles.
 
 The arranger reads the refs export from the common `exports_folder_path` (core plan). If multiple
 non-disabled `refs`-prefixed exports are found, the arranger is inactive until the user resolves the
-conflict (the Team compiler's Reader detects the conflict before validation and emits a Run summary
-plus export-scoped `multiple_ref_exports` blockers for every conflicting row; the arranger shows a
+conflict (the Team compiler's Reader detects the conflict before validation and emits an
+export-scoped `multiple_ref_exports` blocker for every conflicting row; the arranger shows a
 notice pointing at them). `NO_USE`/`NO_USE.txt` sources are disabled and do not participate. Only
 one plain-folder refs export can be edited at a time.
 

@@ -232,8 +232,7 @@ impl CpkOutput {
                 Some(_) => self.commit_folder(&mut batches),
                 None => batches.iter_mut().try_for_each(|batch| self.commit(batch)),
             };
-            // After the decision, whatever it was: a failed or skipped last task ends its team
-            // too.
+            // After the decision, whatever it was: a failed last task ends its team too.
             let result = result.and_then(|()| match &mut self.parts {
                 Some(parts) => parts.decided(range.clone()),
                 None => Ok(()),
@@ -255,21 +254,16 @@ impl CpkOutput {
     /// Decides a player folder's group, `batches` in manifest order with the textures batch
     /// last. When the textures failed nothing of the folder commits: a package in the CPK
     /// would point at textures that are not. Otherwise each package that succeeded commits,
-    /// then the textures, when at least one package did. A package the textures batch names
-    /// as the loser of a `shared_texture_conflict` (`TaskBatch::skipped`) is left out the same
-    /// way: the textures only its sources hold are not in the CPK. A batch that failed has
-    /// no entries; one that succeeded emits at least one (a stem a dropped package loses
-    /// stays with the package that won it), unless a texture link stood at every path a
-    /// source supplied, the Common texture each link names serving the models that look for
-    /// them — then the batch is legitimately empty, and a `shared_texture_conflict` among
-    /// its findings (`skipped` set, a failed batch having none) does not keep the folder's
-    /// packages out either, a `shared_texture_overridden` keeping all the same.
+    /// then the textures, when at least one package did. A batch that failed has
+    /// no entries; one that succeeded emits at least one, unless a texture link stood at
+    /// every path a source supplied, the Common texture each link names serving the models
+    /// that look for them — then the batch is legitimately empty and the folder's packages
+    /// commit all the same.
     fn commit_folder(&mut self, batches: &mut [TaskBatch]) -> anyhow::Result<()> {
         let (textures, packages) = batches
             .split_last_mut()
             .expect("a player folder's group ends with its textures batch");
         if textures.entries.is_empty()
-            && textures.skipped.is_empty()
             && textures
                 .messages
                 .iter()
@@ -279,9 +273,6 @@ impl CpkOutput {
         }
         let mut committed = false;
         for package in packages {
-            if textures.skipped.contains(&package.index) {
-                continue;
-            }
             committed |= !package.entries.is_empty();
             self.commit(package)?;
         }
@@ -715,7 +706,6 @@ mod tests {
                 .map(|path| ((*path).to_owned(), path.as_bytes().to_vec()))
                 .collect(),
             group: None,
-            skipped: Vec::new(),
             uniparam: uniparam.map(|name| (name.to_owned(), vec![7; 120])),
             uni_color: None,
             messages: vec![note(index)],
@@ -896,59 +886,6 @@ mod tests {
         let temp = scratch("writer_group_packages_failed");
         let batches = folder_run([&[], &[], &[]], &["common/shirt.ftex"]);
         let (layout, _) = write_all(temp.path(), "packages_failed", batches);
-        assert_eq!(
-            layout,
-            [
-                "face/real/71403/face.fpk",
-                "kit/kit.ftex",
-                paths::UNIFORM_PARAMETER,
-                paths::TEAM_COLOR,
-                paths::UNI_COLOR,
-            ]
-        );
-    }
-
-    #[test]
-    fn a_package_the_textures_batch_skips_is_left_out_and_the_rest_of_the_folder_commits() {
-        let temp = scratch("writer_group_package_skipped");
-        let mut batches = folder_run(
-            [
-                &["face/face.fpk"],
-                &["boots/boots.fpk"],
-                &["glove/glove.fpk"],
-            ],
-            &["common/shirt.ftex"],
-        );
-        // The boots lost a `shared_texture_conflict`: the textures batch names their task.
-        batches[4].skipped = vec![2];
-        let (layout, reported) = write_all(temp.path(), "package_skipped", batches);
-        assert_eq!(
-            layout,
-            [
-                "face/real/71403/face.fpk",
-                "face/face.fpk",
-                "glove/glove.fpk",
-                "common/shirt.ftex",
-                "kit/kit.ftex",
-                paths::UNIFORM_PARAMETER,
-                paths::TEAM_COLOR,
-                paths::UNI_COLOR,
-            ]
-        );
-        assert_eq!(reported, [0, 1, 2, 3, 4, 5]);
-
-        // With every package skipped the textures stay out, as when every package failed.
-        let temp = scratch("writer_group_all_skipped");
-        let mut batches = folder_run(
-            [
-                &["face/face.fpk"],
-                &["boots/boots.fpk"],
-                &["glove/glove.fpk"],
-            ],
-            &["common/shirt.ftex"],
-        );
-        batches[4].skipped = vec![1, 2, 3];
-        let (layout, _) = write_all(temp.path(), "all_skipped", batches);
         assert_eq!(
             layout,
             [

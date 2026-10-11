@@ -30,11 +30,10 @@ use pes_model::model::Model;
 use pes_model::ops::merge::{MergeError, merge};
 use pes_version::Engine;
 use pipeline::MemoryBudget;
-use studio_core::Disposition;
 use vtree::ScopePath;
 
 use super::conversion::{
-    ConvertedMaterials, PreFoxConversion, fmdl_for_pre_fox, model_for_pre_fox, source_name,
+    ConvertedMaterials, PreFoxConversion, fmdl_for_pre_fox, model_for_pre_fox,
 };
 use super::materialize::PackageFiles;
 use super::prefox_face::{
@@ -42,6 +41,7 @@ use super::prefox_face::{
     point_reserved_kit_stems, read_materials, rewritten_materials,
 };
 use super::{CompileContext, Finding, TaskFailure, TaskFiles, take};
+use crate::deep::named_on_folder;
 use crate::face_xml::{XmlEntry, glove_xml, ratio};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
@@ -134,7 +134,7 @@ struct BootsPart<'a> {
 /// package are a shared folder's, or an `ingame_face` player's parts, the Common models his
 /// `.common` links copy in included, with a combined folder's of the package's kind. Each
 /// `.model` runs the conversion pre-check (`model_for_pre_fox`, with the `.mtl` it uses, its
-/// findings naming it by `source_name`) and, when flagged, is moved onto `ctx.version`'s
+/// findings naming it by `named_on_folder`) and, when flagged, is moved onto `ctx.version`'s
 /// skeleton before it is merged or packed, the `.mtl` packed as written. Boots:
 /// the models as `boots.model` and the `.mtl` each uses (`material_of`) as `boots.mtl`
 /// (`boots_files`), the merge of several noted in `findings` as
@@ -154,8 +154,8 @@ struct BootsPart<'a> {
 /// only through a `.common` link and leave any other Common path as written. A Common model and
 /// its `.mtl` pack under their file names as the folder's own do. An `.fmdl` is converted
 /// (`fmdl_for_pre_fox`, the `.skl` its source pairs with it as the bind pose, a Common FMDL's
-/// the Common `.skl` of its stem, its findings naming it by `source_name`, a Common one by its
-/// export path), its `.model` taking a member's `.model`'s place and its
+/// the Common `.skl` of its stem, its findings naming it by `named_on_folder`, a Common one by
+/// its export path), its `.model` taking a member's `.model`'s place and its
 /// material set the place of the `.mtl` that model uses: merged into `boots.mtl`, or packed
 /// as `<stem>.mtl` lowercased beside `<stem>.model` and named by its `glove.xml` entry. The
 /// set's texture paths are pointed as the face points a converted one's: each metal material
@@ -292,7 +292,7 @@ pub(super) fn package(
         }
     };
     // An FMDL converted (`fmdl_for_pre_fox`, its source's skeleton of its path stem the bind
-    // pose, its findings naming it by `source_name`), its material set pointed as the face
+    // pose, its findings naming it by `named_on_folder`), its material set pointed as the face
     // points a converted one, in the face's order: the environment map added first, since
     // the pointing respells it as the folder spells its own `env` texture.
     let convert = |model: &SourceModel<'_>,
@@ -301,7 +301,7 @@ pub(super) fn package(
      -> Result<PreFoxConversion, TaskFailure> {
         let skeleton = model.skeleton.map(|skeleton| take(files, skeleton));
         let mut conversion = fmdl_for_pre_fox(
-            &source_name(&model.file.path, &folder.path),
+            &named_on_folder(&model.file.path, &folder.path),
             &take(files, model.file),
             skeleton.as_deref(),
             ctx,
@@ -361,7 +361,7 @@ pub(super) fn package(
                 }
                 let (index, mtl) = &member_sets[&material.path];
                 let bytes = model_for_pre_fox(
-                    &source_name(&model.file.path, &folder.path),
+                    &named_on_folder(&model.file.path, &folder.path),
                     take(files, model.file),
                     mtl,
                     ctx,
@@ -381,11 +381,7 @@ pub(super) fn package(
                 .collect();
             let (model, materials) = boots_files(&ctx.budget, parts)?;
             if merged {
-                findings.push((
-                    Code::ModelMerged,
-                    Disposition::Keep,
-                    vec![("model", "boots.model".to_owned())],
-                ));
+                findings.push((Code::ModelMerged, vec![("model", "boots.model".to_owned())]));
             }
             insert(&mut contents, package, "boots.model".to_owned(), model)?;
             insert(&mut contents, package, "boots.mtl".to_owned(), materials)?;
@@ -433,7 +429,7 @@ pub(super) fn package(
                          the models (`TaskKind::files`)",
                     );
                     let bytes = model_for_pre_fox(
-                        &source_name(&model.file.path, &folder.path),
+                        &named_on_folder(&model.file.path, &folder.path),
                         source,
                         mtl,
                         ctx,

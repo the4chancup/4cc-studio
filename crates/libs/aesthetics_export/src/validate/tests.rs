@@ -3356,6 +3356,26 @@ fn an_undecided_root_reports_no_logo_finding() {
 }
 
 #[test]
+fn an_undecided_root_reports_the_parse_s_findings_alone() {
+    // The export's name is judged once its root is decided: a stem with no team token
+    // reports no `team_name_unknown` beside `nested_root_ambiguous`.
+    let report = report(
+        "--- ",
+        &[
+            ("a/Players/03 - A/face_high.fmdl", 10),
+            ("b/Players/03 - B/face_high.fmdl", 10),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("nested_root_ambiguous", Disposition::DropExport)]
+    );
+    assert!(report.validated.is_none());
+}
+
+#[test]
 fn an_empty_doubled_players_layer_is_dropped_with_its_layer() {
     // `Players/Players/` alone under `Players/` is the doubled layer's own shell:
     // gone with the layer, not a folder named `Players` claiming a slot.

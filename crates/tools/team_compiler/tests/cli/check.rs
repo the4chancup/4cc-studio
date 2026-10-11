@@ -77,7 +77,6 @@ fn two_refs_exports_are_both_skipped_and_a_disabled_one_is_left_out() {
     assert_eq!(
         run.messages(),
         [
-            "Error multiple_ref_exports [DropExport] (exports=refs a, refs b)",
             "refs a: Error multiple_ref_exports [DropExport] ()",
             "refs b: Error multiple_ref_exports [DropExport] ()",
             "refs c: Info export_disabled [DropExport] ()",

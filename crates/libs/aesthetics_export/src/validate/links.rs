@@ -179,16 +179,6 @@ pub(crate) fn without_dropped(
         .collect()
 }
 
-/// `player_links` less the links a finding dropped (`dropped_files`, as `dropped_scopes`
-/// reads them), through `without_dropped`.
-pub(crate) fn standing_links(
-    folder: &FolderDraft,
-    draft: &AestheticsExportDraft,
-    dropped_files: &BTreeSet<String>,
-) -> Vec<ResolvedLink> {
-    without_dropped(player_links(folder, draft), dropped_files)
-}
-
 /// `common_link_missing` on the folder at `scope` for each of `resolved`'s `.common`
 /// links nothing satisfies (`common_target_missing`): a player folder's and a shared
 /// folder's `.common` links are checked alike.
@@ -322,7 +312,7 @@ pub(crate) fn cascade(
         if !mapped.contains(&index) || player_dropped(index) {
             continue;
         }
-        for link in standing_links(folder, draft, &dropped_files) {
+        for link in without_dropped(player_links(folder, draft), &dropped_files) {
             let Some(target) = &link.target else { continue };
             let key = target.fold_key();
             let dropped = match link.kind {
@@ -357,7 +347,7 @@ pub(crate) fn cascade(
         if player_dropped(*index) {
             continue;
         }
-        for link in standing_links(&draft.players[*index], draft, &dropped_files) {
+        for link in without_dropped(player_links(&draft.players[*index], draft), &dropped_files) {
             if let Some(target) = link.target {
                 linked.insert(target.fold_key());
             }

@@ -213,10 +213,11 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   and roster-mapped: a shared folder linked only by a dropped player is orphaned.
 - **Export findings of `validate`.** A stem with no token is `team_name_unknown` with an empty
   name, and an export holding no content-folder entry and no root `logo*` texture is
-  `export_empty`, both `DropExport`. No root-level finding (`export_empty`, `root_file_unexpected`,
-  the logo codes, `notes.txt`'s) is reported beside `nested_root_ambiguous` or
-  `nested_root_conflict`, which leave the root undecided (its folders are the candidate roots and
-  its files are not yet the export's root files). A name the teams list lacks is
+  `export_empty`, both `DropExport`. No finding of `validate` is reported beside
+  `nested_root_ambiguous` or `nested_root_conflict`, which leave the root undecided (its
+  folders are the candidate roots and its files are not yet the export's root files) and skip
+  the export, as `export_layout_old` does: the export's name and root files are judged once
+  its root is. A name the teams list lacks is
   `resolve_identity`'s `IdentityError`.
 - **Texture stems.** A lookup namespace (`team_compiler/messages.md` `texture_stem_conflict`)
   holds its textures plus, in a player or shared folder, each texture `.common` link under its

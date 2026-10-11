@@ -1334,14 +1334,14 @@ pub(crate) fn relative(path: &ScopePath, folder: &ScopePath) -> String {
 }
 
 /// How a finding on the model folder at `folder` names the file at `path`: below the folder
-/// (`relative`), or by its export path when it sits in `Common/`, outside the folder
+/// (`relative`), or by its export path when it sits outside it — in `Common/`
 /// (`Common/legs.model`, `Common/refkit/oral_arm_win32.model`, which a member's `face.xml`
-/// may name).
-fn named_on_folder(path: &ScopePath, folder: &ScopePath) -> String {
+/// may name), or in a shared folder the task's folder combines or converts.
+pub(crate) fn named_on_folder(path: &ScopePath, folder: &ScopePath) -> String {
     let below_folder = path
-        .as_str()
-        .strip_prefix(folder.as_str())
-        .is_some_and(|rest| rest.starts_with('/'));
+        .segments()
+        .take(folder.segments().count())
+        .eq(folder.segments());
     if below_folder {
         relative(path, folder)
     } else {
@@ -1575,15 +1575,28 @@ mod tests {
     }
 
     #[test]
-    fn a_folder_names_its_own_file_below_it_and_a_common_one_by_its_export_path() {
+    fn a_folder_names_its_own_file_below_it_and_an_outside_one_by_its_export_path() {
         let folder = ScopePath::new("Players/05 - A").unwrap();
         let named = |path: &str| named_on_folder(&ScopePath::new(path).unwrap(), &folder);
+        assert_eq!(named("Players/05 - A/boots.fmdl"), "boots.fmdl");
         assert_eq!(named("Players/05 - A/face/hat.model"), "face/hat.model");
         assert_eq!(named("Common/legs.model"), "Common/legs.model");
         // A subfolder's file, which a member's `face.xml` may name, keeps its whole path.
         assert_eq!(
             named("Common/refkit/oral_thigh_win32.model"),
             "Common/refkit/oral_thigh_win32.model"
+        );
+        // A shared folder's model a player's task converts, and one of a folder whose name
+        // merely starts with the player's.
+        assert_eq!(named("Faces/Round/hat.fmdl"), "Faces/Round/hat.fmdl");
+        assert_eq!(
+            named("Players/05 - AB/hat.fmdl"),
+            "Players/05 - AB/hat.fmdl"
+        );
+        let boots = ScopePath::new("Boots/Mud").unwrap();
+        assert_eq!(
+            named_on_folder(&ScopePath::new("Boots/Mud/boots.fmdl").unwrap(), &boots),
+            "boots.fmdl"
         );
     }
 

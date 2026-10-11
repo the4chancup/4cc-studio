@@ -10,7 +10,6 @@ use aesthetics_export::{LogoFile, LogoFiles, LogoFit};
 use dds_convert::{ConvertError, decode, encode_png, resize};
 use pes_version::PesVersion;
 use pipeline::{MemoryBudget, Permit};
-use studio_core::Disposition;
 
 use super::{Entry, Finding, TaskFailure, TaskFiles, take, texture};
 use crate::messages::Code;
@@ -116,7 +115,6 @@ fn report(source: &LogoSource, largest: u32, findings: &mut Vec<Finding>) {
     if long != short {
         findings.push((
             Code::LogoFitApplied,
-            Disposition::Keep,
             vec![
                 ("file", source.path.to_owned()),
                 ("mode", mode_name(source.fit).to_owned()),
@@ -132,7 +130,6 @@ fn report(source: &LogoSource, largest: u32, findings: &mut Vec<Finding>) {
     if mapped < largest {
         findings.push((
             Code::LogoUpscaled,
-            Disposition::Keep,
             vec![
                 ("file", source.path.to_owned()),
                 ("size", format!("{}x{}", source.width, source.height)),
@@ -338,7 +335,6 @@ mod tests {
     fn fit_applied(file: &str, mode: &str) -> Finding {
         (
             Code::LogoFitApplied,
-            Disposition::Keep,
             vec![("file", file.to_owned()), ("mode", mode.to_owned())],
         )
     }
@@ -346,7 +342,6 @@ mod tests {
     fn upscaled(file: &str, size: &str, target: &str) -> Finding {
         (
             Code::LogoUpscaled,
-            Disposition::Keep,
             vec![
                 ("file", file.to_owned()),
                 ("size", size.to_owned()),

@@ -48,7 +48,8 @@ pub struct ValidationReport {
     /// disposition is `DropExport`.
     pub validated: Option<ValidatedAestheticsExport>,
     /// Every issue: `parsed.issues`, then validation's; for an old-layout
-    /// export, `export_layout_old` alone.
+    /// export, `export_layout_old` alone, and for a root the parse left
+    /// undecided, `parsed.issues` alone.
     pub issues: Vec<ValidationIssue>,
 }
 
@@ -165,6 +166,21 @@ impl ParsedAestheticsExport {
             };
         }
 
+        // A nested root left undecided is the parse's findings alone, as an old layout is
+        // its one finding: the export's name, roster and root files are judged once its
+        // root is.
+        let root_undecided = self
+            .issues
+            .iter()
+            .any(|issue| matches!(issue.code, "nested_root_ambiguous" | "nested_root_conflict"));
+        if root_undecided {
+            return ValidationReport {
+                issues: self.issues.clone(),
+                parsed: self,
+                validated: None,
+            };
+        }
+
         let mut issues = self.issues.clone();
         let draft = &self.draft;
 
@@ -188,12 +204,6 @@ impl ParsedAestheticsExport {
                 Disposition::DropExport,
             ));
         }
-        // `export_empty` is not reported beside an ambiguous or conflicting
-        // nested root, which leaves the root undecided.
-        let root_decided = !self
-            .issues
-            .iter()
-            .any(|issue| matches!(issue.code, "nested_root_ambiguous" | "nested_root_conflict"));
         let has_content = !(draft.players.is_empty()
             && draft.faces.is_empty()
             && draft.boots.is_empty()
@@ -206,7 +216,7 @@ impl ParsedAestheticsExport {
             .root_files
             .iter()
             .any(|file| is_logo_texture(file.path.name()));
-        if root_decided && !has_content && !has_logo {
+        if !has_content && !has_logo {
             issues.push(issue(
                 "export_empty",
                 IssueScope::Export,
@@ -215,13 +225,8 @@ impl ParsedAestheticsExport {
             ));
         }
 
-        // The roster: authoritative lines, or the folder names' numbers. An undecided
-        // root reports no root-level finding, the roster's included.
-        let slot_map = if root_decided {
-            roster::check(draft, self.raw_roster.as_ref(), &self.issues, &mut issues)
-        } else {
-            roster::empty_map(draft.kind() == ExportKind::Referees)
-        };
+        // The roster: authoritative lines, or the folder names' numbers.
+        let slot_map = roster::check(draft, self.raw_roster.as_ref(), &self.issues, &mut issues);
 
         // Own findings, in drop order: player folders, shared folders,
         // `Common/`, `Collars/`, the content findings, then the cascade
@@ -247,29 +252,14 @@ impl ParsedAestheticsExport {
         // content folders end (`Kits/`, then the loose root groups).
         let mut kits = kits::check(draft, context, &mut issues);
         let mut portraits = root::check_portraits(draft, context, &mut issues);
-        // No root-level finding on an undecided root: `nested_root_ambiguous`
-        // and `nested_root_conflict` leave it unresolved, as for
-        // `export_empty` and `root_file_unexpected`.
-        let logo = if root_decided {
-            root::check_logo(draft, context, &mut issues)
-        } else {
-            None
-        };
-        let mut root = if root_decided {
-            root::check_root(
-                draft,
-                &self.metadata,
-                draft.kind() == ExportKind::Referees,
-                context,
-                &mut issues,
-            )
-        } else {
-            RootArtifacts {
-                team_colors: None,
-                notes: None,
-                referee_marker: None,
-            }
-        };
+        let logo = root::check_logo(draft, context, &mut issues);
+        let mut root = root::check_root(
+            draft,
+            &self.metadata,
+            draft.kind() == ExportKind::Referees,
+            context,
+            &mut issues,
+        );
 
         // Sanitized `players`: the draft folders a surviving assignment maps
         // and no `DropFolder` issue drops, in draft order.
@@ -292,7 +282,8 @@ impl ParsedAestheticsExport {
                 // folder's own spelling, so two links naming one folder (a
                 // subfolder's beside the root's) are one entry here, and the
                 // folder is combined once.
-                let resolved = links::standing_links(folder, draft, &dropped_files);
+                let resolved =
+                    links::without_dropped(links::player_links(folder, draft), &dropped_files);
                 player.links = Vec::new();
                 for link in &resolved {
                     let shared = match (&link.kind, &link.target) {

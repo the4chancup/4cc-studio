@@ -38,7 +38,7 @@ use crate::reader::{self, ContentSource, ExportSource, Route, SourceKind, Source
 
 /// Validation's outcome for the whole run.
 pub(crate) struct ValidationPass {
-    /// Findings about the run rather than one export (the duplicate-refs summary), reported
+    /// Findings about the run rather than one export (`no_exports_found`), reported
     /// before any export's.
     pub(crate) run_messages: Vec<Message>,
     /// Every source, in discovery order.
@@ -124,21 +124,6 @@ pub(crate) fn validation_pass(
             vec![("folder", inputs.exports_root.display().to_string())],
         ));
     }
-    let conflicting: Vec<&str> = sources
-        .iter()
-        .zip(&routes)
-        .filter(|(_, route)| matches!(route, Route::ConflictingRefs))
-        .map(|(source, _)| source.file_name.as_str())
-        .collect();
-    if !conflicting.is_empty() {
-        run_messages.push(tool_message(
-            Code::MultipleRefExports,
-            Scope::Run,
-            Disposition::DropExport,
-            vec![("exports", conflicting.join(", "))],
-        ));
-    }
-
     let mut sources =
         pool.install(|| check_sources(inputs, installed, sources, routes, budget, keep_archives));
     refuse_duplicate_teams(&mut sources);

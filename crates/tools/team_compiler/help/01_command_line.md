@@ -69,15 +69,17 @@ kit's main `kit` texture, its own or the one from `all`, wider or taller than 20
 with a side that is not a power of two), `texture_type_mismatch` (a file renamed to another
 format instead of resaved, a PNG called `skin.dds`) and `texture_codec_unsupported` (a `.dds`
 or `.ftex` in a format the compiler does not read, BC6H for one, or a 16-bit or interleaved
-`.tga`: resave it). Both commands report the first five from the start of each file alone, so
-`check` finds them too; `texture_codec_unsupported` is found when the texture is converted, by
-`compile`. What is left out depends on where the texture is: a player's or shared folder's
-texture leaves out the whole folder, a kit's texture the whole kit (a texture in `all` leaves
-out every kit using it), a `Common` texture only that file (the rest of `Common` is still built,
-and a player linking that file is left out with the line `link_target_dropped`), a portrait only
-that portrait. With `pass_through` on, a texture with `texture_too_small`, `texture_not_pow2`
-or `kit_texture_too_big`, a portrait included, is kept and converted as it is; a renamed one is
-still left out, and so is one with `texture_not_div4`, which those games cannot load at all. The
+`.tga`: resave it). Both commands report them from the start of each file alone, so `check`
+finds them too, except a codec only converting the texture finds unreadable (BC6H): `compile`
+reports that one. What is left out depends on where the texture is: a player's or shared
+folder's texture leaves out the whole folder, a kit's texture the whole kit (a texture in `all`
+leaves out every kit using it), a `Common` texture only that file (the rest of `Common` is still
+built, and a player linking that file is left out with the line `link_target_dropped`), a
+portrait only that portrait. A `Common` texture that `compile` fails to convert, past those
+checks (`texture_codec_unsupported`, or `folder_pack_failed` for a file cut short), leaves out
+every texture of its folder (`Common/` itself, or the subfolder it is in). With `pass_through`
+on, a texture with `texture_too_small`, `texture_not_pow2` or `kit_texture_too_big`, a portrait
+included, is kept and converted as it is; a renamed one is still left out, and so is one with `texture_not_div4`, which those games cannot load at all. The
 team's logo
 is one image at the export's root named `logo` (`logo.png`), in any of the image formats
 above and of any size: `compile` makes the game's three logo sizes (512, 256 and 128 pixels
@@ -160,10 +162,9 @@ folder, a shared folder it combines) is packed once when the two files are the s
 differ, the player's own file wins, as a texture link of his in that place does: every model
 of his, the shared folder's included, uses his, and the line `shared_texture_overridden`
 names the texture and the shared folder, so an override you meant is visible and one you did
-not is caught. When two shared folders he combines hold different files of one name, the
-face's copy wins over the boots' and the boots' over the gloves': the losing part is left out
-of the CPK, with the textures only it brought, and the line `shared_texture_conflict` names
-the texture and what was left out. An export
+not is caught. When two shared folders he combines hold different files of one name, his
+whole folder is left out of the CPK, and the line `shared_texture_conflict` names the
+texture and every kind holding it (`packages=face,boots`). An export
 using more than 17 shared boots folders, or more than 17 shared gloves folders, is skipped by
 both commands with the error `boots_id_pool_exhausted` or `gloves_id_pool_exhausted`, naming
 the count. A model whose name says nothing about what it is (`torso.fmdl`) is taken for face

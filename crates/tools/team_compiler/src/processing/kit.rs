@@ -11,7 +11,6 @@ use dds_convert::{SourceFormat, Target, TextureRole, decode};
 use kit_config::{KitConfig, KitSlot, TexturePresence, apply_fpc, matches_fpc, texture_names};
 use pes_version::Engine;
 use pipeline::MemoryBudget;
-use studio_core::Disposition;
 
 use super::texture::TextureError;
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, kit_layout, take, texture};
@@ -111,7 +110,6 @@ pub(super) fn kit(
     if let Some(drawn_for) = drawn_for_other {
         findings.push((
             Code::KitLayoutConverted,
-            Disposition::Keep,
             vec![
                 ("from", marker_name(drawn_for).to_owned()),
                 ("to", marker_name(engine_layout(engine)).to_owned()),
@@ -178,7 +176,7 @@ pub(super) fn kit(
     match edits.fpc {
         EffectiveTeamKitFpc::On if !matches_fpc(&config) => {
             apply_fpc(&mut config);
-            findings.push((Code::KitConfigFpcAdjusted, Disposition::Keep, Vec::new()));
+            findings.push((Code::KitConfigFpcAdjusted, Vec::new()));
         }
         EffectiveTeamKitFpc::On | EffectiveTeamKitFpc::Unknown => {}
     }
@@ -209,11 +207,11 @@ pub(super) fn kit(
     let colors = match (listed, derived) {
         (Some(colors), _) => colors,
         (None, Some(colors)) => {
-            findings.push((Code::KitColorsDerived, Disposition::Keep, Vec::new()));
+            findings.push((Code::KitColorsDerived, Vec::new()));
             colors
         }
         (None, None) => {
-            findings.push((Code::KitColorsMissing, Disposition::Keep, Vec::new()));
+            findings.push((Code::KitColorsMissing, Vec::new()));
             MISSING_COLORS
         }
     };

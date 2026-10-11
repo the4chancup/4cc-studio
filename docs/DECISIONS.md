@@ -6831,3 +6831,18 @@ carry and the game draws; changing code for defaults no source reaches today wou
 machinery no export exercises.
 Plan: `model_format.md` "Shader families", the paragraph "Checked against the community's
 reference"; `development_plan.md` "Phase 7".
+
+## 2026-10-11 — team_compiler — the converge's simplification pass: what an Error already covers
+Decision: a `shared_texture_conflict` leaves the player folder out (its textures task fails),
+not only the lower package; a Common texture that conversion alone refuses fails the Common
+textures task, as any other conversion failure does; an undecided root reports nothing of
+`validate` beside `nested_root_ambiguous`/`nested_root_conflict`; `multiple_ref_exports` has no
+Run-scoped summary beside each export's row. The glTF drop machinery (Phase 7 replaces it) and
+a failed package's rest-of-folder commit (broad churn for little code) stay.
+Why: each removed path salvaged part of an export already reporting an Error, which a person
+looks at anyway (the maintainer, 2026-10-11: keep it simple where possible); the conflict's
+package salvage could also leave a kept model naming a texture only the dropped package held
+(issue B3C2A.A2-1), which dropping the folder closes.
+Plan: `team_compiler/pipeline.md` step 6 ("The shared textures commit"); `messages.md`
+`shared_texture_conflict`, `multiple_ref_exports`; `aesthetics_export/object_model.md` "Export
+findings of `validate`"; TC-TEX-18.

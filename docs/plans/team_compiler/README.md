@@ -1175,11 +1175,14 @@ TC-TEX-11  GIVEN slot 06 holding a face model naming hair and hair.dds.common, n
                 common_link_missing and drops the folder
 TC-TEX-12  GIVEN slot 05's face model naming hair, with hair.png.common, and Common/hair.png of
            3x3 pixels; and another export whose slot 05 links hair.dds.common to a
-           Common/hair.dds whose header reads but whose pixel data is cut short
+           Common/hair.dds whose header reads but whose pixel data is cut short (or a BC6H
+           one, which only conversion refuses, beside a sound Common/skin.dds)
            WHEN each export is compiled for PES 21
            THEN the first reports texture_too_small and link_target_dropped and slot 05 is left
-                out; the second reports folder_pack_failed at Common and slot 05's face
-                package is in the CPK
+                out; the second reports folder_pack_failed (texture_codec_unsupported, for the
+                BC6H) at Common, no texture of Common/ is in the CPK, and slot 05's face
+                package is; a player folder's own texture failing so reports
+                folder_pack_failed on that folder, which is left out
 TC-TEX-16  GIVEN slot 05 holding face_high.fmdl naming hair, hair.dds.common and Common/hair.dds,
            and linking Faces/Round, whose folder holds hair_high.fmdl naming hair and hair.dds
            WHEN the export is compiled for PES 21
@@ -1198,8 +1201,8 @@ TC-TEX-18  GIVEN Common/skin.dds, and slot 05 holding face_high.fmdl and boots.f
            boots combine) and linking Faces/Round, holding hair_high.fmdl naming skin and
            skin.dds.common, and Boots/Crocs, holding boots.fmdl naming skin and skin.dds
            WHEN the export is compiled for PES 21
-           THEN shared_texture_conflict names skin, the boots task is the one discarded, and
-                hair_high names skin in /Assets/pes16/model/character/common/714/sourceimages/
+           THEN shared_texture_conflict names skin on slot 05, and slot 05 is left out of the
+                output
 TC-TEX-13  GIVEN slot 05 holding no model and an env.dds that is a 128x128 DXT5 cube map with
            eight mip levels (the bundled template's bytes); the textures task reads no model,
            and a Fox model converted for PES 17 would add its own findings to the run

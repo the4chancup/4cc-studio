@@ -75,7 +75,9 @@ reported, a `.model` collar's material losses skipped), 4.y-fix22 done 2026-10-1
 and S15 rounds' rework; S12, S14, S15 and S17 closed), 4.y-fix23 done 2026-10-11 (a shared
 boots or gloves folder's model link named as its models are; its pre-Fox item an issue),
 4.y-mattable done 2026-10-11 (the material table kept against the wiki on a census of real
-FMDL and `.mtl` files; three family defaults left for Phase 7), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+FMDL and `.mtl` files; three family defaults left for Phase 7), 4.y-simp done 2026-10-11 (the
+simplification pass: a texture conflict leaves the player folder out, the salvage machinery
+gone, net about -270 lines), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag done 2026-10-10 (no retype needed; 76 long subjects cut, history rewritten
 and force-pushed), 4.y-fix12 done 2026-10-10
@@ -4961,6 +4963,26 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   "Phase 7"); the Textures table's dummy fallback names its families; one pre-Fox open issue
   (spaces in a converted `.mtl` path). DECISIONS 2026-10-11.
 
+- [x] 4.y-simp **The converge's simplification pass** (4.y-conv's design-health item; the
+  maintainer, 2026-10-11). Ruled from a survey of `team_compiler`, `aesthetics_export` and
+  `pipeline` (DECISIONS 2026-10-11 "the converge's simplification pass"):
+  - a `shared_texture_conflict` fails the player's textures task, the package-level salvage
+    removed (TC-TEX-18 rewritten);
+  - a Common texture conversion alone refuses fails the Common textures task;
+  - an undecided root returns the parse's findings alone;
+  - `multiple_ref_exports` loses its Run-scoped summary;
+  - no-behavior cuts: `FolderModels::of_player`, one file-naming helper, `check_portraits`'
+    recount, `standing_links`, the other-engine model-format match, the canonical-order
+    winner, a stale `PlanReport` doc line.
+  Rejected, with reasons: `.tmp/4_y/simp_rulings.md`. Briefed: `.tmp/4_y/brief_simp.md`.
+  → verify: gates green; `just mutants-diff`; acceptance unchanged in count.
+  Done 2026-10-11 (SWE-2, two reworks): net about -270 lines in `team_compiler` and
+  `aesthetics_export`; the conflict's `packages` names every package claiming the path;
+  `processing::Finding` lost its always-`Keep` disposition; TC-TEX-12 widened to a Common
+  texture only conversion refuses (BC6H), with its CLI test. Astra: 5 then 3 concerns, all
+  accepted (`.tmp/4_y/simp_rulings_a1.md`); the stale run-summary text left
+  `refs_arranger.md`, `core/parallelism.md` and `core/architecture.md`. Gates green (2,780
+  tests); `mutants-diff 84a55b5` every viable mutant caught on each round.
 - [ ] 4.y-scen **Every CLI test cites a scenario** (the maintainer, 2026-10-10;
   `CONTRIBUTING.md` "Acceptance IDs", DECISIONS "every CLI test of a tool cites a
   scenario"). `scripts/acceptance.py` gains the check, by the lead (the scanner is
@@ -5195,7 +5217,7 @@ points there.
   `is_package_model` does not count `PreFoxCommonModel`), while the converted Common model is
   still written into the refs CPK with nothing naming it; the link should count as his face
   part, as a team player's does.
-- open (2026-10-11, B3C2A.A2-1) — a `shared_texture_conflict` drops the losing package's
+- resolved (2026-10-11, by 4.y-simp: the conflict leaves the player folder out; B3C2A.A2-1) — a `shared_texture_conflict` drops the losing package's
   task, and with it every texture only that folder held: a surviving model of another
   combined folder naming one of them (a face model naming a texture of the shared boots
   it combines) then names a texture the CPK lacks, with no finding. Two differing copies
@@ -7528,3 +7550,7 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-11** — 4.y-mattable done: the material tables checked row by row against the cup
   wiki and a census of every FMDL and `.mtl` on the machine; no code change, three family
   defaults left for Phase 7, one pre-Fox issue.
+- **2026-10-11** — 4.y-simp done: the converge's simplification pass; a
+  `shared_texture_conflict` leaves the player folder out, a Common texture only conversion
+  refuses fails its directory's task, an undecided root reports the parse's findings alone,
+  `multiple_ref_exports` lost its run summary; net about -270 lines.

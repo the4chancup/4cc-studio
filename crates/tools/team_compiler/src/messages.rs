@@ -235,8 +235,7 @@ pub(crate) enum Code {
     /// folder is left out.
     XmlSharedFaceConflict,
     /// Two shared folders a player combines, of different packages, hold a texture of one
-    /// stem with different bytes; the lower package in canonical order (face > boots >
-    /// gloves) is left out with the textures only its sources hold. The player's own copy
+    /// stem with different bytes; the player folder is left out. The player's own copy
     /// of a stem wins over either (`SharedTextureOverridden`).
     SharedTextureConflict,
     /// A texture path the player's own folder holds, as a texture or as a texture `.common`

@@ -75,6 +75,12 @@ impl ModelPackage {
         ModelPackage::Gloves,
     ];
 
+    /// The first package of the canonical order `claim` holds for: the winner among a
+    /// destination's claimants (`pipeline.md` step 6).
+    pub(crate) fn first_claimed(claim: impl Fn(ModelPackage) -> bool) -> Option<ModelPackage> {
+        Self::ALL.into_iter().find(|package| claim(*package))
+    }
+
     /// The package's file stem: `face.fpk`, `boots.fpk`, `glove.fpk`.
     pub(crate) fn file_stem(self) -> &'static str {
         match self {
@@ -84,7 +90,7 @@ impl ModelPackage {
         }
     }
 
-    /// The package as a finding names it (`shared_texture_conflict`'s `dropped`): `face`,
+    /// The package as a finding names it (`shared_texture_conflict`'s `packages`): `face`,
     /// `boots`, `gloves`.
     pub(crate) fn name(self) -> &'static str {
         match self {
@@ -692,9 +698,10 @@ pub(crate) fn selected_common_model<'a>(
     engine: Engine,
 ) -> Option<&'a FileDescriptor> {
     let named = common_file(common, linked)?;
-    let (beaten, native_extension) = match engine {
-        Engine::Fox => (ModelFormat::PesModel, "fmdl"),
-        Engine::PreFox => (ModelFormat::Fmdl, "model"),
+    let beaten = other_format(engine);
+    let native_extension = match engine {
+        Engine::Fox => "fmdl",
+        Engine::PreFox => "model",
     };
     if named.kind != FileKind::Model(beaten) {
         return Some(named);
@@ -714,11 +721,7 @@ pub(crate) fn is_selected_common_model(
     file: &FileDescriptor,
     engine: Engine,
 ) -> bool {
-    let beaten = match engine {
-        Engine::Fox => ModelFormat::PesModel,
-        Engine::PreFox => ModelFormat::Fmdl,
-    };
-    if file.kind != FileKind::Model(beaten) {
+    if file.kind != FileKind::Model(other_format(engine)) {
         return true;
     }
     let native = FileKind::Model(native_format(engine));
@@ -1047,32 +1050,6 @@ impl FolderModels {
         models
     }
 
-    /// The models of the player folder `folder` of `export` for a target of `engine`: its own,
-    /// under its `ingame_face` marker when it holds one, a linked shared face that gives a face
-    /// counting as a face model of the folder's (`with_linked_face`).
-    pub(crate) fn of_player(
-        folder: &PlayerFolder,
-        export: &ValidatedAestheticsExport,
-        engine: Engine,
-    ) -> FolderModels {
-        let models =
-            FolderModels::of_player_files(&folder.path, &folder.files, folder.ingame_face, engine);
-        // A linked folder holding textures alone is a texture source, not a face: his blank
-        // face takes the bundled diff, and his own face files are not used.
-        let linked_face = folder
-            .links
-            .iter()
-            .filter(|link| matches!(link.kind, SharedKind::Face))
-            .filter_map(|link| linked_folder(export, link))
-            .any(|shared| {
-                FolderModels::of_shared(&shared.path, &shared.files, SharedKind::Face, engine).face
-            });
-        if linked_face {
-            return models.with_linked_face();
-        }
-        models
-    }
-
     /// The engine of the target the models were read for.
     pub(crate) fn engine(&self) -> Engine {
         self.engine
@@ -1257,6 +1234,15 @@ pub(crate) fn native_format(engine: Engine) -> ModelFormat {
     match engine {
         Engine::Fox => ModelFormat::Fmdl,
         Engine::PreFox => ModelFormat::PesModel,
+    }
+}
+
+/// The model format of the engine a target of `engine` does not read natively, which a model
+/// of the target's format or a glTF of its stem beats: `.model` on Fox, FMDL on pre-Fox.
+pub(crate) fn other_format(engine: Engine) -> ModelFormat {
+    match engine {
+        Engine::Fox => ModelFormat::PesModel,
+        Engine::PreFox => ModelFormat::Fmdl,
     }
 }
 
@@ -2042,19 +2028,6 @@ mod tests {
         }
     }
 
-    /// An export holding no shared folder (one player folder with a model, the least an
-    /// export validates with), which `FolderModels::of_player` resolves a `folder`'s face
-    /// links against: no test folder here links one.
-    fn no_shared_folders() -> ValidatedAestheticsExport {
-        resolved(
-            "co Midcup Parts",
-            &[("Players/03 - A/boots.fmdl", 1)],
-            &[],
-            None,
-        )
-        .export
-    }
-
     /// The role of each file of `names` in `Players/03 - A`.
     fn roles(names: &[&str]) -> Vec<Option<PlayerFile>> {
         let folder = folder(names);
@@ -2072,7 +2045,12 @@ mod tests {
             ingame_face: true,
             ..folder(names)
         };
-        let models = FolderModels::of_player(&folder, &no_shared_folders(), Engine::Fox);
+        let models = FolderModels::of_player_files(
+            &folder.path,
+            &folder.files,
+            folder.ingame_face,
+            Engine::Fox,
+        );
         folder
             .files
             .iter()
@@ -2128,7 +2106,7 @@ mod tests {
     /// The role of each file of `names` in `Players/03 - A` on a target of `engine`.
     fn engine_roles(names: &[&str], engine: Engine) -> Vec<Option<PlayerFile>> {
         let folder = folder(names);
-        let models = FolderModels::of_player(&folder, &no_shared_folders(), engine);
+        let models = FolderModels::of_player_files(&folder.path, &folder.files, false, engine);
         folder
             .files
             .iter()
@@ -2241,7 +2219,12 @@ mod tests {
             ingame_face: true,
             ..folder(&["kit_boots.model", "face.xml"])
         };
-        let models = FolderModels::of_player(&marked, &no_shared_folders(), Engine::PreFox);
+        let models = FolderModels::of_player_files(
+            &marked.path,
+            &marked.files,
+            marked.ingame_face,
+            Engine::PreFox,
+        );
         let roles: Vec<Option<PlayerFile>> = marked
             .files
             .iter()
@@ -2301,7 +2284,12 @@ mod tests {
                 "glove_l.fmdl.common",
             ])
         };
-        let models = FolderModels::of_player(&marked, &no_shared_folders(), Engine::PreFox);
+        let models = FolderModels::of_player_files(
+            &marked.path,
+            &marked.files,
+            marked.ingame_face,
+            Engine::PreFox,
+        );
         let roles: Vec<Option<PlayerFile>> = marked
             .files
             .iter()
@@ -2448,7 +2436,12 @@ mod tests {
                 ingame_face: true,
                 ..folder(names)
             };
-            let models = FolderModels::of_player(&folder, &no_shared_folders(), Engine::Fox);
+            let models = FolderModels::of_player_files(
+                &folder.path,
+                &folder.files,
+                folder.ingame_face,
+                Engine::Fox,
+            );
             folder
                 .files
                 .iter()
@@ -2488,7 +2481,7 @@ mod tests {
                 [true, false, false, false, true, false, true, false, true],
             ),
         ] {
-            let models = FolderModels::of_player(&folder, &no_shared_folders(), engine);
+            let models = FolderModels::of_player_files(&folder.path, &folder.files, false, engine);
             let beaten: Vec<bool> = folder
                 .files
                 .iter()
@@ -2642,7 +2635,12 @@ mod tests {
             ingame_face: true,
             ..folder(&names)
         };
-        let models = FolderModels::of_player(&folder, &no_shared_folders(), Engine::PreFox);
+        let models = FolderModels::of_player_files(
+            &folder.path,
+            &folder.files,
+            folder.ingame_face,
+            Engine::PreFox,
+        );
         let marked: Vec<Option<PlayerFile>> = folder
             .files
             .iter()
@@ -2697,7 +2695,12 @@ mod tests {
             ingame_face: true,
             ..folder(&names)
         };
-        let models = FolderModels::of_player(&folder, &no_shared_folders(), Engine::PreFox);
+        let models = FolderModels::of_player_files(
+            &folder.path,
+            &folder.files,
+            folder.ingame_face,
+            Engine::PreFox,
+        );
         let marked: Vec<Option<PlayerFile>> = folder
             .files
             .iter()
@@ -2749,7 +2752,12 @@ mod tests {
             ingame_face: true,
             ..folder(&names)
         };
-        let models = FolderModels::of_player(&folder, &no_shared_folders(), Engine::PreFox);
+        let models = FolderModels::of_player_files(
+            &folder.path,
+            &folder.files,
+            folder.ingame_face,
+            Engine::PreFox,
+        );
         let marked: Vec<Option<PlayerFile>> = folder
             .files
             .iter()
@@ -2802,7 +2810,12 @@ mod tests {
             ingame_face: true,
             ..folder(&names)
         };
-        let models = FolderModels::of_player(&folder, &no_shared_folders(), Engine::PreFox);
+        let models = FolderModels::of_player_files(
+            &folder.path,
+            &folder.files,
+            folder.ingame_face,
+            Engine::PreFox,
+        );
         let marked: Vec<Option<PlayerFile>> = folder
             .files
             .iter()

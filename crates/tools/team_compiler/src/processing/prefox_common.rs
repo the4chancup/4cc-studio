@@ -14,12 +14,13 @@ use aesthetics_export::{FileDescriptor, FileKind, ModelFormat};
 use pes_version::Engine;
 use vtree::ScopePath;
 
-use super::conversion::{ConvertedMaterials, fmdl_for_pre_fox, model_for_pre_fox, source_name};
+use super::conversion::{ConvertedMaterials, fmdl_for_pre_fox, model_for_pre_fox};
 use super::prefox_face::{
     FolderPlaces, add_environment_map, converted_material_name, point_materials,
     point_reserved_kit_stems, rewritten_materials,
 };
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
+use crate::deep::named_on_folder;
 use crate::face_xml::packed_model_name;
 use crate::mtl_search::mtl_for;
 use crate::paths;
@@ -82,7 +83,7 @@ pub(super) fn common_models(
                             .get(&material.path)
                             .expect("planning lists every `.mtl` of `Common/` for the task");
                         model_for_pre_fox(
-                            &source_name(&file.path, folder),
+                            &named_on_folder(&file.path, folder),
                             source,
                             mtl,
                             ctx,
@@ -101,7 +102,7 @@ pub(super) fn common_models(
                 let skeleton = common_skeleton(common, below_common(&file.path))
                     .map(|skeleton| take(files, skeleton));
                 let conversion = fmdl_for_pre_fox(
-                    &source_name(&file.path, folder),
+                    &named_on_folder(&file.path, folder),
                     &take(files, file),
                     skeleton.as_deref(),
                     ctx,

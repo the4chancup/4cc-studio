@@ -602,7 +602,7 @@ need a header to be read:
 ```text
 - co - Spring.zip: Warning player_unlisted at Players/15 - B
 - co - Spring: Error players_txt_line_invalid at players.txt line 1 (line=x3 A)
-- Error multiple_ref_exports (exports=refs a, refs b)
+- Warning no_exports_found (folder=C:\4cc\exports)
 ```
 
 The source name comes from the export's `ExportStarted` event; the scope is the folder or file
