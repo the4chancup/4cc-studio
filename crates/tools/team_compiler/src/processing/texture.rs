@@ -13,7 +13,9 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use aesthetics_export::{FileDescriptor, KitToken, kit_token, variant_stem, without_kit_token};
+use aesthetics_export::{
+    FileDescriptor, KitToken, kit_path_token, variant_path, without_kit_token,
+};
 use dds_convert::{
     BlockCodec, ConvertError, SourceFormat, Target, TextureRole, decode, encode_dds, probe,
     source_hash,
@@ -26,12 +28,12 @@ use studio_core::Disposition;
 use vtree::ScopePath;
 
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
+use crate::deep::relative;
 use crate::kit_variants::{self, member_kit};
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::roles::{ModelPackage, PlayerFile, file_stem, texture_format};
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
-use crate::texture_lookup::split;
 
 /// Why a texture could not be converted.
 #[derive(Debug)]
@@ -258,11 +260,14 @@ pub(super) fn folder_textures(
 /// its lowest variant, serves every kit number the set lacks: on PES 15-17 it is emitted
 /// under each missing number's spelling, and `kit_variant_missing` is noted in `findings`
 /// for each when the fallback is the lowest variant; on PES 18-21 it is written once under
-/// the reference's spelling (`pants_kitN`), whatever `kits` holds, which FoxDen's kit
-/// swapper loads for a kit without a variant, with no per-number copies. A `kitF` fallback
-/// reports no finding. A variant of a number `kits` does not hold stays as it is. The
-/// token is read in each file's name alone (`old_kit2_hair/skin` is no variant), and a set
-/// is one directory's: a subfolder's files form their own sets there.
+/// the reference's spelling (`pants_kitN`, `kitN/armor_bsm`), whatever `kits` holds, which
+/// FoxDen's kit swapper loads for a kit without a variant, with no per-number copies. A
+/// `kitF` fallback reports no finding. A variant of a number `kits` does not hold stays as
+/// it is. The token may be the file name's or a whole directory segment's
+/// (`kit1/armor_bsm` and `kit2/armor_bsm` are the set `kitN/armor_bsm`), spelled exactly:
+/// `old_kit2_hair/skin` is no variant. A name's token wins over a directory's
+/// (`kit1/pants_kit2` is `pants_kitN` in `kit1/`), and a set is one directory's: another
+/// subfolder's files form their own sets there.
 fn complete_kit_variants(
     textures: &mut Vec<(String, Vec<u8>)>,
     kits: &[u8],
@@ -270,26 +275,22 @@ fn complete_kit_variants(
     findings: &mut Vec<Finding>,
 ) {
     // Every member as (kit number — `None` for the `kitF` fallback —, position in
-    // `textures`, folded directory and reference, reference spelled), sorted so each set
-    // is a run with its fallback — its `kitF` member when it has one, else its lowest
-    // variant — first.
+    // `textures`, folded reference, reference spelled), sorted so each set is a run with
+    // its fallback — its `kitF` member when it has one, else its lowest variant — first.
     let mut members: Vec<(Option<u8>, usize, String, String)> = textures
         .iter()
         .enumerate()
-        // A token is read in the file name alone, a subfolder's name not read for one
-        // (`old_kit2_hair/skin` would read as a variant); each set is one directory's
-        // files.
-        .filter_map(|(index, (below, _))| {
-            let (directory, name) = split(below);
-            match kit_token(name)? {
-                (token @ (KitToken::Variant(_) | KitToken::Fallback), reference) => Some((
-                    member_kit(token),
-                    index,
-                    vtree::fold_name(&format!("{directory}{reference}")),
-                    format!("{directory}{reference}"),
-                )),
-                (KitToken::Reference, _) => None,
-            }
+        // A set's key and reference are each member's path with its token respelled
+        // `kitN`, the file name's token winning over a directory segment's
+        // (`kit_path_token`).
+        .filter_map(|(index, (below, _))| match kit_path_token(below)? {
+            (token @ (KitToken::Variant(_) | KitToken::Fallback), reference) => Some((
+                member_kit(token),
+                index,
+                vtree::fold_name(&reference),
+                reference,
+            )),
+            (KitToken::Reference, _) => None,
         })
         .collect();
     members.sort_by(|a, b| a.2.cmp(&b.2).then(a.0.cmp(&b.0)));
@@ -313,10 +314,9 @@ fn complete_kit_variants(
                     if held(kit) {
                         continue;
                     }
-                    let (directory, name) = split(&copied);
-                    let stem =
-                        variant_stem(name, kit).expect("a set member's name holds its kit token");
-                    added.push((format!("{directory}{stem}"), bytes()));
+                    let variant = variant_path(&copied, kit)
+                        .expect("a set member's path holds its kit token");
+                    added.push((variant, bytes()));
                 }
             }
         }
@@ -463,17 +463,21 @@ fn resolve_path(
     }
 }
 
-/// The Common `textures` of one `Common/` directory, converted from their bytes in `files` for
-/// the run's engine (FTEX on Fox, DDS on pre-Fox), each by its stem as spelled: one per
-/// texture, whether or not a `.common` link uses it, placed in the team's Common output by
-/// `common_texture_entries`. The deep pass has already dropped a texture its checks find
-/// wrong. A texture conversion reports a finding on (`texture_codec_unsupported`) is left out
-/// alone, the finding noted in `findings` with `DropFile`, and the rest emitted; any other
-/// failure fails the task, and with it every Common texture. The players linking a Common
-/// model still commit on their own. With `environment_map` (`TaskKind::CommonTextures`) the
-/// template environment map is emitted as `env.dds` beside them, as it is. The textures emitted
+/// The Common `textures` of one `Common/` texture directory (`folder`, its own files and
+/// the files below its kit-token folders, which join it; `plan` "texture directory"),
+/// converted from their bytes in `files` for the run's engine (FTEX on Fox, DDS on
+/// pre-Fox), each by its path below `folder` without its extension (`kit1/armor_bsm`; a
+/// direct texture's stem as before): one per texture, whether or not a `.common` link
+/// uses it, placed in the team's Common output by `common_texture_entries`. The deep pass
+/// has already dropped a texture its checks find wrong. A texture conversion reports a
+/// finding on (`texture_codec_unsupported`) is left out alone, the finding noted in
+/// `findings` with `DropFile`, and the rest emitted; any other failure fails the task,
+/// and with it every Common texture. The players linking a Common model still commit on
+/// their own. With `environment_map` (`TaskKind::CommonTextures`) the template
+/// environment map is emitted as `env.dds` beside them, as it is. The textures emitted
 /// have their kit variant sets completed against `kits` (`complete_kit_variants`).
 pub(super) fn common_textures(
+    folder: &ScopePath,
     textures: &[FileDescriptor],
     kits: &[u8],
     environment_map: bool,
@@ -483,9 +487,10 @@ pub(super) fn common_textures(
 ) -> Result<Vec<(String, Vec<u8>)>, TaskFailure> {
     let mut converted = Vec::with_capacity(textures.len());
     for file in textures {
-        let name = file.path.name();
-        match common_texture(file, ctx, files) {
-            Ok(bytes) => converted.push((file_stem(name).to_owned(), bytes)),
+        match common_texture(file, &relative(&file.path, folder), ctx, files) {
+            Ok(bytes) => {
+                converted.push((file_stem(&relative(&file.path, folder)).to_owned(), bytes));
+            }
             Err(TextureError::Finding(code, file)) => {
                 findings.push((code, Disposition::DropFile, vec![("file", file)]));
             }
@@ -502,9 +507,10 @@ pub(super) fn common_textures(
     Ok(converted)
 }
 
-/// The entries of `converted`, the textures of the `Common/` directory `folder` by their stems
-/// (`common_textures`), in team `team_id`'s Common output on a target of `engine`
-/// (`paths::common_texture`), below the directory's own path there (`paths::common_subpath`).
+/// The entries of `converted`, the textures of the `Common/` directory `folder` each by its
+/// path below it (`common_textures`), in team `team_id`'s Common output on a target of
+/// `engine` (`paths::common_texture`), below the directory's own path there
+/// (`paths::common_subpath`).
 pub(super) fn common_texture_entries(
     folder: &ScopePath,
     team_id: u16,
@@ -523,14 +529,16 @@ pub(super) fn common_texture_entries(
 
 /// One texture of a team's Common output, `file`, converted from its bytes in `files` as any
 /// texture is (`convert`), in the format its extension names: a `Common/` texture, or the
-/// referees' marker.
+/// referees' marker. `name` is what the conversion's findings and failures name it by: a
+/// `Common/` texture's path below the task's folder (`kit2/armor_bsm.dds`), the marker's
+/// own file name.
 pub(super) fn common_texture(
     file: &FileDescriptor,
+    name: &str,
     ctx: &CompileContext,
     files: &mut TaskFiles,
 ) -> Result<Vec<u8>, TextureError> {
-    let name = file.path.name();
-    let format = texture_format(name).expect(
+    let format = texture_format(file.path.name()).expect(
         "planning lists a Common texture, the marker included, by an extension `dds_convert` \
          accepts",
     );
@@ -1139,5 +1147,70 @@ mod tests {
         ] {
             assert_eq!(texture_role(color), TextureRole::Color, "{color}");
         }
+    }
+
+    #[test]
+    fn a_set_spelled_by_kit_folders_is_completed_as_a_stem_set_is() {
+        // `kit1/armor_bsm` and `kit2/armor_bsm` are the set `kitN/armor_bsm`, of different
+        // bytes.
+        let set = || {
+            vec![
+                ("kit1/armor_bsm".to_owned(), b"one".to_vec()),
+                ("kit2/armor_bsm".to_owned(), b"two".to_vec()),
+            ]
+        };
+        // On PES 18-21 the fallback, the lowest variant, is written once under the
+        // reference, `kit_variant_missing` naming the kit numbers the set lacks.
+        let mut textures = set();
+        let mut findings = Vec::new();
+        complete_kit_variants(&mut textures, &[1, 2, 3], Engine::Fox, &mut findings);
+        assert_eq!(
+            textures,
+            [
+                ("kit1/armor_bsm".to_owned(), b"one".to_vec()),
+                ("kit2/armor_bsm".to_owned(), b"two".to_vec()),
+                ("kitN/armor_bsm".to_owned(), b"one".to_vec()),
+            ]
+        );
+        assert_eq!(
+            findings,
+            [(
+                Code::KitVariantMissing,
+                Disposition::Keep,
+                vec![
+                    ("texture", "kitN/armor_bsm".to_owned()),
+                    ("kit", "3".to_owned()),
+                    ("copied", "kit1/armor_bsm".to_owned()),
+                ]
+            )]
+        );
+        // On PES 15-17 the copy goes into the missing number's folder.
+        let mut textures = set();
+        let mut findings = Vec::new();
+        complete_kit_variants(&mut textures, &[1, 2, 3], Engine::PreFox, &mut findings);
+        assert_eq!(
+            textures,
+            [
+                ("kit1/armor_bsm".to_owned(), b"one".to_vec()),
+                ("kit2/armor_bsm".to_owned(), b"two".to_vec()),
+                ("kit3/armor_bsm".to_owned(), b"one".to_vec()),
+            ]
+        );
+        // The `kitF` member serves and is never emitted: `kitN/a` holds its bytes, no
+        // finding.
+        let mut textures = vec![
+            ("kit1/a".to_owned(), b"one".to_vec()),
+            ("kitF/a".to_owned(), b"fallback".to_vec()),
+        ];
+        let mut findings = Vec::new();
+        complete_kit_variants(&mut textures, &[1, 2], Engine::Fox, &mut findings);
+        assert_eq!(
+            textures,
+            [
+                ("kit1/a".to_owned(), b"one".to_vec()),
+                ("kitN/a".to_owned(), b"fallback".to_vec()),
+            ]
+        );
+        assert!(findings.is_empty(), "{findings:?}");
     }
 }

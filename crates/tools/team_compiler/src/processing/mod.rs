@@ -244,6 +244,7 @@ pub(crate) fn process_task(
             kits,
             environment_map,
         } => texture::common_textures(
+            folder,
             textures,
             kits,
             *environment_map,
@@ -3166,6 +3167,49 @@ mod tests {
     }
 
     #[test]
+    fn a_common_subfolder_texture_s_finding_names_its_path_below_the_folder() {
+        let folder = ScopePath::new("Common").unwrap();
+        // `kit1/` converts, `kit2/` is a codec conversion refuses: the finding names the
+        // file's path below `Common/`, not its name alone.
+        let bc6h = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/textures/bc6h.dds"),
+        )
+        .unwrap();
+        let batch = run_with(
+            TaskKind::CommonTextures {
+                folder: folder.clone(),
+                textures: vec![
+                    named("Common/kit1/armor_bsm.dds", "shirt.dds"),
+                    named("Common/kit2/armor_bsm.dds", "shirt.dds"),
+                ],
+                kits: Vec::new(),
+                environment_map: false,
+            },
+            &[("Common/kit2/armor_bsm.dds", &bc6h)],
+        );
+
+        assert_eq!(
+            paths(&batch),
+            [
+                "Asset/model/character/common/792/kit1/sourceimages/#windx11/armor_bsm.ftex",
+                "Asset/model/character/common/792/kitN/sourceimages/#windx11/armor_bsm.ftex",
+            ]
+        );
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(message.code.code, "texture_codec_unsupported");
+        assert_eq!(
+            (message.severity, message.disposition),
+            (Severity::Error, Disposition::DropFile)
+        );
+        assert_eq!(
+            message.context,
+            [("file".to_owned(), "kit2/armor_bsm.dds".to_owned())]
+        );
+    }
+
+    #[test]
     fn a_portrait_with_a_finding_fails_its_task_dropping_the_file() {
         let file = file(&format!("{PLAYER}/portrait.dds"));
         let odd = std::fs::read(
@@ -4102,6 +4146,42 @@ mod tests {
             entry(&batch, &sub_dir("face/", "pants_kitN")),
             entry(&batch, &sub_dir("face/", "pants_kit1"))
         );
+    }
+
+    #[test]
+    fn a_variant_set_spelled_by_kit_folders_completes_at_their_parent() {
+        // `kit1/armor_bsm` and `kitF/armor_bsm` are the set `kitN/armor_bsm`, of different
+        // images.
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/kit1/armor_bsm.dds"), "shirt.dds"),
+                other_dds(&format!("{PLAYER}/kitF/armor_bsm.dds")),
+            ],
+            Vec::new(),
+        );
+
+        let batch = run(TaskKind::Textures {
+            folder,
+            kits: vec![1, 2],
+        });
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let armor = |folder: &str| {
+            format!(
+                "Asset/model/character/common/792/05 - The Chad Stormworks Player/{folder}/sourceimages/#windx11/armor_bsm.ftex"
+            )
+        };
+        assert_eq!(paths(&batch), [armor("kit1"), armor("kitN")], "no kitF/");
+        assert_eq!(
+            entry(&batch, &armor("kitN")),
+            ftex::dds_to_ftex(
+                &std::fs::read(tracer().join("Kits/g1/kit.dds")).unwrap(),
+                ftex::ColorSpace::Normal
+            )
+            .unwrap(),
+            "the `kitF` file's conversion under `kitN`"
+        );
+        assert_ne!(entry(&batch, &armor("kit1")), entry(&batch, &armor("kitN")));
     }
 
     #[test]

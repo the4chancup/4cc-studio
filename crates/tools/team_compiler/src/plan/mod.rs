@@ -15,7 +15,7 @@ use std::ops::Range;
 use aesthetics_export::{
     ExportCoverage, ExportIdentity, FileDescriptor, FileKind, FpcDirective, KitFolder, KitsFolder,
     LogoFiles, ModelFormat, PlayerFolder, PlayerIndex, ResolvedAestheticsExport, SharedKind,
-    SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, common_link_target,
+    SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, common_link_target, kit_folder,
 };
 use kit_config::KitSlot;
 use pes_version::{Engine, PesVersion};
@@ -32,12 +32,13 @@ use collars::export_collar;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
-    FolderModels, ModelPackage, PlayerFile, below_common, common_file, common_skeleton,
-    directory_stem, emits_kit_texture, file_stem, is_common_file, is_direct_root_folder_file,
-    is_hand_split, is_package_model, is_read_common_file, is_selected_common_model,
-    leaves_out_kit_variants, link_combines, link_feeds_own_package, link_name, linked_common_files,
-    linked_folder, native_format, package_of, part_source_models, player_file, role_files,
-    selected_common_model, shared_folders, shared_kind_of, skeleton_slot, texture_format,
+    FolderModels, ModelPackage, PlayerFile, below_common, common_file, common_folder,
+    common_skeleton, directory_stem, emits_kit_texture, file_stem, is_common_file,
+    is_direct_root_folder_file, is_hand_split, is_package_model, is_read_common_file,
+    is_selected_common_model, leaves_out_kit_variants, link_combines, link_feeds_own_package,
+    link_name, linked_common_files, linked_folder, native_format, package_of, part_source_models,
+    player_file, role_files, selected_common_model, shared_folders, shared_kind_of, skeleton_slot,
+    texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -552,8 +553,10 @@ pub(crate) enum TaskKind {
         /// The export's kit numbers, against which its texture variant sets are completed.
         kits: Vec<u8>,
     },
-    /// The textures of a directory of the export's `Common/` folder (`Common/` itself, or on
-    /// PES 15-17 a subfolder, packed at its own path; `pipeline.md` "Common"), converted once
+    /// The textures of a texture directory of the export's `Common/` folder (`Common/`
+    /// itself, or a subfolder, packed at its own path; `pipeline.md` "Common" — the
+    /// directory above the first kit-token folder below `Common/`, a set's `kit1`…`kit9`
+    /// folders completing in the task holding them all), converted once
     /// into the team's Common output, whether or not a `.common` link uses them (`pipeline.md`
     /// "Resolved decisions", "Common textures are one task of their export"). One task per
     /// such directory, in no group: its textures serve every linking player, so it commits on
@@ -562,7 +565,8 @@ pub(crate) enum TaskKind {
         /// The directory's export path, the scope the task's findings name and, below
         /// `Common/`, the path its output takes under the team's Common output.
         folder: ScopePath,
-        /// Its textures directly in it, in any accepted image format.
+        /// Its textures, its own and the files below its kit-token folders, in any
+        /// accepted image format.
         textures: Vec<FileDescriptor>,
         /// The export's kit numbers, against which its texture variant sets are completed.
         kits: Vec<u8>,
@@ -1316,60 +1320,65 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 export.coverage,
             ));
         }
-        // A Common textures task and a Common models task per directory of `Common/` a target
-        // packs: every one on PES 15-17, each over that directory's own files, its output under
-        // the directory's path. On PES 18-21 `Common/` itself as today and each subfolder
-        // directory with the textures in `linked_common_files` alone, a textures task only:
-        // Fox has no Common model output, so no models task, and the template environment map
-        // is `Common/`'s own. A subfolder file a Fox link reaches that is no texture (a model
-        // and what travels with it) is read by the linking folders' own tasks, never by a
-        // task of its directory.
-        // Each with the files its models task reads.
-        let mut read_directories: Vec<(ScopePath, Vec<FileDescriptor>, Vec<FileDescriptor>)> =
+        // A Common textures task per texture directory of `Common/` a target packs — a
+        // texture's is the directory above the first kit-token folder below `Common/`
+        // (`texture_directory`), so the `kit1` and `kit2` folders of one set
+        // complete in the task holding both — and a Common models task per directory
+        // holding a file of its own, models having no folder form: every directory on PES
+        // 15-17, each over that directory's own files, its output under the directory's
+        // path. On PES 18-21 `Common/` itself as today and the textures in
+        // `linked_common_files` alone, a textures task only: Fox has no Common model
+        // output, so no models task, and the template environment map is `Common/`'s own.
+        // A subfolder file a Fox link reaches that is no texture (a model and what travels
+        // with it) is read by the linking folders' own tasks, never by a task of its
+        // directory.
+        // Each models task's files.
+        let read_directories: Vec<(ScopePath, Vec<FileDescriptor>)> =
             common_directories(&export.common)
                 .into_iter()
                 .map(|(directory, files)| {
-                    // On PES 18-21 a subfolder's task packs the textures a link reaches
-                    // (`linked_common_files`: the ones it names, and the ones a linked
-                    // model or `.mtl` brings from its directory) alone; the directory's
-                    // other files are the linking folders' or are read by nothing
-                    // (`file_not_used`), and a subfolder no link reaches is left with no
-                    // files and plans no task.
-                    let files = match version.engine() {
-                        Engine::Fox if directory.segments().count() > 1 => files
-                            .into_iter()
-                            .filter(|file| linked_common.contains(&file.path))
-                            .collect(),
-                        Engine::Fox | Engine::PreFox => files,
-                    };
                     let model_files = match version.engine() {
                         Engine::Fox => Vec::new(),
                         Engine::PreFox => common_model_files(&files),
                     };
-                    (directory, files, model_files)
+                    (directory, model_files)
                 })
                 .collect();
         // Whether any directory's models task converts an FMDL holding a metal material: its
         // material names the template environment map at the Common output's own directory,
-        // whichever directory it sits in, so `Common/`'s textures task must emit it. Known
-        // before the loop, which plans `Common/` itself first.
+        // whichever directory it sits in, so `Common/`'s textures task must emit it.
         let converts_metal = read_directories
             .iter()
-            .flat_map(|(_, _, model_files)| model_files)
+            .flat_map(|(_, model_files)| model_files)
             .any(|file| {
                 file.kind == FileKind::Model(ModelFormat::Fmdl) && metal_models.contains(&file.path)
             });
-        // `Common/` holding no file of its own (only subfolders) has no entry, but still emits
-        // the map: an empty entry for it, first, as `common_directories` orders it.
-        if converts_metal
-            && let Some((first, _, _)) = read_directories.first()
-            && first.segments().count() > 1
-        {
-            let mut common = first.clone();
-            while let Some(parent) = common.parent() {
-                common = parent;
-            }
-            read_directories.insert(0, (common, Vec::new(), Vec::new()));
+        // The texture directories keyed case-folded, `Common/` itself first. On PES 18-21 a
+        // texture outside `Common/` itself is packed only when a link reaches it
+        // (`linked_common_files`: the ones a link names, and the ones a linked model or
+        // `.mtl` brings from its directory), a per-file test since the task above a
+        // kit-token folder's set holds subfolder textures; the directory's other files are
+        // the linking folders' or are read by nothing (`file_not_used`).
+        let mut texture_directories: BTreeMap<String, (ScopePath, Vec<FileDescriptor>)> =
+            BTreeMap::new();
+        for file in export.common.iter().filter(|file| {
+            texture_format(file.path.name()).is_some()
+                && is_read_common_file(&file.path, version.engine(), &linked_common)
+        }) {
+            let directory = texture_directory(&file.path);
+            texture_directories
+                .entry(directory.fold_key())
+                .or_insert_with(|| (directory, Vec::new()))
+                .1
+                .push(file.clone());
+        }
+        // `Common/` holding no texture of its own has no entry, but still emits the map:
+        // an empty entry for it, first, as the texture directories order it.
+        if converts_metal {
+            let common = common_folder();
+            texture_directories
+                .entry(common.fold_key())
+                .or_insert_with(|| (common, Vec::new()));
         }
         // The export's Common textures' paths below `Common/` without their extensions,
         // which a `Common/` `.mtl` resolves its texture paths in as a model folder's does
@@ -1380,12 +1389,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             .filter(|file| texture_format(file.path.name()).is_some())
             .map(|file| file_stem(below_common(&file.path)).to_owned())
             .collect();
-        for (directory, files, model_files) in read_directories {
-            let textures: Vec<FileDescriptor> = files
-                .iter()
-                .filter(|file| texture_format(file.path.name()).is_some())
-                .cloned()
-                .collect();
+        for (directory, textures) in texture_directories.into_values() {
             // The template environment map goes into the team's Common output, by `Common/`'s
             // own task, for a converted FMDL of any directory holding a metal material, unless
             // `Common/` holds an `env` texture, which the converted material then names. A
@@ -1393,7 +1397,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             let environment_map = directory.segments().count() == 1
                 && converts_metal
                 && !textures.iter().any(|file| {
-                    vtree::fold_name(file_stem(file.path.name())) == ENVIRONMENT_MAP_STEM
+                    vtree::fold_name(file_stem(below_common(&file.path))) == ENVIRONMENT_MAP_STEM
                 });
             // Planned for the template environment map alone when `Common/` holds no texture.
             if !textures.is_empty() || environment_map {
@@ -1401,13 +1405,15 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     export_id,
                     team_id,
                     TaskKind::CommonTextures {
-                        folder: directory.clone(),
+                        folder: directory,
                         textures,
                         kits: kits.clone(),
                         environment_map,
                     },
                 ));
             }
+        }
+        for (directory, model_files) in read_directories {
             if !model_files.is_empty() {
                 tasks.push(task(
                     export_id,
@@ -2047,6 +2053,26 @@ fn common_directories(common: &[FileDescriptor]) -> Vec<(ScopePath, Vec<FileDesc
             .push(file.clone());
     }
     directories.into_values().collect()
+}
+
+/// The `Common/` directory whose textures task covers the `Common/` file at `path`: its own
+/// directory, unless a directory segment below `Common/` is a kit-token folder
+/// (`kit_folder`), when it is the directory above the first of them — `kit1` and `kit2`
+/// folders of one set completing in the one task holding both (`model_format.md`
+/// "Kit-dependent assets").
+fn texture_directory(path: &ScopePath) -> ScopePath {
+    let mut directory = path
+        .parent()
+        .expect("a Common file sits in the export's Common/ folder or below it");
+    let keep = directory
+        .segments()
+        .skip(1)
+        .position(|segment| kit_folder(segment).is_some())
+        .map_or_else(|| directory.segments().count(), |at| at + 1);
+    for _ in keep..directory.segments().count() {
+        directory = directory.parent().expect("`keep` is a segment count");
+    }
+    directory
 }
 
 /// The files among `common`, the files of one directory of `Common/` (`common_directories`),
@@ -5365,6 +5391,75 @@ mod tests {
         })
         .collect();
         assert_eq!(read, expected);
+    }
+
+    #[test]
+    fn a_kit_token_folder_s_textures_join_the_directory_above_while_models_stay_their_own() {
+        let export = resolved(
+            "co Midcup Common",
+            &[
+                ("Common/hair.dds", 1),
+                ("Common/kit1/a.dds", 2),
+                ("Common/kit2/a.dds", 4),
+                ("Common/jessie/b.dds", 8),
+                ("Common/kit1/legs.model", 16),
+            ],
+            &[],
+            None,
+        );
+        let report = plan_run(
+            vec![to_plan(ExportId(0), export, two_team_colors(), None)],
+            PesVersion::Pes17,
+        );
+        // The textures tasks, each by folder with the paths of the textures it reads, and
+        // the folders of the models tasks.
+        let mut textures = Vec::new();
+        let mut models = Vec::new();
+        for task in &report.manifest.tasks {
+            match &task.kind {
+                TaskKind::CommonTextures {
+                    folder,
+                    textures: files,
+                    ..
+                } => textures.push((
+                    folder.as_str().to_owned(),
+                    files
+                        .iter()
+                        .map(|file| file.path.as_str().to_owned())
+                        .collect::<Vec<_>>(),
+                )),
+                TaskKind::CommonModels { folder, .. } => {
+                    models.push(folder.as_str().to_owned());
+                }
+                TaskKind::Models { .. }
+                | TaskKind::Textures { .. }
+                | TaskKind::Portrait { .. }
+                | TaskKind::Kit { .. }
+                | TaskKind::Logo { .. }
+                | TaskKind::RefereeMarker { .. }
+                | TaskKind::Collar { .. } => {}
+            }
+        }
+        // `kit1/` and `kit2/` of one set complete in `Common/`'s task; `jessie/`'s keeps
+        // its own. Models have no folder form: `kit1/`'s stays its own task's.
+        assert_eq!(
+            textures,
+            [
+                (
+                    "Common".to_owned(),
+                    vec![
+                        "Common/hair.dds".to_owned(),
+                        "Common/kit1/a.dds".to_owned(),
+                        "Common/kit2/a.dds".to_owned()
+                    ]
+                ),
+                (
+                    "Common/jessie".to_owned(),
+                    vec!["Common/jessie/b.dds".to_owned()]
+                ),
+            ]
+        );
+        assert_eq!(models, ["Common/kit1".to_owned()]);
     }
 
     #[test]

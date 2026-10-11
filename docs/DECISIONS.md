@@ -6767,3 +6767,14 @@ the cup returns to it (the maintainer's ruling), and its half needs a part role 
 Common model in a shared boots or gloves output, new code no current cup reaches.
 Plan: `team_compiler/pipeline.md` step 2's face-file paragraph; `team_compiler/messages.md`
 `file_not_used`; `team_compiler/README.md` TC-MOD-75 to TC-MOD-77.
+
+## 2026-10-11 — team_compiler — test mode keeps a texture's subfolders below its folder
+Decision: a test-mode entry's `<name>` keeps the subfolders of the task's folder its texture
+sits in (`test_output/<source>/Common/kit1/armor_bsm.ftex`, `.../Players/05 - A/jessie/hair.ftex`),
+instead of the file name alone.
+Why: since a kit-token folder's textures join the textures task of the directory above it
+(4.y-sub (b4b2a)), a `Common/` kit set's `kit1/`, `kit2/` and `kitN/` members are one task's
+entries of one file name, and the name alone put them at one path, which the loose sink refuses,
+failing the run (Astra B4B2A.A1-1); a player folder's subfolder texture beside a root texture of
+its name collided the same way before.
+Plan: `team_compiler/pipeline.md` step 5 ("Writer"), the paragraph starting "The cost Blue paid".

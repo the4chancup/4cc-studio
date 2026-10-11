@@ -909,7 +909,7 @@ fn model_naming_game(file_name: &str) -> Vec<u8> {
 }
 
 /// The tracer's hair model with its `shirt.dds` renamed `file_name` and pointed at `directory`.
-fn model_naming_in(file_name: &str, directory: &str) -> Vec<u8> {
+pub(crate) fn model_naming_in(file_name: &str, directory: &str) -> Vec<u8> {
     let mut file = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
     rewrite_texture_paths(&mut file, |path| {
         if path.file_name == "shirt.dds" {
@@ -1102,6 +1102,76 @@ fn a_shared_folder_s_kit_folder_of_links_finds_their_sets_in_common() {
     let shared = "Asset/model/character/boots/k0644/#Win/boots.fpk";
     let package = fpk::FpkFile::read(&entries[shared]).unwrap();
     let directories = texture_directories(package.get("boots.fmdl").unwrap(), "armor_bsm.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory
+                == "/Assets/pes16/model/character/common/714/kitN/sourceimages/"),
+        "{directories:?}"
+    );
+}
+
+// TC-CMN-21
+#[test]
+fn a_common_kit_folder_set_completes_and_the_model_names_the_kitn_reference() {
+    let sandbox = Sandbox::new("cmn_kit_folder_set");
+    let export = "exports/co Midcup Kits";
+    for slot in ["p1", "p2", "p3"] {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+    }
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &model_naming_in("armor_bsm.dds", "./kitN/"),
+    );
+    sandbox.write(&format!("{player}/kitN/armor_bsm.dds.common"), b"");
+    // Different images: kit 1 the tracer's shirt, kit 2 its kit.
+    sandbox.write(
+        &format!("{export}/Common/kit1/armor_bsm.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(
+        &format!("{export}/Common/kit2/armor_bsm.dds"),
+        &tracer_kit(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Kits"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p3 ()",
+            "Warning kit_variant_missing [Keep] at Common (texture=kitN/armor_bsm, kit=3, copied=kit1/armor_bsm)",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p3 ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let armor = |folder: &str| {
+        format!("Asset/model/character/common/714/{folder}/sourceimages/#windx11/armor_bsm.ftex")
+    };
+    let kit1 = entries.get(&armor("kit1")).expect("kit1/ armor_bsm.ftex");
+    let kit2 = entries.get(&armor("kit2")).expect("kit2/ armor_bsm.ftex");
+    let kitn = entries.get(&armor("kitN")).expect("kitN/ armor_bsm.ftex");
+    assert_eq!(kitn, kit1, "the fallback, the lowest variant, under `kitN`");
+    assert_ne!(kitn, kit2);
+    for path in entries.keys() {
+        assert!(!path.contains("/kit3/"), "kit 3 gets no copy: {path}");
+        assert!(!path.contains("/kitF/"), "kitF is never emitted: {path}");
+    }
+    // The face's model names `armor_bsm` in the set's `kitN/` Common directory.
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("face_high.fmdl").unwrap(), "armor_bsm.dds");
     assert!(!directories.is_empty());
     assert!(
         directories

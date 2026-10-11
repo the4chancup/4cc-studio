@@ -62,7 +62,8 @@ into a `Common/` subfolder is checked on both engines; (b3b4e) deferred, pre-Fox
 texture links counting on Fox; (b3c2b) done 2026-10-11: on Fox its model and
 material-file links count too; (b4a) done 2026-10-11: a kit set's `kitF` fallback, written
 once as `kitN` on Fox; (b4b1) done 2026-10-11: a `.common` texture link naming a kit set
-finds it; (b4b2) next), 4.y-fix20
+finds it; (b4b2a) done 2026-10-11: a kit-token folder set completed, `Common/kit1/` and
+`Common/kit2/` as one; (b4b2b) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4096,12 +4097,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
         (the token in any directory segment): a path naming `kitF` finds nothing, else the
         literal file, else the set's members, its lowest variant (else `kitF`) the one a
         single lookup gets and every member linked (TC-MOD-72; Astra B4A.A1-2). Done.
-      - (b4b2) a folder-form set completed against the export's kit numbers, its paths
-        written verbatim (TC-CMN-21: /hdg/'s per-kit Common folders), `Common/kit1/` and
-        `Common/kit2/` completed as one set although each `Common/` directory is its own
-        CommonTextures task (lean: a kit-token folder's textures join its parent directory's
-        task, as a player folder's subfolders share one); kit folders inside a player
-        folder; a texture path into a `kitN/` directory supplied when a file of its set is,
+      - (b4b2a) a folder-form set completed against the export's kit numbers as a stem
+        set is, in any folder, its paths written verbatim (TC-CMN-21: /hdg/'s per-kit Common
+        folders): a kit-token folder's `Common/` textures join the textures task of the
+        directory above it, so `Common/kit1/` and `Common/kit2/` complete as one set; test
+        mode keeps a texture's subfolders. Done.
+      - (b4b2b) a texture path into a `kitN/` directory supplied when a file of its set is,
         `kitF` included, on both engines (`texture_lookup`, `processing/model.rs`,
         `deep/materials.rs`; unchecked since (b3b4d): `kit_variants::kit_reference_directory`
         and its two tests retired); a member a content finding drops counted as absent, a
@@ -4502,6 +4503,23 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `roles::common_file` is its first file, `linked_common_of` links every member. Files: AE
   `conventions/{kit_token,mod}.rs`, `lib.rs`, `validate/{links,mod,tests}.rs`; TC
   `plan/roles.rs`, `tests/cli/common_links.rs`. Gates green locally (`.tmp/4_y/gates_sub_b4b1_r2.log`); mutants on bonfire, each round 0 missed: r0 57 (45 caught, 12 unviable), r1 58 (45, 13), r2 57 (45, 12) (`.tmp/4_y/mutants_sub_b4b1{,_r1,_r2}/`).
+  (b4b2a) done 2026-10-11 (SWE-2 High, one run and one rework on one session, 23 and 12 minutes; Astra round B4B2A.A1 3 concerns, 3 accepted, on the Devin Pro `home` slot; briefs
+  `.tmp/4_y/brief_sub_b4b2a{,_r1}.md`, reports beside them). `aesthetics_export`:
+  `kit_path_token` and `variant_path` (`conventions/kit_token.rs`), one reading of a path's
+  token, the file name's first, else the first directory segment spelled exactly as one
+  (`kit_folder`); `kit_set_member` and `names_kit_fallback` rebuilt on it, so validation's
+  link rule and the compiler's sets agree. `team_compiler`: `complete_kit_variants` reads
+  the folder form (Fox's fallback once as `kitN/armor_bsm`, pre-Fox's copies into
+  `kit3/armor_bsm`); `plan::texture_directory` gives a `Common/` texture the directory above
+  its first kit-token folder, one `CommonTextures` task per such directory (Common models
+  stay one task per directory, models having no folder form), each texture keyed by its
+  path below the task's folder; test mode keeps that path (`pipeline.md` step 5, DECISIONS
+  2026-10-11), and a conversion finding names it. Files: AE `conventions/{kit_token,mod}.rs`,
+  `lib.rs`; TC `paths.rs` (`texture_below`, `common_texture_below`: test mode reads a
+  texture's path below its folder back from its game path, the output target staying
+  decided at the materialize seam), `plan/mod.rs`,
+  `processing/{materialize,mod,referee_marker,texture}.rs`,
+  `tests/cli/{common_links,test_mode}.rs`; plan `team_compiler/pipeline.md`. Gates green locally (`.tmp/4_y/gates_sub_b4b2a_r1.log`); mutants on bonfire, each round 0 missed: r0 51 (43 caught, 8 unviable), r1 66 (58, 8) (`.tmp/4_y/mutants_sub_b4b2a{,_r1}/`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7405,3 +7423,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   (TC-CMN-04, TC-CMN-26 to TC-CMN-28).
 - **2026-10-11** — 4.y-sub (b4b1) landed: a `.common` texture link naming a kit set, by a
   `kitN` stem or folder, finds the set's members in `Common/` (TC-MOD-72).
+- **2026-10-11** — 4.y-sub (b4b2a) landed: a kit-token folder set (`kit1/armor_bsm`,
+  `kit2/armor_bsm`) is completed as a stem set is, `Common/kit1/` and `Common/kit2/` as one
+  (TC-CMN-21); test mode keeps a texture's subfolders.

@@ -91,9 +91,7 @@ pub(crate) fn materialize(
                 TaskOutput::Entries(entries) => entries
                     .into_iter()
                     .map(|(path, bytes)| {
-                        let name = path
-                            .rsplit_once('/')
-                            .map_or(path.as_str(), |(_, name)| name);
+                        let name = test_name(task, &path);
                         (format!("{folder}{name}"), bytes)
                     })
                     .collect(),
@@ -126,6 +124,40 @@ fn test_entry_folder(source: &str, kind: &TaskKind) -> String {
         Some(folder) => format!("{source}/{}/", folder.as_str()),
         None => format!("{source}/"),
     }
+}
+
+/// The name a test-mode entry of `task` at `path` (its game path) takes below its folder:
+/// for a texture task the texture's path below it with its extension
+/// (`kit1/armor_bsm.ftex`, `jessie/hair.ftex`), two textures of one name in different
+/// subfolders staying two files (`pipeline.md` step 5); every other entry's file name.
+fn test_name(task: &BuildTask, path: &str) -> String {
+    let below = match &task.kind {
+        TaskKind::Textures { folder, .. } => {
+            folder
+                .textures
+                .texture_below(folder.engine, task.team_id, path)
+        }
+        TaskKind::CommonTextures { folder, .. } => paths::common_texture_below(task.team_id, path)
+            .map(|below| {
+                let subpath = paths::common_subpath(folder);
+                below
+                    .strip_prefix(subpath.as_str())
+                    .unwrap_or(&below)
+                    .to_owned()
+            }),
+        TaskKind::Models { .. }
+        | TaskKind::CommonModels { .. }
+        | TaskKind::Portrait { .. }
+        | TaskKind::Kit { .. }
+        | TaskKind::Logo { .. }
+        | TaskKind::RefereeMarker { .. }
+        | TaskKind::Collar { .. } => None,
+    };
+    below.unwrap_or_else(|| {
+        path.rsplit_once('/')
+            .map_or(path, |(_, name)| name)
+            .to_owned()
+    })
 }
 
 /// `files` packed as `package`'s `.fpk`, with an empty `.fpkd`, under each of `ids`.
@@ -579,8 +611,12 @@ mod tests {
             kind,
             &[
                 "Asset/model/character/common/792/05 - The Chad Stormworks Player/sourceimages/#windx11/shirt.ftex",
+                "Asset/model/character/common/792/05 - The Chad Stormworks Player/jessie/sourceimages/#windx11/skin.ftex",
             ],
-            &["egg Midcup Tracer/Players/05 - The Chad Stormworks Player/shirt.ftex"],
+            &[
+                "egg Midcup Tracer/Players/05 - The Chad Stormworks Player/shirt.ftex",
+                "egg Midcup Tracer/Players/05 - The Chad Stormworks Player/jessie/skin.ftex",
+            ],
         );
     }
 
@@ -597,10 +633,12 @@ mod tests {
             &[
                 "Asset/model/character/common/792/sourceimages/#windx11/hair.ftex",
                 "Asset/model/character/common/792/sourceimages/#windx11/skin.ftex",
+                "Asset/model/character/common/792/kit1/sourceimages/#windx11/armor_bsm.ftex",
             ],
             &[
                 "egg Midcup Tracer/Common/hair.ftex",
                 "egg Midcup Tracer/Common/skin.ftex",
+                "egg Midcup Tracer/Common/kit1/armor_bsm.ftex",
             ],
         );
     }

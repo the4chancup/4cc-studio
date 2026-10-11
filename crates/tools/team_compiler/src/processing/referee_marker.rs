@@ -33,7 +33,7 @@ pub(super) fn referee_marker(
     ctx: &CompileContext,
     files: &mut TaskFiles,
 ) -> Result<Vec<Entry>, TaskFailure> {
-    let texture = texture::common_texture(marker, ctx, files)?;
+    let texture = texture::common_texture(marker, marker.path.name(), ctx, files)?;
     let entries = match ctx.version.engine() {
         Engine::Fox => vec![
             (

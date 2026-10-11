@@ -25,6 +25,27 @@ pub fn kit_token(stem: &str) -> Option<(KitToken, String)> {
     Some((token, with_token_char(stem, at, 'N')))
 }
 
+/// The kit token of `path`, a `/`-separated path below a folder with or without an
+/// extension, and `path` with that token respelled as `kitN`: the file name's first token
+/// when it holds one (`kit_token`, a `.` delimiting it as it does a stem's fragments, so
+/// `a.kit1.dds` reads as `a.kit1` would), which wins over every directory segment
+/// (`kit1/pants_kit2` is a `kit2` file in a `kit1` folder); else the first directory
+/// segment spelled exactly as one (`kit1`…`kit9`, `kitF`, `kitN`, `kit_folder`).
+/// `jessie/pants_kit1` gives `(Variant(1), "jessie/pants_kitN")`, `kit2/armor_bsm`
+/// `(Variant(2), "kitN/armor_bsm")`.
+pub fn kit_path_token(path: &str) -> Option<(KitToken, String)> {
+    let (at, token) = find_path_token(path)?;
+    Some((token, with_token_char(path, at, 'N')))
+}
+
+/// `path`, a `/`-separated path whose kit token `kit_path_token` reads, with that token
+/// respelled for kit `kit` (`kitF/armor_bsm` and 3 give `kit3/armor_bsm`); `None` when it
+/// holds none.
+pub fn variant_path(path: &str, kit: u8) -> Option<String> {
+    let (at, _) = find_path_token(path)?;
+    Some(with_token_char(path, at, char::from(b'0' + kit)))
+}
+
 /// The member of the kit set `reference` names that `path` is, both paths below one folder
 /// (`/`-separated, extension included): `Variant(k)` for a `kit1`…`kit9` member, `Fallback`
 /// for the `kitF` one, `None` when `reference` names no set or `path` is not one of its
@@ -38,38 +59,16 @@ pub fn kit_token(stem: &str) -> Option<(KitToken, String)> {
 /// other segments comparing folded. A member counts whatever its file kind: the caller
 /// picks (`common_link_files` keeps textures).
 pub(crate) fn kit_set_member(reference: &str, path: &str) -> Option<KitToken> {
-    let (reference_directory, reference_name) = directory_name(reference);
-    let (path_directory, path_name) = directory_name(path);
-    let (reference_stem, _) = stem_extension(reference_name);
-    let (path_stem, _) = stem_extension(path_name);
-    let reference_segments: Vec<&str> = reference_directory.split('/').collect();
-    let path_segments: Vec<&str> = path_directory.split('/').collect();
-    if let Some(at) = reference_segments
-        .iter()
-        .position(|segment| *segment == "kitN")
-        && reference_segments.len() == path_segments.len()
-        && let Some(token @ (KitToken::Variant(_) | KitToken::Fallback)) =
-            kit_folder(path_segments[at])
-        && reference_segments
-            .iter()
-            .zip(path_segments.iter())
-            .enumerate()
-            .all(|(index, (reference, path))| {
-                index == at || vtree::fold_name(reference) == vtree::fold_name(path)
-            })
-        && vtree::fold_name(reference_stem) == vtree::fold_name(path_stem)
-    {
-        return Some(token);
-    }
-    if let Some((KitToken::Reference, reference_stem)) = kit_token(reference_stem)
-        && vtree::fold_name(reference_directory) == vtree::fold_name(path_directory)
-        && let Some((token @ (KitToken::Variant(_) | KitToken::Fallback), member_reference)) =
-            kit_token(path_stem)
-        && vtree::fold_name(&member_reference) == vtree::fold_name(&reference_stem)
-    {
-        return Some(token);
-    }
-    None
+    let Some((KitToken::Reference, reference)) = kit_path_token(without_extension(reference))
+    else {
+        return None;
+    };
+    let Some((token @ (KitToken::Variant(_) | KitToken::Fallback), member)) =
+        kit_path_token(without_extension(path))
+    else {
+        return None;
+    };
+    (vtree::fold_name(&reference) == vtree::fold_name(&member)).then_some(token)
 }
 
 /// Whether `path`, a file's path below a folder (`/`-separated), names a kit set's `kitF`
@@ -77,10 +76,7 @@ pub(crate) fn kit_set_member(reference: &str, path: &str) -> Option<KitToken> {
 /// (`kitF/a.dds`, `kitF/textures/a.dds`): a path that finds nothing, `kitF` never being a
 /// file under its own name (`model_format.md` "Kit-dependent assets").
 pub(crate) fn names_kit_fallback(path: &str) -> bool {
-    let (directory, name) = directory_name(path);
-    let (stem, _) = stem_extension(name);
-    matches!(kit_token(stem), Some((KitToken::Fallback, _)))
-        || directory.split('/').any(|segment| segment == "kitF")
+    matches!(kit_path_token(path), Some((KitToken::Fallback, _)))
 }
 
 /// `stem`, which holds a kit token, with its first token spelled for `kit` (`pants_kit1` and
@@ -109,6 +105,26 @@ pub fn without_kit_token(stem: &str) -> Cow<'_, str> {
         (start, end)
     };
     Cow::Owned(format!("{}{}", &stem[..cut_start], &stem[cut_end..]))
+}
+
+/// The byte offset in `path` (`/`-separated) of the last character of its kit token, with
+/// the token: the file name's first token when it holds one, the `.` before an extension
+/// delimiting as it does a stem's other fragments; else the first directory segment a
+/// whole token spells (`kit_folder`). As `find_token`, for `kit_path_token` and
+/// `variant_path` to respell at.
+fn find_path_token(path: &str) -> Option<(usize, KitToken)> {
+    let (directory, name) = directory_name(path);
+    if let Some((at, token)) = find_token(name) {
+        return Some((path.len() - name.len() + at, token));
+    }
+    let mut start = 0;
+    for segment in directory.split('/') {
+        if let Some(token) = kit_folder(segment) {
+            return Some((start + segment.len() - 1, token));
+        }
+        start += segment.len() + 1;
+    }
+    None
 }
 
 /// The byte offset in `stem` of its first token's last character (the `N`, `F` or the
@@ -147,9 +163,17 @@ fn stem_extension(name: &str) -> (&str, &str) {
     name.rsplit_once('.').unwrap_or((name, ""))
 }
 
+/// `path` (`/`-separated) with its file name's extension dropped: `a/b.dds` gives `a/b`,
+/// `a/b` itself unchanged.
+fn without_extension(path: &str) -> &str {
+    let (_, name) = directory_name(path);
+    let (stem, _) = stem_extension(name);
+    &path[..path.len() - name.len() + stem.len()]
+}
+
 /// The token a whole folder name is, spelled exactly as the stem token is (`kitN`,
 /// `kitF`, `kit1`…`kit9`): `x_kit1` and `KIT1` are none.
-fn kit_folder(segment: &str) -> Option<KitToken> {
+pub fn kit_folder(segment: &str) -> Option<KitToken> {
     if segment.len() != "kitN".len() {
         return None;
     }
@@ -191,6 +215,55 @@ mod tests {
         ] {
             assert_eq!(kit_token(stem), None, "{stem}");
         }
+    }
+
+    #[test]
+    fn a_path_s_token_is_its_file_name_s_else_its_first_token_folder_s() {
+        let cases = [
+            (
+                "jessie/pants_kit1",
+                KitToken::Variant(1),
+                "jessie/pants_kitN",
+            ),
+            ("kit2/armor_bsm", KitToken::Variant(2), "kitN/armor_bsm"),
+            (
+                "kitN/armor_bsm.dds",
+                KitToken::Reference,
+                "kitN/armor_bsm.dds",
+            ),
+            ("jessie/kitF/a", KitToken::Fallback, "jessie/kitN/a"),
+            // The file name's token wins over a directory's.
+            ("kit1/pants_kit2", KitToken::Variant(2), "kit1/pants_kitN"),
+        ];
+        for (path, token, reference) in cases {
+            assert_eq!(
+                kit_path_token(path),
+                Some((token, reference.to_owned())),
+                "{path}"
+            );
+        }
+        for path in [
+            // A segment is a token only spelled whole.
+            "old_kit2_hair/skin",
+            "KIT1/a",
+            "jessie/armor_bsm",
+        ] {
+            assert_eq!(kit_path_token(path), None, "{path}");
+        }
+    }
+
+    #[test]
+    fn a_variant_path_respells_the_path_s_token_for_the_kit() {
+        assert_eq!(
+            variant_path("kitF/armor_bsm", 3),
+            Some("kit3/armor_bsm".to_owned())
+        );
+        assert_eq!(
+            variant_path("jessie/pants_kit1.dds", 9),
+            Some("jessie/pants_kit9.dds".to_owned())
+        );
+        assert_eq!(variant_path("kitN/a", 4), Some("kit4/a".to_owned()));
+        assert_eq!(variant_path("pants", 1), None);
     }
 
     #[test]

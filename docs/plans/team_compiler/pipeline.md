@@ -1348,7 +1348,9 @@ describes behavior, not a serial scheduling requirement:
    the export's source as discovered (its folder name, or its archive's file name with the
    extension), `<folder>` the export folder the task works on (a portrait's or the logo's: the
    folder of its file), and `<name>` the entry's file name at its game path (`shirt.ftex`,
-   `u0714p1.ftex`, `71405.dds`); a model package's files are emitted once, by their names in the
+   `u0714p1.ftex`, `71405.dds`), behind the subfolders of `<folder>` its texture sits in
+   (`jessie/hair.ftex`; a `Common/` kit set's `kit1/armor_bsm.ftex` and `kitN/armor_bsm.ftex`):
+   the file name alone would put two textures of one name in one place; a model package's files are emitted once, by their names in the
    package (`fcl_hair.fmdl`, `face_diff.bin`), not packed into an `.fpk` per ID. The bins go
    under `test_output/_bins/` at their game paths, and `test_output/` is replaced whole once the
    run has written it, as `livecpk\` is, so an export no longer compiled leaves no folder behind.

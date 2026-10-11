@@ -257,6 +257,41 @@ impl TextureHome {
             ),
         }
     }
+
+    /// `path`, an entry `texture` wrote for `engine`/`team_id`, back to the texture's path
+    /// below this home with its extension (`jessie/skin.dds`, `kit1/armor_bsm.ftex`): the
+    /// home's prefix and the platform marker (`sourceimages/#windx11/`, `#windx11/`;
+    /// nothing on pre-Fox) dropped. `None` when `path` is none of this home's.
+    pub(crate) fn texture_below(&self, engine: Engine, team_id: u16, path: &str) -> Option<String> {
+        let (prefix, marker) = match (engine, self) {
+            (Engine::Fox, TextureHome::PlayerCommon { folder_name }) => (
+                format!("Asset/model/character/common/{team_id}/{folder_name}/"),
+                "sourceimages/#windx11/",
+            ),
+            (Engine::Fox, TextureHome::SharedOutput { package, id }) => (
+                format!("Asset/{}/", model_folder(*package, PackageKey::Id(*id))),
+                "#windx11/",
+            ),
+            (Engine::PreFox, TextureHome::PlayerCommon { folder_name }) => (
+                format!(
+                    "common/character1/model/character/uniform/common/{team_id}/{folder_name}/"
+                ),
+                "",
+            ),
+            (Engine::PreFox, TextureHome::SharedOutput { package, id }) => (
+                format!("{}/", pre_fox_package_folder(*package, PackageKey::Id(*id))),
+                "",
+            ),
+        };
+        let rest = path.strip_prefix(&prefix)?;
+        let at = if marker.is_empty() {
+            rest.len()
+        } else {
+            // The last marker's: a subdirectory spelling it is the texture's own.
+            rest.rfind(marker)?
+        };
+        Some(format!("{}{}", &rest[..at], &rest[at + marker.len()..]))
+    }
 }
 
 /// The directory a model's texture paths name for a texture of the team's Common output (the
@@ -299,6 +334,23 @@ pub(crate) fn common_texture(engine: Engine, team_id: u16, below: &str) -> Strin
             )
         }
         Engine::PreFox => pre_fox_common_file(team_id, &format!("{below}.dds")),
+    }
+}
+
+/// `path`, an entry `common_texture` wrote for team `team_id` of either engine, back to
+/// the texture's path below `Common/` with its extension (`jessie/hair.ftex`,
+/// `kit1/armor_bsm.ftex`): the Common home's prefix and, on Fox, the platform marker
+/// (`sourceimages/#windx11/`) dropped. `None` when `path` is none of `common_texture`'s.
+pub(crate) fn common_texture_below(team_id: u16, path: &str) -> Option<String> {
+    const MARKER: &str = "sourceimages/#windx11/";
+    if let Some(rest) = path.strip_prefix(&format!("Asset/model/character/common/{team_id}/")) {
+        let at = rest.rfind(MARKER)?;
+        Some(format!("{}{}", &rest[..at], &rest[at + MARKER.len()..]))
+    } else {
+        path.strip_prefix(&format!(
+            "common/character1/model/character/uniform/common/{team_id}/"
+        ))
+        .map(str::to_owned)
     }
 }
 

@@ -10,12 +10,14 @@ use fpk::FpkFile;
 
 use crate::bins::install_names;
 use crate::common::{Run, Sandbox};
-use crate::compile::{cpk_entries, pes21_settings, tracer_export};
+use crate::common_links::model_naming_in;
+use crate::compile::{cpk_entries, pes21_settings, tracer_export, tracer_kit, tracer_player_file};
 use crate::compile_exports::{
     TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER, bundled_uni_color, uni_record,
 };
 use crate::sideload::slashed;
 use crate::snapshot;
+use crate::textures::hair_model_naming;
 
 /// The tracer's player folder in `test_output/`: its source's name, then its folder.
 const PLAYER: &str = "egg Midcup Tracer/Players/05 - The Chad Stormworks Player";
@@ -229,6 +231,80 @@ fn test_mode_replaces_test_output_whole_and_a_failed_run_leaves_it_as_it_was() {
     assert!(last.starts_with(&prefix), "{last}");
     assert_eq!(run.exit_code(), 3);
     assert_eq!(snapshot(&sandbox.root.join("output")), before);
+}
+
+// TC-CMN-21, in test mode
+#[test]
+fn a_common_kit_folder_set_lands_at_its_subfolders_in_test_mode() {
+    let sandbox = Sandbox::new("test_mode_kit_folder_set");
+    let export = "exports/co Midcup Kits";
+    for slot in ["p1", "p2", "p3"] {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+    }
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &model_naming_in("armor_bsm.dds", "./kitN/"),
+    );
+    sandbox.write(&format!("{player}/kitN/armor_bsm.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/kit1/armor_bsm.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(
+        &format!("{export}/Common/kit2/armor_bsm.dds"),
+        &tracer_kit(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--mode", "test"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let written = test_output(&sandbox);
+    for path in [
+        "co Midcup Kits/Common/kit1/armor_bsm.ftex",
+        "co Midcup Kits/Common/kit2/armor_bsm.ftex",
+        "co Midcup Kits/Common/kitN/armor_bsm.ftex",
+    ] {
+        assert!(written.contains_key(path), "{path}: {:#?}", written.keys());
+    }
+    assert_eq!(
+        written["co Midcup Kits/Common/kitN/armor_bsm.ftex"],
+        written["co Midcup Kits/Common/kit1/armor_bsm.ftex"],
+        "the fallback, the lowest variant, under `kitN`"
+    );
+}
+
+#[test]
+fn a_texture_in_a_subfolder_lands_below_its_folder_in_test_mode() {
+    let sandbox = Sandbox::new("test_mode_subfolder_texture");
+    let export = "exports/co Midcup Hairs";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(
+        &format!("{player}/jessie/hair_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    // Different images: the root's `hair` the tracer's shirt, `jessie`'s its kit.
+    sandbox.write(
+        &format!("{player}/hair.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/jessie/hair.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--mode", "test"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let written = test_output(&sandbox);
+    let root = "co Midcup Hairs/Players/05 - A";
+    for path in [
+        format!("{root}/hair.ftex"),
+        format!("{root}/jessie/hair.ftex"),
+    ] {
+        assert!(written.contains_key(&path), "{path}: {:#?}", written.keys());
+    }
 }
 
 #[test]
