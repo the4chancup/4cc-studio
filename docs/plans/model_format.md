@@ -123,7 +123,8 @@ material toml, so the same `.glb` compiles typed on pre-Fox and merged into its 
   below the referencing file's folder, so textures can sit in subfolders beside the model: a
   `.mtl` path `./kitN/armor_bsm.dds`, or an FMDL texture whose directory starts with `./`
   (`./kitN/` and `armor_bsm`). It resolves at that path alone, to a texture or a link sitting
-  there, and one nothing sits at is not found; a bare stem (`./skin.dds`, an FMDL directory
+  there (a `kitN` directory or stem standing for its set, "Kit-dependent assets"), and one
+  nothing sits at is not found; a bare stem (`./skin.dds`, an FMDL directory
   `./` or empty) resolves nearest first (`aesthetics_export/player_folders.md` "Subfolders").
   Any other directory keeps its meaning and the file name is looked up, as before: a game
   path (`/Assets/...` in an FMDL, `model/character/...` in a `.mtl`), which a converted
@@ -180,7 +181,9 @@ Rules:
   names as `./kitN/armor_bsm`, one folder per kit holding a whole set of a kit's textures under
   their plain names; in `Common/`, a player's `kitN/` folder of links reaches it ("Link
   files").
-- **A `kitN` reference never exists as a file.** A material role set to `pants_kitN` means "the
+- **A `kitN` reference never exists as a file.** Wherever a path is looked up (a `./` texture
+  path, a `.common` link's target, a Common path), a `kitN` stem or directory names its set and
+  is found when a file of the set is. A material role set to `pants_kitN` means "the
   files `pants_kit1`, `pants_kit2`, … in this folder" (the folder of the material file that set the
   stem — so variants in `Common`, referenced from a `*.materials.toml.common` link or by a
   Common-linked model, are how one set of kit textures is shared by many players, which is what the
@@ -428,7 +431,8 @@ Rules:
   Common file below the local one (field-level merge, local wins); `material_link_layered` (I)
   reports it. Common is the base, local is the override — the same relationship as a Common-linked
   model's own tomls versus the player folder's (below).
-- A link whose target does not exist in Common — model, material file or texture — is
+- A link whose target does not exist in Common — model, material file or texture, a `kitN`
+  directory or stem in it standing for its set ("Kit-dependent assets") — is
   `common_link_missing` (E, folder discarded), except, on PES 18-21, a texture link an
   installed CPK satisfies
   (`team_compiler/pipeline.md` "Resolved decisions"); the finding's context names the link kind
@@ -454,7 +458,8 @@ loads a model whose real folder is Common, so its material files resolve there f
 Common) form the base layers, and the player folder's matched material files layer on top as
 overrides. No material link is needed for this case — the link is for the reverse situation, a
 *local* model using *shared* material definitions. Pre-Fox `.model.common` links get the same
-effect from the `.mtl` search below, which looks in Common before the link's own folder.
+effect from the `.mtl` search below, which reads a name-matched `.mtl` beside the link first
+(a local override), then Common, then the link's other files.
 
 **Pre-Fox: the `.mtl` a `.model` uses.** Each `.model` uses exactly one `.mtl`, the first this
 search finds, and the generated `face.xml` names it. The search looks in a list of folders in

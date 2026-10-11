@@ -140,7 +140,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   `Folder`-scoped `DropFolder`: `player_folder_number_invalid`, and `player_number_duplicate` on
   every folder claiming the slot.
 - **Dropped link targets.** Sanitizing never leaves a reference to something it removed. A
-  player folder whose shared-folder or `.common` link names a target the structure pass dropped
+  player or shared folder whose shared-folder or `.common` link names a target the structure
+  pass dropped
   (a shared folder discarded for a disallowed file, a Common file discarded as disallowed) is
   dropped too, with `link_target_dropped` naming the link and the target's own finding. The
   trigger is the target's effective disposition: under `pass_through` a kept target keeps its
@@ -168,7 +169,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content but the per-player singletons (`face.xml`, the face diffs, `fcl_hair_sim.fclo`, which count in the root alone), links (a shared link read as the root's; a `.common` link stands for the `Common/` file at the link's own path below the folder, `model_format.md` "Link files") | `file_type_disallowed` |
   | anywhere in a shared folder (its subfolders are its own, `player_folders.md` "Subfolders") | model content (below a subfolder, but the singletons, as below a player folder's), `.common` links | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
-  | anywhere in `Common/` | model content (a subfolder's is read on PES 18-21 when a link names it, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
+  | anywhere in `Common/` | model content (a subfolder's is read on PES 18-21 when a link names it or a linked model or `.mtl` brings it, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
   | directly in `Collars/` | model files (any model format; the game draws a collar with the kit texture, so it has no textures or materials of its own, `team_compiler/pipeline.md` "Collars"); their `collar_<ID>` name is the compiler's to check, since which IDs exist depends on the target version (`collar_id_invalid`) | `file_type_disallowed` |
   | anywhere in `Kits/all/` | textures directly in it | `kit_all_file_ignored` |
   | anywhere in `Portraits/` | textures named `player_NN` directly in it | `portrait_name_invalid` |

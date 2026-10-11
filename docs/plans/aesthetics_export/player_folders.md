@@ -196,7 +196,8 @@ such tree with nothing to name.
   place, and a player's `kitN/` folder of links reaches a per-kit set in `Common/`. This is
   also the xml-less way to what a pre-Fox `face.xml` does by naming
   `.../common/<team>/jessie/oral_body_*.model`, and on PES 18-21, which has no xml, the only
-  way; a `Common/` subfolder file no link names is `file_not_used` there
+  way; a `Common/` subfolder file no link names and no linked model or `.mtl` brings is
+  `file_not_used` there
   (`team_compiler/pipeline.md` step 6). A player folder moved into another keeps its files'
   roles but not its links' targets (they then name `Common/<its name>/...`): such composition
   is not a goal the link rule serves.

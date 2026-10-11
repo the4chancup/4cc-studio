@@ -903,7 +903,7 @@ describes behavior, not a serial scheduling requirement:
   Only a model directly in `Collars/` is a collar: one below a subfolder, kept when the
   file-type check is lenient (`file_type_disallowed`, Info), is neither named, claimed
   nor compiled, as a kit's subfolder file is not read (nor, on PES 18-21, a `Common/`
-  subfolder's no link names).
+  subfolder's no link names or brings).
   These are
   custom collar models that replace one of PES's many stock collar models (the game's `nocloth`
   set); the compiler derives the
@@ -945,9 +945,9 @@ describes behavior, not a serial scheduling requirement:
   `model_format.md`). Red packed the whole
   folder, and the referee exports' `Common/refkit/` ("Referee export processing" in
   `blue_port.md`) is the one real use. On PES 18-21 a subfolder's file is read only through
-  a `.common` link at its path below a player or shared folder (step 6), and one no link
-  reaches is
-  `file_not_used`.
+  a `.common` link: one at its path below a player or shared folder (step 6), or one whose
+  linked model or `.mtl` brings it ("Common textures" under "Resolved decisions"); one no
+  link reaches is `file_not_used`.
 - **Kit-dependent assets** — `kitN`/`kit1`…`kit9` tokens in file names and written paths (FMDL
   path tables, `.mtl` sampler paths, `face.xml` model paths) pass through **verbatim**; the modded
   exes match that spelling directly, and the historical `u0XXXp0` magic is legacy that only the
@@ -1892,7 +1892,7 @@ Resolved decisions:
   each at its path before the platform
   folder, as Red packs a Common subfolder (`Common/kit1/x.dds` as
   `common/<team>/kit1/sourceimages/#windx11/x.ftex`), since Fox reaches Common through links
-  alone: a subfolder file no link names is `file_not_used` there; on PES 15-17 a subfolder is packed at its own
+  alone: a subfolder file no link names or brings is `file_not_used` there; on PES 15-17 a subfolder is packed at its own
   path ("Common" under step 4). A glTF
   directly in `Common/` is selected as a player folder's is (step 3 "Format conversion":
   target-native first, then glTF, then the other engine's format): one with no model of the
@@ -1960,7 +1960,8 @@ Resolved decisions:
   subfolder's, which
   /hdg/'s models name for their per-kit sets; on PES 15-17
   `model/character/uniform/common/<team>/<sub>/`). The export's `Common/` holds it when it holds the stem at that subdirectory
-  among the files the target packs (on PES 18-21 a subfolder file only when a link names it,
+  among the files the target packs (on PES 18-21 a subfolder file only when a link names or
+  brings it,
   "Common textures" above); an installed CPK holds it when its table of contents lists the
   path the Common textures task writes for that stem there
   (`Asset/model/character/common/<team>/<sub>/sourceimages/#windx11/<stem>.ftex` on Fox,
