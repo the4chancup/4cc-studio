@@ -308,25 +308,18 @@ mod tests {
 
     use crate::kit_variants::kit_lookup_keys;
 
-    /// A place holding the textures `stems`, each directly in its folder, by their lookup
-    /// keys as `held_textures` files them (a set's member under its `kitN` reference too,
-    /// its value the reference's spelling; a `kitF` under that alone).
+    /// A place holding the textures `stems`, each directly in its folder, filed as
+    /// `TextureFolders::insert` files them.
     fn place(stems: &[&str]) -> TexturePlace {
-        stems
-            .iter()
-            .flat_map(|stem| {
-                kit_lookup_keys(stem).into_iter().map(|key| {
-                    let value = if key == vtree::fold_name(stem) {
-                        (*stem).to_owned()
-                    } else {
-                        aesthetics_export::kit_path_token(stem)
-                            .expect("a key beyond a stem's own means it holds a token")
-                            .1
-                    };
-                    (key, value)
-                })
-            })
-            .collect()
+        let mut folders = TextureFolders::default();
+        for stem in stems {
+            folders.insert(true, stem);
+        }
+        folders
+            .folder("")
+            .into_iter()
+            .next()
+            .map_or_else(TexturePlace::default, |(place, _)| place.clone())
     }
 
     /// What `supply` makes of `path` with the folder holding `held`, `Common/` `common` and the

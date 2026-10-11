@@ -149,7 +149,11 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   dependants and no `link_target_dropped` is reported. A link a finding drops itself, with its
   target (the deep pass's `model_hidden_dropped` on a `.common` link to a Common model that
   draws nothing), is no link: nothing references the target, so no `link_target_dropped`, and
-  the folder holding the link stands with its other files.
+  the folder holding the link stands with its other files. A texture `.common` link naming a
+  kit set (`kitN/armor_bsm.dds.common`) reaches every member of the set: a dropped member is an
+  absent one, a gap the set's completion fills as it fills any other, so the link's folder is
+  dropped only when every member is, `link_target_dropped` naming the first member, not when
+  one of several goes.
 - **Unread metadata.** The CLI's `check` and `compile` read every small metadata file, from a
   solid `.7z` too (the buffer that read decompresses is released before the next archive is
   admitted; compiling decompresses again); only the GUI's shallow live check leaves a solid archive's roster unread, and

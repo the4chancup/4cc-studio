@@ -118,7 +118,9 @@ impl TextureFolders {
             let value = if key == own_key {
                 below
             } else {
-                reference.as_deref().unwrap_or(below)
+                reference
+                    .as_deref()
+                    .expect("a key beyond the path's own means kit_path_token read a token")
             };
             places
                 .entry(vtree::fold_name(directory.trim_end_matches('/')))

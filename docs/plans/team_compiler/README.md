@@ -1647,6 +1647,12 @@ TC-CMN-29  GIVEN Kits/p1 and p2, and slot 05 holding kit1/armor_bsm.dds, kitF/ar
 TC-CMN-30  GIVEN slot 05 holding kitF/armor_bsm.dds and face_high.fmdl naming ./kitF/armor_bsm
            WHEN the export is compiled for PES 21
            THEN the face model's texture armor_bsm is reported not found
+TC-CMN-31  GIVEN Kits/p1 and p2, Common/kit1/armor_bsm.png of 3x3 pixels and
+           Common/kit2/armor_bsm.dds, and slot 05 holding face_high.fmdl naming
+           ./kitN/armor_bsm and kitN/armor_bsm.dds.common
+           WHEN the export is compiled for PES 21
+           THEN texture_too_small names Common/kit1/armor_bsm.png, no link_target_dropped is
+                reported, and slot 05's face package is in the CPK
 ```
 
 **Bins**

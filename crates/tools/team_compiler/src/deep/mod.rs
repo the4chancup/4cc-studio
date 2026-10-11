@@ -11,7 +11,8 @@
 //! format is a source for either target): not a model another of its stem beats (a `Common/`
 //! one is dropped with its winner), a model with no role, a per-kit variant left out (the
 //! roles read as planning reads them), a model or `.mtl` a pre-Fox source's own `face.xml`
-//! does not name, a file below a `Common/` subfolder, nor for PES 2018 to 2021 a `.mtl` no
+//! does not name, for PES 2018 to 2021 a file below a `Common/` subfolder no model folder's
+//! link reaches, nor for PES 2018 to 2021 a `.mtl` no
 //! `.model` is converted with, a model folder's or a `Common/` one; nor a refs export's kits,
 //! logo, portraits and collars; and it reports
 //! what the format crates' checks find

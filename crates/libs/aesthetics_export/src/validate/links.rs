@@ -229,6 +229,25 @@ pub(crate) fn common_target_absent(
         .any(|link| link.common_target_missing(context) && link.link_file == file.path)
 }
 
+/// Whether a `.common` link's target counts as dropped: every `Common/` file it
+/// reaches is ("Dropped link targets": a link naming a kit set falls only with
+/// its last member, a dropped member being a gap the set's completion fills).
+/// A link `common_link_files` finds nothing for is no link to a dropped file.
+fn common_link_dropped(
+    common: &[FileDescriptor],
+    link: &ResolvedLink,
+    dropped_files: &BTreeSet<String>,
+) -> bool {
+    let ResolvedLinkKind::Common(below) = &link.kind else {
+        return false;
+    };
+    let files = common_link_files(common, below);
+    !files.is_empty()
+        && files
+            .iter()
+            .all(|file| dropped_files.contains(&file.path.fold_key()))
+}
+
 /// The first dropping issue code for a path, in issue order.
 fn first_drop(issues: &[ValidationIssue], key: &str) -> &'static str {
     issues
@@ -247,9 +266,10 @@ fn first_drop(issues: &[ValidationIssue], key: &str) -> &'static str {
 }
 
 /// The cascade: `link_target_dropped` for each surviving shared folder or player's link
-/// to a dropped target — the shared folders' `.common` links first, so the players
-/// linking a folder one drops follow in the same pass — then `shared_folder_orphaned`
-/// for shared folders no surviving player links.
+/// to a dropped target (a `.common` link's: every `Common/` file it reaches, a kit set
+/// falling only with its last member) — the shared folders' `.common` links first, so
+/// the players linking a folder one drops follow in the same pass — then
+/// `shared_folder_orphaned` for shared folders no surviving player links.
 pub(crate) fn cascade(
     draft: &AestheticsExportDraft,
     slot_map: &SlotMap,
@@ -273,7 +293,7 @@ pub(crate) fn cascade(
                         continue;
                     };
                     let key = target.fold_key();
-                    if dropped_files.contains(&key) {
+                    if common_link_dropped(&draft.common, &link, &dropped_files) {
                         issues.push(issue_in(
                             context,
                             "link_target_dropped",
@@ -307,7 +327,9 @@ pub(crate) fn cascade(
             let key = target.fold_key();
             let dropped = match link.kind {
                 ResolvedLinkKind::Shared(_) => dropped_folders.contains(&key),
-                ResolvedLinkKind::Common(_) => dropped_files.contains(&key),
+                ResolvedLinkKind::Common(_) => {
+                    common_link_dropped(&draft.common, &link, &dropped_files)
+                }
             };
             if dropped {
                 issues.push(issue_in(

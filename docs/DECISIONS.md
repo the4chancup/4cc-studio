@@ -6778,3 +6778,13 @@ entries of one file name, and the name alone put them at one path, which the loo
 failing the run (Astra B4B2A.A1-1); a player folder's subfolder texture beside a root texture of
 its name collided the same way before.
 Plan: `team_compiler/pipeline.md` step 5 ("Writer"), the paragraph starting "The cost Blue paid".
+
+## 2026-10-11 — aesthetics_export — a `.common` link to a kit set falls only with its last member
+Decision: a texture `.common` link naming a kit set (`kitN/armor_bsm.dds.common`,
+`pants_kitN.dds.common`) is `link_target_dropped` only when a finding dropped every member of
+the set it reaches; a dropped member is an absent one, and the set's completion fills the gap
+(`kit_variant_missing` when there is no `kitF` member to fill it from).
+Why: the link names the set, not one file, and an absent member is already a case the
+completion handles; dropping the player for one bad variant among several (Astra B4B1.A2-2
+proposed any member) is harsher than a missing member, which the folder survives.
+Plan: `aesthetics_export/object_model.md` "Dropped link targets".

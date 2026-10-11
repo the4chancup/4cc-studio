@@ -3746,6 +3746,86 @@ fn a_content_finding_dropping_a_common_file_drops_the_player_linking_it() {
 }
 
 #[test]
+fn a_common_kit_set_link_falls_only_with_its_last_member() {
+    // A `.common` link naming a kit set reaches every member: a dropped member
+    // is an absent one, a gap the set's completion fills, so one of several
+    // dropped leaves the linker standing.
+    let files = &[
+        ("Common/kit1/armor_bsm.dds", 9),
+        ("Common/kit2/armor_bsm.dds", 9),
+        ("Players/03 - A/kitN/armor_bsm.dds.common", 0),
+        ("Players/05 - B/boots.fmdl", 10),
+    ];
+    let report = with_findings(
+        files,
+        vec![far_vertex(
+            file_scope("Common/kit1/armor_bsm.dds"),
+            Disposition::DropFile,
+        )],
+    );
+    assert_eq!(
+        report.issues,
+        vec![far_vertex_issue(
+            file_scope("Common/kit1/armor_bsm.dds"),
+            Disposition::DropFile
+        )]
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(
+        player_paths(&validated),
+        vec!["Players/03 - A", "Players/05 - B"]
+    );
+    assert_eq!(
+        file_paths(&validated.common),
+        vec!["Common/kit2/armor_bsm.dds"]
+    );
+
+    // Every member dropped: the link's folder falls, `link_target_dropped`
+    // naming the set's representative (the lowest variant first).
+    let report = with_findings(
+        files,
+        vec![
+            far_vertex(
+                file_scope("Common/kit1/armor_bsm.dds"),
+                Disposition::DropFile,
+            ),
+            far_vertex(
+                file_scope("Common/kit2/armor_bsm.dds"),
+                Disposition::DropFile,
+            ),
+        ],
+    );
+    assert_eq!(
+        report.issues,
+        vec![
+            far_vertex_issue(
+                file_scope("Common/kit1/armor_bsm.dds"),
+                Disposition::DropFile
+            ),
+            far_vertex_issue(
+                file_scope("Common/kit2/armor_bsm.dds"),
+                Disposition::DropFile
+            ),
+            ValidationIssue {
+                code: "link_target_dropped",
+                scope: folder("Players/03 - A"),
+                context: vec![
+                    ("link", "armor_bsm.dds.common".to_owned()),
+                    ("target", "Common/kit1/armor_bsm.dds".to_owned()),
+                    ("finding", "vertex_too_far_from_origin".to_owned()),
+                ],
+                disposition: Disposition::DropFolder,
+                passed_through: false,
+            },
+        ]
+    );
+    assert_eq!(
+        player_paths(&report.validated.unwrap()),
+        vec!["Players/05 - B"]
+    );
+}
+
+#[test]
 fn a_content_finding_dropping_a_common_file_cascades_through_a_shared_folder() {
     // The dropped `Common/` file takes the shared folder's `.common` link down with it,
     // and the players linking that folder follow in the same pass.
@@ -3815,6 +3895,38 @@ fn a_content_finding_dropping_a_common_file_cascades_through_a_shared_folder() {
     let validated = kept.validated.unwrap();
     assert_eq!(player_paths(&validated), vec!["Players/03 - A"]);
     assert_eq!(validated.boots.len(), 1);
+}
+
+#[test]
+fn a_common_kit_set_link_leaves_a_shared_folder_standing_for_one_member_dropped() {
+    let report = with_findings(
+        &[
+            ("Common/kit1/armor_bsm.dds", 9),
+            ("Common/kit2/armor_bsm.dds", 9),
+            ("Boots/Crocs/boots.fmdl", 10),
+            ("Boots/Crocs/kitN/armor_bsm.dds.common", 0),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        vec![far_vertex(
+            file_scope("Common/kit1/armor_bsm.dds"),
+            Disposition::DropFile,
+        )],
+    );
+    assert_eq!(
+        report.issues,
+        vec![far_vertex_issue(
+            file_scope("Common/kit1/armor_bsm.dds"),
+            Disposition::DropFile
+        )]
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(player_paths(&validated), vec!["Players/03 - A"]);
+    assert_eq!(validated.boots.len(), 1);
+    assert_eq!(
+        file_paths(&validated.common),
+        vec!["Common/kit2/armor_bsm.dds"]
+    );
 }
 
 /// The paths of `files`.

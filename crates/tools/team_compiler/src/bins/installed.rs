@@ -51,14 +51,6 @@ pub(crate) enum InstalledPaths {
 }
 
 impl InstalledPaths {
-    /// Whether a CPK holds `path`, compared folded; `None` when the lookup cannot be made.
-    pub(crate) fn holds(&self, path: &str) -> Option<bool> {
-        match self {
-            InstalledPaths::Unknown => None,
-            InstalledPaths::Known(paths) => Some(paths.contains(&vtree::fold_name(path))),
-        }
-    }
-
     /// The paths below `Common/` without their extensions, folded (`hair`, `jessie/hair`), of
     /// the textures these CPKs hold in team `team_id`'s Common output for a target of `engine`
     /// (`paths::common_texture`, read back), each under its lookup keys (`kit_lookup_keys`,
@@ -685,16 +677,9 @@ mod tests {
             .collect();
         expected.insert(vtree::fold_name(&hair));
         assert_eq!(installed, InstalledPaths::Known(expected));
-        assert_eq!(
-            installed.holds(&paths::common_texture(Engine::Fox, 714, "hair")),
-            Some(true),
-            "Hair.ftex installed, hair.ftex asked"
-        );
-        assert_eq!(
-            installed.holds(&after),
-            Some(false),
-            "listed after the run's"
-        );
+        let stems = installed.common_texture_stems(Engine::Fox, 714);
+        assert!(stems.contains("hair"), "Hair.ftex installed, hair asked");
+        assert!(!stems.contains("after"), "listed after the run's");
     }
 
     #[test]
@@ -717,7 +702,7 @@ mod tests {
 
         let installed = walk(&pes.join("PES"));
         assert_eq!(installed, InstalledPaths::Unknown, "no PES folder");
-        assert_eq!(installed.holds(&hair), None);
+        assert!(installed.common_texture_stems(Engine::Fox, 714).is_empty());
         assert_eq!(walk(pes), InstalledPaths::Unknown, "no list");
         install_list(pes, &["4cc_08_bins.cpk"]);
         install_cpk(pes, "4cc_08_bins.cpk", &[(&hair, b"hair")]);
@@ -731,7 +716,7 @@ mod tests {
         install_list(pes, &["4cc_99_test.cpk", "4cc_08_bins.cpk"]);
         let installed = walk(pes);
         assert_eq!(installed, InstalledPaths::Known(HashSet::new()));
-        assert_eq!(installed.holds(&hair), Some(false));
+        assert!(installed.common_texture_stems(Engine::Fox, 714).is_empty());
     }
 
     #[test]

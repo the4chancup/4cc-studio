@@ -902,21 +902,19 @@ fn texture_supply(
     }
 }
 
-/// `texture_supply`'s question to the `installed` CPKs for team `team_id`: whether one holds
-/// the Common texture a path below `Common/` names — its own path, or a member of the kit
-/// set its folded key is the `kitN` reference of among the stems the CPKs hold
-/// (`common_texture_stems` files each under its `kitN` key too, so an installed `kit1/` copy
-/// supplies `kitN/`); `None` when they cannot be looked in. Their Common stems are gathered
-/// once, for every texture it is asked.
+/// `texture_supply`'s question to the `installed` CPKs for team `team_id`: whether the
+/// Common texture stems they hold include the folded stem a path below `Common/` names
+/// (`common_texture_stems` files each installed texture under its own folded path and its
+/// `kitN` key, so an installed `kit1/` copy supplies `kitN/`); `None` when they cannot be
+/// looked in. Their Common stems are gathered once, for every texture it is asked.
 fn installed_lookup(
     installed: &InstalledPaths,
     team_id: u16,
 ) -> impl Fn(&str) -> Option<bool> + '_ {
     let stems = installed.common_texture_stems(Engine::Fox, team_id);
-    move |stem| {
-        installed
-            .holds(&paths::common_texture(Engine::Fox, team_id, stem))
-            .map(|held| held || stems.contains(&vtree::fold_name(stem)))
+    move |stem| match installed {
+        InstalledPaths::Unknown => None,
+        InstalledPaths::Known(_) => Some(stems.contains(&vtree::fold_name(stem))),
     }
 }
 
@@ -956,8 +954,6 @@ impl From<MergeError> for TaskFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use crate::kit_variants::kit_lookup_keys;
 
     /// Team 714's Common texture directory.
     const COMMON_714: &str = "/Assets/pes16/model/character/common/714/sourceimages/";
@@ -1204,26 +1200,18 @@ mod tests {
         );
     }
 
-    /// A place holding the textures `below`, each its path below the place's directory, by the
-    /// lookup keys of its name as `insert` files them (a set's member under its `kitN`
-    /// reference too, its value the reference's spelling; a `kitF` under that alone).
-    fn place(below: &[&str]) -> TexturePlace {
-        below
-            .iter()
-            .flat_map(|below| {
-                let (_, name) = texture_lookup::split(below);
-                kit_lookup_keys(name).into_iter().map(|key| {
-                    let value = if key == vtree::fold_name(name) {
-                        (*below).to_owned()
-                    } else {
-                        aesthetics_export::kit_path_token(below)
-                            .expect("a key beyond a name's own means it holds a token")
-                            .1
-                    };
-                    (key, value)
-                })
-            })
-            .collect()
+    /// The place `TextureFolders::insert` files the textures `below` under `directory`
+    /// (`""` for textures directly in the folder, `jessie` for `jessie/skin`).
+    fn place(directory: &str, below: &[&str]) -> TexturePlace {
+        let mut folders = TextureFolders::default();
+        for &below in below {
+            folders.insert(true, below);
+        }
+        folders
+            .folder(directory)
+            .into_iter()
+            .next()
+            .map_or_else(TexturePlace::default, |(place, _)| place.clone())
     }
 
     /// The directory `point_texture` gives the path `file_name` in the game's team `000`
@@ -1234,7 +1222,7 @@ mod tests {
             file_name: file_name.to_owned(),
             directory: "/Assets/pes16/model/character/common/000/sourceimages/".to_owned(),
         };
-        let (own, linked) = (place(own), place(linked));
+        let (own, linked) = (place("", own), place("", linked));
         let (home, common) = (plain("/home/"), plain("/common/"));
         let folders = TextureFolders::default();
         point_texture(
@@ -1257,7 +1245,7 @@ mod tests {
             file_name: file_name.to_owned(),
             directory: directory.to_owned(),
         };
-        let own = place(own);
+        let own = place("", own);
         let mut folders = TextureFolders::default();
         for stem in common {
             folders.insert(true, stem);
@@ -1487,9 +1475,12 @@ mod tests {
                 directory: "/Assets/pes16/model/character/common/000/sourceimages/".to_owned(),
             };
             let folders = TextureFolders::default();
+            let directory = below
+                .first()
+                .map_or("", |below| texture_lookup::split(below).0);
             point_texture(
                 &mut path,
-                &[(&place(below), &home)],
+                &[(&place(directory, below), &home)],
                 &folders,
                 &plain("/common/"),
                 "/714/",
@@ -1526,7 +1517,7 @@ mod tests {
             assert_eq!(path.file_name, file_name);
             path.directory
         };
-        let textures = place(&["textures/Skin", "textures/pants_kit2"]);
+        let textures = place("textures", &["textures/Skin", "textures/pants_kit2"]);
         let there = "/Assets/pes16/model/character/common/714/05 - A/textures/sourceimages/";
         assert_eq!(pointed("skin.dds", Some(&textures)), there);
         assert_eq!(pointed("pants_kitN.dds", Some(&textures)), there);

@@ -38,7 +38,7 @@ the sock table seen on PES 21, the DX10 header crashes PES 21's BC3 portrait rea
 4.y-fix16 done 2026-10-10 (S9's second Astra round: the deep pass reads a player's roles as
 planning does, drops a beaten Common model with its winner, leaves an xml's unnamed files and
 Fox's unsearched Common `.mtl` files unread, skips a refs export's kits, logo, portraits and
-collars; `common_model_beaten_dropped`), 4.y-sub in progress since 2026-10-10
+collars; `common_model_beaten_dropped`), 4.y-sub done 2026-10-11
 (a subfolder of a player folder is a player folder of its own; (a) done 2026-10-10: a
 subfolder's files take their roles from their names at any depth, the reserved subfolders
 gone, a refs export's AET layout refused per folder; (b1) done 2026-10-10: a subfolder's
@@ -64,7 +64,9 @@ material-file links count too; (b4a) done 2026-10-11: a kit set's `kitF` fallbac
 once as `kitN` on Fox; (b4b1) done 2026-10-11: a `.common` texture link naming a kit set
 finds it; (b4b2a) done 2026-10-11: a kit-token folder set completed, `Common/kit1/` and
 `Common/kit2/` as one; (b4b2b1) done 2026-10-11: a `kitN/` texture path finds its set, a
-`kitF` one nothing; (b4b2b2) next), 4.y-fix20
+`kitF` one nothing; (b4b2b2) done 2026-10-11: a `.common` link to a kit set falls only
+with its last member; (c) and (d) found done by earlier slices; the step's verify run
+on a new-layout copy of the HAHA census export; done 2026-10-11), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -132,13 +134,12 @@ Claude agent with no sidekick and no reviewer of another model family. While tha
   module, by the maintainer's decision of 2026-10-09: the remaining slices (4.17g, 4.19d,
   4.20, 4.27) rewrite parts of what those reviews would read, and converge reviews the
   crate anyway.
-- **Queue:** the Phase 4 Astra re-audit (directive above; briefs in `.tmp/duck_brief_S*.md`,
-  rulings in `.tmp/4_y/duck_rulings.md`): 4.14's (a) and (b) and 4.17's (c) and (d) as one
-  surface, S17 (the conversion pair `model_convert` + `team_compiler`'s conversion paths):
-  its Astra round 1 ran 2026-10-10 (rulings S17.A1, four concerns, all accepted, under
-  five, so its Astra loop ends with step 4.y-fix20); its SWE-2 loop follows the rework. S7 to S15 need none: their Astra
-  loops ended under five accepted (S9 at its third round, S15 at its first with no concerns,
-  S14 at its first with one plan correction). 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
+- **Queue: empty** (2026-10-11). The Phase 4 Astra re-audit (directive above; briefs in
+  `.tmp/duck_brief_S*.md`, rulings in `.tmp/4_y/duck_rulings.md`) is done: S7 to S15 and S17
+  (4.14's (a) and (b) and 4.17's (c) and (d), the conversion pair) ended under five accepted
+  and are closed (status above); S16, the Phase 3 crates' second whole-crate mutation runs,
+  is no review. The items below are the old per-step queue, each covered by the surface
+  `.tmp/lead/review_queue.md` maps it to (S1-S16), kept for their pointers. 3.7 (b): `crates/libs/pipeline` from its first commit, against `libs/pipeline.md`
   and `core/parallelism.md` "Memory budget"; the prior 3.6 rulings are in the log, and
   `.tmp/3_6/review_brief_3_6.md` is a template for the brief. 3.8 (b): `studio_core`'s `CliError`/
   `AppPaths`/location and the `team_compiler` CLI surface, from 3.8a's commit, against
@@ -4004,7 +4005,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   and fails the Common textures task (`folder_pack_failed` at `Common`, every Common
   texture lost): issue below.
 
-- [ ] 4.y-sub **A subfolder of a player folder is a player folder of its own** (the
+- [x] 4.y-sub **A subfolder of a player folder is a player folder of its own** (the
   maintainer's rule, DECISIONS 2026-10-10, two entries; plan `player_folders.md`
   "Subfolders", `object_model.md` "File-type allowlist", `messages.md`
   `player_layout_proto`, `texture_stem_conflict` and "User-supplied `face.xml`",
@@ -4110,8 +4111,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
         `kit1/` copy supplies `kitN/` (TC-CMN-29, TC-CMN-30). Done.
       - (b4b2b2) a `.common` link to a kit set dropped only when every member it reaches is,
         a dropped member an absent one the completion fills (`aesthetics_export/object_model.md`
-        "Dropped link targets"; Astra B4B1.A2-2; TC-CMN-31); then one Astra review over
-        (b4b2b1) and (b4b2b2) together.
+        "Dropped link targets"; Astra B4B1.A2-2; TC-CMN-31). Done; one Astra round covered
+        (b4b2b1) and (b4b2b2) together (B4B2B.A1).
+      - A kit set split between a folder's own files and its `.common` links (a local
+        `kitF/armor.dds` beside `kit1/armor.dds.common`) is served from the folder's own
+        members alone, the linked variant unused: no export is known to split a set across
+        the two (Astra B4B2B.A1-1).
       - A `.common` link to a per-kit model or material-file set (`boots_kitN.fmdl.common`)
         is a literal lookup, `common_link_missing`, until the per-kit model pipeline serves
         Common models (Fox per-kit packages, the fallback model, same-member format
@@ -4125,8 +4130,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
       face strips (A2-1); a `kitF` fallback whose `.mtl` is a Common link gets no `.mtl` copy
       at the listed entry's local `material` (A2-2).
   - (c) Fox: a subfolder's models merged into the packages, textures under the texture home at
-    their path (TC-MOD-65).
+    their path (TC-MOD-65). Done by (b1), (b3a) and (b3c1) (TC-MOD-65, TC-MOD-68, TC-MOD-73):
+    a file's role comes from its name at any depth (`roles::role_position`), so the Fox Models
+    task merges a subfolder's model into its package.
   - (d) the deep pass over the tree (what `compile` reads, DECISIONS 2026-10-09 "One rule").
+    Done across the slices: the deep pass visits a folder's whole tree and skips what
+    `player_file` gives no role, the function planning uses.
   The Export upgrader's carry-over is Phase 6's. Moot after this: S14.1-4 and the subfolder half
   of S7.1-3 (a shared folder keeps the "directly in" rule, 4.y-fix11 item 3). Crates: ae, tc
   → verify: TC-MOD-65 to TC-MOD-68 and TC-REF-18 proven, red first; the census export
@@ -4536,6 +4545,33 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `texture_lookup::variant` and the `kit_reference_directory` guard retired. Files:
   `bins/installed.rs`, `deep/{materials,mod}.rs`, `kit_variants.rs`, `plan/mod.rs`,
   `processing/{model,prefox_face}.rs`, `texture_lookup.rs`, `tests/cli/textures.rs`. Gates green locally (`.tmp/4_y/gates_sub_b4b2b1_r0.log`); mutants on bonfire 26, 22 caught, 0 missed, 4 unviable (`.tmp/4_y/mutants_sub_b4b2b1_r0/`).
+  (b4b2b2) done 2026-10-11 (SWE-2 High, one run and one rework on one session, 13 and 4 minutes; Astra round B4B2B.A1 over (b4b2b1) and (b4b2b2), 3 concerns, 1 accepted, 1 deferred, 1 rejected, on the Devin `work` slot; briefs
+  `.tmp/4_y/brief_sub_b4b2b2{,_r1}.md`, reports beside them). `aesthetics_export`:
+  `validate/links.rs` `common_link_dropped`, the cascade's one test of a `.common` link's
+  target: every `Common/` file `common_link_files` reaches is dropped, so a kit set falls
+  only with its last member (plan `object_model.md` "Dropped link targets", DECISIONS
+  2026-10-11). `team_compiler`: (b4b2b1)'s leftovers, an `expect` for an unreachable
+  fallback in `TextureFolders::place` and the test helpers building their places through it;
+  `installed_lookup` one keyed lookup, `InstalledPaths::holds` gone (Astra B4B2B.A1-3).
+  Files: AE `validate/{links,tests}.rs`; TC `bins/installed.rs`, `deep/materials.rs`,
+  `processing/model.rs`, `texture_lookup.rs`, `tests/cli/textures.rs`; plan
+  `aesthetics_export/object_model.md`, `team_compiler/README.md` (TC-CMN-31). Gates green locally (`.tmp/4_y/gates_sub_b4b2b2_r1.log`); mutants on bonfire, each round 0 missed: r0 6 (6 caught), r1 6 (6) (`.tmp/4_y/mutants_sub_b4b2b2{,_r1}/`).
+  Verify 2026-10-11 (the lead): 341 of 341 scenarios proven, TC-MOD-65 to TC-MOD-68 and
+  TC-REF-18 among them. The census export `HAHA Aesthetic Export VTL9 i3` is in the old
+  layout (`export_layout_old`; the Export upgrader is Phase 6's), so a hand-made new-layout
+  copy of its players and `Common/` (`.tmp/4_y/census/migrate_haha.py`: `Faces/xxxNN - Name`
+  as `Players/NN - Name`, kits and logo left out; 23 players, 688 nested files) went through
+  `check` and `compile --mode test` for PES 17 with a release build of `6b9cc30`, the census
+  binary's teams list naming slot 853 `/HAHA/` as the cup does for an invitational
+  (`.tmp/4_y/census/logs_17_haha_new/`): 22 of 23 players kept, each with its subfolder
+  tree in the output (772 files); `01 - SELENBEAR` is dropped by a real authoring defect,
+  `model_material_undefined` on `body/oral_hand_r.model`, whose second mesh binds a material
+  with an empty name its `.mtl` does not define (read with `pes_model`; the empty name prints
+  as `materials=`); the rest are Warnings: seven `mtl_texture_not_found` for the kit logo
+  `teamlogo_u0853p0.dds`, which the old layout's `Common/teamlogo_u0XXXp0.dds` stands for
+  and only the Export upgrader renames, two for textures a `.mtl` names that its folder
+  lacks, and five `xml_model_unlisted`. Face CPKs were not built (test mode writes the tree
+  loose).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7448,3 +7484,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-11** — 4.y-sub (b4b2b1) landed: a model's texture path into a `kitN/` folder,
   or a Common path into one, finds the kit set's members; a path naming `kitF` finds nothing
   (TC-CMN-29, TC-CMN-30).
+- **2026-10-11** — 4.y-sub (b4b2b2) landed: a `.common` link to a kit set is dropped only
+  when every member it reaches is, a dropped member a gap the completion fills (TC-CMN-31).
+- **2026-10-11** — 4.y-sub done: (c) and (d) found done by earlier slices; a new-layout
+  copy of the HAHA census export compiles for PES 17 with 22 of 23 players kept, the 23rd
+  dropped by its own empty-named material.

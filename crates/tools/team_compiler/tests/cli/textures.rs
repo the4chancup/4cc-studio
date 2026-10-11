@@ -657,6 +657,53 @@ fn a_common_texture_the_deep_pass_drops_takes_the_player_linking_it() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-CMN-31
+#[test]
+fn a_dropped_member_of_a_common_kit_set_leaves_the_player_linking_it() {
+    let sandbox = Sandbox::new("tex_common_kit_drop");
+    let export = "exports/co Midcup Kits";
+    for slot in ["p1", "p2"] {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+    }
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &model_naming_in("armor_bsm.dds", "./kitN/"),
+    );
+    sandbox.write(&format!("{player}/kitN/armor_bsm.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/kit1/armor_bsm.png"),
+        &texture_fixture("tiny.png"),
+    );
+    sandbox.write(
+        &format!("{export}/Common/kit2/armor_bsm.dds"),
+        &tracer_kit(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Kits"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Error texture_too_small [DropFile] at Common/kit1/armor_bsm.png (file=armor_bsm.png)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Warning kit_variant_missing [Keep] at Common (texture=kitN/armor_bsm, kit=1, copied=kit2/armor_bsm)",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let face = "Asset/model/character/face/real/71405/#Win/face.fpk";
+    assert!(entries.contains_key(face), "{:?}", entries.keys());
+}
+
 // TC-TEX-12
 #[test]
 fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
