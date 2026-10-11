@@ -34,8 +34,9 @@ def main(argv: list[str]) -> int:
     # go unmeasured unless the tree was staged first (found at 3.8).
     # Bytes, not text: the file must be LF on both sides (text mode writes
     # CRLF on Windows).
+    tree = mutants.working_tree()
     diffed = subprocess.run(
-        ["git", "diff", base, mutants.working_tree(), "--", "crates"],
+        ["git", "diff", base, tree, "--", "crates"],
         cwd=ROOT,
         capture_output=True,
     )
@@ -50,13 +51,14 @@ def main(argv: list[str]) -> int:
         f.write(diff)
         diff_path = f.name
     try:
-        return run(diff_path)
+        return run(diff_path, tree)
     finally:
         os.unlink(diff_path)
 
 
-def run(diff_path: str) -> int:
-    """Lists the diff's mutants and runs them: on the remote whole, split, or here."""
+def run(diff_path: str, tree: str) -> int:
+    """Lists the diff's mutants and runs them: on the remote whole, split, or here.
+    `tree` is the working tree the diff was taken against, which the remote is sent."""
     # The mutant list, for the printed line and the local-run estimate. Each
     # entry's `file` names the crate (`crates/<group>/<crate>/...`).
     listed = subprocess.run(
@@ -82,12 +84,12 @@ def run(diff_path: str) -> int:
         return 0
     host = mutants.remote_host()
     if host is not None and mutants.REMOTE_ONLY:
-        return mutants.split(["--in-diff", diff_path], host, local=False)
+        return mutants.split(["--in-diff", diff_path], host, local=False, tree=tree)
     local_only = sorted(mutants.LOCAL_ONLY_CRATES.intersection(counts))
     if host is not None and estimated >= mutants.SPLIT_THRESHOLD_SECONDS and not local_only:
         half = mutants.estimate_seconds(crates, share=0.5)
         print(f"mutants_diff: split, about {half:.0f} s a half, plus the transfer and polling")
-        return mutants.split(["--in-diff", diff_path], host)
+        return mutants.split(["--in-diff", diff_path], host, tree=tree)
     if host is not None and local_only:
         print(f"mutants_diff: {', '.join(local_only)} is local-only (LOCAL_ONLY_CRATES)")
     if host is not None and (refusal := mutants.remote_refusal(host, remote=False)):

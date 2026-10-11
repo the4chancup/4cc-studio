@@ -12,14 +12,17 @@ service `mutants.GATES_UNIT`, memory-capped (`mutants.remote_memory_max`) and
 CPU-idle like a mutants half (the host's production Fluxer instance comes
 first), synchronously:
 `systemd-run --wait --pipe` streams their output here and returns their exit
-code. A dropped connection ends the run (the unit stops with its pipe); unlike a
-mutation run, a rerun loses nothing.
+code. A dropped connection ends the run here; the unit stops at its next write
+to the closed pipe, so it may run on a while, and the next run's refusal waits
+for it. Unlike a mutation run, a rerun loses nothing.
 
 The host runs the justfile's own `gates` recipe, with `just` installed in
 `~/.cargo/bin` at this machine's version (`cargo install --locked just@<version>`,
-as cargo-mutants is), so the two never parse the justfile differently.
+as cargo-mutants is), so the two never parse the justfile differently; a run
+refuses when the versions differ.
 """
 
+import subprocess
 import sys
 
 import mutants
@@ -35,6 +38,18 @@ def main() -> int:
     refusal = mutants.remote_refusal(host, remote=True)
     if refusal is not None:
         print(refusal)
+        return 1
+    local_just = subprocess.run(
+        ["just", "--version"], check=True, capture_output=True, text=True
+    ).stdout.strip()
+    remote_just = mutants.ssh(
+        host, "~/.cargo/bin/just --version", capture_output=True, text=True
+    ).stdout.strip()
+    if local_just != remote_just:
+        print(
+            f"just versions differ: local {local_just}, remote {remote_just or 'none'}; fix: "
+            f"cargo install --locked just@{local_just.split()[-1]} on the remote"
+        )
         return 1
     tree = mutants.snapshot()
     remote_head, remote_tree, _nproc, _version = mutants.remote_state(host)

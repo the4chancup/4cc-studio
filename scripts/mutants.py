@@ -12,8 +12,9 @@ systemd-run --unit=studio-mutants`), detached from the ssh session by
 construction, memory-capped and CPU-idle: the host also runs the production
 Fluxer instance, an allocating mutant filled its RAM and swap at 2.20i, and
 `nice` alone cannot keep the run off Fluxer's CPU (cgroup v2 weights ignore
-it). Its state lives in `~/studio-mutants/run/` (`job.sh`, `pid`, `log`,
-`exit`, `memory_peak`, `collected`), and this machine only polls it with
+it). Its state lives in `~/studio-mutants/run/` (`job.sh`, `in.diff`, `pid`,
+`memory_max`, `log`, `exit`, `memory_peak`, `collected`), and this machine only
+polls it with
 short ssh calls, so a dropped connection costs one poll, not the run:
 cargo-mutants cannot resume, and a remote half tied to one long ssh session
 died with it (2.20i). If this script itself stops, `just mutants-collect`
@@ -27,7 +28,8 @@ the host.
 The remote needs: git, a C toolchain, rustup, cargo-mutants and `just` (for
 `just gates-remote`) at the local versions (the pinned toolchain installs itself
 on first use inside the tree), `sudo -n systemd-run` for the ssh user, `ionice`,
-`tar`, `nproc` and cgroup v2 (the unit's `memory.peak`).
+`tar`, `nproc`, cgroup v2 (the unit's `memory.peak`) and `python3` (`just gates`'
+scripts).
 """
 
 import io
@@ -92,7 +94,8 @@ REMOTE_TMPDIR = "$HOME/studio-mutants/tmp"
 # antivirus exclusion covers every run's randomly named copy, whose tests write
 # a sandbox export per CLI test.
 LOCAL_TMPDIR = Path(tempfile.gettempdir()) / "studio-mutants"
-# The detached remote half's files: `job.sh`, `pid` (the service's MainPID),
+# The detached remote half's files: `job.sh`, `in.diff` (a diff run's diff),
+# `pid` (the service's MainPID), `memory_max` (its cap, `remote_memory_max`),
 # `log`, `exit` ("<code> <seconds>", written when cargo-mutants returns),
 # `memory_peak` (the unit cgroup's peak memory) and `collected` (written by
 # the fetch).
@@ -174,10 +177,12 @@ def working_tree() -> str:
         index_path.unlink(missing_ok=True)
 
 
-def snapshot() -> str:
-    """Commit the whole working tree (`working_tree`) to `refs/mutants/remote`.
-    Returns the tree."""
-    tree = working_tree()
+def snapshot(tree: str | None = None) -> str:
+    """Commit `tree`, else the whole working tree (`working_tree`), to
+    `refs/mutants/remote`. Returns the tree. A caller that already wrote the
+    tree passes it, so what the remote runs is what it measured, not a
+    second read of a tree the maintainer may have edited since."""
+    tree = tree or working_tree()
     commit = git(
         "commit-tree", tree, "-p", "HEAD", "-m", "mutants remote snapshot",
         check=True, capture_output=True, text=True,
@@ -326,14 +331,16 @@ def local_mutants_version() -> str:
 
 def remote_run_state(host: str) -> str | None:
     """`none` (no run, or the last one collected), `running`, `finished` (not yet
-    collected) or `died` (a pid and no exit file: killed, or the host rebooted);
-    None when the host could not be reached."""
+    collected) or `died` (a pid, no exit file and the unit gone: killed, or the
+    host rebooted); None when the host could not be reached. `running` asks
+    systemd for the unit, not `kill -0` for the pid: after a reboot the pid may
+    belong to another process, which would read as a half running forever."""
     probe = ssh(
         host,
         f"cd {REMOTE_RUN} 2>/dev/null || {{ echo none; exit 0; }}; "
         "if [ -f collected ]; then echo none; "
         "elif [ -f exit ]; then echo finished; "
-        "elif [ -f pid ] && kill -0 \"$(cat pid)\" 2>/dev/null; then echo running; "
+        f"elif systemctl is-active --quiet {REMOTE_UNIT}; then echo running; "
         "elif [ -f pid ]; then echo died; "
         "else echo none; fi",
         capture_output=True, text=True,
@@ -379,6 +386,10 @@ def remote_memory_max(host: str) -> int:
     ).stdout
     available = int(meminfo) * 1024
     cap = available - REMOTE_MEMORY_RESERVE
+    if cap <= 0:
+        raise RuntimeError(
+            f"only {available / 2**30:.2f} GiB available on {host}: no memory cap to start under"
+        )
     print(
         f"remote memory cap: {cap / 2**30:.2f} GiB ({available / 2**30:.2f} GiB available "
         f"on {host}, less {REMOTE_MEMORY_RESERVE / 2**30:.0f} GiB for the host)",
@@ -413,6 +424,10 @@ def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
         "start=$(date +%s)\n"
         # On disk, not the tmpfs `/tmp`: see REMOTE_TMPDIR.
         f'export TMPDIR="{REMOTE_TMPDIR}" && mkdir -p "$TMPDIR"\n'
+        # The tree's `mutants.out` is gitignored, so the transfer keeps the last
+        # run's; a run that fails before cargo-mutants starts must leave none,
+        # or the fetch would count the last run's results as this one's.
+        "rm -rf mutants.out\n"
         f". ~/.cargo/env && nice -n 19 ionice -c3 cargo mutants {remote_args} --jobs 2 "
         f"{shard}--config ../mutants.remote.toml\n"
         "code=$?\n"
@@ -563,7 +578,8 @@ def fetch_remote(host: str, partial: bool = False) -> None:
     else:
         raise RuntimeError(
             "the remote half finished but left no mutants.out: its log is "
-            f"{REMOTE_RUN}/log on {host}"
+            f"{REMOTE_RUN}/log on {host}; once read, `rm -r {REMOTE_RUN}` there frees "
+            "the host for the next run"
         )
     log = ssh(host, f"cat {REMOTE_RUN}/log 2>/dev/null || true", capture_output=True, check=True)
     (out / "remote_console.txt").write_bytes(log.stdout)
@@ -624,19 +640,27 @@ def report_killed(code: int) -> int:
     and remote half, and turns `code` into a failure when there are any: those
     mutants were never tested, and the counts above file them as unviable."""
     local = ROOT / "mutants.out"
-    killed = killed_builds(local) + killed_builds(local / "remote" / "mutants.out")
-    if not killed:
+    here = killed_builds(local)
+    remote = killed_builds(local / "remote" / "mutants.out")
+    if not here and not remote:
         return code
     print(
-        f"{len(killed)} mutants were NOT tested: a build process was killed "
-        "(the remote half's memory cap, or out of memory), and cargo-mutants "
-        "counted them as unviable. Rerun them on this machine: the same `just` "
-        "command with STUDIO_MUTANTS_REMOTE set empty. If the remote half's peak "
-        "reached its cap, free memory on the host or lower REMOTE_BUILD_JOBS "
-        f"(now {REMOTE_BUILD_JOBS}) in scripts/mutants.py:"
+        f"{len(here) + len(remote)} mutants were NOT tested: a build process was killed "
+        "for memory, and cargo-mutants counted them as unviable."
     )
-    for name in killed:
-        print(f"  {name}")
+    if remote:
+        print(
+            "On the remote: rerun them on this machine (the same `just` command with "
+            "STUDIO_MUTANTS_REMOTE set empty); if the remote half's peak reached its cap, "
+            "free memory on the host or lower REMOTE_BUILD_JOBS "
+            f"(now {REMOTE_BUILD_JOBS}) in scripts/mutants.py:"
+        )
+        for name in remote:
+            print(f"  {name}")
+    if here:
+        print("On this machine: rerun them with less running here:")
+        for name in here:
+            print(f"  {name}")
     return max(code, 1)
 
 
@@ -663,8 +687,16 @@ def collect(host: str) -> int:
         remote_code, remote_seconds = 1, None
     else:
         fetch_remote(host)
+    # The local half's exit code went with the script that ran it; its lists
+    # say the same (cargo-mutants: 2 = missed mutants, 3 = timeouts).
+    local = ROOT / "mutants.out"
+    local_code = (
+        2 if count_lines(local / "missed.txt")
+        else 3 if count_lines(local / "timeout.txt")
+        else 0
+    )
     return summarize(
-        0, remote_code,
+        local_code, remote_code,
         ROOT / "mutants.out" / "remote" / "remote_console.txt",
         (None, remote_seconds),
     )
@@ -770,12 +802,15 @@ def update_cost_cache() -> None:
     os.replace(temp, COST_CACHE)
 
 
-def split(selection: list[str], host: str, local: bool = True) -> int:
+def split(
+    selection: list[str], host: str, local: bool = True, tree: str | None = None
+) -> int:
     """The whole split run for one selection: the busy-remote refusal, the
     snapshot, the version check, both halves, the fetch and the summary.
     Without `local` (`REMOTE_ONLY`) the remote runs every mutant and the last
     run's local `mutants.out` is set aside first, as cargo-mutants itself does,
-    so the summary counts this run's results alone."""
+    so the summary counts this run's results alone. `tree` is the working
+    tree a caller already wrote (`snapshot`)."""
     if local:
         print(f"splitting the run with {host}", flush=True)
     else:
@@ -789,7 +824,7 @@ def split(selection: list[str], host: str, local: bool = True) -> int:
 
     # The snapshot and the one-call probe come first (a few seconds), so a
     # version mismatch stops before the local half starts.
-    tree = snapshot()
+    tree = snapshot(tree)
     remote_head, remote_tree, nproc, remote_version = remote_state(host)
     local_version = local_mutants_version()
     if local_version != remote_version:
