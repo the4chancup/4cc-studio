@@ -26,6 +26,7 @@ clippy:
 # Gate 3: tests
 test:
     cargo test --workspace
+    {{python}} scripts/mutants_test.py
 
 # Gate 4: studio_core and every lib crate check for wasm32 (list derived from the workspace)
 wasm-check:

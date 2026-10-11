@@ -302,6 +302,15 @@ def local_mutants(args: list[str]) -> subprocess.CompletedProcess:
     )
 
 
+# What a build killed or starved for reasons outside the mutant leaves in its log, lowercase:
+# rustc killed by the OOM killer, the linker killed by it (gcc's `collect2`), LLVM or rustc
+# out of memory, a Windows process that lost its console.
+KILLED_BUILD_SIGNS = (
+    "sigkill", "signal 9 [killed]", "llvm error: out of memory", "memory allocation of",
+    "0xc0000142",
+)
+
+
 def killed_builds(out_dir: Path) -> list[str]:
     """The mutants under `out_dir` (a `mutants.out`) that went untested: those
     cargo-mutants reported unviable because a build process was killed, not
@@ -313,7 +322,8 @@ def killed_builds(out_dir: Path) -> list[str]:
     mutant goes untested without a miss or an error: at 3.z, 18 of the remote
     half's 19 mutants, eframe's dependency tree outgrowing 6 GiB. Windows has
     no OOM killer: a rustc out of memory there aborts with "memory allocation
-    of N bytes failed"."""
+    of N bytes failed". A build that lost its console fails to start with
+    0xC0000142 (4.y-conv: 273 of 274 mutants filed unviable that way)."""
     path = out_dir / "outcomes.json"
     if not path.exists():
         return []
@@ -325,7 +335,7 @@ def killed_builds(out_dir: Path) -> list[str]:
         if outcome["summary"] != "Unviable" or not outcome.get("log_path"):
             continue
         log = (out_dir / outcome["log_path"]).read_text(encoding="utf-8", errors="replace")
-        if "SIGKILL" in log or "memory allocation of" in log:
+        if any(sign in log.lower() for sign in KILLED_BUILD_SIGNS):
             killed.append(outcome["scenario"]["Mutant"]["name"])
     return killed
 
@@ -379,7 +389,12 @@ def remote_refusal(host: str, remote: bool) -> str | None:
             f"the remote half of an earlier run {status}: `just mutants-collect` "
             "fetches it, then start the new run"
         )
-    if remote and ssh(host, f"systemctl is-active --quiet {GATES_UNIT}").returncode == 0:
+    if not remote:
+        return None
+    gates = ssh(host, f"systemctl is-active --quiet {GATES_UNIT}").returncode
+    if gates == 255:
+        return f"cannot reach {host}"
+    if gates == 0:
         return f"`just gates-remote` is running on {host}: start the new run when it ends"
     return None
 
@@ -486,6 +501,12 @@ def wait_remote(host: str) -> tuple[int, float]:
     announced = False
     while True:
         state = remote_run_state(host)
+        if state == "finished":
+            exit_line = ssh(host, f"cat {REMOTE_RUN}/exit", capture_output=True, text=True)
+            if exit_line.returncode == 0:
+                code, seconds = exit_line.stdout.split()
+                return int(code), float(seconds)
+            state = None  # the link dropped between the two calls: one failed poll
         if state is None:
             failures += 1
             print(f"remote poll failed ({failures} in a row), retrying", flush=True)
@@ -494,11 +515,6 @@ def wait_remote(host: str) -> tuple[int, float]:
                     f"could not reach {host} for {failures} polls; the remote half keeps "
                     "running there: collect it with `just mutants-collect`"
                 )
-        elif state == "finished":
-            exit_line = ssh(
-                host, f"cat {REMOTE_RUN}/exit", capture_output=True, text=True, check=True
-            ).stdout.split()
-            return int(exit_line[0]), float(exit_line[1])
         elif state == "died":
             raise RemoteDied(
                 "the remote half stopped without an exit code (killed, or the host "
@@ -573,13 +589,23 @@ def fetch_remote(host: str, partial: bool = False) -> None:
     counted as this run's, then marks the run collected. A finished half with
     no `mutants.out` fails the fetch; a died one (`partial`) may have none."""
     out = ROOT / "mutants.out" / "remote"
+    # Exit 3 is the half's own answer, no `mutants.out`; any other failure (ssh's 255, a
+    # broken archive) is the transfer's, and the half stays uncollected for a retry.
     fetched = ssh(
-        host, f"tar -C {REMOTE_BASE}/tree -cf - mutants.out", capture_output=True
+        host,
+        f"cd {REMOTE_BASE}/tree && {{ [ -d mutants.out ] || exit 3; }} && tar -cf - mutants.out",
+        capture_output=True,
     )
+    absent = fetched.returncode == 3
+    if not absent and (fetched.returncode != 0 or not fetched.stdout):
+        raise RuntimeError(
+            f"fetching the remote half failed (exit {fetched.returncode}); it stays "
+            "uncollected: retry with `just mutants-collect`"
+        )
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
-    if fetched.returncode == 0 and fetched.stdout:
+    if not absent:
         with tarfile.open(fileobj=io.BytesIO(fetched.stdout), mode="r|") as tar:
             tar.extractall(out, filter="data")
     elif partial:
@@ -660,6 +686,12 @@ def summarize(
         print("--- remote log tail ---")
         print("\n".join(log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-20:]))
     code = max(local_code, remote_code)
+    # A local half stopped before cargo-mutants wrote its selection leaves nothing to count
+    # (`never_ran` has no selection to compare), and its zero row would read as clean: the
+    # fetch creates `mutants.out` for the remote half's copy whether the local half ran or not.
+    if not REMOTE_ONLY and not (local / "mutants.json").exists():
+        print("the local half never started: none of its mutants ran")
+        code = max(code, 1)
     for label, base in (("local", local), ("remote", remote)):
         short = never_ran(base)
         if short is not None:
@@ -680,8 +712,8 @@ def report_killed(code: int) -> int:
         return code
     print(
         f"{len(here) + len(remote)} mutants were NOT tested: a build process was killed "
-        "for memory, or cargo was ended by a signal, and cargo-mutants counted them as "
-        "unviable or in no list."
+        "for memory or lost its console, or cargo was ended by a signal, and cargo-mutants "
+        "counted them as unviable or in no list."
     )
     if remote:
         print(
