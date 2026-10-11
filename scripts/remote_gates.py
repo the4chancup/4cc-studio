@@ -5,10 +5,12 @@ load (2026-10-10: four MEMORY_MANAGEMENT bugchecks here, the last during a run;
 
 The tree goes over as a mutation run sends it (`mutants.snapshot`,
 `mutants.transfer`), into the same remote clone, so this refuses to start while
-a remote mutants half is running or uncollected. Its `target/` is gitignored and
-survives the checkout, so a rerun builds incrementally. The gates run as the
-transient service `GATES_UNIT`, memory-capped and CPU-idle like a mutants half
-(the host's production Fluxer instance comes first), synchronously:
+a remote mutants half is running or uncollected, or other gates run there
+(`mutants.remote_refusal`). Its `target/` is gitignored and survives the
+checkout, so a rerun builds incrementally. The gates run as the transient
+service `mutants.GATES_UNIT`, memory-capped (`mutants.remote_memory_max`) and
+CPU-idle like a mutants half (the host's production Fluxer instance comes
+first), synchronously:
 `systemd-run --wait --pipe` streams their output here and returns their exit
 code. A dropped connection ends the run (the unit stops with its pipe); unlike a
 mutation run, a rerun loses nothing.
@@ -22,7 +24,6 @@ import sys
 
 import mutants
 
-GATES_UNIT = "studio-gates"
 GATES_JOB = f"{mutants.REMOTE_BASE}/gates.sh"
 
 
@@ -31,17 +32,11 @@ def main() -> int:
     if host is None:
         print("STUDIO_MUTANTS_REMOTE is not set")
         return 1
-    state = mutants.remote_run_state(host)
-    if state is None:
-        print(f"cannot reach {host}")
+    refusal = mutants.remote_refusal(host, remote=True)
+    if refusal is not None:
+        print(refusal)
         return 1
-    if state != "none":
-        print(
-            f"a remote mutants half is {state} on {host}: the gates would rewrite its "
-            "tree (`just mutants-collect` fetches a finished one)"
-        )
-        return 1
-    tree, _commit = mutants.snapshot()
+    tree = mutants.snapshot()
     remote_head, remote_tree, _nproc, _version = mutants.remote_state(host)
     if remote_tree == tree:
         print("remote tree up to date", flush=True)
@@ -63,11 +58,12 @@ def main() -> int:
         input=job.encode("utf-8"),
         check=True,
     )
+    memory_max = mutants.remote_memory_max(host)
     print(f"running the gates on {host}", flush=True)
     run = mutants.ssh(
         host,
-        f"sudo -n systemd-run --unit={GATES_UNIT} --uid=debian --wait --pipe --collect "
-        f"-p MemoryMax={mutants.REMOTE_MEMORY_MAX} -p MemorySwapMax=0 -p CPUWeight=idle "
+        f"sudo -n systemd-run --unit={mutants.GATES_UNIT} --uid=debian --wait --pipe "
+        f"--collect -p MemoryMax={memory_max} -p MemorySwapMax=0 -p CPUWeight=idle "
         f'--working-directory="$HOME/studio-mutants/tree" /bin/bash {GATES_JOB} '
         "< /dev/null",
     )

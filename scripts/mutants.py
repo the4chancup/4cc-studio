@@ -18,11 +18,16 @@ short ssh calls, so a dropped connection costs one poll, not the run:
 cargo-mutants cannot resume, and a remote half tied to one long ssh session
 died with it (2.20i). If this script itself stops, `just mutants-collect`
 waits for the remote half and fetches it. A new run refuses to start while a
-remote half is running or finished but not yet collected. A running half is
-stopped by hand with `sudo systemctl stop studio-mutants` on the host.
+remote half is running or finished but not yet collected, or while `just
+gates-remote` runs there, and a local run refuses while a remote half is
+uncollected, since the collection summarizes the local `mutants.out` with it. A
+running half is stopped by hand with `sudo systemctl stop studio-mutants` on
+the host.
 
-The remote needs: git, a C toolchain, rustup and cargo-mutants at the local
-version (the pinned toolchain installs itself on first use inside the tree).
+The remote needs: git, a C toolchain, rustup, cargo-mutants and `just` (for
+`just gates-remote`) at the local versions (the pinned toolchain installs itself
+on first use inside the tree), `sudo -n systemd-run` for the ssh user, `ionice`,
+`tar`, `nproc` and cgroup v2 (the unit's `memory.peak`).
 """
 
 import io
@@ -52,16 +57,16 @@ REMOTE_ONLY = False
 # memory-capped and CPU-idle — an allocating mutant OOM-killed the host at
 # the 2.20i remainder run, and Fluxer's production services have priority.
 REMOTE_UNIT = "studio-mutants"
-# The unit's MemoryMax (with MemorySwapMax=0): at the cap the kernel
-# OOM-kills inside this unit only, never in Fluxer's. 6 GiB until 3.z, when
-# eframe's dependency tree outgrew it while building; 8 GiB until 4.6b,
-# whose run peaked at 7.90 GiB; 9 GiB from then while Fluxer ran beside it (the
-# 16 GB host kept more than 10 GiB free and 1.5 GiB of swap for it); 10 GiB
-# from 2026-10-10, Fluxer shelved and 11.4 GB free (maintainer), 1.4 GB left
-# for the host itself; 11 GiB later that day, a staging Fluxer stopped and 12.1 GB
-# available (maintainer), about 1.1 GB left for the host. The cap follows the host's free memory, the maintainer's
-# word: if a run nears it, lower REMOTE_BUILD_JOBS before asking for more.
-REMOTE_MEMORY_MAX = "11G"
+# `just gates-remote`'s unit (`remote_gates.py`), which a mutants run waits for:
+# both rewrite the remote clone.
+GATES_UNIT = "studio-gates"
+# What a unit's MemoryMax (with MemorySwapMax=0) leaves the host: the cap is the
+# host's available memory when the unit starts, less this, so at the cap the
+# kernel OOM-kills inside the unit only, never in Fluxer's. Measured at launch,
+# not fixed: the host's free memory changes as its services do, and a fixed cap
+# either wasted what was free or squeezed the host. A service that grows during
+# a run eats into this margin, so it is not cut finer.
+REMOTE_MEMORY_RESERVE = 2**30
 # Build jobs per remote cargo process (two run at once): fewer than the
 # remote's half-the-CPUs test threads, because a build's memory grows with
 # its parallel rustc processes and the GUI crates' dependencies (naga, wgpu,
@@ -142,38 +147,43 @@ def git(*args: str, **kwargs) -> subprocess.CompletedProcess:
 def working_tree() -> str:
     """Write the whole working tree (tracked edits and untracked non-ignored
     files: a run measures the tree under review) as a git tree object, through
-    a private index so the real one is not touched. Returns the tree's id."""
+    a private index so the real one is not touched: one per process, since a
+    `mutants-diff` and a `gates-remote` may snapshot at once. Returns the
+    tree's id."""
     index = git(
-        "rev-parse", "--git-path", "mutants-remote.index",
+        "rev-parse", "--git-path", f"mutants-remote-{os.getpid()}.index",
         check=True, capture_output=True, text=True,
     ).stdout.strip()
     index_path = Path(index)
     if not index_path.is_absolute():
         index_path = ROOT / index_path
-    index_path.unlink(missing_ok=True)
     env = dict(os.environ, GIT_INDEX_FILE=str(index_path))
-    # A fresh index re-adds every file, flooding stderr with CRLF warnings;
-    # silence it on success only.
-    added = subprocess.run(
-        ["git", "add", "-A"], cwd=ROOT, env=env, capture_output=True, text=True
-    )
-    if added.returncode != 0:
-        raise RuntimeError(f"git add -A failed:\n{added.stderr}")
-    return git(
-        "write-tree", env=env, check=True, capture_output=True, text=True
-    ).stdout.strip()
+    try:
+        # A fresh index re-adds every file, flooding stderr with CRLF warnings;
+        # silence it on success only.
+        added = subprocess.run(
+            ["git", "add", "-A"], cwd=ROOT, env=env, capture_output=True, text=True
+        )
+        if added.returncode != 0:
+            raise RuntimeError(f"git add -A failed:\n{added.stderr}")
+        written = git("write-tree", env=env, capture_output=True, text=True)
+        if written.returncode != 0:
+            raise RuntimeError(f"git write-tree failed:\n{written.stderr}")
+        return written.stdout.strip()
+    finally:
+        index_path.unlink(missing_ok=True)
 
 
-def snapshot() -> tuple[str, str]:
+def snapshot() -> str:
     """Commit the whole working tree (`working_tree`) to `refs/mutants/remote`.
-    Returns (tree, commit)."""
+    Returns the tree."""
     tree = working_tree()
     commit = git(
         "commit-tree", tree, "-p", "HEAD", "-m", "mutants remote snapshot",
         check=True, capture_output=True, text=True,
     ).stdout.strip()
     git("update-ref", REMOTE_REF, commit, check=True)
-    return tree, commit
+    return tree
 
 
 def remote_state(host: str) -> tuple[str | None, str | None, int, str]:
@@ -291,7 +301,9 @@ def killed_builds(out_dir: Path) -> list[str]:
     mutant does not compile. The remote half's memory cap kills a rustc that
     outgrows it, and cargo-mutants files the failed build as unviable, so the
     mutant goes untested without a miss or an error: at 3.z, 18 of the remote
-    half's 19 mutants, eframe's dependency tree outgrowing 6 GiB."""
+    half's 19 mutants, eframe's dependency tree outgrowing 6 GiB. Windows has
+    no OOM killer: a rustc out of memory there aborts with "memory allocation
+    of N bytes failed"."""
     path = out_dir / "outcomes.json"
     if not path.exists():
         return []
@@ -300,7 +312,7 @@ def killed_builds(out_dir: Path) -> list[str]:
         if outcome["summary"] != "Unviable" or not outcome.get("log_path"):
             continue
         log = (out_dir / outcome["log_path"]).read_text(encoding="utf-8", errors="replace")
-        if "SIGKILL" in log:
+        if "SIGKILL" in log or "memory allocation of" in log:
             killed.append(outcome["scenario"]["Mutant"]["name"])
     return killed
 
@@ -332,6 +344,53 @@ def remote_run_state(host: str) -> str | None:
     return state
 
 
+def remote_refusal(host: str, remote: bool) -> str | None:
+    """Why a new run cannot start, or None. Any run waits for an uncollected
+    remote half, whose collection summarizes the local `mutants.out` with it,
+    which a new local half would replace. A run that uses the remote (`remote`)
+    also waits for a reachable host and for `just gates-remote`, since each
+    rewrites the remote clone under the other; a local one starts when the host
+    cannot be reached, which is no reason to stop it."""
+    state = remote_run_state(host)
+    if state is None:
+        return f"cannot reach {host}" if remote else None
+    if state != "none":
+        status = {
+            "running": "is still running",
+            "finished": "has finished but is not collected",
+            "died": "stopped before it finished",
+        }[state]
+        return (
+            f"the remote half of an earlier run {status}: `just mutants-collect` "
+            "fetches it, then start the new run"
+        )
+    if remote and ssh(host, f"systemctl is-active --quiet {GATES_UNIT}").returncode == 0:
+        return f"`just gates-remote` is running on {host}: start the new run when it ends"
+    return None
+
+
+def remote_memory_max(host: str) -> int:
+    """The MemoryMax, in bytes, of a unit started on `host` now: its available
+    memory less `REMOTE_MEMORY_RESERVE`. Printed, since it is the figure a
+    build killed at the cap is read against."""
+    meminfo = ssh(
+        host, "awk '/^MemAvailable:/ {print $2}' /proc/meminfo",
+        capture_output=True, text=True, check=True,
+    ).stdout
+    available = int(meminfo) * 1024
+    cap = available - REMOTE_MEMORY_RESERVE
+    print(
+        f"remote memory cap: {cap / 2**30:.2f} GiB ({available / 2**30:.2f} GiB available "
+        f"on {host}, less {REMOTE_MEMORY_RESERVE / 2**30:.0f} GiB for the host)",
+        flush=True,
+    )
+    return cap
+
+
+class RemoteDied(RuntimeError):
+    """The remote half stopped without an exit code."""
+
+
 def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
     """Writes `run/job.sh` (and `run/in.diff` for a `--in-diff` selection,
     the same diff the local half reads) and starts it as the `REMOTE_UNIT`
@@ -340,8 +399,9 @@ def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
     by construction: the unit is memory-capped (`MemoryMax`, no swap) and
     CPU-idle so Fluxer's production services on the host win, and
     `OOMPolicy=continue` keeps cargo-mutants alive past an in-unit OOM kill.
-    `run/pid` is the service's MainPID; a failed `systemd-run` fails the
-    launch (no fallback)."""
+    `run/pid` is the service's MainPID and `run/memory_max` its cap
+    (`remote_memory_max`); a failed `systemd-run` fails the launch (no
+    fallback)."""
     if selection[0] == "--in-diff":
         remote_args = '--in-diff "$HOME/studio-mutants/run/in.diff"'
     else:
@@ -366,7 +426,8 @@ def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
         host,
         f"mkdir -p {REMOTE_RUN} && "
         f"rm -f {REMOTE_RUN}/pid {REMOTE_RUN}/log {REMOTE_RUN}/exit "
-        f"{REMOTE_RUN}/collected {REMOTE_RUN}/memory_peak {REMOTE_RUN}/in.diff && "
+        f"{REMOTE_RUN}/collected {REMOTE_RUN}/memory_peak {REMOTE_RUN}/memory_max "
+        f"{REMOTE_RUN}/in.diff && "
         f"cat > {REMOTE_RUN}/job.sh",
         # Bytes, not text: `text=True` translates \n to \r\n on Windows and a
         # CRLF in the script makes bash and cargo-mutants fail.
@@ -381,10 +442,12 @@ def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
             input=Path(selection[1]).read_bytes(),
             check=True,
         )
+    memory_max = remote_memory_max(host)
     ssh(
         host,
+        f"echo {memory_max} > {REMOTE_RUN}/memory_max && "
         f"sudo -n systemd-run --unit={REMOTE_UNIT} --collect --uid=debian "
-        f"-p MemoryMax={REMOTE_MEMORY_MAX} -p MemorySwapMax=0 -p OOMPolicy=continue "
+        f"-p MemoryMax={memory_max} -p MemorySwapMax=0 -p OOMPolicy=continue "
         '-p CPUWeight=idle --working-directory="$HOME/studio-mutants/tree" '
         f'/bin/bash "$HOME/studio-mutants/run/job.sh" && '
         f"systemctl show -p MainPID --value {REMOTE_UNIT} > {REMOTE_RUN}/pid",
@@ -414,7 +477,7 @@ def wait_remote(host: str) -> tuple[int, float]:
             ).stdout.split()
             return int(exit_line[0]), float(exit_line[1])
         elif state == "died":
-            raise RuntimeError(
+            raise RemoteDied(
                 "the remote half stopped without an exit code (killed, or the host "
                 "rebooted): `just mutants-collect` fetches its partial results"
             )
@@ -443,6 +506,7 @@ def run_split(
     own launch."""
     start = time.monotonic()
     remote: dict = {}
+    whole = not local
 
     def remote_half() -> None:
         try:
@@ -451,10 +515,12 @@ def run_split(
             else:
                 transfer(host, remote_head)
             remote_config(host, nproc)
-            launch_remote(host, selection, whole=not local)
+            launch_remote(host, selection, whole=whole)
             print("remote half launched", flush=True)
-        except (OSError, subprocess.CalledProcessError, TypeError) as error:
-            # Re-raised in the main thread once the local half is done.
+        except Exception as error:
+            # Re-raised in the main thread once the local half is done: an
+            # uncaught one would end the thread silently and leave the main
+            # thread waiting for a half that was never launched.
             remote["error"] = error
 
     if not local:
@@ -465,42 +531,51 @@ def run_split(
         return 0, remote_code, None, remote_seconds
     thread = threading.Thread(target=remote_half)
     thread.start()
-    local = local_mutants([*selection, "--shard", "0/2", "--sharding", "round-robin"])
+    local_run = local_mutants([*selection, "--shard", "0/2", "--sharding", "round-robin"])
     local_seconds = time.monotonic() - start
     thread.join()
     if "error" in remote:
         raise RuntimeError(
             "the remote half failed before running; the local half covered shard 0/2 "
-            "only (rerun, or unset STUDIO_MUTANTS_REMOTE for a local run)"
+            "only (rerun, or set STUDIO_MUTANTS_REMOTE empty for a local run)"
         ) from remote["error"]
     remote_code, remote_seconds = wait_remote(host)
-    return local.returncode, remote_code, local_seconds, remote_seconds
+    return local_run.returncode, remote_code, local_seconds, remote_seconds
 
 
-def fetch_remote(host: str) -> None:
+def fetch_remote(host: str, partial: bool = False) -> None:
     """Copies the remote half's `mutants.out` and console log into
-    `mutants.out/remote/`, then marks the run collected."""
+    `mutants.out/remote/`, emptied first so nothing of an earlier fetch is
+    counted as this run's, then marks the run collected. A finished half with
+    no `mutants.out` fails the fetch; a died one (`partial`) may have none."""
     out = ROOT / "mutants.out" / "remote"
     fetched = ssh(
         host, f"tar -C {REMOTE_BASE}/tree -cf - mutants.out", capture_output=True
     )
-    out.mkdir(parents=True, exist_ok=True)
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
     if fetched.returncode == 0 and fetched.stdout:
         with tarfile.open(fileobj=io.BytesIO(fetched.stdout), mode="r|") as tar:
             tar.extractall(out, filter="data")
+    elif partial:
+        print("warning: the remote half left no mutants.out", file=sys.stderr)
     else:
-        print("warning: remote produced no mutants.out", file=sys.stderr)
+        raise RuntimeError(
+            "the remote half finished but left no mutants.out: its log is "
+            f"{REMOTE_RUN}/log on {host}"
+        )
     log = ssh(host, f"cat {REMOTE_RUN}/log 2>/dev/null || true", capture_output=True, check=True)
     (out / "remote_console.txt").write_bytes(log.stdout)
-    peak = ssh(
+    peak, cap = ssh(
         host,
-        f"cat {REMOTE_RUN}/memory_peak 2>/dev/null || true",
+        f'for f in memory_peak memory_max; do echo "$(cat {REMOTE_RUN}/$f 2>/dev/null)"; done',
         capture_output=True, text=True, check=True,
-    ).stdout.strip()
-    if peak:
+    ).stdout.splitlines()
+    if peak and cap:
         print(
             f"remote memory peak: {int(peak) / 2**30:.2f} GiB "
-            f"(cap {REMOTE_MEMORY_MAX})"
+            f"(cap {int(cap) / 2**30:.2f} GiB)"
         )
     ssh(host, f"touch {REMOTE_RUN}/collected", check=True)
 
@@ -555,11 +630,10 @@ def report_killed(code: int) -> int:
     print(
         f"{len(killed)} mutants were NOT tested: a build process was killed "
         "(the remote half's memory cap, or out of memory), and cargo-mutants "
-        "counted them as unviable. Rerun them locally "
-        "(STUDIO_MUTANTS_REMOTE= just mutants-diff <base>). If the remote "
-        f"half's peak reached its cap ({REMOTE_MEMORY_MAX}, raised only on the "
-        f"maintainer's word), lower REMOTE_BUILD_JOBS (now {REMOTE_BUILD_JOBS}) in "
-        "scripts/mutants.py:"
+        "counted them as unviable. Rerun them on this machine: the same `just` "
+        "command with STUDIO_MUTANTS_REMOTE set empty. If the remote half's peak "
+        "reached its cap, free memory on the host or lower REMOTE_BUILD_JOBS "
+        f"(now {REMOTE_BUILD_JOBS}) in scripts/mutants.py:"
     )
     for name in killed:
         print(f"  {name}")
@@ -569,8 +643,9 @@ def report_killed(code: int) -> int:
 def collect(host: str) -> int:
     """`just mutants-collect`: waits for a remote half this script launched but
     did not fetch (it was stopped, or gave up polling), fetches it and prints the
-    summary against whatever local `mutants.out` holds. A died half's partial
-    results are fetched too, and the run exits 1."""
+    summary against the local `mutants.out`, which no run since can have
+    replaced (`remote_refusal`). A died half's partial results are fetched too,
+    whether it died before or during the wait, and the run exits 1."""
     state = remote_run_state(host)
     if state is None:
         print(f"cannot reach {host}")
@@ -578,12 +653,16 @@ def collect(host: str) -> int:
     if state == "none":
         print("no uncollected remote half")
         return 1
-    if state == "died":
+    try:
+        if state == "died":
+            raise RemoteDied("the remote half died")
+        remote_code, remote_seconds = wait_remote(host)
+    except RemoteDied:
         print("the remote half died before it finished; fetching its partial results")
+        fetch_remote(host, partial=True)
         remote_code, remote_seconds = 1, None
     else:
-        remote_code, remote_seconds = wait_remote(host)
-    fetch_remote(host)
+        fetch_remote(host)
     return summarize(
         0, remote_code,
         ROOT / "mutants.out" / "remote" / "remote_console.txt",
@@ -703,25 +782,14 @@ def split(selection: list[str], host: str, local: bool = True) -> int:
         print(f"running every mutant on {host} (REMOTE_ONLY)", flush=True)
     started = time.monotonic()
     # The remote must be free before the transfer rewrites its tree.
-    state = remote_run_state(host)
-    if state is None:
-        print(f"cannot reach {host}")
-        return 1
-    if state != "none":
-        status = {
-            "running": "is still running",
-            "finished": "has finished but is not collected",
-            "died": "stopped before it finished",
-        }[state]
-        print(
-            f"the remote half of an earlier run {status}: `just mutants-collect` "
-            "fetches it, then start the new run"
-        )
+    refusal = remote_refusal(host, remote=True)
+    if refusal is not None:
+        print(refusal)
         return 1
 
     # The snapshot and the one-call probe come first (a few seconds), so a
     # version mismatch stops before the local half starts.
-    tree, _commit = snapshot()
+    tree = snapshot()
     remote_head, remote_tree, nproc, remote_version = remote_state(host)
     local_version = local_mutants_version()
     if local_version != remote_version:
@@ -787,6 +855,9 @@ def main(argv: list[str]) -> int:
             "STUDIO_MUTANTS_REMOTE is not set" if host is None
             else f"{crate} is local-only (LOCAL_ONLY_CRATES)"
         )
+        if host is not None and (refusal := remote_refusal(host, remote=False)):
+            print(refusal)
+            return 1
         print(f"{reason}: running every mutant on this machine", flush=True)
         code = local_mutants(["-p", crate]).returncode
         update_cost_cache()

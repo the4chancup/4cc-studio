@@ -368,23 +368,22 @@ not an environment variable as it first was: a shell started while the variable 
 kept it after it was deleted, and would have kept running every mutant remotely.
 
 **The VPS's production Fluxer instance comes first.** The remote half runs as the transient
-system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=11G` with no swap (6G
-until 3.z, when eframe's dependency tree outgrew it; since then each remote cargo process also
-builds with few jobs, `REMOTE_BUILD_JOBS`, 1 since 4.14b's run hit the cap; 8G until 4.6b, whose run
-peaked at 7.90 GiB; 9G while Fluxer ran beside it; 10G from 2026-10-10, Fluxer shelved and
-11.4 GB free, the maintainer's word; 11G later that day, a staging Fluxer stopped and 12.1 GB
-available; near the cap the first lever is fewer build jobs), so a
-runaway mutant is OOM-killed inside the unit and counts as caught; `OOMPolicy=continue`, so that
+system service `studio-mutants` (`sudo -n systemd-run`) with no swap and a `MemoryMax` of the
+host's available memory at launch less 1 GiB (`REMOTE_MEMORY_RESERVE`; printed as `remote
+memory cap`, and `just gates-remote`'s unit gets the same). Until 2026-10-11 the cap was a
+constant raised by hand each time the maintainer freed memory on the host (6G to 11G); a
+measured one takes what is free without asking and leaves the host its margin. Each remote
+cargo process also builds with few jobs (`REMOTE_BUILD_JOBS`, 1 since 4.14b's run hit the cap).
+So a runaway mutant is OOM-killed inside the unit and counts as caught; `OOMPolicy=continue`, so that
 kill does not stop cargo-mutants; `CPUWeight=idle`, because `nice` cannot keep a `user.slice`
 process off Fluxer's CPU under cgroup v2. On 2026-09-29 the old uncapped half filled the host's
 RAM and swap (`display_name` with `i *= 1`, a loop that grows a `Vec` forever), and the global
 OOM killer, which could as well have picked Postgres, took the test. The run prints its peak
-(`remote memory peak`). The cap follows the host's free memory, which only the maintainer
-knows (4.7b's run peaked at 8.43 GiB under 9G; every split run since the tmpfs fix peaks at
-the cap, which is the cgroup's page cache being reclaimed, not a kill), so a peak near the
-cap changes nothing by itself. When a build is killed at the cap, the run fails and lists the
-untested mutants (`report_killed`), and the fix is then a lower `REMOTE_BUILD_JOBS`, a higher
-cap only with the maintainer's word on the free memory; past one job, the crate joins
+(`remote memory peak`) against its cap. Every split run since the tmpfs fix peaks at the
+cap, which is the cgroup's page cache being reclaimed, not a kill, so a peak near the cap
+changes nothing by itself. When a build is killed at the cap, the run fails and lists the
+untested mutants (`report_killed`), and the fix is then memory freed on the host (the
+maintainer's) or a lower `REMOTE_BUILD_JOBS`; past one job, the crate joins
 `LOCAL_ONLY_CRATES` in `scripts/mutants.py`, whose mutants never go to the VPS (a whole-crate run
 and any diff holding one of them run locally whole). `team_compiler` was listed from 4.14d, whose
 run lost two builds at the cap with one job, until the Phase 4 converge audit (2026-10-09) found
@@ -400,7 +399,9 @@ is what to look at first when a killed build shows up again. A running half is s
 costs a poll, not the run: at 2.20i the remote half still hung off one long ssh session and
 died with it. If `just mutants` itself stops, `just mutants-collect` waits for the remote half
 and fetches it, including a died half's partial results. A new run refuses to start while a
-remote half is running or uncollected. **A failed half is reported, never restarted:**
+remote half is running or uncollected (a local one too, since the collection summarizes the
+local `mutants.out` with the remote half), and a run that uses the VPS also while `just
+gates-remote` runs there: both rewrite the remote clone. **A failed half is reported, never restarted:**
 `cargo mutants` does not resume, so a rerun starts from zero, hours of work (at 2.20i the
 sidekick restarted the VPS half and waited on it although the local half had already tested
 every mutant). A brief that starts a whole-crate run says so.

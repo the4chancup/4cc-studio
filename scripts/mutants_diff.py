@@ -15,6 +15,7 @@ mutant runs on the remote, whatever the estimate.
 """
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -33,18 +34,29 @@ def main(argv: list[str]) -> int:
     # go unmeasured unless the tree was staged first (found at 3.8).
     # Bytes, not text: the file must be LF on both sides (text mode writes
     # CRLF on Windows).
-    diff = subprocess.run(
+    diffed = subprocess.run(
         ["git", "diff", base, mutants.working_tree(), "--", "crates"],
         cwd=ROOT,
-        check=True,
         capture_output=True,
-    ).stdout
+    )
+    if diffed.returncode != 0:
+        print(f"mutants_diff: git diff failed:\n{diffed.stderr.decode(errors='replace')}")
+        return 1
+    diff = diffed.stdout
     if not diff.strip():
         print(f"mutants_diff: no changes under crates/ since {base}")
         return 0
     with tempfile.NamedTemporaryFile("wb", suffix=".diff", delete=False) as f:
         f.write(diff)
         diff_path = f.name
+    try:
+        return run(diff_path)
+    finally:
+        os.unlink(diff_path)
+
+
+def run(diff_path: str) -> int:
+    """Lists the diff's mutants and runs them: on the remote whole, split, or here."""
     # The mutant list, for the printed line and the local-run estimate. Each
     # entry's `file` names the crate (`crates/<group>/<crate>/...`).
     listed = subprocess.run(
@@ -66,6 +78,8 @@ def main(argv: list[str]) -> int:
         f"mutants_diff: {len(found)} mutants ({names}), "
         f"estimated {estimated:.0f} s on this machine"
     )
+    if not found:
+        return 0
     host = mutants.remote_host()
     if host is not None and mutants.REMOTE_ONLY:
         return mutants.split(["--in-diff", diff_path], host, local=False)
@@ -76,6 +90,9 @@ def main(argv: list[str]) -> int:
         return mutants.split(["--in-diff", diff_path], host)
     if host is not None and local_only:
         print(f"mutants_diff: {', '.join(local_only)} is local-only (LOCAL_ONLY_CRATES)")
+    if host is not None and (refusal := mutants.remote_refusal(host, remote=False)):
+        print(f"mutants_diff: {refusal}")
+        return 1
     print("mutants_diff: running here", flush=True)
     print(f"mutants_diff: cargo mutants --in-diff {diff_path}", flush=True)
     code = mutants.local_mutants(["--in-diff", diff_path]).returncode
