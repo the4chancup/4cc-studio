@@ -503,7 +503,9 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    each texture as DDS. A `.model.common` entry's `path` is
    `model/character/uniform/common/{team_id}/oral_<stem>_*.model`, and an entry whose `.mtl` the
    search finds in Common, directly or through a `.mtl.common` link, names it as
-   `model/character/uniform/common/{team_id}/<name>`; the player's face CPK holds neither. A
+   `model/character/uniform/common/{team_id}/<name>`, a `Common/` subfolder's file with its
+   subfolder before the name (`.../common/{team_id}/jessie/oral_legs_*.model`, step 4's
+   "Common"); the player's face CPK holds neither. A
    texture link (`hair.png.common`) points a player's `.mtl` path at the Common texture the
    same way. An FMDL directly in `Common/` is converted once there, by the Common models
    task, as the face converts a player's own (item 1): `oral_<stem>_win32.model` with its
@@ -605,7 +607,8 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    combined folder's copy left out, with `shared_texture_overridden` (I) when the two differ or
    his is a link, so a member overriding a shared face's texture sees it was meant; a player's
    material files layer over a Common-linked model's the same way. Two combined folders of
-   different packages holding one stem with different bytes is `shared_texture_conflict`, the
+   different packages holding one texture path with different bytes is
+   `shared_texture_conflict`, the
    lower package dropped with every texture only its sources hold; two of one package cannot
    occur, a player combining one folder of each kind. Planning cannot tell which model names which
    texture (it reads no model bytes), so a source stands for its package. The writer commits a player folder's tasks as one group: it holds the
@@ -653,7 +656,8 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    it, `./<sub>/<name>.model` for a subfolder's as `face.xml` lists one, its type from the
    model-name table); either folder's textures as DDS at their paths below the folder, each
    `.mtl` path naming its texture relative to the packed `.mtl` (`./<stem>.dds` beside it,
-   `../<stem>.dds` for the folder's root texture a subfolder's `.mtl` resolves nearest first;
+   `../<stem>.dds` for the folder's root texture a gloves subfolder's `.mtl` resolves nearest
+   first, a boots folder packing its one `boots.mtl` at the root;
    unchecked in game, `QUESTIONS.md`). Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
    generated empty `.fpkd` (player-owned and merge-copied textures having been relocated to the per-player
    common subfolder; plain shared-output textures remain in that model's own texture location).
@@ -897,7 +901,8 @@ describes behavior, not a serial scheduling requirement:
   renaming what the game already finds would turn a working collar into a guess.
   Only a model directly in `Collars/` is a collar: one below a subfolder, kept when the
   file-type check is lenient (`file_type_disallowed`, Info), is neither named, claimed
-  nor compiled, as a kit's or `Common/`'s subfolder file is not read.
+  nor compiled, as a kit's subfolder file is not read (nor, on PES 18-21, a `Common/`
+  subfolder's no link names).
   These are
   custom collar models that replace one of PES's many stock collar models (the game's `nocloth`
   set); the compiler derives the
@@ -929,17 +934,18 @@ describes behavior, not a serial scheduling requirement:
   (`kit_config_fpc_unpatched`): one warning per slot, whichever edit found it.
   Custom collars are **compatible with team FPC**: collar rewriting runs after FPC
   reconciliation, so the custom ID deliberately overrides the FPC collar value in the configs.
-- **Common** — pre-Fox: `.mtl` texture IDs and relative→absolute path fixes; both modes: texture
-  conversion, dummy ID replacement, `oral_`/`_win32` model-name prefixes, face XML references to
-  renamed common models updated. On PES 15-17 a subfolder of `Common/` is packed under the
+- **Common** — pre-Fox: `.mtl` texture IDs and relative→absolute path fixes, `oral_`/`_win32`
+  model-name prefixes, face XML references to renamed common models updated; both modes:
+  texture conversion, dummy ID replacement. On PES 15-17 a subfolder of `Common/` is packed under the
   team's Common output at its own path (`Common/refkit/x.model` as
   `common/<team>/refkit/oral_x_win32.model`, a model under its packed name), its files processed as `Common/`'s are, and a member's
   `face.xml` Common path names it with the subfolder, and a `.common` link by sitting at the
-  same path below the player folder (`refkit/legs.model.common`, "Link files" in
+  same path below a player or shared folder (`refkit/legs.model.common`, "Link files" in
   `model_format.md`). Red packed the whole
   folder, and the referee exports' `Common/refkit/` ("Referee export processing" in
   `blue_port.md`) is the one real use. On PES 18-21 a subfolder's file is read only through
-  a `.common` link at its path below a player folder (step 6), and one no link reaches is
+  a `.common` link at its path below a player or shared folder (step 6), and one no link
+  reaches is
   `file_not_used`.
 - **Kit-dependent assets** — `kitN`/`kit1`…`kit9` tokens in file names and written paths (FMDL
   path tables, `.mtl` sampler paths, `face.xml` model paths) pass through **verbatim**; the modded
@@ -954,7 +960,7 @@ describes behavior, not a serial scheduling requirement:
   spelled exactly so), and the files of one folder whose stems differ only in that token's
   digit are one set, whose *reference* is the stem with `kitN` in the token's place. In
   any folder the token may be a whole folder name instead (`kit1/x.dds`, `kit2/x.dds`): the
-  files of one name in sibling folders `kit1` to `kit9` are one set,
+  files of one stem in sibling folders `kit1` to `kit9` are one set,
   whose reference is `kitN/x`, completed below as a stem set is, each copy in its number's
   folder. A
   texture set is completed by the task that converts the folder's textures (a model folder's,
@@ -1946,8 +1952,8 @@ Resolved decisions:
   PES folder, no `DpFileList.bin`, or a list that does not name the CPK being compiled, so
   nothing is known to come before it), case 3 cannot be decided, and the finding is a Warning
   that keeps the folder and says the textures could not be looked for. What the rule
-  compares: a path names the team's Common output when its directory, once its `000` became
-  the team's ID, is the team's Common texture directory
+  compares: a path names the team's Common output when its directory, once its 3-character
+  placeholder (`000`, `XXX`) became the team's ID, is the team's Common texture directory
   (`/Assets/pes16/model/character/common/<team>/sourceimages/`) or, for a subdirectory of the
   Common output, `.../common/<team>/<sub>/sourceimages/` (a `Common/` subfolder's, which
   /hdg/'s models name for their per-kit sets; on PES 15-17

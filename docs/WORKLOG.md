@@ -4051,6 +4051,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
           the stem at the Common root today, both engines;
           `pipeline.md` "A texture a model names must exist", `messages.md`'s paragraph after
           "Texture existence is checked **deep**").
+          With it S18.3-1 (the deep pass's Common places lack the folder's texture-link stand-ins
+          the task's have), -4 (`point_texture`'s `_ =>` on `Reference`), -5 (a local shadowing
+          `roles::common_texture_below`); and the pre-Fox `Common/` half of the check, not only the
+          installed one (S18.3-2).
         - (b3b4e) PES 15-17: a texture `.common` link whose target is not in the export
           satisfied by an installed CPK, as on Fox (the face task then points the link by its
           own stem; `messages.md`, the same paragraph's end).
@@ -7192,3 +7196,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   accepted; plan fixes landed, (b3b4d) and (b3b4e) added to 4.y-sub.
 - **2026-10-11** — S19.2 (SWE-2 round 2 on the plan text): 10 of 13 accepted; plan fixes
   landed, (b3b4d) widened to `kitN/` Common paths.
+- **2026-10-11** — S19.3 (SWE-2 round 3 on the plan text): 11 of 13 accepted, all wording
+  and scope fixes; landed.

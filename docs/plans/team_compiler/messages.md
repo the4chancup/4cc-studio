@@ -225,7 +225,7 @@ savefile messages are new.
 | `skl_merge_conflict` | E | merged parts have incompatible skeletons (Fox compares effective SKL content; the pre-Fox merge compares `.model` bone matrices within `1e-4` per component, "`pes_model::ops::merge`" in the Libraries plan) | that package left out (`DropFolder`), as for `merge_material_conflict` |
 | `skl_no_slot` | W | Fox: a member's `.skl` paired with a model resolving to `face_high`/`hair_high`/`oral` (no skeleton slot exists for those; context: `file`, the `.skl`, or the `.common` link whose Common model it pairs with). The skeleton a conversion generates for a model of those roles or for a glove part is dropped with no finding (`pipeline.md` step 3 "Format conversion"): the member authored no file, and every converted face gets one | SKL ignored (no-op file) |
 | `face_file_not_used` | I | a face file (`face_diff.bin`, `face_diff.xml`, and on PES 18-21 `fcl_hair_sim.fclo`, which on PES 15-17 is the other engine's companion and reported by nothing; on PES 15-17 also a member's `face.xml` under `ingame_face`) in a player folder with no face model (a link to a `Faces/` folder holding none gives none), under `ingame_face` or not, or in a shared `Boots/` or `Gloves/` folder, which gives no face; a blank face folder always takes the bundled face diff (context: the file) | file not read |
-| `file_not_used` | W | a file a model folder admits that no package reads, planning giving it no role (`pipeline.md` "2. Per-export serial steps", the face-file paragraph): a `.skl` pairing no model, a `.common` link to a kind no role takes (on PES 15-17 a per-kit variant's too), a `materials.toml`, a `.xml`, `.bin` or `.fclo` under no face name; a texture of a folder that
+| `file_not_used` | W | a file a model folder admits that no package reads, planning giving it no role (`pipeline.md` "2. Per-export serial steps", the face-file paragraph): a `.skl` pairing no model, a `.common` link to a kind no role takes (on PES 15-17 a per-kit variant model's too), a `materials.toml`, a `.xml`, `.bin` or `.fclo` under no face name; a texture of a folder that
 plans no package (a referee folder or an `ingame_face` player holding textures and no model:
 no textures task is planned, `pipeline.md` step 3); a `Common/` file of a kind no task reads (`.fclo`, `.xml`, `.bin`, `materials.toml`); a refs export's kit folder, logo, portrait or collar file, which have no referee to go to. Not reported: a model another representation of its stem beats and the other engine's companions (`pipeline.md` step 3 "Format conversion"), a left-out kit variant (`kit_variant_model_left_out`), a Fox `face.xml` (`xml_ignored_fox`), a Common model, `.mtl` or `.skl` no link or conversion takes (`Common/` is a library), and a file the structure pass already named (`file_type_disallowed`). Over mapped player folders, every shared folder, `Common/` and the refs export's root content, by `check` too (context: `file`, the file's path below the folder, or its export path on the export) | file not read (`Keep`) |
 | `ingame_face_explicit_face_model` | E | `ingame_face` combined with explicit face models (`face_high`/`hair_high`/`oral`, in any supported source format) or a shared face link, which require the suppressed face folder | player folder discarded (`DropFolder`) |
@@ -509,7 +509,9 @@ it as `compile` does; Fox's `fmdl_texture_not_found` runs in its package's task 
 merged model's pointed paths are known. A `.mtl` material is **mesh-used** when a model paired
 with that `.mtl` binds its name. Every `.mtl` of a folder is checked, so one no model pairs with
 (an unlisted `.mtl` beside a member's xml) reports its misses as `mtl_texture_unused_missing`.
-A sampler path, whatever directory it spells, is supplied when its stem (or a variant of its
+A sampler path, whatever directory it spells (but a `./<dir>/` one, which resolves at that path
+alone, `model_format.md` "Stem-based texture references"), is supplied when its stem (or a
+variant of its
 set, for a `pants_kitN` reference) is one the folder holds: a texture among the folder's own
 files or its linked shared face's (for a referee, whose face packs his combined boots' and
 gloves' textures too, those folders' as well), or the linked stem of a texture `.common` link;
@@ -519,9 +521,9 @@ own textures: a shared face is complete by itself, and a texture a player holds 
 names does not count. Past the folder, a `./` or bare path is missing (the face packs no
 texture the folder does not hold); a path of the Common form
 `model/character/uniform/common/<3 chars>/<path>` (`<path>` a name, or a `Common/` subfolder's
-`jessie/skin.dds`) is supplied when `Common/` holds the stem at that path, or an installed CPK
-holds `common/character1/model/character/uniform/common/<team>/<path>` as a `.dds` (a `kitN/`
-directory standing for its set, a variant supplying it, as in `pipeline.md`)
+`jessie/skin.dds`; a `kitN/` directory stands for its set, a variant supplying it, as in
+`pipeline.md`) is supplied when `Common/` holds the stem at that path, or an installed CPK
+holds `common/character1/model/character/uniform/common/<team>/<path>` as a `.dds`
 (the walk of `fmdl_texture_not_found`; a lookup that cannot be made, or an export with no team
 ID, holds nothing); any other path names the game's own files and is not looked up, nor is a
 `dummy_*` stem. One finding per `.mtl` and distinct path, naming the file, the path as written
