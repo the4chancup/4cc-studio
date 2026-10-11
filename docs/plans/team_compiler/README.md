@@ -1046,6 +1046,35 @@ TC-MOD-77  GIVEN Common/armor.dds, Boots/Crocs holding boots.model, boots.mtl an
            armor.dds.common, and slot 05 linking Crocs.boots
            WHEN the export is compiled for PES 17
            THEN file_not_used names armor.dds.common on Boots/Crocs, and the folder is kept
+TC-MOD-79  GIVEN Common/boots.fmdl, Boots/Crocs holding boots.fmdl.common alone, and slot 05
+           holding face_high.fmdl and linking Crocs.boots
+           WHEN the export is compiled for PES 21
+           THEN Crocs takes the team's first shared boots id, whose boots package holds
+                Common's boots.fmdl's meshes, slot 05's BootsList row names that id, and
+                neither shared_folder_no_model nor file_not_used is reported
+TC-MOD-80  GIVEN Common/jessie/body.fmdl naming hair and Common/jessie/hair.dds, and slot 05
+           holding face_high.fmdl and linking Faces/Round, which holds fcl_hair.fmdl and
+           jessie/body.fmdl.common
+           WHEN the export is compiled for PES 21
+           THEN 71405's face package holds face_high's, fcl_hair's and body.fmdl's meshes, the
+                model built from body.fmdl names hair in
+                /Assets/pes16/model/character/common/714/jessie/sourceimages/, the CPK holds
+                that directory's #windx11/hair.ftex, and no finding names body or hair
+TC-MOD-81  GIVEN Common/boots.mtl naming ./skin.dds and Common/skin.dds, Boots/Crocs holding
+           boots.model and boots.mtl.common, and slot 05 holding face_high.fmdl and linking
+           Crocs.boots
+           WHEN the export is compiled for PES 21
+           THEN Crocs' boots package holds boots.model converted with Common's boots.mtl, its
+                model names skin in /Assets/pes16/model/character/common/714/sourceimages/,
+                and neither model_material_undefined nor file_not_used is reported
+TC-MOD-82  GIVEN Common/boots.mtl naming ./skin.dds and Common/skin.dds, and Faces/Round holding
+           fcl_hair.fmdl, boots.model, materials.mtl and boots.mtl.common, slot 05 linking it
+           as his face
+           WHEN the export is compiled for PES 21
+           THEN link_combined is reported, and the boots folder of slot 05's exclusive id holds
+                boots.model converted with Common's boots.mtl, not materials.mtl, naming skin
+                in /Assets/pes16/model/character/common/714/sourceimages/, and no
+                file_not_used is reported
 TC-MOD-69  GIVEN slot 05 holding face_high.model with its .mtl, and oral.fmdl whose only mesh
            is flagged invisible
            WHEN the export is compiled for PES 17

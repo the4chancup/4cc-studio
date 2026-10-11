@@ -4071,9 +4071,12 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
           (`common_link_missing` on the shared folder, the drop cascading to its linkers);
           on Fox its texture links count, in its own output and combined into a player's
           (TC-MOD-75, TC-MOD-76); a link with no role there is `file_not_used`. Done.
-        - (b3c2b) Fox: its model and material-file links (Common models per source, the
-          shared output's own Common lists, a shared folder holding only a model link has
-          a model, the deep pass's searches and hidden-model drop).
+        - (b3c2b) Fox: its model and material-file links, in its own output and combined
+          into a player's (TC-MOD-79 to TC-MOD-82): Common models per source, the shared
+          output's own Common lists, a shared folder holding only a model link has a model,
+          the deep pass's `.mtl` searches; a Common file linked by both a player and his
+          combined shared folder is one part, the player's own link winning (step 6). The
+          hidden-model drop is PES 15-17's (`pipeline.md` step 2), so it waits with that half.
         - PES 15-17: deferred until the cup next plays a pre-Fox version; a shared folder's
           link is `file_not_used` there (TC-MOD-77).
   - (b4) kit-token folders (`kit1` to `kit9`) form variant sets (`kitN/<name>`) in any folder,
