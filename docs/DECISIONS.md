@@ -6975,3 +6975,28 @@ Why: PES 21 draws what the stricter rules refused. Red's output of EGG VGL26's X
 exports (5.0e (2)), each of which the old rules would have dropped with its folder or kit.
 Plan: `team_compiler/messages.md` (both rows), `libs/dds_convert.md` "Mipmaps";
 `team_compiler/README.md` TC-TEX-03, TC-CHK-04.
+
+## 2026-10-12 — workspace — a dev-tool crate for the mutants cargo-mutants lacks
+Decision: step 5.0b goes ahead (the maintainer's yes, 2026-10-12): a binary crate
+`crates/dev/extra_mutants` (workspace member glob `crates/dev/*`), depending on `syn` 3
+(`full`, `visit`) and `proc-macro2` (`span-locations`), lists guard-drop and literal-list
+mutants; `scripts/extra_mutants.py` runs them locally, one at a time, in a copy of the tree.
+The prototype skips the remote split and the cost cache of `scripts/mutants.py`.
+Why: `syn` 3 over 2, the line the tree moves on; `span-locations` because a mutant is a text
+patch at the node's position, which leaves the rest of the file as written (printing the
+mutated tree would reformat it, and need `quote` or `prettyplease`). Local and sequential
+because one crate's prototype run is short; the remote split joins only if the run joins
+converge, which the prototype's survivor count decides.
+Plan: `core/README.md` "External Dependencies"; worklog 5.0b.
+
+## 2026-10-12 — workspace — three more mutant kinds in 5.0b's trial, each decided on its own
+Decision: `extra_mutants` also lists dropped normalizations (`.trim*()`, `.to_ascii_lowercase()`,
+`eq_ignore_ascii_case` → `==`), dropped ordering statements (`sort*`, `dedup*`, `reverse`) and
+flipped boolean literals in call arguments and struct fields; the runner takes a `--kind` filter
+and each of the five kinds is run, triaged and adopted or dropped independently.
+Why: none of these is a `cargo-mutants` 27 kind (its 1,160 `team_compiler` mutants at 4.y hold
+operator swaps, `!` and match-arm deletions, guards and function bodies, never a literal, a
+statement or a method call), and the first two match this codebase's tolerance of members'
+spellings and its ordered outputs, which tidy fixtures cannot tell apart. Deciding per kind
+keeps a noisy kind from sinking a useful one (maintainer, 2026-10-12).
+Plan: worklog 5.0b.

@@ -5210,15 +5210,24 @@ Fixed before the itemization:
   color grammar's leading-`+` guard and tab refusal untested with every mutant of the file
   caught (`CONTRIBUTING.md` "Mutation runs"). Upstream checked 2026-10-09: issue #180 "Delete
   statements" open since 2023 with no milestone, its notes leaning against deleting statements
-  that hold a `return`; nothing on literals. Shape: a `syn`-based generator writing one patch
-  per mutant, run through `scripts/mutants.py`'s tree copy, timeouts and remote split.
-  **Needs the maintainer's yes first**: a new dev-tool crate (linked into no release binary)
-  and a direct `syn` dependency (agreed in principle 2026-10-09). `syn` 3 with `full` and
+  that hold a `return`; nothing on literals. Shape: a `syn`-based generator listing one text
+  patch per mutant, each run in a copy of the tree with a timeout. The maintainer's yes, 2026-10-12 (DECISIONS): the dev-tool crate `crates/dev/extra_mutants`
+  (linked into no release binary), with direct `syn` and `proc-macro2` dependencies; the
+  prototype runs locally and sequentially, without `mutants.py`'s remote split. `syn` 3 with `full` and
   `visit`, features the workspace already builds it with, so it compiles nothing new (check:
   a clean build compiles `syn` 3 once): the generator only reads the tree and patches text,
-  so no `visit-mut`; not `syn` 2, which leaves the tree as `binrw` and `pyo3` move on. → done when: run over `aesthetics_export`, its survivors
-  triaged into real gaps and equivalents, and the count decides whether it joins converge
-  (worth it when at least about half the survivors are real gaps)
+  so no `visit-mut`; not `syn` 2, which leaves the tree as `binrw` and `pyo3` move on. Three
+  more kinds, trialed with the two (maintainer, 2026-10-12), none of which `cargo-mutants` 27
+  makes (it never edits a literal, drops a statement or removes a method call): (3) a
+  normalization dropped, a `.trim*()` or `.to_ascii_lowercase()` removed from a chain or
+  `eq_ignore_ascii_case` made `==`; (4) an ordering statement dropped, a `sort*`, `dedup*` or
+  `reverse` call; (5) a `true`/`false` literal flipped where it is a call argument or a struct
+  field. Not trialed: integer literals ±1 (boundaries are `<`→`<=` already, and offsets and
+  sizes would add thousands of mutants the goldens catch), string literals, `..`↔`..=`, one
+  side of an `&&`. Slices: 5.0b1 the lister with kinds (1)-(2) and the runner; 5.0b2 kinds
+  (3)-(5) and a `--kind` filter. → done when: each kind run over `aesthetics_export` on its
+  own, its survivors triaged into real gaps and equivalents, and its own count decides
+  whether it joins converge (worth it when at least about half its survivors are real gaps)
 - [x] 5.0c Red behavior inventory (maintainer, 2026-10-09; after Phase 4 closes, before Phase 5
   builds on the compiler): go through Red's own code (`4cc-aet-compiler-red/Engines/python/`,
   not its bundled site-packages) module by module, one subagent per module, and list every
