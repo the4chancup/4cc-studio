@@ -3773,7 +3773,7 @@ mod tests {
     }
 
     #[test]
-    fn a_variant_set_gets_its_lowest_variant_under_each_kit_number_it_lacks() {
+    fn a_variant_set_s_fallback_serves_every_kit_number_it_lacks() {
         // `pants_kit1` and `pants_kit3` hold different images.
         let folder = player_with(
             vec![
@@ -3789,6 +3789,8 @@ mod tests {
             })
         };
 
+        // On PES 18-21 the fallback is written once under the reference's spelling,
+        // whatever the export's numbers, and each one the set lacks is still reported.
         let batch = textures(&[1, 2, 3]);
         assert_eq!(
             variants_missing(&batch),
@@ -3799,7 +3801,7 @@ mod tests {
             [
                 player_texture("pants_kit1"),
                 player_texture("pants_kit3"),
-                player_texture("pants_kit2"),
+                player_texture("pants_kitN"),
             ]
         );
         let kit1 = entry(&batch, &player_texture("pants_kit1"));
@@ -3807,16 +3809,21 @@ mod tests {
             kit1,
             ftex::dds_to_ftex(&tracer_player_file("shirt.dds"), ftex::ColorSpace::Normal).unwrap()
         );
-        assert_eq!(entry(&batch, &player_texture("pants_kit2")), kit1);
+        assert_eq!(entry(&batch, &player_texture("pants_kitN")), kit1);
         assert_ne!(entry(&batch, &player_texture("pants_kit3")), kit1);
 
-        // No number lacks a variant, or the export defines none: the two alone.
+        // Every number has a variant, or the export defines none: the `kitN` spelling all
+        // the same, and no finding.
         for kits in [&[1, 3][..], &[]] {
             let batch = textures(kits);
             assert!(batch.messages.is_empty(), "{kits:?}: {:?}", batch.messages);
             assert_eq!(
                 paths(&batch),
-                [player_texture("pants_kit1"), player_texture("pants_kit3")],
+                [
+                    player_texture("pants_kit1"),
+                    player_texture("pants_kit3"),
+                    player_texture("pants_kitN"),
+                ],
                 "{kits:?}"
             );
         }
@@ -3830,20 +3837,48 @@ mod tests {
                 missing("pants_kitN", "4", "pants_kit1")
             ]
         );
+
+        // On PES 15-17 the fallback is copied under each missing number's name instead.
+        let prefox_texture = |stem: &str| {
+            format!(
+                "common/character1/model/character/uniform/common/792/05 - The Chad Stormworks Player/{stem}.dds"
+            )
+        };
+        let batch = run_for(
+            TaskKind::Textures {
+                folder,
+                kits: vec![1, 2, 3, 4],
+            },
+            PesVersion::Pes17,
+        );
+        assert_eq!(
+            variants_missing(&batch),
+            [
+                missing("pants_kitN", "2", "pants_kit1"),
+                missing("pants_kitN", "4", "pants_kit1")
+            ]
+        );
         assert_eq!(
             paths(&batch),
             [
-                player_texture("pants_kit1"),
-                player_texture("pants_kit3"),
-                player_texture("pants_kit2"),
-                player_texture("pants_kit4"),
+                prefox_texture("pants_kit1"),
+                prefox_texture("pants_kit3"),
+                prefox_texture("pants_kit2"),
+                prefox_texture("pants_kit4"),
             ]
         );
-        assert_eq!(entry(&batch, &player_texture("pants_kit4")), kit1);
+        assert_eq!(
+            entry(&batch, &prefox_texture("pants_kit2")),
+            entry(&batch, &prefox_texture("pants_kit1"))
+        );
+        assert_eq!(
+            entry(&batch, &prefox_texture("pants_kit4")),
+            entry(&batch, &prefox_texture("pants_kit1"))
+        );
     }
 
     #[test]
-    fn each_set_of_a_folder_is_completed_from_its_own_lowest_variant_and_nothing_else_is() {
+    fn each_set_of_a_folder_is_completed_from_its_own_fallback_and_nothing_else_is() {
         // `pants` has only kit 3, `socks` kits 2 and 3 in different images; `shirt` and
         // `skit1` hold no token.
         let folder = player_with(
@@ -3877,16 +3912,16 @@ mod tests {
                 player_texture("skit1"),
                 player_texture("socks_kit2"),
                 player_texture("socks_kit3"),
-                player_texture("pants_kit1"),
-                player_texture("socks_kit1"),
+                player_texture("pants_kitN"),
+                player_texture("socks_kitN"),
             ]
         );
         assert_eq!(
-            entry(&batch, &player_texture("pants_kit1")),
+            entry(&batch, &player_texture("pants_kitN")),
             entry(&batch, &player_texture("pants_kit3"))
         );
         let socks2 = entry(&batch, &player_texture("socks_kit2"));
-        assert_eq!(entry(&batch, &player_texture("socks_kit1")), socks2);
+        assert_eq!(entry(&batch, &player_texture("socks_kitN")), socks2);
         assert_ne!(entry(&batch, &player_texture("socks_kit3")), socks2);
     }
 
@@ -3921,11 +3956,151 @@ mod tests {
         };
         assert_eq!(
             paths(&batch),
-            [common("tape_kit2"), common("hair"), common("tape_kit1")]
+            [common("tape_kit2"), common("hair"), common("tape_kitN")]
         );
         assert_eq!(
-            entry(&batch, &common("tape_kit1")),
+            entry(&batch, &common("tape_kitN")),
             entry(&batch, &common("tape_kit2"))
+        );
+    }
+
+    #[test]
+    fn a_kits_fallback_serves_the_set_s_gaps_and_never_its_own_name() {
+        // `pants_kit1` and `pants_kitF` hold different images.
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/pants_kit1.dds"), "shirt.dds"),
+                other_dds(&format!("{PLAYER}/pants_kitF.dds")),
+            ],
+            Vec::new(),
+        );
+
+        // On PES 18-21: `kitN` alone, from the `kitF` file, and no finding.
+        let batch = run(TaskKind::Textures {
+            folder: folder.clone(),
+            kits: vec![1, 2],
+        });
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(
+            paths(&batch),
+            [player_texture("pants_kit1"), player_texture("pants_kitN")]
+        );
+        let kitf = std::fs::read(tracer().join("Kits/g1/kit.dds")).unwrap();
+        assert_eq!(
+            entry(&batch, &player_texture("pants_kitN")),
+            ftex::dds_to_ftex(&kitf, ftex::ColorSpace::Normal).unwrap()
+        );
+
+        // On PES 15-17: the `kitF` file copied under each missing number's name, still
+        // with no finding and never under its own name.
+        let prefox_texture = |stem: &str| {
+            format!(
+                "common/character1/model/character/uniform/common/792/05 - The Chad Stormworks Player/{stem}.dds"
+            )
+        };
+        let batch = run_for(
+            TaskKind::Textures {
+                folder,
+                kits: vec![1, 2, 3],
+            },
+            PesVersion::Pes17,
+        );
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(
+            paths(&batch),
+            [
+                prefox_texture("pants_kit1"),
+                prefox_texture("pants_kit2"),
+                prefox_texture("pants_kit3"),
+            ]
+        );
+        assert_eq!(
+            entry(&batch, &prefox_texture("pants_kit2")),
+            entry(&batch, &prefox_texture("pants_kit3"))
+        );
+        assert_ne!(
+            entry(&batch, &prefox_texture("pants_kit2")),
+            entry(&batch, &prefox_texture("pants_kit1"))
+        );
+    }
+
+    #[test]
+    fn a_kits_fallback_alone_is_a_set_written_as_kitn_on_fox_and_every_gap_on_pes_17() {
+        let folder = player_with(
+            vec![other_dds(&format!("{PLAYER}/pants_kitF.dds"))],
+            Vec::new(),
+        );
+
+        let batch = run(TaskKind::Textures {
+            folder: folder.clone(),
+            kits: vec![1, 2],
+        });
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(paths(&batch), [player_texture("pants_kitN")]);
+
+        let prefox_texture = |stem: &str| {
+            format!(
+                "common/character1/model/character/uniform/common/792/05 - The Chad Stormworks Player/{stem}.dds"
+            )
+        };
+        let batch = run_for(
+            TaskKind::Textures {
+                folder,
+                kits: vec![1, 2, 3],
+            },
+            PesVersion::Pes17,
+        );
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        assert_eq!(
+            paths(&batch),
+            [
+                prefox_texture("pants_kit1"),
+                prefox_texture("pants_kit2"),
+                prefox_texture("pants_kit3"),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_variant_set_in_a_subfolder_completes_at_its_own_path() {
+        // `face/` holds a set: the `kitF` file serves `kitN` there too, and nothing emits
+        // its own name.
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/face/pants_kit1.dds"), "shirt.dds"),
+                other_dds(&format!("{PLAYER}/face/pants_kitF.dds")),
+                other_dds(&format!("{PLAYER}/old_kit2_hair/skin.dds")),
+            ],
+            Vec::new(),
+        );
+
+        let batch = run(TaskKind::Textures {
+            folder,
+            kits: vec![1, 2],
+        });
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        // A texture of `face/` or `old_kit2_hair/` packs at `<dir>/sourceimages/#windx11/`.
+        let sub_dir = |directory: &str, stem: &str| {
+            format!(
+                "Asset/model/character/common/792/05 - The Chad Stormworks Player/{directory}sourceimages/#windx11/{stem}.ftex"
+            )
+        };
+        assert_eq!(
+            paths(&batch),
+            [
+                sub_dir("face/", "pants_kit1"),
+                sub_dir("old_kit2_hair/", "skin"),
+                sub_dir("face/", "pants_kitN"),
+            ]
+        );
+        assert_eq!(
+            entry(&batch, &sub_dir("face/", "pants_kitN")),
+            entry(&batch, &sub_dir("old_kit2_hair/", "skin"))
+        );
+        assert_ne!(
+            entry(&batch, &sub_dir("face/", "pants_kitN")),
+            entry(&batch, &sub_dir("face/", "pants_kit1"))
         );
     }
 

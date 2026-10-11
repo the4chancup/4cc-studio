@@ -26,10 +26,12 @@ use studio_core::Disposition;
 use vtree::ScopePath;
 
 use super::{CompileContext, Entry, Finding, TaskFailure, TaskFiles, take};
+use crate::kit_variants::{self, member_kit};
 use crate::messages::Code;
 use crate::paths;
 use crate::plan::roles::{ModelPackage, PlayerFile, file_stem, texture_format};
 use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
+use crate::texture_lookup::split;
 
 /// Why a texture could not be converted.
 #[derive(Debug)]
@@ -234,7 +236,7 @@ pub(super) fn folder_textures(
         })
         .chain(environment_map)
         .collect();
-    complete_kit_variants(&mut textures, kits, findings);
+    complete_kit_variants(&mut textures, kits, ctx.version.engine(), findings);
     let entries = textures
         .into_iter()
         .map(|(below, bytes)| {
@@ -249,56 +251,100 @@ pub(super) fn folder_textures(
 
 /// Completes the kit variant sets among `textures`, each a path below its folder without its
 /// extension as spelled (a stem, for a texture directly in it) with its converted bytes,
-/// against `kits`, the export's kit numbers (`pipeline.md` "4. Per-export non-model steps",
-/// Kit-dependent assets): the variants of one reference, compared case-folded, are a set, and
-/// for each of `kits` a set has no variant of, in ascending order, the lowest variant's bytes
-/// are added under that number's name and `kit_variant_missing` is noted in `findings`, so the
-/// game never shows a missing texture for a kit the team has. A variant of a number `kits` does
-/// not hold stays as it is. Only the textures directly in the folder form sets: a subfolder's
-/// variants are emitted as they are.
+/// against `kits`, the export's kit numbers, for a target of `engine` (`pipeline.md` "4.
+/// Per-export non-model steps", Kit-dependent assets): the members of one reference,
+/// compared case-folded — its `kit1` to `kit9` variants and its `kitF` fallback, which is
+/// never emitted under its own name — are a set. The set's fallback, its `kitF` member else
+/// its lowest variant, serves every kit number the set lacks: on PES 15-17 it is emitted
+/// under each missing number's spelling, and `kit_variant_missing` is noted in `findings`
+/// for each when the fallback is the lowest variant; on PES 18-21 it is written once under
+/// the reference's spelling (`pants_kitN`), whatever `kits` holds, which FoxDen's kit
+/// swapper loads for a kit without a variant, with no per-number copies. A `kitF` fallback
+/// reports no finding. A variant of a number `kits` does not hold stays as it is. The
+/// token is read in each file's name alone (`old_kit2_hair/skin` is no variant), and a set
+/// is one directory's: a subfolder's files form their own sets there.
 fn complete_kit_variants(
     textures: &mut Vec<(String, Vec<u8>)>,
     kits: &[u8],
+    engine: Engine,
     findings: &mut Vec<Finding>,
 ) {
-    // Every variant as (folded reference, kit number, position in `textures`, reference),
-    // sorted so each set is a run with its lowest variant first.
-    let mut variants: Vec<(String, u8, usize, String)> = textures
+    // Every member as (kit number — `None` for the `kitF` fallback —, position in
+    // `textures`, folded directory and reference, reference spelled), sorted so each set
+    // is a run with its fallback — its `kitF` member when it has one, else its lowest
+    // variant — first.
+    let mut members: Vec<(Option<u8>, usize, String, String)> = textures
         .iter()
         .enumerate()
-        // A token is read in the whole text, a subfolder's name included (`old_kit2_hair/skin`
-        // would read as a variant), so only a stem directly in the folder is read for one.
-        .filter(|(_, (below, _))| !below.contains('/'))
-        .filter_map(|(index, (stem, _))| match kit_token(stem)? {
-            (KitToken::Variant(kit), reference) => {
-                Some((vtree::fold_name(&reference), kit, index, reference))
+        // A token is read in the file name alone, a subfolder's name not read for one
+        // (`old_kit2_hair/skin` would read as a variant); each set is one directory's
+        // files.
+        .filter_map(|(index, (below, _))| {
+            let (directory, name) = split(below);
+            match kit_token(name)? {
+                (token @ (KitToken::Variant(_) | KitToken::Fallback), reference) => Some((
+                    member_kit(token),
+                    index,
+                    vtree::fold_name(&format!("{directory}{reference}")),
+                    format!("{directory}{reference}"),
+                )),
+                (KitToken::Reference, _) => None,
             }
-            (KitToken::Reference, _) => None,
         })
         .collect();
-    variants.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
-    for set in variants.chunk_by(|a, b| a.0 == b.0) {
-        let (_, _, lowest, reference) = &set[0];
-        let copied = textures[*lowest].0.clone();
-        for &kit in kits {
-            if set.iter().any(|(_, held, ..)| *held == kit) {
-                continue;
+    members.sort_by(|a, b| a.2.cmp(&b.2).then(a.0.cmp(&b.0)));
+    // The entries to add, and the positions of the `kitF` members, which nothing emits.
+    let mut added = Vec::new();
+    let mut dropped = Vec::new();
+    for set in members.chunk_by(|a, b| a.2 == b.2) {
+        let fallback_index =
+            kit_variants::fallback(set, |member| member.0).expect("every set has a member");
+        let (fallback_kit, fallback, _, reference) = &set[fallback_index];
+        let copied = textures[*fallback].0.clone();
+        // Each entry owns its bytes: every copy of the fallback's is one.
+        let bytes = || textures[*fallback].1.clone();
+        let held = |kit: u8| set.iter().any(|(number, ..)| *number == Some(kit));
+        match engine {
+            Engine::Fox => {
+                added.push((reference.clone(), bytes()));
             }
-            let stem = variant_stem(&copied, kit).expect("a variant's stem holds its kit token");
-            // Each entry owns its bytes: the gap gets a copy of the lowest variant's.
-            let bytes = textures[*lowest].1.clone();
-            textures.push((stem, bytes));
-            findings.push((
-                Code::KitVariantMissing,
-                Disposition::Keep,
-                vec![
-                    ("texture", reference.clone()),
-                    ("kit", kit.to_string()),
-                    ("copied", copied.clone()),
-                ],
-            ));
+            Engine::PreFox => {
+                for &kit in kits {
+                    if held(kit) {
+                        continue;
+                    }
+                    let (directory, name) = split(&copied);
+                    let stem =
+                        variant_stem(name, kit).expect("a set member's name holds its kit token");
+                    added.push((format!("{directory}{stem}"), bytes()));
+                }
+            }
+        }
+        if fallback_kit.is_none() {
+            dropped.push(*fallback);
+        } else {
+            for &kit in kits {
+                if held(kit) {
+                    continue;
+                }
+                findings.push((
+                    Code::KitVariantMissing,
+                    Disposition::Keep,
+                    vec![
+                        ("texture", reference.clone()),
+                        ("kit", kit.to_string()),
+                        ("copied", copied.clone()),
+                    ],
+                ));
+            }
         }
     }
+    // Highest position first, so each removal leaves the lower positions where they were.
+    dropped.sort_unstable_by(|a, b| b.cmp(a));
+    for index in dropped {
+        textures.remove(index);
+    }
+    textures.extend(added);
 }
 
 /// Decides one path held by `copies`, several sources' in source order, and by `links`, the
@@ -452,7 +498,7 @@ pub(super) fn common_textures(
             ctx.templates.environment_map().to_vec(),
         ));
     }
-    complete_kit_variants(&mut converted, kits, findings);
+    complete_kit_variants(&mut converted, kits, ctx.version.engine(), findings);
     Ok(converted)
 }
 

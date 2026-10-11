@@ -619,6 +619,37 @@ fn a_converted_fmdl_s_material_set_and_a_member_s_mtl_differing_in_case_are_two_
 }
 
 #[test]
+fn a_kits_fallback_fmdl_and_a_member_s_mtl_of_its_stem_are_two_files_of_one_name() {
+    let sandbox = Sandbox::new("prefox_face_kitf_mtl_collision");
+    let export = "co Midcup Case";
+    // A `kitF` member's files are packed under their own names as any other file's, so
+    // `face_high_kitF.fmdl` beside `face_high_kitF.mtl` collides as `face_high_kit1`'s pair
+    // does (`face_high` stems because the conversion of a body part reports losses the
+    // assertion would have to list).
+    for (slot, stem) in [("05 - A", "face_high_kitF"), ("07 - B", "face_high_kit1")] {
+        let player = format!("exports/{export}/Players/{slot}");
+        sandbox.write(&format!("{player}/{stem}.fmdl"), &clean_model());
+        sandbox.write(&format!("{player}/{stem}.mtl"), &card_materials());
+        sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    }
+
+    let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            CLEAN[0],
+            CLEAN[1],
+            "Error folder_pack_failed [DropFolder] at Players/05 - A (error=two files of the face are packed as face_high_kitF.mtl)",
+            "Error folder_pack_failed [DropFolder] at Players/07 - B (error=two files of the face are packed as face_high_kit1.mtl)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+}
+
+#[test]
 fn a_model_with_no_mtl_drops_its_folder_and_a_face_without_face_neck_gets_the_dummy() {
     let sandbox = Sandbox::new("prefox_undefined");
     let export = "exports/co Midcup Hats";

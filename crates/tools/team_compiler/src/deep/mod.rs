@@ -82,6 +82,7 @@ use rayon::prelude::*;
 use vtree::ScopePath;
 
 use crate::bins::{KIT_COLORS, TEAM_COLORS};
+use crate::kit_variants::kit_lookup_key;
 use crate::messages::Code;
 use crate::plan::EffectiveTeamKitFpc;
 use crate::plan::roles::{
@@ -361,17 +362,19 @@ pub(crate) fn content_findings(
         }
     }
     // A subfolder's textures are packed under its own path, which no player's paths name.
+    // A `kitF` file goes into the sets under its set's `kitN` reference (`kit_lookup_key`):
+    // a path naming its own spelling finds nothing.
     kept_common.texture_stems = kept_common
         .files
         .iter()
         .filter(|file| file.kind == FileKind::Texture && is_direct_root_folder_file(&file.path))
-        .map(|file| vtree::fold_name(file_stem(file.path.name())))
+        .map(|file| kit_lookup_key(file_stem(file.path.name())))
         .collect();
     kept_common.texture_belows = kept_common
         .files
         .iter()
         .filter(|file| file.kind == FileKind::Texture)
-        .map(|file| vtree::fold_name(file_stem(below_common(&file.path))))
+        .map(|file| kit_lookup_key(file_stem(below_common(&file.path))))
         .collect();
     match engine {
         Engine::Fox => {}
@@ -1025,7 +1028,7 @@ fn folder_findings(
     for file in files {
         if let Some(PlayerFile::CommonTexture(below)) = player_file(folder, file, models) {
             common_held.insert_link(&below);
-            common_below.insert(vtree::fold_name(&below));
+            common_below.insert(kit_lookup_key(&below));
         }
     }
     // The combined folders' texture links too, standing at their paths as the Models
@@ -1037,7 +1040,7 @@ fn folder_findings(
                 player_file(&source.path, file, &source_models)
             {
                 common_held.insert_link(&below);
-                common_below.insert(vtree::fold_name(&below));
+                common_below.insert(kit_lookup_key(&below));
             }
         }
     }
@@ -1220,7 +1223,7 @@ fn user_xml_findings(
 /// pack: an FMDL, which such a face never converts (a reference resolves a `.model` alone,
 /// `xml_model_not_found` otherwise), a file where it takes no role (`role_position`), or one
 /// no entry names, by its `path` for a
-/// `.model` and its `material` for a `.mtl`, a `kitN` name naming every variant of its set
+/// `.model` and its `material` for a `.mtl`, a `kitN` name naming every member of its set
 /// (`user_face_xml::names_file`, the rule of `xml_model_unlisted` and of the face task).
 /// False for any other file.
 fn xml_unnamed(

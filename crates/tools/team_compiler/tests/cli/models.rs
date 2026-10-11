@@ -2128,6 +2128,61 @@ fn per_kit_models_on_pes_21_compile_the_lowest_variant_alone_and_say_so() {
     assert!(hair(&both) == hair(&alone), "the packed hair differs");
 }
 
+// TC-CMN-28
+#[test]
+fn a_kits_fallback_model_is_used_and_the_variant_left_out_on_pes_21() {
+    let sandbox = Sandbox::new("mod_kit_fallback");
+    let player = "exports/co Midcup Fallback/Players/05 - A";
+    // Different models: the fallback is the hair, the variant the boots.
+    sandbox.write(
+        &format!("{player}/pants_kitF.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        &format!("{player}/pants_kit1.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    // The deep pass does not read the left-out variant, which nothing reads; it is not a
+    // part of the hair, so only `pants_kitF` is the hair's fallback.
+    let checked = [
+        "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=pants_kitF.fmdl, count=1662)",
+        "Info export_identified [Keep] (team=/co/, id=714)",
+        "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=pants_kitF.fmdl)",
+    ];
+
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    assert_eq!(
+        findings_of(&check.messages(), "co Midcup Fallback"),
+        checked
+    );
+    assert_eq!(check.exit_code(), 0);
+
+    let entries = compile_clean(
+        &sandbox,
+        "co Midcup Fallback",
+        &[
+            &checked[..],
+            &[
+                "Info team_colors_missing [Keep] ()",
+                "Warning kit_variant_model_left_out [Keep] at Players/05 - A (model=pants_kitN.fmdl, used=pants_kitF.fmdl)",
+            ],
+        ]
+        .concat(),
+    );
+
+    let meshes = |bytes: &[u8]| {
+        Model::from_file(&FmdlFile::read(bytes).unwrap())
+            .unwrap()
+            .meshes
+            .len()
+    };
+    assert_eq!(
+        meshes(face_package(&entries).get("fcl_hair.fmdl").unwrap()),
+        meshes(&tracer_player_file("fcl_hair.fmdl")),
+        "the face model is built from the `kitF` file alone"
+    );
+}
+
 #[test]
 fn a_per_kit_set_split_between_a_player_folder_and_its_face_subfolder_is_one_set_on_pes_21() {
     let sandbox = Sandbox::new("mod_kit_variant_face_subfolder");

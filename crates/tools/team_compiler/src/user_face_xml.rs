@@ -18,6 +18,7 @@ use vtree::ScopePath;
 use crate::deep::relative;
 use crate::face_diff::{self, FaceDiffError};
 use crate::face_xml::is_generated_type;
+use crate::kit_variants::{kit_fallback_stem, member_kit, representative};
 use crate::messages::Code;
 use crate::plan::roles::{common_file, file_stem, role_position};
 use crate::texture_lookup::split;
@@ -298,9 +299,9 @@ impl<'a> FaceFiles<'a> {
 /// `.mtl.common` link counting as a `.mtl` of its linked name and standing for the `Common/`
 /// file it names), then among the linked shared face's (`linked_local`); a `Common` one among
 /// `Common/`'s files by their path relative to `Common/`, a subfolder's included. A name with
-/// a `kitN` token names its set in the directory it names, found when a variant of it is
-/// there, the lowest one returned. `None` when none is there, and for an `Unchecked`
-/// reference.
+/// a `kitN` token names its set in the directory it names, found when a member of it is
+/// there — a variant or the `kitF` fallback — the lowest one returned. `None` when none is
+/// there, and for an `Unchecked` reference.
 pub(crate) fn resolve<'a>(
     reference: &Reference,
     files: &FaceFiles<'a>,
@@ -354,32 +355,35 @@ fn candidate<'a>(
 }
 
 /// The file among `candidates` (path, file) that the referenced path `referenced` names: the
-/// one of its path, case-folded, else, for a `kitN` reference, the lowest variant of its set
-/// (`variant_of`).
+/// one of its path, case-folded — a `kitF` file answering no name of its own — else, for a
+/// `kitN` reference, the set's representative: its lowest-numbered variant, or its `kitF`
+/// fallback when it has no variant (`variant_of`, `kit_variants::representative`).
 fn named<'a>(
     candidates: &[(String, &'a FileDescriptor)],
     referenced: &str,
 ) -> Option<&'a FileDescriptor> {
     let key = vtree::fold_name(referenced);
-    if let Some((_, file)) = candidates
-        .iter()
-        .find(|(path, _)| vtree::fold_name(path) == key)
-    {
+    if let Some((_, file)) = candidates.iter().find(|(path, _)| {
+        vtree::fold_name(path) == key && !kit_fallback_stem(file_stem(split(path).1))
+    }) {
         return Some(file);
     }
-    candidates
+    let members: Vec<(Option<u8>, &FileDescriptor)> = candidates
         .iter()
-        .filter_map(|(path, file)| variant_of(referenced, path).map(|kit| (kit, *file)))
-        .min_by_key(|(kit, _)| *kit)
-        .map(|(_, file)| file)
+        .filter_map(|(path, file)| {
+            variant_of(referenced, path).map(|token| (member_kit(token), *file))
+        })
+        .collect();
+    representative(&members, |member| member.0).map(|index| members[index].1)
 }
 
-/// The kit number of the file at `path` when it is a variant of the set the `kitN` path
-/// `referenced` names (`pants_kit2.model` of `pants_kitN.model`, `jessie/pants_kit2.model` of
-/// `jessie/pants_kitN.model`): in the same directory, and its stem of the same set, both
+/// The token of the member of the set at `path` that the `kitN` path `referenced` names:
+/// the variant's kit (`pants_kit2.model` of `pants_kitN.model`, `jessie/pants_kit2.model`
+/// of `jessie/pants_kitN.model`) or the `kitF` fallback: in the same directory, and its
+/// stem of the same set, both
 /// compared case-folded; `None` otherwise, and when `referenced` is no kit reference. A bare
 /// name is a path with no directory.
-pub(crate) fn variant_of(referenced: &str, path: &str) -> Option<u8> {
+pub(crate) fn variant_of(referenced: &str, path: &str) -> Option<KitToken> {
     let (referenced_directory, referenced_name) = split(referenced);
     let (directory, name) = split(path);
     if vtree::fold_name(referenced_directory) != vtree::fold_name(directory) {
@@ -388,10 +392,13 @@ pub(crate) fn variant_of(referenced: &str, path: &str) -> Option<u8> {
     let Some((KitToken::Reference, set)) = kit_token(file_stem(referenced_name)) else {
         return None;
     };
-    let Some((KitToken::Variant(kit), held_set)) = kit_token(file_stem(name)) else {
-        return None;
+    let (member, held_set) = match kit_token(file_stem(name)) {
+        Some((member @ (KitToken::Variant(_) | KitToken::Fallback), held_set)) => {
+            (member, held_set)
+        }
+        Some((KitToken::Reference, _)) | None => return None,
     };
-    (vtree::fold_name(&held_set) == vtree::fold_name(&set)).then_some(kit)
+    (vtree::fold_name(&held_set) == vtree::fold_name(&set)).then_some(member)
 }
 
 /// The `<model>` attributes the compiler knows.
@@ -418,7 +425,7 @@ const PES16_PREFIXES: [&str; 3] = ["face_high_", "hair_high_", "oral_"];
 ///   (`xml_face_neck_multiple`, once, after the entries), and each `.model` of the folder's
 ///   own, where it takes a role, that no `path` names by its path relative to the folder
 ///   (`names_file`; `xml_model_unlisted`, last, in the files' order; a `kitN` reference names
-///   every variant of its set).
+///   every member of its set).
 /// - Info: a `level` other than `0` (`xml_level_lod`).
 ///
 /// An entry without `material` is not a finding: it is written without one. An empty `type`
@@ -1009,6 +1016,47 @@ mod tests {
             Some("Players/05 - A/pants_kit3.model")
         );
         assert_eq!(found("./body/pants_kitN.model"), None);
+    }
+
+    #[test]
+    fn a_kit_reference_resolves_to_the_set_s_fallback_which_its_own_name_does_not_name() {
+        let own = files_in(FOLDER, &["pants_kit1.model", "pants_kitF.model"]);
+        let linked_face = round(&[]);
+        let common = common();
+        let folder = ScopePath::new(FOLDER).unwrap();
+        let files = FaceFiles {
+            own: &own,
+            linked_face: Some(&linked_face),
+            common: &common,
+            template_common: &[],
+            folder: &folder,
+        };
+        let model = FileKind::Model(ModelFormat::PesModel);
+        let found = |value: &str| {
+            resolve(&reference(value), &files, model).map(|file| file.path.as_str().to_owned())
+        };
+        // `kitN` resolves to the set's representative: the lowest-numbered variant when
+        // it has one, the `kitF` fallback alone.
+        assert_eq!(
+            found("./pants_kitN.model").as_deref(),
+            Some("Players/05 - A/pants_kit1.model")
+        );
+        // A `kitF` name names nothing: the file is never emitted under its own name, in
+        // any letter case.
+        assert_eq!(found("./pants_kitF.model"), None);
+        assert_eq!(found("./PANTS_KITF.model"), None);
+        let own_without_variant = files_in(FOLDER, &["pants_kitF.model"]);
+        let files = FaceFiles {
+            own: &own_without_variant,
+            ..files
+        };
+        let found_alone = |value: &str| {
+            resolve(&reference(value), &files, model).map(|file| file.path.as_str().to_owned())
+        };
+        assert_eq!(
+            found_alone("./pants_kitN.model").as_deref(),
+            Some("Players/05 - A/pants_kitF.model")
+        );
     }
 
     #[test]

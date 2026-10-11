@@ -39,6 +39,7 @@ use crate::face_xml::{
     WrittenChild, XmlEntry, face_xml, packed_model_name, ratio, suffix, user_face_xml,
     version_type, xml_path,
 };
+use crate::kit_variants::{fallback, member_kit, packed_fallback_stem, representative};
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
 use crate::paths::{self, TextureDirectory};
@@ -143,74 +144,143 @@ pub(super) fn directory_below(path: &ScopePath, source_path: &ScopePath) -> Stri
 enum KitPlace {
     /// Not a variant, or a variant with no other of its set: an ordinary model.
     Alone,
-    /// The set's lowest variant, of kit number `kit`: its entries stand for the set, their kit
-    /// token spelled `kitN`.
-    Listed { kit: u8 },
+    /// The set's listed member — its lowest variant, or the `kitF` fallback of a set of
+    /// `kitF` alone — whose entries stand for the set, their kit token spelled `kitN`. Its
+    /// own token, which its `.mtl` is respelled by (`listed_material`).
+    Listed { token: KitToken },
     /// Another variant of the set, of kit number `kit`, whose lowest variant is the face's
     /// model at index `listed`: packed under its own name, listed by nothing.
     Unlisted { kit: u8, listed: usize },
+    /// The set's `kitF` fallback in a set that has variants: packed for the completion's
+    /// copies (`set_completions`), its own name stripped at `face()`'s end; listed by
+    /// nothing, and not a variant, so `kit_variant_mtl_differs` does not apply to it.
+    Fallback { listed: usize },
 }
 
 impl KitPlace {
-    /// The name an entry gives the model packed as `packed`: a set's lowest variant's with its
-    /// kit token spelled `kitN` (`oral_pants_kit1_win32.model` is named
-    /// `oral_pants_kitN_win32.model`), for the game to respell for the kit picked; any other
-    /// model's as it is packed.
-    fn entry_name(&self, packed: &str) -> String {
+    /// The name an entry gives a set member's `packed` name: a listed member's `stem`
+    /// spelled `kitN` (`pants_kit1` is named `oral_pants_kitN_win32.model`), for the game
+    /// to respell for the kit picked; any other model's `packed` as it is.
+    fn entry_name(&self, stem: &str, packed: &str) -> String {
         match self {
-            KitPlace::Listed { .. } => {
-                let stem = file_stem(packed);
-                // `packed_model_name` lower-cases the stem and adds `_`-delimited affixes, so
-                // the variant's token, already lower case, stays a token where it was. The
-                // reference is respelled here, after packing, because lower-casing it would
-                // lose its capital `N`.
-                let (_, reference) = kit_token(stem).expect(
-                    "a per-kit model's packed name keeps its kit token (`packed_model_name`)",
-                );
-                format!("{reference}{}", &packed[stem.len()..])
+            KitPlace::Listed { .. } => packed_reference_name(stem),
+            KitPlace::Alone | KitPlace::Unlisted { .. } | KitPlace::Fallback { .. } => {
+                packed.to_owned()
             }
-            KitPlace::Alone | KitPlace::Unlisted { .. } => packed.to_owned(),
         }
     }
 }
 
+/// `packed_model_name(stem)` with the stem's kit token spelled `kitN`, the reference a
+/// set's listed entry gives (`pants_kit1` and `pants_kitF` both give
+/// `oral_pants_kitN_win32.model`); `packed_model_name(stem)` as it is when `stem` holds
+/// no token.
+fn packed_reference_name(stem: &str) -> String {
+    let packed = packed_model_name(stem);
+    let Some((_, reference)) = kit_token(stem) else {
+        return packed;
+    };
+    // `packed_model_name` lower-cases the token's `N` too, losing it: `reference` is
+    // `stem` with only the token's last character spelled `N`, so the byte where they
+    // differ is the token's, which `packed_model_name` keeps past its `oral_` prefix.
+    let at = stem
+        .bytes()
+        .zip(reference.bytes())
+        .position(|(a, b)| a != b)
+        .expect("a tokened stem and its `kitN` reference differ at the token");
+    let offset = packed
+        .find(&stem.to_ascii_lowercase())
+        .expect("`packed_model_name` writes the lower-cased stem");
+    let mut packed = packed;
+    packed.replace_range(offset + at..offset + at + 1, "N");
+    packed
+}
+
+/// A per-kit set's members as `kit_places` collects them, by the folded directory and
+/// reference of their packed names.
+#[derive(Default)]
+struct KitSet {
+    /// The `kitF` fallback's index in `models`, when the set has one.
+    fallback: Option<usize>,
+    /// The variants, (kit number, index), in `models`' order.
+    variants: Vec<(u8, usize)>,
+}
+
 /// The place of each of `models`, the face's models in their order, in the per-kit sets the
-/// face holds: the models packed in the face (not a link's) in one directory whose packed
-/// names differ only in their kit token's digit form a set, its lowest number listed (of two
-/// of one number, the first in `models`) and its others unlisted, and a set of one is an
-/// ordinary model. Read from the packed paths, so a set split between a linked shared face and
-/// the player's own root files is the one set the face holds once the shared files are copied
-/// in under his; a set never spans two directories, since the game respells the listed
-/// variant's entry, directory included, for the kit picked.
+/// face holds: the models packed in the face (not a link's) in one directory whose stems
+/// differ only in their kit token's last character form a set — its `kitF` member its
+/// fallback — its lowest variant listed (of two
+/// of one number, the first in `models`), its other variants unlisted and its fallback
+/// packed for the copies alone and stripped at `face()`'s end; a set of `kitF` alone is
+/// listed by the fallback, and a lone
+/// variant is an ordinary model. Read from the source stems, so a stem whose token is not
+/// spelled exactly (`pants_KIT1`, `pants_kitf`) is no member; a set split between a linked
+/// shared face and the player's own root files is the one set the face holds once the
+/// shared files are copied in under his; a set never spans two directories, since the game
+/// respells the listed member's entry, directory included, for the kit picked.
 fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
-    // Each set's variants, by its folded directory and reference: (kit number, index), in
-    // `models`' order.
-    let mut sets: BTreeMap<String, Vec<(u8, usize)>> = BTreeMap::new();
+    let mut sets: BTreeMap<String, KitSet> = BTreeMap::new();
     for (index, model) in models.iter().enumerate() {
         if model.in_common {
             continue;
         }
-        if let Some((KitToken::Variant(kit), reference)) = kit_token(file_stem(&model.packed)) {
-            sets.entry(vtree::fold_name(&format!("{}{reference}", model.directory)))
-                .or_default()
-                .push((kit, index));
+        let Some((token, reference)) = kit_token(&model.stem) else {
+            continue;
+        };
+        // The set's packed reference (`oral_pants_kitN_win32` folded), which a `kitF`
+        // member shares with its variants.
+        let key = vtree::fold_name(&format!(
+            "{}{}",
+            model.directory,
+            file_stem(&packed_model_name(&reference))
+        ));
+        let members = sets.entry(key).or_default();
+        match token {
+            KitToken::Variant(kit) => members.variants.push((kit, index)),
+            // Of two `kitF` files, the first in `models`, as of two of one number.
+            KitToken::Fallback => {
+                if members.fallback.is_none() {
+                    members.fallback = Some(index);
+                }
+            }
+            KitToken::Reference => {}
         }
     }
     let mut places: Vec<KitPlace> = models.iter().map(|_| KitPlace::Alone).collect();
-    for mut variants in sets.into_values() {
-        // A stable sort: of two models of one number, the first in `models` is listed.
-        variants.sort_by_key(|(kit, _)| *kit);
-        let Some(((listed_kit, listed), others)) = variants.split_first() else {
+    for set in sets.into_values() {
+        // Each member as (its kit number — `None` for the `kitF` fallback —, index in
+        // `models`), in `models`' order, so of two of one number the first is listed.
+        let members: Vec<(Option<u8>, usize)> = set
+            .variants
+            .iter()
+            .map(|(kit, index)| (Some(*kit), *index))
+            .chain(set.fallback.map(|index| (None, index)))
+            .collect();
+        let Some(listed) = representative(&members, |member| member.0) else {
             continue;
         };
-        if others.is_empty() {
+        // A lone variant is an ordinary model; `kitF` alone is the set, listed by the
+        // fallback, its token spelled `kitN`.
+        if members.len() == 1 && members[listed].0.is_some() {
             continue;
         }
-        places[*listed] = KitPlace::Listed { kit: *listed_kit };
-        for (kit, index) in others {
-            places[*index] = KitPlace::Unlisted {
-                kit: *kit,
-                listed: *listed,
+        let listed_index = members[listed].1;
+        let token = members[listed]
+            .0
+            .map_or(KitToken::Fallback, KitToken::Variant);
+        places[listed_index] = KitPlace::Listed { token };
+        for (index, (kit, member)) in members.iter().enumerate() {
+            if index == listed {
+                continue;
+            }
+            places[*member] = match kit {
+                Some(kit) => KitPlace::Unlisted {
+                    kit: *kit,
+                    listed: listed_index,
+                },
+                None => KitPlace::Fallback {
+                    listed: listed_index,
+                },
             };
         }
     }
@@ -220,25 +290,29 @@ fn kit_places(models: &[FaceModel]) -> Vec<KitPlace> {
 /// A per-kit set a generated `face.xml` lists, short of some of the export's kit numbers: the
 /// files to pack again for each number it lacks, and what its `kit_variant_missing` names.
 struct SetCompletion {
-    /// The set's reference, as its lowest variant's stem spells it, after the set's directory
+    /// The set's reference, as its listed member's stem spells it, after the set's directory
     /// below its source folder (`pants_kitN`, `jessie/pants_kitN`).
     reference: String,
-    /// The lowest variant's stem, whose files are copied, after the same directory
-    /// (`pants_kit1`, `jessie/pants_kit1`).
-    copied: String,
+    /// The fallback's stem, whose files are copied, after the same directory
+    /// (`pants_kit1`, `jessie/pants_kit1`); `None` for a `kitF` fallback, which
+    /// `kit_variant_missing` does not name.
+    copied: Option<String>,
     /// The export's kit numbers the set has no variant of, ascending.
     missing: Vec<u8>,
-    /// The paths, in the face, of the files the lowest variant's entries name that the face
-    /// packs: its model, its hands' when it is hand-split, and its `.mtl` when that carries
-    /// the variant's token and is the face's (a Common one is the Common output's, and a
+    /// The files a missing number is packed from, each as (the file's name in the face, the
+    /// name the set's entry names it by, which the copy respells): the fallback's model,
+    /// its hands' when it is hand-split, and its `.mtl` when the entry's `material` carries
+    /// the token and the `.mtl` is the face's (a Common one is the Common output's, and a
     /// shared `pants.mtl` serves every number as it is).
-    names: Vec<String>,
+    copies: Vec<(String, String)>,
 }
 
 /// The completion of each per-kit set `models` holds (`places`, from `kit_places`) against
 /// `kit_numbers`, the export's kit numbers, each model's entries naming the `material` of
 /// `written` (directory, name); a set lacking none of them needs none. `hand_split` holds the
-/// export paths of the models split at the wrists, whose hands are packed beside them.
+/// export paths of the models split at the wrists, whose hands are packed beside them. The
+/// set's fallback — its `kitF` member, else its listed variant — gives the files a missing
+/// number is packed from.
 fn set_completions(
     models: &[FaceModel],
     places: &[KitPlace],
@@ -247,23 +321,27 @@ fn set_completions(
     kit_numbers: &[u8],
 ) -> Vec<SetCompletion> {
     let mut completions = Vec::new();
-    for (index, ((model, place), (directory, material))) in
+    for (index, ((model, place), (_, material))) in
         models.iter().zip(places).zip(written).enumerate()
     {
-        let KitPlace::Listed { kit } = place else {
+        let KitPlace::Listed { token } = place else {
             continue;
         };
-        // `kit_places` reads the packed name, lower-cased; a stem whose token is not spelled
-        // `kit1` to `kit9` exactly (`pants_KIT1`) is no variant (`pipeline.md` "Kit-dependent
-        // assets"), so it has no reference to complete.
+        // `kit_places` reads the packed name; a stem whose token is not spelled `kit1` to
+        // `kit9` or `kitF` exactly (`pants_KIT1`, `pants_kitf`) is no member (`pipeline.md`
+        // "Kit-dependent assets"), so it has no reference to complete.
         let Some((_, reference)) = kit_token(&model.stem) else {
             continue;
         };
         let others = places.iter().filter_map(|other| match other {
             KitPlace::Unlisted { kit, listed } if *listed == index => Some(*kit),
-            KitPlace::Unlisted { .. } | KitPlace::Alone | KitPlace::Listed { .. } => None,
+            KitPlace::Unlisted { .. }
+            | KitPlace::Alone
+            | KitPlace::Listed { .. }
+            | KitPlace::Fallback { .. } => None,
         });
-        let held: Vec<u8> = iter::once(*kit).chain(others).collect();
+        // A `kitF` fallback holds no number of its own.
+        let held: Vec<u8> = member_kit(*token).into_iter().chain(others).collect();
         let missing: Vec<u8> = kit_numbers
             .iter()
             .copied()
@@ -272,33 +350,80 @@ fn set_completions(
         if missing.is_empty() {
             continue;
         }
-        let mut names = vec![format!("{}{}", model.directory, model.packed)];
-        if hand_split.contains(&model.file.path) {
-            names.extend(["glove_l", "glove_r"].map(|hand| {
-                let packed = packed_model_name(&format!("{}_{hand}", model.stem));
-                format!("{}{packed}", model.directory)
+        // The set's fallback is its `kitF` member when it has one, else its listed
+        // variant; a `kitF` alone is its own. An unlisted one never is, the listed member
+        // being the lowest variant.
+        let members: Vec<(Option<u8>, usize)> = places
+            .iter()
+            .enumerate()
+            .filter_map(|(i, place)| match place {
+                KitPlace::Listed { token } if i == index => Some((member_kit(*token), i)),
+                KitPlace::Fallback { listed } if *listed == index => Some((None, i)),
+                _ => None,
+            })
+            .collect();
+        let fallback_member = fallback(&members, |member| member.0).expect("a set has a member");
+        let fallback_model = &models[members[fallback_member].1];
+        let mut copies = vec![(
+            format!("{}{}", fallback_model.directory, fallback_model.packed),
+            format!("{}{}", model.directory, packed_reference_name(&model.stem)),
+        )];
+        if hand_split.contains(&fallback_model.file.path) {
+            copies.extend(["glove_l", "glove_r"].map(|hand| {
+                let source = packed_model_name(&format!("{}_{hand}", fallback_model.stem));
+                let hand_spelled = packed_reference_name(&format!("{}_{hand}", model.stem));
+                (
+                    format!("{}{source}", fallback_model.directory),
+                    format!("{}{}", model.directory, hand_spelled),
+                )
             }));
         }
-        // The entry's `material` is respelled `kitN` only when the `.mtl` carries the
-        // variant's token; the face packs it under the listed variant's spelling. A `./`
-        // directory is the face's own, the `.mtl` packed below it; any other is the team's
-        // Common output.
-        let packed_material = respelled_material(material, *kit);
-        if let Some(below) = directory.strip_prefix("./")
-            && packed_material != *material
+        // The set's `.mtl` is copied when the entry's `material` carries the token: the
+        // copy is the fallback's `.mtl`, under the entry's own name respelled for the
+        // number in the `.mtl`'s directory (`./` below the face's, a Common one being the
+        // output's, which needs no copy).
+        if matches!(
+            kit_token(file_stem(material)),
+            Some((KitToken::Reference, _))
+        ) && let Some(source) = packed_material(fallback_model)
+            && let Some(below) = written[index].0.strip_prefix("./")
         {
-            names.push(format!("{below}{packed_material}"));
+            copies.push((source, format!("{below}{material}")));
         }
-        // Named with the set's directory, as a member's `face.xml` names a subfolder's set: a
-        // root set of the same stems is another set.
         completions.push(SetCompletion {
             reference: format!("{}{reference}", model.directory),
-            copied: format!("{}{}", model.directory, model.stem),
+            // `kit_variant_missing` names the lowest variant, never a `kitF` fallback.
+            copied: members[fallback_member]
+                .0
+                .is_some()
+                .then(|| format!("{}{}", fallback_model.directory, fallback_model.stem)),
             missing,
-            names,
+            copies,
         });
     }
     completions
+}
+
+/// The name the `.mtl` of the face model `model` packs into the face under, when the face
+/// packs it: a member's `.mtl` at its path below its source folder (`jessie/pants_kitF.mtl`),
+/// a converted model's material set as `<stem>.mtl` beside it (`converted_material_name`);
+/// `None` for a Common `.mtl`, which is the team's Common output's.
+fn packed_material(model: &FaceModel) -> Option<String> {
+    match &model.source {
+        FaceSource::Member { material } => (!is_common_file(&material.path)).then(|| {
+            format!(
+                "{}{}",
+                directory_below(&material.path, model.source_path),
+                material.path.name()
+            )
+        }),
+        FaceSource::Converted(_) => Some(format!(
+            "{}{}",
+            model.directory,
+            converted_material_name(&model.stem)
+        )),
+        FaceSource::CommonConversion => None,
+    }
 }
 
 /// The file path `path`, whose file name holds a kit token, with that token spelled for `kit`
@@ -312,14 +437,14 @@ fn variant_name(path: &str, kit: u8) -> String {
     format!("{directory}{variant}{}", &name[stem.len()..])
 }
 
-/// Packs the file `contents` holds as `name`, its path in the face (case-folded), again under
-/// its kit-`kit` spelling in its directory (`variant_name`), its bytes as packed, and returns
-/// whether it did. Nothing is packed when
+/// Packs the file `source` names in `contents` again under `spelled`'s kit-`kit` spelling
+/// in its directory (`variant_name`), its bytes as packed, and returns whether it did.
+/// Nothing is packed when
 /// a file of that spelling, case-folded, is packed already, the member's own being the one
 /// for that number (a `pants_kit3.mtl` of his beside a set with no `pants_kit3` model), or
-/// when `contents` holds no `name`: a hand-split model that was all hand packs no body.
-fn pack_variant_copy(contents: &mut PackageFiles, name: &str, kit: u8) -> bool {
-    let copy = variant_name(name, kit);
+/// when `contents` holds no `source`: a hand-split model that was all hand packs no body.
+fn pack_variant_copy(contents: &mut PackageFiles, source: &str, spelled: &str, kit: u8) -> bool {
+    let copy = variant_name(spelled, kit);
     let copy_key = vtree::fold_name(&copy);
     if contents
         .keys()
@@ -327,7 +452,7 @@ fn pack_variant_copy(contents: &mut PackageFiles, name: &str, kit: u8) -> bool {
     {
         return false;
     }
-    let key = vtree::fold_name(name);
+    let key = vtree::fold_name(source);
     let Some(bytes) = contents
         .iter()
         .find(|(packed, _)| vtree::fold_name(packed) == key)
@@ -343,7 +468,7 @@ fn pack_variant_copy(contents: &mut PackageFiles, name: &str, kit: u8) -> bool {
 
 /// The `kit_variant_missing` of a per-kit model set, its reference spelled `reference`
 /// (`pants_kitN`), completed for kit `kit` with the files of its lowest variant, `copied`
-/// (`pants_kit1`).
+/// (`pants_kit1`); a `kitF` fallback is copied without the finding.
 fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
     (
         Code::KitVariantMissing,
@@ -399,14 +524,20 @@ fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
 /// (`kit_places`, across its sources once the shared files are copied in) is packed whole,
 /// each variant under its own name, and listed once: its lowest variant's entries (its own,
 /// and its hands' when it is split) name it with the kit token spelled `kitN`, their
-/// `material` too when the `.mtl` carries the variant's own token (`pants_kit1.mtl` is named
+/// `material` too when the `.mtl` carries the member's own token (`pants_kit1.mtl` is named
 /// `pants_kitN.mtl`, a shared `pants.mtl` as it is); the game respells the whole entry for the
-/// kit picked. Each other variant has no entry, and one whose own `material`, as an entry
+/// kit picked. A `kitF` member is the set's fallback: its files serve the set's completion
+/// copies alone, the face holding none under a `kitF` name (packed with the rest and
+/// stripped once at `face`'s end), and it is neither a
+/// listed nor an unlisted variant — `kit_variant_mtl_differs` does not apply to it — and
+/// lists the set only when the set is `kitF` alone. Each other variant has no
+/// entry, and one whose own `material`, as an entry
 /// would write it (directory included), is not the listed one's respelled for its kit number
 /// is noted in `findings` as `kit_variant_mtl_differs`. A set is completed against
 /// `kit_numbers`, the export's kit numbers (`set_completions`): for each one it has no variant
-/// of, the files its lowest variant's entries name that the face packs are packed again under
-/// that number's spelling, as packed, and `kit_variant_missing` is noted in `findings`, since
+/// of, the files the listed entry names, respelled for the number, are packed from the
+/// fallback's, and `kit_variant_missing` is noted in `findings` when
+/// the fallback is the lowest variant, since
 /// the game skips an entry whose respelled model is missing. Two files of one source packing
 /// under one name fail the task: neither can be dropped silently.
 ///
@@ -426,6 +557,23 @@ fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
 /// template's body after every model of his, generated or his xml's, and before the dummy
 /// (`refkit_body`): the face packs none of it, the refs CPK carrying the template's files.
 pub(super) fn face(
+    folder: &ModelFolder,
+    kit_numbers: &[u8],
+    team_id: u16,
+    ctx: &CompileContext,
+    files: &mut TaskFiles,
+    findings: &mut Vec<Finding>,
+) -> Result<PackageFiles, TaskFailure> {
+    let mut contents = face_contents(folder, kit_numbers, team_id, ctx, files, findings)?;
+    // A set's `kitF` files are packed for its completion's copies alone: nothing the face
+    // holds keeps a `kitF` name — `kitf`, as `packed_model_name` writes it.
+    contents.retain(|name, _| !packed_fallback_stem(file_stem(texture_lookup::split(name).1)));
+    Ok(contents)
+}
+
+/// The files of `folder`'s pre-Fox face as `face`'s doc writes them, before the `kitF`
+/// strip (`face`).
+fn face_contents(
     folder: &ModelFolder,
     kit_numbers: &[u8],
     team_id: u16,
@@ -715,8 +863,8 @@ pub(super) fn face(
                 ),
             };
             let name = match kit {
-                KitPlace::Listed { kit } => listed_material(&name, *kit),
-                KitPlace::Alone | KitPlace::Unlisted { .. } => name,
+                KitPlace::Listed { token } => listed_material(&name, *token),
+                KitPlace::Alone | KitPlace::Unlisted { .. } | KitPlace::Fallback { .. } => name,
             };
             (directory, name)
         })
@@ -757,8 +905,9 @@ pub(super) fn face(
         } else {
             format!("./{}", model.directory)
         };
-        // A set's other variants are listed by its lowest variant's entries.
-        let listed = !matches!(place, KitPlace::Unlisted { .. });
+        // A set's other members are listed by its lowest variant's entries, its `kitF`
+        // fallback by nothing.
+        let listed = matches!(place, KitPlace::Alone | KitPlace::Listed { .. });
         let xml_type = version_type(ctx.version, &model.xml_type).to_owned();
         if listed && xml_type != model.xml_type {
             findings.push((
@@ -769,7 +918,10 @@ pub(super) fn face(
         }
         let entry = XmlEntry {
             xml_type,
-            path: xml_path(&model_directory, &place.entry_name(&model.packed)),
+            path: xml_path(
+                &model_directory,
+                &place.entry_name(&model.stem, &model.packed),
+            ),
             material,
             ratio: ratio(&model.stem).map(str::to_owned),
         };
@@ -861,21 +1013,18 @@ pub(super) fn face(
             let Some(part) = part else {
                 continue;
             };
-            let packed = packed_model_name(&format!("{}_{hand}", model.stem));
+            let hand_stem = format!("{}_{hand}", model.stem);
+            let packed = packed_model_name(&hand_stem);
             if listed {
                 entries.push(XmlEntry {
                     xml_type: hand_type.to_owned(),
-                    path: xml_path(&model_directory, &place.entry_name(&packed)),
+                    path: xml_path(&model_directory, &place.entry_name(&hand_stem, &packed)),
                     material: entry.material.clone(),
                     ratio: entry.ratio.clone(),
                 });
             }
-            insert(
-                &mut contents,
-                ModelPackage::Face,
-                format!("{}{packed}", model.directory),
-                part,
-            )?;
+            let packed_path = format!("{}{packed}", model.directory);
+            insert(&mut contents, ModelPackage::Face, packed_path, part)?;
         }
     }
     // Each at its path below its source folder.
@@ -886,14 +1035,12 @@ pub(super) fn face(
     // After every file is packed, a split model's hands and its `.mtl` included.
     for completion in completions {
         for kit in completion.missing {
-            for name in &completion.names {
-                pack_variant_copy(&mut contents, name, kit);
+            for (source, spelled) in &completion.copies {
+                pack_variant_copy(&mut contents, source, spelled, kit);
             }
-            findings.push(model_variant_missing(
-                &completion.reference,
-                kit,
-                &completion.copied,
-            ));
+            if let Some(copied) = &completion.copied {
+                findings.push(model_variant_missing(&completion.reference, kit, copied));
+            }
         }
     }
     // After every model of his, before the `face_neck` dummy: with an xml, through
@@ -1196,10 +1343,11 @@ impl<'a> XmlFace<'a> {
 
     /// The `./` reference `value`, naming the file at `path` (relative to the xml's folder) of
     /// `kind`, as written, the file packed from `files` at `path` as the reference spells it,
-    /// directory included: `value` as it is. A `kitN` name packs every variant of its set in
+    /// directory included: `value` as it is. A `kitN` name packs every member of its set in
     /// the directory it names among the player's own files and his linked shared face's
-    /// (`FaceFiles::own_local`, `FaceFiles::linked_local`), each at its own path, for the game
-    /// to pick by kit, and completes the set (`complete_set`, noting in `findings`). A `.mtl`
+    /// (`FaceFiles::own_local`, `FaceFiles::linked_local`) — each variant at its own path, for
+    /// the game to pick by kit, a `kitF` member's own name stripped at `face()`'s end —
+    /// and completes the set (`complete_set`, noting in `findings`). A `.mtl`
     /// that is a `Common/` one, which a `.mtl.common` link stands for, is not packed: it is
     /// named in the team's Common output, where the Common models task packs it. A path
     /// naming no file is an error: the deep pass dropped such a folder (`xml_model_not_found`).
@@ -1247,9 +1395,11 @@ impl<'a> XmlFace<'a> {
 
     /// Completes the set `variants`, the packed files of `kind` (each by its path in the face)
     /// the `kitN` path `referenced` names, against the export's kit numbers: for each one none
-    /// of them is a variant of, ascending, the lowest variant is packed again under that
+    /// of them is a variant of, ascending, the set's fallback — its `kitF` member, else its
+    /// lowest variant — is packed again under that
     /// number's spelling in its directory (`pack_variant_copy`), and for a `.model` set the copy
-    /// is noted in `findings` as `kit_variant_missing`. A second reference to the set finds the
+    /// is noted in `findings` as `kit_variant_missing` when the fallback is a variant.
+    /// A second reference to the set finds the
     /// copy packed and notes nothing more, nor does the `.mtl` set an entry names beside its
     /// model set.
     fn complete_set(
@@ -1259,25 +1409,28 @@ impl<'a> XmlFace<'a> {
         variants: &[(String, &FileDescriptor)],
         findings: &mut Vec<Finding>,
     ) {
-        let numbered: Vec<(u8, &str)> = variants
+        let numbered: Vec<(Option<u8>, &str)> = variants
             .iter()
-            .filter_map(|(below, _)| Some((variant_of(referenced, below)?, below.as_str())))
+            .filter_map(|(below, _)| {
+                Some((member_kit(variant_of(referenced, below)?), below.as_str()))
+            })
             .collect();
-        // Of two variants of one number, the first, the player's own before his linked
+        // Of two members of one number, the first, the player's own before his linked
         // face's, as `pack` packs it.
-        let Some(&(_, lowest)) = numbered.iter().min_by_key(|(kit, _)| *kit) else {
+        let Some(index) = fallback(&numbered, |member| member.0) else {
             return;
         };
+        let (_, lowest) = numbered[index];
         for &kit in self.kits {
-            if numbered.iter().any(|(held, _)| *held == kit) {
+            if numbered.iter().any(|(held, _)| *held == Some(kit)) {
                 continue;
             }
-            if !pack_variant_copy(&mut self.contents, lowest, kit) {
+            if !pack_variant_copy(&mut self.contents, lowest, referenced, kit) {
                 continue;
             }
             self.packed
-                .insert(vtree::fold_name(&variant_name(lowest, kit)));
-            if kind == FileKind::Model(ModelFormat::PesModel) {
+                .insert(vtree::fold_name(&variant_name(referenced, kit)));
+            if kind == FileKind::Model(ModelFormat::PesModel) && numbered[index].0.is_some() {
                 findings.push(model_variant_missing(
                     file_stem(referenced),
                     kit,
@@ -1454,16 +1607,17 @@ fn user_xml_face(
     Ok(face.contents)
 }
 
-/// The material the entry of a per-kit set's lowest variant, of kit number `kit`, gives for
-/// the `.mtl` named `name`: its kit token spelled `kitN` when it is the variant's own
-/// (`pants_kit1.mtl` gives `pants_kitN.mtl`), else `name` as it is (`pants.mtl`).
-fn listed_material(name: &str, kit: u8) -> String {
+/// The material the entry of a per-kit set's listed member gives for the `.mtl` named
+/// `name`: its kit token spelled `kitN` when it is the member's own — `token`, the
+/// member's — (`pants_kit1.mtl` gives `pants_kitN.mtl`, and for a `kitF`-listed set
+/// `pants_kitF.mtl` gives `pants_kitN.mtl`), else `name` as it is (`pants.mtl`).
+fn listed_material(name: &str, token: KitToken) -> String {
     let stem = file_stem(name);
     match kit_token(stem) {
-        Some((KitToken::Variant(own), reference)) if own == kit => {
+        Some((own, reference)) if own == token => {
             format!("{reference}{}", &name[stem.len()..])
         }
-        Some((KitToken::Variant(_) | KitToken::Reference, _)) | None => name.to_owned(),
+        Some(_) | None => name.to_owned(),
     }
 }
 
@@ -1616,9 +1770,13 @@ pub(super) fn point_materials(set: &mut MaterialSet, places: &MaterialPlaces) {
         };
         let stem = file_stem(&path.file_name);
         let key = vtree::fold_name(stem);
-        let found = lookup
-            .iter()
-            .find_map(|(textures, directory)| Some((textures.get(&key)?, *directory)));
+        let found = lookup.iter().find_map(|(textures, directory)| {
+            let below = textures.get(&key)?;
+            // A `kitF` file sits under its set's `kitN` key (`kit_lookup_key`): the name a
+            // path gives it is never its own, so it answers as a member of its set below.
+            (vtree::fold_name(texture_lookup::split(below).1) == key)
+                .then_some((below.as_str(), *directory))
+        });
         if let Some((below, directory)) = found {
             let (subdirectory, name) = texture_lookup::split(below);
             path.directory = directory.of_below(subdirectory, &places.packed);
@@ -1986,6 +2144,193 @@ mod tests {
         }
     }
 
+    /// A `FaceModel` for `name` of `Players/05 - A`, a `.model` with `material` its
+    /// `.mtl`, the `stem` and `packed` computed as the task computes them.
+    fn face_model<'a>(
+        folder: &'a ScopePath,
+        file: &'a FileDescriptor,
+        material: &'a FileDescriptor,
+        stem: &str,
+    ) -> FaceModel<'a> {
+        FaceModel {
+            file,
+            stem: stem.to_owned(),
+            xml_type: "parts".to_owned(),
+            packed: packed_model_name(stem),
+            directory: directory_below(&file.path, folder),
+            in_common: false,
+            source: FaceSource::Member { material },
+            source_path: folder,
+        }
+    }
+
+    /// The `FileDescriptor` of `Players/05 - A/` name, a `.model`.
+    fn model_descriptor(folder: &ScopePath, name: &str) -> FileDescriptor {
+        let path = ScopePath::new(&format!("{}/{name}", folder.as_str())).unwrap();
+        FileDescriptor {
+            size: 1,
+            kind: FileKind::Model(ModelFormat::PesModel),
+            source: path.clone(),
+            path,
+        }
+    }
+
+    /// The `FileDescriptor` of `Players/05 - A/` name, a `.mtl`.
+    fn mtl_descriptor(folder: &ScopePath, name: &str) -> FileDescriptor {
+        let path = ScopePath::new(&format!("{}/{name}", folder.as_str())).unwrap();
+        FileDescriptor {
+            size: 1,
+            kind: FileKind::Mtl,
+            source: path.clone(),
+            path,
+        }
+    }
+
+    #[test]
+    fn a_set_of_kitf_alone_is_listed_as_kitn_and_completed_from_it() {
+        // `pants_KIT1` is no token (the token is spelled exactly so): an ordinary model
+        // with its own entry. `pants_kitF` alone is the set, listed `kitN` and completed
+        // for every kit number the export defines.
+        let folder = ScopePath::new("Players/05 - A").unwrap();
+        let model = FileKind::Model(ModelFormat::PesModel);
+        let descriptor = |name: &str| {
+            let path = ScopePath::new(&format!("{}/{name}", folder.as_str())).unwrap();
+            FileDescriptor {
+                size: 1,
+                kind: model,
+                source: path.clone(),
+                path,
+            }
+        };
+        let kit1 = descriptor("pants_KIT1.model");
+        let kitf = descriptor("pants_kitF.model");
+        let mtl = mtl_descriptor(&folder, "pants_kitF.mtl");
+        let models = [
+            face_model(&folder, &kit1, &mtl, "pants_KIT1"),
+            face_model(&folder, &kitf, &mtl, "pants_kitF"),
+        ];
+
+        let kits = kit_places(&models);
+
+        assert!(matches!(kits[0], KitPlace::Alone));
+        assert!(matches!(
+            kits[1],
+            KitPlace::Listed {
+                token: KitToken::Fallback
+            }
+        ));
+        let written = [
+            ("./".to_owned(), "pants_kitN.mtl".to_owned()),
+            ("./".to_owned(), "pants_kitN.mtl".to_owned()),
+        ];
+        let completions = set_completions(&models, &kits, &written, &BTreeSet::new(), &[1, 2]);
+        assert_eq!(completions.len(), 1);
+        let completion = &completions[0];
+        assert_eq!(completion.reference, "pants_kitN");
+        assert_eq!(completion.copied, None);
+        assert_eq!(completion.missing, [1, 2]);
+        assert_eq!(
+            completion.copies,
+            [
+                (
+                    "oral_pants_kitf_win32.model".to_owned(),
+                    "oral_pants_kitN_win32.model".to_owned()
+                ),
+                ("pants_kitF.mtl".to_owned(), "pants_kitN.mtl".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_missing_kit_s_mtl_copy_lands_where_the_entry_names_it() {
+        // `jessie/`'s set: its listed `kit1` names the root's `pants_kit1.mtl`, so its
+        // entry's `material` is `./pants_kitN.mtl` and the kit 2 copy lands at
+        // `pants_kit2.mtl` at the root, where the entry's respelled `material` looks, not
+        // beside the fallback's `jessie/pants_kitF.mtl`.
+        let folder = ScopePath::new("Players/05 - A").unwrap();
+        let kit1 = model_descriptor(&folder, "jessie/pants_kit1.model");
+        let kitf = model_descriptor(&folder, "jessie/pants_kitF.model");
+        let mtl = mtl_descriptor(&folder, "pants_kit1.mtl");
+        let kitf_mtl = mtl_descriptor(&folder, "jessie/pants_kitF.mtl");
+        let models = [
+            face_model(&folder, &kit1, &mtl, "pants_kit1"),
+            face_model(&folder, &kitf, &kitf_mtl, "pants_kitF"),
+        ];
+
+        let kits = kit_places(&models);
+
+        assert!(matches!(
+            kits[0],
+            KitPlace::Listed {
+                token: KitToken::Variant(1)
+            }
+        ));
+        assert!(matches!(kits[1], KitPlace::Fallback { listed: 0 }));
+        let written = [
+            ("./".to_owned(), "pants_kitN.mtl".to_owned()),
+            ("./jessie/".to_owned(), "jessie/pants_kitF.mtl".to_owned()),
+        ];
+        let completions = set_completions(&models, &kits, &written, &BTreeSet::new(), &[1, 2]);
+        assert_eq!(completions.len(), 1);
+        let completion = &completions[0];
+        assert_eq!(completion.reference, "jessie/pants_kitN");
+        assert_eq!(completion.copied, None);
+        assert_eq!(completion.missing, [2]);
+        assert_eq!(
+            completion.copies,
+            [
+                (
+                    "jessie/oral_pants_kitf_win32.model".to_owned(),
+                    "jessie/oral_pants_kitN_win32.model".to_owned()
+                ),
+                (
+                    "jessie/pants_kitF.mtl".to_owned(),
+                    "pants_kitN.mtl".to_owned()
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn each_set_s_completion_copies_from_its_own_fallback() {
+        // Two sets: `pants`'s fallback is its `kitF` member, `socks`'s its listed
+        // `socks_kit1` — each completion's copies come from its own set's fallback.
+        let folder = ScopePath::new("Players/05 - A").unwrap();
+        let pants1 = model_descriptor(&folder, "pants_kit1.model");
+        let pantsf = model_descriptor(&folder, "pants_kitF.model");
+        let socks1 = model_descriptor(&folder, "socks_kit1.model");
+        let socks2 = model_descriptor(&folder, "socks_kit2.model");
+        let mtl = mtl_descriptor(&folder, "pants_kitF.mtl");
+        let socks_mtl = mtl_descriptor(&folder, "socks.mtl");
+        let models = [
+            face_model(&folder, &pants1, &mtl, "pants_kit1"),
+            face_model(&folder, &pantsf, &mtl, "pants_kitF"),
+            face_model(&folder, &socks1, &socks_mtl, "socks_kit1"),
+            face_model(&folder, &socks2, &socks_mtl, "socks_kit2"),
+        ];
+
+        let kits = kit_places(&models);
+        let written = [
+            ("./".to_owned(), "pants_kitN.mtl".to_owned()),
+            ("./".to_owned(), "pants_kitF.mtl".to_owned()),
+            ("./".to_owned(), "socks.mtl".to_owned()),
+            ("./".to_owned(), "socks.mtl".to_owned()),
+        ];
+        let completions = set_completions(&models, &kits, &written, &BTreeSet::new(), &[1, 2, 3]);
+
+        assert_eq!(completions.len(), 2);
+        let pants = &completions[0];
+        assert_eq!(pants.reference, "pants_kitN");
+        assert_eq!(pants.copied, None);
+        assert_eq!(pants.missing, [2, 3]);
+        assert_eq!(pants.copies[0].0, "oral_pants_kitf_win32.model");
+        let socks = &completions[1];
+        assert_eq!(socks.reference, "socks_kitN");
+        assert_eq!(socks.copied.as_deref(), Some("socks_kit1"));
+        assert_eq!(socks.missing, [3]);
+        assert_eq!(socks.copies[0].0, "oral_socks_kit1_win32.model");
+    }
+
     #[test]
     fn a_mtl_points_a_texture_name_at_the_nearest_folder_holding_it() {
         let folder = ScopePath::new("Players/05 - A").unwrap();
@@ -2031,13 +2376,27 @@ mod tests {
     }
 
     #[test]
-    fn a_listed_material_is_respelled_only_when_it_carries_the_variant_s_own_token() {
-        assert_eq!(listed_material("pants_kit1.mtl", 1), "pants_kitN.mtl");
+    fn a_listed_material_is_respelled_only_when_it_carries_the_member_s_own_token() {
+        assert_eq!(
+            listed_material("pants_kit1.mtl", KitToken::Variant(1)),
+            "pants_kitN.mtl"
+        );
+        // The `kitF` member's own `.mtl` respells the same way.
+        assert_eq!(
+            listed_material("pants_kitF.mtl", KitToken::Fallback),
+            "pants_kitN.mtl"
+        );
         // A shared `.mtl`, and one the search's "any `.mtl`" fallback found under another
         // number's token (`a_kit2.mtl` for `pants_kit1.model`): the game must look for the
         // name as it is.
-        assert_eq!(listed_material("pants.mtl", 1), "pants.mtl");
-        assert_eq!(listed_material("a_kit2.mtl", 1), "a_kit2.mtl");
+        assert_eq!(
+            listed_material("pants.mtl", KitToken::Variant(1)),
+            "pants.mtl"
+        );
+        assert_eq!(
+            listed_material("a_kit2.mtl", KitToken::Variant(1)),
+            "a_kit2.mtl"
+        );
         assert_eq!(respelled_material("pants_kitN.mtl", 2), "pants_kit2.mtl");
         assert_eq!(respelled_material("a_kit2.mtl", 1), "a_kit2.mtl");
     }
@@ -2130,6 +2489,67 @@ mod tests {
         assert_eq!(written, "./pants_kitN.model");
         let names: Vec<&str> = face.contents.keys().map(String::as_str).collect();
         assert_eq!(names, ["pants_kit1.model", "pants_kit2.model"]);
+    }
+
+    #[test]
+    fn a_kit_model_reference_completes_the_set_from_its_fallback_which_stays_packed() {
+        let folder = ScopePath::new("Players/05 - A").unwrap();
+        let descriptor = |name: &str, kind: FileKind| {
+            let path = ScopePath::new(&format!("Players/05 - A/{name}")).unwrap();
+            FileDescriptor {
+                size: 1,
+                kind,
+                source: path.clone(),
+                path,
+            }
+        };
+        let model = FileKind::Model(ModelFormat::PesModel);
+        let own = [
+            descriptor("pants_kit1.model", model),
+            descriptor("pants_kitF.model", model),
+        ];
+        let places = face_places(&[]);
+        let mut face = XmlFace {
+            named: FaceFiles {
+                own: &own,
+                linked_face: None,
+                common: &[],
+                template_common: &[],
+                folder: &folder,
+            },
+            kits: &[1, 2, 3],
+            common_directory: "common/",
+            places: &places,
+            contents: PackageFiles::new(),
+            packed: BTreeSet::new(),
+        };
+        let mut files = TaskFiles::from([
+            (own[0].path.clone(), b"kit1".to_vec()),
+            (own[1].path.clone(), b"fallback".to_vec()),
+        ]);
+
+        let mut findings = Vec::new();
+        let Ok(written) = face.written_path("./pants_kitN.model", &mut files, &mut findings) else {
+            panic!("the kit reference is not written");
+        };
+
+        assert_eq!(written, "./pants_kitN.model");
+        // The `kitF` file's bytes under the missing numbers, and no `kit_variant_missing`
+        // for a `kitF` fallback; `face()` strips its own name at the end, past what this
+        // call reaches.
+        assert!(findings.is_empty(), "{findings:?}");
+        let names: Vec<&str> = face.contents.keys().map(String::as_str).collect();
+        assert_eq!(
+            names,
+            [
+                "pants_kit1.model",
+                "pants_kit2.model",
+                "pants_kit3.model",
+                "pants_kitF.model"
+            ]
+        );
+        assert_eq!(face.contents["pants_kit2.model"], b"fallback");
+        assert_eq!(face.contents["pants_kit3.model"], b"fallback");
     }
 
     #[test]

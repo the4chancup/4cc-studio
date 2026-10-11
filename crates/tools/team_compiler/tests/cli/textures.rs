@@ -814,7 +814,7 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
 
 // TC-CMN-04
 #[test]
-fn a_kit_number_without_its_texture_variant_gets_the_lowest_one_and_the_model_names_kit_n() {
+fn a_kit_number_without_its_texture_variant_gets_the_fallback_written_as_kit_n() {
     let sandbox = Sandbox::new("tex_kit_variants");
     let export = "exports/co Midcup Variants";
     let player = format!("{export}/Players/05 - A");
@@ -851,14 +851,18 @@ fn a_kit_number_without_its_texture_variant_gets_the_lowest_one_and_the_model_na
     );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    let variant = |kit: u8| {
-        let path = format!("{PLAYER_TEXTURES}/pants_kit{kit}.ftex");
-        entries
-            .get(&path)
-            .unwrap_or_else(|| panic!("no {path} among {:?}", entries.keys()))
+    let texture = |name: &str| {
+        let path = format!("{PLAYER_TEXTURES}/{name}.ftex");
+        entries.get(&path)
     };
-    assert_eq!(variant(2), variant(1));
-    assert_ne!(variant(3), variant(1));
+    // The lowest variant is written once under the reference's spelling: no per-kit copy.
+    assert!(texture("pants_kit2").is_none(), "{:?}", entries.keys());
+    assert_eq!(
+        texture("pants_kitN").expect("pants_kitN.ftex"),
+        texture("pants_kit1").expect("pants_kit1.ftex"),
+        "kit 2's answer is the fallback under `kitN`"
+    );
+    assert_ne!(texture("pants_kit3"), texture("pants_kit1"));
     let model = FmdlFile::read(face_package(&entries).get("fcl_hair.fmdl").unwrap()).unwrap();
     let paths: Vec<(String, String)> = texture_paths(&model)
         .unwrap()
@@ -871,6 +875,63 @@ fn a_kit_number_without_its_texture_variant_gets_the_lowest_one_and_the_model_na
             "/Assets/pes16/model/character/common/714/05 - A/sourceimages/".to_owned()
         )),
         "{paths:?}"
+    );
+}
+
+// TC-CMN-26
+#[test]
+fn a_kits_fallback_texture_is_written_as_kit_n_and_never_its_own_name() {
+    let sandbox = Sandbox::new("tex_kit_fallback");
+    let export = "exports/co Midcup Fallback";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/fcl_hair.fmdl"),
+        &hair_model_naming("pants_kitN.dds"),
+    );
+    // Two different images: the variant the tracer's shirt, the fallback its kit.
+    sandbox.write(
+        &format!("{player}/pants_kit1.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/pants_kitF.dds"), &tracer_kit());
+    for slot in ["p1", "p2", "p3"] {
+        sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+    }
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Fallback"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p3 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p3 ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let texture = |name: &str| {
+        let path = format!("{PLAYER_TEXTURES}/{name}.ftex");
+        entries.get(&path)
+    };
+    // The fallback is written once under the reference's spelling: `pants_kit1`'s
+    // conversion beside it, no per-kit copies and no `pants_kitF` file.
+    for name in ["pants_kit2", "pants_kit3", "pants_kitF", "pants_kitf"] {
+        assert!(texture(name).is_none(), "{name} among {:?}", entries.keys());
+    }
+    let kit1 = texture("pants_kit1").expect("pants_kit1.ftex");
+    let kitn = texture("pants_kitN").expect("pants_kitN.ftex");
+    assert_ne!(kit1, kitn, "kit 1 keeps its own image");
+    assert_eq!(
+        kitn,
+        &ftex::dds_to_ftex(&tracer_kit(), ftex::ColorSpace::Normal).unwrap(),
+        "the `kitF` file's conversion under `kitN`"
     );
 }
 

@@ -65,9 +65,9 @@ enum Supply {
 /// Whether the texture `path`, a `.mtl` sampler's path as written, is supplied from `sources`.
 /// A `dummy_` stem is never looked for. A path below the `.mtl`'s folder
 /// (`./shorts/y.dds`, `texture_lookup::path_below`) is supplied when the place that path names
-/// holds its stem (folded), or a variant of its set for a kit reference, and missing
+/// holds its stem (folded), or a member of its set for a kit reference, and missing
 /// otherwise: it resolves there alone. Whatever directory any other
-/// path spells, it is supplied when its stem, or a variant of its set for a kit reference
+/// path spells, it is supplied when its stem, or a member of its set for a kit reference
 /// (`pants_kitN`, `texture_lookup::variant`), is one a place of `sources.held` holds: that is
 /// the stem the face task points at the folder's textures. Past the folder, a `./` path and a
 /// bare name (read as `./`) are missing: the face packs no texture the folder does not hold. A
@@ -318,30 +318,35 @@ pub(super) fn held_common(kept: &[FileDescriptor]) -> HeldTextures {
 mod tests {
     use super::*;
 
+    use crate::kit_variants::kit_lookup_key;
+
     /// The folded stems `stems`.
     fn stems(stems: &[&str]) -> BTreeSet<String> {
         stems.iter().map(|stem| (*stem).to_owned()).collect()
     }
 
-    /// A place holding the textures `stems`, each directly in its folder.
+    /// A place holding the textures `stems`, each directly in its folder, by their lookup
+    /// key as `held_textures` files them (a `kitF` under its set's `kitN` reference).
     fn place(stems: &[&str]) -> TexturePlace {
         stems
             .iter()
-            .map(|stem| (vtree::fold_name(stem), (*stem).to_owned()))
+            .map(|stem| (kit_lookup_key(stem), (*stem).to_owned()))
             .collect()
     }
 
     /// What `supply` makes of `path` with the folder holding `held`, `Common/` `common` and the
-    /// installed CPKs `installed`, nothing at any path below `Common/`.
+    /// installed CPKs `installed`, nothing at any path below `Common/`. `common` is keyed as
+    /// the pass files it (`kit_lookup_key`: a `kitF` under its set's `kitN` reference).
     fn supplied(path: &str, held: &[&str], common: &[&str], installed: Option<&[&str]>) -> Supply {
         let installed = installed.map(stems);
         let folders = slot_05(&[], &[]);
         let mtl = ScopePath::new("Players/05 - A/x.mtl").unwrap();
         let common_below = stems(&[]);
+        let common: BTreeSet<String> = common.iter().map(|stem| kit_lookup_key(stem)).collect();
         let sources = TextureSources {
             held: &[&place(held)],
             below: (&folders, &mtl),
-            common: &stems(common),
+            common: &common,
             common_below: &common_below,
             installed: installed.as_ref(),
         };
@@ -349,11 +354,12 @@ mod tests {
     }
 
     /// What `supply` makes of `path`, a Common path into a `Common/` subfolder, with the
-    /// kept `Common/` textures at `kept` below `Common/` without their extensions and the
-    /// installed CPKs' `installed` the same way.
+    /// kept `Common/` textures at `kept` below `Common/` without their extensions — keyed
+    /// as the pass files them (`kit_lookup_key`) — and the installed CPKs' `installed` the
+    /// same way.
     fn supplied_below(path: &str, kept: &[&str], installed: Option<&[&str]>) -> Supply {
         let installed = installed.map(stems);
-        let kept = stems(kept);
+        let kept = kept.iter().map(|stem| kit_lookup_key(stem)).collect();
         let none = BTreeSet::new();
         let folders = slot_05(&[], &[]);
         let mtl = ScopePath::new("Players/05 - A/x.mtl").unwrap();
@@ -482,6 +488,64 @@ mod tests {
             supplied("./pants_kitN.dds", &["socks_kit1"], &[], None),
             Supply::Missing
         );
+    }
+
+    #[test]
+    fn a_kit_reference_is_supplied_by_the_set_s_fallback_which_its_own_name_does_not_supply() {
+        // `pants_kitF.dds` supplies the set's `kitN` reference; a path naming the `kitF`
+        // file itself is missing, the file never being emitted under its own name.
+        assert_eq!(
+            supplied("./pants_kitN.dds", &["pants_kitF"], &[], None),
+            Supply::Supplied
+        );
+        assert_eq!(
+            supplied("./pants_kitF.dds", &["pants_kitF"], &[], None),
+            Supply::Missing
+        );
+        let held = slot_05(&["pants_kitF"], &[]);
+        assert_eq!(
+            supplied_to(&held, "Players/05 - A/x.mtl", "./pants_kitF.dds"),
+            Supply::Missing
+        );
+    }
+
+    #[test]
+    fn a_kit_reference_in_a_subfolder_is_supplied_by_a_prefix_or_suffix_fallback() {
+        // `jessie/kitF_pants.dds` and `jessie/pants_kitF.dds` are the `kitF` fallback of
+        // their sets: `jessie/kitN_pants.dds` and `jessie/pants_kitN.dds` resolve to them,
+        // the `kitF` names themselves finding nothing.
+        for path in [
+            "model/character/uniform/common/000/jessie/kitN_pants.dds",
+            "model/character/uniform/common/000/jessie/pants_kitN.dds",
+        ] {
+            assert_eq!(
+                supplied_below(path, &["jessie/kitF_pants", "jessie/pants_kitF"], None),
+                Supply::Supplied,
+                "{path}"
+            );
+        }
+        for path in [
+            "model/character/uniform/common/000/jessie/kitF_pants.dds",
+            "model/character/uniform/common/000/jessie/pants_kitF.dds",
+        ] {
+            assert_eq!(
+                supplied_below(path, &["jessie/kitF_pants", "jessie/pants_kitF"], None),
+                Supply::Missing,
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_kit_reference_in_a_common_subfolder_is_supplied_by_a_variant_at_its_path() {
+        // A variant of the set at `jessie/` supplies the `kitN` reference there; one held
+        // at `Common/`'s root does not: the path resolves at `jessie/` alone.
+        let path = "model/character/uniform/common/000/jessie/kitN_pants.dds";
+        assert_eq!(
+            supplied_below(path, &["jessie/kit1_pants"], None),
+            Supply::Supplied
+        );
+        assert_eq!(supplied_below(path, &["kit1_pants"], None), Supply::Missing);
     }
 
     #[test]

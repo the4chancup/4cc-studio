@@ -463,6 +463,85 @@ fn a_kit_number_a_per_kit_model_set_lacks_gets_its_lowest_variant_s_model_and_mt
     );
 }
 
+// TC-CMN-27
+#[test]
+fn a_kits_fallback_model_and_mtl_serve_every_gap_and_never_their_own_names() {
+    let sandbox = Sandbox::new("prefox_kit_fallback");
+    // `pants_kit1` with its own `.mtl`, `pants_kitF` with its own, the two naming
+    // different textures so their packed bytes differ.
+    sandbox.write(
+        &format!("{PLAYER}/pants_kit1.model"),
+        &pre_fox_fixture("cardhead_face_high.model"),
+    );
+    sandbox.write(
+        &format!("{PLAYER}/pants_kitF.model"),
+        &pre_fox_fixture("cardhead_doublesided_face_high.model"),
+    );
+    sandbox.write(
+        &format!("{PLAYER}/pants_kit1.mtl"),
+        &materials_naming("skin"),
+    );
+    sandbox.write(
+        &format!("{PLAYER}/pants_kitF.mtl"),
+        &materials_naming("skin2"),
+    );
+    sandbox.write(&format!("{PLAYER}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{PLAYER}/skin2.dds"), &small_dds());
+    write_kits(&sandbox, &[1, 2, 3]);
+
+    let expected = kit_findings(3, &[]);
+    let entries = compile_pes17(
+        &sandbox,
+        EXPORT,
+        &expected.iter().map(String::as_str).collect::<Vec<_>>(),
+    );
+
+    let face = face_files(&entries);
+    assert_eq!(
+        face.keys().map(String::as_str).collect::<Vec<_>>(),
+        [
+            "dummy.mtl",
+            "face.xml",
+            "oral_dummy_win32.model",
+            "oral_pants_kit1_win32.model",
+            "oral_pants_kit2_win32.model",
+            "oral_pants_kit3_win32.model",
+            "pants_kit1.mtl",
+            "pants_kit2.mtl",
+            "pants_kit3.mtl",
+        ]
+    );
+    // The `kitF` file's model and `.mtl`, under the missing numbers' spellings.
+    assert_eq!(
+        face["oral_pants_kit2_win32.model"],
+        face["oral_pants_kit3_win32.model"]
+    );
+    assert_eq!(
+        face["oral_pants_kit2_win32.model"],
+        pre_fox_fixture("cardhead_doublesided_face_high.model")
+    );
+    assert_eq!(
+        face["oral_pants_kit1_win32.model"],
+        pre_fox_fixture("cardhead_face_high.model")
+    );
+    assert_eq!(face["pants_kit2.mtl"], face["pants_kit3.mtl"]);
+    assert_eq!(
+        sampler_paths(&face["pants_kit2.mtl"]),
+        [format!("{TEXTURE_HOME}skin2.dds")]
+    );
+    assert_eq!(
+        sampler_paths(&face["pants_kit1.mtl"]),
+        [format!("{TEXTURE_HOME}skin.dds")]
+    );
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        [
+            entry("parts", "./oral_pants_kitN_*.model", "./pants_kitN.mtl"),
+            entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ]
+    );
+}
+
 #[test]
 fn each_per_kit_model_set_is_completed_against_its_own_variants() {
     let sandbox = Sandbox::new("prefox_kit_variants_two_sets");

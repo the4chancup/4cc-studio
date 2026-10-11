@@ -157,8 +157,8 @@ pub(crate) struct ModelFolder {
     /// (`common_models`; on pre-Fox only an `ingame_face` player's, a shared folder's links
     /// having no role there). Empty for a folder holding none.
     pub(crate) common_models: Vec<CommonModel>,
-    /// The stems, folded, of the textures directly in the export's `Common/` folder, which the
-    /// export's Common textures task emits into the team's Common output: a Common part's
+    /// The stems, as spelled, of the textures directly in the export's `Common/` folder, which
+    /// the export's Common textures task emits into the team's Common output: a Common part's
     /// texture paths of these stems name that output, not the folder's texture home
     /// (`pipeline.md` "3. Per-model-folder parallel steps", step 6), and a texture any part
     /// names in that output is supplied when its stem is among them ("Resolved decisions", "A
@@ -1079,14 +1079,15 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         // The stems of the textures directly in `Common/`, which the Common textures task emits
         // into the team's Common output and a Common part's paths, in a model of any folder,
         // name that output for. A subfolder's textures are packed under its own path, which no
-        // player's model points at.
+        // player's model points at. As spelled, not folded: the Models task's Common lookup
+        // reads a `kitF` file's token from its spelling (`kit_lookup_key`).
         let common_texture_stems: BTreeSet<String> = export
             .common
             .iter()
             .filter(|file| {
                 is_direct_root_folder_file(&file.path) && texture_format(file.path.name()).is_some()
             })
-            .map(|file| vtree::fold_name(file_stem(file.path.name())))
+            .map(|file| file_stem(file.path.name()).to_owned())
             .collect();
         // Pre-Fox loads Common at run time: its `.model` and `.mtl` files, and its FMDLs
         // converted, are one more task of the export's per directory, and a player's face
@@ -1881,8 +1882,8 @@ fn drop_common_gltfs(
 /// model into one `boots.model`, the gloves writer lists every glove in `glove.xml` and a
 /// marked player's parts are all worn. A pre-Fox face, a player's or a shared one, packs the
 /// whole set and lists it once as `pants_kitN` for the game to respell (`pipeline.md`
-/// "Kit-dependent assets"). Where no xml names it, the lowest variant is what both engines
-/// agree on. A mapped player's sets span his own files and those of the shared folders whose
+/// "Kit-dependent assets"). Where no xml names it, the fallback — the `kitF` file, else the
+/// lowest variant — is what both engines agree on. A mapped player's sets span his own files and those of the shared folders whose
 /// link feeds his own package (`link_feeds_own_package`, `hand_weighted` being the models the
 /// deep pass found carrying hand weights), as his packages are built
 /// (`ModelFolder::roles`), and are reported on him when they hold a file of his own, a set
@@ -3414,7 +3415,7 @@ mod tests {
         );
         assert_eq!(
             folder.common_texture_stems,
-            BTreeSet::from(["cloth".to_owned(), "hair".to_owned()])
+            BTreeSet::from(["Cloth".to_owned(), "hair".to_owned()])
         );
         // The Common task is in no group: a player's packages never wait for it.
         let common = &report.manifest.tasks[5];

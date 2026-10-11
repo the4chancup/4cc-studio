@@ -281,8 +281,9 @@ pub(crate) enum PlayerFile {
     /// skeleton slot (`player_folders.md` "SKL pairing"): reported as `skl_no_slot` by the
     /// structure pass, and never read.
     SlotlessSkeleton,
-    /// A per-kit model with a lower variant of its set beside it (`pants_kit2.fmdl` or
-    /// `pants_kit2.model` beside `pants_kit1.fmdl`) where no `face.xml` names the set (on Fox;
+    /// A per-kit model other than its set's fallback (`pants_kit2.fmdl` or
+    /// `pants_kit2.model` beside `pants_kit1.fmdl`, or any variant beside `pants_kitF`)
+    /// where no `face.xml` names the set (on Fox;
     /// on pre-Fox under `ingame_face` and in a shared boots or gloves folder,
     /// `leaves_out_kit_variants`): nothing can switch models with the kit, so planning reports
     /// `kit_variant_model_left_out` and the file is never read
@@ -860,8 +861,8 @@ pub(crate) struct FolderModels {
     /// skeleton slot: a skeleton named after one is `skl_no_slot`. The gloves have none
     /// either, and no `.skl` pairs with a glove.
     slotless_stems: Vec<String>,
-    /// The export paths of its per-kit models with a lower variant of their set beside them or
-    /// in another source of their part (`of_part_source`), where no `face.xml` names the set
+    /// The export paths of its per-kit models other than their set's fallback (the `kitF`
+    /// file, else the lowest variant), where no `face.xml` names the set
     /// (`leaves_out_kit_variants`: on Fox; on pre-Fox under `ingame_face` and in a shared boots
     /// or gloves folder): they are not models of the folder
     /// (`PlayerFile::LeftOutKitVariant`), no skeleton pairs with one and none makes a face.
@@ -904,13 +905,13 @@ impl FolderModels {
     /// `.common` links to an FMDL or a `.model`, at any depth (`role_position`), each with its
     /// resolved role. A link counts as a model of its role's package, but pairs no
     /// skeleton of the folder's: a Common model's skeleton is Common's, resolved at planning
-    /// (`common_skeleton`). A per-kit model with a lower variant of its set beside it is left
+    /// (`common_skeleton`). A per-kit model other than its set's fallback is left
     /// out (`model_variant_sets`). On pre-Fox: its `.model` files, its `.fmdl` files with no
     /// `.model` or glTF of their path stem, which the face converts, and its `.common` links to a
     /// `.model` or an FMDL with a role, every one of them a part of the face (`PlayerFile::PreFoxModel`,
     /// `PlayerFile::PreFoxCommonModel`), every variant of a per-kit set included, or under
     /// `ingame_face` the parts of his boots and gloves, the folder having no face
-    /// (`PlayerFile::PreFoxPart`), a per-kit set's lowest variant alone; only a converted FMDL
+    /// (`PlayerFile::PreFoxPart`), a per-kit set's fallback alone; only a converted FMDL
     /// pairs a skeleton, its bind pose.
     pub(crate) fn of_player_files(
         folder: &ScopePath,
@@ -1227,13 +1228,14 @@ fn model_stems(folder: &ScopePath, files: &[FileDescriptor], format: ModelFormat
 }
 
 /// Whether the per-kit model sets of a folder (`kit_variants::model_variant_sets`) are left out
-/// but for their lowest variant on a target of `engine` (`kit_variant_model_left_out`): where
+/// but for their fallback — the `kitF` file, else the lowest variant — on a target of `engine`
+/// (`kit_variant_model_left_out`): where
 /// no `face.xml` names the set. That is every folder on Fox, which has no model-path
 /// indirection; on pre-Fox a player folder holding `ingame_face` (his boots and gloves hold
 /// parts, every one worn at once) and a shared boots or gloves folder of kind `shared` (one
 /// `boots.model` merging every model, one `glove.xml` listing every glove), never a face, a
 /// player's or a shared one, which lists the set once through its `face.xml` entry for the game
-/// to respell. The lowest variant is what both engines agree on.
+/// to respell. The fallback is what both engines agree on.
 pub(crate) fn leaves_out_kit_variants(
     engine: Engine,
     ingame_face: bool,
@@ -1426,7 +1428,7 @@ fn pre_fox_file(
 /// (`face_xml::xml_type`) for a `glove.xml` to list. The two engines agree on which models
 /// have a role. A model named as face content never reaches here: validation drops a marked
 /// folder holding one, file or link (`ingame_face_explicit_face_model`). A per-kit model is a
-/// part too: its set's lowest variant is used and the others are left out
+/// part too: its set's fallback is used and the others are left out
 /// (`kit_variant_model_left_out`, `FolderModels::left_out_variants`), as on Fox, since as parts
 /// of his boots or gloves every variant would be worn at once.
 fn pre_fox_part(stem: &str) -> PlayerFile {

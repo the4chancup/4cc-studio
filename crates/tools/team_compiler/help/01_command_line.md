@@ -37,23 +37,29 @@ becomes a BC3 `.dds` of the same size with its mip levels. A texture whose name 
 (`skin_nrm.png`) is a normal map and is encoded as one. A texture named with `kit1` to `kit9`
 (`pants_kit1.dds`, `pants_kit2.dds`) is the one the game shows when that kit is picked before
 a match, through a model that names `pants_kitN` instead: the game puts the picked kit's number
-in place of the `N`. When the team has a kit number (a `p1` to `p9` folder in `Kits`; the
-goalkeeper's `g1` goes with the number picked) with no texture of its own, the lowest one is
-copied for it, so the game never shows a missing texture, and the warning `kit_variant_missing`
-names the texture, the kit and the copied file. Per-kit models (`pants_kit1.fmdl` beside
+in place of the `N`. A texture named `kitF` (`pants_kitF.dds`) is the set's fallback, the file
+a kit number with no variant of its own gets; it is never used under its own name, so a model
+naming `pants_kitF` finds nothing. When the team has a kit number (a `p1` to `p9` folder in `Kits`; the
+goalkeeper's `g1` goes with the number picked) with no texture of its own, it gets the set's
+fallback (`kitF`, else the lowest variant): for PES 2018 to 2021 the fallback is written once
+as `pants_kitN`, for PES 2015 to 2017 it is copied under the missing number's name, so the
+game never shows a missing texture; the warning `kit_variant_missing`
+names the texture, the kit and the copied file, and fires only when the set has no `kitF`.
+Per-kit models (`pants_kit1.fmdl` beside
 `pants_kit2.fmdl`, or `.model` files, or a mix of the two) need a `face.xml` to name them. On
 PES 2018 to 2021, and on PES 2015 to 2017 in a shared boots or gloves folder and in a folder
-holding `ingame_face`, only the lowest one is used (a model in the other game's format
+holding `ingame_face`, the set's fallback is used (a model in the other game's format
 converted, a `.model` with its `.mtl`), and the warning `kit_variant_model_left_out` says so.
 On PES 2015 to 2017 a face's set is listed once in the
 `face.xml`, as `pants_kitN`, every variant is packed and the game loads the one for the kit
 picked; each variant's `.mtl` goes by the same rule (`pants_kit1.mtl` and `pants_kit2.mtl`, or
 one `pants.mtl` for all), and the warning `kit_variant_mtl_differs` names a variant whose `.mtl`
 would not be found that way. A kit number the team has with no model of the set gets the
-lowest one copied for it, as a texture does (its `.mtl` too when that is the variant's own,
-`pants_kit1.mtl`), so the game never shows the player without that part, and the warning
-`kit_variant_missing` names the set, the kit and the copied model; the same holds for a set a
-player's own `face.xml` names. Six lines name a texture that cannot be
+fallback's model copied for it, as a texture does (its `.mtl` too when that is the variant's own,
+`pants_kit1.mtl`), so the game never shows the player without that part; the `kitF` model and
+its `.mtl` are never packed under their own names, and the warning
+`kit_variant_missing` names the set, the kit and the copied model only when there is no
+`kitF`; the same holds for a set a player's own `face.xml` names. Six lines name a texture that cannot be
 used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_div4` (for
 PES 2015 to 2017, a width or height that is not a multiple of 4: 1000 is one, 1002 is not),
 `texture_not_pow2` (a portrait whose width or height is not a power of two, or any other

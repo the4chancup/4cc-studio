@@ -386,6 +386,97 @@ fn a_hand_weighted_per_kit_set_lacking_a_kit_number_gets_its_lowest_body_and_han
 }
 
 #[test]
+fn a_hand_weighted_set_s_kitf_fallback_serves_the_kit_it_lacks() {
+    let sandbox = Sandbox::new("prefox_hand_split_kit_fallback");
+    let export = "co Midcup Hands";
+    let player = format!("exports/{export}/Players/05 - A");
+    // The variant `body_kit1` is the strip's authored pre-Fox pair, the fallback
+    // `body_kitF` the same strip converted from its `.fmdl`
+    // (`tests/fixtures/hand_split/README.md`): same split shape, different bytes, so the
+    // kit 2 copy shows its source, which keeps the converted hand-split path covered.
+    for name in ["model", "mtl"] {
+        sandbox.write(
+            &format!("{player}/body_kit1.{name}"),
+            &hand_split_fixture(&format!("body.{name}")),
+        );
+    }
+    sandbox.write(
+        &format!("{player}/body_kitF.fmdl"),
+        &hand_split_fixture("body.fmdl"),
+    );
+    for kit in ["p1", "p2"] {
+        sandbox.write(
+            &format!("exports/{export}/Kits/{kit}/kit.dds"),
+            &tracer_kit(),
+        );
+    }
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info native_field_dropped [Keep] at Players/05 - A (model=body_kitF.fmdl, field=bone_matrices)",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body_kit1.model, gloves=glove_l, glove_r)",
+            "Info model_hand_split [Keep] at Players/05 - A (model=body_kitF.fmdl, gloves=glove_l, glove_r)",
+            "Info xml_face_neck_added [Keep] at Players/05 - A ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+        ],
+    );
+
+    let face = nested_entries(&entries[&face_cpk(5)]);
+    let folder = face_folder(5);
+    let names: Vec<&str> = face
+        .keys()
+        .map(|path| path.strip_prefix(folder.as_str()).unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "body_kit1.mtl",
+            "body_kit2.mtl",
+            "dummy.mtl",
+            "face.xml",
+            "oral_body_kit1_glove_l_win32.model",
+            "oral_body_kit1_glove_r_win32.model",
+            "oral_body_kit1_win32.model",
+            "oral_body_kit2_glove_l_win32.model",
+            "oral_body_kit2_glove_r_win32.model",
+            "oral_body_kit2_win32.model",
+            "oral_dummy_win32.model",
+        ]
+    );
+    for part in ["", "_glove_l", "_glove_r"] {
+        let packed = |kit: u8| &face[&format!("{folder}oral_body_kit{kit}{part}_win32.model")];
+        assert_ne!(packed(2), packed(1), "{part}");
+    }
+    let entry = |xml_type: &str, path: &str, material: &str| {
+        (xml_type.to_owned(), path.to_owned(), material.to_owned())
+    };
+    assert_eq!(
+        ordered_entries(&face[&format!("{folder}face.xml")]),
+        [
+            entry("parts", "./oral_body_kitN_*.model", "./body_kitN.mtl"),
+            entry(
+                "gloveL",
+                "./oral_body_kitN_glove_l_*.model",
+                "./body_kitN.mtl"
+            ),
+            entry(
+                "gloveR",
+                "./oral_body_kitN_glove_r_*.model",
+                "./body_kitN.mtl"
+            ),
+            entry("face_neck", "./oral_dummy_*.model", "./dummy.mtl"),
+        ]
+    );
+}
+
+#[test]
 fn a_hand_weighted_model_whose_mtl_is_a_common_file_is_split_with_it() {
     let sandbox = Sandbox::new("prefox_hand_split_common_mtl");
     let export = "co Midcup Hands";

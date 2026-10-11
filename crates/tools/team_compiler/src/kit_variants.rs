@@ -1,8 +1,9 @@
 //! Kit-dependent assets (`model_format.md` "Kit-dependent assets (`kitN`)"): the kit number of
 //! a kit slot, the per-kit model files an output no `face.xml` lists cannot use
 //! (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kit-dependent assets), and
-//! whether a kit reference has a variant among some stems. The token a file stem carries,
-//! `kit1` to `kit9` or `kitN`, is the export format's (`aesthetics_export::kit_token`).
+//! whether a kit reference has a member of its set among some stems. The token a file stem
+//! carries, `kit1` to `kit9`, `kitN` or the `kitF` fallback, is the export format's
+//! (`aesthetics_export::kit_token`).
 
 use std::collections::BTreeMap;
 
@@ -32,24 +33,57 @@ pub(crate) fn kit_number(slot: KitSlot) -> Option<u8> {
 }
 
 /// Per-kit model files of one part (`pants_kit1.fmdl`, `pants_kit2.model`): where no `face.xml`
-/// names the set, nothing switches models with the kit, so only the lowest variant is
-/// compiled.
+/// names the set, nothing switches models with the kit, so only the set's fallback — its
+/// `kitF` file, else its lowest variant — is compiled.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct ModelVariantSet {
-    /// The set's reference with the lowest variant's extension, as
-    /// `kit_variant_model_left_out` names it (`pants_kitN.fmdl`).
+    /// The set's reference with the fallback's extension, as `kit_variant_model_left_out`
+    /// names it (`pants_kitN.fmdl`).
     pub(crate) reference: String,
-    /// The export path of the lowest variant, the one compiled
-    /// (`Players/05 - A/pants_kit1.fmdl`).
+    /// The export path of the fallback member, the one compiled
+    /// (`Players/05 - A/pants_kitF.fmdl`, or `pants_kit1.fmdl` when the set holds no `kitF`).
     pub(crate) used: ScopePath,
-    /// The export paths of the other variants, which nothing reads.
+    /// The export paths of the other members, which nothing reads.
     pub(crate) left_out: Vec<ScopePath>,
+}
+
+/// The kit number a kit set member's token names: a variant's; `None` for the `kitF`
+/// fallback and the `kitN` reference, which are members without a number.
+pub(crate) fn member_kit(token: KitToken) -> Option<u8> {
+    match token {
+        KitToken::Variant(kit) => Some(kit),
+        KitToken::Reference | KitToken::Fallback => None,
+    }
+}
+
+/// The index of the member of `members` the set's `kitN` reference and its listed entry
+/// stand for: its lowest-numbered variant, or its `kitF` fallback when it has no variant.
+/// `members` are the set's members in any order, `kit` answering each one's kit number —
+/// `None` for a `kitF` member; `None` for an empty set.
+pub(crate) fn representative<T>(members: &[T], kit: impl Fn(&T) -> Option<u8>) -> Option<usize> {
+    members
+        .iter()
+        .enumerate()
+        // A variant before the `kitF` member, then the lowest number.
+        .min_by_key(|(_, member)| (kit(member).is_none(), kit(member)))
+        .map(|(index, _)| index)
+}
+
+/// The index of the member of `members` that is the set's fallback — its `kitF` member
+/// when it has one, else its lowest-numbered variant (`representative`); `None` for an
+/// empty set.
+pub(crate) fn fallback<T>(members: &[T], kit: impl Fn(&T) -> Option<u8>) -> Option<usize> {
+    members
+        .iter()
+        .position(|member| kit(member).is_none())
+        .or_else(|| representative(members, kit))
 }
 
 /// One per-kit model file of a set, as `model_variant_sets` orders them.
 struct Variant<'a> {
-    /// Its kit number.
-    kit: u8,
+    /// Its kit number, `None` for the set's `kitF` fallback, which sorts before every
+    /// variant and so is the used member when the set has one.
+    kit: Option<u8>,
     /// The index of its source among the sources given.
     source: usize,
     /// It is in the other engine's format, which the target's format beats.
@@ -65,25 +99,27 @@ struct Variant<'a> {
 /// The sets of per-kit model files among `sources`, the files of each folder one part is built
 /// from that may take a role there (`roles::role_files`), the player's own first and then each
 /// combined shared folder's in link order, on a target of `engine`: the `.fmdl` and `.model`
-/// variants whose stems differ only in their token's digit (compared case-folded, as the file
-/// system compares names) form a set, whatever their format and wherever they sit among the
+/// members whose stems differ only in their token's last character (compared case-folded, as
+/// the file system compares names), a `kitF` file joining as the set's fallback, form a set,
+/// whatever their format and wherever they sit among the
 /// sources (`pipeline.md` "Kit-dependent assets": the part merges them, so a set split between
 /// a folder and its `face/`, or between a player and a shared folder he combines, is one set),
-/// and a set of one is an ordinary model. A variant present in both formats is one variant,
+/// and a set of one — a lone variant, or `kitF` alone — is an ordinary model. A member present
+/// in both formats is one member,
 /// the target's format (`.fmdl` on Fox, `.model` on pre-Fox) its selected representation, as
 /// the selection order says: the file of the other format beside it is neither `used` nor
-/// left out, a model the target's beats (`FolderModels::beaten`), for every number. Of two
-/// files of the used (lowest) number in two directories, the earlier source's is the variant
+/// left out, a model the target's beats (`FolderModels::beaten`), for every member. Of two
+/// files of the used member's token in two directories, the earlier source's is used
 /// (the player's own wins a name he and a combined folder both hold) and the other is neither
-/// used nor left out: another part of that kit, which the part merges with it. Every file of
+/// used nor left out: another part of it, which the part merges with it. Every file of
 /// another number is left out, wherever it sits: merged, it would show in every kit's model.
-/// Of two of the used number in one directory, two spellings of one name on a case-sensitive
+/// Of two of the used member in one directory, two spellings of one name on a case-sensitive
 /// file system, the first is used and the other left out. Ordered by reference.
 pub(crate) fn model_variant_sets(
     sources: &[Vec<&FileDescriptor>],
     engine: Engine,
 ) -> Vec<ModelVariantSet> {
-    // Each set's variants by folded reference stem, in the sources' file order.
+    // Each set's members by folded reference stem, in the sources' file order.
     let mut sets: BTreeMap<String, Vec<Variant<'_>>> = BTreeMap::new();
     for (source, files) in sources.iter().enumerate() {
         for file in files {
@@ -107,8 +143,11 @@ pub(crate) fn model_variant_sets(
             };
             let name = file.path.name();
             let stem = file_stem(name);
-            let Some((KitToken::Variant(kit), reference)) = kit_token(stem) else {
-                continue;
+            let (kit, reference) = match kit_token(stem) {
+                Some((token @ (KitToken::Variant(_) | KitToken::Fallback), reference)) => {
+                    (member_kit(token), reference)
+                }
+                Some((KitToken::Reference, _)) | None => continue,
             };
             sets.entry(vtree::fold_name(&reference))
                 .or_default()
@@ -124,15 +163,19 @@ pub(crate) fn model_variant_sets(
     }
     sets.into_values()
         .filter_map(|mut variants| {
-            // A stable sort: of the files of one number, the earlier source's first, and in
-            // one source the target's format before the other's, then the sources' order.
+            // A stable sort: the `kitF` fallback first, then of the files of one number the
+            // earlier source's first, and in one source the target's format before the
+            // other's, then the sources' order.
             variants.sort_by_key(|variant| (variant.kit, variant.source, variant.other_format));
-            let used_kit = variants.first()?.kit;
+            // The used member is the set's fallback — `kitF` before every variant, else
+            // the lowest one.
+            let used_kit = variants[fallback(&variants, |variant| variant.kit)?].kit;
             variants.dedup_by(|later, kept| {
                 let beaten =
                     later.directory == kept.directory && later.other_format && !kept.other_format;
-                // Another part of the used kit is merged with it; a left-out number's other
-                // parts are left out with it, or they would merge into every kit's model.
+                // Another part of the used member is merged with it; a left-out number's
+                // other parts are left out with it, or they would merge into every kit's
+                // model.
                 let used_kit_part = later.kit == used_kit && later.directory != kept.directory;
                 later.kit == kept.kit && (beaten || used_kit_part)
             });
@@ -161,15 +204,64 @@ pub(crate) fn kit_reference_directory(directory: &str) -> bool {
         .any(|segment| vtree::fold_name(segment) == "kitn")
 }
 
-/// Whether `stem` is a kit reference (`pants_kitN`, never a file of its own) and `stems` hold a
-/// variant of its set (`pants_kit2`), compared as `stems` are, as spelled.
+/// Whether `stem` is a kit reference (`pants_kitN`, never a file of its own) and `stems` hold
+/// a member of its set — a variant (`pants_kit2`) or its `kitF` fallback — compared as
+/// `stems` are, as spelled. A `stem` may name a directory (`jessie/kitN_pants`): the token
+/// is read in the file name alone, and only a held stem of that directory, folded, counts —
+/// the set a path names is the one at its path.
 pub(crate) fn has_variant_among<'a>(stem: &str, stems: impl IntoIterator<Item = &'a str>) -> bool {
-    let Some((KitToken::Reference, reference)) = kit_token(stem) else {
+    let (directory, name) = stem.rsplit_once('/').unwrap_or(("", stem));
+    let Some((KitToken::Reference, reference)) = kit_token(name) else {
         return false;
     };
+    let directory = vtree::fold_name(directory);
     stems.into_iter().any(|held| {
-        matches!(kit_token(held), Some((KitToken::Variant(_), held_reference)) if vtree::fold_name(&held_reference) == vtree::fold_name(&reference))
+        let (held_directory, held_name) = held.rsplit_once('/').unwrap_or(("", held));
+        vtree::fold_name(held_directory) == directory
+            && matches!(kit_token(held_name), Some((KitToken::Variant(_) | KitToken::Fallback, held_reference)) if vtree::fold_name(&held_reference) == vtree::fold_name(&reference))
     })
+}
+
+/// Whether `stem` is a set's `kitF` fallback file (`pants_kitF`).
+pub(crate) fn kit_fallback_stem(stem: &str) -> bool {
+    matches!(kit_token(stem), Some((KitToken::Fallback, _)))
+}
+
+/// Whether `stem` — a file's name in a packed package, its extension dropped — is a `kitF`
+/// member's: the `kitF` token in any letter case, `pants_kitF` as the member spells it
+/// or `oral_pants_kitf_win32` as `packed_model_name` folds it. The fold reads `kitf`,
+/// which the export's rules make no token, as a member's own `kitf`-spelled file too:
+/// the packed name is all the strip sees, and one such file cannot be told from the
+/// fallback's.
+pub(crate) fn packed_fallback_stem(stem: &str) -> bool {
+    let folded = vtree::fold_name(stem);
+    let bytes = folded.as_bytes();
+    folded.match_indices("kitf").any(|(at, _)| {
+        let delimits =
+            |byte: Option<&u8>| byte.is_none_or(|byte| matches!(byte, b'_' | b'-' | b'.'));
+        delimits(at.checked_sub(1).and_then(|index| bytes.get(index)))
+            && delimits(bytes.get(at + "kitf".len()))
+    })
+}
+
+/// The key `stem`, a texture's name without its extension (or its path below its folder,
+/// `jessie/pants_kitF`), goes by in a by-stem lookup, folded as the lookups compare: the
+/// set's `kitF` fallback under the set's folded reference (`pants_kitn`), since it is
+/// never a file under its own name — a path naming `pants_kitF` finds nothing while its
+/// set's `kitN` reference finds it — any other name under its own folded spelling. The
+/// token reads in the file name alone (`kitF_pants` is the fallback, as `pants_kitF` is),
+/// the directory kept.
+pub(crate) fn kit_lookup_key(stem: &str) -> String {
+    let (directory, name) = match stem.rfind('/') {
+        Some(at) => (&stem[..at + 1], &stem[at + 1..]),
+        None => ("", stem),
+    };
+    match kit_token(name) {
+        Some((KitToken::Fallback, reference)) => {
+            vtree::fold_name(&format!("{directory}{reference}"))
+        }
+        _ => vtree::fold_name(stem),
+    }
 }
 
 #[cfg(test)]
@@ -409,6 +501,96 @@ mod tests {
     }
 
     #[test]
+    fn a_kits_fallback_is_the_used_member_and_kits_alone_is_no_set() {
+        // The `kitF` file is the set's fallback: used, the variants left out, the reference
+        // keeping its extension.
+        assert_eq!(
+            sets(&["P/pants_kit1.fmdl", "P/pants_kitF.fmdl"]),
+            [(
+                "pants_kitN.fmdl".to_owned(),
+                "pants_kitF.fmdl".to_owned(),
+                vec!["P/pants_kit1.fmdl".to_owned()]
+            )]
+        );
+        // In both formats, the fallback is represented by the target's, as a variant is.
+        assert_eq!(
+            sets(&[
+                "P/pants_kit1.fmdl",
+                "P/pants_kitF.model",
+                "P/pants_kitF.fmdl"
+            ]),
+            [(
+                "pants_kitN.fmdl".to_owned(),
+                "pants_kitF.fmdl".to_owned(),
+                vec!["P/pants_kit1.fmdl".to_owned()]
+            )]
+        );
+        // `kitF` alone is an ordinary model, as a lone variant is.
+        assert_eq!(sets(&["P/pants_kitF.fmdl"]), []);
+    }
+
+    #[test]
+    fn a_kit_reference_is_supplied_by_the_set_s_fallback_too() {
+        assert!(has_variant_among("pants_kitN", ["skin", "pants_kitF"]));
+        assert!(!has_variant_among("pants_kitN", ["skin", "socks_kitF"]));
+        // A `kitF` name is no reference: it is not looked up.
+        assert!(!has_variant_among("pants_kitF", ["pants_kitF"]));
+    }
+
+    #[test]
+    fn a_packed_name_s_fallback_is_its_kitf_token_between_delimiters() {
+        // `kitf` in any case, as a packed name carries it, delimited as the token is.
+        for stem in [
+            "oral_pants_kitf_win32",
+            "kitf_pants",
+            "pants_kitF",
+            "pants-kitf.x",
+        ] {
+            assert!(packed_fallback_stem(stem), "{stem}");
+        }
+        for stem in ["pants_kitfx", "pantskitf", "xkitf_pants", "skin"] {
+            assert!(!packed_fallback_stem(stem), "{stem}");
+        }
+    }
+
+    #[test]
+    fn a_fallback_goes_by_its_set_s_reference_key_in_a_by_stem_lookup() {
+        assert_eq!(kit_lookup_key("pants_kitF"), "pants_kitn");
+        assert_eq!(kit_lookup_key("jessie/pants_kitF"), "jessie/pants_kitn");
+        // The token reads in the file name alone: a `kitF`-prefixed file is a fallback
+        // too, its directory kept.
+        assert_eq!(kit_lookup_key("jessie/kitF_pants"), "jessie/kitn_pants");
+        assert_eq!(kit_lookup_key("jessie/pants_kitF"), "jessie/pants_kitn");
+        assert_eq!(kit_lookup_key("Pants_Kit1"), "pants_kit1");
+        assert_eq!(kit_lookup_key("skin"), "skin");
+        assert!(kit_fallback_stem("pants_kitF"));
+        assert!(!kit_fallback_stem("pants_kit1"));
+        assert!(!kit_fallback_stem("pants_kitf"));
+        assert!(!kit_fallback_stem("skin"));
+    }
+
+    #[test]
+    fn a_members_kit_number_is_none_for_the_fallback_and_reference() {
+        assert_eq!(member_kit(KitToken::Variant(3)), Some(3));
+        assert_eq!(member_kit(KitToken::Fallback), None);
+        assert_eq!(member_kit(KitToken::Reference), None);
+    }
+
+    #[test]
+    fn a_set_s_fallback_is_its_kitf_else_its_lowest_variant_its_representative_the_reverse() {
+        let members = [(Some(3), "three"), (Some(1), "one"), (None, "kitf")];
+        let kit = |member: &(Option<u8>, &str)| member.0;
+        assert_eq!(fallback(&members, kit), Some(2));
+        assert_eq!(representative(&members, kit), Some(1));
+        let variants_only = [(Some(3), "three"), (Some(1), "one")];
+        assert_eq!(fallback(&variants_only, kit), Some(1));
+        assert_eq!(representative(&variants_only, kit), Some(1));
+        let fallback_only = [(None, "kitf")];
+        assert_eq!(fallback(&fallback_only, kit), Some(0));
+        assert_eq!(representative(&fallback_only, kit), Some(0));
+    }
+
+    #[test]
     fn a_variant_in_both_formats_is_represented_by_the_target_s_format() {
         let paths = [
             "P/pants_kit1.fmdl",
@@ -442,6 +624,26 @@ mod tests {
         assert!(!has_variant_among(
             "pants_kit1",
             ["pants_kit1", "pants_kit2"]
+        ));
+    }
+
+    #[test]
+    fn a_kit_reference_names_the_set_of_the_directory_it_names() {
+        // The token reads in the file name, the directories compared folded: the set at
+        // the path the reference names, and no other.
+        assert!(has_variant_among(
+            "jessie/kitN_pants",
+            ["jessie/kit1_pants"]
+        ));
+        assert!(has_variant_among(
+            "Jessie/kitN_pants",
+            ["jessie/kit1_pants"]
+        ));
+        assert!(!has_variant_among("jessie/kitN_pants", ["kit1_pants"]));
+        assert!(!has_variant_among("pants_kitN", ["jessie/pants_kit1"]));
+        assert!(!has_variant_among(
+            "jessie/kitN_pants",
+            ["jessie/sock_kit1"]
         ));
     }
 }

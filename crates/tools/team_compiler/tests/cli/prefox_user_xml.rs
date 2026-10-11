@@ -1363,6 +1363,92 @@ fn a_shared_xml_s_kit_reference_names_the_linking_player_s_own_variants() {
     );
 }
 
+// The player's own `kitF` files are the set's fallback a shared xml's `kitN` reference is
+// completed from: packed under their own names as the face's files already hold them, the
+// missing numbers' copies read from them, and nothing of the face keeps a `kitF` name.
+#[test]
+fn a_shared_xml_s_kit_reference_is_completed_from_the_player_s_kitf_files() {
+    let sandbox = Sandbox::new("user_xml_shared_kit_fallback");
+    let export = "co Midcup Xml";
+    let xml = face_xml(&[
+        FACE_HIGH,
+        r#"type="parts" path="./pants_kitN.model" material="./pants_kitN.mtl""#,
+    ]);
+    write_round(&sandbox, export, Some(&xml), &["05 - A"]);
+    // The shared face's own member of the set, which its xml names so `check` keeps it;
+    // the player's `kitF` files are the fallback the completions are read from.
+    let round = format!("exports/{export}/Faces/Round");
+    sandbox.write(&format!("{round}/pants_kit1.model"), &card_model());
+    sandbox.write(&format!("{round}/pants_kit1.mtl"), &card_materials());
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/pants_kit1.model"), &card_model());
+    sandbox.write(&format!("{player}/pants_kit1.mtl"), &card_materials());
+    // His own `kitF` pair, its `.mtl` naming another texture so its copies show their source.
+    let fallback = pre_fox_fixture("cardhead_doublesided_face_high.model");
+    sandbox.write(&format!("{player}/pants_kitF.model"), &fallback);
+    sandbox.write(
+        &format!("{player}/pants_kitF.mtl"),
+        &materials_naming("his"),
+    );
+    sandbox.write(&format!("{player}/his.dds"), &small_dds());
+    for kit in 1..=3 {
+        sandbox.write(
+            &format!("exports/{export}/Kits/p{kit}/kit.dds"),
+            &tracer_kit(),
+        );
+    }
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            IDENTIFIED,
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p3 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p3 ()",
+        ],
+    );
+
+    let face = slot_05_face(&entries);
+    assert_eq!(
+        names(&face),
+        [
+            "face.xml",
+            "face_high.model",
+            "face_high.mtl",
+            "pants_kit1.model",
+            "pants_kit1.mtl",
+            "pants_kit2.model",
+            "pants_kit2.mtl",
+            "pants_kit3.model",
+            "pants_kit3.mtl",
+        ]
+    );
+    // Kits 2 and 3's copies are the `kitF` files', under the numbers' spellings.
+    assert_eq!(face["pants_kit2.model"], fallback);
+    assert_eq!(face["pants_kit3.model"], fallback);
+    assert_eq!(
+        sampler_paths(&face["pants_kit2.mtl"]),
+        [format!("{SLOT_05_HOME}his.dds")]
+    );
+    assert_eq!(
+        sampler_paths(&face["pants_kit1.mtl"]),
+        [format!("{SLOT_05_HOME}skin.dds")]
+    );
+    assert_eq!(
+        ordered_entries(&face["face.xml"]),
+        owned_entries(&[
+            ("face_neck", "./face_high.model", "./face_high.mtl"),
+            ("parts", "./pants_kitN.model", "./pants_kitN.mtl"),
+        ])
+    );
+}
+
 /// The `<dif>` text of the `face.xml` `bytes` decoded, its line ends and indent left out.
 fn decoded_dif(bytes: &[u8]) -> Vec<u8> {
     let text = std::str::from_utf8(bytes).unwrap();

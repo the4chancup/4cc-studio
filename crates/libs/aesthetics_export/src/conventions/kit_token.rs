@@ -1,17 +1,21 @@
 //! Kit-dependent assets (`model_format.md` "Kit-dependent assets (`kitN`)"): the token a file
-//! stem carries to say which kit number it belongs to, `kit1` to `kit9`, or that it stands for
-//! whichever kit is picked in the game, `kitN` (`team_compiler/pipeline.md` "4. Per-export
-//! non-model steps", Kit-dependent assets).
+//! stem carries to say which kit number it belongs to, `kit1` to `kit9`, that it stands for
+//! whichever kit is picked in the game, `kitN`, or that it is the set's fallback, `kitF`
+//! (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kit-dependent assets).
 
 use std::borrow::Cow;
 
-/// A stem's kit token: the reference `kitN`, or the variant for one kit number.
+/// A stem's kit token: the reference `kitN`, the variant for one kit number, or the set's
+/// fallback.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KitToken {
     /// `kitN`: the variant of the kit number picked in the game.
     Reference,
     /// `kit1` to `kit9`: the variant shown when that kit number is picked.
     Variant(u8),
+    /// `kitF`: the set's fallback, what a kit number with no variant of its own gets. Never
+    /// a file under its own name, so a path naming it finds nothing.
+    Fallback,
 }
 
 /// The first kit token of `stem` and the stem's reference spelling (the token as `kitN`),
@@ -49,9 +53,10 @@ pub fn without_kit_token(stem: &str) -> Cow<'_, str> {
     Cow::Owned(format!("{}{}", &stem[..cut_start], &stem[cut_end..]))
 }
 
-/// The byte offset in `stem` of its first token's last character (the `N` or the digit), with
-/// the token. A token is `kit` followed by `N` or `1` to `9`, spelled exactly so, with `_`, `-`,
-/// `.` or the stem's end on each side: `skitN` and `kitNx` hold none.
+/// The byte offset in `stem` of its first token's last character (the `N`, `F` or the
+/// digit), with the token. A token is `kit` followed by `N`, `F` or `1` to `9`, spelled
+/// exactly so, with `_`, `-`, `.` or the stem's end on each side: `skitN`, `kitNx` and
+/// `kitf` hold none.
 fn find_token(stem: &str) -> Option<(usize, KitToken)> {
     let bytes = stem.as_bytes();
     let delimits = |byte: Option<&u8>| byte.is_none_or(|byte| matches!(byte, b'_' | b'-' | b'.'));
@@ -59,6 +64,7 @@ fn find_token(stem: &str) -> Option<(usize, KitToken)> {
         let at = start + "kit".len();
         let token = match bytes.get(at) {
             Some(b'N') => KitToken::Reference,
+            Some(b'F') => KitToken::Fallback,
             Some(digit @ b'1'..=b'9') => KitToken::Variant(digit - b'0'),
             _ => return None,
         };
@@ -80,6 +86,7 @@ mod tests {
     fn a_token_is_kit_n_or_kit_1_to_9_between_delimiters_or_the_stem_s_ends() {
         let cases = [
             ("pants_kitN", KitToken::Reference, "pants_kitN"),
+            ("pants_kitF", KitToken::Fallback, "pants_kitN"),
             ("pants_kit3", KitToken::Variant(3), "pants_kitN"),
             ("kit2_pants", KitToken::Variant(2), "kitN_pants"),
             ("kit1", KitToken::Variant(1), "kitN"),
@@ -100,6 +107,7 @@ mod tests {
             "pants_kit",
             "pants_KIT1",
             "pants_kitn",
+            "pants_kitf",
             "kitNx",
             "kit",
         ] {
@@ -115,6 +123,8 @@ mod tests {
             Some("kit9_a-kit1".to_owned())
         );
         assert_eq!(variant_stem("skit1_kit2", 4), Some("skit1_kit4".to_owned()));
+        // The fallback respells like a variant.
+        assert_eq!(variant_stem("pants_kitF", 2), Some("pants_kit2".to_owned()));
         assert_eq!(variant_stem("pants", 1), None);
     }
 
@@ -122,6 +132,7 @@ mod tests {
     fn the_token_goes_with_the_delimiter_before_it_or_else_the_one_after() {
         let cases = [
             ("boots_kit1", "boots"),
+            ("boots_kitF", "boots"),
             ("kit1_boots", "boots"),
             ("face_high-kitN", "face_high"),
             ("a_kit2_boots", "a_boots"),

@@ -905,11 +905,16 @@ fn model_naming_game_hair() -> Vec<u8> {
 /// The tracer's hair model with its `shirt.dds` renamed `file_name` and pointed at the game's
 /// own Common texture folder, which names no team.
 fn model_naming_game(file_name: &str) -> Vec<u8> {
+    model_naming_in(file_name, GAME_COMMON_DIRECTORY)
+}
+
+/// The tracer's hair model with its `shirt.dds` renamed `file_name` and pointed at `directory`.
+fn model_naming_in(file_name: &str, directory: &str) -> Vec<u8> {
     let mut file = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
     rewrite_texture_paths(&mut file, |path| {
         if path.file_name == "shirt.dds" {
             path.file_name = file_name.to_owned();
-            path.directory = GAME_COMMON_DIRECTORY.to_owned();
+            path.directory = directory.to_owned();
         }
     })
     .unwrap();
@@ -918,6 +923,9 @@ fn model_naming_game(file_name: &str) -> Vec<u8> {
 
 /// The game's own Common texture folder, which names no team.
 const GAME_COMMON_DIRECTORY: &str = "/Assets/pes16/model/character/common/sourceimages/";
+/// Team 714's Common texture folder: a texture there that the export does not hold is looked
+/// for, where one in the game's own (`GAME_COMMON_DIRECTORY`) is not.
+const TEAM_COMMON_DIRECTORY: &str = "/Assets/pes16/model/character/common/714/sourceimages/";
 
 #[test]
 fn a_common_model_s_texture_a_link_of_the_player_s_stands_for_is_in_the_team_s_common_output() {
@@ -968,6 +976,78 @@ fn a_common_model_s_texture_a_link_of_the_player_s_stands_for_is_in_the_team_s_c
         hair.iter().all(|directory| directory == COMMON_DIRECTORY),
         "{hair:?}"
     );
+}
+
+// TC-CMN-26
+#[test]
+fn a_common_kit_fallback_serves_the_reference_and_its_own_name_finds_nothing() {
+    let sandbox = Sandbox::new("cmn_kit_fallback");
+    let export = "exports/co Midcup Common Kits";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/legs.fmdl.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/legs.fmdl"),
+        &model_naming_in("pants_kitN.dds", TEAM_COMMON_DIRECTORY),
+    );
+    sandbox.write(
+        &format!("{export}/Common/pants_kit1.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{export}/Common/pants_kitF.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Common Kits"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)",
+            "Info team_colors_missing [Keep] ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let texture = |name: &str| entries.get(&format!("{COMMON_TEXTURES}/{name}.ftex"));
+    // The `kitF` file is the set's fallback, written once as `pants_kitN`: `pants_kit1`
+    // beside it, no `pants_kitF` or `pants_kit2` file.
+    let kitn = texture("pants_kitN").expect("pants_kitN.ftex");
+    assert_eq!(
+        kitn,
+        &ftex::dds_to_ftex(&tracer_kit(), ftex::ColorSpace::Normal).unwrap(),
+        "the `kitF` file's conversion under `kitN`"
+    );
+    assert!(texture("pants_kit1").is_some(), "pants_kit1.ftex");
+    for name in ["pants_kit2", "pants_kit3", "pants_kitF", "pants_kitf"] {
+        assert!(texture(name).is_none(), "{name} among {:?}", entries.keys());
+    }
+}
+
+#[test]
+fn a_model_naming_a_common_kit_fallback_file_itself_finds_nothing() {
+    let sandbox = Sandbox::new("cmn_kit_fallback_missing");
+    let export = "exports/co Midcup Common Kits";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/legs.fmdl.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/legs.fmdl"),
+        &model_naming_in("pants_kitF.dds", TEAM_COMMON_DIRECTORY),
+    );
+    sandbox.write(&format!("{export}/Common/pants_kitF.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Common Kits"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning fmdl_texture_not_found [Keep] at Players/05 - A (model=Common/legs.fmdl, texture=/Assets/pes16/model/character/common/714/sourceimages/pants_kitF.dds)",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
 }
 
 #[test]

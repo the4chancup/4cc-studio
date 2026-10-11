@@ -109,9 +109,10 @@ pub(super) fn package(
     let mut parts: Vec<Part> = Vec::new();
     // The folder's textures by the folder of its tree holding each, and its combined folders',
     // its texture links the same way (`texture_lookup`): a link counts as the `Common/`
-    // texture it stands for being present in the folder holding it; and the folded `below` of
-    // each, which a Common part's lookup counts as a `Common/` texture and `texture_supply`
-    // held at the team's Common output, validation having checked the link.
+    // texture it stands for being present in the folder holding it; and the `below` of each,
+    // which a Common part's lookup counts as a `Common/` texture and `texture_supply` held at
+    // the team's Common output, validation having checked the link. Kept as spelled, not
+    // folded: a `kitF` file's token is read from its spelling (`kit_lookup_key`).
     let mut textures = TextureFolders::default();
     let mut linked_stems = BTreeSet::new();
     let mut contents = PackageFiles::new();
@@ -265,7 +266,7 @@ pub(super) fn package(
                 }
                 PlayerFile::CommonTexture(below) => {
                     let below = common_texture_below(&folder.common_files, &below);
-                    linked_stems.insert(vtree::fold_name(&below));
+                    linked_stems.insert(below.clone());
                     if source_path == &folder.path {
                         textures.insert_link(true, &below);
                     } else {
@@ -966,6 +967,8 @@ impl From<MergeError> for TaskFailure {
 mod tests {
     use super::*;
 
+    use crate::kit_variants::kit_lookup_key;
+
     /// Team 714's Common texture directory.
     const COMMON_714: &str = "/Assets/pes16/model/character/common/714/sourceimages/";
 
@@ -1166,13 +1169,13 @@ mod tests {
     }
 
     /// A place holding the textures `below`, each its path below the place's directory, by its
-    /// folded stem.
+    /// lookup key, a `kitF` file under its set's `kitN` reference as `insert` files it.
     fn place(below: &[&str]) -> TexturePlace {
         below
             .iter()
             .map(|below| {
                 let (_, name) = texture_lookup::split(below);
-                (vtree::fold_name(name), (*below).to_owned())
+                (kit_lookup_key(name), (*below).to_owned())
             })
             .collect()
     }
@@ -1504,6 +1507,15 @@ mod tests {
             supply("./", "skin.dds", &[], &[], Some(false)),
             TextureSupply::Supplied
         );
+    }
+
+    #[test]
+    fn a_path_naming_the_set_s_fallback_file_finds_nothing() {
+        // `pants_kitF.dds` supplies the set's `kitN` reference, never a path naming the
+        // `kitF` file itself, which is never a file under its own name.
+        let game = "/Assets/pes16/model/character/common/792/sourceimages/";
+        assert_eq!(pointed("pants_kitN.dds", &["pants_kitF"]), "/home/");
+        assert_eq!(pointed("pants_kitF.dds", &["pants_kitF"]), game);
     }
 
     #[test]

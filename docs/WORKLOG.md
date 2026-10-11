@@ -60,7 +60,8 @@ subfolders follow the player folder's rules; (b3b4d) done 2026-10-11: a texture 
 into a `Common/` subfolder is checked on both engines; (b3b4e) deferred, pre-Fox;
 (b3c2a) done 2026-10-11: a shared folder's `.common` links admitted and checked, its
 texture links counting on Fox; (b3c2b) done 2026-10-11: on Fox its model and
-material-file links count too; (b4) next), 4.y-fix20
+material-file links count too; (b4a) done 2026-10-11: a kit set's `kitF` fallback, written
+once as `kitN` on Fox; (b4b) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4081,17 +4082,31 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
           Done.
         - PES 15-17: deferred until the cup next plays a pre-Fox version; a shared folder's
           link is `file_not_used` there (TC-MOD-77).
-  - (b4) kit-token folders (`kit1` to `kit9`) form variant sets (`kitN/<name>`) in any folder,
-    completed against the export's kit numbers, their paths written verbatim (TC-CMN-21,
-    TC-MOD-72: /hdg/'s per-kit Common folders through a `kitN/` folder of links); a set's
-    `kitF` fallback, stem and folder forms, and on PES 18-21 the fallback written once under
-    the reference's spelling, whatever numbers the export defines, instead of a copy per
-    gap (`model_format.md` "Kit-dependent assets"; TC-CMN-04's new THEN, TC-CMN-26 to
-    TC-CMN-28); a path naming a `kitF` file not found by any check; a texture path into a
-    `kitN/` Common subdirectory supplied when a file of its set is, `kitF` included, on both
-    engines (unchecked since (b3b4d): `kit_variants::kit_reference_directory`); the Export
-    upgrader's half (a legacy `common/XXX/u0XXXp0/sourceimages/` path becomes `./kitN/` and a
-    `kitN/<name>.common` link) is its phase's, `export_upgrader.md`.
+  - (b4) kit-token sets (`model_format.md` "Kit-dependent assets"), sliced:
+    - (b4a) the stem form's `kitF` fallback: a set's fallback is its `kitF` member, else its
+      lowest variant; on PES 18-21 it is written once under the reference's spelling,
+      whatever numbers the export defines, instead of a copy per gap; on PES 15-17 it is
+      copied into each gap; a `kitF` file is never written under its own name and a path
+      naming one is not found by any check (TC-CMN-04's new THEN, TC-CMN-26 to TC-CMN-28).
+      Done.
+    - (b4b) kit-token folders (`kit1` to `kit9`) form variant sets (`kitN/<name>`) in any
+      folder, completed against the export's kit numbers, their paths written verbatim
+      (TC-CMN-21, TC-MOD-72: /hdg/'s per-kit Common folders through a `kitN/` folder of
+      links), the `kitF/` folder form included; a texture path into a `kitN/` Common
+      subdirectory supplied when a file of its set is, `kitF` included, on both engines
+      (unchecked since (b3b4d): `kit_variants::kit_reference_directory`); a `.common` link's
+      target looked up set-aware, `pants_kitN.dds.common` found by a member of its set and
+      `pants_kitF.dds.common` not found (`aesthetics_export` `validate/links.rs`,
+      `roles::common_file`; Astra B4A.A1-2). Obstacle: each `Common/` directory is its own
+      CommonTextures task. The Export upgrader's half (a legacy
+      `common/XXX/u0XXXp0/sourceimages/` path becomes `./kitN/` and a `kitN/<name>.common`
+      link) is its phase's, `export_upgrader.md`.
+    - PES 15-17, deferred until the cup next plays a pre-Fox version (DECISIONS 2026-10-11):
+      a shared gloves or boots output, or `ingame_face`, using a `kitF` model packs it under
+      its own lower-cased name and names it in its xml (Astra B4A.A1-4); a numbered model
+      paired with a lone `pants_kitF.mtl` (`mtl_for`'s "any `.mtl`" kind) names a file the
+      face strips (A2-1); a `kitF` fallback whose `.mtl` is a Common link gets no `.mtl` copy
+      at the listed entry's local `material` (A2-2).
   - (c) Fox: a subfolder's models merged into the packages, textures under the texture home at
     their path (TC-MOD-65).
   - (d) the deep pass over the tree (what `compile` reads, DECISIONS 2026-10-09 "One rule").
@@ -4441,6 +4456,29 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `shared_folder_no_model`; help topic `01_command_line.md`. Files: TC `deep/{mod,pairings}.rs`,
   `mtl_search.rs`, `plan/{ids,mod,roles}.rs`, `processing/model.rs`, `validation.rs`,
   `tests/cli/common_links.rs`. Gates green locally (`.tmp/4_y/gates_sub_b3c2b_r1.log`); mutants r0 43 (4 missed: three in dead pre-Fox arms of the Fox-only Models task, removed; the pre-Fox shared search's guard, tested; `.tmp/4_y/mutants_sub_b3c2b_r0/`), r1 40: 31 caught, 9 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3c2b_r1.log`).
+  (b4a) done 2026-10-11 (SWE-2 High, one run and three reworks, the first finished by the
+  lead after its session ended twice at the model's output limit, the next two on a fresh
+  session; briefs `.tmp/4_y/brief_sub_b4a{,_r1,_r2,_r3}.md`, reports beside them; Astra
+  rounds B4A.A1 12 concerns, 10 accepted, A2 9, 6 accepted, A3 3, 1 accepted). `aesthetics_export`
+  `KitToken::Fallback` (`kitF`, spelled exactly so). `team_compiler`: `kit_variants`'
+  `fallback` (the `kitF` member, else the lowest variant) and `representative` (the lowest
+  variant, else `kitF`), `kit_lookup_key` filing a `kitF` file under its set's `kitN` key in
+  every by-stem lookup, the token read in the file name alone (a prefix token below a folder,
+  a subfolder's sets); `complete_kit_variants` writes Fox's fallback once as `kitN` and
+  copies pre-Fox's into each gap, `kit_variant_missing` only for a variant fallback; model
+  sets use `kitF`; a member's `face.xml` `kitN` resolves to the lowest variant for
+  validation; `Common/`'s direct texture stems and the links' stand-ins kept as spelled. The
+  PES 15-17 face reads tokens from source stems, copies a set's gaps from its fallback under
+  the listed entry's names, and strips `kitF` files once where `face()` returns
+  (`packed_fallback_stem`: the packed name is lower-cased, so an ordinary file spelled `kitf`
+  is stripped too, accepted). A separate store for the fallback's files (round 1's ruling
+  A1-9) was reversed at round 2: it had to repeat the package's collision check, the hand
+  split's material lookup and the hand-off to a shared face's `face.xml`, and missed all
+  three. Files: AE `conventions/kit_token.rs`; TC `deep/{materials,mod}.rs`,
+  `kit_variants.rs`, `plan/{mod,roles}.rs`, `processing/{mod,model,prefox_face,texture}.rs`,
+  `texture_lookup.rs`, `user_face_xml.rs`, help `01_command_line.md`,
+  `tests/cli/{common_links,models,prefox_faces,prefox_hand_split,prefox_kit_variants,prefox_user_xml,textures}.rs`.
+  Gates green locally (`.tmp/4_y/gates_sub_b4a_r3.log`); mutants on bonfire: r0 89, 0 missed (`.tmp/4_y/mutants_sub_b4a/`); r1 112, 4 missed (`_r1/`: `set_completions` gathering unlisted variants, which never are the fallback: arm removed; two sets in one face, tested); r2 121, 6 missed (`_r2/`: those four and `packed_fallback_stem`'s delimiters, tested); r3 118: 106 caught, 12 unviable, 0 missed (`_r3/`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7339,3 +7377,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   TC-TEX-18); on PES 15-17 they are `file_not_used` (TC-MOD-77).
 - **2026-10-11** — 4.y-sub (b3c2b) landed: on Fox a shared folder's model and `.mtl` links
   count, in its own output and combined into a player's (TC-MOD-79 to TC-MOD-82).
+- **2026-10-11** — 4.y-sub (b4a) landed: a kit set's `kitF` fallback, written once as
+  `kitN` on PES 18-21 and copied into each gap on PES 15-17, never under its own name
+  (TC-CMN-04, TC-CMN-26 to TC-CMN-28).
