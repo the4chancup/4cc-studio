@@ -42,6 +42,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REMOTE_BASE = "~/studio-mutants"
 REMOTE_REF = "refs/mutants/remote"
+# Whether `just mutants` and `just mutants-diff` run every mutant on the remote
+# (when STUDIO_MUTANTS_REMOTE names one), whatever the size or LOCAL_ONLY_CRATES,
+# and nothing on this machine; `just gates-remote` is the gates' counterpart. A
+# constant, not an environment variable: a shell started while a variable was set
+# keeps the old value, which silently picked the wrong mode.
+REMOTE_ONLY = False
 # The remote half's systemd unit: a transient service so its cgroup is
 # memory-capped and CPU-idle — an allocating mutant OOM-killed the host at
 # the 2.20i remainder run, and Fluxer's production services have priority.
@@ -330,7 +336,7 @@ def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
     """Writes `run/job.sh` (and `run/in.diff` for a `--in-diff` selection,
     the same diff the local half reads) and starts it as the `REMOTE_UNIT`
     transient service (`sudo -n systemd-run`): shard 1/2 of the selection, or
-    all of it when `whole` (`remote_only`). The service is detached from this ssh session
+    all of it when `whole` (`REMOTE_ONLY`). The service is detached from this ssh session
     by construction: the unit is memory-capped (`MemoryMax`, no swap) and
     CPU-idle so Fluxer's production services on the host win, and
     `OOMPolicy=continue` keeps cargo-mutants alive past an in-unit OOM kill.
@@ -431,7 +437,7 @@ def run_split(
     the remote shard, so the transfer counts against the remote side only.
     `selection` is the mutant-selection arguments (`["-p", crate]` or
     `["--in-diff", path]`); the remote reads an uploaded copy of a diff.
-    Without `local` (`remote_only`) the remote runs the whole selection and
+    Without `local` (`REMOTE_ONLY`) the remote runs the whole selection and
     nothing runs here. Returns the (local, remote) codes and seconds: the local
     half's from the common start (None without one), the remote half's from its
     own launch."""
@@ -688,13 +694,13 @@ def update_cost_cache() -> None:
 def split(selection: list[str], host: str, local: bool = True) -> int:
     """The whole split run for one selection: the busy-remote refusal, the
     snapshot, the version check, both halves, the fetch and the summary.
-    Without `local` (`remote_only`) the remote runs every mutant and the last
+    Without `local` (`REMOTE_ONLY`) the remote runs every mutant and the last
     run's local `mutants.out` is set aside first, as cargo-mutants itself does,
     so the summary counts this run's results alone."""
     if local:
         print(f"splitting the run with {host}", flush=True)
     else:
-        print(f"running every mutant on {host} (STUDIO_REMOTE_ONLY)", flush=True)
+        print(f"running every mutant on {host} (REMOTE_ONLY)", flush=True)
     started = time.monotonic()
     # The remote must be free before the transfer rewrites its tree.
     state = remote_run_state(host)
@@ -754,33 +760,16 @@ def remote_host() -> str | None:
     registry environment. A process started before the variable was set, such as
     an IDE's or an agent's shell, does not see it, and would silently run every
     mutant locally. An empty value in the process opts out."""
-    return user_environment("STUDIO_MUTANTS_REMOTE")
-
-
-def remote_only() -> bool:
-    """Whether `STUDIO_REMOTE_ONLY` is set (read as `remote_host` reads its
-    variable): every mutant of `just mutants` and `just mutants-diff` then runs on
-    the remote, whatever the size or `LOCAL_ONLY_CRATES`, and nothing here. Set on
-    2026-10-10 while this machine was suspected of crashing under the runs' load
-    (four MEMORY_MANAGEMENT bugchecks, the last during a run); the gates have
-    `just gates-remote` for the same reason."""
-    return user_environment("STUDIO_REMOTE_ONLY") is not None
-
-
-def user_environment(name: str) -> str | None:
-    """`name` from the process, else (Windows) from the user's registry
-    environment, which a shell started before the variable was set does not
-    see; None when unset or empty (an empty value in the process opts out)."""
-    value = os.environ.get(name)
-    if value is None and os.name == "nt":
+    host = os.environ.get("STUDIO_MUTANTS_REMOTE")
+    if host is None and os.name == "nt":
         import winreg
 
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
-                value = winreg.QueryValueEx(key, name)[0]
+                host = winreg.QueryValueEx(key, "STUDIO_MUTANTS_REMOTE")[0]
         except OSError:
-            value = None
-    return value or None
+            host = None
+    return host or None
 
 
 def main(argv: list[str]) -> int:
@@ -791,7 +780,7 @@ def main(argv: list[str]) -> int:
             return 1
         return collect(host)
     crate = argv[1]
-    if host is not None and remote_only():
+    if host is not None and REMOTE_ONLY:
         return split(["-p", crate], host, local=False)
     if host is None or crate in LOCAL_ONLY_CRATES:
         reason = (

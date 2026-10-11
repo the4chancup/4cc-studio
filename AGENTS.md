@@ -349,9 +349,11 @@ never with the Bash tool's background mode: its two-hour cap kills the chain, an
 kills the console the run's children need, after which every build fails with `0xC0000142`
 and cargo-mutants files the mutant as unviable (273 of 274 in 23 s at 4.y-conv's first attempt).
 
-**While the maintainer's PC is suspect, the heavy runs go to the VPS.** Four
-`MEMORY_MANAGEMENT` bugchecks there (2026-10-07 to 10-10, the last during a run) led the
-maintainer to move them: the user environment variable `STUDIO_REMOTE_ONLY=1` makes
+**When the maintainer's PC is suspect, the heavy runs go to the VPS.** Four
+`MEMORY_MANAGEMENT` bugchecks there (2026-10-07 to 10-10, the last during a run, all four in
+`rustc.exe` at one kernel site) led the maintainer to move them until third-party drivers
+were removed (2026-10-11), when the split came back; the switch stays for the next time.
+`REMOTE_ONLY = True` in `scripts/mutants.py` makes
 `just mutants` and `just mutants-diff` run every mutant on the VPS as one whole run (no
 local half, no split threshold; the last local `mutants.out` set aside as
 `mutants.out.old`), and `just gates-remote` runs `just gates` there against a snapshot of
@@ -359,10 +361,11 @@ the working tree (`scripts/remote_gates.py`: the same transfer and clone, so it 
 while a mutants half is running or uncollected; the transient service `studio-gates`,
 memory-capped and CPU-idle, run synchronously). The VPS's `just` is installed in
 `~/.cargo/bin` at this machine's version, as cargo-mutants is. The lead uses
-`just gates-remote` for its review gates while the variable is set; a sidekick's own
+`just gates-remote` for its review gates while the switch is on; a sidekick's own
 `cargo test -p` stays local. Measured on 4.y-sub (b3b4a): gates 4 min 11 s cold (peak
-8.7 GiB), 1 min 23 s incremental; a 15-mutant diff 330 s wall. Deleting the variable
-(`reg delete HKCU\Environment /v STUDIO_REMOTE_ONLY`) restores the split.
+8.7 GiB), 1 min 23 s incremental; a 15-mutant diff 330 s wall. The switch is a constant,
+not an environment variable as it first was: a shell started while the variable was set
+kept it after it was deleted, and would have kept running every mutant remotely.
 
 **The VPS's production Fluxer instance comes first.** The remote half runs as the transient
 system service `studio-mutants` (`sudo -n systemd-run`): `MemoryMax=11G` with no swap (6G
