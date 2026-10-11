@@ -32,8 +32,8 @@ use collars::export_collar;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
 use item_rows::{ItemRow, RowPlayer, export_rows};
 use roles::{
-    FolderModels, ModelPackage, PlayerFile, below_common, common_file, common_folder,
-    common_skeleton, directory_stem, emits_kit_texture, file_stem, is_common_file,
+    FolderModels, ModelPackage, PlayerFile, below_common, combined_folders, common_file,
+    common_folder, common_skeleton, directory_stem, emits_kit_texture, file_stem, is_common_file,
     is_direct_root_folder_file, is_hand_split, is_package_model, is_read_common_file,
     is_selected_common_model, leaves_out_kit_variants, link_combines, link_feeds_own_package,
     link_name, linked_common_files, linked_folder, native_format, package_of, part_source_models,
@@ -1907,12 +1907,9 @@ fn kit_variant_model_messages(
         if !leaves_out_kit_variants(engine, player.ingame_face, None) {
             continue;
         }
-        let combined = player
-            .links
-            .iter()
-            .filter(|link| link_feeds_own_package(export, engine, player, link, hand_weighted))
-            .filter_map(|link| linked_folder(export, link))
-            .map(|shared| role_files(&shared.path, &shared.files));
+        let combined = combined_folders(export, player, engine, hand_weighted)
+            .into_iter()
+            .map(|(_, shared)| role_files(&shared.path, &shared.files));
         let sources = iter::once(role_files(&player.path, &player.files))
             .chain(combined)
             .collect();

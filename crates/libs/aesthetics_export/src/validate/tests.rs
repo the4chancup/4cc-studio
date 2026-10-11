@@ -1880,7 +1880,7 @@ fn a_kept_shared_folder_s_link_whose_target_is_absent_comes_off_its_files() {
         "egg Midcup",
         &[
             ("Boots/Crocs/boots.fmdl", 10),
-            ("Boots/Crocs/legs.fmdl.common", 0),
+            ("Boots/Crocs/spare_boots.fmdl.common", 0),
             ("Players/03 - A/Crocs.boots", 0),
             ("Players/03 - A/hair.dds", 9),
         ],
@@ -1980,6 +1980,72 @@ fn a_shared_folder_s_name_rule_applies_at_any_depth_naming_the_path_below() {
         .map(|issue| issue.context[0].1.as_str())
         .collect();
     assert_eq!(named, ["extra/face_high.fmdl", "extra/x.fmdl"]);
+}
+
+#[test]
+fn a_shared_boots_folder_s_model_link_is_named_by_the_same_suffix_rule() {
+    // A `.common` link stands for the file at its name, so where the links count
+    // (PES 18-21) a link to a model is named as the model is: `glove_l` is no
+    // boots name, and the finding names the link below the folder.
+    let report = report_with(
+        &context_for(pes_version::PesVersion::Pes21),
+        "egg Midcup",
+        &[
+            ("Boots/Crocs/boots.fmdl", 10),
+            ("Boots/Crocs/glove_l.fmdl.common", 0),
+            ("Common/glove_l.fmdl", 10),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("fmdl_name_invalid", Disposition::DropFolder),
+            ("link_target_dropped", Disposition::DropFolder),
+        ]
+    );
+    assert_eq!(report.issues[0].scope, folder("Boots/Crocs"));
+    assert_eq!(
+        report.issues[0].context,
+        vec![("file", "glove_l.fmdl.common".to_owned())]
+    );
+    assert!(report.validated.unwrap().boots.is_empty());
+
+    // A link to a boots model and a texture link pass the rule.
+    let report = report_with(
+        &context_for(pes_version::PesVersion::Pes21),
+        "egg Midcup",
+        &[
+            ("Boots/Crocs/boots.fmdl.common", 0),
+            ("Boots/Crocs/skin.dds.common", 0),
+            ("Common/boots.fmdl", 10),
+            ("Common/skin.dds", 9),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&report), vec![]);
+
+    // On PES 15-17 a shared folder's links stay unread (`file_not_used` is the
+    // consumer's): the same link is no `model_name_invalid`.
+    let report = report_with(
+        &context_for(pes_version::PesVersion::Pes17),
+        "egg Midcup",
+        &[
+            ("Boots/Crocs/glove_l.fmdl.common", 0),
+            ("Common/glove_l.fmdl", 10),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&report), vec![]);
 }
 
 #[test]

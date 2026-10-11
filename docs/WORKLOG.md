@@ -72,7 +72,8 @@ which now takes a folder's own file off on `DropFile`; a package's names folded;
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
 TC-MOD-64's meshes told apart, a dropped shared link no link, a textures-only folder
 reported, a `.model` collar's material losses skipped), 4.y-fix22 done 2026-10-10 (the S13
-and S15 rounds' rework; S12, S14, S15 and S17 closed), 4.y-fix23 opened (its residuals), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+and S15 rounds' rework; S12, S14, S15 and S17 closed), 4.y-fix23 done 2026-10-11 (a shared
+boots or gloves folder's model link named as its models are; its pre-Fox item an issue), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag done 2026-10-10 (no retype needed; 76 long subjects cut, history rewritten
 and force-pushed), 4.y-fix12 done 2026-10-10
@@ -4898,7 +4899,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   prefox_faces,referees}.rs`. The `#[cfg(unix)]` non-UTF-8 test runs first in CI.
   Residuals, step 4.y-fix23.
 
-- [ ] 4.y-fix23 **4.y-fix22's residuals** (its report, `.tmp/4_y/sk_fix22_report.md`).
+- [x] 4.y-fix23 **4.y-fix22's residuals** (its report, `.tmp/4_y/sk_fix22_report.md`).
   (1) A PES 17 referee whose only model is a `.model.common` link gets no face
   (`is_package_model` does not count the link), while the converted Common model is still
   written into the refs CPK with nothing naming it: the link must count as his face part,
@@ -4918,6 +4919,21 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `pants.fmdl`), reports `file_not_used` for it, not silence or `fmdl_fcl_hair_fallback`;
   (7) `kit_variant_model_messages` reads `combined_folders`.
   → verify: (1)-(3), (5), (6) tests red first; gates green; `just mutants-diff`.
+  Ruled 2026-10-11 (the lead, from a code map at `e3ce7e0`, `.tmp/4_y/fix23_map.md`;
+  DECISIONS 2026-10-11, two entries):
+  - (1) deferred until the cup next plays a pre-Fox version (DECISIONS 2026-10-11), an
+    open issue.
+  - (2), (3) and (5) closed without a change (plan `pipeline.md` "not worth its rule" for (3)).
+  - (4) by design, as noted.
+  - (6) holds today only through a shared folder's `.common` model links (a model file of
+    another package's name there is already `fmdl_name_invalid`): the name rule extended to
+    those links on PES 18-21 (`player_folders.md`), not the S13.3-2 `file_not_used`.
+  - (7) the refactor, behavior unchanged.
+  Briefed: (6) and (7), `.tmp/4_y/brief_fix23.md`. Done 2026-10-11 (SWE-2, one run): a
+  shared `Boots/` or `Gloves/` folder's model link is named by the suffix rule on PES 18-21
+  (TC-MOD-83); `kit_variant_model_messages` reads `combined_folders`. Files:
+  `aesthetics_export` `validate/{folders,tests}.rs`; `team_compiler` `plan/mod.rs`,
+  `tests/cli/common_links.rs`.
 
 - [ ] 4.y-mattable **The material table checked against the community's shader reference**
   (the maintainer, 2026-10-10). `resources/Materials.wikitext` (the cup wiki's "Materials"
@@ -5161,6 +5177,11 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-11, 4.y-fix23 (1); deferred until the cup next plays a pre-Fox version) — a
+  PES 17 referee whose only model is a `.model.common` link gets no face (`roles.rs`
+  `is_package_model` does not count `PreFoxCommonModel`), while the converted Common model is
+  still written into the refs CPK with nothing naming it; the link should count as his face
+  part, as a team player's does.
 - open (2026-10-11, B3C2A.A2-1) — a `shared_texture_conflict` drops the losing package's
   task, and with it every texture only that folder held: a surviving model of another
   combined folder naming one of them (a face model naming a texture of the shared boots
@@ -7489,3 +7510,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-11** — 4.y-sub done: (c) and (d) found done by earlier slices; a new-layout
   copy of the HAHA census export compiles for PES 17 with 22 of 23 players kept, the 23rd
   dropped by its own empty-named material.
+- **2026-10-11** — 4.y-fix23 done: on PES 18-21 a shared boots or gloves folder's model link
+  is named by the folder's suffix rule (TC-MOD-83); its pre-Fox item is an open issue.

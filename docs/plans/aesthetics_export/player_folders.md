@@ -359,6 +359,10 @@ work with no naming ceremony: `torso.fmdl` + `legs.fmdl.common` → one `fcl_hai
 folder because an unsuffixed model would be taken for face content, and in a shared boots/gloves
 folder, where nothing can be a face, unsuffixed names are `fmdl_name_invalid` errors
 (`model_name_invalid` on a pre-Fox target, the same rule under the `.model` catalog's code).
+On PES 18-21, where a shared folder's `.common` links are read, a model link there is named
+by the same rule (`glove_l.fmdl.common` in `Boots/` is `fmdl_name_invalid`): the link stands
+for the model at its name, so one rule covers both, rather than a link the folder's package
+cannot use being left out silently.
 
 **SKL pairing** — a model may carry a custom skeleton. Each source format keeps it differently: an
 `.fmdl` in a companion `.skl` file named after the model's source basename (`commander.skl` for

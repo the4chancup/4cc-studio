@@ -2246,10 +2246,11 @@ fn a_common_mtl_a_link_s_search_falls_back_to_is_checked_on_pes_21() {
 }
 
 #[test]
-fn a_shared_folder_s_model_link_takes_the_linked_model_s_role() {
-    // A model link in a shared folder takes the role the linked model would have there, as
-    // a player folder's does: `legs` names face content, which a boots output never packs,
-    // so it is reported like a `legs.fmdl` beside it would be.
+fn a_shared_folder_s_model_link_of_a_non_boots_name_drops_the_folder() {
+    // A model link in a shared boots folder is named as a model file there is:
+    // `legs` is no boots name, so the link is `fmdl_name_invalid` and the folder
+    // and its linker drop. The linked Common model is still read and reports its
+    // own findings.
     let sandbox = Sandbox::new("cmn_shared_link");
     let export = "exports/co Midcup Crocs";
     sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
@@ -2269,23 +2270,15 @@ fn a_shared_folder_s_model_link_takes_the_linked_model_s_role() {
     assert_eq!(
         findings_of(&lines, "co Midcup Crocs"),
         [
-            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Error fmdl_name_invalid [DropFolder] at Boots/Crocs (file=legs.fmdl.common)",
             "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
+            "Error link_target_dropped [DropFolder] at Players/05 - A (link=Crocs.boots, target=Boots/Crocs, finding=fmdl_name_invalid)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info fmdl_fcl_hair_fallback [Keep] at Boots/Crocs (file=legs.fmdl.common)",
             "Info team_colors_missing [Keep] ()"
         ],
         "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 0, "{lines:#?}");
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    // The shared boots compile on their own, under the team's first shared id.
-    let shared_boots = "Asset/model/character/boots/k0644/#Win/boots.fpk";
-    assert_eq!(
-        package_names(&entries[shared_boots]),
-        ["boots.fmdl", "boots.skl"]
-    );
-    assert_no_common_path(&entries);
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
 }
 
 /// The clean model as a Common model of its own: its materials renamed with a `_common` tail
@@ -2343,6 +2336,44 @@ fn a_shared_folder_holding_only_a_model_link_takes_a_shared_id() {
         mesh_count(&clean_model())
     );
     assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 644)]);
+}
+
+// TC-MOD-83
+#[test]
+fn a_shared_folder_s_model_link_of_another_package_s_name_is_named_invalid() {
+    let sandbox = Sandbox::new("cmn_shared_bad_model_link");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    let export = "exports/co Midcup Bad Link";
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    let crocs = format!("{export}/Boots/Crocs");
+    sandbox.write(&format!("{crocs}/boots.fmdl"), &clean_model());
+    sandbox.write(&format!("{crocs}/glove_l.fmdl.common"), b"");
+    sandbox.write(&format!("{export}/Common/glove_l.fmdl"), &clean_model());
+    // A clean player beside it, so the CPK is written and slot 05's absence observable.
+    sandbox.write(
+        &format!("{export}/Players/07 - B/face_high.fmdl"),
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Bad Link"),
+        [
+            "Error fmdl_name_invalid [DropFolder] at Boots/Crocs (file=glove_l.fmdl.common)",
+            "Error link_target_dropped [DropFolder] at Players/05 - A (link=Crocs.boots, target=Boots/Crocs, finding=fmdl_name_invalid)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    assert_eq!(
+        compiled_players(&sandbox),
+        [71407],
+        "slot 05 is left out of the output"
+    );
 }
 
 // TC-MOD-80

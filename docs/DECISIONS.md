@@ -6788,3 +6788,31 @@ Why: the link names the set, not one file, and an absent member is already a cas
 completion handles; dropping the player for one bad variant among several (Astra B4B1.A2-2
 proposed any member) is harsher than a missing member, which the folder survives.
 Plan: `aesthetics_export/object_model.md` "Dropped link targets".
+
+## 2026-10-11 — aesthetics_export — a shared boots or gloves folder's model link is named as its models are
+Decision: on PES 18-21 a model `.common` link in a shared `Boots/` or `Gloves/` folder, at any
+depth, must carry the folder's suffix as a model file there must: `glove_l.fmdl.common` or
+`face_high.fmdl.common` in `Boots/` is `fmdl_name_invalid` (DropFolder). This replaces the
+S13.3-2 ruling of 2026-10-10 (`file_not_used` for a model no package of a standalone shared
+folder reads), which predates a shared folder's links being read and would need an analysis
+of which players combine the folder.
+Why: the link stands for a model at its name, so the folder's naming rule applies to it as to
+a file; one rule, no combination analysis, and the maintainer's preference for simple rules
+where an export already reports an error.
+Plan: `aesthetics_export/player_folders.md`, the paragraph ending "unsuffixed names are
+`fmdl_name_invalid` errors".
+
+## 2026-10-11 — team_compiler — 4.y-fix23's residuals closed without new machinery
+Decision: of 4.y-fix23's items, (3) `check` counting the kit-FPC status of a folder planning
+drops for its glTF is closed by design, as the deep pass's own drops already are (one false
+Warning on an export that `compile` reports broken); (2) a Fox referee with no model of his own
+who links a face folder holding textures alone, and (5) a per-kit model set split across two
+combined shared folders, are closed as they are (nothing is built for them, no file is
+written wrong, and no export is known to have either shape: the census found no per-kit model
+set in 197 player folders); (1) a PES 15-17 referee whose only face model is a `.model.common`
+link waits with the pre-Fox list.
+Why: each fix would add a computation or an analysis whose only gain is a cleaner report on a
+layout no export uses or an export that already reports an error (the maintainer, 2026-10-11:
+keep it simple where possible); pre-Fox takes no improvements until the cup returns to it.
+Plan: `team_compiler/pipeline.md` "### 4. Per-export non-model steps", the paragraph ending
+"not worth its rule".

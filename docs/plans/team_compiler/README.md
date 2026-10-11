@@ -1076,6 +1076,11 @@ TC-MOD-82  GIVEN Common/boots.mtl naming ./skin.dds and Common/skin.dds, and Fac
                 boots.model converted with Common's boots.mtl, not materials.mtl, naming skin
                 in /Assets/pes16/model/character/common/714/sourceimages/, and no
                 file_not_used is reported
+TC-MOD-83  GIVEN Common/glove_l.fmdl, Boots/Crocs holding boots.fmdl and glove_l.fmdl.common,
+           and slot 05 linking Crocs.boots
+           WHEN the export is compiled for PES 21
+           THEN fmdl_name_invalid names glove_l.fmdl.common on Boots/Crocs, and Boots/Crocs and
+                slot 05 (link_target_dropped) are left out
 TC-MOD-69  GIVEN slot 05 holding face_high.model with its .mtl, and oral.fmdl whose only mesh
            is flagged invisible
            WHEN the export is compiled for PES 17

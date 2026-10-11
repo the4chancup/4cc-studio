@@ -712,19 +712,34 @@ pub(crate) fn check_shared(
     );
 
     // Every boots/gloves model must say so by suffix, at any depth (`Faces/` takes any
-    // name — nothing there can be a face anywhere else): one rule, under each
-    // engine's model catalog's code.
+    // name — nothing there can be a face anywhere else), and where the folder's
+    // `.common` links are read (PES 18-21) a link standing for a model is named by its
+    // target's stem: one rule, under each engine's model catalog's code.
     let name_invalid = match context.version.engine() {
         pes_version::Engine::Fox => "fmdl_name_invalid",
         pes_version::Engine::PreFox => "model_name_invalid",
     };
     for file in &folder.files {
+        // The name the rule reads: the model's own, or a `.common` link's target's
+        // where the links are read — on PES 15-17 they stay unread (`file_not_used`,
+        // the consumer's).
+        let name = if matches!(file.kind, FileKind::Model(_)) {
+            Some(file.path.name().to_owned())
+        } else if file.kind == FileKind::CommonLink
+            && matches!(context.version.engine(), pes_version::Engine::Fox)
+        {
+            common_link_name(file.path.name())
+                .filter(|name| matches!(classify(name), FileKind::Model(_)))
+        } else {
+            None
+        };
+        let Some(name) = name else { continue };
         let allowed = match kind {
             SharedKind::Face => true,
-            SharedKind::Boots => model_suffix(stem(file.path.name())).is_some_and(is_boots),
-            SharedKind::Gloves => model_suffix(stem(file.path.name())).is_some_and(is_gloves),
+            SharedKind::Boots => model_suffix(stem(&name)).is_some_and(is_boots),
+            SharedKind::Gloves => model_suffix(stem(&name)).is_some_and(is_gloves),
         };
-        if matches!(file.kind, FileKind::Model(_)) && !allowed {
+        if !allowed {
             issues.push(issue_in(
                 context,
                 name_invalid,

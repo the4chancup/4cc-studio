@@ -812,7 +812,9 @@ describes behavior, not a serial scheduling requirement:
   structure pass kept, before the deep pass's own drops: a team whose only `fpc_on` folder the
   deep pass drops gets the Warning with 176 while planning, which reads the status after the
   drops, emits the config unpatched; that folder's Error is in the same report, and a second
-  status computation for one false Warning on a broken export is not worth its rule.
+  status computation for one false Warning on a broken export is not worth its rule. A
+  folder planning drops for its glTF (`model_gltf_unsupported`) is the same case: `check`,
+  which plans nothing, may show that false Warning without the Error `compile` reports.
   `kit_config`'s two Infos (a shirt model
   outside the documented set, an undocumented sleeve value) are not reported by the compiler:
   in game a shirt model outside the set is a model the game has (150 is a sleeveless shirt on
