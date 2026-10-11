@@ -2,8 +2,7 @@
 //!
 //! - 18-21 `.ted`: a 0x50 plaintext header, a 32-byte XOR key at 0x30, then
 //!   the save's own team, roster, tactics and player records concatenated
-//!   (sizes in `schema/texport.rs`, measured on real 18/19/21 files; PES 20's
-//!   key index is an untested guess).
+//!   (sizes in `schema/texport.rs`, measured on real 18-21 files).
 //! - 15-17 `TEXPORT00000000`: a whole savefile container; the tactics and
 //!   player records' payload offsets are `schema::texport::texport_old`'s
 //!   (the team and roster records' positions are unmeasured, so the team
@@ -565,7 +564,7 @@ mod tests {
     use crate::test_support::{open, test_salt};
 
     /// The fixture .ted files, one per version.
-    const TEDS: [(PesVersion, &[u8]); 3] = [
+    const TEDS: [(PesVersion, &[u8]); 4] = [
         (
             PesVersion::Pes18,
             include_bytes!("../../tests/fixtures/pes18_texport.ted"),
@@ -577,6 +576,10 @@ mod tests {
         (
             PesVersion::Pes21,
             include_bytes!("../../tests/fixtures/pes21_texport.ted"),
+        ),
+        (
+            PesVersion::Pes20,
+            include_bytes!("../../tests/fixtures/pes20_texport.ted"),
         ),
     ];
 
@@ -612,8 +615,7 @@ mod tests {
             assert_eq!(back.players(), fixture.players(), "{version:?} players");
 
             // The non-record regions equal the real file's: the header and
-            // key, the coach block (id patched), the zero 660-byte block and
-            // the tail.
+            // key, the coach block (id patched) and the tail.
             let made_plain = crypt(&out, layout);
             let fixture_plain = crypt(bytes, layout);
             let off = Offsets::of(layout, schema_for(version));
@@ -627,11 +629,10 @@ mod tests {
                 &fixture_plain[off.coach..off.coach + COACH],
                 "{version:?} coach"
             );
+            // The 660-byte block is written zero, as the game writes it for
+            // the 18, 19 and 21 fixtures' teams; the PES 20 fixture's holds
+            // five 125-byte runs, so the fixture's block is not compared.
             let block = off.tactics + schema_for(version).tactic.size;
-            assert!(
-                fixture_plain[block..block + BLOCK].iter().all(|&b| b == 0),
-                "{version:?} fixture block"
-            );
             assert!(
                 made_plain[block..block + BLOCK].iter().all(|&b| b == 0),
                 "{version:?} made block"

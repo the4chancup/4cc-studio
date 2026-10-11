@@ -1760,3 +1760,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Phase 5's Acceptance written and itemized (steps 5.1 to 5.6): the Save
   editor's CLI scenarios (33 SE- IDs) and the compiler's savefile writing (TC-BIN-25 to 33,
   TC-SAV-01 to 12, TC-REF-19), after two Astra and ten SWE-2 review rounds.
+- **2026-10-12** — 4.y-ingame2 (g): the first PES 20 `.ted`, exported in game, confirms key index
+  `0x14` and size `0x39A8`; the writer's PES 20 header (PES 21's body length) replaced by the
+  file's, which is now `pes_savefile`'s PES 20 Texport fixture. `game.py` gains PES 20 and `chars`.

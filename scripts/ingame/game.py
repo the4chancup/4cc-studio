@@ -18,12 +18,15 @@ Each command is one process call, so whoever drives a check reads a screenshot b
                                                          "INPUT:N" taps it N times; "wait:N";
                                                          "hold:INPUT:N" holds it N seconds)
   python scripts/ingame/game.py pad-stop                 unplug the pad and end `pad-serve`
+  python scripts/ingame/game.py chars GAME TEXT          type TEXT into the game's open text
+                                                         field (a file name), focus left alone;
+                                                         the pad's A confirms it
   python scripts/ingame/game.py obs-shot OUT.png [WIDTH]  OBS's frame of its program scene
                                                          (WIDTH scales it, height in proportion)
   python scripts/ingame/game.py status GAME              is the game running, where is its window
   python scripts/ingame/game.py close GAME               terminate the game process (and Sider's)
 
-GAME is a key of `GAMES` below (17, 19 or 21), the one place the install paths are set.
+GAME is a key of `GAMES` below (17, 19, 20 or 21), the one place the install paths are set.
 Keys are DirectInput scan codes (pydirectinput), which the game reads only from the foreground,
 so the window is brought to the front before keys or a shot. `pad` and `obs-shot` leave the
 focus where it is: the game reads a virtual pad (`vgamepad`, over the ViGEmBus driver) in the
@@ -45,9 +48,11 @@ import time
 GAMES = {
     "17": {"dir": "E:/PES2017", "exe": "PES2017.exe", "sider": "Sider/sider.exe", "proc": "pes2017.exe"},
     "19": {"dir": "F:/Games/PES2019", "exe": "PES2019.exe", "sider": "sider-5.4.2/sider.exe", "proc": "pes2019.exe"},
+    # No Sider in this install: it is used for team exports, which load no CPK of ours.
+    "20": {"dir": "F:/Games/PES2020", "exe": "PES2020.exe", "sider": None, "proc": "pes2020.exe"},
     "21": {"dir": "E:/PES2021", "exe": "PES2021.exe", "sider": "sider/sider.exe", "proc": "pes2021.exe"},
 }
-COMMANDS = ("launch", "shot", "keys", "pad", "status", "close")
+COMMANDS = ("launch", "shot", "keys", "pad", "chars", "status", "close")
 # OBS's WebSocket server (Tools > WebSocket Server Settings), authentication off.
 OBS = {"host": "localhost", "port": 4455, "password": ""}
 # Pad inputs by name: buttons, and stick directions as (stick, x, y) pushed fully. The menus
@@ -152,8 +157,8 @@ def cmd_launch(game: dict[str, str]) -> None:
     if pids_of(game["proc"]):
         raise SystemExit(f"{game['proc']} is already running")
     cwd = game["dir"]
-    sider = f"{cwd}/{game['sider']}"
-    if not pids_of("sider.exe"):
+    if game["sider"] and not pids_of("sider.exe"):
+        sider = f"{cwd}/{game['sider']}"
         subprocess.Popen([sider], cwd=os.path.dirname(sider), creationflags=subprocess.DETACHED_PROCESS)
         time.sleep(3)
     subprocess.Popen([f"{cwd}/{game['exe']}"], cwd=cwd, creationflags=subprocess.DETACHED_PROCESS)
@@ -304,6 +309,16 @@ def play_pad_inputs(pad, inputs: list[str]) -> None:
             time.sleep(PAD_GAP_SECONDS)
 
 
+def cmd_chars(game: dict[str, str], text: str) -> None:
+    """Posts each character as a window message, which the game's text field reads from the
+    background (its keys are DirectInput, foreground only; a posted Enter is ignored)."""
+    hwnd, _ = window_or_die(game)
+    for ch in text:
+        user32.PostMessageW(hwnd, 0x0102, ord(ch), 1)  # WM_CHAR
+        time.sleep(0.15)
+    print(f"typed: {text}")
+
+
 def cmd_obs_shot(out: str, width: int | None) -> None:
     import base64
     from obswebsocket import obsws, requests
@@ -358,7 +373,7 @@ def main(args: list[str]) -> int:
         print(__doc__, file=sys.stderr)
         return 2
     command, game = args[0], GAMES[args[1]]
-    if command in ("shot", "keys", "pad") and len(args) < 3:
+    if command in ("shot", "keys", "pad", "chars") and len(args) < 3:
         print(__doc__, file=sys.stderr)
         return 2
     if command == "launch":
@@ -369,6 +384,8 @@ def main(args: list[str]) -> int:
         cmd_keys(game, args[2:])
     elif command == "pad":
         cmd_pad(game, args[2:])
+    elif command == "chars":
+        cmd_chars(game, args[2])
     elif command == "status":
         cmd_status(game)
     else:

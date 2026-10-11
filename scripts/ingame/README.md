@@ -11,7 +11,7 @@ shows kit 1 alone.
 
 | Script | Does |
 |---|---|
-| `game.py` | `launch`, `pad-serve`/`pad`/`pad-stop`, `obs-shot`, `keys`, `shot`, `status`, `close` for one game (install paths in its `GAMES`) |
+| `game.py` | `launch`, `pad-serve`/`pad`/`pad-stop`, `obs-shot`, `chars`, `keys`, `shot`, `status`, `close` for one game (install paths in its `GAMES`) |
 | `burst.py` | a series of screenshots plus contact sheets, for a cutscene such as the walkout |
 | `install.py` | `install` a compiled CPK into the game's test slot, `revert` it (slot and hash in its `TEST_SLOTS`) |
 
@@ -19,8 +19,8 @@ Each script's docstring has its exact usage; running one without arguments print
 
 ## Pad and OBS, or keys and screen
 
-Two ways to drive the game. **The pad and OBS** (`pad`, `obs-shot`) leave the user's keyboard
-alone: the game reads a virtual Xbox 360 pad in the background, and OBS's Game Capture source
+Two ways to drive the game. **The pad and OBS** (`pad`, `obs-shot`, and `chars` for a text field
+such as an export's file name) leave the user's keyboard alone: the game reads a virtual Xbox 360 pad in the background, and OBS's Game Capture source
 draws the game even when other windows cover it, so the user keeps working while a check runs.
 **Keys and the screen** (`keys`, `shot`, and `burst.py`) bring the game window to the front
 before each command, since the game reads keys only from the foreground: they take the user's
@@ -30,8 +30,9 @@ keyboard. Use the pad and OBS; keys and the screen are the fallback when OBS is 
 
 - Windows (the window and process calls are Win32), Python 3.10 or later.
 - The games installed where `GAMES` in `game.py` says (`E:/PES2017`, `F:/Games/PES2019`,
-  `E:/PES2021`), each with
-  Sider at the path given there. `game.py launch` starts Sider first, then the game, not elevated.
+  `F:/Games/PES2020`, `E:/PES2021`), each with
+  Sider at the path given there but PES 20, which is used for team exports and has none.
+  `game.py launch` starts Sider first, then the game, not elevated.
 - For the pad: the ViGEmBus driver and `pip install vgamepad`, and the game's settings tool set
   to XInput controllers (with DirectInput and no pad assigned, the game ignores the pad).
 - For `obs-shot`: OBS running with a Game Capture (or Window Capture) source of the game in its

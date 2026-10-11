@@ -1,6 +1,6 @@
 //! Parity of `interchange::texport` with the reference editor's Texport read
 //! walk, held as the literals measured on the real files (four PES 18, eleven
-//! 19 and five 21 texports; the fixtures are one of each, whole): the key
+//! 19, one 20 and five 21 texports; the fixtures are one of each, whole): the key
 //! index, where the tactics and player records start, the roster width, and
 //! what the records say. The 15-17 half opens through the container: the
 //! PES 17 `TEXPORT00000000`'s payload is the fixture, sliced as a save's is.
@@ -39,7 +39,7 @@ struct Layout {
     first_boots: u32,
 }
 
-const LAYOUTS: [Layout; 3] = [
+const LAYOUTS: [Layout; 4] = [
     Layout {
         version: PesVersion::Pes18,
         bytes: include_bytes!("../../tests/fixtures/pes18_texport.ted"),
@@ -67,6 +67,23 @@ const LAYOUTS: [Layout; 3] = [
         filled: 23,
         first_player: "YOUR SKILL: A FAILURE",
         first_boots: 3601,
+    },
+    // Exported by the game for this fixture (team /3/ of the cup's base DLC,
+    // every player a placeholder); `first_boots` is the codec's read, the
+    // record being PES 21's layout.
+    Layout {
+        version: PesVersion::Pes20,
+        bytes: include_bytes!("../../tests/fixtures/pes20_texport.ted"),
+        key_index: 0x14,
+        tactics_at: 0x3D4,
+        players_at: 0x8DC,
+        width: 40,
+        team: 701,
+        team_name: "/3/",
+        short_name: "3",
+        filled: 23,
+        first_player: "PLACEHOLDER",
+        first_boots: 0,
     },
     Layout {
         version: PesVersion::Pes21,

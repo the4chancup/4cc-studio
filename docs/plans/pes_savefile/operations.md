@@ -793,7 +793,7 @@ Both are raw dumps of the reference editor's in-memory structs; both parse into 
 ### Texport (read + write)
 
 Texport files are **PES's own in-game team export/import format**. Measured on real files
-(three 17 texports, four 18, eleven 19, five 21; none for 15, 16 or 20): the file is a
+(three 17 texports, four 18, eleven 19, one 20, five 21; none for 15 or 16): the file is a
 concatenation of the **save's own records, in the save's own layouts**, so the schema codec
 reads and writes every record and `interchange/texport.rs` adds only the crypto and the layout
 table (`schema/texport.rs`). Two eras:
@@ -807,22 +807,20 @@ table (`schema/texport.rs`). Two eras:
   the tactics record); until they are, a 15-17 texport's team and roster come from the target
   save and only tactics and players are read. 15 and 16 offsets are the reference editor's,
   unverified.
-- **18-21** (`.ted`, 8128 / 9648 / 14820 bytes for 18 / 19 / 21): plaintext header `0x00..0x30`,
-  a 32-byte key at `0x30`, then the body XOR'd with the key starting at key index `0x12` / `0x13` /
-  `0x14` / `0x15` (18 / 19 / 20 / 21) and wrapping at 32. PES 20 is unmeasured (no file exists):
-  its key index is the reference editor's untested guess, its templates are PES 21's, and its
-  size is the one its own record sizes derive (528-byte team, 244-byte roster: 14760 = `0x39A8`),
-  not the `0x39E4` the reference assumes for both, since 21's size cannot hold 40 of 20's records
-  after 20's shorter team record (decision, 2.17h-1). The body is `team record | 88-byte coach block |
+- **18-21** (`.ted`, 8128 / 9648 / 14760 / 14820 bytes for 18 / 19 / 20 / 21): plaintext header
+  `0x00..0x30`, a 32-byte key at `0x30`, then the body XOR'd with the key starting at key index
+  `0x12` / `0x13` / `0x14` / `0x15` (18 / 19 / 20 / 21) and wrapping at 32. PES 20's size is not the
+  `0x39E4` the reference editor assumes for 20 and 21: its team record is 60 bytes shorter than
+  21's. The body is `team record | 88-byte coach block |
   roster record | tactics record | 660-byte block | player records × roster width | 12-byte tail`,
-  every size the save schema's (18: 480/164/628/188 × 32; 19: 416/244/628/188 × 40; 21:
-  588/284/628/312 × 40), so tactics land at `0x32C` / `0x33C` / `0x410` and players at `0x834` /
-  `0x844` / `0x918` as the reference reads them. The header is constant per version except the
+  every size the save schema's (18: 480/164/628/188 × 32; 19: 416/244/628/188 × 40; 20:
+  528/284/628/312 × 40; 21: 588/284/628/312 × 40), so tactics land at `0x32C` / `0x33C` / `0x3D4` /
+  `0x410` and players at `0x834` / `0x844` / `0x8DC` / `0x918`. The header is constant per version (its u32 at `0x08` is the body length) except the
   u32 at `0x0C` (two values seen on 18, one each on 19 and 21, independent of content) and the
   u32s at `0x10`/`0x14` (0 or 4): no content checksum was found (byte sums, CRC-32 and Adler-32
   of plaintext and ciphertext, with and without the key, match nothing). The coach block is
   `team id (u32) | 4 constant bytes | flag byte | "MANAGER" | zeros`; the 660-byte block is zero
-  or a 125-188-byte run (an edited coach, presumably) and the tail is a per-version constant.
+  or one to five 125-188-byte runs (an edited coach, presumably; the writer writes it zero) and the tail is a per-version constant.
 
 ```rust
 /// `schema/texport.rs`: the 18-21 layout, offsets derived from the record sizes.

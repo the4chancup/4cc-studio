@@ -3790,13 +3790,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `download/4cc_69_midcup.cpk`, both the cup's placeholder, in `install.py`
   `TEST_SLOTS`, PES 19 in `game.py` `GAMES`, the triggers as pad inputs). Each result
   is a `manual: checked` line here, its QUESTIONS entry removed or narrowed, and a
-  decision and a step when it contradicts the plan. Closed below: (b), (c), (e), (f), and
-  (a) but for PES 21's lower sock. Open: (a)'s rest, the lower sock on PES 21 on a
+  decision and a step when it contradicts the plan. Closed below: (b), (c), (e), (f), (g),
+  and (a) but for PES 21's lower sock. Open: (a)'s rest, the lower sock on PES 21 on a
   standard-body team whose boots do not cover the socks (`/out/`'s gaiters hide it); (d)
   the Fox cube map of type 0xD (PES 21, a Fox FMDL pointed at a converted `env.ftex`; no
-  export reaches it, so it waits for a hand-made FMDL); (g) a team exported in PES 20
-  (`C:/Data/Games/PES2020`) for the first PES 20 `.ted`: its key index and size
-  (`pes_savefile/operations.md`, Texport). An item closed by a `manual:` line leaves this
+  export reaches it, so it waits for a hand-made FMDL). An item closed by a `manual:` line leaves this
   list in the same edit. → verify: each a `manual: checked` line
   with its frames under `.tmp/4_y/ingame/frames/`.
   manual: checked 2026-10-10, the portrait header variants on PES 21: the four files
@@ -3935,6 +3933,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   plain checker through the test slot) showed no marker is not known: the marker does not
   scale with a small referee (the maintainer), so a missed official does not explain it.
   (b) closed, its QUESTIONS entry removed.
+  manual: checked 2026-10-12, the first PES 20 `.ted` (g): team /3/ exported from
+  `F:/Games/PES2020` (the cup's base DLC; `game.py`'s new `20` entry, no Sider; the file
+  name typed by posting `WM_CHAR` to the window, so no focus taken; frames
+  `.tmp/4_y/ingame/frames/p20/`) is 14760 bytes (`0x39A8`, the derived size) with key
+  index `0x14`, the only one that decodes the coach block's `MANAGER` and the team id.
+  The writer's PES 20 header template was PES 21's, whose u32 at `0x08` (the body length)
+  is 21's: replaced by the file's header, and the file is the PES 20 fixture of
+  `pes_savefile`'s Texport tests (`pes20_texport.ted`). Its 660-byte block holds five
+  125-byte runs where the other fixtures' is zero (`operations.md` Texport). (g) closed.
 
 - [x] 4.y-fix16 **S9's second Astra round: the deep pass checks what `compile` reads,
   five more places** (rulings S9.A2 in `.tmp/4_y/duck_rulings.md`, all five accepted,

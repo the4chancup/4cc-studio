@@ -3,11 +3,9 @@
 //! 15-17 `TEXPORT00000000` (a whole savefile container; the table names where
 //! the tactics and player records sit in its payload).
 //!
-//! Provenance: the 18/19/21 constants are measured on real files (four 18,
-//! eleven 19, five 21 texports; counts in `operations.md` "Interchange
-//! formats"). No PES 15/16/20 texport exists: 15/16's offsets are
-//! unverified, and PES 20's key index `0x14` is an untested guess over PES
-//! 21's templates.
+//! Provenance: the 18-21 constants are measured on real files (four 18,
+//! eleven 19, one 20, five 21 texports; counts in `operations.md` "Interchange
+//! formats"). No PES 15/16 texport exists: their offsets are unverified.
 
 use pes_version::PesVersion;
 
@@ -95,15 +93,14 @@ static PES19: TexportLayout = TexportLayout {
     tail: hex("000000000400000001000000"),
 };
 
-/// PES 20: no file exists to measure. The key index is an untested guess
-/// and the templates are PES 21's, but PES 20's team
-/// record is 60 bytes shorter than 21's, so the size is the derived one
-/// (0x39A8), not 21's 0x39E4.
+/// PES 20, measured on one file (2026-10-12): its team record is 60 bytes
+/// shorter than 21's, so its size is 0x39A8, not 21's 0x39E4, and its header's
+/// u32 at 0x08 (the body length, size less 0x50, on every version) differs too.
 static PES20: TexportLayout = TexportLayout {
     key_index: 0x14,
     size: 0x39A8,
     header: hex(
-        "180001005000000094390000742700000000000000000000000000000000000019000000000000000000000000000000",
+        "180001005000000058390000312a00000000000000000000000000000000000017000000000000000000000000000000",
     ),
     coach: coach(0x00),
     tail: hex("000000000000000001000000"),
