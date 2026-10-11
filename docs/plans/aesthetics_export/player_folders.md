@@ -167,7 +167,8 @@ such tree with nothing to name.
   or an FMDL texture whose directory starts with `./` (`./shorts/` and `y`),
   resolves as written, relative to the referencing file: `./sub/name` is a local reference,
   checked like `./name` (`team_compiler/messages.md` "User-supplied `face.xml`"), not
-  `xml_path_unchecked`; `./name` names a file of the xml's own folder alone. The generated
+  `xml_path_unchecked`; `./name` in a `face.xml` names a file of the xml's own folder alone (a `.mtl`'s `./name`
+  is a bare stem, nearest first). The generated
   `face.xml` lists a subfolder's models by their path, and names each one's `.mtl` where the
   search found it (`./jessie/body/x.mtl` beside the model, `./x.mtl` in the root).
 - **The per-player singletons are the root's.** A `face.xml`, `face_diff.bin`, `face_diff.xml`

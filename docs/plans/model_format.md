@@ -223,7 +223,8 @@ Rules:
   kit token respelled `kitN` when it carries one (`pants_kit1.mtl` is written `pants_kitN.mtl`),
   since the game respells the whole entry for the kit picked; the other variants' material
   files must then go by the respelled names, and `kit_variant_mtl_differs` (W) names one that
-  does not. On pre-Fox a set is one directory's files: `jessie/pants_kit1.model` and a root
+  does not. On pre-Fox a set a `face.xml` lists is one directory's files (the packages no
+  `face.xml` lists, `team_compiler/pipeline.md` "Kit-dependent assets"): `jessie/pants_kit1.model` and a root
   `pants_kit2.model` are two sets, since the game respells the listed entry, its directory
   included, for the kit picked. Fox has no model-path indirection inside a face package, so there each kit
   number gets a face package of its own, its models merged from that number's variants
@@ -483,7 +484,7 @@ Common) form the base layers, and the player folder's matched material files lay
 overrides. No material link is needed for this case — the link is for the reverse situation, a
 *local* model using *shared* material definitions. Pre-Fox `.model.common` links get the same
 effect from the `.mtl` search below, which reads a name-matched `.mtl` beside the link first
-(a local override), then Common, then the link's other files.
+(a local override), then Common, then the link's folder, then the model folder.
 
 **Pre-Fox: the `.mtl` a `.model` uses.** Each `.model` uses exactly one `.mtl`, the first this
 search finds, and the generated `face.xml` names it. The search looks in a list of folders in

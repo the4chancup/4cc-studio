@@ -112,7 +112,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   `Keep` under `pass_through`, marked as passed through, like the structure pass's own. In the
   report's issues they stand after the model folders' and `Common/`'s own findings and before
   the cascade (the kit, portrait and root-file findings follow the cascade), so a
-  player linking a shared folder or `Common/` file that a content finding drops gets
+  player or shared folder linking a shared folder or `Common/` file that a content finding
+  drops gets
   `link_target_dropped` naming that finding, and a shared folder left with no linking player
   `shared_folder_orphaned`. What a scope drops: a `Folder` scope a player, shared or kit
   folder, whole (a finding on a file below a subfolder is its root folder's, whose output the
@@ -140,15 +141,15 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   `Folder`-scoped `DropFolder`: `player_folder_number_invalid`, and `player_number_duplicate` on
   every folder claiming the slot.
 - **Dropped link targets.** Sanitizing never leaves a reference to something it removed. A
-  player or shared folder whose shared-folder or `.common` link names a target the structure
-  pass dropped
+  player or shared folder whose shared-folder or `.common` link names a target a pass
+  dropped
   (a shared folder discarded for a disallowed file, a Common file discarded as disallowed) is
   dropped too, with `link_target_dropped` naming the link and the target's own finding. The
   trigger is the target's effective disposition: under `pass_through` a kept target keeps its
   dependants and no `link_target_dropped` is reported. A link a finding drops itself, with its
   target (the deep pass's `model_hidden_dropped` on a `.common` link to a Common model that
   draws nothing), is no link: nothing references the target, so no `link_target_dropped`, and
-  the player stands with his other files.
+  the folder holding the link stands with its other files.
 - **Unread metadata.** The CLI's `check` and `compile` read every small metadata file, from a
   solid `.7z` too (the buffer that read decompresses is released before the next archive is
   admitted; compiling decompresses again); only the GUI's shallow live check leaves a solid archive's roster unread, and
@@ -166,7 +167,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | Where the file sits | Admits | Otherwise |
   |---|---|---|
   | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc_on` and `fpc_off` markers, `settings.toml` | `file_type_disallowed` |
-  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content but the per-player singletons (`face.xml`, the face diffs, `fcl_hair_sim.fclo`, which count in the root alone), links (a shared link read as the root's; a `.common` link stands for the `Common/` file at the link's own path below the folder, `model_format.md` "Link files") | `file_type_disallowed` |
+  | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content but the per-player singletons (`face.xml`, the face diffs, `fcl_hair_sim.fclo`, which count in the root alone), links (a shared link read as the root's; a `.common` link stands for the `Common/` file at the link's own path below the player folder, `model_format.md` "Link files") | `file_type_disallowed` |
   | anywhere in a shared folder (its subfolders are its own, `player_folders.md` "Subfolders") | model content (below a subfolder, but the singletons, as below a player folder's), `.common` links | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
   | anywhere in `Common/` | model content (a subfolder's is read on PES 18-21 when a link names it or a linked model or `.mtl` brings it, `team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
@@ -184,7 +185,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   `common_file_disallowed` keep their item (`Keep`, which the consumer shows as Info) and the file
   stays in the folder's files; a task reads only the files its roles name, so a kept file no
   role takes is not emitted (a kit emits only its named textures; the Common tasks on PES 18-21 only the
-  files directly in `Common/` and those a link names), and that finding is the one line the
+  files directly in `Common/` and those a link names or brings), and that finding is the one line the
   member sees for it.
 - **OS artifacts.** `Thumbs.db`, `desktop.ini` and `.DS_Store` (any case, at any depth) are
   written by file browsers, never by authors: `parse_listing` leaves them out of the draft and
@@ -204,7 +205,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   other drop it decides belongs to one of the not-eligible classes in `team_compiler/messages.md`
   "Message structure".
 - **Drop order.** A folder's own findings come first, then `link_target_dropped` for each player
-  whose link target was dropped, then `shared_folder_orphaned` over the players still eligible
+  or shared folder whose link target was dropped, then `shared_folder_orphaned` over the players still eligible
   and roster-mapped: a shared folder linked only by a dropped player is orphaned.
 - **Export findings of `validate`.** A stem with no token is `team_name_unknown` with an empty
   name, and an export holding no content-folder entry and no root `logo*` texture is
