@@ -41,7 +41,7 @@ use crate::face_xml::{
 };
 use crate::messages::Code;
 use crate::mtl_search::mtl_for;
-use crate::paths::{self, TextureDirectory, TextureHome};
+use crate::paths::{self, TextureDirectory};
 use crate::plan::roles::{
     ModelPackage, PlayerFile, below_common, common_texture_below, file_stem, is_common_file,
     path_stem, role_position, selected_common_model,
@@ -133,7 +133,7 @@ pub(super) fn converted_material_name(stem: &str) -> String {
 /// The directory the file at `path` sits in below its source folder at `source_path`,
 /// `/`-terminated as spelled (`jessie/body/`), empty for a file directly in it: where the face
 /// packs the file, as the player folder holds it (`player_folders.md` "Subfolders").
-fn directory_below(path: &ScopePath, source_path: &ScopePath) -> String {
+pub(super) fn directory_below(path: &ScopePath, source_path: &ScopePath) -> String {
     texture_lookup::split(&relative(path, source_path))
         .0
         .to_owned()
@@ -607,7 +607,7 @@ pub(super) fn face(
                         continue;
                     }
                     packed_here.push(key);
-                    materials.push((file, below));
+                    materials.push((file, below, source_path));
                 }
                 // On pre-Fox the face diff is the one packed file (`fcl_hair_sim.fclo` has no
                 // role there); here it is the `<dif>`, never a file of the CPK.
@@ -654,7 +654,6 @@ pub(super) fn face(
     let common_home = paths::common_home(Engine::PreFox, team_id);
     let home = folder.textures.directory(Engine::PreFox, team_id);
     let places = FolderPlaces {
-        folder: &folder.path,
         textures,
         home: &home,
         common_directory: &common_home,
@@ -810,7 +809,10 @@ pub(super) fn face(
                 // Before the pointing, which respells the environment map's path as the
                 // folder spells its own `env` texture when it holds one.
                 add_environment_map(&mut materials, &home.of(""));
-                point_materials(&mut materials, &places.of(&model.file.path));
+                point_materials(
+                    &mut materials,
+                    &places.of(model.source_path, &model.file.path),
+                );
                 point_reserved_kit_stems(&mut materials, &common_directory);
                 insert(
                     &mut contents,
@@ -877,8 +879,8 @@ pub(super) fn face(
         }
     }
     // Each at its path below its source folder.
-    for (file, below) in materials {
-        let bytes = rewritten_materials(file, &take(files, file), &places.of(&file.path))?;
+    for (file, below, source) in materials {
+        let bytes = rewritten_materials(file, &take(files, file), &places.of(source, &file.path))?;
         insert(&mut contents, ModelPackage::Face, below, bytes)?;
     }
     // After every file is packed, a split model's hands and its `.mtl` included.
@@ -1300,7 +1302,18 @@ impl<'a> XmlFace<'a> {
         }
         let mut bytes = take(files, file);
         if file.kind == FileKind::Mtl {
-            bytes = rewritten_materials(file, &bytes, &self.places.of(&file.path))?;
+            // The `.mtl`'s source folder: the player's own folder, or the linked shared
+            // face's. Only those reach here (`written_local`).
+            let source = if role_position(self.named.folder, file) {
+                self.named.folder
+            } else {
+                &self
+                    .named
+                    .linked_face
+                    .expect("a `./` reference resolves to a file of the folder or its linked face")
+                    .path
+            };
+            bytes = rewritten_materials(file, &bytes, &self.places.of(source, &file.path))?;
         }
         insert(
             &mut self.contents,
@@ -1328,8 +1341,6 @@ fn face_files(folder: &ModelFolder) -> FaceFiles<'_> {
         common: &folder.common_files,
         template_common: &[],
         folder: &folder.path,
-        // As `ModelFolder::roles` tells a shared folder: by where its textures go.
-        shared: matches!(folder.textures, TextureHome::SharedOutput { .. }),
     }
 }
 
@@ -1361,7 +1372,7 @@ fn names_model(xml: &UserFaceXml, model: &FaceModel, named: &FaceFiles) -> bool 
             let set_variant = match &path {
                 Reference::Local(referenced) => {
                     !model.in_common
-                        && role_position(named.folder, target, named.shared)
+                        && role_position(named.folder, target)
                         && variant_of(referenced, &relative(&target.path, named.folder)).is_some()
                 }
                 Reference::Common { .. } | Reference::Unchecked(_) => false,
@@ -1478,8 +1489,6 @@ fn respelled_material(listed: &str, kit: u8) -> String {
 /// player's own before one a link stands for: a link of the folder's wins over a combined
 /// shared folder's texture of its stem, as the folder's own texture does.
 pub(super) struct FolderPlaces<'a> {
-    /// The model folder: the player folder, a shared boots or gloves folder, or `Common/`.
-    pub(super) folder: &'a ScopePath,
     /// The textures of the package's sources, the model folder's own and its combined
     /// folders', and their texture links the same way (`texture_lookup`).
     pub(super) textures: TextureFolders,
@@ -1491,37 +1500,47 @@ pub(super) struct FolderPlaces<'a> {
 
 impl<'a> FolderPlaces<'a> {
     /// The places of a `Common/` `.mtl` (and of a converted Common FMDL's material set), as
-    /// a model folder's `.mtl` resolves (`of`): `common`, the export's `Common/` folder,
-    /// its model folder; `textures`, the Common textures' paths below it without their
-    /// extensions (`below_common`, `file_stem`), each the folder's own at its path; and
-    /// `directory`, the team's Common output, which every texture there is named by
-    /// (`common_home`). Nothing of a player's folder is consulted for a `Common/` `.mtl`.
-    pub(super) fn common(
-        common: &'a ScopePath,
-        textures: &[String],
-        directory: &'a TextureDirectory,
-    ) -> FolderPlaces<'a> {
+    /// a model folder's `.mtl` resolves (`of`): `textures`, the Common textures' paths below
+    /// `Common/` without their extensions (`below_common`, `file_stem`), each the folder's own
+    /// at its path; and `directory`, the team's Common output, which every texture there is
+    /// named by (`common_home`). Nothing of a player's folder is consulted for a `Common/`
+    /// `.mtl`: `Common/` is its model folder.
+    pub(super) fn common(textures: &[String], directory: &'a TextureDirectory) -> FolderPlaces<'a> {
         let mut folders = TextureFolders::default();
         for below in textures {
             folders.insert(true, below);
         }
         FolderPlaces {
-            folder: common,
             textures: folders,
             home: directory,
             common_directory: directory,
         }
     }
 
-    /// Where the paths of the `.mtl` at `path` (a converted model's material set: its
-    /// model's) are pointed: a name in the places it resolves in, in order; a path below its
-    /// folder at that path.
-    pub(super) fn of(&self, path: &ScopePath) -> MaterialPlaces<'_> {
+    /// Where the paths of the `.mtl` at `path`, a file of the source folder `source` (the
+    /// model folder for the folder's own files, a combined folder's for its files, `Common/`
+    /// for a Common file) are pointed, packed where `source` holds it: a name in the places
+    /// it resolves in, in order; a path below its folder at that path.
+    pub(super) fn of(&self, source: &ScopePath, path: &ScopePath) -> MaterialPlaces<'_> {
+        let packed = texture_lookup::split(&relative(path, source)).0.to_owned();
+        self.of_packed(source, path, &packed)
+    }
+
+    /// `of` for a `.mtl` packed at `packed`'s directory below its output's root instead of
+    /// below `source` (`""` for a shared boots output's `boots.mtl`, merged at the root:
+    /// a `.mtl` its parts were read from is not the file written).
+    pub(super) fn of_packed(
+        &self,
+        source: &ScopePath,
+        path: &ScopePath,
+        packed: &str,
+    ) -> MaterialPlaces<'_> {
         MaterialPlaces {
             by_name: self
                 .textures
-                .places(self.folder, path, self.home, self.common_directory),
-            below: (self, path.clone()),
+                .places(source, path, self.home, self.common_directory),
+            below: (self, source.clone(), path.clone()),
+            packed: packed.to_owned(),
         }
     }
 }
@@ -1532,9 +1551,14 @@ pub(super) struct MaterialPlaces<'a> {
     /// names its textures by.
     pub(super) by_name: Vec<(&'a TexturePlace, &'a TextureDirectory)>,
     /// For a path below the `.mtl`'s folder (`texture_lookup::path_below`), which resolves at
-    /// that path alone (`TextureFolders::at`): the model folder's places and the `.mtl`'s path
-    /// (a converted set's model's).
-    pub(super) below: (&'a FolderPlaces<'a>, ScopePath),
+    /// that path alone (`TextureFolders::at`): the model folder's places, the `.mtl`'s source
+    /// folder and its path (a converted set's model's).
+    pub(super) below: (&'a FolderPlaces<'a>, ScopePath, ScopePath),
+    /// The `.mtl`'s packed directory below its output's root (`""` or `/`-terminated), which
+    /// a `./` home's texture paths resolve against (`TextureDirectory::of_below`): `""` for a
+    /// shared boots output's `boots.mtl`, the `.mtl`'s own directory for one packed below the
+    /// folder.
+    pub(super) packed: String,
 }
 
 /// `bytes`, the `.mtl` `file`, with its texture paths pointed as `point_materials` points
@@ -1574,11 +1598,11 @@ pub(super) fn read_materials(
 /// left as it is.
 pub(super) fn point_materials(set: &mut MaterialSet, places: &MaterialPlaces) {
     rewrite_texture_paths(set, |path| {
-        let (folder, file) = &places.below;
+        let (folder, source, file) = &places.below;
         let below = texture_lookup::path_below(&path.directory).map(|subdirectory| {
             folder
                 .textures
-                .at(folder.folder, file, subdirectory)
+                .at(source, file, subdirectory)
                 .into_iter()
                 .map(|(place, which)| {
                     (place, which.directory(folder.home, folder.common_directory))
@@ -1597,7 +1621,7 @@ pub(super) fn point_materials(set: &mut MaterialSet, places: &MaterialPlaces) {
             .find_map(|(textures, directory)| Some((textures.get(&key)?, *directory)));
         if let Some((below, directory)) = found {
             let (subdirectory, name) = texture_lookup::split(below);
-            path.directory = directory.of(subdirectory);
+            path.directory = directory.of_below(subdirectory, &places.packed);
             path.file_name = format!("{name}.dds");
             return;
         }
@@ -1606,7 +1630,7 @@ pub(super) fn point_materials(set: &mut MaterialSet, places: &MaterialPlaces) {
         });
         if let Some((below, directory)) = variant_place {
             let (subdirectory, _) = texture_lookup::split(below);
-            path.directory = directory.of(subdirectory);
+            path.directory = directory.of_below(subdirectory, &places.packed);
         }
     });
 }
@@ -1937,26 +1961,25 @@ mod tests {
         static FOLDER: LazyLock<ScopePath> =
             LazyLock::new(|| ScopePath::new("Players/05 - A").unwrap());
         static PLACES: LazyLock<FolderPlaces<'static>> = LazyLock::new(|| FolderPlaces {
-            folder: &FOLDER,
             textures: TextureFolders::default(),
             home: &HOME,
             common_directory: &COMMON,
         });
         MaterialPlaces {
             by_name: places.to_vec(),
-            below: (&*PLACES, (*FOLDER).clone()),
+            below: (&*PLACES, (*FOLDER).clone(), (*FOLDER).clone()),
+            packed: String::new(),
         }
     }
 
-    /// The places of a face of the player folder `folder` whose own textures are `below`,
-    /// each its path below the folder, its texture home `home/` and no texture link.
-    fn face_places<'a>(folder: &'a ScopePath, below: &[&str]) -> FolderPlaces<'a> {
+    /// The places of a face whose own textures are `below`, each its path below the folder,
+    /// its texture home `home/` and no texture link.
+    fn face_places<'a>(below: &[&str]) -> FolderPlaces<'a> {
         let mut textures = TextureFolders::default();
         for below in below {
             textures.insert(true, below);
         }
         FolderPlaces {
-            folder,
             textures,
             home: &HOME,
             common_directory: &COMMON,
@@ -1966,10 +1989,10 @@ mod tests {
     #[test]
     fn a_mtl_points_a_texture_name_at_the_nearest_folder_holding_it() {
         let folder = ScopePath::new("Players/05 - A").unwrap();
-        let places = face_places(&folder, &["skin", "jessie/skin", "jessie/pants_kit2"]);
+        let places = face_places(&["skin", "jessie/skin", "jessie/pants_kit2"]);
         let pointed = |mtl: &str, file_name: &str| {
             let mut set = card_set_naming(file_name);
-            point_materials(&mut set, &places.of(&ScopePath::new(mtl).unwrap()));
+            point_materials(&mut set, &places.of(&folder, &ScopePath::new(mtl).unwrap()));
             paths(&set)
         };
         let deep = "Players/05 - A/jessie/body/x.mtl";
@@ -1987,13 +2010,10 @@ mod tests {
     #[test]
     fn a_mtl_path_below_its_folder_resolves_at_that_path_alone() {
         let folder = ScopePath::new("Players/05 - A").unwrap();
-        let places = face_places(
-            &folder,
-            &["y", "jessie/body/shorts/Y", "jessie/body/shorts/pants_kit1"],
-        );
+        let places = face_places(&["y", "jessie/body/shorts/Y", "jessie/body/shorts/pants_kit1"]);
         let pointed = |mtl: &str, file_name: &str| {
             let mut set = card_set_naming(file_name);
-            point_materials(&mut set, &places.of(&ScopePath::new(mtl).unwrap()));
+            point_materials(&mut set, &places.of(&folder, &ScopePath::new(mtl).unwrap()));
             paths(&set)
         };
         let body = "Players/05 - A/jessie/body/x.mtl";
@@ -2032,7 +2052,7 @@ mod tests {
             source: path.clone(),
             path: path.clone(),
         }];
-        let places = face_places(&folder, &["Skin"]);
+        let places = face_places(&["Skin"]);
         let mut face = XmlFace {
             named: FaceFiles {
                 own: &own,
@@ -2040,7 +2060,6 @@ mod tests {
                 common: &[],
                 template_common: &[],
                 folder: &folder,
-                shared: false,
             },
             kits: &[],
             common_directory: "common/",
@@ -2082,7 +2101,7 @@ mod tests {
             descriptor("pants_kit1.mtl", FileKind::Mtl),
             descriptor("pants_kit2.model", model),
         ];
-        let places = face_places(&folder, &[]);
+        let places = face_places(&[]);
         let mut face = XmlFace {
             named: FaceFiles {
                 own: &own,
@@ -2090,7 +2109,6 @@ mod tests {
                 common: &[],
                 template_common: &[],
                 folder: &folder,
-                shared: false,
             },
             kits: &[],
             common_directory: "common/",

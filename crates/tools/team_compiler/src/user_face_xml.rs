@@ -250,9 +250,8 @@ pub(crate) struct FaceFiles<'a> {
     /// The folder's own files; a `./` reference looks among those where they take a role
     /// (`role_position`), by their paths relative to the folder.
     pub(crate) own: &'a [FileDescriptor],
-    /// The shared face folder the player links, whose files directly in it a `./` reference
-    /// looks among after his own (a shared folder's file takes a role there alone); `None`
-    /// when he links none.
+    /// The shared face folder the player links, whose files a `./` reference looks among
+    /// after his own, at their paths below it; `None` when he links none.
     pub(crate) linked_face: Option<&'a SharedModelFolder>,
     /// The export's `Common/` files a target reads; a Common reference looks among them by
     /// their path relative to `Common/`.
@@ -264,9 +263,6 @@ pub(crate) struct FaceFiles<'a> {
     pub(crate) template_common: &'a [String],
     /// The face folder holding the xml.
     pub(crate) folder: &'a ScopePath,
-    /// Whether `folder` is a shared face folder, whose files count directly in it alone
-    /// (`role_position`).
-    pub(crate) shared: bool,
 }
 
 impl<'a> FaceFiles<'a> {
@@ -276,21 +272,21 @@ impl<'a> FaceFiles<'a> {
     pub(crate) fn own_local(&self, kind: FileKind) -> Vec<(String, &'a FileDescriptor)> {
         self.own
             .iter()
-            .filter(|file| role_position(self.folder, file, self.shared))
+            .filter(|file| role_position(self.folder, file))
             .filter_map(|file| candidate(file, self.folder, kind, self.common))
             .collect()
     }
 
-    /// The linked shared face's files of `kind` a `./` reference may name, those directly in
-    /// its folder (`role_position`), each by its name, which is its path relative to that
-    /// folder.
+    /// The linked shared face's files of `kind` a `./` reference may name, where they take a
+    /// role (`role_position`), each by its path relative to that folder (`jessie/x.model`
+    /// naming `jessie/x.model` below it).
     pub(crate) fn linked_local(&self, kind: FileKind) -> Vec<(String, &'a FileDescriptor)> {
         let Some(face) = self.linked_face else {
             return Vec::new();
         };
         face.files
             .iter()
-            .filter(|file| file.kind == kind && role_position(&face.path, file, true))
+            .filter(|file| file.kind == kind && role_position(&face.path, file))
             .map(|file| (relative(&file.path, &face.path), file))
             .collect()
     }
@@ -472,7 +468,7 @@ pub(crate) fn check(
     for file in files.own {
         let below = relative(&file.path, files.folder);
         let unlisted = file.kind == FileKind::Model(ModelFormat::PesModel)
-            && role_position(files.folder, file, files.shared)
+            && role_position(files.folder, file)
             && !paths.iter().any(|path| names_file(path, &below));
         if unlisted {
             findings.push(kept(Code::XmlModelUnlisted, vec![("file", below)]));
@@ -622,8 +618,7 @@ pub(crate) fn names_file(path: &str, below: &str) -> bool {
 /// the `<dif>` going out on PES 15-17 and the bin on PES 18-21.
 fn holds_face_diff_xml(files: &FaceFiles) -> bool {
     files.own.iter().any(|file| {
-        file.path.name().eq_ignore_ascii_case("face_diff.xml")
-            && role_position(files.folder, file, files.shared)
+        file.path.name().eq_ignore_ascii_case("face_diff.xml") && role_position(files.folder, file)
     })
 }
 
@@ -739,7 +734,6 @@ mod tests {
             common: &common,
             template_common: &[],
             folder: &folder,
-            shared: false,
         };
         lines(check(
             &parse(text.as_bytes()).unwrap(),
@@ -827,7 +821,6 @@ mod tests {
             common: &common,
             template_common: &[],
             folder: &folder,
-            shared: false,
         };
         let xml = parse(FUMOS_XML).unwrap();
         for version in [PesVersion::Pes16, PesVersion::Pes17] {
@@ -920,7 +913,6 @@ mod tests {
             common: &common,
             template_common: &[],
             folder: &folder,
-            shared: false,
         };
         let model = FileKind::Model(ModelFormat::PesModel);
         let found = |value: &str, kind| {
@@ -991,7 +983,6 @@ mod tests {
             common: &common,
             template_common: &[],
             folder: &folder,
-            shared: false,
         };
         let model = FileKind::Model(ModelFormat::PesModel);
         let found = |value: &str| {
@@ -1021,27 +1012,44 @@ mod tests {
     }
 
     #[test]
-    fn a_linked_face_s_file_below_its_folder_is_named_by_no_local_reference() {
+    fn a_linked_face_s_subfolder_file_is_named_by_its_path_below_it() {
+        // A shared folder's tree is a player folder's: `./extra/x` names the file at `extra/`
+        // below it; a bare name never goes down.
         let folder = ScopePath::new(FOLDER).unwrap();
-        let linked_face = round(&["hair_high.model", "extra/x_win32.model"]);
+        let linked_face = round(&[
+            "hair_high.model",
+            "hair_high.mtl",
+            "extra/x_win32.model",
+            "jessie/face.xml",
+        ]);
         let files = FaceFiles {
             own: &[],
             linked_face: Some(&linked_face),
             common: &[],
             template_common: &[],
             folder: &folder,
-            shared: false,
         };
         let model = FileKind::Model(ModelFormat::PesModel);
-        let found = |value: &str| {
-            resolve(&reference(value), &files, model).map(|file| file.path.as_str().to_owned())
+        let found = |value: &str, kind: FileKind| {
+            resolve(&reference(value), &files, kind).map(|file| file.path.as_str().to_owned())
         };
         assert_eq!(
-            found("./hair_high.model").as_deref(),
+            found("./hair_high.model", model).as_deref(),
             Some("Faces/Round/hair_high.model")
         );
-        assert_eq!(found("./x_win32.model"), None);
-        assert_eq!(found("./extra/x_win32.model"), None);
+        assert_eq!(
+            found("./extra/x_win32.model", model).as_deref(),
+            Some("Faces/Round/extra/x_win32.model")
+        );
+        assert_eq!(found("./x_win32.model", model), None);
+        // The filter is kind and role: a model asked as `.mtl` is nothing, and a per-player
+        // singleton below a subfolder takes no role.
+        assert_eq!(found("./hair_high.model", FileKind::Mtl), None);
+        assert_eq!(
+            found("./hair_high.mtl", FileKind::Mtl).as_deref(),
+            Some("Faces/Round/hair_high.mtl")
+        );
+        assert_eq!(found("./jessie/face.xml", FileKind::Xml), None);
     }
 
     #[test]
@@ -1061,7 +1069,6 @@ mod tests {
             common: &common,
             template_common: &[],
             folder: &folder,
-            shared: false,
         };
         let model = FileKind::Model(ModelFormat::PesModel);
         let found = |value: &str, kind| {
@@ -1112,7 +1119,6 @@ mod tests {
                 common: &[],
                 template_common,
                 folder: &folder,
-                shared: false,
             };
             let text = format!(
                 r#"<config><model level="0" type="parts" path="{path}" material="model/character/uniform/common/999/refkit/refkit.mtl"/></config>"#

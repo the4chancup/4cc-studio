@@ -43,7 +43,7 @@ pub(crate) fn texture_fixture(name: &str) -> Vec<u8> {
 
 /// The tracer's hair model naming the texture `file_name` (`skin.dds`) instead of `shirt.dds`,
 /// through `fmdl`'s model API.
-fn hair_model_naming(file_name: &str) -> Vec<u8> {
+pub(crate) fn hair_model_naming(file_name: &str) -> Vec<u8> {
     let file = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
     let mut model = Model::from_file(&file).unwrap();
     for material in &mut model.materials {

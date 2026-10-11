@@ -63,7 +63,7 @@ pub(super) fn common_models(
     // directory, where the map is emitted and the modded exes substitute the kit.
     let common_scope = common_folder();
     let common_home = paths::common_home(Engine::PreFox, team_id);
-    let places = FolderPlaces::common(&common_scope, textures, &common_home);
+    let places = FolderPlaces::common(textures, &common_home);
     let mut written: Vec<(String, Vec<u8>)> = Vec::new();
     for file in common {
         let name = file.path.name();
@@ -112,7 +112,7 @@ pub(super) fn common_models(
                 // Before the pointing, which respells the environment map's path as `Common/`
                 // spells its own `env` texture when it holds one.
                 add_environment_map(&mut materials, &directory);
-                point_materials(&mut materials, &places.of(&file.path));
+                point_materials(&mut materials, &places.of(&common_scope, &file.path));
                 point_reserved_kit_stems(&mut materials, &directory);
                 written.push((packed_model_name(stem), conversion.model));
                 written.push((converted_material_name(stem), materials.write()));
@@ -125,7 +125,8 @@ pub(super) fn common_models(
                 let source = files
                     .get(&file.path)
                     .expect("the coordinator reads every file `TaskKind::files` lists");
-                let bytes = rewritten_materials(file, source, &places.of(&file.path))?;
+                let bytes =
+                    rewritten_materials(file, source, &places.of(&common_scope, &file.path))?;
                 written.push((name.to_owned(), bytes));
             }
             // A `.skl` is read with the FMDL of its stem, its bind pose, above; planning lists

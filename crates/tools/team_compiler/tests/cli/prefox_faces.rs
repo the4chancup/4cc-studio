@@ -849,6 +849,60 @@ fn a_linked_gloves_folder_is_written_with_a_generated_glove_xml_under_its_shared
     );
 }
 
+// TC-MOD-74
+#[test]
+fn a_shared_gloves_folder_s_subfolder_files_pack_at_their_paths() {
+    // `grip/`'s model, `.mtl` and texture pack at `grip/` below the output folder, listed by
+    // `glove.xml` at their paths, the `.mtl` naming its texture beside it as `./grip.dds`.
+    let sandbox = Sandbox::new("prefox_shared_gloves_subfolder");
+    let export = "co Midcup Keeper";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/Keeper.gloves"),
+        b"",
+    );
+    let keeper = format!("exports/{export}/Gloves/Keeper");
+    sandbox.write(&format!("{keeper}/glove_l.model"), &card_model());
+    sandbox.write(&format!("{keeper}/glove_l.mtl"), &card_materials());
+    sandbox.write(&format!("{keeper}/grip/glove_r.model"), &card_model());
+    sandbox.write(
+        &format!("{keeper}/grip/glove_r.mtl"),
+        &materials_naming("grip"),
+    );
+    sandbox.write(&format!("{keeper}/grip/grip.dds"), &small_dds());
+    // `glove_l.mtl`'s texture, at the root.
+    sandbox.write(&format!("{keeper}/skin.dds"), &small_dds());
+
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    let gloves = entries_under(&entries, "common/character0/model/character/glove/");
+    let names: Vec<&str> = gloves.keys().copied().collect();
+    assert_eq!(
+        names,
+        [
+            "g0644/glove.xml",
+            "g0644/glove_l.model",
+            "g0644/glove_l.mtl",
+            "g0644/grip/glove_r.model",
+            "g0644/grip/glove_r.mtl",
+            "g0644/grip/grip.dds",
+            "g0644/skin.dds",
+        ]
+    );
+    assert_eq!(
+        String::from_utf8(gloves["g0644/glove.xml"].clone()).unwrap(),
+        "<?xml version='1.0' encoding='UTF-8'?>\r\n\
+         <config>\r\n   \
+         <model level=\"0\" type=\"gloveL\" path=\"./glove_l.model\" material=\"./glove_l.mtl\" />\r\n   \
+         <model level=\"0\" type=\"gloveR\" path=\"./grip/glove_r.model\" material=\"./grip/glove_r.mtl\" />\r\n\
+         </config>"
+    );
+    assert_eq!(
+        sampler_paths(gloves["g0644/grip/glove_r.mtl"]),
+        ["./grip.dds"]
+    );
+}
+
 /// Writes the export `export`: `Faces/Longhair/` holding `hair_high.model`, `hair_high.mtl`
 /// naming `./hair.dds` and `hair.dds`, linked by slot 05, which holds `face_high.model`, its
 /// `.mtl` and `skin.dds`.

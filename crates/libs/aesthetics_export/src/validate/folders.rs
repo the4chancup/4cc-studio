@@ -595,20 +595,7 @@ pub(crate) fn check_player(
     // `hair.dds` and a subfolder's are no conflict. A texture `.common` link claims
     // its linked name in the folder holding it (a link counts as the linked file being
     // local, `model_format.md` "Rules").
-    let mut namespaces: BTreeMap<Option<String>, Vec<(String, String)>> = BTreeMap::new();
-    for file in &folder.files {
-        let Some(name) = texture_claim(file) else {
-            continue;
-        };
-        let namespace = file.path.parent().map(|parent| parent.fold_key());
-        namespaces
-            .entry(namespace)
-            .or_default()
-            .push((fold(stem(&name)), relative(&file.path, &folder.path)));
-    }
-    for stems in namespaces.into_values() {
-        stem_conflicts(context, scope.clone(), stems.into_iter(), issues);
-    }
+    tree_stem_conflicts(folder, texture_claim, context, issues);
 
     // 8. The edit-hair files.
     edithair_files(folder, context, issues);
@@ -625,6 +612,45 @@ fn texture_claim(file: &FileDescriptor) -> Option<String> {
         return None;
     }
     common_link_name(file.path.name()).filter(|name| classify(name) == FileKind::Texture)
+}
+
+/// The name `file`, a file of a shared folder, claims in the texture namespace of the
+/// directory holding it: its own when it is a texture. A shared folder's links claim
+/// nothing, its `.common` links having no role there.
+fn shared_texture_claim(file: &FileDescriptor) -> Option<String> {
+    if file.kind == FileKind::Texture {
+        return Some(file.path.name().to_owned());
+    }
+    None
+}
+
+/// One `texture_stem_conflict` per folded stem two or more files of `folder` claim in one
+/// directory of its tree: a texture name resolves nearest first, in its model's folder
+/// before each parent (`player_folders.md` "Subfolders"), so the same stem in two
+/// directories is no conflict. `claim` is what a file asserts in its directory's namespace
+/// (`texture_claim` for a player folder's links, `shared_texture_claim` for a shared
+/// folder's, whose links are roleless).
+fn tree_stem_conflicts(
+    folder: &FolderDraft,
+    claim: impl Fn(&FileDescriptor) -> Option<String>,
+    context: &ValidationContext,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let scope = IssueScope::Folder(folder.path.clone());
+    let mut namespaces: BTreeMap<Option<String>, Vec<(String, String)>> = BTreeMap::new();
+    for file in &folder.files {
+        let Some(name) = claim(file) else {
+            continue;
+        };
+        let namespace = file.path.parent().map(|parent| parent.fold_key());
+        namespaces
+            .entry(namespace)
+            .or_default()
+            .push((fold(stem(&name)), relative(&file.path, &folder.path)));
+    }
+    for stems in namespaces.into_values() {
+        stem_conflicts(context, scope.clone(), stems.into_iter(), issues);
+    }
 }
 
 /// The draft's shared folders of `kind`.
@@ -660,9 +686,16 @@ pub(crate) fn check_shared(
 ) {
     let scope = IssueScope::Folder(folder.path.clone());
 
-    // Model content only, and only directly in the folder.
+    // A shared folder's tree is a player folder's (`player_folders.md` "Subfolders"): model
+    // content directly in the folder, and below a subfolder what a player's admits except a
+    // link of either kind — a shared folder holds no shared link, and its `.common` links
+    // count for nothing.
     for file in &folder.files {
-        if !(directly_in(&file.path, &folder.path) && is_model_content(file.kind)) {
+        let allowed = match position(&file.path, &folder.path) {
+            Position::Direct => is_model_content(file.kind),
+            Position::Below => player_below_allowed(file) && !counts_as_link(file),
+        };
+        if !allowed {
             issues.push(issue_in(
                 context,
                 "file_type_disallowed",
@@ -673,19 +706,11 @@ pub(crate) fn check_shared(
         }
     }
 
-    // Texture stems collide over the direct files.
-    stem_conflicts(
-        context,
-        scope.clone(),
-        folder
-            .files
-            .iter()
-            .filter(|file| file.kind == FileKind::Texture && directly_in(&file.path, &folder.path))
-            .map(|file| (fold(stem(file.path.name())), file.path.name().to_owned())),
-        issues,
-    );
+    // Texture stems collide per directory of the tree, as a player's: a shared folder's
+    // links claim nothing in them.
+    tree_stem_conflicts(folder, shared_texture_claim, context, issues);
 
-    // Every boots/gloves model must say so by suffix (`Faces/` takes any
+    // Every boots/gloves model must say so by suffix, at any depth (`Faces/` takes any
     // name — nothing there can be a face anywhere else): one rule, under each
     // engine's model catalog's code.
     let name_invalid = match context.version.engine() {
@@ -698,15 +723,12 @@ pub(crate) fn check_shared(
             SharedKind::Boots => model_suffix(stem(file.path.name())).is_some_and(is_boots),
             SharedKind::Gloves => model_suffix(stem(file.path.name())).is_some_and(is_gloves),
         };
-        if matches!(file.kind, FileKind::Model(_))
-            && directly_in(&file.path, &folder.path)
-            && !allowed
-        {
+        if matches!(file.kind, FileKind::Model(_)) && !allowed {
             issues.push(issue_in(
                 context,
                 name_invalid,
                 scope.clone(),
-                vec![("file", file.path.name().to_owned())],
+                vec![("file", relative(&file.path, &folder.path))],
                 Disposition::DropFolder,
             ));
         }

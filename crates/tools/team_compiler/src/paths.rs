@@ -150,6 +150,45 @@ impl TextureDirectory {
     pub(crate) fn of(&self, subdirectory: &str) -> String {
         format!("{}{subdirectory}{}", self.prefix, self.suffix)
     }
+
+    /// The directory a `.mtl` at `mtl_directory` below the home's root (`""` or `/`-terminated,
+    /// the `.mtl`'s own packed directory) names a texture at `subdirectory` below the root
+    /// by: `of` for a home naming a game path; for a shared output's `./` home, the path
+    /// between the two, `./` when they are the same (`./grip.dds` beside it), `../` per folder
+    /// the texture sits above, `./<sub>/` below (`pipeline.md` "Packing": each `.mtl` path
+    /// names its texture relative to the packed `.mtl`).
+    pub(crate) fn of_below(&self, subdirectory: &str, mtl_directory: &str) -> String {
+        if !(self.prefix == "./" && self.suffix.is_empty()) {
+            return self.of(subdirectory);
+        }
+        let mtl: Vec<&str> = mtl_directory
+            .split('/')
+            .filter(|segment| !segment.is_empty())
+            .collect();
+        let below: Vec<&str> = subdirectory
+            .split('/')
+            .filter(|segment| !segment.is_empty())
+            .collect();
+        let common = mtl
+            .iter()
+            .zip(&below)
+            .take_while(|(own, held)| own == held)
+            .count();
+        let up = mtl.len() - common;
+        let rest = below[common..].join("/");
+        if up == 0 {
+            return format!("./{}{}", rest, if rest.is_empty() { "" } else { "/" });
+        }
+        format!(
+            "{}{}",
+            "../".repeat(up),
+            if rest.is_empty() {
+                rest
+            } else {
+                format!("{rest}/")
+            }
+        )
+    }
 }
 
 impl TextureHome {

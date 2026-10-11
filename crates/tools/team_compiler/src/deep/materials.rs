@@ -30,8 +30,9 @@ use crate::user_face_xml::{Reference, reference};
 /// Where the textures a `.mtl`'s paths name may come from, each by its folded stem.
 pub(super) struct TextureSources<'a> {
     /// The places a texture name of the `.mtl` resolves in, nearest first
-    /// (`HeldTextures::of`): its model folder's textures from the `.mtl`'s own folder up, those
-    /// of the shared folders its face packs, and the stems its texture links stand for; for a
+    /// (`HeldTextures::of`): its model folder's textures from the `.mtl`'s own folder up,
+    /// those of the shared folders its packages are built from at each folder's own path,
+    /// and the stems its texture links stand for; for a
     /// `Common/` `.mtl`, `Common/`'s.
     pub(super) held: &'a [&'a TexturePlace],
     /// For a path below the `.mtl`'s folder (`texture_lookup::path_below`), which resolves at
@@ -195,7 +196,8 @@ pub(super) struct HeldTextures {
     /// The model folder.
     folder: ScopePath,
     /// Its textures (`PlayerFile::Texture`) by the folder of its tree holding each, those of
-    /// the shared folders its packages are built from, and their texture links the same way
+    /// the shared folders its packages are built from at each file's path below its folder,
+    /// and their texture links the same way
     /// (`PlayerFile::CommonTexture`): a link counts as the texture it stands for being present
     /// in the folder holding it.
     textures: TextureFolders,

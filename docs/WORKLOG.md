@@ -55,7 +55,8 @@ own texture or texture link wins over a combined folder's, `shared_texture_overr
 own `Common/` directory; (b3b4b) done 2026-10-10: on Fox a linked `Common/` subfolder
 model's textures travel with it and resolve beside it; (b3b4c) done 2026-10-11: S18.A3's
 fixes, a linked Common file bringing the textures above it and a player `.mtl` over a
-Common model falling back beside the model; (b3c1) next), 4.y-fix20
+Common model falling back beside the model; (b3c1) done 2026-10-11: a shared folder's
+subfolders follow the player folder's rules; (b3b4d) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4059,7 +4060,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
           satisfied by an installed CPK, as on Fox (the face task then points the link by its
           own stem; `messages.md`, the same paragraph's end).
     - (b3c) shared folders' trees, sliced:
-      - (b3c1) a shared folder's subfolders (TC-MOD-68, TC-MOD-73, TC-MOD-74). Next.
+      - (b3c1) a shared folder's subfolders (TC-MOD-68, TC-MOD-73, TC-MOD-74). Done.
       - (b3c2) its `.common` links at any depth (`pipeline.md`'s "links resolve from player
         folders alone" to rewrite first).
   - (b4) kit-token folders (`kit1` to `kit9`) form variant sets (`kitN/<name>`) in any folder,
@@ -4324,6 +4325,30 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   Open: whether a player's `.mtl` over a Common `.model` on PES 15-17 needs the same Common
   fallback (`prefox_face::face` resolves it in the folder alone; `pipeline.md` step 3 says a
   player's material files layer over a Common-linked model's).
+  (b3c1) done 2026-10-11 (SWE-2 High, one run and one rework round; briefs
+  `.tmp/4_y/brief_sub_b3c1{,_r1}.md`, reports beside them;
+  plan `243fa9a`, refined by S19's `bcd400b` and `bb0aa44`): a shared folder's tree follows
+  the player folder's rules. AE `check_shared` admits below a subfolder what a player's
+  subfolder admits but links (its `.common` links are (b3c2)'s), checks stems per directory
+  through one helper shared with `check_player` (`tree_stem_conflicts`), and applies the
+  boots/gloves suffix rule at any depth, naming the path below the folder; TC `role_position`
+  drops its `shared` flag (one rule for both folder kinds, the singletons the root's alone),
+  the combined texture places are keyed per directory as the folder's own are, each caller
+  passing the file's own source folder (`Part::source`, `FolderPlaces::of(source, path)`),
+  and a PES 15-17 shared gloves output packs a subfolder's models and `.mtl` files at their
+  paths, `glove.xml` listing `./grip/glove_r.model`, each `.mtl` naming its texture relative
+  to itself (`TextureDirectory::of_below`: `./`, `../`, `./<sub>/`); `boots.mtl`, merged at
+  the root, names a subfolder texture `./<sub>/`. Fox's shared output already put a
+  subfolder texture at `k{id}/<sub>/#windx11/` (S19.2-B2). Ruled test changes: six
+  (`plan/roles.rs` two, `texture_lookup.rs` one, `user_face_xml.rs` one, `tests/cli/models.rs`
+  TC-MOD-68 and the nested-boots test, now `fmdl_name_invalid`). Files: AE
+  `validate/{folders,tests}.rs`; TC `deep/{materials,mod}.rs`, `paths.rs`, `plan/{mod,roles}.rs`,
+  `processing/{model,prefox_common,prefox_face,prefox_shared,texture}.rs`,
+  `texture_lookup.rs`, `user_face_xml.rs`, `validation.rs`,
+  `tests/cli/{models,prefox_faces,textures}.rs`. Gates green locally
+  (`.tmp/4_y/gates_sub_b3c1_r1.log`); mutants r0 116 mutants, 94 caught, 21 unviable, 1
+  missed (the `linked_local` filter, `.tmp/4_y/mutants_sub_b3c1_r0/`); after r1's test 116,
+  95 caught, 21 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3c1_r1/`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7200,3 +7225,8 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   and scope fixes; landed.
 - **2026-10-11** — S19.4 (SWE-2 round 4 on the plan text): 7 of 7 accepted, scope and
   wording; landed.
+- **2026-10-11** — 4.y-sub (b3c1) landed: a shared folder's subfolders follow the player
+  folder's rules (TC-MOD-68, TC-MOD-73, TC-MOD-74).
+- **2026-10-11** — S19.5 (SWE-2 round 5 on the plan text): 5 of 8 accepted, wording and
+  one scope word; landed. S20.5 (round 5 on the mutants scripts): 4 of 8 accepted, the
+  loop ends; landed.

@@ -93,8 +93,9 @@ struct TextureCopy {
 /// folder (`PlayerFile::Texture`), compared case-folded: one entry per path, however many of the
 /// folder's models use it and however many ids its packages are emitted under, so a
 /// subfolder's `jessie/skin.dds` and the root's `skin.dds` are two entries
-/// (`player_folders.md` "Subfolders"). A combined shared folder's textures are all directly in
-/// it, so its copy of a stem shares the root's path. A path several sources hold is one entry
+/// (`player_folders.md` "Subfolders"). A combined shared folder's files stand at their paths
+/// below it, so its `jessie/skin.dds` and the root's are two entries too. A path several
+/// sources hold is one entry
 /// when their bytes agree. Local files win over imported ones: a path the player's own folder
 /// holds, as a texture or as a texture link standing there (`PlayerFile::CommonTexture`), is
 /// his whatever the packages: his copy is the entry every model of his names, a link's path

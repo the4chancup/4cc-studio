@@ -44,6 +44,9 @@ struct Part {
     name: &'static str,
     /// The part's export path, which with its file name orders the parts of one output.
     path: ScopePath,
+    /// The part's source folder (`Players/05 - A`, `Faces/Round`): its files stand at their
+    /// paths below it, so `references_from` is read below it (`texture_lookup`).
+    source: ScopePath,
     /// The file whose folder a texture path below it (`./textures/skin`) starts from: the
     /// model itself, or for a `.model` converted for Fox, the `.mtl` it took its materials from
     /// (`mtl_for`'s result), since the path was written in that `.mtl`.
@@ -152,6 +155,7 @@ pub(super) fn package(
             let mut part = |name, textures| Part {
                 name,
                 path: file.path.clone(),
+                source: source_path.clone(),
                 references_from: file.path.clone(),
                 bytes: take(files, file),
                 skeleton: skeletons.remove(&vtree::fold_name(file_stem(file.path.as_str()))),
@@ -353,12 +357,13 @@ pub(super) fn package(
     let common_places =
         |path: &ScopePath| common_folders.places(&common_scope, path, &common_home, &common_home);
     // A folder part's places: its folder's textures and links nearest first, each in its
-    // home, resolved from the material file's folder (`Part::references_from`): a stem
-    // resolves in the folder of the material file that set it (`model_format.md` "Link
-    // files"), which for a `.model` converted with a `.mtl` of another folder is that `.mtl`'s.
+    // home, resolved from the material file's folder (`Part::references_from`) below its own
+    // source folder: a stem resolves in the folder of the material file that set it
+    // (`model_format.md` "Link files"), which for a `.model` converted with a `.mtl` of another
+    // folder is that `.mtl`'s.
     let folder_places = |part: &Part| {
         textures.places(
-            &folder.path,
+            &part.source,
             &part.references_from,
             &texture_directory,
             &common_home,
@@ -405,7 +410,7 @@ pub(super) fn package(
                             })
                             .collect::<Vec<_>>(),
                         PartTextures::Folder | PartTextures::CommonSet => textures
-                            .at(&folder.path, &part.references_from, subdirectory)
+                            .at(&part.source, &part.references_from, subdirectory)
                             .into_iter()
                             .map(|(place, which)| {
                                 (place, which.directory(&texture_directory, &common_home))
@@ -656,6 +661,7 @@ fn parts_of(
                 Some(Part {
                     name,
                     path: part.path.clone(),
+                    source: part.source.clone(),
                     references_from: part.references_from.clone(),
                     bytes: bytes?,
                     skeleton: None,

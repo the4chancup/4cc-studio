@@ -1859,18 +1859,15 @@ fn kit_variant_model_messages(
             .iter()
             .filter(|link| link_feeds_own_package(export, engine, player, link, hand_weighted))
             .filter_map(|link| linked_folder(export, link))
-            .map(|shared| role_files(&shared.path, &shared.files, true));
-        let sources = iter::once(role_files(&player.path, &player.files, false))
+            .map(|shared| role_files(&shared.path, &shared.files));
+        let sources = iter::once(role_files(&player.path, &player.files))
             .chain(combined)
             .collect();
         folders.push((&player.path, sources));
     }
     for (kind, shared) in shared_folders(export) {
         if leaves_out_kit_variants(engine, false, Some(kind)) {
-            folders.push((
-                &shared.path,
-                vec![role_files(&shared.path, &shared.files, true)],
-            ));
+            folders.push((&shared.path, vec![role_files(&shared.path, &shared.files)]));
         }
     }
     for (path, sources) in folders {

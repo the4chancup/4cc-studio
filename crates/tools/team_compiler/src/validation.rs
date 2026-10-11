@@ -777,12 +777,9 @@ fn file_role_messages(
         // ignores a shared boots or gloves folder's: its output is one model or a `glove.xml`,
         // which no face xml drives.
         let ignored_xml = match models.engine() {
-            Engine::Fox if is_user_face_xml(path, file, models.is_shared()) => {
-                Some(Code::XmlIgnoredFox)
-            }
+            Engine::Fox if is_user_face_xml(path, file) => Some(Code::XmlIgnoredFox),
             Engine::PreFox
-                if models.is_shared_boots_or_gloves()
-                    && is_user_face_xml(path, file, models.is_shared()) =>
+                if models.is_shared_boots_or_gloves() && is_user_face_xml(path, file) =>
             {
                 Some(Code::XmlIgnoredShared)
             }
@@ -908,7 +905,7 @@ fn unread_for_a_known_reason(
     let named_by_the_structure_pass = matches!(
         file.kind,
         FileKind::Marker(_) | FileKind::Metadata(_) | FileKind::SharedLink(_) | FileKind::Other
-    ) || !role_position(path, file, models.is_shared())
+    ) || !role_position(path, file)
         || (models.is_shared() && file.kind == FileKind::CommonLink);
     models.beaten(file) || other_engine_companion || named_by_the_structure_pass
 }

@@ -1455,6 +1455,156 @@ fn a_shared_folder_with_different_kinds_of_one_stem_is_fine() {
 }
 
 #[test]
+fn a_shared_folder_s_subfolders_follow_a_player_folder_s_rules() {
+    // A boots model says so by suffix at any depth: `extra/x_boots.fmdl` is content.
+    let admitted = report(
+        "egg Midcup",
+        &[
+            ("Boots/Crocs/boots.fmdl", 10),
+            ("Boots/Crocs/extra/x_boots.fmdl", 10),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&admitted), vec![], "{:?}", admitted.issues);
+    let validated = admitted.validated.unwrap();
+    let files: Vec<&str> = validated.boots[0]
+        .files
+        .iter()
+        .map(|file| file.path.as_str())
+        .collect();
+    assert_eq!(
+        files,
+        ["Boots/Crocs/boots.fmdl", "Boots/Crocs/extra/x_boots.fmdl"]
+    );
+
+    // What a subfolder may not hold stays `file_type_disallowed`: a per-player singleton
+    // (`face.xml`), a marker, a shared link — and a `.common` link, which is roleless in a
+    // shared folder.
+    let disallowed = report(
+        "egg Midcup",
+        &[
+            ("Faces/Round/face_high.fmdl", 10),
+            ("Faces/Round/jessie/face.xml", 10),
+            ("Faces/Round/jessie/ingame_face", 0),
+            ("Faces/Round/jessie/Crocs.boots", 0),
+            ("Faces/Round/jessie/skin.dds.common", 0),
+            ("Players/03 - A/Round.face", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&disallowed),
+        vec![
+            ("file_type_disallowed", Disposition::DropFolder),
+            ("file_type_disallowed", Disposition::DropFolder),
+            ("file_type_disallowed", Disposition::DropFolder),
+            ("file_type_disallowed", Disposition::DropFolder),
+            ("link_target_dropped", Disposition::DropFolder),
+        ]
+    );
+    let named: Vec<&str> = disallowed
+        .issues
+        .iter()
+        .take(4)
+        .map(|issue| issue.context[0].1.as_str())
+        .collect();
+    assert_eq!(
+        named,
+        [
+            "jessie/Crocs.boots",
+            "jessie/face.xml",
+            "jessie/ingame_face",
+            "jessie/skin.dds.common",
+        ]
+    );
+    assert_eq!(disallowed.issues[0].scope, folder("Faces/Round"));
+}
+
+#[test]
+fn a_shared_folder_s_texture_stems_collide_per_directory_of_its_tree() {
+    // The lookup namespace of `texture_stem_conflict` is one directory, as a player's is:
+    // a `skin.dds` in each of `a/` and `b/` is no conflict.
+    let apart = report(
+        "egg Midcup",
+        &[
+            ("Faces/Round/a/skin.dds", 9),
+            ("Faces/Round/b/skin.dds", 9),
+            ("Players/03 - A/Round.face", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&apart), vec![], "{:?}", apart.issues);
+
+    // Two of one stem in one directory collide.
+    let same = report(
+        "egg Midcup",
+        &[
+            ("Faces/Round/a/skin.dds", 9),
+            ("Faces/Round/a/skin.png", 9),
+            ("Players/03 - A/Round.face", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&same),
+        vec![
+            ("texture_stem_conflict", Disposition::DropFolder),
+            ("link_target_dropped", Disposition::DropFolder),
+        ]
+    );
+    assert_eq!(same.issues[0].scope, folder("Faces/Round"));
+    assert_eq!(
+        same.issues[0].context,
+        vec![
+            ("stem", "skin".to_owned()),
+            ("files", "a/skin.dds,a/skin.png".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn a_shared_folder_s_name_rule_applies_at_any_depth_naming_the_path_below() {
+    // As a model directly in the folder: `fmdl_name_invalid` on a Fox target, the file named
+    // below the folder.
+    let report = report_with(
+        &context_for(pes_version::PesVersion::Pes21),
+        "egg Midcup",
+        &[
+            ("Boots/Crocs/extra/face_high.fmdl", 10),
+            ("Boots/Crocs/extra/x.fmdl", 10),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("fmdl_name_invalid", Disposition::DropFolder),
+            ("fmdl_name_invalid", Disposition::DropFolder),
+            ("link_target_dropped", Disposition::DropFolder),
+        ]
+    );
+    let named: Vec<&str> = report
+        .issues
+        .iter()
+        .take(2)
+        .map(|issue| issue.context[0].1.as_str())
+        .collect();
+    assert_eq!(named, ["extra/face_high.fmdl", "extra/x.fmdl"]);
+}
+
+#[test]
 fn a_link_file_below_any_subfolder_is_a_link_as_in_the_root() {
     // Both links resolve: the shared folder is linked, not orphaned, and the `.common` link
     // names the `Common/` file at its own path.

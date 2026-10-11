@@ -24,7 +24,7 @@ use crate::prefox_faces::{
     BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, materials_naming,
     small_dds,
 };
-use crate::textures::{tracer_model_pointing, tracer_model_renaming};
+use crate::textures::{hair_model_naming, tracer_model_pointing, tracer_model_renaming};
 use crate::{TEAM_COLORS_MISSING, clean_model, command_args, findings_of};
 
 /// The entry names of the FPK `bytes`.
@@ -872,12 +872,12 @@ fn a_subfolder_s_marker_and_settings_are_file_type_disallowed_and_count_for_noth
 
 // TC-MOD-68
 #[test]
-fn a_shared_folder_s_subfolder_file_is_file_type_disallowed_and_never_in_its_package() {
-    let sandbox = Sandbox::new("mod_shared_subfolder_file");
+fn a_shared_folder_s_subfolder_models_are_parts_of_its_package() {
+    let sandbox = Sandbox::new("mod_shared_subfolder_models");
     let export = "co Midcup Subfolders";
     let root = format!("exports/{export}");
     sandbox.write(&format!("{root}/Players/05 - A/Crocs.boots"), b"");
-    for model in ["boots.fmdl", "extra/x.fmdl"] {
+    for model in ["boots.fmdl", "extra/x_boots.fmdl"] {
         sandbox.write(
             &format!("{root}/Boots/Crocs/{model}"),
             &tracer_player_file("boots.fmdl"),
@@ -886,40 +886,35 @@ fn a_shared_folder_s_subfolder_file_is_file_type_disallowed_and_never_in_its_pac
 
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
 
+    // No `file_type_disallowed`: a shared folder's tree is a player folder's.
     let lines = check.messages();
     assert_eq!(
         findings_of(&lines, export),
         [
-            "Error file_type_disallowed [DropFolder] at Boots/Crocs (file=extra/x.fmdl)",
-            "Error link_target_dropped [DropFolder] at Players/05 - A (link=Crocs.boots, target=Boots/Crocs, finding=file_type_disallowed)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=extra/x_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
         ],
         "{lines:#?}"
     );
 
-    // Kept, it is in no package: the shared boots hold `boots.fmdl` alone, and no finding
-    // names a read of `x.fmdl`.
-    let run = sandbox.run(
-        &lenient(&pes21_settings(&sandbox)),
-        &["compile", "--no-deploy"],
-    );
-
-    let lines = run.messages();
-    assert_eq!(
-        findings_of(&lines, export),
-        [
-            "Info file_type_disallowed [Keep] at Boots/Crocs (file=extra/x.fmdl)",
+    let entries = compile_clean(
+        &sandbox,
+        export,
+        &[
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=extra/x_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
+            "Info fmdl_merged [Keep] at Boots/Crocs (model=boots.fmdl)",
         ],
-        "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 0, "{lines:#?}");
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+
+    // The shared boots hold both models' meshes, merged.
     assert_eq!(
-        package_names(&entries["Asset/model/character/boots/k0644/#Win/boots.fpk"]),
-        ["boots.fmdl", "boots.skl"]
+        boots_mesh_count(&entries, "Asset/model/character/boots/k0644/#Win/boots.fpk"),
+        2 * tracer_boots_mesh_count(),
+        "boots.fmdl's and x_boots.fmdl's meshes"
     );
 }
 
@@ -2423,7 +2418,7 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
 }
 
 #[test]
-fn a_model_below_a_shared_boots_folder_s_subfolder_is_not_used() {
+fn an_unsuffixed_model_below_a_shared_boots_folder_s_subfolder_is_named_invalid() {
     let sandbox = Sandbox::new("mod_shared_boots_nested");
     let export = "exports/co Midcup Nested Crocs";
     sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
@@ -2433,34 +2428,19 @@ fn a_model_below_a_shared_boots_folder_s_subfolder_is_not_used() {
         &clean_model(),
     );
 
-    // The structure pass refuses a shared folder's subfolder; a lenient check keeps its file.
-    let settings = format!(
-        "{}[team-compiler]\nstrict_file_type_check = false\n",
-        pes21_settings(&sandbox)
-    );
+    // The name rule applies at any depth and drops as it does a model directly in the
+    // folder: `extra.fmdl` is no boots part, and no package reads it.
+    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
 
-    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
-
-    let lines = run.messages();
+    let lines = check.messages();
     assert_eq!(
         findings_of(&lines, "co Midcup Nested Crocs"),
         [
-            "Info file_type_disallowed [Keep] at Boots/Crocs (file=boots/extra.fmdl)",
+            "Error fmdl_name_invalid [DropFolder] at Boots/Crocs (file=boots/extra.fmdl)",
+            "Error link_target_dropped [DropFolder] at Players/05 - A (link=Crocs.boots, target=Boots/Crocs, finding=fmdl_name_invalid)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Info team_colors_missing [Keep] ()",
         ],
         "{lines:#?}"
-    );
-    assert_eq!(run.exit_code(), 0, "{lines:#?}");
-    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    let meshes = Model::from_file(&FmdlFile::read(&clean_model()).unwrap())
-        .unwrap()
-        .meshes
-        .len();
-    assert_eq!(
-        boots_mesh_count(&entries, "Asset/model/character/boots/k0644/#Win/boots.fpk"),
-        meshes,
-        "`boots.fmdl`'s meshes alone"
     );
 }
 
@@ -2792,6 +2772,62 @@ fn a_fmdl_texture_named_by_its_path_below_the_model_s_folder_resolves_to_a_link_
     );
     let hair = "Asset/model/character/common/714/jessie/sourceimages/#windx11/hair.ftex";
     assert!(entries.contains_key(hair), "{:#?}", entries.keys());
+}
+
+// TC-MOD-73
+#[test]
+fn a_combined_folder_s_files_stand_at_their_paths_below_the_player_folder() {
+    // `Faces/Round`'s `jessie/` files are at `jessie/` below slot 05's folder: the `skin`
+    // `jessie/hair_high.fmdl` names resolves to `jessie/skin`, not the player's root `skin`.
+    let sandbox = Sandbox::new("mod_combined_subfolder");
+    let export = "co Midcup Subfolders";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(
+        &format!("{player}/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    let round = format!("exports/{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/jessie/hair_high.fmdl"),
+        &hair_model_naming("skin.dds"),
+    );
+    sandbox.write(&format!("{round}/jessie/skin.dds"), &small_dds());
+
+    let entries = compile_clean(
+        &sandbox,
+        export,
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=jessie/hair_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+        ],
+    );
+
+    // The face package holds both models' meshes, `jessie/`'s part naming the texture at
+    // `jessie/` in his texture home, which holds both `skin.ftex` at their paths.
+    let package = face_package(&entries);
+    let models: Vec<&str> = package
+        .entries()
+        .map(|(name, _)| name)
+        .filter(|name| name.ends_with(".fmdl"))
+        .collect();
+    assert_eq!(models, ["face_high.fmdl", "hair_high.fmdl"]);
+    let own = slot_05_ftex("skin");
+    let combined = slot_05_ftex("jessie/skin");
+    assert!(entries.contains_key(&own), "{:#?}", entries.keys());
+    assert!(entries.contains_key(&combined), "{:#?}", entries.keys());
+    assert_ne!(entries[&own], entries[&combined]);
+    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| *directory == slot_05_directory("jessie/")),
+        "{directories:?}"
+    );
 }
 
 #[test]
