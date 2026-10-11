@@ -219,3 +219,71 @@ fn a_game_path_and_a_dummy_texture_are_not_looked_for() {
     assert_eq!(findings_of(&lines, export), [IDENTIFIED], "{lines:#?}");
     assert_eq!(check.exit_code(), 0);
 }
+
+/// Writes slot 05 of `co Midcup Hair`: `face_high.mtl` naming `hair.dds` in the `jessie/`
+/// subdirectory of the team's uniform Common folder; the settings compile `4cc_62_midcup`
+/// for PES 17 with the sandbox's PES folder.
+fn write_subfolder_hair_mtl(sandbox: &Sandbox) -> String {
+    write_face(
+        sandbox,
+        "co Midcup Hair",
+        "05 - A",
+        &materials_at("model/character/uniform/common/XXX/jessie/hair.dds"),
+    );
+    format!(
+        "{}[team-compiler]\ncpk_name = \"4cc_62_midcup\"\n",
+        pes17(sandbox)
+    )
+}
+
+// TC-XML-07, the Common form, a path into a `Common/` subfolder; the runs of TC-TEX-05
+#[test]
+fn a_common_subfolder_texture_of_a_mtl_is_found_in_common_or_an_earlier_installed_cpk() {
+    let not_found = "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=face_high.mtl, texture=model/character/uniform/common/XXX/jessie/hair.dds, materials=card)";
+
+    // Nobody holds it: the list names the CPKs but none is written, so the lookup is made.
+    let missing = Sandbox::new("prefox_mtl_subfolder_missing");
+    let settings = write_subfolder_hair_mtl(&missing);
+    install_names(
+        &missing,
+        &[
+            "4cc_61_midcup.cpk",
+            "4cc_62_midcup.cpk",
+            "4cc_63_midcup.cpk",
+        ],
+    );
+    assert_eq!(
+        hair_check_lines(&missing, &settings),
+        [not_found, IDENTIFIED]
+    );
+
+    // The export's `Common/jessie/hair.dds` holds it at the path it names.
+    let held = Sandbox::new("prefox_mtl_subfolder_held");
+    let settings = write_subfolder_hair_mtl(&held);
+    held.write(
+        "exports/co Midcup Hair/Common/jessie/hair.dds",
+        &small_dds(),
+    );
+    assert_eq!(hair_check_lines(&held, &settings), [IDENTIFIED]);
+
+    // An earlier installed CPK holds it at the path the Common output packs it.
+    let installed = Sandbox::new("prefox_mtl_subfolder_installed");
+    let settings = write_subfolder_hair_mtl(&installed);
+    install_names(
+        &installed,
+        &[
+            "4cc_61_midcup.cpk",
+            "4cc_62_midcup.cpk",
+            "4cc_63_midcup.cpk",
+        ],
+    );
+    install_cpk(
+        &installed,
+        "4cc_61_midcup.cpk",
+        &[(
+            "common/character1/model/character/uniform/common/714/jessie/hair.dds",
+            b"compiled on an earlier day",
+        )],
+    );
+    assert_eq!(hair_check_lines(&installed, &settings), [IDENTIFIED]);
+}

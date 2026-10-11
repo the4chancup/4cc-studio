@@ -189,6 +189,16 @@ impl TextureDirectory {
             }
         )
     }
+
+    /// The subdirectory below this home's root that `directory` is `of`'s spelling for,
+    /// `""` for the root's own directory, folded as texture directories compare; `None` when
+    /// `directory` is no `of` spelling of this home (another home's, the game's own).
+    pub(crate) fn subdirectory(&self, directory: &str) -> Option<String> {
+        vtree::fold_name(directory)
+            .strip_prefix(&vtree::fold_name(&self.prefix))
+            .and_then(|rest| rest.strip_suffix(self.suffix))
+            .map(str::to_owned)
+    }
 }
 
 impl TextureHome {
@@ -671,6 +681,36 @@ mod tests {
         assert_eq!(subpath("Common"), "");
         assert_eq!(subpath("Common/refkit"), "refkit/");
         assert_eq!(subpath("Common/a/b"), "a/b/");
+    }
+
+    #[test]
+    fn a_texture_directory_reads_the_subdirectory_its_of_writes() {
+        let common = common_home(Engine::Fox, 714);
+        assert_eq!(
+            common.subdirectory("/Assets/pes16/model/character/common/714/sourceimages/"),
+            Some("".to_owned())
+        );
+        assert_eq!(
+            common.subdirectory(
+                "/Assets/pes16/model/character/common/714/jessie/shorts/sourceimages/"
+            ),
+            Some("jessie/shorts/".to_owned())
+        );
+        // Folded, as directories compare; a player's own home reads as a subdirectory too.
+        assert_eq!(
+            common.subdirectory("/Assets/pes16/model/character/common/714/05 - A/sourceimages/"),
+            Some("05 - a/".to_owned())
+        );
+        for directory in [
+            // The game's own, another team's, the folder's own directory without
+            // `sourceimages`.
+            "/Assets/pes16/model/character/common/sourceimages/",
+            "/Assets/pes16/model/character/common/702/sourceimages/",
+            "/Assets/pes16/model/character/common/714/jessie/",
+            "./textures/",
+        ] {
+            assert_eq!(common.subdirectory(directory), None, "{directory}");
+        }
     }
 
     #[test]

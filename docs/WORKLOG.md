@@ -56,7 +56,9 @@ own `Common/` directory; (b3b4b) done 2026-10-10: on Fox a linked `Common/` subf
 model's textures travel with it and resolve beside it; (b3b4c) done 2026-10-11: S18.A3's
 fixes, a linked Common file bringing the textures above it and a player `.mtl` over a
 Common model falling back beside the model; (b3c1) done 2026-10-11: a shared folder's
-subfolders follow the player folder's rules; (b3b4d) next), 4.y-fix20
+subfolders follow the player folder's rules; (b3b4d) done 2026-10-11: a texture path
+into a `Common/` subfolder is checked on both engines; (b3b4e) deferred, pre-Fox; (b3c2)
+next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4055,10 +4057,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
           With it S18.3-1 (the deep pass's Common places lack the folder's texture-link stand-ins
           the task's have), -4 (`point_texture`'s `_ =>` on `Reference`), -5 (a local shadowing
           `roles::common_texture_below`); and the pre-Fox `Common/` half of the check, not only the
-          installed one (S18.3-2).
+          installed one (S18.3-2). Done; a `kitN/` subdirectory went to (b4).
         - (b3b4e) PES 15-17: a texture `.common` link whose target is not in the export
           satisfied by an installed CPK, as on Fox (the face task then points the link by its
-          own stem; `messages.md`, the same paragraph's end).
+          own stem; `messages.md`, the same paragraph's end). Deferred until the cup next
+          plays a pre-Fox version (DECISIONS 2026-10-11): not a gap of this phase.
     - (b3c) shared folders' trees, sliced:
       - (b3c1) a shared folder's subfolders (TC-MOD-68, TC-MOD-73, TC-MOD-74). Done.
       - (b3c2) its `.common` links at any depth (`pipeline.md`'s "links resolve from player
@@ -4067,8 +4070,11 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
     completed against the export's kit numbers, their paths written verbatim (TC-CMN-21,
     TC-MOD-72: /hdg/'s per-kit Common folders through a `kitN/` folder of links); a set's
     `kitF` fallback, stem and folder forms, and on PES 18-21 the fallback written once under
-    the reference's spelling instead of a copy per gap (`model_format.md` "Kit-dependent
-    assets"; TC-CMN-04's new THEN, TC-CMN-26 to TC-CMN-28); the Export
+    the reference's spelling, whatever numbers the export defines, instead of a copy per
+    gap (`model_format.md` "Kit-dependent assets"; TC-CMN-04's new THEN, TC-CMN-26 to
+    TC-CMN-28); a path naming a `kitF` file not found by any check; a texture path into a
+    `kitN/` Common subdirectory supplied when a file of its set is, `kitF` included, on both
+    engines (unchecked since (b3b4d): `kit_variants::kit_reference_directory`); the Export
     upgrader's half (a legacy `common/XXX/u0XXXp0/sourceimages/` path becomes `./kitN/` and a
     `kitN/<name>.common` link) is its phase's, `export_upgrader.md`.
   - (c) Fox: a subfolder's models merged into the packages, textures under the texture home at
@@ -4352,6 +4358,27 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   (`.tmp/4_y/gates_sub_b3c1_r1.log`); mutants r0 116 mutants, 94 caught, 21 unviable, 1
   missed (the `linked_local` filter, `.tmp/4_y/mutants_sub_b3c1_r0/`); after r1's test 116,
   95 caught, 21 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3c1_r1/`).
+  (b3b4d) done 2026-10-11 (SWE-2 High, one run; brief `.tmp/4_y/brief_sub_b3b4d.md`,
+  report beside it): a texture path into a subdirectory of the team's Common output is
+  looked up at that subdirectory on both engines, where three places called it supplied
+  unlooked. Fox `texture_supply` reads the subdirectory from any `common_home` spelling
+  (`TextureDirectory::subdirectory`) and asks one helper, `common_below_supply`, that
+  `point_texture` asks too (the Common textures packed there, link stand-ins included,
+  then the installed CPKs); a path the pointing resolved records its verdict, so a
+  player's own home is looked up only when nothing pointed it there (an earlier CPK's, as
+  `pipeline.md` says). The deep pass builds `common_below` on both engines
+  (`KeptCommon::texture_belows`), and its per-folder Common places gain the folder's
+  texture-link stand-ins as the Models task's have (S18.3-1); pre-Fox
+  `common_texture_stems` keeps subfolder stems. A `kitN/` subdirectory is left unlooked by
+  one guard, `kit_variants::kit_reference_directory`, until (b4); in `point_texture` and the
+  deep pass, which reported it missing before, that is the sidekick's accepted
+  contradiction (one guard; a `kitN` directory stands for its set). S18.3-4, S18.3-5 done.
+  Ruled test changes: three (`installed.rs`'s pre-Fox stems, `deep/materials.rs`'s
+  `refkit/` path now missing, `processing/model.rs`'s player-home path now looked up). Files:
+  TC `bins/installed.rs`, `deep/{materials,mod}.rs`, `kit_variants.rs`, `paths.rs`,
+  `plan/mod.rs`, `processing/model.rs`, `tests/cli/{prefox_textures,textures}.rs`. Gates
+  green locally (`.tmp/4_y/gates_sub_b3b4d.log`); mutants 25 (13 here, 12 on bonfire), 20
+  caught, 5 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b4d/`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7233,3 +7260,9 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-11** — S19.5 (SWE-2 round 5 on the plan text): 5 of 8 accepted, wording and
   one scope word; landed. S20.5 (round 5 on the mutants scripts): 4 of 8 accepted, the
   loop ends; landed.
+- **2026-10-11** — S19.6 to S19.8 (SWE-2 rounds 6-8 on the plan text, the `kitF` text
+  included): 10 of 11, 5 of 6 and 4 of 4 accepted, the loop ends; landed. Astra S20.A1
+  (the mutants scripts): 7 of 8 accepted, `scripts/mutants_test.py` added; S20.A2: 2 of 2,
+  the loop ends; landed.
+- **2026-10-11** — 4.y-sub (b3b4d) landed: a texture path into a `Common/` subfolder is
+  checked on both engines; its `kitN/` half went to (b4).

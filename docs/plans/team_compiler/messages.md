@@ -542,7 +542,8 @@ face task points only stems the folder holds): whether Red respells it is a ques
 pre-Fox parity step. A pre-Fox texture `.common` link
 whose target is not in the export stays `common_link_missing`, not yet satisfied by an installed
 CPK: the face task points a link by its target's name, so lifting that needs the task to point
-a targetless link by the link's own stem (worklog step 4.y-sub, slice (b3b4e)).
+a targetless link by the link's own stem, an improvement deferred until the cup next plays a
+pre-Fox version (worklog step 4.y-sub, slice (b3b4e)).
 
 **Kits**
 

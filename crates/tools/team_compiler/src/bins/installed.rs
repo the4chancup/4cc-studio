@@ -63,7 +63,9 @@ impl InstalledPaths {
     /// (`paths::common_texture`, read back): on Fox the ones a texture `.common` link at any
     /// depth may name instead of a file in the export's `Common/` (a player's own textures sit
     /// in a folder below the team's Common one, under the same head, and a link may name them
-    /// too), on pre-Fox the stems a `.mtl`'s Common path may name, a bare one alone
+    /// too), on pre-Fox the stems a `.mtl`'s Common path may name, a subfolder's included
+    /// (a player's own texture packs at the same path a `Common/` subfolder's of that name
+    /// would, and a path naming it is found the same way)
     /// (`pipeline.md` "Resolved decisions", "A texture a model names must exist"); empty when
     /// the lookup cannot be made.
     pub(crate) fn common_texture_stems(&self, engine: Engine, team_id: u16) -> BTreeSet<String> {
@@ -97,11 +99,10 @@ impl InstalledPaths {
                     .expect("a pre-Fox Common texture path ends with the stem and `.dds`");
                 // A player's own textures sit in a folder below the team's Common one
                 // (`TextureHome::texture`), under the same head: a stem holding a `/` is one
-                // of them, which no bare-stem lookup ever matches.
+                // of them or a `Common/` subfolder's, the same path either way.
                 paths
                     .iter()
                     .filter_map(|path| path.strip_prefix(prefix)?.strip_suffix(".dds"))
-                    .filter(|stem| !stem.contains('/'))
                     .map(str::to_owned)
                     .collect()
             }
@@ -770,11 +771,14 @@ mod tests {
             [
                 paths::common_texture(Engine::PreFox, 714, "Hair"),
                 paths::common_texture(Engine::PreFox, 702, "skin"),
+                // A `Common/` subfolder's texture, which a `.mtl`'s Common path may name.
+                paths::common_texture(Engine::PreFox, 714, "jessie/hair"),
                 // The team's Fox Common texture, which a pre-Fox target does not read.
                 paths::common_texture(Engine::Fox, 714, "cloth"),
                 // A Common `.mtl`, beside the textures.
                 paths::pre_fox_common_file(714, "hat.mtl"),
-                // A player's own texture, in his folder below the team's Common one.
+                // A player's own texture, in his folder below the team's Common one, which
+                // packs at the same path a `Common/` subfolder's of that name would.
                 "common/character1/model/character/uniform/common/714/05 - A/shirt.dds".to_owned(),
             ]
             .iter()
@@ -783,7 +787,11 @@ mod tests {
         );
         assert_eq!(
             installed.common_texture_stems(Engine::PreFox, 714),
-            BTreeSet::from(["hair".to_owned()])
+            BTreeSet::from([
+                "hair".to_owned(),
+                "jessie/hair".to_owned(),
+                "05 - a/shirt".to_owned()
+            ])
         );
         assert_eq!(
             installed.common_texture_stems(Engine::PreFox, 702),

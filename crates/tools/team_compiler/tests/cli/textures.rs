@@ -1228,6 +1228,220 @@ fn a_nested_texture_link_only_the_direct_installed_texture_satisfies_is_common_l
     }
 }
 
+/// The `jessie/` subdirectory of team `000`'s Common output, a `Common/` subfolder's texture
+/// home as a model names it.
+const JESSIE_000: &str = "/Assets/pes16/model/character/common/000/jessie/sourceimages/";
+
+/// Writes slot 05 of `exports/co Midcup Hair`: `face_high.fmdl` naming `hair.dds` in the
+/// `jessie/` subdirectory of the team's Common output; and slot 03's clean face, so a CPK is
+/// written when slot 05 is dropped.
+fn write_subfolder_hair_player(sandbox: &Sandbox) {
+    sandbox.write(
+        "exports/co Midcup Hair/Players/05 - A/face_high.fmdl",
+        &tracer_model_pointing("fcl_hair.fmdl", &[("shirt.dds", "hair.dds")], JESSIE_000),
+    );
+    sandbox.write(
+        &format!("exports/co Midcup Hair/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+}
+
+/// The slot-05 finding of the `jessie/` Common path nobody supplies.
+fn subfolder_hair_not_found() -> String {
+    "Error fmdl_texture_not_found [DropFolder] at Players/05 - A (model=face_high.fmdl, texture=/Assets/pes16/model/character/common/714/jessie/sourceimages/hair.dds)".to_owned()
+}
+
+// TC-TEX-05
+#[test]
+fn a_common_subfolder_texture_nobody_holds_is_missing() {
+    let sandbox = Sandbox::new("tex_common_sub_missing");
+    write_subfolder_hair_player(&sandbox);
+    // The list names the CPKs but none is written: the lookup is made and finds nothing.
+    install_names(
+        &sandbox,
+        &[
+            "4cc_61_midcup.cpk",
+            "4cc_62_midcup.cpk",
+            "4cc_63_midcup.cpk",
+        ],
+    );
+
+    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Hair"),
+        hair_export_findings(&[subfolder_hair_not_found()])
+    );
+    assert_eq!(run.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    let slot_05: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.contains("71405") || path.contains("05 - A"))
+        .collect();
+    assert!(slot_05.is_empty(), "{slot_05:?}");
+}
+
+// TC-TEX-05
+#[test]
+fn a_common_subfolder_texture_the_export_holds_supplies_the_path() {
+    let sandbox = Sandbox::new("tex_common_sub_held");
+    write_subfolder_hair_player(&sandbox);
+    // The link stands for `Common/jessie/hair.dds` in `jessie/`'s namespace; the file is in
+    // the export.
+    sandbox.write(
+        "exports/co Midcup Hair/Players/05 - A/jessie/hair.dds.common",
+        b"",
+    );
+    sandbox.write(
+        "exports/co Midcup Hair/Common/jessie/hair.dds",
+        &tracer_kit(),
+    );
+    install_names(&sandbox, &["4cc_61_midcup.cpk", "4cc_62_midcup.cpk"]);
+
+    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let messages = run.messages();
+    assert_eq!(
+        findings_of(&messages, "co Midcup Hair"),
+        hair_export_findings(&[])
+    );
+    assert!(
+        messages
+            .iter()
+            .all(|line| !line.contains("fmdl_texture_not_found")),
+        "{messages:?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    let model = face_package(&entries);
+    // The tracer's hair names its `shirt.dds`, renamed `hair.dds`, in two entries.
+    let hair = texture_directories(model.get("face_high.fmdl").unwrap(), "hair.dds");
+    assert_eq!(
+        hair,
+        ["/Assets/pes16/model/character/common/714/jessie/sourceimages/"; 2]
+    );
+    let packed_hair: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.ends_with("jessie/sourceimages/#windx11/hair.ftex"))
+        .collect();
+    assert_eq!(packed_hair.len(), 1, "{packed_hair:?}");
+}
+
+// TC-TEX-05
+#[test]
+fn a_common_subfolder_texture_an_earlier_installed_cpk_holds_is_found() {
+    let sandbox = Sandbox::new("tex_common_sub_installed");
+    write_subfolder_hair_player(&sandbox);
+    install_names(
+        &sandbox,
+        &[
+            "4cc_61_midcup.cpk",
+            "4cc_62_midcup.cpk",
+            "4cc_63_midcup.cpk",
+        ],
+    );
+    install_cpk(
+        &sandbox,
+        "4cc_61_midcup.cpk",
+        &[(
+            "Asset/model/character/common/714/jessie/sourceimages/#windx11/hair.ftex",
+            b"compiled on an earlier day",
+        )],
+    );
+
+    let run = sandbox.run(&midcup_62_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let messages = run.messages();
+    assert_eq!(
+        findings_of(&messages, "co Midcup Hair"),
+        hair_export_findings(&[])
+    );
+    assert!(
+        messages
+            .iter()
+            .all(|line| !line.contains("fmdl_texture_not_found")),
+        "{messages:?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    let model = face_package(&entries);
+    let hair = texture_directories(model.get("face_high.fmdl").unwrap(), "hair.dds");
+    assert_eq!(
+        hair,
+        ["/Assets/pes16/model/character/common/714/jessie/sourceimages/"; 2]
+    );
+    let packed_hair: Vec<&String> = entries
+        .keys()
+        .filter(|path| path.ends_with("hair.ftex"))
+        .collect();
+    assert!(packed_hair.is_empty(), "{packed_hair:?}");
+}
+
+/// The card-head material set with its one texture path, `./texture.dds`, replaced by
+/// `path`.
+fn mtl_naming(path: &str) -> Vec<u8> {
+    let text = String::from_utf8(crate::prefox_faces::pre_fox_fixture(
+        "cardhead_materials.mtl",
+    ))
+    .unwrap();
+    assert!(text.contains("./texture.dds"), "{text}");
+    text.replace("./texture.dds", path).into_bytes()
+}
+
+// TC-TEX-11
+#[test]
+fn a_common_mtl_s_stem_a_player_s_link_supplies_from_an_installed_cpk_reports_nothing() {
+    let sandbox = Sandbox::new("tex_common_mtl_link_installed");
+    let export = "exports/co Midcup Hair";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    // The links stand for `Common/jessie/body.model` and `Common/jessie/hair.dds`; the
+    // texture is not in the export, an earlier CPK holds it.
+    sandbox.write(&format!("{player}/jessie/body.model.common"), b"");
+    sandbox.write(&format!("{player}/jessie/hair.dds.common"), b"");
+    sandbox.write(&format!("{export}/Common/jessie/body.model"), &card_model());
+    sandbox.write(
+        &format!("{export}/Common/jessie/body.mtl"),
+        &mtl_naming("hair.dds"),
+    );
+    install_names(
+        &sandbox,
+        &[
+            "4cc_61_midcup.cpk",
+            "4cc_62_midcup.cpk",
+            "4cc_63_midcup.cpk",
+        ],
+    );
+    install_cpk(
+        &sandbox,
+        "4cc_61_midcup.cpk",
+        &[(
+            "Asset/model/character/common/714/jessie/sourceimages/#windx11/hair.ftex",
+            b"compiled on an earlier day",
+        )],
+    );
+    let settings = midcup_62_settings(&sandbox);
+
+    let check = sandbox.run(&settings, &["check"]);
+    let messages = check.messages();
+    assert!(
+        messages
+            .iter()
+            .all(|line| !line.contains("mtl_texture_not_found")),
+        "check: {messages:?}"
+    );
+    assert_eq!(check.exit_code(), 0, "check: {messages:?}");
+
+    let compile = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    assert_eq!(compile.exit_code(), 0, "{:?}", compile.messages());
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_62_midcup.cpk"));
+    let package =
+        fpk::FpkFile::read(&entries["Asset/model/character/face/real/71405/#Win/face.fpk"])
+            .unwrap();
+    assert!(package.get("face_high.fmdl").is_some());
+    assert!(package.get("fcl_hair.fmdl").is_some());
+}
+
 // TC-TEX-16
 #[test]
 fn a_texture_link_of_the_player_s_wins_over_a_combined_folder_s_texture_of_the_stem() {

@@ -1342,7 +1342,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         // The export's Common textures' paths below `Common/` without their extensions,
         // which a `Common/` `.mtl` resolves its texture paths in as a model folder's does
         // (`prefox_common`), `Common/` its model folder.
-        let common_texture_below: Vec<String> = export
+        let common_textures_below: Vec<String> = export
             .common
             .iter()
             .filter(|file| texture_format(file.path.name()).is_some())
@@ -1383,7 +1383,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     TaskKind::CommonModels {
                         folder: directory,
                         files: model_files,
-                        textures: common_texture_below.clone(),
+                        textures: common_textures_below.clone(),
                     },
                 ));
             }

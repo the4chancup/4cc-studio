@@ -6743,3 +6743,14 @@ ordinary lookup finds it, yet the output never holds that name: without the rule
 passes and the game misses the texture.
 Plan: `team_compiler/pipeline.md` "Kit-dependent assets"; `model_format.md` "Kit-dependent
 assets (`kitN`)"; `team_compiler/messages.md` `kit_variant_model_left_out`.
+
+## 2026-10-11 — team_compiler — a pre-Fox texture link satisfied by an installed CPK waits for pre-Fox's return
+Decision: slice 4.y-sub (b3b4e), a PES 15-17 texture `.common` link whose target only an
+installed CPK holds counting as satisfied, is deferred until the cup next plays a pre-Fox
+version; until then such a link stays `common_link_missing`, as the plan already says.
+Why: pre-Fox support is second-class until the cup returns to a pre-Fox version (the
+maintainer's ruling, DECISIONS "a `kitF` file is a variant set's fallback"), and the lift needs
+the face task to point a targetless link by its own stem, new code for a case no current cup
+reaches; the Fox half, which current cups use, is done.
+Plan: `team_compiler/messages.md`, the paragraph starting "On pre-Fox the check runs in the deep
+pass" (its end).

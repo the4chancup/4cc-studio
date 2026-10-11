@@ -149,6 +149,18 @@ pub(crate) fn model_variant_sets(
         .collect()
 }
 
+/// Whether `directory`, a path of `/`-separated folder names (a `Common/` file's below
+/// `Common/`, a texture's below its home), holds a `kitN` segment, which stands for the set
+/// of its `kit1` to `kit9` siblings (`pipeline.md` "Kit-dependent assets"). A texture path
+/// naming such a directory is supplied when a variant is, which no lookup resolves yet
+/// (slice (b4)): it is not looked up. The segment compares folded, as directories do: a
+/// file system folds `kitN` and `kitn` to one folder.
+pub(crate) fn kit_reference_directory(directory: &str) -> bool {
+    directory
+        .split('/')
+        .any(|segment| vtree::fold_name(segment) == "kitn")
+}
+
 /// Whether `stem` is a kit reference (`pants_kitN`, never a file of its own) and `stems` hold a
 /// variant of its set (`pants_kit2`), compared as `stems` are, as spelled.
 pub(crate) fn has_variant_among<'a>(stem: &str, stems: impl IntoIterator<Item = &'a str>) -> bool {
