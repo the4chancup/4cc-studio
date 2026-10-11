@@ -10,8 +10,10 @@ Both modes fail on what makes a citation or a definition untrustworthy: a citati
 scenario defines or of a withdrawn one, an ID-only comment not above a `#[test]`, a manual
 check for a scenario not marked `manual`, an ID defined twice, and a line in an Acceptance
 section that starts with an ID but is not a scenario. `report` (in `just gates`) lists unproven
-scenarios without failing, since an open phase's scenarios precede their tests; `strict` (at
-converge) also fails on every unproven scenario. Because Acceptance sections are written just in
+scenarios, and the tests of a tool's CLI suite (`crates/tools/<tool>/tests/cli/`) that cite no
+scenario, without failing, since an open phase's scenarios precede their tests; `strict` (at
+converge) also fails on every unproven scenario and every uncited CLI test (unit tests cite
+none: they check internals, which no scenario describes). Because Acceptance sections are written just in
 time, every scenario in the plans at a converge belongs to the closing phase or an earlier one,
 so strict checks them all.
 """
@@ -30,6 +32,7 @@ HEADING = re.compile(r"^(?P<level>#+)\s+(?P<title>.*)$")
 CITATION = re.compile(rf"^\s*//\s*(?P<ids>{ID}(?:\s*,\s*{ID}|\s+{ID})*)\s*$")
 CITED_ID = re.compile(ID)
 MANUAL_CHECK = re.compile(rf"\b(?P<id>{ID}) manual: checked \d{{4}}-\d{{2}}-\d{{2}}\b")
+CLI_SUITE = re.compile(r"^crates/tools/[^/]+/tests/cli/")
 
 
 @dataclass
@@ -44,6 +47,7 @@ class Scan:
     scenarios: dict[str, Scenario] = field(default_factory=dict)
     citations: dict[str, list[str]] = field(default_factory=dict)
     manual_checks: dict[str, list[str]] = field(default_factory=dict)
+    uncited: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
 
 
@@ -82,6 +86,7 @@ def scan_plan(scan: Scan, name: str, text: str) -> None:
 
 
 def scan_source(scan: Scan, name: str, text: str) -> None:
+    cli_suite = CLI_SUITE.match(name) is not None
     pending: list[tuple[str, str]] = []
     for number, line in enumerate(text.splitlines(), start=1):
         citation = CITATION.match(line)
@@ -90,6 +95,8 @@ def scan_source(scan: Scan, name: str, text: str) -> None:
             pending.extend((cited, where) for cited in CITED_ID.findall(citation["ids"]))
             continue
         if line.strip() == "#[test]":
+            if cli_suite and not pending:
+                scan.uncited.append(f"{name}:{number}")
             for cited, where in pending:
                 scan.citations.setdefault(cited, []).append(where)
         else:
@@ -138,7 +145,7 @@ def unproven(scan: Scan) -> list[str]:
 
 
 def fails(scan: Scan, strict: bool) -> bool:
-    return bool(scan.problems) or (strict and bool(unproven(scan)))
+    return bool(scan.problems) or (strict and bool(unproven(scan) or scan.uncited))
 
 
 def relative(path: Path) -> str:
@@ -175,6 +182,10 @@ def main(argv: list[str]) -> int:
     )
     if missing:
         print(f"acceptance: unproven: {', '.join(missing)}")
+    if scan.uncited:
+        print(f"acceptance: {len(scan.uncited)} CLI tests cite no scenario:")
+        for where in scan.uncited:
+            print(f"acceptance:   {where}")
     return 1 if fails(scan, strict) else 0
 
 

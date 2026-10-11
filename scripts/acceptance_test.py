@@ -103,6 +103,20 @@ class CitationTests(unittest.TestCase):
         self.assertEqual(scan.problems, [])
         self.assertEqual(scan.citations, {})
 
+    def test_a_cli_test_citing_no_scenario_is_listed_and_no_other_test_is(self):
+        sources = {
+            "crates/tools/tc/tests/cli/a.rs": "#[test]\nfn a() {}\n// TC-KIT-01\n#[test]\nfn b() {}\n",
+            "crates/tools/tc/tests/cli/deep/b.rs": "fn helper() {}\n#[test]\nfn c() {}\n",
+            "crates/tools/tc/tests/other.rs": "#[test]\nfn d() {}\n",
+            "crates/tools/tc/src/x.rs": "#[test]\nfn unit() {}\n",
+            "crates/libs/cli/tests/cli/y.rs": "#[test]\nfn lib() {}\n",
+        }
+        scan = scan_of(sources=sources)
+        self.assertEqual(scan.problems, [])
+        self.assertEqual(
+            scan.uncited, ["crates/tools/tc/tests/cli/a.rs:1", "crates/tools/tc/tests/cli/deep/b.rs:2"]
+        )
+
     def test_citing_an_undefined_or_withdrawn_scenario_is_a_problem(self):
         source = "// TC-KIT-02\n#[test]\nfn a() {}\n// TC-NOPE-01\n#[test]\nfn b() {}\n"
         scan = scan_of(sources={"a.rs": source})
@@ -148,6 +162,12 @@ class ModeTests(unittest.TestCase):
         scan = scan_of(self.PROVEN, sources=self.CITING)
         self.assertFalse(fails(scan, strict=False))
         self.assertFalse(fails(scan, strict=True))
+
+    def test_report_passes_an_uncited_cli_test_and_strict_fails_it(self):
+        sources = {**self.CITING, "crates/tools/tc/tests/cli/a.rs": "#[test]\nfn b() {}\n"}
+        scan = scan_of(self.PROVEN, sources=sources)
+        self.assertFalse(fails(scan, strict=False))
+        self.assertTrue(fails(scan, strict=True))
 
     def test_both_modes_fail_on_a_problem(self):
         scan = scan_of(self.PROVEN, sources={**self.CITING, "b.rs": "// TC-B-01\n#[test]\nfn b() {}\n"})
