@@ -27,7 +27,7 @@ the host.
 The remote needs: git, a C toolchain, rustup, cargo-mutants and `just` (for
 `just gates-remote`) at the local versions (the pinned toolchain installs itself
 on first use inside the tree), `sudo -n systemd-run` for the ssh user, `ionice`,
-`tar`, `nproc`, cgroup v2 (the unit's `memory.peak`) and `python3` (`just gates`'
+`tar`, `nproc`, `awk`, cgroup v2 (the unit's `memory.peak`) and `python3` (`just gates`'
 scripts).
 """
 
@@ -360,7 +360,8 @@ def remote_run_state(host: str) -> str | None:
 
 
 def remote_refusal(host: str, remote: bool) -> str | None:
-    """Why a new run cannot start, or None. Any run waits for an uncollected
+    """Why a new run cannot start, or None. Any run refuses while a remote half is uncollected,
+    as it is for an uncollected
     remote half, whose collection summarizes the local `mutants.out` with it,
     which a new local half would replace. A run that uses the remote (`remote`)
     also waits for a reachable host and for `just gates-remote`, since each
@@ -609,6 +610,23 @@ def count_lines(path: Path) -> int:
     return len(path.read_text(encoding="utf-8").splitlines()) if path.exists() else 0
 
 
+def never_ran(out_dir: Path) -> tuple[int, int] | None:
+    """The (ran, selected) mutant counts of the run under `out_dir` (a `mutants.out`) when it
+    stopped before testing its whole selection, else None: cargo-mutants writes the
+    selection (`mutants.json`) before testing and its outcomes as it goes, so a half stopped
+    midway leaves lists that look like a complete, shorter run."""
+    selection = out_dir / "mutants.json"
+    outcomes = out_dir / "outcomes.json"
+    if not selection.exists() or not outcomes.exists():
+        return None
+    selected = len(json.loads(selection.read_text(encoding="utf-8")))
+    ran = sum(
+        isinstance(outcome["scenario"], dict)
+        for outcome in json.loads(outcomes.read_text(encoding="utf-8"))["outcomes"]
+    )
+    return (ran, selected) if ran < selected else None
+
+
 def summarize(
     local_code: int, remote_code: int, log_path: Path,
     seconds: tuple[float | None, float | None],
@@ -641,7 +659,14 @@ def summarize(
         # cargo-mutants: 2 = missed mutants, 3 = timeouts, 4 = baseline failed.
         print("--- remote log tail ---")
         print("\n".join(log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-20:]))
-    return report_killed(max(local_code, remote_code))
+    code = max(local_code, remote_code)
+    for label, base in (("local", local), ("remote", remote)):
+        short = never_ran(base)
+        if short is not None:
+            ran, selected = short
+            print(f"the {label} half stopped early: {selected - ran} of its {selected} mutants never ran")
+            code = max(code, 1)
+    return report_killed(code)
 
 
 def report_killed(code: int) -> int:
@@ -697,6 +722,7 @@ def collect(host: str) -> int:
         remote_code, remote_seconds = 1, None
     else:
         fetch_remote(host)
+    update_cost_cache()
     # The local half's exit code went with the script that ran it; its files
     # say the same, in cargo-mutants' precedence: 4 = the baseline failed,
     # 3 = timeouts, 2 = missed mutants.
@@ -824,9 +850,9 @@ def split(
 ) -> int:
     """The whole split run for one selection: the busy-remote refusal, the
     snapshot, the version check, both halves, the fetch and the summary.
-    Without `local` (`REMOTE_ONLY`) the remote runs every mutant and the last
-    run's local `mutants.out` is set aside first, as cargo-mutants itself does,
-    so the summary counts this run's results alone. `tree` is the working
+    Without `local` (`REMOTE_ONLY`) the remote runs every mutant. Either way the
+    last run's local `mutants.out` is set aside first, as cargo-mutants itself
+    does, so the summary counts this run's results alone. `tree` is the working
     tree a caller already wrote (`snapshot`)."""
     if local:
         print(f"splitting the run with {host}", flush=True)
@@ -852,13 +878,15 @@ def split(
         )
         return 1
 
-    if not local:
-        out = ROOT / "mutants.out"
-        old = ROOT / "mutants.out.old"
-        if out.exists():
-            if old.exists():
-                shutil.rmtree(old)
-            out.rename(old)
+    # The last run's `mutants.out` goes aside before either half starts, as cargo-mutants
+    # itself does, so nothing of it is summarized as this run's: a local half that fails
+    # before cargo-mutants rotates it (a config or diff error) would leave it in place.
+    out = ROOT / "mutants.out"
+    old = ROOT / "mutants.out.old"
+    if out.exists():
+        if old.exists():
+            shutil.rmtree(old)
+        out.rename(old)
     local_code, remote_code, local_seconds, remote_seconds = run_split(
         selection, host, tree, remote_head, remote_tree, nproc, local
     )

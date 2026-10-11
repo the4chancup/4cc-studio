@@ -65,7 +65,7 @@ def main() -> int:
         # On disk, not the tmpfs `/tmp`, which counts against the unit's memory
         # (`mutants.REMOTE_TMPDIR`); the CLI tests write a sandbox export each.
         f'export TMPDIR="{mutants.REMOTE_TMPDIR}" && mkdir -p "$TMPDIR"\n'
-        "just gates\n"
+        "nice -n 19 ionice -c3 just gates\n"
     )
     # A file, not bash's stdin, which a test reading stdin would eat lines of.
     mutants.ssh(
