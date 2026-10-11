@@ -10,6 +10,16 @@ names where the question came from so the context can be read there.
 
 ## Blocking a plan ruling
 
+### Which game versions the Match tracker registers first
+From: an outside contribution, 2026-10-11 (match_tracker README "Independent measurements").
+The plan registers PES 2017 only and keeps PES 2021 as unverified reference data. PES 2019
+and PES 2021 now have measured layouts and catalogs, each checked against the game's pages
+in two matches plus an out-of-sample match. Should
+the first release register PES 2019 and PES 2021 profiles beside PES 2017 (their extra
+time and the fork's pointer chains, substitution journal, direct clock and heatmaps
+staying unregistered), or keep PES 2017 only? The "Game versions" row in the README's key
+decisions changes with the answer.
+
 ## In-game checks
 
 ### Face diffs are engine-specific

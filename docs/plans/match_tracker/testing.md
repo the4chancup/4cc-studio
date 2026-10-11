@@ -193,6 +193,12 @@ automation remain promised.
   regulation, both extra-time periods, and a shootout. Confirm the 6/7/8 mapping and
   transition behavior before enabling shootout classification or ET/penalty-phase
   automation; until then those buckets remain unregistered and produce `Phase::Unknown`.
+  *Measured on PES 2019 and PES 2021 (README "Independent measurements"):* the nine
+  buckets are 15-minute periods of the game clock. 0 holds minutes 0–15, 1 holds 15–30,
+  2 holds 30–45 and the first half's stoppage time, 3, 4 and 5 the same for the second
+  half (one match per version sampled every 3 s against the HUD clock). A PES 2021 shoot-out
+  writes its goals and kicks to bucket 8. Buckets 6 and 7 (extra time) were not observed,
+  and PES 2017 itself was not sampled, so this bullet's capture still stands for PES 2017.
 - **PES17 heatmap grid**: the original maps the "Play Area Grid" at entry+0x1034
   (`StatsInfo.cpp:150`, 140×u32) and processes it only through the generic stat path as a
   summed scalar column, hidden by default; it never interprets or renders the 10x14 grid as
@@ -231,6 +237,18 @@ automation remain promised.
   suite must use dynamically sized vectors or the profile maximum of 40 throughout; the
   fork's 32-slot `teamInfo` structures are not reusable. Cross-check a sample of named
   stats (Goals, Cards, Saves, Minutes, Rating) against observed match events.
+  *Measured (README "Independent measurements"):* entry size 8500 confirmed. The marker
+  is the u32 before each entry's player ID (0xFFFD home, 0xFFFE away) on both PES 2021
+  and PES 2019, so the fork's "+0 marker, +4 ID" is the same layout counted from four
+  bytes earlier. The team table's physical layout has 40 player slots
+  per side on both versions; no roster using slots 32–39 was captured. Instead of
+  normalizing the fork's catalog, the rebuild maps its own catalog from the game's pages
+  (719 entries on PES 2021, 711 on PES 2019): Goals, Assists, Cards, Shots, Passes,
+  Saves, Minutes on Pitch and Player Rating are checked against Team Stats, Match Events
+  and Player Ratings in two matches, and an out-of-sample match per version reproduces
+  every goal, card, substitution and Team Stats total. The team table sits at the same
+  offset in its region across two launches on PES 2021; on PES 2019 it moved by 0x5710
+  between launches, so a profile locates it by its pairs signature, not by offset.
 - **Substitution journal (unverified)**: verify the fork's claimed `u8` count at
   `table_base + 0x10B4D4` (maximum 12) and 40-byte record `i` at
   `table_base + 0x10B2F4 + 40*i`, with `type` at `+0`, `team` at `+4`, `period` at `+8`,

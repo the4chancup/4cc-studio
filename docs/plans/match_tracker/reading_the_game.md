@@ -56,6 +56,39 @@ PES version selector picks among registered, verified signature sets, and the to
 reports itself unavailable for versions without one; the first release registers PES17
 only.
 
+**PES 2019 and PES 2021, measured.** An independent rebuild of SEN:P-AI (zocram4cc's 1.3.0,
+see the README's "Independent measurements") measured both versions on a live game, each
+value repeated in two matches and checked against the game's own Team Stats, Player
+Ratings and Match Events pages. These are measurements, not the fork's claims:
+
+| | PES 2017 (original) | PES 2019 | PES 2021 |
+|---|---|---|---|
+| Process | `PES2017.exe` (32-bit) | `PES2019.exe` (64-bit) | `PES2021.exe` (64-bit) |
+| Team region size, table offset | 0x60000, 0x538B4 | 0x50000, varies by launch (0x32A58, 0x38168 seen) | 0x50000, 0x35AA8 (two launches) |
+| Team side stride; player entry stride | 0x520; 0xE8 | 0x5EC; 0x100 | 0x690; 0x188 |
+| Player slots per side (physical) | 32 | 40 | 40 |
+| Stats region size | 0x90000 | 0x190000 | 0x190000 |
+| Home / away stat block offset | 0x35010 / 0x5DE40 | 0x7B5A4 / 0xD18EC | 0x7B5C4 / 0xD4C14 |
+| Stat entry size | 4784 | 8176 | 8500 |
+| u32×9 blocks before the tail; tail offset | 113; 0xFE8 | 168; 0x17A4 | 177; 0x18E8 |
+| Mapped catalog entries | 175 | 711 | 719 |
+| Game ticks per game minute (Match Time 10) | 320 | ≈356 | ≈371 |
+| Player ID range (exclusive) | (70099, 90300) | (70099, 91100) | (70099, 91100) |
+
+The entry keeps PES 2017's shape on both: a u32 player ID at +0, u32×9 counter blocks from
++0x4, then a tail whose fields sit at the same distances from its start as on PES 2017
+(First/Last Minute on Pitch at +0, Game Ticks Played ×13 at +0x10, Player Rating at +0x48,
+which matches the Player Ratings page for every player on both versions). The u32 before
+each entry's player ID is its side marker, 0xFFFD home and 0xFFFE away, the same values the
+team table's pairs use. The condition byte holds `0x10 | ordinal` (PES 2017: the top three
+bits). On PES 2019 the team table's offset inside its region changes between launches while
+its layout does not, so its profile finds the table by its pairs (marker and player IDs of
+one team), as the deep scan does, rather than at a fixed offset; the stats blocks kept their
+offsets. Neither game has Stamina, Tackles, Touches or the Ground/Aerial/Low/Chipped pass
+families: those stats are absent from their profiles, not zero counters. In PES 2021's data
+Saves can exceed Shots Faced On Target, and the game's own Team Stats page agrees, so no
+profile takes that as an invariant.
+
 ### Acquisition and polling
 
 - A background thread polls at a configurable rate (default 100ms) through the
