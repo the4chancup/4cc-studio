@@ -1025,6 +1025,22 @@ TC-MOD-74  GIVEN Gloves/Keeper holding glove_l.model with glove_l.mtl, and grip/
            THEN the gloves output holds grip/glove_r.model, grip/glove_r.mtl and grip/grip.dds
                 at those paths, glove.xml lists ./glove_l.model and ./grip/glove_r.model, and
                 glove_r.mtl's path names ./grip.dds
+TC-MOD-75  GIVEN Common/jessie/armor_bsm.dds, Boots/Crocs holding boots.fmdl naming
+           ./jessie/armor_bsm and jessie/armor_bsm.dds.common, and slot 05 linking Crocs.boots
+           WHEN the export is compiled for PES 21
+           THEN the boots model names armor_bsm in
+                /Assets/pes16/model/character/common/<team>/jessie/sourceimages/, the CPK holds
+                that directory's #windx11/armor_bsm.ftex, and no file_type_disallowed,
+                file_not_used or fmdl_texture_not_found is reported
+TC-MOD-76  GIVEN Faces/Round holding fcl_hair.fmdl and hair.dds.common, no hair.dds in Common/,
+           and slot 05 holding face_high.fmdl and linking Round.face
+           WHEN the export is checked for PES 21
+           THEN common_link_missing is reported on Faces/Round, and slot 05 reports
+                link_target_dropped naming it and is dropped
+TC-MOD-77  GIVEN Common/armor.dds, Boots/Crocs holding boots.model, boots.mtl and
+           armor.dds.common, and slot 05 linking Crocs.boots
+           WHEN the export is compiled for PES 17
+           THEN file_not_used names armor.dds.common on Boots/Crocs, and the folder is kept
 TC-MOD-69  GIVEN slot 05 holding face_high.model with its .mtl, and oral.fmdl whose only mesh
            is flagged invisible
            WHEN the export is compiled for PES 17

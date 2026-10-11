@@ -4064,8 +4064,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
           plays a pre-Fox version (DECISIONS 2026-10-11): not a gap of this phase.
     - (b3c) shared folders' trees, sliced:
       - (b3c1) a shared folder's subfolders (TC-MOD-68, TC-MOD-73, TC-MOD-74). Done.
-      - (b3c2) its `.common` links at any depth (`pipeline.md`'s "links resolve from player
-        folders alone" to rewrite first).
+      - (b3c2) its `.common` links at any depth, as a player folder's (plan rewritten
+        2026-10-11: `pipeline.md` step 2's face-file paragraph), sliced:
+        - (b3c2a) `aesthetics_export` admits, resolves and checks a shared folder's links
+          (`common_link_missing` on the shared folder, the drop cascading to its linkers);
+          on Fox its texture links count, in its own output and combined into a player's
+          (TC-MOD-75, TC-MOD-76); a link with no role there is `file_not_used`.
+        - (b3c2b) Fox: its model and material-file links (Common models per source, the
+          shared output's own Common lists, a shared folder holding only a model link has
+          a model, the deep pass's searches and hidden-model drop).
+        - PES 15-17: deferred until the cup next plays a pre-Fox version; a shared folder's
+          link is `file_not_used` there (TC-MOD-77).
   - (b4) kit-token folders (`kit1` to `kit9`) form variant sets (`kitN/<name>`) in any folder,
     completed against the export's kit numbers, their paths written verbatim (TC-CMN-21,
     TC-MOD-72: /hdg/'s per-kit Common folders through a `kitN/` folder of links); a set's

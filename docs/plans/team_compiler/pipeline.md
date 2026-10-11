@@ -263,7 +263,8 @@ format:
    the member's own instruction. The same rule covers every other file a model folder
    admits that no package reads, planning giving it no role (`plan/roles.rs` `player_file`): a
    `.skl` pairing no model, a `.common` link to a kind no role
-   takes or sitting in a shared folder (links resolve from player folders alone), a
+   takes (on PES 15-17 any link in a shared folder: reading one there is deferred until the
+   cup next plays a pre-Fox version), a
    `materials.toml`, a `.xml`, `.bin` or `.fclo` under no face name. It is not read and is
    reported `file_not_used`, a Warning, on the folder, by `check` too, over mapped player
    folders and every shared folder: a Warning, where `face_file_not_used` is an Info, because

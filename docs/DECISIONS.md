@@ -6754,3 +6754,16 @@ the face task to point a targetless link by its own stem, new code for a case no
 reaches; the Fox half, which current cups use, is done.
 Plan: `team_compiler/messages.md`, the paragraph starting "On pre-Fox the check runs in the deep
 pass" (its end).
+
+## 2026-10-11 — team_compiler — a shared folder's `.common` links count on Fox now, on pre-Fox when it returns
+Decision: a shared folder's `.common` links (any depth) are read on PES 18-21 as a player
+folder's are: checked in the shared folder's own pass (`common_link_missing` and
+`link_target_dropped` on it, its linkers dropped with it), and, combined into a player, standing
+at their paths below the player folder, the player's own winning a path both hold. On PES
+15-17 such a link is `file_not_used` until the cup next plays a pre-Fox version.
+Why: the rule was already decided ("a shared folder's tree is a player folder's",
+2026-10-10) and /hdg/'s shared boots and gloves need it; pre-Fox support is second-class until
+the cup returns to it (the maintainer's ruling), and its half needs a part role for a
+Common model in a shared boots or gloves output, new code no current cup reaches.
+Plan: `team_compiler/pipeline.md` step 2's face-file paragraph; `team_compiler/messages.md`
+`file_not_used`; `team_compiler/README.md` TC-MOD-75 to TC-MOD-77.
