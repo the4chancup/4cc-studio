@@ -6729,3 +6729,17 @@ Plan: `model_format.md` "Kit-dependent assets (`kitN`)" and its validation rows;
 `team_compiler/pipeline.md` "Kit-dependent assets"; `team_compiler/messages.md`
 `kit_variant_missing` and `kit_variant_model_left_out`; TC-CMN-04 and TC-CMN-21 (PES 21 no
 gap copies), TC-CMN-26 to TC-CMN-28.
+
+## 2026-10-11 — model format, team_compiler — a Fox `kitN` fallback file is written for every set; a path naming `kitF` is not found
+Decision: on PES 18-21 a texture variant set's fallback is written under the reference's name
+whatever kit numbers the export defines, none included, not only when a number lacks a variant.
+A path naming a `kitF` file (`pants_kitF`, `./kitF/x`) is not found by the texture-existence
+checks. The pre-Fox gap copy packs the fallback's files under the names the listed entries
+take, respelled for the missing number.
+Why: a gap condition left a `kitF` file emitted under no name in an export with no kit folder,
+with the models naming `pants_kitN` passing the check and missing in game; the unconditional
+file costs one texture and needs no condition. A `kitF` file exists in the export, so an
+ordinary lookup finds it, yet the output never holds that name: without the rule the check
+passes and the game misses the texture.
+Plan: `team_compiler/pipeline.md` "Kit-dependent assets"; `model_format.md` "Kit-dependent
+assets (`kitN`)"; `team_compiler/messages.md` `kit_variant_model_left_out`.

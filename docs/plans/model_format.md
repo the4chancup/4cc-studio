@@ -153,10 +153,10 @@ cup next plays a pre-Fox version:
 |---|---|
 | `kitN` (literal `N`) | the *reference*: "the variant for the kit number selected in PES" |
 | `kit1` … `kit9` | the variant used when kit 1 … 9 is selected |
-| `kitF` | the *fallback*: what a kit number without a variant of its own gets; never written under its own name |
+| `kitF` | the *fallback*: what a kit number without a variant of its own gets; never written under its own name, so a path naming it finds nothing |
 
 The reference is spelled `kitN`, not `kit0`, because `kit0` reads as "the texture with a 0 on it"
-while `kitN` reads as the placeholder it is. The compiler writes both spellings **verbatim**; there
+while `kitN` reads as the placeholder it is. The compiler writes the `kitN` and `kit1`…`kit9` spellings **verbatim**; there
 is no output-side rewrite. The fallback is a file of its own, not kit 1's: filling every gap
 from kit 1 puts the first kit's look on every other number (tape matching the home socks on
 the away kit), and the author's only way out would be a hand-made copy per gap. A team's kit
@@ -206,8 +206,9 @@ Rules:
   variant for: its `kitF` file when it has one, the author's choice, with no finding;
   otherwise its **lowest existing variant**, reported as `kit_variant_missing` (W). On PES
   15-17 the compiler copies the fallback into each gap; on PES 18-21 it writes the fallback
-  once under the reference's own spelling (`pants_kitN.ftex`, `kitN/armor_bsm.ftex`), which
-  FoxDen loads for any kit without a variant of its own. Pre-Fox keeps the copies because the
+  once under the reference's own spelling (`pants_kitN.ftex`, `kitN/armor_bsm.ftex`),
+  whatever numbers the export defines, which FoxDen loads for any kit without a variant of
+  its own. Pre-Fox keeps the copies because the
   exe change that will read `kitN` there is not written yet. Either way the model never
   shows a missing texture in game. A set of `kitF` alone is one fallback for every number, a
   set like any other. Variants for numbers the export does not define are emitted as they
@@ -217,14 +218,14 @@ Rules:
   variant files beside it; each variant's materials resolve by the normal stem name matching
   (`pants.materials.toml` matches both). The set is completed against the export's kit
   numbers as a texture set is on PES 15-17 (the fallback's model and material file copied
-  under the missing number's name), since the game skips an entry whose respelled model is
+  under the names the listed entry takes for the missing number), since the game skips an entry whose respelled model is
   missing. The entry names the lowest variant's material file (`kitF`'s in a set of `kitF`
   alone), its
   kit token respelled `kitN` when it carries one (`pants_kit1.mtl` is written `pants_kitN.mtl`),
   since the game respells the whole entry for the kit picked; the other variants' material
   files must then go by the respelled names, and `kit_variant_mtl_differs` (W) names one that
   does not. On pre-Fox a set a `face.xml` lists is one directory's files (the packages no
-  `face.xml` lists, `team_compiler/pipeline.md` "Kit-dependent assets"): `jessie/pants_kit1.model` and a root
+  `face.xml` lists follow `team_compiler/pipeline.md` "Kit-dependent assets"): `jessie/pants_kit1.model` and a root
   `pants_kit2.model` are two sets, since the game respells the listed entry, its directory
   included, for the kit picked. Fox has no model-path indirection inside a face package, so there each kit
   number gets a face package of its own, its models merged from that number's variants

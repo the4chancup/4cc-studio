@@ -589,12 +589,8 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    deduplicate, while the same destination with different bytes from two combined folders
    reports `shared_texture_conflict` and drops the losing task, chosen by canonical order (`face`
    > `boots` > `gloves`), never rayon completion order; the player's own copy wins over a
-   combined folder's (below). The player's texture sources are its own folder (its subfolders included,
-   each a texture namespace of its own where one stem twice is `texture_stem_conflict`; a model's
-   texture name resolves in its own folder first, then in each parent up to the player's root,
-   never down, one named with a path below the model's folder (`./kitN/x`) at that path, and
-   each texture is emitted at its path below the texture home,
-   `player_folders.md` "Subfolders") and each
+   combined folder's (below). The player's texture sources are its own folder (its subfolders included, each texture
+   resolved and emitted as `player_folders.md` "Subfolders" says) and each
    shared face, boots or gloves folder it combines, each of whose files stands at its path
    below the player folder, as his own file there would (a combined
    `Faces/Round/jessie/hair_high.fmdl` resolves nearest first from `jessie/`, among his
@@ -966,7 +962,8 @@ describes behavior, not a serial scheduling requirement:
   whose token is `kitF` belongs to the set as its *fallback*, and counts wherever this
   paragraph asks whether a set has a file; a set's fallback, in what follows, is its `kitF`
   file when it has one, else its lowest variant, and only the second reports
-  `kit_variant_missing`. A `kitF` file is never emitted under its own name. In
+  `kit_variant_missing`. A `kitF` file is never emitted under its own name, so a path
+  naming it (`pants_kitF`, `./kitF/x`) is not found by any check that looks it up. In
   any folder the token may be a whole folder name instead (`kit1/x.dds`, `kit2/x.dds`): the
   files of one stem in sibling folders `kit1` to `kit9` (and `kitF`) are one set,
   whose reference is `kitN/x`, completed below as a stem set is, each copy in its number's
@@ -976,12 +973,13 @@ describes behavior, not a serial scheduling requirement:
   `g1` is not a number of its own) that the set lacks, `kit_variant_missing` is reported on
   the folder, once per set and number, when the fallback is the lowest variant, and on PES
   15-17 the fallback's converted bytes are emitted under the missing variant's name. On PES
-  18-21 they are emitted once under the reference's name instead (`pants_kitN.ftex`, a
-  folder set's in its `kitN` folder), kit folders or none, and the gaps get no copy: FoxDen
-  keeps a path whose variant for the kit picked does not exist. The set is found from the files, not from the models'
+  18-21 the gaps get no copy: the fallback's bytes are emitted once under the reference's
+  name (`pants_kitN.ftex`, a folder set's in its `kitN` folder), whatever numbers the export
+  defines, none included, since FoxDen keeps a path whose variant for the kit picked does
+  not exist. The set is found from the files, not from the models'
   references: a set exists only to be referenced, and reading every model's path table in
   the textures task for the rare set nobody references would cost a second read of each
-  model. An export with no kit folder defines no number, so nothing is completed. A model's
+  model. An export with no kit folder defines no number, so no gap is reported or copied. A model's
   texture path naming a reference (`pants_kitN`) is pointed at the folder's texture home
   when the folder holds any variant of that set, the file name kept as it is. A model's
   category and allowed name are read from its stem with the kit token and one delimiter next
@@ -1004,9 +1002,9 @@ describes behavior, not a serial scheduling requirement:
   (`kitF`'s in a set of `kitF` alone) `face.xml` entries (its own, and its hands' when it is hand-split) with the kit token in
   their `path` and `material` spelled `kitN`, so the game respells the whole entry for the kit
   picked; the other variants get no entry. The set is completed as a texture set is: for
-  each kit number the export defines that it lacks, the files the fallback's entries
-  name (its models, and its `.mtl` when that carries the fallback's token) are packed again
-  under that number's spelling, and `kit_variant_missing` is reported on the folder, once
+  each kit number the export defines that it lacks, the files the listed entries name,
+  respelled for that number, are packed from the fallback's (its models, and its `.mtl`
+  when the entries' `material` carries the token), and `kit_variant_missing` is reported on the folder, once
   per set and number, when the fallback is the lowest variant. The game skips an entry whose respelled model is missing, so without
   the copy that kit would show the player without the part, and a team adding a kit would
   have to add a model to every player with a set. A lone variant (`pants_kit1.model` with
@@ -1980,8 +1978,9 @@ Resolved decisions:
   (`.../common/<team>/<folder>/sourceimages/`), so a path naming one an earlier CPK packed is
   found the same way. A `kitN` subdirectory (`common/<team>/kitN/sourceimages/armor_bsm`, the
   spelling "Kit-dependent assets" writes for a set of `kit1` to `kit9` folders) stands for
-  its set: the path is supplied when a variant is (`Common/kit1/armor_bsm.dds`, or an
-  installed CPK's `kit1/` copy), as a `pants_kitN` stem is by a variant of its set. Both
+  its set: the path is supplied when a file of the set is (`Common/kit1/armor_bsm.dds`,
+  `Common/kitF/armor_bsm.dds`, or an installed CPK's `kit1/` copy), as a `pants_kitN` stem
+  is by a file of its set. Both
   compare folded, as stems fold everywhere else. A texture is used when the material instance
   of one of the model's meshes names it; an entry of the texture table no mesh uses is not
   looked up, since the game never loads it. A stem starting with `dummy_` is never looked up,
