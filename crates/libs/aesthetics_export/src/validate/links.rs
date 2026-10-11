@@ -12,7 +12,10 @@ use vtree::ScopePath;
 use super::folders::{counts_as_link, fold, shared_folders, stem};
 use super::roster::SlotMap;
 use crate::FileKind;
-use crate::conventions::{SharedKind, classify, common_link_target, shared_link_name};
+use crate::conventions::{
+    KitToken, SharedKind, classify, common_link_target, kit_set_member, names_kit_fallback,
+    shared_link_name,
+};
 use crate::listing::ValidationContext;
 use crate::parse::{AestheticsExportDraft, FileDescriptor, FolderDraft};
 use crate::validate::{Disposition, IssueScope, ValidationIssue, dropped_scopes, issue_in};
@@ -93,15 +96,9 @@ pub(crate) fn player_links(
             FileKind::CommonLink => {
                 let below = common_link_target(&file.path, &folder.path)
                     .expect("a CommonLink file of the folder names a path below `Common/`");
-                let key = fold(&below);
-                let target = draft
-                    .common
-                    .iter()
-                    .find(|candidate| {
-                        let in_common: Vec<&str> = candidate.path.segments().skip(1).collect();
-                        fold(&in_common.join("/")) == key
-                    })
-                    .map(|candidate| candidate.path.clone());
+                let target = common_link_files(&draft.common, &below)
+                    .first()
+                    .map(|target| target.path.clone());
                 links.push(ResolvedLink {
                     link_file: file.path.clone(),
                     link_name: file.path.name().to_owned(),
@@ -113,6 +110,46 @@ pub(crate) fn player_links(
         }
     }
     links
+}
+
+/// The `Common/` files a `.common` link's target `below` (a path below `Common/`, as
+/// `common_link_target` gives it) reaches, its representative first: what a link resolves
+/// to and the planner reads. When `below`'s file name is no texture (`classify`), the
+/// literal folded match alone — a link to a model or material-file set stays one until
+/// the per-kit model pipeline for Common models lands, `kitF` included. For a texture:
+/// nothing when `below` names the set's `kitF` fallback (`names_kit_fallback`), a path
+/// that finds nothing whatever `Common/` holds; else the `Common/` file at that path
+/// alone when it is held; else every texture member of the set `below` names
+/// (`kit_set_member`), the lowest `kit1`…`kit9` variant first and the `kitF` member last.
+pub fn common_link_files<'a>(common: &'a [FileDescriptor], below: &str) -> Vec<&'a FileDescriptor> {
+    let name = below.rsplit_once('/').map_or(below, |(_, name)| name);
+    let in_common =
+        |file: &FileDescriptor| file.path.segments().skip(1).collect::<Vec<_>>().join("/");
+    let key = fold(below);
+    let literal = common.iter().find(|file| fold(&in_common(file)) == key);
+    if classify(name) != FileKind::Texture {
+        return literal.into_iter().collect();
+    }
+    if names_kit_fallback(below) {
+        return Vec::new();
+    }
+    if let Some(file) = literal {
+        return vec![file];
+    }
+    let mut members: Vec<(Option<u8>, &FileDescriptor)> = common
+        .iter()
+        .filter(|file| file.kind == FileKind::Texture)
+        .filter_map(|file| {
+            let kit = match kit_set_member(below, &in_common(file))? {
+                KitToken::Variant(kit) => Some(kit),
+                KitToken::Fallback | KitToken::Reference => None,
+            };
+            Some((kit, file))
+        })
+        .collect();
+    // The representative's order: the lowest variant first, the `kitF` member last.
+    members.sort_by_key(|(kit, _)| (kit.is_none(), *kit));
+    members.into_iter().map(|(_, file)| file).collect()
 }
 
 /// The `.common` links of a shared folder, resolved as `player_links` resolves a player

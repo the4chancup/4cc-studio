@@ -29,6 +29,7 @@ pub use folders::{
 };
 pub use issues::{ContentFinding, Disposition, ISSUE_CODES, IssueScope, ValidationIssue};
 pub(crate) use issues::{content_issue, dropped_scopes, issue, issue_in, strict_disposition};
+pub use links::common_link_files;
 pub use roster::{PlayerIndex, ValidatedRoster};
 
 /// The folded names of the root folders only the old export layout has

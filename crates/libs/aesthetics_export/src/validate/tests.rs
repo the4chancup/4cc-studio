@@ -1327,6 +1327,163 @@ fn a_texture_link_below_a_subfolder_stands_for_the_common_texture_at_its_path() 
 }
 
 #[test]
+fn a_common_link_naming_a_kit_set_resolves_to_its_lowest_variant() {
+    // `kitN/armor_bsm.dds.common` names the set `Common/`'s `kit1`…`kit9` folders hold of
+    // `armor_bsm.dds`; the link resolves to its lowest variant.
+    let files = [
+        ("Common/kit2/armor_bsm.dds", 9),
+        ("Common/kit1/armor_bsm.dds", 9),
+        ("Players/03 - A/face_high.fmdl", 10),
+        ("Players/03 - A/kitN/armor_bsm.dds.common", 0),
+    ];
+    let folder_report = report("egg Midcup", &files, &[], &[]);
+    assert_eq!(
+        issue_codes(&folder_report),
+        vec![],
+        "{:?}",
+        folder_report.issues
+    );
+    let draft = crate::testing::parsed("egg Midcup", &files, &[], &[]).draft;
+    let targets: Vec<Option<String>> = links::player_links(&draft.players[0], &draft)
+        .into_iter()
+        .map(|link| link.target.map(|target| target.as_str().to_owned()))
+        .collect();
+    assert_eq!(targets, [Some("Common/kit1/armor_bsm.dds".to_owned())]);
+
+    // A `kitN` stem's set: `pants_kitN.dds.common` names `Common/pants_kit2.dds`.
+    let files = [
+        ("Common/pants_kit2.dds", 9),
+        ("Players/03 - A/face_high.fmdl", 10),
+        ("Players/03 - A/pants_kitN.dds.common", 0),
+    ];
+    let stem_report = report("egg Midcup", &files, &[], &[]);
+    assert_eq!(
+        issue_codes(&stem_report),
+        vec![],
+        "{:?}",
+        stem_report.issues
+    );
+    let draft = crate::testing::parsed("egg Midcup", &files, &[], &[]).draft;
+    let targets: Vec<Option<String>> = links::player_links(&draft.players[0], &draft)
+        .into_iter()
+        .map(|link| link.target.map(|target| target.as_str().to_owned()))
+        .collect();
+    assert_eq!(targets, [Some("Common/pants_kit2.dds".to_owned())]);
+}
+
+#[test]
+fn common_link_files_orders_a_texture_set_s_members_representative_first() {
+    let files = [
+        ("Common/kitF/a.dds", 9),
+        ("Common/kit2/a.dds", 9),
+        ("Common/kit1/a.dds", 9),
+        ("Common/kitF/b.dds", 9),
+        ("Common/boots_kit1.fmdl", 10),
+        ("Common/boots_kitF.skl", 10),
+        ("Common/pants_kit1.dds", 9),
+        ("Common/pants_kitF.png", 9),
+        ("Common/pants_kit2.mtl", 10),
+    ];
+    let draft = crate::testing::parsed("egg Midcup", &files, &[], &[]).draft;
+    let reached = |below: &str| -> Vec<&str> {
+        common_link_files(&draft.common, below)
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect()
+    };
+    // The set's members, lowest variant first, the `kitF` member last.
+    assert_eq!(
+        reached("kitN/a.dds"),
+        [
+            "Common/kit1/a.dds",
+            "Common/kit2/a.dds",
+            "Common/kitF/a.dds"
+        ]
+    );
+    // A set of the `kitF` file alone is one fallback for every number.
+    assert_eq!(reached("kitN/b.dds"), ["Common/kitF/b.dds"]);
+    // The members are a set by stem, whatever their extensions; a `.mtl` of the
+    // set's stem is no texture and the link does not reach it.
+    assert_eq!(
+        reached("pants_kitN.dds"),
+        ["Common/pants_kit1.dds", "Common/pants_kitF.png"]
+    );
+    // A path naming the fallback finds nothing.
+    assert!(reached("kitF/a.dds").is_empty());
+    // A link to a model or skeleton is a literal lookup: `boots_kitN.fmdl` matches
+    // nothing the set names, and `boots_kitF.skl` is a plain name to it.
+    assert!(reached("boots_kitN.fmdl").is_empty());
+    assert_eq!(reached("boots_kitF.skl"), ["Common/boots_kitF.skl"]);
+}
+
+#[test]
+fn a_common_link_naming_a_set_of_the_kitf_file_alone_resolves_to_it() {
+    let files = [
+        ("Common/kitF/b.dds", 9),
+        ("Players/03 - A/face_high.fmdl", 10),
+        ("Players/03 - A/kitN/b.dds.common", 0),
+    ];
+    let report = report("egg Midcup", &files, &[], &[]);
+    assert_eq!(issue_codes(&report), vec![], "{:?}", report.issues);
+    let draft = crate::testing::parsed("egg Midcup", &files, &[], &[]).draft;
+    let targets: Vec<Option<String>> = links::player_links(&draft.players[0], &draft)
+        .into_iter()
+        .map(|link| link.target.map(|target| target.as_str().to_owned()))
+        .collect();
+    assert_eq!(targets, [Some("Common/kitF/b.dds".to_owned())]);
+}
+
+#[test]
+fn a_common_link_naming_the_kitf_fallback_or_an_empty_set_is_common_link_missing() {
+    // `kitF` is never a file under its own name: `Common/kitF/armor_bsm.dds` sits there,
+    // and a link naming it finds nothing.
+    let fallback = report(
+        "egg Midcup",
+        &[
+            ("Common/kitF/armor_bsm.dds", 9),
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Players/03 - A/kitF/armor_bsm.dds.common", 0),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&fallback),
+        vec![("common_link_missing", Disposition::DropFolder)]
+    );
+    assert_eq!(
+        fallback.issues[0].context,
+        vec![
+            ("link", "armor_bsm.dds.common".to_owned()),
+            ("path", "Common/kitF/armor_bsm.dds".to_owned()),
+        ]
+    );
+
+    // Another file in a member folder is no member of `armor_bsm`'s set.
+    let missing = report(
+        "egg Midcup",
+        &[
+            ("Common/kit1/other.dds", 9),
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Players/03 - A/kitN/armor_bsm.dds.common", 0),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&missing),
+        vec![("common_link_missing", Disposition::DropFolder)]
+    );
+    assert_eq!(
+        missing.issues[0].context,
+        vec![
+            ("link", "armor_bsm.dds.common".to_owned()),
+            ("path", "Common/kitN/armor_bsm.dds".to_owned()),
+        ]
+    );
+}
+
+#[test]
 fn a_texture_link_below_a_subfolder_an_installed_cpk_satisfies_stays_with_no_finding() {
     let files = [
         ("Players/03 - A/face_high.fmdl", 10),

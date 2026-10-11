@@ -8,8 +8,8 @@ use std::collections::BTreeSet;
 
 use aesthetics_export::{
     FileDescriptor, FileKind, ModelFormat, ModelSuffix, PlayerFolder, SharedKind, SharedLink,
-    SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, classify, common_link_name,
-    common_link_target, is_player_singleton, kit_token, model_suffix,
+    SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, classify, common_link_files,
+    common_link_name, common_link_target, is_player_singleton, kit_token, model_suffix,
 };
 use dds_convert::SourceFormat;
 use pes_version::Engine;
@@ -519,8 +519,10 @@ pub(crate) fn is_read_common_file(
 /// shared folder of `export` reaches, by their export paths: the file a link taking a role
 /// names (`common_link_target`, a link mirroring `Common/`'s tree: `model_format.md` "Link
 /// files"; `player_file` gives none to a link to anything but a model, a `.mtl` or a
-/// texture, on Fox), and for a link naming a
-/// model the files that travel with it in its directory: the models of its stem in any format
+/// texture, on Fox) — every member of the set when a texture link's `kitN` stem or
+/// directory names one (`common_link_files`), each member's directory then counting as
+/// linked — and for a link naming a model the files that travel with it in its directory:
+/// the models of its stem in any format
 /// (the target selects one, `selected_common_model`), the `.skl` of its stem, every `.mtl`
 /// (the ones its `.mtl` search may land on, `mtl_search::mtl_for`) and every texture directly
 /// in it and in each directory above it up to `Common/`, where its names resolve nearest first
@@ -575,76 +577,77 @@ fn linked_common_of(
         if file.kind != FileKind::CommonLink || player_file(folder, file, models).is_none() {
             continue;
         }
-        let Some(target) =
-            common_link_target(&file.path, folder).and_then(|below| common_file(common, &below))
-        else {
+        let Some(below) = common_link_target(&file.path, folder) else {
             continue;
         };
-        if is_direct_root_folder_file(&target.path) {
-            continue;
-        }
-        linked.insert(target.path.clone());
-        let (directory, stem) = directory_stem(target);
-        // The directories above the target's own up to `Common/` (`Common/`'s own
-        // direct textures are packed anyway): `Common/jessie` for
-        // `Common/jessie/parts/body.fmdl`. A name resolves nearest first from the
-        // file's own directory up to `Common/`, so a model or `.mtl` link brings the
-        // textures directly in each of them too; a subfolder of any of them stays
-        // out, a bare name never resolving down.
-        let mut ancestors = BTreeSet::new();
-        let mut above = target.path.parent().and_then(|own| own.parent());
-        while let Some(directory_above) = above {
-            if directory_above.segments().count() == 1 {
-                break;
+        // Every `Common/` file the link reaches (`common_link_files`), each member's
+        // directory then counting as linked.
+        for target in common_link_files(common, &below) {
+            if is_direct_root_folder_file(&target.path) {
+                continue;
             }
-            ancestors.insert(directory_above.fold_key());
-            above = directory_above.parent();
-        }
-        let travelling = common.iter().filter(|other| {
-            let (other_directory, other_stem) = directory_stem(other);
-            let in_ancestor = matches!(target.kind, FileKind::Model(_) | FileKind::Mtl)
-                && other.kind == FileKind::Texture
-                && other_directory
-                    .as_ref()
-                    .is_some_and(|other| ancestors.contains(other.as_str()));
-            in_ancestor
-                || other_directory == directory
-                    && match target.kind {
-                        FileKind::Model(_) => {
-                            other.kind == FileKind::Texture
-                                || other.kind == FileKind::Mtl
-                                || (other_stem == stem
-                                    && matches!(other.kind, FileKind::Model(_) | FileKind::Skl))
+            linked.insert(target.path.clone());
+            let (directory, stem) = directory_stem(target);
+            // The directories above the target's own up to `Common/` (`Common/`'s own
+            // direct textures are packed anyway): `Common/jessie` for
+            // `Common/jessie/parts/body.fmdl`. A name resolves nearest first from the
+            // file's own directory up to `Common/`, so a model or `.mtl` link brings the
+            // textures directly in each of them too; a subfolder of any of them stays
+            // out, a bare name never resolving down.
+            let mut ancestors = BTreeSet::new();
+            let mut above = target.path.parent().and_then(|own| own.parent());
+            while let Some(directory_above) = above {
+                if directory_above.segments().count() == 1 {
+                    break;
+                }
+                ancestors.insert(directory_above.fold_key());
+                above = directory_above.parent();
+            }
+            let travelling = common.iter().filter(|other| {
+                let (other_directory, other_stem) = directory_stem(other);
+                let in_ancestor = matches!(target.kind, FileKind::Model(_) | FileKind::Mtl)
+                    && other.kind == FileKind::Texture
+                    && other_directory
+                        .as_ref()
+                        .is_some_and(|other| ancestors.contains(other.as_str()));
+                in_ancestor
+                    || other_directory == directory
+                        && match target.kind {
+                            FileKind::Model(_) => {
+                                other.kind == FileKind::Texture
+                                    || other.kind == FileKind::Mtl
+                                    || (other_stem == stem
+                                        && matches!(other.kind, FileKind::Model(_) | FileKind::Skl))
+                            }
+                            FileKind::Mtl => other.kind == FileKind::Texture,
+                            FileKind::Texture
+                            | FileKind::Skl
+                            | FileKind::Fclo
+                            | FileKind::Xml
+                            | FileKind::MaterialsToml
+                            | FileKind::Bin
+                            | FileKind::SharedLink(_)
+                            | FileKind::CommonLink
+                            | FileKind::Marker(_)
+                            | FileKind::Metadata(_)
+                            | FileKind::Other => false,
                         }
-                        FileKind::Mtl => other.kind == FileKind::Texture,
-                        FileKind::Texture
-                        | FileKind::Skl
-                        | FileKind::Fclo
-                        | FileKind::Xml
-                        | FileKind::MaterialsToml
-                        | FileKind::Bin
-                        | FileKind::SharedLink(_)
-                        | FileKind::CommonLink
-                        | FileKind::Marker(_)
-                        | FileKind::Metadata(_)
-                        | FileKind::Other => false,
-                    }
-        });
-        linked.extend(travelling.map(|other| other.path.clone()));
+            });
+            linked.extend(travelling.map(|other| other.path.clone()));
+        }
     }
 }
 
-/// The file of `common` (the export's `Common/` files) at the path `below` below `Common/`
-/// (`body.fmdl` directly in it, `jessie/body.fmdl` in its subfolder `jessie/`), matched as
-/// validation matches a link's target: by case-folded path.
+/// The file of `common` (the export's `Common/` files) a `.common` link's target `below`
+/// below `Common/` (`body.fmdl` directly in it, `jessie/body.fmdl` in its subfolder
+/// `jessie/`) names, matched as validation matches it (`common_link_files`'s first, the
+/// representative): the file at that path for a non-texture target, the kit set's
+/// representative for a texture one.
 pub(crate) fn common_file<'a>(
     common: &'a [FileDescriptor],
     below: &str,
 ) -> Option<&'a FileDescriptor> {
-    let key = vtree::fold_name(below);
-    common
-        .iter()
-        .find(|file| vtree::fold_name(below_common(&file.path)) == key)
+    common_link_files(common, below).first().copied()
 }
 
 /// The path below `Common/` of the texture `below` names (`PlayerFile::CommonTexture`'s,
@@ -3680,6 +3683,103 @@ mod tests {
                 .iter()
                 .map(|path| (*path).to_owned())
                 .collect()
+        );
+    }
+
+    #[test]
+    fn a_common_file_naming_a_kit_set_finds_its_lowest_variant_and_the_fallback_nothing() {
+        let common: Vec<FileDescriptor> = [
+            "Common/kit2/a.dds",
+            "Common/kit1/a.dds",
+            "Common/kit1/other.dds",
+            "Common/kitF/b.dds",
+            "Common/pants_kit2.dds",
+        ]
+        .iter()
+        .map(|path| {
+            let path = ScopePath::new(path).unwrap();
+            FileDescriptor {
+                size: 0,
+                kind: aesthetics_export::classify(path.name()),
+                source: path.clone(),
+                path,
+            }
+        })
+        .collect();
+        // The set's `kitN` directory names its lowest variant.
+        assert_eq!(
+            common_file(&common, "kitN/a.dds").map(|file| file.path.as_str()),
+            Some("Common/kit1/a.dds")
+        );
+        // `kit1/other.dds` is itself a member of `other`'s set; `c`'s has none.
+        assert_eq!(
+            common_file(&common, "kitN/other.dds").map(|file| file.path.as_str()),
+            Some("Common/kit1/other.dds")
+        );
+        assert_eq!(common_file(&common, "kitN/c.dds"), None);
+        // The stem form's too.
+        assert_eq!(
+            common_file(&common, "pants_kitN.dds").map(|file| file.path.as_str()),
+            Some("Common/pants_kit2.dds")
+        );
+        // A path naming the `kitF` fallback finds nothing, `kitF` files included.
+        assert_eq!(common_file(&common, "kitF/a.dds"), None);
+        assert_eq!(common_file(&common, "kitF/b.dds"), None);
+        assert_eq!(common_file(&common, "pants_kitF.dds"), None);
+    }
+
+    #[test]
+    fn a_skeleton_beside_a_kitf_model_is_found() {
+        let common: Vec<FileDescriptor> = ["Common/boots_kitF.fmdl", "Common/boots_kitF.skl"]
+            .iter()
+            .map(|path| {
+                let path = ScopePath::new(path).unwrap();
+                FileDescriptor {
+                    size: 0,
+                    kind: aesthetics_export::classify(path.name()),
+                    source: path.clone(),
+                    path,
+                }
+            })
+            .collect();
+        // A `.skl` lookup is no texture lookup: `kitF` is a plain stem to it.
+        assert_eq!(
+            common_skeleton(&common, "boots_kitF.fmdl").map(|file| file.path.as_str()),
+            Some("Common/boots_kitF.skl")
+        );
+    }
+
+    #[test]
+    fn a_texture_link_naming_a_kit_set_reaches_every_member() {
+        let (export, _) = resolved_with_issues(
+            "co Midcup Link",
+            &[
+                ("Players/03 - A/face_high.fmdl", 1),
+                ("Players/03 - A/kitN/a.dds.common", 0),
+                ("Common/kit1/a.dds", 1),
+                ("Common/kit2/a.dds", 1),
+                ("Common/kitF/a.dds", 1),
+                ("Common/kit1/other.dds", 1),
+            ],
+            &[],
+            None,
+        );
+        let linked: BTreeSet<String> = linked_common_files(&export.export)
+            .iter()
+            .map(|path| path.as_str().to_owned())
+            .collect();
+        // Every member's directory counts as linked, the `kitF` member's included;
+        // `kit1`'s other file is no member.
+        assert_eq!(
+            linked,
+            [
+                "Common/kit1/a.dds",
+                "Common/kit2/a.dds",
+                "Common/kitF/a.dds"
+            ]
+            .iter()
+            .map(|path| (*path).to_owned())
+            .collect()
         );
     }
 

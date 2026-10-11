@@ -25,6 +25,64 @@ pub fn kit_token(stem: &str) -> Option<(KitToken, String)> {
     Some((token, with_token_char(stem, at, 'N')))
 }
 
+/// The member of the kit set `reference` names that `path` is, both paths below one folder
+/// (`/`-separated, extension included): `Variant(k)` for a `kit1`…`kit9` member, `Fallback`
+/// for the `kitF` one, `None` when `reference` names no set or `path` is not one of its
+/// members. Two forms (`model_format.md` "Kit-dependent assets"): a `kitN` stem's set is its
+/// own directory's files with a member token of the same reference, whatever their
+/// extensions (`pants_kitN.dds` names `pants_kit1.dds`, `pants_kitF.png`); a `kitN`
+/// directory segment's is the files of the same folded stem at the same path under the
+/// `kit1`…`kit9` and `kitF` spellings of that segment (`kitN/armor_bsm.dds` and
+/// `kitN/textures/armor_bsm.dds` name `kit1/armor_bsm.dds`, `kitF/armor_bsm.png`,
+/// `kit1/textures/armor_bsm.dds`), the token spelled exactly as the stem's is and the
+/// other segments comparing folded. A member counts whatever its file kind: the caller
+/// picks (`common_link_files` keeps textures).
+pub(crate) fn kit_set_member(reference: &str, path: &str) -> Option<KitToken> {
+    let (reference_directory, reference_name) = directory_name(reference);
+    let (path_directory, path_name) = directory_name(path);
+    let (reference_stem, _) = stem_extension(reference_name);
+    let (path_stem, _) = stem_extension(path_name);
+    let reference_segments: Vec<&str> = reference_directory.split('/').collect();
+    let path_segments: Vec<&str> = path_directory.split('/').collect();
+    if let Some(at) = reference_segments
+        .iter()
+        .position(|segment| *segment == "kitN")
+        && reference_segments.len() == path_segments.len()
+        && let Some(token @ (KitToken::Variant(_) | KitToken::Fallback)) =
+            kit_folder(path_segments[at])
+        && reference_segments
+            .iter()
+            .zip(path_segments.iter())
+            .enumerate()
+            .all(|(index, (reference, path))| {
+                index == at || vtree::fold_name(reference) == vtree::fold_name(path)
+            })
+        && vtree::fold_name(reference_stem) == vtree::fold_name(path_stem)
+    {
+        return Some(token);
+    }
+    if let Some((KitToken::Reference, reference_stem)) = kit_token(reference_stem)
+        && vtree::fold_name(reference_directory) == vtree::fold_name(path_directory)
+        && let Some((token @ (KitToken::Variant(_) | KitToken::Fallback), member_reference)) =
+            kit_token(path_stem)
+        && vtree::fold_name(&member_reference) == vtree::fold_name(&reference_stem)
+    {
+        return Some(token);
+    }
+    None
+}
+
+/// Whether `path`, a file's path below a folder (`/`-separated), names a kit set's `kitF`
+/// fallback — its file stem's token (`pants_kitF.dds`) or a `kitF` directory segment
+/// (`kitF/a.dds`, `kitF/textures/a.dds`): a path that finds nothing, `kitF` never being a
+/// file under its own name (`model_format.md` "Kit-dependent assets").
+pub(crate) fn names_kit_fallback(path: &str) -> bool {
+    let (directory, name) = directory_name(path);
+    let (stem, _) = stem_extension(name);
+    matches!(kit_token(stem), Some((KitToken::Fallback, _)))
+        || directory.split('/').any(|segment| segment == "kitF")
+}
+
 /// `stem`, which holds a kit token, with its first token spelled for `kit` (`pants_kit1` and
 /// 3 give `pants_kit3`); `None` when `stem` holds no token.
 pub fn variant_stem(stem: &str, kit: u8) -> Option<String> {
@@ -76,6 +134,26 @@ fn find_token(stem: &str) -> Option<(usize, KitToken)> {
 /// `stem` with the ASCII character at byte offset `at` replaced by `replacement`.
 fn with_token_char(stem: &str, at: usize, replacement: char) -> String {
     format!("{}{replacement}{}", &stem[..at], &stem[at + 1..])
+}
+
+/// `path`'s directory and file name: `("a/b", "c.dds")` for `a/b/c.dds`, `("", "c.dds")`
+/// for `c.dds`.
+fn directory_name(path: &str) -> (&str, &str) {
+    path.rsplit_once('/').unwrap_or(("", path))
+}
+
+/// A file name's stem and extension: `("a.b", "dds")` for `a.b.dds`, `("x", "")` for `x`.
+fn stem_extension(name: &str) -> (&str, &str) {
+    name.rsplit_once('.').unwrap_or((name, ""))
+}
+
+/// The token a whole folder name is, spelled exactly as the stem token is (`kitN`,
+/// `kitF`, `kit1`…`kit9`): `x_kit1` and `KIT1` are none.
+fn kit_folder(segment: &str) -> Option<KitToken> {
+    if segment.len() != "kitN".len() {
+        return None;
+    }
+    kit_token(segment).map(|(token, _)| token)
 }
 
 #[cfg(test)]
@@ -147,5 +225,102 @@ mod tests {
             assert_eq!(without_kit_token(stem), expected, "{stem}");
         }
         assert!(matches!(without_kit_token("boots"), Cow::Borrowed("boots")));
+    }
+
+    #[test]
+    fn a_kitn_directory_names_the_set_of_the_same_named_files_under_its_member_siblings() {
+        let members = [
+            (
+                "kitN/armor_bsm.dds",
+                "kit2/armor_bsm.dds",
+                KitToken::Variant(2),
+            ),
+            (
+                "kitN/armor_bsm.dds",
+                "kitF/armor_bsm.dds",
+                KitToken::Fallback,
+            ),
+            // The members are one set by stem, whatever their extensions.
+            ("kitN/a.dds", "kitF/a.png", KitToken::Fallback),
+            (
+                "jessie/kitN/a.dds",
+                "Jessie/kit1/A.dds",
+                KitToken::Variant(1),
+            ),
+            // The token may sit anywhere in the path, a folder name included.
+            (
+                "kitN/textures/a.dds",
+                "kit1/textures/a.dds",
+                KitToken::Variant(1),
+            ),
+        ];
+        for (reference, path, token) in members {
+            assert_eq!(kit_set_member(reference, path), Some(token), "{path}");
+        }
+        for (reference, path) in [
+            // Another directory's set.
+            ("kitN/a.dds", "jessie/kit1/a.dds"),
+            // A member folder is spelled exactly, as the stem token is.
+            ("kitN/a.dds", "KIT1/a.dds"),
+            ("kitN/a.dds", "kitf/a.dds"),
+            // The reference itself is no member, nor is another file name.
+            ("kitN/a.dds", "kitN/a.dds"),
+            ("kitN/a.dds", "kit1/b.dds"),
+            // One `kitN` segment's place names the set: the directories match segment-wise.
+            ("jessie/kitN/x/a.dds", "jessie/kit2/y/a.dds"),
+            ("kitN/a.dds", "kit1/x/a.dds"),
+        ] {
+            assert_eq!(kit_set_member(reference, path), None, "{path}");
+        }
+    }
+
+    #[test]
+    fn a_kitn_stem_names_the_set_of_its_directory_s_member_stems() {
+        assert_eq!(
+            kit_set_member("pants_kitN.dds", "pants_kit1.dds"),
+            Some(KitToken::Variant(1))
+        );
+        assert_eq!(
+            kit_set_member("pants_kitN.dds", "pants_kitF.dds"),
+            Some(KitToken::Fallback)
+        );
+        // The members are one set by stem, whatever their extensions.
+        assert_eq!(
+            kit_set_member("pants_kitN.dds", "pants_kit1.png"),
+            Some(KitToken::Variant(1))
+        );
+        for (reference, path) in [
+            // The directory matches, folded.
+            ("jessie/pants_kitN.dds", "pants_kit1.dds"),
+            // A member's reference is the reference's stem.
+            ("pants_kitN.dds", "socks_kit1.dds"),
+            // A path with no token names no set and is no member.
+            ("pants.dds", "pants.dds"),
+            ("pants_kitN.dds", "pants_kitN.dds"),
+            ("pants_kit1.dds", "pants_kit2.dds"),
+        ] {
+            assert_eq!(kit_set_member(reference, path), None, "{path}");
+        }
+    }
+
+    #[test]
+    fn a_path_naming_the_kitf_fallback_finds_nothing() {
+        for path in [
+            "pants_kitF.dds",
+            "kitF/a.dds",
+            "jessie/kitF/a.dds",
+            "kitF/textures/a.dds",
+        ] {
+            assert!(names_kit_fallback(path), "{path}");
+        }
+        for path in [
+            "kitf/a.dds",
+            "pants.dds",
+            "kit1/a.dds",
+            "pants_kitN.dds",
+            "kitN/a.dds",
+        ] {
+            assert!(!names_kit_fallback(path), "{path}");
+        }
     }
 }

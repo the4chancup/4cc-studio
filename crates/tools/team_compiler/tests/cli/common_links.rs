@@ -1050,6 +1050,104 @@ fn a_model_naming_a_common_kit_fallback_file_itself_finds_nothing() {
     assert_eq!(run.exit_code(), 0);
 }
 
+/// The tracer's boots model with its `shirt.dds` renamed `armor_bsm.dds` and pointed below
+/// its folder at `./kitN/` (`texture_lookup::path_below`).
+fn boots_naming_kit_folder() -> Vec<u8> {
+    let mut file = FmdlFile::read(&tracer_player_file("boots.fmdl")).unwrap();
+    rewrite_texture_paths(&mut file, |path| {
+        if path.file_name == "shirt.dds" {
+            path.file_name = "armor_bsm.dds".to_owned();
+            path.directory = "./kitN/".to_owned();
+        }
+    })
+    .unwrap();
+    file.write()
+}
+
+// TC-MOD-72
+#[test]
+fn a_shared_folder_s_kit_folder_of_links_finds_their_sets_in_common() {
+    let sandbox = Sandbox::new("cmn_kit_folder_links");
+    let export = "exports/co Midcup Kits";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Common/kit1/armor_bsm.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    let crocs = format!("{export}/Boots/Crocs");
+    sandbox.write(&format!("{crocs}/boots.fmdl"), &boots_naming_kit_folder());
+    sandbox.write(&format!("{crocs}/kitN/armor_bsm.dds.common"), b"");
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Kits"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // `Common/kit1/armor_bsm.dds`, the member the `kitN/` link reaches, packed once.
+    let armor = "Asset/model/character/common/714/kit1/sourceimages/#windx11/armor_bsm.ftex";
+    assert!(entries.contains_key(armor), "{:#?}", entries.keys());
+    // Crocs' shared boots names `armor_bsm` in the `kitN/` directory its link spells.
+    let shared = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let package = fpk::FpkFile::read(&entries[shared]).unwrap();
+    let directories = texture_directories(package.get("boots.fmdl").unwrap(), "armor_bsm.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory
+                == "/Assets/pes16/model/character/common/714/kitN/sourceimages/"),
+        "{directories:?}"
+    );
+}
+
+#[test]
+fn a_texture_link_naming_a_kit_stem_finds_its_members_in_common() {
+    let sandbox = Sandbox::new("cmn_kit_stem_link");
+    let export = "exports/co Midcup Kit Stem";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &model_naming_in("pants_kitN.dds", TEAM_COMMON_DIRECTORY),
+    );
+    sandbox.write(&format!("{player}/pants_kitN.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/pants_kit1.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(&format!("{export}/Common/pants_kitF.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Kit Stem"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let texture = |name: &str| entries.get(&format!("{COMMON_TEXTURES}/{name}.ftex"));
+    assert!(texture("pants_kit1").is_some(), "{:#?}", entries.keys());
+    // The `kitF` file, the set's fallback, under the reference's spelling.
+    assert!(texture("pants_kitN").is_some(), "{:#?}", entries.keys());
+}
+
 #[test]
 fn a_texture_link_whose_target_is_not_in_common_drops_its_folder() {
     let sandbox = Sandbox::new("cmn_texture_link_missing");
