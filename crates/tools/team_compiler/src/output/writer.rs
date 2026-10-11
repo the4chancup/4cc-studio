@@ -259,15 +259,17 @@ impl CpkOutput {
     /// as the loser of a `shared_texture_conflict` (`TaskBatch::skipped`) is left out the same
     /// way: the textures only its sources hold are not in the CPK. A batch that failed has
     /// no entries; one that succeeded emits at least one (a stem a dropped package loses
-    /// stays with the package that won it), unless a texture link of the player's stood at
-    /// every path a combined folder supplied, the Common texture each link names serving the
-    /// models that look for them: its findings then all keep the folder
-    /// (`shared_texture_overridden`), and the packages commit all the same.
+    /// stays with the package that won it), unless a texture link stood at every path a
+    /// source supplied, the Common texture each link names serving the models that look for
+    /// them — then the batch is legitimately empty, and a `shared_texture_conflict` among
+    /// its findings (`skipped` set, a failed batch having none) does not keep the folder's
+    /// packages out either, a `shared_texture_overridden` keeping all the same.
     fn commit_folder(&mut self, batches: &mut [TaskBatch]) -> anyhow::Result<()> {
         let (textures, packages) = batches
             .split_last_mut()
             .expect("a player folder's group ends with its textures batch");
         if textures.entries.is_empty()
+            && textures.skipped.is_empty()
             && textures
                 .messages
                 .iter()

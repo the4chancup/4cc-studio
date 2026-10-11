@@ -1,7 +1,8 @@
 //! Link files resolved against shared folders and `Common/`, and the
 //! cascade ("Validation semantics" → "Dropped link targets", "Drop order"):
-//! after every folder's own findings, a dropped shared folder or `Common`
-//! file takes its linking players down, then a shared folder no surviving
+//! after every folder's own findings, a dropped `Common` file takes its
+//! linking shared folders down and a dropped shared folder or `Common` file
+//! takes its linking players down, then a shared folder no surviving
 //! player links is orphaned.
 
 use std::collections::BTreeSet;
@@ -13,7 +14,7 @@ use super::roster::SlotMap;
 use crate::FileKind;
 use crate::conventions::{SharedKind, classify, common_link_target, shared_link_name};
 use crate::listing::ValidationContext;
-use crate::parse::{AestheticsExportDraft, FolderDraft};
+use crate::parse::{AestheticsExportDraft, FileDescriptor, FolderDraft};
 use crate::validate::{Disposition, IssueScope, ValidationIssue, dropped_scopes, issue_in};
 
 /// The kind of link a file is, and what it names.
@@ -114,18 +115,81 @@ pub(crate) fn player_links(
     links
 }
 
+/// The `.common` links of a shared folder, resolved as `player_links` resolves a player
+/// folder's (`player_folders.md` "Subfolders": a shared folder's tree is a player
+/// folder's): the only links it holds, a `.face`, `.boots` or `.gloves` file there being
+/// `file_type_disallowed`, never a link.
+pub(crate) fn shared_links(
+    folder: &FolderDraft,
+    draft: &AestheticsExportDraft,
+) -> Vec<ResolvedLink> {
+    player_links(folder, draft)
+        .into_iter()
+        .filter(|link| matches!(link.kind, ResolvedLinkKind::Common(_)))
+        .collect()
+}
+
+/// `links` less the links a finding dropped (`dropped_files`, as `dropped_scopes` reads
+/// them): a dropped link is no link, so it names no target for the cascade, the orphan
+/// pass or the kept player's `links` ("Dropped link targets").
+pub(crate) fn without_dropped(
+    links: Vec<ResolvedLink>,
+    dropped_files: &BTreeSet<String>,
+) -> Vec<ResolvedLink> {
+    links
+        .into_iter()
+        .filter(|link| !dropped_files.contains(&link.link_file.fold_key()))
+        .collect()
+}
+
 /// `player_links` less the links a finding dropped (`dropped_files`, as `dropped_scopes`
-/// reads them): a dropped link is no link, so it names no target for the cascade, the
-/// orphan pass or the kept player's `links` ("Dropped link targets").
+/// reads them), through `without_dropped`.
 pub(crate) fn standing_links(
     folder: &FolderDraft,
     draft: &AestheticsExportDraft,
     dropped_files: &BTreeSet<String>,
 ) -> Vec<ResolvedLink> {
-    player_links(folder, draft)
-        .into_iter()
-        .filter(|link| !dropped_files.contains(&link.link_file.fold_key()))
-        .collect()
+    without_dropped(player_links(folder, draft), dropped_files)
+}
+
+/// `common_link_missing` on the folder at `scope` for each of `resolved`'s `.common`
+/// links nothing satisfies (`common_target_missing`): a player folder's and a shared
+/// folder's `.common` links are checked alike.
+pub(crate) fn common_link_missing(
+    scope: &IssueScope,
+    resolved: &[ResolvedLink],
+    context: &ValidationContext,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    for link in resolved {
+        if let ResolvedLinkKind::Common(name) = &link.kind
+            && link.common_target_missing(context)
+        {
+            issues.push(issue_in(
+                context,
+                "common_link_missing",
+                scope.clone(),
+                vec![
+                    ("link", link.link_name.clone()),
+                    ("path", format!("Common/{name}")),
+                ],
+                Disposition::DropFolder,
+            ));
+        }
+    }
+}
+
+/// Whether `file` is one of `resolved`'s `.common` links whose target is absent
+/// (`common_target_missing`): it comes off a kept folder's files, as a kept player's
+/// does.
+pub(crate) fn common_target_absent(
+    file: &FileDescriptor,
+    resolved: &[ResolvedLink],
+    context: &ValidationContext,
+) -> bool {
+    resolved
+        .iter()
+        .any(|link| link.common_target_missing(context) && link.link_file == file.path)
 }
 
 /// The first dropping issue code for a path, in issue order.
@@ -145,9 +209,10 @@ fn first_drop(issues: &[ValidationIssue], key: &str) -> &'static str {
         .expect("a dropped target has a dropping issue")
 }
 
-/// The cascade: `link_target_dropped` for each surviving player's link to a
-/// dropped target, then `shared_folder_orphaned` for shared folders no
-/// surviving player links.
+/// The cascade: `link_target_dropped` for each surviving shared folder or player's link
+/// to a dropped target — the shared folders' `.common` links first, so the players
+/// linking a folder one drops follow in the same pass — then `shared_folder_orphaned`
+/// for shared folders no surviving player links.
 pub(crate) fn cascade(
     draft: &AestheticsExportDraft,
     slot_map: &SlotMap,
@@ -156,12 +221,46 @@ pub(crate) fn cascade(
 ) {
     let (dropped_folders, dropped_files) = dropped_scopes(issues);
     let mapped = slot_map.mapped();
-    let player_dropped =
-        |index: usize| dropped_folders.contains(&draft.players[index].path.fold_key());
+
+    // A shared folder's `.common` link to a dropped `Common/` file takes the folder
+    // down. On PES 15-17 a shared folder's links stay unread (a link there is
+    // `file_not_used`, the consumer's), so none resolves one.
+    if let pes_version::Engine::Fox = context.version.engine() {
+        for kind in [SharedKind::Face, SharedKind::Boots, SharedKind::Gloves] {
+            for folder in shared_folders(draft, kind) {
+                if dropped_folders.contains(&folder.path.fold_key()) {
+                    continue;
+                }
+                for link in without_dropped(shared_links(folder, draft), &dropped_files) {
+                    let Some(target) = &link.target else {
+                        continue;
+                    };
+                    let key = target.fold_key();
+                    if dropped_files.contains(&key) {
+                        issues.push(issue_in(
+                            context,
+                            "link_target_dropped",
+                            IssueScope::Folder(folder.path.clone()),
+                            vec![
+                                ("link", link.link_name.clone()),
+                                ("target", target.as_str().to_owned()),
+                                ("finding", first_drop(issues, &key).to_owned()),
+                            ],
+                            Disposition::DropFolder,
+                        ));
+                    }
+                }
+            }
+        }
+    }
 
     // link_target_dropped: every player not yet dropped whose link names a
-    // dropped target. Never pass-through-eligible itself. A link a finding
+    // dropped target, a shared folder one above dropped included. Never
+    // pass-through-eligible itself. A link a finding
     // drops itself (a content finding's, with its target) is no link.
+    let (dropped_folders, dropped_files) = dropped_scopes(issues);
+    let player_dropped =
+        |index: usize| dropped_folders.contains(&draft.players[index].path.fold_key());
     for (index, folder) in draft.players.iter().enumerate() {
         if !mapped.contains(&index) || player_dropped(index) {
             continue;

@@ -588,7 +588,8 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    shared textures commit
    once, after all of the player's face/boots/gloves tasks report: identical destination bytes
    deduplicate, while the same destination with different bytes from two combined folders
-   reports `shared_texture_conflict` and drops the losing task, chosen by canonical order (`face`
+   (a texture `.common` link standing at a path counting as differing from a file there, two
+   links as the one `Common/` texture they name) reports `shared_texture_conflict` and drops the losing task, chosen by canonical order (`face`
    > `boots` > `gloves`), never rayon completion order; the player's own copy wins over a
    combined folder's (below). The player's texture sources are its own folder (its subfolders included, each texture
    resolved and emitted as `player_folders.md` "Subfolders" says) and each

@@ -903,6 +903,68 @@ fn a_shared_gloves_folder_s_subfolder_files_pack_at_their_paths() {
     );
 }
 
+// TC-MOD-77
+#[test]
+fn a_shared_folder_s_common_link_is_file_not_used_on_pes_17() {
+    // Admitted like a player folder's, but unread on pre-Fox: the folder compiles as if the
+    // file were not there, and `file_not_used` names it.
+    let sandbox = Sandbox::new("prefox_shared_link");
+    let export = "co Midcup Crocs";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Crocs.boots"), b"");
+    let crocs = format!("exports/{export}/Boots/Crocs");
+    sandbox.write(&format!("{crocs}/boots.model"), &card_model());
+    sandbox.write(&format!("{crocs}/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{crocs}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{crocs}/armor.dds.common"), b"");
+    sandbox.write(&format!("exports/{export}/Common/armor.dds"), &small_dds());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning file_not_used [Keep] at Boots/Crocs (file=armor.dds.common)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let boots = entries_under(&entries, BOOTS_K0644);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl", "skin.dds"]);
+}
+
+// TC-MOD-77
+#[test]
+fn a_shared_folder_s_texture_and_link_of_one_stem_do_not_conflict_on_pes_17() {
+    // Its links stay unread on pre-Fox, so `skin.dds.common` claims no stem: no
+    // `texture_stem_conflict`, the folder compiles and `file_not_used` names the link.
+    let sandbox = Sandbox::new("prefox_shared_link_stem");
+    let export = "co Midcup Crocs";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Crocs.boots"), b"");
+    let crocs = format!("exports/{export}/Boots/Crocs");
+    sandbox.write(&format!("{crocs}/boots.model"), &card_model());
+    sandbox.write(&format!("{crocs}/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{crocs}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{crocs}/skin.dds.common"), b"");
+    sandbox.write(&format!("exports/{export}/Common/skin.dds"), &small_dds());
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning file_not_used [Keep] at Boots/Crocs (file=skin.dds.common)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let boots = entries_under(&entries, BOOTS_K0644);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl", "skin.dds"]);
+}
+
 /// Writes the export `export`: `Faces/Longhair/` holding `hair_high.model`, `hair_high.mtl`
 /// naming `./hair.dds` and `hair.dds`, linked by slot 05, which holds `face_high.model`, its
 /// `.mtl` and `skin.dds`.

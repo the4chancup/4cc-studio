@@ -230,7 +230,7 @@ impl ParsedAestheticsExport {
         }
         for kind in [SharedKind::Face, SharedKind::Boots, SharedKind::Gloves] {
             for folder in folders::shared_folders(draft, kind) {
-                folders::check_shared(folder, kind, context, &mut issues);
+                folders::check_shared(draft, folder, kind, context, &mut issues);
             }
         }
         folders::check_common(draft, context, &mut issues);
@@ -310,9 +310,7 @@ impl ParsedAestheticsExport {
                     // Only a resolved `.common` link whose target is absent
                     // (pass_through) comes off; a `.common` file at a
                     // position that is never a link keeps its own finding.
-                    !resolved.iter().any(|link| {
-                        link.common_target_missing(context) && link.link_file == file.path
-                    })
+                    !links::common_target_absent(file, &resolved, context)
                 });
                 // A dropped `settings.toml`, portrait or other file of the
                 // folder (a content finding's) leaves the rest of the folder
@@ -360,13 +358,25 @@ impl ParsedAestheticsExport {
                 }
             };
             // A shared folder keeps its files but the ones a content
-            // finding drops, as a player folder does.
+            // finding drops, as a player folder does — and, as a kept
+            // player's, loses a `.common` link whose target is absent
+            // (pass_through). On PES 15-17 its links stay unread: nothing
+            // resolves them, and they are `file_not_used` instead.
             let kept_folders = |drafts: &[crate::parse::FolderDraft]| {
                 drafts
                     .iter()
                     .filter(|folder| !dropped_folders.contains(&folder.path.fold_key()))
                     .map(|folder| {
                         let mut shared = folders::shared_model_folder(folder);
+                        if let pes_version::Engine::Fox = context.version.engine() {
+                            let resolved = links::without_dropped(
+                                links::shared_links(folder, draft),
+                                &dropped_files,
+                            );
+                            shared.files.retain(|file| {
+                                !links::common_target_absent(file, &resolved, context)
+                            });
+                        }
                         shared.files.retain(file_kept);
                         shared
                     })

@@ -1502,6 +1502,509 @@ fn a_texture_link_of_the_player_s_wins_over_a_combined_folder_s_texture_of_the_s
     );
 }
 
+// TC-MOD-78
+#[test]
+fn a_combined_folder_s_texture_link_names_its_common_texture_on_pes_21() {
+    // `Faces/Round`'s `hair.dds.common` stands for `Common/hair.dds` at `hair` below the
+    // player folder, as a link of his own would: `hair_high` names it there.
+    let sandbox = Sandbox::new("tex_combined_link");
+    let export = "exports/co Midcup Hair";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    let round = format!("{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/hair_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{round}/hair.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/hair.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Hair"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hair_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "hair.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory == "/Assets/pes16/model/character/common/714/sourceimages/"),
+        "{directories:?}"
+    );
+    assert!(
+        entries.contains_key("Asset/model/character/common/714/sourceimages/#windx11/hair.ftex"),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
+// TC-TEX-17
+#[test]
+fn a_combined_folder_s_texture_link_loses_to_the_player_s_own() {
+    // His own `hair.dds` wins the path the combined folder's `hair.dds.common` stands at,
+    // as it would over the folder's own texture: `shared_texture_overridden` names it.
+    let sandbox = Sandbox::new("tex_combined_link_overridden");
+    let export = "exports/co Midcup Hair";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{player}/hair.dds"), &small_dds());
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    let round = format!("{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/hair_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{round}/hair.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/hair.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Hair"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hair_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info shared_texture_overridden [Keep] at Players/05 - A (texture=hair, folder=Faces/Round)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let package = face_package(&entries);
+    // Both models of the face package name `hair` in his own texture home, which holds
+    // `hair.ftex`.
+    for model in ["face_high.fmdl", "hair_high.fmdl"] {
+        let directories = texture_directories(package.get(model).unwrap(), "hair.dds");
+        assert!(!directories.is_empty());
+        assert!(
+            directories.iter().all(|directory| directory
+                == "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"),
+            "{model}: {directories:?}"
+        );
+    }
+    assert!(
+        entries.contains_key(
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/hair.ftex"
+        ),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
+// TC-TEX-17
+#[test]
+fn a_combined_link_and_a_link_of_his_report_nothing() {
+    // Two links at `hair`, his and the combined folder's, name the one `Common/` file:
+    // nothing is reported for the path, and both models name it in the team's Common
+    // output.
+    let sandbox = Sandbox::new("tex_two_links");
+    let export = "exports/co Midcup Hair";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{player}/hair.dds.common"), b"");
+    // An unrelated texture so the textures batch emits an entry.
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    let round = format!("{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/hair_high.fmdl"),
+        &hair_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{round}/hair.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/hair.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Hair"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hair_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let package = face_package(&entries);
+    for model in ["face_high.fmdl", "hair_high.fmdl"] {
+        let directories = texture_directories(package.get(model).unwrap(), "hair.dds");
+        assert!(!directories.is_empty());
+        assert!(
+            directories
+                .iter()
+                .all(|directory| directory
+                    == "/Assets/pes16/model/character/common/714/sourceimages/"),
+            "{model}: {directories:?}"
+        );
+    }
+}
+
+// TC-TEX-18
+#[test]
+fn a_combined_texture_and_another_package_s_link_at_one_path_conflict() {
+    // Mirror of the link's win: `Faces/Round`'s `skin.dds` copy and `Boots/Crocs`'
+    // `skin.dds.common` — the link counts as differing, the face's file wins, and the
+    // boots task is the one discarded.
+    let sandbox = Sandbox::new("tex_combined_file_conflict");
+    let export = "exports/co Midcup Skin";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    // His own boots model gives his boots package a part, so `Crocs.boots` combines; both
+    // `shirt` materials name `skin.dds`, so the merge defines it the same way.
+    sandbox.write(
+        &format!("{player}/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    let round = format!("{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/hair_high.fmdl"),
+        &hair_model_naming("skin.dds"),
+    );
+    sandbox.write(
+        &format!("{round}/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    let crocs = format!("{export}/Boots/Crocs");
+    sandbox.write(
+        &format!("{crocs}/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(&format!("{crocs}/skin.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Skin"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hair_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, dropped=boots)",
+        ],
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // The face's copy wins: `hair_high` names `skin` in his texture home, which holds
+    // `skin.ftex`; the dropped boots package is not in the CPK.
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/05 - A/sourceimages/"),
+        "{directories:?}"
+    );
+    assert!(
+        entries.contains_key(
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex"
+        ),
+        "{:#?}",
+        entries.keys()
+    );
+    assert!(
+        !entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpk"),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
+// TC-TEX-18
+#[test]
+fn two_combined_links_at_one_path_deduplicate() {
+    // `Faces/Round`'s and `Boots/Crocs`'s `skin.dds.common` name the one `Common/` file:
+    // no conflict and no drop, both packages kept, both models name `skin` in the team's
+    // Common output.
+    let sandbox = Sandbox::new("tex_two_combined_links");
+    let export = "exports/co Midcup Skin";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    // His own boots model gives his boots package a part, so `Crocs.boots` combines; both
+    // `shirt` materials name `skin.dds`, so the merge defines it the same way.
+    sandbox.write(
+        &format!("{player}/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    let round = format!("{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/hair_high.fmdl"),
+        &hair_model_naming("skin.dds"),
+    );
+    sandbox.write(&format!("{round}/skin.dds.common"), b"");
+    let crocs = format!("{export}/Boots/Crocs");
+    sandbox.write(
+        &format!("{crocs}/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(&format!("{crocs}/skin.dds.common"), b"");
+    // An unrelated texture, so the textures batch emits an entry.
+    sandbox.write(&format!("{crocs}/sole.dds"), &small_dds());
+    sandbox.write(
+        &format!("{export}/Common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Skin"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hair_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory == "/Assets/pes16/model/character/common/714/sourceimages/"),
+        "{directories:?}"
+    );
+    let boots =
+        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0625/#Win/boots.fpk"]).unwrap();
+    let directories = texture_directories(boots.get("boots.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory == "/Assets/pes16/model/character/common/714/sourceimages/"),
+        "{directories:?}"
+    );
+    assert!(
+        entries.contains_key("Asset/model/character/common/714/sourceimages/#windx11/skin.ftex"),
+        "{:#?}",
+        entries.keys()
+    );
+    // `sole.dds`, the one copy kept, is in his texture home; `skin`'s is not.
+    assert!(
+        entries.contains_key(
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/sole.ftex"
+        ),
+        "{:#?}",
+        entries.keys()
+    );
+    assert!(
+        !entries.contains_key(
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex"
+        ),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
+// TC-TEX-18
+#[test]
+fn a_combined_copy_and_a_lower_package_s_link_at_one_path_conflict() {
+    // `Boots/Crocs`'s `skin.dds` copy and `Gloves/X`'s `skin.dds.common`, the gloves
+    // combined by his own `glove_l.fmdl`: the boots copy wins canonically, the gloves
+    // task is the one discarded, and `skin.ftex` is written from it.
+    let sandbox = Sandbox::new("tex_copy_vs_glove_link");
+    let export = "exports/co Midcup Skin";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/glove_l.fmdl"), &clean_model());
+    sandbox.write(
+        &format!("{player}/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    sandbox.write(&format!("{player}/X.gloves"), b"");
+    let crocs = format!("{export}/Boots/Crocs");
+    sandbox.write(
+        &format!("{crocs}/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(
+        &format!("{crocs}/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    let gloves = format!("{export}/Gloves/X");
+    sandbox.write(&format!("{gloves}/glove_r.fmdl"), &clean_model());
+    sandbox.write(&format!("{gloves}/skin.dds.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    let findings = findings_of(&lines, "co Midcup Skin");
+    assert!(
+        findings
+            .iter()
+            .any(|line| line.contains("shared_texture_conflict")
+                && line.contains("dropped=gloves")),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // The boots copy won: `skin.ftex` is in his texture home.
+    assert!(
+        entries.contains_key(
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex"
+        ),
+        "{:#?}",
+        entries.keys()
+    );
+    // The gloves package is the one discarded.
+    assert!(
+        entries
+            .keys()
+            .all(|path| !path.contains("/glove/") || !path.ends_with("glove.fpk")),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
+// TC-TEX-18
+#[test]
+fn a_combined_link_and_another_package_s_texture_at_one_path_conflict() {
+    // `Faces/Round`'s `skin.dds.common` and `Boots/Crocs`'s `skin.dds` hold one path below
+    // the player folder: a link counts as differing from a file, so `skin` is a conflict
+    // the face wins in canonical order, and the boots task is the one discarded.
+    let sandbox = Sandbox::new("tex_combined_link_conflict");
+    let export = "exports/co Midcup Skin";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    // His own boots model gives his boots package a part, so `Crocs.boots` combines; both
+    // `shirt` materials name `skin.dds`, so the merge defines it the same way.
+    sandbox.write(
+        &format!("{player}/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    sandbox.write(&format!("{player}/Crocs.boots"), b"");
+    let round = format!("{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/hair_high.fmdl"),
+        &hair_model_naming("skin.dds"),
+    );
+    sandbox.write(&format!("{round}/skin.dds.common"), b"");
+    let crocs = format!("{export}/Boots/Crocs");
+    sandbox.write(
+        &format!("{crocs}/boots.fmdl"),
+        &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
+    );
+    sandbox.write(
+        &format!("{crocs}/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    sandbox.write(
+        &format!("{export}/Common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Skin"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Faces/Round (file=hair_high.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
+            "Error shared_texture_conflict [DropFolder] at Players/05 - A (texture=skin, dropped=boots)",
+        ],
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // The face package's `hair_high` names `skin` at the team's Common output, the link's
+    // win standing for `Common/skin.dds`; the player's home holds no `skin.ftex`, and the
+    // dropped boots package is not in the CPK.
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("hair_high.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory == "/Assets/pes16/model/character/common/714/sourceimages/"),
+        "{directories:?}"
+    );
+    assert!(
+        entries.contains_key("Asset/model/character/common/714/sourceimages/#windx11/skin.ftex"),
+        "{:#?}",
+        entries.keys()
+    );
+    assert!(
+        !entries.contains_key(
+            "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex"
+        ),
+        "{:#?}",
+        entries.keys()
+    );
+    assert!(
+        !entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpk"),
+        "{:#?}",
+        entries.keys()
+    );
+}
+
 #[test]
 fn a_texture_entry_no_mesh_uses_is_not_looked_for() {
     let sandbox = Sandbox::new("tex_unused_entry");

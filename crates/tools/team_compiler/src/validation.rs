@@ -889,7 +889,7 @@ fn file_role_messages(
 /// FMDL pairs or a `.fclo` (`pipeline.md` step 3 "Format conversion"); a file the structure
 /// pass names when it is out of place (`file_type_disallowed`): a marker, metadata, a shared
 /// folder link or a file of no known kind, one outside the places a model folder admits a file
-/// with a role (`roles::role_position`), and a `.common` link in a shared folder.
+/// with a role (`roles::role_position`).
 fn unread_for_a_known_reason(
     path: &ScopePath,
     file: &FileDescriptor,
@@ -905,8 +905,7 @@ fn unread_for_a_known_reason(
     let named_by_the_structure_pass = matches!(
         file.kind,
         FileKind::Marker(_) | FileKind::Metadata(_) | FileKind::SharedLink(_) | FileKind::Other
-    ) || !role_position(path, file)
-        || (models.is_shared() && file.kind == FileKind::CommonLink);
+    ) || !role_position(path, file);
     models.beaten(file) || other_engine_companion || named_by_the_structure_pass
 }
 
@@ -1289,35 +1288,33 @@ mod tests {
             ("Players/03 - A/Round.face", 0),
             ("Players/03 - A/Grip.gloves", 0),
             ("Faces/Round/hair_high.fmdl", 1),
+            ("Faces/Round/legs.fmdl.common", 0),
             ("Gloves/Grip/glove_l.fmdl", 1),
             ("Gloves/Grip/glove_l.skl", 1),
             ("Common/notes.xml", 1),
+            ("Common/legs.fmdl", 1),
             ("Common/x.mtl", 1),
             ("Common/x.model", 1),
             ("Common/x.skl", 1),
             ("Common/x.dds", 1),
         ];
-        let mut export = resolved("co Midcup Names", &files, &[], None);
-        // A `.common` link in a shared folder is kept only with the strict file-type check
-        // off, which `resolved` has on: added as the structure pass would keep it, with its
-        // `file_type_disallowed`.
-        let link = ScopePath::new("Faces/Round/legs.fmdl.common").unwrap();
-        export.export.faces[0].files.push(FileDescriptor {
-            size: 0,
-            kind: aesthetics_export::classify(link.name()),
-            source: link.clone(),
-            path: link,
-        });
+        let export = resolved("co Midcup Names", &files, &[], None);
+        // A model link in a shared folder has no role on either engine: `file_not_used`
+        // names it. On Fox the texture links count; this is not one.
         assert_eq!(
             names(&export, PesVersion::Pes21),
             [
+                "Warning file_not_used [Keep] at Faces/Round (file=legs.fmdl.common)",
                 "Warning file_not_used [Keep] at Gloves/Grip (file=glove_l.skl)",
                 "Warning file_not_used [Keep] (file=Common/notes.xml)",
             ]
         );
         assert_eq!(
             names(&export, PesVersion::Pes17),
-            ["Warning file_not_used [Keep] (file=Common/notes.xml)"]
+            [
+                "Warning file_not_used [Keep] at Faces/Round (file=legs.fmdl.common)",
+                "Warning file_not_used [Keep] (file=Common/notes.xml)",
+            ]
         );
     }
 

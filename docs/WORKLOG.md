@@ -57,8 +57,9 @@ model's textures travel with it and resolve beside it; (b3b4c) done 2026-10-11: 
 fixes, a linked Common file bringing the textures above it and a player `.mtl` over a
 Common model falling back beside the model; (b3c1) done 2026-10-11: a shared folder's
 subfolders follow the player folder's rules; (b3b4d) done 2026-10-11: a texture path
-into a `Common/` subfolder is checked on both engines; (b3b4e) deferred, pre-Fox; (b3c2)
-next), 4.y-fix20
+into a `Common/` subfolder is checked on both engines; (b3b4e) deferred, pre-Fox;
+(b3c2a) done 2026-10-11: a shared folder's `.common` links admitted and checked, its
+texture links counting on Fox; (b3c2b) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4069,7 +4070,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
         - (b3c2a) `aesthetics_export` admits, resolves and checks a shared folder's links
           (`common_link_missing` on the shared folder, the drop cascading to its linkers);
           on Fox its texture links count, in its own output and combined into a player's
-          (TC-MOD-75, TC-MOD-76); a link with no role there is `file_not_used`.
+          (TC-MOD-75, TC-MOD-76); a link with no role there is `file_not_used`. Done.
         - (b3c2b) Fox: its model and material-file links (Common models per source, the
           shared output's own Common lists, a shared folder holding only a model link has
           a model, the deep pass's searches and hidden-model drop).
@@ -4388,6 +4389,35 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `plan/mod.rs`, `processing/model.rs`, `tests/cli/{prefox_textures,textures}.rs`. Gates
   green locally (`.tmp/4_y/gates_sub_b3b4d.log`); mutants 25 (13 here, 12 on bonfire), 20
   caught, 5 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b4d/`).
+  (b3c2a) done 2026-10-11 (SWE-2 High, one run and two rework rounds; briefs
+  `.tmp/4_y/brief_sub_b3c2a{,_r1,_r2}.md`, reports beside them; Astra rounds A1 6/6 and
+  A2 3/4 accepted, `.tmp/4_y/duck_rulings.md` B3C2A.A1-A2): a shared folder's `.common`
+  links at any depth. AE `check_shared` admits them (a shared link stays disallowed), and on
+  PES 18-21 resolves and checks them as `check_player` does (`links::common_link_missing`,
+  one helper for both), its cascade dropping a shared folder whose link's target a pass
+  dropped and its linkers in the same pass, a kept folder losing a link with an absent
+  target (`links::without_dropped`, one filter for both folder kinds); a texture link claims
+  its stem per directory on Fox, nothing on pre-Fox, where every shared-folder link is
+  `file_not_used`. TC: `fox_file` gives a shared folder's texture link its role (model and
+  `.mtl` links wait for (b3c2b)); `linked_common_files` counts shared folders' links; a
+  shared output's `ModelFolder::common_files` holds what its links reach
+  (`roles::shared_common_files`); the deep pass's Common places read every combined
+  source's links; a combined folder's texture link takes part in the combined-conflict
+  rule with its folder's package (`processing/texture.rs` `LinkCopy`, `resolve_path`; the
+  model task's lookup keeps the same winner), two links at one path naming one `Common/`
+  texture; `output/writer.rs` `commit_folder` keeps the packages of a batch left empty by a
+  conflict the links won. Help topic `01_command_line.md` gains shared folders' links.
+  Plan: TC-MOD-75 to TC-MOD-78, TC-TEX-17, TC-TEX-18; `shared_texture_conflict` and
+  `shared_texture_overridden` rows (a link counts as differing; two links report nothing).
+  Files: AE `validate/{folders,links,mod,tests}.rs`; TC `deep/{mod,pairings}.rs`,
+  `mtl_search.rs`, `output/writer.rs`, `plan/{mod,roles}.rs`,
+  `processing/{model,texture}.rs`, `validation.rs`, `help/01_command_line.md`,
+  `tests/cli/{common_links,models,prefox_faces,textures}.rs`. Gates green locally
+  (`.tmp/4_y/gates_sub_b3c2a_r2.log`); mutants r0 69 (3 missed,
+  `.tmp/4_y/mutants_sub_b3c2a_r0/`), r1 90 (4 missed, `_r1/`), r2 92: 79 caught, 12 unviable,
+  1 missed (`_r2/`: the pre-Fox claim's texture test in `shared_texture_claim`), killed by the
+  lead's added assertion (two textures of one stem still collide on PES 17), red with the
+  mutant applied by hand.
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -4974,6 +5004,12 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-11, B3C2A.A2-1) — a `shared_texture_conflict` drops the losing package's
+  task, and with it every texture only that folder held: a surviving model of another
+  combined folder naming one of them (a face model naming a texture of the shared boots
+  it combines) then names a texture the CPK lacks, with no finding. Two differing copies
+  did so before shared folders' links; no export has shown the shape. Revisit with the
+  design-health pass.
 - open (2026-10-11, S19.1-B3) — which material files a glTF in a player or shared folder's
   subfolder reads (`model_format.md` "Name matching" is written for one flat folder; the
   `.mtl` search's two folders, the file's then the model folder's, are the likely answer):
@@ -7275,3 +7311,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   the loop ends; landed.
 - **2026-10-11** — 4.y-sub (b3b4d) landed: a texture path into a `Common/` subfolder is
   checked on both engines; its `kitN/` half went to (b4).
+- **2026-10-11** — 4.y-sub (b3c2a) landed: a shared folder's `.common` links are admitted
+  and checked; on Fox its texture links count (TC-MOD-75 to TC-MOD-78, TC-TEX-17,
+  TC-TEX-18); on PES 15-17 they are `file_not_used` (TC-MOD-77).

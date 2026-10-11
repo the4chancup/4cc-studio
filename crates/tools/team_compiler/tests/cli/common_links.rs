@@ -997,6 +997,41 @@ fn a_texture_link_whose_target_is_not_in_common_drops_its_folder() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-MOD-76
+#[test]
+fn a_shared_folder_s_texture_link_whose_target_is_missing_drops_it_and_its_linker() {
+    // A shared folder's `.common` link is checked as a player folder's is: the target
+    // nothing satisfies drops the folder, and its linker follows.
+    let sandbox = Sandbox::new("cmn_shared_link_missing");
+    let export = "exports/co Midcup Round";
+    let round = format!("{export}/Faces/Round");
+    sandbox.write(
+        &format!("{round}/fcl_hair.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(&format!("{round}/hair.dds.common"), b"");
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(&format!("{player}/Round.face"), b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Round"),
+        [
+            "Error common_link_missing [DropFolder] at Faces/Round (link=hair.dds.common, path=Common/hair.dds)",
+            "Error link_target_dropped [DropFolder] at Players/05 - A (link=Round.face, target=Faces/Round, finding=common_link_missing)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+}
+
 // TC-MOD-54
 #[test]
 fn a_fox_model_whose_mtl_is_a_common_file_converts_with_it() {
@@ -1963,7 +1998,10 @@ fn a_common_mtl_a_link_s_search_falls_back_to_is_checked_on_pes_21() {
 }
 
 #[test]
-fn a_shared_folder_s_common_link_is_disallowed_and_read_by_nothing() {
+fn a_shared_folder_s_common_link_is_admitted_and_read_by_nothing() {
+    // A model link in a shared folder is admitted as a player's is, and resolved against
+    // `Common/` — but it has no role yet, so `file_not_used` names it and the folder
+    // compiles as if it were not there.
     let sandbox = Sandbox::new("cmn_shared_link");
     let export = "exports/co Midcup Crocs";
     sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
@@ -1972,20 +2010,21 @@ fn a_shared_folder_s_common_link_is_disallowed_and_read_by_nothing() {
         &tracer_player_file("boots.fmdl"),
     );
     sandbox.write(&format!("{export}/Boots/Crocs/legs.fmdl.common"), b"");
-    let settings = format!(
-        "{}[team-compiler]\nstrict_file_type_check = false\n",
-        pes21_settings(&sandbox)
+    sandbox.write(
+        &format!("{export}/Common/legs.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
     );
 
-    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
         findings_of(&lines, "co Midcup Crocs"),
         [
-            "Info file_type_disallowed [Keep] at Boots/Crocs (file=legs.fmdl.common)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning file_not_used [Keep] at Boots/Crocs (file=legs.fmdl.common)",
             "Info team_colors_missing [Keep] ()"
         ],
         "{lines:#?}"
@@ -2016,18 +2055,13 @@ fn a_shared_folder_s_mtl_link_gives_its_model_no_material_set() {
     sandbox.write(&format!("{export}/Boots/Crocs/boots.mtl.common"), b"");
     sandbox.write(&format!("{export}/Common/boots.mtl"), &card_materials());
     sandbox.write(&format!("{export}/Common/skin.dds"), &small_dds());
-    let settings = format!(
-        "{}[team-compiler]\nstrict_file_type_check = false\n",
-        pes21_settings(&sandbox)
-    );
 
-    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
         findings_of(&lines, "co Midcup Crocs"),
         [
-            "Info file_type_disallowed [Keep] at Boots/Crocs (file=boots.mtl.common)",
             "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=face_high.fmdl, count=1662)",
             "Error model_material_undefined [DropFolder] at Boots/Crocs (file=boots.model)",
             "Error link_target_dropped [DropFolder] at Players/05 - A (link=Crocs.boots, target=Boots/Crocs, finding=model_material_undefined)",
@@ -2059,19 +2093,15 @@ fn a_combined_shared_folder_s_mtl_link_is_not_resolved_in_common() {
     sandbox.write(&format!("{crocs}/skin.dds"), &small_dds());
     sandbox.write(&format!("{crocs}/boots.mtl.common"), b"");
     sandbox.write(&format!("{export}/Common/boots.mtl"), &card_materials());
-    let settings = format!(
-        "{}[team-compiler]\nstrict_file_type_check = false\n",
-        pes21_settings(&sandbox)
-    );
 
-    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
         findings_of(&lines, "co Midcup Crocs"),
         [
-            "Info file_type_disallowed [Keep] at Boots/Crocs (file=boots.mtl.common)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning file_not_used [Keep] at Boots/Crocs (file=boots.mtl.common)",
             "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"

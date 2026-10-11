@@ -37,7 +37,8 @@ use roles::{
     is_hand_split, is_package_model, is_read_common_file, is_selected_common_model,
     leaves_out_kit_variants, link_combines, link_feeds_own_package, link_name, linked_common_files,
     linked_folder, native_format, package_of, part_source_models, player_file, role_files,
-    selected_common_model, shared_folders, shared_kind_of, skeleton_slot, texture_format,
+    selected_common_model, shared_common_files, shared_folders, shared_kind_of, skeleton_slot,
+    texture_format,
 };
 
 /// What planning produced: the manifest and the findings planning itself made.
@@ -154,7 +155,7 @@ pub(crate) struct ModelFolder {
     pub(crate) combined: Vec<CombinedFolder>,
     /// The player folder's `.common` model links, each resolved to the Common model it brings
     /// in as a part (`common_models`; on pre-Fox only an `ingame_face` player's). Empty for a
-    /// shared folder, which holds no link.
+    /// shared folder, whose model links have no role.
     pub(crate) common_models: Vec<CommonModel>,
     /// The stems, folded, of the textures directly in the export's `Common/` folder, which the
     /// export's Common textures task emits into the team's Common output: a Common part's
@@ -173,7 +174,9 @@ pub(crate) struct ModelFolder {
     /// texture link stands for and the ones a linked model or `.mtl` brings, each spelled as
     /// `Common/` does
     /// (`roles::common_texture_below`), Fox's Common parts being resolved at planning
-    /// (`common_models`); empty for a shared folder, whose links have no role. The face task
+    /// (`common_models`); a shared folder's holds the `Common/` textures its own texture
+    /// links reach on Fox (`roles::shared_common_files`), nothing on pre-Fox, its links
+    /// staying unread there. The face task
     /// tells a model link's Common `.model` from a Common FMDL the Common models task converts
     /// (`roles::selected_common_model`), its `.mtl` search looks in Common for a `.model.common`
     /// link and resolves a `.mtl.common` link there (`mtl_search::mtl_for`), and a texture link
@@ -1057,7 +1060,8 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             &hand_weighted,
             &mut messages,
         );
-        // What PES 18-21 reads of a `Common/` subfolder: the files a player's link reaches.
+        // What PES 18-21 reads of a `Common/` subfolder: the files a model folder's link
+        // reaches.
         let linked_common = linked_common_files(&export);
         drop_common_gltfs(
             version.engine(),
@@ -1081,8 +1085,8 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         // Pre-Fox loads Common at run time: its `.model` and `.mtl` files, and its FMDLs
         // converted, are one more task of the export's per directory, and a player's face
         // names them and its textures, a member's `face.xml` a subfolder's too, which its task
-        // finds among the model, `.mtl` and texture files. Fox reads Common through a player's
-        // links alone: a model link's Common model is resolved per folder (`common_models`),
+        // finds among the model, `.mtl` and texture files. Fox reads Common through a model
+        // folder's links alone: a model link's Common model is resolved per folder (`common_models`),
         // and a `.mtl.common` link's Common `.mtl` is among the `.mtl` files a player's
         // `.model` search resolves the link against (`mtl_search::mtl_for`), the ones directly
         // in `Common/` and the subfolder ones a link reaches (`linked_common_files`): a player
@@ -1135,7 +1139,13 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     combined: Vec::new(),
                     common_models: Vec::new(),
                     common_texture_stems: common_texture_stems.clone(),
-                    common_files: Vec::new(),
+                    common_files: shared_common_files(
+                        &export,
+                        &folder.path,
+                        &folder.files,
+                        kind,
+                        version.engine(),
+                    ),
                     hand_split: BTreeSet::new(),
                     environment_map: false,
                     refkit_body: false,
@@ -1290,7 +1300,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         // directory with the textures in `linked_common_files` alone, a textures task only:
         // Fox has no Common model output, so no models task, and the template environment map
         // is `Common/`'s own. A subfolder file a Fox link reaches that is no texture (a model
-        // and what travels with it) is read by the linking player's own tasks, never by a
+        // and what travels with it) is read by the linking folders' own tasks, never by a
         // task of its directory.
         // Each with the files its models task reads.
         let mut read_directories: Vec<(ScopePath, Vec<FileDescriptor>, Vec<FileDescriptor>)> =
@@ -1300,7 +1310,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     // On PES 18-21 a subfolder's task packs the textures a link reaches
                     // (`linked_common_files`: the ones it names, and the ones a linked
                     // model or `.mtl` brings from its directory) alone; the directory's
-                    // other files are the linking players' or are read by nothing
+                    // other files are the linking folders' or are read by nothing
                     // (`file_not_used`), and a subfolder no link reaches is left with no
                     // files and plans no task.
                     let files = match version.engine() {

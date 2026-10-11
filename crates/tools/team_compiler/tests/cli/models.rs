@@ -2830,6 +2830,91 @@ fn a_combined_folder_s_files_stand_at_their_paths_below_the_player_folder() {
     );
 }
 
+// TC-MOD-75
+#[test]
+fn a_shared_folder_s_texture_link_names_its_common_texture_on_pes_21() {
+    // `jessie/armor_bsm.dds.common` stands for `Common/jessie/armor_bsm.dds` in `Boots/Crocs`
+    // as it would in a player folder: `boots.fmdl`'s `./jessie/armor_bsm` resolves to it.
+    let sandbox = Sandbox::new("mod_shared_texture_link");
+    let export = "co Midcup Crocs";
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Crocs.boots"), b"");
+    let crocs = format!("exports/{export}/Boots/Crocs");
+    sandbox.write(
+        &format!("{crocs}/boots.fmdl"),
+        &tracer_model_pointing("boots.fmdl", &[("shirt.dds", "armor_bsm.dds")], "./jessie/"),
+    );
+    sandbox.write(&format!("{crocs}/jessie/armor_bsm.dds.common"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/armor_bsm.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let entries = compile_clean(
+        &sandbox,
+        export,
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let package =
+        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0644/#Win/boots.fpk"]).unwrap();
+    let directories = texture_directories(package.get("boots.fmdl").unwrap(), "armor_bsm.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/jessie/sourceimages/"),
+        "{directories:?}"
+    );
+    let armor = "Asset/model/character/common/714/jessie/sourceimages/#windx11/armor_bsm.ftex";
+    assert!(entries.contains_key(armor), "{:#?}", entries.keys());
+}
+
+// TC-MOD-75
+#[test]
+fn a_shared_folder_s_texture_link_takes_the_common_file_s_spelling_on_pes_21() {
+    // As a player's link does: the texture's path below `Common/` is spelled as `Common/`
+    // spells it (`Common/JESSIE/Armor_Bsm.dds`), so the model's directory and the FTEX are
+    // `JESSIE/`'s, not the link's `jessie/`.
+    let sandbox = Sandbox::new("mod_shared_texture_spelling");
+    let export = "co Midcup Crocs";
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Crocs.boots"), b"");
+    let crocs = format!("exports/{export}/Boots/Crocs");
+    sandbox.write(
+        &format!("{crocs}/boots.fmdl"),
+        &tracer_model_pointing("boots.fmdl", &[("shirt.dds", "armor_bsm.dds")], "./jessie/"),
+    );
+    sandbox.write(&format!("{crocs}/jessie/armor_bsm.dds.common"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Common/JESSIE/Armor_Bsm.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let entries = compile_clean(
+        &sandbox,
+        export,
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+    );
+
+    let package =
+        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0644/#Win/boots.fpk"]).unwrap();
+    let directories = texture_directories(package.get("boots.fmdl").unwrap(), "armor_bsm.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/JESSIE/sourceimages/"),
+        "{directories:?}"
+    );
+    let armor = "Asset/model/character/common/714/JESSIE/sourceimages/#windx11/Armor_Bsm.ftex";
+    assert!(entries.contains_key(armor), "{:#?}", entries.keys());
+}
+
 #[test]
 fn a_fmdl_texture_named_by_its_path_is_not_found_by_its_name_elsewhere_on_pes_21() {
     // The root's `skin.dds` is not at `./textures/`.

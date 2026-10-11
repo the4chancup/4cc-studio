@@ -130,7 +130,12 @@ pub(super) fn package(
         ModelPackage::Face | ModelPackage::Gloves => true,
         ModelPackage::Boots => false,
     };
-    for ((_, source_path, source_roles), source_files) in
+    // The claim each combined source stands at a path below the folder, kept to the winner
+    // `resolve_path` (`processing::texture`) picks: the highest package's in canonical
+    // order, a texture `.common` link claiming the path as its folder's copy would, so no
+    // model names the losing one.
+    let mut claims: BTreeMap<String, Vec<(ModelPackage, bool, String)>> = BTreeMap::new();
+    for ((source_package, source_path, source_roles), source_files) in
         folder.roles().into_iter().zip(source_files)
     {
         // A skeleton pairs with the model of its stem in the same directory: keyed by the
@@ -170,8 +175,8 @@ pub(super) fn package(
                     let model = source_name(&file.path, &folder.path);
                     let mtl = if file.kind == FileKind::Model(ModelFormat::PesModel) {
                         // A combined shared folder's search sees no `Common/` file, as the deep
-                        // pass's does (`deep::pairings`): its `.common` links have no role, and
-                        // the Common `.mtl` one names is not among the task's files.
+                        // pass's does (`deep::pairings`): its `.mtl.common` link has no role,
+                        // and the Common `.mtl` one names is not among the task's files.
                         let common: &[FileDescriptor] = if source_path == &folder.path {
                             &folder.common_files
                         } else {
@@ -247,12 +252,28 @@ pub(super) fn package(
                 // task's; this task only points its models at them. Stems fold, as validation
                 // folds the name a texture claims.
                 PlayerFile::Texture { below, .. } => {
-                    textures.insert(source_path == &folder.path, &below);
+                    if source_path == &folder.path {
+                        textures.insert(true, &below);
+                    } else {
+                        claims.entry(vtree::fold_name(&below)).or_default().push((
+                            source_package,
+                            false,
+                            below,
+                        ));
+                    }
                 }
                 PlayerFile::CommonTexture(below) => {
                     let below = common_texture_below(&folder.common_files, &below);
-                    textures.insert_link(source_path == &folder.path, &below);
                     linked_stems.insert(vtree::fold_name(&below));
+                    if source_path == &folder.path {
+                        textures.insert_link(true, &below);
+                    } else {
+                        claims.entry(vtree::fold_name(&below)).or_default().push((
+                            source_package,
+                            true,
+                            below,
+                        ));
+                    }
                 }
                 PlayerFile::Model { .. }
                 | PlayerFile::CommonModel { .. }
@@ -279,6 +300,25 @@ pub(super) fn package(
                 // task meets it.
                 PlayerFile::UnsupportedGltf => {}
             }
+        }
+    }
+    for (_, claimants) in claims {
+        let winner = ModelPackage::ALL
+            .into_iter()
+            .find(|package| {
+                claimants
+                    .iter()
+                    .any(|(candidate, _, _)| candidate == package)
+            })
+            .expect("a path's claimants are non-empty");
+        let (_, link, below) = claimants
+            .into_iter()
+            .find(|(package, _, _)| *package == winner)
+            .expect("the winning package claims the path");
+        if link {
+            textures.insert_link(false, &below);
+        } else {
+            textures.insert(false, &below);
         }
     }
 

@@ -1032,6 +1032,11 @@ TC-MOD-75  GIVEN Common/jessie/armor_bsm.dds, Boots/Crocs holding boots.fmdl nam
                 /Assets/pes16/model/character/common/<team>/jessie/sourceimages/, the CPK holds
                 that directory's #windx11/armor_bsm.ftex, and no file_type_disallowed,
                 file_not_used or fmdl_texture_not_found is reported
+TC-MOD-78  GIVEN Common/hair.dds, and slot 05 holding face_high.fmdl and linking Faces/Round,
+           which holds hair_high.fmdl naming hair and hair.dds.common
+           WHEN the export is compiled for PES 21
+           THEN hair_high in 71405's face package names hair in
+                /Assets/pes16/model/character/common/714/sourceimages/, and no finding names hair
 TC-MOD-76  GIVEN Faces/Round holding fcl_hair.fmdl and hair.dds.common, no hair.dds in Common/,
            and slot 05 holding face_high.fmdl and linking Round.face
            WHEN the export is checked for PES 21
@@ -1146,6 +1151,20 @@ TC-TEX-16  GIVEN slot 05 holding face_high.fmdl naming hair, hair.dds.common and
            THEN both models in 71405's face package name hair in
                 /Assets/pes16/model/character/common/714/sourceimages/, no hair.ftex is in slot
                 05's texture folder, and shared_texture_overridden names hair and Faces/Round
+TC-TEX-17  GIVEN slot 05 holding face_high.fmdl naming hair and hair.dds, Common/hair.dds, and
+           slot 05 linking Faces/Round, whose folder holds hair_high.fmdl naming hair and
+           hair.dds.common
+           WHEN the export is compiled for PES 21
+           THEN both models in 71405's face package name hair in
+                /Assets/pes16/model/character/common/714/05 - A/sourceimages/, the CPK holds
+                that directory's #windx11/hair.ftex, and shared_texture_overridden names hair
+                and Faces/Round
+TC-TEX-18  GIVEN Common/skin.dds, and slot 05 holding face_high.fmdl and boots.fmdl (so his
+           boots combine) and linking Faces/Round, holding hair_high.fmdl naming skin and
+           skin.dds.common, and Boots/Crocs, holding boots.fmdl naming skin and skin.dds
+           WHEN the export is compiled for PES 21
+           THEN shared_texture_conflict names skin, the boots task is the one discarded, and
+                hair_high names skin in /Assets/pes16/model/character/common/714/sourceimages/
 TC-TEX-13  GIVEN slot 05 holding no model and an env.dds that is a 128x128 DXT5 cube map with
            eight mip levels (the bundled template's bytes); the textures task reads no model,
            and a Fox model converted for PES 17 would add its own findings to the run

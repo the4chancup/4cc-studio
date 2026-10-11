@@ -91,8 +91,8 @@ impl<'a> Candidate<'a> {
 /// at `folder`), each `.mtl.common` link there standing for the `common` file at its path
 /// (`common_link_target`), in the search's order (`sorted`). A link naming no `Common/` file is
 /// not one: validation drops a player folder holding such a link,
-/// and a shared folder's links are not resolved (they have no role there, and its tasks are
-/// given no `Common/` files).
+/// and a shared folder's `.mtl` link has no role, its tasks' search given no `Common/`
+/// files to resolve it against.
 fn mtls_in<'a>(
     searched: &ScopePath,
     folder: &ScopePath,

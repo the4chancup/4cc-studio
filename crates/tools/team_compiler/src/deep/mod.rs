@@ -213,7 +213,7 @@ impl KeptCommon {
 /// (`templates::referee_common_paths`).
 ///
 /// It checks only what `compile` reads: not for PES 2018 to 2021 a file below a `Common/`
-/// subfolder that no player's link reaches (`is_read_common_file`, `linked_common_files`), nor a
+/// subfolder that no model folder's link reaches (`is_read_common_file`, `linked_common_files`), nor a
 /// `Common/` model another of its stem beats (`is_selected_common_model`), which is dropped
 /// with that winner instead (`drop_beaten_common_models`), nor for PES 2018 to 2021 a
 /// `Common/` `.mtl` no player folder's search may read (`searched_common_mtls`), nor a kit
@@ -269,7 +269,8 @@ pub(crate) fn content_findings(
             (combined, models)
         })
         .collect();
-    // What PES 18-21 reads of a `Common/` subfolder: the files a player's link reaches.
+    // What PES 18-21 reads of a `Common/` subfolder: the files a model folder's link
+    // reaches.
     let linked_common = linked_common_files(export);
     // On Fox a `Common/` `.mtl` is read only by the search of a model converted with it.
     let searched_mtls = match engine {
@@ -424,7 +425,8 @@ pub(crate) fn content_findings(
         .par_iter()
         .map(|face| {
             let models = FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine);
-            // A shared face links no other, and its `.common` links have no role.
+            // A shared face links no other, and its `.common` links to a model or a `.mtl`
+            // have no role.
             let read = ReadFolder {
                 path: &face.path,
                 files: &face.files,
@@ -850,7 +852,7 @@ struct ReadFolder<'a> {
     combined: &'a [(SharedKind, &'a SharedModelFolder)],
     /// The `Common/` FMDLs the pass dropped as hidden, which a player folder's `.common` link
     /// naming one is dropped with (`hidden_link_finding`); empty for a shared folder, whose
-    /// links have no role.
+    /// model links have no role.
     hidden_common: &'a [FileDescriptor],
 }
 
@@ -1024,6 +1026,19 @@ fn folder_findings(
         if let Some(PlayerFile::CommonTexture(below)) = player_file(folder, file, models) {
             common_held.insert_link(&below);
             common_below.insert(vtree::fold_name(&below));
+        }
+    }
+    // The combined folders' texture links too, standing at their paths as the Models
+    // task's `linked_stems` reads every source's (`processing::model`).
+    for (kind, source) in combined {
+        let source_models = FolderModels::of_shared(&source.path, &source.files, *kind, engine);
+        for file in &source.files {
+            if let Some(PlayerFile::CommonTexture(below)) =
+                player_file(&source.path, file, &source_models)
+            {
+                common_held.insert_link(&below);
+                common_below.insert(vtree::fold_name(&below));
+            }
         }
     }
     // The Common `.mtl` files looked up for this folder so far: two links finding one are one

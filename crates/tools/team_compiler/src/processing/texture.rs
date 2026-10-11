@@ -10,7 +10,7 @@
 //! it drops is the task's business.
 
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use aesthetics_export::{FileDescriptor, KitToken, kit_token, variant_stem, without_kit_token};
@@ -88,6 +88,18 @@ struct TextureCopy {
     source: Option<String>,
 }
 
+/// A combined shared folder's `.common` link claiming a path (`PlayerFile::CommonTexture`):
+/// the package its source feeds for the conflict rule's canonical order, the folder's export
+/// path for `shared_texture_overridden`, and the path it stands at as spelled. It stands at
+/// the path as its folder's copy would, and its `Common/` file serves it, so it always
+/// differs from a file there, while two links at one path name the one `Common/` file
+/// (`pipeline.md` step 6).
+struct LinkCopy {
+    package: ModelPackage,
+    folder: String,
+    below: String,
+}
+
 /// The textures of `folder`, its own and its combined folders', converted from their bytes in
 /// `files` into the folder's texture home for team `team_id`, each at its path below its source
 /// folder (`PlayerFile::Texture`), compared case-folded: one entry per path, however many of the
@@ -119,9 +131,11 @@ pub(super) fn folder_textures(
     findings: &mut Vec<Finding>,
 ) -> Result<(Vec<Entry>, Vec<ModelPackage>), TaskFailure> {
     // Each path's copies in source order: the player's own folder's, then each combined
-    // folder's; and the player's own texture links, each by the folded path it stands at.
+    // folder's; the player's own texture links, each by the folded path it stands at; and
+    // each combined folder's, which stand at their paths as their folders' copies do.
     let mut copies: BTreeMap<String, Vec<TextureCopy>> = BTreeMap::new();
     let mut own_links: BTreeMap<String, String> = BTreeMap::new();
+    let mut combined_links: BTreeMap<String, Vec<LinkCopy>> = BTreeMap::new();
     for (package, source_path, source_files) in folder.roles() {
         // `roles` yields the folder's own files first; a combined folder's copy carries its
         // export path for `shared_texture_overridden`'s `folder`.
@@ -140,19 +154,42 @@ pub(super) fn folder_textures(
                             source: combined.clone(),
                         });
                 }
-                // Only the player's own files carry this role: a shared folder's
-                // `.common` link has none (`roles`).
-                PlayerFile::CommonTexture(below) => {
-                    own_links.entry(vtree::fold_name(&below)).or_insert(below);
-                }
+                PlayerFile::CommonTexture(below) => match &combined {
+                    // A link of his stands at the path as the texture it names: it wins
+                    // every copy there (`resolve_path`), and writes no entry of its own.
+                    None => {
+                        own_links.entry(vtree::fold_name(&below)).or_insert(below);
+                    }
+                    // A combined folder's link is a source with its folder's package, a
+                    // claimant of the path like a copy (`resolve_path`).
+                    Some(source) => {
+                        combined_links
+                            .entry(vtree::fold_name(&below))
+                            .or_default()
+                            .push(LinkCopy {
+                                package,
+                                folder: source.clone(),
+                                below,
+                            });
+                    }
+                },
                 _ => {}
             }
         }
     }
     // Findings and drops first, the entries after: a path's emit sees the final `dropped`.
     let mut dropped: Vec<ModelPackage> = Vec::new();
-    for (path, path_copies) in &copies {
-        resolve_path(path, path_copies, &own_links, &mut dropped, findings);
+    let mut paths: BTreeSet<&String> = copies.keys().collect();
+    paths.extend(combined_links.keys());
+    for path in paths {
+        resolve_path(
+            path,
+            copies.get(path).map_or(&[][..], Vec::as_slice),
+            &own_links,
+            combined_links.get(path).map_or(&[][..], Vec::as_slice),
+            &mut dropped,
+            findings,
+        );
     }
     let environment_map = folder.takes_template_environment_map().then(|| {
         (
@@ -171,15 +208,23 @@ pub(super) fn folder_textures(
                 .position(|copy| copy.source.is_none())
                 .or_else(|| {
                     if own_links.contains_key(&path) {
-                        None
-                    } else {
-                        ModelPackage::ALL
-                            .into_iter()
-                            .filter(|package| !dropped.contains(package))
-                            .find_map(|package| {
-                                path_copies.iter().position(|copy| copy.package == package)
-                            })
+                        return None;
                     }
+                    let links = combined_links.get(&path).map_or(&[][..], Vec::as_slice);
+                    // The path's winner as `resolve_path` picks it, canonical order: a
+                    // copy's is written; a link's is none, the `Common/` texture it
+                    // names serving the path.
+                    let winner = ModelPackage::ALL
+                        .into_iter()
+                        .filter(|package| !dropped.contains(package))
+                        .find(|package| {
+                            path_copies.iter().any(|copy| copy.package == *package)
+                                || links.iter().any(|link| link.package == *package)
+                        })?;
+                    if links.iter().any(|link| link.package == winner) {
+                        return None;
+                    }
+                    path_copies.iter().position(|copy| copy.package == winner)
                 })?;
             let copy = path_copies
                 .into_iter()
@@ -256,26 +301,40 @@ fn complete_kit_variants(
     }
 }
 
-/// Decides one path held by `copies`, several sources' in source order, noting its findings
-/// in `findings` and its dropped packages in `dropped`. A copy of the player's own (its
-/// `source` `None`) wins whatever the packages, the local file over the imported ones: it is
-/// the copy the path's entry is written from, each combined copy left out,
+/// Decides one path held by `copies`, several sources' in source order, and by `links`, the
+/// combined folders' texture links standing at it as their folders' copies do, noting its
+/// findings in `findings` and its dropped packages in `dropped`. A copy of the player's own
+/// (its `source` `None`) wins whatever the packages, the local file over the imported ones:
+/// it is the copy the path's entry is written from, each combined copy left out,
 /// `shared_texture_overridden` noted when its bytes differ from his, identical bytes
-/// deduplicating in silence. A texture link of his standing at `path` (`own_links`) wins the
-/// same way and is noted for every combined copy, a link always counting as differing,
+/// deduplicating in silence — and a combined folder's link left out is noted the same way,
+/// the link always differing from his file. A texture link of his standing at `path`
+/// (`own_links`) wins the
+/// same way and is noted for every combined copy and link, a link always counting as differing,
 /// nothing comparing the Common texture's bytes; the path gets no entry, the Common texture
-/// the link names serving the models that look for it. With neither, the path is the
-/// packages': the highest one holding it in canonical order wins, each lower package holding
-/// it with different bytes is noted (`shared_texture_conflict`) and added to `dropped`. Two
+/// the link names serving the models that look for it. With neither, the combined folders'
+/// claims resolve in canonical order (`face` > `boots` > `gloves`): the highest package's
+/// wins, a link standing at the path as its folder's copy would and always differing from a
+/// file, so a link and a file of different packages are `shared_texture_conflict`, each lower
+/// package's noted and added to `dropped`; two links at one path name the one `Common/` file
+/// and deduplicate in silence. Two
 /// copies of one package cannot disagree here: the player's own would have won first, and a
 /// player combines one folder of each kind.
 fn resolve_path(
     path: &str,
     copies: &[TextureCopy],
     own_links: &BTreeMap<String, String>,
+    links: &[LinkCopy],
     dropped: &mut Vec<ModelPackage>,
     findings: &mut Vec<Finding>,
 ) {
+    let overridden = |findings: &mut Vec<Finding>, texture: String, folder: String| {
+        findings.push((
+            Code::SharedTextureOverridden,
+            Disposition::Keep,
+            vec![("texture", texture), ("folder", folder)],
+        ));
+    };
     if let Some(own) = copies.iter().position(|copy| copy.source.is_none()) {
         for copy in copies {
             let Some(source) = &copy.source else {
@@ -284,53 +343,76 @@ fn resolve_path(
             if copy.bytes == copies[own].bytes {
                 continue;
             }
-            findings.push((
-                Code::SharedTextureOverridden,
-                Disposition::Keep,
-                vec![
-                    ("texture", copies[own].below.clone()),
-                    ("folder", source.clone()),
-                ],
-            ));
+            overridden(findings, copies[own].below.clone(), source.clone());
+        }
+        for link in links {
+            overridden(findings, copies[own].below.clone(), link.folder.clone());
         }
         return;
     }
     if let Some(link) = own_links.get(path) {
         for copy in copies {
-            findings.push((
-                Code::SharedTextureOverridden,
-                Disposition::Keep,
-                vec![
-                    ("texture", link.clone()),
-                    (
-                        "folder",
-                        copy.source
-                            .clone()
-                            .expect("no own copy stands at the path: it would have won above"),
-                    ),
-                ],
-            ));
+            overridden(
+                findings,
+                link.clone(),
+                copy.source
+                    .clone()
+                    .expect("no own copy stands at the path: it would have won above"),
+            );
         }
+        // A combined folder's link here is nothing to report: his link and it stand for
+        // the one `Common/` file the path names (`shared_texture_overridden`, "the two
+        // copies differing or one of them a link").
         return;
     }
-    let winner = ModelPackage::ALL
-        .into_iter()
-        .find_map(|package| copies.iter().position(|copy| copy.package == package))
-        .expect("a path holds at least one copy");
-    for copy in copies {
-        if copy.package == copies[winner].package || copy.bytes == copies[winner].bytes {
-            continue;
-        }
+    // The winning claimant's package in canonical order, `face` first: each losing one
+    // reports `shared_texture_conflict` and drops.
+    let Some(winner) = ModelPackage::ALL.into_iter().find(|package| {
+        copies.iter().any(|copy| copy.package == *package)
+            || links.iter().any(|link| link.package == *package)
+    }) else {
+        return;
+    };
+    let winner_copy = copies.iter().find(|copy| copy.package == winner);
+    let winner_below = winner_copy
+        .map(|copy| copy.below.clone())
+        .or_else(|| {
+            links
+                .iter()
+                .find(|link| link.package == winner)
+                .map(|link| link.below.clone())
+        })
+        .expect("the winning package has a claimant");
+    let mut drop_package = |package: ModelPackage| {
         findings.push((
             Code::SharedTextureConflict,
             Disposition::DropFolder,
             vec![
-                ("texture", copies[winner].below.clone()),
-                ("dropped", copy.package.name().to_owned()),
+                ("texture", winner_below.clone()),
+                ("dropped", package.name().to_owned()),
             ],
         ));
-        if !dropped.contains(&copy.package) {
-            dropped.push(copy.package);
+        if !dropped.contains(&package) {
+            dropped.push(package);
+        }
+    };
+    for copy in copies {
+        if copy.package == winner {
+            continue;
+        }
+        // A file outlives the winner only on identical bytes; against a link every file
+        // differs.
+        if winner_copy.is_none_or(|winner| copy.bytes != winner.bytes) {
+            drop_package(copy.package);
+        }
+    }
+    // A link always differs from a file: every losing link drops its package. Two links
+    // never reach here, each standing for the one `Common/` file the path names.
+    if winner_copy.is_some() {
+        for link in links {
+            if link.package != winner {
+                drop_package(link.package);
+            }
         }
     }
 }

@@ -514,22 +514,7 @@ pub(crate) fn check_player(
             ));
         }
     }
-    for link in &resolved {
-        if let links::ResolvedLinkKind::Common(name) = &link.kind
-            && link.common_target_missing(context)
-        {
-            issues.push(issue_in(
-                context,
-                "common_link_missing",
-                scope.clone(),
-                vec![
-                    ("link", link.link_name.clone()),
-                    ("path", format!("Common/{name}")),
-                ],
-                Disposition::DropFolder,
-            ));
-        }
-    }
+    links::common_link_missing(&scope, &resolved, context, issues);
 
     // 5. Both fpc markers contradict.
     let fpc_on = folder.files.iter().any(|file| {
@@ -601,9 +586,9 @@ pub(crate) fn check_player(
     edithair_files(folder, context, issues);
 }
 
-/// The name `file`, a file of a player folder, claims in the texture namespace of the folder
-/// holding it: a texture's own, or the linked name of a texture `.common` link at any depth;
-/// `None` for any other file.
+/// The name `file`, a file of a model folder (a player folder's or a shared one's), claims
+/// in the texture namespace of the folder holding it: a texture's own, or the linked name
+/// of a texture `.common` link at any depth; `None` for any other file.
 fn texture_claim(file: &FileDescriptor) -> Option<String> {
     if file.kind == FileKind::Texture {
         return Some(file.path.name().to_owned());
@@ -614,22 +599,23 @@ fn texture_claim(file: &FileDescriptor) -> Option<String> {
     common_link_name(file.path.name()).filter(|name| classify(name) == FileKind::Texture)
 }
 
-/// The name `file`, a file of a shared folder, claims in the texture namespace of the
-/// directory holding it: its own when it is a texture. A shared folder's links claim
-/// nothing, its `.common` links having no role there.
-fn shared_texture_claim(file: &FileDescriptor) -> Option<String> {
-    if file.kind == FileKind::Texture {
-        return Some(file.path.name().to_owned());
+/// The claim function of a shared folder's files on a target of `engine`: `texture_claim`
+/// as a player's on PES 18-21, where the folder's links count; a texture's name alone on
+/// PES 15-17, where the links stay unread (`file_not_used`) and claim nothing.
+fn shared_texture_claim(engine: pes_version::Engine) -> fn(&FileDescriptor) -> Option<String> {
+    match engine {
+        pes_version::Engine::Fox => texture_claim,
+        pes_version::Engine::PreFox => {
+            |file| (file.kind == FileKind::Texture).then(|| file.path.name().to_owned())
+        }
     }
-    None
 }
 
 /// One `texture_stem_conflict` per folded stem two or more files of `folder` claim in one
 /// directory of its tree: a texture name resolves nearest first, in its model's folder
 /// before each parent (`player_folders.md` "Subfolders"), so the same stem in two
 /// directories is no conflict. `claim` is what a file asserts in its directory's namespace
-/// (`texture_claim` for a player folder's links, `shared_texture_claim` for a shared
-/// folder's, whose links are roleless).
+/// (`texture_claim` for a player or shared folder's links).
 fn tree_stem_conflicts(
     folder: &FolderDraft,
     claim: impl Fn(&FileDescriptor) -> Option<String>,
@@ -675,10 +661,11 @@ pub(crate) fn fold(name: &str) -> String {
     vtree::fold_name(name)
 }
 
-/// A shared folder's own findings: the allowlist, stem collisions, the
-/// boots/gloves naming rule (`fmdl_name_invalid` on Fox, `model_name_invalid`
-/// on pre-Fox), and the edit-hair files.
+/// A shared folder's own findings: the allowlist, its `.common` links' missing targets,
+/// stem collisions, the boots/gloves naming rule (`fmdl_name_invalid` on Fox,
+/// `model_name_invalid` on pre-Fox), and the edit-hair files.
 pub(crate) fn check_shared(
+    draft: &AestheticsExportDraft,
     folder: &FolderDraft,
     kind: SharedKind,
     context: &ValidationContext,
@@ -688,12 +675,13 @@ pub(crate) fn check_shared(
 
     // A shared folder's tree is a player folder's (`player_folders.md` "Subfolders"): model
     // content directly in the folder, and below a subfolder what a player's admits except a
-    // link of either kind — a shared folder holds no shared link, and its `.common` links
-    // count for nothing.
+    // shared link — it holds none — while its `.common` links count at any depth.
     for file in &folder.files {
         let allowed = match position(&file.path, &folder.path) {
-            Position::Direct => is_model_content(file.kind),
-            Position::Below => player_below_allowed(file) && !counts_as_link(file),
+            Position::Direct => is_model_content(file.kind) || file.kind == FileKind::CommonLink,
+            Position::Below => {
+                player_below_allowed(file) && !matches!(file.kind, FileKind::SharedLink(_))
+            }
         };
         if !allowed {
             issues.push(issue_in(
@@ -706,9 +694,22 @@ pub(crate) fn check_shared(
         }
     }
 
-    // Texture stems collide per directory of the tree, as a player's: a shared folder's
-    // links claim nothing in them.
-    tree_stem_conflicts(folder, shared_texture_claim, context, issues);
+    // On PES 18-21 its `.common` links are checked as a player's are; on PES 15-17 they
+    // stay unread (`file_not_used`, the consumer's), so nothing resolves them here.
+    if let pes_version::Engine::Fox = context.version.engine() {
+        let resolved = links::shared_links(folder, draft);
+        links::common_link_missing(&scope, &resolved, context, issues);
+    }
+
+    // Texture stems collide per directory of the tree, as a player's: a texture `.common`
+    // link claims its linked name in the folder holding it where the links count — on
+    // Fox, not on PES 15-17 (`shared_texture_claim`).
+    tree_stem_conflicts(
+        folder,
+        shared_texture_claim(context.version.engine()),
+        context,
+        issues,
+    );
 
     // Every boots/gloves model must say so by suffix, at any depth (`Faces/` takes any
     // name — nothing there can be a face anywhere else): one rule, under each

@@ -48,8 +48,9 @@ pub(super) struct Pairing<'a> {
 /// `common`'s; on Fox each `.model` with a role (`PlayerFile::Model`: no FMDL of its stem
 /// beats it) and each `.common` link with a role loading a Common `.model` (one loading a
 /// Common FMDL pairs none, the FMDL carrying its materials) the same way. A shared folder's
-/// search sees no `Common/` file: its `.common` links resolve nothing (`FolderModels::shared`),
-/// as its tasks' search finds none, so a `.model` whose only `.mtl` is such a link has none.
+/// search sees no `Common/` file: its `.common` links to a model or a `.mtl` resolve nothing
+/// (`FolderModels::shared`), as its tasks' search finds none, so a `.model` whose only `.mtl`
+/// is such a link has none.
 pub(super) fn pairings<'a>(
     folder: &'a ScopePath,
     files: &'a [FileDescriptor],
