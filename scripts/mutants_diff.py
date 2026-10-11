@@ -61,12 +61,15 @@ def run(diff_path: str, tree: str) -> int:
     `tree` is the working tree the diff was taken against, which the remote is sent."""
     # The mutant list, for the printed line and the local-run estimate. Each
     # entry's `file` names the crate (`crates/<group>/<crate>/...`).
-    listed = subprocess.run(
+    listing = subprocess.run(
         ["cargo", "mutants", "--in-diff", diff_path, "--list", "--json"],
         cwd=ROOT,
-        check=True,
         capture_output=True,
-    ).stdout
+    )
+    if listing.returncode != 0:
+        print(f"mutants_diff: listing failed:\n{listing.stderr.decode(errors='replace')}")
+        return 1
+    listed = listing.stdout
     # A diff with no mutable lines prints nothing at all (an "INFO" line on
     # stderr), not an empty array.
     found = json.loads(listed) if listed.strip() else []

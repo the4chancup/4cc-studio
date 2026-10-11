@@ -42,9 +42,11 @@ def main() -> int:
     local_just = subprocess.run(
         ["just", "--version"], check=True, capture_output=True, text=True
     ).stdout.strip()
-    remote_just = mutants.ssh(
-        host, "~/.cargo/bin/just --version", capture_output=True, text=True
-    ).stdout.strip()
+    probe = mutants.ssh(host, "~/.cargo/bin/just --version", capture_output=True, text=True)
+    if probe.returncode == 255:
+        print(f"cannot reach {host}")
+        return 1
+    remote_just = probe.stdout.strip()
     if local_just != remote_just:
         print(
             f"just versions differ: local {local_just}, remote {remote_just or 'none'}; fix: "

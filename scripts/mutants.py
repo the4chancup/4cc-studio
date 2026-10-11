@@ -14,8 +14,7 @@ Fluxer instance, an allocating mutant filled its RAM and swap at 2.20i, and
 `nice` alone cannot keep the run off Fluxer's CPU (cgroup v2 weights ignore
 it). Its state lives in `~/studio-mutants/run/` (`job.sh`, `in.diff`, `pid`,
 `memory_max`, `log`, `exit`, `memory_peak`, `collected`), and this machine only
-polls it with
-short ssh calls, so a dropped connection costs one poll, not the run:
+polls it with short ssh calls, so a dropped connection costs one poll, not the run:
 cargo-mutants cannot resume, and a remote half tied to one long ssh session
 died with it (2.20i). If this script itself stops, `just mutants-collect`
 waits for the remote half and fetches it. A new run refuses to start while a
@@ -199,8 +198,11 @@ def remote_state(host: str) -> tuple[str | None, str | None, int, str]:
         host,
         f"git -C {REMOTE_BASE}/tree rev-parse HEAD 'HEAD^{{tree}}' 2>/dev/null || true; "
         "nproc; ~/.cargo/bin/cargo-mutants mutants --version",
-        check=True, capture_output=True, text=True,
-    ).stdout.splitlines()
+        capture_output=True, text=True,
+    )
+    if out.returncode != 0:
+        raise RuntimeError(f"probing {host} failed:\n{out.stderr}")
+    out = out.stdout.splitlines()
     head, tree = (out[0], out[1]) if len(out) == 4 else (None, None)
     return head, tree, int(out[-2]), out[-1].strip()
 
@@ -301,9 +303,12 @@ def local_mutants(args: list[str]) -> subprocess.CompletedProcess:
 
 
 def killed_builds(out_dir: Path) -> list[str]:
-    """The mutants under `out_dir` (a `mutants.out`) that cargo-mutants
-    reported unviable because a build process was killed, not because the
-    mutant does not compile. The remote half's memory cap kills a rustc that
+    """The mutants under `out_dir` (a `mutants.out`) that went untested: those
+    cargo-mutants reported unviable because a build process was killed, not
+    because the mutant does not compile, and those it filed as a `Failure` (its
+    cargo process ended by a signal), which no list holds, so the counts would
+    come up short without a word. A test killed for memory is a caught mutant,
+    as intended: the mutant made the test blow up. The remote half's memory cap kills a rustc that
     outgrows it, and cargo-mutants files the failed build as unviable, so the
     mutant goes untested without a miss or an error: at 3.z, 18 of the remote
     half's 19 mutants, eframe's dependency tree outgrowing 6 GiB. Windows has
@@ -314,6 +319,9 @@ def killed_builds(out_dir: Path) -> list[str]:
         return []
     killed = []
     for outcome in json.loads(path.read_text(encoding="utf-8"))["outcomes"]:
+        if outcome["summary"] == "Failure" and isinstance(outcome["scenario"], dict):
+            killed.append(outcome["scenario"]["Mutant"]["name"])
+            continue
         if outcome["summary"] != "Unviable" or not outcome.get("log_path"):
             continue
         log = (out_dir / outcome["log_path"]).read_text(encoding="utf-8", errors="replace")
@@ -424,10 +432,6 @@ def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
         "start=$(date +%s)\n"
         # On disk, not the tmpfs `/tmp`: see REMOTE_TMPDIR.
         f'export TMPDIR="{REMOTE_TMPDIR}" && mkdir -p "$TMPDIR"\n'
-        # The tree's `mutants.out` is gitignored, so the transfer keeps the last
-        # run's; a run that fails before cargo-mutants starts must leave none,
-        # or the fetch would count the last run's results as this one's.
-        "rm -rf mutants.out\n"
         f". ~/.cargo/env && nice -n 19 ionice -c3 cargo mutants {remote_args} --jobs 2 "
         f"{shard}--config ../mutants.remote.toml\n"
         "code=$?\n"
@@ -443,6 +447,10 @@ def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
         f"rm -f {REMOTE_RUN}/pid {REMOTE_RUN}/log {REMOTE_RUN}/exit "
         f"{REMOTE_RUN}/collected {REMOTE_RUN}/memory_peak {REMOTE_RUN}/memory_max "
         f"{REMOTE_RUN}/in.diff && "
+        # The tree's `mutants.out` is gitignored, so the transfer keeps the last
+        # run's; a half that fails before cargo-mutants starts must leave none,
+        # or the fetch would count the last run's results as this one's.
+        f"rm -rf {REMOTE_BASE}/tree/mutants.out && "
         f"cat > {REMOTE_RUN}/job.sh",
         # Bytes, not text: `text=True` translates \n to \r\n on Windows and a
         # CRLF in the script makes bash and cargo-mutants fail.
@@ -497,7 +505,8 @@ def wait_remote(host: str) -> tuple[int, float]:
                 "rebooted): `just mutants-collect` fetches its partial results"
             )
         elif state == "none":
-            raise RuntimeError("no remote half was started")
+            raise RuntimeError("no remote half is recorded on the host (none was started, "
+                               "or its run folder was removed)")
         else:
             failures = 0
             if not announced:
@@ -646,7 +655,8 @@ def report_killed(code: int) -> int:
         return code
     print(
         f"{len(here) + len(remote)} mutants were NOT tested: a build process was killed "
-        "for memory, and cargo-mutants counted them as unviable."
+        "for memory, or cargo was ended by a signal, and cargo-mutants counted them as "
+        "unviable or in no list."
     )
     if remote:
         print(
@@ -668,7 +678,7 @@ def collect(host: str) -> int:
     """`just mutants-collect`: waits for a remote half this script launched but
     did not fetch (it was stopped, or gave up polling), fetches it and prints the
     summary against the local `mutants.out`, which no run since can have
-    replaced (`remote_refusal`). A died half's partial results are fetched too,
+    replaced while STUDIO_MUTANTS_REMOTE stayed set (`remote_refusal`). A died half's partial results are fetched too,
     whether it died before or during the wait, and the run exits 1."""
     state = remote_run_state(host)
     if state is None:
@@ -687,12 +697,19 @@ def collect(host: str) -> int:
         remote_code, remote_seconds = 1, None
     else:
         fetch_remote(host)
-    # The local half's exit code went with the script that ran it; its lists
-    # say the same (cargo-mutants: 2 = missed mutants, 3 = timeouts).
+    # The local half's exit code went with the script that ran it; its files
+    # say the same, in cargo-mutants' precedence: 4 = the baseline failed,
+    # 3 = timeouts, 2 = missed mutants.
     local = ROOT / "mutants.out"
+    outcomes = local / "outcomes.json"
+    baseline_failed = outcomes.exists() and any(
+        outcome["scenario"] == "Baseline" and outcome["summary"] != "Success"
+        for outcome in json.loads(outcomes.read_text(encoding="utf-8"))["outcomes"]
+    )
     local_code = (
-        2 if count_lines(local / "missed.txt")
+        4 if baseline_failed
         else 3 if count_lines(local / "timeout.txt")
+        else 2 if count_lines(local / "missed.txt")
         else 0
     )
     return summarize(
