@@ -952,23 +952,33 @@ describes behavior, not a serial scheduling requirement:
   path tables, `.mtl` sampler paths, `face.xml` model paths) pass through **verbatim**; the modded
   exes match that spelling directly, and the historical `u0XXXp0` magic is legacy that only the
   Export upgrader understands (the compiler has no finding for it — a leftover reference just fails
-  the ordinary texture-existence checks). Variant sets are completed against the
-  export's kit numbers (`kit_variant_missing`, lowest variant copied) and per-kit *model* sets
-  collapse to one `face.xml` entry on pre-Fox or to the lowest variant on Fox
-  (`kit_variant_model_left_out`), until FoxDen reads one face package per kit. Rules and rationale: "Kit-dependent assets" in the [Unified model
+  the ordinary texture-existence checks). A variant set serves the export's kit numbers
+  from its fallback (`kitF`, else the lowest variant with `kit_variant_missing`): copied
+  into each gap on PES 15-17, written once under the reference's spelling on PES 18-21,
+  where FoxDen loads it for a kit without a variant of its own; per-kit *model* sets
+  collapse to one `face.xml` entry on pre-Fox or to the fallback on Fox
+  (`kit_variant_model_left_out`), until the compiler builds the per-kit packages FoxDen
+  reads. Rules and rationale: "Kit-dependent assets" in the [Unified model
   format plan](../model_format.md). How the compiler finds a set: a *variant* is a file whose
   stem holds the token `kit1` to `kit9` (delimited by `_`, `-`, `.` or the stem's ends,
   spelled exactly so), and the files of one folder whose stems differ only in that token's
-  digit are one set, whose *reference* is the stem with `kitN` in the token's place. In
+  digit are one set, whose *reference* is the stem with `kitN` in the token's place. A file
+  whose token is `kitF` belongs to the set as its *fallback*, and counts wherever this
+  paragraph asks whether a set has a file; a set's fallback, in what follows, is its `kitF`
+  file when it has one, else its lowest variant, and only the second reports
+  `kit_variant_missing`. A `kitF` file is never emitted under its own name. In
   any folder the token may be a whole folder name instead (`kit1/x.dds`, `kit2/x.dds`): the
-  files of one stem in sibling folders `kit1` to `kit9` are one set,
+  files of one stem in sibling folders `kit1` to `kit9` (and `kitF`) are one set,
   whose reference is `kitN/x`, completed below as a stem set is, each copy in its number's
   folder. A
   texture set is completed by the task that converts the folder's textures (a model folder's,
   or `Common/`'s): for each kit number the export defines (its `Kits/` folders `p1` to `p9`;
-  `g1` is not a number of its own) that the set lacks, the lowest variant's converted bytes
-  are emitted under the missing variant's name and `kit_variant_missing` is reported on the
-  folder, once per set and number. The set is found from the files, not from the models'
+  `g1` is not a number of its own) that the set lacks, `kit_variant_missing` is reported on
+  the folder, once per set and number, when the fallback is the lowest variant, and on PES
+  15-17 the fallback's converted bytes are emitted under the missing variant's name. On PES
+  18-21 they are emitted once under the reference's name instead (`pants_kitN.ftex`, a
+  folder set's in its `kitN` folder), kit folders or none, and the gaps get no copy: FoxDen
+  keeps a path whose variant for the kit picked does not exist. The set is found from the files, not from the models'
   references: a set exists only to be referenced, and reading every model's path table in
   the textures task for the rare set nobody references would cost a second read of each
   model. An export with no kit folder defines no number, so nothing is completed. A model's
@@ -979,24 +989,25 @@ describes behavior, not a serial scheduling requirement:
   both engines: read from the whole stem, `boots_kit1` names no suffix and would be face
   content, its meshes merged into the face's `fcl_hair` instead of the boots. On Fox, and on
   PES 15-17 where no `face.xml` names the set (below), a model
-  file that is a variant with a lower variant of its set in the same folder (every file the
+  file of a set other than its fallback in the same folder (every file the
   part is built from: the folder's own, directly and in its subfolders, and
   a combined shared folder's, the player's own winning a name both hold; a set split
   between them is one set, since the part merges them and two lone variants would both be
   drawn) is not compiled,
-  and planning reports `kit_variant_model_left_out` on the folder, once per set; a set's variants
+  and planning reports `kit_variant_model_left_out` on the folder, once per set that leaves
+  out a file (a set of `kitF` alone leaves out none); a set's variants
   are its model files of either native format (`pants_kit1.fmdl` and `pants_kit2.model` are
   one set), a variant present in both formats one variant, the target's format (`.fmdl` on
   Fox, `.model` on PES 15-17) its selected representation, as the selection order says. On
   pre-Fox every
   variant is packed under its own name and the set is listed once: the lowest variant's
-  `face.xml` entries (its own, and its hands' when it is hand-split) with the kit token in
+  (`kitF`'s in a set of `kitF` alone) `face.xml` entries (its own, and its hands' when it is hand-split) with the kit token in
   their `path` and `material` spelled `kitN`, so the game respells the whole entry for the kit
   picked; the other variants get no entry. The set is completed as a texture set is: for
-  each kit number the export defines that it lacks, the files the lowest variant's entries
-  name (its models, and its `.mtl` when that carries the variant's token) are packed again
+  each kit number the export defines that it lacks, the files the fallback's entries
+  name (its models, and its `.mtl` when that carries the fallback's token) are packed again
   under that number's spelling, and `kit_variant_missing` is reported on the folder, once
-  per set and number. The game skips an entry whose respelled model is missing, so without
+  per set and number, when the fallback is the lowest variant. The game skips an entry whose respelled model is missing, so without
   the copy that kit would show the player without the part, and a team adding a kit would
   have to add a model to every player with a set. A lone variant (`pants_kit1.model` with
   no other number) is an ordinary model, listed under its own name and not completed: the
@@ -1017,7 +1028,7 @@ describes behavior, not a serial scheduling requirement:
   holds for a player's face, its subfolders and a linked `Faces/` folder. Where no
   `face.xml` names the set, under `ingame_face` (his boots and gloves hold parts, not entries)
   and in a shared `Boots/` or `Gloves/` folder's own output (one `boots.model`, one `glove.xml`
-  listing every glove, so every variant would be worn at once), the lowest variant is used and
+  listing every glove, so every variant would be worn at once), the fallback is used and
   the others are left out with `kit_variant_model_left_out`, as on Fox: the member's base model
   is what both engines agree on; a lone variant (`pants_kit1.model` with no other number) is an
   ordinary model there, a part of his boots or gloves under the marker as any other. A `.common` link to a per-kit variant has no role on PES 15-17

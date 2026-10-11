@@ -144,17 +144,25 @@ pre-Fox alike) implement this with a **path magic**: a texture path — or, in a
 model path — containing a reference token is rewritten at load time to the variant spelling for the
 selected kit slot, and the game loads whichever variant file that names. The token may sit anywhere
 in the path, including a folder name. The unified format keeps this mechanism and gives it a
-readable spelling, looked for **in place of** the historical one: on Fox by FoxDen today, on
-pre-Fox by an exe change made when the cup next plays a pre-Fox version:
+readable spelling, looked for **in place of** the historical one: on Fox by FoxDen's kit
+swapper (`scripts/02_kitswappers.lua`, which keeps a path whose variant for the kit picked does
+not exist, so the path's own file is the fallback), on pre-Fox by an exe change made when the
+cup next plays a pre-Fox version:
 
 | Spelling (export and game files alike) | Meaning |
 |---|---|
 | `kitN` (literal `N`) | the *reference*: "the variant for the kit number selected in PES" |
 | `kit1` … `kit9` | the variant used when kit 1 … 9 is selected |
+| `kitF` | the *fallback*: what a kit number without a variant of its own gets; never written under its own name |
 
 The reference is spelled `kitN`, not `kit0`, because `kit0` reads as "the texture with a 0 on it"
 while `kitN` reads as the placeholder it is. The compiler writes both spellings **verbatim**; there
-is no output-side rewrite.
+is no output-side rewrite. The fallback is a file of its own, not kit 1's: filling every gap
+from kit 1 puts the first kit's look on every other number (tape matching the home socks on
+the away kit), and the author's only way out would be a hand-made copy per gap. A team's kit
+folders keep their own fallback under its own name, `Kits/all/` (`player_folders.md`, the
+paragraph starting "**Kits** live"), not `kitF`: it is a kit slot, a different mechanism from
+a variant set, and one name for both would suggest a tie between them that does not exist.
 
 **The historical `u0XXXp0` magic is legacy.** It is what the exes matched so far — `u0XXXp0`
 rewritten to `u0XXXp1`, `u0XXXp2`, … — and the Studio compiler does **not** know it: the token is
@@ -176,12 +184,14 @@ Rules:
 
 - The token is a stem fragment delimited by `_`, `-`, `.`, or the ends of the name — `pants_kitN`,
   `kitN_pants`, `kitN` — anywhere in a texture stem or a model file name. The conventional place is
-  the suffix. `skitN` is not a token. A whole folder name may be the token instead, in any
+  the suffix. `skitN` is not a token. `kitF` is a token as `kitN` is, spelled exactly so.
+  A whole folder name may be the token instead, in any
   folder: `kit1/armor_bsm.dds`, `kit2/armor_bsm.dds` is the set `kitN/armor_bsm`, which a model
   names as `./kitN/armor_bsm`, one folder per kit holding a whole set of a kit's textures under
   their plain names; in `Common/`, a player's `kitN/` folder of links reaches it ("Link
   files").
-- **A `kitN` reference never exists as a file.** Wherever a path is looked up (a `./` texture
+- **A `kitN` reference never exists as a file** in the export (on PES 18-21 the output
+  holds the set's fallback under it, below). Wherever a path is looked up (a `./` texture
   path, a `.common` link's target, a Common path), a `kitN` stem or directory names its set and
   is found when a file of the set is. A material role set to `pants_kitN` means "the
   files `pants_kit1`, `pants_kit2`, … in this folder" (the folder of the material file that set the
@@ -189,19 +199,27 @@ Rules:
   Common-linked model, are how one set of kit textures is shared by many players, which is what the
   old `Kit Textures` sharing did). Auto-detection gains a third candidate: for role `base` of
   material `pants`, the compiler tries `pants_bsm`, `pants`, then `pants_kitN` (present when
-  `pants_kit1` exists); other roles try `{m}{suffix}` then `{m}{suffix}_kitN`.
+  a file of the set exists, `pants_kit1` or `pants_kitF`); other roles try `{m}{suffix}` then
+  `{m}{suffix}_kitN`.
 - **Every kit number the export defines needs a variant.** The team's `Kits/` folder lists its
-  player kit slots (`p1`…`pN`); a `kitN` reference whose variant for one of those numbers is
-  missing is `kit_variant_missing` (W) and the compiler **copies the lowest existing variant** into
-  the gap, so the model never shows a missing texture in game. Variants for numbers the export does
-  not define are emitted as they are (harmless).
+  player kit slots (`p1`…`pN`). A set's *fallback* serves each of those numbers it has no
+  variant for: its `kitF` file when it has one, the author's choice, with no finding;
+  otherwise its **lowest existing variant**, reported as `kit_variant_missing` (W). On PES
+  15-17 the compiler copies the fallback into each gap; on PES 18-21 it writes the fallback
+  once under the reference's own spelling (`pants_kitN.ftex`, `kitN/armor_bsm.ftex`), which
+  FoxDen loads for any kit without a variant of its own. Pre-Fox keeps the copies because the
+  exe change that will read `kitN` there is not written yet. Either way the model never
+  shows a missing texture in game. A set of `kitF` alone is one fallback for every number, a
+  set like any other. Variants for numbers the export does not define are emitted as they
+  are (harmless).
 - **Per-kit models.** Model files `pants_kit1.glb` + `pants_kit2.glb` (any source
   format) form one variant set: pre-Fox emits a single `face.xml` entry naming `pants_kitN` and the
   variant files beside it; each variant's materials resolve by the normal stem name matching
   (`pants.materials.toml` matches both). The set is completed against the export's kit
-  numbers as a texture set is (`kit_variant_missing`, the lowest variant's model and
-  material file copied under the missing number's name), since the game skips an entry
-  whose respelled model is missing. The entry names the lowest variant's material file, its
+  numbers as a texture set is on PES 15-17 (the fallback's model and material file copied
+  under the missing number's name), since the game skips an entry whose respelled model is
+  missing. The entry names the lowest variant's material file (`kitF`'s in a set of `kitF`
+  alone), its
   kit token respelled `kitN` when it carries one (`pants_kit1.mtl` is written `pants_kitN.mtl`),
   since the game respells the whole entry for the kit picked; the other variants' material
   files must then go by the respelled names, and `kit_variant_mtl_differs` (W) names one that
@@ -210,11 +228,17 @@ Rules:
   included, for the kit picked. Fox has no model-path indirection inside a face package, so there each kit
   number gets a face package of its own, its models merged from that number's variants
   (any file of the face may vary per kit: models, textures, the face's other files), and
-  FoxDen loads the package of the kit picked. The layout FoxDen reads (the packages' names
-  or folders) is decided with FoxDen when it gains the support, so the compiler builds it
-  then; until then it uses the lowest variant only and reports `kit_variant_model_left_out` (W).
-- **Output naming.** The token passes through unchanged into emitted file names and into every path
-  the compiler writes — FMDL path tables, `.mtl` sampler paths, `face.xml` model paths. Nothing in
+  FoxDen loads the package of the kit picked: its kit swapper reads a package
+  `face/real/<face id>p<K>/` beside the base `face/real/<face id>/` (likewise
+  `boots/k<id>p<K>/` and `glove/g<id>p<K>/`), and loads the base for a kit with no package
+  of its own. So the base package holds every set's fallback, and a number gets a package
+  of its own only where some set has a variant for it, holding that number's variants and
+  the other sets' fallbacks. The compiler builds those packages in a step of its own; until
+  then it builds the base package alone and reports `kit_variant_model_left_out` (W) when
+  that leaves out a numbered variant.
+- **Output naming.** The token (but `kitF`, which names no output file) passes through
+  unchanged into emitted file names and into every path the compiler writes — FMDL path
+  tables, `.mtl` sampler paths, `face.xml` model paths. Nothing in
   Studio, the Blender side included, ever produces `u0XXX`.
 
 **What this replaces.** Two older ways of getting "the kit texture" onto a model existed:
@@ -225,14 +249,14 @@ Rules:
   name's suffix is `uniform` gets the type; the suffix table in the Aesthetics export plan's "Model
   names"); it has no Fox counterpart and is not part of the cross-engine format.
 - `dummy_kit` (and `dummy_kit_back/_chest/_leg/_name/_nrm/_srm`), a reserved texture name the modded
-  exes replace at load time with a kit texture of that role of the team (on PES 17 in Edit mode
-  kit 2's, whatever kit the player wears; a file at the path is not read). It is legacy — a second
-  vocabulary for what `kitN` expresses with the export's own files — and gets **second-class
-  support**: the compiler treats these stems as **game-provided** (like the Fox `dummy_nrm`/`dummy_srm`
+  exes (on Fox, FoxDen's kit swapper) replace at load time with a kit texture of that role of the
+  team (on PES 17 in Edit mode kit 2's, whatever kit the player wears; a file at the path is not
+  read). It overlaps what `kitN` expresses with the export's own files, but is the only way for a
+  model to wear the team's compiled kit texture itself, and gets **second-class support**: the compiler treats these stems as **game-provided** (like the Fox `dummy_nrm`/`dummy_srm`
   fallbacks), so a material may name them, the texture-existence check is skipped for them, and the
   path is emitted verbatim for the exe to substitute. Nothing is copied or generated for them: the
   substitution logic now lives in the exes and is stable, unlike the earlier Sider-script era that
-  made Red's kit-1 fallback copies necessary. New exports should use `kitN`.
+  made Red's kit-1 fallback copies necessary. New exports should use `kitN` for their own files.
 
 ---
 
@@ -759,8 +783,8 @@ DepthBias = [0.005, 0, 0, 0]
 | `common_link_missing` | E | a `.common` link (model, material file or texture) names a file missing from Common |
 | `gltf_embedded_image_ignored` | I | the glTF embeds texture bytes; only the folder's image files are texture sources |
 | `gltf_bone_unknown` | E | a skin joint has no `PES_bone` metadata and no name in the template skeleton |
-| `kit_variant_missing` | W | a `kitN` reference lacks the variant for a kit number the export defines (lowest variant copied) |
-| `kit_variant_model_left_out` | W | per-kit model variants on a Fox target (lowest variant used) |
+| `kit_variant_missing` | W | a `kitN` reference lacks the variant for a kit number the export defines and its set has no `kitF` (the lowest variant serves it) |
+| `kit_variant_model_left_out` | W | per-kit model variants on a Fox target (the set's fallback used: `kitF`, else the lowest variant) |
 | `mtl_state_invalid` / `mtl_blendmode_nonzero` / `mtl_state_nonrecommended` | E / W / I | `[prefox.states]` checks, shared with `.mtl` validation |
 
 Consequences follow the Team compiler's disposition rules (E → folder discarded). The full

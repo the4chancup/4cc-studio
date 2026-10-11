@@ -4065,7 +4065,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
         folders alone" to rewrite first).
   - (b4) kit-token folders (`kit1` to `kit9`) form variant sets (`kitN/<name>`) in any folder,
     completed against the export's kit numbers, their paths written verbatim (TC-CMN-21,
-    TC-MOD-72: /hdg/'s per-kit Common folders through a `kitN/` folder of links); the Export
+    TC-MOD-72: /hdg/'s per-kit Common folders through a `kitN/` folder of links); a set's
+    `kitF` fallback, stem and folder forms, and on PES 18-21 the fallback written once under
+    the reference's spelling instead of a copy per gap (`model_format.md` "Kit-dependent
+    assets"; TC-CMN-04's new THEN, TC-CMN-26 to TC-CMN-28); the Export
     upgrader's half (a legacy `common/XXX/u0XXXp0/sourceimages/` path becomes `./kitN/` and a
     `kitN/<name>.common` link) is its phase's, `export_upgrader.md`.
   - (c) Fox: a subfolder's models merged into the packages, textures under the texture home at

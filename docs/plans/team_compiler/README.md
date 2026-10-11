@@ -1439,8 +1439,9 @@ TC-CMN-03  GIVEN exports /a/ and /co/ each holding Collars/collar_12.fmdl, /co/ 
 TC-CMN-04  GIVEN slot 05's face model referencing pants_kitN, with pants_kit1.dds and pants_kit3.dds
            in the folder, and Kits/ holding p1, p2 and p3
            WHEN the export is compiled for PES 21
-           THEN kit_variant_missing is reported for kit 2, pants_kit2.ftex is a copy of
-                pants_kit1's conversion, and the path table keeps the literal pants_kitN
+           THEN kit_variant_missing is reported for kit 2, the CPK holds pants_kit1.ftex,
+                pants_kit3.ftex and pants_kitN.ftex (pants_kit1's conversion) and no
+                pants_kit2.ftex, and the path table keeps the literal pants_kitN
 TC-CMN-05  GIVEN slot 05 holding pants_kit1.fmdl and pants_kit2.fmdl
            WHEN the export is compiled for PES 21
            THEN kit_variant_model_left_out is reported and only pants_kit1 is compiled
@@ -1509,9 +1510,9 @@ TC-CMN-21  GIVEN Kits/p1, p2 and p3, Common/kit1/armor_bsm.dds and Common/kit2/a
            WHEN the export is compiled for PES 21
            THEN the face package's model names armor_bsm in
                 /Assets/pes16/model/character/common/<team>/kitN/sourceimages/, the CPK
-                holds Asset/model/character/common/<team>/kit1/, kit2/ and kit3/
-                sourceimages/#windx11/armor_bsm.ftex, kit3's a copy of kit1's, and
-                kit_variant_missing names kit 3
+                holds Asset/model/character/common/<team>/kit1/, kit2/ and kitN/
+                sourceimages/#windx11/armor_bsm.ftex, kitN's a copy of kit1's, and no
+                kit3/ one, and kit_variant_missing names kit 3
 TC-CMN-22  GIVEN Common/jessie/hair.dds, and slot 05 holding face_high.fmdl, jessie/hair_high.fmdl
            naming hair, and jessie/hair.dds.common
            WHEN the export is compiled for PES 21, then for PES 17
@@ -1556,6 +1557,22 @@ TC-CMN-17  GIVEN Kits/p1, p2 and p3, and slot 05 holding pants_kit1.model with p
                 3, copied pants_kit1, and the face CPK holds the kit 3 spellings of
                 pants_kit1's packed model and .mtl with their bytes, beside the one
                 pants_kitN entry
+TC-CMN-26  GIVEN slot 05's face model referencing pants_kitN, with pants_kit1.dds and
+           pants_kitF.dds of other bytes in the folder, and Kits/ holding p1, p2 and p3
+           WHEN the export is compiled for PES 21
+           THEN no kit_variant_missing is reported, the CPK holds pants_kit1.ftex and
+                pants_kitN.ftex, pants_kitF's conversion, and no pants_kit2, pants_kit3 or
+                pants_kitF file
+TC-CMN-27  GIVEN Kits/p1, p2 and p3, and slot 05 holding pants_kit1.model with pants_kit1.mtl
+           and pants_kitF.model with pants_kitF.mtl
+           WHEN the export is compiled for PES 17
+           THEN no kit_variant_missing is reported, the face CPK holds the kit 2 and kit 3
+                spellings of pants_kitF's model and .mtl with their bytes beside the one
+                pants_kitN entry, and no pants_kitF file
+TC-CMN-28  GIVEN slot 05 holding pants_kit1.fmdl and pants_kitF.fmdl
+           WHEN the export is compiled for PES 21
+           THEN kit_variant_model_left_out is reported with used pants_kitF.fmdl, and the face
+                package's model is built from pants_kitF alone
 ```
 
 **Bins**

@@ -6701,3 +6701,31 @@ packs every folder's textures (`move_files_to_windx11`) and how a `Common/` subf
 player home's subfolder textures already sit (S19.2-B2).
 Plan: `team_compiler/pipeline.md` "A texture a model names must exist" and "Game paths
 reference"; `messages.md`, the paragraph after "Texture existence is checked **deep**".
+
+## 2026-10-11 — model format, team_compiler — a `kitF` file is a variant set's fallback; on Fox it goes under the reference's name
+Decision: a kit-dependent file whose token is `kitF` (`pants_kitF.dds`, a `kitF/` folder,
+`pants_kitF.glb`, `pants_kitF.mtl`) is its set's fallback, serving each kit number the set has
+no variant for, with no finding, and never written under its own name; a set without one falls
+back to its lowest variant with `kit_variant_missing`. On PES 15-17 the fallback is copied into
+each gap, as before. On PES 18-21 it is written once under the reference's spelling
+(`pants_kitN.ftex`), and FoxDen's kit swapper loads it for any kit without a variant of its
+own; per-kit packages follow the same rule (the base package holds every set's fallback, a
+number gets a package only where a set has a variant for it). `Kits/all/` keeps its name.
+Why: filling every gap from kit 1 forces kit 1's look on every other number, and a hand-made
+copy per gap is the work the fallback saves; `kitF`, not `kit0`, because `kit0` reads as a
+texture with a 0 on it, as `kitN` was chosen over it. On Fox the base file serving the gaps is
+how FoxDen already treats its per-kit packages (an untagged package is the fallback for a
+missing `p<K>`), so the fallback goes there instead of into every gap. Pre-Fox keeps the copies
+because its exe change is not written yet. `Kits/all/` is not renamed `kitF` because it is a
+kit slot, not a variant set, and one name would suggest a tie between them.
+Also: FoxDen debuts with Studio (no cup has used it), so its kit swapper was rewritten clean on
+2026-10-11: `kitN` tokens respelled for the team's kit, per-kit packages for every kit including
+kit 1, the boots/gloves owner from Studio's 40-ID block; the legacy `u0TTTp0` swap and the
+25-ID test block removed. Its `dummy_kit` swap stays, as Studio's own feature: it is the only
+way for a model to wear the team's compiled kit texture, which `kitN` cannot name. Pre-Fox
+takes no such improvement until the cup next plays a pre-Fox version, and stays second-class
+until then.
+Plan: `model_format.md` "Kit-dependent assets (`kitN`)" and its validation rows;
+`team_compiler/pipeline.md` "Kit-dependent assets"; `team_compiler/messages.md`
+`kit_variant_missing` and `kit_variant_model_left_out`; TC-CMN-04 and TC-CMN-21 (PES 21 no
+gap copies), TC-CMN-26 to TC-CMN-28.
