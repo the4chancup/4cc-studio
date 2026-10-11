@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use fmdl::ops::paths::{rewrite_texture_paths, texture_paths};
 use fmdl::{FmdlFile, Model};
 
-use crate::bins::{install_cpk, install_names};
+use crate::bins::{BOOTS_LIST, install_cpk, install_names, install_tables, item_list, pairs_of};
 use crate::common::Sandbox;
 use crate::compile::{
     compiled_players, cpk_entries, pes21_settings, pixels_cut_dds, tracer_kit, tracer_player_file,
@@ -1998,10 +1998,10 @@ fn a_common_mtl_a_link_s_search_falls_back_to_is_checked_on_pes_21() {
 }
 
 #[test]
-fn a_shared_folder_s_common_link_is_admitted_and_read_by_nothing() {
-    // A model link in a shared folder is admitted as a player's is, and resolved against
-    // `Common/` — but it has no role yet, so `file_not_used` names it and the folder
-    // compiles as if it were not there.
+fn a_shared_folder_s_model_link_takes_the_linked_model_s_role() {
+    // A model link in a shared folder takes the role the linked model would have there, as
+    // a player folder's does: `legs` names face content, which a boots output never packs,
+    // so it is reported like a `legs.fmdl` beside it would be.
     let sandbox = Sandbox::new("cmn_shared_link");
     let export = "exports/co Midcup Crocs";
     sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
@@ -2024,7 +2024,7 @@ fn a_shared_folder_s_common_link_is_admitted_and_read_by_nothing() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning file_not_used [Keep] at Boots/Crocs (file=legs.fmdl.common)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Boots/Crocs (file=legs.fmdl.common)",
             "Info team_colors_missing [Keep] ()"
         ],
         "{lines:#?}"
@@ -2040,17 +2040,134 @@ fn a_shared_folder_s_common_link_is_admitted_and_read_by_nothing() {
     assert_no_common_path(&entries);
 }
 
+/// The clean model as a Common model of its own: its materials renamed with a `_common` tail
+/// so it merges with the clean model itself with no material in common (two copies of one
+/// FMDL would define every material twice, over textures in different places), and its
+/// `dummy_kit.dds` renamed `file_name`, pointed at the game's own Common texture folder,
+/// which names no team.
+fn clean_model_naming(file_name: &str) -> Vec<u8> {
+    let file = FmdlFile::read(&clean_model()).unwrap();
+    let mut model = Model::from_file(&file).unwrap();
+    for material in &mut model.materials {
+        material.name.push_str("_common");
+        for (_, texture) in &mut material.textures {
+            if texture.file_name == "dummy_kit.dds" {
+                texture.file_name = file_name.to_owned();
+                texture.directory = GAME_COMMON_DIRECTORY.to_owned();
+            }
+        }
+    }
+    model.to_file().unwrap().write()
+}
+
+// TC-MOD-79
 #[test]
-fn a_shared_folder_s_mtl_link_gives_its_model_no_material_set() {
-    // The deep pass's `.mtl` search resolves no link of a shared folder, as the boots task's
-    // does not: the `.model` has every material undefined, and the folder is dropped.
+fn a_shared_folder_holding_only_a_model_link_takes_a_shared_id() {
+    let sandbox = Sandbox::new("cmn_shared_model_link");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    let export = "exports/co Midcup Crocs";
+    sandbox.write(
+        &format!("{export}/Players/05 - A/face_high.fmdl"),
+        &clean_model(),
+    );
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    sandbox.write(&format!("{export}/Boots/Crocs/boots.fmdl.common"), b"");
+    sandbox.write(&format!("{export}/Common/boots.fmdl"), &clean_model());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Crocs"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // The team's first shared boots id, whose package holds the Common model's meshes.
+    let shared = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let package = fpk::FpkFile::read(&entries[shared]).unwrap();
+    assert_eq!(
+        mesh_count(package.get("boots.fmdl").unwrap()),
+        mesh_count(&clean_model())
+    );
+    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 644)]);
+}
+
+// TC-MOD-80
+#[test]
+fn a_combined_shared_face_s_model_link_brings_the_common_model_into_the_face() {
+    let sandbox = Sandbox::new("cmn_shared_face_model_link");
+    let export = "exports/co Midcup Round";
+    let player = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/Round.face"), b"");
+    let round = format!("{export}/Faces/Round");
+    sandbox.write(&format!("{round}/fcl_hair.fmdl"), &clean_model());
+    sandbox.write(&format!("{round}/jessie/body.fmdl.common"), b"");
+    sandbox.write(
+        &format!("{export}/Common/jessie/body.fmdl"),
+        &clean_model_naming("hair.dds"),
+    );
+    sandbox.write(&format!("{export}/Common/jessie/hair.dds"), &small_dds());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Round"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Faces/Round (file=jessie/body.fmdl.common)",
+            "Info team_colors_missing [Keep] ()",
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
+            "Info fmdl_merged [Keep] at Players/05 - A (model=fcl_hair.fmdl)"
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // `jessie/hair.dds`, which the link brings, packed at `jessie/`'s path below the team's
+    // Common output.
+    let hair = "Asset/model/character/common/714/jessie/sourceimages/#windx11/hair.ftex";
+    assert_eq!(
+        entries.get(hair),
+        Some(&ftex::dds_to_ftex(&small_dds(), ftex::ColorSpace::Normal).unwrap()),
+        "{:#?}",
+        entries.keys()
+    );
+    let package = face_package(&entries);
+    // The three models' meshes: his face_high's, and Round's `fcl_hair` merged with the
+    // Common `body.fmdl` its link brings in.
+    let meshes = mesh_count(&clean_model());
+    assert_eq!(mesh_count(package.get("face_high.fmdl").unwrap()), meshes);
+    assert_eq!(
+        mesh_count(package.get("fcl_hair.fmdl").unwrap()),
+        2 * meshes
+    );
+    // The model built from `body.fmdl` names `hair` in `jessie/`'s Common output directory.
+    let directories = texture_directories(package.get("fcl_hair.fmdl").unwrap(), "hair.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/jessie/sourceimages/"),
+        "{directories:?}"
+    );
+}
+
+// TC-MOD-81
+#[test]
+fn a_shared_folder_s_mtl_link_gives_its_model_the_common_material_set() {
     let sandbox = Sandbox::new("cmn_shared_mtl_link");
     let export = "exports/co Midcup Crocs";
-    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
     sandbox.write(
-        &format!("{export}/Players/07 - B/face_high.fmdl"),
-        &tracer_player_file("fcl_hair.fmdl"),
+        &format!("{export}/Players/05 - A/face_high.fmdl"),
+        &clean_model(),
     );
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
     sandbox.write(&format!("{export}/Boots/Crocs/boots.model"), &card_model());
     sandbox.write(&format!("{export}/Boots/Crocs/boots.mtl.common"), b"");
     sandbox.write(&format!("{export}/Common/boots.mtl"), &card_materials());
@@ -2062,62 +2179,70 @@ fn a_shared_folder_s_mtl_link_gives_its_model_no_material_set() {
     assert_eq!(
         findings_of(&lines, "co Midcup Crocs"),
         [
-            "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=face_high.fmdl, count=1662)",
-            "Error model_material_undefined [DropFolder] at Boots/Crocs (file=boots.model)",
-            "Error link_target_dropped [DropFolder] at Players/05 - A (link=Crocs.boots, target=Boots/Crocs, finding=model_material_undefined)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()"
         ],
         "{lines:#?}"
     );
-    assert_eq!(run.exit_code(), 1, "{lines:#?}");
-    assert_eq!(compiled_players(&sandbox), [71407]);
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // Crocs' shared output: its `boots.model` converted with the Common `.mtl` the link
+    // stands for, naming `skin` in the team's Common texture directory.
+    let shared = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let package = fpk::FpkFile::read(&entries[shared]).unwrap();
+    let boots = package.get("boots.fmdl").unwrap();
+    assert_eq!(mesh_count(boots), CONVERTED_CARD_MESHES);
+    let directories = texture_directories(boots, "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories
+            .iter()
+            .all(|directory| directory == COMMON_DIRECTORY),
+        "{directories:?}"
+    );
 }
 
+// TC-MOD-82
 #[test]
-fn a_combined_shared_folder_s_mtl_link_is_not_resolved_in_common() {
-    // The deep pass's search sees no `Common/` file for a shared folder, so `boots.model` there
-    // takes `materials.mtl`; the player's boots task, which combines the folder, searches it
-    // the same way, and never reaches the Common `.mtl` the name-matched link would stand for.
+fn a_combined_shared_folder_s_mtl_link_gives_its_model_the_common_material_set() {
     let sandbox = Sandbox::new("cmn_combined_mtl_link");
-    let export = "exports/co Midcup Crocs";
-    let player = format!("{export}/Players/05 - A");
-    let (own, own_materials) = own_card();
-    sandbox.write(&format!("{player}/boots.model"), &own);
-    sandbox.write(&format!("{player}/boots.mtl"), &own_materials);
-    sandbox.write(&format!("{player}/face.dds"), &small_dds());
-    sandbox.write(&format!("{player}/Crocs.boots"), b"");
-    let crocs = format!("{export}/Boots/Crocs");
-    sandbox.write(&format!("{crocs}/boots.model"), &card_model());
-    sandbox.write(&format!("{crocs}/materials.mtl"), &card_materials());
-    sandbox.write(&format!("{crocs}/skin.dds"), &small_dds());
-    sandbox.write(&format!("{crocs}/boots.mtl.common"), b"");
+    let export = "exports/co Midcup Round";
+    sandbox.write(&format!("{export}/Players/05 - A/Round.face"), b"");
+    let round = format!("{export}/Faces/Round");
+    sandbox.write(&format!("{round}/fcl_hair.fmdl"), &clean_model());
+    sandbox.write(&format!("{round}/boots.model"), &card_model());
+    // `materials.mtl`, which the name-matched `boots.mtl.common` beats: `skin` would
+    // resolve in Round, where nothing holds it, not in `Common/` as the linked `.mtl`'s.
+    sandbox.write(&format!("{round}/materials.mtl"), &card_materials());
+    sandbox.write(&format!("{round}/boots.mtl.common"), b"");
     sandbox.write(&format!("{export}/Common/boots.mtl"), &card_materials());
+    sandbox.write(&format!("{export}/Common/skin.dds"), &small_dds());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, "co Midcup Crocs"),
+        findings_of(&lines, "co Midcup Round"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning file_not_used [Keep] at Boots/Crocs (file=boots.mtl.common)",
             "Info team_colors_missing [Keep] ()",
-            "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
-            "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
+            "Info link_combined [Keep] at Players/05 - A (link=Round.face)"
         ],
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // The boots of his exclusive id: Round's `boots.model` converted with the Common `.mtl`
+    // its link stands for, naming `skin` in the team's Common texture directory.
     let package = fpk::FpkFile::read(&entries[BOOTS_05]).unwrap();
     let boots = package.get("boots.fmdl").unwrap();
-    assert_eq!(mesh_count(boots), 2 * CONVERTED_CARD_MESHES);
-    // The shared `materials.mtl`'s `./skin.dds`, the shared folder's texture, at his home.
+    assert_eq!(mesh_count(boots), CONVERTED_CARD_MESHES);
     let directories = texture_directories(boots, "skin.dds");
     assert!(!directories.is_empty());
     assert!(
-        directories.iter().all(|directory| directory == HOME_714_05),
+        directories
+            .iter()
+            .all(|directory| directory == COMMON_DIRECTORY),
         "{directories:?}"
     );
 }

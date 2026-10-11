@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 
-use aesthetics_export::{FileDescriptor, FileKind, ModelFormat};
+use aesthetics_export::{FileKind, ModelFormat};
 use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::{TexturePath, rewrite_texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
@@ -174,15 +174,16 @@ pub(super) fn package(
                     let mut part = part(name, PartTextures::Folder);
                     let model = source_name(&file.path, &folder.path);
                     let mtl = if file.kind == FileKind::Model(ModelFormat::PesModel) {
-                        // A combined shared folder's search sees no `Common/` file, as the deep
-                        // pass's does (`deep::pairings`): its `.mtl.common` link has no role,
-                        // and the Common `.mtl` one names is not among the task's files.
-                        let common: &[FileDescriptor] = if source_path == &folder.path {
-                            &folder.common_files
-                        } else {
-                            &[]
-                        };
-                        let mtl = mtl_for(&file.path, source_path, source_files, common).expect(
+                        // A combined source's search resolves its `.mtl.common` links in
+                        // `Common/` as the folder's own does: `folder.common_files` holds
+                        // every `Common/` file Fox reads (`deep::pairings` searches the same).
+                        let mtl = mtl_for(
+                            &file.path,
+                            source_path,
+                            source_files,
+                            &folder.common_files,
+                        )
+                        .expect(
                             "the deep pass drops a folder holding a selected `.model` no `.mtl` \
                              is found for (`model_material_undefined`)",
                         );

@@ -59,7 +59,8 @@ Common model falling back beside the model; (b3c1) done 2026-10-11: a shared fol
 subfolders follow the player folder's rules; (b3b4d) done 2026-10-11: a texture path
 into a `Common/` subfolder is checked on both engines; (b3b4e) deferred, pre-Fox;
 (b3c2a) done 2026-10-11: a shared folder's `.common` links admitted and checked, its
-texture links counting on Fox; (b3c2b) next), 4.y-fix20
+texture links counting on Fox; (b3c2b) done 2026-10-11: on Fox its model and
+material-file links count too; (b4) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -4077,6 +4078,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
           the deep pass's `.mtl` searches; a Common file linked by both a player and his
           combined shared folder is one part, the player's own link winning (step 6). The
           hidden-model drop is PES 15-17's (`pipeline.md` step 2), so it waits with that half.
+          Done.
         - PES 15-17: deferred until the cup next plays a pre-Fox version; a shared folder's
           link is `file_not_used` there (TC-MOD-77).
   - (b4) kit-token folders (`kit1` to `kit9`) form variant sets (`kitN/<name>`) in any folder,
@@ -4421,6 +4423,24 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   1 missed (`_r2/`: the pre-Fox claim's texture test in `shared_texture_claim`), killed by the
   lead's added assertion (two textures of one stem still collide on PES 17), red with the
   mutant applied by hand.
+  (b3c2b) done 2026-10-11 (SWE-2 High, one run and one rework; briefs
+  `.tmp/4_y/brief_sub_b3c2b{,_r1}.md`, reports beside them): on PES 18-21 a shared folder's model and `.mtl` links take a player folder's
+  roles (`fox_file`, `FolderModels` lifted their shared-folder guards; pre-Fox unchanged). A
+  shared boots or gloves folder holding only a model link of its kind takes an id
+  (`ids::holds_model_of_its_kind`); a shared output's `ModelFolder` gets the `Common/` files
+  every player folder gets on Fox (`roles::shared_common_files` removed) and its own Common
+  models; `common_models` resolves every source's links through `part_source_models`, a
+  combined source's `.model` link searched in its own folder; `ModelFolder::roles` gives one
+  `Common/` file one part per folder, the player's own link first; the Fox Models task's
+  `.model` search reaches `Common/` for a combined source; the deep pass pairs a shared
+  folder's links against `Common/` and `searched_common_mtls` searches shared folders too;
+  `drop_gltf_folders` drops a player whose linked shared folder's link names a model a Common
+  glTF beats. Contradictions: TC-MOD-80's THEN (a face-folder `body` link is
+  `fmdl_fcl_hair_fallback` as a player's, scenario reworded) and the pre-Fox combined search
+  kept at no `Common/` file, both accepted. Plan: TC-MOD-79 to TC-MOD-82; `messages.md`
+  `shared_folder_no_model`; help topic `01_command_line.md`. Files: TC `deep/{mod,pairings}.rs`,
+  `mtl_search.rs`, `plan/{ids,mod,roles}.rs`, `processing/model.rs`, `validation.rs`,
+  `tests/cli/common_links.rs`. Gates green locally (`.tmp/4_y/gates_sub_b3c2b_r1.log`); mutants r0 43 (4 missed: three in dead pre-Fox arms of the Fox-only Models task, removed; the pre-Fox shared search's guard, tested; `.tmp/4_y/mutants_sub_b3c2b_r0/`), r1 40: 31 caught, 9 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3c2b_r1.log`).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -7317,3 +7337,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
 - **2026-10-11** — 4.y-sub (b3c2a) landed: a shared folder's `.common` links are admitted
   and checked; on Fox its texture links count (TC-MOD-75 to TC-MOD-78, TC-TEX-17,
   TC-TEX-18); on PES 15-17 they are `file_not_used` (TC-MOD-77).
+- **2026-10-11** — 4.y-sub (b3c2b) landed: on Fox a shared folder's model and `.mtl` links
+  count, in its own output and combined into a player's (TC-MOD-79 to TC-MOD-82).

@@ -216,15 +216,16 @@ impl KeptCommon {
 /// subfolder that no model folder's link reaches (`is_read_common_file`, `linked_common_files`), nor a
 /// `Common/` model another of its stem beats (`is_selected_common_model`), which is dropped
 /// with that winner instead (`drop_beaten_common_models`), nor for PES 2018 to 2021 a
-/// `Common/` `.mtl` no player folder's search may read (`searched_common_mtls`), nor a kit
+/// `Common/` `.mtl` no model folder's search may read (`searched_common_mtls`), nor a kit
 /// texture the target does not emit (`emits_kit_texture`), nor a folder's file
 /// `folder_findings` leaves unread, each player folder's roles read as planning reads them
 /// (`part_source_models`).
 ///
 /// For PES 2015 to 2017 each `.mtl`'s texture paths are looked up (`materials`), and for PES
 /// 2018 to 2021 those of each folder `.mtl` a selected `.model` pairs with, right after its own
-/// findings, and of each `Common/` `.mtl` a player's link to a Common `.model` pairs with, on
-/// his folder against `Common/`'s textures and `installed` (`folder_findings`), each finding
+/// findings, and of each `Common/` `.mtl` a model folder's link to a Common `.model` pairs
+/// with, on that folder against `Common/`'s textures and `installed` (`folder_findings`), each
+/// finding
 /// keeping what holds the `.mtl`: a folder's against the
 /// textures the folder holds, `Common/`'s and `installed`, the stems the installed CPKs loaded
 /// before the run's hold in the team's Common output (`None` when that lookup cannot be made or
@@ -425,8 +426,7 @@ pub(crate) fn content_findings(
         .par_iter()
         .map(|face| {
             let models = FolderModels::of_shared(&face.path, &face.files, SharedKind::Face, engine);
-            // A shared face links no other, and its `.common` links to a model or a `.mtl`
-            // have no role.
+            // A shared face links no other shared folder.
             let read = ReadFolder {
                 path: &face.path,
                 files: &face.files,
@@ -851,8 +851,8 @@ struct ReadFolder<'a> {
     /// empty for a shared folder.
     combined: &'a [(SharedKind, &'a SharedModelFolder)],
     /// The `Common/` FMDLs the pass dropped as hidden, which a player folder's `.common` link
-    /// naming one is dropped with (`hidden_link_finding`); empty for a shared folder, whose
-    /// model links have no role.
+    /// naming one is dropped with (`hidden_link_finding`); empty for a shared folder: the
+    /// drop is a pre-Fox one, where its links have no role.
     hidden_common: &'a [FileDescriptor],
 }
 
@@ -2605,6 +2605,37 @@ mod tests {
                 "hair_high.mtl",
                 "./skin.dds",
                 "card"
+            )]
+        );
+    }
+
+    #[test]
+    fn a_pre_fox_shared_folder_s_mtl_link_is_unread_its_model_s_materials_undefined() {
+        // A shared folder's `.mtl.common` link has no role on pre-Fox: the `.mtl` search sees
+        // no `Common/` file for it (`pairings`), so its `.model` has no material set at all.
+        let temp = scratch("deep_shared_mtl_link");
+        let findings = findings_for(
+            PesVersion::Pes17,
+            temp.path(),
+            &[
+                ("Players/05 - A/Crocs.boots", Vec::new()),
+                ("Boots/Crocs/boots.model", card()),
+                ("Boots/Crocs/boots.mtl.common", Vec::new()),
+                (
+                    "Common/boots.mtl",
+                    materials_naming(&[("card", &["./skin.dds"])]),
+                ),
+                ("Common/skin.dds", bc1_dds(4, 4)),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            findings,
+            [dropping(
+                "model_material_undefined",
+                "Boots/Crocs",
+                &[("file", "boots.model")]
             )]
         );
     }

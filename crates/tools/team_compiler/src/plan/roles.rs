@@ -240,7 +240,7 @@ pub(crate) enum PlayerFile {
     },
     /// A `.common` link to an FMDL or a `.model` (`legs.fmdl.common` → `Common/legs.fmdl`,
     /// `legs.model.common` → `Common/legs.model`): the Common model is a part of `package` under
-    /// `name`, merged with the player's parts of that name, since Fox cannot load a model from
+    /// `name`, merged with the folder's parts of that name, since Fox cannot load a model from
     /// Common (`player_folders.md` "Common model links and model merging"); a Common `.model` is
     /// first converted with the `.mtl` its search finds, as the player's own `.model` is. The
     /// role is the link's; the Models task reads the Common model, which planning resolves
@@ -518,7 +518,7 @@ pub(crate) fn is_read_common_file(
 /// shared folder of `export` reaches, by their export paths: the file a link taking a role
 /// names (`common_link_target`, a link mirroring `Common/`'s tree: `model_format.md` "Link
 /// files"; `player_file` gives none to a link to anything but a model, a `.mtl` or a
-/// texture, a shared folder's only a texture's, on Fox), and for a link naming a
+/// texture, on Fox), and for a link naming a
 /// model the files that travel with it in its directory: the models of its stem in any format
 /// (the target selects one, `selected_common_model`), the `.skl` of its stem, every `.mtl`
 /// (the ones its `.mtl` search may land on, `mtl_search::mtl_for`) and every texture directly
@@ -546,8 +546,7 @@ pub(crate) fn linked_common_files(export: &ValidatedAestheticsExport) -> BTreeSe
         );
     }
     // A shared folder's `.common` links reach `Common/` as a player's do, in its own
-    // output's names and in each combined player's: the texture link, the only one with a
-    // role there on Fox, reaches its texture alone.
+    // output's names and in each combined player's.
     for (kind, folder) in shared_folders(export) {
         let models = FolderModels::of_shared(&folder.path, &folder.files, kind, Engine::Fox);
         linked_common_of(
@@ -559,28 +558,6 @@ pub(crate) fn linked_common_files(export: &ValidatedAestheticsExport) -> BTreeSe
         );
     }
     linked
-}
-
-/// The `Common/` files the kept shared folder `folder` of `export` (of `kind`, holding
-/// `files`) reaches with its `.common` links for a target of `engine`, as
-/// `linked_common_files` computes them: its `ModelFolder::common_files` — on Fox its texture
-/// links' targets, on pre-Fox none, its links staying unread there.
-pub(crate) fn shared_common_files(
-    export: &ValidatedAestheticsExport,
-    folder: &ScopePath,
-    files: &[FileDescriptor],
-    kind: SharedKind,
-    engine: Engine,
-) -> Vec<FileDescriptor> {
-    let models = FolderModels::of_shared(folder, files, kind, engine);
-    let mut linked = BTreeSet::new();
-    linked_common_of(folder, files, &models, &export.common, &mut linked);
-    export
-        .common
-        .iter()
-        .filter(|file| linked.contains(&file.path))
-        .cloned()
-        .collect()
 }
 
 /// What the `.common` links among `files` of the folder at `folder` (a player folder's or a
@@ -864,8 +841,8 @@ pub(crate) struct FolderModels {
     ingame_face: bool,
     /// The kind of the shared folder when the folder is a shared `Faces/`, `Boots/` or
     /// `Gloves/` one; `None` for a player folder. On Fox a shared folder's `.common` links
-    /// resolve as a player folder's, the texture link's role the only one planning gives
-    /// there yet (`fox_file`); on pre-Fox every one stays unread (`file_not_used`).
+    /// take the roles a player folder's take (`fox_file`); on pre-Fox every one stays
+    /// unread (`file_not_used`).
     shared: Option<SharedKind>,
     /// The folder's face files have a package to go in: it holds a face model, on pre-Fox its
     /// own `face.xml`, or links a shared face that gives one (`with_linked_face`). Never set
@@ -909,8 +886,8 @@ pub(crate) struct FolderModels {
 impl FolderModels {
     /// The models among `files` of the shared folder of `kind` at `folder` (`Faces/`, `Boots/`
     /// or `Gloves/`), for a target of `engine`: as a player folder's without `ingame_face`,
-    /// its `.common` links taking the roles `FolderModels::shared` gives them (the texture
-    /// link's alone, on Fox).
+    /// its `.common` links taking the roles `FolderModels::shared` gives them (a player
+    /// folder's, on Fox; none on pre-Fox).
     pub(crate) fn of_shared(
         folder: &ScopePath,
         files: &[FileDescriptor],
@@ -946,7 +923,7 @@ impl FolderModels {
     }
 
     /// `of_player_files` for a player folder, or `of_shared` for a shared one of the kind
-    /// `shared` names, whose `.common` links count as no model, the folder being one source of
+    /// `shared` names, the folder being one source of
     /// a part whose per-kit model sets span `sources` (`kit_variants::model_variant_sets`):
     /// the files of every folder the part is built from that may take a role there
     /// (`role_files`), this folder's among them, the player's own first and then each combined
@@ -1030,7 +1007,6 @@ impl FolderModels {
                 if file.kind == FileKind::Model(ModelFormat::Fmdl) || converted {
                     (file_name.to_owned(), true)
                 } else if file.kind == FileKind::CommonLink
-                    && !models.is_shared()
                     && let Some(linked) = linked_model(file_name)
                 {
                     (linked, false)
@@ -1099,8 +1075,7 @@ impl FolderModels {
     }
 
     /// Whether the models are a shared `Faces/`, `Boots/` or `Gloves/` folder's
-    /// (`FolderModels::of_shared`), whose `.common` links to a model or a `.mtl` have no
-    /// role.
+    /// (`FolderModels::of_shared`), whose `.common` links have no role on pre-Fox.
     pub(crate) fn is_shared(&self) -> bool {
         self.shared.is_some()
     }
@@ -1285,9 +1260,8 @@ pub(crate) fn native_format(engine: Engine) -> ModelFormat {
 /// its search finds, every `.mtl` is a material set such a conversion may read
 /// (`PlayerFile::Material`), and so is the Common `.mtl` a `.mtl.common` link stands for
 /// (`PlayerFile::CommonMaterial`), and a glTF with no `.fmdl` of its path stem beside it is
-/// `PlayerFile::UnsupportedGltf`. A model `FolderModels::beaten` names has no
-/// role, nor has a shared folder's `.common` link to a model or a `.mtl`
-/// (`FolderModels::shared`).
+/// `PlayerFile::UnsupportedGltf`. A model `FolderModels::beaten` names has no role. A shared
+/// folder's `.common` links take the roles a player folder's take (`FolderModels::shared`).
 fn fox_file(
     folder: &ScopePath,
     file: &FileDescriptor,
@@ -1313,17 +1287,14 @@ fn fox_file(
         // A model link, to an FMDL or a `.model`, takes the role the linked model would have in
         // its place; a `.mtl` link is the material set a `.model` of the folder's search may
         // find (`mtl_search::mtl_for`), as on pre-Fox; a texture link stands for its stem. A
-        // shared folder's texture link gets its role as a player's does, while its model and
-        // material links still name nothing planning can read; a link to anything else has no
-        // role.
+        // shared folder's links are a player folder's; a link to anything else has no role.
         FileKind::CommonLink => match linked_model(name) {
-            Some(linked) if !models.is_shared() => {
+            Some(linked) => {
                 let (package, name) = model_role(file_stem(&linked), models.ingame_face);
                 Some(PlayerFile::CommonModel { package, name })
             }
-            None if !models.is_shared()
-                && common_link_name(name)
-                    .is_some_and(|linked| classify(&linked) == FileKind::Mtl) =>
+            None if common_link_name(name)
+                .is_some_and(|linked| classify(&linked) == FileKind::Mtl) =>
             {
                 Some(PlayerFile::CommonMaterial)
             }
@@ -3306,7 +3277,7 @@ mod tests {
     }
 
     #[test]
-    fn a_shared_folder_s_common_links_take_a_texture_link_s_role_on_fox_only() {
+    fn a_shared_folder_s_common_links_take_a_player_folder_s_roles_on_fox_only() {
         let names = [
             "face_diff.bin",
             "legs.fmdl.common",
@@ -3338,16 +3309,19 @@ mod tests {
                 .map(|file| player_file(&folder, file, &models))
                 .collect()
         };
-        // On Fox the texture link counts as a player's does; the model and `.mtl` links
-        // stay roleless, and the model link gives the shared folder no face for its face
-        // diff. On pre-Fox every link stays unread.
+        // On Fox every link takes the role a player folder's link takes; the model link
+        // names face content, which a boots folder never packs, and gives it no face for
+        // its face diff. On pre-Fox every link stays unread.
         assert_eq!(
             roles_in("Boots/Crocs", true, Engine::Fox),
             [
                 Some(PlayerFile::UnusedFaceFile),
-                None,
+                Some(PlayerFile::CommonModel {
+                    package: ModelPackage::Face,
+                    name: "fcl_hair"
+                }),
                 Some(PlayerFile::CommonTexture("x".to_owned())),
-                None
+                Some(PlayerFile::CommonMaterial)
             ]
         );
         assert_eq!(

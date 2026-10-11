@@ -4,7 +4,7 @@
 //! `model_material_undefined` finding that comparing the two gives. `mod.rs`'s
 //! `folder_findings` drives it, once per model folder, its texture lookup reading which
 //! materials a pairing makes mesh-used; `content_findings` asks it, once per export, which
-//! `Common/` `.mtl` files a player folder's search may read.
+//! `Common/` `.mtl` files a model folder's search may read.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -19,7 +19,7 @@ use super::model::MaterialRead;
 use super::{KeptCommon, MODEL_MATERIAL_UNDEFINED, named_on_folder};
 use crate::mtl_search::mtl_for;
 use crate::plan::roles::{
-    FolderModels, PlayerFile, is_common_file, player_file, selected_common_model,
+    FolderModels, PlayerFile, is_common_file, player_file, selected_common_model, shared_folders,
 };
 
 /// A `.model` of a model folder paired with the `.mtl` it binds its materials from: what
@@ -47,10 +47,11 @@ pub(super) struct Pairing<'a> {
 /// conversion writing its material set) with the `.mtl` its search finds among `files` and
 /// `common`'s; on Fox each `.model` with a role (`PlayerFile::Model`: no FMDL of its stem
 /// beats it) and each `.common` link with a role loading a Common `.model` (one loading a
-/// Common FMDL pairs none, the FMDL carrying its materials) the same way. A shared folder's
-/// search sees no `Common/` file: its `.common` links to a model or a `.mtl` resolve nothing
+/// Common FMDL pairs none, the FMDL carrying its materials) the same way. On Fox a shared
+/// folder's search resolves its `.common` links against `Common/` as a player folder's
+/// does; on pre-Fox it sees no `Common/` file, its links staying unread
 /// (`FolderModels::shared`), as its tasks' search finds none, so a `.model` whose only `.mtl`
-/// is such a link has none.
+/// is such a link has none there.
 pub(super) fn pairings<'a>(
     folder: &'a ScopePath,
     files: &'a [FileDescriptor],
@@ -69,10 +70,11 @@ pub(super) fn pairings<'a>(
             })
             .collect();
     }
-    let link_targets: &[FileDescriptor] = if models.is_shared() {
-        &[]
-    } else {
-        &common.files
+    let link_targets: &[FileDescriptor] = match engine {
+        Engine::Fox => &common.files,
+        // On pre-Fox a shared folder's links stay unread: its search sees no `Common/` file.
+        Engine::PreFox if models.is_shared() => &[],
+        Engine::PreFox => &common.files,
     };
     files
         .iter()
@@ -154,29 +156,34 @@ fn links_common_fmdl(
     kind == FileKind::Model(ModelFormat::Fmdl)
 }
 
-/// The export paths of the `.mtl` files of `export`'s `Common/` that a search of a player
+/// The export paths of the `.mtl` files of `export`'s `Common/` that a search of a model
 /// folder may read on PES 2018 to 2021, `player_models` being each player folder's models
 /// (`part_source_models`): every one of them when the search of a selected `.model` or of a
 /// Common `.model` link (`pairs_with_mtl`, `mtl_for`) finds a `Common/` file, none otherwise.
 /// A subfolder's `.mtl` is in the set too, which the caller reads only for a file it reads
 /// (`is_read_common_file`: on Fox a subfolder's a link reaches).
-/// Fox has no Common models task, so no other reads one. A shared folder's search sees no
-/// `Common/` file (`pairings`), so it adds none.
+/// Fox has no Common models task, so no other reads one. A shared folder's search resolves
+/// `Common/` files as a player folder's does (`pairings`), so its files are searched the
+/// same way.
 pub(super) fn searched_common_mtls<'a>(
     export: &'a ValidatedAestheticsExport,
     player_models: &[&FolderModels],
 ) -> BTreeSet<&'a ScopePath> {
+    let finds_common = |folder: &ScopePath, files: &[FileDescriptor], models: &FolderModels| {
+        files.iter().any(|file| {
+            pairs_with_mtl(folder, file, models, &export.common)
+                && mtl_for(&file.path, folder, files, &export.common)
+                    .is_some_and(|mtl| is_common_file(&mtl.path))
+        })
+    };
     let lands_in_common = export
         .players
         .iter()
         .zip(player_models)
-        .any(|(player, models)| {
-            let folder = &player.path;
-            player.files.iter().any(|file| {
-                pairs_with_mtl(folder, file, models, &export.common)
-                    && mtl_for(&file.path, folder, &player.files, &export.common)
-                        .is_some_and(|mtl| is_common_file(&mtl.path))
-            })
+        .any(|(player, models)| finds_common(&player.path, &player.files, models))
+        || shared_folders(export).any(|(kind, folder)| {
+            let models = FolderModels::of_shared(&folder.path, &folder.files, kind, Engine::Fox);
+            finds_common(&folder.path, &folder.files, &models)
         });
     if !lands_in_common {
         return BTreeSet::new();

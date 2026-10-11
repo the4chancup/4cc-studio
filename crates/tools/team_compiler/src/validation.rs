@@ -1299,12 +1299,13 @@ mod tests {
             ("Common/x.dds", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
-        // A model link in a shared folder has no role on either engine: `file_not_used`
-        // names it. On Fox the texture links count; this is not one.
+        // On Fox the shared face's model link takes the linked model's role: `legs` names
+        // face content, reported as a face-named model would be. On pre-Fox every link in
+        // a shared folder is `file_not_used`.
         assert_eq!(
             names(&export, PesVersion::Pes21),
             [
-                "Warning file_not_used [Keep] at Faces/Round (file=legs.fmdl.common)",
+                "Info fmdl_fcl_hair_fallback [Keep] at Faces/Round (file=legs.fmdl.common)",
                 "Warning file_not_used [Keep] at Gloves/Grip (file=glove_l.skl)",
                 "Warning file_not_used [Keep] (file=Common/notes.xml)",
             ]

@@ -1059,7 +1059,8 @@ TC-MOD-80  GIVEN Common/jessie/body.fmdl naming hair and Common/jessie/hair.dds,
            THEN 71405's face package holds face_high's, fcl_hair's and body.fmdl's meshes, the
                 model built from body.fmdl names hair in
                 /Assets/pes16/model/character/common/714/jessie/sourceimages/, the CPK holds
-                that directory's #windx11/hair.ftex, and no finding names body or hair
+                that directory's #windx11/hair.ftex, and no finding names body or hair but
+                fmdl_fcl_hair_fallback on the link (body is no face part's name)
 TC-MOD-81  GIVEN Common/boots.mtl naming ./skin.dds and Common/skin.dds, Boots/Crocs holding
            boots.model and boots.mtl.common, and slot 05 holding face_high.fmdl and linking
            Crocs.boots

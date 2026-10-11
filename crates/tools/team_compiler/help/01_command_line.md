@@ -128,11 +128,11 @@ in the player's folder, for `Common/hair.dds`) makes
 the player's models use the team's one copy of `hair`, instead of a copy of the player's own.
 The player's folder must not also hold a texture of that name (`texture_stem_conflict`).
 
-A shared `Faces`, `Boots` or `Gloves` folder can hold texture links too, in it or in any
-subfolder, standing for the `Common` file at the same path: for PES 2018 to 2021 its
-models use the team's copy as a player's do. Its links to models and `.mtl` files are not
-read yet, nor, for PES 2015 to 2017, any of its links: each is reported as
-`file_not_used`.
+A shared `Faces`, `Boots` or `Gloves` folder can hold links too, in it or in any
+subfolder, standing for the `Common` file at the same path: for PES 2018 to 2021 they
+work as a player's do, a texture link, a model link (a `Boots` folder holding only
+`boots.fmdl.common` has boots) and a `.mtl` link alike. For PES 2015 to 2017 its links
+are not read yet: each is reported as `file_not_used`.
 
 A model of the player's own and a Common model
 must not define a material of the same name over textures kept in different places (the

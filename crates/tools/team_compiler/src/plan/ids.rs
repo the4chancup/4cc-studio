@@ -143,7 +143,8 @@ fn plainly_linked_folders<'a>(
 }
 
 /// Whether the shared boots or gloves `folder` of `kind` holds a model of its kind for a
-/// target of `engine`: on Fox a model its package takes (`PlayerFile::Model`), on pre-Fox a
+/// target of `engine`: on Fox a model its package takes (`PlayerFile::Model`), a `.common`
+/// link to a Common model included (`PlayerFile::CommonModel`), on pre-Fox a
 /// model its output packs (`PlayerFile::PreFoxModel`), or on either a glTF selected for its
 /// stem (`PlayerFile::UnsupportedGltf`). The glTF counts: planning drops the folder for it
 /// with `model_gltf_unsupported`, which is what the member is to be told, not that the folder
@@ -152,11 +153,14 @@ fn holds_model_of_its_kind(folder: &SharedModelFolder, engine: Engine, kind: Sha
     let models = FolderModels::of_shared(&folder.path, &folder.files, kind, engine);
     folder.files.iter().any(|file| {
         let role = player_file(&folder.path, file, &models);
-        matches!(role, Some(PlayerFile::Model { package, .. }) if package == package_of(kind))
-            || matches!(
-                role,
-                Some(PlayerFile::PreFoxModel { .. } | PlayerFile::UnsupportedGltf)
-            )
+        matches!(
+            role,
+            Some(PlayerFile::Model { package, .. } | PlayerFile::CommonModel { package, .. })
+                if package == package_of(kind)
+        ) || matches!(
+            role,
+            Some(PlayerFile::PreFoxModel { .. } | PlayerFile::UnsupportedGltf)
+        )
     })
 }
 
@@ -316,6 +320,27 @@ mod tests {
             taking(&marked, None, Engine::PreFox, SharedKind::Boots),
             ["Mud"]
         );
+    }
+
+    #[test]
+    fn a_shared_folder_holding_a_model_link_of_its_kind_holds_a_model_on_fox_only() {
+        let files = [
+            ("Players/05 - A/Crocs.boots", 0),
+            ("Boots/Crocs/boots.fmdl.common", 0),
+            ("Common/boots.fmdl", 1),
+        ];
+        let export = resolved("co Midcup Shared", &files, &[], None).export;
+        let crocs = &export.boots[0];
+        assert!(holds_model_of_its_kind(
+            crocs,
+            Engine::Fox,
+            SharedKind::Boots
+        ));
+        assert!(!holds_model_of_its_kind(
+            crocs,
+            Engine::PreFox,
+            SharedKind::Boots
+        ));
     }
 
     #[test]
