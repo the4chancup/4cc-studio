@@ -413,6 +413,8 @@ pass (`export_upgrader.md` step 13).
 
 - Add the `gltf` crate dependency to `model_convert` (Phase 2 built its native-format half)
 - Implement `gltf_to_ir` and `ir_to_gltf` with a shared PES_bone/PES_mesh and materials.toml contract
+- First settle the `metal` and `glass` Fox defaults and the `shaded` `Basic_CNSR` vectors that
+  glTF sources make reachable (`model_format.md` "Checked against the community's reference")
 - Coordinate with the Blender project's `pes-models` PES glTF codec (its implementation lives there)
 - Test with real Blender-exported models
 

@@ -631,6 +631,31 @@ Fox `fuzzblock` shaders (`fox3ddf_blin_fuzzblock`, `…_uvscroll`) are anti-blur
 exporter generates; they never appear in a toml — importing an FMDL turns them back into
 `antiblur = true` on the source material.
 
+**Checked against the community's reference.** The cup wiki's Materials page
+(`resources/Materials.wikitext`) differs from these tables in places; each difference was weighed
+against every FMDL and `.mtl` on the maintainer's machine (2026-10-11: 7,315 FMDLs, 10,101 `.mtl`
+files), not against either document. The tables stand where real files use our form: the
+`shadeless` shader `fox3dfw_constant_srgb_ndr_solid` (6,870 materials, beside 813 of the wiki's
+`fox3dfw_constant_srgb_ndr`; Konami's own files use neither); `.mtl` samplers with `srgb` and the
+two filters only (14,543 samplers) and either state order (16,849 and 13,866 materials); the
+opaque set's `alphatest` 1 (5,142 opaque materials, as the 19to16 converter writes it; Konami's
+`Boots` files write 0); `Basic_CNSR` read as `shaded` (about two thirds of its 3,298 materials have no
+`EnvironmentMap`); the alpha flag 128 on a forward shader (902 materials) and the add-on's
+`invisible` bit over the family's shadow bits; and an anti-blur duplicate at the source mesh's
+positions (9,973 of 9,994 paired duplicates, one smaller, where the wiki says "slightly smaller"). Shaders the wiki
+documents and no family covers (Fresnel `fox3ddf_blin_incidence`, `fox3dfw_constant_srgb_plain`,
+the UV scroll and step shaders, the `RoughnessMap` sampler) stay native-only, kept verbatim by an
+import. **Before glTF sources (Phase 7) make the `metal` and `glass` defaults reachable on Fox**
+(today only a Fox source reaches those families, and it keeps its own samplers), settle three
+against the same files: `glass` binds `Base_Tex_LIN` in 39 of 42 real glass materials (all 28
+of Konami's `fox_3dfw_glass`, 11 of 14 `pes3dfw_glass2`) and every `pes3dfw_glass2` carries a
+`NormalMap_Tex_NRM` (12 of 14 `dummy_nrm`), where the family binds `Base_Tex_SRGB` and no normal
+dummy; `metal` (`fox3ddf_ggx`) carries its own `SpecularMap_Tex_LIN` and `MetalnessMap_Tex_LIN`
+in 176-178 of 193 real materials, and the wiki calls both required (defaults `#FF6C3A` and
+`#FFFFFF`), where the family falls back to `dummy_srm` and no metalness map; and a `shaded`
+material whose `environment` texture lifts it to `Basic_CNSR` gets no `Reflection`/`Shininess`
+(only `metal` defaults them), against the ladder's `R`.
+
 ### Textures
 
 `[mat.textures]` maps **canonical roles** to texture stems. The role vocabulary is engine-neutral;
@@ -640,8 +665,8 @@ are dropped for that engine (`material_texture_unused`, I):
 | Role | Fox sampler | Pre-Fox sampler | Auto-name suffix | Family default when omitted and not found |
 |---|---|---|---|---|
 | `base` | `Base_Tex_SRGB` (`Base_Tex_LIN` when `[fox] base_linear = true`) | `DiffuseMap` (`srgb="1"`) | `_bsm`, falling back to the bare material name | required: `material_texture_not_found` |
-| `normal` | `NormalMap_Tex_NRM` | `NormalMap` (`srgb="0"`) | `_nrm` | Fox: game `dummy_nrm`; pre-Fox: no sampler |
-| `specular` | `SpecularMap_Tex_LIN` | `SpecularMap` (`srgb="1"`) | `_srm` | Fox: game `dummy_srm`; pre-Fox: no sampler |
+| `normal` | `NormalMap_Tex_NRM` | `NormalMap` (`srgb="0"`) | `_nrm` | Fox, `shaded` and `metal`: game `dummy_nrm`; pre-Fox: no sampler |
+| `specular` | `SpecularMap_Tex_LIN` | `SpecularMap` (`srgb="1"`) | `_srm` | Fox, `shaded` and `metal`: game `dummy_srm`; pre-Fox: no sampler |
 | `metalness` | `MetalnessMap_Tex_LIN` | — | `_mtl` | none |
 | `environment` | — | `EnvironmentMap` (`srgb="0"`, `minfilter="anisotropic"`, wrap addressing, `maxaniso="2"`) — the `R` in `Basic_CNSR` | `_env` | `metal` family: the template environment map, emitted into the player's common textures like any other fallback texture; else none |
 | `reflection` | `GlassReflection_Tex_SRGB` | — | `_cbm` | none |

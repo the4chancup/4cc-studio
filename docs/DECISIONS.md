@@ -6816,3 +6816,18 @@ layout no export uses or an export that already reports an error (the maintainer
 keep it simple where possible); pre-Fox takes no improvements until the cup returns to it.
 Plan: `team_compiler/pipeline.md` "### 4. Per-export non-model steps", the paragraph ending
 "not worth its rule".
+
+## 2026-10-11 — model_convert — the material table kept against the wiki, on real files
+Decision: where the cup wiki's Materials page and `model_format.md`'s material tables differ,
+the tables stand wherever real files use our form (the `shadeless` shader's `_solid` spelling,
+`.mtl` samplers with `srgb` and two filters, the opaque `alphatest` 1, `Basic_CNSR` read as
+`shaded`, bit 128 on forward shaders, an anti-blur duplicate at its source's positions); the
+three differences that real files favour the wiki on (`glass`'s `Base_Tex_LIN` and normal dummy,
+`metal`'s own specular and metalness maps, a `shaded` `Basic_CNSR`'s vectors) concern family
+defaults only glTF sources reach on Fox, and are settled before Phase 7 implements them.
+Why: the wiki documents the Blender add-on's presets and one Konami example, while every FMDL
+and `.mtl` on the maintainer's machine (7,315 and 10,101) shows what the cup's exports actually
+carry and the game draws; changing code for defaults no source reaches today would be
+machinery no export exercises.
+Plan: `model_format.md` "Shader families", the paragraph "Checked against the community's
+reference"; `development_plan.md` "Phase 7".

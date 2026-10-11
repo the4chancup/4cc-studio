@@ -73,7 +73,9 @@ split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' 
 TC-MOD-64's meshes told apart, a dropped shared link no link, a textures-only folder
 reported, a `.model` collar's material losses skipped), 4.y-fix22 done 2026-10-10 (the S13
 and S15 rounds' rework; S12, S14, S15 and S17 closed), 4.y-fix23 done 2026-10-11 (a shared
-boots or gloves folder's model link named as its models are; its pre-Fox item an issue), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+boots or gloves folder's model link named as its models are; its pre-Fox item an issue),
+4.y-mattable done 2026-10-11 (the material table kept against the wiki on a census of real
+FMDL and `.mtl` files; three family defaults left for Phase 7), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag done 2026-10-10 (no retype needed; 76 long subjects cut, history rewritten
 and force-pushed), 4.y-fix12 done 2026-10-10
@@ -4935,7 +4937,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `aesthetics_export` `validate/{folders,tests}.rs`; `team_compiler` `plan/mod.rs`,
   `tests/cli/common_links.rs`.
 
-- [ ] 4.y-mattable **The material table checked against the community's shader reference**
+- [x] 4.y-mattable **The material table checked against the community's shader reference**
   (the maintainer, 2026-10-10). `resources/Materials.wikitext` (the cup wiki's "Materials"
   page: pre-Fox `.mtl` settings and the `Basic_C`, `Basic_CNSR` and `Shadeless` shaders; Fox
   material settings, texture paths and the Generic, Metallic, Fresnel, Constant, Glass and
@@ -4951,6 +4953,13 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   the plan or the code wrong (a step of its own, briefed), or the wiki (noted, with the
   evidence, a game file or an in-game check). → verify: a table of every row compared and
   its outcome in `.tmp/4_y/mattable/`; each mismatch a ruling, and a step where it is ours.
+  Done 2026-10-11: 143 rows (`table.md`, 80 match), every mismatch ruled (`rulings.md`)
+  against a census of every FMDL and `.mtl` on the machine (7,315 and 10,101 read). No code
+  change: the tables stand where real files use our form; the three differences real files
+  favour the wiki on are family defaults only glTF reaches on Fox, settled before Phase 7
+  (`model_format.md` "Checked against the community's reference", `development_plan.md`
+  "Phase 7"); the Textures table's dummy fallback names its families; one pre-Fox open issue
+  (spaces in a converted `.mtl` path). DECISIONS 2026-10-11.
 
 - [ ] 4.y-scen **Every CLI test cites a scenario** (the maintainer, 2026-10-10;
   `CONTRIBUTING.md` "Acceptance IDs", DECISIONS "every CLI test of a tool cites a
@@ -5177,6 +5186,10 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-11, 4.y-mattable row 27; deferred until the cup next plays a pre-Fox version) —
+  the cup wiki says a `.mtl` splits a path at spaces, and 212 of 60,027 texture names in real
+  FMDLs hold one (`Kit 1_u0XXXp0.dds`), so a Fox model converted for PES 15-17 may write a
+  `.mtl` path the game cuts short. Unverified in game.
 - open (2026-10-11, 4.y-fix23 (1); deferred until the cup next plays a pre-Fox version) — a
   PES 17 referee whose only model is a `.model.common` link gets no face (`roles.rs`
   `is_package_model` does not count `PreFoxCommonModel`), while the converted Common model is
@@ -7512,3 +7525,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   dropped by its own empty-named material.
 - **2026-10-11** — 4.y-fix23 done: on PES 18-21 a shared boots or gloves folder's model link
   is named by the folder's suffix rule (TC-MOD-83); its pre-Fox item is an open issue.
+- **2026-10-11** — 4.y-mattable done: the material tables checked row by row against the cup
+  wiki and a census of every FMDL and `.mtl` on the machine; no code change, three family
+  defaults left for Phase 7, one pre-Fox issue.
