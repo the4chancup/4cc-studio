@@ -852,9 +852,11 @@ def update_cost_cache() -> None:
     whole test timeout and each job's first, cold build (40-60 s at 3.z).
     The baseline's duration is recorded for every crate the run mutated.
     Only the local `mutants.out` counts; the remote half ran on other
-    hardware."""
+    hardware. A run with a killed build changes nothing: its durations time
+    the failure, not the tests (4.y-conv: 273 builds lost their console in
+    23 s), and would pull later estimates under the split threshold."""
     path = ROOT / "mutants.out" / "outcomes.json"
-    if not path.exists():
+    if not path.exists() or killed_builds(ROOT / "mutants.out"):
         return
     durations: dict[str, list[float]] = {}
     baseline = None

@@ -23,7 +23,7 @@ def write_run(out: Path, selected: int, outcomes: list[dict], logs: dict[str, st
     `outcomes`, and each `logs` entry as the log file of that name."""
     out.mkdir(parents=True, exist_ok=True)
     (out / "mutants.json").write_text(json.dumps([{}] * selected), encoding="utf-8")
-    baseline = {"scenario": "Baseline", "summary": "Success"}
+    baseline = {"scenario": "Baseline", "summary": "Success", "phase_results": [{"duration": 1.0}]}
     (out / "outcomes.json").write_text(
         json.dumps({"outcomes": [baseline, *outcomes]}), encoding="utf-8"
     )
@@ -80,14 +80,15 @@ class KilledBuilds(unittest.TestCase):
 
 
 class Summarize(unittest.TestCase):
-    def summarize(self, root: Path) -> int:
-        saved = mutants.ROOT
-        mutants.ROOT = root
+    def summarize(self, root: Path, remote_only: bool = False) -> int:
+        # The maintainer's switch is set here, not read: the test holds in either mode.
+        saved = mutants.ROOT, mutants.REMOTE_ONLY
+        mutants.ROOT, mutants.REMOTE_ONLY = root, remote_only
         try:
             with contextlib.redirect_stdout(io.StringIO()):
                 return mutants.summarize(0, 0, root / "remote_console.txt", (None, None))
         finally:
-            mutants.ROOT = saved
+            mutants.ROOT, mutants.REMOTE_ONLY = saved
 
     def test_a_split_run_whose_local_half_never_started_fails(self):
         caught = [{"scenario": mutant("a"), "summary": "CaughtMutant"}]
@@ -95,8 +96,42 @@ class Summarize(unittest.TestCase):
             root = Path(tmp)
             write_run(root / "mutants.out" / "remote" / "mutants.out", 1, caught)
             self.assertEqual(self.summarize(root), 1)
+            # A remote-only run has no local half to start.
+            self.assertEqual(self.summarize(root, remote_only=True), 0)
             write_run(root / "mutants.out", 1, caught)
             self.assertEqual(self.summarize(root), 0)
+
+
+class CostCache(unittest.TestCase):
+    def update(self, root: Path) -> bool:
+        """Whether `update_cost_cache` over `root`'s `mutants.out` wrote the cache."""
+        saved = mutants.ROOT, mutants.COST_CACHE
+        mutants.ROOT, mutants.COST_CACHE = root, root / "cost.json"
+        try:
+            mutants.update_cost_cache()
+            return mutants.COST_CACHE.exists()
+        finally:
+            mutants.ROOT, mutants.COST_CACHE = saved
+
+    def test_a_run_with_a_killed_build_leaves_the_measured_costs(self):
+        def outcomes(summary: str) -> list[dict]:
+            return [
+                {
+                    "scenario": {"Mutant": {"name": f"m{i}", "file": "crates/libs/cpk/src/lib.rs"}},
+                    "summary": summary,
+                    "log_path": "log/m",
+                    "phase_results": [{"duration": 1.0}],
+                }
+                for i in range(5)
+            ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "mutants.out"
+            killed = "process didn't exit successfully (exit code: 0xc0000142)"
+            write_run(out, 5, outcomes("Unviable"), {"log/m": killed})
+            self.assertFalse(self.update(Path(tmp)))
+            write_run(out, 5, outcomes("CaughtMutant"), {"log/m": "test failed"})
+            self.assertTrue(self.update(Path(tmp)))
 
 
 if __name__ == "__main__":
