@@ -77,7 +77,8 @@ boots or gloves folder's model link named as its models are; its pre-Fox item an
 4.y-mattable done 2026-10-11 (the material table kept against the wiki on a census of real
 FMDL and `.mtl` files; three family defaults left for Phase 7), 4.y-simp done 2026-10-11 (the
 simplification pass: a texture conflict leaves the player folder out, the salvage machinery
-gone, net about -270 lines), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
+gone, net about -270 lines), 4.y-scen done 2026-10-11 (every CLI test cites its scenario;
+363 scenarios, all proven), 4.y-kitwarn done 2026-10-10 (a sleeve or fit option the
 shirt model ignores is `kit_config_option_ignored`, the config checked as emitted, the FPC
 values applied first on an FPC team), 4.y-retag done 2026-10-10 (no retype needed; 76 long subjects cut, history rewritten
 and force-pushed), 4.y-fix12 done 2026-10-10
@@ -4983,7 +4984,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   accepted (`.tmp/4_y/simp_rulings_a1.md`); the stale run-summary text left
   `refs_arranger.md`, `core/parallelism.md` and `core/architecture.md`. Gates green (2,780
   tests); `mutants-diff 84a55b5` every viable mutant caught on each round.
-- [ ] 4.y-scen **Every CLI test cites a scenario** (the maintainer, 2026-10-10;
+- [x] 4.y-scen **Every CLI test cites a scenario** (the maintainer, 2026-10-10;
   `CONTRIBUTING.md` "Acceptance IDs", DECISIONS "every CLI test of a tool cites a
   scenario"). `scripts/acceptance.py` gains the check, by the lead (the scanner is
   correctness-critical), with its case in `scripts/acceptance_test.py`: every `#[test]` in a
@@ -4996,6 +4997,15 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   scenarios. The new and widened scenarios get the cross-family critique `AGENTS.md` asks for
   after Acceptance text. → verify: `just acceptance strict` lists no uncited CLI test; the
   scenario count before and after; the critique's rulings.
+  Done 2026-10-11: the scanner landed in `84a55b5` (241 uncited at that HEAD). Triage by three
+  read-only agents, ruled by the lead (`.tmp/4_y/scen/rulings.md`): 20 new scenarios
+  (TC-SRC-10, TC-CLI-10 to 12, TC-MOD-84 to 90, TC-TEX-19 and 20, TC-XML-16 and 17, TC-CMN-32
+  to 35, TC-DEP-15 and 16; TC-TEX-19 split in review), about 60 widened, one rule each;
+  citations added by a checked script (236), four redundant tests deleted, one moved to a unit
+  test (`lib.rs`), the two TC-MOD-84 tests given output assertions. Scenarios 342 to 363, all
+  proven; `acceptance strict` lists no uncited test. Astra (checkpoint a): six rounds, 21, 11,
+  6, 9, 6 and 3 concerns, all accepted, every one a scenario text claiming more or other than
+  its tests prove; no code behavior changed.
 - [~] 4.y-conv **Converge** (`AGENTS.md` "Closing a phase" (1)): the lead's audit of
   `team_compiler`, `aesthetics_export`, `pipeline` and the Phase 4 edits of the lib crates
   against `development_plan.md` "Phase 4", the `pipeline.md` walkthrough, `messages.md`,
@@ -7554,3 +7564,6 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   `shared_texture_conflict` leaves the player folder out, a Common texture only conversion
   refuses fails its directory's task, an undecided root reports the parse's findings alone,
   `multiple_ref_exports` lost its run summary; net about -270 lines.
+- **2026-10-11** — 4.y-scen done: every `team_compiler` CLI test cites the scenario it proves;
+  363 scenarios (20 new, about 60 widened), all proven; six Astra rounds on the text, 56
+  concerns, all accepted.

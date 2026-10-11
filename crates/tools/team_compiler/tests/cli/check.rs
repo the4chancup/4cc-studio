@@ -6,6 +6,7 @@ use crate::common::Sandbox;
 use crate::compile::tracer_kit;
 use crate::{CLEAN_PLAYER, clean_model, snapshot};
 
+// TC-CLI-11
 #[test]
 fn check_brackets_each_export_with_its_start_and_end() {
     let sandbox = Sandbox::new("envelopes");
@@ -123,6 +124,7 @@ fn a_disallowed_file_is_an_error_when_strict_and_an_info_when_lenient() {
     assert_eq!(lenient.exit_code(), 0);
 }
 
+// TC-STR-16
 #[test]
 fn pass_through_keeps_a_disallowed_file_at_its_error_severity() {
     let sandbox = Sandbox::new("pass_through");
@@ -217,6 +219,7 @@ fn check_exits_one_only_for_an_error_finding() {
     assert_eq!(run.exit_code(), 0);
 }
 
+// TC-SRC-03
 #[test]
 fn a_disabled_export_reports_only_that_whatever_the_marker_case() {
     let sandbox = Sandbox::new("disabled");
@@ -246,18 +249,7 @@ fn a_disabled_export_reports_only_that_whatever_the_marker_case() {
     assert_eq!(run.exit_code(), 0);
 }
 
-#[test]
-fn a_balls_export_is_skipped_unread() {
-    let sandbox = Sandbox::new("balls");
-    sandbox.write("exports/balls Spring/extra.bin", b"");
-    let run = sandbox.run("", &["check"]);
-    assert_eq!(
-        run.messages(),
-        ["balls Spring: Info export_balls_skipped [DropExport] ()"]
-    );
-    assert_eq!(run.exit_code(), 0);
-}
-
+// TC-ID-03
 #[test]
 fn an_export_is_identified_by_its_first_word() {
     let sandbox = Sandbox::new("identified");
@@ -282,6 +274,7 @@ fn an_export_is_identified_by_its_first_word() {
     assert_eq!(run.exit_code(), 0);
 }
 
+// TC-ID-04, TC-ID-02
 #[test]
 fn an_unknown_team_is_an_error_and_the_export_beside_it_is_still_checked() {
     let sandbox = Sandbox::new("unknown_team");
@@ -306,6 +299,7 @@ fn an_unknown_team_is_an_error_and_the_export_beside_it_is_still_checked() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-CLI-09
 #[test]
 fn check_creates_the_missing_default_exports_folder_and_reports_it_empty() {
     let sandbox = Sandbox::new("missing_root");
@@ -322,6 +316,7 @@ fn check_creates_the_missing_default_exports_folder_and_reports_it_empty() {
     assert_eq!(run.exit_code(), 0);
 }
 
+// TC-SRC-08
 #[test]
 fn export_paths_restrict_the_run_to_the_named_sources() {
     let sandbox = Sandbox::new("named_sources");

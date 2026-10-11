@@ -213,6 +213,7 @@ fn of_two_exports_replacing_one_collar_the_later_one_loses_it_and_keeps_its_conf
 }
 
 // The absent slots of TC-CMN-01, with no FPC: a `Midcup` export resending no kit.
+// TC-CMN-01
 #[test]
 fn a_midcup_export_s_collar_goes_into_its_team_s_kits_it_does_not_resend() {
     let sandbox = Sandbox::new("collar_midcup");
@@ -478,6 +479,7 @@ fn a_pes_16_fmdl_collar_is_converted_with_every_material_named_uni_shirts() {
     assert_eq!(bindings, [0, 0]);
 }
 
+// TC-CMN-12
 #[test]
 fn a_gltf_collar_is_dropped_and_its_export_compiled_without_it() {
     for (number, version) in [(21, PesVersion::Pes21), (17, PesVersion::Pes17)] {
@@ -507,6 +509,7 @@ fn a_gltf_collar_is_dropped_and_its_export_compiled_without_it() {
     }
 }
 
+// TC-CMN-33
 #[test]
 fn a_pes_17_fmdl_collar_whose_conversion_fails_is_dropped_and_its_export_compiled() {
     let sandbox = Sandbox::new("collar_pre_fox_fmdl_failed");
@@ -679,6 +682,7 @@ fn a_pes_21_model_collar_is_converted_with_the_templates_uniform_mtl() {
 }
 
 // The same-engine pre-check on a `.model` collar (`pipeline.md` "Collars").
+// TC-MOD-50
 #[test]
 fn a_model_collar_posed_off_the_version_s_skeleton_is_moved_onto_it_and_kept_wrapped_otherwise() {
     let source = stock_collar_model();
@@ -729,6 +733,7 @@ fn a_model_collar_posed_off_the_version_s_skeleton_is_moved_onto_it_and_kept_wra
     assert!(compiled(&sandbox).get(PRE_FOX_COLLAR_12) == Some(&source));
 }
 
+// TC-CMN-03
 #[test]
 fn of_two_pes_17_exports_replacing_one_collar_the_later_one_loses_it() {
     let sandbox = Sandbox::new("collar_pre_fox_conflict");
@@ -846,6 +851,7 @@ fn a_collar_below_a_collars_subfolder_is_kept_by_the_lenient_check_and_not_a_col
     assert_collar_left_out(&sandbox, PesVersion::Pes17, (30, 31));
 }
 
+// TC-CMN-16
 #[test]
 fn a_file_of_no_model_kind_in_collars_kept_by_the_lenient_check_gets_no_collar_finding() {
     let sandbox = Sandbox::new("collar_readme");
@@ -877,6 +883,7 @@ fn a_file_of_no_model_kind_in_collars_kept_by_the_lenient_check_gets_no_collar_f
     assert_collar_left_out(&sandbox, PesVersion::Pes17, (30, 31));
 }
 
+// TC-CMN-02
 #[test]
 fn an_export_whose_only_collar_is_dropped_compiles_without_it() {
     let sandbox = Sandbox::new("collar_dropped");

@@ -181,6 +181,7 @@ fn each_bin_comes_from_the_nearest_cpk_listed_below_the_run_s_own() {
     );
 }
 
+// TC-BIN-05
 #[test]
 fn the_installed_refs_cpk_is_passed_over_when_the_run_holds_a_refs_export() {
     let sandbox = Sandbox::new("bins_walk_refs");
@@ -233,6 +234,7 @@ fn the_installed_refs_cpk_is_passed_over_when_the_run_holds_a_refs_export() {
     assert!(cpk_entries(&team_cpk)[TEAM_COLOR] == bundled_team_color());
 }
 
+// TC-CLI-10
 #[test]
 fn the_walk_reads_the_pes_folder_with_its_version_placeholder_expanded() {
     let sandbox = Sandbox::new("bins_placeholder");
@@ -418,6 +420,7 @@ fn an_installed_cpk_that_cannot_be_read_stops_the_run_before_any_export_is_read(
     assert!(!sandbox.root.join("output/4cc_99_test.cpk").exists());
 }
 
+// TC-BIN-21
 #[test]
 fn an_installed_bin_that_does_not_parse_stops_the_run_before_any_export_is_read() {
     let sandbox = Sandbox::new("bins_unparsable");
@@ -731,6 +734,7 @@ fn an_installed_loose_config_re_encoded_for_the_fpc_values_reports_the_value_it_
     assert_eq!(p1.name.y, 33);
 }
 
+// TC-BIN-23
 #[test]
 fn a_midcup_pes_17_export_s_collar_reaches_the_loose_configs_of_the_kits_it_does_not_hold() {
     let sandbox = Sandbox::new("bins_collar_loose_configs");
@@ -764,6 +768,7 @@ fn a_midcup_pes_17_export_s_collar_reaches_the_loose_configs_of_the_kits_it_does
     assert!(!entries.contains_key(&config_path("3rd")));
 }
 
+// TC-BIN-18
 #[test]
 fn a_full_pes_17_export_re_emits_no_installed_loose_config() {
     let sandbox = Sandbox::new("bins_full_loose_configs");
@@ -784,6 +789,7 @@ fn a_full_pes_17_export_re_emits_no_installed_loose_config() {
     assert!(!entries.contains_key(&config_path("3rd")));
 }
 
+// TC-BIN-18
 #[test]
 fn the_nearest_cpk_s_loose_config_is_the_one_an_absent_slot_s_edit_starts_from() {
     let sandbox = Sandbox::new("bins_nearest_loose_config");

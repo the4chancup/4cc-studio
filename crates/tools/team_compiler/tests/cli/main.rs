@@ -41,8 +41,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use common::{Run, Sandbox};
-use studio_core::{ExportId, PipelineEvent, Scope, StudioTool};
-use team_compiler::Tool;
+use studio_core::{ExportId, PipelineEvent, Scope};
 
 impl Sandbox {
     fn write(&self, relative: &str, contents: &[u8]) {
@@ -271,15 +270,4 @@ fn clean_model() -> Vec<u8> {
         }
     }
     model.to_file().unwrap().write()
-}
-
-#[test]
-fn the_tool_is_registered_as_the_team_compiler() {
-    let tool = Tool::new();
-    assert_eq!(tool.id(), "team-compiler");
-    assert_eq!(tool.label(), "Team compiler");
-    assert_eq!(
-        tool.default_settings()["cpk_name"].as_str(),
-        Some("4cc_99_test")
-    );
 }

@@ -321,6 +321,7 @@ fn a_placeholder_kit_marked_pre_fox_compiles_as_without_the_marker() {
     assert_eq!(entries, compiled_entries(&unmarked));
 }
 
+// TC-KIT-19
 #[test]
 fn a_kit_marked_fox_compiled_for_pes_21_is_as_without_the_marker() {
     let marked = Sandbox::new("kit_layout_fox");

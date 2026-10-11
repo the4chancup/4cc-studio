@@ -291,6 +291,7 @@ fn a_player_s_face_model_compiles_into_its_face_cpk_with_the_generated_face_xml(
     );
 }
 
+// TC-REF-16
 #[test]
 fn a_team_player_holding_fpc_off_takes_no_refkit_body() {
     let sandbox = Sandbox::new("prefox_fpc_off");
@@ -529,6 +530,7 @@ fn a_link_to_a_common_fox_model_whose_every_mesh_is_hidden_is_dropped_with_it() 
     );
 }
 
+// TC-MOD-69
 #[test]
 fn a_dropped_link_s_finding_comes_at_the_link_s_place_in_file_order() {
     let sandbox = Sandbox::new("prefox_hidden_link_order");
@@ -555,6 +557,7 @@ fn a_dropped_link_s_finding_comes_at_the_link_s_place_in_file_order() {
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
 }
 
+// TC-MOD-57
 #[test]
 fn a_shared_boots_folder_whose_every_fmdl_is_hidden_has_no_model_on_pes_17() {
     let sandbox = Sandbox::new("prefox_shared_boots_hidden");
@@ -591,6 +594,7 @@ fn a_shared_boots_folder_whose_every_fmdl_is_hidden_has_no_model_on_pes_17() {
     assert!(!xml.contains("boots"), "{xml}");
 }
 
+// TC-MOD-84
 #[test]
 fn a_converted_fmdl_s_material_set_and_a_member_s_mtl_differing_in_case_are_two_files_of_one_name()
 {
@@ -600,6 +604,7 @@ fn a_converted_fmdl_s_material_set_and_a_member_s_mtl_differing_in_case_are_two_
     sandbox.write(&format!("{player}/Face_High.fmdl"), &clean_model());
     sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
     sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+    write_sound_player(&sandbox, export);
 
     let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
 
@@ -607,7 +612,7 @@ fn a_converted_fmdl_s_material_set_and_a_member_s_mtl_differing_in_case_are_two_
     // file system folding case would keep one of them.
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, export),
+        findings_but_the_sound_player(&lines, export),
         [
             CLEAN[0],
             CLEAN[1],
@@ -616,8 +621,34 @@ fn a_converted_fmdl_s_material_set_and_a_member_s_mtl_differing_in_case_are_two_
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    // The folder is left out, its textures with its face; the sound player compiles.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        !entries.contains_key(&face_cpk(5))
+            && entries.keys().all(|path| !path.contains("05 - A"))
+            && entries.contains_key(&face_cpk(9)),
+        "{:#?}",
+        entries.keys()
+    );
 }
 
+/// Slot 09 of `export`, a face that compiles for PES 15-17: the rest of an export a failing
+/// folder leaves.
+fn write_sound_player(sandbox: &Sandbox, export: &str) {
+    let player = format!("exports/{export}/Players/09 - C");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/skin.dds"), &small_dds());
+}
+
+/// The findings of `export` but the sound player's conversion notes (`write_sound_player`).
+fn findings_but_the_sound_player<'a>(lines: &'a [String], export: &str) -> Vec<&'a str> {
+    findings_of(lines, export)
+        .into_iter()
+        .filter(|line| !line.contains("Players/09 - C"))
+        .collect()
+}
+
+// TC-MOD-84
 #[test]
 fn a_kits_fallback_fmdl_and_a_member_s_mtl_of_its_stem_are_two_files_of_one_name() {
     let sandbox = Sandbox::new("prefox_face_kitf_mtl_collision");
@@ -632,12 +663,13 @@ fn a_kits_fallback_fmdl_and_a_member_s_mtl_of_its_stem_are_two_files_of_one_name
         sandbox.write(&format!("{player}/{stem}.mtl"), &card_materials());
         sandbox.write(&format!("{player}/skin.dds"), &small_dds());
     }
+    write_sound_player(&sandbox, export);
 
     let run = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert_eq!(
-        findings_of(&lines, export),
+        findings_but_the_sound_player(&lines, export),
         [
             CLEAN[0],
             CLEAN[1],
@@ -647,8 +679,20 @@ fn a_kits_fallback_fmdl_and_a_member_s_mtl_of_its_stem_are_two_files_of_one_name
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    // Both folders are left out, their textures with their faces; the sound player compiles.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    for (slot, folder) in [(5, "05 - A"), (7, "07 - B")] {
+        assert!(
+            !entries.contains_key(&face_cpk(slot))
+                && entries.keys().all(|path| !path.contains(folder)),
+            "{:#?}",
+            entries.keys()
+        );
+    }
+    assert!(entries.contains_key(&face_cpk(9)), "{:#?}", entries.keys());
 }
 
+// TC-XML-08, TC-XML-04
 #[test]
 fn a_model_with_no_mtl_drops_its_folder_and_a_face_without_face_neck_gets_the_dummy() {
     let sandbox = Sandbox::new("prefox_undefined");
@@ -805,6 +849,7 @@ fn a_shared_boots_folder_with_no_model_takes_no_id_and_warns() {
     );
 }
 
+// TC-MOD-22
 #[test]
 fn a_shared_boots_folder_s_model_of_another_name_is_written_as_boots_model_with_its_own_mtl() {
     let sandbox = Sandbox::new("prefox_shared_boots_name");
@@ -1080,6 +1125,7 @@ fn a_linked_face_folder_is_copied_into_the_player_s_face_cpk() {
     );
 }
 
+// TC-MOD-40
 #[test]
 fn a_player_s_own_file_replaces_the_linked_face_folder_s_file_of_its_packed_name() {
     let sandbox = Sandbox::new("prefox_shared_face_local");
@@ -1115,6 +1161,7 @@ pub(crate) fn write_round_hat(sandbox: &Sandbox, export: &str, model: &[u8]) {
     sandbox.write(&format!("exports/{export}/Faces/Round/hat.fmdl"), model);
 }
 
+// TC-MOD-85
 #[test]
 fn a_linked_face_folder_s_fmdl_is_converted_into_the_player_s_face_cpk() {
     let sandbox = Sandbox::new("prefox_shared_face_fmdl");
@@ -1216,6 +1263,7 @@ fn a_linked_face_folder_s_fmdl_is_converted_into_the_player_s_face_cpk() {
     );
 }
 
+// TC-MOD-77
 #[test]
 fn a_linked_face_folder_s_model_takes_its_own_mtl_and_not_a_common_one_its_link_names() {
     let sandbox = Sandbox::new("prefox_shared_face_mtl_link");
@@ -1253,6 +1301,7 @@ fn a_linked_face_folder_s_model_takes_its_own_mtl_and_not_a_common_one_its_link_
     );
 }
 
+// TC-MOD-85
 #[test]
 fn a_linked_boots_folder_s_fmdl_is_converted_into_boots_model_and_boots_mtl_on_pes_17() {
     let sandbox = Sandbox::new("prefox_shared_boots_fmdl");
@@ -1333,6 +1382,7 @@ fn a_linked_boots_folder_s_fmdl_is_converted_into_boots_model_and_boots_mtl_on_p
     );
 }
 
+// TC-MOD-85
 #[test]
 fn a_linked_gloves_folder_s_fmdls_are_converted_and_listed_in_its_glove_xml_on_pes_17() {
     let sandbox = Sandbox::new("prefox_shared_gloves_fmdl");
@@ -1404,6 +1454,7 @@ fn a_linked_gloves_folder_s_fmdls_are_converted_and_listed_in_its_glove_xml_on_p
     );
 }
 
+// TC-MOD-26
 #[test]
 fn a_model_with_no_mtl_beside_an_fmdl_of_its_name_is_not_undefined_on_fox() {
     let sandbox = Sandbox::new("prefox_undefined_fox");
@@ -1548,6 +1599,7 @@ fn a_common_model_link_takes_a_local_mtl_of_its_name_over_the_common_one() {
     assert_eq!(slot_05_common(&entries), ["skin.dds"]);
 }
 
+// TC-MOD-24
 #[test]
 fn a_common_model_link_below_a_subfolder_names_the_common_model_and_mtl_at_its_path() {
     let sandbox = Sandbox::new("prefox_common_legs_nested");
@@ -1592,6 +1644,7 @@ fn a_common_model_link_below_a_subfolder_names_the_common_model_and_mtl_at_its_p
     assert_eq!(names, ["legs.mtl", "oral_legs_win32.model", "skin.dds"]);
 }
 
+// TC-CMN-15
 #[test]
 fn a_common_fmdl_a_model_the_deep_pass_drops_beats_is_dropped_with_it() {
     let sandbox = Sandbox::new("prefox_common_beaten_dropped");
@@ -1673,6 +1726,7 @@ fn a_material_link_names_the_common_mtl_which_the_common_output_holds_once() {
     assert_eq!(slot_05_common(&entries), Vec::<&str>::new());
 }
 
+// TC-TEX-09
 #[test]
 fn a_texture_link_points_the_player_s_mtl_at_the_common_texture() {
     let sandbox = Sandbox::new("prefox_common_texture");
@@ -1699,6 +1753,7 @@ fn a_texture_link_points_the_player_s_mtl_at_the_common_texture() {
     assert_eq!(slot_05_common(&entries), Vec::<&str>::new());
 }
 
+// TC-MOD-24
 #[test]
 fn two_spellings_of_one_model_link_give_one_entry() {
     let sandbox = Sandbox::new("prefox_common_legs_twice");
@@ -1719,6 +1774,7 @@ fn two_spellings_of_one_model_link_give_one_entry() {
     );
 }
 
+// TC-XML-08
 #[test]
 fn a_model_link_whose_only_mtl_is_a_broken_common_one_drops_its_folder() {
     let sandbox = Sandbox::new("prefox_common_mtl_broken");
@@ -1834,6 +1890,7 @@ fn a_broken_model_below_a_common_subfolder_is_checked_and_dropped() {
     );
 }
 
+// TC-XML-17
 #[test]
 fn a_texture_below_a_common_subfolder_is_no_common_texture_a_mtl_finds() {
     // A Common `.mtl`'s paths are pointed among its own directory's textures, and
@@ -1874,6 +1931,7 @@ fn a_texture_below_a_common_subfolder_is_no_common_texture_a_mtl_finds() {
     assert!(!common.contains_key("cloth.dds"), "{:#?}", entries.keys());
 }
 
+// TC-XML-17
 #[test]
 fn a_common_path_is_supplied_by_a_texture_directly_in_common_alone() {
     // Slot 05's own `.mtl` names `cloth.dds` in the team's Common output, which only a
@@ -1933,6 +1991,7 @@ fn write_common_fmdl_legs(sandbox: &Sandbox, export: &str) {
     );
 }
 
+// TC-MOD-85
 #[test]
 fn a_common_fmdl_is_converted_once_into_the_common_output_which_a_link_names() {
     let sandbox = Sandbox::new("prefox_common_fmdl");
@@ -2021,6 +2080,7 @@ fn a_common_fmdl_is_converted_once_into_the_common_output_which_a_link_names() {
     );
 }
 
+// TC-MOD-84
 #[test]
 fn a_common_mtl_of_a_converted_fmdl_s_set_name_fails_the_common_models_task() {
     let sandbox = Sandbox::new("prefox_common_fmdl_mtl");
@@ -2195,6 +2255,7 @@ fn a_model_material_its_mtl_does_not_define_drops_the_folder_at_check_and_compil
     assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }
 
+// TC-MOD-66
 #[test]
 fn a_subfolder_s_texture_sits_at_its_path_and_a_mtl_names_the_nearest_one() {
     // The root's `skin.dds` and `jessie/skin.png` are two textures, each at its own path in
@@ -2293,6 +2354,7 @@ fn a_subfolder_s_model_and_mtl_are_packed_and_listed_at_their_paths() {
     );
 }
 
+// TC-MOD-85
 #[test]
 fn a_subfolder_s_fmdl_is_converted_with_its_material_set_beside_it() {
     let sandbox = Sandbox::new("prefox_subfolder_fmdl");
@@ -2334,6 +2396,7 @@ fn a_subfolder_s_fmdl_is_converted_with_its_material_set_beside_it() {
     );
 }
 
+// TC-XML-17
 #[test]
 fn a_subfolder_s_model_names_the_root_s_mtl_its_search_finds_there() {
     let sandbox = Sandbox::new("prefox_subfolder_model_root_mtl");
@@ -2371,6 +2434,7 @@ fn a_subfolder_s_model_names_the_root_s_mtl_its_search_finds_there() {
     );
 }
 
+// TC-XML-17
 #[test]
 fn a_mtl_path_below_its_folder_names_the_texture_at_that_path() {
     // A member's textures sorted into a subfolder beside the model above them:
@@ -2403,6 +2467,7 @@ fn a_mtl_path_below_its_folder_names_the_texture_at_that_path() {
     );
 }
 
+// TC-XML-17
 #[test]
 fn a_mtl_is_supplied_by_a_texture_of_its_folder_or_a_parent_never_a_subfolder() {
     // `jessie/body/x.mtl` names `skin.dds`, which `jessie/` holds: nearest first, the lookup

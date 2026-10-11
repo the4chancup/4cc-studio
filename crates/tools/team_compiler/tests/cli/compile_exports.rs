@@ -179,6 +179,7 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
     assert_eq!(run.exit_code(), 0);
 }
 
+// TC-KIT-11
 #[test]
 fn a_kit_holding_only_a_back_texture_gets_the_placeholder_main_texture() {
     let sandbox = Sandbox::new("kit_back_only");
@@ -221,6 +222,7 @@ fn portrait_path(name: &str) -> String {
     format!("common/render/symbol/player/{name}")
 }
 
+// TC-PRT-01
 #[test]
 fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_name() {
     let sandbox = Sandbox::new("portraits_dds");
@@ -264,6 +266,7 @@ fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_n
     assert_eq!(entries[&portrait_path("player_71407.dds")], tracer_kit());
 }
 
+// TC-ROS-05
 #[test]
 fn a_folder_listed_under_two_slots_emits_its_portrait_for_both() {
     let sandbox = Sandbox::new("portraits_two_slots");
@@ -439,6 +442,7 @@ fn a_portrait_whose_side_is_not_a_power_of_two_is_checked_and_left_out_alone() {
     assert_eq!(compiled_portraits(&sandbox), ["71403.dds"]);
 }
 
+// TC-PRT-03
 #[test]
 fn pass_through_keeps_a_portrait_whose_side_is_not_a_power_of_two() {
     let sandbox = Sandbox::new("portraits_odd_pass_through");
@@ -977,6 +981,7 @@ fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
     assert_eq!(record[13..21], entry);
 }
 
+// TC-KIT-25
 #[test]
 fn an_all_kit_texture_that_does_not_decode_drops_each_kit_inheriting_it_and_not_the_others() {
     let sandbox = Sandbox::new("kit_inherited_undecodable");
@@ -1566,6 +1571,7 @@ fn a_sleeve_or_fit_option_the_shirt_model_ignores_is_reported_and_the_config_kep
     assert_eq!(p1.shirt.model, 176);
 }
 
+// TC-KIT-32
 #[test]
 fn with_fpc_on_a_model_144_config_s_options_are_reported_with_the_fpc_model_176() {
     let sandbox = Sandbox::new("kit_config_option_ignored_fpc_on");
@@ -1812,6 +1818,7 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-PLN-05
 #[test]
 fn a_7z_over_the_memory_cap_compiles() {
     let sandbox = Sandbox::new("seven_z_over_cap");
@@ -1842,6 +1849,7 @@ fn a_7z_over_the_memory_cap_compiles() {
     assert_eq!(run.exit_code(), 0);
 }
 
+// TC-PLN-05
 #[test]
 fn a_7z_kept_from_its_check_and_one_decompressed_again_compile_the_same_cpk() {
     // The default cap keeps the archive's 150 KiB decompressed for its tasks (any cap of at
@@ -1871,6 +1879,7 @@ fn a_7z_kept_from_its_check_and_one_decompressed_again_compile_the_same_cpk() {
     assert!(outcomes[0].1 == outcomes[1].1, "the two CPKs differ");
 }
 
+// TC-CLI-11
 #[test]
 fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none() {
     let sandbox = Sandbox::new("processed_order");
@@ -1918,6 +1927,7 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-PLN-05
 #[test]
 fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
     let mut outcomes = Vec::new();
@@ -2146,6 +2156,7 @@ fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_repor
     );
 }
 
+// TC-PLN-04
 #[test]
 fn the_overrides_are_written_with_the_bins_when_no_export_compiles() {
     let sandbox = Sandbox::new("pln_overrides_no_export");

@@ -513,6 +513,7 @@ fn write_subfolder_xml(sandbox: &Sandbox, export: &str) {
     sandbox.write(&format!("{body}/x.mtl"), &card_materials());
 }
 
+// TC-XML-03
 #[test]
 fn a_local_reference_into_a_subfolder_is_checked_and_a_bare_name_names_the_folder_s_own_file() {
     let sandbox = Sandbox::new("user_xml_subfolder_check");
@@ -546,6 +547,7 @@ fn a_local_reference_into_a_subfolder_is_checked_and_a_bare_name_names_the_folde
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-XML-01
 #[test]
 fn a_member_s_xml_naming_a_subfolder_s_files_packs_them_at_their_paths() {
     let sandbox = Sandbox::new("user_xml_subfolder_compiled");
@@ -689,6 +691,7 @@ fn a_shared_face_s_xml_is_its_linking_face_s_with_his_own_models_appended() {
     }
 }
 
+// TC-XML-14
 #[test]
 fn his_subfolder_s_model_of_a_name_the_shared_xml_names_is_appended_at_its_path() {
     let sandbox = Sandbox::new("user_xml_shared_face_subfolder");
@@ -735,6 +738,7 @@ fn his_subfolder_s_model_of_a_name_the_shared_xml_names_is_appended_at_its_path(
     );
 }
 
+// TC-XML-14
 #[test]
 fn a_file_of_his_replacing_one_the_shared_xml_names_is_that_entry_s_file_not_appended() {
     let sandbox = Sandbox::new("user_xml_shared_face_replaced");
@@ -825,6 +829,7 @@ fn a_player_s_own_xml_beside_a_face_link_drops_his_folder_even_under_pass_throug
     }
 }
 
+// TC-XML-03
 #[test]
 fn a_shared_face_s_xml_naming_an_absent_model_drops_the_folder_and_its_linking_player() {
     let sandbox = Sandbox::new("user_xml_shared_face_not_found");
@@ -847,6 +852,7 @@ fn a_shared_face_s_xml_naming_an_absent_model_drops_the_folder_and_its_linking_p
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-XML-14
 #[test]
 fn his_own_face_diff_beside_a_face_link_wins_over_the_shared_xml_s_dif() {
     let sandbox = Sandbox::new("user_xml_shared_face_dif");
@@ -974,6 +980,7 @@ fn a_model_the_member_s_xml_does_not_list_is_reported_and_not_packed() {
     assert!(face.contains_key("hat.model"), "{:?}", face.keys());
 }
 
+// TC-XML-01
 #[test]
 fn an_entry_without_material_is_written_without_one_whatever_the_folder_s_mtl_files() {
     let sandbox = Sandbox::new("user_xml_no_material");
@@ -999,6 +1006,7 @@ fn an_entry_without_material_is_written_without_one_whatever_the_folder_s_mtl_fi
     );
 }
 
+// TC-XML-16
 #[test]
 fn a_kit_reference_packs_every_variant_of_its_model_and_mtl_sets_under_their_own_names() {
     let sandbox = Sandbox::new("user_xml_kit_set");
@@ -1145,6 +1153,7 @@ fn assert_a_kit_reference_completes_its_model_and_mtl_sets(name: &str, pants: &s
     );
 }
 
+// TC-XML-16
 #[test]
 fn a_kit_reference_into_a_subfolder_names_the_set_there_and_completes_it_at_its_path() {
     let sandbox = Sandbox::new("user_xml_kit_set_subfolder");
@@ -1227,6 +1236,7 @@ fn a_kit_reference_into_a_subfolder_names_the_set_there_and_completes_it_at_its_
     );
 }
 
+// TC-XML-16
 #[test]
 fn a_kit_reference_completes_its_model_and_mtl_sets_against_the_export_s_kits() {
     assert_a_kit_reference_completes_its_model_and_mtl_sets(
@@ -1236,6 +1246,7 @@ fn a_kit_reference_completes_its_model_and_mtl_sets_against_the_export_s_kits() 
 }
 
 // The `.mtl` set, completed first, reports nothing: the finding is the model set's.
+// TC-XML-16
 #[test]
 fn a_kit_reference_naming_its_mtl_first_reports_each_number_once() {
     assert_a_kit_reference_completes_its_model_and_mtl_sets(
@@ -1246,6 +1257,7 @@ fn a_kit_reference_naming_its_mtl_first_reports_each_number_once() {
 
 // The model set alone reports its missing number when its entry names one shared `.mtl`,
 // which serves every number as it is and is not copied.
+// TC-XML-16
 #[test]
 fn a_kit_reference_naming_one_shared_mtl_reports_its_model_set_and_copies_no_mtl() {
     let sandbox = Sandbox::new("user_xml_kit_set_one_mtl");
@@ -1308,6 +1320,7 @@ fn a_kit_reference_naming_one_shared_mtl_reports_its_model_set_and_copies_no_mtl
 // The player's own variants of the set the shared xml names are packed by its entry, not
 // appended under generated ones: his lowest, which the reference resolves to, and his
 // higher one, which only the set names.
+// TC-XML-16
 #[test]
 fn a_shared_xml_s_kit_reference_names_the_linking_player_s_own_variants() {
     let sandbox = Sandbox::new("user_xml_shared_kit_set");
@@ -1366,6 +1379,7 @@ fn a_shared_xml_s_kit_reference_names_the_linking_player_s_own_variants() {
 // The player's own `kitF` files are the set's fallback a shared xml's `kitN` reference is
 // completed from: packed under their own names as the face's files already hold them, the
 // missing numbers' copies read from them, and nothing of the face keeps a `kitF` name.
+// TC-XML-16
 #[test]
 fn a_shared_xml_s_kit_reference_is_completed_from_the_player_s_kitf_files() {
     let sandbox = Sandbox::new("user_xml_shared_kit_fallback");
@@ -1462,6 +1476,7 @@ fn decoded_dif(bytes: &[u8]) -> Vec<u8> {
 }
 
 // the pre-Fox tracer's member xml
+// TC-XML-01
 #[test]
 fn the_fumos_xml_compiles_with_its_references_and_its_dif_as_written() {
     let sandbox = Sandbox::new("user_xml_fumos");
@@ -1520,6 +1535,7 @@ fn the_fumos_xml_compiles_with_its_references_and_its_dif_as_written() {
     assert!(xml.ends_with(b"\r\n</dif>\r\n</config>"));
 }
 
+// TC-MOD-23
 #[test]
 fn on_pes_15_a_member_s_uniform_entry_is_written_uniform_sub_and_named_by_its_path() {
     let sandbox = Sandbox::new("user_xml_uniform");

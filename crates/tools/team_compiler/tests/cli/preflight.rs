@@ -1,7 +1,6 @@
 //! The preflight: the invocations and settings refused before any export is read.
 
 use crate::common::Sandbox;
-use crate::compile::pes_settings;
 use crate::{bundled_bins_then, snapshot};
 
 // TC-CLI-03
@@ -93,6 +92,7 @@ fn a_missing_default_exports_folder_is_created_and_reported_empty() {
     assert_eq!(run.exit_code(), 0);
 }
 
+// TC-CLI-05
 #[test]
 fn a_setting_of_the_wrong_type_is_a_configuration_error_naming_it() {
     let sandbox = Sandbox::new("wrong_type");
@@ -108,6 +108,7 @@ fn a_setting_of_the_wrong_type_is_a_configuration_error_naming_it() {
     assert_eq!(text.trim_end(), text, "no trailing newline");
 }
 
+// TC-CLI-05
 #[test]
 fn a_memory_cap_of_zero_is_a_configuration_error() {
     let sandbox = Sandbox::new("memory_cap");
@@ -115,22 +116,11 @@ fn a_memory_cap_of_zero_is_a_configuration_error() {
     run.assert_refused(2, &["memory_cap_percent"]);
 }
 
+// TC-CLI-12
 #[test]
 fn an_unparsable_teams_list_aborts_naming_it() {
     let sandbox = Sandbox::new("teams_list");
     sandbox.write("data/teams_list.txt", b"not a teams list\n");
     let run = sandbox.run("", &["check"]);
     run.assert_refused(3, &["teams_list.txt"]);
-}
-
-#[test]
-fn modes_and_commands_this_version_lacks_are_refused() {
-    let sandbox = Sandbox::new("not_available");
-    // Sideload mode is refused for a version no runtime serves (more in `sideload.rs`). The
-    // settings name a folder of the sandbox: the default one may be a real game's.
-    let run = sandbox.run(
-        &pes_settings(&sandbox, 16),
-        &["compile", "--mode", "sideload"],
-    );
-    run.assert_refused(2, &["--mode sideload", "PES 2016"]);
 }

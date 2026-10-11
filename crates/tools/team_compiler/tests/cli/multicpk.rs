@@ -152,6 +152,7 @@ fn teams_fill_the_slots_first_fit_and_the_bins_go_into_the_bins_cpk() {
     assert!(!output.join(".staging").exists());
 }
 
+// TC-REF-12
 #[test]
 fn a_refs_export_alone_on_fox_writes_the_bins_cpk_for_its_configs_and_every_part_a_placeholder() {
     let sandbox = Sandbox::new("multicpk_refs_alone");
@@ -307,6 +308,7 @@ fn a_second_slot_run_is_filled_by_its_own_stem_and_the_first_is_left_alone() {
     }
 }
 
+// TC-CLI-05
 #[test]
 fn multi_cpk_mode_needs_a_valid_bins_cpk_name() {
     let sandbox = sandbox_with("multicpk_refused", &EXPORTS[..1]);
@@ -392,6 +394,7 @@ fn assert_every_cpk_promoted(sandbox: &Sandbox, refs: bool) {
     }
 }
 
+// TC-DEP-01
 #[test]
 fn a_deploying_multi_cpk_compile_installs_every_cpk_and_leaves_nothing_in_the_output_folder() {
     let sandbox = deploying_sandbox("multicpk_deploys", install_pes);
@@ -493,6 +496,7 @@ fn a_locked_teams_part_is_old_cpk_locked_and_no_cpk_of_the_run_is_installed() {
     assert_eq!(leftovers(&sandbox), Vec::<String>::new());
 }
 
+// TC-DEP-11
 #[test]
 fn a_failing_copy_of_one_cpk_is_deploy_target_unwritable_and_installs_none() {
     let sandbox = deploying_sandbox("multicpk_copy_failed", install_pes);
@@ -526,6 +530,7 @@ fn a_failing_copy_of_one_cpk_is_deploy_target_unwritable_and_installs_none() {
     assert!(blocking.is_dir(), "the folder that was there stays");
 }
 
+// TC-OUT-07
 #[test]
 fn test_mode_writes_its_loose_files_as_without_multi_cpk_mode() {
     let mut trees = Vec::new();

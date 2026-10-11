@@ -119,6 +119,7 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_merges_into_the_player_s_
     }
 }
 
+// TC-MOD-35
 #[test]
 fn under_ingame_face_a_texture_only_the_combined_boots_folder_holds_supplies_his_own_mtl() {
     let sandbox = Sandbox::new("prefox_ingame_link_texture");
@@ -153,6 +154,7 @@ fn under_ingame_face_a_texture_only_the_combined_boots_folder_holds_supplies_his
     assert!(entries.contains_key(&texture), "{texture}");
 }
 
+// TC-MOD-35
 #[test]
 fn under_ingame_face_a_subfolder_part_s_texture_comes_before_the_combined_boots_folder_s() {
     // His `parts/boots.mtl` and Crocs's `boots.mtl` both name `skin.dds`: his part's resolves
@@ -319,6 +321,7 @@ fn under_ingame_face_boots_parts_naming_one_bone_with_different_transforms_leave
     );
 }
 
+// TC-MOD-22
 #[test]
 fn a_shared_boots_folder_holding_two_boots_models_is_written_as_one_merged_boots_model() {
     let sandbox = Sandbox::new("prefox_shared_boots_merge");
@@ -385,6 +388,7 @@ fn glove_xml(entries: &[(&str, &str, &str)]) -> String {
     text + "</config>"
 }
 
+// TC-MOD-45
 #[test]
 fn under_ingame_face_gloves_parts_are_written_unmerged_to_the_player_s_own_gloves_folder() {
     let sandbox = Sandbox::new("prefox_ingame_gloves");
@@ -442,6 +446,7 @@ fn under_ingame_face_gloves_parts_are_written_unmerged_to_the_player_s_own_glove
     }
 }
 
+// TC-MOD-45
 #[test]
 fn under_ingame_face_a_gloves_link_beside_a_gloves_part_combines_the_player_s_model_first() {
     let sandbox = Sandbox::new("prefox_ingame_gloves_link");
@@ -586,6 +591,7 @@ fn under_ingame_face_a_common_model_link_is_one_more_part_of_the_player_s_boots(
     }
 }
 
+// TC-XML-17
 #[test]
 fn under_ingame_face_only_a_copied_common_mtl_names_a_common_texture_it_has_no_link_to() {
     let sandbox = Sandbox::new("prefox_ingame_common_unlinked");
@@ -615,6 +621,7 @@ fn under_ingame_face_only_a_copied_common_mtl_names_a_common_texture_it_has_no_l
     );
 }
 
+// TC-XML-17
 #[test]
 fn under_ingame_face_a_copied_common_mtl_names_no_subfolder_texture() {
     let sandbox = Sandbox::new("prefox_ingame_common_subfolder_texture");
@@ -773,6 +780,7 @@ fn under_ingame_face_common_links_are_copied_into_the_player_s_own_gloves_folder
     );
 }
 
+// TC-MOD-38
 #[test]
 fn a_shared_gloves_folder_s_mtl_no_model_uses_is_not_written() {
     let sandbox = Sandbox::new("prefox_shared_gloves_unused_mtl");
@@ -807,6 +815,7 @@ fn a_shared_gloves_folder_s_mtl_no_model_uses_is_not_written() {
     );
 }
 
+// TC-MOD-85
 #[test]
 fn under_ingame_face_fmdl_parts_are_converted_into_the_player_s_own_boots_and_gloves() {
     let sandbox = Sandbox::new("prefox_ingame_fmdl");
@@ -895,6 +904,7 @@ fn under_ingame_face_fmdl_parts_are_converted_into_the_player_s_own_boots_and_gl
     assert!(entries.contains_key(&texture), "{texture}");
 }
 
+// TC-MOD-85
 #[test]
 fn under_ingame_face_a_common_fmdl_link_is_converted_into_the_player_s_own_boots() {
     let sandbox = Sandbox::new("prefox_ingame_common_fmdl");
@@ -959,6 +969,7 @@ fn under_ingame_face_a_common_fmdl_link_is_converted_into_the_player_s_own_boots
     );
 }
 
+// TC-MOD-62
 #[test]
 fn under_ingame_face_a_left_out_boots_variant_that_does_not_parse_is_not_read() {
     let sandbox = Sandbox::new("prefox_ingame_variant_broken");
@@ -1009,6 +1020,7 @@ fn write_per_kit_common_link(sandbox: &Sandbox, export: &str, own_boots: bool) {
 const PER_KIT_LINK_NOT_USED: &str =
     "Warning file_not_used [Keep] at Players/05 - A (file=boots_kit1.model.common)";
 
+// TC-MOD-77
 #[test]
 fn under_ingame_face_a_link_to_a_per_kit_common_model_is_not_used() {
     let sandbox = Sandbox::new("prefox_ingame_common_variant");
@@ -1027,6 +1039,7 @@ fn under_ingame_face_a_link_to_a_per_kit_common_model_is_not_used() {
     assert_eq!(*boots["boots.model"], card_model(), "his own model alone");
 }
 
+// TC-MOD-77
 #[test]
 fn under_ingame_face_a_link_to_a_per_kit_common_model_no_mtl_is_found_for_is_not_used() {
     let sandbox = Sandbox::new("prefox_ingame_common_variant_alone");

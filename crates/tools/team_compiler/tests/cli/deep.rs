@@ -112,6 +112,7 @@ fn a_far_vertex_in_a_solid_7z_is_found_by_check() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-PLN-05
 #[test]
 fn one_worker_thread_finds_what_the_default_finds_in_a_folder_and_in_a_solid_7z() {
     let sandbox = Sandbox::new("deep_one_worker");
@@ -169,6 +170,7 @@ fn one_worker_thread_finds_what_the_default_finds_in_a_folder_and_in_a_solid_7z(
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-SRC-10
 #[test]
 fn exports_are_reported_in_discovery_order_with_a_7z_among_folders() {
     let sandbox = Sandbox::new("deep_discovery_order");
@@ -208,6 +210,7 @@ fn exports_are_reported_in_discovery_order_with_a_7z_among_folders() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-CHK-01
 #[test]
 fn a_far_vertex_in_a_shared_folder_drops_the_player_linking_it() {
     let sandbox = Sandbox::new("deep_far_vertex_shared");
@@ -650,6 +653,7 @@ fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_com
     assert_eq!(compiled_kits(&sandbox), ["u0714p2"]);
 }
 
+// TC-KIT-27
 #[test]
 fn a_toml_syntax_error_is_one_console_line_per_finding() {
     let sandbox = Sandbox::new("deep_toml_snippet");
@@ -686,6 +690,7 @@ fn a_toml_syntax_error_is_one_console_line_per_finding() {
     );
 }
 
+// TC-KIT-12
 #[test]
 fn a_kit_colors_txt_line_that_gives_no_color_is_a_warning_and_the_export_is_still_identified() {
     let sandbox = Sandbox::new("deep_color_entry_invalid");
@@ -710,6 +715,7 @@ fn a_kit_colors_txt_line_that_gives_no_color_is_a_warning_and_the_export_is_stil
     assert_eq!(run.exit_code(), 0);
 }
 
+// TC-DSP-03
 #[test]
 fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_read() {
     let sandbox = Sandbox::new("deep_documents_pass_through");

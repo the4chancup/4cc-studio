@@ -141,6 +141,7 @@ fn a_face_model_weighted_to_the_hand_bones_gives_its_face_two_glove_entries() {
     assert_eq!(check.exit_code(), 0, "{lines:#?}");
 }
 
+// TC-MOD-43
 #[test]
 fn a_subfolder_s_hand_split_model_packs_and_lists_its_hands_beside_it() {
     let sandbox = Sandbox::new("prefox_hand_split_subfolder");
@@ -206,6 +207,7 @@ fn a_subfolder_s_hand_split_model_packs_and_lists_its_hands_beside_it() {
     );
 }
 
+// TC-MOD-43
 #[test]
 fn a_linked_face_folder_s_hand_split_model_is_named_by_its_export_path() {
     let sandbox = Sandbox::new("prefox_hand_split_shared");
@@ -250,6 +252,7 @@ fn a_linked_face_folder_s_hand_split_model_is_named_by_its_export_path() {
     );
 }
 
+// TC-MOD-43, TC-CMN-07
 #[test]
 fn a_hand_weighted_per_kit_set_lists_its_hands_once_as_its_reference() {
     let sandbox = Sandbox::new("prefox_hand_split_kit_variants");
@@ -313,6 +316,7 @@ fn a_hand_weighted_per_kit_set_lists_its_hands_once_as_its_reference() {
     );
 }
 
+// TC-MOD-43, TC-CMN-17
 #[test]
 fn a_hand_weighted_per_kit_set_lacking_a_kit_number_gets_its_lowest_body_and_hands() {
     let sandbox = Sandbox::new("prefox_hand_split_kit_variant_missing");
@@ -385,6 +389,7 @@ fn a_hand_weighted_per_kit_set_lacking_a_kit_number_gets_its_lowest_body_and_han
     }
 }
 
+// TC-MOD-43, TC-CMN-27
 #[test]
 fn a_hand_weighted_set_s_kitf_fallback_serves_the_kit_it_lacks() {
     let sandbox = Sandbox::new("prefox_hand_split_kit_fallback");
@@ -476,6 +481,7 @@ fn a_hand_weighted_set_s_kitf_fallback_serves_the_kit_it_lacks() {
     );
 }
 
+// TC-MOD-43
 #[test]
 fn a_hand_weighted_model_whose_mtl_is_a_common_file_is_split_with_it() {
     let sandbox = Sandbox::new("prefox_hand_split_common_mtl");

@@ -292,6 +292,7 @@ fn a_face_file_in_a_folder_with_no_face_model_is_not_used_and_reported() {
     assert_blank_face(&entries, FACE_05);
 }
 
+// TC-MOD-32, TC-MOD-39
 #[test]
 fn a_link_to_a_face_folder_holding_textures_alone_gives_no_face() {
     let sandbox = Sandbox::new("face_link_textures_only");

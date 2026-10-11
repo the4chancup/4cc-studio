@@ -99,3 +99,19 @@ impl StudioTool for Tool {
         cli::run(matches, ctx)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_tool_is_registered_as_the_team_compiler() {
+        let tool = Tool::new();
+        assert_eq!(tool.id(), "team-compiler");
+        assert_eq!(tool.label(), "Team compiler");
+        assert_eq!(
+            tool.default_settings()["cpk_name"].as_str(),
+            Some("4cc_99_test")
+        );
+    }
+}

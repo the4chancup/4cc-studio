@@ -202,6 +202,7 @@ fn test_mode_does_not_apply_the_overrides() {
     }
 }
 
+// TC-OUT-07, TC-OUT-03
 #[test]
 fn test_mode_replaces_test_output_whole_and_a_failed_run_leaves_it_as_it_was() {
     let sandbox = Sandbox::new("test_mode_stale");
@@ -233,7 +234,7 @@ fn test_mode_replaces_test_output_whole_and_a_failed_run_leaves_it_as_it_was() {
     assert_eq!(snapshot(&sandbox.root.join("output")), before);
 }
 
-// TC-CMN-21, in test mode
+// TC-CMN-21, TC-OUT-07
 #[test]
 fn a_common_kit_folder_set_lands_at_its_subfolders_in_test_mode() {
     let sandbox = Sandbox::new("test_mode_kit_folder_set");
@@ -274,6 +275,7 @@ fn a_common_kit_folder_set_lands_at_its_subfolders_in_test_mode() {
     );
 }
 
+// TC-MOD-65, TC-OUT-07
 #[test]
 fn a_texture_in_a_subfolder_lands_below_its_folder_in_test_mode() {
     let sandbox = Sandbox::new("test_mode_subfolder_texture");
@@ -307,6 +309,7 @@ fn a_texture_in_a_subfolder_lands_below_its_folder_in_test_mode() {
     }
 }
 
+// TC-OUT-07
 #[test]
 fn an_archive_export_s_folder_in_test_output_is_named_with_its_extension() {
     let sandbox = Sandbox::new("test_mode_archive");

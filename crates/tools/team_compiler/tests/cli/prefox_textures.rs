@@ -168,7 +168,8 @@ fn hair_check_lines(sandbox: &Sandbox, settings: &str) -> Vec<String> {
         .collect()
 }
 
-// TC-XML-07, the Common form; the runs of TC-TEX-05
+// The runs of TC-TEX-05, for a `.mtl`.
+// TC-XML-17
 #[test]
 fn a_common_texture_of_a_mtl_is_found_in_an_earlier_installed_cpk_only() {
     let earlier = Sandbox::new("prefox_mtl_installed_earlier");
@@ -192,6 +193,7 @@ fn a_common_texture_of_a_mtl_is_found_in_an_earlier_installed_cpk_only() {
 }
 
 // not looked up
+// TC-CMN-06
 #[test]
 fn a_game_path_and_a_dummy_texture_are_not_looked_for() {
     let sandbox = Sandbox::new("prefox_mtl_texture_game_path");
@@ -236,7 +238,8 @@ fn write_subfolder_hair_mtl(sandbox: &Sandbox) -> String {
     )
 }
 
-// TC-XML-07, the Common form, a path into a `Common/` subfolder; the runs of TC-TEX-05
+// A path into a `Common/` subfolder; the runs of TC-TEX-05, for a `.mtl`.
+// TC-XML-17
 #[test]
 fn a_common_subfolder_texture_of_a_mtl_is_found_in_common_or_an_earlier_installed_cpk() {
     let not_found = "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=face_high.mtl, texture=model/character/uniform/common/XXX/jessie/hair.dds, materials=card)";

@@ -410,6 +410,7 @@ fn a_listed_cpk_missing_from_download_is_dpfilelist_cpk_missing_and_the_cpk_is_i
     assert_installed(&sandbox, &twin);
 }
 
+// TC-DEP-08
 #[test]
 fn a_list_lacking_the_cpk_the_official_one_names_is_dpfilelist_outdated_and_the_cpk_is_promoted() {
     let twin = twin_cpk("deploy_outdated_twin");

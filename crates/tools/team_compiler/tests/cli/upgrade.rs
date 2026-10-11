@@ -229,6 +229,7 @@ fn an_old_dlc_s_cpks_take_their_stems_official_names_in_list_order() {
     assert_placeholders(&sandbox, &taken);
 }
 
+// TC-DEP-15
 #[test]
 fn a_second_run_finds_the_list_up_to_date_and_writes_nothing() {
     let sandbox = Sandbox::new("upgrade_twice");
@@ -250,6 +251,7 @@ fn a_second_run_finds_the_list_up_to_date_and_writes_nothing() {
     assert!(before[Path::new("DpFileList.bin.bak")] == pes17_list());
 }
 
+// TC-DEP-10
 #[test]
 fn with_no_list_the_official_one_is_written_and_nothing_backed_up() {
     let sandbox = Sandbox::new("upgrade_no_list");
@@ -270,6 +272,7 @@ fn with_no_list_the_official_one_is_written_and_nothing_backed_up() {
     assert_placeholders(&sandbox, &[]);
 }
 
+// TC-DEP-10
 #[test]
 fn a_list_that_does_not_read_is_replaced_and_backed_up_with_nothing_renamed() {
     let sandbox = Sandbox::new("upgrade_unreadable_list");
@@ -302,6 +305,7 @@ fn fill_official_slots(sandbox: &Sandbox, except: &str) {
     }
 }
 
+// TC-DEP-15
 #[test]
 fn an_official_list_with_a_slot_empty_gets_its_placeholder_and_is_not_rewritten() {
     let sandbox = Sandbox::new("upgrade_official_slot_empty");
@@ -320,6 +324,7 @@ fn an_official_list_with_a_slot_empty_gets_its_placeholder_and_is_not_rewritten(
     assert!(!files.contains_key(Path::new("DpFileList.bin.bak")));
 }
 
+// TC-DEP-15
 #[test]
 fn a_list_with_an_entry_of_its_own_and_every_slot_filled_is_still_replaced() {
     let sandbox = Sandbox::new("upgrade_own_entry");
@@ -347,6 +352,7 @@ fn a_list_with_an_entry_of_its_own_and_every_slot_filled_is_still_replaced() {
     assert!(files[Path::new("4cc_80_mine.cpk")] == kib_of("4cc_80_mine.cpk"));
 }
 
+// TC-DEP-16
 #[test]
 fn a_list_that_cannot_be_read_stops_the_upgrade_naming_it() {
     let sandbox = Sandbox::new("upgrade_list_not_a_file");
@@ -363,6 +369,7 @@ fn a_list_that_cannot_be_read_stops_the_upgrade_naming_it() {
     );
 }
 
+// TC-DEP-16
 #[test]
 fn a_missing_pes_folder_or_download_folder_is_refused_naming_it() {
     let sandbox = Sandbox::new("upgrade_no_folder");
@@ -376,6 +383,7 @@ fn a_missing_pes_folder_or_download_folder_is_refused_naming_it() {
 }
 
 #[cfg(windows)]
+// TC-DEP-16
 #[test]
 fn a_cpk_held_open_stops_the_upgrade_naming_it_and_the_list_stays() {
     // Windows only: Linux renames a file another process holds open.

@@ -158,6 +158,7 @@ fn a_bc7_dds_skin_keeps_its_blocks_on_pes_21_and_is_bc3_on_pes_18() {
     assert_eq!(info.mipmaps, 6);
 }
 
+// TC-TEX-10
 #[test]
 fn a_raster_nrm_texture_is_a_bc3_normal_map_on_pes_21() {
     let sandbox = Sandbox::new("tex_png_nrm");
@@ -183,6 +184,7 @@ fn a_raster_nrm_texture_is_a_bc3_normal_map_on_pes_21() {
     assert_eq!((info.width, info.height, info.mipmaps), (256, 128, 9));
 }
 
+// TC-TEX-10
 #[test]
 fn a_per_kit_raster_nrm_texture_is_a_bc3_normal_map_on_pes_21() {
     let sandbox = Sandbox::new("tex_png_nrm_kit");
@@ -445,6 +447,7 @@ fn texture_findings_are_checked_and_each_drops_its_folder() {
     );
 }
 
+// TC-TEX-03
 #[test]
 fn pass_through_keeps_an_odd_sized_texture_s_folder_but_not_a_renamed_one() {
     let sandbox = Sandbox::new("tex_pass_through");
@@ -566,6 +569,7 @@ fn a_pre_fox_texture_whose_side_is_no_multiple_of_4_drops_the_player_folder() {
     assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }
 
+// TC-TEX-03
 #[test]
 fn a_kit_texture_finding_drops_the_kit() {
     let sandbox = Sandbox::new("tex_kit_drop");
@@ -629,6 +633,7 @@ fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
     assert_eq!(info.format, PixelFormat::Bc7);
 }
 
+// TC-TEX-12
 #[test]
 fn a_common_texture_the_deep_pass_drops_takes_the_player_linking_it() {
     let sandbox = Sandbox::new("tex_common_link_dropped");
@@ -816,6 +821,7 @@ fn a_common_texture_only_conversion_refuses_fails_the_task_and_the_linking_playe
     assert_eq!(compiled_players(&sandbox), [71405]);
 }
 
+// TC-TEX-14
 #[test]
 fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
     let sandbox = Sandbox::new("tex_common_drop");
@@ -851,6 +857,7 @@ fn a_common_texture_finding_leaves_that_file_out_and_the_rest_is_emitted() {
     assert_eq!(common, ["#windx11/hair.ftex"]);
 }
 
+// TC-TEX-01
 #[test]
 fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
     let sandbox = Sandbox::new("tex_common_shared_png");
@@ -2225,6 +2232,7 @@ fn a_combined_link_and_another_package_s_texture_at_one_path_conflict() {
     );
 }
 
+// TC-TEX-20
 #[test]
 fn a_texture_entry_no_mesh_uses_is_not_looked_for() {
     let sandbox = Sandbox::new("tex_unused_entry");
@@ -2271,6 +2279,7 @@ fn a_texture_entry_no_mesh_uses_is_not_looked_for() {
     );
 }
 
+// TC-TEX-19
 #[test]
 fn a_shared_folder_s_model_naming_a_texture_in_common_finds_it_there() {
     let sandbox = Sandbox::new("tex_shared_common");

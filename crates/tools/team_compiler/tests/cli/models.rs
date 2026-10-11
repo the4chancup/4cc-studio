@@ -180,6 +180,7 @@ fn boots_skl_is_the_skeleton_named_after_the_boots_model_or_the_bundled_pes_21_b
     assert_eq!(package.get("boots.skl").unwrap(), body_skl("pes21"));
 }
 
+// TC-MOD-86
 #[test]
 fn a_skeleton_named_like_its_model_but_the_case_pairs_too() {
     // `Kit_Boots.skl` names `kit_boots.fmdl`'s skeleton as the file system folds it.
@@ -213,6 +214,7 @@ fn a_skeleton_named_like_its_model_but_the_case_pairs_too() {
     assert_eq!(package.get("boots.skl").unwrap(), custom);
 }
 
+// TC-MOD-86
 #[test]
 fn a_face_diff_bin_by_any_case_packs_as_face_diff_bin() {
     // `FACE_DIFF.BIN` is `face_diff.bin` as the file system folds it.
@@ -255,6 +257,7 @@ fn a_face_diff_bin_by_any_case_packs_as_face_diff_bin() {
     );
 }
 
+// TC-MOD-86
 #[test]
 fn a_texture_stem_names_its_file_case_folded() {
     // `Shirt.dds` is the texture the model's `shirt` path names, folded alike.
@@ -351,6 +354,7 @@ fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_
     );
 }
 
+// TC-TEX-12
 #[test]
 fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it_compiles() {
     let sandbox = Sandbox::new("mod_texture_failed");
@@ -633,6 +637,7 @@ fn a_hair_model_alone_gets_the_bundled_face_diff_hair_simulation_and_body_skelet
     assert_eq!(package.get("fcl_hair_sim.skl").unwrap(), body_skl("pes21"));
 }
 
+// TC-MOD-12
 #[test]
 fn a_templates_face_diff_replaces_the_bundled_one_in_a_face_whose_folder_holds_none() {
     let sandbox = Sandbox::new("mod_face_template_override");
@@ -700,6 +705,7 @@ fn a_skeleton_paired_with_a_face_model_without_a_slot_is_reported_and_not_packed
     assert_eq!(names, ["face_diff.bin", "face_high.fmdl"]);
 }
 
+// TC-MOD-53
 #[test]
 fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleton() {
     // `torso.fmdl` alone: reported by `check`, packed as `fcl_hair.fmdl`.
@@ -977,6 +983,7 @@ fn a_subfolder_s_shared_link_is_the_root_s_and_names_one_folder_once() {
     );
 }
 
+// TC-MOD-70
 #[test]
 fn a_folder_linked_from_the_root_and_a_subfolder_beside_a_local_boots_model_combines_once() {
     let sandbox = Sandbox::new("mod_subfolder_link_combined");
@@ -1163,6 +1170,7 @@ fn a_face_diff_given_twice_or_shorter_than_its_header_drops_the_folder() {
     );
 }
 
+// TC-MOD-14
 #[test]
 fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
     let sandbox = Sandbox::new("mod_subfolder_parts");
@@ -1231,6 +1239,7 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
     );
 }
 
+// TC-MOD-13
 #[test]
 fn a_pre_fox_target_reports_neither_the_fallback_nor_a_slotless_skeleton() {
     let sandbox = Sandbox::new("mod_pre_fox_names");
@@ -1625,6 +1634,7 @@ fn a_texture_the_player_and_a_combined_boots_folder_hold_is_packed_once_or_overr
     );
 }
 
+// TC-MOD-04
 #[test]
 fn under_ingame_face_a_texture_the_player_and_a_combined_boots_folder_hold_differently_is_his() {
     let sandbox = Sandbox::new("mod_ingame_face_skin_differing");
@@ -2183,6 +2193,7 @@ fn a_kits_fallback_model_is_used_and_the_variant_left_out_on_pes_21() {
     );
 }
 
+// TC-CMN-05
 #[test]
 fn a_per_kit_set_split_between_a_player_folder_and_its_face_subfolder_is_one_set_on_pes_21() {
     let sandbox = Sandbox::new("mod_kit_variant_face_subfolder");
@@ -2220,6 +2231,7 @@ fn a_per_kit_set_split_between_a_player_folder_and_its_face_subfolder_is_one_set
     );
 }
 
+// TC-CMN-05
 #[test]
 fn a_left_out_kit_number_s_file_in_a_linked_face_is_left_out_too_on_pes_21() {
     let sandbox = Sandbox::new("mod_kit_variant_left_out_face");
@@ -2268,6 +2280,7 @@ fn a_left_out_kit_number_s_file_in_a_linked_face_is_left_out_too_on_pes_21() {
     );
 }
 
+// TC-CMN-05
 #[test]
 fn check_reads_a_kit_set_split_between_a_player_and_his_face_as_compile_does_on_pes_21() {
     let sandbox = Sandbox::new("mod_kit_variant_check_face");
@@ -2306,6 +2319,7 @@ fn check_reads_a_kit_set_split_between_a_player_and_his_face_as_compile_does_on_
     );
 }
 
+// TC-CMN-05
 #[test]
 fn a_per_kit_set_split_between_a_player_and_a_boots_folder_he_combines_is_one_set_on_pes_21() {
     let sandbox = Sandbox::new("mod_kit_variant_combined");
@@ -2343,6 +2357,7 @@ fn a_per_kit_set_split_between_a_player_and_a_boots_folder_he_combines_is_one_se
     );
 }
 
+// TC-CMN-05
 #[test]
 fn per_kit_model_files_on_pes_21_are_a_set_and_only_the_lowest_is_converted() {
     let sandbox = Sandbox::new("mod_kit_variant_pre_fox_models");
@@ -2371,6 +2386,7 @@ fn per_kit_model_files_on_pes_21_are_a_set_and_only_the_lowest_is_converted() {
     assert_eq!(Model::from_file(&file).unwrap().meshes.len(), 2);
 }
 
+// TC-CMN-05
 #[test]
 fn per_kit_boots_on_pes_21_are_boots_read_without_their_kit_token() {
     let sandbox = Sandbox::new("mod_kit_variant_boots");
@@ -2430,6 +2446,7 @@ fn a_left_out_kit_variant_that_does_not_parse_is_not_read_on_pes_21() {
     assert_eq!(meshes(package.get("boots.fmdl").unwrap()), meshes(&boots));
 }
 
+// TC-MOD-56
 #[test]
 fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
     let sandbox = Sandbox::new("mod_kit_variant_shared_boots");
@@ -2472,6 +2489,7 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
     );
 }
 
+// TC-STR-17
 #[test]
 fn an_unsuffixed_model_below_a_shared_boots_folder_s_subfolder_is_named_invalid() {
     let sandbox = Sandbox::new("mod_shared_boots_nested");
@@ -2690,6 +2708,7 @@ fn a_subfolder_s_fmdl_names_the_texture_nearest_it_at_its_path_on_pes_21() {
     );
 }
 
+// TC-MOD-65
 #[test]
 fn a_subfolder_s_texture_comes_before_a_combined_shared_folder_s_of_its_stem_on_pes_21() {
     // `Boots/Crocs`, combined into slot 05's boots, holds a `skin.dds` of other bytes, which
@@ -2970,6 +2989,7 @@ fn a_shared_folder_s_texture_link_takes_the_common_file_s_spelling_on_pes_21() {
     assert!(entries.contains_key(armor), "{:#?}", entries.keys());
 }
 
+// TC-MOD-71
 #[test]
 fn a_fmdl_texture_named_by_its_path_is_not_found_by_its_name_elsewhere_on_pes_21() {
     // The root's `skin.dds` is not at `./textures/`.
@@ -3006,6 +3026,7 @@ fn a_fmdl_texture_named_by_its_path_is_not_found_by_its_name_elsewhere_on_pes_21
     );
 }
 
+// TC-MOD-71
 #[test]
 fn a_converted_model_s_mtl_path_below_its_folder_names_the_texture_there_on_pes_21() {
     // `jessie/x_hair_high.mtl` names `./shorts/y.dds`: the converted model names the texture

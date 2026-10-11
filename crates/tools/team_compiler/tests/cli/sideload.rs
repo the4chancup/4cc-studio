@@ -176,6 +176,7 @@ fn sideload_is_refused_for_pes_2015_and_2016_and_writes_livecpk_for_pes_2017() {
     );
 }
 
+// TC-OUT-10
 #[test]
 fn sideload_without_a_pes_folder_is_refused_naming_it() {
     let sandbox = Sandbox::new("sideload_no_pes_folder");
@@ -192,6 +193,7 @@ fn sideload_without_a_pes_folder_is_refused_naming_it() {
     assert_eq!(snapshot(&sandbox.root), before);
 }
 
+// TC-OUT-03
 #[test]
 fn a_sideload_run_that_fails_while_writing_leaves_livecpk_as_it_was() {
     let sandbox = with_livecpk("sideload_write_failed");
@@ -213,6 +215,7 @@ fn a_sideload_run_that_fails_while_writing_leaves_livecpk_as_it_was() {
     assert_eq!(snapshot(&sandbox.root.join("PES")), before);
 }
 
+// TC-OUT-18
 #[test]
 fn a_sideload_run_without_a_dpfilelist_only_warns_that_it_is_missing() {
     let sandbox = Sandbox::new("sideload_no_dpfilelist");

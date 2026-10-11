@@ -288,6 +288,7 @@ fn a_refs_export_s_root_colors_txt_is_not_read_so_not_checked() {
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
 }
 
+// TC-REF-11
 #[test]
 fn a_referee_folder_holding_textures_alone_reports_them_not_used_and_packs_none() {
     let sandbox = Sandbox::new("ref_textures_alone");
@@ -330,6 +331,7 @@ fn a_referee_folder_holding_textures_alone_reports_them_not_used_and_packs_none(
     }
 }
 
+// TC-REF-11
 #[test]
 fn a_referee_folder_holding_a_texture_link_alone_reports_it_not_used() {
     let sandbox = Sandbox::new("ref_texture_link_alone");
@@ -482,6 +484,7 @@ fn on_pes_17_a_refs_export_s_refkit_texture_replaces_the_template_s_beside_its_o
     }
 }
 
+// TC-CMN-18
 #[test]
 fn on_pes_17_a_referee_s_face_xml_names_the_template_s_refkit_files_the_export_lacks() {
     let sandbox = Sandbox::new("ref_xml_refkit");
@@ -680,6 +683,7 @@ fn a_referee_folder_with_a_category_subfolder_is_player_layout_proto_and_a_team_
     assert_eq!(check.exit_code(), 1, "{lines:#?}");
 }
 
+// TC-REF-16
 #[test]
 fn on_pes_17_a_referee_s_own_face_xml_with_fpc_off_takes_the_refkit_body_it_does_not_name() {
     let sandbox = Sandbox::new("ref_xml_refkit_body");
@@ -717,6 +721,7 @@ fn on_pes_17_a_referee_s_own_face_xml_with_fpc_off_takes_the_refkit_body_it_does
     assert_eq!(ordered_entries(&face["face.xml"]), expected);
 }
 
+// TC-REF-17
 #[test]
 fn on_pes_17_a_referee_s_own_boots_or_gloves_leave_out_the_refkit_s() {
     let card = |sandbox: &Sandbox, path: &str| {
@@ -778,6 +783,7 @@ fn on_pes_17_a_referee_s_own_boots_or_gloves_leave_out_the_refkit_s() {
     }
 }
 
+// TC-REF-16
 #[test]
 fn on_pes_17_a_refkit_hand_a_referee_s_face_xml_lists_leaves_the_other_hand_appended() {
     let sandbox = Sandbox::new("ref_refkit_hand_by_hand");
@@ -822,6 +828,7 @@ fn refkit_entries_of(bytes: &[u8]) -> Vec<(String, String, String)> {
         .collect()
 }
 
+// TC-OUT-04
 #[test]
 fn a_refs_export_whose_only_folder_validation_drops_writes_no_refs_cpk_and_no_tree() {
     let sandbox = Sandbox::new("ref_folder_dropped");
@@ -875,16 +882,19 @@ fn assert_tree_override_replaces_its_file(name: &str, version: PesVersion) {
     assert_tree_in(&entries, &tree);
 }
 
+// TC-BIN-07
 #[test]
 fn a_data_directory_file_at_a_tree_path_replaces_that_file_of_the_refs_cpk() {
     assert_tree_override_replaces_its_file("ref_tree_override", PesVersion::Pes21);
 }
 
+// TC-BIN-07
 #[test]
 fn on_pes_17_a_data_directory_file_at_a_pre_fox_tree_path_replaces_that_file() {
     assert_tree_override_replaces_its_file("ref_tree_override_pes17", PesVersion::Pes17);
 }
 
+// TC-BIN-07, TC-REF-08
 #[test]
 fn a_data_directory_referee_kit_config_is_also_its_uniform_parameter_bin_entry() {
     let sandbox = Sandbox::new("ref_tree_config_override");
@@ -1052,6 +1062,7 @@ fn without_a_ref_marker_the_refs_cpk_holds_no_collar_and_the_template_kit_config
     }
 }
 
+// TC-REF-08
 #[test]
 fn without_a_ref_marker_a_pes_17_refs_cpk_holds_no_collar_pair_and_the_template_kit_configs() {
     assert_compiles_without_marker(
@@ -1107,6 +1118,7 @@ fn on_pes_17_a_ref_marker_replaces_the_template_prop_texture_and_nothing_else() 
     }
 }
 
+// TC-REF-08
 #[test]
 fn a_ref_marker_that_fails_conversion_is_reported_and_left_out_with_its_collar() {
     let sandbox = Sandbox::new("ref_marker_failed");
@@ -1309,6 +1321,7 @@ fn on_pes_17_a_referee_s_link_to_shared_boots_is_each_slot_s_boots_folder_and_no
 
 // His own per-kit boots are parts of his face, which lists their set; the shared boots are an
 // output of their own, so their variant of another number is no variant of his face's set.
+// TC-MOD-56
 #[test]
 fn on_pes_17_a_referee_s_own_boots_variant_leaves_out_none_of_his_linked_boots() {
     let sandbox = Sandbox::new("ref_shared_boots_variants_pes17");
@@ -1342,6 +1355,7 @@ fn on_pes_17_a_referee_s_own_boots_variant_leaves_out_none_of_his_linked_boots()
     assert_eq!(boots, ["boots.model", "boots.mtl"]);
 }
 
+// TC-MOD-77
 #[test]
 fn on_pes_17_a_referee_s_linked_boots_model_takes_its_own_mtl_and_not_a_common_one() {
     let sandbox = Sandbox::new("ref_shared_boots_mtl_link_pes17");
@@ -1381,6 +1395,7 @@ fn on_pes_17_a_referee_s_linked_boots_model_takes_its_own_mtl_and_not_a_common_o
     assert!(paths[0].ends_with("/skin.dds"), "{paths:?}");
 }
 
+// TC-MOD-56
 #[test]
 fn on_pes_17_a_referee_s_linked_boots_folder_leaves_out_its_own_set_s_higher_variant() {
     let sandbox = Sandbox::new("ref_shared_boots_own_set_pes17");
@@ -1459,6 +1474,7 @@ fn a_refs_export_s_kit_is_file_not_used_and_the_referee_face_compiles() {
     );
 }
 
+// TC-REF-11
 #[test]
 fn a_refs_export_s_kits_logo_portraits_and_collars_are_not_read() {
     let sandbox = Sandbox::new("ref_unread_files");
@@ -1496,6 +1512,7 @@ fn a_refs_export_s_kits_logo_portraits_and_collars_are_not_read() {
     );
 }
 
+// TC-REF-11
 #[test]
 fn a_refs_export_s_kits_define_no_kit_number_to_complete_a_referee_s_texture_set_against() {
     let sandbox = Sandbox::new("ref_kit_numbers_pes17");

@@ -172,6 +172,7 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
     );
 }
 
+// TC-MOD-02
 #[test]
 fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_share_its_texture() {
     let sandbox = Sandbox::new("cmn_boots_link");
@@ -244,6 +245,7 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
     }
 }
 
+// TC-STR-15
 #[test]
 fn two_link_spellings_of_one_common_model_compile_it_once() {
     // `boots.fmdl.common` and the tolerated `boots.fmdl.common.txt` are one link to
@@ -271,6 +273,7 @@ fn two_link_spellings_of_one_common_model_compile_it_once() {
     );
 }
 
+// TC-MOD-86
 #[test]
 fn a_common_skeleton_pairs_with_its_model_case_folded() {
     // `Common/Boots.skl` names `boots.fmdl`'s skeleton as the file system folds it.
@@ -293,6 +296,7 @@ fn a_common_skeleton_pairs_with_its_model_case_folded() {
     assert_eq!(package.get("boots.skl").unwrap(), custom);
 }
 
+// TC-MOD-07
 #[test]
 fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
     let sandbox = Sandbox::new("cmn_link_combined");
@@ -346,6 +350,7 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
     );
 }
 
+// TC-MOD-13
 #[test]
 fn a_common_skeleton_of_a_slotless_face_model_is_reported_on_the_link_and_not_packed() {
     let sandbox = Sandbox::new("cmn_skl_no_slot");
@@ -410,6 +415,7 @@ fn own_card() -> (Vec<u8>, Vec<u8>) {
     (model.to_file().unwrap().write().unwrap(), materials.write())
 }
 
+// TC-MOD-10, TC-MOD-11
 #[test]
 fn a_common_model_link_converts_the_model_with_its_common_mtl_into_the_player_s_face() {
     let sandbox = Sandbox::new("cmn_model_link");
@@ -537,6 +543,7 @@ fn a_common_model_converted_with_the_player_s_own_mtl_names_his_texture_of_its_s
     }
 }
 
+// TC-MOD-54
 #[test]
 fn a_player_s_model_converted_with_a_common_mtl_names_common_s_texture_of_its_stem() {
     let sandbox = Sandbox::new("cmn_own_model_common_mtl");
@@ -580,6 +587,7 @@ fn a_player_s_model_converted_with_a_common_mtl_names_common_s_texture_of_its_st
     );
 }
 
+// TC-MOD-11
 #[test]
 fn two_players_linking_one_common_model_each_convert_it_and_share_its_texture() {
     let sandbox = Sandbox::new("cmn_model_link_twice");
@@ -633,6 +641,7 @@ fn two_players_linking_one_common_model_each_convert_it_and_share_its_texture() 
     }
 }
 
+// TC-MOD-87
 #[test]
 fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops_the_folder() {
     let sandbox = Sandbox::new("cmn_material_conflict");
@@ -695,6 +704,7 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
     );
 }
 
+// TC-TEX-12
 #[test]
 fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_player_still_builds()
 {
@@ -838,6 +848,7 @@ fn a_texture_link_points_the_player_s_model_at_the_one_copy_in_the_team_s_common
 
 /// The texture link above with an FTEX for target: the link's stem is the name before
 /// `.ftex.common`, as before `.dds.common`.
+// TC-TEX-09
 #[test]
 fn a_link_to_an_ftex_points_the_player_s_model_at_the_one_copy_in_the_team_s_common_output() {
     let sandbox = Sandbox::new("cmn_texture_link_ftex");
@@ -927,6 +938,7 @@ const GAME_COMMON_DIRECTORY: &str = "/Assets/pes16/model/character/common/source
 /// for, where one in the game's own (`GAME_COMMON_DIRECTORY`) is not.
 const TEAM_COMMON_DIRECTORY: &str = "/Assets/pes16/model/character/common/714/sourceimages/";
 
+// TC-TEX-11
 #[test]
 fn a_common_model_s_texture_a_link_of_the_player_s_stands_for_is_in_the_team_s_common_output() {
     // A midcup export: the player's `hair.dds.common` stands for a texture an earlier
@@ -1023,6 +1035,7 @@ fn a_common_kit_fallback_serves_the_reference_and_its_own_name_finds_nothing() {
     }
 }
 
+// TC-CMN-30
 #[test]
 fn a_model_naming_a_common_kit_fallback_file_itself_finds_nothing() {
     let sandbox = Sandbox::new("cmn_kit_fallback_missing");
@@ -1182,6 +1195,7 @@ fn a_common_kit_folder_set_completes_and_the_model_names_the_kitn_reference() {
     );
 }
 
+// TC-CMN-26
 #[test]
 fn a_texture_link_naming_a_kit_stem_finds_its_members_in_common() {
     let sandbox = Sandbox::new("cmn_kit_stem_link");
@@ -1218,6 +1232,7 @@ fn a_texture_link_naming_a_kit_stem_finds_its_members_in_common() {
     assert!(texture("pants_kitN").is_some(), "{:#?}", entries.keys());
 }
 
+// TC-STR-15
 #[test]
 fn a_texture_link_whose_target_is_not_in_common_drops_its_folder() {
     let sandbox = Sandbox::new("cmn_texture_link_missing");
@@ -1938,6 +1953,7 @@ fn a_subfolder_s_texture_link_comes_before_the_root_s_texture_of_its_stem_on_pes
     );
 }
 
+// TC-STR-15
 #[test]
 fn a_common_link_below_a_subfolder_with_only_a_direct_common_file_is_common_link_missing() {
     let sandbox = Sandbox::new("cmn_nested_link_missing");
@@ -2003,6 +2019,7 @@ fn a_common_model_an_fmdl_of_its_stem_beats_is_not_checked_and_the_link_loads_th
     );
 }
 
+// TC-CMN-14
 #[test]
 fn a_common_model_an_fmdl_the_deep_pass_drops_beats_is_dropped_with_it() {
     let sandbox = Sandbox::new("cmn_beaten_model_dropped");
@@ -2049,6 +2066,7 @@ fn a_common_model_an_fmdl_the_deep_pass_drops_beats_is_dropped_with_it() {
     assert_eq!(compiled_players(&sandbox), [71407]);
 }
 
+// TC-CMN-14
 #[test]
 fn a_beaten_common_model_is_not_dropped_for_a_dropped_file_of_its_stem_that_is_no_model() {
     let sandbox = Sandbox::new("cmn_beaten_model_texture_dropped");
@@ -2083,6 +2101,7 @@ fn a_beaten_common_model_is_not_dropped_for_a_dropped_file_of_its_stem_that_is_n
     );
 }
 
+// TC-TEX-14
 #[test]
 fn a_common_texture_the_decoder_refuses_is_dropped_alone_and_the_others_are_packed() {
     let sandbox = Sandbox::new("cmn_texture_unreadable");
@@ -2126,6 +2145,7 @@ fn write_broken_common_mtl(sandbox: &Sandbox, export: &str, model_name: &str, mo
     sandbox.write(&format!("{export}/Common/boots.mtl"), b"not a material set");
 }
 
+// TC-CMN-34
 #[test]
 fn a_common_mtl_no_search_reads_is_not_checked_on_pes_21() {
     let sandbox = Sandbox::new("cmn_fox_mtl_unread");
@@ -2176,6 +2196,7 @@ fn a_common_mtl_no_search_reads_is_not_checked_on_pes_21() {
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
 }
 
+// TC-CMN-34
 #[test]
 fn a_common_mtl_no_link_names_is_not_checked_when_a_model_pairs_locally_on_pes_21() {
     let sandbox = Sandbox::new("cmn_fox_mtl_local_pair");
@@ -2206,6 +2227,7 @@ fn a_common_mtl_no_link_names_is_not_checked_when_a_model_pairs_locally_on_pes_2
     );
 }
 
+// TC-CMN-34
 #[test]
 fn a_common_mtl_a_link_s_search_falls_back_to_is_checked_on_pes_21() {
     let sandbox = Sandbox::new("cmn_fox_mtl_fallback");
@@ -2245,6 +2267,7 @@ fn a_common_mtl_a_link_s_search_falls_back_to_is_checked_on_pes_21() {
     assert_eq!(run.exit_code(), 1, "{lines:#?}");
 }
 
+// TC-MOD-83
 #[test]
 fn a_shared_folder_s_model_link_of_a_non_boots_name_drops_the_folder() {
     // A model link in a shared boots folder is named as a model file there is:
@@ -2526,6 +2549,7 @@ fn a_combined_shared_folder_s_mtl_link_gives_its_model_the_common_material_set()
     );
 }
 
+// TC-CMN-35
 #[test]
 fn an_unlinked_common_model_builds_nothing() {
     // A Common model no link names is accepted and builds nothing.

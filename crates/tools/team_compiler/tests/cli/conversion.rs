@@ -239,6 +239,7 @@ fn the_tracer_s_fox_models_compile_for_pes_17_as_model_files_with_their_material
     );
 }
 
+// TC-MOD-27
 #[test]
 fn a_fox_model_re_bound_to_pes_15_s_skeleton_is_reported_naming_it() {
     let sandbox = Sandbox::new("conversion_tracer_pes15");
@@ -311,6 +312,7 @@ fn compiled_slot_05(sandbox: &Sandbox, name: &str) -> (Vec<String>, BTreeMap<Str
     (findings, nested_entries(&entries[&face_cpk(5)]))
 }
 
+// TC-MOD-26
 #[test]
 fn an_fmdl_a_model_of_its_stem_beats_on_pes_17_is_ignored_with_no_finding() {
     let export = "co Midcup Card";
@@ -331,6 +333,7 @@ fn an_fmdl_a_model_of_its_stem_beats_on_pes_17_is_ignored_with_no_finding() {
     assert_eq!(face_with, face_without);
 }
 
+// TC-MOD-29
 #[test]
 fn a_fox_model_whose_conversion_fails_drops_its_folder_naming_the_model() {
     let sandbox = Sandbox::new("conversion_failed");
@@ -635,6 +638,7 @@ fn a_model_alone_is_converted_to_the_boots_fmdl_with_its_texture_in_the_player_s
     assert_eq!(package.get("boots.skl").unwrap(), body_skl("pes21"));
 }
 
+// TC-MOD-88
 #[test]
 fn a_converted_path_into_the_pre_fox_common_folder_names_the_fox_one_when_common_holds_it() {
     let export = "co Midcup Boots";
@@ -878,6 +882,7 @@ fn a_selected_gltf_drops_its_folder_on_pes_21_and_one_an_fmdl_beats_is_ignored()
 /// The boots package of team 714's first shared boots folder on PES 21.
 const SHARED_BOOTS_FPK: &str = "Asset/model/character/boots/k0644/#Win/boots.fpk";
 
+// TC-MOD-34, TC-MOD-05
 #[test]
 fn a_shared_boots_folder_s_model_is_converted_to_its_boots_fmdl_on_pes_21() {
     let sandbox = Sandbox::new("conversion_shared_model_for_fox");
@@ -934,6 +939,7 @@ fn a_shared_boots_folder_s_model_is_converted_to_its_boots_fmdl_on_pes_21() {
     }
 }
 
+// TC-MOD-28
 #[test]
 fn a_shared_folder_s_selected_gltf_drops_every_player_linking_it_on_pes_21_and_17() {
     let export = "co Midcup Gltf";
@@ -998,6 +1004,7 @@ fn a_shared_folder_s_selected_gltf_drops_every_player_linking_it_on_pes_21_and_1
     }
 }
 
+// TC-XML-07
 #[test]
 fn a_selected_model_s_mtl_naming_a_texture_nobody_supplies_is_a_warning_on_pes_21() {
     let sandbox = Sandbox::new("conversion_mtl_texture_missing");
@@ -1067,6 +1074,7 @@ fn model_faces_fox_winding(bytes: &[u8]) -> Vec<Face> {
     )
 }
 
+// TC-MOD-31
 #[test]
 fn a_hand_weighted_model_is_converted_then_gives_its_hands_to_the_player_s_gloves() {
     let sandbox = Sandbox::new("conversion_hand_split");
@@ -1135,6 +1143,7 @@ fn card_with_its_own_bone() -> Vec<u8> {
     edited_card(|model| model.bones[0].name = "my_bone".to_owned())
 }
 
+// TC-MOD-89
 #[test]
 fn the_skeleton_a_conversion_writes_is_the_boots_or_beside_a_member_s_a_conflict() {
     let export = "co Midcup Boots";
@@ -1185,6 +1194,7 @@ fn the_skeleton_a_conversion_writes_is_the_boots_or_beside_a_member_s_a_conflict
     assert!(!entries.contains_key(BOOTS_FPK), "{:?}", entries.keys());
 }
 
+// TC-MOD-48
 #[test]
 fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_with_no_finding() {
     // A model directly in the player's folder, and one in a subfolder.
@@ -1217,6 +1227,7 @@ fn the_skeleton_a_slotless_model_s_conversion_writes_is_left_out_with_no_finding
     }
 }
 
+// TC-MOD-48
 #[test]
 fn a_linked_common_model_s_conversion_is_reported_on_the_player_naming_its_export_path() {
     // A Common `.model` converts in the linking player's face task, its findings named as a
@@ -1595,6 +1606,7 @@ fn a_shared_boots_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_onto_it() 
     assert_materials_defined(&model_15, &mtl_15);
 }
 
+// TC-MOD-50
 #[test]
 fn a_shared_gloves_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_its_mtl_as_written() {
     let export = "co Midcup Cap";
@@ -1715,6 +1727,7 @@ fn a_member_s_model_whose_mtl_is_a_common_file_is_moved_too() {
     assert_materials_defined(model, common["face_high.mtl"]);
 }
 
+// TC-MOD-52
 #[test]
 fn two_mtl_common_links_read_both_common_mtl_files() {
     // Two models, each with its own `.mtl.common` link to its own Common `.mtl`: the face task
@@ -1911,6 +1924,7 @@ fn a_fox_metal_material_compiled_for_pes_17_reflects_the_template_environment_ma
     );
 }
 
+// TC-MOD-36
 #[test]
 fn a_linked_face_folder_s_metal_material_reflects_the_environment_map_in_the_player_s_home() {
     let sandbox = Sandbox::new("conversion_metal_shared_face");
@@ -1925,6 +1939,7 @@ fn a_linked_face_folder_s_metal_material_reflects_the_environment_map_in_the_pla
     );
 }
 
+// TC-MOD-90
 #[test]
 fn a_member_s_own_env_dds_is_the_environment_map_a_metal_material_names() {
     let sandbox = Sandbox::new("conversion_metal_own");
@@ -1942,6 +1957,7 @@ fn a_member_s_own_env_dds_is_the_environment_map_a_metal_material_names() {
     assert!(environment == small_dds(), "env.dds is the member's");
 }
 
+// TC-MOD-90
 #[test]
 fn an_env_texture_link_is_the_environment_map_a_metal_material_names() {
     let sandbox = Sandbox::new("conversion_metal_env_link");
@@ -1980,6 +1996,7 @@ fn an_env_texture_link_is_the_environment_map_a_metal_material_names() {
     assert!(environment == small_dds(), "env.dds is the Common one");
 }
 
+// TC-MOD-90
 #[test]
 fn a_templates_env_dds_replaces_the_bundled_environment_map() {
     let sandbox = Sandbox::new("conversion_metal_override");
@@ -1997,6 +2014,7 @@ fn a_templates_env_dds_replaces_the_bundled_environment_map() {
     assert!(environment == small_dds(), "env.dds is the override");
 }
 
+// TC-MOD-36
 #[test]
 fn a_shared_boots_folder_s_metal_material_reflects_the_environment_map_beside_its_models() {
     let sandbox = Sandbox::new("conversion_metal_shared_boots");
@@ -2064,6 +2082,7 @@ fn compiled_common_metal(sandbox: &Sandbox, env: Option<&[u8]>) -> (MaterialSet,
     (materials, wezlib::decompress(output["env.dds"]).unwrap())
 }
 
+// TC-MOD-36
 #[test]
 fn a_common_fmdl_s_metal_material_reflects_the_template_in_the_common_output() {
     let sandbox = Sandbox::new("conversion_metal_common");
@@ -2080,6 +2099,7 @@ fn a_common_fmdl_s_metal_material_reflects_the_template_in_the_common_output() {
     );
 }
 
+// TC-MOD-51
 #[test]
 fn a_common_model_with_no_mtl_in_common_is_packed_as_it_is() {
     // The cap, which PES 2015's pre-check flags, alone in `Common/`: its materials are the
@@ -2112,6 +2132,7 @@ fn a_common_model_with_no_mtl_in_common_is_packed_as_it_is() {
     }
 }
 
+// TC-MOD-90
 #[test]
 fn a_common_env_dds_is_the_environment_map_a_common_fmdl_s_metal_material_names() {
     let sandbox = Sandbox::new("conversion_metal_common_own");

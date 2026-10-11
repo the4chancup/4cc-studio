@@ -133,6 +133,7 @@ fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() 
     assert!(!sandbox.root.join("output/.staging").exists());
 }
 
+// TC-OUT-02
 #[test]
 fn a_compile_that_emits_nothing_writes_no_cpk_and_no_staging_folder() {
     let sandbox = Sandbox::new("emits_nothing");
@@ -263,6 +264,7 @@ fn a_previous_cpk_held_open_without_delete_sharing_fails_the_commit_and_is_kept(
     assert_commit_failed(&sandbox, &run, &before);
 }
 
+// TC-OUT-05
 #[test]
 fn a_previous_cpk_that_is_a_folder_fails_the_commit_and_is_kept() {
     let sandbox = Sandbox::new("output_commit_folder");
@@ -572,34 +574,7 @@ fn a_refs_export_needs_no_coverage_tag() {
     assert_eq!(run.exit_code(), 0);
 }
 
-#[test]
-fn a_pre_fox_compile_converts_an_export_of_fox_models() {
-    let sandbox = Sandbox::new("pre_fox_compile");
-    sandbox.copy_tracer("egg Midcup Tracer");
-
-    let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
-
-    let lines = run.messages();
-    // A pre-Fox target converts a player's `.fmdl` files for his face (TC-MOD-27 has what
-    // the face holds): the whole export compiles.
-    assert_eq!(run.exit_code(), 0, "{lines:#?}");
-    let mut paths = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk"));
-    paths.sort();
-    assert_eq!(
-        paths,
-        [
-            "common/character0/model/character/face/real/79205.cpk",
-            "common/character0/model/character/uniform/team/792/792_DEF_GK1st_realUni.bin",
-            "common/character0/model/character/uniform/team/UniColor.bin",
-            "common/character0/model/character/uniform/texture/u0792g1.dds",
-            "common/character0/model/character/uniform/texture/u0792g1_mask.dds",
-            "common/character1/model/character/uniform/common/792/05 - The Chad Stormworks Player/shirt.dds",
-            "common/etc/TeamColor.bin",
-            "common/render/symbol/player/player_79205.dds",
-        ]
-    );
-}
-
+// TC-CLI-12
 #[test]
 fn compile_creates_a_missing_teams_list_and_check_does_not() {
     let sandbox = Sandbox::new("teams_list_created");

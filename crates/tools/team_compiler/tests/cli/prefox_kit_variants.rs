@@ -117,6 +117,7 @@ fn a_per_kit_model_set_is_packed_whole_and_listed_once_as_its_reference() {
     }
 }
 
+// TC-CMN-32
 #[test]
 fn a_variant_whose_mtl_is_not_the_one_its_entry_implies_is_named() {
     let sandbox = Sandbox::new("prefox_kit_variants_mtl_differs");
@@ -154,6 +155,7 @@ fn a_variant_whose_mtl_is_not_the_one_its_entry_implies_is_named() {
     );
 }
 
+// TC-CMN-32
 #[test]
 fn a_variant_whose_mtl_is_in_another_directory_than_its_entry_implies_is_named() {
     let sandbox = Sandbox::new("prefox_kit_variants_mtl_directory");
@@ -261,16 +263,19 @@ fn assert_one_set_with_own_variant(own: u8) {
 
 // The player's own variant replaces the shared one of its name, as a copy would, and the face
 // holds one set of both, whichever variant is his.
+// TC-CMN-07
 #[test]
 fn a_set_split_between_a_linked_face_and_the_player_s_files_is_one_set() {
     assert_one_set_with_own_variant(1);
 }
 
+// TC-CMN-07
 #[test]
 fn a_set_split_with_the_player_s_own_higher_variant_is_one_set() {
     assert_one_set_with_own_variant(2);
 }
 
+// TC-CMN-32
 #[test]
 fn a_player_s_own_variant_of_a_linked_set_is_checked_against_the_shared_entry() {
     let sandbox = Sandbox::new("prefox_kit_variants_split_mtl_differs");
@@ -299,6 +304,7 @@ fn a_player_s_own_variant_of_a_linked_set_is_checked_against_the_shared_entry() 
     );
 }
 
+// TC-CMN-32
 #[test]
 fn the_lowest_variant_lists_a_linked_set_wherever_it_sorts() {
     let sandbox = Sandbox::new("prefox_kit_variants_split_lowest");
@@ -336,6 +342,7 @@ fn the_lowest_variant_lists_a_linked_set_wherever_it_sorts() {
     );
 }
 
+// TC-CMN-07
 #[test]
 fn a_set_sharing_one_mtl_names_it_as_it_is() {
     let sandbox = Sandbox::new("prefox_kit_variants_one_mtl");
@@ -542,6 +549,7 @@ fn a_kits_fallback_model_and_mtl_serve_every_gap_and_never_their_own_names() {
     );
 }
 
+// TC-CMN-17
 #[test]
 fn each_per_kit_model_set_is_completed_against_its_own_variants() {
     let sandbox = Sandbox::new("prefox_kit_variants_two_sets");
@@ -595,6 +603,7 @@ fn each_per_kit_model_set_is_completed_against_its_own_variants() {
     );
 }
 
+// TC-CMN-17
 #[test]
 fn a_per_kit_model_set_in_a_subfolder_is_its_folder_s_own_and_completed_at_its_path() {
     let sandbox = Sandbox::new("prefox_kit_variants_subfolder");
@@ -674,6 +683,7 @@ fn a_per_kit_model_set_in_a_subfolder_is_its_folder_s_own_and_completed_at_its_p
     );
 }
 
+// TC-CMN-07
 #[test]
 fn a_per_kit_model_set_covering_the_export_s_kits_gets_no_copy() {
     let sandbox = Sandbox::new("prefox_kit_variants_covered");

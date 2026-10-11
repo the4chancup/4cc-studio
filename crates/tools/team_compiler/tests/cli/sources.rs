@@ -178,6 +178,7 @@ fn a_folder_and_an_archive_sharing_a_stem_are_two_exports() {
     assert_eq!(lines.len(), 2 * expected.len(), "{lines:#?}");
 }
 
+// TC-SRC-06
 #[test]
 fn a_corrupt_archive_is_skipped_and_the_export_beside_it_is_still_checked() {
     let sandbox = Sandbox::new("corrupt_archive");
@@ -232,6 +233,7 @@ fn an_archive_whose_names_collide_or_escape_is_skipped_naming_the_path() {
     assert_eq!(run.exit_code(), 1);
 }
 
+// TC-SRC-08
 #[test]
 fn export_paths_may_name_an_archive_outside_the_root() {
     let sandbox = Sandbox::new("named_archive");
@@ -269,38 +271,6 @@ fn export_paths_may_name_an_archive_outside_the_root() {
     assert_eq!(findings_of(&lines, "co Midcup Spring.zip"), spring);
     // co Midcup C, in the root but not named, is not reported.
     assert_eq!(lines.len(), 2 + spring.len(), "{lines:#?}");
-}
-
-#[test]
-fn check_leaves_every_archive_and_nested_export_as_it_was() {
-    let sandbox = Sandbox::new("archives_untouched");
-    sandbox.copy_fixture("co Midcup Spring.zip", "exports");
-    sandbox.copy_fixture("co Midcup Spring.7z", "exports");
-    sandbox.write(
-        &format!("exports/co Midcup Nested/wrapper/{CLEAN_PLAYER}"),
-        &clean_model(),
-    );
-    let exports = sandbox.root.join("exports");
-    let before = snapshot(&exports);
-
-    let run = sandbox.run("", &["check"]);
-
-    let lines = run.messages();
-    let exports_of_714 = "co Midcup Nested, co Midcup Spring.7z, co Midcup Spring.zip";
-    assert_eq!(
-        findings_of(&lines, "co Midcup Nested"),
-        [
-            "Warning nested_folders_fixed [Keep] (folder=wrapper)".to_owned(),
-            "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
-            format!(
-                "Error duplicate_aesthetics_export [DropExport] (id=714, exports={exports_of_714})"
-            ),
-        ]
-    );
-    let spring = spring_findings_beside(exports_of_714);
-    assert_eq!(findings_of(&lines, "co Midcup Spring.7z"), spring);
-    assert_eq!(findings_of(&lines, "co Midcup Spring.zip"), spring);
-    assert_eq!(snapshot(&exports), before);
 }
 
 // TC-SRC-09

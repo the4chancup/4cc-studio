@@ -160,6 +160,7 @@ fn pes_17_wraps_every_dds_when_dds_compression_resolves_on_and_pes_21_ignores_it
     );
 }
 
+// TC-CLI-05
 #[test]
 fn a_dds_compression_other_than_true_false_or_auto_is_a_configuration_error_naming_it() {
     for (name, value) in [("integer", "1"), ("word", "\"yes\"")] {
