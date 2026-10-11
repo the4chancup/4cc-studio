@@ -1768,3 +1768,5 @@ worklog passed 7,000 lines.
   (step 5.0f). The PES 17 gloves-subfolder check waits on a save pointing a player at the shared ID.
 - **2026-10-12** — Step 5.0f: Red's texture size rules on Fox in the compiler (a mipped texture
   needs one power-of-two side; the 2048 kit limit is PES 15-17's); SWE-2, first attempt.
+- **2026-10-12** — Step 5.0b2: three more extra-mutant kinds (normalize, order, bool) and a `--kind`
+  filter; SWE-2, first attempt. `team_compiler`'s close run collected: 10 missed, 3 timeouts.

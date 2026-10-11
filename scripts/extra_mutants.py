@@ -1,12 +1,15 @@
 """`just extra-mutants <crate>`: run the mutants `cargo-mutants` lacks (worklog 5.0b).
 
-`crates/dev/extra_mutants` lists two kinds: a dropped `if` guard (the condition replaced
-with `false`) and one element removed from a literal list a `matches!` or a separator
-method decides by. cargo-mutants rewrites operators and return values but neither of
-those, so this script applies each listed patch in a copy of the working tree and lets
+`crates/dev/extra_mutants` lists the kinds cargo-mutants never makes: `guard` (an `if`
+condition replaced with `false`), `literal` (an element removed from a literal list),
+`normalize` (a `.trim()`-style call removed), `order` (a `sort()`-style statement
+deleted) and `bool` (a `true`/`false` flipped). This script applies each listed patch
+in a copy of the working tree and lets
 `cargo test -p <crate>` decide whether the suite catches it. Outcomes land in
-`extra_mutants.out/` (gitignored): `outcomes.tsv` has every mutant, `missed.txt` the
-survivors. `--list` only prints the mutants and their counts, without running anything.
+`extra_mutants.out/` (gitignored): `outcomes_<kinds>.tsv` has every mutant of the run's
+kinds, `missed_<kinds>.txt` the survivors. `--list` only prints the mutants and their
+counts, without running anything. `--kind <name>` (repeatable) restricts the run or the
+listing to those kinds.
 """
 
 import json
@@ -25,6 +28,8 @@ import mutants
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "extra_mutants.out"
 LISTER = ["cargo", "run", "-q", "--release", "-p", "extra_mutants", "--", "list"]
+# Every kind the lister can emit; `--kind` restricts a run or listing to a subset.
+ALL_KINDS = ("bool", "guard", "literal", "normalize", "order")
 # Each mutant's `cargo test` may take up to this multiple of the unmutated baseline.
 TIMEOUT_FACTOR = 3
 MIN_TIMEOUT_SECONDS = 120
@@ -157,21 +162,38 @@ def write_out(path: Path, text: str) -> None:
     os.replace(temp, path)
 
 
-def main(argv: list[str]) -> int:
+def parse_args(argv: list[str]) -> tuple[str, list[str], bool]:
+    """(crate, kinds, list_only)."""
     args = argv[1:]
     list_only = "--list" in args
     args = [arg for arg in args if arg != "--list"]
-    if len(args) != 1:
-        print("usage: extra_mutants.py <crate> [--list]")
-        return 2
-    crate = args[0]
+    kinds = []
+    positional = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--kind":
+            i += 1
+            if i == len(args):
+                raise SystemExit("extra_mutants: --kind needs a name")
+            kinds.append(args[i])
+        else:
+            positional.append(args[i])
+        i += 1
+    unknown = [kind for kind in kinds if kind not in ALL_KINDS]
+    if len(positional) != 1 or unknown:
+        raise SystemExit("usage: extra_mutants.py <crate> [--list] [--kind <name>]...")
+    return positional[0], sorted(set(kinds)) or list(ALL_KINDS), list_only
+
+
+def main(argv: list[str]) -> int:
+    crate, kinds, list_only = parse_args(argv)
     directory = crate_dir(crate)
     if list_only:
-        rows = list_mutants(directory)
+        rows = [row for row in list_mutants(directory) if row[3] in kinds]
         for row in rows:
             print("\t".join(row))
-        kinds = Counter(row[3] for row in rows)
-        counts = ", ".join(f"{kind} {n}" for kind, n in sorted(kinds.items()))
+        per_kind = Counter(row[3] for row in rows)
+        counts = ", ".join(f"{kind} {n}" for kind, n in sorted(per_kind.items()))
         print(f"{len(rows)} mutants ({counts})")
         return 0
 
@@ -185,7 +207,7 @@ def main(argv: list[str]) -> int:
     wall_start = time.monotonic()
     try:
         extract_tree(tree, copy_dir)
-        rows = list_mutants(copy_dir / crate_rel)
+        rows = [row for row in list_mutants(copy_dir / crate_rel) if row[3] in kinds]
         baseline = baseline_seconds(crate, copy_dir)
         timeout = max(MIN_TIMEOUT_SECONDS, TIMEOUT_FACTOR * baseline)
         print(
@@ -222,14 +244,15 @@ def main(argv: list[str]) -> int:
             outcomes.append((outcome, row))
             print(f"[{i}/{len(rows)}] {outcome}: {rel}:{line} {description}", flush=True)
         OUT_DIR.mkdir(exist_ok=True)
+        kinds_key = "_".join(kinds)
         write_out(
-            OUT_DIR / "outcomes.tsv",
+            OUT_DIR / f"outcomes_{kinds_key}.tsv",
             "".join(
                 outcome + "\t" + "\t".join(row) + "\n" for outcome, row in outcomes
             ),
         )
         write_out(
-            OUT_DIR / "missed.txt",
+            OUT_DIR / f"missed_{kinds_key}.txt",
             "".join(
                 f"{row[0]}:{row[4]}: {row[6]}\n"
                 for outcome, row in outcomes
@@ -240,11 +263,11 @@ def main(argv: list[str]) -> int:
         per_kind = Counter(row[3] for _, row in outcomes)
         print(
             "outcomes: "
-            + ", ".join(f"{name} {n}" for name, n in sorted(per_outcome.items()))
+            + (", ".join(f"{name} {n}" for name, n in sorted(per_outcome.items())) or "none")
         )
         print(
             "per kind: "
-            + ", ".join(f"{name} {n}" for name, n in sorted(per_kind.items()))
+            + (", ".join(f"{name} {n}" for name, n in sorted(per_kind.items())) or "none")
         )
         print(f"wall time: {time.monotonic() - wall_start:.0f} s")
         return 0

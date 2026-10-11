@@ -10,8 +10,8 @@ use syn::parse::{ParseStream, Parser};
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
 use syn::{
-    Attribute, Expr, ExprArray, ExprIf, ExprLit, ExprMacro, ExprMethodCall, ImplItemFn, Item,
-    ItemFn, Lit, Pat, PatOr, Token, TraitItemFn,
+    Attribute, Expr, ExprArray, ExprCall, ExprIf, ExprLit, ExprMacro, ExprMethodCall, ExprStruct,
+    ImplItemFn, Item, ItemFn, Lit, Pat, PatOr, Stmt, Token, TraitItemFn,
 };
 
 /// The method names whose receiver or arguments decide by a literal list (worklog 5.0b).
@@ -35,14 +35,42 @@ const LIST_METHODS: &[&str] = &[
     "matches",
 ];
 
+/// The no-argument spelling fixers a mutant drops to test whether a call site relied on
+/// the spelling being tidied first.
+const NORMALIZE_METHODS: &[&str] = &[
+    "trim",
+    "trim_start",
+    "trim_end",
+    "to_ascii_lowercase",
+    "to_ascii_uppercase",
+    "to_lowercase",
+    "to_uppercase",
+];
+
+/// The in-place ordering methods whose statement a mutant deletes to test whether the
+/// order they impose is asserted.
+const ORDER_METHODS: &[&str] = &[
+    "sort",
+    "sort_unstable",
+    "sort_by",
+    "sort_by_key",
+    "sort_unstable_by",
+    "sort_unstable_by_key",
+    "dedup",
+    "dedup_by",
+    "dedup_by_key",
+    "reverse",
+];
+
 /// One mutant: replacing `text[start..end]` with `replacement` must still parse. `line` is
-/// 1-based and `kind` is `guard` or `literal`, as one row of the lister's output is built.
+/// 1-based and `kind` is `guard`, `literal`, `normalize`, `order` or `bool`, as one row of
+/// the lister's output is built.
 pub(crate) struct Mutant {
     pub(crate) start: usize,
     pub(crate) end: usize,
     pub(crate) kind: &'static str,
     pub(crate) line: usize,
-    pub(crate) replacement: &'static str,
+    pub(crate) replacement: String,
     pub(crate) description: String,
 }
 
@@ -140,7 +168,7 @@ impl Lister<'_> {
         kind: &'static str,
         start: usize,
         end: usize,
-        replacement: &'static str,
+        replacement: impl Into<String>,
         change: &str,
         line: usize,
     ) {
@@ -150,7 +178,7 @@ impl Lister<'_> {
             end,
             kind,
             line,
-            replacement,
+            replacement: replacement.into(),
             description,
         });
     }
@@ -242,6 +270,23 @@ impl Lister<'_> {
     fn line_of(&self, byte: usize) -> usize {
         self.line_starts.partition_point(|&start| start <= byte)
     }
+
+    /// A `true`/`false` argument or struct field value, flipped.
+    fn bool_mutant(&mut self, expr: &Expr) {
+        let Expr::Lit(ExprLit {
+            lit: Lit::Bool(lit),
+            ..
+        }) = expr
+        else {
+            return;
+        };
+        let start = self.start_of(lit.span);
+        let end = self.end_of(lit.span);
+        let line = self.line_of(start);
+        let flipped = if lit.value { "false" } else { "true" };
+        let change = format!("{} becomes {flipped}", lit.value);
+        self.push("bool", start, end, flipped, &change, line);
+    }
 }
 
 impl<'ast> Visit<'ast> for Lister<'_> {
@@ -314,6 +359,38 @@ impl<'ast> Visit<'ast> for Lister<'_> {
 
     fn visit_expr_method_call(&mut self, expr: &'ast ExprMethodCall) {
         let method = expr.method.to_string();
+        if NORMALIZE_METHODS.contains(&method.as_str()) && expr.args.is_empty() {
+            // `.name()` removed: the dot through the closing parenthesis.
+            let start = self.start_of(expr.dot_token.spans[0]);
+            let end = self.end_of(expr.paren_token.span.close());
+            let line = self.line_of(start);
+            let change = format!("the {method}() call is removed");
+            self.push("normalize", start, end, "", &change, line);
+        }
+        if method == "eq_ignore_ascii_case" && expr.args.len() == 1 {
+            let start = self.start_of(expr.span());
+            let end = self.end_of(expr.span());
+            let line = self.line_of(start);
+            let receiver = self.snippet(
+                self.start_of(expr.receiver.span()),
+                self.end_of(expr.receiver.span()),
+            );
+            let arg = self.snippet(
+                self.start_of(expr.args[0].span()),
+                self.end_of(expr.args[0].span()),
+            );
+            self.push(
+                "normalize",
+                start,
+                end,
+                format!("{receiver} == {arg}"),
+                "eq_ignore_ascii_case becomes ==",
+                line,
+            );
+        }
+        for arg in &expr.args {
+            self.bool_mutant(arg);
+        }
         if LIST_METHODS.contains(&method.as_str()) {
             self.array_mutants(&expr.receiver, &method);
             for arg in &expr.args {
@@ -321,6 +398,36 @@ impl<'ast> Visit<'ast> for Lister<'_> {
             }
         }
         visit::visit_expr_method_call(self, expr);
+    }
+
+    fn visit_expr_call(&mut self, expr: &'ast ExprCall) {
+        for arg in &expr.args {
+            self.bool_mutant(arg);
+        }
+        visit::visit_expr_call(self, expr);
+    }
+
+    fn visit_expr_struct(&mut self, expr: &'ast ExprStruct) {
+        for field in &expr.fields {
+            self.bool_mutant(&field.expr);
+        }
+        visit::visit_expr_struct(self, expr);
+    }
+
+    fn visit_stmt(&mut self, stmt: &'ast Stmt) {
+        if let Stmt::Expr(expr, Some(semicolon)) = stmt
+            && let Expr::MethodCall(call) = expr
+        {
+            let method = call.method.to_string();
+            if ORDER_METHODS.contains(&method.as_str()) {
+                let start = self.start_of(expr.span());
+                let end = self.end_of(semicolon.spans[0]);
+                let line = self.line_of(start);
+                let change = format!("the {method}() statement is deleted");
+                self.push("order", start, end, "", &change, line);
+            }
+        }
+        visit::visit_stmt(self, stmt);
     }
 }
 
@@ -414,7 +521,7 @@ fn item_attrs(item: &Item) -> &[Attribute] {
 }
 
 /// `#[test]` or `#[cfg(test)]` (exactly `test`: `cfg(all(test, …))` keeps the code scanned).
-fn has_test_attr(attrs: &[Attribute]) -> bool {
+pub(crate) fn has_test_attr(attrs: &[Attribute]) -> bool {
     attrs.iter().any(|attr| {
         attr.path().is_ident("test") || {
             if !attr.path().is_ident("cfg") {
@@ -613,6 +720,119 @@ mod tests {
     #[test]
     fn an_unlisted_method_gives_nothing() {
         let text = "fn f(s: &str) -> bool {\n    s.chars().eq(['a', 'b'])\n}\n";
+        assert!(scan(text).is_empty());
+    }
+
+    #[test]
+    fn removes_a_normalize_call() {
+        let text = "fn f(s: &str) -> &str {\n    s.trim()\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 1);
+        let mutant = &mutants[0];
+        assert_eq!(mutant.kind, "normalize");
+        assert_eq!(&text[mutant.start..mutant.end], ".trim()");
+        assert_eq!(mutant.replacement, "");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn eq_ignore_ascii_case_becomes_eq() {
+        let text = "fn f(a: &str, b: &str) -> bool {\n    a.eq_ignore_ascii_case(b)\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 1);
+        let mutant = &mutants[0];
+        assert_eq!(mutant.kind, "normalize");
+        assert_eq!(&text[mutant.start..mutant.end], "a.eq_ignore_ascii_case(b)");
+        assert_eq!(mutant.replacement, "a == b");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_normalize_method_with_arguments_gives_nothing() {
+        let text = "fn f(s: &str) -> &str {\n    s.trim_end(' ')\n}\n";
+        assert!(scan(text).is_empty());
+    }
+
+    #[test]
+    fn deletes_an_order_statement() {
+        let text = "fn f(v: &mut Vec<u32>) {\n    v.sort();\n    v.reverse();\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 2);
+        assert!(mutants.iter().all(|m| m.kind == "order"));
+        assert_eq!(&text[mutants[0].start..mutants[0].end], "v.sort();");
+        assert_eq!(&text[mutants[1].start..mutants[1].end], "v.reverse();");
+        assert_eq!(mutants[0].replacement, "");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn an_order_method_as_an_expression_gives_nothing() {
+        let text = "fn f(v: &mut Vec<u32>) {\n    let _x = v.sort();\n}\n";
+        assert!(scan(text).is_empty());
+        let text = "fn f(v: &mut Vec<u32>) {\n    v.sort()\n}\n";
+        assert!(scan(text).is_empty());
+    }
+
+    #[test]
+    fn flips_a_bool_argument() {
+        let text = "fn f(x: bool) {}\nfn g() {\n    f(true);\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 1);
+        let mutant = &mutants[0];
+        assert_eq!(mutant.kind, "bool");
+        assert_eq!(&text[mutant.start..mutant.end], "true");
+        assert_eq!(mutant.replacement, "false");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn flips_a_bool_method_argument() {
+        let text =
+            "fn f(s: &str) -> bool {\n    s.starts_with(\"x\") && s.contains(\"y\", true)\n}\n";
+        let mutants = scan(text);
+        let mutant = mutants
+            .iter()
+            .find(|m| m.kind == "bool")
+            .expect("a bool mutant");
+        assert_eq!(&text[mutant.start..mutant.end], "true");
+        assert_eq!(mutant.replacement, "false");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn flips_a_struct_field_bool() {
+        let text = "struct S {\n    flag: bool,\n}\nfn f() -> S {\n    S { flag: true }\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 1);
+        let mutant = &mutants[0];
+        assert_eq!(mutant.kind, "bool");
+        assert_eq!(&text[mutant.start..mutant.end], "true");
+        assert_eq!(mutant.replacement, "false");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_bool_in_a_const_gives_nothing() {
+        let text = "const F: bool = true;\nfn f() {}\n";
+        assert!(scan(text).is_empty());
+    }
+
+    #[test]
+    fn a_bool_in_a_match_arm_gives_nothing() {
+        let text =
+            "fn f(x: bool) {\n    match x {\n        true => {}\n        false => {}\n    }\n}\n";
+        assert!(scan(text).is_empty());
+    }
+
+    #[test]
+    fn a_bool_in_a_comparison_gives_nothing() {
+        let text = "fn f(x: bool) -> bool {\n    x == true\n}\n";
+        assert!(scan(text).is_empty());
+    }
+
+    #[test]
+    fn a_bool_in_matches_gives_nothing() {
+        let text = "fn f(x: bool) -> bool {\n    matches!(x, true)\n}\n";
         assert!(scan(text).is_empty());
     }
 
