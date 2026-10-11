@@ -161,9 +161,10 @@ collar it stays on the ground instead of following the neck by **static painting
 community's trick: its vertices are weighted to a dummy vertex group, usually named `static`,
 that is no bone of the body skeleton; the referee step checks that the bundled FMDL is painted
 that way (the pre-Fox prop is unskinned, no bone and no weight, and is the game's own prop,
-so it is not checked). Where the pre-Fox marker shows in game is the maintainer's to confirm
-(`QUESTIONS.md`): the lead's PES 17 runs of 2026-10-09 saw neither the template's own clover
-nor a test texture in the walkout, the lineup or the match's wide camera.
+so it is not checked). The marker shows on the ground under each official in every scene
+(checked on PES 17 by the maintainer with the cup's referee CPK, in the form the compiler
+writes, worklog 4.y-ingame2 (b)); why the lead's harness runs with a test texture showed none
+is not known.
 
 ### Features that disappear in a compiled GUI app
 

@@ -36,6 +36,7 @@ overlays.
 |------|------|----------|
 | Rigdio | Match-day music player (streamer side) | `Tools_4cc/rigdio` |
 | RigDJ | `.4ccm` GUI editor (manager side, same codebase) | `Tools_4cc/rigdio` |
+| Rigdio fork | The ATF bot's author's fork (v2.2.1, 2026-10-11): upstream v2.2.0 plus a local API and event clips, fed by the SEN:P-AI fork; surveyed for features to adapt when this phase is planned | `Tools_Marco/rigdio` |
 
 Playback goes through **libmpv** (`libmpv-2.dll`, pinned to an April 2024 Win7-compatible
 build) via the `python-mpv` binding. Loudness analysis shells out to a custom-minified

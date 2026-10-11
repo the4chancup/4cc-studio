@@ -95,8 +95,8 @@ User exports (folders / .zip / .7z)
 ┌──────────────────────────────────────────────┐
 │  pes_savefile: Aesthetics patch + savefile   │
 │  ─ Resolve the patch from committed outputs  │
-│  ─ Write aesthetics_patch.toml beside the CPK│
-│    (Fox: names only; appearance is in bins/) │
+│  ─ Write aesthetics_patch.toml to output/    │
+│    (Fox: motions, names; the rest in bins/)  │
 │  ─ Local save configured: decrypt, apply the │
 │    patch, re-encrypt, save (.bak backup)     │
 └──────────────────────────────────────────────┘
@@ -1211,7 +1211,7 @@ TC-MOD-90  GIVEN TC-MOD-36's boots, or a Common/legs.fmdl with such a material, 
                 template_override_active
 TC-MOD-91  GIVEN slot 05 holding an FMDL one of whose textures has the directory
            /Assets/pes16/model/character/uniform/texture/ (the game's kit textures)
-           WHEN the export is checked or compiled for PES 21
+           WHEN the export is compiled for PES 21
            THEN fmdl_texture_kit_path names the path, the model is packed with that path
                 unchanged, and fmdl_texture_not_found is not reported for it
 TC-MOD-92  GIVEN slot 05 holding a face model and notes.txt
@@ -2256,6 +2256,161 @@ TC-DEP-16  GIVEN no PES folder or no download/, a DpFileList.bin that cannot be 
            WHEN upgrade-dpfl --yes runs
            THEN it is refused naming the missing folder and pes_folder_path (exit code 2) or the
                 file (exit code 3), and nothing in download/ is created, renamed or written
+```
+
+**Phase 5 scope.** On Fox, `compile` builds every compiled player's `PlayerAppearance.bin` row
+from his `settings.toml` and folder markers, writes the boots and gloves rows of every compiled
+player (the default-ID rows included), and writes the aesthetics patch (motions, and an autopilot
+export's names) to the output folder, applying it to the local savefile. A compiled player is
+every player a kept player folder of a team export maps to ("Player settings in exports" in the Aesthetics export
+plan). Phase 5 withdraws TC-BIN-10, TC-BIN-17 and TC-BIN-22, whose player tables it changes,
+and TC-BIN-25 to TC-BIN-27 restate them. Not in Phase 5, so not here: the pre-Fox patch and its
+savefile writes (deferred with pre-Fox's other gaps: a compile for PES 15-17 writes no patch and
+leaves the savefile byte-identical) and a referee export's settings (worklog issue). PES 18
+and 19 appearance rows land within Phase 5, once a step has measured their offsets; until
+then TC-BIN-31's PES 18 half waits. Test data as in Phase 4. Unless a
+scenario says otherwise, the PES folder is a deployable fixture install whose DpFileList lists
+`4cc_08_bins` (holding the three player tables) and the output CPK, and `savefile_path` names
+a stripped fixture save of the compile's version carrying team 714 (a test never uses `auto`,
+which would find the developer's own save).
+
+**Player tables**
+
+```
+TC-BIN-25  GIVEN an installed BootsList.bin of ten pairs, a GloveList.bin and a
+           PlayerAppearance.bin, none of them for a team 714 player, and a /co/ export whose
+           slot 05 holds boots.fmdl and a settings.toml
+           WHEN it is compiled for PES 21
+           THEN the CPK's BootsList.bin holds eleven pairs sorted by player id with (71405, 625)
+                among them and the ten unchanged; GloveList.bin gains (71405, 0) and
+                PlayerAppearance.bin a row for 71405, every installed row unchanged
+TC-BIN-26  GIVEN an installed BootsList.bin holding (71405, 7), (71406, 9) and (71407, 55), and a
+           /co/ export whose slot 05 holds boots.fmdl, slot 06 no boots, and slot 07 no boots
+           and the fpc_off marker
+           WHEN it is compiled for PES 21 as a Full export, then as a Midcup export
+           THEN the Full run's BootsList.bin holds (71405, 625), (71406, 0) and (71407, 0), and
+                the Midcup run's (71405, 625), (71406, 9) and (71407, 0)
+TC-BIN-27  GIVEN no PES install configured, and a /co/ export whose slot 05 holds boots.fmdl
+           WHEN it is compiled for PES 21
+           THEN the CPK holds k0625's boots and no BootsList.bin, GloveList.bin or
+                PlayerAppearance.bin, and player_table_missing names each of the three with 1 row
+TC-BIN-28  GIVEN an installed PlayerAppearance.bin with a row for 71405 and one for 71406, a /co/
+                export whose slot 05 settings.toml sets one appearance key, and whose players.txt
+                maps slot 05's folder to 05 and another folder, holding a face model and no
+                settings.toml, to 06 and 08
+           WHEN it is compiled for PES 21
+           THEN 71405's row is the template's defaults with that key's value, 71406's and
+                71408's are the template's defaults, and nothing of either installed row remains
+TC-BIN-29  GIVEN a /co/ export whose slot 05 carries fpc_on and its settings.toml sets
+                boots_id = 12, slot 06 carries fpc_on and no boots or gloves, and slot 07 holds
+                boots.fmdl and sets boots_id = 12
+           WHEN it is compiled for PES 21
+           THEN BootsList.bin holds (71405, 12), (71406, 55) and (71407, 627), GloveList.bin
+                (71405, 11), (71406, 11) and (71407, 0), and settings_model_id_conflict names
+                slot 07's boots
+TC-BIN-30  GIVEN a /co/ export whose slot 05 carries fpc_on, and whose settings.toml sets a key
+           the hide preset sets, to another value, the inners on, undershorts and taping;
+           and whose slot 06, with no marker, sets the gloves checkbox on and no gloves
+           WHEN it is checked and compiled for PES 21
+           THEN both report fpc_strip_conflict, fpc_inners_break_hiding,
+                fpc_undershorts_break_hiding and fpc_taping_shows_pieces for slot 05 and
+                fpc_gloves_checkbox_winter_gloves for slot 06; 71405's row carries the preset's
+                value for the key and the inners, undershorts and taping as authored
+TC-BIN-31  GIVEN a /co/ export whose slot 05 settings.toml holds facial_hair_type = 15 (PES 18:
+                0 to 12), hunching_dribbling = 5 (PES 18: 1 to 3) and dribbling = 2 (PES 20
+                and 21 only), and an [appearance.unknown.pes21] table with bits set
+           WHEN it is compiled for PES 18, and for PES 21
+           THEN the PES 18 run reports settings_value_out_of_range for the first two, 71405's
+                row has facial hair type 0, its patch holds hunching_dribbling 1 and no
+                dribbling key, no finding names dribbling,
+                and reports settings_unknown_other_version with those bits at 0; the PES 21
+                run's row carries the table's bits; both exit 0
+TC-BIN-32  GIVEN an installed pair (71405, 7), and a /co/ export whose slot 05 holds a
+           boots.fmdl whose task fails and a settings.toml setting an appearance key and a
+           motion key, and whose slot 06 holds a face model that compiles
+           WHEN it is compiled for PES 21
+           THEN BootsList.bin keeps (71405, 7), 71405's appearance row carries the key, and
+                the patch holds his motion keys
+TC-BIN-33  GIVEN an installed PlayerAppearance.bin row for 71405 with no value at its default,
+                and a /co/ export whose slot 05 holds a face model and a settings.toml with a key
+                of the wrong type
+           WHEN it is compiled for PES 21
+           THEN settings_toml_invalid is reported, 71405's row is the template's defaults, and
+                the patch holds his motions at their defaults
+```
+
+**Aesthetics patch and savefile**
+
+```
+TC-SAV-01  GIVEN a /co/ export whose slot 05 settings.toml sets one motion key and a name, and
+                a savefile whose team 714 holds 71405 in roster slot 06 and 71406 in slot 05
+           WHEN it is compiled for PES 21
+           THEN <output_folder_path>/aesthetics_patch.toml names the CPK and holds team 714's
+                slot 05 with every motion key (the defaults for those absent) and no name;
+                patch_written names it; in the savefile 71405's motion fields are the patch's
+                and 71406's unchanged,
+                his name and appearance id unchanged, every other byte unchanged, and the
+                previous file is the .bak
+TC-SAV-02  GIVEN an export with the autopilot marker whose slot 05 settings.toml has name = true
+           and shirt_name = "SNUFFY", in the folder whose name part is Snuffy, and whose slot 06
+           folder, mapped to two players by players.txt, sets a name
+           WHEN it is compiled for PES 21
+           THEN the patch and the savefile carry 71405's name Snuffy and shirt name SNUFFY, both
+                players of slot 06's folder carry its name, and settings_toml_name_shared is
+                reported
+TC-SAV-03  GIVEN a slot 05 settings.toml whose name is longer than PES 21's name field, in an
+           autopilot export
+           WHEN it is compiled
+           THEN settings_name_invalid is reported, the patch has no name key for 71405, and
+                the savefile keeps his name
+TC-SAV-04  GIVEN savefile_path naming a missing file
+           WHEN the export is compiled
+           THEN the patch is written, savefile_missing is reported, and the exit code is 0
+TC-SAV-05  GIVEN a PES 19 savefile for a PES 21 compile, and a root holding the /co/ and /egg/
+           exports with a savefile holding team 792 and not 714
+           WHEN each is compiled
+           THEN the first reports savefile_invalid, leaves the savefile byte-identical and the
+                PES folder's previous CPK in place; the second reports savefile_team_missing
+                naming 714 and applies 792's entries; the first exits 3 (its deployment rolled
+                back), the second 1
+TC-SAV-06  GIVEN an output folder holding an aesthetics_patch.toml from an earlier run
+           WHEN an export with kits and no player folder is compiled
+           THEN no patch is written and the earlier one is now aesthetics_patch.toml.bak
+TC-SAV-07  GIVEN a savefile whose 71405 appearance id is set
+           WHEN a /co/ export with slot 05 is compiled for PES 21
+           THEN savefile_player_not_stripped names 71405, and his appearance id stays set
+TC-SAV-08  GIVEN a savefile that cannot be replaced (its .bak path taken by a folder)
+           WHEN the export is compiled
+           THEN savefile_write_failed is reported, the PES folder holds the CPK it held
+                before the run, and the exit code is 3
+TC-SAV-09  GIVEN an output folder in which aesthetics_patch.toml cannot be written (the path
+           taken by a folder)
+           WHEN the export is compiled
+           THEN patch_write_failed is reported, the PES folder holds the CPK it held before the
+                run, the savefile is byte-identical, and the exit code is 3
+TC-SAV-10  manual  GIVEN a running PES with a savefile present
+                   WHEN the export is compiled in sideload mode
+                   THEN the patch is written naming no CPK, savefile_skipped_pes_running is
+                        reported, the savefile is byte-identical, and the exit code is 0
+TC-SAV-11  GIVEN the installed copy of the output CPK held open without delete sharing
+                (TC-DEP-02's degraded run)
+           WHEN the export is compiled
+           THEN the CPK and the patch are promoted to <output_folder_path>, the savefile is
+                byte-identical, and the exit code is 1
+TC-SAV-12  GIVEN a /co/ export whose slot 05 settings.toml sets a motion key, and savefile_path
+                naming a PES 17 fixture save
+           WHEN it is compiled for PES 17
+           THEN no aesthetics_patch.toml is written and the savefile is byte-identical
+```
+
+**Referees**
+
+```
+TC-REF-19  GIVEN a refs export whose Ref A holds a face model and a settings.toml setting the
+                gloves checkbox on and no gloves
+           WHEN it is checked, and compiled for PES 21
+           THEN both report fpc_gloves_checkbox_winter_gloves for Ref A; the CPK holds no
+                PlayerAppearance.bin row for him, and no patch is written
 ```
 
 ---

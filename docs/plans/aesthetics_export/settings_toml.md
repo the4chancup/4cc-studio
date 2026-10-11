@@ -25,7 +25,11 @@ models is valid. **An absent key takes its default**, the value the template bel
 directives are separate inputs. `name` and `shirt_name` are the exceptions: absent means "not
 written" (see the name rules). A compiled player's appearance is therefore his export (this file,
 his folder's models and markers) and nothing else: no earlier compile, savefile or installed
-table contributes to it, except a boots or gloves ID whose output failed (step 1 below).
+table contributes to it, except a boots or gloves ID whose output failed (step 1 below) and,
+in a `Midcup` export, a category the folder leaves to its default (step 3). A compiled player is
+every player a kept player folder of a team export maps to, whatever his tasks' outcomes. A referee export's
+`settings.toml` reaches no table or patch yet (worklog issue). A `settings.toml`'s findings,
+a referee export's included, are reported by `check` and `compile` alike.
 
 **The file can express everything the savefile's player appearance record holds.** Its schema is
 `pes_savefile`'s `PlayerSettings`: all of the decoded player appearance record — physique, strip
@@ -65,7 +69,9 @@ means **default** and is the same as an absent key. Each category resolves in th
 2. A numeric key → that stock ID, whatever FPC marker the folder carries.
 3. Default (`""` or absent) → the folder's FPC marker decides: `fpc_on` writes the hide preset's
    nonexistent IDs (boots 55, gloves 11); `fpc_off` or no marker writes 0 for both (the default
-   boots and a pair of normal hands).
+   boots and a pair of normal hands). In a `Midcup` export with no marker the player keeps his
+   installed row (Fox) or savefile ID (pre-Fox): only a full export resets what a team had
+   ("Coverage tag" in `object_model.md`).
 
 Gloves are not a goalkeeper-only model here: the cup's gloves system lets any player wear a gloves
 model, which is why gloves ID 0 is a set of normal hands rather than "no gloves".
@@ -94,8 +100,8 @@ name inside `[appearance]` would collide with.
 # team without a manager); otherwise they are ignored and the manager's names stand.
 name = "Snuffy"
 shirt_name = "SNUFFY"           # "text" = write as is; absent = not written
-boots_id = ""                   # "" = default (fpc_on: hidden, otherwise 0); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)
-gloves_id = ""                  # "" = default (fpc_on: hidden, otherwise 0); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder's gloves models or a gloves link get an ID (pre-Fox face-XML gloves do not)
+boots_id = ""                   # "" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)
+gloves_id = ""                  # "" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder's gloves models or a gloves link get an ID (pre-Fox face-XML gloves do not)
 
 [appearance]
 skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)
@@ -174,8 +180,15 @@ face-type maxima are the caps the two legacy converters apply when writing a PES
 save. The 17 to 19 face caps are unmeasured and assumed equal to PES 16's; PES 15's face caps are
 assumed equal to 16's too. The parser checks a value against the **widest** range of a key (a PES
 16 file may legitimately be compiled for PES 21); the per-version narrowing is the compiler's
-finding at compile time, when the target version is known. Strings are matched exactly (lower
-case, as listed). Height and weight are not keys: they are the player record's own fields, not the
+finding at compile time, when the target version is known (`settings_value_out_of_range`). The
+value is then written as the key's default (a face type 0, a motion the template's value), as
+a cross-version player conversion resets a face type (`pes_savefile/operations.md`
+"Cross-version player conversion"), and a custom skin (7) the target has none of as 1. Not as
+authored: a motion beyond the target's range may not fit its field's bits (PES 18's two for
+`hunching_dribbling`), and what the game does with one that fits is unmeasured. A key the target has
+no field for (`dribbling` before PES 20) is not written, with no finding: an export written for a
+newer version compiles for an older one as it is. Strings are matched exactly (lower case, as
+listed). Height and weight are not keys: they are the player record's own fields, not the
 appearance block's, and height affects gameplay, so both belong to the manager's tactical side
 (the save editor), and weight leaves with height for consistency.
 
@@ -214,23 +227,28 @@ Name-writing rules, in full — **not writing is the default**; writing is opt-i
    is always plain. Cup organizers colour names freely (not only medal players'), so tools that
    generate `settings.toml` from a savefile (the Export upgrader, the save editor) must emit the
    explicit string whenever the savefile name carries codes, or the next compile would strip them.
-4. With `name = true` or a string in a folder mapped to multiple players via `players.txt`, the same
-   name is applied to all of them, with a warning (`settings_toml_name_shared`).
+4. In an autopilot export, with `name = true` or a string in a folder mapped to multiple players
+   via `players.txt`, the same name is applied to all of them, with a warning
+   (`settings_toml_name_shared`).
 
 `shirt_name` is a string or absent: absent writes nothing, a string is written as is (checked
-against the version's shirt-name field and character set; it may fill the field, as real saves'
+against the version's shirt-name field and character set, as a `name` string is, a misfit
+being `settings_name_invalid` and not written; it may fill the field, as real saves'
 shirt names do: only `shirt_name_from` keeps a byte free, for text it invents). There is
 no `true`: a shirt name rarely repeats the player name, and a derived default would be one more
-thing to read. A shared folder applies it to every mapped player, like `name`.
+thing to read. In an autopilot export a shared folder applies it to every mapped
+player, like `name`.
 
-On Fox the names are the only part of this file that reaches the savefile, and only through the
-**aesthetics patch**: an autopilot team (an aesthetics export by a caretaker, a tactical export by the
+On Fox the motions and the names are the parts of this file that reach the savefile, and only
+through the **aesthetics patch**. As for names, an autopilot team (an aesthetics export by a
+caretaker, a tactical export by the
 council, often written before the destination team was known, with names like "Gold striker")
 needs its names written over the tactical export's, and the patch makes that automatic for an
 export carrying the `autopilot` marker at its root. The patch is applied whole, with no team
 picker: without the marker an export's `name` and `shirt_name` are not used, so a managed team's
 players keep the names their manager set in the save editor, and a generated file's names do no
-harm.
+harm. No finding reports them unused: every generated file carries names, so it would fire on
+nearly every export.
 
 Compile-time flow: resolve boots/gloves IDs from the models and link files present (a broken link is
 caught as `link_target_missing` — a check impossible in the current split-tool workflow), falling
@@ -240,12 +258,12 @@ resolve the settings and the IDs of content that was actually written, then per 
 - **Fox:** each compiled player's `PlayerAppearance.bin`, `BootsList.bin` and `GloveList.bin` rows
   are built from the resolved settings and written into the output CPK with every other player's
   installed row (see "Bins accumulation" in the [Team compiler plan](../team_compiler/pipeline.md));
-  the resolved motions, and an autopilot export's names, go into the **aesthetics patch** beside
-  the CPK: motions are player-record fields outside the appearance block a table row holds.
+  the resolved motions, and an autopilot export's names, go into the **aesthetics patch** written
+  with it: motions are player-record fields outside the appearance block a table row holds.
 - **Pre-Fox:** everything resolved goes into the aesthetics patch.
 
 If a local savefile is configured, the compiler applies that patch to it through `pes_savefile`
-(decrypt, apply, re-encrypt, `.bak`); a Fox names write leaves the player's appearance id as it
+(decrypt, apply, re-encrypt, `.bak`); a Fox patch's write leaves the player's appearance id as it
 is, so a stripped player stays stripped. The patch is what a DLC builder hands to the savefile
 builder, who applies it in the save editor; the compiler has no other savefile write path (see
 "Post-processing" in the [Team compiler plan](../team_compiler/pipeline.md)).

@@ -28,16 +28,6 @@ texture writes `../skin.dds`. Whether PES 15-17 loads both is unchecked: a glove
 with a model and `.mtl` in a subfolder, its texture at the root, seen in Edit mode. If not,
 the fallback is packing gloves flat (a subfolder's files by name).
 
-### A referee's `hair_parts` textures
-From: the Red inventory, 2026-10-11 (step 5.0c, `.tmp/5_0c/bins.md` G1). When Red moves a
-referee's textures into the refs Common folder, it copies a texture whose path holds
-`hair_parts` and keeps the original beside the face (`referee_tools.py:222-229`, commit
-`8d20bbb`, "to preserve originals", no reason given); `pipeline.md` step 6 moves every texture
-of a folder's own models. If the game reads a `hair_parts` texture from the face folder by a
-path the rewrite does not reach, a referee's hair shows untextured. To check: a referee with a
-`hair_parts` texture, compiled by Studio, in Edit mode. If his hair is untextured, step 6 keeps
-those textures in the face folder too.
-
 ### Non-power-of-two mipped textures and kits over 2048 on Fox
 From: step 5.0e (2), 2026-10-11 (census `.tmp/5_0e/census/census.md`). Studio refuses, on
 PES 18-21, a texture with a mip chain and one side not a power of two (`texture_not_pow2`), and

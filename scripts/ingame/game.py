@@ -53,7 +53,7 @@ OBS = {"host": "localhost", "port": 4455, "password": ""}
 # Pad inputs by name: buttons, and stick directions as (stick, x, y) pushed fully. The menus
 # move with the d-pad in lists and the left stick in the top menus' tabs; the right stick turns
 # a player in Edit mode. Up is y -1.0, as the maintainer's ATF bot
-# (`Tools_4cc/4cc-aes-atf-bot`, `helpers.press_left_analog`) drives these menus.
+# (`Tools_Marco/4cc-aes-atf-bot`, `helpers.press_left_analog`) drives these menus.
 PAD_BUTTONS = {
     "a": "A", "b": "B", "x": "X", "y": "Y", "start": "START", "back": "BACK",
     "lb": "LEFT_SHOULDER", "rb": "RIGHT_SHOULDER",

@@ -369,15 +369,17 @@ is a deferred verification completed after those phases land.
 
 `pes_savefile` exists since Phase 2; this phase wires it into its two consumers.
 
-- Commit-conditioned savefile writing in the Team compiler (`output/savefile.rs`): `BuildManifest`
-  planning freezes `PlannedModelIds` and creates conditional mutations; producer commits activate
-  asset-dependent mutations; final serialization applies only activated mutations while independent
-  accepted `settings.toml` changes may still apply. The allocation scheme is fixed (40-ID per-team
-  blocks — see the Team compiler plan), and Phase 4 model-task processing only consumes planned
-  assignments. `fpc_on`/`fpc_off` markers apply `libs/fpc`'s FPC presets here. The resolved
-  settings become, on Fox, each compiled player's appearance table rows (Phase 4's `bins/`) and an
-  aesthetics patch of names only; on pre-Fox, the full aesthetics patch ("Player settings in
-  exports" in the Aesthetics export plan).
+- Savefile writing in the Team compiler (`output/savefile.rs`), Fox first. `fpc_on`/`fpc_off`
+  markers apply `libs/fpc`'s FPC presets here. The resolved settings become, on Fox, each compiled
+  player's appearance table rows (Phase 4's `bins/`, whose boots and gloves rows are already
+  set only for committed outputs), the default-ID rows, and an aesthetics patch of motions and an
+  autopilot export's names, which depend on no asset; the patch is applied to the local save.
+  The pre-Fox patch ("Player settings in exports" in the Aesthetics export plan), the one whose
+  boots and gloves IDs need commit-conditioned mutations (`BuildManifest` planning freezes
+  `PlannedModelIds`; producer commits activate the asset-dependent mutations; final serialization
+  applies only activated ones while independent accepted `settings.toml` changes still apply),
+  is deferred with pre-Fox's other gaps until the cup next plays a pre-Fox version (worklog
+  issue). The allocation scheme is fixed (40-ID per-team blocks — see the Team compiler plan).
 - `libs/aatf`: the ruleset schema and its load-time validation, the generic Rhai interpreter, the
   host and `apply_tier`, logic identity, and the Autumn 26, Autumn 25, Spring 26, VGL25, VGL26,
   VGL27 and VTL11 rulesets as data with their fixtures ([AATF rules plan](../aatf_rules.md), "Development phase and verification").
@@ -388,8 +390,8 @@ is a deferred verification completed after those phases land.
 
 **Verification:** Team compiler parity now includes savefile output — compiled savefile compared
 against 4ccEditor edits for the same assignments; AATF rule fixtures (known-violating and clean
-saves); save editor operations exercised through the CLI on fixture saves. In game, on the Fox
-version the cup has chosen (step 4.0's Test 1 covered PES 2021 only): a stripped and seeded save
+saves); the save editor's CLI exercised on fixture saves, and its operations with no command
+by unit tests. In game, on the Fox version the cup has chosen (step 4.0's Test 1 covered PES 2021 only): a stripped and seeded save
 shows every player as before; a compiled team's rows show, gloves included once a FoxDen change keeps the
 table's value; and a file without `[appearance.unknown]` renders acceptably with the all-zero
 default (otherwise the default becomes the base database row's bits).
@@ -730,7 +732,7 @@ preset.
 
 Tools the suite will take in, with no phase or plan yet:
 
-- **Aesthetics ATF bot** (the maintainer's `Tools_4cc/4cc-aes-atf-bot`, Python; the Aesthetics
+- **Aesthetics ATF bot** (the maintainer's `Tools_Marco/4cc-aes-atf-bot`, Python; the Aesthetics
   ATF is the semi-manual check of a cup's aesthetics exports, `GLOSSARY.md` "ATF"): drives a
   running PES's Edit mode with a virtual Xbox 360 pad and records every player of each team of
   a teams list through OBS's WebSocket (a still, a dribbling clip, a corner-kick clip), so a

@@ -268,8 +268,9 @@ tables"; the description above and below is the Phase 2 code until then):
   after its id, edit flags, boots/gloves and base-copy fields; record bytes 252 to 308 on
   PES 20/21, the PES 18 and 19 offsets measured when those versions are implemented). Boots and
   gloves go to the `BootsList.bin`/`GloveList.bin` pairs.
-- The appearance block's player id becomes a modeled field, read and preserved; only the Save
-  editor's strip operation writes -1 (worklog issue "player id versus appearance id").
+- The appearance block's player id becomes a modeled field of the entry, outside
+  `PlayerAppearance`, read and preserved, so a transplant's whole-block copy leaves the target's;
+  only the Save editor's strip operation writes -1 (worklog issue "player id versus appearance id").
   Generation's callers skip a record at -1 (`settings_toml.md`, the end of "Player settings in
   exports"); `from_player` itself reads whatever record it is given.
 

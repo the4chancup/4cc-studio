@@ -1757,3 +1757,6 @@ worklog passed 7,000 lines.
 - **2026-10-11** — 5.0e done: a BC4/BC5/BC7 portrait for PES 15-18 encoded to BC3, an FMDL path
   into the kit texture folder kept and warned (`fmdl_texture_kit_path`), a `.txt` note in a model
   folder admitted as `file_not_used`; SWE-2 first attempt, four SWE-2 rounds and one Astra round.
+- **2026-10-12** — Phase 5's Acceptance written and itemized (steps 5.1 to 5.6): the Save
+  editor's CLI scenarios (33 SE- IDs) and the compiler's savefile writing (TC-BIN-25 to 33,
+  TC-SAV-01 to 12, TC-REF-19), after two Astra and ten SWE-2 review rounds.

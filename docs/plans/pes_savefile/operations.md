@@ -178,7 +178,7 @@ Ported from Midcupping's scripts and the reference editor's comparator, exposed 
 - **Aesthetics transplant** (`transplant-aesthetics-*.py`): copy the appearance
   data of selected players from a donor save into a target save of the same
   version. Selection patterns from the scripts, kept as-is: single player ID,
-  `target:source` ID pairs, whole team (`team_id` → its 23 player slots), and
+  `target:donor` ID pairs, whole team (`team_id` → its 23 player slots), and
   team ranges. In-place or to a new file.
 - **Aesthetics fingerprint** (`compare-saves-*.py`): a hash of the ingame-face block
   **normalized** by masking the player-gloves and skin-color bits (they overlap fields the
@@ -353,7 +353,7 @@ ingame-face parameters (which the legacy formats omit). Goals:
 **The file.** Every table is addressable by name so that "absent = untouched" holds at every
 level (a `[[presets]]` array could not leave preset 2 alone while setting preset 1). Players are
 keyed by **roster slot**, never by id: slot `NN` of the file is roster slot `NN` of the team it
-is applied to (the aesthetics patch and Texport use the same rule), so a team's file imports
+is applied to (Texport uses the same rule), so a team's file imports
 onto any team, and a file never carries a player id. Gameplay values are the **stored** numbers
 (the record's, ranges from the bit widths: this is a dump, and the manager-facing reinterpreted
 numbers belong to `settings.toml`); what the model already names canonically is written as a
@@ -371,7 +371,7 @@ entry, 2.17h-3).
 pes_version = 19                # the save this was written from; import into another version converts
 
 [team]
-id = 841                        # informational: the caller chooses the target team
+id = 841                        # the team import-toml imports onto; the GUI lets the user pick another
 name = "/98hu/"                 # colour codes as in the save
 short_name = "I1"
 manager_id = 1000               # PES 19+
@@ -443,6 +443,7 @@ boots_id = 3601
 gloves_id = 0
 base_copy_id = 84101            # equal to the player's own id in the file = unset; becomes the target's own id
 ingame_face = "0102...ff"       # the appearance block's undecoded run, hex, 50 bytes (46 on PES 15); applied before [players.NN.appearance]
+stripped = true                 # Phase 5, Fox: written only for a player whose appearance id is -1 ("Stripped save"); informational, import ignores it
 
 [players.01.stats]              # stored values; the comments give the game's editor range, the parser accepts the field's stored range
 attacking_prowess = 77
@@ -575,7 +576,9 @@ pub struct PlayerSection { pub name: Option<String>, pub shirt_name: Option<Stri
     pub nationality: Option<u16>, pub age: Option<u8>,
     pub height: Option<u8>, pub weight: Option<u8>,  // Phase 5; until then inside [players.NN.appearance.physique]
     pub boots_id: Option<u32>, pub gloves_id: Option<u32>,
-    pub base_copy_id: Option<u32>, pub ingame_face: Option<Vec<u8>>, pub stats: StatsSection,
+    pub base_copy_id: Option<u32>, pub ingame_face: Option<Vec<u8>>,
+    pub stripped: Option<bool>,  // Phase 5: written for a player at -1; informational, ignored on import
+    pub stats: StatsSection,
     pub positions: PositionsSection, pub skills: SkillsSection, pub edit_flags: EditFlagsSection,
     pub appearance: AppearanceSettings }
 pub struct StatsSection { /* one `Option<u8>` per `[players.NN.stats]` key, names as in the block */ }
@@ -629,7 +632,9 @@ pub fn shirt_name_from(name: &str, version: PesVersion) -> String;
 
 Rules of `apply`: `pes_version` absent means "the target's version" (no conversion); the
 ingame-face hex is written first (prefix-copied, `min(len)` bytes, the 2.17f rule), then the
-`appearance` table through `settings_toml`'s shared writer; `base_copy_id` equal to the file's own player
+`appearance` table's keys alone, each as its stored value (a key the table lacks keeps
+its value: "absent = untouched", where `settings.toml` and the patch write every field),
+through `settings_toml`'s shared writer; `base_copy_id` equal to the file's own player
 id (the file's team id × 100 + slot) becomes the target player's id; a `stats` key the target
 version lacks is `NotInThisVersion` when the versions differ and `TeamTomlError::NotInThisVersion`
 when they are equal (a same-version file with a foreign key is a mistake, a converted one is
@@ -645,7 +650,7 @@ tighten when it is.
 
 ### Aesthetics patch (new)
 
-The file the Team compiler writes beside its CPK and the save editor applies: the resolved
+The file the Team compiler writes to its output folder with its CPKs and the save editor applies: the resolved
 savefile writes for the compiled players, so that the people who build the DLC and the people who
 build the official savefile can be different people. The DLC builder compiles the cup's exports
 without ever seeing the savefile builder's data (the teams' custom tactics, which they send to the
@@ -658,32 +663,35 @@ in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)), so the 
 the tables cannot carry: every compiled player's **motions** (`[appearance.motion]`, player-record
 fields outside the appearance block a table row holds) and the **names and shirt names** of an
 **autopilot** export's players, one with the `autopilot` marker at its root (its tactical export
-carries placeholder names). It is applied whole, with no team picker: a managed team's export has
+carries placeholder names). A patch's `players.NN` is player id `team id × 100 + NN`, the
+export's savefile identity (`player_folders.md` "Savefile identity"), whatever roster slot he
+holds, so the patch lands on the player whose models the CPK carries. It is applied whole, with
+no team picker: a managed team's export has
 no marker, so its `name` and `shirt_name` are not used and its players keep the names their
-manager set. Like the pre-Fox one it is written beside every CPK a compile publishes, so the
-patch beside a CPK is always that CPK's; a compile with nothing to put in it (no compiled player,
-no autopilot export) writes none and moves an earlier patch beside the CPK to
-`aesthetics_patch.toml.bak`, one backup replaced each time, and a run that publishes no CPK
+manager set. Like the pre-Fox one it is written to the output folder with the CPKs a compile
+publishes, its header naming the CPK; a compile with nothing to put in it (no compiled player,
+no autopilot export) writes none and moves an earlier patch to
+`aesthetics_patch.toml.bak`, one backup replaced each time, and a run that publishes nothing
 leaves the previous CPK and its patch alone. On **pre-Fox** (PES 15–17) it holds everything
 below, as the only route for aesthetics, names likewise only from an autopilot export.
 
 ```toml
-# aesthetics_patch.toml — written by the Team compiler beside its output CPK
+# aesthetics_patch.toml — written by the Team compiler to its output folder
 pes_version = 21
 studio_version = "1.4.0"
 allocation_scheme_version = 1
-cpk = "4cc_69.cpk"
+cpks = ["4cc_69.cpk"]          # the CPKs the run published; none for a sideload tree
 compiled = 2026-09-12T14:03:00Z
 
 [[teams]]
-id = 701
+id = 702
 name = "/a/"                 # for the reader; the id is what is applied
 
-[teams.players.03]           # slot 03 → player 70103
+[teams.players.03]           # slot 03 → player 70203
 name = "Snuffy"              # resolved: `name = true` became the string
 shirt_name = "SNUFFY"
 # pre-Fox only from here on, except [teams.players.03.appearance.motion], which a Fox patch holds
-boots_id = 3601              # resolved: the assigned custom ID, the authored stock ID or the marker's default
+boots_id = 143               # resolved: the assigned custom ID, the authored stock ID or the marker's default
 gloves_id = 0
 edit_flags = 12
 
@@ -725,7 +733,7 @@ Rules:
   a version and its IDs and presets are that version's. `allocation_scheme_version` must equal the
   suite's; a patch from an older scheme is refused with the pointer to the from-scratch remake rule
   (pre-Fox's consequence; the check is the same on both engines, a Fox patch carrying no IDs).
-  A team ID absent from the save skips that team with an error and applies the rest; referees are
+  A team or player ID absent from the save is skipped with an error and the rest applied; referees are
   team 999 like anywhere else.
 - Applying is the only aesthetics write path the save editor leaves open by default (see "Read-only
   aesthetics" in the [Save editor plan](../save_editor.md)); it goes through the editor's undo pipeline

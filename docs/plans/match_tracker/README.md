@@ -45,6 +45,7 @@ the game's in-memory match structures.
 | Tool | Role | Location |
 |------|------|----------|
 | SEN:P-AI | Live PES17 match stat/event extraction (stream side) | `Tools_4cc/SEN_P-AI` |
+| SEN:P-AI fork | The ATF bot's author's fork (v1.3.0, 2026-10-11): PES 2019 and 2021 support from measured layouts, and events sent to the Rigdio fork's local API; surveyed for features to adapt when this phase is planned | `Tools_Marco/SEN_P-AI` |
 
 ### Unofficial fork (unverified findings)
 

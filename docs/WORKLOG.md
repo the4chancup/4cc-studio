@@ -591,7 +591,7 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 
 - [x] 4.0a PES12 re-study (maintainer, 2026-10-01): the stashed stub (`git stash` entry `pes12`,
   read with `git show 'stash@{0}^3:docs/plans/pes12.md'`, never popped or applied) checked against
-  the code and `Tools_4cc/pes12tools` (`058398f`) and `PES-Tools`. Done 2026-10-02: the maintainer
+  the code and `pes12tools` (`058398f`, now `Tools_Marco/pes12tools`) and `PES-Tools`. Done 2026-10-02: the maintainer
   kept the road open for a third engine (`Engine` matched exhaustively, step 4.0c; the output sink
   over output-relative paths) and nothing PES 12-specific enters the plans (decision entry "the
   road stays open for a third engine"). Corrections for when the stub is restored: pes12tools
@@ -3790,16 +3790,14 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `download/4cc_69_midcup.cpk`, both the cup's placeholder, in `install.py`
   `TEST_SLOTS`, PES 19 in `game.py` `GAMES`, the triggers as pad inputs). Each result
   is a `manual: checked` line here, its QUESTIONS entry removed or narrowed, and a
-  decision and a step when it contradicts the plan. Open: (a) the stock collar sets'
-  look and the two checks' PES 17 half on a standard-body team whose boots do not
-  cover the socks (`/out/`'s gaiters hide the lower sock); (b) the pre-Fox referee
-  marker scene (PES 17, run D of `.tmp/4_19/ingame/test_ref04_runs.py`); (c) the
-  192x512 mipped texture and a `.model` mesh tag (PES 17); (d) the Fox cube map of
-  type 0xD (PES 21, a Fox FMDL pointed at a converted `env.ftex`); (e)
-  `kit_config::validate`'s two Infos (a shirt model outside 144, 160 and 176; an
-  undocumented sleeve value; PES 17 and 21); (f) a Fox subfolder texture before
-  `sourceimages` (`jessie/sourceimages/#windx11/skin.ftex`, 4.y-sub (b3), `QUESTIONS.md`
-  "In-game checks"; PES 21). → verify: each a `manual: checked` line
+  decision and a step when it contradicts the plan. Closed below: (b), (c), (e), (f), and
+  (a) but for PES 21's lower sock. Open: (a)'s rest, the lower sock on PES 21 on a
+  standard-body team whose boots do not cover the socks (`/out/`'s gaiters hide it); (d)
+  the Fox cube map of type 0xD (PES 21, a Fox FMDL pointed at a converted `env.ftex`; no
+  export reaches it, so it waits for a hand-made FMDL); (g) a team exported in PES 20
+  (`C:/Data/Games/PES2020`) for the first PES 20 `.ted`: its key index and size
+  (`pes_savefile/operations.md`, Texport). An item closed by a `manual:` line leaves this
+  list in the same edit. → verify: each a `manual: checked` line
   with its frames under `.tmp/4_y/ingame/frames/`.
   manual: checked 2026-10-10, the portrait header variants on PES 21: the four files
   of `C:/Data/4cc/Tools_Mine/temp/variants/` as the portraits of `/out/` bench players
@@ -5158,7 +5156,7 @@ socks alone (DECISIONS 2026-10-04; the maintainer confirmed it 2026-10-10: "time
 
 ### Phase 5 — Savefile integration
 
-Steps are itemized when Phase 4 closes; these are fixed already:
+Fixed before the itemization:
 
 - [x] 5.0 Check the latest commits made to the unofficial 4ccEditor fork (`Tools_4cc/4ccEditor-1`,
   origin `AnonymousClouds/4ccEditor`; `pes_savefile/README.md` names it the reference): it is
@@ -5251,6 +5249,53 @@ Steps are itemized when Phase 4 closes; these are fixed already:
   help, tests in `tests/cli/{textures,models}.rs` and `validate/tests.rs`. TC-PRT-05, TC-MOD-91,
   TC-MOD-92.
 
+Itemized 2026-10-12 with the Acceptance (`save_editor.md` "Acceptance", the Phase 5 block of
+`team_compiler/README.md` "Acceptance"): libs first, each with its fixtures as its spec, then the
+two consumers, the in-game check, converge. Before the first step that writes a save (5.3b, 5.4),
+the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-1`,
+`Tools_4cc/4ccEditor-VGL`; 5.0's survey).
+
+- [ ] 5.1 `pes_savefile`'s Phase 5 model (`pes_savefile/model.md` "Planned for Phase 5"), in
+  slices:
+  - [ ] 5.1a the appearance-block player id modeled on the entry, outside `PlayerAppearance`
+    (issue "player id versus appearance id"); height and weight out of the key table;
+    `shirt_name`; absent = default; the unknown-bits tables (settle issue "the unknown bits
+    across versions" first) → done when: the completeness test names every bit of the block on
+    every version
+  - [ ] 5.1b the Fox `PlayerAppearance.bin` row from a `PlayerSettings`, the PES 18 and 19
+    offsets measured (the games' own rows against save records) → done when: a fixture save's
+    records round-trip through rows on PES 18 to 21
+  - [ ] 5.1c the aesthetics patch, Fox half: the type, parse, emit, `apply_patch` by player id
+    and its refusals (a pre-Fox patch included) → done when: SE-PAT-01 to 04's outcomes hold at
+    the lib level
+  - [ ] 5.1d the Team TOML: `stripped`, the appearance table written key by key, `ingame_face`
+    gone; a test-support export so a tool crate's CLI tests can write a whole fixture save →
+    done when: SE-TOML-01 to 08's outcomes hold at the lib level
+- [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
+  cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
+  pass
+- [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
+  - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
+    findings, the out-of-range rule (a key's default; a key the target lacks dropped silently),
+    the `autopilot` marker in `aesthetics_export`; settle issue "shared IDs and retained rows"
+    first; TC-BIN-10/17/22 marked `withdrawn: restated as TC-BIN-25/26/27` in the commit that
+    rewires their citing tests (`tests/cli/bins.rs`) → done when: TC-BIN-25 to 33 and TC-REF-19
+    pass (TC-BIN-31's PES 18 half after 5.1b)
+  - [ ] 5.3b the patch and the local savefile → done when: TC-SAV-01 to 12 pass (TC-SAV-10 a
+    `manual:` line)
+- [ ] 5.4 The Save editor crate (skeleton, settings, egui-free `session/`, CLI), after 5.1:
+  - [ ] 5.4a `export-toml`, `import-toml`, `apply-patch`, `transplant`, `diff`,
+    `export-teams-list` → done when: SE-CLI, SE-TOML, SE-PAT, SE-TRN, SE-DIF and SE-TL pass
+  - [ ] 5.4b `check-aatf`, after 5.2 → done when: SE-AATF-01 to 03 pass
+  - [ ] 5.4c `strip-and-seed` and `check-stripped` (measure issue "strip-and-seed and a
+    base-copied face" first) → done when: SE-STR-01 to 06 pass on PES 21, and on PES 18 and 19
+    after 5.1b
+- [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
+  the harness: a stripped and seeded save shows every player as before; a compiled team's rows
+  show; a file without `[appearance.unknown]` renders acceptably with the all-zero default →
+  done when: each a `manual: checked` line here
+- [ ] 5.6 Converge (`AGENTS.md` "Closing a phase")
+
 ### Phase 16 — Polish and distribution
 
 Steps are itemized when Phase 15 closes; one is fixed already:
@@ -5271,6 +5316,17 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-11, Phase 5 Acceptance; deferred until the cup next plays a pre-Fox version) —
+  the pre-Fox aesthetics patch (`pes_savefile/operations.md` "Aesthetics patch", the pre-Fox
+  half; `pipeline.md` "Post-processing"): every appearance field, the resolved boots and gloves
+  IDs through commit-conditioned mutations, the edit flags and the base-copy ID (issue below).
+  Until then a compile for PES 15-17 writes no patch and leaves the savefile alone (decision
+  2026-10-11).
+- open (2026-10-11, Phase 5 Acceptance) — a referee export's `settings.toml` reaches no table or
+  patch: a referee's look is the template's `RefereeAppearance.bin` (`blue_port.md`), whose rows
+  nothing writes, and `blue_port.md` has `fpc_off` apply its settings preset to a referee on
+  PES 18-21. Settle with a Fox refkit (the issue on a referee's body under `fpc_off`): which
+  table a referee's settings go to, and TC-REF-19's outcome then.
 - open (2026-10-11, 5.0c; deferred until the cup next plays a pre-Fox version) — what Red does
   on PES 15-17 that Studio does not (`.tmp/5_0c/xml.md`, `checks.md`), most noticed first:
   - a member's `face.xml` that does not list `hair_high_win32.model` (1,248 of 1,263 such
@@ -5733,11 +5789,15 @@ points there.
   hair and sliders a conversion could keep. Settle before Phase 5 removes the hex: tables
   named by position in the run rather than the record, or converted by the run's offset
   (review S5.A1 item 8).
-- open — the base-copy ID on pre-Fox: `model.md` makes it compiler-owned ("derived from what
+- open (deferred with the pre-Fox patch, decision 2026-10-11) — the base-copy ID on pre-Fox:
+  `model.md` makes it compiler-owned ("derived from what
   was written"), but no plan says what the compiler derives, and the aesthetics patch, the
   only savefile write path, has no key for it (Team TOML has `base_copy_id`). Settle with
-  Phase 5's patch: the rule and its key (review S5.A1 item 10).
-- open — the three Fox player tables with no installed copy: a compile with no PES folder or
+  the pre-Fox patch: the rule and its key, with the edit flags the patch writes (review S5.A1
+  item 10).
+- resolved (2026-10-11, Phase 5 Acceptance: `pipeline.md` "Bins accumulation" leaves the
+  table out, and `player_table_missing` now names all three; TC-BIN-27) — the three Fox player
+  tables with no installed copy: a compile with no PES folder or
   DpFileList builds the bins on bundled bases, but there are bases only for `TeamColor`,
   `UniColor` and `UniformParameter` (`pipeline.md` "Templates and fallback bins"). For
   `PlayerAppearance`, `BootsList` and `GloveList`: a bundled base, the compiled rows alone, or
@@ -5754,8 +5814,9 @@ points there.
   at -1, so an old-format export migrated against the cup's stripped Fox save gets no
   `settings.toml` for him and his next compile writes all-default rows over the look the
   tables hold. Reading his installed table rows (the bins walk) instead would keep it.
-  Settle with Phase 5's generation (review S5.10 item 3).
-- open — where the aesthetics patch goes: "beside every CPK a compile publishes" names no
+  Settle with the Export upgrader's generation, Phase 6 (review S5.10 item 3).
+- resolved (2026-10-11, Phase 5 Acceptance: one patch per run in the output folder, published
+  with the CPKs, `patch_write_failed`; decision entry) — where the aesthetics patch goes: "beside every CPK a compile publishes" names no
   place in multi-CPK mode (teams parts, the bins CPK, the refs CPK, placeholder parts) or
   in sideload mode (no CPK, yet the savefile step applies "the patch just written"), and
   `patch_written` names one path. The fixed name breaks the pairing in single-CPK mode too:
@@ -5917,6 +5978,13 @@ points there.
   `!is_read_common_file` arm), where `messages.md` `file_not_used` says a file the
   structure pass already named is not reported (read, not run). Fix: skip a file the
   structure pass reported.
+- open (2026-10-12, the maintainer) — the ATF bot's author forked Rigdio (v2.2.1: a local
+  API and event clips) and SEN:P-AI (v1.3.0: PES 2019 and 2021 support, events sent to
+  Rigdio's API); both are cloned in `C:/Data/4cc/Tools_Marco/` with his other tools (the
+  ATF bot, pes12tools). When Phase 10 (music tools) and Phase 11 (match tracker) are
+  planned, survey both forks for features to adapt (`music_player.md` and
+  `match_tracker/README.md` list them). The match tracker plan's "Rigdio removed its client"
+  and "PES 2017 only" predate them.
 
 ---
 

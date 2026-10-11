@@ -309,7 +309,7 @@ format:
    slot-derived `k99XX`/`g99XX` IDs instead (see "Player folders" in the [Aesthetics export plan](../aesthetics_export/object_model.md)). Assigned IDs
    are written, on Fox, into the CPK's own `BootsList.bin`/`GloveList.bin` rows, so the CPK carries
    them; on pre-Fox into the savefile, so a compiled team CPK and its savefile must be deployed
-   together, and the aesthetics patch written beside the CPK is how they travel together when the
+   together, and the aesthetics patch written with the CPK is how they travel together when the
    savefile is on someone else's machine (see "Post-processing"). A missing local savefile stays a **warning** that
    skips only the savefile step: the patch is still written, and because allocation is
    deterministic (fixed per-team blocks, exclusive IDs by player number, shared IDs in alphabetical
@@ -1540,14 +1540,17 @@ describes behavior, not a serial scheduling requirement:
   probe does not report an old CPK in use: PES may be closed before the run ends, and the
   deployment stage meets the lock if it is not. The CLI's message for each of these Errors
   names the path the CPK is promoted to instead.
-- **Aesthetics patch** — written beside the output CPK as `aesthetics_patch.toml`: the resolved
+- **Aesthetics patch** — written to the output folder (`output_folder_path`) as
+  `aesthetics_patch.toml`, one per run in every output mode, its header naming the CPKs the run
+  publishes (none for a sideload tree): the resolved
   savefile writes for the compiled players (format and rules in "Aesthetics patch" in the
   [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds the compiled players'
   motions and an autopilot export's names (the rest is in the CPK's player appearance tables,
-  "Bins accumulation") and, as on pre-Fox, is written beside every CPK the run publishes (none
-  when it publishes none, the previous pair staying as it was), except that a run with nothing
-  to put in it writes none and moves an earlier patch beside the CPK to
-  `aesthetics_patch.toml.bak`; so an earlier run's patch never sits beside a newer CPK. The
+  "Bins accumulation") and, as on pre-Fox, is written with the CPKs as one more file of the
+  run's publication, test and sideload trees included (none when the run publishes nothing,
+  the previous patch staying as it was; a failed write is `patch_write_failed`), except that a run with nothing to put in it writes
+  none and moves an earlier patch to `aesthetics_patch.toml.bak`; so an earlier run's patch
+  never stands beside a newer CPK. The
   savefile builder applies it whole; names come only from an export carrying the `autopilot`
   marker, so a managed team's players keep their manager's names. On
   **pre-Fox** it holds everything (names only from an autopilot export): settings.toml settings with
@@ -1555,8 +1558,8 @@ describes behavior, not a serial scheduling requirement:
   (else the marker's default) for categories requesting no standalone output, and the
   auto-assigned boots/gloves IDs **only for content that was actually packed**: if a boots/gloves task failed, the affected players
   keep their existing savefile IDs rather than pointing at absent CPK content, while their
-  independent valid settings still apply. The patch travels with the CPK: it describes the CPK it
-  sits beside, whether or not this machine deployed it. This is what separates the **DLC builder**
+  independent valid settings still apply. The patch travels with the CPKs: its header names the CPKs it
+  describes, whether or not this machine deployed them. This is what separates the **DLC builder**
   from the **savefile builder**: the former compiles every export and hands over CPK + patch, the
   latter applies the patch in the save editor to the official save, which the former never touches
   (it holds the teams' custom tactics, which only the savefile builder receives). Reported as
@@ -1573,9 +1576,9 @@ describes behavior, not a serial scheduling requirement:
   (W) telling the user the settings will be applied by the next compile made with PES closed; the
   rest of the run is unaffected. This matters mostly for **sideload mode**, whose whole point is
   compiling while PES stays open — model iterations land immediately through sideloading, and the savefile
-  half of the export (on Fox the names; on pre-Fox also boots/gloves IDs and player settings)
-  catches up on the first compile after PES is closed. On Fox a names write leaves every
-  appearance id as it is, so a stripped local save stays stripped. In normal mode a running PES already fails deployment on the locked CPK, so the rule
+  half of the export (on Fox the motions and names; on pre-Fox also boots/gloves IDs and player
+  settings) catches up on the first compile after PES is closed. On Fox the patch's write leaves
+  every appearance id as it is, so a stripped local save stays stripped. In normal mode a running PES already fails deployment on the locked CPK, so the rule
   adds nothing there. The check uses the same running-PES detection as the core plan's
   version-selector poll; the CLI performs it once, at the savefile stage. The savefile is likewise
   **skipped whenever the CPKs were not deployed** — a degraded run promoted to `output/`, or
@@ -1805,7 +1808,7 @@ Resolved decisions:
   installed cup content (`kit_config_fpc_adjusted`), so a midcup export can add an FPC player
   without resending untouched kits (see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)).
 - **The aesthetics patch is the compiler's only savefile write path**: a compile writes
-  `aesthetics_patch.toml` beside each CPK it publishes (on Fox only motions and autopilot names, the rest travelling in the CPK's
+  `aesthetics_patch.toml` to its output folder with the CPKs it publishes (on Fox only motions and autopilot names, the rest travelling in the CPK's
   player appearance tables); a configured local savefile is updated by applying that
   patch, never by a separate write. Reason: the DLC builder and the savefile builder are different
   roles — the official save carries the teams' custom tactics, which the DLC builder must not have —

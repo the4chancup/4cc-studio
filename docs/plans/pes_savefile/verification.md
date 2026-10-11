@@ -36,7 +36,7 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
 - **Patch equivalence**: compiling a fixture export against a save, and compiling it without a save
   then applying the produced patch to a copy of that save, yield byte-identical savefiles; applying
   a second patch covering a subset of teams changes only those teams' players and only the fields
-  it carries; a patch with a different `pes_version` or an older `allocation_scheme_version` is
+  it carries; a patch with a different `pes_version` or a different `allocation_scheme_version` is
   refused without touching the save.
 - **Cross-implementation parity**: field values must match 4ccEditor's for the same save. The
   evidence is 4ccEditor's own `.4ccs` export of one team per version, taken by the maintainer

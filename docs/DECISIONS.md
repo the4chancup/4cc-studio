@@ -6909,3 +6909,57 @@ a model is a comment Red admits; refusing it under the default strict check woul
 model.
 Plan: `team_compiler/messages.md` (`fmdl_texture_kit_path`, `file_not_used`);
 `aesthetics_export/object_model.md` "File-type allowlist"; TC-MOD-91, TC-MOD-92.
+
+## 2026-10-11 — save_editor — the CLI's Phase 5 surface: three commands added, shared exit codes and write rules
+Decision: the Save editor's CLI gains `check-aatf`, `strip-and-seed` and `check-stripped
+[--strip-again]`; every command uses the Team compiler's exit codes (0 done, 1 done with an error
+reported, 2 refused before writing, 3 a write failed); a command writing a save reads `--base` (`check-stripped` its one save), writes `--out`
+(may be the same path, an existing one copied to `.bak` first) and refuses while PES runs.
+`transplant` takes `--select` in the scripts' forms and copies the whole appearance block but its id (no
+`--fields`); `import-toml` imports onto the document's `id`, its sections being the file's;
+a Team TOML appearance table writes only the keys it holds, as stored values (absent = untouched,
+where `settings.toml` and the patch write every field); `export-toml` marks a stripped player
+`stripped = true`; `export-teams-list` follows `libs/teams_list`'s merge (an unresolved change
+dropped, the rest applied).
+Why: Phase 5 has no GUI, and its verification and in-game check need AATF checks and a stripped
+save produced through the CLI; the plan's CLI section left the rest unstated or contradicted the
+libs (`parse_selection` reads `3,7,10-14` as teams; the lib transplant has no field groups; the
+teams-list merge never left the whole file unchanged).
+Plan: `save_editor.md` "CLI" and "Acceptance"; `pes_savefile/operations.md` "Team TOML".
+
+## 2026-10-11 — team_compiler — Phase 5 savefile writing: the patch's place, Midcup rows, the compiled player, new findings
+Decision: one aesthetics patch per run, written to the output folder with the CPKs as part of the
+run's publication (`patch_write_failed`, F: the run aborts as when a CPK cannot be committed),
+its header naming the CPKs; in a `Midcup` export a
+boots or gloves category with no model, link, key or marker keeps the installed row; a compiled
+player is every player a kept player folder of a team export maps to; a referee export's `settings.toml` reaches
+nothing yet. New codes: `settings_value_out_of_range` (W, the key's default written: a face type 0, a motion the
+template's value, a custom skin 7 as 1, since a motion beyond the target's range may not fit its
+bits; a key the target has no field for is not
+written, with no finding), `settings_name_invalid` (W, not
+written), four of `libs/fpc`'s interference codes (W or I, written as authored: a Studio Error would
+drop the folder; the custom-skin one, PES 15-17 only, waits for the pre-Fox patch), `savefile_invalid` and `savefile_team_missing` (E), `savefile_player_not_stripped`
+(W). `player_table_missing` covers the three Fox player tables.
+Why: "beside every CPK the run publishes" named no place for multi-CPK, sideload or a deployed
+CPK (worklog issue); "only a full export may reset what a team had" (Coverage tag) already
+decides Midcup rows, as TC-BIN-17 does; the plans named these outcomes without codes.
+Plan: `team_compiler/pipeline.md` "Aesthetics patch", `messages.md`, `aesthetics_export/settings_toml.md`,
+`pes_savefile/operations.md` "Aesthetics patch"; TC-BIN-25 to 33, TC-SAV-01 to 12, TC-REF-19.
+
+## 2026-10-11 — team_compiler — the pre-Fox aesthetics patch is deferred with pre-Fox's other gaps
+Decision: Phase 5 builds the Fox savefile route only (appearance rows, default-ID rows, the patch
+of motions and autopilot names); the pre-Fox patch and its commit-conditioned ID mutations wait
+until the cup next plays a pre-Fox version. A compile for PES 15-17 writes no patch.
+Why: the maintainer's rule (2026-10-11) that pre-Fox takes no improvements until the cup returns
+to a pre-Fox version; on Fox the boots and gloves rows are already commit-conditioned (Phase 4),
+so deferring pre-Fox removes the mutation machinery from Phase 5 entirely.
+Plan: `core/development_plan.md` Phase 5; the worklog's pre-Fox issue.
+
+## 2026-10-11 — team_compiler — a referee's `hair_parts` textures move to Common like any other
+Decision: step 6 of `pipeline.md` moves a referee's `hair_parts` textures with the rest of his
+folder's textures, with no copy left beside the face, unlike Red (`referee_tools.py:222-229`).
+Why: Red's special case (commit `8d20bbb`) exists for its pre-Fox move of models to Common: it
+keeps `hair_high_win32.model` and `hair.mtl` in the face folder, and the copy only "preserves
+originals". The maintainer (2026-10-11): as long as the hair model and `hair.mtl` stay in the face
+folder, the `.mtl` reads textures in Common fine. Studio moves no model to Common, so they stay.
+Plan: `team_compiler/pipeline.md` step 6; the Red inventory's G1 (`.tmp/5_0c/bins.md`).

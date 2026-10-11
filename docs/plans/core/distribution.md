@@ -156,7 +156,8 @@ arrive in Phase 16:
    embedded list's value. The result is presented as a reviewable summary (added / kept /
    overridden) before being written. Validate uniqueness of both team names and IDs before
    publication: a new team's ID may collide with a retained local team's ID even when their keys
-   differ. Unresolved conflicts leave the list unchanged and are reported for review (the
+   differ. A change behind an unresolved conflict is dropped and reported for review, the rest
+   applied (the
    noninteractive CLI does not guess). An unwritable data directory skips the merge with
    `teams_list_read_only`; the embedded list is not used in place of the working one, so the
    user's assignments keep winning until they move the install. The readme and

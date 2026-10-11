@@ -67,7 +67,7 @@ implementation is measured against.
 | 4ccEditor | Fate |
 |-----------|------|
 | Load 15/16/17/18/19/20/21 EDIT file (7 menu items) | One **Open savefile** action; auto-detect the version by master keys / container shape. The loaded file's version governs its codec and editing widgets; warn on a global-selector mismatch, never reinterpret the open file. The Open menu lists the saves `pes_savefile`'s discovery finds under `Documents\KONAMI` for every version (labelled by version and, for 18+, account folder) as one-click entries above the ordinary file picker, and the picker opens in the selected version's save folder when it exists — see "Savefile discovery" in the Savefile plan |
-| Save EDIT file (encrypted) | Kept; plus **Save as** and automatic `.bak` of the original on first save |
+| Save EDIT file (encrypted) | Kept; plus **Save as** and an automatic `.bak` of the file each save replaces (one level) |
 | Import Texport file (per-version submenu) | Kept, auto-detected version; plus **Texport export** (new — PES itself can import the result; see [Savefile plan](pes_savefile/README.md)) |
 
 ### Player operations
@@ -109,7 +109,7 @@ implementation is measured against.
 | AATF: current team / select teams | Kept (rules become configurable — see below) |
 | Compare EDITs | Kept, merged with Midcupping's aesthetics diff (see "Comparator") |
 | Output rosters to TSV | Kept |
-| — | **Export teams list** (new): the open save's team names and IDs for 701–920 (in-game names are the `/xx/` names) merged into `data/teams_list.txt` through the same reconciliation the updater uses — added / kept / overridden shown for review, savefile wins conflicts, unresolved conflicts leave the file unchanged, never a blind overwrite (see the [Team compiler plan](team_compiler/pipeline.md), "Resolved decisions", "Teams list"). Lives here because this tool owns the open savefile; the compiler only consumes the list |
+| — | **Export teams list** (new): the open save's team names and IDs for 701–920 (in-game names are the `/xx/` names) merged into `data/teams_list.txt` through the same reconciliation the updater uses — added / kept / overridden shown for review, savefile wins conflicts, a change behind an unresolved conflict is dropped and the rest applied, never a blind overwrite (see the [Team compiler plan](team_compiler/pipeline.md), "Resolved decisions", "Teams list"). Lives here because this tool owns the open savefile; the compiler only consumes the list |
 | Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair) | Kept as a maintenance action behind a confirmation dialog |
 | — | **Strip and seed** (new, Fox saves): every not-yet-stripped player's appearance into `4cc_08_bins.cpk`'s `PlayerAppearance.bin`/`BootsList.bin`/`GloveList.bin` rows, then every appearance id to -1; plus the restored-id check. See "Stripped save" |
 
@@ -124,7 +124,7 @@ implementation is measured against.
 
 | Feature | Notes |
 |---------|-------|
-| Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save: on pre-Fox the default route by which teams' aesthetics reach the official save, on Fox the resolved `name`/`shirt_name` entries (autopilot exports set them; managed exports leave them out). See "Read-only aesthetics" |
+| Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save: on pre-Fox the default route by which teams' aesthetics reach the official save, on Fox the compiled players' motions and the resolved `name`/`shirt_name` entries (autopilot exports set them; managed exports leave them out). See "Read-only aesthetics" |
 
 ---
 
@@ -140,7 +140,7 @@ lib.
 crates/tools/save_editor/src/
 ├── lib.rs              # Tool (StudioTool impl) — wiring only
 ├── settings.rs         # editor settings (last folder, AATF rules path, comparator defaults)
-├── cli.rs              # export-toml / import-toml / check-aatf / compare / transplant subcommands
+├── cli.rs              # the subcommands of "CLI" below
 ├── messages.rs         # message catalog (AATF violations, interchange import findings, …)
 ├── session/            # everything about "the file that is open"
 │   ├── mod.rs          #   Session: EditFile + version + dirty tracking + selection
@@ -381,7 +381,7 @@ afterwards.
   DpFileList entry that holds the cup's team-related bins (`TeamColor.bin`, `UniColor.bin`,
   `UniformParameter.bin`), which the DLC builder installs at lower priority than the
   compiler's output, then sets every appearance id to -1. A player already at -1 is left out,
-  his record not being his look: his rows stand. The seed is what a
+  his record not being his look: his rows stand (a table created whole holds none for him). The seed is what a
   player no export describes looks like afterwards, so stripping changes nobody's look; compiled
   players' rows replace their seed rows. Appearance holds no tactics, so the seed can come from
   any save with the cup's appearances, keeping the DLC builder and the savefile builder apart.
@@ -438,7 +438,7 @@ Midcupping's transplant as a guided panel:
 
 - Pick a donor save (validated to be the same PES version).
 - Build the selection the same four ways the scripts support: player IDs,
-  `target:source` pairs, whole teams, team ranges — plus by clicking players in
+  `target:donor` pairs, whole teams, team ranges — plus by clicking players in
   a two-pane team browser.
 - **Preview before applying**: the affected players are listed with their
   aesthetics diff (reusing the comparator's fingerprint), so a wrong team ID is
@@ -455,8 +455,8 @@ the editor exposes them as:
 
 - **Team TOML export/import** per team (the `.4ccs`/`.4cct` successor: complete
   team + tactics + players including full aesthetics and ingame-face data).
-  Import offers the same section choices as 4ccEditor's squad load (gameplay /
-  aesthetics / tactics) and applies cross-version conversion with a warning list
+  Import goes onto the team selected in the editor and offers the same section choices as
+  4ccEditor's squad load (gameplay / aesthetics / tactics), and applies cross-version conversion with a warning list
   when the file's version differs.
 - **Legacy import**: `.4ccs` and `.4cct` open through the same import dialog,
   read-only.
@@ -506,37 +506,88 @@ The batch surface for the operations that came from scripts — Midcupping exist
 Python scripts precisely because GUIs can't be looped:
 
 ```
-studio save-editor export-toml ./EDIT00000000 --team 701 -o ./aaa.toml   # single-team full-fidelity Team TOML dump
-studio save-editor export-toml ./EDIT00000000 --all-teams --out-dir ./teams
-studio save-editor import-toml ./aaa.toml --base ./EDIT00000000 --out ./EDIT_new   # patch the base save; .bak of an existing target first
-studio save-editor apply-patch ./aesthetics_patch.toml --base ./EDIT00000000 --out ./EDIT_new   # the compiler's patch; same base/out rules as import-toml
-studio save-editor transplant ./src_save ./dst_save [--fields boots,gloves,physique,...] [--players 3,7,10-14]
-studio save-editor diff ./a_save ./b_save [-a]                  # merged gameplay+aesthetics report; -a = aesthetics only
-studio save-editor export-teams-list ./EDIT00000000 [--yes]     # merge the save's team names/IDs into data/teams_list.txt
+4cc-studio save-editor export-toml ./EDIT00000000 --team 701 -o ./aaa.toml   # single-team full-fidelity Team TOML dump
+4cc-studio save-editor export-toml ./EDIT00000000 --all-teams --out-dir ./teams
+4cc-studio save-editor import-toml ./aaa.toml --base ./EDIT00000000 --out ./EDIT_new   # patch the base save
+4cc-studio save-editor apply-patch ./aesthetics_patch.toml --base ./EDIT00000000 --out ./EDIT_new   # the compiler's patch
+4cc-studio save-editor transplant ./donor_save --base ./EDIT00000000 --out ./EDIT_new --select 70105,70107:70207,703-705
+4cc-studio save-editor diff ./a_save ./b_save [--aesthetics | --gameplay] [--json]
+4cc-studio save-editor check-aatf ./EDIT00000000 [--teams 701,705-710] [--rules ./vgl27.rhai]
+4cc-studio save-editor strip-and-seed --base ./EDIT00000000 --bins ./4cc_08_bins.cpk --out ./EDIT_new --bins-out ./4cc_08_bins_new.cpk
+4cc-studio save-editor check-stripped ./EDIT00000000 [--strip-again --out ./EDIT_new]
+4cc-studio save-editor export-teams-list ./EDIT00000000 [--yes]     # merge the save's team names/IDs into data/teams_list.txt
 ```
 
+Rules every command shares:
+
+- **Exit codes**, the Team compiler's meanings: 0 done; 1 done with an error reported (a patch's
+  team the save lacks, an AATF error, a restored id listed); 2 refused before anything was
+  written (a bad argument, a version mismatch, an unreadable file, a team or player the save
+  lacks); 3 a write failed (what was already written stands).
+- **Writing a save.** A command that writes a save reads its source save (`--base`, or
+  `check-stripped`'s one save) and writes `--out`, which may be the same path; an existing
+  output save or CPK (`--out`, `--bins-out`) is first copied to `<file>.bak` (one level, as every
+  save does). There is no implicit base save and no command creates a whole EDIT. A command that
+  writes a save refuses while PES is running, as the compiler's savefile step skips then
+  (`team_compiler/pipeline.md`, `savefile_skipped_pes_running`): the game writes its own copy
+  back on exit, over ours.
+- **A stripped player is marked.** On a Fox save, `diff` marks a player at -1 as stripped
+  ("Stripped save") beside his rows, `export-toml` with `stripped = true` in his table
+  (informational; import ignores it), and `transplant` for a stripped donor or target.
+
+The commands:
+
 - `export-toml` requires an explicit source EDIT and either `--team <id>` with `-o`/`--out <file>`,
-  or `--all-teams` with `--out-dir <directory>` for one file per team. These forms are mutually
-  exclusive; there is no implicit current-team selection.
-- `import-toml` requires the Team TOML, `--base <EDIT>`, and `--out <EDIT>`. It patches the base
-  using the document's team identity and the same import logic as the GUI, preserving unmodeled
-  save data. A different output path leaves the base untouched; an existing target gets the usual
-  backup before replacement. There is no implicit base save or creation of an entire EDIT from
-  one team's TOML.
+  or `--all-teams` with `--out-dir <directory>` for one file per team of the save, named
+  `<id>.toml`. These forms are mutually exclusive; there is no implicit current-team selection.
+  An existing TOML is replaced, with no backup; a `--team` the save lacks is refused.
+- `import-toml` requires the Team TOML, `--base <EDIT>`, and `--out <EDIT>`. It imports onto
+  the team the document's `id` names, with the same import logic as the GUI, preserving unmodeled
+  save data; it prints each import note (a converted or dropped value) on its own line. The
+  file's sections are its selection: a section left out of the file is untouched, so the CLI has
+  no section flags. A document with no `id`, or one the save lacks, is refused.
 - `apply-patch` takes the patch, `--base <EDIT>` and `--out <EDIT>` exactly like `import-toml`;
   it refuses a version or allocation-scheme mismatch before touching anything, prints the per-team
   summary (applied / skipped: not in save), and is the batch form of the GUI action — the savefile
-  builder can apply a night's patches in one script. The read-only lock is a GUI guard; the CLI
-  commands that write aesthetics (`transplant`, `import-toml` with aesthetics) are explicit by
-  nature and are not gated.
-- `transplant` mirrors the transplant panel's selection modes (field groups,
-  player IDs/pairs/ranges, whole teams); both saves must be closed in PES — the
-  command refuses files locked by the running game.
-- `diff` prints the comparator's merged report to stdout (human-readable by
-  default, `--json` for tooling), replacing the Midcupping compare scripts.
-- `export-teams-list` prints the merge summary (added / kept / overridden) and stops unless
-  `--yes` is given; unresolved conflicts leave the list unchanged, as for the updater merge. An
-  unwritable data directory reports `teams_list_read_only` and writes nothing.
+  builder can apply a night's patches in one script. A skipped team or player is an error (exit
+  1) and the rest is written. A pre-Fox patch is refused until the compiler writes one (deferred
+  with pre-Fox's other gaps). The read-only lock is a GUI guard; the CLI commands that write aesthetics
+  (`transplant`, an `import-toml` whose file holds aesthetics) are explicit by nature and are not
+  gated.
+- `transplant` copies the donor's appearance onto `--base`'s players in the scripts' selection
+  forms (`--select`, required, a comma-separated list of player IDs, `target:donor` pairs, teams
+  and team ranges; "Save-to-save
+  operations" in the Savefile plan), the whole appearance block but its id, as the scripts do, so
+  there is no field selection. The saves must be the same version, every target in the base and
+  every donor in the donor save, or nothing is written.
+- `diff` prints the comparator's report to stdout, players paired by id, each changed field as
+  old → new (the appearance id is no row: a stripped player is marked instead), then the
+  players only in one save (human-readable by default, `--json` for
+  tooling), replacing the Midcupping compare scripts; `--aesthetics` and `--gameplay` keep one
+  scope. Saves of two versions are refused. Differences are its output, not an error: exit 0.
+- `check-aatf` runs the active ruleset (`--rules`, else the setting's file, else the embedded
+  official ruleset) over the cup teams the
+  save holds (701-920, or `--teams`) and prints each violation with its team and, for a player's,
+  the player, as the AATF panel
+  lists them; an error-severity violation makes the exit code 1, a warning alone leaves it 0. A rules file that fails load-time validation is
+  refused with its findings (line or key path), so `check-aatf` doubles as the CLI's rules
+  validation.
+- `strip-and-seed` is "Stripped save"'s operation on a Fox save: it reads `--bins` (the cup's
+  `4cc_08_bins.cpk`) and writes the seeded tables into `--bins-out`, then the stripped save into
+  `--out`: when `--bins-out` cannot be written, the save is not (exit 3); a `--bins-out` written
+  beside a save left unstripped changes no look, the records still deciding. A table `--bins`
+  lacks is created from the seed rows. A pre-Fox save is refused.
+- `check-stripped` lists the players whose appearance id is set while others are stripped (exit 1
+  when it lists any); `--strip-again` sets their ids to -1, leaving the tables as they are, and
+  writes `--out`, which it requires (exit 0). A pre-Fox save is refused.
+- `export-teams-list` prints the merge summary (added / kept / overridden / unresolved) and stops
+  unless `--yes` is given; a change behind an unresolved conflict is dropped, as for the updater
+  merge (`libs/teams_list.md`). An unwritable data directory reports `teams_list_read_only` and
+  writes nothing (exit 1).
+
+AATF quick actions (`apply_tier`), the FPC toggle, `settings.toml` generation, Texport and the
+legacy imports have no command: they are GUI actions (Phase 8), and generation's batch form is
+the Export upgrader's (Phase 6).
 
 ---
 
@@ -566,3 +617,211 @@ Verification:
   "Development phase and verification".
 - Comparator/transplant output parity against the Midcupping scripts.
 - Texport export verified by importing into the game (manual, per version).
+
+---
+
+## Acceptance
+
+Format and rules: `CONTRIBUTING.md` "Testing". IDs are never reused; later phases append.
+
+**Phase 5 scope.** Phase 5 delivers the tool crate's settings, CLI and operations wiring, and
+`libs/aatf`; the view is Phase 8's, so these scenarios are what the CLI shows: stdout, the exit
+code, and the files written (a save's decrypted payload, a Team TOML, a CPK's tables read back
+with the `cpk` crate). The operations with no command (editing, tactics, the FPC toggle, AATF
+quick actions, generation, Texport, the legacy imports) get their scenarios with the view.
+`libs/aatf` is a lib: its rulesets' fixtures are its spec (AATF rules plan, "Development phase
+and verification"), and `check-aatf` is its one scenario surface here. Test data: the fixture
+saves are `pes_savefile`'s (`tests/fixtures/`, one real save per version, rebuilt from the
+slices held there), a team or player
+named by its id in that save; a stripped save is a fixture save after `strip-and-seed`. The
+cup saves with known violations and the rules files are `libs/aatf`'s fixtures. The stripped-save
+scenarios run on PES 21; PES 18 and 19 join them within Phase 5, once a step has measured those
+versions' appearance offsets.
+
+**CLI**
+
+```
+SE-CLI-01  GIVEN the PES 21 fixture save, a Team TOML of one of its teams, and an existing file
+           at --out
+           WHEN import-toml writes --out, then again with --out equal to --base
+           THEN each time <out>.bak holds the file the write replaced, and the exit code is 0
+SE-CLI-02  manual  GIVEN a running PES
+                   WHEN import-toml, apply-patch, transplant, strip-and-seed or check-stripped
+                        --strip-again is run
+                   THEN it is refused naming the running game, with exit code 2, and nothing is
+                        written
+```
+
+**Team TOML**
+
+```
+SE-TOML-01 GIVEN the PES 21 fixture save
+           WHEN a team is exported with export-toml --team and the file imported back with
+                import-toml into a new --out
+           THEN the --out save's decrypted payload equals the fixture's
+SE-TOML-02 GIVEN the PES 21 fixture save
+           WHEN export-toml --all-teams --out-dir is run into a folder holding an older <id>.toml
+                of a team the save holds
+           THEN the folder holds one <id>.toml per team of the save, the older one replaced, each
+                parsing as a Team TOML of its team
+SE-TOML-03 GIVEN the PES 21 fixture save
+           WHEN export-toml names a --team the save lacks, or both --team and --all-teams
+           THEN it is refused with exit code 2 and no file is written
+SE-TOML-04 GIVEN a Team TOML whose only content is [team] id, [players.03] name and one key of
+                [players.03.appearance.physique], for a team whose slot 3 is rostered
+           WHEN it is imported into the PES 21 fixture save
+           THEN slot 3 of that team carries the name and the key's value, and every other byte
+                of the payload, the player's other appearance fields included, is unchanged
+SE-TOML-05 GIVEN a Team TOML, exported from the PES 21 fixture save, of a team both fixture
+                saves hold, one of whose players has a face type above PES 18's cap
+           WHEN it is imported into the PES 18 fixture save
+           THEN the --out save holds the team as converted for PES 18 (that face type written
+                0) with every other byte unchanged, each converted or dropped
+                value is printed as a note line, and the exit code is 0
+SE-TOML-06 GIVEN a Team TOML with a player name longer than the target version's name field
+           WHEN it is imported
+           THEN it is refused naming the player, with exit code 2, and --out is not written
+SE-TOML-07 GIVEN a stripped PES 21 save and the unstripped PES 21 fixture save
+           WHEN a team whose slot 3 is rostered is exported from the stripped one with
+                export-toml, given an appearance table for its slot 3, and imported into each
+           THEN every player of the exported file carries stripped = true; after each import
+                slot 3's appearance fields are the file's, his appearance id still -1 in the
+                stripped save and still set in the other
+SE-TOML-08 GIVEN a Team TOML whose [team] id the PES 21 fixture save lacks
+           WHEN it is imported
+           THEN it is refused naming the team, with exit code 2, and --out is not written
+```
+
+**Aesthetics patch**
+
+```
+SE-PAT-01  GIVEN the PES 21 fixture save and a PES 21 aesthetics patch with motions and names
+           for one of its teams
+           WHEN apply-patch is run
+           THEN that team's players carry the patch's motions and names, every other
+                byte of the payload is unchanged, the summary lists the team as applied, and the
+                exit code is 0
+SE-PAT-02  GIVEN a PES 21 patch for two teams, the second absent from the save
+           WHEN apply-patch is run
+           THEN the first team is applied, the second listed as skipped: not in save, --out is
+                written, and the exit code is 1
+SE-PAT-03  GIVEN a patch whose pes_version differs from the save's, and one whose
+                allocation_scheme_version differs from the suite's
+           WHEN apply-patch is run with each
+           THEN each is refused naming the mismatch, with exit code 2, and --out is not written
+SE-PAT-04  GIVEN a stripped PES 21 save and a PES 21 patch with names and motions for one team
+           WHEN apply-patch is run
+           THEN the team's players carry the patch's names and motions and their appearance ids
+                are still -1
+```
+
+**Transplant**
+
+```
+SE-TRN-01  GIVEN two PES 21 saves differing in their teams' appearances
+           WHEN transplant --select is run with a player, a target:donor pair, a team and a team
+                range
+           THEN each selected target's appearance fields (the appearance id aside) and face,
+                hair, physique and strip edit flags equal its donor's, and every other byte of
+                the payload, the appearance ids included, is unchanged
+SE-TRN-02  GIVEN a PES 21 base and a PES 19 donor, and a PES 21 base and donor with selections
+                naming a donor player the donor save lacks and a target the base lacks
+           WHEN transplant is run with each
+           THEN each is refused naming the version pair or the player, with exit code 2, and
+                --out is not written
+SE-TRN-03  GIVEN a stripped PES 21 base, and a stripped PES 21 donor
+           WHEN a player is transplanted onto the first, and from the second
+           THEN onto the stripped base his appearance fields are the donor's, his appearance id
+                is still -1, and the output says the game does not read his record; from the
+                stripped donor the output marks the donor stripped
+```
+
+**Diff**
+
+```
+SE-DIF-01  GIVEN two PES 21 saves where one player's boots ID and one ability stat differ, and a
+                player is only in the second
+           WHEN diff is run, then with --aesthetics, then with --gameplay
+           THEN the first lists both fields as old → new, the second only the boots ID, the
+                third only the stat, each run also listing the player only in the second;
+                every exit code is 0
+SE-DIF-02  GIVEN the same saves
+           WHEN diff --json is run
+           THEN stdout parses as JSON carrying the same rows and the player only in one save
+SE-DIF-03  GIVEN a PES 21 and a PES 19 save
+           WHEN diff is run
+           THEN it is refused naming both versions, with exit code 2
+SE-DIF-04  GIVEN a stripped PES 21 save and the fixture it was stripped from
+           WHEN diff is run
+           THEN each player at -1 is marked stripped, with no row for his appearance id
+```
+
+**AATF**
+
+```
+SE-AATF-01 GIVEN a cup save with known error-severity violations, a team-level one (a tier
+                count) among them, one whose only violations are warning-severity, and a clean
+                one, and no --rules and no rules file configured (the official ruleset)
+           WHEN check-aatf is run on each
+           THEN the first prints each violation with its team and, for a player's, the
+                player, and exits 1; the second prints its warnings and exits 0; the third
+                prints none and exits 0
+SE-AATF-02 GIVEN the save with error-severity violations in two teams
+           WHEN check-aatf --teams names one of them
+           THEN only that team's violations are printed, and the exit code is 1
+SE-AATF-03 GIVEN a rules file that fails load-time validation, and the VGL27 ruleset with a save
+                whose team breaks a VGL27 rule the official ruleset does not have
+           WHEN check-aatf --rules is run with each, and with no --rules and the VGL27 file
+                named in the settings
+           THEN the first is refused with its validation findings (line or key path) and exit
+                code 2; the second and the third print that violation, which a run with neither
+                does not
+```
+
+**Stripped save**
+
+```
+SE-STR-01  GIVEN the PES 21 fixture save with one player's appearance id at -1, and a
+                4cc_08_bins.cpk whose three player tables hold rows for him
+           WHEN strip-and-seed is run
+           THEN --bins-out's PlayerAppearance.bin holds a row per other player equal to his
+                record's appearance bytes, and BootsList.bin and GloveList.bin his boots and
+                gloves IDs; the stripped player's three rows are unchanged; the CPK's other files are
+                unchanged; in --out every appearance id is -1 and every other byte is unchanged
+SE-STR-02  GIVEN a PES 17 save
+           WHEN strip-and-seed is run, and check-stripped
+           THEN each is refused as a pre-Fox save, with exit code 2, and nothing is written
+SE-STR-03  GIVEN a stripped PES 21 save in which two players' appearance ids are set again
+           WHEN check-stripped is run, then with --strip-again
+           THEN the first lists the two players and exits 1; the second sets both ids to -1 in
+                --out, writes no table, and exits 0
+SE-STR-04  GIVEN the PES 21 fixture save, and a fully stripped one
+           WHEN check-stripped is run on each
+           THEN neither lists a player, and both exit 0
+SE-STR-05  GIVEN a --bins-out that cannot be written
+           WHEN strip-and-seed is run
+           THEN it fails naming --bins-out, with exit code 3, and --out is not written
+SE-STR-06  GIVEN the PES 21 fixture save with one player's appearance id at -1, and a
+                4cc_08_bins.cpk holding none of the three player tables
+           WHEN strip-and-seed is run
+           THEN --bins-out holds PlayerAppearance.bin, BootsList.bin and GloveList.bin with a
+                row per other player built from his record, as in SE-STR-01, and none for the
+                stripped one; the CPK's other files are unchanged
+```
+
+**Teams list**
+
+```
+SE-TL-01   GIVEN a data/teams_list.txt and the PES 21 fixture save with a team name missing from
+                the list and one listed under another ID
+           WHEN export-teams-list is run, then with --yes
+           THEN the first prints the added and overridden rows and leaves the file unchanged;
+                the second writes them, the save's ID winning; both exit 0
+SE-TL-02   GIVEN a save whose team names would give two teams one ID in the merged list
+           WHEN export-teams-list --yes is run
+           THEN the colliding change is listed as unresolved and not written, the other
+                changes are, and the exit code is 1
+SE-TL-03   GIVEN an unwritable data directory
+           WHEN export-teams-list --yes is run
+           THEN teams_list_read_only is reported, nothing is written, and the exit code is 1
+```
