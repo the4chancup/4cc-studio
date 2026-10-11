@@ -429,7 +429,8 @@ Rules:
   reports it. Common is the base, local is the override — the same relationship as a Common-linked
   model's own tomls versus the player folder's (below).
 - A link whose target does not exist in Common — model, material file or texture — is
-  `common_link_missing` (E, folder discarded), except a texture link an installed CPK satisfies
+  `common_link_missing` (E, folder discarded), except, on PES 18-21, a texture link an
+  installed CPK satisfies
   (`team_compiler/pipeline.md` "Resolved decisions"); the finding's context names the link kind
   and the Common path it looked for.
 - **Texture stems resolve in the folder of the material file that set them.** A stem written in

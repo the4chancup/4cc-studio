@@ -7198,3 +7198,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   landed, (b3b4d) widened to `kitN/` Common paths.
 - **2026-10-11** — S19.3 (SWE-2 round 3 on the plan text): 11 of 13 accepted, all wording
   and scope fixes; landed.
+- **2026-10-11** — S19.4 (SWE-2 round 4 on the plan text): 7 of 7 accepted, scope and
+  wording; landed.

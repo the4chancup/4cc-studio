@@ -109,7 +109,7 @@ export format.
      over every source the part is built from, `ModelFolder::roles`; in a pre-Fox source its
      own `face.xml` controls, a model or `.mtl` the xml does not reference, a referenced
      set's variants counting as referenced; a file below a `Common/` subfolder on PES
-     18-21, and there a `Common/` `.mtl` no selected `.model`'s search and no Common
+     18-21 that no `.common` link names and no linked model or `.mtl` brings, and there a `Common/` `.mtl` no selected `.model`'s search and no Common
      `.model` link's search reads; a kit texture the target does not emit; a refs export's
      kits, logo, portraits and collars, as its root `colors.txt`; on PES
      15-17 a `face_diff.bin` beside a member's `face.xml` holding a `<dif>`) is not
@@ -273,7 +273,8 @@ format:
    `face.xml` (`xml_ignored_fox`), and a file the structure pass already named
    (`file_type_disallowed`). A `Common/` file of a kind no task reads (`.fclo`, `.xml`, `.bin`,
    `materials.toml`) is `file_not_used` too, on the export, while a Common model, `.mtl` or
-   `.skl` no link or conversion takes is silent: `Common/` is a library, and an entry nobody
+   `.skl` directly in `Common/` no link or conversion takes is silent (a subfolder's on PES
+   18-21 is `file_not_used`, step 4's "Common"): `Common/` is a library, and an entry nobody
    uses is not a mistake. A refs export's kits, logo, portraits and collars are `file_not_used`
    (README "Phase 3 scope"). Processing reads only the files a role names, so a file with no
    role never reaches a task; the finding is validation's, and the two agree because both read
@@ -1955,7 +1956,8 @@ Resolved decisions:
   compares: a path names the team's Common output when its directory, once its 3-character
   placeholder (`000`, `XXX`) became the team's ID, is the team's Common texture directory
   (`/Assets/pes16/model/character/common/<team>/sourceimages/`) or, for a subdirectory of the
-  Common output, `.../common/<team>/<sub>/sourceimages/` (a `Common/` subfolder's, which
+  Common output, `.../common/<team>/<sub>/sourceimages/` (`<sub>` at any depth, a `Common/`
+  subfolder's, which
   /hdg/'s models name for their per-kit sets; on PES 15-17
   `model/character/uniform/common/<team>/<sub>/`). The export's `Common/` holds it when it holds the stem at that subdirectory
   among the files the target packs (on PES 18-21 a subfolder file only when a link names it,
