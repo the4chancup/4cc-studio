@@ -26,19 +26,11 @@ below the player folder"). A shared gloves folder's subfolder is packed at its p
 `glove.xml` names `./grip/glove_r.model` and a subfolder `.mtl` naming the folder's root
 texture writes `../skin.dds`. Whether PES 15-17 loads both is unchecked: a gloves folder
 with a model and `.mtl` in a subfolder, its texture at the root, seen in Edit mode. If not,
-the fallback is packing gloves flat (a subfolder's files by name).
-
-### Non-power-of-two mipped textures and kits over 2048 on Fox
-From: step 5.0e (2), 2026-10-11 (census `.tmp/5_0e/census/census.md`). Studio refuses, on
-PES 18-21, a texture with a mip chain and one side not a power of two (`texture_not_pow2`), and
-a kit main texture over 2048 pixels (`kit_texture_too_big`); Red accepted both. The census of
-the machine's exports found 15 such mipped textures in 48 Fox export roots (VGL26's AKG, BAG,
-EGG, HDG and SMBG in `Lab\Gud`; the MARISA Kanmari boots' 2048x2096 BC7 `body.dds`) and 11 kit
-main textures at 4096 or 8192 (AKG VGL26 `u0786p1-3`, FGOG). To check on PES 21: a model whose
-texture is one of these (EGG's 512x461, say) and a kit at 4096, compiled by Red, in Edit mode.
-Both render as intended: Studio takes Red's rules (only both sides non-power-of-two refused;
-the kit size limit kept for pre-Fox). Either does not: the rule stands, with what the game
-does as its reason in `messages.md`.
+the fallback is packing gloves flat (a subfolder's files by name). Not runnable by the lead
+yet (4.y-ingame2, 2026-10-12): a shared gloves folder compiles to the team's first shared
+ID, which the game draws only on a player the save points at it, and writing that ID into a
+pre-Fox save is the deferred pre-Fox patch's; a save of yours whose player wears that ID
+(`/out/`: 1684) would let it run now.
 
 ## Cup practice and preferences
 

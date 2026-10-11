@@ -1229,12 +1229,14 @@ TC-TEX-01  GIVEN slot 05 holding skin.png (1024x1024 with alpha) referenced by i
 TC-TEX-02  GIVEN slot 05 holding skin.dds already BC7 with a full mip chain
            WHEN the export is compiled for PES 21, then PES 18
            THEN on 21 the FTEX's mip data converts back to the source DDS unchanged; on 18 it is BC3
-TC-TEX-03  GIVEN three player folders: skin.png of 3x3 pixels, skin.png of 300x300 pixels on a
-           Fox face, and skin.dds whose header is a PNG's (or a kit's texture so refused)
+TC-TEX-03  GIVEN four player folders: skin.png of 3x3 pixels, skin.png of 300x300 pixels on a
+           Fox face, skin.dds whose header is a PNG's (or a kit's texture so refused), and
+           skin.dds of 512x461 with a mip chain on a Fox face
            WHEN the export is checked or compiled for PES 21
            THEN texture_too_small, texture_not_pow2 and texture_type_mismatch are reported, each
                 dropping its folder (a kit's: that kit); with pass_through on, texture_too_small
-                and texture_not_pow2 keep their folders, their textures compiled as they are
+                and texture_not_pow2 keep their folders, their textures compiled as they are;
+                the fourth folder compiles with no texture finding
 TC-TEX-04  GIVEN a .dds in a codec dds_convert cannot decode
            WHEN the export is compiled
            THEN texture_codec_unsupported is reported naming the file and the folder is dropped
@@ -1359,9 +1361,10 @@ TC-CHK-03  GIVEN slot 05 holding a settings.toml with a key of the wrong type
            THEN settings_toml_invalid is reported, the folder's models compile, and the exit code
                 is 1
 TC-CHK-04  GIVEN p1/kit.dds of 4096x4096 and p2/kit.dds uncompressed (RGBA8)
-           WHEN the export is checked, then compiled for PES 21
-           THEN kit_texture_too_big is reported for p1 and the kit dropped; p2 gets no texture
-                finding and its u0714p2.ftex is BC7
+           WHEN the export is compiled for PES 17, then for PES 21
+           THEN on 17 kit_texture_too_big is reported for p1 and the kit dropped; on 21 p1
+                compiles with no texture finding; p2 gets none on either, and its
+                u0714p2.ftex on 21 is BC7
 TC-CHK-05  GIVEN a root logo.png whose bytes are not a decodable image
            WHEN the export is checked
            THEN logo_file_invalid is reported and no logo is emitted when compiled

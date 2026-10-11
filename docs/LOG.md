@@ -1763,3 +1763,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — 4.y-ingame2 (g): the first PES 20 `.ted`, exported in game, confirms key index
   `0x14` and size `0x39A8`; the writer's PES 20 header (PES 21's body length) replaced by the
   file's, which is now `pes_savefile`'s PES 20 Texport fixture. `game.py` gains PES 20 and `chars`.
+- **2026-10-12** — 4.y-ingame2 (a) closed: PES 21's converted lower sock matches PES 17's. Red's
+  texture rules adopted on Fox: PES 21 draws mipped 512x461 and 797x64 textures and a 4096 kit
+  (step 5.0f). The PES 17 gloves-subfolder check waits on a save pointing a player at the shared ID.

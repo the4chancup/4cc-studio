@@ -3790,9 +3790,8 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   `download/4cc_69_midcup.cpk`, both the cup's placeholder, in `install.py`
   `TEST_SLOTS`, PES 19 in `game.py` `GAMES`, the triggers as pad inputs). Each result
   is a `manual: checked` line here, its QUESTIONS entry removed or narrowed, and a
-  decision and a step when it contradicts the plan. Closed below: (b), (c), (e), (f), (g),
-  and (a) but for PES 21's lower sock. Open: (a)'s rest, the lower sock on PES 21 on a
-  standard-body team whose boots do not cover the socks (`/out/`'s gaiters hide it); (d)
+  decision and a step when it contradicts the plan. Closed below: (a), (b), (c), (e), (f) and
+  (g). Open: (d)
   the Fox cube map of type 0xD (PES 21, a Fox FMDL pointed at a converted `env.ftex`; no
   export reaches it, so it waits for a hand-made FMDL). An item closed by a `manual:` line leaves this
   list in the same edit. → verify: each a `manual: checked` line
@@ -3942,6 +3941,25 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   is 21's: replaced by the file's header, and the file is the PES 20 fixture of
   `pes_savefile`'s Texport tests (`pes20_texport.ted`). Its 660-byte block holds five
   125-byte runs where the other fixtures' is zero (`operations.md` Texport). (g) closed.
+  manual: checked 2026-10-12, the lower sock on PES 21 (a's rest): Test 3's kit (design A,
+  `pre-fox`, converted) compiled for `/3/` (701, `build_socks_export.py socks team=3
+  runner=21 noplayers`, the release build of `5a28e37`), whose second row is a standard
+  body in the game's boots: the green diagonal band on the lower calf crossing the white
+  stripe, each leg's in the PES 17 reference's direction, and the orange hoop at the
+  ankle, above the boot (`.tmp/4_y/ingame/frames/p21sock/s06_front.png`,
+  `s07_side.png`, `s08_back.png`, against `s17_34_out_legs.png`); with the upper part
+  checked 2026-10-10, the converted sock matches PES 17 feature for feature. (a) closed.
+  manual: checked 2026-10-12, QUESTIONS "Non-power-of-two mipped textures and kits over 2048
+  on Fox": Red (`e12aa01`, a scratch copy under `.tmp/5_0e/red_np2/`, `setup.py` and
+  `retarget.py`) compiled EGG VGL26's `Faces/XXX14` and AKG VGL26's kits as `/3/` (the
+  save's /vg/ teams are placeholders that draw no custom kit, `s06_vgl5.png`); its FTEX keep
+  the chains (`screen` 512x461 and `text` 797x64 ten levels, `u0701p1` 4096 thirteen). In
+  Edit mode row 14 (70114) draws the Steam page and the caption as the sources show
+  (`.tmp/4_y/ingame/frames/p21np2/s09_row14_face.png` against `screen_source.png`), and row
+  2 wears AKG's kit (`s07_kit4096.png`). Red's rules adopted (DECISIONS, step 5.0f), the
+  entry removed. The gloves-subfolder entry (PES 17) cannot run yet: a shared gloves folder
+  compiles to the team's first shared ID, drawn only on a player the save points at it, which
+  is the deferred pre-Fox patch's write; the entry says so.
 
 - [x] 4.y-fix16 **S9's second Astra round: the deep pass checks what `compile` reads,
   five more places** (rulings S9.A2 in `.tmp/4_y/duck_rulings.md`, all five accepted,
@@ -5237,7 +5255,7 @@ Fixed before the itemization:
     export roots, 1,652 archives opened): 15 mipped textures with one non-power-of-two side in
     Fox exports, 11 Fox kit main textures at 4096 or 8192, none non-power-of-two. Both rules
     stand until `QUESTIONS.md` "Non-power-of-two mipped textures and kits over 2048 on Fox" is
-    answered; the answer's rule change is a step of its own
+    answered; the answer's rule change is a step of its own (answered 2026-10-12: 5.0f)
   - (3) an FMDL texture path into the game's kit texture folder
     (`/Assets/pes16/model/character/uniform/texture/`): Red reports an Error and keeps the model
     (`e12aa01`, "Report PES uniform texture paths in FMDLs as errors"); Studio keeps a game path
@@ -5255,6 +5273,11 @@ Fixed before the itemization:
   stem is no known kind; `paths.rs`, `messages.rs`, `validation.rs`, `validate/folders.rs`, the
   help, tests in `tests/cli/{textures,models}.rs` and `validate/tests.rs`. TC-PRT-05, TC-MOD-91,
   TC-MOD-92.
+- [ ] 5.0f Red's texture size rules on Fox (DECISIONS 2026-10-12, `messages.md` `texture_not_pow2`
+  and `kit_texture_too_big`): a mipped texture with one power-of-two side passes on PES 18-21,
+  and a kit main texture over 2048 or not a power of two is refused on PES 15-17 only, where
+  `texture_not_pow2` still stays off a kit's main texture → done when: TC-TEX-03's fourth
+  folder and TC-CHK-04's two targets pass
 
 Itemized 2026-10-12 with the Acceptance (`save_editor.md` "Acceptance", the Phase 5 block of
 `team_compiler/README.md` "Acceptance"): libs first, each with its fixtures as its spec, then the

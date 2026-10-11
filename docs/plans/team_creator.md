@@ -158,8 +158,8 @@ Applying a starter to a player writes their folder `Players/NN - Name/`: the sta
 image saved under the starter's input stem, a `portrait.png` cut from the same image (largest
 centered square, scaled to 128²), and a `settings.toml` holding the starter's settings plus
 `name = true`. Image handling is one rule: **fit onto a power-of-two square canvas, transparent
-margins, PNG out** — the Fox engine needs power-of-two textures (the compiler discards others,
-`texture_not_pow2`), and the starters' UVs map the whole square, so a portrait-shaped picture keeps
+margins, PNG out** — the compiler discards a Fox texture with neither side a power of two
+(`texture_not_pow2`), and the starters' UVs map the whole square, so a portrait-shaped picture keeps
 its proportions with the margins invisible. Any format the `image` crate decodes is accepted.
 
 ### 6. Kits

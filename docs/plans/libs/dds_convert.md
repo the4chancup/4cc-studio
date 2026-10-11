@@ -42,7 +42,7 @@ approach in production, in `Engines/stages/lib/dxt.py` + the `texture2ddecoder` 
   PES 15–17 crash on uncompressed kit textures.
 - **Mipmaps**: each mip level is decoded and re-encoded individually; a DDS/FTEX source keeps its
   own mip count whatever its codec, uncompressed included (Konami ships single-mip pre-Fox
-  textures, and a mipped non-power-of-two texture is invalid on Fox), a raster source gets the
+  textures, and on Fox a mipped texture with neither side a power of two is refused), a raster source gets the
   full chain down to 1×1 by 2×2 box averaging on
   straight alpha (odd sides floor, never below 1). Output headers are rebuilt from the emitted
   layout: legacy DX9 headers for BC1/BC3 (what texconv wrote for the legacy compilers and what

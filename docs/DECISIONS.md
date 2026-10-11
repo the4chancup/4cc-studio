@@ -6963,3 +6963,15 @@ keeps `hair_high_win32.model` and `hair.mtl` in the face folder, and the copy on
 originals". The maintainer (2026-10-11): as long as the hair model and `hair.mtl` stay in the face
 folder, the `.mtl` reads textures in Common fine. Studio moves no model to Common, so they stay.
 Plan: `team_compiler/pipeline.md` step 6; the Red inventory's G1 (`.tmp/5_0c/bins.md`).
+
+## 2026-10-12 — team_compiler — Red's texture size rules on Fox
+Decision: on PES 18-21 `texture_not_pow2` refuses a mipped texture only when neither side is a
+power of two, and `kit_texture_too_big` applies to PES 15-17 alone; a portrait still needs both
+sides powers of two on any target. These are Red's rules (`texture_check.py`).
+Why: PES 21 draws what the stricter rules refused. Red's output of EGG VGL26's XXX14 head
+(`screen.dds` 512x461 and `text.dds` 797x64, ten levels each, kept in the FTEX) and AKG VGL26's
+4096 kit (13 levels), retargeted onto `/3/`, renders as the sources show in Edit mode
+(4.y-ingame2, 2026-10-12). The census found 15 such textures and 11 such kits in real Fox
+exports (5.0e (2)), each of which the old rules would have dropped with its folder or kit.
+Plan: `team_compiler/messages.md` (both rows), `libs/dds_convert.md` "Mipmaps";
+`team_compiler/README.md` TC-TEX-03, TC-CHK-04.
