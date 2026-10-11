@@ -64,7 +64,7 @@ Ratings and Match Events pages. These are measurements, not the fork's claims:
 | | PES 2017 (original) | PES 2019 | PES 2021 |
 |---|---|---|---|
 | Process | `PES2017.exe` (32-bit) | `PES2019.exe` (64-bit) | `PES2021.exe` (64-bit) |
-| Team region size, table offset | 0x60000, 0x538B4 | 0x50000, varies by launch (0x32A58, 0x38168 seen) | 0x50000, 0x35AA8 (two launches) |
+| Team region size, table offset | 0x60000, 0x538B4 | 0x50000, varies by launch (five offsets in five launches) | 0x50000, 0x35AA8 (two launches) |
 | Team side stride; player entry stride | 0x520; 0xE8 | 0x5EC; 0x100 | 0x690; 0x188 |
 | Player slots per side (physical) | 32 | 40 | 40 |
 | Stats region size | 0x90000 | 0x190000 | 0x190000 |

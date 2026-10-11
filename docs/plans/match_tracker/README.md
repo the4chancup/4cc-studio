@@ -106,25 +106,26 @@ structures"). If the PES17 grid is verified to populate with stable semantics, h
 ship in the first implementation;
 the new footballbox exporter does not depend on the fork's heatmap or PES21 findings.
 
-### Independent measurements (PES 2019 and PES 2021)
+### Independent measurements (PES 2017, PES 2019 and PES 2021)
 
 A second, unrelated rebuild of SEN:P-AI, [`zocram4cc/SEN_P-AI`](https://github.com/zocram4cc/SEN_P-AI)
 1.3.0, keeps the original's algorithm and adds PES 2019 and PES 2021 as data: a per-version
 layout (`src/GameLayout.cpp`) and a stat catalog per version (`src/catalogs/`). Unlike the
 unofficial fork's claims, every value was measured, and the measurement is written down so
 it can be repeated
-([`docs/measurements/`](https://github.com/zocram4cc/SEN_P-AI/tree/50dbdda/docs/measurements)):
+([`docs/measurements/`](https://github.com/zocram4cc/SEN_P-AI/tree/8b5bc8e/docs/measurements)):
 regions found with a read-only scanner, each offset the same in two matches, each mapped
 stat matched against the game's own Team Stats, Player Ratings or Match Events page in
 both. Its acceptance runs
-([`docs/verification/`](https://github.com/zocram4cc/SEN_P-AI/tree/50dbdda/docs/verification),
+([`docs/verification/`](https://github.com/zocram4cc/SEN_P-AI/tree/8b5bc8e/docs/verification),
 summary in `SUMMARY.md`) are out-of-sample matches whose events, scores, scorers, cards,
 substitutions and Team Stats totals match the game's screens, and on PES 2017 it reproduces
-the original's events and `.sen` statistics byte for byte. A later match per version in a
-fresh game launch (`docs/verification/2026-10-11/`) sampled the stats blocks every three
-seconds against the HUD clock and read the full-time pages: it gives the bucket boundaries,
-Player Rating on both versions, and the one layout value that did not survive a relaunch,
-PES 2019's team table offset. The reader only reads: its process handle is
+the original's events and `.sen` statistics byte for byte. Later matches in fresh game
+launches (`docs/verification/2026-10-11/`), one per version, sampled the stats blocks every
+three seconds against the HUD clock and read the full-time pages: they give the bucket
+boundaries, Player Rating, the heatmap grids' layout on PES 2017 and PES 2021, a check of the
+unofficial fork's PES 2017 pointer chain, and the one layout value that did not survive a
+relaunch, PES 2019's team table offset. The reader only reads: its process handle is
 `PROCESS_QUERY_INFORMATION | PROCESS_VM_READ`. The runs were on one member's cup installs
 under Wine (Linux), against these executables (SHA-256):
 
@@ -136,9 +137,9 @@ under Wine (Linux), against these executables (SHA-256):
 
 What it settles and what it leaves open is recorded per claim under Testing, "Verifying
 source-derived findings"; the measured values are in "Game structures". It reads the stats
-table by scanning only, so the unofficial fork's pointer chains, substitution journal,
-direct clock read and heatmap grids stay unverified, and no match reached extra time, so
-buckets 6 and 7 are unobserved on every version.
+table by scanning only, so the unofficial fork's PES 2021 pointer chains, substitution
+journal and direct clock read stay unverified, and no match reached extra time, so buckets
+6 and 7 are unobserved on every version.
 
 ### Relationship to the old codebase
 

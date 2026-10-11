@@ -1755,5 +1755,5 @@ worklog passed 7,000 lines.
   15 mipped one-side-non-power-of-two textures and 11 kit textures over 2048 in Fox exports, so
   Studio's stricter rules wait on an in-game check (`QUESTIONS.md`) before any relaxing.
 - **2026-10-11** — Match tracker: measured PES 2019 and PES 2021 layouts from an independent SEN:P-AI
-  rebuild recorded in the plan (README, "Game structures", Testing rulings, clock notes); 15-minute
-  buckets, Player Rating and the entry marker confirmed live; version scope asked in `QUESTIONS.md`.
+  rebuild recorded in the plan; on PES 2017, the 15-minute buckets and the heatmap grid confirmed live
+  and the unofficial fork's pointer chain refuted; version scope asked in `QUESTIONS.md`.
