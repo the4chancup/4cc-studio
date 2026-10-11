@@ -526,7 +526,10 @@ pub(crate) fn content_findings(
             .filter(|texture| emits_kit_texture(engine, &texture.stem))
         {
             let rule = if texture.stem == "kit" {
-                SizeRule::MainKit
+                match engine {
+                    Engine::PreFox => SizeRule::MainKit,
+                    Engine::Fox => size_rule,
+                }
             } else {
                 size_rule
             };
@@ -1727,14 +1730,27 @@ mod tests {
     /// A single-level BC1 DDS of `width`x`height`, its blocks zero: built from the blocks, so
     /// nothing is encoded.
     pub(super) fn bc1_dds(width: u32, height: u32) -> Vec<u8> {
-        let blocks = width.div_ceil(4) * height.div_ceil(4) * 8;
+        bc1_dds_levels(width, height, 1)
+    }
+
+    /// `bc1_dds` with `levels` mip levels, each `max(1, side >> level)`, its block count the
+    /// level's size rounded up to whole 4x4 blocks.
+    pub(super) fn bc1_dds_levels(width: u32, height: u32, levels: u32) -> Vec<u8> {
+        let mut mips = Vec::new();
+        let mut blocks = Vec::new();
+        for level in 0..levels {
+            let w = width.checked_shr(level).unwrap_or(0).max(1);
+            let h = height.checked_shr(level).unwrap_or(0).max(1);
+            mips.push(vec![0; (w * h * 4) as usize]);
+            blocks.push(vec![0; (w.div_ceil(4) * h.div_ceil(4) * 8) as usize]);
+        }
         let decoded = Decoded {
             width,
             height,
-            mips: vec![vec![0; (width * height * 4) as usize]],
+            mips,
             blocks: Some(Blocks {
                 codec: BlockCodec::Bc1,
-                mips: vec![vec![0; blocks as usize]],
+                mips: blocks,
             }),
             authored_mips: true,
         };

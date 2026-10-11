@@ -1766,3 +1766,5 @@ worklog passed 7,000 lines.
 - **2026-10-12** — 4.y-ingame2 (a) closed: PES 21's converted lower sock matches PES 17's. Red's
   texture rules adopted on Fox: PES 21 draws mipped 512x461 and 797x64 textures and a 4096 kit
   (step 5.0f). The PES 17 gloves-subfolder check waits on a save pointing a player at the shared ID.
+- **2026-10-12** — Step 5.0f: Red's texture size rules on Fox in the compiler (a mipped texture
+  needs one power-of-two side; the 2048 kit limit is PES 15-17's); SWE-2, first attempt.

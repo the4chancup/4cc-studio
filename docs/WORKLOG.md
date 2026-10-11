@@ -5273,11 +5273,14 @@ Fixed before the itemization:
   stem is no known kind; `paths.rs`, `messages.rs`, `validation.rs`, `validate/folders.rs`, the
   help, tests in `tests/cli/{textures,models}.rs` and `validate/tests.rs`. TC-PRT-05, TC-MOD-91,
   TC-MOD-92.
-- [ ] 5.0f Red's texture size rules on Fox (DECISIONS 2026-10-12, `messages.md` `texture_not_pow2`
+- [x] 5.0f Red's texture size rules on Fox (DECISIONS 2026-10-12, `messages.md` `texture_not_pow2`
   and `kit_texture_too_big`): a mipped texture with one power-of-two side passes on PES 18-21,
   and a kit main texture over 2048 or not a power of two is refused on PES 15-17 only, where
   `texture_not_pow2` still stays off a kit's main texture → done when: TC-TEX-03's fourth
   folder and TC-CHK-04's two targets pass
+  Done 2026-10-12 (SWE-2, first attempt): `deep/texture.rs` (the Fox rule asks neither side to
+  be a power of two), `deep/mod.rs` (a kit's main texture takes `MainKit` on pre-Fox only),
+  `messages.rs` docs, the help, tests in `deep/texture.rs` and `tests/cli/textures.rs`.
 
 Itemized 2026-10-12 with the Acceptance (`save_editor.md` "Acceptance", the Phase 5 block of
 `team_compiler/README.md` "Acceptance"): libs first, each with its fixtures as its spec, then the

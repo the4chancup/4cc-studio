@@ -346,14 +346,27 @@ fn co_face(slot: u32) -> String {
 /// A single-level BC1 DDS of `width`x`height`, its blocks zero: built from the blocks, so
 /// nothing is encoded.
 pub(crate) fn bc1_dds(width: u32, height: u32) -> Vec<u8> {
-    let blocks = width.div_ceil(4) * height.div_ceil(4) * 8;
+    bc1_dds_levels(width, height, 1)
+}
+
+/// `bc1_dds` with `levels` mip levels, each `max(1, side >> level)`, its block count the
+/// level's size rounded up to whole 4x4 blocks.
+fn bc1_dds_levels(width: u32, height: u32, levels: u32) -> Vec<u8> {
+    let mut mips = Vec::new();
+    let mut blocks = Vec::new();
+    for level in 0..levels {
+        let w = width.checked_shr(level).unwrap_or(0).max(1);
+        let h = height.checked_shr(level).unwrap_or(0).max(1);
+        mips.push(vec![0; (w * h * 4) as usize]);
+        blocks.push(vec![0; (w.div_ceil(4) * h.div_ceil(4) * 8) as usize]);
+    }
     let decoded = Decoded {
         width,
         height,
-        mips: vec![vec![0; (width * height * 4) as usize]],
+        mips,
         blocks: Some(Blocks {
             codec: BlockCodec::Bc1,
-            mips: vec![vec![0; blocks as usize]],
+            mips: blocks,
         }),
         authored_mips: true,
     };
@@ -371,8 +384,9 @@ fn uncompressed_dds() -> Vec<u8> {
 }
 
 /// Writes `exports/co Midcup Sizes`: slot 03 a 3x3 skin, slot 04 a 300x300 one, slot 05 PNG bytes
-/// under `skin.dds` (renamed, not resaved), each beside the hair model naming it, and a kit,
-/// so the CPK is written whatever the folders become.
+/// under `skin.dds` (renamed, not resaved), slot 07 a 512x461 one with a full mip chain,
+/// each beside the hair model naming it, and a kit, so the CPK is written whatever the
+/// folders become.
 fn write_texture_findings_export(sandbox: &Sandbox) {
     let export = "co Midcup Sizes";
     write_skin_player(
@@ -396,6 +410,15 @@ fn write_texture_findings_export(sandbox: &Sandbox) {
         "skin.dds",
         &texture_fixture("portrait.png"),
     );
+    // Fox draws a mipped texture with one side not a power of two: the full chain, ten
+    // levels halving 512x461 down to 1x1.
+    write_skin_player(
+        sandbox,
+        export,
+        "07",
+        "skin.dds",
+        &bc1_dds_levels(512, 461, 10),
+    );
     sandbox.write(&format!("exports/{export}/Kits/p1/kit.dds"), &tracer_kit());
 }
 
@@ -418,6 +441,7 @@ fn texture_findings_are_checked_and_each_drops_its_folder() {
         "Error texture_not_pow2 [DropFolder] at Players/04 - A (file=skin.png)".to_owned(),
         hair_weights("05"),
         "Error texture_type_mismatch [DropFolder] at Players/05 - A (file=skin.dds)".to_owned(),
+        hair_weights("07"),
         "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
     ];
 
@@ -435,14 +459,24 @@ fn texture_findings_are_checked_and_each_drops_its_folder() {
         compiled
     );
     assert_eq!(compile.exit_code(), 1);
-    // The kit is in the CPK; nothing of the three folders is, neither a face nor a texture.
+    // The kit is in the CPK; nothing of the three dropped folders is, neither a face nor a
+    // texture, while slot 07's face and its skin.ftex are.
     let paths = compiled_paths(&sandbox);
     assert!(paths.contains(&kit_texture("u0714p1")), "{paths:?}");
+    for slot in ["03", "04", "05"] {
+        assert!(
+            paths.iter().all(|path| {
+                !path.starts_with(&format!("Asset/model/character/face/real/714{slot}"))
+                    && !path.starts_with(&format!("Asset/model/character/common/714/{slot} - A/"))
+            }),
+            "{paths:?}"
+        );
+    }
+    assert!(paths.contains(&co_face(7)), "{paths:?}");
     assert!(
-        paths
-            .iter()
-            .all(|path| !path.starts_with("Asset/model/character/face/")
-                && !path.starts_with("Asset/model/character/common/714/")),
+        paths.contains(
+            &"Asset/model/character/common/714/07 - A/sourceimages/#windx11/skin.ftex".to_owned()
+        ),
         "{paths:?}"
     );
 }
@@ -467,6 +501,7 @@ fn pass_through_keeps_an_odd_sized_texture_s_folder_but_not_a_renamed_one() {
             "Error texture_not_pow2 [Keep] at Players/04 - A (file=skin.png)".to_owned(),
             hair_weights("05"),
             "Error texture_type_mismatch [DropFolder] at Players/05 - A (file=skin.dds)".to_owned(),
+            hair_weights("07"),
             "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
             "Info team_colors_missing [Keep] ()".to_owned(),
             "Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
@@ -491,6 +526,7 @@ fn pass_through_keeps_an_odd_sized_texture_s_folder_but_not_a_renamed_one() {
         "{paths:?}"
     );
     assert!(!paths.contains(&co_face(5)), "{paths:?}");
+    assert!(paths.contains(&co_face(7)), "{paths:?}");
 }
 
 // TC-TEX-04
@@ -598,7 +634,7 @@ fn a_kit_texture_finding_drops_the_kit() {
 
 // TC-CHK-04
 #[test]
-fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
+fn a_4096_kit_drops_on_pes_17_and_compiles_on_pes_21_and_an_uncompressed_kit_is_bc7() {
     let sandbox = Sandbox::new("tex_kit_too_big");
     sandbox.write(
         "exports/co Midcup Kit/Kits/p1/kit.dds",
@@ -608,14 +644,15 @@ fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
     let too_big = "Error kit_texture_too_big [DropFolder] at Kits/p1 (file=kit.dds)";
     let identified = "Info export_identified [Keep] (team=/co/, id=714)";
 
-    let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
+    // PES 15-17 hold a kit's main texture to 2048 pixels: p1 is refused, p2 is not.
+    let check = sandbox.run(&pes_settings(&sandbox, 17), &["check"]);
     assert_eq!(
         findings_of(&check.messages(), "co Midcup Kit"),
         [too_big, identified]
     );
     assert_eq!(check.exit_code(), 1);
 
-    let compile = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+    let compile = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&compile.messages(), "co Midcup Kit"),
         [
@@ -627,7 +664,27 @@ fn a_kit_texture_too_big_drops_its_kit_and_an_uncompressed_kit_is_bc7() {
         ]
     );
     assert_eq!(compile.exit_code(), 1);
-    assert_eq!(compiled_kits(&sandbox), ["u0714p2"]);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let pre_fox_kit =
+        |name: &str| format!("common/character0/model/character/uniform/texture/{name}.dds");
+    assert!(!entries.contains_key(&pre_fox_kit("u0714p1")));
+    assert!(entries.contains_key(&pre_fox_kit("u0714p2")));
+
+    // On Fox a kit's main texture has no size limit of its own: p1 compiles too.
+    let compile = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+    assert_eq!(
+        findings_of(&compile.messages(), "co Midcup Kit"),
+        [
+            identified,
+            "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_colors_derived [Keep] at Kits/p2 ()"
+        ]
+    );
+    assert_eq!(compile.exit_code(), 0);
+    assert_eq!(compiled_kits(&sandbox), ["u0714p1", "u0714p2"]);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let info = ftex::info(&entries[&kit_texture("u0714p2")]).unwrap();
     assert_eq!(info.format, PixelFormat::Bc7);

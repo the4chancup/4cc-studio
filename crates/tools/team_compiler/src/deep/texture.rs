@@ -12,11 +12,11 @@ use crate::messages::Code;
 /// The size rule a texture is held to past the smallest side (`messages.md` "Textures").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum SizeRule {
-    /// A kit's main texture, on any target: `kit_texture_too_big` past 2048 pixels a side or
+    /// A kit's main texture on PES 15-17: `kit_texture_too_big` past 2048 pixels a side or
     /// on a side that is not a power of two.
     MainKit,
-    /// Any other texture on a Fox target: `texture_not_pow2` on a side that is not a power of
-    /// two when the converted texture carries a mip chain.
+    /// Any other texture on a Fox target, a kit's main texture included: `texture_not_pow2`
+    /// when it carries a mip chain and neither side is a power of two.
     FoxMipmapped,
     /// Any other texture on a pre-Fox target: `texture_not_div4` on a side that is not a
     /// multiple of 4, since every pre-Fox texture is written block-compressed.
@@ -27,7 +27,7 @@ pub(super) enum SizeRule {
 }
 
 impl SizeRule {
-    /// The rule of every texture but a kit's main one, on `version`'s engine.
+    /// The rule of every texture on `version`'s engine but a kit's main one on PES 15-17.
     pub(super) fn of(version: PesVersion) -> SizeRule {
         match version.engine() {
             Engine::Fox => SizeRule::FoxMipmapped,
@@ -87,7 +87,8 @@ pub(super) fn texture_finding(format: SourceFormat, rule: SizeRule, bytes: &[u8]
         SizeRule::MainKit => (probe.width > 2048 || probe.height > 2048 || !power_of_two)
             .then_some(Code::KitTextureTooBig),
         SizeRule::FoxMipmapped => {
-            (probe.mipmaps > 1 && !power_of_two).then_some(Code::TextureNotPow2)
+            (probe.mipmaps > 1 && !probe.width.is_power_of_two() && !probe.height.is_power_of_two())
+                .then_some(Code::TextureNotPow2)
         }
         SizeRule::PreFox => {
             (probe.width % 4 != 0 || probe.height % 4 != 0).then_some(Code::TextureNotDiv4)
@@ -121,7 +122,8 @@ mod tests {
 
     use super::*;
     use crate::deep::tests::{
-        bc1_dds, findings_for, findings_of, fixture, folder, texture, texture_finding_on,
+        bc1_dds, bc1_dds_levels, findings_for, findings_of, fixture, folder, texture,
+        texture_finding_on,
     };
     use crate::testing::scratch;
 
@@ -309,21 +311,18 @@ mod tests {
     }
 
     #[test]
-    fn a_kit_s_main_texture_too_big_or_odd_is_kit_texture_too_big_alone() {
+    fn a_kit_s_main_texture_is_held_to_2048_on_pre_fox_and_the_plain_rule_on_fox() {
         let temp = scratch("deep_texture_kits");
-        let findings = findings_of(
-            temp.path(),
-            &[
-                ("Kits/p1/kit.dds", bc1_dds(4096, 4096)),
-                ("Kits/p2/kit.png", texture("odd.png")),
-                ("Kits/g1/kit.dds", bc1_dds(2048, 2048)),
-                ("Kits/p3/kit.png", texture("kit.png")),
-                ("Kits/p3/kit_back.png", texture("odd.png")),
-            ],
-            &[],
-        );
+        let files = [
+            ("Kits/p1/kit.dds", bc1_dds(4096, 4096)),
+            ("Kits/p2/kit.png", texture("odd.png")),
+            ("Kits/g1/kit.dds", bc1_dds(2048, 2048)),
+            ("Kits/p3/kit.png", texture("kit.png")),
+            ("Kits/p3/kit_back.png", texture("odd.png")),
+        ];
+        // PES 15-17 hold a kit's main texture to 2048 pixels a side, both powers of two.
         assert_eq!(
-            findings,
+            findings_for(PesVersion::Pes17, temp.path(), &files, &[], &[]),
             [
                 texture_finding_on(
                     "kit_texture_too_big",
@@ -334,6 +333,20 @@ mod tests {
                 ),
                 texture_finding_on(
                     "kit_texture_too_big",
+                    &folder("Kits/p2"),
+                    "kit.png",
+                    Disposition::DropFolder,
+                    true
+                ),
+            ]
+        );
+        // On Fox it is any other texture: the 4096 single-level kit passes, and a mipped
+        // texture is refused only with neither side a power of two.
+        assert_eq!(
+            findings_of(temp.path(), &files, &[]),
+            [
+                texture_finding_on(
+                    "texture_not_pow2",
                     &folder("Kits/p2"),
                     "kit.png",
                     Disposition::DropFolder,
@@ -352,38 +365,67 @@ mod tests {
 
     #[test]
     fn each_size_rule_reads_each_side_on_its_own() {
-        // Single-level DDS headers, so only the size matters: one side past a bound and the
-        // other not, and a side exactly at a bound.
-        for (rule, width, height, expected) in [
-            (SizeRule::FoxMipmapped, 3, 8, Some(Code::TextureTooSmall)),
-            (SizeRule::FoxMipmapped, 8, 3, Some(Code::TextureTooSmall)),
-            (SizeRule::FoxMipmapped, 4, 8, None),
-            (SizeRule::FoxMipmapped, 8, 4, None),
-            (SizeRule::MainKit, 256, 300, Some(Code::KitTextureTooBig)),
-            (SizeRule::MainKit, 300, 256, Some(Code::KitTextureTooBig)),
-            (SizeRule::MainKit, 4096, 2048, Some(Code::KitTextureTooBig)),
-            (SizeRule::MainKit, 2048, 4096, Some(Code::KitTextureTooBig)),
-            (SizeRule::MainKit, 2048, 1024, None),
-            (SizeRule::PreFox, 3, 8, Some(Code::TextureTooSmall)),
-            (SizeRule::PreFox, 3, 1002, Some(Code::TextureTooSmall)),
-            (SizeRule::PreFox, 1002, 1004, Some(Code::TextureNotDiv4)),
-            (SizeRule::PreFox, 1004, 1002, Some(Code::TextureNotDiv4)),
-            (SizeRule::PreFox, 1002, 1002, Some(Code::TextureNotDiv4)),
-            (SizeRule::PreFox, 1004, 1004, None),
-            (SizeRule::PreFox, 300, 300, None),
-            (SizeRule::FoxMipmapped, 1002, 1004, None),
-            (SizeRule::FoxMipmapped, 1004, 1002, None),
-            (SizeRule::FoxMipmapped, 1002, 1002, None),
-            (SizeRule::FoxMipmapped, 1004, 1004, None),
-            (SizeRule::Portrait, 256, 300, Some(Code::TextureNotPow2)),
-            (SizeRule::Portrait, 300, 256, Some(Code::TextureNotPow2)),
-            (SizeRule::Portrait, 4096, 8, None),
-            (SizeRule::Portrait, 3, 8, Some(Code::TextureTooSmall)),
+        // One side past a bound and the other not, and a side exactly at a bound. `levels`
+        // is the DDS's own mip count: only `FoxMipmapped` reads it, its rule asking for a
+        // chain before a non-power-of-two side matters at all.
+        for (rule, width, height, levels, expected) in [
+            (SizeRule::FoxMipmapped, 3, 8, 1, Some(Code::TextureTooSmall)),
+            (SizeRule::FoxMipmapped, 8, 3, 1, Some(Code::TextureTooSmall)),
+            (SizeRule::FoxMipmapped, 4, 8, 1, None),
+            (SizeRule::FoxMipmapped, 8, 4, 1, None),
+            (SizeRule::MainKit, 256, 300, 1, Some(Code::KitTextureTooBig)),
+            (SizeRule::MainKit, 300, 256, 1, Some(Code::KitTextureTooBig)),
+            (
+                SizeRule::MainKit,
+                4096,
+                2048,
+                1,
+                Some(Code::KitTextureTooBig),
+            ),
+            (
+                SizeRule::MainKit,
+                2048,
+                4096,
+                1,
+                Some(Code::KitTextureTooBig),
+            ),
+            (SizeRule::MainKit, 2048, 1024, 1, None),
+            (SizeRule::PreFox, 3, 8, 1, Some(Code::TextureTooSmall)),
+            (SizeRule::PreFox, 3, 1002, 1, Some(Code::TextureTooSmall)),
+            (SizeRule::PreFox, 1002, 1004, 1, Some(Code::TextureNotDiv4)),
+            (SizeRule::PreFox, 1004, 1002, 1, Some(Code::TextureNotDiv4)),
+            (SizeRule::PreFox, 1002, 1002, 1, Some(Code::TextureNotDiv4)),
+            (SizeRule::PreFox, 1004, 1004, 1, None),
+            (SizeRule::PreFox, 300, 300, 1, None),
+            // One power-of-two side is enough on a Fox texture with a mip chain; neither
+            // being one is the finding, and a single level passes at any size.
+            (SizeRule::FoxMipmapped, 512, 461, 10, None),
+            (SizeRule::FoxMipmapped, 461, 512, 10, None),
+            (
+                SizeRule::FoxMipmapped,
+                300,
+                300,
+                9,
+                Some(Code::TextureNotPow2),
+            ),
+            (SizeRule::FoxMipmapped, 300, 300, 1, None),
+            (SizeRule::FoxMipmapped, 1002, 1004, 1, None),
+            (SizeRule::FoxMipmapped, 1004, 1002, 1, None),
+            (SizeRule::FoxMipmapped, 1002, 1002, 1, None),
+            (SizeRule::FoxMipmapped, 1004, 1004, 1, None),
+            (SizeRule::Portrait, 256, 300, 1, Some(Code::TextureNotPow2)),
+            (SizeRule::Portrait, 300, 256, 1, Some(Code::TextureNotPow2)),
+            (SizeRule::Portrait, 4096, 8, 1, None),
+            (SizeRule::Portrait, 3, 8, 1, Some(Code::TextureTooSmall)),
         ] {
             assert_eq!(
-                texture_finding(SourceFormat::Dds, rule, &bc1_dds(width, height)),
+                texture_finding(
+                    SourceFormat::Dds,
+                    rule,
+                    &bc1_dds_levels(width, height, levels)
+                ),
                 expected,
-                "{rule:?} {width}x{height}"
+                "{rule:?} {width}x{height} x{levels}"
             );
         }
     }

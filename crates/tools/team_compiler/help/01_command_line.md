@@ -66,11 +66,12 @@ its `.mtl` are never packed under their own names, and the warning
 `kitF`; the same holds for a set a player's own `face.xml` names. Six lines name a texture that cannot be
 used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_div4` (for
 PES 2015 to 2017, a width or height that is not a multiple of 4: 1000 is one, 1002 is not),
-`texture_not_pow2` (a portrait whose width or height is not a power of two, or any other
-texture with mip levels whose width or height is not: 256, 512, 1024, ...; a `.png` or other image always gets mip
-levels, a `.dds` or `.ftex` with a single level passes at any size), `kit_texture_too_big` (a
-kit's main `kit` texture, its own or the one from `all`, wider or taller than 2048 pixels or
-with a side that is not a power of two), `texture_type_mismatch` (a file renamed to another
+`texture_not_pow2` (a portrait whose width or height is not a power of two, or, for PES 2018
+to 2021, a texture with mip levels when neither its width nor its height is: 256, 512, 1024,
+...; a `.png` or other image always gets mip levels, a `.dds` or `.ftex` with a single level
+passes at any size), `kit_texture_too_big` (for PES 2015 to 2017, a kit's main `kit` texture,
+its own or the one from `all`, wider or taller than 2048 pixels or with a side that is not a
+power of two), `texture_type_mismatch` (a file renamed to another
 format instead of resaved, a PNG called `skin.dds`) and `texture_codec_unsupported` (a `.dds`
 or `.ftex` in a format the compiler does not read, BC6H for one, or a 16-bit or interleaved
 `.tga`: resave it). Both commands report them from the start of each file alone, so `check`
