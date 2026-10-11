@@ -53,7 +53,7 @@ REMOTE_REF = "refs/mutants/remote"
 # and nothing on this machine; `just gates-remote` is the gates' counterpart. A
 # constant, not an environment variable: a shell started while a variable was set
 # keeps the old value, which silently picked the wrong mode.
-REMOTE_ONLY = False
+REMOTE_ONLY = True
 # The remote half's systemd unit: a transient service so its cgroup is
 # memory-capped and CPU-idle — an allocating mutant OOM-killed the host at
 # the 2.20i remainder run, and Fluxer's production services have priority.
