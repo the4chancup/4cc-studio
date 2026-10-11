@@ -53,7 +53,7 @@ REMOTE_REF = "refs/mutants/remote"
 # and nothing on this machine; `just gates-remote` is the gates' counterpart. A
 # constant, not an environment variable: a shell started while a variable was set
 # keeps the old value, which silently picked the wrong mode.
-REMOTE_ONLY = True
+REMOTE_ONLY = False
 # The remote half's systemd unit: a transient service so its cgroup is
 # memory-capped and CPU-idle — an allocating mutant OOM-killed the host at
 # the 2.20i remainder run, and Fluxer's production services have priority.
@@ -118,6 +118,8 @@ SPLIT_THRESHOLD_SECONDS = 240
 # Consecutive failed polls before giving up (an hour at 15 s); the remote half
 # keeps running and `just mutants-collect` picks it up later.
 MAX_POLL_FAILURES = 240
+# One poll's ssh call is a status line; past this it counts as a failed poll.
+POLL_CALL_TIMEOUT_SECONDS = 120
 # Keepalives let a dead link fail a call in about a minute instead of hanging it.
 SSH_OPTIONS = [
     "-o", "BatchMode=yes",
@@ -139,6 +141,11 @@ def ssh_binary() -> str:
 
 
 def ssh(host: str, remote: str, **kwargs) -> subprocess.CompletedProcess:
+    # A call that sends nothing gets an empty stdin (what `ssh -n` does). At 4.y's
+    # close two calls of a detached run hung for good with the link up, the likely
+    # cause being Windows' ssh.exe waiting on the inherited hidden console.
+    if "input" not in kwargs:
+        kwargs.setdefault("stdin", subprocess.DEVNULL)
     return subprocess.run([ssh_binary(), *SSH_OPTIONS, host, remote], **kwargs)
 
 
@@ -353,16 +360,22 @@ def remote_run_state(host: str) -> str | None:
     host rebooted); None when the host could not be reached. `running` asks
     systemd for the unit, not `kill -0` for the pid: after a reboot the pid may
     belong to another process, which would read as a half running forever."""
-    probe = ssh(
-        host,
-        f"cd {REMOTE_RUN} 2>/dev/null || {{ echo none; exit 0; }}; "
-        "if [ -f collected ]; then echo none; "
-        "elif [ -f exit ]; then echo finished; "
-        f"elif systemctl is-active --quiet {REMOTE_UNIT}; then echo running; "
-        "elif [ -f pid ]; then echo died; "
-        "else echo none; fi",
-        capture_output=True, text=True,
-    )
+    # A timeout as well as the keepalives: at 4.y's close one poll hung for five
+    # hours with the link up, so the keepalives never fired, and the finished
+    # half sat uncollected; the timeout turns such a hang into one failed poll.
+    try:
+        probe = ssh(
+            host,
+            f"cd {REMOTE_RUN} 2>/dev/null || {{ echo none; exit 0; }}; "
+            "if [ -f collected ]; then echo none; "
+            "elif [ -f exit ]; then echo finished; "
+            f"elif systemctl is-active --quiet {REMOTE_UNIT}; then echo running; "
+            "elif [ -f pid ]; then echo died; "
+            "else echo none; fi",
+            capture_output=True, text=True, timeout=POLL_CALL_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return None
     state = probe.stdout.strip()
     if probe.returncode != 0 or state not in ("none", "running", "finished", "died"):
         return None
