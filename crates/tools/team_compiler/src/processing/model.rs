@@ -305,7 +305,8 @@ pub(super) fn package(
     // looks in the folder's places first, and a path of its into the team's pre-Fox Common
     // folder reaches `Common/`'s (`point_texture`); one converted with a `Common/` `.mtl` looks
     // in `Common/`'s alone (`PartTextures::Common`), and a Common part converted with the
-    // folder's own `.mtl` in the folder's, then in `Common/`'s (`PartTextures::CommonSet`).
+    // folder's own `.mtl` in the folder's, then in `Common/`'s nearest first from the
+    // model's own directory (`PartTextures::CommonSet`).
     // Validation refuses a player folder holding a texture and a link of one stem in one of its
     // folders (`texture_stem_conflict`), but not a link beside a combined shared folder's
     // texture of its stem: there the link wins, as the folder's own texture of its stem does.
@@ -346,7 +347,9 @@ pub(super) fn package(
         common_folders.insert_link(true, below);
     }
     // A Common part's places (`FolderPlaces::common`, the pre-Fox shape): every place is the
-    // team's Common output, so `common_home` stands for both homes.
+    // team's Common output, so `common_home` stands for both homes. `path` is the file whose
+    // references they serve: the `.mtl` that set the stems, or the Common model's own path
+    // for `CommonSet`'s fallback, whose `.mtl` sits in the folder, not below `Common/`.
     let common_places =
         |path: &ScopePath| common_folders.places(&common_scope, path, &common_home, &common_home);
     // A folder part's places: its folder's textures and links nearest first, each in its
@@ -383,11 +386,14 @@ pub(super) fn package(
                 PartTextures::Common => common_places(&part.references_from),
                 PartTextures::CommonSet => {
                     let mut places = folder_places(part);
-                    places.extend(common_places(&part.references_from));
+                    places.extend(common_places(&part.path));
                     places
                 }
             };
             let mut model = FmdlFile::read(&part.bytes)?;
+            // The verdicts `point_texture` decides for the part's Common paths, by the path
+            // it writes them to (`texture_supply`).
+            let mut common_supplies = BTreeMap::new();
             rewrite_texture_paths(&mut model, |path| {
                 let below = texture_lookup::path_below(&path.directory).map(|subdirectory| {
                     match part.textures {
@@ -409,14 +415,20 @@ pub(super) fn package(
                 });
                 match below {
                     Some(places) => point_texture_below(path, &places),
-                    None => point_texture(
-                        path,
-                        &places,
-                        (&common_stems, &common_directory),
-                        &common_folders,
-                        &common_home,
-                        &team_segment,
-                    ),
+                    None => {
+                        if let Some(supply) = point_texture(
+                            path,
+                            &places,
+                            &common_stems,
+                            &common_folders,
+                            &common_home,
+                            &team_segment,
+                            &installed_holds,
+                        ) {
+                            common_supplies
+                                .insert(format!("{}{}", path.directory, path.file_name), supply);
+                        }
+                    }
                 }
             })?;
             for path in used_texture_paths(&model)? {
@@ -426,7 +438,13 @@ pub(super) fn package(
                         ("texture", format!("{}{}", path.directory, path.file_name)),
                     ]
                 };
-                match texture_supply(&path, &common_stems, &common_directory, &installed_holds) {
+                match texture_supply(
+                    &path,
+                    &common_supplies,
+                    &common_stems,
+                    &common_directory,
+                    &installed_holds,
+                ) {
                     TextureSupply::Supplied => {}
                     TextureSupply::Missing => {
                         return Err(TaskFailure {
@@ -696,71 +714,80 @@ fn split_fmdl(bytes: &[u8]) -> anyhow::Result<SplitFmdl> {
 /// kit reference (`pants_kitN`), gives the directory, with that texture's own subdirectory
 /// below it (`jessie/`). Else a path into the team's pre-Fox Common folder
 /// (`model/character/uniform/common/<team>/`, how a member's pre-Fox `.mtl` names a texture of
-/// `Common/`), read as the deep pass reads it (`user_face_xml::reference`), goes to the
-/// directory of `common`, the `Common/` textures, when they hold its stem: the evidence on
-/// which the deep pass calls it supplied (`pipeline.md` step 3 "Format conversion"). One into
-/// a `Common/` subfolder resolves at that path alone, in the places `common_folders` gives for
-/// the directory it names below `Common/`, named by `common_home`. Any other
-/// texture is one of the game's own, whose directory names the team as `000`, replaced by
-/// `team_segment`. The file name is never changed: the game itself respells a reference for
-/// the kit picked.
+/// `Common/`), read as the deep pass reads it (`user_face_xml::reference`), is pointed at the
+/// team's Fox Common output at its subdirectory below `Common/` (`common_home` for a direct
+/// one, its `jessie/` subdirectory for `jessie/skin`), whether or not the export holds it
+/// there, and its supply is returned, decided here where the reference is resolved: supplied
+/// when the Common textures Fox packs hold its stem at that path (`common_stems`, the export's
+/// `Common/` textures and the paths the folder's texture links stand for, for a direct one;
+/// `common_folders`' places of the directory it names, for one into a subfolder, which
+/// resolves at that path alone), else what `installed_holds` answers for its path below
+/// `Common/` (`None` when the installed CPKs cannot be looked in). Any other texture is one
+/// of the game's own, whose directory names the team as `000`, replaced by `team_segment`.
+/// The file name is never changed: the game itself respells a reference for the kit picked.
 fn point_texture(
     path: &mut TexturePath,
     places: &[(&TexturePlace, &TextureDirectory)],
-    common: (&BTreeSet<String>, &str),
+    common_stems: &BTreeSet<String>,
     common_folders: &TextureFolders,
     common_home: &TextureDirectory,
     team_segment: &str,
-) {
+    installed_holds: impl Fn(&str) -> Option<bool>,
+) -> Option<TextureSupply> {
     let stem = file_stem(&path.file_name);
     let key = vtree::fold_name(stem);
     let holds = |stems: &BTreeSet<String>| {
         stems.contains(&key) || has_variant_among(stem, stems.iter().map(String::as_str))
     };
-    let (common_stems, common_directory) = common;
-    let place = places
-        .iter()
-        .find_map(|(textures, directory)| {
-            let below = textures
-                .get(&key)
-                .map(String::as_str)
-                .or_else(|| texture_lookup::variant(textures, stem))?;
-            Some(directory.of(texture_lookup::split(below).0))
-        })
-        .or_else(|| {
+    let place = places.iter().find_map(|(textures, directory)| {
+        let below = textures
+            .get(&key)
+            .map(String::as_str)
+            .or_else(|| texture_lookup::variant(textures, stem))?;
+        Some(directory.of(texture_lookup::split(below).0))
+    });
+    let (place, supply) = match place {
+        Some(directory) => (Some(directory), None),
+        None => {
             let written = format!("{}{}", path.directory, path.file_name);
             match reference(&written) {
-                // A direct Common path names a texture directly in `Common/`, which
-                // `common`'s stems hold.
-                Reference::Common { file_name, .. } if !file_name.contains('/') => {
-                    holds(common_stems).then(|| common_directory.to_owned())
-                }
-                // One into a `Common/` subfolder resolves at that path alone, among the
-                // Common textures Fox packs (the arm above already took the direct ones).
                 Reference::Common { file_name, .. } => {
                     let (subdirectory, _) = texture_lookup::split(&file_name);
-                    common_folders
-                        .folder(subdirectory)
-                        .iter()
-                        .find_map(|(place, which)| {
-                            let below = place
-                                .get(&key)
-                                .map(String::as_str)
-                                .or_else(|| texture_lookup::variant(place, stem))?;
-                            Some(
-                                which
-                                    .directory(common_home, common_home)
-                                    .of(texture_lookup::split(below).0),
-                            )
-                        })
+                    let held = if subdirectory.is_empty() {
+                        // A direct Common path names a texture directly in `Common/`,
+                        // which `common_stems` holds.
+                        holds(common_stems)
+                    } else {
+                        // One into a `Common/` subfolder resolves at that path alone,
+                        // among the Common textures Fox packs.
+                        common_folders
+                            .folder(subdirectory)
+                            .iter()
+                            .any(|(place, _)| {
+                                place.contains_key(&key)
+                                    || texture_lookup::variant(place, stem).is_some()
+                            })
+                    };
+                    let supply = if held {
+                        TextureSupply::Supplied
+                    } else {
+                        match installed_holds(file_stem(&file_name)) {
+                            Some(true) => TextureSupply::Supplied,
+                            Some(false) => TextureSupply::Missing,
+                            None => TextureSupply::Unknown,
+                        }
+                    };
+                    (Some(common_home.of(subdirectory)), Some(supply))
                 }
-                _ => None,
+                _ => (None, None),
             }
-        });
+        }
+    };
     path.directory = match place {
         Some(directory) => directory,
         None => path.directory.replace("/000/", team_segment),
     };
+    supply
 }
 
 /// Points `path`, a texture reference naming a path below its file's folder
@@ -797,23 +824,23 @@ enum TextureSupply {
 }
 
 /// Whether the texture at `path`, already pointed where it goes, is supplied: not looked for
-/// when its stem starts with `dummy_`; missing when its directory still names a path below its
-/// file's folder (`texture_lookup::path_below`: no texture sat there); missing when its
-/// directory still spells a Common path into a `Common/` subfolder (`point_texture` found no
-/// texture at that path among the Common textures Fox packs) that no installed CPK holds at
-/// that path either; not looked for when its
-/// directory is not `common_directory`, the team's Common texture directory, a path a link
-/// below a subfolder points into a `Common/` subfolder's directory (`.../<team>/jessie/
-/// sourceimages/`) included: validation has checked the link (`common_link_missing`), so
-/// only a `Common/` subfolder file nothing links would go unproven, and that is
-/// `file_not_used`'s; supplied when
-/// its stem, or a variant of its set for a kit
-/// reference (`pants_kitN`), is among `common_stems` (the export's `Common/` textures and the
-/// paths the folder's texture links stand for, folded), or when `installed_holds` says an
-/// installed CPK holds the stem's
-/// Common texture (`None`: they cannot be looked in). Directories and stems compare folded.
+/// when its stem starts with `dummy_`; what `supplies` says for it, the verdicts
+/// `point_texture` returned for the paths spelled as Common paths (`user_face_xml::reference`)
+/// it rewrote, keyed by the path it wrote: such a path is pointed at the team's Fox Common
+/// output at its subdirectory whether or not anything holds the stem there, so the written
+/// directory alone does not say (and a `Common/` subfolder's directory is no
+/// `common_directory`'s, which it would read as not looked for); missing when its directory
+/// still names a path below its file's folder (`texture_lookup::path_below`: no texture sat
+/// there); supplied when its stem, or a variant of its set for a kit reference
+/// (`pants_kitN`), is among `common_stems` (the export's `Common/` textures and the paths the
+/// folder's texture links stand for, folded), or when `installed_holds` says an installed CPK
+/// holds the stem's Common texture (`None`: they cannot be looked in); not looked for when
+/// its directory is not `common_directory`, the team's Common texture directory, a player's
+/// own home, the game's own or a Fox `000` path into a `Common/` subfolder included.
+/// Directories and stems compare folded.
 fn texture_supply(
     path: &TexturePath,
+    supplies: &BTreeMap<String, TextureSupply>,
     common_stems: &BTreeSet<String>,
     common_directory: &str,
     installed_holds: impl Fn(&str) -> Option<bool>,
@@ -823,24 +850,13 @@ fn texture_supply(
     if folded.starts_with("dummy_") {
         return TextureSupply::Supplied;
     }
+    if let Some(supply) = supplies.get(&format!("{}{}", path.directory, path.file_name)) {
+        return *supply;
+    }
     if texture_lookup::path_below(&path.directory).is_some() {
         return TextureSupply::Missing;
     }
     if vtree::fold_name(&path.directory) != vtree::fold_name(common_directory) {
-        // The path a Common subfolder reference kept when nothing at it resolved:
-        // `model/character/uniform/common/<team>/jessie/skin.dds`. An installed CPK's
-        // texture at that path below `Common/` supplies it; any other directory is a
-        // texture of the game's own or the folder's, which are not looked in.
-        let written = format!("{}{}", path.directory, path.file_name);
-        if let Reference::Common { file_name, .. } = reference(&written)
-            && file_name.contains('/')
-        {
-            return match installed_holds(file_stem(&file_name)) {
-                Some(true) => TextureSupply::Supplied,
-                Some(false) => TextureSupply::Missing,
-                None => TextureSupply::Unknown,
-            };
-        }
         return TextureSupply::Supplied;
     }
     if common_stems.contains(&folded)
@@ -930,7 +946,7 @@ mod tests {
             .chain(linked)
             .map(|stem| (*stem).to_owned())
             .collect();
-        texture_supply(&path, &stems, COMMON_714, |_| installed)
+        texture_supply(&path, &BTreeMap::new(), &stems, COMMON_714, |_| installed)
     }
 
     #[test]
@@ -1018,8 +1034,10 @@ mod tests {
         );
         let lookup = installed_lookup(&installed, 714);
         let none = BTreeSet::new();
-        let supplied =
-            |file_name: &str| texture_supply(&path(file_name), &none, COMMON_714, &lookup);
+        let no_verdict = BTreeMap::new();
+        let supplied = |file_name: &str| {
+            texture_supply(&path(file_name), &no_verdict, &none, COMMON_714, &lookup)
+        };
         assert_eq!(supplied("pants_kitN.dds"), TextureSupply::Supplied);
         assert_eq!(supplied("pants_kit1.dds"), TextureSupply::Supplied);
         assert_eq!(supplied("socks_kitN.dds"), TextureSupply::Missing);
@@ -1027,12 +1045,24 @@ mod tests {
         // Another team's Common output holds nothing of team 714's.
         let other_team = installed_lookup(&installed, 702);
         assert_eq!(
-            texture_supply(&path("pants_kitN.dds"), &none, COMMON_714, &other_team),
+            texture_supply(
+                &path("pants_kitN.dds"),
+                &no_verdict,
+                &none,
+                COMMON_714,
+                &other_team
+            ),
             TextureSupply::Missing
         );
         let unknown = installed_lookup(&InstalledPaths::Unknown, 714);
         assert_eq!(
-            texture_supply(&path("pants_kitN.dds"), &none, COMMON_714, &unknown),
+            texture_supply(
+                &path("pants_kitN.dds"),
+                &no_verdict,
+                &none,
+                COMMON_714,
+                &unknown
+            ),
             TextureSupply::Unknown
         );
     }
@@ -1064,10 +1094,11 @@ mod tests {
         point_texture(
             &mut path,
             &[(&own, &home), (&linked, &common)],
-            (&linked_stems, "/common/"),
+            &linked_stems,
             &folders,
             &common,
             "/792/",
+            |_| None,
         );
         assert_eq!(path.file_name, file_name);
         path.directory
@@ -1087,10 +1118,11 @@ mod tests {
         point_texture(
             &mut path,
             &[(&own, &plain("/home/"))],
-            (&common, "/common/"),
+            &common,
             &folders,
             &plain("/common/"),
             "/714/",
+            |_| None,
         );
         assert_eq!(path.file_name, file_name);
         path.directory
@@ -1126,21 +1158,110 @@ mod tests {
             pointed_from(pre_fox, "shirt.dds", &["shirt"], &["shirt"]),
             "/home/"
         );
-        // Left as written when `Common/` does not hold the stem.
-        assert_eq!(pointed_from(pre_fox, "shirt.dds", &[], &["skin"]), pre_fox);
-        // Only a pre-Fox Common path reaches `Common/`: a `./` path, a player's pre-Fox texture
-        // home below the team's folder, or a Fox path of the game's own does not.
-        for directory in [
-            "./",
-            "model/character/uniform/common/714/05 - A/",
-            "/Assets/pes16/model/character/common/sourceimages/",
-        ] {
+        // Pointed at the team's Common output too when `Common/` does not hold the stem:
+        // the installed CPKs decide its supply.
+        assert_eq!(
+            pointed_from(pre_fox, "shirt.dds", &[], &["skin"]),
+            "/common/"
+        );
+        // Only a pre-Fox Common path reaches `Common/`: a `./` path or a Fox path of the
+        // game's own does not. One below a directory of the team's folder is a `Common/`
+        // subfolder path, at its subdirectory of the Fox output.
+        for directory in ["./", "/Assets/pes16/model/character/common/sourceimages/"] {
             assert_eq!(
                 pointed_from(directory, "shirt.dds", &[], &["shirt"]),
                 directory,
                 "{directory}"
             );
         }
+        assert_eq!(
+            pointed_from(
+                "model/character/uniform/common/714/05 - A/",
+                "shirt.dds",
+                &[],
+                &["shirt"]
+            ),
+            "/common/05 - A/"
+        );
+    }
+
+    /// The directory `point_texture` gives the pre-Fox Common path `directory` + `file_name`
+    /// and the supply `texture_supply` reports for it: `below` the Common textures the export
+    /// packs at their paths below `Common/`, `holds` the installed CPKs' answer.
+    fn common_supply(
+        directory: &str,
+        file_name: &str,
+        below: &[&str],
+        holds: impl Fn(&str) -> Option<bool>,
+    ) -> (String, TextureSupply) {
+        let mut path = TexturePath {
+            file_name: file_name.to_owned(),
+            directory: directory.to_owned(),
+        };
+        let mut folders = TextureFolders::default();
+        for &below in below {
+            folders.insert(true, below);
+        }
+        let stems = BTreeSet::new();
+        let home = paths::common_home(Engine::Fox, 714);
+        let mut supplies = BTreeMap::new();
+        if let Some(supply) =
+            point_texture(&mut path, &[], &stems, &folders, &home, "/714/", &holds)
+        {
+            supplies.insert(format!("{}{}", path.directory, path.file_name), supply);
+        }
+        (
+            path.directory.clone(),
+            texture_supply(&path, &supplies, &stems, COMMON_714, &holds),
+        )
+    }
+
+    #[test]
+    fn a_common_path_is_pointed_at_the_fox_common_output_whether_held_or_not() {
+        // The installed CPKs hold `skin` and `jessie/skin` below `Common/` and nothing else.
+        let installed = InstalledPaths::Known(
+            ["skin", "jessie/skin"]
+                .iter()
+                .map(|below| vtree::fold_name(&paths::common_texture(Engine::Fox, 714, below)))
+                .collect(),
+        );
+        let known = installed_lookup(&installed, 714);
+        let uninstalled = InstalledPaths::Unknown;
+        let unknown = installed_lookup(&uninstalled, 714);
+        let direct = "model/character/uniform/common/000/";
+        let jessie_dir = "model/character/uniform/common/000/jessie/";
+        let jessie = "/Assets/pes16/model/character/common/714/jessie/sourceimages/";
+        assert_eq!(
+            common_supply(direct, "skin.dds", &[], &known),
+            (COMMON_714.to_owned(), TextureSupply::Supplied)
+        );
+        assert_eq!(
+            common_supply(jessie_dir, "skin.dds", &[], &known),
+            (jessie.to_owned(), TextureSupply::Supplied)
+        );
+        // What nothing holds is still pointed there: `other`'s supply is the installed
+        // answer, `Unknown` when they cannot be looked in.
+        assert_eq!(
+            common_supply(direct, "other.dds", &[], &known),
+            (COMMON_714.to_owned(), TextureSupply::Missing)
+        );
+        assert_eq!(
+            common_supply(jessie_dir, "other.dds", &[], &known),
+            (jessie.to_owned(), TextureSupply::Missing)
+        );
+        assert_eq!(
+            common_supply(direct, "other.dds", &[], &unknown),
+            (COMMON_714.to_owned(), TextureSupply::Unknown)
+        );
+        assert_eq!(
+            common_supply(jessie_dir, "other.dds", &[], &unknown),
+            (jessie.to_owned(), TextureSupply::Unknown)
+        );
+        // One the export does hold stays supplied without asking the installed CPKs.
+        assert_eq!(
+            common_supply(jessie_dir, "skin.dds", &["jessie/skin"], &unknown),
+            (jessie.to_owned(), TextureSupply::Supplied)
+        );
     }
 
     /// `pointed_from` with the `Common/` textures `below`, each at its path below `Common/`:
@@ -1158,10 +1279,11 @@ mod tests {
         point_texture(
             &mut path,
             &[],
-            (&none, "/common/"),
+            &none,
             &folders,
             &plain("/common/"),
             "/714/",
+            |_| None,
         );
         path.directory
     }
@@ -1173,11 +1295,12 @@ mod tests {
             pointed_at_below(pre_fox, "skin.dds", &["jessie/skin"]),
             "/common/jessie/"
         );
-        // With nothing there it is left as written, the `/000/` replaced by the team's.
+        // With nothing there it is still pointed at the subdirectory of the team's
+        // Common output: the installed CPKs decide its supply.
         for below in [&["other/skin"][..], &[][..]] {
             assert_eq!(
                 pointed_at_below(pre_fox, "skin.dds", below),
-                "model/character/uniform/common/714/jessie/",
+                "/common/jessie/",
                 "{below:?}"
             );
         }
@@ -1226,10 +1349,11 @@ mod tests {
             point_texture(
                 &mut path,
                 &[(&place(below), &home)],
-                (&BTreeSet::new(), "/common/"),
+                &BTreeSet::new(),
                 &folders,
                 &plain("/common/"),
                 "/714/",
+                |_| None,
             );
             path.directory
         };

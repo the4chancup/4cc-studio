@@ -899,10 +899,16 @@ fn a_link_to_an_ftex_points_the_player_s_model_at_the_one_copy_in_the_team_s_com
 /// The tracer's hair model with its `shirt.dds` renamed `hair.dds` and pointed at the game's
 /// own Common texture folder, which names no team.
 fn model_naming_game_hair() -> Vec<u8> {
+    model_naming_game("hair.dds")
+}
+
+/// The tracer's hair model with its `shirt.dds` renamed `file_name` and pointed at the game's
+/// own Common texture folder, which names no team.
+fn model_naming_game(file_name: &str) -> Vec<u8> {
     let mut file = FmdlFile::read(&tracer_player_file("fcl_hair.fmdl")).unwrap();
     rewrite_texture_paths(&mut file, |path| {
         if path.file_name == "shirt.dds" {
-            path.file_name = "hair.dds".to_owned();
+            path.file_name = file_name.to_owned();
             path.directory = GAME_COMMON_DIRECTORY.to_owned();
         }
     })
@@ -1320,6 +1326,149 @@ fn a_common_path_into_a_subfolder_resolves_at_that_path_on_pes_21() {
             == "/Assets/pes16/model/character/common/714/jessie/sourceimages/"),
         "{directories:?}"
     );
+}
+
+// TC-CMN-25
+#[test]
+fn a_linked_common_model_brings_the_textures_above_it_and_resolves_nearest_first() {
+    let sandbox = Sandbox::new("cmn_deep_model_textures");
+    let export = "co Midcup Nested";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/jessie/parts/body.fmdl.common"), b"");
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/parts/body.fmdl"),
+        &model_naming_game("skin.dds"),
+    );
+    // `skin` resolves nearest first from `parts/` up to `Common/`: `jessie/`'s own, which
+    // the link brings, not `Common/`'s of other bytes.
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/skin.dds"),
+        &small_dds(),
+    );
+    sandbox.write(
+        &format!("exports/{export}/Common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert!(
+        findings_of(&lines, export)
+            .iter()
+            .all(|line| !(line.contains("file_not_used") && line.contains("jessie/skin.dds"))),
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // Packed once, at `jessie/`'s path below the team's Common output, converted from
+    // `Common/jessie/skin.dds`, not `Common/`'s.
+    let skin = "Asset/model/character/common/714/jessie/sourceimages/#windx11/skin.ftex";
+    assert_eq!(
+        entries.get(skin),
+        Some(&ftex::dds_to_ftex(&small_dds(), ftex::ColorSpace::Normal).unwrap()),
+        "{:#?}",
+        entries.keys()
+    );
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("fcl_hair.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/jessie/sourceimages/"),
+        "{directories:?}"
+    );
+}
+
+// TC-CMN-25
+#[test]
+fn a_common_model_converted_with_the_player_s_own_mtl_resolves_beside_the_model() {
+    let sandbox = Sandbox::new("cmn_model_own_mtl_nested");
+    let export = "co Midcup Nested";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/jessie/body.model.common"), b"");
+    // His own `jessie/body.mtl`, which the search prefers to `Common/`'s, names `skin`,
+    // which he does not hold: the stem still finds the Common model's own texture, in
+    // `jessie/`, not `Common/`'s root's of other bytes.
+    sandbox.write(&format!("{player}/jessie/body.mtl"), &card_materials());
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/body.model"),
+        &card_model(),
+    );
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/body.mtl"),
+        &card_materials(),
+    );
+    sandbox.write(
+        &format!("exports/{export}/Common/jessie/skin.dds"),
+        &small_dds(),
+    );
+    sandbox.write(
+        &format!("exports/{export}/Common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=jessie/body.model.common)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let skin = "Asset/model/character/common/714/jessie/sourceimages/#windx11/skin.ftex";
+    assert_eq!(
+        entries.get(skin),
+        Some(&ftex::dds_to_ftex(&small_dds(), ftex::ColorSpace::Normal).unwrap()),
+        "{:#?}",
+        entries.keys()
+    );
+    let package = face_package(&entries);
+    let directories = texture_directories(package.get("fcl_hair.fmdl").unwrap(), "skin.dds");
+    assert!(!directories.is_empty());
+    assert!(
+        directories.iter().all(|directory| directory
+            == "/Assets/pes16/model/character/common/714/jessie/sourceimages/"),
+        "{directories:?}"
+    );
+}
+
+// TC-CMN-25
+#[test]
+fn a_player_s_mtl_paired_with_his_own_model_does_not_resolve_in_common() {
+    // `face_high.model` is his own: the Common fallback is a linked Common `.model`'s
+    // alone, so `skin` is missing though `Common/skin.dds` sits there.
+    let sandbox = Sandbox::new("cmn_own_model_common_texture");
+    let export = "co Midcup Nested";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.model"), &card_model());
+    sandbox.write(&format!("{player}/face_high.mtl"), &card_materials());
+    sandbox.write(
+        &format!("exports/{export}/Common/skin.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=face_high.mtl, texture=./skin.dds, materials=card)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
 }
 
 // TC-CMN-23

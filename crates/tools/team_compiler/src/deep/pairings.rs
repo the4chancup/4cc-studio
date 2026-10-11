@@ -31,7 +31,7 @@ pub(super) struct Pairing<'a> {
     pub(super) file: &'a FileDescriptor,
     /// The model whose materials count: the file itself, or a link's kept `Common/` model;
     /// `None` when the pass dropped that model.
-    model: Option<&'a ScopePath>,
+    pub(super) model: Option<&'a ScopePath>,
     /// The `.mtl`: the one the folder's `face.xml` entry names, or the search's (`mtl_for`);
     /// `None` when the search finds none.
     pub(super) mtl: Option<&'a FileDescriptor>,

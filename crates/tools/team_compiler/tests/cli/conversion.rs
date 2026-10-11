@@ -688,8 +688,9 @@ fn a_converted_path_into_the_pre_fox_common_folder_names_the_fox_one_when_common
         "{directories:?}"
     );
 
-    // Without: left as written, as any path the export does not hold, and the deep check's
-    // lookup says so.
+    // Without: pointed at the team's Fox Common output all the same, which no installed
+    // CPK is there to confirm, so the task's lookup says it could not look on top of the
+    // deep check's.
     let missing = Sandbox::new("conversion_pre_fox_common_path_missing");
     write(&missing, false);
     let (code, lines, entries) = compiled_for(&missing, 21, "", export);
@@ -699,6 +700,7 @@ fn a_converted_path_into_the_pre_fox_common_folder_names_the_fox_one_when_common
             "Warning mtl_texture_not_found [Keep] at Players/05 - A (file=boots.mtl, texture=model/character/uniform/common/714/shirt.dds, materials=card)",
             identified,
             no_colors,
+            "Warning fmdl_texture_not_found [Keep] at Players/05 - A (model=boots.model, texture=/Assets/pes16/model/character/common/714/sourceimages/shirt.dds)",
         ]
     );
     assert_eq!(code, 0);
@@ -707,7 +709,7 @@ fn a_converted_path_into_the_pre_fox_common_folder_names_the_fox_one_when_common
     assert!(
         directories
             .iter()
-            .all(|directory| directory == "model/character/uniform/common/714/"),
+            .all(|directory| directory == "/Assets/pes16/model/character/common/714/sourceimages/"),
         "{directories:?}"
     );
 }

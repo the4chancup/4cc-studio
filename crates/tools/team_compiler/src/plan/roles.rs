@@ -522,8 +522,10 @@ pub(crate) fn is_read_common_file(
 /// model the files that travel with it in its directory: the models of its stem in any format
 /// (the target selects one, `selected_common_model`), the `.skl` of its stem, every `.mtl`
 /// (the ones its `.mtl` search may land on, `mtl_search::mtl_for`) and every texture directly
-/// in it, which a link naming a `.mtl` brings as well: the shared model keeps the textures
-/// beside it, as `Common/`'s own direct textures are packed whether a model names them or not
+/// in it and in each directory above it up to `Common/`, where its names resolve nearest first
+/// (`Common/`'s own direct textures are packed anyway), which a link naming a `.mtl` brings
+/// as well: the shared model keeps the textures beside it, as `Common/`'s own direct textures
+/// are packed whether a model names them or not
 /// (`pipeline.md` step 4 "Common"). What PES 18-21 reads of a
 /// subfolder (`is_read_common_file`); computed once per export, from the validated export.
 pub(crate) fn linked_common_files(export: &ValidatedAestheticsExport) -> BTreeSet<ScopePath> {
@@ -551,29 +553,50 @@ pub(crate) fn linked_common_files(export: &ValidatedAestheticsExport) -> BTreeSe
             }
             linked.insert(target.path.clone());
             let (directory, stem) = directory_stem(target);
+            // The directories above the target's own up to `Common/` (`Common/`'s own
+            // direct textures are packed anyway): `Common/jessie` for
+            // `Common/jessie/parts/body.fmdl`. A name resolves nearest first from the
+            // file's own directory up to `Common/`, so a model or `.mtl` link brings the
+            // textures directly in each of them too; a subfolder of any of them stays
+            // out, a bare name never resolving down.
+            let mut ancestors = BTreeSet::new();
+            let mut above = target.path.parent().and_then(|own| own.parent());
+            while let Some(directory_above) = above {
+                if directory_above.segments().count() == 1 {
+                    break;
+                }
+                ancestors.insert(directory_above.fold_key());
+                above = directory_above.parent();
+            }
             let travelling = export.common.iter().filter(|other| {
                 let (other_directory, other_stem) = directory_stem(other);
-                other_directory == directory
-                    && match target.kind {
-                        FileKind::Model(_) => {
-                            other.kind == FileKind::Texture
-                                || other.kind == FileKind::Mtl
-                                || (other_stem == stem
-                                    && matches!(other.kind, FileKind::Model(_) | FileKind::Skl))
+                let in_ancestor = matches!(target.kind, FileKind::Model(_) | FileKind::Mtl)
+                    && other.kind == FileKind::Texture
+                    && other_directory
+                        .as_ref()
+                        .is_some_and(|other| ancestors.contains(other.as_str()));
+                in_ancestor
+                    || other_directory == directory
+                        && match target.kind {
+                            FileKind::Model(_) => {
+                                other.kind == FileKind::Texture
+                                    || other.kind == FileKind::Mtl
+                                    || (other_stem == stem
+                                        && matches!(other.kind, FileKind::Model(_) | FileKind::Skl))
+                            }
+                            FileKind::Mtl => other.kind == FileKind::Texture,
+                            FileKind::Texture
+                            | FileKind::Skl
+                            | FileKind::Fclo
+                            | FileKind::Xml
+                            | FileKind::MaterialsToml
+                            | FileKind::Bin
+                            | FileKind::SharedLink(_)
+                            | FileKind::CommonLink
+                            | FileKind::Marker(_)
+                            | FileKind::Metadata(_)
+                            | FileKind::Other => false,
                         }
-                        FileKind::Mtl => other.kind == FileKind::Texture,
-                        FileKind::Texture
-                        | FileKind::Skl
-                        | FileKind::Fclo
-                        | FileKind::Xml
-                        | FileKind::MaterialsToml
-                        | FileKind::Bin
-                        | FileKind::SharedLink(_)
-                        | FileKind::CommonLink
-                        | FileKind::Marker(_)
-                        | FileKind::Metadata(_)
-                        | FileKind::Other => false,
-                    }
             });
             linked.extend(travelling.map(|other| other.path.clone()));
         }
@@ -3589,6 +3612,60 @@ mod tests {
                 .iter()
                 .map(|path| (*path).to_owned())
                 .collect()
+        );
+    }
+
+    #[test]
+    fn a_link_to_a_deeper_common_file_brings_the_textures_above_it_too() {
+        // `Common/jessie/parts/body.fmdl`'s names resolve nearest first from `parts/` up
+        // to `Common/`: a link to it or to its `.mtl` brings `jessie/`'s textures as well
+        // as `parts/`'s, nothing of `jessie/other/` (a bare name never resolves down),
+        // and none of `Common/`'s own, packed anyway.
+        let linked = |link: &str| -> BTreeSet<String> {
+            let (export, _) = resolved_with_issues(
+                "co Midcup Link",
+                &[
+                    ("Players/03 - A/face_high.fmdl", 1),
+                    (link, 0),
+                    ("Common/jessie/parts/body.fmdl", 1),
+                    ("Common/jessie/parts/body.mtl", 1),
+                    ("Common/jessie/parts/body.skl", 1),
+                    ("Common/jessie/parts/x.dds", 1),
+                    ("Common/jessie/skin.dds", 1),
+                    ("Common/jessie/other/y.dds", 1),
+                    ("Common/skin.dds", 1),
+                ],
+                &[],
+                None,
+            );
+            linked_common_files(&export.export)
+                .iter()
+                .map(|path| path.as_str().to_owned())
+                .collect()
+        };
+        assert_eq!(
+            linked("Players/03 - A/jessie/parts/body.fmdl.common"),
+            [
+                "Common/jessie/parts/body.fmdl",
+                "Common/jessie/parts/body.mtl",
+                "Common/jessie/parts/body.skl",
+                "Common/jessie/parts/x.dds",
+                "Common/jessie/skin.dds",
+            ]
+            .iter()
+            .map(|path| (*path).to_owned())
+            .collect()
+        );
+        assert_eq!(
+            linked("Players/03 - A/jessie/parts/body.mtl.common"),
+            [
+                "Common/jessie/parts/body.mtl",
+                "Common/jessie/parts/x.dds",
+                "Common/jessie/skin.dds",
+            ]
+            .iter()
+            .map(|path| (*path).to_owned())
+            .collect()
         );
     }
 

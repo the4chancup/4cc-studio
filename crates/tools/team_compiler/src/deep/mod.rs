@@ -1032,7 +1032,30 @@ fn folder_findings(
             && let Some(read) = materials.get(&file.path)
         {
             let used = used_names(&pairings, &file.path, &materials, common);
-            let places = held.of(&file.path);
+            // A `.mtl` a Common `.model` pairs with on Fox: the task resolves its stems in
+            // the folder, where the `.mtl` set them, then in `Common/`'s nearest first
+            // from the model's own directory (`processing::model`'s `PartTextures::
+            // CommonSet`). On pre-Fox the `.mtl` is packed in the face and resolves in
+            // the folder alone (`prefox_face::face`).
+            let common_model = match engine {
+                Engine::Fox => {
+                    pairings
+                        .iter()
+                        .find_map(|pairing| match (pairing.mtl, pairing.model) {
+                            (Some(mtl), Some(model))
+                                if mtl.path == file.path && is_common_file(model) =>
+                            {
+                                Some(model)
+                            }
+                            _ => None,
+                        })
+                }
+                Engine::PreFox => None,
+            };
+            let mut places = held.of(&file.path);
+            if let Some(model) = common_model {
+                places.extend(common_held.of(model));
+            }
             let sources = TextureSources {
                 held: &places,
                 below: (held, &file.path),

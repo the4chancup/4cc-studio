@@ -53,7 +53,9 @@ packed once at its path in the team's Common output; (b3b3) done 2026-10-10: a p
 own texture or texture link wins over a combined folder's, `shared_texture_overridden`;
 (b3b4a) done 2026-10-10: on PES 15-17 a `Common/` `.mtl` resolves its textures from its
 own `Common/` directory; (b3b4b) done 2026-10-10: on Fox a linked `Common/` subfolder
-model's textures travel with it and resolve beside it; (b3b4c) and (b3c1) next), 4.y-fix20
+model's textures travel with it and resolve beside it; (b3b4c) done 2026-10-11: S18.A3's
+fixes, a linked Common file bringing the textures above it and a player `.mtl` over a
+Common model falling back beside the model; (b3c1) next), 4.y-fix20
 done 2026-10-10 (S17's Astra round: the hidden-model drop decided once by the deep pass,
 which now takes a folder's own file off on `DropFile`; a package's names folded; the hand
 split's tests by faces), 4.y-fix21 done 2026-10-10 (the S18, S7 and S17 rounds' small fixes:
@@ -3998,56 +4000,64 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   "Subfolders", `object_model.md` "File-type allowlist", `messages.md`
   `player_layout_proto`, `texture_stem_conflict` and "User-supplied `face.xml`",
   `pipeline.md` step 6, `model_format.md`, `blue_port.md`, `export_upgrader.md` items 9
-  and 12). Briefed in slices, each its own commit: (a) roles and the allowlist: the
-  reserved subfolders removed from `roles.rs` (`position`, `model_role`'s forced
-  categories, `face_file`), a subfolder's files typed by their names at any depth, the
-  root's markers, settings and links alone counting, a shared folder's subfolder files
-  `file_type_disallowed`, the refs `player_layout_proto` refusal (TC-MOD-67, TC-MOD-68,
-  TC-REF-18); (b) the pre-Fox face: paths kept in the face CPK and the texture home,
-  `face.xml` entries by path, `./sub/name` a checked local reference, the `.mtl`
-  search's folders, the nearest-first texture lookup and the per-folder
-  `texture_stem_conflict` namespace (TC-MOD-66); (b3) links mirror `Common/`'s tree,
-  a model names a subfolder's texture by its path, shared folders take subfolders (the
-  maintainer, 2026-10-10, DECISIONS "links mirror `Common/`'s tree; a model names a
-  subfolder's texture by its path; shared folders take subfolders and links", superseding the
-  dotted-prefix rule of the same day): validation admits every link below a subfolder and
-  resolves a `.common` link against `Common/<its path>` (`links.rs`, the allowlist's rows),
-  `role_position` reads links at any depth, `shared_link_duplicate` counts the tree (one
-  folder twice counting once), `common_file`/`common_link_name` take the link's path,
-  `mtl_search` and `linked_common_materials` load a nested material link's target
-  (4.y-fix21's former item (1); every panic site S18.A1-1 and S18.1-C4 named:
-  `processing/model.rs`, `prefox_face.rs`, `prefox_shared.rs` `material_of`), the Common
-  tasks pack a linked subfolder file at its path, before `sourceimages` on Fox
-  (`is_read_common_file`), a player's subfolder texture moving there too from (b1)'s
-  `sourceimages/<sub>/#windx11/` (`TextureHome::texture`, the FMDL directory; DECISIONS "on
-  Fox a subfolder's texture sits before `sourceimages`"), and the pre-Fox Common output lists
-  it at its path (TC-CMN-20, TC-MOD-67, TC-MOD-70); a texture named with a path below the
-  model's folder resolves at that path, an FMDL directory starting with `./` read as one
-  (`./textures/`, TC-MOD-71), and a shared folder's subfolders follow the player folder's
-  rules (TC-MOD-68 reworded); TC-CMN-13 as it is; briefed as three slices, (b3a) the
-  texture named by its path and the Fox layout move, (b3b) nested `.common` links and the
-  Common tasks (sliced again: (b3b1) model and material links, (b3b2) texture links,
-  (b3b3) a player's own texture or texture link winning over a combined folder's with
-  `shared_texture_overridden`, DECISIONS "a player's own texture or link wins over a
-  combined folder's, as an Info", (b3b4) a `Common/` subfolder `.mtl` or model resolving
-  its textures in its own `Common/` directory, sliced again: (b3b4a) PES 15-17, (b3b4b)
-  Fox, where a linked model's or `.mtl`'s directory's textures travel with it), (b3b4c) S18.A3's fixes (`.tmp/4_y/duck_rulings.md` S18.A3-1 to -3: a
-  linked Common file brings the textures of each directory above its own too; a player
-  `.mtl` over a Common model falls back to the Common model's own directory; on Fox a
-  Common texture path is pointed at Fox's Common output, installed-supplied included);
-  (b3c) shared folders' trees, sliced again: (b3c1) a shared folder's
-  subfolders (TC-MOD-68, TC-MOD-73, TC-MOD-74), (b3c2) its `.common` links at any depth
-  (`pipeline.md` step 4's "links resolve from player folders alone" to rewrite first); (b4) kit-token folders (`kit1` to
-  `kit9`) form variant sets (`kitN/<name>`) in any folder, completed against the export's kit
-  numbers, their paths written verbatim (TC-CMN-21, TC-MOD-72: /hdg/'s per-kit Common folders
-  through a `kitN/` folder of links); the Export upgrader's half (a legacy
-  `common/XXX/u0XXXp0/sourceimages/` path becomes `./kitN/` and a `kitN/<name>.common` link)
-  is its phase's, `export_upgrader.md`; (c) Fox: a subfolder's models merged
-  into the packages, textures under the texture home at their path (TC-MOD-65); (d) the
-  deep pass over the tree (what `compile` reads, DECISIONS 2026-10-09 "One rule"). The
-  Export upgrader's carry-over is Phase 6's. Moot after this: S14.1-4 and the subfolder
-  half of S7.1-3 (a shared folder keeps the "directly in" rule, 4.y-fix11 item 3). Crates:
-  ae, tc
+  and 12). Briefed in slices, each its own commit:
+  - (a) roles and the allowlist: the reserved subfolders removed from `roles.rs` (`position`,
+    `model_role`'s forced categories, `face_file`), a subfolder's files typed by their names at
+    any depth, the root's markers, settings and links alone counting, a shared folder's
+    subfolder files `file_type_disallowed`, the refs `player_layout_proto` refusal (TC-MOD-67,
+    TC-MOD-68, TC-REF-18). Done.
+  - (b) the pre-Fox face: paths kept in the face CPK and the texture home, `face.xml` entries by
+    path, `./sub/name` a checked local reference, the `.mtl` search's folders, the nearest-first
+    texture lookup and the per-folder `texture_stem_conflict` namespace (TC-MOD-66). Landed as
+    (b1) and (b2).
+  - (b3) links mirror `Common/`'s tree, a model names a subfolder's texture by its path, shared
+    folders take subfolders (the maintainer, 2026-10-10, DECISIONS "links mirror `Common/`'s
+    tree; a model names a subfolder's texture by its path; shared folders take subfolders and
+    links", superseding the dotted-prefix rule of the same day): validation admits every link
+    below a subfolder and resolves a `.common` link against `Common/<its path>` (`links.rs`, the
+    allowlist's rows), `role_position` reads links at any depth, `shared_link_duplicate` counts
+    the tree (one folder twice counting once), `common_file`/`common_link_name` take the link's
+    path, `mtl_search` and `linked_common_materials` load a nested material link's target
+    (4.y-fix21's former item (1); every panic site S18.A1-1 and S18.1-C4 named:
+    `processing/model.rs`, `prefox_face.rs`, `prefox_shared.rs` `material_of`), the Common tasks
+    pack a linked subfolder file at its path, before `sourceimages` on Fox
+    (`is_read_common_file`), a player's subfolder texture moving there too from (b1)'s
+    `sourceimages/<sub>/#windx11/` (`TextureHome::texture`, the FMDL directory; DECISIONS "on
+    Fox a subfolder's texture sits before `sourceimages`"), and the pre-Fox Common output lists
+    it at its path (TC-CMN-20, TC-MOD-67, TC-MOD-70); a texture named with a path below the
+    model's folder resolves at that path, an FMDL directory starting with `./` read as one
+    (`./textures/`, TC-MOD-71), and a shared folder's subfolders follow the player folder's
+    rules (TC-MOD-68 reworded); TC-CMN-13 as it is. Sliced:
+    - (b3a) the texture named by its path and the Fox layout move. Done.
+    - (b3b) nested `.common` links and the Common tasks, sliced:
+      - (b3b1) model and material links. Done.
+      - (b3b2) texture links. Done.
+      - (b3b3) a player's own texture or texture link winning over a combined folder's with
+        `shared_texture_overridden` (DECISIONS "a player's own texture or link wins over a
+        combined folder's, as an Info"). Done.
+      - (b3b4) a `Common/` subfolder `.mtl` or model resolving its textures in its own `Common/`
+        directory, sliced:
+        - (b3b4a) PES 15-17. Done.
+        - (b3b4b) Fox, where a linked model's or `.mtl`'s directory's textures travel with it.
+          Done.
+        - (b3b4c) S18.A3's fixes (`.tmp/4_y/duck_rulings.md` S18.A3-1 to -3): a linked Common
+          file brings the textures of each directory above its own too; a player `.mtl` over a
+          Common model falls back to the Common model's own directory; on Fox a Common texture
+          path is pointed at Fox's Common output, installed-supplied included. Done.
+    - (b3c) shared folders' trees, sliced:
+      - (b3c1) a shared folder's subfolders (TC-MOD-68, TC-MOD-73, TC-MOD-74). Next.
+      - (b3c2) its `.common` links at any depth (`pipeline.md`'s "links resolve from player
+        folders alone" to rewrite first).
+  - (b4) kit-token folders (`kit1` to `kit9`) form variant sets (`kitN/<name>`) in any folder,
+    completed against the export's kit numbers, their paths written verbatim (TC-CMN-21,
+    TC-MOD-72: /hdg/'s per-kit Common folders through a `kitN/` folder of links); the Export
+    upgrader's half (a legacy `common/XXX/u0XXXp0/sourceimages/` path becomes `./kitN/` and a
+    `kitN/<name>.common` link) is its phase's, `export_upgrader.md`.
+  - (c) Fox: a subfolder's models merged into the packages, textures under the texture home at
+    their path (TC-MOD-65).
+  - (d) the deep pass over the tree (what `compile` reads, DECISIONS 2026-10-09 "One rule").
+  The Export upgrader's carry-over is Phase 6's. Moot after this: S14.1-4 and the subfolder half
+  of S7.1-3 (a shared folder keeps the "directly in" rule, 4.y-fix11 item 3). Crates: ae, tc
   → verify: TC-MOD-65 to TC-MOD-68 and TC-REF-18 proven, red first; the census export
   `HAHA Aesthetic Export VTL9 i3` (`C:/Data/4cc/Lab/`, 23 players, 688 nested files)
   compiles for PES 17 with every player kept and its face CPKs holding the tree.
@@ -4278,6 +4288,28 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   missed (`.tmp/4_y/mutants_sub_b3b4b_r1/`: the deep pass's Fox Common subfolder path
   untested end to end, two tests added; an always-true guard dropped; the engine
   decided by one `match`); after r2 44 mutants, 36 caught, 8 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b4b_r2.log`).
+  (b3b4c) done 2026-10-11 (SWE-2 High; brief `.tmp/4_y/brief_sub_b3b4c.md`, reworks `_r1`, `_r2`,
+  reports beside them; plan change `bfe0adb`, DECISIONS "a linked Common file brings the
+  textures above it too"): `linked_common_files` brings the textures directly in each
+  directory above a linked model's or `.mtl`'s up to `Common/` (S18.A3-1); the Fox
+  `CommonSet` fallback resolves from the Common model's own path, not the player's `.mtl`'s
+  (S18.A3-2), and the deep pass falls back the same way on Fox (the sidekick's
+  contradiction, accepted; pre-Fox has no such fallback in the task either; a player's
+  `.mtl` over his own model still never resolves in `Common/`, r2's test); on Fox every
+  pre-Fox Common texture path is pointed at Fox's Common output at its subdirectory, held or
+  not, `point_texture` returning its supply for `texture_supply` (S18.A3-3: an
+  installed-supplied one kept its pre-Fox directory). Ruled test changes: three
+  (`processing/model.rs` two, `tests/cli/conversion.rs` one, which now reports the
+  unsupplied Common path's `fmdl_texture_not_found` beside the deep pass's
+  `mtl_texture_not_found`). Files: `team_compiler` `deep/{mod,pairings}.rs`,
+  `plan/roles.rs`, `processing/model.rs`, `tests/cli/{common_links,conversion}.rs`. Gates
+  green, locally again (`.tmp/4_y/gates_sub_b3b4c_r2.log`); mutants r0 23 mutants, 20
+  caught, 3 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b4c_r0/`); r1 29 mutants, 24 caught,
+  3 unviable, 2 missed (the deep fallback's pairing guard untested, `mutants_sub_b3b4c_r1/`);
+  after r2 29 mutants, 26 caught, 3 unviable, 0 missed (`.tmp/4_y/mutants_sub_b3b4c_r2.log`).
+  Open: whether a player's `.mtl` over a Common `.model` on PES 15-17 needs the same Common
+  fallback (`prefox_face::face` resolves it in the folder alone; `pipeline.md` step 3 says a
+  player's material files layer over a Common-linked model's).
 
 - [x] 4.y-kitwarn **A sleeve or fit option the shirt model ignores is one Warning** (the
   maintainer's answer, 2026-10-10; DECISIONS 2026-10-10). The deep pass maps `kit_config`'s
@@ -4726,7 +4758,10 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
   which becomes the Phase 4 shapes), `messages.md`, `settings.md`, `object_model.md` "Validation
   semantics" (deep pass), `team_compiler/README.md` "Development phases" and the "Phase 3 scope"
   paragraph (its refusal list replaced by what Phase 3 built) in the present tense; resolved open
-  questions moved to "Resolved decisions"; the worklog's step list collapsed to the phase row →
+  questions moved to "Resolved decisions"; the worklog's step list collapsed to the phase row;
+  the dated log moved out of the worklog into its own append-only file (`docs/LOG.md`, a row in
+  `AGENTS.md`'s document table: the worklog holds where we are, the log what happened; the
+  maintainer, 2026-10-11, the worklog having grown past 7,000 lines) →
   verify: `rg -n "Phase 4" docs/plans` shows no future-tense Phase 4 sentence outside deferred
   items; the worklog's Phase 4 heading is one row plus any `manual: checked` lines
 
@@ -7137,3 +7172,5 @@ No rationale (→ plan), no decisions (→ `DECISIONS.md`).
   textures from its own `Common/` directory, a player's texture shadowing nothing.
 - **2026-10-10** — 4.y-sub (b3b4b) landed: on Fox a linked `Common/` subfolder model's
   textures travel with it and resolve beside it; S18.2's accepted findings with it.
+- **2026-10-11** — 4.y-sub (b3b4c) landed: S18.A3's three fixes to the Fox Common parts;
+  the step's slice plan restructured as a nested list.
