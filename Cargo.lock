@@ -1347,6 +1347,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "extra_mutants"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "syn 3.0.5",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -49,6 +49,10 @@ mutants-collect:
 mutants-diff base="HEAD":
     {{python}} scripts/mutants_diff.py {{base}}
 
+# The mutants cargo-mutants lacks (dropped `if` guards, literal-list elements) over one crate; `--list` only lists them (5.0b prototype)
+extra-mutants crate *args:
+    {{python}} scripts/extra_mutants.py {{crate}} {{args}}
+
 # Clef bug scan of the production lines changed since `base`; report in clef.out/report.md
 clef-diff base="HEAD":
     {{python}} scripts/clef_scan.py diff {{base}}

@@ -1,0 +1,16 @@
+[package]
+name = "extra_mutants"
+description = "Lists and runs the mutants cargo-mutants lacks: dropped if-guards and literal-list elements (worklog 5.0b)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+proc-macro2.workspace = true
+syn.workspace = true
+
+[lints]
+workspace = true

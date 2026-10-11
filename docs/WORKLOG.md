@@ -5225,7 +5225,10 @@ Fixed before the itemization:
   field. Not trialed: integer literals ±1 (boundaries are `<`→`<=` already, and offsets and
   sizes would add thousands of mutants the goldens catch), string literals, `..`↔`..=`, one
   side of an `&&`. Slices: 5.0b1 the lister with kinds (1)-(2) and the runner; 5.0b2 kinds
-  (3)-(5) and a `--kind` filter. → done when: each kind run over `aesthetics_export` on its
+  (3)-(5) and a `--kind` filter. 5.0b1 done 2026-10-12 (SWE-2, first attempt: `scan.rs` and
+  `main.rs` of `crates/dev/extra_mutants`, `scripts/extra_mutants.py`, `just extra-mutants`;
+  78 mutants listed in `aesthetics_export`, and `color_tools`' first run finds `kit.rs:191`'s
+  `total == 0` guard untested). → done when: each kind run over `aesthetics_export` on its
   own, its survivors triaged into real gaps and equivalents, and its own count decides
   whether it joins converge (worth it when at least about half its survivors are real gaps)
 - [x] 5.0c Red behavior inventory (maintainer, 2026-10-09; after Phase 4 closes, before Phase 5

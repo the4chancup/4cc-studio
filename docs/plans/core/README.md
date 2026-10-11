@@ -255,7 +255,7 @@ Trade-offs accepted:
 | `windows` | Win32 APIs: `elevation` (token query, `ShellExecuteExW`), later the match tracker's memory reading | 0.62.2 in use, `Win32_Foundation`, `Win32_Security`, `Win32_System_Registry` (a `SHELLEXECUTEINFOW` field), `Win32_System_Threading`, `Win32_UI_Shell`, `Win32_UI_WindowsAndMessaging`; Windows targets only |
 | `libc` | `geteuid` for `elevation` on POSIX | 0.2.189 in use; Unix targets only |
 | `qrcode` | QR timestamp widget (match tracker stream-sync aid) | Production-ready |
-| `syn` (3.x; `full`, `visit`) + `proc-macro2` (`span-locations`) | The dev tool `crates/dev/extra_mutants` alone (step 5.0b), linked into no release binary: it parses a crate's sources to list the mutants `cargo-mutants` lacks, and `span-locations` gives each node's position in the file for the text patch | Both already in the build with these features (`binrw_derive`, `serde_derive`), so nothing new compiles |
+| `syn` (3.x; `full`, `visit`, `parsing`, `printing`, no default features) + `proc-macro2` (`span-locations`) | The dev tool `crates/dev/extra_mutants` alone (step 5.0b), linked into no release binary: it parses a crate's sources to list the mutants `cargo-mutants` lacks, and `span-locations` gives each node's position in the file for the text patch | Both already in the build with these features (`binrw_derive`, `serde_derive`), so nothing new compiles |
 
 No frontend dependencies — the entire GUI is Rust, compiled to both native and WASM from the same
 codebase.
