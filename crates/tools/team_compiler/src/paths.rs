@@ -398,6 +398,11 @@ pub(crate) fn referee_marker(engine: Engine) -> String {
     }
 }
 
+/// The game's kit texture folder, as an FMDL texture path's directory spells it: the modded
+/// exe swaps its files per match, so a texture path into it names no fixed kit
+/// (`fmdl_texture_kit_path`, `model_format.md` "Kit-dependent assets").
+pub(crate) const KIT_TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/uniform/texture/";
+
 /// The CPK path of one kit texture, by its game name (`u0792g1`, `u0792g1_back`), converted
 /// for a target of `engine`: an FTEX on Fox, a DDS on pre-Fox.
 pub(crate) fn kit_texture(engine: Engine, name: &str) -> String {

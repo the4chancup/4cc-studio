@@ -364,6 +364,10 @@ pub(crate) enum Code {
     /// the run's supplies: the model's package is left out, or kept when the installed CPKs
     /// cannot be looked in.
     FmdlTextureNotFound,
+    /// A texture path one of a Fox model's meshes names in the game's kit texture folder,
+    /// kept unchanged: the modded exe swaps the kit textures per match, so a fixed file
+    /// there is not the kit the player wears.
+    FmdlTextureKitPath,
     /// A file a task reads cannot be read from its export; its folder is left out.
     SourceReadFailed,
     /// A task could not build its entries; its folder is left out.
@@ -465,7 +469,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 138] = [
+    const ALL: [Code; 139] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -571,6 +575,7 @@ impl Code {
         Code::MtlBroken,
         Code::CommonModelBeatenDropped,
         Code::FmdlTextureNotFound,
+        Code::FmdlTextureKitPath,
         Code::SourceReadFailed,
         Code::FolderPackFailed,
         Code::DpfilelistMissing,
@@ -714,6 +719,7 @@ impl Code {
             Code::MtlBroken => "mtl_broken",
             Code::CommonModelBeatenDropped => "common_model_beaten_dropped",
             Code::FmdlTextureNotFound => "fmdl_texture_not_found",
+            Code::FmdlTextureKitPath => "fmdl_texture_kit_path",
             Code::SourceReadFailed => "source_read_failed",
             Code::FolderPackFailed => "folder_pack_failed",
             Code::DpfilelistMissing => "dpfilelist_missing",
@@ -877,6 +883,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("mtl_broken", CatalogSeverity::Error),
     ("common_model_beaten_dropped", CatalogSeverity::Info),
     ("fmdl_texture_not_found", CatalogSeverity::ErrorUnlessKept),
+    ("fmdl_texture_kit_path", CatalogSeverity::Warning),
     ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
     ("dpfilelist_missing", CatalogSeverity::ErrorOrWarning),
     ("installed_bin_unreadable", CatalogSeverity::Fatal),

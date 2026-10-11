@@ -96,7 +96,10 @@ enum PartTextures {
 /// into one model is noted in `findings` as `fmdl_merged`. A texture a
 /// part's mesh uses that nothing supplies (`texture_supply`) fails the task with
 /// `fmdl_texture_not_found` at the first one, or, when the installed CPKs cannot be looked in,
-/// is noted in `findings` as `fmdl_texture_not_found`, once per texture.
+/// is noted in `findings` as `fmdl_texture_not_found`, once per texture. A texture path into
+/// the game's kit texture folder is left as written and noted once per path as
+/// `fmdl_texture_kit_path` instead: the modded exe swaps the kit textures per match, so a
+/// fixed file there is not the kit the player wears.
 pub(super) fn package(
     folder: &ModelFolder,
     package: ModelPackage,
@@ -430,6 +433,12 @@ pub(super) fn package(
             // Common path's is what `point_texture` answered.
             let mut common_supplies = BTreeMap::new();
             rewrite_texture_paths(&mut model, |path| {
+                if is_kit_texture_directory(&path.directory) {
+                    // The game's kit texture folder: a path into it is kept as written and
+                    // reported below (`fmdl_texture_kit_path`), never pointed at a same-stem
+                    // file of the folder.
+                    return;
+                }
                 let below = texture_lookup::path_below(&path.directory).map(|subdirectory| {
                     match part.textures {
                         PartTextures::Common => common_folders
@@ -472,6 +481,14 @@ pub(super) fn package(
                         ("texture", format!("{}{}", path.directory, path.file_name)),
                     ]
                 };
+                if is_kit_texture_directory(&path.directory) {
+                    // Once per path: two entries of the table may name one path.
+                    let finding = (Code::FmdlTextureKitPath, context());
+                    if !findings.contains(&finding) {
+                        findings.push(finding);
+                    }
+                    continue;
+                }
                 match texture_supply(
                     &path,
                     &common_supplies,
@@ -840,6 +857,13 @@ fn common_below_supply(
         Some(false) => TextureSupply::Missing,
         None => TextureSupply::Unknown,
     }
+}
+
+/// Whether `directory`, a texture path's directory, is the game's kit texture folder
+/// (`paths::KIT_TEXTURE_DIRECTORY`) or below it, folded as texture directories compare
+/// (`TextureDirectory::subdirectory`).
+fn is_kit_texture_directory(directory: &str) -> bool {
+    vtree::fold_name(directory).starts_with(&vtree::fold_name(paths::KIT_TEXTURE_DIRECTORY))
 }
 
 /// Whether a texture one of a part's meshes uses is supplied (`pipeline.md` "Resolved

@@ -22,7 +22,7 @@ use dds_convert::{
 };
 use ftex::FtexError;
 use ftex::dds::{DdsPixel, read_layout};
-use pes_version::Engine;
+use pes_version::{Engine, PesVersion};
 use pipeline::{MemoryBudget, Permit};
 use vtree::ScopePath;
 
@@ -595,12 +595,15 @@ pub(super) fn decode_charge(
 /// one under a DX10 extension header with the header `ftex::dds::header_bytes` writes for its
 /// format and its pixel data unchanged, noted in `findings` as `portrait_header_rewritten`, or,
 /// for an uncompressed layout that has no `PixelFormat` or whose rows are padded, encoded like
-/// a raster source; any other accepted format encoded to BC3 at its own size with the full mip
-/// chain, an FTEX's own levels dropped. Its signature and size are the deep pass's checks; a
-/// portrait that reaches this point passed them or is kept by `pass_through`, so it is packed
-/// whatever its size. The decode is charged to `budget` while it lives.
+/// a raster source; on PES 15-18, which read BC1-BC3 only, a BC4, BC5 or BC7 portrait under
+/// either header encoded like a raster source too; any other accepted format encoded to BC3
+/// at its own size with the full mip chain, an FTEX's own levels dropped. Its signature and
+/// size are the deep pass's checks; a portrait that reaches this point passed them or is
+/// kept by `pass_through`, so it is packed whatever its size. The decode is charged to
+/// `budget` while it lives.
 pub(super) fn portrait(
     budget: &Arc<MemoryBudget>,
+    version: PesVersion,
     format: SourceFormat,
     name: &str,
     bytes: Vec<u8>,
@@ -623,7 +626,23 @@ pub(super) fn portrait(
                 .map_err(|error| conversion_failure(name, ConvertError::Wesys(error)))?;
             let layout = read_layout(&plain)
                 .map_err(|error| conversion_failure(name, ConvertError::Ftex(error)))?;
-            if layout.data_offset == 128 {
+            // PES 15-18 read BC1-BC3 only (`libs/dds_convert.md` "Passthrough"), so a BC4,
+            // BC5 or BC7 portrait keeps no blocks under either header, the legacy one
+            // included, and is decoded and encoded below like a raster source.
+            let reads_bc4_to_bc7 = match version {
+                PesVersion::Pes15 | PesVersion::Pes16 | PesVersion::Pes17 | PesVersion::Pes18 => {
+                    false
+                }
+                PesVersion::Pes19 | PesVersion::Pes20 | PesVersion::Pes21 => true,
+            };
+            let encode = !reads_bc4_to_bc7
+                && matches!(
+                    layout.pixel,
+                    DdsPixel::Format(
+                        ftex::PixelFormat::Bc4 | ftex::PixelFormat::Bc5 | ftex::PixelFormat::Bc7
+                    )
+                );
+            if layout.data_offset == 128 && !encode {
                 // Unwrapped: nothing a PES 18-21 target reads is WESYS-wrapped, and a PES
                 // 15-17 run wraps every DDS entry afresh when it compresses them.
                 return Ok(match plain {
@@ -632,7 +651,7 @@ pub(super) fn portrait(
                 });
             }
             match layout.pixel {
-                DdsPixel::Format(pixel_format) if layout.row_pitch.is_none() => {
+                DdsPixel::Format(pixel_format) if !encode && layout.row_pitch.is_none() => {
                     // `read_layout` maps the DXGI id to a format and keeps neither; it is the
                     // DX10 header's first field, right after the 128-byte legacy header.
                     let dxgi = u32::from_le_bytes([plain[128], plain[129], plain[130], plain[131]]);
@@ -873,6 +892,7 @@ mod tests {
         assert_eq!(
             portrait(
                 &unlimited(),
+                PesVersion::Pes21,
                 SourceFormat::Dds,
                 "portrait.dds",
                 tracer.clone(),
@@ -888,6 +908,7 @@ mod tests {
         ] {
             let dds = portrait(
                 &unlimited(),
+                PesVersion::Pes21,
                 format,
                 name,
                 texture_fixture(name),
@@ -911,6 +932,7 @@ mod tests {
         let odd = texture_fixture("odd.png");
         let dds = portrait(
             &unlimited(),
+            PesVersion::Pes21,
             SourceFormat::Png,
             "player_05.png",
             odd.clone(),
@@ -925,6 +947,7 @@ mod tests {
         assert_eq!(
             finding(portrait(
                 &unlimited(),
+                PesVersion::Pes21,
                 SourceFormat::Dds,
                 "portrait.dds",
                 texture_fixture("bc6h.dds"),
@@ -934,6 +957,7 @@ mod tests {
         );
         let Err(TextureError::Other(error)) = portrait(
             &unlimited(),
+            PesVersion::Pes21,
             SourceFormat::Dds,
             "portrait.dds",
             odd,
@@ -955,6 +979,7 @@ mod tests {
         let mut findings = Vec::new();
         let unwrapped = portrait(
             &unlimited(),
+            PesVersion::Pes21,
             SourceFormat::Dds,
             "portrait.dds",
             wezlib::compress(&tracer),
@@ -976,6 +1001,7 @@ mod tests {
         let mut findings = Vec::new();
         let encoded = portrait(
             &unlimited(),
+            PesVersion::Pes21,
             SourceFormat::Dds,
             "portrait.dds",
             dds,
@@ -1016,6 +1042,7 @@ mod tests {
         let mut findings = Vec::new();
         let encoded = portrait(
             &unlimited(),
+            PesVersion::Pes21,
             SourceFormat::Dds,
             "portrait.dds",
             dds,
@@ -1032,6 +1059,123 @@ mod tests {
             (4, 4, 3)
         );
         assert!(findings.is_empty(), "{findings:?}");
+    }
+
+    #[test]
+    fn a_bc7_dx10_portrait_is_encoded_on_pes_18_and_re_headered_from_pes_19() {
+        // A 16x16 two-level BC7 DDS under a DX10 header, arbitrary blocks: on PES 18, which
+        // reads no BC7, it is decoded and encoded like a raster source: BC3 under the
+        // legacy header, the full chain, and no header finding.
+        let mut source = ftex::dds::header_bytes(ftex::PixelFormat::Bc7, 16, 16, 2);
+        assert_eq!(source.len(), 148);
+        let blocks: Vec<u8> = (0..=u8::MAX).cycle().take(16 * 16 + 4 * 16).collect();
+        source.extend_from_slice(&blocks);
+        let mut findings = Vec::new();
+        let encoded = portrait(
+            &unlimited(),
+            PesVersion::Pes18,
+            SourceFormat::Dds,
+            "portrait.dds",
+            source.clone(),
+            &mut findings,
+        )
+        .unwrap();
+        assert_eq!(&encoded[84..88], b"DXT5");
+        let decoded = decode(&encoded, SourceFormat::Dds).unwrap();
+        assert_eq!(
+            decoded.blocks.as_ref().map(|blocks| blocks.codec),
+            Some(BlockCodec::Bc3)
+        );
+        assert_eq!(
+            (decoded.width, decoded.height, decoded.mips.len()),
+            (16, 16, 5)
+        );
+        assert!(findings.is_empty(), "{findings:?}");
+        // On PES 19 to 21 the same file goes out re-headered, its blocks kept, the finding
+        // naming it with the DXGI id.
+        for version in [PesVersion::Pes19, PesVersion::Pes20, PesVersion::Pes21] {
+            let rewritten = portrait(
+                &unlimited(),
+                version,
+                SourceFormat::Dds,
+                "portrait.dds",
+                source.clone(),
+                &mut findings,
+            )
+            .unwrap();
+            assert_eq!(rewritten, source, "{version}");
+        }
+        assert_eq!(
+            findings,
+            vec![
+                (
+                    Code::PortraitHeaderRewritten,
+                    vec![
+                        ("file", "portrait.dds".to_owned()),
+                        ("dxgi", "98".to_owned())
+                    ]
+                );
+                3
+            ]
+        );
+    }
+
+    #[test]
+    fn a_bc4_or_bc5_portrait_under_the_legacy_header_is_encoded_on_pes_17_and_kept_on_pes_21() {
+        // An 8x8 two-level BC4 or BC5 DDS under the legacy `ATI1`/`ATI2` header, which
+        // `header_bytes` does not write: the DX10 header is truncated and the FourCC
+        // respelled. BC4's blocks are half a BC5's.
+        for (format, fourcc, block_bytes) in [
+            (ftex::PixelFormat::Bc4, b"ATI1", 4 * 8 + 8),
+            (ftex::PixelFormat::Bc5, b"ATI2", 4 * 16 + 16),
+        ] {
+            let mut source = ftex::dds::header_bytes(format, 8, 8, 2);
+            source.truncate(128);
+            source[84..88].copy_from_slice(fourcc);
+            let blocks: Vec<u8> = (0..=u8::MAX).cycle().take(block_bytes).collect();
+            source.extend_from_slice(&blocks);
+            let layout = read_layout(&source).unwrap();
+            assert_eq!(
+                (layout.pixel, layout.data_offset),
+                (DdsPixel::Format(format), 128)
+            );
+            // On PES 17: BC3 under the legacy header, the full chain, no finding.
+            let mut findings = Vec::new();
+            let encoded = portrait(
+                &unlimited(),
+                PesVersion::Pes17,
+                SourceFormat::Dds,
+                "portrait.dds",
+                source.clone(),
+                &mut findings,
+            )
+            .unwrap();
+            assert_eq!(&encoded[84..88], b"DXT5", "{format:?}");
+            let decoded = decode(&encoded, SourceFormat::Dds).unwrap();
+            assert_eq!(
+                decoded.blocks.as_ref().map(|blocks| blocks.codec),
+                Some(BlockCodec::Bc3),
+                "{format:?}"
+            );
+            assert_eq!(
+                (decoded.width, decoded.height, decoded.mips.len()),
+                (8, 8, 4),
+                "{format:?}"
+            );
+            assert!(findings.is_empty(), "{format:?}: {findings:?}");
+            // On PES 21, which reads BC4 and BC5, it passes through as it is.
+            let kept = portrait(
+                &unlimited(),
+                PesVersion::Pes21,
+                SourceFormat::Dds,
+                "portrait.dds",
+                source.clone(),
+                &mut findings,
+            )
+            .unwrap();
+            assert_eq!(kept, source, "{format:?}");
+            assert!(findings.is_empty(), "{format:?}: {findings:?}");
+        }
     }
 
     #[test]

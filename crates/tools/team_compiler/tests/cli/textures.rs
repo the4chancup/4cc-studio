@@ -1130,6 +1130,50 @@ fn a_model_naming_a_kit_f_folder_finds_nothing() {
     assert_eq!(run.exit_code(), 1);
 }
 
+/// The game's kit texture folder, whose fixed files the modded exe swaps per match.
+const KIT_TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/uniform/texture/";
+
+// TC-MOD-91
+#[test]
+fn a_texture_path_into_the_game_s_kit_folder_is_kept_with_a_warning() {
+    let sandbox = Sandbox::new("tex_kit_path");
+    let export = "exports/co Midcup Kit Path";
+    let player = format!("{export}/Players/05 - A");
+    // The tracer's hair naming `u0714p1.dds` in the game's kit texture folder; a same-stem
+    // texture of the player's own proves the path is not pointed at his copy.
+    sandbox.write(
+        &format!("{player}/face_high.fmdl"),
+        &tracer_model_pointing(
+            "fcl_hair.fmdl",
+            &[("shirt.dds", "u0714p1.dds")],
+            KIT_TEXTURE_DIRECTORY,
+        ),
+    );
+    sandbox.write(&format!("{player}/u0714p1.dds"), &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Kit Path"),
+        [
+            "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Warning fmdl_texture_kit_path [Keep] at Players/05 - A (model=face_high.fmdl, texture=/Assets/pes16/model/character/uniform/texture/u0714p1.dds)",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let model = face_package(&entries);
+    // The tracer's hair names the texture in two entries; neither is repointed.
+    assert_eq!(
+        texture_directories(model.get("face_high.fmdl").unwrap(), "u0714p1.dds"),
+        vec![KIT_TEXTURE_DIRECTORY.to_owned(); 2]
+    );
+}
+
 /// The game's team-`000` Common texture directory, which a compile makes the team's.
 const COMMON_000: &str = "/Assets/pes16/model/character/common/000/sourceimages/";
 
@@ -2542,4 +2586,75 @@ fn a_dx10_header_dds_portrait_goes_out_under_the_legacy_header_with_its_blocks()
             portrait.len()
         );
     }
+}
+
+// TC-PRT-05
+#[test]
+fn a_bc7_portrait_is_encoded_to_bc3_on_pes_18_and_re_headered_on_pes_21() {
+    let sandbox = Sandbox::new("tex_bc7_portrait");
+    let export = "co Midcup Portrait";
+    // A 128x128 single-level BC7 DDS under a DX10 header, arbitrary blocks: the cup's
+    // BC7 portraits' shape.
+    let mut source = ftex::dds::header_bytes(PixelFormat::Bc7, 128, 128, 1);
+    assert_eq!(source.len(), 148, "a DX10 header");
+    let blocks: Vec<u8> = (0..=u8::MAX).cycle().take(128 * 128).collect();
+    source.extend_from_slice(&blocks);
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/portrait.dds"),
+        &source,
+    );
+
+    // PES 18, which reads BC1-BC3 only: the source is decoded and encoded like a raster
+    // one: a 128x128 DXT5 DDS under the legacy header with the full mip chain.
+    let run = sandbox.run(&pes_settings(&sandbox, 18), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "PES 18: {lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "PES 18");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let portrait = &entries["common/render/symbol/player/player_71405.dds"];
+    assert_eq!(&portrait[84..88], b"DXT5", "PES 18: the legacy header");
+    let decoded = decode(portrait, SourceFormat::Dds).unwrap();
+    assert!(
+        matches!(
+            decoded.blocks,
+            Some(Blocks {
+                codec: BlockCodec::Bc3,
+                ..
+            })
+        ),
+        "PES 18: BC3 blocks"
+    );
+    assert_eq!(
+        (decoded.width, decoded.height, decoded.mips.len()),
+        (128, 128, 8),
+        "PES 18: the full mip chain"
+    );
+
+    // PES 21: the source's BC7 blocks re-headered, the finding as TC-PRT-04's.
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+            "Info portrait_header_rewritten [Keep] at Players/05 - A/portrait.dds (file=portrait.dds, dxgi=98)",
+        ],
+        "PES 21: {lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0, "PES 21");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let portrait = &entries["common/render/symbol/player/71405.dds"];
+    assert!(
+        *portrait == source,
+        "PES 21: {} bytes, not the source's blocks under the header it wrote",
+        portrait.len()
+    );
 }

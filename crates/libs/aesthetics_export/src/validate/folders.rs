@@ -9,7 +9,7 @@ use vtree::ScopePath;
 use crate::FileKind;
 use crate::conventions::{
     Marker, MetadataFile, SharedKind, classify, common_link_name, is_boots, is_explicit_face,
-    is_gloves, is_player_singleton, model_suffix, shared_link_name, split_folder_name,
+    is_gloves, is_player_singleton, is_txt_note, model_suffix, shared_link_name, split_folder_name,
 };
 use crate::listing::ValidationContext;
 use crate::parse::{AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft};
@@ -340,10 +340,11 @@ pub(crate) fn relative(path: &ScopePath, folder: &ScopePath) -> String {
 }
 
 /// "Model content" (the allowlist table): models, textures, `.skl`, `.fclo`,
-/// `.xml`, `.mtl`, material tomls and `.bin`.
-fn is_model_content(kind: FileKind) -> bool {
+/// `.xml`, `.mtl`, material tomls and `.bin`, and a `.txt` note
+/// (`is_txt_note`), which no package reads.
+fn is_model_content(file: &FileDescriptor) -> bool {
     matches!(
-        kind,
+        file.kind,
         FileKind::Model(_)
             | FileKind::Texture
             | FileKind::Skl
@@ -352,14 +353,14 @@ fn is_model_content(kind: FileKind) -> bool {
             | FileKind::Mtl
             | FileKind::MaterialsToml
             | FileKind::Bin
-    )
+    ) || is_txt_note(file.path.name())
 }
 
 /// What a file below a subfolder of the player folder may be: model content, but a
 /// per-player singleton (`is_player_singleton`), which counts directly in the player folder
 /// alone, and a link where one counts (`counts_as_link`).
 fn player_below_allowed(file: &FileDescriptor) -> bool {
-    (is_model_content(file.kind) && !is_player_singleton(file.path.name())) || counts_as_link(file)
+    (is_model_content(file) && !is_player_singleton(file.path.name())) || counts_as_link(file)
 }
 
 /// Whether `file`, a file of a player folder, is a link where it sits: a shared
@@ -384,10 +385,10 @@ pub(crate) fn counts_as_link(file: &FileDescriptor) -> bool {
 }
 
 /// What a file directly in a player folder may be (allowlist row 1).
-fn player_direct_allowed(kind: FileKind) -> bool {
-    is_model_content(kind)
+fn player_direct_allowed(file: &FileDescriptor) -> bool {
+    is_model_content(file)
         || matches!(
-            kind,
+            file.kind,
             FileKind::SharedLink(_)
                 | FileKind::CommonLink
                 | FileKind::Marker(Marker::IngameFace | Marker::FpcOn | Marker::FpcOff)
@@ -464,7 +465,7 @@ pub(crate) fn check_player(
     // 1. The file-type allowlist.
     for file in &folder.files {
         let allowed = match position(&file.path, &folder.path) {
-            Position::Direct => player_direct_allowed(file.kind),
+            Position::Direct => player_direct_allowed(file),
             Position::Below => player_below_allowed(file),
         };
         if !allowed {
@@ -678,7 +679,7 @@ pub(crate) fn check_shared(
     // shared link — it holds none — while its `.common` links count at any depth.
     for file in &folder.files {
         let allowed = match position(&file.path, &folder.path) {
-            Position::Direct => is_model_content(file.kind) || file.kind == FileKind::CommonLink,
+            Position::Direct => is_model_content(file) || file.kind == FileKind::CommonLink,
             Position::Below => {
                 player_below_allowed(file) && !matches!(file.kind, FileKind::SharedLink(_))
             }
@@ -796,7 +797,7 @@ pub(crate) fn check_common(
     issues: &mut Vec<ValidationIssue>,
 ) {
     for file in &draft.common {
-        if !is_model_content(file.kind) {
+        if !is_model_content(file) {
             issues.push(issue_in(
                 context,
                 "common_file_disallowed",

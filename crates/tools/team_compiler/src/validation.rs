@@ -11,8 +11,8 @@ use std::sync::Arc;
 use aesthetics_export::{
     ExportIdentity, FileDescriptor, FileKind, ModelFormat, ModelSuffix, ParsedAestheticsExport,
     ResolvedAestheticsExport, SharedKind, SourceError, ValidatedAestheticsExport,
-    ValidationContext, common_link_name, common_link_target, model_suffix, parse_listing,
-    read_colors_txt,
+    ValidationContext, common_link_name, common_link_target, is_txt_note, model_suffix,
+    parse_listing, read_colors_txt,
 };
 use anyhow::Context;
 use pes_version::{Engine, PesVersion};
@@ -692,7 +692,8 @@ fn model_name_messages(
             || matches!(
                 file.kind,
                 FileKind::Fclo | FileKind::Xml | FileKind::Bin | FileKind::MaterialsToml
-            );
+            )
+            || is_txt_note(file.path.name());
         if read_by_no_task {
             messages.push(export_file_not_used(export_id, file.path.as_str()));
         }
@@ -872,9 +873,9 @@ fn file_role_messages(
 /// reported"): a model another representation of its stem beats (TC-MOD-26); on PES 15-17 a
 /// Fox file the target has no counterpart for, an FMDL with no role, a `.skl` no converted
 /// FMDL pairs or a `.fclo` (`pipeline.md` step 3 "Format conversion"); a file the structure
-/// pass names when it is out of place (`file_type_disallowed`): a marker, metadata, a shared
-/// folder link or a file of no known kind, one outside the places a model folder admits a file
-/// with a role (`roles::role_position`).
+/// pass names when it is out of place (`file_type_disallowed`): a marker, a shared folder
+/// link, a metadata or no-kind file that is no `.txt` note (one is model content now), or
+/// one outside the places a model folder admits a file with a role (`roles::role_position`).
 fn unread_for_a_known_reason(
     path: &ScopePath,
     file: &FileDescriptor,
@@ -887,10 +888,13 @@ fn unread_for_a_known_reason(
             FileKind::Model(ModelFormat::Fmdl) | FileKind::Skl | FileKind::Fclo
         ),
     };
-    let named_by_the_structure_pass = matches!(
-        file.kind,
-        FileKind::Marker(_) | FileKind::Metadata(_) | FileKind::SharedLink(_) | FileKind::Other
-    ) || !role_position(path, file);
+    // A `.txt` note is admitted model content now, so the structure pass names it nowhere:
+    // its `file_not_used` is the finding, like any other file no role takes.
+    let named_by_the_structure_pass =
+        matches!(file.kind, FileKind::Marker(_) | FileKind::SharedLink(_))
+            || (matches!(file.kind, FileKind::Metadata(_) | FileKind::Other)
+                && !is_txt_note(file.path.name()))
+            || !role_position(path, file);
     models.beaten(file) || other_engine_companion || named_by_the_structure_pass
 }
 
@@ -1277,6 +1281,7 @@ mod tests {
             ("Gloves/Grip/glove_l.fmdl", 1),
             ("Gloves/Grip/glove_l.skl", 1),
             ("Common/notes.xml", 1),
+            ("Common/guide.txt", 1),
             ("Common/legs.fmdl", 1),
             ("Common/x.mtl", 1),
             ("Common/x.model", 1),
@@ -1292,6 +1297,7 @@ mod tests {
             [
                 "Info fmdl_fcl_hair_fallback [Keep] at Faces/Round (file=legs.fmdl.common)",
                 "Warning file_not_used [Keep] at Gloves/Grip (file=glove_l.skl)",
+                "Warning file_not_used [Keep] (file=Common/guide.txt)",
                 "Warning file_not_used [Keep] (file=Common/notes.xml)",
             ]
         );
@@ -1299,6 +1305,7 @@ mod tests {
             names(&export, PesVersion::Pes17),
             [
                 "Warning file_not_used [Keep] at Faces/Round (file=legs.fmdl.common)",
+                "Warning file_not_used [Keep] (file=Common/guide.txt)",
                 "Warning file_not_used [Keep] (file=Common/notes.xml)",
             ]
         );

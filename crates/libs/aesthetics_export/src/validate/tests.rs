@@ -599,7 +599,7 @@ fn a_shared_folder_no_surviving_player_links_is_orphaned() {
 fn a_disallowed_file_drops_strict_and_keeps_lenient() {
     let files = &[
         ("Players/03 - A/hair.dds", 9u64),
-        ("Players/03 - A/readme.txt", 20),
+        ("Players/03 - A/readme.doc", 20),
     ];
     let strict = report("egg Midcup", files, &[], &[]);
     assert_eq!(
@@ -620,8 +620,59 @@ fn a_disallowed_file_drops_strict_and_keeps_lenient() {
             .iter()
             .map(|file| file.path.name().to_owned())
             .collect::<Vec<_>>(),
-        vec!["hair.dds", "readme.txt"]
+        vec!["hair.dds", "readme.doc"]
     );
+}
+
+#[test]
+fn a_txt_note_is_admitted_in_a_model_folder_but_not_in_a_kit_folder() {
+    // Any `.txt` that is not a link's or marker's tolerated spelling is a note, a metadata
+    // name (`notes.txt`, `readme.txt`) or an ordinary one alike: model content, at the
+    // folder's root, below a subfolder and in a shared folder.
+    let report = report(
+        "egg Midcup",
+        &[
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Players/03 - A/notes.txt", 4),
+            ("Players/03 - A/readme.txt", 4),
+            ("Players/03 - A/jessie/notes.txt", 4),
+            ("Players/03 - A/jessie/guide.txt", 4),
+            ("Players/03 - A/Crocs.boots", 0),
+            // A `.txt` a known file hides under is no note: the name without it is a settings
+            // file and a texture, so the misnamed files stay disallowed.
+            ("Players/04 - B/face_high.fmdl", 10),
+            ("Players/04 - B/settings.toml.txt", 4),
+            ("Players/04 - B/skin.dds.txt", 4),
+            ("Boots/Crocs/boots.fmdl", 10),
+            ("Boots/Crocs/notes.txt", 4),
+            ("Boots/Crocs/extra/guide.txt", 4),
+            ("Kits/p1/kit.dds", 9),
+            ("Kits/p1/notes.txt", 4),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("file_type_disallowed", Disposition::DropFolder); 3]
+    );
+    assert_eq!(report.issues[0].scope, folder("Players/04 - B"));
+    assert_eq!(
+        report.issues[0].context,
+        vec![("file", "settings.toml.txt".to_owned())]
+    );
+    assert_eq!(
+        report.issues[1].context,
+        vec![("file", "skin.dds.txt".to_owned())]
+    );
+    assert_eq!(report.issues[2].scope, folder("Kits/p1"));
+    assert_eq!(
+        report.issues[2].context,
+        vec![("file", "notes.txt".to_owned())]
+    );
+    let validated = report.validated.unwrap();
+    assert_eq!(validated.players.len(), 1);
+    assert_eq!(validated.boots.len(), 1);
 }
 
 // TC-STR-10
@@ -698,7 +749,7 @@ fn a_subfolder_s_files_are_typed_by_their_names_under_ingame_face_too() {
             ("Players/04 - B/parts/hair_high.fmdl", 10),
             ("Players/05 - C/ingame_face", 0),
             ("Players/05 - C/common/body.fmdl", 10),
-            ("Players/05 - C/common/extra/readme.txt", 9),
+            ("Players/05 - C/common/extra/readme.doc", 9),
         ],
         &[],
         &[],
@@ -716,11 +767,12 @@ fn a_subfolder_s_files_are_typed_by_their_names_under_ingame_face_too() {
         report.issues[0].context,
         vec![("file", "hair_high.fmdl".to_owned())]
     );
-    // `common/` is a plain subfolder: its model is admitted, the text file at any depth not.
+    // `common/` is a plain subfolder: its model is admitted, a file of no known kind at any
+    // depth not.
     assert_eq!(report.issues[1].scope, folder("Players/05 - C"));
     assert_eq!(
         report.issues[1].context,
-        vec![("file", "common/extra/readme.txt".to_owned())]
+        vec![("file", "common/extra/readme.doc".to_owned())]
     );
     // A's boots, glove and texture take their roles from their names: no finding.
     let validated = report.validated.unwrap();
@@ -1169,7 +1221,7 @@ fn a_nested_common_model_file_is_admitted_but_no_link_target() {
         "egg Midcup",
         &[
             ("Common/sub/torso.fmdl", 10),
-            ("Common/sub/notes.txt", 4),
+            ("Common/sub/notes.doc", 4),
             ("Players/03 - A/torso.fmdl.common", 0),
         ],
         &[],
@@ -1185,7 +1237,7 @@ fn a_nested_common_model_file_is_admitted_but_no_link_target() {
     assert_eq!(report.issues[0].scope, folder("Players/03 - A"));
     assert_eq!(
         report.issues[1].scope,
-        IssueScope::File(ScopePath::new("Common/sub/notes.txt").unwrap())
+        IssueScope::File(ScopePath::new("Common/sub/notes.doc").unwrap())
     );
     let validated = report.validated.unwrap();
     let common: Vec<&str> = validated
@@ -2170,7 +2222,7 @@ fn a_dropped_target_names_its_own_first_finding() {
             ("Players/01 - P/hair.dds", 9),
             ("Players/02 - Q/Base.face", 0),
             ("Players/02 - Q/hair.dds", 9),
-            ("Faces/Base/notes.txt", 10),
+            ("Faces/Base/notes.doc", 10),
         ],
         &[],
         &[],
@@ -3693,7 +3745,7 @@ fn no_content_findings_leave_the_report_as_validate_made_it() {
     // A parse issue (the nested root), structure issues and a cascade: none is doubled.
     let files = &[
         ("wrapper/Players/03 - A/boots.fmdl", 10),
-        ("wrapper/Players/03 - A/readme.txt", 1),
+        ("wrapper/Players/03 - A/readme.doc", 1),
         ("wrapper/Players/05 - B/Crocs.boots", 0),
         ("wrapper/Boots/Crocs/x.exe", 1),
         ("wrapper/Common/hair.dds", 9),
@@ -4347,7 +4399,7 @@ fn content_findings_stand_after_the_folders_own_findings_and_before_the_cascade(
         &[
             ("Boots/Crocs/boots.fmdl", 10),
             ("Players/03 - A/Crocs.boots", 0),
-            ("Players/07 - C/readme.txt", 1),
+            ("Players/07 - C/readme.doc", 1),
             ("Kits/p1/kit.dds", 9),
             ("Kits/p1/icon_99", 0),
         ],

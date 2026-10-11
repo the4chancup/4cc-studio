@@ -168,7 +168,9 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   admit gets the row's code. *Model content* is models (any format), textures, `.skl`, `.fclo`,
   `.xml`, `.mtl`, material tomls and `.bin`, and `.txt` notes, which no package reads
   (`file_not_used`): makers leave one beside a model, and dropping the folder for it would
-  lose a working model to a comment (step 5.0e).
+  lose a working model to a comment (step 5.0e). A note is a `.txt` whose name without it is no
+  known kind (`notes.txt`, `readme.txt`); `settings.toml.txt` or `skin.dds.txt`, a real file
+  saved with a hidden extension, stays disallowed, so the mistake is named.
 
   | Where the file sits | Admits | Otherwise |
   |---|---|---|

@@ -1754,3 +1754,6 @@ worklog passed 7,000 lines.
 - **2026-10-11** — 5.0e (2): texture census of the machine's exports (12,857 distinct textures):
   15 mipped one-side-non-power-of-two textures and 11 kit textures over 2048 in Fox exports, so
   Studio's stricter rules wait on an in-game check (`QUESTIONS.md`) before any relaxing.
+- **2026-10-11** — 5.0e done: a BC4/BC5/BC7 portrait for PES 15-18 encoded to BC3, an FMDL path
+  into the kit texture folder kept and warned (`fmdl_texture_kit_path`), a `.txt` note in a model
+  folder admitted as `file_not_used`; SWE-2 first attempt, four SWE-2 rounds and one Astra round.

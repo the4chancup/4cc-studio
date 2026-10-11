@@ -267,6 +267,7 @@ pub(crate) fn process_task(
                 .expect("planning lists a portrait by an extension `dds_convert` accepts");
             texture::portrait(
                 &ctx.budget,
+                ctx.version,
                 format,
                 name,
                 take(&mut files, file),

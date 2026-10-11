@@ -5216,7 +5216,7 @@ Steps are itemized when Phase 4 closes; these are fixed already:
   `core/architecture.md` "Diagnostic logging"; a referee's `hair_parts` textures are a
   `QUESTIONS.md` in-game check. The deviations kept are a decision entry, and the plan passages
   that described Red wrongly were corrected.
-- [ ] 5.0e The Fox compiler's gaps from the Red inventory (5.0c, `.tmp/5_0c/rulings.md` A):
+- [x] 5.0e The Fox compiler's gaps from the Red inventory (5.0c, `.tmp/5_0c/rulings.md` A):
   - (1) a BC4, BC5 or BC7 portrait for PES 15-18 is encoded to BC3 (`player_folders.md`
     "Portraits", decision entry 2026-10-11) → done when: TC-PRT-05 passes, and a BC5 portrait
     under the legacy header comes out BC3 for PES 17
@@ -5244,6 +5244,12 @@ Steps are itemized when Phase 4 closes; these are fixed already:
   - (4) a `.txt` in a model folder is a note: `file_not_used` like any file no role reads,
     instead of a disallowed type that drops the folder under the default strict check
     (`object_model.md` "File-type allowlist") → done when: TC-MOD-92 passes
+  Done 2026-10-11 (SWE-2, first attempt; reviews S1-S4 and Astra A1, `.tmp/5_0e/rulings_*.md`):
+  `processing/texture.rs` `portrait` takes the version (an exhaustive `match`), `processing/model.rs`
+  keeps a kit-folder path and reports it, `aesthetics_export`'s `is_txt_note` admits a `.txt` whose
+  stem is no known kind; `paths.rs`, `messages.rs`, `validation.rs`, `validate/folders.rs`, the
+  help, tests in `tests/cli/{textures,models}.rs` and `validate/tests.rs`. TC-PRT-05, TC-MOD-91,
+  TC-MOD-92.
 
 ### Phase 16 — Polish and distribution
 
@@ -5905,6 +5911,12 @@ points there.
   `FaceUse::combined`'s doc comment ("Empty for a team player ...") was already untrue on
   Fox. Fix: find the hand-weighted models before the face use is built, or build the face
   use after them.
+- open (2026-10-11, 5.0e review S3) — a disallowed file a lenient run keeps in a `Common/`
+  subfolder no link reaches (`Common/sub/x.doc`) is reported twice on Fox:
+  `common_file_disallowed` and `file_not_used` (`validation.rs`, `read_by_no_task`'s
+  `!is_read_common_file` arm), where `messages.md` `file_not_used` says a file the
+  structure pass already named is not reported (read, not run). Fix: skip a file the
+  structure pass reported.
 
 ---
 

@@ -32,8 +32,12 @@ what the chosen PES version reads, BC7 for PES 2019 to 2021 and BC3 for PES 2018
 image has no transparency at all; a `.dds` or `.ftex` already in a format the version reads is
 kept as it is), and an image without the smaller copies of itself the game needs (its mip
 levels) gets them generated. A portrait is the exception: the game reads it as a `.dds` on
-every version, so a `.dds` portrait is kept exactly as it is and a portrait in any other format
-becomes a BC3 `.dds` of the same size with its mip levels. A texture whose name ends in `_nrm`
+every version, so a `.dds` portrait is kept as it is (one under a DX10 header gets the header
+the game reads for its format, its pixels unchanged, reported as `portrait_header_rewritten`,
+except an uncompressed one no other header can describe, which is converted), and a portrait in
+any other format becomes a BC3 `.dds` of the same size with its mip levels. For PES 2015 to
+2018, which cannot read BC4, BC5 or BC7, a `.dds` portrait in one of those formats, under either
+header, is converted like any other image. A texture whose name ends in `_nrm`
 (`skin_nrm.png`) is a normal map and is encoded as one. A texture named with `kit1` to `kit9`
 (`pants_kit1.dds`, `pants_kit2.dds`) is the one the game shows when that kit is picked before
 a match, through a model that names `pants_kitN` instead: the game puts the picked kit's number
@@ -200,7 +204,9 @@ pairs with the model beside it in the same subfolder, textures from any subfolde
 player's common folder, and parts in a subfolder are merged with the folder's own models and
 with a linked shared folder of the same kind. Only the files directly in the player's folder
 count as `ingame_face`, `fpc_on` or `fpc_off`, `settings.toml` or a link file: one of those
-inside a subfolder is reported as `file_type_disallowed`. A player folder with no face model
+inside a subfolder is reported as `file_type_disallowed`. A `.txt` note (`notes.txt`) in a
+player or shared folder, or in `Common`, is allowed: nothing reads it, so it is reported as the
+warning `file_not_used`. A player folder with no face model
 still gets a face folder, an empty one, so the game shows no head for that player: the usual case for a
 body model that brings its own head. An empty file named `ingame_face` in the player's folder
 keeps the head made in the game's face editor instead: no face folder is built, and a model
@@ -564,7 +570,13 @@ boots or gloves is left out of the CPK, and `compile` reports `fmdl_texture_not_
 model and the texture. When there is no PES folder or no `DpFileList.bin`, or the list does not
 name the CPK being compiled, the texture may still be there, so the model is kept and the line
 is a warning. A texture whose name starts with `dummy_` is never looked for: the game puts its
-own in its place. `check` does not look for these textures, only `compile` does. A texture
+own in its place. `check` does not look for these textures, only `compile` does. A texture in
+the game's own kit texture folder (`/Assets/pes16/model/character/uniform/texture/`) is not
+looked for either: the modded exe swaps the files there for every match, so the model would show
+whichever kit is being worn. Its path is kept and `compile` reports the warning
+`fmdl_texture_kit_path`. A part that should follow the kit uses the `dummy_kit` textures or a
+`kitN` texture of its own; a part that should not uses a texture of the player's folder or of
+`Common`. A texture
 link (`hair.dds.common`) may also name a texture such an earlier CPK holds in the team's Common
 folder when the export's `Common` folder has no `hair.dds`, and for these links `check` looks in
 those CPKs too.

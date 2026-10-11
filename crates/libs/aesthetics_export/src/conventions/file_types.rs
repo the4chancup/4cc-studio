@@ -1,6 +1,7 @@
 //! File kinds, classified from the name alone. The allowlist is, per folder
-//! kind, the set of kinds it admits; `Other` is admitted nowhere, and
-//! `strict_file_type_check` changes only the disposition. A stray `.txt`
+//! kind, the set of kinds it admits; `Other` is admitted nowhere but as a
+//! `.txt` note (`is_txt_note`), which no package reads. Of a file its folder
+//! does not admit, `strict_file_type_check` changes only the disposition. A stray `.txt`
 //! suffix after a link or marker name is tolerated (Windows hides known
 //! extensions, so users create `Crocs.boots.txt` with Notepad).
 
@@ -32,9 +33,11 @@ pub enum FileKind {
     CommonLink,
     /// A marker file (empty or a `.txt` spelling of one).
     Marker(Marker),
-    /// A metadata file: known name, handled outside the allowlist.
+    /// A metadata file: known name, handled outside the allowlist; a `.txt` one
+    /// (`notes.txt`) in a model folder is a note (`is_txt_note`).
     Metadata(MetadataFile),
-    /// Any other kind: admitted nowhere.
+    /// Any other kind: admitted nowhere but as a `.txt` note
+    /// (`is_txt_note`), which no package reads.
     Other,
 }
 
@@ -282,6 +285,22 @@ fn icon_digits(name: &str) -> Option<&str> {
 pub(crate) fn icon_number(file_name: &str) -> Option<u8> {
     let name = strip_suffix_ci(file_name, ".txt").unwrap_or(file_name);
     icon_digits(name)?.parse().ok()
+}
+
+/// Whether `name`, a file's name, is a `.txt` note: model content in the
+/// allowlist, which no package reads (`file_not_used`). The name's stem
+/// without `.txt` must classify as `Other`, no kind Studio knows, so
+/// `notes.txt`, `readme.txt`, `players.txt` and `colors.txt` (stems `notes`,
+/// `readme`, `players`, `colors`) count, while a link's or a marker's
+/// tolerated `.txt` spelling (`Crocs.boots.txt`) and a real file's `.txt`
+/// spelling (`settings.toml.txt`, `skin.dds.txt`, `face_high.fmdl.txt`), which
+/// stays disallowed, do not.
+/// ASCII-case-insensitive, as `classify` matches names.
+pub fn is_txt_note(name: &str) -> bool {
+    let Some(stem) = strip_suffix_ci(name, ".txt") else {
+        return false;
+    };
+    classify(stem) == FileKind::Other
 }
 
 /// One file name's `FileKind`, ASCII-case-insensitive throughout.

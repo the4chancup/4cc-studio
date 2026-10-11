@@ -94,7 +94,7 @@ fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
     let clean = sandbox.root.join("exports/co Midcup Clean/Players/03 - A");
     fs::create_dir_all(&clean).unwrap();
     fs::copy(&glove, clean.join("face_high.fmdl")).unwrap();
-    sandbox.write("exports/co Midcup Error/Players/03 - A/readme.txt", "");
+    sandbox.write("exports/co Midcup Error/Players/03 - A/readme.doc", "");
 
     let output = sandbox.run(&[
         "team-compiler",
@@ -117,7 +117,7 @@ fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
     assert_eq!(output.status.code(), Some(1), "stderr: {}", stderr(&output));
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "- co Midcup Error: Error file_type_disallowed at Players/03 - A (file=readme.txt)\n\
+        "- co Midcup Error: Error file_type_disallowed at Players/03 - A (file=readme.doc)\n\
          - co Midcup Error: Info export_identified (team=/co/, id=714)\n"
     );
     assert!(stderr(&output).is_empty(), "{}", stderr(&output));

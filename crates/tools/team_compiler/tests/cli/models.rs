@@ -3108,3 +3108,40 @@ fn a_converted_model_s_texture_names_resolve_in_its_mtl_s_folder_on_pes_21() {
         "{directories:?}"
     );
 }
+
+// TC-MOD-92
+#[test]
+fn a_txt_note_beside_a_face_model_is_a_file_no_role_takes() {
+    let sandbox = Sandbox::new("txt_note");
+    let export = "co Midcup Note";
+    let player = format!("exports/{export}/Players/05 - A");
+    sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
+    sandbox.write(&format!("{player}/notes.txt"), b"a note");
+    let settings = format!(
+        "{}[team-compiler]\nstrict_file_type_check = true\n",
+        pes21_settings(&sandbox)
+    );
+
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning file_not_used [Keep] at Players/05 - A (file=notes.txt)",
+            TEAM_COLORS_MISSING,
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    // The folder compiles as if the note were absent.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(face_package(&entries).get("face_high.fmdl").is_some());
+    assert!(face_package(&entries).get("notes.txt").is_none());
+    assert!(
+        !entries.keys().any(|path| path.ends_with("notes.txt")),
+        "{:#?}",
+        entries.keys()
+    );
+}

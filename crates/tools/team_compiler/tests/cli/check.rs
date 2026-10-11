@@ -95,7 +95,7 @@ fn a_disallowed_file_is_an_error_when_strict_and_an_info_when_lenient() {
         "exports/co Midcup Spring/Players/03 - A/hair.dds",
         &tracer_kit(),
     );
-    sandbox.write("exports/co Midcup Spring/Players/03 - A/readme.txt", b"");
+    sandbox.write("exports/co Midcup Spring/Players/03 - A/readme.doc", b"");
 
     let strict = sandbox.run(
         "[team-compiler]\nstrict_file_type_check = true\n",
@@ -104,7 +104,7 @@ fn a_disallowed_file_is_an_error_when_strict_and_an_info_when_lenient() {
     assert_eq!(
         strict.messages(),
         [
-            "co Midcup Spring: Error file_type_disallowed [DropFolder] at Players/03 - A (file=readme.txt)",
+            "co Midcup Spring: Error file_type_disallowed [DropFolder] at Players/03 - A (file=readme.doc)",
             "co Midcup Spring: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
@@ -117,7 +117,7 @@ fn a_disallowed_file_is_an_error_when_strict_and_an_info_when_lenient() {
     assert_eq!(
         lenient.messages(),
         [
-            "co Midcup Spring: Info file_type_disallowed [Keep] at Players/03 - A (file=readme.txt)",
+            "co Midcup Spring: Info file_type_disallowed [Keep] at Players/03 - A (file=readme.doc)",
             "co Midcup Spring: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
@@ -128,12 +128,12 @@ fn a_disallowed_file_is_an_error_when_strict_and_an_info_when_lenient() {
 #[test]
 fn pass_through_keeps_a_disallowed_file_at_its_error_severity() {
     let sandbox = Sandbox::new("pass_through");
-    sandbox.write("exports/co Midcup Spring/Players/03 - A/readme.txt", b"");
+    sandbox.write("exports/co Midcup Spring/Players/03 - A/readme.doc", b"");
     let run = sandbox.run("[team-compiler]\npass_through = true\n", &["check"]);
     assert_eq!(
         run.messages(),
         [
-            "co Midcup Spring: Error file_type_disallowed [Keep] at Players/03 - A (file=readme.txt)",
+            "co Midcup Spring: Error file_type_disallowed [Keep] at Players/03 - A (file=readme.doc)",
             "co Midcup Spring: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );
@@ -152,7 +152,7 @@ fn check_writes_nothing() {
     );
     sandbox.write("exports/co Midcup Spring/notes.txt", b"a note");
     sandbox.write(
-        "exports/zz Midcup Autumn/Players/03 - B/readme.txt",
+        "exports/zz Midcup Autumn/Players/03 - B/readme.doc",
         b"text",
     );
     let before = snapshot(&sandbox.root);
@@ -175,7 +175,7 @@ fn check_exits_one_only_for_an_error_finding() {
     );
     sandbox.write("exports/co Midcup Notes/notes.txt", b"a note");
     sandbox.write("exports/co Midcup Notes/extra.bin", b"");
-    sandbox.write("exports/co Midcup Error/Players/03 - A/readme.txt", b"");
+    sandbox.write("exports/co Midcup Error/Players/03 - A/readme.doc", b"");
     sandbox.write(
         &format!("exports/co Midcup Clean/{CLEAN_PLAYER}"),
         &clean_model(),
@@ -202,7 +202,7 @@ fn check_exits_one_only_for_an_error_finding() {
     assert_eq!(
         run.messages(),
         [
-            "co Midcup Error: Error file_type_disallowed [DropFolder] at Players/03 - A (file=readme.txt)",
+            "co Midcup Error: Error file_type_disallowed [DropFolder] at Players/03 - A (file=readme.doc)",
             "co Midcup Error: Info export_identified [Keep] (team=/co/, id=714)",
         ]
     );

@@ -833,14 +833,14 @@ fn refkit_entries_of(bytes: &[u8]) -> Vec<(String, String, String)> {
 fn a_refs_export_whose_only_folder_validation_drops_writes_no_refs_cpk_and_no_tree() {
     let sandbox = Sandbox::new("ref_folder_dropped");
     write_ref_a(&sandbox, &["01"]);
-    sandbox.write(&format!("{REFS}/Players/Ref A/readme.txt"), b"notes");
+    sandbox.write(&format!("{REFS}/Players/Ref A/readme.doc"), b"notes");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
     assert!(
         lines.contains(
-            &"refs Cup: Error file_type_disallowed [DropFolder] at Players/Ref A (file=readme.txt)"
+            &"refs Cup: Error file_type_disallowed [DropFolder] at Players/Ref A (file=readme.doc)"
                 .to_owned()
         ),
         "{lines:#?}"
