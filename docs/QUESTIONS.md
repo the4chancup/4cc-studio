@@ -28,6 +28,28 @@ texture writes `../skin.dds`. Whether PES 15-17 loads both is unchecked: a glove
 with a model and `.mtl` in a subfolder, its texture at the root, seen in Edit mode. If not,
 the fallback is packing gloves flat (a subfolder's files by name).
 
+### A referee's `hair_parts` textures
+From: the Red inventory, 2026-10-11 (step 5.0c, `.tmp/5_0c/bins.md` G1). When Red moves a
+referee's textures into the refs Common folder, it copies a texture whose path holds
+`hair_parts` and keeps the original beside the face (`referee_tools.py:222-229`, commit
+`8d20bbb`, "to preserve originals", no reason given); `pipeline.md` step 6 moves every texture
+of a folder's own models. If the game reads a `hair_parts` texture from the face folder by a
+path the rewrite does not reach, a referee's hair shows untextured. To check: a referee with a
+`hair_parts` texture, compiled by Studio, in Edit mode. If his hair is untextured, step 6 keeps
+those textures in the face folder too.
+
+### Non-power-of-two mipped textures and kits over 2048 on Fox
+From: step 5.0e (2), 2026-10-11 (census `.tmp/5_0e/census/census.md`). Studio refuses, on
+PES 18-21, a texture with a mip chain and one side not a power of two (`texture_not_pow2`), and
+a kit main texture over 2048 pixels (`kit_texture_too_big`); Red accepted both. The census of
+the machine's exports found 15 such mipped textures in 48 Fox export roots (VGL26's AKG, BAG,
+EGG, HDG and SMBG in `Lab\Gud`; the MARISA Kanmari boots' 2048x2096 BC7 `body.dds`) and 11 kit
+main textures at 4096 or 8192 (AKG VGL26 `u0786p1-3`, FGOG). To check on PES 21: a model whose
+texture is one of these (EGG's 512x461, say) and a kit at 4096, compiled by Red, in Edit mode.
+Both render as intended: Studio takes Red's rules (only both sides non-power-of-two refused;
+the kit size limit kept for pre-Fox). Either does not: the rule stands, with what the game
+does as its reason in `messages.md`.
+
 ## Cup practice and preferences
 
 ## Small confirmations

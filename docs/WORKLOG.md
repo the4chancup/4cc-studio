@@ -5196,7 +5196,7 @@ Steps are itemized when Phase 4 closes; these are fixed already:
   so no `visit-mut`; not `syn` 2, which leaves the tree as `binrw` and `pyo3` move on. → done when: run over `aesthetics_export`, its survivors
   triaged into real gaps and equivalents, and the count decides whether it joins converge
   (worth it when at least about half the survivors are real gaps)
-- [ ] 5.0c Red behavior inventory (maintainer, 2026-10-09; after Phase 4 closes, before Phase 5
+- [x] 5.0c Red behavior inventory (maintainer, 2026-10-09; after Phase 4 closes, before Phase 5
   builds on the compiler): go through Red's own code (`4cc-aet-compiler-red/Engines/python/`,
   not its bundled site-packages) module by module, one subagent per module, and list every
   observable effect it has on what it is given: each file it writes, renames, rewrites, skips
@@ -5209,6 +5209,41 @@ Steps are itemized when Phase 4 closes; these are fixed already:
   (the export layout, links, kit tokens, conversion, the deep checks), which the reviews cover
   → done when: every Red module's rows are mapped or turned into steps, the table kept under
   `.tmp/5_0c/`, and its gap count in the log
+  Done 2026-10-11 against Red `e12aa01`, in seven module groups (`.tmp/5_0c/<group>.md`, the
+  rulings in `.tmp/5_0c/rulings.md`): 442 rows, 25 gaps. The Fox compiler's four became step
+  5.0e; the 14 pre-Fox ones are an issue below (deferred until the cup next plays a pre-Fox
+  version); the Export upgrader's four are its plan's "Open items"; the three log ones are in
+  `core/architecture.md` "Diagnostic logging"; a referee's `hair_parts` textures are a
+  `QUESTIONS.md` in-game check. The deviations kept are a decision entry, and the plan passages
+  that described Red wrongly were corrected.
+- [ ] 5.0e The Fox compiler's gaps from the Red inventory (5.0c, `.tmp/5_0c/rulings.md` A):
+  - (1) a BC4, BC5 or BC7 portrait for PES 15-18 is encoded to BC3 (`player_folders.md`
+    "Portraits", decision entry 2026-10-11) → done when: TC-PRT-05 passes, and a BC5 portrait
+    under the legacy header comes out BC3 for PES 17
+  - (2) census before relaxing: `texture_not_pow2` (either side, mipped, Fox) and
+    `kit_texture_too_big` (any target) are stricter than Red (neither side a power of two; kit
+    size on pre-Fox only), resting on `libs/dds_convert.md`'s unmeasured "a mipped
+    non-power-of-two texture is invalid on Fox" → done when: every real Fox export's textures
+    (DDS and FTEX headers through Everything, archives opened) are tallied for a mipped texture
+    with exactly one non-power-of-two side and a kit main texture over 2048 or not a power of
+    two; none found: a decision entry records Red's laxer rule and the count; some found: an
+    in-game check in `QUESTIONS.md` before any rule changes.
+    Census done 2026-10-11 (`.tmp/5_0e/census/census.md`: 12,857 distinct textures in 827
+    export roots, 1,652 archives opened): 15 mipped textures with one non-power-of-two side in
+    Fox exports, 11 Fox kit main textures at 4096 or 8192, none non-power-of-two. Both rules
+    stand until `QUESTIONS.md` "Non-power-of-two mipped textures and kits over 2048 on Fox" is
+    answered; the answer's rule change is a step of its own
+  - (3) an FMDL texture path into the game's kit texture folder
+    (`/Assets/pes16/model/character/uniform/texture/`): Red reports an Error and keeps the model
+    (`e12aa01`, "Report PES uniform texture paths in FMDLs as errors"); Studio keeps a game path
+    unlooked-up (`pipeline.md` "Resolved decisions"). Red's reason (its commit message): the
+    modded exe swaps kit textures per match, so a fixed path there cannot work, and the member
+    must use the dummy kit or a Common path. Ruled: the Warning `fmdl_texture_kit_path`
+    (`messages.md`), the model kept with the path unchanged (a Studio Error would drop the
+    folder, which Red's Error does not) → done when: TC-MOD-91 passes
+  - (4) a `.txt` in a model folder is a note: `file_not_used` like any file no role reads,
+    instead of a disallowed type that drops the folder under the default strict check
+    (`object_model.md` "File-type allowlist") → done when: TC-MOD-92 passes
 
 ### Phase 16 — Polish and distribution
 
@@ -5230,6 +5265,37 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-11, 5.0c; deferred until the cup next plays a pre-Fox version) — what Red does
+  on PES 15-17 that Studio does not (`.tmp/5_0c/xml.md`, `checks.md`), most noticed first:
+  - a member's `face.xml` that does not list `hair_high_win32.model` (1,248 of 1,263 such
+    folders on the maintainer's machine): Red packs the file and the game loads it by its fixed
+    name (inferred), while Studio reports `xml_model_unlisted` and leaves it out, so the head
+    compiles bald
+  - a generated `face.xml` lists `hair_high` as a `parts` entry, while Red leaves
+    `hair_high_win32.model` out of the xml and packs it under its own name; the in-game effect
+    is unknown
+  - a `.mtl` Common path that only an installed CPK supplies keeps its `XXX`, while Red's
+    `txt_id_change` writes the team ID in every `.mtl` (the answer to the question
+    `messages.md` leaves for the pre-Fox parity step)
+  - a Common model or `.mtl` that a member's xml names and only an installed CPK holds: Red
+    accepts it, Studio reports `xml_model_not_found`
+  - a WESYS-wrapped `face.xml` (48 on the machine): Red unwraps it, Studio reports `xml_broken`
+  - a `.mtl` Common path whose team folder is not 3 characters: Red reports an Error, Studio
+    nothing
+  - a `<model>` with no `material`: Red reports an Error, Studio writes it (TC-XML-01)
+  - `mtl_state_nonrecommended` misses Red's `alphablend 0` with `zwrite` other than 1 (Info)
+  - two models packing to one name (`hat.model` beside `oral_hat_win32.model`)
+  - the dummy team-ID respelling of file names (`Common/u0XXXg1.dds` named as
+    `.../common/XXX/u0XXXg1.dds`, 9 exports): the file and the path are respelled together or
+    not at all
+  - DECISIONS 2026-10-09 sends the xml's `<dif>` on PES 15-17 beside a `face_diff.bin`, while Red
+    lets the `.bin` replace it; the two differ in 36 of 53 such folders
+  - `boots_edit.model` and `glove_edit.model`, the Edit-mode models (2 found), and a member's
+    own `glove.xml`
+  - a member's `face.xml` path in a game-path form other than `model/character/face/common/…`:
+    Red reports an Error for a model or `.mtl` (a Warning for a texture), Studio keeps it with
+    `xml_path_unchecked` (W); DECISIONS 2026-09-12's "Red waved unresolvable game paths through
+    silently" holds for that one form only (`messages.md`, the `xml_path_unchecked` paragraph)
 - open (2026-10-11, 5.0; for Phase 5's AATF itemization) — `apply_tier` cannot make a VTL11
   medal legal: VTL11 requires a medal's name to carry a gold or silver colour code (a
   `name_colors` condition), which no tier target expresses, so the quick action writes no name

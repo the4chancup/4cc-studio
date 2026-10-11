@@ -26,14 +26,14 @@ differing new default is a deliberate decision, explained in the Controls column
 
 | Setting | Old default | New default | Controls |
 |---|---|---|---|
-| `cpk_name` | `4cc_99_test` | same | Single-CPK output `CpkStem` (shared validation contract in the Writer section) |
+| `cpk_name` | `4cc_90_test` | `4cc_99_test` | Single-CPK output `CpkStem` (shared validation contract in the Writer section); the new default is the official DpFileList's test entry (`pipeline.md` "DpFileList upgrade") |
 | `output_folder_path` | `patches_output/` (hardcoded) | `output/` | Root for promoted CPKs (degraded runs and `--no-deploy`), the `.staging/` folder, `test_output/`, and `teamnotes.txt`. Relative paths resolve **beside the executable** (Red's `patches_output/` in its new place; `%APPDATA%` is no place to look for a CPK) |
 | `run_pes` | 0 | same | Launch PES after compiling (only after a successful deployment; a degraded run never launches) |
 | `multicpk_mode` | 0 | same | Cup DLC mode: team content into size-split `teams` parts + the bins CPK (see "Multi-CPK mode: teams parts"); replaces Red's faces/uniform/bins content split |
 | `teams_cpk_name` | `4cc_40_faces` + `4cc_45_uniform` | `teams` | Stem of the teams part slots; the slots themselves are every DpFileList entry matching `{prefix}_{NN}_{stem}` (`4cc_41_teams`, `4cc_42_teams`, …), ordered by number. A stem that is the bins CPK's own (`bins` for `4cc_08_bins`) is refused (exit code 2): the bins CPK would be a part too. Replaces `faces_cpk_name` and `uniform_cpk_name` |
 | `cpk_part_max_size` | — | `3221225472` (3 GiB) | Cap per teams part (TOC included); the writer places whole teams, rolling to the next slot when the next team would not fit — teams are never split across parts. Chosen comfortably under Git for Windows' 4 GiB object ceiling; five slots give 15 GiB. Written as a whole number of bytes, not as text like `3 GB`: a count needs no unit parser and leaves no doubt between GB and GiB, and the findings show it in KiB, MiB or GiB. Single-CPK runs are not split, only warned (`cpk_size_over_limit`) |
 | `bins_cpk_name` | `4cc_08_bins` | same | Multi-CPK bins name |
-| `refs_cpk_name` | `4cc_18_referees` | same | Referee CPK name. A name equal to `cpk_name`, or in multi-CPK mode to `bins_cpk_name` or one of the teams stem's slots (letter case aside), is refused as an invalid configuration (exit code 2): two writers on one file |
+| `refs_cpk_name` | `4cc_35_referees` | `4cc_18_referees` | Referee CPK name, the new default the official DpFileList's. A name equal to `cpk_name`, or in multi-CPK mode to `bins_cpk_name` or one of the teams stem's slots (letter case aside), is refused as an invalid configuration (exit code 2): two writers on one file |
 | `dds_compression` | 0 | **auto** | WESYS-zlib every emitted DDS. Tri-state `auto` / `1` / `0`; `auto` **follows `multicpk_mode`**, since multi-CPK is the cup DLC workflow and containing the full-cup DLC's size is the whole point of the setting — a manager compiling one team gets no compression and no cost, a cup maintainer gets it without remembering a second switch. **Pre-Fox only (PES ≤17)**: on Fox versions the setting is ignored whatever its value, because FTEX conversion already provides the size reduction there and the game does not expect zlibbed FTEX. Cheap in-process either way (see "DDS compression cost" below) |
 | `strict_file_type_check` | 1 | same | Disallowed file types are errors vs info notes (`file_type_disallowed`) |
 | `pass_through` | 0 | same | Keep folders with errors instead of discarding them (cup DLC workflow) |
@@ -55,8 +55,9 @@ the run before any export is read (exit code 3, naming the path).
 Output mode (normal / test / sideload) is not a persisted setting: it is the Compile button's dropdown
 in the GUI and a flag on the CLI subcommand, as in Blue's `--mode` argument.
 
-**DDS compression cost.** Red's `dds_compression` is a separate pass at the end: walk
-`patches_contents/`, read each DDS, Python `zlib.compress` at level 6, wrap in the 16-byte WESYS
+**DDS compression cost.** Red's `dds_compression` is a separate pass at the end of its
+extraction stage: walk `extracted_teams/` (team exports only; referee content is never
+compressed), read each DDS, Python `zlib.compress` at level 6, wrap in the 16-byte WESYS
 header, write it back — I/O-bound and serial. In the Studio it is one more step in the texture task,
 on bytes already in memory, running on rayon workers like everything else. Rough budget for a
 200 MB pre-Fox export that is mostly DDS: `flate2` deflate at level 6 runs at roughly 30–60 MB/s

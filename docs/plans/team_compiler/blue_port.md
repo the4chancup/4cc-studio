@@ -93,8 +93,8 @@ What carries over from Red as compiler-internal behavior (invisible in the forma
   is not a normal `TeamId`); per-referee IDs generated as `refereeXXX` / `k99XX` / `g99XX`
 - Per-referee common structures and XML/MTL/FMDL path updates — no longer referee-specific: the
   standard texture relocation step moves **every** player's textures to a per-player common
-  subfolder (see `pipeline.md` "Per-model-folder parallel steps"), which is Red's referee-only preprocessing
-  generalized to all players
+  subfolder (see `pipeline.md` "Per-model-folder parallel steps"), which is Red's preprocessing for referees and
+  Pre-Studio (`Players/`) folders generalized to every player
 - Referee base template content (`refscpk` templates)
 
 What does not carry over is how Red showed the referee marker (`ref_marker.dds`): pre-Fox it
@@ -180,7 +180,7 @@ Rust + GUI architecture:
 | Interactive settings editing | `settings_management.py:23-66` | GUI form fields |
 | Comment-preserving INI parser | `commentedconfigparser` dependency | Not needed; GUI manages settings |
 | Step-by-step run modes | `compiler_main.py:72-93` | CLI subcommands for automation |
-| Log username cleaner | `log_username_clean.py` | Trivial, optional |
+| Log username cleaner | `log_username_clean.py` | `studio.log` writes the home directory as `~` (`core/architecture.md` "Diagnostic logging") |
 | `pes_uniparam_edit` standalone tool | `pes_uniparam_edit.py` | Covered by `uniparam` format parser |
 
 ### Size deltas in shared modules

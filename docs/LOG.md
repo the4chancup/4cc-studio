@@ -1748,3 +1748,9 @@ worklog passed 7,000 lines.
 - **2026-10-11** — 4.z-rewrite, first part: Phase 4's plan sections in the present tense, the run
   driver shapes copied from the code, this log moved out of the worklog. 5.0 done: no savefile
   change in the 4ccEditor fork since `4a95b7c`; reached `Autumn_2026_AATF` `f66e8b4`; VGL27 at `VGL27.B`.
+- **2026-10-11** — 5.0c done: Red's behavior inventory at `e12aa01`, 442 rows, 25 gaps. The
+  Fox compiler's four became step 5.0e (BC7 portraits for PES 15-18, a texture-size census, kit
+  texture paths, `.txt` notes); 14 pre-Fox gaps deferred as one issue; nine plan passages on Red corrected.
+- **2026-10-11** — 5.0e (2): texture census of the machine's exports (12,857 distinct textures):
+  15 mipped one-side-non-power-of-two textures and 11 kit textures over 2048 in Fox exports, so
+  Studio's stricter rules wait on an in-game check (`QUESTIONS.md`) before any relaxing.

@@ -35,8 +35,9 @@ Intentional differences must be accounted for:
 - **Auto-assigned boots/gloves IDs** may differ from the old embedded IDs — the comparison
   normalizes ID-dependent paths and embedded references.
 - **Texture locations**: every player's textures are relocated to per-player common subfolders (see
-  "Texture relocation to common" in the walkthrough), where Red packs team textures inside each
-  model folder's structure; textures resolved from `Common/` stay in the team's Common output and
+  "Texture relocation to common" in the walkthrough), where Red packs an AET-layout export's
+  textures inside each model folder's structure and relocates a Pre-Studio (`Players/`) export's
+  to `common/<team>/<name part>/`, keyed by the folder name without its number prefix; textures resolved from `Common/` stay in the team's Common output and
   are referenced in place. The comparison matches textures by content across locations and verifies
   that rewritten references resolve to the relocated (or in-place Common) files, and that a Common
   texture appears once in the archive however many players reference it.

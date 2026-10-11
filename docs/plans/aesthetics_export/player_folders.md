@@ -323,7 +323,7 @@ pre-Fox `face.xml` type from it through one table:
 
 | Suffix | Fox destination | Pre-Fox `face.xml` type |
 |---|---|---|
-| `face_high`, `hair_high`, `oral`, `fcl_hair` | that FMDL (merge if several) | `face_neck` for `face_high` (Red's rule); `parts` otherwise |
+| `face_high`, `hair_high`, `oral`, `fcl_hair` | that FMDL (merge if several) | `face_neck` for `face_high` (wider than Red, which gives it only to a file named exactly `face_high_win32.model`); `parts` otherwise |
 | `boots` | the `boots` folder (`boots.fmdl`, merge if several) | `parts` (boots use the body skeleton; today's typing) |
 | `glove_l` / `gloveL` | the gloves folder, `glove_l.fmdl` | `gloveL` |
 | `glove_r` / `gloveR` | the gloves folder, `glove_r.fmdl` | `gloveR` |
@@ -544,7 +544,9 @@ One under a DX10 extension header goes out re-headered, its pixel data untouched
 FourCC header for BC1, BC2 and BC3 (an sRGB DXGI id as its UNORM twin) and the masks header for
 BGRA8, a DX10 header with the UNORM id for a format the legacy header cannot express (BC7); an
 uncompressed DX10 layout the legacy header cannot express (RGBA8) is encoded like a raster
-source. Re-headered rather than re-encoded, because the blocks are fine and a re-encode is
+source. On PES 15-18, which read BC1-BC3 only (`libs/dds_convert.md` "Passthrough"), a BC4,
+BC5 or BC7 portrait, under either header, is encoded like a raster source too (step 5.0e,
+until which it goes out as above on every version). Re-headered rather than re-encoded, because the blocks are fine and a re-encode is
 lossy (the legacy compilers re-encoded every DX10 header to DXT5). The game's own DDS reader
 is the reason: a 128x128 single-level BC3 portrait under a DX10 header with the sRGB id
 (DXGI 78) crashed PES 19 when its slot was hovered (VGL, 2026-10-09), and the same blocks under

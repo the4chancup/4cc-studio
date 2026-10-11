@@ -664,6 +664,11 @@ TC-PRT-04  GIVEN slot 05's folder holding portrait.dds, a 128x128 single-level B
            THEN 71405.dds, then player_71405.dds, holds the source's pixel data under the legacy
                 DXT5 header (ftex::dds::header_bytes(Bc3, 128, 128, 1)), portrait_header_rewritten
                 is reported as an Info naming the file with dxgi=78, and nothing is dropped
+TC-PRT-05  GIVEN slot 05's folder holding portrait.dds, a 128x128 BC7 DDS under a DX10 header
+           WHEN the export is compiled for PES 18, then for PES 21
+           THEN player_71405.dds is a 128x128 DXT5 DDS under the legacy header with the full mip
+                chain and no portrait_header_rewritten; then 71405.dds holds the source's BC7
+                blocks re-headered, as TC-PRT-04's do
 ```
 
 **Models**
@@ -1204,6 +1209,15 @@ TC-MOD-90  GIVEN TC-MOD-36's boots, or a Common/legs.fmdl with such a material, 
            THEN the EnvironmentMap names that env.dds and the CPK's env.dds is that texture,
                 not the bundled template's; the data directory's reports
                 template_override_active
+TC-MOD-91  GIVEN slot 05 holding an FMDL one of whose textures has the directory
+           /Assets/pes16/model/character/uniform/texture/ (the game's kit textures)
+           WHEN the export is checked or compiled for PES 21
+           THEN fmdl_texture_kit_path names the path, the model is packed with that path
+                unchanged, and fmdl_texture_not_found is not reported for it
+TC-MOD-92  GIVEN slot 05 holding a face model and notes.txt
+           WHEN the export is compiled with strict_file_type_check on
+           THEN file_not_used names notes.txt, file_type_disallowed is not reported, and the
+                folder compiles as if it were absent
 ```
 
 **Textures**

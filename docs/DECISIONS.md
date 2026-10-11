@@ -6856,3 +6856,56 @@ content; a bridge here would be a wrapper around three `kit_config` functions wi
 its only caller (found at 4.z-rewrite: Phase 4's kit step never needed it).
 Plan: `aesthetics_export/object_model.md` (the crate layout and the paragraph after
 `ExportSlot`).
+
+## 2026-10-11 — team_compiler — a BC4, BC5 or BC7 portrait for PES 15-18 is encoded to BC3
+Decision: a DX10 portrait whose blocks are BC4, BC5 or BC7 is decoded and encoded to BC3 like a
+raster source when the target is PES 15-18; on PES 19-21 it still goes out re-headered (the
+2026-10-09 entry). Implemented at step 5.0e.
+Why: the plan contradicted itself: "Portraits" kept the blocks on every version while
+`libs/dds_convert.md` "Passthrough" says PES 15-18 read BC1-BC3 only; Red re-encodes them to
+DXT5 there. 12 of the cup corpus's 1218 portraits are BC7 (Red inventory, `.tmp/5_0c/packing.md`
+row 26).
+Plan: `aesthetics_export/player_folders.md` "Portraits".
+
+## 2026-10-11 — studio — `studio.log` gets a panic hook, keeps the previous run and hides the home directory
+Decision: the GUI log sink writes a panic and its backtrace to `studio.log` and tells the user
+to post the file; renames the previous log to `studio.old.log` at start; writes the version
+first; writes the home directory as `~`.
+Why: Red does each (a crash log the user is told to post, `*.old.log`, a version line, the user
+name scrubbed after every run); without them a GUI crash leaves nothing to post, a relaunch
+overwrites the crash's log, and posted logs carry the member's user name in every absolute path.
+The scrub was listed as optional in `blue_port.md`; a posted file is where it matters.
+Plan: `core/architecture.md` "Diagnostic logging"; `team_compiler/blue_port.md` (the
+eliminated-features table).
+
+## 2026-10-11 — team_compiler — the Red behaviors Studio deliberately differs on (Red inventory, 5.0c)
+Decision: these differences from Red stay, each already in the plan: an export with both
+`refs.txt` and `players.txt` uses `players.txt` with `refs_txt_ignored` (Red errors and skips the
+export); the working-bin walk reads every CPK the DPFL lists (Red only names holding `midcup` or
+`bins`); `+` splits the team-name token like `-` and `_`; `overrides/` always goes into the team
+CPK (Red's `sideload/` goes into the refs CPK when only refs compile, and is ignored in
+multi-CPK mode); `dds_compression` reaches referee content (Red's only team exports); two
+folders with one player number are both dropped with `player_number_duplicate` (Red keeps the
+first in directory order); `pass_through` keeps fewer kinds of file than Red, which packs
+whatever it finds.
+Why: each Red behavior is an accident of its folder walk or its CPK naming, not a rule the
+game needs: keeping the first of two duplicates depends on directory order, a bins CPK not
+named `midcup` is still read by the game, and an Error a member must fix beats a skipped
+export with nothing reported. Red's own bugs the inventory found (`red-bug` rows in
+`.tmp/5_0c/`) are not copied and need no entry.
+Plan: no plan edit needed: `aesthetics_export/player_folders.md` "Referee exception",
+`team_compiler/pipeline.md` (the walkthrough's name tokens, bins, writer and overrides),
+`settings.md` `dds_compression`, `messages.md`.
+
+## 2026-10-11 — team_compiler — a kit-texture path in an FMDL is a Warning; a `.txt` note in a model folder is not a disallowed file
+Decision: an FMDL texture path into the game's kit texture folder
+(`/Assets/pes16/model/character/uniform/texture/`) is reported as the Warning
+`fmdl_texture_kit_path` and kept unchanged; a `.txt` in a player or shared folder is admitted as
+a note and reported `file_not_used`. Both are implemented at step 5.0e.
+Why: Red reports the kit path as an Error but keeps the model (its newest commit: the modded exe
+swaps kit textures per match, so the path cannot work); a Studio Error drops the folder, so the
+Warning is what keeps Red's outcome while saying why the texture will look wrong. A note beside
+a model is a comment Red admits; refusing it under the default strict check would drop a working
+model.
+Plan: `team_compiler/messages.md` (`fmdl_texture_kit_path`, `file_not_used`);
+`aesthetics_export/object_model.md` "File-type allowlist"; TC-MOD-91, TC-MOD-92.

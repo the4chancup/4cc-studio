@@ -467,8 +467,9 @@ compile-time aesthetics, on Fox the output CPK's database tables and on pre-Fox 
 the Save editor (Phase 5 logic and the full Phase 8 view), and the
 Export upgrader (Phase 6, structural migration; its glTF pass waits for Phase 7), as the Windows
 portable bundle. Old-format exports reach the compiler through the upgrader; Red's Pre-Studio
-preview layout gets no dedicated input path, since few members are expected to use it (the
-reserved-subfolder legacy support in `aesthetics_export/player_folders.md` stays as it is).
+preview layout gets no dedicated input path, since few members are expected to use it; an AET
+referee export's per-referee `face/`, `boots/`, `gloves/` and `common/` subfolders reach it
+through the upgrader too (`player_layout_proto`).
 
 **Does not ship:** glTF (Phase 7), desktop GPU BC7, the Linux bundle, and the updater's
 download/swap/rollback (all Phase 16), and the tools of Phases 9–15.

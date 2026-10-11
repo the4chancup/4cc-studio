@@ -260,6 +260,34 @@ holds `midcup` or `additions` in any letter case, the two ways old midcup export
 the output directory. Both print step 10's report and exit non-zero when it is not clean. The GUI
 offers the same two modes as two drop targets on the tool view.
 
+## Open items
+
+What Red does with old exports that the steps above do not carry yet, found by the Red behavior
+inventory (step 5.0c, `.tmp/5_0c/`); each is settled in this plan before Phase 6's acceptance
+section is written.
+
+- **A kit config naming another kit's texture** (step 5). Red rewrites only the team ID in a
+  config's back, chest, leg and name fields, keeping the kit letter and number the maker wrote:
+  makers copy kit 1's config for the others, so kits 2-4 (and often the GK) wear kit 1's number
+  and name fonts without shipping their own. 59 of the 1041 distinct old configs on the
+  maintainer's machine do this (23 exports, nearly all VGL26). Step 5 drops the fields and the
+  compiler re-derives them from the textures in the kit's folder, so those kits would compile
+  without numbers or names, against step 5's "compiles byte-for-byte as before". Recommended:
+  the upgrader reads the four fields and copies a texture another kit's field names into that
+  kit's folder before the hoist (which then moves it to `all/` when every kit has it), with an
+  info line.
+- **An FMDL texture found only in `Common/`** (step 7). Red points a texture at the team's
+  Common folder whenever its stem is not in the model's folder but is in `Common/`, whatever
+  directory the model named; step 7 adds a `.common` link only for a reference that named the
+  Common folder by game path. Recommended: the link also when the stem exists only in `Common/`.
+- **The `u0???g` team-ID token** (step 7). Red respells `u0<id>g` like `u0<id>p` in FMDL strings
+  and when matching file names; step 7 and `model_format.md` "Kit-dependent assets" treat only
+  `u0???p<d>`, so a model and a file spelling the ID differently stop matching. Step 7 says what
+  happens to `u0???g`.
+- **Note kit entries past Studio's slots** (step 5). Red writes a `UniColor.bin` entry for a
+  second `gk:` line (kit 0x11) and for player lines past the ninth; the Studio format has no slot
+  for either. Reported as unmigrated content (step 10).
+
 ## Dependencies
 
 Uses `aesthetics_export` (the Studio format's object model, conventions, and validation — the upgrader builds

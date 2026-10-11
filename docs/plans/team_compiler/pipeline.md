@@ -1386,9 +1386,9 @@ describes behavior, not a serial scheduling requirement:
   failing is `deploy_target_unwritable`, the rename failing `old_cpk_locked` (Windows reports a
   file held open without delete sharing as access denied, the same error as a folder needing
   elevation); either removes the `.partial` and degrades the run (below). After the deployment
-  transaction commits, the staging folder is deleted — like Red, nothing is left in `output/`.
-  Nothing else is written in `download/`: Red wrote no record of what it installed, and nothing
-  would read one. A run that writes several CPKs (multi-CPK mode) installs all or none: every
+  transaction commits, the staging folder is deleted, so nothing is left in `output/`.
+  Nothing else is written in `download/`, and no record of the installed CPKs is kept: Red's
+  list of them (`patches_output/these_cpks_were_moved_to_download_folder.txt`) has no reader. A run that writes several CPKs (multi-CPK mode) installs all or none: every
   CPK is copied to its `.partial` first, then each old CPK is moved aside to
   `{name}.cpk.old`, which is the step a locked CPK fails (`old_cpk_locked`: the ones already
   moved go back, the `.partial`s are removed, and every CPK of the run is promoted to
@@ -1818,7 +1818,8 @@ Resolved decisions:
   is never useful now that recompiles patch the current cup state.
 - **Working-bin lookup follows `DpFileList.bin`**: the download folder's DpFileList is walked from
   the bottom up (the bottom has the highest PES loading priority; Red approximates this by sorting
-  the DPFL's CPK names in reverse alphabetical order), starting just below the compiler's own output
+  the DPFL's CPK names in reverse alphabetical order, and searches only CPKs whose names hold
+  `midcup` or `bins`, a filter dropped here), starting just below the compiler's own output
   CPK — skipping it and anything with higher priority keeps recompiles idempotent even after newer
   midcup CPKs are added — and each bin comes from the first CPK the walk finds it in, with the
   supplying CPK reported; the bundled bases only serve from-scratch compiles (see "Bins

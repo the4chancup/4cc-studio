@@ -633,6 +633,13 @@ console, and a lib printing to stdout corrupts piped CLI output.
   report. The GUI `gui.md` "Log panel" shows findings, not this file; an in-app diagnostic view is not
   planned for the first release. `python_bindings` installs `pyo3-log`, which forwards the libs'
   lines into Python's `logging` (Blender's console) with no lib changes.
+- `studio.log` is a bug report's attachment, so the GUI sink also: installs a panic hook that
+  writes the panic message, its location and a backtrace to the log before the process ends, and
+  tells the user (a dialog when the GUI is up) to post the file, since a GUI binary has no
+  console to show the panic in; renames the previous run's log to `studio.old.log` at start,
+  replacing the older one, so a crash followed by a relaunch keeps the crash's log; writes the
+  Studio version as the log's first line; and writes the user's home directory as `~` in every
+  line, because findings carry absolute paths and the file is posted on the cup's server.
 - The split: if a user should see it, it is a finding (`Message`); if a developer should see it, it
   is a log line. Never both for one fact. Libs never `error!` — a lib returns the error and the
   caller decides what it means; libs use `debug!`/`trace!`, and `warn!` only for a recovered
