@@ -148,4 +148,10 @@ exclude_re = [
     # comparisons differ on no input they ever see (first ruled at 4.11a, left in by
     # oversight until this run).
     "replace > with >= in (centre_square|letterboxed)",
+    # Phase 4's close (2026-10-12): `ModelFolder::own_package`'s `ingame_face` guard is read by
+    # no consumer of `roles()`: a marked player's own copy or link wins `resolve_path` before
+    # any package is consulted, his models are `PreFoxPart`s naming their own package, and he
+    # plans no face task. So answering the face for him changes no output. The answer is kept
+    # because it is the true one, should a consumer start reading it.
+    "replace match guard self\\.ingame_face with false in ModelFolder::own_package",
 ]

@@ -3759,6 +3759,202 @@ mod tests {
         );
     }
 
+    /// The bytes of `pes_model`'s fixture `name`.
+    fn pes_fixture(name: &str) -> Vec<u8> {
+        std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../libs/pes_model/tests/fixtures")
+                .join(name),
+        )
+        .unwrap()
+    }
+
+    /// `run_with` for `version`: `kind`'s files read from the tracer, each file at a
+    /// path of `replacements` replaced by the bytes given with it.
+    fn process_with(
+        kind: TaskKind,
+        version: PesVersion,
+        replacements: &[(&str, &[u8])],
+    ) -> TaskBatch {
+        let mut files: TaskFiles = kind
+            .files()
+            .into_iter()
+            .map(|file| {
+                let bytes = std::fs::read(tracer().join(file.source.as_str())).unwrap();
+                (file.path.clone(), bytes)
+            })
+            .collect();
+        for (path, bytes) in replacements {
+            files.insert(ScopePath::new(path).unwrap(), bytes.to_vec());
+        }
+        process(kind, version, None, files)
+    }
+
+    /// The card-head material set's bytes naming `./skin.dds` alone, as a `.mtl` of
+    /// the folder gives them.
+    fn skin_materials() -> Vec<u8> {
+        let mut set =
+            pes_model::format::mtl::MaterialSet::read(&pes_fixture("cardhead_materials.mtl"))
+                .unwrap();
+        pes_model::ops::paths::rewrite_texture_paths(&mut set, |path| {
+            path.directory = "./".to_owned();
+            path.file_name = "skin.dds".to_owned();
+        });
+        set.write()
+    }
+
+    /// The directory each `skin.dds` texture path of the `.mtl` `bytes` names.
+    fn skin_directories(bytes: &[u8]) -> Vec<String> {
+        let set = pes_model::format::mtl::MaterialSet::read(bytes).unwrap();
+        pes_model::ops::paths::texture_paths(&set)
+            .into_iter()
+            .filter(|path| path.file_name == "skin.dds")
+            .map(|path| path.directory)
+            .collect()
+    }
+
+    /// The tracer's boots model naming `pants_kitN.dds`, the kit-set reference a
+    /// member writes.
+    fn boots_naming_kit_set() -> Vec<u8> {
+        let mut model = tracer_model("boots.fmdl");
+        for material in &mut model.materials {
+            for (_, texture) in &mut material.textures {
+                if texture.file_name == "shirt.dds" {
+                    texture.file_name = "pants_kitN.dds".to_owned();
+                }
+            }
+        }
+        model.to_file().unwrap().write()
+    }
+
+    #[test]
+    fn a_kit_reference_in_a_model_names_the_player_s_link_not_the_combined_member() {
+        // `pants_kit1.dds.common` stands for `Common/pants_kit1.dds` of the set
+        // `pants_kitN`: the combined boots folder's `pants_kit2.dds`, the set's other
+        // member, does not take the reference from it, so the model points at the team's
+        // Common output, where the link's texture is packed.
+        let kitned = boots_naming_kit_set();
+        let folder = ModelFolder {
+            common_files: vec![named("Common/pants_kit1.dds", "shirt.dds")],
+            ..player_with(
+                vec![
+                    named(&format!("{PLAYER}/kit_boots.fmdl"), "boots.fmdl"),
+                    named(&format!("{PLAYER}/pants_kit1.dds.common"), "face_diff.bin"),
+                ],
+                vec![shared(
+                    ModelPackage::Boots,
+                    "Boots/Crocs",
+                    vec![named("Boots/Crocs/pants_kit2.dds", "shirt.dds")],
+                )],
+            )
+        };
+        let model = format!("{PLAYER}/kit_boots.fmdl");
+
+        let batch = run_with(boots(folder), &[(&model, &kitned)]);
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        let directories = texture_directories(&package, "boots.fmdl");
+        assert!(
+            directories.contains(&(
+                "pants_kitN.dds".to_owned(),
+                "/Assets/pes16/model/character/common/792/sourceimages/".to_owned()
+            )),
+            "{directories:?}"
+        );
+    }
+
+    #[test]
+    fn a_face_s_material_names_a_stem_at_the_player_s_link_not_the_combined_texture() {
+        // `skin.dds.common` stands at `skin` for `Common/skin.dds`: the face's `.mtl`
+        // names the texture in the team's Common output, not the combined face
+        // folder's copy of the stem.
+        let folder = ModelFolder {
+            engine: Engine::PreFox,
+            common_files: vec![named("Common/skin.dds", "shirt.dds")],
+            ..player_with(
+                vec![
+                    named(&format!("{PLAYER}/face_high.model"), "fcl_hair.fmdl"),
+                    named(&format!("{PLAYER}/face_high.mtl"), "fcl_hair.fmdl"),
+                    named(&format!("{PLAYER}/skin.dds.common"), "face_diff.bin"),
+                ],
+                vec![shared(
+                    ModelPackage::Face,
+                    "Faces/Round",
+                    vec![named("Faces/Round/skin.dds", "shirt.dds")],
+                )],
+            )
+        };
+        let kind = face(folder);
+        let model = pes_fixture("cardhead_face_high.model");
+        let materials = skin_materials();
+        let face_model = format!("{PLAYER}/face_high.model");
+        let face_mtl = format!("{PLAYER}/face_high.mtl");
+
+        let batch = process_with(
+            kind,
+            PesVersion::Pes17,
+            &[(&face_model, &model), (&face_mtl, &materials)],
+        );
+
+        let mut cpk = cpk::CpkArchive::open(std::io::Cursor::new(&batch.entries[0].1)).unwrap();
+        let entries = cpk.entries().to_vec();
+        let mtl = entries
+            .iter()
+            .find(|entry| entry.path.ends_with("/face_high.mtl"))
+            .unwrap_or_else(|| panic!("no face_high.mtl among {:?}", paths(&batch)));
+        let set = cpk.read(mtl).unwrap();
+        assert_eq!(
+            skin_directories(&set),
+            ["model/character/uniform/common/792/".to_owned()]
+        );
+    }
+
+    #[test]
+    fn a_marked_player_s_material_names_a_stem_at_his_link_not_the_combined_texture() {
+        // Under `ingame_face` his `.common` texture link stands at `skin` as on the
+        // face: the boots' `.mtl` names the Common texture at the team's output, not
+        // the combined boots folder's copy of its stem.
+        let folder = ModelFolder {
+            engine: Engine::PreFox,
+            ingame_face: true,
+            common_files: vec![named("Common/skin.dds", "shirt.dds")],
+            ..player_with(
+                vec![
+                    named(&format!("{PLAYER}/boots.model"), "fcl_hair.fmdl"),
+                    named(&format!("{PLAYER}/boots.mtl"), "fcl_hair.fmdl"),
+                    named(&format!("{PLAYER}/skin.dds.common"), "face_diff.bin"),
+                ],
+                vec![shared(
+                    ModelPackage::Boots,
+                    "Boots/Crocs",
+                    vec![named("Boots/Crocs/skin.dds", "shirt.dds")],
+                )],
+            )
+        };
+        let kind = boots(folder);
+        let model = pes_fixture("cardhead_face_high.model");
+        let materials = skin_materials();
+        let boots_model = format!("{PLAYER}/boots.model");
+        let boots_mtl = format!("{PLAYER}/boots.mtl");
+
+        let batch = process_with(
+            kind,
+            PesVersion::Pes17,
+            &[(&boots_model, &model), (&boots_mtl, &materials)],
+        );
+
+        let mtl = batch
+            .entries
+            .iter()
+            .find(|(path, _)| path.ends_with("/boots.mtl"))
+            .unwrap_or_else(|| panic!("no boots.mtl among {:?}", paths(&batch)));
+        assert_eq!(
+            skin_directories(&mtl.1),
+            ["model/character/uniform/common/792/".to_owned()]
+        );
+    }
+
     /// The CPK path of the tracer player's texture `stem`, in its common subfolder.
     fn player_texture(stem: &str) -> String {
         format!(
