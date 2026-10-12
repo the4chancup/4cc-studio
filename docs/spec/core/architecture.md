@@ -9,8 +9,8 @@ Part of the [Core plan](README.md). Section headings are unchanged from the sing
 The suite follows a **platform + plugins** model with strict modularity rules:
 
 1. **`studio_core` is minimal**: only what is needed to run the program with zero tools installed —
-   the app shell (sidebar, settings menu, common widgets), the tool plugin trait, the settings
-   framework, and the common settings (PES version, paths, threads, memory cap).
+   the app shell (sidebar; the settings menu and common widgets are Phase 8's), the tool plugin
+   trait, the settings framework, and the common settings (PES version, paths, threads, memory cap).
 2. **Every tool is a separate crate**, no matter how small.
 3. **Every shared set of functionality is a separate library crate.** Example: savefile
    loading/saving is a lib crate used by both the save editor tool and the Team compiler tool. A
@@ -25,6 +25,9 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 4cc-studio/
 ├── Cargo.toml                        (workspace)
 ├── crates/
+│   ├── dev/
+│   │   └── extra_mutants/            # The mutants cargo-mutants lacks (the `just extra-mutants`
+│   │                                 #   scanner); a dev tool, linked into no release binary
 │   ├── studio/                       # The binary: registers tools, launches GUI or dispatches CLI
 │   ├── studio_core/                  # Platform: app shell, tool trait, settings framework,
 │   │                                 #   common widgets (grid, log panel), PipelineEvent types
@@ -32,17 +35,21 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │   │   └── team_compiler/            # Team compiler (pipeline, loaded processing model, packing, GUI)
 │   └── libs/
 │       ├── pes_savefile/             # EDIT file codec: crypto, schema tables, player/team/
-│       │                             #   tactics model, interchange formats (Team TOML, Texport)
+│       │                             #   tactics model, interchange formats (Team TOML, Texport,
+│       │                             #   .4ccs/.4cct readers), save-to-save ops, settings.toml,
+│       │                             #   save discovery
 │       ├── cpk/                      # CPK read/write (includes CRILAYLA, used only here)
 │       ├── fpk/                      # FPK/FPKD read/write
 │       ├── fmdl/                     # FMDL (Fox model) read/write + FMDL mesh splitting,
 │       │                             #   split vertex encoding, anti-blur decode/encode,
-│       │                             #   multi-FMDL mesh merging
+│       │                             #   multi-FMDL mesh merging, path-table editing
 │       ├── pes_model/                # .model (PreFox model) + sibling .mtl XML read/write
-│       │                             #   + .model mesh splitting, split vertex encoding decode/encode
+│       │                             #   + .model mesh splitting, split vertex encoding,
+│       │                             #   merging, texture-stem rewriting
 │       ├── ftex/                     # FTEX read/write
-│       ├── dds_convert/              # In-process DDS conversion (block_compression + image crate +
-│       │                             #   DXT5 encoder + in-memory conversion cache, ≤2-team limit)
+│       ├── dds_convert/              # In-process DDS conversion (block_compression + image crate,
+│       │                             #   DXT5nm normal-map layout, in-memory conversion cache used
+│       │                             #   only by runs of two exports or fewer)
 │       ├── color_tools/              # Dominant kit-color extraction (the color-picker widget and
 │       │                             #   kit icon routines join in Phase 8)
 │       ├── fox2/                     # Fox Engine entity files (+ CityHash64)
@@ -51,19 +58,25 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       ├── vtree/                    # VirtualTree + canonical ScopePath/RelativeScopePath shared by events/exports
 │       ├── pes_version/              # PesVersion (15–21) + Engine (pre-Fox/Fox): the one closed set every
 │       │                             #   version-aware crate shares (settings, savefile schemas, skeletons)
+│       ├── teams_list/               # teams_list.txt + TeamName/TeamId: parse/write/reconcile
+│       │                             #   with the embedded upstream list
 │       ├── archives/                 # .zip/.7z loading
 │       ├── aesthetics_export/        # The aesthetics export format: object model, folder conventions,
 │       │                             #   validation (shared by compiler, upgrader, kit config
 │       │                             #   editor, refs arranger, team creator)
 │       ├── pipeline/                 # Shared pipeline scaffolding: memory budget, thread count,
 │       │                             #   CpkStem (folder watcher and check cache join in Phase 8)
-│       ├── elevation/                 # Admin elevation: manifest execution level, detect +
-│       │                             #   elevated relaunch (UAC), CLI guidance
-│       ├── model_convert/            # IR + importers/exporters + skeleton data
-│       │                             #   (calls fmdl/pes_model crates for native mesh ops)
+│       ├── elevation/                 # Admin elevation: detect + elevated relaunch (UAC),
+│       │                             #   access-denied recognition
+│       ├── model_convert/            # IR + importers/exporters + skeleton data, material
+│       │                             #   conversion, hand auto-split (calls fmdl/pes_model crates
+│       │                             #   for native mesh ops)
 │       ├── python_bindings/          # PyO3 bindings exposing fmdl + pes_model crates to Blender's
-│       │                             #   Python; built separately via maturin, not in default build
+│       │                             #   Python; the wheel is built separately via maturin, `studio`
+│       │                             #   never links it
 │       ├── kit_config/               # Kit config codec: binary ↔ TOML, validation (applies fpc values)
+│       ├── aatf/                     # (Phase 5, in progress) AATF rules: the ruleset schema as
+│       │                             #   data, the Rhai engine, the TeamView/PlayerView host
 │       └── fpc/                      # Full Player Customization as data: kit values, player presets,
 │                                     #   interference rules — leaf crate shared by kit_config,
 │                                     #   pes_savefile, and the tools that surface FPC
@@ -115,18 +128,21 @@ else:
 ```
 crates/studio_core/src/
 ├── lib.rs            # re-exports only
-├── tool.rs           # StudioTool trait, ToolContext (settings access, event sink, tool switch, notify)
+├── tool.rs           # StudioTool trait, ToolContext (settings access, event sink, tool switch,
+│                     #   notify), CliError, AppPaths, ShellRequest
 ├── events.rs         # PipelineEvent, PipelineEventEnvelope, FolderStatus, Message + Severity/Disposition, EventLines (an event's one-line text)
 ├── status.rs         # ShellCondition, ToolActivity, Notice — the status bar's typed items
 ├── help/
-│   └── mod.rs        #   HelpSection/HelpTopic, HelpTarget (tool, topic, anchor), catalog-topic generation
+│   └── mod.rs        #   HelpSection/HelpTopic, HelpTarget (tool, topic, anchor)
 ├── settings/
 │   ├── mod.rs        #   settings framework: load/merge defaults/save, per-tool sections keyed by id
-│   ├── common.rs     #   CommonSettings (PES version, paths, threads, memory cap, theme, update state)
-│   └── location.rs   #   data-location resolution (portable data/ vs config dir), first-run choice
+│   ├── common.rs     #   CommonSettings (PES version, paths, threads, memory cap, theme, update
+│   │                 #   state, last tool)
+│   └── location.rs   #   data-location resolution (portable data/ vs config dir)
 └── shell/
     ├── mod.rs        #   StudioApp: eframe::App, panel layout, logic/ui split, tool registry
-    └── launch.rs     #   argument parsing for the three launch modes, --gui autorun hand-off
+    └── launch.rs     #   argument parsing for the three launch modes (the --gui autorun is
+                      #   refused until Phase 8)
 ```
 
 Anything not on this list belongs in a lib crate or a tool crate. The two tempting misplacements:
@@ -205,8 +221,9 @@ runtime. It is a leaf crate: nothing depends on it, and it can be deleted in one
 FMDL/.model Blender support is retired.
 
 **`studio`** — the single binary. With no arguments it launches the egui GUI; with arguments it
-dispatches to the named tool's CLI. Compiles to both native (desktop) and WASM (the eframe `wasm32`
-target, browser deployment).
+dispatches to the named tool's CLI. The browser WASM build is Studio Web (`gui.md` "Browser
+deployment: Studio Web"), whose phase is after the first release; `studio_core` and the lib crates
+stay `wasm32`-checkable under guardrail 6 meanwhile.
 
 #### Launch modes
 
@@ -214,7 +231,7 @@ The binary has two launch modes, distinguished by its arguments:
 
 | Invocation | Behavior |
 |---|---|
-| `4cc-studio` | GUI, last-used tool active |
+| `4cc-studio` | GUI, the first registered tool active |
 | `4cc-studio <tool-id> <command> [args]` | Headless CLI: the tool's `cli_run`, console output, exit code |
 
 `--gui` is a global flag parsed by `4cc-studio` before tool dispatch, so no tool's `clap::Command`
@@ -482,8 +499,8 @@ The source name comes from the export's `ExportStarted` event; the scope is the 
 path, `<file> line <n>` for a roster entry, and nothing for the export itself or a run-wide
 finding; the context fields follow in parentheses, in template order. Other events print
 nothing.
-**GUI** receives events via channels and renders them as egui UI updates (grid cell colors, log
-lines, run strip). The line above is `studio_core`'s `EventLines` (in `events.rs`), shared by
+**GUI** receives events via channels and renders them as egui UI updates (the active tool's log
+lines today; grid cell colors and the run strip are Phase 8's). The line above is `studio_core`'s `EventLines` (in `events.rs`), shared by
 the console printer and the tools' plain logs, so a finding reads the same in the terminal and in
 the window. A tool whose view shows a run's events gives the run its own sink:
 `ctx.with_events(sender)` is the same handle (settings, paths, shell requests) with its events

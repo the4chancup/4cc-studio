@@ -41,8 +41,10 @@ These planned crates extend the spec's workspace tree:
 │       ├── model_viewport/           # (future) shared wgpu model-preview widget — created with the
 │       │                             #   Team compiler's 3D-preview feature; consumers: team_compiler
 │       │                             #   and player_aesthetics_editor (labeled approximate preview)
-│       ├── aatf/                     # (Phase 5) AATF rules: ruleset schema, the generic Rhai
-│       │                             #   interpreter, host API (Save editor, Team creator, Ruleset editor)
+│       ├── aatf/                     # (Phase 5, in progress) AATF rules: the ruleset schema, the
+│       │                             #   Rhai engine and the host views exist; the interpreter's
+│       │                             #   checks and `apply_tier` join it (Save editor, Team creator,
+│       │                             #   Ruleset editor)
 │       ├── music_export/             # (Phase 10) .4ccm music export format: parse/write + condition model
 │       ├── audio_engine/             # (Phase 10) Audio playback (kira/symphonia) + loudness analysis (ebur128)
 │       └── match_feed/               # (Phase 11) Live match event feed (match tracker → music player)
@@ -85,6 +87,9 @@ What exists of this is in `spec/core/architecture.md` "Launch modes".
 | Invocation | Behavior |
 |---|---|
 | `4cc-studio --gui <tool-id> <command> [args]` | **GUI autorun**: the GUI opens with `<tool-id>` active and the tool performs `<command>` inside the GUI, exactly as if the user had pressed the corresponding button |
+
+The bare `4cc-studio` start reopens the tool the GUI last closed on (the `last_tool` common
+setting), not the first registered one.
 
 Besides the tools' subcommands, the shell owns `4cc-studio help`, `4cc-studio update` and `4cc-studio
 --version` (see `gui.md` "Help window", `distribution.md` "Distribution and updates", `distribution.md` "Changelog and version display").

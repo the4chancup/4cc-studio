@@ -1857,3 +1857,5 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2c2: a `TeamView` builds from a Team TOML document, load step 3 runs
   `check_team` on the sample team, and a file knows its logic identity. In-game (5.2b2): auto
   substitution off is 0; man marking is per-preset bytes on PES 16-21; 5.0k found (PES 20/21 table).
+- **2026-10-12** — Step 5.0j1: `docs/spec/core/` read against the code and corrected (dependency
+  rows, crate tree, launch modes, gates, version); unbuilt ideas moved to `docs/plans/core/`.

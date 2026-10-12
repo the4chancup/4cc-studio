@@ -2,8 +2,8 @@
 
 This is the core architectural plan for 4cc Studio: the goals, the platform (crate
 structure, tool plugin system, GUI shell, parallelism), and the cross-cutting
-decisions. The tools and the major library crates have their own plan documents, listed in the
-[plan index](../README.md).
+decisions. The tools and the major library crates have their own documents, listed in the
+[index](../README.md).
 
 ---
 
@@ -143,33 +143,34 @@ Key reasons:
 |-------|---------|----------|
 | `binrw` | Binary format parsing with derive macros | Production-ready |
 | `rayon` | Parallel iteration (work-stealing thread pool) | Production-ready |
-| `crossbeam-channel` | Write queue between coordinator and writer | Production-ready |
-| `flate2` | zlib compression (WESYS format) | Production-ready |
+| `crossbeam-channel` | Tool↔shell event and request channels; the write queue between coordinator and writer | Production-ready |
+| `flate2` | zlib compression (WESYS format, FTEX's compressed chunks) | Production-ready |
 | `sevenz-rust2` | Native .7z reading (replaces 7z.exe); the maintained fork of `sevenz-rust`, which RUSTSEC-2026-0246 marks unmaintained | 0.22.2 in use, no default features (decode only: LZMA, LZMA2, BCJ) |
 | `zip` | Native .zip reading | 8.6.0 in use, no default features plus `deflate` |
-| `serde` | Serialization: `PesVersion`'s two-digit number form and app settings today; `serde_json` joins with the Blender manifest (`player_aesthetics_editor.md`) and the match-event wire format (`match_feed.md`) in their phases | Production-ready |
+| `serde` | Serialization: `PesVersion`'s two-digit number form, app settings and `aatf`'s ruleset data today; `serde_json` joins with the Blender manifest (`player_aesthetics_editor.md`) and the match-event wire format (`match_feed.md`) in their phases | Production-ready |
 | `clap` | CLI argument parsing | Production-ready |
 | `thiserror` | Ergonomic error enums for the lib crates' error types | Production-ready |
 | `anyhow` | Error propagation in tool crates and the binary (`StudioTool::cli_run`'s `CliError` wraps an `anyhow::Error`) | Production-ready |
-| `log` | Diagnostic logging facade in every lib and tool crate (see `architecture.md` "Diagnostic logging") | Production-ready |
+| `log` | Diagnostic logging facade — the one logging front-end a lib or tool crate uses (see `architecture.md` "Diagnostic logging") | Production-ready |
 | `env_logger` | CLI-mode log sink in `studio` (`default-features = false`) | Production-ready |
 | `pyo3` | The Python extension module of `python_bindings` (`abi3-py311`, `extension-module`); built into a wheel by `maturin`, a developer tool installed with pip like `just` is with cargo | Production-ready |
 | `pyo3-log` | Forwards `log` lines to Python's `logging` in `python_bindings` | Production-ready |
 | `eframe` (egui) | GUI framework (pure Rust, immediate-mode, native + WASM) | Production-ready |
 | `md-5` | FPK checksums, PES15 save integrity hashes | Production-ready |
-| `phf` | Compile-time static maps — the Team compiler's per-version game-paths table (team_compiler plan, "Crate layout" `paths.rs`; `model_convert`'s skeletons deliberately use a sorted `Vec`, see `spec/model_conversion/conversion.md` "Skeleton data") | Production-ready |
 | `unicode-normalization` | NFC normalization for `vtree`'s collision detection (two spellings of `é` are one file name on disk) | Production-ready (0.1.25 in use) |
-| `roxmltree` | Read-only XML tree for `.mtl` material sets, `face.xml`, `face_diff.xml` (`pes_model`, the Team compiler); writing those small fixed shapes is done by hand so Konami's formatting is reproducible | Production-ready (0.21.1 in use) |
+| `roxmltree` | Read-only XML tree for `.mtl` material sets, `face.xml`, `face_diff.xml` (`pes_model`, the Team compiler) and `fox2`'s XML form; writing those small fixed shapes is done by hand so Konami's formatting is reproducible | Production-ready (0.21.1 in use) |
 | `base64` | Decoding the vertex blocks of a Fox `face_diff.xml` (the Team compiler); chosen over a hand-written decoder because it leaves no bit-twiddling to own and mutation-test | Production-ready |
-| `directories` | User config dir resolution (data-location choice) | Production-ready |
-| `toml` | Export text formats (`settings.toml`, `config.toml`, `materials.toml`), app settings | Production-ready |
-| `toml_edit` | Comment/formatting-preserving edits to all auto-generated tomls (`settings.toml`, `materials.toml`, `config.toml`); comments are app-injected (predefined per-field documentation) and preserved across edits | Production-ready (the `toml` crate's own foundation) |
-| `image` | Raster source decoding (PNG, JPEG, BMP, WebP, TGA, TIFF) for texture conversion — all formats interchangeable as sources for any model format | Production-ready (pure-Rust default formats, rayon-enabled) |
+| `directories` | User config dir resolution (data-location choice) and `pes_savefile`'s save discovery under the user's Documents folder | Production-ready |
+| `toml` | Export text formats (`settings.toml`, `config.toml`; `materials.toml` joins with glTF), app settings | Production-ready |
+| `toml_edit` | Comment/formatting-preserving edits to the auto-generated tomls (`settings.toml`, `config.toml`; `materials.toml` joins with glTF); comments are app-injected (predefined per-field documentation) and preserved across edits | Production-ready (the `toml` crate's own foundation) |
+| `image` | Raster source decoding (PNG, JPEG, BMP, WebP, TGA, TIFF) for texture conversion — all formats interchangeable as sources for any model format | Production-ready (pure-Rust default formats) |
 | `tiff` | TIFF tag access `image` does not reach (the premultiplied-alpha metadata for `dds_convert`) | 0.11.3 in use |
 | `block_compression` | CPU BC1/BC3/BC7 encoding and BC1–BC7 decoding (one crate for both directions); first-release desktop GPU BC7 | 0.10.0 in use (features `bc15`, `bc7`; `wgpu` feature only for the GPU step); decode verified exact against texconv; GPU cold-start cost, throughput and fallback still to be verified |
 | (none: `fox2` ports CityHash64 1.0.3 directly) | fox2 string hashes must match the C# tool's embedded 1.0.3 variant exactly; no crate pins that variant, and the port is 150 lines verified by a reference golden and every fixture's string table | Not a dependency |
-| `windows` | Win32 APIs: `elevation` (token query, `ShellExecuteExW`), later the match tracker's memory reading | 0.62.2 in use, `Win32_Foundation`, `Win32_Security`, `Win32_System_Registry` (a `SHELLEXECUTEINFOW` field), `Win32_System_Threading`, `Win32_UI_Shell`, `Win32_UI_WindowsAndMessaging`; Windows targets only |
+| `windows` | Win32 APIs: `elevation` (token query, `ShellExecuteExW`) and `pipeline` (the available-memory read); later the match tracker's memory reading | 0.62.2 in use, `Win32_Foundation`, `Win32_Security`, `Win32_System_Registry` (a `SHELLEXECUTEINFOW` field), `Win32_System_SystemInformation` (`pipeline`'s `GlobalMemoryStatusEx`), `Win32_System_Threading`, `Win32_UI_Shell`, `Win32_UI_WindowsAndMessaging`; Windows targets only |
 | `libc` | `geteuid` for `elevation` on POSIX | 0.2.189 in use; Unix targets only |
+| `sha2` | SHA-256 hashing: `dds_convert`'s conversion-cache keys, `pes_savefile`'s write salt and aesthetics fingerprint; the updater's download verification joins it (`plans/core/README.md`) | Production-ready |
+| `rhai` | `aatf`'s ruleset files: the `RULESET` data block and the engine every script runs on (sandboxed; [AATF rules plan](../../plans/aatf_rules.md)) | 1.26.1 in use, no default features (`std`, `serde`; its RNG does not build for `wasm32`) |
 | `syn` (3.x; `full`, `visit`, `parsing`, `printing`, no default features) + `proc-macro2` (`span-locations`) | The dev tool `crates/dev/extra_mutants` alone (step 5.0b), linked into no release binary: it parses a crate's sources to list the mutants `cargo-mutants` lacks, and `span-locations` gives each node's position in the file for the text patch | Both already in the build with these features (`binrw_derive`, `serde_derive`), so nothing new compiles |
 
 No frontend dependencies — the entire GUI is Rust, compiled to both native and WASM from the same

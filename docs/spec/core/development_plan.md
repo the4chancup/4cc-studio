@@ -12,7 +12,7 @@ first to need. Each phase's detailed specification lives in the corresponding pl
 editor](../../plans/save_editor.md)/[AATF rules](../../plans/aatf_rules.md), phase 6 in [export upgrader](../../plans/export_upgrader.md), phase 7 in [model
 conversion](../model_conversion/README.md), phase 9 in [stadium compiler](../../plans/stadium_compiler.md), phase 10 in
 [music player](../../plans/music_player.md)/[music export editor](../../plans/music_export_editor.md), phase 11 in [match
-tracker](../../plans/match_tracker/README.md), phase 12 in [kit config editor](../kit_config_editor.md), phase 13 in [refs
+tracker](../../plans/match_tracker/README.md), phase 12 in [kit config editor](../../plans/kit_config_editor.md), phase 13 in [refs
 arranger](../../plans/refs_arranger.md), phase 14 in [balls compiler](../../plans/balls_compiler.md), and phase 15 in
 [player aesthetics editor](../../plans/player_aesthetics_editor.md); the post-release phases 17–20 name their
 plans in their sections.
@@ -41,17 +41,18 @@ one that makes them enforceable:
   "deny"` (a discarded `Result` is a compile error unless handled or `#[expect]`ed with a reason,
   see the code style rule in `../../CONTRIBUTING.md`), plus `dbg_macro`, `print_stdout`,
   `print_stderr` and `todo` at `warn`, which `-D warnings` makes red; `studio`'s CLI result
-  output carries the one `#[expect(clippy::print_stderr)]`. `[profile.dev.package."*"] debug =
+  output and `extra_mutants`'s stderr carry the `#[expect]`s. `[profile.dev.package."*"] debug =
   false` builds dependencies without debug info while workspace crates keep theirs, since
   dependency debug info is the bulk of a dev `target/` (measured on a comparable project: 24 GB
   of `debug/deps/`) and is never stepped into. `rustfmt.toml` (`style_edition = "2024"`, LF);
-  `rust-toolchain.toml` pins `1.98.0` with `clippy`, `rustfmt` and the `wasm32-unknown-unknown`
+  `rust-toolchain.toml` pins `1.98.1` with `clippy`, `rustfmt` and the `wasm32-unknown-unknown`
   target, so rustup installs all of them on the first `cargo` call.
-- The root `justfile` is the single definition of the four gates (`just gates`: fmt check, clippy
-  with `-D warnings`, `cargo test --workspace`, and `scripts/wasm_check.py`, which derives the
-  crate list for the `wasm32-unknown-unknown` check from `cargo metadata`: `studio_core` plus
+- The root `justfile` is the single definition of the gates — `just gates` runs the fmt check,
+  clippy with `-D warnings`, `cargo test --workspace`, and `scripts/wasm_check.py`, which derives
+  the crate list for the `wasm32-unknown-unknown` check from `cargo metadata`: `studio_core` plus
   every crate under `crates/libs/` minus a named exclusion list, so a new lib is checked without
-  anyone remembering to list it) and of `just deps-check` (guardrail 4 through
+  anyone remembering to list it (the acceptance-ID scanner and the section-pointer check joined
+  later) — and of `just deps-check` (guardrail 4 through
   `scripts/deps_check.py`, which walks each guarded crate's normal dependencies over every target
   and every feature; plus the `cargo deny` license allowlist in `deny.toml`). On Windows the
   recipes run under PowerShell (`set windows-shell`): Git for Windows' `sh` is not on PATH from a
@@ -78,9 +79,10 @@ save means) and `shell/launch.rs` (the three launch modes, `-v` verbosity, one c
 registered tool named after its id, duplicate or reserved ids rejected at registration, and
 `run_cli` dispatch). Two leaf libs came with it: `vtree` (`ScopePath`, `RelativeScopePath`,
 `VirtualTree<T>`, see `../libs/README.md`) because `PipelineEvent` addresses by `vtree::ScopePath`, and
-`pes_version` because `CommonSettings` holds a `PesVersion`. `crates/studio` is a stub binary:
+`pes_version` because `CommonSettings` holds a `PesVersion`. `crates/studio` came as a stub binary:
 it parses the launch mode, installs the CLI `env_logger` sink, and dispatches to a registry that
-is still empty; the GUI modes exit with a message until Phase 8.
+was still empty; the GUI modes exited with a message (the window and the Team compiler's
+registration are Phase 3's shell slice; the rest of the GUI is Phase 8's).
 
 **Verification (done):** all four gates green on the workspace and `just deps-check` green; 38
 unit tests, including settings round-trip and recursive default-merge, `ScopePath` rejection and

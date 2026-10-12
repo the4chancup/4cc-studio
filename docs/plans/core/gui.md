@@ -197,6 +197,8 @@ Each item kind stays in the bar for its lifetime:
 | `ToolActivity` | While the tool reports it |
 | `Notice` | A few seconds; with an action, until clicked or dismissed. Older notices are not kept — an event worth keeping is also a finding in a log |
 
+`update_available` carries an Install action; each condition shows a tooltip and at most one action.
+
 More rules that keep it worth the row:
 
 - **Never modal, never a question.** Anything needing a decision (updater consent, the teams-list

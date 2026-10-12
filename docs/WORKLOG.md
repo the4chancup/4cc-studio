@@ -684,6 +684,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     hash seeds" (no such test found)
   Sliced per folder, each a SWE-2 brief with the file and its crates; the lead reads every
   diff → done when: every spec file has been read against its code once, each change landed
+  - [x] 5.0j1 `docs/spec/core/` (dependency table, crate tree, launch modes, gates, distribution,
+    status bar). Done 2026-10-12 (SWE-2, first attempt; the lead deleted the `phf` row instead
+    of moving it to the plan, since nothing plans it, and fixed `team_compiler/README.md`'s
+    `paths.rs` line)
+  - [ ] 5.0j2 `docs/spec/libs/` and the format crates (`.tmp/5_0j/brief_libs.md`), then one
+    slice per remaining folder
 - [ ] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
   PES 21, `.tmp/5_2b2/findings.md`): the game stores Anchoring at 0x0A, with 18/19's entries from
   Swarm the Box on shifted up one (Swarm the Box 0x0B, Deep Defensive Line 0x0C, Gegenpress 0x0D,

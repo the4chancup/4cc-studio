@@ -25,7 +25,8 @@ is zlib, and the other legacy tools carry no license at all — unusable verbati
 What the license does **not** cover: game-derived data kept for interoperability — the skeletons
 in `resources/skeletons/`, `DpFileList.bin` and the other embedded `.bin` templates, the kit-icon
 reference sheet. They are Konami's; the README states it. `just deps-check` enforces the
-dependency side with a `cargo deny` license allowlist (`MIT`, `Apache-2.0`, `BSD-2-Clause`,
+dependency side with a `cargo deny` license allowlist (`MIT`, `Apache-2.0`, `Apache-2.0 WITH
+LLVM-exception`, `BSD-2-Clause`,
 `BSD-3-Clause`, `ISC`, `Zlib`, `BSL-1.0`, `Unicode-*`, `CC0-1.0`, `MPL-2.0` for file-level
 copyleft crates only, plus the font licenses `OFL-1.1` and `Ubuntu-font-1.0` that egui's bundled default fonts
 carry), so a copyleft crate cannot enter the dependency graph unnoticed. The list lives in
@@ -36,7 +37,8 @@ license is a question for the maintainer.
 ### Distribution: portable .7z bundle
 
 The current teams list is not a bundle file: it is embedded in the binary and materialized as
-`data/teams_list.txt` on first run (see the [Team compiler plan](../team_compiler/README.md), "Resolved
+`data/teams_list.txt` by the first `compile` that has a data directory (a `check` never writes it;
+see the [Team compiler plan](../team_compiler/README.md), "Resolved
 decisions", "Teams list").
 
 **Size budget:** the release binary stays under about 30 MB, and up to
@@ -63,10 +65,11 @@ The CLI resolves the location the same way but never asks and never writes the s
 noninteractive run cannot make the choice, and a `check` that created files would not be a
 check. With neither settings file present it runs on the defaults in memory, with no data
 directory (`AppPaths::data_dir` is `None`): data-dir cargo is read from its embedded default
-(the teams list) and nothing is persisted, so the first GUI start still asks.
+(the teams list) and nothing is persisted, so the first-run choice stays open for the first GUI
+start (the dialog is Phase 8's).
 
-`data/teams_list.txt` *is* data-dir cargo (the grid writes into it; see the [Team compiler
-plan](../team_compiler/pipeline.md), "Resolved decisions", "Teams list"), and writes to it are best-effort:
+`data/teams_list.txt` *is* data-dir cargo (member-edited; the grid's inline ID writes are the
+[Team compiler plan](../team_compiler/pipeline.md)'s, "Resolved decisions", "Teams list"), and writes to it are best-effort:
 an unwritable data directory makes the list read-only, never triggers elevation. The following
 things are *not* data-dir cargo:
 
@@ -108,7 +111,7 @@ once in the root `Cargo.toml`:
 
 ```toml
 [workspace.package]
-version = "1.4.0"
+version = "0.1.0"
 ```
 
 Every tool and lib crate inherits it via `version.workspace = true`. Bumping is one line, applied to

@@ -108,7 +108,7 @@ crates/tools/team_compiler/
 │   ├── settings.rs       # TeamCompilerSettings, defaults, settings_view
 │   ├── cli.rs            # clap Command; cli_run / gui_run dispatch (compile, check, upgrade-dpfl)
 │   ├── messages.rs       # the message catalog: IDs, severity, disposition, templates, hints
-│   ├── paths.rs          # per-version game-paths table (phf) and CpkStem/slot helpers
+│   ├── paths.rs          # per-version game paths (a `match` per engine) and CpkStem/slot helpers
 │   ├── templates.rs      # embedded resources (include_dir!) + templates/ override accessor
 │   ├── reader/           # stage 1: where exports come from
 │   │   ├── mod.rs        #   discovery: exports scan, NO_USE, team_name, /refs/ and /balls/ routing

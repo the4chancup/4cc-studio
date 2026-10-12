@@ -52,7 +52,7 @@ Three slots, each admitting one typed item kind from `studio_core::status`:
 
 | Slot | Item | Admits |
 |---|---|---|
-| Left | `ShellCondition` | Persistent environment states the **shell** computes itself: `data_dir_read_only`, `update_available` (with an Install action), `pes_install_missing`. Each has a tooltip and at most one action. Not the PES-exe mismatch — the version selector's coloring already owns that |
+| Left | `ShellCondition` | Persistent environment states the **shell** computes itself: `data_dir_read_only`, `update_available`, `pes_install_missing`. Not the PES-exe mismatch — the version selector's coloring already owns that |
 | Middle | `ToolActivity` | Tools working in the background while a **different** tool's view is shown — `activity()` polled each frame for every registered tool except the active one, e.g. `Team compiler · 12/48 · 01:12` while the save editor is open. The active tool's own run strip is unchanged, so nothing shows twice |
 | Right | `Notice` | The most recent one-off event, published by a tool through `ctx.notify(Notice)` or by the shell: `Switched to PES 2021 · [Fix PES path]`, `Compiled 48 teams · [Open output]`, `Teams list is read-only`. Text plus at most one action |
 
@@ -73,7 +73,7 @@ impl eframe::App for StudioApp {
         // Background pass: every tool ticks (event draining, timer deadlines),
         // then only the active tool's view renders
         for tool in &mut self.tools {
-            tool.tick(&self.tool_ctx);
+            tool.tick(&self.ctx);
         }
     }
 }
@@ -81,8 +81,9 @@ impl eframe::App for StudioApp {
 
 ### Cancellation
 
-Rust's rayon scopes or spawned tasks support cancellation via an `AtomicBool` flag. The pipeline
-checks the flag between tasks.
+Rust's rayon scopes or spawned tasks support cancellation via a flag; the pipeline's lives in the
+run's `MemoryBudget` (`cancel` wakes every waiter, `is_cancelled` checked before each task —
+`spec/libs/pipeline.md`).
 
 ### Browser deployment: Studio Web
 
