@@ -1875,3 +1875,5 @@ worklog passed 7,000 lines.
   read back from a match's Mark Settings; an advanced instruction's player byte is a roster slot.
 - **2026-10-13** — Step 5.0j4: `docs/spec/model_conversion/` and `model_format.md` read against
   `model_convert`; the glTF paths marked Phase 7, the rest corrected to the code.
+- **2026-10-13** — Step 5.0j5: `docs/spec/pes_savefile/` read against the crate; the built Phase 5
+  parts (appearance id, unknown face bits, the Fox appearance row, the aesthetics patch) moved to the spec.

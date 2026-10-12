@@ -14,11 +14,15 @@ format with its own writer in `interchange/` and `settings_toml/`.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PlayerEntry {
     pub id: u32,
-    pub name: String,          // on disk: UTF-8, 46 B (17–19) / 61 B (20/21), NUL-terminated
+    pub appearance_id: Option<u32>, // the appearance block's player id (PES 17+; `None` on
+                                    // 15/16, where the appearance record's own `id` is the
+                                    // join key): the player's own, or `STRIPPED_APPEARANCE_ID`
+                                    // (the game's -1) on a stripped Fox save
+    pub name: String,          // on disk: UTF-8, 46 B (15–19) / 61 B (20/21), NUL-terminated
                                // unless it fills the field (codec.md "Text fields");
                                // 4ccEditor's wchar[61] is only its in-memory buffer
-    pub shirt_name: String,    // on disk: single-byte, 18 B (17–19) / 61 B field (20/21,
-                               // 21 read); 4ccEditor's char[21]
+    pub shirt_name: String,    // on disk: single-byte, 18 B (15, 17–19), 16 B (16) /
+                               // 61 B (20/21); 4ccEditor's char[21]
     pub basic: PlayerBasics,        // nationality, age, height, weight
     pub stats: PlayerStats,         // the ability values, form, injury, weak foot, and the
                                     // version-gated ones: physical_contact (17+),
@@ -141,15 +145,95 @@ folder-name derivation (Team compiler, Export upgrader) and search use the
 stripped form. Any other control character in a name is not a known code and is
 left alone.
 
-`PlayerSettings` covers **every decoded field of the savefile's player appearance record** —
+`PlayerSettings` covers the player `name`, the `shirt_name`, **every decoded field of the
+savefile's player appearance record** —
 physique, strip style (taping, spectacles and their colour, sleeves, inners, socks, undershorts,
 shirttail, player gloves and their colour), wrist-tape colours, skin and iris colour, the motion
 block (hunching, arm movement, kick motions, gc1/gc2, dribbling motion on 20+; visual choices a
-team makes, so aesthetics), the eleven ingame-face feature types, and the boots/gloves model IDs
+team makes, so aesthetics), the eleven ingame-face feature types, the ingame-face run's
+undecoded bits (`[appearance.unknown]` `face`, the run's bytes with the named bits zeroed), and
+the boots/gloves model IDs
 **within the stock band** (0 to 100; custom IDs are derived by the compiler from the models and
 links present, see the Aesthetics export plan's "Player settings in exports") — with one exclusion,
-**compiler-owned**: the edit flags plus base-copy ID (derived from what was written). Export
+**compiler-owned**: the edit flags, the base-copy ID and the appearance id (derived from what was
+written). Export
 `settings.toml` neither accepts the excluded keys nor emits them when generated from a save.
+
+```rust
+/// `settings_toml`
+pub enum NameSetting { FromFolder, Explicit(String) }
+
+/// One TOML key of the table; the enum is the table's row set and `spec()` its columns
+/// (table, key name, kind, widest range, range comment, the default an absent key applies).
+/// Physique keys convert between the game number and the stored value (+7); 1-based motion
+/// keys between the game number and the stored value (-1); string-enum keys between the
+/// listed labels and the stored index.
+pub enum SettingKey { BootsId, GlovesId, SkinColor, IrisColor, NeckLength,
+                      /* … every key of the block, in its order */ LowerLipType }
+
+/// Every leaf is `Option`; the struct mirrors the TOML tables (top level, `appearance`,
+/// `appearance.physique`, `.strip`, `.motion`, `.face`, `.unknown`) with the model's
+/// storage types (`u8`/`bool`): the string labels and the signed physique numbers exist
+/// only at the parse/emit boundary. A `None` appearance key applies its `KeySpec` default
+/// (the template's shown value), so a compiled player's look is his file and nothing else;
+/// `name`, `shirt_name` and the two stock IDs are the exceptions: `None` is not written —
+/// the IDs are the compiler's to resolve (the folder's models, the FPC marker). `boots_id`/
+/// `gloves_id` are top-level keys (0 to 100, the stock band, or `""` = `None`), outside
+/// `AppearanceSettings`, because Team TOML embeds `AppearanceSettings` beside its own
+/// full-range player-level IDs. `to_toml` writes a `None` ID as `""`, uncommented.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PlayerSettings { pub name: Option<NameSetting>, pub shirt_name: Option<String>,
+                            pub boots_id: Option<u8>, pub gloves_id: Option<u8>,
+                            pub appearance: AppearanceSettings }
+
+impl PlayerSettings {
+    /// Parses a file: unknown keys and tables, wrong types, out-of-range values and unknown
+    /// labels are `SettingsError`s naming the key; the compiler-owned keys are unknown keys.
+    /// A `name` or `shirt_name` containing a NUL is `WrongType` (reading a save field stops
+    /// at the first NUL, so it would silently truncate on reload).
+    pub fn parse(text: &str) -> Result<Self, SettingsError>;
+    /// Every key `Some` from the player; `name` is `Explicit(raw name)`, colour codes included
+    /// (the Export upgrader then writes `FromFolder` when that name equals the folder's name
+    /// part; the function sees no folder).
+    /// `boots_id`/`gloves_id` are the exception: `Some` only for a stored ID from 1 to 100 (0 is
+    /// the game's default, an ID above 100 is custom content a folder owns), so they are never
+    /// `OutOfRange`. Any other stored value the key's kind cannot represent (a 2-bit sleeves
+    /// field holding 3) is `OutOfRange` naming the key.
+    pub fn from_player(player: &PlayerEntry) -> Result<Self, SettingsError>;
+    /// Sets a stored value; `OutOfRange` when the key's kind cannot represent it, so a
+    /// `PlayerSettings` built through `set` is always one the emitters can write.
+    pub fn set(&mut self, key: SettingKey, value: u8) -> Result<(), SettingsError>;
+    /// Writes the fields onto the player, all or nothing: on `Err` the player is
+    /// unchanged. `version` is the compile target: the names are checked against its text
+    /// fields and a key its schema lacks (`dribbling` before PES 20) is skipped, set or
+    /// not, so an export written for a newer version compiles for an older one as it is.
+    /// `NameSetting::FromFolder` is not applied: the caller (the Team compiler)
+    /// resolves it to `Explicit` first, since the folder rules are its.
+    pub fn apply(&self, player: &mut PlayerEntry, version: PesVersion) -> Result<(), SettingsError>;
+    /// The complete template: every key in table order, set ones as values, unset ones
+    /// commented at their default, each with its range comment. `OutOfRange` for a value
+    /// written directly into a public field that the key's kind cannot represent (the
+    /// fields are plain data).
+    pub fn to_toml(&self) -> Result<String, SettingsError>;
+    /// Edits an existing document in place (`toml_edit`, comments preserved), setting the
+    /// `Some` keys and leaving everything else as the user wrote it. `WrongType` when a
+    /// table position holds a non-table (never a panic on a user's file).
+    pub fn update_toml(&self, document: &mut toml_edit::DocumentMut) -> Result<(), SettingsError>;
+}
+```
+
+A `PlayerSettings` (with its defaults) also produces the **Fox database row**:
+`appearance_row(player_id, version) -> [u8; 60]`, the `PlayerAppearance.bin` row a Fox game
+(PES 18–21) dresses a stripped player (appearance id -1) with — the player id, then the 56
+appearance bytes his player record holds just after the appearance block's base-copy id
+(record bytes 128 to 184 on PES 18/19, 252 to 308 on PES 20/21). The row is one layout on
+every Fox version: the games' own tables hold the same bytes for most players from PES 17 to
+21, and PES 17's, whose record offset in-game Test 4 confirmed, sits at the same place in the
+same 72-byte block, whose fields lie at the same bits on PES 17 to 21 (measured 2026-10-12,
+`.tmp/5_1/measure/`). The run's last 4 bytes (the block's last 4) are in no row, so their
+undecoded bits do not reach a stripped player. A pre-Fox version has no row
+(`SettingsError::NoAppearanceRow`): PES 17 reads one, but its compile writes the savefile
+instead.
 
 **The ingame-face run.** From its 22nd byte to its end, the appearance block (72 bytes on PES 16 to
 21, 68 on PES 15; a separate record on 15/16, inside the player record from 17) is a run no legacy
@@ -214,7 +298,8 @@ that way. `read_player_into` copies the run out of the record; `write_player` co
 rejects a run of the wrong length (`CodecError::RunSize`). The generator emits the `ingame_face`
 entry and omits the four fields; the round-trip tests over every real payload are unchanged and
 still prove byte identity. Cross-version conversion (`convert.rs`) is where the 46-byte PES 15
-run meets the 50-byte one; that step decides the padding rule.
+run meets the 50-byte one: the rule there is the `min(len)` prefix copy with a
+`FaceRunTruncated` note (`operations.md`).
 
 What this gives up is written down rather than papered over: the plan's earlier "every field"
 becomes "every decoded field", the undecoded bits (hair, slider positions, any colour beyond skin
@@ -222,11 +307,14 @@ and iris) are carried but not authorable, and the *evidence* for the eleven type
 converters' agreement on positions and caps, not a game session. Decoding more of the run later
 is one row in `INGAME_FACE_FIELDS` plus one `settings.toml` key; nothing else moves.
 
-**Completeness is a tested invariant, not a convention.** `settings_toml.rs` classifies every
+**Completeness is a tested invariant, not a convention.** `settings_toml` classifies every
 `PlayerField` and every `IngameFaceField` exhaustively (an `Ownership::{Settings, CompilerOwned,
 Gameplay}` match with no wildcard arm, so a new field fails to compile until classified), and one
 test asserts that the `Settings` set equals the set of fields the `SettingKey` table reaches —
-a field added to a schema cannot be silently left out of the authorable set. The generated
+a field added to a schema cannot be silently left out of the authorable set. A second test
+asserts, per version, that every bit of the appearance block has exactly one carrier — a
+`PlayerField` row of the block's record, an `INGAME_FACE_FIELDS` row, or the `unknown` `face`
+remainder — and that none of it is `Gameplay`, so no undecoded bit lies outside the run. The generated
 template (the Export upgrader's and the save editor's `settings.toml` output, and the blank
 template for a new player folder) lists **every** `SettingKey`, one per line, each followed by the
 comment carrying its range: set ones with their value, unset ones as commented lines (unset

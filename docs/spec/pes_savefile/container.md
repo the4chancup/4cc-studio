@@ -45,7 +45,7 @@ then          description ┐
   `identifier` and writes it back unchanged.
 - **Section contents**: the description is 384 bytes on every version, `Edit Data` then zeros;
   the logo is a PNG; the serial is the Windows account SID of the machine that wrote the save
-  (`S-1-5-21-…`, 45–46 UTF-16 units), which is why it is *not* committed as a fixture.
+  (`S-1-5-21-…`, 44–46 UTF-16 units), which is why it is *not* committed as a fixture.
 - **Writing**: generate 320 fresh salt bytes, derive the key from them, re-encrypt all
   sections. There are no checksums to fix up. The salt's randomness has no security role (the
   master keys are public); the container API takes it as a parameter so the round-trip tests are
@@ -199,9 +199,9 @@ Section offsets inside the decrypted payload, transcribed from 4ccEditor's
 
 Notes: on 15/16 the player-entry count is read at 0x34 (4ccEditor) and the
 appearance-entry count at 0x36 (the Midcupping scripts); the two are equal on the PES 16 save
-but differ on the PES 15 one (5060 at 0x34, 5061 at 0x36, while the player and appearance ID
-sets are equal at 5060), so the schema step must settle which count governs each array on 15
-before trusting either. PES 17, 18 and 19 all use a 188-byte player record but
+but differ on the PES 15 one (5060 players at 0x34, 5061 appearance records at 0x36, while the
+player and appearance ID sets are equal at 5060): each array reads its own count — the extra
+appearance record is simply unreferenced. PES 17, 18 and 19 all use a 188-byte player record but
 **not the same field layout**: the first ~250 bits (id, nation, physique bytes, the ability run
 to `exp_pwr`) agree between 17 and 18, after which 18's motion/coverage/position bits sit at
 different offsets, and 19 reorders the whole record (measured 2026-09-14: each version's own

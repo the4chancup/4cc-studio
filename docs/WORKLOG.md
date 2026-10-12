@@ -706,8 +706,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     stored texture names, tolerances and counts; `ExportedFox`'s doc comment fixed with the
     spec). Done 2026-10-13 (SWE-2, first attempt; the lead kept the role table's
     `material_texture_not_found`, the plan-only `materials.toml` contract)
-  - [ ] 5.0j5 onward: one slice per remaining folder (`pes_savefile`, `team_compiler` README,
-    the rest of `team_compiler`)
+  - [x] 5.0j5 `docs/spec/pes_savefile/` (the code was ahead of both trees: the appearance id,
+    `height`/`weight`/`stripped`, `[appearance.unknown]` `face`, absent = default, the
+    `PlayerAppearance.bin` row and the aesthetics patch's Fox half moved to the spec; the crate
+    tree, serial lengths, PES 15's counts and text lengths corrected). Done 2026-10-13 (SWE-2,
+    first attempt). Code docs it flagged, for a later code step: `TeamSection`'s colours say
+    PES 18+ (17+ is right), `player_keys.rs`'s module doc still names `ingame_face`
+  - [ ] 5.0j6 onward: one slice per remaining folder (`team_compiler` README, the rest of
+    `team_compiler`)
 - [x] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
   PES 21, `.tmp/5_2b2/findings.md`): the game stores Anchoring at 0x0A, with 18/19's entries from
   Swarm the Box on shifted up one (Swarm the Box 0x0B, Deep Defensive Line 0x0C, Gegenpress 0x0D,

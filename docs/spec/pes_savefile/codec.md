@@ -206,7 +206,8 @@ A model value the record cannot hold is refused, never cut: a value wider than i
 ```rust
 /// An open save: the retained container plus the decoded players and teams.
 pub struct EditFile { /* container: SaveContainer, players: Vec<PlayerEntry>, teams: Vec<TeamEntry>,
-                         plus the record index of every player/appearance/roster/tactics record */ }
+                         plus the appearance-record index of every player (PES 15/16; the roster
+                         and tactics records are their team's by position) */ }
 
 impl EditFile {
     /// Decrypts and decodes; the version is the container's.

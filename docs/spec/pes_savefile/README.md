@@ -4,7 +4,7 @@ Covers the `pes_savefile` lib crate: the EDIT00000000 file codec (container cryp
 schema-driven payload codec, player/team/tactics model), the cross-version player
 data conversion, the save-to-save operations (aesthetics transplant, aesthetics
 fingerprinting), and the interchange formats (Team TOML, legacy `.4ccs`/`.4cct`
-readers, Texport). Shared by the [Save editor](../../plans/save_editor.md), the
+readers, Texport, the aesthetics patch). Shared by the [Save editor](../../plans/save_editor.md), the
 [Team compiler](../team_compiler/README.md), the integrated
 [model conversion](../model_conversion/README.md), and the
 [Export upgrader](../../plans/export_upgrader.md). Platform context is in the
@@ -48,6 +48,7 @@ crates/libs/pes_savefile/src/
 ├── lib.rs              # re-exports (PesVersion comes from the `pes_version` leaf crate, see ../libs/README.md)
 ├── file.rs             # EditFile: load (auto-detect) / save (.bak), retained unmodeled bytes
 ├── discovery.rs        # Documents\KONAMI layout per version → SavefileCandidate list
+├── fixtures.rs         # the fixture payloads (each version's payload.bin.zz inflated) behind test_support and `fixture_save`
 ├── test_support.rs     # the fixture containers/saves the test modules share
 ├── container/          # bytes ↔ decrypted sections (`container.md` "Container API")
 │   ├── mod.rs          #   SaveContainer, Scheme, ContainerError; decrypt (key/shape trial), to_bytes
@@ -61,14 +62,14 @@ crates/libs/pes_savefile/src/
 │   ├── ingame_face.rs  #   IngameFaceField + the ingame-face run's FieldSpec rows
 │   ├── limits.rs       #   per-version face-type caps (operations.md "Cross-version player conversion")
 │   ├── playstyle.rs    #   one playstyle list per version group + decode/encode
-│   ├── pes15.rs        #   player + separate appearance tables, own bit-read variant flag
+│   ├── pes15.rs        #   player + separate appearance tables
 │   ├── pes16.rs        #   split player/appearance blocks
 │   ├── pes17.rs        #   first unified block (+ phys_cont)
 │   ├── pes18.rs        #   new container header, unified block
 │   ├── pes19.rs        #   + star, 39 skills
 │   ├── pes20.rs        #   20/21 shared (+ mo_drib, tight_pos, aggres, play_attit, strong_hand; 41 skills)
 │   ├── instruction.rs  #   canonical advanced instruction ↔ per-version stored value
-│   ├── texport.rs      #   the 18–21 Texport layout (key index, size, header/coach/tail templates)
+│   ├── texport.rs      #   the 18–21 Texport layout (key index, size, header/coach/tail templates), 15–17 payload offsets
 │   └── *_golden.rs     #   literal-offset goldens (instruction, playstyle)
 ├── codec/              # the one generic engine
 │   ├── mod.rs          #   CodecError; the read/write dispatch over a &VersionSchema
@@ -86,17 +87,22 @@ crates/libs/pes_savefile/src/
 │   ├── playstyle.rs    #   PlayStyle: the canonical playstyle enum
 │   └── names.rs        #   UTF-8 names, colour-code stripping (display_name)
 ├── settings_toml/      # PlayerSettings (the settings.toml model) ↔ PlayerEntry merge
-│   ├── mod.rs          #   PlayerSettings, SettingKey, the classification tables
-│   ├── document.rs     #   the document text: header, keys, parse/emit/update
-│   ├── keys.rs         #   the SettingKey table (path, kind, range, comment)
-│   └── tests.rs        #   settings and template tests
+│   ├── mod.rs          #   PlayerSettings, AppearanceSettings, SettingsError, the classification tables
+│   ├── document.rs     #   the document text: header, keys, parse/emit/update; the shared [appearance] walkers
+│   ├── keys.rs         #   the SettingKey table (table, name, kind, comment, default)
+│   ├── appearance_row.rs #  the Fox PlayerAppearance.bin row a PlayerSettings produces
+│   └── tests/          #   settings and template tests
+│       ├── mod.rs      #     the shared prelude
+│       ├── model.rs    #     the completeness invariant, from_player, apply
+│       ├── document.rs #     parse, to_toml, update_toml
+│       └── appearance_row.rs # the row's bytes and the pre-Fox refusal
 ├── convert.rs          # cross-version player conversion (bitfield surgery, playstyle/skill maps)
 ├── ops/                # save-to-save operations
+│   ├── mod.rs          #   the module wiring
 │   ├── transplant.rs   #   aesthetics transplant (Midcupping)
 │   ├── fingerprint.rs  #   aesthetics fingerprinting / diff
 │   ├── compare.rs      #   comparator (gameplay + aesthetics)
 │   ├── fpc.rs          #   maps libs/fpc player presets onto PlayerEntry; interference check
-│   ├── populate.rs     #   (Phase 19, DB generator; not built) placeholder player section
 │   └── *_golden.rs     #   parity goldens (transplant, compare)
 └── interchange/        # team interchange formats (Team TOML is the one import path)
     ├── mod.rs
@@ -106,11 +112,13 @@ crates/libs/pes_savefile/src/
     │   ├── player.rs   #     [players.NN] emit, parse and apply
     │   ├── tactics.rs  #     [tactics] emit, parse and apply
     │   ├── items.rs    #     the shared item readers, emit line and apply-side checks
-    │   ├── player_keys.rs #  the [stats]/[positions]/[skills]/[edit_flags] key maps
+    │   ├── player_keys.rs #  the [players.NN] scalar-key table (player level, stats, positions, edit_flags)
     │   └── labels.rs   #     the label vocabularies (positions, ratings, styles, skills)
     ├── legacy.rs       #   .4ccs / .4cct readers, into a TeamToml
     ├── legacy_golden.rs#   the .4ccs parity + literal-offset goldens
-    ├── aesthetics_patch.rs # the compiler's aesthetics_patch.toml: parse, emit, apply (Phase 5)
+    ├── aesthetics_patch/ #   the compiler's aesthetics_patch.toml, the Fox half: parse, emit, apply
+    │   ├── mod.rs        #     AestheticsPatch, PatchTeam/PatchPlayer, PatchError, PatchSummary
+    │   └── tests.rs      #     the patch's tests
     ├── texport.rs      #   Texport read/write over the schema codec (layout: schema/texport.rs)
     └── texport_golden.rs # the Texport parity goldens
 ```
@@ -131,7 +139,7 @@ Placement rules:
   `../../CONTRIBUTING.md` keeps legacy tool names out of code), and `codec.md` "Schema-driven save codec"
   holds the derivation method, so a mismatch found by a roundtrip test can be traced in one hop.
 - Lib dependencies are `fpc` (the FPC system's data) and nothing format-specific; no Blender, egui,
-  or tool dependency: this crate is consumed by the Team compiler, the Save
+  or tool dependency: this crate is consumed by `aatf`, the Team compiler, the Save
   editor, the Export upgrader, and the Player aesthetics editor, and must stay `wasm32`-checkable
   (core plan guardrail 6); discovery's filesystem walk is `cfg`-gated for non-desktop targets.
 
