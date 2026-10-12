@@ -12,7 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 4 (Processing logic) closed 2026-10-12. Phases 1 to 3 done (Phase 3 closed 2026-10-02,
 Phase 2 2026-09-30).
 **Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and step 5.1 done
-(2026-10-12), 5.2a next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
+(2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; 5.2a's post-Astra rework next), then 5.2c
+(5.2b2 needs measurements first; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -639,12 +640,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `ABILITY_STATS` in `pes_savefile`'s now-public `labels` holds the 25 ability stats; `rhai`
     without default features, whose RNG does not build for wasm32)
   - [ ] 5.2b the host's view of a team (`aatf_rules.md` "The host"). Sub-slices, each a commit:
-    - [ ] 5.2b1 `TeamView` and `PlayerView` from `pes_savefile`'s model, the tactics answers
+    - [x] 5.2b1 `TeamView` and `PlayerView` from `pes_savefile`'s model, the tactics answers
       (`fielded_only_at`, `fielded_positions`, formation shapes) in Rust, the engine with every
       accessor of the plan's table but the team settings, `Ruleset::from_data_block` on it
       (`Position` is the registered-position index, GK 0 to CF 12, while
       `PlayerPositions::playable` runs CF 0 to GK 12, so a rating lookup converts) → done when:
-      each accessor is tested on fixture teams, through a script
+      each accessor is tested on fixture teams, through a script. Done 2026-10-12 (SWE-2, first
+      attempt; `pes_savefile` gains `PlayerStats::abilities` and `names::name_color`; `print`
+      runs on the shared engine and writes nowhere)
     - [ ] 5.2b2 the team settings' accessors: PES 16's man-marking assignments in
       `pes_savefile`'s model, PES 17-21's man-marking instruction, the auto substitution
       byte's off value, each measured in-game or on a cup save first → done when: each

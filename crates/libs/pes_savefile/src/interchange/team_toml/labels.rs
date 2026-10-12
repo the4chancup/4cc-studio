@@ -185,6 +185,35 @@ mod tests {
         }
     }
 
+    /// `PlayerStats::abilities` entry `i` is the `stats.<ABILITY_STATS[i]>`
+    /// key's value on every fixture version's first named player.
+    #[test]
+    fn abilities_agree_with_the_stats_keys() {
+        use crate::test_support;
+        use pes_version::PesVersion;
+
+        for version in PesVersion::ALL {
+            let (file, _) = test_support::open(version);
+            let player = file
+                .players()
+                .iter()
+                .find(|p| !p.name.is_empty())
+                .expect("a named player");
+            let abilities = player.stats.abilities();
+            for (i, name) in ABILITY_STATS.iter().enumerate() {
+                let key = PlayerKey::ALL
+                    .iter()
+                    .find(|key| key.table() == "stats" && key.name() == *name)
+                    .expect("every ability stat is a stats key");
+                assert_eq!(
+                    abilities[i].map(u32::from),
+                    key.get(player),
+                    "{version:?} stats.{name}"
+                );
+            }
+        }
+    }
+
     /// Lowercase ASCII, digits and underscores only.
     fn is_snake_case(label: &str) -> bool {
         !label.is_empty()

@@ -30,6 +30,19 @@ pub fn display_name(raw: &str) -> String {
     String::from_utf8(out).expect("stripping at char boundaries keeps UTF-8 valid")
 }
 
+/// The eight bytes after a leading `\x11c` colour code (`"cc9900ff"`),
+/// under `display_name`'s rule for what a code is (exactly eight bytes,
+/// ending at a char boundary). `None` for a name without a leading code —
+/// including a code that is not at the start.
+pub fn name_color(raw: &str) -> Option<&str> {
+    let bytes = raw.as_bytes();
+    if bytes.len() >= 10 && bytes[0] == 0x11 && bytes[1] == b'c' && raw.is_char_boundary(10) {
+        Some(&raw[2..10])
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,6 +74,18 @@ mod tests {
         assert_eq!(display_name("\x11c12345"), "\x11c12345");
         assert_eq!(display_name("plain"), "plain");
         assert_eq!(display_name("\x11x?"), "\x11x?");
+    }
+
+    #[test]
+    fn name_color_reads_a_leading_code_only() {
+        assert_eq!(name_color("\x11ccc9900ffJones"), Some("cc9900ff"));
+        assert_eq!(name_color("Jones"), None);
+        // A `c` second byte is no code without the `\x11` before it.
+        assert_eq!(name_color("McAllister"), None);
+        // A code shorter than eight bytes at the name's end is not a code.
+        assert_eq!(name_color("\x11ccc99"), None);
+        // A code not at the start is no leading code.
+        assert_eq!(name_color("J\x11ccc9900ffones"), None);
     }
 
     #[test]

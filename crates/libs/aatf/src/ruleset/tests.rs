@@ -767,16 +767,17 @@ fn no_ruleset_is_no_ruleset() {
     );
 }
 
-/// The bare engine refuses everything but the data itself: `import` has
-/// no resolver and `print` does not exist.
+/// `import` has no resolver on the bare engine; `print` exists under the
+/// standard package and a data block containing it loads.
 #[test]
-fn import_and_print_are_refused() {
+fn import_is_refused_but_print_runs() {
     let err = Ruleset::from_data_block("import \"x\" as m;\nconst RULESET = #{ schema: 1 };")
         .expect_err("import has no resolver");
     assert!(matches!(err, LoadError::Parse { .. }), "{err:?}");
-    let err = Ruleset::from_data_block("print(\"x\");\nconst RULESET = #{ schema: 1 };")
-        .expect_err("print is not a function");
-    assert!(matches!(err, LoadError::Parse { .. }), "{err:?}");
+    Ruleset::from_data_block(
+        "print(\"x\");\nconst RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };",
+    )
+    .expect("the standard package's print runs before the data block");
 }
 
 #[test]

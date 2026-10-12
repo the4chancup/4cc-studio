@@ -124,6 +124,41 @@ pub struct PlayerStats {
     pub playing_attitude: Option<u8>,
 }
 
+impl PlayerStats {
+    /// The ability stats in `interchange::team_toml::labels::ABILITY_STATS`'
+    /// order (this struct's field order), `None` for a stat this save's
+    /// version lacks (the `Option` fields).
+    pub fn abilities(&self) -> [Option<u8>; 25] {
+        [
+            Some(self.attacking_prowess),
+            Some(self.ball_control),
+            Some(self.dribbling),
+            Some(self.low_pass),
+            Some(self.lofted_pass),
+            Some(self.finishing),
+            Some(self.place_kicking),
+            Some(self.swerve),
+            Some(self.heading),
+            Some(self.defensive_prowess),
+            Some(self.ball_winning),
+            Some(self.kicking_power),
+            Some(self.speed),
+            Some(self.explosive_power),
+            Some(self.body_control),
+            self.physical_contact,
+            Some(self.jump),
+            Some(self.goalkeeping),
+            self.catching,
+            self.clearing,
+            self.reflexes,
+            self.coverage,
+            Some(self.stamina),
+            self.tight_possession,
+            self.aggression,
+        ]
+    }
+}
+
 /// Registered/playable positions and the playing style.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PlayerPositions {

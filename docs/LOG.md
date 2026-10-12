@@ -1833,3 +1833,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2a third rework (review R12.S1, 9 of 11): empty names, ids and labels,
   an empty `exactly`, unordered brackets and partial weight rules refused on load. Plan: the host's
   script API fixed for 5.2b1; 5.2b split. SWE-2, first attempt.
+- **2026-10-12** — Step 5.2b1: `TeamView`/`PlayerView` over a save's team, the tactics answers in
+  Rust, one engine with the plan's script API. Astra R10.A1 on 5.2a: 6 of 6 accepted (rework
+  pending, with SWE-2 R13.S1's 4 of 10). SWE-2, first attempt.

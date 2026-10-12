@@ -14,5 +14,10 @@ rhai.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+# The fixture saves as whole encrypted files (`fixture_save`), for
+# TeamView's tests on real teams.
+pes_savefile = { workspace = true, features = ["test-support"] }
+
 [lints]
 workspace = true

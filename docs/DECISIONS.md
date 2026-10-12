@@ -7171,3 +7171,14 @@ reordered bracket), and each would otherwise load and misjudge teams at check ti
 shows no rule, a shadowed bracket takes no player, a defaulted bound demands weight = height.
 Each is one general rule, not a case list.
 Plan: `aatf_rules.md` "The ruleset schema" (`BracketHeights` doc, required keys, load-time rules).
+
+## 2026-10-12 — aatf — no empty string, colour codes of eight characters, suggestion words reserved
+Decision: a ruleset is refused on load when any string in it is empty (the `forbid` text and
+`name_colors` entries join names, ids, labels and group keys), when a `name_colors` entry is not
+eight characters, or when a card group id is one of `suggestions`' seven words.
+Why: an empty `forbid` shows a blank violation and an empty colour code matches every name; a
+partial colour-code paste matches none, so a ban silently stops applying; a group named `cards`
+makes `suggestions: ["cards"]` mean two allowances. One general rule each, replacing the list of
+fields the empty-name rule named.
+Plan: `aatf_rules.md` "The ruleset schema" (`card_groups`' and `Heights::systems`' docs, the
+load-time rules).

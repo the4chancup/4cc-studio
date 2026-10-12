@@ -130,7 +130,7 @@ pub struct Ruleset {
     /// buttons follow this order.
     pub tiers: Vec<Tier>,
     /// Named card sets a tier can make free (`Tier::free`); `com` is reserved for the
-    /// seven COM playing styles.
+    /// seven COM playing styles, and no group id is one of `suggestions`' seven words.
     pub card_groups: BTreeMap<GroupId, Vec<Card>>,
     pub heights: Heights,
     pub universal: Universal,
@@ -187,7 +187,7 @@ pub struct Heights {
     /// `height_allowance`; no bracket taking it is an illegal height. Empty: heights are
     /// constrained by tier conditions and specials alone.
     pub brackets: Vec<Bracket>,
-    /// The first whose `any_player` holds sets the quotas; the last has none.
+    /// The first whose `any_player` holds sets the quotas; the last has none or an empty one.
     pub systems: Vec<HeightSystem>,
 }
 
@@ -350,8 +350,9 @@ required (an absent `universal` would otherwise default `max_skill_cards` to 0, 
 means; a weight rule missing a bound would demand a weight equal to the height; a violation
 shows its special's label, which an empty one would leave blank).
 
-Rules the types cannot carry, checked on load ("Loading and validation"): no `name`, id or label
-is empty (an emptied one names nothing); ids unique within their
+Rules the types cannot carry, checked on load ("Loading and validation"): no string is empty
+(an emptied name, id, label or `forbid` text names or says nothing), and a `name_colors` entry
+is eight characters (a partial paste matches no name); ids unique within their
 kind, and every id a condition, effect, quota, `counts_as` or `suggestions` entry names exists; a
 tier with `counts_as` has no `count`, and the tier it names has no `counts_as` of its own (itself
 included); tier counts fit `squad_size`, and equal it when no tier is the rest of the squad (else
@@ -668,7 +669,7 @@ roster as `PlayerView`s, every value on the game's own scale (form 1 to 8, injur
 `TeamEntry`, which are `pes_savefile`'s records.
 
 ```rust
-let mut engine = rhai::Engine::new_raw();        // no module resolver, no print or debug
+let mut engine = rhai::Engine::new_raw();        // no module resolver; print and debug go nowhere
 engine.register_global_module(rhai::packages::StandardPackage::new().as_shared_module());
 engine.register_type_with_name::<PlayerView>("Player")
       .register_get("height", |p: &mut PlayerView| i64::from(p.height))

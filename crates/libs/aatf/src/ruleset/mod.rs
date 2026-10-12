@@ -492,18 +492,18 @@ pub enum Severity {
 /// `PlayerStats` field order Team TOML spells).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
 #[serde(try_from = "String")]
-pub struct Stat(u8);
+pub struct Stat(pub(crate) u8);
 
 /// A registered or playable position, its index in `labels::POSITIONS`
 /// (index = the stored position byte).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
 #[serde(try_from = "String")]
-pub struct Position(u8);
+pub struct Position(pub(crate) u8);
 
 /// A playing style, its index in `labels::PLAY_STYLES`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
 #[serde(try_from = "String")]
-pub struct PlayStyle(u8);
+pub struct PlayStyle(pub(crate) u8);
 
 /// A card: a skill or a COM playing style, its index in the group's table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
@@ -604,10 +604,9 @@ impl Ruleset {
     /// The parse, `RULESET`, schema and version checks stop at the first
     /// error; `Rules` reports every load-time rule the text breaks.
     pub fn from_data_block(text: &str) -> Result<Ruleset, LoadError> {
-        // The bare engine: no standard package, module resolver or
-        // `print`/`debug`, so a data block reaches nothing outside its own
-        // text. Loops still run; the operation limit is the host's to set.
-        let engine = rhai::Engine::new_raw();
+        // The one engine every script runs on; a data block evaluates
+        // its literals and touches nothing else.
+        let engine = crate::engine::engine();
         let ast = engine.compile(text).map_err(|e| LoadError::Parse {
             line: e.position().line().unwrap_or(0),
             column: e.position().position().unwrap_or(0),
