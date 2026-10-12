@@ -329,7 +329,7 @@ fn text_that_is_not_toml_is_toml_error() {
 // -------------------------------------------------------------------
 // Apply
 
-use crate::model::player::PlayerMotion;
+use crate::model::player::{PlayerMotion, STRIPPED_APPEARANCE_ID};
 use crate::schema::fields::PlayerField;
 use crate::test_support::{open, test_salt};
 
@@ -589,7 +589,7 @@ fn a_stripped_player_stays_stripped() {
     for &slot in &slots {
         save.player_mut(70100 + u32::from(slot))
             .expect("present")
-            .appearance_id = Some(u32::MAX);
+            .appearance_id = Some(STRIPPED_APPEARANCE_ID);
     }
     let before: Vec<PlayerEntry> = slots
         .iter()
@@ -618,7 +618,11 @@ fn a_stripped_player_stays_stripped() {
     for (before, (slot, patch_player)) in before.iter().zip(&patch.teams[0].players) {
         let id = 70100 + u32::from(*slot);
         let after = save.player(id).expect("the player");
-        assert_eq!(after.appearance_id, Some(u32::MAX), "{id} stays stripped");
+        assert_eq!(
+            after.appearance_id,
+            Some(STRIPPED_APPEARANCE_ID),
+            "{id} stays stripped"
+        );
         assert_eq!(
             after.appearance, before.appearance,
             "{id}: the appearance block is untouched"

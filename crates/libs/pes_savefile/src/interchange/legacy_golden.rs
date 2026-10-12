@@ -290,7 +290,7 @@ fn read_squad_decodes_the_struct_dump() {
         assert_eq!(p.appearance.physique.neck_length, Some(7));
         assert_eq!(p.height, Some(s.height));
         assert!(
-            p.ingame_face.is_none(),
+            p.appearance.unknown.face.is_none(),
             "the legacy record has no ingame-face run"
         );
         // Fields PES 19 lacks are absent whatever the bytes say.
@@ -514,7 +514,10 @@ fn read_squad_decodes_every_record_and_every_mapped_field() {
             *set = rec[75 + k] != 0;
         }
         assert_eq!(p.skills.com_styles, Some(com), "[{i}] com styles");
-        assert!(p.ingame_face.is_none(), "[{i}] no ingame-face run");
+        assert!(
+            p.appearance.unknown.face.is_none(),
+            "[{i}] no ingame-face run"
+        );
     }
 }
 
@@ -587,7 +590,7 @@ fn each_versions_4ccs_equals_the_codec_read_of_its_team() {
         let mut ours = TeamToml::from_team(version, team, &pool).expect("the codec dumps the team");
         // The record carries no ingame-face run and no face-type keys.
         for section in ours.players.values_mut() {
-            section.ingame_face = None;
+            section.appearance.unknown.face = None;
             section.appearance.face = FaceSettings::default();
         }
         assert_eq!(doc.players.len(), 23, "{version:?}");

@@ -6,6 +6,11 @@ use crate::codec::{self, CodecError};
 use crate::model::ingame_face::IngameFace;
 use crate::schema::fields::PlayerField;
 
+/// The stripped value of `PlayerEntry::appearance_id`: the game's -1 (all
+/// bits set). A stripped player takes his appearance from the database
+/// tables, not from the appearance block.
+pub const STRIPPED_APPEARANCE_ID: u32 = u32::MAX;
+
 /// One player of the save: identity, abilities, positions, skills, motion, the
 /// game's own edit flags and the appearance block (a separate record on PES
 /// 15/16, part of the player record later).
@@ -14,9 +19,9 @@ pub struct PlayerEntry {
     /// The player id (team id x 100 + slot for cup players).
     pub id: u32,
     /// The id of the player whose appearance the block holds: the player's own,
-    /// or `u32::MAX` (the game's -1) on a stripped save, where the database
-    /// tables decide the look. `None` on PES 15/16, where the appearance
-    /// record's first u32 is the join key itself (`id`).
+    /// or `STRIPPED_APPEARANCE_ID` (the game's -1) on a stripped save, where
+    /// the database tables decide the look. `None` on PES 15/16, where the
+    /// appearance record's first u32 is the join key itself (`id`).
     pub appearance_id: Option<u32>,
     /// Display name, colour codes included.
     pub name: String,

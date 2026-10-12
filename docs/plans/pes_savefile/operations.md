@@ -439,8 +439,7 @@ weight = 75                     # kg
 boots_id = 3601
 gloves_id = 0
 base_copy_id = 84101            # equal to the player's own id in the file = unset; becomes the target's own id
-ingame_face = "0102...ff"       # leaves in Phase 5 (its bits move to [appearance.unknown] face); the appearance block's undecoded run, hex, 50 bytes (46 on PES 15); applied before [players.NN.appearance]
-stripped = true                 # Phase 5, Fox: written only for a player whose appearance id is -1 ("Stripped save"); informational, import ignores it
+stripped = true                 # Fox: written only for a player whose appearance id is -1 ("Stripped save"); informational, import ignores it
 
 [players.01.stats]              # stored values; the comments give the game's editor range, the parser accepts the field's stored range
 attacking_prowess = 77
@@ -504,7 +503,8 @@ strip = false
 
 [players.01.appearance]         # settings.toml's [appearance] table, verbatim
 skin_color = 1
-# ... [players.01.appearance.physique] / .strip / .motion / .face, as in settings.toml
+# ... [players.01.appearance.physique] / .strip / .motion / .face / .unknown, as in settings.toml
+# (.unknown's face: the ingame-face run's undecoded bits; absent = untouched on import, as every key)
 ```
 
 Skill names, in the model's slot order 0-40: `scissors_feint flip_flap marseille_turn sombrero
@@ -573,8 +573,8 @@ pub struct PlayerSection { pub name: Option<String>, pub shirt_name: Option<Stri
     pub nationality: Option<u16>, pub age: Option<u8>,
     pub height: Option<u8>, pub weight: Option<u8>,
     pub boots_id: Option<u32>, pub gloves_id: Option<u32>,
-    pub base_copy_id: Option<u32>, pub ingame_face: Option<Vec<u8>>,
-    pub stripped: Option<bool>,  // Phase 5: written for a player at -1; informational, ignored on import
+    pub base_copy_id: Option<u32>,
+    pub stripped: Option<bool>,  // written for a player at -1; informational, ignored on import
     pub stats: StatsSection,
     pub positions: PositionsSection, pub skills: SkillsSection, pub edit_flags: EditFlagsSection,
     pub appearance: AppearanceSettings }
@@ -826,7 +826,7 @@ Both are raw dumps of the reference editor's in-memory structs; both parse into 
   them as literals. Fields the exporting version lacks are ignored whatever the bytes (the writer
   fills `phys_cont` from `body_ctrl` on 15 and 16, and `clearing`/`reflex`/`cover` on 15 only);
   the playing style is
-  the exporting version's index. The record has no id and no ingame-face run: `ingame_face` is
+  the exporting version's index. The record has no id and no ingame-face run: `[appearance.unknown]` is
   absent, skin/iris/player-gloves go to the `appearance` keys. With no id, a record's player is
   only its position, so `read_squad` takes the target team and its save's players, as the
   reference's import does: record *k* goes to the roster slot of the *k*-th rostered player in

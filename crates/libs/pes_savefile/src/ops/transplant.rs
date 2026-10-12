@@ -6,6 +6,8 @@ use pes_version::PesVersion;
 
 use crate::file::EditFile;
 use crate::model::player::PlayerEntry;
+#[cfg(test)]
+use crate::model::player::STRIPPED_APPEARANCE_ID;
 
 /// The per-entry operation: `target` takes `donor`'s appearance block
 /// (`appearance`, ingame-face run included, and the face/hair/physique/strip
@@ -283,13 +285,13 @@ mod tests {
 
         // Onto a -1: the target's stripped id is not the donor's to give.
         let mut moved = target_p.clone();
-        moved.appearance_id = Some(u32::MAX);
+        moved.appearance_id = Some(STRIPPED_APPEARANCE_ID);
         transplant_player(&mut moved, donor_p);
-        assert_eq!(moved.appearance_id, Some(u32::MAX));
+        assert_eq!(moved.appearance_id, Some(STRIPPED_APPEARANCE_ID));
 
         // From a -1: the donor's stripped id is not carried either.
         let mut stripped_donor = donor_p.clone();
-        stripped_donor.appearance_id = Some(u32::MAX);
+        stripped_donor.appearance_id = Some(STRIPPED_APPEARANCE_ID);
         let mut moved = target_p.clone();
         transplant_player(&mut moved, &stripped_donor);
         assert_eq!(moved.appearance_id, target_p.appearance_id);

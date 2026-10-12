@@ -617,8 +617,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   - [ ] 5.1d the Team TOML: `stripped`, the appearance table written key by key, `ingame_face`
     gone; a test-support export so a tool crate's CLI tests can write a whole fixture save →
     done when: SE-TOML-01 to 08's outcomes hold at the lib level. Sub-slices, each a commit:
-    - [ ] 5.1d1 `ingame_face` gone, `[players.NN.appearance.unknown] face` in its place
-      (absent = untouched), `stripped` on export
+    - [x] 5.1d1 `ingame_face` gone, `[players.NN.appearance.unknown] face` in its place
+      (absent = untouched), `stripped` on export. Done 2026-10-12 (SWE-2, first attempt;
+      `STRIPPED_APPEARANCE_ID` names the -1 where the crate compared against `u32::MAX`)
     - [ ] 5.1d2 SE-TOML-01 to 08 at the lib level (each mapped to a test, the missing ones
       written), and the test-support export of a whole fixture save
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`

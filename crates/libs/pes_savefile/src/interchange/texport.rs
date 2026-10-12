@@ -20,6 +20,8 @@ use crate::codec::{
 };
 use crate::container::{ContainerError, SaveContainer};
 use crate::model::player::PlayerEntry;
+#[cfg(test)]
+use crate::model::player::STRIPPED_APPEARANCE_ID;
 use crate::model::team::TeamEntry;
 use crate::schema::texport::{TexportLayout, texport_layout, texport_old};
 use crate::schema::{VersionSchema, schema_for};
@@ -621,7 +623,7 @@ mod tests {
             let fixture = Texport::from_bytes(bytes, None).expect("opens");
             let mut stripped: Vec<PlayerEntry> = fixture.players().to_vec();
             for player in &mut stripped {
-                player.appearance_id = Some(u32::MAX);
+                player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
             }
             let players: Vec<&PlayerEntry> = stripped.iter().collect();
             let made =

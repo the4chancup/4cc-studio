@@ -9,6 +9,8 @@ use pes_version::PesVersion;
 use crate::codec::{self, CodecError};
 use crate::file::EditFile;
 use crate::model::player::PlayerEntry;
+#[cfg(test)]
+use crate::model::player::STRIPPED_APPEARANCE_ID;
 use crate::ops::fingerprint::{FaceHash, face_hash};
 use crate::schema::fields::{PlayerField, PlayerText};
 use crate::schema::ingame_face::{INGAME_FACE_FIELDS, IngameFaceField};
@@ -592,7 +594,7 @@ mod tests {
         let a = player(PesVersion::Pes21, 70101);
         let schema = schema_for(PesVersion::Pes21);
         let mut b = a.clone();
-        b.appearance_id = Some(u32::MAX);
+        b.appearance_id = Some(STRIPPED_APPEARANCE_ID);
         assert!(
             compare_players(&a, &b, schema)
                 .expect("compares")

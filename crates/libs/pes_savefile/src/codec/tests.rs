@@ -8,7 +8,7 @@ use super::{
     read_team, runs, write_player, write_roster, write_tactics, write_team,
 };
 use crate::model::ingame_face::IngameFace;
-use crate::model::player::PlayerEntry;
+use crate::model::player::{PlayerEntry, STRIPPED_APPEARANCE_ID};
 use crate::model::team::{RosterSlot, TeamEntry};
 use crate::schema::fields::{
     InstructionSide, PlayerField, PlayerText, RosterField, TacticsField, TeamField, TeamText,
@@ -457,7 +457,7 @@ fn the_appearance_id_is_none_on_pes15_and_16() {
         let schema = schema_for(version);
         let mut player = find_player(&payload, schema, 70101);
         assert_eq!(player.appearance_id, None, "{version:?}");
-        player.appearance_id = Some(u32::MAX);
+        player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
         let index = (0..count(&payload, &schema.players))
             .find(|&i| {
                 read_player(
@@ -490,7 +490,7 @@ fn a_stripped_appearance_id_writes_and_rereads() {
     let payload = payload(PesVersion::Pes21);
     let schema = schema_for(PesVersion::Pes21);
     let mut player = find_player(&payload, schema, 70101);
-    player.appearance_id = Some(u32::MAX);
+    player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
     let index = (0..count(&payload, &schema.players))
         .find(|&i| {
             read_player(
@@ -519,7 +519,7 @@ fn a_stripped_appearance_id_writes_and_rereads() {
         );
     }
     let back = read_player(&written, schema.player).expect("redecode");
-    assert_eq!(back.appearance_id, Some(u32::MAX));
+    assert_eq!(back.appearance_id, Some(STRIPPED_APPEARANCE_ID));
 }
 
 /// PES 18's `ArmMovementDribbling` is 3 bits at offset 295, ending where

@@ -1811,3 +1811,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.0b4: `bool` mutants join converge, with `.cargo/extra_mutants.toml`
   for the extra kinds' ruled equivalents (maintainer's call). SWE-2, one rework; `fmdl`'s first
   `bool` run found a corrupt-file gap in shared UV maps.
+- **2026-10-12** — Step 5.1d1: Team TOML's `ingame_face` hex gives way to
+  `[players.NN.appearance.unknown] face`, and an export marks stripped players. SWE-2, first
+  attempt.

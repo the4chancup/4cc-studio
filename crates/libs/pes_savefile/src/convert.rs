@@ -11,6 +11,8 @@ use pes_version::PesVersion;
 
 use crate::codec::CodecError;
 use crate::model::player::PlayerEntry;
+#[cfg(test)]
+use crate::model::player::STRIPPED_APPEARANCE_ID;
 use crate::model::playstyle::PlayStyle;
 use crate::schema::fields::{PlayerField, PlayerText};
 use crate::schema::ingame_face::IngameFaceField;
@@ -809,9 +811,13 @@ mod tests {
         assert_eq!(target.appearance_id, kept, "the target's stands");
 
         let mut target = first(V::Pes21);
-        target.appearance_id = Some(u32::MAX);
+        target.appearance_id = Some(STRIPPED_APPEARANCE_ID);
         convert_player(&source, V::Pes19, &mut target, V::Pes21).expect("converts");
-        assert_eq!(target.appearance_id, Some(u32::MAX), "a -1 stands too");
+        assert_eq!(
+            target.appearance_id,
+            Some(STRIPPED_APPEARANCE_ID),
+            "a -1 stands too"
+        );
 
         let mut target = first(V::Pes16);
         assert_eq!(target.appearance_id, None);

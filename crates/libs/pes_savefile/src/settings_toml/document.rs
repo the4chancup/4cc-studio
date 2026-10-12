@@ -330,7 +330,7 @@ fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
     for (name, item) in document.iter() {
         match name {
             "name" | "shirt_name" => {}
-            "appearance" => reject_unknown_table(item, "appearance", "appearance", true)?,
+            "appearance" => reject_unknown_table(item, "appearance", "appearance")?,
             _ if SettingKey::ALL
                 .iter()
                 .any(|key| key.spec().table == KeyTable::Top && key.spec().name == name) => {}
@@ -346,15 +346,9 @@ fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
 
 /// The recursive half of [`reject_unknown`] and [`parse_appearance`]: `root`
 /// is the appearance table's own dotted path, `path` the table being walked.
-/// `allow_unknown` marks `[root.unknown]` a known table (settings.toml only:
-/// team TOML carries the run as `[players.NN] ingame_face` instead); its one
-/// key is `face`.
-fn reject_unknown_table(
-    item: &Item,
-    root: &str,
-    path: &str,
-    allow_unknown: bool,
-) -> Result<(), SettingsError> {
+/// `[root.unknown]` is a known table of both documents; its one key is
+/// `face`.
+fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), SettingsError> {
     let Some(table) = item.as_table_like() else {
         return Err(SettingsError::WrongType {
             key: path.to_string(),
@@ -363,7 +357,7 @@ fn reject_unknown_table(
     };
     for (leaf, sub) in table.iter() {
         let child = format!("{path}.{leaf}");
-        let unknown_table = allow_unknown && path == root && leaf == "unknown";
+        let unknown_table = path == root && leaf == "unknown";
         if unknown_table
             || SettingKey::ALL.iter().any(|key| {
                 key.spec().table != KeyTable::Top && absolute(root, key.spec().table) == child
@@ -384,7 +378,7 @@ fn reject_unknown_table(
                     }
                 }
             } else {
-                reject_unknown_table(sub, root, &child, allow_unknown)?;
+                reject_unknown_table(sub, root, &child)?;
             }
         } else if !SettingKey::ALL.iter().any(|key| {
             key.spec().table != KeyTable::Top
@@ -421,20 +415,17 @@ fn model_id(document: &DocumentMut, key: SettingKey) -> Result<Option<u8>, Setti
 
 /// Which document an appearance table is parsed from or emitted into:
 /// `settings.toml`'s `[appearance]` or Team TOML's `[players.NN.appearance]`.
-/// The document settles what a `stored_ranges` bool used to lump together:
-/// the value bounds, the `[appearance.motion]` note and the
-/// `[prefix.unknown]` table, the last two settings.toml constructs.
+/// The document settles the value bounds and the `[appearance.motion]`
+/// note; `[appearance.unknown]` parses and emits the same under both.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AppearanceDocument {
     /// `settings.toml`: the editor ranges the key comments document apply,
-    /// the motion table carries its note (a settings apply writes the
-    /// motions through the aesthetics patch), and `[appearance.unknown]`
-    /// holds the run's undecoded bits.
+    /// and the motion table carries its note (a settings apply writes the
+    /// motions through the aesthetics patch).
     SettingsToml,
     /// Team TOML's `[players.NN.appearance]`: bounds are each field's
     /// widest stored bit width (a real save's values go past the editor
-    /// ranges), no motion note, and no `[unknown]` table: the run rides
-    /// `[players.NN] ingame_face` instead.
+    /// ranges), and no motion note.
     TeamToml,
 }
 
@@ -473,20 +464,10 @@ pub(crate) fn parse_appearance(
         let stored = value(&leaf, key, item, document.stored_ranges())?;
         set_appearance(&mut out, key, Some(stored));
     }
-    // `[appearance.unknown]` is a settings.toml table: Team TOML carries
-    // the run as its own `ingame_face` hex and the reject sweep refuses
-    // the table there.
-    if document == AppearanceDocument::SettingsToml
-        && let Some(item) = appearance.get("unknown")
-    {
+    if let Some(item) = appearance.get("unknown") {
         out.unknown.face = unknown_face(item, &format!("{path}.unknown"))?;
     }
-    reject_unknown_table(
-        item,
-        path,
-        path,
-        document == AppearanceDocument::SettingsToml,
-    )?;
+    reject_unknown_table(item, path, path)?;
     Ok(out)
 }
 
@@ -517,9 +498,7 @@ fn unknown_face(item: &Item, path: &str) -> Result<Option<Vec<u8>>, SettingsErro
 /// The `[prefix]` table plus its four subtables appended to `out`, in key
 /// order: a `Some` emits its line with the key's comment, a `None` the
 /// commented line at the key's default. Shared with `team_toml`'s
-/// `[players.NN.appearance]` (`AppearanceDocument::TeamToml`): the
-/// `[prefix.unknown]` table is a settings.toml construct — team TOML
-/// carries the run as `[players.NN] ingame_face`, so it never emits here.
+/// `[players.NN.appearance]` (`AppearanceDocument::TeamToml`).
 pub(crate) fn emit_appearance(
     out: &mut String,
     prefix: &str,
@@ -571,9 +550,7 @@ pub(crate) fn emit_appearance(
     }
     // The template's tail, verbatim: `None` emits nothing, no commented
     // line either (a new player folder's template holds no unknown table).
-    if document == AppearanceDocument::SettingsToml
-        && let Some(face) = &appearance.unknown.face
-    {
+    if let Some(face) = &appearance.unknown.face {
         out.push_str(&format!(
             "\n# The in-game face's bits no tool has decoded yet (hair, face sliders, ...), kept so a\n\
             # player's look survives. Leave them as generated.\n\

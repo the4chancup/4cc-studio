@@ -223,8 +223,9 @@ pub struct PlayerSection {
     pub gloves_id: Option<u32>,
     /// Base-copy player id.
     pub base_copy_id: Option<u32>,
-    /// The ingame-face run as a hex string.
-    pub ingame_face: Option<Vec<u8>>,
+    /// `stripped = true` marks a Fox save's stripped player (appearance id
+    /// `STRIPPED_APPEARANCE_ID`); informational, the import ignores it.
+    pub stripped: Option<bool>,
     /// `[players.NN.stats]`.
     pub stats: StatsSection,
     /// `[players.NN.positions]`.
