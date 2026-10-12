@@ -8,7 +8,7 @@ use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::names::name_color;
 use pes_savefile::model::player::PlayerEntry;
 use pes_savefile::model::playstyle::PlayStyle as SavePlayStyle;
-use pes_savefile::model::tactics::{Formation, TeamTactics};
+use pes_savefile::model::tactics::{Formation, SetPieceTakers, TeamTactics};
 use pes_savefile::model::team::RosterSlot;
 use pes_savefile::model::team::TeamEntry;
 use pes_savefile::schema::playstyle;
@@ -159,6 +159,17 @@ impl TeamView {
         // `players` key, `i + 1` where the key is present, and one bare
         // `PlayerEntry` per present slot.
         let mut team = TeamEntry::default();
+        // 0xFF is the record's none, so an absent `[tactics.set_pieces]`
+        // key reads as no taker, not as roster slot 0.
+        team.tactics.set_pieces = SetPieceTakers {
+            free_kick_long: 0xFF,
+            free_kick_short: 0xFF,
+            free_kick_second: 0xFF,
+            corner_left: 0xFF,
+            corner_right: 0xFF,
+            penalty: 0xFF,
+            captain: 0xFF,
+        };
         let highest = document.players.keys().max().copied().unwrap_or(0);
         team.roster = (1..=highest)
             .map(|slot| RosterSlot {
@@ -601,6 +612,61 @@ mod tests {
             ),
             "stats.physical_contact on PES 15 is refused"
         );
+    }
+
+    #[test]
+    fn an_absent_set_pieces_key_reads_as_none() {
+        // The bare record's takers are 0xFF, not roster slot 0: a
+        // document without `[tactics.set_pieces.captain]` gives
+        // `captain: None`.
+        let file = EditFile::from_bytes(&fixture_save(PesVersion::Pes15)).expect("fixture save");
+        let team = file.team(701).expect("team 701");
+        let players: Vec<&PlayerEntry> = team
+            .roster
+            .iter()
+            .filter(|slot| slot.player_id != 0)
+            .map(|slot| file.player(slot.player_id).expect("a rostered player"))
+            .collect();
+        let mut document =
+            TeamToml::from_team(PesVersion::Pes15, team, &players).expect("from_team emits");
+        document.tactics.set_pieces.captain = None;
+        assert_eq!(
+            TeamView::from_team_toml(&document)
+                .expect("the team builds")
+                .captain,
+            None
+        );
+        // The sample team's captain is still `Some(10)`.
+        assert_eq!(TeamView::sample_team().captain, Some(10));
+    }
+
+    #[test]
+    fn an_unencodable_instruction_is_team_toml() {
+        // `anchoring` is PES 20/21 only: `apply` notes `NotEncodable`,
+        // which surfaces as `TeamToml` naming the instruction's path.
+        let file = EditFile::from_bytes(&fixture_save(PesVersion::Pes17)).expect("fixture save");
+        let team = file.team(701).expect("team 701");
+        let players: Vec<&PlayerEntry> = team
+            .roster
+            .iter()
+            .filter(|slot| slot.player_id != 0)
+            .map(|slot| file.player(slot.player_id).expect("a rostered player"))
+            .collect();
+        let mut document =
+            TeamToml::from_team(PesVersion::Pes17, team, &players).expect("from_team emits");
+        let instructions = document.tactics.presets[0]
+            .instructions
+            .as_mut()
+            .expect("PES 17 has instructions");
+        instructions.attack[0].instruction = pes_savefile::model::Instruction::Anchoring;
+        let err = TeamView::from_team_toml(&document).expect_err("an unencodable instruction");
+        match err {
+            TeamViewError::TeamToml { message } => {
+                assert!(message.contains("anchoring"), "{message}");
+                assert!(message.contains("instructions.attack"), "{message}");
+            }
+            other => panic!("expected TeamToml, got {other:?}"),
+        }
     }
 
     #[test]

@@ -570,8 +570,9 @@ pub enum LoadError {
         /// What the parser reported.
         message: String,
     },
-    /// The text defines no `RULESET` map.
-    #[error("the file defines no RULESET map")]
+    /// The text defines no constant `RULESET` map (a `let` is not one:
+    /// a function cannot read it).
+    #[error("the file defines no constant RULESET map")]
     NoRuleset,
     /// `RULESET` does not deserialize into `Ruleset`: an unknown or missing
     /// key, a wrong type, an unknown label.

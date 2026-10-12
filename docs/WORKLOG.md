@@ -752,7 +752,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       Done 2026-10-12 (SWE-2, first attempt; lead fixes: one shared `section_hash`, and the
       version lookup as one `position` match, which removed an equivalent mutant). An import
       note reaches `TeamViewError::TeamToml` as its `Debug` text: `ImportNote` has no `Display`
-      yet, which the Team creator's check (Phase 6) will want
+      yet, which the Team creator's check (Phase 6) will want. Review C1.S1 (SWE-2) over
+      5.2c1-c2: 5 of 5 accepted, rework r1 landed 2026-10-13 (set-piece none values, a `let
+      RULESET` refused, stale docs, the import-note arm tested, `team_toml`'s key-0 underflow)
     - [ ] 5.2c3 the interpreter's `check_team` for the official file, its fixtures, the
       operation limit (sliced when briefed)
   - [ ] 5.2d `tier_values`, `card_limits`, `apply_tier` (settle the issue above first) →

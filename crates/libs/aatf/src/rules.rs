@@ -29,7 +29,7 @@ pub struct Rules {
 const REQUIRED: [(&str, usize); 3] = [("check_team", 1), ("tier_values", 3), ("card_limits", 3)];
 
 impl Rules {
-    /// Loads a rules file through steps 1 and 2 of `aatf_rules.md`
+    /// Loads a rules file through steps 1 to 3 of `aatf_rules.md`
     /// "Loading and validation"; the first failure is returned.
     pub fn load(text: &str) -> Result<Rules, LoadError> {
         let (engine, ast, scope) = run_top_level(text)?;
@@ -292,6 +292,10 @@ mod tests {
         // No `RULESET`.
         let err = Rules::load(&minimal_file().replacen("const RULESET = ", "const OTHER = ", 1))
             .expect_err("no RULESET");
+        assert_eq!(err, LoadError::NoRuleset);
+        // A `let RULESET` is not a constant either.
+        let err = Rules::load(&minimal_file().replacen("const RULESET = ", "let RULESET = ", 1))
+            .expect_err("a let");
         assert_eq!(err, LoadError::NoRuleset);
     }
 

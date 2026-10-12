@@ -213,6 +213,19 @@ fn schema_two_is_unknown_schema() {
     assert_eq!(err, LoadError::UnknownSchema { schema: 2 }, "{err:?}");
 }
 
+/// A `let` is not a constant: a function could not read
+/// `global::RULESET`, so the entry is `NoRuleset` too.
+#[test]
+fn a_let_ruleset_is_no_ruleset() {
+    assert_eq!(
+        Ruleset::from_data_block(
+            "let RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };"
+        )
+        .expect_err("a let"),
+        LoadError::NoRuleset
+    );
+}
+
 #[test]
 fn no_ruleset_is_no_ruleset() {
     assert_eq!(

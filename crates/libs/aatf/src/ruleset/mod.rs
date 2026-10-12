@@ -627,13 +627,15 @@ pub(crate) fn run_top_level(
 /// Step 2 of "Loading and validation": the `RULESET` map of the run's
 /// scope into `Ruleset`, its schema and the load-time rules.
 pub(crate) fn ruleset_from_scope(scope: &rhai::Scope) -> Result<Ruleset, LoadError> {
-    let Some(dynamic) = scope.get("RULESET") else {
+    let Some((_, constant, dynamic)) = scope.iter().find(|(name, _, _)| *name == "RULESET") else {
         return Err(LoadError::NoRuleset);
     };
-    if !dynamic.is_map() {
+    // A `let RULESET` leaves a non-constant entry a function cannot
+    // read (`global::RULESET` would be `ErrorVariableNotFound`).
+    if !constant || !dynamic.is_map() {
         return Err(LoadError::NoRuleset);
     }
-    let ruleset: Ruleset = rhai::serde::from_dynamic(dynamic).map_err(|e| LoadError::Schema {
+    let ruleset: Ruleset = rhai::serde::from_dynamic(&dynamic).map_err(|e| LoadError::Schema {
         path: String::new(),
         message: e.to_string(),
     })?;

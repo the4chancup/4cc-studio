@@ -587,7 +587,11 @@ fn apply_player(
     target: &mut Target,
 ) -> Result<(), TeamTomlError> {
     let path = player_path(slot);
-    let index = usize::from(slot - 1);
+    // `slot` is the document's key, 1-based; a `players` map can carry 0
+    // (`parse` refuses it, a built document need not).
+    let Some(index) = slot.checked_sub(1).map(usize::from) else {
+        return Err(TeamTomlError::NoSuchSlot { slot });
+    };
     if index >= target.team.roster.len() {
         return Err(TeamTomlError::NoSuchSlot { slot });
     }
@@ -1534,6 +1538,30 @@ mod tests {
             players: BTreeMap::from([(u8::try_from(slot + 1).expect("a slot index"), section)]),
             ..TeamToml::default()
         }
+    }
+
+    /// A `[players.00]` key is `NoSuchSlot`, not an underflowing index —
+    /// `slot - 1` on `u8` would panic in a debug build.
+    #[test]
+    fn a_players_key_zero_is_no_such_slot() {
+        let (file, _) = open(PesVersion::Pes18);
+        let (team, _) = first_slot(&file);
+        let document = TeamToml {
+            pes_version: Some(PesVersion::Pes18),
+            players: BTreeMap::from([(0, PlayerSection::default())]),
+            ..TeamToml::default()
+        };
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        assert!(
+            matches!(
+                document
+                    .apply(PesVersion::Pes18, &mut target, &mut players)
+                    .expect_err("a key 0"),
+                TeamTomlError::NoSuchSlot { slot: 0 }
+            ),
+            "a key 0"
+        );
     }
 
     /// A skill the document's source version cannot store is not written at

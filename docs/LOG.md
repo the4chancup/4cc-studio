@@ -1863,3 +1863,5 @@ worklog passed 7,000 lines.
   0x0A (measured in-game on PES 21; a census of every 17-21 save by side agrees), not at 0x10.
 - **2026-10-12** — Step 5.0j2: `docs/spec/libs/` read against the lib crates and corrected; the
   unbuilt consumers and the bindings' `ops/` surface moved to plan copies under `docs/plans/libs/`.
+- **2026-10-13** — 5.2c rework r1 (SWE-2 review C1.S1, 5 of 5 accepted): a Team TOML view's absent
+  takers read as none, a `let RULESET` is refused, `team_toml` refuses a `players` key 0.

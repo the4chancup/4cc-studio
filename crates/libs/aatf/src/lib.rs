@@ -31,7 +31,7 @@
 mod engine;
 /// Assembling a rules file: data block, current logic, custom-checks stub.
 mod file;
-/// `Rules`: a loaded file, steps 1 and 2, `check_team`.
+/// `Rules`: a loaded file, steps 1 to 3, `check_team`.
 mod rules;
 /// `Ruleset` and its types, deserialization and the load-time rules.
 mod ruleset;
