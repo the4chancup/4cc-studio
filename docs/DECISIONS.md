@@ -7097,3 +7097,18 @@ team the save lacks. The scheme constant sits where it is checked: the compiler 
 there, and the save editor, which never sees the compiler's crate, checks the same value.
 Plan: `pes_savefile/operations.md` "Aesthetics patch" (the last rule and the types);
 `pes_savefile/README.md` crate tree.
+
+## 2026-10-12 — workspace — bool mutants join converge after all, with a list of ruled equivalents
+Decision (maintainer): `bool` joins `EXTRA_KINDS`, which replaces the earlier entry's "bool
+mutants do not". The extra kinds gain `.cargo/extra_mutants.toml`, where a ruled equivalent
+is recorded once with its reason and matched by path, kind and description. No line numbers
+are used, since a `bool` description names its flag. An entry that matches nothing is reported
+as stale.
+Why: the "about half real" bar weighs every real gap the same, and `bool`'s were the trial's
+worst. Its real gaps included a converted pre-Fox model's `visible` flag (every converted model
+invisible), an environment sampler's `srgb`, and two texture-precedence flags that mispointed a
+kit texture. Each was a silently wrong file with every test passing, and cargo-mutants never
+flips such a flag. The bar existed because each equivalent would be ruled again at every
+converge (18 in `team_compiler`), and the list removes that cost. The run time remains: about
+17 minutes added to a `team_compiler` whole-crate run.
+Plan: `CONTRIBUTING.md` "Mutation runs" (when 5.0b4 lands); worklog 5.0b4.

@@ -281,15 +281,21 @@ Requirements:
   number to accept. Results land in `mutants.out/` (gitignored). What a clean run cannot
   vouch for: `cargo-mutants` rewrites operators, a `!`, match arms and guards, a field, and a
   function's whole return value; it never edits a literal or removes a method call. So `just
-  mutants <crate>` first runs three such kinds (`EXTRA_KINDS` in `scripts/mutants.py`, listed by
-  `crates/dev/extra_mutants`, run locally in a copy of the tree, a few minutes per crate),
-  their survivors in the same `missed_all.txt` tagged with their kind and triaged the same
-  way: `literal` removes one alternative of a `matches!` or one element of a literal list a
-  `split`, `contains` or similar method decides by; `normalize` removes a `.trim()`-style or
-  case-changing call, or makes `eq_ignore_ascii_case` an `==`; `order` drops a statement
-  that is a `sort*`, `dedup*` or `reverse` call. The tool's other kinds (`guard`, `bool`) are
-  not run (`just extra-mutants <crate> --kind <name>` runs one by hand): too few of their
-  survivors were real gaps (worklog 5.0b). A survivor of the remote half whose only
+  mutants <crate>` first runs four such kinds (`EXTRA_KINDS` in `scripts/mutants.py`, listed by
+  `crates/dev/extra_mutants`, run locally in a copy of the tree, a few minutes per crate and
+  about twenty for `team_compiler`), their survivors in the same `missed_all.txt` tagged with
+  their kind and triaged the same way: `literal` removes one alternative of a `matches!` or
+  one element of a literal list a `split`, `contains` or similar method decides by;
+  `normalize` removes a `.trim()`-style or case-changing call, or makes `eq_ignore_ascii_case`
+  an `==`; `order` drops a statement that is a `sort*`, `dedup*` or `reverse` call; `bool`
+  flips a `true`/`false` argument or struct field, the flags that land in a written file and
+  that cargo-mutants never touches. An equivalent extra mutant goes into
+  `.cargo/extra_mutants.toml` with its reason, matched by path, kind and whole description (no
+  line number: a description names its function and its site, the field, or the call and its
+  receiver); an entry that matches nothing in its crate is reported as a stale exclusion
+  among the survivors, since the code under the ruling changed. The tool's other kind
+  (`guard`) is not run (`just extra-mutants <crate> --kind guard` runs it by hand): too few
+  of its survivors were real gaps (worklog 5.0b). A survivor of the remote half whose only
   catching test is `#[cfg(windows)]` is rerun on this machine when the run is collected, and
   the outcome here replaces the remote one; such a test's mutants are named in
   `WINDOWS_ONLY_TESTS` in `scripts/mutants.py`, by file and function. So a guard that

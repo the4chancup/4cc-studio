@@ -432,13 +432,18 @@ Fixed before the itemization:
   lister visits; a test pins them), the other six go; a list mixing literal and non-literal
   elements now lists its literal ones; ten tests in `scan.rs`, `tests/cli.rs` running the
   binary. `cargo mutants -p extra_mutants`: 121 caught, 5 unviable, none missed.
-- [ ] 5.0b4 `bool` joins `EXTRA_KINDS` (maintainer, 2026-10-12: its real gaps were the
+- [x] 5.0b4 `bool` joins `EXTRA_KINDS` (maintainer, 2026-10-12: its real gaps were the
   trial's worst, silently wrong files) with `.cargo/extra_mutants.toml`, the extra kinds' list
   of ruled equivalents, matched by path, kind and description (a `bool` description names its
   flag), stale entries reported; seeded with the 19 rulings so far; `fmdl`, `pes_model` and
   `archives` run for `bool` the first time (brief `.tmp/5_0b/brief_5_0b4.md`) → verify:
   `team_compiler`, `model_convert` and `pes_savefile` leave no `bool` survivor and no stale
-  entry
+  entry. Done 2026-10-12 (SWE-2, first attempt, plus one rework: three seed entries also hid
+  real, tested flags until a method call's description named its receiver; the lead dropped
+  the receiver's 40-char cut and named a call's callee as written, removing three
+  survivors). 19 entries. First `bool` runs: `fmdl`'s shared-UV-map flag a real gap (a
+  corrupt file; tested), its `unwrap_or(false)` replaced by indexing, `archives`' one
+  equivalent; `pes_savefile`'s two new `check_text` flips ride 5.1c2's rework
 - [x] 5.0g Tests for 5.0b's real gaps, in two slices:
   - [x] 5.0g1 in `aesthetics_export` unless named: `literal`:
     `conventions/player_folder.rs` `is_gloves` (`GloveR`, `HandL`, `HandR`) and
@@ -611,7 +616,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       R5.A1's `to_toml` refusals and a mutation survivor). Step 5.1c done 2026-10-12
   - [ ] 5.1d the Team TOML: `stripped`, the appearance table written key by key, `ingame_face`
     gone; a test-support export so a tool crate's CLI tests can write a whole fixture save →
-    done when: SE-TOML-01 to 08's outcomes hold at the lib level
+    done when: SE-TOML-01 to 08's outcomes hold at the lib level. Sub-slices, each a commit:
+    - [ ] 5.1d1 `ingame_face` gone, `[players.NN.appearance.unknown] face` in its place
+      (absent = untouched), `stripped` on export
+    - [ ] 5.1d2 SE-TOML-01 to 08 at the lib level (each mapped to a test, the missing ones
+      written), and the test-support export of a whole fixture save
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass

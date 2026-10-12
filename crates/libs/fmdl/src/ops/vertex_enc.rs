@@ -239,12 +239,7 @@ pub(crate) fn nontopological_encoding(vertices: &MeshVertices, index: usize) -> 
         encoding.extend(colors[index]);
     }
     for (map, uvs) in vertices.uvs.iter().enumerate() {
-        if vertices
-            .uv_high_precision
-            .get(map)
-            .copied()
-            .unwrap_or(false)
-        {
+        if vertices.uv_high_precision[map] {
             encoding.extend(uvs[index][0].to_le_bytes());
             encoding.extend(uvs[index][1].to_le_bytes());
         } else {

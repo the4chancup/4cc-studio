@@ -1808,3 +1808,6 @@ worklog passed 7,000 lines.
   first attempt; one rework from the lead's review (an emit fallback hid an error).
 - **2026-10-12** — Step 5.1c2: applying the aesthetics patch (Fox), refused whole or applied
   whole but for absent teams and players. SWE-2, first attempt; one rework. Step 5.1c done.
+- **2026-10-12** — Step 5.0b4: `bool` mutants join converge, with `.cargo/extra_mutants.toml`
+  for the extra kinds' ruled equivalents (maintainer's call). SWE-2, one rework; `fmdl`'s first
+  `bool` run found a corrupt-file gap in shared UV maps.

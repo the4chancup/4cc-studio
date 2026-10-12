@@ -276,8 +276,20 @@ impl Lister<'_> {
         self.line_starts.partition_point(|&start| start <= byte)
     }
 
-    /// A `true`/`false` argument or struct field value, flipped.
-    fn bool_mutant(&mut self, expr: &Expr) {
+    /// A method call's receiver as written, whitespace collapsed, so the site
+    /// tells `common_folders.insert` from `textures.insert`.
+    fn receiver_site(&self, expr: &ExprMethodCall) -> String {
+        self.snippet(
+            self.start_of(expr.receiver.span()),
+            self.end_of(expr.receiver.span()),
+        )
+    }
+
+    /// A `true`/`false` argument or struct field value, flipped. `site` names
+    /// what holds it (a field's name, or a callee and the argument's 1-based
+    /// position) so a `.cargo/extra_mutants.toml` exclusion matches the flag
+    /// without a line number, which drifts.
+    fn bool_mutant(&mut self, expr: &Expr, site: &str) {
         let Expr::Lit(ExprLit {
             lit: Lit::Bool(lit),
             ..
@@ -289,7 +301,7 @@ impl Lister<'_> {
         let end = self.end_of(lit.span);
         let line = self.line_of(start);
         let flipped = if lit.value { "false" } else { "true" };
-        let change = format!("{} becomes {flipped}", lit.value);
+        let change = format!("{site}: {} becomes {flipped}", lit.value);
         self.push("bool", start, end, flipped, &change, line);
     }
 }
@@ -393,8 +405,9 @@ impl<'ast> Visit<'ast> for Lister<'_> {
                 line,
             );
         }
-        for arg in &expr.args {
-            self.bool_mutant(arg);
+        let receiver = self.receiver_site(expr);
+        for (index, arg) in expr.args.iter().enumerate() {
+            self.bool_mutant(arg, &format!("{receiver}.{method} arg {}", index + 1));
         }
         if LIST_METHODS.contains(&method.as_str()) {
             self.array_mutants(&expr.receiver, &method);
@@ -406,15 +419,25 @@ impl<'ast> Visit<'ast> for Lister<'_> {
     }
 
     fn visit_expr_call(&mut self, expr: &'ast ExprCall) {
-        for arg in &expr.args {
-            self.bool_mutant(arg);
+        // The callee as written (`f`, `Foo::new`, a closure's name), as a
+        // method call's receiver is.
+        let callee = self.snippet(
+            self.start_of(expr.func.span()),
+            self.end_of(expr.func.span()),
+        );
+        for (index, arg) in expr.args.iter().enumerate() {
+            self.bool_mutant(arg, &format!("{callee} arg {}", index + 1));
         }
         visit::visit_expr_call(self, expr);
     }
 
     fn visit_expr_struct(&mut self, expr: &'ast ExprStruct) {
         for field in &expr.fields {
-            self.bool_mutant(&field.expr);
+            let name = match &field.member {
+                syn::Member::Named(ident) => ident.to_string(),
+                syn::Member::Unnamed(index) => index.index.to_string(),
+            };
+            self.bool_mutant(&field.expr, &name);
         }
         visit::visit_expr_struct(self, expr);
     }
@@ -787,6 +810,10 @@ mod tests {
         assert_eq!(mutant.kind, "bool");
         assert_eq!(&text[mutant.start..mutant.end], "true");
         assert_eq!(mutant.replacement, "false");
+        assert_eq!(
+            mutant.description,
+            "in g: f arg 1: true becomes false | removed: true"
+        );
         assert_patches_parse(text, &mutants);
     }
 
@@ -801,6 +828,29 @@ mod tests {
             .expect("a bool mutant");
         assert_eq!(&text[mutant.start..mutant.end], "true");
         assert_eq!(mutant.replacement, "false");
+        assert_eq!(
+            mutant.description,
+            "in f: s.contains arg 2: true becomes false | removed: true"
+        );
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_method_arg_names_its_receiver() {
+        // Two calls of one method on different receivers get different
+        // descriptions, so an exclusion names the flag it means.
+        let text = "fn f() {\n    textures.insert(true, &below);\n    common_folders.insert(true, stem);\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 2);
+        assert!(mutants.iter().all(|m| m.kind == "bool"));
+        assert_eq!(
+            mutants[0].description,
+            "in f: textures.insert arg 1: true becomes false | removed: true"
+        );
+        assert_eq!(
+            mutants[1].description,
+            "in f: common_folders.insert arg 1: true becomes false | removed: true"
+        );
         assert_patches_parse(text, &mutants);
     }
 
@@ -813,6 +863,10 @@ mod tests {
         assert_eq!(mutant.kind, "bool");
         assert_eq!(&text[mutant.start..mutant.end], "true");
         assert_eq!(mutant.replacement, "false");
+        assert_eq!(
+            mutant.description,
+            "in f: flag: true becomes false | removed: true"
+        );
         assert_patches_parse(text, &mutants);
     }
 

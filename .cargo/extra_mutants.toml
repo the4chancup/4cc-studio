@@ -1,0 +1,119 @@
+# extra_mutants configuration: the extra kinds' list of what the runs no longer
+# measure, as `.cargo/mutants.toml` is for cargo-mutants (CONTRIBUTING.md "Testing
+# and verification", "Mutation runs"). An entry drops every listed mutant whose
+# path, kind and whole description it names — exact text, no regex, no line
+# number — so two identically described flags share one entry and one reason.
+# Every entry's `why` names the equivalence that makes the mutant unkillable (or
+# the reason nothing reads it); a mutant that is merely hard to kill stays in.
+# An entry that matches nothing its crate lists is stale — the code changed under
+# the ruling — and the run reports it for triage.
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/check.rs"
+kind = "bool"
+description = "in run: validation_pass arg 6: false becomes true | removed: false"
+why = "memory only: check never reads the decompressed content"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/deep/materials.rs"
+kind = "bool"
+description = "in insert_link: self.textures.insert_link arg 1: true becomes false | removed: true"
+why = "feeds only the .mtl supply check, an .any over places; links and combined share the Common home and order is never read"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/deep/materials.rs"
+kind = "bool"
+description = "in held_common: textures.insert arg 1: true becomes false | removed: true"
+why = "same .any check; own and combined also share the Folder home"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/deep/model.rs"
+kind = "bool"
+description = "in fired: hand_weighted: false becomes true | removed: false"
+why = "the .mtl arm's flag; every consumer tests contains() on model or link paths, never a .mtl"
+
+# Also drops the PesModel arm's `metal: false`, which shares this description:
+# the caught mutant the site naming cannot tell apart (accepted loss).
+[[exclude]]
+path = "crates/tools/team_compiler/src/deep/model.rs"
+kind = "bool"
+description = "in fired: metal: false becomes true | removed: false"
+why = "the .mtl arm's flag; converts_metal asks metal_models.contains() of converted-model paths, never a .mtl"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/deep/model.rs"
+kind = "bool"
+description = "in material_read: mesh_used: false becomes true | removed: false"
+why = "mesh_used is read only for .model entries; a .mtl's MaterialRead is never filtered by it"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/messages.rs"
+kind = "bool"
+description = "in tool_message: message arg 5: false becomes true | removed: false"
+why = "raised matters only for two-severity codes, which no tool_message call passes"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/mtl_search.rs"
+kind = "bool"
+description = "in mtl_for: Candidate::new arg 2: false becomes true | removed: false"
+why = "linked is read only by the sort key; every in_common candidate shares the value"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/plan/mod.rs"
+kind = "bool"
+description = "in plan_run: ingame_face: false becomes true | removed: false"
+why = "a shared boots/gloves folder holds no face-named model or link, so the flag's remap is unreachable and its package resolves the same"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/plan/mod.rs"
+kind = "bool"
+description = "in plan_run: common_models arg 4: false becomes true | removed: false"
+why = "the FolderModels it builds are read only as CommonModel or link roles, which never differ on the flag"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/plan/mod.rs"
+kind = "bool"
+description = "in plan_run: environment_map: false becomes true | removed: false"
+why = "overwritten by converts_metal before any read"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/plan/mod.rs"
+kind = "bool"
+description = "in plan_run: refkit_body: false becomes true | removed: false"
+why = "read only in the face package; a shared folder's tasks are its own kind only"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/plan/mod.rs"
+kind = "bool"
+description = "in plan_run: folder_tasks arg 5: false becomes true | removed: false"
+why = "blank_face is and-ed with a Face package; a shared folder's packages are Boots/Gloves only"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/processing/model.rs"
+kind = "bool"
+description = "in package: common_folders.insert arg 1: true becomes false | removed: true"
+why = "both place homes resolve to common_home, and two entries colliding on one folded key store identical values"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/processing/model.rs"
+kind = "bool"
+description = "in package: common_folders.insert_link arg 1: true becomes false | removed: true"
+why = "a link standing for a Common/ texture and that texture file one folded key with identical values"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/processing/prefox_face.rs"
+kind = "bool"
+description = "in common: folders.insert arg 1: true becomes false | removed: true"
+why = "common only ever calls insert, so each directory's place list is the same single place"
+
+[[exclude]]
+path = "crates/libs/model_convert/src/formats/fmdl/export.rs"
+kind = "bool"
+description = "in ir_to_fmdl: vertex_loop_preservation: false becomes true | removed: false"
+why = "encode_model overwrites it (worklog 5.0g2)"
+
+[[exclude]]
+path = "crates/libs/archives/src/lib.rs"
+kind = "bool"
+description = "in read: Ok arg 1: false becomes true | removed: false"
+why = "stopping early only saves work: the mismatch is returned after the iteration either way"

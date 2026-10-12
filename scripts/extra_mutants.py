@@ -5,7 +5,13 @@ condition replaced with `false`), `literal` (an element removed from a literal l
 `normalize` (a `.trim()`-style call removed), `order` (a `sort()`-style statement
 deleted) and `bool` (a `true`/`false` flipped). This script applies each listed patch
 in a copy of the working tree and lets
-`cargo test -p <crate>` decide whether the suite catches it. Outcomes land in
+`cargo test -p <crate>` decide whether the suite catches it. An `[[exclude]]`
+entry of `.cargo/extra_mutants.toml` (path, kind and whole description, never a
+line number) drops the mutants it matches before they run: the file is the extra
+kinds' list of what the runs no longer measure, each entry's `why` naming the
+equivalence. An entry that matches no listed mutant of its crate and kinds is
+stale: printed, and written into the missed files as a `stale exclusion` line,
+so `just mutants`' merged `missed_all.txt` shows it for triage. Outcomes land in
 `extra_mutants.out/` (gitignored): `outcomes_<kinds>.tsv` has every mutant of the run's
 kinds, `missed_<kinds>.txt` the survivors as `crates/...:<line>: [<kind>] <what>` lines;
 `missed_<crate>.txt` holds the same lines for `just mutants`, which runs the converge
@@ -24,6 +30,7 @@ import subprocess
 import sys
 import tarfile
 import time
+import tomllib
 from collections import Counter
 from pathlib import Path
 
@@ -72,6 +79,63 @@ def list_mutants(directory: Path) -> list[list[str]]:
         if len(row) != 7:
             raise SystemExit(f"extra_mutants: malformed lister row: {row}")
     return rows
+
+
+def exclusions(tree_root: Path) -> list[dict]:
+    """The `[[exclude]]` entries of `.cargo/extra_mutants.toml` under `tree_root`
+    (the run's copy of the tree, so what is excluded is the file the tree under
+    test carries). Every entry is exactly `path`, `kind`, `description` and
+    `why`, each a string; a malformed file or entry stops the run, an entry
+    named by its index."""
+    path = tree_root / ".cargo" / "extra_mutants.toml"
+    if not path.exists():
+        return []
+    try:
+        entries = tomllib.loads(path.read_text(encoding="utf-8")).get("exclude", [])
+    except tomllib.TOMLDecodeError as error:
+        raise SystemExit(f"extra_mutants: {path}: not TOML: {error}")
+    for index, entry in enumerate(entries, 1):
+        if (
+            not isinstance(entry, dict)
+            or set(entry) != {"path", "kind", "description", "why"}
+            or not all(isinstance(value, str) for value in entry.values())
+        ):
+            raise SystemExit(
+                f"extra_mutants: {path}: entry {index} is not exactly "
+                "path, kind, description and why, each a string"
+            )
+    return entries
+
+
+def apply_exclusions(
+    rows: list[list[str]], crate_rel: Path, entries: list[dict], kinds: list[str]
+) -> tuple[list[bool], list[str]]:
+    """Per `rows` row, whether an entry claims it (path, kind and whole
+    description equal, exact text; an entry drops every mutant it matches), and
+    the stale-entry lines: an entry of this crate whose kind the run includes
+    but which matched no listed mutant, shaped as a missed line for triage."""
+    matched = [False] * len(entries)
+    excluded = []
+    for row in rows:
+        hit = False
+        for index, entry in enumerate(entries):
+            if (
+                (crate_rel / row[0]).as_posix() == entry["path"]
+                and row[3] == entry["kind"]
+                and row[6] == entry["description"]
+            ):
+                matched[index] = True
+                hit = True
+        excluded.append(hit)
+    prefix = crate_rel.as_posix() + "/"
+    stale = [
+        f"{entry['path']}: [{entry['kind']}] stale exclusion: {entry['description']}"
+        for entry, was_matched in zip(entries, matched)
+        if not was_matched
+        and entry["path"].startswith(prefix)
+        and entry["kind"] in kinds
+    ]
+    return excluded, stale
 
 
 def extract_tree(tree: str, dest: Path) -> None:
@@ -223,11 +287,19 @@ def run_crate(
     try:
         extract_tree(tree, copy_dir)
         rows = [row for row in list_mutants(copy_dir / crate_rel) if row[3] in kinds]
+        excluded, stale = apply_exclusions(
+            rows, crate_rel, exclusions(copy_dir), kinds
+        )
+        rows = [row for row, drop in zip(rows, excluded) if not drop]
+        # Reported before the baseline's minutes: a stale entry means the code
+        # changed under a ruling, worth knowing before the run spends its time.
+        for line in stale:
+            print(line, flush=True)
         baseline = baseline_seconds(crate, copy_dir)
         timeout = max(MIN_TIMEOUT_SECONDS, TIMEOUT_FACTOR * baseline)
         print(
             f"extra_mutants: baseline {baseline:.0f} s, timeout {timeout:.0f} s, "
-            f"{len(rows)} mutants",
+            f"{len(rows)} mutants, {sum(excluded)} excluded",
             flush=True,
         )
         outcomes: list[tuple[str, list[str]]] = []
@@ -273,7 +345,7 @@ def run_crate(
             for outcome, row in outcomes
             if outcome == "missed"
         ]
-        missed_text = "".join(text + "\n" for text in missed)
+        missed_text = "".join(text + "\n" for text in missed + stale)
         write_out(OUT_DIR / f"missed_{kinds_key}.txt", missed_text)
         write_out(OUT_DIR / f"missed_{crate}.txt", missed_text)
         per_outcome = Counter(outcome for outcome, _ in outcomes)
@@ -288,7 +360,7 @@ def run_crate(
         )
         wall = time.monotonic() - wall_start
         print(f"wall time: {wall:.0f} s")
-        return missed, per_outcome, wall
+        return missed + stale, per_outcome, wall
     finally:
         if copy_dir.exists():
             try:
@@ -300,12 +372,17 @@ def run_crate(
 def main(argv: list[str]) -> int:
     crate, kinds, list_only = parse_args(argv)
     if list_only:
-        rows = [row for row in list_mutants(crate_dir(crate)) if row[3] in kinds]
-        for row in rows:
-            print("\t".join(row))
+        directory = crate_dir(crate)
+        crate_rel = directory.relative_to(ROOT)
+        rows = [row for row in list_mutants(directory) if row[3] in kinds]
+        excluded, stale = apply_exclusions(rows, crate_rel, exclusions(ROOT), kinds)
+        for row, is_excluded in zip(rows, excluded):
+            print("\t".join(row) + ("\t(excluded)" if is_excluded else ""))
         per_kind = Counter(row[3] for row in rows)
         counts = ", ".join(f"{kind} {n}" for kind, n in sorted(per_kind.items()))
-        print(f"{len(rows)} mutants ({counts})")
+        print(f"{len(rows)} mutants ({counts}), {sum(excluded)} excluded")
+        for line in stale:
+            print(line)
         return 0
     run_crate(crate, kinds)
     return 0

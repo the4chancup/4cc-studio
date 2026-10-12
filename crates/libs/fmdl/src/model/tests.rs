@@ -528,6 +528,23 @@ fn written_file_is_a_valid_container() {
 }
 
 #[test]
+fn shared_uv_maps_write_their_data_once() {
+    // Two identical UV maps share the earlier map's offset, so the data
+    // buffer holds one stored map's worth, not two.
+    let uvs: Vec<[f32; 2]> = vec![[0.25, 0.5], [0.75, 0.5], [0.5, 0.25]];
+    let mut vertices = plain_vertices();
+    vertices.uvs = vec![uvs.clone(), uvs];
+    vertices.uv_high_precision = vec![false, false];
+    let model = grouped_model(vec![mesh_with(vertices)], vec![vec![0]]);
+    let written = model.to_file().unwrap();
+    // One f16 pair per vertex (4 × 3 = 12), padded to 16; a second stored
+    // map would make it 32.
+    assert_eq!(written.buffer_offsets[1].length, 16);
+    let again = Model::from_file(&written).unwrap();
+    assert_eq!(again.meshes[0].vertices, model.meshes[0].vertices);
+}
+
+#[test]
 fn written_layout_facts() {
     let written = model(HIGHNECK).to_file().unwrap();
     assert_eq!(written.buffer_offsets.len(), 3);

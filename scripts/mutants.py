@@ -58,9 +58,10 @@ REMOTE_ONLY = False
 # The extra_mutants kinds `just mutants <crate>` runs before the cargo-mutants
 # run starts, so a whole-crate run stays one command and its missed_all.txt the
 # one list to triage (DECISIONS, 2026-10-12, "literal and normalize mutants join
-# converge" and "order mutants join converge, bool mutants do not"). `mutants-diff`
-# does not run them: the decision is converge only.
-EXTRA_KINDS = ("literal", "normalize", "order")
+# converge" and "order mutants join converge, bool mutants do not"; `bool`
+# joined once `.cargo/extra_mutants.toml` gave its ruled equivalents a home).
+# `mutants-diff` does not run them: the decision is converge only.
+EXTRA_KINDS = ("bool", "literal", "normalize", "order")
 # missed.txt lines whose only catching tests are #[cfg(windows)]: they survive on
 # the Linux remote half, so summarize() reruns them on this machine when it is
 # Windows and REMOTE_ONLY is off. The seed is deploy.rs's match guards
