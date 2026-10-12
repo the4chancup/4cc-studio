@@ -27,8 +27,9 @@ schema. Platform context is in the [core plan](core/README.md).
 
 ## The editor
 
-**Start page:** *New from template*, where the template is **Autumn 26** (the official ruleset),
-**VGL26**, or **Blank** (one tier, no brackets, the universal rules on); *Random*, in three
+**Start page:** *New from template*, where the template is one of the embedded rulesets
+(`aatf_rules.md` "Embedded rulesets": the latest two of the 4cc, VGL and VTL, Autumn 26 first)
+or **Blank** (one tier, no brackets, the universal rules on); *Random*, in three
 flavors (see "Randomize"); and *Open file*. Recent files below.
 
 A left rail lists the sections; each is a form, and a section with a validation error shows a
@@ -196,7 +197,7 @@ migration hook, the tool's sections, opening and saving with logic identity, the
 Randomize, the CLI, the help chapter. The tool is file-picking only, so it joins Studio Web's
 first tier (Phase 18) once both exist.
 
-Verification: the writer round-trips both embedded rulesets (read, write, read gives an equal
+Verification: the writer round-trips every embedded ruleset (read, write, read gives an equal
 `Ruleset`; writing twice gives identical bytes); VGL26's data rebuilt from Blank through the forms
 alone (manual, recorded at converge) validates and passes VGL26's fixtures; a file with an older
 logic hash updates and still passes its fixtures, a modified one is refused by `update-logic`; an

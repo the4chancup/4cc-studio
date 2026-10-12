@@ -628,6 +628,24 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       rework per review: R7.S1, Team TOML's `face` keeps a longer target run's tail; R7.A1,
       R8.S1 and R9.S1, tests made to fail without their behavior, each written value's
       before-value asserted different). Step 5.1d done 2026-10-12
+- [ ] 5.0i The plans/spec split (maintainer, 2026-10-12; after 5.2b lands, before 5.2c):
+  `docs/spec/` holds what the suite does, `docs/plans/` only future work. New plan text is
+  written in the present tense (a plan's location says it is future); existing future-tense text
+  converts when a section is next edited or moves, never in bulk. Every plan file opens with a
+  one-line banner saying nothing in it exists yet and what exists is in `docs/spec/` (a model
+  reading an excerpt without its path would take present-tense plan text as fact); briefs and
+  reviewer prompts quote plan text with its path. Spec mirrors the plans' layout, headings
+  verbatim; a section partly delivered keeps its heading in both trees, the plan's part pointing
+  at the spec section it builds on. Phases 1 to 4's delivered sections move now; Phase 5's
+  in-progress sections (AATF included) move at Phase 5's close; from then on a phase's close
+  moves its sections and corrects what was built differently. A gate script (the lead's: a lint)
+  checks that every `docs/plans/` and `docs/spec/` "Section" pointer resolves (AGENTS, GLOSSARY,
+  CONTRIBUTING, the worklog, `//!` docs), a heading present in both trees included;
+  `DECISIONS.md` stays append-only with a note on the move. Edits: `AGENTS.md` (document table,
+  close procedure), `plans/README.md` "How these documents evolve", `GLOSSARY.md` ("Plan"
+  rewritten, "Spec" added), the worklog's close-step text, decision entries superseding
+  2026-09-10 (4) and 2026-09-19's single home → done when: no Phase 1 to 4 delivered section
+  left in `plans/`, every plan file bannered, the pointer check green in `just gates`
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
@@ -657,7 +675,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     limit → done when: each special of the official file is exercised by a fixture
   - [ ] 5.2d `tier_values`, `card_limits`, `apply_tier` (settle the issue above first) →
     done when: `apply_tier` then `check_team` reports nothing for every official tier
-  - [ ] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27 and VTL11 data blocks and their
+  - [ ] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27, VTL11 and VTL10 data blocks and their
     fixtures → done when: the plan's per-ruleset fixtures pass
   - [ ] 5.2f the parity runs against the legacy checkers on the cup saves (lead) → done
     when: each difference is a deliberate one the plan lists, or fixed

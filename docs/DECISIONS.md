@@ -7182,3 +7182,17 @@ makes `suggestions: ["cards"]` mean two allowances. One general rule each, repla
 fields the empty-name rule named.
 Plan: `aatf_rules.md` "The ruleset schema" (`card_groups`' and `Heights::systems`' docs, the
 load-time rules).
+
+## 2026-10-12 — aatf — the latest two rulesets of each cup kind are templates; VTL10 joins
+Decision: `libs/aatf` embeds as Ruleset editor templates the latest two rulesets of each kind of
+cup: the 4cc's (Autumn 26, the default, and Spring 26), VGL's (VGL27, VGL26) and VTL's (VTL11,
+VTL10). A newer ruleset of a kind replaces the older of its two and stays a test ruleset. Minor
+invitationals (VTLA, UnityCup) get none. VTL10 is a new data block, transcribed from VTLEditor
+at `2cf222f`, the last commit before its first matchday (2026-03-13), with a parity run on the
+VTL10 cup save.
+Why: the maintainer's ruling: an organizer starts from the cup closest to theirs, and the 4cc,
+VGL and VTL are the three cups with an organization of their own; two per kind lets one compare
+the latest change. VGL26 alone (the plan's template until now) covered one kind.
+Plan: `aatf_rules.md` "Embedded rulesets" (new), the ruleset sections' status lines, "VTL10"
+(new), "Crate layout", "Development phase and verification"; `ruleset_editor.md` start page
+and verification.

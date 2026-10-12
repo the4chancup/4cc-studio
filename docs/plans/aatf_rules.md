@@ -393,6 +393,15 @@ registered-position and playing-style ranges are built in.
 
 ---
 
+## Embedded rulesets
+
+`libs/aatf` embeds the latest two rulesets of each kind of cup as the Ruleset editor's
+templates: the 4cc's own (the official AATF), and the two major invitationals with an
+organization of their own, VGL (/vg/ League) and VTL (/vt/ League). Today: Autumn 26 (also the
+default file) and Spring 26; VGL27 and VGL26; VTL11 and VTL10. A new ruleset of a kind replaces
+the older of its two as a template and stays in `rulesets/` as a test ruleset with its fixtures,
+as Autumn 25 and VGL25 do. Minor invitationals (VTLA, UnityCup) get no template.
+
 ## The official ruleset
 
 The default file, embedded in `libs/aatf`. Transcribed from `aatf.cpp` at 4ccEditor's
@@ -501,8 +510,8 @@ player can be reported against a different tier; both report the player.
 
 ## Autumn 25 and Spring 26
 
-Two test rulesets (not templates), there so the official parity runs each 2026 cup save under the
-ruleset its teams were built for. Transcribed from `aatf.cpp` at 4ccEditor's `7e01541` (Autumn 25;
+Autumn 25 is a test ruleset and Spring 26 a template ("Embedded rulesets"); both are there so
+the official parity runs each 2026 cup save under the ruleset its teams were built for. Transcribed from `aatf.cpp` at 4ccEditor's `7e01541` (Autumn 25;
 its Version B, `aae4835` and `bb3e54a`, changed no rule) and `c92d535` (Spring 26). Both are the
 Autumn 26 file with:
 
@@ -540,7 +549,7 @@ checks no registered-position or playing-style range, which `libs/aatf` builds i
 
 ## VGL26
 
-The second embedded ruleset: a starting template in the Ruleset editor and a fixture, transcribed
+A template ("Embedded rulesets"), transcribed
 from the VGL26 rules page and 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `stats.h`, and
 `aatf_single_vgl` in `aatf.cpp`). What it exercises that the official file does not:
 
@@ -564,7 +573,7 @@ next rule allows auto attack/defence levels at fixed values, so that setting is 
 
 ## VGL27
 
-A test ruleset (not a template), transcribed from the VGL27 rules page and 4ccEditor-VGL's `vgl27`
+A template ("Embedded rulesets"), transcribed from the VGL27 rules page and 4ccEditor-VGL's `vgl27`
 branch (tip `e2add10`, tag `VGL27.B`; the ruleset is commit `4447996`). What it exercises that the
 others do not:
 
@@ -586,6 +595,13 @@ expected rating, as in the official file, where `aatf_single_vgl` reports no tie
 brought the checker to the page on the rest: Heading is a paid card, a medal's injury
 resistance is exact, a height in no bracket is a violation for that player, and each quota
 message prints its own bracket's count (before it, the 185 cm count for every bracket).
+
+## VTL10
+
+A template, transcribed from the VTLEditor fork at `2cf222f` (2026-03-01), the last commit before
+VTL10's first matchday on 2026-03-13: `5b78e5b` ("small aatf changes", 2026-04-12) and `4333325`
+("post vtl10 update") came during the cup and are not its ruleset. Its differences from VTL11 are
+listed here when its data block is written (5.2e).
 
 ---
 
@@ -772,7 +788,8 @@ crates/libs/aatf/
 │   ├── vgl25.rhai
 │   ├── vgl26.rhai
 │   ├── vgl27.rhai
-│   └── vtl11.rhai
+│   ├── vtl11.rhai
+│   └── vtl10.rhai
 └── tests/fixtures/     # the sample team; known-legal and known-violating teams per ruleset
 ```
 
@@ -810,7 +827,7 @@ and a rule the schema cannot express needs either the custom-checks hook or a sc
 
 Phase 5 (with the Save editor's logic): `Ruleset` and the load-time rules, the interpreter, the
 host and its accessors, `apply_tier`, logic identity, the Autumn 26, Autumn 25, Spring 26, VGL25,
-VGL26, VGL27 and VTL11 data blocks, the
+VGL26, VGL27, VTL11 and VTL10 data blocks, the
 sample team and the fixtures. The writer (`writer.rs`) and schema migrations arrive with the
 Ruleset editor in Phase 20.
 
@@ -832,6 +849,8 @@ Verification:
   cup save (`C:\Data\4cc\Saves\EDIT00000000_VTL11`, 2026-10-06), every team. The PES 16 team
   settings get fixture teams of their own: by its size (11 MB) the save is a PES 21 one, where
   VTLEditor skips them.
+- **Parity, VTL10.** The same against VTLEditor's `aatf_single` at `2cf222f` on the VTL10 cup save
+  (`C:\Data\4cc\Saves\EDIT00000000_VTL10`, 2026-10-12, the size of VTL11's), every team.
 - **Parity, VGL27.** The same against `vgl27`'s `aatf_single_vgl` (`VGL27.B`) on the VGL26 cup save's teams:
   built for VGL26, most fail, and what is compared is the findings, not legality. A VGL27 cup
   save replaces it when one exists.
