@@ -1873,3 +1873,5 @@ worklog passed 7,000 lines.
   `const RULESET` pinned by a test; the SWE-2 loop ends, Astra queued.
 - **2026-10-13** — 5.2b2 measurements, PES 21 in-game (read-only): man marking at +0x95/+0x135/+0x1D5
   read back from a match's Mark Settings; an advanced instruction's player byte is a roster slot.
+- **2026-10-13** — Step 5.0j4: `docs/spec/model_conversion/` and `model_format.md` read against
+  `model_convert`; the glTF paths marked Phase 7, the rest corrected to the code.

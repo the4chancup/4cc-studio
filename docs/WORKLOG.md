@@ -28,7 +28,7 @@ When a review stops for quota, it is queued here (commit range, plan sections) a
 once an hour; work continues past it, but no phase closes with one outstanding.
 **Handover queue** (2026-10-13), both Astra on a Pro slot after its 10:00 daily reset:
 R12.A1 over `1ba5b0e..5743d9e` (5.2b1's reworks; `aatf_rules.md` "The host"); and one over
-5.2c1, 5.2c2 and their reworks, `79da9be..` the r2 commit (`aatf_rules.md` "The rules file",
+5.2c1, 5.2c2 and their reworks, `79da9be..ec035a3` (`aatf_rules.md` "The rules file",
 "Loading and validation", "The host"; SWE-2 rulings C1, C2 in `.tmp/5_2/duck_rulings.md`).
 Phase 3 closed with its reviews queued (the maintainer's
 directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20 rounds
@@ -701,8 +701,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     to the plan; the crate tree and "Design constraints" corrected). Done 2026-10-13 (SWE-2,
     first attempt; the lead repointed this list's two pointers). `team_compiler/pipeline.md`
     repeats the `allocation_scheme_version` claim, for its slice
-  - [ ] 5.0j4 onward: one slice per remaining folder (`model_conversion` with `model_format`,
-    `pes_savefile`, `team_compiler` README, the rest of `team_compiler`)
+  - [x] 5.0j4 `docs/spec/model_conversion/` and `model_format.md` (the glTF paths marked
+    Phase 7, the placement rules and encoder orders as built, the SKL emission rule, FMDL's
+    stored texture names, tolerances and counts; `ExportedFox`'s doc comment fixed with the
+    spec). Done 2026-10-13 (SWE-2, first attempt; the lead kept the role table's
+    `material_texture_not_found`, the plan-only `materials.toml` contract)
+  - [ ] 5.0j5 onward: one slice per remaining folder (`pes_savefile`, `team_compiler` README,
+    the rest of `team_compiler`)
 - [x] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
   PES 21, `.tmp/5_2b2/findings.md`): the game stores Anchoring at 0x0A, with 18/19's entries from
   Swarm the Box on shifted up one (Swarm the Box 0x0B, Deep Defensive Line 0x0C, Gegenpress 0x0D,

@@ -9,14 +9,14 @@ use crate::skeletons;
 use super::super::ConvertError;
 use super::{TEXTURE_DIRECTORY, template_matrix};
 
-/// A model exported to FMDL: the companion SKL only when a bone unknown to the template
-/// tables survives (a model on the standard skeleton gets none; the compiler injects the
-/// template).
+/// A model exported to FMDL: the companion SKL only when an exported bone sits outside the
+/// template tables or off their pose (a model wholly on the template gets none; the compiler
+/// injects the template).
 #[derive(Debug)]
 pub struct ExportedFox {
     /// The FMDL model.
     pub model: ::fmdl::Model,
-    /// The companion skeleton for bones outside PES21's template tables.
+    /// The companion skeleton for bones outside PES21's template tables or off their pose.
     pub skl: Option<::fmdl::SklFile>,
     /// The findings the export produced.
     pub findings: Vec<loss::Finding>,

@@ -5,8 +5,9 @@ Part of the [Model conversion plan](README.md). Section headings are unchanged f
 ## Model Format Conversion
 
 **Conversion is not offered as a standalone tool.** It is integrated into the Team compiler: exports
-may contain models in any supported format (`.fmdl`, `.model`, `.gltf`), and the pipeline converts
-them to the target PES version's format at compile time. The logic lives in the `model_convert` lib
+may contain models in the native formats (`.fmdl`, `.model`; `.glb`/`.gltf` are detected too and
+refused until the glTF importer lands, `model_gltf_unsupported`), and the pipeline converts them to
+the target PES version's format at compile time. The logic lives in the `model_convert` lib
 crate.
 
 ### What the converters do
@@ -20,8 +21,8 @@ crate.
    per-version retargeting pass (see "Skeleton retargeting and bone conformance")
 6. Convert vertices/faces (reverse face winding, Vector4→Vector3 normals)
 7. Convert materials (FMDL shader/technique → .model shader)
-8. Encode mesh splitting for .model format
-9. Encode split vertex encoding
+8. Encode split vertex encoding
+9. Encode mesh splitting for .model format
 10. Write .model binary
 
 **.model → FMDL (16→21):**
@@ -35,9 +36,9 @@ crate.
    flags)
 8. Calculate bone bounding boxes
 9. Create mesh groups
-10. Encode mesh splitting for FMDL format
+10. Encode anti-blur (generate duplicate meshes)
 11. Encode split vertex encoding
-12. Encode anti-blur (generate duplicate meshes)
+12. Encode mesh splitting for FMDL format
 13. Write FMDL binary
 
 ### Performance-critical operation: mesh splitting
@@ -114,7 +115,7 @@ glTF exporter that needs them.
 themselves are checked in under `resources/skeletons/pes{15,16,17,18,19,21}/` (extracted once,
 stored decompressed; see the README there), embedded with `include_bytes!` and parsed once at first
 use with `fmdl::SklFile` — the Python literals are not copied. The one hand-maintained skeleton
-table is `render_parents.rs`, names only: `PesSkeletonData`'s render hierarchy (140 bones, body,
+table is `render_parents.rs`, names only: `PesSkeletonData`'s render hierarchy (139 entries, body,
 hands and face), which no game file records. A bone outside that table is a render root, which is
 what every `dsk_*` bone already is in the games' own parent columns. Where each version keeps its
 player skeletons in the game data:
@@ -216,7 +217,9 @@ through untouched, matrices included. The source bind pose is already in the IR'
    games' own files.
 3. **Re-bind to the target pose** (problem B). For every surviving bone, re-pose the vertices from
    the source rest pose into the target's — `v' = Σᵢ wᵢ · B_target,ᵢ · B_source,ᵢ⁻¹ · v` over the
-   vertex's weights, normals/tangents by the rotational part — and write the **target version's**
+   vertex's weights, the blend divided by their sum when they do not total 1 (community weights
+   are kept as stored), normals/tangents by the rotational part — and write the **target
+   version's**
    inverse bind matrices into the emitted `.model` bone table or generated `.skl`. Weights are
    untouched: `dsk_scapula_r` keeps driving the shoulder blade, sitting where PES15 expects it.
    Reported once per model as `skeleton_retargeted` (I, `detail` the moved-bone count) when any

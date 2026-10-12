@@ -6,7 +6,7 @@ format crates (mesh splitting, split vertex encoding, anti-blur). Model format
 conversion is not a standalone tool — it runs inside the
 [Team compiler](../team_compiler/README.md) at compile time, converting models to the target
 PES version's format. The glTF + `materials.toml` authoring format that `gltf_to_ir`
-reads and `ir_to_gltf` writes is specified in the [Unified model format
+reads and `ir_to_gltf` writes (Phase 7) is specified in the [Unified model format
 plan](../model_format.md). Platform context is in the [core plan](../core/README.md).
 
 ---
@@ -65,14 +65,20 @@ Each `formats/<format>/` directory also holds its `tests.rs`.
 
 Placement rules:
 
-- **`formats/*` are the only modules that import `fmdl`, `pes_model`, or `gltf`**, with one
-  named exception: `skeletons/` uses `fmdl::SklFile`, the SKL codec, which lives in `fmdl` only
-  because SKL is a Fox-engine file. Everything else sees the IR. A format detail needed by an op is
-  a field on the IR, not an import.
-- **`ir/` has no logic beyond validation.** Transformations are `ops/`; conversions are `formats/`.
-- **`skeletons/` holds no transcribed numbers.** The `.skl` files under `resources/skeletons/` are
-  embedded with `include_bytes!` and parsed on first use (`std::sync::LazyLock`); the only
-  hand-maintained tables are the render parents and the fold table, both names only. Provenance
+- **`formats/*` are the only modules that convert through `fmdl`, `pes_model`, or `gltf`**,
+  with three named exceptions that read the format types without converting: `convert.rs`
+  carries them in `NativeModelBundle` and reads their weight rows for the pre-check,
+  `ops/hand_split.rs`'s detection does the same (`fox_has_hand_weights`,
+  `prefox_has_hand_weights`), and `skeletons/` uses `fmdl::SklFile`, the SKL codec, which
+  lives in `fmdl` only because SKL is a Fox-engine file. Everything else sees the IR. A
+  format detail needed by an op is a field on the IR, not an import.
+- **`ir/` has no format logic.** Validation plus the index bookkeeping the importers and
+  ops share (parent-first ordering, bone-list rebuilds and weight remaps). Transformations
+  are `ops/`; conversions are `formats/`.
+- **`skeletons/` holds no transcribed numbers.** The `.skl` files under the repository's
+  `resources/skeletons/` are embedded with `include_bytes!` and parsed on first use
+  (`std::sync::LazyLock`); the only hand-maintained tables are the render parents and the fold
+  table, both names only. Provenance
   stays with the `.skl` files, never with Python literals. (An earlier version of this plan generated
   a `data.rs` of Rust literals; that is a 250 KB source file plus a generator plus a drift test, for
   data the SKL codec already reads byte-exactly.)
@@ -82,7 +88,7 @@ Placement rules:
   requested (hand split, part merge, retargeting); ordinary FMDL→FMDL processing uses the `fmdl`
   crate directly from the Team compiler. This is a consumer-side rule, restated here because the
   temptation is to add a "convenient" pass-through.
-- Stays `wasm32`-checkable and GUI-free (consumers: Team compiler, Balls compiler, Export upgrader,
-  Player aesthetics editor).
+- Stays `wasm32`-checkable and GUI-free (consumer today: the Team compiler; the Balls
+  compiler, Export upgrader and Player aesthetics editor join it in the plans).
 
 ---

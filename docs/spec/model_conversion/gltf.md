@@ -26,12 +26,13 @@ must contain to skin correctly against that game's runtime skeleton — and only
 target's tables (a genuine custom skeleton) keep the model's own matrices. **This deviates from the
 19to16 converter**, which always wrote PES17's matrices (`fmdl2model.py`, identity for unknown
 bones) regardless of target and flattened custom skeletons. In the other direction, `.model` → Fox
-generates a companion `.skl` from the IR only when a custom bone survives; a model on the standard
-skeleton gets none, and the compiler's template injection stands.
+generates a companion `.skl` from the IR when an exported bone sits outside PES21's template
+tables or off their pose (a custom bone, or a glove's shared bones at the hand-table pose); a
+model wholly on the template gets none, and the compiler's template injection stands.
 
 ### IR part merge (`merge_ir_parts`)
 
-`merge_ir_superset` merges *one part across two formats*; it never adds geometry. Assembling
+`merge_ir_superset` (Phase 7) merges *one part across two formats*; it never adds geometry. Assembling
 *several parts into one model* is a different operation, and it is **format-native on both
 engines**: `fmdl::ops::merge` for Fox, `pes_model::ops::merge` for pre-Fox (the `ingame_face`
 boots merge, and a shared link combined with local parts under `ingame_face` — see the [Aesthetics
@@ -63,7 +64,9 @@ size and the format needs none of its own (see "File size and compression" in th
 
 ### Pipeline integration
 
-The compiler detects the model format by file extension (`.fmdl`, `.model`) and routes accordingly.
+The compiler detects the model format by file extension (`.fmdl`, `.model`, `.glb`/`.gltf`; a
+glTF selected for a stem drops its folder as `model_gltf_unsupported` until the importer lands)
+and routes accordingly.
 PES-native sources skip the IR for same-format targets — **except** when an IR-level operation applies: hand auto-split (models with
 `skh_` bone weights are imported, partitioned, and exported back to the same format) and
 cross-version skeleton retargeting (see `conversion.md` "Skeleton retargeting and bone conformance"). Both are lossless

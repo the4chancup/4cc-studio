@@ -20,7 +20,7 @@ model plus `glove_l` and `glove_r` models automatically.
 ### Detection
 
 The check reads bone assignments **directly from the native format** — FMDL bone groups, `.model`
-bone mappings, glTF `JOINTS_n`/`WEIGHTS_n` accessors resolved through `skin.joints` — without importing to the IR. The **hand-skeleton-exclusive
+bone mappings, and in Phase 7 glTF `JOINTS_n`/`WEIGHTS_n` accessors resolved through `skin.joints` — without importing to the IR. The **hand-skeleton-exclusive
 bones** are identified by name convention: they are prefixed with `skh_` (the finger bones:
 `skh_thumb_mata_l`, `skh_index_dip_r`, ...) and suffixed with `_l` or `_r` for laterality. No
 pre-defined list or `PES_SKELETON` lookup is needed — the prefix/suffix match is the complete
@@ -85,7 +85,9 @@ thousands (the `fcl_hair.fmdl` of Red's sample face folder `00007 - BLANK`: 1,68
 
 On pre-Fox the split happens in the face task alone, since the face's `face.xml` lists gloves
 beside the face (there is no gloves task without `ingame_face`, and under the marker no model is
-face content, as on Fox, so none is split). The body keeps the model's name and entry; the
+face content, as on Fox, so none is split). A folder shipping its own `face.xml` is left as
+written, the member's xml saying what the face loads and a split only adding glove entries they
+did not write, so no model there is split either. The body keeps the model's name and entry; the
 hands of `<stem>.model` become `<stem>_glove_l.model` and `<stem>_glove_r.model`, whose suffix
 types them `gloveL` and `gloveR` and keeps them clear of an authored `glove_l.model`, each its
 own `face.xml` entry. All three name the `.mtl` the source model uses: each keeps a subset of

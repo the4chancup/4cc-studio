@@ -212,8 +212,9 @@ The three formats keep material data (shader, texture paths, render states) in
 different places; the IR's `Material` is the merge point:
 
 - **FMDL** embeds materials in the model binary — `fmdl_to_ir` reads them from
-  the file itself. FMDL texture path tables store **stems** (no extension) — the
-  game appends `.ftex` at load time — so FMDL has always been extension-agnostic.
+  the file itself. FMDL texture path tables carry names the game resolves by stem,
+  appending `.ftex` at load time whatever a stored name's extension, so FMDL has
+  always been extension-agnostic.
 - **.model** keeps them in the sibling **`.mtl` XML**, with meshes binding
   materials by name. A pre-Fox native source is therefore an atomic bundle
   (`.model` + `.mtl`): `model_to_ir` consumes both and `ir_to_model` emits both.
@@ -323,13 +324,14 @@ compiler resolves each stem to whatever accepted image file exists in the model
 folder and converts to the target format at compile time (format list, stem
 conflicts, and auto-naming rules: format plan, "Dependencies and images" and
 "Textures"). Studio-format `.mtl` and `.materials.toml` files write stems; FMDL
-path tables were already stem-based. The Export upgrader strips extensions from
-old `.mtl` texture paths when migrating. **Output** `.mtl` files (written by
+path tables resolve by the same stem (a stored name's extension, when present, is
+decorative, the game appending `.ftex` either way). The planned Export upgrader strips
+extensions from old `.mtl` texture paths when migrating. **Output** `.mtl` files (written by
 `ir_to_model` at compile time) keep the `.dds` extension on texture paths, as
 the game expects; FMDL output path tables remain stem-based (the game appends
 `.ftex`). Auto-naming and auto-detection of texture roles happen during deep
 material parsing (not the structure pass), so a missing texture reports
-`mtl_texture_not_found` / `material_texture_not_found` at that stage, not during
+`mtl_texture_not_found` / `fmdl_texture_not_found` at that stage, not during
 shallow validation.
 
 ### Extension algorithms (one implementation each)
@@ -395,8 +397,9 @@ pub enum NativeModelBundle {
 /// reports rather than the user discovers.
 pub fn convert(bundle: NativeModelBundle, target: PesVersion) -> Result<Converted, ConvertError>;
 
-/// Whether `convert` would go through the IR: another engine, or a bone the bundle's groups
-/// use that `target` lacks or poses differently (bone tables only, no geometry read).
+/// Whether `convert` would go through the IR: another engine, a bone the bundle's groups
+/// use that `target` lacks, or a vertex blending bones whose deltas to `target`'s tables
+/// differ (bone names, poses and the weight rows; no vertex position read).
 pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool;
 
 pub struct Converted { pub bundle: NativeModelBundle, pub findings: Vec<loss::Finding> }
@@ -408,13 +411,14 @@ IR round trip, so every model the compiler emits is on the target's skeleton wit
 pass. The same-format short cut is decided by `needs_conversion`, the plan's native pre-check: the
 bundle's bone names (those its bone groups reference) against the target's tables, poses compared
 the way `retarget` does (source pose from the SKL or PES21's tables for Fox, the inverted inline
-matrix for pre-Fox; 1e-3 on any component). `convert` takes the bundle by value and returns a new
+matrix for pre-Fox; 3e-3 on any component). `convert` takes the bundle by value and returns a new
 one, so a pre-Fox result exists only once both its `.model` and its `.mtl` were produced: an error
 can never leave a converted `.model` paired with an old or missing `.mtl`. (The plan's first draft
 mutated a bundle in place; by value says the same thing with the type system instead of a
 comment.) The Fox side carries the companion `.skl` when one exists, which is where `fmdl_to_ir`
-reads the bind pose from (see "Skeleton reconstruction from FMDL"); `ir_to_fmdl` returns one only
-when a bone the target's tables do not know survives.
+reads the bind pose from (see "Skeleton reconstruction from FMDL"); `ir_to_fmdl` returns one when
+an exported bone sits outside PES21's template tables or off their pose (a custom bone,
+or a shared bone at the hand-table pose a retarget gave it).
 
 **Unskinned meshes on Fox.** FMDL needs every vertex bound to a bone: an unbound mesh stays where
 the model is placed instead of following the player. A pre-Fox mesh without bone indices (the

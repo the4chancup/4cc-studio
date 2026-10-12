@@ -33,8 +33,9 @@ material toml, so the same `.glb` compiles typed on pre-Fox and merged into its 
   [library crates plan](libs/README.md) for the full format matrix and the PES texture boundary (which
   codecs each PES version gets).
 - **Stem-based texture references.** Material references name textures by **stem** — filename
-  without extension — as do FMDL path tables (the game appends `.ftex`) and Studio-format `.mtl`
-  files. The compiler scans the model folder for image files, builds a stem→file map, and resolves
+  without extension — as do Studio-format `.mtl` files and FMDL path tables (whose stored names
+  can carry a decorative extension, `.tga` in Konami's files; it is ignored, the game appending
+  `.ftex` either way). The compiler scans the model folder for image files, builds a stem→file map, and resolves
   each referenced stem to the actual file. Two image files with the same stem but different
   extensions (e.g. `face.dds` and `face.png`) is a conflict (`texture_stem_conflict`) — both would
   claim the same reference, and the compiler can't pick one. The rule applies within a single model
@@ -88,8 +89,8 @@ rewritten to `u0XXXp1`, `u0XXXp2`, … — and the Studio compiler does **not** 
 just another stem fragment, so a leftover reference fails the ordinary texture-existence checks like
 any other missing texture. There is no dedicated finding for it — a specific error would be partial
 support, complexity for no gain, since every existing export goes through the Export upgrader before
-Studio can use it. The upgrader is the only Studio component that reads the legacy spelling, and it
-rewrites it to `kitN`/`kit1`…`kit9`. The legacy pattern is `u0` + **any three characters** + `p` +
+Studio can use it. The planned Export upgrader is the only Studio component that reads the legacy
+spelling, and it rewrites it to `kitN`/`kit1`…`kit9`. The legacy pattern is `u0` + **any three characters** + `p` +
 digit: authors wrote the `XXX` placeholder literally *or* baked the real team ID in (`u0872p1.dds`),
 and both forms mean the same thing, so both are detected and both are renamed.
 
@@ -125,10 +126,10 @@ Rules:
   shows a missing texture in game. A set of `kitF` alone is one fallback for every number, a
   set like any other. Variants for numbers the export does not define are emitted as they
   are (harmless).
-- **Per-kit models.** Model files `pants_kit1.glb` + `pants_kit2.glb` (any source
+- **Per-kit models.** Model files `pants_kit1.model` + `pants_kit2.model` (any source
   format) form one variant set: pre-Fox emits a single `face.xml` entry naming `pants_kitN` and the
   variant files beside it; each variant's materials resolve by the normal stem name matching
-  (`pants.materials.toml` matches both). The set is completed against the export's kit
+  (`pants.mtl`, or `pants.materials.toml` for glTF, matches both). The set is completed against the export's kit
   numbers as a texture set is on PES 15-17 (the fallback's model and material file copied
   under the names the listed entry takes for the missing number), since the game skips an entry whose respelled model is
   missing. The entry names the lowest variant's material file (`kitF`'s in a set of `kitF`
@@ -382,7 +383,7 @@ material instance whose meshes carry differing flags into one material per disti
 |---|---|---|
 | `shader` | string | `.mtl` shader name (`Basic_C`, `Basic_CN`, `Basic_CNSR`, `Shadeless`, `Constant`, `Overlay`, `Boots`, `Shirt_NB`, `Pants_NB`, …). Default: family's (texture-dependent for `shaded`). |
 | `states` | table | `<state>` name → integer: `ztest`, `zwrite`, `twosided`, `alphatest`, `alpharef`, `alphablend`, `blendmode`. Default: family's state set, with `twosided`/`transparent` applied. Validated exactly like a `.mtl`: `mtl_state_invalid` (`ztest` ≠ 1, `blendmode`/`alphablend` ∉ {0,1}), `mtl_blendmode_nonzero`, `mtl_state_nonrecommended`. Unknown state names → `material_key_unknown`. |
-| `samplers` | table of tables | Per-sampler `<sampler>` attributes, keyed by **native sampler name**: `srgb` (0/1), `minfilter`/`magfilter`/`mipfilter` (`linear`, `point`), `uaddr`/`vaddr`/`waddr` (`wrap`, `clamp`, `repeat`), `maxaniso` (integer). Defaults: `srgb` per the role table, `minfilter = magfilter = "linear"`, nothing else emitted. A `path` key here is `material_value_invalid` — paths come from `textures`. Extra native samplers (no canonical role) are declared here with a `stem` key. |
+| `samplers` | table of tables | Per-sampler `<sampler>` attributes, keyed by **native sampler name**: `srgb` (0/1), `minfilter`/`maxfilter`/`magfilter`/`mipfilter` (`linear`, `point`, `anisotropic`), `uaddr`/`vaddr`/`waddr` (`wrap`, `clamp`, `repeat`), `maxaniso` (integer). Defaults: `srgb` per the role table, `minfilter = magfilter = "linear"`, nothing else emitted. A `path` key here is `material_value_invalid` — paths come from `textures`. Extra native samplers (no canonical role) are declared here with a `stem` key. |
 | `parameters` | table | Pre-Fox-only `<vector>` parameters, name → `[x, y, z, w]`; merged over the engine-neutral `parameters`. |
 
 Output `.mtl` files written at compile time keep the `.dds` extension on texture paths, as the game
