@@ -207,8 +207,9 @@ planning, processing, packing, bins, GUI, and CLI — lives in this crate and th
   in the [Aesthetics export plan](../aesthetics_export/object_model.md)), the Team compiler
   settings/CLI surface, the reader/coordinator/writer over `libs/pipeline` compiling the subset
   in "Phase 3 scope" below, and the shell slice's view.
-- **Phase 4 — processing logic:** the deep pass, model and non-model processing on both engines
-  (cross-format conversion through the Phase 2 `model_convert`), packing, bins, referees, the
+- **Phase 4 — processing logic (done 2026-10-12):** the deep pass, model and non-model
+  processing on both engines (cross-format conversion through the Phase 2 `model_convert`),
+  packing, bins, referees, the
   output modes and deployment, on synthetic Studio-format fixtures, with planning fixing every
   output name and every model task's planned IDs before processing; what `compile` builds is
   "Phase 4 scope" below. Its parity with Red covers the tracer export (Fox) and the pre-Fox

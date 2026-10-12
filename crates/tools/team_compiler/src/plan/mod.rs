@@ -1,4 +1,4 @@
-//! Stage 2, run planning (`team_compiler/pipeline.md` "Run driver shapes (Phase 3)"): the
+//! Stage 2, run planning (`team_compiler/pipeline.md` "Run driver shapes"): the
 //! identity-resolved exports become one manifest of tasks, each an atomic unit that commits
 //! whole or not at all.
 

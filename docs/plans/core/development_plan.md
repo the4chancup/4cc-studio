@@ -359,11 +359,17 @@ gates.
 - `dummy_kit_replace` is not ported — `dummy_kit*` stems are reserved game-substituted names, see
   the Unified model format plan's "Kit-dependent assets".
 
-**Verification:** Parity-style test: run old reference exports through the Export upgrader (Phase 6)
-and compile; compare game-facing output (nested CPK contents, bins) against Red's reference output,
-accounting for intentional differences (auto-assigned IDs). Full upgraded-export parity depends on
-savefile/ID integration (Phase 5) and the Export upgrader (Phase 6), so the end-to-end parity gate
-is a deferred verification completed after those phases land.
+**Verification (done):** parity with Red on the tracer export (Fox) and the pre-Fox reference
+(`team_compiler/testing.md`); `check` and `compile` against the TC scenarios, run in-process over
+Studio-format fixtures, with the bins and deployment paths over synthetic installs; a census of
+every export on the maintainer's machine; in-game checks through `scripts/ingame/` on PES 17, 19,
+20 and 21 (the worklog's Phase 4 row). Converge ran a whole-crate mutation run and a Clef scan
+over `aesthetics_export`, `pipeline` and `team_compiler`, every survivor and flag ruled. At the
+close (2026-10-12): `just gates` green, 2820 tests in 52 test runs, none failed or ignored;
+acceptance 421 scenarios, 366 proven (the 55 unproven are the save editor's and the Team
+compiler's Phase 5 scenarios, written ahead). Deferred: the parity gate over upgraded old
+exports, compiled and compared with Red's output (nested CPK contents, bins; auto-assigned IDs
+aside), which needs Phase 5's savefile and ID integration and Phase 6's Export upgrader.
 
 ### Phase 5: Savefile integration (`tools/save_editor` logic, `libs/aatf`, Team compiler savefile writing)
 

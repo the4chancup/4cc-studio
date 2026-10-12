@@ -1772,3 +1772,5 @@ worklog passed 7,000 lines.
   filter; SWE-2, first attempt. `team_compiler`'s close run collected: 10 missed, 3 timeouts.
 - **2026-10-12** — Step 5.0b closed: of the five extra mutant kinds, literal and normalize join
   converge (25 of 26 survivors real gaps in `aesthetics_export`); the gaps are step 5.0g.
+- **2026-10-12** — Phase 4 closed: `team_compiler`'s close run triaged (five texture-ownership
+  tests by SWE-2, one exclusion, the rest caught on Windows); worklog collapsed to the phase row.
