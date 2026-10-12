@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 Phase 2 2026-09-30).
 **Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and step 5.1 done
 (2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; Astra R12.A1 over 5.2b1's reworks after the
-Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 landed
-(2026-10-12), then 5.0j beside 5.2c2 (5.2b2 needs measurements first; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
+Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 and 5.2c2
+landed (2026-10-12), then 5.0j beside 5.2c3 (5.2b2's measurements done 2026-10-12; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -684,6 +684,16 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     hash seeds" (no such test found)
   Sliced per folder, each a SWE-2 brief with the file and its crates; the lead reads every
   diff → done when: every spec file has been read against its code once, each change landed
+- [ ] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
+  PES 21, `.tmp/5_2b2/findings.md`): the game stores Anchoring at 0x0A, with 18/19's entries from
+  Swarm the Box on shifted up one (Swarm the Box 0x0B, Deep Defensive Line 0x0C, Gegenpress 0x0D,
+  Tight Marking 0x0E, Counter Target 0x0F, Wing Back 0x10); `STORED_20` appends Anchoring at 0x10
+  instead, so Team TOML reads and writes those six under wrong names. Measured: Anchoring 10,
+  False Winger 9, Swarm the Box 11, Deep Defensive Line 12, Counter Target 15 (the measured copy
+  is `.tmp/5_2b2/pes21_after/EDIT00000000`, team 701 preset 1). PES 17-19's tables are as
+  unverified as 20/21's were; the spec's "Version quirks" text is corrected with the code → done
+  when: a test decodes the measured values to the in-game names, and the Team TOML round trips
+  of the PES 20/21 fixtures still pass
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
@@ -704,10 +714,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       each accessor is tested on fixture teams, through a script. Done 2026-10-12 (SWE-2, first
       attempt; `pes_savefile` gains `PlayerStats::abilities` and `names::name_color`; `print`
       runs on the shared engine and writes nowhere)
-    - [ ] 5.2b2 the team settings' accessors: PES 16's man-marking assignments in
-      `pes_savefile`'s model, PES 17-21's man-marking instruction, the auto substitution
-      byte's off value, each measured in-game or on a cup save first → done when: each
-      setting reads right on a fixture team set both ways
+    - [ ] 5.2b2 the team settings' accessors: the man-marking assignments in `pes_savefile`'s
+      tactics model (PES 16 to 21, offsets in `aatf_rules.md` "The host"), the auto flags (off
+      is 0) → done when: each setting reads right on a fixture team set both ways. Measured
+      2026-10-12 (in-game on PES 16 and 21, and a census of every 16 to 21 save on disk;
+      `.tmp/5_2b2/findings.md`): man marking is per-preset assignment bytes, not an advanced
+      instruction; PES 15 not measured
   - [ ] 5.2c `logic.rhai`'s `check_team` for the official file, `Violation` from its maps,
     `file.rs` (assembling a file, its section split, logic identity), the sample team, the official known-legal and known-violating fixtures, the operation
     limit → done when: each special of the official file is exercised by a fixture. Sub-slices,
@@ -718,10 +730,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       map, each bad map fails with its index, each step-1 rule fails on a file of its own.
       Done 2026-10-12 (SWE-2, first attempt, one small rework; `call_fn` re-runs the top level
       on a fresh scope, so a function reads `global::RULESET`, tested)
-    - [ ] 5.2c2 `TeamView::from_team_toml`, the sample team (`.tmp/5_2/sample_714.toml` is the
+    - [x] 5.2c2 `TeamView::from_team_toml`, the sample team (`.tmp/5_2/sample_714.toml` is the
       lead's extraction, `.tmp/5_2/sample_team/` the probe), load step 3, the section split and
       `LOGIC_VERSIONS` → done when: a view from a fixture team's own document equals
-      `TeamView::new` on every fixture version, and each identity case is classified
+      `TeamView::new` on every fixture version, and each identity case is classified.
+      Done 2026-10-12 (SWE-2, first attempt; lead fixes: one shared `section_hash`, and the
+      version lookup as one `position` match, which removed an equivalent mutant). An import
+      note reaches `TeamViewError::TeamToml` as its `Debug` text: `ImportNote` has no `Display`
+      yet, which the Team creator's check (Phase 6) will want
     - [ ] 5.2c3 the interpreter's `check_team` for the official file, its fixtures, the
       operation limit (sliced when briefed)
   - [ ] 5.2d `tier_values`, `card_limits`, `apply_tier` (settle the issue above first) →

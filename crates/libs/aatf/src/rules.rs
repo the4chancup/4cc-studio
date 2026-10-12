@@ -1,7 +1,7 @@
 //! `Rules`: a loaded rules file — its ruleset, its compiled script and
 //! the engine it runs on — and `check_team` over a `TeamView`.
 
-use crate::file::assemble;
+use crate::file::{LogicIdentity, assemble, identity};
 use crate::ruleset::{LoadError, Ruleset, ruleset_from_scope, run_top_level};
 use crate::team::TeamView;
 use crate::violation::{CheckError, Violation, violations};
@@ -21,6 +21,8 @@ pub struct Rules {
     /// The engine the script runs on (`engine.rs` — same one as every
     /// other path).
     engine: rhai::Engine,
+    /// The file's logic identity (`file.rs`).
+    logic: LogicIdentity,
 }
 
 /// The functions the file must define, and their arities.
@@ -51,11 +53,19 @@ impl Rules {
             }
         }
         let ruleset = ruleset_from_scope(&scope)?;
-        Ok(Rules {
+        let rules = Rules {
             ruleset,
             ast,
             engine,
-        })
+            logic: identity(text),
+        };
+        // Step 3: `check_team` runs on the sample team; a `CheckError`
+        // there is a load failure — the file's own logic and custom
+        // checks must run before any real check does.
+        if let Err(error) = rules.check_team(&TeamView::sample_team()) {
+            return Err(LoadError::SampleTeam { error });
+        }
+        Ok(rules)
     }
 
     /// The official ruleset, the default file: `rulesets/autumn26.rhai`
@@ -68,6 +78,12 @@ impl Rules {
     /// The file's ruleset.
     pub fn ruleset(&self) -> &Ruleset {
         &self.ruleset
+    }
+
+    /// The file's logic identity: the current logic, an older official
+    /// version, or modified.
+    pub fn logic(&self) -> LogicIdentity {
+        self.logic
     }
 
     /// `team`'s violations: the file's `check_team(team)`, its returned
@@ -184,29 +200,30 @@ mod tests {
 
     #[test]
     fn a_script_error_and_a_bad_violation_surface() {
-        // `throw` in a custom check is `CheckError::Script` naming it.
+        // `throw` on PES 21 only: the sample team's PES 15 load passes,
+        // and the check on a PES 21 team is `CheckError::Script`.
         let text = assemble(AUTUMN26).replacen(
             "fn custom_checks(team) { [] }",
-            "fn custom_checks(team) { throw \"boom\" }",
+            "fn custom_checks(team) { if team.version == 21 { throw \"boom\" } [] }",
             1,
         );
         let err = Rules::load(&text)
             .expect("the file loads")
-            .check_team(&fixture_team(PesVersion::Pes15))
+            .check_team(&fixture_team(PesVersion::Pes21))
             .expect_err("a script error");
         match &err {
             CheckError::Script { message } => assert!(message.contains("boom"), "{message}"),
             other => panic!("expected Script, got {other:?}"),
         }
-        // A bad entry in the list fails at its index.
+        // A bad entry in the list fails at its index, on PES 21 only.
         let text = assemble(AUTUMN26).replacen(
             "fn custom_checks(team) { [] }",
-            "fn custom_checks(team) { [#{ kind: \"Captain\" }, #{ kind: \"Nope\" }] }",
+            "fn custom_checks(team) { if team.version == 21 { [#{ kind: \"Captain\" }, #{ kind: \"Nope\" }] } else { [] } }",
             1,
         );
         let err = Rules::load(&text)
             .expect("the file loads")
-            .check_team(&fixture_team(PesVersion::Pes15))
+            .check_team(&fixture_team(PesVersion::Pes21))
             .expect_err("a bad violation");
         match &err {
             CheckError::Violation { index, message } => {
@@ -284,5 +301,41 @@ mod tests {
         let text = minimal_file().replacen("name: \"x\"", "name: \"\"", 1);
         let err = Rules::load(&text).expect_err("empty name");
         assert!(matches!(err, LoadError::Rules(_)), "{err:?}");
+    }
+
+    /// Step 3: `check_team` failing on the sample team (PES 15) is a
+    /// load failure, `CheckError` carried whole.
+    #[test]
+    fn load_step_three_runs_check_team_on_the_sample_team() {
+        // A throw only on PES 15: `SampleTeam` holding `Script`.
+        let err = Rules::load(&minimal_file().replacen(
+            "fn check_team(team) { [] }",
+            "fn check_team(team) { if team.version == 15 { throw \"boom\" } [] }",
+            1,
+        ))
+        .expect_err("a script error on the sample team");
+        match &err {
+            LoadError::SampleTeam { error } => {
+                assert!(
+                    matches!(error, CheckError::Script { message } if message.contains("boom")),
+                    "{err:?}"
+                );
+            }
+            other => panic!("expected SampleTeam, got {other:?}"),
+        }
+        // A bad violation map only on PES 15: `SampleTeam` holding
+        // `Violation` at index 0.
+        let err = Rules::load(&minimal_file().replacen(
+            "fn check_team(team) { [] }",
+            "fn check_team(team) { if team.version == 15 { [#{ kind: \"Nope\" }] } else { [] } }",
+            1,
+        ))
+        .expect_err("a bad map on the sample team");
+        match &err {
+            LoadError::SampleTeam {
+                error: CheckError::Violation { index, .. },
+            } => assert_eq!(*index, 0),
+            other => panic!("expected SampleTeam holding Violation, got {other:?}"),
+        }
     }
 }

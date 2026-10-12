@@ -10,6 +10,7 @@ dependencies = [
  "pes_version",
  "rhai",
  "serde",
+ "sha2",
  "thiserror 2.0.20",
 ]
 

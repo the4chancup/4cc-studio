@@ -7240,3 +7240,17 @@ player's face data to apply onto (`NoIngameFaceRun` on a bare record), and no ru
 Plan: `aatf_rules.md` "The interpreter" (the map paragraph, `RequiredCard`), "The host" (the
 Team TOML constructor), "Loading and validation" (steps 1 and 3, logic identity), "Crate
 layout".
+
+## 2026-10-12 — aatf — man marking is the per-preset assignment bytes on PES 16 to 21; auto substitution off is 0
+Decision (lead, from measurements the plan asked for): `TeamSettings::man_marking` reads the
+eleven man-marking assignment bytes of each preset (any set: man marking), on PES 16 at tactics
+record +0x73/+0xEE/+0x169 and on PES 17 to 21 at +0x95/+0x135/+0x1D5, instead of a defending
+advanced instruction on 17 to 21, which the plan assumed. Auto substitution's off value is 0.
+Why: Edit mode on PES 16 and 21 offers no man marking at all; members set it in a match's
+pre-game plan and load it into the team through a copy preset (maintainer). The PES 16 offsets
+are VTLEditor's and hold on the 2024 Summer Cup save; on 17 to 21 a census of every save on
+disk shows the same shape (three 11-byte runs, 0xA0 apart, 0xFF but for a few teams of the cup
+saves, values formation slots). Tight Marking, the instruction the plan's wording pointed at, is
+a stronger, separate instruction (maintainer). Auto substitution was set in-game to each choice
+and saved (PES 21: Off 0, Very Late 1, Flexible 2, Very Early 3; PES 16: Off 0, Very Late 1).
+Plan: `aatf_rules.md` "The ruleset schema" (`TeamSettings`), "The host" (the team settings).

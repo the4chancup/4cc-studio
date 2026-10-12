@@ -2,9 +2,11 @@
 //! ruleset is **data** — one Rhai map naming the tiers, the card economy,
 //! the heights and a list of conditional "specials" — read here into
 //! `Ruleset` and checked against the rules the types cannot carry. A
-//! `Rules` loads a whole rules file (steps 1 and 2 of "Loading and
-//! validation") and runs its `check_team` on a `TeamView`; the shipped
-//! logic is a stub returning only the custom checks' violations.
+//! `Rules` loads a whole rules file (steps 1 to 3 of "Loading and
+//! validation": shape, `RULESET`, `check_team` on the sample team) and
+//! runs its `check_team` on a `TeamView`, which a save or a Team TOML
+//! document builds; a file knows its `logic()` identity. The shipped
+//! logic is a stub returning only the custom checks' violations;
 //! `tier_values`, `card_limits` and `apply_tier` are not written.
 //!
 //! The host reads a team as a `TeamView` of `PlayerView`s on the game's
@@ -38,6 +40,7 @@ mod team;
 /// `Violation` and the script-to-`Violation` conversion.
 mod violation;
 
+pub use file::LogicIdentity;
 pub use rules::Rules;
 pub use team::{PlayerView, TeamView, TeamViewError};
 pub use violation::{CheckError, Violation, ViolationKind};

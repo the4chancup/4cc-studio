@@ -3,11 +3,16 @@
 //! (`fielded_positions`, `fielded_only_at`, `formation_shapes`).
 
 use pes_savefile::EditFile;
+use pes_savefile::interchange::team_toml::TeamToml;
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::names::name_color;
+use pes_savefile::model::player::PlayerEntry;
 use pes_savefile::model::playstyle::PlayStyle as SavePlayStyle;
 use pes_savefile::model::tactics::{Formation, TeamTactics};
+use pes_savefile::model::team::RosterSlot;
+use pes_savefile::model::team::TeamEntry;
 use pes_savefile::schema::playstyle;
+use pes_savefile::settings_toml::AppearanceSettings;
 use pes_version::PesVersion;
 
 use crate::ruleset::{Card, PlayStyle, Position, Stat};
@@ -15,7 +20,7 @@ use crate::ruleset::{Card, PlayStyle, Position, Stat};
 /// One roster player as a ruleset reads them, every value on the game's
 /// scale (form 1 to 8, injury resistance 1 to 3, weak foot 1 to 4, where
 /// the save stores each less one).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PlayerView {
     /// The roster slot.
     pub(crate) slot: u8,
@@ -64,7 +69,7 @@ impl PlayerView {
 
 /// One team of a save as a ruleset reads it: its roster's players and its
 /// tactics.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TeamView {
     /// The save's version.
     pub(crate) version: PesVersion,
@@ -107,6 +112,16 @@ pub enum TeamViewError {
         /// The position byte.
         byte: u8,
     },
+    /// The document names no `pes_version` to build the team on.
+    #[error("the document names no pes_version")]
+    NoVersion,
+    /// The document does not apply onto bare records: `message` is the
+    /// `TeamTomlError` or the first import note.
+    #[error("the document does not apply: {message}")]
+    TeamToml {
+        /// The error's or note's text.
+        message: String,
+    },
 }
 
 /// The defender/midfielder/forward counts of one formation the game can
@@ -127,6 +142,64 @@ impl TeamView {
         let team = file
             .team(team_id)
             .ok_or(TeamViewError::UnknownTeam { team_id })?;
+        Self::view(file.version(), team, |id| file.player(id))
+    }
+
+    /// The team a Team TOML document describes, on the version its
+    /// `pes_version` names: every `players` key one bare slot.
+    pub fn from_team_toml(document: &TeamToml) -> Result<TeamView, TeamViewError> {
+        let version = document.pes_version.ok_or(TeamViewError::NoVersion)?;
+        // Appearance is not applied: no ruleset reads it, and it lives
+        // only over a real player's face data.
+        let mut document = document.clone();
+        for section in document.players.values_mut() {
+            section.appearance = AppearanceSettings::default();
+        }
+        // Bare records: one roster slot per index up to the highest
+        // `players` key, `i + 1` where the key is present, and one bare
+        // `PlayerEntry` per present slot.
+        let mut team = TeamEntry::default();
+        let highest = document.players.keys().max().copied().unwrap_or(0);
+        team.roster = (1..=highest)
+            .map(|slot| RosterSlot {
+                player_id: if document.players.contains_key(&slot) {
+                    u32::from(slot)
+                } else {
+                    0
+                },
+                ..Default::default()
+            })
+            .collect();
+        let mut players: Vec<PlayerEntry> = document
+            .players
+            .keys()
+            .map(|slot| PlayerEntry {
+                id: u32::from(*slot),
+                ..Default::default()
+            })
+            .collect();
+        let notes = document
+            .apply(version, &mut team, &mut players)
+            .map_err(|e| TeamViewError::TeamToml {
+                message: e.to_string(),
+            })?;
+        if let Some(note) = notes.first() {
+            return Err(TeamViewError::TeamToml {
+                message: format!("{note:?}"),
+            });
+        }
+        Self::view(version, &team, |id| {
+            players.iter().find(|player| player.id == id)
+        })
+    }
+
+    /// The builder `new` and `from_team_toml` share: a version, a
+    /// `&TeamEntry` and a player lookup by id.
+    fn view<'a>(
+        version: PesVersion,
+        team: &'a TeamEntry,
+        player: impl Fn(u32) -> Option<&'a PlayerEntry>,
+    ) -> Result<TeamView, TeamViewError> {
         // Every formation's position bytes are checked here so the
         // tactics answers cannot fail on one.
         for (p, preset) in team.tactics.presets.iter().enumerate() {
@@ -148,15 +221,13 @@ impl TeamView {
             if slot.player_id == 0 {
                 continue;
             }
-            let entry = file
-                .player(slot.player_id)
-                .ok_or(TeamViewError::MissingPlayer {
-                    slot: u8::try_from(i).expect("a roster holds fewer than 256 slots"),
-                    player_id: slot.player_id,
-                })?;
+            let entry = player(slot.player_id).ok_or(TeamViewError::MissingPlayer {
+                slot: u8::try_from(i).expect("a roster holds fewer than 256 slots"),
+                player_id: slot.player_id,
+            })?;
             // A style byte past the version's table is no style (`()` in a
             // script), not an error: the logic reports it as out of range.
-            let playing_style = playstyle::decode(file.version(), entry.positions.playing_style)
+            let playing_style = playstyle::decode(version, entry.positions.playing_style)
                 .ok()
                 .and_then(|style| {
                     SavePlayStyle::ALL
@@ -205,11 +276,21 @@ impl TeamView {
         let captain =
             (team.tactics.set_pieces.captain != 0xFF).then_some(team.tactics.set_pieces.captain);
         Ok(TeamView {
-            version: file.version(),
+            version,
             players,
             captain,
             tactics: team.tactics.clone(),
         })
+    }
+
+    /// The sample team `Rules::load` step 3 runs `check_team` on: a
+    /// real, anonymized cup team as a Team TOML document
+    /// (`sample/team.toml`).
+    pub(crate) fn sample_team() -> TeamView {
+        TeamView::from_team_toml(
+            &TeamToml::parse(include_str!("../sample/team.toml")).expect("the sample team parses"),
+        )
+        .expect("the sample team builds a view")
     }
 
     /// The formations `preset` (1 to 3) can field, as
@@ -463,6 +544,70 @@ mod tests {
                 shape: [4, 5, 1]
             }
         );
+    }
+
+    #[test]
+    fn from_team_toml_matches_new_on_every_version() {
+        for version in PesVersion::ALL {
+            let file = EditFile::from_bytes(&fixture_save(version)).expect("fixture save");
+            let team = file.team(701).expect("team 701");
+            let players: Vec<&PlayerEntry> = team
+                .roster
+                .iter()
+                .filter(|slot| slot.player_id != 0)
+                .map(|slot| file.player(slot.player_id).expect("a rostered player"))
+                .collect();
+            let document =
+                TeamToml::from_team(version, team, &players).expect("from_team emits a document");
+            let built = TeamView::from_team_toml(&document)
+                .unwrap_or_else(|e| panic!("{version:?}: the document builds: {e}"));
+            assert_eq!(
+                built,
+                TeamView::new(&file, 701).expect("the team views"),
+                "{version:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_document_without_a_version_is_refused() {
+        let document = TeamToml::default();
+        assert_eq!(
+            TeamView::from_team_toml(&document).expect_err("no version"),
+            TeamViewError::NoVersion
+        );
+    }
+
+    #[test]
+    fn a_document_that_does_not_apply_is_team_toml() {
+        // `stats.physical_contact` does not exist on PES 15; the note it
+        // gives is a `TeamToml` error, not a skipped key.
+        let file = EditFile::from_bytes(&fixture_save(PesVersion::Pes15)).expect("fixture save");
+        let team = file.team(701).expect("team 701");
+        let players: Vec<&PlayerEntry> = team
+            .roster
+            .iter()
+            .filter(|slot| slot.player_id != 0)
+            .map(|slot| file.player(slot.player_id).expect("a rostered player"))
+            .collect();
+        let mut document =
+            TeamToml::from_team(PesVersion::Pes15, team, &players).expect("from_team emits");
+        let section = document.players.get_mut(&1).expect("a first player");
+        section.stats.physical_contact = Some(80);
+        assert!(
+            matches!(
+                TeamView::from_team_toml(&document).expect_err("a version-lacking key"),
+                TeamViewError::TeamToml { .. }
+            ),
+            "stats.physical_contact on PES 15 is refused"
+        );
+    }
+
+    #[test]
+    fn the_sample_team_is_team_714_of_the_cup_save() {
+        let team = TeamView::sample_team();
+        assert_eq!(team.players.len(), 23);
+        assert_eq!(team.captain, Some(10));
     }
 
     #[test]

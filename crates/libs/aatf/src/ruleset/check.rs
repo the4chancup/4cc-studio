@@ -604,6 +604,12 @@ pub enum LoadError {
         /// The arity the file defines it with.
         arity: usize,
     },
+    /// `check_team` fails on the sample team (load step 3).
+    #[error("check_team fails on the sample team: {error}")]
+    SampleTeam {
+        /// The `CheckError` it gave.
+        error: crate::violation::CheckError,
+    },
     /// The rules the types cannot carry, every one broken, in a fixed order.
     #[error("{}", fmt_rules(.0))]
     Rules(Vec<RuleError>),

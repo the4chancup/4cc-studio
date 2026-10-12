@@ -1854,3 +1854,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2c1: `aatf`'s `Rules` loads a rules file (steps 1 and 2) and runs its
   `check_team`; violations cross as kind-tagged maps; the logic is a stub. 5.2c sliced into c1 to
   c3; the sample team will be a Team TOML document (2026 cups run on PES 15). SWE-2, one rework.
+- **2026-10-12** — Step 5.2c2: a `TeamView` builds from a Team TOML document, load step 3 runs
+  `check_team` on the sample team, and a file knows its logic identity. In-game (5.2b2): auto
+  substitution off is 0; man marking is per-preset bytes on PES 16-21; 5.0k found (PES 20/21 table).

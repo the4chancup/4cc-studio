@@ -313,10 +313,10 @@ pub struct Effects {
 pub struct TeamSettings {
     pub label: String,
     pub versions: Vec<PesVersion>,
-    /// Man marking set up on any preset (PES 16: the per-preset assignments; PES 17+: a
-    /// defending advanced instruction of the man-marking kind).
+    /// Man marking set up on any preset: any of a preset's eleven man-marking assignments set
+    /// (PES 16 to 21; see "The host").
     pub man_marking: Option<bool>,
-    /// Any setting but off.
+    /// Any setting but off (stored 0).
     pub auto_substitution: Option<bool>,
     pub auto_offside_trap: Option<bool>,
     pub auto_preset_change: Option<bool>,
@@ -744,13 +744,19 @@ its three formations when fluid and its kick-off formation otherwise (PES 15 has
 formation). A data block alone (`Ruleset::from_data_block`) runs on the same engine. Adding an
 accessor is a plan edit to this section, never a silent addition.
 
-The team settings (`man_marking` and the auto flags) get their accessors once two facts are
-established. Before implementing `man_marking`, extend `pes_savefile`'s PES 16 team model with the
-per-preset man-marking assignments (eleven bytes per preset, `0xFF` for none; VTLEditor's
-`pes16.cpp` reads them, 4ccEditor does not), and establish which defending advanced instruction
-id is man marking on each of PES 17–21 (the instructions are modeled, `AdvancedInstruction`, their
-ids version-specific); the auto flags are modeled already (`TeamAutoFlags`),
-but which `substitution` byte means off is not established (Team TOML documents 255 as auto).
+The team settings (`man_marking` and the auto flags) get their accessors once `pes_savefile`'s
+team model carries man marking. Edit mode offers no man marking on any version: a member sets it
+in a match's pre-game game plan, saves that as a copy preset and loads the preset into the team
+in Edit mode ("pre-made man marking", frowned upon, and the reason VTLEditor checks it). It lands
+as eleven bytes per preset, one per own formation slot, each the marked opponent's formation slot
+or `0xFF` for none: in the tactics record at +0x73, +0xEE and +0x169 on PES 16 (VTLEditor's
+`pes16.cpp` reads them; measured on the 2024 Summer Cup save, whose team 710 has two set), at
++0x95, +0x135 and +0x1D5 on PES 17 to 21 (the same shape after each preset's modeled fields, set
+on a few teams of the cup saves of 17, 18, 19 and 21; inferred from that shape, not reproduced
+in-game). It is not an advanced instruction: Tight Marking is a stronger, separate instruction.
+PES 15 is not measured. Auto substitution is off at 0 on PES 16 and 21 (measured in-game; PES 21
+stores Very Late 1, Flexible 2, Very Early 3); 482 of the 483 teams of the two saves measured
+hold 0.
 
 `apply_tier(player, tier, rules)` is the lib's one *writing* operation: it calls `tier_values`
 and writes the result into the player (stats; form; injury resistance and weak foot at their
@@ -778,7 +784,8 @@ A failure is a finding with the file's line and column for parse errors and the 
 (`tiers[2].free.tricks`) for schema errors, before any real check runs.
 
 **Logic identity.** `libs/aatf` embeds the current logic and the SHA-256 of every logic section
-it has ever shipped, by version (`LOGIC_VERSIONS`), hashed with line endings normalized to LF.
+it has ever shipped, by version (`LOGIC_VERSIONS`), hashed with line endings normalized to LF
+and trailing whitespace trimmed (the blank lines before the next banner are layout, not logic).
 The logic section runs from the start of the LOGIC banner line to the start of the CUSTOM CHECKS
 banner line, or to the end of a file without one; in an assembled file it is `logic/logic.rhai`
 whole. A file without the LOGIC banner has a modified logic. The current logic is the table's
