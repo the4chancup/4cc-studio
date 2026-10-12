@@ -382,6 +382,28 @@ fn a_last_system_with_a_condition_is_refused() {
 }
 
 #[test]
+fn an_empty_any_player_is_no_condition() {
+    // `any_player: #{}` holds for every player: a non-last system with it
+    // is `SystemWithoutCondition`, and the last one with it loads.
+    case(
+        "non-last system with an empty condition",
+        &edit(
+            AUTUMN26,
+            "any_player: #{ height_min: 194 }",
+            "any_player: #{}",
+        ),
+        LoadRule::SystemWithoutCondition,
+        "heights.systems[0]",
+    );
+    Ruleset::from_data_block(&edit(
+        AUTUMN26,
+        "#{ id: \"red\", label: \"Red\",",
+        "#{ id: \"red\", label: \"Red\", any_player: #{},",
+    ))
+    .expect("an empty condition on the last system is no condition");
+}
+
+#[test]
 fn an_allowance_with_a_bracket_is_refused() {
     case(
         "allowance with bracket",
@@ -550,14 +572,47 @@ fn a_form_in_a_stats_map_is_schema() {
     );
 }
 
-/// A special's `label` is required (its violation shows it): absent is
-/// `Schema`.
+/// Every required key absent is `Schema` naming it: a violation shows
+/// the special's label, and an absent `universal` would default
+/// `max_skill_cards` to 0.
 #[test]
-fn a_special_without_a_label_is_schema() {
-    let err = schema(
-        "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, specials: [#{ when: #{}, then: #{} }] }",
-    );
-    assert!(matches!(err, LoadError::Schema { .. }), "{err:?}");
+fn a_required_key_absent_is_schema() {
+    for (name, text, key) in [
+        ("a tier's id", edit(AUTUMN26, "id: \"gold\", ", ""), "id"),
+        ("a tier's label", edit(AUTUMN26, "label: \"Gold\", ", ""), "label"),
+        ("a bracket's id", edit(AUTUMN26, "id: \"manlet\", ", ""), "id"),
+        ("a bracket's label", edit(AUTUMN26, "label: \"Manlet\", ", ""), "label"),
+        ("a system's id", edit(AUTUMN26, "id: \"green\", ", ""), "id"),
+        ("a system's label", edit(AUTUMN26, "label: \"Green\", ", ""), "label"),
+        (
+            "universal",
+            "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23 };".to_string(),
+            "universal",
+        ),
+        (
+            "universal.max_skill_cards",
+            "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ } };"
+                .to_string(),
+            "max_skill_cards",
+        ),
+        (
+            "a special's label",
+            edit(AUTUMN26, "label: \"Malicia is a free card\", ", ""),
+            "label",
+        ),
+        (
+            "a team settings entry's label",
+            "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, team_settings: [#{ }] };"
+                .to_string(),
+            "label",
+        ),
+    ] {
+        let err = Ruleset::from_data_block(&text).expect_err(name);
+        assert!(
+            matches!(err, LoadError::Schema { ref message, .. } if message.contains(key)),
+            "{name}: {err:?}"
+        );
+    }
 }
 
 #[test]
@@ -709,6 +764,11 @@ fn an_unknown_tier_in_effects_maps_is_refused() {
         ),
         (
             "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
+            "a_positions: #{ gollum: 3 }",
+            "specials[9].then.a_positions.gollum",
+        ),
+        (
+            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
             "free: #{ tricks: #{ gollum: 2 } }",
             "specials[9].then.free.tricks.gollum",
         ),
@@ -727,6 +787,7 @@ fn an_unknown_tier_in_effects_maps_is_refused() {
     for to in [
         "stat_target: #{ dribbling: #{ regular: 3 } }",
         "cards: #{ regular: 3 }",
+        "a_positions: #{ regular: 3 }",
         "free: #{ tricks: #{ regular: 2 } }",
     ] {
         Ruleset::from_data_block(&edit(

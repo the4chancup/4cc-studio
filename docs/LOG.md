@@ -1828,3 +1828,5 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2a rework (review R10.S1, 6 of 9): a data block runs on a bare engine;
   three load-time rules for organizer slips; `CC0-1.0` allowed for `rhai`'s `tiny-keccak`
   (`just deps-check` had not run after 5.2a). SWE-2, first attempt.
+- **2026-10-12** — Step 5.2a second rework (review R11.S1, 5 of 7): an empty `any_player` counts as
+  none; tests for every required key's absence and the last per-tier map. SWE-2, first attempt.

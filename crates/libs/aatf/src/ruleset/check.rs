@@ -170,10 +170,12 @@ impl Ruleset {
                     },
                 });
             }
-            // Every system but the last must have `any_player`: without it
-            // it holds for every team, and the systems after it could
-            // never apply.
-            if i + 1 != self.heights.systems.len() && system.any_player.is_none() {
+            // Every system but the last must have `any_player`: absent or
+            // empty it holds for every team, and the systems after it
+            // could never apply.
+            if i + 1 != self.heights.systems.len()
+                && system.any_player.as_ref().is_none_or(Condition::is_empty)
+            {
                 out.push(RuleError {
                     path: path.clone(),
                     rule: LoadRule::SystemWithoutCondition,
@@ -200,7 +202,10 @@ impl Ruleset {
             }
         }
         if let Some(last) = self.heights.systems.last()
-            && last.any_player.is_some()
+            && last
+                .any_player
+                .as_ref()
+                .is_some_and(|condition| !condition.is_empty())
         {
             out.push(RuleError {
                 path: format!(
@@ -478,7 +483,8 @@ pub enum LoadError {
 pub struct RuleError {
     /// The key path of the value that breaks the rule
     /// (`tiers[2].free.tricks`, `specials[4].when.tiers[1]`; the list itself,
-    /// `tiers`, for `CountsExceedSquad` and `MoreThanOneRestTier`).
+    /// `tiers`, for `CountsExceedSquad`, `CountsShortOfSquad` and
+    /// `MoreThanOneRestTier`).
     pub path: String,
     /// Which rule broke.
     pub rule: LoadRule,
