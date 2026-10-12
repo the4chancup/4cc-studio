@@ -151,13 +151,15 @@ mod tests {
 
     #[test]
     fn each_valid_form_of_a_line_gives_its_color() {
-        let cases: [(&[u8], [u8; 3]); 9] = [
+        let cases: [(&[u8], [u8; 3]); 10] = [
             (b"211, 74, 79", [211, 74, 79]),
             (b"211,74,79", [211, 74, 79]),
             // Leading zeros are read as decimal.
             (b"007 010 255", [7, 10, 255]),
             (b"#C11200", RED),
             (b"  #c11200  ", RED),
+            // The `- ` bullet is still a bullet indented.
+            (b"  - #c11200", RED),
             (b"- 1st: #c11200", RED),
             (b"Shirt: 211 74 79", [211, 74, 79]),
             // The color follows the line's last `:`.

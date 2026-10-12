@@ -1783,3 +1783,5 @@ worklog passed 7,000 lines.
   run's undecoded bits go in one key, `[appearance.unknown]` `face`, written on every version.
 - **2026-10-12** — Step 5.0b3: `extra_mutants`' own survivors tested (impl and trait methods, `cfg`
   checks, offsets, the binary end to end); every mutant of the crate caught. SWE-2, first attempt.
+- **2026-10-12** — Step 5.0g1: tests for `aesthetics_export`'s literal and normalize gaps; the
+  two kinds now miss only the I/O-failure arm there. SWE-2, first attempt.

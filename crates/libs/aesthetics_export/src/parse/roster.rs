@@ -49,7 +49,8 @@ fn parse_line(line: usize, text: &str) -> RawRosterEntry {
     } else {
         None
     };
-    let folder_name = (!rest.trim().is_empty()).then(|| rest.trim().to_owned());
+    let rest = rest.trim();
+    let folder_name = (!rest.is_empty()).then(|| rest.to_owned());
     RawRosterEntry {
         line,
         slot,
@@ -178,7 +179,9 @@ mod tests {
 
     #[test]
     fn line_shapes_parse_as_specified() {
-        let text = b"x3 A\n24 B\n\n03\n07   C  \n99999 D\n+5 E";
+        // Line 8 is padded (slot and name still read), line 9 whitespace only
+        // (skipped like the blank line 3, no entry and no invalid line).
+        let text = b"x3 A\n24 B\n\n03\n07   C  \n99999 D\n+5 E\n  01 Name  \n   ";
         let parsed = parsed(
             "egg Midcup",
             &[("players.txt", 40)],
@@ -197,6 +200,7 @@ mod tests {
                 (5, Some(7), Some("C")),
                 (6, None, Some("D")),
                 (7, None, Some("E")),
+                (8, Some(1), Some("Name")),
             ]
         );
     }
@@ -241,6 +245,19 @@ mod tests {
             &[("refs.txt", Ok(b"01 A"))],
         );
         assert!(parsed.raw_roster.is_none());
+    }
+
+    #[test]
+    fn the_roster_name_matches_case_insensitively() {
+        let parsed = parsed(
+            "egg Midcup",
+            &[("Players.TXT", 10)],
+            &[("Players.TXT", Ok(b"03 A"))],
+        );
+        let roster = parsed.raw_roster.unwrap();
+        assert_eq!(roster.file.as_str(), "Players.TXT");
+        assert_eq!(roster.entries[0].slot, Some(3));
+        assert_eq!(roster.entries[0].folder_name.as_deref(), Some("A"));
     }
 
     #[test]

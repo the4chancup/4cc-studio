@@ -451,6 +451,7 @@ mod tests {
 
         let invisible = texture(SIZE, SIZE, |_, _| [0, 0, 0, 0]);
         assert!(extract_kit_colors(&invisible, SIZE, SIZE).is_none());
+        assert!(dominant_colors(&invisible, SIZE, SIZE, SHIRT).is_empty());
     }
 
     #[test]

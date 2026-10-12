@@ -711,8 +711,12 @@ mod tests {
 
     #[test]
     fn a_child_usable_by_its_logo_is_flattened() {
-        let parsed = parse("egg Midcup", &[("wrapper/logo.png", 10)], &[]);
-        assert_eq!(parsed.draft.root_files[0].path.as_str(), "logo.png");
+        // The `logo` prefix matches case-insensitively.
+        for logo in ["logo.png", "Logo.png"] {
+            let path = format!("wrapper/{logo}");
+            let parsed = parse("egg Midcup", &[(path.as_str(), 10)], &[]);
+            assert_eq!(parsed.draft.root_files[0].path.as_str(), logo, "{logo}");
+        }
     }
 
     #[test]
@@ -818,6 +822,28 @@ mod tests {
         assert_eq!(
             parsed.draft.players[0].files[0].path.as_str(),
             "Players/03 - A/face_high.fmdl"
+        );
+    }
+
+    #[test]
+    fn a_doubled_layer_is_removed_in_any_case_of_the_content_folder() {
+        // `PLAYERS` is the `Players` content folder, so `PLAYERS/Players/` is
+        // the doubled layer and is removed like `Players/Players/`.
+        let parsed = parse(
+            "egg Midcup",
+            &[("PLAYERS/Players/03 - A/face_high.fmdl", 10)],
+            &[],
+        );
+        assert!(
+            parsed
+                .issues
+                .iter()
+                .any(|issue| issue.code == "nested_folders_fixed")
+        );
+        assert_eq!(parsed.draft.players[0].path.as_str(), "PLAYERS/03 - A");
+        assert_eq!(
+            parsed.draft.players[0].files[0].path.as_str(),
+            "PLAYERS/03 - A/face_high.fmdl"
         );
     }
 

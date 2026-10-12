@@ -518,6 +518,34 @@ mod tests {
     }
 
     #[test]
+    fn two_lines_naming_one_out_of_range_slot_are_each_invalid_not_a_duplicate() {
+        // An out-of-range slot claims nothing, so the second `24` is a second
+        // invalid line, not a duplicate.
+        let report = report(
+            "egg Midcup",
+            &[("players.txt", 20)],
+            &["Players/A", "Players/B"],
+            &[("players.txt", Ok(b"24 A\n24 B"))],
+        );
+        assert_eq!(
+            issues_of(&report),
+            vec![
+                (
+                    "players_txt_slot_invalid",
+                    roster_scope("players.txt", 1, Some(24)),
+                    Disposition::DropSlot,
+                ),
+                (
+                    "players_txt_slot_invalid",
+                    roster_scope("players.txt", 2, Some(24)),
+                    Disposition::DropSlot,
+                ),
+            ]
+        );
+        assert!(report.validated.is_some());
+    }
+
+    #[test]
     fn an_empty_team_roster_is_valid_and_every_folder_is_unlisted() {
         let report = report(
             "egg Midcup",

@@ -210,6 +210,22 @@ fn only_the_portrait_stem_is_the_portrait() {
     );
 }
 
+#[test]
+fn the_portrait_stem_matches_case_insensitively() {
+    let report = report(
+        "egg Midcup",
+        &[("Players/03 - A/Portrait.dds", 9)],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&report), vec![]);
+    let folder = &report.validated.unwrap().players[0];
+    assert_eq!(
+        folder.portrait.as_ref().map(|file| file.path.as_str()),
+        Some("Players/03 - A/Portrait.dds")
+    );
+}
+
 // TC-STR-13
 #[test]
 fn two_textures_sharing_a_stem_drop_the_folder() {
@@ -357,6 +373,25 @@ fn a_per_player_singleton_below_a_subfolder_is_file_type_disallowed() {
     );
     // As a subfolder's marker does under the strict check, it drops the player folder.
     assert!(report.validated.unwrap().players.is_empty());
+}
+
+#[test]
+fn a_skl_mtl_or_materials_toml_below_a_subfolder_is_model_content() {
+    // `.skl`, `.mtl` and `materials.toml` are model content like the subfolder's
+    // models and textures; the name matches case-insensitively.
+    let report = report(
+        "egg Midcup",
+        &[
+            ("Players/03 - A/jessie/body.skl", 10),
+            ("Players/03 - A/jessie/x.mtl", 9),
+            ("Players/03 - A/jessie/materials.toml", 9),
+            ("Players/04 - B/jessie/Materials.toml", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&report), vec![], "{:?}", report.issues);
+    assert_eq!(report.validated.unwrap().players.len(), 2);
 }
 
 #[test]
@@ -733,6 +768,30 @@ fn ingame_face_with_explicit_face_content_drops_the_folder() {
     let validated = linked.validated.unwrap();
     assert!(validated.players.is_empty());
     assert!(validated.faces.is_empty());
+}
+
+#[test]
+fn an_oral_model_is_explicit_face_content_too() {
+    // `oral` has no skeleton slot either: beside `ingame_face` it drops the
+    // folder as `face_high` and `hair_high` do.
+    let report = report(
+        "egg Midcup",
+        &[
+            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/oral.fmdl", 10),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("ingame_face_explicit_face_model", Disposition::DropFolder)]
+    );
+    assert_eq!(
+        report.issues[0].context,
+        vec![("file", "oral.fmdl".to_owned())]
+    );
+    assert!(report.validated.unwrap().players.is_empty());
 }
 
 // TC-STR-14
@@ -1216,6 +1275,28 @@ fn wrong_suffixed_models_drop_their_shared_folders_and_linkers() {
 }
 
 #[test]
+fn a_gloves_folder_admits_every_gloves_suffix() {
+    // `glove_l`, `glove_r` and the hand-skeleton `handL`/`handR` are all
+    // gloves models.
+    let report = report(
+        "egg Midcup",
+        &[
+            ("Gloves/Keeper gloves/glove_l.fmdl", 10),
+            ("Gloves/Keeper gloves/glove_r.fmdl", 10),
+            ("Gloves/Keeper gloves/handL.fmdl", 10),
+            ("Gloves/Keeper gloves/handR.fmdl", 10),
+            ("Players/03 - A/Keeper gloves.gloves", 0),
+            ("Players/03 - A/hair.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&report), vec![], "{:?}", report.issues);
+    let gloves = &report.validated.unwrap().gloves[0];
+    assert_eq!(gloves.files.len(), 4);
+}
+
+#[test]
 fn a_nested_common_model_file_is_admitted_but_no_link_target() {
     let report = report(
         "egg Midcup",
@@ -1466,6 +1547,35 @@ fn common_link_files_orders_a_texture_set_s_members_representative_first() {
     // nothing the set names, and `boots_kitF.skl` is a plain name to it.
     assert!(reached("boots_kitN.fmdl").is_empty());
     assert_eq!(reached("boots_kitF.skl"), ["Common/boots_kitF.skl"]);
+}
+
+#[test]
+fn common_link_files_sorts_the_members_it_is_given_whatever_their_order() {
+    // The members' order is the function's contract, not its input's: a
+    // `common` slice in any order gives the lowest variant first, `kitF` last.
+    let descriptor = |path: &str| FileDescriptor {
+        path: ScopePath::new(path).unwrap(),
+        source: ScopePath::new(path).unwrap(),
+        size: 9,
+        kind: FileKind::Texture,
+    };
+    let common = [
+        descriptor("Common/kitF/a.dds"),
+        descriptor("Common/kit2/a.dds"),
+        descriptor("Common/kit1/a.dds"),
+    ];
+    let reached: Vec<&str> = common_link_files(&common, "kitN/a.dds")
+        .iter()
+        .map(|file| file.path.as_str())
+        .collect();
+    assert_eq!(
+        reached,
+        [
+            "Common/kit1/a.dds",
+            "Common/kit2/a.dds",
+            "Common/kitF/a.dds"
+        ]
+    );
 }
 
 #[test]
@@ -2291,6 +2401,21 @@ fn kit_slots_and_labels_parse() {
     assert_eq!(goalie.label, None);
 }
 
+#[test]
+fn a_padded_kit_folder_name_still_claims_its_slot() {
+    // `Kits/ p2` is a `p2` folder padded with a space: the head trims to `p2`.
+    let report = report("egg Midcup", &[("Kits/ p2/kit.dds", 9)], &[], &[]);
+    assert_eq!(issue_codes(&report), vec![], "{:?}", report.issues);
+    assert!(
+        report
+            .validated
+            .unwrap()
+            .kits
+            .kits
+            .contains_key(&kit_config::KitSlot::P2)
+    );
+}
+
 // TC-KIT-02
 #[test]
 fn two_folders_of_one_slot_are_both_dropped() {
@@ -2396,6 +2521,23 @@ fn all_files_and_an_unused_all_folder() {
     );
     assert_eq!(unused.issues[0].scope, folder("Kits/all"));
     assert_eq!(unused.validated.unwrap().kits.shared.len(), 1);
+}
+
+#[test]
+fn an_all_head_in_any_case_is_the_shared_folder() {
+    // `ALL` heads the shared-textures folder like `all`.
+    let report = report("egg Midcup", &[("Kits/ALL/kit.dds", 9)], &[], &[]);
+    assert_eq!(
+        issue_codes(&report),
+        vec![("kit_all_unused", Disposition::Keep)]
+    );
+    assert_eq!(
+        report.issues[0].scope,
+        folder("Kits/ALL"),
+        "{:?}",
+        report.issues
+    );
+    assert_eq!(report.validated.unwrap().kits.shared.len(), 1);
 }
 
 // TC-KIT-06
@@ -2558,6 +2700,26 @@ fn a_texture_without_the_kit_prefix_drops_only_itself() {
     let kit = &report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1];
     assert_eq!(kit.textures.len(), 1);
     assert_eq!(kit.textures[0].stem, "kit");
+}
+
+#[test]
+fn kit_texture_names_match_the_prefix_in_any_case() {
+    // `Kit` is `kit` and `KIT_back` is `kit_back`: the name rule folds case.
+    let report = report(
+        "egg Midcup",
+        &[("Kits/p1/Kit.dds", 9), ("Kits/p1/KIT_back.dds", 9)],
+        &[],
+        &[],
+    );
+    assert_eq!(issue_codes(&report), vec![], "{:?}", report.issues);
+    let kit = &report.validated.unwrap().kits.kits[&kit_config::KitSlot::P1];
+    assert_eq!(
+        kit.textures
+            .iter()
+            .map(|texture| texture.stem.as_str())
+            .collect::<Vec<_>>(),
+        vec!["kit", "kit_back"]
+    );
 }
 
 #[test]
@@ -2958,6 +3120,24 @@ fn a_logo_pair_reads_its_fit_tags() {
 }
 
 #[test]
+fn a_fit_tag_is_read_in_any_case() {
+    // `_Crop`, `_STRETCH` and `_Fit` are the tags spelled another way.
+    for (name, fit) in [
+        ("logo_Crop.png", LogoFit::Crop),
+        ("logo_STRETCH.png", LogoFit::Stretch),
+        ("logo_Fit.png", LogoFit::Fit),
+    ] {
+        let report = report("egg Midcup", &[(name, 9)], &[], &[]);
+        assert_eq!(issue_codes(&report), vec![], "{name}");
+        assert_eq!(
+            report.validated.unwrap().logo.unwrap().main.fit,
+            Some(fit),
+            "{name}"
+        );
+    }
+}
+
+#[test]
 fn a_non_texture_in_a_kit_drops_the_kit_strict() {
     let report = report(
         "egg Midcup",
@@ -3142,6 +3322,31 @@ fn a_ref_marker_is_admitted_on_a_refs_export() {
             .path
             .as_str(),
         "ref_marker.dds"
+    );
+
+    // The name matches case-insensitively.
+    let mixed = crate::testing::report(
+        "refs Cup",
+        &[("players.txt", 10), ("Ref_Marker.dds", 9)],
+        &["Players/Keeper"],
+        &[("players.txt", Ok(b"01 Keeper"))],
+    );
+    assert!(
+        mixed
+            .issues
+            .iter()
+            .all(|issue| issue.code != "root_file_unexpected")
+    );
+    assert_eq!(
+        mixed
+            .validated
+            .unwrap()
+            .root
+            .referee_marker
+            .unwrap()
+            .path
+            .as_str(),
+        "Ref_Marker.dds"
     );
 }
 
@@ -3548,6 +3753,8 @@ fn an_undecided_root_reports_no_roster_finding() {
         issue_codes(&conflicted),
         vec![("nested_root_conflict", Disposition::DropExport)]
     );
+    // The roster file's lines are not read while the root is undecided.
+    assert!(conflicted.parsed.raw_roster.is_none());
 
     // A `players.txt` at the undecided root that is not UTF-8: its own finding is
     // a roster finding, reported nowhere either.

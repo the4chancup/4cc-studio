@@ -434,7 +434,7 @@ Fixed before the itemization:
   elements now lists its literal ones; ten tests in `scan.rs`, `tests/cli.rs` running the
   binary. `cargo mutants -p extra_mutants`: 121 caught, 5 unviable, none missed.
 - [ ] 5.0g Tests for 5.0b's real gaps, in two slices:
-  - [ ] 5.0g1 in `aesthetics_export` unless named: `literal`:
+  - [x] 5.0g1 in `aesthetics_export` unless named: `literal`:
     `conventions/player_folder.rs` `is_gloves` (`GloveR`, `HandL`, `HandR`) and
     `is_explicit_face` (`Oral`), `validate/folders.rs` `is_model_content` (`Skl`, `Mtl`,
     `MaterialsToml`), `parse/mod.rs` the roster skipped on `nested_root_conflict`; `normalize`:
@@ -448,6 +448,11 @@ Fixed before the itemization:
     may cover several sites (a mixed-case export; a padded `players.txt`) → verify: `just
     extra-mutants aesthetics_export --kind literal --kind normalize` misses only
     `validate/roster.rs:89`'s `source_read_failed` (an I/O failure, not reachable by a test)
+    Done 2026-10-12 (SWE-2, first attempt): tests in `validate/tests.rs` and beside each site;
+    its contradictions accepted: `color_tools` `kit.rs:191` is equivalent (`total == 0` exactly
+    when no bin was filled; a `guard` survivor, a kind not run), `parse/roster.rs:52`'s first
+    `.trim()` was redundant (the lead folded it into one), the `kit10` sort is `kitF`'s (no
+    `kit10` token exists), and the padded folder name is the no-dash arm's (`Kits/ p2`)
   - [ ] 5.0g2 the `order` and `bool` gaps of the model crates and `pes_savefile`
     (`.tmp/5_0b/trial/triage.md`): `order`: `pes_model` and `fmdl` `ops/split/build.rs` a
     fragment's faces and loose sets by decreasing projection on the sort vector and a

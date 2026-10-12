@@ -342,7 +342,7 @@ mod tests {
 
     #[test]
     fn classify_covers_the_convention_table() {
-        let cases: [(&str, FileKind); 57] = [
+        let cases: [(&str, FileKind); 58] = [
             ("Crocs.boots", FileKind::SharedLink(SharedKind::Boots)),
             ("Crocs.BOOTS.txt", FileKind::SharedLink(SharedKind::Boots)),
             ("Longhair.face", FileKind::SharedLink(SharedKind::Face)),
@@ -375,6 +375,7 @@ mod tests {
                 FileKind::Metadata(MetadataFile::SettingsToml),
             ),
             ("materials.toml", FileKind::MaterialsToml),
+            ("Materials.toml", FileKind::MaterialsToml),
             ("body.materials.toml", FileKind::MaterialsToml),
             ("face_high.fmdl", FileKind::Model(ModelFormat::Fmdl)),
             ("boots.MODEL", FileKind::Model(ModelFormat::PesModel)),
