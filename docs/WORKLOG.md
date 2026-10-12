@@ -11,8 +11,8 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 4 (Processing logic) closed 2026-10-12. Phases 1 to 3 done (Phase 3 closed 2026-10-02,
 Phase 2 2026-09-30).
-**Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and step 5.1a done,
-5.1b next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
+**Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and steps 5.1a and 5.1b
+done, 5.1c next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -586,12 +586,19 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       cross-version carry test's run length asserted, `hex_run`'s comment. Done 2026-10-12 (SWE-2, first attempt; with review R4's two
       fixes: a stale doc, a third copy of a test lookup made a helper). Step 5.1a done
       2026-10-12: reviews R1 to R4 (SWE-2 and Astra) closed under five accepted each
-  - [ ] 5.1b the Fox `PlayerAppearance.bin` row from a `PlayerSettings`, the PES 18 and 19
+  - [x] 5.1b the Fox `PlayerAppearance.bin` row from a `PlayerSettings`, the PES 18 and 19
     offsets measured (the games' own rows against save records) → done when: a fixture save's
-    records round-trip through rows on PES 18 to 21
+    records round-trip through rows on PES 18 to 21. Done 2026-10-12 (the lead measured record
+    bytes 128 to 184 on PES 18/19; SWE-2, first attempt: `PlayerSettings::appearance_row`
+    shares `apply`'s write half without its range checks, since real cup players hold values
+    past them, issue "real cup players past the editor ranges"; all 19,596 fixture players
+    round-trip byte-exact)
   - [ ] 5.1c the aesthetics patch, Fox half: the type, parse, emit, `apply_patch` by player id
     and its refusals (a pre-Fox patch included) → done when: SE-PAT-01 to 04's outcomes hold at
-    the lib level
+    the lib level. Sub-slices, each a commit (types: `operations.md` "Aesthetics patch"):
+    - [ ] 5.1c1 `AestheticsPatch` and its types, `parse` and `to_toml`, the pre-Fox refusal
+    - [ ] 5.1c2 `apply`: the refusals before any write, absent teams and players skipped,
+      the `PatchSummary`
   - [ ] 5.1d the Team TOML: `stripped`, the appearance table written key by key, `ingame_face`
     gone; a test-support export so a tool crate's CLI tests can write a whole fixture save →
     done when: SE-TOML-01 to 08's outcomes hold at the lib level
@@ -615,7 +622,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `export-teams-list` → done when: SE-CLI, SE-TOML, SE-PAT, SE-TRN, SE-DIF and SE-TL pass
   - [ ] 5.4b `check-aatf`, after 5.2 → done when: SE-AATF-01 to 03 pass
   - [ ] 5.4c `strip-and-seed` and `check-stripped` (measure issue "strip-and-seed and a
-    base-copied face" first) → done when: SE-STR-01 to 06 pass on PES 21, and on PES 18 and 19
+    base-copied face" first, and settle issue "real cup players past the editor ranges") → done when: SE-STR-01 to 06 pass on PES 21, and on PES 18 and 19
     after 5.1b
 - [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
   the harness: a stripped and seeded save shows every player as before; a compiled team's rows
@@ -1047,6 +1054,16 @@ points there.
   player FPC while `is_fpc_player` found none (`.tmp/4_0/apptest/results.txt`, run 2). Matching
   the strip fields alone would also mark a dressed player with long sleeves, tucked shirt and
   short socks. Settle the fields compared before Phase 6 (review S5.11 item 2).
+- open — real cup players past the editor ranges: `PlayerSettings::from_player` refuses a
+  stored value its key's kind cannot represent (`OutOfRange`, documented as "a hostile save's
+  out-of-range bits"), but the PES 18 fixture save holds 79 such players and the PES 19 one 26
+  (`cheek_type` 4 to 5 where the range ends at 3, `forehead_type` 6 where it ends at 5, inside
+  the fields' bits; found at 5.1b). So a `settings.toml` cannot be generated for them, and
+  strip-and-seed, whose rows must equal each player's record bytes (SE-STR-01), cannot take
+  the `from_player` route: `appearance_row` itself writes such a value as is (the field's bits
+  are its bound), but the Save editor has no public way to build those settings. Settle before
+  5.4c (a row straight from a `PlayerEntry`, or wider ranges if the game shows those values),
+  and before any tool generates `settings.toml` from a save.
 - open — strip-and-seed and a base-copied face: the `PlayerAppearance.bin` row carries no
   base-copy id (`model.md`, "The Fox database row"), which holds a face-transplant
   relationship (`operations.md` "Save-to-save operations"), so a stripped player whose

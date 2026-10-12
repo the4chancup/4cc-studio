@@ -6,6 +6,8 @@
 //! of the TOML text. The codec reads and writes the model through
 //! `from_player`/`apply`.
 
+/// The `PlayerAppearance.bin` row a `PlayerSettings` produces (Fox only).
+mod appearance_row;
 pub(crate) mod document;
 /// The settings.toml key table: `SettingKey` and its `KeySpec` columns.
 pub(crate) mod keys;
@@ -220,6 +222,16 @@ pub enum SettingsError {
     NotInThisVersion {
         /// The TOML key.
         key: String,
+    },
+    /// A `PlayerAppearance.bin` row was asked of a version whose game has
+    /// none: a pre-Fox game's appearance travels in the savefile (PES 17
+    /// reads a row, but its compile writes the savefile instead).
+    #[error(
+        "{version:?}: a pre-Fox appearance travels in the savefile, not in PlayerAppearance.bin"
+    )]
+    NoAppearanceRow {
+        /// The version the row was asked for.
+        version: PesVersion,
     },
     /// A codec read or write failed (a player never read from a record has no
     /// ingame-face run to read or write through).
@@ -594,6 +606,24 @@ impl PlayerSettings {
         if let Some(id) = self.gloves_id {
             next.appearance.gloves_id = u32::from(id);
         }
+        self.write_appearance_defaults(&mut next, version)?;
+        *player = next;
+        Ok(())
+    }
+
+    /// `apply`'s appearance write, without its TOML-surface checks (the kind
+    /// ranges, the name lengths): every appearance key's held value or its
+    /// `KeySpec` default onto `next`, `face`'s undecoded bits after, a key
+    /// the target version has no field for dropped. `appearance_row` shares
+    /// it: the row carries the game's bits, so a stored value past a key's
+    /// range but inside its field's (a save's own data the file could never
+    /// hold) is written as is — the field's bits, `write_player`'s and
+    /// `face.set`'s bound, are the check.
+    fn write_appearance_defaults(
+        &self,
+        next: &mut PlayerEntry,
+        version: PesVersion,
+    ) -> Result<(), SettingsError> {
         // An absent appearance key writes its default; a key the target
         // version has no field for (`dribbling` before PES 20) is dropped, so
         // an export written for a newer version compiles for an older one.
@@ -615,7 +645,7 @@ impl PlayerSettings {
             };
             set_appearance(&mut appearance, key, value);
         }
-        write_appearance(&appearance, &mut next)?;
+        write_appearance(&appearance, next)?;
         // `face` is the run's undecoded bits, written as far as the
         // target's run reaches: all 0 when `None`, 0 past the value's end,
         // bytes past the run's end dropped. The named bits stay as the
@@ -623,7 +653,6 @@ impl PlayerSettings {
         next.appearance
             .ingame_face
             .write_undecoded(appearance.unknown.face.as_deref().unwrap_or(&[]));
-        *player = next;
         Ok(())
     }
 }

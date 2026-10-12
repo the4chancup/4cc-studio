@@ -2271,8 +2271,8 @@ plan). Phase 5 withdraws TC-BIN-10, TC-BIN-17 and TC-BIN-22, whose player tables
 and TC-BIN-25 to TC-BIN-27 restate them. Not in Phase 5, so not here: the pre-Fox patch and its
 savefile writes (deferred with pre-Fox's other gaps: a compile for PES 15-17 writes no patch and
 leaves the savefile byte-identical) and a referee export's settings (worklog issue). PES 18
-and 19 appearance rows land within Phase 5, once a step has measured their offsets; until
-then TC-BIN-31's PES 18 half waits. Test data as in Phase 4. Unless a
+and 19 appearance rows are built like PES 20 and 21's (`pes_savefile/model.md`, "The Fox
+database row"). Test data as in Phase 4. Unless a
 scenario says otherwise, the PES folder is a deployable fixture install whose DpFileList lists
 `4cc_08_bins` (holding the three player tables) and the output CPK, and `savefile_path` names
 a stripped fixture save of the compile's version carrying team 714 (a test never uses `auto`,

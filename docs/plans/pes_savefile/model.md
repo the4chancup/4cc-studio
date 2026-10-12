@@ -273,9 +273,15 @@ tables"; the description above and below is the Phase 2 code until then):
   across versions as the hex's prefix copy does, so each bit has one carrier.
 - **The Fox database row.** A `PlayerSettings` (with its defaults) also produces the
   `PlayerAppearance.bin` row: the player id, then the record's 56 appearance bytes (everything
-  after its id, edit flags, boots/gloves and base-copy fields; record bytes 252 to 308 on
-  PES 20/21, the PES 18 and 19 offsets measured when those versions are implemented). Boots and
-  gloves go to the `BootsList.bin`/`GloveList.bin` pairs.
+  after its id, edit flags, boots/gloves and base-copy fields; record bytes 128 to 184 on
+  PES 18/19, 252 to 308 on PES 20/21). The row is one layout on every version: the games' own
+  tables hold the same bytes for most players from PES 17 to 21, and PES 17's, whose record
+  offset in-game Test 4 confirmed, sits at the same place in the same 72-byte block, whose
+  fields lie at the same bits on PES 17 to 21 (measured 2026-10-12, `.tmp/5_1/measure/`). The
+  run's last 4 bytes (the block's last 4) are in no row, so their undecoded bits do not reach
+  a stripped player. A pre-Fox version has no row: PES 17 reads one, but its compile writes
+  the savefile instead (`pipeline.md` output table). Boots and gloves go to the
+  `BootsList.bin`/`GloveList.bin` pairs.
 - The appearance block's player id becomes a modeled field of the entry, outside
   `PlayerAppearance`, read and preserved, so a transplant's whole-block copy leaves the target's;
   only the Save editor's strip operation writes -1 (worklog issue "player id versus appearance id").
