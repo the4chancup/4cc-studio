@@ -714,7 +714,7 @@ The script API, which `libs/aatf`'s crate doc lists too:
 | `team.players` | the roster's players in slot order, empty slots left out |
 | `team.captain` | the captain's slot; `()` for none |
 | `team.version` | the short number (`21`), as `TeamSettings::versions` spells it |
-| `team.fielded_positions(player, preset)` | the labels of the positions the player is fielded at in preset 1 to 3's formations (a fluid preset's three, another's kick-off one), once each in label order; empty for a player outside the starting eleven |
+| `team.fielded_positions(player, preset)` | the labels of the positions the player is fielded at in preset 1 to 3's formations (a fluid preset's three, another's kick-off one), once each, in the position table's order (GK first, CF last); empty for a player outside the starting eleven |
 | `team.fielded_only_at(player, pos)` | whether every formation the game can field from the three presets fields the player at `pos`; for a player outside the starting eleven, whether `pos` is his registered position |
 | `team.formation_shapes()` | one map per formation the game can field, `#{ preset, formation, shape: [defenders, midfielders, forwards] }`, presets and formations numbered from 1 |
 

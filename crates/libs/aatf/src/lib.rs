@@ -19,9 +19,11 @@
 //! is a script error).
 //! On `Team`: `players` (the roster in slot order), `captain` (the slot,
 //! `()` for none), `version` (the short number);
-//! `fielded_positions(player, preset)` (labels, once each),
-//! `fielded_only_at(player, pos)`, `formation_shapes()` (`#{ preset,
-//! formation, shape: [defenders, midfielders, forwards] }`).
+//! `fielded_positions(player, preset)` (labels, once each, in the
+//! position table's order; a preset outside 1 to 3 is a script error),
+//! `fielded_only_at(player, pos)` (an unknown position is a script
+//! error), `formation_shapes()` (`#{ preset, formation,
+//! shape: [defenders, midfielders, forwards] }`).
 
 /// The one engine every script runs on: packages, accessors, limits.
 mod engine;

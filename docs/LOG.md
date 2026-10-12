@@ -1845,3 +1845,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2b1 second rework (R15.S1 4 of 5, Astra R11.A1 6 of 6): tests that a
   reordered starting eleven, a version's style table, exact stats and a fluid formation's own
   shape read right; every reserved word and an eight-byte colour code tested. SWE-2, first attempt.
+- **2026-10-12** — Step 5.2b1 third rework (R16.S1 4 of 5; the SWE-2 loop ends): `formation_shapes`
+  pinned on all five entries, the crate doc's error cases, the plan's "label order" made the
+  position table's order. SWE-2, first attempt; Astra R12.A1 next.

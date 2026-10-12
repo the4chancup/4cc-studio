@@ -512,7 +512,7 @@ mod tests {
                 .eval_with_scope::<Dynamic>(&mut scope, "team.players[10].position")
                 .expect("position")
                 .is_unit(),
-            "registered 15 is past the labels"
+            "registered 13 is past the labels"
         );
         assert!(
             engine
@@ -590,16 +590,20 @@ mod tests {
             .eval_with_scope::<Array>(&mut scope, "team.formation_shapes()")
             .expect("formation_shapes");
         assert_eq!(shapes.len(), 5);
-        for (i, want) in [
-            (1usize, vec![4, 4, 2]),
-            (2, vec![4, 4, 2]),
-            (3, vec![4, 3, 3]),
+        // Every entry (index, preset, formation, shape): preset 1's kick-off,
+        // fluid preset 2's three formations, preset 3's kick-off.
+        for (i, preset, formation, want) in [
+            (0usize, 1i64, 1i64, vec![4, 4, 2]),
+            (1, 2, 1, vec![4, 4, 2]),
+            (2, 2, 2, vec![4, 4, 2]),
+            (3, 2, 3, vec![4, 3, 3]),
+            (4, 3, 1, vec![4, 4, 2]),
         ] {
             let map = shapes[i].clone().cast::<Map>();
-            assert_eq!(map["preset"].as_int().expect("preset"), 2, "{i}");
+            assert_eq!(map["preset"].as_int().expect("preset"), preset, "{i}");
             assert_eq!(
                 map["formation"].as_int().expect("formation"),
-                i64::try_from(i).expect("small"),
+                formation,
                 "{i}"
             );
             let shape: Vec<i64> = map["shape"]

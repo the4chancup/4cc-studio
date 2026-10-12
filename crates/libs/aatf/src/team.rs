@@ -234,7 +234,8 @@ impl TeamView {
 
     /// The positions the starting-eleven player at roster `slot` is
     /// fielded at in `preset`'s (1 to 3) fielded formations, once each,
-    /// ascending; empty for a player outside the starting eleven.
+    /// in the position table's order (GK first, CF last); empty for a
+    /// player outside the starting eleven.
     pub(crate) fn fielded_positions(&self, slot: u8, preset: u8) -> Vec<Position> {
         let mut positions = Vec::new();
         for (_, formation) in self.fielded_formations(preset) {
