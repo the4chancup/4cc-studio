@@ -5,9 +5,7 @@ Part of the [Library crates plan](README.md). Section headings are unchanged fro
 ## `libs/fox2`: Fox Engine entity files
 
 A `.fox2` is the Fox Engine's serialized entity graph (a stadium's models, lights, audience and
-staff placements), shipped inside FPKD archives; the Stadium compiler compiles generated XML to
-`.fox2` and rewrites stadium IDs inside Konami's by decompiling to XML, editing the text and
-compiling back. The reference is a Python port of the C# FoxTool; its XML is the interchange
+staff placements), shipped inside FPKD archives. The reference is a Python port of the C# FoxTool; its XML is the interchange
 format the stadium exports already carry (`*.fox2.xml`), so the crate speaks both. Layout
 measured on the 87 distinct `.fox2` inside the 108 FPKDs on the writing machine (Konami PES 16
 stadium, audience, staff, light and boots files); the fixtures under
@@ -42,7 +40,7 @@ occurs. Everything little-endian.
   `seed0 = 0x9AE16A3B2F90404F` and `seed1 = (first_byte << 16) + len(text)`, masked to 48 bits;
   the CityHash is the 1.0.3 variant the C# tool embeds (`HashLen0to16`, `17to32`, `33to64`,
   `above64`), ported directly, not taken from a crate whose version cannot be pinned to that
-  variant. Verified by `hash_golden.tsv` (reference hashes for 51 strings across every length
+  variant. Verified by `hash_golden.tsv` (reference hashes for 53 strings across every length
   class, the empty string and non-ASCII, the long ones non-repetitive) and by every fixture's own
   string table. Where the reference is not CityHash, we follow CityHash: its 33-64 byte branch
   leaves one sum (`fetch(16) + fetch(len - 32)`) unmasked before a rotate, so for text whose

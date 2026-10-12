@@ -45,6 +45,7 @@ crates/libs/fmdl/src/
 │   └── container.rs, records.rs, f16.rs, vertex.rs
 ├── model/              # the semantic layer: Model (mod.rs), from_file.rs, to_file.rs, validate.rs
 ├── ops/                # algorithms
+│   ├── mod.rs          #   the op modules
 │   ├── split/          #   mesh splitting (mod.rs, build.rs, combine.rs)
 │   ├── vertex_enc.rs   #   split vertex encoding
 │   ├── antiblur.rs
@@ -61,6 +62,7 @@ crates/libs/pes_model/src/
 │   └── container.rs, datum.rs, records.rs, vertex.rs, write.rs, fixtures.rs
 ├── model/              # the semantic layer: Model (mod.rs), validate.rs
 ├── ops/                # algorithms
+│   ├── mod.rs          #   the op modules
 │   ├── split/          #   mesh splitting (mod.rs, build.rs, combine.rs)
 │   ├── vertex_enc.rs
 │   ├── merge.rs
@@ -91,9 +93,12 @@ Rules:
   matchday. Every vertex counts, referenced by a face or loose; edges and faces need no test of
   their own, since every point of one lies within the reach of its farthest vertex. The Team
   compiler refuses such a model (`vertex_too_far_from_origin` in its catalog).
-- **The `python_bindings` surface is `format/` + `ops/`**, exposed as-is; if a function is awkward to
-  expose, that is a hint it belongs in the Team compiler rather than here. "As-is" means the
-  entry points (file read/write, vertex and face decode/encode, the ops), not the codec's
+- **The `python_bindings` surface is `format/`'s entry points**, exposed as-is; if a function is awkward to
+  expose, that is a hint it belongs in the Team compiler rather than here. Today the wheel
+  carries each codec's `read`/`write` (`fmdl`'s `FmdlFile` and `SklFile`, `pes_model`'s
+  `PreFoxModel` and `MaterialSet`) and nothing more; the `ops/` exposure is in
+  `plans/libs/format_crates.md`. "As-is" means the
+  entry points (file read/write, vertex and face decode/encode), not the codec's
   internals: `fmdl` keeps its raw container, vertex-attribute layout types, string lookup and
   split limits `pub(crate)` until a consumer names one.
 - Core plan guardrail 4 (PyO3-buildable, dependency denylist) applies to the whole crate; the split
@@ -178,7 +183,9 @@ every attribute vector one value per vertex (at most four uv maps, one precision
 bone weights and indices together), every group's mesh indices in range. It does not check the
 format limits (32 bones, 65535 vertices, 21845 faces: `ops::split` exists to take meshes over
 them) or a weighted bone slot past the mesh's bone group (Konami files carry those; `check.rs`
-warns). `from_file` ends with it, `to_file` and every op in `ops/` start with it, and none of
+warns). `from_file` ends with it, `to_file` and the `Model`-level ops in `ops/` start with it
+(`ops::paths`, which edits texture paths on the typed record layer `FmdlFile`, takes no
+`Model`), and none of
 them re-checks an index it covers, so an invalid model is an error, never a panic, and the
 list cannot drift between five partial copies (before 2.20f `to_file`, `merge` and `split`
 each checked a different subset and `antiblur` none). `to_file` adds one rule of its own,

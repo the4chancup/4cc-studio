@@ -55,6 +55,8 @@ pub struct Cancelled;
 
 impl MemoryBudget {
     pub fn new(cap: usize) -> Arc<MemoryBudget>;
+    /// The budget's cap, the bytes `acquire` fits requests into.
+    pub fn cap(&self) -> usize;
     pub fn acquire(self: &Arc<Self>, size: usize) -> Result<Permit, Cancelled>;
     /// Takes `size` bytes at once, without waiting: for memory a running task allocates.
     pub fn charge(self: &Arc<Self>, size: usize) -> Permit;
@@ -146,7 +148,7 @@ fits the floor.
 pub fn memory_cap(percent: f64) -> usize;
 
 /// What `memory_cap` assumes is available where the OS cannot say: 4 GiB.
-pub const FALLBACK_AVAILABLE: u64 = 4 << 30;
+const FALLBACK_AVAILABLE: u64 = 4 << 30;
 ```
 
 The base is the memory **available** when the run starts, not the machine's total: the game,

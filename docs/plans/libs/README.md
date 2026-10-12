@@ -51,3 +51,10 @@ Custom maximum-throughput kernels are considered only if measurements expose a w
 the library backend. Possible algorithm references include AMD Compressonator and bc7e, subject to
 normal license and quality checks. Browser GPU acceleration remains deferred; its CPU path remains
 available. Neither requires a second bespoke encoder for the initial desktop release.
+
+## `vtree` path types
+
+What exists of this is in `spec/libs/README.md` "`vtree` path types".
+
+Filesystem source providers also enforce containment after resolving symlinks/junctions; a safe
+virtual path alone does not prove that its physical source remains inside the export.

@@ -20,7 +20,8 @@ approach in production, in `Engines/stages/lib/dxt.py` + the `texture2ddecoder` 
   in pure Rust (no C dependencies). See the format matrix below.
 - **Encoding**: use `block_compression`'s Rust CPU backend for BC1, BC3, and BC7, rather than
   translating the stadium compiler's numpy encoder. Codec selection follows the PES-version and
-  texture-role rules below; desktop GPU BC7 is included in the first release with CPU fallback.
+  texture-role rules below; the GPU BC7 backend is in `plans/libs/README.md` "First-release
+  desktop GPU BC7".
 - **DXT5nm handling**: a normal map that has to be encoded (a BC5 source on PES 15–18, or any
   normal-role source that is not already BC3, raster and BC7 included, on every version) becomes
   BC3 with X in alpha and Y in green, which is what both
@@ -84,10 +85,10 @@ blocks to three visible colors, and generated mips may introduce intermediate al
 textures in BC3 for the older targets rather than promising unchanged quality. DXT5nm keeps BC3:
 its alpha stores a normal component, not opacity.
 
-**Selected encoder:** `block_compression` (reviewed release **0.10.0**) supplies both the CPU
-reference/fallback and first-release desktop GPU BC7 backend. Use `default-features = false`,
-with `bc15`/`bc7` and desktop `wgpu` enabled; BC6H is not needed. CPU-only builds remain possible,
-and browser GPU acceleration is deferred. Use basic opaque/alpha BC7 presets initially, preserving
+**Selected encoder:** `block_compression` (reviewed release **0.10.0**) supplies the CPU
+encoder (the reference/fallback when the GPU step lands, `plans/libs/README.md` "First-release
+desktop GPU BC7"). It is built with `default-features = false` and `bc15`/`bc7`; the `wgpu`
+feature joins with the GPU step and BC6H is not needed. Use basic opaque/alpha BC7 presets initially, preserving
 alpha when required; tune against representative textures, not assumed timings. `texpresso` lacks
 BC7, while `intel_tex_2` adds native ISPC kernels; one library serves both paths without maintaining
 our own encoders. This is a best-fit selection, not a measured claim of optimal throughput.
@@ -258,8 +259,10 @@ probes can still fail to decode.
 ### In-memory conversion cache
 
 CPU texture conversion is reusable for a given source hash and complete conversion configuration
-(the key below), so the Studio caches converted output bytes in memory across compiles. This targets the edit→compile→test loop — the hot path, where
-the same export is compiled dozens of times with minor edits to one or two files. While an entry is retained,
+(the key below), so a run caches converted output bytes in memory for its length: a source
+converted once is not converted again in that run. This targets the edit→compile→test loop — the hot path, where
+the same export is compiled dozens of times with minor edits to one or two files; carrying the
+cache across runs is `plans/libs/dds_convert.md`. While an entry is retained,
 unchanged textures reuse its converted bytes; eviction may require conversion again.
 
 **Design:**
@@ -267,8 +270,8 @@ unchanged textures reuse its converted bytes; eviction may require conversion ag
   to the finished DDS/FTEX bytes (not the decoded RGBA — the output is what the packing step
   needs).
 - The cache key includes the source content hash and every output-affecting conversion choice:
-  target codec/container, texture role and channel swizzle, mip/color-space settings, and encoder
-  configuration. The source hash is computed at materialization and reused; DXT5 color data and
+  target codec/container, texture role and channel swizzle, and mip/color-space settings —
+  source hash, source format and target. The source hash is computed at materialization and reused; DXT5 color data and
   DXT5nm normal data must not alias merely because they share a codec.
 - Cache misses fall through to the normal decode → mipmap → encode path. The cache is
   consulted after the build manifest has determined the target codec for each texture, so the
@@ -284,7 +287,7 @@ unchanged textures reuse its converted bytes; eviction may require conversion ag
 - A CLI run is one process: it makes its `Converter` per run and drops it with the run, so what
   the cache holds is at most two exports' conversions, which no session accumulates.
   `Converter` retains every distinct conversion until `clear`, and exposes `retained_bytes`
-  and `clear` as the hooks the budget uses.
+  and `clear`; the retention policy that calls them is in `plans/libs/dds_convert.md`.
 
 **What it covers and doesn't:** repeated one/two-team compiles benefit when their working set
 fits the cache. A fresh full-cup compile bypasses it and must pay for every required conversion.

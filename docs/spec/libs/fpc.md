@@ -50,8 +50,7 @@ Consumers: `kit_config` (`apply_fpc(&mut config)` / `matches_fpc(&config)` use `
 template config already carries the FPC values and the compiler never auto-reverts them), `pes_savefile`
 (`ops/fpc.rs` maps `fpc::player` presets onto `PlayerEntry` and runs the interference check), and
 through them the Team compiler (`fpc_on`/`fpc_off` markers, kit reconciliation, `settings.toml`
-validation), the Save editor (FPC toggle, Appearance-tab warnings), the Kit config editor (FPC
-indicator), and the Player aesthetics editor (marker toggles). The wiki's FPC guide
+validation); the editors' uses are in `plans/libs/fpc.md`. The wiki's FPC guide
 (`resources/FPC.wikitext` in this repo) is the source text; each constant carries a doc comment pointing at
 its line there.
 

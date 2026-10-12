@@ -7,21 +7,17 @@ Part of the [Library crates plan](README.md). Section headings are unchanged fro
 Admin rights for the tools that need them, in one small platform crate. Compiling
 into the PES install directory fails on default Windows installs when PES lives
 under `Program Files` — the compilers' normal output target — so all compiler
-tools that write to the PES install directory need an elevation path. The desktop updater can
-also need it for a protected program directory. The match tracker normally reads without
-elevation, but uses the same helpers when process permissions require it.
+tools that write to the PES install directory need an elevation path.
 
 - **Detect + relaunch**: `is_elevated()` plus an elevated relaunch of the current
-  command line (`ShellExecuteExW` with `runas`, i.e. the UAC consent prompt) — the
-  GUI's "run as administrator" action and Red's `admin_tools.py` replacement. The
+  command line (`ShellExecuteExW` with `runas`, i.e. the UAC consent prompt) —
+  Red's `admin_tools.py` replacement. The
   relaunch re-attaches to the same workspace state via ordinary startup (settings
   file, CLI args preserved).
 - **CLI behavior**: an access-denied output path fails cleanly — a clear error and
   a non-zero exit — instead of half-written CPKs.
 
-POSIX builds get euid checks and a sudo hint in place of UAC. Consumers:
-`team_compiler`, `stadium_compiler`, `balls_compiler`, `match_tracker` (when access requires it),
-and the desktop updater.
+POSIX builds get an euid check in place of UAC. Consumers: `team_compiler`.
 
 The crate's whole surface:
 
@@ -46,11 +42,13 @@ pub enum ElevationError {
 Windows: `is_elevated` reads the process token's `TokenElevation`; `relaunch_elevated` is
 `ShellExecuteExW` with the `runas` verb and `SEE_MASK_NOCLOSEPROCESS`, the arguments quoted for
 `CommandLineToArgvW` (a `"` inside an argument doubles the preceding backslashes and escapes the
-quote). POSIX: `geteuid() == 0` through `libc`. The two `unsafe` blocks (token query, shell
-execute) each carry their `// SAFETY:` comment, as the coding rules require for this crate. The
+quote). POSIX: `geteuid() == 0` through `libc`. The `unsafe` blocks (token query, shell
+execute, `geteuid`) each carry their `// SAFETY:` comment, as the coding rules require for this
+crate. The
 `requireAdministrator` manifest feature belongs to the `studio` binary (Phase 8), not here.
-Tests can only cover what runs without a prompt: `is_elevated` returns without panicking and is
-stable across calls, `is_access_denied` on a `PermissionDenied` error and on another kind, the
+Tests can only cover what runs without a prompt: `is_elevated` agrees with the OS's own answer
+(`IsUserAnAdmin` on Windows, `getuid` on POSIX), `is_access_denied` on a `PermissionDenied`
+error and on another kind, the
 argument quoting on the known awkward cases (spaces, embedded quotes, trailing backslashes, an
 empty argument) checked against what `CommandLineToArgvW` gives back.
 

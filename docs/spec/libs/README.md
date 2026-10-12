@@ -1,11 +1,11 @@
 # 4cc Studio — Library crates plan
 
 Covers the small shared lib crates: the binary format parsers (`cpk`, `fpk`, `fmdl`,
-`pes_model`, `ftex`, `uniparam`, `wezlib`), `dds_convert`, `color_tools`,
+`pes_model`, `ftex`, `fox2`, `uniparam`, `wezlib`), `dds_convert`, `color_tools`,
 `vtree`, `pes_version`, `archives`, `elevation`, `fpc`, and `teams_list`. The aesthetics export format's object model, folder conventions,
 and validation live in `aesthetics_export` (shared by the Team compiler, Export upgrader,
 Kit config editor, Refs arranger, and Team creator), specified in the
-[Team compiler plan](../team_compiler/README.md). The two big libs have their own plans:
+[aesthetics export plan](../aesthetics_export/README.md). The two big libs have their own plans:
 [Model conversion](../model_conversion/README.md) (`model_convert` + the mesh algorithms in
 `fmdl`/`pes_model`) and [Savefile](../pes_savefile/README.md) (`pes_savefile`). The `pipeline`
 crate (reader/writer scaffolding, memory budget, folder watcher, check cache, shared `CpkStem`
@@ -17,9 +17,10 @@ crates (`music_export`, `audio_engine`) are specified in the
 in the [Match tracker plan](../../plans/match_tracker/README.md), the kit config codec
 (`kit_config` — binary/TOML, reverse-engineered format documentation) in the
 [Kit config editor plan](../kit_config_editor.md), the AATF rules engine
-(`aatf`) and the shared tactics/card widgets (`team_widgets`) in the [Save editor
-plan](../../plans/save_editor.md), the fox2 parser in the
-[Stadium compiler plan](../../plans/stadium_compiler.md), and the Konami database tables (`pesdb`) in
+(`aatf`) in the [AATF rules plan](../../plans/aatf_rules.md), the shared
+tactics/card widgets (`team_widgets`) in the [Save editor
+plan](../../plans/save_editor.md), the fox2 parser in
+[fox2](fox2.md), and the Konami database tables (`pesdb`) in
 the [DB generator plan](../../plans/db_generator.md). Platform context is in the
 [core plan](../core/README.md).
 
@@ -63,8 +64,6 @@ it is constructed only through that scope root, normalizes separators identicall
 Case-folded and Unicode-normalized collisions are detected before either type enters
 a tree. Joining a `RelativeScopePath` back to its validated root returns a checked
 `ScopePath` and cannot escape or silently collide with an existing entry.
-Filesystem source providers also enforce containment after resolving symlinks/junctions; a safe
-virtual path alone does not prove that its physical source remains inside the export.
 
 ## `pes_version`
 

@@ -688,8 +688,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     status bar). Done 2026-10-12 (SWE-2, first attempt; the lead deleted the `phf` row instead
     of moving it to the plan, since nothing plans it, and fixed `team_compiler/README.md`'s
     `paths.rs` line)
-  - [ ] 5.0j2 `docs/spec/libs/` and the format crates (`.tmp/5_0j/brief_libs.md`), then one
-    slice per remaining folder
+  - [x] 5.0j2 `docs/spec/libs/` and the format crates (`dds_convert` without `wgpu`, the wheel's
+    read/write-only surface, `FALLBACK_AVAILABLE` private, unbuilt consumers moved to plan
+    copies). Done 2026-10-12 (SWE-2, first attempt, no lead changes)
+  - [ ] 5.0j3 onward: one slice per remaining folder (`aesthetics_export` with
+    `kit_config_editor`, `model_conversion` with `model_format`, `pes_savefile`,
+    `team_compiler` README, the rest of `team_compiler`)
 - [x] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
   PES 21, `.tmp/5_2b2/findings.md`): the game stores Anchoring at 0x0A, with 18/19's entries from
   Swarm the Box on shifted up one (Swarm the Box 0x0B, Deep Defensive Line 0x0C, Gegenpress 0x0D,

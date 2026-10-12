@@ -6,7 +6,7 @@ Part of the [Library crates plan](README.md). Section headings are unchanged fro
 
 Members submit exports as folders, `.zip` or `.7z`; the Team compiler reads them in place
 (Team compiler plan, "Load": structure eagerly, contents lazily per folder, the export never
-written to) and the Team creator and Export upgrader extract them. `archives` is the one place
+written to). `archives` is the one place
 that knows the two containers, over any `Read + Seek` source so the crate stays `wasm32`-clean,
 with the disk-path opener behind `cfg(not(target_arch = "wasm32"))`:
 
@@ -40,8 +40,8 @@ loading possible); on a 7z the first `read` decompresses the whole archive into 
 reads are lookups, because 7-Zip's default is one solid LZMA2 block and per-entry extraction of a
 solid archive is quadratic. The Team compiler's memory budget charges a 7z export by the sum of
 its `entries()` sizes for that reason (its plan already says so); dropping the `Archive` releases
-the buffer. Names are normalized (`\` to `/`, a leading `/` or `./` stripped, a directory
-entry's trailing `/` too). Directory entries are listed apart, by `folders()`, not in
+the buffer. Names are normalized (`\` to `/`, empty segments collapsed, a leading `/` or `./`
+stripped, a directory entry's trailing `/` too). Directory entries are listed apart, by `folders()`, not in
 `entries()`: an empty folder exists in an archive only as a directory entry, and an empty kit
 folder is a placeholder kit (Team compiler plan), so dropping them lost a kit; keeping
 `entries()` files only keeps its sizes the sum a 7z read decompresses, which is what the budget
@@ -49,7 +49,7 @@ charges. A folder that also has entries below it may or may not be listed, as th
 `folders()` carries no other guarantee and is not checked for duplicates (a folder holds no
 bytes for two spellings to disagree on). A directory entry naming the archive's own root (`./`,
 `/`, `.`) is skipped, not refused: it names no folder, and refusing it would drop a whole
-export over an entry that says nothing. A name with a `..` segment or a drive prefix (a first segment `X:...`, whatever
+export over an entry that says nothing. A name with a `.` or `..` segment or a drive prefix (a first segment `X:...`, whatever
 follows the colon) is `InvalidName` (a zip-slip name has no meaning in a tree that is never
 written to disk, and rejecting it keeps the guarantee visible). Two entries that normalize to one
 tree path (`a/b` and `a\b`, `./a/b`) are `DuplicateName`, the plan-wide rule that collisions are

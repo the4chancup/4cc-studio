@@ -1861,3 +1861,5 @@ worklog passed 7,000 lines.
   rows, crate tree, launch modes, gates, version); unbuilt ideas moved to `docs/plans/core/`.
 - **2026-10-12** — Step 5.0k: `pes_savefile`'s PES 20/21 instruction table inserts Anchoring at
   0x0A (measured in-game on PES 21; a census of every 17-21 save by side agrees), not at 0x10.
+- **2026-10-12** — Step 5.0j2: `docs/spec/libs/` read against the lib crates and corrected; the
+  unbuilt consumers and the bindings' `ops/` surface moved to plan copies under `docs/plans/libs/`.

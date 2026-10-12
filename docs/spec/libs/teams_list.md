@@ -12,7 +12,8 @@ after an update. It used to be a module of `aesthetics_export`, which made the S
 updater depend on the whole export object model for one file format.
 
 - `name.rs` — `TeamName`: the canonical `/xx/` form. `TeamName::new(token)` applies **the** fold
-  (Unicode `str::to_lowercase`, wrap in slashes; empty token rejected) — the one place the rule
+  (trim, strip one leading and one trailing `/`, Unicode `str::to_lowercase`, wrap in slashes;
+  an empty token or one still holding `/` or whitespace rejected) — the one place the rule
   lives, so the export-name side and the list side cannot drift. `is_referees()` / `is_balls()` /
   `is_reserved()`. Splitting an export display name into its first token is export-format
   knowledge and stays in `aesthetics_export::identity`, which calls `TeamName::new`.
@@ -31,16 +32,18 @@ updater depend on the whole export object model for one file format.
   into the working list: rows only in the incoming list added, rows only in the working list kept,
   conflicts (same name, different ID) taken from the incoming list, an incoming team whose ID a
   placeholder holds taking that slot (a new name replaces the placeholder row in place; an
-  existing name keeps its own row and the placeholder row is removed), then uniqueness of IDs
+  existing name keeps its own row and the placeholder row is removed), an incoming placeholder
+  carried over verbatim when no working row claims its numeric id and no working placeholder
+  shows the same raw `Name` cell, then uniqueness of IDs
   validated on the *final* mapping over every row's claimed id, placeholders included (so two
   teams swapping IDs merge cleanly, and the merged file always parses again), with every
   incoming change behind a remaining collision dropped and the rows recomputed from the working
   list (compute the changes once, then drop and recompute: no undo bookkeeping); returns a
-  `MergeSummary` (added / kept / overridden / unresolved) for the caller to show before writing.
+  `MergeSummary` (added / kept / overridden / unresolved / placeholders_added) for the caller to show before writing.
   Never writes: callers own filesystem I/O and the read-only handling (`teams_list_read_only`).
 
-Consumers: `aesthetics_export` (identity resolution), `team_compiler` (ID cell write),
-`save_editor` (`export-teams-list`), `studio` (post-update merge). `wasm32`-clean. Tested against
+Consumers: `aesthetics_export` (identity resolution), `team_compiler` (ID cell write); the
+later consumers are in `plans/libs/teams_list.md`. `wasm32`-clean. Tested against
 Red's current `teams_list.txt` as a fixture (220 rows, `/umaJP/` mixed case, `/@/`, the `Backup N`
 placeholders) plus reconcile cases for each summary bucket.
 
