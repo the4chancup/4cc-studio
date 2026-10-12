@@ -23,7 +23,9 @@ use crate::schema::fields::{PlayerField, PlayerText, RosterField};
 use crate::schema::ingame_face::INGAME_FACE_FIELDS;
 use crate::schema::limits::face_type_cap;
 use crate::schema::{bit_width, playstyle, schema_for};
-use crate::settings_toml::document::{emit_appearance, leaf_path, padded, parse_appearance};
+use crate::settings_toml::document::{
+    HEX_RUN_EXPECTED, emit_appearance, hex_run, hex_string, leaf_path, padded, parse_appearance,
+};
 use crate::settings_toml::keys::{SettingKey, Source};
 use crate::settings_toml::{
     AppearanceSettings, appearance_from, apply_appearance, get_appearance, set_appearance,
@@ -253,8 +255,7 @@ fn emit_player(out: &mut String, slot: u8, section: &PlayerSection) -> Result<()
 
 /// `"0102…ff"` — lowercase hex.
 fn hex_text(bytes: &[u8]) -> String {
-    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
-    format!("\"{hex}\"")
+    format!("\"{}\"", hex_string(bytes))
 }
 
 /// `{ CF = "A", SS = "B", …, GK = "none" }` — model order (CF is index 0).
@@ -439,33 +440,13 @@ fn flag_names() -> Vec<&'static str> {
 
 /// `"0102…ff"` decoded: even length, 46 or 50 bytes, all hex.
 fn hex(item: &Item, key: &str) -> Result<Vec<u8>, TeamTomlError> {
-    let expected = "a hex string of 46 or 50 bytes";
-    let text =
-        item.as_value()
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| TeamTomlError::WrongType {
-                key: key.to_string(),
-                expected,
-            })?;
-    // Byte length first, then ASCII-hex: a non-ASCII character of the right
-    // byte length must be an error, not a slice panic mid-character.
-    if (text.len() != 92 && text.len() != 100) || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
-        return Err(TeamTomlError::WrongType {
+    item.as_value()
+        .and_then(|v| v.as_str())
+        .and_then(hex_run)
+        .ok_or_else(|| TeamTomlError::WrongType {
             key: key.to_string(),
-            expected,
-        });
-    }
-    let bytes = text
-        .as_bytes()
-        .as_chunks::<2>()
-        .0
-        .iter()
-        .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex digits are UTF-8"), 16)
-                .expect("hex digits parse")
+            expected: HEX_RUN_EXPECTED,
         })
-        .collect();
-    Ok(bytes)
 }
 
 /// `playable = { GK = "none", …, CF = "A" }`: every position required, each a
@@ -1409,6 +1390,28 @@ mod tests {
             err,
             TeamTomlError::WrongType { ref key, .. } if key == "players.01.ingame_face"
         ));
+    }
+
+    /// (h) `[players.NN.appearance.unknown]` is a `settings.toml` table:
+    /// team TOML carries the run as `ingame_face` and refuses the table,
+    /// even with a valid `face`.
+    #[test]
+    fn an_appearance_unknown_table_is_an_unknown_key() {
+        use crate::settings_toml::SettingsError;
+
+        let text = format!(
+            "[players.01.appearance.unknown]\nface = \"{}\"\n",
+            "0".repeat(100)
+        );
+        let err = TeamToml::parse(&text).expect_err("the table is refused");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::Settings(SettingsError::UnknownKey { ref key })
+                    if key == "players.01.appearance.unknown"
+            ),
+            "{err:?}"
+        );
     }
 
     /// The stored-ranges deviation, kept deliberate: a real save's

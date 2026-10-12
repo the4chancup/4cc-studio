@@ -14,7 +14,7 @@ use super::{
 use crate::codec::{read_player, runs, text_max, write_player};
 use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerAppearance;
-use crate::schema::fields::PlayerText;
+use crate::schema::fields::{PlayerField, PlayerText};
 use crate::schema::ingame_face::{INGAME_FACE_FIELDS, IngameFaceField};
 use crate::schema::schema_for;
 use crate::test_support::{count, find_player, payload, record};
@@ -57,6 +57,87 @@ fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
         SettingKey::ALL.len(),
         "a duplicate (table, name)"
     );
+}
+
+/// The completeness invariant, per bit and per version: the appearance
+/// block — the whole appearance record on PES 15/16, the player record
+/// from the `AppearanceId` row's byte to its end on PES 17+ — is carried
+/// exactly once per bit: a `PlayerField` row of the block's record, an
+/// `INGAME_FACE_FIELDS` row inside the run, or the run's undecoded
+/// remainder (`[appearance.unknown]` `face`). Every bit outside the run
+/// is a `PlayerField`'s, so no undecoded bit lies outside the run.
+#[test]
+fn every_bit_of_the_appearance_block_has_one_carrier() {
+    /// What carries one bit of the block.
+    #[derive(Debug, Clone, Copy)]
+    enum Carrier {
+        /// A `PlayerField` row of the record's schema.
+        Field(PlayerField),
+        /// An `INGAME_FACE_FIELDS` row inside the run.
+        Face(IngameFaceField),
+        /// The run's undecoded remainder: `[appearance.unknown]` `face`.
+        Unknown,
+    }
+    /// The carrier's name in a failure message.
+    fn name(carrier: &Carrier) -> String {
+        match carrier {
+            Carrier::Field(field) => format!("{field:?}"),
+            Carrier::Face(field) => format!("ingame_face::{field:?}"),
+            Carrier::Unknown => "unknown".to_string(),
+        }
+    }
+    for version in PesVersion::ALL {
+        let schema = schema_for(version);
+        let (record, block_start) = match &schema.appearance {
+            Some((_, appearance)) => (*appearance, 0),
+            None => {
+                let (_, offset, _) = runs(schema.player)
+                    .find(|(field, _, _)| *field == PlayerField::AppearanceId)
+                    .expect("PES 17+ stores the appearance id");
+                (schema.player, offset as usize / 8)
+            }
+        };
+        let run = record
+            .ingame_face
+            .as_ref()
+            .expect("the block's record carries the run");
+        let run_first_bit = run.byte_offset as usize * 8;
+        let mut carriers: Vec<Vec<Carrier>> = vec![Vec::new(); record.size * 8];
+        for (field, offset, width) in runs(record) {
+            for bit in offset..offset + width {
+                carriers[bit as usize].push(Carrier::Field(field));
+            }
+        }
+        let mut face_bits = HashSet::new();
+        for spec in INGAME_FACE_FIELDS {
+            for bit in spec.bit_offset..spec.bit_offset + spec.bit_width {
+                face_bits.insert(bit);
+                carriers[run_first_bit + bit as usize].push(Carrier::Face(spec.field));
+            }
+        }
+        for bit in 0..run.len * 8 {
+            if !face_bits.contains(&bit) {
+                carriers[run_first_bit + bit as usize].push(Carrier::Unknown);
+            }
+        }
+        for (i, bit_carriers) in carriers[block_start * 8..].iter().enumerate() {
+            assert_eq!(
+                bit_carriers.len(),
+                1,
+                "{version:?} bit {}: carriers {:?}",
+                block_start * 8 + i,
+                bit_carriers.iter().map(name).collect::<Vec<_>>()
+            );
+        }
+        for (i, bit_carriers) in carriers[block_start * 8..run_first_bit].iter().enumerate() {
+            assert!(
+                matches!(bit_carriers.as_slice(), [Carrier::Field(_)]),
+                "{version:?} bit {} outside the run: carriers {:?}",
+                block_start * 8 + i,
+                bit_carriers.iter().map(name).collect::<Vec<_>>()
+            );
+        }
+    }
 }
 
 #[test]
@@ -105,6 +186,37 @@ fn face_field_mask(run_len: usize) -> Vec<u8> {
     mask
 }
 
+/// The first fixture player whose run holds a nonzero undecoded bit: the
+/// `face` tests need real bits to discriminate (an all-zero run would pass
+/// vacuously).
+fn player_with_undecoded_bits(
+    payload: &[u8],
+    schema: &crate::schema::VersionSchema,
+) -> crate::model::player::PlayerEntry {
+    // The record holding the run: the player record on 17+, the id-keyed
+    // appearance record on 15/16.
+    let (section, layout) = schema
+        .appearance
+        .as_ref()
+        .map_or((&schema.players, schema.player), |(section, appearance)| {
+            (section, *appearance)
+        });
+    for i in 0..count(payload, section) {
+        let rec = record(payload, section, layout.size, i);
+        let id = u32::from_le_bytes(rec[..4].try_into().expect("record id"));
+        if id == 0 {
+            continue;
+        }
+        let run = layout.ingame_face.as_ref().expect("the run lives here");
+        let bytes = &rec[run.byte_offset as usize..(run.byte_offset + run.len) as usize];
+        let mask = face_field_mask(bytes.len());
+        if bytes.iter().zip(&mask).any(|(b, m)| b & !m != 0) {
+            return find_player(payload, schema, id);
+        }
+    }
+    panic!("{:?}: no player with an undecoded bit", schema.version);
+}
+
 #[test]
 fn apply_copies_the_settings_and_leaves_the_rest() {
     let payload = payload(PesVersion::Pes19);
@@ -112,8 +224,9 @@ fn apply_copies_the_settings_and_leaves_the_rest() {
     let p = find_player(&payload, schema, 70101);
     let mut q = find_player(&payload, schema, 70102);
 
-    // Flip one undecoded bit of q's run so the check below discriminates: a
-    // wholesale run copy would overwrite it with p's bit.
+    // Flip one undecoded bit of q's run so the check below discriminates:
+    // a keep-the-target's-bits apply would show the flip, `face` overwrites
+    // it with p's bit.
     let mask = face_field_mask(q.appearance.ingame_face.bytes().len());
     let mut run = q.appearance.ingame_face.bytes().to_vec();
     let p_run = p.appearance.ingame_face.bytes();
@@ -154,18 +267,19 @@ fn apply_copies_the_settings_and_leaves_the_rest() {
             "{field:?}"
         );
     }
-    // The undecoded bits are carried, not authored: q's own, not p's.
-    for (byte, (now, was)) in q
+    // The undecoded bits are `face`'s: q's run carries p's now, flipped
+    // bit included.
+    for (byte, (now, src)) in q
         .appearance
         .ingame_face
         .bytes()
         .iter()
-        .zip(q_before.appearance.ingame_face.bytes())
+        .zip(p_run)
         .enumerate()
     {
         assert_eq!(
             now & !mask[byte],
-            was & !mask[byte],
+            src & !mask[byte],
             "undecoded bits of run byte {byte}"
         );
     }
@@ -290,8 +404,9 @@ fn every_key_writes_only_its_own_run() {
 }
 
 /// A default apply writes every appearance key's bits (set ones at their
-/// value, absent ones at their default) and no other bit of the record
-/// (stats, edit flags, the appearance id, the run's undecoded bits).
+/// value, absent ones at their default) plus `face`'s undecoded bits (to
+/// 0), and no other bit of the record (stats, edit flags, the appearance
+/// id).
 #[test]
 fn an_apply_then_write_touches_only_the_appearance_keys_bits() {
     let payload = payload(PesVersion::Pes19);
@@ -317,7 +432,8 @@ fn an_apply_then_write_touches_only_the_appearance_keys_bits() {
 
     // The bit runs of every settings key the version holds (the stock IDs
     // included: unset they are left alone, but their bits are the file's to
-    // write). A key the version has no field for (`dribbling` here) writes
+    // write), plus the whole ingame-face run: `face` writes its undecoded
+    // bits. A key the version has no field for (`dribbling` here) writes
     // nothing, so it contributes no run.
     let run = schema.player.ingame_face.as_ref().expect("a run on PES 19");
     let mut ranges = Vec::new();
@@ -341,6 +457,7 @@ fn an_apply_then_write_touches_only_the_appearance_keys_bits() {
             }
         }
     }
+    ranges.push((run.byte_offset * 8, (run.byte_offset + run.len) * 8));
     let mut diffs = 0usize;
     for (byte, (was, now)) in rec.iter().zip(&written).enumerate() {
         for bit in 0..8 {
@@ -494,6 +611,152 @@ fn the_same_partial_settings_gives_two_players_the_same_appearance() {
     );
 }
 
+/// `from_player`'s `face`: the run's own bytes with every named bit 0 —
+/// a 46-byte run on PES 15, 50 otherwise.
+#[test]
+fn from_player_carries_the_runs_undecoded_bits_with_the_named_ones_zeroed() {
+    for version in [PesVersion::Pes15, PesVersion::Pes19, PesVersion::Pes21] {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        let player = player_with_undecoded_bits(&payload, schema);
+        let run = player.appearance.ingame_face.bytes();
+        let settings = PlayerSettings::from_player(&player).expect("from_player");
+        let face = settings
+            .appearance
+            .unknown
+            .face
+            .as_ref()
+            .expect("a real player carries face");
+        assert_eq!(face.len(), run.len(), "{version:?} run length");
+        let mask = face_field_mask(run.len());
+        for (byte, (&f, &r)) in face.iter().zip(run).enumerate() {
+            assert_eq!(f & mask[byte], 0, "{version:?} byte {byte}: a named bit");
+            assert_eq!(
+                f & !mask[byte],
+                r & !mask[byte],
+                "{version:?} byte {byte}: an undecoded bit"
+            );
+        }
+    }
+}
+
+/// `face` carries the run's undecoded bits across versions, as far as the
+/// target's run reaches: a longer value loses its tail, a shorter one
+/// leaves the rest at 0.
+#[test]
+fn apply_carries_the_undecoded_bits_as_far_as_the_target_run_reaches() {
+    // 50 bytes onto 50 (PES 16 onto PES 21): every undecoded bit lands.
+    let p16 =
+        player_with_undecoded_bits(&payload(PesVersion::Pes16), schema_for(PesVersion::Pes16));
+    let s16 = PlayerSettings::from_player(&p16).expect("from_player");
+    let mut p21 = find_player(
+        &payload(PesVersion::Pes21),
+        schema_for(PesVersion::Pes21),
+        70101,
+    );
+    s16.apply(&mut p21, PesVersion::Pes21).expect("apply");
+    let face16 = s16.appearance.unknown.face.as_ref().expect("face");
+    assert_eq!(p21.appearance.ingame_face.undecoded()[..], face16[..]);
+
+    // 50 onto 46 (PES 21 onto PES 15): the last 4 bytes are dropped, the
+    // first 46 land.
+    let p21s =
+        player_with_undecoded_bits(&payload(PesVersion::Pes21), schema_for(PesVersion::Pes21));
+    let mut s21 = PlayerSettings::from_player(&p21s).expect("from_player");
+    s21.name = None;
+    s21.shirt_name = None;
+    let mut p15 = find_player(
+        &payload(PesVersion::Pes15),
+        schema_for(PesVersion::Pes15),
+        70101,
+    );
+    s21.apply(&mut p15, PesVersion::Pes15).expect("apply");
+    let face21 = s21.appearance.unknown.face.as_ref().expect("face");
+    assert_eq!(p15.appearance.ingame_face.undecoded()[..], face21[..46]);
+
+    // 46 onto 50 (PES 15 onto PES 21): past the value's end the undecoded
+    // bits are 0.
+    let p15s =
+        player_with_undecoded_bits(&payload(PesVersion::Pes15), schema_for(PesVersion::Pes15));
+    let mut s15 = PlayerSettings::from_player(&p15s).expect("from_player");
+    s15.name = None;
+    s15.shirt_name = None;
+    let mut p21b = find_player(
+        &payload(PesVersion::Pes21),
+        schema_for(PesVersion::Pes21),
+        70102,
+    );
+    s15.apply(&mut p21b, PesVersion::Pes21).expect("apply");
+    let face15 = s15.appearance.unknown.face.as_ref().expect("face");
+    let undecoded21 = p21b.appearance.ingame_face.undecoded();
+    assert_eq!(undecoded21[..46], face15[..]);
+    assert!(
+        undecoded21[46..].iter().all(|b| *b == 0),
+        "bytes 46-49's undecoded bits stay 0"
+    );
+}
+
+/// An absent `face` writes all 0 to the undecoded bits: a compiled player
+/// keeps nothing of what the save held there, and the named bits are the
+/// keys' defaults.
+#[test]
+fn an_absent_face_zeroes_the_undecoded_bits() {
+    let mut player =
+        player_with_undecoded_bits(&payload(PesVersion::Pes19), schema_for(PesVersion::Pes19));
+    PlayerSettings::default()
+        .apply(&mut player, PesVersion::Pes19)
+        .expect("apply");
+    assert!(
+        player
+            .appearance
+            .ingame_face
+            .undecoded()
+            .iter()
+            .all(|b| *b == 0),
+        "every undecoded bit is 0"
+    );
+    for key in SettingKey::ALL {
+        if let Source::Face(field) = key.source() {
+            assert_eq!(
+                player.appearance.ingame_face.get(field).expect("named bit"),
+                key.spec().default.expect("a face key carries a default"),
+                "{key:?} at its default"
+            );
+        }
+    }
+}
+
+/// The named bits of a `face` value are ignored on read: the keys own them.
+#[test]
+fn named_bits_set_in_face_do_not_reach_the_named_fields() {
+    let payload = payload(PesVersion::Pes19);
+    let schema = schema_for(PesVersion::Pes19);
+    let p = find_player(&payload, schema, 70101);
+    let mut q = find_player(&payload, schema, 70102);
+    let mut settings = PlayerSettings::from_player(&p).expect("from_player");
+    // All bits set, the named positions included: the keys must still win.
+    let run_len = q.appearance.ingame_face.bytes().len();
+    settings.appearance.unknown.face = Some(vec![0xFF; run_len]);
+    settings.name = None;
+    settings.shirt_name = None;
+    settings.apply(&mut q, PesVersion::Pes19).expect("apply");
+    for field in IngameFaceField::ALL {
+        assert_eq!(
+            q.appearance.ingame_face.get(field).expect("named bit"),
+            p.appearance.ingame_face.get(field).expect("named bit"),
+            "{field:?} is the key's value, not face's"
+        );
+    }
+    let mask = face_field_mask(run_len);
+    for (byte, &b) in q.appearance.ingame_face.bytes().iter().enumerate() {
+        assert_eq!(
+            b & !mask[byte],
+            !mask[byte],
+            "byte {byte}: the undecoded bits are all set"
+        );
+    }
+}
+
 #[test]
 fn get_after_set_round_trips_every_key() {
     for key in SettingKey::ALL {
@@ -596,10 +859,8 @@ fn an_unset_settings_is_empty_and_default() {
 // The TOML half: the template, the parser's errors, `update_toml`.
 
 /// The key-table block of `docs/plans/aesthetics_export/settings_toml.md`,
-/// verbatim except its tail (the `[appearance.unknown]` table, its two
-/// comment lines and the blank before them, which a later slice adds):
-/// `to_toml` of the settings the block parses to must reproduce it byte for
-/// byte.
+/// verbatim: `to_toml` of the settings the block parses to must reproduce
+/// it byte for byte.
 const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key is optional: an absent key takes the
 # value shown here (name and shirt_name: not written). A commented key shows what can be
 # set and its range. The file never references the export's models: what a player wears
@@ -674,6 +935,11 @@ neck_line_type = 0              # 0 to 2 (PES 20 and 21: 0 to 3)
 nose_type = 0                   # 0 to 6 (PES 20 and 21: 0 to 7)
 upper_lip_type = 0              # 0 to 3 (PES 20 and 21: 0 to 4)
 lower_lip_type = 0              # 0 to 2 (PES 20 and 21: 0 to 4)
+
+# The in-game face's bits no tool has decoded yet (hair, face sliders, ...), kept so a
+# player's look survives. Leave them as generated.
+[appearance.unknown]
+face = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 "#;
 
 #[test]
@@ -743,6 +1009,12 @@ fn to_toml_of_a_default_is_a_fully_commented_template() {
         PlayerSettings::default(),
         "a commented file is an empty settings"
     );
+    // No `[appearance.unknown]` table, not even commented: a template for a
+    // new player folder has no player's bits to carry.
+    assert!(
+        !text.lines().any(|line| line.contains("unknown")),
+        "an unknown line emitted: {text}"
+    );
 }
 
 #[test]
@@ -804,6 +1076,10 @@ fn to_toml_round_trips_a_real_player_through_text() {
         let reparsed = PlayerSettings::parse(&text).expect("the emitted text parses");
         assert_eq!(reparsed, settings, "{version:?} player 70101 through text");
         assert_eq!(
+            reparsed.appearance.unknown.face, settings.appearance.unknown.face,
+            "{version:?} face through text"
+        );
+        assert_eq!(
             reparsed.shirt_name,
             Some(player.shirt_name.clone()),
             "{version:?} shirt name through text"
@@ -815,6 +1091,76 @@ fn to_toml_round_trips_a_real_player_through_text() {
             );
         }
     }
+}
+
+/// `face` is the run's hex: 46 or 50 bytes. A wrong byte count, an odd
+/// digit count or a non-hex char is `WrongType`; another key in the table
+/// is `UnknownKey`.
+#[test]
+fn appearance_unknown_parses_only_a_46_or_50_byte_hex_face() {
+    for (text, why) in [
+        // 49 bytes: one short of the 50-byte form.
+        (
+            format!("[appearance.unknown]\nface = \"{}\"\n", "0".repeat(98)),
+            "49 bytes",
+        ),
+        // An odd digit count cannot be bytes at all.
+        (
+            "[appearance.unknown]\nface = \"012\"\n".to_string(),
+            "an odd digit count",
+        ),
+        // 50 bytes with a non-hex char.
+        (
+            format!("[appearance.unknown]\nface = \"z{}\"\n", "0".repeat(99)),
+            "a non-hex char",
+        ),
+    ] {
+        match PlayerSettings::parse(&text) {
+            Err(SettingsError::WrongType { key, expected }) => assert_eq!(
+                (key.as_str(), expected),
+                ("appearance.unknown.face", "a hex string of 46 or 50 bytes"),
+                "{why}"
+            ),
+            other => panic!("{why}: expected WrongType, got {other:?}"),
+        }
+    }
+    match PlayerSettings::parse(&format!(
+        "[appearance.unknown]\nface = \"{}\"\nother = 1\n",
+        "0".repeat(100)
+    )) {
+        Err(SettingsError::UnknownKey { key }) => {
+            assert_eq!(key, "appearance.unknown.other")
+        }
+        other => panic!("expected UnknownKey, got {other:?}"),
+    }
+}
+
+/// `update_toml` sets `face`, creating `[appearance.unknown]` when the
+/// document lacks it, as it does for the other tables.
+#[test]
+fn update_toml_writes_face_creating_the_table() {
+    let mut document: DocumentMut = "[appearance]\nskin_color = 1\n"
+        .parse()
+        .expect("document parses");
+    let mut settings = PlayerSettings::default();
+    settings.appearance.unknown.face = Some(vec![0xAB; 50]);
+    settings.update_toml(&mut document).expect("update");
+    let text = document.to_string();
+    assert!(
+        text.contains(&format!(
+            "[appearance.unknown]\nface = \"{}\"",
+            "ab".repeat(50)
+        )),
+        "{text}"
+    );
+    assert_eq!(
+        PlayerSettings::parse(&text)
+            .expect("the updated document parses")
+            .appearance
+            .unknown
+            .face,
+        Some(vec![0xAB; 50])
+    );
 }
 
 #[test]

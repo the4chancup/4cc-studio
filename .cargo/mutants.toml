@@ -142,6 +142,10 @@ exclude_re = [
     # the chain after chunk 0, leave the chunks equal, and stay in: the
     # pairwise-distinct test kills them.
     "replace > with >= in fresh_salt",
+    # pes_savefile 5.1a5: `write_undecoded`'s `(byte & mask) | (source & !mask)` -> `^` is
+    # equivalent: the two operands are masked by a mask and its complement, so they share no
+    # set bit and `|` and `^` give the same byte.
+    "replace \\| with \\^ in IngameFace::write_undecoded",
     # team_compiler 4.y-conv equivalences (the whole-crate run of 2026-10-09):
     # `centre_square`'s and `letterboxed`'s `width > height` -> `>=` are equivalent. Both
     # are called by `squared` alone, after its `width == height` early return, so the two

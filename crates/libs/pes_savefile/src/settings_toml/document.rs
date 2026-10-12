@@ -30,6 +30,37 @@ const HEADER: &str = "\
 # team without a manager); otherwise they are ignored and the manager's names stand.
 ";
 
+/// The expected text of the ingame-face run's hex form, shared by
+/// `settings.toml`'s `[appearance.unknown]` `face` and team TOML's
+/// `ingame_face`.
+pub(crate) const HEX_RUN_EXPECTED: &str = "a hex string of 46 or 50 bytes";
+
+/// `"0102…ff"` decoded: 46 or 50 bytes of hex; `None` on any other text,
+/// the callers mapping it to their own `WrongType`. Byte length first,
+/// then ASCII-hex: a non-ASCII character of the right byte length must be
+/// a refusal, not a mid-character slice panic.
+pub(crate) fn hex_run(text: &str) -> Option<Vec<u8>> {
+    if (text.len() != 92 && text.len() != 100) || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    Some(
+        text.as_bytes()
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| {
+                u8::from_str_radix(std::str::from_utf8(pair).expect("hex digits are UTF-8"), 16)
+                    .expect("hex digits parse")
+            })
+            .collect(),
+    )
+}
+
+/// `"0102…ff"` — the run's bytes as lowercase hex.
+pub(crate) fn hex_string(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 /// The dotted path of a key ("appearance.strip.sleeves"; a top-level key is
 /// just its name).
 pub(super) fn dotted(spec: &keys::KeySpec) -> String {
@@ -298,7 +329,7 @@ fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
     for (name, item) in document.iter() {
         match name {
             "name" | "shirt_name" => {}
-            "appearance" => reject_unknown_table(item, "appearance", "appearance")?,
+            "appearance" => reject_unknown_table(item, "appearance", "appearance", true)?,
             _ if SettingKey::ALL
                 .iter()
                 .any(|key| key.spec().table == KeyTable::Top && key.spec().name == name) => {}
@@ -314,7 +345,15 @@ fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
 
 /// The recursive half of [`reject_unknown`] and [`parse_appearance`]: `root`
 /// is the appearance table's own dotted path, `path` the table being walked.
-fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), SettingsError> {
+/// `allow_unknown` marks `[root.unknown]` a known table (settings.toml only:
+/// team TOML carries the run as `[players.NN] ingame_face` instead); its one
+/// key is `face`.
+fn reject_unknown_table(
+    item: &Item,
+    root: &str,
+    path: &str,
+    allow_unknown: bool,
+) -> Result<(), SettingsError> {
     let Some(table) = item.as_table_like() else {
         return Err(SettingsError::WrongType {
             key: path.to_string(),
@@ -323,16 +362,29 @@ fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), Setti
     };
     for (leaf, sub) in table.iter() {
         let child = format!("{path}.{leaf}");
-        if SettingKey::ALL.iter().any(|key| {
-            key.spec().table != KeyTable::Top && absolute(root, key.spec().table) == child
-        }) {
-            if !sub.is_table_like() {
+        let unknown_table = allow_unknown && path == root && leaf == "unknown";
+        if unknown_table
+            || SettingKey::ALL.iter().any(|key| {
+                key.spec().table != KeyTable::Top && absolute(root, key.spec().table) == child
+            })
+        {
+            let Some(sub_table) = sub.as_table_like() else {
                 return Err(SettingsError::WrongType {
                     key: child,
                     expected: "a table",
                 });
+            };
+            if unknown_table {
+                for (name, _) in sub_table.iter() {
+                    if name != "face" {
+                        return Err(SettingsError::UnknownKey {
+                            key: format!("{child}.{name}"),
+                        });
+                    }
+                }
+            } else {
+                reject_unknown_table(sub, root, &child, allow_unknown)?;
             }
-            reject_unknown_table(sub, root, &child)?;
         } else if !SettingKey::ALL.iter().any(|key| {
             key.spec().table != KeyTable::Top
                 && absolute(root, key.spec().table) == path
@@ -393,14 +445,46 @@ pub(crate) fn parse_appearance(
         let stored = value(&leaf, key, item, stored_ranges)?;
         set_appearance(&mut out, key, Some(stored));
     }
-    reject_unknown_table(item, path, path)?;
+    // `[appearance.unknown]` is a settings.toml table: `stored_ranges` (team
+    // TOML) carries the run as its own `ingame_face` hex and the reject
+    // sweep refuses the table there.
+    if !stored_ranges && let Some(item) = appearance.get("unknown") {
+        out.unknown.face = unknown_face(item, &format!("{path}.unknown"))?;
+    }
+    reject_unknown_table(item, path, path, !stored_ranges)?;
     Ok(out)
+}
+
+/// `[appearance.unknown]`'s `face`: the run's hex of 46 or 50 bytes; `None`
+/// when the key is absent. A non-table `unknown` is `WrongType`; any other
+/// key in the table is left to the reject sweep's `UnknownKey`.
+fn unknown_face(item: &Item, path: &str) -> Result<Option<Vec<u8>>, SettingsError> {
+    let Some(table) = item.as_table_like() else {
+        return Err(SettingsError::WrongType {
+            key: path.to_string(),
+            expected: "a table",
+        });
+    };
+    let Some(item) = table.get("face") else {
+        return Ok(None);
+    };
+    let bytes = item
+        .as_value()
+        .and_then(|v| v.as_str())
+        .and_then(hex_run)
+        .ok_or_else(|| SettingsError::WrongType {
+            key: format!("{path}.face"),
+            expected: HEX_RUN_EXPECTED,
+        })?;
+    Ok(Some(bytes))
 }
 
 /// The `[prefix]` table plus its four subtables appended to `out`, in key
 /// order: a `Some` emits its line with the key's comment, a `None` the
 /// commented line at the key's default. Shared with `team_toml`'s
-/// `[players.NN.appearance]`.
+/// `[players.NN.appearance]` (`stored_ranges` mode): the `[prefix.unknown]`
+/// table is a settings.toml construct — team TOML carries the run as
+/// `[players.NN] ingame_face`, so it never emits here.
 pub(crate) fn emit_appearance(
     out: &mut String,
     prefix: &str,
@@ -444,6 +528,17 @@ pub(crate) fn emit_appearance(
             None => out.push_str(&format!("# {line}")),
         }
         out.push('\n');
+    }
+    // The template's tail, verbatim: `None` emits nothing, no commented
+    // line either (a new player folder's template holds no unknown table).
+    if !stored_ranges && let Some(face) = &appearance.unknown.face {
+        out.push_str(&format!(
+            "\n# The in-game face's bits no tool has decoded yet (hair, face sliders, ...), kept so a\n\
+            # player's look survives. Leave them as generated.\n\
+            [{prefix}.unknown]\n\
+            face = \"{}\"\n",
+            hex_string(face)
+        ));
     }
     Ok(())
 }
@@ -586,46 +681,61 @@ impl PlayerSettings {
             let Some(stored) = self.get(key) else {
                 continue;
             };
-            let mut item = document.as_item_mut();
-            let mut path = String::new();
-            for segment in spec.table.path().split('.') {
-                if !path.is_empty() {
-                    path.push('.');
-                }
-                path.push_str(segment);
-                let child = match item {
-                    Item::Table(table) => {
-                        if !table.contains_key(segment) {
-                            table.insert(segment, Item::Table(toml_edit::Table::new()));
-                        }
-                        table.get_mut(segment).expect("just inserted")
-                    }
-                    Item::Value(Value::InlineTable(_)) => {
-                        let child = &mut item[segment];
-                        if matches!(child, Item::None) {
-                            *child = Item::Value(Value::InlineTable(toml_edit::InlineTable::new()));
-                        }
-                        child
-                    }
-                    _ => {
-                        return Err(SettingsError::WrongType {
-                            key: path,
-                            expected: "a table",
-                        });
-                    }
-                };
-                match child {
-                    Item::Table(_) | Item::Value(Value::InlineTable(_)) => item = child,
-                    _ => {
-                        return Err(SettingsError::WrongType {
-                            key: path,
-                            expected: "a table",
-                        });
-                    }
-                }
-            }
+            let item = table_at(document, spec.table.path())?;
             set(&mut item[spec.name], toml_form(key, stored, false)?);
+        }
+        if let Some(face) = &self.appearance.unknown.face {
+            let item = table_at(document, "appearance.unknown")?;
+            set(&mut item["face"], hex_string(face).into());
         }
         Ok(())
     }
+}
+
+/// The table item at `table_path` ("appearance.strip"), created as a
+/// standard table where the document lacks it; a position holding a
+/// non-table is `WrongType` naming the walked path.
+fn table_at<'a>(
+    document: &'a mut DocumentMut,
+    table_path: &str,
+) -> Result<&'a mut Item, SettingsError> {
+    let mut item = document.as_item_mut();
+    let mut path = String::new();
+    for segment in table_path.split('.') {
+        if !path.is_empty() {
+            path.push('.');
+        }
+        path.push_str(segment);
+        let child = match item {
+            Item::Table(table) => {
+                if !table.contains_key(segment) {
+                    table.insert(segment, Item::Table(toml_edit::Table::new()));
+                }
+                table.get_mut(segment).expect("just inserted")
+            }
+            Item::Value(Value::InlineTable(_)) => {
+                let child = &mut item[segment];
+                if matches!(child, Item::None) {
+                    *child = Item::Value(Value::InlineTable(toml_edit::InlineTable::new()));
+                }
+                child
+            }
+            _ => {
+                return Err(SettingsError::WrongType {
+                    key: path,
+                    expected: "a table",
+                });
+            }
+        };
+        match child {
+            Item::Table(_) | Item::Value(Value::InlineTable(_)) => item = child,
+            _ => {
+                return Err(SettingsError::WrongType {
+                    key: path,
+                    expected: "a table",
+                });
+            }
+        }
+    }
+    Ok(item)
 }

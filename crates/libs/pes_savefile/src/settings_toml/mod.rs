@@ -59,6 +59,8 @@ pub struct AppearanceSettings {
     pub motion: MotionSettings,
     /// `[appearance.face]`.
     pub face: FaceSettings,
+    /// `[appearance.unknown]`.
+    pub unknown: UnknownSettings,
 }
 
 /// The `[appearance.physique]` table.
@@ -148,6 +150,18 @@ pub struct MotionSettings {
     pub goal_celebration_1: Option<u8>,
     /// Second goal celebration.
     pub goal_celebration_2: Option<u8>,
+}
+
+/// The `[appearance.unknown]` table: the appearance block's undecoded bits
+/// as raw bytes, so a generated file carries a player's whole look (hair,
+/// face sliders and every colour beyond skin and iris included).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UnknownSettings {
+    /// The ingame-face run's bytes in record order, the bits a named key
+    /// carries written as 0 (46 bytes for a PES 15 player, 50 otherwise).
+    /// `apply` writes its undecoded bits as far as the target's run
+    /// reaches; `None` writes all 0.
+    pub face: Option<Vec<u8>>,
 }
 
 /// The `[appearance.face]` table: the eleven feature types of the
@@ -514,6 +528,8 @@ impl PlayerSettings {
                 settings.set(key, value)?;
             }
         }
+        // The run's undecoded bits, the named ones 0: what `face` carries.
+        settings.appearance.unknown.face = Some(player.appearance.ingame_face.undecoded());
         Ok(settings)
     }
 
@@ -532,6 +548,9 @@ impl PlayerSettings {
     /// The two stock IDs are the exceptions: a `Some` writes the ID, a `None`
     /// leaves the stored ID for the compiler to resolve. A `Some` the key's
     /// kind cannot represent is `OutOfRange`, checked before any write.
+    /// `[appearance.unknown]` `face` then writes the run's undecoded bits:
+    /// the matching bit per bit no key names, as far as the target's run
+    /// reaches (all 0 when `None`).
     pub fn apply(
         &self,
         player: &mut PlayerEntry,
@@ -596,6 +615,13 @@ impl PlayerSettings {
             set_appearance(&mut appearance, key, value);
         }
         write_appearance(&appearance, &mut next)?;
+        // `face` is the run's undecoded bits, written as far as the
+        // target's run reaches: all 0 when `None`, 0 past the value's end,
+        // bytes past the run's end dropped. The named bits stay as the
+        // keys wrote them.
+        next.appearance
+            .ingame_face
+            .write_undecoded(appearance.unknown.face.as_deref().unwrap_or(&[]));
         *player = next;
         Ok(())
     }

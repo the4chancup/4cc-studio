@@ -572,10 +572,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       is skipped. Done 2026-10-12 (SWE-2, first attempt; it used `player_has` where the
       brief named a check that would have skipped every PES 15/16 appearance key; with
       review R1's two fixes)
-    - [ ] 5.1a5 the unknown bits: `face` on `AppearanceSettings`, `[appearance.unknown] face`
+    - [x] 5.1a5 the unknown bits: `face` on `AppearanceSettings`, `[appearance.unknown] face`
       parsed and emitted (Team TOML refuses the table until 5.1d removes its hex), the
       per-bit completeness test; one slice, since the model half alone breaks the
-      settings text round trip
+      settings text round trip. Done 2026-10-12 (SWE-2, first attempt)
+    - [ ] 5.1a6 review R2's rework: `settings_toml/tests.rs` split in two, an enum naming
+      the document where `emit_appearance`'s bool decides more than the range mode, the
+      module doc, absent = default tested on PES 15/16, a multibyte `name` at its byte
+      capacity
   - [ ] 5.1b the Fox `PlayerAppearance.bin` row from a `PlayerSettings`, the PES 18 and 19
     offsets measured (the games' own rows against save records) → done when: a fixture save's
     records round-trip through rows on PES 18 to 21
@@ -590,7 +594,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   pass
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
-    findings, the out-of-range rule (a key's default; a key the target lacks dropped silently),
+    findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;
+    `pes_savefile` exposes no per-version range yet, so it gains one first: today
+    `PlayerSettings::apply` takes a PES 21 file's `hunching_dribbling = 5` for PES 18 and the
+    codec refuses it only at write, review R2.S1-1),
     the `autopilot` marker in `aesthetics_export`; settle issue "shared IDs and retained rows"
     first; TC-BIN-10/17/22 marked `withdrawn: restated as TC-BIN-25/26/27` in the commit that
     rewires their citing tests (`tests/cli/bins.rs`) → done when: TC-BIN-25 to 33 and TC-REF-19

@@ -1795,3 +1795,5 @@ worklog passed 7,000 lines.
   names against the target version's fields. SWE-2, first attempt.
 - **2026-10-12** — Step 5.1a4: an absent `settings.toml` appearance key writes the template's
   value; a key the target version lacks is skipped. SWE-2, first attempt.
+- **2026-10-12** — Step 5.1a5: `[appearance.unknown] face` carries the ingame-face run's undecoded
+  bits (in-game hair) between versions; a per-bit completeness test over every version. SWE-2.

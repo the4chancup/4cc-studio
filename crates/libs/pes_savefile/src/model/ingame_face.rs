@@ -19,6 +19,21 @@ fn spec(field: IngameFaceField) -> &'static FieldSpec<IngameFaceField> {
         .expect("INGAME_FACE_FIELDS covers every variant; checked by schema::ingame_face::tests")
 }
 
+/// The bits `fields` cover in a `len`-byte run, as a per-byte mask (bits a
+/// field holds past the run's end are skipped).
+fn field_mask(len: usize, fields: impl Iterator<Item = IngameFaceField>) -> Vec<u8> {
+    let mut mask = vec![0u8; len];
+    for field in fields {
+        let spec = spec(field);
+        for bit in spec.bit_offset..spec.bit_offset + spec.bit_width {
+            if let Some(byte) = mask.get_mut((bit / 8) as usize) {
+                *byte |= 1 << (bit % 8);
+            }
+        }
+    }
+    mask
+}
+
 impl IngameFace {
     /// Whether the run's bytes reach the field's last bit.
     fn covers(&self, spec: &FieldSpec<IngameFaceField>) -> bool {
@@ -70,14 +85,11 @@ impl IngameFace {
 
     /// The run with `fields`' bits zeroed.
     fn masked(&self, fields: impl Iterator<Item = IngameFaceField>) -> Vec<u8> {
-        let mut out = self.0.clone();
-        for field in fields {
-            let spec = spec(field);
-            if self.covers(spec) {
-                bits::write_bits(&mut out, spec.bit_offset, spec.bit_width, 0);
-            }
-        }
-        out
+        field_mask(self.0.len(), fields)
+            .iter()
+            .zip(&self.0)
+            .map(|(mask, byte)| byte & !mask)
+            .collect()
     }
 
     /// The run with the player-gloves and skin bits zeroed: what the
@@ -98,6 +110,16 @@ impl IngameFace {
     /// `IngameFaceField` names, which the comparator reports as one row.
     pub(crate) fn undecoded(&self) -> Vec<u8> {
         self.masked(IngameFaceField::ALL.into_iter())
+    }
+
+    /// Sets every bit no `IngameFaceField` covers to `source`'s matching bit
+    /// (0 past `source`'s end; `source` bytes past this run's own end are
+    /// dropped). The named bits keep theirs.
+    pub(crate) fn write_undecoded(&mut self, source: &[u8]) {
+        let named = field_mask(self.0.len(), IngameFaceField::ALL.into_iter());
+        for (byte, mask) in named.iter().enumerate() {
+            self.0[byte] = (self.0[byte] & mask) | (source.get(byte).copied().unwrap_or(0) & !mask);
+        }
     }
 
     /// Copies `source`'s bytes over this run's prefix (`min` of the two
