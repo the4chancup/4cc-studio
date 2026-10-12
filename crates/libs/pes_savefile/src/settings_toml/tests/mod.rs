@@ -65,3 +65,17 @@ fn player_with_undecoded_bits(
     }
     panic!("{:?}: no player with an undecoded bit", schema.version);
 }
+
+/// The `schema.players` index of the record whose decoded `id` is `id`.
+fn player_record_index(payload: &[u8], schema: &crate::schema::VersionSchema, id: u32) -> usize {
+    (0..count(payload, &schema.players))
+        .find(|&i| {
+            read_player(
+                record(payload, &schema.players, schema.player.size, i),
+                schema.player,
+            )
+            .expect("decode")
+            .id == id
+        })
+        .expect("the player's record")
+}

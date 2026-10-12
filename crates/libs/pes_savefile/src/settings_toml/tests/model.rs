@@ -43,10 +43,14 @@ fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
 /// The completeness invariant, per bit and per version: the appearance
 /// block — the whole appearance record on PES 15/16, the player record
 /// from the `AppearanceId` row's byte to its end on PES 17+ — is carried
-/// exactly once per bit: a `PlayerField` row of the block's record, an
-/// `INGAME_FACE_FIELDS` row inside the run, or the run's undecoded
-/// remainder (`[appearance.unknown]` `face`). Every bit outside the run
-/// is a `PlayerField`'s, so no undecoded bit lies outside the run.
+/// exactly once per bit: a `PlayerField` row of the block's record (a
+/// settings key's or compiler-owned, never `Gameplay`; the PES 15/16
+/// appearance record's own `Id`, the record's join key, is the one
+/// exception), an `INGAME_FACE_FIELDS` row inside the run, or the run's
+/// undecoded remainder (`[appearance.unknown]` `face`). A face or
+/// undecoded carrier can only sit inside the run, and a bit no carrier
+/// covers fails the exactly-one check, so no undecoded bit lies outside
+/// the run by construction.
 #[test]
 fn every_bit_of_the_appearance_block_has_one_carrier() {
     /// What carries one bit of the block.
@@ -109,14 +113,17 @@ fn every_bit_of_the_appearance_block_has_one_carrier() {
                 block_start * 8 + i,
                 bit_carriers.iter().map(name).collect::<Vec<_>>()
             );
-        }
-        for (i, bit_carriers) in carriers[block_start * 8..run_first_bit].iter().enumerate() {
-            assert!(
-                matches!(bit_carriers.as_slice(), [Carrier::Field(_)]),
-                "{version:?} bit {} outside the run: carriers {:?}",
-                block_start * 8 + i,
-                bit_carriers.iter().map(name).collect::<Vec<_>>()
-            );
+            // A field carrier is a settings key's or compiler-owned, never
+            // gameplay; the PES 15/16 appearance record's own `Id` is the
+            // exception — its first u32 is the record's join key, not a
+            // setting.
+            if let [Carrier::Field(field)] = bit_carriers.as_slice() {
+                assert!(
+                    *field == PlayerField::Id || ownership(*field) != Ownership::Gameplay,
+                    "{version:?} bit {}: gameplay field {field:?} carries the bit",
+                    block_start * 8 + i,
+                );
+            }
         }
     }
 }
@@ -267,16 +274,7 @@ fn height_and_weight_are_not_settings() {
 fn every_key_writes_only_its_own_run() {
     let payload = payload(PesVersion::Pes21);
     let schema = schema_for(PesVersion::Pes21);
-    let index = (0..count(&payload, &schema.players))
-        .find(|&i| {
-            read_player(
-                record(&payload, &schema.players, schema.player.size, i),
-                schema.player,
-            )
-            .expect("decode")
-            .id == 70101
-        })
-        .expect("player 70101's record");
+    let index = player_record_index(&payload, schema, 70101);
     let rec = record(&payload, &schema.players, schema.player.size, index);
     let run = schema.player.ingame_face.as_ref().expect("a run on PES 21");
     for key in SettingKey::ALL {
@@ -354,16 +352,7 @@ fn an_apply_then_write_touches_only_the_appearance_keys_bits() {
         .apply(&mut player, PesVersion::Pes19)
         .expect("apply");
 
-    let index = (0..count(&payload, &schema.players))
-        .find(|&i| {
-            read_player(
-                record(&payload, &schema.players, schema.player.size, i),
-                schema.player,
-            )
-            .expect("decode")
-            .id == 70101
-        })
-        .expect("player 70101's record");
+    let index = player_record_index(&payload, schema, 70101);
     let rec = record(&payload, &schema.players, schema.player.size, index);
     let mut written = rec.to_vec();
     write_player(&player, &mut written, schema.player).expect("encode");
@@ -483,16 +472,7 @@ fn a_default_settings_applies_the_template_values() {
         // Write through the codec and reread: on PES 15/16 the appearance
         // lives in its own record, so both records round-trip.
         let mut written = payload.clone();
-        let index = (0..count(&payload, &schema.players))
-            .find(|&i| {
-                read_player(
-                    record(&payload, &schema.players, schema.player.size, i),
-                    schema.player,
-                )
-                .expect("decode")
-                .id == 70101
-            })
-            .expect("player 70101's record");
+        let index = player_record_index(&payload, schema, 70101);
         let start = schema.players.offset + index * schema.player.size;
         write_player(
             &player,
@@ -672,6 +652,7 @@ fn apply_carries_the_undecoded_bits_as_far_as_the_target_run_reaches() {
     let face15 = s15.appearance.unknown.face.as_ref().expect("face");
     let undecoded21 = p21b.appearance.ingame_face.undecoded();
     assert_eq!(undecoded21[..46], face15[..]);
+    assert_eq!(undecoded21.len(), 50, "the target's run keeps its 50 bytes");
     assert!(
         undecoded21[46..].iter().all(|b| *b == 0),
         "bytes 46-49's undecoded bits stay 0"

@@ -37,8 +37,8 @@ pub(crate) const HEX_RUN_EXPECTED: &str = "a hex string of 46 or 50 bytes";
 
 /// `"0102…ff"` decoded: 46 or 50 bytes of hex; `None` on any other text,
 /// the callers mapping it to their own `WrongType`. Byte length first,
-/// then ASCII-hex: a non-ASCII character of the right byte length must be
-/// a refusal, not a mid-character slice panic.
+/// then ASCII-hex: a text that is not all ASCII hex of the right length
+/// is refused before decoding, so the decode's `expect`s cannot fire.
 pub(crate) fn hex_run(text: &str) -> Option<Vec<u8>> {
     if (text.len() != 92 && text.len() != 100) || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
         return None;
@@ -691,7 +691,7 @@ impl PlayerSettings {
     /// comments and formatting; `None` keys are left as the user wrote them
     /// (a commented key stays commented). Missing tables are created as
     /// standard tables; no comments are added. A table position
-    /// (`appearance` or one of its four subtables) holding a non-table item
+    /// (`appearance` or one of its subtables) holding a non-table item
     /// is `WrongType`.
     pub fn update_toml(&self, document: &mut DocumentMut) -> Result<(), SettingsError> {
         fn set(item: &mut Item, value: Value) {

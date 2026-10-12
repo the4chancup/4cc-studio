@@ -220,10 +220,6 @@ fn to_toml_round_trips_a_real_player_through_text() {
         let reparsed = PlayerSettings::parse(&text).expect("the emitted text parses");
         assert_eq!(reparsed, settings, "{version:?} player 70101 through text");
         assert_eq!(
-            reparsed.appearance.unknown.face, settings.appearance.unknown.face,
-            "{version:?} face through text"
-        );
-        assert_eq!(
             reparsed.shirt_name,
             Some(player.shirt_name.clone()),
             "{version:?} shirt name through text"
@@ -279,6 +275,14 @@ fn appearance_unknown_parses_only_a_46_or_50_byte_hex_face() {
     }
 }
 
+/// An `[appearance.unknown]` table present but holding no `face` parses
+/// as unset, like an absent key.
+#[test]
+fn an_appearance_unknown_table_without_face_parses_as_none() {
+    let settings = PlayerSettings::parse("[appearance.unknown]\n").expect("parses");
+    assert_eq!(settings.appearance.unknown.face, None);
+}
+
 /// `update_toml` sets `face`, creating `[appearance.unknown]` when the
 /// document lacks it, as it does for the other tables.
 #[test]
@@ -304,6 +308,25 @@ fn update_toml_writes_face_creating_the_table() {
             .unknown
             .face,
         Some(vec![0xAB; 50])
+    );
+}
+
+/// A settings whose `face` is `None` leaves an existing document's
+/// `face` line alone: an editor rewriting a file keeps the table.
+#[test]
+fn update_toml_with_no_face_keeps_the_documents_line() {
+    let hex = "ab".repeat(50);
+    let mut document: DocumentMut = format!("[appearance.unknown]\nface = \"{hex}\"   # keep me\n")
+        .parse()
+        .expect("document parses");
+    let mut settings = PlayerSettings::default();
+    settings.set(SettingKey::Sleeves, 2).expect("in range");
+    settings.update_toml(&mut document).expect("update");
+    assert_eq!(
+        document.to_string(),
+        format!(
+            "[appearance.unknown]\nface = \"{hex}\"   # keep me\n\n[appearance.strip]\nsleeves = \"long\"\n"
+        )
     );
 }
 

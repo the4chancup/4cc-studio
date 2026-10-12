@@ -11,8 +11,8 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 4 (Processing logic) closed 2026-10-12. Phases 1 to 3 done (Phase 3 closed 2026-10-02,
 Phase 2 2026-09-30).
-**Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h done, the itemized
-steps from 5.1 next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
+**Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and step 5.1a done,
+5.1b next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -552,7 +552,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
 
 - [ ] 5.1 `pes_savefile`'s Phase 5 model (`pes_savefile/model.md` "Planned for Phase 5"), in
   slices:
-  - [ ] 5.1a the appearance-block player id modeled on the entry, outside `PlayerAppearance`
+  - [x] 5.1a the appearance-block player id modeled on the entry, outside `PlayerAppearance`
     (issue "player id versus appearance id"); height and weight out of the key table;
     `shirt_name`; absent = default; `[appearance.unknown]`'s `face` (DECISIONS 2026-10-12, "the
     ingame-face run's undecoded bits travel between versions") → done when: the completeness
@@ -580,10 +580,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       the document where `emit_appearance`'s bool decides more than the range mode, the
       module doc, absent = default tested on PES 15/16, a multibyte `name` at its byte
       capacity. Done 2026-10-12 (SWE-2, first attempt)
-    - [ ] 5.1a7 review R3's rework: the completeness test's carriers classified (no
+    - [x] 5.1a7 review R3's rework: the completeness test's carriers classified (no
       gameplay field inside the block but the PES 15/16 record's join key), an empty
       `[appearance.unknown]` table and `update_toml` keeping `face` tested, the
-      cross-version carry test's run length asserted, `hex_run`'s comment
+      cross-version carry test's run length asserted, `hex_run`'s comment. Done 2026-10-12 (SWE-2, first attempt; with review R4's two
+      fixes: a stale doc, a third copy of a test lookup made a helper). Step 5.1a done
+      2026-10-12: reviews R1 to R4 (SWE-2 and Astra) closed under five accepted each
   - [ ] 5.1b the Fox `PlayerAppearance.bin` row from a `PlayerSettings`, the PES 18 and 19
     offsets measured (the games' own rows against save records) → done when: a fixture save's
     records round-trip through rows on PES 18 to 21

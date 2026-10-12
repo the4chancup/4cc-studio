@@ -1799,3 +1799,5 @@ worklog passed 7,000 lines.
   bits (in-game hair) between versions; a per-bit completeness test over every version. SWE-2.
 - **2026-10-12** — Step 5.1a6: review R2's rework (the settings tests split in two, an enum
   naming the appearance table's document, two test gaps). SWE-2, first attempt.
+- **2026-10-12** — Step 5.1a7: review R3's rework (the completeness test also checks who
+  carries each bit; three test gaps). SWE-2, first attempt.
