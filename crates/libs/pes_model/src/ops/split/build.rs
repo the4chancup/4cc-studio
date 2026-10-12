@@ -978,4 +978,126 @@ mod tests {
         let sets = vec![vec![0], vec![1, 2], vec![3, 4, 5]];
         assert_eq!(vertex_capacity(&[0, 2], &sets), 4);
     }
+
+    /// A `Pieces` over `count` singleton sets of one vertex each, with
+    /// `mappings` per vertex and no faces.
+    fn singleton_pieces(count: usize, mappings: Vec<BoneMapping>, skinned: bool) -> Pieces {
+        pieces_of(
+            Vec::new(),
+            (0..count).map(|vertex| vec![vertex]).collect(),
+            mappings,
+            skinned,
+        )
+    }
+
+    // Sixty-one faces weighted to sixty-one bones under one parent bone:
+    // the fragment's face order is the sort axis — the faces sit at
+    // increasing x, the axis is +x, and the bone limit drops the
+    // furthest-behind face, not the highest-indexed one an index order
+    // would reach last.
+    #[test]
+    fn a_fragment_takes_faces_by_decreasing_projection() {
+        const FACES: usize = BONE_LIMIT_SOFT + 1;
+        let count = 3 * FACES;
+        let mut mesh = mesh_of(count);
+        mesh.vertices.positions = (0..count)
+            .map(|vertex| [(vertex / 3) as f32, 0.0, 0.0])
+            .collect();
+        mesh.bone_group = (0..FACES).collect();
+        mesh.vertices.bone_indices = Some(
+            (0..count)
+                .map(|vertex| [(vertex / 3) as u8, 0, 0, 0])
+                .collect(),
+        );
+        mesh.vertices.bone_weights = Some(vec![[1.0, 0.0, 0.0, 0.0]; count]);
+        let mut pieces = singleton_pieces(
+            count,
+            (0..count).map(|vertex| vec![(vertex / 3, 1.0)]).collect(),
+            true,
+        );
+        pieces.face_vertices = (0..FACES)
+            .map(|face| [3 * face, 3 * face + 1, 3 * face + 2])
+            .collect();
+        // Bone 0 parents the other sixty, so every face lands in its
+        // bucket — the fragment the take loop walks.
+        let parents: Vec<Option<usize>> = (0..FACES)
+            .map(|index| index.checked_sub(1).map(|_| 0))
+            .collect();
+        let model = model_with((0..FACES).map(|index| bone(&format!("b{index}"))).collect());
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(None, items_with(0..FACES));
+        items.insert(Some(0), items_with(0..FACES));
+        let (component, taken) = build_component(&model, &mesh, &parents, &items, &pieces).unwrap();
+        // Sixty faces fit the bone limit: the sixty furthest along the
+        // axis, not the sixty lowest-indexed.
+        assert_eq!(taken.faces, (1..FACES).collect::<HashSet<usize>>());
+        assert_eq!(component.faces.len(), FACES - 1);
+    }
+
+    // Sixty-one loose sets weighted to sixty-one bones: the same axis
+    // decides which sixty the fragment takes.
+    #[test]
+    fn a_fragment_takes_loose_sets_by_decreasing_projection() {
+        const SETS: usize = BONE_LIMIT_SOFT + 1;
+        let mut mesh = mesh_of(SETS);
+        mesh.vertices.positions = (0..SETS).map(|set| [set as f32, 0.0, 0.0]).collect();
+        mesh.bone_group = (0..SETS).collect();
+        mesh.vertices.bone_indices = Some((0..SETS).map(|set| [set as u8, 0, 0, 0]).collect());
+        mesh.vertices.bone_weights = Some(vec![[1.0, 0.0, 0.0, 0.0]; SETS]);
+        let pieces = singleton_pieces(SETS, (0..SETS).map(|set| vec![(set, 1.0)]).collect(), true);
+        let parents: Vec<Option<usize>> = (0..SETS)
+            .map(|index| index.checked_sub(1).map(|_| 0))
+            .collect();
+        let model = model_with((0..SETS).map(|index| bone(&format!("b{index}"))).collect());
+        let loose = StorableItems {
+            faces: HashSet::new(),
+            loose: (0..SETS).collect(),
+        };
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(None, loose.clone());
+        items.insert(Some(0), loose);
+        let (component, taken) = build_component(&model, &mesh, &parents, &items, &pieces).unwrap();
+        assert_eq!(taken.loose, (1..SETS).collect::<HashSet<usize>>());
+        assert_eq!(
+            component.vertices.positions,
+            (1..SETS)
+                .map(|set| [set as f32, 0.0, 0.0])
+                .collect::<Vec<_>>()
+        );
+    }
+
+    // The component's vertex order is its sets' first members', and its
+    // face order the source index order — not the `HashSet` order the
+    // sets and faces were collected in. Fresh `HashSet`s each run, so an
+    // order-dependent emit shows.
+    #[test]
+    fn a_component_emits_sets_by_first_member_and_faces_by_index() {
+        // Ten faces on ten singleton sets whose members interleave, plus
+        // a loose eleventh set: set `set` holds `MEMBERS[set]` alone.
+        const MEMBERS: [usize; 11] = [9, 0, 8, 1, 7, 2, 6, 3, 5, 4, 10];
+        let count = MEMBERS.len();
+        let mut mesh = mesh_of(count);
+        mesh.vertices.positions = (0..count).map(|vertex| [vertex as f32, 0.0, 0.0]).collect();
+        let mut pieces = singleton_pieces(count, vec![Vec::new(); count], false);
+        pieces.face_vertices = (0..count - 1).map(|face| [MEMBERS[face]; 3]).collect();
+        let model = model_with(vec![]);
+        let expected_positions: Vec<[f32; 3]> =
+            (0..count).map(|vertex| [vertex as f32, 0.0, 0.0]).collect();
+        let expected_faces: Vec<[u16; 3]> = (0..count - 1)
+            .map(|face| [MEMBERS[face] as u16; 3])
+            .collect();
+        for _ in 0..8 {
+            let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+            items.insert(
+                None,
+                StorableItems {
+                    faces: (0..count - 1).collect(),
+                    loose: [count - 1].into_iter().collect(),
+                },
+            );
+            let (component, _) = build_component(&model, &mesh, &[], &items, &pieces).unwrap();
+            assert_eq!(component.vertices.positions, expected_positions);
+            assert_eq!(component.faces, expected_faces);
+        }
+    }
 }

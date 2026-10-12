@@ -554,6 +554,32 @@ mod tests {
     }
 
     #[test]
+    fn samplers_come_out_in_role_order() {
+        // A source file that lists its normal map before its diffuse map:
+        // the written samplers keep the role order, not the listing's.
+        let mut mat = material(MaterialFamily::Shaded);
+        mat.textures = vec![(TextureRole::Normal, 1), (TextureRole::Base, 0)];
+        let samplers = resolve(&mat).samplers;
+        let names: Vec<&str> = samplers.iter().map(|(name, _, _)| name.as_str()).collect();
+        assert_eq!(names, ["DiffuseMap", "NormalMap"]);
+        assert_eq!(samplers[0].2, 0);
+        assert_eq!(samplers[1].2, 1);
+    }
+
+    #[test]
+    fn the_environment_sampler_reads_linear() {
+        // The cubemap is not a colour map: `srgb="0"`, and the anisotropic
+        // filtering the game's files carry.
+        let mut mat = material(MaterialFamily::Shaded);
+        mat.textures = vec![(TextureRole::Environment, 0)];
+        let (name, settings, texture) = &resolve(&mat).samplers[0];
+        assert_eq!(name, "EnvironmentMap");
+        assert_eq!(settings.srgb, Some(false));
+        assert_eq!(settings.minfilter, Some(Filter::Anisotropic));
+        assert_eq!(*texture, 0);
+    }
+
+    #[test]
     fn stored_sampler_settings_replace_the_role_defaults() {
         // A `.mtl` sampler with no `srgb` attribute resolves to `srgb: None`, not to the
         // role's generated default, or the `.model → IR → .model` round trip rewrites it.

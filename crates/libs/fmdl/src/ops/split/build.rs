@@ -857,4 +857,137 @@ mod tests {
             assert_eq!(a.bone_group, b.bone_group);
         }
     }
+
+    /// A `Pieces` over `count` singleton sets of one vertex each, with
+    /// `mappings` per vertex and no faces.
+    fn singleton_pieces(count: usize, mappings: Vec<BoneMapping>, skinned: bool) -> Pieces {
+        Pieces {
+            face_vertices: Vec::new(),
+            sets: (0..count).map(|vertex| vec![vertex]).collect(),
+            set_of: (0..count).collect(),
+            mappings,
+            skinned,
+        }
+    }
+
+    /// A skinned `Mesh` of `count` vertices along the x axis, vertex
+    /// `vertex` weighted fully to bone `vertex / 3`.
+    fn x_axis_mesh(count: usize) -> Mesh {
+        Mesh {
+            vertices: crate::format::MeshVertices {
+                positions: (0..count)
+                    .map(|vertex| [(vertex / 3) as f32, 0.0, 0.0])
+                    .collect(),
+                bone_weights: Some(vec![[255, 0, 0, 0]; count]),
+                bone_indices: Some(
+                    (0..count)
+                        .map(|vertex| [(vertex / 3) as u8, 0, 0, 0])
+                        .collect(),
+                ),
+                ..crate::format::MeshVertices::default()
+            },
+            faces: (0..count / 3)
+                .map(|face| {
+                    [
+                        3 * face as u16,
+                        (3 * face + 1) as u16,
+                        (3 * face + 2) as u16,
+                    ]
+                })
+                .collect(),
+            bone_group: (0..count / 3).collect(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        }
+    }
+
+    // Thirty-one faces weighted to thirty-one bones under one parent
+    // bone: the fragment's face order is the sort axis — the faces sit at
+    // increasing x, the axis is +x, and the bone limit drops the
+    // furthest-behind face, not the highest-indexed one an index order
+    // would reach last.
+    #[test]
+    fn a_fragment_takes_faces_by_decreasing_projection() {
+        const FACES: usize = BONE_LIMIT_SOFT + 1;
+        let count = 3 * FACES;
+        let mesh = x_axis_mesh(count);
+        let mut pieces = singleton_pieces(
+            count,
+            (0..count).map(|vertex| vec![(vertex / 3, 255)]).collect(),
+            true,
+        );
+        pieces.face_vertices = mesh
+            .faces
+            .iter()
+            .map(|face| face.map(usize::from))
+            .collect();
+        let parents: Vec<Option<usize>> = (0..FACES)
+            .map(|index| index.checked_sub(1).map(|_| 0))
+            .collect();
+        let model = model_with(
+            (0..FACES)
+                .map(|index| bone(&format!("b{index}"), index.checked_sub(1).map(|_| 0)))
+                .collect(),
+        );
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(None, items_with(0..FACES));
+        items.insert(Some(0), items_with(0..FACES));
+        let (component, taken) = build_component(&model, &mesh, &parents, &items, &pieces).unwrap();
+        // Thirty faces fit the bone limit: the thirty furthest along the
+        // axis, not the thirty lowest-indexed.
+        assert_eq!(taken.faces, (1..FACES).collect::<HashSet<usize>>());
+        assert_eq!(component.faces.len(), FACES - 1);
+    }
+
+    // Thirty-one loose sets weighted to thirty-one bones: the same axis
+    // decides which thirty the fragment takes.
+    #[test]
+    fn a_fragment_takes_loose_sets_by_decreasing_projection() {
+        const SETS: usize = BONE_LIMIT_SOFT + 1;
+        // Loose set `set` sits at x = `set`, weighted to bone `set`.
+        let mesh = Mesh {
+            vertices: crate::format::MeshVertices {
+                positions: (0..SETS).map(|set| [set as f32, 0.0, 0.0]).collect(),
+                bone_weights: Some(vec![[255, 0, 0, 0]; SETS]),
+                bone_indices: Some((0..SETS).map(|set| [set as u8, 0, 0, 0]).collect()),
+                ..crate::format::MeshVertices::default()
+            },
+            faces: Vec::new(),
+            bone_group: (0..SETS).collect(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        let pieces = singleton_pieces(SETS, (0..SETS).map(|set| vec![(set, 255)]).collect(), true);
+        let parents: Vec<Option<usize>> = (0..SETS)
+            .map(|index| index.checked_sub(1).map(|_| 0))
+            .collect();
+        let model = model_with(
+            (0..SETS)
+                .map(|index| bone(&format!("b{index}"), index.checked_sub(1).map(|_| 0)))
+                .collect(),
+        );
+        let loose = StorableItems {
+            faces: HashSet::new(),
+            loose: (0..SETS).collect(),
+        };
+        let mut items: HashMap<Option<usize>, StorableItems> = HashMap::new();
+        items.insert(None, loose.clone());
+        items.insert(Some(0), loose);
+        let (component, taken) = build_component(&model, &mesh, &parents, &items, &pieces).unwrap();
+        assert_eq!(taken.loose, (1..SETS).collect::<HashSet<usize>>());
+        assert_eq!(
+            component.vertices.positions,
+            (1..SETS)
+                .map(|set| [set as f32, 0.0, 0.0])
+                .collect::<Vec<_>>()
+        );
+    }
 }

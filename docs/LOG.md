@@ -1785,3 +1785,5 @@ worklog passed 7,000 lines.
   checks, offsets, the binary end to end); every mutant of the crate caught. SWE-2, first attempt.
 - **2026-10-12** — Step 5.0g1: tests for `aesthetics_export`'s literal and normalize gaps; the
   two kinds now miss only the I/O-failure arm there. SWE-2, first attempt.
+- **2026-10-12** — Step 5.0g2: tests for the order and bool gaps of `pes_model`, `fmdl`,
+  `model_convert` and `pes_savefile`; Phase 5's fixed steps all done. SWE-2, first attempt.

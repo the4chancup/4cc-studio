@@ -596,6 +596,23 @@ fn missing_maps_get_the_game_dummies() {
 }
 
 #[test]
+fn an_antiblur_material_writes_its_duplicate_and_the_extension_flags() {
+    // A Shadeless material's mesh gets an anti-blur duplicate: the written
+    // file declares `antiblur` and carries the `is_antiblur_mesh` copy a
+    // reader strips again, and the vertex-loop convention every export
+    // encodes is declared.
+    let mut ir = minimal_ir();
+    ir.materials[0].family = MaterialFamily::Shadeless;
+    let exported = ir_to_fmdl(&ir).expect("export");
+    let bytes = exported.model.to_file().expect("to_file").write();
+    let model = read_fmdl(&bytes);
+    assert!(model.extensions.antiblur);
+    assert!(model.extensions.vertex_loop_preservation);
+    assert!(model.meshes.iter().any(|mesh| mesh.has_antiblur_meshes));
+    assert!(model.meshes.iter().any(|mesh| mesh.is_antiblur_mesh));
+}
+
+#[test]
 fn the_game_s_dummy_maps_import_as_the_role_absent_and_export_again_unchanged() {
     let mut ir = minimal_ir();
     ir.textures = vec![Texture {
@@ -691,6 +708,14 @@ fn quantization_preserves_the_total() {
     assert_eq!(quantize_weights([0.5, 0.5, 0.0, 0.0]), [128, 127, 0, 0]);
     let weights = quantize_weights([1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 0.0]);
     assert_eq!(weights.iter().map(|w| u32::from(*w)).sum::<u32>(), 255);
+}
+
+#[test]
+fn quantization_rounds_the_largest_weights_first() {
+    // Three nonzero weights out of slot order: the biggest lane's share is
+    // rounded against the whole total first — in slot order the lightest
+    // lane would keep the rounding byte the heaviest earns.
+    assert_eq!(quantize_weights([0.1, 0.9, 0.5, 0.0]), [25, 230, 128, 0]);
 }
 
 #[test]

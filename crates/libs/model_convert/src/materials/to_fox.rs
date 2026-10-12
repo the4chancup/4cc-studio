@@ -443,6 +443,21 @@ mod tests {
     }
 
     #[test]
+    fn samplers_come_out_in_role_order() {
+        // A source file that lists its normal map before its diffuse map:
+        // the written samplers keep the role order, not the listing's.
+        let mut mat = material(MaterialFamily::Shaded);
+        mat.textures = vec![(TextureRole::Normal, 1), (TextureRole::Base, 0)];
+        assert_eq!(
+            resolve(&mat).textures,
+            [
+                ("Base_Tex_SRGB".to_string(), 0),
+                ("NormalMap_Tex_NRM".to_string(), 1)
+            ]
+        );
+    }
+
+    #[test]
     fn a_native_table_skips_the_family_defaults() {
         let mut mat = material(MaterialFamily::Shaded);
         mat.fox = Some(FoxMaterial {

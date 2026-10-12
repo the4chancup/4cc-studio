@@ -467,6 +467,31 @@ mod tests {
     }
 
     #[test]
+    fn encode_orders_an_owners_loops_by_encoding() {
+        // Two loops of one vertex arrive in decreasing uv order: the kept
+        // loops still come out increasing, so a later `decode` reads them
+        // as one vertex's run.
+        let mut mesh = bare_mesh(
+            MeshVertices {
+                positions: vec![[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]],
+                normals: Some(vec![[0.0, 0.0, 1.0]; 2]),
+                tangents: None,
+                bitangents: None,
+                colors: None,
+                uvs: vec![vec![[1.0, 0.0], [0.0, 0.0]]],
+                bone_indices: None,
+                bone_weights: None,
+                bone_weight_width: 4,
+            },
+            vec![[0, 1, 0]],
+        );
+        let owner = encode(&mut mesh, &[0, 0]).unwrap();
+        assert_eq!(mesh.vertices.uvs[0], vec![[0.0, 0.0], [1.0, 0.0]]);
+        assert_eq!(owner, [0, 0]);
+        assert_eq!(decode(&mesh).unwrap(), [0, 0]);
+    }
+
+    #[test]
     fn owner_errors() {
         let mut mesh = loop_mesh(false);
         assert!(matches!(

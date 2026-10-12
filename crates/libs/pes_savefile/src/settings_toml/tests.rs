@@ -1006,3 +1006,41 @@ gloves_id = \"\"   # the gloves comment\n"
         "boots_id = 7  # the boots comment\ngloves_id = \"\"   # the gloves comment\n"
     );
 }
+
+#[test]
+fn a_hand_set_id_past_the_stock_band_is_refused_on_write() {
+    // The key's 0-100 range, not the field's stored width, bounds a
+    // `boots_id`/`gloves_id` written directly into a public field: 150
+    // fits the storage's 14 bits but is not a stock ID.
+    for (settings, name) in [
+        (
+            PlayerSettings {
+                boots_id: Some(150),
+                ..PlayerSettings::default()
+            },
+            "boots_id",
+        ),
+        (
+            PlayerSettings {
+                gloves_id: Some(150),
+                ..PlayerSettings::default()
+            },
+            "gloves_id",
+        ),
+    ] {
+        for emit in [
+            settings.to_toml().map(|_| ()),
+            settings.update_toml(&mut DocumentMut::new()),
+        ] {
+            match emit {
+                Err(SettingsError::OutOfRange { key, value, range }) => {
+                    assert_eq!(
+                        (key.as_str(), value, range.as_str()),
+                        (name, 150, "0 to 100")
+                    );
+                }
+                other => panic!("expected OutOfRange, got {other:?}"),
+            }
+        }
+    }
+}

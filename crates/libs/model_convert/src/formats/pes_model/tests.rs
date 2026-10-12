@@ -489,6 +489,16 @@ fn a_group_that_stays_split_imports_without_its_marker() {
 }
 
 #[test]
+fn imported_mesh_groups_are_visible() {
+    // A `.model` has no group visibility field: a converted group is
+    // visible, the value an FMDL export carries through.
+    let input = pes_model(vec!["sk_belly"], pes_mesh(vec![0]));
+    let imported = model_to_ir(&input, &mtl_of("mat", "Basic_C")).expect("import");
+    assert_eq!(imported.model.mesh_groups.len(), 1);
+    assert!(imported.model.mesh_groups[0].visible);
+}
+
+#[test]
 fn a_name_the_mtl_cannot_carry_is_an_error() {
     // The `.mtl` is XML: a NUL-holding material name is an error, not a file
     // no reader accepts (the corrupted FMDL name tables' case).

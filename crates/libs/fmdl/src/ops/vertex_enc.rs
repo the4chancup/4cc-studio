@@ -422,6 +422,34 @@ mod tests {
     }
 
     #[test]
+    fn encode_orders_an_owners_loops_by_encoding() {
+        // Two loops of one vertex arrive in decreasing uv order: the kept
+        // loops still come out increasing, so a later `decode` reads them
+        // as one vertex's run.
+        let mut mesh = Mesh {
+            vertices: MeshVertices {
+                positions: vec![[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]],
+                normals: Some(vec![[0.0, 0.0, 1.0, 0.0]; 2]),
+                uvs: vec![vec![[1.0, 0.0], [0.0, 0.0]]],
+                uv_high_precision: vec![true],
+                ..MeshVertices::default()
+            },
+            faces: vec![[0, 1, 0]],
+            bone_group: Vec::new(),
+            material: 0,
+            alpha_flags: 0,
+            shadow_flags: 0,
+            has_antiblur_meshes: false,
+            is_antiblur_mesh: false,
+            custom_bounding_box: None,
+        };
+        let owner = encode(&mut mesh, &[0, 0]).unwrap();
+        assert_eq!(mesh.vertices.uvs[0], vec![[0.0, 0.0], [1.0, 0.0]]);
+        assert_eq!(owner, [0, 0]);
+        assert_eq!(decode(&mesh).unwrap(), [0, 0]);
+    }
+
+    #[test]
     fn model_level_round_trip() {
         let mut model = load(ORAL);
         let owners = decode_model(&model).unwrap();

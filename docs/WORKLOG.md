@@ -11,9 +11,8 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 4 (Processing logic) closed 2026-10-12. Phases 1 to 3 done (Phase 3 closed 2026-10-02,
 Phase 2 2026-09-30).
-**Next:** Phase 5 (Savefile integration): its fixed steps first (5.0, 5.0b, 5.0c, 5.0e, 5.0f
-and 5.0h done; 5.0b3 and 5.0g, tests for the extra mutant kinds' gaps, open), then the
-itemized steps from 5.1 (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
+**Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h done, the itemized
+steps from 5.1 next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -433,7 +432,7 @@ Fixed before the itemization:
   lister visits; a test pins them), the other six go; a list mixing literal and non-literal
   elements now lists its literal ones; ten tests in `scan.rs`, `tests/cli.rs` running the
   binary. `cargo mutants -p extra_mutants`: 121 caught, 5 unviable, none missed.
-- [ ] 5.0g Tests for 5.0b's real gaps, in two slices:
+- [x] 5.0g Tests for 5.0b's real gaps, in two slices:
   - [x] 5.0g1 in `aesthetics_export` unless named: `literal`:
     `conventions/player_folder.rs` `is_gloves` (`GloveR`, `HandL`, `HandR`) and
     `is_explicit_face` (`Oral`), `validate/folders.rs` `is_model_content` (`Skl`, `Mtl`,
@@ -453,7 +452,7 @@ Fixed before the itemization:
     when no bin was filled; a `guard` survivor, a kind not run), `parse/roster.rs:52`'s first
     `.trim()` was redundant (the lead folded it into one), the `kit10` sort is `kitF`'s (no
     `kit10` token exists), and the padded folder name is the no-dash arm's (`Kits/ p2`)
-  - [ ] 5.0g2 the `order` and `bool` gaps of the model crates and `pes_savefile`
+  - [x] 5.0g2 the `order` and `bool` gaps of the model crates and `pes_savefile`
     (`.tmp/5_0b/trial/triage.md`): `order`: `pes_model` and `fmdl` `ops/split/build.rs` a
     fragment's faces and loose sets by decreasing projection on the sort vector and a
     component's vertex sets and faces (`pes_model` only), `ops/vertex_enc.rs` a key's kept
@@ -466,6 +465,10 @@ Fixed before the itemization:
     field's width → verify: `just extra-mutants <crate> --kind order` (and `--kind bool` for
     `model_convert` and `pes_savefile`) leaves only the survivors the triage rules equivalent
     or not testable
+    Done 2026-10-12 (SWE-2, first attempt; 14 tests, all in test modules): each run leaves only
+    the ruled survivors; its contradiction accepted: `export.rs`'s `vertex_loop_preservation:
+    false` is equivalent (`encode_model` sets the flag after), and `fmdl` `container.rs:232` is
+    confirmed equivalent by a census of the machine's 9,606 `.fmdl` files (none out of order)
 - [x] 5.0h `just mutants <crate>` runs the adopted extra kinds and reruns Windows-only survivors
   here (maintainer, 2026-10-12): the whole-crate run first runs `literal` and `normalize`
   (`EXTRA_KINDS` in `scripts/mutants.py`), their survivors joining `missed_all.txt`; at
