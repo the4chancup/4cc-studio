@@ -734,11 +734,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       attempt; `pes_savefile` gains `PlayerStats::abilities` and `names::name_color`; `print`
       runs on the shared engine and writes nowhere)
     - [ ] 5.2b2 the team settings' accessors: the man-marking assignments in `pes_savefile`'s
-      tactics model (PES 16 to 21, offsets in `aatf_rules.md` "The host"), the auto flags (off
-      is 0) → done when: each setting reads right on a fixture team set both ways. Measured
-      2026-10-12 (in-game on PES 16 and 21, and a census of every 16 to 21 save on disk;
-      `.tmp/5_2b2/findings.md`): man marking is per-preset assignment bytes, not an advanced
-      instruction; PES 15 not measured
+      tactics model (PES 15 to 21, offsets in `aatf_rules.md` "The host"), the auto flags (off
+      is 0; PES 15's three at +0x1FE to +0x200, not modeled yet) → done when: each setting reads
+      right on a fixture team set both ways. Measured 2026-10-12/13 (in-game on PES 15, 16 and
+      21, and a census of every 15 to 21 save on disk; `.tmp/5_2b2/findings.md`): man marking is
+      per-preset assignment bytes, not an advanced instruction, its values the opponent's
+      formation slots (read back in-game on PES 15)
   - [ ] 5.2c `logic.rhai`'s `check_team` for the official file, `Violation` from its maps,
     `file.rs` (assembling a file, its section split, logic identity), the sample team, the official known-legal and known-violating fixtures, the operation
     limit → done when: each special of the official file is exercised by a fixture. Sub-slices,

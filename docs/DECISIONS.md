@@ -7254,3 +7254,13 @@ saves, values formation slots). Tight Marking, the instruction the plan's wordin
 a stronger, separate instruction (maintainer). Auto substitution was set in-game to each choice
 and saved (PES 21: Off 0, Very Late 1, Flexible 2, Very Early 3; PES 16: Off 0, Very Late 1).
 Plan: `aatf_rules.md` "The ruleset schema" (`TeamSettings`), "The host" (the team settings).
+
+## 2026-10-13 — aatf — PES 15's man marking and auto flags are measured; the marking target is the opponent's formation slot
+The previous entry left PES 15 unmeasured. Measured in-game on PES 15: Auto Substitution is the
+tactics record's +0x1FE (Off 0, Very Late 1, Flexible 2), followed by the offside trap (+0x1FF)
+and the automatic preset change (+0x200), each 0 or 1, the order PES 16 uses at +0x202. Man
+marking is three 11-byte runs at +0x73, +0xED and +0x167 (presets 0x7A apart). A match's Mark
+Settings (Game Plan > Preset Tactics; disabled in Edit mode) showed a cup team's four assignments
+exactly where its bytes put them, which also settles what a value is: the opponent's formation
+slot (its starting-eleven index), read against whichever team is played; measured on PES 15
+only, and taken to hold for 16 to 21, which store the same shape. Plan: `aatf_rules.md` "The host" (the team settings).

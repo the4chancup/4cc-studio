@@ -749,14 +749,17 @@ team model carries man marking. Edit mode offers no man marking on any version: 
 in a match's pre-game game plan, saves that as a copy preset and loads the preset into the team
 in Edit mode ("pre-made man marking", frowned upon, and the reason VTLEditor checks it). It lands
 as eleven bytes per preset, one per own formation slot, each the marked opponent's formation slot
-or `0xFF` for none: in the tactics record at +0x73, +0xEE and +0x169 on PES 16 (VTLEditor's
-`pes16.cpp` reads them; measured on the 2024 Summer Cup save, whose team 710 has two set), at
-+0x95, +0x135 and +0x1D5 on PES 17 to 21 (the same shape after each preset's modeled fields, set
-on a few teams of the cup saves of 17, 18, 19 and 21; inferred from that shape, not reproduced
-in-game). It is not an advanced instruction: Tight Marking is a stronger, separate instruction.
-PES 15 is not measured. Auto substitution is off at 0 on PES 16 and 21 (measured in-game; PES 21
-stores Very Late 1, Flexible 2, Very Early 3); 482 of the 483 teams of the two saves measured
-hold 0.
+(its starting-eleven index, read against whichever team is played) or `0xFF` for none: in the
+tactics record at +0x73, +0xED and +0x167 on PES 15 (read back in-game from a match's Mark
+Settings, four assignments of a cup team matching its bytes), at +0x73, +0xEE and +0x169 on
+PES 16 (VTLEditor's `pes16.cpp` reads them; measured on the 2024 Summer Cup save, whose team 710
+has two set), at +0x95, +0x135 and +0x1D5 on PES 17 to 21 (the same shape after each preset's
+modeled fields, set on a few teams of the cup saves of 17, 18, 19 and 21; inferred from that
+shape, not reproduced in-game). It is not an advanced instruction: Tight Marking is a stronger,
+separate instruction. Auto substitution is off at 0 on PES 15, 16 and 21 (measured in-game: Very
+Late 1, Flexible 2, and on PES 21 Very Early 3); on PES 15 it is the tactics record's +0x1FE,
+followed by the offside trap (+0x1FF) and the automatic preset change (+0x200), each 0 or 1.
+482 of the 483 teams of the PES 16 and 21 saves measured hold 0.
 
 `apply_tier(player, tier, rules)` is the lib's one *writing* operation: it calls `tier_values`
 and writes the result into the player (stats; form; injury resistance and weak foot at their

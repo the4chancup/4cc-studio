@@ -1867,3 +1867,5 @@ worklog passed 7,000 lines.
   takers read as none, a `let RULESET` is refused, `team_toml` refuses a `players` key 0.
 - **2026-10-13** — Step 5.0j3: `docs/spec/aesthetics_export/` and `kit_config_editor.md` read against
   `aesthetics_export` and `kit_config`; the never-built model types moved to the plan.
+- **2026-10-13** — 5.2b2 measurements, PES 15 in-game: auto substitution +0x1FE (off 0), offside
+  +0x1FF, preset change +0x200; man marking at +0x73/+0xED/+0x167, read back from a match's Mark Settings.
