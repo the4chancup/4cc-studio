@@ -568,11 +568,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     - [x] 5.1a3 `shirt_name`; `PlayerSettings::apply` takes the target version and checks both
       names against its fields (the text rule shared with Team TOML). Done 2026-10-12
       (SWE-2, first attempt; the lead aligned the commented template line)
-    - [ ] 5.1a4 absent = default (a `KeySpec` default column)
-    - [ ] 5.1a5 the unknown bits, model half: `face` on `AppearanceSettings`, the per-bit
-      completeness test
-    - [ ] 5.1a6 the unknown bits, TOML half: `[appearance.unknown] face` parsed and emitted
-      (Team TOML refuses the table until 5.1d removes its hex)
+    - [x] 5.1a4 absent = default (a `KeySpec` default column); a key the target version lacks
+      is skipped. Done 2026-10-12 (SWE-2, first attempt; it used `player_has` where the
+      brief named a check that would have skipped every PES 15/16 appearance key; with
+      review R1's two fixes)
+    - [ ] 5.1a5 the unknown bits: `face` on `AppearanceSettings`, `[appearance.unknown] face`
+      parsed and emitted (Team TOML refuses the table until 5.1d removes its hex), the
+      per-bit completeness test; one slice, since the model half alone breaks the
+      settings text round trip
   - [ ] 5.1b the Fox `PlayerAppearance.bin` row from a `PlayerSettings`, the PES 18 and 19
     offsets measured (the games' own rows against save records) → done when: a fixture save's
     records round-trip through rows on PES 18 to 21

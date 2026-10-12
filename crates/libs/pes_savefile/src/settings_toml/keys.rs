@@ -216,6 +216,12 @@ pub struct KeySpec {
     /// The range comment the template emits after the key, verbatim from the
     /// plan block.
     pub comment: &'static str,
+    /// The stored value an absent key applies: the template's shown value (a
+    /// physique `0` stores 7, a 1-based motion `1` stores 0, a label its
+    /// index, `true` 1). `None` only for `BootsId`/`GlovesId`: an absent
+    /// stock ID is the compiler's to resolve (the folder's models, the FPC
+    /// marker), not a fixed value.
+    pub default: Option<u8>,
 }
 
 /// Which savefile field a key writes: the gate cross-version imports check
@@ -294,25 +300,29 @@ impl SettingKey {
                 table: KeyTable::Top,
                 name: "boots_id",
                 kind: Kind::Number { min: 0, max: 100 },
-                comment: "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
+                comment: "\"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)",
+                default: None,
             },
             SettingKey::GlovesId => KeySpec {
                 table: KeyTable::Top,
                 name: "gloves_id",
                 kind: Kind::Number { min: 0, max: 100 },
-                comment: "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
+                comment: "\"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder's gloves models or a gloves link get an ID (pre-Fox face-XML gloves do not)",
+                default: None,
             },
             SettingKey::SkinColor => KeySpec {
                 table: KeyTable::Appearance,
                 name: "skin_color",
                 kind: Kind::Number { min: 0, max: 7 },
                 comment: "0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)",
+                default: Some(1),
             },
             SettingKey::IrisColor => KeySpec {
                 table: KeyTable::Appearance,
                 name: "iris_color",
                 kind: Kind::Number { min: 0, max: 10 },
                 comment: "0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet",
+                default: Some(0),
             },
             SettingKey::NeckLength => physique("neck_length"),
             SettingKey::NeckSize => physique("neck_size"),
@@ -333,32 +343,38 @@ impl SettingKey {
                 name: "sleeves",
                 kind: Kind::Labels(&["seasonal", "short", "long"]),
                 comment: "\"seasonal\", \"short\", \"long\"",
+                // The block's `sleeves = "short"`.
+                default: Some(1),
             },
             SettingKey::Inners => KeySpec {
                 table: KeyTable::Strip,
                 name: "inners",
                 kind: Kind::Labels(&["off", "normal", "turtleneck"]),
                 comment: "\"off\", \"normal\", \"turtleneck\"",
+                default: Some(0),
             },
             SettingKey::Socks => KeySpec {
                 table: KeyTable::Strip,
                 name: "socks",
                 kind: Kind::Labels(&["standard", "long", "short"]),
                 comment: "\"standard\", \"long\", \"short\"",
+                default: Some(0),
             },
             SettingKey::Undershorts => KeySpec {
                 table: KeyTable::Strip,
                 name: "undershorts",
                 kind: Kind::Labels(&["off", "short", "winter_long", "short_winter_long"]),
                 comment: "\"off\", \"short\", \"winter_long\" (none in summer, long in winter), \"short_winter_long\" (short in summer, long in winter)",
+                default: Some(0),
             },
-            SettingKey::Untucked => bool_key("untucked", "true, false"),
-            SettingKey::AnkleTaping => bool_key("ankle_taping", "true, false"),
+            SettingKey::Untucked => bool_key("untucked", "true, false", true),
+            SettingKey::AnkleTaping => bool_key("ankle_taping", "true, false", false),
             SettingKey::WristTaping => KeySpec {
                 table: KeyTable::Strip,
                 name: "wrist_taping",
                 kind: Kind::Labels(&["off", "right", "left", "both"]),
                 comment: "\"off\", \"right\", \"left\", \"both\"",
+                default: Some(0),
             },
             SettingKey::WristTapeColorLeft => seven_color("wrist_tape_color_left"),
             SettingKey::WristTapeColorRight => seven_color("wrist_tape_color_right"),
@@ -367,14 +383,16 @@ impl SettingKey {
                 name: "spectacles",
                 kind: Kind::Number { min: 0, max: 7 },
                 comment: "0 none, 1 rectangle rimless, 2 rectangle half frame, 3 rectangle full frame, 4 oval rimless, 5 oval half frame, 6 oval full frame, 7 round full frame",
+                default: Some(0),
             },
             SettingKey::SpectaclesColor => KeySpec {
                 table: KeyTable::Strip,
                 name: "spectacles_color",
                 kind: Kind::Number { min: 0, max: 7 },
                 comment: "0 white, 1 black, 2 red, 3 blue, 4 yellow, 5 green, 6 pink, 7 turquoise",
+                default: Some(0),
             },
-            SettingKey::Gloves => bool_key("gloves", "true, false (outfield player gloves)"),
+            SettingKey::Gloves => bool_key("gloves", "true, false (outfield player gloves)", false),
             SettingKey::GlovesColor => seven_color("gloves_color"),
             SettingKey::HunchingDribbling => {
                 motion_1based("hunching_dribbling", 5, "1 to 3 (PES 20 and 21: 1 to 5)")
@@ -406,6 +424,7 @@ impl SettingKey {
                 name: "dribbling",
                 kind: Kind::Number { min: 0, max: 3 },
                 comment: "0 to 3, PES 20 and 21 only",
+                default: Some(0),
             },
             SettingKey::GoalCelebration1 => celebration("goal_celebration_1"),
             SettingKey::GoalCelebration2 => celebration("goal_celebration_2"),
@@ -526,15 +545,18 @@ fn physique(name: &'static str) -> KeySpec {
         name,
         kind: Kind::Signed7,
         comment: SEVEN,
+        // The block's `0`, stored +7.
+        default: Some(7),
     }
 }
 
-fn bool_key(name: &'static str, comment: &'static str) -> KeySpec {
+fn bool_key(name: &'static str, comment: &'static str, default: bool) -> KeySpec {
     KeySpec {
         table: KeyTable::Strip,
         name,
         kind: Kind::Bool,
         comment,
+        default: Some(u8::from(default)),
     }
 }
 
@@ -544,6 +566,7 @@ fn seven_color(name: &'static str) -> KeySpec {
         name,
         kind: Kind::Number { min: 0, max: 7 },
         comment: "0 to 7",
+        default: Some(0),
     }
 }
 
@@ -553,6 +576,8 @@ fn motion_1based(name: &'static str, max: u8, comment: &'static str) -> KeySpec 
         name,
         kind: Kind::OneBased { max },
         comment,
+        // The block's `1`, stored -1.
+        default: Some(0),
     }
 }
 
@@ -562,6 +587,7 @@ fn celebration(name: &'static str) -> KeySpec {
         name,
         kind: Kind::Number { min: 0, max: 162 },
         comment: "0 none, 1 to 122 (PES 20 and 21: 1 to 162)",
+        default: Some(0),
     }
 }
 
@@ -578,5 +604,6 @@ fn face(name: &'static str, field: IngameFaceField, comment: &'static str) -> Ke
         name,
         kind: Kind::Number { min: 0, max },
         comment,
+        default: Some(0),
     }
 }

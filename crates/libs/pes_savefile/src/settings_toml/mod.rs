@@ -1,7 +1,8 @@
 //! `PlayerSettings`: the model behind the export format's `settings.toml`
 //! files — every authorable aesthetic setting of a player, as stored values
-//! (`Option` throughout: `None` leaves the savefile field untouched). Parsing
-//! and emitting the TOML text are a later slice; this is the model the codec
+//! (`Option` throughout: `apply` writes a `None` key's default,
+//! `apply_appearance` leaves the savefile field untouched). Parsing and
+//! emitting the TOML text are a later slice; this is the model the codec
 //! reads and writes through `from_player`/`apply`.
 
 pub(crate) mod document;
@@ -14,6 +15,7 @@ mod tests;
 use pes_version::PesVersion;
 
 use document::{dotted, range_text};
+use keys::Source;
 
 use crate::codec::{CodecError, TextMisfit, text_max, text_misfit};
 use crate::model::player::PlayerEntry;
@@ -37,10 +39,12 @@ pub enum NameSetting {
     Explicit(String),
 }
 
-/// The `[appearance]` table's stored values: every leaf `Option`, `None` =
-/// leave the savefile value alone. Physique numbers are the stored value
-/// (game number + 7), motion numbers are stored (1-based keys minus 1), label
-/// keys are the index into the key's label list.
+/// The `[appearance]` table's stored values: every leaf `Option`;
+/// `PlayerSettings::apply` writes a `None` key's default (`KeySpec::default`),
+/// `apply_appearance` (Team TOML) leaves the savefile value alone. Physique
+/// numbers are the stored value (game number + 7), motion numbers are stored
+/// (1-based keys minus 1), label keys are the index into the key's label
+/// list.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AppearanceSettings {
     /// Skin colour.
@@ -513,16 +517,21 @@ impl PlayerSettings {
         Ok(settings)
     }
 
-    /// Writes the `Some` fields onto the player, all or nothing: on `Err` the
+    /// Writes the settings onto the player, all or nothing: on `Err` the
     /// player is unchanged. `version` names the compile target: the name and
     /// shirt-name fields differ between versions, so both strings are checked
     /// against that version's field before anything is written (a misfit is
     /// `WrongType` or `TextTooLong`). `NameSetting::FromFolder` is not
     /// applied: the caller (the Team compiler) resolves it to `Explicit`
-    /// first, since the folder rules are its. A `Some` on a field this
-    /// player's version lacks (`dribbling` before PES 20) is
-    /// `SettingsError::NotInThisVersion`; a `Some` the key's kind cannot
-    /// represent is `OutOfRange`, checked before any write.
+    /// first, since the folder rules are its.
+    ///
+    /// Every appearance key writes: a `Some` its value, a `None` the key's
+    /// default (`KeySpec::default`, the template's shown value), so a compiled
+    /// player's look is his file and nothing else. A key the target version
+    /// has no field for (`dribbling` before PES 20) is skipped, set or not.
+    /// The two stock IDs are the exceptions: a `Some` writes the ID, a `None`
+    /// leaves the stored ID for the compiler to resolve. A `Some` the key's
+    /// kind cannot represent is `OutOfRange`, checked before any write.
     pub fn apply(
         &self,
         player: &mut PlayerEntry,
@@ -565,7 +574,28 @@ impl PlayerSettings {
         if let Some(id) = self.gloves_id {
             next.appearance.gloves_id = u32::from(id);
         }
-        write_appearance(&self.appearance, &mut next)?;
+        // An absent appearance key writes its default; a key the target
+        // version has no field for (`dribbling` before PES 20) is dropped, so
+        // an export written for a newer version compiles for an older one.
+        let schema = schema_for(version);
+        let mut appearance = self.appearance.clone();
+        for key in SettingKey::ALL {
+            let spec = key.spec();
+            if spec.table == KeyTable::Top {
+                continue;
+            }
+            let held = match key.source() {
+                Source::Player(field) => schema.player_has(field),
+                Source::Face(_) => true,
+            };
+            let value = if held {
+                get_appearance(&appearance, key).or(spec.default)
+            } else {
+                None
+            };
+            set_appearance(&mut appearance, key, value);
+        }
+        write_appearance(&appearance, &mut next)?;
         *player = next;
         Ok(())
     }

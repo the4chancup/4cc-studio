@@ -14,7 +14,7 @@ use super::{
 use crate::codec::{read_player, runs, text_max, write_player};
 use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerAppearance;
-use crate::schema::fields::{PlayerField, PlayerText};
+use crate::schema::fields::PlayerText;
 use crate::schema::ingame_face::{INGAME_FACE_FIELDS, IngameFaceField};
 use crate::schema::schema_for;
 use crate::test_support::{count, find_player, payload, record};
@@ -229,14 +229,14 @@ fn every_key_writes_only_its_own_run() {
     let run = schema.player.ingame_face.as_ref().expect("a run on PES 21");
     for key in SettingKey::ALL {
         let player = find_player(&payload, schema, 70101);
-        let current = PlayerSettings::from_player(&player)
-            .expect("from_player")
-            .get(key);
+        // `from_player` fills every key, so only the flipped one's bits can
+        // differ after the apply (absent keys write their defaults now).
+        let mut settings = PlayerSettings::from_player(&player).expect("from_player");
+        let current = settings.get(key);
         let new_value = match current {
             Some(0) | None => 1,
             _ => 0,
         };
-        let mut settings = PlayerSettings::default();
         settings
             .set(key, new_value)
             .expect("the flipped value is in range");
@@ -289,15 +289,15 @@ fn every_key_writes_only_its_own_run() {
     }
 }
 
+/// A default apply writes every appearance key's bits (set ones at their
+/// value, absent ones at their default) and no other bit of the record
+/// (stats, edit flags, the appearance id, the run's undecoded bits).
 #[test]
-fn an_apply_then_write_touches_only_the_set_fields_bits() {
+fn an_apply_then_write_touches_only_the_appearance_keys_bits() {
     let payload = payload(PesVersion::Pes19);
     let schema = schema_for(PesVersion::Pes19);
     let mut player = find_player(&payload, schema, 70101);
-    let mut settings = PlayerSettings::default();
-    settings.set(SettingKey::SkinColor, 3).expect("in range");
-    settings.set(SettingKey::NeckLength, 9).expect("in range");
-    settings
+    PlayerSettings::default()
         .apply(&mut player, PesVersion::Pes19)
         .expect("apply");
 
@@ -315,24 +315,32 @@ fn an_apply_then_write_touches_only_the_set_fields_bits() {
     let mut written = rec.to_vec();
     write_player(&player, &mut written, schema.player).expect("encode");
 
+    // The bit runs of every settings key the version holds (the stock IDs
+    // included: unset they are left alone, but their bits are the file's to
+    // write). A key the version has no field for (`dribbling` here) writes
+    // nothing, so it contributes no run.
     let run = schema.player.ingame_face.as_ref().expect("a run on PES 19");
-    let skin = INGAME_FACE_FIELDS
-        .iter()
-        .find(|f| f.field == IngameFaceField::SkinColor)
-        .expect("a skin row");
-    let neck = schema
-        .player
-        .fields
-        .iter()
-        .find(|f| f.field == PlayerField::NeckLength)
-        .expect("a neck_length row");
-    let ranges = [
-        (
-            run.byte_offset * 8 + skin.bit_offset,
-            run.byte_offset * 8 + skin.bit_offset + skin.bit_width,
-        ),
-        (neck.bit_offset, neck.bit_offset + neck.bit_width),
-    ];
+    let mut ranges = Vec::new();
+    for key in SettingKey::ALL {
+        match key.source() {
+            Source::Player(field) => {
+                if let Some((_, offset, width)) = runs(schema.player).find(|(f, _, _)| *f == field)
+                {
+                    ranges.push((offset, offset + width));
+                }
+            }
+            Source::Face(field) => {
+                let row = INGAME_FACE_FIELDS
+                    .iter()
+                    .find(|f| f.field == field)
+                    .unwrap_or_else(|| panic!("{key:?} source has no row"));
+                ranges.push((
+                    run.byte_offset * 8 + row.bit_offset,
+                    run.byte_offset * 8 + row.bit_offset + row.bit_width,
+                ));
+            }
+        }
+    }
     let mut diffs = 0usize;
     for (byte, (was, now)) in rec.iter().zip(&written).enumerate() {
         for bit in 0..8 {
@@ -341,31 +349,149 @@ fn an_apply_then_write_touches_only_the_set_fields_bits() {
                 diffs += 1;
                 assert!(
                     ranges.iter().any(|(s, e)| pos >= *s && pos < *e),
-                    "bit {pos} changed outside the skin and neck runs"
+                    "bit {pos} changed outside the settings keys' runs"
                 );
             }
         }
     }
-    assert_ne!(diffs, 0, "the two settings changed something");
+    assert_ne!(
+        diffs, 0,
+        "the defaults differ from the fixture's appearance"
+    );
 }
 
+/// `dribbling` exists only on PES 20 and 21: on an older target the key is
+/// skipped, set or not (an export written for a newer version compiles for
+/// an older one as it is), and the rest of the settings still applies. On
+/// PES 21 the same settings writes it.
 #[test]
-fn a_setting_the_version_lacks_is_refused_and_changes_nothing() {
-    let payload = payload(PesVersion::Pes19);
-    let schema = schema_for(PesVersion::Pes19);
-    let mut player = find_player(&payload, schema, 70101);
-    let before = player.clone();
+fn a_setting_the_version_lacks_is_skipped_not_refused() {
     let mut settings = PlayerSettings {
         name: Some(NameSetting::Explicit("RENAMED".to_string())),
         ..PlayerSettings::default()
     };
     settings.set(SettingKey::Sleeves, 2).expect("in range");
-    settings.set(SettingKey::Dribbling, 1).expect("in range");
-    match settings.apply(&mut player, PesVersion::Pes19) {
-        Err(SettingsError::NotInThisVersion { key }) => assert_eq!(key, "dribbling"),
-        other => panic!("expected NotInThisVersion, got {other:?}"),
+    settings.set(SettingKey::Dribbling, 2).expect("in range");
+
+    let payload19 = payload(PesVersion::Pes19);
+    let mut player = find_player(&payload19, schema_for(PesVersion::Pes19), 70101);
+    settings
+        .apply(&mut player, PesVersion::Pes19)
+        .expect("a key the version lacks is skipped, not an error");
+    assert_eq!(player.motion.dribbling, None, "no field, no write");
+    assert_eq!(player.name, "RENAMED");
+    assert_eq!(player.appearance.sleeves, 2);
+
+    let payload21 = payload(PesVersion::Pes21);
+    let mut player = find_player(&payload21, schema_for(PesVersion::Pes21), 70101);
+    settings
+        .apply(&mut player, PesVersion::Pes21)
+        .expect("apply");
+    assert_eq!(player.motion.dribbling, Some(2));
+    assert_eq!(player.appearance.sleeves, 2);
+}
+
+/// A fully unset settings writes every appearance key's default, so no
+/// save value shows through: the stock IDs and the names keep the save's
+/// own (the compiler resolves the IDs; absent names are never written),
+/// and nothing outside the appearance changes.
+#[test]
+fn a_default_settings_applies_the_template_values() {
+    for version in [PesVersion::Pes19, PesVersion::Pes21] {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        let mut player = find_player(&payload, schema, 70101);
+        let before = player.clone();
+        // The fixture's appearance must differ from the defaults, or the
+        // assertions below prove nothing.
+        let current = PlayerSettings::from_player(&before).expect("from_player");
+        assert!(
+            SettingKey::ALL.iter().any(|&key| {
+                let held = match key.source() {
+                    Source::Player(field) => schema.player_has(field),
+                    Source::Face(_) => true,
+                };
+                held && current.get(key) != key.spec().default
+            }),
+            "{version:?} player 70101 already sits at the defaults"
+        );
+
+        PlayerSettings::default()
+            .apply(&mut player, version)
+            .expect("apply");
+
+        let read = PlayerSettings::from_player(&player).expect("from_player");
+        for key in SettingKey::ALL {
+            let held = match key.source() {
+                Source::Player(field) => schema.player_has(field),
+                Source::Face(_) => true,
+            };
+            let expected = if held { key.spec().default } else { None };
+            match key {
+                SettingKey::BootsId | SettingKey::GlovesId => {}
+                _ => assert_eq!(read.get(key), expected, "{version:?} {key:?}"),
+            }
+        }
+        // On PES 21 the default `dribbling = 0` is written too.
+        assert_eq!(
+            player.motion.dribbling,
+            if version == PesVersion::Pes21 {
+                Some(0)
+            } else {
+                None
+            }
+        );
+        // The compiler-resolved IDs, the names and the rest of the record.
+        assert_eq!(player.appearance.boots_id, before.appearance.boots_id);
+        assert_eq!(player.appearance.gloves_id, before.appearance.gloves_id);
+        assert_eq!(
+            player.appearance.base_copy_id,
+            before.appearance.base_copy_id
+        );
+        assert_eq!(player.name, before.name);
+        assert_eq!(player.shirt_name, before.shirt_name);
+        assert_eq!(player.id, before.id);
+        assert_eq!(player.appearance_id, before.appearance_id);
+        assert_eq!(player.basic, before.basic);
+        assert_eq!(player.stats, before.stats);
+        assert_eq!(player.positions, before.positions);
+        assert_eq!(player.skills, before.skills);
+        assert_eq!(player.edit_flags, before.edit_flags);
     }
-    assert_eq!(player, before, "the refused write changed the player");
+}
+
+/// The point of "absent = default": the same partial file applied to two
+/// different players gives them the same appearance, nothing of what the
+/// save held shows through.
+#[test]
+fn the_same_partial_settings_gives_two_players_the_same_appearance() {
+    let payload = payload(PesVersion::Pes19);
+    let schema = schema_for(PesVersion::Pes19);
+    let mut a = find_player(&payload, schema, 70101);
+    let mut b = find_player(&payload, schema, 70102);
+    assert_ne!(
+        PlayerSettings::from_player(&a)
+            .expect("from_player")
+            .appearance,
+        PlayerSettings::from_player(&b)
+            .expect("from_player")
+            .appearance,
+        "the test needs two players whose appearance differs"
+    );
+    let mut settings = PlayerSettings::default();
+    settings.set(SettingKey::SkinColor, 3).expect("in range");
+    settings.set(SettingKey::FreeKick, 19).expect("in range");
+    settings.set(SettingKey::CheekType, 2).expect("in range");
+    settings.apply(&mut a, PesVersion::Pes19).expect("apply");
+    settings.apply(&mut b, PesVersion::Pes19).expect("apply");
+    assert_eq!(
+        PlayerSettings::from_player(&a)
+            .expect("from_player")
+            .appearance,
+        PlayerSettings::from_player(&b)
+            .expect("from_player")
+            .appearance
+    );
 }
 
 #[test]
@@ -380,8 +506,8 @@ fn get_after_set_round_trips_every_key() {
 #[test]
 fn the_key_specs_match_the_plan_table() {
     let comments: [&str; 52] = [
-        "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
-        "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
+        "\"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)",
+        "\"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder's gloves models or a gloves link get an ID (pre-Fox face-XML gloves do not)",
         "0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)",
         "0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet",
         "-7 to 7",
@@ -470,14 +596,15 @@ fn an_unset_settings_is_empty_and_default() {
 // The TOML half: the template, the parser's errors, `update_toml`.
 
 /// The key-table block of `docs/plans/aesthetics_export/settings_toml.md`,
-/// except the first five comment lines, which keep the emitted header's
-/// wording until the defaults rewrite it: `to_toml` of the settings the
-/// block parses to must reproduce it byte for byte.
-const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key is optional: an absent key leaves
-# that savefile setting untouched (boots_id/gloves_id: see their comments). A commented
-# key shows what can be set and its range. The file never references the export's
-# models: what a player wears is decided by the folder contents (models present, link
-# files pointing at shared folders); boots_id/gloves_id only name the game's stock models.
+/// verbatim except its tail (the `[appearance.unknown]` table, its two
+/// comment lines and the blank before them, which a later slice adds):
+/// `to_toml` of the settings the block parses to must reproduce it byte for
+/// byte.
+const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key is optional: an absent key takes the
+# value shown here (name and shirt_name: not written). A commented key shows what can be
+# set and its range. The file never references the export's models: what a player wears
+# is decided by the folder contents (models present, link files pointing at shared
+# folders); boots_id/gloves_id only name the game's stock models.
 
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
 # name for players.txt-mapped folders); "text" = write as is; absent = not written.
@@ -485,8 +612,8 @@ const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key i
 # team without a manager); otherwise they are ignored and the manager's names stand.
 name = "Snuffy"
 shirt_name = "SNUFFY"           # "text" = write as is; absent = not written
-boots_id = ""                   # "" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
-gloves_id = ""                  # "" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link
+boots_id = ""                   # "" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)
+gloves_id = ""                  # "" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder's gloves models or a gloves link get an ID (pre-Fox face-XML gloves do not)
 
 [appearance]
 skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)
@@ -523,7 +650,7 @@ spectacles_color = 0            # 0 white, 1 black, 2 red, 3 blue, 4 yellow, 5 g
 gloves = false                  # true, false (outfield player gloves)
 gloves_color = 0                # 0 to 7
 
-[appearance.motion]
+[appearance.motion]             # on Fox written by the aesthetics patch: the tables do not hold motions
 hunching_dribbling = 1          # 1 to 3 (PES 20 and 21: 1 to 5)
 hunching_running = 1            # 1 to 3 (PES 20 and 21: 1 to 5)
 arm_movement_dribbling = 1      # 1 to 8 (PES 20 and 21: 1 to 10)
@@ -560,6 +687,18 @@ fn to_toml_of_the_parsed_plan_block_is_the_plan_block() {
     assert_eq!(settings.to_toml().expect("emit"), PLAN_BLOCK);
 }
 
+/// Every value the plan block shows is the key's default: the block is the
+/// spec, `KeySpec::default` its stored form (a physique `0` is stored 7, a
+/// motion `1` stored 0, a label its index). `""` is no stored value, so the
+/// two stock IDs are `None` like an absent key.
+#[test]
+fn the_plan_block_shows_every_keys_default() {
+    let settings = PlayerSettings::parse(PLAN_BLOCK).expect("the plan block parses");
+    for key in SettingKey::ALL {
+        assert_eq!(settings.get(key), key.spec().default, "{key:?}");
+    }
+}
+
 #[test]
 fn to_toml_of_a_default_is_a_fully_commented_template() {
     let text = PlayerSettings::default().to_toml().expect("emit");
@@ -581,13 +720,13 @@ fn to_toml_of_a_default_is_a_fully_commented_template() {
         assert!(text.contains(spec.comment), "{key:?} comment absent");
     }
     assert!(text.contains("# name = true"), "name is commented");
-    // Every kind's line carries its neutral example value.
+    // Every key's line carries its default, the template's shown value.
     for (name, prefix) in [
-        ("skin_color", "# skin_color = 0"),
+        ("skin_color", "# skin_color = 1"),
         ("neck_length", "# neck_length = 0"),
         ("hunching_dribbling", "# hunching_dribbling = 1"),
-        ("untucked", "# untucked = false"),
-        ("sleeves", "# sleeves = \"seasonal\""),
+        ("untucked", "# untucked = true"),
+        ("sleeves", "# sleeves = \"short\""),
         ("name", "# name = true"),
         ("shirt_name", "# shirt_name = \"\""),
         ("boots_id", "boots_id = \"\""),

@@ -173,8 +173,9 @@ impl PlayerDiff {
             | F::Aggression
             | F::PlayingAttitude
             | F::StrongerHand => DiffScope::Gameplay,
-            // No `Field` row is emitted for it (a stripped player is marked
-            // instead); the arm only closes the match.
+            // No `Field` row is emitted for the appearance id: the save
+            // editor's `diff` marks a stripped player. The arm only closes
+            // the match.
             F::AppearanceId => DiffScope::Gameplay,
         }
     }
@@ -194,7 +195,8 @@ fn record_diffs(
         if seen.is_some_and(|seen| seen.has(field)) {
             continue;
         }
-        // The appearance id is no row: a stripped player is marked instead.
+        // The appearance id is no row: the save editor's `diff` marks a
+        // stripped player.
         if field == PlayerField::AppearanceId {
             continue;
         }
@@ -496,7 +498,8 @@ mod tests {
             let mut b = a.clone();
             b.set(field, new).expect("fits");
             let diffs = compare_players(&a, &b, schema).expect("compares");
-            // The appearance id is no row: a stripped player is marked.
+            // The appearance id is no row: the save editor's `diff` marks a
+            // stripped player.
             let expected = if field == PlayerField::AppearanceId {
                 Vec::new()
             } else {
@@ -583,7 +586,7 @@ mod tests {
     }
 
     /// The appearance id is no row: a player only differing there compares
-    /// equal (a stripped player is marked instead).
+    /// equal (the save editor's `diff` marks a stripped player).
     #[test]
     fn the_appearance_id_is_no_row() {
         let a = player(PesVersion::Pes21, 70101);

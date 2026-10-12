@@ -448,7 +448,16 @@ impl Texport {
             version,
             file: File::Ted(plain),
             team: team.clone(),
-            players: players.iter().map(|p| (*p).clone()).collect(),
+            // `players` are what the file holds, so each entry keeps the id
+            // `write_ted` put at the appearance-id slot: his own, not the
+            // save entry's (a stripped player's is -1 there).
+            players: players
+                .iter()
+                .map(|p| PlayerEntry {
+                    appearance_id: Some(p.id),
+                    ..(*p).clone()
+                })
+                .collect(),
         })
     }
 
@@ -617,6 +626,11 @@ mod tests {
             let players: Vec<&PlayerEntry> = stripped.iter().collect();
             let made =
                 Texport::new(version, fixture.team(), &players, &test_salt()).expect("synthesizes");
+            // The stored players are what the file holds: each one's own id,
+            // as the game's exports carry it.
+            for player in made.players() {
+                assert_eq!(player.appearance_id, Some(player.id), "{version:?}");
+            }
             let out = made.to_bytes(&test_salt()).expect("encodes");
             let back = Texport::from_bytes(&out, Some(version)).expect("reopens");
             for player in back.players() {

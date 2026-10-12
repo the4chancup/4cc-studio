@@ -15,14 +15,14 @@ use super::{
 // `update_toml` rewrites the `Some` values inside an existing document while
 // preserving its comments and formatting.
 
-/// The header of a generated `settings.toml`: five comment lines followed by
-/// the plan block's four `name`/`shirt_name` comment lines, verbatim.
+/// The header of a generated `settings.toml`: the plan block's five comment
+/// lines and its four `name`/`shirt_name` comment lines, verbatim.
 const HEADER: &str = "\
-# settings.toml, inside a player folder. Every key is optional: an absent key leaves
-# that savefile setting untouched (boots_id/gloves_id: see their comments). A commented
-# key shows what can be set and its range. The file never references the export's
-# models: what a player wears is decided by the folder contents (models present, link
-# files pointing at shared folders); boots_id/gloves_id only name the game's stock models.
+# settings.toml, inside a player folder. Every key is optional: an absent key takes the
+# value shown here (name and shirt_name: not written). A commented key shows what can be
+# set and its range. The file never references the export's models: what a player wears
+# is decided by the folder contents (models present, link files pointing at shared
+# folders); boots_id/gloves_id only name the game's stock models.
 
 # true = derive from the folder name (\"15 - Snuffy\" gives \"Snuffy\"; the whole folder
 # name for players.txt-mapped folders); \"text\" = write as is; absent = not written.
@@ -106,16 +106,6 @@ pub(super) fn range_text(kind: Kind) -> String {
             .map(|label| format!("\"{label}\""))
             .collect::<Vec<_>>()
             .join(", "),
-    }
-}
-
-/// The value an unset key's commented line shows.
-fn neutral_text(kind: Kind) -> String {
-    match kind {
-        Kind::Number { .. } | Kind::Signed7 => "0".to_string(),
-        Kind::OneBased { .. } => "1".to_string(),
-        Kind::Bool => "false".to_string(),
-        Kind::Labels(labels) => Value::from(labels[0]).to_string(),
     }
 }
 
@@ -409,7 +399,8 @@ pub(crate) fn parse_appearance(
 
 /// The `[prefix]` table plus its four subtables appended to `out`, in key
 /// order: a `Some` emits its line with the key's comment, a `None` the
-/// commented neutral line. Shared with `team_toml`'s `[players.NN.appearance]`.
+/// commented line at the key's default. Shared with `team_toml`'s
+/// `[players.NN.appearance]`.
 pub(crate) fn emit_appearance(
     out: &mut String,
     prefix: &str,
@@ -423,13 +414,29 @@ pub(crate) fn emit_appearance(
             continue; // top-level keys are not emitted inside a table
         }
         if spec.table != table {
-            out.push_str(&format!("\n[{}]\n", absolute(prefix, spec.table)));
+            // The motion table's note is the settings template's: a settings
+            // apply writes the motions through the aesthetics patch, where a
+            // team TOML import writes the save directly.
+            let note = if !stored_ranges && spec.table == KeyTable::Motion {
+                "on Fox written by the aesthetics patch: the tables do not hold motions"
+            } else {
+                ""
+            };
+            let header = padded(&format!("[{}]", absolute(prefix, spec.table)), note);
+            out.push_str(&format!("\n{header}\n"));
             table = spec.table;
         }
         let stored = get_appearance(appearance, key);
         let body = match stored {
             Some(stored) => format!("{} = {}", spec.name, toml_form(key, stored, stored_ranges)?),
-            None => format!("{} = {}", spec.name, neutral_text(spec.kind)),
+            None => {
+                let default = spec.default.expect("a non-Top key carries a default");
+                format!(
+                    "{} = {}",
+                    spec.name,
+                    toml_form(key, default, stored_ranges)?
+                )
+            }
         };
         let line = padded(&body, spec.comment);
         match stored {
@@ -496,9 +503,10 @@ impl PlayerSettings {
     }
 
     /// The template `settings.toml`: the plan block verbatim for a settings
-    /// where every key is `Some`; an unset key is its line commented out with
-    /// the kind's neutral example value. `OutOfRange` for a value written
-    /// directly into a public field that the key's kind cannot represent.
+    /// where every key is `Some`; an unset key is its line commented out at
+    /// the key's default (`KeySpec::default`). `OutOfRange` for a value
+    /// written directly into a public field that the key's kind cannot
+    /// represent.
     pub fn to_toml(&self) -> Result<String, SettingsError> {
         let mut out = HEADER.to_string();
         match &self.name {
