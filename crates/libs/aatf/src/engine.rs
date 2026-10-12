@@ -237,13 +237,48 @@ mod tests {
                 .is_unit(),
             "physical_contact is () on PES 15"
         );
-        let (engine, mut scope, _) = with_team(PesVersion::Pes21);
-        let value = eval_i64(
-            &engine,
-            &mut scope,
-            "team.players[10].stat(\"physical_contact\")",
+        let (engine, mut scope, file) = with_team(PesVersion::Pes21);
+        assert_eq!(
+            file.player(70111).expect("70111").stats.physical_contact,
+            Some(77)
         );
-        assert!(value > 0, "a number on PES 21: {value}");
+        assert_eq!(
+            eval_i64(
+                &engine,
+                &mut scope,
+                "team.players[10].stat(\"physical_contact\")"
+            ),
+            77
+        );
+    }
+
+    #[test]
+    fn stat_returns_the_named_ability() {
+        // 70108's dribbling set to 80 (89 in the fixture), so the two
+        // stats differ: `stat` answers by name, not by position.
+        let (engine, mut scope, mut file) = with_team(PesVersion::Pes18);
+        let entry = file
+            .players_mut()
+            .iter_mut()
+            .find(|p| p.id == 70108)
+            .expect("player 70108");
+        assert_eq!(entry.stats.physical_contact, Some(89));
+        assert_eq!(entry.stats.dribbling, 89);
+        entry.stats.dribbling = 80;
+        let team = TeamView::new(&file, 701).expect("the team views");
+        scope.push("team", team);
+        assert_eq!(
+            eval_i64(
+                &engine,
+                &mut scope,
+                "team.players[7].stat(\"physical_contact\")"
+            ),
+            89
+        );
+        assert_eq!(
+            eval_i64(&engine, &mut scope, "team.players[7].stat(\"dribbling\")"),
+            80
+        );
     }
 
     #[test]
@@ -372,8 +407,85 @@ mod tests {
                 .is_err(),
             "preset 4 is a script error"
         );
+        // Preset 3 answers too.
+        let fielded = engine
+            .eval_with_scope::<Array>(&mut scope, "team.fielded_positions(team.players[10], 3)")
+            .expect("preset 3");
+        assert_eq!(
+            fielded
+                .into_iter()
+                .map(|pos| pos.into_string().expect("a label"))
+                .collect::<Vec<_>>(),
+            vec!["CF".to_string()]
+        );
         let (engine, mut scope, _) = with_team(PesVersion::Pes21);
         assert_eq!(eval_i64(&engine, &mut scope, "team.version"), 21);
+    }
+
+    /// Formation slot `i` holds `starting_eleven[i]` — swapping two
+    /// entries moves both players' fielded answers with it.
+    #[test]
+    fn fielded_answers_follow_the_starting_eleven() {
+        let (engine, mut scope, mut file) = with_team(PesVersion::Pes19);
+        // Premise: slot 3 sits at formation index 1 (CB), slot 1 at
+        // index 4 (LB) — different positions.
+        assert_eq!(team_mut(&mut file).tactics.starting_eleven[1], 3);
+        assert_eq!(team_mut(&mut file).tactics.starting_eleven[4], 1);
+        assert_eq!(
+            team_mut(&mut file).tactics.presets[0].formations[0].players[1].position,
+            1
+        );
+        assert_eq!(
+            team_mut(&mut file).tactics.presets[0].formations[0].players[4].position,
+            2
+        );
+        team_mut(&mut file).tactics.starting_eleven.swap(1, 4);
+        let team = TeamView::new(&file, 701).expect("the team views");
+        scope.push("team", team);
+        let fielded = engine
+            .eval_with_scope::<Array>(&mut scope, "team.fielded_positions(team.players[3], 1)")
+            .expect("slot 3");
+        assert_eq!(
+            fielded
+                .into_iter()
+                .map(|pos| pos.into_string().expect("a label"))
+                .collect::<Vec<_>>(),
+            vec!["LB".to_string()]
+        );
+        assert!(
+            engine
+                .eval_with_scope::<bool>(
+                    &mut scope,
+                    "team.fielded_only_at(team.players[3], \"LB\")"
+                )
+                .expect("fielded_only_at")
+        );
+        assert!(
+            !engine
+                .eval_with_scope::<bool>(
+                    &mut scope,
+                    "team.fielded_only_at(team.players[3], \"CB\")"
+                )
+                .expect("fielded_only_at")
+        );
+        let fielded = engine
+            .eval_with_scope::<Array>(&mut scope, "team.fielded_positions(team.players[1], 1)")
+            .expect("slot 1");
+        assert_eq!(
+            fielded
+                .into_iter()
+                .map(|pos| pos.into_string().expect("a label"))
+                .collect::<Vec<_>>(),
+            vec!["CB".to_string()]
+        );
+        assert!(
+            engine
+                .eval_with_scope::<bool>(
+                    &mut scope,
+                    "team.fielded_only_at(team.players[1], \"CB\")"
+                )
+                .expect("fielded_only_at")
+        );
     }
 
     /// `position` and `playing_style` are `()` past their tables; an
@@ -389,8 +501,9 @@ mod tests {
         // Premises: registered is CF (12), style byte 1 (decodes), and
         // PES 19's 22-style table ends at index 21.
         assert_eq!(entry.positions.registered, 12);
+        assert_eq!(entry.positions.playing_style, 1);
         assert!(pes_savefile::schema::playstyle::decode(PesVersion::Pes19, 22).is_err());
-        entry.positions.registered = 15;
+        entry.positions.registered = 13;
         entry.positions.playing_style = 22;
         let team = TeamView::new(&file, 701).expect("the team views");
         scope.push("team", team);
@@ -423,6 +536,81 @@ mod tests {
                 .is_err(),
             "an unknown position is a script error"
         );
+    }
+
+    #[test]
+    fn playing_style_decodes_through_the_versions_table() {
+        let (engine, mut scope, mut file) = with_team(PesVersion::Pes19);
+        let entry = file
+            .players_mut()
+            .iter_mut()
+            .find(|p| p.id == 70111)
+            .expect("player 70111");
+        // Byte 15 is BuildUp on PES 19's table; it sits at `PlayStyle`'s
+        // canonical index 18 — the stored byte and the label index
+        // differ.
+        assert_eq!(entry.positions.playing_style, 1);
+        assert!(
+            pes_savefile::schema::playstyle::decode(PesVersion::Pes19, 15)
+                .is_ok_and(|style| style == pes_savefile::model::PlayStyle::BuildUp)
+        );
+        entry.positions.playing_style = 15;
+        let team = TeamView::new(&file, 701).expect("the team views");
+        scope.push("team", team);
+        assert_eq!(
+            engine
+                .eval_with_scope::<String>(&mut scope, "team.players[10].playing_style")
+                .expect("playing_style"),
+            "build_up"
+        );
+    }
+
+    /// A fluid preset reports one map per formation: `preset`,
+    /// `formation` and `shape` each.
+    #[test]
+    fn formation_shapes_reports_each_fielded_formation() {
+        let (engine, mut scope, mut file) = with_team(PesVersion::Pes19);
+        // Premises: preset 2 is not fluid, and its formation 3 fields
+        // AMF (a midfielder) at slot 8.
+        assert_eq!(
+            team_mut(&mut file).tactics.presets[1].style.fluid,
+            Some(false)
+        );
+        assert_eq!(
+            team_mut(&mut file).tactics.presets[1].formations[2].players[8].position,
+            8
+        );
+        team_mut(&mut file).tactics.presets[1].style.fluid = Some(true);
+        // Formation 3's AMF becomes a CF: the shape goes [4, 4, 2] →
+        // [4, 3, 3].
+        team_mut(&mut file).tactics.presets[1].formations[2].players[8].position = 12;
+        let team = TeamView::new(&file, 701).expect("the team views");
+        scope.push("team", team);
+        let shapes = engine
+            .eval_with_scope::<Array>(&mut scope, "team.formation_shapes()")
+            .expect("formation_shapes");
+        assert_eq!(shapes.len(), 5);
+        for (i, want) in [
+            (1usize, vec![4, 4, 2]),
+            (2, vec![4, 4, 2]),
+            (3, vec![4, 3, 3]),
+        ] {
+            let map = shapes[i].clone().cast::<Map>();
+            assert_eq!(map["preset"].as_int().expect("preset"), 2, "{i}");
+            assert_eq!(
+                map["formation"].as_int().expect("formation"),
+                i64::try_from(i).expect("small"),
+                "{i}"
+            );
+            let shape: Vec<i64> = map["shape"]
+                .clone()
+                .into_array()
+                .expect("shape")
+                .iter()
+                .map(|count| count.as_int().expect("a count"))
+                .collect();
+            assert_eq!(shape, want, "{i}");
+        }
     }
 
     #[test]

@@ -498,20 +498,47 @@ fn color_code_lengths_are_refused() {
         LoadRule::ColorCodeLength,
         "specials[1].when.not.name_colors[0]",
     );
+    // Nine bytes: over is refused too; eight loads.
+    case(
+        "name_colors long",
+        &edit(
+            AUTUMN26,
+            "when: #{ captain: true }",
+            "when: #{ captain: true, name_colors: [\"cc9900ff0\"] }",
+        ),
+        LoadRule::ColorCodeLength,
+        "specials[1].when.name_colors[0]",
+    );
+    Ruleset::from_data_block(&edit(
+        AUTUMN26,
+        "when: #{ captain: true }",
+        "when: #{ captain: true, name_colors: [\"cc9900ff\"] }",
+    ))
+    .expect("an eight-byte code loads");
 }
 
 #[test]
 fn a_suggestion_word_as_a_group_is_reserved() {
-    case(
-        "cards group",
-        &edit(
-            AUTUMN26,
-            "    card_groups: #{\n",
-            "    card_groups: #{\n        cards: [\"malicia\"],\n",
-        ),
-        LoadRule::ReservedGroup,
-        "card_groups.cards",
-    );
+    for word in [
+        "cards",
+        "a_positions",
+        "weak_foot",
+        "injury_resistance",
+        "height",
+        "free_cards",
+        "choices",
+    ] {
+        case(
+            word,
+            &edit(
+                AUTUMN26,
+                "    card_groups: #{\n",
+                &format!("    card_groups: #{{\n        {word}: [\"malicia\"],\n"),
+            ),
+            LoadRule::ReservedGroup,
+            &format!("card_groups.{word}"),
+        );
+    }
 }
 
 #[test]

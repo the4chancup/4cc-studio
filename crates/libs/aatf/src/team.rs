@@ -394,6 +394,7 @@ mod tests {
         let team = TeamView::new(&file, 701).expect("the team views");
         assert_eq!(team.fielded_positions(8, 1), vec![Position(6), Position(8)]);
         // A substitute: nothing.
+        assert!(!team.tactics.starting_eleven.contains(&20));
         assert_eq!(team.fielded_positions(20, 1), Vec::<Position>::new());
     }
 
@@ -426,6 +427,7 @@ mod tests {
         let team = TeamView::new(&file, 701).expect("the team views");
         assert!(!team.fielded_only_at(10, cf));
         // A substitute: his registered position, nothing else.
+        assert!(!team.tactics.starting_eleven.contains(&20));
         let entry = file.player(70121).expect("player 70121");
         let registered_pos = Position(entry.positions.registered);
         let elsewhere = Position((entry.positions.registered + 1) % 13);

@@ -3,8 +3,9 @@
 //! the heights and a list of conditional "specials" — read here into
 //! `Ruleset` and checked against the rules the types cannot carry. The
 //! host is written: `TeamView`/`PlayerView` and the script engine. What
-//! is not: the interpreter (`check_team`, `tier_values`, `card_limits`)
-//! and `apply_tier` (`aatf_rules.md` "The interpreter").
+//! is not: the interpreter's `check_team`, `tier_values` and
+//! `card_limits` (`aatf_rules.md` "The interpreter") and `apply_tier`
+//! ("The host").
 //!
 //! The host reads a team as a `TeamView` of `PlayerView`s on the game's
 //! own scale, and every script runs on the one engine of `engine.rs`.
@@ -13,7 +14,9 @@
 //! `weak_foot_accuracy` (the game's scale); `position`, `playing_style`,
 //! `name_color` (label or `()`); `cards` (the held skills and COM styles'
 //! labels); `stat(name)` (the ability stat's value, `()` where the
-//! version lacks it); `rating_at(pos)` (`"A"`, `"B"`, `"C"`, `"none"`).
+//! version lacks it; an unknown name is a script error);
+//! `rating_at(pos)` (`"A"`, `"B"`, `"C"`, `"none"`; an unknown position
+//! is a script error).
 //! On `Team`: `players` (the roster in slot order), `captain` (the slot,
 //! `()` for none), `version` (the short number);
 //! `fielded_positions(player, preset)` (labels, once each),

@@ -1842,3 +1842,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2b1 rework (review R14.S1, 9 of 11): tests for every preset, the
   once-each positions, the `()` and error paths, PES 15; the crate doc and the plan's layout
   current. SWE-2, first attempt.
+- **2026-10-12** — Step 5.2b1 second rework (R15.S1 4 of 5, Astra R11.A1 6 of 6): tests that a
+  reordered starting eleven, a version's style table, exact stats and a fluid formation's own
+  shape read right; every reserved word and an eight-byte colour code tested. SWE-2, first attempt.
