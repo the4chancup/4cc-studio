@@ -647,7 +647,7 @@ pub enum ViolationKind {
     MinCards { paid: u8, min: u8 },
     SkillCardCap { count: u8, max: u8 },
     ComStyleCap { count: u8, max: u8 },
-    RequiredCard { card: Skill },
+    RequiredCard { card: Card },
     APositions { count: u8, max: u8 },
     Height { height: u8 },
     TierCount { tier: TierId, count: u8, expected: u8 },
@@ -668,6 +668,15 @@ pub enum ViolationKind {
 These are findings (`AGENTS.md` "Fundamental concepts"): each tool maps a kind to its message
 catalog; only `Special` and `Custom` carry text, the ruleset author's.
 
+The map names the variant in `kind` (`"Stat"`) and carries its fields under their names: closed
+sets as the labels the file uses (`stat: "speed"`, `position: "CB"`, `card: "malicia"`), ids as
+their strings, `shape` as an array of three. `slot` is the roster slot, absent or `()` for the
+team; `severity` is `"error"`, `"warning"` or `"suggestion"`, absent meaning an error, so a
+custom check can return `#{ kind: "Custom", text: "…" }`. A map the host cannot convert (an
+unknown kind, a missing or extra key, a number past its field's range, an unknown label) fails
+the check with the map's index in the returned list. It is not dropped: it is a bug in the logic
+or a custom check, and a check that skipped it would pass a team the file means to flag.
+
 **Suggestions** need no authoring. Every allowance named in `suggestions` that a player does not
 use up yields an `Unused` suggestion: paid cards under the limit, a group's free cards not all
 held, a free card not held, fewer A positions than allowed, weak foot or injury resistance below
@@ -684,7 +693,11 @@ three functions on demand. What a script sees is registered by the host and noth
 as a `TeamView` built from `pes_savefile`'s model (`TeamView::new(&EditFile, team_id)`) and its
 roster as `PlayerView`s, every value on the game's own scale (form 1 to 8, injury resistance 1 to
 3, weak foot 1 to 4, where the save stores each less one). They are views, not `PlayerEntry` and
-`TeamEntry`, which are `pes_savefile`'s records.
+`TeamEntry`, which are `pes_savefile`'s records. A team also comes from a Team TOML document
+(`TeamView::from_team_toml`, for the Team creator's check before it writes and for the sample
+team), of the version its `pes_version` names: the document is applied onto bare records, one
+roster slot per `players` key, with each player's `appearance` table left out, because no
+ruleset reads it and it applies only over a real player's face data.
 
 ```rust
 let mut engine = rhai::Engine::new_raw();        // no module resolver; print and debug go nowhere
@@ -752,17 +765,26 @@ alternative file, and a "save a copy" action writes the embedded one out. A file
 load, by the Save editor's "validate rules" button and by the Ruleset editor before saving:
 
 1. It parses, and defines `RULESET`, `check_team`, `tier_values` and `card_limits` with their
-   arities.
+   arities, and `custom_checks`, if defined, with one parameter (with another, `check_team`
+   would skip it without a word).
 2. `RULESET` deserializes into `Ruleset` of a known `schema`, and passes the rules under "The
    ruleset schema".
 3. `check_team` runs without a script error on the sample team embedded in `libs/aatf` (a real,
-   anonymized cup team). What it reports does not matter here; the fixtures check that.
+   anonymized cup team: `sample/team.toml`, a PES 15 Team TOML document from a 2026 cup save,
+   every player renamed and no appearance table). What it reports does not matter here; the
+   fixtures check that.
 
 A failure is a finding with the file's line and column for parse errors and the key path
 (`tiers[2].free.tricks`) for schema errors, before any real check runs.
 
 **Logic identity.** `libs/aatf` embeds the current logic and the SHA-256 of every logic section
-it has ever shipped, by version (`LOGIC_VERSIONS`), hashed with line endings normalized to LF. A
+it has ever shipped, by version (`LOGIC_VERSIONS`), hashed with line endings normalized to LF.
+The logic section runs from the start of the LOGIC banner line to the start of the CUSTOM CHECKS
+banner line, or to the end of a file without one; in an assembled file it is `logic/logic.rhai`
+whole. A file without the LOGIC banner has a modified logic. The current logic is the table's
+last entry: until the first release, its hash follows every edit of the logic; after it, a
+changed logic is a new version, in the banner and the table, since a file in the wild carries
+the released one. A
 file's logic section is *current*, an *older official* version (the Ruleset editor offers to
 update it), or *modified*: it still runs, and the Ruleset editor edits its data but says the
 specials depend on that logic. A logic change that needs a new data shape bumps `schema`;
@@ -773,8 +795,10 @@ specials depend on that logic. A logic change that needs a new data shape bumps 
 ```
 crates/libs/aatf/
 ├── src/
-│   ├── lib.rs          # Rules (a loaded file), the host API: check_team, tier_values,
-│   │                   #   card_limits, apply_tier; Violation, Severity
+│   ├── lib.rs          # the crate doc (the script API) and the re-exports
+│   ├── rules.rs        # Rules (a loaded file): load steps 1-3, the official file, the host
+│   │                   #   API: check_team, tier_values, card_limits, apply_tier
+│   ├── violation.rs    # Violation, ViolationKind, CheckError; the conversion from the map
 │   ├── ruleset/        # Ruleset and its types, deserialization (mod.rs), the load-time
 │   │                   #   rules (check.rs), their tests (tests/)
 │   ├── team.rs         # TeamView and PlayerView from pes_savefile's model, the tactics answers
@@ -792,7 +816,8 @@ crates/libs/aatf/
 │   ├── vgl27.rhai
 │   ├── vtl11.rhai
 │   └── vtl10.rhai
-└── tests/fixtures/     # the sample team; known-legal and known-violating teams per ruleset
+├── sample/team.toml    # the sample team load step 3 runs (a Team TOML document), README.md
+└── tests/fixtures/     # known-legal and known-violating teams per ruleset
 ```
 
 The data blocks hold only `const RULESET = …;`; the embedded official file is assembled from the

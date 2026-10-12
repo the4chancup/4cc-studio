@@ -1851,3 +1851,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.0i: the spec moves to `docs/spec/` (40 documents, Phases 1 to 4's
   sections), `docs/plans/` keeps the work not built, every plan file bannered; `just
   doc-pointers` gates section pointers and links. Classification found unbuilt spec text: 5.0j.
+- **2026-10-12** — Step 5.2c1: `aatf`'s `Rules` loads a rules file (steps 1 and 2) and runs its
+  `check_team`; violations cross as kind-tagged maps; the logic is a stub. 5.2c sliced into c1 to
+  c3; the sample team will be a Team TOML document (2026 cups run on PES 15). SWE-2, one rework.

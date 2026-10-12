@@ -7219,3 +7219,24 @@ were written with: they are append-only, and a pointer there names the tree of i
 Plan: `plans/README.md` "How these documents evolve" (rewritten), `spec/README.md` (new);
 `AGENTS.md` "Working documents" (table, closing a phase), "Read order by task"; `GLOSSARY.md`
 "Plan", "Spec"; `CONTRIBUTING.md` "Testing and verification" (the gate); `WORKLOG.md` "Phases".
+
+## 2026-10-12 — aatf — violations cross as kind-tagged maps; the sample team is a Team TOML document
+Decision (lead, where the plan was silent): a violation map names its `ViolationKind` variant in
+`kind` and carries the variant's fields under their names, `slot` and `severity` optional (the
+team; an error); a map the host cannot convert fails the check with its index. The sample team
+of load step 3 is a Team TOML document (`sample/team.toml`, a PES 15 team of the 2026 Summer Cup
+save, renamed, no appearance tables), read through a new `TeamView::from_team_toml`, which
+applies a document onto bare records. The logic section's extent and the current logic's place
+in `LOGIC_VERSIONS` are fixed. `RequiredCard` carries a `Card`, not a `Skill` (`require_cards`
+lists cards). `Rules` and the violations get modules of their own instead of `lib.rs`.
+Why: one tag plus the variant's own field names is the spelling a custom-check author can read
+off the Rust block, and refusing a bad map rather than skipping it keeps a buggy check from
+passing a team. The 2026 cups run on PES 15, whose team export is a 5.6 MB encrypted container,
+and a whole save is 5-11 MB; a Team TOML team is 146 KB of text, reviewable, and applied onto
+bare records it reproduces every value the check reads (measured on the chosen team: every
+player's age, height, weight, stats, positions and skills, and the tactics, equal, no import
+notes). The Team creator checks the documents it writes the same way. Appearance needs a real
+player's face data to apply onto (`NoIngameFaceRun` on a bare record), and no ruleset reads it.
+Plan: `aatf_rules.md` "The interpreter" (the map paragraph, `RequiredCard`), "The host" (the
+Team TOML constructor), "Loading and validation" (steps 1 and 3, logic identity), "Crate
+layout".

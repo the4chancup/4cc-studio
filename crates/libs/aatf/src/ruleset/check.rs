@@ -589,6 +589,21 @@ pub enum LoadError {
         /// The schema the file names.
         schema: u32,
     },
+    /// A required function is not defined with its arity.
+    #[error("the file defines no {name} with {arity} parameter(s)")]
+    MissingFunction {
+        /// The function.
+        name: &'static str,
+        /// The arity it must take.
+        arity: usize,
+    },
+    /// `custom_checks` takes exactly one parameter (the team); another
+    /// arity would be skipped without a word.
+    #[error("custom_checks takes one parameter (the team), not {arity}")]
+    CustomChecksArity {
+        /// The arity the file defines it with.
+        arity: usize,
+    },
     /// The rules the types cannot carry, every one broken, in a fixed order.
     #[error("{}", fmt_rules(.0))]
     Rules(Vec<RuleError>),

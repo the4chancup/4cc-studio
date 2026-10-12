@@ -600,47 +600,60 @@ impl TryFrom<String> for Card {
 // ---------------------------------------------------------------------------
 // Loading and the load-time rules
 
+/// The compile-and-run step `from_data_block` and `Rules::load` share:
+/// `engine()`'s AST and the scope the top level ran in.
+pub(crate) fn run_top_level(
+    text: &str,
+) -> Result<(rhai::Engine, rhai::AST, rhai::Scope<'static>), LoadError> {
+    // The one engine every script runs on; a data block evaluates its
+    // literals and touches nothing else.
+    let engine = crate::engine::engine();
+    let ast = engine.compile(text).map_err(|e| LoadError::Parse {
+        line: e.position().line().unwrap_or(0),
+        column: e.position().position().unwrap_or(0),
+        message: e.to_string(),
+    })?;
+    let mut scope = rhai::Scope::new();
+    engine
+        .run_ast_with_scope(&mut scope, &ast)
+        .map_err(|e| LoadError::Parse {
+            line: e.position().line().unwrap_or(0),
+            column: e.position().position().unwrap_or(0),
+            message: e.to_string(),
+        })?;
+    Ok((engine, ast, scope))
+}
+
+/// Step 2 of "Loading and validation": the `RULESET` map of the run's
+/// scope into `Ruleset`, its schema and the load-time rules.
+pub(crate) fn ruleset_from_scope(scope: &rhai::Scope) -> Result<Ruleset, LoadError> {
+    let Some(dynamic) = scope.get("RULESET") else {
+        return Err(LoadError::NoRuleset);
+    };
+    if !dynamic.is_map() {
+        return Err(LoadError::NoRuleset);
+    }
+    let ruleset: Ruleset = rhai::serde::from_dynamic(dynamic).map_err(|e| LoadError::Schema {
+        path: String::new(),
+        message: e.to_string(),
+    })?;
+    if ruleset.schema != 1 {
+        return Err(LoadError::UnknownSchema {
+            schema: ruleset.schema,
+        });
+    }
+    let rules = ruleset.check();
+    if !rules.is_empty() {
+        return Err(LoadError::Rules(rules));
+    }
+    Ok(ruleset)
+}
+
 impl Ruleset {
     /// Reads a data block: Rhai text defining `const RULESET = #{ ... };`.
     /// The parse, `RULESET`, schema and version checks stop at the first
     /// error; `Rules` reports every load-time rule the text breaks.
     pub fn from_data_block(text: &str) -> Result<Ruleset, LoadError> {
-        // The one engine every script runs on; a data block evaluates
-        // its literals and touches nothing else.
-        let engine = crate::engine::engine();
-        let ast = engine.compile(text).map_err(|e| LoadError::Parse {
-            line: e.position().line().unwrap_or(0),
-            column: e.position().position().unwrap_or(0),
-            message: e.to_string(),
-        })?;
-        let mut scope = rhai::Scope::new();
-        engine
-            .run_ast_with_scope(&mut scope, &ast)
-            .map_err(|e| LoadError::Parse {
-                line: e.position().line().unwrap_or(0),
-                column: e.position().position().unwrap_or(0),
-                message: e.to_string(),
-            })?;
-        let Some(dynamic) = scope.get("RULESET") else {
-            return Err(LoadError::NoRuleset);
-        };
-        if !dynamic.is_map() {
-            return Err(LoadError::NoRuleset);
-        }
-        let ruleset: Ruleset =
-            rhai::serde::from_dynamic(dynamic).map_err(|e| LoadError::Schema {
-                path: String::new(),
-                message: e.to_string(),
-            })?;
-        if ruleset.schema != 1 {
-            return Err(LoadError::UnknownSchema {
-                schema: ruleset.schema,
-            });
-        }
-        let rules = ruleset.check();
-        if !rules.is_empty() {
-            return Err(LoadError::Rules(rules));
-        }
-        Ok(ruleset)
+        run_top_level(text).and_then(|(_, _, scope)| ruleset_from_scope(&scope))
     }
 }

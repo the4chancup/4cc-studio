@@ -1,11 +1,11 @@
 //! `aatf`: the 4cc player rules (the community's "Auto-ATF" check). A
 //! ruleset is **data** — one Rhai map naming the tiers, the card economy,
 //! the heights and a list of conditional "specials" — read here into
-//! `Ruleset` and checked against the rules the types cannot carry. The
-//! host is written: `TeamView`/`PlayerView` and the script engine. What
-//! is not: the interpreter's `check_team`, `tier_values` and
-//! `card_limits` (`aatf_rules.md` "The interpreter") and `apply_tier`
-//! ("The host").
+//! `Ruleset` and checked against the rules the types cannot carry. A
+//! `Rules` loads a whole rules file (steps 1 and 2 of "Loading and
+//! validation") and runs its `check_team` on a `TeamView`; the shipped
+//! logic is a stub returning only the custom checks' violations.
+//! `tier_values`, `card_limits` and `apply_tier` are not written.
 //!
 //! The host reads a team as a `TeamView` of `PlayerView`s on the game's
 //! own scale, and every script runs on the one engine of `engine.rs`.
@@ -27,12 +27,20 @@
 
 /// The one engine every script runs on: packages, accessors, limits.
 mod engine;
+/// Assembling a rules file: data block, current logic, custom-checks stub.
+mod file;
+/// `Rules`: a loaded file, steps 1 and 2, `check_team`.
+mod rules;
 /// `Ruleset` and its types, deserialization and the load-time rules.
 mod ruleset;
 /// `TeamView`/`PlayerView` from `pes_savefile`'s model, the tactics answers.
 mod team;
+/// `Violation` and the script-to-`Violation` conversion.
+mod violation;
 
+pub use rules::Rules;
 pub use team::{PlayerView, TeamView, TeamViewError};
+pub use violation::{CheckError, Violation, ViolationKind};
 
 pub use ruleset::{
     Bracket, BracketHeights, BracketId, Card, Condition, Effects, GroupId, HeightSystem, Heights,
