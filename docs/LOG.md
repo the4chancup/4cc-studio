@@ -1839,3 +1839,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2a post-Astra rework (R13.S1 and R10.A1): no string empty, colour codes
   of eight bytes, suggestion words reserved as group ids; the untested sites tested; the ruleset
   tests split in three files. SWE-2, first attempt.
+- **2026-10-12** — Step 5.2b1 rework (review R14.S1, 9 of 11): tests for every preset, the
+  once-each positions, the `()` and error paths, PES 15; the crate doc and the plan's layout
+  current. SWE-2, first attempt.

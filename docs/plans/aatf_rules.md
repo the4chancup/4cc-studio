@@ -260,7 +260,7 @@ pub struct Condition {
     /// Rated A (or B) at any of these positions.
     pub rated_a_at: Vec<Position>,
     pub rated_b_at: Vec<Position>,
-    /// The name starts with one of these colour codes (the eight characters after `\x11c`,
+    /// The name starts with one of these colour codes (the eight bytes after `\x11c`,
     /// `cc9900ff`; see `pes_savefile`'s "Name colour codes").
     pub name_colors: Vec<String>,
     /// Fielded at this position in every formation the game can field: all three presets,
@@ -352,7 +352,7 @@ shows its special's label, which an empty one would leave blank).
 
 Rules the types cannot carry, checked on load ("Loading and validation"): no string is empty
 (an emptied name, id, label or `forbid` text names or says nothing), and a `name_colors` entry
-is eight characters (a partial paste matches no name); ids unique within their
+is eight bytes (a partial paste matches no name); ids unique within their
 kind, and every id a condition, effect, quota, `counts_as` or `suggestions` entry names exists; a
 tier with `counts_as` has no `count`, and the tier it names has no `counts_as` of its own (itself
 included); tier counts fit `squad_size`, and equal it when no tier is the rest of the squad (else
@@ -691,7 +691,7 @@ The script API, which `libs/aatf`'s crate doc lists too:
 | `player.form`, `.injury_resistance`, `.weak_foot_usage`, `.weak_foot_accuracy` | the game's scale |
 | `player.position` | the registered position's label (`"CB"`); `()` past the labels |
 | `player.playing_style` | the style's label; `()` when the version's table has no such style |
-| `player.name_color` | the eight characters after a leading `\x11c` (`"cc9900ff"`); `()` for a name without one |
+| `player.name_color` | the eight bytes after a leading `\x11c` (`"cc9900ff"`); `()` for a name without one |
 | `player.cards` | the labels of the skills and COM styles held, skills first, each in table order |
 | `player.stat(name)` | the ability stat's value; `()` on a version without it (`physical_contact` before PES 17); an unknown name is a script error |
 | `player.rating_at(pos)` | `"A"`, `"B"`, `"C"` or `"none"`; an unknown position is a script error |
@@ -757,7 +757,8 @@ crates/libs/aatf/
 ├── src/
 │   ├── lib.rs          # Rules (a loaded file), the host API: check_team, tier_values,
 │   │                   #   card_limits, apply_tier; Violation, Severity
-│   ├── ruleset.rs      # Ruleset and its types, deserialization, the load-time rules
+│   ├── ruleset/        # Ruleset and its types, deserialization (mod.rs), the load-time
+│   │                   #   rules (check.rs), their tests (tests/)
 │   ├── team.rs         # TeamView and PlayerView from pes_savefile's model, the tactics answers
 │   ├── engine.rs       # rhai::Engine setup: registered types and accessors, limits
 │   ├── file.rs         # section split, logic identity (LOGIC_VERSIONS), assembling a file

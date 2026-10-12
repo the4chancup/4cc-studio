@@ -15,7 +15,7 @@ use crate::ruleset::{Card, PlayStyle, Position, Stat};
 /// One roster player as a ruleset reads them, every value on the game's
 /// scale (form 1 to 8, injury resistance 1 to 3, weak foot 1 to 4, where
 /// the save stores each less one).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct PlayerView {
     /// The roster slot.
     pub(crate) slot: u8,
@@ -64,7 +64,7 @@ impl PlayerView {
 
 /// One team of a save as a ruleset reads it: its roster's players and its
 /// tactics.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct TeamView {
     /// The save's version.
     pub(crate) version: PesVersion,
@@ -382,19 +382,17 @@ mod tests {
         assert_eq!(team.tactics.presets[0].formations[2].players[8].position, 8);
         // Non-fluid: only the kick-off formation counts.
         assert_eq!(team.fielded_positions(8, 1), vec![Position(8)]);
-        // Formations 2 and 3 put him at LMF and RWF.
+        // Formations 2 and 3 both put him at LMF: the position reports
+        // once, not twice.
         team_mut(&mut file).tactics.presets[0].formations[1].players[8].position = 6;
-        team_mut(&mut file).tactics.presets[0].formations[2].players[8].position = 10;
+        team_mut(&mut file).tactics.presets[0].formations[2].players[8].position = 6;
         let team = TeamView::new(&file, 701).expect("the team views");
         assert_eq!(team.fielded_positions(8, 1), vec![Position(8)]);
-        // The same preset made fluid: all three formations, once each,
-        // ascending (LMF 6, AMF 8, RWF 10).
+        // The same preset made fluid: all three formations, each
+        // position once (LMF 6 twice becomes once), ascending.
         team_mut(&mut file).tactics.presets[0].style.fluid = Some(true);
         let team = TeamView::new(&file, 701).expect("the team views");
-        assert_eq!(
-            team.fielded_positions(8, 1),
-            vec![Position(6), Position(8), Position(10)]
-        );
+        assert_eq!(team.fielded_positions(8, 1), vec![Position(6), Position(8)]);
         // A substitute: nothing.
         assert_eq!(team.fielded_positions(20, 1), Vec::<Position>::new());
     }
@@ -417,6 +415,16 @@ mod tests {
         team_mut(&mut file).tactics.presets[0].formations[1].players[10].position = 11;
         let team = TeamView::new(&file, 701).expect("the team views");
         assert!(team.fielded_only_at(10, cf));
+        // Preset 3's kick-off formation: fielded even though preset 3 is
+        // not fluid — moving him there breaks it too.
+        let (mut file, _) = view(PesVersion::Pes19);
+        assert_eq!(
+            team_mut(&mut file).tactics.presets[2].style.fluid,
+            Some(false)
+        );
+        team_mut(&mut file).tactics.presets[2].formations[0].players[10].position = 11;
+        let team = TeamView::new(&file, 701).expect("the team views");
+        assert!(!team.fielded_only_at(10, cf));
         // A substitute: his registered position, nothing else.
         let entry = file.player(70121).expect("player 70121");
         let registered_pos = Position(entry.positions.registered);
@@ -452,5 +460,16 @@ mod tests {
                 shape: [4, 5, 1]
             }
         );
+    }
+
+    #[test]
+    fn pes15_fields_one_formation_per_preset() {
+        let (file, team) = view(PesVersion::Pes15);
+        // PES 15 has no fluid formation: `fluid` is `None` on all three
+        // presets, so each fields its kick-off formation only.
+        for preset in &file.team(701).expect("team 701").tactics.presets {
+            assert_eq!(preset.style.fluid, None);
+        }
+        assert_eq!(team.formation_shapes().len(), 3);
     }
 }

@@ -376,6 +376,55 @@ mod tests {
         assert_eq!(eval_i64(&engine, &mut scope, "team.version"), 21);
     }
 
+    /// `position` and `playing_style` are `()` past their tables; an
+    /// unknown label is a script error.
+    #[test]
+    fn unit_and_script_errors_past_the_tables() {
+        let (engine, mut scope, mut file) = with_team(PesVersion::Pes19);
+        let entry = file
+            .players_mut()
+            .iter_mut()
+            .find(|p| p.id == 70111)
+            .expect("player 70111");
+        // Premises: registered is CF (12), style byte 1 (decodes), and
+        // PES 19's 22-style table ends at index 21.
+        assert_eq!(entry.positions.registered, 12);
+        assert!(pes_savefile::schema::playstyle::decode(PesVersion::Pes19, 22).is_err());
+        entry.positions.registered = 15;
+        entry.positions.playing_style = 22;
+        let team = TeamView::new(&file, 701).expect("the team views");
+        scope.push("team", team);
+        assert!(
+            engine
+                .eval_with_scope::<Dynamic>(&mut scope, "team.players[10].position")
+                .expect("position")
+                .is_unit(),
+            "registered 15 is past the labels"
+        );
+        assert!(
+            engine
+                .eval_with_scope::<Dynamic>(&mut scope, "team.players[10].playing_style")
+                .expect("playing_style")
+                .is_unit(),
+            "style byte 22 is past PES 19's table"
+        );
+        assert!(
+            engine
+                .eval_with_scope::<Dynamic>(&mut scope, "team.players[10].stat(\"bogus\")")
+                .is_err(),
+            "an unknown stat is a script error"
+        );
+        assert!(
+            engine
+                .eval_with_scope::<bool>(
+                    &mut scope,
+                    "team.fielded_only_at(team.players[10], \"XX\")"
+                )
+                .is_err(),
+            "an unknown position is a script error"
+        );
+    }
+
     #[test]
     fn deep_recursion_is_refused() {
         let (engine, scope, _) = with_team(PesVersion::Pes19);

@@ -2,8 +2,9 @@
 //! ruleset is **data** — one Rhai map naming the tiers, the card economy,
 //! the heights and a list of conditional "specials" — read here into
 //! `Ruleset` and checked against the rules the types cannot carry. The
-//! interpreter and the host that run the check are not written yet
-//! (`aatf_rules.md` "The interpreter", "The host").
+//! host is written: `TeamView`/`PlayerView` and the script engine. What
+//! is not: the interpreter (`check_team`, `tier_values`, `card_limits`)
+//! and `apply_tier` (`aatf_rules.md` "The interpreter").
 //!
 //! The host reads a team as a `TeamView` of `PlayerView`s on the game's
 //! own scale, and every script runs on the one engine of `engine.rs`.
