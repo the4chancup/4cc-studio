@@ -1822,3 +1822,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.1d second and third reworks (reviews R7.A1, R8.S1, R9.S1): tests that
   passed without their behavior now fail without it; three were vacuous on the fixtures' uniform
   values. Step 5.1 done. A test of a write now asserts its premises (`CONTRIBUTING.md`).
+- **2026-10-12** — Step 5.2a: `libs/aatf` starts: `Ruleset` read from a ruleset's data block, and
+  the fourteen load-time rules, each failure at its key path; the official Autumn 26 block loads.
+  SWE-2, first attempt, plus one rework.

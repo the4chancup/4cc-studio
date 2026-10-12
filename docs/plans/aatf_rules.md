@@ -342,8 +342,9 @@ pub enum Severity {
 ```
 
 A field left out of the file takes its empty value (0, `false`, an empty list or map, `None`),
-except `schema`, `name`, `squad_size`, `max_skill_cards`, and each tier's, bracket's and system's
-`id`, `label` and (tiers) `rate`, which are required.
+except `schema`, `name`, `squad_size`, `universal` with its `max_skill_cards`, and each tier's,
+bracket's and system's `id`, `label` and (tiers) `rate`, which are required (an absent
+`universal` would otherwise default `max_skill_cards` to 0, a cap no file means).
 
 Rules the types cannot carry, checked on load ("Loading and validation"): ids unique within their
 kind, and every id a condition, effect, quota, `counts_as` or `suggestions` entry names exists; a

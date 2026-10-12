@@ -7112,3 +7112,17 @@ flips such a flag. The bar existed because each equivalent would be ruled again 
 converge (18 in `team_compiler`), and the list removes that cost. The run time remains: about
 17 minutes added to a `team_compiler` whole-crate run.
 Plan: `CONTRIBUTING.md` "Mutation runs" (when 5.0b4 lands); worklog 5.0b4.
+
+## 2026-10-12 — aatf — a ruleset's `universal` table is required, and the closed sets share Team TOML's tables
+Decision: `RULESET.universal` is a required key, beside `schema`, `name` and `squad_size`.
+`Stat`, `Position`, `PlayStyle` and `Card` are indexes into `pes_savefile`'s Team TOML label
+tables (`interchange::team_toml::labels`, now public), and `Stat` covers the 25 ability stats
+(`ABILITY_STATS`), not form, injury resistance, the weak-foot pair, star or playing attitude.
+`rhai` is built without default features (`std`, `serde`).
+Why: an absent `universal` would default `max_skill_cards`, which the plan requires, to 0, a cap
+no file means. Indexes into the shared tables, not enums of our own, keep one spelling per
+label, so a ruleset and a `team.toml` can never disagree. `form` and the other four are a tier's
+own keys or no target at all, so a `stats` map naming them is a schema error. `rhai`'s default
+`ahash` runtime RNG pulls `getrandom`, which does not build for wasm32.
+Plan: `aatf_rules.md` "The ruleset schema" (the required-keys sentence) edited; the rest is
+implementation-level, no plan edit needed.

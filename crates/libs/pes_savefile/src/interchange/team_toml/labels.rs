@@ -131,11 +131,59 @@ pub const COM_STYLES: [&str; 7] = [
 /// Stronger foot/hand labels; index = the stored bool.
 pub const FOOT: [&str; 2] = ["right", "left"];
 
+/// Ability-stat names: the `PlayerStats` fields that are 0-99 abilities, in
+/// `PlayerStats`'s field order, the version-dependent ones (tight possession,
+/// aggression) included. Weak foot, form, injury resistance, star and playing
+/// attitude are stats but not abilities. `team.toml` spells them as
+/// `stats.<name>`; other crates share the table for their own closed sets.
+pub const ABILITY_STATS: [&str; 25] = [
+    "attacking_prowess",
+    "ball_control",
+    "dribbling",
+    "low_pass",
+    "lofted_pass",
+    "finishing",
+    "place_kicking",
+    "swerve",
+    "heading",
+    "defensive_prowess",
+    "ball_winning",
+    "kicking_power",
+    "speed",
+    "explosive_power",
+    "body_control",
+    "physical_contact",
+    "jump",
+    "goalkeeping",
+    "catching",
+    "clearing",
+    "reflexes",
+    "coverage",
+    "stamina",
+    "tight_possession",
+    "aggression",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::interchange::team_toml::player_keys::PlayerKey;
     use crate::model::instruction::Instruction;
     use crate::model::playstyle::PlayStyle;
+
+    /// Every name in `ABILITY_STATS` is a `stats.<name>` key in the
+    /// `PlayerKey` table, Team TOML's own key table.
+    #[test]
+    fn every_ability_stat_is_a_stats_key() {
+        let stats: Vec<&str> = PlayerKey::ALL
+            .iter()
+            .filter(|key| key.table() == "stats")
+            .map(|key| key.name())
+            .collect();
+        for name in ABILITY_STATS {
+            assert!(stats.contains(&name), "stats.{name}");
+        }
+    }
 
     /// Lowercase ASCII, digits and underscores only.
     fn is_snake_case(label: &str) -> bool {

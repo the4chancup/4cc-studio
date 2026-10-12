@@ -5,10 +5,10 @@
 //! which is what makes one-key patches and cross-version imports safe.
 //!
 mod items;
-/// The label tables the format writes where the record stores a number or a
-/// bit (style-switch pairs, positions, instructions, ratings, styles, skills,
-/// COM styles, foot/hand).
-pub(crate) mod labels;
+/// The label tables `team.toml` writes where the record stores a number or
+/// a bit (style-switch pairs, positions, instructions, ratings, styles,
+/// skills, COM styles, foot/hand): the spellings other crates share.
+pub mod labels;
 mod player;
 pub(crate) mod player_keys;
 mod tactics;

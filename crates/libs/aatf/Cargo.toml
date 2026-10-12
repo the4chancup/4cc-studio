@@ -1,0 +1,18 @@
+[package]
+name = "aatf"
+description = "The 4cc player rules (AATF): rulesets as data, the check and its host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pes_savefile.workspace = true
+pes_version.workspace = true
+rhai.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
