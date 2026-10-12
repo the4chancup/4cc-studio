@@ -1302,4 +1302,78 @@ mod tests {
         );
         assert!(findings.is_empty(), "{findings:?}");
     }
+
+    #[test]
+    fn a_set_s_members_are_completed_wherever_they_sit_among_the_textures() {
+        // `kit2/a` does not sit next to `kit1/a`: the set is one, its members gathered by
+        // folded reference, not the run of adjacent entries it happens to be.
+        let mut textures = vec![
+            ("kit1/a".to_owned(), b"one".to_vec()),
+            ("kit1/b".to_owned(), b"other".to_vec()),
+            ("kit2/a".to_owned(), b"two".to_vec()),
+        ];
+        let mut findings = Vec::new();
+        complete_kit_variants(&mut textures, &[1, 2, 3], Engine::Fox, &mut findings);
+        assert_eq!(
+            textures,
+            [
+                ("kit1/a".to_owned(), b"one".to_vec()),
+                ("kit1/b".to_owned(), b"other".to_vec()),
+                ("kit2/a".to_owned(), b"two".to_vec()),
+                ("kitN/a".to_owned(), b"one".to_vec()),
+                ("kitN/b".to_owned(), b"other".to_vec()),
+            ]
+        );
+        assert_eq!(
+            findings,
+            [
+                (
+                    Code::KitVariantMissing,
+                    vec![
+                        ("texture", "kitN/a".to_owned()),
+                        ("kit", "3".to_owned()),
+                        ("copied", "kit1/a".to_owned()),
+                    ]
+                ),
+                (
+                    Code::KitVariantMissing,
+                    vec![
+                        ("texture", "kitN/b".to_owned()),
+                        ("kit", "2".to_owned()),
+                        ("copied", "kit1/b".to_owned()),
+                    ]
+                ),
+                (
+                    Code::KitVariantMissing,
+                    vec![
+                        ("texture", "kitN/b".to_owned()),
+                        ("kit", "3".to_owned()),
+                        ("copied", "kit1/b".to_owned()),
+                    ]
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_kitf_member_is_dropped_without_touching_the_entries_after_it() {
+        // Two `kitF` members at the head of `textures`: each goes at its own position,
+        // whatever the other's.
+        let mut textures = vec![
+            ("a_kitF".to_owned(), b"one".to_vec()),
+            ("z_kitF".to_owned(), b"two".to_vec()),
+            ("plain".to_owned(), b"kept".to_vec()),
+        ];
+        let mut findings = Vec::new();
+        complete_kit_variants(&mut textures, &[1, 2], Engine::Fox, &mut findings);
+        assert_eq!(
+            textures,
+            [
+                ("plain".to_owned(), b"kept".to_vec()),
+                ("a_kitN".to_owned(), b"one".to_vec()),
+                ("z_kitN".to_owned(), b"two".to_vec()),
+            ]
+        );
+        assert!(findings.is_empty(), "{findings:?}");
+    }
 }

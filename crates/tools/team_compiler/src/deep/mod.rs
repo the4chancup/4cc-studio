@@ -3056,4 +3056,54 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn a_beaten_common_model_s_drop_never_passes_through() {
+        // `Common/legs.model`, beaten by `Common/legs.fmdl` and never read, is dropped with
+        // the broken winner: `pass_through` cannot keep it, since nothing checked the file
+        // (`common_model_beaten_dropped`). Kept, it is the link's model in the pairing, so the
+        // `.mtl`'s lookup reaches `Common/`'s own textures, and `hair.dds` reports no finding.
+        let temp = scratch("deep_beaten_pass_through");
+        let listed = written(
+            temp.path(),
+            &[
+                ("Common/legs.fmdl", b"not an fmdl".to_vec()),
+                ("Common/legs.model", card()),
+                ("Common/hair.dds", bc1_dds(4, 4)),
+                ("Players/05 - A/legs.model.common", Vec::new()),
+                (
+                    "Players/05 - A/x.mtl",
+                    materials_naming(&[("card", &["./hair.dds"])]),
+                ),
+            ],
+            &[],
+        );
+        let (resolved, codes) = resolved_with_issues("co Midcup Deep", &listed, &[], None);
+        assert_eq!(codes, Vec::<&str>::new(), "the structure pass's findings");
+        let source = ExportSource {
+            export_id: ExportId(0),
+            path: temp.path().to_path_buf(),
+            kind: SourceKind::Folder,
+            file_name: "co Midcup Deep".to_owned(),
+            display_name: "co Midcup Deep".to_owned(),
+            team_name: None,
+        };
+        let content = ContentSource::new(&source, &MemoryBudget::new(1 << 30));
+        let pass = content_findings(&resolved.export, &content, PesVersion::Pes21, None, true);
+        let textures: Vec<&ContentFinding> = pass
+            .findings
+            .iter()
+            .filter(|finding| finding.code.starts_with("mtl_texture"))
+            .collect();
+        assert_eq!(
+            textures,
+            [&mtl_texture(
+                "mtl_texture_unused_missing",
+                folder("Players/05 - A"),
+                "x.mtl",
+                "./hair.dds",
+                "card"
+            )]
+        );
+    }
 }

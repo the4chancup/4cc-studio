@@ -1705,6 +1705,43 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_7z_export_s_source_keeps_its_decompressed_content_into_the_planned_run() {
+        // `check` lets the archive go (`check.rs`'s call), `compile` keeps it: the tasks
+        // read the bytes the pass decompressed, not a second read of the archive.
+        let temp = scratch("compile_7z_kept");
+        let root = temp.path();
+        fs::create_dir_all(root.join("exports")).unwrap();
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/sources/egg Midcup Tracer.7z"),
+            root.join("exports/egg Midcup Tracer.7z"),
+        )
+        .unwrap();
+        let ctx = tool_context(root, "");
+        let inputs = sandbox_inputs(root, &ctx);
+        let sources = reader::discover(&inputs.exports_root, &[]).unwrap();
+
+        let planned = plan(
+            &inputs,
+            sources,
+            InstalledPaths::Unknown,
+            &OutputMode::Test,
+            None,
+            RunEvents::new(&ctx),
+            &ctx,
+        )
+        .unwrap();
+
+        let [source] = planned.sources.as_slice() else {
+            panic!("{} sources", planned.sources.len());
+        };
+        assert!(
+            source.content.is_some(),
+            "the .7z stays decompressed for its tasks"
+        );
+    }
+
     // TC-PLN-06
     #[test]
     fn a_file_replaced_after_planning_aborts_the_run_and_keeps_the_previous_cpk() {

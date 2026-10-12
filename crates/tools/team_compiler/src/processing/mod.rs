@@ -450,7 +450,7 @@ mod tests {
     use aesthetics_export::{
         KitFolder, KitLayout, KitTexture, KitTextureSource, SharedModelFolder,
     };
-    use fmdl::ops::paths::texture_paths;
+    use fmdl::ops::paths::{rewrite_texture_paths, texture_paths};
     use fmdl::{FmdlFile, Model};
     use fpk::{FpkFile, FpkKind};
     use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
@@ -2680,6 +2680,125 @@ mod tests {
             packed_model(&package, "glove_r.fmdl").meshes.len(),
             tracer_model("glove_r.fmdl").meshes.len(),
             "a single part is packed as it is"
+        );
+    }
+
+    /// The tracer's boots model with every texture path naming `armor_kitN.dds`, a kit
+    /// set's reference.
+    fn naming_kit_reference() -> Vec<u8> {
+        let mut model =
+            FmdlFile::read(&std::fs::read(tracer().join(format!("{PLAYER}/boots.fmdl"))).unwrap())
+                .unwrap();
+        rewrite_texture_paths(&mut model, |path| {
+            path.directory.clear();
+            path.file_name = "armor_kitN.dds".to_owned();
+        })
+        .unwrap();
+        model.write()
+    }
+
+    /// The (file name, directory) pairs of the model `name` in `batch`'s package.
+    fn directories_of(batch: &TaskBatch, name: &str) -> Vec<(String, String)> {
+        let package = FpkFile::read(&batch.entries[0].1).unwrap();
+        texture_directories(&package, name)
+    }
+
+    #[test]
+    fn a_folder_s_own_texture_of_a_kit_set_stem_wins_its_own_link_of_the_next() {
+        // `armor_kit1.dds` and `armor_kit2.dds.common` both file `armor_kitn` in the
+        // folder's own directory: the folder's own texture resolves the reference, as a
+        // stem the two spell the same resolves.
+        let folder = player_with(
+            vec![
+                named(&format!("{PLAYER}/boots.fmdl"), "boots.fmdl"),
+                named(&format!("{PLAYER}/armor_kit1.dds"), "shirt.dds"),
+                file(&format!("{PLAYER}/armor_kit2.dds.common")),
+            ],
+            Vec::new(),
+        );
+
+        let batch = run_with(
+            boots(folder),
+            &[(&format!("{PLAYER}/boots.fmdl"), &naming_kit_reference())],
+        );
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let directories = directories_of(&batch, "boots.fmdl");
+        assert!(!directories.is_empty(), "a texture path renamed");
+        assert!(
+            directories
+                .iter()
+                .all(|path| *path == ("armor_kitN.dds".to_owned(), COMMON_DIRECTORY.to_owned())),
+            "{directories:?}"
+        );
+    }
+
+    #[test]
+    fn a_combined_texture_of_a_kit_set_stem_wins_the_combined_link_of_the_next() {
+        // The shared boots folder's `armor_kit1.dds` and `armor_kit2.dds.common` both file
+        // `armor_kitn` as its folder's textures and links do: the texture resolves the
+        // reference, the link standing at the path it names.
+        let folder = player_with(
+            vec![named(&format!("{PLAYER}/boots.fmdl"), "boots.fmdl")],
+            vec![shared(
+                ModelPackage::Boots,
+                "Boots/Crocs",
+                vec![
+                    named("Boots/Crocs/armor_kit1.dds", "shirt.dds"),
+                    file("Boots/Crocs/armor_kit2.dds.common"),
+                ],
+            )],
+        );
+
+        let batch = run_with(
+            boots(folder),
+            &[(&format!("{PLAYER}/boots.fmdl"), &naming_kit_reference())],
+        );
+
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+        let directories = directories_of(&batch, "boots.fmdl");
+        assert!(!directories.is_empty(), "a texture path renamed");
+        assert!(
+            directories
+                .iter()
+                .all(|path| *path == ("armor_kitN.dds".to_owned(), COMMON_DIRECTORY.to_owned())),
+            "{directories:?}"
+        );
+    }
+
+    #[test]
+    fn a_common_models_task_s_entries_are_in_path_order() {
+        // `b.fmdl` converts into `oral_b_win32.model` and `b.mtl`; `a.model`, packed as it
+        // is, sorts between them: the file order (`b.fmdl`, `a.model`) is not the entries'.
+        let common = vec![file("Common/b.fmdl"), file("Common/a.model")];
+        let files: TaskFiles = [
+            (
+                ScopePath::new("Common/b.fmdl").unwrap(),
+                std::fs::read(tracer().join(format!("{PLAYER}/boots.fmdl"))).unwrap(),
+            ),
+            (ScopePath::new("Common/a.model").unwrap(), Vec::new()),
+        ]
+        .into_iter()
+        .collect();
+
+        let batch = process(
+            TaskKind::CommonModels {
+                folder: ScopePath::new("Common").unwrap(),
+                files: common,
+                textures: Vec::new(),
+            },
+            PesVersion::Pes17,
+            None,
+            files,
+        );
+
+        assert_eq!(
+            paths(&batch),
+            [
+                "common/character1/model/character/uniform/common/792/b.mtl",
+                "common/character1/model/character/uniform/common/792/oral_a_win32.model",
+                "common/character1/model/character/uniform/common/792/oral_b_win32.model",
+            ]
         );
     }
 

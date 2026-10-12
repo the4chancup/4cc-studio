@@ -102,6 +102,13 @@ impl RunLog {
             run: Some(Run { events, thread }),
         }
     }
+
+    /// Appends `lines`, as a run's events append them: a view test's overflowed log.
+    #[cfg(test)]
+    pub(crate) fn append_test_lines(&mut self, lines: &[&str]) {
+        self.lines
+            .extend(lines.iter().map(|line| (*line).to_owned()));
+    }
 }
 
 #[cfg(test)]

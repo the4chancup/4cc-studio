@@ -243,4 +243,34 @@ mod tests {
             ]
         );
     }
+
+    /// The log's scroll offset: the scroll area's own id in the window's root ui.
+    fn scroll_offset(ctx: &egui::Context) -> f32 {
+        let id = egui::Id::new((egui::ViewportId::ROOT, "__top_ui"))
+            .with(egui::IdSalt::new("scroll_area"));
+        egui::scroll_area::State::load(ctx, id)
+            .map(|state| state.offset.y)
+            .expect("the window holds one scroll area")
+    }
+
+    #[test]
+    fn a_log_line_arriving_keeps_the_scroll_area_at_the_bottom() {
+        let ctx = settings_only_context();
+        let mut log = RunLog::default();
+        let lines: Vec<String> = (1..=40).map(|line| format!("log line {line}")).collect();
+        log.append_test_lines(&lines.iter().map(String::as_str).collect::<Vec<_>>());
+        let mut window = Headless::new();
+        // The log overflows the window: stuck to the end, the offset is off the top.
+        window.frame(Vec::new(), |ui| show(ui, &ctx, &log));
+        let before = scroll_offset(&window.ctx);
+        assert!(before > 0.0, "stuck to the bottom of a log that overflows");
+        // A line arrives: the offset grows with the content, the last line still shown.
+        log.append_test_lines(&["log line 41"]);
+        window.frame(Vec::new(), |ui| show(ui, &ctx, &log));
+        let after = scroll_offset(&window.ctx);
+        assert!(
+            after > before,
+            "the bottom follows new lines: {after} vs {before}"
+        );
+    }
 }
