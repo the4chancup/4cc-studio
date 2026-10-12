@@ -1825,3 +1825,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2a: `libs/aatf` starts: `Ruleset` read from a ruleset's data block, and
   the fourteen load-time rules, each failure at its key path; the official Autumn 26 block loads.
   SWE-2, first attempt, plus one rework.
+- **2026-10-12** — Step 5.2a rework (review R10.S1, 6 of 9): a data block runs on a bare engine;
+  three load-time rules for organizer slips; `CC0-1.0` allowed for `rhai`'s `tiny-keccak`
+  (`just deps-check` had not run after 5.2a). SWE-2, first attempt.

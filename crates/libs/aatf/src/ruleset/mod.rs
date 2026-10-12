@@ -594,7 +594,9 @@ impl Ruleset {
     /// The parse, `RULESET`, schema and version checks stop at the first
     /// error; `Rules` reports every load-time rule the text breaks.
     pub fn from_data_block(text: &str) -> Result<Ruleset, LoadError> {
-        let engine = rhai::Engine::new();
+        // The bare engine: no module resolver and no `print`, so a data
+        // block can do nothing but evaluate its literals.
+        let engine = rhai::Engine::new_raw();
         let ast = engine.compile(text).map_err(|e| LoadError::Parse {
             line: e.position().line().unwrap_or(0),
             column: e.position().position().unwrap_or(0),

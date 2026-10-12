@@ -7126,3 +7126,19 @@ own keys or no target at all, so a `stats` map naming them is a schema error. `r
 `ahash` runtime RNG pulls `getrandom`, which does not build for wasm32.
 Plan: `aatf_rules.md` "The ruleset schema" (the required-keys sentence) edited; the rest is
 implementation-level, no plan edit needed.
+
+## 2026-10-12 — aatf — three more load-time rules, labels required, and CC0-1.0 allowed
+Decision: a ruleset is refused on load when a tier's `counts_as` names a tier that itself has
+`counts_as` (itself included), when no tier is the rest of the squad and the counts do not equal
+`squad_size`, or when a height system other than the last has no `any_player`. A special's and a
+team settings entry's `label` are required. A data block is read by a bare engine (no module
+resolver, no print). `CC0-1.0` joins the license allowlist.
+Why: each new rule catches an organizer's plausible slip that would otherwise load and fail every
+team at check time (a pasted own id, a shortened count, a reordered system), and each is one
+general rule rather than a case list. An empty label would leave the violations a special causes
+unnamed. A data block is data: `import` and `print` have nothing to do there, and the plan's
+"cannot touch the filesystem" must hold on this path too. `tiny-keccak` (CC0-1.0, a public-domain
+dedication with no copyleft obligation) comes with `rhai`, which enables `ahash`'s compile-time
+RNG whatever its features; the plan's policy admits such a license without asking.
+Plan: `aatf_rules.md` "The ruleset schema" (required keys, load-time rules);
+`core/distribution.md` (the allowlist); `deny.toml`.

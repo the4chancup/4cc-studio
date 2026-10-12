@@ -122,11 +122,11 @@ fn a_duplicate_bracket_id_is_refused() {
 
 #[test]
 fn a_duplicate_system_id_is_refused() {
-    // A third `green` appended, carrying no condition, so no
-    // LastSystemHasCondition either.
+    // A second `green` inserted before `red` and carrying `any_player`:
+    // `red` stays the last, the duplicate is the only error.
     let text = AUTUMN26.replacen(
-        "#{ id: \"red\", label: \"Red\",\n               quotas: #{ giga: 0, giant: 0, tall: 10, mid: 7, manlet: 6 } },",
-        "#{ id: \"red\", label: \"Red\",\n               quotas: #{ giga: 0, giant: 0, tall: 10, mid: 7, manlet: 6 } },\n            #{ id: \"green\", label: \"Second\" },",
+        "#{ id: \"red\", label: \"Red\",",
+        "#{ id: \"green\", label: \"Second\", any_player: #{ height_min: 180 } },\n            #{ id: \"red\", label: \"Red\",",
         1,
     );
     case(
@@ -136,7 +136,7 @@ fn a_duplicate_system_id_is_refused() {
             kind: IdKind::System,
             id: "green".to_string(),
         },
-        "heights.systems[2]",
+        "heights.systems[1]",
     );
 }
 
@@ -265,6 +265,64 @@ fn two_rest_tiers_are_refused() {
         ),
         LoadRule::MoreThanOneRestTier,
         "tiers",
+    );
+}
+
+#[test]
+fn a_counts_as_chain_is_refused() {
+    // `goalkeeper` naming itself: the tier `counts_as` has a `counts_as`
+    // of its own.
+    case(
+        "counts_as chain",
+        &edit(
+            AUTUMN26,
+            "counts_as: \"regular\"",
+            "counts_as: \"goalkeeper\"",
+        ),
+        LoadRule::CountsAsChain,
+        "tiers[3].counts_as",
+    );
+}
+
+#[test]
+fn counts_short_of_the_squad_are_refused() {
+    // `regular` gets a `count`: no rest tier, and the sum is under
+    // `squad_size`.
+    case(
+        "counts short of squad",
+        &edit(
+            AUTUMN26,
+            "#{ id: \"regular\", label: \"Regular\", rate: 77",
+            "#{ id: \"regular\", label: \"Regular\", count: 3, rate: 77",
+        ),
+        LoadRule::CountsShortOfSquad {
+            total: 8,
+            squad_size: 23,
+        },
+        "tiers",
+    );
+}
+
+#[test]
+fn counts_equal_to_the_squad_with_no_rest_tier_loads() {
+    // `regular` given `count: 18` brings the counts to `squad_size` with
+    // no rest tier: 1 + 2 + 2 + 18 = 23.
+    Ruleset::from_data_block(&edit(
+        AUTUMN26,
+        "#{ id: \"regular\", label: \"Regular\", rate: 77",
+        "#{ id: \"regular\", label: \"Regular\", count: 18, rate: 77",
+    ))
+    .expect("counts equal to squad_size load");
+}
+
+#[test]
+fn a_system_other_than_the_last_without_a_condition_is_refused() {
+    // Green (system 0 of 2) loses its `any_player`.
+    case(
+        "system without condition",
+        &edit(AUTUMN26, "any_player: #{ height_min: 194 },\n", ""),
+        LoadRule::SystemWithoutCondition,
+        "heights.systems[0]",
     );
 }
 
@@ -447,10 +505,15 @@ fn an_unknown_position_label_is_schema() {
 fn a_bracket_with_both_or_neither_height_form_is_schema() {
     for heights in ["up_to: 175, exactly: [185]", ""] {
         let err = schema(&format!(
-            "#{{ schema: 1, name: \"x\", squad_size: 23, universal: #{{}}, heights: #{{ brackets: [#{{ id: \"x\", label: \"x\", {heights} }}], systems: [] }} }}"
+            "#{{ schema: 1, name: \"x\", squad_size: 23, universal: #{{ max_skill_cards: 10 }}, heights: #{{ brackets: [#{{ id: \"x\", label: \"x\", {heights} }}], systems: [] }} }}"
         ));
+        // `RawBracket`'s error names both keys, whichever half is wrong.
         assert!(
-            matches!(err, LoadError::Schema { .. }),
+            matches!(
+                err,
+                LoadError::Schema { ref message, .. }
+                    if message.contains("up_to") && message.contains("exactly")
+            ),
             "{heights}: {err:?}"
         );
     }
@@ -487,6 +550,16 @@ fn a_form_in_a_stats_map_is_schema() {
     );
 }
 
+/// A special's `label` is required (its violation shows it): absent is
+/// `Schema`.
+#[test]
+fn a_special_without_a_label_is_schema() {
+    let err = schema(
+        "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, specials: [#{ when: #{}, then: #{} }] }",
+    );
+    assert!(matches!(err, LoadError::Schema { .. }), "{err:?}");
+}
+
 #[test]
 fn schema_two_is_unknown_schema() {
     let err =
@@ -504,6 +577,18 @@ fn no_ruleset_is_no_ruleset() {
         Ruleset::from_data_block("const RULESET = 1;").expect_err("not a map"),
         LoadError::NoRuleset
     );
+}
+
+/// The bare engine refuses everything but the data itself: `import` has
+/// no resolver and `print` does not exist.
+#[test]
+fn import_and_print_are_refused() {
+    let err = Ruleset::from_data_block("import \"x\" as m;\nconst RULESET = #{ schema: 1 };")
+        .expect_err("import has no resolver");
+    assert!(matches!(err, LoadError::Parse { .. }), "{err:?}");
+    let err = Ruleset::from_data_block("print(\"x\");\nconst RULESET = #{ schema: 1 };")
+        .expect_err("print is not a function");
+    assert!(matches!(err, LoadError::Parse { .. }), "{err:?}");
 }
 
 #[test]

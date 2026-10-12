@@ -343,12 +343,17 @@ pub enum Severity {
 
 A field left out of the file takes its empty value (0, `false`, an empty list or map, `None`),
 except `schema`, `name`, `squad_size`, `universal` with its `max_skill_cards`, and each tier's,
-bracket's and system's `id`, `label` and (tiers) `rate`, which are required (an absent
-`universal` would otherwise default `max_skill_cards` to 0, a cap no file means).
+bracket's and system's `id`, `label` and (tiers) `rate`, and each special's and team
+settings entry's `label`, which are required (an absent `universal` would otherwise default
+`max_skill_cards` to 0, a cap no file means; a violation shows its special's label, which an
+empty one would leave blank).
 
 Rules the types cannot carry, checked on load ("Loading and validation"): ids unique within their
 kind, and every id a condition, effect, quota, `counts_as` or `suggestions` entry names exists; a
-tier with `counts_as` has no `count`; tier counts fit `squad_size`; a special with
+tier with `counts_as` has no `count`, and the tier it names has no `counts_as` of its own (itself
+included); tier counts fit `squad_size`, and equal it when no tier is the rest of the squad (else
+no team can be legal); every height system but the last has `any_player` (one without it holds
+for every team, so the systems after it could never apply); a special with
 `height_allowance` names no bracket, since brackets are computed from the allowance; `fielded_at_a`
 names presets 1 to 3; a forbidden shape's counts add up to 10.
 

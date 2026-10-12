@@ -25,6 +25,9 @@ allow = [
     "Unicode-3.0",
     "Unicode-DFS-2016",
     "MPL-2.0",
+    # A public-domain dedication: tiny-keccak, under rhai's ahash `compile-time-rng`, which rhai
+    # enables whatever its features
+    "CC0-1.0",
     # Font licenses, for egui's bundled default fonts only (epaint_default_fonts)
     "OFL-1.1",
     "Ubuntu-font-1.0",

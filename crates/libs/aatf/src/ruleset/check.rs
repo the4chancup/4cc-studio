@@ -56,6 +56,17 @@ impl Ruleset {
                             id: counts_as.clone(),
                         },
                     });
+                } else if self
+                    .tiers
+                    .iter()
+                    .any(|named| named.id == *counts_as && named.counts_as.is_some())
+                {
+                    // The tier `counts_as` names has a `counts_as` of its
+                    // own, itself included.
+                    out.push(RuleError {
+                        path: format!("{path}.counts_as"),
+                        rule: LoadRule::CountsAsChain,
+                    });
                 }
                 if tier.count.is_some() {
                     out.push(RuleError {
@@ -91,13 +102,23 @@ impl Ruleset {
                 },
             });
         }
-        if self
+        let rest_tiers = self
             .tiers
             .iter()
             .filter(|tier| tier.count.is_none() && tier.counts_as.is_none())
-            .count()
-            > 1
-        {
+            .count();
+        // The counts equal `squad_size` when no tier is the rest of the
+        // squad — under it, no team can be legal.
+        if rest_tiers == 0 && total < u32::from(self.squad_size) {
+            out.push(RuleError {
+                path: "tiers".to_string(),
+                rule: LoadRule::CountsShortOfSquad {
+                    total,
+                    squad_size: self.squad_size,
+                },
+            });
+        }
+        if rest_tiers > 1 {
             out.push(RuleError {
                 path: "tiers".to_string(),
                 rule: LoadRule::MoreThanOneRestTier,
@@ -147,6 +168,15 @@ impl Ruleset {
                         kind: IdKind::System,
                         id: system.id.clone(),
                     },
+                });
+            }
+            // Every system but the last must have `any_player`: without it
+            // it holds for every team, and the systems after it could
+            // never apply.
+            if i + 1 != self.heights.systems.len() && system.any_player.is_none() {
+                out.push(RuleError {
+                    path: path.clone(),
+                    rule: LoadRule::SystemWithoutCondition,
                 });
             }
             if let Some(condition) = &system.any_player
@@ -323,6 +353,25 @@ impl Ruleset {
         }
     }
 
+    /// A `ByTier` map's tier keys checked for existence at
+    /// `prefix.{id}`; `All` maps nothing.
+    fn check_per_tier<T>(&self, per_tier: &PerTier<T>, prefix: &str, out: &mut Vec<RuleError>) {
+        let PerTier::ByTier(map) = per_tier else {
+            return;
+        };
+        for id in map.keys() {
+            if !self.tier_has(id) {
+                out.push(RuleError {
+                    path: format!("{prefix}.{id}"),
+                    rule: LoadRule::UnknownId {
+                        kind: IdKind::Tier,
+                        id: id.clone(),
+                    },
+                });
+            }
+        }
+    }
+
     /// An effects block's PerTier map keys (tier ids) and `free` keys
     /// (group ids) checked for existence, recursively into `choice`.
     fn check_effects(&self, effects: &Effects, path: &str, out: &mut Vec<RuleError>) {
@@ -331,51 +380,21 @@ impl Ruleset {
                 StatOrAll::All => "all",
                 StatOrAll::Stat(stat) => stat.label(),
             };
-            if let PerTier::ByTier(map) = per_tier {
-                for id in map.keys() {
-                    if !self.tier_has(id) {
-                        out.push(RuleError {
-                            path: format!("{path}.stat_bonus.{label}.{id}"),
-                            rule: LoadRule::UnknownId {
-                                kind: IdKind::Tier,
-                                id: id.clone(),
-                            },
-                        });
-                    }
-                }
-            }
+            self.check_per_tier(per_tier, &format!("{path}.stat_bonus.{label}"), out);
         }
         for (stat, per_tier) in &effects.stat_target {
-            if let PerTier::ByTier(map) = per_tier {
-                for id in map.keys() {
-                    if !self.tier_has(id) {
-                        out.push(RuleError {
-                            path: format!("{path}.stat_target.{}.{id}", stat.label()),
-                            rule: LoadRule::UnknownId {
-                                kind: IdKind::Tier,
-                                id: id.clone(),
-                            },
-                        });
-                    }
-                }
-            }
+            self.check_per_tier(
+                per_tier,
+                &format!("{path}.stat_target.{}", stat.label()),
+                out,
+            );
         }
         for (name, per_tier) in [
             ("cards", &effects.cards),
             ("a_positions", &effects.a_positions),
         ] {
-            if let Some(PerTier::ByTier(map)) = per_tier {
-                for id in map.keys() {
-                    if !self.tier_has(id) {
-                        out.push(RuleError {
-                            path: format!("{path}.{name}.{id}"),
-                            rule: LoadRule::UnknownId {
-                                kind: IdKind::Tier,
-                                id: id.clone(),
-                            },
-                        });
-                    }
-                }
+            if let Some(per_tier) = per_tier {
+                self.check_per_tier(per_tier, &format!("{path}.{name}"), out);
             }
         }
         for (group, per_tier) in &effects.free {
@@ -388,19 +407,7 @@ impl Ruleset {
                     },
                 });
             }
-            if let PerTier::ByTier(map) = per_tier {
-                for id in map.keys() {
-                    if !self.tier_has(id) {
-                        out.push(RuleError {
-                            path: format!("{path}.free.{group}.{id}"),
-                            rule: LoadRule::UnknownId {
-                                kind: IdKind::Tier,
-                                id: id.clone(),
-                            },
-                        });
-                    }
-                }
-            }
+            self.check_per_tier(per_tier, &format!("{path}.free.{group}"), out);
         }
         for (i, option) in effects.choice.iter().enumerate() {
             self.check_effects(option, &format!("{path}.choice[{i}]"), out);
@@ -543,6 +550,9 @@ pub enum LoadRule {
     ReservedGroup,
     /// A tier with `counts_as` also has `count`.
     CountWithCountsAs,
+    /// The tier a `counts_as` names has a `counts_as` of its own (itself
+    /// included).
+    CountsAsChain,
     /// More than one tier has neither `count` nor `counts_as`.
     MoreThanOneRestTier,
     /// The counts' sum is over `squad_size`.
@@ -552,6 +562,16 @@ pub enum LoadRule {
         /// The squad's size.
         squad_size: u8,
     },
+    /// No tier is the rest of the squad, and the counts' sum is under
+    /// `squad_size`.
+    CountsShortOfSquad {
+        /// The counts' sum.
+        total: u32,
+        /// The squad's size.
+        squad_size: u8,
+    },
+    /// A height system other than the last has no `any_player`.
+    SystemWithoutCondition,
     /// A tier's `when` names tiers.
     TierConditionNamesTiers,
     /// A system's `any_player` sets more than `height_min`, `height_max` and
@@ -585,11 +605,20 @@ impl fmt::Display for LoadRule {
             LoadRule::UnknownTarget { name } => write!(f, "unknown at_most target {name:?}"),
             LoadRule::ReservedGroup => f.write_str("`com` is a reserved card group"),
             LoadRule::CountWithCountsAs => f.write_str("a tier with `counts_as` also has `count`"),
+            LoadRule::CountsAsChain => {
+                f.write_str("the tier a `counts_as` names has a `counts_as` of its own")
+            }
             LoadRule::MoreThanOneRestTier => {
                 f.write_str("more than one tier has neither `count` nor `counts_as`")
             }
             LoadRule::CountsExceedSquad { total, squad_size } => {
                 write!(f, "counts total {total} over squad_size {squad_size}")
+            }
+            LoadRule::CountsShortOfSquad { total, squad_size } => {
+                write!(f, "counts total {total} under squad_size {squad_size}")
+            }
+            LoadRule::SystemWithoutCondition => {
+                f.write_str("a height system other than the last has no `any_player`")
             }
             LoadRule::TierConditionNamesTiers => f.write_str("a tier's `when` names tiers"),
             LoadRule::SystemConditionTooWide => {
