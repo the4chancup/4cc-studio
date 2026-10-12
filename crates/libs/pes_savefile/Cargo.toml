@@ -8,6 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+flate2 = { workspace = true, optional = true }
 fpc.workspace = true
 md-5.workspace = true
 pes_version.workspace = true
@@ -20,6 +21,11 @@ directories.workspace = true
 
 [dev-dependencies]
 flate2.workspace = true
+
+[features]
+# The fixture saves as whole encrypted files (`fixture_save`), for other
+# crates' tests.
+test-support = ["dep:flate2"]
 
 [lints]
 workspace = true

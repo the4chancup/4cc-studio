@@ -22,7 +22,13 @@ gitignore = true
 # bindings`). cargo-mutants cannot run that, and `cargo test`/`cargo check` never compile the
 # lib, so at 2.20j every mutant came back "missed" in 0 s without building (`PyResult::new()`
 # "succeeded" too). Its mutants are measured by hand against `just bindings` at converge.
-exclude_globs = ["crates/libs/python_bindings/**"]
+#
+# pes_savefile's `fixtures.rs` is test plumbing (the fixture payloads, the test salt and
+# `fixture_save`), compiled for the crate's tests and for the `test-support` feature, so
+# cargo-mutants takes it for library code. Its only behavior is handing tests their fixtures:
+# any salt serves (the tests need a fixed one, not a particular one), and `fixture_save`'s test
+# is in `team_compiler` (`tests/fixture_save.rs`), which a `pes_savefile` run does not execute.
+exclude_globs = ["crates/libs/python_bindings/**", "crates/libs/pes_savefile/src/fixtures.rs"]
 
 exclude_re = [
     # Entries naming a `line:column` drift when the file changes above them: a drifted one

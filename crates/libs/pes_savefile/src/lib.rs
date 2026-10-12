@@ -18,6 +18,9 @@ pub mod convert;
 pub mod discovery;
 /// The whole-file API: `EditFile` composes container and codec.
 pub mod file;
+/// The fixture payload plumbing shared by `test_support` and `fixture_save`.
+#[cfg(any(test, feature = "test-support"))]
+mod fixtures;
 /// The interchange formats (`Texport` and the legacy ones) read and written.
 pub mod interchange;
 /// What consumers edit: version-independent player/team/tactics entries, no I/O.
@@ -35,3 +38,6 @@ mod test_support;
 pub use codec::CodecError;
 pub use convert::{ConvertError, ConvertNote, convert_player};
 pub use file::{EditFile, SaveError};
+/// The fixture saves as whole encrypted files, for other crates' tests.
+#[cfg(feature = "test-support")]
+pub use fixtures::fixture_save;

@@ -2355,4 +2355,116 @@ mod tests {
             .expect("the player");
         assert_eq!(applied.appearance_id, Some(STRIPPED_APPEARANCE_ID));
     }
+
+    /// SE-TOML-04's lib half: a document of `[team] id`, one name and one
+    /// physique key writes exactly those onto slot 3's player — every
+    /// other field of his, appearance fields included, and every other
+    /// player and team, is unchanged.
+    #[test]
+    fn a_minimal_document_writes_only_its_keys() {
+        let (file, _) = open(PesVersion::Pes21);
+        let team = file
+            .teams()
+            .iter()
+            .find(|team| team.roster.len() >= 3 && team.roster[2].player_id != 0)
+            .expect("a team whose slot 3 is rostered");
+        let id = team.roster[2].player_id;
+        let doc = TeamToml::parse(&format!(
+            "[team]\nid = {}\n\n[players.03]\nname = \"PATCH\"\n\n[players.03.appearance.physique]\nneck_length = 2\n",
+            team.id
+        ))
+        .expect("parses");
+        let mut target = team.clone();
+        let mut players = file.players().to_vec();
+        let notes = doc
+            .apply(PesVersion::Pes21, &mut target, &mut players)
+            .expect("applies");
+        assert!(notes.is_empty(), "{notes:?}");
+        let mut expected: Vec<PlayerEntry> = file.players().to_vec();
+        {
+            let patched = expected
+                .iter_mut()
+                .find(|p| p.id == id)
+                .expect("the player");
+            patched.name = "PATCH".to_string();
+            // `neck_length = 2` is the TOML number: stored + 7.
+            patched.appearance.neck_length = 9;
+        }
+        assert_eq!(players, expected, "only slot 3's two keys changed");
+        assert_eq!(&target, team, "no team field was written");
+    }
+
+    /// SE-TOML-05's lib half: a PES 21 document on a PES 18 target converts
+    /// — a face type over the older cap is written 0 with a `Capped` note,
+    /// a key the older version lacks is a `NotInThisVersion` note, and a
+    /// shared field applies as stored. No fixture player is over PES 18's
+    /// facial-hair cap (12 against 21's 19), so the document's value is
+    /// made by hand.
+    #[test]
+    fn a_pes21_document_on_a_pes18_target_converts() {
+        let (file21, _) = open(PesVersion::Pes21);
+        let (file18, _) = open(PesVersion::Pes18);
+        let team21 = file21.team(701).expect("team 701 is in both fixtures");
+        let team18 = file18.team(701).expect("team 701 is in both fixtures");
+        let refs: Vec<&PlayerEntry> = file21.players().iter().collect();
+        let mut doc = TeamToml::from_team(PesVersion::Pes21, team21, &refs).expect("from_team");
+        let cap18 = face_type_cap(PesVersion::Pes18, IngameFaceField::FacialHairType)
+            .expect("a PES 18 cap");
+        let over = cap18 + 1;
+        doc.players
+            .values_mut()
+            .next()
+            .expect("a player")
+            .appearance
+            .face
+            .facial_hair_type = Some(over);
+        let mut target_team = team18.clone();
+        let mut targets: Vec<PlayerEntry> = file18.players().to_vec();
+        let notes = doc
+            .apply(PesVersion::Pes18, &mut target_team, &mut targets)
+            .expect("a foreign apply is notes, not errors");
+        assert!(
+            notes.iter().any(|note| matches!(
+                note,
+                ImportNote::Capped { path, from, to }
+                    if path.ends_with(".appearance.face.facial_hair_type")
+                        && *from == over
+                        && *to == 0
+            )),
+            "a Capped note for facial_hair_type, reset to 0: {notes:?}"
+        );
+        assert!(
+            notes.iter().any(|note| matches!(
+                note,
+                ImportNote::NotInThisVersion { path }
+                    if path.ends_with(".appearance.motion.dribbling")
+            )),
+            "a 20/21-only key is a note: {notes:?}"
+        );
+        let first_slot = team18
+            .roster
+            .iter()
+            .position(|slot| slot.player_id != 0)
+            .expect("a rostered slot");
+        let target = targets
+            .iter()
+            .find(|player| player.id == team18.roster[first_slot].player_id)
+            .expect("the player");
+        assert_eq!(
+            target
+                .appearance
+                .ingame_face
+                .get(IngameFaceField::FacialHairType)
+                .expect("a stored type"),
+            0,
+            "the over-cap face type is written 0"
+        );
+        let source = file21
+            .player(team18.roster[first_slot].player_id)
+            .expect("the source player");
+        assert_eq!(
+            target.stats.finishing, source.stats.finishing,
+            "a field both versions hold carries its value"
+        );
+    }
 }

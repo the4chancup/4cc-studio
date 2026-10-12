@@ -1814,3 +1814,5 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.1d1: Team TOML's `ingame_face` hex gives way to
   `[players.NN.appearance.unknown] face`, and an export marks stripped players. SWE-2, first
   attempt.
+- **2026-10-12** — Step 5.1d2: SE-TOML-01 to 08 hold at the lib level, and `pes_savefile`'s
+  `test-support` feature gives tool crates' tests a whole fixture save. SWE-2, first attempt.

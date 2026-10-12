@@ -559,7 +559,7 @@ mod tests {
 
     use super::*;
     use crate::interchange::team_toml::{ImportNote, TeamToml, TeamTomlError};
-    use crate::test_support::{FIXTURES, open};
+    use crate::test_support::{FIXTURES, open, test_salt};
 
     /// `team` with every field defaulted except `id` and `roster`, which Team
     /// TOML never carries.
@@ -1127,5 +1127,59 @@ mod tests {
             "{err:?}"
         );
         assert_eq!(&target, team, "nothing was written");
+    }
+
+    /// SE-TOML-01's lib half: a team exported and its text imported into a
+    /// fresh copy of the save writes the original payload back byte for
+    /// byte.
+    #[test]
+    fn an_exported_team_imported_back_writes_byte_identical() {
+        let (file, _) = open(PesVersion::Pes21);
+        let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+        let team = file.teams().first().expect("a team");
+        let text = TeamToml::from_team(PesVersion::Pes21, team, &refs)
+            .expect("from_team")
+            .to_toml()
+            .expect("to_toml");
+        let doc = TeamToml::parse(&text).expect("the emitted text reparses");
+        let (mut copy, bytes) = open(PesVersion::Pes21);
+        // `apply` takes the team and the players: the team's writes go back
+        // through its entry.
+        let mut target = copy.team(team.id).expect("the team").clone();
+        doc.apply(PesVersion::Pes21, &mut target, copy.players_mut())
+            .expect("applies");
+        *copy.team_mut(team.id).expect("the team") = target;
+        assert_eq!(
+            copy.to_bytes(&test_salt()).expect("the save writes"),
+            bytes,
+            "the payload is the original's, byte for byte"
+        );
+    }
+
+    /// SE-TOML-02's lib half: every team of the save exports and each text
+    /// parses as a Team TOML naming its team.
+    #[test]
+    fn every_team_exports_and_parses_naming_it() {
+        let (file, _) = open(PesVersion::Pes21);
+        let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+        for team in file.teams() {
+            let doc = TeamToml::from_team(PesVersion::Pes21, team, &refs).expect("from_team");
+            assert_eq!(doc.team.id, Some(team.id), "names its team");
+            let parsed = TeamToml::parse(&doc.to_toml().expect("to_toml"))
+                .expect("the emitted text reparses");
+            assert_eq!(parsed.team.id, Some(team.id));
+        }
+    }
+
+    /// SE-TOML-03's and SE-TOML-08's lib half: an export or an import
+    /// naming a team the save lacks rests on `EditFile::team` answering
+    /// `None` — the lookup the CLI's refusal is built on.
+    #[test]
+    fn a_team_the_save_lacks_is_none() {
+        let (file, _) = open(PesVersion::Pes21);
+        assert!(
+            file.team(999).is_none(),
+            "the referee id is not in the save"
+        );
     }
 }

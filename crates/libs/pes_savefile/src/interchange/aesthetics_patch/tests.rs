@@ -329,6 +329,7 @@ fn text_that_is_not_toml_is_toml_error() {
 // -------------------------------------------------------------------
 // Apply
 
+use crate::file::EditFile;
 use crate::model::player::{PlayerMotion, STRIPPED_APPEARANCE_ID};
 use crate::schema::fields::PlayerField;
 use crate::test_support::{open, test_salt};
@@ -479,7 +480,24 @@ fn apply_writes_the_motions_and_names_and_nothing_else() {
         }
     }
     assert_eq!(save.teams(), &teams[..], "no team was written");
-    save.to_bytes(&test_salt()).expect("the save writes");
+    // And it persists through the write: a reopened save holds the same.
+    let back = EditFile::from_bytes(&save.to_bytes(&test_salt()).expect("the save writes"))
+        .expect("reopens");
+    for (slot, patch_player) in &patch.teams[0].players {
+        let id = 70100 + u32::from(*slot);
+        let before = before.iter().find(|p| p.id == id).expect("in before");
+        assert_eq!(
+            back.player(id).expect("the player"),
+            &patched(before, patch_player),
+            "player {id} persisted"
+        );
+    }
+    for (after, before) in back.players().iter().zip(&before) {
+        if !patched_ids.contains(&after.id) {
+            assert_eq!(after, before, "player {}", after.id);
+        }
+    }
+    assert_eq!(back.teams(), &teams[..]);
 }
 
 // SE-PAT-02
@@ -568,7 +586,12 @@ fn a_version_or_scheme_mismatch_refuses_before_any_write() {
         let (mut save, _) = open(PesVersion::Pes21);
         let before = save.players().to_vec();
         let teams = save.teams().to_vec();
-        let mut patch = patch_at(pes_version, vec![team(701, BTreeMap::new())]);
+        // A valid player whose patch would change him: the refusal must
+        // leave him as he was.
+        let mut patch = patch_at(
+            pes_version,
+            vec![team(701, BTreeMap::from([(5, named("CHANGED"))]))],
+        );
         patch.allocation_scheme_version = scheme;
         let err = patch.apply(&mut save).expect_err("refused");
         assert_eq!(
@@ -628,6 +651,19 @@ fn a_stripped_player_stays_stripped() {
             "{id}: the appearance block is untouched"
         );
         assert_eq!(after, &patched(before, patch_player), "{id}");
+    }
+    // And the stripped ids persist through the write.
+    let back = EditFile::from_bytes(&save.to_bytes(&test_salt()).expect("the save writes"))
+        .expect("reopens");
+    for (before, (slot, patch_player)) in before.iter().zip(&patch.teams[0].players) {
+        let id = 70100 + u32::from(*slot);
+        let after = back.player(id).expect("the player");
+        assert_eq!(
+            after.appearance_id,
+            Some(STRIPPED_APPEARANCE_ID),
+            "{id} persisted stripped"
+        );
+        assert_eq!(after, &patched(before, patch_player), "{id} persisted");
     }
 }
 
@@ -812,4 +848,63 @@ fn a_shirt_name_past_latin1_is_refused() {
     }
     assert_eq!(save.players(), &before[..]);
     assert_eq!(save.teams(), &teams[..]);
+}
+
+/// A patch carrying motions alone leaves both names as they were: `None`
+/// is "not written", never an empty string.
+#[test]
+fn a_motion_only_patch_leaves_the_names() {
+    let (mut save, _) = open(PesVersion::Pes21);
+    let before = save.player(70105).expect("present").clone();
+    assert!(
+        !before.name.is_empty() && !before.shirt_name.is_empty(),
+        "the test needs nonempty names"
+    );
+    let patch = patch_at(
+        PesVersion::Pes21,
+        vec![team(
+            701,
+            BTreeMap::from([(5, motion_only(shifted(&before.motion)))]),
+        )],
+    );
+    patch.apply(&mut save).expect("applies");
+    let after = save.player(70105).expect("the player");
+    assert_eq!(after.name, before.name);
+    assert_eq!(after.shirt_name, before.shirt_name);
+}
+
+/// `NN` names the player id `team × 100 + NN`, not the roster slot: after
+/// the roster is reordered, the player with that id takes the patch
+/// wherever he now sits.
+#[test]
+fn the_patch_lands_on_the_player_id_not_the_slot() {
+    let (mut save, _) = open(PesVersion::Pes21);
+    // Slots 05 and 10 swap: 70106 sits at slot 10 now, 70110 at slot 05.
+    save.team_mut(701).expect("the team").roster.swap(4, 9);
+    let before = save.player(70110).expect("present").clone();
+    let patch = patch_at(
+        PesVersion::Pes21,
+        vec![team(
+            701,
+            BTreeMap::from([(
+                6,
+                motion_only(shifted(&save.player(70106).expect("present").motion)),
+            )]),
+        )],
+    );
+    patch.apply(&mut save).expect("applies");
+    let moved = save.player(70106).expect("the player");
+    let other = save.player(70110).expect("the player");
+    assert_eq!(
+        moved.motion.free_kick,
+        patch.teams[0]
+            .players
+            .get(&6)
+            .expect("player 06")
+            .motion
+            .free_kick
+            .expect("set"),
+        "the patch lands by id, wherever he sits"
+    );
+    assert_eq!(other, &before, "the swapped-in player is untouched");
 }

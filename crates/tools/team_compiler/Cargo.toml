@@ -40,5 +40,8 @@ uniparam.workspace = true
 vtree.workspace = true
 wezlib.workspace = true
 
+[dev-dependencies]
+pes_savefile = { workspace = true, features = ["test-support"] }
+
 [lints]
 workspace = true
