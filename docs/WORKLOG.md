@@ -563,7 +563,8 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       id, which every game `.ted` holds, instead of the brief's 0, and added its test; the
       generator now reproduces the committed tables from `4ccEditor-1`, its two drifts
       fixed)
-    - [ ] 5.1a2 height and weight out of the key table, Team TOML player keys
+    - [x] 5.1a2 height and weight out of the key table, Team TOML player keys. Done
+      2026-10-12 (SWE-2, first attempt; `.4ccs` import carries them as player keys)
     - [ ] 5.1a3 `shirt_name`
     - [ ] 5.1a4 absent = default (a `KeySpec` default column; `apply` takes the version)
     - [ ] 5.1a5 the unknown bits, model half: `face` on `AppearanceSettings`, the per-bit

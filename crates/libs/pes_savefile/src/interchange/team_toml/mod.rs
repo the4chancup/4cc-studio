@@ -213,6 +213,10 @@ pub struct PlayerSection {
     pub nationality: Option<u16>,
     /// Age.
     pub age: Option<u8>,
+    /// Height in cm.
+    pub height: Option<u8>,
+    /// Weight in kg.
+    pub weight: Option<u8>,
     /// Boots model id.
     pub boots_id: Option<u32>,
     /// Gloves model id.

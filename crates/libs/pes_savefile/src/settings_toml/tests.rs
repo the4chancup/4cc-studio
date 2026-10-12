@@ -170,10 +170,6 @@ fn apply_copies_the_settings_and_leaves_the_rest() {
         );
     }
     assert_eq!(q.motion, p.motion);
-    assert_eq!(
-        (q.basic.height, q.basic.weight),
-        (p.basic.height, p.basic.weight)
-    );
     assert_eq!(q.name, p.name);
     assert_eq!(q.id, q_before.id);
     assert_eq!(q.shirt_name, q_before.shirt_name);
@@ -181,9 +177,38 @@ fn apply_copies_the_settings_and_leaves_the_rest() {
     assert_eq!(q.positions, q_before.positions);
     assert_eq!(q.skills, q_before.skills);
     assert_eq!(q.edit_flags, q_before.edit_flags);
-    // q's nationality, age and the rest of basics are gameplay, untouched.
-    assert_eq!(q.basic.nationality, q_before.basic.nationality);
-    assert_eq!(q.basic.age, q_before.basic.age);
+    // q's basics (nationality, age, height, weight) are gameplay, untouched.
+    assert_eq!(q.basic, q_before.basic);
+}
+
+#[test]
+fn height_and_weight_are_not_settings() {
+    let payload = payload(PesVersion::Pes19);
+    let schema = schema_for(PesVersion::Pes19);
+    let p = find_player(&payload, schema, 70101);
+    let mut q = find_player(&payload, schema, 70102);
+    assert_ne!(
+        (p.basic.height, p.basic.weight),
+        (q.basic.height, q.basic.weight),
+        "the test needs the two players to differ"
+    );
+    let (height, weight) = (q.basic.height, q.basic.weight);
+    let settings = PlayerSettings::from_player(&p).expect("from_player");
+    settings.apply(&mut q).expect("apply");
+    assert_eq!(
+        (q.basic.height, q.basic.weight),
+        (height, weight),
+        "a settings file does not carry them"
+    );
+    // Nothing named `height` or `weight` emits, set or commented.
+    let text = settings.to_toml().expect("emit");
+    assert!(
+        !text.lines().any(|line| {
+            let line = line.trim_start_matches('#').trim_start();
+            line.starts_with("height =") || line.starts_with("weight =")
+        }),
+        "a height/weight line emitted: {text}"
+    );
 }
 
 #[test]
@@ -350,13 +375,11 @@ fn get_after_set_round_trips_every_key() {
 
 #[test]
 fn the_key_specs_match_the_plan_table() {
-    let comments: [&str; 54] = [
+    let comments: [&str; 52] = [
         "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link",
         "\"\" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link",
         "0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)",
         "0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet",
-        "cm",
-        "kg",
         "-7 to 7",
         "-7 to 7",
         "-7 to 7",
@@ -462,8 +485,6 @@ skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5
 iris_color = 0                  # 0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet
 
 [appearance.physique]
-height = 180                    # cm
-weight = 75                     # kg
 neck_length = 0                 # -7 to 7
 neck_size = 0                   # -7 to 7
 shoulder_height = 0             # -7 to 7
@@ -647,11 +668,25 @@ fn to_toml_round_trips_a_real_player_through_text() {
 
 #[test]
 fn parse_reports_the_first_error_with_its_key() {
-    let cases: [(&str, SettingsError); 11] = [
+    let cases: [(&str, SettingsError); 13] = [
         (
             "appearance.hair = 1",
             SettingsError::UnknownKey {
                 key: "appearance.hair".to_string(),
+            },
+        ),
+        // Height and weight left the key table: the record fields they were
+        // are gameplay, so a settings.toml naming either is a stranger.
+        (
+            "[appearance.physique]\nheight = 180\n",
+            SettingsError::UnknownKey {
+                key: "appearance.physique.height".to_string(),
+            },
+        ),
+        (
+            "[appearance.physique]\nweight = 75\n",
+            SettingsError::UnknownKey {
+                key: "appearance.physique.weight".to_string(),
             },
         ),
         (
@@ -707,9 +742,9 @@ fn parse_reports_the_first_error_with_its_key() {
             },
         ),
         (
-            "[appearance.physique]\nheight = 1.5\n",
+            "[appearance.physique]\nneck_length = 1.5\n",
             SettingsError::WrongType {
-                key: "appearance.physique.height".to_string(),
+                key: "appearance.physique.neck_length".to_string(),
                 expected: "an integer",
             },
         ),

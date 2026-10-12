@@ -386,6 +386,8 @@ fn parse_player(item: &Item, path: &str) -> Result<PlayerSection, TeamTomlError>
             "number",
             "nationality",
             "age",
+            "height",
+            "weight",
             "boots_id",
             "gloves_id",
             "base_copy_id",
@@ -998,6 +1000,89 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    /// `height`/`weight` are `[players.NN]` player-level keys, right after
+    /// `age` and before the ids: the emitted text shows them there, and a
+    /// team's round trip through the document keeps them.
+    #[test]
+    fn height_and_weight_are_player_level_keys() {
+        let (file, _) = open(PesVersion::Pes19);
+        let (team, slot) = first_slot(&file);
+        let key = u8::try_from(slot + 1).expect("a slot index");
+        let source = file
+            .players()
+            .iter()
+            .find(|p| p.id == team.roster[slot].player_id)
+            .expect("the rostered player");
+        let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+        let doc = TeamToml::from_team(PesVersion::Pes19, team, &refs).expect("from_team");
+        let section = &doc.players[&key];
+        assert_eq!(section.height, Some(source.basic.height));
+        assert_eq!(section.weight, Some(source.basic.weight));
+
+        // The emitted block holds `height`/`weight` right after `age`.
+        let text = doc.to_toml().expect("to_toml");
+        let block = text
+            .split_once(&format!("[players.{key:02}]"))
+            .and_then(|(_, rest)| rest.split_once("\n["))
+            .map(|(block, _)| block)
+            .unwrap_or_else(|| panic!("no [players.{key:02}] block in:\n{text}"));
+        let lines: Vec<&str> = block.lines().collect();
+        let age = lines
+            .iter()
+            .position(|line| line.starts_with("age ="))
+            .unwrap_or_else(|| panic!("an age line in {block}"));
+        assert!(
+            lines[age + 1].starts_with(&format!("height = {}", source.basic.height)),
+            "height right after age: {block}"
+        );
+        assert!(
+            lines[age + 1].contains("# cm, the record's own field"),
+            "the height comment: {}",
+            lines[age + 1]
+        );
+        assert!(
+            lines[age + 2].starts_with(&format!("weight = {}", source.basic.weight)),
+            "weight after height: {block}"
+        );
+        assert!(
+            lines[age + 2].contains("# kg"),
+            "the weight comment: {}",
+            lines[age + 2]
+        );
+
+        // Emit, parse, apply onto a copy scrambled to zero: the round trip
+        // restores every rostered player's height and weight.
+        let parsed = TeamToml::parse(&text).expect("the emitted text reparses");
+        assert_eq!(parsed, doc);
+        let mut target_team = team.clone();
+        let mut players = file.players().to_vec();
+        for player in players.iter_mut() {
+            player.basic.height = 0;
+            player.basic.weight = 0;
+        }
+        let notes = parsed
+            .apply(PesVersion::Pes19, &mut target_team, &mut players)
+            .expect("applies");
+        assert!(notes.is_empty(), "{notes:?}");
+        for rostered in team.roster.iter().filter(|s| s.player_id != 0) {
+            let src = file
+                .players()
+                .iter()
+                .find(|p| p.id == rostered.player_id)
+                .expect("rostered");
+            let dst = players
+                .iter()
+                .find(|p| p.id == rostered.player_id)
+                .expect("applied");
+            assert_eq!(
+                (dst.basic.height, dst.basic.weight),
+                (src.basic.height, src.basic.weight),
+                "player {}",
+                src.id
+            );
         }
     }
 

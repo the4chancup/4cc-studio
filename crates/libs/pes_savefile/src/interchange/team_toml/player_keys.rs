@@ -55,6 +55,10 @@ pub(crate) enum PlayerKey {
     Nationality,
     /// `age`
     Age,
+    /// `height`
+    Height,
+    /// `weight`
+    Weight,
     /// `boots_id`
     BootsId,
     /// `gloves_id`
@@ -188,9 +192,11 @@ const fn flag(path: &'static str, field: PlayerField) -> KeySpec {
 impl PlayerKey {
     /// Every scalar key, in the plan block's order (top level, stats,
     /// positions scalars, edit flags).
-    pub(crate) const ALL: [PlayerKey; 53] = [
+    pub(crate) const ALL: [PlayerKey; 55] = [
         PlayerKey::Nationality,
         PlayerKey::Age,
+        PlayerKey::Height,
+        PlayerKey::Weight,
         PlayerKey::BootsId,
         PlayerKey::GlovesId,
         PlayerKey::BaseCopyId,
@@ -250,6 +256,13 @@ impl PlayerKey {
         match self {
             PlayerKey::Nationality => spec("nationality", Kind::U16, F::Nationality, ""),
             PlayerKey::Age => spec("age", Kind::Stored, F::Age, ""),
+            PlayerKey::Height => spec(
+                "height",
+                Kind::Stored,
+                F::Height,
+                "cm, the record's own field",
+            ),
+            PlayerKey::Weight => spec("weight", Kind::Stored, F::Weight, "kg"),
             PlayerKey::BootsId => spec("boots_id", Kind::U32, F::BootsId, ""),
             PlayerKey::GlovesId => spec("gloves_id", Kind::U32, F::GlovesId, ""),
             PlayerKey::BaseCopyId => spec(
@@ -400,6 +413,8 @@ impl PlayerKey {
         match self {
             PlayerKey::Nationality => s.nationality.map(u32::from),
             PlayerKey::Age => s.age.map(u32::from),
+            PlayerKey::Height => s.height.map(u32::from),
+            PlayerKey::Weight => s.weight.map(u32::from),
             PlayerKey::BootsId => s.boots_id,
             PlayerKey::GlovesId => s.gloves_id,
             PlayerKey::BaseCopyId => s.base_copy_id,
@@ -478,6 +493,8 @@ impl PlayerKey {
                 s.nationality = Some(u16::try_from(value).expect("checked against the kind"))
             }
             PlayerKey::Age => s.age = Some(byte(value)),
+            PlayerKey::Height => s.height = Some(byte(value)),
+            PlayerKey::Weight => s.weight = Some(byte(value)),
             PlayerKey::BootsId => s.boots_id = Some(value),
             PlayerKey::GlovesId => s.gloves_id = Some(value),
             PlayerKey::BaseCopyId => s.base_copy_id = Some(value),

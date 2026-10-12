@@ -225,6 +225,8 @@ const IRIS_COL: usize = 354;
 /// `(offset, key)`. Every one is gated on the exporting version storing the
 /// field and range-checked by `PlayerKey::set_section`.
 const U8_SCALARS: &[(usize, PlayerKey)] = &[
+    (HEIGHT, PlayerKey::Height),            // player_export.height
+    (WEIGHT, PlayerKey::Weight),            // player_export.weight
     (8, PlayerKey::AttackingProwess),       // player_export.atk
     (9, PlayerKey::DefensiveProwess),       // player_export.def
     (10, PlayerKey::Goalkeeping),           // player_export.gk
@@ -288,11 +290,9 @@ const U32_SCALARS: &[(usize, PlayerKey)] = &[
     (COPY_ID, PlayerKey::BaseCopyId),
 ];
 
-/// `u8` bytes that land in `appearance` (physique `height`/`weight`, motion,
-/// strip and the face-run colours), `(offset, key)`.
+/// `u8` bytes that land in `appearance` (motion, strip and the face-run
+/// colours), `(offset, key)`.
 const APPEARANCE_U8: &[(usize, SettingKey)] = &[
-    (HEIGHT, SettingKey::Height),
-    (WEIGHT, SettingKey::Weight),
     (GC1, SettingKey::GoalCelebration1),
     (GC2, SettingKey::GoalCelebration2),
     (MO_FK, SettingKey::FreeKick),

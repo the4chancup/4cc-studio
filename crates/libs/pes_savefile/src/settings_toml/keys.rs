@@ -23,10 +23,6 @@ pub enum SettingKey {
     SkinColor,
     /// `[appearance] iris_color`
     IrisColor,
-    /// `[appearance.physique] height`
-    Height,
-    /// `[appearance.physique] weight`
-    Weight,
     /// `[appearance.physique] neck_length`
     NeckLength,
     /// `[appearance.physique] neck_size`
@@ -130,7 +126,7 @@ pub enum SettingKey {
 /// narrowing is the compiler's finding at compile time).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
-    /// Stored as written: colours, celebrations, face types, height, weight.
+    /// Stored as written: colours, celebrations, face types.
     Number {
         /// Smallest accepted value.
         min: u8,
@@ -236,13 +232,11 @@ const SEVEN: &str = "-7 to 7";
 
 impl SettingKey {
     /// Every key, in the plan table's order.
-    pub const ALL: [SettingKey; 54] = [
+    pub const ALL: [SettingKey; 52] = [
         SettingKey::BootsId,
         SettingKey::GlovesId,
         SettingKey::SkinColor,
         SettingKey::IrisColor,
-        SettingKey::Height,
-        SettingKey::Weight,
         SettingKey::NeckLength,
         SettingKey::NeckSize,
         SettingKey::ShoulderHeight,
@@ -319,18 +313,6 @@ impl SettingKey {
                 name: "iris_color",
                 kind: Kind::Number { min: 0, max: 10 },
                 comment: "0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet",
-            },
-            SettingKey::Height => KeySpec {
-                table: KeyTable::Physique,
-                name: "height",
-                kind: Kind::Number { min: 0, max: 255 },
-                comment: "cm",
-            },
-            SettingKey::Weight => KeySpec {
-                table: KeyTable::Physique,
-                name: "weight",
-                kind: Kind::Number { min: 0, max: 255 },
-                comment: "kg",
             },
             SettingKey::NeckLength => physique("neck_length"),
             SettingKey::NeckSize => physique("neck_size"),
@@ -486,8 +468,6 @@ impl SettingKey {
             SettingKey::GlovesId => Source::Player(PlayerField::GlovesId),
             SettingKey::SkinColor => Source::Face(IngameFaceField::SkinColor),
             SettingKey::IrisColor => Source::Face(IngameFaceField::IrisColor),
-            SettingKey::Height => Source::Player(PlayerField::Height),
-            SettingKey::Weight => Source::Player(PlayerField::Weight),
             SettingKey::NeckLength => Source::Player(PlayerField::NeckLength),
             SettingKey::NeckSize => Source::Player(PlayerField::NeckSize),
             SettingKey::ShoulderHeight => Source::Player(PlayerField::ShoulderHeight),

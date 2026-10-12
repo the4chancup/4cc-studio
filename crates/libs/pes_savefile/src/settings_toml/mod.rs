@@ -56,10 +56,6 @@ pub struct AppearanceSettings {
 /// The `[appearance.physique]` table.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PhysiqueSettings {
-    /// Height in cm.
-    pub height: Option<u8>,
-    /// Weight in kg.
-    pub weight: Option<u8>,
     /// Neck length, stored (game number + 7).
     pub neck_length: Option<u8>,
     /// Neck size, stored.
@@ -256,8 +252,6 @@ pub(crate) fn get_appearance(appearance: &AppearanceSettings, key: SettingKey) -
         SettingKey::BootsId | SettingKey::GlovesId => None,
         SettingKey::SkinColor => a.skin_color,
         SettingKey::IrisColor => a.iris_color,
-        SettingKey::Height => a.physique.height,
-        SettingKey::Weight => a.physique.weight,
         SettingKey::NeckLength => a.physique.neck_length,
         SettingKey::NeckSize => a.physique.neck_size,
         SettingKey::ShoulderHeight => a.physique.shoulder_height,
@@ -321,8 +315,6 @@ pub(crate) fn set_appearance(
         SettingKey::BootsId | SettingKey::GlovesId => {}
         SettingKey::SkinColor => a.skin_color = value,
         SettingKey::IrisColor => a.iris_color = value,
-        SettingKey::Height => a.physique.height = value,
-        SettingKey::Weight => a.physique.weight = value,
         SettingKey::NeckLength => a.physique.neck_length = value,
         SettingKey::NeckSize => a.physique.neck_size = value,
         SettingKey::ShoulderHeight => a.physique.shoulder_height = value,
@@ -388,8 +380,6 @@ fn read(player: &PlayerEntry, key: SettingKey) -> Result<Option<u8>, SettingsErr
         SettingKey::GlovesId => stock_id(a.gloves_id),
         SettingKey::SkinColor => Some(face.get(IngameFaceField::SkinColor)?),
         SettingKey::IrisColor => Some(face.get(IngameFaceField::IrisColor)?),
-        SettingKey::Height => Some(player.basic.height),
-        SettingKey::Weight => Some(player.basic.weight),
         SettingKey::NeckLength => Some(a.neck_length),
         SettingKey::NeckSize => Some(a.neck_size),
         SettingKey::ShoulderHeight => Some(a.shoulder_height),
@@ -572,8 +562,6 @@ fn write_appearance(
             SettingKey::BootsId | SettingKey::GlovesId => {}
             SettingKey::SkinColor => face.set(IngameFaceField::SkinColor, value)?,
             SettingKey::IrisColor => face.set(IngameFaceField::IrisColor, value)?,
-            SettingKey::Height => next.basic.height = value,
-            SettingKey::Weight => next.basic.weight = value,
             SettingKey::NeckLength => next.appearance.neck_length = value,
             SettingKey::NeckSize => next.appearance.neck_size = value,
             SettingKey::ShoulderHeight => next.appearance.shoulder_height = value,
@@ -672,8 +660,6 @@ pub(crate) fn ownership(field: PlayerField) -> Ownership {
         | PlayerField::AppearanceId => Ownership::CompilerOwned,
         PlayerField::BootsId
         | PlayerField::GlovesId
-        | PlayerField::Height
-        | PlayerField::Weight
         | PlayerField::NeckLength
         | PlayerField::NeckSize
         | PlayerField::ShoulderHeight
@@ -712,6 +698,8 @@ pub(crate) fn ownership(field: PlayerField) -> Ownership {
         PlayerField::Id
         | PlayerField::Nationality
         | PlayerField::Age
+        | PlayerField::Height
+        | PlayerField::Weight
         | PlayerField::AttackingProwess
         | PlayerField::DefensiveProwess
         | PlayerField::Goalkeeping

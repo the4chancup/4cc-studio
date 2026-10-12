@@ -288,7 +288,7 @@ fn read_squad_decodes_the_struct_dump() {
         assert_eq!(p.appearance.skin_color, Some(s.skin));
         assert_eq!(p.appearance.iris_color, Some(s.iris));
         assert_eq!(p.appearance.physique.neck_length, Some(7));
-        assert_eq!(p.appearance.physique.height, Some(s.height));
+        assert_eq!(p.height, Some(s.height));
         assert!(
             p.ingame_face.is_none(),
             "the legacy record has no ingame-face run"
@@ -303,6 +303,8 @@ fn read_squad_decodes_the_struct_dump() {
 /// offsets are the ctypes layout's, not `legacy.rs`'s constants, so a mapping
 /// dropped or moved there fails here.
 const U8_KEYS: &[(usize, PlayerKey)] = &[
+    (4, PlayerKey::Height),
+    (5, PlayerKey::Weight),
     (8, PlayerKey::AttackingProwess),
     (9, PlayerKey::DefensiveProwess),
     (10, PlayerKey::Goalkeeping),
@@ -368,8 +370,6 @@ const U32_KEYS: &[(usize, PlayerKey)] = &[
 
 /// `u8` bytes that land in `appearance`, `(offset, key)`.
 const APPEARANCE_U8_KEYS: &[(usize, SettingKey)] = &[
-    (4, SettingKey::Height),
-    (5, SettingKey::Weight),
     (6, SettingKey::GoalCelebration1),
     (7, SettingKey::GoalCelebration2),
     (12, SettingKey::FreeKick),

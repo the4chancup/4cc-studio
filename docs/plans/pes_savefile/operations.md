@@ -434,15 +434,12 @@ shirt_name = "SCORE"
 number = 1                      # shirt number, the roster's
 nationality = 231
 age = 25
-# Phase 5: ingame_face leaves (its bits move to [appearance.unknown]), and height and
-# weight are player-level keys; until then height and weight sit inside
-# [players.NN.appearance.physique]
 height = 180                    # cm, the record's own field
 weight = 75                     # kg
 boots_id = 3601
 gloves_id = 0
 base_copy_id = 84101            # equal to the player's own id in the file = unset; becomes the target's own id
-ingame_face = "0102...ff"       # the appearance block's undecoded run, hex, 50 bytes (46 on PES 15); applied before [players.NN.appearance]
+ingame_face = "0102...ff"       # leaves in Phase 5 (its bits move to [appearance.unknown] face); the appearance block's undecoded run, hex, 50 bytes (46 on PES 15); applied before [players.NN.appearance]
 stripped = true                 # Phase 5, Fox: written only for a player whose appearance id is -1 ("Stripped save"); informational, import ignores it
 
 [players.01.stats]              # stored values; the comments give the game's editor range, the parser accepts the field's stored range
@@ -574,7 +571,7 @@ pub struct InstructionEntry { pub instruction: Instruction, pub player: u8 }
 /// One `[players.NN]`.
 pub struct PlayerSection { pub name: Option<String>, pub shirt_name: Option<String>, pub number: Option<u16>,
     pub nationality: Option<u16>, pub age: Option<u8>,
-    pub height: Option<u8>, pub weight: Option<u8>,  // Phase 5; until then inside [players.NN.appearance.physique]
+    pub height: Option<u8>, pub weight: Option<u8>,
     pub boots_id: Option<u32>, pub gloves_id: Option<u32>,
     pub base_copy_id: Option<u32>, pub ingame_face: Option<Vec<u8>>,
     pub stripped: Option<bool>,  // Phase 5: written for a player at -1; informational, ignored on import
