@@ -14,6 +14,7 @@ only prints the mutants and their counts, without running anything. `--kind <nam
 (repeatable) restricts the run or the listing to those kinds.
 """
 
+import io
 import json
 import os
 import shutil
@@ -76,20 +77,20 @@ def list_mutants(directory: Path) -> list[list[str]]:
 def extract_tree(tree: str, dest: Path) -> None:
     """Extract git tree `tree` into `dest` (created empty)."""
     dest.mkdir(parents=True)
-    proc = subprocess.Popen(
+    # The whole archive is read before extracting, as `mutants.py` fetches the remote
+    # half's results: streamed through a pipe, `git archive` twice sat unexited after
+    # writing every member (5.0g2, 35 minutes, not reproduced since).
+    archived = subprocess.run(
         ["git", "archive", "--format=tar", tree],
         cwd=ROOT,
-        stdout=subprocess.PIPE,
+        capture_output=True,
     )
-    try:
-        with tarfile.open(fileobj=proc.stdout, mode="r|") as archive:
-            archive.extractall(dest, filter="data")
-    except BaseException:
-        proc.kill()
-        proc.wait()
-        raise
-    if proc.wait() != 0:
-        raise RuntimeError(f"git archive {tree} failed")
+    if archived.returncode != 0:
+        raise RuntimeError(
+            f"git archive {tree} failed: {archived.stderr.decode(errors='replace')}"
+        )
+    with tarfile.open(fileobj=io.BytesIO(archived.stdout), mode="r|") as archive:
+        archive.extractall(dest, filter="data")
 
 
 def kill_tree(proc: subprocess.Popen) -> None:
