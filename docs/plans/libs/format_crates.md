@@ -195,6 +195,19 @@ four are dropped: their values are mesh or group indices that any op renumbers, 
 writer emits another (unknown `X-FMDL-Extensions` flags carry no index and are kept in
 `Extensions::other`).
 
+**Anti-blur meshes.** Fox PES's temporal anti-aliasing (TAA) blurs meshes that use the
+`Constant` material. The community found that a `Blin` mesh placed behind a `Constant` one
+cancels the blur, so the fix is a duplicate of such a mesh with a `Blin` material, hidden by
+the original; it costs that mesh's vertices and faces again. As the add-on builds it, and
+`ops/antiblur.rs` likewise, the duplicate copies the mesh's vertices and faces unchanged and
+differs only in its material (`fox3DDF_Blin_Fuzzblock`, or the `_UVScroll` variant), alpha
+flags 128 and shadow flags 1. How the game then draws it behind the original is not known.
+The `antiblur` flag with its `Has-Antiblur-Meshes` header marks those duplicates for the
+Blender FMDL add-on (`Tools_4cc/pes-fmdl`): it discards them on import and recreates them on
+export, so an author never edits the duplicate by hand. `ops/antiblur.rs`
+is that encode step. FoxDen is to force TAA off in PES, after which the duplicates and the flag
+are no longer needed; until then a written model keeps them as the add-on would.
+
 **Custom bounding boxes.** The format has no per-mesh box; `Custom-Bounding-Box-Meshes` only
 marks a mesh whose box the author set by hand, and the add-on folds that box into the mesh's
 *group* box. We do the same both ways: `from_file` gives a marked mesh `custom_bounding_box =
