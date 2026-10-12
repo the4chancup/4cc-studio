@@ -8,6 +8,18 @@ use pes_savefile::interchange::team_toml::labels::ABILITY_STATS;
 
 use super::*;
 
+/// The seven `suggestions` words; reserved as `card_groups` keys too,
+/// so a suggestion can never name two allowances.
+const SUGGESTION_WORDS: [&str; 7] = [
+    "cards",
+    "a_positions",
+    "weak_foot",
+    "injury_resistance",
+    "height",
+    "free_cards",
+    "choices",
+];
+
 impl Ruleset {
     /// The rules the types cannot carry, every one broken, in a fixed
     /// order: `Ruleset`'s fields in declaration order, list items in
@@ -145,18 +157,19 @@ impl Ruleset {
             });
         }
 
-        // card_groups: keys name a group; `com` is reserved for the
-        // seven COM playing styles.
+        // card_groups: keys name a group; `com` and `suggestions`' seven
+        // words are reserved (`com` for the COM styles, the words so a
+        // suggestion can never name two allowances).
         for key in self.card_groups.keys() {
             if key.is_empty() {
                 out.push(RuleError {
-                    path: format!("card_groups.{key}"),
+                    path: "card_groups".to_string(),
                     rule: LoadRule::Empty,
                 });
             }
-            if key == "com" {
+            if key == "com" || SUGGESTION_WORDS.contains(&key.as_str()) {
                 out.push(RuleError {
-                    path: "card_groups.com".to_string(),
+                    path: format!("card_groups.{key}"),
                     rule: LoadRule::ReservedGroup,
                 });
             }
@@ -261,6 +274,7 @@ impl Ruleset {
                     rule: LoadRule::SystemWithoutCondition,
                 });
             }
+            // Heights and positions only, so no id or colour code to check.
             if let Some(condition) = &system.any_player
                 && condition_is_wide(condition)
             {
@@ -348,15 +362,6 @@ impl Ruleset {
 
         // suggestions: one of the seven words or a group id (`com`
         // included).
-        const SUGGESTION_WORDS: [&str; 7] = [
-            "cards",
-            "a_positions",
-            "weak_foot",
-            "injury_resistance",
-            "height",
-            "free_cards",
-            "choices",
-        ];
         for (i, entry) in self.suggestions.iter().enumerate() {
             if !SUGGESTION_WORDS.contains(&entry.as_str()) && !self.group_has(entry) {
                 out.push(RuleError {
@@ -445,6 +450,16 @@ impl Ruleset {
                 });
             }
         }
+        // `name_colors`: eight bytes each, any bytes (a partial paste
+        // matches no name).
+        for (i, entry) in condition.name_colors.iter().enumerate() {
+            if entry.len() != 8 {
+                out.push(RuleError {
+                    path: format!("{path}.name_colors[{i}]"),
+                    rule: LoadRule::ColorCodeLength,
+                });
+            }
+        }
         if let Some(not) = &condition.not {
             self.check_condition(not, &format!("{path}.not"), allow_tiers, out);
         }
@@ -505,6 +520,15 @@ impl Ruleset {
                 });
             }
             self.check_per_tier(per_tier, &format!("{path}.free.{group}"), out);
+        }
+        // `forbid`: an emptied text would show a blank violation.
+        if let Some(forbid) = &effects.forbid
+            && forbid.is_empty()
+        {
+            out.push(RuleError {
+                path: format!("{path}.forbid"),
+                rule: LoadRule::Empty,
+            });
         }
         for (i, option) in effects.choice.iter().enumerate() {
             self.check_effects(option, &format!("{path}.choice[{i}]"), out);
@@ -631,8 +655,12 @@ pub enum LoadRule {
         /// The unknown id.
         id: String,
     },
-    /// A `name`, an id, a label or a `card_groups` key is empty.
+    /// A string is empty: a `name`, an id, a label, a `card_groups` key
+    /// or a `forbid` text.
     Empty,
+    /// A `name_colors` entry is not eight bytes long (any bytes — the
+    /// game does not check they are hex).
+    ColorCodeLength,
     /// A `suggestions` entry that is neither one of the seven words nor a
     /// group id.
     UnknownSuggestion {
@@ -645,8 +673,9 @@ pub enum LoadRule {
         /// The entry.
         name: String,
     },
-    /// A `card_groups` key `com`, which is reserved for the seven COM playing
-    /// styles.
+    /// A `card_groups` key `com` or one of `suggestions`' seven words:
+    /// `com` is the COM styles' group, and a word named a group would let
+    /// a suggestion mean two allowances.
     ReservedGroup,
     /// A tier with `counts_as` also has `count`.
     CountWithCountsAs,
@@ -707,7 +736,9 @@ impl fmt::Display for LoadRule {
                 write!(f, "unknown suggestion {entry:?}")
             }
             LoadRule::UnknownTarget { name } => write!(f, "unknown at_most target {name:?}"),
-            LoadRule::ReservedGroup => f.write_str("`com` is a reserved card group"),
+            LoadRule::ReservedGroup => {
+                f.write_str("`com` or a `suggestions` word is a reserved card group")
+            }
             LoadRule::CountWithCountsAs => f.write_str("a tier with `counts_as` also has `count`"),
             LoadRule::CountsAsChain => {
                 f.write_str("the tier a `counts_as` names has a `counts_as` of its own")
@@ -724,7 +755,8 @@ impl fmt::Display for LoadRule {
             LoadRule::SystemWithoutCondition => {
                 f.write_str("a height system other than the last has no or an empty `any_player`")
             }
-            LoadRule::Empty => f.write_str("empty name, id or label"),
+            LoadRule::Empty => f.write_str("empty string"),
+            LoadRule::ColorCodeLength => f.write_str("a `name_colors` entry is not eight bytes"),
             LoadRule::BracketsNotAscending => {
                 f.write_str("bracket heights not above the brackets before it")
             }

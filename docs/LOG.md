@@ -1836,3 +1836,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2b1: `TeamView`/`PlayerView` over a save's team, the tactics answers in
   Rust, one engine with the plan's script API. Astra R10.A1 on 5.2a: 6 of 6 accepted (rework
   pending, with SWE-2 R13.S1's 4 of 10). SWE-2, first attempt.
+- **2026-10-12** — Step 5.2a post-Astra rework (R13.S1 and R10.A1): no string empty, colour codes
+  of eight bytes, suggestion words reserved as group ids; the untested sites tested; the ruleset
+  tests split in three files. SWE-2, first attempt.

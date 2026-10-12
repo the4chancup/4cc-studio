@@ -171,18 +171,22 @@ mod tests {
     use crate::model::instruction::Instruction;
     use crate::model::playstyle::PlayStyle;
 
-    /// Every name in `ABILITY_STATS` is a `stats.<name>` key in the
-    /// `PlayerKey` table, Team TOML's own key table.
+    /// `ABILITY_STATS`, sorted, is exactly the `PlayerKey` names of the
+    /// `Kind::Ability` keys, `stats.` prefix stripped: membership,
+    /// completeness and no duplicates in one assertion.
     #[test]
-    fn every_ability_stat_is_a_stats_key() {
-        let stats: Vec<&str> = PlayerKey::ALL
+    fn ability_stats_are_the_ability_keys() {
+        use crate::interchange::team_toml::player_keys::Kind;
+
+        let mut from_keys: Vec<&str> = PlayerKey::ALL
             .iter()
-            .filter(|key| key.table() == "stats")
+            .filter(|key| matches!(key.spec().kind, Kind::Ability))
             .map(|key| key.name())
             .collect();
-        for name in ABILITY_STATS {
-            assert!(stats.contains(&name), "stats.{name}");
-        }
+        from_keys.sort_unstable();
+        let mut table = ABILITY_STATS.to_vec();
+        table.sort_unstable();
+        assert_eq!(table, from_keys);
     }
 
     /// `PlayerStats::abilities` entry `i` is the `stats.<ABILITY_STATS[i]>`

@@ -150,7 +150,8 @@ pub struct Heights {
     /// constrained by tier conditions and specials alone.
     #[serde(default)]
     pub brackets: Vec<Bracket>,
-    /// The first whose `any_player` holds sets the quotas; the last has none.
+    /// The first whose `any_player` holds sets the quotas; the last has
+    /// none or an empty one.
     #[serde(default)]
     pub systems: Vec<HeightSystem>,
 }

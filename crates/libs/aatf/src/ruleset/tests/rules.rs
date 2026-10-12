@@ -1,86 +1,5 @@
 use super::*;
 
-/// The official data block, embedded.
-const AUTUMN26: &str = include_str!("../../rulesets/autumn26.rhai");
-
-/// `text` with `from` replaced once by `to` (asserted present first).
-fn edit(text: &str, from: &str, to: &str) -> String {
-    assert!(text.contains(from), "the snippet is in the file: {from}");
-    text.replacen(from, to, 1)
-}
-
-#[test]
-fn the_official_ruleset_loads() {
-    let ruleset = Ruleset::from_data_block(AUTUMN26).expect("the official file loads");
-    let tiers: Vec<&str> = ruleset.tiers.iter().map(|tier| tier.id.as_str()).collect();
-    assert_eq!(tiers, ["gold", "silver", "bronze", "goalkeeper", "regular"]);
-    assert_eq!(ruleset.tiers[4].count, None, "regular is the rest tier");
-    assert_eq!(ruleset.tiers[3].counts_as.as_deref(), Some("regular"));
-    // Green's quotas, in bracket order as written.
-    let green = ruleset
-        .heights
-        .systems
-        .iter()
-        .find(|system| system.id == "green")
-        .expect("the green system");
-    let quotas: Vec<(&str, u8)> = green
-        .quotas
-        .iter()
-        .map(|(id, count)| (id.as_str(), *count))
-        .collect();
-    // `BTreeMap` order is alphabetical, not the file's bracket order.
-    assert_eq!(
-        quotas,
-        [
-            ("giant", 6),
-            ("giga", 0),
-            ("manlet", 6),
-            ("mid", 5),
-            ("tall", 6)
-        ]
-    );
-    assert_eq!(ruleset.specials.len(), 12);
-    let last = ruleset.specials.last().expect("a last special");
-    assert_eq!(last.then.choice.len(), 2);
-    // "Red manlet bonus": `stat_bonus` is `all` keyed by four tiers.
-    let bonus = ruleset
-        .specials
-        .iter()
-        .find(|special| special.label == "Red manlet bonus")
-        .expect("the manlet bonus");
-    let Some(PerTier::ByTier(by_tier)) = bonus.then.stat_bonus.get(&StatOrAll::All) else {
-        panic!("the bonus is not All-by-tier: {:?}", bonus.then.stat_bonus);
-    };
-    assert_eq!(by_tier.len(), 4);
-    for (id, amount) in [
-        ("regular", 5),
-        ("goalkeeper", 5),
-        ("bronze", 3),
-        ("silver", 2),
-    ] {
-        assert_eq!(by_tier.get(id), Some(&amount), "{id}");
-    }
-}
-
-// One failing file per load-time rule: `edit` of a unique snippet of
-// the official text → `Rules` with exactly the expected error.
-fn case(name: &str, broken: &str, rule: LoadRule, path: &str) {
-    let err = Ruleset::from_data_block(broken).expect_err(name);
-    match err {
-        LoadError::Rules(errors) => {
-            assert_eq!(
-                errors,
-                vec![RuleError {
-                    path: path.to_string(),
-                    rule,
-                }],
-                "{name}"
-            );
-        }
-        other => panic!("{name}: expected Rules, got {other:?}"),
-    }
-}
-
 #[test]
 fn a_duplicate_tier_id_is_refused() {
     // A second `regular` appended: every reference still resolves, so
@@ -350,9 +269,152 @@ fn empty_strings_are_refused() {
 }
 
 #[test]
+fn empty_strings_at_the_untested_sites_are_refused() {
+    for (name, broken, path) in [
+        (
+            "empty bracket label",
+            edit(AUTUMN26, "label: \"Tall\"", "label: \"\""),
+            "heights.brackets[2].label",
+        ),
+        (
+            "empty system label",
+            edit(AUTUMN26, "label: \"Green\"", "label: \"\""),
+            "heights.systems[0].label",
+        ),
+        (
+            "empty team settings label",
+            edit(
+                AUTUMN26,
+                "    suggestions:",
+                "    team_settings: [#{ label: \"\" }],\n    suggestions:",
+            ),
+            "team_settings[0].label",
+        ),
+        (
+            "empty forbid in then",
+            edit(
+                AUTUMN26,
+                "forbid: \"Medals cannot play as GK\"",
+                "forbid: \"\"",
+            ),
+            "specials[2].then.forbid",
+        ),
+        (
+            "empty forbid in a choice option",
+            edit(
+                AUTUMN26,
+                "#{ free: #{ com: 1 } }, #{ a_positions: 1 }",
+                "#{ free: #{ com: 1 }, forbid: \"\" }, #{ a_positions: 1 }",
+            ),
+            "specials[11].then.choice[0].forbid",
+        ),
+    ] {
+        case(name, &broken, LoadRule::Empty, path);
+    }
+}
+
+#[test]
+fn an_empty_tier_id_makes_its_names_unknown() {
+    // `gold` emptied: `Empty` at the tier, then `UnknownId` where every
+    // `when` names it.
+    let err = Ruleset::from_data_block(&edit(AUTUMN26, "id: \"gold\",", "id: \"\","))
+        .expect_err("an emptied tier id");
+    let unknown = || RuleError {
+        path: String::new(),
+        rule: LoadRule::UnknownId {
+            kind: IdKind::Tier,
+            id: "gold".to_string(),
+        },
+    };
+    let mut e2 = unknown();
+    e2.path = "specials[2].when.tiers[0]".to_string();
+    let mut e6 = unknown();
+    e6.path = "specials[6].when.tiers[0]".to_string();
+    let mut e11 = unknown();
+    e11.path = "specials[11].when.tiers[0]".to_string();
+    assert_eq!(
+        err,
+        LoadError::Rules(vec![
+            RuleError {
+                path: "tiers[0].id".to_string(),
+                rule: LoadRule::Empty,
+            },
+            e2,
+            e6,
+            e11,
+        ]),
+        "{err:?}"
+    );
+}
+
+#[test]
+fn an_empty_system_id_makes_its_names_unknown() {
+    // `green` emptied: `Empty` at the system, then `UnknownId` where
+    // `when` names it.
+    let err = Ruleset::from_data_block(&edit(AUTUMN26, "id: \"green\",", "id: \"\","))
+        .expect_err("an emptied system id");
+    assert_eq!(
+        err,
+        LoadError::Rules(vec![
+            RuleError {
+                path: "heights.systems[0].id".to_string(),
+                rule: LoadRule::Empty,
+            },
+            RuleError {
+                path: "specials[10].when.systems[0]".to_string(),
+                rule: LoadRule::UnknownId {
+                    kind: IdKind::System,
+                    id: "green".to_string(),
+                },
+            },
+        ]),
+        "{err:?}"
+    );
+}
+
+#[test]
+fn an_empty_card_groups_key_makes_its_names_unknown() {
+    // `tricks` emptied: the tiers' `free` keys name it, the group is
+    // gone, and `suggestions`' entry is unknown — every error in order.
+    let err = Ruleset::from_data_block(&edit(
+        AUTUMN26,
+        "        tricks: [\"scissors_feint\"",
+        "        \"\": [\"scissors_feint\"",
+    ))
+    .expect_err("an emptied group key");
+    let unknown = |path: &str| RuleError {
+        path: path.to_string(),
+        rule: LoadRule::UnknownId {
+            kind: IdKind::Group,
+            id: "tricks".to_string(),
+        },
+    };
+    assert_eq!(
+        err,
+        LoadError::Rules(vec![
+            unknown("tiers[0].free.tricks"),
+            unknown("tiers[1].free.tricks"),
+            unknown("tiers[2].free.tricks"),
+            unknown("tiers[4].free.tricks"),
+            RuleError {
+                path: "card_groups".to_string(),
+                rule: LoadRule::Empty,
+            },
+            RuleError {
+                path: "suggestions[1]".to_string(),
+                rule: LoadRule::UnknownSuggestion {
+                    entry: "tricks".to_string(),
+                },
+            },
+        ]),
+        "{err:?}"
+    );
+}
+
+#[test]
 fn an_empty_bracket_id_makes_its_quotas_unknown() {
     // `tall` emptied: `Empty` at its bracket, then every system's quota
-    // naming it is `UnknownId` (BTreeMap order: `tall` after `giant`).
+    // naming it is `UnknownId`.
     let err = Ruleset::from_data_block(&edit(
         AUTUMN26,
         "#{ id: \"tall\",   label: \"Tall\",   exactly: [185] },",
@@ -410,6 +472,130 @@ fn brackets_out_of_order_are_refused() {
     // Unsorted but all above 180 and below 194: loads.
     Ruleset::from_data_block(&edit(AUTUMN26, "exactly: [185]", "exactly: [186, 184]"))
         .expect("an unsorted exactly in range loads");
+}
+
+#[test]
+fn color_code_lengths_are_refused() {
+    // Seven bytes: not a code.
+    case(
+        "name_colors short",
+        &edit(
+            AUTUMN26,
+            "when: #{ tiers: [\"gold\", \"silver\", \"bronze\"], positions: [\"GK\"] }",
+            "when: #{ tiers: [\"gold\", \"silver\", \"bronze\"], positions: [\"GK\"], name_colors: [\"cc9900f\"] }",
+        ),
+        LoadRule::ColorCodeLength,
+        "specials[2].when.name_colors[0]",
+    );
+    // An empty entry inside `not` is this rule, not `Empty`.
+    case(
+        "empty entry inside not",
+        &edit(
+            AUTUMN26,
+            "when: #{ captain: true }",
+            "when: #{ not: #{ name_colors: [\"\"] } }",
+        ),
+        LoadRule::ColorCodeLength,
+        "specials[1].when.not.name_colors[0]",
+    );
+}
+
+#[test]
+fn a_suggestion_word_as_a_group_is_reserved() {
+    case(
+        "cards group",
+        &edit(
+            AUTUMN26,
+            "    card_groups: #{\n",
+            "    card_groups: #{\n        cards: [\"malicia\"],\n",
+        ),
+        LoadRule::ReservedGroup,
+        "card_groups.cards",
+    );
+}
+
+#[test]
+fn giga_first_fails_every_later_bracket() {
+    // `giga` first: every bracket after it sits under its 199 — a check
+    // against only the immediate predecessor would pass `[2]` to `[4]`.
+    let err = Ruleset::from_data_block(&AUTUMN26.replacen(
+        "#{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    up_to: 180 },\n            #{ id: \"tall\",   label: \"Tall\",   exactly: [185] },\n            #{ id: \"giant\",  label: \"Giant\",  exactly: [194] },\n            #{ id: \"giga\",   label: \"Giga\",   exactly: [199] },",
+        "#{ id: \"giga\",   label: \"Giga\",   exactly: [199] },\n            #{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    up_to: 180 },\n            #{ id: \"tall\",   label: \"Tall\",   exactly: [185] },\n            #{ id: \"giant\",  label: \"Giant\",  exactly: [194] },",
+        1,
+    ))
+    .expect_err("giga first");
+    assert_eq!(
+        err,
+        LoadError::Rules(
+            (1..=4)
+                .map(|i| RuleError {
+                    path: format!("heights.brackets[{i}]"),
+                    rule: LoadRule::BracketsNotAscending,
+                })
+                .collect()
+        ),
+        "{err:?}"
+    );
+}
+
+#[test]
+fn choice_options_check_like_then() {
+    // `free`'s per-tier map inside a `choice` option.
+    case(
+        "unknown tier in a choice option",
+        &edit(
+            AUTUMN26,
+            "choice: [#{ free: #{ com: 1 } }, #{ a_positions: 1 }]",
+            "choice: [#{ free: #{ com: #{ goldd: 1 } } }, #{ a_positions: 1 }]",
+        ),
+        LoadRule::UnknownId {
+            kind: IdKind::Tier,
+            id: "goldd".to_string(),
+        },
+        "specials[11].then.choice[0].free.com.goldd",
+    );
+    // `height_allowance` inside a `choice` option names no bracket.
+    case(
+        "allowance in a choice option",
+        &edit(
+            AUTUMN26,
+            "when: #{ tiers: [\"gold\", \"silver\", \"bronze\"] },\n           then: #{ choice: [#{ free: #{ com: 1 } }",
+            "when: #{ tiers: [\"gold\", \"silver\", \"bronze\"], brackets: [\"manlet\"] },\n           then: #{ choice: [#{ free: #{ com: 1 }, height_allowance: 4 }",
+        ),
+        LoadRule::AllowanceWithBracket,
+        "specials[11].when.brackets[0]",
+    );
+}
+
+#[test]
+fn an_unknown_tier_in_a_specials_when_is_refused() {
+    case(
+        "unknown tier in a special's when",
+        &edit(
+            AUTUMN26,
+            "when: #{ tiers: [\"gold\", \"silver\", \"bronze\"], positions: [\"GK\"] }",
+            "when: #{ tiers: [\"gollum\"], positions: [\"GK\"] }",
+        ),
+        LoadRule::UnknownId {
+            kind: IdKind::Tier,
+            id: "gollum".to_string(),
+        },
+        "specials[2].when.tiers[0]",
+    );
+}
+
+#[test]
+fn a_tiers_when_not_naming_a_tier_is_refused() {
+    case(
+        "tier when.not names a tier",
+        &edit(
+            AUTUMN26,
+            "when: #{ positions: [\"GK\"] }",
+            "when: #{ not: #{ tiers: [\"gold\"] } }",
+        ),
+        LoadRule::TierConditionNamesTiers,
+        "tiers[3].when.not.tiers",
+    );
 }
 
 #[test]
@@ -564,276 +750,6 @@ fn an_unknown_tier_in_an_effect_is_refused() {
         },
         "specials[9].then.stat_bonus.all.silverr",
     );
-}
-
-// -------------------------------------------------------------------
-// Schema and parse errors
-
-/// `Ruleset` deserialization errors land as `Schema` with rhai's text.
-fn schema(text: &str) -> LoadError {
-    Ruleset::from_data_block(&format!("const RULESET = {text};")).expect_err("a schema error")
-}
-
-#[test]
-fn an_unknown_top_level_key_is_schema() {
-    let err = schema(
-        "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, frob: 1 }",
-    );
-    assert!(matches!(err, LoadError::Schema { .. }), "{err:?}");
-}
-
-#[test]
-fn an_unknown_tier_key_is_schema() {
-    let err = schema(
-        "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"gold\", label: \"Gold\", rate: 99, frob: 1 }] }",
-    );
-    assert!(matches!(err, LoadError::Schema { .. }), "{err:?}");
-}
-
-#[test]
-fn a_missing_rate_is_schema() {
-    let err = schema(
-        "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"gold\", label: \"Gold\" }] }",
-    );
-    assert!(matches!(err, LoadError::Schema { .. }), "{err:?}");
-}
-
-#[test]
-fn an_unknown_position_label_is_schema() {
-    let err = schema(
-        "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"gold\", label: \"Gold\", rate: 99, when: #{ positions: [\"GKK\"] } }] }",
-    );
-    assert!(
-        matches!(err, LoadError::Schema { ref message, .. } if message.contains("GKK")),
-        "{err:?}"
-    );
-}
-
-#[test]
-fn a_bracket_with_both_or_neither_height_form_is_schema() {
-    for heights in ["up_to: 175, exactly: [185]", ""] {
-        let err = schema(&format!(
-            "#{{ schema: 1, name: \"x\", squad_size: 23, universal: #{{ max_skill_cards: 10 }}, heights: #{{ brackets: [#{{ id: \"x\", label: \"x\", {heights} }}], systems: [] }} }}"
-        ));
-        // `RawBracket`'s error names both keys, whichever half is wrong.
-        assert!(
-            matches!(
-                err,
-                LoadError::Schema { ref message, .. }
-                    if message.contains("up_to") && message.contains("exactly")
-            ),
-            "{heights}: {err:?}"
-        );
-    }
-}
-
-#[test]
-fn an_empty_exactly_is_schema() {
-    let err = schema(
-        "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, heights: #{ brackets: [#{ id: \"x\", label: \"x\", exactly: [] }], systems: [] } }",
-    );
-    assert!(
-        matches!(
-            err,
-            LoadError::Schema { ref message, .. } if message.contains("`exactly` lists no height")
-        ),
-        "{err:?}"
-    );
-}
-
-#[test]
-fn per_tier_deserializes_in_both_forms() {
-    let ruleset = Ruleset::from_data_block(
-        "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }], specials: [#{ label: \"x\", then: #{ stat_bonus: #{ all: -3, dribbling: #{ regular: 5 } } } }] };",
-    )
-    .expect("both forms parse");
-    let Some(&PerTier::All(-3)) = ruleset.specials[0].then.stat_bonus.get(&StatOrAll::All) else {
-        panic!("all is not All");
-    };
-    let Some(PerTier::ByTier(map)) = ruleset.specials[0].then.stat_bonus.get(&StatOrAll::Stat(
-        Stat::try_from("dribbling".to_string()).expect("a stat"),
-    )) else {
-        panic!("the stat is not ByTier");
-    };
-    assert_eq!(map.get("regular"), Some(&5));
-}
-
-/// A tier's `stats` names ability stats only: `form` is the tier's own
-/// `form` key, not a stat — `stats: #{ form: 8 }` is `Schema` naming
-/// `"form"`.
-#[test]
-fn a_form_in_a_stats_map_is_schema() {
-    let err = schema(
-        "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"gold\", label: \"Gold\", rate: 99, stats: #{ form: 8 } }] }",
-    );
-    assert!(
-        matches!(err, LoadError::Schema { ref message, .. } if message.contains("\"form\"")),
-        "{err:?}"
-    );
-}
-
-/// Every required key absent is `Schema` naming it: a violation shows
-/// the special's label, and an absent `universal` would default
-/// `max_skill_cards` to 0.
-#[test]
-fn a_required_key_absent_is_schema() {
-    for (name, text, key) in [
-        (
-            "schema",
-            "const RULESET = #{ name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 } };"
-                .to_string(),
-            "schema",
-        ),
-        (
-            "name",
-            "const RULESET = #{ schema: 1, squad_size: 23, universal: #{ max_skill_cards: 10 } };"
-                .to_string(),
-            "name",
-        ),
-        (
-            "squad_size",
-            "const RULESET = #{ schema: 1, name: \"x\", universal: #{ max_skill_cards: 10 } };"
-                .to_string(),
-            "squad_size",
-        ),
-        ("a tier's id", edit(AUTUMN26, "id: \"gold\", ", ""), "id"),
-        ("a tier's label", edit(AUTUMN26, "label: \"Gold\", ", ""), "label"),
-        ("a bracket's id", edit(AUTUMN26, "id: \"manlet\", ", ""), "id"),
-        ("a bracket's label", edit(AUTUMN26, "label: \"Manlet\", ", ""), "label"),
-        ("a system's id", edit(AUTUMN26, "id: \"green\", ", ""), "id"),
-        ("a system's label", edit(AUTUMN26, "label: \"Green\", ", ""), "label"),
-        (
-            "universal",
-            "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23 };".to_string(),
-            "universal",
-        ),
-        (
-            "universal.max_skill_cards",
-            "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ } };"
-                .to_string(),
-            "max_skill_cards",
-        ),
-        (
-            "a special's label",
-            edit(AUTUMN26, "label: \"Malicia is a free card\", ", ""),
-            "label",
-        ),
-        (
-            "a team settings entry's label",
-            "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, team_settings: [#{ }] };"
-                .to_string(),
-            "label",
-        ),
-        (
-            "weight.floor",
-            edit(AUTUMN26, "floor: 30, ", ""),
-            "floor",
-        ),
-        (
-            "weight.below",
-            edit(AUTUMN26, "below: 129, ", ""),
-            "below",
-        ),
-        (
-            "weight.above",
-            edit(AUTUMN26, ", above: 81", ""),
-            "above",
-        ),
-    ] {
-        let err = Ruleset::from_data_block(&text).expect_err(name);
-        assert!(
-            matches!(err, LoadError::Schema { ref message, .. } if message.contains(key)),
-            "{name}: {err:?}"
-        );
-    }
-}
-
-#[test]
-fn schema_two_is_unknown_schema() {
-    let err =
-        schema("#{ schema: 2, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 } }");
-    assert_eq!(err, LoadError::UnknownSchema { schema: 2 }, "{err:?}");
-}
-
-#[test]
-fn no_ruleset_is_no_ruleset() {
-    assert_eq!(
-        Ruleset::from_data_block("const OTHER = 1;").expect_err("no map"),
-        LoadError::NoRuleset
-    );
-    assert_eq!(
-        Ruleset::from_data_block("const RULESET = 1;").expect_err("not a map"),
-        LoadError::NoRuleset
-    );
-}
-
-/// `import` has no resolver on the bare engine; `print` exists under the
-/// standard package and a data block containing it loads.
-#[test]
-fn import_is_refused_but_print_runs() {
-    let err = Ruleset::from_data_block("import \"x\" as m;\nconst RULESET = #{ schema: 1 };")
-        .expect_err("import has no resolver");
-    assert!(matches!(err, LoadError::Parse { .. }), "{err:?}");
-    Ruleset::from_data_block(
-        "print(\"x\");\nconst RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };",
-    )
-    .expect("the standard package's print runs before the data block");
-}
-
-#[test]
-fn a_stray_token_is_parse_with_its_position() {
-    let err = Ruleset::from_data_block("const A = 1;\nconst B = 2;\nhello\nconst RULESET = #{};")
-        .expect_err("a stray token is a parse error");
-    match err {
-        LoadError::Parse { line, column, .. } => {
-            // rhai reports the error at the `const` following the stray
-            // `hello`: line 4, column 1.
-            assert_eq!((line, column), (4, 1), "line 4 column 1");
-        }
-        other => panic!("{other:?}"),
-    }
-}
-
-/// Every entry of each closed-set table deserializes to a value whose
-/// `label()` is that entry — killing the `label` and `==` mutants the
-/// first-entry tests missed.
-#[test]
-fn every_label_round_trips() {
-    for name in ABILITY_STATS {
-        assert_eq!(
-            Stat::try_from(name.to_string()).expect(name).label(),
-            name,
-            "{name}"
-        );
-    }
-    for name in POSITIONS {
-        assert_eq!(
-            Position::try_from(name.to_string()).expect(name).label(),
-            name,
-            "{name}"
-        );
-    }
-    for name in PLAY_STYLES {
-        assert_eq!(
-            PlayStyle::try_from(name.to_string()).expect(name).label(),
-            name,
-            "{name}"
-        );
-    }
-    for name in SKILLS {
-        assert_eq!(
-            Card::try_from(name.to_string()).expect(name).label(),
-            name,
-            "{name}"
-        );
-    }
-    for name in COM_STYLES {
-        assert_eq!(
-            Card::try_from(name.to_string()).expect(name).label(),
-            name,
-            "{name}"
-        );
-    }
 }
 
 /// Counts summing to exactly `squad_size` load — `>` at the boundary.
@@ -1033,10 +949,17 @@ fn rules_error_texts_name_path_and_message() {
         (LoadRule::SystemWithoutCondition, "any_player"),
         (LoadRule::Empty, "empty"),
         (LoadRule::BracketsNotAscending, "bracket"),
+        (LoadRule::ColorCodeLength, "eight"),
     ] {
         let text = rule.to_string();
         assert!(text.contains(expected), "{rule:?}: {text}");
     }
+    // `ReservedGroup`'s one text names both reasons.
+    let text = LoadRule::ReservedGroup.to_string();
+    assert!(
+        text.contains("com") && text.contains("suggestions"),
+        "{text}"
+    );
     let text = LoadRule::CountsShortOfSquad {
         total: 8,
         squad_size: 23,
