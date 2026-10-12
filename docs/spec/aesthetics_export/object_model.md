@@ -4,8 +4,9 @@ Part of the [Aesthetics export plan](README.md). Section headings are unchanged 
 
 ## Object Model
 
-The pipeline operates on typed objects, not a flat dict of path strings to bytes. The `VirtualTree`
-remains as the serialization layer (used at load and pack time only).
+The pipeline operates on typed objects, not a flat dict of path strings to bytes: `parse_listing`
+canonicalizes a flat `CanonicalListing` into a `vtree::VirtualTree`, and `vtree::ScopePath` spells
+every path and issue scope the model carries.
 
 **The model and its validation live in `libs/aesthetics_export`, not in the Team compiler.** The export format is
 shared knowledge: the Export upgrader writes it, the Kit config editor edits kit folders inside it,
@@ -15,7 +16,7 @@ the format-level messages in the catalog. That includes the **structure parser**
 folder/file listing, names/sizes, supplied small metadata such as raw `players.txt`, and link files
 → `ParsedAestheticsExport`, with no model or texture contents. The consumer creates the canonical listing
 from a directory walk, ZIP central directory, or 7z entry table and chooses a source provider;
-`aesthetics_export` does not own filesystem/archive I/O. `VirtualTree`, lazy per-folder *content* loading,
+`aesthetics_export` does not own filesystem/archive I/O. Lazy per-folder *content* loading,
 source-provider implementation, and the memory budget remain pipeline concerns. The Load step's
 eager structure loading builds on this parser, and the Refs arranger supplies a plain-filesystem
 listing. The Team compiler is the crate's biggest consumer, and the compile-time behavior
@@ -27,12 +28,13 @@ listing. The Team compiler is the crate's biggest consumer, and the compile-time
 resolution and contributes only the export-format half — splitting the display name into the
 token that `TeamName::new` folds. `studio_core` never parses the list or interprets team IDs.
 
-The eager object model stores **structure descriptors, not loaded contents**: a processing task
+The eager object model stores **structure descriptors, not loaded contents**: the coordinator
 later resolves each descriptor through the pipeline's source access (direct file, ZIP entry, or
-solid-7z buffer) and materializes the folder under its memory permit; loaded bytes stay owned by the
-loading task until its written output drains, keeping the memory charge aligned with byte lifetime.
+solid-7z buffer) and materializes the task's files under the permit its batch holds; loaded bytes
+stay charged until the writer commits their output, keeping the memory charge aligned with byte
+lifetime.
 `ParsedAestheticsExport`, `ValidatedAestheticsExport`, `ResolvedAestheticsExport`, `PlayerFolder`, and the descriptor
-types belong to `aesthetics_export`; loaded processing types such as `FaceModelFolder` and their
+types belong to `aesthetics_export`; processing types such as `ModelFolder` and their
 conversion/packing methods belong to `team_compiler`, avoiding inherent implementations of
 shared-lib types in the tool crate.
 
@@ -182,7 +184,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | directly in `Collars/` | model files (any model format; the game draws a collar with the kit texture, so it has no textures or materials of its own, `spec/team_compiler/pipeline.md` "Collars"); their `collar_<ID>` name is the compiler's to check, since which IDs exist depends on the target version (`collar_id_invalid`) | `file_type_disallowed` |
   | anywhere in `Kits/all/` | textures directly in it | `kit_all_file_ignored` |
   | anywhere in `Portraits/` | textures named `player_NN` directly in it | `portrait_name_invalid` |
-  | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures, a team export's `autopilot` marker; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
+  | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
 
   A file below a subfolder the table does not name takes the code of the folder holding that
   subfolder (`Kits/p1/extra/x.dds` is `file_type_disallowed`). The list is the same for
@@ -206,8 +208,9 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   player folder without one is named by its whole folder name, as every folder listed in
   `players.txt` is. `03 - Jean-Pierre` is player 03, Jean-Pierre.
 - **Issue scope.** An issue's scope names the item its disposition acts on. `DropFile` issues are
-  `File`-scoped; a disallowed file's `file_type_disallowed` is `Folder`-scoped (the folder it
-  drops), one issue per file with the file in its context. Roster findings keep the scopes above.
+  `File`-scoped; a disallowed file's `file_type_disallowed` is `Folder`-scoped in a player, shared
+  or kit folder (the folder it drops) and `File`-scoped in `Collars/` (the file alone), one issue
+  per file with the file in its context. Roster findings keep the scopes above.
 - **Pass-through eligibility.** In the structure pass, exactly `link_target_missing`,
   `common_link_missing`, `file_type_disallowed` and `common_file_disallowed` are eligible; every
   other drop it decides belongs to one of the not-eligible classes in `team_compiler/messages.md`
@@ -224,8 +227,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   its root is. A name the teams list lacks is
   `resolve_identity`'s `IdentityError`.
 - **Texture stems.** A lookup namespace (`team_compiler/messages.md` `texture_stem_conflict`)
-  holds its textures plus, in a player or shared folder, each texture `.common` link under its
-  linked name
+  holds its textures plus, in a player folder or, on PES 18-21, a shared one (a shared folder's
+  links stay unread on PES 15-17), each texture `.common` link under its linked name
   (`hair.png.common` is `hair`), as a link counts as the linked file being local
   (`spec/model_format.md` "Rules"). Each directory of `Common/` is a namespace of its own, as each
   folder of a player's tree is: its conflicting files drop each other (`File`, `DropFile`),
@@ -233,8 +236,8 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
 - **Kits, portraits, logo.** A `kit_folder_invalid` folder gets no other finding: which
   allowlist its contents answer to is unknown (it may be a misspelled `all`), and it is dropped
   whole anyway. `all` counts as a slot for `kit_slot_duplicate`. `all/` textures
-  follow a kit's `kit` prefix rule (`kit_texture_name_invalid`). `kit_all_unused` (no kit folder
-  survives) changes nothing (`Keep`). `kit_textures_inherited` lists the inherited stems without
+  follow a kit's `kit` prefix rule (`kit_texture_name_invalid`). `kit_all_unused` (an `all/` no kit inherits —
+  a `Full` export's mandatory empty `p1`/`g1` count as kits) changes nothing (`Keep`). `kit_textures_inherited` lists the inherited stems without
   their `kit_` prefix, alphabetically (`back, leg, name`). A kit's icon is the number in its one
   `icon_<N>` marker's name: one numbered above 23 is `kit_icon_invalid`, and two or more are
   each `kit_icon_invalid` whatever their numbers (`File`, `DropFile`; the kit keeps the default
@@ -255,27 +258,30 @@ stop at, and each stage is produced by the previous one's entry point:
 ```
 crates/libs/aesthetics_export/src/
 ├── lib.rs              # re-exports; the progression's entry points
-├── listing.rs          # CanonicalListing: what the consumer supplies (paths, sizes, small metadata)
+├── listing.rs          # CanonicalListing, SmallMetadata, ValidationContext: what the consumer supplies
 ├── slots.rs            # PlayerSlot, RefSlot
 ├── conventions/        # the export format as data, no logic
-│   ├── mod.rs          #   folder names, reserved team names (/refs/, /balls/), NO_USE markers
-│   ├── player_folder.rs#   allowed model names per slot, link-file extensions, settings.toml name
-│   ├── kits.rs         #   kit folder grammar (`<slot>[ - <label>]`, slots p1–p9, g1, all), `all/` inheritance, config.toml / colors.txt / the icon marker
-│   └── file_types.rs   #   allowlists per folder kind (strict vs info)
+│   ├── mod.rs          #   content-folder names, small-metadata names, OS artifacts, the `<head>[ - <label>]` split
+│   ├── player_folder.rs#   the model-name suffix table (ModelSuffix) and the per-player singletons
+│   ├── kit_token.rs    #   the kitN / kit1–kit9 / kitF kit tokens in file stems (kit-dependent assets)
+│   └── file_types.rs   #   FileKind and the name → kind classification, the `.txt` tolerance
 ├── parse/              # listing → ParsedAestheticsExport (raw, everything retained)
 │   ├── mod.rs          #   canonicalization and root normalization
-│   ├── identity.rs     #   export_display_name → first token → teams_list::TeamName::new
-│   ├── roster.rs       #   players.txt → RawRoster (malformed lines retained)
+│   ├── identity.rs     #   team name (first token) and coverage tag (second) from the display stem
+│   ├── roster.rs       #   players.txt (a referee export's refs.txt alias) → RawRoster (malformed lines retained)
 │   └── draft.rs        #   AestheticsExportDraft, FolderDraft, FileDescriptor (structure only)
-├── validate/           # ParsedAestheticsExport → ValidationReport { draft, issues, sanitized: Option<ValidatedAestheticsExport> }
+├── validate/           # ParsedAestheticsExport → ValidationReport { parsed, validated, issues }
 │   ├── mod.rs          #   the sanitized-scope rule; foundational vs isolated failures
-│   ├── structure.rs    #   folder tree, nesting, naming
 │   ├── roster.rs       #   ValidatedRoster: numbers, duplicates, DropSlot semantics
-│   ├── links.rs        #   link files (Name.boots, .common) resolved against shared folders and Common
-│   ├── folders.rs      #   FolderDraft → PlayerFolder / SharedModelFolder / KitsFolder, and the root files
-│   └── issues.rs       #   ValidationIssue, ISSUE_CODES (stable code, scope, context) — no message text
+│   ├── links.rs        #   link files (Name.boots, .common) resolved against shared folders and Common, and the cascade
+│   ├── folders.rs      #   FolderDraft → PlayerFolder / SharedModelFolder; the player, shared, Common and Collars checks
+│   ├── kits.rs         #   the kit folders' own findings and the sanitized KitsFolder (all/ inheritance)
+│   ├── root.rs         #   Portraits/, the logo* grammar, the root-file allowlist, the small root artifacts
+│   ├── issues.rs       #   ValidationIssue, ISSUE_CODES (stable code, scope, context) — no message text
+│   └── tests.rs        #   the validation tests (cfg(test))
 ├── resolve.rs          # ValidatedAestheticsExport + teams_list::TeamsList → ResolvedAestheticsExport (ExportIdentity, TeamId)
-└── colors_txt.rs       # colors.txt reader: the "Colors" grammar, bytes in, colors and refused lines out
+├── colors_txt.rs       # colors.txt reader: the "Colors" grammar, bytes in, colors and refused lines out
+└── testing.rs          # shared listing/metadata builders for the crate's tests (cfg(test))
 ```
 
 Placement rules:
@@ -286,8 +292,8 @@ Placement rules:
 - **No message text.** `validate/issues.rs` yields stable codes with scope and context; each tool
   maps them to its own catalog. This is what lets the Refs arranger and Kit config editor share the
   checks without inheriting Team compiler wording.
-- **Structure, not contents.** Descriptor types carry names and sizes; loaded model/texture types
-  (`FaceModelFolder`, …) and everything that converts or packs them live in `team_compiler`.
+- **Structure, not contents.** Descriptor types carry names and sizes; processing model/texture
+  types (`ModelFolder`, …) and everything that converts or packs them live in `team_compiler`.
 - **Conventions are data.** A new allowed model name or kit file is a table entry in
   `conventions/`, and every consumer picks it up; no consumer keeps its own list.
 - **Deep format validation is not here.** FMDL/XML/MTL/glTF/texture/kit-config content checks live
@@ -346,8 +352,9 @@ pub struct RootArtifacts {
 // Invalid optional root artifacts are absent here but remain in ValidationReport.
 
 pub struct SharedModelFolder {
-    pub folder_name: String,
-    pub files: Vec<FileDescriptor>,
+    pub path: vtree::ScopePath,        // `Boots/Crocs`: the scope its issues name
+    pub folder_name: String,           // the path's last segment — the link lookup key
+    pub files: Vec<FileDescriptor>,    // every file below it
 }
 
 pub struct KitsFolder {
@@ -604,88 +611,16 @@ impl RefSlot {
 }
 ```
 
-Kits key on `kit_config::KitSlot` ("Design constraints"). `ExportSlot` (a team or referee slot,
-`split_player`'s input) and `BootsId`/`GlovesId` belong to the Team compiler's planning,
-not to this crate. `players_txt.rs` gets its shape with its consumer, the Refs arranger. A
-kit's `config.toml` is read and written by `kit_config`'s own TOML form (`KitConfig::from_toml`,
-`to_toml`, the comment-preserving `update_toml`), not by a bridge here: the format crate owns
-both forms of its format, and this crate reads no file content.
-
-### Model files
-
-Files within model folders are typed. Files that the processing code needs to look inside get rich
-structs; files that are just passed through stay opaque.
-
-```rust
-pub enum ModelFile {
-    // Ancillary files only: every FMDL/.model/glTF source and sibling MTL is owned
-    // exactly once by a ModelPart below.
-    Texture(TextureFile),    // Has format, mipmaps, conversion methods
-    Xml(XmlFile),            // Parsed DOM, has editing methods
-    Skl(SklFile),            // Paired with a same-basename .fmdl; content-hashed for merge checks
-    Fclo(FcloFile),          // Opaque or parsed depending on needs
-    RawBin(RawFile),         // Opaque game/template bin
-    Other(RawFile),          // Opaque
-}
-
-pub struct RawFile {
-    pub relative_path: vtree::RelativeScopePath, // canonical within the folder
-    data: Arc<[u8]>,
-}
-```
-
-### Model folders
-
-```rust
-pub struct FaceModelFolder {
-    pub model_id: String,
-    pub folder_name: String,
-    pub files: Vec<ModelFile>, // ancillary textures/XML/SKL/FCLO/raw bins only
-    pub parts: Vec<ModelPart>, // owns every selected model source exactly once
-}
-
-pub struct ModelPart {
-    pub logical_output: String,             // resolved allowed output name / XML entry
-    pub source: ModelSource,
-    pub material_source: Option<MaterialSource>, // optional folder/glTF material overrides
-    pub provenance: ModelProvenance,        // local, shared-folder, or Common link
-}
-
-pub enum ModelSource {
-    Fox(FmdlFile),
-    PreFox { model: PreFoxModel, mtl: MtlFile }, // one atomic native bundle
-    Gltf(GltfModel),
-    Intermediate(CanonicalModel),  // after conversion, before re-serialization
-}
-
-impl FaceModelFolder {
-    pub fn fmdls(&self) -> impl Iterator<Item = &FmdlFile>;
-    pub fn textures(&self) -> impl Iterator<Item = &TextureFile>;
-    pub fn validate(&self, context: &ValidationContext) -> Vec<ValidationIssue>;
-    pub fn convert_textures(&mut self, settings: &Settings) -> Result<()>;
-    pub fn convert_to(&mut self, target: ModelFormat) -> Result<()>;
-    pub fn pack(&self, settings: &Settings) -> Vec<PackedEntry>;
-}
-```
-
-`convert_to` converts every selected part to the target-native format before parts are grouped by
-`logical_output` for Fox merging or pre-Fox XML generation. A pre-Fox part always owns its `.model`
-and sibling `.mtl` as one native bundle; conversion consumes or produces both atomically and commits
-the replacement only after both succeed. Material-definition files pair with their models here for
-both formats by the same stem name-matching, each with its own resolution rule: pre-Fox `.mtl` via
-Red's cascade (exactly one per model), glTF `*.materials.toml` via the layered least→most-specific
-merge (see the [Unified model format plan](../model_format.md)'s "Material files"). For both, a
-`.common` link file (`body.mtl.common`, `body.materials.toml.common`) stands in for the Common
-file of that name, and a `.common`-linked *model* resolves its material files in Common first with
-the player folder's matches layered on top (format plan, "Link files"). This represents
-mixed local/shared/Common assemblies without forcing a model folder into one singular source format.
-`BootsModelFolder` and `GlovesModelFolder` use the same `parts`/ancillary-`files` structure and
-processing contract as `FaceModelFolder`.
+Kits key on `kit_config::KitSlot` ("Design constraints"). A kit's `config.toml` is read and
+written by `kit_config`'s own TOML form (`KitConfig::from_toml`, `to_toml`, the comment-preserving
+`update_toml`), not by a bridge here: the format crate owns both forms of its format, and this
+crate reads no file content.
 
 ### Player folders
 
 The new per-player export format (see `player_folders.md` "Player folders (the Studio export format)") is represented as
-its own type, which the coordinator splits into standard model folders:
+its own type, which run planning turns into the folder's `ModelFolder` tasks, its files routed to
+the player's packages by role (`plan/roles.rs`):
 
 ```rust
 pub struct PlayerFolder {
@@ -694,7 +629,8 @@ pub struct PlayerFolder {
     // regardless of how many slots point at it). Folder→slots, when needed
     // (process once, pack per slot), is derived by grouping the roster.
     pub path: vtree::ScopePath,     // `Players/03 - A`: the scope its issues and events name
-    pub player_name: String,        // the folder name without its `NN - ` number
+    pub player_name: String,        // the folder name without its `NN - ` number; under a roster
+                                    //   file, the whole folder name
     pub files: Vec<FileDescriptor>, // names, sizes, kinds — contents load later, per task
     pub links: Vec<SharedLink>,     // shared-folder link files (e.g. "Crocs.boots" → shared Boots/Crocs/);
                                     //   `.common` links (models, material files) are `files` entries
@@ -738,22 +674,6 @@ pub struct FileDescriptor {
     // compiler resolves stems to actual files. Two image files with the same
     // stem but different extensions is a `texture_stem_conflict` error.
 }
-
-// tools/team_compiler free functions operate on a materialized folder rather
-// than adding inherent compile methods to aesthetics_export::PlayerFolder.
-pub fn categorize_player(folder: &LoadedPlayerFolder) -> CategorizedModels;
-
-/// Split into standard folders using boots/gloves IDs frozen by plan_run
-/// (processing never allocates IDs). `slots` comes from ValidatedAestheticsExport.roster
-/// (one entry for ordinary team players, possibly several for referee folders).
-pub fn split_player(
-    folder: LoadedPlayerFolder,
-    identity: &ExportIdentity,
-    slots: &[ExportSlot],
-    planned_ids: &PlannedModelIds,
-) -> (Option<FaceModelFolder>, Option<BootsModelFolder>, Option<GlovesModelFolder>);
-// Team and referee folders alike may contain only boots, gloves, portraits,
-// or settings — any category may be absent.
 ```
 
 ### Design constraints
@@ -762,17 +682,18 @@ pub fn split_player(
   processing as parameters rather than storing parent references. Copy only presentation strings
   that a child result must own. This avoids Rust's ownership friction with parent-child references.
 - **Strong domain types.** Use validated `TeamName`, `TeamId`, `ExportIdentity`, `PlayerSlot`,
-  `RefSlot`, `ExportSlot` (distinguishing team vs referee slots), `BootsId`, `GlovesId`, and
-  `CpkStem` types at boundaries rather than passing unvalidated strings and integers through
-  processing code. `KitSlot` is `kit_config`'s (the texture and config names it derives are
+  `RefSlot` and `CpkStem` types at boundaries rather than passing unvalidated strings and integers
+  through processing code. `KitSlot` is `kit_config`'s (the texture and config names it derives are
   format knowledge); this crate parses kit folder names into it.
-- **Shared textures.** Rayon's model-folder tasks are cross-thread by construction, so textures
-  referenced by multiple tasks use `Arc<[u8]>` exclusively; shared bytes stay charged to the memory
-  budget until their last consumer is written.
-- **Enums over trait objects.** Use `enum ModelFile` with pattern matching, not `Box<dyn
-  ModelFile>`. Exhaustive matching catches missing cases at compile time.
-- **Pass-through files stay simple.** A file the compiler moves without processing is `RawFile {
-  relative_path, data }` — no behavior-bearing wrapper even when the file is semantically rich (the
+- **Shared charges.** Rayon's model-folder tasks are cross-thread by construction; nothing shares
+  file bytes (the coordinator reads each task's files as owned `Vec<u8>`), what tasks share is the
+  charge — a folder's group, or a `.7z` source's whole decompressed buffer, holds one `Arc<Permit>`
+  across its tasks' batches, so shared bytes stay charged to the memory budget until their last
+  consumer is written.
+- **Enums over trait objects.** Use `enum`s with pattern matching (`FileKind` here, the compiler's
+  `PlayerFile`), not `Box<dyn ...>`. Exhaustive matching catches missing cases at compile time.
+- **Pass-through files stay simple.** A file the compiler moves without processing stays a
+  `FileDescriptor` — no behavior-bearing wrapper even when the file is semantically rich (the
   Collars folder's contents are model files, but the compiler never parses them). Only files with
   processing logic get rich types.
 

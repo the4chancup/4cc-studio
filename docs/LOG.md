@@ -1865,3 +1865,5 @@ worklog passed 7,000 lines.
   unbuilt consumers and the bindings' `ops/` surface moved to plan copies under `docs/plans/libs/`.
 - **2026-10-13** — 5.2c rework r1 (SWE-2 review C1.S1, 5 of 5 accepted): a Team TOML view's absent
   takers read as none, a `let RULESET` is refused, `team_toml` refuses a `players` key 0.
+- **2026-10-13** — Step 5.0j3: `docs/spec/aesthetics_export/` and `kit_config_editor.md` read against
+  `aesthetics_export` and `kit_config`; the never-built model types moved to the plan.

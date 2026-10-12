@@ -112,8 +112,9 @@ Notes:
   the listed ranges where the table says so above and byte 0x13 and bytes 0x25–0x27 are nonzero in
   most configs. `kit_config` therefore preserves every value it reads (enum fields keep a raw
   variant for undocumented values) and its validation flags only what is known to be wrong: a
-  collar of 0, a shirt model outside 144/160/176, the cross-field constraints below, and values
-  that do not fit the target version's encoding. A stock Konami config validates clean.
+  collar of 0, a shirt model outside 144/160/176, a raw sleeve value, the cross-field constraints
+  below, and values that do not fit the target version's encoding. A stock Konami config earns no
+  warning or error.
 - **Sleeve badges** are the four (X, Y) positions of the competition badge: one per
   sleeve (left/right) per kit variant (short/long sleeves).
 - **"Shirt model" is a misnomer**, kept because the old editor and the FPC
@@ -240,7 +241,7 @@ name = "00000000000000000000000000000000"
   compile/check warning (`kit_value_out_of_range`, naming the field, the value and the
   version's maximum) and is clamped to that maximum on emission; one table of per-field,
   per-version maxima drives both the finding and the clamp, so they cannot disagree. The
-  same finding covers every packed field (number sizes, positions, spacing, collar and
+  same finding covers every packed field (number sizes, positions, spacing and
   badge coordinates), whose maximum is the field's width.
 - **Unknown bits** live in an `[unknown]` table keyed by byte offset, holding the
   byte's undecoded-bit remainder (known bits zeroed). Known fields plus `[unknown]`
@@ -254,8 +255,8 @@ name = "00000000000000000000000000000000"
 The format knowledge as a lib crate:
 
 - `KitConfig` struct ↔ 120-byte binary (per-version encode/decode) ↔ TOML, including
-  optional raw source texture-name bytes for standalone roundtrips; zlib'd input is
-  tolerated on read (`tryDecompress` behavior carried over). The TOML side follows the
+  optional raw source texture-name bytes for standalone roundtrips; WESYS-wrapped input is
+  unwrapped on read (`tryDecompress` behavior carried over). The TOML side follows the
   suite rule that user-facing TOML is edited, never regenerated: `update_toml` writes every
   value into the existing document in place (an `[unknown]` key or a badge table keeps its
   comments and its form), refuses a document whose section is not a table instead of
@@ -286,7 +287,7 @@ kit sections defer to this crate.
 
 - **Roundtrips**: binary → model → binary bit-identical on the three real sample
   configs, the compiler template, and **every entry of the bundled
-  `UniformParameter18/19.bin`** — hundreds of real configs exercising the full
+  `UniformParameter` bins (PES 18, 19 and 21)** — thousands of real configs exercising the full
   value space; decoded fields are also asserted against the documented ranges,
   which doubles as a check of the recovered format itself.
 - **TOML roundtrips** including the `[unknown]` preservation path, export-mode derivation of texture

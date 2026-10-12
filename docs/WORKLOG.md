@@ -666,8 +666,8 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `settings_toml/appearance_row.rs`), `aesthetics_export` (`conventions/kits.rs` is
     `kit_token.rs`, no `validate/structure.rs`, `validate/root.rs`, `validate/kits.rs` and
     `testing.rs` unlisted), `core/architecture.md` "Crate structure"
-  - `spec/aesthetics_export/object_model.md` "Model files", "Model folders" and the end of
-    "Player folders": `ModelFile`, `RawFile`, `FaceModelFolder`, `ModelPart`, `categorize_player`,
+  - `aesthetics_export/object_model.md` "Model files", "Model folders" (moved to the plan at
+    5.0j3) and the end of "Player folders": `ModelFile`, `RawFile`, `FaceModelFolder`, `ModelPart`, `categorize_player`,
     `ExportSlot` were never built (models are planned in `team_compiler`'s `plan/roles.rs`);
     "Core types" (`SharedModelFolder` has `path` and `folder_name`); "Design constraints"
   - `spec/team_compiler/pipeline.md` "Task-batch commit protocol", still an open question, is
@@ -691,9 +691,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   - [x] 5.0j2 `docs/spec/libs/` and the format crates (`dds_convert` without `wgpu`, the wheel's
     read/write-only surface, `FALLBACK_AVAILABLE` private, unbuilt consumers moved to plan
     copies). Done 2026-10-12 (SWE-2, first attempt, no lead changes)
-  - [ ] 5.0j3 onward: one slice per remaining folder (`aesthetics_export` with
-    `kit_config_editor`, `model_conversion` with `model_format`, `pes_savefile`,
-    `team_compiler` README, the rest of `team_compiler`)
+  - [x] 5.0j3 `docs/spec/aesthetics_export/` and `kit_config_editor.md` (the unbuilt model
+    types and `categorize_player`, the `autopilot` marker and `allocation_scheme_version` moved
+    to the plan; the crate tree and "Design constraints" corrected). Done 2026-10-13 (SWE-2,
+    first attempt; the lead repointed this list's two pointers). `team_compiler/pipeline.md`
+    repeats the `allocation_scheme_version` claim, for its slice
+  - [ ] 5.0j4 onward: one slice per remaining folder (`model_conversion` with `model_format`,
+    `pes_savefile`, `team_compiler` README, the rest of `team_compiler`)
 - [x] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
   PES 21, `.tmp/5_2b2/findings.md`): the game stores Anchoring at 0x0A, with 18/19's entries from
   Swarm the Box on shifted up one (Swarm the Box 0x0B, Deep Defensive Line 0x0C, Gegenpress 0x0D,

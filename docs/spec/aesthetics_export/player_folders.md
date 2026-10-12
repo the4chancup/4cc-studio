@@ -5,8 +5,8 @@ Part of the [Aesthetics export plan](README.md). Section headings are unchanged 
 ## Player folders (the Studio export format)
 
 **This is a primary motivation for the project.** The export format itself is new: it is called the
-**Studio export format** and was designed for 4cc Studio — no existing tool produces or consumes it
-yet. A "player folder" holds all of a player's models —
+**Studio export format** and was designed for 4cc Studio — the Team compiler is its only consumer,
+and nothing writes it yet. A "player folder" holds all of a player's models —
 face, boots, and gloves — in a single folder, without the old split into separate Faces/Boots/Gloves
 item folders. (Red's referee export layout was the prototype of this idea, tested only on referees;
 its per-referee face/boots/gloves/common subfolders are not kept, the Export upgrader flattens
@@ -460,7 +460,8 @@ covers the main `kit.dds` too, for the rare team whose kits differ only by confi
 texture-name fields of each kit's config are derived from the *effective* set — an inherited
 `kit_back.dds` makes the kit's `back` field non-empty exactly as an own copy would. `all/` is not
 a kit: it has no cell, no `config.toml`, `colors.txt` or icon marker (such files there are
-reported and ignored), and an `all/` beside no kit folder is reported as unused. A shared base
+reported and ignored), and an `all/` no kit inherits is reported as unused (a `Full` export's
+mandatory empty `p1`/`g1` still count as kits). A shared base
 config was considered and rejected: a kit folder without `config.toml` means "the template", so
 the folder describes its own look and can be copied between exports unchanged. With an inherited
 config, the same folder would compile differently in each export, and a collar or shorts-number
@@ -614,9 +615,7 @@ A player with a portrait in both locations is an error when the two files differ
   `fpc_on` and `fpc_off` in a player folder, `icon_<N>` (0-23, zero padding optional) in a kit
   folder for its menu icon. A dot would make the value a file extension, which file browsers
   hide, sort by and warn about on rename. The valueless markers
-  keep their names: `ingame_face`, the kit layout's `pre-fox` and `fox`, and `autopilot` at a
-  team export's root (a team without a manager: the aesthetics patch writes its players'
-  names, "Player settings in exports" in [`settings_toml.md`](../../plans/aesthetics_export/settings_toml.md)). Every marker
+  keep their names: `ingame_face` and the kit layout's `pre-fox` and `fox`. Every marker
   tolerates a `.txt` after its name, what Notepad's save dialog adds. A kit with two icon
   markers, or one whose number is not 0-23, reports `kit_icon_invalid` and uses the default
   icon.
@@ -682,8 +681,7 @@ At compile time, the pipeline:
    the 40-ID blocks end at 8900, leaving 8901–9899 unallocated and keeping clear of the `99XX` band
    that referee `k99XX`/`g99XX` IDs occupy (the hard ceiling would be 44 per team, ending at 9780;
    45 would cross into the referee band and overflow into 5 digits). The block size is fixed for the
-   lifetime of a scheme version — IDs are baked into distributed outputs — so builds record
-   `allocation_scheme_version = 1` in their metadata. The ABI is future-upgradeable: a later FoxDen
+   lifetime of a scheme version — IDs are baked into distributed outputs. The ABI is future-upgradeable: a later FoxDen
    change might allow 5-digit IDs, letting each player's boots/gloves ID equal their player ID; any
    such change is a new scheme version. On Fox the IDs live in the CPK's `BootsList`/`GloveList`
    rows, so a scheme change needs no savefile remake; on pre-Fox they are baked into distributed
