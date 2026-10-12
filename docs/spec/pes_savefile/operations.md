@@ -395,12 +395,13 @@ penalty = 9
 captain = 0
 
 [tactics.auto]
-substitution = 0                # PES 16+; the stored setting byte
-offside_trap = false            # PES 16+
-preset_change = false           # PES 16+
+substitution = 0                # PES 15+; the stored setting byte
+offside_trap = false            # PES 15+
+preset_change = false           # PES 15+
 attack_defence_levels = false   # PES 17+
 
 [tactics.preset_1]              # preset_1 .. preset_3
+man_marking = [255, 255, 255, 255, 10, 255, 255, 2, 4, 255, 5]   # per own formation slot, the marked opponent's formation slot; 255 = none
 [tactics.preset_1.style]
 attacking_style = "possession"  # "counter_attack" | "possession"
 attacking_zone = "wide"         # "centre" | "wide"
@@ -556,7 +557,7 @@ pub struct TacticsSection { pub starting_eleven: Option<[u8; 11]>, pub bench_ord
     pub presets: [PresetSection; 3] }
 pub struct SetPiecesSection { /* the seven takers, `Option<u8>` each, names as in `SetPieceTakers` */ }
 pub struct AutoSection { pub substitution: Option<u8>, pub offside_trap: Option<bool>, pub preset_change: Option<bool>, pub attack_defence_levels: Option<bool> }
-pub struct PresetSection { pub style: StyleSection, pub sliders: SlidersSection,
+pub struct PresetSection { pub man_marking: Option<[u8; 11]>, pub style: StyleSection, pub sliders: SlidersSection,
     pub formations: [Option<[FormationSlot; 11]>; 3], pub instructions: Option<InstructionsSection> }
 pub struct StyleSection { /* the seven switches + `fluid`, `Option<bool>` each, names as in `TacticStyle` */ }
 pub struct SlidersSection { /* the five sliders, `Option<u8>` each, names as in `TacticSliders` */ }

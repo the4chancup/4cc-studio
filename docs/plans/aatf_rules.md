@@ -314,7 +314,7 @@ pub struct TeamSettings {
     pub label: String,
     pub versions: Vec<PesVersion>,
     /// Man marking set up on any preset: any of a preset's eleven man-marking assignments set
-    /// (PES 16 to 21; see "The host").
+    /// (PES 15 to 21; see "The host").
     pub man_marking: Option<bool>,
     /// Any setting but off (stored 0).
     pub auto_substitution: Option<bool>,
@@ -732,6 +732,9 @@ The script API, which `libs/aatf`'s crate doc lists too:
 | `team.fielded_positions(player, preset)` | the labels of the positions the player is fielded at in preset 1 to 3's formations (a fluid preset's three, another's kick-off one), once each, in the position table's order (GK first, CF last); empty for a player outside the starting eleven |
 | `team.fielded_only_at(player, pos)` | whether every formation the game can field from the three presets fields the player at `pos`; for a player outside the starting eleven, whether `pos` is his registered position |
 | `team.formation_shapes()` | one map per formation the game can field, `#{ preset, formation, shape: [defenders, midfielders, forwards] }`, presets and formations numbered from 1 |
+| `team.man_marking` | whether any of the three presets has a man-marking assignment set |
+| `team.auto_substitution` | the stored setting (0 off); `()` on a version without it |
+| `team.auto_offside_trap`, `.auto_preset_change`, `.auto_attack_defence_levels` | the flag; `()` on a version without it (attack/defence levels before PES 17) |
 
 `MAX_OPERATIONS` is set from the measured cost of the official ruleset on a full team, with a
 tenfold margin. Closed sets cross the boundary as the labels the file uses (`"GK"`, `"A"`,

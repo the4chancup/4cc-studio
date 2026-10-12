@@ -490,6 +490,23 @@ EXPECTED_RUN = {15: (22, 46), 16: (22, 50), 17: (138, 50), 18: (138, 50), 19: (1
 # census measured (2.20i: PES 18 records set bit 297 for 2,808 players where the
 # walk reads only 2 of mo_armd's bits).
 WIDTH_FIXES = {(18, "mo_armd"): 3}
+# Fields the reference never reads, measured in-game (docs/DECISIONS.md,
+# 2026-10-12 and 2026-10-13), as byte offsets. "man_marking": the first byte of
+# each preset's eleven-byte man-marking run within a preset block (byte i is own
+# formation slot i's assignment: the marked opponent's formation slot, 0xFF
+# none); the three presets sit one preset_stride apart, and PES 21 shares PES
+# 20's tables. "auto_flags": PES 15's three auto-flag bytes, in the order PES
+# 16's derived walk reads them.
+MEASURED_FIELDS = {
+    "man_marking": {15: 0x73, 16: 0x73, 17: 0x95, 18: 0x95, 19: 0x95, 20: 0x95},
+    "auto_flags": {
+        15: [
+            ("auto_substitution", 0x1FE),
+            ("auto_offside_trap", 0x1FF),
+            ("auto_preset_change", 0x200),
+        ],
+    },
+}
 PLAYER_TEXT = {"name": ("Name", "The player name, UTF-8, colour codes included."),
                "shirt_name": ("ShirtName", "The shirt name, single-byte text.")}
 TEAM = {
@@ -584,6 +601,8 @@ def fields_rs():
     entries.insert(3, ("Instruction", "Advanced instruction `index` (0 or 1) on `side` of preset `preset`.",
                        " {\n        " + preset_doc + "\n        /// Attacking or defending instruction.\n        side: InstructionSide,"
                        "\n        /// The instruction index (0 or 1).\n        index: u8,\n        /// Which value of the instruction.\n        part: InstructionPart,\n    }"))
+    entries.insert(4, ("ManMarking", "Man-marking assignment of own formation slot `slot` in preset `preset`: the marked opponent's formation slot, 0xFF none.",
+                       " {\n        " + preset_doc + "\n        /// The own formation slot (0 to 10).\n        slot: u8,\n    }"))
     emit_enum(out, "TacticsField", "A field of the tactics record.", entries)
     emit_enum(out, "PresetField", "A per-preset tactics setting.", [(v, d, "") for v, d in PRESET.values()])
     emit_enum(out, "FormationPart", "Which value of a formation slot.", [("Position", "Position, GK 0 to CF 12.", ""), ("X", "Horizontal coordinate.", ""), ("Y", "Vertical coordinate.", "")])
@@ -669,7 +688,7 @@ def record_rs(name, field_ty, text_ty, size, scalars, arrays, texts, doc, ingame
     return out
 
 
-def tactics_rs(name, rec, doc):
+def tactics_rs(name, rec, doc, man_marking_bit):
     fields = {f["field"]: f for f in rec["fields"] if f["kind"] != "none"}
 
     def off(path):
@@ -725,6 +744,7 @@ def tactics_rs(name, rec, doc):
         out.append(f"        ArraySpec {{ make: TacticsField::{variant}, count: {count}, base_bit: {b}, stride_bits: {stride}, bit_width: {w} }},")
     out.append("    ],")
     out.append(f"    preset_stride_bits: {pstride},")
+    out.append(f"    man_marking_bit: {man_marking_bit},")
     out.append("    presets: &[")
     for variant, o in preset_rows:
         out.append(f"        PresetSpec {{ field: PresetField::{variant}, bit_offset: {o} }},")
@@ -821,7 +841,12 @@ def version_rs(version, spec, walks):
     body += record_rs("ROSTER", "RosterField", "TeamText", rec["size"], s, a, t, f"The {label} roster record.")
     rec = walks[spec["tactics"]]
     rec = dict(rec, fields=[{"field": "team_id", "kind": "bits", "bit_offset": 0, "width": 32}] + rec["fields"])
-    body += tactics_rs("TACTICS", rec, f"The {label} tactics record.")
+    rec["fields"] += [
+        {"field": name, "kind": "bits", "bit_offset": byte * 8, "width": 8}
+        for name, byte in MEASURED_FIELDS["auto_flags"].get(version, [])
+    ]
+    body += tactics_rs("TACTICS", rec, f"The {label} tactics record.",
+                       MEASURED_FIELDS["man_marking"][version] * 8)
     for name, lay in spec["layouts"].items():
         body.append(f"/// Where every section sits in the {name[:3]} {name[3:]} payload.")
         body.append(f"pub(crate) static {name.upper()}: VersionSchema = VersionSchema {{")

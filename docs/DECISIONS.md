@@ -7264,3 +7264,24 @@ Settings (Game Plan > Preset Tactics; disabled in Edit mode) showed a cup team's
 exactly where its bytes put them, which also settles what a value is: the opponent's formation
 slot (its starting-eleven index), read against whichever team is played; measured on PES 15
 only, and taken to hold for 16 to 21, which store the same shape. Plan: `aatf_rules.md` "The host" (the team settings).
+
+## 2026-10-13 — pes_savefile — man marking joins the team model and Team TOML; the schema generator carries measured fields
+Read back in-game on PES 21 (a cup team's three preset-3 assignments), so the PES 17-21 runs at
++0x95, +0x135 and +0x1D5 are measured, not only inferred, and an advanced instruction's player
+byte is a roster slot. The model gains each preset's eleven man-marking bytes on PES 15 to 21
+and PES 15's three auto flags. The reference editor reads neither, so the schema generator gets
+a table of measured fields beside `WIDTH_FIXES`, rather than hand edits to its generated tables,
+which a regeneration would drop. Team TOML carries the bytes too (`man_marking` per preset, 255
+none): without them a team carried through Team TOML loses its marking silently, and an AATF
+check of a Team TOML document could never see it. Plans: `aatf_rules.md` "The host";
+`pes_savefile/operations.md` "Team TOML" when the step lands.
+
+## 2026-10-13 — pes_savefile — the ingame-face run is decoded in-game before 1.0.0
+The run's undecoded bits (about 350 of PES 21's 400: hair, the face sliders, colours beyond
+skin and iris) stay authorable only as `[appearance.unknown]` `face` hex until measured, and no
+legacy tool or published source decodes them. The maintainer wants nothing undecoded by 1.0.0,
+so the lead measures them in the game: one changed setting per player and many players per
+save, which attributes each diff to its setting and needs about four saves per twenty
+settings, against one save per setting. PES 21 is measured whole and the other versions by spot
+check, since the fifteen named fields share one layout. Plan: `pes_savefile/model.md`
+"Decoding the rest of the ingame-face run".

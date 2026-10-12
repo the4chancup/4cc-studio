@@ -925,6 +925,7 @@ pub(crate) static TACTICS: TacticsSchema = TacticsSchema {
         },
     ],
     preset_stride_bits: 1280,
+    man_marking_bit: 1192,
     presets: &[
         PresetSpec {
             field: PresetField::AttackingStyle,

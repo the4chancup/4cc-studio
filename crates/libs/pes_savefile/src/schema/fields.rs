@@ -297,6 +297,13 @@ pub enum TacticsField {
         /// Which value of the instruction.
         part: InstructionPart,
     },
+    /// Man-marking assignment of own formation slot `slot` in preset `preset`: the marked opponent's formation slot, 0xFF none.
+    ManMarking {
+        /// The preset (0 to 2).
+        preset: u8,
+        /// The own formation slot (0 to 10).
+        slot: u8,
+    },
     /// Long free kick taker (roster slot, 0xFF none).
     FreeKickTakerLong,
     /// Short free kick taker.

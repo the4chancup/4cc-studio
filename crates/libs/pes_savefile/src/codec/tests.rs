@@ -1204,9 +1204,9 @@ fn tactics_literals() {
     );
     assert!(team.tactics.presets[0].attack_instructions.is_none());
     assert!(team.tactics.presets[0].defence_instructions.is_none());
-    assert!(team.tactics.auto.substitution.is_none());
-    assert!(team.tactics.auto.offside_trap.is_none());
-    assert!(team.tactics.auto.preset_change.is_none());
+    assert_eq!(team.tactics.auto.substitution, Some(0));
+    assert_eq!(team.tactics.auto.offside_trap, Some(false));
+    assert_eq!(team.tactics.auto.preset_change, Some(false));
     assert!(team.tactics.auto.attack_defence_levels.is_none());
     // PES 19 team 100: every taker and starter unset.
     let team = find_team(
@@ -1216,6 +1216,189 @@ fn tactics_literals() {
     );
     assert_eq!(team.tactics.set_pieces.captain, 255);
     assert_eq!(team.tactics.starting_eleven, [255; 11]);
+}
+
+/// The measured man-marking runs (DECISIONS.md, 2026-10-13): each preset's
+/// eleven own-formation-slot bytes, each the marked opponent's formation
+/// slot or 0xFF for none.
+#[test]
+fn man_marking_literals() {
+    let team = find_team(
+        &payload(PesVersion::Pes15),
+        schema_for(PesVersion::Pes15),
+        737,
+    );
+    assert_eq!(
+        team.tactics.presets[0].man_marking,
+        [
+            0xFF, 0xFF, 0xFF, 0xFF, 0x0A, 0xFF, 0xFF, 0x02, 0x04, 0xFF, 0x05
+        ]
+    );
+    assert_eq!(
+        team.tactics.presets[1].man_marking,
+        [
+            0xFF, 0xFF, 0xFF, 0x08, 0x07, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+        ]
+    );
+    assert_eq!(team.tactics.presets[2].man_marking, [0xFF; 11]);
+    let team = find_team(
+        &payload(PesVersion::Pes16),
+        schema_for(PesVersion::Pes16),
+        710,
+    );
+    assert_eq!(
+        team.tactics.presets[0].man_marking,
+        [
+            0xFF, 0x09, 0xFF, 0xFF, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+        ]
+    );
+    assert_eq!(team.tactics.presets[1].man_marking, [0xFF; 11]);
+    assert_eq!(team.tactics.presets[2].man_marking, [0xFF; 11]);
+    let team = find_team(
+        &payload(PesVersion::Pes17),
+        schema_for(PesVersion::Pes17),
+        737,
+    );
+    for preset in &team.tactics.presets[..2] {
+        assert_eq!(
+            preset.man_marking,
+            [
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0A, 0xFF, 0xFF, 0xFF, 0xFF
+            ]
+        );
+    }
+    assert_eq!(team.tactics.presets[2].man_marking, [0xFF; 11]);
+    let team = find_team(
+        &payload(PesVersion::Pes17),
+        schema_for(PesVersion::Pes17),
+        771,
+    );
+    for preset in [&team.tactics.presets[0], &team.tactics.presets[2]] {
+        assert_eq!(
+            preset.man_marking,
+            [
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0A, 0xFF, 0xFF, 0xFF
+            ]
+        );
+    }
+    assert_eq!(team.tactics.presets[1].man_marking, [0xFF; 11]);
+    let team = find_team(
+        &payload(PesVersion::Pes18),
+        schema_for(PesVersion::Pes18),
+        764,
+    );
+    for preset in &team.tactics.presets {
+        assert_eq!(
+            preset.man_marking,
+            [
+                0xFF, 0x0A, 0xFF, 0xFF, 0xFF, 0xFF, 0x07, 0xFF, 0xFF, 0xFF, 0xFF
+            ]
+        );
+    }
+    let team = find_team(
+        &payload(PesVersion::Pes19),
+        schema_for(PesVersion::Pes19),
+        706,
+    );
+    for preset in &team.tactics.presets {
+        assert_eq!(
+            preset.man_marking,
+            [
+                0xFF, 0xFF, 0xFF, 0xFF, 0x09, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+            ]
+        );
+    }
+    // PES 20 and 21: no fixture team marks anyone.
+    for version in [PesVersion::Pes20, PesVersion::Pes21] {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        for i in 0..count(&payload, &schema.tactics) {
+            let rec = record(&payload, &schema.tactics, schema.tactic.size, i);
+            let mut team = TeamEntry {
+                id: tactics_id(rec, schema.tactic),
+                ..TeamEntry::default()
+            };
+            read_tactics_into(&mut team, rec, schema.tactic).expect("decode tactics");
+            for preset in &team.tactics.presets {
+                assert_eq!(preset.man_marking, [0xFF; 11], "{version:?} tactics {i}");
+            }
+        }
+    }
+}
+
+/// PES 15's three auto flags, measured in-game at the record's +0x1FE to
+/// +0x200 (DECISIONS.md, 2026-10-13); the attack/defence-level flag stays
+/// PES 17+.
+#[test]
+fn pes15_auto_flags_literals() {
+    let team = find_team(
+        &payload(PesVersion::Pes15),
+        schema_for(PesVersion::Pes15),
+        754,
+    );
+    assert_eq!(team.tactics.auto.substitution, Some(0));
+    assert_eq!(team.tactics.auto.offside_trap, Some(false));
+    assert_eq!(team.tactics.auto.preset_change, Some(true));
+    let team = find_team(
+        &payload(PesVersion::Pes15),
+        schema_for(PesVersion::Pes15),
+        771,
+    );
+    assert_eq!(team.tactics.auto.offside_trap, Some(true));
+    assert_eq!(team.tactics.auto.preset_change, Some(false));
+    let team = find_team(
+        &payload(PesVersion::Pes15),
+        schema_for(PesVersion::Pes15),
+        701,
+    );
+    assert_eq!(team.tactics.auto.substitution, Some(0));
+    assert_eq!(team.tactics.auto.offside_trap, Some(false));
+    assert_eq!(team.tactics.auto.preset_change, Some(false));
+    assert!(team.tactics.auto.attack_defence_levels.is_none());
+}
+
+/// A man-marking byte (and a PES 15 auto flag) writes into its measured run
+/// and reads back, no other record byte touched.
+#[test]
+fn man_marking_and_pes15_auto_flags_write_and_reread() {
+    // Team 701's tactics record, preset 2's man-marking slot 3 -> 5; the
+    // differing bytes are exactly the run's byte 3 (PES 15 +0xF0, PES 21
+    // +0x138) plus the PES 15 offside-trap byte at +0x1FF.
+    for (version, expected) in [
+        (PesVersion::Pes15, vec![0xF0, 0x1FF]),
+        (PesVersion::Pes21, vec![0x138]),
+    ] {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        let rec = (0..count(&payload, &schema.tactics))
+            .map(|i| record(&payload, &schema.tactics, schema.tactic.size, i))
+            .find(|rec| tactics_id(rec, schema.tactic) == 701)
+            .expect("team 701's tactics record");
+        let mut team = TeamEntry {
+            id: 701,
+            ..TeamEntry::default()
+        };
+        read_tactics_into(&mut team, rec, schema.tactic).expect("decode tactics");
+        assert_ne!(team.tactics.presets[1].man_marking[3], 5);
+        team.tactics.presets[1].man_marking[3] = 5;
+        if version == PesVersion::Pes15 {
+            assert_eq!(team.tactics.auto.offside_trap, Some(false));
+            team.tactics.auto.offside_trap = Some(true);
+        }
+        let mut written = rec.to_vec();
+        write_tactics(&team, &mut written, schema.tactic).expect("encode tactics");
+        let changed: Vec<usize> = (0..rec.len()).filter(|&i| written[i] != rec[i]).collect();
+        assert_eq!(changed, expected, "{version:?} differing bytes");
+        let mut back = TeamEntry {
+            id: 701,
+            ..TeamEntry::default()
+        };
+        read_tactics_into(&mut back, &written, schema.tactic).expect("redecode tactics");
+        assert_eq!(back.tactics.presets[1].man_marking[3], 5, "{version:?}");
+        if version == PesVersion::Pes15 {
+            assert_eq!(back.tactics.auto.offside_trap, Some(true));
+        }
+    }
 }
 
 #[test]

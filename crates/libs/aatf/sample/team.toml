@@ -25,10 +25,13 @@ penalty = 10                    # roster slots; 255 = none
 captain = 10                    # roster slots; 255 = none
 
 [tactics.auto]
-# substitution = 255              # PES 16+; the stored setting byte
-# offside_trap = false            # PES 16+
-# preset_change = false           # PES 16+
+substitution = 0                # PES 15+; the stored setting byte
+offside_trap = false            # PES 15+
+preset_change = false           # PES 15+
 # attack_defence_levels = false   # PES 17+
+
+[tactics.preset_1]
+man_marking = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255] # marked opponent's formation slot per own slot; 255 = none
 
 [tactics.preset_1.style]
 attacking_style = "counter_attack" # "counter_attack" | "possession"
@@ -92,6 +95,9 @@ players = [
     { position = "CF", x = 61, y = 45 },
 ]
 
+[tactics.preset_2]
+man_marking = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255] # marked opponent's formation slot per own slot; 255 = none
+
 [tactics.preset_2.style]
 attacking_style = "possession"  # "counter_attack" | "possession"
 attacking_zone = "wide"         # "centre" | "wide"
@@ -153,6 +159,9 @@ players = [
     { position = "CF", x = 29, y = 40 },
     { position = "CF", x = 53, y = 44 },
 ]
+
+[tactics.preset_3]
+man_marking = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255] # marked opponent's formation slot per own slot; 255 = none
 
 [tactics.preset_3.style]
 attacking_style = "counter_attack" # "counter_attack" | "possession"

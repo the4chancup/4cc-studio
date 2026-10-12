@@ -57,9 +57,9 @@ pub struct TeamSection {
     pub manager_id: Option<u32>,
     /// Home stadium id (PES 19+).
     pub stadium_id: Option<u16>,
-    /// First team colour (PES 18+).
+    /// First team colour (PES 17+).
     pub color_1: Option<TeamColor>,
-    /// Second team colour (PES 18+).
+    /// Second team colour (PES 17+).
     pub color_2: Option<TeamColor>,
     /// The ten kit slots (PES 17).
     pub kit_slots: Option<[KitSlot; 10]>,
@@ -119,20 +119,23 @@ pub struct SetPiecesSection {
 /// `[tactics.auto]`: the auto-tactics flags.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct AutoSection {
-    /// Auto substitution (the stored byte; 255 = auto, PES 16+).
+    /// Auto substitution (the stored byte; 255 = auto, PES 15+).
     pub substitution: Option<u8>,
-    /// Auto offside trap (PES 16+).
+    /// Auto offside trap (PES 15+).
     pub offside_trap: Option<bool>,
-    /// Auto preset change (PES 16+).
+    /// Auto preset change (PES 15+).
     pub preset_change: Option<bool>,
     /// Attack/defence levels (PES 17+).
     pub attack_defence_levels: Option<bool>,
 }
 
-/// `[tactics.preset_N]`: one preset's style, sliders, formations and
-/// instructions.
+/// `[tactics.preset_N]`: one preset's man-marking assignments, style,
+/// sliders, formations and instructions.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct PresetSection {
+    /// Man marking: own formation slot `i`'s assignment, the marked
+    /// opponent's formation slot (255 = none).
+    pub man_marking: Option<[u8; 11]>,
     /// `[tactics.preset_N.style]`.
     pub style: StyleSection,
     /// `[tactics.preset_N.sliders]`.

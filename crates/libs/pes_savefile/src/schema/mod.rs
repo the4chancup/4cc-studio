@@ -157,6 +157,9 @@ pub struct TacticsSchema {
     pub arrays: &'static [ArraySpec<TacticsField>],
     /// Bits between consecutive preset blocks.
     pub preset_stride_bits: u32,
+    /// Bit position of the preset's eleven man-marking bytes within a preset
+    /// block (byte `i` is own formation slot `i`'s assignment).
+    pub man_marking_bit: u32,
     /// The per-preset settings.
     pub presets: &'static [PresetSpec],
     /// The formation block layout.
@@ -168,7 +171,8 @@ pub struct TacticsSchema {
 impl TacticsSchema {
     /// Whether the tactics record stores `field` (scalar fields and arrays, as
     /// `RecordSchema::has`; preset settings via [`Self::has_preset`],
-    /// formations always, instructions when `instructions` is `Some`).
+    /// formations always, instructions when `instructions` is `Some`, man
+    /// marking for a preset of 0 to 2 and a slot of 0 to 10).
     pub fn has(&self, field: TacticsField) -> bool {
         if let TacticsField::Preset { field, .. } = field {
             return self.has_preset(field);
@@ -178,6 +182,9 @@ impl TacticsSchema {
         }
         if let TacticsField::Instruction { .. } = field {
             return self.instructions.is_some();
+        }
+        if let TacticsField::ManMarking { preset, slot } = field {
+            return preset < 3 && slot < 11;
         }
         self.fields.iter().any(|spec| spec.field == field)
             || self
@@ -383,6 +390,10 @@ mod tests {
                 let start = preset_base + p.bit_offset;
                 runs.push((start, start + 8));
             }
+            for slot in 0..11u32 {
+                let start = preset_base + schema.man_marking_bit + slot * 8;
+                runs.push((start, start + 8));
+            }
             let f = &schema.formations;
             for formation in 0..3u32 {
                 let base = preset_base + f.base_bit + formation * f.formation_stride_bits;
@@ -487,20 +498,46 @@ mod tests {
         use crate::schema::fields::{PresetField, TacticsField};
 
         assert!(
-            !schema_for(PesVersion::Pes15)
+            schema_for(PesVersion::Pes15)
                 .tactic
                 .has(TacticsField::AutoOffsideTrap)
         );
         assert!(
+            !schema_for(PesVersion::Pes15)
+                .tactic
+                .has(TacticsField::AutoAttackDefenceLevels)
+        );
+        assert!(
             schema_for(PesVersion::Pes17)
                 .tactic
-                .has(TacticsField::AutoOffsideTrap)
+                .has(TacticsField::AutoAttackDefenceLevels)
         );
         for version in PesVersion::ALL {
             let schema = schema_for(version);
             assert!(schema.tactic.has(TacticsField::Starting(3)), "{version:?}");
             assert!(
                 schema.tactic.has_preset(PresetField::SupportRange),
+                "{version:?}"
+            );
+            for preset in 0..3 {
+                for slot in 0..11 {
+                    assert!(
+                        schema.tactic.has(TacticsField::ManMarking { preset, slot }),
+                        "{version:?} preset {preset} slot {slot}"
+                    );
+                }
+            }
+            assert!(
+                !schema
+                    .tactic
+                    .has(TacticsField::ManMarking { preset: 3, slot: 0 }),
+                "{version:?}"
+            );
+            assert!(
+                !schema.tactic.has(TacticsField::ManMarking {
+                    preset: 0,
+                    slot: 11
+                }),
                 "{version:?}"
             );
         }

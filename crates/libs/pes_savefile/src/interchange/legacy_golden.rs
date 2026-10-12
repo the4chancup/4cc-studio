@@ -531,8 +531,11 @@ fn read_tactics_equals_the_codec_for_the_same_team() {
     let (file, _) = open(PesVersion::Pes19);
     let team = file.team(713).expect("team 713 is in the fixture save");
     let mut expected = TeamToml::from_team(PesVersion::Pes19, team, &[]).expect("dumps");
-    // The nightly block has no captain.
+    // The nightly block has no captain and no man marking.
     expected.tactics.set_pieces.captain = None;
+    for preset in &mut expected.tactics.presets {
+        preset.man_marking = None;
+    }
     assert_eq!(doc.tactics, expected.tactics);
 
     // Literals from the fixture script, so the equality above is not vacuous.

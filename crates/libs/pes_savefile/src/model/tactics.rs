@@ -26,8 +26,8 @@ pub struct TeamTactics {
     pub auto: TeamAutoFlags,
 }
 
-/// One preset: a style block, the sliders, three formations and the advanced
-/// instructions.
+/// One preset: a style block, the sliders, three formations, the advanced
+/// instructions and the man-marking assignments.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TacticsPreset {
     /// The eight style switches.
@@ -40,6 +40,9 @@ pub struct TacticsPreset {
     pub attack_instructions: Option<[AdvancedInstruction; 2]>,
     /// The two defending instructions (PES 17+).
     pub defence_instructions: Option<[AdvancedInstruction; 2]>,
+    /// Man marking: own formation slot `i`'s assignment is the marked
+    /// opponent's formation slot, 0xFF none (PES 15+).
+    pub man_marking: [u8; 11],
 }
 
 /// The style switches; each is one byte on disk carrying 0 or 1.
@@ -128,11 +131,11 @@ pub struct SetPieceTakers {
 /// except `substitution`, a setting byte.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TeamAutoFlags {
-    /// Auto substitution setting (PES 16+).
+    /// Auto substitution setting (PES 15+).
     pub substitution: Option<u8>,
-    /// Auto offside trap (PES 16+).
+    /// Auto offside trap (PES 15+).
     pub offside_trap: Option<bool>,
-    /// Auto preset change (PES 16+).
+    /// Auto preset change (PES 15+).
     pub preset_change: Option<bool>,
     /// Auto attack/defence level change (PES 17+).
     pub attack_defence_levels: Option<bool>,
@@ -211,6 +214,16 @@ impl TeamEntry {
                     InstructionPart::PlayerId => u32::from(instruction.player),
                 }
             }
+            TacticsField::ManMarking { preset, slot } => u32::from(
+                *self
+                    .tactics
+                    .presets
+                    .get(usize::from(preset))
+                    .ok_or_else(|| codec::index(field, preset))?
+                    .man_marking
+                    .get(usize::from(slot))
+                    .ok_or_else(|| codec::index(field, slot))?,
+            ),
             TacticsField::FreeKickTakerLong => u32::from(self.tactics.set_pieces.free_kick_long),
             TacticsField::FreeKickTakerShort => u32::from(self.tactics.set_pieces.free_kick_short),
             TacticsField::FreeKickTakerSecond => {
@@ -353,6 +366,16 @@ impl TeamEntry {
                     InstructionPart::Instruction => instruction.instruction = value as u8,
                     InstructionPart::PlayerId => instruction.player = value as u8,
                 }
+            }
+            TacticsField::ManMarking { preset, slot } => {
+                *self
+                    .tactics
+                    .presets
+                    .get_mut(usize::from(preset))
+                    .ok_or_else(|| codec::index(field, preset))?
+                    .man_marking
+                    .get_mut(usize::from(slot))
+                    .ok_or_else(|| codec::index(field, slot))? = value as u8;
             }
             TacticsField::FreeKickTakerLong => {
                 self.tactics.set_pieces.free_kick_long = value as u8;

@@ -7,8 +7,9 @@ use crate::schema::fields::{RosterField, TacticsField, TeamField, TeamText};
 use crate::schema::{RecordSchema, TacticsSchema};
 
 /// Every bit run of a tactics record: the `fields`, the expanded `arrays`,
-/// then for each of the three presets every `PresetSpec` byte, every formation
-/// slot (position, y, x), and every instruction part when the version has them.
+/// then for each of the three presets every `PresetSpec` byte, the eleven
+/// man-marking bytes, every formation slot (position, y, x), and every
+/// instruction part when the version has them.
 pub(crate) fn tactics_runs(schema: &TacticsSchema) -> Vec<(TacticsField, u32, u32)> {
     use crate::schema::fields::{FormationPart, InstructionPart, InstructionSide};
     let mut out: Vec<(TacticsField, u32, u32)> = Vec::new();
@@ -33,6 +34,13 @@ pub(crate) fn tactics_runs(schema: &TacticsSchema) -> Vec<(TacticsField, u32, u3
                     field: spec.field,
                 },
                 preset_base + spec.bit_offset,
+                8,
+            ));
+        }
+        for slot in 0..11u8 {
+            out.push((
+                TacticsField::ManMarking { preset, slot },
+                preset_base + schema.man_marking_bit + u32::from(slot) * 8,
                 8,
             ));
         }

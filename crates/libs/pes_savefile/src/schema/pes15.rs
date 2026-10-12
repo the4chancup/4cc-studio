@@ -659,6 +659,21 @@ pub(crate) static TACTICS: TacticsSchema = TacticsSchema {
             bit_offset: 4048,
             bit_width: 8,
         },
+        FieldSpec {
+            field: TacticsField::AutoSubstitution,
+            bit_offset: 4080,
+            bit_width: 8,
+        },
+        FieldSpec {
+            field: TacticsField::AutoOffsideTrap,
+            bit_offset: 4088,
+            bit_width: 8,
+        },
+        FieldSpec {
+            field: TacticsField::AutoPresetChange,
+            bit_offset: 4096,
+            bit_width: 8,
+        },
     ],
     arrays: &[
         ArraySpec {
@@ -684,6 +699,7 @@ pub(crate) static TACTICS: TacticsSchema = TacticsSchema {
         },
     ],
     preset_stride_bits: 976,
+    man_marking_bit: 920,
     presets: &[
         PresetSpec {
             field: PresetField::AttackingStyle,

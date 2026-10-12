@@ -89,6 +89,9 @@ pub struct TacticsSchema {
     pub fields: &'static [FieldSpec<TacticsField>],
     pub arrays: &'static [ArraySpec<TacticsField>],
     pub preset_stride_bits: u32,
+    /// Where a preset's eleven man-marking bytes start within its block; measured, since the
+    /// reference reads no man marking (the generator's `MEASURED_FIELDS`).
+    pub man_marking_bit: u32,
     pub presets: &'static [PresetSpec],
     pub formations: FormationLayout,
     pub instructions: Option<InstructionLayout>,
@@ -126,7 +129,10 @@ pub fn schema_for(version: PesVersion) -> &'static VersionSchema;
 `Player(u8)`, `Number(u8)`), `TacticsField` (`TeamId`, `Preset { preset, field: PresetField }`,
 `Formation { preset, formation, slot, part: FormationPart }`, `Instruction { preset, side:
 InstructionSide, index, part: InstructionPart }`, `Starting(u8)`, `Bench(u8)`,
-`PlayerToJoinAttack(u8)`, the set-piece takers, `Captain`, the auto flags). Variant names are the
+`PlayerToJoinAttack(u8)`, `ManMarking { preset, slot }`, the set-piece takers, `Captain`, the
+auto flags). Two kinds of field the reference never reads are measured instead and enter the
+generator as its `MEASURED_FIELDS` table: the man-marking runs (every version) and PES 15's
+three auto flags, so a regeneration keeps them. Variant names are the
 readable model names (`TightPossession`, not `tight_pos`); the table module's doc comment says
 which reference walk it was derived from, and this section is the evidence trail. The generator
 is `scripts/derive_savefile_schema.py <reference source dir> <crate>/src/schema`; it is committed so

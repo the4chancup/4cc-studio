@@ -710,8 +710,8 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `height`/`weight`/`stripped`, `[appearance.unknown]` `face`, absent = default, the
     `PlayerAppearance.bin` row and the aesthetics patch's Fox half moved to the spec; the crate
     tree, serial lengths, PES 15's counts and text lengths corrected). Done 2026-10-13 (SWE-2,
-    first attempt). Code docs it flagged, for a later code step: `TeamSection`'s colours say
-    PES 18+ (17+ is right), `player_keys.rs`'s module doc still names `ingame_face`
+    first attempt). The two stale code doc comments it flagged (`TeamSection`'s colours,
+    `player_keys.rs`'s `ingame_face`) were fixed with 5.2b2a
   - [ ] 5.0j6 onward: one slice per remaining folder (`team_compiler` README, the rest of
     `team_compiler`)
 - [x] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
@@ -729,6 +729,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   of the PES 20/21 fixtures still pass. Done 2026-10-12 (SWE-2, first attempt): `STORED_20`
   corrected; tests pin the measured values, the 20/21 table both ways, and every fixture
   instruction on its side (`schema/instruction_golden.rs`); spec `model.md`, `operations.md`
+- [ ] 5.0l The ingame-face run decoded in-game (lead; `plans/pes_savefile/model.md` "Decoding
+  the rest of the ingame-face run"; target 1.0.0, so it runs beside the phase and does not block
+  its close): PES 21's whole run measured one setting per player, then spot checks on 15 to 20
+  → done when: every bit of the run is a named field or measured unused, each named field a
+  `settings.toml` key. Scratch `.tmp/5_0l/`
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
@@ -757,7 +762,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       per-preset assignment bytes, not an advanced instruction, its values the opponent's
       formation slots (read back in-game on PES 15 and, 2026-10-13, PES 21); an advanced
       instruction's player byte is a roster slot, as `AdvancedInstruction::player` says (read
-      back on PES 21, a team whose eleven is not in roster order)
+      back on PES 21, a team whose eleven is not in roster order). Sub-slices, each a commit:
+      - [x] 5.2b2a `pes_savefile` models them: `TacticsPreset::man_marking` on every version,
+        PES 15's three auto flags, both entering the schema generator as `MEASURED_FIELDS`
+        (`docs/DECISIONS.md` 2026-10-13); Team TOML carries `man_marking` per preset; the aatf
+        sample team rewritten with them. Done 2026-10-13 (SWE-2, first attempt; the lead's
+        spec text and two stale doc comments the 5.0j5 audit found)
+      - [ ] 5.2b2b the `aatf` accessors (`team.man_marking`, the auto flags; the plan's table
+        rows) → done when: each reads right on a fixture team set both ways
   - [ ] 5.2c `logic.rhai`'s `check_team` for the official file, `Violation` from its maps,
     `file.rs` (assembling a file, its section split, logic identity), the sample team, the official known-legal and known-violating fixtures, the operation
     limit → done when: each special of the official file is exercised by a fixture. Sub-slices,

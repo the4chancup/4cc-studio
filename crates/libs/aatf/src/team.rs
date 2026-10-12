@@ -170,6 +170,11 @@ impl TeamView {
             penalty: 0xFF,
             captain: 0xFF,
         };
+        // The man-marking bytes too: an absent `man_marking` key reads as no
+        // assignment, not a marking of opponent slot 0.
+        for preset in &mut team.tactics.presets {
+            preset.man_marking = [0xFF; 11];
+        }
         let highest = document.players.keys().max().copied().unwrap_or(0);
         team.roster = (1..=highest)
             .map(|slot| RosterSlot {
@@ -638,6 +643,44 @@ mod tests {
         );
         // The sample team's captain is still `Some(10)`.
         assert_eq!(TeamView::sample_team().captain, Some(10));
+    }
+
+    #[test]
+    fn an_absent_man_marking_key_reads_as_none() {
+        // The bare record's assignments are 0xFF, not a marking of slot 0:
+        // a document without `man_marking` keys gives all-0xFF presets.
+        let file = EditFile::from_bytes(&fixture_save(PesVersion::Pes15)).expect("fixture save");
+        let team = file.team(701).expect("team 701");
+        let players: Vec<&PlayerEntry> = team
+            .roster
+            .iter()
+            .filter(|slot| slot.player_id != 0)
+            .map(|slot| file.player(slot.player_id).expect("a rostered player"))
+            .collect();
+        let mut document =
+            TeamToml::from_team(PesVersion::Pes15, team, &players).expect("from_team emits");
+        for preset in &mut document.tactics.presets {
+            preset.man_marking = None;
+        }
+        let view = TeamView::from_team_toml(&document).expect("the team builds");
+        assert!(
+            view.tactics
+                .presets
+                .iter()
+                .all(|preset| preset.man_marking == [0xFF; 11])
+        );
+        // A present key carries through: the document's own array lands.
+        document.tactics.presets[0].man_marking = Some([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        let view = TeamView::from_team_toml(&document).expect("the team builds");
+        assert_eq!(
+            view.tactics.presets[0].man_marking,
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        );
+        assert!(
+            view.tactics.presets[1..]
+                .iter()
+                .all(|preset| preset.man_marking == [0xFF; 11])
+        );
     }
 
     #[test]

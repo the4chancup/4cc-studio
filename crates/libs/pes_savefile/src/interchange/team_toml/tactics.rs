@@ -105,21 +105,21 @@ pub(super) fn emit_tactics(
         "substitution",
         auto.substitution.map(|v| v.to_string()),
         "255",
-        "PES 16+; the stored setting byte",
+        "PES 15+; the stored setting byte",
     );
     emit(
         out,
         "offside_trap",
         auto.offside_trap.map(|v| v.to_string()),
         "false",
-        "PES 16+",
+        "PES 15+",
     );
     emit(
         out,
         "preset_change",
         auto.preset_change.map(|v| v.to_string()),
         "false",
-        "PES 16+",
+        "PES 15+",
     );
     emit(
         out,
@@ -130,6 +130,14 @@ pub(super) fn emit_tactics(
     );
     for (i, preset) in tactics.presets.iter().enumerate() {
         let n = i + 1;
+        out.push_str(&format!("\n[tactics.preset_{n}]\n"));
+        emit(
+            out,
+            "man_marking",
+            preset.man_marking.map(array_text),
+            "[255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]",
+            "marked opponent's formation slot per own slot; 255 = none",
+        );
         out.push_str(&format!("\n[tactics.preset_{n}.style]\n"));
         let style = &preset.style;
         let switches: [Option<bool>; 7] = [
@@ -328,7 +336,10 @@ pub(super) fn parse_tactics(item: &Item) -> Result<TacticsSection, TeamTomlError
 
 fn parse_preset(item: &Item, path: &str) -> Result<PresetSection, TeamTomlError> {
     let table = as_table(item, path)?;
-    let mut preset = PresetSection::default();
+    let mut preset = PresetSection {
+        man_marking: opt(table, path, "man_marking", man_marking)?,
+        ..PresetSection::default()
+    };
     if let Some(item) = table.get("style") {
         let t = as_table(item, &format!("{path}.style"))?;
         let style_path = format!("{path}.style");
@@ -418,6 +429,7 @@ fn parse_preset(item: &Item, path: &str) -> Result<PresetSection, TeamTomlError>
         table,
         path,
         &[
+            "man_marking",
             "style",
             "sliders",
             "formation_1",
@@ -427,6 +439,22 @@ fn parse_preset(item: &Item, path: &str) -> Result<PresetSection, TeamTomlError>
         ],
     )?;
     Ok(preset)
+}
+
+/// `man_marking`'s eleven integers: an own formation slot's assignment is the
+/// marked opponent's formation slot (0 to 10) or 255 for none.
+pub(super) fn man_marking(item: &Item, key: &str) -> Result<[u8; 11], TeamTomlError> {
+    let marking = int_array::<11>(item, key)?;
+    for &value in marking.iter() {
+        if value > 10 && value != 255 {
+            return Err(TeamTomlError::OutOfRange {
+                key: key.to_string(),
+                value: i64::from(value),
+                range: "0 to 10 or 255".to_string(),
+            });
+        }
+    }
+    Ok(marking)
 }
 
 pub(super) fn formation_players(
@@ -688,6 +716,16 @@ pub(super) fn apply_tactics(
     for (i, preset) in section.presets.iter().enumerate() {
         let n = i + 1;
         let target = &mut tactics.presets[i];
+        if let Some(marking) = preset.man_marking
+            && gated(
+                notes,
+                foreign,
+                schema.has(TacticsField::ManMarking { preset: 0, slot: 0 }),
+                &format!("tactics.preset_{n}.man_marking"),
+            )?
+        {
+            target.man_marking = marking;
+        }
         let style = &preset.style;
         let target_style = &mut target.style;
         let switches: [(Option<bool>, PresetField, &str, &mut bool); 7] = [

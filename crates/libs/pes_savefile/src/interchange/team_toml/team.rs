@@ -73,6 +73,7 @@ impl TeamToml {
         for (section, preset) in presets.iter_mut().zip(tactics.presets.iter()) {
             let style = &preset.style;
             let sliders = &preset.sliders;
+            section.man_marking = Some(preset.man_marking);
             section.style = StyleSection {
                 attacking_style: Some(style.attacking_style),
                 attacking_zone: Some(style.attacking_zone),
@@ -640,6 +641,70 @@ mod tests {
         assert_eq!(target, expected);
     }
 
+    /// A document carries each preset's man-marking assignments: a PES 17
+    /// export of team 737 (whose preset 1 and 2 mark slot 6's man onto 10).
+    #[test]
+    fn an_export_carries_man_marking() {
+        let (file, _) = open(PesVersion::Pes17);
+        let team = file.team(737).expect("team 737");
+        let doc = TeamToml::from_team(PesVersion::Pes17, team, &[]).expect("from_team");
+        let expected = [255, 255, 255, 255, 255, 255, 10, 255, 255, 255, 255];
+        assert_eq!(doc.tactics.presets[0].man_marking, Some(expected));
+        assert_eq!(doc.tactics.presets[1].man_marking, Some(expected));
+        assert_eq!(doc.tactics.presets[2].man_marking, Some([255; 11]));
+        let text = doc.to_toml().expect("to_toml");
+        assert!(
+            text.contains(
+                "[tactics.preset_1]\nman_marking = [255, 255, 255, 255, 255, 255, 10, 255, 255, 255, 255]"
+            ),
+            "{text}"
+        );
+    }
+
+    /// `man_marking` takes eleven integers, each 0 to 10 or 255: anything
+    /// else is refused at its key path.
+    #[test]
+    fn a_man_marking_value_past_the_formation_slots_is_refused() {
+        let err = TeamToml::parse(
+            "[tactics.preset_1]\nman_marking = [11, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]\n",
+        )
+        .expect_err("11 is no formation slot");
+        assert!(
+            matches!(
+                &err,
+                TeamTomlError::OutOfRange { key, .. }
+                    if key == "tactics.preset_1.man_marking"
+            ),
+            "{err:?}"
+        );
+        // 10, the last formation slot, is a marking.
+        let doc = TeamToml::parse(
+            "[tactics.preset_1]\nman_marking = [10, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]\n",
+        )
+        .expect("10 is a formation slot");
+        assert_eq!(doc.tactics.presets[0].man_marking.map(|m| m[0]), Some(10));
+    }
+
+    /// An absent `man_marking` key leaves the team's bytes as they are, like
+    /// every other optional key.
+    #[test]
+    fn an_absent_man_marking_key_leaves_the_teams_bytes() {
+        let (file, _) = open(PesVersion::Pes17);
+        let team = file.team(737).expect("team 737");
+        let doc =
+            TeamToml::parse("[tactics.preset_1.sliders]\nsupport_range = 5\n").expect("parses");
+        let mut target = team.clone();
+        let notes = doc
+            .apply(PesVersion::Pes17, &mut target, &mut [])
+            .expect("applies");
+        assert!(notes.is_empty(), "{notes:?}");
+        assert_eq!(target.tactics.presets[0].sliders.support_range, 5);
+        assert_eq!(
+            target.tactics.presets[0].man_marking,
+            team.tactics.presets[0].man_marking
+        );
+    }
+
     /// `tactics.auto.substitution` is `u8_val`'s only caller: a non-zero
     /// value parses to exactly that value.
     #[test]
@@ -890,7 +955,7 @@ mod tests {
         let team = file.teams().first().expect("a team");
 
         for text in [
-            "pes_version = 19\n\n[tactics.auto]\noffside_trap = true\n",
+            "pes_version = 19\n\n[tactics.auto]\nattack_defence_levels = true\n",
             "pes_version = 19\n\n[tactics.preset_1.style]\nfluid = true\n",
         ] {
             let doc = TeamToml::parse(text).expect("parses");
@@ -899,8 +964,8 @@ mod tests {
             let notes = doc
                 .apply(PesVersion::Pes15, &mut target, &mut players)
                 .expect("a foreign gated key is a note");
-            let path = if text.contains("offside_trap") {
-                "tactics.auto.offside_trap"
+            let path = if text.contains("attack_defence_levels") {
+                "tactics.auto.attack_defence_levels"
             } else {
                 "tactics.preset_1.style.fluid"
             };
@@ -914,7 +979,7 @@ mod tests {
         }
 
         for text in [
-            "[tactics.auto]\noffside_trap = true\n",
+            "[tactics.auto]\nattack_defence_levels = true\n",
             "pes_version = 15\n\n[tactics.preset_1.style]\nfluid = true\n",
         ] {
             let doc = TeamToml::parse(text).expect("parses");

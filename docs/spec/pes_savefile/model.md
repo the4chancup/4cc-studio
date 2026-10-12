@@ -82,7 +82,7 @@ pub struct TeamTactics {
     pub set_pieces: SetPieceTakers,       // FK long/short/second, CK L/R, PK, captain;
                                           // roster slots, 0xFF none
     pub players_to_join_attack: [u8; 3],  // roster slots
-    pub auto: TeamAutoFlags,              // auto sub, offside trap, preset change (16+);
+    pub auto: TeamAutoFlags,              // auto sub, offside trap, preset change (15+);
                                           // attack/defence levels (17+)
 }
 
@@ -94,6 +94,8 @@ pub struct TacticsPreset {
     pub formations: [Formation; 3],  // kick-off, in-possession, out-of-possession
     pub attack_instructions: Option<[AdvancedInstruction; 2]>,  // 17+
     pub defence_instructions: Option<[AdvancedInstruction; 2]>, // 17+
+    pub man_marking: [u8; 11],       // own formation slot i -> the marked opponent's
+                                     // formation slot (its starting-eleven index), 0xFF none
 }
 
 pub struct Formation {
