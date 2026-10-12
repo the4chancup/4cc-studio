@@ -45,9 +45,9 @@ untested becomes a new worklog step, and the phase stays open until those are do
 defers* to a later phase (a "before implementing X, extend Y" note, an open question naming its
 phase) is not a gap and stays future tense. The lead's audit ends with a **design-health pass**
 over the phase's crates, separate from requirements coverage: the design-tell sweep (below) run
-over the whole phase's code rather than one diff, `just mutants <crate>` and `just extra-mutants
-<crate> --kind literal --kind normalize` run over each crate with every survivor triaged
-(`CONTRIBUTING.md` "Mutation runs"), `just clef <crate>` over each crate
+over the whole phase's code rather than one diff, `just mutants <crate>` (the extra mutant
+kinds included) run over each crate with every survivor triaged (`CONTRIBUTING.md` "Mutation
+runs"), `just clef <crate>` over each crate
 with every flag ruled (`CONTRIBUTING.md` "Clef scan"), and every `pub` item listed with the
 consumer that justifies it (a crate, the CLI, the bindings, or a plan section naming one). A crate
 that reads a file format also gets a **census**: every file of that format on the maintainer's

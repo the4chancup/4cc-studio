@@ -34,6 +34,7 @@ scripts).
 import io
 import json
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -54,6 +55,32 @@ REMOTE_REF = "refs/mutants/remote"
 # constant, not an environment variable: a shell started while a variable was set
 # keeps the old value, which silently picked the wrong mode.
 REMOTE_ONLY = False
+# The extra_mutants kinds `just mutants <crate>` runs before the cargo-mutants
+# run starts, so a whole-crate run stays one command and its missed_all.txt the
+# one list to triage (DECISIONS, 2026-10-12, "literal and normalize mutants join
+# converge"). `mutants-diff` does not run them: the decision is converge only.
+EXTRA_KINDS = ("literal", "normalize")
+# missed.txt lines whose only catching tests are #[cfg(windows)]: they survive on
+# the Linux remote half, so summarize() reruns them on this machine when it is
+# Windows and REMOTE_ONLY is off. The seed is deploy.rs's match guards
+# (deploy.rs:180, :409 and :565 survived on bonfire at Phase 4's close and were
+# caught on rerun here): sweep_run's lock arm is caught by
+# a_staging_whose_lock_cannot_be_opened_is_left (a lock path that is a folder
+# cannot be opened on Windows; Linux opens and locks folders), probe_download's
+# access-denied arm by the held-open CLI tests
+# an_old_cpk_held_open_is_old_cpk_locked_and_the_cpk_is_promoted and
+# a_cpk_held_open_stops_the_upgrade_naming_it_and_the_list_stays (a share-mode
+# violation is not ErrorKind::PermissionDenied, and nothing holds a file open on
+# Linux), promote_tree's removal arm by
+# a_previous_tree_that_cannot_be_removed_fails_the_promotion_and_is_not_overlaid
+# (FILE_SHARE_READ denies the delete on Windows). Matched by file and function,
+# never by line number, which drifts.
+WINDOWS_ONLY_TESTS = [
+    re.compile(
+        r"crates/tools/team_compiler/src/output/deploy\.rs:\d+:\d+: .* in "
+        r"(sweep_run|probe_download|promote_tree)$"
+    ),
+]
 # The remote half's systemd unit: a transient service so its cgroup is
 # memory-capped and CPU-idle — an allocating mutant OOM-killed the host at
 # the 2.20i remainder run, and Fluxer's production services have priority.
@@ -666,6 +693,37 @@ def never_ran(out_dir: Path) -> tuple[int, int] | None:
     return (ran, selected) if ran < selected else None
 
 
+def recheck_windows(missed: list[str]) -> set[str]:
+    """Rerun the remote half's `missed` survivors (missed.txt lines) in one
+    cargo-mutants run on this machine, the tests that catch them being
+    `#[cfg(windows)]` (WINDOWS_ONLY_TESTS) so the Linux remote cannot, and
+    return the lines it caught. `--re` names each mutant escaped and anchored,
+    `-p` the crates they live in, `--output` a folder of its own under
+    `mutants.out/` so the local half's results stay. A run that cannot start or
+    whose baseline fails (exit 4) is reported and returns empty, leaving every
+    survivor in the list."""
+    crates = sorted({mutant_crate(line.split(":", 1)[0]) for line in missed})
+    out = ROOT / "mutants.out" / "recheck"
+    pattern = "^(" + "|".join(re.escape(line) for line in missed) + ")$"
+    args = [arg for crate in crates for arg in ("-p", crate)]
+    args += ["--re", pattern, "--output", str(out)]
+    print(f"rechecking {len(missed)} Windows-only mutants on this machine", flush=True)
+    run = local_mutants(args)
+    results = out / "mutants.out"
+    if run.returncode == 4 or not (results / "outcomes.json").exists():
+        print(
+            f"the recheck did not finish (exit {run.returncode}); "
+            f"the {len(missed)} mutants stay missed"
+        )
+        return set()
+    caught = (
+        (results / "caught.txt").read_text(encoding="utf-8").splitlines()
+        if (results / "caught.txt").exists()
+        else []
+    )
+    return set(caught) & set(missed)
+
+
 def summarize(
     local_code: int, remote_code: int, log_path: Path,
     seconds: tuple[float | None, float | None],
@@ -673,10 +731,59 @@ def summarize(
     local = ROOT / "mutants.out"
     remote = local / "remote" / "mutants.out"
     names = ["caught", "missed", "timeout", "unviable"]
+
+    # A survivor of the remote half that only a #[cfg(windows)] test catches can
+    # never be caught on the Linux host; rerun it here and let a catch replace
+    # the remote outcome. Under REMOTE_ONLY, or off Windows, it stays missed
+    # with a word saying why.
+    remote_missed_path = remote / "missed.txt"
+    remote_missed = (
+        remote_missed_path.read_text(encoding="utf-8").splitlines()
+        if remote_missed_path.exists()
+        else []
+    )
+    windows_missed = [
+        line
+        for line in remote_missed
+        if any(pattern.search(line) for pattern in WINDOWS_ONLY_TESTS)
+    ]
+    caught_here: set[str] = set()
+    if windows_missed:
+        if os.name == "nt" and not REMOTE_ONLY:
+            caught_here = recheck_windows(windows_missed)
+            print(
+                f"rechecked on this machine (Windows-only tests): "
+                f"{len(caught_here)} caught, "
+                f"{len(windows_missed) - len(caught_here)} still missed"
+            )
+        else:
+            print("Windows-only tests, not rechecked:")
+            for line in windows_missed:
+                print(f"  {line}")
+
+    # The extra-mutant pass a `just mutants <crate>` ran (EXTRA_KINDS) records
+    # itself in run.json: which crate, its counts and seconds, the survivors in
+    # `missed_<crate>.txt` beside it. A run without one (a diff, REMOTE_ONLY)
+    # cleared the record before its cargo-mutants half started.
+    extra_counts: dict | None = None
+    extra_seconds = 0.0
+    extra_missed = ""
+    record_path = extra_run_record()
+    if record_path.exists():
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        missed_path = record_path.parent / f"missed_{record['crate']}.txt"
+        extra_counts = record["counts"]
+        extra_seconds = record["seconds"]
+        if missed_path.exists():
+            extra_missed = missed_path.read_text(encoding="utf-8")
+
     print(f"{'':8}{'caught':>7}{'missed':>7}{'timeout':>8}{'unviable':>9}{'seconds':>9}")
     totals = dict.fromkeys(names, 0)
     for (label, base), elapsed in zip((("local", local), ("remote", remote)), seconds):
         counts = {name: count_lines(base / f"{name}.txt") for name in names}
+        if label == "remote" and caught_here:
+            counts["caught"] += len(caught_here)
+            counts["missed"] -= len(caught_here)
         for name in names:
             totals[name] += counts[name]
         elapsed_text = "-" if elapsed is None else f"{elapsed:.0f}"
@@ -684,13 +791,26 @@ def summarize(
             f"{label:8}{counts['caught']:>7}{counts['missed']:>7}"
             f"{counts['timeout']:>8}{counts['unviable']:>9}{elapsed_text:>9}"
         )
+    if extra_counts is not None:
+        for name in names:
+            totals[name] += extra_counts.get(name, 0)
+        print(
+            f"{'extra':8}{extra_counts.get('caught', 0):>7}"
+            f"{extra_counts.get('missed', 0):>7}{extra_counts.get('timeout', 0):>8}"
+            f"{extra_counts.get('unviable', 0):>9}{extra_seconds:>9.0f}"
+        )
     print(
         f"{'total':8}{totals['caught']:>7}{totals['missed']:>7}"
         f"{totals['timeout']:>8}{totals['unviable']:>9}"
     )
     missed = (local / "missed.txt").read_text(encoding="utf-8") if (local / "missed.txt").exists() else ""
-    if (remote / "missed.txt").exists():
-        missed += (remote / "missed.txt").read_text(encoding="utf-8")
+    missed += "".join(
+        line + "\n" for line in remote_missed if line not in caught_here
+    )
+    missed += extra_missed
+    # A half that died before cargo-mutants started may leave no mutants.out at
+    # all; the summary must still write its (empty or partial) list.
+    local.mkdir(exist_ok=True)
     (local / "missed_all.txt").write_text(missed, encoding="utf-8")
     if missed:
         print(missed, end="")
@@ -699,6 +819,13 @@ def summarize(
         print("--- remote log tail ---")
         print("\n".join(log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-20:]))
     code = max(local_code, remote_code)
+    # A survivor cargo-mutants does not know about (the extra kinds) is still a
+    # miss: 2 is cargo-mutants' code for missed mutants. And a remote half whose
+    # every miss the Windows recheck caught exits clean.
+    if missed.strip():
+        code = max(code, 2)
+    elif code == 2:
+        code = 0
     # A local half stopped before cargo-mutants wrote its selection leaves nothing to count
     # (`never_ran` has no selection to compare), and its zero row would read as clean: the
     # fetch creates `mutants.out` for the remote half's copy whether the local half ran or not.
@@ -905,6 +1032,29 @@ def set_aside_last_run() -> None:
         out.rename(old)
 
 
+def extra_run_record() -> Path:
+    """`extra_mutants.out/run.json`: which crate's extra-mutant pass (EXTRA_KINDS)
+    belongs to the run in `mutants.out`, with its wall seconds and outcome counts;
+    the survivors sit beside it in `missed_<crate>.txt`. Read at summary time so
+    `just mutants-collect`, a different process, finds the record of the run it
+    summarizes; under `extra_mutants.out/` because cargo-mutants moves an existing
+    `mutants.out` aside when a run starts. Resolved under `ROOT` at call time so
+    mutants_test's patched `ROOT` never reads the real one."""
+    return ROOT / "extra_mutants.out" / "run.json"
+
+
+def record_extra_run(crate: str, counts: dict, seconds: float) -> None:
+    path = extra_run_record()
+    path.parent.mkdir(exist_ok=True)
+    temp = path.with_name(path.name + ".tmp")
+    temp.write_text(
+        json.dumps({"crate": crate, "seconds": seconds, "counts": dict(counts)})
+        + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temp, path)
+
+
 def split(
     selection: list[str], host: str, local: bool = True, tree: str | None = None
 ) -> int:
@@ -939,6 +1089,25 @@ def split(
         return 1
 
     set_aside_last_run()
+    if selection[0] == "-p" and local:
+        import extra_mutants  # deferred: extra_mutants imports this module
+
+        _, extra_counts, extra_seconds = extra_mutants.run_crate(
+            selection[1], list(EXTRA_KINDS), tree
+        )
+        record_extra_run(selection[1], extra_counts, extra_seconds)
+    elif selection[0] == "-p":
+        kinds = "".join(f" --kind {kind}" for kind in EXTRA_KINDS)
+        print(
+            f"extra mutants skipped (REMOTE_ONLY runs nothing on this machine): "
+            f"run `just extra-mutants {selection[1]}{kinds}` when it does",
+            flush=True,
+        )
+        extra_run_record().unlink(missing_ok=True)
+    else:
+        # A diff run has no extra pass: drop the last whole-crate run's record so
+        # the summary never reads its survivors as this run's.
+        extra_run_record().unlink(missing_ok=True)
     local_code, remote_code, local_seconds, remote_seconds = run_split(
         selection, host, tree, remote_head, remote_tree, nproc, local
     )
@@ -992,9 +1161,21 @@ def main(argv: list[str]) -> int:
             return 1
         print(f"{reason}: running every mutant on this machine", flush=True)
         set_aside_last_run()
+        import extra_mutants  # deferred: extra_mutants imports this module
+
+        _, extra_counts, extra_seconds = extra_mutants.run_crate(
+            crate, list(EXTRA_KINDS)
+        )
+        record_extra_run(crate, extra_counts, extra_seconds)
+        started = time.monotonic()
         code = local_mutants(["-p", crate]).returncode
         update_cost_cache()
-        return report_killed(code)
+        return summarize(
+            code,
+            0,
+            ROOT / "mutants.out" / "remote" / "remote_console.txt",
+            (time.monotonic() - started, None),
+        )
 
     return split(["-p", crate], host)
 

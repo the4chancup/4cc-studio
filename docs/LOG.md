@@ -1774,3 +1774,5 @@ worklog passed 7,000 lines.
   converge (25 of 26 survivors real gaps in `aesthetics_export`); the gaps are step 5.0g.
 - **2026-10-12** — Phase 4 closed: `team_compiler`'s close run triaged (five texture-ownership
   tests by SWE-2, one exclusion, the rest caught on Windows); worklog collapsed to the phase row.
+- **2026-10-12** — Step 5.0h: `just mutants <crate>` runs the literal and normalize kinds itself
+  and reruns here a remote survivor only a Windows test catches; SWE-2, first attempt.

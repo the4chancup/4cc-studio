@@ -280,14 +280,19 @@ Requirements:
   unreachable code (a design finding). A survivor with no bucket is a review finding, not a
   number to accept. Results land in `mutants.out/` (gitignored). What a clean run cannot
   vouch for: `cargo-mutants` rewrites operators, a `!`, match arms and guards, a field, and a
-  function's whole return value; it never edits a literal or removes a method call. Two such
-  kinds are measured by `just extra-mutants <crate> --kind literal --kind normalize`
-  (`crates/dev/extra_mutants`, run locally in a copy of the tree, a few minutes per crate),
-  beside `just mutants <crate>` at converge and triaged the same way: `literal` removes one
-  alternative of a `matches!` or one element of a literal list a `split`, `contains` or
-  similar method decides by; `normalize` removes a `.trim()`-style or case-changing call, or
-  makes `eq_ignore_ascii_case` an `==`. The tool's other kinds (`guard`, `order`, `bool`) are
-  not run: over `aesthetics_export` few of their survivors were real gaps. So a guard that
+  function's whole return value; it never edits a literal or removes a method call. So `just
+  mutants <crate>` first runs two such kinds (`EXTRA_KINDS` in `scripts/mutants.py`, listed by
+  `crates/dev/extra_mutants`, run locally in a copy of the tree, a few minutes per crate),
+  their survivors in the same `missed_all.txt` tagged with their kind and triaged the same
+  way: `literal` removes one alternative of a `matches!` or one element of a literal list a
+  `split`, `contains` or similar method decides by; `normalize` removes a `.trim()`-style or
+  case-changing call, or makes `eq_ignore_ascii_case` an `==`. The tool's other kinds
+  (`guard`, `order`, `bool`) are not run (`just extra-mutants <crate> --kind <name>` runs one
+  by hand): over `aesthetics_export` few of `guard`'s survivors were real gaps, and `order`
+  and `bool` are on a wider trial (worklog 5.0b). A survivor of the remote half whose only
+  catching test is `#[cfg(windows)]` is rerun on this machine when the run is collected, and
+  the outcome here replaces the remote one; such a test's mutants are named in
+  `WINDOWS_ONLY_TESTS` in `scripts/mutants.py`, by file and function. So a guard that
   refuses an input the standard library would accept (a leading `+`, which `u8::from_str`
   takes) still gets a test of its own when written: no run will ask for it (the color grammar
   had none, with all its mutants caught; S10's review, 2026-10-09).

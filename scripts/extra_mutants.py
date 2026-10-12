@@ -7,14 +7,17 @@ deleted) and `bool` (a `true`/`false` flipped). This script applies each listed 
 in a copy of the working tree and lets
 `cargo test -p <crate>` decide whether the suite catches it. Outcomes land in
 `extra_mutants.out/` (gitignored): `outcomes_<kinds>.tsv` has every mutant of the run's
-kinds, `missed_<kinds>.txt` the survivors. `--list` only prints the mutants and their
-counts, without running anything. `--kind <name>` (repeatable) restricts the run or the
-listing to those kinds.
+kinds, `missed_<kinds>.txt` the survivors as `crates/...:<line>: [<kind>] <what>` lines;
+`missed_<crate>.txt` holds the same lines for `just mutants`, which runs the converge
+kinds (`mutants.EXTRA_KINDS`) itself and merges them into `missed_all.txt`. `--list`
+only prints the mutants and their counts, without running anything. `--kind <name>`
+(repeatable) restricts the run or the listing to those kinds.
 """
 
 import json
 import os
 import shutil
+import stat
 import signal
 import subprocess
 import sys
@@ -185,25 +188,36 @@ def parse_args(argv: list[str]) -> tuple[str, list[str], bool]:
     return positional[0], sorted(set(kinds)) or list(ALL_KINDS), list_only
 
 
-def main(argv: list[str]) -> int:
-    crate, kinds, list_only = parse_args(argv)
-    directory = crate_dir(crate)
-    if list_only:
-        rows = [row for row in list_mutants(directory) if row[3] in kinds]
-        for row in rows:
-            print("\t".join(row))
-        per_kind = Counter(row[3] for row in rows)
-        counts = ", ".join(f"{kind} {n}" for kind, n in sorted(per_kind.items()))
-        print(f"{len(rows)} mutants ({counts})")
-        return 0
+def remove_tree(path: Path) -> None:
+    """`shutil.rmtree`, clearing the read-only bit of a file it cannot delete: a test's
+    scratch output can hold one (`team_compiler`'s unwritable-deploy test), which left a
+    whole copy, `target/` included, behind on Windows."""
 
+    def make_writable(function, failed, _error):
+        os.chmod(failed, stat.S_IWRITE)
+        function(failed)
+
+    shutil.rmtree(path, onexc=make_writable)
+
+
+def run_crate(
+    crate: str, kinds: list[str], tree: str | None = None
+) -> tuple[list[str], Counter, float]:
+    """Run every `kinds` mutant the lister finds in `crate`, each applied in a
+    copy of git `tree` (the working tree when None) and decided by one `cargo
+    test -p <crate>`. Writes `outcomes_<kinds>.tsv` and `missed_<kinds>.txt`
+    under `extra_mutants.out/`, plus `missed_<crate>.txt`, the same survivors
+    named for `just mutants`, which calls this for its EXTRA_KINDS and records
+    the run in `run.json` beside it for `just mutants-collect` to summarize.
+    Returns (the missed lines, the per-outcome counts, the wall seconds)."""
+    directory = crate_dir(crate)
     crate_rel = directory.relative_to(ROOT)
-    tree = mutants.working_tree()
+    tree = tree or mutants.working_tree()
     copy_dir = mutants.LOCAL_TMPDIR / f"extra-mutants-{os.getpid()}"
     if copy_dir.exists():
         # A leftover of an interrupted run under a reused pid: remove it rather than
         # test against its stale files.
-        shutil.rmtree(copy_dir)
+        remove_tree(copy_dir)
     wall_start = time.monotonic()
     try:
         extract_tree(tree, copy_dir)
@@ -251,14 +265,16 @@ def main(argv: list[str]) -> int:
                 outcome + "\t" + "\t".join(row) + "\n" for outcome, row in outcomes
             ),
         )
-        write_out(
-            OUT_DIR / f"missed_{kinds_key}.txt",
-            "".join(
-                f"{row[0]}:{row[4]}: {row[6]}\n"
-                for outcome, row in outcomes
-                if outcome == "missed"
-            ),
-        )
+        # cargo-mutants' missed.txt shape (workspace-relative path, line, then the
+        # description), tagged with the kind cargo-mutants' lines cannot carry.
+        missed = [
+            f"{(crate_rel / row[0]).as_posix()}:{row[4]}: [{row[3]}] {row[6]}"
+            for outcome, row in outcomes
+            if outcome == "missed"
+        ]
+        missed_text = "".join(text + "\n" for text in missed)
+        write_out(OUT_DIR / f"missed_{kinds_key}.txt", missed_text)
+        write_out(OUT_DIR / f"missed_{crate}.txt", missed_text)
         per_outcome = Counter(outcome for outcome, _ in outcomes)
         per_kind = Counter(row[3] for _, row in outcomes)
         print(
@@ -269,14 +285,29 @@ def main(argv: list[str]) -> int:
             "per kind: "
             + (", ".join(f"{name} {n}" for name, n in sorted(per_kind.items())) or "none")
         )
-        print(f"wall time: {time.monotonic() - wall_start:.0f} s")
-        return 0
+        wall = time.monotonic() - wall_start
+        print(f"wall time: {wall:.0f} s")
+        return missed, per_outcome, wall
     finally:
         if copy_dir.exists():
             try:
-                shutil.rmtree(copy_dir)
+                remove_tree(copy_dir)
             except OSError as error:
                 print(f"extra_mutants: could not remove {copy_dir}: {error}")
+
+
+def main(argv: list[str]) -> int:
+    crate, kinds, list_only = parse_args(argv)
+    if list_only:
+        rows = [row for row in list_mutants(crate_dir(crate)) if row[3] in kinds]
+        for row in rows:
+            print("\t".join(row))
+        per_kind = Counter(row[3] for row in rows)
+        counts = ", ".join(f"{kind} {n}" for kind, n in sorted(per_kind.items()))
+        print(f"{len(rows)} mutants ({counts})")
+        return 0
+    run_crate(crate, kinds)
+    return 0
 
 
 if __name__ == "__main__":

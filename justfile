@@ -49,7 +49,9 @@ mutants-collect:
 mutants-diff base="HEAD":
     {{python}} scripts/mutants_diff.py {{base}}
 
-# The mutants cargo-mutants lacks (dropped `if` guards, literal-list elements) over one crate; `--list` only lists them (5.0b prototype)
+# The mutants cargo-mutants lacks (dropped `if` guards, literal-list elements) over one crate;
+# `just mutants` runs the literal and normalize kinds inside the whole-crate run, so this stays
+# for `--list`, single `--kind` runs and trials of the other kinds
 extra-mutants crate *args:
     {{python}} scripts/extra_mutants.py {{crate}} {{args}}
 

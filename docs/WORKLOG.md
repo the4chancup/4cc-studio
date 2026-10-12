@@ -431,14 +431,18 @@ Fixed before the itemization:
   may cover several sites (a mixed-case export; a padded `players.txt`) → verify: `just
   extra-mutants aesthetics_export --kind literal --kind normalize` misses only
   `validate/roster.rs:89`'s `source_read_failed` (an I/O failure, not reachable by a test)
-- [ ] 5.0h `just mutants <crate>` runs the adopted extra kinds and reruns Windows-only survivors
+- [x] 5.0h `just mutants <crate>` runs the adopted extra kinds and reruns Windows-only survivors
   here (maintainer, 2026-10-12): the whole-crate run first runs `literal` and `normalize`
   (`EXTRA_KINDS` in `scripts/mutants.py`), their survivors joining `missed_all.txt`; at
   collection a remote survivor matching `WINDOWS_ONLY_TESTS` (a test that runs on Windows
   only, such as `team_compiler`'s `deploy.rs` error-kind guards, which survived on bonfire at
   Phase 4's close and were caught here) is rerun on this machine, its outcome replacing the
   remote one. Then CONTRIBUTING "Mutation runs" and AGENTS.md name one command → verify:
-  the brief's scratch checks (`.tmp/5_0b/brief_mutants_merge.md`)
+  the brief's scratch checks (`.tmp/5_0b/brief_mutants_merge.md`). Done 2026-10-12 (SWE-2,
+  first attempt: `run_crate` in `extra_mutants.py`, its survivors workspace-relative and
+  tagged with the kind; `mutants.py` `EXTRA_KINDS`, `WINDOWS_ONLY_TESTS`, `recheck_windows`,
+  the `extra` row and a `missed_all.txt` on every path; the recheck caught `deploy.rs:180`
+  here in its scratch check, and `aesthetics_export`'s 26 extra survivors merged)
 - [x] 5.0c Red behavior inventory (maintainer, 2026-10-09; after Phase 4 closes, before Phase 5
   builds on the compiler): go through Red's own code (`4cc-aet-compiler-red/Engines/python/`,
   not its bundled site-packages) module by module, one subagent per module, and list every
