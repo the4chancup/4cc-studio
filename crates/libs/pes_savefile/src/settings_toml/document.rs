@@ -125,8 +125,9 @@ fn toml_form(key: SettingKey, stored: u8, stored_ranges: bool) -> Result<Value, 
 }
 
 /// The range text a `Kind` reports (`"0 to 7"`, `"-7 to 7"`, `"1 to 10"`,
-/// `"true, false"`, or the quoted label list).
-pub(super) fn range_text(kind: Kind) -> String {
+/// `"true, false"`, or the quoted label list). `pub(crate)` for the
+/// aesthetics patch, whose `OutOfRange` carries the same text.
+pub(crate) fn range_text(kind: Kind) -> String {
     match kind {
         Kind::Number { min, max } => format!("{min} to {max}"),
         Kind::Signed7 => "-7 to 7".to_string(),

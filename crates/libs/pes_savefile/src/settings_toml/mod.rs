@@ -658,7 +658,14 @@ impl PlayerSettings {
 }
 
 /// Maps `text_misfit`'s verdict for the `key` text onto this file's errors.
-fn check_text(key: &str, text: &str, max: usize, single_byte: bool) -> Result<(), SettingsError> {
+/// `pub(crate)` for the aesthetics patch, which checks its names with the
+/// same rule.
+pub(crate) fn check_text(
+    key: &str,
+    text: &str,
+    max: usize,
+    single_byte: bool,
+) -> Result<(), SettingsError> {
     match text_misfit(text, max, single_byte) {
         None => Ok(()),
         Some(TextMisfit::Nul) => Err(SettingsError::WrongType {

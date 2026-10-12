@@ -11,8 +11,8 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 4 (Processing logic) closed 2026-10-12. Phases 1 to 3 done (Phase 3 closed 2026-10-02,
 Phase 2 2026-09-30).
-**Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and steps 5.1a and 5.1b
-done, 5.1c next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
+**Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and steps 5.1a to 5.1c
+done, 5.1d next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -432,6 +432,13 @@ Fixed before the itemization:
   lister visits; a test pins them), the other six go; a list mixing literal and non-literal
   elements now lists its literal ones; ten tests in `scan.rs`, `tests/cli.rs` running the
   binary. `cargo mutants -p extra_mutants`: 121 caught, 5 unviable, none missed.
+- [ ] 5.0b4 `bool` joins `EXTRA_KINDS` (maintainer, 2026-10-12: its real gaps were the
+  trial's worst, silently wrong files) with `.cargo/extra_mutants.toml`, the extra kinds' list
+  of ruled equivalents, matched by path, kind and description (a `bool` description names its
+  flag), stale entries reported; seeded with the 19 rulings so far; `fmdl`, `pes_model` and
+  `archives` run for `bool` the first time (brief `.tmp/5_0b/brief_5_0b4.md`) → verify:
+  `team_compiler`, `model_convert` and `pes_savefile` leave no `bool` survivor and no stale
+  entry
 - [x] 5.0g Tests for 5.0b's real gaps, in two slices:
   - [x] 5.0g1 in `aesthetics_export` unless named: `literal`:
     `conventions/player_folder.rs` `is_gloves` (`GloveR`, `HandL`, `HandR`) and
@@ -593,14 +600,15 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     shares `apply`'s write half without its range checks, since real cup players hold values
     past them, issue "real cup players past the editor ranges"; all 19,596 fixture players
     round-trip byte-exact)
-  - [ ] 5.1c the aesthetics patch, Fox half: the type, parse, emit, `apply_patch` by player id
+  - [x] 5.1c the aesthetics patch, Fox half: the type, parse, emit, `apply_patch` by player id
     and its refusals (a pre-Fox patch included) → done when: SE-PAT-01 to 04's outcomes hold at
     the lib level. Sub-slices, each a commit (types: `operations.md` "Aesthetics patch"):
     - [x] 5.1c1 `AestheticsPatch` and its types, `parse` and `to_toml`, the pre-Fox refusal.
       Done 2026-10-12 (SWE-2, first attempt, plus one rework: `to_toml` made fallible
       instead of writing a value `parse` refuses back; with review R5.S1's test witness)
-    - [ ] 5.1c2 `apply`: the refusals before any write, absent teams and players skipped,
-      the `PatchSummary`
+    - [x] 5.1c2 `apply`: the refusals before any write, absent teams and players skipped,
+      the `PatchSummary`. Done 2026-10-12 (SWE-2, first attempt, plus one rework: review
+      R5.A1's `to_toml` refusals and a mutation survivor). Step 5.1c done 2026-10-12
   - [ ] 5.1d the Team TOML: `stripped`, the appearance table written key by key, `ingame_face`
     gone; a test-support export so a tool crate's CLI tests can write a whole fixture save →
     done when: SE-TOML-01 to 08's outcomes hold at the lib level

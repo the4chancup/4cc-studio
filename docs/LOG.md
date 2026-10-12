@@ -1806,3 +1806,5 @@ worklog passed 7,000 lines.
   players past the editor ranges found (worklog issue).
 - **2026-10-12** — Step 5.1c1: the aesthetics patch's Fox types, `parse` and `to_toml`. SWE-2,
   first attempt; one rework from the lead's review (an emit fallback hid an error).
+- **2026-10-12** — Step 5.1c2: applying the aesthetics patch (Fox), refused whole or applied
+  whole but for absent teams and players. SWE-2, first attempt; one rework. Step 5.1c done.
