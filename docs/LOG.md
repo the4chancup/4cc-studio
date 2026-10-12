@@ -1770,3 +1770,5 @@ worklog passed 7,000 lines.
   needs one power-of-two side; the 2048 kit limit is PES 15-17's); SWE-2, first attempt.
 - **2026-10-12** — Step 5.0b2: three more extra-mutant kinds (normalize, order, bool) and a `--kind`
   filter; SWE-2, first attempt. `team_compiler`'s close run collected: 10 missed, 3 timeouts.
+- **2026-10-12** — Step 5.0b closed: of the five extra mutant kinds, literal and normalize join
+  converge (25 of 26 survivors real gaps in `aesthetics_export`); the gaps are step 5.0g.

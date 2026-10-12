@@ -280,11 +280,17 @@ Requirements:
   unreachable code (a design finding). A survivor with no bucket is a review finding, not a
   number to accept. Results land in `mutants.out/` (gitignored). What a clean run cannot
   vouch for: `cargo-mutants` rewrites operators, a `!`, match arms and guards, a field, and a
-  function's whole return value; it never drops an `if` guard or changes a literal. So a guard
-  that refuses an input the standard library would accept (a leading `+`, which
-  `u8::from_str` takes), and a rule a literal decides (the separators a line is split on),
-  each get a test of their own when written: no run will ask for it (the color grammar had
-  neither, with all its mutants caught; S10's review, 2026-10-09).
+  function's whole return value; it never edits a literal or removes a method call. Two such
+  kinds are measured by `just extra-mutants <crate> --kind literal --kind normalize`
+  (`crates/dev/extra_mutants`, run locally in a copy of the tree, a few minutes per crate),
+  beside `just mutants <crate>` at converge and triaged the same way: `literal` removes one
+  alternative of a `matches!` or one element of a literal list a `split`, `contains` or
+  similar method decides by; `normalize` removes a `.trim()`-style or case-changing call, or
+  makes `eq_ignore_ascii_case` an `==`. The tool's other kinds (`guard`, `order`, `bool`) are
+  not run: over `aesthetics_export` few of their survivors were real gaps. So a guard that
+  refuses an input the standard library would accept (a leading `+`, which `u8::from_str`
+  takes) still gets a test of its own when written: no run will ask for it (the color grammar
+  had none, with all its mutants caught; S10's review, 2026-10-09).
 - **Clef scan.** The sweeps find what a pattern can see and the mutation runs what a missing
   test lets through; a logic slip in code its own tests agree with needs a reader. `just
   clef-diff [base]` asks Cloudflare's Clef decision model (27B, hosted on Workers AI) whether

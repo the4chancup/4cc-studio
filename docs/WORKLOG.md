@@ -5203,7 +5203,7 @@ Fixed before the itemization:
   pooled height rule and its fix-database-on-save option (an unreleased third-party branch, the
   latter against the confirmation dialog `save_editor.md` chose). The medal name colour is an
   issue below.
-- [ ] 5.0b Prototype the two mutation kinds `cargo-mutants` lacks (after Phase 4's converge, so
+- [x] 5.0b Prototype the two mutation kinds `cargo-mutants` lacks (after Phase 4's converge, so
   it competes with no review): (1) drop a guard, an `if` whose body returns, `continue`s,
   `break`s or errs, its condition replaced with `false`; (2) remove one element of a literal
   list a `split`, `contains` or `matches!` decides by. S10's review (2026-10-09) found the
@@ -5233,7 +5233,24 @@ Fixed before the itemization:
   `--kind`, with per-kind `outcomes_<kinds>.tsv`; `aesthetics_export` lists normalize 41,
   order 5, bool 2). → done when: each kind run over `aesthetics_export` on its
   own, its survivors triaged into real gaps and equivalents, and its own count decides
-  whether it joins converge (worth it when at least about half its survivors are real gaps)
+  whether it joins converge (worth it when at least about half its survivors are real gaps).
+  Done 2026-10-12 (DECISIONS; triage `.tmp/5_0b/trial/triage.md`): literal 8 real of 9
+  survivors and normalize 17 of 17 join converge; guard 2 of 7, order 1 of 3 and bool (no
+  survivor) do not. The real gaps are step 5.0g.
+- [ ] 5.0g Tests for 5.0b's real gaps, in `aesthetics_export` unless named: `literal`:
+  `conventions/player_folder.rs` `is_gloves` (`GloveR`, `HandL`, `HandR`) and
+  `is_explicit_face` (`Oral`), `validate/folders.rs` `is_model_content` (`Skl`, `Mtl`,
+  `MaterialsToml`), `parse/mod.rs` the roster skipped on `nested_root_conflict`; `normalize`:
+  the case tolerance of `is_logo_texture`, `classify`'s `materials.toml`, `normalize`'s content
+  folders, `root_file`, the `portrait` stem, `is_kit_texture_name` (`kit`, `kit_`), the kits
+  folder's `all` head, `logo_parts`' `_crop`/`_stretch`/`_fit`, `ref_marker.dds`, and the
+  whitespace tolerance of `line_color`, `split_folder_name`, `parse_line` and `parse_roster`'s
+  blank-line filter; `guard`: `validate/roster.rs` two lines naming one out-of-range slot (two
+  `players_txt_slot_invalid`, no `players_txt_slot_duplicate`), and `color_tools` `kit.rs:191`'s
+  `total == 0`; `order`: `validate/links.rs` a kit set's `kit10` member after `kit2`. One test
+  may cover several sites (a mixed-case export; a padded `players.txt`) → verify: `just
+  extra-mutants aesthetics_export --kind literal --kind normalize` misses only
+  `validate/roster.rs:89`'s `source_read_failed` (an I/O failure, not reachable by a test)
 - [x] 5.0c Red behavior inventory (maintainer, 2026-10-09; after Phase 4 closes, before Phase 5
   builds on the compiler): go through Red's own code (`4cc-aet-compiler-red/Engines/python/`,
   not its bundled site-packages) module by module, one subagent per module, and list every

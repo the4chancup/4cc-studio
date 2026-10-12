@@ -7000,3 +7000,16 @@ statement or a method call), and the first two match this codebase's tolerance o
 spellings and its ordered outputs, which tidy fixtures cannot tell apart. Deciding per kind
 keeps a noisy kind from sinking a useful one (maintainer, 2026-10-12).
 Plan: worklog 5.0b.
+
+## 2026-10-12 — workspace — literal and normalize mutants join converge; guard, order and bool do not
+Decision: each phase's design-health pass runs `just extra-mutants <crate> --kind literal
+--kind normalize` beside `just mutants <crate>`; the `guard`, `order` and `bool` kinds stay in
+the tool, unrun.
+Why: 5.0b's trial over `aesthetics_export` (each kind on its own, about a minute each):
+`literal` 39 mutants, 9 survivors, 8 real gaps (alternatives of `is_gloves`,
+`is_explicit_face`, `is_model_content`, a roster skip untested); `normalize` 41, 17 survivors,
+all real (case and whitespace tolerance of member-written names and lines untested); `guard`
+39, 7 survivors, 2 real (4 equivalent fast paths, 1 crafted input); `order` 5, 3 survivors, 1
+real and narrow; `bool` 2, both caught. The rule set beforehand: a kind joins when about half
+its survivors are real gaps, since each equivalent survivor costs a ruling every phase.
+Plan: `CONTRIBUTING.md` "Mutation runs"; `AGENTS.md` "Closing a phase"; worklog 5.0b, 5.0g.
