@@ -1791,3 +1791,5 @@ worklog passed 7,000 lines.
   writes each player's own id there, as the game's exports do. SWE-2, first attempt.
 - **2026-10-12** — Step 5.1a2: height and weight leave `settings.toml` (gameplay fields) and
   become Team TOML player keys. SWE-2, first attempt.
+- **2026-10-12** — Step 5.1a3: `shirt_name` joins `settings.toml`; applying it checks both
+  names against the target version's fields. SWE-2, first attempt.

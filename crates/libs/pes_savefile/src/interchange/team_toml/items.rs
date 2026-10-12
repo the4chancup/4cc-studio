@@ -4,25 +4,14 @@
 
 use toml_edit::{Item, TableLike};
 
+use crate::codec::{TextMisfit, text_misfit};
 use crate::interchange::team_toml::{ImportNote, TeamTomlError};
 use crate::model::team::{KitSlot, TeamColor};
-use crate::schema::TextSpec;
 use crate::settings_toml::document::padded;
 
 /// The TOML text of a `Some` value, or `neutral` for a `None` key.
 pub(super) fn value_or(value: Option<String>, neutral: &str) -> String {
     value.unwrap_or_else(|| neutral.to_string())
-}
-
-/// The capacity of `text` in `texts`: the field's byte length — what the
-/// codec accepts before `CodecError::Text`.
-pub(super) fn text_max<T: Copy + PartialEq>(texts: &[TextSpec<T>], text: T) -> usize {
-    let len = texts
-        .iter()
-        .find(|spec| spec.text == text)
-        .map(|spec| spec.len)
-        .expect("every version stores the text");
-    usize::try_from(len).expect("a text field's length fits usize")
 }
 
 /// One line: `name = value` with the comment at column 33, commented out with
@@ -320,41 +309,29 @@ pub(super) fn gated(
     }
 }
 
-/// The apply-side text rule all four text fields share: no NUL (the codec
-/// reads up to the first NUL, so the value would reload truncated), no char
-/// above U+00FF when `single_byte` (the codec encodes one byte per char), and
-/// the field's capacity — UTF-8 bytes for the `name` fields, chars for the
-/// single-byte `short_name`/`shirt_name`.
+/// Maps `text_misfit`'s verdict for the field at `path` onto this document's
+/// errors.
 pub(super) fn check_text(
     path: &str,
     text: &str,
     max: usize,
     single_byte: bool,
 ) -> Result<(), TeamTomlError> {
-    if text.contains('\0') {
-        return Err(TeamTomlError::WrongType {
+    match text_misfit(text, max, single_byte) {
+        None => Ok(()),
+        Some(TextMisfit::Nul) => Err(TeamTomlError::WrongType {
             key: path.to_string(),
             expected: "a string without NUL",
-        });
-    }
-    if single_byte && text.chars().any(|c| c > '\u{ff}') {
-        return Err(TeamTomlError::WrongType {
+        }),
+        Some(TextMisfit::BeyondSingleByte) => Err(TeamTomlError::WrongType {
             key: path.to_string(),
             expected: "a string of chars at most U+00FF",
-        });
-    }
-    let len = if single_byte {
-        text.chars().count()
-    } else {
-        text.len()
-    };
-    if len > max {
-        return Err(TeamTomlError::TextTooLong {
+        }),
+        Some(TextMisfit::TooLong { max }) => Err(TeamTomlError::TextTooLong {
             path: path.to_string(),
             max,
-        });
+        }),
     }
-    Ok(())
 }
 
 /// The apply-side width rule: a stored value the target's `width`-bit field

@@ -565,8 +565,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       fixed)
     - [x] 5.1a2 height and weight out of the key table, Team TOML player keys. Done
       2026-10-12 (SWE-2, first attempt; `.4ccs` import carries them as player keys)
-    - [ ] 5.1a3 `shirt_name`
-    - [ ] 5.1a4 absent = default (a `KeySpec` default column; `apply` takes the version)
+    - [x] 5.1a3 `shirt_name`; `PlayerSettings::apply` takes the target version and checks both
+      names against its fields (the text rule shared with Team TOML). Done 2026-10-12
+      (SWE-2, first attempt; the lead aligned the commented template line)
+    - [ ] 5.1a4 absent = default (a `KeySpec` default column)
     - [ ] 5.1a5 the unknown bits, model half: `face` on `AppearanceSettings`, the per-bit
       completeness test
     - [ ] 5.1a6 the unknown bits, TOML half: `[appearance.unknown] face` parsed and emitted

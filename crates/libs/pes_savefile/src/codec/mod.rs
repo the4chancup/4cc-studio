@@ -16,7 +16,7 @@ pub use team::{
 
 use pes_version::PesVersion;
 
-use crate::schema::RecordSchema;
+use crate::schema::{RecordSchema, TextSpec};
 
 /// A player/team record could not be decoded or re-encoded.
 #[derive(Debug, thiserror::Error)]
@@ -203,6 +203,51 @@ pub(crate) fn single_byte(text: &str, name: &'static str) -> Result<Vec<u8>, Cod
         encoded.push(c as u8);
     }
     Ok(encoded)
+}
+
+/// Why a text does not fit a record's text field.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TextMisfit {
+    /// A NUL: the codec reads up to the first one, so the text would reload cut.
+    Nul,
+    /// A char above U+00FF in a single-byte field.
+    BeyondSingleByte,
+    /// Longer than the field: UTF-8 bytes for a name, chars for a single-byte text.
+    TooLong { max: usize },
+}
+
+/// The apply-side text rule the interchange documents share: no NUL (the
+/// codec reads up to the first NUL, so the value would reload truncated), no
+/// char above U+00FF when `single_byte` (the codec encodes one byte per
+/// char), and the field's capacity — UTF-8 bytes for the `name` fields, chars
+/// for the single-byte `short_name`/`shirt_name`.
+pub(crate) fn text_misfit(text: &str, max: usize, single_byte: bool) -> Option<TextMisfit> {
+    if text.contains('\0') {
+        return Some(TextMisfit::Nul);
+    }
+    if single_byte && text.chars().any(|c| c > '\u{ff}') {
+        return Some(TextMisfit::BeyondSingleByte);
+    }
+    let len = if single_byte {
+        text.chars().count()
+    } else {
+        text.len()
+    };
+    if len > max {
+        return Some(TextMisfit::TooLong { max });
+    }
+    None
+}
+
+/// The capacity of `text` in `texts`: the field's byte length — what the
+/// codec accepts before `CodecError::Text`.
+pub(crate) fn text_max<T: Copy + PartialEq>(texts: &[TextSpec<T>], text: T) -> usize {
+    let len = texts
+        .iter()
+        .find(|spec| spec.text == text)
+        .map(|spec| spec.len)
+        .expect("every version stores the text");
+    usize::try_from(len).expect("a text field's length fits usize")
 }
 
 /// The shared write loop over `runs`: get, width check, patch.

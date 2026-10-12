@@ -11,13 +11,17 @@ pub(crate) mod keys;
 #[cfg(test)]
 mod tests;
 
+use pes_version::PesVersion;
+
 use document::{dotted, range_text};
 
-use crate::codec::CodecError;
+use crate::codec::{CodecError, TextMisfit, text_max, text_misfit};
 use crate::model::player::PlayerEntry;
 #[cfg(test)]
 use crate::schema::fields::PlayerField;
+use crate::schema::fields::PlayerText;
 use crate::schema::ingame_face::IngameFaceField;
+use crate::schema::schema_for;
 
 pub use keys::{KeySpec, KeyTable, Kind, SettingKey};
 
@@ -170,7 +174,7 @@ pub struct FaceSettings {
     pub lower_lip_type: Option<u8>,
 }
 
-/// A settings.toml's player: the name, the two stock-model IDs and the
+/// A settings.toml's player: the two names, the two stock-model IDs and the
 /// appearance tables. The IDs are top-level keys, outside
 /// `AppearanceSettings`, because Team TOML embeds the appearance tables
 /// beside its own player-level full-range IDs.
@@ -178,6 +182,8 @@ pub struct FaceSettings {
 pub struct PlayerSettings {
     /// The name setting; `None` = never write a name.
     pub name: Option<NameSetting>,
+    /// The shirt name setting; `None` = never write a shirt name.
+    pub shirt_name: Option<String>,
     /// A stock boots model ID (0 to 100); `None`/`""` = default.
     pub boots_id: Option<u8>,
     /// A stock gloves model ID (0 to 100; 0 = normal hands); `None`/`""` =
@@ -228,6 +234,15 @@ pub enum SettingsError {
         value: i64,
         /// The range text ("-7 to 7", "1 to 10", "0 to 7").
         range: String,
+    },
+    /// A `name` or `shirt_name` string longer than the version's field holds.
+    #[error("{key}: longer than this player's game version allows ({max})")]
+    TextTooLong {
+        /// The TOML key (`name`, `shirt_name`).
+        key: String,
+        /// The field's capacity: UTF-8 bytes for `name`, chars for the
+        /// single-byte `shirt_name`.
+        max: usize,
     },
     /// A string that is none of the key's labels.
     #[error("{key}: unknown value {label:?}, expected one of {allowed}")]
@@ -487,6 +502,7 @@ impl PlayerSettings {
     pub fn from_player(player: &PlayerEntry) -> Result<Self, SettingsError> {
         let mut settings = PlayerSettings {
             name: Some(NameSetting::Explicit(player.name.clone())),
+            shirt_name: Some(player.shirt_name.clone()),
             ..PlayerSettings::default()
         };
         for key in SettingKey::ALL {
@@ -498,13 +514,20 @@ impl PlayerSettings {
     }
 
     /// Writes the `Some` fields onto the player, all or nothing: on `Err` the
-    /// player is unchanged. `NameSetting::FromFolder` is not applied: the
-    /// caller (the Team compiler) resolves it to `Explicit` first, since the
-    /// folder rules are its. A `Some` on a field this player's version lacks
-    /// (`dribbling` before PES 20) is `SettingsError::NotInThisVersion`; a
-    /// `Some` the key's kind cannot represent is `OutOfRange`, checked before
-    /// any write.
-    pub fn apply(&self, player: &mut PlayerEntry) -> Result<(), SettingsError> {
+    /// player is unchanged. `version` names the compile target: the name and
+    /// shirt-name fields differ between versions, so both strings are checked
+    /// against that version's field before anything is written (a misfit is
+    /// `WrongType` or `TextTooLong`). `NameSetting::FromFolder` is not
+    /// applied: the caller (the Team compiler) resolves it to `Explicit`
+    /// first, since the folder rules are its. A `Some` on a field this
+    /// player's version lacks (`dribbling` before PES 20) is
+    /// `SettingsError::NotInThisVersion`; a `Some` the key's kind cannot
+    /// represent is `OutOfRange`, checked before any write.
+    pub fn apply(
+        &self,
+        player: &mut PlayerEntry,
+        version: PesVersion,
+    ) -> Result<(), SettingsError> {
         for key in SettingKey::ALL {
             if let Some(value) = self.get(key) {
                 let spec = key.spec();
@@ -517,9 +540,24 @@ impl PlayerSettings {
                 }
             }
         }
+        let texts = schema_for(version).player.texts;
+        if let Some(NameSetting::Explicit(name)) = &self.name {
+            check_text("name", name, text_max(texts, PlayerText::Name), false)?;
+        }
+        if let Some(shirt_name) = &self.shirt_name {
+            check_text(
+                "shirt_name",
+                shirt_name,
+                text_max(texts, PlayerText::ShirtName),
+                true,
+            )?;
+        }
         let mut next = player.clone();
         if let Some(NameSetting::Explicit(name)) = &self.name {
             next.name = name.clone();
+        }
+        if let Some(shirt_name) = &self.shirt_name {
+            next.shirt_name = shirt_name.clone();
         }
         if let Some(id) = self.boots_id {
             next.appearance.boots_id = u32::from(id);
@@ -530,6 +568,25 @@ impl PlayerSettings {
         write_appearance(&self.appearance, &mut next)?;
         *player = next;
         Ok(())
+    }
+}
+
+/// Maps `text_misfit`'s verdict for the `key` text onto this file's errors.
+fn check_text(key: &str, text: &str, max: usize, single_byte: bool) -> Result<(), SettingsError> {
+    match text_misfit(text, max, single_byte) {
+        None => Ok(()),
+        Some(TextMisfit::Nul) => Err(SettingsError::WrongType {
+            key: key.to_string(),
+            expected: "a string without NUL",
+        }),
+        Some(TextMisfit::BeyondSingleByte) => Err(SettingsError::WrongType {
+            key: key.to_string(),
+            expected: "a string of chars at most U+00FF",
+        }),
+        Some(TextMisfit::TooLong { max }) => Err(SettingsError::TextTooLong {
+            key: key.to_string(),
+            max,
+        }),
     }
 }
 

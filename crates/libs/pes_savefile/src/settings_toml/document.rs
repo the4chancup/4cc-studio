@@ -15,8 +15,8 @@ use super::{
 // `update_toml` rewrites the `Some` values inside an existing document while
 // preserving its comments and formatting.
 
-/// The header of a generated `settings.toml`: the plan block's five comment
-/// lines and the two-line `name` comment, verbatim.
+/// The header of a generated `settings.toml`: five comment lines followed by
+/// the plan block's four `name`/`shirt_name` comment lines, verbatim.
 const HEADER: &str = "\
 # settings.toml, inside a player folder. Every key is optional: an absent key leaves
 # that savefile setting untouched (boots_id/gloves_id: see their comments). A commented
@@ -25,7 +25,9 @@ const HEADER: &str = "\
 # files pointing at shared folders); boots_id/gloves_id only name the game's stock models.
 
 # true = derive from the folder name (\"15 - Snuffy\" gives \"Snuffy\"; the whole folder
-# name for players.txt-mapped folders); \"text\" = write as is; absent = leave untouched.
+# name for players.txt-mapped folders); \"text\" = write as is; absent = not written.
+# name and shirt_name are used only when the export's root holds the `autopilot` marker (a
+# team without a manager); otherwise they are ignored and the manager's names stand.
 ";
 
 /// The dotted path of a key ("appearance.strip.sleeves"; a top-level key is
@@ -305,7 +307,7 @@ fn absolute(root: &str, table: KeyTable) -> String {
 fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
     for (name, item) in document.iter() {
         match name {
-            "name" => {}
+            "name" | "shirt_name" => {}
             "appearance" => reject_unknown_table(item, "appearance", "appearance")?,
             _ if SettingKey::ALL
                 .iter()
@@ -467,6 +469,23 @@ impl PlayerSettings {
                 }
             });
         }
+        if let Some(item) = document.get("shirt_name") {
+            settings.shirt_name = Some(match item.as_value() {
+                Some(Value::String(s)) if s.value().contains('\0') => {
+                    return Err(SettingsError::WrongType {
+                        key: "shirt_name".to_string(),
+                        expected: "a string without NUL",
+                    });
+                }
+                Some(Value::String(s)) => s.value().clone(),
+                _ => {
+                    return Err(SettingsError::WrongType {
+                        key: "shirt_name".to_string(),
+                        expected: "a string",
+                    });
+                }
+            });
+        }
         settings.boots_id = model_id(&document, SettingKey::BootsId)?;
         settings.gloves_id = model_id(&document, SettingKey::GlovesId)?;
         if let Some(item) = document.get("appearance") {
@@ -488,6 +507,17 @@ impl PlayerSettings {
                 out.push_str(&format!("name = {}\n", Value::from(name.as_str())));
             }
             None => out.push_str("# name = true\n"),
+        }
+        let shirt_name = padded(
+            &format!(
+                "shirt_name = {}",
+                Value::from(self.shirt_name.as_deref().unwrap_or(""))
+            ),
+            "\"text\" = write as is; absent = not written",
+        );
+        match &self.shirt_name {
+            Some(_) => out.push_str(&format!("{shirt_name}\n")),
+            None => out.push_str(&format!("# {shirt_name}\n")),
         }
         // The stock-model IDs are uncommented in every case: `""` is what a
         // template shows for default (TOML has no bare `key =`).
@@ -528,6 +558,9 @@ impl PlayerSettings {
                 set(&mut document["name"], name.as_str().into());
             }
             None => {}
+        }
+        if let Some(shirt_name) = &self.shirt_name {
+            set(&mut document["shirt_name"], shirt_name.as_str().into());
         }
         for (key, id) in [
             (SettingKey::BootsId, self.boots_id),

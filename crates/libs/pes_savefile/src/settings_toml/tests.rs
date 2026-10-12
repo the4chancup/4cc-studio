@@ -11,10 +11,10 @@ use super::{
     AppearanceSettings, KeyTable, Kind, NameSetting, Ownership, PlayerSettings, SettingKey,
     SettingsError, face_ownership, ownership,
 };
-use crate::codec::{read_player, runs, write_player};
+use crate::codec::{read_player, runs, text_max, write_player};
 use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerAppearance;
-use crate::schema::fields::PlayerField;
+use crate::schema::fields::{PlayerField, PlayerText};
 use crate::schema::ingame_face::{INGAME_FACE_FIELDS, IngameFaceField};
 use crate::schema::schema_for;
 use crate::test_support::{count, find_player, payload, record};
@@ -133,7 +133,7 @@ fn apply_copies_the_settings_and_leaves_the_rest() {
 
     PlayerSettings::from_player(&p)
         .expect("from_player")
-        .apply(&mut q)
+        .apply(&mut q, PesVersion::Pes19)
         .expect("apply");
 
     // Every scalar appearance field and every decoded face field is p's.
@@ -171,8 +171,8 @@ fn apply_copies_the_settings_and_leaves_the_rest() {
     }
     assert_eq!(q.motion, p.motion);
     assert_eq!(q.name, p.name);
+    assert_eq!(q.shirt_name, p.shirt_name);
     assert_eq!(q.id, q_before.id);
-    assert_eq!(q.shirt_name, q_before.shirt_name);
     assert_eq!(q.stats, q_before.stats);
     assert_eq!(q.positions, q_before.positions);
     assert_eq!(q.skills, q_before.skills);
@@ -194,7 +194,7 @@ fn height_and_weight_are_not_settings() {
     );
     let (height, weight) = (q.basic.height, q.basic.weight);
     let settings = PlayerSettings::from_player(&p).expect("from_player");
-    settings.apply(&mut q).expect("apply");
+    settings.apply(&mut q, PesVersion::Pes19).expect("apply");
     assert_eq!(
         (q.basic.height, q.basic.weight),
         (height, weight),
@@ -241,7 +241,9 @@ fn every_key_writes_only_its_own_run() {
             .set(key, new_value)
             .expect("the flipped value is in range");
         let mut modified = player.clone();
-        settings.apply(&mut modified).expect("apply");
+        settings
+            .apply(&mut modified, PesVersion::Pes21)
+            .expect("apply");
         let mut written = rec.to_vec();
         write_player(&modified, &mut written, schema.player).expect("encode");
 
@@ -295,7 +297,9 @@ fn an_apply_then_write_touches_only_the_set_fields_bits() {
     let mut settings = PlayerSettings::default();
     settings.set(SettingKey::SkinColor, 3).expect("in range");
     settings.set(SettingKey::NeckLength, 9).expect("in range");
-    settings.apply(&mut player).expect("apply");
+    settings
+        .apply(&mut player, PesVersion::Pes19)
+        .expect("apply");
 
     let index = (0..count(&payload, &schema.players))
         .find(|&i| {
@@ -357,7 +361,7 @@ fn a_setting_the_version_lacks_is_refused_and_changes_nothing() {
     };
     settings.set(SettingKey::Sleeves, 2).expect("in range");
     settings.set(SettingKey::Dribbling, 1).expect("in range");
-    match settings.apply(&mut player) {
+    match settings.apply(&mut player, PesVersion::Pes19) {
         Err(SettingsError::NotInThisVersion { key }) => assert_eq!(key, "dribbling"),
         other => panic!("expected NotInThisVersion, got {other:?}"),
     }
@@ -466,8 +470,9 @@ fn an_unset_settings_is_empty_and_default() {
 // The TOML half: the template, the parser's errors, `update_toml`.
 
 /// The key-table block of `docs/plans/aesthetics_export/settings_toml.md`,
-/// pasted verbatim: `to_toml` of the settings it parses to must reproduce it
-/// byte for byte.
+/// except the first five comment lines, which keep the emitted header's
+/// wording until the defaults rewrite it: `to_toml` of the settings the
+/// block parses to must reproduce it byte for byte.
 const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key is optional: an absent key leaves
 # that savefile setting untouched (boots_id/gloves_id: see their comments). A commented
 # key shows what can be set and its range. The file never references the export's
@@ -475,8 +480,11 @@ const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key i
 # files pointing at shared folders); boots_id/gloves_id only name the game's stock models.
 
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
-# name for players.txt-mapped folders); "text" = write as is; absent = leave untouched.
+# name for players.txt-mapped folders); "text" = write as is; absent = not written.
+# name and shirt_name are used only when the export's root holds the `autopilot` marker (a
+# team without a manager); otherwise they are ignored and the manager's names stand.
 name = "Snuffy"
+shirt_name = "SNUFFY"           # "text" = write as is; absent = not written
 boots_id = ""                   # "" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock boots model; ignored when the folder has boots models or a boots link
 gloves_id = ""                  # "" = default (fpc_on: hidden, fpc_off: 0, no marker: untouched); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder has gloves models or a gloves link
 
@@ -548,6 +556,7 @@ fn to_toml_of_the_parsed_plan_block_is_the_plan_block() {
         settings.name,
         Some(NameSetting::Explicit("Snuffy".to_string()))
     );
+    assert_eq!(settings.shirt_name, Some("SNUFFY".to_string()));
     assert_eq!(settings.to_toml().expect("emit"), PLAN_BLOCK);
 }
 
@@ -580,6 +589,7 @@ fn to_toml_of_a_default_is_a_fully_commented_template() {
         ("untucked", "# untucked = false"),
         ("sleeves", "# sleeves = \"seasonal\""),
         ("name", "# name = true"),
+        ("shirt_name", "# shirt_name = \"\""),
         ("boots_id", "boots_id = \"\""),
         ("gloves_id", "gloves_id = \"\""),
     ] {
@@ -652,10 +662,12 @@ fn to_toml_round_trips_a_real_player_through_text() {
         let player = find_player(&payload(version), schema_for(version), 70101);
         let settings = PlayerSettings::from_player(&player).expect("from_player");
         let text = settings.to_toml().expect("emit");
+        let reparsed = PlayerSettings::parse(&text).expect("the emitted text parses");
+        assert_eq!(reparsed, settings, "{version:?} player 70101 through text");
         assert_eq!(
-            PlayerSettings::parse(&text).expect("the emitted text parses"),
-            settings,
-            "{version:?} player 70101 through text"
+            reparsed.shirt_name,
+            Some(player.shirt_name.clone()),
+            "{version:?} shirt name through text"
         );
         if version == PesVersion::Pes15 {
             assert!(
@@ -850,13 +862,166 @@ fn a_value_the_kind_cannot_represent_is_refused_everywhere() {
         70101,
     );
     let before = player.clone();
-    match settings.apply(&mut player) {
+    match settings.apply(&mut player, PesVersion::Pes19) {
         Err(SettingsError::OutOfRange { key, .. }) => {
             assert_eq!(key, "appearance.strip.sleeves")
         }
         other => panic!("expected OutOfRange, got {other:?}"),
     }
     assert_eq!(player, before, "the refused write changed the player");
+}
+
+#[test]
+fn apply_writes_a_set_shirt_name_and_leaves_an_unset_one() {
+    let payload = payload(PesVersion::Pes19);
+    let schema = schema_for(PesVersion::Pes19);
+    let mut player = find_player(&payload, schema, 70101);
+    let before = player.shirt_name.clone();
+    PlayerSettings {
+        shirt_name: Some("SNUFFY".to_string()),
+        ..PlayerSettings::default()
+    }
+    .apply(&mut player, PesVersion::Pes19)
+    .expect("apply");
+    assert_eq!(player.shirt_name, "SNUFFY");
+    let mut player = find_player(&payload, schema, 70101);
+    PlayerSettings::default()
+        .apply(&mut player, PesVersion::Pes19)
+        .expect("apply");
+    assert_eq!(
+        player.shirt_name, before,
+        "an unset shirt_name is untouched"
+    );
+}
+
+/// A `name`/`shirt_name` at its field's capacity applies; one over is
+/// `TextTooLong` naming the key, and the player is unchanged. The two
+/// versions' shirt-name fields differ (18 bytes on PES 19, 61 on PES 21).
+#[test]
+fn a_name_over_the_versions_field_is_refused_on_two_versions() {
+    assert_ne!(
+        text_max(
+            schema_for(PesVersion::Pes19).player.texts,
+            PlayerText::ShirtName
+        ),
+        text_max(
+            schema_for(PesVersion::Pes21).player.texts,
+            PlayerText::ShirtName
+        ),
+        "the test needs two different field lengths"
+    );
+    for version in [PesVersion::Pes19, PesVersion::Pes21] {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        let texts = schema.player.texts;
+        let name_max = text_max(texts, PlayerText::Name);
+        let shirt_max = text_max(texts, PlayerText::ShirtName);
+
+        // At capacity applies. The shirt name's last char is `é` (U+00E9, two
+        // UTF-8 bytes), so the string is `shirt_max` chars over `shirt_max`
+        // bytes: it fits because the single-byte field counts chars.
+        let full_shirt = format!("{}é", "S".repeat(shirt_max - 1));
+        let mut player = find_player(&payload, schema, 70101);
+        PlayerSettings {
+            name: Some(NameSetting::Explicit("N".repeat(name_max))),
+            shirt_name: Some(full_shirt.clone()),
+            ..PlayerSettings::default()
+        }
+        .apply(&mut player, version)
+        .expect("at capacity applies");
+        assert_eq!(player.name, "N".repeat(name_max));
+        assert_eq!(player.shirt_name, full_shirt);
+
+        for (settings, key, max) in [
+            (
+                PlayerSettings {
+                    name: Some(NameSetting::Explicit("N".repeat(name_max + 1))),
+                    ..PlayerSettings::default()
+                },
+                "name",
+                name_max,
+            ),
+            (
+                PlayerSettings {
+                    shirt_name: Some("S".repeat(shirt_max + 1)),
+                    ..PlayerSettings::default()
+                },
+                "shirt_name",
+                shirt_max,
+            ),
+        ] {
+            let mut player = find_player(&payload, schema, 70101);
+            let before = player.clone();
+            match settings.apply(&mut player, version) {
+                Err(SettingsError::TextTooLong {
+                    key: got,
+                    max: got_max,
+                }) => {
+                    assert_eq!((got.as_str(), got_max), (key, max), "{version:?}");
+                }
+                other => panic!("{version:?} {key}: expected TextTooLong, got {other:?}"),
+            }
+            assert_eq!(player, before, "the refused write changed the player");
+        }
+    }
+}
+
+#[test]
+fn a_shirt_name_that_is_not_a_plain_string_is_refused() {
+    // A char above U+00FF does not fit the single-byte field: `WrongType` at
+    // apply, and the player is unchanged.
+    let mut player = find_player(
+        &payload(PesVersion::Pes19),
+        schema_for(PesVersion::Pes19),
+        70101,
+    );
+    let before = player.clone();
+    match (PlayerSettings {
+        shirt_name: Some("Ł".to_string()),
+        ..PlayerSettings::default()
+    })
+    .apply(&mut player, PesVersion::Pes19)
+    {
+        Err(SettingsError::WrongType { key, expected }) => {
+            assert_eq!(key, "shirt_name");
+            assert_eq!(expected, "a string of chars at most U+00FF");
+        }
+        other => panic!("expected WrongType, got {other:?}"),
+    }
+    assert_eq!(player, before, "the refused write changed the player");
+
+    // At parse: a NUL is refused as `name`'s is, a non-string as `a string`.
+    match PlayerSettings::parse("shirt_name = \"a\\u0000b\"\n") {
+        Err(SettingsError::WrongType { key, expected }) => {
+            assert_eq!(key, "shirt_name");
+            assert_eq!(expected, "a string without NUL");
+        }
+        other => panic!("expected WrongType, got {other:?}"),
+    }
+    match PlayerSettings::parse("shirt_name = 5\n") {
+        Err(SettingsError::WrongType { key, expected }) => {
+            assert_eq!(key, "shirt_name");
+            assert_eq!(expected, "a string");
+        }
+        other => panic!("expected WrongType, got {other:?}"),
+    }
+}
+
+#[test]
+fn update_toml_writes_a_set_shirt_name_and_keeps_the_comment() {
+    let mut document: DocumentMut = "shirt_name = \"OLD\"   # keep me\n"
+        .parse()
+        .expect("document parses");
+    PlayerSettings {
+        shirt_name: Some("SNUFFY".to_string()),
+        ..PlayerSettings::default()
+    }
+    .update_toml(&mut document)
+    .expect("update");
+    assert_eq!(
+        document.to_string(),
+        "shirt_name = \"SNUFFY\"   # keep me\n"
+    );
 }
 
 #[test]
@@ -1005,13 +1170,15 @@ fn apply_writes_an_authored_id_and_leaves_none_alone() {
         boots_id: Some(42),
         ..PlayerSettings::default()
     }
-    .apply(&mut player)
+    .apply(&mut player, PesVersion::Pes19)
     .expect("apply");
     assert_eq!(player.appearance.boots_id, 42);
     assert_eq!(player.appearance.gloves_id, 101, "an unset ID is untouched");
     // `None` leaves even the game's default alone.
     let mut player = find_player(&payload, schema, 70101);
-    PlayerSettings::default().apply(&mut player).expect("apply");
+    PlayerSettings::default()
+        .apply(&mut player, PesVersion::Pes19)
+        .expect("apply");
     assert_eq!(
         (player.appearance.boots_id, player.appearance.gloves_id),
         (101, 101)
@@ -1019,7 +1186,7 @@ fn apply_writes_an_authored_id_and_leaves_none_alone() {
     // `""` parses to `None` and likewise leaves the field alone.
     PlayerSettings::parse("boots_id = \"\"\n")
         .expect("parses")
-        .apply(&mut player)
+        .apply(&mut player, PesVersion::Pes19)
         .expect("apply");
     assert_eq!(player.appearance.boots_id, 101);
 }

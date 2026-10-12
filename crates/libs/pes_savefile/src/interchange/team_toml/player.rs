@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, HashSet};
 use pes_version::PesVersion;
 use toml_edit::{Item, TableLike, Value};
 
+use crate::codec::text_max;
 use crate::interchange::team_toml::labels;
 use crate::interchange::team_toml::player_keys::PlayerKey;
 use crate::interchange::team_toml::{
@@ -28,9 +29,7 @@ use crate::settings_toml::{
     AppearanceSettings, appearance_from, apply_appearance, get_appearance, set_appearance,
 };
 
-use super::items::{
-    as_table, check_text, check_width, emit, gated, opt, reject, text, text_max, u16_val,
-};
+use super::items::{as_table, check_text, check_width, emit, gated, opt, reject, text, u16_val};
 
 // ---------------------------------------------------------------------------
 // From the model

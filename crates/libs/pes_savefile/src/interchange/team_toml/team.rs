@@ -9,6 +9,7 @@
 use pes_version::PesVersion;
 use toml_edit::{DocumentMut, Item, Value};
 
+use crate::codec::text_max;
 use crate::interchange::team_toml::{
     AutoSection, ImportNote, InstructionEntry, InstructionsSection, PresetSection,
     SetPiecesSection, SlidersSection, StyleSection, TacticsSection, TeamEditFlagsSection,
@@ -26,7 +27,7 @@ use crate::settings_toml::document::padded;
 
 use super::items::{
     as_table, boolean, check_text, check_width, color, emit, gated, integer, kit_slots, opt,
-    reject, text, text_max, u16_val, u32_val,
+    reject, text, u16_val, u32_val,
 };
 use super::player;
 use super::tactics::{apply_tactics, emit_tactics, parse_tactics};
