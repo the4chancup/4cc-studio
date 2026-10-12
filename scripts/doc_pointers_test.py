@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from doc_pointers import anchors, names_anchor, pointers, problems
+from doc_pointers import anchors, broken_links, names_anchor, pointers, problems
 
 PLAN = """# Team compiler
 
@@ -91,6 +91,21 @@ class Problems(unittest.TestCase):
             self.check("docs/WORKLOG.md", '`gui.md` "Grid"'), ["docs/WORKLOG.md:1: `gui.md` names no file"]
         )
         self.assertEqual(self.check("crates/x/README.md", '`USAGE.md` "Flags"'), [])
+
+    def test_code_points_at_the_spec_alone(self) -> None:
+        self.assertEqual(self.check("crates/x/src/lib.rs", '//! `spec/core/gui.md` "Grid"'), [])
+        self.assertEqual(
+            self.check("crates/x/src/lib.rs", '//! `docs/plans/core/gui.md` "Cancellation"'),
+            ['crates/x/src/lib.rs:1: code points at the plan docs/plans/core/gui.md "Cancellation"'],
+        )
+
+    def test_a_link_names_a_file_beside_its_own(self) -> None:
+        source = "docs/spec/core/README.md"
+        self.assertEqual(broken_links(self.root, source, "[gui](gui.md#grid) [x](https://a.md)"), [])
+        self.assertEqual(
+            broken_links(self.root, source, "see [plan](../plans/core/missing.md)"),
+            ["docs/spec/core/README.md:1: link to `../plans/core/missing.md` names no file"],
+        )
 
 
 if __name__ == "__main__":

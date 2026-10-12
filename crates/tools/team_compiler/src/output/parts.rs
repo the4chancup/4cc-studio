@@ -1,4 +1,4 @@
-//! Multi-CPK mode's teams parts (`team_compiler/pipeline.md` "5. Writer", step 6 "Multi-CPK
+//! Multi-CPK mode's teams parts (`spec/team_compiler/pipeline.md` "5. Writer", step 6 "Multi-CPK
 //! mode: teams parts"): the official list's numbered slots of one stem, filled in slot order
 //! with whole teams, first-fit under `cpk_part_max_size`, and the placeholder CPK written in
 //! every slot the run does not fill.

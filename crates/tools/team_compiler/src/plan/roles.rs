@@ -47,7 +47,7 @@ pub(crate) fn emits_kit_texture(engine: Engine, stem: &str) -> bool {
 }
 
 /// The source format of the texture file `name`, by its extension in any case: one of the
-/// image formats `dds_convert` converts (`libs/dds_convert.md` "Accepted image formats");
+/// image formats `dds_convert` converts (`spec/libs/dds_convert.md` "Accepted image formats");
 /// `None` for a name without one.
 pub(crate) fn texture_format(name: &str) -> Option<SourceFormat> {
     let (_, extension) = name.rsplit_once('.')?;
@@ -311,7 +311,7 @@ pub(crate) enum PlayerFile {
     /// `jessie/hair.dds.common` → `Common/jessie/hair.dds`): the linked texture's path below
     /// `Common/` without its extension, as the link spells it (`hair`, `jessie/hair`), stands
     /// for the Common texture, which a Common textures task packs once in the team's Common
-    /// output (`model_format.md` "Link files (`.common`)"). In the folder the link sits in it
+    /// output (`spec/model_format.md` "Link files (`.common`)"). In the folder the link sits in it
     /// counts as the texture being present there under its name, so the folder's models point
     /// the name at the texture's path below the team's Common output; nothing reads the empty
     /// link.
@@ -1608,13 +1608,13 @@ pub(crate) fn plans_a_package(
 /// (`model_role`, without the `ingame_face` marker) is the face. A pre-Fox face packs boots and
 /// gloves models beside its face models, all typed by `face.xml`, so this is what keeps a model
 /// named as boots or gloves out of the pre-Fox hand split, as its package keeps it out on Fox
-/// (`model_conversion/hand_split.md` "Pipeline integration").
+/// (`spec/model_conversion/hand_split.md` "Pipeline integration").
 pub(crate) fn named_as_face(file: &FileDescriptor) -> bool {
     model_role(file_stem(file.path.name()), false).0 == ModelPackage::Face
 }
 
 /// Whether the model `file` of a source folder, whose role is `role`, is hand auto-split on a
-/// target of `engine` (`model_conversion/hand_split.md` "Pipeline integration"): it is among
+/// target of `engine` (`spec/model_conversion/hand_split.md` "Pipeline integration"): it is among
 /// `hand_weighted`, the models the deep pass found carrying hand weights, and is face content.
 /// On Fox that is a part of the face; on pre-Fox a `.model` the face packs
 /// (`PlayerFile::PreFoxModel`) and names as face content (`named_as_face`). A model named as

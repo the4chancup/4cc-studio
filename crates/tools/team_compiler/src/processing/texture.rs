@@ -1,5 +1,5 @@
 //! Texture conversion for the target's engine, FTEX on Fox, DDS on pre-Fox
-//! (`team_compiler/pipeline.md` "3. Per-model-folder parallel steps", step 5): every accepted
+//! (`spec/team_compiler/pipeline.md` "3. Per-model-folder parallel steps", step 5): every accepted
 //! image format through
 //! `dds_convert`, which picks the codec the target version reads; a model folder's textures as
 //! one unit (step 6) and the export's Common textures as another ("Resolved decisions",
@@ -626,7 +626,7 @@ pub(super) fn portrait(
                 .map_err(|error| conversion_failure(name, ConvertError::Wesys(error)))?;
             let layout = read_layout(&plain)
                 .map_err(|error| conversion_failure(name, ConvertError::Ftex(error)))?;
-            // PES 15-18 read BC1-BC3 only (`libs/dds_convert.md` "Passthrough"), so a BC4,
+            // PES 15-18 read BC1-BC3 only (`spec/libs/dds_convert.md` "Passthrough"), so a BC4,
             // BC5 or BC7 portrait keeps no blocks under either header, the legacy one
             // included, and is decoded and encoded below like a raster source.
             let reads_bc4_to_bc7 = match version {

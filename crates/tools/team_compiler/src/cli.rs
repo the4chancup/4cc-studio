@@ -1,4 +1,4 @@
-//! The Team compiler's command line (`team_compiler/settings.md` "CLI"): a parsed command turned
+//! The Team compiler's command line (`spec/team_compiler/settings.md` "CLI"): a parsed command turned
 //! into a run, refused before any export is read when its invocation or configuration is
 //! invalid, and the run's outcome turned into the exit code scripts read.
 

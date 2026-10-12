@@ -1,6 +1,6 @@
 //! The deep pass's portrait checks: each portrait held to the portrait's size rule, and a
 //! slot's two portraits, its player folder's and its `Portraits/` file, compared
-//! (`team_compiler/messages.md` "Textures", `portrait_conflict`).
+//! (`spec/team_compiler/messages.md` "Textures", `portrait_conflict`).
 
 use aesthetics_export::{
     ContentFinding, Disposition, FileDescriptor, IssueScope, PlayerSlot, ValidatedAestheticsExport,

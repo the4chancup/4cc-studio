@@ -1,4 +1,4 @@
-//! `upgrade-dpfl` (`team_compiler/pipeline.md` "6. Post-processing", "DpFileList upgrade";
+//! `upgrade-dpfl` (`spec/team_compiler/pipeline.md` "6. Post-processing", "DpFileList upgrade";
 //! `settings.md` "CLI"): what it lists without `--yes`, and what it renames, writes and
 //! replaces in the game's `download/` with it.
 

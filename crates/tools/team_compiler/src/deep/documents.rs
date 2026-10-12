@@ -149,7 +149,7 @@ pub(super) fn face_diff_findings(
 /// `kit_config_option_ignored` per sleeve or fit option the config's shirt model does not take,
 /// on the file and kept, naming the option and the model: the config is emitted as written and
 /// the game ignores the option. `validate`'s other findings (its two Infos and
-/// `kit_collar_zero`) are not reported (`team_compiler/pipeline.md` "Kit configs").
+/// `kit_collar_zero`) are not reported (`spec/team_compiler/pipeline.md` "Kit configs").
 ///
 /// The config is checked as it is emitted: when the team's kit-FPC status `fpc` is `On`, with
 /// the FPC values applied, because they set the shirt model to 176, which takes none of the

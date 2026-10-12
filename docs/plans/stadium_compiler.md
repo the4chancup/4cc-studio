@@ -1,9 +1,11 @@
 # 4cc Studio — Stadium compiler plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The stadium compiler (`crates/tools/stadium_compiler`) is the successor to the PES
-Stadium Compiler. Platform context is in the [core plan](core/README.md); the fox2 format
-crate is outlined below, and the in-process DDS conversion it contributes is detailed
-in the [library crates plan](libs/README.md).
+Stadium Compiler. Platform context is in the [core plan](core/README.md). The format crates
+it needs are built: `fox2` ([spec](../spec/libs/fox2.md)) and the in-process DDS conversion,
+`dds_convert` ([spec](../spec/libs/dds_convert.md)).
 
 ---
 
@@ -22,33 +24,11 @@ stadium export folders into CPK files, using a three-stage pipeline like Red:
 
 It becomes the `stadium_compiler` tool crate in the suite.
 
-## What it contributes to the whole suite
-
-Beyond the stadium tool itself, this codebase contains two assets that upgrade the shared platform:
-
-**1. In-process DDS conversion (drops texconv.exe and ImageMagick).** Its
-`Engines/stages/lib/dxt.py` + Python `texture2ddecoder` replace the texconv subprocess entirely.
-The same-named Rust decoder is a separate port; its output needs parity checks, including channel
-order, against the Python package's C++ implementation.
-See "In-process DDS conversion" in the [library crates plan](libs/dds_convert.md).
-
-**2. Battle-tested, optimized parser variants.** Its `fmdl_file.py` (96KB), `cpk.py` (44KB), and
-`ftex.py` (20KB) are extended/optimized versions of the shared parsers (pre-compiled struct formats
-for hot paths, additional features). Use them as an additional reference when porting the shared
-parsers to the format lib crates.
-
 ## New formats to port
 
 | Format | Source | Size | Placement |
 |--------|--------|------|-----------|
-| **fox2** (Fox Engine entity files) | `Engines/stages/lib/fox2.py` + `Engines/stages/lib/fox2_xml.py` | 72KB | `libs/fox2` (general Fox Engine format, reusable) |
 | **Stadium DB bins** (Stadium.bin per version) | `Engines/stages/lib/st_bin_gen.py` | 9KB | record layout in `libs/pesdb` ([DB generator plan](db_generator.md)), the stadium-specific content rules in `tools/stadium_compiler` |
-
-The fox2 parser is a pure-Python port of Atvaark's FoxTool (C#), including a CityHash64
-implementation for string hash lookup. It compiles XML to fox2 binaries and back, byte-identical to
-the original tool. In Rust it is `libs/fox2` (spec: [libs/fox2.md](libs/fox2.md)): the hash is a
-direct port of the CityHash64 1.0.3 variant (no crate pins it), the layout hand-read, and the
-byte-identical requirement is its round-trip test standard.
 
 ## Tool-specific logic to port
 

@@ -1,4 +1,4 @@
-//! The team's logo (`team_compiler/pipeline.md` "4. Per-export non-model steps", Logo): the
+//! The team's logo (`spec/team_compiler/pipeline.md` "4. Per-export non-model steps", Logo): the
 //! game's three square PNGs, 512, 256 and 128 pixels, made from the export's root `logo*` image
 //! of any size and format and, for the 128-pixel one, its `logo_small*` image when there is one.
 //! A non-square image is made square by its file's mode: `fit` (the default), `crop` or

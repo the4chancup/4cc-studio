@@ -1,7 +1,7 @@
 """Acceptance-ID scanner: `acceptance.py report|strict` (CONTRIBUTING.md "Testing").
 
 Scenarios are the lines of a plan's "Acceptance" section (any heading starting with that word,
-under `docs/plans/`) that begin, at column 0, with an ID followed by `GIVEN`, `manual  GIVEN`
+under `docs/spec/` or `docs/plans/`) that begin, at column 0, with an ID followed by `GIVEN`, `manual  GIVEN`
 or `withdrawn:`. A citation is a `//` comment made only of IDs, directly above a `#[test]` line
 or another citation line, in any `.rs` file under `crates/` (inline test modules included). A
 `manual` scenario is also proven by a worklog line `<ID> manual: checked <yyyy-mm-dd>`.
@@ -14,7 +14,7 @@ scenarios, and the tests of a tool's CLI suite (`crates/tools/<tool>/tests/cli/`
 scenario, without failing, since an open phase's scenarios precede their tests; `strict` (at
 converge) also fails on every unproven scenario and every uncited CLI test (unit tests cite
 none: they check internals, which no scenario describes). Because Acceptance sections are written just in
-time, every scenario in the plans at a converge belongs to the closing phase or an earlier one,
+time, every scenario in the plans and the spec at a converge belongs to the closing phase or an earlier one,
 so strict checks them all.
 """
 
@@ -154,8 +154,9 @@ def relative(path: Path) -> str:
 
 def scan_repository() -> Scan:
     scan = Scan()
-    for path in sorted((ROOT / "docs" / "plans").rglob("*.md")):
-        scan_plan(scan, relative(path), path.read_text(encoding="utf-8"))
+    for tree in ("spec", "plans"):
+        for path in sorted((ROOT / "docs" / tree).rglob("*.md")):
+            scan_plan(scan, relative(path), path.read_text(encoding="utf-8"))
     for path in sorted((ROOT / "crates").rglob("*.rs")):
         scan_source(scan, relative(path), path.read_text(encoding="utf-8"))
     worklog = ROOT / "docs" / "WORKLOG.md"

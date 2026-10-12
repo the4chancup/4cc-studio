@@ -1,5 +1,5 @@
 //! `compile`'s working bins taken from the installed CPKs: the walk of the PES folder's
-//! `download/DpFileList.bin` (`team_compiler/pipeline.md` "Bins accumulation").
+//! `download/DpFileList.bin` (`spec/team_compiler/pipeline.md` "Bins accumulation").
 
 use std::collections::BTreeMap;
 use std::fs;

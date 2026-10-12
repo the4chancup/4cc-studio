@@ -1,5 +1,7 @@
 # 4cc Studio — Refs arranger plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The Refs arranger (`crates/tools/refs_arranger`, tool id `refs-arranger`, sidebar
 label "Refs arranger") replaces the spreadsheet workflow the cup staff currently
 uses to decide which referees appear in matches. It edits two files inside a refs

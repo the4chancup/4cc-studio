@@ -1,5 +1,5 @@
 //! `CpkStem`: a CPK file name without its `.cpk`, validated against the
-//! writer's rules (`team_compiler/pipeline.md` "Writer" item 5): portable on
+//! writer's rules (`spec/team_compiler/pipeline.md` "Writer" item 5): portable on
 //! every platform the game and DLC run on.
 
 use std::fmt;

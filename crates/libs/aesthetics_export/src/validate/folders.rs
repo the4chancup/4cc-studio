@@ -176,7 +176,7 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
 pub struct KitsFolder {
     /// One per kit folder; `all/` is not a kit. A `Full` team export with no surviving player
     /// kit gets an empty `Kits/p1`, one with no surviving `g1` an empty `Kits/g1` (every team
-    /// needs one of each: `team_compiler/pipeline.md` "Bins accumulation").
+    /// needs one of each: `spec/team_compiler/pipeline.md` "Bins accumulation").
     pub kits: BTreeMap<kit_config::KitSlot, KitFolder>,
     /// `all/` textures as found (each also appears, as `Shared`, in every kit
     /// lacking that stem).
@@ -366,7 +366,7 @@ fn player_below_allowed(file: &FileDescriptor) -> bool {
 /// Whether `file`, a file of a player folder, is a link where it sits: a shared
 /// link at any depth, read as one in the root, and a `.common` link at any depth,
 /// standing for the `Common/` file at its own path below the folder
-/// (`player_folders.md` "Subfolders", `model_format.md` "Link files").
+/// (`player_folders.md` "Subfolders", `spec/model_format.md` "Link files").
 pub(crate) fn counts_as_link(file: &FileDescriptor) -> bool {
     match file.kind {
         FileKind::SharedLink(_) | FileKind::CommonLink => true,
@@ -580,7 +580,7 @@ pub(crate) fn check_player(
     // folder before each parent (`player_folders.md` "Subfolders"), so the root's
     // `hair.dds` and a subfolder's are no conflict. A texture `.common` link claims
     // its linked name in the folder holding it (a link counts as the linked file being
-    // local, `model_format.md` "Rules").
+    // local, `spec/model_format.md` "Rules").
     tree_stem_conflicts(folder, texture_claim, context, issues);
 
     // 8. The edit-hair files.

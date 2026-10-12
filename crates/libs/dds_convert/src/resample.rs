@@ -1,5 +1,5 @@
 //! Resampling straight-alpha RGBA8 pixels with Lanczos3, through the `image` crate the raster
-//! decoders already use: the suite's one resampler (`libs/dds_convert.md` "`dds_convert` API").
+//! decoders already use: the suite's one resampler (`spec/libs/dds_convert.md` "`dds_convert` API").
 
 use image::imageops::{self, FilterType};
 use image::{ImageBuffer, Rgba};

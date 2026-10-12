@@ -1848,3 +1848,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.2b1 third rework (R16.S1 4 of 5; the SWE-2 loop ends): `formation_shapes`
   pinned on all five entries, the crate doc's error cases, the plan's "label order" made the
   position table's order. SWE-2, first attempt; Astra R12.A1 next.
+- **2026-10-12** — Step 5.0i: the spec moves to `docs/spec/` (40 documents, Phases 1 to 4's
+  sections), `docs/plans/` keeps the work not built, every plan file bannered; `just
+  doc-pointers` gates section pointers and links. Classification found unbuilt spec text: 5.0j.

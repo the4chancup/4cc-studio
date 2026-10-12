@@ -1,4 +1,4 @@
-//! The `overrides/` tree (`team_compiler/pipeline.md` "5. Writer", item 1): files the operator
+//! The `overrides/` tree (`spec/team_compiler/pipeline.md` "5. Writer", item 1): files the operator
 //! puts in the data directory's `overrides/` folder go into the CPK as they are, each at its path
 //! below that folder, over whatever an export or the bins would put there.
 

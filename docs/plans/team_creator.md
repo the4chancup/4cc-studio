@@ -1,5 +1,7 @@
 # 4cc Studio — Team creator plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The Team creator (`crates/tools/team_creator`, tool id `team-creator`, sidebar label "Team
 creator") is the one place where a team is made from nothing: a name and a list of players in,
 a legal roster and a compilable aesthetics export out. It is written for the new manager who has

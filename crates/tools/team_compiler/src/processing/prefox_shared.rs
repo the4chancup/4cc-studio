@@ -263,7 +263,7 @@ pub(super) fn package(
     // The places of the folder's own `.mtl` files, nearest first from the file's folder
     // (`texture_lookup`): its own stem before one a texture link stands for, a path below
     // the file's folder at that path, as in the face (`prefox_face::face`). A `Common/`
-    // texture is reached only through a `.common` link (`model_format.md` "Link files"),
+    // texture is reached only through a `.common` link (`spec/model_format.md` "Link files"),
     // so an unlinked Common stem one names is left as written.
     let folder_places = FolderPlaces {
         textures,

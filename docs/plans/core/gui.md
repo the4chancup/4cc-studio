@@ -1,10 +1,12 @@
 # 4cc Studio — Core plan: GUI design
 
-Part of the [Core plan](README.md). Section headings are unchanged from the single-file plan, so an existing pointer to a section still names it; only the file part of the pointer changed.
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
 
 ## GUI Design
 
 ### Shell layout
+
+What exists of this is in `spec/core/gui.md` "Shell layout".
 
 A shell built with egui panels: a left sidebar, a tool view, and a one-row status bar under both.
 The tool view belongs to each tool; pipeline tools subdivide it into grid, toolbar, and log panel
@@ -32,9 +34,7 @@ The tool view belongs to each tool; pipeline tools subdivide it into grid, toolb
 └─────────────────────────────────────────────────────────┘
 ```
 
-In egui, the shell is built with `Panel` (sides) + `CentralPanel`, shown on the whole-app `Ui`
-that `eframe::App::ui` provides (API as of egui 0.36; see "egui version discipline" below). Panels
-claim space in call order, so the status bar is added first to span the full width:
+Panels claim space in call order, so the status bar is added first to span the full width:
 
 ```rust
 impl eframe::App for StudioApp {
@@ -63,22 +63,6 @@ impl eframe::App for StudioApp {
     }
 }
 ```
-
-### egui version discipline
-
-egui still ships renames and deprecations most releases (0.31 moved window options into
-`ViewportBuilder`; 0.32 rewrote popups/menus and renamed `Rounding` to `CornerRadius`; 0.34
-deprecated `SidePanel`/`TopBottomPanel` for `Panel`, replaced `App::update(&Context)` with
-`App::ui(&mut Ui)`, and renamed `Context::style` to `global_style`). LLM-assisted coding reproduces
-whichever API the model saw most, so it will emit pre-0.34 code by default. Rules:
-
-- Pin exact `egui`/`eframe`/`egui-wgpu` versions once in `[workspace.dependencies]` (the
-  lock-step rule under `architecture.md` "Workspace guardrails") and upgrade deliberately, one release at a time,
-  following each release's migration notes in `CHANGELOG.md` / the GitHub release.
-- Treat deprecation warnings as errors in CI (`#![deny(deprecated)]` or `-D deprecated`) so stale
-  API from generated code is caught at compile time rather than accumulating.
-- The code sketches in these plans follow 0.36; they illustrate structure and must be re-checked
-  against the pinned version when implemented, not pasted.
 
 ### Sidebar
 
@@ -128,6 +112,8 @@ Top to bottom:
 
 ### Settings menu
 
+What exists of this is in `spec/core/gui.md` "Settings menu".
+
 The settings menu is assembled from injected sections:
 
 - **Common settings** (defined by `studio_core`): PES version, PES folder path, exports folder path,
@@ -136,12 +122,6 @@ The settings menu is assembled from injected sections:
   tool defines its own settings struct and UI).
 - Opening the settings menu shows the **currently selected tool's section expanded** and all other
   sections collapsed.
-- Settings persist to a single file: `[common]` holds `CommonSettings`, and each tool's values
-  live in a table under its `id()` key (`[team-compiler]`; `common` is therefore not a valid tool
-  id), with `default_settings()` merged in for missing values, recursively into nested tables
-  (this replaces Red's settings-transfer mechanism for new versions). Missing common keys load as
-  their defaults the same way; unknown keys in a tool's table are kept as read. The file's location — `data/` next to the exe or the user config dir — is the
-  user's first-run choice (see `distribution.md` "Data location" under Distribution and updates).
 - Saving is **best-effort**: if the write fails (typically a portable install unpacked somewhere
   unwritable), the in-memory settings keep working for the session and the shell raises the
   `data_dir_read_only` condition in the status bar — one condition covering settings and the
@@ -149,20 +129,17 @@ The settings menu is assembled from injected sections:
 
 ### Help window
 
+What exists of this is in `spec/core/gui.md` "Help window".
+
 The help window is the user documentation — it replaces both of Red's readmes (the 114-line
 README and the 913-line `readme_advanced.md`), and the bundled readme shrinks to a pointer at it.
 Like the settings menu it is **assembled from the tools**, not written centrally:
 
 - **Chapters.** `studio_core` contributes the core chapters (setting up, first run and data
   location, updates, and "What's new" — the repository's `CHANGELOG.md` embedded at build time,
-  see `distribution.md` "Changelog and version display"); every
-  registered tool contributes one chapter through `StudioTool::help()`, a `HelpSection { title,
-  topics: Vec<HelpTopic> }` whose topics are Markdown bodies embedded with `include_str!` from
-  the crate's `help/` folder (numbered files fix the order: `01_overview.md`, `02_exports.md`,
-  …). Chapters appear in sidebar order; an unregistered tool has no chapter, so the help can
-  never describe a tool the build lacks. Red's `readme_advanced.md` maps onto this almost
-  one-to-one: its refs, format, texture-handling and special-files headings become Team compiler
-  topics, its updater and first-run headings core topics.
+  see `distribution.md` "Changelog and version display"). Red's `readme_advanced.md` maps onto
+  this almost one-to-one: its refs, format, texture-handling and special-files headings become
+  Team compiler topics, its updater and first-run headings core topics.
 - **The Messages topic is generated.** Each chapter ends with a "Messages" topic rendered from the
   tool's `messages.rs` catalog — ID, severity, condition, consequence — so it is always complete
   and never hand-maintained; `help()` carries prose only. This is Red's "Message Types" chapter
@@ -187,10 +164,6 @@ Like the settings menu it is **assembled from the tools**, not written centrally
   `4cc-studio help --export <dir>` writes every chapter out as `.md` files — the wiki and the release
   page get the same text with no second source, and the `--export` output is what the release
   process publishes.
-- **Authoring rule.** Topics are written for members, not maintainers: what to put where, what a
-  message means and what to do about it, never how the code works (that is `docs/`). A behavior
-  change that a member can observe is not done until its topic says so — the help lives in the
-  tool's crate precisely so the same diff carries both.
 
 ### Log panel
 
@@ -208,23 +181,24 @@ Like the settings menu it is **assembled from the tools**, not written centrally
 
 ### Status bar
 
+What exists of this is in `spec/core/gui.md` "Status bar".
+
 One row, 24px, full width under sidebar and tool view, present in every tool. It is the home for
 everything that is *about the environment or about another tool* — the things that previously
 had no home and were described as "toasts" in three places. It is not a second log: a message
 about the current tool's own work (an export, a scope, a run) goes to that tool's Log panel or
-run strip, never here. Three slots, each admitting one typed item kind from `studio_core::status`:
+run strip, never here.
 
-| Slot | Item | Admits | Lifetime |
-|---|---|---|---|
-| Left | `ShellCondition` | Persistent environment states the **shell** computes itself: `data_dir_read_only`, `update_available` (with an Install action), `pes_install_missing`. Each has a tooltip and at most one action. Not the PES-exe mismatch — the version selector's coloring already owns that | While the condition holds; disappears by itself |
-| Middle | `ToolActivity` | Tools working in the background while a **different** tool's view is shown — `activity()` polled each frame for every registered tool except the active one, e.g. `Team compiler · 12/48 · 01:12` while the save editor is open. The active tool's own run strip is unchanged, so nothing shows twice | While the tool reports it |
-| Right | `Notice` | The most recent one-off event, published by a tool through `ctx.notify(Notice)` or by the shell: `Switched to PES 2021 · [Fix PES path]`, `Compiled 48 teams · [Open output]`, `Teams list is read-only`. Text plus at most one action | A few seconds; with an action, until clicked or dismissed. Older notices are not kept — an event worth keeping is also a finding in a log |
+Each item kind stays in the bar for its lifetime:
 
-Rules that keep it worth the row:
+| Item | Lifetime |
+|---|---|
+| `ShellCondition` | While the condition holds; disappears by itself |
+| `ToolActivity` | While the tool reports it |
+| `Notice` | A few seconds; with an action, until clicked or dismissed. Older notices are not kept — an event worth keeping is also a finding in a log |
 
-- **Typed, never free text.** Tools cannot draw into the bar; they return a `ToolActivity` and
-  publish `Notice`s. Conditions are the shell's alone. A `set_status_text(String)` API is exactly
-  how a status bar becomes clutter, and it does not exist.
+More rules that keep it worth the row:
+
 - **Never modal, never a question.** Anything needing a decision (updater consent, the teams-list
   merge review) is a dialog. The bar announces; it does not ask.
 - **Empty state is static, not blank**: `v1.2.0` in small text — the one always-visible version
@@ -277,8 +251,10 @@ Rules:
 
 ### Event wiring
 
-The tool crates emit `PipelineEventEnvelope` values via channels. The GUI owns the receiving end and
-renders state in the egui update loop:
+What exists of this is in `spec/core/gui.md` "Event wiring".
+
+The GUI owns the receiving end and renders state in the egui update loop; the block extends the
+spec's `logic` pass, which ticks every tool:
 
 ```rust
 // Pipeline workers send stable-ID events through the stale-result envelope:
@@ -314,12 +290,6 @@ impl eframe::App for StudioApp {
             }
         }
 
-        // Background pass: every tool ticks (event draining, timer deadlines),
-        // then only the active tool's view renders
-        for tool in &mut self.tools {
-            tool.tick(&self.tool_ctx);
-        }
-
         // Keep repainting while the pipeline is running. egui otherwise only
         // repaints on input, so background sources schedule their own wakeups:
         // timer deadlines via request_repaint_after, the match feed by
@@ -353,13 +323,16 @@ stadiums and cells = components.
 
 ### Cancellation
 
-During a run the Compile button becomes Cancel. Rust's rayon scopes or spawned tasks support
-cancellation via an `AtomicBool` flag. The pipeline checks the flag between tasks, and a
-texture task between its textures, since it converts them one after another and a folder of
-large BC7 encodes can be one of a run's longest tasks. It aborts cleanly: the run's staging is
-discarded and the previous outputs stay as they were.
+What exists of this is in `spec/core/gui.md` "Cancellation".
+
+During a run the Compile button becomes Cancel. A texture task checks the flag between its
+textures, since it converts them one after another and a folder of large BC7 encodes can be one
+of a run's longest tasks. It aborts cleanly: the run's staging is discarded and the previous
+outputs stay as they were.
 
 ### Browser deployment: Studio Web
+
+What exists of this is in `spec/core/gui.md` "Browser deployment: Studio Web".
 
 The same `studio` binary crate compiles to WebAssembly (the eframe `wasm32` target), producing
 **Studio Web**: a browser-served, deliberately *lite* edition of the suite. Its purpose is
@@ -419,26 +392,3 @@ Deployment is a static directory (`.wasm`, JS glue, `index.html`) under an HTTPS
 build runs `trunk`/`wasm-bindgen` in CI and the release job copies the output over. Suitability is
 evaluated when the web tier is scheduled — the requirements are just static files, HTTPS, and two
 response headers.
-
-**Keeping the door open from Phase 1.** Studio Web is not a first-release gate (see `development_plan.md` "Phase 18"),
-but the codebase must not drift into unportable dependencies while it waits. Workspace guardrail 6
-(`cargo check --target wasm32-unknown-unknown` for every lib crate in CI) enforces this from
-the first commit; it costs minutes per PR and turns the later web build from an archaeology project
-into UI wiring plus the pipeline adapters. The desktop binary remains the primary distribution.
-
-### Architecture separation
-
-```
-lib crates (pes_savefile, cpk, fpk, fmdl, pes_model, ftex, dds_convert, fox2, vtree, archives, teams_list, aesthetics_export, pipeline, model_convert, aatf, music_export, audio_engine, match_feed, kit_config, ...)
-    ↑ used by
-tool crates (team_compiler, save_editor, stadium_compiler, export_upgrader, music_player, music_export_editor, match_tracker, kit_config_editor, refs_arranger, balls_compiler, player_aesthetics_editor) — each implements StudioTool
-    ↑ registered by            ↖ trait + shell + common widgets defined in studio_core
-studio (single binary: GUI when run without args, CLI subcommand dispatch with args;
-        native binary + WASM web build)
-```
-
-The `pause()` pattern from Blue/Red disappears entirely. The pipeline returns warnings/errors as
-data. The GUI or CLI layer decides how to present them (log panel, status-bar notices, dialogs for
-decisions, console output).
-
----

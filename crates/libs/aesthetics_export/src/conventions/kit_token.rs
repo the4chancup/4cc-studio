@@ -1,7 +1,7 @@
-//! Kit-dependent assets (`model_format.md` "Kit-dependent assets (`kitN`)"): the token a file
+//! Kit-dependent assets (`spec/model_format.md` "Kit-dependent assets (`kitN`)"): the token a file
 //! stem carries to say which kit number it belongs to, `kit1` to `kit9`, that it stands for
 //! whichever kit is picked in the game, `kitN`, or that it is the set's fallback, `kitF`
-//! (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kit-dependent assets).
+//! (`spec/team_compiler/pipeline.md` "4. Per-export non-model steps", Kit-dependent assets).
 
 use std::borrow::Cow;
 
@@ -49,7 +49,7 @@ pub fn variant_path(path: &str, kit: u8) -> Option<String> {
 /// The member of the kit set `reference` names that `path` is, both paths below one folder
 /// (`/`-separated, extension included): `Variant(k)` for a `kit1`…`kit9` member, `Fallback`
 /// for the `kitF` one, `None` when `reference` names no set or `path` is not one of its
-/// members. Two forms (`model_format.md` "Kit-dependent assets"): a `kitN` stem's set is its
+/// members. Two forms (`spec/model_format.md` "Kit-dependent assets"): a `kitN` stem's set is its
 /// own directory's files with a member token of the same reference, whatever their
 /// extensions (`pants_kitN.dds` names `pants_kit1.dds`, `pants_kitF.png`); a `kitN`
 /// directory segment's is the files of the same folded stem at the same path under the
@@ -74,7 +74,7 @@ pub(crate) fn kit_set_member(reference: &str, path: &str) -> Option<KitToken> {
 /// Whether `path`, a file's path below a folder (`/`-separated), names a kit set's `kitF`
 /// fallback — its file stem's token (`pants_kitF.dds`) or a `kitF` directory segment
 /// (`kitF/a.dds`, `kitF/textures/a.dds`): a path that finds nothing, `kitF` never being a
-/// file under its own name (`model_format.md` "Kit-dependent assets").
+/// file under its own name (`spec/model_format.md` "Kit-dependent assets").
 pub(crate) fn names_kit_fallback(path: &str) -> bool {
     matches!(kit_path_token(path), Some((KitToken::Fallback, _)))
 }

@@ -1,6 +1,6 @@
 //! Validation of every export source of a run, which `check` reports and `compile` starts
 //! from: each source's route, the structure pass's issues, the deep pass's content findings
-//! over the export it leaves (`team_compiler/pipeline.md` "2. Per-export serial steps"), the
+//! over the export it leaves (`spec/team_compiler/pipeline.md` "2. Per-export serial steps"), the
 //! identity, and the refusal of two exports of one team. The lib validates and `deep` reads
 //! the contents; this schedules them on the run's worker pool, each export's outcome kept in
 //! discovery order.
@@ -243,7 +243,7 @@ fn check_sources(
 /// Whether `compile` keeps a solid `.7z` export of `size` decompressed bytes from its check to
 /// its tasks, with `kept` bytes of archives already kept, on a budget of `cap`, when the
 /// largest of the run's other `.7z` exports decompresses to `largest_other` bytes
-/// (`libs/pipeline.md` "What a solid `.7z` is charged"): when it is at most an eighth of the
+/// (`spec/libs/pipeline.md` "What a solid `.7z` is charged"): when it is at most an eighth of the
 /// cap and, with it kept, the cap leaves free of kept archives at least `MIN_FREE_BUDGET` and
 /// at least `largest_other`.
 ///

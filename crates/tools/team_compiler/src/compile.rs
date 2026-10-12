@@ -1,4 +1,4 @@
-//! The `compile` command (`team_compiler/pipeline.md` "Run driver shapes"): for a run
+//! The `compile` command (`spec/team_compiler/pipeline.md` "Run driver shapes"): for a run
 //! that deploys, the checks that it can install into the game (`pipeline.md` "6.
 //! Post-processing"), then the validation `check` runs (the structure pass and the deep pass),
 //! run planning, each task's files read in manifest order and the task processed on the worker

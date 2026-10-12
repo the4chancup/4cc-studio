@@ -1,4 +1,4 @@
-//! A player's pre-Fox face (`team_compiler/pipeline.md` "3. Per-model-folder parallel steps",
+//! A player's pre-Fox face (`spec/team_compiler/pipeline.md` "3. Per-model-folder parallel steps",
 //! steps 1, 4, 6 and 7): his folder's `.model` files, and those of the shared face folder he
 //! links, his `.fmdl` files converted to `.model` files with their material sets,
 //! packed under their `oral_<stem>_win32.model` names, the `.mtl` files with their
@@ -6,7 +6,7 @@
 //! each file at its path below its folder (`jessie/body/oral_x_win32.model`),
 //! and the generated `face.xml` typing every model, his `.common` links to a Common model
 //! included, his face diff as its `<dif>`. A per-kit model set is packed whole and listed once,
-//! its kit token spelled `kitN` (`team_compiler/pipeline.md` "4. Per-export non-model steps",
+//! its kit token spelled `kitN` (`spec/team_compiler/pipeline.md` "4. Per-export non-model steps",
 //! Kit-dependent assets). A face with no `face_neck` model, the blank face of a folder with no
 //! model included, gets the bundled dummy as one. A face with the member's own `face.xml`, his
 //! folder's or his linked shared face's, gets that xml written back instead, with only the

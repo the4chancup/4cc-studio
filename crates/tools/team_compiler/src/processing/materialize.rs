@@ -1,4 +1,4 @@
-//! The materialize step (`team_compiler/pipeline.md` "5. Writer", step 5): the one place a
+//! The materialize step (`spec/team_compiler/pipeline.md` "5. Writer", step 5): the one place a
 //! task's output becomes the entries the writer adds. In normal and sideload mode an entry goes
 //! at its game path and a model package is packed per id, into an `.fpk` on Fox and on pre-Fox
 //! into a face CPK nested in the output, the boots and gloves as loose files of their folder;

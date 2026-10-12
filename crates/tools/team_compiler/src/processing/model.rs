@@ -69,7 +69,7 @@ enum PartTextures {
     Folder,
     /// The team's Common output: the part is a Common model a `.common` link brings in, or a
     /// folder's `.model` converted with a `Common/` `.mtl` (a `.mtl.common` link, or the search
-    /// reaching `Common/`), whose stems resolve in `Common/` (`model_format.md` "Link files": a
+    /// reaching `Common/`), whose stems resolve in `Common/` (`spec/model_format.md` "Link files": a
     /// stem resolves in the folder of the material file that set it). Its textures stay in
     /// `Common/` and are the export's Common textures task's, never relocated.
     Common,
@@ -391,7 +391,7 @@ pub(super) fn package(
     // A folder part's places: its folder's textures and links nearest first, each in its
     // home, resolved from the material file's folder (`Part::references_from`) below its own
     // source folder: a stem resolves in the folder of the material file that set it
-    // (`model_format.md` "Link files"), which for a `.model` converted with a `.mtl` of another
+    // (`spec/model_format.md` "Link files"), which for a `.model` converted with a `.mtl` of another
     // folder is that `.mtl`'s.
     let folder_places = |part: &Part| {
         textures.places(
@@ -814,7 +814,7 @@ fn point_texture(
 /// (`TextureFolders::at`: the folder that path names, its textures then its links, each with
 /// the directory its home names it by), returning whether one did. With none it is left as
 /// written, which `texture_supply` calls missing: such a path resolves there alone
-/// (`model_format.md` "Stem-based texture references").
+/// (`spec/model_format.md` "Stem-based texture references").
 fn point_texture_below(
     path: &mut TexturePath,
     places: &[(&TexturePlace, &TextureDirectory)],

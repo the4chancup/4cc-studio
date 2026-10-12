@@ -1,5 +1,7 @@
 # 4cc Studio — Music player plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The music player (`crates/tools/music_player`) is the successor to **Rigdio**, the
 match-day goalhorn/anthem/chant player used by streamers during cup events. The
 community name stays in the user-facing labels: the sidebar shows

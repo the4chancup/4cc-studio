@@ -2,18 +2,20 @@
 
 4cc Studio is a Rust suite of every tool the 4cc community uses to run its PES (2015–2021) cups:
 a Team compiler (aesthetics exports → CPK archives), a save editor, and a dozen smaller tools, all
-in one `egui` binary that also works as a CLI. The full architectural plan is in `docs/plans/`
-(index: `docs/plans/README.md`). This file is the short version: how the project is organized, how
+in one `egui` binary that also works as a CLI. What the suite does is specified in `docs/spec/`
+(index: `docs/spec/README.md`), what comes next is planned in `docs/plans/` (index:
+`docs/plans/README.md`). This file is the short version: how the project is organized, how
 the codebase works, and what to do when the plan runs out. Before writing or changing code, read
 `docs/CONTRIBUTING.md` in full: architecture rules, code style, verification gates.
 
 ## Working documents
 
-Seven documents, seven jobs. Do not let content leak between them; two homes means they drift.
+Eight documents, eight jobs. Do not let content leak between them; two homes means they drift.
 
 | Document | Holds |
 |---|---|
-| `docs/plans/*.md` | The *why* and the spec: architecture, formats, rationale, resolved decisions, and each tool's "Acceptance" section. Future tense while a phase is open; rewritten in the present tense when it closes, so the plan is always the description of what exists plus what comes next |
+| `docs/spec/*.md` | What the suite does now, and why: architecture, formats, rationale, resolved decisions, and each delivered tool's "Acceptance" section. A phase's sections move here from the plans when it closes |
+| `docs/plans/*.md` | Work not built yet, with the same layout and headings as the spec: the design of what comes next, its rationale, and the open phase's "Acceptance" sections. Written in the present tense (the folder says it is future), each file opening with a banner that says so; a section partly built keeps its heading in both trees, the plan's part pointing at the spec section it builds on |
 | `docs/CONTRIBUTING.md` | How code is structured, written and verified |
 | `docs/GLOSSARY.md` | One line per domain term, pointing at the plan section that owns it |
 | `docs/WORKLOG.md` | *Where we are*: current status, phase/step checklist, current-state gotchas, open issues (the lead's and the sidekick's) |
@@ -43,7 +45,7 @@ then the cross-family reviewer (below), so the reviewer's attention goes to what
 not see rather than to what it did not look for; every requirement that is missing, partial or
 untested becomes a new worklog step, and the phase stays open until those are done. A requirement the plan *explicitly
 defers* to a later phase (a "before implementing X, extend Y" note, an open question naming its
-phase) is not a gap and stays future tense. The lead's audit ends with a **design-health pass**
+phase) is not a gap and stays in the plan. The lead's audit ends with a **design-health pass**
 over the phase's crates, separate from requirements coverage: the design-tell sweep (below) run
 over the whole phase's code rather than one diff, `just mutants <crate>` (the extra mutant
 kinds included) run over each crate with every survivor triaged (`CONTRIBUTING.md` "Mutation
@@ -64,12 +66,15 @@ change?", which no test or lint measures and which compounds silently across pha
 whole-crate run happens twice per crate: in the lead's audit, where its survivors seed the first
 rework brief, and once at close, after the reviewer loop ends. Each rework round in between is
 measured with `just mutants-diff <commit the round started from>` (2.20f: 45-53 minutes per
-whole-crate run, 3 for a round's diff); (2) **rewrite** the parts of the phase's plan sections
-that the phase delivered in the present tense, as a description of what now exists (acceptance IDs
-stay, as the behavior contract), moving nothing to a new document and leaving deferred parts as
-they are; (3) collapse the worklog's step list to the phase row, keeping its `manual: checked`
-lines, which are the manual scenarios' proofs (`CONTRIBUTING.md` "Testing"). Converting per phase, not at the
-end of the project, is what keeps the plan true while the memory of the work is fresh.
+whole-crate run, 3 for a round's diff); (2) **move** what the phase delivered from
+`docs/plans/` to the same file and heading in `docs/spec/` (acceptance IDs stay, as the behavior
+contract), correcting it where the code was built differently and converting any future-tense
+wording; deferred parts stay in the plan, and a section partly delivered keeps its heading in both
+trees, the plan's part pointing at the spec section it builds on; `just doc-pointers` then lists
+every pointer left naming the old tree, and code points at the spec alone; (3) collapse the
+worklog's step list to the phase row, keeping its `manual: checked`
+lines, which are the manual scenarios' proofs (`CONTRIBUTING.md` "Testing"). Moving per phase, not at the
+end of the project, is what keeps the spec true while the memory of the work is fresh.
 
 **Lead and sidekick.** Sessions run as a lead model that plans, briefs, reviews and talks to the
 user, and a sidekick model (a different family) that implements and runs the gates. The lead
@@ -226,22 +231,24 @@ call runs the queue until the next stop; the work in between continues.
 
 ## Read order by task
 
-You do not need to read `docs/plans/core/README.md` end to end. Read this file and the worklog's
-"Current status", then:
+You do not need to read `core/README.md` end to end. Read this file and the worklog's
+"Current status", then the rows below. Each document they name may exist in both trees,
+`docs/spec/` for what is built and `docs/plans/` for what is not; read both copies when both
+exist.
 
 | Working on | Read |
 |---|---|
 | Any code change | `docs/CONTRIBUTING.md`, then the row below that matches; `docs/GLOSSARY.md` whenever a term is unfamiliar; do not infer domain terms from their English meaning |
-| A format or leaf lib crate (`cpk`, `fpk`, `fmdl`, `pes_model`, `ftex`, `dds_convert`, `fox2`, `uniparam`, `wezlib`, `vtree`, `archives`, `fpc`, `teams_list`, `color_tools`, `elevation`) | `docs/plans/libs/README.md`; for `fmdl`/`pes_model` also "Blender integration" in `model_conversion/gltf.md` |
+| A format or leaf lib crate (`cpk`, `fpk`, `fmdl`, `pes_model`, `ftex`, `dds_convert`, `fox2`, `uniparam`, `wezlib`, `vtree`, `archives`, `fpc`, `teams_list`, `color_tools`, `elevation`) | `libs/README.md`; for `fmdl`/`pes_model` also "Blender integration" in `model_conversion/gltf.md` |
 | `kit_config` | `libs/README.md` for the crate, `kit_config_editor.md` for the format reference |
 | `python_bindings` | "Blender integration" in `model_conversion/gltf.md`; guardrail 4 in `core/architecture.md` |
 | A tool crate | That tool's plan, plus "Tool plugin interface", "Event system", and the tool-crate skeleton under "Crate structure" in `core/architecture.md` |
-| Anything that reads or writes exports | `docs/plans/aesthetics_export/README.md` (object model, folder conventions, validation) |
+| Anything that reads or writes exports | `aesthetics_export/README.md` (object model, folder conventions, validation) |
 | `studio_core` or `studio` | `core/architecture.md` and `core/gui.md` |
 | Model conversion or glTF | `model_conversion/README.md`, `model_format.md` |
 | Savefile | `pes_savefile/README.md`, then `save_editor.md` |
 
-Several plans carry "Resolved decisions" / "Open questions" sections. Check them before asking:
+Several documents carry "Resolved decisions" / "Open questions" sections. Check them before asking:
 your question may already be listed, with the phase in which it gets resolved.
 
 ## Fundamental concepts

@@ -245,7 +245,7 @@ mod tests {
     }
 
     /// The referee fixture decoded by hand from the plan's offset table
-    /// (`kit_config_editor.md` "The format"), every field a literal, so a codec that
+    /// (`spec/kit_config_editor.md` "The format"), every field a literal, so a codec that
     /// permutes two fields of equal width (two colors, two badge coordinates) and still
     /// round-trips bit for bit is caught. Bytes 0x16-0x24 of the fixture:
     /// `00 9C E0 1C 00 07 00 0E 1C 74 D0 41 07 01 00`.

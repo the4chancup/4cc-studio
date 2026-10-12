@@ -192,7 +192,7 @@ pub fn common_link_name(name: &str) -> Option<String> {
 /// path below `folder` (the player folder holding it) with `.common` (and a tolerated
 /// `.txt`) taken off its name (`jessie/body.fmdl.common` → `jessie/body.fmdl`; a link
 /// directly in `folder` gives its name alone). `None` when `link` is not below `folder` or
-/// its name is no `.common` link (`model_format.md` "Link files": a link mirrors `Common/`'s
+/// its name is no `.common` link (`spec/model_format.md` "Link files": a link mirrors `Common/`'s
 /// tree).
 pub fn common_link_target(link: &ScopePath, folder: &ScopePath) -> Option<String> {
     // Folding is per segment, so the folded folder is a prefix of the folded link exactly

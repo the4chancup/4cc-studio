@@ -1,7 +1,7 @@
 //! Where compiled content goes inside the CPK, for the Fox versions (PES 18-21) and, for the
 //! faces, the shared boots and gloves, a model folder's textures, the team's Common output, the
 //! kits, the portraits and the logo, the pre-Fox ones (PES 15-17) too:
-//! `team_compiler/pipeline.md` "Game paths reference". The CPK paths have no leading `/`.
+//! `spec/team_compiler/pipeline.md` "Game paths reference". The CPK paths have no leading `/`.
 
 use std::fs;
 use std::path::Path;
@@ -400,7 +400,7 @@ pub(crate) fn referee_marker(engine: Engine) -> String {
 
 /// The game's kit texture folder, as an FMDL texture path's directory spells it: the modded
 /// exe swaps its files per match, so a texture path into it names no fixed kit
-/// (`fmdl_texture_kit_path`, `model_format.md` "Kit-dependent assets").
+/// (`fmdl_texture_kit_path`, `spec/model_format.md` "Kit-dependent assets").
 pub(crate) const KIT_TEXTURE_DIRECTORY: &str = "/Assets/pes16/model/character/uniform/texture/";
 
 /// The CPK path of one kit texture, by its game name (`u0792g1`, `u0792g1_back`), converted

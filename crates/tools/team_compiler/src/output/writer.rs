@@ -1,4 +1,4 @@
-//! The canonical-order CPK writer (`team_compiler/pipeline.md` "5. Writer"): the `overrides/`
+//! The canonical-order CPK writer (`spec/team_compiler/pipeline.md` "5. Writer"): the `overrides/`
 //! files first, then task batches in manifest order whatever order they arrive in, a player
 //! folder's group decided as one once its textures batch is in, then the bins. In multi-CPK
 //! mode the batches' entries go to the teams parts instead, a team at a time (`parts`). In a

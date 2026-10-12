@@ -1,4 +1,4 @@
-//! `compile --mode sideload` (`team_compiler/pipeline.md` "5. Writer", step 5): what a normal
+//! `compile --mode sideload` (`spec/team_compiler/pipeline.md` "5. Writer", step 5): what a normal
 //! run puts in its CPK, written as loose files that replace the game folder's `livecpk/`.
 
 use std::collections::BTreeMap;

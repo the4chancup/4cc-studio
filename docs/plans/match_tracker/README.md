@@ -1,5 +1,7 @@
 # 4cc Studio — Match tracker plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The match tracker (`crates/tools/match_tracker`, tool id `match-tracker`, sidebar
 label "Match tracker" — unlike Rigdio/RigDJ the old name has been out of use for years
 and does not stay in the label) is the successor to **SEN:P-AI**, the live

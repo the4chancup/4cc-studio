@@ -1,5 +1,7 @@
 # 4cc Studio — Team compiler plan: GUI grid
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 Part of the [Team compiler plan](README.md). Section headings are unchanged from the single-file plan, so an existing pointer to a section still names it; only the file part of the pointer changed.
 
 ## GUI: the live-validating team grid
@@ -31,7 +33,7 @@ it, one cell per player at a fixed position by number, plus one cell per kit:
   file change: every export re-resolves and revalidates, so a reassignment's effect on other rows
   (the team that lost the ID turning red) is immediately visible. If the write fails because the
   data directory is not writable, the cell reverts and stays red with `teams_list_read_only` in
-  its tooltip; there is no elevation path (see `pipeline.md` "Resolved decisions", "Teams list").
+  its tooltip; there is no elevation path (see `spec/team_compiler/pipeline.md` "Resolved decisions", "Teams list").
 - **Untagged export**: a team export whose name has neither `Full` nor `Midcup`
   (`export_tag_missing`) is not compiled and has no player to show, so its row holds two
   buttons, **Full** and **Midcup**, where its player cells would be: no space is reserved for
@@ -260,10 +262,10 @@ A single primary action:
   starts the game and does nothing else. Red's staged operations as separate runs
   ("extracted → contents", "contents → CPK") are superseded by the unified pipeline and are not
   exposed. GUI autorun (`quick_compile.bat`, see
-  `settings.md` "CLI") presses this button programmatically once the initial check completes; a run started that
+  `spec/team_compiler/settings.md` "CLI") presses this button programmatically once the initial check completes; a run started that
   way is indistinguishable in the grid and log from a manual click, except that
   `quick_compile_close_on_success` may close the window when it ends. The button carries the
-  **destination writability badge** (PES running / elevation needed — see `pipeline.md` "Post-processing") with the
+  **destination writability badge** (PES running / elevation needed — see `spec/team_compiler/pipeline.md` "Post-processing") with the
   reason and remedy in its tooltip, and its dropdown always contains **Open output folder**.
 - **Status strip** — a one-line bar next to the button: current stage, elapsed time, files written,
   memory in use. The core plan's current `Progress { processed, total }` payload is insufficient;

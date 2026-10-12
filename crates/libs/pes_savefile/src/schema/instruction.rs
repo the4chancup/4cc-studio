@@ -1,5 +1,5 @@
 //! The per-version advanced-instruction mappings (plan:
-//! `pes_savefile/model.md`, "Version quirks"). PES 15/16 have no instruction
+//! `spec/pes_savefile/model.md`, "Version quirks"). PES 15/16 have no instruction
 //! table (`decode` is `Ok(None)` for every value, `encode` `None`). PES 17's
 //! stored order IS the canonical order for the thirteen it has; PES 18-21
 //! keep 0x00-0x07 and permute the rest into 0x08-0x0F.

@@ -7196,3 +7196,26 @@ the latest change. VGL26 alone (the plan's template until now) covered one kind.
 Plan: `aatf_rules.md` "Embedded rulesets" (new), the ruleset sections' status lines, "VTL10"
 (new), "Crate layout", "Development phase and verification"; `ruleset_editor.md` start page
 and verification.
+
+## 2026-10-12 — methodology — the spec moves to `docs/spec/`; `docs/plans/` holds only work not built
+Decision (maintainer): what the suite does is described in `docs/spec/`, the work not built yet in
+`docs/plans/`, under the same file paths and headings, so a section partly built keeps its heading
+in both trees, the plan's part pointing at the spec section it builds on. A phase's close moves
+what it delivered (correcting what was built differently) instead of rewriting it in place.
+Phases 1 to 4's sections moved on 2026-10-12; Phase 5's move at its close. Plans are written in
+the present tense, the folder saying they are future; older future-tense text converts when its
+section is next edited or moves. Every plan file opens with a banner saying it is a plan. Code
+points at the spec only. A gate, `just doc-pointers`, fails on a section pointer whose file or
+section is gone, so a move lists every pointer it breaks. Supersedes 2026-09-10 "plan-driven
+kept" point (4) (the present-tense rewrite in place, "not a separate `docs/specs/` tree") and the
+single-home rule of `plans/README.md` ("The specification stays here, in `docs/plans/`").
+Why: a folder called `plans` holding the specification of what exists misleads every reader, and
+the project is planned past 1.0.0, so renaming the folder once everything is built never comes.
+The single-home argument (two homes drift) holds for one behavior in two documents, not for
+built and unbuilt work in two trees with one layout: each sentence still has one home. The
+banner exists because an excerpt read without its path (a brief, a reviewer's prompt) would pass
+present-tense plan text off as fact. Entries in this log and in `LOG.md` keep the pointers they
+were written with: they are append-only, and a pointer there names the tree of its day.
+Plan: `plans/README.md` "How these documents evolve" (rewritten), `spec/README.md` (new);
+`AGENTS.md` "Working documents" (table, closing a phase), "Read order by task"; `GLOSSARY.md`
+"Plan", "Spec"; `CONTRIBUTING.md` "Testing and verification" (the gate); `WORKLOG.md` "Phases".

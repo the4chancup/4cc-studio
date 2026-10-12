@@ -1,5 +1,5 @@
 //! A team's kit configs as a compile edits them besides adding its committed kits' configs
-//! (`team_compiler/pipeline.md` "Bins accumulation", "Collars"): a `Full` export's team loses
+//! (`spec/team_compiler/pipeline.md` "Bins accumulation", "Collars"): a `Full` export's team loses
 //! the configs of kits it does not hold, and a `Midcup` export gives the configs of the kits
 //! the game offers the team that the export does not hold the FPC values, when its team's
 //! kit-FPC status is On, then its collar, when it has one. A team's configs are the entries

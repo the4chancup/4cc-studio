@@ -6,7 +6,7 @@ rule here is enforced in review.
 
 ## Architecture rules
 
-Workspace guardrails (details: `plans/core/architecture.md` "Workspace guardrails"):
+Workspace guardrails (details: `spec/core/architecture.md` "Workspace guardrails"):
 
 1. Tool crates never depend on tool crates. Shared logic moves down into a lib crate.
 2. Every shared dependency is declared once in the root `Cargo.toml` `[workspace.dependencies]`;
@@ -346,7 +346,7 @@ Requirements:
 
 ## Dependencies
 
-Only crates listed in `plans/core/README.md` "External Dependencies" are pre-approved. Anything else,
+Only crates listed in `spec/core/README.md` "External Dependencies" are pre-approved. Anything else,
 including "just a small helper crate", is a question for the user, with the reason and the
 alternative considered. Prefer versions published at least a week ago; no floating ranges.
 

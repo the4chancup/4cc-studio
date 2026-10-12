@@ -1,4 +1,4 @@
-//! `compile --mode test` (`team_compiler/pipeline.md` "5. Writer", step 5): what the compiler
+//! `compile --mode test` (`spec/team_compiler/pipeline.md` "5. Writer", step 5): what the compiler
 //! made of each export, as loose files under the output folder's `test_output/`, one folder per
 //! export, the model packages unpacked and the bins under `_bins/`.
 

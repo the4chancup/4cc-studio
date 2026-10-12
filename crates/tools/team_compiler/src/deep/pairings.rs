@@ -1,5 +1,5 @@
 //! The deep pass's pairing of each model of a model folder with the `.mtl` it binds its
-//! materials from (`team_compiler/messages.md` "XML/MTL content checks"): the `.mtl` the
+//! materials from (`spec/team_compiler/messages.md` "XML/MTL content checks"): the `.mtl` the
 //! folder's own `face.xml` entry names, else the one its search finds (`mtl_search`), and the
 //! `model_material_undefined` finding that comparing the two gives. `mod.rs`'s
 //! `folder_findings` drives it, once per model folder, its texture lookup reading which

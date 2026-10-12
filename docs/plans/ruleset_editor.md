@@ -1,5 +1,7 @@
 # 4cc Studio — Ruleset editor plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The Ruleset editor (`crates/tools/ruleset_editor`, tool id `ruleset-editor`, sidebar label
 "Ruleset editor") lets anyone who can fill in a form build an AATF ruleset for their own
 invitational: tiers, stat targets, heights, cards and conditional special rules, saved as a rules

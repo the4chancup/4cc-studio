@@ -1,8 +1,12 @@
 # 4cc Studio — Plan index
 
-The architectural plan is split into one document per concern. Start with the
-[core plan](core/README.md) (overview, crate structure, tool plugin system, GUI shell, parallelism,
-development plan, key decisions); the tools and the major library crates have their own documents.
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
+The work not built yet, one document per concern; what is built is described under the same
+file names in the [spec](../spec/README.md). Start with the [core plan](core/README.md) (the GUI
+shell, distribution, the development plan's remaining phases); the tools and the major library
+crates have their own documents. A document below whose concern is mostly built (the Team
+compiler, the libraries, the savefile) holds only its unbuilt parts here.
 
 | Plan | Covers |
 |------|--------|
@@ -34,8 +38,13 @@ choices made where these plans were silent in [`../DECISIONS.md`](../DECISIONS.m
 
 ## How these documents evolve
 
-The plans are design documents *and* the specification; there is no separate spec tree. Two things
-turn a plan section into a specification over the life of the project:
+Two trees with one layout: `docs/spec/` describes what the suite does now, `docs/plans/` the
+work not built yet. A file and a heading keep their path and text in both, so a section that is
+partly built appears in each tree under the same heading, the plan's part pointing at the spec
+section it builds on. Plans are written in the present tense, like the spec: the folder says the
+work is future, and a section moves without a rewrite of its verbs. Because an excerpt read
+without its path would pass for fact, every plan file opens with a banner saying it is a plan,
+and briefs and reviewer prompts quote plan text with its path.
 
 - **Acceptance sections.** Before the phase that delivers a tool, that tool's plan gains an
   "Acceptance" section: stable-ID GIVEN/WHEN/THEN scenarios for the user-observable behavior the
@@ -43,25 +52,29 @@ turn a plan section into a specification over the life of the project:
   documents"). They are written just-in-time, one phase at a time, not for the whole suite up
   front. Lib crate plans do not get them: for a format crate the fixtures and the parity standard
   are the specification.
-- **Present-tense rewrite at phase close.** While a phase is open its sections read as intent
-  ("the compiler will…"); when it closes — after the converge audit has confirmed the code meets
-  the sections and the acceptance IDs — those sections are rewritten as a description of what
-  exists ("the compiler does…"), in place. The rationale ("X not Y because Z") stays; the
-  acceptance IDs stay as the behavior contract. Converting per phase rather than in one pass at the
-  end keeps the plan true while the work is fresh and avoids a rewrite of ten thousand lines from
-  memory.
+- **The move at phase close.** When a phase closes, after the converge audit has confirmed the
+  code meets its sections and acceptance IDs, what it delivered moves to the same file and
+  heading in `docs/spec/`, corrected where the code was built differently. The rationale ("X not
+  Y because Z") moves with it; the acceptance IDs move as the behavior contract. Moving per phase
+  rather than in one pass at the end keeps the spec true while the work is fresh. Text written
+  in the future tense before 2026-10-12 is converted when its section is next edited or moves,
+  never in bulk.
 
-Two rules about where the text lives:
+Three rules about where the text lives:
 
-- **The specification stays here, in `docs/plans/`, and is not moved into the crates.** Plans do
-  not map one-to-one onto crates (`libs` covers fifteen, `team_compiler` specs three, the format
-  plans are shared by several tools and the Blender add-on, `core` has no crate), the rewrite is
-  incremental so a document is mixed intent and description for phases, and every pointer in
-  `AGENTS.md`, `GLOSSARY.md` and `DECISIONS.md` targets this folder. Two homes would drift. A
-  crate that wants to name its spec points at the section (`//!` in `lib.rs`, a fixture README).
-- **A plan that crosses roughly a thousand lines becomes a folder**, `plans/<name>/`, with a
-  `README.md` (the original preamble, an index of the parts, and the small cross-cutting sections:
-  crate layout, phases, key decisions) and one file per major section; the same threshold and shape
-  the code uses for a module (`CONTRIBUTING.md` "Architecture rules"). Section headings keep their
-  text across the split, so a `file "Section"` pointer only changes its file part, and every part
-  states which plan it belongs to.
+- **The specification is not moved into the crates.** The documents do not map one-to-one onto
+  crates (`libs` covers fifteen, `team_compiler` specs three, the format documents are shared by
+  several tools and the Blender add-on, `core` has no crate). A crate that wants to name its spec
+  points at the section in `docs/spec/` (`//!` in `lib.rs`, a fixture README); code never points
+  at a plan, which describes only what code does not do yet.
+- **A pointer names its tree.** A working document names a plan section by its path below
+  `plans/` (or the bare path, the older form) and a spec section by `spec/<path>`; `just
+  doc-pointers` (a gate) fails on a pointer whose file or section is gone, so a move lists every
+  pointer it broke. `DECISIONS.md` and `LOG.md` stay append-only: their pointers keep the tree
+  they were written for.
+- **A document that crosses roughly a thousand lines becomes a folder**, `<name>/`, with a
+  `README.md` (the original preamble, an index of the parts, and the small cross-cutting
+  sections: crate layout, phases, key decisions) and one file per major section; the same
+  threshold and shape the code uses for a module (`CONTRIBUTING.md` "Architecture rules").
+  Section headings keep their text across the split, so a pointer only changes its file part,
+  and every part states which document it belongs to.

@@ -1,7 +1,7 @@
 //! Golden data for `schema::playstyle`: the reference editor's twelve playing-style
 //! conversion arrays (`menu_lists.cpp` lines 70-81, verbatim), reproduced through
 //! `encode(to, decode(from, i))`, plus the fixture census that confirmed their index
-//! spaces (plan: `pes_savefile/operations.md` "Cross-version player conversion").
+//! spaces (plan: `spec/pes_savefile/operations.md` "Cross-version player conversion").
 
 use pes_version::PesVersion;
 

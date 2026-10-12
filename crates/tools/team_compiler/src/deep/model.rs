@@ -1,4 +1,4 @@
-//! The deep pass's model checks (`team_compiler/messages.md` "Model checks"): which rules
+//! The deep pass's model checks (`spec/team_compiler/messages.md` "Model checks"): which rules
 //! the format crates' checks fire on a native model (`.fmdl`, `.model`) or a `.mtl`, one
 //! entry per code, and whether a model (`.fmdl` or `.model`) carries hand weights.
 

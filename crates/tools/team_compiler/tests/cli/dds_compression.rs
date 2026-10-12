@@ -1,4 +1,4 @@
-//! The `dds_compression` setting (`team_compiler/settings.md`, "DDS compression cost"): on
+//! The `dds_compression` setting (`spec/team_compiler/settings.md`, "DDS compression cost"): on
 //! PES 2015 to 2017 every DDS a compile writes is WESYS-zlibbed when the setting is on, or
 //! `auto` with `multicpk_mode` on, a DDS the export already holds wrapped written as it is; PES
 //! 2018 to 2021 ignore it.

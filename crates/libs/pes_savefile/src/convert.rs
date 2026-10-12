@@ -1,6 +1,6 @@
 //! Cross-version player conversion: rewrites `target`, a player read from a
 //! `to`-version save, from `source`, read from a `from`-version save
-//! (plan: `pes_savefile/operations.md`, "Cross-version player conversion").
+//! (plan: `spec/pes_savefile/operations.md`, "Cross-version player conversion").
 //! Everything that translates one-to-one is copied through; what does not is
 //! capped, dropped or filled from the target, and each such case is reported
 //! as a `ConvertNote`, never silently. The version-dependent facts live in

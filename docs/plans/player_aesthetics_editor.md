@@ -1,5 +1,7 @@
 # 4cc Studio — Player aesthetics editor plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 Covers `tools/player_aesthetics_editor` — a convenience tool for viewing and
 tweaking a single player folder: browse the available exports' player folders,
 open one **in Blender** with everything pre-loaded, edit its `settings.toml`,
@@ -111,7 +113,7 @@ one set with the kit numbers the export defines and those it lacks, and for each
 model names, where it resolves (beside the model, a parent folder, a subfolder path the model
 names, a link into `Common/`, or nowhere). The resolution is `aesthetics_export`'s and the
 compiler's planning, not a second implementation in the tool, so the view cannot disagree with
-the compile. Rules: `aesthetics_export/player_folders.md` "Subfolders", `model_format.md`
+the compile. Rules: `spec/aesthetics_export/player_folders.md` "Subfolders", `model_format.md`
 "Link files" and "Kit-dependent assets".
 
 **Settings panel.** A form over the selected folder's `settings.toml` — the name rule (absent /
@@ -340,7 +342,7 @@ The point of planning this tool early — what moves where:
 |-------|------|--------|
 | `ir_to_gltf` exporter + dual-set superset merge | `libs/model_convert` | **New** — glTF was import-only until this tool; specced in the Model conversion plan |
 | Export/folder/link/settings parsing + validation | `libs/aesthetics_export` | Existing; gains this tool as a consumer |
-| Comment-preserving `settings.toml`/`materials.toml` writes | `toml_edit` dep, used from this tool | New dependency, no new crate |
+| Comment-preserving `settings.toml`/`materials.toml` writes | `toml_edit` dep, used from this tool | Existing workspace dependency (`pes_savefile`, `kit_config`), no new crate |
 | Base-model extraction from installed CPKs | this tool crate | Single consumer, stays in-tool per the guardrails |
 | In-app 3D viewport (`libs/model_viewport`) | future lib, created with the Team compiler's 3D-preview feature | **Not created by this tool**; when it exists, this tool embeds it as a labeled approximate preview — the second consumer that justifies the crate |
 | Blender loader | module of the all-in-one `pes-models` extension, Blender 5.2 project (outside this repo) | New; consumes the manifest contract only; extension planned in `blender_project/pes_models_plan.md` |

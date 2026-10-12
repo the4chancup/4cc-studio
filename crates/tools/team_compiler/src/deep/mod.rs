@@ -1,4 +1,4 @@
-//! The deep pass (`team_compiler/pipeline.md` "2. Per-export serial steps", "Deep format
+//! The deep pass (`spec/team_compiler/pipeline.md` "2. Per-export serial steps", "Deep format
 //! pass"): the checks only a file's contents can answer, run over the sanitized export the
 //! structure pass leaves. What they find goes back to `aesthetics_export` as content findings,
 //! which derive the sanitized export again, so a finding drops, cascades and passes through by
@@ -16,7 +16,7 @@
 //! `.model` is converted with, a model folder's or a `Common/` one; nor a refs export's kits,
 //! logo, portraits and collars; and it reports
 //! what the format crates' checks find
-//! (`team_compiler/messages.md` "Model checks"): one finding per file and code, at the
+//! (`spec/team_compiler/messages.md` "Model checks"): one finding per file and code, at the
 //! severity the format crate gives it. An Error drops what holds the file and may pass through;
 //! a Warning or an Info only informs. The far vertex, which both formats check, is reported as
 //! `vertex_too_far_from_origin` and never passes through. A file that does not parse is

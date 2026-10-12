@@ -67,7 +67,7 @@ struct Candidate<'a> {
     /// The name, case-folded: what the search matches.
     folded: String,
     /// Whether it is a link: a folder's own `.mtl` comes before a link of its folded name, as
-    /// a local file overrides a Common one (`model_format.md` "Link files (`.common`)").
+    /// a local file overrides a Common one (`spec/model_format.md` "Link files (`.common`)").
     linked: bool,
     /// The name as spelled, which breaks a tie between two names that fold alike.
     name: String,

@@ -1,6 +1,6 @@
 //! The installed `DpFileList.bin`, the list of CPKs the game loads from `download/`, read for
 //! the working-bin walk and compared with the official list (`templates`). Its layout is the one
-//! measured in `team_compiler/pipeline.md` "DpFileList upgrade" (the sub-bullet starting "The
+//! measured in `spec/team_compiler/pipeline.md` "DpFileList upgrade" (the sub-bullet starting "The
 //! DPFL binary format is small"): a 16-byte header whose
 //! second little-endian `u32` is the entry count, then that many 48-byte records, each a CPK file
 //! name ended by a NUL, then a tail of zeros. The header's other words, each record's bytes after

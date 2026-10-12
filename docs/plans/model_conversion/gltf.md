@@ -1,5 +1,7 @@
 # 4cc Studio — Model conversion plan: glTF source
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 Part of the [Model conversion plan](README.md). Section headings are unchanged from the single-file plan, so an existing pointer to a section still names it; only the file part of the pointer changed.
 
 ## glTF as the universal model source
@@ -34,6 +36,8 @@ read-only).
 
 ### glTF export (`ir_to_gltf`) and dual-set superset merge
 
+What exists of this is in `spec/model_conversion/gltf.md` "glTF export (`ir_to_gltf`) and dual-set superset merge".
+
 glTF is also an IR **target**, for the [Player aesthetics editor](../player_aesthetics_editor.md)'s
 convert-to-glTF migration and the [Export upgrader](../export_upgrader.md)'s optional glTF conversion
 pass (the Team compiler never emits glTF — its targets are the game formats). `ir_to_gltf` emits
@@ -44,31 +48,6 @@ textures in the source folder are referenced externally from the material tomls 
 re-encoded or embedded. Materials are emitted as a single catch-all `materials.toml` per folder with
 app-injected comments, each entry carrying the inferred `family` plus the source engine's native
 table verbatim (see "Emission" in the format plan).
-
-**Skeleton reconstruction from FMDL.** The FMDL bone data carries only local and global positions
-(Vector4) — not the 3×3 rotation matrix. The full bind-pose transform (rotation + translation)
-lives in the companion `.skl` file. `fmdl_to_ir` resolves the bone transforms as follows:
-
-1. If the FMDL has a companion `.skl` (same basename, per the Aesthetics export plan's SKL pairing rule),
-   read the full 3×4 transforms from the SKL via the `fmdl` crate's SKL codec.
-2. If no companion SKL exists, use the embedded template skeleton (`body.skl`) for the standard
-   bone transforms, supplemented by the FMDL's own position data.
-
-**Skeleton in `.model`.** The pre-Fox format needs no sidecar: a `.model` stores its bone name
-table and, per bone, a 3×4 **inverse bind matrix** inline (section 0's first entry, one 12-float
-record per bone in name order — `ModelFile.parseBoneGroups` in the `pes-model` addon), which is
-exactly the data an FMDL keeps in its `.skl`. What it lacks is the hierarchy: parents are resolved
-by looking each bone name up in the template skeleton's render parents (the addon's `addBone`), so
-a bone unknown to the template is a root. `model_to_ir` inverts the stored matrices into
-`Bone.matrix`; `ir_to_model` writes the inverse of `Bone.matrix` back. What ends up in `Bone.matrix`
-at export time is decided by the skeleton retargeting pass (see "Skeleton retargeting and bone
-conformance"): standard bones carry the **target version's** bind pose — which is what a `.model`
-must contain to skin correctly against that game's runtime skeleton — and only bones unknown to the
-target's tables (a genuine custom skeleton) keep the model's own matrices. **This deviates from the
-19to16 converter**, which always wrote PES17's matrices (`fmdl2model.py`, identity for unknown
-bones) regardless of target and flattened custom skeletons. In the other direction, `.model` → Fox
-generates a companion `.skl` from the IR only when a custom bone survives; a model on the standard
-skeleton gets none, and the compiler's template injection stands.
 
 The IR `Bone.matrix` carries the full PES bind transform. This is not a direct byte-layout copy
 into glTF: the sample SKL positions are model-space, whereas glTF nodes use parent-local transforms
@@ -96,15 +75,9 @@ Which set supplies the geometry is the caller's choice, surfaced at conversion t
 
 ### IR part merge (`merge_ir_parts`)
 
-`merge_ir_superset` merges *one part across two formats*; it never adds geometry. Assembling
-*several parts into one model* is a different operation, and it is **format-native on both
-engines**: `fmdl::ops::merge` for Fox, `pes_model::ops::merge` for pre-Fox (the `ingame_face`
-boots merge, and a shared link combined with local parts under `ingame_face` — see the [Aesthetics
-export plan](../aesthetics_export/README.md)'s "ingame_face marker"), with the same rules, so a same-format
-merge never round-trips through the IR. An earlier version of this plan routed the pre-Fox cases
-through the IR-level `merge_ir_parts` below; that was dropped because it made them the one
-exception to "same format skips the IR" for no gain (the `.mtl` merge is a material-name merge
-either way). `merge_ir_parts` stays specified here as the IR-level equivalent, **deferred**:
+What exists of this is in `spec/model_conversion/gltf.md` "IR part merge (`merge_ir_parts`)".
+
+`merge_ir_parts` stays specified here as the IR-level equivalent, **deferred**:
 nothing in the plan calls it, and it is implemented only if a caller appears (a merge of parts
 that must stay in the IR, inside the Player aesthetics editor for instance). The rules below are
 the contract all three share.
@@ -145,6 +118,8 @@ collections, satisfying the byte-reproducible output contract.
 
 ### glTF dependency and image contract
 
+What exists of this is in `spec/model_conversion/gltf.md` "glTF dependency and image contract".
+
 - **URI safety and locality:** `model_convert` accepts dependencies through a
   caller-supplied asset resolver rather than opening paths itself. The caller
   percent-decodes and canonicalizes external buffer/image URIs into the shared
@@ -172,14 +147,6 @@ collections, satisfying the byte-reproducible output contract.
   interchangeable as sources for any model format), the stem→file resolution, and the
   `texture_stem_conflict` rule are specified in the format plan ("Dependencies and images"); the
   [library crates plan](../libs/README.md) has the full decoder matrix.
-- **PES texture boundary:** `dds_convert` selects codecs by PES version and material role,
-  independently of the model's source format. BC7 is supported on PES 19–21, not PES18 despite
-  its Fox model format. PES 15–18 convert BC7/raster inputs to BC3 or eligible opaque-color BC1;
-  PES 19–21 retain supported BC7 and encode ordinary raster sources to BC7. The [library
-  crates plan](../libs/README.md) owns alpha/mipmap/normal-map rules and the CPU encoder choice.
-  Already-compatible blocks are retained where only DDS/FTEX container adaptation is needed.
-  `model_convert` supplies pixels and material roles, not final player/team paths; the run-level
-  `BuildManifest` and texture-relocation step own those destinations.
 - **PNG-texture trajectory:** Blender cannot write DDS natively, and the ported
   addons convert DDS→PNG on import, so glTF-authored models (the plan's end-state
   authoring path) naturally carry PNG textures. As the community migrates from
@@ -192,6 +159,8 @@ collections, satisfying the byte-reproducible output contract.
 
 ### Blender integration
 
+What exists of this is in `spec/model_conversion/gltf.md` "Blender integration".
+
 The community works with PES models in Blender through two complementary paths. Both are packaged as
 codec modules of **one Blender 5.2 extension** — the all-in-one `pes-models` plugin, which also
 hosts the [Player aesthetics editor](../player_aesthetics_editor.md)'s loader module and **replaces the
@@ -203,11 +172,9 @@ standalone ported `pes-fmdl`/`pes-model` addons at its release** (plan:
 `pes_model` codec modules, minimally modified (packaging consolidation, not a rewrite — the ported
 code is the battle-tested asset). As a successor step, the hot paths — `parseVertices`,
 `parseFaces`, `encodeVertices`, mesh splitting, split vertex encoding, anti-blur — are replaced by
-calls into `fmdl` and `pes_model` via the `python_bindings` PyO3 wheel. Same-format round-trips
-(FMDL→Blender→FMDL, .model→Blender→.model) are lossless because they call the format crate directly
-and never route through the IR. The codecs retain a pure-Python fallback so they work even if the
-wheel is not installed or has rotted against a newer Blender Python. This path serves members
-editing existing `.fmdl`/`.model` files directly.
+calls into `fmdl` and `pes_model` via the `python_bindings` PyO3 wheel. The codecs retain a
+pure-Python fallback so they work even if the wheel is not installed or has rotted against a newer
+Blender Python. This path serves members editing existing `.fmdl`/`.model` files directly.
 
 **SKL on FMDL import.** The FMDL bone data carries only local and global positions (Vector4), not
 the 3×3 rotation matrices — those live in the companion `.skl`. The current `pes-fmdl` addon builds
@@ -265,11 +232,9 @@ extension's `fmdl`/`pes_model` codec modules and the `python_bindings` crate are
 between formats is the Studio's IR conversion (see "One schema, one canonical converter" in the
 format plan).
 
-The compiler materializes ZIP entries lazily or decompresses solid 7z data into an archive-owned
-buffer without creating a mutable extraction tree, so archive-level compression handles submitted
-size and the format needs none of its own (see "File size and compression" in the format plan).
-
 ### Pipeline integration
+
+What exists of this is in `spec/model_conversion/gltf.md` "Pipeline integration".
 
 ```
 Path A (legacy):  Blender ──pes-models fmdl/pes_model codecs──→ .fmdl / .model
@@ -286,12 +251,4 @@ Path B (new):     Blender ──pes-models glTF codec (native export + materials
                                                     └───────────────┘
 ```
 
-The compiler detects the model format by file extension (`.fmdl`, `.model`, `.gltf`/`.glb`) and
-routes accordingly. glTF sources always go through the IR. PES-native sources skip the IR for
-same-format targets — **except** when an IR-level operation applies: hand auto-split (models with
-`skh_` bone weights are imported, partitioned, and exported back to the same format) and
-cross-version skeleton retargeting (see `conversion.md` "Skeleton retargeting and bone conformance"). Both are lossless
-same-format IR round-trips. All other same-format processing (ID replacement, texture path
-rewriting, model merging on both engines, validation) is format-native and never touches the IR.
-
----
+The compiler also detects `.gltf`/`.glb` by file extension; glTF sources always go through the IR.

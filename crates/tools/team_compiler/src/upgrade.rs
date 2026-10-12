@@ -1,4 +1,4 @@
-//! The `upgrade-dpfl` command (`team_compiler/pipeline.md` "6. Post-processing", "DpFileList
+//! The `upgrade-dpfl` command (`spec/team_compiler/pipeline.md` "6. Post-processing", "DpFileList
 //! upgrade"; `settings.md` "CLI"): the installed `DpFileList.bin` replaced by the cup's
 //! official one, after an old DLC's CPKs are renamed to the official names of their stem, so
 //! they keep loading, and the placeholder CPK is written for every official entry with no file,

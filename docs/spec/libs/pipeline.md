@@ -7,7 +7,7 @@ plan's [Parallelism](../core/parallelism.md) section and the Team compiler's
 
 The crate holds four pieces, built in Phase 3: the memory budget and its cap, the thread count
 and `CpkStem`. The folder watcher and the check cache join with live validation (Phase 8); the
-browser variants (`core/gui.md` "Browser deployment: Studio Web") with the web build's pipeline
+browser variants (`spec/core/gui.md` "Browser deployment: Studio Web") with the web build's pipeline
 tier.
 
 ## Crate layout
@@ -86,7 +86,7 @@ Admission rules:
   entry): adds `size` at once, whatever `in_flight`, the cap or cancellation, and updates
   `peak` as `acquire` does. A task that holds a permit and waits for more can wait for bytes
   only its own completion releases, and every worker can be in that state at once
-  (`core/parallelism.md`, "Admission must remain progress-safe"), so a charge never waits.
+  (`spec/core/parallelism.md`, "Admission must remain progress-safe"), so a charge never waits.
   `in_flight` may then pass the cap by what the running tasks hold, at most the worker count
   times one task's workspace, and every later `acquire` waits until it drains: the run's
   memory stays bounded whatever the number of teams.
@@ -103,7 +103,7 @@ Admission rules:
 - A task acquires once, before loading, for its source bytes, the one size known up front.
   What it allocates while running (decoded textures, parsed and merged models, its packed
   entries) it charges as it allocates, each charge released when that memory is freed or,
-  for the packed entries, with its batch (`team_compiler/pipeline.md` "Admission").
+  for the packed entries, with its batch (`spec/team_compiler/pipeline.md` "Admission").
 
 **What a solid `.7z` is charged.** The structure pass needs a solid `.7z` export's small metadata
 (`players.txt`, `refs.txt`, `notes.txt`), and `archives` decompresses the whole archive on its
@@ -205,7 +205,7 @@ impl CpkStem {
 impl fmt::Display for CpkStem { /* the stem */ }
 ```
 
-The contract is `team_compiler/pipeline.md` "Writer" item 5: 1–28 characters, each ASCII
+The contract is `spec/team_compiler/pipeline.md` "Writer" item 5: 1–28 characters, each ASCII
 alphanumeric, `_`, `-` or `.`; no trailing `.`; no `.cpk` suffix in any case; and not a Windows
 reserved device name (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, any case), judged
 on the part before the first `.`, since Windows reserves `con.x` as it does `con`. Checks run in
@@ -216,7 +216,7 @@ consumer's check and is case-insensitive; on an ASCII-only stem that is
 
 ## Tests
 
-The `team_compiler/testing.md` "Infrastructure" cases for these three:
+The `spec/team_compiler/testing.md` "Infrastructure" cases for these three:
 
 - **Budget:** an ordinary request blocks while the cap is full and wakes on a release; an oversized
   request waits for `in_flight == 0`, then runs alone, while a later ordinary request waits for it;

@@ -1,4 +1,4 @@
-//! The deep pass's collar checks (`team_compiler/pipeline.md` "Collars"): which stock collar a
+//! The deep pass's collar checks (`spec/team_compiler/pipeline.md` "Collars"): which stock collar a
 //! `Collars/` file replaces, read from its `collar_<ID>` name for the target version, and the
 //! model checks any model gets. An Error drops the collar file alone: a collar is its own unit.
 

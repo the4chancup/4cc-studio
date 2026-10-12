@@ -48,7 +48,7 @@ pub(crate) struct CompileContext {
     /// encoding and the portraits' file names.
     pub(crate) version: PesVersion,
     /// The run's texture converter, one for every task: the conversion cache in front of
-    /// `dds_convert` (`libs/dds_convert.md` "In-memory conversion cache").
+    /// `dds_convert` (`spec/libs/dds_convert.md` "In-memory conversion cache").
     pub(crate) converter: Converter,
     /// Whether the converter keeps what it converts, from the run's export count.
     pub(crate) cache: CachePolicy,
@@ -99,7 +99,7 @@ impl CompileContext {
 
 /// Whether a run compiling `compiled_exports` exports caches its conversions: at most two,
 /// the edit-and-test loop the cache is for; a larger run converts mostly first-seen textures
-/// and would retain every one for nothing (`libs/dds_convert.md` "Engagement limit").
+/// and would retain every one for nothing (`spec/libs/dds_convert.md` "Engagement limit").
 fn cache_policy(compiled_exports: usize) -> CachePolicy {
     if compiled_exports <= 2 {
         CachePolicy::Use

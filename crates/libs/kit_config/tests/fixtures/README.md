@@ -1,7 +1,7 @@
 # kit_config fixtures
 
 Konami-derived files are Konami's, kept for interoperability (see the repository README). The
-120-byte kit config format is documented in `docs/plans/kit_config_editor.md` "The format".
+120-byte kit config format is documented in `docs/spec/kit_config_editor.md` "The format".
 
 | File | Source | Notes |
 |---|---|---|

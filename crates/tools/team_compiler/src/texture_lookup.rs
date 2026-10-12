@@ -55,7 +55,7 @@ impl PlaceHome {
 /// A model folder's textures by the folder directly holding each, and its texture links the
 /// same way, for a texture name to resolve nearest first (`places`): a `.common` texture link
 /// counts as the texture it stands for being present in the folder holding the link
-/// (`model_format.md` "Link files"), so its place is that folder's and its home the team's
+/// (`spec/model_format.md` "Link files"), so its place is that folder's and its home the team's
 /// Common output.
 #[derive(Debug, Default)]
 pub(crate) struct TextureFolders {

@@ -12,10 +12,11 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 4 (Processing logic) closed 2026-10-12. Phases 1 to 3 done (Phase 3 closed 2026-10-02,
 Phase 2 2026-09-30).
 **Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and step 5.1 done
-(2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; 5.2a's post-Astra rework next), then 5.2c
+(2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; Astra R12.A1 over 5.2b1's reworks after the
+Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, then 5.0j beside 5.2c
 (5.2b2 needs measurements first; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
-after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases");
+after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
 **Blocked on:** nothing.
 
@@ -37,7 +38,7 @@ directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20
 |---|---|
 | Plan index | `docs/plans/README.md` → `docs/plans/core/README.md` |
 | Development phases | `docs/plans/core/development_plan.md` "Development Plan" |
-| Legacy tools (format evidence) | `docs/plans/core/README.md` "Project context" (paths are per-machine) |
+| Legacy tools (format evidence) | `docs/spec/core/README.md` "Project context" (paths are per-machine) |
 | Skeleton data | `resources/skeletons/` (see its README) |
 | FPC source text (for the `fpc` crate) | `resources/FPC.wikitext` |
 | `.model` format as measured (for the plugin author; the crate's notes are in `libs/README.md`) | `resources/prefox_model_format.md` |
@@ -76,7 +77,8 @@ Status: `todo` · `in progress` · `done` · `blocked`. A phase is done only aft
 steps, which every phase has: **converge** (the lead's own audit first, then the cross-family
 reviewer's, both against the phase's plan sections and acceptance IDs; each gap becomes a new
 step above it, and the phase waits for them) and **rewrite**
-(the phase's plan sections rewritten in the present tense, in place). Then collapse its step list
+(what the phase delivered moved from `docs/plans/` to `docs/spec/`, corrected where it was built
+differently; `AGENTS.md` "Working documents"). Then collapse its step list
 below to this one row, keeping its `manual: checked` lines; the step-level detail stays in git history. Tool phases (3–6, 8–15, 17, 19, 20) also
 open with an **acceptance** step: the tool plan's "Acceptance" section for that phase, written
 before any code (GUI scenarios that no automated test can prove are marked `manual` and proven by
@@ -120,7 +122,7 @@ done step with a one-line summary and the files or crates touched. One `[~]` per
 
 ### Phase 1 — Workspace bootstrap + core skeleton
 
-Done 2026-09-13 (spec now describes what exists: `docs/plans/core/development_plan.md` "Phase 1"). Step detail
+Done 2026-09-13 (spec now describes what exists: `docs/spec/core/development_plan.md` "Phase 1"). Step detail
 in git history up to commit `2f158a9`. CI proof: green run on `5e6ffc6`, deliberately red run on
 `eccf0f3` (both `gates` jobs failed at `just gates`, `deps-check` unaffected), reverted in
 `2f158a9`.
@@ -138,9 +140,9 @@ phase's open questions are under "Issues".
 
 Done 2026-10-02, its cross-family reviews still queued (the maintainer's directive; "Handover"
 lists them, 3.7's and 3.8's among them; what they find becomes steps under this heading). Spec
-now describes what exists: `docs/plans/core/development_plan.md` "Phase 3",
+now describes what exists: `docs/spec/core/development_plan.md` "Phase 3",
 `team_compiler/README.md` ("Acceptance": 77 scenarios, 75 cited by tests, 2 manual),
-`team_compiler/pipeline.md` "Run driver shapes", `aesthetics_export/object_model.md`,
+`spec/team_compiler/pipeline.md` "Run driver shapes", `aesthetics_export/object_model.md`,
 `libs/pipeline.md`. Step detail (3.1-3.9f, the 3.w `.cargo/mutants.toml` audit, the 3.y
 converge with its whole-crate mutation runs, the 3.z shell slice, 3.x this rewrite) in git
 history up to commit `32261dd`. Carried forward: the phase's open issues under "Issues".
@@ -153,7 +155,7 @@ id=792)` then `Run finished: exit code 0`. Linux: not yet checked, no machine wi
 
 ### Phase 4 — Processing logic
 
-Done 2026-10-12. Spec now describes what exists: `docs/plans/core/development_plan.md` "Phase 4",
+Done 2026-10-12. Spec now describes what exists: `docs/spec/core/development_plan.md` "Phase 4",
 `team_compiler/README.md` ("Phase 4 scope"; "Acceptance": 363 scenarios, 2 manual, 5
 withdrawn, all proven, every CLI test citing one), `team_compiler/pipeline.md` (the walkthrough
 and "Run driver shapes"), `messages.md`, `settings.md`, `aesthetics_export/object_model.md`.
@@ -511,7 +513,7 @@ Fixed before the itemization:
   rulings in `.tmp/5_0c/rulings.md`): 442 rows, 25 gaps. The Fox compiler's four became step
   5.0e; the 14 pre-Fox ones are an issue below (deferred until the cup next plays a pre-Fox
   version); the Export upgrader's four are its plan's "Open items"; the three log ones are in
-  `core/architecture.md` "Diagnostic logging"; a referee's `hair_parts` textures are a
+  `spec/core/architecture.md` "Diagnostic logging"; a referee's `hair_parts` textures are a
   `QUESTIONS.md` in-game check. The deviations kept are a decision entry, and the plan passages
   that described Red wrongly were corrected.
 - [x] 5.0e The Fox compiler's gaps from the Red inventory (5.0c, `.tmp/5_0c/rulings.md` A):
@@ -534,14 +536,14 @@ Fixed before the itemization:
   - (3) an FMDL texture path into the game's kit texture folder
     (`/Assets/pes16/model/character/uniform/texture/`): Red reports an Error and keeps the model
     (`e12aa01`, "Report PES uniform texture paths in FMDLs as errors"); Studio keeps a game path
-    unlooked-up (`team_compiler/pipeline.md` "Resolved decisions"). Red's reason (its commit message): the
+    unlooked-up (`spec/team_compiler/pipeline.md` "Resolved decisions"). Red's reason (its commit message): the
     modded exe swaps kit textures per match, so a fixed path there cannot work, and the member
     must use the dummy kit or a Common path. Ruled: the Warning `fmdl_texture_kit_path`
     (`messages.md`), the model kept with the path unchanged (a Studio Error would drop the
     folder, which Red's Error does not) → done when: TC-MOD-91 passes
   - (4) a `.txt` in a model folder is a note: `file_not_used` like any file no role reads,
     instead of a disallowed type that drops the folder under the default strict check
-    (`aesthetics_export/object_model.md` "File-type allowlist") → done when: TC-MOD-92 passes
+    (`spec/aesthetics_export/object_model.md` "File-type allowlist") → done when: TC-MOD-92 passes
   Done 2026-10-11 (SWE-2, first attempt; reviews S1-S4 and Astra A1, `.tmp/5_0e/rulings_*.md`):
   `processing/texture.rs` `portrait` takes the version (an exhaustive `match`), `processing/model.rs`
   keeps a kit-folder path and reports it, `aesthetics_export`'s `is_txt_note` admits a `.txt` whose
@@ -558,12 +560,12 @@ Fixed before the itemization:
   `messages.rs` docs, the help, tests in `deep/texture.rs` and `tests/cli/textures.rs`.
 
 Itemized 2026-10-12 with the Acceptance (`save_editor.md` "Acceptance", the Phase 5 block of
-`team_compiler/README.md` "Acceptance"): libs first, each with its fixtures as its spec, then the
+`spec/team_compiler/README.md` "Acceptance"): libs first, each with its fixtures as its spec, then the
 two consumers, the in-game check, converge. Before the first step that writes a save (5.3b, 5.4),
 the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-1`,
 `Tools_4cc/4ccEditor-VGL`; 5.0's survey).
 
-- [x] 5.1 `pes_savefile`'s Phase 5 model (`pes_savefile/model.md` "Planned for Phase 5"), in
+- [x] 5.1 `pes_savefile`'s Phase 5 model (`plans/pes_savefile/model.md` "Planned for Phase 5"), in
   slices:
   - [x] 5.1a the appearance-block player id modeled on the entry, outside `PlayerAppearance`
     (issue "player id versus appearance id"); height and weight out of the key table;
@@ -628,7 +630,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       rework per review: R7.S1, Team TOML's `face` keeps a longer target run's tail; R7.A1,
       R8.S1 and R9.S1, tests made to fail without their behavior, each written value's
       before-value asserted different). Step 5.1d done 2026-10-12
-- [ ] 5.0i The plans/spec split (maintainer, 2026-10-12; after 5.2b lands, before 5.2c):
+- [x] 5.0i The plans/spec split (maintainer, 2026-10-12; after 5.2b lands, before 5.2c):
   `docs/spec/` holds what the suite does, `docs/plans/` only future work. New plan text is
   written in the present tense (a plan's location says it is future); existing future-tense text
   converts when a section is next edited or moves, never in bulk. Every plan file opens with a
@@ -645,7 +647,43 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   close procedure), `plans/README.md` "How these documents evolve", `GLOSSARY.md` ("Plan"
   rewritten, "Spec" added), the worklog's close-step text, decision entries superseding
   2026-09-10 (4) and 2026-09-19's single home → done when: no Phase 1 to 4 delivered section
-  left in `plans/`, every plan file bannered, the pointer check green in `just gates`
+  left in `plans/`, every plan file bannered, the pointer check green in `just gates`.
+  Done 2026-10-12: 40 documents have a spec copy (`docs/spec/README.md` the index), 12 of
+  them whole; eight agents classified every heading, six moved each mixed section's unbuilt
+  parts into its plan copy in whole sentences, the lead reviewed each diff. `just
+  doc-pointers` also checks relative links and fails on code pointing at a plan outside the
+  open phase's files (`OPEN_PHASE_PLANS`, emptied at Phase 5's close); the acceptance
+  scanner reads both trees (421 scenarios, 366 proven, as before). The classification found
+  spec text describing what was never built, which 5.0j corrects
+- [ ] 5.0j The spec audited against the code (found by 5.0i's classification; Phases 1 to 4's
+  converge audits checked the code against the plan's requirements, not the plan's
+  descriptions against the code): each `docs/spec/` file read beside its crates, and every
+  passage describing something built differently, or never built and not planned, corrected to
+  what exists (an unbuilt idea worth keeping moves to the plan). Known so far:
+  - crate-layout trees: `team_compiler` (`plan/manifest.rs`, `plan/refs.rs`, `tests/pipeline.rs`
+    absent; `compile.rs`, `deep/`, `validation.rs`, `upgrade.rs`, `events.rs`, `gui_run.rs` and
+    others missing), `pes_savefile` (`aesthetics_patch/` a folder, `fixtures.rs`,
+    `settings_toml/appearance_row.rs`), `aesthetics_export` (`conventions/kits.rs` is
+    `kit_token.rs`, no `validate/structure.rs`, `validate/root.rs`, `validate/kits.rs` and
+    `testing.rs` unlisted), `core/architecture.md` "Crate structure"
+  - `spec/aesthetics_export/object_model.md` "Model files", "Model folders" and the end of
+    "Player folders": `ModelFile`, `RawFile`, `FaceModelFolder`, `ModelPart`, `categorize_player`,
+    `ExportSlot` were never built (models are planned in `team_compiler`'s `plan/roles.rs`);
+    "Core types" (`SharedModelFolder` has `path` and `folder_name`); "Design constraints"
+  - `spec/team_compiler/pipeline.md` "Task-batch commit protocol", still an open question, is
+    answered by `output/writer.rs` (`commit_folder`, `TaskBatch`)
+  - `spec/pes_savefile/container.md` on which count governs (settled: players at 0x34, appearances at
+    0x36); `operations.md` the ingame-face hex (gone in 5.1d1)
+  - `libs/dds_convert.md` desktop `wgpu` (not enabled: `block_compression` with `bc15`/`bc7`);
+    `libs/format_crates.md` the bindings exposing `ops/` (the wheel has none);
+    `spec/libs/pipeline.md` "Memory cap" (`FALLBACK_AVAILABLE` is private)
+  - `core/README.md` the `phf` row (no such dependency; `paths.rs` uses `match`) and the `sha2`
+    row's purpose; `core/architecture.md` launch modes and commands (`--gui` autorun, console
+    attachment, `studio.log`, `help`/`update`/`--version` are not built: plan text)
+  - `team_compiler/testing.md` "deterministic output across fresh processes with randomized
+    hash seeds" (no such test found)
+  Sliced per folder, each a SWE-2 brief with the file and its crates; the lead reads every
+  diff → done when: every spec file has been read against its code once, each change landed
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
@@ -726,7 +764,7 @@ points there.
 
 - open (2026-10-11, Phase 5 Acceptance; deferred until the cup next plays a pre-Fox version) —
   the pre-Fox aesthetics patch (`pes_savefile/operations.md` "Aesthetics patch", the pre-Fox
-  half; `team_compiler/pipeline.md` "Post-processing"): every appearance field, the resolved boots and gloves
+  half; `spec/team_compiler/pipeline.md` "Post-processing"): every appearance field, the resolved boots and gloves
   IDs through commit-conditioned mutations, the edit flags and the base-copy ID (issue below).
   Until then a compile for PES 15-17 writes no patch and leaves the savefile alone (decision
   2026-10-11).
@@ -908,7 +946,7 @@ points there.
 - open (found at 4.26b's review) — a multi-CPK run promotes its CPKs to `output/` one
   rename at a time, so a rename failing part-way leaves `output/` with some new CPKs and
   some of the previous run's. The plan settles all-or-none for the installation only
-  (`team_compiler/pipeline.md` "Deploy CPKs"); the output folder is the maintainers' build folder, and the
+  (`spec/team_compiler/pipeline.md` "Deploy CPKs"); the output folder is the maintainers' build folder, and the
   next run rewrites every CPK. Revisit if a maintainer meets it.
 
 - open — the `livecpk/` replacement is not atomic (4.23a): the previous tree is removed before
@@ -965,11 +1003,11 @@ points there.
 - answered (2026-10-05, below) — the seed rows and multi-CPK mode: strip-and-seed puts its rows
   into `4cc_08_bins.cpk` (decision 2026-10-05), but in multi-CPK mode that CPK is the
   compiler's own bins output (`settings.md` `bins_cpk_name`), and the bins walk starts below
-  the output CPK (`team_compiler/pipeline.md` "Bins accumulation"). So the DLC builder's next multi-CPK
+  the output CPK (`spec/team_compiler/pipeline.md` "Bins accumulation"). So the DLC builder's next multi-CPK
   compile reads the three player tables from below the seed and replaces `4cc_08_bins.cpk`
   without the seed rows of every player no export compiles. Resolved (2026-10-05,
   maintainer): in multi-CPK mode the player tables' walk starts at the bins CPK itself
-  (`team_compiler/pipeline.md` "Bins accumulation").
+  (`spec/team_compiler/pipeline.md` "Bins accumulation").
 - answered (2026-10-05, below) — motions on Fox: `settings.toml`'s `[appearance.motion]`
   (hunching, arm movement, kick motions, celebrations, dribbling) are player-record fields
   outside the appearance block (PES 20/21 bits 96 to 332), so neither the `PlayerAppearance.bin`
@@ -1097,7 +1135,7 @@ points there.
     team's `collar_077` would be the one the referee finds. "Absent" is an inference from the
     referee not appearing in any frame of a walkout where runs B, G and I show him.
 - open, needs the maintainer — FoxDen per-kit models: `docs/QUESTIONS.md` "FoxDen per-kit
-  models"; `kit_variant_model_fox` and `model_format.md` "Kit-dependent assets" change with
+  models"; `kit_variant_model_fox` and `spec/model_format.md` "Kit-dependent assets" change with
   the answer.
 - resolved 2026-10-12 (DECISIONS "the ingame-face run's undecoded bits travel between
   versions") — the unknown bits across versions: per-version tables by record bit position
@@ -1112,7 +1150,7 @@ points there.
 - open — shared IDs and retained rows: a team's shared boots/gloves IDs are assigned in
   alphabetical folder order from the export being compiled (`player_folders.md` "Assigns IDs
   automatically"), while a player the export does not compile keeps his installed row
-  (`team_compiler/pipeline.md` "Bins accumulation"). A `Midcup` export holding shared folder B but not A
+  (`spec/team_compiler/pipeline.md` "Bins accumulation"). A `Midcup` export holding shared folder B but not A
   gives B the ID A had in the full CPK, so A's wearers, their rows untouched, now wear B.
   The same holds for pre-Fox save IDs. Settle before 4.22: a midcup keeps the full export's
   assignment (from where?), or must carry every shared folder its team uses (review S5.A2
@@ -1139,13 +1177,13 @@ points there.
   5.4c (a row straight from a `PlayerEntry`, or wider ranges if the game shows those values),
   and before any tool generates `settings.toml` from a save.
 - open — strip-and-seed and a base-copied face: the `PlayerAppearance.bin` row carries no
-  base-copy id (`pes_savefile/model.md`, "The Fox database row"), which holds a face-transplant
-  relationship (`pes_savefile/operations.md` "Save-to-save operations"), so a stripped player whose
+  base-copy id (`plans/pes_savefile/model.md`, "The Fox database row"), which holds a face-transplant
+  relationship (`spec/pes_savefile/operations.md` "Save-to-save operations"), so a stripped player whose
   record copied another player's face may change face, against "stripping changes nobody's
   look". Untested (Test 1 did not cover it). Measure before strip-and-seed is built; then
   carry the relationship or report the affected players (review S5.A3 item 3).
 - open — an unwritable `livecpk\`: sideload mode writes it "with the same access path as
-  deployment to `download/`, elevation included" (`team_compiler/pipeline.md` "Output modes"), but no
+  deployment to `download/`, elevation included" (`spec/team_compiler/pipeline.md` "Output modes"), but no
   plan says what a sideload run does when it cannot (a tree has no `output/` to degrade
   to). Settle with the sideload step (review S6.1b item 21).
 - open — the deep pass reads everything `compile` reads again (4.7): each checked file is
@@ -1155,7 +1193,7 @@ points there.
   extra decompression per export, about 2 s for a 0.6 to 1 GB export (4.7f's timing): about
   2 s of a 5.2 to 6.8 s compile. The buffer is not kept from the check to the tasks because
   planning needs every export validated first, and holding every `.7z` until then is the
-  residency the budget forbids (`libs/pipeline.md` "What a solid `.7z` is charged"). The
+  residency the budget forbids (`spec/libs/pipeline.md` "What a solid `.7z` is charged"). The
   maintainer's answer (2026-10-10): a small archive is kept, step 4.y-7z, done the same
   day: the `.7z` half of this issue is closed; the folder half (the file cache's second
   read) stands.
@@ -1165,7 +1203,7 @@ points there.
   investigation waits for the maintainer's go (`docs/QUESTIONS.md` "Face diffs are
   engine-specific").
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
-  and the IR (`model_conversion/ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
+  and the IR (`spec/model_conversion/ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more
   than 65536 vertices, and vertex-limit splitting of an IR mesh can only move loose vertices.
   The 2.20h conversion census found 114 real files over it. Since 2.20h such a group stays
@@ -1230,7 +1268,7 @@ points there.
   survey (`.tmp/4_0/apptest`, `fpc` subcommand).
 - **Texport write is unverified in-game** (2.17h): `Texport::new` synthesizes 18-21 files from
   measured templates and `to_bytes` rewrites read files; both round-trip byte-identical, but no
-  generated file has been imported by the game yet (`pes_savefile/verification.md` "Texport write": manual,
+  generated file has been imported by the game yet (`plans/pes_savefile/verification.md` "Texport write": manual,
   per version; a `new` file and an edited round-tripped one). PES 15/16/20 texports have no
   fixture at all (offsets/key index are the reference's; PES 20's size is derived).
 - open — FoxDen's LiveCPK gaps that sideload mode depends on (forwarded by the maintainer to
@@ -1244,7 +1282,7 @@ points there.
 - open — a run that does not end cleanly leaves its staging (3.z): closing the window while
   the GUI's compile runs ends the process mid-run, and the coordinator's `Cancelled` path does
   not discard the staging either, so `output/.staging/<run>/` can be left beside the previous
-  CPK (which stays intact). Fixed with cancellation (`core/gui.md` "Cancellation", Phase 8): the
+  CPK (which stays intact). Fixed with cancellation (`spec/core/gui.md` "Cancellation", Phase 8): the
   window stops the run and the cancelled path calls `deploy::discard`. The same step adds the
   check between a texture task's textures (4.6's slice (c)); a test cancels a real run partway.
 - open — a texture link beside a combined shared folder's texture of the same stem (4.11d):

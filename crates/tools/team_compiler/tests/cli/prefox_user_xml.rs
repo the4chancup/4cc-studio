@@ -1,4 +1,4 @@
-//! A player folder's own `face.xml` (`team_compiler/messages.md` "User-supplied `face.xml`"):
+//! A player folder's own `face.xml` (`spec/team_compiler/messages.md` "User-supplied `face.xml`"):
 //! read and checked by `check` for PES 2015 to 2017, its errors dropping the folder, and
 //! written back by `compile` with only the files it names packed; ignored for PES 2018 to 2021,
 //! whose `compile` builds the folder as without it.

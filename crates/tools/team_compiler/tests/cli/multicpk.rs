@@ -1,4 +1,4 @@
-//! Multi-CPK mode (`team_compiler/pipeline.md` "5. Writer", step 6 "Multi-CPK mode: teams
+//! Multi-CPK mode (`spec/team_compiler/pipeline.md` "5. Writer", step 6 "Multi-CPK mode: teams
 //! parts"): whole teams filled first-fit into the official list's `teams` slots under
 //! `cpk_part_max_size`, the placeholder in every slot left over, the overrides and the bins in
 //! the bins CPK; every CPK installed into `download/` or none (`pipeline.md` "6.

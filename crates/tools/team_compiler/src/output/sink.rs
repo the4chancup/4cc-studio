@@ -1,4 +1,4 @@
-//! Where the writer's entries go (`team_compiler/pipeline.md` "5. Writer", step 5): one CPK, or
+//! Where the writer's entries go (`spec/team_compiler/pipeline.md` "5. Writer", step 5): one CPK, or
 //! a folder of loose files laid out as the CPK's entries would be.
 
 use std::fs::{self, File};

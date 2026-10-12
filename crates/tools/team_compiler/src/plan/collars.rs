@@ -1,4 +1,4 @@
-//! Which team export keeps which collar (`team_compiler/pipeline.md` "Collars", "Resolved
+//! Which team export keeps which collar (`spec/team_compiler/pipeline.md` "Collars", "Resolved
 //! decisions", "Collar contract"): a stock collar is replaced by one export of the run, and an
 //! export holds one collar, since its kit configs take one ID.
 

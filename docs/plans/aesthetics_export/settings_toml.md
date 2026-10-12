@@ -1,5 +1,7 @@
 # 4cc Studio — Aesthetics export plan: settings.toml
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 Part of the [Aesthetics export plan](README.md). Section headings are unchanged from the single-file plan, so an existing pointer to a section still names it; only the file part of the pointer changed.
 
 ## Player settings in exports (settings.toml)
@@ -169,7 +171,7 @@ face = "000000000000000000000000000000000000000000000000000000000000000000000000
 ```
 
 Where the ranges come from, so a wrong one can be traced: the boots/gloves range is the stock
-band below the compiler's first team block (`player_folders.md` "Assigns IDs automatically"); the colour, spectacle, sleeve, inner,
+band below the compiler's first team block (`spec/aesthetics_export/player_folders.md` "Assigns IDs automatically"); the colour, spectacle, sleeve, inner,
 sock, undershort, shirttail and wrist-taping lists are the reference save editor's combo boxes
 (stored value = list position; wrist taping 1 = right, 2 = left, 3 = both, matching the two taping
 bits); the physique numbers are the editor's spin ranges (stored value = number + 7); the motion

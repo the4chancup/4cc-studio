@@ -1,6 +1,6 @@
-//! Kit-dependent assets (`model_format.md` "Kit-dependent assets (`kitN`)"): the kit number of
+//! Kit-dependent assets (`spec/model_format.md` "Kit-dependent assets (`kitN`)"): the kit number of
 //! a kit slot, the per-kit model files an output no `face.xml` lists cannot use
-//! (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kit-dependent assets), and
+//! (`spec/team_compiler/pipeline.md` "4. Per-export non-model steps", Kit-dependent assets), and
 //! the keys a texture's path goes by in the lookups (`kit_lookup_keys`). The token a file
 //! stem carries, `kit1` to `kit9`, `kitN` or the `kitF` fallback, is the export format's
 //! (`aesthetics_export::kit_token`).

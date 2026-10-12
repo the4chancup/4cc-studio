@@ -1,5 +1,7 @@
 # 4cc Studio — Export upgrader plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The Export upgrader (`crates/tools/export_upgrader`) migrates exports from the old
 format (the AET layout, `GLOSSARY.md` "AET") to the Studio player-folder format defined in the
 [Team compiler plan](team_compiler/README.md) — the compiler only supports the Studio format,
@@ -174,7 +176,7 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     implements this same mode (its `export_upgrade.py`).
 12. **Flattens the AET referee layout's subfolders**: `face/`, `boots/`, `gloves/` and `common/`
     directly inside a referee's player folder (the layout the compiler refuses with
-    `player_layout_proto`, `aesthetics_export/player_folders.md` "Subfolders") are folded into the player folder
+    `player_layout_proto`, `spec/aesthetics_export/player_folders.md` "Subfolders") are folded into the player folder
     root; no file is renamed (the census of 2026-10-10 found every such `boots/` holding files
     named as the root would name them: `boots.fmdl`, `boots.model`, `oral_boots_win32.model`).
     A file name present in two locations with identical bytes is deduplicated; with different
@@ -281,7 +283,7 @@ section is written.
   directory the model named; step 7 adds a `.common` link only for a reference that named the
   Common folder by game path. Recommended: the link also when the stem exists only in `Common/`.
 - **The `u0???g` team-ID token** (step 7). Red respells `u0<id>g` like `u0<id>p` in FMDL strings
-  and when matching file names; step 7 and `model_format.md` "Kit-dependent assets" treat only
+  and when matching file names; step 7 and `spec/model_format.md` "Kit-dependent assets" treat only
   `u0???p<d>`, so a model and a file spelling the ID differently stop matching. Step 7 says what
   happens to `u0???g`.
 - **Note kit entries past Studio's slots** (step 5). Red writes a `UniColor.bin` entry for a

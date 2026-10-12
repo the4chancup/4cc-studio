@@ -1,4 +1,4 @@
-//! Staging, promotion and deployment (`team_compiler/pipeline.md` "6. Post-processing"): a CPK,
+//! Staging, promotion and deployment (`spec/team_compiler/pipeline.md` "6. Post-processing"): a CPK,
 //! or a test or sideload run's loose tree, is written in a staging folder of its own run and only
 //! then moved to its final path, so a failed run never leaves a half-written output where the
 //! game or the user could pick it up. A run that deploys checks, before any export is read, that

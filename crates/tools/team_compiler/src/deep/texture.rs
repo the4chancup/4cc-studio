@@ -1,4 +1,4 @@
-//! The deep pass's texture checks (`team_compiler/messages.md` "Textures"), from a
+//! The deep pass's texture checks (`spec/team_compiler/messages.md` "Textures"), from a
 //! texture's header alone: a file renamed from another format, a header the converter cannot
 //! read or refuses, a side under one block, and the size rules a texture is held to by where
 //! it is and the target's engine.

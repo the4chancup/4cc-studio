@@ -23,6 +23,14 @@ section of the spec is named with its tree (`spec/aatf_rules.md`), so a pointer 
 the reader to guess which tree it means. A path that resolves nowhere is a problem only when
 the pointer is in `docs/` or `AGENTS.md`, or names `docs/`, `plans/` or `spec/`:
 `` `README.md` "Usage" `` in a crate is about that crate.
+
+Code points at the spec alone: a pointer in `crates/` that resolves into `docs/plans/` is a
+problem, since a plan describes only what code does not do yet. The one exception is the open
+phase, whose sections stay in the plans until it closes although its code is being written:
+`OPEN_PHASE_PLANS` lists their files, and the phase's close, which moves the sections, empties it.
+
+A relative Markdown link to a `.md` file (`[core plan](core/README.md)`) must name a file that
+exists beside the linking one; its `#anchor` is not checked.
 """
 
 import re
@@ -41,7 +49,16 @@ HEADING = re.compile(r"^#+\s+(?P<title>.+?)\s*#*\s*$")
 NUMBER = re.compile(r"^\d+\.\s+")
 LIST_MARKER = re.compile(r"^\s*(?:[-*]|\d+\.)\s+")
 BOLD = re.compile(r"\*\*(?P<title>[^*]+?)\*\*")
+LINK = re.compile(r"\]\((?P<target>[^)\s#:]+\.md)(?:#[^)]*)?\)")
 SKIPPED = {"docs/DECISIONS.md", "docs/LOG.md"}
+# Phase 5 (savefile integration).
+OPEN_PHASE_PLANS = {
+    "docs/plans/aatf_rules.md",
+    "docs/plans/save_editor.md",
+    "docs/plans/pes_savefile/operations.md",
+    "docs/plans/pes_savefile/model.md",
+    "docs/plans/aesthetics_export/settings_toml.md",
+}
 
 
 @dataclass(frozen=True)
@@ -115,9 +132,24 @@ def problems(root: Path, found: list[Pointer]) -> list[str]:
             continue
         if target not in cache:
             cache[target] = anchors(target.read_text(encoding="utf-8"))
+        shown = target.relative_to(root).as_posix()
         if not names_anchor(cache[target], pointer.title):
-            shown = target.relative_to(root).as_posix()
             out.append(f'{where}: {shown} has no "{pointer.title}"')
+        elif (
+            pointer.source.startswith("crates/")
+            and shown.startswith("docs/plans/")
+            and shown not in OPEN_PHASE_PLANS
+        ):
+            out.append(f'{where}: code points at the plan {shown} "{pointer.title}"')
+    return out
+
+
+def broken_links(root: Path, source: str, text: str) -> list[str]:
+    out = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        for match in LINK.finditer(line):
+            if not ((root / source).parent / match["target"]).resolve().is_file():
+                out.append(f"{source}:{number}: link to `{match['target']}` names no file")
     return out
 
 
@@ -131,12 +163,15 @@ def sources(root: Path) -> list[Path]:
 
 def main() -> int:
     found = []
+    links = []
     for file in sources(ROOT):
-        found += pointers(file.relative_to(ROOT).as_posix(), file.read_text(encoding="utf-8"))
-    broken = problems(ROOT, found)
+        source, text = file.relative_to(ROOT).as_posix(), file.read_text(encoding="utf-8")
+        found += pointers(source, text)
+        links += broken_links(ROOT, source, text)
+    broken = problems(ROOT, found) + links
     for line in broken:
         print(line)
-    print(f"{len(found)} section pointers, {len(broken)} broken")
+    print(f"{len(found)} section pointers and the links, {len(broken)} broken")
     return 1 if broken else 0
 
 

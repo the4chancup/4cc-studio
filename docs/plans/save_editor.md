@@ -1,5 +1,7 @@
 # 4cc Studio — Save editor plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The save editor (`crates/tools/save_editor`) is the successor to **4ccEditor**
 and absorbs the **Midcupping** scripts: it edits PES save files (player stats,
 appearance, teams, tactics), enforces AATF rules, diffs saves (gameplay and
@@ -35,8 +37,9 @@ useful, never decoration. Concrete improvements are listed per section.
 | Crypto interface | `crypt.h/cpp` + `libpesXcrypter.dll` | external | **Replaced** by native Rust crypto in `pes_savefile` |
 
 Portability is good: half the C++ is Win32 UI that gets replaced rather than
-ported, and portable crypto reference implementations already exist. The Rust
-`pes_savefile` implementation is planned, not built — see the [Savefile plan](pes_savefile/README.md).
+ported, and portable crypto reference implementations already exist. The codecs, the data
+model, the bit engine and the crypto are built in `pes_savefile`
+([spec](../spec/pes_savefile/README.md)); the editor's own parts are the work below.
 
 ## Background: Midcupping
 
@@ -306,19 +309,13 @@ an "apply stock formation" action, at which point they move here.
 
 ## Full Player Customization (FPC)
 
-FPC is the 4cc system for fielding **FBMs (Full Body Models)** — custom models
-that don't just replace the head and neck but the player's entire body. It works
-in two halves: the cup DLC replaces some default kit model pieces with blank
-models, selected via kit config values (shirt/shorts/collar model fields — the
-[Team compiler](team_compiler/README.md) handles that side), and the player's appearance
-settings hide the rest — boots ID 55 and gloves ID 11 (conventional
-**nonexistent IDs**, so nothing renders) plus strip settings that suppress the
-remaining default geometry. Together they make the default player model
-invisible, leaving only the FBM visible.
+FPC is the 4cc system for fielding **FBMs (Full Body Models)**, custom models that replace
+the player's entire body; the system and its presets are specified with `libs/fpc`
+([spec](../spec/libs/fpc.md)).
 
 The editor's side of this, ported from `fpc.cpp`: a per-player toggle and a
 team-wide on/off that apply `libs/fpc`'s FPC enable/disable
-presets (their fields are listed in the [libs/fpc plan](libs/fpc.md)); the strip settings
+presets (their fields are listed in the [libs/fpc spec](../spec/libs/fpc.md)); the strip settings
 that break or bend hiding (inners, undershorts, taping, the gloves checkbox) are reported by
 its interference rules on the Appearance tab, not cleared. The ID constants become a suite-common setting consumed by
 the presets rather than being hardcoded (any nonexistent ID works;

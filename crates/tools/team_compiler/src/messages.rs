@@ -1,4 +1,4 @@
-//! The Team compiler's message catalog (`team_compiler/messages.md` "Catalog"): each code's
+//! The Team compiler's message catalog (`spec/team_compiler/messages.md` "Catalog"): each code's
 //! severity, and the mapping of the structure pass's issues and the tool's own findings to
 //! `Message`s. Until the help window needs them (Phase 8) a row holds no text: the console prints
 //! the code with its context fields.

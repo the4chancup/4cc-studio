@@ -1,5 +1,5 @@
 //! The resources bundled into the binary, and the data directory's `templates/` folder, whose
-//! files replace them one by one (`team_compiler/pipeline.md` "Resolved decisions",
+//! files replace them one by one (`spec/team_compiler/pipeline.md` "Resolved decisions",
 //! "Templates and fallback bins"): a cup maintainer swaps a fallback bin or a template between
 //! releases without a new build.
 

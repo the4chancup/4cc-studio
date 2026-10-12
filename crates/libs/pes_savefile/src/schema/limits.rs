@@ -1,5 +1,5 @@
 //! The per-version caps on the ingame-face type fields (plan:
-//! `pes_savefile/operations.md`, "Cross-version player conversion"). A field
+//! `spec/pes_savefile/operations.md`, "Cross-version player conversion"). A field
 //! that is not a face type (gloves, skin, iris) has no cap: `None`.
 
 use pes_version::PesVersion;

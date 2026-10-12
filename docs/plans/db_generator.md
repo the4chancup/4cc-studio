@@ -1,5 +1,7 @@
 # 4cc Studio — DB generator plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The DB generator (`crates/tools/db_generator`, tool id `db-generator`, sidebar label "DB
 generator") is the successor to **pes-db-generator** (`Tools_4cc/pes-db-generator`, Python 3.12),
 the scripts that build the cup's **game database**: the `common/etc/pesdb/*.bin` tables that

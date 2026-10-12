@@ -1,39 +1,12 @@
 # 4cc Studio — Core plan: Distribution and updates
 
-Part of the [Core plan](README.md). Section headings are unchanged from the single-file plan, so an existing pointer to a section still names it; only the file part of the pointer changed.
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
 
 ## Distribution and updates
 
-### License
-
-**`MIT OR Apache-2.0`** — the Rust ecosystem's dual license, declared once as
-`license = "MIT OR Apache-2.0"` in the workspace `Cargo.toml` and inherited by every crate;
-`LICENSE-MIT` and `LICENSE-APACHE` at the repository root; contributions are accepted under the
-same terms (the README says so). Red stays GPL-3.0; Studio is an independent reimplementation of
-its ideas, not a derivative of its code (see "Relationship to legacy tools"), and Red's author is
-this project's author, so nothing in Red's license binds Studio.
-
-Permissive rather than copyleft because the suite is *designed as libraries with tools on top*,
-for a community that writes its own tools in whatever language the author knows: a GPL
-`pes_savefile` or `cpk` could go into a GPL Blender add-on and nowhere else, which would cancel
-half the reason the crate boundaries exist. The copyleft threat — a closed fork — has never
-materialized in this community's tooling and would do it no harm if it did; the open version
-stays. Apache alongside MIT for the explicit patent grant and because it is what every dependency
-uses. The door MIT closes (absorbing GPL code) leads nowhere: Red is the author's own, 4ccEditor
-is zlib, and the other legacy tools carry no license at all — unusable verbatim under any license.
-
-What the license does **not** cover: game-derived data kept for interoperability — the skeletons
-in `resources/skeletons/`, `DpFileList.bin` and the other embedded `.bin` templates, the kit-icon
-reference sheet. They are Konami's; the README states it. `just deps-check` enforces the
-dependency side with a `cargo deny` license allowlist (`MIT`, `Apache-2.0`, `BSD-2-Clause`,
-`BSD-3-Clause`, `ISC`, `Zlib`, `BSL-1.0`, `Unicode-*`, `CC0-1.0`, `MPL-2.0` for file-level
-copyleft crates only, plus the font licenses `OFL-1.1` and `Ubuntu-font-1.0` that egui's bundled default fonts
-carry), so a copyleft crate cannot enter the dependency graph unnoticed. The list lives in
-`deny.toml`. A license compatible with `MIT OR Apache-2.0` (it puts no copyleft obligation on
-Studio's source or binary) joins the list when a dependency needs it, without asking; any other
-license is a question for the maintainer.
-
 ### Distribution: portable .7z bundle
+
+What exists of this is in `spec/core/distribution.md` "Distribution: portable .7z bundle".
 
 There is no installer. Each release is a `.7z` archive containing:
 
@@ -44,10 +17,6 @@ There is no installer. Each release is a `.7z` archive containing:
   — see `gui.md` "Help window" under GUI Design — and `4cc-studio help --export` produces the same text as
   files for the release page), with the two license files beside it
 
-The current teams list is not a bundle file: it is embedded in the binary and materialized as
-`data/teams_list.txt` on first run (see the [Team compiler plan](../team_compiler/README.md), "Resolved
-decisions", "Teams list").
-
 The user extracts the archive anywhere and runs the binary — or, for the common case, drops an
 export into `exports/` (shipped empty beside the binary) and double-clicks
 `quick_compile.bat`, which is the whole Red workflow carried over. Where the suite's persisted data goes
@@ -55,51 +24,22 @@ export into `exports/` (shipped empty beside the binary) and double-clicks
 first run — see "Data location" below. This is the same folder model Red uses, minus the ~80MB
 embedded Python runtime that made Red's updates a folder-replacement operation.
 
-**Size budget:** the release binary stays under about 30 MB, and up to
-50 MB is acceptable where a feature truly needs it. A new dependency is weighed against this,
-measured on an optimized build, not a debug one. Measured on 2026-10-02 (default release profile,
-Phase 3's code): 17.1 MiB, about 70% of it the GUI stack (wgpu and naga, egui and its text
-rendering, winit, accesskit), and the Team compiler's embedded bins and templates 1.6 MiB.
-
 ### Data location: asked on first run
+
+What exists of this is in `spec/core/distribution.md` "Data location: asked on first run".
 
 Some users want a fully portable install, others want their data to survive replacing or moving the
 program folder. Following EGG-Translator's first-start wizard, the first run asks where to store
-settings and data, with two options (each with a one-line hint, like EGG's buttons):
+settings and data, with two options (each with a one-line hint, like EGG's buttons).
 
-- **Next to the executable** — a `data/` subfolder beside the binary. Fully portable: the folder
-  carries the program and everything it persists; deleting it removes the program completely, moving
-  it moves everything.
-- **In the user config directory** — `%APPDATA%\4cc-studio` on Windows, `~/.config/4cc-studio` on
-  Linux (via the `directories` crate). Survives deleting or replacing the program folder.
-
-Resolution at startup is **presence-based, no marker files** (EGG's mechanism): if
-`data/settings.toml` exists next to the binary → portable mode; otherwise if the config-dir settings
-file exists → config-dir mode; if neither → first run, show the dialog, and write the settings file
-to the chosen location — the file's existence is what makes the choice stick. Since the portable
+On a first run the GUI shows the dialog and writes the settings file to the chosen location — the
+file's existence is what makes the choice stick. Since the portable
 location wins when both exist, choosing the config dir while a portable settings file is present
 renames that file to `.bak` so it can't shadow the choice on the next start (EGG's exact fix for
 this edge).
 
-The CLI resolves the location the same way but never asks and never writes the settings file: a
-noninteractive run cannot make the choice, and a `check` that created files would not be a
-check. With neither settings file present it runs on the defaults in memory, with no data
-directory (`AppPaths::data_dir` is `None`): data-dir cargo is read from its embedded default
-(the teams list) and nothing is persisted, so the first GUI start still asks.
+One more thing is not data-dir cargo:
 
-`data/teams_list.txt` *is* data-dir cargo (the grid writes into it; see the [Team compiler
-plan](../team_compiler/pipeline.md), "Resolved decisions", "Teams list"), and writes to it are best-effort:
-an unwritable data directory makes the list read-only, never triggers elevation. The following
-things are *not* data-dir cargo:
-
-- The `exports/` folder (the default `exports_folder_path`) lives **next to the binary in both
-  modes**, beside `quick_compile.bat`. Copying exports into `%APPDATA%` is impractical and would
-  break the "drop it in the folder, double-click" habit Red established; users who want it elsewhere
-  point the setting at another path.
-- The `output/` folder (the default `output_folder_path`) likewise lives next to the binary — it is
-  Red's `patches_output/`, where users look for a CPK when a deployment could not happen or
-  `--no-deploy` was given; it also hosts the run-scoped staging folder (see "Post-processing" in
-  the Team compiler plan).
 - The `old/` rollback binary is tied to the program folder, not the data.
 
 The question is desktop-only: the browser build has no exe directory and persists to browser
@@ -163,7 +103,7 @@ arrive in Phase 16:
    user's assignments keep winning until they move the install. The readme and
    `quick_compile.bat` are overwritten without ceremony (not user-edited).
 6. **Restart**: offer to relaunch. The settings file needs no transfer — it stays where it is, and
-   the existing merge of `default_settings()` for missing keys (see `gui.md` "Settings menu") absorbs
+   the existing merge of `default_settings()` for missing keys (see `spec/core/gui.md` "Settings menu") absorbs
    new-version settings changes, which is what retired Red's transfer-table mechanism.
 
 ### Rollback
@@ -172,75 +112,13 @@ arrive in Phase 16:
 **"Roll back to previous version"** button that swaps the two binaries back and relaunches. This
 covers the "new version is broken" case that Red handles by preserving the entire old folder.
 
-### Update state
-
-Stored with the settings (common settings, `studio_core`):
-
-| Key | Replaces (Red) | Default |
-|-----|----------------|---------|
-| `check_for_updates` | `updates_check` ini key | `true` |
-| `check_interval_hours` | hardcoded 60 minutes | `24` (a resident GUI app, not a per-compile CLI run) |
-| `last_update_check` | `state/update_check_last.txt` | — |
-| `skipped_version` | `state/update_skip_last.txt` | — |
-
-This closes out Red's entire `Engines/state/` folder — the remaining five files either became
-settings or lost their reason to exist:
-
-| Red state file | Fate |
-|---|---|
-| `dt00_write_allowed.txt` | Dropped — the Team compiler never writes `dt00_x64.cpk`: the Fox referee marker is a reserved collar inside the refs CPK (`team_compiler/blue_port.md` "Referee export processing") |
-| `first_run_done.txt` | Presence-based data-location resolution: the settings file's existence *is* the first-run marker (see "Data location") |
-| `admin_warned.txt` | Dropped — the one-time console explanation before Red's UAC relaunch becomes the `elevation` lib's GUI prompt, which explains itself every time it appears |
-| `sideload_warned.txt` | Dropped — the one-time sideload explanation becomes the per-run `overrides_active` Info message (Red's `sideload/` folder is the compiler's `overrides/`) (team compiler catalog) |
-| `ver_mismatch_warned.txt` | Dropped — the suppressible console notice becomes the plain per-run `pes_version_mismatch` warning (team compiler catalog) plus the version selector's live red/yellow exe check (see `gui.md` "Sidebar") |
-
-### Versioning: one workspace version, one exception
-
-The suite uses a **single workspace version** for every crate that ships in the `studio` binary. Set
-once in the root `Cargo.toml`:
-
-```toml
-[workspace.package]
-version = "1.4.0"
-```
-
-Every tool and lib crate inherits it via `version.workspace = true`. Bumping is one line, applied to
-all crates at once.
-
-Rationale:
-
-- **The binary is the release unit.** Users download `4cc-studio.exe`; the self-updater compares
-  `CARGO_PKG_VERSION` against a GitHub Release tag. The version they see *is* the suite version.
-  Independent crate versions would be invisible to every actual consumer.
-- **Nothing is published to crates.io.** Per-crate semver exists to signal breaking changes to
-  downstream *crate* consumers; there are none; every internal crate's only consumer is `studio` (or
-  another internal crate), all compiled together in one binary.
-- **Tools are compile-time plugins**, statically registered in `studio`. A "team_compiler 2.0 vs.
-  studio 1.5" compatibility question is impossible by construction — a version mismatch can't ship.
-- **Changelog and rollback are per-Studio-release.** Release notes are "4cc Studio 1.4 adds the
-  Balls compiler"; the rollback button swaps two binaries in `old/`. Both only make sense on one
-  version axis.
-
-A release is cut (tag, GitHub Release, `.7z` asset) when there's something to distribute; not every
-commit is a release. The workspace version is the next-release version; the tag is what the updater
-compares against. The suite ships `0.x` releases from 0.1.0 (end of Phase 8) until 1.0.0 (end of
-Phase 16; `development_plan.md` "Releases"); `0.x` does not loosen the compatibility rule for
-released surfaces, which binds from 0.1.0 (`development_plan.md` "Release 0.1.0").
-
-**One exception: `python_bindings`.** It is built via maturin into a wheel that Blender users
-install independently of the Studio binary, and its consumers are not Studio users. Its version is
-meaningful to them (which wheel matches their Blender / which `fmdl`+`pes_model` API), so it keeps
-its own `version = "..."` and its own release cadence — shipping on demand when the
-`fmdl`/`pes_model` API surface it exposes changes. This is also why its wheel is built by
-`maturin` (`just bindings`) rather than as part of the Studio binary's build.
-
 ### Changelog and version display
 
 **One changelog, three readers.** `CHANGELOG.md` at the repository root, in the Keep a Changelog
 shape: `## [Unreleased]` on top, then one `## [1.4.0] — 2026-10-02` section per release; inside a
 section, bullets grouped by tool (`**Team compiler** — …`, `**Save editor** — …`, `**Studio** —
 …`), because that is how a member reads it even though the version axis is one. It is written in
-the step that changes the behavior, like the help topic (see `gui.md` "Help window"), from the
+the step that changes the behavior, like the help topic (see `spec/core/gui.md` "Help window"), from the
 first release on: an entry goes under `[Unreleased]` in the commit that changes something a
 member notices against the last release (a fix for a bug a release shipped, a new or changed
 behavior, a speed-up worth telling). A fix for something no release has shipped gets none, so
@@ -253,7 +131,7 @@ describes releases; the three places a user meets release notes all read this fi
    and updates" step 2), so the dialog, the release page and the in-app chapter are the same text
    by construction rather than by discipline.
 3. **The post-update notice** — `Updated to v1.4.0 · [What's new]` in the status bar on the first
-   start of a new version, opening reader 1 (see `gui.md` "Status bar").
+   start of a new version, opening reader 1 (see `spec/core/gui.md` "Status bar").
 
 **One version string, shown in one place.** `v{CARGO_PKG_VERSION}`, with ` (debug)` appended
 when `cfg!(debug_assertions)` — enough to tell a local build from a release, which is the only

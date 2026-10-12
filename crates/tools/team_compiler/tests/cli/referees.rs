@@ -3,7 +3,7 @@
 //! maps it to, as `face/real/referee0NN`, `k99NN` and `g99NN`, its textures once in team 999's
 //! common subfolder of its name, and a link of his made a part of his slots' own packages; in a
 //! normal compile all of it goes into the refs CPK, `refs_cpk_name`, beside the team side
-//! (`team_compiler/pipeline.md` "5. Writer", step 5).
+//! (`spec/team_compiler/pipeline.md` "5. Writer", step 5).
 
 use std::collections::BTreeMap;
 use std::fs;

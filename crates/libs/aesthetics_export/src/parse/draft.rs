@@ -9,7 +9,7 @@ use crate::{ExportCoverage, FileKind};
 
 /// Everything the normalized tree holds, grouped by content folder, nothing
 /// dropped. `parse_listing` first normalizes the root (see
-/// `team_compiler/pipeline.md` "Per-export serial steps", step 1), reporting
+/// `spec/team_compiler/pipeline.md` "Per-export serial steps", step 1), reporting
 /// `nested_folders_fixed`, `nested_root_ambiguous` and `nested_root_conflict`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AestheticsExportDraft {

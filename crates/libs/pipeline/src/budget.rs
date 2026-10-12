@@ -12,7 +12,7 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 /// archives filling the budget would stall the very tasks that release them; the value is
 /// above the largest texture decode real exports need, an 8192x8192 texture with its mips
 /// and its source file (0.45 to 0.7 GB), so only a larger texture takes the run past the cap
-/// while kept archives are held (`libs/pipeline.md` "What a solid `.7z` is charged").
+/// while kept archives are held (`spec/libs/pipeline.md` "What a solid `.7z` is charged").
 pub const MIN_FREE_BUDGET: usize = 1 << 30;
 
 /// A byte budget shared by a run's tasks: `acquire` blocks until the bytes

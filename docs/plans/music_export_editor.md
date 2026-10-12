@@ -1,5 +1,7 @@
 # 4cc Studio — Music export editor plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The music export editor (`crates/tools/music_export_editor`) is the successor to
 **RigDJ**, the GUI editor for `.4ccm` music exports. It is named for what it edits —
 music *exports*, not music files (plain "music editor" would wrongly suggest audio

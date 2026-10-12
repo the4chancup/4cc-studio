@@ -1,5 +1,7 @@
 # 4cc Studio — Balls compiler plan
 
+> **Plan:** work not built yet (the open phase's sections may be partly built). What the suite does now is described in `docs/spec/`.
+
 The Balls compiler (`crates/tools/balls_compiler`, tool id `balls-compiler`, sidebar
 label "Balls compiler") is the successor to the **4cc balls compiler 2.03**, a batch
 file from the same era as the original AET compiler batch. It compiles a **balls

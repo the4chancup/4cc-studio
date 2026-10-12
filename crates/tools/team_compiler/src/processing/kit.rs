@@ -1,4 +1,4 @@
-//! One kit (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kits): its textures as
+//! One kit (`spec/team_compiler/pipeline.md` "4. Per-export non-model steps", Kits): its textures as
 //! FTEX (Fox) or DDS (pre-Fox) under the kit's game names, its config encoded with those
 //! names, and its menu colors and icon as its `UniColor.bin` entry ("Bins accumulation", "Kit
 //! colors fallback").
@@ -345,7 +345,7 @@ fn listed_colors(bytes: &[u8]) -> Option<[Rgb; KIT_COLORS]> {
 }
 
 /// The two menu colors the main texture `file_name`, in `format`, holding `bytes`, gives: its
-/// top level's dominant colors (`libs/color_tools.md` "Dominant kit-color extraction"). `None`
+/// top level's dominant colors (`spec/libs/color_tools.md` "Dominant kit-color extraction"). `None`
 /// when it does not decode or its shirt region has no opaque pixel. The texture is decoded
 /// here and again by its conversion: `dds_convert` has no decode that both could share
 /// through the conversion cache, and only a kit without two listed colors pays the second.

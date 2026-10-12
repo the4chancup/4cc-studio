@@ -1,7 +1,7 @@
 # Tracer bullet fixture
 
 One real player and one kit, as an old-layout export, its Studio-layout twin, and Red's compiled
-output for the old one (`core/development_plan.md` "Phase 3", tracer bullet).
+output for the old one (`spec/core/development_plan.md` "Phase 3", tracer bullet).
 
 ## `old/egg Tracer/`
 

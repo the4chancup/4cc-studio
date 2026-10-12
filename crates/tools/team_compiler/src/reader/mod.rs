@@ -1,4 +1,4 @@
-//! Stage 1, where exports come from (`team_compiler/pipeline.md` "1. Reader", steps 1 and 2):
+//! Stage 1, where exports come from (`spec/team_compiler/pipeline.md` "1. Reader", steps 1 and 2):
 //! discovery of the export sources, their team names, and the routing that sets aside the
 //! disabled, balls and conflicting referee exports before any validation. The only module that
 //! touches export sources.

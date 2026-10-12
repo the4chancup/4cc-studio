@@ -1,4 +1,4 @@
-//! `teamnotes.txt` (`team_compiler/pipeline.md` "2. Per-export serial steps", item 5 "Notes
+//! `teamnotes.txt` (`spec/team_compiler/pipeline.md` "2. Per-export serial steps", item 5 "Notes
 //! collection"): the root `notes.txt` of every export a compile keeps, gathered into one file
 //! in the output folder for the member compiling the cup.
 

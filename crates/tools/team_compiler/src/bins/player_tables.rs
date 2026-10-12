@@ -1,4 +1,4 @@
-//! The Fox player tables (`team_compiler/pipeline.md` "Bins accumulation"): `BootsList.bin` and
+//! The Fox player tables (`spec/team_compiler/pipeline.md` "Bins accumulation"): `BootsList.bin` and
 //! `GloveList.bin`, which give a player his custom boots or gloves ID, and
 //! `PlayerAppearance.bin`, every player's look. The game reads the highest-priority copy of
 //! each table whole, so a compile writes the installed table with its compiled players' rows

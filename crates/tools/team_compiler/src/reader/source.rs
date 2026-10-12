@@ -1,4 +1,4 @@
-//! One export source read (`team_compiler/pipeline.md` "1. Reader", step 4), from a folder, a
+//! One export source read (`spec/team_compiler/pipeline.md` "1. Reader", step 4), from a folder, a
 //! `.zip` or a `.7z`: its listing, which routing takes, with its revision, which `compile`
 //! checks its reads against, and its file contents, which its check (the small metadata files
 //! the structure pass needs, then the deep pass's files) and its tasks read.
@@ -154,7 +154,7 @@ pub(super) fn list(source: &ExportSource) -> Result<Listed, SourceFailure> {
     })
 }
 
-/// The file contents of one export (`team_compiler/pipeline.md` "1. Reader", step 4, "Load"),
+/// The file contents of one export (`spec/team_compiler/pipeline.md` "1. Reader", step 4, "Load"),
 /// read by its check (the small metadata, then the deep pass) and by its tasks. A folder reads
 /// each file from disk. An archive is opened on the first read and stays open for the later
 /// reads, so its header is read once per source; a `.7z` is decompressed whole on that first

@@ -1,5 +1,5 @@
 //! A kit's main texture re-laid out between the two engines' kit UV layouts
-//! (`team_compiler/pipeline.md` "4. Per-export non-model steps", Kits, "Layout conversion"):
+//! (`spec/team_compiler/pipeline.md` "4. Per-export non-model steps", Kits, "Layout conversion"):
 //! only the two sock islands differ, so the move is a fixed table of rectangles, two bands per
 //! sock, each band resampled along u alone; every other texel stays as it was. Also a kit's
 //! number atlases re-arranged between the two engines' arrangements of their ten digits (the

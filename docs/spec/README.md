@@ -1,0 +1,23 @@
+# 4cc Studio — Spec index
+
+What the suite does now, and why: one document per concern, with the same files and headings as
+the [plans](../plans/README.md), which hold the work not built yet. A section partly built
+appears in both trees under the same heading. Start with the [core spec](core/README.md)
+(overview, crate structure, tool plugin system, parallelism, the phases delivered so far, key
+decisions); the Team compiler and the library crates have their own documents.
+
+| Spec | Covers |
+|------|--------|
+| [Core](core/README.md) | Platform architecture and cross-cutting decisions |
+| [Team compiler](team_compiler/README.md) | The flagship tool: pipeline, planning, processing, packing, deployment, referee support, messages, settings, the CLI |
+| [Aesthetics export](aesthetics_export/README.md) | The `aesthetics_export` lib and the Studio aesthetics export format: object model and validation progression, player folders, FPC markers |
+| [Kit config editor](kit_config_editor.md) | The kit config format reference (recovered by disassembly), TOML configs in exports, and the `kit_config` lib |
+| [Unified model format](model_format.md) | The material schema (shader families, canonical texture roles, per-engine tables), `.mtl` search, `.common` links |
+| [Model conversion](model_conversion/README.md) | `model_convert` lib: IR, conversion between the engines, mesh splitting, the Python bindings' side of the Blender integration |
+| [Savefile](pes_savefile/README.md) | `pes_savefile` lib: crypto, schema-driven codec, player/team/tactics model, interchange formats |
+| [Library crates](libs/README.md) | The remaining lib crates: format parsers, DDS conversion, color tools (kit-color extraction), archives, the task pipeline |
+
+How the two trees evolve is in the plan index, "How these documents evolve". Coding rules live
+in [`../CONTRIBUTING.md`](../CONTRIBUTING.md), domain terms in [`../GLOSSARY.md`](../GLOSSARY.md),
+implementation status in [`../WORKLOG.md`](../WORKLOG.md), and choices made where the documents
+were silent in [`../DECISIONS.md`](../DECISIONS.md).
