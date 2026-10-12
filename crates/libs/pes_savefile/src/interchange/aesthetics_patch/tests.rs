@@ -889,8 +889,18 @@ fn a_motion_only_patch_leaves_the_names() {
 #[test]
 fn the_patch_lands_on_the_player_id_not_the_slot() {
     let (mut save, _) = open(PesVersion::Pes21);
-    // Slots 05 and 10 swap: 70106 sits at slot 10 now, 70110 at slot 05.
-    save.team_mut(701).expect("the team").roster.swap(4, 9);
+    // Slots 06 and 10 swap: 70106 sits at slot 10 now, 70110 at slot 06.
+    save.team_mut(701).expect("the team").roster.swap(5, 9);
+    assert_eq!(
+        save.team(701).expect("the team").roster[9].player_id,
+        70106,
+        "the patched player moved"
+    );
+    assert_eq!(
+        save.team(701).expect("the team").roster[5].player_id,
+        70110,
+        "the swapped-in one stands in his old slot"
+    );
     let before = save.player(70110).expect("present").clone();
     let patch = patch_at(
         PesVersion::Pes21,

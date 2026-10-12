@@ -1176,9 +1176,20 @@ mod tests {
             )),
             "a Capped note for facial_hair_type, reset to 0: {notes:?}"
         );
-        // A field that exists on both versions applied.
-        let first = doc.players.values().next().expect("a player");
-        let target = targets.first().expect("a player");
+        // A field that exists on both versions applied, on the roster slot
+        // the section's key names (its first key is 01 = roster[0]).
+        let (key, first) = doc.players.iter().next().expect("a player");
+        let id = team19.roster[usize::from(*key - 1)].player_id;
+        let target = targets
+            .iter()
+            .find(|player| player.id == id)
+            .expect("the player the section lands on");
+        let before_name = file19.player(id).expect("the target player").name.clone();
+        assert_ne!(
+            Some(&before_name),
+            first.name.as_ref(),
+            "his name differs, or the write is invisible"
+        );
         assert_eq!(Some(&target.name), first.name.as_ref());
     }
 
@@ -1254,8 +1265,9 @@ mod tests {
 
         let source: Vec<u8> = (0u8..46).collect();
         let hex: String = source.iter().map(|b| format!("{b:02x}")).collect();
+        // `pes_version = 15`: the cross-version path a PES 15 export takes.
         let doc = TeamToml::parse(&format!(
-            "[players.{:02}.appearance.unknown]\nface = \"{hex}\"\n",
+            "pes_version = 15\n\n[players.{:02}.appearance.unknown]\nface = \"{hex}\"\n",
             slot + 1
         ))
         .expect("parses");
@@ -1273,7 +1285,7 @@ mod tests {
         );
         assert_eq!(
             target.appearance.ingame_face.undecoded()[..46],
-            IngameFace::from_bytes(source.clone()).undecoded()[..],
+            IngameFace::from_bytes(source).undecoded()[..],
             "the first 46 bytes' undecoded bits landed"
         );
     }
@@ -1594,11 +1606,24 @@ mod tests {
                 .get(IngameFaceField::FacialHairType)
                 .expect("a stored type")
         };
+        // The fixture carries 0 for him: set his stored type to 5 first,
+        // or the reset and the write would be invisible.
+        let set_face = |players: &mut [PlayerEntry]| {
+            players
+                .iter_mut()
+                .find(|player| player.id == id)
+                .expect("the player")
+                .appearance
+                .ingame_face
+                .set(IngameFaceField::FacialHairType, 5)
+                .expect("writes");
+        };
 
         let mut section = PlayerSection::default();
         section.appearance.face.facial_hair_type = Some(15);
         let mut target = team.clone();
         let mut players = file.players().to_vec();
+        set_face(&mut players);
         let notes = one_section(PesVersion::Pes21, slot, section)
             .apply(PesVersion::Pes19, &mut target, &mut players)
             .expect("applies");
@@ -1616,6 +1641,7 @@ mod tests {
         section.appearance.face.facial_hair_type = Some(12);
         let mut target = team.clone();
         let mut players = file.players().to_vec();
+        set_face(&mut players);
         let notes = one_section(PesVersion::Pes21, slot, section)
             .apply(PesVersion::Pes19, &mut target, &mut players)
             .expect("applies");
@@ -1632,10 +1658,26 @@ mod tests {
             let (file, _) = open(to);
             let (team, slot) = first_slot(&file);
             let id = team.roster[slot].player_id;
+            let mut players = file.players().to_vec();
+            // The fixture carries skin 1 for him: set his stored skin to 3
+            // first, or the reset and the writes would be invisible.
+            let player = players
+                .iter_mut()
+                .find(|player| player.id == id)
+                .expect("the player");
+            player
+                .appearance
+                .ingame_face
+                .set(IngameFaceField::SkinColor, 3)
+                .expect("writes");
+            let before = player
+                .appearance
+                .ingame_face
+                .get(IngameFaceField::SkinColor)
+                .expect("a stored skin");
             let mut section = PlayerSection::default();
             section.appearance.skin_color = Some(skin);
             let mut target = team.clone();
-            let mut players = file.players().to_vec();
             let notes = one_section(from, slot, section)
                 .apply(to, &mut target, &mut players)
                 .expect("applies");
@@ -1647,10 +1689,10 @@ mod tests {
                 .ingame_face
                 .get(IngameFaceField::SkinColor)
                 .expect("a stored skin");
-            (slot, notes, stored)
+            (slot, notes, stored, before)
         };
 
-        let (slot, notes, stored) = apply(PesVersion::Pes21, PesVersion::Pes19, 7);
+        let (slot, notes, stored, before) = apply(PesVersion::Pes21, PesVersion::Pes19, 7);
         assert_eq!(
             notes,
             vec![ImportNote::Capped {
@@ -1659,14 +1701,17 @@ mod tests {
                 to: 1,
             }]
         );
+        assert_ne!(before, 1, "a reset to 1 would be invisible");
         assert_eq!(stored, 1);
 
-        let (_, notes, stored) = apply(PesVersion::Pes19, PesVersion::Pes17, 7);
+        let (_, notes, stored, before) = apply(PesVersion::Pes19, PesVersion::Pes17, 7);
         assert!(notes.is_empty(), "{notes:?}");
+        assert_ne!(before, 7, "a write of 7 would be invisible");
         assert_eq!(stored, 7);
 
-        let (_, notes, stored) = apply(PesVersion::Pes21, PesVersion::Pes18, 2);
+        let (_, notes, stored, before) = apply(PesVersion::Pes21, PesVersion::Pes18, 2);
         assert!(notes.is_empty(), "{notes:?}");
+        assert_ne!(before, 2, "a write of 2 would be invisible");
         assert_eq!(stored, 2);
     }
 
@@ -1688,24 +1733,45 @@ mod tests {
         .expect("fits usize");
         assert_eq!(max, 46, "the field holds 46 bytes");
 
-        let section = PlayerSection {
-            name: Some("N".repeat(60)),
-            ..PlayerSection::default()
+        // A section that would write cleanly at a lower slot than the
+        // overlong one: the refusal must leave him as he was too.
+        assert!(
+            team.roster[slot + 1].player_id != 0,
+            "the next slot is rostered"
+        );
+        let mut doc = TeamToml {
+            pes_version: Some(PesVersion::Pes19),
+            ..TeamToml::default()
         };
+        doc.players.insert(
+            u8::try_from(slot + 1).expect("a slot index"),
+            PlayerSection {
+                name: Some("FINE".to_string()),
+                ..PlayerSection::default()
+            },
+        );
+        doc.players.insert(
+            u8::try_from(slot + 2).expect("a slot index"),
+            PlayerSection {
+                name: Some("N".repeat(60)),
+                ..PlayerSection::default()
+            },
+        );
         let mut target = team.clone();
         let mut players = file.players().to_vec();
-        let err = one_section(PesVersion::Pes19, slot, section)
+        let err = doc
             .apply(PesVersion::Pes16, &mut target, &mut players)
             .expect_err("too long");
         assert!(
             matches!(
                 err,
                 TeamTomlError::TextTooLong { ref path, max: 46 }
-                    if *path == format!("players.{:02}.name", slot + 1)
+                    if *path == format!("players.{:02}.name", slot + 2)
             ),
             "{err:?}"
         );
         assert_eq!(&target, team, "nothing was written");
+        assert_eq!(players, file.players(), "every player is his before");
     }
 
     /// A name or shirt name of exactly the field's capacity applies; one
@@ -1832,17 +1898,17 @@ mod tests {
                 label: "roaming_flank".to_string(),
             }]
         );
+        let before = file.player(id).expect("the player").positions.playing_style;
+        let none =
+            playstyle::encode(PesVersion::Pes18, PlayStyle::None).expect("every list holds none");
+        assert_ne!(before, none, "the fallback would be invisible");
         let stored = players
             .iter()
             .find(|player| player.id == id)
             .expect("the player")
             .positions
             .playing_style;
-        assert_eq!(
-            stored,
-            playstyle::encode(PesVersion::Pes18, PlayStyle::None).expect("every list holds none"),
-            "the stored style falls back to none"
-        );
+        assert_eq!(stored, none, "the stored style falls back to none");
     }
 
     /// `from_team` carries every rostered slot's shirt number into
@@ -2380,8 +2446,33 @@ mod tests {
         }
         let text = doc.to_toml().expect("to_toml");
         assert_eq!(text.matches("stripped = true").count(), 1);
-        let parsed = TeamToml::parse(&text).expect("the emitted text reparses");
+        let mut parsed = TeamToml::parse(&text).expect("the emitted text reparses");
         assert_eq!(parsed, doc);
+
+        // One physique key (`neck_length`) to a value neither save holds
+        // for him — the same record in both — so the import's appearance
+        // write is checked against both, not only the id.
+        let key = u8::try_from(
+            team.roster
+                .iter()
+                .position(|slot| slot.player_id == target_id)
+                .expect("rostered")
+                + 1,
+        )
+        .expect("a slot index");
+        let before_neck = file
+            .player(target_id)
+            .expect("the player")
+            .appearance
+            .neck_length;
+        let changed = if before_neck == 7 { 8 } else { 7 };
+        parsed
+            .players
+            .get_mut(&key)
+            .expect("his section")
+            .appearance
+            .physique
+            .neck_length = Some(changed);
 
         // Import onto the unstripped fixture: the player's own id stands.
         let (unstripped, _) = open(PesVersion::Pes21);
@@ -2402,6 +2493,10 @@ mod tests {
                 .appearance_id,
             "the import never touches the appearance id"
         );
+        assert_eq!(
+            applied.appearance.neck_length, changed,
+            "his appearance fields are the file's"
+        );
 
         // Import onto the stripped save: the -1 stands too.
         let mut team_s = team.clone();
@@ -2414,6 +2509,10 @@ mod tests {
             .find(|p| p.id == target_id)
             .expect("the player");
         assert_eq!(applied.appearance_id, Some(STRIPPED_APPEARANCE_ID));
+        assert_eq!(
+            applied.appearance.neck_length, changed,
+            "his appearance fields are the file's, stripped or not"
+        );
     }
 
     /// SE-TOML-04's lib half: a document of `[team] id`, one name and one
@@ -2522,9 +2621,32 @@ mod tests {
         let source = file21
             .player(team18.roster[first_slot].player_id)
             .expect("the source player");
+        // The carry witness is `playable` (his only field that differs
+        // between the fixtures: `[0; 13]` on 21 against a CF rating on 18);
+        // the stats are identical for him, which is why it is not `finishing`.
+        let before_playable = file18
+            .player(team18.roster[first_slot].player_id)
+            .expect("the target player")
+            .positions
+            .playable;
+        assert_ne!(
+            before_playable, source.positions.playable,
+            "his playable ratings differ, or the carry is invisible"
+        );
         assert_eq!(
-            target.stats.finishing, source.stats.finishing,
+            target.positions.playable, source.positions.playable,
             "a field both versions hold carries its value"
         );
+        // And nobody outside the roster was touched: every other player of
+        // the PES 18 save is his before.
+        let rostered: Vec<u32> = team18.roster.iter().map(|slot| slot.player_id).collect();
+        for player in targets.iter().filter(|p| !rostered.contains(&p.id)) {
+            assert_eq!(
+                player,
+                file18.player(player.id).expect("in the save"),
+                "player {} outside the roster",
+                player.id
+            );
+        }
     }
 }
