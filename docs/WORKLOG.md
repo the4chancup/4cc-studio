@@ -11,8 +11,8 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 4 (Processing logic) closed 2026-10-12. Phases 1 to 3 done (Phase 3 closed 2026-10-02,
 Phase 2 2026-09-30).
-**Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and steps 5.1a to 5.1c
-done, 5.1d next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
+**Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and step 5.1 done
+(2026-10-12), 5.2a next (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -562,7 +562,7 @@ two consumers, the in-game check, converge. Before the first step that writes a 
 the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-1`,
 `Tools_4cc/4ccEditor-VGL`; 5.0's survey).
 
-- [ ] 5.1 `pes_savefile`'s Phase 5 model (`pes_savefile/model.md` "Planned for Phase 5"), in
+- [x] 5.1 `pes_savefile`'s Phase 5 model (`pes_savefile/model.md` "Planned for Phase 5"), in
   slices:
   - [x] 5.1a the appearance-block player id modeled on the entry, outside `PlayerAppearance`
     (issue "player id versus appearance id"); height and weight out of the key table;
@@ -614,7 +614,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     - [x] 5.1c2 `apply`: the refusals before any write, absent teams and players skipped,
       the `PatchSummary`. Done 2026-10-12 (SWE-2, first attempt, plus one rework: review
       R5.A1's `to_toml` refusals and a mutation survivor). Step 5.1c done 2026-10-12
-  - [ ] 5.1d the Team TOML: `stripped`, the appearance table written key by key, `ingame_face`
+  - [x] 5.1d the Team TOML: `stripped`, the appearance table written key by key, `ingame_face`
     gone; a test-support export so a tool crate's CLI tests can write a whole fixture save →
     done when: SE-TOML-01 to 08's outcomes hold at the lib level. Sub-slices, each a commit:
     - [x] 5.1d1 `ingame_face` gone, `[players.NN.appearance.unknown] face` in its place
@@ -624,10 +624,30 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       written), and the test-support export of a whole fixture save. Done 2026-10-12 (SWE-2,
       first attempt, with review R6.A1's four `apply` tests; `fixture_save` behind the
       `test-support` feature, `team_compiler`'s dev-dependency its first consumer; one
-      rework, review R7.S1: Team TOML's `face` keeps a longer target run's tail)
+      rework per review: R7.S1, Team TOML's `face` keeps a longer target run's tail; R7.A1,
+      R8.S1 and R9.S1, tests made to fail without their behavior, each written value's
+      before-value asserted different). Step 5.1d done 2026-10-12
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
-  pass
+  pass. Slices, each a commit:
+  - [ ] 5.2a the crate, `Ruleset` and its types (the plan's block), `RULESET` read from a
+    data block, the load-time rules with their key paths; the official data block loads →
+    done when: one failing file per load-time rule
+    reports its rule and key path. Open: a serde error's key path waits on
+    `docs/QUESTIONS.md` "A new dependency for AATF schema errors' key paths"
+  - [ ] 5.2b the host's view of a team: `PlayerEntry` and `TeamContext` from `pes_savefile`'s
+    model, the tactics answers (`fielded_only_at`, `fielded_positions`, team settings,
+    formation shapes) in Rust, the engine and its limits → done when: each answer is tested
+    on fixture teams
+  - [ ] 5.2c `logic.rhai`'s `check_team` for the official file, `Violation` from its maps,
+    `file.rs` (assembling a file, its section split, logic identity), the sample team, the official known-legal and known-violating fixtures, the operation
+    limit → done when: each special of the official file is exercised by a fixture
+  - [ ] 5.2d `tier_values`, `card_limits`, `apply_tier` (settle the issue above first) →
+    done when: `apply_tier` then `check_team` reports nothing for every official tier
+  - [ ] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27 and VTL11 data blocks and their
+    fixtures → done when: the plan's per-ruleset fixtures pass
+  - [ ] 5.2f the parity runs against the legacy checkers on the cup saves (lead) → done
+    when: each difference is a deliberate one the plan lists, or fixed
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;

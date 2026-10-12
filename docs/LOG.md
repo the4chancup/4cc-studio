@@ -1819,6 +1819,6 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.1d rework (review R7.S1, 5 of 7 accepted): Team TOML's `face` keeps a
   longer target run's tail, as the retired hex's prefix copy did; lib tests no longer cite
   SE-PAT IDs. SWE-2, first attempt.
-- **2026-10-12** — Step 5.1d second rework (reviews R7.A1, 4 of 4, and R8.S1, 3 of 6): four tests
-  that passed without their behavior now fail without it (roster reorder, stripped import,
-  collateral change, refusal rollback). SWE-2, first attempt.
+- **2026-10-12** — Step 5.1d second and third reworks (reviews R7.A1, R8.S1, R9.S1): tests that
+  passed without their behavior now fail without it; three were vacuous on the fixtures' uniform
+  values. Step 5.1 done. A test of a write now asserts its premises (`CONTRIBUTING.md`).

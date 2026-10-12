@@ -35,3 +35,12 @@ pre-Fox save is the deferred pre-Fox patch's; a save of yours whose player wears
 ## Cup practice and preferences
 
 ## Small confirmations
+
+### A new dependency for AATF schema errors' key paths
+From: step 5.2a, 2026-10-12 (`aatf_rules.md` "Loading and validation": "the key path
+(`tiers[2].free.tricks`) for schema errors"). `libs/aatf` reads a ruleset's `RULESET` map with
+serde (`rhai::serde::from_dynamic`), whose errors name the bad key or type but not where it sits.
+Recommended: `serde_path_to_error` (dtolnay, MIT/Apache; depends only on `serde` and `itoa`), which
+wraps the deserializer and returns the path; the alternative is a deserializer wrapper of our own
+doing the same (the crate's whole job, several hundred lines by its size). The load-time rules (unique ids, names that exist) build their paths themselves and do
+not wait on this. Worklog step 5.2a's "Open:" line points here. Say yes or no.

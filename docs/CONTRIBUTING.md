@@ -216,7 +216,12 @@ Requirements:
   format variant rather than one per team, an FPK or FMDL rather than the CPK that held it, reuse
   before adding. Copy a small sample needed by several crates; ask before duplicating a large one.
 - New behavior comes with a test that fails before the change and passes after. A regression test
-  that passes on the old code has not demonstrated the bug.
+  that passes on the old code has not demonstrated the bug. A test of a write first asserts its
+  premises: that the target does not already hold the value it expects (`assert_ne!` on the
+  value before the write), and that its setup changed what it meant to change. Where a
+  fixture's value coincides, a skipped write passes the test. Three review rounds
+  at step 5.1d found such tests, among them one that compared a name against a different player
+  and one that swapped two roster slots without moving the player it patched.
 - **Acceptance IDs.** Each tool plan has an "Acceptance" section listing that tool's user-observable
   behavior as scenarios with stable IDs, written before the phase that delivers them (procedure in
   `AGENTS.md` "Working documents"). Format, one entry per behavior:
