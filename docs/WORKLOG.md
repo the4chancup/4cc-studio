@@ -529,19 +529,19 @@ Fixed before the itemization:
     Census done 2026-10-11 (`.tmp/5_0e/census/census.md`: 12,857 distinct textures in 827
     export roots, 1,652 archives opened): 15 mipped textures with one non-power-of-two side in
     Fox exports, 11 Fox kit main textures at 4096 or 8192, none non-power-of-two. Both rules
-    stand until `QUESTIONS.md` "Non-power-of-two mipped textures and kits over 2048 on Fox" is
+    stood until the question "Non-power-of-two mipped textures and kits over 2048 on Fox" was
     answered; the answer's rule change is a step of its own (answered 2026-10-12: 5.0f)
   - (3) an FMDL texture path into the game's kit texture folder
     (`/Assets/pes16/model/character/uniform/texture/`): Red reports an Error and keeps the model
     (`e12aa01`, "Report PES uniform texture paths in FMDLs as errors"); Studio keeps a game path
-    unlooked-up (`pipeline.md` "Resolved decisions"). Red's reason (its commit message): the
+    unlooked-up (`team_compiler/pipeline.md` "Resolved decisions"). Red's reason (its commit message): the
     modded exe swaps kit textures per match, so a fixed path there cannot work, and the member
     must use the dummy kit or a Common path. Ruled: the Warning `fmdl_texture_kit_path`
     (`messages.md`), the model kept with the path unchanged (a Studio Error would drop the
     folder, which Red's Error does not) → done when: TC-MOD-91 passes
   - (4) a `.txt` in a model folder is a note: `file_not_used` like any file no role reads,
     instead of a disallowed type that drops the folder under the default strict check
-    (`object_model.md` "File-type allowlist") → done when: TC-MOD-92 passes
+    (`aesthetics_export/object_model.md` "File-type allowlist") → done when: TC-MOD-92 passes
   Done 2026-10-11 (SWE-2, first attempt; reviews S1-S4 and Astra A1, `.tmp/5_0e/rulings_*.md`):
   `processing/texture.rs` `portrait` takes the version (an exhaustive `match`), `processing/model.rs`
   keeps a kit-folder path and reports it, `aesthetics_export`'s `is_txt_note` admits a `.txt` whose
@@ -608,7 +608,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     round-trip byte-exact)
   - [x] 5.1c the aesthetics patch, Fox half: the type, parse, emit, `apply_patch` by player id
     and its refusals (a pre-Fox patch included) → done when: SE-PAT-01 to 04's outcomes hold at
-    the lib level. Sub-slices, each a commit (types: `operations.md` "Aesthetics patch"):
+    the lib level. Sub-slices, each a commit (types: `pes_savefile/operations.md` "Aesthetics patch"):
     - [x] 5.1c1 `AestheticsPatch` and its types, `parse` and `to_toml`, the pre-Fox refusal.
       Done 2026-10-12 (SWE-2, first attempt, plus one rework: `to_toml` made fallible
       instead of writing a value `parse` refuses back; with review R5.S1's test witness)
@@ -726,7 +726,7 @@ points there.
 
 - open (2026-10-11, Phase 5 Acceptance; deferred until the cup next plays a pre-Fox version) —
   the pre-Fox aesthetics patch (`pes_savefile/operations.md` "Aesthetics patch", the pre-Fox
-  half; `pipeline.md` "Post-processing"): every appearance field, the resolved boots and gloves
+  half; `team_compiler/pipeline.md` "Post-processing"): every appearance field, the resolved boots and gloves
   IDs through commit-conditioned mutations, the edit flags and the base-copy ID (issue below).
   Until then a compile for PES 15-17 writes no patch and leaves the savefile alone (decision
   2026-10-11).
@@ -908,7 +908,7 @@ points there.
 - open (found at 4.26b's review) — a multi-CPK run promotes its CPKs to `output/` one
   rename at a time, so a rename failing part-way leaves `output/` with some new CPKs and
   some of the previous run's. The plan settles all-or-none for the installation only
-  (`pipeline.md` "Deploy CPKs"); the output folder is the maintainers' build folder, and the
+  (`team_compiler/pipeline.md` "Deploy CPKs"); the output folder is the maintainers' build folder, and the
   next run rewrites every CPK. Revisit if a maintainer meets it.
 
 - open — the `livecpk/` replacement is not atomic (4.23a): the previous tree is removed before
@@ -965,17 +965,17 @@ points there.
 - answered (2026-10-05, below) — the seed rows and multi-CPK mode: strip-and-seed puts its rows
   into `4cc_08_bins.cpk` (decision 2026-10-05), but in multi-CPK mode that CPK is the
   compiler's own bins output (`settings.md` `bins_cpk_name`), and the bins walk starts below
-  the output CPK (`pipeline.md` "Bins accumulation"). So the DLC builder's next multi-CPK
+  the output CPK (`team_compiler/pipeline.md` "Bins accumulation"). So the DLC builder's next multi-CPK
   compile reads the three player tables from below the seed and replaces `4cc_08_bins.cpk`
   without the seed rows of every player no export compiles. Resolved (2026-10-05,
   maintainer): in multi-CPK mode the player tables' walk starts at the bins CPK itself
-  (`pipeline.md` "Bins accumulation").
+  (`team_compiler/pipeline.md` "Bins accumulation").
 - answered (2026-10-05, below) — motions on Fox: `settings.toml`'s `[appearance.motion]`
   (hunching, arm movement, kick motions, celebrations, dribbling) are player-record fields
   outside the appearance block (PES 20/21 bits 96 to 332), so neither the `PlayerAppearance.bin`
   row (the block's bytes) nor the Fox patch (names only) carries them: on Fox a compiled
   export's motions reach nobody. Resolved (2026-10-05, maintainer): the Fox patch carries
-  every compiled player's motions (`operations.md` "Aesthetics patch"). Untested: that the game
+  every compiled player's motions (`pes_savefile/operations.md` "Aesthetics patch"). Untested: that the game
   uses a stripped record's motions (expected: they are outside the appearance block).
   Where a save's motions come from (2026-10-05): a PES 19+ EDIT generated by the game holds
   no player records (the vanilla PES 21 one, `.tmp/4_0/apptest/vanilla21/`); the cup's players are
@@ -1112,7 +1112,7 @@ points there.
 - open — shared IDs and retained rows: a team's shared boots/gloves IDs are assigned in
   alphabetical folder order from the export being compiled (`player_folders.md` "Assigns IDs
   automatically"), while a player the export does not compile keeps his installed row
-  (`pipeline.md` "Bins accumulation"). A `Midcup` export holding shared folder B but not A
+  (`team_compiler/pipeline.md` "Bins accumulation"). A `Midcup` export holding shared folder B but not A
   gives B the ID A had in the full CPK, so A's wearers, their rows untouched, now wear B.
   The same holds for pre-Fox save IDs. Settle before 4.22: a midcup keeps the full export's
   assignment (from where?), or must carry every shared folder its team uses (review S5.A2
@@ -1139,13 +1139,13 @@ points there.
   5.4c (a row straight from a `PlayerEntry`, or wider ranges if the game shows those values),
   and before any tool generates `settings.toml` from a save.
 - open — strip-and-seed and a base-copied face: the `PlayerAppearance.bin` row carries no
-  base-copy id (`model.md`, "The Fox database row"), which holds a face-transplant
-  relationship (`operations.md` "Save-to-save operations"), so a stripped player whose
+  base-copy id (`pes_savefile/model.md`, "The Fox database row"), which holds a face-transplant
+  relationship (`pes_savefile/operations.md` "Save-to-save operations"), so a stripped player whose
   record copied another player's face may change face, against "stripping changes nobody's
   look". Untested (Test 1 did not cover it). Measure before strip-and-seed is built; then
   carry the relationship or report the affected players (review S5.A3 item 3).
 - open — an unwritable `livecpk\`: sideload mode writes it "with the same access path as
-  deployment to `download/`, elevation included" (`pipeline.md` "Output modes"), but no
+  deployment to `download/`, elevation included" (`team_compiler/pipeline.md` "Output modes"), but no
   plan says what a sideload run does when it cannot (a tree has no `output/` to degrade
   to). Settle with the sideload step (review S6.1b item 21).
 - open — the deep pass reads everything `compile` reads again (4.7): each checked file is
@@ -1165,7 +1165,7 @@ points there.
   investigation waits for the maintainer's go (`docs/QUESTIONS.md` "Face diffs are
   engine-specific").
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
-  and the IR (`ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
+  and the IR (`model_conversion/ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more
   than 65536 vertices, and vertex-limit splitting of an IR mesh can only move loose vertices.
   The 2.20h conversion census found 114 real files over it. Since 2.20h such a group stays
@@ -1230,7 +1230,7 @@ points there.
   survey (`.tmp/4_0/apptest`, `fpc` subcommand).
 - **Texport write is unverified in-game** (2.17h): `Texport::new` synthesizes 18-21 files from
   measured templates and `to_bytes` rewrites read files; both round-trip byte-identical, but no
-  generated file has been imported by the game yet (`verification.md` "Texport write": manual,
+  generated file has been imported by the game yet (`pes_savefile/verification.md` "Texport write": manual,
   per version; a `new` file and an edited round-tripped one). PES 15/16/20 texports have no
   fixture at all (offsets/key index are the reference's; PES 20's size is derived).
 - open — FoxDen's LiveCPK gaps that sideload mode depends on (forwarded by the maintainer to
@@ -1244,7 +1244,7 @@ points there.
 - open — a run that does not end cleanly leaves its staging (3.z): closing the window while
   the GUI's compile runs ends the process mid-run, and the coordinator's `Cancelled` path does
   not discard the staging either, so `output/.staging/<run>/` can be left beside the previous
-  CPK (which stays intact). Fixed with cancellation (`gui.md` "Cancellation", Phase 8): the
+  CPK (which stays intact). Fixed with cancellation (`core/gui.md` "Cancellation", Phase 8): the
   window stops the run and the cancelled path calls `deploy::discard`. The same step adds the
   check between a texture task's textures (4.6's slice (c)); a test cancels a real run partway.
 - open — a texture link beside a combined shared folder's texture of the same stem (4.11d):

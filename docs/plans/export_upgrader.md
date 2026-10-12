@@ -174,7 +174,7 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     implements this same mode (its `export_upgrade.py`).
 12. **Flattens the AET referee layout's subfolders**: `face/`, `boots/`, `gloves/` and `common/`
     directly inside a referee's player folder (the layout the compiler refuses with
-    `player_layout_proto`, `player_folders.md` "Subfolders") are folded into the player folder
+    `player_layout_proto`, `aesthetics_export/player_folders.md` "Subfolders") are folded into the player folder
     root; no file is renamed (the census of 2026-10-10 found every such `boots/` holding files
     named as the root would name them: `boots.fmdl`, `boots.model`, `oral_boots_win32.model`).
     A file name present in two locations with identical bytes is deduplicated; with different

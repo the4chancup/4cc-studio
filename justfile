@@ -9,7 +9,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 python := if os_family() == "windows" { "python" } else { "python3" }
 
 # The five verification gates, in order. CI runs this same recipe.
-gates: fmt-check clippy test wasm-check acceptance
+gates: fmt-check clippy test wasm-check acceptance doc-pointers
 
 # The same gates on the mutants host (STUDIO_MUTANTS_REMOTE) against the working tree, while this machine should not carry the load
 gates-remote:
@@ -36,6 +36,11 @@ wasm-check:
 acceptance mode="report":
     {{python}} scripts/acceptance_test.py
     {{python}} scripts/acceptance.py {{mode}}
+
+# Gate 6: the section-pointer check's own tests, then the check (every `file.md` "Section" pointer resolves)
+doc-pointers:
+    {{python}} scripts/doc_pointers_test.py
+    {{python}} scripts/doc_pointers.py
 
 # Mutation run over one crate (converge); survivors are test gaps, equivalents or dead code; split with STUDIO_MUTANTS_REMOTE when set
 mutants crate:

@@ -323,7 +323,7 @@ gates.
   cross-format conversion via `model_convert`, multi-model merging and SKL pairing
   (`fmdl_editing`); hand auto-split (`model_convert::ops::hand_split`) on every model carrying
   `skh_*_l`/`skh_*_r` weights before categorization, the split parts becoming the player's
-  `glove_l`/`glove_r` parts (`player_folders.md` "At compile time, the pipeline" step 0); model
+  `glove_l`/`glove_r` parts (`aesthetics_export/player_folders.md` "At compile time, the pipeline" step 0); model
   source selection before glTF exists: a folder whose selected representation would be glTF (no
   target-native source beside it) is refused with `model_gltf_unsupported` (folder-discarding,
   not pass-through-eligible) until Phase 7, never compiled from the opposite native format

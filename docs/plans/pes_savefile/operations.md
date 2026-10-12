@@ -661,7 +661,7 @@ the tables cannot carry: every compiled player's **motions** (`[appearance.motio
 fields outside the appearance block a table row holds) and the **names and shirt names** of an
 **autopilot** export's players, one with the `autopilot` marker at its root (its tactical export
 carries placeholder names). A patch's `players.NN` is player id `team id × 100 + NN`, the
-export's savefile identity (`player_folders.md` "Savefile identity"), whatever roster slot he
+export's savefile identity (`aesthetics_export/player_folders.md` "Savefile identity"), whatever roster slot he
 holds, so the patch lands on the player whose models the CPK carries. It is applied whole, with
 no team picker: a managed team's export has
 no marker, so its `name` and `shirt_name` are not used and its players keep the names their

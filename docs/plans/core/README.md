@@ -232,7 +232,7 @@ Trade-offs accepted:
 | `egui_commonmark` | Markdown rendering for the help window (CommonMark subset: headings, lists, tables, code blocks, links) | Release not yet reviewed; pinned to the workspace egui version once selected. Chosen over a hand-rolled renderer (see `gui.md` "Help window") |
 | `egui_animation` | Easing helpers for cell-color fades and panel transitions (on top of egui's built-in `animate_*`) | Release not yet reviewed; dropped if the built-in helpers suffice |
 | `md-5` | FPK checksums, PES15 save integrity hashes | Production-ready |
-| `phf` | Compile-time static maps — the Team compiler's per-version game-paths table (team_compiler plan, "Crate layout" `paths.rs`; `model_convert`'s skeletons deliberately use a sorted `Vec`, see `conversion.md` "Skeleton data") | Production-ready |
+| `phf` | Compile-time static maps — the Team compiler's per-version game-paths table (team_compiler plan, "Crate layout" `paths.rs`; `model_convert`'s skeletons deliberately use a sorted `Vec`, see `model_conversion/conversion.md` "Skeleton data") | Production-ready |
 | `unicode-normalization` | NFC normalization for `vtree`'s collision detection (two spellings of `é` are one file name on disk) | Production-ready (0.1.25 in use) |
 | `roxmltree` | Read-only XML tree for `.mtl` material sets, `face.xml`, `face_diff.xml` (`pes_model`, the Team compiler); writing those small fixed shapes is done by hand so Konami's formatting is reproducible | Production-ready (0.21.1 in use) |
 | `base64` | Decoding the vertex blocks of a Fox `face_diff.xml` (the Team compiler); chosen over a hand-written decoder because it leaves no bit-twiddling to own and mutation-test | Production-ready |

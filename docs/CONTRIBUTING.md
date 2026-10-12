@@ -156,7 +156,9 @@ just gates
 The root `justfile` is the one definition of the gates (`cargo fmt --all --check`, `cargo clippy
 --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo check --target
 wasm32-unknown-unknown` for `studio_core` and every lib crate, and `just acceptance`, the
-acceptance-ID scanner in its `report` mode), and CI runs the same recipe, so
+acceptance-ID scanner in its `report` mode, and `just doc-pointers`, which fails on a
+pointer to a document's section, its path and then the quoted title, whose file or section is
+gone), and CI runs the same recipe, so
 the list cannot drift between this document, the local run and CI (it had, before the justfile
 existed: two spellings of the fmt gate in two documents). The other recipes are the project's
 repeatable sequences, each of which the plan names somewhere: `just deps-check` (guardrail 4,

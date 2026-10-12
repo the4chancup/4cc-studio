@@ -592,7 +592,7 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    links as the one `Common/` texture they name) reports `shared_texture_conflict`, which
    fails the player's textures task and so leaves his folder out; the player's own copy wins over a
    combined folder's (below). The player's texture sources are its own folder (its subfolders included, each texture
-   resolved and emitted as `player_folders.md` "Subfolders" says) and each
+   resolved and emitted as `aesthetics_export/player_folders.md` "Subfolders" says) and each
    shared face, boots or gloves folder it combines, each of whose files stands at its path
    below the player folder, as his own file there would (a combined
    `Faces/Round/jessie/hair_high.fmdl` resolves nearest first from `jessie/`, among his
