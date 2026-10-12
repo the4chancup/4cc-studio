@@ -1776,3 +1776,6 @@ worklog passed 7,000 lines.
   tests by SWE-2, one exclusion, the rest caught on Windows); worklog collapsed to the phase row.
 - **2026-10-12** — Step 5.0h: `just mutants <crate>` runs the literal and normalize kinds itself
   and reruns here a remote survivor only a Windows test catches; SWE-2, first attempt.
+- **2026-10-12** — Step 5.0b closed: `order` mutants join `just mutants` (15 real gaps of 23
+  survivors over five crates), `bool` does not (10 of 29); `team_compiler`'s 8 got tests.
+  The review run over 5.0b-5.0h left survivors only in `extra_mutants` (step 5.0b3).

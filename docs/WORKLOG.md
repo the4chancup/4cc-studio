@@ -11,9 +11,9 @@ is in `AGENTS.md` ("Working documents").
 
 **Phase:** 4 (Processing logic) closed 2026-10-12. Phases 1 to 3 done (Phase 3 closed 2026-10-02,
 Phase 2 2026-09-30).
-**Next:** Phase 5 (Savefile integration): its fixed steps first (5.0, 5.0c, 5.0e and 5.0f
-done; 5.0b, the extra mutant kinds, in its per-kind trial), then the phase's Acceptance step
-and its itemization. 2.5b (GPU BC7) is
+**Next:** Phase 5 (Savefile integration): its fixed steps first (5.0, 5.0b, 5.0c, 5.0e, 5.0f
+and 5.0h done; 5.0b3 and 5.0g, tests for the extra mutant kinds' gaps, open), then the
+itemized steps from 5.1 (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -380,7 +380,7 @@ Fixed before the itemization:
   pooled height rule and its fix-database-on-save option (an unreleased third-party branch, the
   latter against the confirmation dialog `save_editor.md` chose). The medal name colour is an
   issue below.
-- [~] 5.0b Prototype the two mutation kinds `cargo-mutants` lacks (after Phase 4's converge, so
+- [x] 5.0b Prototype the two mutation kinds `cargo-mutants` lacks (after Phase 4's converge, so
   it competes with no review): (1) drop a guard, an `if` whose body returns, `continue`s,
   `break`s or errs, its condition replaced with `false`; (2) remove one element of a literal
   list a `split`, `contains` or `matches!` decides by. S10's review (2026-10-09) found the
@@ -416,21 +416,46 @@ Fixed before the itemization:
   survivor) do not. The real gaps are step 5.0g. Reopened for `bool` and `order` (maintainer,
   2026-10-12: no survivor and 1 of 3 are no verdict): each run over `model_convert`,
   `pes_savefile` (bool) or `pes_model` and `fmdl` (order), and `team_compiler`, then decided
-  on the total, its real gaps joining 5.0g.
-- [ ] 5.0g Tests for 5.0b's real gaps, in `aesthetics_export` unless named: `literal`:
-  `conventions/player_folder.rs` `is_gloves` (`GloveR`, `HandL`, `HandR`) and
-  `is_explicit_face` (`Oral`), `validate/folders.rs` `is_model_content` (`Skl`, `Mtl`,
-  `MaterialsToml`), `parse/mod.rs` the roster skipped on `nested_root_conflict`; `normalize`:
-  the case tolerance of `is_logo_texture`, `classify`'s `materials.toml`, `normalize`'s content
-  folders, `root_file`, the `portrait` stem, `is_kit_texture_name` (`kit`, `kit_`), the kits
-  folder's `all` head, `logo_parts`' `_crop`/`_stretch`/`_fit`, `ref_marker.dds`, and the
-  whitespace tolerance of `line_color`, `split_folder_name`, `parse_line` and `parse_roster`'s
-  blank-line filter; `guard`: `validate/roster.rs` two lines naming one out-of-range slot (two
-  `players_txt_slot_invalid`, no `players_txt_slot_duplicate`), and `color_tools` `kit.rs:191`'s
-  `total == 0`; `order`: `validate/links.rs` a kit set's `kit10` member after `kit2`. One test
-  may cover several sites (a mixed-case export; a padded `players.txt`) → verify: `just
-  extra-mutants aesthetics_export --kind literal --kind normalize` misses only
-  `validate/roster.rs:89`'s `source_read_failed` (an I/O failure, not reachable by a test)
+  on the total, its real gaps joining 5.0g. Decided 2026-10-12 (DECISIONS "order mutants join
+  converge, bool mutants do not"): `order` 15 real of 23 survivors joins `EXTRA_KINDS`; `bool`
+  10 of 29 does not. `team_compiler`'s 8 real gaps got tests (`791fc4e`, SWE-2); the other
+  crates' are 5.0g2.
+- [ ] 5.0b3 `extra_mutants`' own gaps, from the review's mutation run (`mutants-diff d81c9ac`,
+  2026-10-12: every `aesthetics_export` and `team_compiler` mutant caught, 35 survivors all in
+  this crate, triage `.tmp/5_0e/diff/triage.md`): `item_attrs` keeps only the arms whose item
+  holds a body the lister visits (twelve equivalent arms); tests for a guard in an impl method
+  and a trait default method, `#[cfg(test)]` impls and traits skipped, `#[cfg(windows)]` and
+  `#[cfg(feature)]` items scanned, a non-literal list element kept, offsets after `#![..]`, a
+  BOM and a shebang, and the binary over a small crate (paths, test-module files skipped,
+  usage error) → verify: `just mutants-diff <5.0b3's base>` leaves no survivor in the crate
+- [ ] 5.0g Tests for 5.0b's real gaps, in two slices:
+  - [ ] 5.0g1 in `aesthetics_export` unless named: `literal`:
+    `conventions/player_folder.rs` `is_gloves` (`GloveR`, `HandL`, `HandR`) and
+    `is_explicit_face` (`Oral`), `validate/folders.rs` `is_model_content` (`Skl`, `Mtl`,
+    `MaterialsToml`), `parse/mod.rs` the roster skipped on `nested_root_conflict`; `normalize`:
+    the case tolerance of `is_logo_texture`, `classify`'s `materials.toml`, `normalize`'s content
+    folders, `root_file`, the `portrait` stem, `is_kit_texture_name` (`kit`, `kit_`), the kits
+    folder's `all` head, `logo_parts`' `_crop`/`_stretch`/`_fit`, `ref_marker.dds`, and the
+    whitespace tolerance of `line_color`, `split_folder_name`, `parse_line` and `parse_roster`'s
+    blank-line filter; `guard`: `validate/roster.rs` two lines naming one out-of-range slot (two
+    `players_txt_slot_invalid`, no `players_txt_slot_duplicate`), and `color_tools` `kit.rs:191`'s
+    `total == 0`; `order`: `validate/links.rs` a kit set's `kit10` member after `kit2`. One test
+    may cover several sites (a mixed-case export; a padded `players.txt`) → verify: `just
+    extra-mutants aesthetics_export --kind literal --kind normalize` misses only
+    `validate/roster.rs:89`'s `source_read_failed` (an I/O failure, not reachable by a test)
+  - [ ] 5.0g2 the `order` and `bool` gaps of the model crates and `pes_savefile`
+    (`.tmp/5_0b/trial/triage.md`): `order`: `pes_model` and `fmdl` `ops/split/build.rs` a
+    fragment's faces and loose sets by decreasing projection on the sort vector and a
+    component's vertex sets and faces (`pes_model` only), `ops/vertex_enc.rs` a key's kept
+    loops by encoding; `model_convert` `formats/fmdl/export.rs` `quantize_weights`' slots by
+    decreasing weight, `materials/to_fox.rs` and `materials/to_prefox.rs` a material's textures
+    by role before its samplers are written (a source listing its normal map first); `bool`:
+    `model_convert` the written FMDL's `antiblur` and `vertex_loop_preservation`, a converted
+    pre-Fox mesh group's `visible`, the pre-Fox environment sampler's `srgb`; `pes_savefile`
+    `settings_toml/document.rs` `boots_id`/`gloves_id` bounded by their 0-100 range, not the
+    field's width → verify: `just extra-mutants <crate> --kind order` (and `--kind bool` for
+    `model_convert` and `pes_savefile`) leaves only the survivors the triage rules equivalent
+    or not testable
 - [x] 5.0h `just mutants <crate>` runs the adopted extra kinds and reruns Windows-only survivors
   here (maintainer, 2026-10-12): the whole-crate run first runs `literal` and `normalize`
   (`EXTRA_KINDS` in `scripts/mutants.py`), their survivors joining `missed_all.txt`; at

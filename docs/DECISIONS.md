@@ -7013,3 +7013,20 @@ all real (case and whitespace tolerance of member-written names and lines untest
 real and narrow; `bool` 2, both caught. The rule set beforehand: a kind joins when about half
 its survivors are real gaps, since each equivalent survivor costs a ruling every phase.
 Plan: `CONTRIBUTING.md` "Mutation runs"; `AGENTS.md` "Closing a phase"; worklog 5.0b, 5.0g.
+
+## 2026-10-12 — workspace — order mutants join converge, bool mutants do not
+Decision: `order` (a `sort*`, `dedup*` or `reverse` statement dropped) joins `literal` and
+`normalize` in `EXTRA_KINDS`, which `just mutants <crate>` runs; `bool` stays in the tool,
+unrun. This replaces the previous entry's verdict on those two kinds.
+Why: the maintainer judged that previous entry's samples too small to decide `order` or
+`bool` (1 real survivor of 3; none of 0), so each ran over more crates. Totals:
+- `order`: 15 real gaps of 23 survivors: `aesthetics_export` 1 of 3, `pes_model` 5 of 7,
+  `fmdl` 3 of 5, `model_convert` 3 of 5, `team_compiler` 3 of 3. The gaps are orders the
+  output depends on with no test pinning them: the auto-split's greedy face order, a
+  component's vertex sets, a material's sampler order, and a Common task's entry order.
+- `bool`: 10 real gaps of 29 survivors: `model_convert` 4 of 4, `pes_savefile` 1 of 2,
+  `team_compiler` 5 of 23, whose other 18 are flags no consumer reads differently (17
+  equivalent, 1 a memory-only flag).
+The bar is the previous entry's: about half real. `bool`'s ten real gaps still get tests
+(worklog 5.0g); the kind is only kept out of every later run.
+Plan: `CONTRIBUTING.md` "Mutation runs"; worklog 5.0b, 5.0g.
