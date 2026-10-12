@@ -735,6 +735,66 @@ Rules:
 - Applying is the only aesthetics write path the save editor leaves open by default (see "Read-only
   aesthetics" in the [Save editor plan](../save_editor.md)); it goes through the editor's undo pipeline
   and the comparator's preview like any other bulk edit.
+- **A patch is refused whole or applied whole, absences aside.** Every check that can fail
+  (the two versions, a pre-Fox `pes_version` until the pre-Fox half is built, a name longer
+  than the version's field, a motion value outside its key's range, a `dribbling` for a version
+  without it) runs before the first write, and a failure leaves the save untouched: the patch
+  is the compiler's output, so a bad value means a broken patch, and a half-applied one would
+  leave a save matching no compile. Only a team or player absent from the save is skipped per
+  item, as above.
+
+The Fox half's types (`interchange/aesthetics_patch.rs`; the pre-Fox half adds its keys when it
+is built):
+
+```rust
+/// The suite's boots and gloves ID allocation scheme (`team_compiler/pipeline.md`); a patch
+/// from another scheme is refused.
+pub const ALLOCATION_SCHEME_VERSION: u32 = 1;
+
+/// `aesthetics_patch.toml`: the compiler's resolved savefile writes for its compiled players.
+pub struct AestheticsPatch {
+    pub pes_version: PesVersion,
+    pub studio_version: String,
+    pub allocation_scheme_version: u32,
+    /// The CPKs the run published; empty for a sideload tree.
+    pub cpks: Vec<String>,
+    pub compiled: toml_edit::Datetime,
+    pub teams: Vec<PatchTeam>,
+}
+
+pub struct PatchTeam {
+    pub id: u32,
+    /// For the reader; the id is what is applied.
+    pub name: String,
+    /// By `NN` (`players.NN`, player id `id × 100 + NN`).
+    pub players: BTreeMap<u8, PatchPlayer>,
+}
+
+pub struct PatchPlayer {
+    /// An autopilot export's only; `None` = not written.
+    pub name: Option<String>,
+    pub shirt_name: Option<String>,
+    /// `[appearance.motion]`, as in `settings.toml`; `None` keys are not written.
+    pub motion: MotionSettings,
+}
+
+impl AestheticsPatch {
+    pub fn parse(text: &str) -> Result<Self, PatchError>;
+    pub fn to_toml(&self) -> String;
+    /// Every refusal before any write (above); then each team and player present is written.
+    pub fn apply(&self, save: &mut EditFile) -> Result<PatchSummary, PatchError>;
+}
+
+pub struct PatchSummary {
+    pub applied_teams: Vec<u32>,
+    pub skipped: Vec<PatchSkip>,
+}
+
+pub enum PatchSkip {
+    TeamNotInSave { team: u32 },
+    PlayerNotInSave { player: u32 },
+}
+```
 
 ### Legacy 4ccEditor formats (read-only)
 

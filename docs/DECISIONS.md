@@ -7081,3 +7081,19 @@ what `Texport::new` exists to produce (the reference editor is import-only). A s
 -1 says "look in this save's database tables", which the save receiving the export does not
 share. Keeping 0 would also have meant saving and restoring bytes around the record write.
 Plan: `pes_savefile/operations.md` "Texport (read + write)".
+
+## 2026-10-12 — pes_savefile — the aesthetics patch's Fox types, and a patch refused or applied whole
+Decision: the Fox half of `aesthetics_patch.toml` is `interchange/aesthetics_patch.rs`'s
+`AestheticsPatch` (header keys, teams by id, players by `NN` with optional names and
+`settings.toml`'s `MotionSettings`), with `parse`, `to_toml` and `apply(&mut EditFile)`.
+`ALLOCATION_SCHEME_VERSION` lives in `pes_savefile`, which checks it. Every refusal (the two
+versions, a pre-Fox patch until that half is built, a name too long, a motion out of range or
+absent from the version) runs before the first write; only an absent team or player is
+skipped per item, reported in a `PatchSummary`.
+Why: the plan gave the format and the rules but no types. The patch is the compiler's output,
+so a bad value means a broken patch, and applying the rest would leave a save matching no
+compile; absence is the one per-item case the plan names, because a midcup patch may cover a
+team the save lacks. The scheme constant sits where it is checked: the compiler writes it from
+there, and the save editor, which never sees the compiler's crate, checks the same value.
+Plan: `pes_savefile/operations.md` "Aesthetics patch" (the last rule and the types);
+`pes_savefile/README.md` crate tree.

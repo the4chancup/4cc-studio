@@ -110,6 +110,7 @@ crates/libs/pes_savefile/src/
     │   └── labels.rs   #     the label vocabularies (positions, ratings, styles, skills)
     ├── legacy.rs       #   .4ccs / .4cct readers, into a TeamToml
     ├── legacy_golden.rs#   the .4ccs parity + literal-offset goldens
+    ├── aesthetics_patch.rs # the compiler's aesthetics_patch.toml: parse, emit, apply (Phase 5)
     ├── texport.rs      #   Texport read/write over the schema codec (layout: schema/texport.rs)
     └── texport_golden.rs # the Texport parity goldens
 ```
