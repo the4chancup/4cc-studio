@@ -23,15 +23,15 @@ pub enum Instruction {
     TikiTaka,
     /// Centring Targets.
     CenteringTargets,
-    /// Swarm the Box (PES 18+).
+    /// Swarm the Box.
     SwarmTheBox,
-    /// Deep Defensive Line (PES 18+).
+    /// Deep Defensive Line.
     DeepDefensiveLine,
-    /// Gegenpress (PES 18+).
+    /// Gegenpress.
     Gegenpress,
-    /// Tight Marking (PES 18+).
+    /// Tight Marking.
     TightMarking,
-    /// Counter Target (PES 18+).
+    /// Counter Target.
     CounterTarget,
     /// Defensive (PES 18+).
     Defensive,

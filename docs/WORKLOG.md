@@ -690,16 +690,21 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `paths.rs` line)
   - [ ] 5.0j2 `docs/spec/libs/` and the format crates (`.tmp/5_0j/brief_libs.md`), then one
     slice per remaining folder
-- [ ] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
+- [x] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
   PES 21, `.tmp/5_2b2/findings.md`): the game stores Anchoring at 0x0A, with 18/19's entries from
   Swarm the Box on shifted up one (Swarm the Box 0x0B, Deep Defensive Line 0x0C, Gegenpress 0x0D,
   Tight Marking 0x0E, Counter Target 0x0F, Wing Back 0x10); `STORED_20` appends Anchoring at 0x10
   instead, so Team TOML reads and writes those six under wrong names. Measured: Anchoring 10,
   False Winger 9, Swarm the Box 11, Deep Defensive Line 12, Counter Target 15 (the measured copy
-  is `.tmp/5_2b2/pes21_after/EDIT00000000`, team 701 preset 1). PES 17-19's tables are as
-  unverified as 20/21's were; the spec's "Version quirks" text is corrected with the code → done
+  is `.tmp/5_2b2/pes21_after/EDIT00000000`, team 701 preset 1). A census of every 17-21 save on
+  disk by side (`.tmp/5_2b2/findings.md` "Instruction values by side") fits PES 17's and
+  18/19's tables and only the corrected 20/21 one: attack slots hold attack instructions, and
+  Tight Marking (set only in a match) is the one defence value never stored. The spec's
+  "Version quirks" text is corrected with the code → done
   when: a test decodes the measured values to the in-game names, and the Team TOML round trips
-  of the PES 20/21 fixtures still pass
+  of the PES 20/21 fixtures still pass. Done 2026-10-12 (SWE-2, first attempt): `STORED_20`
+  corrected; tests pin the measured values, the 20/21 table both ways, and every fixture
+  instruction on its side (`schema/instruction_golden.rs`); spec `model.md`, `operations.md`
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:

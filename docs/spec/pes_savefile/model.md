@@ -98,10 +98,12 @@ pub struct Formation {
 ```
 
 Version quirks to encode: advanced-instruction value ranges differ (PES 17:
-0x00–0x0C; 18+: 0x00–0x0F, different meanings — 4ccEditor resolves this through
-a canonical 17-order enum: values 0x08–0x0C shift +2 for 18+, and 18+'s
+0x00–0x0C; 18/19: 0x00–0x0F, different meanings — 4ccEditor resolves this through
+a canonical 17-order enum: values 0x08–0x0C shift +2 for 18/19, and 18/19's
 Defensive/False Winger/Wingback are 0x0D/0x0E/0x0F in canonical order, mapping
-to 0x08/0x09/0x0F), and **playstyle enums are
+to 0x08/0x09/0x0F; 20/21 insert Anchoring at 0x0A, 18/19's 0x0A–0x0F moving to
+0x0B–0x10, measured in-game on PES 21 — 4ccEditor's table is right for 17–19
+only), and **playstyle enums are
 version-specific** — 4ccEditor's `menu_lists.cpp` carries twelve conversion
 arrays (16↔17/18, 16↔19, 16↔20/21, 17/18↔19, 17/18↔20/21, 19↔20/21). In Rust
 these become one canonical `PlayStyle` enum (`model/playstyle.rs`) plus one list per version

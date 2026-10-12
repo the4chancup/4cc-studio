@@ -1859,3 +1859,5 @@ worklog passed 7,000 lines.
   substitution off is 0; man marking is per-preset bytes on PES 16-21; 5.0k found (PES 20/21 table).
 - **2026-10-12** — Step 5.0j1: `docs/spec/core/` read against the code and corrected (dependency
   rows, crate tree, launch modes, gates, version); unbuilt ideas moved to `docs/plans/core/`.
+- **2026-10-12** — Step 5.0k: `pes_savefile`'s PES 20/21 instruction table inserts Anchoring at
+  0x0A (measured in-game on PES 21; a census of every 17-21 save by side agrees), not at 0x10.

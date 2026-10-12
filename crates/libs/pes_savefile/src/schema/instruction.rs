@@ -1,8 +1,9 @@
 //! The per-version advanced-instruction mappings (plan:
 //! `spec/pes_savefile/model.md`, "Version quirks"). PES 15/16 have no instruction
 //! table (`decode` is `Ok(None)` for every value, `encode` `None`). PES 17's
-//! stored order IS the canonical order for the thirteen it has; PES 18-21
-//! keep 0x00-0x07 and permute the rest into 0x08-0x0F.
+//! stored order IS the canonical order for the thirteen it has; PES 18/19
+//! keep 0x00-0x07 and permute the rest into 0x08-0x0F; PES 20/21 insert
+//! Anchoring at 0x0A, 18/19's 0x0A-0x0F moving to 0x0B-0x10.
 
 use pes_version::PesVersion;
 
@@ -31,9 +32,10 @@ const STORED_18: [Instruction; 16] = [
     I::WingBack,
 ];
 
-/// PES 20/21: the 18/19 list plus `Anchoring` at 0x10, the instruction PES
-/// 2020 added — measured on the 20/21 fixture saves; the name is the
-/// game's, unverified against the saves' edit screen.
+/// PES 20/21: the 18/19 list with `Anchoring`, the instruction PES 2020
+/// added, inserted at 0x0A, the 18/19 entries from SwarmTheBox on shifted
+/// up one (WingBack to 0x10). Measured in-game on PES 21 (Edit > Teams >
+/// Game Plan); fits every 20/21 save's attack and defence slots.
 const STORED_20: [Instruction; 17] = [
     I::Off,
     I::HugTheTouchline,
@@ -45,13 +47,13 @@ const STORED_20: [Instruction; 17] = [
     I::CenteringTargets,
     I::Defensive,
     I::FalseWinger,
+    I::Anchoring,
     I::SwarmTheBox,
     I::DeepDefensiveLine,
     I::Gegenpress,
     I::TightMarking,
     I::CounterTarget,
     I::WingBack,
-    I::Anchoring,
 ];
 
 /// The stored-value list `version` uses, `None` on PES 15/16 (no table).
