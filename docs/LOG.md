@@ -1804,3 +1804,5 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.1b: the Fox `PlayerAppearance.bin` row from a `PlayerSettings`; the
   lead measured PES 18/19's row at record bytes 128 to 184. SWE-2, first attempt; real cup
   players past the editor ranges found (worklog issue).
+- **2026-10-12** — Step 5.1c1: the aesthetics patch's Fox types, `parse` and `to_toml`. SWE-2,
+  first attempt; one rework from the lead's review (an emit fallback hid an error).

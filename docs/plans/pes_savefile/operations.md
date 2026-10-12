@@ -673,7 +673,7 @@ leaves the previous CPK and its patch alone. On **pre-Fox** (PES 15–17) it hol
 below, as the only route for aesthetics, names likewise only from an autopilot export.
 
 ```toml
-# aesthetics_patch.toml — written by the Team compiler to its output folder
+# aesthetics_patch.toml, written by the Team compiler to its output folder
 pes_version = 21
 studio_version = "1.4.0"
 allocation_scheme_version = 1
@@ -780,7 +780,8 @@ pub struct PatchPlayer {
 
 impl AestheticsPatch {
     pub fn parse(text: &str) -> Result<Self, PatchError>;
-    pub fn to_toml(&self) -> String;
+    /// `Err` for a value `parse` would refuse back (a hand-built one).
+    pub fn to_toml(&self) -> Result<String, PatchError>;
     /// Every refusal before any write (above); then each team and player present is written.
     pub fn apply(&self, save: &mut EditFile) -> Result<PatchSummary, PatchError>;
 }
@@ -793,6 +794,17 @@ pub struct PatchSummary {
 pub enum PatchSkip {
     TeamNotInSave { team: u32 },
     PlayerNotInSave { player: u32 },
+}
+
+/// The refusals, each naming what failed; a key-level one (unknown, wrong type, out of
+/// range, a name too long) in `settings.toml`'s vocabulary, at the key's dotted path.
+pub enum PatchError {
+    Toml(String),
+    MissingKey { key: String },
+    PreFox { version: PesVersion },
+    VersionMismatch { patch: PesVersion, save: PesVersion },
+    SchemeMismatch { patch: u32, suite: u32 },
+    Settings(SettingsError),
 }
 ```
 

@@ -10,6 +10,7 @@ use pes_version::PesVersion;
 use toml_edit::{Item, TableLike, Value};
 
 use crate::codec::text_max;
+use crate::interchange::players_key;
 use crate::interchange::team_toml::labels;
 use crate::interchange::team_toml::player_keys::PlayerKey;
 use crate::interchange::team_toml::{
@@ -300,13 +301,7 @@ pub(super) fn parse_players(item: &Item) -> Result<BTreeMap<u8, PlayerSection>, 
     let table = as_table(item, "players")?;
     let mut out = BTreeMap::new();
     for (name, item) in table.iter() {
-        let valid = name.len() == 2
-            && name.bytes().all(|b| b.is_ascii_digit())
-            && name
-                .parse::<u8>()
-                .map(|slot| (1..=40).contains(&slot))
-                .unwrap_or(false);
-        if !valid {
+        if !players_key(name, 1..=40) {
             return Err(TeamTomlError::UnknownKey {
                 key: format!("players.{name}"),
             });

@@ -26,6 +26,7 @@ fn a_save_players_settings_reproduce_his_appearance_row() {
         assert_eq!(run_in_row, 10, "{version:?}: the run's row byte");
         let mask = face_field_mask(run.len as usize);
         let mut undecoded_bit_seen = false;
+        let mut out_of_range_players = 0usize;
         for i in 0..count(&payload, &schema.players) {
             let rec = record(&payload, &schema.players, schema.player.size, i);
             let player = read_player(rec, schema.player).expect("decode");
@@ -38,6 +39,7 @@ fn a_save_players_settings_reproduce_his_appearance_row() {
                     // A stored value the key table cannot express: the
                     // stored-ranges reader carries it verbatim. `face` is
                     // set as `from_player` sets it.
+                    out_of_range_players += 1;
                     let mut settings = PlayerSettings {
                         appearance: appearance_from(&player).expect("stored-ranges read"),
                         ..PlayerSettings::default()
@@ -67,6 +69,16 @@ fn a_save_players_settings_reproduce_his_appearance_row() {
             undecoded_bit_seen,
             "{version:?}: no player's row held an undecoded ingame-face bit"
         );
+        // The 18/19 fixtures carry players whose stored face types outrange
+        // the key table; if they ever did not, the arm they take — the
+        // reason `appearance_row` skips `apply`'s checks — would go
+        // unexercised and this test would stop proving it.
+        if matches!(version, PesVersion::Pes18 | PesVersion::Pes19) {
+            assert!(
+                out_of_range_players > 0,
+                "{version:?}: no player's settings took the OutOfRange fallback"
+            );
+        }
     }
 }
 

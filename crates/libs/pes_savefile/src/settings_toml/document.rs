@@ -6,8 +6,8 @@ use toml_edit::{DocumentMut, Item, Value};
 
 use super::keys::{self};
 use super::{
-    AppearanceSettings, KeyTable, Kind, NameSetting, PlayerSettings, SettingKey, SettingsError,
-    get_appearance, set_appearance,
+    AppearanceSettings, KeyTable, Kind, MotionSettings, NameSetting, PlayerSettings, SettingKey,
+    SettingsError, get_appearance, set_appearance,
 };
 
 // The TOML half: `parse` reads a `settings.toml` text, `to_toml` emits the
@@ -580,6 +580,71 @@ pub(crate) fn emit_appearance(
             face = \"{}\"\n",
             hex_string(face)
         ));
+    }
+    Ok(())
+}
+
+/// A `[…motion]` table parsed into stored values: the motion keys' labels,
+/// ranges and stored conversions, nothing else. `path` is the table's own
+/// dotted path for error keys (`appearance.motion` in a settings.toml,
+/// `teams[0].players.05.appearance.motion` in the aesthetics patch, which
+/// shares this so there is no second key table). `settings.toml`'s ranges
+/// apply.
+pub(crate) fn parse_motion(item: &Item, path: &str) -> Result<MotionSettings, SettingsError> {
+    let Some(table) = item.as_table_like() else {
+        return Err(SettingsError::WrongType {
+            key: path.to_string(),
+            expected: "a table",
+        });
+    };
+    let mut out = AppearanceSettings::default();
+    for key in SettingKey::ALL {
+        let spec = key.spec();
+        if spec.table != KeyTable::Motion {
+            continue;
+        }
+        let Some(item) = table.get(spec.name) else {
+            continue;
+        };
+        let leaf = format!("{path}.{}", spec.name);
+        let stored = value(&leaf, key, item, false)?;
+        set_appearance(&mut out, key, Some(stored));
+    }
+    for (name, _) in table.iter() {
+        if !SettingKey::ALL
+            .iter()
+            .any(|key| key.spec().table == KeyTable::Motion && key.spec().name == name)
+        {
+            return Err(SettingsError::UnknownKey {
+                key: format!("{path}.{name}"),
+            });
+        }
+    }
+    Ok(out.motion)
+}
+
+/// Each `Some` motion key's `settings.toml` line, in key-table order —
+/// `name = value` plus the key's comment — appended to `out`. The caller
+/// writes the `[…motion]` header; the aesthetics patch emits the `Some`
+/// keys only, which this already is. The editor ranges `parse_motion`
+/// reads apply, so `Err` is a stored value `parse` would refuse back — only
+/// reachable on a hand-built `MotionSettings`.
+pub(crate) fn emit_motion(out: &mut String, motion: &MotionSettings) -> Result<(), SettingsError> {
+    let appearance = AppearanceSettings {
+        motion: motion.clone(),
+        ..AppearanceSettings::default()
+    };
+    for key in SettingKey::ALL {
+        let spec = key.spec();
+        if spec.table != KeyTable::Motion {
+            continue;
+        }
+        let Some(stored) = get_appearance(&appearance, key) else {
+            continue;
+        };
+        let value = toml_form(key, stored, false)?;
+        out.push_str(&padded(&format!("{} = {}", spec.name, value), spec.comment));
+        out.push('\n');
     }
     Ok(())
 }

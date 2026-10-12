@@ -596,7 +596,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   - [ ] 5.1c the aesthetics patch, Fox half: the type, parse, emit, `apply_patch` by player id
     and its refusals (a pre-Fox patch included) → done when: SE-PAT-01 to 04's outcomes hold at
     the lib level. Sub-slices, each a commit (types: `operations.md` "Aesthetics patch"):
-    - [ ] 5.1c1 `AestheticsPatch` and its types, `parse` and `to_toml`, the pre-Fox refusal
+    - [x] 5.1c1 `AestheticsPatch` and its types, `parse` and `to_toml`, the pre-Fox refusal.
+      Done 2026-10-12 (SWE-2, first attempt, plus one rework: `to_toml` made fallible
+      instead of writing a value `parse` refuses back; with review R5.S1's test witness)
     - [ ] 5.1c2 `apply`: the refusals before any write, absent teams and players skipped,
       the `PatchSummary`
   - [ ] 5.1d the Team TOML: `stripped`, the appearance table written key by key, `ingame_face`
