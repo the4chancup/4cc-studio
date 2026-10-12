@@ -420,7 +420,7 @@ Fixed before the itemization:
   converge, bool mutants do not"): `order` 15 real of 23 survivors joins `EXTRA_KINDS`; `bool`
   10 of 29 does not. `team_compiler`'s 8 real gaps got tests (`791fc4e`, SWE-2); the other
   crates' are 5.0g2.
-- [ ] 5.0b3 `extra_mutants`' own gaps, from the review's mutation run (`mutants-diff d81c9ac`,
+- [x] 5.0b3 `extra_mutants`' own gaps, from the review's mutation run (`mutants-diff d81c9ac`,
   2026-10-12: every `aesthetics_export` and `team_compiler` mutant caught, 35 survivors all in
   this crate, triage `.tmp/5_0e/diff/triage.md`): `item_attrs` keeps only the arms whose item
   holds a body the lister visits (twelve equivalent arms); tests for a guard in an impl method
@@ -428,6 +428,11 @@ Fixed before the itemization:
   `#[cfg(feature)]` items scanned, a non-literal list element kept, offsets after `#![..]`, a
   BOM and a shebang, and the binary over a small crate (paths, test-module files skipped,
   usage error) → verify: `just mutants-diff <5.0b3's base>` leaves no survivor in the crate
+  Done 2026-10-12 (SWE-2, first attempt): six of the twelve arms stay, by its contradiction
+  (an enum discriminant, an array length and a const generic argument are expressions the
+  lister visits; a test pins them), the other six go; a list mixing literal and non-literal
+  elements now lists its literal ones; ten tests in `scan.rs`, `tests/cli.rs` running the
+  binary. `cargo mutants -p extra_mutants`: 121 caught, 5 unviable, none missed.
 - [ ] 5.0g Tests for 5.0b's real gaps, in two slices:
   - [ ] 5.0g1 in `aesthetics_export` unless named: `literal`:
     `conventions/player_folder.rs` `is_gloves` (`GloveR`, `HandL`, `HandR`) and

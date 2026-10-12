@@ -1,6 +1,6 @@
 [package]
 name = "extra_mutants"
-description = "Lists and runs the mutants cargo-mutants lacks: dropped if-guards and literal-list elements (worklog 5.0b)"
+description = "Lists the mutants cargo-mutants lacks (worklog 5.0b): dropped if-guards, literal-list elements, normalize calls, order statements and flipped bools"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1781,3 +1781,5 @@ worklog passed 7,000 lines.
   The review run over 5.0b-5.0h left survivors only in `extra_mutants` (step 5.0b3).
 - **2026-10-12** — Issue "the unknown bits across versions" settled before 5.1a: the ingame-face
   run's undecoded bits go in one key, `[appearance.unknown]` `face`, written on every version.
+- **2026-10-12** — Step 5.0b3: `extra_mutants`' own survivors tested (impl and trait methods, `cfg`
+  checks, offsets, the binary end to end); every mutant of the crate caught. SWE-2, first attempt.

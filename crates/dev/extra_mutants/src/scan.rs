@@ -1,6 +1,7 @@
 //! Finds the mutants `cargo-mutants` never makes (worklog 5.0b): `if` guards dropped by
-//! replacing the condition with `false`, and elements removed from the literal lists a
-//! `matches!` or a separator method decides by.
+//! replacing the condition with `false`, elements removed from the literal lists a
+//! `matches!` or a separator method decides by, `.trim()`-style calls stripped,
+//! in-place ordering statements deleted and `true`/`false` arguments flipped.
 //!
 //! A mutant is a text patch, so positions come from `proc_macro2::Span`'s line and column
 //! (columns count chars, not bytes) and are converted to byte offsets against the source.
@@ -237,8 +238,9 @@ impl Lister<'_> {
         }
     }
 
-    /// The mutants of `[a, b, ...]` used by a list-deciding method call: one per element,
-    /// when every element is a literal.
+    /// The mutants of `[a, b, ...]` used by a list-deciding method call: one per
+    /// literal element. A non-literal element (a path, a constant) gets no
+    /// removal, but does not stop the literal ones from listing theirs.
     fn array_mutants(&mut self, expr: &Expr, method: &str) {
         let mut expr = expr;
         while let Expr::Reference(reference) = expr {
@@ -247,7 +249,7 @@ impl Lister<'_> {
         let Expr::Array(ExprArray { elems, .. }) = expr else {
             return;
         };
-        if elems.len() < 2 || !elems.iter().all(is_literal) {
+        if elems.len() < 2 {
             return;
         }
         let pairs: Vec<(Span, Option<Span>)> = elems
@@ -260,7 +262,10 @@ impl Lister<'_> {
             })
             .collect();
         let ranges = self.removal_ranges(&pairs);
-        for (start, end) in ranges {
+        for ((start, end), element) in ranges.into_iter().zip(elems.iter()) {
+            if !is_literal(element) {
+                continue;
+            }
             let line = self.line_of(start);
             let change = format!("the {method}() list loses an element");
             self.push("literal", start, end, "", &change, line);
@@ -498,24 +503,24 @@ fn is_literal(expr: &Expr) -> bool {
     )
 }
 
+/// The attributes of an item that can hold an expression the lister visits: a
+/// body, a discriminant, or a const expression inside a type, a signature or a
+/// bound. The rest need no check: `const` and `static` are skipped whole by
+/// `visit_item_const`/`visit_item_static`, and `use`, `extern crate`, macro
+/// items (a mod-style path, uninterpreted tokens) and verbatim tokens hold no
+/// expression at all.
 fn item_attrs(item: &Item) -> &[Attribute] {
     match item {
-        Item::Const(item) => &item.attrs,
         Item::Enum(item) => &item.attrs,
-        Item::ExternCrate(item) => &item.attrs,
         Item::Fn(item) => &item.attrs,
         Item::ForeignMod(item) => &item.attrs,
         Item::Impl(item) => &item.attrs,
-        Item::Macro(item) => &item.attrs,
         Item::Mod(item) => &item.attrs,
-        Item::Static(item) => &item.attrs,
         Item::Struct(item) => &item.attrs,
         Item::Trait(item) => &item.attrs,
         Item::TraitAlias(item) => &item.attrs,
         Item::Type(item) => &item.attrs,
         Item::Union(item) => &item.attrs,
-        Item::Use(item) => &item.attrs,
-        Item::Verbatim(_) => &[],
         _ => &[],
     }
 }
@@ -859,5 +864,106 @@ mod tests {
         assert_eq!(&text[mutants[0].start..mutants[0].end], "x");
         assert_eq!(mutants[0].line, 2);
         assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_guard_in_an_impl_method_is_listed() {
+        let text = "struct S;\nimpl S {\n    #[cfg(test)]\n    fn skipped(&self, x: u32) {\n        if x > 9 {\n            return;\n        }\n    }\n    fn m(&self, x: u32) {\n        if x > 1 {\n            return;\n        }\n    }\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 1);
+        assert_eq!(mutants[0].kind, "guard");
+        assert_eq!(&text[mutants[0].start..mutants[0].end], "x > 1");
+        assert!(mutants[0].description.starts_with("in m:"));
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_guard_in_a_trait_default_method_is_listed() {
+        let text = "trait T {\n    #[cfg(test)]\n    fn skipped(&self, x: u32) {\n        if x > 9 {\n            return;\n        }\n    }\n    fn m(&self, x: u32) {\n        if x > 1 {\n            return;\n        }\n    }\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 1);
+        assert_eq!(mutants[0].kind, "guard");
+        assert_eq!(&text[mutants[0].start..mutants[0].end], "x > 1");
+        assert!(mutants[0].description.starts_with("in m:"));
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_cfg_test_impl_is_skipped() {
+        // The const's initializer is visited code too (`visit_impl_item_const`
+        // is not overridden): only the `#[cfg(test)]` on the impl skips it all.
+        let text = "#[cfg(test)]\nimpl S {\n    const C: usize = f(true);\n    fn m(&self, x: u32) {\n        if x > 1 {\n            return;\n        }\n    }\n}\n";
+        assert!(scan(text).is_empty());
+    }
+
+    #[test]
+    fn a_cfg_test_trait_is_skipped() {
+        let text = "#[cfg(test)]\ntrait T {\n    fn m(&self, x: u32) {\n        if x > 1 {\n            return;\n        }\n    }\n}\n";
+        assert!(scan(text).is_empty());
+    }
+
+    #[test]
+    fn other_cfg_attributes_do_not_mark_test_code() {
+        let text = "#[cfg(windows)]\nfn f(x: u32) {\n    if x > 1 {\n        return;\n    }\n}\n\n#[cfg(feature = \"x\")]\nfn g(x: u32) {\n    if x > 2 {\n        return;\n    }\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 2);
+        assert_eq!(&text[mutants[0].start..mutants[0].end], "x > 1");
+        assert_eq!(&text[mutants[1].start..mutants[1].end], "x > 2");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_mixed_list_removes_only_literal_elements() {
+        let text = "impl S {\n    fn m(&self, s: &str) -> Vec<&str> {\n        s.split(&[\",\", Self::SEP, \";\"])\n    }\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 2);
+        assert!(mutants.iter().all(|m| m.kind == "literal"));
+        assert_eq!(&text[mutants[0].start..mutants[0].end], "\",\",");
+        assert_eq!(&text[mutants[1].start..mutants[1].end], ", \";\"");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn an_inner_attribute_does_not_shift_the_offsets() {
+        // `#![...]` is an inner attribute, not a shebang: nothing is stripped.
+        let text =
+            "#![allow(dead_code)]\nfn f(x: u32) {\n    if x > 1 {\n        return;\n    }\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 1);
+        assert_eq!(mutants[0].line, 3);
+        assert_eq!(&text[mutants[0].start..mutants[0].end], "x > 1");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_bom_does_not_shift_the_offsets() {
+        // The byte range indexes the original text, BOM included.
+        let text = "\u{feff}fn f(x: u32) {\n    if x > 1 {\n        return;\n    }\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 1);
+        assert_eq!(&text[mutants[0].start..mutants[0].end], "x > 1");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_shebang_does_not_shift_the_offsets() {
+        // The shebang line, newline included, is stripped; the byte range still
+        // indexes the original text.
+        let text =
+            "#!/usr/bin/env bash\nfn f(x: u32) {\n    if x > 1 {\n        return;\n    }\n}\n";
+        let mutants = scan(text);
+        assert_eq!(mutants.len(), 1);
+        assert_eq!(mutants[0].line, 2);
+        assert_eq!(&text[mutants[0].start..mutants[0].end], "x > 1");
+        assert_patches_parse(text, &mutants);
+    }
+
+    #[test]
+    fn a_cfg_test_item_holding_an_expression_is_skipped() {
+        // These arms of `item_attrs` stay: a discriminant, an array length or a
+        // const generic argument is an expression the lister visits, so the
+        // `#[cfg(test)]` check must see the item's attributes.
+        let text = "#[cfg(test)]\nenum E {\n    A = f(true),\n}\n\n#[cfg(test)]\nstruct S {\n    x: [u8; f(true)],\n}\n\n#[cfg(test)]\nunion U {\n    x: [u8; f(true)],\n}\n\n#[cfg(test)]\ntype T = [u8; f(true)];\n\n#[cfg(test)]\ntrait A = B<{ f(true) }>;\n\n#[cfg(test)]\nextern \"C\" {\n    static X: [u8; f(true)];\n}\n";
+        assert!(scan(text).is_empty());
     }
 }
