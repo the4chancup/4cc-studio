@@ -226,6 +226,28 @@ fn a_let_ruleset_is_no_ruleset() {
     );
 }
 
+/// The scope keeps the last write of `RULESET`, the one `global::RULESET`
+/// reads: a second `const` wins, and a `let` above a `const` loads.
+#[test]
+fn the_last_constant_ruleset_wins() {
+    let two = format!(
+        "{}\n{}",
+        AUTUMN26.replacen("name: \"Autumn 26\"", "name: \"a\"", 1),
+        AUTUMN26.replacen("name: \"Autumn 26\"", "name: \"b\"", 1)
+    );
+    assert_eq!(
+        Ruleset::from_data_block(&two).expect("the second const"),
+        Ruleset::from_data_block(&AUTUMN26.replacen("name: \"Autumn 26\"", "name: \"b\"", 1))
+            .expect("b loads")
+    );
+    // `let` above `const`: the `const` wins and loads.
+    let let_then_const = format!("let RULESET = #{{}};\n{}", AUTUMN26);
+    assert!(
+        Ruleset::from_data_block(&let_then_const).is_ok(),
+        "a let above a const loads"
+    );
+}
+
 #[test]
 fn no_ruleset_is_no_ruleset() {
     assert_eq!(

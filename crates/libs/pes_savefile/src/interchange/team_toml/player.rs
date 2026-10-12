@@ -1540,8 +1540,9 @@ mod tests {
         }
     }
 
-    /// A `[players.00]` key is `NoSuchSlot`, not an underflowing index —
-    /// `slot - 1` on `u8` would panic in a debug build.
+    /// A `players` map key of 0 (only a built document carries one) is
+    /// `NoSuchSlot`, not an underflowing index — `slot - 1` on `u8` would
+    /// panic in a debug build.
     #[test]
     fn a_players_key_zero_is_no_such_slot() {
         let (file, _) = open(PesVersion::Pes18);

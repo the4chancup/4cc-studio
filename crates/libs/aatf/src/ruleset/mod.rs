@@ -605,8 +605,10 @@ impl TryFrom<String> for Card {
 pub(crate) fn run_top_level(
     text: &str,
 ) -> Result<(rhai::Engine, rhai::AST, rhai::Scope<'static>), LoadError> {
-    // The one engine every script runs on; a data block evaluates its
-    // literals and touches nothing else.
+    // The one engine every script runs on: no module resolver, and
+    // `print`/`debug` go nowhere. The block's statements — loops
+    // included — run under the caller's operation limit, which 5.2c3
+    // sets.
     let engine = crate::engine::engine();
     let ast = engine.compile(text).map_err(|e| LoadError::Parse {
         line: e.position().line().unwrap_or(0),
@@ -627,6 +629,8 @@ pub(crate) fn run_top_level(
 /// Step 2 of "Loading and validation": the `RULESET` map of the run's
 /// scope into `Ruleset`, its schema and the load-time rules.
 pub(crate) fn ruleset_from_scope(scope: &rhai::Scope) -> Result<Ruleset, LoadError> {
+    // The scope keeps one entry per name, holding the last write, which is
+    // also what a function's `global::RULESET` reads.
     let Some((_, constant, dynamic)) = scope.iter().find(|(name, _, _)| *name == "RULESET") else {
         return Err(LoadError::NoRuleset);
     };

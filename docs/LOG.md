@@ -1869,3 +1869,7 @@ worklog passed 7,000 lines.
   `aesthetics_export` and `kit_config`; the never-built model types moved to the plan.
 - **2026-10-13** — 5.2b2 measurements, PES 15 in-game: auto substitution +0x1FE (off 0), offside
   +0x1FF, preset change +0x200; man marking at +0x73/+0xED/+0x167, read back from a match's Mark Settings.
+- **2026-10-13** — Step 5.2c rework r2 (review C2.S1, 3 of 5): comments corrected and the last
+  `const RULESET` pinned by a test; the SWE-2 loop ends, Astra queued.
+- **2026-10-13** — 5.2b2 measurements, PES 21 in-game (read-only): man marking at +0x95/+0x135/+0x1D5
+  read back from a match's Mark Settings; an advanced instruction's player byte is a roster slot.

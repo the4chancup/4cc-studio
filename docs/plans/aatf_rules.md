@@ -754,8 +754,8 @@ tactics record at +0x73, +0xED and +0x167 on PES 15 (read back in-game from a ma
 Settings, four assignments of a cup team matching its bytes), at +0x73, +0xEE and +0x169 on
 PES 16 (VTLEditor's `pes16.cpp` reads them; measured on the 2024 Summer Cup save, whose team 710
 has two set), at +0x95, +0x135 and +0x1D5 on PES 17 to 21 (the same shape after each preset's
-modeled fields, set on a few teams of the cup saves of 17, 18, 19 and 21; inferred from that
-shape, not reproduced in-game). It is not an advanced instruction: Tight Marking is a stronger,
+modeled fields, set on a few teams of the cup saves of 17, 18, 19 and 21; read back in-game on
+PES 21, a cup team's three preset-3 assignments matching its bytes). It is not an advanced instruction: Tight Marking is a stronger,
 separate instruction. Auto substitution is off at 0 on PES 15, 16 and 21 (measured in-game: Very
 Late 1, Flexible 2, and on PES 21 Very Early 3); on PES 15 it is the tactics record's +0x1FE,
 followed by the offside trap (+0x1FF) and the automatic preset change (+0x200), each 0 or 1.

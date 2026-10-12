@@ -14,7 +14,8 @@ Phase 2 2026-09-30).
 **Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and step 5.1 done
 (2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; Astra R12.A1 over 5.2b1's reworks after the
 Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 and 5.2c2
-landed (2026-10-12), then 5.0j beside 5.2c3 (5.2b2's measurements done 2026-10-12; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
+landed (2026-10-12, reworked 2026-10-13), 5.0k done; then 5.0j's remaining slices beside 5.2c3
+(5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -25,7 +26,11 @@ and writes what is correctness-critical; the sidekick, SWE-2 through the Devin C
 the cross-family reviews run through the `duck` skill (Astra), the lead running them itself.
 When a review stops for quota, it is queued here (commit range, plan sections) and retried
 once an hour; work continues past it, but no phase closes with one outstanding.
-**Handover queue: empty** (2026-10-12). Phase 3 closed with its reviews queued (the maintainer's
+**Handover queue** (2026-10-13), both Astra on a Pro slot after its 10:00 daily reset:
+R12.A1 over `1ba5b0e..5743d9e` (5.2b1's reworks; `aatf_rules.md` "The host"); and one over
+5.2c1, 5.2c2 and their reworks, `79da9be..` the r2 commit (`aatf_rules.md` "The rules file",
+"Loading and validation", "The host"; SWE-2 rulings C1, C2 in `.tmp/5_2/duck_rulings.md`).
+Phase 3 closed with its reviews queued (the maintainer's
 directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20 rounds
 (map `.tmp/lead/review_queue.md`, briefs `.tmp/duck_brief_S*.md`, rulings
 `.tmp/4_y/duck_rulings.md`).
@@ -739,7 +744,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       right on a fixture team set both ways. Measured 2026-10-12/13 (in-game on PES 15, 16 and
       21, and a census of every 15 to 21 save on disk; `.tmp/5_2b2/findings.md`): man marking is
       per-preset assignment bytes, not an advanced instruction, its values the opponent's
-      formation slots (read back in-game on PES 15)
+      formation slots (read back in-game on PES 15 and, 2026-10-13, PES 21); an advanced
+      instruction's player byte is a roster slot, as `AdvancedInstruction::player` says (read
+      back on PES 21, a team whose eleven is not in roster order)
   - [ ] 5.2c `logic.rhai`'s `check_team` for the official file, `Violation` from its maps,
     `file.rs` (assembling a file, its section split, logic identity), the sample team, the official known-legal and known-violating fixtures, the operation
     limit → done when: each special of the official file is exercised by a fixture. Sub-slices,
@@ -759,7 +766,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       note reaches `TeamViewError::TeamToml` as its `Debug` text: `ImportNote` has no `Display`
       yet, which the Team creator's check (Phase 6) will want. Review C1.S1 (SWE-2) over
       5.2c1-c2: 5 of 5 accepted, rework r1 landed 2026-10-13 (set-piece none values, a `let
-      RULESET` refused, stale docs, the import-note arm tested, `team_toml`'s key-0 underflow)
+      RULESET` refused, stale docs, the import-note arm tested, `team_toml`'s key-0 underflow).
+      Review C2.S1 (SWE-2): 3 of 5 accepted, rework r2 landed 2026-10-13 (comments, a test
+      pinning the last `const RULESET`; the sidekick showed rhai's scope keeps one entry per
+      name, so the lookup stayed `find`), which ends the SWE-2 loop; Astra queued (Handover)
     - [ ] 5.2c3 the interpreter's `check_team` for the official file, its fixtures, the
       operation limit (sliced when briefed)
   - [ ] 5.2d `tier_values`, `card_limits`, `apply_tier` (settle the issue above first) →
