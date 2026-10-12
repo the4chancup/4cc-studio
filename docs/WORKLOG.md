@@ -576,10 +576,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       parsed and emitted (Team TOML refuses the table until 5.1d removes its hex), the
       per-bit completeness test; one slice, since the model half alone breaks the
       settings text round trip. Done 2026-10-12 (SWE-2, first attempt)
-    - [ ] 5.1a6 review R2's rework: `settings_toml/tests.rs` split in two, an enum naming
+    - [x] 5.1a6 review R2's rework: `settings_toml/tests.rs` split in two, an enum naming
       the document where `emit_appearance`'s bool decides more than the range mode, the
       module doc, absent = default tested on PES 15/16, a multibyte `name` at its byte
-      capacity
+      capacity. Done 2026-10-12 (SWE-2, first attempt)
+    - [ ] 5.1a7 review R3's rework: the completeness test's carriers classified (no
+      gameplay field inside the block but the PES 15/16 record's join key), an empty
+      `[appearance.unknown]` table and `update_toml` keeping `face` tested, the
+      cross-version carry test's run length asserted, `hex_run`'s comment
   - [ ] 5.1b the Fox `PlayerAppearance.bin` row from a `PlayerSettings`, the PES 18 and 19
     offsets measured (the games' own rows against save records) → done when: a fixture save's
     records round-trip through rows on PES 18 to 21

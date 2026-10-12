@@ -418,13 +418,40 @@ fn model_id(document: &DocumentMut, key: SettingKey) -> Result<Option<u8>, Setti
     value(name, key, item, false).map(Some)
 }
 
+/// Which document an appearance table is parsed from or emitted into:
+/// `settings.toml`'s `[appearance]` or Team TOML's `[players.NN.appearance]`.
+/// The document settles what a `stored_ranges` bool used to lump together:
+/// the value bounds, the `[appearance.motion]` note and the
+/// `[prefix.unknown]` table, the last two settings.toml constructs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AppearanceDocument {
+    /// `settings.toml`: the editor ranges the key comments document apply,
+    /// the motion table carries its note (a settings apply writes the
+    /// motions through the aesthetics patch), and `[appearance.unknown]`
+    /// holds the run's undecoded bits.
+    SettingsToml,
+    /// Team TOML's `[players.NN.appearance]`: bounds are each field's
+    /// widest stored bit width (a real save's values go past the editor
+    /// ranges), no motion note, and no `[unknown]` table: the run rides
+    /// `[players.NN] ingame_face` instead.
+    TeamToml,
+}
+
+impl AppearanceDocument {
+    /// Team TOML's range mode: bounds are the field's widest stored bit
+    /// width, not the editor ranges `settings.toml` documents.
+    fn stored_ranges(self) -> bool {
+        matches!(self, Self::TeamToml)
+    }
+}
+
 /// The `[appearance]` table at `item` (dotted path `path`: "appearance" in a
 /// settings.toml, "players.03.appearance" in a team.toml) parsed into stored
 /// values. Shared with `team_toml` so the nested key handling has one home.
 pub(crate) fn parse_appearance(
     item: &Item,
     path: &str,
-    stored_ranges: bool,
+    document: AppearanceDocument,
 ) -> Result<AppearanceSettings, SettingsError> {
     let Some(appearance) = item.as_table_like() else {
         return Err(SettingsError::WrongType {
@@ -442,16 +469,23 @@ pub(crate) fn parse_appearance(
             continue;
         };
         let leaf = leaf_path(path, &spec);
-        let stored = value(&leaf, key, item, stored_ranges)?;
+        let stored = value(&leaf, key, item, document.stored_ranges())?;
         set_appearance(&mut out, key, Some(stored));
     }
-    // `[appearance.unknown]` is a settings.toml table: `stored_ranges` (team
-    // TOML) carries the run as its own `ingame_face` hex and the reject
-    // sweep refuses the table there.
-    if !stored_ranges && let Some(item) = appearance.get("unknown") {
+    // `[appearance.unknown]` is a settings.toml table: Team TOML carries
+    // the run as its own `ingame_face` hex and the reject sweep refuses
+    // the table there.
+    if document == AppearanceDocument::SettingsToml
+        && let Some(item) = appearance.get("unknown")
+    {
         out.unknown.face = unknown_face(item, &format!("{path}.unknown"))?;
     }
-    reject_unknown_table(item, path, path, !stored_ranges)?;
+    reject_unknown_table(
+        item,
+        path,
+        path,
+        document == AppearanceDocument::SettingsToml,
+    )?;
     Ok(out)
 }
 
@@ -482,14 +516,14 @@ fn unknown_face(item: &Item, path: &str) -> Result<Option<Vec<u8>>, SettingsErro
 /// The `[prefix]` table plus its four subtables appended to `out`, in key
 /// order: a `Some` emits its line with the key's comment, a `None` the
 /// commented line at the key's default. Shared with `team_toml`'s
-/// `[players.NN.appearance]` (`stored_ranges` mode): the `[prefix.unknown]`
-/// table is a settings.toml construct — team TOML carries the run as
-/// `[players.NN] ingame_face`, so it never emits here.
+/// `[players.NN.appearance]` (`AppearanceDocument::TeamToml`): the
+/// `[prefix.unknown]` table is a settings.toml construct — team TOML
+/// carries the run as `[players.NN] ingame_face`, so it never emits here.
 pub(crate) fn emit_appearance(
     out: &mut String,
     prefix: &str,
     appearance: &AppearanceSettings,
-    stored_ranges: bool,
+    document: AppearanceDocument,
 ) -> Result<(), SettingsError> {
     let mut table = KeyTable::Top;
     for key in SettingKey::ALL {
@@ -501,24 +535,29 @@ pub(crate) fn emit_appearance(
             // The motion table's note is the settings template's: a settings
             // apply writes the motions through the aesthetics patch, where a
             // team TOML import writes the save directly.
-            let note = if !stored_ranges && spec.table == KeyTable::Motion {
-                "on Fox written by the aesthetics patch: the tables do not hold motions"
-            } else {
-                ""
-            };
+            let note =
+                if document == AppearanceDocument::SettingsToml && spec.table == KeyTable::Motion {
+                    "on Fox written by the aesthetics patch: the tables do not hold motions"
+                } else {
+                    ""
+                };
             let header = padded(&format!("[{}]", absolute(prefix, spec.table)), note);
             out.push_str(&format!("\n{header}\n"));
             table = spec.table;
         }
         let stored = get_appearance(appearance, key);
         let body = match stored {
-            Some(stored) => format!("{} = {}", spec.name, toml_form(key, stored, stored_ranges)?),
+            Some(stored) => format!(
+                "{} = {}",
+                spec.name,
+                toml_form(key, stored, document.stored_ranges())?
+            ),
             None => {
                 let default = spec.default.expect("a non-Top key carries a default");
                 format!(
                     "{} = {}",
                     spec.name,
-                    toml_form(key, default, stored_ranges)?
+                    toml_form(key, default, document.stored_ranges())?
                 )
             }
         };
@@ -531,7 +570,9 @@ pub(crate) fn emit_appearance(
     }
     // The template's tail, verbatim: `None` emits nothing, no commented
     // line either (a new player folder's template holds no unknown table).
-    if !stored_ranges && let Some(face) = &appearance.unknown.face {
+    if document == AppearanceDocument::SettingsToml
+        && let Some(face) = &appearance.unknown.face
+    {
         out.push_str(&format!(
             "\n# The in-game face's bits no tool has decoded yet (hair, face sliders, ...), kept so a\n\
             # player's look survives. Leave them as generated.\n\
@@ -591,7 +632,8 @@ impl PlayerSettings {
         settings.boots_id = model_id(&document, SettingKey::BootsId)?;
         settings.gloves_id = model_id(&document, SettingKey::GlovesId)?;
         if let Some(item) = document.get("appearance") {
-            settings.appearance = parse_appearance(item, "appearance", false)?;
+            settings.appearance =
+                parse_appearance(item, "appearance", AppearanceDocument::SettingsToml)?;
         }
         reject_unknown(&document)?;
         Ok(settings)
@@ -636,7 +678,12 @@ impl PlayerSettings {
             out.push_str(&padded(&body, spec.comment));
             out.push('\n');
         }
-        emit_appearance(&mut out, "appearance", &self.appearance, false)?;
+        emit_appearance(
+            &mut out,
+            "appearance",
+            &self.appearance,
+            AppearanceDocument::SettingsToml,
+        )?;
         Ok(out)
     }
 

@@ -24,7 +24,8 @@ use crate::schema::ingame_face::INGAME_FACE_FIELDS;
 use crate::schema::limits::face_type_cap;
 use crate::schema::{bit_width, playstyle, schema_for};
 use crate::settings_toml::document::{
-    HEX_RUN_EXPECTED, emit_appearance, hex_run, hex_string, leaf_path, padded, parse_appearance,
+    AppearanceDocument, HEX_RUN_EXPECTED, emit_appearance, hex_run, hex_string, leaf_path, padded,
+    parse_appearance,
 };
 use crate::settings_toml::keys::{SettingKey, Source};
 use crate::settings_toml::{
@@ -248,7 +249,7 @@ fn emit_player(out: &mut String, slot: u8, section: &PlayerSection) -> Result<()
         out,
         &format!("{path}.appearance"),
         &section.appearance,
-        true,
+        AppearanceDocument::TeamToml,
     )?;
     Ok(())
 }
@@ -375,7 +376,11 @@ fn parse_player(item: &Item, path: &str) -> Result<PlayerSection, TeamTomlError>
         reject(t, &format!("{path}.edit_flags"), &flag_names())?;
     }
     if let Some(item) = table.get("appearance") {
-        section.appearance = parse_appearance(item, &format!("{path}.appearance"), true)?;
+        section.appearance = parse_appearance(
+            item,
+            &format!("{path}.appearance"),
+            AppearanceDocument::TeamToml,
+        )?;
     }
     reject(
         table,

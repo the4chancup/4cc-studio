@@ -1797,3 +1797,5 @@ worklog passed 7,000 lines.
   value; a key the target version lacks is skipped. SWE-2, first attempt.
 - **2026-10-12** — Step 5.1a5: `[appearance.unknown] face` carries the ingame-face run's undecoded
   bits (in-game hair) between versions; a per-bit completeness test over every version. SWE-2.
+- **2026-10-12** — Step 5.1a6: review R2's rework (the settings tests split in two, an enum
+  naming the appearance table's document, two test gaps). SWE-2, first attempt.

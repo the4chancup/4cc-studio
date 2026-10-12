@@ -1,9 +1,10 @@
 //! `PlayerSettings`: the model behind the export format's `settings.toml`
 //! files — every authorable aesthetic setting of a player, as stored values
 //! (`Option` throughout: `apply` writes a `None` key's default,
-//! `apply_appearance` leaves the savefile field untouched). Parsing and
-//! emitting the TOML text are a later slice; this is the model the codec
-//! reads and writes through `from_player`/`apply`.
+//! `apply_appearance` leaves the savefile field untouched), `keys`'s table
+//! behind every setting, and `document`'s parse, emit and in-place update
+//! of the TOML text. The codec reads and writes the model through
+//! `from_player`/`apply`.
 
 pub(crate) mod document;
 /// The settings.toml key table: `SettingKey` and its `KeySpec` columns.
