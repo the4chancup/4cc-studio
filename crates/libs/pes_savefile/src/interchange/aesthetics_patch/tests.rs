@@ -435,7 +435,8 @@ fn patched(before: &PlayerEntry, patch: &PatchPlayer) -> PlayerEntry {
     out
 }
 
-// SE-PAT-01
+/// SE-PAT-01's lib half: the patch's motions and names apply, nothing else
+/// writes, and the bytes persist through a save write.
 #[test]
 fn apply_writes_the_motions_and_names_and_nothing_else() {
     let (mut save, _) = open(PesVersion::Pes21);
@@ -500,7 +501,8 @@ fn apply_writes_the_motions_and_names_and_nothing_else() {
     assert_eq!(back.teams(), &teams[..]);
 }
 
-// SE-PAT-02
+/// SE-PAT-02's lib half: a team or player the save lacks is skipped and
+/// reported, the rest applied.
 #[test]
 fn an_absent_team_or_player_is_skipped_and_the_rest_applied() {
     let (mut save, _) = open(PesVersion::Pes21);
@@ -555,7 +557,8 @@ fn an_absent_team_or_player_is_skipped_and_the_rest_applied() {
     );
 }
 
-// SE-PAT-03
+/// SE-PAT-03's lib half: a version or allocation-scheme mismatch is
+/// refused naming both values, before any write.
 #[test]
 fn a_version_or_scheme_mismatch_refuses_before_any_write() {
     for (pes_version, scheme, expected) in [
@@ -604,7 +607,8 @@ fn a_version_or_scheme_mismatch_refuses_before_any_write() {
     }
 }
 
-// SE-PAT-04
+/// SE-PAT-04's lib half: a stripped player's names and motions apply, his
+/// appearance id and block untouched, persisted through a save write.
 #[test]
 fn a_stripped_player_stays_stripped() {
     let (mut save, _) = open(PesVersion::Pes21);
@@ -869,6 +873,12 @@ fn a_motion_only_patch_leaves_the_names() {
     );
     patch.apply(&mut save).expect("applies");
     let after = save.player(70105).expect("the player");
+    // The motion applied too, or the name assertions prove nothing.
+    assert_eq!(
+        after,
+        &patched(&before, patch.teams[0].players.get(&5).expect("player 05")),
+        "the motion applied and the entry is otherwise his own"
+    );
     assert_eq!(after.name, before.name);
     assert_eq!(after.shirt_name, before.shirt_name);
 }

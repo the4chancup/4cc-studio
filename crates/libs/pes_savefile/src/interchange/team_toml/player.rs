@@ -820,10 +820,15 @@ fn apply_appearance_table(
         )?;
     }
     apply_appearance(&appearance, player)?;
-    // `face` carries the run's undecoded bits, written as far as the
-    // target's run reaches — a `None` leaves them untouched.
+    // `face` writes the undecoded bits only as far as both runs reach:
+    // past `face`'s end are bytes it does not carry, so the target's
+    // undecoded bits there stand — the absent = untouched rule. A `None`
+    // leaves them untouched.
     if let Some(face) = &appearance.unknown.face {
-        player.appearance.ingame_face.write_undecoded(face);
+        let mut source = player.appearance.ingame_face.undecoded();
+        let n = face.len().min(source.len());
+        source[..n].copy_from_slice(&face[..n]);
+        player.appearance.ingame_face.write_undecoded(&source);
     }
     Ok(())
 }
@@ -1181,7 +1186,7 @@ mod tests {
     /// a PES 15 record — the retired `ingame_face` prefix copy's behavior on
     /// `face` — without a note for the length difference.
     #[test]
-    fn a_longer_face_writes_its_prefixs_undecoded_bits_without_a_note() {
+    fn a_longer_face_writes_its_prefix_undecoded_bits_without_a_note() {
         let (file, _) = open(PesVersion::Pes15);
         let team = file
             .teams()
@@ -1214,6 +1219,61 @@ mod tests {
         assert_eq!(
             target.appearance.ingame_face.undecoded(),
             IngameFace::from_bytes(source[..46].to_vec()).undecoded(),
+            "the first 46 bytes' undecoded bits landed"
+        );
+    }
+
+    /// A `face` shorter than the target's run keeps the target's tail:
+    /// bytes past `face`'s end are not a value it carries — the absent =
+    /// untouched rule.
+    #[test]
+    fn a_shorter_face_keeps_the_targets_tail() {
+        let (file, _) = open(PesVersion::Pes16);
+        let team = file
+            .teams()
+            .iter()
+            .find(|team| team.roster.iter().any(|slot| slot.player_id != 0))
+            .expect("a team with players");
+        let slot = team
+            .roster
+            .iter()
+            .position(|slot| slot.player_id != 0)
+            .expect("a rostered slot");
+        // The tail bytes are set so the write has something to preserve:
+        // the test would pass on a zero tail whether kept or zeroed.
+        let id = team.roster[slot].player_id;
+        let mut players = file.players().to_vec();
+        let target_entry = players
+            .iter_mut()
+            .find(|player| player.id == id)
+            .expect("the player");
+        let mut run = target_entry.appearance.ingame_face.bytes().to_vec();
+        run[46..50].fill(0xFF);
+        target_entry.appearance.ingame_face = IngameFace::from_bytes(run);
+        let tail_before = target_entry.appearance.ingame_face.bytes()[46..50].to_vec();
+
+        let source: Vec<u8> = (0u8..46).collect();
+        let hex: String = source.iter().map(|b| format!("{b:02x}")).collect();
+        let doc = TeamToml::parse(&format!(
+            "[players.{:02}.appearance.unknown]\nface = \"{hex}\"\n",
+            slot + 1
+        ))
+        .expect("parses");
+        let mut target_team = team.clone();
+        doc.apply(PesVersion::Pes16, &mut target_team, &mut players)
+            .expect("applies");
+        let target = players
+            .iter()
+            .find(|player| player.id == id)
+            .expect("the player");
+        assert_eq!(
+            target.appearance.ingame_face.bytes()[46..50],
+            tail_before[..],
+            "the tail keeps its own undecoded bits"
+        );
+        assert_eq!(
+            target.appearance.ingame_face.undecoded()[..46],
+            IngameFace::from_bytes(source.clone()).undecoded()[..],
             "the first 46 bytes' undecoded bits landed"
         );
     }

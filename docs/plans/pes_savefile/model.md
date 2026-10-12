@@ -270,7 +270,9 @@ tables"; the description above and below is the Phase 2 code until then):
   entry looks like a 21 one. The completeness test then asserts, per version, that every bit
   of the block is named, unknown, or compiler-owned, exactly once, and that no unknown bit
   lies outside the run. Team TOML's `ingame_face` hex goes: `face` carries the same bits,
-  across versions as the hex's prefix copy does, so each bit has one carrier.
+  across versions as the hex's prefix copy does, so each bit has one carrier: its import
+  writes them only as far as both runs reach, and a longer target run keeps its tail (Team
+  TOML's absent = untouched; a `settings.toml`'s apply writes it 0, absent = default).
 - **The Fox database row.** A `PlayerSettings` (with its defaults) also produces the
   `PlayerAppearance.bin` row: the player id, then the record's 56 appearance bytes (everything
   after its id, edit flags, boots/gloves and base-copy fields; record bytes 128 to 184 on

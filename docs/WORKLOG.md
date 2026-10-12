@@ -623,7 +623,8 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     - [x] 5.1d2 SE-TOML-01 to 08 at the lib level (each mapped to a test, the missing ones
       written), and the test-support export of a whole fixture save. Done 2026-10-12 (SWE-2,
       first attempt, with review R6.A1's four `apply` tests; `fixture_save` behind the
-      `test-support` feature, `team_compiler`'s dev-dependency its first consumer)
+      `test-support` feature, `team_compiler`'s dev-dependency its first consumer; one
+      rework, review R7.S1: Team TOML's `face` keeps a longer target run's tail)
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass

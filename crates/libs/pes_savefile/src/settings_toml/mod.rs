@@ -162,8 +162,10 @@ pub struct MotionSettings {
 pub struct UnknownSettings {
     /// The ingame-face run's bytes in record order, the bits a named key
     /// carries written as 0 (46 bytes for a PES 15 player, 50 otherwise).
-    /// `apply` writes its undecoded bits as far as the target's run
-    /// reaches; `None` writes all 0.
+    /// `PlayerSettings::apply` writes its undecoded bits as far as the
+    /// target's run reaches, 0 past its own end and all 0 for `None`; Team
+    /// TOML's import writes them only as far as both runs reach and leaves
+    /// them untouched for `None`.
     pub face: Option<Vec<u8>>,
 }
 

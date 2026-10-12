@@ -1816,3 +1816,6 @@ worklog passed 7,000 lines.
   attempt.
 - **2026-10-12** — Step 5.1d2: SE-TOML-01 to 08 hold at the lib level, and `pes_savefile`'s
   `test-support` feature gives tool crates' tests a whole fixture save. SWE-2, first attempt.
+- **2026-10-12** — Step 5.1d rework (review R7.S1, 5 of 7 accepted): Team TOML's `face` keeps a
+  longer target run's tail, as the retired hex's prefix copy did; lib tests no longer cite
+  SE-PAT IDs. SWE-2, first attempt.

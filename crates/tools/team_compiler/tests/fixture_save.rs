@@ -2,12 +2,16 @@
 //! whole fixture save: `fixture_save`'s bytes are a valid encrypted
 //! `EDIT00000000` that `EditFile::load` opens.
 
+use std::path::Path;
+
 use pes_savefile::{EditFile, fixture_save};
 use pes_version::PesVersion;
 
 #[test]
 fn fixture_save_is_a_whole_encrypted_save() {
-    let dir = std::env::temp_dir().join(format!("fixture_save_{}", std::process::id()));
+    // Under CARGO_TARGET_TMPDIR like the `common::Sandbox` tests use, the
+    // fixed path overwritten each run, nothing left behind.
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fixture_save");
     std::fs::create_dir_all(&dir).expect("temp dir");
     let path = dir.join("EDIT00000000");
     std::fs::write(&path, fixture_save(PesVersion::Pes21)).expect("the bytes write");
