@@ -638,13 +638,17 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     (SWE-2, first attempt, plus one rework: the lead's review and 35 mutation survivors;
     `ABILITY_STATS` in `pes_savefile`'s now-public `labels` holds the 25 ability stats; `rhai`
     without default features, whose RNG does not build for wasm32)
-  - [ ] 5.2b the host's view of a team: `PlayerEntry` and `TeamContext` from `pes_savefile`'s
-    model, the tactics answers (`fielded_only_at`, `fielded_positions`, team settings,
-    formation shapes) in Rust, the engine and its limits (`Ruleset::from_data_block`'s engine
-    too: since 5.2a it runs a data block with none, and the data is hand-editable; `Position`
-    is the registered-position index, GK 0 to CF 12, while `PlayerPositions::playable` runs CF
-    0 to GK 12, so a rating lookup converts) → done when: each answer is tested
-    on fixture teams
+  - [ ] 5.2b the host's view of a team (`aatf_rules.md` "The host"). Sub-slices, each a commit:
+    - [ ] 5.2b1 `TeamView` and `PlayerView` from `pes_savefile`'s model, the tactics answers
+      (`fielded_only_at`, `fielded_positions`, formation shapes) in Rust, the engine with every
+      accessor of the plan's table but the team settings, `Ruleset::from_data_block` on it
+      (`Position` is the registered-position index, GK 0 to CF 12, while
+      `PlayerPositions::playable` runs CF 0 to GK 12, so a rating lookup converts) → done when:
+      each accessor is tested on fixture teams, through a script
+    - [ ] 5.2b2 the team settings' accessors: PES 16's man-marking assignments in
+      `pes_savefile`'s model, PES 17-21's man-marking instruction, the auto substitution
+      byte's off value, each measured in-game or on a cup save first → done when: each
+      setting reads right on a fixture team set both ways
   - [ ] 5.2c `logic.rhai`'s `check_team` for the official file, `Violation` from its maps,
     `file.rs` (assembling a file, its section split, logic identity), the sample team, the official known-legal and known-violating fixtures, the operation
     limit → done when: each special of the official file is exercised by a fixture

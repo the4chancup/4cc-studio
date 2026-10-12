@@ -167,7 +167,8 @@ pub struct Bracket {
     pub heights: BracketHeights,
 }
 
-/// `up_to: 175` or `exactly: [185]`, spelled directly in the bracket's map.
+/// `up_to: 175` or `exactly: [185]`, spelled directly in the bracket's
+/// map; `exactly` lists at least one height.
 #[derive(Debug, Clone, PartialEq)]
 pub enum BracketHeights {
     /// At most this, above the previous bracket.
@@ -193,7 +194,12 @@ impl TryFrom<RawBracket> for Bracket {
     fn try_from(raw: RawBracket) -> Result<Self, Self::Error> {
         let heights = match (raw.up_to, raw.exactly) {
             (Some(up_to), None) => BracketHeights::UpTo(up_to),
-            (None, Some(exactly)) => BracketHeights::Exactly(exactly),
+            (None, Some(exactly)) => {
+                if exactly.is_empty() {
+                    return Err(format!("{}: `exactly` lists no height", raw.id));
+                }
+                BracketHeights::Exactly(exactly)
+            }
             (up_to, exactly) => {
                 return Err(format!(
                     "{}: expected exactly one of `up_to` or `exactly` (got up_to: {}, exactly: {})",
@@ -273,13 +279,10 @@ pub struct Universal {
 #[serde(deny_unknown_fields)]
 pub struct WeightRule {
     /// Lowest allowed weight.
-    #[serde(default)]
     pub floor: u8,
     /// Subtracted from height for the lower bound.
-    #[serde(default)]
     pub below: u8,
     /// Subtracted from height for the upper bound.
-    #[serde(default)]
     pub above: u8,
 }
 

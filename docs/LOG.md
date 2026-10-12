@@ -1830,3 +1830,6 @@ worklog passed 7,000 lines.
   (`just deps-check` had not run after 5.2a). SWE-2, first attempt.
 - **2026-10-12** — Step 5.2a second rework (review R11.S1, 5 of 7): an empty `any_player` counts as
   none; tests for every required key's absence and the last per-tier map. SWE-2, first attempt.
+- **2026-10-12** — Step 5.2a third rework (review R12.S1, 9 of 11): empty names, ids and labels,
+  an empty `exactly`, unordered brackets and partial weight rules refused on load. Plan: the host's
+  script API fixed for 5.2b1; 5.2b split. SWE-2, first attempt.

@@ -106,7 +106,7 @@ fn a_duplicate_bracket_id_is_refused() {
     // A second `manlet` appended; `mid`'s quota keys still resolve.
     let text = AUTUMN26.replacen(
         "#{ id: \"giga\",   label: \"Giga\",   exactly: [199] },",
-        "#{ id: \"giga\",   label: \"Giga\",   exactly: [199] },\n            #{ id: \"manlet\", label: \"Second\", up_to: 170 },",
+        "#{ id: \"giga\",   label: \"Giga\",   exactly: [199] },\n            #{ id: \"manlet\", label: \"Second\", up_to: 210 },",
         1,
     );
     case(
@@ -327,6 +327,92 @@ fn a_system_other_than_the_last_without_a_condition_is_refused() {
 }
 
 #[test]
+fn empty_strings_are_refused() {
+    for (name, broken, path) in [
+        (
+            "empty name",
+            edit(AUTUMN26, "name: \"Autumn 26\"", "name: \"\""),
+            "name",
+        ),
+        (
+            "empty tier label",
+            edit(AUTUMN26, "label: \"Silver\"", "label: \"\""),
+            "tiers[1].label",
+        ),
+        (
+            "empty special label",
+            edit(AUTUMN26, "label: \"Malicia is a free card\"", "label: \"\""),
+            "specials[0].label",
+        ),
+    ] {
+        case(name, &broken, LoadRule::Empty, path);
+    }
+}
+
+#[test]
+fn an_empty_bracket_id_makes_its_quotas_unknown() {
+    // `tall` emptied: `Empty` at its bracket, then every system's quota
+    // naming it is `UnknownId` (BTreeMap order: `tall` after `giant`).
+    let err = Ruleset::from_data_block(&edit(
+        AUTUMN26,
+        "#{ id: \"tall\",   label: \"Tall\",   exactly: [185] },",
+        "#{ id: \"\",   label: \"Tall\",   exactly: [185] },",
+    ))
+    .expect_err("an emptied bracket id");
+    assert_eq!(
+        err,
+        LoadError::Rules(vec![
+            RuleError {
+                path: "heights.brackets[2].id".to_string(),
+                rule: LoadRule::Empty,
+            },
+            RuleError {
+                path: "heights.systems[0].quotas.tall".to_string(),
+                rule: LoadRule::UnknownId {
+                    kind: IdKind::Bracket,
+                    id: "tall".to_string(),
+                },
+            },
+            RuleError {
+                path: "heights.systems[1].quotas.tall".to_string(),
+                rule: LoadRule::UnknownId {
+                    kind: IdKind::Bracket,
+                    id: "tall".to_string(),
+                },
+            },
+        ]),
+        "{err:?}"
+    );
+}
+
+#[test]
+fn brackets_out_of_order_are_refused() {
+    // `manlet` and `mid` swapped: `up_to: 175` now sits under 180. The
+    // quotas still resolve (`manlet` and `mid` both exist), so the only
+    // error is the order.
+    case(
+        "brackets swapped",
+        &AUTUMN26.replacen(
+            "#{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    up_to: 180 },",
+            "#{ id: \"mid\",    label: \"Mid\",    up_to: 180 },\n            #{ id: \"manlet\", label: \"Manlet\", up_to: 175 },",
+            1,
+        ),
+        LoadRule::BracketsNotAscending,
+        "heights.brackets[1]",
+    );
+    // `tall` at 180, not above `mid`'s 180.
+    case(
+        "exactly equal to the previous",
+        &edit(AUTUMN26, "exactly: [185]", "exactly: [180]"),
+        LoadRule::BracketsNotAscending,
+        "heights.brackets[2]",
+    );
+    // Unsorted but all above 180 and below 194: loads.
+    Ruleset::from_data_block(&edit(AUTUMN26, "exactly: [185]", "exactly: [186, 184]"))
+        .expect("an unsorted exactly in range loads");
+}
+
+#[test]
 fn counts_over_the_squad_are_refused() {
     case(
         "counts exceed squad",
@@ -542,6 +628,20 @@ fn a_bracket_with_both_or_neither_height_form_is_schema() {
 }
 
 #[test]
+fn an_empty_exactly_is_schema() {
+    let err = schema(
+        "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, heights: #{ brackets: [#{ id: \"x\", label: \"x\", exactly: [] }], systems: [] } }",
+    );
+    assert!(
+        matches!(
+            err,
+            LoadError::Schema { ref message, .. } if message.contains("`exactly` lists no height")
+        ),
+        "{err:?}"
+    );
+}
+
+#[test]
 fn per_tier_deserializes_in_both_forms() {
     let ruleset = Ruleset::from_data_block(
         "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }], specials: [#{ label: \"x\", then: #{ stat_bonus: #{ all: -3, dribbling: #{ regular: 5 } } } }] };",
@@ -578,6 +678,24 @@ fn a_form_in_a_stats_map_is_schema() {
 #[test]
 fn a_required_key_absent_is_schema() {
     for (name, text, key) in [
+        (
+            "schema",
+            "const RULESET = #{ name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 } };"
+                .to_string(),
+            "schema",
+        ),
+        (
+            "name",
+            "const RULESET = #{ schema: 1, squad_size: 23, universal: #{ max_skill_cards: 10 } };"
+                .to_string(),
+            "name",
+        ),
+        (
+            "squad_size",
+            "const RULESET = #{ schema: 1, name: \"x\", universal: #{ max_skill_cards: 10 } };"
+                .to_string(),
+            "squad_size",
+        ),
         ("a tier's id", edit(AUTUMN26, "id: \"gold\", ", ""), "id"),
         ("a tier's label", edit(AUTUMN26, "label: \"Gold\", ", ""), "label"),
         ("a bracket's id", edit(AUTUMN26, "id: \"manlet\", ", ""), "id"),
@@ -605,6 +723,21 @@ fn a_required_key_absent_is_schema() {
             "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, team_settings: [#{ }] };"
                 .to_string(),
             "label",
+        ),
+        (
+            "weight.floor",
+            edit(AUTUMN26, "floor: 30, ", ""),
+            "floor",
+        ),
+        (
+            "weight.below",
+            edit(AUTUMN26, "below: 129, ", ""),
+            "below",
+        ),
+        (
+            "weight.above",
+            edit(AUTUMN26, ", above: 81", ""),
+            "above",
         ),
     ] {
         let err = Ruleset::from_data_block(&text).expect_err(name);
@@ -783,6 +916,20 @@ fn an_unknown_tier_in_effects_maps_is_refused() {
             path,
         );
     }
+    // A `free` map key is a group id, not a tier.
+    case(
+        "free group key",
+        &edit(
+            AUTUMN26,
+            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
+            "free: #{ gollum: #{ regular: 2 } }",
+        ),
+        LoadRule::UnknownId {
+            kind: IdKind::Group,
+            id: "gollum".to_string(),
+        },
+        "specials[9].then.free.gollum",
+    );
     // The same keys naming a real tier load.
     for to in [
         "stat_target: #{ dribbling: #{ regular: 3 } }",
@@ -880,4 +1027,21 @@ fn rules_error_texts_name_path_and_message() {
         .to_string();
         assert!(err.contains(expected), "{expected}: {err}");
     }
+    for (rule, expected) in [
+        (LoadRule::CountsAsChain, "counts_as"),
+        (LoadRule::SystemWithoutCondition, "any_player"),
+        (LoadRule::Empty, "empty"),
+        (LoadRule::BracketsNotAscending, "bracket"),
+    ] {
+        let text = rule.to_string();
+        assert!(text.contains(expected), "{rule:?}: {text}");
+    }
+    let text = LoadRule::CountsShortOfSquad {
+        total: 8,
+        squad_size: 23,
+    }
+    .to_string();
+    let total_at = text.find('8').expect("the total in the text");
+    let size_at = text.find("23").expect("the squad size in the text");
+    assert!(total_at < size_at, "{text}");
 }

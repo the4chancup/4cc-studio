@@ -7142,3 +7142,32 @@ dedication with no copyleft obligation) comes with `rhai`, which enables `ahash`
 RNG whatever its features; the plan's policy admits such a license without asking.
 Plan: `aatf_rules.md` "The ruleset schema" (required keys, load-time rules);
 `core/distribution.md` (the allowlist); `deny.toml`.
+
+## 2026-10-12 — aatf — the script API's accessors, the views' names, and the team settings deferred
+Decision: a script sees a team as `TeamView` and its players as `PlayerView` (not the plan's
+`TeamContext` and `PlayerEntry`), values on the game's scale; the accessor list is fixed in the
+plan's table, with `rating_at(pos)` returning the rating label in place of a boolean
+`playable_at`, and a stat a version lacks, a style outside the version's table or an absent colour
+code crossing as `()`. The logic and a data block run on one engine: `Engine::new_raw()` plus
+`StandardPackage`. The team settings' accessors wait for two facts: PES 16's man-marking
+assignments in `pes_savefile`'s model with PES 17-21's man-marking instruction, and which auto
+substitution byte means off.
+Why: `PlayerEntry` and `TeamEntry` are `pes_savefile`'s records, and a second `PlayerEntry` in the
+same workspace would make every import ambiguous. A rating label answers A, B and the
+`no_b_ratings` check with one accessor where a boolean needs two. `()` lets the logic skip what a
+version does not have instead of reading a 0 as a value. `new_raw` keeps the file resolver and
+`print` out, which a check never needs; the standard package keeps arrays, maps and strings.
+Guessing the auto substitution's off byte would make every VGL team pass or fail on a guess.
+Plan: `aatf_rules.md` "The host" (the API table, the engine block, the tactics paragraph, the
+team settings' prerequisites) and "Crate layout" (`team.rs`).
+
+## 2026-10-12 — aatf — empty names refused, brackets ascending, weight bounds required
+Decision: a ruleset is refused on load when a `name`, id or label is empty, when a bracket's
+heights do not all lie above the earlier brackets', or when an `exactly` list is empty; a present
+`universal.weight` must give all three bounds; an empty `any_player` counts as none on every
+system.
+Why: each is what an organizer leaves behind mid-edit (an emptied string, list or map, a
+reordered bracket), and each would otherwise load and misjudge teams at check time: a blank label
+shows no rule, a shadowed bracket takes no player, a defaulted bound demands weight = height.
+Each is one general rule, not a case list.
+Plan: `aatf_rules.md` "The ruleset schema" (`BracketHeights` doc, required keys, load-time rules).

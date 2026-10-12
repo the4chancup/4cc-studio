@@ -15,6 +15,14 @@ impl Ruleset {
     pub(crate) fn check(&self) -> Vec<RuleError> {
         let mut out = Vec::new();
 
+        // name: an emptied string names nothing.
+        if self.name.is_empty() {
+            out.push(RuleError {
+                path: "name".to_string(),
+                rule: LoadRule::Empty,
+            });
+        }
+
         // stats.at_most: an ability stat, or one of the four non-stat targets.
         for (i, name) in self.stats.at_most.iter().enumerate() {
             if !ABILITY_STATS.contains(&name.as_str())
@@ -38,6 +46,18 @@ impl Ruleset {
         let tier_ids: HashSet<&str> = self.tiers.iter().map(|tier| tier.id.as_str()).collect();
         for (i, tier) in self.tiers.iter().enumerate() {
             let path = format!("tiers[{i}]");
+            if tier.id.is_empty() {
+                out.push(RuleError {
+                    path: format!("{path}.id"),
+                    rule: LoadRule::Empty,
+                });
+            }
+            if tier.label.is_empty() {
+                out.push(RuleError {
+                    path: format!("{path}.label"),
+                    rule: LoadRule::Empty,
+                });
+            }
             if self.tiers[..i].iter().any(|earlier| earlier.id == tier.id) {
                 out.push(RuleError {
                     path: path.clone(),
@@ -125,30 +145,78 @@ impl Ruleset {
             });
         }
 
-        // card_groups: `com` is reserved for the seven COM playing styles.
-        if self.card_groups.contains_key("com") {
-            out.push(RuleError {
-                path: "card_groups.com".to_string(),
-                rule: LoadRule::ReservedGroup,
-            });
+        // card_groups: keys name a group; `com` is reserved for the
+        // seven COM playing styles.
+        for key in self.card_groups.keys() {
+            if key.is_empty() {
+                out.push(RuleError {
+                    path: format!("card_groups.{key}"),
+                    rule: LoadRule::Empty,
+                });
+            }
+            if key == "com" {
+                out.push(RuleError {
+                    path: "card_groups.com".to_string(),
+                    rule: LoadRule::ReservedGroup,
+                });
+            }
         }
 
-        // heights: brackets' and systems' ids unique, quota keys exist,
-        // system's `any_player` stays within heights and positions, and
-        // the last system has none.
+        // heights: brackets' and systems' ids unique and non-empty,
+        // each bracket's heights above the brackets before it, quota
+        // keys existing, a non-last system's `any_player` present and
+        // non-empty and within heights and positions, the last system's
+        // absent or empty.
+        let mut previous_highest = 0u8;
         for (i, bracket) in self.heights.brackets.iter().enumerate() {
+            let path = format!("heights.brackets[{i}]");
+            if bracket.id.is_empty() {
+                out.push(RuleError {
+                    path: format!("{path}.id"),
+                    rule: LoadRule::Empty,
+                });
+            }
+            if bracket.label.is_empty() {
+                out.push(RuleError {
+                    path: format!("{path}.label"),
+                    rule: LoadRule::Empty,
+                });
+            }
             if self.heights.brackets[..i]
                 .iter()
                 .any(|earlier| earlier.id == bracket.id)
             {
                 out.push(RuleError {
-                    path: format!("heights.brackets[{i}]"),
+                    path: path.clone(),
                     rule: LoadRule::DuplicateId {
                         kind: IdKind::Bracket,
                         id: bracket.id.clone(),
                     },
                 });
             }
+            // An `up_to: n` bracket takes the heights above the brackets
+            // before it up to `n`, so it takes none unless `n` tops them;
+            // an `exactly` list's minimum must top them.
+            let (lowest, highest) = match &bracket.heights {
+                BracketHeights::UpTo(limit) => (*limit, *limit),
+                BracketHeights::Exactly(heights) => (
+                    *heights
+                        .iter()
+                        .min()
+                        .expect("`RawBracket` refuses an empty `exactly`"),
+                    *heights
+                        .iter()
+                        .max()
+                        .expect("`RawBracket` refuses an empty `exactly`"),
+                ),
+            };
+            if lowest <= previous_highest {
+                out.push(RuleError {
+                    path: path.clone(),
+                    rule: LoadRule::BracketsNotAscending,
+                });
+            }
+            previous_highest = previous_highest.max(highest);
         }
         let bracket_ids: HashSet<&str> = self
             .heights
@@ -158,6 +226,18 @@ impl Ruleset {
             .collect();
         for (i, system) in self.heights.systems.iter().enumerate() {
             let path = format!("heights.systems[{i}]");
+            if system.id.is_empty() {
+                out.push(RuleError {
+                    path: format!("{path}.id"),
+                    rule: LoadRule::Empty,
+                });
+            }
+            if system.label.is_empty() {
+                out.push(RuleError {
+                    path: format!("{path}.label"),
+                    rule: LoadRule::Empty,
+                });
+            }
             if self.heights.systems[..i]
                 .iter()
                 .any(|earlier| earlier.id == system.id)
@@ -230,6 +310,12 @@ impl Ruleset {
         // any `choice` option) names no bracket in `when`.
         for (i, special) in self.specials.iter().enumerate() {
             let path = format!("specials[{i}]");
+            if special.label.is_empty() {
+                out.push(RuleError {
+                    path: format!("{path}.label"),
+                    rule: LoadRule::Empty,
+                });
+            }
             self.check_condition(&special.when, &format!("{path}.when"), true, &mut out);
             if effects_have_allowance(&special.then) {
                 for (j, _) in special.when.brackets.iter().enumerate() {
@@ -244,6 +330,12 @@ impl Ruleset {
 
         // team_settings: a forbidden shape's counts add up to 10.
         for (i, settings) in self.team_settings.iter().enumerate() {
+            if settings.label.is_empty() {
+                out.push(RuleError {
+                    path: format!("team_settings[{i}].label"),
+                    rule: LoadRule::Empty,
+                });
+            }
             for (j, shape) in settings.forbidden_shapes.iter().enumerate() {
                 if u32::from(shape[0]) + u32::from(shape[1]) + u32::from(shape[2]) != 10 {
                     out.push(RuleError {
@@ -539,6 +631,8 @@ pub enum LoadRule {
         /// The unknown id.
         id: String,
     },
+    /// A `name`, an id, a label or a `card_groups` key is empty.
+    Empty,
     /// A `suggestions` entry that is neither one of the seven words nor a
     /// group id.
     UnknownSuggestion {
@@ -576,8 +670,12 @@ pub enum LoadRule {
         /// The squad's size.
         squad_size: u8,
     },
-    /// A height system other than the last has no `any_player`.
+    /// A height system other than the last has no `any_player`, or an
+    /// empty one.
     SystemWithoutCondition,
+    /// A bracket's lowest height is at most the highest height of the
+    /// brackets before it: a reordered bracket takes no player.
+    BracketsNotAscending,
     /// A tier's `when` names tiers.
     TierConditionNamesTiers,
     /// A system's `any_player` sets more than `height_min`, `height_max` and
@@ -624,7 +722,11 @@ impl fmt::Display for LoadRule {
                 write!(f, "counts total {total} under squad_size {squad_size}")
             }
             LoadRule::SystemWithoutCondition => {
-                f.write_str("a height system other than the last has no `any_player`")
+                f.write_str("a height system other than the last has no or an empty `any_player`")
+            }
+            LoadRule::Empty => f.write_str("empty name, id or label"),
+            LoadRule::BracketsNotAscending => {
+                f.write_str("bracket heights not above the brackets before it")
             }
             LoadRule::TierConditionNamesTiers => f.write_str("a tier's `when` names tiers"),
             LoadRule::SystemConditionTooWide => {

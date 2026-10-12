@@ -197,7 +197,8 @@ pub struct Bracket {
     pub heights: BracketHeights,
 }
 
-/// Spelled `up_to: 175` or `exactly: [185]` directly in the bracket's map.
+/// Spelled `up_to: 175` or `exactly: [185]` directly in the bracket's map; `exactly` lists at
+/// least one height.
 pub enum BracketHeights {
     /// At most this, above the previous bracket.
     UpTo(u8),
@@ -344,16 +345,20 @@ pub enum Severity {
 A field left out of the file takes its empty value (0, `false`, an empty list or map, `None`),
 except `schema`, `name`, `squad_size`, `universal` with its `max_skill_cards`, and each tier's,
 bracket's and system's `id`, `label` and (tiers) `rate`, and each special's and team
-settings entry's `label`, which are required (an absent `universal` would otherwise default
-`max_skill_cards` to 0, a cap no file means; a violation shows its special's label, which an
-empty one would leave blank).
+settings entry's `label`, and a present `weight`'s `floor`, `below` and `above`, which are
+required (an absent `universal` would otherwise default `max_skill_cards` to 0, a cap no file
+means; a weight rule missing a bound would demand a weight equal to the height; a violation
+shows its special's label, which an empty one would leave blank).
 
-Rules the types cannot carry, checked on load ("Loading and validation"): ids unique within their
+Rules the types cannot carry, checked on load ("Loading and validation"): no `name`, id or label
+is empty (an emptied one names nothing); ids unique within their
 kind, and every id a condition, effect, quota, `counts_as` or `suggestions` entry names exists; a
 tier with `counts_as` has no `count`, and the tier it names has no `counts_as` of its own (itself
 included); tier counts fit `squad_size`, and equal it when no tier is the rest of the squad (else
-no team can be legal); every height system but the last has `any_player` (one without it holds
-for every team, so the systems after it could never apply); a special with
+no team can be legal); each bracket's heights lie above every height of the brackets before it
+(a reordered bracket would take no player); every height system but the last has a non-empty
+`any_player` and the last has none or an empty one (an absent or empty condition holds for
+every team, so the systems after it could never apply); a special with
 `height_allowance` names no bracket, since brackets are computed from the allowance; `fielded_at_a`
 names presets 1 to 3; a forbidden shape's counts add up to 10.
 
@@ -656,39 +661,64 @@ suggestions" toggle, off by default, and lists them apart from errors and warnin
 ## The host
 
 `libs/aatf` compiles a file once per load, reads `RULESET` from the global scope, and calls the
-three functions on demand. What a script sees is registered by the host and nothing else:
+three functions on demand. What a script sees is registered by the host and nothing else: a team
+as a `TeamView` built from `pes_savefile`'s model (`TeamView::new(&EditFile, team_id)`) and its
+roster as `PlayerView`s, every value on the game's own scale (form 1 to 8, injury resistance 1 to
+3, weak foot 1 to 4, where the save stores each less one). They are views, not `PlayerEntry` and
+`TeamEntry`, which are `pes_savefile`'s records.
 
 ```rust
-let mut engine = rhai::Engine::new();
-engine.register_type::<PlayerEntry>()
-      .register_get("slot", |p: &mut PlayerEntry| p.slot as i64)
-      .register_get("height", |p: &mut PlayerEntry| p.height as i64)
-      .register_fn("stat", |p: &mut PlayerEntry, name: &str| p.stat_by_name(name))
-      .register_fn("playable_at", |p: &mut PlayerEntry, pos: &str| p.playable_at(pos));
-engine.register_type::<TeamContext>()          // players, captain, version, tactics presets
-      .register_get("players", |t: &mut TeamContext| t.players.clone())
-      .register_fn("fielded_only_at", |t: &mut TeamContext, p: PlayerEntry, pos: &str| t.fielded_only_at(&p, pos))
-      .register_fn("fielded_positions", |t: &mut TeamContext, p: PlayerEntry, preset: i64| t.fielded_positions(&p, preset));
+let mut engine = rhai::Engine::new_raw();        // no module resolver, no print or debug
+engine.register_global_module(rhai::packages::StandardPackage::new().as_shared_module());
+engine.register_type_with_name::<PlayerView>("Player")
+      .register_get("height", |p: &mut PlayerView| i64::from(p.height))
+      .register_fn("stat", |p: &mut PlayerView, name: &str| p.stat_by_name(name))
+      .register_fn("rating_at", |p: &mut PlayerView, pos: &str| p.rating_at(pos));
+engine.register_type_with_name::<TeamView>("Team")
+      .register_get("players", |t: &mut TeamView| t.players.clone())
+      .register_fn("fielded_only_at", |t: &mut TeamView, p: PlayerView, pos: &str| t.fielded_only_at(&p, pos));
 
 engine.set_max_operations(MAX_OPERATIONS);
 engine.set_max_call_levels(32);
 ```
 
+The script API, which `libs/aatf`'s crate doc lists too:
+
+| Accessor | Returns |
+|---|---|
+| `player.slot`, `.age`, `.height`, `.weight` | the roster slot; age in years, height in cm, weight in kg |
+| `player.form`, `.injury_resistance`, `.weak_foot_usage`, `.weak_foot_accuracy` | the game's scale |
+| `player.position` | the registered position's label (`"CB"`); `()` past the labels |
+| `player.playing_style` | the style's label; `()` when the version's table has no such style |
+| `player.name_color` | the eight characters after a leading `\x11c` (`"cc9900ff"`); `()` for a name without one |
+| `player.cards` | the labels of the skills and COM styles held, skills first, each in table order |
+| `player.stat(name)` | the ability stat's value; `()` on a version without it (`physical_contact` before PES 17); an unknown name is a script error |
+| `player.rating_at(pos)` | `"A"`, `"B"`, `"C"` or `"none"`; an unknown position is a script error |
+| `team.players` | the roster's players in slot order, empty slots left out |
+| `team.captain` | the captain's slot; `()` for none |
+| `team.version` | the short number (`21`), as `TeamSettings::versions` spells it |
+| `team.fielded_positions(player, preset)` | the labels of the positions the player is fielded at in preset 1 to 3's formations (a fluid preset's three, another's kick-off one), once each in label order; empty for a player outside the starting eleven |
+| `team.fielded_only_at(player, pos)` | whether every formation the game can field from the three presets fields the player at `pos`; for a player outside the starting eleven, whether `pos` is his registered position |
+| `team.formation_shapes()` | one map per formation the game can field, `#{ preset, formation, shape: [defenders, midfielders, forwards] }`, presets and formations numbered from 1 |
+
 `MAX_OPERATIONS` is set from the measured cost of the official ruleset on a full team, with a
 tenfold margin. Closed sets cross the boundary as the labels the file uses (`"GK"`, `"A"`,
 `"malicia"`); the Rust side keeps its enums and converts at the registration functions, nowhere
-else. Tactics questions (`fielded_only_at`; `fielded_positions`, the positions a starting-eleven
-player is fielded at in one preset's formations, none for a player outside it; the team settings
-and formation shapes) are answered in Rust from `pes_savefile`'s model, so the starting-eleven
-lookup and the formation count, both wrong upstream until `f5e7b3e`, live in one tested place.
-The registered accessors are the script API, listed in `libs/aatf`'s crate doc; adding one is a
-plan edit to this section, never a silent addition.
+else. Tactics questions are answered in Rust from `pes_savefile`'s model, so the starting-eleven
+lookup and the formation count, both wrong upstream until `f5e7b3e`, live in one tested place: a
+formation's slot *i* holds the starting eleven's *i*th player (`TeamTactics::starting_eleven`
+holds roster slots; `aatf.cpp`'s `aatf_check_player_in_pos` reads them the same way), and a preset fields
+its three formations when fluid and its kick-off formation otherwise (PES 15 has no fluid
+formation). A data block alone (`Ruleset::from_data_block`) runs on the same engine. Adding an
+accessor is a plan edit to this section, never a silent addition.
 
-Before implementing `man_marking`, extend `pes_savefile`'s PES 16 team model with the
+The team settings (`man_marking` and the auto flags) get their accessors once two facts are
+established. Before implementing `man_marking`, extend `pes_savefile`'s PES 16 team model with the
 per-preset man-marking assignments (eleven bytes per preset, `0xFF` for none; VTLEditor's
 `pes16.cpp` reads them, 4ccEditor does not), and establish which defending advanced instruction
 id is man marking on each of PES 17–21 (the instructions are modeled, `AdvancedInstruction`, their
-ids version-specific); the auto flags are modeled already (`TeamAutoFlags`).
+ids version-specific); the auto flags are modeled already (`TeamAutoFlags`),
+but which `substitution` byte means off is not established (Team TOML documents 255 as auto).
 
 `apply_tier(player, tier, rules)` is the lib's one *writing* operation: it calls `tier_values`
 and writes the result into the player (stats; form; injury resistance and weak foot at their
@@ -727,6 +757,7 @@ crates/libs/aatf/
 │   ├── lib.rs          # Rules (a loaded file), the host API: check_team, tier_values,
 │   │                   #   card_limits, apply_tier; Violation, Severity
 │   ├── ruleset.rs      # Ruleset and its types, deserialization, the load-time rules
+│   ├── team.rs         # TeamView and PlayerView from pes_savefile's model, the tactics answers
 │   ├── engine.rs       # rhai::Engine setup: registered types and accessors, limits
 │   ├── file.rs         # section split, logic identity (LOGIC_VERSIONS), assembling a file
 │   │                   #   from a data block and the current logic
