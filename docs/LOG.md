@@ -1779,3 +1779,5 @@ worklog passed 7,000 lines.
 - **2026-10-12** — Step 5.0b closed: `order` mutants join `just mutants` (15 real gaps of 23
   survivors over five crates), `bool` does not (10 of 29); `team_compiler`'s 8 got tests.
   The review run over 5.0b-5.0h left survivors only in `extra_mutants` (step 5.0b3).
+- **2026-10-12** — Issue "the unknown bits across versions" settled before 5.1a: the ingame-face
+  run's undecoded bits go in one key, `[appearance.unknown]` `face`, written on every version.

@@ -434,7 +434,7 @@ shirt_name = "SCORE"
 number = 1                      # shirt number, the roster's
 nationality = 231
 age = 25
-# Phase 5: ingame_face leaves (its bits move to [appearance.unknown.pesNN]), and height and
+# Phase 5: ingame_face leaves (its bits move to [appearance.unknown]), and height and
 # weight are player-level keys; until then height and weight sit inside
 # [players.NN.appearance.physique]
 height = 180                    # cm, the record's own field

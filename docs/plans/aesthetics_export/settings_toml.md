@@ -38,8 +38,7 @@ ingame-face feature types, and stock boots/gloves IDs (below) — except the com
 flags and base-copy ID, plus the record's **undecoded bits** as raw values. The ingame-face run
 carries bits no tool has decoded (hair, face-slider positions, colours beyond skin and iris; about
 one cup player in twenty relies on in-game hair rather than a face model): `[appearance.unknown]`
-holds them per version, a single unknown bit as a bool and a run of adjacent unknown bits as
-base64, until they are measured and given names (see "Player settings model" in the
+holds them as raw bytes until they are measured and given names (see "Player settings model" in the
 [Savefile plan](../pes_savefile/model.md), which also holds the completeness test). Completeness
 matters here because this file is the **only** route by which a team's aesthetics reach the
 game: the save editor's own appearance fields are read-only by default (see "Read-only
@@ -163,11 +162,10 @@ nose_type = 0                   # 0 to 6 (PES 20 and 21: 0 to 7)
 upper_lip_type = 0              # 0 to 3 (PES 20 and 21: 0 to 4)
 lower_lip_type = 0              # 0 to 2 (PES 20 and 21: 0 to 4)
 
-# Bits of the game's record no tool has decoded yet (hair, face sliders, ...), kept so a
-# player's look survives; one table per game version, named by bit position. Leave them
-# as generated.
-[appearance.unknown.pes21]
-bits_2100_2279 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+# The in-game face's bits no tool has decoded yet (hair, face sliders, ...), kept so a
+# player's look survives. Leave them as generated.
+[appearance.unknown]
+face = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 ```
 
 Where the ranges come from, so a wrong one can be traced: the boots/gloves range is the stock
@@ -194,22 +192,27 @@ appearance block's, and height affects gameplay, so both belong to the manager's
 
 The unknown bits follow four rules:
 
-- **Named by position.** `bit_N` is one undecoded bit at bit offset `N` of the player record
-  (the numbering of `pes_savefile`'s schema tables); `bits_A_B` is the run of adjacent undecoded
-  bits from `A` to `B` inclusive, packed from bit `A` upward into bytes, little-endian like the
-  record, then base64. Which bits are undecoded is `pes_savefile`'s completeness test's
-  complement, per version; the template above shows one of PES 21's runs.
-- **One table per version.** `[appearance.unknown.pes21]` applies only to a PES 21 compile; a
-  compile for another version leaves those bits at their defaults and reports the table it
-  could not use (`settings_unknown_other_version`, I). Bits mean nothing across versions, so they
-  are never converted. A template for a new player folder, which has no player's bits to carry,
-  holds no `[appearance.unknown]` table; its absent bits are 0.
-- **Default 0.** An absent bit or run is 0. Whether an all-zero default renders well is unchecked:
-  the first in-game check of a compile from a file without the table settles it, and if zeros
-  misbehave the default becomes the base database template row's bits instead.
+- **One key, the whole run.** `face` is the ingame-face run (`pes_savefile/model.md` "The
+  ingame-face run") as hex, two digits per byte in record order: 50 bytes, 46 for a PES 15
+  player, whose run is 4 bytes shorter. The bits a named key carries (the eleven feature types,
+  skin and iris colour, the player-gloves bits) are written as 0 and ignored when read, so each
+  bit has one carrier, and a bit decoded later moves to its new key without breaking a file
+  that still carries it here. Every undecoded bit of the appearance block lies in the run
+  (`pes_savefile`'s completeness test asserts it), so the run is the whole table.
+- **The same on every version.** The run's layout is (its known fields sit at the same offsets,
+  and the reference converters copy it through between versions, `pes_savefile/operations.md`
+  "Cross-version player conversion"), so `face` applies to every compile, and a PES 16 export
+  compiled for PES 21 keeps its in-game hair. A compile writes as much of it as the target's run
+  holds: a 50-byte value compiled for PES 15 loses its last 4 bytes, and a 46-byte one compiled
+  for a later version leaves the rest at 0, with no finding either way, as for a key the target
+  has no field for. A template for a new player folder, which has no player's bits to carry,
+  holds no `[appearance.unknown]` table.
+- **Default 0.** An absent `face` is all 0. Whether an all-zero default renders well is
+  unchecked: the first in-game check of a compile from a file without the table settles it, and
+  if zeros misbehave the default becomes the base database template row's bits instead.
 - **Not edited by hand.** The table exists so a generated file carries a player's whole look; the
   Save editor and the Export upgrader write it, and the Player aesthetics editor keeps it when it
-  rewrites a file. When a bit is decoded it moves to a named key and leaves the table.
+  rewrites a file.
 
 The four `undershorts` labels name the summer/winter pair the game stores (the reference editor
 shows them as "S: Off / W: Off", "S: Short / W: Short", "S: Off / W: Long", "S: Short / W: Long").

@@ -2322,13 +2322,12 @@ TC-BIN-30  GIVEN a /co/ export whose slot 05 carries fpc_on, and whose settings.
                 value for the key and the inners, undershorts and taping as authored
 TC-BIN-31  GIVEN a /co/ export whose slot 05 settings.toml holds facial_hair_type = 15 (PES 18:
                 0 to 12), hunching_dribbling = 5 (PES 18: 1 to 3) and dribbling = 2 (PES 20
-                and 21 only), and an [appearance.unknown.pes21] table with bits set
+                and 21 only), and an [appearance.unknown] face with undecoded bits set
            WHEN it is compiled for PES 18, and for PES 21
            THEN the PES 18 run reports settings_value_out_of_range for the first two, 71405's
                 row has facial hair type 0, its patch holds hunching_dribbling 1 and no
-                dribbling key, no finding names dribbling,
-                and reports settings_unknown_other_version with those bits at 0; the PES 21
-                run's row carries the table's bits; both exit 0
+                dribbling key, no finding names dribbling; both runs' rows carry those
+                bits; both exit 0
 TC-BIN-32  GIVEN an installed pair (71405, 7), and a /co/ export whose slot 05 holds a
            boots.fmdl whose task fails and a settings.toml setting an appearance key and a
            motion key, and whose slot 06 holds a face model that compiles

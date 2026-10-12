@@ -541,9 +541,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   slices:
   - [ ] 5.1a the appearance-block player id modeled on the entry, outside `PlayerAppearance`
     (issue "player id versus appearance id"); height and weight out of the key table;
-    `shirt_name`; absent = default; the unknown-bits tables (settle issue "the unknown bits
-    across versions" first) → done when: the completeness test names every bit of the block on
-    every version
+    `shirt_name`; absent = default; `[appearance.unknown]`'s `face` (DECISIONS 2026-10-12, "the
+    ingame-face run's undecoded bits travel between versions") → done when: the completeness
+    test names every bit of the block on every version, exactly once
   - [ ] 5.1b the Fox `PlayerAppearance.bin` row from a `PlayerSettings`, the PES 18 and 19
     offsets measured (the games' own rows against save records) → done when: a fixture save's
     records round-trip through rows on PES 18 to 21
@@ -973,13 +973,10 @@ points there.
 - open, needs the maintainer — FoxDen per-kit models: `docs/QUESTIONS.md` "FoxDen per-kit
   models"; `kit_variant_model_fox` and `model_format.md` "Kit-dependent assets" change with
   the answer.
-- open — the unknown bits across versions: `settings_toml.md` names them by record bit
-  position per version and never converts them, but the ingame-face run's layout is the same
-  on every version (`model.md` "The ingame-face run"), Team TOML prefix-copies it between
-  versions today, and a PES 16 export may be compiled for PES 21, so per-version tables drop
-  hair and sliders a conversion could keep. Settle before Phase 5 removes the hex: tables
-  named by position in the run rather than the record, or converted by the run's offset
-  (review S5.A1 item 8).
+- resolved 2026-10-12 (DECISIONS "the ingame-face run's undecoded bits travel between
+  versions") — the unknown bits across versions: per-version tables by record bit position
+  dropped hair and sliders when a PES 16 export compiled for PES 21; the run's bits are now one
+  table by position in the run, written on every version (review S5.A1 item 8).
 - open (deferred with the pre-Fox patch, decision 2026-10-11) — the base-copy ID on pre-Fox:
   `model.md` makes it compiler-owned ("derived from what
   was written"), but no plan says what the compiler derives, and the aesthetics patch, the

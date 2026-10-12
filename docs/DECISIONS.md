@@ -7030,3 +7030,43 @@ Why: the maintainer judged that previous entry's samples too small to decide `or
 The bar is the previous entry's: about half real. `bool`'s ten real gaps still get tests
 (worklog 5.0g); the kind is only kept out of every later run.
 Plan: `CONTRIBUTING.md` "Mutation runs"; worklog 5.0b, 5.0g.
+
+## 2026-10-12 — settings.toml — the ingame-face run's undecoded bits travel between versions
+Decision: `settings.toml` carries the undecoded bits of a player's appearance block as one key,
+`[appearance.unknown]` `face`. It is the ingame-face run as hex, with the bits a named key
+carries zeroed and ignored when read. It applies to every compile target, as far as the
+target's run reaches. This replaces the earlier spec, which used per-version tables named by
+record bit position, with `bit_N` bools, `bits_A_B` base64 runs and the
+`settings_unknown_other_version` finding.
+Why: under per-version tables, a PES 16 export compiled for PES 21 lost its in-game hair and
+face sliders. That compile is a normal case, since the parser takes the widest ranges for it.
+The run's layout is the same on every version: its known fields sit at the same offsets, Team
+TOML prefix-copies the run, and the cup's reference converters (16→21, 19→16) copy it through.
+So the bits need no conversion and no version tag. Step 5.1a's code map found every undecoded
+bit of the block inside the run once the PES 17+ appearance id is modeled, which left the
+per-version tables nothing to hold. One key for the whole run, not keys per undecoded run: a
+key named by its run would be renamed, and break every file carrying it, whenever a bit in it
+is decoded. With one key, a newly decoded bit is just ignored in `face` from then on. Hex rather
+than base64 because Team TOML's `ingame_face` already is hex, and `pes_savefile` then needs no
+new dependency. The open risk is an undecoded bit whose meaning differs between versions. The
+converters the cup has used carry the same risk, and no difference has been reported.
+Plan: `aesthetics_export/settings_toml.md` (the template, "The unknown bits follow four
+rules"); `pes_savefile/model.md` "Planned for Phase 5"; `pes_savefile/operations.md` Team TOML;
+`team_compiler/README.md` TC-BIN-31; `team_compiler/messages.md` (the finding removed); worklog
+issue "the unknown bits across versions", step 5.1a.
+
+## 2026-10-12 — pes_savefile — an absent settings.toml key takes the template's value; a key the target lacks is skipped
+Decision: `PlayerSettings::apply` writes an absent appearance key as the value
+`settings_toml.md`'s template block shows. That value becomes a `default` column of `KeySpec`,
+and the template's commented lines show it. A `None` `boots_id`/`gloves_id` leaves the stored ID
+alone. A key the target version has no field for is skipped, not `NotInThisVersion`. Team
+TOML's apply keeps "absent = untouched" and the error.
+Why: step 5.1a's code map found three places where the plan did not settle the behavior. First,
+"the value the template shows" named the template block's values (`skin_color = 1`, `sleeves =
+"short"`), while the code's commented lines show a per-kind neutral 0, so one source had to win,
+and the plan's template is the documented one. Second, a default boots or gloves ID depends on
+the folder's models and the FPC marker, which only the compiler sees. Third, `model.md` said
+`NotInThisVersion` while `settings_toml.md`, the member-facing contract, says a newer export
+compiles for an older version as it is. Team TOML is a whole-team transfer between saves, where
+an absent key means "keep" and a mismatch is a real error.
+Plan: `pes_savefile/model.md` "Planned for Phase 5" ("Absent = default").

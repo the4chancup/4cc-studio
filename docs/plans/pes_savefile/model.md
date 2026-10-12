@@ -251,18 +251,26 @@ tables"; the description above and below is the Phase 2 code until then):
   `shirt_name: Option<String>` joins `name` at the top level, string-only, checked against
   the version's shirt-name field (its full length, `codec.md` "Text fields hold `len` bytes").
 - **Absent = default.** Applying a `PlayerSettings` writes every appearance field, a `None` taking
-  the value the template shows; only `name` and `shirt_name` keep `None` = not written. The
-  template's "unset ones as commented lines" stays, now meaning "at its default".
+  the value the template shows (`settings_toml.md`'s template block; a `default` column of
+  `KeySpec`); only `name` and `shirt_name` keep `None` = not written. `boots_id`/`gloves_id`
+  are not appearance fields: a `None` there is the compiler's to resolve (the folder's models,
+  the FPC marker), so `apply` leaves the stored ID alone. The template's "unset ones as
+  commented lines" stays, now meaning "at its default", each line showing that default. A key
+  the target version has no field for (`dribbling` before PES 20) is skipped, not
+  `NotInThisVersion`: an export written for a newer version compiles for an older one as it is
+  (`settings_toml.md`). Team TOML's apply, a whole-team transfer, keeps both "absent =
+  untouched" and the error.
 - **Unknown bits become authorable as raw values.** The ownership classification gains the
-  complement of each version's decoded bits inside the appearance block (`Unknown`), and
-  `AppearanceSettings` gains the `[appearance.unknown.pesNN]` tables (`bit_N` bools, `bits_A_B`
-  base64 runs; format in `settings_toml.md`); `from_player` emits the player's version's table,
-  and applying writes only the target version's (absent bits 0); both gain a `PesVersion`
-  parameter, since `PlayerEntry` is version-independent and a PES 20 entry looks like a 21 one. The completeness test then
-  asserts that every bit of the block is named, unknown, or compiler-owned. Team TOML's
-  `ingame_face` hex goes once those tables carry the same bits, across versions too (the hex
-  is prefix-copied between versions, the tables are never converted; worklog "Issues"): one
-  carrier per bit.
+  complement of the decoded bits inside the appearance block (`Unknown`), all of them in the
+  ingame-face run on every version once the appearance id below is modeled, and
+  `AppearanceSettings` gains `[appearance.unknown]`'s one key, `face`: the run's bytes with
+  the named bits zeroed (format in `settings_toml.md`). `from_player` emits it; applying
+  writes its undecoded bits as far as the target's run reaches (absent = 0), so `apply`
+  gains a `PesVersion` parameter, since `PlayerEntry` is version-independent and a PES 20
+  entry looks like a 21 one. The completeness test then asserts, per version, that every bit
+  of the block is named, unknown, or compiler-owned, exactly once, and that no unknown bit
+  lies outside the run. Team TOML's `ingame_face` hex goes: `face` carries the same bits,
+  across versions as the hex's prefix copy does, so each bit has one carrier.
 - **The Fox database row.** A `PlayerSettings` (with its defaults) also produces the
   `PlayerAppearance.bin` row: the player id, then the record's 56 appearance bytes (everything
   after its id, edit flags, boots/gloves and base-copy fields; record bytes 252 to 308 on
