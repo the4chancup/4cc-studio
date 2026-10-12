@@ -446,12 +446,13 @@ PLAYER = {
     "aggres": ("Aggression", "Aggression (PES 20+)."),
     "play_attit": ("PlayingAttitude", "Playing attitude (PES 20+)."),
     "strong_hand": ("StrongerHand", "Stronger hand (PES 20+)."),
+    "appearance_id": ("AppearanceId", "The id of the player whose appearance the block holds: the player's own, or -1 (all bits set) on a stripped Fox save, where the database tables decide the look."),
     "b_edit_face": ("EditedFace", "The face was edited."),
     "b_edit_hair": ("EditedHair", "The hairstyle was edited."),
     "b_edit_phys": ("EditedPhysique", "The physique was edited."),
     "b_edit_strip": ("EditedStrip", "The strip style was edited."),
     "boot_id": ("BootsId", "Boots model id."),
-    "glove_id": ("GlovesId", "Goalkeeper gloves model id."),
+    "glove_id": ("GlovesId", "Gloves model id (any player; 0 = normal hands)."),
     "copy_id": ("BaseCopyId", "Base copy player id (the player's own id when unset)."),
     "neck_len": ("NeckLength", "Neck length."),
     "neck_size": ("NeckSize", "Neck size."),
@@ -485,6 +486,10 @@ INGAME_FACE_PATHS = ("gloves", "gloves_col", "skin_col", "iris_col")
 # The measured run, byte 22 of the appearance block to the block's end (`model.md`, "The
 # ingame-face run"): the 15/16 appearance record, the player record on 17+.
 EXPECTED_RUN = {15: (22, 46), 16: (22, 50), 17: (138, 50), 18: (138, 50), 19: (138, 50), 20: (262, 50)}
+# Fields the reference itself under-reads, corrected to the stored width the save
+# census measured (2.20i: PES 18 records set bit 297 for 2,808 players where the
+# walk reads only 2 of mo_armd's bits).
+WIDTH_FIXES = {(18, "mo_armd"): 3}
 PLAYER_TEXT = {"name": ("Name", "The player name, UTF-8, colour codes included."),
                "shirt_name": ("ShirtName", "The shirt name, single-byte text.")}
 TEAM = {
@@ -620,14 +625,22 @@ def split_rows(fields, vocab, texts_vocab):
     return scalars + loose, arrays, texts
 
 
-def ingame_face_run(fields, size, expected):
-    """The byte run from the appearance block's 22nd byte to its end (the block fills the rest
-    of the record), or None when the record carries no appearance block. The block start comes
-    from the BootsId row: boots/gloves is the block's second u32."""
+def appearance_block(fields):
+    """The appearance block's first byte, or None when the record carries no appearance
+    block. The block start comes from the BootsId row: boots/gloves is the block's second
+    u32."""
     if not any(f["field"] in INGAME_FACE_PATHS for f in fields):
         return None
     boots = next(f for f in fields if f["field"] == "boot_id")
-    block = boots["bit_offset"] // 8 - 4
+    return boots["bit_offset"] // 8 - 4
+
+
+def ingame_face_run(fields, size, expected):
+    """The byte run from the appearance block's 22nd byte to its end (the block fills the rest
+    of the record), or None when the record carries no appearance block."""
+    block = appearance_block(fields)
+    if block is None:
+        return None
     run = (block + 22, size - (block + 22))
     assert run == expected, f"ingame-face run {run}, expected {expected}"
     return run
@@ -767,8 +780,22 @@ def version_rs(version, spec, walks):
            "use pes_version::PesVersion;", ""]
     body = []
     rec = walks[spec["player"]]
+    for f in rec["fields"]:
+        if f["kind"] == "bits":
+            f["width"] = WIDTH_FIXES.get((version, f["field"]), f["width"])
     run = ingame_face_run(rec["fields"], rec["size"], EXPECTED_RUN[version])
     fields = [f for f in rec["fields"] if f["field"] not in INGAME_FACE_PATHS]
+    block = appearance_block(rec["fields"])
+    if block is not None:
+        # The block's first u32 is the appearance id: the reference reads past it, so the
+        # row is injected like the 15/16 appearance record's `id` (which is the join key).
+        row = {"field": "appearance_id", "kind": "bits", "bit_offset": block * 8, "width": 32}
+        at = next(
+            i
+            for i, f in enumerate(fields)
+            if f["kind"] == "bits" and f["bit_offset"] > block * 8
+        )
+        fields = fields[:at] + [row] + fields[at:]
     s, a, t = split_rows(fields, PLAYER, PLAYER_TEXT)
     body += record_rs("PLAYER", "PlayerField", "PlayerText", rec["size"], s, a, t,
                       f"The {label} player record.", ingame_face=run)

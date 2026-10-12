@@ -955,6 +955,10 @@ mod tests {
 
                 let mut target_team = (*team).clone();
                 let mut targets = foreign_players(&file, team);
+                let stand_in_ids: Vec<(u32, Option<u32>)> = targets
+                    .iter()
+                    .map(|player| (player.id, player.appearance_id))
+                    .collect();
                 let notes = doc
                     .apply(version, &mut target_team, &mut targets)
                     .unwrap_or_else(|e| panic!("{version:?} team {} apply: {e}", team.id));
@@ -976,8 +980,19 @@ mod tests {
                         .iter()
                         .find(|player| player.id == slot.player_id)
                         .expect("the stand-in");
+                    // `appearance_id` is not the document's to set: the
+                    // stand-in's own stands, everything else is the source's.
+                    let stand_in_id = stand_in_ids
+                        .iter()
+                        .find(|(id, _)| *id == slot.player_id)
+                        .map(|(_, appearance_id)| *appearance_id)
+                        .expect("the stand-in");
+                    let expected = PlayerEntry {
+                        appearance_id: stand_in_id,
+                        ..source.clone()
+                    };
                     assert_eq!(
-                        target, source,
+                        target, &expected,
                         "{version:?} team {} player {}",
                         team.id, slot.player_id
                     );

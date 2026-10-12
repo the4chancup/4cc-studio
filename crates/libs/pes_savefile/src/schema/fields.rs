@@ -131,6 +131,8 @@ pub enum PlayerField {
     PlayingAttitude,
     /// Stronger hand (PES 20+).
     StrongerHand,
+    /// The id of the player whose appearance the block holds: the player's own, or -1 (all bits set) on a stripped Fox save, where the database tables decide the look.
+    AppearanceId,
     /// The face was edited.
     EditedFace,
     /// The hairstyle was edited.

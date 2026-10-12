@@ -173,6 +173,9 @@ impl PlayerDiff {
             | F::Aggression
             | F::PlayingAttitude
             | F::StrongerHand => DiffScope::Gameplay,
+            // No `Field` row is emitted for it (a stripped player is marked
+            // instead); the arm only closes the match.
+            F::AppearanceId => DiffScope::Gameplay,
         }
     }
 }
@@ -189,6 +192,10 @@ fn record_diffs(
 ) -> Result<(), CodecError> {
     for (field, _, _) in codec::runs(schema) {
         if seen.is_some_and(|seen| seen.has(field)) {
+            continue;
+        }
+        // The appearance id is no row: a stripped player is marked instead.
+        if field == PlayerField::AppearanceId {
             continue;
         }
         let (old, new) = (a.get(field)?, b.get(field)?);
@@ -489,12 +496,20 @@ mod tests {
             let mut b = a.clone();
             b.set(field, new).expect("fits");
             let diffs = compare_players(&a, &b, schema).expect("compares");
-            assert_eq!(diffs, [PlayerDiff::Field { field, old, new }], "{field:?}");
+            // The appearance id is no row: a stripped player is marked.
+            let expected = if field == PlayerField::AppearanceId {
+                Vec::new()
+            } else {
+                vec![PlayerDiff::Field { field, old, new }]
+            };
+            assert_eq!(diffs, expected, "{field:?}");
             let mut c = a.clone();
             crate::ops::transplant::transplant_player(&mut c, &b);
             let moved = c.get(field).expect("covered") == new;
             assert_eq!(
-                diffs[0].scope() == DiffScope::Aesthetics,
+                diffs
+                    .first()
+                    .is_some_and(|d| d.scope() == DiffScope::Aesthetics),
                 moved,
                 "{field:?}"
             );
@@ -565,6 +580,21 @@ mod tests {
             })
             .collect();
         assert_eq!(ids.len(), 1, "{ids:?}");
+    }
+
+    /// The appearance id is no row: a player only differing there compares
+    /// equal (a stripped player is marked instead).
+    #[test]
+    fn the_appearance_id_is_no_row() {
+        let a = player(PesVersion::Pes21, 70101);
+        let schema = schema_for(PesVersion::Pes21);
+        let mut b = a.clone();
+        b.appearance_id = Some(u32::MAX);
+        assert!(
+            compare_players(&a, &b, schema)
+                .expect("compares")
+                .is_empty()
+        );
     }
 
     #[test]

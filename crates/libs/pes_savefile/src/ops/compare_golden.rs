@@ -34,8 +34,8 @@ fn bits(block: &[u8], byte: usize, bit: u32, n: u32) -> u32 {
 
 /// The script's per-player dictionary, keys in its order; `face` is 0 when it
 /// equals the player's id.
-/// `id` is passed in: on 17+ the block's own id copy is an unmodeled run the
-/// writer leaves zero in a synthetic record.
+/// `id` is passed in: the `face == playerID` rule compares against the
+/// entry's own id, not the block's copy.
 fn script_dict(block: &[u8], id: u32) -> Vec<(&'static str, u32)> {
     let boots_gloves = u32::from_le_bytes(block[4..8].try_into().unwrap());
     let mut face = u32::from_le_bytes(block[8..12].try_into().unwrap());

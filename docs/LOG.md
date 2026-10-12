@@ -1787,3 +1787,5 @@ worklog passed 7,000 lines.
   two kinds now miss only the I/O-failure arm there. SWE-2, first attempt.
 - **2026-10-12** — Step 5.0g2: tests for the order and bool gaps of `pes_model`, `fmdl`,
   `model_convert` and `pes_savefile`; Phase 5's fixed steps all done. SWE-2, first attempt.
+- **2026-10-12** — Step 5.1a1: the PES 17+ appearance id modeled on the player entry; a Texport
+  writes each player's own id there, as the game's exports do. SWE-2, first attempt.

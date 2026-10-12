@@ -556,7 +556,20 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     (issue "player id versus appearance id"); height and weight out of the key table;
     `shirt_name`; absent = default; `[appearance.unknown]`'s `face` (DECISIONS 2026-10-12, "the
     ingame-face run's undecoded bits travel between versions") → done when: the completeness
-    test names every bit of the block on every version, exactly once
+    test names every bit of the block on every version, exactly once. Sub-slices, each a commit:
+    - [x] 5.1a1 the PES 17+ appearance id: `PlayerEntry.appearance_id` (`None` on 15/16),
+      a generated `AppearanceId` row, kept by transplant and conversion, no comparator row.
+      Done 2026-10-12 (SWE-2, first attempt; the lead made a Texport write each player's own
+      id, which every game `.ted` holds, instead of the brief's 0, and added its test; the
+      generator now reproduces the committed tables from `4ccEditor-1`, its two drifts
+      fixed)
+    - [ ] 5.1a2 height and weight out of the key table, Team TOML player keys
+    - [ ] 5.1a3 `shirt_name`
+    - [ ] 5.1a4 absent = default (a `KeySpec` default column; `apply` takes the version)
+    - [ ] 5.1a5 the unknown bits, model half: `face` on `AppearanceSettings`, the per-bit
+      completeness test
+    - [ ] 5.1a6 the unknown bits, TOML half: `[appearance.unknown] face` parsed and emitted
+      (Team TOML refuses the table until 5.1d removes its hex)
   - [ ] 5.1b the Fox `PlayerAppearance.bin` row from a `PlayerSettings`, the PES 18 and 19
     offsets measured (the games' own rows against save records) → done when: a fixture save's
     records round-trip through rows on PES 18 to 21

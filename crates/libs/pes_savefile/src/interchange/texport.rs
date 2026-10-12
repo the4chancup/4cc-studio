@@ -222,8 +222,16 @@ fn write_ted<'a>(
             });
         }
         let at = off.players + slot * schema.player.size;
+        // The game's own exports hold each player's own id at the appearance-id slot
+        // (every PES 18-21 `.ted` it wrote), whatever the save's entry holds: a stripped
+        // player's -1 is the save's state, not the export's. PES 15/16 records have no
+        // such slot, and `write_player` leaves a field the schema lacks unwritten.
+        let player = PlayerEntry {
+            appearance_id: Some(player.id),
+            ..player.clone()
+        };
         write_player(
-            player,
+            &player,
             &mut plain[at..at + schema.player.size],
             schema.player,
         )?;
@@ -599,6 +607,25 @@ mod tests {
     }
 
     #[test]
+    fn a_stripped_player_is_exported_with_his_own_id_as_the_game_exports_one() {
+        for (version, bytes) in TEDS {
+            let fixture = Texport::from_bytes(bytes, None).expect("opens");
+            let mut stripped: Vec<PlayerEntry> = fixture.players().to_vec();
+            for player in &mut stripped {
+                player.appearance_id = Some(u32::MAX);
+            }
+            let players: Vec<&PlayerEntry> = stripped.iter().collect();
+            let made =
+                Texport::new(version, fixture.team(), &players, &test_salt()).expect("synthesizes");
+            let out = made.to_bytes(&test_salt()).expect("encodes");
+            let back = Texport::from_bytes(&out, Some(version)).expect("reopens");
+            for player in back.players() {
+                assert_eq!(player.appearance_id, Some(player.id), "{version:?}");
+            }
+        }
+    }
+
+    #[test]
     fn new_synthesizes_a_file_the_records_round_trip_through() {
         for (version, bytes) in TEDS {
             let fixture = Texport::from_bytes(bytes, None).expect("opens");
@@ -612,6 +639,8 @@ mod tests {
             assert_eq!(out.len(), layout.size, "{version:?}");
             let back = Texport::from_bytes(&out, Some(version)).expect("reopens");
             assert_eq!(back.team(), fixture.team(), "{version:?} team");
+            // The real files hold each player's own id at the appearance-id
+            // slot, as `new` writes it.
             assert_eq!(back.players(), fixture.players(), "{version:?} players");
 
             // The non-record regions equal the real file's: the header and
@@ -880,6 +909,9 @@ mod tests {
             let applied = players.iter().find(|p| p.id == id).expect("rostered");
             let mut expected = texport.players()[index].clone();
             expected.id = id;
+            // An import never sets the appearance id: the target's stands
+            // (the save entry's own, not the texport player's).
+            expected.appearance_id = file.player(id).expect("in the save").appearance_id;
             if expected.appearance.base_copy_id == texport.team().id * 100 + u32::from(*key) {
                 // The own-id convention reads as "unset": the target's id.
                 expected.appearance.base_copy_id = id;

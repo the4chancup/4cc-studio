@@ -9,7 +9,8 @@ use crate::model::player::PlayerEntry;
 
 /// The per-entry operation: `target` takes `donor`'s appearance block
 /// (`appearance`, ingame-face run included, and the face/hair/physique/strip
-/// edit flags); everything else, the id included, is the target's own.
+/// edit flags); everything else, the id and the appearance id included, is
+/// the target's own.
 pub fn transplant_player(target: &mut PlayerEntry, donor: &PlayerEntry) {
     target.appearance = donor.appearance.clone();
     target.edit_flags.face = donor.edit_flags.face;
@@ -267,6 +268,31 @@ mod tests {
                 donor: PesVersion::Pes17,
             })
         );
+    }
+
+    /// The appearance id is the entry's, outside `PlayerAppearance`: a
+    /// transplant leaves the target's alone, a -1 in either direction
+    /// included.
+    #[test]
+    fn transplant_keeps_the_targets_appearance_id_in_both_directions() {
+        let (target, donor) = saves(PesVersion::Pes17, 70205);
+        let target_p = target.player(70103).expect("in target");
+        let donor_p = donor.player(70205).expect("in donor");
+        assert_eq!(target_p.appearance_id, Some(70103));
+        assert_eq!(donor_p.appearance_id, Some(70205));
+
+        // Onto a -1: the target's stripped id is not the donor's to give.
+        let mut moved = target_p.clone();
+        moved.appearance_id = Some(u32::MAX);
+        transplant_player(&mut moved, donor_p);
+        assert_eq!(moved.appearance_id, Some(u32::MAX));
+
+        // From a -1: the donor's stripped id is not carried either.
+        let mut stripped_donor = donor_p.clone();
+        stripped_donor.appearance_id = Some(u32::MAX);
+        let mut moved = target_p.clone();
+        transplant_player(&mut moved, &stripped_donor);
+        assert_eq!(moved.appearance_id, target_p.appearance_id);
     }
 
     #[test]

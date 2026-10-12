@@ -427,6 +427,101 @@ fn version_gated_fields_are_none_where_the_version_lacks_them() {
     }
 }
 
+/// The appearance block's first u32 on PES 17+: every fixture player carries
+/// his own id (no fixture save holds a stripped save's -1).
+#[test]
+fn the_appearance_id_reads_the_players_own_on_every_fixture_player() {
+    for version in [
+        PesVersion::Pes17,
+        PesVersion::Pes18,
+        PesVersion::Pes19,
+        PesVersion::Pes20,
+        PesVersion::Pes21,
+    ] {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        for p in players(&payload, schema) {
+            assert_eq!(p.appearance_id, Some(p.id), "{version:?} player {}", p.id);
+        }
+    }
+}
+
+/// PES 15/16: the appearance record's first u32 is the join key itself, read
+/// into `id`; `appearance_id` stays `None`, and a `Some` has no run to write
+/// through — the codec leaves it alone, as it does every version-gated
+/// `Option` the schema lacks.
+#[test]
+fn the_appearance_id_is_none_on_pes15_and_16() {
+    for version in [PesVersion::Pes15, PesVersion::Pes16] {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        let mut player = find_player(&payload, schema, 70101);
+        assert_eq!(player.appearance_id, None, "{version:?}");
+        player.appearance_id = Some(u32::MAX);
+        let index = (0..count(&payload, &schema.players))
+            .find(|&i| {
+                read_player(
+                    record(&payload, &schema.players, schema.player.size, i),
+                    schema.player,
+                )
+                .expect("decode")
+                .id == 70101
+            })
+            .expect("70101's record");
+        let rec = record(&payload, &schema.players, schema.player.size, index);
+        let mut written = rec.to_vec();
+        write_player(&player, &mut written, schema.player).expect("writes");
+        assert_eq!(written, rec, "{version:?}: the Some has no run");
+        let (section, appearance) = schema.appearance.as_ref().expect("a split record");
+        let rec = (0..count(&payload, section))
+            .map(|i| record(&payload, section, appearance.size, i))
+            .find(|rec| u32::from_le_bytes(rec[..4].try_into().expect("id")) == 70101)
+            .expect("70101's appearance record");
+        let mut written = rec.to_vec();
+        write_player(&player, &mut written, appearance).expect("writes");
+        assert_eq!(written, rec, "{version:?}: the Some has no run");
+    }
+}
+
+/// A `-1` (u32::MAX) writes back through the field and rereads as `u32::MAX`,
+/// every other byte of the record untouched.
+#[test]
+fn a_stripped_appearance_id_writes_and_rereads() {
+    let payload = payload(PesVersion::Pes21);
+    let schema = schema_for(PesVersion::Pes21);
+    let mut player = find_player(&payload, schema, 70101);
+    player.appearance_id = Some(u32::MAX);
+    let index = (0..count(&payload, &schema.players))
+        .find(|&i| {
+            read_player(
+                record(&payload, &schema.players, schema.player.size, i),
+                schema.player,
+            )
+            .expect("decode")
+            .id == 70101
+        })
+        .expect("70101's record");
+    let rec = record(&payload, &schema.players, schema.player.size, index);
+    let mut written = rec.to_vec();
+    write_player(&player, &mut written, schema.player).expect("writes");
+    let spec = schema
+        .player
+        .fields
+        .iter()
+        .find(|f| f.field == PlayerField::AppearanceId)
+        .expect("PES 21 has the row");
+    for i in 0..rec.len() {
+        let inside = i * 8 >= spec.bit_offset as usize && i * 8 < (spec.bit_offset + 32) as usize;
+        assert_eq!(
+            written[i] != rec[i],
+            inside,
+            "byte {i} differs outside the appearance-id run"
+        );
+    }
+    let back = read_player(&written, schema.player).expect("redecode");
+    assert_eq!(back.appearance_id, Some(u32::MAX));
+}
+
 /// PES 18's `ArmMovementDribbling` is 3 bits at offset 295, ending where
 /// `ArmMovementRunning` begins at 298 — read as 2 bits it could never reach
 /// 4, but real saves carry 4 to 7.

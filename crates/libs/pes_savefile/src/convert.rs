@@ -795,6 +795,30 @@ mod tests {
         writes_ok(V::Pes16, &target);
     }
 
+    /// The appearance id is the slot's, not the source's: the conversion
+    /// leaves the target's alone, a -1 and a 15/16 `None` included.
+    #[test]
+    fn the_appearance_id_stays_the_targets() {
+        let mut source = first(V::Pes19);
+        source.appearance_id = Some(0);
+        let mut target = first(V::Pes21);
+        let kept = target.appearance_id;
+        assert_eq!(kept, Some(target.id));
+        assert_ne!(Some(0), kept, "the value discriminates a carry");
+        convert_player(&source, V::Pes19, &mut target, V::Pes21).expect("converts");
+        assert_eq!(target.appearance_id, kept, "the target's stands");
+
+        let mut target = first(V::Pes21);
+        target.appearance_id = Some(u32::MAX);
+        convert_player(&source, V::Pes19, &mut target, V::Pes21).expect("converts");
+        assert_eq!(target.appearance_id, Some(u32::MAX), "a -1 stands too");
+
+        let mut target = first(V::Pes16);
+        assert_eq!(target.appearance_id, None);
+        convert_player(&source, V::Pes19, &mut target, V::Pes16).expect("converts");
+        assert_eq!(target.appearance_id, None, "15/16 has no such field");
+    }
+
     #[test]
     fn every_fixture_pair_converts_and_writes() {
         for &from in &FIXTURES {

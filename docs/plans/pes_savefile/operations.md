@@ -821,6 +821,9 @@ table (`schema/texport.rs`). Two eras:
   of plaintext and ciphertext, with and without the key, match nothing). The coach block is
   `team id (u32) | 4 constant bytes | flag byte | "MANAGER" | zeros`; the 660-byte block is zero
   or one to five 125-188-byte runs (an edited coach, presumably; the writer writes it zero) and the tail is a per-version constant.
+  Every player record's appearance id holds the player's own id in each export the game wrote
+  (the 18-21 fixtures), so the writer writes it so, whatever the save's entry holds: a stripped
+  player's -1 is the save's state, not the export's.
 
 ```rust
 /// `schema/texport.rs`: the 18-21 layout, offsets derived from the record sizes.

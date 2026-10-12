@@ -642,7 +642,9 @@ fn write_appearance(
 pub(crate) enum Ownership {
     /// An authorable `settings.toml` setting.
     Settings,
-    /// Derived by the compiler (model ids, edit flags, base copy).
+    /// Written by Studio's own tools, never authored in the file: the
+    /// compiler's model ids, edit flags and base copy, and the Save editor's
+    /// strip of the appearance id.
     CompilerOwned,
     /// Gameplay data the file does not carry.
     Gameplay,
@@ -666,7 +668,8 @@ pub(crate) fn ownership(field: PlayerField) -> Ownership {
         | PlayerField::EditedFace
         | PlayerField::EditedHair
         | PlayerField::EditedPhysique
-        | PlayerField::EditedStrip => Ownership::CompilerOwned,
+        | PlayerField::EditedStrip
+        | PlayerField::AppearanceId => Ownership::CompilerOwned,
         PlayerField::BootsId
         | PlayerField::GlovesId
         | PlayerField::Height

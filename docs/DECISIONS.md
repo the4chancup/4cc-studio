@@ -7070,3 +7070,14 @@ the folder's models and the FPC marker, which only the compiler sees. Third, `mo
 compiles for an older version as it is. Team TOML is a whole-team transfer between saves, where
 an absent key means "keep" and a mismatch is a real error.
 Plan: `pes_savefile/model.md` "Planned for Phase 5" ("Absent = default").
+
+## 2026-10-12 — pes_savefile — a Texport writes each player's own id as his appearance id
+Decision: `Texport::new` and every Texport write put the player's own id in each player record's
+appearance id, whatever the save's entry holds: a stripped player (-1) too.
+Why: the 5.1a1 brief said to keep the slot at 0, the value `new`'s zeroed skeleton held before
+the field was modeled. SWE-2 checked the game's own exports instead: every `.ted` fixture (PES
+18 to 21) holds each player's own id there, and none holds 0 or -1. A file in the game's form is
+what `Texport::new` exists to produce (the reference editor is import-only). A stripped player's
+-1 says "look in this save's database tables", which the save receiving the export does not
+share. Keeping 0 would also have meant saving and restoring bytes around the record write.
+Plan: `pes_savefile/operations.md` "Texport (read + write)".

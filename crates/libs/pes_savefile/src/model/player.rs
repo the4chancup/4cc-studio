@@ -13,6 +13,11 @@ use crate::schema::fields::PlayerField;
 pub struct PlayerEntry {
     /// The player id (team id x 100 + slot for cup players).
     pub id: u32,
+    /// The id of the player whose appearance the block holds: the player's own,
+    /// or `u32::MAX` (the game's -1) on a stripped save, where the database
+    /// tables decide the look. `None` on PES 15/16, where the appearance
+    /// record's first u32 is the join key itself (`id`).
+    pub appearance_id: Option<u32>,
     /// Display name, colour codes included.
     pub name: String,
     /// Shirt name (single-byte text on disk).
@@ -390,6 +395,7 @@ impl PlayerEntry {
                     .stronger_hand
                     .ok_or_else(|| codec::missing(field))?,
             ),
+            PlayerField::AppearanceId => self.appearance_id.ok_or_else(|| codec::missing(field))?,
             PlayerField::EditedFace => u32::from(self.edit_flags.face),
             PlayerField::EditedHair => u32::from(self.edit_flags.hair),
             PlayerField::EditedPhysique => u32::from(self.edit_flags.physique),
@@ -515,6 +521,7 @@ impl PlayerEntry {
             PlayerField::Aggression => self.stats.aggression = Some(value as u8),
             PlayerField::PlayingAttitude => self.stats.playing_attitude = Some(value as u8),
             PlayerField::StrongerHand => self.positions.stronger_hand = Some(value as u8),
+            PlayerField::AppearanceId => self.appearance_id = Some(value),
             PlayerField::EditedFace => self.edit_flags.face = value != 0,
             PlayerField::EditedHair => self.edit_flags.hair = value != 0,
             PlayerField::EditedPhysique => self.edit_flags.physique = value != 0,

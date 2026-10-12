@@ -287,6 +287,11 @@ pub(crate) static PLAYER: RecordSchema<PlayerField, PlayerText> = RecordSchema {
             bit_width: 1,
         },
         FieldSpec {
+            field: PlayerField::AppearanceId,
+            bit_offset: 928,
+            bit_width: 32,
+        },
+        FieldSpec {
             field: PlayerField::EditedFace,
             bit_offset: 960,
             bit_width: 1,

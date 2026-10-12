@@ -164,6 +164,11 @@ nobody mistakes them for ours: `b_edit_stadium` on PES 19 is masked to zero by t
 (`>> 6 & 64`), so the PES 19 table has no such field; the PES 21 team-colour bit positions read
 zero for 203 of 220 teams in the 4cc save where PES 17/18 read the same teams' colours, an open
 question (worklog) until the reference editor's display of that save is checked.
+Two corrections are ours, applied by the generator, not the reference: PES 18's
+dribbling-arm motion (`mo_armd`) is 3 bits wide where the reference reads 2 (`WIDTH_FIXES`; the
+2.20i census found 2,808 records setting the third bit); and on PES 17+ the appearance block's
+first u32, the appearance id the reference reads past, gets a row (`AppearanceId`), as the
+PES 15/16 appearance record's `id` does.
 
 ~190KB of C++ collapses into static tables plus a ~100-line engine (the Rust equivalent of the
 reference's `read_data`/`write_data`, which handle bit runs crossing byte boundaries). Roundtrip

@@ -137,7 +137,11 @@ fn fingerprint_fields_and_hash_match_the_compare_script_on_every_fixture_player(
             let face = &p.appearance.ingame_face;
             let id = p.id;
             // (playerID, bootsGlovesData, faceID) = unpack('< III', appearance[0:12])
-            assert_eq!(u32::from_le_bytes(block[0..4].try_into().unwrap()), id);
+            assert_eq!(
+                u32::from_le_bytes(block[0..4].try_into().unwrap()),
+                p.appearance_id.unwrap_or(id),
+                "{version:?} {id} appearance id"
+            );
             let boots_gloves = u32::from_le_bytes(block[4..8].try_into().unwrap());
             assert_eq!(
                 p.appearance.boots_id,
