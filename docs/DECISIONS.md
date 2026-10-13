@@ -7285,3 +7285,59 @@ save, which attributes each diff to its setting and needs about four saves per t
 settings, against one save per setting. PES 21 is measured whole and the other versions by spot
 check, since the fifteen named fields share one layout. Plan: `pes_savefile/model.md`
 "Decoding the rest of the ingame-face run".
+
+## 2026-10-13 — settings.toml — every bit of the ingame-face run is a key or measured unused; `[appearance.unknown]` goes
+Decision: step 5.0l named every bit of the run in the games. Each one becomes a `settings.toml`
+key, or a measured-unused bit that a compile writes at the games' own value and generation
+drops. `[appearance.unknown]` leaves `settings.toml` and Team TOML. This supersedes the entry of
+2026-10-12, "the ingame-face run's undecoded bits travel between versions".
+Why: that entry rested on the run having one layout on every version. Its risk came true: PES 15
+stores its hair at the same bytes in another coding. A hex key carried across versions would
+write a PES 15 hair id into PES 21's hairstyle bits and draw no hair, or crash the game. Named
+keys convert per field. No release ever carried the table, so dropping it needs no migration.
+Plan: `pes_savefile/model.md` "The ingame-face run, decoded"; `aesthetics_export/settings_toml.md`
+(template, rules); `pes_savefile/operations.md` "Team TOML".
+
+## 2026-10-13 — pes_savefile — two layout families of the run; list fields as wide as PES 15's
+Decision: the run has two layouts, PES 15 and PES 16 to 21, in one field table whose rows name
+the versions they exist on.
+- Every list field takes PES 15's width; on 16 to 21 its ranges keep the high bits 0.
+- The sliders only PES 15 draws are `pes15_` keys. They are stored on every version, so they are
+  written on every version.
+- The family-only hair keys and `pes15_nose_angle` are skipped on the other family with no
+  finding, like `dribbling`.
+
+Why: on 16 to 21 the bits above each list field are 0 in every Konami and cup face, and set,
+they draw past the shipped models. They are the high bits of PES 15's wider lists, so one width
+covers both families. The `pes15_` sliders carry real values from Konami's tables on every
+version. Writing them everywhere keeps those values through Team TOML and through a conversion to
+PES 15, which draws them.
+Plan: `pes_savefile/model.md` "The ingame-face run, decoded".
+
+## 2026-10-13 — pes_savefile — PES 15's face-type caps are its measured ranges
+Decision: `face_type_cap` gets a PES 15 column of its own, the editor's range joined with the
+game's faces: cheek 14, forehead 6, facial hair 29, laughter lines 6, eyelids 14, eyebrow 17,
+neck line 5, nose 11, lips 7. PES 17 to 19 stay assumed equal to 16.
+Why: the old caps assumed PES 15 equal to 16. A PES 15 export or conversion would then reset
+most of its faces' eyebrows and eyelids to type 0. Neck line 4 and 5 and lips 7 are past the
+editor but drawn as distinct models, and the game's own faces use them.
+Plan: `pes_savefile/operations.md` "Cross-version player conversion";
+`aesthetics_export/settings_toml.md` (ranges).
+
+## 2026-10-13 — settings.toml — absent face and hair keys take the game's default face
+Decision: an absent slider is 0 and an absent feature type 0, as before. The other new keys take
+what PES 17's facial reset writes: very short Normal hair, dark brown (14, 10, 7) hair, eyebrows
+and facial hair. This settles the open "Default 0" rule.
+Why: an all-zero run is the editor's Preset look, every slider at -7, so "absent = 0" would
+distort every face that leaves the sliders out. The reset's own jaw height +2 and lips 1 are not
+taken: a slider at 0 reads as an offset from the editor's centre.
+Plan: `aesthetics_export/settings_toml.md`, the ingame-face run's rules.
+
+## 2026-10-13 — pes_savefile — a run converts field by field between PES 15 and 16+
+Decision: a cross-version conversion whose two versions sit in different layout families copies
+the shared fields onto the target's run and re-codes the nose. The target keeps its own
+family-only and unused bits. The prefix copy and `FaceRunTruncated` go. Within one family the
+run is still copied whole.
+Why: a prefix copy turns a PES 15 variation id into a 16 to 21 hairstyle and cropped style. The
+hair vanishes, or PES 21 crashes on a cropped-style high bit.
+Plan: `pes_savefile/operations.md` "Cross-version player conversion".

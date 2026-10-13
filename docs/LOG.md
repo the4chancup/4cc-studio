@@ -1881,3 +1881,6 @@ worklog passed 7,000 lines.
   measured fields in the schema generator; Team TOML carries `man_marking` per preset.
 - **2026-10-13** — Step 5.0j6: `docs/spec/team_compiler/README.md` read against the crate; its tree,
   data flow and placement rules corrected to the code.
+- **2026-10-13** — Step 5.0l: every bit of the ingame-face run named by in-game measurement (PES 21
+  and 15 whole, renders on 17 and 19): two layout families, PES 15's caps, `[appearance.unknown]`
+  to go; plan and five decisions written, the code is 5.0m.

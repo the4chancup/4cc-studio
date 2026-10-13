@@ -373,7 +373,7 @@ managers receive at every version change; no compile and no manager writes appea
 afterwards.
 
 - **Strip and seed** is one operation (Database operations, Fox saves only): it writes every
-  player's current appearance (the record's appearance bytes, undecoded bits included, and his
+  player's current appearance (the record's appearance bytes and his
   boots and gloves IDs) into rows of the three tables inside `4cc_08_bins.cpk`, the official
   DpFileList entry that holds the cup's team-related bins (`TeamColor.bin`, `UniColor.bin`,
   `UniformParameter.bin`), which the DLC builder installs at lower priority than the

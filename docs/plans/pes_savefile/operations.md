@@ -13,11 +13,55 @@ Not in this module (open): the motion ranges narrow from 20/21 to 19 and earlier
 20/21 → 19 conversion copies such a value through uncapped. Whether the game clamps, ignores or
 misbehaves on an out-of-range motion is unmeasured; measure before capping.
 
+**The run between PES 15 and 16+ converts field by field (step after 5.0l).** The spec's
+`min(len)` prefix copy rests on a premise that turned out wrong: that the run's layout is one
+layout on every version. PES 15 stores its hair differently (`model.md` "The ingame-face run,
+decoded"), so a prefix copy turns a PES 15 variation id into a 16 to 21 hairstyle and cropped
+style, and sets list bits past the shipped models. The hair can vanish, and a set cropped-style
+high bit crashes PES 21.
+
+So a conversion whose two versions are in different layout families (PES 15 on one side, 16 to
+21 on the other) does this:
+
+- it reads every field both families share from the source;
+- it writes those fields onto the target's run;
+- it leaves the target's own family-only and unused bits as the template player holds them;
+- it re-codes the nose: PES 15's 3 × type + angle becomes the type alone, and back with angle 0.
+
+`FaceRunTruncated` goes, since no byte is copied by position any more. Between two versions of
+one family, the run is still copied whole.
+
+The eleven face types are then capped as now, with PES 15's caps measured. They are wider than
+16's:
+
+| Face type | PES 15 | PES 16–19 | PES 20–21 |
+|---|---|---|---|
+| cheek | 14 | 3 | 3 |
+| forehead | 6 | 5 | 5 |
+| facial hair | 29 | 12 | 19 |
+| laughter lines | 6 | 4 | 4 |
+| upper eyelid | 14 | 6 | 7 |
+| lower eyelid | 14 | 2 | 6 |
+| eyebrow | 17 | 5 | 7 |
+| neck line | 5 | 2 | 3 |
+| nose | 11 | 6 | 7 |
+| upper lip | 7 | 3 | 4 |
+| lower lip | 7 | 2 | 4 |
+
+The PES 15 column joins the editor's range and the census of the game's faces. Neck line 4 and 5
+and lips 7 have no editor entry, but the game draws them as distinct models. PES 17 to 19 stay
+assumed equal to 16.
+
 ## Interchange formats
 
 ### Team TOML (new, replaces `.4ccs`/`.4cct`)
 
 What exists of this is in `spec/pes_savefile/operations.md` "Team TOML (new, replaces `.4ccs`/`.4cct`)".
+
+Open (the step after 5.0l): `[players.NN.appearance.unknown]` leaves with `settings.toml`'s,
+since every bit of the ingame-face run is now a key or measured unused (`model.md` "The
+ingame-face run, decoded"). The players' appearance tables gain the new face and hair keys.
+Import keeps "absent = untouched", so a run's unused bits keep the save's values.
 
 ### Aesthetics patch (new)
 
@@ -49,7 +93,7 @@ Still open:
 
   [teams.players.03.appearance]
   skin_color = 2
-  # … the PlayerSettings schema, exactly as in settings.toml, unknown bits included
+  # … the PlayerSettings schema, exactly as in settings.toml
   ```
 
   The pre-Fox half also lifts the `PreFox` refusal and adds its keys to the spec's types.

@@ -22,8 +22,8 @@ compile carries them to the game. **How depends on the engine:**
   the save editor applies, as before. The database route is untested there.
 
 **Everything in the file is optional** — including the file itself: a player folder with only
-models is valid. **An absent key takes its default**, the value the template below shows for it
-(0 for an unknown bit, see below), on both engines; model-derived ID assignments and FPC
+models is valid. **An absent key takes its default**, the value the template below shows for it,
+on both engines; model-derived ID assignments and FPC
 directives are separate inputs. `name` and `shirt_name` are the exceptions: absent means "not
 written" (see the name rules). A compiled player's appearance is therefore his export (this file,
 his folder's models and markers) and nothing else: no earlier compile, savefile or installed
@@ -35,13 +35,13 @@ a referee export's included, are reported by `check` and `compile` alike.
 
 **The file can express everything the savefile's player appearance record holds.** Its schema is
 `pes_savefile`'s `PlayerSettings`: all of the decoded player appearance record — physique, strip
-style, wrist-tape and spectacle colours, skin and iris colour, the motion block, the eleven
-ingame-face feature types, and stock boots/gloves IDs (below) — except the compiler-owned edit
-flags and base-copy ID, plus the record's **undecoded bits** as raw values. The ingame-face run
-carries bits no tool has decoded (hair, face-slider positions, colours beyond skin and iris; about
-one cup player in twenty relies on in-game hair rather than a face model): `[appearance.unknown]`
-holds them as raw bytes until they are measured and given names (see "Player settings model" in the
-[Savefile plan](../pes_savefile/model.md), which also holds the completeness test). Completeness
+style, wrist-tape and spectacle colours, skin and iris colour, the motion block, every setting of
+the ingame-face run (face sliders and feature types, eyebrow and facial-hair colours, in-game
+hair), and stock boots/gloves IDs (below), except the compiler-owned edit flags and base-copy ID.
+About one cup player in twenty relies on in-game hair rather than a face model. Every bit of the
+run is a key or measured unused ("The ingame-face run, decoded" in the
+[Savefile plan](../pes_savefile/model.md), whose spec part holds the completeness test).
+Completeness
 matters here because this file is the **only** route by which a team's aesthetics reach the
 game: the save editor's own appearance fields are read-only by default (see "Read-only
 aesthetics" in the [Save editor plan](../save_editor.md)), and on Fox a stripped player's
@@ -152,22 +152,97 @@ goal_celebration_1 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
 goal_celebration_2 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
 
 [appearance.face]
-cheek_type = 0                  # 0 to 3
-forehead_type = 0               # 0 to 5
-facial_hair_type = 0            # 0 to 12 (PES 20 and 21: 0 to 19)
-laughter_lines_type = 0         # 0 to 4
-upper_eyelid_type = 0           # 0 to 6 (PES 20 and 21: 0 to 7)
-lower_eyelid_type = 0           # 0 to 2 (PES 20 and 21: 0 to 6)
-eyebrow_type = 0                # 0 to 5 (PES 20 and 21: 0 to 7)
-neck_line_type = 0              # 0 to 2 (PES 20 and 21: 0 to 3)
-nose_type = 0                   # 0 to 6 (PES 20 and 21: 0 to 7)
-upper_lip_type = 0              # 0 to 3 (PES 20 and 21: 0 to 4)
-lower_lip_type = 0              # 0 to 2 (PES 20 and 21: 0 to 4)
+jawline = 0                     # -7 to 7
+jaw_height = 0                  # -7 to 7
+cheekbones = 0                  # -7 to 7
+cheekbone_height = 0            # -7 to 7 (PES 16 to 21: no editor slider)
+chin_width = 0                  # -7 to 7
+chin_height = 0                 # -7 to 7
+chin_depth = 0                  # -7 to 7
+face_size = 0                   # -7 to 7
+face_height = 0                 # -7 to 7
+brow_width = 0                  # -7 to 7
+inner_eyebrow_height = 0        # -7 to 7
+eyebrow_depth = 0               # -7 to 7
+temple_width = 0                # -7 to 7
+outer_eyebrow_height = 0        # -7 to 7
+pupil_size = 0                  # -7 to 7
+eye_depth = 0                   # -7 to 7
+inner_eye_position = 0          # -7 to 7
+inner_eye_height = 0            # -7 to 7
+outer_eye_position = 0          # -7 to 7
+eye_corner_height = 0           # -7 to 7
+upper_eyelid_width_inner = 0    # -7 to 7
+upper_eyelid_height_inner = 0   # -7 to 7
+upper_eyelid_width_outer = 0    # -7 to 7
+upper_eyelid_height_outer = 0   # -7 to 7
+bottom_eyelid_height = 0        # -7 to 7
+horizontal_eye_position = 0     # -7 to 7
+eye_height = 0                  # -7 to 7
+nose_height = 0                 # -7 to 7
+nose_tip_depth = 0              # -7 to 7
+nostril_width = 0               # -7 to 7
+nose_depth = 0                  # -7 to 7
+nose_width = 0                  # -7 to 7
+mouth_height = 0                # -7 to 7
+mouth_depth = 0                 # -7 to 7
+lip_size = 0                    # -7 to 7
+mouth_corner_height = 0         # -7 to 7
+lip_width = 0                   # -7 to 7
+ear_length = 0                  # -7 to 7
+ear_width = 0                   # -7 to 7
+ear_angle = 0                   # -7 to 7
+pes15_jaw_depth = 0             # -7 to 7, drawn by PES 15 only
+pes15_cheekbone_depth = 0       # -7 to 7, drawn by PES 15 only
+pes15_mouth_edge_position = 0   # -7 to 7, drawn by PES 15 only
+pes15_eyebrow_depth = 0         # -7 to 7, drawn by PES 15 only
+pes15_bottom_eyelid_position = 0 # -7 to 7, drawn by PES 15 only
+pes15_nasal_bridge_position = 0 # -7 to 7, drawn by PES 15 only
+pes15_nasal_root_height = 0     # -7 to 7, drawn by PES 15 only
+cheek_type = 0                  # 0 to 3 (PES 15: 0 to 14)
+forehead_type = 0               # 0 to 5 (PES 15: 0 to 6)
+facial_hair_type = 0            # 0 to 12 (PES 15: 0 to 29; PES 20 and 21: 0 to 19)
+laughter_lines_type = 0         # 0 to 4 (PES 15: 0 to 6)
+upper_eyelid_type = 0           # 0 to 6 (PES 15: 0 to 14; PES 20 and 21: 0 to 7)
+lower_eyelid_type = 0           # 0 to 2 (PES 15: 0 to 14; PES 20 and 21: 0 to 6)
+eyebrow_type = 0                # 0 to 5 (PES 15: 0 to 17; PES 20 and 21: 0 to 7)
+neck_line_type = 0              # 0 to 2 (PES 15: 0 to 5; PES 20 and 21: 0 to 3)
+nose_type = 0                   # 0 to 6 (PES 15: 0 to 11; PES 20 and 21: 0 to 7)
+pes15_nose_angle = 0            # -1 to 1; PES 15 only
+upper_lip_type = 0              # 0 to 3 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)
+lower_lip_type = 0              # 0 to 2 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)
+eyebrow_color_red = 14          # 0 to 63
+eyebrow_color_green = 10        # 0 to 63
+eyebrow_color_blue = 7          # 0 to 63
+eyebrow_style = 0               # 0 normal, 1 thick, 2 thin
+eyebrow_density = 3             # 0 to 3
+eyebrow_thickness = 1           # 0 to 3
+facial_hair_color_red = 14      # 0 to 63
+facial_hair_color_green = 10    # 0 to 63
+facial_hair_color_blue = 7      # 0 to 63
+facial_hair_thickness = 3       # 0 to 3
+pes15_eye_white = 0             # 0 to 3, brighter eye whites, drawn by PES 15 only
 
-# The in-game face's bits no tool has decoded yet (hair, face sliders, ...), kept so a
-# player's look survives. Leave them as generated.
-[appearance.unknown]
-face = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+[appearance.hair]
+color_red = 14                  # 0 to 63
+color_green = 10                # 0 to 63
+color_blue = 7                  # 0 to 63
+color_preset = 0                # 0 custom (the colour above), 1 to 8 the editor's presets
+accessory = false               # true, false (PES 15: the game sets it with the variation)
+accessory_color = 0             # 0 white, 1 dark grey, 2 red, 3 blue, 4 yellow, 5 green, 6 magenta, 7 cyan
+style = 1                       # 1 normal, 2 dry, 3 mohican, 4 afro, 5 dreadlocks, 6 braided, 7 special; PES 16 to 21
+cropped_style = 1               # 1 to 6; PES 16 to 21
+length = 2                      # 1 shaven, 2 very short, 3 short, 4 medium, 5 long; PES 16 to 21
+wave_level = 0                  # 0 to 6; PES 16 to 21
+variation = 0                   # 0 to 29; PES 16 to 21
+front_style = 1                 # 1 up, 2 down, 3 combed back; PES 16 to 21
+parted = 1                      # 1 off, 2 left 2, 3 left 1, 4 centre, 5 right 1, 6 right 2; PES 16 to 21
+side_back_style = 4             # 1 normal, 2 reduce body, 3 shorter sides, 4 cropped; PES 16 to 21
+hairline = 1                    # 1 to 3; PES 16 to 21
+forehead_width = 2              # 1 narrow, 2 normal, 3 wide; PES 16 to 21
+pes15_length = 2                # 1 skinhead, 2 very short, 3 short, 4 medium, 5 long, 6 special; PES 15 only
+pes15_type = 1                  # 0 none (skinhead, special), 1 straight, 2 wavy, 3 permed, 4 dreadlocks; PES 15 only
+pes15_variation = 1             # 1 to 82, the editor's grid position (each length and type has its own grid); PES 15 only
 ```
 
 Where the ranges come from, so a wrong one can be traced: the boots/gloves range is the stock
@@ -177,8 +252,10 @@ sock, undershort, shirttail and wrist-taping lists are the reference save editor
 bits); the physique numbers are the editor's spin ranges (stored value = number + 7); the motion
 ranges are its spin ranges per version (1-based ones are stored minus 1, celebrations as is); the
 face-type maxima are the caps the two legacy converters apply when writing a PES 16 and a PES 21
-save. The 17 to 19 face caps are unmeasured and assumed equal to PES 16's; PES 15's face caps are
-assumed equal to 16's too. The parser checks a value against the **widest** range of a key (a PES
+save. The 17 to 19 face caps are unmeasured and assumed equal to PES 16's. PES 15's face caps
+were measured: the editor's range joined with the game's own faces. The run's other keys were
+measured in the games (`pes_savefile/model.md` "The ingame-face run, decoded"). The in-game hair
+ranges were measured on PES 21 and are assumed for 16 to 20. The parser checks a value against the **widest** range of a key (a PES
 16 file may legitimately be compiled for PES 21); the per-version narrowing is the compiler's
 finding at compile time, when the target version is known (`settings_value_out_of_range`). The
 value is then written as the key's default (a face type 0, a motion the template's value), as
@@ -192,29 +269,30 @@ listed). Height and weight are not keys: they are the player record's own fields
 appearance block's, and height affects gameplay, so both belong to the manager's tactical side
 (the save editor), and weight leaves with height for consistency.
 
-The unknown bits follow four rules:
+The ingame-face run follows three rules:
 
-- **One key, the whole run.** `face` is the ingame-face run (`pes_savefile/model.md` "The
-  ingame-face run") as hex, two digits per byte in record order: 50 bytes, 46 for a PES 15
-  player, whose run is 4 bytes shorter. The bits a named key carries (the eleven feature types,
-  skin and iris colour, the player-gloves bits) are written as 0 and ignored when read, so each
-  bit has one carrier, and a bit decoded later moves to its new key without breaking a file
-  that still carries it here. Every undecoded bit of the appearance block lies in the run
-  (`pes_savefile`'s completeness test asserts it), so the run is the whole table.
-- **The same on every version.** The run's layout is (its known fields sit at the same offsets,
-  and the reference converters copy it through between versions, `pes_savefile/operations.md`
-  "Cross-version player conversion"), so `face` applies to every compile, and a PES 16 export
-  compiled for PES 21 keeps its in-game hair. A compile writes as much of it as the target's run
-  holds: a 50-byte value compiled for PES 15 loses its last 4 bytes, and a 46-byte one compiled
-  for a later version leaves the rest at 0, with no finding either way, as for a key the target
-  has no field for. A template for a new player folder, which has no player's bits to carry,
-  holds no `[appearance.unknown]` table.
-- **Default 0.** An absent `face` is all 0. Whether an all-zero default renders well is
-  unchecked: the first in-game check of a compile from a file without the table settles it, and
-  if zeros misbehave the default becomes the base database template row's bits instead.
-- **Not edited by hand.** The table exists so a generated file carries a player's whole look; the
-  Save editor and the Export upgrader write it, and the Player aesthetics editor keeps it when it
-  rewrites a file.
+- **One file shape on every version.** PES 15 stores its hair differently from PES 16 to 21
+  (`pes_savefile/model.md` "The ingame-face run, decoded"). So the keys marked "PES 16 to 21"
+  are skipped on a PES 15 compile, and the `pes15_` hair keys and `pes15_nose_angle` are
+  skipped on a 16 to 21 compile. Either way there is no finding, as for `dribbling`. A PES 16
+  export compiled for PES 21 keeps its in-game hair; one compiled for PES 15 gets PES 15's hair
+  keys, at their defaults if the file does not set them. The other `pes15_` keys exist on every
+  version and only PES 15 draws them. A save of 16 to 21 holds them too, its editor keeps them,
+  and the games' tables fill them for every face. So a generated file carries them and a
+  compile writes them on every version.
+- **The defaults are the game's default face.** The defaults are what PES 17's facial reset
+  writes:
+  - very short Normal hair;
+  - dark brown hair, eyebrows and facial hair (14, 10, 7);
+  - the template's values for the rest.
+
+  The template keeps the sliders at 0 and the feature types at 0, as before. The reset itself
+  also writes jaw height +2 and both lips 1, but a slider at 0 reads as an offset from the
+  editor's centre. An all-zero run would be the editor's Preset look instead, every slider at
+  -7, which is why an absent key is not stored as 0.
+- **Unused bits are not keys.** The run's measured-unused bits are written at the values the
+  games' editors write, on every compile, so a compiled run holds nothing of the save. They
+  are dropped on generation.
 
 The four `undershorts` labels name the summer/winter pair the game stores (the reference editor
 shows them as "S: Off / W: Off", "S: Short / W: Short", "S: Off / W: Long", "S: Short / W: Long").
@@ -275,7 +353,7 @@ builder, who applies it in the save editor; the compiler has no other savefile w
 
 The save editor view can also **generate** these TOML files from an existing savefile, giving teams
 a migration path from the current workflow. Generation (`PlayerSettings::from_player`, shared with
-the Export upgrader) writes every key the save's version holds, the save's unknown bits included,
+the Export upgrader) writes every key the save's version holds,
 so a generated file reproduces the player as he is, whatever the defaults; it emits
 `boots_id`/`gloves_id` only for a stored ID from 1 to 100: 0 (the default boots, normal hands)
 stays unset, which is its default, and an ID above 100 is custom content, which the upgrader

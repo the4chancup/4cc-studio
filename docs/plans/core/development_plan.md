@@ -46,8 +46,8 @@ against 4ccEditor edits for the same assignments; AATF rule fixtures (known-viol
 saves); the save editor's CLI exercised on fixture saves, and its operations with no command
 by unit tests. In game, on the Fox version the cup has chosen (step 4.0's Test 1 covered PES 2021 only): a stripped and seeded save
 shows every player as before; a compiled team's rows show, gloves included once a FoxDen change keeps the
-table's value; and a file without `[appearance.unknown]` renders acceptably with the all-zero
-default (otherwise the default becomes the base database row's bits).
+table's value; and a file that sets none of the face and hair keys renders the default face
+(`aesthetics_export/settings_toml.md`, the ingame-face run's rules).
 
 ### Phase 6: Export upgrader (`tools/export_upgrader`)
 
@@ -57,8 +57,7 @@ default (otherwise the default becomes the base database row's bits).
   generation (multi-user folders)
 - Implement kit restructuring (binary kit configs → `config.toml`, `colors.txt` and the `icon_<N>`
   marker from Team Note colors)
-- Implement `settings.toml` generation from savefile aesthetics: every key, the save's unknown bits
-  included, `name = true` when the folder's name part equals the save's name and the explicit
+- Implement `settings.toml` generation from savefile aesthetics: every key, `name = true` when the folder's name part equals the save's name and the explicit
   string otherwise, `shirt_name` the save's string (a migrated player must look the same once his
   rows replace his stripped record)
 - CLI: `4cc-studio export-upgrader ./old_export.zip`

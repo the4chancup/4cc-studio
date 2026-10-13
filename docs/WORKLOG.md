@@ -14,7 +14,8 @@ Phase 2 2026-09-30).
 **Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and step 5.1 done
 (2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; Astra R12.A1 over 5.2b1's reworks after the
 Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 and 5.2c2
-landed (2026-10-12, reworked 2026-10-13), 5.0k done; then 5.0j's remaining slices beside 5.2c3
+landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done (2026-10-13; its code is 5.0m,
+before 5.3a); then 5.0j's remaining slices beside 5.2c3
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -716,7 +717,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     exist, the data-flow boxes, the placement rules and the GUI's one action as built,
     `ModelFolder`). Done 2026-10-13 (SWE-2, first attempt)
   - [ ] 5.0j7 the rest of `team_compiler` (`pipeline.md`, `settings.md`, `messages.md`,
-    `blue_port.md`, `testing.md`). Known: `pipeline.md` "1. Reader" step 4 says contents load
+    `blue_port.md`, `testing.md`). Known: `spec/team_compiler/pipeline.md` "1. Reader" step 4 says contents load
     into a `VirtualTree` (the reader returns owned bytes through `ContentSource`), and its
     `allocation_scheme_version` claim; `tests/parity.rs` and `parity_prefox.rs` point their
     docs at `plans/team_compiler/testing.md`
@@ -735,11 +736,37 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   of the PES 20/21 fixtures still pass. Done 2026-10-12 (SWE-2, first attempt): `STORED_20`
   corrected; tests pin the measured values, the 20/21 table both ways, and every fixture
   instruction on its side (`schema/instruction_golden.rs`); spec `model.md`, `operations.md`
-- [ ] 5.0l The ingame-face run decoded in-game (lead; `plans/pes_savefile/model.md` "Decoding
-  the rest of the ingame-face run"; target 1.0.0, so it runs beside the phase and does not block
-  its close): PES 21's whole run measured one setting per player, then spot checks on 15 to 20
-  → done when: every bit of the run is a named field or measured unused, each named field a
-  `settings.toml` key. Scratch `.tmp/5_0l/`
+- [x] 5.0l The ingame-face run decoded in-game (lead; `plans/pes_savefile/model.md` "The
+  ingame-face run, decoded"): PES 21's whole run measured one setting per player, then spot
+  checks on 15 to 20 → done when: every bit of the run is a named field or measured unused, each
+  named field a `settings.toml` key. Done 2026-10-13:
+  - PES 21 and PES 15 were measured whole, with render checks on 17 and 19, and censuses of the
+    games' tables (17 to 21) and the cup saves (15 to 21).
+  - The plan names every bit: the field map, two layout families, and PES 15's caps.
+  - The key table, ranges and defaults are in `settings_toml.md`, the conversion in
+    `operations.md`, and five decision entries are logged.
+  - The code lands in 5.0m. Every live save and the faces CPKs were restored by hash.
+
+  Scratch `.tmp/5_0l/` (evidence: `findings.md`).
+- [ ] 5.0m The decoded run in `pes_savefile`, before 5.3a (TC-BIN-31 authors hair keys). Plan:
+  `plans/pes_savefile/model.md` "The ingame-face run, decoded";
+  `plans/aesthetics_export/settings_toml.md`, the template and the ingame-face run's rules;
+  `plans/pes_savefile/operations.md`, "Cross-version player conversion" and "Team TOML". Slices,
+  each a commit:
+  - [ ] 5.0m1 the fields and the keys. One slice, because the completeness test ties every new
+    field to its key; most of the diff is table rows. Brief `.tmp/5_0m/brief_5_0m1.md`:
+    - every field row with its layout, and the measured-unused table;
+    - the nose accessors, and PES 15's `face_type_cap` column;
+    - every field a `SettingKey` with the plan's range, comment and default;
+    - `[appearance.unknown]` gone from `settings.toml` and Team TOML;
+    - `apply` writing the whole run, the unused bits at their values.
+
+    → done when: each version's run is covered bit for bit by one field or unused row, the
+    template equals the plan's block, and `from_player` then `apply` gives back every fixture
+    run except its unused bits.
+  - [ ] 5.0m2 the conversion between the two layouts field by field, `FaceRunTruncated` gone
+    → done when: a PES 15 → 21 conversion of a cup player keeps his face fields and leaves the
+    target's hair bits, and a 21 → 15 one the reverse.
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
@@ -828,8 +855,8 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     after 5.1b
 - [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
   the harness: a stripped and seeded save shows every player as before; a compiled team's rows
-  show; a file without `[appearance.unknown]` renders acceptably with the all-zero default →
-  done when: each a `manual: checked` line here
+  show; a file that sets no face or hair key shows the default face → done when: each a
+  `manual: checked` line here
 - [ ] 5.6 Converge (`AGENTS.md` "Closing a phase")
 
 ### Phase 16 — Polish and distribution
