@@ -26,6 +26,7 @@ env_logger = { version = "0.11.11", default-features = false }
 flate2 = "1.1.10"
 libc = "0.2.189"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "bmp", "webp", "tga", "tiff"] }
+indexmap = "2.14.2"
 log = "0.4.34"
 md-5 = "0.11.0"
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
@@ -62,6 +63,7 @@ fpk = { path = "crates/libs/fpk" }
 kit_config = { path = "crates/libs/kit_config" }
 ftex = { path = "crates/libs/ftex" }
 model_convert = { path = "crates/libs/model_convert" }
+music_export = { path = "crates/libs/music_export" }
 pes_model = { path = "crates/libs/pes_model" }
 pes_savefile = { path = "crates/libs/pes_savefile" }
 pes_version = { path = "crates/libs/pes_version" }

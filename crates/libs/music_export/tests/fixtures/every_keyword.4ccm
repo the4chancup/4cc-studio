@@ -1,0 +1,22 @@
+# A hand-written export using every condition and instruction no cup export on the
+# writing machine used: teamgoals, lead, mostgoals, special with a spaced label, time,
+# home, bracketed and escaped tokens, speed, louder, warcry, unrandom, pause every,
+# a slot-only line, both flags, and event clips.
+name;Nijiura JP
+sync;no
+normalize;off
+
+anthem;Anthem.mp3;match knockouts;start 1:02:03.5
+anthem
+victory;VA.mp3;special [Promotion Anthem];end stop
+victory;VA home.mp3;home;teamgoals >= 3
+goal;Goalhorn.mp3;opponent jp [v o];pause restart every 2;speed 1.25
+chant;c.mp3;unrandom;louder
+
+Cat Look Like Janny;janny warcry.mp3;warcry
+Cat Look Like Janny;janny lead.mp3;lead > 1;mostgoals;time <= 45
+Cat Look Like Janny;janny not.mp3;not mostgoals [Get Out];every 2
+Get Out;endless tewi.mp3;goals = 1;special
+Get Out;red.mp3;event red
+Get Out;sub.mp3;event sub;start 0:02
+Other 2hu reps:,Whale/Suffering;\[escaped].mp3;opponent \[v]

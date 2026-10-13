@@ -1,0 +1,21 @@
+# team identifier
+name;v
+
+# reserved names
+anthem;01 - Snake Eater ( Cynthia Harrel ).mp3;match group;start 0:43
+anthem;07 - Mike Oldfield - Nuclear.mp3;match third-place consolation;start 0:57
+anthem;Wonderball 101 - Tables Turnover (Quad City DJs vs Platinum Star Games feat. Fort Minor) (320  kbps).mp3;match final boss semifinal ro16 quarterfinal
+anthem;FRIDAY NIGHT MOTHERFUCKER.mp3
+victory;220 - Always (2009 Mix).mp3
+goal;04 Gone Guru.mp3;lead > 3
+goal;03 Galo Sengen.mp3
+
+# regular players
+Dante;Devil May Cry 5 OST - Devil Trigger - Full Game Edit.mp3;end stop
+JC Denton;Deus Ex Gon' Give It to Ya (320  kbps).mp3;goals >= 2
+JC Denton;Bombophone (320  kbps).mp3
+Todd Howard;Todd and the sweet little lies (320  kbps).mp3
+chant;My Name is... Shazbot (320  kbps).mp3
+chant;All Super Mario 64 Sound Effects (320  kbps).mp3
+sanic;SANIC EX (320  kbps).mp3;goals >= 3
+sanic;theme of sanic hegehog (320  kbps).mp3

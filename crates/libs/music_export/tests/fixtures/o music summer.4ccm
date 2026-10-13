@@ -1,0 +1,19 @@
+# team name; optional, must be first non-empty, non-comment line in file
+# if not provided, file name will be used
+name;o
+
+# default anthem
+anthem;O - Anthem.mp3
+# victory anthem
+victory;O - Victory Anthem.mp3
+
+# default goalhorn
+goal;O - Main goalhorn.mp3
+
+# player goalhorns
+Takumi;O - Takumi single goalhorn.mp3;goals = 1;start 00:22.617
+Takumi;O - Takumi brace+ goalhorn.mp3;goals >= 2;start 00:12.346
+Twingo;O - Twingo goalhorn.mp3;goals = 1
+Miata;O - Miata goalhorn.mp3;end stop;pause restart
+Scotty Kilmer;O - Scotty Kilmer goalhorn.mp3
+[COOL VIBRATIONS];O - COOL VIBRATIONS goalhorn.mp3

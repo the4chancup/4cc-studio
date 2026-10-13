@@ -1,0 +1,68 @@
+# team identifier
+name;vg
+sync;yes
+
+# reserved names
+anthem;vg - Anthem.mp3;start 0:59
+victory;vg - Victory Anthem.mp3
+goal;vg - Comeback Goalhorn.mp3;comeback
+goal;vg - Goalhorn.mp3
+chant;Chant - hgg2d 1.mp3
+chant;Chant - hgg2d 2.mp3
+chant;Chant - hgg2d 3.mp3
+chant;Chant - hgg2d 4.mp3
+chant;Chant - xivg 1.mp3
+chant;Chant - xivg 2.mp3
+chant;Chant - xivg 3.mp3
+chant;Chant - xivg 4.mp3
+chant;Chant - hdg 1.mp3
+chant;Chant - hdg 2.mp3
+chant;Chant - hdg 3.mp3
+chant;Chant - hdg 4.mp3
+chant;vg - Chant dsg.mp3
+chant;vg - Chant dng.mp3
+chant;vg - Chant 5naf.mp3
+chant;vg - Chant dng 2.mp3
+chant;vg - Chant ffg.mp3
+chant;vg - Chant twg.mp3
+chant;vg - Chant ddg.mp3
+chant;vg - Chant llsifg.mp3
+chant;vg - Chant aog.mp3
+chant;vg - Chant vrg.mp3
+chant;vg - Chant dbg.mp3
+chant;vg - Chant dbg 2.mp3
+chant;vg - Chant lzg.mp3
+chant;vg - Chant ssbg.mp3
+chant;vg - Chant xcg.mp3
+chant;vg - Chant hgg2d.mp3
+chant;vg - Chant hgg2d 2.mp3
+chant;vg - Chant akg.mp3
+chant;vg - Chant twg 2.mp3
+chant;vg - Chant twg 3.mp3
+chant;vg - Chant 2hug.mp3
+chant;vg - Chant gbfg.mp3
+chant;vg - Chant lcg.mp3
+chant;vg - Chant vrg 2.mp3
+chant;vg - Chant 1999.mp3
+chant;Chant - nepgen 1.mp3
+chant;Chant - nepgen 2.mp3
+chant;Chant - nepgen 3.mp3
+chant;Chant - nepgen 4.mp3
+
+# regular players
+Git Gud;Git Gud.mp3;goals >= 3
+Buy Game Pass;vg - Comeback Goalhorn.mp3;comeback;first
+Buy Game Pass;vg - Goalhorn.mp3;first
+Buy Game Pass;Goalhorn - Buy Gamepass.mp3
+John Helldiver;vg - Comeback Goalhorn.mp3;comeback;first
+John Helldiver;vg - Goalhorn.mp3;first;advance
+John Helldiver;Goalhorn - John Helldiver 2.mp3;goals >= 2
+John Helldiver;Goalhorn - John Helldiver 1.mp3
+Mandate of Cunny;vg - Comeback Goalhorn.mp3;comeback;first
+Mandate of Cunny;vg - Goalhorn.mp3;first
+Mandate of Cunny;Goalhorn - Serena 2.mp3;match ro16 third-place semifinal quarterfinal;not first
+Mandate of Cunny;Goalhorn - Serena 1.mp3;match group
+Sexy Hagcat;Goalhorn - Sexy Hagcat 1.mp3;end loop;randomise
+Sexy Hagcat;Goalhorn - Sexy Hagcat 2.mp3;end loop;randomise
+Sexy Hagcat;Goalhorn - Sexy Hagcat 3.mp3;start 1:45;end loop;randomise
+Sexy Hagcat;Goalhorn - Sexy Hagcat 4.mp3;start 0:43;end loop;randomise

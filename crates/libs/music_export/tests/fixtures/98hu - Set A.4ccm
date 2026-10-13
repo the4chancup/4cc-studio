@@ -1,0 +1,35 @@
+# team name
+name;98hu
+
+# anthem
+anthem;98HU - Anthem 3.mp3;end stop;match semifinal third-place final boss
+anthem;98HU - Anthem 2.mp3;end stop;match ro16 quarterfinal
+anthem;98HU - Anthem.mp3;end stop
+
+# victory anthem
+victory;98HU - Victory Anthem.mp3;end stop
+victory;98HU - Promotion Anthem.mp3;special;end stop
+victory;98HU - Yuuka MOTM.mp3;special;end stop
+victory;98HU - Alice MOTM.mp3;special;end stop
+
+# default goalhorn
+goal;98HU - Main Goalhorn.mp3
+
+# player goalhorns
+[CF] I can feel it in my bones;98HU - Mima Goalhorn 2.mp3;goals >= 3
+[CF] I can feel it in my bones;98HU - Mima Goalhorn.mp3
+[AMF] Mommy Shinki;98HU - Shinki Goalhorn 2.mp3;goals >= 2
+[AMF] Mommy Shinki;98HU - Shinki Goalhorn.mp3
+[SS] Yokai Moe;98HU - Yuuka Goalhorn 2.mp3;match ro16 quarterfinal semifinal third-place final boss
+[SS] Yokai Moe;98HU - Yuuka Goalhorn.mp3
+[SS] Lolice;98HU - Alice Goalhorn 2.mp3;goals >= 2
+[SS] Lolice;98HU - Alice Goalhorn.mp3
+[CMF] Just Train Harder;98HU - Marisa Goalhorn.mp3
+[LB] Get rid of yourself;98HU - Yumemi Goalhorn.mp3
+[LB] Now you've done it;98HU - Yuki Goalhorn.mp3
+[RB] You're not bad;98HU - Mai Goalhorn.mp3;end stop;pause restart
+[RB] Gengetsu Rape Time;98HU - Gengetsu Goalhorn.mp3
+[RB] Flying Tank;98HU - Sigma Goalhorn.mp3
+
+#chants
+#soon tm

@@ -1,0 +1,47 @@
+# team identifier
+name;jp
+
+# reserved names
+anthem;theme2.mp3;opponent lit
+anthem;theme1.mp3
+victory;theme2.mp3
+goal;bam bam bam.mp3;opponent wsg
+goal;power of darkness.mp3;opponent v;start 0:02
+goal;tewibanjopowerhouse.mp3;match ro16 third-place semifinal quarterfinal final
+goal;Kurenai.mp3
+chant;chant - aniki.mp3
+chant;chant - ass we can.mp3
+chant;chant - huwaito piggu.mp3
+chant;chant - yoooo.mp3
+chant;chant - the subterranean experience.mp3
+chant;chant - learningjap.mp3
+
+# regular players
+Billy;billy a.mp3;opponent a
+Billy;billy aco.mp3;opponent aco
+Billy;billy an.mp3;opponent an
+Billy;billy gd.mp3;opponent gd
+Billy;billy o.mp3;opponent o
+Billy;billy s4s.mp3;opponent s4s
+Billy;billy t.mp3;opponent t
+Billy;billy trv.mp3;opponent trv
+Billy;billy tv.mp3;opponent tv
+Billy;billy v.mp3;opponent v
+Billy;billy vm.mp3;opponent vm
+Billy;billy vr.mp3;opponent vr
+Billy;billy vst.mp3;opponent vst
+Billy;billy vt.mp3;opponent vt
+Billy;billy wg.mp3;opponent wg
+Billy;billy wsg.mp3;opponent wsg
+Billy;billy main.mp3
+Dekinai-chan;dekinai.mp3
+Get Out;marisa-6.mp3;goals >= 6
+Get Out;marisa-4-5.mp3;goals >= 4
+Get Out;marisa-3.mp3;goals >= 3
+Get Out;marisa-KO1-2.mp3;match ro16 semifinal third-place boss quarterfinal final
+Get Out;marisa-2.mp3;goals >= 2
+Get Out;endless tewi.mp3;goals >= 1
+Neco-Arc;arc.mp3
+Other 2hu reps:,Whale/Suffering/Rapist,Yukari/Tenshi;endless tewi.mp3
+Shiteyanyo;shiteyanyo-hand.mp3
+Take it Easy;yukkuri-miku.ogg

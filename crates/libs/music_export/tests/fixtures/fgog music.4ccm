@@ -1,0 +1,25 @@
+# team identifier
+name;fgog
+
+# reserved names
+anthem;FGOG - A - KO-RO16.mp3;match ro16
+anthem;FGOG - A - KO-QF.mp3;match quarterfinal
+anthem;FGOG - A - KO-SF.mp3;match semifinal
+anthem;FGOG - A - KO-F.mp3;match final
+anthem;FGOG - A - Anthem.mp3;start 0:39.6
+victory;FGOG - V - Lion Throne.mp3;match semifinal
+victory;FGOG - V - THE WINNER TAKES ALL.mp3;match final
+victory;FGOG - V - Victory.mp3
+goal;FGOG - G - Main.mp3
+
+# regular players
+APEX;FGOG - G - APEX trick.mp3;goals >= 2
+APEX;FGOG - G - APEX.mp3
+AUO;FGOG - G - AUO.mp3
+JETS;FGOG - G - JETS.mp3
+JETS;FGOG - G - JETS Brace.mp3;goals == 2
+Regend;FGOG - G - Regend.mp3
+STELLAAAAA;FGOG - G - Stella.mp3;end stop;pause restart
+Smug Redman;FGOG - G - Red Comeback.mp3;comeback;once
+Smug Redman;FGOG - G - Red Weeb.mp3;every 3
+Smug Redman;FGOG - G - Redman.mp3
