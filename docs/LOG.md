@@ -1919,3 +1919,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 20.0a: a member's plain-language rules proposal mapped item by item onto
   the AATF schema; its gaps became fields (value ranges, stronger foot, "any of", form and
   injury-resistance effects), with VTL11's tier name colour, all to implement at 5.2d2.
+- **2026-10-14** — Step 20.0b: the Ruleset editor drafted as one interactive page
+  (`docs/prototypes/ruleset_editor.html`), egui's widgets only, with the rules file's data block
+  rebuilt beside the forms; for the unedited sample it holds the official file's values.

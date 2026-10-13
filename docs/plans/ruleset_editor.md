@@ -41,10 +41,12 @@ mark in the rail.
   one line on what each list does).
 - **Tiers**: a table, one row per tier, highest first, reordered by dragging, since the order is
   the recognition order and the quick-action buttons' order. Columns: label, count (a number or
-  "the rest"), counts as, rate, form, injury resistance, weak foot, paid cards, minimum cards,
-  free cards per group, A positions, name colour (none or a swatch). Per row, an expander holds the per-stat targets (all
-  ability stats, empty meaning "the rate") and the tier's conditions (the condition editor
-  below).
+  "the rest"), id, counts as, rate, form, injury resistance, weak foot, paid cards, minimum
+  cards, A positions, name colour (none or a swatch). Per row, an expander holds the per-stat
+  targets (all ability stats, empty meaning "the rate"), the free cards per group (one number
+  per group, COM styles first: as columns they would widen the table past a laptop screen)
+  and the tier's conditions (the condition editor below). The draft is
+  `docs/prototypes/ruleset_editor.html`.
 - **Heights**: a "use height brackets" switch. On: the brackets in ascending order, each "up to
   N cm" or "exactly N, M cm"; the height systems in order, each "when any player is …" (the
   condition editor, limited to height and position) with a quota per bracket, the last one

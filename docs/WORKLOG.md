@@ -17,8 +17,8 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; then 5.2c3-r1, 5.0m3, 5.2d2, 5.0m4,
-step 20.0b (the Ruleset editor draft) and 5.4a5-6
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; then 5.2c3-r1, 5.0m3, 5.2d2, 5.0m4
+and 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -985,7 +985,7 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 The phase is itemized when it opens; its GUI is drafted ahead of it, at the maintainer's request
 (2026-10-14), to show the members who offered to help shape the ruleset format:
 
-- [ ] 20.0 The Ruleset editor's GUI draft, right after 5.2c3-5.2e1 land with their review
+- [x] 20.0 The Ruleset editor's GUI draft, right after 5.2c3-5.2e1 land with their review
   rework, before 5.2e-2's VGL/VTL rulesets (moved up by the maintainer, 2026-10-14): the draft
   needs only the schema, and input that changes the format costs less before more rulesets are
   written against it. Its purpose is to show the members that a Rhai rules file is a sound
@@ -1009,13 +1009,21 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     "Coverage of a plain-language proposal", 30 rows; the gaps became fields (`ranges`,
     `strong_foot`, `any`, the `form` and `injury_resistance` effects, `team.formation` for
     custom checks), implemented at 5.2d2; `ruleset_editor.md`'s forms carry them
-  - [ ] 20.0b the interactive draft (`core/gui.md` "Prototypes before implementation"):
+  - [x] 20.0b the interactive draft (`core/gui.md` "Prototypes before implementation"):
     `docs/prototypes/ruleset_editor.html` over the `ruleset_editor.md` forms, the official
     Autumn 26 ruleset as its sample data, every schema field reachable, the data-block pane
     beside the forms → verify: each of `ruleset_editor.md`'s editor sections has its form in
     the draft, each row of 20.0a's table that maps to a schema field has a widget the page
     can show it in, and the page uses only the allowed widgets (the lead's read against that
-    list)
+    list). Done 2026-10-14 (lead): one file, every section of the
+    editor (start page, the nine sections, undo and redo, the load rules as live problems
+    with the rail's marks, Save refusing while a problem stands); the data block is rebuilt
+    on each edit, changed lines highlighted, and for the unedited sample holds the same
+    values as `rulesets/autumn26.rhai` (a headless-Edge harness, `.tmp/20_0/run_harness.py`,
+    which also renders every section and adds every condition and effect kind). Randomize,
+    Open and the other templates are shown disabled. Per-group free cards moved into each
+    tier's expander (`ruleset_editor.md` "The editor"). To show the members; their remarks
+    go into the plan before Phase 20's itemization
 
 ---
 

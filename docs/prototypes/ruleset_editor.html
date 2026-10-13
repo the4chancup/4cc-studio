@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>4cc Studio: Ruleset editor (draft)</title>
+<!--
+  A draft of the Ruleset editor's GUI (docs/plans/ruleset_editor.md "The editor"), drawn only
+  with what egui can draw (docs/plans/core/gui.md "Prototypes before implementation"): its
+  behaviour is faked with sample data and nothing is written. The right-hand pane shows the
+  ruleset file's data block as the editor would write it, rebuilt on every edit.
+  Widget mapping: <input type=number> = DragValue, <select> = ComboBox, .sel = SelectableLabel,
+  <details> = CollapsingHeader, table.grid = Grid, .menu = menu_button, .window = Window/Modal,
+  the colour swatch = color_edit_button, title="" = on_hover_text.
+-->
+<style>
+  :root {
+    --panel: #1b1b1b; --extreme: #0a0a0a; --faint: #202020; --widget: #3c3c3c;
+    --hover: #464646; --active: #373737; --stroke: #3c3c3c; --text: #8c8c8c;
+    --strong: #dcdcdc; --sel-bg: #005c80; --sel-fg: #c0deff; --link: #5aaaff;
+    --warn: #ff8f00; --error: #ff0000; --changed: #2a3a1e;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--panel); color: var(--text);
+    font: 300 12.5px "Ubuntu", "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .top, .bottom { background: var(--panel); padding: 3px 8px; display: flex; gap: 8px; align-items: center; }
+  .top { border-bottom: 1px solid var(--stroke); }
+  .bottom { border-top: 1px solid var(--stroke); min-height: 26px; }
+  .main { flex: 1; display: flex; min-height: 0; }
+  .rail { width: 150px; border-right: 1px solid var(--stroke); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .center { flex: 1; overflow: auto; padding: 8px 12px 40px; min-width: 0; }
+  .data { width: 590px; border-left: 1px solid var(--stroke); display: flex; flex-direction: column; min-height: 0; }
+  .data pre { flex: 1; margin: 0; overflow: auto; background: var(--extreme); padding: 6px; font: 12px "Hack", "Consolas", monospace; color: #b4b4b4; }
+  .data pre div { white-space: pre; min-height: 14px; }
+  .data pre div.changed { background: var(--changed); }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 3px 0; }
+  .col { display: flex; flex-direction: column; gap: 3px; }
+  h2 { font: 400 15px "Ubuntu", "Segoe UI", sans-serif; color: var(--strong); margin: 4px 0 8px; }
+  .strong { color: var(--strong); }
+  .weak { color: #6e6e6e; }
+  .warn { color: var(--warn); }
+  .err { color: var(--error); }
+  .mono { font-family: "Hack", "Consolas", monospace; font-size: 12px; }
+  button, select, input { font: inherit; color: #b4b4b4; }
+  button { background: var(--widget); border: 0; border-radius: 2px; padding: 1px 6px; cursor: default; }
+  button:hover:not(:disabled) { background: var(--hover); color: #f0f0f0; }
+  button:active:not(:disabled) { background: var(--active); }
+  button:disabled { color: #5a5a5a; }
+  button.frame0 { background: transparent; }
+  button.frame0:hover:not(:disabled) { background: var(--hover); }
+  select { background: var(--widget); border: 0; border-radius: 2px; padding: 1px 2px; }
+  input[type=text], input[type=number] { background: var(--extreme); border: 1px solid var(--stroke); border-radius: 2px; padding: 1px 4px; }
+  input[type=number] { width: 52px; background: var(--widget); border: 0; text-align: center; }
+  input[type=text]:focus, input[type=number]:focus { outline: 1px solid var(--sel-fg); }
+  input[type=color] { width: 22px; height: 16px; border: 0; padding: 0; background: none; }
+  label.cb { display: inline-flex; align-items: center; gap: 4px; }
+  input[type=checkbox], input[type=radio] { accent-color: var(--sel-bg); margin: 0; }
+  .sel { padding: 1px 5px; border-radius: 2px; cursor: default; user-select: none; }
+  .sel:hover { background: var(--hover); color: #f0f0f0; }
+  .sel.on { background: var(--sel-bg); color: var(--sel-fg); }
+  .rail .sel { padding: 3px 6px; display: flex; justify-content: space-between; }
+  table.grid { border-collapse: collapse; }
+  table.grid td, table.grid th { padding: 2px 4px; text-align: left; vertical-align: middle; }
+  table.grid td > .row, table.grid td > span > .row { flex-wrap: nowrap; }
+  table.grid th { font-weight: 400; color: var(--strong); }
+  details { margin: 2px 0 4px; }
+  details > summary { cursor: default; color: var(--strong); list-style: none; }
+  details > summary::before { content: "\25B6"; font-size: 9px; display: inline-block; width: 14px; }
+  details[open] > summary::before { content: "\25BC"; }
+  details > .body { padding-left: 14px; }
+  .group { border: 1px solid var(--stroke); border-radius: 2px; padding: 6px; margin: 6px 0; }
+  .sep { border-top: 1px solid var(--stroke); margin: 8px 0; }
+  .handle { cursor: grab; color: #6e6e6e; padding: 0 4px; user-select: none; }
+  .dragover { outline: 1px solid var(--sel-fg); }
+  .menu { position: fixed; background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px; padding: 4px; z-index: 20; box-shadow: 0 4px 16px #000a; display: flex; flex-direction: column; min-width: 160px; }
+  .menu button { text-align: left; background: transparent; padding: 2px 8px; }
+  .menu button:hover:not(:disabled) { background: var(--hover); }
+  .modal-bg { position: fixed; inset: 0; background: #0008; display: flex; align-items: center; justify-content: center; z-index: 10; }
+  .window { background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px; padding: 8px 12px; box-shadow: 0 8px 24px #000c; min-width: 360px; max-width: 640px; }
+  .window .title { color: var(--strong); font-size: 14px; margin-bottom: 8px; }
+  .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; border: 1px solid #000; vertical-align: middle; }
+  .chip { background: var(--widget); border-radius: 2px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<div class="top" id="top"></div>
+<div class="main">
+  <div class="rail" id="rail"></div>
+  <div class="center" id="center"></div>
+  <div class="data">
+    <div class="row" style="padding:4px 8px; margin:0">
+      <span class="strong">Rules file: data block</span>
+      <span class="weak" title="The editor writes this block; you can also edit it by hand. Changed lines are highlighted.">(read-only)</span>
+    </div>
+    <pre id="block"></pre>
+  </div>
+</div>
+<div class="bottom" id="bottom"></div>
+<div id="overlay"></div>
+<script>
+"use strict";
+
+// ---- Closed sets: pes_savefile's Team TOML labels ----
+const STATS = ["attacking_prowess", "ball_control", "dribbling", "low_pass", "lofted_pass",
+  "finishing", "place_kicking", "swerve", "heading", "defensive_prowess", "ball_winning",
+  "kicking_power", "speed", "explosive_power", "body_control", "physical_contact", "jump",
+  "goalkeeping", "catching", "clearing", "reflexes", "coverage", "stamina", "tight_possession",
+  "aggression"];
+const AT_MOST_EXTRA = ["form", "injury_resistance", "weak_foot_usage", "weak_foot_accuracy"];
+const RANGE_VALUES = ["age", "weight", "form", "injury_resistance", "weak_foot_usage",
+  "weak_foot_accuracy"].concat(STATS);
+const SKILLS = ["scissors_feint", "flip_flap", "marseille_turn", "sombrero",
+  "cut_behind_and_turn", "scotch_move", "heading", "long_range_drive", "knuckle_shot",
+  "acrobatic_finishing", "heel_trick", "first_time_shot", "one_touch_pass", "weighted_pass",
+  "pinpoint_crossing", "outside_curler", "rabona", "low_lofted_pass", "low_punt_trajectory",
+  "long_throw", "gk_long_throw", "malicia", "man_marking", "track_back", "acrobatic_clear",
+  "captaincy", "super_sub", "fighting_spirit", "double_touch", "crossover_turn",
+  "step_on_skill", "chip_shot", "dipping_shots", "rising_shots", "no_look_pass", "gk_high_punt",
+  "penalty_specialist", "gk_penalty_specialist", "interception", "long_range_shooting",
+  "through_passing"];
+const COM = ["trickster", "mazing_run", "speeding_bullet", "incisive_run", "long_ball_expert",
+  "early_cross", "long_ranger"];
+const CARDS = SKILLS.concat(COM);
+const POSITIONS = ["GK", "CB", "LB", "RB", "DMF", "CMF", "LMF", "RMF", "AMF", "LWF", "RWF", "SS", "CF"];
+const STYLES = ["goal_poacher", "dummy_runner", "fox_in_the_box", "target_man",
+  "creative_playmaker", "prolific_winger", "roaming_flank", "crossing_specialist",
+  "classic_no_10", "hole_player", "box_to_box", "the_destroyer", "orchestrator", "anchor_man",
+  "offensive_fullback", "fullback_finisher", "defensive_fullback", "build_up",
+  "extra_frontman", "offensive_goalkeeper", "defensive_goalkeeper"];
+const VERSIONS = [15, 16, 17, 18, 19, 20, 21];
+const CHOICE_EFFECTS = ["stat_bonus", "cards", "free", "free_cards", "a_positions",
+  "max_a_positions", "weak_foot"];
+const SECTIONS = [["general", "General"], ["tiers", "Tiers"], ["heights", "Heights"],
+  ["cards", "Cards"], ["universal", "Universal rules"], ["specials", "Specials"],
+  ["suggestions", "Suggestions"], ["custom", "Custom checks"], ["summary", "Summary"]];
+
+// ---- The official file, crates/libs/aatf/rulesets/autumn26.rhai ----
+const AUTUMN26 = {
+  schema: 1, name: "Autumn 26", squad_size: 23,
+  stats: {
+    rating: ["dribbling", "goalkeeping", "finishing", "low_pass", "lofted_pass", "heading",
+      "swerve", "catching", "clearing", "reflexes", "coverage", "body_control",
+      "physical_contact", "kicking_power", "explosive_power", "ball_control", "ball_winning",
+      "jump", "place_kicking", "stamina", "speed", "aggression"],
+    at_most: ["attacking_prowess", "defensive_prowess", "injury_resistance", "weak_foot_usage",
+      "weak_foot_accuracy"],
+  },
+  tiers: [
+    tier("gold", "Gold", 1, 99, 8, 3, 4, 6, { tricks: 3, com: 2 }),
+    tier("silver", "Silver", 2, 92, 8, 3, 4, 5, { tricks: 3, com: 1 }),
+    tier("bronze", "Bronze", 2, 86, 8, 3, 4, 4, { tricks: 3, com: 1 }),
+    Object.assign(tier("goalkeeper", "Goalkeeper", null, 77, 4, 1, 2, 2, {}),
+      { counts_as: "regular", when: { positions: ["GK"] } }),
+    tier("regular", "Regular", null, 77, 4, 1, 2, 3, { tricks: 2 }),
+  ],
+  card_groups: {
+    tricks: ["scissors_feint", "flip_flap", "marseille_turn", "sombrero", "cut_behind_and_turn",
+      "scotch_move", "rabona", "double_touch", "crossover_turn", "step_on_skill", "no_look_pass"],
+  },
+  heights: {
+    brackets: [
+      { id: "manlet", label: "Manlet", up_to: 175 },
+      { id: "mid", label: "Mid", up_to: 180 },
+      { id: "tall", label: "Tall", exactly: [185] },
+      { id: "giant", label: "Giant", exactly: [194] },
+      { id: "giga", label: "Giga", exactly: [199] },
+    ],
+    systems: [
+      { id: "green", label: "Green", any_player: { height_min: 194 },
+        quotas: { giga: 0, giant: 6, tall: 6, mid: 5, manlet: 6 } },
+      { id: "red", label: "Red", any_player: null,
+        quotas: { giga: 0, giant: 0, tall: 10, mid: 7, manlet: 6 } },
+    ],
+  },
+  universal: {
+    registered_position_a: true, fielded_at_a: [], no_b_ratings: true, b_uses_a_allowance: false,
+    gk_not_second_a: true, age: [15, 50], weight: { floor: 30, below: 129, above: 81 },
+    captain_required: true, min_goalkeepers: 1, max_skill_cards: 10, max_com_styles: null,
+  },
+  specials: [
+    special("Malicia is a free card", {}, { free_cards: ["malicia"] }),
+    special("The captain's Captaincy card is free", { captain: true }, { free_cards: ["captaincy"] }),
+    special("Medals cannot be goalkeepers", { tiers: ["gold", "silver", "bronze"], positions: ["GK"] },
+      { forbid: "Medals cannot play as GK" }),
+    special("Goalkeepers at 189 count as tall", { positions: ["GK"], height_min: 189, height_max: 189 },
+      { height_allowance: 4 }),
+    special("Tall goalkeepers are 189", { positions: ["GK"], height_min: 181, height_max: 188 },
+      { forbid: "GKs in this bracket must be 189cm" }),
+    special("Goalkeepers below giant", { positions: ["GK"], height_min: 194 },
+      { forbid: "GK heights cannot be 194cm or more" }, "warning"),
+    special("Gold below giant", { tiers: ["gold"], height_min: 194 },
+      { forbid: "Gold heights cannot be 194cm or more" }, "warning"),
+    special("Red CBs up to 189",
+      { tiers: ["regular"], systems: ["red"], positions: ["CB"], fielded_only_at: "CB" },
+      { height_allowance: 4 }),
+    special("Manlets", { brackets: ["manlet"] },
+      { cards: 1, a_positions: 1, weak_foot: { usage: 4, accuracy: 4 } }),
+    special("Red manlet bonus", { systems: ["red"], height_max: 175 },
+      { stat_bonus: { all: { regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } } }),
+    special("Green silver giants", { tiers: ["silver"], systems: ["green"], height_min: 194 },
+      { stat_bonus: { all: -3 } }),
+    special("Medals: a free A position or a free COM style", { tiers: ["gold", "silver", "bronze"] },
+      { choice: [{ free: { com: 1 } }, { a_positions: 1 }] }),
+  ],
+  team_settings: [],
+  suggestions: ["cards", "tricks", "com", "weak_foot", "injury_resistance"],
+  custom_checks: null,
+};
+
+const CUSTOM_SAMPLE = `fn custom_checks(team) {
+    // At most two registered positions among the 188 cm players.
+    let seen = [];
+    for player in team.players {
+        if player.height == 188 && !(player.position in seen) { seen.push(player.position); }
+    }
+    if seen.len() > 2 {
+        return [#{ kind: "Custom", text: "188 cm players share more than two positions" }];
+    }
+    []
+}`;
+
+function tier(id, label, count, rate, form, injury, weakFoot, cards, free) {
+  return { id, label, count, counts_as: null, when: {}, rate, stats: {}, form,
+    injury_resistance: injury, weak_foot: { usage: weakFoot, accuracy: weakFoot }, cards,
+    min_cards: 0, free, a_positions: 1, name_color: null };
+}
+function special(label, when, then, severity) {
+  return { label, when, then, severity: severity || "error" };
+}
+function blank() {
+  return {
+    schema: 1, name: "New ruleset", squad_size: 23,
+    stats: clone(AUTUMN26.stats),
+    tiers: [tier("regular", "Regular", null, 75, 4, 1, 2, 3, {})],
+    card_groups: {},
+    heights: { brackets: [], systems: [] },
+    universal: { registered_position_a: true, fielded_at_a: [], no_b_ratings: true,
+      b_uses_a_allowance: false, gk_not_second_a: true, age: null, weight: null,
+      captain_required: true, min_goalkeepers: 1, max_skill_cards: 10, max_com_styles: null },
+    specials: [], team_settings: [], suggestions: [], custom_checks: null,
+  };
+}
+
+// ---- State ----
+let R = null;               // the ruleset being edited
+let section = "general";
+let undo = [], redo = [], last = "";
+let saved = "";
+const open = new Set();     // the paths of open collapsing headers
+let previousLines = [];
+
+function clone(v) { return JSON.parse(JSON.stringify(v)); }
+function human(id) {
+  return id.split("_").map(w => w === "gk" || w === "com" ? w.toUpperCase()
+    : w[0].toUpperCase() + w.slice(1)).join(" ");
+}
+
+// ---- Widgets (each one an egui widget) ----
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k === "class") e.className = v;
+    else if (k === "style") e.style.cssText = v;
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false)
+    e.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  return e;
+}
+const row = (...kids) => h("div", { class: "row" }, ...kids);
+const weak = text => h("span", { class: "weak" }, text);
+const strong = text => h("span", { class: "strong" }, text);
+function button(text, onclick, opts = {}) {
+  return h("button", { onclick, disabled: opts.disabled, title: opts.title, class: opts.frame0 ? "frame0" : "" }, text);
+}
+function checkbox(text, value, set, title) {
+  return h("label", { class: "cb", title }, h("input", { type: "checkbox", checked: value,
+    onchange: e => { set(e.target.checked); structural(); } }), text);
+}
+function drag(value, set, opts = {}) {
+  return h("input", { type: "number", value: value ?? "", min: opts.min ?? 0, max: opts.max ?? 255,
+    placeholder: opts.placeholder, title: opts.title, style: opts.width ? `width:${opts.width}px` : "",
+    oninput: e => { const v = e.target.value === "" ? null : Number(e.target.value); set(v); changed(); },
+    onchange: commit });
+}
+function text(value, set, opts = {}) {
+  return h("input", { type: "text", value: value ?? "", class: opts.mono ? "mono" : "",
+    style: `width:${opts.width || 140}px`, placeholder: opts.placeholder, title: opts.title,
+    oninput: e => { set(e.target.value); changed(); }, onchange: commit });
+}
+function combo(options, value, set, opts = {}) {
+  const s = h("select", { title: opts.title, onchange: e => { set(e.target.value === "\u0000" ? null : e.target.value); structural(); } },
+    options.map(([v, label]) => h("option", { value: v ?? "\u0000", selected: v === value }, label)));
+  return s;
+}
+function selectable(label, on, toggle, title) {
+  return h("span", { class: "sel" + (on ? " on" : ""), title, onclick: () => { toggle(); structural(); } }, label);
+}
+function chips(all, list, set, label = human) {
+  return h("span", { class: "row", style: "margin:0" }, all.map(v => selectable(label(v), list.includes(v),
+    () => set(list.includes(v) ? list.filter(x => x !== v) : list.concat([v])))));
+}
+function collapsing(path, title, body, defaultOpen) {
+  const isOpen = open.has(path) || (defaultOpen && !open.has("closed:" + path));
+  const d = h("details", { open: isOpen, ontoggle: e => {
+    if (e.target.open) { open.add(path); open.delete("closed:" + path); }
+    else { open.delete(path); open.add("closed:" + path); }
+  } }, h("summary", {}, title), h("div", { class: "body" }, isOpen ? body() : null));
+  if (!isOpen) d.addEventListener("toggle", () => { if (d.open) render(); }, { once: true });
+  return d;
+}
+function menu(label, items, opts = {}) {
+  return h("button", { class: opts.frame0 ? "frame0" : "", title: opts.title, onclick: e => {
+    e.stopPropagation();
+    closeMenus();
+    const r = e.target.getBoundingClientRect();
+    const m = h("div", { class: "menu", style: `left:${r.left}px; top:${r.bottom + 2}px` },
+      items.map(([text, fn, disabled, title]) => text === "-" ? h("div", { class: "sep", style: "margin:3px 0" })
+        : h("button", { disabled, title, onclick: ev => { ev.stopPropagation(); closeMenus(); fn(); } }, text)));
+    document.body.append(m);
+    const bottom = m.getBoundingClientRect().bottom;
+    if (bottom > window.innerHeight) m.style.top = Math.max(4, r.top - m.offsetHeight - 2) + "px";
+  } }, label + " ⏷");
+}
+function closeMenus() { document.querySelectorAll(".menu").forEach(m => m.remove()); }
+document.addEventListener("click", closeMenus);
+function colour(hex8, set) {
+  const rgb = /^[0-9a-f]{6}/i.test(hex8 || "") ? "#" + hex8.slice(0, 6) : "#000000";
+  return h("span", { class: "row", style: "margin:0; gap:3px" },
+    h("input", { type: "color", value: rgb, title: "Colour (the code's last two digits are the alpha)",
+      oninput: e => { set(e.target.value.slice(1) + ((hex8 || "").slice(6, 8) || "ff")); changed(); },
+      onchange: structural }),
+    text(hex8, set, { mono: true, width: 76, title: "The eight hex digits after \\x11c in the name" }));
+}
+function remove(list, i) { return button("✕", () => { list.splice(i, 1); structural(); }, { frame0: true, title: "Remove" }); }
+function window_(title, body, buttons) {
+  const ov = document.getElementById("overlay");
+  ov.innerHTML = "";
+  ov.append(h("div", { class: "modal-bg" }, h("div", { class: "window" },
+    h("div", { class: "title" }, title), body, h("div", { class: "row", style: "justify-content:flex-end; margin-top:10px" }, buttons))));
+}
+function closeWindow() { document.getElementById("overlay").innerHTML = ""; }
+
+// Drag and drop between rows of one list (egui's dnd_drag_source / dnd_drop_zone).
+function reorderable(el, list, i) {
+  el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("dragover"); });
+  el.addEventListener("dragleave", () => el.classList.remove("dragover"));
+  el.addEventListener("drop", e => {
+    e.preventDefault(); el.classList.remove("dragover");
+    const from = Number(e.dataTransfer.getData("text/plain"));
+    if (Number.isNaN(from) || from === i) return;
+    const [moved] = list.splice(from, 1);
+    list.splice(i, 0, moved);
+    structural();
+  });
+  return el;
+}
+function handle(i) {
+  return h("span", { class: "handle", draggable: "true", title: "Drag to reorder",
+    ondragstart: e => e.dataTransfer.setData("text/plain", String(i)) }, "⠇");
+}
+
+// ---- Edits, undo, outputs ----
+function commit() {
+  const now = JSON.stringify(R);
+  if (now === last) return;
+  undo.push(last); redo = []; last = now;
+  refresh();
+}
+function structural() { commit(); render(); }
+function changed() { refresh(); }
+function load(ruleset) { R = clone(ruleset); undo = []; redo = []; last = JSON.stringify(R); saved = last; previousLines = []; render(); }
+function doUndo() { if (!undo.length) return; redo.push(last); last = undo.pop(); R = JSON.parse(last); render(); }
+function doRedo() { if (!redo.length) return; undo.push(last); last = redo.pop(); R = JSON.parse(last); render(); }
+document.addEventListener("keydown", e => {
+  if (!(e.ctrlKey || e.metaKey) || e.target.tagName === "INPUT") return;
+  if (e.key === "z") { e.preventDefault(); doUndo(); }
+  if (e.key === "y") { e.preventDefault(); doRedo(); }
+});
+
+// ---- The data block, as the editor writes it (aatf_rules.md "The rules file") ----
+function rv(v) {
+  if (v === null || v === undefined) return "()";
+  if (typeof v === "string") return JSON.stringify(v);
+  if (typeof v !== "object") return String(v);
+  if (Array.isArray(v)) return "[" + v.map(rv).join(", ") + "]";
+  const keys = Object.keys(v);
+  return keys.length ? "#{ " + keys.map(k => k + ": " + rv(v[k])).join(", ") + " }" : "#{}";
+}
+const isEmpty = v => v === null || v === undefined || v === "" || v === false || v === 0 ||
+  (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && v && !Object.keys(v).length);
+// `fields`: [key, mode], mode "req" (always), "opt" (left out only when absent), else left out
+// when empty: a field left out takes its empty value.
+function struct(obj, fields, conv = {}) {
+  const out = {};
+  for (const [k, mode] of fields) {
+    let v = obj[k];
+    if (conv[k] && v !== null && v !== undefined) v = conv[k](v);
+    if (mode === "req" || (mode === "opt" ? v !== null && v !== undefined : !isEmpty(v))) out[k] = v;
+  }
+  return out;
+}
+function condData(c) {
+  if (!c) return {};
+  return struct(c, [["tiers"], ["positions"], ["systems"], ["brackets"], ["height_min", "opt"],
+    ["height_max", "opt"], ["captain", "opt"], ["playing_styles"], ["holds"], ["rated_a_at"],
+    ["rated_b_at"], ["name_colors"], ["fielded_only_at", "opt"], ["ranges"], ["strong_foot", "opt"],
+    ["any"], ["not", "opt"]], { any: l => l.map(condData), not: condData });
+}
+function effectsData(e) {
+  return struct(e, [["stat_bonus"], ["stat_target"], ["cards", "opt"], ["free"], ["free_cards"],
+    ["require_cards"], ["a_positions", "opt"], ["max_a_positions", "opt"], ["form", "opt"],
+    ["injury_resistance", "opt"], ["weak_foot", "opt"], ["height_allowance", "opt"], ["forbid", "opt"],
+    ["choice"]], { choice: l => l.map(effectsData) });
+}
+function rulesetData(r) {
+  return {
+    schema: r.schema, name: r.name, squad_size: r.squad_size,
+    stats: struct(r.stats, [["rating"], ["at_most"]]),
+    tiers: r.tiers.map(t => struct(t, [["id", "req"], ["label", "req"], ["count", "opt"],
+      ["counts_as", "opt"], ["when"], ["rate", "req"], ["stats"], ["form"], ["injury_resistance"],
+      ["weak_foot"], ["cards"], ["min_cards"], ["free", "req"], ["a_positions"], ["name_color", "opt"]],
+      { when: condData })),
+    card_groups: r.card_groups,
+    heights: { brackets: r.heights.brackets.map(b => struct(b, [["id", "req"], ["label", "req"],
+      ["up_to", "opt"], ["exactly", "opt"]])),
+      systems: r.heights.systems.map(s => struct(s, [["id", "req"], ["label", "req"],
+        ["any_player", "opt"], ["quotas", "req"]], { any_player: c => isEmpty(condData(c)) ? null : condData(c) })) },
+    universal: struct(r.universal, [["registered_position_a"], ["fielded_at_a"], ["no_b_ratings"],
+      ["b_uses_a_allowance"], ["gk_not_second_a"], ["age", "opt"], ["weight", "opt"],
+      ["captain_required"], ["min_goalkeepers"], ["max_skill_cards", "req"], ["max_com_styles", "opt"]]),
+    specials: r.specials.map(s => struct(Object.assign({}, s, { severity: s.severity === "error" ? null : s.severity }),
+      [["label", "req"], ["severity", "opt"], ["when"], ["then"]], { when: condData, then: effectsData })),
+    team_settings: r.team_settings.map(t => struct(t, [["label", "req"], ["versions"],
+      ["man_marking", "opt"], ["auto_substitution", "opt"], ["auto_offside_trap", "opt"],
+      ["auto_preset_change", "opt"], ["auto_attack_defence_levels", "opt"], ["forbidden_shapes"]])),
+    suggestions: r.suggestions,
+  };
+}
+// Wraps one item's fields over lines of at most `width` characters.
+function wrapItem(obj, indent, width) {
+  const parts = Object.keys(obj).map(k => k + ": " + rv(obj[k]));
+  const lines = [];
+  let line = indent + "#{ ";
+  parts.forEach((p, i) => {
+    const piece = p + (i < parts.length - 1 ? "," : " },");
+    if (line.trim() !== "#{" && line.length + piece.length + 1 > width) { lines.push(line.trimEnd()); line = indent + "   "; }
+    line += piece + " ";
+  });
+  if (!parts.length) line = indent + "#{},";
+  lines.push(line.trimEnd());
+  return lines;
+}
+function dataBlock(r) {
+  const d = rulesetData(r);
+  const L = ["// 4cc Studio AATF ruleset. Open it in the Ruleset editor to change it.", "const RULESET = #{"];
+  const I = "    ", W = 76;
+  // `head` then the list's items, wrapped under it when the line would pass W.
+  const listLines = (indent, head, items) => {
+    const out = [];
+    let line = indent + head + "[";
+    items.forEach((v, i) => {
+      const piece = rv(v) + (i < items.length - 1 ? "," : "],");
+      if (i && line.length + piece.length + 1 > W) { out.push(line.trimEnd()); line = indent + I; }
+      line += piece + " ";
+    });
+    if (!items.length) line += "],";
+    out.push(line.trimEnd());
+    return out;
+  };
+  L.push(`${I}schema: ${d.schema},`, `${I}name: ${rv(d.name)},`, `${I}squad_size: ${d.squad_size},`, "");
+  L.push(`${I}stats: #{`);
+  for (const k of Object.keys(d.stats)) L.push(...listLines(I + I, k + ": ", d.stats[k]));
+  L.push(`${I}},`, "", `${I}tiers: [`);
+  d.tiers.forEach(t => L.push(...wrapItem(t, I + I, W)));
+  L.push(`${I}],`, "");
+  if (!isEmpty(d.card_groups)) {
+    L.push(`${I}card_groups: #{`);
+    for (const [k, v] of Object.entries(d.card_groups)) L.push(...listLines(I + I, k + ": ", v));
+    L.push(`${I}},`, "");
+  }
+  if (d.heights.brackets.length || d.heights.systems.length) {
+    L.push(`${I}heights: #{`, `${I}${I}brackets: [`);
+    d.heights.brackets.forEach(b => L.push(...wrapItem(b, I + I + I, W)));
+    L.push(`${I}${I}],`, `${I}${I}systems: [`);
+    d.heights.systems.forEach(s => L.push(...wrapItem(s, I + I + I, W)));
+    L.push(`${I}${I}],`, `${I}},`, "");
+  }
+  L.push(`${I}universal: #{`);
+  const u = Object.entries(d.universal).map(([k, v]) => `${k}: ${rv(v)}`);
+  let line = I + I;
+  u.forEach((p, i) => { if (line.trim() && line.length + p.length > W) { L.push(line.trimEnd()); line = I + I; } line += p + (i < u.length - 1 ? ", " : ","); });
+  L.push(line.trimEnd(), `${I}},`, "");
+  if (d.specials.length) {
+    L.push(`${I}specials: [`);
+    d.specials.forEach(s => L.push(...wrapItem(s, I + I, W)));
+    L.push(`${I}],`, "");
+  }
+  if (d.team_settings.length) {
+    L.push(`${I}team_settings: [`);
+    d.team_settings.forEach(s => L.push(...wrapItem(s, I + I, W)));
+    L.push(`${I}],`, "");
+  }
+  if (d.suggestions.length) L.push(...listLines(I, "suggestions: ", d.suggestions));
+  L.push("};", "", "// ==== LOGIC (ruleset-logic 1): written by 4cc Studio; the Ruleset editor replaces this section ====",
+    "// (the interpreter, a few hundred lines, not shown in this draft)");
+  if (r.custom_checks) {
+    L.push("", "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ====");
+    L.push(...r.custom_checks.split("\n"));
+  }
+  return L;
+}
+
+// ---- Validation: the load rules of aatf_rules.md "The ruleset schema" ----
+function walkConds(c, fn, path) {
+  if (!c) return;
+  fn(c, path);
+  (c.any || []).forEach((a, i) => walkConds(a, fn, `${path}.any[${i}]`));
+  if (c.not) walkConds(c.not, fn, path + ".not");
+}
+function problems(r) {
+  const out = [];
+  const add = (sec, msg) => out.push({ section: sec, text: msg });
+  const tierIds = r.tiers.map(t => t.id), brackets = r.heights.brackets.map(b => b.id),
+    systems = r.heights.systems.map(s => s.id), groups = Object.keys(r.card_groups);
+  const dup = (ids, sec, kind) => ids.forEach((id, i) => { if (ids.indexOf(id) !== i) add(sec, `two ${kind} share the id "${id}"`); });
+  if (!r.name.trim()) add("general", "the ruleset has no name");
+  dup(tierIds, "tiers", "tiers"); dup(brackets, "heights", "brackets"); dup(systems, "heights", "height systems");
+  const checkCond = (c, sec, where, opts = {}) => walkConds(c, (k, path) => {
+    (k.tiers || []).forEach(t => { if (!tierIds.includes(t)) add(sec, `${where}${path}: no tier "${t}"`); });
+    (k.systems || []).forEach(s => { if (!systems.includes(s)) add(sec, `${where}${path}: no height system "${s}"`); });
+    (k.brackets || []).forEach(b => { if (!brackets.includes(b)) add(sec, `${where}${path}: no bracket "${b}"`); });
+    (k.name_colors || []).forEach(n => { if (!/^[0-9a-fA-F]{8}$/.test(n)) add(sec, `${where}${path}: a name colour is eight hex digits`); });
+    if (opts.noTiers && (k.tiers || []).length) add(sec, `${where}${path}: a tier's condition cannot name tiers`);
+    if (opts.allowance && (k.brackets || []).length) add(sec, `${where}${path}: a special with a height allowance cannot name brackets, which are computed from it`);
+  }, "");
+  r.tiers.forEach((t, i) => {
+    const where = `"${t.label || "tier " + (i + 1)}"`;
+    if (!t.id.trim() || !t.label.trim()) add("tiers", `${where}: an empty id or label`);
+    if (t.counts_as) {
+      if (t.count !== null) add("tiers", `${where}: a tier that counts as another has no count of its own`);
+      const target = r.tiers.find(x => x.id === t.counts_as);
+      if (!target) add("tiers", `${where}: counts as an unknown tier`);
+      else if (target.counts_as) add("tiers", `${where}: counts as a tier that itself counts as another`);
+    }
+    if (t.name_color && !/^[0-9a-fA-F]{8}$/.test(t.name_color)) add("tiers", `${where}: a name colour is eight hex digits`);
+    Object.keys(t.free).forEach(g => { if (g !== "com" && !groups.includes(g)) add("tiers", `${where}: free cards of an unknown group "${g}"`); });
+    checkCond(t.when, "tiers", where + " when", { noTiers: true });
+  });
+  const rest = r.tiers.filter(t => t.count === null && !t.counts_as);
+  if (rest.length > 1) add("tiers", "only one tier can be the rest of the squad");
+  const counted = r.tiers.reduce((n, t) => n + (t.counts_as ? 0 : t.count || 0), 0);
+  if (counted > r.squad_size) add("tiers", `the tier counts add up to ${counted}, over the squad's ${r.squad_size}`);
+  if (!rest.length && counted !== r.squad_size) add("tiers", `the tier counts add up to ${counted}, not the squad's ${r.squad_size}, and no tier is the rest`);
+  let top = 0;
+  r.heights.brackets.forEach(b => {
+    const hs = b.up_to != null ? [b.up_to] : (b.exactly || []);
+    if (!hs.length) add("heights", `bracket "${b.label}": no height`);
+    if (Math.min(...hs) <= top) add("heights", `bracket "${b.label}": its heights must lie above the brackets before it`);
+    top = Math.max(top, ...hs);
+    if (!b.id.trim() || !b.label.trim()) add("heights", "a bracket with an empty id or label");
+  });
+  r.heights.systems.forEach((s, i) => {
+    const last = i === r.heights.systems.length - 1, has = !isEmpty(condData(s.any_player));
+    if (!last && !has) add("heights", `system "${s.label}": every system but the last needs a "when any player is" condition`);
+    if (last && has) add("heights", `system "${s.label}": the last system applies otherwise and has no condition`);
+    Object.keys(s.quotas).forEach(b => { if (!brackets.includes(b)) add("heights", `system "${s.label}": a quota for an unknown bracket`); });
+  });
+  r.specials.forEach((s, i) => {
+    const where = `special "${s.label || i + 1}"`;
+    if (!s.label.trim()) add("specials", `special ${i + 1}: no label`);
+    const allowance = s.then.height_allowance != null || (s.then.choice || []).some(o => o.height_allowance != null);
+    checkCond(s.when, "specials", where + " when", { allowance });
+    if (s.then.forbid !== undefined && s.then.forbid !== null && !s.then.forbid.trim()) add("specials", `${where}: a forbid with no text`);
+    (s.then.choice || []).forEach((o, j) => Object.keys(o).forEach(k => {
+      if (!CHOICE_EFFECTS.includes(k)) add("specials", `${where}: option ${j + 1} holds "${effectName(k)}", which an option cannot (it could never be found used)`);
+    }));
+    Object.keys(s.then.free || {}).forEach(g => { if (g !== "com" && !groups.includes(g)) add("specials", `${where}: free cards of an unknown group "${g}"`); });
+  });
+  r.team_settings.forEach(t => (t.forbidden_shapes || []).forEach(sh => {
+    if (sh.reduce((a, b) => a + b, 0) !== 10) add("universal", `team settings "${t.label}": the shape ${sh.join("-")} does not add up to 10 outfield players`);
+  }));
+  r.universal.fielded_at_a.forEach(p => { if (p < 1 || p > 3) add("universal", "presets are 1 to 3"); });
+  r.suggestions.forEach(sg => {
+    if (!["cards", "a_positions", "weak_foot", "injury_resistance", "height", "free_cards", "choices", "com"].includes(sg) && !groups.includes(sg))
+      add("suggestions", `"${sg}" is no allowance or card group`);
+  });
+  return out;
+}
+
+// ---- Readable rules (the Summary section) ----
+const list = (xs, f = human) => xs.length < 2 ? xs.map(f).join("") : xs.slice(0, -1).map(f).join(", ") + " or " + f(xs[xs.length - 1]);
+function tierLabel(id) { const t = R.tiers.find(x => x.id === id); return t ? t.label : id; }
+function condText(c) {
+  if (!c) return "";
+  const p = [];
+  if ((c.tiers || []).length) p.push(list(c.tiers, tierLabel));
+  if ((c.positions || []).length) p.push("registered " + list(c.positions, x => x));
+  if ((c.systems || []).length) p.push("under " + list(c.systems, id => (R.heights.systems.find(s => s.id === id) || { label: id }).label));
+  if ((c.brackets || []).length) p.push(list(c.brackets, id => (R.heights.brackets.find(b => b.id === id) || { label: id }).label.toLowerCase()) + "s");
+  if (c.height_min != null && c.height_max != null) p.push(c.height_min === c.height_max ? `${c.height_min} cm` : `${c.height_min} to ${c.height_max} cm`);
+  else if (c.height_min != null) p.push(`${c.height_min} cm or more`);
+  else if (c.height_max != null) p.push(`${c.height_max} cm or less`);
+  if (c.captain === true) p.push("the captain");
+  if (c.captain === false) p.push("not the captain");
+  if ((c.playing_styles || []).length) p.push("playing as " + list(c.playing_styles));
+  if ((c.holds || []).length) p.push("holding " + list(c.holds));
+  if ((c.rated_a_at || []).length) p.push("rated A at " + list(c.rated_a_at, x => x));
+  if ((c.rated_b_at || []).length) p.push("rated B at " + list(c.rated_b_at, x => x));
+  if ((c.name_colors || []).length) p.push("named in colour " + list(c.name_colors, x => x));
+  if (c.fielded_only_at) p.push("fielded only at " + c.fielded_only_at);
+  for (const [k, [lo, hi]] of Object.entries(c.ranges || {})) p.push(`${human(k).toLowerCase()} ${lo} to ${hi}`);
+  if (c.strong_foot) p.push(c.strong_foot + "-footed");
+  if ((c.any || []).length) p.push("any of (" + c.any.map(a => condText(a) || "anyone").join("; ") + ")");
+  if (c.not) p.push("except " + (condText(c.not) || "anyone"));
+  return p.join(", ");
+}
+function perTierText(v, unit) {
+  if (typeof v === "number") return (v > 0 ? "+" : "") + v + unit;
+  return Object.entries(v).map(([t, n]) => `${(n > 0 ? "+" : "") + n}${unit} for ${tierLabel(t)}`).join(", ");
+}
+function effectsText(e) {
+  const p = [];
+  for (const [k, v] of Object.entries(e.stat_bonus || {})) p.push(`${perTierText(v, "")} to ${k === "all" ? "every stat" : human(k).toLowerCase()}`);
+  for (const [k, v] of Object.entries(e.stat_target || {})) p.push(`${human(k).toLowerCase()} target ${typeof v === "number" ? v : JSON.stringify(v)}`);
+  if (e.cards != null) p.push(`${perTierText(e.cards, "")} paid card${e.cards === 1 ? "" : "s"}`);
+  for (const [k, v] of Object.entries(e.free || {})) p.push(`${perTierText(v, "")} free ${k === "com" ? "COM style" : human(k).toLowerCase()}`);
+  if ((e.free_cards || []).length) p.push(list(e.free_cards) + " free");
+  if ((e.require_cards || []).length) p.push("must hold " + list(e.require_cards));
+  if (e.a_positions != null) p.push(`${perTierText(e.a_positions, "")} A position`);
+  if (e.max_a_positions != null) p.push(`at most ${e.max_a_positions} A positions`);
+  if (e.form != null) p.push(`${perTierText(e.form, "")} form`);
+  if (e.injury_resistance != null) p.push(`${perTierText(e.injury_resistance, "")} injury resistance`);
+  if (e.weak_foot) p.push(`weak foot up to ${e.weak_foot.usage}/${e.weak_foot.accuracy}`);
+  if (e.height_allowance != null) p.push(`count ${e.height_allowance} cm shorter`);
+  if (e.forbid != null) p.push(`not allowed ("${e.forbid}")`);
+  if ((e.choice || []).length === 1) p.push("may get " + effectsText(e.choice[0]));
+  else if ((e.choice || []).length) p.push("gets the first needed of: " + e.choice.map(effectsText).join("; or "));
+  return p.join(", ");
+}
+function summary(r) {
+  const L = [`# ${r.name}`, "", `Squad of ${r.squad_size}. A player's rating is his best of: ${r.stats.rating.map(s => human(s).toLowerCase()).join(", ")}.`];
+  if (r.stats.at_most.length) L.push(`May sit below their target: ${r.stats.at_most.map(s => human(s).toLowerCase()).join(", ")}.`);
+  L.push("", "## Tiers");
+  r.tiers.forEach(t => {
+    const count = t.counts_as ? `counts as ${tierLabel(t.counts_as)}` : t.count === null ? "the rest of the squad" : `${t.count} per team`;
+    const when = condText(t.when);
+    const free = Object.entries(t.free).map(([g, n]) => `${n} free ${g === "com" ? "COM style" + (n > 1 ? "s" : "") : human(g).toLowerCase()}`);
+    const stats = Object.entries(t.stats).map(([s, v]) => `${human(s).toLowerCase()} ${v}`);
+    L.push(`- **${t.label}**: ${count}${when ? ", " + when : ""}; every stat ${t.rate}${stats.length ? " (" + stats.join(", ") + ")" : ""}; form ${t.form}, injury resistance ${t.injury_resistance}, weak foot ${t.weak_foot.usage}/${t.weak_foot.accuracy}; ${t.cards} paid cards${t.min_cards ? ` (at least ${t.min_cards})` : ""}${free.length ? ", " + free.join(", ") : ""}; ${t.a_positions} A position${t.a_positions === 1 ? "" : "s"}${t.name_color ? `; name in colour ${t.name_color}` : ""}.`);
+  });
+  if (r.heights.brackets.length) {
+    L.push("", "## Heights");
+    let prev = 0;
+    L.push("Brackets: " + r.heights.brackets.map(b => { const s = b.up_to != null ? `${b.label} ${prev + 1}-${b.up_to}` : `${b.label} ${b.exactly.join(" or ")}`; prev = b.up_to ?? Math.max(...b.exactly); return s; }).join(", ") + " cm.");
+    r.heights.systems.forEach((s, i) => {
+      const when = condText(s.any_player);
+      L.push(`- **${s.label}** ${when ? "(when any player is " + when + ")" : i ? "(otherwise)" : ""}: ` +
+        r.heights.brackets.filter(b => b.id in s.quotas).map(b => `${s.quotas[b.id]} ${b.label.toLowerCase()}`).join(", ") + ".");
+    });
+  }
+  const u = r.universal, U = [];
+  if (u.registered_position_a) U.push("every player is rated A at his registered position");
+  if (u.fielded_at_a.length) U.push(`starters play only where rated A in preset ${u.fielded_at_a.join(", ")}`);
+  if (u.no_b_ratings) U.push("no B ratings");
+  if (u.b_uses_a_allowance) U.push("B ratings count as A positions");
+  if (u.gk_not_second_a) U.push("GK is never a second A");
+  if (u.age) U.push(`age ${u.age[0]} to ${u.age[1]}`);
+  if (u.weight) U.push(`weight between height − ${u.weight.below} (at least ${u.weight.floor}) and height − ${u.weight.above}`);
+  if (u.captain_required) U.push("a captain");
+  if (u.min_goalkeepers) U.push(`at least ${u.min_goalkeepers} goalkeeper${u.min_goalkeepers > 1 ? "s" : ""}`);
+  U.push(`at most ${u.max_skill_cards} skill cards`);
+  if (u.max_com_styles != null) U.push(`at most ${u.max_com_styles} COM styles`);
+  L.push("", "## Every team", U.map(x => x[0].toUpperCase() + x.slice(1)).join("; ") + ".");
+  if (r.specials.length) {
+    L.push("", "## Special rules");
+    r.specials.forEach(s => { const w = condText(s.when); L.push(`- **${s.label}**${s.severity !== "error" ? ` (${s.severity})` : ""}: ${w ? w.charAt(0).toUpperCase() + w.slice(1) + ": " : ""}${effectsText(s.then)}.`); });
+  }
+  return L.join("\n");
+}
+
+// ---- Layout ----
+function render() {
+  if (!R) return;
+  closeMenus();
+  const probs = problems(R);
+  const top = document.getElementById("top");
+  top.innerHTML = "";
+  top.append(
+    menu("File", [["New from template…", startPage], ["Open…", () => {}, true, "Not in this draft"],
+      ["Save", save], ["Save as…", save], ["-"],
+      ["Open the sample with a custom check", () => load(Object.assign(clone(AUTUMN26), { name: "Autumn 26 + custom check", custom_checks: CUSTOM_SAMPLE }))]], { frame0: true }),
+    menu("Edit", [["Undo  (Ctrl+Z)", doUndo, !undo.length], ["Redo  (Ctrl+Y)", doRedo, !redo.length]], { frame0: true }),
+    menu("Randomize", [["Sensible", () => {}, true, "The generator is not faked in this draft"],
+      ["Weird", () => {}, true, "The generator is not faked in this draft"],
+      ["Crazy", () => {}, true, "The generator is not faked in this draft"]], { frame0: true }),
+    h("span", { class: "sep", style: "border-top:0; border-left:1px solid var(--stroke); height:14px; margin:0 4px" }),
+    strong(R.name + (JSON.stringify(R) !== saved ? " •" : "")),
+    h("span", { style: "flex:1" }),
+    weak("Draft: sample data, nothing is written"));
+  const rail = document.getElementById("rail");
+  rail.innerHTML = "";
+  for (const [id, label] of SECTIONS) {
+    if (id === "custom" && !R.custom_checks) continue;
+    const bad = probs.some(p => p.section === id);
+    rail.append(h("span", { class: "sel" + (section === id ? " on" : ""), onclick: () => { section = id; render(); } },
+      label, bad ? h("span", { class: "err", title: "This section has a problem" }, "⚠") : ""));
+  }
+  if (section === "custom" && !R.custom_checks) section = "general";
+  const center = document.getElementById("center");
+  const scroll = center.scrollTop;
+  center.innerHTML = "";
+  center.append(VIEWS[section]());
+  center.scrollTop = scroll;
+  refresh();
+}
+function refresh() {
+  const probs = problems(R);
+  const lines = dataBlock(R);
+  const pre = document.getElementById("block");
+  pre.innerHTML = "";
+  const before = new Set(previousLines);
+  lines.forEach(l => pre.append(h("div", { class: previousLines.length && !before.has(l) ? "changed" : "" }, l)));
+  previousLines = lines;
+  const bottom = document.getElementById("bottom");
+  bottom.innerHTML = "";
+  bottom.append(probs.length
+    ? h("span", { class: "err", title: probs.map(p => p.text).join("\n") }, `✖ ${probs.length} problem${probs.length > 1 ? "s" : ""}: ${probs[0].text}${probs.length > 1 ? " (hover for all)" : ""}`)
+    : h("span", { style: "color:#7fbf7f" }, "✔ Valid: the Save editor and the Team creator can use it"),
+    h("span", { style: "flex:1" }), button("Save", save));
+  document.querySelectorAll("#rail .sel").forEach((el, i) => {
+    const id = SECTIONS.filter(([s]) => s !== "custom" || R.custom_checks)[i][0];
+    const bad = probs.some(p => p.section === id);
+    const mark = el.querySelector(".err");
+    if (bad && !mark) el.append(h("span", { class: "err" }, "⚠"));
+    if (!bad && mark) mark.remove();
+  });
+  if (section === "summary") { const s = document.getElementById("summary-text"); if (s) s.textContent = summary(R); }
+}
+function save() {
+  const probs = problems(R);
+  if (probs.length) {
+    window_("Not saved: the ruleset has problems", h("div", { class: "col" }, probs.map(p => h("span", { class: "err" }, "✖ " + p.text))),
+      [button("OK", closeWindow)]);
+  } else {
+    saved = JSON.stringify(R);
+    window_("Saved", h("div", {}, `In Studio this writes ${R.name.toLowerCase().replace(/\s+/g, "_")}.rhai: the data block, the current logic, and the custom checks unchanged. This draft writes nothing.`), [button("OK", () => { closeWindow(); render(); })]);
+  }
+}
+function startPage() {
+  const disabled = "Embedded in Studio; not in this draft";
+  window_("4cc Studio: Ruleset editor", h("div", { class: "col" },
+    strong("New from template"),
+    button("Autumn 26 (the official rules)", () => { load(AUTUMN26); closeWindow(); }),
+    button("Spring 26", () => {}, { disabled: true, title: disabled }),
+    button("VGL27, VGL26", () => {}, { disabled: true, title: "Transcribed at step 5.2e" }),
+    button("VTL11, VTL10", () => {}, { disabled: true, title: "Transcribed at step 5.2e" }),
+    button("Blank: one tier, no brackets, the universal rules on", () => { load(blank()); closeWindow(); }),
+    h("div", { class: "sep" }),
+    strong("Random"),
+    row(["Sensible", "Weird", "Crazy"].map(p => button(p, () => {}, { disabled: true, title: "The generator is not faked in this draft" }))),
+    h("div", { class: "sep" }),
+    row(button("Open file…", () => {}, { disabled: true, title: "Not in this draft" }), weak("Recent: none"))),
+    R ? [button("Close", closeWindow)] : []);
+}
+
+// ---- Sections ----
+const VIEWS = {
+  general() {
+    const d = h("div", {}, h("h2", {}, "General"));
+    d.append(h("table", { class: "grid" },
+      h("tr", {}, h("td", {}, "Name"), h("td", {}, text(R.name, v => R.name = v, { width: 220 }))),
+      h("tr", {}, h("td", {}, "Squad size"), h("td", {}, drag(R.squad_size, v => R.squad_size = v ?? 0, { min: 1, max: 32 })))));
+    d.append(h("div", { class: "sep" }), strong("Rating stats"),
+      h("div", { class: "weak" }, "A player's rating is the highest of these; it picks his tier and must not exceed the tier's rating."),
+      statGrid(STATS, R.stats.rating, v => R.stats.rating = v));
+    d.append(h("div", { class: "sep" }), strong("May sit below the target"),
+      h("div", { class: "weak" }, "Every other stat must equal its target exactly."),
+      statGrid(STATS.concat(AT_MOST_EXTRA), R.stats.at_most, v => R.stats.at_most = v));
+    return d;
+  },
+  tiers() {
+    const d = h("div", {}, h("h2", {}, "Tiers"), h("div", { class: "weak" },
+      "Highest first: a player gets the first tier whose conditions he meets and whose rating he reaches. The Save editor's tier buttons follow this order."));
+    const ids = R.tiers.map(t => [t.id, t.label]);
+    const g = h("table", { class: "grid" }, h("tr", {}, ["", "Label", "Id", "Count", "Counts as", "Rate", "Form", "Injury res.", "Weak foot", "Paid cards", "Min. cards", "A positions", "Name colour", ""].map(x => h("th", {}, x))));
+    R.tiers.forEach((t, i) => {
+      g.append(reorderable(h("tr", {},
+        h("td", {}, handle(i)),
+        h("td", {}, text(t.label, v => t.label = v, { width: 100 })),
+        h("td", {}, text(t.id, v => t.id = v, { width: 80, mono: true, title: "What conditions and other tiers refer to" })),
+        h("td", {}, t.counts_as ? weak("—") : h("span", { class: "row", style: "margin:0" },
+          t.count === null ? weak("the rest") : drag(t.count, v => t.count = v ?? 0, { max: 32 }),
+          checkbox("rest", t.count === null, v => t.count = v ? null : 1, "The rest of the squad: one tier at most"))),
+        h("td", {}, combo([[null, "—"]].concat(ids.filter(([id]) => id !== t.id)), t.counts_as, v => { t.counts_as = v; if (v) t.count = null; },
+          { title: "The tier whose count this tier's players fill" })),
+        h("td", {}, drag(t.rate, v => t.rate = v ?? 0, { max: 99 })),
+        h("td", {}, drag(t.form, v => t.form = v ?? 0, { max: 8 })),
+        h("td", {}, drag(t.injury_resistance, v => t.injury_resistance = v ?? 0, { max: 3 })),
+        h("td", {}, h("span", { class: "row", style: "margin:0" }, drag(t.weak_foot.usage, v => t.weak_foot.usage = v ?? 0, { max: 4, width: 38, title: "Usage" }),
+          drag(t.weak_foot.accuracy, v => t.weak_foot.accuracy = v ?? 0, { max: 4, width: 38, title: "Accuracy" }))),
+        h("td", {}, drag(t.cards, v => t.cards = v ?? 0, { max: 20 })),
+        h("td", {}, drag(t.min_cards, v => t.min_cards = v ?? 0, { max: 20 })),
+        h("td", {}, drag(t.a_positions, v => t.a_positions = v ?? 0, { max: 13 })),
+        h("td", {}, h("span", { class: "row", style: "margin:0" }, checkbox("", t.name_color !== null, v => t.name_color = v ? "cc9900ff" : null, "This tier's names carry a colour code"),
+          t.name_color !== null ? colour(t.name_color, v => t.name_color = v) : weak("none"))),
+        h("td", {}, R.tiers.length > 1 ? remove(R.tiers, i) : "")), R.tiers, i));
+      g.append(h("tr", {}, h("td", {}), h("td", { colspan: 13 }, collapsing(`tier:${i}`, "Stat targets, free cards and conditions", () => h("div", {},
+        strong("Per-stat targets"), h("span", { class: "weak" }, " (empty: the rate)"),
+        perStatGrid(t),
+        h("div", { class: "sep" }), strong("Free cards"),
+        row(["com"].concat(Object.keys(R.card_groups)).map(gid => h("span", { class: "row", style: "margin:0 8px 0 0" },
+          gid === "com" ? "COM styles" : human(gid), drag(t.free[gid] ?? null, v => { if (v === null) delete t.free[gid]; else t.free[gid] = v; }, { max: 20, placeholder: "0" })))),
+        h("div", { class: "sep" }), strong("Conditions"), h("span", { class: "weak" }, " (what a player must also meet to be this tier)"),
+        condEditor(t.when, `tier:${i}:when`, { noTiers: true }))))));
+    });
+    d.append(g, row(button("+ Add tier", () => { const n = R.tiers.length + 1; R.tiers.push(tier("tier" + n, "Tier " + n, 1, 80, 4, 1, 2, 3, {})); structural(); })));
+    return d;
+  },
+  heights() {
+    const d = h("div", {}, h("h2", {}, "Heights"));
+    const on = R.heights.brackets.length > 0 || R.heights.systems.length > 0 || R._bracketsOn;
+    d.append(row(checkbox("Use height brackets", on, v => {
+      if (v) { R._bracketsOn = true; R.heights = R._savedHeights || { brackets: [{ id: "short", label: "Short", up_to: 175 }], systems: [{ id: "default", label: "Default", any_player: null, quotas: {} }] }; }
+      else { R._savedHeights = clone(R.heights); R._bracketsOn = false; R.heights = { brackets: [], systems: [] }; }
+    })));
+    if (!on) { d.append(h("div", { class: "weak" }, "Off: heights are left to tier conditions and special rules.")); return d; }
+    d.append(strong("Brackets"), h("div", { class: "weak" }, "Ascending: a player's bracket is the first that takes his height (less any height allowance)."));
+    const g = h("table", { class: "grid" }, h("tr", {}, ["", "Label", "Id", "Heights", "", ""].map(x => h("th", {}, x))));
+    R.heights.brackets.forEach((b, i) => g.append(reorderable(h("tr", {},
+      h("td", {}, handle(i)),
+      h("td", {}, text(b.label, v => b.label = v, { width: 90 })),
+      h("td", {}, text(b.id, v => b.id = v, { width: 70, mono: true })),
+      h("td", {}, combo([["up_to", "up to"], ["exactly", "exactly"]], b.up_to != null ? "up_to" : "exactly", v => {
+        if (v === "up_to") { b.up_to = (b.exactly || [180])[0]; delete b.exactly; } else { b.exactly = [b.up_to]; delete b.up_to; } })),
+      h("td", {}, b.up_to != null ? h("span", {}, drag(b.up_to, v => b.up_to = v ?? 0, { max: 210 }), " cm")
+        : h("span", {}, text(b.exactly.join(", "), v => b.exactly = v.split(",").map(x => Number(x.trim())).filter(x => x > 0), { width: 90, title: "Heights, comma-separated" }), " cm")),
+      h("td", {}, remove(R.heights.brackets, i))), R.heights.brackets, i)));
+    d.append(g, row(button("+ Add bracket", () => { const top = R.heights.brackets.reduce((m, b) => Math.max(m, b.up_to ?? Math.max(...b.exactly)), 170); R.heights.brackets.push({ id: "b" + (top + 5), label: "Up to " + (top + 5), up_to: top + 5 }); structural(); })));
+    d.append(h("div", { class: "sep" }), strong("Height systems"), h("div", { class: "weak" }, "The first whose condition some player meets sets the quotas; the last applies otherwise."));
+    R.heights.systems.forEach((s, i) => {
+      const last = i === R.heights.systems.length - 1;
+      const box = reorderable(h("div", { class: "group" },
+        row(handle(i), text(s.label, v => s.label = v, { width: 100 }), text(s.id, v => s.id = v, { width: 70, mono: true }), h("span", { style: "flex:1" }), remove(R.heights.systems, i)),
+        last && isEmpty(condData(s.any_player)) ? row(weak("Otherwise (no condition)"), button("+ Add a condition", () => { s.any_player = { height_min: 190 }; structural(); }, { frame0: true }))
+          : h("div", {}, weak("When any player is:"), condEditor(s.any_player || (s.any_player = {}), `sys:${i}`, { heightsPositions: true })),
+        h("table", { class: "grid" }, h("tr", {}, h("th", {}, "Quota"), R.heights.brackets.map(b => h("th", {}, b.label))),
+          h("tr", {}, h("td", {}, weak("per team")), R.heights.brackets.map(b => h("td", {}, h("span", { class: "row", style: "margin:0" },
+            checkbox("", b.id in s.quotas, v => { if (v) s.quotas[b.id] = 0; else delete s.quotas[b.id]; }, "Constrained (unticked: any number)"),
+            b.id in s.quotas ? drag(s.quotas[b.id], v => s.quotas[b.id] = v ?? 0, { max: 23, width: 40 }) : weak("any"))))))),
+        R.heights.systems, i);
+      d.append(box);
+    });
+    d.append(row(button("+ Add system", () => { R.heights.systems.push({ id: "system" + (R.heights.systems.length + 1), label: "System " + (R.heights.systems.length + 1), any_player: null, quotas: {} }); structural(); })));
+    return d;
+  },
+  cards() {
+    const d = h("div", {}, h("h2", {}, "Cards"), h("div", { class: "weak" },
+      "Named card sets a tier or a special rule can make free. Every COM style is also in the built-in group \"COM styles\"."));
+    Object.keys(R.card_groups).forEach(gid => {
+      d.append(h("div", { class: "group" }, row(strong("Group"), text(gid, v => {
+        if (!v || v === gid || v in R.card_groups) return;
+        const cards = R.card_groups[gid];
+        const groups = {};
+        for (const [k, c] of Object.entries(R.card_groups)) groups[k === gid ? v : k] = c;
+        R.card_groups = groups;
+        R.tiers.forEach(t => { if (gid in t.free) { t.free[v] = t.free[gid]; delete t.free[gid]; } });
+        R.suggestions = R.suggestions.map(s => s === gid ? v : s);
+        gid = v;
+      }, { mono: true, width: 120, title: "The group's id; renaming it updates the tiers and suggestions" }),
+        h("span", { style: "flex:1" }), button("✕", () => { delete R.card_groups[gid]; structural(); }, { frame0: true })),
+        cardGrid(R.card_groups[gid], v => R.card_groups[gid] = v)));
+    });
+    d.append(row(button("+ Add group", () => { let n = 1; while ("group" + n in R.card_groups) n++; R.card_groups["group" + n] = []; structural(); })));
+    return d;
+  },
+  universal() {
+    const u = R.universal;
+    const d = h("div", {}, h("h2", {}, "Universal rules"));
+    d.append(h("div", { class: "col" },
+      checkbox("Every player is rated A at his registered position", u.registered_position_a, v => u.registered_position_a = v),
+      row(weak("Starters play only where rated A, in preset:"), [1, 2, 3].map(p => checkbox(String(p), u.fielded_at_a.includes(p),
+        v => u.fielded_at_a = v ? u.fielded_at_a.concat([p]).sort() : u.fielded_at_a.filter(x => x !== p)))),
+      checkbox("No B ratings", u.no_b_ratings, v => u.no_b_ratings = v),
+      checkbox("B ratings count toward the A-position allowance", u.b_uses_a_allowance, v => u.b_uses_a_allowance = v),
+      checkbox("GK is never an outfield player's second A", u.gk_not_second_a, v => u.gk_not_second_a = v),
+      row(checkbox("Age", u.age !== null, v => u.age = v ? [15, 50] : null), u.age ? [drag(u.age[0], v => u.age[0] = v ?? 0, { max: 50 }), "to", drag(u.age[1], v => u.age[1] = v ?? 0, { max: 50 })] : weak("any")),
+      row(checkbox("Weight", u.weight !== null, v => u.weight = v ? { floor: 30, below: 129, above: 81 } : null),
+        u.weight ? ["between height −", drag(u.weight.below, v => u.weight.below = v ?? 0), "(at least", drag(u.weight.floor, v => u.weight.floor = v ?? 0), "kg) and height −", drag(u.weight.above, v => u.weight.above = v ?? 0)] : weak("any")),
+      checkbox("A captain is required", u.captain_required, v => u.captain_required = v),
+      row("At least", drag(u.min_goalkeepers, v => u.min_goalkeepers = v ?? 0, { max: 5 }), "goalkeepers"),
+      row("At most", drag(u.max_skill_cards, v => u.max_skill_cards = v ?? 0, { max: 41 }), "skill cards per player", weak("(the game's limit is 10)")),
+      row(checkbox("At most", u.max_com_styles !== null, v => u.max_com_styles = v ? 5 : null), u.max_com_styles !== null ? drag(u.max_com_styles, v => u.max_com_styles = v ?? 0, { max: 7 }) : "", "COM styles per player")));
+    d.append(h("div", { class: "sep" }), strong("Team settings"), h("div", { class: "weak" }, "Tactics settings a team must have, on the versions listed (every version when none is ticked)."));
+    const tri = (t, k, label) => row(h("span", { style: "width:220px" }, label), combo([[null, "any"], ["true", "must be on"], ["false", "must be off"]],
+      t[k] === null || t[k] === undefined ? null : String(t[k]), v => t[k] = v === null ? null : v === "true"));
+    R.team_settings.forEach((t, i) => d.append(h("div", { class: "group" },
+      row(text(t.label, v => t.label = v, { width: 200 }), h("span", { style: "flex:1" }), remove(R.team_settings, i)),
+      row(weak("PES"), VERSIONS.map(v => checkbox(String(v), t.versions.includes(v), on => t.versions = on ? t.versions.concat([v]).sort() : t.versions.filter(x => x !== v)))),
+      tri(t, "man_marking", "Man marking set up"), tri(t, "auto_substitution", "Automatic substitution"),
+      tri(t, "auto_offside_trap", "Automatic offside trap"), tri(t, "auto_preset_change", "Automatic preset change"),
+      tri(t, "auto_attack_defence_levels", "Automatic attack/defence levels"),
+      row(weak("Banned formation shapes:"), t.forbidden_shapes.map((s, j) => h("span", { class: "chip mono" }, s.join("-"), button("✕", () => { t.forbidden_shapes.splice(j, 1); structural(); }, { frame0: true }))),
+        text("", v => t._shape = v, { width: 60, placeholder: "3-4-3", mono: true }),
+        button("Add", () => { const s = (t._shape || "").split("-").map(Number); if (s.length === 3 && s.every(n => n >= 0)) { t.forbidden_shapes.push(s); delete t._shape; structural(); } })))));
+    d.append(row(button("+ Add team settings", () => { R.team_settings.push({ label: "Team settings " + (R.team_settings.length + 1), versions: [], man_marking: null,
+      auto_substitution: null, auto_offside_trap: null, auto_preset_change: null, auto_attack_defence_levels: null, forbidden_shapes: [] }); structural(); })));
+    return d;
+  },
+  specials() {
+    const d = h("div", {}, h("h2", {}, "Special rules"), h("div", { class: "weak" },
+      "Applied in order: numbers add up, settings take the last value. Drag to reorder."));
+    R.specials.forEach((s, i) => {
+      const severityShown = s.then.forbid != null || (s.then.require_cards || []).length;
+      d.append(reorderable(h("div", { class: "group" },
+        row(handle(i), text(s.label, v => s.label = v, { width: 330 }),
+          severityShown ? combo([["error", "Error"], ["warning", "Warning"], ["suggestion", "Suggestion"]], s.severity, v => s.severity = v, { title: "How a violation of this rule is reported" }) : "",
+          h("span", { style: "flex:1" }), remove(R.specials, i)),
+        h("div", { class: "row", style: "align-items:flex-start" }, h("span", { class: "strong", style: "width:40px" }, "When"), condEditor(s.when, `sp:${i}:when`, {})),
+        h("div", { class: "row", style: "align-items:flex-start" }, h("span", { class: "strong", style: "width:40px" }, "Then"), effectsEditor(s.then, `sp:${i}:then`, false))), R.specials, i));
+    });
+    d.append(row(button("+ Add special rule", () => { R.specials.push(special("New rule", {}, {})); structural(); })));
+    return d;
+  },
+  suggestions() {
+    const d = h("div", {}, h("h2", {}, "Suggestions"), h("div", { class: "weak" },
+      "Allowances a player does not use up are listed as suggestions (off by default where results are shown)."));
+    const all = [["cards", "Paid cards"], ["a_positions", "A positions"], ["weak_foot", "Weak foot"], ["injury_resistance", "Injury resistance"],
+      ["height", "Height"], ["free_cards", "Free cards"], ["choices", "Choices not taken"], ["com", "Free COM styles"]]
+      .concat(Object.keys(R.card_groups).map(g => [g, "Free " + human(g).toLowerCase()]));
+    d.append(h("div", { class: "col" }, all.map(([id, label]) => checkbox(label, R.suggestions.includes(id),
+      v => R.suggestions = v ? R.suggestions.concat([id]) : R.suggestions.filter(x => x !== id)))));
+    return d;
+  },
+  custom() {
+    return h("div", {}, h("h2", {}, "Custom checks"), h("div", { class: "weak" },
+      "Hand-written Rhai, run after the ruleset's own checks; the editor keeps it as it is."),
+      h("pre", { class: "mono", style: "background:var(--extreme); padding:6px; color:#b4b4b4" }, R.custom_checks));
+  },
+  summary() {
+    return h("div", {}, h("h2", {}, "Summary"), row(button("Copy", () => navigator.clipboard && navigator.clipboard.writeText(summary(R)), { title: "Copies the rules as Markdown, for posting them" }),
+      weak("The ruleset as rules text, written from the data.")),
+      h("pre", { id: "summary-text", class: "mono", style: "white-space:pre-wrap; background:var(--extreme); padding:8px; color:#c8c8c8; max-width:900px" }, summary(R)));
+  },
+};
+
+function statGrid(all, selected, set) {
+  const g = h("table", { class: "grid" });
+  for (let i = 0; i < all.length; i += 5)
+    g.append(h("tr", {}, all.slice(i, i + 5).map(s => h("td", {}, checkbox(human(s), selected.includes(s),
+      v => set(v ? selected.concat([s]) : selected.filter(x => x !== s)))))));
+  return g;
+}
+function perStatGrid(t) {
+  const g = h("table", { class: "grid" });
+  for (let i = 0; i < STATS.length; i += 5)
+    g.append(h("tr", {}, STATS.slice(i, i + 5).map(s => h("td", {}, h("span", { class: "row", style: "margin:0; justify-content:space-between; width:180px" },
+      human(s), drag(t.stats[s] ?? null, v => { if (v === null) delete t.stats[s]; else t.stats[s] = v; }, { max: 99, placeholder: String(t.rate) }))))));
+  return g;
+}
+function cardGrid(selected, set) {
+  const g = h("table", { class: "grid" });
+  const all = CARDS;
+  for (let i = 0; i < all.length; i += 6)
+    g.append(h("tr", {}, all.slice(i, i + 6).map(c => h("td", {}, checkbox(human(c), selected.includes(c),
+      v => set(v ? selected.concat([c]) : selected.filter(x => x !== c)), COM.includes(c) ? "COM playing style" : "Skill")))));
+  return g;
+}
+function cardPicker(list, set) {
+  return h("span", { class: "row", style: "margin:0" },
+    list.map((c, j) => h("span", { class: "chip" }, human(c), button("✕", () => { list.splice(j, 1); structural(); }, { frame0: true }))),
+    combo([[null, "+ card…"]].concat(CARDS.filter(c => !list.includes(c)).map(c => [c, human(c) + (COM.includes(c) ? " (COM)" : "")])), null, v => { if (v) set(list.concat([v])); }));
+}
+
+// ---- The condition editor ----
+const COND_FIELDS = [
+  ["tiers", "Tiers", c => c.tiers = []],
+  ["positions", "Registered positions", c => c.positions = []],
+  ["systems", "Height systems", c => c.systems = []],
+  ["brackets", "Height brackets", c => c.brackets = []],
+  ["height", "Height range", c => { c.height_min = 175; c.height_max = 185; }],
+  ["captain", "Captain", c => c.captain = true],
+  ["playing_styles", "Playing styles", c => c.playing_styles = []],
+  ["holds", "Holds any of (cards)", c => c.holds = []],
+  ["rated_a_at", "Rated A at", c => c.rated_a_at = []],
+  ["rated_b_at", "Rated B at", c => c.rated_b_at = []],
+  ["name_colors", "Name colour", c => c.name_colors = ["cc9900ff"]],
+  ["fielded_only_at", "Fielded only at", c => c.fielded_only_at = "CB"],
+  ["ranges", "Value range (a stat, age, weight, form, …)", c => c.ranges = Object.assign(c.ranges || {}, { [RANGE_VALUES.find(v => !(v in (c.ranges || {})))]: [0, 99] })],
+  ["strong_foot", "Stronger foot", c => c.strong_foot = "left"],
+  ["any", "Any of (several cases)", c => c.any = (c.any || []).concat([{}, {}])],
+  ["not", "Except when", c => c.not = {}],
+];
+const has = (c, k) => k === "height" ? c.height_min != null || c.height_max != null
+  : k === "captain" || k === "fielded_only_at" || k === "strong_foot" || k === "not" ? c[k] !== undefined && c[k] !== null
+  : k === "ranges" ? false : c[k] !== undefined;
+function condEditor(c, path, opts) {
+  const allowed = COND_FIELDS.filter(([k]) => opts.heightsPositions ? ["positions", "height"].includes(k) : !(opts.noTiers && k === "tiers"));
+  const box = h("div", { class: "col", style: "flex:1" });
+  const drop = (keys) => button("✕", () => { keys.forEach(k => delete c[k]); structural(); }, { frame0: true, title: "Remove this condition" });
+  const line = (label, widget, keys) => box.append(row(h("span", { style: "width:150px" }, label), widget, drop(keys)));
+  const ids = (xs) => xs.map(x => x.id);
+  const labelOf = (xs) => id => (xs.find(x => x.id === id) || { label: id }).label;
+  if (c.tiers !== undefined) line("Tier is", chips(ids(R.tiers), c.tiers, v => c.tiers = v, labelOf(R.tiers)), ["tiers"]);
+  if (c.positions !== undefined) line("Registered at", chips(POSITIONS, c.positions, v => c.positions = v, x => x), ["positions"]);
+  if (c.systems !== undefined) line("Height system is", chips(ids(R.heights.systems), c.systems, v => c.systems = v, labelOf(R.heights.systems)), ["systems"]);
+  if (c.brackets !== undefined) line("Bracket is", chips(ids(R.heights.brackets), c.brackets, v => c.brackets = v, labelOf(R.heights.brackets)), ["brackets"]);
+  if (has(c, "height")) line("Height", h("span", { class: "row", style: "margin:0" },
+    checkbox("from", c.height_min != null, v => c.height_min = v ? 175 : null), c.height_min != null ? drag(c.height_min, v => c.height_min = v) : "",
+    checkbox("to", c.height_max != null, v => c.height_max = v ? 185 : null), c.height_max != null ? drag(c.height_max, v => c.height_max = v) : "", "cm",
+    weak("(before any allowance)")), ["height_min", "height_max"]);
+  if (has(c, "captain")) line("Captain", h("span", { class: "row", style: "margin:0" },
+    [["yes", true], ["no", false]].map(([l, v]) => h("label", { class: "cb" }, h("input", { type: "radio", checked: c.captain === v, onchange: () => { c.captain = v; structural(); } }), l))), ["captain"]);
+  if (c.playing_styles !== undefined) line("Playing style is", chips(STYLES, c.playing_styles, v => c.playing_styles = v), ["playing_styles"]);
+  if (c.holds !== undefined) line("Holds any of", cardPicker(c.holds, v => c.holds = v), ["holds"]);
+  if (c.rated_a_at !== undefined) line("Rated A at", chips(POSITIONS, c.rated_a_at, v => c.rated_a_at = v, x => x), ["rated_a_at"]);
+  if (c.rated_b_at !== undefined) line("Rated B at", chips(POSITIONS, c.rated_b_at, v => c.rated_b_at = v, x => x), ["rated_b_at"]);
+  if (c.name_colors !== undefined) line("Name colour is", h("span", { class: "row", style: "margin:0" },
+    c.name_colors.map((n, j) => h("span", { class: "row", style: "margin:0" }, colour(n, v => c.name_colors[j] = v), remove(c.name_colors, j))),
+    button("+", () => { c.name_colors.push("ffffffff"); structural(); }, { frame0: true })), ["name_colors"]);
+  if (has(c, "fielded_only_at")) line("Fielded only at", h("span", { class: "row", style: "margin:0" }, combo(POSITIONS.map(p => [p, p]), c.fielded_only_at, v => c.fielded_only_at = v),
+    weak("in every formation of the three presets")), ["fielded_only_at"]);
+  for (const k of Object.keys(c.ranges || {})) {
+    const range = c.ranges[k];
+    box.append(row(h("span", { style: "width:150px" }, "Value"),
+      combo(RANGE_VALUES.filter(v => v === k || !(v in c.ranges)).map(v => [v, human(v)]), k, v => {
+        const next = {};
+        for (const [kk, vv] of Object.entries(c.ranges)) next[kk === k ? v : kk] = vv;
+        c.ranges = next;
+      }),
+      "from", drag(range[0], v => range[0] = v ?? 0, { max: 99 }), "to", drag(range[1], v => range[1] = v ?? 0, { max: 99 }),
+      button("✕", () => { delete c.ranges[k]; if (!Object.keys(c.ranges).length) delete c.ranges; structural(); }, { frame0: true })));
+  }
+  if (has(c, "strong_foot")) line("Stronger foot", h("span", { class: "row", style: "margin:0" },
+    ["right", "left"].map(f => h("label", { class: "cb" }, h("input", { type: "radio", checked: c.strong_foot === f, onchange: () => { c.strong_foot = f; structural(); } }), f))), ["strong_foot"]);
+  if (c.any !== undefined) {
+    const any = h("div", { class: "col", style: "flex:1" });
+    c.any.forEach((a, j) => {
+      if (j) any.append(weak("or"));
+      any.append(h("div", { class: "group", style: "margin:0" }, row(weak(`Case ${j + 1}`), h("span", { style: "flex:1" }), c.any.length > 1 ? remove(c.any, j) : ""), condEditor(a, `${path}.any${j}`, opts)));
+    });
+    any.append(row(button("+ Add case", () => { c.any.push({}); structural(); }, { frame0: true })));
+    box.append(h("div", { class: "row", style: "align-items:flex-start" }, h("span", { style: "width:150px" }, "Any of", h("div", { class: "weak" }, "(one case must hold)")), any, drop(["any"])));
+  }
+  if (has(c, "not")) box.append(h("div", { class: "row", style: "align-items:flex-start" }, h("span", { style: "width:150px" }, "Except when"),
+    h("div", { class: "group", style: "margin:0; flex:1" }, condEditor(c.not, path + ".not", opts)), drop(["not"])));
+  if (!box.childNodes.length) box.append(weak(opts.heightsPositions ? "Any player" : "Always (every player)"));
+  box.append(row(menu("+ Condition", allowed.filter(([k]) => !has(c, k) && !(["tiers", "positions", "systems", "brackets", "playing_styles", "holds", "rated_a_at", "rated_b_at", "name_colors", "any"].includes(k) && c[k] !== undefined))
+    .map(([k, label, add]) => [label, () => { add(c); structural(); }]), { frame0: true })));
+  return box;
+}
+
+// ---- The effects editor ----
+const EFFECTS = [
+  ["stat_bonus_all", "Add to every stat", e => e.stat_bonus = Object.assign(e.stat_bonus || {}, { all: 1 })],
+  ["stat_bonus_one", "Add to one stat", e => e.stat_bonus = Object.assign(e.stat_bonus || {}, { [STATS.find(s => !((e.stat_bonus || {})[s] !== undefined))]: 1 })],
+  ["stat_target", "Set one stat's target", e => e.stat_target = Object.assign(e.stat_target || {}, { [STATS.find(s => !((e.stat_target || {})[s] !== undefined))]: 80 })],
+  ["cards", "Extra paid cards", e => e.cards = 1],
+  ["free", "Free cards of a group", e => e.free = Object.assign(e.free || {}, { com: 1 })],
+  ["free_cards", "Free card", e => e.free_cards = (e.free_cards || []).concat([CARDS.find(c => !(e.free_cards || []).includes(c))])],
+  ["require_cards", "Required card", e => e.require_cards = (e.require_cards || []).concat([CARDS.find(c => !(e.require_cards || []).includes(c))])],
+  ["a_positions", "Extra A positions", e => e.a_positions = 1],
+  ["max_a_positions", "At most N A positions", e => e.max_a_positions = 2],
+  ["form", "Change form", e => e.form = 1],
+  ["injury_resistance", "Change injury resistance", e => e.injury_resistance = 1],
+  ["weak_foot", "Weak-foot limits", e => e.weak_foot = { usage: 4, accuracy: 4 }],
+  ["height_allowance", "Height allowance", e => e.height_allowance = 4],
+  ["forbid", "Forbid", e => e.forbid = "Not allowed"],
+  ["choice", "One of (a choice)", e => e.choice = [{ cards: 1 }, { a_positions: 1 }]],
+];
+function effectName(k) { const f = EFFECTS.find(([id]) => id === k || id.startsWith(k + "_")); return f ? f[1] : k; }
+// A number for every tier, or one per tier (a tier left unticked is unaffected).
+function perTier(get, set) {
+  const v = get();
+  const byTier = typeof v === "object";
+  return h("span", { class: "row", style: "margin:0" },
+    byTier ? R.tiers.map(t => h("span", { class: "row", style: "margin:0 6px 0 0" },
+      checkbox(t.label, t.id in v, on => { if (on) v[t.id] = 0; else delete v[t.id]; }),
+      t.id in v ? drag(v[t.id], n => v[t.id] = n ?? 0, { min: -99, max: 99, width: 44 }) : ""))
+      : drag(v, n => set(n ?? 0), { min: -99, max: 99 }),
+    combo([["all", "same for every tier"], ["tier", "per tier"]], byTier ? "tier" : "all", m => {
+      if (m === "tier" && !byTier) { const o = {}; R.tiers.forEach(t => o[t.id] = v); set(o); }
+      if (m === "all" && byTier) set(Object.values(v)[0] ?? 0);
+    }));
+}
+function effectsEditor(e, path, inChoice) {
+  const box = h("div", { class: "col", style: "flex:1" });
+  const line = (label, widget, del) => box.append(row(h("span", { style: "width:170px" }, label), widget,
+    button("✕", () => { del(); structural(); }, { frame0: true, title: "Remove this effect" })));
+  const statCombo = (map, k) => combo(STATS.filter(s => s === k || !(s in map)).map(s => [s, human(s)]), k, v => {
+    const next = {};
+    for (const [kk, vv] of Object.entries(map)) next[kk === k ? v : kk] = vv;
+    Object.keys(map).forEach(kk => delete map[kk]); Object.assign(map, next);
+  });
+  for (const k of Object.keys(e.stat_bonus || {})) {
+    const del = () => { delete e.stat_bonus[k]; if (!Object.keys(e.stat_bonus).length) delete e.stat_bonus; };
+    if (k === "all") line("Add to every stat", perTier(() => e.stat_bonus.all, v => e.stat_bonus.all = v), del);
+    else line("Add to one stat", h("span", { class: "row", style: "margin:0" }, statCombo(e.stat_bonus, k), perTier(() => e.stat_bonus[k], v => e.stat_bonus[k] = v)), del);
+  }
+  for (const k of Object.keys(e.stat_target || {}))
+    line("Set the target of", h("span", { class: "row", style: "margin:0" }, statCombo(e.stat_target, k), "to", perTier(() => e.stat_target[k], v => e.stat_target[k] = v)),
+      () => { delete e.stat_target[k]; if (!Object.keys(e.stat_target).length) delete e.stat_target; });
+  if (e.cards != null) line("Extra paid cards", perTier(() => e.cards, v => e.cards = v), () => delete e.cards);
+  for (const g of Object.keys(e.free || {}))
+    line("Free cards of a group", h("span", { class: "row", style: "margin:0" },
+      combo(["com"].concat(Object.keys(R.card_groups)).filter(x => x === g || !(x in e.free)).map(x => [x, x === "com" ? "COM styles" : human(x)]), g, v => {
+        const next = {}; for (const [kk, vv] of Object.entries(e.free)) next[kk === g ? v : kk] = vv; e.free = next; }),
+      perTier(() => e.free[g], v => e.free[g] = v)), () => { delete e.free[g]; if (!Object.keys(e.free).length) delete e.free; });
+  if (e.free_cards) line("These cards are free", cardPicker(e.free_cards, v => e.free_cards = v), () => delete e.free_cards);
+  if (e.require_cards) line("Must hold", cardPicker(e.require_cards, v => e.require_cards = v), () => delete e.require_cards);
+  if (e.a_positions != null) line("Extra A positions", perTier(() => e.a_positions, v => e.a_positions = v), () => delete e.a_positions);
+  if (e.max_a_positions != null) line("At most", h("span", {}, drag(e.max_a_positions, v => e.max_a_positions = v ?? 0, { max: 13 }), " A positions"), () => delete e.max_a_positions);
+  if (e.form != null) line("Change form by", perTier(() => e.form, v => e.form = v), () => delete e.form);
+  if (e.injury_resistance != null) line("Change injury resistance by", perTier(() => e.injury_resistance, v => e.injury_resistance = v), () => delete e.injury_resistance);
+  if (e.weak_foot) line("Weak foot up to", h("span", { class: "row", style: "margin:0" }, "usage", drag(e.weak_foot.usage, v => e.weak_foot.usage = v ?? 0, { max: 4 }),
+    "accuracy", drag(e.weak_foot.accuracy, v => e.weak_foot.accuracy = v ?? 0, { max: 4 }), weak("(replaces the tier's)")), () => delete e.weak_foot);
+  if (e.height_allowance != null) line("Counts", h("span", {}, drag(e.height_allowance, v => e.height_allowance = v ?? 0, { max: 20 }), " cm shorter for brackets"), () => delete e.height_allowance);
+  if (e.forbid != null) line("Forbid, saying", text(e.forbid, v => e.forbid = v, { width: 300 }), () => delete e.forbid);
+  if (e.choice) {
+    const c = h("div", { class: "col", style: "flex:1" },
+      weak(e.choice.length === 1 ? "May get: players matching this may take it." : "The first option the player needs is given."));
+    e.choice.forEach((o, j) => c.append(h("div", { class: "group", style: "margin:0" },
+      row(weak(e.choice.length === 1 ? "Option" : `Option ${j + 1}`), h("span", { style: "flex:1" }), remove(e.choice, j)), effectsEditor(o, `${path}.choice${j}`, true))));
+    c.append(row(button("+ Add option", () => { e.choice.push({}); structural(); }, { frame0: true })));
+    box.append(h("div", { class: "row", style: "align-items:flex-start" }, h("span", { style: "width:170px" }, e.choice.length === 1 ? "May get" : "One of"), c,
+      button("✕", () => { delete e.choice; structural(); }, { frame0: true })));
+  }
+  if (!box.childNodes.length) box.append(weak(inChoice ? "Nothing yet" : "No effect yet"));
+  const offered = EFFECTS.filter(([k]) => !inChoice || CHOICE_EFFECTS.includes(k.replace(/_(all|one)$/, "")))
+    .filter(([k]) => ["stat_bonus_one", "stat_target", "free", "free_cards", "require_cards"].includes(k) || (k === "stat_bonus_all" ? !(e.stat_bonus && "all" in e.stat_bonus) : e[k] == null));
+  box.append(row(menu("+ Effect", offered.map(([k, label, add]) => [label, () => { add(e); structural(); }]), { frame0: true })));
+  return box;
+}
+
+load(AUTUMN26);
+startPage();
+</script>
+</body>
+</html>
