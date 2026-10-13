@@ -262,12 +262,24 @@ value is then written as the key's default (a face type 0, a motion the template
 a cross-version player conversion resets a face type (`pes_savefile/operations.md`
 "Cross-version player conversion"), and a custom skin (7) the target has none of as 1. Not as
 authored: a motion beyond the target's range may not fit its field's bits (PES 18's two for
-`hunching_dribbling`), and what the game does with one that fits is unmeasured. A key the target has
+`hunching_dribbling`), and one that fits is shown as the list's top and may be rewritten to the
+list's first entry by the player's next in-game save (`pes_savefile/operations.md`
+"Cross-version player conversion"). A key the target has
 no field for (`dribbling` before PES 20) is not written, with no finding: an export written for a
 newer version compiles for an older one as it is. Strings are matched exactly (lower case, as
 listed). Height and weight are not keys: they are the player record's own fields, not the
 appearance block's, and height affects gameplay, so both belong to the manager's tactical side
 (the save editor), and weight leaves with height for consistency.
+
+The goal celebration ranges in the template are the reference editor's, and they are partly
+wrong. PES 18's editor offers OFF and 1 to 127 (stepping down from OFF wraps to 127), measured
+in Edit mode on goal celebration 1, where the template says 122. PES 16's top is 122: for a
+cup player who stores 183 in `goal_celebration_2` its editor shows "122", and it keeps the 183
+when another row of the motion screen is edited and the team saved (what a match draws for 183
+is unmeasured). PES 15, 17, 19, 20 and 21 are unmeasured. The keys' range per version is a fix
+to make once every version is measured; until then the parser's widest range, 162, covers
+every measured top, and the per-version narrowing at compile time is where the 122 is wrong: a
+PES 18 celebration of 123 to 127 would be reset to the default with a finding.
 
 The ingame-face run follows three rules:
 
@@ -296,10 +308,25 @@ The ingame-face run follows three rules:
 
 The hair lists' ranges also hold the 0 that real saves store, outside the editors' 1-based
 lists: in the fixture cup saves, PES 16, 17 and 18 players hold it in `style`, `front_style`
-and `parted` (1,651 PES 18 cup players), some in every list. A generated file must carry a
-save's player, so each list takes 0, as `variation` does, and `wave_level` (stored as the level
-plus 1) takes -1. The template's defaults stay the editor's. What a 0 draws is not measured
-yet (worklog "Issues").
+and `parted`, some in every list. Of the 1,651 PES 18 cup players, 1,609 hold 0 in those three
+lists under `length` 1 (shaven), and 42 (the /asp/, /w/ and /wsg/ players) hold 0 in every
+list, with `wave_level` -1. A generated file must carry a save's player, so each list takes 0,
+as `variation` does, and `wave_level` (stored as the level plus 1) takes -1. The template's
+defaults stay the editor's.
+
+What a 0 draws was measured on PES 18, from Edit-mode renders of patched saves. A 0 in a list
+the hairstyle uses (`length` and `hairline` were measured) makes the game draw a fallback hair
+that depends on the face, not a look of 0's own: short black spiky hair on one face, short
+brown hair on another, and the all-zero players draw that same fallback. A 0 in a list the
+length greys out (`style`, `front_style`, `parted`, `variation` and `side_back_style` under
+shaven) changes nothing, so the 1,609 draw their shaven look. The editor shows a 0 as its
+first entry (`length` "Shaven", `hairline` "Type 1", `forehead_width` "Narrow",
+`cropped_style` "Type 1", `wave_level` "+0"); changing the length writes 1 into every list at
+0, and confirming a picker on the entry it shows writes 1 into a list at 0 and nothing into a
+list already holding its value. Not measured: `wave_level`, `forehead_width`,
+`cropped_style` or `side_back_style` at 0 with the other lists set, and any length but
+shaven. So the keys keep accepting 0, and a file that carries one compiles to what the save
+drew: the game's fallback.
 
 The four `undershorts` labels name the summer/winter pair the game stores (the reference editor
 shows them as "S: Off / W: Off", "S: Short / W: Short", "S: Off / W: Long", "S: Short / W: Long").

@@ -7416,3 +7416,13 @@ Plan: `music_player.md` "Background", "Relationship to the old codebase", "Instr
 section)", "Improvements over Rigdio", "Dropped features and compatibility notes", "Key
 decisions"; `match_tracker/README.md` "Background", "Unofficial fork (unverified
 findings)", "Relationship to the old codebase"; `GLOSSARY.md` "Event clip" edited.
+
+## 2026-10-13 — pes_savefile — a converted motion past the target's range is capped at the top
+Decision: a cross-version player conversion caps a motion at the target version's top value
+instead of copying it through.
+Why: measured on PES 18 from a patched save, a stored value past the range shows the list's
+top (hunching 3 "3", corner kick 7 "6", celebration 150 "127") with no crash, and a save with
+another row of the screen edited kept two of them but rewrote the corner kick to 0, the first
+entry: which values survive is per field, so a copied value is unstable and can turn into the
+first entry on the player's next in-game save. The top is what the game shows for it anyway.
+Plan: `pes_savefile/operations.md` "Cross-version player conversion".

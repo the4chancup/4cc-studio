@@ -1901,3 +1901,6 @@ worklog passed 7,000 lines.
   the others (the maintainer's answer); PES 2017's open points gate only its own registration.
 - **2026-10-13** — The forks survey's rulings in the music player and match tracker plans (event
   clips apart from the slots, fixed-path team loading, a stoppage chant); three questions asked.
+- **2026-10-13** — In-game findings and the payload coverage census written into the savefile
+  plans and spec (hair lists at 0, celebration ranges, out-of-range motions, PES 21 colours,
+  "Unmodeled payload sections"); step 5.0m3 opened for the celebration ranges.

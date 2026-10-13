@@ -779,6 +779,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     non-zero PES 15 nose angle noted as `NoseAngleDropped`; tested on fixture player 70101
     both ways; spec `operations.md`, `model.md`. The plan paragraph "The run between PES 15
     and 16+ converts field by field" is built: it moves at the phase close
+  - [ ] 5.0m3 the goal celebration ranges per version as measured
+    (`aesthetics_export/settings_toml.md` "The goal celebration ranges in the template"): PES
+    18 is OFF and 1 to 127, PES 16's top 122; the other versions from the in-game motion-range
+    run of 2026-10-13 (`.tmp/ingame_motions/findings.md`). `keys.rs`'s per-version range and the
+    template's two celebration comments follow the measurements, and the PES 16 player at 183
+    is ruled (refused as now, or kept) → done when: each version's `goal_celebration_1`/`_2`
+    range equals its measured editor range in `keys.rs` and the template, and a value at each
+    version's top round-trips through `from_player` then `apply`
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
@@ -1367,19 +1375,15 @@ points there.
   FMDLs carry a 64-byte-per-bone `bone_matrices` block the IR does not; the add-on writes it
   empty and its files work in game, so the export drops it with a finding; what the block holds
   and whether it is derivable from `Bone.matrix` is unmeasured.
-- open — `pes_savefile` PES 21 team record: (1) the reference's colour bits read zero for 203 of
-  220 teams of the 4cc save, and the PES 17 save's colours for the same teams appear at no 6-bit
-  offset anywhere in the 21 records, so the save most likely carries none (kit configs supply
-  colours on 19+); the reference's 21 colour positions are unconfirmed, not disproven. Check what
-  4ccEditor displays for that save before the Save editor shows colours on 21. (2) The 21 record
-  holds a kit-slot block at +48 (`00 40 af 00 | 01 40 af 00 | 80 40 af 00`: numbers 0, 1, 0x80
-  with team 701 x 0x40) that the reference reads only on PES 17 (at +28); the 18-21 tables have no
-  `KitSlot*` rows. Measure 18/19 and add the rows when the Save editor needs kit bindings.
-- open — `pes_savefile` unmodeled player-record bits that real saves set (2.20i,
-  `.tmp/2_20/save_census/src/bin/gaps.rs` over every census save; retained on write, so nothing is
-  lost): PES 18 bits 252-254 (3 bits, set in about a third of records; most likely `Star`,
-  3 bits on 19/20, absent from the 18 schema); PES 16 bits 222 and 362 (437 records each).
-  Model them when the Save editor needs them.
+- open — `pes_savefile` the kit-slot rows: the ten-slot kit block is measured on 18 (+0x1C),
+  19 (+0x20) and 21 (+0x30), with what Strip > Add writes (`plans/pes_savefile/model.md` "Kit
+  slots and the strip table"); the tables carry `KitSlot*` rows for PES 17 alone. Add the rows
+  for the other versions when the Save editor needs kit bindings. (The PES 21 team colours,
+  this issue's other half, were measured in Edit mode on 2026-10-13 at the tables' bits.)
+- resolved 2026-10-13 (in-game; `plans/pes_savefile/model.md` "The player record") —
+  unmodeled player-record bits that real saves set: PES 18 bits 252-254 and PES 16 bits 222
+  and 362 are moved by no Edit setting and kept through load, edit and save: retained,
+  meaning unknown, not editable. The "most likely `Star`" guess has no support.
 - open — `pes_savefile` player id versus appearance id (2.20i reviewer): the appearance
   block's player id (+116 on 17-19, +240 on 20/21) is unmodeled, so changing
   `PlayerEntry.id` leaves it stale. Nothing changes an id today. Step 4.0 settled what the field
@@ -1451,16 +1455,16 @@ points there.
   DECISIONS (the fork survey's rulings), three questions in QUESTIONS; the plans name
   upstream and the forks apart, and the version scope is decided (PES 2019 first, then PES
   2021, then the others).
-- open (2026-10-13, 5.0m1) — what a hair list at 0 draws (`aesthetics_export/settings_toml.md`,
-  the paragraph after the ingame-face run's rules): the fixture cup saves of PES 16 to 18 hold
-  0 in `style`, `front_style`, `parted` (1,651 PES 18 cup players) and, for a few players, in
-  every hair list and `wave_level`; the keys now carry it. An Edit-mode look at a PES 18 cup
-  player with `style` 0 (the save's own, no write) settles whether 0 is a look of its own or
-  the default hair. The lead's, at the next PES 18 in-game session.
-- open (2026-10-13, 5.0m1) — one PES 16 fixture cup player holds `goal_celebration_2 = 183`,
-  past every version's range (0 to 162), so `from_player` refuses him (`OutOfRange`) and his
-  settings export fails. Whether 183 is a celebration PES 16 draws is unchecked;
-  `every_fixture_player_round_trips_through_his_settings` lists him.
+- resolved 2026-10-13 (in-game, PES 18; `aesthetics_export/settings_toml.md`, the paragraph
+  "What a 0 draws was measured on PES 18") — what a hair list at 0 draws: a 0 in `length` or
+  `hairline` draws a per-face fallback hair, not a look of its own; a 0 in a list shaven
+  greys out changes nothing; changing the length writes 1 into every list at 0. The keys keep
+  taking 0.
+- open (2026-10-13, 5.0m1; ruled in 5.0m3) — one PES 16 fixture cup player holds
+  `goal_celebration_2 = 183`: PES 16's editor shows "122" (its top) for him and keeps the 183
+  through a save of another row; what a match draws for 183 is unmeasured. `from_player`
+  still refuses him (`OutOfRange`); `every_fixture_player_round_trips_through_his_settings`
+  lists him.
 
 ---
 

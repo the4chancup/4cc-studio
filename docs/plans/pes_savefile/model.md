@@ -164,3 +164,156 @@ said. Offsets are relative to the run's first byte, as in the spec's table:
   values.
 - Cross-version conversion converts the run field by field (`operations.md` "Cross-version
   player conversion"), and PES 15's face caps are corrected there.
+
+## Unmodeled payload sections
+
+The crate reads five sections of the payload (the player, appearance, team, roster and tactics
+records of `spec/pes_savefile/container.md` "Payload layout per version") and their counts,
+and writes every other byte back as read. A census of every cup save on the maintainer's
+machine (PES 16: 28 distinct saves, 17: 73, 18: 9, 19: 23, 21: 15; 15 and 20 the fixture alone)
+measured what those other bytes hold, so that modeling any of them starts here and not from a
+new reading of the payload. The schema tables cover 12 to 27% of a payload's bits (PES 15
+17.9%, 16 17.2%, 17 19.7%, 18 26.7%, 19 15.7%, 20 12.9%, 21 12.4%), and almost all of the rest
+is empty capacity: each section is a fixed array of slots (25,000 player slots on 15/16,
+21,000 on 17/18, 32,000 on 19, 30,000 on 20/21; 650 to 850 team slots; 715 to 990 roster and
+tactics slots), and the
+unused slots are zeros or the `0x0003FFFF` "no team" filler, identical in every save. The data
+that varies between saves and no field covers is small, and every piece of it is named by the
+community's edit-file wiki pages or by its content. Offsets, strides, counts and what varies
+are measured; a name is the wiki's unless "measured" says an Edit-mode save moved it.
+
+### Sections past the records
+
+In payload order on every version, after the header, the count block, the player slots and
+the team slots:
+
+| Section | 15 | 16 | 17 | 18 | 19 | 20 | 21 | Varies across saves |
+|---|---|---|---|---|---|---|---|---|
+| Manager entries, 88 B (u32 id, u16 nationality, u16 picture, a byte, 79-B name) | in the team record | in the team record | 0x410118 × 850 | 0x40A35C × 850 | 0x5FECBC × 1200 | 0x94DDDC × 1500 | 0x958DA4 × 1300 | 17/18: every save; 19: 2 of 22; 21: 10 of 14 |
+| Competitions | 0x4A947C, 92 B × 100 | 0x4C1B1C, 92 × 100 | 0x422548, 124 × 50 | 0x41C78C, 124 × 50 | 0x61893C, 760 × 65 | 0x96E17C (49,528 B, not 65 × 760: the stride is undetermined) | 0x974C84, 760 × 65 | 16: 21 saves; 17: 65; 18 holds the cup's competition names; 19/21: little |
+| Stadium names (u32 id + name) | 0x4AB86C, 128 × 100 | 0x4C3F0C, 128 × 100 | 0x423D80, 128 × 40 | 0x41DFC4, 128 × 45 | 0x624A34, 128 × 65 | 0x97A2F4, 128 × 64 | 0x980D7C, 188 × 65 | 16: 21 saves; 17: 64; 18/19: identical |
+| Kit (strip) entries, keyed by the u32 at +0 ("Kit slots and the strip table") | 0x4AEA6C, 88 × 2500 | 0x4C710C, 88 × 2500 | 0x425180, 132 × 2500 | 0x41F644, 132 × 2500 | 0x626AB4, 132 × 2500 | 0x97C2F4, 132 × 2500 | 0x983D38, 132 × 2500 | 16: 25 saves; 17: every save (155 entries, 33 teams); 18: empty; 19: 17 saves; 21: every save, all 2,500 populated |
+| Competition-entry team-id lists (u32 each), after the unused roster slots | 0x506654 | 0x51EC74 | 0x48FAF8, 2,888 B | 0x487FB4, 3,008 B | 0x69DF4C, 3,392 B | 0xA00C0C, 4,656 B | 0xA08650, 4,656 B | 17: 65 saves; 18: 2; 19: 3; 21: 3 |
+| Unused tactics slots to the payload's end | 397 KB | 372 KB | 146 KB | 130 KB | 56 KB | 333 KB | 333 KB | identical |
+
+The 17 to 21 starts are the wiki's, each confirmed by the census (the section's stride starts
+where the page says); the 15, 16 and 20 starts were located by content (the 92-byte and
+128-byte strides, the manager and stadium names). The header's count block (0x3A to 0x4C on
+15/16, 0x62 to 0x7C on 17 to 21) holds each table's u16 count: competitions, stadiums,
+managers, team-player tables, game plans, and the kit entries (0x68 on 17, 0x6C on 18 to 21),
+measured equal to the table's non-empty entries. On 17 to 21 the header's bytes 0x30 to 0x4F
+differ in every save: the game rewrites them on every Edit-mode save (a digest or random,
+inferred), and a save patched with them left as they were loads and plays, so leaving them as
+read is safe. A PES 18 save also rewrote 0x0C to 0x0D and 0x54 to 0x55 (`06 29` to `76 27`,
+both pairs), unexplained; PES 16 rewrites no header byte.
+
+### Kit slots and the strip table
+
+Every version's team record holds a block of ten u32 kit slots, each `(team id << 14) |
+strip number`: the outfield 1st to 4th strips are 0 to 3 (the editor's Add menu offers those
+and the goalkeeper's 1st; 4 to 8 occur on one team of one save), the goalkeeper's 1st is 0x80,
+and an unused slot is 0xFFFFC000. The block is at +0x1C on 17 and 18 (measured on 18), +0x20
+on 19 (measured) and +0x30 on 20/21 (measured on 21); on 15/16 bytes 24 to 63 are set and
+uncovered, the same size, inferred to be the same block. The spec's tables carry the
+`KitSlotNumber`/`KitSlotTeam` rows for 17 alone (`spec/pes_savefile/model.md` "The team
+side"), so the rows for the other versions are what modeling this adds. Measured on 18, 19 and
+21: Edit > Teams > Strip > Add writes the new strip's key into the block's first unused slot
+(so a block's order is the order of adding, not numeric: one team holds 0, 1, 0x80, 2, 3), adds
+one entry with the same key to the strip table, which stays sorted by key (the entries after
+it move down one slot), and adds 1 to the header's kit-entry count; nothing else changes.
+The entry's body is the strip's design: on 20/21 a `FF 07 00 50` word and RGB-looking
+triplets (`36 36 36` in a default entry), inferred to be the kit colours; the layout is
+unmapped. The maintainer's PES 21 install refuses to edit a strip ("You cannot edit this
+strip"), on a cup team's 1st and on one just added, so mapping the body by editing needs
+another install or another route. A team whose slots name strips with no table entry (PES
+19: 158 teams own strips 0, 1 and 0x80 against 15 entries) draws them from the kit configs
+the CPK carries, inferred, not tested. In the live saves: PES 18, 89 teams with slots 0, 1 and
+0x80 (11 with a 4th, one with all ten) and 96 with none, the table empty; PES 19, 158 teams
+with 0, 1 and 0x80 and 52 with none; PES 21, every table entry populated, default teams
+included.
+
+### The team record
+
+The tables cover 15 to 26% of the team record's bits. The uncovered bytes by version, with the
+wiki's names (what a Save editor's team page would model):
+
+- **15/16** (456 B): 4 to 17 emblem, home stadium, nationality, callname, coach nationality and
+  image, turf, net, seats and sideline; 18 to 19 edit flags (the tables' `EditedName` at 0x12:0
+  is the wiki's "Unknown A", and its "names edited" is 0x12:7); 24 to 63 the kit slots; 64 to
+  75 three rival ids; 76 to 147 0xFF (145 to 147 set in about 600 records); 222 to 342 the
+  custom stadium name; 343 to 406 four banner texts at a 16-byte stride; 407 to 455 the
+  manager's name.
+- **17/18** (480 B): 4 to 17 manager id, emblem, stadium, nationality, callname; 19 to 27
+  stadium settings and edit flags (bits 215 and 216 set in about 10,400 of 15,221 records); 28
+  to 67 the kit slots (uncovered on 18 alone); 68 to 79 rivals; 80 to 151 0xFF with
+  banner-edited flags at 149 to 151; 226 to 346 the custom stadium name; 347 to 410 banners.
+- **19** (416 B): 8 to 22; 25 to 31 the wiki's "Unknown B to E" (by 21's layout the goal-net
+  colours, media backdrop, stadium settings, the 10-bit edited-settings mask and partner
+  images; the census ran them to 51 and started the kit slots at 52, but the measured block
+  starts at 32 and the rivals follow it at 72 as on every other Fox version, so the byte
+  counts between 25 and 51 are not to be trusted); 32 to 71 the kit slots; 72 to 83 rivals; 85 to 87
+  banner flags; 162 to 178 the stadium name; 283 to 344 banners.
+- **20/21** (528/588 B): 8 to 22; 25 to 33 goal-net colours, media backdrop RGB, edited-stadium
+  flags, goal, turf, sideline and seats, the 10-bit mask; 36 to 47 three partner-image ids
+  (0xFFFFFFFF); 48 to 87 the kit slots; 88 to 99 rivals; 101 to 103 banner flags; 359 to 422
+  banners; the 181-byte stadium name was set in no save.
+
+Measured on PES 21: Rival Clubs slot 1 is the u32 at +0x58 (0x0003FFFF is Off), and setting it
+also set bit 264, inferred to be the 10-bit mask's edited-rivals flag; the team colours are at
+the tables' bits (`spec/pes_savefile/codec.md` "Reference readings the derivation flagged").
+
+### The tactics record
+
+The tables cover 4,120 of the record's 5,024 bits on 17 to 21 (4,088 of 4,128 on 15, 4,112
+of 4,160 on 16, where no uncovered bit is set in any save). On 17 to 21 the uncovered bits
+that real saves set are these. Bytes 516 to 523 on 19 to 21 are lineup slots 32 to 39
+of the wiki's 40-byte lineup at 0x1E4 (the tables cover slots 0 to 31 as the starting eleven
+and the bench); on PES 20, 218 of 220 records hold exactly 32 to 39 there. Byte 537 bit 0 is
+Switch Preset Tactics (measured on 21: On to Off cleared it; set in 1,529 of 8,388 PES 19
+records and 1,185 of 3,180 PES 21 ones) and byte 539 is Auto Lineup Select (measured on 21:
+"Unedited" is 0 and the next entry right, "By Ability", is 2, on which the game re-picked the
+lineup at once and swapped two lineup bytes; the other entries were not stepped through). On
+17/18 that setting is byte 530 bit 1 (values 2 and 3 in 288 and 25 records). The wiki's PES 19
+page lists its offsets after the lineup 3 bytes short; the tables and the data agree with each
+other.
+
+### The player record
+
+- Every version: bytes 4 to 7 are the commentary-name player id (a 0x1xxxx value in most
+  records, 0xFFFFFFFF in a few; a PES 16 Base Copy rewrites it, with the appearance block's
+  base-copy id, to the copied player's); bytes 8 to 9 are 0xFFFF on 15 to 18.
+- **PES 15** bits 149 to 155 (between goalkeeping and the free-kick motion) hold 99 in every
+  record (on 16 those bits are dribbling); bits 344 to 345 are set in 13 of 20 records.
+- **PES 16** bits 222 (0x1B:6, the wiki's "Unknown B") and 362 (0x2D:2, "Unknown D") are set
+  together on the 23 players of one team (/gd/, 720) in 19 of the 28 saves and nowhere else.
+  Measured: no Edit setting moves them (basic settings, motion, ability with injury resistance
+  at its top, skills, COM styles and base copy were tried; positions, playing style,
+  appearance, name and create player were not), nothing in the editor shows them, and the game
+  keeps them through load, edit and save. Retained, meaning unknown, not editable.
+- **PES 17** three one-record bits in byte 51 (noise).
+- **PES 18** bits 252 to 254 (0x1F:4, 3 bits; on 17 the dribbling-arm motion sits there). No
+  Edit setting moves them, and a dribbling-arm change moved the tables' own field at bit 295,
+  so the tables' PES 18 motion offsets hold and these bits are not that motion. Konami's own
+  players hold 1 to 7 on all 13,800 of the default save (1: 6,263, 2: 3,730, 3: 2,029, 4:
+  1,057, 5: 444, 6: 195, 7: 82; the mean ability rises from 60.6 at 1 to 69.6 at 7, with no tie
+  to the arm motions), the live cup save's rostered players 0, and one cup save's Invitational
+  teams 2,827 nonzero. Kept through load, edit and save. Retained, meaning unknown, not
+  editable.
+- **PES 20/21** bytes 176 to 239 are the wiki's 64-byte "Print Name (National Team)" (varying
+  at 176 to 191 on 21).
+- The appearance block has no uncovered bit; the 20/21 roster record has 40 bytes set in no
+  save.
+
+An Edit-mode save also sets the four edited flags at +0x78 (bits 960 to 963: face, hair,
+physique, strip) on a Fox player whose screens were visited, whether a value changed or not;
+a player whose only visit was the hairstyle picker, confirmed on the entry it showed, stayed
+byte-identical, so which screen sets them is not isolated.
+
+### Open points
+
+Not determined by the census: PES 20's competition stride (49,528 B is not 65 × 760); PES 15's
+header 0x4A reading 1855 over an all-empty kit table; PES 16's competition-entry start (the
+ids begin 128 B before the wiki's size implies); the strip entries' layout beyond the key and
+the colour-looking bytes; the 32 header bytes; the edit flags' meanings (the wiki's words,
+unmeasured). Not measured in Edit mode: the manager entries, competitions, stadium names, the
+commentary-name id, the print name, and the team record's emblem, stadium and banner bytes.

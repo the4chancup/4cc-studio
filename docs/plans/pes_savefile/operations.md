@@ -10,8 +10,18 @@ What exists of this is in `spec/pes_savefile/operations.md` "What the Rust modul
 
 Not in this module (open): the motion ranges narrow from 20/21 to 19 and earlier (corner kick
 1–10 vs 1–6, free kick 1–20 vs 1–16, penalty 1–7 vs 1–4, see the `settings.toml` key table); a
-20/21 → 19 conversion copies such a value through uncapped. Whether the game clamps, ignores or
-misbehaves on an out-of-range motion is unmeasured; measure before capping.
+20/21 → 19 conversion copies such a value through uncapped. What the game does with a stored
+motion past its range was measured on PES 18, from a patched save: a hunching of stored 3 (the
+field is 2 bits; the editor offers 1 to 3, stored 0 to 2) shows "3", a corner kick of stored 7
+(3 bits, 1 to 6) shows "6", a goal celebration of 150 shows "127": the list's top, with no
+crash on load or in Edit mode. Saving the team with another row of the same screen edited kept
+the hunching 3 and the celebration 150 but rewrote the corner kick 7 to 0, the list's first
+entry, its own row untouched; PES 16 keeps a stored celebration of 183 the same way. Which
+values a save keeps is per field, so a value past the range is not stable. The conversion
+therefore caps a motion at the target's top instead of copying it through: the top is what the
+game shows for it anyway, and a copied value can turn into the list's first entry on the
+player's next in-game save, a change nobody asked for. The ranges themselves are partly
+unmeasured (`aesthetics_export/settings_toml.md` "The goal celebration ranges in the template").
 
 **The run between PES 15 and 16+ converts field by field (step after 5.0l).** The spec's
 `min(len)` prefix copy rests on a premise that turned out wrong: that the run's layout is one

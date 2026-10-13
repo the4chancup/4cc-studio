@@ -167,9 +167,13 @@ Record sizes: player 112/112/188/188/188/312/312; appearance 68/72 (15/16); team
 
 Reference readings the derivation flagged, kept as the reference has them and listed here so
 nobody mistakes them for ours: `b_edit_stadium` on PES 19 is masked to zero by the reference
-(`>> 6 & 64`), so the PES 19 table has no such field; the PES 21 team-colour bit positions read
-zero for 203 of 220 teams in the 4cc save where PES 17/18 read the same teams' colours, an open
-question (worklog) until the reference editor's display of that save is checked.
+(`>> 6 & 64`), so the PES 19 table has no such field. The PES 21 team-colour bit positions were
+suspect (they read zero for 203 of 220 teams of one 4cc save where PES 17/18 read the same
+teams' colours) until measured in Edit mode on PES 21: the game shows and saves Team Colour 1
+and 2 at the table's bits (changing colour 1 to a swatch moved `Color1Red`, `Color1Green` and
+`Color1Blue` alone, to the RGB the face colour picker gives that swatch), and in the live cup
+save the 70 cup teams 701 to 770 hold colours while the 140 placeholder teams 771 to 910 are
+zero.
 Two corrections are ours, applied by the generator, not the reference: PES 18's
 dribbling-arm motion (`mo_armd`) is 3 bits wide where the reference reads 2 (`WIDTH_FIXES`; the
 2.20i census found 2,808 records setting the third bit); and on PES 17+ the appearance block's

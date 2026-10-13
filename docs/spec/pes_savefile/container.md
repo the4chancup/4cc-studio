@@ -212,6 +212,11 @@ real PES 20 save: its payload is 31 300 bytes shorter than the 21 save's, exactl
 tactics offset difference, and both saves rewrite byte for byte under the 20 and 21 tables
 respectively).
 
+The payload's other sections (manager entries, competitions, stadium names, the kit entry
+table, the competition-entry lists) and the bytes inside these five records that no field
+covers are retained and written back as read; what they hold, with their offsets per version,
+is in `plans/pes_savefile/model.md` "Unmodeled payload sections".
+
 Structural eras:
 
 - **PES 15/16**: the player block holds stats; a separate appearance array
