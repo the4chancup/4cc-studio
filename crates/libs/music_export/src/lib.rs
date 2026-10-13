@@ -9,14 +9,18 @@
 //! the parser takes bytes and the file's stem (the team name when the file
 //! names none), the serializer returns the text.
 
+mod eval;
 mod model;
 mod parse;
+mod state;
 mod tokens;
 mod write;
 
+pub use eval::Verdict;
 pub use model::{
     Comparison, Condition, EndAction, EventClip, EventKind, Instruction, MatchType, MusicExport,
     PauseAction, Slot, SongEntry, StartOffset,
 };
 pub use parse::{ParseError, ParseErrorKind, Parsed, Warning, parse};
+pub use state::{MatchState, Side, TeamState};
 pub use write::write;
