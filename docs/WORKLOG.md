@@ -921,14 +921,11 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
     `needs_goal_minute`. Files: `src/{state,eval}.rs`
   - [x] 10.0c `PriorityList::for_slot`/`select`, `Press`, `Loaded`; 9 selection scenario tests.
     Files: `src/select.rs`
-  - [ ] 10.0d file resolution (`resolve.rs`, native-only): the plan's three resolution steps
-    (`_normalized` preferred when normalization will not apply, else the file matched
-    case-insensitively in its own parent folder, else the `_normalized` file), missing files
-    collected per export; plus the lead's review fix: `select`'s `Press.skip` is an index, so an
-    entry unloaded before it in the same press (a `once` already checked) shifts the list and
-    `advance` replays the entry that just ended → verify: a temp folder with `Song.mp3` and
-    `song_normalized.mp3`, the three resolution orders, the missing list; a scenario test with
-    `once;goals >= 5`, then `advance`, then a plain entry, red before the fix
+  - [x] 10.0d `resolve_song`/`resolve_export`/`Resolution` (native only): the plan's resolution
+    order, names matched case-insensitively in the file's own folder and returned as on disk
+    (a lead fix: the brief's exact-path shortcut returned the export's spelling on Windows);
+    `select`'s skip follows its entry past an unload. SWE-2, first attempt, red runs pasted.
+    Files: `src/{resolve,select,lib}.rs`
   - [ ] 10.0e the plan's "Model" section extended with `Verdict`, `MatchState`, `PriorityList` as
     built; `just mutants music_export`, `just clef music_export`, each survivor and flag ruled
 
@@ -948,10 +945,13 @@ Steps are itemized when Phase 15 closes; one is fixed already:
 The phase is itemized when it opens; its GUI is drafted ahead of it, at the maintainer's request
 (2026-10-14), to show the members who offered to help shape the ruleset format:
 
-- [ ] 20.0 The Ruleset editor's GUI draft, once every AATF step is done (5.2's slices and its
-  5.2f parity, the `pes_savefile` rating-scale fix, 5.4b `check-aatf`). (The maintainer may move
-  it before the remaining slices: the draft needs only the schema, and input that changes the
-  format costs less before VGL/VTL are written against it.)
+- [ ] 20.0 The Ruleset editor's GUI draft, right after 5.2c3-5.2e1 land with their review
+  rework, before 5.2e-2's VGL/VTL rulesets (moved up by the maintainer, 2026-10-14): the draft
+  needs only the schema, and input that changes the format costs less before more rulesets are
+  written against it. Its purpose is to show the members that a Rhai rules file is a sound
+  choice: the GUI makes it easier to edit than a simpler hand-written text format would be,
+  while the file stays readable. So beside the forms the draft shows the ruleset's data block
+  read-only, updated as a field changes.
   - [ ] 20.0a coverage of a contributor's proposal (Clouds, written without knowing Studio;
     the maintainer's copy is `.tmp/Clouds_proposal.txt`): a plain-language rule system with
     tier and bracket groups (`medal` for every medal tier), player variables (each stat, card
@@ -968,9 +968,11 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     schema field or to a custom check, no row empty
   - [ ] 20.0b the interactive draft (`core/gui.md` "Prototypes before implementation"):
     `docs/prototypes/ruleset_editor.html` over the `ruleset_editor.md` forms, the official
-    Autumn 26 ruleset as its sample data, every schema field reachable → verify: each of
-    `ruleset_editor.md`'s editor sections has its form in the draft, and the page uses only
-    the allowed widgets (the lead's read against that list)
+    Autumn 26 ruleset as its sample data, every schema field reachable, the data-block pane
+    beside the forms → verify: each of `ruleset_editor.md`'s editor sections has its form in
+    the draft, each row of 20.0a's table that maps to a schema field has a widget the page
+    can show it in, and the page uses only the allowed widgets (the lead's read against that
+    list)
 
 ---
 

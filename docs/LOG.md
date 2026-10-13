@@ -1910,3 +1910,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 10.0a-c, ahead of Phase 10: `libs/music_export`, the `.4ccm` model,
   parser, serializer, condition evaluator and song selection; its census reads 56 of the
   machine's 61 exports back equal (5 editor history copies refused, as Rigdio refuses them).
+- **2026-10-14** — Step 10.0d: `music_export` resolves an export's songs on disk (Rigdio's order,
+  names as on disk) and reports the missing ones together; `advance` no longer replays a song
+  when an earlier entry unloads in the same press.

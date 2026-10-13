@@ -175,6 +175,10 @@ Song paths resolve against the `.4ccm`'s folder with the same semantics as Rigdi
   plain file is missing, the `_normalized` file is used regardless.
 - Missing files are collected across the whole export and reported as one list, not
   one-at-a-time.
+- A resolved path carries the file's name as it is on disk, not as the export spells it, so
+  two spellings of one file are one path (positions are shared per path, "Sync"); a lookup
+  reads the folder's listing rather than asking whether the written path exists, which a
+  case-insensitive filesystem answers with the written spelling.
 
 The old parser read files in the system locale encoding and crashed with
 `UnicodeDecodeError` on non-ASCII names; the new parser reads UTF-8 with a lossy

@@ -33,7 +33,8 @@ pub struct Press<'a> {
     pub side: Side,
     /// The button's slot name: the player, or the reserved keyword.
     pub player: &'a str,
-    /// The entry that just ended (`advance`), skipped this time.
+    /// The entry that just ended (`advance`), skipped this time: its index
+    /// into `entries()` as the list stood when the press began.
     pub skip: Option<usize>,
     /// A warcry already played for this press: warcries are excluded now.
     pub after_warcry: bool,
@@ -94,9 +95,10 @@ impl PriorityList {
                 return Some(warcries[pick(warcries.len())]);
             }
         }
+        let mut skip = press.skip;
         let mut i = 0;
         while i < self.entries.len() {
-            if Some(i) == press.skip {
+            if Some(i) == skip {
                 i += 1;
                 continue;
             }
@@ -119,6 +121,11 @@ impl PriorityList {
             );
             if verdict == Verdict::NeverAgain {
                 self.entries.remove(i);
+                // An entry unloaded before the skipped one moves its index
+                // down with it.
+                if skip.is_some_and(|skip| i < skip) {
+                    skip = skip.map(|skip| skip - 1);
+                }
                 continue;
             }
             if randomise && !warcry && !fallback {
@@ -443,6 +450,29 @@ mod tests {
         };
         let mut one = loaded("Billy;b1.mp3;advance\n", "Billy");
         assert_eq!(one.select(&state, alone, &mut no_pick), None);
+    }
+
+    #[test]
+    fn an_advance_skip_follows_the_entry_when_an_earlier_one_unloads() {
+        let mut state = MatchState::new("jp", "v", MatchType::Group);
+        let mut list = loaded(
+            "goal;main.mp3\nBilly;o.mp3;once;goals >= 5\nBilly;b1.mp3;advance\nBilly;b2.mp3\n",
+            "Billy",
+        );
+        state.score_goal(Side::Home, "Billy");
+        let first = list.select(&state, press("Billy"), &mut no_pick);
+        assert_eq!(file(&list, first), Some("b1.mp3".to_string()));
+        // The `once` entry checked False on the first press and unloads on
+        // the way to the skipped index.
+        let next = Press {
+            skip: first,
+            ..press("Billy")
+        };
+        assert_eq!(
+            play(&mut list, &state, next, &mut no_pick),
+            Some("b2.mp3".to_string()),
+            "skip is the index the press began with, not the shifted one"
+        );
     }
 
     #[test]
