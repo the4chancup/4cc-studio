@@ -20,8 +20,8 @@ entry, its own row untouched; PES 16 keeps a stored celebration of 183 the same 
 values a save keeps is per field, so a value past the range is not stable. The conversion
 therefore caps a motion at the target's top instead of copying it through: the top is what the
 game shows for it anyway, and a copied value can turn into the list's first entry on the
-player's next in-game save, a change nobody asked for. The ranges themselves are partly
-unmeasured (`aesthetics_export/settings_toml.md` "The goal celebration ranges in the template").
+player's next in-game save, a change nobody asked for. Each version's tops are measured
+(`aesthetics_export/settings_toml.md` "The motion ranges were measured").
 
 **The run between PES 15 and 16+ converts field by field (step after 5.0l).** The spec's
 `min(len)` prefix copy rests on a premise that turned out wrong: that the run's layout is one
@@ -44,23 +44,26 @@ one family, the run is still copied whole.
 The eleven face types are then capped as now, with PES 15's caps measured. They are wider than
 16's:
 
-| Face type | PES 15 | PES 16–19 | PES 20–21 |
-|---|---|---|---|
-| cheek | 14 | 3 | 3 |
-| forehead | 6 | 5 | 5 |
-| facial hair | 29 | 12 | 19 |
-| laughter lines | 6 | 4 | 4 |
-| upper eyelid | 14 | 6 | 7 |
-| lower eyelid | 14 | 2 | 6 |
-| eyebrow | 17 | 5 | 7 |
-| neck line | 5 | 2 | 3 |
-| nose | 11 | 6 | 7 |
-| upper lip | 7 | 3 | 4 |
-| lower lip | 7 | 2 | 4 |
+| Face type | PES 15 | PES 16–18 | PES 19 | PES 20–21 |
+|---|---|---|---|---|
+| cheek | 14 | 3 | 5 | 3 |
+| forehead | 6 | 5 | 6 | 5 |
+| facial hair | 29 | 12 | 12 | 19 |
+| laughter lines | 6 | 4 | 4 | 4 |
+| upper eyelid | 14 | 6 | 6 | 7 |
+| lower eyelid | 14 | 2 | 2 | 6 |
+| eyebrow | 17 | 5 | 5 | 7 |
+| neck line | 5 | 2 | 2 | 3 |
+| nose | 11 | 6 | 6 | 7 |
+| upper lip | 7 | 3 | 3 | 4 |
+| lower lip | 7 | 2 | 2 | 4 |
 
 The PES 15 column joins the editor's range and the census of the game's faces. Neck line 4 and 5
-and lips 7 have no editor entry, but the game draws them as distinct models. PES 17 to 19 stay
-assumed equal to 16.
+and lips 7 have no editor entry, but the game draws them as distinct models. PES 17 and 18 stay
+assumed equal to 16. PES 19's cheek and forehead were measured in its editor (26 cup players on
+the maintainer's save use the types past 16's caps); its other nine types stay assumed equal to
+16. PES 19 is therefore wider than 20 and 21 on those two, as measured: a 19 to 20 conversion
+resets a cheek 4 or 5 like any face type past the target's cap.
 
 ## Interchange formats
 

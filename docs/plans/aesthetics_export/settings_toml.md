@@ -142,14 +142,14 @@ gloves_color = 0                # 0 to 7
 [appearance.motion]             # on Fox written by the aesthetics patch: the tables do not hold motions
 hunching_dribbling = 1          # 1 to 3 (PES 20 and 21: 1 to 5)
 hunching_running = 1            # 1 to 3 (PES 20 and 21: 1 to 5)
-arm_movement_dribbling = 1      # 1 to 8 (PES 20 and 21: 1 to 10)
-arm_movement_running = 1        # 1 to 8 (PES 20 and 21: 1 to 10)
+arm_movement_dribbling = 1      # 1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)
+arm_movement_running = 1        # 1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)
 corner_kick = 1                 # 1 to 6 (PES 20 and 21: 1 to 10)
 free_kick = 1                   # 1 to 16 (PES 20 and 21: 1 to 20)
 penalty_kick = 1                # 1 to 4 (PES 20 and 21: 1 to 7)
 dribbling = 0                   # 0 to 3, PES 20 and 21 only
-goal_celebration_1 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
-goal_celebration_2 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
+goal_celebration_1 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162
+goal_celebration_2 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162
 
 [appearance.face]
 jawline = 0                     # -7 to 7
@@ -199,8 +199,8 @@ pes15_eyebrow_depth = 0         # -7 to 7, drawn by PES 15 only
 pes15_bottom_eyelid_position = 0 # -7 to 7, drawn by PES 15 only
 pes15_nasal_bridge_position = 0 # -7 to 7, drawn by PES 15 only
 pes15_nasal_root_height = 0     # -7 to 7, drawn by PES 15 only
-cheek_type = 0                  # 0 to 3 (PES 15: 0 to 14)
-forehead_type = 0               # 0 to 5 (PES 15: 0 to 6)
+cheek_type = 0                  # 0 to 3 (PES 15: 0 to 14; PES 19: 0 to 5)
+forehead_type = 0               # 0 to 5 (PES 15 and 19: 0 to 6)
 facial_hair_type = 0            # 0 to 12 (PES 15: 0 to 29; PES 20 and 21: 0 to 19)
 laughter_lines_type = 0         # 0 to 4 (PES 15: 0 to 6)
 upper_eyelid_type = 0           # 0 to 6 (PES 15: 0 to 14; PES 20 and 21: 0 to 7)
@@ -252,7 +252,8 @@ sock, undershort, shirttail and wrist-taping lists are the reference save editor
 bits); the physique numbers are the editor's spin ranges (stored value = number + 7); the motion
 ranges are its spin ranges per version (1-based ones are stored minus 1, celebrations as is); the
 face-type maxima are the caps the two legacy converters apply when writing a PES 16 and a PES 21
-save. The 17 to 19 face caps are unmeasured and assumed equal to PES 16's. PES 15's face caps
+save. The 17 and 18 face caps are unmeasured and assumed equal to PES 16's; PES 19's editor
+offers cheek types 0 to 5 and forehead types 0 to 6, wider than 16's, its other caps unmeasured. PES 15's face caps
 were measured: the editor's range joined with the game's own faces. The run's other keys were
 measured in the games (`pes_savefile/model.md` "The ingame-face run, decoded"). The in-game hair
 ranges were measured on PES 21 and are assumed for 16 to 20. The parser checks a value against the **widest** range of a key (a PES
@@ -271,15 +272,27 @@ listed). Height and weight are not keys: they are the player record's own fields
 appearance block's, and height affects gameplay, so both belong to the manager's tactical side
 (the save editor), and weight leaves with height for consistency.
 
-The goal celebration ranges in the template are the reference editor's, and they are partly
-wrong. PES 18's editor offers OFF and 1 to 127 (stepping down from OFF wraps to 127), measured
-in Edit mode on goal celebration 1, where the template says 122. PES 16's top is 122: for a
-cup player who stores 183 in `goal_celebration_2` its editor shows "122", and it keeps the 183
-when another row of the motion screen is edited and the team saved (what a match draws for 183
-is unmeasured). PES 15, 17, 19, 20 and 21 are unmeasured. The keys' range per version is a fix
-to make once every version is measured; until then the parser's widest range, 162, covers
-every measured top, and the per-version narrowing at compile time is where the 122 is wrong: a
-PES 18 celebration of 123 to 127 would be reset to the default with a finding.
+The motion ranges were measured in every version's editor (2026-10-13, every row stepped past
+its top): each 1-based key starts at 1 and wraps, stored one below what the editor shows, and
+only the goal celebrations have an OFF entry (stored 0) below 1, stored as shown. The reference
+editor's ranges, which the template first copied, were wrong on PES 15's arm movements and on
+the celebrations of PES 15, 18, 19 and 20. The tops, as the editor shows them:
+
+| Key | PES 15 | PES 16 | PES 17 | PES 18 | PES 19 | PES 20 | PES 21 |
+|---|---|---|---|---|---|---|---|
+| `hunching_dribbling`, `hunching_running` | 3 | 3 | 3 | 3 | 3 | 5 | 5 |
+| `arm_movement_dribbling`, `arm_movement_running` | 5 | 8 | 8 | 8 | 8 | 10 | 10 |
+| `corner_kick` | 6 | 6 | 6 | 6 | 6 | 10 | 10 |
+| `free_kick` | 16 | 16 | 16 | 16 | 16 | 20 | 20 |
+| `penalty_kick` | 4 | 4 | 4 | 4 | 4 | 7 | 7 |
+| `goal_celebration_1`, `goal_celebration_2` | 112 | 122 | 122 | 127 | 140 | 152 | 162 |
+
+The parser accepts a key's widest range, the table's top over every version; the per-version
+narrowing at compile time and the cross-version conversion's cap read the version's column. A
+stored value past a version's top is shown as the top: PES 16's editor shows "122" for a cup
+player who stores 183 in `goal_celebration_2`, and keeps the 183 when another row of the motion
+screen is edited and the team saved (what a match draws for 183 is unmeasured). Reading such a
+player into a `settings.toml` refuses the value, as any value past the widest range.
 
 The ingame-face run follows three rules:
 

@@ -7461,3 +7461,17 @@ history copies with `random`/`randomize` and one with `goals>=3`, which Rigdio r
 so an alias would let a file work here that fails in Rigdio. Selection over `MatchState` is a
 pure function, so its scenario tests need no player.
 Plan: `music_player.md` "The `.4ccm` format" (Conditions, Model), "Song selection (per button press)".
+
+## 2026-10-14 — pes_savefile — one table of motion tops per version; a value past the widest range stays refused
+Decision: the measured motion tops (`settings_toml.md` "The motion ranges were measured") live
+in one per-version table in `pes_savefile`, which the keys' widest ranges, the template's
+comments and the cross-version conversion's cap all read; PES 19 gets its own face-cap column
+(cheek 5, forehead 6, measured), narrower 20 and 21 left as measured. A stored value past a
+key's widest range (a PES 16 cup player's `goal_celebration_2 = 183`) stays refused when the
+player is read into a `settings.toml`.
+Why: the template's ranges were copied from the reference editor and were wrong on five
+versions; with one table, a later measurement changes one row. Accepting 183 would write a
+`settings.toml` value no editor offers and whose match look is unmeasured; the refusal names
+the key, and the member picks a celebration in range.
+Plan: `aesthetics_export/settings_toml.md` "The motion ranges were measured";
+`pes_savefile/operations.md` "Cross-version player conversion".

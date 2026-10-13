@@ -780,14 +780,17 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     non-zero PES 15 nose angle noted as `NoseAngleDropped`; tested on fixture player 70101
     both ways; spec `operations.md`, `model.md`. The plan paragraph "The run between PES 15
     and 16+ converts field by field" is built: it moves at the phase close
-  - [ ] 5.0m3 the goal celebration ranges per version as measured
-    (`aesthetics_export/settings_toml.md` "The goal celebration ranges in the template"): PES
-    18 is OFF and 1 to 127, PES 16's top 122; the other versions from the in-game motion-range
-    run of 2026-10-13 (`.tmp/ingame_motions/findings.md`). `keys.rs`'s per-version range and the
-    template's two celebration comments follow the measurements, and the PES 16 player at 183
-    is ruled (refused as now, or kept) → done when: each version's `goal_celebration_1`/`_2`
-    range equals its measured editor range in `keys.rs` and the template, and a value at each
-    version's top round-trips through `from_player` then `apply`
+  - [ ] 5.0m3 the motion ranges per version as measured (`aesthetics_export/settings_toml.md`
+    "The motion ranges were measured", the table measured 2026-10-13 in every version's
+    editor, `.tmp/ingame_motions/findings.md`): one per-version table of motion tops in
+    `pes_savefile`, read by the keys' widest ranges and template comments and by the
+    cross-version conversion's cap at the target's top (`pes_savefile/operations.md`
+    "Cross-version player conversion"); PES 19's own face-cap column (cheek 5, forehead 6,
+    the plan's caps table). The PES 16 player at 183 stays refused by `from_player` (past the
+    widest range) → done when: each version's tops equal the plan's table, a value at each
+    version's top round-trips through `from_player` then `apply`, a PES 20 player at the tops
+    converted to PES 15 holds PES 15's tops, and a PES 19 cheek 5 reads and converts to PES 18
+    as 0
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
