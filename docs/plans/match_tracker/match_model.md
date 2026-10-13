@@ -275,7 +275,14 @@ cycle.
   minute estimate. Its initial value uses a fixed profile seed of a 10-minute match
   (`32 × 10` ticks per game minute), matching the legacy default at
   `MatchReader.h:74`; the reducer auto-calibrates against the recorded minute→tick history
-  and records the detected match length. Injury time is
+  and records the detected match length. The seed is per profile: at Match Time 10 the
+  measured rate is 320 ticks per game minute on PES 2017, about 356 on PES 2019 and about
+  371 on PES 2021 (stoppage included). The legacy correction, which moves in steps of 32,
+  settles at 352 on PES 2019 and records its 10-minute matches as 11 minutes long. The 13
+  "Game ticks played"
+  counters are per playing position, not time segments (a goalkeeper's ticks land in one
+  counter, a centre-back's in another), which is why the sum, not any one counter, is
+  the player's time. Injury time is
   detected when the minute pins at 45/90/105/120; halves, extra time, and penalties
   are tracked through phase transitions. Clock stop/start is detected from tick
   stagnation through an explicit debounce state machine: a stop is published only after
@@ -285,6 +292,10 @@ cycle.
   two-sample condition and the corresponding elapsed-time minimum must be satisfied. The
   elapsed-time and event-clock anchor is the first unchanged or advancing sample,
   respectively. Read failures and phase transitions are not treated as clock samples. The
+  original's estimate jumps up to three and a half minutes ahead around a substitution
+  made during a stoppage and is back within a minute of the HUD about a minute later (seen
+  on PES 2017, 2019 and 2021 against the HUD clock; README "Independent measurements"), so
+  the fixtures include such a substitution and the reducer must not reproduce the jump. The
   verified PES17 values are recorded in the profile before release, so changing the poll
   rate does not materially change behavior. **On PES21 the fork reads the clock directly**
   *(unverified)* via a

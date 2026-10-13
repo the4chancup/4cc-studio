@@ -195,6 +195,12 @@ automation remain promised.
   regulation, both extra-time periods, and a shootout. Confirm the 6/7/8 mapping and
   transition behavior before enabling shootout classification or ET/penalty-phase
   automation; until then those buckets remain unregistered and produce `Phase::Unknown`.
+  *Measured on PES 2017, 2019 and 2021 (README "Independent measurements"):* the nine
+  buckets are 15-minute periods of the game clock. 0 holds minutes 0–15, 1 holds 15–30,
+  2 holds 30–45 and the first half's stoppage time, 3, 4 and 5 the same for the second
+  half (one match per version sampled every 3 s against the HUD clock). A PES 2021
+  shoot-out writes its goals and kicks to bucket 8. Buckets 6 and 7 (extra time) were not
+  observed on any version, so their mapping and PES 2017's bucket 8 stay open.
 - **PES17 heatmap grid**: the original maps the "Play Area Grid" at entry+0x1034
   (`StatsInfo.cpp:150`, 140×u32) and processes it only through the generic stat path as a
   summed scalar column, hidden by default; it never interprets or renders the 10x14 grid as
@@ -204,6 +210,13 @@ automation remain promised.
   and whether values are cumulative or instantaneous. If it is confirmed to populate with
   stable semantics, PES17 heatmap recording and the viewer ship in the first release;
   otherwise the viewer remains hidden for PES17 and the signature is not registered.
+  *Measured on one PES 2017 match (README "Independent measurements"):* the 140 cells
+  populate and are cumulative (no cell decreased over 327 samples); each full-match player
+  totals about 630, one count per about 48 game ticks. They read as 14 rows of 10,
+  row-major, row 0 at the player's own goal for both sides in both halves: each
+  goalkeeper stays in rows 0–2 for the whole match, so the game flips at half time and
+  the viewer does not. Which touchline column 0 lies on was not determined. Unlike PES
+  2021's grid, all 140 values are cells.
 - **PES17 pointer-chain locator (fast path)**: the fork's profile defines two chains
   from the same root: `root = *(moduleBase + 0x21A9E68)`. The **readiness chain** is
   `container = *(root + 0x124)`, `flag = *(u32 *)(container + 0x1168)`; `flag == 0` claims
@@ -215,6 +228,11 @@ automation remain promised.
   away address also agrees, and that the readiness flag distinguishes live/not-live. If
   it holds, PES17 gains the ASLR-proof fast path described under "Acquisition and
   polling"; if not, the scan-only path stands.
+  *Checked on PES 2017 1.0.0.0 (the README's executable):* the claim fails there. Before
+  kickoff the root reads 0; during the match the readiness flag reads 1, not 0, and
+  `subObj` reads 0x8000, so the derived home entry (0x3D000) holds no player, while the
+  scan finds the home block in its 0x90000 region as the original does. The profile was
+  likely made against another executable; on this one the scan-only path stands.
 
 **Low priority (PES21, deferred until PES21 support is pursued):**
 
@@ -233,6 +251,21 @@ automation remain promised.
   suite must use dynamically sized vectors or the profile maximum of 40 throughout; the
   fork's 32-slot `teamInfo` structures are not reusable. Cross-check a sample of named
   stats (Goals, Cards, Saves, Minutes, Rating) against observed match events.
+  *Measured (README "Independent measurements"):* entry size 8500 confirmed. The marker
+  is the u32 before each entry's player ID (0xFFFD home, 0xFFFE away) on both PES 2021
+  and PES 2019, so the fork's "+0 marker, +4 ID" is the same layout counted from four
+  bytes earlier. The team table's physical layout has 40 player slots
+  per side on both versions; no roster using slots 32–39 was captured. Instead of
+  normalizing the fork's catalog, the rebuild maps its own catalog from the game's pages
+  (719 entries on PES 2021, 711 on PES 2019): Goals, Assists, Cards, Shots, Passes,
+  Saves, Minutes on Pitch and Player Rating are checked against Team Stats, Match Events
+  and Player Ratings in two matches, and an out-of-sample match per version reproduces
+  every goal, card, substitution and Team Stats total. The team table sits at the same
+  offset in its region across two launches on PES 2021; on PES 2019 it started at five
+  different offsets in five launches (0x32A58, 0x38168, 0x2B5B8, 0x2F218, 0x2F388), so a
+  profile locates it by its pairs signature, not by offset; the rebuild's reader now does so
+  and attached in the last three of those launches, with the testbot teams and with the
+  betting rotation's.
 - **Substitution journal (unverified)**: verify the fork's claimed `u8` count at
   `table_base + 0x10B4D4` (maximum 12) and 40-byte record `i` at
   `table_base + 0x10B2F4 + 40*i`, with `type` at `+0`, `team` at `+4`, `period` at `+8`,
@@ -251,3 +284,11 @@ automation remain promised.
   grids populate during a match. Determine the meaning of all 8 grids, validate the
   fork's five-segment accumulation and odd-segment flipping, and establish whether values
   are cumulative before exposing or serializing them.
+  *Measured on one PES 2021 match (README "Independent measurements"):* the player grid
+  at entry+0x1938 populates and is cumulative (no cell ever decreased over 364 samples).
+  Its first 139 u32 are cells of a 14-row by 10-column map, row-major, with row 0 at the
+  player's own goal for both sides and both halves (both goalkeepers stay in rows 0–2 all
+  match, so the game has already flipped it at half time). The 140th u32 is not a cell: it
+  equals the sum of the other 139 (±1 for a sample in flight), a count of the samples
+  taken, one per about 54 game ticks. Which edge column 0 is, and the 8 per-team grids,
+  were not determined.
