@@ -780,11 +780,15 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   - [x] 5.2a the crate, `Ruleset` and its types (the plan's block), `RULESET` read from a
     data block, the load-time rules with their key paths; the official data block loads →
     done when: one failing file per load-time rule
-    reports its rule and key path. Open: a serde error's key path waits on
-    `docs/QUESTIONS.md` "A new dependency for AATF schema errors' key paths". Done 2026-10-12
+    reports its rule and key path. Done 2026-10-12
     (SWE-2, first attempt, plus one rework: the lead's review and 35 mutation survivors;
     `ABILITY_STATS` in `pes_savefile`'s now-public `labels` holds the 25 ability stats; `rhai`
     without default features, whose RNG does not build for wasm32)
+  - [x] 5.2a2 a serde schema error's key path (`aatf_rules.md` "Loading and validation":
+    `serde_path_to_error` wraps the deserializer, the dependency the maintainer approved
+    2026-10-13) → done when: a data block with a wrong-typed `tiers[2].free.tricks` reports
+    that path. Done 2026-10-13 (Fable, first attempt): the path as the crate prints it
+    (`tiers[2].free.tricks`; a missing top-level key's parent is the root, `.`)
   - [ ] 5.2b the host's view of a team (`aatf_rules.md` "The host"). Sub-slices, each a commit:
     - [x] 5.2b1 `TeamView` and `PlayerView` from `pes_savefile`'s model, the tactics answers
       (`fielded_only_at`, `fielded_positions`, formation shapes) in Rust, the engine with every

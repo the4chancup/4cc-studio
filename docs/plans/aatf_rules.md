@@ -787,7 +787,9 @@ load, by the Save editor's "validate rules" button and by the Ruleset editor bef
    fixtures check that.
 
 A failure is a finding with the file's line and column for parse errors and the key path
-(`tiers[2].free.tricks`) for schema errors, before any real check runs.
+(`tiers[2].free.tricks`) for schema errors, before any real check runs. The schema error's path
+comes from `serde_path_to_error` wrapping the deserializer, not a wrapper of our own: its whole
+job, and it depends only on `serde` and `itoa`.
 
 **Logic identity.** `libs/aatf` embeds the current logic and the SHA-256 of every logic section
 it has ever shipped, by version (`LOGIC_VERSIONS`), hashed with line endings normalized to LF

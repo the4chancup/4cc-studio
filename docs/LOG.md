@@ -1889,3 +1889,5 @@ worklog passed 7,000 lines.
   the plans.
 - **2026-10-13** — Step 5.0m1: every bit of the ingame-face run is a field in one of two layouts
   or a measured-unused row, every field a `settings.toml` key; `[appearance.unknown]` is gone.
+- **2026-10-13** — Step 5.2a2: a `RULESET` schema error names the key it sits at, through
+  `serde_path_to_error`.

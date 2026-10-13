@@ -206,6 +206,45 @@ fn a_required_key_absent_is_schema() {
     }
 }
 
+/// `Schema`'s `path` is the failing key's path, as the plan spells it
+/// (`tiers[2].free.tricks`): a wrong-typed value's own key, an unknown
+/// key itself, and a missing key's parent (the root is `.`).
+#[test]
+fn a_schema_error_carries_its_key_path() {
+    for (name, text, path) in [
+        (
+            "a wrong-typed value",
+            "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"gold\", label: \"Gold\", rate: 99 }, #{ id: \"silver\", label: \"Silver\", rate: 88 }, #{ id: \"bronze\", label: \"Bronze\", rate: 77, free: #{ tricks: \"two\" } }] }",
+            "tiers[2].free.tricks",
+        ),
+        (
+            "an unknown top-level key",
+            "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, frob: 1 }",
+            "frob",
+        ),
+        (
+            "an unknown tier key",
+            "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"gold\", label: \"Gold\", rate: 99, frob: 1 }] }",
+            "tiers[0].frob",
+        ),
+        (
+            "a missing tier key",
+            "#{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"gold\", label: \"Gold\" }] }",
+            "tiers[0]",
+        ),
+        (
+            "a missing top-level key",
+            "#{ name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 } }",
+            ".",
+        ),
+    ] {
+        match schema(text) {
+            LoadError::Schema { path: got, .. } => assert_eq!(got, path, "{name}"),
+            other => panic!("{name}: {other:?}"),
+        }
+    }
+}
+
 #[test]
 fn schema_two_is_unknown_schema() {
     let err =

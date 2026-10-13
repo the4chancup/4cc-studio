@@ -7352,3 +7352,10 @@ Why: the fixture cup saves of PES 16 to 18 hold 0 there, outside the editors' 1-
 already takes the 0 the games write. What a 0 draws is unmeasured (worklog Issues).
 Plan: `aesthetics_export/settings_toml.md`, the template block's hair comments and the
 paragraph after the ingame-face run's rules.
+
+## 2026-10-13 — aatf — `serde_path_to_error` for schema errors' key paths
+Decision: `libs/aatf` takes `serde_path_to_error` (dtolnay, MIT/Apache, depends on `serde` and
+`itoa`) to report a `RULESET` schema error's key path. The maintainer approved the dependency.
+Why: `rhai::serde::from_dynamic`'s errors name the bad key or type but not where it sits; a
+deserializer wrapper of our own doing the same is the crate's whole job, several hundred lines.
+Plan: `aatf_rules.md` "Loading and validation".

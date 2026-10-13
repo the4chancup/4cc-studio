@@ -639,9 +639,14 @@ pub(crate) fn ruleset_from_scope(scope: &rhai::Scope) -> Result<Ruleset, LoadErr
     if !constant || !dynamic.is_map() {
         return Err(LoadError::NoRuleset);
     }
-    let ruleset: Ruleset = rhai::serde::from_dynamic(&dynamic).map_err(|e| LoadError::Schema {
-        path: String::new(),
-        message: e.to_string(),
+    // Through `serde_path_to_error`, so a failure names the key it sits at
+    // (`tiers[2].free.tricks`), which rhai's own error text does not.
+    let ruleset: Ruleset = serde_path_to_error::deserialize(rhai::serde::DynamicDeserializer::new(
+        &dynamic,
+    ))
+    .map_err(|e| LoadError::Schema {
+        path: e.path().to_string(),
+        message: e.inner().to_string(),
     })?;
     if ruleset.schema != 1 {
         return Err(LoadError::UnknownSchema {

@@ -578,8 +578,9 @@ pub enum LoadError {
     /// key, a wrong type, an unknown label.
     #[error("{path}: {message}")]
     Schema {
-        /// The key path, empty in this slice (`docs/QUESTIONS.md`); `message`
-        /// carries rhai's text, which names the key or label.
+        /// The failing key's path (`tiers[2].free.tricks`): a wrong-typed
+        /// value's or unknown key's own, a missing key's parent (`.` at the
+        /// root); `message` carries rhai's text, which names the key or label.
         path: String,
         /// What the deserializer reported.
         message: String,
