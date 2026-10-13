@@ -11,7 +11,9 @@ use crate::team::{PlayerView, TeamView};
 use crate::values::{CardLimits, TierValues};
 use crate::violation::{CheckError, Violation, violations};
 
-/// The official data block, embedded.
+/// The official data block, embedded. The other rulesets' blocks are
+/// embedded by their fixtures until the Ruleset editor's templates
+/// (Phase 20) need them here.
 const AUTUMN26: &str = include_str!("../rulesets/autumn26.rhai");
 
 /// A loaded rules file: its ruleset, its compiled script and the engine
@@ -77,7 +79,13 @@ impl Rules {
     /// assembled with the current logic. Panics only if the embedded
     /// file does not load, which a test rules out.
     pub fn official() -> Rules {
-        Rules::load(&assemble(AUTUMN26)).expect("the embedded official file loads")
+        Rules::from_data_block(AUTUMN26).expect("the embedded official file loads")
+    }
+
+    /// The rules of an embedded data block assembled with the current
+    /// logic: the other rulesets' fixtures run on these.
+    pub(crate) fn from_data_block(data_block: &str) -> Result<Rules, LoadError> {
+        Rules::load(&assemble(data_block))
     }
 
     /// The file's ruleset.

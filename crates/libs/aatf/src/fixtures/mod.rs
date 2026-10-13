@@ -18,7 +18,9 @@ use crate::values::TierValues;
 use crate::violation::ViolationKind;
 use crate::{PlayerView, Rules, TeamView, Violation};
 
+mod autumn25;
 mod official;
+mod spring26;
 
 /// A team as records, what `apply_tier` writes into, viewed on demand.
 struct Records {
