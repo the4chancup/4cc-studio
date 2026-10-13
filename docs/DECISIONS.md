@@ -7442,3 +7442,22 @@ Decision: a `diff` row names its field by the schema enum's variant name (`Boots
 Why: the comparator's rows carry the enum, and its variant names are the schema's, stable per
 version; a second naming table in the tool would drift from the schema.
 Plan: `save_editor.md` "Comparator (gameplay + aesthetics)".
+
+## 2026-10-14 — music_export — the format crate's rulings where the plan was silent
+Decision: `Condition::eval` is pure: `once` is `True` every time and the slot's selection
+unloads it after its first check; `not` of a never-again condition is `True` (the old reader
+propagated the unload); `time` without a minute is `False`. Fallback `goal` entries evaluate
+under the name `goal`, so their `goals` counts the default goalhorn button's presses. The
+serializer writes `==`, lowercase match types, `knockouts` expanded, the shortest `start` form,
+and a fourth `# event clips` section. The parser refuses what the old reader crashed on or
+misread (empty fields, reserved words after an entry, extra arguments, `every 0`, `speed 0`,
+`event` on a reserved slot); `random` and `randomize` are not aliases of `randomise`; `speed`
+takes any positive number, its 0.25-4.00 range left to the editor's validation. Song
+selection (`PriorityList`) lives in the crate, beside the evaluator it walks.
+Why: a pure evaluator cannot remember a check, and the three-valued verdict covers the rest;
+the old reader's `not` unload unloads `not time <= 45` after the 45th minute. The census over
+the machine's 61 files is the measurement behind each refusal: none hits one except three
+history copies with `random`/`randomize` and one with `goals>=3`, which Rigdio refuses too,
+so an alias would let a file work here that fails in Rigdio. Selection over `MatchState` is a
+pure function, so its scenario tests need no player.
+Plan: `music_player.md` "The `.4ccm` format" (Conditions, Model), "Song selection (per button press)".

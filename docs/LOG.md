@@ -1907,3 +1907,6 @@ worklog passed 7,000 lines.
 - **2026-10-13** — Step 5.4a1-4: the Save editor crate with `export-toml`, `import-toml`,
   `apply-patch`, `transplant`, `diff` and `export-teams-list`; `diff --json` and the PES-running
   refusal wait on `studio_core` (worklog issues).
+- **2026-10-14** — Step 10.0a-c, ahead of Phase 10: `libs/music_export`, the `.4ccm` model,
+  parser, serializer, condition evaluator and song selection; its census reads 56 of the
+  machine's 61 exports back equal (5 editor history copies refused, as Rigdio refuses them).

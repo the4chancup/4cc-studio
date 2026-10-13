@@ -15,7 +15,8 @@ Phase 2 2026-09-30).
 (2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; Astra R12.A1 over 5.2b1's reworks after the
 Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 and 5.2c2
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
-5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13); then
+5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
+(`music_export`, ahead of Phase 10) landed 2026-10-14; then
 5.2c3, 5.0m3 and 5.4a5-6
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
@@ -901,6 +902,32 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   show; a file that sets no face or hair key shows the default face → done when: each a
   `manual: checked` line here
 - [ ] 5.6 Converge (`AGENTS.md` "Closing a phase")
+
+### Phase 10 — Music tools
+
+The phase's steps are itemized when Phase 9 closes; its format crate was built ahead of it:
+
+- [~] 10.0 `libs/music_export`: the `.4ccm` format crate (`music_player.md` "The `.4ccm` format")
+  - [x] 10.0a model, tokenizer, parser, serializer, 7 fixtures, census over the machine's 61
+    `.4ccm` (56 parse and read back equal, 5 editor history copies refused for unknown keywords,
+    as Rigdio refuses them); `indexmap` enters the workspace; `doc_pointers.py` lists the music
+    player plan as open. Files: `crates/libs/music_export/{Cargo.toml,src/{lib,model,tokens,parse,write}.rs,tests/{fixtures.rs,census.rs,fixtures/}}`,
+    `scripts/provenance/music_export/list_4ccm.py`, `scripts/doc_pointers.py`, `Cargo.toml`,
+    `docs/spec/core/README.md`
+  - [x] 10.0b `MatchState`/`Side`/`TeamState`, `Verdict`, `Condition::eval` and `SongEntry::eval`,
+    `needs_goal_minute`. Files: `src/{state,eval}.rs`
+  - [x] 10.0c `PriorityList::for_slot`/`select`, `Press`, `Loaded`; 9 selection scenario tests.
+    Files: `src/select.rs`
+  - [ ] 10.0d file resolution (`resolve.rs`, native-only): the plan's three resolution steps
+    (`_normalized` preferred when normalization will not apply, else the file matched
+    case-insensitively in its own parent folder, else the `_normalized` file), missing files
+    collected per export; plus the lead's review fix: `select`'s `Press.skip` is an index, so an
+    entry unloaded before it in the same press (a `once` already checked) shifts the list and
+    `advance` replays the entry that just ended → verify: a temp folder with `Song.mp3` and
+    `song_normalized.mp3`, the three resolution orders, the missing list; a scenario test with
+    `once;goals >= 5`, then `advance`, then a plain entry, red before the fix
+  - [ ] 10.0e the plan's "Model" section extended with `Verdict`, `MatchState`, `PriorityList` as
+    built; `just mutants music_export`, `just clef music_export`, each survivor and flag ruled
 
 ### Phase 16 — Polish and distribution
 

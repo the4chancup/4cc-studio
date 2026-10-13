@@ -58,6 +58,9 @@ OPEN_PHASE_PLANS = {
     "docs/plans/pes_savefile/operations.md",
     "docs/plans/pes_savefile/model.md",
     "docs/plans/aesthetics_export/settings_toml.md",
+    # `libs/music_export` is built ahead of Phase 10 (worklog 10.0); its format section moves
+    # to the spec when that phase closes.
+    "docs/plans/music_player.md",
 }
 
 
