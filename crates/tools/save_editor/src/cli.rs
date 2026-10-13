@@ -7,10 +7,12 @@ use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use clap::{ArgGroup, Args, Command, FromArgMatches, Subcommand};
+use pes_savefile::interchange::aesthetics_patch::AestheticsPatch;
+use pes_savefile::interchange::team_toml::TeamToml;
 use studio_core::{CliError, Severity, ToolContext};
 
 use crate::events::Report;
-use crate::messages::{Code, TOOL_ID, message};
+use crate::messages::{Code, TOOL_ID, import_note, message, patch_skip};
 use crate::session::Session;
 
 // The exit codes are the command line's contract with scripts, the Team compiler's meanings.
@@ -28,6 +30,26 @@ const WRITE_FAILED: u8 = 3;
 enum SaveEditorCommand {
     /// Write one team of a save as a Team TOML file, or every team as one file each.
     ExportToml(ExportTomlArgs),
+    /// Patch a save's team from a Team TOML file: the team its [team] id names takes the
+    /// file's keys, the rest of the save is untouched.
+    ImportToml(ApplyArgs),
+    /// Apply the Team compiler's aesthetics patch (its players' motions and names) to a save.
+    ApplyPatch(ApplyArgs),
+}
+
+/// `<file> --base <save> --out <save>`: the file to apply, the save it is applied to, and
+/// where the result goes (`--out` may be `--base`; an existing file there is first copied to
+/// `<out>.bak`).
+#[derive(Debug, Args)]
+struct ApplyArgs {
+    /// The Team TOML or aesthetics patch to apply.
+    file: PathBuf,
+    /// The save to read (EDIT00000000); never written unless it is also --out.
+    #[arg(long, value_name = "SAVE")]
+    base: PathBuf,
+    /// Where the patched save goes; an existing file there is kept as <out>.bak.
+    #[arg(long, value_name = "SAVE")]
+    out: PathBuf,
 }
 
 /// `export-toml <save> --team <id> --out <file>` or `--all-teams --out-dir <folder>`: the
@@ -63,6 +85,8 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
     let mut report = Report::new(ctx);
     match command {
         SaveEditorCommand::ExportToml(args) => export_toml(&args, &mut report)?,
+        SaveEditorCommand::ImportToml(args) => import_toml(&args, &mut report)?,
+        SaveEditorCommand::ApplyPatch(args) => apply_patch(&args, &mut report)?,
     }
     Ok(exit_code(report.worst()))
 }
@@ -85,6 +109,12 @@ fn open(path: &Path) -> Result<Session, CliError> {
     Session::open(path).map_err(invalid)
 }
 
+/// Reads the text file a command applies; an unreadable one is a refusal naming it.
+fn read_text(path: &Path) -> Result<String, CliError> {
+    fs::read_to_string(path)
+        .map_err(|error| invalid(anyhow!("{}: cannot read the file: {error}", path.display())))
+}
+
 /// Writes `text` to `path`, replacing an existing file; a failure names the file.
 fn write_text(path: &Path, text: &str) -> Result<(), CliError> {
     fs::write(path, text).map_err(|error| {
@@ -93,6 +123,49 @@ fn write_text(path: &Path, text: &str) -> Result<(), CliError> {
             anyhow!("{}: cannot write the file: {error}", path.display()),
         )
     })
+}
+
+/// Writes the session's save to `out`; a failure is the write-failed code.
+fn write_save(session: &Session, out: &Path) -> Result<(), CliError> {
+    session
+        .write(out)
+        .map_err(|error| CliError::new(WRITE_FAILED, error))
+}
+
+/// `import-toml`: the document is parsed and applied in memory first, so a document the lib
+/// refuses (a text too long, a key it does not know) refuses the command with `--out`
+/// unwritten; each note is one line.
+fn import_toml(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
+    let document = TeamToml::parse(&read_text(&args.file)?)
+        .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
+    let mut session = open(&args.base)?;
+    let notes = session.import_team(&document).map_err(invalid)?;
+    for note in &notes {
+        report.message(import_note(note));
+    }
+    write_save(&session, &args.out)
+}
+
+/// `apply-patch`: a version or allocation-scheme mismatch (and a pre-Fox patch) is refused
+/// before anything is touched; a team or player the save lacks is an Error finding and the
+/// rest is written.
+fn apply_patch(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
+    let patch = AestheticsPatch::parse(&read_text(&args.file)?)
+        .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
+    let mut session = open(&args.base)?;
+    let summary = session
+        .apply_patch(&patch)
+        .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
+    for team in &summary.applied_teams {
+        report.message(message(
+            Code::PatchTeamApplied,
+            vec![("team", team.to_string())],
+        ));
+    }
+    for skip in summary.skipped {
+        report.message(patch_skip(skip));
+    }
+    write_save(&session, &args.out)
 }
 
 /// `export-toml`: every team's text is built before the first file is written, so a team
