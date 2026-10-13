@@ -12,6 +12,7 @@
 mod eval;
 mod model;
 mod parse;
+mod select;
 mod state;
 mod tokens;
 mod write;
@@ -22,5 +23,6 @@ pub use model::{
     PauseAction, Slot, SongEntry, StartOffset,
 };
 pub use parse::{ParseError, ParseErrorKind, Parsed, Warning, parse};
+pub use select::{Loaded, Press, PriorityList};
 pub use state::{MatchState, Side, TeamState};
 pub use write::write;
