@@ -50,11 +50,41 @@ fn set_tier(player: &mut PlayerView, rate: u8, form: u8, injury_resistance: u8) 
     player.injury_resistance = injury_resistance;
 }
 
+/// The suggestions alone, for roster `slot`, as kinds.
+fn suggestions_for(rules: &Rules, team: &TeamView, slot: u8) -> Vec<ViolationKind> {
+    rules
+        .check_team(team)
+        .expect("the check runs")
+        .into_iter()
+        .filter(|violation| violation.severity == Severity::Suggestion)
+        .filter(|violation| violation.slot == Some(slot))
+        .map(|violation| violation.kind)
+        .collect()
+}
+
 /// An error-severity violation on roster `slot` (`None`: the team).
 fn error(slot: Option<u8>, kind: ViolationKind) -> Violation {
     Violation {
         slot,
         severity: Severity::Error,
         kind,
+    }
+}
+
+/// A warning on roster `slot`.
+fn warning(slot: u8, kind: ViolationKind) -> Violation {
+    Violation {
+        slot: Some(slot),
+        severity: Severity::Warning,
+        kind,
+    }
+}
+
+/// An `Unused` suggestion's kind.
+fn unused(allowance: &str, used: u8, allowed: u8) -> ViolationKind {
+    ViolationKind::Unused {
+        allowance: allowance.to_string(),
+        used,
+        allowed,
     }
 }
