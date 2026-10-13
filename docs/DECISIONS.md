@@ -7475,3 +7475,15 @@ versions; with one table, a later measurement changes one row. Accepting 183 wou
 the key, and the member picks a celebration in range.
 Plan: `aesthetics_export/settings_toml.md` "The motion ranges were measured";
 `pes_savefile/operations.md` "Cross-version player conversion".
+
+## 2026-10-14 — core — every GUI is drafted as a web page first, with egui's widgets only
+Decision: each tool's GUI (and each new shell element) is first an interactive, self-contained
+HTML draft in `docs/prototypes/`, refined with the maintainer before the egui view is written,
+and limited to what egui draws (the list in `core/gui.md` "Prototypes before implementation").
+The Ruleset editor's draft comes first, after the AATF steps, with a check that the ruleset
+schema covers a contributor's independent proposal.
+Why: the maintainer's request: a page is quicker to iterate than a view and members can open it
+without building anything; restricting it to egui's widgets keeps it a specification the
+implementation can meet. A draft in egui itself (Studio Web) was the alternative: exact, but
+much slower to iterate.
+Plan: `core/gui.md` "Prototypes before implementation".

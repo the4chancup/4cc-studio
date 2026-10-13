@@ -943,6 +943,35 @@ Steps are itemized when Phase 15 closes; one is fixed already:
   texture step's bounded batches → verify: GPU and CPU outputs decode within the same tolerance
   on the `dds_convert` fixtures; the fallback path exercised by forcing no adapter
 
+### Phase 20 — Ruleset editor (post-release)
+
+The phase is itemized when it opens; its GUI is drafted ahead of it, at the maintainer's request
+(2026-10-14), to show the members who offered to help shape the ruleset format:
+
+- [ ] 20.0 The Ruleset editor's GUI draft, once every AATF step is done (5.2's slices and its
+  5.2f parity, the `pes_savefile` rating-scale fix, 5.4b `check-aatf`). (The maintainer may move
+  it before the remaining slices: the draft needs only the schema, and input that changes the
+  format costs less before VGL/VTL are written against it.)
+  - [ ] 20.0a coverage of a contributor's proposal (Clouds, written without knowing Studio;
+    the maintainer's copy is `.tmp/Clouds_proposal.txt`): a plain-language rule system with
+    tier and bracket groups (`medal` for every medal tier), player variables (each stat, card
+    and COM style, allowed A positions, height, weight, age, strong foot, weak-foot accuracy
+    and usage, injury resistance, form, registered position, playing style), per-preset
+    tactical variables (each player's position and x/y per preset and fluid formation),
+    `IF`/`ELSE`/`AND`/`OR`/`NOT` conditions with comparisons on any variable, additive `_mod`
+    modifiers (each stat, all stats, A positions, the height allowance capped below the next
+    bracket, weak foot, injury resistance, form, card limit) and `OR` between modifiers tried
+    as needed before the card limits. Not adopted as a format; the check is that the
+    `aatf_rules.md` schema can express everything it can, field by field, each gap either
+    added to the schema (plan edit, decision entry) or answered by a custom check, with the
+    reason → verify: a table in `aatf_rules.md` mapping each of the proposal's items to a
+    schema field or to a custom check, no row empty
+  - [ ] 20.0b the interactive draft (`core/gui.md` "Prototypes before implementation"):
+    `docs/prototypes/ruleset_editor.html` over the `ruleset_editor.md` forms, the official
+    Autumn 26 ruleset as its sample data, every schema field reachable → verify: each of
+    `ruleset_editor.md`'s editor sections has its form in the draft, and the page uses only
+    the allowed widgets (the lead's read against that list)
+
 ---
 
 ## Issues
