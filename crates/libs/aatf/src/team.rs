@@ -50,10 +50,18 @@ pub struct PlayerView {
     /// The ability stats (`labels::ABILITY_STATS`' order, indexed by
     /// `Stat`), `None` where the version lacks the stat.
     pub(crate) abilities: [Option<u8>; 25],
-    /// The playable-position ratings, `Position`-indexed (GK 0 to CF 12;
-    /// `PlayerPositions::playable` runs CF 0 to GK 12).
+    /// The playable-position ratings, `Position`-indexed (GK 0 to CF 12)
+    /// on the save's scale: C 0, B 1, A 2.
     pub(crate) ratings: [u8; 13],
 }
+
+/// The index of each `Position`'s rating in `PlayerPositions::playable`:
+/// the save stores them as CF, SS, LWF, RWF, AMF, DMF, CMF, LMF, RMF, CB,
+/// LB, RB, GK (the position groups in reverse order, each group in the
+/// registered order), not as a plain reversal of the registered order:
+/// every real cup team's players are rated A at their registered position
+/// under this order alone.
+const PLAYABLE_INDEX: [usize; 13] = [12, 9, 10, 11, 5, 6, 7, 8, 4, 2, 3, 1, 0];
 
 impl PlayerView {
     /// The ability stat `name` names (`None` for a stat the version lacks).
@@ -61,7 +69,7 @@ impl PlayerView {
         Stat::try_from(name.to_string()).map(|stat| self.abilities[usize::from(stat.0)])
     }
 
-    /// The playable rating at `pos` (0 none to 3 A).
+    /// The playable rating at `pos` on the save's scale (C 0, B 1, A 2).
     pub(crate) fn rating_at(&self, pos: &str) -> Result<u8, String> {
         Position::try_from(pos.to_string()).map(|pos| self.ratings[usize::from(pos.0)])
     }
@@ -253,7 +261,7 @@ impl TeamView {
                 });
             let mut ratings = [0u8; 13];
             for (p, rating) in ratings.iter_mut().enumerate() {
-                *rating = entry.positions.playable[12 - p];
+                *rating = entry.positions.playable[PLAYABLE_INDEX[p]];
             }
             players.push(PlayerView {
                 slot: u8::try_from(i).expect("a roster holds fewer than 256 slots"),

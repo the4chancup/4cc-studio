@@ -1,13 +1,24 @@
 //! The one engine every script runs on: the bare engine plus the
 //! standard package, the accessor table (`Player`/`Team`), and the
-//! call-depth limit. The operation limit is 5.2c's.
+//! operation and call-depth limits.
 
-use pes_savefile::interchange::team_toml::labels::RATINGS;
 use rhai::packages::Package;
 use rhai::{Array, Dynamic, Engine, EvalAltResult, Map};
 
 use crate::ruleset::Position;
 use crate::team::{PlayerView, TeamView};
+
+/// The playable scale as the save stores it: C 0, B 1, A 2 (every real
+/// cup team's registered positions hold 2, which the rules require to be
+/// A). 3 is past the scale, which no real save holds, and reads as `none`.
+const RATINGS: [&str; 4] = ["C", "B", "A", "none"];
+
+/// The most operations one script run may take: the official ruleset's
+/// `check_team` on the sample team costs about 480 000 operations
+/// (measured 2026-10-14, `rules.rs`), and the plan sets a tenfold margin,
+/// which that file's test keeps honest. A script that loops forever
+/// stops here with a script error, never a hang.
+pub(crate) const MAX_OPERATIONS: u64 = 5_000_000;
 
 /// A script error naming `message`.
 fn script_error(message: String) -> Box<EvalAltResult> {
@@ -20,8 +31,7 @@ fn script_error(message: String) -> Box<EvalAltResult> {
 /// arrays, maps and strings, and the accessors are registered here and
 /// nowhere else. Labels convert to and from the closed sets in these
 /// functions only; an unknown label or a preset outside 1 to 3 is a
-/// script error naming the value. Loops still run — the operation limit
-/// is the caller's to set.
+/// script error naming the value.
 pub(crate) fn engine() -> Engine {
     let mut engine = Engine::new_raw();
     engine.register_global_module(rhai::packages::StandardPackage::new().as_shared_module());
@@ -153,7 +163,14 @@ pub(crate) fn engine() -> Engine {
                 })
                 .collect::<Array>()
         });
+    engine.set_max_operations(MAX_OPERATIONS);
     engine.set_max_call_levels(32);
+    // rhai's expression-depth defaults differ between debug (32 at the top
+    // level, 16 inside a function) and release builds (64 and 32), and the
+    // interpreter's own functions nest past 16 (a loop, a branch, a call
+    // and a map literal each count a level), so both are pinned: a file
+    // parses the same under the tests and in the binary.
+    engine.set_max_expr_depths(64, 64);
     engine
 }
 
@@ -306,21 +323,34 @@ mod tests {
         );
     }
 
+    /// The letters on the save's scale (C 0, B 1, A 2; 3 past it) and
+    /// the playable order (SS at index 1, CMF at 6, GK at 12).
     #[test]
     fn rating_at_names_the_letters() {
         let (engine, mut scope, mut file) = with_team(PesVersion::Pes19);
-        // 70110 is a B at SS and LMF, nowhere else; give him an A at CF.
+        // 70110, registered SS, stores 2 at indices 1 (SS) and 6 (CMF),
+        // 0 elsewhere; give him a 1 at CF (index 0) and a 3 at GK (12).
         let entry = file
             .players_mut()
             .iter_mut()
             .find(|p| p.id == 70110)
             .expect("player 70110");
-        assert_eq!(entry.positions.playable[0], 0);
-        assert_eq!(entry.positions.playable[1], 2);
-        entry.positions.playable[0] = 3;
+        assert_eq!(entry.positions.registered, 11);
+        assert_eq!(
+            entry.positions.playable,
+            [0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0]
+        );
+        entry.positions.playable[0] = 1;
+        entry.positions.playable[12] = 3;
         let team = TeamView::new(&file, 701).expect("the team views");
         scope.push("team", team);
-        for (pos, want) in [("CF", "A"), ("SS", "B"), ("GK", "none")] {
+        for (pos, want) in [
+            ("CF", "B"),
+            ("SS", "A"),
+            ("CMF", "A"),
+            ("LMF", "C"),
+            ("GK", "none"),
+        ] {
             assert_eq!(
                 engine
                     .eval_with_scope::<String>(

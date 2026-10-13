@@ -6,7 +6,7 @@
 //! validation": shape, `RULESET`, `check_team` on the sample team) and
 //! runs its `check_team` on a `TeamView`, which a save or a Team TOML
 //! document builds; a file knows its `logic()` identity. The shipped
-//! logic is a stub returning only the custom checks' violations;
+//! logic (`logic/logic.rhai`) is the generic interpreter's `check_team`;
 //! `tier_values`, `card_limits` and `apply_tier` are not written.
 //!
 //! The host reads a team as a `TeamView` of `PlayerView`s on the game's
@@ -35,6 +35,9 @@
 mod engine;
 /// Assembling a rules file: data block, current logic, custom-checks stub.
 mod file;
+/// The per-ruleset fixtures: known-legal and known-violating teams.
+#[cfg(test)]
+mod fixtures;
 /// `Rules`: a loaded file, steps 1 to 3, `check_team`.
 mod rules;
 /// `Ruleset` and its types, deserialization and the load-time rules.

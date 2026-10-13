@@ -123,18 +123,22 @@ mod tests {
         "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };\nfn check_team(team) { [] }\nfn tier_values(player, tier, team) { #{} }\nfn card_limits(player, tier, team) { #{} }".to_string()
     }
 
+    /// The official file loads, and its check runs without a script
+    /// error on team 701 of every fixture save (the legal and violating
+    /// fixtures are `fixtures/`; PES 20 and 21's team 701 are placeholder
+    /// players, every field 0).
     #[test]
-    fn official_loads_and_reports_nothing_on_the_fixture_team() {
+    fn official_loads_and_checks_every_fixture_version() {
         let rules = Rules::official();
         assert_eq!(rules.ruleset().name, "Autumn 26");
-        assert_eq!(
+        for version in PesVersion::ALL {
             rules
-                .check_team(&fixture_team(PesVersion::Pes15))
-                .expect("the check runs"),
-            Vec::<Violation>::new()
-        );
+                .check_team(&fixture_team(version))
+                .unwrap_or_else(|e| panic!("{version:?}: {e}"));
+        }
     }
 
+    /// The custom checks' violations come last, after the interpreter's.
     #[test]
     fn a_custom_check_reaches_the_result() {
         // The assembled file's `fn custom_checks(team) { [] }` replaced
@@ -151,16 +155,17 @@ mod tests {
         );
         let rules = Rules::load(&text).expect("the file loads");
         let team = fixture_team(PesVersion::Pes15);
-        assert_eq!(
-            rules.check_team(&team).expect("the check runs"),
-            vec![Violation {
-                slot: Some(0),
-                severity: crate::ruleset::Severity::Error,
-                kind: crate::violation::ViolationKind::Custom {
-                    text: "x".to_string(),
-                },
-            }]
-        );
+        let found = rules.check_team(&team).expect("the check runs");
+        let custom = Violation {
+            slot: Some(0),
+            severity: crate::ruleset::Severity::Error,
+            kind: crate::violation::ViolationKind::Custom {
+                text: "x".to_string(),
+            },
+        };
+        assert_eq!(found.last(), Some(&custom));
+        assert_eq!(found.iter().filter(|v| **v == custom).count(), 1);
+        assert!(found.len() > 1, "the interpreter reported on team 701 too");
     }
 
     #[test]
@@ -176,26 +181,108 @@ mod tests {
         let rules = Rules::load(&text).expect("the file loads");
         let team = fixture_team(PesVersion::Pes15);
         let found = rules.check_team(&team).expect("the check runs");
-        assert_eq!(found.len(), 1);
         assert_eq!(
-            found[0].kind,
-            crate::violation::ViolationKind::Custom {
+            found.last().map(|v| &v.kind),
+            Some(&crate::violation::ViolationKind::Custom {
                 text: "Autumn 26".to_string(),
-            }
+            })
         );
     }
 
     #[test]
-    fn a_file_without_custom_checks_reports_nothing() {
+    fn a_file_without_custom_checks_reports_no_custom_violation() {
         let text = assemble(AUTUMN26).replacen("fn custom_checks(team) { [] }", "", 1);
         assert!(!text.contains("fn custom_checks"));
         let rules = Rules::load(&text).expect("the file loads");
-        assert_eq!(
-            rules
-                .check_team(&fixture_team(PesVersion::Pes15))
-                .expect("the check runs"),
-            Vec::<Violation>::new()
+        let found = rules
+            .check_team(&fixture_team(PesVersion::Pes15))
+            .expect("the check runs");
+        assert!(!found.is_empty(), "team 701 is not legal under Autumn 26");
+        assert!(
+            !found
+                .iter()
+                .any(|v| matches!(v.kind, crate::violation::ViolationKind::Custom { .. }))
         );
+    }
+
+    /// The official ruleset on the sample team costs under a tenth of
+    /// `MAX_OPERATIONS` (the plan's tenfold margin), and the limit is not
+    /// stale: under thirty times the cost. The count and the time are in
+    /// the assertion messages: to read them, tighten a bound for one run.
+    #[test]
+    fn the_operation_limit_keeps_a_tenfold_margin() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        let mut rules = Rules::official();
+        let peak = Arc::new(AtomicU64::new(0));
+        let seen = Arc::clone(&peak);
+        rules.engine.on_progress(move |operations| {
+            seen.fetch_max(operations, Ordering::Relaxed);
+            None
+        });
+        let start = std::time::Instant::now();
+        rules
+            .check_team(&TeamView::sample_team())
+            .expect("the check runs");
+        let elapsed = start.elapsed();
+        let operations = peak.load(Ordering::Relaxed);
+        assert!(operations > 0, "on_progress saw the run");
+        assert!(
+            operations * 10 <= crate::engine::MAX_OPERATIONS,
+            "{operations} operations in {elapsed:?}: the margin is under tenfold; raise MAX_OPERATIONS"
+        );
+        assert!(
+            crate::engine::MAX_OPERATIONS <= operations * 30,
+            "{operations} operations in {elapsed:?}: MAX_OPERATIONS is stale; lower it to ten times the cost"
+        );
+    }
+
+    /// The tables the logic carries itself (the ability stats it targets,
+    /// the positions it counts, the COM styles of the `com` group) are
+    /// the label tables the host converts with: a stat missing from the
+    /// logic's list would go unchecked without a word.
+    #[test]
+    fn the_logics_tables_are_the_label_tables() {
+        use pes_savefile::interchange::team_toml::labels::{ABILITY_STATS, COM_STYLES, POSITIONS};
+
+        let rules = Rules::official();
+        for (function, table) in [
+            ("ability_stats", ABILITY_STATS.as_slice()),
+            ("positions", POSITIONS.as_slice()),
+            ("com_styles", COM_STYLES.as_slice()),
+        ] {
+            let listed: Vec<String> = rules
+                .engine
+                .call_fn::<rhai::Array>(&mut rhai::Scope::new(), &rules.ast, function, ())
+                .expect(function)
+                .into_iter()
+                .map(|name| name.into_string().expect("a name"))
+                .collect();
+            assert_eq!(listed, table, "{function}");
+        }
+    }
+
+    /// A script that loops forever stops at the operation limit with a
+    /// `Script` error, not a hang: a `loop {}` on PES 21 only, so the
+    /// sample team's PES 15 load passes.
+    #[test]
+    fn a_script_that_loops_forever_stops_at_the_operation_limit() {
+        let text = assemble(AUTUMN26).replacen(
+            "fn custom_checks(team) { [] }",
+            "fn custom_checks(team) { if team.version == 21 { loop {} } [] }",
+            1,
+        );
+        let err = Rules::load(&text)
+            .expect("the file loads")
+            .check_team(&fixture_team(PesVersion::Pes21))
+            .expect_err("the limit stops it");
+        match &err {
+            CheckError::Script { message } => {
+                assert!(message.contains("operations"), "{message}");
+            }
+            other => panic!("expected Script, got {other:?}"),
+        }
     }
 
     #[test]
@@ -215,7 +302,13 @@ mod tests {
             CheckError::Script { message } => assert!(message.contains("boom"), "{message}"),
             other => panic!("expected Script, got {other:?}"),
         }
-        // A bad entry in the list fails at its index, on PES 21 only.
+        // A bad entry in the list fails at its index, on PES 21 only: the
+        // custom checks' entries follow the interpreter's own.
+        let own = Rules::official()
+            .check_team(&fixture_team(PesVersion::Pes21))
+            .expect("the check runs")
+            .len();
+        assert!(own > 0, "team 701 is not legal under Autumn 26");
         let text = assemble(AUTUMN26).replacen(
             "fn custom_checks(team) { [] }",
             "fn custom_checks(team) { if team.version == 21 { [#{ kind: \"Captain\" }, #{ kind: \"Nope\" }] } else { [] } }",
@@ -227,7 +320,7 @@ mod tests {
             .expect_err("a bad violation");
         match &err {
             CheckError::Violation { index, message } => {
-                assert_eq!(*index, 1);
+                assert_eq!(*index, own + 1);
                 assert!(message.contains("Nope"), "{message}");
             }
             other => panic!("expected Violation, got {other:?}"),
