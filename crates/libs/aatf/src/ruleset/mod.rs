@@ -418,8 +418,8 @@ pub struct TeamSettings {
     /// The versions this rule applies to (written as numbers; every version when empty).
     #[serde(default)]
     pub versions: Vec<PesVersion>,
-    /// Man marking set up on any preset (PES 16: the per-preset assignments; PES 17+: a
-    /// defending advanced instruction of the man-marking kind).
+    /// Man marking set up on any preset: any of a preset's eleven man-marking assignments set
+    /// (PES 15 to 21; see "The host").
     #[serde(default)]
     pub man_marking: Option<bool>,
     /// Any setting but off.

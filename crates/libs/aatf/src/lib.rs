@@ -25,7 +25,11 @@
 //! position table's order; a preset outside 1 to 3 is a script error),
 //! `fielded_only_at(player, pos)` (an unknown position is a script
 //! error), `formation_shapes()` (`#{ preset, formation,
-//! shape: [defenders, midfielders, forwards] }`).
+//! shape: [defenders, midfielders, forwards] }`); `man_marking` (whether
+//! any preset has a man-marking assignment set), `auto_substitution`
+//! (the stored setting, 0 off), `auto_offside_trap`,
+//! `auto_preset_change`, `auto_attack_defence_levels` (the flag), each
+//! auto value `()` on a version without it.
 
 /// The one engine every script runs on: packages, accessors, limits.
 mod engine;

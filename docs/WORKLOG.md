@@ -812,8 +812,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         (`docs/DECISIONS.md` 2026-10-13); Team TOML carries `man_marking` per preset; the aatf
         sample team rewritten with them. Done 2026-10-13 (SWE-2, first attempt; the lead's
         spec text and two stale doc comments the 5.0j5 audit found)
-      - [ ] 5.2b2b the `aatf` accessors (`team.man_marking`, the auto flags; the plan's table
-        rows) → done when: each reads right on a fixture team set both ways
+      - [x] 5.2b2b the `aatf` accessors (`team.man_marking`, the auto flags; the plan's table
+        rows) → done when: each reads right on a fixture team set both ways. Done 2026-10-13
+        (Fable, first attempt): `TeamView::man_marking` beside the other tactics answers, the
+        auto values `()` on a version without them, each tested through a script
   - [ ] 5.2c `logic.rhai`'s `check_team` for the official file, `Violation` from its maps,
     `file.rs` (assembling a file, its section split, logic identity), the sample team, the official known-legal and known-violating fixtures, the operation
     limit → done when: each special of the official file is exercised by a fixture. Sub-slices,

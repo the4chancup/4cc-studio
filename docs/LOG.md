@@ -1891,3 +1891,4 @@ worklog passed 7,000 lines.
   or a measured-unused row, every field a `settings.toml` key; `[appearance.unknown]` is gone.
 - **2026-10-13** — Step 5.2a2: a `RULESET` schema error names the key it sits at, through
   `serde_path_to_error`.
+- **2026-10-13** — Step 5.2b2b: rulesets read `team.man_marking` and the auto settings.

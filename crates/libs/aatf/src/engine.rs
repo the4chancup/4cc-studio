@@ -87,6 +87,31 @@ pub(crate) fn engine() -> Engine {
                 .map_or(Dynamic::UNIT, |slot| i64::from(slot).into())
         })
         .register_get("version", |t: &mut TeamView| i64::from(t.version.number()))
+        .register_get("man_marking", |t: &mut TeamView| t.man_marking())
+        .register_get("auto_substitution", |t: &mut TeamView| {
+            t.tactics
+                .auto
+                .substitution
+                .map_or(Dynamic::UNIT, |setting| i64::from(setting).into())
+        })
+        .register_get("auto_offside_trap", |t: &mut TeamView| {
+            t.tactics
+                .auto
+                .offside_trap
+                .map_or(Dynamic::UNIT, Dynamic::from)
+        })
+        .register_get("auto_preset_change", |t: &mut TeamView| {
+            t.tactics
+                .auto
+                .preset_change
+                .map_or(Dynamic::UNIT, Dynamic::from)
+        })
+        .register_get("auto_attack_defence_levels", |t: &mut TeamView| {
+            t.tactics
+                .auto
+                .attack_defence_levels
+                .map_or(Dynamic::UNIT, Dynamic::from)
+        })
         .register_fn(
             "fielded_positions",
             |t: &mut TeamView, p: PlayerView, preset: i64| -> Result<Array, Box<EvalAltResult>> {
@@ -358,6 +383,96 @@ mod tests {
                 .is_unit(),
             "0xFF captain is ()"
         );
+    }
+
+    /// `team.man_marking` is whether any preset's eleven assignments hold
+    /// anything but 0xFF: one byte of preset 3 flips it.
+    #[test]
+    fn man_marking_is_any_presets_assignment() {
+        for version in [PesVersion::Pes15, PesVersion::Pes21] {
+            let (engine, mut scope, mut file) = with_team(version);
+            for preset in &team_mut(&mut file).tactics.presets {
+                assert_eq!(preset.man_marking, [0xFF; 11], "{version:?}");
+            }
+            assert!(
+                !engine
+                    .eval_with_scope::<bool>(&mut scope, "team.man_marking")
+                    .expect("man_marking"),
+                "{version:?}: all 0xFF is false"
+            );
+            team_mut(&mut file).tactics.presets[2].man_marking[4] = 3;
+            let team = TeamView::new(&file, 701).expect("the team views");
+            scope.push("team", team);
+            assert!(
+                engine
+                    .eval_with_scope::<bool>(&mut scope, "team.man_marking")
+                    .expect("man_marking"),
+                "{version:?}: one assignment on preset 3 is true"
+            );
+        }
+    }
+
+    /// Each auto value both ways: the stored setting as an integer, the
+    /// flags as booleans.
+    #[test]
+    fn auto_values_answer_the_stored_setting() {
+        let (engine, mut scope, mut file) = with_team(PesVersion::Pes21);
+        let auto = &team_mut(&mut file).tactics.auto;
+        assert_eq!(auto.substitution, Some(0));
+        assert_eq!(auto.offside_trap, Some(false));
+        assert_eq!(auto.preset_change, Some(false));
+        assert_eq!(auto.attack_defence_levels, Some(false));
+        assert_eq!(eval_i64(&engine, &mut scope, "team.auto_substitution"), 0);
+        for script in [
+            "team.auto_offside_trap",
+            "team.auto_preset_change",
+            "team.auto_attack_defence_levels",
+        ] {
+            assert!(
+                !engine
+                    .eval_with_scope::<bool>(&mut scope, script)
+                    .expect(script),
+                "{script} off"
+            );
+        }
+        let auto = &mut team_mut(&mut file).tactics.auto;
+        auto.substitution = Some(2);
+        auto.offside_trap = Some(true);
+        auto.preset_change = Some(true);
+        auto.attack_defence_levels = Some(true);
+        let team = TeamView::new(&file, 701).expect("the team views");
+        scope.push("team", team);
+        assert_eq!(eval_i64(&engine, &mut scope, "team.auto_substitution"), 2);
+        for script in [
+            "team.auto_offside_trap",
+            "team.auto_preset_change",
+            "team.auto_attack_defence_levels",
+        ] {
+            assert!(
+                engine
+                    .eval_with_scope::<bool>(&mut scope, script)
+                    .expect(script),
+                "{script} on"
+            );
+        }
+    }
+
+    /// An auto value the version lacks is `()`: attack/defence levels
+    /// before PES 17.
+    #[test]
+    fn auto_values_are_unit_where_the_version_lacks_them() {
+        let (engine, mut scope, mut file) = with_team(PesVersion::Pes15);
+        let auto = &team_mut(&mut file).tactics.auto;
+        assert_eq!(auto.attack_defence_levels, None);
+        assert_eq!(auto.substitution, Some(0));
+        assert!(
+            engine
+                .eval_with_scope::<Dynamic>(&mut scope, "team.auto_attack_defence_levels")
+                .expect("auto_attack_defence_levels")
+                .is_unit(),
+            "attack/defence levels are () on PES 15"
+        );
+        assert_eq!(eval_i64(&engine, &mut scope, "team.auto_substitution"), 0);
     }
 
     #[test]

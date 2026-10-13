@@ -372,6 +372,15 @@ impl TeamView {
         true
     }
 
+    /// Whether any of the three presets has a man-marking assignment set:
+    /// any of its eleven bytes not 0xFF (the game's none).
+    pub(crate) fn man_marking(&self) -> bool {
+        self.tactics
+            .presets
+            .iter()
+            .any(|preset| preset.man_marking.iter().any(|&marked| marked != 0xFF))
+    }
+
     /// One `FormationShape` per formation the game can field, in preset
     /// then formation order.
     pub(crate) fn formation_shapes(&self) -> Vec<FormationShape> {
