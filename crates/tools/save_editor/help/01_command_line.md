@@ -11,6 +11,7 @@ install's save folder, or a copy of it); none picks one for you.
 4cc-studio save-editor apply-patch <aesthetics_patch.toml> --base <save> --out <save>
 4cc-studio save-editor transplant <donor save> --base <save> --out <save> --select <list>
 4cc-studio save-editor diff <first save> <second save> [--aesthetics | --gameplay]
+4cc-studio save-editor export-teams-list <save> [--yes]
 ```
 
 A command that writes a save reads the one `--base` names and writes the one `--out` names,
@@ -66,6 +67,21 @@ appearance id itself is never a line. `--aesthetics` keeps the look's fields alo
 gloves, base copy, physique, strip, face), `--gameplay` everything else (names, basics,
 abilities, positions, skills, motion). Differences are the output, not errors: the exit
 code is 0. Two saves of different versions are refused.
+
+`export-teams-list` merges the save's teams into the `teams_list.txt` of the data folder
+(the list the Team compiler resolves export names against; the list shipped with 4cc Studio
+when there is no file yet): every team whose name is slash-wrapped (`/co/`) and whose id is
+in the cup range, 701 to 920. It prints what the merge does, one line each: a team the
+list lacked (`teams_list_added`), a name listed under another id, which takes the save's
+(`teams_list_overridden`), a change dropped because two teams would share one id
+(`teams_list_unresolved`, an error line), a team left out because an earlier team of the
+save has the same name, upper and lower case aside (`teams_list_name_duplicate`, an error
+line naming the team kept: fix the save), and how many rows stay as they were
+(`teams_list_kept`). Without `--yes` it stops there (`teams_list_not_written`); with
+`--yes` it writes the merged list (`teams_list_written`), the dropped changes left out. A
+data folder that cannot take the file, or none chosen yet, is the error line
+`teams_list_read_only` and nothing is written. The exit code is 1 when an error line was
+printed, 0 otherwise.
 
 Each command ends with an exit code scripts can test: 0 when it did its work, 1 when it did
 its work but reported an error, 2 when it was refused before writing anything (a bad argument,

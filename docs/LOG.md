@@ -1904,3 +1904,6 @@ worklog passed 7,000 lines.
 - **2026-10-13** — In-game findings and the payload coverage census written into the savefile
   plans and spec (hair lists at 0, celebration ranges, out-of-range motions, PES 21 colours,
   "Unmodeled payload sections"); step 5.0m3 opened for the celebration ranges.
+- **2026-10-13** — Step 5.4a1-4: the Save editor crate with `export-toml`, `import-toml`,
+  `apply-patch`, `transplant`, `diff` and `export-teams-list`; `diff --json` and the PES-running
+  refusal wait on `studio_core` (worklog issues).

@@ -580,7 +580,11 @@ The commands:
 - `export-teams-list` prints the merge summary (added / kept / overridden / unresolved) and stops
   unless `--yes` is given; a change behind an unresolved conflict is dropped, as for the updater
   merge (`libs/teams_list.md`). An unwritable data directory reports `teams_list_read_only` and
-  writes nothing (exit 1).
+  writes nothing (exit 1). The save's list is its slash-wrapped names with a cup id (701-920),
+  colour codes stripped; a later team folding to an earlier one's name (the fold is
+  case-insensitive; a real PES 21 cup save holds `/4ccg/` twice) is left out and reported as
+  `teams_list_name_duplicate` (exit 1), since the list holds a name once and the save, not the
+  list, is where the clash is fixed.
 
 AATF quick actions (`apply_tier`), the FPC toggle, `settings.toml` generation, Texport and the
 legacy imports have no command: they are GUI actions (Phase 8), and generation's batch form is
@@ -821,4 +825,10 @@ SE-TL-02   GIVEN a save whose team names would give two teams one ID in the merg
 SE-TL-03   GIVEN an unwritable data directory
            WHEN export-teams-list --yes is run
            THEN teams_list_read_only is reported, nothing is written, and the exit code is 1
+SE-TL-04   GIVEN a save holding two teams whose names fold to one (the PES 21 fixture's two
+                /4ccg/)
+           WHEN export-teams-list --yes is run
+           THEN the first in record order is merged, the other is listed as
+                teams_list_name_duplicate naming the team kept and is not written, and the
+                exit code is 1
 ```

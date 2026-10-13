@@ -61,6 +61,11 @@ impl Sandbox {
     /// `data/` as the data directory. A clap refusal is what the binary makes of it: its exit
     /// code (2 for a usage error) with its message, and no event.
     pub fn run(&self, args: &[&str]) -> Run {
+        self.run_with_data_dir(Some(self.root.join("data")), args)
+    }
+
+    /// `run` with the data directory given (`None`: no settings file exists yet).
+    pub fn run_with_data_dir(&self, data_dir: Option<PathBuf>, args: &[&str]) -> Run {
         let tool = Tool::new();
         let mut parsed = Settings::parse("").unwrap();
         parsed.merge_defaults(tool.id(), &tool.default_settings());
@@ -70,7 +75,7 @@ impl Sandbox {
             Arc::new(Mutex::new(parsed)),
             AppPaths {
                 exe_dir: self.root.clone(),
-                data_dir: Some(self.root.join("data")),
+                data_dir,
             },
             events_tx,
             requests_tx,

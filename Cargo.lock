@@ -3378,10 +3378,12 @@ dependencies = [
  "clap",
  "crossbeam-channel",
  "egui",
+ "log",
  "pes_savefile",
  "pes_version",
  "serde",
  "studio_core",
+ "teams_list",
  "toml",
 ]
 

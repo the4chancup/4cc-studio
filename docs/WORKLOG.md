@@ -15,8 +15,8 @@ Phase 2 2026-09-30).
 (2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; Astra R12.A1 over 5.2b1's reworks after the
 Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 and 5.2c2
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
-5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2 and 5.2b2b landed (2026-10-13); then 5.2c3
-and 5.4a
+5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13); then
+5.2c3, 5.0m3 and 5.4a5-6
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -874,7 +874,24 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `manual:` line)
 - [ ] 5.4 The Save editor crate (skeleton, settings, egui-free `session/`, CLI), after 5.1:
   - [ ] 5.4a `export-toml`, `import-toml`, `apply-patch`, `transplant`, `diff`,
-    `export-teams-list` → done when: SE-CLI, SE-TOML, SE-PAT, SE-TRN, SE-DIF and SE-TL pass
+    `export-teams-list` → done when: SE-CLI, SE-TOML, SE-PAT, SE-TRN, SE-DIF and SE-TL pass.
+    Slices, each a commit:
+    - [x] 5.4a1 the crate (`crates/tools/save_editor`: `lib.rs`, `settings.rs`, `events.rs`,
+      `messages.rs`, `session/`, `cli.rs`, `help/`), registered in `studio` (its window a
+      placeholder line until the GUI step), `export-toml`, the in-process CLI sandbox;
+      SE-TOML-02, 03. Done 2026-10-13 (Fable side-lead)
+    - [x] 5.4a2 `import-toml`, `apply-patch`, the `.bak` write rule; SE-CLI-01, SE-TOML-01,
+      04-08, SE-PAT-01-04. Done 2026-10-13 (Fable side-lead)
+    - [x] 5.4a3 `transplant`, `diff` (`diff.rs`); SE-TRN-01-03, SE-DIF-01, 03, 04. Done
+      2026-10-13 (Fable side-lead)
+    - [x] 5.4a4 `export-teams-list` (`teams_list.rs`); SE-TL-01-04 (SE-TL-04 added: the PES 21
+      fixture's two `/4ccg/`). Done 2026-10-13 (Fable side-lead; the lead's fix: with no data
+      directory the working list is the upstream one, not a `teams_list.txt` in the current
+      directory)
+    - [ ] 5.4a5 `diff --json` (SE-DIF-02), after the issue "a tool has no way to print a whole
+      document to stdout"
+    - [ ] 5.4a6 the write refusal while PES runs (SE-CLI-02, manual), after the issue "no
+      'PES is running' probe exists"
   - [ ] 5.4b `check-aatf`, after 5.2 → done when: SE-AATF-01 to 03 pass
   - [ ] 5.4c `strip-and-seed` and `check-stripped` (measure issue "strip-and-seed and a
     base-copied face" first, and settle issue "real cup players past the editor ranges") → done when: SE-STR-01 to 06 pass on PES 21, and on PES 18 and 19
@@ -1460,6 +1477,14 @@ points there.
   `hairline` draws a per-face fallback hair, not a look of its own; a 0 in a list shaven
   greys out changes nothing; changing the length writes 1 into every list at 0. The keys keep
   taking 0.
+- open (2026-10-13, 5.4a) — no "PES is running" probe exists; `savefile_skipped_pes_running`
+  is plan-only. The Save editor's writing commands cannot refuse while the game runs
+  (SE-CLI-02) until one lands (`studio_core`'s running-PES poll, `CONTRIBUTING.md`'s `unsafe`
+  list).
+- open (2026-10-13, 5.4a) — a tool has no way to print a whole document to stdout: `Message`
+  lines are prefixed and folded by the console printer, `println!` is the binary's alone.
+  `diff --json` (SE-DIF-02 says stdout) waits on a `studio_core` output event the printer
+  writes verbatim.
 - open (2026-10-13, 5.0m1; ruled in 5.0m3) — one PES 16 fixture cup player holds
   `goal_celebration_2 = 183`: PES 16's editor shows "122" (its top) for him and keeps the 183
   through a save of another row; what a match draws for 183 is unmeasured. `from_player`

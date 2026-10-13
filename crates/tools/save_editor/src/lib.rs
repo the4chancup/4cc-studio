@@ -13,6 +13,7 @@ mod events;
 mod messages;
 mod session;
 mod settings;
+mod teams_list;
 
 use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
 

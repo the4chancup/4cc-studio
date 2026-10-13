@@ -3,6 +3,7 @@
 //! argument, an unreadable file, a team the save lacks) comes before anything is written.
 
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
@@ -14,10 +15,10 @@ use pes_savefile::ops::transplant::{TransplantError, parse_selection};
 use pes_version::PesVersion;
 use studio_core::{CliError, Severity, ToolContext};
 
-use crate::diff;
 use crate::events::Report;
 use crate::messages::{Code, TOOL_ID, import_note, message, patch_skip, stripped_mark};
 use crate::session::Session;
+use crate::{diff, teams_list};
 
 // The exit codes are the command line's contract with scripts, the Team compiler's meanings.
 /// Exit code of a command that did its work with no Error finding.
@@ -43,6 +44,18 @@ enum SaveEditorCommand {
     Transplant(TransplantArgs),
     /// List every field that differs between two saves of one version, player by player.
     Diff(DiffArgs),
+    /// Merge the save's team names and ids into the data directory's teams_list.txt.
+    ExportTeamsList(ExportTeamsListArgs),
+}
+
+/// `export-teams-list <save> [--yes]`.
+#[derive(Debug, Args)]
+struct ExportTeamsListArgs {
+    /// The save whose teams are merged in (EDIT00000000).
+    save: PathBuf,
+    /// Write the merged list instead of only printing what would change.
+    #[arg(long)]
+    yes: bool,
 }
 
 /// `transplant <donor> --base <save> --out <save> --select <list>`.
@@ -131,6 +144,9 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
         SaveEditorCommand::ApplyPatch(args) => apply_patch(&args, &mut report)?,
         SaveEditorCommand::Transplant(args) => transplant(&args, &mut report)?,
         SaveEditorCommand::Diff(args) => diff_saves(&args, &mut report)?,
+        SaveEditorCommand::ExportTeamsList(args) => {
+            export_teams_list(&args, ctx.paths().data_dir.as_deref(), &mut report)?;
+        }
     }
     Ok(exit_code(report.worst()))
 }
@@ -310,6 +326,86 @@ fn diff_saves(args: &DiffArgs, report: &mut Report) -> Result<(), CliError> {
         }
         CompareError::Codec(_) => invalid(error.into()),
     })
+}
+
+/// `export-teams-list`: the save's teams merged into the data directory's list, the summary
+/// one line per change, the file written only with `--yes`. A data directory that cannot
+/// take the file (none chosen yet, or unwritable, found by attempting the write) is the
+/// `teams_list_read_only` error with nothing written. A dropped change is an error too; the
+/// other changes are written.
+fn export_teams_list(
+    args: &ExportTeamsListArgs,
+    data_dir: Option<&Path>,
+    report: &mut Report,
+) -> Result<(), CliError> {
+    let session = open(&args.save)?;
+    let (incoming, duplicates) = teams_list::from_save(session.file());
+    for duplicate in &duplicates {
+        report.message(message(
+            Code::TeamsListNameDuplicate,
+            vec![
+                ("team", duplicate.team.to_string()),
+                ("name", duplicate.name.as_str().to_owned()),
+                ("kept", duplicate.kept.to_string()),
+            ],
+        ));
+    }
+    let path = data_dir.map(|dir| dir.join(teams_list::FILE_NAME));
+    let working = teams_list::load_working(path.as_deref()).map_err(invalid)?;
+    let (merged, summary) = teams_list::reconcile(&working, &incoming);
+    for (id, name) in &summary.added {
+        report.message(message(
+            Code::TeamsListAdded,
+            vec![
+                ("team", id.get().to_string()),
+                ("name", name.as_str().to_owned()),
+            ],
+        ));
+    }
+    for (name, old, new) in &summary.overridden {
+        report.message(message(
+            Code::TeamsListOverridden,
+            vec![
+                ("name", name.as_str().to_owned()),
+                ("old", old.get().to_string()),
+                ("new", new.get().to_string()),
+            ],
+        ));
+    }
+    for (id, name) in &summary.unresolved {
+        report.message(message(
+            Code::TeamsListUnresolved,
+            vec![
+                ("team", id.get().to_string()),
+                ("name", name.as_str().to_owned()),
+            ],
+        ));
+    }
+    // `placeholders_added` stays empty: the save's list carries team rows alone.
+    report.message(message(
+        Code::TeamsListKept,
+        vec![("count", summary.kept.to_string())],
+    ));
+    let shown = path.as_deref().map_or_else(
+        || teams_list::FILE_NAME.to_owned(),
+        |path| path.display().to_string(),
+    );
+    if !args.yes {
+        report.message(message(Code::TeamsListNotWritten, vec![("path", shown)]));
+        return Ok(());
+    }
+    let written = match &path {
+        Some(path) => teams_list::write(path, &merged),
+        None => Err(io::Error::other("no data directory is chosen yet")),
+    };
+    match written {
+        Ok(()) => report.message(message(Code::TeamsListWritten, vec![("path", shown)])),
+        Err(error) => report.message(message(
+            Code::TeamsListReadOnly,
+            vec![("path", shown), ("error", error.to_string())],
+        )),
+    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -53,6 +53,26 @@ pub(crate) enum Code {
     /// `diff`: the player's appearance id is -1 in `save` (`first`, `second` or `both`); his
     /// record is compared, not the look the game shows (`player`, `save`).
     PlayerStripped,
+    /// `export-teams-list`: a team of the save the list lacked, appended or put into a
+    /// placeholder's slot (`team`, `name`).
+    TeamsListAdded,
+    /// `export-teams-list`: a name in both whose id becomes the save's (`name`, `old`, `new`).
+    TeamsListOverridden,
+    /// `export-teams-list`: a change dropped because its id collided with another row of the
+    /// merged list (`team`, `name`).
+    TeamsListUnresolved,
+    /// `export-teams-list`: a team of the save left out because an earlier team folds to the
+    /// same name, which the list can hold once (`team`, `name`, `kept`).
+    TeamsListNameDuplicate,
+    /// `export-teams-list`: the working rows that ended unchanged (`count`).
+    TeamsListKept,
+    /// `export-teams-list`: the merged list was written (`path`).
+    TeamsListWritten,
+    /// `export-teams-list` without `--yes`: the summary only, the file untouched (`path`).
+    TeamsListNotWritten,
+    /// `export-teams-list --yes`: the data directory cannot take the file; nothing is
+    /// written (`path`, `error`).
+    TeamsListReadOnly,
 }
 
 /// Which of `diff`'s two saves a finding is about, as the console names them.
@@ -94,6 +114,14 @@ impl Code {
             Code::PlayerDiff => "player_diff",
             Code::PlayerOnlyIn => "player_only_in",
             Code::PlayerStripped => "player_stripped",
+            Code::TeamsListAdded => "teams_list_added",
+            Code::TeamsListOverridden => "teams_list_overridden",
+            Code::TeamsListUnresolved => "teams_list_unresolved",
+            Code::TeamsListNameDuplicate => "teams_list_name_duplicate",
+            Code::TeamsListKept => "teams_list_kept",
+            Code::TeamsListWritten => "teams_list_written",
+            Code::TeamsListNotWritten => "teams_list_not_written",
+            Code::TeamsListReadOnly => "teams_list_read_only",
         }
     }
 
@@ -105,7 +133,12 @@ impl Code {
             | Code::PatchTeamApplied
             | Code::PlayerDiff
             | Code::PlayerOnlyIn
-            | Code::PlayerStripped => Severity::Info,
+            | Code::PlayerStripped
+            | Code::TeamsListAdded
+            | Code::TeamsListOverridden
+            | Code::TeamsListKept
+            | Code::TeamsListWritten
+            | Code::TeamsListNotWritten => Severity::Info,
             // A value the save did not take as written, or a record the game does not read:
             // worth knowing, not a failure (the plan's cross-version import converts "with a
             // warning list").
@@ -116,8 +149,13 @@ impl Code {
             | Code::TransplantTargetStripped
             | Code::TransplantDonorStripped => Severity::Warning,
             // A skipped team or player is an error and the rest is written (the plan's
-            // `apply-patch`: exit 1).
-            Code::PatchTeamNotInSave | Code::PatchPlayerNotInSave => Severity::Error,
+            // `apply-patch`: exit 1); so is a dropped teams-list change and a list that
+            // cannot be written (`export-teams-list`: exit 1).
+            Code::PatchTeamNotInSave
+            | Code::PatchPlayerNotInSave
+            | Code::TeamsListUnresolved
+            | Code::TeamsListNameDuplicate
+            | Code::TeamsListReadOnly => Severity::Error,
         }
     }
 }

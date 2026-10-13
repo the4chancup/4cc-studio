@@ -7426,3 +7426,19 @@ another row of the screen edited kept two of them but rewrote the corner kick to
 entry: which values survive is per field, so a copied value is unstable and can turn into the
 first entry on the player's next in-game save. The top is what the game shows for it anyway.
 Plan: `pes_savefile/operations.md` "Cross-version player conversion".
+
+## 2026-10-13 — save_editor — a save's later team of an already-listed name is left out of the teams list
+Decision: `export-teams-list` merges the first team in record order under a name; a later team
+whose name folds to the same one is left out and reported as `teams_list_name_duplicate`
+(Error, exit 1), naming the team kept.
+Why: the list holds a name once, and the clash is in the save, where it is fixed; renaming or
+renumbering a team in the list would invent an identity the cup never gave it. The PES 21
+fixture, a real cup save, holds `/4ccg/` at 784 and 852.
+Plan: `save_editor.md` "CLI" (SE-TL-04).
+
+## 2026-10-13 — save_editor — `diff` names a field by its schema name
+Decision: a `diff` row names its field by the schema enum's variant name (`BootsId`,
+`NeckLength`) until `pes_savefile` offers a label of its own.
+Why: the comparator's rows carry the enum, and its variant names are the schema's, stable per
+version; a second naming table in the tool would drift from the schema.
+Plan: `save_editor.md` "Comparator (gameplay + aesthetics)".

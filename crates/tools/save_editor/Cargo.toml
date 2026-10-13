@@ -11,10 +11,12 @@ rust-version.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 egui.workspace = true
+log.workspace = true
 pes_savefile.workspace = true
 pes_version.workspace = true
 serde.workspace = true
 studio_core.workspace = true
+teams_list.workspace = true
 toml.workspace = true
 
 [dev-dependencies]

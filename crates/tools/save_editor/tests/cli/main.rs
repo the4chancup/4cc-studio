@@ -7,6 +7,7 @@ mod common;
 
 mod apply_patch;
 mod diff;
+mod export_teams_list;
 mod export_toml;
 mod import_toml;
 mod transplant;
