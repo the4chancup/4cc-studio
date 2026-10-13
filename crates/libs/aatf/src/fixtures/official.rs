@@ -628,8 +628,12 @@ fn red_legal_records() -> Records {
     for slot in [1, 8] {
         records.player_mut(slot).basic.height = 180;
     }
-    for slot in [5, 14, 17, 20] {
+    for slot in [5, 20] {
         records.player_mut(slot).basic.height = 185;
+    }
+    // The two regular CBs fielded only at CB count 4 cm shorter: 189 is their tall.
+    for slot in [14, 17] {
+        records.player_mut(slot).basic.height = 189;
     }
     set_tier_record(records.player_mut(5), 92, 8, 3);
     for slot in [3, 4, 6, 15, 19, 22] {
@@ -678,22 +682,34 @@ fn red_manlet_bonus() {
     );
 }
 
-/// Under Red a regular CB fielded only at CB may be 189: slot 14 (a
-/// tall substitute, so his registered position counts) at 189 stays
-/// tall; a CB under Green at 189 is in no bracket; and slot 17, a
-/// starting CB, loses the allowance once one fielded formation moves him
-/// to RB.
+/// Under Red a regular CB fielded only at CB counts 4 cm shorter at every
+/// height, as `aatf.cpp` reads "Red CBs up to 189": slot 14 (a tall
+/// substitute, so his registered position counts) is tall at 189 and in no
+/// bracket at 185; a CB under Green at 189 is in no bracket; and slot 17, a
+/// starting CB at 189, loses the allowance once one fielded formation moves
+/// him to RB.
 #[test]
-fn red_cbs_up_to_189() {
+fn red_cbs_count_four_cm_shorter() {
     let rules = Rules::official();
     let cb = position("CB");
     let red = red_legal_team();
     assert_eq!(player(&red, 14).position, Some(cb));
-    assert_eq!(player(&red, 14).height, 185);
+    assert_eq!(player(&red, 14).height, 189);
     assert!(!red.tactics.starting_eleven.contains(&14));
     assert_eq!(
-        problems(&rules, &red_edited(14, |p| p.height = 189)),
-        vec![]
+        problems(&rules, &red_edited(14, |p| p.height = 185)),
+        vec![
+            error(Some(14), ViolationKind::Height { height: 185 }),
+            error(
+                None,
+                ViolationKind::BracketQuota {
+                    system: "red".to_string(),
+                    bracket: "tall".to_string(),
+                    count: 9,
+                    quota: 10
+                }
+            ),
+        ]
     );
     // A CB under Green: 189 is in no bracket.
     let mut green = legal_team();
@@ -707,7 +723,8 @@ fn red_cbs_up_to_189() {
         ]
     );
     // A starting CB: fielded only at CB, then moved to RB in preset 1.
-    let mut team = red_edited(17, |p| p.height = 189);
+    let mut team = red_legal_team();
+    assert_eq!(player(&team, 17).height, 189);
     assert!(team.fielded_only_at(17, cb));
     assert_eq!(problems(&rules, &team), vec![]);
     let index = team

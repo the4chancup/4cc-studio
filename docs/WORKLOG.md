@@ -16,8 +16,9 @@ Phase 2 2026-09-30).
 Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 and 5.2c2
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
-(`music_export`, ahead of Phase 10) landed 2026-10-14; then
-5.2c3, 5.0m3 and 5.4a5-6
+(`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
+2026-10-14; then 5.2c3-r1, 5.0m3, 5.0m4, step 20.0
+(the Ruleset editor draft) and 5.4a5-6
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -791,6 +792,17 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     version's top round-trips through `from_player` then `apply`, a PES 20 player at the tops
     converted to PES 15 holds PES 15's tops, and a PES 19 cheek 5 reads and converts to PES 18
     as 0
+  - [ ] 5.0m4 the playable ratings on the save's scale and order: `labels::RATINGS` is
+    `none 0, C 1, B 2, A 3` and `playable` is read as CF 0 to GK 12 reversed, but every real
+    team stores A as 2 (no save stores a 3) in the order CF, SS, LWF, RWF, AMF, DMF, CMF,
+    LMF, RMF, CB, LB, RB, GK (a census of 11 799 rated fixture players: 11 795 store 2 at
+    their registered position under that order, 5 683 under the reversal; review AS1
+    contradictions 1-2). The Team TOML's `playable` labels, `player.rs`'s docs and
+    `aatf`'s sample team follow; then `aatf`'s stopgaps go (`engine.rs` `RATINGS`, `team.rs`
+    `PLAYABLE_INDEX`), and `PlayerStats` gains the by-index ability setter `aatf`'s
+    `values.rs` `write_ability` stands in for → done when: every fixture player's registered
+    position reads A, the sample team regenerated reads as before in `aatf`, and the
+    stopgaps are gone
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
@@ -856,12 +868,31 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       Review C2.S1 (SWE-2): 3 of 5 accepted, rework r2 landed 2026-10-13 (comments, a test
       pinning the last `const RULESET`; the sidekick showed rhai's scope keeps one entry per
       name, so the lookup stayed `find`), which ends the SWE-2 loop; Astra queued (Handover)
-    - [ ] 5.2c3 the interpreter's `check_team` for the official file, its fixtures, the
-      operation limit (sliced when briefed)
-  - [ ] 5.2d `tier_values`, `card_limits`, `apply_tier` (settle the issue above first) →
-    done when: `apply_tier` then `check_team` reports nothing for every official tier
+    - [~] 5.2c3 the interpreter's `check_team` for the official file, its fixtures, the
+      operation limit. Landed 2026-10-14 (side-lead, `b251fd8`, `e2fe165`): every special of
+      the official file and each suggestion kind has a fixture; the operation limit is ten
+      times the measured 482 556 operations of the official file on the sample team (89.5 ms
+      in release); rhai's expression depths pinned (debug and release defaults differ). Found:
+      the playable scale is C 0, B 1, A 2 and the order is not a plain reversal (step 5.0m4).
+      The side-lead bounded "Red CBs up to 189" to 189; the maintainer ruled for `aatf.cpp`'s
+      reading (the 4 cm at every height), applied by the lead with the Red legal fixture's CBs
+      at 189. Review AS1 (SWE-2): 6 of 12 accepted (`.tmp/parallel/aatf/rulings_as1.md`)
+      - [ ] 5.2c3-r1 AS1's rework: `AllowanceWithBracket` looks inside `when.not`; a `choice`
+        option carrying `stat_target`, `require_cards`, `forbid`, `height_allowance` or a
+        nested `choice` refused at load; `suggestions`' weak foot read through `num`; a Team
+        TOML without `[tactics]` leaves no player fielded (0xFF); fixtures for `weight`'s floor
+        and `age`'s lower bound; `PositionRange`'s doc → done when: each has its red-first
+        test, then a SWE-2 round AS2 over the rework
+  - [~] 5.2d `tier_values`, `card_limits`, `apply_tier`. Landed 2026-10-14 (side-lead,
+    `978a33b`): `apply_tier` then `check_team` reports nothing for every official tier (the
+    Green silver giant and the Red manlet included); VTL11's name colour is a
+    `QUESTIONS.md` entry
   - [ ] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27, VTL11 and VTL10 data blocks and their
-    fixtures → done when: the plan's per-ruleset fixtures pass
+    fixtures → done when: the plan's per-ruleset fixtures pass. Autumn 25 and Spring 26 landed
+    2026-10-14 (side-lead, `0aceb0b`: the sample team, a real team built under Spring 26,
+    reports nothing there as written); VGL25, VGL26, VGL27, VTL11, VTL10 remain, after step
+    20.0 (a ruleset's by-tier `choice` option or a group card freed by name re-opens review
+    AS1's concerns 2 and 3)
   - [ ] 5.2f the parity runs against the legacy checkers on the cup saves (lead) → done
     when: each difference is a deliberate one the plan lists, or fixed
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:

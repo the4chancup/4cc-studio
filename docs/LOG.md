@@ -1913,3 +1913,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 10.0d: `music_export` resolves an export's songs on disk (Rigdio's order,
   names as on disk) and reports the missing ones together; `advance` no longer replays a song
   when an earlier entry unloads in the same press.
+- **2026-10-14** — Steps 5.2c3, 5.2d and 5.2e's first two rulesets (Autumn 25, Spring 26)
+  landed from the aatf side-lead: the interpreter and `apply_tier`. Found: the playable scale and
+  order `pes_savefile` reads are wrong for every real team (step 5.0m4).

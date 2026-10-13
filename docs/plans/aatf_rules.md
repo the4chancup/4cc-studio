@@ -488,8 +488,7 @@ const RULESET = #{
            when: #{ tiers: ["gold"], height_min: 194 },
            then: #{ forbid: "Gold heights cannot be 194cm or more" } },
         #{ label: "Red CBs up to 189",
-           when: #{ tiers: ["regular"], systems: ["red"], positions: ["CB"], height_min: 189, height_max: 189,
-                    fielded_only_at: "CB" },
+           when: #{ tiers: ["regular"], systems: ["red"], positions: ["CB"], fielded_only_at: "CB" },
            then: #{ height_allowance: 4 } },
         #{ label: "Manlets", when: #{ brackets: ["manlet"] },
            then: #{ cards: 1, a_positions: 1, weak_foot: #{ usage: 4, accuracy: 4 } } },
@@ -509,10 +508,12 @@ const RULESET = #{
 Where the data reads differently from `aatf.cpp`, on purpose: `aatf.cpp` prints its two height
 warnings for gold (above 194, and at 194) separately; here they are one. A player whose rating fits
 no tier's target is placed by expected rating rather than by `aatf.cpp`'s thresholds, so an illegal
-player can be reported against a different tier; both report the player. `aatf.cpp` subtracts the
-Red CBs' 4 cm at every height, so a Red CB fielded only at CB is an illegal height at 185 and a
-manlet at 179; here the allowance applies at 189 alone, as the goalkeepers' does, which is what
-"up to 189" means (found at 5.2c3: the fixture team's 185 cm CBs were in no bracket).
+player can be reported against a different tier; both report the player.
+
+The Red CBs' 4 cm apply at every height, as in `aatf.cpp`, whatever the label's "up to 189"
+suggests: a Red regular CB fielded only at CB is tall at 189, mid at 180 to 184, a manlet at 179
+or below, and in no bracket at 185 to 188. (The goalkeepers' allowance, by contrast, is bounded to
+189 by its own condition.)
 
 ## Autumn 25 and Spring 26
 

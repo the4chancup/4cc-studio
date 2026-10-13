@@ -7487,3 +7487,25 @@ without building anything; restricting it to egui's widgets keeps it a specifica
 implementation can meet. A draft in egui itself (Studio Web) was the alternative: exact, but
 much slower to iterate.
 Plan: `core/gui.md` "Prototypes before implementation".
+
+## 2026-10-14 — aatf — Red CBs count 4 cm shorter at every height, as `aatf.cpp` does
+Decision: the official file's "Red CBs up to 189" special applies its 4 cm allowance at every
+height, as `aatf.cpp` does: a Red regular CB fielded only at CB is tall at 189, mid at 180 to
+184, a manlet at 179 or below, and in no bracket at 185 to 188.
+Why: the maintainer's ruling: follow the old checker even where the label suggests a bound (the
+side-lead had bounded the allowance to 189, as the goalkeepers' special is); the parity run then
+expects no difference on Red CBs.
+Plan: `aatf_rules.md` "The official ruleset".
+
+## 2026-10-14 — aatf — the interpreter's rulings at 5.2c3 and 5.2d
+Decision: `gk_not_second_a` fires for any player holding GK among several A positions, a
+goalkeeper with a second A included, as `aatf.cpp` tests it. `apply_tier` takes the team
+view, the player's view and the record. A legal team "reports nothing" but suggestions, which
+are listed apart and uncounted; a weak-foot suggestion is one `Unused` per value below its
+limit. rhai's expression depths are pinned at 64, top level and functions.
+Why: the plan's "an outfield player's second A" is the narrower reading, and the old checker
+is the parity standard; the specials depend on the team (system, captain) and the write goes
+to the record, where the plan's `(player, tier, rules)` named no team; rhai's depth defaults
+differ between debug and release builds, and the interpreter nests past the debug function
+limit of 16, so a file would parse in the tests and not in the binary, or the reverse.
+Plan: `aatf_rules.md` "The interpreter", "The host".
