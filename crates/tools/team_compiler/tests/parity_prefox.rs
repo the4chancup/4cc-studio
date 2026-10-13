@@ -2,7 +2,7 @@
 //! `fixtures/tracer_prefox/studio/jp Midcup Tracer` for PES 17 through the `compile` command
 //! and compare the CPK with the reference tree in `fixtures/tracer_prefox/red/`, one explicit
 //! row per reference entry, and per entry of the reference's nested face CPK, under the tiers
-//! of `docs/plans/team_compiler/testing.md`.
+//! of `docs/spec/team_compiler/testing.md` "Testing: parity against Red (adapted from Blue)".
 
 mod common;
 

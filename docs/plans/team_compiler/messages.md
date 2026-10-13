@@ -11,6 +11,8 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
 - **Logs**: `issues.log` (Warning+) and `suggestions.log` (Info) are kept as disk artifacts,
   rendered from the same events. Display layers may group repeated (code, scope) pairs; the logs
   stay complete.
+- **No blocking console prompts**: unknown team ID becomes the grid's inline-editable ID cell
+  (including its reassignment confirmation — see the GUI section).
 
 ### Catalog
 
@@ -21,11 +23,15 @@ What exists of this is in `spec/team_compiler/messages.md` "Catalog".
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
 | `teams_list_read_only` | W | a teams-list write (ID cell, updater merge) failed because the data directory is not writable | write dropped; the in-memory list is unchanged (no elevation — see `pipeline.md` "Resolved decisions", "Teams list") |
+| `export_disabled` | I | as the spec's row | omitted from the grid |
+| `export_tag_missing` | E | as the spec's row | GUI: the row offers the two tags as buttons |
+| `team_name_unknown` | E | as the spec's row | GUI: ID cell becomes editable for inline assignment |
 
 **Player folders and shared model folders**
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
+| `players_txt_missing` | E | as the spec's row | `ParsedAestheticsExport` remains available to the Refs arranger for repair |
 | `materials_toml_invalid` | E | a `materials.toml` or `*.materials.toml` file fails to parse | folder discarded |
 | `material_file_missing` | E | a glTF file has no matched material file (no name-matched `*.materials.toml`, no catch-all `materials.toml`, no `.common` link to either) | folder discarded |
 | `material_undefined` | E | a material name referenced by a glTF file has no definition in any matched material toml | folder discarded |
@@ -73,6 +79,14 @@ states one-to-one; a glTF material with states absent just gets its family's sta
 | `savefile_invalid` | E | the configured or found savefile cannot be read, or its version is not the compile target's (context: the path, the version) | the save is not modified; as `savefile_write_failed` |
 | `savefile_team_missing` | E | a team of the patch is not in the savefile (context: the team) | that team's entries are not applied; the rest is |
 | `savefile_player_not_stripped` | W | Fox: a compiled player's record in the local save has its appearance id set (a save never stripped, or an id the game's Edit mode restored), so the game shows his record, not the compiled rows (context: the players) | reported; the save editor strips them (`strip-and-seed` for a save never stripped, `check-stripped --strip-again` otherwise) |
+| `pes_folder_not_found` | E | as the spec's row | savefile step skipped |
+| `dpfilelist_missing` | E/W | as the spec's row | E: savefile step skipped |
+| `dpfilelist_not_official` | W | as the spec's row | the GUI offers **Upgrade DpFileList**, which asks before replacing the list |
+| `dpfilelist_outdated` | E | as the spec's row | savefile step skipped; GUI offers Upgrade DpFileList |
+| `cpk_name_unlisted` | E | as the spec's row | savefile step skipped |
+| `old_cpk_locked` | E | as the spec's row | savefile step skipped; GUI offers Retry (deployment only) and Open output folder |
+| `deploy_target_unwritable` | E | as the spec's row | savefile step skipped; GUI offers Relaunch as administrator. Normally pre-empted by the live writability preflight (see `pipeline.md` "6. Post-processing") |
+| `deploy_skipped_by_flag` | I | as the spec's row | savefile step skipped |
 
 A missing savefile
 is the explicitly permitted warning-only case. A present savefile that cannot be read or whose

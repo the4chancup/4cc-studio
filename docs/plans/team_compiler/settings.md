@@ -20,6 +20,7 @@ What exists of this is in `spec/team_compiler/settings.md` "Path resolution".
 
 | Artifact/input | Base location |
 |---|---|
+| Relative `exports_folder_path` | Created when missing (from Phase 8 also at GUI launch, for the watcher) |
 | `savefile_path` | Absolute when explicitly set; `auto` resolves under the shell's Documents folder → `KONAMI\{game folder}[\{account id}]\save\EDIT00000000` per the Savefile plan's discovery table — independent of `pes_folder_path` |
 
 ### CLI

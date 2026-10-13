@@ -76,7 +76,7 @@ boots of his own (a model or a link) and the hands when he has gloves, so he is 
 twice; a partial body (his own shirt over the refkit's legs) is written by hand in his own
 xml, without `fpc_off`. A referee folder with no face model gets no face, so `fpc_off` adds
 nothing there. On PES 18-21 the body waits for a Fox refkit the maintainer will make (worklog
-"Issues"); until then `fpc_off` applies its settings preset alone there.
+"Issues").
 
 What carries over from Red as compiler-internal behavior (invisible in the format):
 - `ExportIdentity::Referees`, rendered as fixed numeric ID 999 only inside game paths/templates (999
@@ -149,9 +149,7 @@ is WESYS-compressed, 907 KB for a 5.6 MB DDS; the compiler writes a plain DDS in
 it writes every pre-Fox texture and as Red did there). Drawn as a Fox
 collar it stays on the ground instead of following the neck by **static painting**, the cup
 community's trick: its vertices are weighted to a dummy vertex group, usually named `static`,
-that is no bone of the body skeleton; the referee step checks that the bundled FMDL is painted
-that way (the pre-Fox prop is unskinned, no bone and no weight, and is the game's own prop,
-so it is not checked). The marker shows on the ground under each official in every scene
+that is no bone of the body skeleton. The marker shows on the ground under each official in every scene
 (checked on PES 17 by the maintainer with the cup's referee CPK, in the form the compiler
 writes, worklog 4.y-ingame2 (b)); why the lead's harness runs with a test texture showed none
 is not known.

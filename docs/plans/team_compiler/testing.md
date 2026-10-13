@@ -17,9 +17,18 @@ extraction when the manifest is stale or the local tree is missing, and verifies
 tree against the committed manifest before using it. This keeps the repo small while making the
 test reproducible without a pre-shared binary blob.
 
+- **Kit-dependent path magic**: The comparison
+  normalizes Red's `u0???p<d>` to `kit<d>` (`p0` → `kitN`) in file names and in decoded FMDL/MTL/XML
+  paths before diffing.
+
 The versioned test matrix also covers savefile success/failure and cancellation, and these key
 behavior areas:
 
+- **Rosters and identity**: a refs export without `players.txt` blocked by the compiler yet
+  repairable in the Refs arranger.
+- **Models and textures**: a glTF image shared by two model parts loaded and emitted exactly once.
+- **Infrastructure**: deterministic converted output across fresh processes with randomized hash
+  seeds.
 - **Dispositions and GUI**: pass-through and `DoneWithErrors`; an Error-level `DropFile` rendering
   red at check time and finishing `DoneWithErrors`; `DropFolder` outcomes; an effective `DropExport`
   blocking every row cell; an invalid `ParsedAestheticsExport` still producing stable GUI rows and scoped

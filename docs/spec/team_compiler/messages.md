@@ -29,10 +29,10 @@ pub struct Message {
 }
 
 pub enum Severity {
-    Fatal,
-    Error,
-    Warning,
     Info,
+    Warning,
+    Error,
+    Fatal,
 }
 // Ordering: Info < Warning < Error < Fatal. "Errors" filter includes Fatal.
 // Cell status uses the highest relevant severity after disposition policy.
@@ -103,8 +103,8 @@ Principles:
   (`vertex_too_far_from_origin`: the lag it causes persists for the whole matchday),
   `DropSlot`, `DropExport`, `AbortRun`, and environment-level dispositions. Written errored content
   receives a distinct `DoneWithErrors` outcome rather than an ordinary red error state.
-- **No blocking console prompts.** Red's prompts are replaced, not kept: unknown team ID becomes the
-  grid's inline-editable ID cell (including its reassignment confirmation — see the GUI section),
+- **No blocking console prompts.** Red's prompts are replaced, not kept: unknown team ID becomes a
+  plain Error (`team_name_unknown`),
   the one standing consent (overwriting `dt00_x64.cpk` with the Fox referee marker) is gone with
   the write it guarded, and retry-on-locked-file becomes a plain Error. The CLI never prompts: all of these are hard errors there.
 - **Progress chatter is not a message.** Red's "- Packing the face folders..." prints map to
@@ -122,7 +122,7 @@ savefile messages are new.
 |---|---|---|---|
 | `export_extract_failed` | E | archive cannot be extracted/parsed, or its listing is refused (a path escaping the root, two names that fold to one; context: the path) | export skipped (`DropExport`) |
 | `no_exports_found` | W | discovery finds no export folder, `.zip` or `.7z` in the exports folder (Run scope; context: the folder) — what a fresh install's created `exports/` reports until the user fills it | none; nothing is checked or compiled |
-| `export_disabled` | I | root `NO_USE` / `NO_USE.txt` marker disables this source | export skipped; omitted from the grid and from duplicate-ref detection |
+| `export_disabled` | I | root `NO_USE` / `NO_USE.txt` marker disables this source | export skipped; omitted from duplicate-ref detection |
 | `export_identified` | I | the export's identity resolved (context: `team` and `id`, or `team` = `referees`) | none; how the CLI reports which team an export is |
 | `source_read_failed` | E/F | a pinned source entry cannot be read | optional root file: `DropFile`; folder/task producer: `DropFolder`; required export metadata or unusable source: `DropExport`; output/global source invariant: `AbortRun` |
 | `source_changed_during_run` | F | a file a task read is gone, or its size or modified time is no longer what the export's listing gave (an archive: the archive file's); on the export, context `path` | run aborted, the staging output discarded, nothing deployed (`AbortRun`) |
@@ -138,9 +138,9 @@ savefile messages are new.
 | `nested_folders_fixed` | W | content found nested one level down (exactly one usable root) | auto-fixed |
 | `nested_root_ambiguous` | E | several nested child folders are usable export roots | export skipped (`DropExport`) |
 | `nested_root_conflict` | E | loose root file collides with a flattened nested file at the same virtual path | export skipped (`DropExport`) |
-| `export_tag_missing` | E | a team export's name has neither `Full` nor `Midcup` as its second word (context `name`: the export's name) | export skipped; the hint says to rename it `<team> Full …` or `<team> Midcup …` (GUI: the row offers the two tags as buttons) |
+| `export_tag_missing` | E | a team export's name has neither `Full` nor `Midcup` as its second word (context `name`: the export's name) | export skipped; the hint says to rename it `<team> Full …` or `<team> Midcup …` |
 | `export_layout_old` | E | the export is in the old layout, which the compiler does not read: a root folder named `Kit Configs`, `Kit Textures` or `Other`, names the Studio format never has (its kits live in `Kits/`); context `folder`: the first such folder. Reported alone: the export's other structure findings are not computed, since every one of them would describe the old layout again | export skipped; the hint says to run the export through the Export upgrader once |
-| `team_name_unknown` | E | canonical `team_name` not in `teams_list.txt` | export skipped (GUI: ID cell becomes editable for inline assignment) |
+| `team_name_unknown` | E | canonical `team_name` not in `teams_list.txt` | export skipped |
 | `team_id_out_of_range` | withdrawn | nothing produces it: `teams_list::TeamId` holds 701–920 only, and a list line whose ID is outside it is the list reader's own error, so no export resolves to an ID outside the range (converge 4.y-conv, 2026-10-09) | — |
 | `team_colors_missing` | I | no root `colors.txt` (it is optional) | the team's colors in `TeamColor.bin` are left as they are |
 | `color_entry_invalid` | W | a `colors.txt` line that does not parse as exactly one color (two colors on one line, the old Team Note kit entry, included), or a valid line past the file's color count (two for a kit, four for the team). Grammar: "Root files" (Colors) in `aesthetics_export/player_folders.md` | the line skipped |
@@ -156,7 +156,7 @@ savefile messages are new.
 | `player_folder_number_invalid` | E | without `players.txt`, a team player folder's number is not in 01–23 | folder discarded (`DropFolder`) |
 | `players_txt_slot_invalid` | E | a `players.txt` line's decimal slot is outside 01–23 (teams) / 01–35 (refs) | that `RosterEntry` assignment skipped (`DropSlot`) |
 | `player_number_duplicate` | E | without `players.txt`, two team folder names claim the same player slot | both conflicting folders discarded (`DropFolder` on each folder) |
-| `players_txt_missing` | E | referee export has no required root `players.txt` (nor a legacy `refs.txt` alias) | export skipped (`DropExport`); `ParsedAestheticsExport` remains available to the Refs arranger for repair |
+| `players_txt_missing` | E | referee export has no required root `players.txt` (nor a legacy `refs.txt` alias) | export skipped (`DropExport`) |
 | `refs_txt_ignored` | W | referee export has both `players.txt` and the legacy `refs.txt` alias | `players.txt` used, alias ignored |
 | `players_txt_slot_duplicate` | E | authoritative `players.txt` assigns the same slot more than once, making roster identity ambiguous | export skipped (`DropExport`) |
 | `player_unlisted` | W | authoritative `players.txt` is present but does not list this player folder, regardless of any number in its name | folder ignored |
@@ -581,25 +581,25 @@ injection into the system `dt00_x64.cpk`, and with it `ref_marker_needs_consent`
 | `output_commit_failed` | F | a completed CPK/tree cannot be atomically committed to its final output path | run aborted; prior published outputs remain untouched (`AbortRun`) |
 | `teamnotes_write_failed` | E | `teamnotes.txt` cannot be written, or a previous one cannot be removed, in the output folder (context: `path`, `error`) | the run's CPK stays in place; the notes file is left as it was |
 | `uniparam_compile_failed` | withdrawn | an installed `UniformParameter.bin` that does not parse is `installed_bin_unreadable` since 4.21c, and any failure writing the bin is `cpk_write_failed`; nothing between the two can fail (converge 4.y-conv, 2026-10-09) | — |
-| `pes_folder_not_found` | E | `pes_folder_path` invalid at deployment time (includes the no-PES-install machine; context: `path`, `output` the path the CPK is promoted to) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped |
+| `pes_folder_not_found` | E | `pes_folder_path` invalid at deployment time (includes the no-PES-install machine; context: `path`, `output` the path the CPK is promoted to) | deployment skipped; staged CPKs promoted to `output/` |
 | `pes_version_mismatch` | W | `pes_folder_path` exists but holds no `PES20{pes_version}.exe` — a different-version exe suggests a wrong `pes_version` setting (Red's suppressible console notice becomes a plain per-run warning, dropping `state/ver_mismatch_warned.txt`; the GUI also surfaces this live via the version selector's red/yellow state — see the core plan's Sidebar; context: `path` the PES folder, `exe` the file looked for) | none; deployment proceeds |
-| `dpfilelist_missing` | E/W | no `DpFileList.bin` in download folder: an Error in a compile that deploys, a Warning in sideload and test mode and with `--no-deploy` (a clean run, "Post-processing"), which deploy nothing, so the user knows no bin from the download folder was used | E: deployment skipped; staged CPKs promoted to `output/`; savefile step skipped. W: none; the bins are built on the bundled bases (`bin_source` `bundled`) |
-| `dpfilelist_not_official` | W | the installed DpFileList's entries differ from the bundled official list's (missing entries, entries the official list lacks, or their order), while every target of this run is listed (context: `path` the installed list; `missing` the official entries it lacks, in the official order; `unofficial` its entries the official list lacks, in its order; `order` = `differs` when the entries both lists hold are in another order; each of these three only when it applies, lists joined by `, `; `command` the subcommand, `4cc-studio team-compiler upgrade-dpfl`) | none: the run compiles and deploys; the GUI offers **Upgrade DpFileList** and the CLI names `upgrade-dpfl`, which ask before replacing the list |
+| `dpfilelist_missing` | E/W | no `DpFileList.bin` in download folder: an Error in a compile that deploys, a Warning in sideload and test mode and with `--no-deploy` (a clean run, "Post-processing"), which deploy nothing, so the user knows no bin from the download folder was used | E: deployment skipped; staged CPKs promoted to `output/`. W: none; the bins are built on the bundled bases (`bin_source` `bundled`) |
+| `dpfilelist_not_official` | W | the installed DpFileList's entries differ from the bundled official list's (missing entries, entries the official list lacks, or their order), while every target of this run is listed (context: `path` the installed list; `missing` the official entries it lacks, in the official order; `unofficial` its entries the official list lacks, in its order; `order` = `differs` when the entries both lists hold are in another order; each of these three only when it applies, lists joined by `, `; `command` the subcommand, `4cc-studio team-compiler upgrade-dpfl`) | none: the run compiles and deploys; the CLI names `upgrade-dpfl`, which asks before replacing the list |
 | `dpfilelist_cpk_missing` | W | the installed DpFileList names CPKs with no file in the download folder, other than this run's own target (context: `path` the download folder, `files` the file names in list order, `command` as `dpfilelist_not_official`'s). The game then rejects the whole download folder and runs vanilla | none: the run compiles and deploys; `upgrade-dpfl` writes a placeholder for each |
-| `dpfilelist_outdated` | E | installed DpFileList lacks a target of this run that the bundled official DPFL lists (old layout, e.g. no `teams` slots; context: `cpk` every CPK of the run the installed list lacks and the official one names, joined by `, ` in the run's order (the bins CPK, then the parts by slot number), `path` the installed list, `output` the CPK's path in the output folder, or the output folder when the run writes several, `command` as `dpfilelist_not_official`'s) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped; GUI offers Upgrade DpFileList, CLI names `upgrade-dpfl` |
+| `dpfilelist_outdated` | E | installed DpFileList lacks a target of this run that the bundled official DPFL lists (old layout, e.g. no `teams` slots; context: `cpk` every CPK of the run the installed list lacks and the official one names, joined by `, ` in the run's order (the bins CPK, then the parts by slot number), `path` the installed list, `output` the CPK's path in the output folder, or the output folder when the run writes several, `command` as `dpfilelist_not_official`'s) | deployment skipped; staged CPKs promoted to `output/`; CLI names `upgrade-dpfl` |
 | `dpfilelist_cpk_renamed` | I | `upgrade-dpfl`: an old DLC's CPK renamed by stem to an official name (context: `from`, `to`, the file names) | none |
 | `dpfilelist_placeholder_written` | I | `upgrade-dpfl`: the placeholder CPK written for an official entry with no file in `download/` (context: `cpk`) | none |
 | `dpfilelist_replaced` | I | `upgrade-dpfl`: the installed list replaced by the official one (context: `path`; `backup` the `DpFileList.bin.bak` written, absent when there was no list; `unreadable` the error, only when the old list could not be read as a list, so nothing was renamed) | the old list kept as `DpFileList.bin.bak`, replacing an older backup |
 | `dpfilelist_cpk_dropped` | W | `upgrade-dpfl`: an installed entry the official list lacks and that is not renamed (no official name of its stem left, no stem, or the name held by another file) (context: `cpk`; `size` of its file in `download/`, absent when there is none) | the game no longer loads it; the file is kept for the user to remove |
 | `dpfilelist_up_to_date` | I | `upgrade-dpfl`: the installed list is the official one byte for byte and every CPK it names is in `download/` (context: `path`) | nothing is written |
 | `dpfilelist_upgrade_planned` | I | `upgrade-dpfl` without `--yes`: the lines before it are what `--yes` would do (context: `command`, the subcommand with `--yes`) | nothing is written |
-| `cpk_name_unlisted` | E | CPK name in neither the installed nor the bundled DpFileList (a genuinely unknown name; context: `cpk` every CPK of the run neither list names, joined as `dpfilelist_outdated`'s, `path` the installed list, `output` as `dpfilelist_outdated`'s) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped |
+| `cpk_name_unlisted` | E | CPK name in neither the installed nor the bundled DpFileList (a genuinely unknown name; context: `cpk` every CPK of the run neither list names, joined as `dpfilelist_outdated`'s, `path` the installed list, `output` as `dpfilelist_outdated`'s) | deployment skipped; staged CPKs promoted to `output/` |
 | `cpk_slots_exhausted` | F | multi-CPK content does not fit the available slots at `cpk_part_max_size` (context: `export` the first export no slot is left for, `stem` the slots' stem, `slots` how many the official list has, `cap` the cap as a size) | run aborted; the DPFL author adds slots or the cap is raised |
 | `cpk_team_exceeds_cap` | F | a single team's compiled content is larger than `cpk_part_max_size` (impossible in practice at 3 GiB; context: `export`, `size`, `cap`) | run aborted; teams are never split across parts |
 | `cpk_size_over_limit` | W | a single-CPK output exceeds `cpk_part_max_size` (valid for PES; the DLC repository will reject it; context: `cpk`, `size`, `cap`) | none |
-| `old_cpk_locked` | E | old CPK cannot be replaced (PES running): the rename of the copied `.partial` over it fails, or, when the run writes several CPKs, the move of an old CPK aside to `.cpk.old` or of a `.partial` into its place (context: `path` the old CPK, `error`, `output` as `dpfilelist_outdated`'s) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped; GUI offers Retry (deployment only) and Open output folder |
-| `deploy_target_unwritable` | E | destination folder denies writes (typically elevation needed under `Program Files`): the probe before any export is read, or the copy to the `.partial` (context: `path`, `error`, `output`) | deployment skipped; staged CPKs promoted to `output/`; savefile step skipped; GUI offers Relaunch as administrator. Normally pre-empted by the live writability preflight (see `pipeline.md` "Post-processing") |
-| `deploy_skipped_by_flag` | I | `--no-deploy` given (CLI) (context: `path`, the CPK promoted; one per CPK in multi-CPK mode, the bins CPK first, then the parts by slot number) | staged CPKs promoted to `output/`; savefile step skipped; run is clean |
+| `old_cpk_locked` | E | old CPK cannot be replaced (PES running): the rename of the copied `.partial` over it fails, or, when the run writes several CPKs, the move of an old CPK aside to `.cpk.old` or of a `.partial` into its place (context: `path` the old CPK, `error`, `output` as `dpfilelist_outdated`'s) | deployment skipped; staged CPKs promoted to `output/` |
+| `deploy_target_unwritable` | E | destination folder denies writes (typically elevation needed under `Program Files`): the probe before any export is read, or the copy to the `.partial` (context: `path`, `error`, `output`) | deployment skipped; staged CPKs promoted to `output/` |
+| `deploy_skipped_by_flag` | I | `--no-deploy` given (CLI) (context: `path`, the CPK promoted; one per CPK in multi-CPK mode, the bins CPK first, then the parts by slot number) | staged CPKs promoted to `output/`; run is clean |
 | `overrides_active` | I | the data directory's `overrides/` folder holds at least one file, each injected at its relative path into the CPK, or into `livecpk\` in sideload mode (`compile` in normal and sideload mode, the modes that apply overrides; Run scope; context: the folder, the file count) | none |
 | `installed_bin_unreadable` | F | the working-bin walk (`pipeline.md` "Bins accumulation") meets an installed `DpFileList.bin`, a listed CPK or a bin inside it that cannot be read, a bin that does not parse as its format included (context: the file, the whole error chain) | run aborted before any export is read; the previous CPK is kept (`AbortRun`) |
 | `bin_source` | I | which installed CPK supplied a working bin in the DpFileList walk, or `bundled` when the embedded base was used (context: the bin, the CPK or `bundled`) | none |

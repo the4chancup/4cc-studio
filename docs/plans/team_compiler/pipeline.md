@@ -4,9 +4,36 @@
 
 ## Per-export pipeline walkthrough
 
+### 1. Reader
+
+What exists of this is in `spec/team_compiler/pipeline.md` "1. Reader".
+
+In **Discovery** (step 1): In the GUI this scan is
+continuous (folder watcher, see `plans/team_compiler/gui.md` "Live validation"); in the CLI it runs once.
+A disabled export is omitted from the grid.
+
+In **Load** (step 4): the eagerly loaded structure is also what the grid needs.
+
 ### 2. Per-export serial steps (coordinator)
 
 What exists of this is in `spec/team_compiler/pipeline.md` "2. Per-export serial steps (coordinator)".
+
+In **Validation, in two passes** (step 2), after the deep pass: Plain-folder full checks run both
+passes; packed archives run the structure pass during live
+checking and this deferred deep pass at compile start before eligibility is decided. Among the
+categories the two passes cover, **Shared folders** (`Faces/`, `Boots/`, `Gloves/`): same model
+checks, including glTF-only
+material files (`materials.toml` catch-all and `*.materials.toml` name-matched; see the
+[Unified model format plan](../model_format.md)'s "Material files"). Among the **Root files**,
+`ref_lists.txt` is the Refs arranger's file for the Fox referee hook, and a missing referee
+roster's invalid `ParsedAestheticsExport` remains available to the Refs arranger for repair.
+Under **Portraits/Logo/Common/Collars**: Collar findings map to the team-name cell (collars
+have no cell of their own).
+
+In **Export identity resolution** (step 3): The GUI also performs an early lookup after
+structural validation so the live grid can show or edit the ID immediately. An unresolvable
+normal team turns the grid's **team ID cell** red and editable — the user types an ID, confirms
+with Enter, and it is written to the teams list (see "GUI: the live-validating team grid").
 
 In **Player folder categorization** (step 6), assigned IDs are written on pre-Fox into the
 savefile, so a compiled team CPK and its savefile must be deployed
@@ -17,6 +44,13 @@ deterministic (fixed per-team blocks, exclusive IDs by player number, shared IDs
 order), recompiling the same exports later with a savefile configured produces identical IDs, so
 a CPK-now/savefile-later split remains consistent. The deploy-together rule is distribution
 guidance, not a compile blocker.
+
+### 3. Per-model-folder parallel steps (rayon)
+
+What exists of this is in `spec/team_compiler/pipeline.md` "3. Per-model-folder parallel steps (rayon)".
+
+In **Format conversion** (step 1): duplicate sources within the selected representation are
+ambiguous and drop the folder (`model_source_ambiguous`).
 
 ### 4. Per-export non-model steps
 
@@ -29,9 +63,28 @@ player gets his `PlayerAppearance.bin` row (the appearance bytes built from his 
 installed row), and a compiled player of a `Full` export's team whose folder holds no boots or no
 gloves gets the default-ID rows.
 
+### 5. Writer (single-threaded)
+
+What exists of this is in `spec/team_compiler/pipeline.md` "5. Writer (single-threaded)".
+
+Under **Output modes and targets** (step 5), sideload mode: for PES 15/16, where no sideloading
+runtime exists, the GUI disables the mode.
+
 ### 6. Post-processing
 
 What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
+
+- **Degraded run: promotion to `output/`** — the savefile step is skipped, and the GUI offers
+  **Retry** (for the locked case — the user closes PES and retries the deployment alone, no
+  recompile) and **Open output folder** (a status-bar notice action after the run, and a
+  permanent entry in the Compile dropdown).
+- **`--no-deploy` (CLI only)** — skips the savefile step as well as the deployment.
+- **Why no `move_cpks`.** The savefile step reads the install's save, one more way the pipeline
+  is built around a present install.
+- **DpFileList upgrade** — with any of the preflight's DpFileList findings the GUI shows
+  **Upgrade DpFileList**, which asks before it writes. The dialog is honest about the override:
+  it lists every installed entry that the official list does not contain and that is not
+  renamed as "will no longer be loaded", and shows every rename before anything is done.
 
 - **DpFileList upgrade** — for each entry the dialog lists as "will no longer be loaded" whose
   `.cpk` still sits in `download/`, it shows the size and offers deletion (renaming a 3.7 GB file
@@ -146,6 +199,9 @@ Resolved decisions:
 - **Shallow archive checks never decompress solid data**: `.zip` per-entry access may read small
   metadata; solid-`.7z` content checks defer to the compile-start deep check, with the roster
   recorded as unread.
+- **Model source selection**: in-representation duplicates are rejected (`model_source_ambiguous`).
+- **Source snapshot**: The GUI watcher (Phase 8) keys its stale-result envelopes on
+  the same value.
 
 Open questions — **implementation/spec work** (no user preference involved; resolved during the
 phase that owns them):

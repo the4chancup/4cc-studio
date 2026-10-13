@@ -38,7 +38,7 @@ differing new default is a deliberate decision, explained in the Controls column
 | `pass_through` | 0 | same | Keep folders with errors instead of discarding them (cup DLC workflow) |
 | `teams_list_path` | `teams_list.txt` (hardcoded, beside the exe) | `teams_list.txt` | Location of the working teams list; relative paths resolve in the data directory (see "Path resolution"). Created from the embedded list on first run |
 
-In the settings file the 0/1 settings are TOML booleans (`run_pes = false`). A setting enters
+In the settings file the 0/1 settings are TOML booleans (`pass_through = false`). A setting enters
 `TeamCompilerSettings` and `default_settings()` with the phase whose code reads it, not before,
 so no key is written that nothing honors yet; the compiler reads `cpk_name`,
 `output_folder_path`, `multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`,
@@ -81,7 +81,7 @@ compiles, where a few seconds against a 48-team run is irrelevant.
 | Artifact/input | Base location |
 |---|---|
 | Logs and persistent state | Selected data directory |
-| Relative `exports_folder_path` | Executable directory in both data-location modes, so `exports/` sits beside `quick_compile.bat`; created when missing, before a run reads it (from Phase 8 also at GUI launch, for the watcher), so a fresh install has a folder to put exports in. An exports folder named any other way (an absolute setting, the CLI's positional root) is never created: a missing one is refused before the run (`messages.md`, the paragraph after "Output stage and savefile") |
+| Relative `exports_folder_path` | Executable directory in both data-location modes, so `exports/` sits beside `quick_compile.bat`; created when missing, before a run reads it, so a fresh install has a folder to put exports in. An exports folder named any other way (an absolute setting, the CLI's positional root) is never created: a missing one is refused before the run (`messages.md`, the paragraph after "Output stage and savefile") |
 | Relative `output_folder_path` | Executable directory in both data-location modes (`output/` beside the exe, created on demand); holds `.staging/{run_id}/` during a run |
 | `overrides/` input (Red's `sideload/`) | Selected data directory (an explicit setting may be added later) |
 | Relative `teams_list_path` | Selected data directory — the file is user data once the grid writes ID assignments into it, so it follows the settings file (see `pipeline.md` "Resolved decisions", "Teams list"); nothing is bundled beside the binary |
@@ -98,7 +98,7 @@ resolved export source.
 
 | Setting | Why it disappears |
 |---|---|
-| `cache_clear` | No disk cache: the pipeline is in-memory (VirtualTree), so there is no equivalent of Red's `patches_contents/` staging folder for the setting to clear |
+| `cache_clear` | No disk cache: the pipeline is in-memory (each task's files read as owned bytes, `reader/source.rs` `ContentSource`), so there is no equivalent of Red's `patches_contents/` staging folder for the setting to clear |
 | `move_cpks` | Deployment is always attempted; a run that cannot deploy degrades to `output/` by itself, and the deliberate "build but don't install" case is the CLI-only `--no-deploy` flag. See "Why no `move_cpks`" under `pipeline.md` "Post-processing" |
 | `pause_allow` | The `pause()` pattern is gone; errors/warnings are events rendered by the GUI/CLI. Its unattended-run half (`pause_allow = 0`: finish without stopping) survives as `quick_compile_close_on_success` for launcher-started runs |
 | `admin_mode` | Manifest-based UAC / GUI prompt (see core plan) |

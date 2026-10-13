@@ -31,17 +31,17 @@ Intentional differences must be accounted for:
   textures inside each model folder's structure and relocates a Pre-Studio (`Players/`) export's
   to `common/<team>/<name part>/`, keyed by the folder name without its number prefix; textures resolved from `Common/` stay in the team's Common output and
   are referenced in place. The comparison matches textures by content across locations and verifies
-  that rewritten references resolve to the relocated (or in-place Common) files, and that a Common
-  texture appears once in the archive however many players reference it.
+  that rewritten references resolve to the relocated files (`check_resolved`); that a Common
+  texture appears once in the archive however many players reference it is
+  `tests/cli/common_links.rs`'s check, the tracers holding no `Common/`.
 - **Automatic collar reconciliation**: unlike Red's pass-through behavior, the compiler derives the
-  custom collar ID from the `collar_[ID]` filename and rewrites the team's kit configs; normalized
-  parity permits and verifies those expected config-field changes.
+  custom collar ID from the `collar_[ID]` filename and rewrites the team's kit configs;
+  `tests/cli/collars.rs` verifies those config-field changes, the tracers carrying no collar.
 - **Dropped features** (Other folder) are excluded.
 - **Kit-dependent path magic**: Red emits the legacy `u0XXXp0`/`u0XXXp1`… spelling (with the `XXX`
   placeholder or a baked-in team ID, as the author wrote it), the compiler emits `kitN`/`kit1`…
-  (see "Kit-dependent assets" in the [Unified model format plan](../model_format.md)). The comparison
-  normalizes Red's `u0???p<d>` to `kit<d>` (`p0` → `kitN`) in file names and in decoded FMDL/MTL/XML
-  paths before diffing. The compiler gets no switch to emit the legacy spelling: parity is a
+  (see "Kit-dependent assets" in the [Unified model format plan](../model_format.md)). The
+  compiler gets no switch to emit the legacy spelling: parity is a
   file-tree comparison, not an in-game test, and the exes can be modded to `kitN` at any time, so a
   switch would be a second output format maintained for nothing.
 
@@ -70,7 +70,7 @@ test, and sideload modes. Key behavior areas:
   vs duplicate authoritative `players.txt` slots and their distinct dispositions; line-local
   malformed and out-of-range roster entries producing `DropSlot`; an empty/all-invalid referee
   roster blocked while an empty normal-team roster supports a kit-only export; a refs export without
-  `players.txt` blocked by the compiler yet repairable in the Refs arranger; multiple refs exports
+  `players.txt` blocked by the compiler; multiple refs exports
   (valid or not) all blocked at discovery; team-ID resolution failure; duplicate team IDs;
   multi-mapped folders (team and referee) preparing once and instantiating per slot
   atomically, with textures emitted once into the name-keyed common subfolder shared by all mapped
@@ -78,8 +78,8 @@ test, and sideload modes. Key behavior areas:
 - **Models and textures**: target-native plus convertible model variants; each model source owned
   exactly once; a team player with boots/settings but no face; multiple same-category shared links
   rejected; both `ingame_face` spellings normalizing identically with a local pre-Fox boots
-  composite still emitted; FMDL→pre-Fox conversion emitting an atomic `.model`+`.mtl` pair; a glTF
-  image shared by two model parts loaded and emitted exactly once; shared-texture dedup and
+  composite still emitted; FMDL→pre-Fox conversion emitting an atomic `.model`+`.mtl` pair;
+  shared-texture dedup and
   deterministic conflict resolution under reversed rayon completion; logo production (a 1000×600
   source under each fit mode yields the three square sizes; `logo_small` replaces only the 128²;
   an undecodable `logo_small` drops all three; a 300² source is upscaled and reported); kit
@@ -138,7 +138,7 @@ test, and sideload modes. Key behavior areas:
   waiters, and automatic worker counts on one- and two-core hosts; solid-7z reads not copying the
   archive buffer per entry; a solid 7z with unnumbered players; `CpkStem` boundary cases (empty, 29
   characters, spaces, separators, reserved device names, explicit `.cpk`, case collisions);
-  deterministic converted output across fresh processes with randomized hash seeds; standalone
+  standalone
   kit-config binary → TOML → binary preservation of source texture-name fields.
 
 Separate **Red parity** (normalized archive-entry equivalence is acceptable) from **Rust

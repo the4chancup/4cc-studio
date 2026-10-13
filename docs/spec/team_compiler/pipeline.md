@@ -21,9 +21,9 @@ export format.
    sharing a stem stay apart in every console line. Exports containing a `NO_USE` or
    `NO_USE.txt` marker file at the source's own root (before nested-folder normalization; the
    name compared case-insensitively) are skipped with
-   `export_disabled`; they do not participate in duplicate-ref detection or run planning, are
-   omitted from the grid, and produce only an informational log entry. In the GUI this scan is
-   continuous (folder watcher, see `plans/team_compiler/gui.md` "Live validation"); in the CLI it runs once. (Blue:
+   `export_disabled`; they do not participate in duplicate-ref detection or run planning, and
+   produce only an informational log entry. The scan runs once per
+   run, the Compile button's (`gui_run.rs`, which runs the CLI's `compile`) included. (Blue:
    `reader.exports_find`)
 2. **Export display name and team name** — `export_display_name` is the complete archive/folder stem
    and is used only for source identity and presentation. The first non-empty token of that name
@@ -56,9 +56,10 @@ export format.
    must not wait for ordinary capacity, which can never satisfy it. (See the core plan's Parallelism
    section; its semaphore pseudocode must preserve this oversized-request branch.)
 4. **Load** — the export's **structure** is always loaded eagerly (folder tree, file names/sizes,
-   roster, link files — what validation, the grid, and ID assignment need; kilobytes); file
-   **contents** load lazily per folder into the `VirtualTree` as their processing tasks start
-   (native `sevenz-rust2`/zip parsing; `.db` and `.ini` files ignored). No mutable extraction or
+   roster, link files — what validation and ID assignment need; kilobytes); file
+   **contents** are read per task, as owned bytes, through the export's `ContentSource`
+   (`reader/source.rs`) as its processing tasks start
+   (native `sevenz-rust2`/zip parsing; `Thumbs.db`, `desktop.ini` and `.DS_Store` ignored). No mutable extraction or
    patch-staging tree is used: export transformation happens in memory between source reads and CPK
    output. Final CPK output may use temporary files for atomic write-and-rename. **Source exports
    are read-only**: the compiler never writes into an export folder or archive — every auto-fix
@@ -129,8 +130,7 @@ export format.
      Error's file included under `pass_through`, so the pass never drops a player for a
      file `compile` packs. A failure only processing can meet (a conversion,
      a merge, a packing) stays a task failure: it drops the task's unit and cascades nowhere.
-     Plain-folder full checks run both passes; packed archives run the structure pass during live
-     checking and this deferred deep pass at compile start before eligibility is decided. The CLI
+     The CLI
      `check` has no live check and runs both passes on every source kind, archives included, so a
      model error the next `compile` would report is never missed by the `check` before it.
 
@@ -172,19 +172,16 @@ format:
      categorized (face/boots/gloves) and validated per mode — Fox: allowed FMDL names (`face_high`,
      `hair_high`, `oral`, `fcl_hair`, `boots`, `glove_l`, `glove_r`); pre-Fox: `.model`/`.mtl`/XML
      structure checks (`face_edithair.xml` and `hair.xml` rejected).
-   - **Shared folders** (`Faces/`, `Boots/`, `Gloves/`): same model checks, including glTF-only
-     material files (`materials.toml` catch-all and `*.materials.toml` name-matched; see the
-     [Unified model format plan](../model_format.md)'s "Material files"); every folder must be referenced by at least one
+   - **Shared folders** (`Faces/`, `Boots/`, `Gloves/`): same model checks; every folder must be referenced by at least one
      player link file (warning if orphaned; error if a link references a missing folder).
    - **Root files**: `colors.txt` and `notes.txt` are optional. `players.txt` is optional for normal
      teams but required for referee exports; when present it must satisfy the shared roster grammar
      and mapping rules. A present `colors.txt` must parse, and a non-empty `notes.txt` must be valid
      UTF-8 (an optional UTF-8 BOM is stripped). Unexpected root files are warned about; a root
      `README.txt` (case-insensitive) is known and ignored — the Team creator writes one, and human
-     readme files in exports predate it. Referee exports additionally permit `ref_marker.dds` and `ref_lists.txt` (the Refs arranger's file
-     for the Fox referee hook; not read, not packed). A missing referee roster reports
-     `players_txt_missing`; the invalid `ParsedAestheticsExport` remains available to the Refs arranger
-     for repair.
+     readme files in exports predate it. Referee exports additionally permit `ref_marker.dds` and `ref_lists.txt` (the Fox
+     referee hook's file; not read, not packed). A missing referee roster reports
+     `players_txt_missing`.
    - **Kits**: kit folder names must parse as `<slot>[ - <label>]` with the slot in `p1`–`p9`,
      `g1`, `all` (`kit_folder_invalid`), one folder per slot (`kit_slot_duplicate` discards both);
      `all/` textures are merged into every kit lacking the stem (`kit_textures_inherited`), and
@@ -201,15 +198,14 @@ format:
      gets the bundled checkerboard texture and is otherwise a normal kit (see "Kits" in the [Aesthetics export
      plan](../aesthetics_export/README.md)); a kit holds at most one `icon_<N>` marker, numbered 0–23 (`kit_icon_invalid` warns and
      falls back to the default); at most one layout marker (`pre-fox` / `fox`, `.txt` tolerated;
-     both → `kit_layout_conflict`, kit discarded); textures validated as DDS and named with the `kit` prefix
+     both → `kit_layout_conflict`, kit discarded); textures named with the `kit` prefix
      (`kit.dds`, `kit_mask.dds`, `kit_chest.dds`, …); supplied configs' FPC fields are checked
      against the team's FPC status (reconciled at compile time — see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)).
    - **Portraits/Logo/Common/Collars**: portrait naming (`player_NN.dds`, NN in 01–23), root logo
      files (stem grammar `logo[_small][_<fit>]`, one file per role, main present whenever
      `_small` is, format in the raster allowlist — see "Root files" in the [Aesthetics export
      plan](../aesthetics_export/README.md); decodability is checked in the deep pass), texture integrity
-     (`texture_check`), file-type allowlists per mode. Collar findings map to the team-name cell (collars have no cell
-     of their own).
+     (`texture_check`), file-type allowlists per mode.
    - Processing consequences follow each message's effective disposition: `DropFile` removes only
      that file, `DropSlot` removes only the invalid normalized roster assignment, `DropFolder` skips
      that folder or equivalent atomic owning task scope, `DropExport` blocks the whole export, and
@@ -221,12 +217,10 @@ format:
    columns, Name lowercased on load with the Reader's fold (see step 2 above), further columns
    ignored (Red's `MinBootsID`/`MaxBootsID` are dead: Studio derives the 40-ID block from the team
    ID, see the export plan's "ID allocation"); rows whose Name is not slash-wrapped (Red's `Backup 1`, `VGL 55`
-   placeholders) load but can never match. (The GUI also performs an early lookup after structural validation so
-   the live grid can show or edit the ID immediately.) The complete `export_display_name` is never
+   placeholders) load but can never match. The complete `export_display_name` is never
    used as the lookup key. Valid normal `TeamId` values are 701–920. In Red, an unresolvable team
-   prompts interactively; in 4cc Studio the grid's **team ID cell** turns red and editable — the
-   user types an ID, confirms with Enter, and it is written to the teams list (see "GUI: the
-   live-validating team grid"). In the CLI an unresolvable normal team is a hard error. A successful
+   prompts interactively; in 4cc Studio an unresolvable normal team is a hard error
+   (`team_name_unknown`). A successful
    lookup produces `ExportIdentity::Team { id, name }`; a referee export produces
    `ExportIdentity::Referees` without entering the normal teams list. The referee pipeline renders
    the game's fixed numeric ID 999 only at game-format boundaries. Either identity is wrapped in
@@ -377,8 +371,7 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
 
 1. **Format conversion** — when several source representations coexist (e.g. `boots.fmdl` +
    `boots.model` + `boots.glb`), selection is **target-native first, then glTF, then conversion
-   from the opposite native format**; duplicate sources within the selected representation are
-   ambiguous and drop the folder (`model_source_ambiguous`). If the selected model's format doesn't
+   from the opposite native format**. If the selected model's format doesn't
    match the target PES version, convert via the IR (see the [Model conversion
    plan](../model_conversion/README.md)). Until glTF support lands (Phase 7, after Release
    0.1.0), a selected glTF representation drops the folder with an error rather than falling
@@ -1331,8 +1324,8 @@ describes behavior, not a serial scheduling requirement:
      started, so a PES the user launched is served too. Studio neither installs nor drives it.
    - **PES 17: Sider 3**, the user's own, with `livecpk\` as a `cpk.root` line in its `sider.ini`.
    - **PES 15/16: none exists**, so `--mode sideload` with those versions is refused as an
-     invalid configuration (exit code 2, the "CLI" section of `settings.md`) and the GUI disables
-     the mode. Pre-Fox sideloading is revisited after the first full release (decision entry
+     invalid configuration (exit code 2, the "CLI" section of `settings.md`). Pre-Fox
+     sideloading is revisited after the first full release (decision entry
      "sideloading through FoxDen").
 
    The cost Blue paid — a second code path in the coordinator — is contained by deciding the
@@ -1394,20 +1387,18 @@ describes behavior, not a serial scheduling requirement:
 - **Degraded run: promotion to `output/`** — if deployment cannot happen (`pes_folder_not_found`,
   `old_cpk_locked`, `deploy_target_unwritable`, `dpfilelist_missing`, ...), the staged CPKs are
   **promoted** to `output/{name}.cpk` (same volume, atomic rename, replacing any previous one)
-  instead of discarded; the message says so, the savefile step is skipped, and the GUI
-  offers **Retry** (for the locked case — the user closes PES and retries the deployment alone, no
-  recompile) and **Open output folder** (a status-bar notice action after the run, and a permanent entry in the
-  Compile dropdown). The CLI reports the error and the promoted path. `output/` is thus Red's
+  instead of discarded; the message says so, and the CLI reports the error and the promoted
+  path. `output/` is thus Red's
   `patches_output/` in its new place, reached by degradation or by `--no-deploy` rather than by a
   setting. A machine without PES installed compiles this way automatically: the CPK lands in
   `output/`, the bins are built from the bundled fallback bases, and the run says why.
-- **`--no-deploy` (CLI only)** — skips the deployment *and* the savefile step and promotes the
+- **`--no-deploy` (CLI only)** — skips the deployment and promotes the
   staged CPKs to `output/` as a clean run, no error. This is the production flag for cup
   maintainers building DLC on a machine whose install must not be disturbed, and for build boxes; it
   is a flag, not a persisted setting, because the GUI's job is installing into the user's game.
 - **Why no `move_cpks`.** Red's setting existed because Red's bins came from its bundled
   `Engines/bins/`, so a compile was meaningful without a PES install. The Studio's bins accumulation
-  reads the installed CPKs, the savefile step reads the install's save, and the version selector
+  reads the installed CPKs and the version selector
   checks the install's exe — the pipeline is built around a present install, and a "don't install"
   switch on top of it was carrying real weight: dual-severity messages (`cpk_name_unlisted` W/E),
   conditional checks (`pes_version_mismatch`, `dpfilelist_missing`), a marker message
@@ -1450,8 +1441,8 @@ describes behavior, not a serial scheduling requirement:
     placeholder in every unused slot. The run compiles and deploys; the upgrade below writes
     the placeholders.
 
-  With any of these findings the GUI shows **Upgrade DpFileList**, which asks before it writes; the
-  CLI prints the equivalent subcommand, `4cc-studio team-compiler upgrade-dpfl`, and never
+  With any of these findings the
+  CLI prints the subcommand, `4cc-studio team-compiler upgrade-dpfl`, and never
   upgrades on its own.
   - The upgrade is an **override, not a merge**: the bundled official DPFL replaces the installed
     file byte for byte, the old one kept as `DpFileList.bin.bak` (replacing an older backup: the
@@ -1460,9 +1451,9 @@ describes behavior, not a serial scheduling requirement:
     official one, and a list that is already the official one byte for byte is left as it is,
     no backup written. The aesthetics community gives
     zero support for custom-edited DPFLs — they have caused a long tail of problems — so preserving
-    a user's own entries would be preserving exactly the state the upgrade exists to end. The dialog
+    a user's own entries would be preserving exactly the state the upgrade exists to end. The command
     is honest about it: it lists every installed entry that the official list does not contain
-    and that is not renamed (below) as "will no longer be loaded".
+    and that is not renamed (below) as `dpfilelist_cpk_dropped`.
   - **An old DLC's CPKs are renamed by stem**, a best effort so a DLC cut for an older list
     keeps loading under the official one. A name's stem is what follows `{prefix}_{NN}_`.
     Each installed entry the official list lacks, whose file is in `download/`, is matched to
@@ -1478,8 +1469,8 @@ describes behavior, not a serial scheduling requirement:
     renames run last first, so none lands on a file not yet moved; a file whose new name is
     held by a file outside its stem's renames is not renamed. An old file with no
     official name left for it (a sixteenth midcup, a stem the official list does not have)
-    is not renamed and is listed as "will no longer be loaded"; a rename never overwrites a
-    file. The dialog, and `upgrade-dpfl` without `--yes`, show every rename before anything
+    is not renamed and is listed (`dpfilelist_cpk_dropped`); a rename never overwrites a
+    file. `upgrade-dpfl` without `--yes` shows every rename before anything
     is done.
   - **The upgrade leaves no listed CPK missing.** After the renames, for every official entry
     with no file in `download/` it writes the empty placeholder CPK ("Every slot is always
@@ -1697,15 +1688,17 @@ Resolved decisions:
 - Cross-export duplicate precedence is resolved by run-level manifest preflight; multiple normal
   exports resolving to the same team ID are rejected with `duplicate_aesthetics_export`.
 - **ID allocation**: 40-ID per-team blocks (23 player-exclusive + 17 shared), applied independently
-  in the disjoint boots and gloves namespaces; `allocation_scheme_version = 1` recorded in build
-  metadata. Permanent per scheme version but upgradeable: the sizing, the upgrade mechanism and a
+  in the disjoint boots and gloves namespaces (`plan/ids.rs`); `allocation_scheme_version = 1` is
+  the aesthetics patch's header field (`pes_savefile`'s `ALLOCATION_SCHEME_VERSION`,
+  `spec/pes_savefile/operations.md` "Aesthetics patch (new)"), and the compiler, which writes no
+  patch yet, records it nowhere. Permanent per scheme version but upgradeable: the sizing, the upgrade mechanism and a
   scheme change's cost on each engine live in "Assigns IDs automatically" of the
   [Aesthetics export plan](../aesthetics_export/player_folders.md).
 - **Root normalization**: exactly one usable nested root is flattened; multiple usable roots
   (`nested_root_ambiguous`) and loose-root/nested collisions (`nested_root_conflict`) reject the
   export — an intentional deviation from Red's first-match rule.
 - **Model source selection**: target-native first, then glTF, then conversion from the opposite
-  native format; in-representation duplicates are rejected (`model_source_ambiguous`).
+  native format.
 - **Kit colors fallback**, in order: the kit's `colors.txt`; when missing or yielding fewer than
   two valid colors, derivation from the kit's own main texture (`kit_colors_derived`) — never from
   the placeholder checkerboard; when that is impossible too (no decodable own texture, or a
@@ -1813,8 +1806,7 @@ Resolved decisions:
   the run writes. `check` reads each source right after listing it and checks nothing. The check
   is against a member saving over a file while the cup is compiled, not against a hostile one: a
   replacement of the same size that keeps the modified time (or lands inside the file system's
-  time granularity) goes unseen. The GUI watcher (Phase 8) keys its stale-result envelopes on
-  the same value.
+  time granularity) goes unseen.
 - **Merge-copy collisions within one child** have a winner: the parts merged into one output
   FMDL (Fox baking of local, shared, and `.common`-linked models into one allowed name) come from
   the player's folder, at most one combined folder of the package and `Common/`, whose textures
@@ -1961,13 +1953,17 @@ Open questions — **implementation/spec work** (no user preference involved; re
 phase that owns them):
 
 - **Task-batch commit protocol.** The required guarantee is fixed: incremental CPK writing must
-  never expose entries from a failed atomic task. Define the exact stage/commit boundaries between
-  workers, the per-player shared-texture aggregation, and the writer.
+  never expose entries from a failed atomic task. Resolved: the writer commits each batch whole,
+  in manifest order from a reorder buffer, a failed task's batch holding no entry, and holds a
+  model folder's packages until its textures batch arrives, deciding the group as one
+  (`output/writer.rs` `CpkOutput`; "Admission" above).
 - **Cancellation and fatal-output cleanup.** Partial CPKs must be discarded and prior
   published/installed outputs must remain untouched on failure or cancellation, as required by the
   runtime catalog. The mechanism is fixed in "Post-processing" (run-scoped `output/.staging/`,
   `.partial` copy + atomic rename in `download/`, promotion to `output/` on deployment failure);
-  what remains is the backup/rollback protocol across multiple CPKs and the savefile (a dead
+  across multiple CPKs a run installs all or none ("Deploy CPKs"; `output/deploy.rs`
+  `install_all` and `undo`), and the savefile's half is the plan's (`plans/team_compiler/pipeline.md`
+  "6. Post-processing") (a dead
   run's `.staging/` folder is removed when the next compile starts, TC-DEP-07).
 - **Complete memory accounting.** Resolved: a task acquires its source bytes before loading
   and charges what it allocates while running without waiting ("Admission", the paragraph
@@ -1991,6 +1987,7 @@ semantics".
 
 **Pre-Phase-4 gates:** finalize analyzed-output enumeration and namespace allocation (including
 folder-internal deep-derived names, without adding a separate `AnalyzedRun` type) and freeze every
-model task's planned model-ID assignments before processing implementation begins.
+model task's planned model-ID assignments before processing implementation begins: done, the
+`BuildManifest` of "Run driver shapes" and `plan/ids.rs`.
 
 ---

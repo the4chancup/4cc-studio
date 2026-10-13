@@ -2,7 +2,7 @@
 //! `fixtures/tracer/studio/egg Midcup Tracer` through the `compile` command and
 //! compare the CPK with the reference tree in `fixtures/tracer/red/`, one
 //! explicit row per reference entry under the tiers of
-//! `docs/plans/team_compiler/testing.md`.
+//! `docs/spec/team_compiler/testing.md` "Testing: parity against Red (adapted from Blue)".
 
 mod common;
 
