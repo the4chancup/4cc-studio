@@ -89,9 +89,40 @@ fn check_team(team) {
     found
 }
 
-fn tier_values(player, tier, team) { #{} }
+// The targets `player` must carry as tier `tier` (its id): every ability stat's, form, injury
+// resistance and the weak-foot limits, the specials applied as `check_team` applies them.
+fn tier_values(player, tier, team) {
+    let rules = normalized(global::RULESET);
+    let t = rules.tier(tier);
+    if t == () { throw "unknown tier " + tier; }
+    let p = rules.profile(team, rules.height_system(team), player, tier);
+    let weak_foot = weak_foot_of(t, p);
+    #{
+        stats: targets(t, p),
+        form: num(t, "form"),
+        injury_resistance: num(t, "injury_resistance"),
+        weak_foot: #{ usage: num(weak_foot, "usage"), accuracy: num(weak_foot, "accuracy") },
+    }
+}
 
-fn card_limits(player, tier, team) { #{} }
+// The card economy of `player` as tier `tier`: the paid limit (his extra A positions
+// deducted), the free count per group, the free and required cards, the A positions allowed.
+fn card_limits(player, tier, team) {
+    let rules = normalized(global::RULESET);
+    let t = rules.tier(tier);
+    if t == () { throw "unknown tier " + tier; }
+    let p = rules.profile(team, rules.height_system(team), player, tier);
+    let cards = rules.card_summary(t, p, player);
+    let free_cards = [];
+    for card in p.free_cards { if !(card in free_cards) { free_cards.push(card); } }
+    let required_cards = [];
+    for required in p.require_cards { required_cards.push(required.card); }
+    #{
+        limit: cards.limit, free: cards.free, free_cards: free_cards,
+        required_cards: required_cards, a_positions: cards.a_allowance,
+        max_a_positions: p.max_a_positions,
+    }
+}
 
 // ---- Conditions
 

@@ -3,8 +3,12 @@
 //! silvers, 0 and 11 its goalkeepers (189 cm), 3, 4, 6, 15, 19 and 22 its
 //! manlets (175 cm), 5, 8, 14, 17 and 20 its giants (194 cm).
 
+use std::collections::BTreeMap;
+
 use super::*;
 use crate::ruleset::{Card, Position, Stat};
+use crate::values::CardLimits;
+use crate::violation::CheckError;
 
 /// The ability stat `name` names.
 fn stat(name: &str) -> Stat {
@@ -29,28 +33,32 @@ fn card(name: &str) -> Card {
 /// giant (Autumn 26 quotas 6 giants, 6 tall, 5 mid, 6 manlets). The
 /// Green system, both 189 cm goalkeepers counted as tall, the manlets'
 /// weak foot and the silver giant's -3 are exercised by this team alone.
-fn legal_team() -> TeamView {
-    let mut team = TeamView::sample_team();
+fn legal_records() -> Records {
+    let mut records = Records::sample();
     // Premises on the sample as written.
-    let dribbling = stat("dribbling");
-    let value = |team: &TeamView, slot: u8| player(team, slot).abilities[usize::from(dribbling.0)];
-    assert_eq!(value(&team, 2), Some(99));
-    assert_eq!(value(&team, 10), Some(99));
-    assert_eq!(value(&team, 5), Some(88));
-    assert_eq!(value(&team, 9), Some(88));
-    assert_eq!(value(&team, 20), Some(88));
-    assert_eq!(value(&team, 0), Some(74));
-    assert_eq!(value(&team, 11), Some(74));
-    assert_eq!(player(&team, 5).height, 194);
-    assert_eq!(player(&team, 1).height, 180);
-    set_tier(player_mut(&mut team, 10), 92, 8, 3);
-    set_tier(player_mut(&mut team, 5), 89, 8, 3);
-    set_tier(player_mut(&mut team, 9), 86, 8, 3);
-    set_tier(player_mut(&mut team, 20), 86, 8, 3);
-    set_tier(player_mut(&mut team, 0), 77, 4, 1);
-    set_tier(player_mut(&mut team, 11), 77, 4, 1);
-    player_mut(&mut team, 1).height = 194;
-    team
+    let dribbling = |records: &mut Records, slot: u8| records.player_mut(slot).stats.dribbling;
+    assert_eq!(dribbling(&mut records, 2), 99);
+    assert_eq!(dribbling(&mut records, 10), 99);
+    assert_eq!(dribbling(&mut records, 5), 88);
+    assert_eq!(dribbling(&mut records, 9), 88);
+    assert_eq!(dribbling(&mut records, 20), 88);
+    assert_eq!(dribbling(&mut records, 0), 74);
+    assert_eq!(dribbling(&mut records, 11), 74);
+    assert_eq!(records.player_mut(5).basic.height, 194);
+    assert_eq!(records.player_mut(1).basic.height, 180);
+    set_tier_record(records.player_mut(10), 92, 8, 3);
+    set_tier_record(records.player_mut(5), 89, 8, 3);
+    set_tier_record(records.player_mut(9), 86, 8, 3);
+    set_tier_record(records.player_mut(20), 86, 8, 3);
+    set_tier_record(records.player_mut(0), 77, 4, 1);
+    set_tier_record(records.player_mut(11), 77, 4, 1);
+    records.player_mut(1).basic.height = 194;
+    records
+}
+
+/// `legal_records` viewed.
+fn legal_team() -> TeamView {
+    legal_records().view()
 }
 
 /// `legal_team` with `edit` applied to the player at `slot`.
@@ -615,20 +623,25 @@ fn gold_below_giant_is_a_warning() {
 /// become one mid and five tall, the silver giant then rating 92), and
 /// the six regular manlets at the Red manlet bonus, 82 (Red quotas 10
 /// tall, 7 mid, 6 manlets).
-fn red_legal_team() -> TeamView {
-    let mut team = legal_team();
+fn red_legal_records() -> Records {
+    let mut records = legal_records();
     for slot in [1, 8] {
-        player_mut(&mut team, slot).height = 180;
+        records.player_mut(slot).basic.height = 180;
     }
     for slot in [5, 14, 17, 20] {
-        player_mut(&mut team, slot).height = 185;
+        records.player_mut(slot).basic.height = 185;
     }
-    set_tier(player_mut(&mut team, 5), 92, 8, 3);
+    set_tier_record(records.player_mut(5), 92, 8, 3);
     for slot in [3, 4, 6, 15, 19, 22] {
-        assert_eq!(player(&team, slot).height, 175);
-        set_tier(player_mut(&mut team, slot), 82, 4, 1);
+        assert_eq!(records.player_mut(slot).basic.height, 175);
+        set_tier_record(records.player_mut(slot), 82, 4, 1);
     }
-    team
+    records
+}
+
+/// `red_legal_records` viewed.
+fn red_legal_team() -> TeamView {
+    red_legal_records().view()
 }
 
 /// `red_legal_team` with `edit` applied to the player at `slot`.
@@ -841,6 +854,144 @@ fn suggestions_name_each_unused_allowance() {
             unused("injury_resistance", 2, 3),
         ]
     );
+}
+
+// ---- tier_values, card_limits, apply_tier
+
+/// For every tier of the official file, a player of that tier in the
+/// legal team, his stats, form, injury resistance and weak foot broken,
+/// is legal again after `apply_tier`: the silver giant under Green (89)
+/// and a regular manlet under Red (82) included.
+#[test]
+fn apply_tier_then_check_reports_nothing_for_every_official_tier() {
+    let rules = Rules::official();
+    let tiers: Vec<&str> = rules
+        .ruleset()
+        .tiers
+        .iter()
+        .map(|tier| tier.id.as_str())
+        .collect();
+    assert_eq!(tiers, ["gold", "silver", "bronze", "goalkeeper", "regular"]);
+    // (tier, slot, under the Red team rather than the Green one)
+    for (tier, slot, red) in [
+        ("gold", 2, false),
+        ("silver", 10, false),
+        ("silver", 5, false),
+        ("bronze", 9, false),
+        ("goalkeeper", 0, false),
+        ("regular", 12, false),
+        ("regular", 3, true),
+    ] {
+        let mut records = if red {
+            red_legal_records()
+        } else {
+            legal_records()
+        };
+        let entry = records.player_mut(slot);
+        set_tier_record(entry, 55, 2, 3);
+        entry.stats.weak_foot_usage = 0;
+        entry.stats.weak_foot_accuracy = 0;
+        let broken = records.view();
+        assert!(!problems(&rules, &broken).is_empty(), "{tier} {slot}");
+        let player = broken.player(slot).expect("filled").clone();
+        rules
+            .apply_tier(&broken, &player, tier, records.player_mut(slot))
+            .expect("the tier applies");
+        assert_eq!(problems(&rules, &records.view()), vec![], "{tier} {slot}");
+    }
+}
+
+/// The targets carry the specials: the Green silver giant rates 89, a
+/// manlet gets weak foot 4/4 and, under Red, 82; a regular who is no
+/// manlet gets 2/2, form 4, injury resistance 1. An id no tier has is
+/// refused before the script runs.
+#[test]
+fn tier_values_carry_the_specials() {
+    let rules = Rules::official();
+    let team = legal_team();
+    let values = |team: &TeamView, slot: u8, tier: &str| {
+        rules
+            .tier_values(team, team.player(slot).expect("filled"), tier)
+            .expect("values")
+    };
+    let giant = values(&team, 5, "silver");
+    assert_eq!(giant.stats.len(), 25);
+    assert!(giant.stats.values().all(|v| *v == 89), "{giant:?}");
+    assert_eq!((giant.form, giant.injury_resistance), (8, 3));
+    assert_eq!(
+        giant.weak_foot,
+        WeakFoot {
+            usage: 4,
+            accuracy: 4
+        }
+    );
+    let manlet = values(&team, 3, "regular");
+    assert!(manlet.stats.values().all(|v| *v == 77), "{manlet:?}");
+    assert_eq!(
+        manlet.weak_foot,
+        WeakFoot {
+            usage: 4,
+            accuracy: 4
+        }
+    );
+    let red = red_legal_team();
+    let manlet = values(&red, 3, "regular");
+    assert!(manlet.stats.values().all(|v| *v == 82), "{manlet:?}");
+    let regular = values(&team, 12, "regular");
+    assert_eq!(
+        regular.weak_foot,
+        WeakFoot {
+            usage: 2,
+            accuracy: 2
+        }
+    );
+    assert_eq!((regular.form, regular.injury_resistance), (4, 1));
+    assert_eq!(
+        rules
+            .tier_values(&team, team.player(3).expect("filled"), "platinum")
+            .expect_err("no such tier"),
+        CheckError::UnknownTier {
+            tier: "platinum".to_string()
+        }
+    );
+}
+
+/// The card economy per player and tier: a regular's limit and free
+/// tricks, a manlet's extra card and A position, the silver captain's
+/// free Captaincy and the choice gone to his second COM style, and the
+/// same player read as gold (free COM 2 by the tier, no option used).
+#[test]
+fn card_limits_name_the_economy() {
+    let rules = Rules::official();
+    let team = legal_team();
+    let limits = |slot: u8, tier: &str| {
+        rules
+            .card_limits(&team, team.player(slot).expect("filled"), tier)
+            .expect("limits")
+    };
+    assert_eq!(
+        limits(12, "regular"),
+        CardLimits {
+            limit: 3,
+            free: BTreeMap::from([("tricks".to_string(), 2)]),
+            free_cards: vec![card("malicia")],
+            required_cards: vec![],
+            a_positions: 1,
+            max_a_positions: None,
+        }
+    );
+    let manlet = limits(3, "regular");
+    assert_eq!((manlet.limit, manlet.a_positions), (4, 2));
+    let captain = limits(10, "silver");
+    assert_eq!(captain.limit, 5);
+    assert_eq!(
+        captain.free,
+        BTreeMap::from([("com".to_string(), 2), ("tricks".to_string(), 3)])
+    );
+    assert_eq!(captain.free_cards, vec![card("malicia"), card("captaincy")]);
+    let as_gold = limits(10, "gold");
+    assert_eq!((as_gold.limit, as_gold.a_positions), (6, 1));
+    assert_eq!(as_gold.free.get("com"), Some(&2));
 }
 
 /// An allowance the file does not list is never suggested: a manlet

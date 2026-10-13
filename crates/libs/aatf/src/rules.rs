@@ -1,9 +1,14 @@
 //! `Rules`: a loaded rules file — its ruleset, its compiled script and
-//! the engine it runs on — and `check_team` over a `TeamView`.
+//! the engine it runs on — and the host API over a `TeamView`:
+//! `check_team`, `tier_values`, `card_limits` and `apply_tier`.
+
+use pes_savefile::model::player::PlayerEntry;
+use serde::de::DeserializeOwned;
 
 use crate::file::{LogicIdentity, assemble, identity};
 use crate::ruleset::{LoadError, Ruleset, ruleset_from_scope, run_top_level};
-use crate::team::TeamView;
+use crate::team::{PlayerView, TeamView};
+use crate::values::{CardLimits, TierValues};
 use crate::violation::{CheckError, Violation, violations};
 
 /// The official data block, embedded.
@@ -101,6 +106,76 @@ impl Rules {
                 message: e.to_string(),
             })?;
         violations(list)
+    }
+
+    /// The targets `player` (of `team`) must carry as tier `tier`, the
+    /// specials applied: the file's `tier_values`.
+    pub fn tier_values(
+        &self,
+        team: &TeamView,
+        player: &PlayerView,
+        tier: &str,
+    ) -> Result<TierValues, CheckError> {
+        self.values("tier_values", team, player, tier)
+    }
+
+    /// The card economy of `player` (of `team`) as tier `tier`: the
+    /// file's `card_limits`, behind the card pickers' remaining counts.
+    pub fn card_limits(
+        &self,
+        team: &TeamView,
+        player: &PlayerView,
+        tier: &str,
+    ) -> Result<CardLimits, CheckError> {
+        self.values("card_limits", team, player, tier)
+    }
+
+    /// Writes tier `tier`'s targets into `entry`, the record `player`
+    /// views (of `team`): stats, form, injury resistance and weak foot,
+    /// so the quick actions and the Team creator's defaults produce a
+    /// player `check_team` accepts on those. The lib's one writing
+    /// operation; the check itself never fixes anything.
+    pub fn apply_tier(
+        &self,
+        team: &TeamView,
+        player: &PlayerView,
+        tier: &str,
+        entry: &mut PlayerEntry,
+    ) -> Result<(), CheckError> {
+        self.tier_values(team, player, tier)?.write(entry);
+        Ok(())
+    }
+
+    /// `function` (`tier_values` or `card_limits`) called on `player` as
+    /// `tier`, its map converted; an id no tier has is refused here, not
+    /// by the script.
+    fn values<T: DeserializeOwned>(
+        &self,
+        function: &'static str,
+        team: &TeamView,
+        player: &PlayerView,
+        tier: &str,
+    ) -> Result<T, CheckError> {
+        if !self.ruleset.tiers.iter().any(|t| t.id == tier) {
+            return Err(CheckError::UnknownTier {
+                tier: tier.to_string(),
+            });
+        }
+        let map = self
+            .engine
+            .call_fn::<rhai::Dynamic>(
+                &mut rhai::Scope::new(),
+                &self.ast,
+                function,
+                (player.clone(), tier.to_string(), team.clone()),
+            )
+            .map_err(|e| CheckError::Script {
+                message: e.to_string(),
+            })?;
+        rhai::serde::from_dynamic(&map).map_err(|e| CheckError::Values {
+            function,
+            message: e.to_string(),
+        })
     }
 }
 
@@ -260,6 +335,29 @@ mod tests {
                 .map(|name| name.into_string().expect("a name"))
                 .collect();
             assert_eq!(listed, table, "{function}");
+        }
+    }
+
+    /// A `tier_values` returning a map that is not the values (the
+    /// minimal file's `#{}`) is `Values` naming the function.
+    #[test]
+    fn a_values_map_that_does_not_convert_is_values() {
+        let rules = Rules::load(&minimal_file()).expect("the file loads");
+        let team = fixture_team(PesVersion::Pes15);
+        let player = team.player(0).expect("slot 0");
+        match rules
+            .tier_values(&team, player, "regular")
+            .expect_err("an empty map")
+        {
+            CheckError::Values { function, .. } => assert_eq!(function, "tier_values"),
+            other => panic!("expected Values, got {other:?}"),
+        }
+        match rules
+            .card_limits(&team, player, "regular")
+            .expect_err("an empty map")
+        {
+            CheckError::Values { function, .. } => assert_eq!(function, "card_limits"),
+            other => panic!("expected Values, got {other:?}"),
         }
     }
 

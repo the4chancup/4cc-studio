@@ -156,70 +156,20 @@ impl TeamView {
     /// The team a Team TOML document describes, on the version its
     /// `pes_version` names: every `players` key one bare slot.
     pub fn from_team_toml(document: &TeamToml) -> Result<TeamView, TeamViewError> {
-        let version = document.pes_version.ok_or(TeamViewError::NoVersion)?;
-        // Appearance is not applied: no ruleset reads it, and it lives
-        // only over a real player's face data.
-        let mut document = document.clone();
-        for section in document.players.values_mut() {
-            section.appearance = AppearanceSettings::default();
-        }
-        // Bare records: one roster slot per index up to the highest
-        // `players` key, `i + 1` where the key is present, and one bare
-        // `PlayerEntry` per present slot.
-        let mut team = TeamEntry::default();
-        // 0xFF is the record's none, so an absent `[tactics.set_pieces]`
-        // key reads as no taker, not as roster slot 0.
-        team.tactics.set_pieces = SetPieceTakers {
-            free_kick_long: 0xFF,
-            free_kick_short: 0xFF,
-            free_kick_second: 0xFF,
-            corner_left: 0xFF,
-            corner_right: 0xFF,
-            penalty: 0xFF,
-            captain: 0xFF,
-        };
-        // The man-marking bytes too: an absent `man_marking` key reads as no
-        // assignment, not a marking of opponent slot 0.
-        for preset in &mut team.tactics.presets {
-            preset.man_marking = [0xFF; 11];
-        }
-        let highest = document.players.keys().max().copied().unwrap_or(0);
-        team.roster = (1..=highest)
-            .map(|slot| RosterSlot {
-                player_id: if document.players.contains_key(&slot) {
-                    u32::from(slot)
-                } else {
-                    0
-                },
-                ..Default::default()
-            })
-            .collect();
-        let mut players: Vec<PlayerEntry> = document
-            .players
-            .keys()
-            .map(|slot| PlayerEntry {
-                id: u32::from(*slot),
-                ..Default::default()
-            })
-            .collect();
-        let notes = document
-            .apply(version, &mut team, &mut players)
-            .map_err(|e| TeamViewError::TeamToml {
-                message: e.to_string(),
-            })?;
-        if let Some(note) = notes.first() {
-            return Err(TeamViewError::TeamToml {
-                message: format!("{note:?}"),
-            });
-        }
+        let (version, team, players) = records_from_team_toml(document)?;
         Self::view(version, &team, |id| {
             players.iter().find(|player| player.id == id)
         })
     }
 
+    /// The player at roster `slot`, if the roster fills it.
+    pub fn player(&self, slot: u8) -> Option<&PlayerView> {
+        self.players.iter().find(|player| player.slot == slot)
+    }
+
     /// The builder `new` and `from_team_toml` share: a version, a
     /// `&TeamEntry` and a player lookup by id.
-    fn view<'a>(
+    pub(crate) fn view<'a>(
         version: PesVersion,
         team: &'a TeamEntry,
         player: impl Fn(u32) -> Option<&'a PlayerEntry>,
@@ -306,7 +256,74 @@ impl TeamView {
             tactics: team.tactics.clone(),
         })
     }
+}
 
+/// The records a Team TOML document describes, on the version its
+/// `pes_version` names: the team and one bare `PlayerEntry` per
+/// `players` key (its id the key), the document applied onto them.
+pub(crate) fn records_from_team_toml(
+    document: &TeamToml,
+) -> Result<(PesVersion, TeamEntry, Vec<PlayerEntry>), TeamViewError> {
+    let version = document.pes_version.ok_or(TeamViewError::NoVersion)?;
+    // Appearance is not applied: no ruleset reads it, and it lives
+    // only over a real player's face data.
+    let mut document = document.clone();
+    for section in document.players.values_mut() {
+        section.appearance = AppearanceSettings::default();
+    }
+    // Bare records: one roster slot per index up to the highest
+    // `players` key, `i + 1` where the key is present, and one bare
+    // `PlayerEntry` per present slot.
+    let mut team = TeamEntry::default();
+    // 0xFF is the record's none, so an absent `[tactics.set_pieces]`
+    // key reads as no taker, not as roster slot 0.
+    team.tactics.set_pieces = SetPieceTakers {
+        free_kick_long: 0xFF,
+        free_kick_short: 0xFF,
+        free_kick_second: 0xFF,
+        corner_left: 0xFF,
+        corner_right: 0xFF,
+        penalty: 0xFF,
+        captain: 0xFF,
+    };
+    // The man-marking bytes too: an absent `man_marking` key reads as no
+    // assignment, not a marking of opponent slot 0.
+    for preset in &mut team.tactics.presets {
+        preset.man_marking = [0xFF; 11];
+    }
+    let highest = document.players.keys().max().copied().unwrap_or(0);
+    team.roster = (1..=highest)
+        .map(|slot| RosterSlot {
+            player_id: if document.players.contains_key(&slot) {
+                u32::from(slot)
+            } else {
+                0
+            },
+            ..Default::default()
+        })
+        .collect();
+    let mut players: Vec<PlayerEntry> = document
+        .players
+        .keys()
+        .map(|slot| PlayerEntry {
+            id: u32::from(*slot),
+            ..Default::default()
+        })
+        .collect();
+    let notes = document
+        .apply(version, &mut team, &mut players)
+        .map_err(|e| TeamViewError::TeamToml {
+            message: e.to_string(),
+        })?;
+    if let Some(note) = notes.first() {
+        return Err(TeamViewError::TeamToml {
+            message: format!("{note:?}"),
+        });
+    }
+    Ok((version, team, players))
+}
+
+impl TeamView {
     /// The sample team `Rules::load` step 3 runs `check_team` on: a
     /// real, anonymized cup team as a Team TOML document
     /// (`sample/team.toml`).

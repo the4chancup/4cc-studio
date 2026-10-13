@@ -6,8 +6,9 @@
 //! validation": shape, `RULESET`, `check_team` on the sample team) and
 //! runs its `check_team` on a `TeamView`, which a save or a Team TOML
 //! document builds; a file knows its `logic()` identity. The shipped
-//! logic (`logic/logic.rhai`) is the generic interpreter's `check_team`;
-//! `tier_values`, `card_limits` and `apply_tier` are not written.
+//! logic (`logic/logic.rhai`) is the generic interpreter: `check_team`,
+//! `tier_values` (behind `apply_tier`, the one writing operation) and
+//! `card_limits`.
 //!
 //! The host reads a team as a `TeamView` of `PlayerView`s on the game's
 //! own scale, and every script runs on the one engine of `engine.rs`.
@@ -44,12 +45,15 @@ mod rules;
 mod ruleset;
 /// `TeamView`/`PlayerView` from `pes_savefile`'s model, the tactics answers.
 mod team;
+/// `TierValues`/`CardLimits` from the script's maps, and the write into a record.
+mod values;
 /// `Violation` and the script-to-`Violation` conversion.
 mod violation;
 
 pub use file::LogicIdentity;
 pub use rules::Rules;
 pub use team::{PlayerView, TeamView, TeamViewError};
+pub use values::{CardLimits, TierValues};
 pub use violation::{CheckError, Violation, ViolationKind};
 
 pub use ruleset::{

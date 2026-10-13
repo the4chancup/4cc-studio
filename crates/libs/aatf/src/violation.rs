@@ -249,6 +249,21 @@ pub enum CheckError {
         /// What did not convert.
         message: String,
     },
+    /// `tier_values` or `card_limits` (`function`) returned a map that
+    /// does not convert into its values.
+    #[error("{function} did not return its values: {message}")]
+    Values {
+        /// The script function.
+        function: &'static str,
+        /// What did not convert.
+        message: String,
+    },
+    /// No tier of the file has this id.
+    #[error("unknown tier {tier}")]
+    UnknownTier {
+        /// The id asked for.
+        tier: String,
+    },
 }
 
 /// The violations of `check_team`'s returned list, in its order: every

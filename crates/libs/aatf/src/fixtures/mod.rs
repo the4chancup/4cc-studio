@@ -7,11 +7,73 @@
 //! ruleset it was built for); each ruleset's module makes it legal under
 //! its own rules first.
 
-use crate::ruleset::Severity;
+use pes_savefile::interchange::team_toml::TeamToml;
+use pes_savefile::model::player::PlayerEntry;
+use pes_savefile::model::team::TeamEntry;
+use pes_version::PesVersion;
+
+use crate::ruleset::{Severity, Stat, WeakFoot};
+use crate::team::records_from_team_toml;
+use crate::values::TierValues;
 use crate::violation::ViolationKind;
 use crate::{PlayerView, Rules, TeamView, Violation};
 
 mod official;
+
+/// A team as records, what `apply_tier` writes into, viewed on demand.
+struct Records {
+    version: PesVersion,
+    team: TeamEntry,
+    players: Vec<PlayerEntry>,
+}
+
+impl Records {
+    /// The sample team's records.
+    fn sample() -> Records {
+        let document = TeamToml::parse(include_str!("../../sample/team.toml"))
+            .expect("the sample team parses");
+        let (version, team, players) =
+            records_from_team_toml(&document).expect("the sample team builds records");
+        Records {
+            version,
+            team,
+            players,
+        }
+    }
+
+    /// The records' view.
+    fn view(&self) -> TeamView {
+        TeamView::view(self.version, &self.team, |id| {
+            self.players.iter().find(|player| player.id == id)
+        })
+        .expect("the records view")
+    }
+
+    /// The record of roster `slot`.
+    fn player_mut(&mut self, slot: u8) -> &mut PlayerEntry {
+        let id = self.team.roster[usize::from(slot)].player_id;
+        self.players
+            .iter_mut()
+            .find(|player| player.id == id)
+            .unwrap_or_else(|| panic!("roster slot {slot} is filled"))
+    }
+}
+
+/// `entry` at a tier's targets: every ability at `rate`, his form and
+/// injury resistance set, weak foot kept (through `TierValues::write`,
+/// which the fixtures then exercise too).
+fn set_tier_record(entry: &mut PlayerEntry, rate: u8, form: u8, injury_resistance: u8) {
+    TierValues {
+        stats: (0..25u8).map(|index| (Stat(index), rate)).collect(),
+        form,
+        injury_resistance,
+        weak_foot: WeakFoot {
+            usage: entry.stats.weak_foot_usage + 1,
+            accuracy: entry.stats.weak_foot_accuracy + 1,
+        },
+    }
+    .write(entry);
+}
 
 /// The violations of `team` under `rules` that are not suggestions: what
 /// a member must fix.
