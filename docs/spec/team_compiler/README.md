@@ -4,7 +4,8 @@ The Team compiler (`crates/tools/team_compiler`) is the flagship tool of the sui
 the successor to the AET Compiler (Red/Blue). It compiles aesthetics exports into CPK
 archives, with compile-time model format conversion (see the
 [Model conversion plan](../model_conversion/README.md)) and compile-time aesthetics (on Fox the
-output CPK's database tables, on pre-Fox savefile writing;
+output CPK's database tables, on pre-Fox savefile writing; the `PlayerAppearance.bin` rows and
+the savefile work are still planned, Phase 5 and later;
 see the [Savefile plan](../pes_savefile/README.md)). Platform context (crate structure, tool
 plugin trait, GUI shell, parallelism) is in the [core plan](../core/README.md).
 
@@ -54,9 +55,9 @@ User exports (folders / .zip / .7z)
 ┌──────────────────────────────────────────────┐
 │  team_compiler: Reader                       │
 │  ─ Scan exports/                             │
-│  ─ Index each export's structure into        │
-│    ParsedAestheticsExport descriptors              │
-│  ─ Classify file kinds (.fmdl / .model / glTF)│
+│  ─ List each export's structure              │
+│    (CanonicalListing) and read its team_name │
+│  ─ Route NO_USE, /balls/, duplicate /refs/   │
 └──────────────────┬───────────────────────────┘
                    │
                    ▼
@@ -67,7 +68,7 @@ User exports (folders / .zip / .7z)
 │  ┐ Run-level manifest planning:              │
 │  │  ─ Player split + dependency resolution   │
 │  └  ─ IDs, targets, collisions, ordering     │
-│  ┐ Per model folder (rayon parallel):        │
+│  ┐ Per task (rayon parallel):                │
 │  │  ─ Materialize content under budget       │
 │  │  ─ model_convert via IR (if needed)       │
 │  │  ─ XML/FMDL/model/name editing            │
@@ -96,70 +97,113 @@ User exports (folders / .zip / .7z)
 ## Crate layout
 
 One crate, organized by **pipeline stage**, so a reader who knows the walkthrough below knows where
-the code is. The layout is fixed here because the crate is large (15–25k lines) and largely
+the code is. The layout is fixed here because the crate is large (~88k lines) and largely
 LLM-written: a predefined tree is what keeps generated code from scattering into `utils.rs` piles
 and re-inventing placement per session.
 
 ```
 crates/tools/team_compiler/
 ├── Cargo.toml
+├── help/               # the tool's help chapter (numbered Markdown topics)
+│   └── 01_command_line.md
 ├── src/
 │   ├── lib.rs            # `Tool`: the StudioTool impl — wiring only, no logic
-│   ├── settings.rs       # TeamCompilerSettings, defaults, settings_view
-│   ├── cli.rs            # clap Command; cli_run / gui_run dispatch (compile, check, upgrade-dpfl)
-│   ├── messages.rs       # the message catalog: IDs, severity, disposition, templates, hints
-│   ├── paths.rs          # per-version game paths (a `match` per engine) and CpkStem/slot helpers
-│   ├── templates.rs      # embedded resources (include_dir!) + templates/ override accessor
+│   ├── settings.rs       # TeamCompilerSettings, defaults
+│   ├── cli.rs            # clap Command; the parsed command's dispatch (compile, check, upgrade-dpfl)
+│   ├── compile.rs        # the `compile` command: deploy preflight, validation, planning, the
+│   │                     #   worker pool of tasks, the writer, deployment or promotion
+│   ├── check.rs          # the `check` command (the lib validates; this runs it)
+│   ├── upgrade.rs        # the `upgrade-dpfl` command
+│   ├── gui_run.rs        # the window's compile: a thread of its own, events drained to the log
+│   ├── events.rs         # the run's PipelineEvent stream; the worst severity decides the exit code
+│   ├── messages.rs       # the message catalog: codes, severity, disposition
+│   ├── paths.rs          # per-version CPK paths for both engines, the bins' paths, referee constants
+│   ├── templates.rs      # resources bundled from resources/ (include_bytes!) + templates/ overrides
 │   ├── reader/           # stage 1: where exports come from
 │   │   ├── mod.rs        #   discovery: exports scan, NO_USE, team_name, /refs/ and /balls/ routing
-│   │   └── source.rs     #   ExportSource: folder / .zip / .7z (via archives), eager structure,
-│   │                     #   lazy per-folder content into VirtualTree, memory permit acquisition
-│   ├── check.rs          # the `check` command (the lib validates; this runs it)
+│   │   └── source.rs     #   one source: its listing and revision, lazy file reads
+│   │                     #   (ContentSource), memory permit acquisition
+│   ├── validation.rs     # the run's validation: structure pass, deep pass, identity, duplicates
+│   ├── deep/             # the deep pass: the checks only a file's contents answer
+│   │   ├── mod.rs        #   drives the per-export and per-folder checks
+│   │   ├── model.rs      #   the format crates' model checks; hand weights
+│   │   ├── texture.rs    #   texture checks from the header alone
+│   │   ├── materials.rs  #   a .mtl's texture lookup; which materials are mesh-used
+│   │   ├── pairings.rs   #   each model paired with the .mtl it binds
+│   │   ├── documents.rs  #   face_diff, config.toml, settings.toml, colors.txt
+│   │   ├── portrait.rs   #   portrait size; a slot's two portraits compared
+│   │   └── collar.rs     #   collar_<ID> names for the target version
+│   ├── face_diff.rs      # face_diff.bin / face_diff.xml decode and check
+│   ├── face_xml.rs       # the generated pre-Fox face.xml and glove.xml
+│   ├── user_face_xml.rs  # a member's own face.xml: parse, resolve, check
+│   ├── mtl_search.rs     # the .mtl a pre-Fox .model uses
+│   ├── texture_lookup.rs # a texture name resolved nearest first
+│   ├── kit_variants.rs   # kitN-dependent assets: kit tokens, lookup keys
 │   ├── plan/             # stage 2, the coordinator: ResolvedAestheticsExport → BuildManifest
-│   │   ├── mod.rs        #   plan_run → PlanReport; scoped drops; AbortRun
-│   │   ├── manifest.rs   #   BuildManifest, BuildTask kinds, output-path collision checks
+│   │   ├── mod.rs        #   plan_run → PlanReport; BuildManifest, BuildTask kinds, ModelFolder
 │   │   ├── ids.rs        #   PlannedModelIds: 40-ID team blocks, boots/gloves assignment
-│   │   ├── refs.rs       #   duplicate-refs preflight, referee slot planning
+│   │   ├── roles.rs      #   each file's role in the target engine's output
+│   │   ├── collars.rs    #   which export of the run keeps which collar
+│   │   ├── item_rows.rs  #   the compiled players' BootsList / GloveList rows
 │   │   └── overrides.rs  #   overrides/ tree precedence
 │   ├── processing/       # stages 3–4: parallel per-task work, process_task(BuildTask) → TaskBatch
 │   │   ├── mod.rs        #   dispatch by task kind; memory permits; message collection
-│   │   ├── model.rs      #   model folders: format selection, conversion, merging, SKL pairing
+│   │   ├── model.rs      #   a Fox model package: conversion, names, texture paths, merging, .skl pairing
+│   │   ├── conversion.rs #   a model of the other engine's format, via model_convert's IR
+│   │   ├── prefox_face.rs    # a player's pre-Fox face: models, .mtl files, face.xml, the face diff
+│   │   ├── prefox_shared.rs  # pre-Fox boots/gloves outputs under shared and exclusive IDs
+│   │   ├── prefox_common.rs  # the pre-Fox Common output's models and .mtl files
+│   │   ├── prefox_split.rs   # the pre-Fox hand auto-split through model_convert
 │   │   ├── texture.rs    #   DDS/FTEX conversion, WESYS zlib, relocation to common
-│   │   ├── material.rs   #   MTL / face XML / materials.toml editing and checks
 │   │   ├── kit.rs        #   kit folders: config generation, colors, textures, FPC patching
-│   │   ├── team_assets.rs#   portraits, logos, collars, Common folder
-│   │   ├── referee.rs    #   referee-specific processing (markers, per-referee common layout)
-│   │   └── materialize.rs#   THE seam: relocation to game paths + Fox FPK packing (skipped in test mode)
-│   ├── bins/             # UniColor / TeamColor / UniformParameter accumulation; on Fox also PlayerAppearance / BootsList / GloveList
-│   │   ├── mod.rs        #   working-bin lookup via the DpFileList walk, mutation commit
-│   │   └── dpfl.rs       #   DpFileList.bin read/write, slot discovery, upgrade (override)
+│   │   ├── kit_layout.rs #   kit texture and number atlases re-laid between the engines' layouts
+│   │   ├── team_assets.rs#   the team's logo: the game's three square PNGs
+│   │   ├── referee_marker.rs # the referees' marker: prop texture pre-Fox, reserved collar on Fox
+│   │   └── materialize.rs#   THE seam: a task's output becomes the writer's entries (game paths,
+│   │                     #   Fox FPK packing; unpacked under test mode)
+│   ├── bins/             # the working bins: UniColor / TeamColor and the kit configs
+│   │                     #   (UniformParameter entries, or loose files pre-Fox); on Fox also
+│   │                     #   BootsList / GloveList / PlayerAppearance
+│   │   ├── mod.rs        #   the color bins' records (UniColorBin, TeamColorBin) and WorkingBins
+│   │   ├── installed.rs  #   working-bin lookup via the DpFileList walk
+│   │   ├── kit_configs.rs#   kit config edits: FPC values and collars
+│   │   ├── player_tables.rs # BootsList/GloveList rows; PlayerAppearance passed through
+│   │   └── dpfl.rs       #   DpFileList.bin read
 │   ├── output/           # stages 5–6: the writer and everything after it
-│   │   ├── writer.rs     #   canonical-order incremental writing, teams parts, placeholders
+│   │   ├── mod.rs        #   the writer, what happens to its CPK, the notes file
+│   │   ├── writer.rs     #   canonical-order incremental writing: overrides, task batches, bins
+│   │   ├── parts.rs      #   multi-CPK mode's teams parts and placeholders
 │   │   ├── sink.rs       #   OutputSink: CPK (normal) vs loose folder (test/sideload)
-│   │   └── deploy.rs     #   staging, .partial + rename, promotion, writability preflight
-│   └── view/             # egui — renders state, owns no pipeline logic
-│       └── mod.rs        #   tool view layout (grid / toolbar / log composition)
+│   │   ├── deploy.rs     #   staging, .partial + rename, promotion, writability preflight
+│   │   └── teamnotes.rs  #   output/teamnotes.txt
+│   ├── view/             # egui — renders state, owns no pipeline logic
+│   │   └── mod.rs        #   tool view (settings read-only, Compile button, run log)
+│   └── testing.rs        # what the crate's unit tests share (cfg(test))
 └── tests/
-    ├── parity.rs         # upgrade + compile + compare against Red's reference (hash manifest)
-    ├── pipeline.rs       # reader/plan/process/writer scenario tests on fixtures
-    └── fixtures/         # small Studio-format exports; large trees regenerated, not committed
+    ├── cli/              # the command line run in-process, one file per area
+    ├── common/mod.rs     #   the sandbox the CLI tests run in
+    ├── fixture_save.rs   #   the fixture-save smoke test (pes_savefile's test-support feature)
+    ├── parity.rs         # compile + compare against the Fox reference tree, entry by entry
+    ├── parity_prefox.rs  # the same, pre-Fox
+    └── fixtures/         # small committed exports and parts (tracer, tracer_prefox, sources, …)
 ```
 
 Placement rules:
 
 - **If it validates an export, it is not here** — it belongs in `libs/aesthetics_export`.
 - **If two tools need it, it is not here** — it moves to a lib (`pipeline` for scaffolding such as
-  `MemoryBudget`, staging/promotion, `CpkStem`; `aesthetics_export` for format knowledge). The same rule
+  `MemoryBudget` and `CpkStem`; `aesthetics_export` for format knowledge). The same rule
   in reverse: `bins/dpfl.rs` stays here until a second consumer appears (the Balls compiler only
   *checks* the DPFL, via a read helper that can move to `pipeline` when needed).
-- **`processing/materialize.rs` is the single output-mode seam.** No other module asks which output
-  mode is active; `output/sink.rs` is the only other place that differs by mode, and it differs by
-  *where bytes go*, not by *what is produced*.
-- **`reader/` is the only module that touches export sources.** `check/` asks it for the current
-  export set; `plan/` and `processing/` receive its `ExportSource`s; nothing else opens a folder or
-  archive.
-- **`view/` is render-only.** It reads tool state built from `PipelineEvent`s and emits user intents
-  (compile, cancel, mode change, ID edit); it never calls into `processing/` or `output/` directly.
+- **`processing/materialize.rs` is the single output-mode seam.** No task's output asks which
+  output mode is active; the mode decides only *where bytes go* — `compile` picks the
+  `OutputSink`, the promotion target and whether `overrides/` applies, `output/` writes through
+  them — never *what a task produces*.
+- **`reader/` is the only module that touches export sources.** `check`/`compile` ask it for the
+  current export set; `plan/` receives the resolved exports and `processing/` the files a task
+  read through `ContentSource`; nothing else opens a folder or archive.
+- **`view/` is render-only.** It reads tool state built from `PipelineEvent`s and emits the user
+  intent (compile); it never calls into `processing/` or `output/` directly.
 - **Module names follow the walkthrough's stage names** (`reader`, `check`, `plan`, `processing`,
   `bins`, `output`) so the plan and the tree use one vocabulary. `pipeline` is deliberately *not*
   used for a tool-local module: it is the shared lib's name, and `pipeline::MemoryBudget` next to a
@@ -177,7 +221,7 @@ The export object model, its validation progression (`ParsedAestheticsExport` �
 `ResolvedAestheticsExport`), the `aesthetics_export` crate layout, the player-folder format, `settings.toml` in
 exports, and the FPC marker files are specified in the [Aesthetics export plan](../aesthetics_export/README.md). The
 compiler consumes them; only the compile-time behavior — the loaded processing types
-(`FaceModelFolder` and friends, with their conversion and packing methods), the `BuildManifest`,
+(`ModelFolder` and friends, with their conversion and packing methods), the `BuildManifest`,
 planning, processing, packing, bins, GUI, and CLI — lives in this crate and this plan.
 
 ---

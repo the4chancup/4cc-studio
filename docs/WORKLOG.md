@@ -712,8 +712,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     tree, serial lengths, PES 15's counts and text lengths corrected). Done 2026-10-13 (SWE-2,
     first attempt). The two stale code doc comments it flagged (`TeamSection`'s colours,
     `player_keys.rs`'s `ingame_face`) were fixed with 5.2b2a
-  - [ ] 5.0j6 onward: one slice per remaining folder (`team_compiler` README, the rest of
-    `team_compiler`)
+  - [x] 5.0j6 `docs/spec/team_compiler/README.md` (the crate tree rewritten to the files that
+    exist, the data-flow boxes, the placement rules and the GUI's one action as built,
+    `ModelFolder`). Done 2026-10-13 (SWE-2, first attempt)
+  - [ ] 5.0j7 the rest of `team_compiler` (`pipeline.md`, `settings.md`, `messages.md`,
+    `blue_port.md`, `testing.md`). Known: `pipeline.md` "1. Reader" step 4 says contents load
+    into a `VirtualTree` (the reader returns owned bytes through `ContentSource`), and its
+    `allocation_scheme_version` claim; `tests/parity.rs` and `parity_prefox.rs` point their
+    docs at `plans/team_compiler/testing.md`
 - [x] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
   PES 21, `.tmp/5_2b2/findings.md`): the game stores Anchoring at 0x0A, with 18/19's entries from
   Swarm the Box on shifted up one (Swarm the Box 0x0B, Deep Defensive Line 0x0C, Gegenpress 0x0D,

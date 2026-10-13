@@ -1879,3 +1879,5 @@ worklog passed 7,000 lines.
   parts (appearance id, unknown face bits, the Fox appearance row, the aesthetics patch) moved to the spec.
 - **2026-10-13** — Step 5.2b2a: `pes_savefile` models man marking (PES 15-21) and PES 15's auto flags,
   measured fields in the schema generator; Team TOML carries `man_marking` per preset.
+- **2026-10-13** — Step 5.0j6: `docs/spec/team_compiler/README.md` read against the crate; its tree,
+  data flow and placement rules corrected to the code.
