@@ -6,8 +6,10 @@
 mod common;
 
 mod apply_patch;
+mod diff;
 mod export_toml;
 mod import_toml;
+mod transplant;
 
 use std::fs;
 use std::path::{Path, PathBuf};

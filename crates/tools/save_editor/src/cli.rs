@@ -9,10 +9,14 @@ use anyhow::anyhow;
 use clap::{ArgGroup, Args, Command, FromArgMatches, Subcommand};
 use pes_savefile::interchange::aesthetics_patch::AestheticsPatch;
 use pes_savefile::interchange::team_toml::TeamToml;
+use pes_savefile::ops::compare::{CompareError, DiffScope};
+use pes_savefile::ops::transplant::{TransplantError, parse_selection};
+use pes_version::PesVersion;
 use studio_core::{CliError, Severity, ToolContext};
 
+use crate::diff;
 use crate::events::Report;
-use crate::messages::{Code, TOOL_ID, import_note, message, patch_skip};
+use crate::messages::{Code, TOOL_ID, import_note, message, patch_skip, stripped_mark};
 use crate::session::Session;
 
 // The exit codes are the command line's contract with scripts, the Team compiler's meanings.
@@ -35,6 +39,44 @@ enum SaveEditorCommand {
     ImportToml(ApplyArgs),
     /// Apply the Team compiler's aesthetics patch (its players' motions and names) to a save.
     ApplyPatch(ApplyArgs),
+    /// Copy selected players' looks from a donor save of the same version onto a save.
+    Transplant(TransplantArgs),
+    /// List every field that differs between two saves of one version, player by player.
+    Diff(DiffArgs),
+}
+
+/// `transplant <donor> --base <save> --out <save> --select <list>`.
+#[derive(Debug, Args)]
+struct TransplantArgs {
+    /// The save the looks come from (EDIT00000000).
+    donor: PathBuf,
+    /// The save that takes them; never written unless it is also --out.
+    #[arg(long, value_name = "SAVE")]
+    base: PathBuf,
+    /// Where the result goes; an existing file there is kept as <out>.bak.
+    #[arg(long, value_name = "SAVE")]
+    out: PathBuf,
+    /// Who takes whose look, comma-separated: a player id (70105, his own look from the
+    /// donor), target:donor (70107:70207), a team (703, its 23 slots) or a team range
+    /// (704-705).
+    #[arg(long, value_name = "LIST")]
+    select: String,
+}
+
+/// `diff <first> <second> [--aesthetics | --gameplay]`.
+#[derive(Debug, Args)]
+#[command(group = ArgGroup::new("scope").args(["aesthetics", "gameplay"]))]
+struct DiffArgs {
+    /// The save whose values are the old ones.
+    first: PathBuf,
+    /// The save whose values are the new ones.
+    second: PathBuf,
+    /// Only the look: boots, gloves, base copy, physique, strip, face.
+    #[arg(long)]
+    aesthetics: bool,
+    /// Only the rest: names, basics, abilities, positions, skills, motion.
+    #[arg(long)]
+    gameplay: bool,
 }
 
 /// `<file> --base <save> --out <save>`: the file to apply, the save it is applied to, and
@@ -87,6 +129,8 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
         SaveEditorCommand::ExportToml(args) => export_toml(&args, &mut report)?,
         SaveEditorCommand::ImportToml(args) => import_toml(&args, &mut report)?,
         SaveEditorCommand::ApplyPatch(args) => apply_patch(&args, &mut report)?,
+        SaveEditorCommand::Transplant(args) => transplant(&args, &mut report)?,
+        SaveEditorCommand::Diff(args) => diff_saves(&args, &mut report)?,
     }
     Ok(exit_code(report.worst()))
 }
@@ -208,6 +252,64 @@ fn export_toml(args: &ExportTomlArgs, report: &mut Report) -> Result<(), CliErro
         ));
     }
     Ok(())
+}
+
+/// `transplant`: the selection is parsed, then the lib checks the version pair and every id
+/// before the first copy, so a refusal leaves `--out` unwritten; a player at -1 on either
+/// side of a pair is a warning line.
+fn transplant(args: &TransplantArgs, report: &mut Report) -> Result<(), CliError> {
+    let mut pairs = Vec::new();
+    for item in args.select.split(',') {
+        pairs.extend(parse_selection(item.trim()).map_err(|error| invalid(error.into()))?);
+    }
+    let donor = open(&args.donor)?;
+    let mut session = open(&args.base)?;
+    let marks = session
+        .transplant(&donor, &pairs)
+        .map_err(|error| match error {
+            TransplantError::VersionMismatch { target, donor } => {
+                version_mismatch("the base save", target, "the donor", donor)
+            }
+            TransplantError::TargetMissing(_) | TransplantError::DonorMissing(_) => {
+                invalid(error.into())
+            }
+        })?;
+    for mark in marks {
+        report.message(stripped_mark(mark));
+    }
+    write_save(&session, &args.out)
+}
+
+/// The refusal of two saves of different versions, each named as a member reads it
+/// (`PES 2021`): the lib's own text spells the versions as the enum does.
+fn version_mismatch(
+    first_role: &str,
+    first: PesVersion,
+    second_role: &str,
+    second: PesVersion,
+) -> CliError {
+    invalid(anyhow!(
+        "{first_role} is a {first} save and {second_role} a {second} one: both must be of one version"
+    ))
+}
+
+/// `diff`: the comparator's report as findings; differences are its output, so the exit
+/// code is 0, and two versions are refused.
+fn diff_saves(args: &DiffArgs, report: &mut Report) -> Result<(), CliError> {
+    let first = open(&args.first)?;
+    let second = open(&args.second)?;
+    let scope = match (args.aesthetics, args.gameplay) {
+        (true, false) => Some(DiffScope::Aesthetics),
+        (false, true) => Some(DiffScope::Gameplay),
+        // clap makes the two flags exclusive.
+        (false, false) | (true, true) => None,
+    };
+    diff::report(first.file(), second.file(), scope, report).map_err(|error| match error {
+        CompareError::VersionMismatch { a, b } => {
+            version_mismatch("the first save", a, "the second", b)
+        }
+        CompareError::Codec(_) => invalid(error.into()),
+    })
 }
 
 #[cfg(test)]

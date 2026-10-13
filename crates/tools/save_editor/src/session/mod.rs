@@ -10,12 +10,24 @@ use anyhow::{Context, anyhow};
 use pes_savefile::EditFile;
 use pes_savefile::interchange::aesthetics_patch::{AestheticsPatch, PatchError, PatchSummary};
 use pes_savefile::interchange::team_toml::{ImportNote, TeamToml, TeamTomlError};
+use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use pes_savefile::model::{PlayerEntry, RosterSlot};
+use pes_savefile::ops::transplant::{TransplantError, transplant};
 use pes_version::PesVersion;
 
 /// The open save.
 pub(crate) struct Session {
     file: EditFile,
+}
+
+/// A player of a transplant pair whose appearance id is -1: his record is not what the game
+/// shows (`plans/save_editor.md` "Stripped save"), so the output marks him.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Stripped {
+    /// The target: his record took the donor's fields, and the game does not read it.
+    Target(u32),
+    /// The donor: the fields copied are his record's, not the look the game shows for him.
+    Donor(u32),
 }
 
 impl Session {
@@ -29,6 +41,11 @@ impl Session {
     /// The open save's game version.
     pub(crate) fn version(&self) -> PesVersion {
         self.file.version()
+    }
+
+    /// The open save, for the read-only operations over two saves (the comparator).
+    pub(crate) fn file(&self) -> &EditFile {
+        &self.file
     }
 
     /// The ids of the save's teams, in record order.
@@ -88,6 +105,28 @@ impl Session {
         patch.apply(&mut self.file)
     }
 
+    /// Copies the donor's appearance block (its id aside) and the face, hair, physique and
+    /// strip edit flags onto each pair's target, all or nothing: the version pair and every
+    /// id are checked before the first write. The marks are the pairs' players at -1, in
+    /// pair order, target before donor.
+    pub(crate) fn transplant(
+        &mut self,
+        donor: &Session,
+        pairs: &[(u32, u32)],
+    ) -> Result<Vec<Stripped>, TransplantError> {
+        transplant(&mut self.file, &donor.file, pairs)?;
+        let mut marks = Vec::new();
+        for &(target, source) in pairs {
+            if is_stripped(&self.file, target) {
+                marks.push(Stripped::Target(target));
+            }
+            if is_stripped(&donor.file, source) {
+                marks.push(Stripped::Donor(source));
+            }
+        }
+        Ok(marks)
+    }
+
     /// Writes the save to `out`, an existing file there first copied to `<out>.bak` (one
     /// level, as every save does); `out` may be the path the save was opened from.
     pub(crate) fn write(&self, out: &Path) -> anyhow::Result<()> {
@@ -95,6 +134,13 @@ impl Session {
             .save(out)
             .with_context(|| format!("{}: cannot write the save", out.display()))
     }
+}
+
+/// Whether the player with `id` is at appearance id -1 (`STRIPPED_APPEARANCE_ID`): the
+/// tables decide his look, not his record. A player the save lacks is not stripped.
+pub(crate) fn is_stripped(file: &EditFile, id: u32) -> bool {
+    file.player(id)
+        .is_some_and(|player| player.appearance_id == Some(STRIPPED_APPEARANCE_ID))
 }
 
 /// The import error as the command reports it: a text that does not fit names the player

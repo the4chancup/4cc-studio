@@ -8,6 +8,7 @@
 //! command line over it.
 
 mod cli;
+mod diff;
 mod events;
 mod messages;
 mod session;

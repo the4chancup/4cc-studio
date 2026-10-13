@@ -8,7 +8,10 @@ use std::borrow::Cow;
 
 use pes_savefile::interchange::aesthetics_patch::PatchSkip;
 use pes_savefile::interchange::team_toml::ImportNote;
+use pes_savefile::ops::compare::PlayerDiff;
 use studio_core::{Disposition, Message, MessageCode, Scope, Severity};
+
+use crate::session::Stripped;
 
 /// The tool's id: its CLI subcommand, its settings section and the owner of its message codes.
 pub(crate) const TOOL_ID: &str = "save-editor";
@@ -36,6 +39,42 @@ pub(crate) enum Code {
     PatchTeamNotInSave,
     /// `apply-patch`: the save has no player with this id (`player`).
     PatchPlayerNotInSave,
+    /// `transplant`: the target's appearance id is -1, so the game does not read the record
+    /// the donor's fields went into; the tables decide his look (`player`).
+    TransplantTargetStripped,
+    /// `transplant`: the donor's appearance id is -1, so the fields copied are his record's,
+    /// not the look the game shows for him (`player`).
+    TransplantDonorStripped,
+    /// `diff`: one field of a player in both saves, old to new (`player`, `field`, `old`,
+    /// `new`).
+    PlayerDiff,
+    /// `diff`: a player in one save alone (`player`, `save`: `first` or `second`).
+    PlayerOnlyIn,
+    /// `diff`: the player's appearance id is -1 in `save` (`first`, `second` or `both`); his
+    /// record is compared, not the look the game shows (`player`, `save`).
+    PlayerStripped,
+}
+
+/// Which of `diff`'s two saves a finding is about, as the console names them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Side {
+    /// The first save on the command line.
+    First,
+    /// The second.
+    Second,
+    /// Both saves.
+    Both,
+}
+
+impl Side {
+    /// The word the finding's `save` field carries.
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Side::First => "first",
+            Side::Second => "second",
+            Side::Both => "both",
+        }
+    }
 }
 
 impl Code {
@@ -50,19 +89,32 @@ impl Code {
             Code::PatchTeamApplied => "patch_team_applied",
             Code::PatchTeamNotInSave => "patch_team_not_in_save",
             Code::PatchPlayerNotInSave => "patch_player_not_in_save",
+            Code::TransplantTargetStripped => "transplant_target_stripped",
+            Code::TransplantDonorStripped => "transplant_donor_stripped",
+            Code::PlayerDiff => "player_diff",
+            Code::PlayerOnlyIn => "player_only_in",
+            Code::PlayerStripped => "player_stripped",
         }
     }
 
     /// How serious the finding is: an `Error` makes the command's exit code 1.
     fn severity(self) -> Severity {
         match self {
-            Code::TeamExported | Code::PatchTeamApplied => Severity::Info,
-            // A value the save did not take as written: worth knowing, not a failure (the
-            // plan's cross-version import converts "with a warning list").
+            // Differences and marks are `diff`'s output, not errors (the plan: exit 0).
+            Code::TeamExported
+            | Code::PatchTeamApplied
+            | Code::PlayerDiff
+            | Code::PlayerOnlyIn
+            | Code::PlayerStripped => Severity::Info,
+            // A value the save did not take as written, or a record the game does not read:
+            // worth knowing, not a failure (the plan's cross-version import converts "with a
+            // warning list").
             Code::ImportKeyNotInVersion
             | Code::ImportValueNotEncodable
             | Code::ImportValueCapped
-            | Code::ImportSlotEmpty => Severity::Warning,
+            | Code::ImportSlotEmpty
+            | Code::TransplantTargetStripped
+            | Code::TransplantDonorStripped => Severity::Warning,
             // A skipped team or player is an error and the rest is written (the plan's
             // `apply-patch`: exit 1).
             Code::PatchTeamNotInSave | Code::PatchPlayerNotInSave => Severity::Error,
@@ -92,6 +144,42 @@ pub(crate) fn import_note(note: &ImportNote) -> Message {
             message(Code::ImportSlotEmpty, vec![("slot", format!("{slot:02}"))])
         }
     }
+}
+
+/// The message for one transplant pair's player at -1.
+pub(crate) fn stripped_mark(mark: Stripped) -> Message {
+    let (code, player) = match mark {
+        Stripped::Target(player) => (Code::TransplantTargetStripped, player),
+        Stripped::Donor(player) => (Code::TransplantDonorStripped, player),
+    };
+    message(code, vec![("player", player.to_string())])
+}
+
+/// The message for one `diff` row of `player`: the field by its schema name (`BootsId`,
+/// `FacialHairType`, `Name`; `face_run` for the run's bits no field names, whose values
+/// are the two runs' fingerprints), old value, new value.
+pub(crate) fn player_diff(player: u32, row: &PlayerDiff) -> Message {
+    let (field, old, new) = match row {
+        PlayerDiff::Field { field, old, new } => {
+            (format!("{field:?}"), old.to_string(), new.to_string())
+        }
+        PlayerDiff::Text { text, old, new } => (format!("{text:?}"), old.clone(), new.clone()),
+        PlayerDiff::Face { field, old, new } => {
+            (format!("{field:?}"), old.to_string(), new.to_string())
+        }
+        PlayerDiff::FaceRun { old, new } => {
+            ("face_run".to_owned(), old.to_string(), new.to_string())
+        }
+    };
+    message(
+        Code::PlayerDiff,
+        vec![
+            ("player", player.to_string()),
+            ("field", field),
+            ("old", old),
+            ("new", new),
+        ],
+    )
 }
 
 /// The message for one patch item the save had no target for.
@@ -188,6 +276,68 @@ mod tests {
         assert_eq!(
             line(&import_note(&ImportNote::EmptySlot { slot: 7 })),
             "Warning import_slot_empty (slot=07)"
+        );
+    }
+
+    #[test]
+    fn each_diff_row_kind_is_an_info_line_with_the_field_old_and_new() {
+        use pes_savefile::ops::fingerprint::FaceHash;
+        use pes_savefile::schema::fields::{PlayerField, PlayerText};
+        use pes_savefile::schema::ingame_face::IngameFaceField;
+        assert_eq!(
+            line(&player_diff(
+                70105,
+                &PlayerDiff::Field {
+                    field: PlayerField::BootsId,
+                    old: 3601,
+                    new: 12
+                }
+            )),
+            "Info player_diff (player=70105, field=BootsId, old=3601, new=12)"
+        );
+        assert_eq!(
+            line(&player_diff(
+                70105,
+                &PlayerDiff::Text {
+                    text: PlayerText::ShirtName,
+                    old: "A".to_owned(),
+                    new: "B".to_owned()
+                }
+            )),
+            "Info player_diff (player=70105, field=ShirtName, old=A, new=B)"
+        );
+        assert_eq!(
+            line(&player_diff(
+                70105,
+                &PlayerDiff::Face {
+                    field: IngameFaceField::NoseType,
+                    old: 1,
+                    new: 2
+                }
+            )),
+            "Info player_diff (player=70105, field=NoseType, old=1, new=2)"
+        );
+        assert_eq!(
+            line(&player_diff(
+                70105,
+                &PlayerDiff::FaceRun {
+                    old: FaceHash([0, 1, 0xab, 0xff]),
+                    new: FaceHash([0; 4])
+                }
+            )),
+            "Info player_diff (player=70105, field=face_run, old=0001abff, new=00000000)"
+        );
+    }
+
+    #[test]
+    fn each_transplant_mark_is_a_warning_naming_the_player() {
+        assert_eq!(
+            line(&stripped_mark(Stripped::Target(70105))),
+            "Warning transplant_target_stripped (player=70105)"
+        );
+        assert_eq!(
+            line(&stripped_mark(Stripped::Donor(70205))),
+            "Warning transplant_donor_stripped (player=70205)"
         );
     }
 

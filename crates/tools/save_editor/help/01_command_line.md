@@ -9,6 +9,8 @@ install's save folder, or a copy of it); none picks one for you.
 4cc-studio save-editor export-toml <save> --all-teams --out-dir <folder>
 4cc-studio save-editor import-toml <team.toml> --base <save> --out <save>
 4cc-studio save-editor apply-patch <aesthetics_patch.toml> --base <save> --out <save>
+4cc-studio save-editor transplant <donor save> --base <save> --out <save> --select <list>
+4cc-studio save-editor diff <first save> <second save> [--aesthetics | --gameplay]
 ```
 
 A command that writes a save reads the one `--base` names and writes the one `--out` names,
@@ -43,6 +45,27 @@ is refused with nothing written. Each team of the patch is one line, `patch_team
 a team or a player the save does not hold is the error line `patch_team_not_in_save` or
 `patch_player_not_in_save`, the rest of the patch is applied and written, and the exit code
 is 1.
+
+`transplant` copies players' looks from a donor save of the same PES version onto the
+`--base` save: the whole look (boots, gloves, base copy, physique, strip settings, the
+in-game face) and the face, hair, physique and strip edit flags, nothing else. `--select`
+says who takes whose look, comma-separated: a player id alone (`70105`) takes his own look
+from the donor, `70107:70207` gives 70107 the look of the donor's 70207, a team id (`703`)
+does that for its 23 slots, a range (`704-705`) for every team in it. The saves must be of
+one version, every target in the base and every donor in the donor save, or the command is
+refused and nothing is written. On a stripped save a player's record is not the look the
+game shows, so a target at -1 gets the warning line `transplant_target_stripped` (the game
+does not read what was written into his record) and a donor at -1
+`transplant_donor_stripped` (his record was copied, not the look the game shows for him).
+
+`diff` lists what differs between two saves of one version, player by player, paired by
+player id: one line per changed field, `player_diff`, with the field, the first save's
+value and the second's; a player in one save alone is `player_only_in`; a player whose look
+is stripped (appearance id -1) in either save is marked `player_stripped`, and the
+appearance id itself is never a line. `--aesthetics` keeps the look's fields alone (boots,
+gloves, base copy, physique, strip, face), `--gameplay` everything else (names, basics,
+abilities, positions, skills, motion). Differences are the output, not errors: the exit
+code is 0. Two saves of different versions are refused.
 
 Each command ends with an exit code scripts can test: 0 when it did its work, 1 when it did
 its work but reported an error, 2 when it was refused before writing anything (a bad argument,
