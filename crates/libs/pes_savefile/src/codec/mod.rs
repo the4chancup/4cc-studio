@@ -69,6 +69,13 @@ pub enum CodecError {
         /// The field past the run's end.
         field: String,
     },
+    /// An ingame-face field was read or written on a run of the other layout
+    /// (a PES 15 hair field on a PES 16 to 21 run, or the reverse).
+    #[error("{field}: not in this version's ingame-face run")]
+    FieldNotInLayout {
+        /// The field the run's layout lacks.
+        field: String,
+    },
     /// An indexed field named an element past its array.
     #[error("{field}: index {index} is out of range")]
     Index {

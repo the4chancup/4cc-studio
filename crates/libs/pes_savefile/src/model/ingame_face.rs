@@ -1,10 +1,19 @@
 //! `IngameFace`: the appearance block's byte-22-to-end run, carried verbatim
-//! as opaque bytes with typed accessors for the known bits
-//! (`schema::ingame_face::INGAME_FACE_FIELDS`).
+//! as bytes, with an accessor for each of its fields
+//! (`schema::ingame_face::INGAME_FACE_FIELDS`); every other bit is
+//! measured unused (`UNUSED_FACE_BITS`).
 
 use crate::codec::{CodecError, bits};
 use crate::schema::FieldSpec;
-use crate::schema::ingame_face::{INGAME_FACE_FIELDS, IngameFaceField};
+use crate::schema::ingame_face::{
+    FaceLayout, INGAME_FACE_FIELDS, IngameFaceField, UNUSED_FACE_BITS,
+};
+
+/// Whether a row whose own layout is `own` (`None`: every version) exists
+/// in `layout`'s run.
+pub(crate) fn in_layout(own: Option<FaceLayout>, layout: FaceLayout) -> bool {
+    own.is_none_or(|own| own == layout)
+}
 
 /// The ingame-face run (50 bytes, 46 on PES 15). `Default` is empty: a fresh
 /// `PlayerEntry` has no run until one is read.
@@ -40,28 +49,49 @@ impl IngameFace {
         (spec.bit_offset + spec.bit_width).div_ceil(8) <= self.0.len() as u32
     }
 
-    /// The field's value inside the run: `CodecError::NoIngameFaceRun` when the
-    /// run does not reach the field (an entry never read from a record), an
-    /// error, not a silent 0, as for an unset gated field.
-    pub fn get(&self, field: IngameFaceField) -> Result<u8, CodecError> {
+    /// The run's layout, from its length: the run carries no version, and
+    /// only PES 15's is 46 bytes long.
+    pub(crate) fn layout(&self) -> FaceLayout {
+        if self.0.len() == 46 {
+            FaceLayout::Pes15
+        } else {
+            FaceLayout::Pes16To21
+        }
+    }
+
+    /// The field's row, if the run holds it: `FieldNotInLayout` for a field
+    /// of the other layout, `NoIngameFaceRun` when the run does not reach it
+    /// (an entry never read from a record has an empty run).
+    fn held(
+        &self,
+        field: IngameFaceField,
+    ) -> Result<&'static FieldSpec<IngameFaceField>, CodecError> {
         let spec = spec(field);
+        if !self.0.is_empty() && !in_layout(field.layout(), self.layout()) {
+            return Err(CodecError::FieldNotInLayout {
+                field: format!("{field:?}"),
+            });
+        }
         if !self.covers(spec) {
             return Err(CodecError::NoIngameFaceRun {
                 field: format!("{field:?}"),
             });
         }
+        Ok(spec)
+    }
+
+    /// The field's value inside the run: `FieldNotInLayout` or
+    /// `NoIngameFaceRun` when the run does not hold it, an error, not a
+    /// silent 0, as for an unset gated field.
+    pub fn get(&self, field: IngameFaceField) -> Result<u8, CodecError> {
+        let spec = self.held(field)?;
         Ok(bits::read_bits(&self.0, spec.bit_offset, spec.bit_width) as u8)
     }
 
-    /// Writes `value` into the field's bits: `CodecError::NoIngameFaceRun` as
-    /// for `get`, `ValueTooWide` when the value does not fit the field's bits.
+    /// Writes `value` into the field's bits: the errors of `get`, and
+    /// `ValueTooWide` when the value does not fit the field's bits.
     pub fn set(&mut self, field: IngameFaceField, value: u8) -> Result<(), CodecError> {
-        let spec = spec(field);
-        if !self.covers(spec) {
-            return Err(CodecError::NoIngameFaceRun {
-                field: format!("{field:?}"),
-            });
-        }
+        let spec = self.held(field)?;
         if u32::from(value) >= (1u32 << spec.bit_width) {
             return Err(CodecError::ValueTooWide {
                 field: format!("{field:?}"),
@@ -76,6 +106,56 @@ impl IngameFace {
             u32::from(value),
         );
         Ok(())
+    }
+
+    /// The nose type and angle. PES 15 codes the angle into the nose field:
+    /// 3 × type + code, the angle -1, 0, 1 coded 1, 0, 2. PES 16 to 21 store
+    /// the type alone, with angle 0.
+    pub fn nose(&self) -> Result<(u8, i8), CodecError> {
+        let raw = self.get(IngameFaceField::NoseType)?;
+        Ok(match self.layout() {
+            FaceLayout::Pes15 => {
+                let angle = match raw % 3 {
+                    0 => 0,
+                    1 => -1,
+                    _ => 1,
+                };
+                (raw / 3, angle)
+            }
+            FaceLayout::Pes16To21 => (raw, 0),
+        })
+    }
+
+    /// `set`'s errors when the run does not hold the nose field, then
+    /// `ValueTooWide` on the nose field for a value past its 6 bits (the
+    /// coded value on PES 15, the type on 16 to 21), an angle outside -1..=1,
+    /// or a non-zero angle on PES 16 to 21 (the angle's magnitude).
+    pub fn set_nose(&mut self, nose_type: u8, angle: i8) -> Result<(), CodecError> {
+        // First, so an empty run reports `NoIngameFaceRun` as every other
+        // accessor does: its length would otherwise read as PES 16 to 21's
+        // layout and refuse a non-zero angle as too wide.
+        self.held(IngameFaceField::NoseType)?;
+        let too_wide = |value: u32| CodecError::ValueTooWide {
+            field: format!("{:?}", IngameFaceField::NoseType),
+            value,
+            width: spec(IngameFaceField::NoseType).bit_width,
+        };
+        let bad_angle = too_wide(u32::from(angle.unsigned_abs()));
+        let raw = match self.layout() {
+            FaceLayout::Pes15 => {
+                let code = match angle {
+                    0 => 0,
+                    -1 => 1,
+                    1 => 2,
+                    _ => return Err(bad_angle),
+                };
+                3 * u32::from(nose_type) + code
+            }
+            FaceLayout::Pes16To21 if angle == 0 => u32::from(nose_type),
+            FaceLayout::Pes16To21 => return Err(bad_angle),
+        };
+        let raw = u8::try_from(raw).map_err(|_| too_wide(raw))?;
+        self.set(IngameFaceField::NoseType, raw)
     }
 
     /// The run's bytes.
@@ -106,19 +186,36 @@ impl IngameFace {
         )
     }
 
-    /// The run with every known field's bits zeroed: the part of the run no
-    /// `IngameFaceField` names, which the comparator reports as one row.
-    pub(crate) fn undecoded(&self) -> Vec<u8> {
-        self.masked(IngameFaceField::ALL.into_iter())
+    /// The run with every field of its layout zeroed: what is left is the
+    /// measured-unused bits (`UNUSED_FACE_BITS`), which the comparator reports
+    /// as one row.
+    pub(crate) fn unused(&self) -> Vec<u8> {
+        let layout = self.layout();
+        self.masked(
+            IngameFaceField::ALL
+                .into_iter()
+                .filter(|field| in_layout(field.layout(), layout)),
+        )
     }
 
-    /// Sets every bit no `IngameFaceField` covers to `source`'s matching bit
-    /// (0 past `source`'s end; `source` bytes past this run's own end are
-    /// dropped). The named bits keep theirs.
-    pub(crate) fn write_undecoded(&mut self, source: &[u8]) {
-        let named = field_mask(self.0.len(), IngameFaceField::ALL.into_iter());
-        for (byte, mask) in named.iter().enumerate() {
-            self.0[byte] = (self.0[byte] & mask) | (source.get(byte).copied().unwrap_or(0) & !mask);
+    /// Writes every `UNUSED_FACE_BITS` row of the run's layout at its value,
+    /// what the games' own editors write.
+    pub(crate) fn write_unused(&mut self) {
+        let layout = self.layout();
+        for row in UNUSED_FACE_BITS
+            .iter()
+            .filter(|row| in_layout(row.layout, layout))
+        {
+            // A run too short for the row (one never read from a record) has
+            // no bits there to write, and `write_bits` would index past it.
+            if (row.bit_offset + row.bit_width).div_ceil(8) as usize <= self.0.len() {
+                bits::write_bits(
+                    &mut self.0,
+                    row.bit_offset,
+                    row.bit_width,
+                    u32::from(row.value),
+                );
+            }
         }
     }
 
@@ -162,28 +259,53 @@ mod tests {
             .collect()
     }
 
+    /// Each layout's fields round-trip on a run of its length; the other
+    /// layout's are `FieldNotInLayout` there.
     #[test]
     fn set_then_get_round_trips_every_field_and_touches_only_its_bits() {
-        for spec in INGAME_FACE_FIELDS {
-            let mut face = IngameFace::from_bytes(run());
-            let before = face.bytes().to_vec();
-            let max = (1u8 << spec.bit_width) - 1;
-            face.set(spec.field, max).expect("the max fits");
+        for (layout, len) in [(FaceLayout::Pes15, 46), (FaceLayout::Pes16To21, 50)] {
+            for spec in INGAME_FACE_FIELDS {
+                let mut face = IngameFace::from_bytes(run()[..len].to_vec());
+                assert_eq!(face.layout(), layout);
+                if in_layout(spec.field.layout(), layout) {
+                    round_trips(&mut face, spec);
+                } else {
+                    let refused =
+                        |result| matches!(result, Err(CodecError::FieldNotInLayout { .. }));
+                    assert!(
+                        refused(face.get(spec.field).map(|_| ())),
+                        "{:?}",
+                        spec.field
+                    );
+                    assert!(refused(face.set(spec.field, 0)), "{:?}", spec.field);
+                }
+            }
+        }
+    }
+
+    /// `spec`'s widest value round-trips, touches only its bits, and one
+    /// past it is `ValueTooWide`.
+    fn round_trips(face: &mut IngameFace, spec: &FieldSpec<IngameFaceField>) {
+        let before = face.bytes().to_vec();
+        let max = u8::MAX >> (8 - spec.bit_width);
+        face.set(spec.field, max).expect("the max fits");
+        assert_eq!(
+            face.get(spec.field).expect("covered"),
+            max,
+            "{:?}",
+            spec.field
+        );
+        for (byte, (&after, &was)) in face.bytes().iter().zip(&before).enumerate() {
+            let keep = !covered(spec, byte);
             assert_eq!(
-                face.get(spec.field).expect("covered"),
-                max,
-                "{:?}",
+                after & keep,
+                was & keep,
+                "{:?} changed bits outside its run in byte {byte}",
                 spec.field
             );
-            for (byte, (&after, &was)) in face.bytes().iter().zip(&before).enumerate() {
-                let keep = !covered(spec, byte);
-                assert_eq!(
-                    after & keep,
-                    was & keep,
-                    "{:?} changed bits outside its run in byte {byte}",
-                    spec.field
-                );
-            }
+        }
+        // An 8-bit field holds every `u8`: nothing is one past it.
+        if spec.bit_width < 8 {
             assert!(matches!(
                 face.set(spec.field, max + 1),
                 Err(CodecError::ValueTooWide { .. })

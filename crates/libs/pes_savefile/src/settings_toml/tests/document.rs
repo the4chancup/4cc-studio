@@ -68,22 +68,97 @@ goal_celebration_1 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
 goal_celebration_2 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
 
 [appearance.face]
-cheek_type = 0                  # 0 to 3
-forehead_type = 0               # 0 to 5
-facial_hair_type = 0            # 0 to 12 (PES 20 and 21: 0 to 19)
-laughter_lines_type = 0         # 0 to 4
-upper_eyelid_type = 0           # 0 to 6 (PES 20 and 21: 0 to 7)
-lower_eyelid_type = 0           # 0 to 2 (PES 20 and 21: 0 to 6)
-eyebrow_type = 0                # 0 to 5 (PES 20 and 21: 0 to 7)
-neck_line_type = 0              # 0 to 2 (PES 20 and 21: 0 to 3)
-nose_type = 0                   # 0 to 6 (PES 20 and 21: 0 to 7)
-upper_lip_type = 0              # 0 to 3 (PES 20 and 21: 0 to 4)
-lower_lip_type = 0              # 0 to 2 (PES 20 and 21: 0 to 4)
+jawline = 0                     # -7 to 7
+jaw_height = 0                  # -7 to 7
+cheekbones = 0                  # -7 to 7
+cheekbone_height = 0            # -7 to 7 (PES 16 to 21: no editor slider)
+chin_width = 0                  # -7 to 7
+chin_height = 0                 # -7 to 7
+chin_depth = 0                  # -7 to 7
+face_size = 0                   # -7 to 7
+face_height = 0                 # -7 to 7
+brow_width = 0                  # -7 to 7
+inner_eyebrow_height = 0        # -7 to 7
+eyebrow_depth = 0               # -7 to 7
+temple_width = 0                # -7 to 7
+outer_eyebrow_height = 0        # -7 to 7
+pupil_size = 0                  # -7 to 7
+eye_depth = 0                   # -7 to 7
+inner_eye_position = 0          # -7 to 7
+inner_eye_height = 0            # -7 to 7
+outer_eye_position = 0          # -7 to 7
+eye_corner_height = 0           # -7 to 7
+upper_eyelid_width_inner = 0    # -7 to 7
+upper_eyelid_height_inner = 0   # -7 to 7
+upper_eyelid_width_outer = 0    # -7 to 7
+upper_eyelid_height_outer = 0   # -7 to 7
+bottom_eyelid_height = 0        # -7 to 7
+horizontal_eye_position = 0     # -7 to 7
+eye_height = 0                  # -7 to 7
+nose_height = 0                 # -7 to 7
+nose_tip_depth = 0              # -7 to 7
+nostril_width = 0               # -7 to 7
+nose_depth = 0                  # -7 to 7
+nose_width = 0                  # -7 to 7
+mouth_height = 0                # -7 to 7
+mouth_depth = 0                 # -7 to 7
+lip_size = 0                    # -7 to 7
+mouth_corner_height = 0         # -7 to 7
+lip_width = 0                   # -7 to 7
+ear_length = 0                  # -7 to 7
+ear_width = 0                   # -7 to 7
+ear_angle = 0                   # -7 to 7
+pes15_jaw_depth = 0             # -7 to 7, drawn by PES 15 only
+pes15_cheekbone_depth = 0       # -7 to 7, drawn by PES 15 only
+pes15_mouth_edge_position = 0   # -7 to 7, drawn by PES 15 only
+pes15_eyebrow_depth = 0         # -7 to 7, drawn by PES 15 only
+pes15_bottom_eyelid_position = 0 # -7 to 7, drawn by PES 15 only
+pes15_nasal_bridge_position = 0 # -7 to 7, drawn by PES 15 only
+pes15_nasal_root_height = 0     # -7 to 7, drawn by PES 15 only
+cheek_type = 0                  # 0 to 3 (PES 15: 0 to 14)
+forehead_type = 0               # 0 to 5 (PES 15: 0 to 6)
+facial_hair_type = 0            # 0 to 12 (PES 15: 0 to 29; PES 20 and 21: 0 to 19)
+laughter_lines_type = 0         # 0 to 4 (PES 15: 0 to 6)
+upper_eyelid_type = 0           # 0 to 6 (PES 15: 0 to 14; PES 20 and 21: 0 to 7)
+lower_eyelid_type = 0           # 0 to 2 (PES 15: 0 to 14; PES 20 and 21: 0 to 6)
+eyebrow_type = 0                # 0 to 5 (PES 15: 0 to 17; PES 20 and 21: 0 to 7)
+neck_line_type = 0              # 0 to 2 (PES 15: 0 to 5; PES 20 and 21: 0 to 3)
+nose_type = 0                   # 0 to 6 (PES 15: 0 to 11; PES 20 and 21: 0 to 7)
+pes15_nose_angle = 0            # -1 to 1; PES 15 only
+upper_lip_type = 0              # 0 to 3 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)
+lower_lip_type = 0              # 0 to 2 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)
+eyebrow_color_red = 14          # 0 to 63
+eyebrow_color_green = 10        # 0 to 63
+eyebrow_color_blue = 7          # 0 to 63
+eyebrow_style = 0               # 0 normal, 1 thick, 2 thin
+eyebrow_density = 3             # 0 to 3
+eyebrow_thickness = 1           # 0 to 3
+facial_hair_color_red = 14      # 0 to 63
+facial_hair_color_green = 10    # 0 to 63
+facial_hair_color_blue = 7      # 0 to 63
+facial_hair_thickness = 3       # 0 to 3
+pes15_eye_white = 0             # 0 to 3, brighter eye whites, drawn by PES 15 only
 
-# The in-game face's bits no tool has decoded yet (hair, face sliders, ...), kept so a
-# player's look survives. Leave them as generated.
-[appearance.unknown]
-face = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+[appearance.hair]
+color_red = 14                  # 0 to 63
+color_green = 10                # 0 to 63
+color_blue = 7                  # 0 to 63
+color_preset = 0                # 0 custom (the colour above), 1 to 8 the editor's presets
+accessory = false               # true, false (PES 15: the game sets it with the variation)
+accessory_color = 0             # 0 white, 1 dark grey, 2 red, 3 blue, 4 yellow, 5 green, 6 magenta, 7 cyan
+style = 1                       # 1 normal, 2 dry, 3 mohican, 4 afro, 5 dreadlocks, 6 braided, 7 special, 0 in some saves; PES 16 to 21
+cropped_style = 1               # 1 to 6, 0 in some saves; PES 16 to 21
+length = 2                      # 1 shaven, 2 very short, 3 short, 4 medium, 5 long, 0 in some saves; PES 16 to 21
+wave_level = 0                  # 0 to 6, -1 in some saves; PES 16 to 21
+variation = 0                   # 0 to 29; PES 16 to 21
+front_style = 1                 # 1 up, 2 down, 3 combed back, 0 in some saves; PES 16 to 21
+parted = 1                      # 1 off, 2 left 2, 3 left 1, 4 centre, 5 right 1, 6 right 2, 0 in some saves; PES 16 to 21
+side_back_style = 4             # 1 normal, 2 reduce body, 3 shorter sides, 4 cropped, 0 in some saves; PES 16 to 21
+hairline = 1                    # 1 to 3, 0 in some saves; PES 16 to 21
+forehead_width = 2              # 1 narrow, 2 normal, 3 wide, 0 in some saves; PES 16 to 21
+pes15_length = 2                # 1 skinhead, 2 very short, 3 short, 4 medium, 5 long, 6 special; PES 15 only
+pes15_type = 1                  # 0 none (skinhead, special), 1 straight, 2 wavy, 3 permed, 4 dreadlocks; PES 15 only
+pes15_variation = 1             # 1 to 82, the editor's grid position (each length and type has its own grid); PES 15 only
 "#;
 
 #[test]
@@ -233,110 +308,146 @@ fn to_toml_round_trips_a_real_player_through_text() {
     }
 }
 
-/// `face` is the run's hex: 46 or 50 bytes. A wrong byte count, an odd
-/// digit count or a non-hex char is `WrongType`; another key in the table
-/// is `UnknownKey`.
+/// `[appearance.unknown]` left the format once every bit of the run was a
+/// key or measured unused: it is an unknown table like any other.
 #[test]
-fn appearance_unknown_parses_only_a_46_or_50_byte_hex_face() {
-    for (text, why) in [
-        // 49 bytes: one short of the 50-byte form.
+fn appearance_unknown_is_an_unknown_table() {
+    let err = PlayerSettings::parse(&format!(
+        "[appearance.unknown]\nface = \"{}\"\n",
+        "0".repeat(100)
+    ))
+    .expect_err("a retired table");
+    assert!(
+        matches!(err, SettingsError::UnknownKey { ref key } if key == "appearance.unknown"),
+        "{err:?}"
+    );
+}
+
+/// The three kinds the face run brought: a signed angle stored plus 1, the
+/// wave level stored plus 1, the colour preset through its map; each
+/// emitted back as written, each refused past its range.
+#[test]
+fn the_face_runs_kinds_convert_both_ways() {
+    let text = "[appearance.face]\npes15_nose_angle = -1\n\n\
+                [appearance.hair]\ncolor_preset = 1\nwave_level = 0\n";
+    let settings = PlayerSettings::parse(text).expect("parses");
+    assert_eq!(settings.get(SettingKey::Pes15NoseAngle), Some(0));
+    assert_eq!(
+        settings.get(SettingKey::HairColorPreset),
+        Some(5),
+        "the map's index 1"
+    );
+    assert_eq!(settings.get(SettingKey::HairWaveLevel), Some(1));
+    // Every editor preset and the id the game stores for it (measured in
+    // the games), both ways.
+    for (index, id) in [0u8, 5, 6, 7, 1, 3, 2, 8, 4].into_iter().enumerate() {
+        let text = format!("[appearance.hair]\ncolor_preset = {index}\n");
+        let preset = PlayerSettings::parse(&text).expect("parses");
+        assert_eq!(preset.get(SettingKey::HairColorPreset), Some(id), "{text}");
+        let emitted = preset.to_toml().expect("emits");
+        assert!(
+            emitted.contains(&format!("\ncolor_preset = {index} ")),
+            "{text}{emitted}"
+        );
+    }
+    let emitted = settings.to_toml().expect("emits");
+    for line in [
+        "pes15_nose_angle = -1",
+        "color_preset = 1",
+        "wave_level = 0",
+    ] {
+        assert!(
+            emitted.lines().any(|l| l.starts_with(line)),
+            "{line} in {emitted}"
+        );
+    }
+    for (text, key, range) in [
         (
-            format!("[appearance.unknown]\nface = \"{}\"\n", "0".repeat(98)),
-            "49 bytes",
+            "[appearance.face]\npes15_nose_angle = 2\n",
+            "appearance.face.pes15_nose_angle",
+            "-1 to 1",
         ),
-        // An odd digit count cannot be bytes at all.
         (
-            "[appearance.unknown]\nface = \"012\"\n".to_string(),
-            "an odd digit count",
+            "[appearance.hair]\ncolor_preset = 9\n",
+            "appearance.hair.color_preset",
+            "0 to 8",
         ),
-        // 50 bytes with a non-hex char.
         (
-            format!("[appearance.unknown]\nface = \"z{}\"\n", "0".repeat(99)),
-            "a non-hex char",
+            "[appearance.hair]\nwave_level = 7\n",
+            "appearance.hair.wave_level",
+            "-1 to 6",
+        ),
+        (
+            "[appearance.hair]\nwave_level = -2\n",
+            "appearance.hair.wave_level",
+            "-1 to 6",
         ),
     ] {
+        match PlayerSettings::parse(text) {
+            Err(SettingsError::OutOfRange {
+                key: k, range: r, ..
+            }) => {
+                assert_eq!((k.as_str(), r.as_str()), (key, range), "{text}");
+            }
+            other => panic!("{text}: expected OutOfRange, got {other:?}"),
+        }
+    }
+}
+
+/// The hair keys' ranges, copied from the plan's `[appearance.hair]`
+/// template block: each key's maximum parses, one past it is `OutOfRange`
+/// with the plan's range, and so is one below a range that starts at 1.
+/// (`wave_level` and `color_preset` are pinned above.)
+#[test]
+fn the_hair_keys_ranges_are_the_plans() {
+    let out_of_range = |key: &str, value: i64, range: &str| {
+        let text = format!("[appearance.hair]\n{key} = {value}\n");
         match PlayerSettings::parse(&text) {
-            Err(SettingsError::WrongType { key, expected }) => assert_eq!(
-                (key.as_str(), expected),
-                ("appearance.unknown.face", "a hex string of 46 or 50 bytes"),
-                "{why}"
+            Err(SettingsError::OutOfRange {
+                key: k, range: r, ..
+            }) => assert_eq!(
+                (k.as_str(), r.as_str()),
+                (format!("appearance.hair.{key}").as_str(), range),
+                "{text}"
             ),
-            other => panic!("{why}: expected WrongType, got {other:?}"),
+            other => panic!("{text}: expected OutOfRange, got {other:?}"),
+        }
+    };
+    for (key, min, max) in [
+        ("color_red", 0, 63),
+        ("color_green", 0, 63),
+        ("color_blue", 0, 63),
+        ("accessory_color", 0, 7),
+        ("style", 0, 7),
+        ("cropped_style", 0, 6),
+        ("length", 0, 5),
+        ("variation", 0, 29),
+        ("front_style", 0, 3),
+        ("parted", 0, 6),
+        ("side_back_style", 0, 4),
+        ("hairline", 0, 3),
+        ("forehead_width", 0, 3),
+        ("pes15_length", 1, 6),
+        ("pes15_type", 0, 4),
+        ("pes15_variation", 1, 82),
+    ] {
+        let range = format!("{min} to {max}");
+        PlayerSettings::parse(&format!("[appearance.hair]\n{key} = {max}\n"))
+            .unwrap_or_else(|e| panic!("{key} = {max}: {e}"));
+        out_of_range(key, max + 1, &range);
+        if min == 1 {
+            out_of_range(key, 0, &range);
         }
     }
-    match PlayerSettings::parse(&format!(
-        "[appearance.unknown]\nface = \"{}\"\nother = 1\n",
-        "0".repeat(100)
-    )) {
-        Err(SettingsError::UnknownKey { key }) => {
-            assert_eq!(key, "appearance.unknown.other")
-        }
-        other => panic!("expected UnknownKey, got {other:?}"),
-    }
-}
-
-/// An `[appearance.unknown]` table present but holding no `face` parses
-/// as unset, like an absent key.
-#[test]
-fn an_appearance_unknown_table_without_face_parses_as_none() {
-    let settings = PlayerSettings::parse("[appearance.unknown]\n").expect("parses");
-    assert_eq!(settings.appearance.unknown.face, None);
-}
-
-/// `update_toml` sets `face`, creating `[appearance.unknown]` when the
-/// document lacks it, as it does for the other tables.
-#[test]
-fn update_toml_writes_face_creating_the_table() {
-    let mut document: DocumentMut = "[appearance]\nskin_color = 1\n"
-        .parse()
-        .expect("document parses");
-    let mut settings = PlayerSettings::default();
-    settings.appearance.unknown.face = Some(vec![0xAB; 50]);
-    settings.update_toml(&mut document).expect("update");
-    let text = document.to_string();
-    assert!(
-        text.contains(&format!(
-            "[appearance.unknown]\nface = \"{}\"",
-            "ab".repeat(50)
-        )),
-        "{text}"
-    );
-    assert_eq!(
-        PlayerSettings::parse(&text)
-            .expect("the updated document parses")
-            .appearance
-            .unknown
-            .face,
-        Some(vec![0xAB; 50])
-    );
-}
-
-/// A settings whose `face` is `None` leaves an existing document's
-/// `face` line alone: an editor rewriting a file keeps the table.
-#[test]
-fn update_toml_with_no_face_keeps_the_documents_line() {
-    let hex = "ab".repeat(50);
-    let mut document: DocumentMut = format!("[appearance.unknown]\nface = \"{hex}\"   # keep me\n")
-        .parse()
-        .expect("document parses");
-    let mut settings = PlayerSettings::default();
-    settings.set(SettingKey::Sleeves, 2).expect("in range");
-    settings.update_toml(&mut document).expect("update");
-    assert_eq!(
-        document.to_string(),
-        format!(
-            "[appearance.unknown]\nface = \"{hex}\"   # keep me\n\n[appearance.strip]\nsleeves = \"long\"\n"
-        )
-    );
 }
 
 #[test]
 fn parse_reports_the_first_error_with_its_key() {
     let cases: [(&str, SettingsError); 13] = [
         (
-            "appearance.hair = 1",
+            "appearance.beard = 1",
             SettingsError::UnknownKey {
-                key: "appearance.hair".to_string(),
+                key: "appearance.beard".to_string(),
             },
         ),
         // Height and weight left the key table: the record fields they were
@@ -729,8 +840,12 @@ fn an_explicit_name_with_nul_is_refused() {
 fn accepts_stored_bounds_each_kind() {
     for (kind, accepted, refused) in [
         (Kind::Number { min: 0, max: 7 }, 7, 8),
-        (Kind::Signed7, 14, 15),
+        (Kind::Signed { limit: 7 }, 14, 15),
+        (Kind::Signed { limit: 1 }, 2, 3),
         (Kind::OneBased { max: 5 }, 4, 5),
+        (Kind::PlusOne { max: 6 }, 7, 8),
+        (Kind::PlusOne { max: 6 }, 0, 8),
+        (Kind::Mapped(&[0, 5, 6, 7, 1, 3, 2, 8, 4]), 8, 9),
         (Kind::Bool, 1, 2),
         (Kind::Labels(&["a", "b"]), 1, 2),
     ] {

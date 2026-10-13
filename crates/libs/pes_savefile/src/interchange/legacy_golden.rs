@@ -17,7 +17,7 @@ use crate::model::player::PlayerEntry;
 use crate::model::team::TeamEntry;
 use crate::schema::playstyle;
 use crate::settings_toml::keys::SettingKey;
-use crate::settings_toml::{FaceSettings, get_appearance};
+use crate::settings_toml::{FaceSettings, HairSettings, get_appearance};
 use crate::test_support::open;
 
 const SQUAD: &[u8] = include_bytes!("../../tests/fixtures/pes19_squad.4ccs");
@@ -289,8 +289,9 @@ fn read_squad_decodes_the_struct_dump() {
         assert_eq!(p.appearance.iris_color, Some(s.iris));
         assert_eq!(p.appearance.physique.neck_length, Some(7));
         assert_eq!(p.height, Some(s.height));
-        assert!(
-            p.appearance.unknown.face.is_none(),
+        assert_eq!(
+            p.appearance.hair,
+            HairSettings::default(),
             "the legacy record has no ingame-face run"
         );
         // Fields PES 19 lacks are absent whatever the bytes say.
@@ -514,8 +515,9 @@ fn read_squad_decodes_every_record_and_every_mapped_field() {
             *set = rec[75 + k] != 0;
         }
         assert_eq!(p.skills.com_styles, Some(com), "[{i}] com styles");
-        assert!(
-            p.appearance.unknown.face.is_none(),
+        assert_eq!(
+            p.appearance.hair,
+            HairSettings::default(),
             "[{i}] no ingame-face run"
         );
     }
@@ -591,10 +593,10 @@ fn each_versions_4ccs_equals_the_codec_read_of_its_team() {
         let doc = read_squad(bytes, team, players).expect("the .4ccs decodes");
         let pool: Vec<&PlayerEntry> = players.iter().collect();
         let mut ours = TeamToml::from_team(version, team, &pool).expect("the codec dumps the team");
-        // The record carries no ingame-face run and no face-type keys.
+        // The record carries no ingame-face run: no face or hair keys.
         for section in ours.players.values_mut() {
-            section.appearance.unknown.face = None;
             section.appearance.face = FaceSettings::default();
+            section.appearance.hair = HairSettings::default();
         }
         assert_eq!(doc.players.len(), 23, "{version:?}");
         assert_eq!(doc.players, ours.players, "{version:?}");

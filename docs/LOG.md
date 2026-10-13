@@ -1884,3 +1884,8 @@ worklog passed 7,000 lines.
 - **2026-10-13** — Step 5.0l: every bit of the ingame-face run named by in-game measurement (PES 21
   and 15 whole, renders on 17 and 19): two layout families, PES 15's caps, `[appearance.unknown]`
   to go; plan and five decisions written, the code is 5.0m.
+- **2026-10-13** — Step 5.0j7: the team compiler's pipeline, settings, messages, blue port and
+  testing specs read against the CLI as built; GUI, savefile and Refs arranger clauses moved to
+  the plans.
+- **2026-10-13** — Step 5.0m1: every bit of the ingame-face run is a field in one of two layouts
+  or a measured-unused row, every field a `settings.toml` key; `[appearance.unknown]` is gone.

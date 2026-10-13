@@ -21,11 +21,10 @@ use document::{dotted, range_text};
 use keys::Source;
 
 use crate::codec::{CodecError, TextMisfit, text_max, text_misfit};
+use crate::model::ingame_face::in_layout;
 use crate::model::player::PlayerEntry;
-#[cfg(test)]
-use crate::schema::fields::PlayerField;
-use crate::schema::fields::PlayerText;
-use crate::schema::ingame_face::IngameFaceField;
+use crate::schema::fields::{PlayerField, PlayerText};
+use crate::schema::ingame_face::{FaceLayout, IngameFaceField};
 use crate::schema::schema_for;
 
 pub use keys::{KeySpec, KeyTable, Kind, SettingKey};
@@ -62,8 +61,8 @@ pub struct AppearanceSettings {
     pub motion: MotionSettings,
     /// `[appearance.face]`.
     pub face: FaceSettings,
-    /// `[appearance.unknown]`.
-    pub unknown: UnknownSettings,
+    /// `[appearance.hair]`.
+    pub hair: HairSettings,
 }
 
 /// The `[appearance.physique]` table.
@@ -155,22 +154,10 @@ pub struct MotionSettings {
     pub goal_celebration_2: Option<u8>,
 }
 
-/// The `[appearance.unknown]` table: the appearance block's undecoded bits
-/// as raw bytes, so a generated file carries a player's whole look (hair,
-/// face sliders and every colour beyond skin and iris included).
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct UnknownSettings {
-    /// The ingame-face run's bytes in record order, the bits a named key
-    /// carries written as 0 (46 bytes for a PES 15 player, 50 otherwise).
-    /// `PlayerSettings::apply` writes its undecoded bits as far as the
-    /// target's run reaches, 0 past its own end and all 0 for `None`; Team
-    /// TOML's import writes them only as far as both runs reach and leaves
-    /// them untouched for `None`.
-    pub face: Option<Vec<u8>>,
-}
-
-/// The `[appearance.face]` table: the eleven feature types of the
-/// ingame-face run.
+/// The `[appearance.face]` table: the face of the ingame-face run, its
+/// feature types, sliders, eyebrows and facial hair (stored values). The
+/// `pes15_` sliders and `pes15_eye_white` are stored on every version and
+/// drawn by PES 15 alone; `pes15_nose_angle` is skipped on PES 16 to 21.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct FaceSettings {
     /// Cheek type.
@@ -195,6 +182,169 @@ pub struct FaceSettings {
     pub upper_lip_type: Option<u8>,
     /// Lower lip type.
     pub lower_lip_type: Option<u8>,
+    /// Jawline, stored.
+    pub jawline: Option<u8>,
+    /// Jaw height, stored.
+    pub jaw_height: Option<u8>,
+    /// Cheekbones, stored.
+    pub cheekbones: Option<u8>,
+    /// Cheekbone height, stored.
+    pub cheekbone_height: Option<u8>,
+    /// Chin width, stored.
+    pub chin_width: Option<u8>,
+    /// Chin height, stored.
+    pub chin_height: Option<u8>,
+    /// Chin depth, stored.
+    pub chin_depth: Option<u8>,
+    /// Face size, stored.
+    pub face_size: Option<u8>,
+    /// Face height, stored.
+    pub face_height: Option<u8>,
+    /// Brow width, stored.
+    pub brow_width: Option<u8>,
+    /// Inner eyebrow height, stored.
+    pub inner_eyebrow_height: Option<u8>,
+    /// Eyebrow depth, stored.
+    pub eyebrow_depth: Option<u8>,
+    /// Temple width, stored.
+    pub temple_width: Option<u8>,
+    /// Outer eyebrow height, stored.
+    pub outer_eyebrow_height: Option<u8>,
+    /// Pupil size, stored.
+    pub pupil_size: Option<u8>,
+    /// Eye depth, stored.
+    pub eye_depth: Option<u8>,
+    /// Inner eye position, stored.
+    pub inner_eye_position: Option<u8>,
+    /// Inner eye height, stored.
+    pub inner_eye_height: Option<u8>,
+    /// Outer eye position, stored.
+    pub outer_eye_position: Option<u8>,
+    /// Eye corner height, stored.
+    pub eye_corner_height: Option<u8>,
+    /// Upper eyelid width inner, stored.
+    pub upper_eyelid_width_inner: Option<u8>,
+    /// Upper eyelid height inner, stored.
+    pub upper_eyelid_height_inner: Option<u8>,
+    /// Upper eyelid width outer, stored.
+    pub upper_eyelid_width_outer: Option<u8>,
+    /// Upper eyelid height outer, stored.
+    pub upper_eyelid_height_outer: Option<u8>,
+    /// Bottom eyelid height, stored.
+    pub bottom_eyelid_height: Option<u8>,
+    /// Horizontal eye position, stored.
+    pub horizontal_eye_position: Option<u8>,
+    /// Eye height, stored.
+    pub eye_height: Option<u8>,
+    /// Nose height, stored.
+    pub nose_height: Option<u8>,
+    /// Nose tip depth, stored.
+    pub nose_tip_depth: Option<u8>,
+    /// Nostril width, stored.
+    pub nostril_width: Option<u8>,
+    /// Nose depth, stored.
+    pub nose_depth: Option<u8>,
+    /// Nose width, stored.
+    pub nose_width: Option<u8>,
+    /// Mouth height, stored.
+    pub mouth_height: Option<u8>,
+    /// Mouth depth, stored.
+    pub mouth_depth: Option<u8>,
+    /// Lip size, stored.
+    pub lip_size: Option<u8>,
+    /// Mouth corner height, stored.
+    pub mouth_corner_height: Option<u8>,
+    /// Lip width, stored.
+    pub lip_width: Option<u8>,
+    /// Ear length, stored.
+    pub ear_length: Option<u8>,
+    /// Ear width, stored.
+    pub ear_width: Option<u8>,
+    /// Ear angle, stored.
+    pub ear_angle: Option<u8>,
+    /// Pes 15 jaw depth, stored.
+    pub pes15_jaw_depth: Option<u8>,
+    /// Pes 15 cheekbone depth, stored.
+    pub pes15_cheekbone_depth: Option<u8>,
+    /// Pes 15 mouth edge position, stored.
+    pub pes15_mouth_edge_position: Option<u8>,
+    /// Pes 15 eyebrow depth, stored.
+    pub pes15_eyebrow_depth: Option<u8>,
+    /// Pes 15 bottom eyelid position, stored.
+    pub pes15_bottom_eyelid_position: Option<u8>,
+    /// Pes 15 nasal bridge position, stored.
+    pub pes15_nasal_bridge_position: Option<u8>,
+    /// Pes 15 nasal root height, stored.
+    pub pes15_nasal_root_height: Option<u8>,
+    /// Pes 15 nose angle, stored.
+    pub pes15_nose_angle: Option<u8>,
+    /// Eyebrow color red, stored.
+    pub eyebrow_color_red: Option<u8>,
+    /// Eyebrow color green, stored.
+    pub eyebrow_color_green: Option<u8>,
+    /// Eyebrow color blue, stored.
+    pub eyebrow_color_blue: Option<u8>,
+    /// Eyebrow style, stored.
+    pub eyebrow_style: Option<u8>,
+    /// Eyebrow density, stored.
+    pub eyebrow_density: Option<u8>,
+    /// Eyebrow thickness, stored.
+    pub eyebrow_thickness: Option<u8>,
+    /// Facial hair color red, stored.
+    pub facial_hair_color_red: Option<u8>,
+    /// Facial hair color green, stored.
+    pub facial_hair_color_green: Option<u8>,
+    /// Facial hair color blue, stored.
+    pub facial_hair_color_blue: Option<u8>,
+    /// Facial hair thickness, stored.
+    pub facial_hair_thickness: Option<u8>,
+    /// Pes 15 eye white, stored.
+    pub pes15_eye_white: Option<u8>,
+}
+
+/// The `[appearance.hair]` table: the in-game hair of the ingame-face run
+/// (stored values; the PES 16 to 21 keys and the `pes15_` ones are skipped on
+/// the other layout).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct HairSettings {
+    /// Color red, stored.
+    pub color_red: Option<u8>,
+    /// Color green, stored.
+    pub color_green: Option<u8>,
+    /// Color blue, stored.
+    pub color_blue: Option<u8>,
+    /// Color preset, stored.
+    pub color_preset: Option<u8>,
+    /// Hair accessory worn.
+    pub accessory: Option<bool>,
+    /// Accessory color, stored.
+    pub accessory_color: Option<u8>,
+    /// Style, stored.
+    pub style: Option<u8>,
+    /// Cropped style, stored.
+    pub cropped_style: Option<u8>,
+    /// Length, stored.
+    pub length: Option<u8>,
+    /// Wave level, stored.
+    pub wave_level: Option<u8>,
+    /// Variation, stored.
+    pub variation: Option<u8>,
+    /// Front style, stored.
+    pub front_style: Option<u8>,
+    /// Parted, stored.
+    pub parted: Option<u8>,
+    /// Side back style, stored.
+    pub side_back_style: Option<u8>,
+    /// Hairline, stored.
+    pub hairline: Option<u8>,
+    /// Forehead width, stored.
+    pub forehead_width: Option<u8>,
+    /// Pes 15 length, stored.
+    pub pes15_length: Option<u8>,
+    /// Pes 15 type, stored.
+    pub pes15_type: Option<u8>,
+    /// Pes 15 variation, stored.
+    pub pes15_variation: Option<u8>,
 }
 
 /// A settings.toml's player: the two names, the two stock-model IDs and the
@@ -348,6 +498,84 @@ pub(crate) fn get_appearance(appearance: &AppearanceSettings, key: SettingKey) -
         SettingKey::NoseType => a.face.nose_type,
         SettingKey::UpperLipType => a.face.upper_lip_type,
         SettingKey::LowerLipType => a.face.lower_lip_type,
+        SettingKey::Jawline => a.face.jawline,
+        SettingKey::JawHeight => a.face.jaw_height,
+        SettingKey::Cheekbones => a.face.cheekbones,
+        SettingKey::CheekboneHeight => a.face.cheekbone_height,
+        SettingKey::ChinWidth => a.face.chin_width,
+        SettingKey::ChinHeight => a.face.chin_height,
+        SettingKey::ChinDepth => a.face.chin_depth,
+        SettingKey::FaceSize => a.face.face_size,
+        SettingKey::FaceHeight => a.face.face_height,
+        SettingKey::BrowWidth => a.face.brow_width,
+        SettingKey::InnerEyebrowHeight => a.face.inner_eyebrow_height,
+        SettingKey::EyebrowDepth => a.face.eyebrow_depth,
+        SettingKey::TempleWidth => a.face.temple_width,
+        SettingKey::OuterEyebrowHeight => a.face.outer_eyebrow_height,
+        SettingKey::PupilSize => a.face.pupil_size,
+        SettingKey::EyeDepth => a.face.eye_depth,
+        SettingKey::InnerEyePosition => a.face.inner_eye_position,
+        SettingKey::InnerEyeHeight => a.face.inner_eye_height,
+        SettingKey::OuterEyePosition => a.face.outer_eye_position,
+        SettingKey::EyeCornerHeight => a.face.eye_corner_height,
+        SettingKey::UpperEyelidWidthInner => a.face.upper_eyelid_width_inner,
+        SettingKey::UpperEyelidHeightInner => a.face.upper_eyelid_height_inner,
+        SettingKey::UpperEyelidWidthOuter => a.face.upper_eyelid_width_outer,
+        SettingKey::UpperEyelidHeightOuter => a.face.upper_eyelid_height_outer,
+        SettingKey::BottomEyelidHeight => a.face.bottom_eyelid_height,
+        SettingKey::HorizontalEyePosition => a.face.horizontal_eye_position,
+        SettingKey::EyeHeight => a.face.eye_height,
+        SettingKey::NoseHeight => a.face.nose_height,
+        SettingKey::NoseTipDepth => a.face.nose_tip_depth,
+        SettingKey::NostrilWidth => a.face.nostril_width,
+        SettingKey::NoseDepth => a.face.nose_depth,
+        SettingKey::NoseWidth => a.face.nose_width,
+        SettingKey::MouthHeight => a.face.mouth_height,
+        SettingKey::MouthDepth => a.face.mouth_depth,
+        SettingKey::LipSize => a.face.lip_size,
+        SettingKey::MouthCornerHeight => a.face.mouth_corner_height,
+        SettingKey::LipWidth => a.face.lip_width,
+        SettingKey::EarLength => a.face.ear_length,
+        SettingKey::EarWidth => a.face.ear_width,
+        SettingKey::EarAngle => a.face.ear_angle,
+        SettingKey::Pes15JawDepth => a.face.pes15_jaw_depth,
+        SettingKey::Pes15CheekboneDepth => a.face.pes15_cheekbone_depth,
+        SettingKey::Pes15MouthEdgePosition => a.face.pes15_mouth_edge_position,
+        SettingKey::Pes15EyebrowDepth => a.face.pes15_eyebrow_depth,
+        SettingKey::Pes15BottomEyelidPosition => a.face.pes15_bottom_eyelid_position,
+        SettingKey::Pes15NasalBridgePosition => a.face.pes15_nasal_bridge_position,
+        SettingKey::Pes15NasalRootHeight => a.face.pes15_nasal_root_height,
+        SettingKey::Pes15NoseAngle => a.face.pes15_nose_angle,
+        SettingKey::EyebrowColorRed => a.face.eyebrow_color_red,
+        SettingKey::EyebrowColorGreen => a.face.eyebrow_color_green,
+        SettingKey::EyebrowColorBlue => a.face.eyebrow_color_blue,
+        SettingKey::EyebrowStyle => a.face.eyebrow_style,
+        SettingKey::EyebrowDensity => a.face.eyebrow_density,
+        SettingKey::EyebrowThickness => a.face.eyebrow_thickness,
+        SettingKey::FacialHairColorRed => a.face.facial_hair_color_red,
+        SettingKey::FacialHairColorGreen => a.face.facial_hair_color_green,
+        SettingKey::FacialHairColorBlue => a.face.facial_hair_color_blue,
+        SettingKey::FacialHairThickness => a.face.facial_hair_thickness,
+        SettingKey::Pes15EyeWhite => a.face.pes15_eye_white,
+        SettingKey::HairColorRed => a.hair.color_red,
+        SettingKey::HairColorGreen => a.hair.color_green,
+        SettingKey::HairColorBlue => a.hair.color_blue,
+        SettingKey::HairColorPreset => a.hair.color_preset,
+        SettingKey::HairAccessory => a.hair.accessory.map(u8::from),
+        SettingKey::HairAccessoryColor => a.hair.accessory_color,
+        SettingKey::HairStyle => a.hair.style,
+        SettingKey::HairCroppedStyle => a.hair.cropped_style,
+        SettingKey::HairLength => a.hair.length,
+        SettingKey::HairWaveLevel => a.hair.wave_level,
+        SettingKey::HairVariation => a.hair.variation,
+        SettingKey::HairFrontStyle => a.hair.front_style,
+        SettingKey::HairParted => a.hair.parted,
+        SettingKey::HairSideBackStyle => a.hair.side_back_style,
+        SettingKey::Hairline => a.hair.hairline,
+        SettingKey::HairForeheadWidth => a.hair.forehead_width,
+        SettingKey::Pes15HairLength => a.hair.pes15_length,
+        SettingKey::Pes15HairType => a.hair.pes15_type,
+        SettingKey::Pes15HairVariation => a.hair.pes15_variation,
     }
 }
 
@@ -411,72 +639,130 @@ pub(crate) fn set_appearance(
         SettingKey::NoseType => a.face.nose_type = value,
         SettingKey::UpperLipType => a.face.upper_lip_type = value,
         SettingKey::LowerLipType => a.face.lower_lip_type = value,
+        SettingKey::Jawline => a.face.jawline = value,
+        SettingKey::JawHeight => a.face.jaw_height = value,
+        SettingKey::Cheekbones => a.face.cheekbones = value,
+        SettingKey::CheekboneHeight => a.face.cheekbone_height = value,
+        SettingKey::ChinWidth => a.face.chin_width = value,
+        SettingKey::ChinHeight => a.face.chin_height = value,
+        SettingKey::ChinDepth => a.face.chin_depth = value,
+        SettingKey::FaceSize => a.face.face_size = value,
+        SettingKey::FaceHeight => a.face.face_height = value,
+        SettingKey::BrowWidth => a.face.brow_width = value,
+        SettingKey::InnerEyebrowHeight => a.face.inner_eyebrow_height = value,
+        SettingKey::EyebrowDepth => a.face.eyebrow_depth = value,
+        SettingKey::TempleWidth => a.face.temple_width = value,
+        SettingKey::OuterEyebrowHeight => a.face.outer_eyebrow_height = value,
+        SettingKey::PupilSize => a.face.pupil_size = value,
+        SettingKey::EyeDepth => a.face.eye_depth = value,
+        SettingKey::InnerEyePosition => a.face.inner_eye_position = value,
+        SettingKey::InnerEyeHeight => a.face.inner_eye_height = value,
+        SettingKey::OuterEyePosition => a.face.outer_eye_position = value,
+        SettingKey::EyeCornerHeight => a.face.eye_corner_height = value,
+        SettingKey::UpperEyelidWidthInner => a.face.upper_eyelid_width_inner = value,
+        SettingKey::UpperEyelidHeightInner => a.face.upper_eyelid_height_inner = value,
+        SettingKey::UpperEyelidWidthOuter => a.face.upper_eyelid_width_outer = value,
+        SettingKey::UpperEyelidHeightOuter => a.face.upper_eyelid_height_outer = value,
+        SettingKey::BottomEyelidHeight => a.face.bottom_eyelid_height = value,
+        SettingKey::HorizontalEyePosition => a.face.horizontal_eye_position = value,
+        SettingKey::EyeHeight => a.face.eye_height = value,
+        SettingKey::NoseHeight => a.face.nose_height = value,
+        SettingKey::NoseTipDepth => a.face.nose_tip_depth = value,
+        SettingKey::NostrilWidth => a.face.nostril_width = value,
+        SettingKey::NoseDepth => a.face.nose_depth = value,
+        SettingKey::NoseWidth => a.face.nose_width = value,
+        SettingKey::MouthHeight => a.face.mouth_height = value,
+        SettingKey::MouthDepth => a.face.mouth_depth = value,
+        SettingKey::LipSize => a.face.lip_size = value,
+        SettingKey::MouthCornerHeight => a.face.mouth_corner_height = value,
+        SettingKey::LipWidth => a.face.lip_width = value,
+        SettingKey::EarLength => a.face.ear_length = value,
+        SettingKey::EarWidth => a.face.ear_width = value,
+        SettingKey::EarAngle => a.face.ear_angle = value,
+        SettingKey::Pes15JawDepth => a.face.pes15_jaw_depth = value,
+        SettingKey::Pes15CheekboneDepth => a.face.pes15_cheekbone_depth = value,
+        SettingKey::Pes15MouthEdgePosition => a.face.pes15_mouth_edge_position = value,
+        SettingKey::Pes15EyebrowDepth => a.face.pes15_eyebrow_depth = value,
+        SettingKey::Pes15BottomEyelidPosition => a.face.pes15_bottom_eyelid_position = value,
+        SettingKey::Pes15NasalBridgePosition => a.face.pes15_nasal_bridge_position = value,
+        SettingKey::Pes15NasalRootHeight => a.face.pes15_nasal_root_height = value,
+        SettingKey::Pes15NoseAngle => a.face.pes15_nose_angle = value,
+        SettingKey::EyebrowColorRed => a.face.eyebrow_color_red = value,
+        SettingKey::EyebrowColorGreen => a.face.eyebrow_color_green = value,
+        SettingKey::EyebrowColorBlue => a.face.eyebrow_color_blue = value,
+        SettingKey::EyebrowStyle => a.face.eyebrow_style = value,
+        SettingKey::EyebrowDensity => a.face.eyebrow_density = value,
+        SettingKey::EyebrowThickness => a.face.eyebrow_thickness = value,
+        SettingKey::FacialHairColorRed => a.face.facial_hair_color_red = value,
+        SettingKey::FacialHairColorGreen => a.face.facial_hair_color_green = value,
+        SettingKey::FacialHairColorBlue => a.face.facial_hair_color_blue = value,
+        SettingKey::FacialHairThickness => a.face.facial_hair_thickness = value,
+        SettingKey::Pes15EyeWhite => a.face.pes15_eye_white = value,
+        SettingKey::HairColorRed => a.hair.color_red = value,
+        SettingKey::HairColorGreen => a.hair.color_green = value,
+        SettingKey::HairColorBlue => a.hair.color_blue = value,
+        SettingKey::HairColorPreset => a.hair.color_preset = value,
+        SettingKey::HairAccessory => a.hair.accessory = value.map(|v| v != 0),
+        SettingKey::HairAccessoryColor => a.hair.accessory_color = value,
+        SettingKey::HairStyle => a.hair.style = value,
+        SettingKey::HairCroppedStyle => a.hair.cropped_style = value,
+        SettingKey::HairLength => a.hair.length = value,
+        SettingKey::HairWaveLevel => a.hair.wave_level = value,
+        SettingKey::HairVariation => a.hair.variation = value,
+        SettingKey::HairFrontStyle => a.hair.front_style = value,
+        SettingKey::HairParted => a.hair.parted = value,
+        SettingKey::HairSideBackStyle => a.hair.side_back_style = value,
+        SettingKey::Hairline => a.hair.hairline = value,
+        SettingKey::HairForeheadWidth => a.hair.forehead_width = value,
+        SettingKey::Pes15HairLength => a.hair.pes15_length = value,
+        SettingKey::Pes15HairType => a.hair.pes15_type = value,
+        SettingKey::Pes15HairVariation => a.hair.pes15_variation = value,
     }
 }
 
-/// The stored value behind `key` on `player`, `None` for a gated `Option`
-/// the version lacks. `CodecError` from the ingame-face reads propagates.
-/// The stock-model keys read `Some` only for the authored band 1 to 100: 0
-/// is the game's default (emitted as `""`) and an ID above 100 is custom
-/// content a folder owns, not a settings value.
+/// The stored value behind `key` on `player`, `None` for a key the player's
+/// version does not store (`held_on`). `CodecError` from the reads
+/// propagates. The stock-model keys read `Some` only for the authored band 1
+/// to 100: 0 is the game's default (emitted as `""`) and an ID above 100 is
+/// custom content a folder owns, not a settings value.
 fn read(player: &PlayerEntry, key: SettingKey) -> Result<Option<u8>, SettingsError> {
     let face = &player.appearance.ingame_face;
-    let a = &player.appearance;
-    let m = &player.motion;
-    Ok(match key {
-        SettingKey::BootsId => stock_id(a.boots_id),
-        SettingKey::GlovesId => stock_id(a.gloves_id),
-        SettingKey::SkinColor => Some(face.get(IngameFaceField::SkinColor)?),
-        SettingKey::IrisColor => Some(face.get(IngameFaceField::IrisColor)?),
-        SettingKey::NeckLength => Some(a.neck_length),
-        SettingKey::NeckSize => Some(a.neck_size),
-        SettingKey::ShoulderHeight => Some(a.shoulder_height),
-        SettingKey::ShoulderWidth => Some(a.shoulder_width),
-        SettingKey::Chest => Some(a.chest),
-        SettingKey::Waist => Some(a.waist),
-        SettingKey::ArmSize => Some(a.arm_size),
-        SettingKey::ArmLength => Some(a.arm_length),
-        SettingKey::Thigh => Some(a.thigh),
-        SettingKey::Calf => Some(a.calf),
-        SettingKey::LegLength => Some(a.leg_length),
-        SettingKey::HeadLength => Some(a.head_length),
-        SettingKey::HeadWidth => Some(a.head_width),
-        SettingKey::HeadDepth => Some(a.head_depth),
-        SettingKey::Sleeves => Some(a.sleeves),
-        SettingKey::Inners => Some(a.inners),
-        SettingKey::Socks => Some(a.socks),
-        SettingKey::Undershorts => Some(a.undershorts),
-        SettingKey::Untucked => Some(a.untucked.into()),
-        SettingKey::AnkleTaping => Some(a.ankle_taping.into()),
-        SettingKey::WristTaping => Some(a.wrist_taping),
-        SettingKey::WristTapeColorLeft => Some(a.wrist_tape_color_left),
-        SettingKey::WristTapeColorRight => Some(a.wrist_tape_color_right),
-        SettingKey::Spectacles => Some(a.spectacles_style),
-        SettingKey::SpectaclesColor => Some(a.spectacles_color),
-        SettingKey::Gloves => Some(face.get(IngameFaceField::PlayerGloves)?),
-        SettingKey::GlovesColor => Some(face.get(IngameFaceField::PlayerGlovesColor)?),
-        SettingKey::HunchingDribbling => Some(m.hunching_dribbling),
-        SettingKey::HunchingRunning => Some(m.hunching_running),
-        SettingKey::ArmMovementDribbling => Some(m.arm_movement_dribbling),
-        SettingKey::ArmMovementRunning => Some(m.arm_movement_running),
-        SettingKey::CornerKick => Some(m.corner_kick),
-        SettingKey::FreeKick => Some(m.free_kick),
-        SettingKey::PenaltyKick => Some(m.penalty_kick),
-        SettingKey::Dribbling => m.dribbling,
-        SettingKey::GoalCelebration1 => Some(m.goal_celebration_1),
-        SettingKey::GoalCelebration2 => Some(m.goal_celebration_2),
-        SettingKey::CheekType => Some(face.get(IngameFaceField::CheekType)?),
-        SettingKey::ForeheadType => Some(face.get(IngameFaceField::ForeheadType)?),
-        SettingKey::FacialHairType => Some(face.get(IngameFaceField::FacialHairType)?),
-        SettingKey::LaughterLinesType => Some(face.get(IngameFaceField::LaughterLinesType)?),
-        SettingKey::UpperEyelidType => Some(face.get(IngameFaceField::UpperEyelidType)?),
-        SettingKey::LowerEyelidType => Some(face.get(IngameFaceField::LowerEyelidType)?),
-        SettingKey::EyebrowType => Some(face.get(IngameFaceField::EyebrowType)?),
-        SettingKey::NeckLineType => Some(face.get(IngameFaceField::NeckLineType)?),
-        SettingKey::NoseType => Some(face.get(IngameFaceField::NoseType)?),
-        SettingKey::UpperLipType => Some(face.get(IngameFaceField::UpperLipType)?),
-        SettingKey::LowerLipType => Some(face.get(IngameFaceField::LowerLipType)?),
+    Ok(match key.source() {
+        Source::Player(PlayerField::BootsId) => stock_id(player.appearance.boots_id),
+        Source::Player(PlayerField::GlovesId) => stock_id(player.appearance.gloves_id),
+        Source::Player(PlayerField::DribblingMotion) => player.motion.dribbling,
+        Source::Player(field) => {
+            Some(u8::try_from(player.get(field)?).expect("an appearance or motion field is a byte"))
+        }
+        // The run, not a version, says which layout's keys the player has:
+        // `get` refuses a field of the other layout.
+        Source::Face(_) | Source::NoseAngle if !held_in(key, face.layout()) => None,
+        Source::Face(IngameFaceField::NoseType) => Some(face.nose()?.0),
+        Source::Face(field) => Some(face.get(field)?),
+        Source::NoseAngle => Some(u8::try_from(face.nose()?.1 + 1).expect("an angle is -1 to 1")),
     })
+}
+
+/// Whether a run of `layout` holds `key`'s face source: its field's layout
+/// is `None` or `layout`, and PES 15's nose angle is PES 15's alone. `true`
+/// for a key of another source.
+fn held_in(key: SettingKey, layout: FaceLayout) -> bool {
+    match key.source() {
+        Source::Player(_) => true,
+        Source::Face(field) => in_layout(field.layout(), layout),
+        Source::NoseAngle => layout == FaceLayout::Pes15,
+    }
+}
+
+/// Whether `version` stores `key`: a player field its schema has, a face
+/// source its run's layout holds. A settings apply skips a key it does not
+/// store (`dribbling` before PES 20, a `pes15_` key on PES 16 to 21), set or
+/// not, so an export written for one version compiles for another.
+pub(crate) fn held_on(key: SettingKey, version: PesVersion) -> bool {
+    match key.source() {
+        Source::Player(field) => schema_for(version).player_has(field),
+        Source::Face(_) | Source::NoseAngle => held_in(key, FaceLayout::of(version)),
+    }
 }
 
 /// `Some` for a stored boots/gloves ID inside the authored stock band,
@@ -543,8 +829,6 @@ impl PlayerSettings {
                 settings.set(key, value)?;
             }
         }
-        // The run's undecoded bits, the named ones 0: what `face` carries.
-        settings.appearance.unknown.face = Some(player.appearance.ingame_face.undecoded());
         Ok(settings)
     }
 
@@ -559,13 +843,12 @@ impl PlayerSettings {
     /// Every appearance key writes: a `Some` its value, a `None` the key's
     /// default (`KeySpec::default`, the template's shown value), so a compiled
     /// player's look is his file and nothing else. A key the target version
-    /// has no field for (`dribbling` before PES 20) is skipped, set or not.
-    /// The two stock IDs are the exceptions: a `Some` writes the ID, a `None`
-    /// leaves the stored ID for the compiler to resolve. A `Some` the key's
-    /// kind cannot represent is `OutOfRange`, checked before any write.
-    /// `[appearance.unknown]` `face` then writes the run's undecoded bits:
-    /// the matching bit per bit no key names, as far as the target's run
-    /// reaches (all 0 when `None`).
+    /// does not store (`held_on`) is skipped, set or not. The two stock IDs
+    /// are the exceptions: a `Some` writes the ID, a `None` leaves the stored
+    /// ID for the compiler to resolve. A `Some` the key's kind cannot
+    /// represent is `OutOfRange`, checked before any write. The run's
+    /// measured-unused bits are then written at the games' values
+    /// (`IngameFace::write_unused`).
     pub fn apply(
         &self,
         player: &mut PlayerEntry,
@@ -615,8 +898,8 @@ impl PlayerSettings {
 
     /// `apply`'s appearance write, without its TOML-surface checks (the kind
     /// ranges, the name lengths): every appearance key's held value or its
-    /// `KeySpec` default onto `next`, `face`'s undecoded bits after, a key
-    /// the target version has no field for dropped. `appearance_row` shares
+    /// `KeySpec` default onto `next`, the run's unused bits after, a key
+    /// the target version does not store dropped. `appearance_row` shares
     /// it: the row carries the game's bits, so a stored value past a key's
     /// range but inside its field's (a save's own data the file could never
     /// hold) is written as is — the field's bits, `write_player`'s and
@@ -627,20 +910,14 @@ impl PlayerSettings {
         version: PesVersion,
     ) -> Result<(), SettingsError> {
         // An absent appearance key writes its default; a key the target
-        // version has no field for (`dribbling` before PES 20) is dropped, so
-        // an export written for a newer version compiles for an older one.
-        let schema = schema_for(version);
+        // version does not store is dropped.
         let mut appearance = self.appearance.clone();
         for key in SettingKey::ALL {
             let spec = key.spec();
             if spec.table == KeyTable::Top {
                 continue;
             }
-            let held = match key.source() {
-                Source::Player(field) => schema.player_has(field),
-                Source::Face(_) => true,
-            };
-            let value = if held {
+            let value = if held_on(key, version) {
                 get_appearance(&appearance, key).or(spec.default)
             } else {
                 None
@@ -648,13 +925,7 @@ impl PlayerSettings {
             set_appearance(&mut appearance, key, value);
         }
         write_appearance(&appearance, next)?;
-        // `face` is the run's undecoded bits, written as far as the
-        // target's run reaches: all 0 when `None`, 0 past the value's end,
-        // bytes past the run's end dropped. The named bits stay as the
-        // keys wrote them.
-        next.appearance
-            .ingame_face
-            .write_undecoded(appearance.unknown.face.as_deref().unwrap_or(&[]));
+        next.appearance.ingame_face.write_unused();
         Ok(())
     }
 }
@@ -704,71 +975,34 @@ fn write_appearance(
     appearance: &AppearanceSettings,
     next: &mut PlayerEntry,
 ) -> Result<(), SettingsError> {
-    let face = &mut next.appearance.ingame_face;
+    let not_held = |key: SettingKey| SettingsError::NotInThisVersion {
+        key: key.spec().name.to_string(),
+    };
     for key in SettingKey::ALL {
         let Some(value) = get_appearance(appearance, key) else {
             continue;
         };
-        match key {
+        let face = &mut next.appearance.ingame_face;
+        match key.source() {
             // `get_appearance` already filtered these out.
-            SettingKey::BootsId | SettingKey::GlovesId => {}
-            SettingKey::SkinColor => face.set(IngameFaceField::SkinColor, value)?,
-            SettingKey::IrisColor => face.set(IngameFaceField::IrisColor, value)?,
-            SettingKey::NeckLength => next.appearance.neck_length = value,
-            SettingKey::NeckSize => next.appearance.neck_size = value,
-            SettingKey::ShoulderHeight => next.appearance.shoulder_height = value,
-            SettingKey::ShoulderWidth => next.appearance.shoulder_width = value,
-            SettingKey::Chest => next.appearance.chest = value,
-            SettingKey::Waist => next.appearance.waist = value,
-            SettingKey::ArmSize => next.appearance.arm_size = value,
-            SettingKey::ArmLength => next.appearance.arm_length = value,
-            SettingKey::Thigh => next.appearance.thigh = value,
-            SettingKey::Calf => next.appearance.calf = value,
-            SettingKey::LegLength => next.appearance.leg_length = value,
-            SettingKey::HeadLength => next.appearance.head_length = value,
-            SettingKey::HeadWidth => next.appearance.head_width = value,
-            SettingKey::HeadDepth => next.appearance.head_depth = value,
-            SettingKey::Sleeves => next.appearance.sleeves = value,
-            SettingKey::Inners => next.appearance.inners = value,
-            SettingKey::Socks => next.appearance.socks = value,
-            SettingKey::Undershorts => next.appearance.undershorts = value,
-            SettingKey::Untucked => next.appearance.untucked = value != 0,
-            SettingKey::AnkleTaping => next.appearance.ankle_taping = value != 0,
-            SettingKey::WristTaping => next.appearance.wrist_taping = value,
-            SettingKey::WristTapeColorLeft => next.appearance.wrist_tape_color_left = value,
-            SettingKey::WristTapeColorRight => next.appearance.wrist_tape_color_right = value,
-            SettingKey::Spectacles => next.appearance.spectacles_style = value,
-            SettingKey::SpectaclesColor => next.appearance.spectacles_color = value,
-            SettingKey::Gloves => face.set(IngameFaceField::PlayerGloves, value)?,
-            SettingKey::GlovesColor => face.set(IngameFaceField::PlayerGlovesColor, value)?,
-            SettingKey::HunchingDribbling => next.motion.hunching_dribbling = value,
-            SettingKey::HunchingRunning => next.motion.hunching_running = value,
-            SettingKey::ArmMovementDribbling => next.motion.arm_movement_dribbling = value,
-            SettingKey::ArmMovementRunning => next.motion.arm_movement_running = value,
-            SettingKey::CornerKick => next.motion.corner_kick = value,
-            SettingKey::FreeKick => next.motion.free_kick = value,
-            SettingKey::PenaltyKick => next.motion.penalty_kick = value,
-            SettingKey::Dribbling => match next.motion.dribbling {
-                Some(_) => next.motion.dribbling = Some(value),
-                None => {
-                    return Err(SettingsError::NotInThisVersion {
-                        key: key.spec().name.to_string(),
-                    });
-                }
-            },
-            SettingKey::GoalCelebration1 => next.motion.goal_celebration_1 = value,
-            SettingKey::GoalCelebration2 => next.motion.goal_celebration_2 = value,
-            SettingKey::CheekType => face.set(IngameFaceField::CheekType, value)?,
-            SettingKey::ForeheadType => face.set(IngameFaceField::ForeheadType, value)?,
-            SettingKey::FacialHairType => face.set(IngameFaceField::FacialHairType, value)?,
-            SettingKey::LaughterLinesType => face.set(IngameFaceField::LaughterLinesType, value)?,
-            SettingKey::UpperEyelidType => face.set(IngameFaceField::UpperEyelidType, value)?,
-            SettingKey::LowerEyelidType => face.set(IngameFaceField::LowerEyelidType, value)?,
-            SettingKey::EyebrowType => face.set(IngameFaceField::EyebrowType, value)?,
-            SettingKey::NeckLineType => face.set(IngameFaceField::NeckLineType, value)?,
-            SettingKey::NoseType => face.set(IngameFaceField::NoseType, value)?,
-            SettingKey::UpperLipType => face.set(IngameFaceField::UpperLipType, value)?,
-            SettingKey::LowerLipType => face.set(IngameFaceField::LowerLipType, value)?,
+            Source::Player(PlayerField::BootsId | PlayerField::GlovesId) => {}
+            Source::Player(PlayerField::DribblingMotion) if next.motion.dribbling.is_none() => {
+                return Err(not_held(key));
+            }
+            Source::Player(field) => next.set(field, u32::from(value))?,
+            Source::Face(_) | Source::NoseAngle if !held_in(key, face.layout()) => {
+                return Err(not_held(key));
+            }
+            // The nose keys share one field on PES 15: each keeps the other's
+            // half (`IngameFace::nose`).
+            Source::Face(IngameFaceField::NoseType) => face.set_nose(value, face.nose()?.1)?,
+            Source::Face(field) => face.set(field, value)?,
+            Source::NoseAngle => {
+                // A stored angle past 2 (no parser produces one) stays out of
+                // range, for `set_nose` to refuse.
+                let angle = i8::try_from(value).unwrap_or(i8::MAX) - 1;
+                face.set_nose(face.nose()?.0, angle)?;
+            }
         }
     }
     Ok(())
@@ -893,13 +1127,55 @@ pub(crate) fn ownership(field: PlayerField) -> Ownership {
     }
 }
 
-/// The ownership of one ingame-face field: all are settings today, still an
+/// The ownership of one ingame-face field: every one is a setting, still an
 /// exhaustive match so a new field fails to compile until classified.
 #[cfg(test)]
 pub(crate) fn face_ownership(field: IngameFaceField) -> Ownership {
     match field {
         IngameFaceField::PlayerGloves
         | IngameFaceField::PlayerGlovesColor
+        | IngameFaceField::Jawline
+        | IngameFaceField::JawHeight
+        | IngameFaceField::Pes15JawDepth
+        | IngameFaceField::Cheekbones
+        | IngameFaceField::CheekboneHeight
+        | IngameFaceField::Pes15CheekboneDepth
+        | IngameFaceField::BrowWidth
+        | IngameFaceField::InnerEyebrowHeight
+        | IngameFaceField::EyebrowDepth
+        | IngameFaceField::TempleWidth
+        | IngameFaceField::OuterEyebrowHeight
+        | IngameFaceField::Pes15EyebrowDepth
+        | IngameFaceField::PupilSize
+        | IngameFaceField::EyeDepth
+        | IngameFaceField::InnerEyePosition
+        | IngameFaceField::InnerEyeHeight
+        | IngameFaceField::OuterEyePosition
+        | IngameFaceField::EyeCornerHeight
+        | IngameFaceField::UpperEyelidWidthInner
+        | IngameFaceField::UpperEyelidHeightInner
+        | IngameFaceField::UpperEyelidWidthOuter
+        | IngameFaceField::UpperEyelidHeightOuter
+        | IngameFaceField::Pes15BottomEyelidPosition
+        | IngameFaceField::BottomEyelidHeight
+        | IngameFaceField::HorizontalEyePosition
+        | IngameFaceField::EyeHeight
+        | IngameFaceField::NoseHeight
+        | IngameFaceField::NoseTipDepth
+        | IngameFaceField::NostrilWidth
+        | IngameFaceField::Pes15NasalBridgePosition
+        | IngameFaceField::NoseDepth
+        | IngameFaceField::NoseWidth
+        | IngameFaceField::Pes15NasalRootHeight
+        | IngameFaceField::MouthHeight
+        | IngameFaceField::MouthDepth
+        | IngameFaceField::LipSize
+        | IngameFaceField::MouthCornerHeight
+        | IngameFaceField::LipWidth
+        | IngameFaceField::Pes15MouthEdgePosition
+        | IngameFaceField::ChinWidth
+        | IngameFaceField::ChinHeight
+        | IngameFaceField::ChinDepth
         | IngameFaceField::SkinColor
         | IngameFaceField::CheekType
         | IngameFaceField::ForeheadType
@@ -907,11 +1183,46 @@ pub(crate) fn face_ownership(field: IngameFaceField) -> Ownership {
         | IngameFaceField::LaughterLinesType
         | IngameFaceField::UpperEyelidType
         | IngameFaceField::LowerEyelidType
+        | IngameFaceField::EarLength
+        | IngameFaceField::EarWidth
+        | IngameFaceField::EarAngle
         | IngameFaceField::EyebrowType
         | IngameFaceField::NeckLineType
+        | IngameFaceField::FaceSize
+        | IngameFaceField::FaceHeight
         | IngameFaceField::NoseType
         | IngameFaceField::UpperLipType
         | IngameFaceField::LowerLipType
-        | IngameFaceField::IrisColor => Ownership::Settings,
+        | IngameFaceField::HairColorRed
+        | IngameFaceField::HairColorGreen
+        | IngameFaceField::HairColorBlue
+        | IngameFaceField::Pes15HairVariation
+        | IngameFaceField::HairStyle
+        | IngameFaceField::HairCroppedStyle
+        | IngameFaceField::EyebrowColorRed
+        | IngameFaceField::EyebrowStyle
+        | IngameFaceField::EyebrowColorGreen
+        | IngameFaceField::EyebrowDensity
+        | IngameFaceField::EyebrowColorBlue
+        | IngameFaceField::EyebrowThickness
+        | IngameFaceField::Pes15HairLength
+        | IngameFaceField::HairLength
+        | IngameFaceField::Pes15HairType
+        | IngameFaceField::HairWaveLevel
+        | IngameFaceField::Pes15EyeWhite
+        | IngameFaceField::HairAccessory
+        | IngameFaceField::HairAccessoryColor
+        | IngameFaceField::FacialHairColorRed
+        | IngameFaceField::FacialHairColorGreen
+        | IngameFaceField::FacialHairColorBlue
+        | IngameFaceField::FacialHairThickness
+        | IngameFaceField::IrisColor
+        | IngameFaceField::HairVariation
+        | IngameFaceField::HairColorPreset
+        | IngameFaceField::HairFrontStyle
+        | IngameFaceField::HairParted
+        | IngameFaceField::HairSideBackStyle
+        | IngameFaceField::Hairline
+        | IngameFaceField::HairForeheadWidth => Ownership::Settings,
     }
 }

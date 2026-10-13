@@ -464,7 +464,8 @@ fn put_appearance(
 ) -> Result<(), LegacyError> {
     let stored = match key.source() {
         Source::Player(field) => fields.contains(&field),
-        Source::Face(_) => true,
+        // A legacy export carries none of the layout-only keys.
+        Source::Face(_) | Source::NoseAngle => true,
     };
     if stored {
         let value = u8::try_from(value).map_err(|_| TeamTomlError::OutOfRange {

@@ -312,9 +312,8 @@ pub struct PlayerAppearance {
     /// Ankle taping.
     pub ankle_taping: bool,
     /// The ingame-face run: the appearance block's byte 22 to its end, carried
-    /// verbatim (50 bytes, 46 on PES 15) with `IngameFace` accessors for the
-    /// known bits (player gloves and colour, skin and iris colour, the eleven
-    /// feature types).
+    /// verbatim (50 bytes, 46 on PES 15) with `IngameFace` accessors for
+    /// every field of the face and the hair.
     pub ingame_face: IngameFace,
 }
 

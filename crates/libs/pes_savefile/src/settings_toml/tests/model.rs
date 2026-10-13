@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::schema::limits::face_type_cap;
+
 #[test]
 fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
     let mut fields = HashSet::new();
@@ -21,7 +23,12 @@ fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
             settings.insert(Source::Face(field));
         }
     }
-    let keys: HashSet<Source> = SettingKey::ALL.iter().map(|k| k.source()).collect();
+    // PES 15's nose angle shares `NoseType`'s field with `nose_type`.
+    let keys: HashSet<Source> = SettingKey::ALL
+        .iter()
+        .map(|k| k.source())
+        .filter(|source| *source != Source::NoseAngle)
+        .collect();
     let without_key: Vec<_> = settings.difference(&keys).collect();
     let without_field: Vec<_> = keys.difference(&settings).collect();
     assert!(
@@ -46,11 +53,10 @@ fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
 /// exactly once per bit: a `PlayerField` row of the block's record (a
 /// settings key's or compiler-owned, never `Gameplay`; the PES 15/16
 /// appearance record's own `Id`, the record's join key, is the one
-/// exception), an `INGAME_FACE_FIELDS` row inside the run, or the run's
-/// undecoded remainder (`[appearance.unknown]` `face`). A face or
-/// undecoded carrier can only sit inside the run, and a bit no carrier
-/// covers fails the exactly-one check, so no undecoded bit lies outside
-/// the run by construction.
+/// exception), an `INGAME_FACE_FIELDS` row of the version's layout inside
+/// the run, or an `UNUSED_FACE_BITS` row of that layout (measured unused,
+/// written at the games' values). A bit no carrier covers fails the
+/// exactly-one check, so no bit of the run is left undecoded.
 #[test]
 fn every_bit_of_the_appearance_block_has_one_carrier() {
     /// What carries one bit of the block.
@@ -60,15 +66,15 @@ fn every_bit_of_the_appearance_block_has_one_carrier() {
         Field(PlayerField),
         /// An `INGAME_FACE_FIELDS` row inside the run.
         Face(IngameFaceField),
-        /// The run's undecoded remainder: `[appearance.unknown]` `face`.
-        Unknown,
+        /// An `UNUSED_FACE_BITS` row inside the run, by its bit offset.
+        Unused(u32),
     }
     /// The carrier's name in a failure message.
     fn name(carrier: &Carrier) -> String {
         match carrier {
             Carrier::Field(field) => format!("{field:?}"),
             Carrier::Face(field) => format!("ingame_face::{field:?}"),
-            Carrier::Unknown => "unknown".to_string(),
+            Carrier::Unused(offset) => format!("unused at {offset}"),
         }
     }
     for version in PesVersion::ALL {
@@ -93,16 +99,21 @@ fn every_bit_of_the_appearance_block_has_one_carrier() {
                 carriers[bit as usize].push(Carrier::Field(field));
             }
         }
-        let mut face_bits = HashSet::new();
-        for spec in INGAME_FACE_FIELDS {
+        let layout = FaceLayout::of(version);
+        for spec in INGAME_FACE_FIELDS
+            .iter()
+            .filter(|spec| in_layout(spec.field.layout(), layout))
+        {
             for bit in spec.bit_offset..spec.bit_offset + spec.bit_width {
-                face_bits.insert(bit);
                 carriers[run_first_bit + bit as usize].push(Carrier::Face(spec.field));
             }
         }
-        for bit in 0..run.len * 8 {
-            if !face_bits.contains(&bit) {
-                carriers[run_first_bit + bit as usize].push(Carrier::Unknown);
+        for row in UNUSED_FACE_BITS
+            .iter()
+            .filter(|row| in_layout(row.layout, layout))
+        {
+            for bit in row.bit_offset..row.bit_offset + row.bit_width {
+                carriers[run_first_bit + bit as usize].push(Carrier::Unused(row.bit_offset));
             }
         }
         for (i, bit_carriers) in carriers[block_start * 8..].iter().enumerate() {
@@ -169,23 +180,11 @@ fn apply_copies_the_settings_and_leaves_the_rest() {
     let p = find_player(&payload, schema, 70101);
     let mut q = find_player(&payload, schema, 70102);
 
-    // Flip one undecoded bit of q's run so the check below discriminates:
-    // a keep-the-target's-bits apply would show the flip, `face` overwrites
-    // it with p's bit.
-    let mask = face_field_mask(q.appearance.ingame_face.bytes().len());
+    // Bytes 46 to 49 are measured unused on PES 16 to 21, the games write
+    // 0: 0xFF in q's makes the check below discriminate, `apply` writing
+    // the games' values there.
     let mut run = q.appearance.ingame_face.bytes().to_vec();
-    let p_run = p.appearance.ingame_face.bytes();
-    let mut flipped = false;
-    'outer: for (byte, bits) in mask.iter().enumerate() {
-        for bit in 0..8 {
-            if bits & (1 << bit) == 0 && (run[byte] ^ p_run[byte]) & (1 << bit) == 0 {
-                run[byte] ^= 1 << bit;
-                flipped = true;
-                break 'outer;
-            }
-        }
-    }
-    assert!(flipped, "no agreeing undecoded bit to flip");
+    run[46..50].fill(0xFF);
     q.appearance.ingame_face = IngameFace::from_bytes(run);
     let q_before = q.clone();
 
@@ -194,40 +193,21 @@ fn apply_copies_the_settings_and_leaves_the_rest() {
         .apply(&mut q, PesVersion::Pes19)
         .expect("apply");
 
-    // Every scalar appearance field and every decoded face field is p's.
+    // Every scalar appearance field and every face field is p's, and the
+    // unused bits are the games' values.
+    let mut run = p.appearance.ingame_face.clone();
+    run.write_unused();
+    assert_eq!(run.bytes()[46..50], [0; 4], "the games' values");
     assert_eq!(
         q.appearance,
         PlayerAppearance {
             boots_id: q_before.appearance.boots_id,
             gloves_id: q_before.appearance.gloves_id,
             base_copy_id: q_before.appearance.base_copy_id,
-            ingame_face: q.appearance.ingame_face.clone(),
+            ingame_face: run,
             ..p.appearance.clone()
         }
     );
-    for field in IngameFaceField::ALL {
-        assert_eq!(
-            q.appearance.ingame_face.get(field).expect("run"),
-            p.appearance.ingame_face.get(field).expect("run"),
-            "{field:?}"
-        );
-    }
-    // The undecoded bits are `face`'s: q's run carries p's now, flipped
-    // bit included.
-    for (byte, (now, src)) in q
-        .appearance
-        .ingame_face
-        .bytes()
-        .iter()
-        .zip(p_run)
-        .enumerate()
-    {
-        assert_eq!(
-            now & !mask[byte],
-            src & !mask[byte],
-            "undecoded bits of run byte {byte}"
-        );
-    }
     assert_eq!(q.motion, p.motion);
     assert_eq!(q.name, p.name);
     assert_eq!(q.shirt_name, p.shirt_name);
@@ -270,6 +250,10 @@ fn height_and_weight_are_not_settings() {
     );
 }
 
+/// Each key the version holds, set to another value its kind accepts,
+/// changes its own bits and no other: the baseline is the same settings
+/// unflipped, applied the same way (`apply` also writes the run's unused
+/// bits, the same in both).
 #[test]
 fn every_key_writes_only_its_own_run() {
     let payload = payload(PesVersion::Pes21);
@@ -277,25 +261,36 @@ fn every_key_writes_only_its_own_run() {
     let index = player_record_index(&payload, schema, 70101);
     let rec = record(&payload, &schema.players, schema.player.size, index);
     let run = schema.player.ingame_face.as_ref().expect("a run on PES 21");
-    for key in SettingKey::ALL {
-        let player = find_player(&payload, schema, 70101);
-        // `from_player` fills every key, so only the flipped one's bits can
-        // differ after the apply (absent keys write their defaults now).
-        let mut settings = PlayerSettings::from_player(&player).expect("from_player");
-        let current = settings.get(key);
-        let new_value = match current {
-            Some(0) | None => 1,
-            _ => 0,
-        };
-        settings
-            .set(key, new_value)
-            .expect("the flipped value is in range");
+    let player = find_player(&payload, schema, 70101);
+    // `from_player` fills every key, so only the flipped one's bits can
+    // differ from the baseline (absent keys would write their defaults).
+    let settings = PlayerSettings::from_player(&player).expect("from_player");
+    let written_with = |settings: &PlayerSettings| {
         let mut modified = player.clone();
         settings
             .apply(&mut modified, PesVersion::Pes21)
             .expect("apply");
         let mut written = rec.to_vec();
         write_player(&modified, &mut written, schema.player).expect("encode");
+        (modified, written)
+    };
+    let (_, baseline) = written_with(&settings);
+    for key in SettingKey::ALL {
+        if !held_on(key, PesVersion::Pes21) {
+            continue;
+        }
+        let current = settings.get(key);
+        // 1 first: an unset stock ID reads `None` over a stored 0, which a 0
+        // would leave as it is.
+        let new_value = (1..=u8::MAX)
+            .chain([0])
+            .find(|value| Some(*value) != current && key.spec().kind.accepts_stored(*value))
+            .expect("a kind accepts two values");
+        let mut flipped = settings.clone();
+        flipped
+            .set(key, new_value)
+            .expect("the flipped value is in range");
+        let (modified, written) = written_with(&flipped);
 
         let (start, end) = match key.source() {
             Source::Player(field) => {
@@ -314,9 +309,10 @@ fn every_key_writes_only_its_own_run() {
                     run.byte_offset * 8 + row.bit_offset + row.bit_width,
                 )
             }
+            Source::NoseAngle => unreachable!("PES 21 holds no nose angle"),
         };
         let mut diffs = 0usize;
-        for (byte, (was, now)) in rec.iter().zip(&written).enumerate() {
+        for (byte, (was, now)) in baseline.iter().zip(&written).enumerate() {
             for bit in 0..8 {
                 if (was >> bit) & 1 != (now >> bit) & 1 {
                     let pos = byte as u32 * 8 + bit;
@@ -340,8 +336,8 @@ fn every_key_writes_only_its_own_run() {
 }
 
 /// A default apply writes every appearance key's bits (set ones at their
-/// value, absent ones at their default) plus `face`'s undecoded bits (to
-/// 0), and no other bit of the record (stats, edit flags, the appearance
+/// value, absent ones at their default) plus the run's unused bits (at the
+/// games' values), and no other bit of the record (stats, edit flags, the appearance
 /// id).
 #[test]
 fn an_apply_then_write_touches_only_the_appearance_keys_bits() {
@@ -359,7 +355,7 @@ fn an_apply_then_write_touches_only_the_appearance_keys_bits() {
 
     // The bit runs of every settings key the version holds (the stock IDs
     // included: unset they are left alone, but their bits are the file's to
-    // write), plus the whole ingame-face run: `face` writes its undecoded
+    // write), plus the whole ingame-face run: `apply` writes its unused
     // bits. A key the version has no field for (`dribbling` here) writes
     // nothing, so it contributes no run.
     let run = schema.player.ingame_face.as_ref().expect("a run on PES 19");
@@ -382,6 +378,8 @@ fn an_apply_then_write_touches_only_the_appearance_keys_bits() {
                     run.byte_offset * 8 + row.bit_offset + row.bit_width,
                 ));
             }
+            // Inside the run, which is pushed whole below.
+            Source::NoseAngle => {}
         }
     }
     ranges.push((run.byte_offset * 8, (run.byte_offset + run.len) * 8));
@@ -455,13 +453,9 @@ fn a_default_settings_applies_the_template_values() {
         // assertions below prove nothing.
         let current = PlayerSettings::from_player(&before).expect("from_player");
         assert!(
-            SettingKey::ALL.iter().any(|&key| {
-                let held = match key.source() {
-                    Source::Player(field) => schema.player_has(field),
-                    Source::Face(_) => true,
-                };
-                held && current.get(key) != key.spec().default
-            }),
+            SettingKey::ALL
+                .iter()
+                .any(|&key| { held_on(key, version) && current.get(key) != key.spec().default }),
             "{version:?} player 70101 already sits at the defaults"
         );
 
@@ -501,11 +495,11 @@ fn a_default_settings_applies_the_template_values() {
         let read = PlayerSettings::from_player(&find_player(&written, schema, 70101))
             .expect("from_player");
         for key in SettingKey::ALL {
-            let held = match key.source() {
-                Source::Player(field) => schema.player_has(field),
-                Source::Face(_) => true,
+            let expected = if held_on(key, version) {
+                key.spec().default
+            } else {
+                None
             };
-            let expected = if held { key.spec().default } else { None };
             match key {
                 SettingKey::BootsId | SettingKey::GlovesId => {}
                 _ => assert_eq!(read.get(key), expected, "{version:?} {key:?}"),
@@ -573,151 +567,469 @@ fn the_same_partial_settings_gives_two_players_the_same_appearance() {
     );
 }
 
-/// `from_player`'s `face`: the run's own bytes with every named bit 0 —
-/// a 46-byte run on PES 15, 50 otherwise.
+/// A run from its hex form, as the tests below quote measured runs.
+fn run_of(hex: &str) -> IngameFace {
+    IngameFace::from_bytes(
+        hex.as_bytes()
+            .chunks(2)
+            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).expect("ascii"), 16))
+            .collect::<Result<_, _>>()
+            .expect("hex"),
+    )
+}
+
+/// PES 17's facial reset (measured 2026-10-13): the game's default face.
+const PES17_RESET: &str = "7079777777777777777777777777777777777777777777010000707700774089a31c110eca470ae028c70100092300000000";
+
+/// The game's reset run decodes to its default face, and its unused bits
+/// are the values `write_unused` writes.
 #[test]
-fn from_player_carries_the_runs_undecoded_bits_with_the_named_ones_zeroed() {
-    for version in [PesVersion::Pes15, PesVersion::Pes19, PesVersion::Pes21] {
-        let payload = payload(version);
-        let schema = schema_for(version);
-        let player = player_with_undecoded_bits(&payload, schema);
-        let run = player.appearance.ingame_face.bytes();
-        let settings = PlayerSettings::from_player(&player).expect("from_player");
-        let face = settings
-            .appearance
-            .unknown
-            .face
-            .as_ref()
-            .expect("a real player carries face");
-        assert_eq!(face.len(), run.len(), "{version:?} run length");
-        let mask = face_field_mask(run.len());
-        for (byte, (&f, &r)) in face.iter().zip(run).enumerate() {
-            assert_eq!(f & mask[byte], 0, "{version:?} byte {byte}: a named bit");
-            assert_eq!(
-                f & !mask[byte],
-                r & !mask[byte],
-                "{version:?} byte {byte}: an undecoded bit"
-            );
+fn the_pes17_reset_run_decodes_to_the_default_face() {
+    use IngameFaceField as F;
+    let face = run_of(PES17_RESET);
+    for (field, want) in [
+        (F::HairColorRed, 14),
+        (F::HairColorGreen, 10),
+        (F::HairColorBlue, 7),
+        (F::HairColorPreset, 0),
+        (F::HairStyle, 1),
+        (F::HairCroppedStyle, 1),
+        (F::HairLength, 2),
+        (F::HairWaveLevel, 1),
+        (F::HairVariation, 0),
+        (F::HairFrontStyle, 1),
+        (F::HairParted, 1),
+        (F::HairSideBackStyle, 4),
+        (F::Hairline, 1),
+        (F::HairForeheadWidth, 2),
+        (F::EyebrowColorRed, 14),
+        (F::EyebrowColorGreen, 10),
+        (F::EyebrowColorBlue, 7),
+        (F::EyebrowDensity, 3),
+        (F::EyebrowThickness, 1),
+        (F::FacialHairColorRed, 14),
+        (F::FacialHairColorGreen, 10),
+        (F::FacialHairColorBlue, 7),
+        (F::FacialHairThickness, 3),
+        (F::JawHeight, 9),
+        (F::UpperLipType, 1),
+        (F::LowerLipType, 1),
+    ] {
+        assert_eq!(
+            face.get(field).expect("PES 17's run holds it"),
+            want,
+            "{field:?}"
+        );
+    }
+    assert_eq!(face.nose().expect("reads"), (0, 0));
+    assert!(matches!(
+        face.get(F::Pes15HairLength),
+        Err(CodecError::FieldNotInLayout { .. })
+    ));
+    assert_write_unused_restores(&face);
+}
+
+/// `run` with every measured-unused bit of its layout flipped, so a
+/// `write_unused` that skips a row, or writes another value, leaves a
+/// difference.
+fn with_unused_flipped(run: &IngameFace) -> IngameFace {
+    let mut bytes = run.bytes().to_vec();
+    for row in UNUSED_FACE_BITS
+        .iter()
+        .filter(|row| in_layout(row.layout, run.layout()))
+    {
+        for bit in row.bit_offset..row.bit_offset + row.bit_width {
+            bytes[(bit / 8) as usize] ^= 1 << (bit % 8);
         }
+    }
+    IngameFace::from_bytes(bytes)
+}
+
+/// A game's own run holds its unused bits at the values `write_unused`
+/// writes: with those bits flipped, `write_unused` gives back the game's
+/// run exactly, so it overwrites every row and touches no field beside one.
+fn assert_write_unused_restores(run: &IngameFace) {
+    let mut written = with_unused_flipped(run);
+    assert_ne!(&written, run, "the flip changes the run");
+    written.write_unused();
+    assert_eq!(&written, run, "write_unused writes the games' values");
+}
+
+/// The template's defaults are the game's default face: every face and
+/// hair key PES 17 holds reads its `KeySpec` default from the reset run.
+/// Aside: skin, iris and the player gloves (the reset keeps the player's
+/// own), and the reset's jaw height +2 and lips 1, which the template does
+/// not take (a slider at 0 is the editor's centre; the plan's ingame-face
+/// rules).
+#[test]
+fn the_face_and_hair_defaults_are_the_reset_run() {
+    let mut player = find_player(
+        &payload(PesVersion::Pes17),
+        schema_for(PesVersion::Pes17),
+        70101,
+    );
+    player.appearance.ingame_face = run_of(PES17_RESET);
+    let appearance = appearance_from(&player).expect("reads");
+    let mut differ = Vec::new();
+    for key in SettingKey::ALL {
+        let keep = matches!(
+            key,
+            SettingKey::SkinColor
+                | SettingKey::IrisColor
+                | SettingKey::Gloves
+                | SettingKey::GlovesColor
+                | SettingKey::JawHeight
+                | SettingKey::UpperLipType
+                | SettingKey::LowerLipType
+        );
+        if keep || !matches!(key.source(), Source::Face(_)) || !held_on(key, PesVersion::Pes17) {
+            continue;
+        }
+        let reset = get_appearance(&appearance, key);
+        if reset != key.spec().default {
+            differ.push(format!(
+                "{}: reset {reset:?}, default {:?}",
+                key.spec().name,
+                key.spec().default
+            ));
+        }
+    }
+    assert!(differ.is_empty(), "{differ:#?}");
+}
+
+/// PES 15 runs measured in round 3 (`/3/` of the PES 15 cup save): the
+/// nose angle coded into the nose field, the hair's PES 15 fields, and the
+/// PES 16 to 21 fields refused.
+#[test]
+fn pes15_runs_decode_and_the_nose_round_trips() {
+    use IngameFaceField as F;
+    // Slot 00: variation 63 in the game, Medium/Straight, a headband.
+    let slot00 = run_of(
+        "72777777777777477777777777777777777777777d777761e806707700a74200a7513e003f1f0c0dfc1f7a470037",
+    );
+    assert_eq!(slot00.nose().expect("reads"), (0, 1));
+    assert_eq!(slot00.get(F::HairAccessory).expect("reads"), 1);
+    assert_eq!(slot00.get(F::Pes15HairVariation).expect("reads"), 62);
+    assert_eq!(slot00.get(F::Pes15HairLength).expect("reads"), 4);
+    assert_eq!(slot00.get(F::Pes15HairType).expect("reads"), 1);
+    let slot09 = run_of(
+        "727777777777777777777777777777777777777777a777016048767409775bc0cb86440b09030cb2244379070037",
+    );
+    assert_eq!(
+        [
+            F::HairColorRed,
+            F::HairColorGreen,
+            F::HairColorBlue,
+            F::HairColorPreset
+        ]
+        .map(|field| slot09.get(field).expect("reads")),
+        [47, 44, 33, 0]
+    );
+    assert_eq!(slot09.nose().expect("reads"), (9, 0));
+    let slot13 = run_of(
+        "72777777a777777777777777777777777774777777777701506872770d774100a751290b09430da3fe1570270037",
+    );
+    assert_eq!(slot13.nose().expect("reads"), (0, -1));
+    for run in [slot00, slot09, slot13] {
+        let (nose_type, angle) = run.nose().expect("reads");
+        let mut written = run.clone();
+        written.set_nose(nose_type, angle).expect("fits");
+        assert_eq!(written, run, "set_nose writes back the same bits");
+        assert_write_unused_restores(&run);
+        assert!(matches!(
+            run.get(F::HairStyle),
+            Err(CodecError::FieldNotInLayout { .. })
+        ));
     }
 }
 
-/// `face` carries the run's undecoded bits across versions, as far as the
-/// target's run reaches: a longer value loses its tail, a shorter one
-/// leaves the rest at 0.
+/// `set_nose`'s refusals, each `ValueTooWide` on the nose field, but on an
+/// empty run (an entry never read), which is `NoIngameFaceRun` as for
+/// every other accessor.
 #[test]
-fn apply_carries_the_undecoded_bits_as_far_as_the_target_run_reaches() {
-    // 50 bytes onto 50 (PES 16 onto PES 21): every undecoded bit lands.
-    let p16 =
-        player_with_undecoded_bits(&payload(PesVersion::Pes16), schema_for(PesVersion::Pes16));
-    let s16 = PlayerSettings::from_player(&p16).expect("from_player");
-    let mut p21 = find_player(
-        &payload(PesVersion::Pes21),
-        schema_for(PesVersion::Pes21),
-        70101,
-    );
-    s16.apply(&mut p21, PesVersion::Pes21).expect("apply");
-    let face16 = s16.appearance.unknown.face.as_ref().expect("face");
-    assert_eq!(p21.appearance.ingame_face.undecoded()[..], face16[..]);
+fn set_nose_refuses_what_the_field_cannot_hold() {
+    let mut empty = IngameFace::from_bytes(Vec::new());
+    for angle in [0, 1] {
+        assert!(
+            matches!(
+                empty.set_nose(0, angle),
+                Err(CodecError::NoIngameFaceRun { ref field }) if field == "NoseType"
+            ),
+            "angle {angle}"
+        );
+    }
+    let mut pes15 = IngameFace::from_bytes(vec![0; 46]);
+    let mut pes21 = IngameFace::from_bytes(vec![0; 50]);
+    let too_wide = |result: Result<(), CodecError>, value: u32| {
+        assert!(
+            matches!(
+                result,
+                Err(CodecError::ValueTooWide { ref field, value: v, width: 6 })
+                    if field == "NoseType" && v == value
+            ),
+            "{result:?}"
+        );
+    };
+    // 3 × 21 + 2 = 65 does not fit 6 bits; 3 × 21 + 0 = 63 does.
+    too_wide(pes15.set_nose(21, 1), 65);
+    pes15.set_nose(21, 0).expect("63 fits");
+    too_wide(pes15.set_nose(0, 2), 2);
+    too_wide(pes15.set_nose(0, -2), 2);
+    too_wide(pes21.set_nose(0, 1), 1);
+    too_wide(pes21.set_nose(64, 0), 64);
+    pes21.set_nose(63, 0).expect("63 fits");
+}
 
-    // 50 onto 46 (PES 21 onto PES 15): the last 4 bytes are dropped, the
-    // first 46 land.
-    let p21s =
-        player_with_undecoded_bits(&payload(PesVersion::Pes21), schema_for(PesVersion::Pes21));
-    let mut s21 = PlayerSettings::from_player(&p21s).expect("from_player");
-    s21.name = None;
-    s21.shirt_name = None;
+/// Every player of every fixture save, through `from_player` and `apply`
+/// onto a clone, comes back identical but for the run's unused bits,
+/// which take the games' values. A stored value outside a key's range is
+/// reported, version, player, key and value, not widened.
+#[test]
+fn every_fixture_player_round_trips_through_his_settings() {
+    // (version, key, stored value) -> players, for a stored value the key's
+    // kind refuses, the face types left out: real saves go past the editor
+    // caps (a field with a `face_type_cap`). Any other is a range to report.
+    let mut refused = std::collections::BTreeMap::<String, usize>::new();
+    for version in PesVersion::ALL {
+        let (file, _) = open(version);
+        let mut checked = 0usize;
+        for player in file.players() {
+            let stored = appearance_from(player).expect("stored-ranges read");
+            let mut outside = false;
+            for key in SettingKey::ALL {
+                if let Some(value) = get_appearance(&stored, key)
+                    && !key.spec().kind.accepts_stored(value)
+                {
+                    outside = true;
+                    let face_type = matches!(key.source(), Source::Face(field)
+                        if face_type_cap(version, field).is_some());
+                    if !face_type {
+                        *refused
+                            .entry(format!("{version:?} {} = {value}", key.spec().name))
+                            .or_default() += 1;
+                    }
+                }
+            }
+            if outside {
+                continue;
+            }
+            let settings = PlayerSettings::from_player(player).expect("from_player");
+            let mut applied = player.clone();
+            settings.apply(&mut applied, version).expect("apply");
+            let mut expected = player.clone();
+            expected.appearance.ingame_face.write_unused();
+            assert_eq!(applied, expected, "{version:?} player {}", player.id);
+            checked += 1;
+        }
+        assert!(checked > 0, "{version:?}: no player checked");
+    }
+    // The one celebration past every range is a worklog issue (2026-10-13).
+    let unexpected: Vec<_> = refused
+        .iter()
+        .filter(|(line, _)| line.as_str() != "Pes16 goal_celebration_2 = 183")
+        .collect();
+    assert!(
+        unexpected.is_empty(),
+        "stored values outside a key's range (players): {unexpected:#?}"
+    );
+}
+
+/// Keys of one layout are skipped on the other, with no finding or error:
+/// one file compiles for PES 15 and PES 21.
+#[test]
+fn a_family_only_key_is_skipped_on_the_other_layout() {
+    use IngameFaceField as F;
+    let settings = PlayerSettings::parse(
+        "[appearance.face]\nnose_type = 9\npes15_nose_angle = -1\n\n\
+         [appearance.hair]\nstyle = 4\npes15_length = 5\n",
+    )
+    .expect("parses");
     let mut p15 = find_player(
         &payload(PesVersion::Pes15),
         schema_for(PesVersion::Pes15),
         70101,
     );
-    s21.apply(&mut p15, PesVersion::Pes15).expect("apply");
-    let face21 = s21.appearance.unknown.face.as_ref().expect("face");
-    assert_eq!(p15.appearance.ingame_face.undecoded()[..], face21[..46]);
+    settings.apply(&mut p15, PesVersion::Pes15).expect("apply");
+    let face = &p15.appearance.ingame_face;
+    assert_eq!(face.get(F::Pes15HairLength).expect("PES 15's"), 5);
+    assert_eq!(
+        Some(face.get(F::Pes15HairVariation).expect("PES 15's")),
+        SettingKey::Pes15HairVariation.spec().default,
+        "byte 34 is the default variation's, not style 4"
+    );
+    // 3 × 9 + the angle -1's code 1.
+    assert_eq!(face.bytes()[30] & 0x3F, 28, "the nose field holds 28");
+    assert_eq!(face.nose().expect("reads"), (9, -1));
 
-    // 46 onto 50 (PES 15 onto PES 21): past the value's end the undecoded
-    // bits are 0.
-    let p15s =
-        player_with_undecoded_bits(&payload(PesVersion::Pes15), schema_for(PesVersion::Pes15));
-    let mut s15 = PlayerSettings::from_player(&p15s).expect("from_player");
-    s15.name = None;
-    s15.shirt_name = None;
-    let mut p21b = find_player(
+    let mut p21 = find_player(
         &payload(PesVersion::Pes21),
         schema_for(PesVersion::Pes21),
-        70102,
+        70101,
     );
-    s15.apply(&mut p21b, PesVersion::Pes21).expect("apply");
-    let face15 = s15.appearance.unknown.face.as_ref().expect("face");
-    let undecoded21 = p21b.appearance.ingame_face.undecoded();
-    assert_eq!(undecoded21[..46], face15[..]);
-    assert_eq!(undecoded21.len(), 50, "the target's run keeps its 50 bytes");
-    assert!(
-        undecoded21[46..].iter().all(|b| *b == 0),
-        "bytes 46-49's undecoded bits stay 0"
+    settings.apply(&mut p21, PesVersion::Pes21).expect("apply");
+    let face = &p21.appearance.ingame_face;
+    assert_eq!(face.get(F::HairStyle).expect("PES 21's"), 4);
+    assert_eq!(
+        Some(face.get(F::HairLength).expect("PES 21's")),
+        SettingKey::HairLength.spec().default
     );
+    assert_eq!(face.get(F::NoseType).expect("PES 21's"), 9);
 }
 
-/// An absent `face` writes all 0 to the undecoded bits: a compiled player
-/// keeps nothing of what the save held there, and the named bits are the
-/// keys' defaults.
+/// Every face and hair key's field at the plan's byte:bit and width, and
+/// every measured-unused row at the plan's bits and value
+/// (`plans/pes_savefile/model.md`, "The ingame-face run, decoded"). The
+/// table is copied from the plan, not derived from the schema, so a row
+/// of the schema that moved, changed width or swapped with another fails
+/// here even where both fields hold the same value in every fixture.
 #[test]
-fn an_absent_face_zeroes_the_undecoded_bits() {
-    let mut player =
-        player_with_undecoded_bits(&payload(PesVersion::Pes19), schema_for(PesVersion::Pes19));
-    PlayerSettings::default()
-        .apply(&mut player, PesVersion::Pes19)
-        .expect("apply");
-    assert!(
-        player
-            .appearance
-            .ingame_face
-            .undecoded()
+fn every_face_key_sits_at_the_plans_bits() {
+    // (key, byte, bit, width): a slider 4 bits, a colour channel 6,
+    // `gloves` 1, others as the plan writes them.
+    const PLAN: [(&str, u32, u32, u32); 92] = [
+        ("jawline", 0, 4, 4),
+        ("jaw_height", 1, 0, 4),
+        ("cheekbones", 2, 0, 4),
+        ("cheekbone_height", 2, 4, 4),
+        ("chin_width", 21, 4, 4),
+        ("chin_height", 22, 0, 4),
+        ("chin_depth", 22, 4, 4),
+        ("face_size", 29, 0, 4),
+        ("face_height", 29, 4, 4),
+        ("brow_width", 4, 4, 4),
+        ("inner_eyebrow_height", 5, 0, 4),
+        ("eyebrow_depth", 5, 4, 4),
+        ("temple_width", 6, 0, 4),
+        ("outer_eyebrow_height", 6, 4, 4),
+        ("pupil_size", 7, 4, 4),
+        ("eye_depth", 8, 0, 4),
+        ("inner_eye_position", 8, 4, 4),
+        ("inner_eye_height", 9, 0, 4),
+        ("outer_eye_position", 9, 4, 4),
+        ("eye_corner_height", 10, 0, 4),
+        ("upper_eyelid_width_inner", 10, 4, 4),
+        ("upper_eyelid_height_inner", 11, 0, 4),
+        ("upper_eyelid_width_outer", 11, 4, 4),
+        ("upper_eyelid_height_outer", 12, 0, 4),
+        ("bottom_eyelid_height", 13, 0, 4),
+        ("horizontal_eye_position", 13, 4, 4),
+        ("eye_height", 14, 0, 4),
+        ("nose_height", 14, 4, 4),
+        ("nose_tip_depth", 15, 0, 4),
+        ("nostril_width", 15, 4, 4),
+        ("nose_depth", 16, 4, 4),
+        ("nose_width", 17, 0, 4),
+        ("mouth_height", 18, 0, 4),
+        ("mouth_depth", 18, 4, 4),
+        ("lip_size", 19, 0, 4),
+        ("mouth_corner_height", 20, 0, 4),
+        ("lip_width", 20, 4, 4),
+        ("ear_length", 26, 4, 4),
+        ("ear_width", 27, 0, 4),
+        ("ear_angle", 27, 4, 4),
+        ("pes15_jaw_depth", 1, 4, 4),
+        ("pes15_cheekbone_depth", 3, 0, 4),
+        ("pes15_mouth_edge_position", 21, 0, 4),
+        ("pes15_eyebrow_depth", 7, 0, 4),
+        ("pes15_bottom_eyelid_position", 12, 4, 4),
+        ("pes15_nasal_bridge_position", 16, 0, 4),
+        ("pes15_nasal_root_height", 17, 4, 4),
+        ("cheek_type", 23, 3, 5),
+        ("forehead_type", 24, 0, 3),
+        ("facial_hair_type", 24, 3, 5),
+        ("laughter_lines_type", 25, 0, 3),
+        ("upper_eyelid_type", 25, 3, 5),
+        ("lower_eyelid_type", 26, 0, 4),
+        ("eyebrow_type", 28, 0, 5),
+        ("neck_line_type", 28, 5, 3),
+        ("nose_type", 30, 0, 6),
+        ("upper_lip_type", 31, 0, 3),
+        ("lower_lip_type", 31, 3, 3),
+        ("eyebrow_color_red", 35, 0, 6),
+        ("eyebrow_color_green", 36, 0, 6),
+        ("eyebrow_color_blue", 37, 0, 6),
+        ("eyebrow_style", 35, 6, 2),
+        ("eyebrow_density", 36, 6, 2),
+        ("eyebrow_thickness", 37, 6, 2),
+        ("facial_hair_color_red", 39, 4, 6),
+        ("facial_hair_color_green", 40, 2, 6),
+        ("facial_hair_color_blue", 41, 0, 6),
+        ("facial_hair_thickness", 41, 6, 2),
+        ("pes15_eye_white", 38, 6, 2),
+        ("color_red", 31, 6, 6),
+        ("color_green", 32, 4, 6),
+        ("color_blue", 33, 2, 6),
+        ("accessory", 39, 0, 1),
+        ("accessory_color", 39, 1, 3),
+        ("color_preset", 43, 4, 4),
+        ("style", 34, 0, 4),
+        ("cropped_style", 34, 4, 4),
+        ("length", 38, 0, 3),
+        ("wave_level", 38, 3, 3),
+        ("variation", 42, 4, 8),
+        ("front_style", 44, 0, 3),
+        ("parted", 44, 3, 3),
+        ("side_back_style", 44, 6, 3),
+        ("hairline", 45, 1, 3),
+        ("forehead_width", 45, 4, 4),
+        ("pes15_variation", 34, 0, 8),
+        ("pes15_length", 38, 0, 3),
+        ("pes15_type", 38, 3, 3),
+        ("gloves", 0, 0, 1),
+        ("gloves_color", 0, 1, 3),
+        ("skin_color", 23, 0, 3),
+        ("iris_color", 42, 0, 4),
+    ];
+    let mut seen = HashSet::new();
+    for (name, byte, bit, width) in PLAN {
+        let key = SettingKey::ALL
             .iter()
-            .all(|b| *b == 0),
-        "every undecoded bit is 0"
+            .find(|key| key.spec().name == name)
+            .unwrap_or_else(|| panic!("{name}: no such key"));
+        let Source::Face(field) = key.source() else {
+            panic!("{name}: not an ingame-face key");
+        };
+        let row = INGAME_FACE_FIELDS
+            .iter()
+            .find(|row| row.field == field)
+            .unwrap_or_else(|| panic!("{field:?}: no row"));
+        assert_eq!(
+            (row.bit_offset, row.bit_width),
+            (byte * 8 + bit, width),
+            "{name} at {byte}:{bit} w{width}"
+        );
+        seen.insert(field);
+    }
+    let unplanned: Vec<_> = INGAME_FACE_FIELDS
+        .iter()
+        .map(|row| row.field)
+        .filter(|field| !seen.contains(field))
+        .collect();
+    assert!(
+        unplanned.is_empty(),
+        "rows the plan's list lacks: {unplanned:?}"
     );
-    for key in SettingKey::ALL {
-        if let Source::Face(field) = key.source() {
-            assert_eq!(
-                player.appearance.ingame_face.get(field).expect("named bit"),
-                key.spec().default.expect("a face key carries a default"),
-                "{key:?} at its default"
-            );
-        }
-    }
-}
 
-/// The named bits of a `face` value are ignored on read: the keys own them.
-#[test]
-fn named_bits_set_in_face_do_not_reach_the_named_fields() {
-    let payload = payload(PesVersion::Pes19);
-    let schema = schema_for(PesVersion::Pes19);
-    let p = find_player(&payload, schema, 70101);
-    let mut q = find_player(&payload, schema, 70102);
-    let mut settings = PlayerSettings::from_player(&p).expect("from_player");
-    // All bits set, the named positions included: the keys must still win.
-    let run_len = q.appearance.ingame_face.bytes().len();
-    settings.appearance.unknown.face = Some(vec![0xFF; run_len]);
-    settings.name = None;
-    settings.shirt_name = None;
-    settings.apply(&mut q, PesVersion::Pes19).expect("apply");
-    for field in IngameFaceField::ALL {
-        assert_eq!(
-            q.appearance.ingame_face.get(field).expect("named bit"),
-            p.appearance.ingame_face.get(field).expect("named bit"),
-            "{field:?} is the key's value, not face's"
-        );
-    }
-    let mask = face_field_mask(run_len);
-    for (byte, &b) in q.appearance.ingame_face.bytes().iter().enumerate() {
-        assert_eq!(
-            b & !mask[byte],
-            !mask[byte],
-            "byte {byte}: the undecoded bits are all set"
-        );
-    }
+    // (layout, byte, bit, width, value): "Measured unused".
+    let planned_unused = [
+        (None, 3, 4, 4, 7),
+        (None, 4, 0, 4, 7),
+        (None, 19, 4, 4, 7),
+        (None, 30, 6, 2, 1),
+        (Some(FaceLayout::Pes16To21), 46, 0, 8, 0),
+        (Some(FaceLayout::Pes16To21), 47, 0, 8, 0),
+        (Some(FaceLayout::Pes16To21), 48, 0, 8, 0),
+        (Some(FaceLayout::Pes16To21), 49, 0, 8, 0),
+        (Some(FaceLayout::Pes15), 42, 4, 8, 0x77),
+        (Some(FaceLayout::Pes15), 44, 0, 8, 0),
+        (Some(FaceLayout::Pes15), 45, 0, 8, 0x37),
+    ]
+    .map(|(layout, byte, bit, width, value)| (layout, byte * 8 + bit, width, value));
+    let table: Vec<_> = UNUSED_FACE_BITS
+        .iter()
+        .map(|row| (row.layout, row.bit_offset, row.bit_width, row.value))
+        .collect();
+    assert_eq!(table, planned_unused, "the measured-unused rows");
 }
 
 #[test]
@@ -731,7 +1043,7 @@ fn get_after_set_round_trips_every_key() {
 
 #[test]
 fn the_key_specs_match_the_plan_table() {
-    let comments: [&str; 52] = [
+    let comments: [&str; 130] = [
         "\"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)",
         "\"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder's gloves models or a gloves link get an ID (pre-Fox face-XML gloves do not)",
         "0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)",
@@ -773,17 +1085,95 @@ fn the_key_specs_match_the_plan_table() {
         "0 to 3, PES 20 and 21 only",
         "0 none, 1 to 122 (PES 20 and 21: 1 to 162)",
         "0 none, 1 to 122 (PES 20 and 21: 1 to 162)",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7 (PES 16 to 21: no editor slider)",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7",
+        "-7 to 7, drawn by PES 15 only",
+        "-7 to 7, drawn by PES 15 only",
+        "-7 to 7, drawn by PES 15 only",
+        "-7 to 7, drawn by PES 15 only",
+        "-7 to 7, drawn by PES 15 only",
+        "-7 to 7, drawn by PES 15 only",
+        "-7 to 7, drawn by PES 15 only",
+        "0 to 3 (PES 15: 0 to 14)",
+        "0 to 5 (PES 15: 0 to 6)",
+        "0 to 12 (PES 15: 0 to 29; PES 20 and 21: 0 to 19)",
+        "0 to 4 (PES 15: 0 to 6)",
+        "0 to 6 (PES 15: 0 to 14; PES 20 and 21: 0 to 7)",
+        "0 to 2 (PES 15: 0 to 14; PES 20 and 21: 0 to 6)",
+        "0 to 5 (PES 15: 0 to 17; PES 20 and 21: 0 to 7)",
+        "0 to 2 (PES 15: 0 to 5; PES 20 and 21: 0 to 3)",
+        "0 to 6 (PES 15: 0 to 11; PES 20 and 21: 0 to 7)",
+        "-1 to 1; PES 15 only",
+        "0 to 3 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)",
+        "0 to 2 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)",
+        "0 to 63",
+        "0 to 63",
+        "0 to 63",
+        "0 normal, 1 thick, 2 thin",
         "0 to 3",
-        "0 to 5",
-        "0 to 12 (PES 20 and 21: 0 to 19)",
-        "0 to 4",
-        "0 to 6 (PES 20 and 21: 0 to 7)",
-        "0 to 2 (PES 20 and 21: 0 to 6)",
-        "0 to 5 (PES 20 and 21: 0 to 7)",
-        "0 to 2 (PES 20 and 21: 0 to 3)",
-        "0 to 6 (PES 20 and 21: 0 to 7)",
-        "0 to 3 (PES 20 and 21: 0 to 4)",
-        "0 to 2 (PES 20 and 21: 0 to 4)",
+        "0 to 3",
+        "0 to 63",
+        "0 to 63",
+        "0 to 63",
+        "0 to 3",
+        "0 to 3, brighter eye whites, drawn by PES 15 only",
+        "0 to 63",
+        "0 to 63",
+        "0 to 63",
+        "0 custom (the colour above), 1 to 8 the editor's presets",
+        "true, false (PES 15: the game sets it with the variation)",
+        "0 white, 1 dark grey, 2 red, 3 blue, 4 yellow, 5 green, 6 magenta, 7 cyan",
+        "1 normal, 2 dry, 3 mohican, 4 afro, 5 dreadlocks, 6 braided, 7 special, 0 in some saves; PES 16 to 21",
+        "1 to 6, 0 in some saves; PES 16 to 21",
+        "1 shaven, 2 very short, 3 short, 4 medium, 5 long, 0 in some saves; PES 16 to 21",
+        "0 to 6, -1 in some saves; PES 16 to 21",
+        "0 to 29; PES 16 to 21",
+        "1 up, 2 down, 3 combed back, 0 in some saves; PES 16 to 21",
+        "1 off, 2 left 2, 3 left 1, 4 centre, 5 right 1, 6 right 2, 0 in some saves; PES 16 to 21",
+        "1 normal, 2 reduce body, 3 shorter sides, 4 cropped, 0 in some saves; PES 16 to 21",
+        "1 to 3, 0 in some saves; PES 16 to 21",
+        "1 narrow, 2 normal, 3 wide, 0 in some saves; PES 16 to 21",
+        "1 skinhead, 2 very short, 3 short, 4 medium, 5 long, 6 special; PES 15 only",
+        "0 none (skinhead, special), 1 straight, 2 wavy, 3 permed, 4 dreadlocks; PES 15 only",
+        "1 to 82, the editor's grid position (each length and type has its own grid); PES 15 only",
     ];
     let tables = [
         "appearance",
@@ -791,7 +1181,11 @@ fn the_key_specs_match_the_plan_table() {
         "appearance.strip",
         "appearance.motion",
         "appearance.face",
+        "appearance.hair",
     ];
+    // `zip` stops at the shorter side: a key added to `ALL` alone would
+    // otherwise go unchecked.
+    assert_eq!(comments.len(), SettingKey::ALL.len(), "one comment per key");
     for (key, comment) in SettingKey::ALL.iter().zip(comments) {
         let spec = key.spec();
         assert!(!spec.comment.is_empty(), "{key:?} comment");
@@ -805,7 +1199,10 @@ fn the_key_specs_match_the_plan_table() {
             Kind::Labels(labels) => assert!(!labels.is_empty(), "{key:?} labels"),
             Kind::OneBased { max } => assert!(max >= 1, "{key:?} one-based max"),
             Kind::Number { min, max } => assert!(min <= max, "{key:?} number range"),
-            Kind::Signed7 | Kind::Bool => {}
+            Kind::Signed { limit } => assert!(limit >= 1, "{key:?} signed limit"),
+            Kind::PlusOne { max } => assert!(max >= 1, "{key:?} plus-one max"),
+            Kind::Mapped(map) => assert!(map.len() >= 2, "{key:?} map"),
+            Kind::Bool => {}
         }
     }
 }

@@ -162,7 +162,7 @@ fn the_comparators_aesthetics_rows_match_the_compare_scripts_diff_on_every_fixtu
             for ((key, o), (_, n)) in old.iter().zip(&new) {
                 let ours = if *key == "ingameFace" {
                     // The hash row carries the script's fingerprints when the
-                    // undecoded bits changed; a change inside a named field is
+                    // unused bits changed; a change inside a named field is
                     // that field's row instead. Either way, the hash differs
                     // exactly when something outside gloves and skin changed.
                     match run_changed(&diffs) {

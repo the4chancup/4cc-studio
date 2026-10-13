@@ -30,37 +30,6 @@ const HEADER: &str = "\
 # team without a manager); otherwise they are ignored and the manager's names stand.
 ";
 
-/// The expected text of the ingame-face run's hex form, shared by
-/// `settings.toml`'s `[appearance.unknown]` `face` and team TOML's
-/// `ingame_face`.
-pub(crate) const HEX_RUN_EXPECTED: &str = "a hex string of 46 or 50 bytes";
-
-/// `"0102…ff"` decoded: 46 or 50 bytes of hex; `None` on any other text,
-/// the callers mapping it to their own `WrongType`. Byte length first,
-/// then ASCII-hex: a text that is not all ASCII hex of the right length
-/// is refused before decoding, so the decode's `expect`s cannot fire.
-pub(crate) fn hex_run(text: &str) -> Option<Vec<u8>> {
-    if (text.len() != 92 && text.len() != 100) || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
-        return None;
-    }
-    Some(
-        text.as_bytes()
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|pair| {
-                u8::from_str_radix(std::str::from_utf8(pair).expect("hex digits are UTF-8"), 16)
-                    .expect("hex digits parse")
-            })
-            .collect(),
-    )
-}
-
-/// `"0102…ff"` — the run's bytes as lowercase hex.
-pub(crate) fn hex_string(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
-
 /// The dotted path of a key ("appearance.strip.sleeves"; a top-level key is
 /// just its name).
 pub(super) fn dotted(spec: &keys::KeySpec) -> String {
@@ -84,6 +53,8 @@ fn stored_bound(key: SettingKey) -> i64 {
             .find(|spec| spec.field == field)
             .map(|spec| spec.bit_width)
             .expect("every face field is in the table"),
+        // The angle + 1, 0 to 2: coded into `NoseType`, no width of its own.
+        keys::Source::NoseAngle => return 2,
     };
     (1i64 << width) - 1
 }
@@ -113,8 +84,21 @@ fn toml_form(key: SettingKey, stored: u8, stored_ranges: bool) -> Result<Value, 
     }
     Ok(match spec.kind {
         Kind::Number { .. } => i64::from(stored).into(),
-        Kind::Signed7 => (i64::from(stored) - 7).into(),
+        Kind::Signed { limit } => (i64::from(stored) - i64::from(limit)).into(),
         Kind::OneBased { .. } => (i64::from(stored) + 1).into(),
+        Kind::PlusOne { .. } => (i64::from(stored) - 1).into(),
+        // Stored mode's width check lets through a preset id the editor
+        // never writes; it has no TOML index, so it is refused here.
+        Kind::Mapped(map) => match map.iter().position(|id| *id == stored) {
+            Some(index) => i64::try_from(index).expect("a short map").into(),
+            None => {
+                return Err(SettingsError::OutOfRange {
+                    key: dotted(spec),
+                    value: i64::from(stored),
+                    range: range_text(spec.kind),
+                });
+            }
+        },
         Kind::Bool => (stored != 0).into(),
         // Strict mode's accepts_stored bounds `stored` to a label; stored
         // mode falls back to the integer for a width-valid value with none.
@@ -130,8 +114,10 @@ fn toml_form(key: SettingKey, stored: u8, stored_ranges: bool) -> Result<Value, 
 pub(crate) fn range_text(kind: Kind) -> String {
     match kind {
         Kind::Number { min, max } => format!("{min} to {max}"),
-        Kind::Signed7 => "-7 to 7".to_string(),
+        Kind::Signed { limit } => format!("-{limit} to {limit}"),
         Kind::OneBased { max } => format!("1 to {max}"),
+        Kind::PlusOne { max } => format!("-1 to {max}"),
+        Kind::Mapped(map) => format!("0 to {}", map.len() - 1),
         Kind::Bool => "true, false".to_string(),
         Kind::Labels(labels) => labels
             .iter()
@@ -236,10 +222,11 @@ fn value(
             }
             Ok(u8::try_from(value).expect("the range check bounds it"))
         }
-        Kind::Signed7 => {
+        Kind::Signed { limit } => {
+            let limit = i64::from(limit);
             let value = integer("an integer")?;
             if stored_ranges {
-                let Some(shifted) = value.checked_add(7) else {
+                let Some(shifted) = value.checked_add(limit) else {
                     return Err(SettingsError::OutOfRange {
                         key: dotted.to_string(),
                         value,
@@ -248,14 +235,48 @@ fn value(
                 };
                 return wide(shifted);
             }
-            if !(-7..=7).contains(&value) {
+            if !(-limit..=limit).contains(&value) {
                 return Err(SettingsError::OutOfRange {
                     key: dotted.to_string(),
                     value,
                     range: range_text(kind),
                 });
             }
-            Ok(u8::try_from(value + 7).expect("in 0..=14"))
+            Ok(u8::try_from(value + limit).expect("in 0..=2 * limit"))
+        }
+        Kind::PlusOne { max } => {
+            let value = integer("an integer")?;
+            if stored_ranges {
+                let Some(shifted) = value.checked_add(1) else {
+                    return Err(SettingsError::OutOfRange {
+                        key: dotted.to_string(),
+                        value,
+                        range: format!("0 to {}", stored_bound(key)),
+                    });
+                };
+                return wide(shifted);
+            }
+            if !(-1..=i64::from(max)).contains(&value) {
+                return Err(SettingsError::OutOfRange {
+                    key: dotted.to_string(),
+                    value,
+                    range: range_text(kind),
+                });
+            }
+            Ok(u8::try_from(value + 1).expect("in 0..=max + 1"))
+        }
+        // Both modes: only an index has a stored id to map to.
+        Kind::Mapped(map) => {
+            let value = integer("an integer")?;
+            usize::try_from(value)
+                .ok()
+                .and_then(|index| map.get(index))
+                .copied()
+                .ok_or_else(|| SettingsError::OutOfRange {
+                    key: dotted.to_string(),
+                    value,
+                    range: range_text(kind),
+                })
         }
         Kind::OneBased { max } => {
             let value = integer("an integer")?;
@@ -346,8 +367,6 @@ fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
 
 /// The recursive half of [`reject_unknown`] and [`parse_appearance`]: `root`
 /// is the appearance table's own dotted path, `path` the table being walked.
-/// `[root.unknown]` is a known table of both documents; its one key is
-/// `face`.
 fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), SettingsError> {
     let Some(table) = item.as_table_like() else {
         return Err(SettingsError::WrongType {
@@ -357,29 +376,10 @@ fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), Setti
     };
     for (leaf, sub) in table.iter() {
         let child = format!("{path}.{leaf}");
-        let unknown_table = path == root && leaf == "unknown";
-        if unknown_table
-            || SettingKey::ALL.iter().any(|key| {
-                key.spec().table != KeyTable::Top && absolute(root, key.spec().table) == child
-            })
-        {
-            let Some(sub_table) = sub.as_table_like() else {
-                return Err(SettingsError::WrongType {
-                    key: child,
-                    expected: "a table",
-                });
-            };
-            if unknown_table {
-                for (name, _) in sub_table.iter() {
-                    if name != "face" {
-                        return Err(SettingsError::UnknownKey {
-                            key: format!("{child}.{name}"),
-                        });
-                    }
-                }
-            } else {
-                reject_unknown_table(sub, root, &child)?;
-            }
+        if SettingKey::ALL.iter().any(|key| {
+            key.spec().table != KeyTable::Top && absolute(root, key.spec().table) == child
+        }) {
+            reject_unknown_table(sub, root, &child)?;
         } else if !SettingKey::ALL.iter().any(|key| {
             key.spec().table != KeyTable::Top
                 && absolute(root, key.spec().table) == path
@@ -416,7 +416,7 @@ fn model_id(document: &DocumentMut, key: SettingKey) -> Result<Option<u8>, Setti
 /// Which document an appearance table is parsed from or emitted into:
 /// `settings.toml`'s `[appearance]` or Team TOML's `[players.NN.appearance]`.
 /// The document settles the value bounds and the `[appearance.motion]`
-/// note; `[appearance.unknown]` parses and emits the same under both.
+/// note.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AppearanceDocument {
     /// `settings.toml`: the editor ranges the key comments document apply,
@@ -464,38 +464,11 @@ pub(crate) fn parse_appearance(
         let stored = value(&leaf, key, item, document.stored_ranges())?;
         set_appearance(&mut out, key, Some(stored));
     }
-    if let Some(item) = appearance.get("unknown") {
-        out.unknown.face = unknown_face(item, &format!("{path}.unknown"))?;
-    }
     reject_unknown_table(item, path, path)?;
     Ok(out)
 }
 
-/// `[appearance.unknown]`'s `face`: the run's hex of 46 or 50 bytes; `None`
-/// when the key is absent. A non-table `unknown` is `WrongType`; any other
-/// key in the table is left to the reject sweep's `UnknownKey`.
-fn unknown_face(item: &Item, path: &str) -> Result<Option<Vec<u8>>, SettingsError> {
-    let Some(table) = item.as_table_like() else {
-        return Err(SettingsError::WrongType {
-            key: path.to_string(),
-            expected: "a table",
-        });
-    };
-    let Some(item) = table.get("face") else {
-        return Ok(None);
-    };
-    let bytes = item
-        .as_value()
-        .and_then(|v| v.as_str())
-        .and_then(hex_run)
-        .ok_or_else(|| SettingsError::WrongType {
-            key: format!("{path}.face"),
-            expected: HEX_RUN_EXPECTED,
-        })?;
-    Ok(Some(bytes))
-}
-
-/// The `[prefix]` table plus its four subtables appended to `out`, in key
+/// The `[prefix]` table plus its subtables appended to `out`, in key
 /// order: a `Some` emits its line with the key's comment, a `None` the
 /// commented line at the key's default. Shared with `team_toml`'s
 /// `[players.NN.appearance]` (`AppearanceDocument::TeamToml`).
@@ -547,17 +520,6 @@ pub(crate) fn emit_appearance(
             None => out.push_str(&format!("# {line}")),
         }
         out.push('\n');
-    }
-    // The template's tail, verbatim: `None` emits nothing, no commented
-    // line either (a new player folder's template holds no unknown table).
-    if let Some(face) = &appearance.unknown.face {
-        out.push_str(&format!(
-            "\n# The in-game face's bits no tool has decoded yet (hair, face sliders, ...), kept so a\n\
-            # player's look survives. Leave them as generated.\n\
-            [{prefix}.unknown]\n\
-            face = \"{}\"\n",
-            hex_string(face)
-        ));
     }
     Ok(())
 }
@@ -773,10 +735,6 @@ impl PlayerSettings {
             };
             let item = table_at(document, spec.table.path())?;
             set(&mut item[spec.name], toml_form(key, stored, false)?);
-        }
-        if let Some(face) = &self.appearance.unknown.face {
-            let item = table_at(document, "appearance.unknown")?;
-            set(&mut item["face"], hex_string(face).into());
         }
         Ok(())
     }

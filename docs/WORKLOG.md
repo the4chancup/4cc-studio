@@ -14,8 +14,8 @@ Phase 2 2026-09-30).
 **Next:** Phase 5 (Savefile integration): its fixed steps 5.0 to 5.0h and step 5.1 done
 (2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; Astra R12.A1 over 5.2b1's reworks after the
 Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 and 5.2c2
-landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done (2026-10-13; its code is 5.0m,
-before 5.3a); then 5.0j's remaining slices beside 5.2c3
+landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
+5.0j done (its last slice 5.0j7); then 5.0m2, 5.2c3 and 5.4a
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -661,7 +661,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   open phase's files (`OPEN_PHASE_PLANS`, emptied at Phase 5's close); the acceptance
   scanner reads both trees (421 scenarios, 366 proven, as before). The classification found
   spec text describing what was never built, which 5.0j corrects
-- [ ] 5.0j The spec audited against the code (found by 5.0i's classification; Phases 1 to 4's
+- [x] 5.0j The spec audited against the code (found by 5.0i's classification; Phases 1 to 4's
   converge audits checked the code against the plan's requirements, not the plan's
   descriptions against the code): each `docs/spec/` file read beside its crates, and every
   passage describing something built differently, or never built and not planned, corrected to
@@ -716,11 +716,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   - [x] 5.0j6 `docs/spec/team_compiler/README.md` (the crate tree rewritten to the files that
     exist, the data-flow boxes, the placement rules and the GUI's one action as built,
     `ModelFolder`). Done 2026-10-13 (SWE-2, first attempt)
-  - [ ] 5.0j7 the rest of `team_compiler` (`pipeline.md`, `settings.md`, `messages.md`,
+  - [x] 5.0j7 the rest of `team_compiler` (`pipeline.md`, `settings.md`, `messages.md`,
     `blue_port.md`, `testing.md`). Known: `spec/team_compiler/pipeline.md` "1. Reader" step 4 says contents load
     into a `VirtualTree` (the reader returns owned bytes through `ContentSource`), and its
     `allocation_scheme_version` claim; `tests/parity.rs` and `parity_prefox.rs` point their
-    docs at `plans/team_compiler/testing.md`
+    docs at `plans/team_compiler/testing.md`. Done 2026-10-13 (Fable, one rework): the five
+    spec files describe the CLI as built, the GUI, savefile and Refs arranger clauses moved to
+    their plans, the parity tests' docs point at `spec/team_compiler/testing.md`
 - [x] 5.0k `pes_savefile`'s PES 20/21 advanced-instruction table (found 2026-10-12, in-game on
   PES 21, `.tmp/5_2b2/findings.md`): the game stores Anchoring at 0x0A, with 18/19's entries from
   Swarm the Box on shifted up one (Swarm the Box 0x0B, Deep Defensive Line 0x0C, Gegenpress 0x0D,
@@ -728,7 +730,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   instead, so Team TOML reads and writes those six under wrong names. Measured: Anchoring 10,
   False Winger 9, Swarm the Box 11, Deep Defensive Line 12, Counter Target 15 (the measured copy
   is `.tmp/5_2b2/pes21_after/EDIT00000000`, team 701 preset 1). A census of every 17-21 save on
-  disk by side (`.tmp/5_2b2/findings.md` "Instruction values by side") fits PES 17's and
+  disk by side (`.tmp/5_2b2/findings.md`, its instruction values by side) fits PES 17's and
   18/19's tables and only the corrected 20/21 one: attack slots hold attack instructions, and
   Tight Marking (set only in a match) is the one defence value never stored. The spec's
   "Version quirks" text is corrected with the code → done
@@ -763,7 +765,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
 
     → done when: each version's run is covered bit for bit by one field or unused row, the
     template equals the plan's block, and `from_player` then `apply` gives back every fixture
-    run except its unused bits.
+    run except its unused bits. Done 2026-10-13 (SWE-2, first attempt, two reworks; the lead's
+    generated schema rows and plan-literal tests):
+    - 92 fields in two layouts, the measured-unused rows, the nose accessors, PES 15's caps;
+    - 130 `settings.toml` keys from the plan's table, `[appearance.unknown]` gone;
+    - a settings apply writes the unused bits, a Team TOML import leaves them;
+    - reviews: SWE-2 S1 to S4, Astra A1 (rulings `.tmp/5_0m/rulings.md`).
   - [ ] 5.0m2 the conversion between the two layouts field by field, `FaceRunTruncated` gone
     → done when: a PES 15 → 21 conversion of a cup player keeps his face fields and leaves the
     target's hair bits, and a 21 → 15 one the reverse.
@@ -1433,6 +1440,16 @@ points there.
   planned, survey both forks for features to adapt (`music_player.md` and
   `match_tracker/README.md` list them). The match tracker plan's "Rigdio removed its client"
   and "PES 2017 only" predate them.
+- open (2026-10-13, 5.0m1) — what a hair list at 0 draws (`aesthetics_export/settings_toml.md`,
+  the paragraph after the ingame-face run's rules): the fixture cup saves of PES 16 to 18 hold
+  0 in `style`, `front_style`, `parted` (1,651 PES 18 cup players) and, for a few players, in
+  every hair list and `wave_level`; the keys now carry it. An Edit-mode look at a PES 18 cup
+  player with `style` 0 (the save's own, no write) settles whether 0 is a look of its own or
+  the default hair. The lead's, at the next PES 18 in-game session.
+- open (2026-10-13, 5.0m1) — one PES 16 fixture cup player holds `goal_celebration_2 = 183`,
+  past every version's range (0 to 162), so `from_player` refuses him (`OutOfRange`) and his
+  settings export fails. Whether 183 is a celebration PES 16 draws is unchecked;
+  `every_fixture_player_round_trips_through_his_settings` lists him.
 
 ---
 

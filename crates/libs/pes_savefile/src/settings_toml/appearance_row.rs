@@ -30,8 +30,8 @@ impl PlayerSettings {
     /// little-endian, then the 56 appearance bytes his player record holds
     /// just after the appearance block's base-copy id. The row is what
     /// `apply`'s appearance write puts onto a record of all zero bytes, so
-    /// absent keys land at their `KeySpec` defaults and `face`'s undecoded
-    /// bits travel with it. None of `apply`'s TOML-surface checks is the
+    /// absent keys land at their `KeySpec` defaults and the run's
+    /// measured-unused bits at the games' values. None of `apply`'s TOML-surface checks is the
     /// row's: the names are never read (an overlong one is no error here),
     /// and a stored value past a key's kind range but inside its field's
     /// bits — a save's own data, which strip-and-seed must reproduce — is

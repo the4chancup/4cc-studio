@@ -8,6 +8,7 @@ use pes_version::PesVersion;
 
 use crate::codec::{self, CodecError};
 use crate::file::EditFile;
+use crate::model::ingame_face::in_layout;
 use crate::model::player::PlayerEntry;
 #[cfg(test)]
 use crate::model::player::STRIPPED_APPEARANCE_ID;
@@ -37,7 +38,7 @@ pub enum PlayerDiff {
         /// `b`'s text.
         new: String,
     },
-    /// A known bit run of the ingame-face block.
+    /// A field of the ingame-face run's layout.
     Face {
         /// The ingame-face field that differs.
         field: IngameFaceField,
@@ -46,8 +47,9 @@ pub enum PlayerDiff {
         /// `b`'s value.
         new: u8,
     },
-    /// Bits of the run no `IngameFaceField` names differ; the hashes are
-    /// `ops::fingerprint`'s fingerprints of the two runs.
+    /// The run's measured-unused bits differ (`IngameFace::unused`: no field
+    /// of its layout names them); the hashes are `ops::fingerprint`'s
+    /// fingerprints of the two runs.
     FaceRun {
         /// `a`'s fingerprint.
         old: FaceHash,
@@ -212,10 +214,10 @@ fn record_diffs(
 
 /// Every difference between two players of the same version: the schema's
 /// stored fields (the player record's, plus the 15/16 appearance record's)
-/// through the model, the two texts, the known ingame-face bits, and the
-/// run's undecoded bits as one row. `Err` only when a gated field the schema
-/// stores is `None` on either side (an entry not read from a save of this
-/// version).
+/// through the model, the two texts, the ingame-face fields of the run's
+/// layout, and the run's measured-unused bits as one row. `Err` only when a
+/// gated field the schema stores is `None` on either side (an entry not read
+/// from a save of this version).
 pub fn compare_players(
     a: &PlayerEntry,
     b: &PlayerEntry,
@@ -246,7 +248,12 @@ pub fn compare_players(
             });
         }
     }
-    for spec in INGAME_FACE_FIELDS {
+    // Equal lengths, so one layout for both runs.
+    let layout = fa.layout();
+    for spec in INGAME_FACE_FIELDS
+        .iter()
+        .filter(|spec| in_layout(spec.field.layout(), layout))
+    {
         let (old, new) = (fa.get(spec.field)?, fb.get(spec.field)?);
         if old != new {
             diffs.push(PlayerDiff::Face {
@@ -256,7 +263,7 @@ pub fn compare_players(
             });
         }
     }
-    if fa.undecoded() != fb.undecoded() {
+    if fa.unused() != fb.unused() {
         diffs.push(PlayerDiff::FaceRun {
             old: face_hash(fa),
             new: face_hash(fb),
@@ -345,8 +352,8 @@ mod tests {
         find_player(&payload(version), schema_for(version), id)
     }
 
-    /// `(byte, bit)` of the run covered by no known field.
-    fn an_undecoded_bit(len: usize) -> (usize, u32) {
+    /// `(byte, bit)` of the run covered by no field: a measured-unused bit.
+    fn an_unused_bit(len: usize) -> (usize, u32) {
         for byte in 0..len {
             for bit in 0..8u32 {
                 let at = byte as u32 * 8 + bit;
@@ -358,7 +365,7 @@ mod tests {
                 }
             }
         }
-        panic!("the {len}-byte run has no undecoded bit");
+        panic!("the {len}-byte run has no unused bit");
     }
 
     #[test]
@@ -432,7 +439,7 @@ mod tests {
     }
 
     #[test]
-    fn a_face_field_is_one_face_row_an_unknown_bit_is_one_run_row() {
+    fn a_face_field_is_one_face_row_an_unused_bit_is_one_run_row() {
         let a = player(PesVersion::Pes21, 70101);
         let schema = schema_for(PesVersion::Pes21);
         let face = &a.appearance.ingame_face;
@@ -455,7 +462,7 @@ mod tests {
         );
 
         // A bit no field covers: one FaceRun row with the two fingerprints.
-        let (byte, bit) = an_undecoded_bit(face.bytes().len());
+        let (byte, bit) = an_unused_bit(face.bytes().len());
         let mut run = face.bytes().to_vec();
         run[byte] ^= 1 << bit;
         let mut b = a.clone();
@@ -532,12 +539,12 @@ mod tests {
     }
 
     #[test]
-    fn a_face_field_and_an_undecoded_bit_are_two_rows() {
+    fn a_face_field_and_an_unused_bit_are_two_rows() {
         let a = player(PesVersion::Pes21, 70101);
         let schema = schema_for(PesVersion::Pes21);
         let face = &a.appearance.ingame_face;
         let nose = face.get(IngameFaceField::NoseType).expect("covered");
-        let (byte, bit) = an_undecoded_bit(face.bytes().len());
+        let (byte, bit) = an_unused_bit(face.bytes().len());
 
         let mut b = a.clone();
         let mut run = face.bytes().to_vec();

@@ -7341,3 +7341,14 @@ run is still copied whole.
 Why: a prefix copy turns a PES 15 variation id into a 16 to 21 hairstyle and cropped style. The
 hair vanishes, or PES 21 crashes on a cropped-style high bit.
 Plan: `pes_savefile/operations.md` "Cross-version player conversion".
+
+## 2026-10-13 — settings.toml — the hair lists' ranges hold the 0 real saves store
+Decision: every PES 16 to 21 hair list key (`style`, `cropped_style`, `length`, `front_style`,
+`parted`, `side_back_style`, `hairline`, `forehead_width`) accepts 0, and `wave_level` (stored
+as the level plus 1) accepts -1. The template's defaults stay the editor's.
+Why: the fixture cup saves of PES 16 to 18 hold 0 there, outside the editors' 1-based lists
+(1,651 PES 18 cup players in `style`, `front_style` and `parted`), so the editor ranges made
+`from_player` refuse those players and a settings export of those cups fail. `variation`
+already takes the 0 the games write. What a 0 draws is unmeasured (worklog Issues).
+Plan: `aesthetics_export/settings_toml.md`, the template block's hair comments and the
+paragraph after the ingame-face run's rules.

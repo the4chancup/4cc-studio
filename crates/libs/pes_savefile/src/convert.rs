@@ -262,9 +262,21 @@ pub fn convert_player(
         let Some(cap) = face_type_cap(to, field) else {
             continue;
         };
-        let value = out.appearance.ingame_face.get(field)?;
+        let face = &mut out.appearance.ingame_face;
+        // The cap is on the nose type, not on PES 15's field, which codes
+        // the angle with it; a reset keeps the angle.
+        let nose = field == IngameFaceField::NoseType;
+        let (value, angle) = if nose {
+            face.nose()?
+        } else {
+            (face.get(field)?, 0)
+        };
         if value > cap {
-            out.appearance.ingame_face.set(field, 0)?;
+            if nose {
+                face.set_nose(0, angle)?;
+            } else {
+                face.set(field, 0)?;
+            }
             notes.push(ConvertNote::FaceTypeReset { field, value });
         }
     }
@@ -287,6 +299,7 @@ mod tests {
 
     use super::*;
     use crate::codec::{read_player, write_player};
+    use crate::model::ingame_face::{IngameFace, in_layout};
     use crate::schema::ingame_face::INGAME_FACE_FIELDS;
     use crate::test_support::{FIXTURES, count, find_player, payload, record};
 
@@ -379,9 +392,18 @@ mod tests {
     }
 
     /// Each face type is `min`-capped against `to`; the skin carries unless 7
-    /// hits the custom-skin rule.
+    /// hits the custom-skin rule. Only the fields both runs hold: the
+    /// conversion between the layouts is a prefix copy, not field by field. The
+    /// nose is capped on the target's nose type, PES 15's angle aside.
     fn assert_face_rules(out: &PlayerEntry, source: &PlayerEntry, to: PesVersion) {
+        let (face, from) = (&out.appearance.ingame_face, &source.appearance.ingame_face);
+        let cap = face_type_cap(to, F::NoseType).expect("a type");
+        assert!(face.nose().expect("reads").0 <= cap, "{to:?} nose type");
         for field in IngameFaceField::ALL {
+            let held = |run: &IngameFace| in_layout(field.layout(), run.layout());
+            if field == F::NoseType || !held(face) || !held(from) {
+                continue;
+            }
             let got = out.appearance.ingame_face.get(field).expect("covered");
             let src = source.appearance.ingame_face.get(field).expect("covered");
             let want = match face_type_cap(to, field) {
@@ -472,6 +494,29 @@ mod tests {
             "the longer target keeps its own tail"
         );
         assert_opaque_bytes(&target16, &source15, 46);
+    }
+
+    /// The nose is capped on its type, PES 15's angle kept: a PES 16 field of
+    /// 40 copied onto PES 15 reads as type 13, angle -1 (40 = 3 × 13 + 1),
+    /// past PES 15's cap of 11, and resets to type 0 with that angle.
+    #[test]
+    fn a_nose_type_above_the_cap_resets_and_keeps_the_angle() {
+        let mut source = first(V::Pes16);
+        source
+            .appearance
+            .ingame_face
+            .set(F::NoseType, 40)
+            .expect("fits the field");
+        let mut target = first(V::Pes15);
+        let notes = convert_player(&source, V::Pes16, &mut target, V::Pes15).expect("converts");
+        assert_eq!(
+            target.appearance.ingame_face.nose().expect("reads"),
+            (0, -1)
+        );
+        assert!(notes.contains(&N::FaceTypeReset {
+            field: F::NoseType,
+            value: 13,
+        }));
     }
 
     #[test]

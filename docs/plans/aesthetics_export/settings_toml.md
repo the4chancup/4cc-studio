@@ -230,16 +230,16 @@ color_blue = 7                  # 0 to 63
 color_preset = 0                # 0 custom (the colour above), 1 to 8 the editor's presets
 accessory = false               # true, false (PES 15: the game sets it with the variation)
 accessory_color = 0             # 0 white, 1 dark grey, 2 red, 3 blue, 4 yellow, 5 green, 6 magenta, 7 cyan
-style = 1                       # 1 normal, 2 dry, 3 mohican, 4 afro, 5 dreadlocks, 6 braided, 7 special; PES 16 to 21
-cropped_style = 1               # 1 to 6; PES 16 to 21
-length = 2                      # 1 shaven, 2 very short, 3 short, 4 medium, 5 long; PES 16 to 21
-wave_level = 0                  # 0 to 6; PES 16 to 21
+style = 1                       # 1 normal, 2 dry, 3 mohican, 4 afro, 5 dreadlocks, 6 braided, 7 special, 0 in some saves; PES 16 to 21
+cropped_style = 1               # 1 to 6, 0 in some saves; PES 16 to 21
+length = 2                      # 1 shaven, 2 very short, 3 short, 4 medium, 5 long, 0 in some saves; PES 16 to 21
+wave_level = 0                  # 0 to 6, -1 in some saves; PES 16 to 21
 variation = 0                   # 0 to 29; PES 16 to 21
-front_style = 1                 # 1 up, 2 down, 3 combed back; PES 16 to 21
-parted = 1                      # 1 off, 2 left 2, 3 left 1, 4 centre, 5 right 1, 6 right 2; PES 16 to 21
-side_back_style = 4             # 1 normal, 2 reduce body, 3 shorter sides, 4 cropped; PES 16 to 21
-hairline = 1                    # 1 to 3; PES 16 to 21
-forehead_width = 2              # 1 narrow, 2 normal, 3 wide; PES 16 to 21
+front_style = 1                 # 1 up, 2 down, 3 combed back, 0 in some saves; PES 16 to 21
+parted = 1                      # 1 off, 2 left 2, 3 left 1, 4 centre, 5 right 1, 6 right 2, 0 in some saves; PES 16 to 21
+side_back_style = 4             # 1 normal, 2 reduce body, 3 shorter sides, 4 cropped, 0 in some saves; PES 16 to 21
+hairline = 1                    # 1 to 3, 0 in some saves; PES 16 to 21
+forehead_width = 2              # 1 narrow, 2 normal, 3 wide, 0 in some saves; PES 16 to 21
 pes15_length = 2                # 1 skinhead, 2 very short, 3 short, 4 medium, 5 long, 6 special; PES 15 only
 pes15_type = 1                  # 0 none (skinhead, special), 1 straight, 2 wavy, 3 permed, 4 dreadlocks; PES 15 only
 pes15_variation = 1             # 1 to 82, the editor's grid position (each length and type has its own grid); PES 15 only
@@ -293,6 +293,13 @@ The ingame-face run follows three rules:
 - **Unused bits are not keys.** The run's measured-unused bits are written at the values the
   games' editors write, on every compile, so a compiled run holds nothing of the save. They
   are dropped on generation.
+
+The hair lists' ranges also hold the 0 that real saves store, outside the editors' 1-based
+lists: in the fixture cup saves, PES 16, 17 and 18 players hold it in `style`, `front_style`
+and `parted` (1,651 PES 18 cup players), some in every list. A generated file must carry a
+save's player, so each list takes 0, as `variation` does, and `wave_level` (stored as the level
+plus 1) takes -1. The template's defaults stay the editor's. What a 0 draws is not measured
+yet (worklog "Issues").
 
 The four `undershorts` labels name the summer/winter pair the game stores (the reference editor
 shows them as "S: Off / W: Off", "S: Short / W: Short", "S: Off / W: Long", "S: Short / W: Long").

@@ -28,7 +28,7 @@ use crate::settings_toml::document::{
 };
 use crate::settings_toml::keys::{SettingKey, Source};
 use crate::settings_toml::{
-    AppearanceSettings, appearance_from, apply_appearance, get_appearance, set_appearance,
+    AppearanceSettings, appearance_from, apply_appearance, get_appearance, held_on, set_appearance,
 };
 
 use super::items::{
@@ -76,10 +76,7 @@ fn player_from(
     player: &PlayerEntry,
     fields: &HashSet<PlayerField>,
 ) -> Result<PlayerSection, TeamTomlError> {
-    let mut appearance = appearance_from(player)?;
-    // The run's undecoded bits, the named ones 0: what `face` carries, as
-    // `from_player` sets it.
-    appearance.unknown.face = Some(player.appearance.ingame_face.undecoded());
+    let appearance = appearance_from(player)?;
     let mut section = PlayerSection {
         name: Some(player.name.clone()),
         shirt_name: Some(player.shirt_name.clone()),
@@ -750,7 +747,8 @@ fn apply_player(
 
 /// The `[players.NN.appearance]` keys onto `player`. A foreign document's
 /// keys the target cannot hold are pre-adjusted on a clone: a `PlayerField`
-/// the version lacks is dropped with a `NotInThisVersion` note, a face type
+/// the version lacks, or a face or hair key of the other layout (`held_on`),
+/// is dropped with a `NotInThisVersion` note, a face type
 /// over `face_type_cap` resets to 0 with a `Capped` note, and skin 7 on a
 /// target without a custom skin becomes 1 (2.17f's conversion rules).
 /// Same-version documents write the values as stored (a
@@ -776,6 +774,11 @@ fn apply_appearance_table(
                         notes.push(ImportNote::NotInThisVersion { path: leaf });
                     }
                 }
+                Source::Face(_) | Source::NoseAngle if !held_on(key, context.to) => {
+                    set_appearance(&mut appearance, key, None);
+                    notes.push(ImportNote::NotInThisVersion { path: leaf });
+                }
+                Source::NoseAngle => {}
                 Source::Face(field) => {
                     if let Some(cap) = face_type_cap(context.to, field)
                         && value > cap
@@ -813,6 +816,8 @@ fn apply_appearance_table(
                 .iter()
                 .find(|spec| spec.field == field)
                 .map(|spec| spec.bit_width),
+            // No field of its own: `set_nose` checks the coded value.
+            Source::NoseAngle => None,
         };
         let Some(width) = width else {
             continue;
@@ -823,17 +828,8 @@ fn apply_appearance_table(
             width,
         )?;
     }
+    // Absent = untouched: no `write_unused`, unlike a settings apply.
     apply_appearance(&appearance, player)?;
-    // `face` writes the undecoded bits only as far as both runs reach:
-    // past `face`'s end are bytes it does not carry, so the target's
-    // undecoded bits there stand — the absent = untouched rule. A `None`
-    // leaves them untouched.
-    if let Some(face) = &appearance.unknown.face {
-        let mut source = player.appearance.ingame_face.undecoded();
-        let n = face.len().min(source.len());
-        source[..n].copy_from_slice(&face[..n]);
-        player.appearance.ingame_face.write_undecoded(&source);
-    }
     Ok(())
 }
 
@@ -853,7 +849,6 @@ pub(super) fn some_keys(section: &PlayerSection) -> usize {
         section.shirt_name.is_some(),
         section.number.is_some(),
         section.stripped.is_some(),
-        section.appearance.unknown.face.is_some(),
         section.positions.playable.is_some(),
         section.positions.playing_style.is_some(),
         section.skills.skills.is_some(),
@@ -964,12 +959,18 @@ mod tests {
                         .find(|(id, _)| *id == slot.player_id)
                         .map(|(_, appearance_id)| *appearance_id)
                         .expect("the stand-in");
-                    let expected = PlayerEntry {
+                    let mut expected = PlayerEntry {
                         appearance_id: stand_in_id,
                         ..source.clone()
                     };
+                    // The run's unused bits are no key: the stand-in keeps its
+                    // own (absent = untouched), so both sides compare at the
+                    // games' values.
+                    let mut target = target.clone();
+                    target.appearance.ingame_face.write_unused();
+                    expected.appearance.ingame_face.write_unused();
                     assert_eq!(
-                        target, &expected,
+                        target, expected,
                         "{version:?} team {} player {}",
                         team.id, slot.player_id
                     );
@@ -1197,11 +1198,11 @@ mod tests {
         assert_eq!(Some(&target.name), first.name.as_ref());
     }
 
-    /// (d) A 50-byte `face` writes the first 46 bytes' undecoded bits onto
-    /// a PES 15 record — the retired `ingame_face` prefix copy's behavior on
-    /// `face` — without a note for the length difference.
+    /// (d) A foreign document's hair key of the other layout is dropped with
+    /// a `NotInThisVersion` note, the run left as it was: PES 16's `style`
+    /// has no bits in PES 15's run.
     #[test]
-    fn a_longer_face_writes_its_prefix_undecoded_bits_without_a_note() {
+    fn a_hair_key_of_the_other_layout_is_dropped_with_a_note() {
         let (file, _) = open(PesVersion::Pes15);
         let team = file
             .teams()
@@ -1213,36 +1214,83 @@ mod tests {
             .iter()
             .position(|slot| slot.player_id != 0)
             .expect("a rostered slot");
-        let source: Vec<u8> = (0u8..50).collect();
-        let hex: String = source.iter().map(|b| format!("{b:02x}")).collect();
         let doc = TeamToml::parse(&format!(
-            "pes_version = 16\n\n[players.{:02}.appearance.unknown]\nface = \"{hex}\"\n",
+            "pes_version = 16\n\n[players.{:02}.appearance.hair]\nstyle = 4\n",
             slot + 1
         ))
         .expect("parses");
+        let id = team.roster[slot].player_id;
+        let before = file
+            .player(id)
+            .expect("the player")
+            .appearance
+            .ingame_face
+            .clone();
         let mut target_team = team.clone();
         let mut players = file.players().to_vec();
         let notes = doc
             .apply(PesVersion::Pes15, &mut target_team, &mut players)
-            .expect("applies");
-        assert!(notes.is_empty(), "no note for the length: {notes:?}");
-        let id = team.roster[slot].player_id;
+            .expect("a foreign key is a note, not an error");
+        assert_eq!(
+            notes,
+            [ImportNote::NotInThisVersion {
+                path: format!("players.{:02}.appearance.hair.style", slot + 1)
+            }]
+        );
         let target = players
             .iter()
             .find(|player| player.id == id)
             .expect("the player");
         assert_eq!(
-            target.appearance.ingame_face.undecoded(),
-            IngameFace::from_bytes(source[..46].to_vec()).undecoded(),
-            "the first 46 bytes' undecoded bits landed"
+            target.appearance.ingame_face, before,
+            "the run is untouched"
         );
     }
 
-    /// A `face` shorter than the target's run keeps the target's tail:
-    /// bytes past `face`'s end are not a value it carries — the absent =
-    /// untouched rule.
+    /// A document of the target's own version naming a key of the other
+    /// layout is an error, as `dribbling` is where the version lacks it: on
+    /// PES 15, `style` (PES 16 to 21's hair) is `NotInThisVersion`. The
+    /// document sets nothing else, so no later key's write could hide a
+    /// write of `style` into PES 15's bytes.
     #[test]
-    fn a_shorter_face_keeps_the_targets_tail() {
+    fn a_same_version_key_of_the_other_layout_is_an_error() {
+        let (file, _) = open(PesVersion::Pes15);
+        let team = file
+            .teams()
+            .iter()
+            .find(|team| team.roster.iter().any(|slot| slot.player_id != 0))
+            .expect("a team with players");
+        let slot = team
+            .roster
+            .iter()
+            .position(|slot| slot.player_id != 0)
+            .expect("a rostered slot");
+        let doc = TeamToml::parse(&format!(
+            "pes_version = 15\n\n[players.{:02}.appearance.hair]\nstyle = 4\n",
+            slot + 1
+        ))
+        .expect("parses");
+        let mut target_team = team.clone();
+        let mut players = file.players().to_vec();
+        let err = doc
+            .apply(PesVersion::Pes15, &mut target_team, &mut players)
+            .expect_err("a same-version key the version lacks");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::Settings(
+                    crate::settings_toml::SettingsError::NotInThisVersion { ref key }
+                ) if key == "style"
+            ),
+            "{err:?}"
+        );
+    }
+
+    /// An import writes the keys it holds and nothing else: the run's
+    /// measured-unused bits keep the target's own values (absent =
+    /// untouched), where a settings apply writes the games' values.
+    #[test]
+    fn an_import_leaves_the_runs_unused_bits_untouched() {
         let (file, _) = open(PesVersion::Pes16);
         let team = file
             .teams()
@@ -1254,44 +1302,44 @@ mod tests {
             .iter()
             .position(|slot| slot.player_id != 0)
             .expect("a rostered slot");
-        // The tail bytes are set so the write has something to preserve:
-        // the test would pass on a zero tail whether kept or zeroed.
         let id = team.roster[slot].player_id;
         let mut players = file.players().to_vec();
         let target_entry = players
             .iter_mut()
             .find(|player| player.id == id)
             .expect("the player");
+        // Bytes 46 to 49 are unused on PES 16 to 21 and written 0 by the
+        // games: 0xFF shows whether the import wrote them.
         let mut run = target_entry.appearance.ingame_face.bytes().to_vec();
         run[46..50].fill(0xFF);
         target_entry.appearance.ingame_face = IngameFace::from_bytes(run);
-        let tail_before = target_entry.appearance.ingame_face.bytes()[46..50].to_vec();
+        let unused_before = target_entry.appearance.ingame_face.unused();
 
-        let source: Vec<u8> = (0u8..46).collect();
-        let hex: String = source.iter().map(|b| format!("{b:02x}")).collect();
-        // `pes_version = 15`: the cross-version path a PES 15 export takes.
         let doc = TeamToml::parse(&format!(
-            "pes_version = 15\n\n[players.{:02}.appearance.unknown]\nface = \"{hex}\"\n",
+            "pes_version = 16\n\n[players.{:02}.appearance.hair]\nstyle = 4\n",
             slot + 1
         ))
         .expect("parses");
         let mut target_team = team.clone();
         doc.apply(PesVersion::Pes16, &mut target_team, &mut players)
             .expect("applies");
-        let target = players
+        let face = &players
             .iter()
             .find(|player| player.id == id)
-            .expect("the player");
+            .expect("the player")
+            .appearance
+            .ingame_face;
         assert_eq!(
-            target.appearance.ingame_face.bytes()[46..50],
-            tail_before[..],
-            "the tail keeps its own undecoded bits"
+            face.get(IngameFaceField::HairStyle).expect("reads"),
+            4,
+            "the key landed"
         );
         assert_eq!(
-            target.appearance.ingame_face.undecoded()[..46],
-            IngameFace::from_bytes(source).undecoded()[..],
-            "the first 46 bytes' undecoded bits landed"
+            face.unused(),
+            unused_before,
+            "the unused bits are untouched"
         );
+        assert_eq!(face.bytes()[46..50], [0xFF; 4]);
     }
 
     /// (e) A slot with no player is an `EmptySlot` note; a slot past the
@@ -1454,66 +1502,63 @@ mod tests {
             err,
             TeamTomlError::UnknownKey { ref key } if key == "players.01.ingame_face"
         ));
+        // `[appearance.unknown]` left it too, once every bit of the run was a
+        // key or measured unused.
+        let err = TeamToml::parse("[players.01.appearance.unknown]\nface = \"00\"\n")
+            .expect_err("a retired table");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::Settings(crate::settings_toml::SettingsError::UnknownKey { ref key })
+                    if key == "players.01.appearance.unknown"
+            ),
+            "{err:?}"
+        );
     }
 
-    /// The stored-ranges deviation, kept deliberate: a real save's
-    /// above-the-editor-cap face type rides the document unchanged (and
-    /// `settings.toml`'s strict `from_player` still refuses it).
+    /// The stored-ranges deviation, kept deliberate: a stored face type past
+    /// every version's editor cap rides the document unchanged (and
+    /// `settings.toml`'s strict `from_player` still refuses it). Facial hair
+    /// type 31: its 5 bits hold it, PES 15's cap of 29, the widest, does not.
     #[test]
     fn a_face_type_above_the_editor_cap_round_trips() {
         use crate::settings_toml::{PlayerSettings, SettingsError};
 
         let (file, _) = open(PesVersion::Pes15);
-        let over_cap = |player: &PlayerEntry| {
-            player
-                .appearance
-                .ingame_face
-                .get(IngameFaceField::CheekType)
-                .is_ok_and(|v| v > 3)
-        };
-        let team = file
-            .teams()
-            .iter()
-            .find(|team| {
-                team.roster.iter().any(|slot| {
-                    slot.player_id != 0
-                        && file
-                            .players()
-                            .iter()
-                            .find(|p| p.id == slot.player_id)
-                            .is_some_and(over_cap)
-                })
-            })
-            .expect("a team with an over-cap player");
-        let player = team
-            .roster
-            .iter()
-            .filter(|slot| slot.player_id != 0)
-            .filter_map(|slot| file.players().iter().find(|p| p.id == slot.player_id))
-            .find(|p| over_cap(p))
-            .expect("the over-cap player");
+        let (team, slot) = first_slot(&file);
+        let id = team.roster[slot].player_id;
+        let mut players = file.players().to_vec();
+        let player = players
+            .iter_mut()
+            .find(|p| p.id == id)
+            .expect("the rostered player");
+        player
+            .appearance
+            .ingame_face
+            .set(IngameFaceField::FacialHairType, 31)
+            .expect("fits the field");
+        let player = player.clone();
 
         // settings.toml's contract is intact: it refuses the same player.
         assert!(matches!(
-            PlayerSettings::from_player(player),
+            PlayerSettings::from_player(&player),
             Err(SettingsError::OutOfRange { .. })
         ));
 
-        let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+        let refs: Vec<&PlayerEntry> = players.iter().collect();
         let doc = TeamToml::from_team(PesVersion::Pes15, team, &refs).expect("from_team");
         let text = doc.to_toml().expect("to_toml");
         let parsed = TeamToml::parse(&text).expect("stored ranges reparse");
         assert_eq!(parsed, doc);
         let mut target_team = team.clone();
-        let mut targets = foreign_players(&file, team);
+        // The save's own players: the one built above is back to his
+        // stored 0 to 29 there.
+        let mut targets = file.players().to_vec();
         parsed
             .apply(PesVersion::Pes15, &mut target_team, &mut targets)
             .expect("applies");
-        let target = targets
-            .iter()
-            .find(|p| p.id == player.id)
-            .expect("the stand-in");
-        assert_eq!(target, player);
+        let target = targets.iter().find(|p| p.id == id).expect("rostered");
+        assert_eq!(target, &player);
     }
 
     /// The first rostered team of `file` and its first rostered slot.
@@ -2324,52 +2369,37 @@ mod tests {
         assert_eq!(back.shirt_name, "éÿ");
     }
 
-    /// `face` replaced `ingame_face`: an export carries the run's undecoded
-    /// bits in `[appearance.unknown]`, the text holds no `ingame_face`, and
-    /// the document applied back onto the save it came from leaves every
-    /// player identical — the claim
+    /// An export carries the run as keys, `[appearance.hair]` included, the
+    /// text holds no `ingame_face` or `[appearance.unknown]`, and the
+    /// document applied back onto the save it came from leaves every player
+    /// identical — the claim
     /// `every_fixture_player_round_trips_through_the_document` makes on
     /// every fixture, witnessed here on one.
     #[test]
-    fn an_exported_player_carries_face_and_the_document_imports_identical() {
+    fn an_exported_player_carries_his_hair_and_the_document_imports_identical() {
         let (file, _) = open(PesVersion::Pes21);
         let refs: Vec<&PlayerEntry> = file.players().iter().collect();
-        // A rostered player whose run has nonzero undecoded bits.
-        let (team, slot) = file
-            .teams()
-            .iter()
-            .find_map(|team| {
-                team.roster
-                    .iter()
-                    .enumerate()
-                    .find(|(_, slot)| {
-                        slot.player_id != 0
-                            && file.player(slot.player_id).is_some_and(|player| {
-                                player
-                                    .appearance
-                                    .ingame_face
-                                    .undecoded()
-                                    .iter()
-                                    .any(|b| *b != 0)
-                            })
-                    })
-                    .map(|(i, _)| (team, i))
-            })
-            .expect("a rostered player with undecoded bits");
+        let (team, slot) = first_slot(&file);
         let id = team.roster[slot].player_id;
         let player = file.player(id).expect("rostered");
         let doc = TeamToml::from_team(PesVersion::Pes21, team, &refs).expect("from_team");
         let key = u8::try_from(slot + 1).expect("a slot index");
-        let undecoded = player.appearance.ingame_face.undecoded();
+        let face = &player.appearance.ingame_face;
+        let hair = &doc.players[&key].appearance.hair;
         assert_eq!(
-            doc.players[&key].appearance.unknown.face.as_deref(),
-            Some(undecoded.as_slice()),
-            "`face` carries his undecoded bits"
+            hair.style,
+            Some(face.get(IngameFaceField::HairStyle).expect("reads"))
         );
+        assert_eq!(
+            hair.color_red,
+            Some(face.get(IngameFaceField::HairColorRed).expect("reads"))
+        );
+        assert_eq!(hair.pes15_length, None, "PES 15's keys are not PES 21's");
         let text = doc.to_toml().expect("to_toml");
+        assert!(text.contains(&format!("[players.{key:02}.appearance.hair]")));
         assert!(
-            !text.contains("ingame_face"),
-            "the retired key is out of the text"
+            !text.contains("ingame_face") && !text.contains("unknown"),
+            "the retired keys are out of the text"
         );
         let parsed = TeamToml::parse(&text).expect("the emitted text reparses");
         assert_eq!(parsed, doc);
@@ -2380,63 +2410,6 @@ mod tests {
             .expect("applies");
         assert_eq!(&target_team, team);
         assert_eq!(players, file.players(), "every player identical");
-    }
-
-    /// A `[appearance.unknown] face` writes the undecoded bits and leaves
-    /// the named ones to the keys; a document without it leaves the run
-    /// untouched.
-    #[test]
-    fn a_face_writes_undecoded_bits_only() {
-        let (file, _) = open(PesVersion::Pes21);
-        let (team, slot) = first_slot(&file);
-        let id = team.roster[slot].player_id;
-        let before = file.player(id).expect("the player");
-        // 0xAA at every byte: the undecoded bits land, the named bits the
-        // source also holds stand.
-        let source = vec![0xAAu8; 50];
-        let doc = TeamToml::parse(&format!(
-            "[players.{:02}.appearance.unknown]\nface = \"{}\"\n",
-            slot + 1,
-            "aa".repeat(50)
-        ))
-        .expect("parses");
-        let mut players = file.players().to_vec();
-        let mut target_team = team.clone();
-        doc.apply(PesVersion::Pes21, &mut target_team, &mut players)
-            .expect("applies");
-        let target = players.iter().find(|p| p.id == id).expect("the player");
-        let mut expected = before.clone();
-        expected.appearance.ingame_face.write_undecoded(&source);
-        assert_eq!(
-            target.appearance.ingame_face.bytes(),
-            expected.appearance.ingame_face.bytes()
-        );
-        assert_eq!(
-            target
-                .appearance
-                .ingame_face
-                .get(IngameFaceField::FacialHairType)
-                .expect("reads"),
-            before
-                .appearance
-                .ingame_face
-                .get(IngameFaceField::FacialHairType)
-                .expect("reads"),
-            "a named field keeps its bits"
-        );
-
-        let doc =
-            TeamToml::parse(&format!("[players.{:02}]\nname = \"X\"\n", slot + 1)).expect("parses");
-        let mut players = file.players().to_vec();
-        let mut target_team = team.clone();
-        doc.apply(PesVersion::Pes21, &mut target_team, &mut players)
-            .expect("applies");
-        let target = players.iter().find(|p| p.id == id).expect("the player");
-        assert_eq!(
-            target.appearance.ingame_face.bytes(),
-            before.appearance.ingame_face.bytes(),
-            "no `face` key: the run is untouched"
-        );
     }
 
     /// `stripped` marks a stripped player on export and is informational

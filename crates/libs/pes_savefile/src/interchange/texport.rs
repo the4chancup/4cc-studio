@@ -932,7 +932,13 @@ mod tests {
                 // The own-id convention reads as "unset": the target's id.
                 expected.appearance.base_copy_id = id;
             }
-            assert_eq!(applied, &expected, "slot {key}");
+            // The run's unused bits are no key: the target keeps its own
+            // (absent = untouched), so both sides compare at the games'
+            // values.
+            let mut applied = applied.clone();
+            applied.appearance.ingame_face.write_unused();
+            expected.appearance.ingame_face.write_unused();
+            assert_eq!(applied, expected, "slot {key}");
             assert_eq!(
                 target.roster[index].number, team.roster[index].number,
                 "shirt numbers are not the file's to give"
