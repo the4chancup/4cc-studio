@@ -201,6 +201,18 @@ fn an_unwritable_data_directory_is_reported_and_nothing_written() {
     );
 }
 
+/// A `teams_list.txt` that cannot be read (here a folder of that name) is refused naming it,
+/// not taken for a first run: the upstream list is never merged over a list that exists.
+#[test]
+fn an_unreadable_working_list_is_refused() {
+    let sandbox = Sandbox::new("teams_list_unreadable");
+    sandbox.unique_names_fixture("EDIT", |_| {});
+    fs::create_dir(sandbox.path("data/teams_list.txt")).unwrap();
+    sandbox
+        .export_teams_list("EDIT", &["--yes"])
+        .assert_refused(2, &["teams_list.txt", "cannot read the teams list"]);
+}
+
 // SE-TL-04
 #[test]
 fn a_later_team_of_a_name_the_save_holds_twice_is_left_out_as_an_error() {

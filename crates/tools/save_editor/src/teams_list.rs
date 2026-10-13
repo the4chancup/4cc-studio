@@ -74,14 +74,23 @@ pub(crate) fn from_save(file: &EditFile) -> (TeamsList, Vec<NameDuplicate>) {
 
 /// The working list at `path`: the file when there is one, else the embedded upstream list
 /// (what a first run merges into, and all there is with no data directory chosen); a file
-/// that cannot be read or parsed is an error naming it.
+/// that cannot be read or parsed is an error naming it. A path under a file is "no list
+/// there" too: Linux reports it as `NotADirectory` where Windows reports `NotFound`, and
+/// the write then refuses it on both.
 pub(crate) fn load_working(path: Option<&Path>) -> anyhow::Result<TeamsList> {
     let Some(path) = path else {
         return Ok(TeamsList::parse(TeamsList::UPSTREAM).expect("the embedded list parses"));
     };
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => TeamsList::UPSTREAM.to_owned(),
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::NotFound | io::ErrorKind::NotADirectory
+            ) =>
+        {
+            TeamsList::UPSTREAM.to_owned()
+        }
         Err(error) => {
             return Err(anyhow!(
                 "{}: cannot read the teams list: {error}",
@@ -113,6 +122,27 @@ pub(crate) fn write(path: &Path, list: &TeamsList) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A cup-range team named outside the slash convention is no cup identity, even one the
+    /// fold accepts (`Backup`, one word): it does not take the name from a later team
+    /// actually called `/backup/`.
+    #[test]
+    fn a_team_without_slashes_does_not_take_a_later_teams_name() {
+        let mut file =
+            EditFile::from_bytes(&pes_savefile::fixture_save(pes_version::PesVersion::Pes21))
+                .unwrap();
+        file.team_mut(707).unwrap().name = "Backup".to_owned();
+        file.team_mut(708).unwrap().name = "/backup/".to_owned();
+        let (list, duplicates) = from_save(&file);
+        assert_eq!(
+            list.id_of(&TeamName::new("/backup/").unwrap()),
+            Some(TeamId::new(708).unwrap())
+        );
+        assert!(
+            duplicates.iter().all(|duplicate| duplicate.team != 708),
+            "{duplicates:?}"
+        );
+    }
 
     #[test]
     fn a_missing_file_loads_as_the_upstream_list() {
