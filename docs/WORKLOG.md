@@ -17,8 +17,8 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14; then 5.2c3-r1, 5.0m3, 5.0m4, step 20.0
-(the Ruleset editor draft) and 5.4a5-6
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; then 5.2c3-r1, 5.0m3, 5.2d2, 5.0m4,
+step 20.0b (the Ruleset editor draft) and 5.4a5-6
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -885,8 +885,17 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         test, then a SWE-2 round AS2 over the rework
   - [~] 5.2d `tier_values`, `card_limits`, `apply_tier`. Landed 2026-10-14 (side-lead,
     `978a33b`): `apply_tier` then `check_team` reports nothing for every official tier (the
-    Green silver giant and the Red manlet included); VTL11's name colour is a
-    `QUESTIONS.md` entry
+    Green silver giant and the Red manlet included); VTL11's name colour, a `QUESTIONS.md`
+    entry, answered 2026-10-14 by a tier field (step 5.2d2)
+  - [ ] 5.2d2 the schema fields step 20.0a and VTL11's name colour added (`aatf_rules.md` "The
+    ruleset schema", "The host", the violation kinds): `Tier::name_color` with its check and
+    `apply_tier`'s write; `Condition::ranges`, `strong_foot`, `any`; `Effects::form` and
+    `injury_resistance`; the accessors `player.strong_foot` and `team.formation`; briefed
+    with 5.2c3-r1 to SWE-2 (`.tmp/5_2/brief_5_2c3_r1_d2.md`), round AS2 reviewing both → done when: each field has a red-first fixture
+    (a special that fires through it, and one that does not), `apply_tier` then `check_team`
+    reports nothing for a tier with a name colour and for a tier without one under a
+    ruleset that sets them (a name with the other tier's code stripped, a name with an
+    unrelated code kept), and `team.formation`'s slots match the fixture save's preset 1
   - [ ] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27, VTL11 and VTL10 data blocks and their
     fixtures → done when: the plan's per-ruleset fixtures pass. Autumn 25 and Spring 26 landed
     2026-10-14 (side-lead, `0aceb0b`: the sample team, a real team built under Spring 26,
@@ -983,7 +992,7 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
   choice: the GUI makes it easier to edit than a simpler hand-written text format would be,
   while the file stays readable. So beside the forms the draft shows the ruleset's data block
   read-only, updated as a field changes.
-  - [ ] 20.0a coverage of a contributor's proposal (Clouds, written without knowing Studio;
+  - [x] 20.0a coverage of a contributor's proposal (Clouds, written without knowing Studio;
     the maintainer's copy is `.tmp/Clouds_proposal.txt`): a plain-language rule system with
     tier and bracket groups (`medal` for every medal tier), player variables (each stat, card
     and COM style, allowed A positions, height, weight, age, strong foot, weak-foot accuracy
@@ -996,7 +1005,10 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     `aatf_rules.md` schema can express everything it can, field by field, each gap either
     added to the schema (plan edit, decision entry) or answered by a custom check, with the
     reason → verify: a table in `aatf_rules.md` mapping each of the proposal's items to a
-    schema field or to a custom check, no row empty
+    schema field or to a custom check, no row empty. Done 2026-10-14 (lead): `aatf_rules.md`
+    "Coverage of a plain-language proposal", 30 rows; the gaps became fields (`ranges`,
+    `strong_foot`, `any`, the `form` and `injury_resistance` effects, `team.formation` for
+    custom checks), implemented at 5.2d2; `ruleset_editor.md`'s forms carry them
   - [ ] 20.0b the interactive draft (`core/gui.md` "Prototypes before implementation"):
     `docs/prototypes/ruleset_editor.html` over the `ruleset_editor.md` forms, the official
     Autumn 26 ruleset as its sample data, every schema field reachable, the data-block pane
@@ -1056,7 +1068,8 @@ points there.
     Red reports an Error for a model or `.mtl` (a Warning for a texture), Studio keeps it with
     `xml_path_unchecked` (W); DECISIONS 2026-09-12's "Red waved unresolvable game paths through
     silently" holds for that one form only (`messages.md`, the `xml_path_unchecked` paragraph)
-- open (2026-10-11, 5.0; for Phase 5's AATF itemization) — `apply_tier` cannot make a VTL11
+- resolved 2026-10-14 (maintainer: `Tier::name_color`, written by `apply_tier`; `aatf_rules.md`
+  "The ruleset schema", "The host"; implemented at step 5.2d2) — `apply_tier` cannot make a VTL11
   medal legal: VTL11 requires a medal's name to carry a gold or silver colour code (a
   `name_colors` condition), which no tier target expresses, so the quick action writes no name
   and the checker then rejects the player, against `aatf_rules.md`'s "neither tool can produce

@@ -7509,3 +7509,32 @@ to the record, where the plan's `(player, tier, rules)` named no team; rhai's de
 differ between debug and release builds, and the interpreter nests past the debug function
 limit of 16, so a file would parse in the tests and not in the binary, or the reverse.
 Plan: `aatf_rules.md` "The interpreter", "The host".
+
+## 2026-10-14 — aatf — a tier's name colour, written by `apply_tier`
+Decision: `Tier::name_color` is the colour code a tier's names start with; when any tier sets
+one, a player of a tier that sets none carries none of those codes. `apply_tier` writes the
+tier's code over the name's leading one, and under a tier that sets none removes a code
+another tier sets, keeping any other. A mismatch is a `NameColor` violation.
+Why: VTL11 requires medals' names to carry a gold or silver code and forbids it to the rest;
+as a condition alone, the quick action would produce a medal the checker rejects, against
+"neither tool can produce a player the checker then rejects". Leaving the colour to the
+member was the alternative; the maintainer chose the field (the VGL fork's editor also writes
+the colour itself).
+Plan: `aatf_rules.md` "The ruleset schema", "The interpreter" (violation kinds), "The host";
+`ruleset_editor.md` "The editor" (Tiers).
+
+## 2026-10-14 — aatf — the schema covers a member's plain-language proposal
+Decision: four additions make the schema express everything the proposal does: a condition's
+`ranges` (any ability stat, age, weight, form, injury resistance, weak foot), `strong_foot`
+and `any` (one of several sub-conditions); `form` and `injury_resistance` effects, added to
+the tier's values. Per-preset coordinates and single-preset positions stay custom checks,
+over a new `team.formation` accessor and the existing `team.fielded_positions`. The format
+itself is not adopted.
+Why: `any` is needed rather than two specials because a player meeting both cases would get
+an additive effect twice; ranges cover every comparison on a player number with one field,
+not one per variable. Coordinate rules have no precedent and no single shape a form could
+take, so a custom check is cheaper than a field nobody fills in. A plain text format was
+rejected because the Ruleset editor's forms are easier still and the file must also carry
+the interpreter.
+Plan: `aatf_rules.md` "Coverage of a plain-language proposal", "The ruleset schema", "The
+host"; `ruleset_editor.md` "The editor".

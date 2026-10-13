@@ -177,6 +177,10 @@ pub struct Tier {
     pub free: BTreeMap<GroupId, u8>,
     /// A positions included, the registered one counted; each extra A costs a card.
     pub a_positions: u8,
+    /// The colour code (eight bytes, as `Condition::name_colors` spells them) this tier's
+    /// names start with. When any tier sets one, a player of a tier that sets none carries
+    /// none of the codes the tiers set (VTL11: medals gold or silver, the rest without).
+    pub name_color: Option<String>,
 }
 
 pub struct WeakFoot {
@@ -269,7 +273,33 @@ pub struct Condition {
     /// the three formations of a fluid preset, the kick-off formation of the others. A player
     /// outside the starting eleven: registered there.
     pub fielded_only_at: Option<Position>,
+    /// Each value within its inclusive range (`ranges: #{ speed: [90, 99] }`), on the game's
+    /// scale; a stat the version lacks fails its range. Height has its own fields above.
+    pub ranges: BTreeMap<PlayerValue, (u8, u8)>,
+    pub strong_foot: Option<Foot>,
+    /// At least one of these holds; empty always holds. With `not`, any combination of fields
+    /// is one condition, so a rule with several cases is one special and its additive effects
+    /// apply once to a player who meets two of them.
+    pub any: Vec<Condition>,
     pub not: Option<Box<Condition>>,
+}
+
+/// A number `Condition::ranges` tests: an ability stat by its name, or `age`, `weight`,
+/// `form`, `injury_resistance`, `weak_foot_usage`, `weak_foot_accuracy`.
+pub enum PlayerValue {
+    Stat(Stat),
+    Age,
+    Weight,
+    Form,
+    InjuryResistance,
+    WeakFootUsage,
+    WeakFootAccuracy,
+}
+
+/// Spelled `right` and `left`, the Team TOML labels.
+pub enum Foot {
+    Right,
+    Left,
 }
 
 pub struct Special {
@@ -295,6 +325,9 @@ pub struct Effects {
     pub require_cards: Vec<Card>,
     pub a_positions: Option<PerTier<i8>>,
     pub max_a_positions: Option<u8>,
+    /// Added to the tier's form target and injury-resistance limit.
+    pub form: Option<PerTier<i8>>,
+    pub injury_resistance: Option<PerTier<i8>>,
     /// Replaces the tier's limits.
     pub weak_foot: Option<WeakFoot>,
     /// Centimetres subtracted from the height before bracketing.
@@ -304,7 +337,9 @@ pub struct Effects {
     /// The first option the player uses, or none: an option is used when, without it, the
     /// player exceeds a limit the option raises; a `stat_bonus` raises the stat targets, so it is
     /// used when, without it, the player's rating is above the expected rating. A one-option
-    /// choice is an optional effect (VGL25's manlet bonus).
+    /// choice is an optional effect (VGL25's manlet bonus). An option holds only effects that
+    /// raise a limit (`stat_bonus`, `cards`, `free`, `free_cards`, `a_positions`,
+    /// `max_a_positions`, `weak_foot`): any other could never be found used.
     pub choice: Vec<Effects>,
 }
 
@@ -354,7 +389,7 @@ shows its special's label, which an empty one would leave blank).
 
 Rules the types cannot carry, checked on load ("Loading and validation"): no string is empty
 (an emptied name, id, label or `forbid` text names or says nothing), and a `name_colors` entry
-is eight bytes (a partial paste matches no name); ids unique within their
+or a tier's `name_color` is eight bytes (a partial paste matches no name); ids unique within their
 kind, and every id a condition, effect, quota, `counts_as` or `suggestions` entry names exists; a
 tier with `counts_as` has no `count`, and the tier it names has no `counts_as` of its own (itself
 included); tier counts fit `squad_size`, and equal it when no tier is the rest of the squad (else
@@ -362,8 +397,9 @@ no team can be legal); each bracket's heights lie above every height of the brac
 (a reordered bracket would take no player); every height system but the last has a non-empty
 `any_player` and the last has none or an empty one (an absent or empty condition holds for
 every team, so the systems after it could never apply); a special with
-`height_allowance` names no bracket, since brackets are computed from the allowance; `fielded_at_a`
-names presets 1 to 3; a forbidden shape's counts add up to 10.
+`height_allowance` names no bracket in its condition, nested `not` and `any` included, since
+brackets are computed from the allowance; a `choice` option holds only the effects its doc
+lists; `fielded_at_a` names presets 1 to 3; a forbidden shape's counts add up to 10.
 
 ### How a player is read
 
@@ -648,6 +684,9 @@ pub enum ViolationKind {
     InjuryResistance { value: u8, max: u8 },
     WeakFootUsage { value: u8, max: u8 },
     WeakFootAccuracy { value: u8, max: u8 },
+    /// The name's leading colour code against the tier's; `expected: None` is a tier that
+    /// sets none, met by a name with no colour code the tiers set.
+    NameColor { color: Option<String>, expected: Option<String> },
     Cards { paid: u8, limit: u8 },
     MinCards { paid: u8, min: u8 },
     SkillCardCap { count: u8, max: u8 },
@@ -725,6 +764,7 @@ The script API, which `libs/aatf`'s crate doc lists too:
 |---|---|
 | `player.slot`, `.age`, `.height`, `.weight` | the roster slot; age in years, height in cm, weight in kg |
 | `player.form`, `.injury_resistance`, `.weak_foot_usage`, `.weak_foot_accuracy` | the game's scale |
+| `player.strong_foot` | `"right"` or `"left"` |
 | `player.position` | the registered position's label (`"CB"`); `()` past the labels |
 | `player.playing_style` | the style's label; `()` when the version's table has no such style |
 | `player.name_color` | the eight bytes after a leading `\x11c` (`"cc9900ff"`); `()` for a name without one |
@@ -736,6 +776,7 @@ The script API, which `libs/aatf`'s crate doc lists too:
 | `team.version` | the short number (`21`), as `TeamSettings::versions` spells it |
 | `team.fielded_positions(player, preset)` | the labels of the positions the player is fielded at in preset 1 to 3's formations (a fluid preset's three, another's kick-off one), once each, in the position table's order (GK first, CF last); empty for a player outside the starting eleven |
 | `team.fielded_only_at(player, pos)` | whether every formation the game can field from the three presets fields the player at `pos`; for a player outside the starting eleven, whether `pos` is his registered position |
+| `team.formation(preset, formation)` | the formation's eleven slots in order, each `#{ slot, position, x, y }`: the starting-eleven player's roster slot, the position's label and the coordinates as stored; presets and formations numbered as in `formation_shapes`, `()` for a formation the preset cannot field |
 | `team.formation_shapes()` | one map per formation the game can field, `#{ preset, formation, shape: [defenders, midfielders, forwards] }`, presets and formations numbered from 1 |
 | `team.man_marking` | whether any of the three presets has a man-marking assignment set |
 | `team.auto_substitution` | the stored setting (0 off); `()` on a version without it |
@@ -771,7 +812,9 @@ followed by the offside trap (+0x1FF) and the automatic preset change (+0x200), 
 
 `apply_tier(player, tier, rules)` is the lib's one *writing* operation: it calls `tier_values`
 and writes the result into the player (stats; form; injury resistance and weak foot at their
-maximum). It is behind the Save editor's quick actions (one button per tier, in list order) and
+maximum), and the tier's `name_color` over the name's leading colour code; under a tier that
+sets none, it removes a leading code that another tier sets and keeps any other. A name the
+code pushes past its field fails the save's write, as any name too long for it does. It is behind the Save editor's quick actions (one button per tier, in list order) and
 the Team creator's default stats, so neither tool can produce a player the checker then rejects.
 AATF reports violations and never fixes them.
 
@@ -867,6 +910,50 @@ data and the current logic, so the logic exists once in the repository.
 The costs accepted: `RULESET`'s syntax is denser than TOML (the Ruleset editor hides it, and
 schema errors carry a key path); each file carries a copy of the logic (a few hundred lines);
 and a rule the schema cannot express needs either the custom-checks hook or a schema extension.
+
+## Coverage of a plain-language proposal
+
+A member proposed a plain-language rules format without knowing Studio: tier and bracket
+groups, player variables, `IF`/`ELSE`/`AND`/`OR`/`NOT` blocks with comparisons, and additive
+`_mod` modifiers (the maintainer's copy is `.tmp/Clouds_proposal.txt`). The schema does not
+adopt it, since the Ruleset editor's forms are simpler to fill in than any text to write, but
+it expresses everything the proposal does. This table is that check, item by item; the fields
+it found missing (`ranges`, `strong_foot`, `any`, the `form` and `injury_resistance` effects)
+are in the schema above, and the two items left to custom checks are positional rules no
+ruleset has had, whose shape (which slot, which bound) varies too much for one form.
+
+| Proposal | Schema |
+|---|---|
+| Groups `regular`, `bronze`, `silver`, `gold` | tier ids, in `Condition::tiers` |
+| `medal`, every medal tier | `tiers: ["gold", "silver", "bronze"]`: tiers are each ruleset's own, so there is no built-in group |
+| `manlet` to `giga`; the number of brackets and of players in each | `Heights::brackets` and `HeightSystem::quotas`; `Condition::brackets` |
+| `stats_<stat>` as a target | `Tier::rate`, `Tier::stats`, `Effects::stat_target` |
+| `stats_<stat>` in a condition | `Condition::ranges` |
+| `cards_<card>`, `com_<style>` in a condition | `Condition::holds` |
+| `allowed_a_pos` | `Tier::a_positions` |
+| `height` | `height_min` and `height_max`, inclusive, which write `<`, `<=`, `=`, `>=` and `>` |
+| `weight`, `age` | `Universal::weight`, `Universal::age`; in a condition, `ranges` |
+| `strong_foot` | `Condition::strong_foot` |
+| `weak_foot_acc`, `weak_foot_use`, `injury_resist`, `form` | `Tier::weak_foot`, `injury_resistance`, `form`; in a condition, `ranges` |
+| `registered_pos` | `Condition::positions` |
+| `playing_style` | `Condition::playing_styles` |
+| `preset<N>_<formation>_player_pos` | `Condition::fielded_only_at`, `Universal::fielded_at_a`; one preset's positions, a custom check over `team.fielded_positions` |
+| `preset<N>_<formation>_player_x`, `_y` | a custom check over `team.formation` |
+| the other tactics settings | `TeamSettings`; a setting it lacks, a custom check |
+| `card_limit`, `card_limit_mod` | `Tier::cards`, `Effects::cards` |
+| `stats_<stat>_mod`, `stats_global_mod` | `Effects::stat_bonus` by stat, and `all` |
+| `allowed_a_pos_mod` | `Effects::a_positions` |
+| `allowed_height_mod`, capped below the next bracket | `Effects::height_allowance`: subtracted before bracketing, it decides the bracket the player counts in, so no cap is needed |
+| `allowed_weak_foot_acc_mod`, `allowed_weak_foot_use_mod`, `=` on them | `Effects::weak_foot`, which sets the limits; per-tier values by a `when` on tiers |
+| `allowed_injury_resist_mod`, `allowed_form_mod` | `Effects::injury_resistance`, `Effects::form` |
+| `IF … END` | a special's `when` and `then` |
+| `AND` | the fields of one condition |
+| `OR` within a group (`gold OR silver`) | a list (`tiers: ["gold", "silver"]`) |
+| `OR` across fields | `Condition::any` |
+| `NOT` | `Condition::not` |
+| `ELSE` | a second special whose `when` is the first one's under `not` |
+| `OR` between modifiers, tried as needed before the card limits | `Effects::choice` (the first option the player uses; "The card economy" follows it) |
+| custom functions | the custom-checks section ("The rules file") |
 
 ---
 

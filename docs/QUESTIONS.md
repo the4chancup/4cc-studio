@@ -62,14 +62,4 @@ the cup's preference for an unattended match, or does a stream want chants only 
 streamer starts them? Unblocks: the setting's default; the rule itself is already in the
 plan.
 
-### `apply_tier` and VTL11's name colour
-From: step 5.2d, 2026-10-14. VTL11 requires a medal's name to carry a gold or silver colour
-code (`name_colors`), which no tier target expresses, so `apply_tier` writes no name and the
-checker then rejects the medal. Options: (a) a tier target for the name colour, written by
-`apply_tier` over the name's leading colour code and stripped for a tier that forbids one: a
-new ruleset field, and a quick action that edits a name, which members may not expect; (b)
-the colour left to the member, the check reporting it: a documented exception to "neither
-tool can produce a player the checker then rejects". The lead leans to (a). Unblocks: the
-VTL11 data block in 5.2e.
-
 ## Small confirmations

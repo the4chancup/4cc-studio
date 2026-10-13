@@ -1916,3 +1916,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Steps 5.2c3, 5.2d and 5.2e's first two rulesets (Autumn 25, Spring 26)
   landed from the aatf side-lead: the interpreter and `apply_tier`. Found: the playable scale and
   order `pes_savefile` reads are wrong for every real team (step 5.0m4).
+- **2026-10-14** — Step 20.0a: a member's plain-language rules proposal mapped item by item onto
+  the AATF schema; its gaps became fields (value ranges, stronger foot, "any of", form and
+  injury-resistance effects), with VTL11's tier name colour, all to implement at 5.2d2.

@@ -42,7 +42,7 @@ mark in the rail.
 - **Tiers**: a table, one row per tier, highest first, reordered by dragging, since the order is
   the recognition order and the quick-action buttons' order. Columns: label, count (a number or
   "the rest"), counts as, rate, form, injury resistance, weak foot, paid cards, minimum cards,
-  free cards per group, A positions. Per row, an expander holds the per-stat targets (all
+  free cards per group, A positions, name colour (none or a swatch). Per row, an expander holds the per-stat targets (all
   ability stats, empty meaning "the rate") and the tier's conditions (the condition editor
   below).
 - **Heights**: a "use height brackets" switch. On: the brackets in ascending order, each "up to
@@ -59,10 +59,13 @@ mark in the rail.
   - *When* is the condition editor: tiers, registered positions, playing styles, height systems
     and brackets as multi-select chips; a height range; captain yes / no / either; "holds any of"
     (cards); "rated A at" and "rated B at" (positions); "name colour" (swatches of the codes);
-    "fielded only at"; and an "except when" sub-condition (`not`).
+    "fielded only at"; value ranges (a stat, age, weight, form, injury resistance or weak foot,
+    each with a from-to pair); stronger foot either / right / left; "any of" (a list of
+    sub-conditions, one of which must hold); and an "except when" sub-condition (`not`).
   - *Then* is a list of effects, added from a menu that names them in words ("Add to every stat",
     "Set one stat's target", "Extra paid cards", "Free cards", "Required card", "Extra A
-    positions", "At most N A positions", "Weak-foot limits", "Height allowance", "Forbid"). A
+    positions", "At most N A positions", "Change form", "Change injury resistance", "Weak-foot limits",
+    "Height allowance", "Forbid"). A
     numeric effect has a "same for every tier / per tier" switch; per tier shows one field per tier.
     *One of* adds a choice: ordered options, each a list of effects, with the rule spelled out
     under it ("the first option the player needs is given"); a choice of one option reads *May
