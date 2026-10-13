@@ -316,6 +316,16 @@ mod tests {
         assert!(face.normalized().is_empty());
     }
 
+    /// A run two bytes short of PES 16 to 21's takes the unused rows that fit (bytes 46
+    /// and 47) and skips the two past its end, rather than writing past it.
+    #[test]
+    fn write_unused_skips_a_row_past_a_short_runs_end() {
+        let mut face = IngameFace::from_bytes(vec![0xAB; 48]);
+        face.write_unused();
+        assert_eq!(face.bytes().len(), 48);
+        assert_eq!(face.bytes()[46..], [0, 0], "the rows that fit are written");
+    }
+
     #[test]
     fn normalized_zeroes_exactly_the_gloves_and_skin_bits() {
         let face = IngameFace::from_bytes(run());
