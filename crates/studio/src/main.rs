@@ -21,7 +21,10 @@ use crate::console::spawn_printer;
 
 /// The registered tools, in sidebar order.
 fn tools() -> Vec<Box<dyn StudioTool>> {
-    vec![Box::new(team_compiler::Tool::new())]
+    vec![
+        Box::new(team_compiler::Tool::new()),
+        Box::new(save_editor::Tool::new()),
+    ]
 }
 
 /// The diagnostic sink of both modes (core plan, "Diagnostic logging"): `-v` sets the level,

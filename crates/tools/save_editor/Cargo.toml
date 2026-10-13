@@ -1,0 +1,25 @@
+[package]
+name = "save_editor"
+description = "The Save editor: the PES EDIT savefile's teams and players exchanged, patched and compared"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+egui.workspace = true
+pes_savefile.workspace = true
+pes_version.workspace = true
+serde.workspace = true
+studio_core.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+crossbeam-channel.workspace = true
+pes_savefile = { workspace = true, features = ["test-support"] }
+
+[lints]
+workspace = true

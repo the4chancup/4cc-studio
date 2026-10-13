@@ -3371,6 +3371,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "save_editor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "crossbeam-channel",
+ "egui",
+ "pes_savefile",
+ "pes_version",
+ "serde",
+ "studio_core",
+ "toml",
+]
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3694,6 +3709,7 @@ dependencies = [
  "crossbeam-channel",
  "env_logger",
  "log",
+ "save_editor",
  "studio_core",
  "team_compiler",
 ]

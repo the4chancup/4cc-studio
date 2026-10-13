@@ -17,6 +17,7 @@ clap.workspace = true
 crossbeam-channel.workspace = true
 env_logger.workspace = true
 log.workspace = true
+save_editor.workspace = true
 studio_core.workspace = true
 team_compiler.workspace = true
 
