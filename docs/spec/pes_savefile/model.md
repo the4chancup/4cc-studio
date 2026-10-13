@@ -300,8 +300,8 @@ that way. `read_player_into` copies the run out of the record; `write_player` co
 rejects a run of the wrong length (`CodecError::RunSize`). The generator emits the `ingame_face`
 entry and omits the four fields; the round-trip tests over every real payload are unchanged and
 still prove byte identity. Cross-version conversion (`convert.rs`) is where the 46-byte PES 15
-run meets the 50-byte one: the rule there is the `min(len)` prefix copy with a
-`FaceRunTruncated` note (`operations.md`).
+run meets the 50-byte one: the rule there is a copy of the run whole within one layout and field
+by field between the two (`operations.md` "Cross-version player conversion").
 
 What this gives up is written down rather than papered over: the plan's earlier "every field"
 becomes "every decoded field", the undecoded bits (hair, slider positions, any colour beyond skin

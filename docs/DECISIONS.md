@@ -7359,3 +7359,12 @@ Decision: `libs/aatf` takes `serde_path_to_error` (dtolnay, MIT/Apache, depends 
 Why: `rhai::serde::from_dynamic`'s errors name the bad key or type but not where it sits; a
 deserializer wrapper of our own doing the same is the crate's whole job, several hundred lines.
 Plan: `aatf_rules.md` "Loading and validation".
+
+## 2026-10-13 — pes_savefile — a dropped PES 15 nose angle is a note; a nose type PES 15 cannot code is refused
+Decision: converting PES 15 to 16-21 pushes `ConvertNote::NoseAngleDropped { angle }` for a
+non-zero nose angle (16 to 21 have no field for it). Converting 16-21 to PES 15, a nose type
+above 21 is refused as `CodecError::ValueTooWide`, all-or-nothing, not capped.
+Why: the module notes every loss that depends on the player's data. PES 15 codes 3 × type +
+angle in six bits, so a type past 21 has no coding; no game writes one (the widest cap is 7),
+and a second cap pass for it would serve no real save.
+Plan: `spec/pes_savefile/operations.md` "What the Rust module is".

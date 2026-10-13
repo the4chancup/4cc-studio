@@ -1892,3 +1892,5 @@ worklog passed 7,000 lines.
 - **2026-10-13** — Step 5.2a2: a `RULESET` schema error names the key it sits at, through
   `serde_path_to_error`.
 - **2026-10-13** — Step 5.2b2b: rulesets read `team.man_marking` and the auto settings.
+- **2026-10-13** — Step 5.0m2: the ingame-face run converts field by field between PES 15 and 16
+  to 21, so a converted player keeps his face and the target's hair; `FaceRunTruncated` is gone.

@@ -3,19 +3,22 @@
 //! (plan: `spec/pes_savefile/operations.md`, "Cross-version player conversion").
 //! Everything that translates one-to-one is copied through; what does not is
 //! capped, dropped or filled from the target, and each such case is reported
-//! as a `ConvertNote`, never silently. The version-dependent facts live in
-//! `schema::playstyle` and `schema::limits`; compile-policy rewrites beyond a
-//! straight carry are the Team compiler's, not this module's.
+//! as a `ConvertNote`, never silently. The ingame-face run is copied whole
+//! within one of its two layouts (`FaceLayout`) and field by field between
+//! them, the target's own hair fields standing. The version-dependent facts
+//! live in `schema::playstyle` and `schema::limits`; compile-policy rewrites
+//! beyond a straight carry are the Team compiler's, not this module's.
 
 use pes_version::PesVersion;
 
 use crate::codec::CodecError;
+use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerEntry;
 #[cfg(test)]
 use crate::model::player::STRIPPED_APPEARANCE_ID;
 use crate::model::playstyle::PlayStyle;
 use crate::schema::fields::{PlayerField, PlayerText};
-use crate::schema::ingame_face::IngameFaceField;
+use crate::schema::ingame_face::{FaceLayout, IngameFaceField};
 use crate::schema::limits::face_type_cap;
 use crate::schema::{playstyle, schema_for};
 
@@ -49,11 +52,11 @@ pub enum ConvertNote {
         /// The text that was cut.
         text: PlayerText,
     },
-    /// The source run is longer than the target's; its last `bytes` bytes
-    /// were dropped (50 → 46).
-    FaceRunTruncated {
-        /// The number of source bytes that did not fit.
-        bytes: usize,
+    /// PES 15's nose angle has no field on PES 16 to 21: a non-zero one was
+    /// dropped, the nose type written alone.
+    NoseAngleDropped {
+        /// The angle the source carried, -1 or 1.
+        angle: i8,
     },
 }
 
@@ -88,6 +91,43 @@ fn carry<T: Copy>(target: &mut Option<T>, source: Option<T>) {
     if let (Some(slot), Some(value)) = (target.as_mut(), source) {
         *slot = value;
     }
+}
+
+/// Writes `source`'s ingame-face run, read from a `from`-version save, onto
+/// `target`'s, read from a `to`-version save. Within one layout the run is
+/// the source's whole. Between PES 15's layout and PES 16 to 21's, each
+/// field both hold is read from the source and written on the target, whose
+/// own hair fields and unused bits stand as the template player holds them:
+/// the two layouts store different hair fields at the same bytes, so a byte
+/// copy would read one version's hair as the other's. The nose type is
+/// written alone, at angle 0: the angle PES 15 codes with it has no field on
+/// 16 to 21 (a non-zero one is noted). A 16 to 21 nose type past 21 has no
+/// PES 15 coding (3 × type + the angle's code in six bits) and is refused as
+/// `ValueTooWide` rather than written wrong; no game writes one, the widest
+/// cap being 7.
+fn carry_face(
+    target: &mut IngameFace,
+    source: &IngameFace,
+    from: PesVersion,
+    to: PesVersion,
+    notes: &mut Vec<ConvertNote>,
+) -> Result<(), CodecError> {
+    if FaceLayout::of(from) == FaceLayout::of(to) {
+        *target = source.clone();
+        return Ok(());
+    }
+    for field in IngameFaceField::ALL {
+        if field.layout().is_some() || field == IngameFaceField::NoseType {
+            continue;
+        }
+        target.set(field, source.get(field)?)?;
+    }
+    let (nose_type, angle) = source.nose()?;
+    target.set_nose(nose_type, 0)?;
+    if angle != 0 {
+        notes.push(ConvertNote::NoseAngleDropped { angle });
+    }
+    Ok(())
 }
 
 /// Rewrites `target`, a player read from a `to`-version save, from `source`,
@@ -251,13 +291,13 @@ pub fn convert_player(
     out.appearance.untucked = source.appearance.untucked;
     out.appearance.ankle_taping = source.appearance.ankle_taping;
 
-    let dropped = out
-        .appearance
-        .ingame_face
-        .copy_from(&source.appearance.ingame_face);
-    if dropped > 0 {
-        notes.push(ConvertNote::FaceRunTruncated { bytes: dropped });
-    }
+    carry_face(
+        &mut out.appearance.ingame_face,
+        &source.appearance.ingame_face,
+        from,
+        to,
+        &mut notes,
+    )?;
     for field in IngameFaceField::ALL {
         let Some(cap) = face_type_cap(to, field) else {
             continue;
@@ -300,8 +340,8 @@ mod tests {
     use super::*;
     use crate::codec::{read_player, write_player};
     use crate::model::ingame_face::{IngameFace, in_layout};
-    use crate::schema::ingame_face::INGAME_FACE_FIELDS;
-    use crate::test_support::{FIXTURES, count, find_player, payload, record};
+    use crate::schema::ingame_face::FaceLayout;
+    use crate::test_support::{FIXTURES, appearance_for, count, find_player, payload, record};
 
     use ConvertNote as N;
     use IngameFaceField as F;
@@ -337,25 +377,72 @@ mod tests {
         }
     }
 
-    /// Whether run byte `i` holds none of the fifteen known fields' bits.
-    fn outside_fields(i: usize) -> bool {
-        let bit = i as u32 * 8;
-        !INGAME_FACE_FIELDS
-            .iter()
-            .any(|spec| bit < spec.bit_offset + spec.bit_width && spec.bit_offset < bit + 8)
+    /// The fields both layouts hold, the nose aside (re-coded, not copied).
+    fn shared_fields() -> impl Iterator<Item = IngameFaceField> {
+        IngameFaceField::ALL
+            .into_iter()
+            .filter(|field| field.layout().is_none() && *field != F::NoseType)
     }
 
-    /// Every run byte outside the known fields is `expected`'s.
-    fn assert_opaque_bytes(out: &PlayerEntry, expected: &PlayerEntry, upto: usize) {
-        for (i, (&got, &want)) in out.appearance.ingame_face.bytes()[..upto]
-            .iter()
-            .zip(&expected.appearance.ingame_face.bytes()[..upto])
-            .enumerate()
-        {
-            if outside_fields(i) {
-                assert_eq!(got, want, "run byte {i}");
+    /// The first player of `version`'s fixture whose `hair` field is set and
+    /// whose run differs from `template`'s in at least five shared fields: a
+    /// face whose conversion is visible, with a hair byte a byte copy would
+    /// misread.
+    fn cup_player(
+        version: PesVersion,
+        template: &IngameFace,
+        hair: IngameFaceField,
+    ) -> PlayerEntry {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        for i in 0..count(&payload, &schema.players) {
+            let rec = record(&payload, &schema.players, schema.player.size, i);
+            let mut player = read_player(rec, schema.player).expect("decode");
+            appearance_for(&payload, schema, &mut player);
+            let face = &player.appearance.ingame_face;
+            let differing = shared_fields()
+                .filter(|&field| {
+                    face.get(field).expect("shared") != template.get(field).expect("shared")
+                })
+                .count();
+            if face.get(hair).expect("held") != 0 && differing >= 5 {
+                return player;
             }
         }
+        panic!("no {version:?} fixture player with {hair:?} set differs in five shared fields");
+    }
+
+    /// The cross-layout rules: every shared field is the source's (the cap
+    /// and the skin rule applied), the nose type the source's, capped, at
+    /// angle 0, and the target layout's own hair fields and unused bits the
+    /// template's.
+    fn assert_face_converted(
+        out: &PlayerEntry,
+        source: &PlayerEntry,
+        template: &IngameFace,
+        to: PesVersion,
+    ) {
+        assert_face_rules(out, source, to);
+        let face = &out.appearance.ingame_face;
+        let (source_type, _) = source.appearance.ingame_face.nose().expect("reads");
+        let cap = face_type_cap(to, F::NoseType).expect("a type");
+        let want = if source_type > cap { 0 } else { source_type };
+        assert_eq!(face.nose().expect("reads"), (want, 0), "{to:?} nose");
+        let own = IngameFaceField::ALL
+            .into_iter()
+            .filter(|field| field.layout() == Some(FaceLayout::of(to)));
+        for field in own {
+            assert_eq!(
+                face.get(field).expect("held"),
+                template.get(field).expect("held"),
+                "{to:?} {field:?} is the template's"
+            );
+        }
+        assert_eq!(
+            face.unused(),
+            template.unused(),
+            "{to:?} unused bits are the template's"
+        );
     }
 
     /// The strip/physique copy-through fields of `out` equal `source`'s.
@@ -392,9 +479,9 @@ mod tests {
     }
 
     /// Each face type is `min`-capped against `to`; the skin carries unless 7
-    /// hits the custom-skin rule. Only the fields both runs hold: the
-    /// conversion between the layouts is a prefix copy, not field by field. The
-    /// nose is capped on the target's nose type, PES 15's angle aside.
+    /// hits the custom-skin rule. Only the fields both runs hold: a layout's
+    /// own hair fields are not carried. The nose is capped on the target's
+    /// nose type, PES 15's angle aside.
     fn assert_face_rules(out: &PlayerEntry, source: &PlayerEntry, to: PesVersion) {
         let (face, from) = (&out.appearance.ingame_face, &source.appearance.ingame_face);
         let cap = face_type_cap(to, F::NoseType).expect("a type");
@@ -438,12 +525,11 @@ mod tests {
         assert_eq!(target.shirt_name, source.shirt_name);
         assert_appearance_carried(&target, &source);
         assert_face_rules(&target, &source, V::Pes16);
-        assert_opaque_bytes(&target, &source, 46);
         assert!(
-            notes
+            !notes
                 .iter()
-                .all(|note| !matches!(note, N::FaceRunTruncated { .. })),
-            "both runs are 50 bytes: {notes:?}"
+                .any(|note| matches!(note, N::NoseAngleDropped { .. })),
+            "one layout has no angle to drop: {notes:?}"
         );
         writes_ok(V::Pes16, &target);
     }
@@ -457,58 +543,107 @@ mod tests {
         assert_eq!(target.shirt_name, source.shirt_name);
         assert_appearance_carried(&target, &source);
         assert_face_rules(&target, &source, V::Pes21);
-        assert_opaque_bytes(&target, &source, 46);
         writes_ok(V::Pes21, &target);
     }
 
+    /// Within one layout the run is the source's, byte for byte (PES 18 to
+    /// 21: no cap narrows and neither has a custom skin, so nothing resets).
     #[test]
-    fn the_run_truncates_on_15_and_keeps_the_target_tail_on_16() {
-        let source16 = first(V::Pes16);
-        let mut target15 = first(V::Pes15);
-        let tail: Vec<u8> = target15.appearance.ingame_face.bytes()[46..].to_vec();
-        assert!(tail.is_empty(), "PES 15's run is 46 bytes");
-        let notes = convert_player(&source16, V::Pes16, &mut target15, V::Pes15).expect("converts");
+    fn a_conversion_within_one_layout_copies_the_run_whole() {
+        let source = first(V::Pes18);
+        let mut target = first(V::Pes21);
+        assert_ne!(
+            target.appearance.ingame_face.bytes(),
+            source.appearance.ingame_face.bytes(),
+            "the two runs differ"
+        );
+        convert_player(&source, V::Pes18, &mut target, V::Pes21).expect("converts");
         assert_eq!(
-            notes
-                .iter()
-                .filter(|note| matches!(note, N::FaceRunTruncated { .. }))
-                .collect::<Vec<_>>(),
-            [&N::FaceRunTruncated { bytes: 4 }]
+            target.appearance.ingame_face.bytes(),
+            source.appearance.ingame_face.bytes()
         );
-        assert_eq!(target15.appearance.ingame_face.bytes().len(), 46);
-        assert_opaque_bytes(&target15, &source16, 46);
-        assert_face_rules(&target15, &source16, V::Pes15);
-
-        let source15 = first(V::Pes15);
-        let mut target16 = first(V::Pes16);
-        let kept: Vec<u8> = target16.appearance.ingame_face.bytes()[46..].to_vec();
-        let notes = convert_player(&source15, V::Pes15, &mut target16, V::Pes16).expect("converts");
-        assert!(
-            notes
-                .iter()
-                .all(|note| !matches!(note, N::FaceRunTruncated { .. }))
-        );
-        assert_eq!(
-            target16.appearance.ingame_face.bytes()[46..],
-            kept[..],
-            "the longer target keeps its own tail"
-        );
-        assert_opaque_bytes(&target16, &source15, 46);
+        writes_ok(V::Pes21, &target);
     }
 
-    /// The nose is capped on its type, PES 15's angle kept: a PES 16 field of
-    /// 40 copied onto PES 15 reads as type 13, angle -1 (40 = 3 × 13 + 1),
-    /// past PES 15's cap of 11, and resets to type 0 with that angle.
+    /// A PES 15 cup player converted to PES 21 keeps his face and gets the
+    /// template's hair; a PES 21 one converted to PES 15 the reverse, at
+    /// nose angle 0.
+    #[test]
+    fn a_face_converts_field_by_field_between_the_layouts() {
+        // The search lands on player 70101 of the PES 15 fixture, 22 shared
+        // fields apart from the PES 21 template.
+        let template21 = first(V::Pes21);
+        let source15 = cup_player(
+            V::Pes15,
+            &template21.appearance.ingame_face,
+            F::Pes15HairVariation,
+        );
+        // Premise: byte 34 is the variation on 15 and the hairstyle and
+        // cropped style on 21, and the two differ, so a byte copy would show.
+        assert_ne!(
+            source15.appearance.ingame_face.bytes()[34],
+            template21.appearance.ingame_face.bytes()[34]
+        );
+        let mut target = template21.clone();
+        let notes = convert_player(&source15, V::Pes15, &mut target, V::Pes21).expect("converts");
+        assert_face_converted(
+            &target,
+            &source15,
+            &template21.appearance.ingame_face,
+            V::Pes21,
+        );
+        let (_, angle) = source15.appearance.ingame_face.nose().expect("reads");
+        assert_eq!(
+            notes.contains(&N::NoseAngleDropped { angle }),
+            angle != 0,
+            "a non-zero angle is noted: {notes:?}"
+        );
+        writes_ok(V::Pes21, &target);
+
+        // The search lands on player 70101 of the PES 21 fixture, 22 shared
+        // fields apart from the PES 15 template.
+        let template15 = first(V::Pes15);
+        let source21 = cup_player(V::Pes21, &template15.appearance.ingame_face, F::HairStyle);
+        assert_ne!(
+            source21.appearance.ingame_face.bytes()[34],
+            template15.appearance.ingame_face.bytes()[34]
+        );
+        let mut target = template15.clone();
+        let notes = convert_player(&source21, V::Pes21, &mut target, V::Pes15).expect("converts");
+        assert_face_converted(
+            &target,
+            &source21,
+            &template15.appearance.ingame_face,
+            V::Pes15,
+        );
+        assert!(
+            !notes
+                .iter()
+                .any(|note| matches!(note, N::NoseAngleDropped { .. })),
+            "PES 21 has no angle to drop: {notes:?}"
+        );
+        writes_ok(V::Pes15, &target);
+    }
+
+    /// The nose is capped on its type, PES 15's angle kept: a PES 15 field of
+    /// 40 is type 13, angle -1 (40 = 3 × 13 + 1), past PES 15's cap of 11,
+    /// and resets to type 0 with that angle within the layout. Into PES 16
+    /// the angle has no field and is noted; the type, past 16's cap of 6,
+    /// resets too.
     #[test]
     fn a_nose_type_above_the_cap_resets_and_keeps_the_angle() {
-        let mut source = first(V::Pes16);
+        let mut source = first(V::Pes15);
         source
             .appearance
             .ingame_face
             .set(F::NoseType, 40)
             .expect("fits the field");
+        assert_eq!(
+            source.appearance.ingame_face.nose().expect("reads"),
+            (13, -1)
+        );
         let mut target = first(V::Pes15);
-        let notes = convert_player(&source, V::Pes16, &mut target, V::Pes15).expect("converts");
+        let notes = convert_player(&source, V::Pes15, &mut target, V::Pes15).expect("converts");
         assert_eq!(
             target.appearance.ingame_face.nose().expect("reads"),
             (0, -1)
@@ -516,6 +651,46 @@ mod tests {
         assert!(notes.contains(&N::FaceTypeReset {
             field: F::NoseType,
             value: 13,
+        }));
+
+        let mut target = first(V::Pes16);
+        let notes = convert_player(&source, V::Pes15, &mut target, V::Pes16).expect("converts");
+        assert_eq!(target.appearance.ingame_face.nose().expect("reads"), (0, 0));
+        assert!(notes.contains(&N::FaceTypeReset {
+            field: F::NoseType,
+            value: 13,
+        }));
+        assert!(notes.contains(&N::NoseAngleDropped { angle: -1 }));
+    }
+
+    /// A 16 to 21 nose type past 21 has no PES 15 coding (3 × type + the
+    /// angle's code in six bits): refused, the target unchanged.
+    #[test]
+    fn a_nose_type_with_no_pes15_coding_is_refused() {
+        let mut source = first(V::Pes16);
+        source
+            .appearance
+            .ingame_face
+            .set(F::NoseType, 22)
+            .expect("fits the field");
+        let mut target = first(V::Pes15);
+        let before = target.clone();
+        assert!(matches!(
+            convert_player(&source, V::Pes16, &mut target, V::Pes15),
+            Err(ConvertError::Codec(CodecError::ValueTooWide { .. }))
+        ));
+        assert_eq!(target, before, "all-or-nothing");
+
+        source
+            .appearance
+            .ingame_face
+            .set(F::NoseType, 21)
+            .expect("fits the field");
+        let notes = convert_player(&source, V::Pes16, &mut target, V::Pes15).expect("converts");
+        assert_eq!(target.appearance.ingame_face.nose().expect("reads"), (0, 0));
+        assert!(notes.contains(&N::FaceTypeReset {
+            field: F::NoseType,
+            value: 21,
         }));
     }
 

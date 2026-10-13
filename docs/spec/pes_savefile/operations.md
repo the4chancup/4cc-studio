@@ -40,19 +40,22 @@ not layout translation, and in this suite that policy belongs to the Team compil
 version-dependent half only: **everything that translates one-to-one is copied through; what does
 not translate is capped, dropped or filled from the target, and each such case that depends on
 the player's data is reported as a note**, never silently. What depends on the version pair
-alone is not a note: a gated field the target version lacks, or the four tail bytes a 16+
-template keeps against a PES 15 source, is the same for every player of that pair and is the
+alone is not a note: a gated field the target version lacks, or the hair fields a template keeps
+against a source of the other run layout, is the same for every player of that pair and is the
 caller's to state once (decision entry, 2.17f). The converters' compile-policy rewrites are not in this module (decision
 entry, 2.17f).
 
 The operation is a rewrite **into a template**, as in the reference: the target entry is a player
 read from a save of the target version, and its bytes stand in for everything the source has no
-counterpart for (gated stats the source version lacks, the ingame-face bytes the PES 15 run does
-not have). This is also what settles the 46/50-byte run: the appearance block's layout is
-identical on every version up to the iris byte and PES 15's is simply four bytes shorter at the
-tail (the reference editor's PES 15 and 16 read walks differ only in the last skip), so the
-source run is copied over the target run's prefix, `min(len)` bytes; a PES 15 target drops the
-source's last four bytes, a 16+ target keeps its own last four. No byte is invented.
+counterpart for (gated stats the source version lacks, the hair fields of the ingame-face run
+the source's layout does not have). This is also what settles the run's two layouts
+(`FaceLayout`: PES 15's 46 bytes, PES 16 to 21's 50): within one layout the run is copied whole;
+between them every field both layouts hold is read from the source and written on the target,
+whose own hair fields and unused bits stand as the template holds them, and the nose is re-coded
+(PES 15's 3 × type + angle becomes the type alone, with a `NoseAngleDropped` note for a non-zero
+angle; the reverse writes angle 0). No byte is copied by position between the layouts: PES 15's
+hair variation sits where 16 to 21 keep the hairstyle and cropped style (`plans/pes_savefile/model.md`
+"The ingame-face run, decoded"). No byte is invented.
 
 ```rust
 /// `convert.rs`. Rewrites `target`, a player read from a `to`-version save, from `source`,
@@ -75,8 +78,9 @@ pub enum ConvertNote {
     SkillDropped { index: u8 },
     /// The name or shirt name was cut to the target field's length (at a char boundary).
     TextTruncated { text: PlayerText },
-    /// The source run is longer than the target's; its last `bytes` bytes were dropped (50 → 46).
-    FaceRunTruncated { bytes: usize },
+    /// PES 15's nose angle has no field on PES 16 to 21: a non-zero one was dropped, the nose
+    /// type written alone.
+    NoseAngleDropped { angle: i8 },
 }
 
 pub enum ConvertError {

@@ -15,7 +15,8 @@ Phase 2 2026-09-30).
 (2026-10-12), 5.2a and 5.2b1 landed (2026-10-12; Astra R12.A1 over 5.2b1's reworks after the
 Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 and 5.2c2
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
-5.0j done (its last slice 5.0j7); then 5.0m2, 5.2c3 and 5.4a
+5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2 and 5.2b2b landed (2026-10-13); then 5.2c3
+and 5.4a
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -771,9 +772,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     - 130 `settings.toml` keys from the plan's table, `[appearance.unknown]` gone;
     - a settings apply writes the unused bits, a Team TOML import leaves them;
     - reviews: SWE-2 S1 to S4, Astra A1 (rulings `.tmp/5_0m/rulings.md`).
-  - [ ] 5.0m2 the conversion between the two layouts field by field, `FaceRunTruncated` gone
+  - [x] 5.0m2 the conversion between the two layouts field by field, `FaceRunTruncated` gone
     → done when: a PES 15 → 21 conversion of a cup player keeps his face fields and leaves the
-    target's hair bits, and a 21 → 15 one the reverse.
+    target's hair bits, and a 21 → 15 one the reverse. Done 2026-10-13 (Fable, first attempt):
+    `carry_face` copies the run whole within a layout and field by field between them, a
+    non-zero PES 15 nose angle noted as `NoseAngleDropped`; tested on fixture player 70101
+    both ways; spec `operations.md`, `model.md`. The plan paragraph "The run between PES 15
+    and 16+ converts field by field" is built: it moves at the phase close
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
