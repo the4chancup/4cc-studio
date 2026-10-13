@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::schema::limits::face_type_cap;
+use crate::schema::limits::{face_type_cap, motion_top};
 
 #[test]
 fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
@@ -834,6 +834,40 @@ fn every_fixture_player_round_trips_through_his_settings() {
     );
 }
 
+/// A motion at its version's measured top reads into a settings file and
+/// applies back: the parser's widest range takes every version's top.
+#[test]
+fn a_motion_at_the_versions_top_round_trips() {
+    let fields = [
+        PlayerField::HunchingDribbling,
+        PlayerField::HunchingRunning,
+        PlayerField::ArmMovementDribbling,
+        PlayerField::ArmMovementRunning,
+        PlayerField::CornerKickMotion,
+        PlayerField::FreeKickMotion,
+        PlayerField::PenaltyKickMotion,
+        PlayerField::GoalCelebration1,
+        PlayerField::GoalCelebration2,
+    ];
+    for version in PesVersion::ALL {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        let mut player = find_player(&payload, schema, 70101);
+        for field in fields {
+            let top = motion_top(version, field).expect("a motion field has a top");
+            player
+                .set(field, u32::from(top))
+                .expect("the field holds the top");
+        }
+        let settings = PlayerSettings::from_player(&player).expect("from_player");
+        let mut applied = player.clone();
+        settings.apply(&mut applied, version).expect("apply");
+        let mut expected = player.clone();
+        expected.appearance.ingame_face.write_unused();
+        assert_eq!(applied, expected, "{version:?} player {}", player.id);
+    }
+}
+
 /// Keys of one layout are skipped on the other, with no finding or error:
 /// one file compiles for PES 15 and PES 21.
 #[test]
@@ -1077,14 +1111,14 @@ fn the_key_specs_match_the_plan_table() {
         "0 to 7",
         "1 to 3 (PES 20 and 21: 1 to 5)",
         "1 to 3 (PES 20 and 21: 1 to 5)",
-        "1 to 8 (PES 20 and 21: 1 to 10)",
-        "1 to 8 (PES 20 and 21: 1 to 10)",
+        "1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)",
+        "1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)",
         "1 to 6 (PES 20 and 21: 1 to 10)",
         "1 to 16 (PES 20 and 21: 1 to 20)",
         "1 to 4 (PES 20 and 21: 1 to 7)",
         "0 to 3, PES 20 and 21 only",
-        "0 none, 1 to 122 (PES 20 and 21: 1 to 162)",
-        "0 none, 1 to 122 (PES 20 and 21: 1 to 162)",
+        "0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162",
+        "0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162",
         "-7 to 7",
         "-7 to 7",
         "-7 to 7",
@@ -1132,8 +1166,8 @@ fn the_key_specs_match_the_plan_table() {
         "-7 to 7, drawn by PES 15 only",
         "-7 to 7, drawn by PES 15 only",
         "-7 to 7, drawn by PES 15 only",
-        "0 to 3 (PES 15: 0 to 14)",
-        "0 to 5 (PES 15: 0 to 6)",
+        "0 to 3 (PES 15: 0 to 14; PES 19: 0 to 5)",
+        "0 to 5 (PES 15 and 19: 0 to 6)",
         "0 to 12 (PES 15: 0 to 29; PES 20 and 21: 0 to 19)",
         "0 to 4 (PES 15: 0 to 6)",
         "0 to 6 (PES 15: 0 to 14; PES 20 and 21: 0 to 7)",

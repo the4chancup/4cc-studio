@@ -17,7 +17,7 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; then 5.2c3-r1, 5.0m3, 5.2d2, 5.0m4
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3 done 2026-10-14; then 5.2c3-r1, 5.2d2, 5.0m4
 and 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
@@ -781,7 +781,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     non-zero PES 15 nose angle noted as `NoseAngleDropped`; tested on fixture player 70101
     both ways; spec `operations.md`, `model.md`. The plan paragraph "The run between PES 15
     and 16+ converts field by field" is built: it moves at the phase close
-  - [ ] 5.0m3 the motion ranges per version as measured (`aesthetics_export/settings_toml.md`
+  - [x] 5.0m3 the motion ranges per version as measured (`aesthetics_export/settings_toml.md`
     "The motion ranges were measured", the table measured 2026-10-13 in every version's
     editor, `.tmp/ingame_motions/findings.md`): one per-version table of motion tops in
     `pes_savefile`, read by the keys' widest ranges and template comments and by the
@@ -791,7 +791,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     widest range) → done when: each version's tops equal the plan's table, a value at each
     version's top round-trips through `from_player` then `apply`, a PES 20 player at the tops
     converted to PES 15 holds PES 15's tops, and a PES 19 cheek 5 reads and converts to PES 18
-    as 0
+    as 0. Done 2026-10-14 (SWE-2, first
+    attempt): `schema::limits::motion_top`, the keys' widest ranges
+    and comments read from it, `ConvertNote::MotionCapped`, PES 19's face-cap column. The
+    brief's PES 18 half of the cheek test passed before the change (PES 18's cap was 3 both
+    ways); the PES 19 target half is the red one. Every fixture player round-trips as before.
+    Left: `aesthetics_patch/tests.rs`'s `shifted` repeats the widest ranges as test moduli,
+    and `aatf/sample/team.toml` carries the old celebration comments (regenerated at 5.0m4)
   - [ ] 5.0m4 the playable ratings on the save's scale and order: `labels::RATINGS` is
     `none 0, C 1, B 2, A 3` and `playable` is read as CF 0 to GK 12 reversed, but every real
     team stores A as 2 (no save stores a 3) in the order CF, SS, LWF, RWF, AMF, DMF, CMF,
@@ -1598,7 +1604,8 @@ points there.
   lines are prefixed and folded by the console printer, `println!` is the binary's alone.
   `diff --json` (SE-DIF-02 says stdout) waits on a `studio_core` output event the printer
   writes verbatim.
-- open (2026-10-13, 5.0m1; ruled in 5.0m3) — one PES 16 fixture cup player holds
+- resolved 2026-10-14 (5.0m3; the plan keeps him refused: 183 is past every version's top)
+  — one PES 16 fixture cup player holds
   `goal_celebration_2 = 183`: PES 16's editor shows "122" (its top) for him and keeps the 183
   through a save of another row; what a match draws for 183 is unmeasured. `from_player`
   still refuses him (`OutOfRange`); `every_fixture_player_round_trips_through_his_settings`

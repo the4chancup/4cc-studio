@@ -7,7 +7,7 @@ use pes_version::PesVersion;
 
 use crate::schema::fields::PlayerField;
 use crate::schema::ingame_face::IngameFaceField;
-use crate::schema::limits::face_type_cap;
+use crate::schema::limits::{face_type_cap, motion_top};
 
 /// One TOML key of the table in the aesthetics export plan ("Player settings
 /// in exports"), in the table's order. `ALL` lists them in that order.
@@ -651,31 +651,41 @@ impl SettingKey {
             },
             SettingKey::Gloves => bool_key("gloves", "true, false (outfield player gloves)", false),
             SettingKey::GlovesColor => seven_color("gloves_color"),
-            SettingKey::HunchingDribbling => {
-                motion_1based("hunching_dribbling", 5, "1 to 3 (PES 20 and 21: 1 to 5)")
-            }
-            SettingKey::HunchingRunning => {
-                motion_1based("hunching_running", 5, "1 to 3 (PES 20 and 21: 1 to 5)")
-            }
+            SettingKey::HunchingDribbling => motion_1based(
+                "hunching_dribbling",
+                PlayerField::HunchingDribbling,
+                "1 to 3 (PES 20 and 21: 1 to 5)",
+            ),
+            SettingKey::HunchingRunning => motion_1based(
+                "hunching_running",
+                PlayerField::HunchingRunning,
+                "1 to 3 (PES 20 and 21: 1 to 5)",
+            ),
             SettingKey::ArmMovementDribbling => motion_1based(
                 "arm_movement_dribbling",
-                10,
-                "1 to 8 (PES 20 and 21: 1 to 10)",
+                PlayerField::ArmMovementDribbling,
+                "1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)",
             ),
             SettingKey::ArmMovementRunning => motion_1based(
                 "arm_movement_running",
-                10,
-                "1 to 8 (PES 20 and 21: 1 to 10)",
+                PlayerField::ArmMovementRunning,
+                "1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)",
             ),
-            SettingKey::CornerKick => {
-                motion_1based("corner_kick", 10, "1 to 6 (PES 20 and 21: 1 to 10)")
-            }
-            SettingKey::FreeKick => {
-                motion_1based("free_kick", 20, "1 to 16 (PES 20 and 21: 1 to 20)")
-            }
-            SettingKey::PenaltyKick => {
-                motion_1based("penalty_kick", 7, "1 to 4 (PES 20 and 21: 1 to 7)")
-            }
+            SettingKey::CornerKick => motion_1based(
+                "corner_kick",
+                PlayerField::CornerKickMotion,
+                "1 to 6 (PES 20 and 21: 1 to 10)",
+            ),
+            SettingKey::FreeKick => motion_1based(
+                "free_kick",
+                PlayerField::FreeKickMotion,
+                "1 to 16 (PES 20 and 21: 1 to 20)",
+            ),
+            SettingKey::PenaltyKick => motion_1based(
+                "penalty_kick",
+                PlayerField::PenaltyKickMotion,
+                "1 to 4 (PES 20 and 21: 1 to 7)",
+            ),
             SettingKey::Dribbling => KeySpec {
                 table: KeyTable::Motion,
                 name: "dribbling",
@@ -683,17 +693,21 @@ impl SettingKey {
                 comment: "0 to 3, PES 20 and 21 only",
                 default: Some(0),
             },
-            SettingKey::GoalCelebration1 => celebration("goal_celebration_1"),
-            SettingKey::GoalCelebration2 => celebration("goal_celebration_2"),
+            SettingKey::GoalCelebration1 => {
+                celebration("goal_celebration_1", PlayerField::GoalCelebration1)
+            }
+            SettingKey::GoalCelebration2 => {
+                celebration("goal_celebration_2", PlayerField::GoalCelebration2)
+            }
             SettingKey::CheekType => face(
                 "cheek_type",
                 IngameFaceField::CheekType,
-                "0 to 3 (PES 15: 0 to 14)",
+                "0 to 3 (PES 15: 0 to 14; PES 19: 0 to 5)",
             ),
             SettingKey::ForeheadType => face(
                 "forehead_type",
                 IngameFaceField::ForeheadType,
-                "0 to 5 (PES 15: 0 to 6)",
+                "0 to 5 (PES 15 and 19: 0 to 6)",
             ),
             SettingKey::FacialHairType => face(
                 "facial_hair_type",
@@ -1473,23 +1487,39 @@ fn seven_color(name: &'static str) -> KeySpec {
     }
 }
 
-fn motion_1based(name: &'static str, max: u8, comment: &'static str) -> KeySpec {
+/// The widest stored top of `field` over the versions, from the schema's
+/// measured tops table, so the numbers have one home.
+fn widest_motion(field: PlayerField) -> u8 {
+    PesVersion::ALL
+        .iter()
+        .filter_map(|version| motion_top(*version, field))
+        .max()
+        .expect("a motion field has a top")
+}
+
+fn motion_1based(name: &'static str, field: PlayerField, comment: &'static str) -> KeySpec {
     KeySpec {
         table: KeyTable::Motion,
         name,
-        kind: Kind::OneBased { max },
+        // The shown top is one above the stored.
+        kind: Kind::OneBased {
+            max: widest_motion(field) + 1,
+        },
         comment,
         // The block's `1`, stored -1.
         default: Some(0),
     }
 }
 
-fn celebration(name: &'static str) -> KeySpec {
+fn celebration(name: &'static str, field: PlayerField) -> KeySpec {
     KeySpec {
         table: KeyTable::Motion,
         name,
-        kind: Kind::Number { min: 0, max: 162 },
-        comment: "0 none, 1 to 122 (PES 20 and 21: 1 to 162)",
+        kind: Kind::Number {
+            min: 0,
+            max: widest_motion(field),
+        },
+        comment: "0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162",
         default: Some(0),
     }
 }

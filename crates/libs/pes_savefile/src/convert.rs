@@ -19,7 +19,7 @@ use crate::model::player::STRIPPED_APPEARANCE_ID;
 use crate::model::playstyle::PlayStyle;
 use crate::schema::fields::{PlayerField, PlayerText};
 use crate::schema::ingame_face::{FaceLayout, IngameFaceField};
-use crate::schema::limits::face_type_cap;
+use crate::schema::limits::{face_type_cap, motion_top};
 use crate::schema::{playstyle, schema_for};
 
 /// What could not be carried one-to-one; the conversion still succeeded.
@@ -57,6 +57,14 @@ pub enum ConvertNote {
     NoseAngleDropped {
         /// The angle the source carried, -1 or 1.
         angle: i8,
+    },
+    /// A motion above the target's top was written as the top, which the target's editor
+    /// shows for it anyway.
+    MotionCapped {
+        /// The capped field.
+        field: PlayerField,
+        /// The value the source carried (stored).
+        value: u8,
     },
 }
 
@@ -236,16 +244,29 @@ pub fn convert_player(
         }
     }
 
-    out.motion.hunching_dribbling = source.motion.hunching_dribbling;
-    out.motion.hunching_running = source.motion.hunching_running;
-    out.motion.arm_movement_dribbling = source.motion.arm_movement_dribbling;
-    out.motion.arm_movement_running = source.motion.arm_movement_running;
-    out.motion.corner_kick = source.motion.corner_kick;
-    out.motion.free_kick = source.motion.free_kick;
-    out.motion.penalty_kick = source.motion.penalty_kick;
+    // The nine measured motions copy capped at `to`'s top: the target's
+    // editor shows a past-top value as the top anyway, and a copied one can
+    // be rewritten to the list's first entry on the player's next in-game
+    // save (the plan's "Cross-version player conversion").
+    for field in [
+        PlayerField::HunchingDribbling,
+        PlayerField::HunchingRunning,
+        PlayerField::ArmMovementDribbling,
+        PlayerField::ArmMovementRunning,
+        PlayerField::CornerKickMotion,
+        PlayerField::FreeKickMotion,
+        PlayerField::PenaltyKickMotion,
+        PlayerField::GoalCelebration1,
+        PlayerField::GoalCelebration2,
+    ] {
+        let value = u8::try_from(source.get(field)?).expect("a motion field is a byte");
+        let top = motion_top(to, field).expect("a motion field has a top");
+        out.set(field, u32::from(value.min(top)))?;
+        if value > top {
+            notes.push(ConvertNote::MotionCapped { field, value });
+        }
+    }
     carry(&mut out.motion.dribbling, source.motion.dribbling);
-    out.motion.goal_celebration_1 = source.motion.goal_celebration_1;
-    out.motion.goal_celebration_2 = source.motion.goal_celebration_2;
 
     out.edit_flags.player = source.edit_flags.player;
     out.edit_flags.basic_settings = source.edit_flags.basic_settings;
@@ -341,6 +362,7 @@ mod tests {
     use crate::codec::{read_player, write_player};
     use crate::model::ingame_face::{IngameFace, in_layout};
     use crate::schema::ingame_face::FaceLayout;
+    use crate::settings_toml::PlayerSettings;
     use crate::test_support::{FIXTURES, appearance_for, count, find_player, payload, record};
 
     use ConvertNote as N;
@@ -990,6 +1012,157 @@ mod tests {
         assert_eq!(target.name.len(), 44);
         assert!(target.name.is_char_boundary(target.name.len()));
         writes_ok(V::Pes16, &target);
+    }
+
+    /// A motion past the target's measured top is written as the top and
+    /// noted; a target at least as wide keeps the value with no note.
+    #[test]
+    fn a_motion_above_the_target_top_is_capped_and_noted() {
+        // Every motion at PES 20's top (stored; the 1-based tops minus 1,
+        // the celebrations as shown).
+        let mut source = first(V::Pes20);
+        source.motion.hunching_dribbling = 4;
+        source.motion.hunching_running = 4;
+        source.motion.arm_movement_dribbling = 9;
+        source.motion.arm_movement_running = 9;
+        source.motion.corner_kick = 9;
+        source.motion.free_kick = 19;
+        source.motion.penalty_kick = 6;
+        source.motion.dribbling = Some(3);
+        source.motion.goal_celebration_1 = 152;
+        source.motion.goal_celebration_2 = 152;
+
+        let mut target = first(V::Pes15);
+        let notes = convert_player(&source, V::Pes20, &mut target, V::Pes15).expect("converts");
+        let motion = &target.motion;
+        assert_eq!(
+            (
+                motion.hunching_dribbling,
+                motion.hunching_running,
+                motion.arm_movement_dribbling,
+                motion.arm_movement_running,
+                motion.corner_kick,
+                motion.free_kick,
+                motion.penalty_kick,
+                motion.goal_celebration_1,
+                motion.goal_celebration_2,
+            ),
+            (2, 2, 4, 4, 5, 15, 3, 112, 112),
+            "PES 15's tops, stored"
+        );
+        assert_eq!(motion.dribbling, None, "PES 15 has no dribbling field");
+        let capped: Vec<(PlayerField, u8)> = notes
+            .iter()
+            .filter_map(|note| {
+                if let N::MotionCapped { field, value } = note {
+                    Some((*field, *value))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(
+            capped,
+            [
+                (PlayerField::HunchingDribbling, 4),
+                (PlayerField::HunchingRunning, 4),
+                (PlayerField::ArmMovementDribbling, 9),
+                (PlayerField::ArmMovementRunning, 9),
+                (PlayerField::CornerKickMotion, 9),
+                (PlayerField::FreeKickMotion, 19),
+                (PlayerField::PenaltyKickMotion, 6),
+                (PlayerField::GoalCelebration1, 152),
+                (PlayerField::GoalCelebration2, 152),
+            ],
+            "the nine motions noted with the source's stored values"
+        );
+        writes_ok(V::Pes15, &target);
+
+        let mut target21 = first(V::Pes21);
+        let notes = convert_player(&source, V::Pes20, &mut target21, V::Pes21).expect("converts");
+        assert_eq!(target21.motion, source.motion, "unchanged");
+        assert!(
+            !notes
+                .iter()
+                .any(|note| matches!(note, N::MotionCapped { .. })),
+            "{notes:?}"
+        );
+    }
+
+    /// PES 19's editor offers cheek types to 5 and forehead types to 6: a
+    /// player carrying them reads into a `settings.toml` without a refusal,
+    /// keeps them on a PES 19 target, and resets to 0 into PES 18, whose
+    /// caps hold.
+    #[test]
+    fn pes19s_wider_cheek_and_forehead_types() {
+        let mut source = first(V::Pes19);
+        source
+            .appearance
+            .ingame_face
+            .set(F::CheekType, 5)
+            .expect("fits the field");
+        source
+            .appearance
+            .ingame_face
+            .set(F::ForeheadType, 6)
+            .expect("fits the field");
+        PlayerSettings::from_player(&source).expect("reads without a refusal");
+
+        let mut target19 = first(V::Pes19);
+        let notes = convert_player(&source, V::Pes19, &mut target19, V::Pes19).expect("converts");
+        assert_eq!(
+            target19
+                .appearance
+                .ingame_face
+                .get(F::CheekType)
+                .expect("covered"),
+            5
+        );
+        assert_eq!(
+            target19
+                .appearance
+                .ingame_face
+                .get(F::ForeheadType)
+                .expect("covered"),
+            6
+        );
+        assert!(
+            !notes.iter().any(|note| matches!(
+                note,
+                N::FaceTypeReset {
+                    field: F::CheekType | F::ForeheadType,
+                    ..
+                }
+            )),
+            "{notes:?}"
+        );
+
+        let mut target18 = first(V::Pes18);
+        let notes = convert_player(&source, V::Pes19, &mut target18, V::Pes18).expect("converts");
+        assert_eq!(
+            target18
+                .appearance
+                .ingame_face
+                .get(F::CheekType)
+                .expect("covered"),
+            0
+        );
+        assert!(notes.contains(&N::FaceTypeReset {
+            field: F::CheekType,
+            value: 5,
+        }));
+        assert_eq!(
+            target18
+                .appearance
+                .ingame_face
+                .get(F::ForeheadType)
+                .expect("covered"),
+            0
+        );
+        assert!(notes.contains(&N::FaceTypeReset {
+            field: F::ForeheadType,
+            value: 6,
+        }));
     }
 
     #[test]

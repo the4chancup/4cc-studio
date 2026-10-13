@@ -58,14 +58,14 @@ gloves_color = 0                # 0 to 7
 [appearance.motion]             # on Fox written by the aesthetics patch: the tables do not hold motions
 hunching_dribbling = 1          # 1 to 3 (PES 20 and 21: 1 to 5)
 hunching_running = 1            # 1 to 3 (PES 20 and 21: 1 to 5)
-arm_movement_dribbling = 1      # 1 to 8 (PES 20 and 21: 1 to 10)
-arm_movement_running = 1        # 1 to 8 (PES 20 and 21: 1 to 10)
+arm_movement_dribbling = 1      # 1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)
+arm_movement_running = 1        # 1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)
 corner_kick = 1                 # 1 to 6 (PES 20 and 21: 1 to 10)
 free_kick = 1                   # 1 to 16 (PES 20 and 21: 1 to 20)
 penalty_kick = 1                # 1 to 4 (PES 20 and 21: 1 to 7)
 dribbling = 0                   # 0 to 3, PES 20 and 21 only
-goal_celebration_1 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
-goal_celebration_2 = 0          # 0 none, 1 to 122 (PES 20 and 21: 1 to 162)
+goal_celebration_1 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162
+goal_celebration_2 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162
 
 [appearance.face]
 jawline = 0                     # -7 to 7
@@ -115,8 +115,8 @@ pes15_eyebrow_depth = 0         # -7 to 7, drawn by PES 15 only
 pes15_bottom_eyelid_position = 0 # -7 to 7, drawn by PES 15 only
 pes15_nasal_bridge_position = 0 # -7 to 7, drawn by PES 15 only
 pes15_nasal_root_height = 0     # -7 to 7, drawn by PES 15 only
-cheek_type = 0                  # 0 to 3 (PES 15: 0 to 14)
-forehead_type = 0               # 0 to 5 (PES 15: 0 to 6)
+cheek_type = 0                  # 0 to 3 (PES 15: 0 to 14; PES 19: 0 to 5)
+forehead_type = 0               # 0 to 5 (PES 15 and 19: 0 to 6)
 facial_hair_type = 0            # 0 to 12 (PES 15: 0 to 29; PES 20 and 21: 0 to 19)
 laughter_lines_type = 0         # 0 to 4 (PES 15: 0 to 6)
 upper_eyelid_type = 0           # 0 to 6 (PES 15: 0 to 14; PES 20 and 21: 0 to 7)
