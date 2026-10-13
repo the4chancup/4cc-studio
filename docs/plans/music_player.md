@@ -38,7 +38,7 @@ overlays.
 |------|------|----------|
 | Rigdio | Match-day music player (streamer side) | `Tools_4cc/rigdio` |
 | RigDJ | `.4ccm` GUI editor (manager side, same codebase) | `Tools_4cc/rigdio` |
-| Rigdio fork | The ATF bot's author's fork (v2.2.1, 2026-10-11): upstream v2.2.0 plus a local API and event clips, fed by the SEN:P-AI fork; surveyed for features to adapt when this phase is planned | `Tools_Marco/rigdio` |
+| Rigdio fork | The ATF bot's author's fork (v2.2.1, 2026-10-11): upstream v2.2.0 plus a local API and event clips, fed by the SEN:P-AI fork; surveyed 2026-10-13: event clips kept apart from the slots ("Model"), the fixed library path for auto team loading, per-side event clips and the stoppage chant ("Autopilot"); its inbound API, fuzzy scorer matching and the chant default are questions for the maintainer | `Tools_Marco/rigdio` |
 
 Playback goes through **libmpv** (`libmpv-2.dll`, pinned to an April 2024 Win7-compatible
 build) via the `python-mpv` binding. Loudness analysis shells out to a custom-minified
@@ -68,7 +68,8 @@ the product of years of accretion and is not a porting reference:
   with a special-case loop the comments themselves call "very messy".
 - **Dead code that still runs**: the Match tracker's event system (red/yellow/sub/own-goal clips)
   lost its trigger when the tracker integration was removed in v1.11 — clips are still
-  parsed and loaded into an `EventController` that nothing ever fires.
+  parsed and loaded into an `EventController` that nothing in upstream fires; the Rigdio
+  fork (v2.2.1) fires it again from a local HTTP API, fed by the SEN:P-AI 1.3.0 rebuild.
 - **Two external binaries** pinned to Win7-era builds, plus PyInstaller/UPX packaging
   machinery and a bespoke ffmpeg build script to maintain them.
 
@@ -160,7 +161,7 @@ Instructions modify playback rather than gate it:
 | `unrandom` | — | exclude this chant from random chant selection |
 | `advance` | — | at song end, play the next valid entry instead of looping |
 | `louder` | — | mark for the team's volume-boost slider |
-| `event` | `red`\|`yellow`\|`owngoal`\|`sub` | play this clip when the Match tracker reports the event for this player (see "Autopilot"); inert without the tracker |
+| `event` | `red`\|`yellow`\|`owngoal`\|`sub` | play this clip once (no loop; `start` honoured) when the Match tracker reports the event for this player (see "Autopilot"); inert without the tracker. The entry leaves its slot's goalhorn list: it is never in the priority order, the `randomise` all-entries check or the `goal` fallback, and its conditions are never evaluated (see "Model") |
 
 ### File resolution
 
@@ -186,7 +187,8 @@ pub struct MusicExport {
     pub team: String,
     pub sync: bool,          // shared goalhorn positions (default true)
     pub normalize: bool,     // loudness normalization opt-out flag (default true)
-    pub slots: IndexMap<Slot, Vec<SongEntry>>,   // file order preserved
+    pub slots: IndexMap<Slot, Vec<SongEntry>>,   // file order preserved; no `event` entries
+    pub events: Vec<EventClip>,                  // the `event` entries, file order preserved
 }
 
 pub enum Slot { Anthem, Victory, Goal, Chant, Player(String) }
@@ -196,8 +198,22 @@ pub struct SongEntry {
     pub conditions: Vec<Condition>,       // typed enum, one variant per table row above
     pub instructions: Vec<Instruction>,   // typed enum
 }
+
+pub enum EventKind { Red, Yellow, OwnGoal, Sub }
+
+pub struct EventClip {
+    pub player: String,       // the line's slot field (a player name, matched case-insensitively)
+    pub kind: EventKind,      // the `event` instruction's argument
+    pub entry: SongEntry,     // the line's other fields; conditions kept for the round trip, never evaluated
+}
 ```
 
+- **Event clips live apart from the slots.** The parser puts a line carrying `event` into
+  `events`, its `event` instruction lifted into `kind`, not into `slots[Player(name)]`, so
+  selection over a slot stays a plain top-down loop with no skip, and the `randomise`
+  all-entries check and the `goal` fallback append need no exclusion either. Rigdio's parser
+  routes them the same way (its `events` dict beside `players`); RigDJ drops them on load,
+  so the editor's round trip keeps what RigDJ loses.
 - **One model, one parser, one serializer** — replaces the two divergent
   `ConditionList` implementations. RigDJ's bracket-stripping/re-adding hack disappears
   because tokens survive the round trip typed instead of as strings.
@@ -230,7 +246,8 @@ What the soundboard must do, distilled from Rigdio's behavior:
 2. The entry to play is chosen from the slot's priority list, top-down: skip the entry
    that just ended (for `advance`), evaluate conditions, unload `NeverAgain` entries,
    play the first pass. At load time, the default goalhorn (`goal`) list is appended
-   to every player's list as the fallback.
+   to every player's list as the fallback. Event clips are not in any slot's list (see
+   "Model"), so selection never sees them.
 3. **Randomise**: if all of the player's own non-warcry entries carry `randomise`,
    pick uniformly at random among them instead (the appended default-goalhorn entries
    belong to the `goal` slot and count for neither the check nor the pool).
@@ -296,8 +313,9 @@ lifecycle events — the feed contract lives in that plan). A feed chip in the c
 column shows the detected teams and clock, next to an **Autopilot mode selector**:
 **Full** (default while the feed is live), **Co-pilot**, **Assist**, or **Off**. Every
 manual control stays live at all times — autopilot adds presses, it never blocks them.
-This restores, and greatly extends, the Rigdio↔SEN:P-AI integration that Rigdio dropped
-in 2020; the end goal is a match the streamer doesn't have to touch. Autopilot runs in
+This restores in-process, and greatly extends, the Rigdio↔SEN:P-AI integration that Rigdio
+dropped in 2020 and the two forks (Rigdio v2.2.1, SEN:P-AI 1.3.0) restored as HTTP between
+two processes; the end goal is a match the streamer doesn't have to touch. Autopilot runs in
 the tool's background `tick`, not its view — watching the tracker's stats table doesn't
 pause the soundboard.
 
@@ -310,8 +328,12 @@ and lane contract live in the Match tracker plan).
 
 - **Auto team loading**: on `TeamsDetected` or any snapshot-bearing reconciliation, each
   detected side is resolved independently. An empty slot is loaded from the configured
-  **music library folder** (matched against the export's `name` field case-insensitively,
-  filename-stem fallback). If a slot was auto-loaded for an earlier feed team and the
+  **music library folder**: first `<library>/<name>/<name>.4ccm`, `<name>` being the in-game
+  name with its surrounding slashes stripped, matched case-insensitively (the fixed path
+  the forks' tooling already produces); when that file is absent, a scan of the library's
+  exports by their `name` field (the filename stem when absent), case-insensitive. Detecting
+  the same pair again (a re-attach, a re-found table) is a no-op that keeps the score. If a
+  slot was auto-loaded for an earlier feed team and the
   detected team identity changes, reset and replace that slot. Never overwrite a manually
   loaded slot; instead retain it and show a team-mismatch warning. Provisional team
   corrections follow the same ownership rule. Lookup misses are logged, never fatal. The
@@ -381,15 +403,26 @@ and lane contract live in the Match tracker plan).
   it plays as well. A nonempty `resolves_unclassified` removes that exact uncertain record
   before scoring, just as for `Goal`; it must not count the same delta twice.
 - **Event clips revived**: `Card` and `SubOn` events trigger the matching player's
-  `event red|yellow|sub` clips — one clip per eligible event, deduplicated by the feed's
+  `event red|yellow|sub` clips in the export of the side the event names (the other side's
+  export is never checked) — one clip per eligible event, picked uniformly at random when
+  the player has several of that type, deduplicated by the feed's
   `(match_id, sequence)`, not by minute (distinct events can share a minute). A `SecondYellow`
   dismissal fires the `event red` clip (the same clip a straight red uses); a single `Yellow` fires `event yellow`.
   The `event` instruction stops being dead weight.
+- **Stoppage chants** (off by default): on `ClockStopped` past the first minute
+  (`display_minute > 1`) for a reason other than `Goal`, `OwnGoal` or `HalfEnd`, Full mode
+  draws with probability `autopilot_stoppage_chant_percent` and, on a hit, plays a random
+  chant of either side as a Random button press (the chant timer and the one-chant-at-a-time
+  rule apply; no draw while a chant plays). Co-pilot and Assist leave chants to the
+  streamer: the Random button is a press of its own. The default of 0 keeps chants manual;
+  the SEN:P-AI 1.3.0 rebuild ships the same rule at 15 %.
 - **Anthems start manually**: pre-match anthem autoplay is not planned, and there is no autoplay
   setting or feed trigger. The existing kickoff fade-out may still stop a manually started anthem;
   stopping playback does not imply automatic starting.
 - **Victory anthems stay manual** (deliberate omission): auto-firing a VA needs a
-  reliable end-of-match signal. `MatchFinalized` is a bookkeeping signal, not a
+  reliable end-of-match signal, and the SEN:P-AI 1.3.0 rebuild found the same independently
+  (anthems and the victory anthem have no cue in memory, so it leaves them to the
+  streamer). `MatchFinalized` is a bookkeeping signal, not a
   game-state observation — by the time the stats table disappears the moment has
   passed, and finalization may arrive well after the fact (or on a mid-match-attached
   draft with incomplete history). If a "returned to team selection menu" game-state
@@ -453,7 +486,8 @@ New implementation, all in-process:
   (baseline 0 dB); the streamer's per-team **Normalize: Yes/No** toggle overrides it
   live, re-applying gain to currently playing tracks and triggering analysis or the
   `_normalized`-file swap (reload) as needed — same observable behavior as Rigdio
-  v2.2.0.
+  v2.2.0 run from source or as the Rigdio fork's build: the packaged v2.2.0 exe never found
+  its ffmpeg and skipped normalization, so parity checks never run against it.
 - **Background analysis**: on team load, all files are analyzed on a worker pool in
   priority order (anthems → goalhorns → chants → victory anthems, matching the order
   the streamer will need them). Playing a not-yet-analyzed track **jumps it to the
@@ -595,6 +629,7 @@ menu (same semantics, same defaults):
 | `autopilot_horn_delay` | 8s | announcement window between a detected goal and the horn |
 | `autopilot_horn_stop` | on | fade the goalhorn at the post-goal kickoff |
 | `autopilot_shootout_horn` | off | allow the standard horn for live shootout successes; never changes regulation score, scorer counts, or regulation condition state |
+| `autopilot_stoppage_chant_percent` | 0 | chance (0–100) of a random chant at a stoppage that is not a goal, an own goal or a half end; 0 keeps chants manual (see "Autopilot") |
 
 `write_to_log` disappears (the suite owns logging), as do the palette tables.
 
@@ -626,14 +661,17 @@ Parsing/validation CLI lives with the [Music export editor](music_export_editor.
    browser build come from the platform.
 8. **Autopilot** — with the Match tracker running, team loading, scoring, goalhorns,
    goal minutes, and event clips are driven by the game itself (manual override
-   always available); Rigdio at its most automated only had event clips.
+   always available); upstream Rigdio at its most automated only had event clips, and
+   the Rigdio fork adds team loading, the scorer's horn and stoppage chants over HTTP,
+   without the announcement delay, the kickoff fade or a single score authority.
 
 ## Dropped features and compatibility notes
 
-- **Match tracker event clips** (red/yellow/sub/own-goal): dead code in Rigdio since v1.11
-  removed the tracker listener — clips load into a controller nothing triggers. Not
+- **Match tracker event clips** (red/yellow/sub/own-goal): dead code in upstream Rigdio
+  since v1.11 removed the tracker listener — clips load into a controller nothing triggers
+  (the Rigdio fork fires them again from its local API). Not
   dropped here after all: the [Match tracker](match_tracker/README.md) revives them (see
-  "Autopilot"). Without the tracker running they stay dormant, exactly as in current
+  "Autopilot"). Without the tracker running they stay dormant, exactly as in upstream
   Rigdio, so old files behave identically either way.
 - **The YAML format remnants** (`toYML`, `InstructionList`) are not carried over.
 - **`end loop`** stays a silently-accepted no-op (goalhorns loop by default).
@@ -676,7 +714,7 @@ Parsing/validation CLI lives with the [Music export editor](music_export_editor.
 | Loudness | EBU R128 (integrated LUFS + true peak + momentary windows) | Correct measurement; chant loud-part maps onto momentary windows naturally |
 | Threading | Engine owns the audio thread; GUI update loop drives all timers/state | Eliminates all polling threads/loops and their shared-state bugs |
 | Speed slider | Varispeed initially; time-stretch only on demand | Behavior deviation from mpv's pitch-corrected default, accepted for a meme feature |
-| Match tracker events | Revived: `event` clips fire from the Match tracker feed; dormant without it | The tracker returns the integration Rigdio lost in v1.11, in-process this time |
+| Match tracker events | Revived: `event` clips fire from the Match tracker feed; dormant without it | The tracker returns the integration Rigdio lost in v1.11, in-process rather than over the forks' HTTP |
 | Autopilot | Feed-driven scoring/goalhorns/team loading with manual override; manual presses don't score while the feed is live; Full, Co-pilot (highlights + automatic buttonless clips), Assist (highlight-only), or Off (suppresses tracker-triggered playback/highlights but does not transfer score authority) modes; shootout goals excluded from regulation scoring; `SecondYellow` fires `event red`; suspension pauses automation, resumption cancels stale pending horns | One source of truth for the score prevents double counting; end goal is an unattended match, with Co-pilot/Assist/Off as trust-building middle steps |
 | Goalhorn window | Horn plays after a settable announcement delay (default 8s); fades on the first clock restart after the goal | Streamers let the caster call the goal before the horn; replay state isn't in the known memory tables, so the kickoff clock-restart is the closest proxy for "replay dismissed" |
 | Condition prompts | View-driven (`needs_goal_minute` query + modal) | Domain logic never opens dialogs |

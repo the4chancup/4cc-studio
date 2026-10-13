@@ -10,6 +10,16 @@ names where the question came from so the context can be read there.
 
 ## Blocking a plan ruling
 
+### An inbound control API for the music player
+From: the fork survey, 2026-10-13 (`music_player.md` "Autopilot"). The Rigdio fork exposes a
+local HTTP API (load, anthems, goal, victory, chant, event) that the ATF bot ("rigbot")
+drives for the parts no memory cue covers (anthems, the victory anthem); the tracker's
+`watch` CLI is output only and does not serve that consumer. Should the Studio player expose
+such an inbound local API (the fork's endpoint table as the starting contract, `side` only,
+no busy-409), or does the bot become a Studio tool and call the player in-process, which
+dissolves the question? Unblocks: whether Phase 10 plans a control surface at all, and the
+`match_tracker/README.md` "External consumers" wording.
+
 ## In-game checks
 
 ### Face diffs are engine-specific
@@ -33,5 +43,23 @@ pre-Fox save is the deferred pre-Fox patch's; a save of yours whose player wears
 (`/out/`: 1684) would let it run now.
 
 ## Cup practice and preferences
+
+### Fuzzy scorer matching for the feed-driven goalhorn
+From: the fork survey, 2026-10-13 (`music_player.md` "Autopilot", score from the game). The
+plan matches a `Goal` event's scorer to a player slot case-insensitively, standard horn on a
+miss. The Rigdio fork uses `thefuzz.partial_ratio > 70` (best match wins), which suggests
+its author met in-game names that differ from `.4ccm` slot names. How often do they differ
+in practice (truncation, commas, accents, nicknames)? If often, should the player fall back
+to a fuzzy match, accepting false positives on short names, or should a miss stay the
+standard horn with a logged name so the manager fixes the export? Unblocks: the
+scorer-matching rule in "Autopilot" before Phase 10's player crate.
+
+### The stoppage chant's default
+From: the fork survey, 2026-10-13 (`music_player.md` "Autopilot", stoppage chants, and
+`autopilot_stoppage_chant_percent`). The plan ships the chance at 0 (chants stay manual).
+The SEN:P-AI 1.3.0 rebuild ships 15 %, the ATF bot author's choice for his streams. Is 15 %
+the cup's preference for an unattended match, or does a stream want chants only when the
+streamer starts them? Unblocks: the setting's default; the rule itself is already in the
+plan.
 
 ## Small confirmations

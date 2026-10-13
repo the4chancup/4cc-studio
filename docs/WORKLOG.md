@@ -1444,14 +1444,13 @@ points there.
   `!is_read_common_file` arm), where `messages.md` `file_not_used` says a file the
   structure pass already named is not reported (read, not run). Fix: skip a file the
   structure pass reported.
-- open (2026-10-12, the maintainer) — the ATF bot's author forked Rigdio (v2.2.1: a local
-  API and event clips) and SEN:P-AI (v1.3.0: PES 2019 and 2021 support, events sent to
-  Rigdio's API); both are cloned in `C:/Data/4cc/Tools_Marco/` with his other tools (the
-  ATF bot, pes12tools). When Phase 10 (music tools) and Phase 11 (match tracker) are
-  planned, survey both forks for features to adapt (`music_player.md` and
-  `match_tracker/README.md` list them). The match tracker plan's "Rigdio removed its client"
-  predates them; its "PES 2017 only" is superseded by the version decision (DECISIONS
-  2026-10-13: PES 2019 first, then PES 2021, then the others).
+- done (2026-10-13; opened 2026-10-12, the maintainer) — the ATF bot's author forked Rigdio
+  (v2.2.1: a local API and event clips) and rebuilt SEN:P-AI (v1.3.0: PES 2019 and 2021
+  support, events sent to Rigdio's API); both are cloned in `C:/Data/4cc/Tools_Marco/`.
+  Surveyed 2026-10-13: the rulings are in the music player and match tracker plans and
+  DECISIONS (the fork survey's rulings), three questions in QUESTIONS; the plans name
+  upstream and the forks apart, and the version scope is decided (PES 2019 first, then PES
+  2021, then the others).
 - open (2026-10-13, 5.0m1) — what a hair list at 0 draws (`aesthetics_export/settings_toml.md`,
   the paragraph after the ingame-face run's rules): the fixture cup saves of PES 16 to 18 hold
   0 in `style`, `front_style`, `parted` (1,651 PES 18 cup players) and, for a few players, in

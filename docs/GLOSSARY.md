@@ -140,6 +140,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 |---|---|---|
 | **Autopilot** | Music player mode where `match_feed` events (goals, cards, halves) drive the soundboard without operator input. | `plans/music_player.md` |
 | **Anthem / victory anthem / goalhorn / chant** | The audio slots of a music export: team music; post-win music (with selectable `special` variants); per-player or default (`goal`) scoring music; crowd loop faded out on a timer. | `plans/music_player.md` |
+| **Event clip** | A music export line carrying the `event` instruction: a one-shot clip for a player's card, sub or own goal, kept apart from the slots and fired only by the Match tracker. | `plans/music_player.md` "Model" |
 | **`match_feed`** | In-process typed pub/sub of live match events read from the game's memory, with snapshot replay; feeds the tracker view and the Music player. | `plans/match_tracker/README.md` |
 | **Match record** | `.match.json`: the tracker's saved per-match stats/events (replaces binary `.sen`). | `plans/match_tracker/README.md` |
 

@@ -1897,3 +1897,7 @@ worklog passed 7,000 lines.
 - **2026-10-13** — Step 5.2b2b: rulesets read `team.man_marking` and the auto settings.
 - **2026-10-13** — Step 5.0m2: the ingame-face run converts field by field between PES 15 and 16
   to 21, so a converted player keeps his face and the target's hair; `FaceRunTruncated` is gone.
+- **2026-10-13** — Match tracker version scope: PES 2019 registers first, then PES 2021, then
+  the others (the maintainer's answer); PES 2017's open points gate only its own registration.
+- **2026-10-13** — The forks survey's rulings in the music player and match tracker plans (event
+  clips apart from the slots, fixed-path team loading, a stoppage chant); three questions asked.

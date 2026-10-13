@@ -41,17 +41,21 @@ full per-player stats table. It saves matches, including in-progress manual or t
 autosaves, as binary `.sen` files and broadcasts events as length-prefixed JSON over a
 named pipe — the protocol Rigdio
 v1.9–v1.10 consumed for automatic event clips, until Rigdio removed its client in
-v1.11 (2020). It has not been used on stream in a while, but it is the only map of
-the game's in-memory match structures.
+v1.11 (2020); the 1.3.0 rebuild keeps the pipe and posts the same events to the Rigdio
+fork's local HTTP API. It has not been used on stream in a while, but it is the original
+map of the game's in-memory match structures (the 1.3.0 rebuild's `docs/measurements/` is
+the newer).
 
 | Tool | Role | Location |
 |------|------|----------|
 | SEN:P-AI | Live PES17 match stat/event extraction (stream side) | `Tools_4cc/SEN_P-AI` |
-| SEN:P-AI 1.3.0 (independent rebuild) | The ATF bot's author's rebuild (2026-10-11): PES 2017/2019/2021 layouts measured on a live game, with the verification evidence, and events sent to the Rigdio fork's local API; surveyed for features to adapt when this phase is planned | [`zocram4cc/SEN_P-AI`](https://github.com/zocram4cc/SEN_P-AI), local copy `Tools_Marco/SEN_P-AI` |
+| SEN:P-AI 1.3.0 (independent rebuild) | The ATF bot's author's rebuild (2026-10-11): PES 2017/2019/2021 layouts measured on a live game, with the verification evidence, and events sent to the Rigdio fork's local API; surveyed 2026-10-13: its stoppage chant and its finding that anthems have no memory cue went into the Music player plan's "Autopilot", its pipe tap and HTTP output into "Background" and "Relationship to the old codebase" here | [`zocram4cc/SEN_P-AI`](https://github.com/zocram4cc/SEN_P-AI), local copy `Tools_Marco/SEN_P-AI` |
 
 ### Unofficial fork (unverified findings)
 
 A community-made unofficial update of SEN:P-AI exists at `Tools_4cc/SEN_P-AI-Unofficial`.
+Below and in this plan's parts, "the fork" without a qualifier means this one; the ATF
+bot author's is "the 1.3.0 rebuild".
 Its quality and stability are not trusted, so it is **not** an architectural reference —
 only a source of reverse-engineered game knowledge to mine and then verify independently.
 The findings below are attributed to it and marked **(unverified)** until confirmed against
@@ -168,8 +172,9 @@ reference:
 - **The `.sen` format**: a hand-rolled binary section format whose reader and writer
   are one templated function running in both directions via macros.
 - **Half-finished features**: the footballbox primitives and unimplemented match
-  adapter described above, and a pipe server whose only
-  known consumer removed its client years ago.
+  adapter described above, and a pipe server whose only consumer on stream removed its
+  client years ago (the 1.3.0 rebuild's live output is HTTP; its `tools/senpai_tap.c` reads
+  the pipe only to verify).
 
 **Licensing constraint.** Both SEN:P-AI repositories are GPLv3. 4cc Studio uses an
 independent reimplementation based on independently verified factual layouts and observable

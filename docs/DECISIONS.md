@@ -7385,3 +7385,34 @@ Plan: `match_tracker/README.md` "Priority", "Independent measurements" (the exec
 note), "Key decisions" (Game versions); `reading_the_game.md` "Game structures";
 `match_model.md` "Match model and event derivation" (clock reconstruction); `testing.md`
 "Verifying source-derived findings".
+
+## 2026-10-13 — music player and match tracker plans — the fork survey's rulings
+Decision: from the survey of the ATF bot author's Rigdio fork (v2.2.1) and SEN:P-AI 1.3.0
+rebuild: `libs/music_export` keeps `event` entries in `MusicExport::events: Vec<EventClip>`
+(player, kind, entry), apart from `slots`; they are never in a slot's priority list, the
+`randomise` all-entries check or the `goal` fallback, their conditions are never evaluated,
+they play once and honour `start`. Auto team loading looks up `<library>/<name>/<name>.4ccm`
+first (the in-game name, slashes stripped, case-insensitive), the `name`-field scan as the
+fallback; the same pair detected again is a no-op that keeps the score. An optional stoppage
+chant: on `ClockStopped` past the first minute for a reason other than a goal, an own goal or
+a half end, Full mode plays a random chant with probability
+`autopilot_stoppage_chant_percent`, default 0. Victory anthems stay manual, the rebuild's
+independent finding cited; event clips check only the side the feed names and pick one of a
+player's several clips at random. Normalization parity runs against Rigdio's source or the
+fork's build, never the packaged v2.2.0 exe. The stale "dead code" / "only had event clips" /
+"only consumer" statements name upstream and the forks apart ("the 1.3.0 rebuild", "the
+unofficial fork"). Left out: the survey's recommendations the plan already rules out; a
+throw-in `StopReason` withdrawn (SEN:P-AI never infers a throw-in: `MatchReader.cpp` has
+the case commented out, upstream and rebuild alike, so no variant is needed); the fuzzy
+scorer match, the chant's default and an inbound control API are questions in
+`QUESTIONS.md`.
+Why: a separate `events` list keeps slot selection a plain loop rather than a loop with a
+skip that the `randomise` check and the `goal` append would each have to repeat; the fixed
+path is what the forks' tooling already produces and costs one file probe; a default of 0
+for the chant keeps today's behaviour until the maintainer picks; an unreachable
+`StopReason` variant is a case the `Unknown` reason already covers.
+Plan: `music_player.md` "Background", "Relationship to the old codebase", "Instructions",
+"Model", "Song selection", "Autopilot", "Loudness normalization", "Settings (tool
+section)", "Improvements over Rigdio", "Dropped features and compatibility notes", "Key
+decisions"; `match_tracker/README.md` "Background", "Unofficial fork (unverified
+findings)", "Relationship to the old codebase"; `GLOSSARY.md` "Event clip" edited.
