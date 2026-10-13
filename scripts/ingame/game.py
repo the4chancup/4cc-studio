@@ -270,7 +270,12 @@ def cmd_pad_serve() -> None:
                     connection.sendall(b"stopped\n")
                     return
                 play_pad_inputs(pad, line)
-                connection.sendall(b"sent\n")
+                # A client stopped mid-command (a script killed while its inputs played) is
+                # gone by now; the pad stays plugged in for the next one.
+                try:
+                    connection.sendall(b"sent\n")
+                except ConnectionError:
+                    pass
 
 
 def send_to_pad_server(words: list[str]) -> str:
