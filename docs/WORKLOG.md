@@ -1450,7 +1450,8 @@ points there.
   ATF bot, pes12tools). When Phase 10 (music tools) and Phase 11 (match tracker) are
   planned, survey both forks for features to adapt (`music_player.md` and
   `match_tracker/README.md` list them). The match tracker plan's "Rigdio removed its client"
-  and "PES 2017 only" predate them.
+  predates them; its "PES 2017 only" is superseded by the version decision (DECISIONS
+  2026-10-13: PES 2019 first, then PES 2021, then the others).
 - open (2026-10-13, 5.0m1) — what a hair list at 0 draws (`aesthetics_export/settings_toml.md`,
   the paragraph after the ingame-face run's rules): the fixture cup saves of PES 16 to 18 hold
   0 in `style`, `front_style`, `parted` (1,651 PES 18 cup players) and, for a few players, in

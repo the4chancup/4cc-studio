@@ -98,15 +98,18 @@ wiki-API client that would round-trip output through the wiki, is unfinished in 
 The suite therefore implements a new, tested exporter informed by these primitives,
 rather than porting a supposedly complete generator (see `match_files.md` "Match files").
 
-**Priority.** The first implementation targets PES 2017; the fork's PES21 knowledge is
-inactive reference data until PES21 support is pursued (see "Verifying source-derived
-findings"). The main
-source-verification priorities are the original's hypothetical PES17 phase buckets 6–8,
-the one PES17-relevant pointer-chain claim the fork makes, and an independent heatmap
-viewer implemented from verified grid semantics at PES17's known offset (see "Game
-structures"). If the PES17 grid is verified to populate with stable semantics, heatmaps
-ship in the first implementation;
-the new footballbox exporter does not depend on the fork's heatmap or PES21 findings.
+**Priority.** The first implementation registers PES 2019, then PES 2021, then the other
+versions, PES 2017 among them (the maintainer's order; "Key decisions", Game versions): the
+cup plays 19 and 21, and both layouts are measured ("Independent measurements"). The
+unofficial fork's PES21 claims (pointer chains, substitution journal, direct clock read)
+stay inactive reference data until verified (see "Verifying source-derived findings"); the
+measured layout registers without them. PES 2017 registers once its own open points are
+closed: bucket 8 of its phase map, the fork's PES17 pointer chain (refuted on the measured
+executable, so the scan-only path stands), and the heatmap viewer over its measured grid
+(see "Game structures"); extra time stays `Phase::Unknown` on every version until recorded
+and gates none of them. Heatmaps ship for a version once its grid is measured (PES 2017 and PES 2021
+are; PES 2019's is not); the new footballbox exporter does not depend on the fork's heatmap
+or PES21 findings.
 
 ### Independent measurements (PES 2017, PES 2019 and PES 2021)
 
@@ -136,6 +139,11 @@ under Wine (Linux), against these executables (SHA-256):
 | PES 2017 | `4cd49eacd6edd1391eadca1e18bb8ba7092eef8447b928ebf82be381aa93a330` | 1.0.0.0 |
 | PES 2019 | `06e980f0a8138b7cc8255c8100b93a33414ba7f309e74fc5368c80a23b4965a5` | 1.6.9.2 |
 | PES 2021 | `d5faee3ba913463d373d320871e32ce9bc4d6db9b7ea22e53340dd4607e6ee76` | 1.1.9.3 |
+
+The PES 2019 executable is the cup's own "PES2019 1.06 with 4cc Patch v3" build. The
+maintainer's installed `PES2019.exe` is 1.6.9.4, which differs from it in 149 bytes with
+the same PE timestamp and section layout, so the measured addresses are expected to hold
+there; the first live run re-checks them.
 
 What it settles and what it leaves open is recorded per claim under Testing, "Verifying
 source-derived findings"; the measured values are in "Game structures". It reads the stats
@@ -313,5 +321,5 @@ unrelated process memory.
 | Match files | New versioned JSON format only; `.sen` dropped | Readable, diffable, schema-evolvable; old archives keep old SEN:P-AI |
 | Autonomy | Full, Co-pilot, Assist (highlight-only), and Off playback modes; modes do not transfer feed score authority, and manual playback override stays live | Specified in the Music player plan; tracker stop, feed release, abandonment, or finalization restores manual score accounting |
 | Deep scan | Automatic throttled escalation; no "Search Harder" button | A plain chunked scan on the polling thread is cheap enough that the manual gate the original needed just becomes streamer homework |
-| Game versions | Register verified signature sets only; PES17 first, PES21 deferred | PES17's original scan signatures are known, but buckets 6–8 of its phase map, the fork-defined pointer chain, and the heatmap grid must be verified before enabling the affected phase automation or additions; all PES21 findings remain inactive reference data until their deferred verification |
+| Game versions | Register verified signature sets only; PES 2019 first, then PES 2021, then the others (PES 2017 among them) | The maintainer's order, 2026-10-13: the cup plays 19 and 21, and both layouts are measured ("Independent measurements"), so the first release serves a cup match rather than the version the original was written for. On every version, extra time (buckets 6 and 7) stays `Phase::Unknown` until recorded, the unofficial fork's pointer chains, substitution journal and direct clock read stay unregistered until verified, and heatmaps register only where the grid is measured (PES 2017 and PES 2021, not PES 2019). PES 2017's open points (bucket 8, its refuted pointer chain) gate registering PES 2017, not the first release |
 | Platform | Windows-only backend behind a memory-source trait | Win32 live tracking now; a Wine `/proc` backend stays possible; live memory access is impossible in WASM, while saved-match viewing remains supported |

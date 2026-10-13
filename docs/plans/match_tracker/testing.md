@@ -176,18 +176,22 @@ matching same-side
 
 ### Verifying source-derived findings
 
-The suite's first implementation targets PES 2017, so verification is prioritized
-accordingly. Unresolved PES17 claims from either source are verified for the first release;
-PES21 claims from the unofficial fork are **deferred** until PES21 support is pursued and
-recorded here as a starting point for that future work. A claim that fails verification is
-dropped, and the affected plan text reverts.
+The suite's first implementation registers PES 2019 first, then PES 2021, then the other
+versions, PES 2017 among them (README "Priority"), so verification is prioritized
+accordingly. PES 2019 and PES 2021 register on their measured layouts (README "Independent
+measurements"); the unofficial fork's PES21 claims (pointer chains, substitution journal,
+direct clock read) stay **unregistered** until verified and are recorded here as the
+starting point for that work. Unresolved PES17 claims from either source gate registering
+PES 2017, not the first release. A claim that fails verification is dropped, and the
+affected plan text reverts.
 
-**PES17 verification required before first release:**
+**PES17 verification required before registering PES 2017:**
 
-Each task must reach a recorded pass/fail decision before release. Failure disables the
-affected optional capability or fast path but does not block the scan-based tracker itself.
-Phase verification is a release gate only if first-release ET/shootout classification and
-automation remain promised.
+Each task must reach a recorded pass/fail decision before PES 2017 is registered. Failure
+disables the affected optional capability or fast path but does not block the scan-based
+tracker itself. Phase verification gates a version's release only if ET/shootout
+classification and automation remain promised for it; buckets 6 and 7 are unobserved on
+every version, so that gate is the same on PES 2019 and PES 2021.
 
 - **PES17 phase buckets**: the original confirms buckets 0–2 as the first half and 3–5
   as the second half, but only hypothesizes `1st ET: [6-7?], 2nd ET: [7?-8?]` and leaves
@@ -234,7 +238,8 @@ automation remain promised.
   scan finds the home block in its 0x90000 region as the original does. The profile was
   likely made against another executable; on this one the scan-only path stands.
 
-**Low priority (PES21, deferred until PES21 support is pursued):**
+**PES21: the unofficial fork's claims, unregistered until verified (the measured layout
+registers without them):**
 
 - **Pointer-chain stats-table locator (PES21)**: same two-chain structure. The readiness
   chain is `root = *(moduleBase + 0x36F4178)`, `container = *(root + 0)`,

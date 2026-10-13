@@ -28,8 +28,9 @@ that chain has been verified, with validated region/content scanning as fallback
   and stamina; the rest are unidentified and are tracked anyway. Most counters are
   **segmented into 9 buckets**: buckets 0–2 are confirmed as the first half and 3–5 as
   the second half. The legacy code hypothesizes that 6–8 cover extra time and penalties,
-  but their exact mapping is not registered until verified from recorded PES17 extra-time
-  and shootout matches. Until then those combinations produce `Phase::Unknown`. A
+  but their exact mapping is not registered on a version until verified from recorded
+  extra-time and shootout matches on that version. Until then those combinations produce
+  `Phase::Unknown`. A
   candidate is accepted only when
   each block has at least 11 consecutive entries with plausible player IDs and a threshold
   matching the corresponding detected roster/team. The original's `70100 ≤ id < 90300`
@@ -55,8 +56,9 @@ default; it never interpreted or rendered the 10x14 grid as a heatmap. The fork 
 reading and rendering code for PES21.
 The PES21 stats-table base also exposes 8 per-team grids in the fork. The suite's global
 PES version selector picks among registered, verified signature sets, and the tool
-reports itself unavailable for versions without one; the first release registers PES17
-only.
+reports itself unavailable for versions without one; the first release registers PES 2019
+and PES 2021 (the measured layouts below), and PES 2017 follows once its open points are
+closed (README "Priority").
 
 **PES 2019 and PES 2021, measured.** An independent rebuild of SEN:P-AI (zocram4cc's 1.3.0,
 see the README's "Independent measurements") measured both versions on a live game, each

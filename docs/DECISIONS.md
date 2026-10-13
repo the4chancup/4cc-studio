@@ -7368,3 +7368,20 @@ Why: the module notes every loss that depends on the player's data. PES 15 codes
 angle in six bits, so a type past 21 has no coding; no game writes one (the widest cap is 7),
 and a second cap pass for it would serve no real save.
 Plan: `spec/pes_savefile/operations.md` "What the Rust module is".
+
+## 2026-10-13 — match_tracker — PES 2019 registers first, then PES 2021, then the others
+Decision: the Match tracker registers PES 2019 first, PES 2021 second, and the other versions
+(PES 2017 among them) after: the maintainer's answer to the version-scope question. PES 2017's
+open points (bucket 8 of its phase map, its refuted pointer chain) gate registering PES 2017,
+not the first release. On every version, extra time (buckets 6 and 7) stays `Phase::Unknown`
+until recorded, the unofficial fork's pointer chains, substitution journal and direct clock
+read stay unregistered until verified, and heatmaps register only where the grid is measured
+(PES 2017 and PES 2021, not PES 2019).
+Why: the cup plays PES 2019 and PES 2021, and both layouts are measured (the README's
+"Independent measurements", PR #1), so a first release that registered PES 2017 alone, the
+version the original was written for, would track no cup match; and PES 2017's own open
+points would gate every version's release.
+Plan: `match_tracker/README.md` "Priority", "Independent measurements" (the executable
+note), "Key decisions" (Game versions); `reading_the_game.md` "Game structures";
+`match_model.md` "Match model and event derivation" (clock reconstruction); `testing.md`
+"Verifying source-derived findings".

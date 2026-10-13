@@ -296,9 +296,9 @@ cycle.
   made during a stoppage and is back within a minute of the HUD about a minute later (seen
   on PES 2017, 2019 and 2021 against the HUD clock; README "Independent measurements"), so
   the fixtures include such a substitution and the reducer must not reproduce the jump. The
-  verified PES17 values are recorded in the profile before release, so changing the poll
-  rate does not materially change behavior. **On PES21 the fork reads the clock directly**
-  *(unverified)* via a
+  verified values of each version are recorded in its profile before that version is
+  registered, so changing the poll rate does not materially change behavior. **On PES21
+  the fork reads the clock directly** *(unverified)* via a
   pointer chain to a clock object exposing the current segment (u32) and a raw tick
   count (f32, ticks/3600 = minutes); the segment maps to the period base minute and
   even segments flag injury time. The direct read supersedes the reconstruction where
