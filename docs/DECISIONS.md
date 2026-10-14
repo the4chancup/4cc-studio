@@ -7774,3 +7774,25 @@ cannot depend on another; a second codec in the Save editor would drift from the
 `pes_savefile` already builds the appearance row. Sorted by id with each id once is what all
 twelve game and cup `PlayerAppearance.bin` files measured hold, as the item lists do.
 Plan: `plans/pes_savefile/model.md` "Player settings model" (the Fox player tables bullet).
+
+## 2026-10-14 — pes_savefile — correction: the appearance row holds no unmodeled bits
+Decision: the entry "strip and seed takes each row from the player's record" stands on its first
+reason alone (the settings route refuses stored values past a key's range); its second, that the
+settings route would rewrite bits no field models, is withdrawn.
+Why: 5.4c1a found the row's 56 bytes all modeled (packed fields, then the ingame-face run kept
+verbatim), so a row written over zeros and one taken from the record are the same bytes on every
+fixture player.
+Plan: `plans/pes_savefile/model.md` "Player settings model" (the row-from-record bullet).
+
+## 2026-10-14 — aatf — a free_cards option is used when it lowers an over-limit paid count
+Decision: a `free_cards` choice option is used when, without it, the player's paid cards are over
+the limit and, with it, fewer are paid; this replaces this day's "used when one of its cards is
+held and paid". And `apply_tier` writes the tier's name colour before it resolves the values, so
+a special conditioned on `name_colors` sees the colour it writes.
+Why: the SWE-2 review of the rework (I.S1) found a held card a group covers whose freeing by name
+passes the group's allowance to a paid groupmate: "held and paid" left that option unused and
+the player over the limit. The plan's general rule for options ("without it, the player exceeds
+a limit the option raises") covers it, and gives the same verdicts on every earlier fixture. The
+name colour is a value the tier writes, the same class as form and stats.
+Plan: `plans/aatf_rules.md` "The ruleset schema" (`Effects::choice`); "The host" (the
+`apply_tier` paragraph already says "resolved against what it writes").

@@ -1979,3 +1979,6 @@ worklog passed 7,000 lines.
   Step 5.4c settled on paper: rows from the record, tables in `pes_savefile`, base copies in-game.
 - **2026-10-14** — 5.2i-r1b: the interpreter's four fixes for rulesets members write (choice
   options, replacement order, overlapping groups refused, `apply_tier` settling on its own writes).
+- **2026-10-14** — 5.4c1a: a save player's database row from his record, and the three Fox
+  player tables as one `pes_savefile` codec the Team compiler now uses. SWE-2 review I.S1 of the
+  interpreter rework accepted 3 of 5 (rework 5.2i-r2 next, then Astra I.A2).

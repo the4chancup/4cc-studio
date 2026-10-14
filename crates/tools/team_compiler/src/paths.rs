@@ -47,18 +47,6 @@ pub(crate) const TEAM_COLOR: &str = "common/etc/TeamColor.bin";
 /// on every version.
 pub(crate) const UNI_COLOR: &str = "common/character0/model/character/uniform/team/UniColor.bin";
 
-/// The Fox table giving each player with custom boots his boots ID: (player id, boots ID)
-/// pairs, sorted by player id.
-pub(crate) const BOOTS_LIST: &str = "common/character0/model/character/boots/BootsList.bin";
-
-/// The Fox table giving each player with custom gloves his gloves ID: (player id, gloves ID)
-/// pairs, sorted by player id.
-pub(crate) const GLOVE_LIST: &str = "common/character0/model/character/glove/GloveList.bin";
-
-/// The Fox table of every player's look: 60-byte rows, the player id then 56 appearance bytes.
-pub(crate) const PLAYER_APPEARANCE: &str =
-    "common/character0/model/character/appearance/PlayerAppearance.bin";
-
 /// What a model package's game folder is named by.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PackageKey {

@@ -4,19 +4,19 @@
 //! each table whole, so a compile writes the installed table with its compiled players' rows
 //! changed, never a table of its own rows alone. None has a bundled base: a table no installed
 //! CPK holds is not written.
+//!
+//! The tables' codec is `pes_savefile::player_tables`; what is the tool's
+//! stays here: applying a plan's `ItemRow`s and the `player_table_missing`
+//! finding.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use anyhow::ensure;
+use pes_savefile::player_tables::{ItemList, PlayerTableFile};
 use studio_core::{Disposition, Message, Scope};
 
 use crate::messages::{Code, tool_message};
-use crate::paths;
 use crate::plan::item_rows::{ItemRow, RowChange};
-
-/// A `BootsList.bin` or `GloveList.bin` pair's size: the player id, then the item ID, each a
-/// little-endian `u32`.
-const PAIR: usize = 8;
 
 /// A `PlayerAppearance.bin` row's size: the player id, then 56 appearance bytes.
 const APPEARANCE_ROW: usize = 60;
@@ -34,97 +34,33 @@ impl ItemTable {
     /// Both tables, in the order the CPK holds them.
     pub(crate) const ALL: [ItemTable; 2] = [ItemTable::Boots, ItemTable::Gloves];
 
-    /// The table's file name, as findings name it.
-    pub(crate) fn name(self) -> &'static str {
+    /// The table's `PlayerTableFile`, the codec's name for it.
+    pub(crate) fn file(self) -> PlayerTableFile {
         match self {
-            ItemTable::Boots => "BootsList.bin",
-            ItemTable::Gloves => "GloveList.bin",
-        }
-    }
-
-    /// The table's path in a CPK.
-    pub(crate) fn path(self) -> &'static str {
-        match self {
-            ItemTable::Boots => paths::BOOTS_LIST,
-            ItemTable::Gloves => paths::GLOVE_LIST,
+            ItemTable::Boots => PlayerTableFile::BootsList,
+            ItemTable::Gloves => PlayerTableFile::GloveList,
         }
     }
 }
 
-/// A `BootsList.bin` or `GloveList.bin` being edited: each player's item ID, by player id.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) struct ItemList {
-    /// The item ID of each player the table lists, by player id. A map, so a player id the
-    /// installed table lists twice keeps its last pair (no table measured repeats one), and
-    /// the pairs are written sorted by player id, as the game's own tables are.
-    items: BTreeMap<u32, u32>,
-}
-
-impl ItemList {
-    /// `bytes` as `table`'s (player id, item ID) pairs; a length that is not a whole number of
-    /// 8-byte pairs is an error naming the table.
-    pub(crate) fn read(table: ItemTable, bytes: &[u8]) -> anyhow::Result<ItemList> {
-        ensure!(
-            bytes.len().is_multiple_of(PAIR),
-            "{} is {} bytes, not a whole number of {PAIR}-byte pairs",
-            table.name(),
-            bytes.len()
-        );
-        let (pairs, _) = bytes.as_chunks::<PAIR>();
-        let items = pairs
-            .iter()
-            .map(|&[p0, p1, p2, p3, i0, i1, i2, i3]| {
-                (
-                    u32::from_le_bytes([p0, p1, p2, p3]),
-                    u32::from_le_bytes([i0, i1, i2, i3]),
-                )
-            })
-            .collect();
-        Ok(ItemList { items })
-    }
-
-    /// Points `player_id` at `item_id`, replacing his pair or adding one.
-    fn set(&mut self, player_id: u32, item_id: u32) {
-        self.items.insert(player_id, item_id);
-    }
-
-    /// Removes `player_id`'s pair, when the table has one.
-    fn remove(&mut self, player_id: u32) {
-        self.items.remove(&player_id);
-    }
-
-    /// Applies `rows`' rows of `table`: each `Set` row whose task is among `committed` (the
-    /// manifest positions of the batches the writer committed) is set, the others leaving the
-    /// installed pair as it is, and each `Remove` row is removed.
-    pub(crate) fn apply(
-        &mut self,
-        table: ItemTable,
-        rows: &[ItemRow],
-        committed: &BTreeSet<usize>,
-    ) {
-        for row in rows.iter().filter(|row| row.table == table) {
-            match row.change {
-                RowChange::Set { id, task } => {
-                    if committed.contains(&task) {
-                        self.set(row.player_id, id);
-                    }
+/// Applies `rows`' rows of `table` to `list`: each `Set` row whose task is among `committed` (the
+/// manifest positions of the batches the writer committed) is set, the others leaving the
+/// installed pair as it is, and each `Remove` row is removed.
+pub(crate) fn apply(
+    list: &mut ItemList,
+    table: ItemTable,
+    rows: &[ItemRow],
+    committed: &BTreeSet<usize>,
+) {
+    for row in rows.iter().filter(|row| row.table == table) {
+        match row.change {
+            RowChange::Set { id, task } => {
+                if committed.contains(&task) {
+                    list.set(row.player_id, id.to_le_bytes());
                 }
-                RowChange::Remove => self.remove(row.player_id),
             }
+            RowChange::Remove => list.remove(row.player_id),
         }
-    }
-
-    /// The table's bytes: every pair, sorted by player id.
-    pub(crate) fn into_bytes(self) -> Vec<u8> {
-        self.items
-            .into_iter()
-            .flat_map(|(player_id, item_id)| {
-                player_id
-                    .to_le_bytes()
-                    .into_iter()
-                    .chain(item_id.to_le_bytes())
-            })
-            .collect()
     }
 }
 
@@ -152,7 +88,7 @@ pub(crate) fn table_missing(
         Scope::Run,
         Disposition::Keep,
         vec![
-            ("table", table.name().to_owned()),
+            ("table", table.file().file_name().to_owned()),
             ("rows", left_out.to_string()),
         ],
     ))
@@ -185,7 +121,7 @@ mod tests {
 
     /// The boots list holding `pairs`.
     fn boots(pairs: &[(u32, u32)]) -> ItemList {
-        ItemList::read(ItemTable::Boots, &bytes_of(pairs)).unwrap()
+        ItemList::read(ItemTable::Boots.file(), &bytes_of(pairs)).unwrap()
     }
 
     /// The row of `table` for `player_id` making `change`.
@@ -195,61 +131,6 @@ mod tests {
             player_id,
             change,
         }
-    }
-
-    #[test]
-    fn a_list_is_a_whole_number_of_8_byte_pairs_and_the_error_names_it() {
-        let error = ItemList::read(ItemTable::Boots, &[0; 12]).unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            "BootsList.bin is 12 bytes, not a whole number of 8-byte pairs"
-        );
-        let error = ItemList::read(ItemTable::Gloves, &[0; 9]).unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            "GloveList.bin is 9 bytes, not a whole number of 8-byte pairs"
-        );
-        assert_eq!(boots(&[]).into_bytes(), Vec::<u8>::new());
-    }
-
-    #[test]
-    fn the_pairs_are_read_as_little_endian_player_id_then_item_id() {
-        // Player 70201 with boots 11, then player 70205 with boots 625, each `u32` little-endian.
-        let bytes = [
-            0x39, 0x12, 0x01, 0x00, 0x0b, 0x00, 0x00, 0x00, 0x3d, 0x12, 0x01, 0x00, 0x71, 0x02,
-            0x00, 0x00,
-        ];
-        let list = ItemList::read(ItemTable::Boots, &bytes).unwrap();
-        assert_eq!(list.items, BTreeMap::from([(70201, 11), (70205, 625)]));
-        assert_eq!(list.into_bytes(), bytes);
-    }
-
-    #[test]
-    fn set_replaces_a_player_s_pair_or_adds_one() {
-        let mut list = boots(&[(70201, 11), (71405, 7)]);
-        list.set(71405, 625);
-        list.set(71406, 626);
-        assert_eq!(
-            list.into_bytes(),
-            bytes_of(&[(70201, 11), (71405, 625), (71406, 626)])
-        );
-    }
-
-    #[test]
-    fn remove_takes_a_player_s_pair_out_and_leaves_a_list_without_one_as_it_is() {
-        let mut list = boots(&[(70201, 11), (71405, 7)]);
-        list.remove(71405);
-        list.remove(71406);
-        assert_eq!(list.into_bytes(), bytes_of(&[(70201, 11)]));
-    }
-
-    #[test]
-    fn the_pairs_are_written_sorted_by_player_id_and_a_repeated_player_keeps_his_last() {
-        let list = boots(&[(71405, 7), (70201, 11), (70707, 3), (71405, 9)]);
-        assert_eq!(
-            list.into_bytes(),
-            bytes_of(&[(70201, 11), (70707, 3), (71405, 9)])
-        );
     }
 
     #[test]
@@ -280,9 +161,9 @@ mod tests {
                 RowChange::Set { id: 629, task: 1 },
             ),
         ];
-        list.apply(ItemTable::Boots, &rows, &BTreeSet::from([1, 3]));
+        apply(&mut list, ItemTable::Boots, &rows, &BTreeSet::from([1, 3]));
         assert_eq!(
-            list.into_bytes(),
+            list.to_bytes(),
             bytes_of(&[(70201, 11), (71405, 625), (71407, 8), (71408, 628)])
         );
     }

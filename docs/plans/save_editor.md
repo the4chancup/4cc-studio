@@ -605,8 +605,9 @@ The commands:
   beside a save left unstripped changes no look, the records still deciding. A table `--bins`
   lacks is created from the seed rows. A pre-Fox save is refused. Each base-copied face is a
   `strip_base_copied_face` warning line; warnings leave the exit code 0.
-- `check-stripped` lists the players whose appearance id is set while others are stripped (exit 1
-  when it lists any); `--strip-again` sets their ids to -1, leaving the tables as they are, and
+- `check-stripped` lists the players whose appearance id is set while others are stripped, one
+  `appearance_id_restored` error each (exit 1 when it lists any; a save no player of which is
+  stripped lists nobody); `--strip-again` sets their ids to -1, leaving the tables as they are, and
   writes `--out`, which it requires (exit 0). A pre-Fox save is refused.
 - `export-teams-list` prints the merge summary (added / kept / overridden / unresolved) and stops
   unless `--yes` is given; a change behind an unresolved conflict is dropped, as for the updater

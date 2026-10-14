@@ -17,10 +17,14 @@ travel in the database tables"), which stay open:
   `BootsList.bin`/`GloveList.bin` pairs, not to the row.
 - **A save player's row from his record**, for the Save editor's strip and seed:
   `EditFile::appearance_row(player_id) -> Result<[u8; 60], SaveError>`, the player id and the
-  56 bytes his record holds after the base-copy id, taken from the record as the save would
-  write it (his entry written over the save's own record bytes), so a value past a key's range
-  and every bit no field models are carried as stored (`PlayerSettings::appearance_row` stays
-  the route for a settings file, which writes the games' values into those bits). Tested on
+  56 bytes his record holds after the base-copy id, his entry as the save would write it, so a
+  value past a key's range is carried as stored, where the settings route
+  (`PlayerSettings::appearance_row`, still the route for a settings file) refuses it. The 56
+  bytes are all modeled fields (packed fields, then the ingame-face run kept verbatim; found at
+  5.4c1a), so the entry is written over a zeroed record: a copy of the save's record changed
+  nothing (its mutation run's two survivors said so), and the test comparing rows with the
+  payload is what fails if a schema ever leaves a gap there.
+  Tested on
   each Fox fixture save: an unedited player's row is his record's bytes in the loaded payload,
   and an edited field shows in it. A pre-Fox save has no row (an error naming the version).
 - **The Fox player tables** live here too, as one type: `PlayerAppearance.bin` (60-byte rows,

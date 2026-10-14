@@ -8,22 +8,7 @@ use pes_version::PesVersion;
 use super::{PlayerSettings, SettingsError};
 
 use crate::codec::{read_player, write_player};
-use crate::schema::schema_for;
-
-/// The row's 56 appearance bytes' offset inside the version's player record:
-/// right where the appearance block's base-copy id ends (record bytes 128 to
-/// 184 on PES 18/19, 252 to 308 on PES 20/21; `model.md` "The Fox database
-/// row": the games' own tables hold the same bytes at the same place in the
-/// same 72-byte block). `None` on a pre-Fox version: its appearance travels
-/// in the savefile (PES 17's own table reads a row at this place in this
-/// block, but its compile writes the savefile instead).
-fn row_offset(version: PesVersion) -> Option<usize> {
-    match version {
-        PesVersion::Pes18 | PesVersion::Pes19 => Some(128),
-        PesVersion::Pes20 | PesVersion::Pes21 => Some(252),
-        PesVersion::Pes15 | PesVersion::Pes16 | PesVersion::Pes17 => None,
-    }
-}
+use crate::schema::{row_offset, schema_for};
 
 impl PlayerSettings {
     /// The player's `PlayerAppearance.bin` row for a Fox version: his id

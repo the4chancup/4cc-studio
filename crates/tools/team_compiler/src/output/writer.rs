@@ -17,8 +17,10 @@ use kit_config::KitConfig;
 use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, Message, Scope};
 
+use pes_savefile::player_tables::{ItemList, PlayerTableFile};
+
 use crate::bins::kit_configs::{kit_configs, loose_kit_configs};
-use crate::bins::player_tables::{ItemList, ItemTable, table_missing};
+use crate::bins::player_tables::{ItemTable, apply, table_missing};
 use crate::bins::{KitColorEntry, Rgb, WorkingBins, uni_color_kit_number};
 use crate::messages::{Code, tool_message};
 use crate::output::parts::TeamsParts;
@@ -506,7 +508,7 @@ impl CpkOutput {
 
     /// Adds the Fox player tables: each of `lists` (`BootsList.bin` then `GloveList.bin`) the
     /// walk found, with `item_rows`' rows of it applied against the committed batches
-    /// (`ItemList::apply`), written whole, changed or not, then `player_appearance`, when found,
+    /// (`apply`), written whole, changed or not, then `player_appearance`, when found,
     /// unchanged. A list the walk did not find is not written, a list of this run's rows alone
     /// taking every other player's away, and `player_table_missing` goes to `messages` when
     /// committed rows of it are left out.
@@ -520,14 +522,18 @@ impl CpkOutput {
         for (table, list) in lists {
             match list {
                 Some(mut list) => {
-                    list.apply(table, item_rows, &self.committed);
-                    self.add_bin(table.path(), &list.into_bytes(), messages)?;
+                    apply(&mut list, table, item_rows, &self.committed);
+                    self.add_bin(table.file().cpk_path(), &list.to_bytes(), messages)?;
                 }
                 None => messages.extend(table_missing(table, item_rows, &self.committed)),
             }
         }
         if let Some(bytes) = player_appearance {
-            self.add_bin(paths::PLAYER_APPEARANCE, &bytes, messages)?;
+            self.add_bin(
+                PlayerTableFile::PlayerAppearance.cpk_path(),
+                &bytes,
+                messages,
+            )?;
         }
         Ok(())
     }
@@ -2448,7 +2454,11 @@ mod tests {
         let appearance = vec![0x5a; 120];
         let bins = WorkingBins {
             boots_list: Some(
-                ItemList::read(ItemTable::Boots, &installed(&[(71407, 7), (70201, 11)])).unwrap(),
+                ItemList::read(
+                    ItemTable::Boots.file(),
+                    &installed(&[(71407, 7), (70201, 11)]),
+                )
+                .unwrap(),
             ),
             player_appearance: Some(appearance.clone()),
             ..bundled()
@@ -2502,15 +2512,18 @@ mod tests {
                 "boots/k0625.fpk",
                 paths::TEAM_COLOR,
                 paths::UNI_COLOR,
-                paths::BOOTS_LIST,
-                paths::PLAYER_APPEARANCE,
+                PlayerTableFile::BootsList.cpk_path(),
+                PlayerTableFile::PlayerAppearance.cpk_path(),
             ]
         );
         assert_eq!(
-            entry(&path, paths::BOOTS_LIST),
+            entry(&path, PlayerTableFile::BootsList.cpk_path()),
             installed(&[(70201, 11), (71405, 625), (71407, 7)])
         );
-        assert_eq!(entry(&path, paths::PLAYER_APPEARANCE), appearance);
+        assert_eq!(
+            entry(&path, PlayerTableFile::PlayerAppearance.cpk_path()),
+            appearance
+        );
     }
 
     /// A multi-CPK writer in `folder/run`: the bins CPK `4cc_08_bins` as the sink after

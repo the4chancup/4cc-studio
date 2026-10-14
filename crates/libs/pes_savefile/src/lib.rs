@@ -27,6 +27,9 @@ pub mod interchange;
 pub mod model;
 /// Save-to-save and preset operations over `model/` only, no bytes.
 pub mod ops;
+/// The Fox player tables (`PlayerAppearance.bin`, `BootsList.bin`,
+/// `GloveList.bin`), read and written whole.
+pub mod player_tables;
 /// Per-version field tables and section layouts, data only, no logic.
 pub mod schema;
 /// The `PlayerSettings` model behind export `settings.toml` files.

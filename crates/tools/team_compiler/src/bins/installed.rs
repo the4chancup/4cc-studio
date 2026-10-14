@@ -22,7 +22,9 @@ use pipeline::CpkStem;
 use studio_core::{Disposition, Message, Scope};
 use uniparam::UniformParameter;
 
-use super::player_tables::{ItemList, ItemTable, read_player_appearance};
+use pes_savefile::player_tables::{ItemList, PlayerTableFile};
+
+use super::player_tables::{ItemTable, read_player_appearance};
 use super::{TeamColorBin, UniColorBin, WorkingBins, dpfl};
 use crate::kit_variants::kit_lookup_keys;
 use crate::messages::{Code, deploy_message, tool_message};
@@ -135,9 +137,9 @@ impl Bin {
             Bin::TeamColor => paths::TEAM_COLOR,
             Bin::UniColor => paths::UNI_COLOR,
             Bin::UniformParameter => paths::UNIFORM_PARAMETER,
-            Bin::BootsList => ItemTable::Boots.path(),
-            Bin::GloveList => ItemTable::Gloves.path(),
-            Bin::PlayerAppearance => paths::PLAYER_APPEARANCE,
+            Bin::BootsList => ItemTable::Boots.file().cpk_path(),
+            Bin::GloveList => ItemTable::Gloves.file().cpk_path(),
+            Bin::PlayerAppearance => PlayerTableFile::PlayerAppearance.cpk_path(),
         }
     }
 
@@ -147,9 +149,9 @@ impl Bin {
             Bin::TeamColor => "TeamColor.bin",
             Bin::UniColor => "UniColor.bin",
             Bin::UniformParameter => "UniformParameter.bin",
-            Bin::BootsList => ItemTable::Boots.name(),
-            Bin::GloveList => ItemTable::Gloves.name(),
-            Bin::PlayerAppearance => "PlayerAppearance.bin",
+            Bin::BootsList => ItemTable::Boots.file().file_name(),
+            Bin::GloveList => ItemTable::Gloves.file().file_name(),
+            Bin::PlayerAppearance => PlayerTableFile::PlayerAppearance.file_name(),
         }
     }
 
@@ -168,8 +170,12 @@ impl Bin {
             Bin::TeamColor => bins.team_color = TeamColorBin::read(bytes)?,
             Bin::UniColor => bins.uni_color = UniColorBin::read(bytes)?,
             Bin::UniformParameter => bins.uniform_parameter = Some(UniformParameter::read(&bytes)?),
-            Bin::BootsList => bins.boots_list = Some(ItemList::read(ItemTable::Boots, &bytes)?),
-            Bin::GloveList => bins.glove_list = Some(ItemList::read(ItemTable::Gloves, &bytes)?),
+            Bin::BootsList => {
+                bins.boots_list = Some(ItemList::read(ItemTable::Boots.file(), &bytes)?)
+            }
+            Bin::GloveList => {
+                bins.glove_list = Some(ItemList::read(ItemTable::Gloves.file(), &bytes)?)
+            }
             Bin::PlayerAppearance => {
                 bins.player_appearance = Some(read_player_appearance(bytes)?);
             }
@@ -641,9 +647,9 @@ mod tests {
             (paths::TEAM_COLOR, &team_color_bin(61)),
             (paths::UNI_COLOR, &uni_color_bin(61)),
             (paths::UNIFORM_PARAMETER, &uniform_parameter_bin("61")),
-            (paths::BOOTS_LIST, &pair),
-            (paths::GLOVE_LIST, &pair),
-            (paths::PLAYER_APPEARANCE, &[7; 60]),
+            (PlayerTableFile::BootsList.cpk_path(), &pair),
+            (PlayerTableFile::GloveList.cpk_path(), &pair),
+            (PlayerTableFile::PlayerAppearance.cpk_path(), &[7; 60]),
         ];
         install_cpk(pes, "4cc_61_midcup.cpk", &bins_61);
         let after = paths::common_texture(Engine::Fox, 714, "after");
@@ -1120,8 +1126,8 @@ mod tests {
             pes,
             "4cc_08_bins.cpk",
             &[
-                (paths::BOOTS_LIST, &boots),
-                (paths::PLAYER_APPEARANCE, &[7; 60]),
+                (PlayerTableFile::BootsList.cpk_path(), &boots),
+                (PlayerTableFile::PlayerAppearance.cpk_path(), &[7; 60]),
             ],
         );
 
@@ -1135,7 +1141,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            bins.boots_list.map(ItemList::into_bytes),
+            bins.boots_list.map(|list| list.to_bytes()),
             Some(boots.to_vec())
         );
         assert_eq!(bins.glove_list, None, "no CPK holds it");
@@ -1166,13 +1172,13 @@ mod tests {
         for (name, path, bytes, error) in [
             (
                 "installed_glove_list_unparsable",
-                paths::GLOVE_LIST,
+                PlayerTableFile::GloveList.cpk_path(),
                 vec![0; 12],
                 "GloveList.bin is 12 bytes, not a whole number of 8-byte pairs",
             ),
             (
                 "installed_player_appearance_unparsable",
-                paths::PLAYER_APPEARANCE,
+                PlayerTableFile::PlayerAppearance.cpk_path(),
                 vec![0; 61],
                 "PlayerAppearance.bin is 61 bytes, not a whole number of 60-byte rows",
             ),

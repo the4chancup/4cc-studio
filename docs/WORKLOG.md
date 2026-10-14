@@ -1002,6 +1002,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       effects keep the specials' order (`apply_effects`' `from`); overlapping card groups
       refused on load (`LoadRule::GroupsOverlap`); `apply_tier` resolves the values it writes
       (`CheckError::Unsettled`, `PlayerView::of_entry` extracted from `TeamView::view`)
+    - [ ] 5.2i-r2 SWE-2 review I.S1's three accepted (`.tmp/5_2/duck_rulings.md` "I.S1"):
+      `apply_tier` writes the name colour before resolving; a `free_cards` option's trigger is
+      the plan's general rule (over the limit without it, fewer paid with it); the `from` gate
+      tested for `max_a_positions` (brief `.tmp/5_2/brief_5_2i_r2.md`); then Astra I.A2
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;
@@ -1061,9 +1065,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     - [ ] 5.4c1 the commands, in two slices → done when: SE-STR-01 to 06 pass on PES 21, and
       on PES 18 and 19 after 5.1b; then SE-CLI-02 checked by hand with a running game, all five
       commands:
-      - [ ] 5.4c1a `pes_savefile`: `EditFile::appearance_row` and the Fox player tables type
-        (`plans/pes_savefile/model.md`, DECISIONS 2026-10-14), the Team compiler's item lists
-        moved onto it
+      - [x] 5.4c1a done 2026-10-14 (SWE-2, one rework: an `unreachable!` from widening the
+        compiler's item-table enum, a dead field): `EditFile::appearance_row`, `row_offset`
+        shared in `schema/`, `pes_savefile::player_tables` (`PlayerTableFile`,
+        `PlayerTable<VALUE>`, `AppearanceTable`, `ItemList`); the Team compiler's codec moved
+        onto it, its `ItemTable` mapping to `PlayerTableFile`. Found: the row's 56 bytes are
+        all modeled fields (DECISIONS correction entry)
       - [ ] 5.4c1b `save_editor`: `strip-and-seed` and `check-stripped`
     - [ ] 5.4c2 the `strip_base_copied_face` warning, after the in-game check → done when:
       SE-STR-07 passes

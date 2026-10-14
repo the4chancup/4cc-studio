@@ -342,7 +342,9 @@ pub struct Effects {
     /// The first option the player uses, or none: an option is used when, without it, the
     /// player exceeds a limit the option raises; a `stat_bonus` raises the stat targets, so it is
     /// used when, without it, the player's rating is above the expected rating; a `free_cards`
-    /// option, when one of its cards is held and paid (no allowance covers it). A one-option
+    /// option, when, without it, the paid cards are over the limit and, with it, fewer are paid
+    /// (a card a group covers can still help, its group's allowance passing to a paid
+    /// groupmate). A one-option
     /// choice is an optional effect (VGL25's manlet bonus). An option holds only effects that
     /// raise a limit (`stat_bonus`, `cards`, `free`, `free_cards`, `a_positions`,
     /// `max_a_positions`, `weak_foot`): any other could never be found used. Choices are
@@ -871,7 +873,8 @@ maximum), and the tier's `name_color` over the name's leading colour code; under
 sets none, it removes a leading code that another tier sets and keeps any other. A name the
 code pushes past its field fails the save's write, as any name too long for it does. The values
 are resolved against what it writes, not what the player held: a special conditioned on a value
-the tier sets (form, a stat) would otherwise see the old one, so `apply_tier` writes onto a copy,
+the tier sets (form, a stat, the name colour) would otherwise see the old one, so `apply_tier`
+writes the name colour onto a copy first, then the values,
 recomputes `tier_values` on it and repeats until they stop changing (three passes at most) before
 committing; values still changing are an error and leave the player untouched. It is behind the Save editor's quick actions (one button per tier, in list order) and
 the Team creator's default stats, so neither tool can produce a player the checker then rejects.

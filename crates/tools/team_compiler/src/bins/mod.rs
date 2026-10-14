@@ -21,7 +21,7 @@ use pes_version::PesVersion;
 use uniparam::UniformParameter;
 
 use crate::templates::Templates;
-use player_tables::ItemList;
+use pes_savefile::player_tables::ItemList;
 
 /// One color as the bins hold it: red, green, blue.
 pub(crate) type Rgb = [u8; 3];
