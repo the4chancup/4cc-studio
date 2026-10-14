@@ -23,5 +23,8 @@ vtree.workspace = true
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 directories.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true
+
 [lints]
 workspace = true

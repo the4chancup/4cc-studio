@@ -10,13 +10,15 @@ install's save folder, or a copy of it); none picks one for you.
 4cc-studio save-editor import-toml <team.toml> --base <save> --out <save>
 4cc-studio save-editor apply-patch <aesthetics_patch.toml> --base <save> --out <save>
 4cc-studio save-editor transplant <donor save> --base <save> --out <save> --select <list>
-4cc-studio save-editor diff <first save> <second save> [--aesthetics | --gameplay]
+4cc-studio save-editor diff <first save> <second save> [--aesthetics | --gameplay] [--json]
 4cc-studio save-editor export-teams-list <save> [--yes]
 ```
 
 A command that writes a save reads the one `--base` names and writes the one `--out` names,
 which may be the same file; a file already at `--out` is first copied to `<out>.bak` (one
-level: the next write replaces that copy). No command creates a save from nothing.
+level: the next write replaces that copy). No command creates a save from nothing, and
+each of them refuses while PES is running: the game writes its own save back when it
+closes, over the one the command wrote.
 
 `export-toml` writes a team of the save as a Team TOML file: the team's names, colors, manager
 and stadium, its tactics, and every rostered player with every field, the look included (a
@@ -66,7 +68,9 @@ is stripped (appearance id -1) in either save is marked `player_stripped`, and t
 appearance id itself is never a line. `--aesthetics` keeps the look's fields alone (boots,
 gloves, base copy, physique, strip, face), `--gameplay` everything else (names, basics,
 abilities, positions, skills, motion). Differences are the output, not errors: the exit
-code is 0. Two saves of different versions are refused.
+code is 0. Two saves of different versions are refused. With `--json` the report is one JSON
+document on stdout instead, for tooling: the players with their changed fields and stripped
+marks, then the players one save alone holds; nothing else is printed.
 
 `export-teams-list` merges the save's teams into the `teams_list.txt` of the data folder
 (the list the Team compiler resolves export names against; the list shipped with 4cc Studio

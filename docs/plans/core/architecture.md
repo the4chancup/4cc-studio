@@ -85,7 +85,8 @@ running now, each a `RunningPes { version: PesVersion, exe: Option<PathBuf> }`, 
 executable name: `PES2015.exe` to `PES2021.exe`, in any letter case (the names the games ship
 with; a renamed exe is not seen). On Windows it walks a Toolhelp process snapshot and asks each
 match for its image path (the `unsafe` the code style allows here), `None` when the process
-refuses (an elevated game seen from an unelevated Studio); on Linux it reads each
+refuses (another user's or a protected process; the limited query right is granted on an
+elevated game too); on Linux it reads each
 `/proc/<pid>/cmdline`, whose first argument under Wine or Proton is the exe's Windows path, and
 matches its last segment after a `\` or `/`; elsewhere it returns none. A process it cannot read
 is skipped. The CLI calls it once where a step must not run while the game does (the compiler's

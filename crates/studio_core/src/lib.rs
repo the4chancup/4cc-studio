@@ -7,6 +7,7 @@
 
 pub mod events;
 pub mod help;
+pub mod pes_process;
 pub mod settings;
 pub mod shell;
 pub mod status;
@@ -17,6 +18,7 @@ pub use events::{
     PipelineEvent, PipelineEventEnvelope, RunId, Scope, Severity,
 };
 pub use help::{HelpSection, HelpTarget, HelpTopic};
+pub use pes_process::{RunningPes, running_pes};
 pub use settings::{COMMON_KEY, CommonSettings, Settings, SettingsError, Theme};
 #[cfg(not(target_arch = "wasm32"))]
 pub use settings::{SETTINGS_FILE_NAME, resolve_data_dir, user_config_dir};

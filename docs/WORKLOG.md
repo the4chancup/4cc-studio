@@ -17,8 +17,8 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1 and 5.4a5 done 2026-10-14; then
-5.4a6; step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1 and 5.4a5-6 done 2026-10-14; then
+the Astra review of 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -77,6 +77,13 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
 - `block_compression` 0.10's BC3/BC4/BC5 decoder truncates the alpha-ramp interpolation where
   DirectX rounds; `dds_convert::dds::fix_interpolated_channels` re-derives those channels. Drop
   it if a later release rounds (the exact-match test will say).
+- While a PES game (or any process named `PES2015.exe` to `PES2021.exe`) runs on the machine,
+  `save_editor`'s tests of `import-toml`, `apply-patch` and `transplant` fail with "PES 20xx is
+  running": the commands refuse then (SE-CLI-02). Close the game before `just gates` or a
+  mutation run that touches `save_editor`; a failed unmutated baseline is the symptom.
+- `studio_core`'s `pes_process.rs` is split by `cfg` per OS, so a mutation run reports the other
+  OS's mutants as missed: a Windows-only function's mutant tested on the VPS's Linux half (and a
+  Linux one on this machine) compiles out. Triage those by OS, not as test gaps.
 
 ---
 
@@ -990,13 +997,20 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       (SWE-2): `studio_core` `events.rs` (`Output`, `EventLines`); `save_editor` `diff.rs`
       builds one `DiffReport` rendered as findings or as JSON, `Report::output`, `--json`;
       `serde_json` 1.0.151; the test helper `Run::stdout`
-    - [ ] 5.4a6 the write refusal while PES runs (SE-CLI-02, manual) through
-      `studio_core::pes_process::running_pes` (`plans/core/architecture.md` "Crate structure",
-      "The running-PES probe"; closes the issue "no 'PES is running' probe exists")
+    - [x] 5.4a6 the write refusal while PES runs, done 2026-10-14 (SWE-2): `studio_core`
+      `pes_process.rs` (`running_pes`: Toolhelp on Windows, `/proc/<pid>/cmdline` on Linux);
+      `save_editor` `cli.rs` `refuse_while_running` first in `import-toml`, `apply-patch` and
+      `transplant`; help `01_command_line.md`. Checked by the lead with a stand-in (`ping.exe`
+      copied as `PES2021.exe`; the probe reads only the process name; `.tmp/5_4/se_cli_02/`):
+      `transplant` refused with exit code 2 naming PES 2021 and `--out` unwritten, the same
+      command wrote it with no stand-in, before and after; `import-toml` and `apply-patch`
+      given a missing file refused before reading it. SE-CLI-02's `manual: checked` line
+      waits for 5.4c's two commands and a real game
   - [ ] 5.4b `check-aatf`, after 5.2 → done when: SE-AATF-01 to 03 pass
   - [ ] 5.4c `strip-and-seed` and `check-stripped` (measure issue "strip-and-seed and a
-    base-copied face" first, and settle issue "real cup players past the editor ranges") → done when: SE-STR-01 to 06 pass on PES 21, and on PES 18 and 19
-    after 5.1b
+    base-copied face" first, and settle issue "real cup players past the editor ranges"); both
+    call `refuse_while_running` first (`check-stripped` with `--strip-again`) → done when: SE-STR-01 to 06 pass on PES 21, and on PES 18 and 19
+    after 5.1b; then SE-CLI-02 checked by hand with a running game, all five commands
 - [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
   the harness: a stripped and seeded save shows every player as before; a compiled team's rows
   show; a file that sets no face or hair key shows the default face → done when: each a
@@ -1658,7 +1672,7 @@ points there.
   `hairline` draws a per-face fallback hair, not a look of its own; a 0 in a list shaven
   greys out changes nothing; changing the length writes 1 into every list at 0. The keys keep
   taking 0.
-- open (2026-10-13, 5.4a) — no "PES is running" probe exists; `savefile_skipped_pes_running`
+- resolved 2026-10-14 (5.4a6; `studio_core::pes_process::running_pes`) — no "PES is running" probe exists; `savefile_skipped_pes_running`
   is plan-only. The Save editor's writing commands cannot refuse while the game runs
   (SE-CLI-02) until one lands (`studio_core`'s running-PES poll, `CONTRIBUTING.md`'s `unsafe`
   list).

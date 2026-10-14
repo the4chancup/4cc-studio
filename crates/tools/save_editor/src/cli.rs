@@ -13,7 +13,7 @@ use pes_savefile::interchange::team_toml::TeamToml;
 use pes_savefile::ops::compare::{CompareError, DiffScope};
 use pes_savefile::ops::transplant::{TransplantError, parse_selection};
 use pes_version::PesVersion;
-use studio_core::{CliError, Severity, ToolContext};
+use studio_core::{CliError, RunningPes, Severity, ToolContext, running_pes};
 
 use crate::events::Report;
 use crate::messages::{Code, TOOL_ID, import_note, message, patch_skip, stripped_mark};
@@ -167,6 +167,19 @@ fn invalid(error: anyhow::Error) -> CliError {
     CliError::new(INVALID, error)
 }
 
+/// The refusal a writing command makes while a PES runs: the game writes its own save
+/// back when it closes, over the one the command wrote.
+fn refuse_while_running(running: &[RunningPes]) -> Result<(), CliError> {
+    match running.first() {
+        Some(game) => Err(invalid(anyhow!(
+            "{} is running: it writes its own save back when it closes, over this one; \
+             close it and run the command again",
+            game.version
+        ))),
+        None => Ok(()),
+    }
+}
+
 /// Opens the save a command reads; an unreadable one is a refusal.
 fn open(path: &Path) -> Result<Session, CliError> {
     Session::open(path).map_err(invalid)
@@ -199,6 +212,7 @@ fn write_save(session: &Session, out: &Path) -> Result<(), CliError> {
 /// refuses (a text too long, a key it does not know) refuses the command with `--out`
 /// unwritten; each note is one line.
 fn import_toml(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
+    refuse_while_running(&running_pes())?;
     let document = TeamToml::parse(&read_text(&args.file)?)
         .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
     let mut session = open(&args.base)?;
@@ -213,6 +227,7 @@ fn import_toml(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
 /// before anything is touched; a team or player the save lacks is an Error finding and the
 /// rest is written.
 fn apply_patch(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
+    refuse_while_running(&running_pes())?;
     let patch = AestheticsPatch::parse(&read_text(&args.file)?)
         .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
     let mut session = open(&args.base)?;
@@ -277,6 +292,7 @@ fn export_toml(args: &ExportTomlArgs, report: &mut Report) -> Result<(), CliErro
 /// before the first copy, so a refusal leaves `--out` unwritten; a player at -1 on either
 /// side of a pair is a warning line.
 fn transplant(args: &TransplantArgs, report: &mut Report) -> Result<(), CliError> {
+    refuse_while_running(&running_pes())?;
     let mut pairs = Vec::new();
     for item in args.select.split(',') {
         pairs.extend(parse_selection(item.trim()).map_err(|error| invalid(error.into()))?);
@@ -427,6 +443,22 @@ mod tests {
         assert_eq!(exit_code(Some(Severity::Warning)), 0);
         assert_eq!(exit_code(Some(Severity::Error)), 1);
         assert_eq!(exit_code(Some(Severity::Fatal)), 1);
+    }
+
+    #[test]
+    fn refuse_while_running_accepts_no_game_and_refuses_a_running_one() {
+        assert!(refuse_while_running(&[]).is_ok());
+        let running = [RunningPes {
+            version: PesVersion::Pes21,
+            exe: None,
+        }];
+        let error = refuse_while_running(&running).unwrap_err();
+        assert_eq!(error.exit_code, 2);
+        assert!(
+            error.error.to_string().contains("PES 2021"),
+            "{}",
+            error.error
+        );
     }
 
     #[test]
