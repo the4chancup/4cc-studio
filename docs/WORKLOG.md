@@ -926,9 +926,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   - [ ] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27, VTL11 and VTL10 data blocks and their
     fixtures → done when: the plan's per-ruleset fixtures pass. Autumn 25 and Spring 26 landed
     2026-10-14 (side-lead, `0aceb0b`: the sample team, a real team built under Spring 26,
-    reports nothing there as written); VGL25, VGL26, VGL27, VTL11, VTL10 remain, after step
-    20.0 (a ruleset's by-tier `choice` option or a group card freed by name re-opens review
-    AS1's concerns 2 and 3)
+    reports nothing there as written); VGL25 landed 2026-10-14 (SWE-2: `rulesets/vgl25.rhai`,
+    `src/fixtures/vgl25.rs`, nine fixtures on the sample team made legal; neither VGL25 nor
+    VGL26 has a by-tier `choice` option or a group card freed by name, so review AS1's
+    concerns 2 and 3 stay closed); VGL26, VGL27, VTL11, VTL10 remain, one brief each (a brief
+    for two rulesets twice overran SWE-2's output limit)
   - [ ] 5.2f the parity runs against the legacy checkers on the cup saves (lead) → done
     when: each difference is a deliberate one the plan lists, or fixed
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:

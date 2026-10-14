@@ -589,8 +589,11 @@ Finishing; it adds nothing to test and has no file. What VGL25 exercises that th
 
 Where the data reads differently from `aatf_single_vgl`, on purpose: it lets a gold carry injury
 resistance below 2, where the VGL rules set it to 2 for medals (maintainer, from the VGL wiki); it
-repeats the bonus suggestion at team level for manlets under 175, here it is reported once; and it
-checks no registered-position or playing-style range, which `libs/aatf` builds in.
+repeats the bonus suggestion at team level for manlets under 175, here it is reported once; it
+checks no registered-position or playing-style range, which `libs/aatf` builds in; and two
+suggestions read differently: a goalkeeper rated A at GK is still told of an unused A position,
+and a captain without the Captaincy card is told through the `free_cards` suggestion rather than
+a team-level line.
 
 ## VGL26
 

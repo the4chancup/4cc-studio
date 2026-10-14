@@ -1937,3 +1937,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.0m4: `pes_savefile` reads the playable ratings as the saves store them
   (C 0, B 1, A 2, in the order CF, SS, LWF, RWF, AMF, DMF, CMF, LMF, RMF, CB, LB, RB, GK), so a
   Team TOML says A where the game does; `aatf`'s stopgaps are gone, its sample relabelled.
+- **2026-10-14** — Step 5.2e, VGL25: its data block from 4ccEditor-VGL's `vgl25` checker and
+  nine fixtures (manlets at 77 and 82, the 189 cm goalkeepers, no giant medals or goalkeepers,
+  the captain's extra card); two suggestion-only differences recorded in the plan.

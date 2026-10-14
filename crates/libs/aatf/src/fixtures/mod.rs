@@ -22,6 +22,7 @@ mod autumn25;
 mod interpreter;
 mod official;
 mod spring26;
+mod vgl25;
 
 /// A team as records, what `apply_tier` writes into, viewed on demand.
 struct Records {
