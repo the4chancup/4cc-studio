@@ -189,10 +189,11 @@ fn invalid(error: anyhow::Error) -> CliError {
     CliError::new(INVALID, error)
 }
 
-/// The refusal a writing command makes while a PES runs: the game writes its own save
-/// back when it closes, over the one the command wrote.
-fn refuse_while_running(running: &[RunningPes]) -> Result<(), CliError> {
-    match running.first() {
+/// The refusal a writing command makes while the PES of the save's `version` runs: the game
+/// writes its own save back when it closes, over the one the command wrote. A game of another
+/// version never writes this save, so it does not refuse.
+fn refuse_while_running(running: &[RunningPes], version: PesVersion) -> Result<(), CliError> {
+    match running.iter().find(|game| game.version == version) {
         Some(game) => Err(invalid(anyhow!(
             "{} is running: it writes its own save back when it closes, over this one; \
              close it and run the command again",
@@ -234,10 +235,10 @@ fn write_save(session: &Session, out: &Path) -> Result<(), CliError> {
 /// refuses (a text too long, a key it does not know) refuses the command with `--out`
 /// unwritten; each note is one line.
 fn import_toml(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
-    refuse_while_running(&running_pes())?;
+    let mut session = open(&args.base)?;
+    refuse_while_running(&running_pes(), session.version())?;
     let document = TeamToml::parse(&read_text(&args.file)?)
         .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
-    let mut session = open(&args.base)?;
     let notes = session.import_team(&document).map_err(invalid)?;
     for note in &notes {
         report.message(import_note(note));
@@ -249,10 +250,10 @@ fn import_toml(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
 /// before anything is touched; a team or player the save lacks is an Error finding and the
 /// rest is written.
 fn apply_patch(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
-    refuse_while_running(&running_pes())?;
+    let mut session = open(&args.base)?;
+    refuse_while_running(&running_pes(), session.version())?;
     let patch = AestheticsPatch::parse(&read_text(&args.file)?)
         .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
-    let mut session = open(&args.base)?;
     let summary = session
         .apply_patch(&patch)
         .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
@@ -314,13 +315,13 @@ fn export_toml(args: &ExportTomlArgs, report: &mut Report) -> Result<(), CliErro
 /// before the first copy, so a refusal leaves `--out` unwritten; a player at -1 on either
 /// side of a pair is a warning line.
 fn transplant(args: &TransplantArgs, report: &mut Report) -> Result<(), CliError> {
-    refuse_while_running(&running_pes())?;
     let mut pairs = Vec::new();
     for item in args.select.split(',') {
         pairs.extend(parse_selection(item.trim()).map_err(|error| invalid(error.into()))?);
     }
     let donor = open(&args.donor)?;
     let mut session = open(&args.base)?;
+    refuse_while_running(&running_pes(), session.version())?;
     let marks = session
         .transplant(&donor, &pairs)
         .map_err(|error| match error {
@@ -579,13 +580,13 @@ mod tests {
     }
 
     #[test]
-    fn refuse_while_running_accepts_no_game_and_refuses_a_running_one() {
-        assert!(refuse_while_running(&[]).is_ok());
-        let running = [RunningPes {
-            version: PesVersion::Pes21,
-            exe: None,
-        }];
-        let error = refuse_while_running(&running).unwrap_err();
+    fn refuse_while_running_refuses_only_the_saves_own_version() {
+        assert!(refuse_while_running(&[], PesVersion::Pes21).is_ok());
+        let game = |version| RunningPes { version, exe: None };
+        // Another version's game never writes this save.
+        assert!(refuse_while_running(&[game(PesVersion::Pes15)], PesVersion::Pes21).is_ok());
+        let running = [game(PesVersion::Pes15), game(PesVersion::Pes21)];
+        let error = refuse_while_running(&running, PesVersion::Pes21).unwrap_err();
         assert_eq!(error.exit_code, 2);
         assert!(
             error.error.to_string().contains("PES 2021"),

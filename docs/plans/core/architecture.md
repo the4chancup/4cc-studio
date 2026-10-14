@@ -89,8 +89,9 @@ refuses (another user's or a protected process; the limited query right is grant
 elevated game too); on Linux it reads each
 `/proc/<pid>/cmdline`, whose first argument under Wine or Proton is the exe's Windows path, and
 matches its last segment after a `\` or `/`; elsewhere it returns none. A process it cannot read
-is skipped. The CLI calls it once where a step must not run while the game does (the compiler's
-savefile step, the Save editor's writing commands); the GUI's version-selector poll calls it on a
+is skipped. The CLI calls it once where a step must not run while the game of the save's version
+does (the compiler's savefile step, the Save editor's writing commands; a game of another
+version never writes that save); the GUI's version-selector poll calls it on a
 timer. We match process names, not a lock file or a window title, because the game takes no lock
 on its save and its window title changes with its language.
 

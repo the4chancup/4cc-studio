@@ -525,9 +525,12 @@ Rules every command shares:
   `check-stripped`'s one save) and writes `--out`, which may be the same path; an existing
   output save or CPK (`--out`, `--bins-out`) is first copied to `<file>.bak` (one level, as every
   save does). There is no implicit base save and no command creates a whole EDIT. A command that
-  writes a save refuses while PES is running, as the compiler's savefile step skips then
-  (`team_compiler/pipeline.md`, `savefile_skipped_pes_running`): the game writes its own copy
-  back on exit, over ours.
+  writes a save refuses while the PES of that save's version is running (the source save's
+  version, read before anything is written): the game writes its own copy back on exit, over
+  ours. A running PES of another version does not block it, because a game only ever writes its
+  own version's save; refusing on any running game would refuse every edit of another version's
+  save, and a copy of one, for no protection. The compiler's savefile step skips under the same
+  danger (`team_compiler/pipeline.md`, `savefile_skipped_pes_running`).
 - **A stripped player is marked.** On a Fox save, `diff` marks a player at -1 as stripped
   ("Stripped save") beside his rows, `export-toml` with `stripped = true` in his table
   (informational; import ignores it), and `transplant` for a stripped donor or target.
@@ -654,11 +657,12 @@ SE-CLI-01  GIVEN the PES 21 fixture save, a Team TOML of one of its teams, and a
            at --out
            WHEN import-toml writes --out, then again with --out equal to --base
            THEN each time <out>.bak holds the file the write replaced, and the exit code is 0
-SE-CLI-02  manual  GIVEN a running PES
+SE-CLI-02  manual  GIVEN a running PES of the save's version
                    WHEN import-toml, apply-patch, transplant, strip-and-seed or check-stripped
-                        --strip-again is run
+                        --strip-again is run on that save
                    THEN it is refused naming the running game, with exit code 2, and nothing is
-                        written
+                        written; with only a PES of another version running, the same command
+                        writes --out
 ```
 
 **Team TOML**

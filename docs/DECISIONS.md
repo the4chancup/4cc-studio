@@ -7650,3 +7650,27 @@ team stops nothing else: the other teams' results are still true, and the failur
 line names. Rules-file labels (`CF`, `dribbling`) because the reader of the line is the person
 who wrote or edits the rules file.
 Plan: `plans/save_editor.md` "CLI", the `check-aatf` bullet.
+
+## 2026-10-14 — save_editor — the write refusal applies to the running game of the save's version only
+Decision: a Save editor command that writes a save refuses only while the PES of that save's
+version runs; the save is opened (read) first, so the refusal comes after reading and before any
+write. A running PES of another version does not block it.
+Why: a game writes back only its own version's save on exit, so a PES 2021 running cannot
+overwrite a PES 15 save; refusing on any running game blocked those edits, and a copy of a save
+kept elsewhere, and made the Save editor's own tests fail on a machine with any PES open. Matching
+the save folder as well was rejected: it needs each version's save path (Documents may be
+redirected) and misses a save copied into that folder later, while version matching needs no
+path knowledge. The Team compiler's savefile step (step 5.3b, not built) writes the target
+version's local save, so the same rule fits it; its plan is unchanged until that step.
+Plan: `plans/save_editor.md` "CLI", the "Writing a save" bullet, and SE-CLI-02.
+
+## 2026-10-14 — team_compiler — the savefile step skips only while the compile target's PES runs
+Decision: the Team compiler's savefile step is skipped (`savefile_skipped_pes_running`) only
+while the PES of the compile target's version runs, the same rule as the Save editor's writing
+commands (entry above).
+Why: one rule for one danger: the compiler's savefile is always the target's version, and a game
+only writes back its own version's save, so another version's game running never threatens it;
+two tools refusing on different conditions would confuse the user and the code.
+Plan: `plans/team_compiler/pipeline.md` "Post-processing", `messages.md`
+(`savefile_skipped_pes_running`), `README.md` TC-SAV-10, `plans/core/architecture.md` "The
+running-PES probe".

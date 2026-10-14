@@ -134,8 +134,8 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
   construction. Saving uses a `.bak` backup, the same convention as the save editor's. A missing
   savefile stays a warning (`savefile_missing`, naming the patch): even the DLC builder is expected
   to compile against a template save, to test the DLC in PES. **The savefile is never written while
-  PES is running**, in any output mode: the game holds its edit data in memory and writes it back on
-  exit, so a write made now would not go live without a restart and would be overwritten by whatever
+  the compile target's PES is running**, in any output mode: the game holds its edit data in memory
+  and writes it back on exit, so a write made now would not go live without a restart and would be overwritten by whatever
   the player changed in-game before closing. The step is skipped with `savefile_skipped_pes_running`
   (W) telling the user the settings will be applied by the next compile made with PES closed; the
   rest of the run is unaffected. This matters mostly for **sideload mode**, whose whole point is
@@ -144,7 +144,11 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
   settings) catches up on the first compile after PES is closed. On Fox the patch's write leaves
   every appearance id as it is, so a stripped local save stays stripped. In normal mode a running PES already fails deployment on the locked CPK, so the rule
   adds nothing there. The check uses the same running-PES detection as the core plan's
-  version-selector poll; the CLI performs it once, at the savefile stage. The savefile is likewise
+  version-selector poll; the CLI performs it once, at the savefile stage. Only the target
+  version's game counts, the Save editor's rule for its writing commands (`save_editor.md`
+  "Writing a save"): the savefile is always the target's version (another is
+  `savefile_invalid`), and a game only writes back its own version's save, so a PES of another
+  version running leaves the step to run. The savefile is likewise
   **skipped whenever the CPKs were not deployed** — a degraded run promoted to `output/`, or
   `--no-deploy`. The incoherence it prevents is pre-Fox's, where a savefile can point at
   boots/gloves IDs whose content is not installed — exactly what the "only for content actually

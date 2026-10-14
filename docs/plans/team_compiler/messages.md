@@ -74,7 +74,7 @@ states one-to-one; a glTF material with states absent just gets its family's sta
 | `patch_written` | I | the aesthetics patch was written to the output folder (names the path and the teams it covers) | none |
 | `patch_write_failed` | F | the aesthetics patch could not be written (context: the path, the error) | as `output_commit_failed`: run aborted; prior published outputs, the patch included, remain untouched (`AbortRun`) |
 | `savefile_missing` | W | the patch holds entries (Fox: motions and resolved names; pre-Fox: aesthetics) but no savefile is configured/found; the patch is the run's only savefile output | savefile step skipped; the message names the patch and the save editor's apply action |
-| `savefile_skipped_pes_running` | W | savefile changes pending but PES is running (any output mode; the motivating case is sideload-mode iteration) | savefile step skipped; applied by the next compile with PES closed |
+| `savefile_skipped_pes_running` | W | savefile changes pending but the compile target's PES is running (a PES of another version does not count; any output mode; the motivating case is sideload-mode iteration) | savefile step skipped; applied by the next compile with PES closed |
 | `savefile_write_failed` | E | savefile could not be updated | deployment transaction fails and rolls back; compile artifacts remain available |
 | `savefile_invalid` | E | the configured or found savefile cannot be read, or its version is not the compile target's (context: the path, the version) | the save is not modified; as `savefile_write_failed` |
 | `savefile_team_missing` | E | a team of the patch is not in the savefile (context: the team) | that team's entries are not applied; the rest is |

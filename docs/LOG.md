@@ -1969,3 +1969,5 @@ worklog passed 7,000 lines.
   editor's writing commands refuse while one runs (checked with a stand-in process).
 - **2026-10-14** — Step 5.4b done: `save-editor check-aatf` checks a save's cup teams against the
   official ruleset or a rules file (`--rules`, the `aatf_rules` setting), one line per violation.
+- **2026-10-14** — The Save editor's write refusal now applies only while the PES of the save's
+  version runs (maintainer's choice); another version's game no longer blocks an edit.

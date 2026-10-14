@@ -189,10 +189,11 @@ TC-SAV-09  GIVEN an output folder in which aesthetics_patch.toml cannot be writt
            WHEN the export is compiled
            THEN patch_write_failed is reported, the PES folder holds the CPK it held before the
                 run, the savefile is byte-identical, and the exit code is 3
-TC-SAV-10  manual  GIVEN a running PES with a savefile present
+TC-SAV-10  manual  GIVEN a running PES of the compile target's version with a savefile present
                    WHEN the export is compiled in sideload mode
                    THEN the patch is written naming no CPK, savefile_skipped_pes_running is
-                        reported, the savefile is byte-identical, and the exit code is 0
+                        reported, the savefile is byte-identical, and the exit code is 0; with only
+                        a PES of another version running, the savefile is written
 TC-SAV-11  GIVEN the installed copy of the output CPK held open without delete sharing
                 (TC-DEP-02's degraded run)
            WHEN the export is compiled

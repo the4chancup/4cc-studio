@@ -18,8 +18,9 @@ install's save folder, or a copy of it); none picks one for you.
 A command that writes a save reads the one `--base` names and writes the one `--out` names,
 which may be the same file; a file already at `--out` is first copied to `<out>.bak` (one
 level: the next write replaces that copy). No command creates a save from nothing, and
-each of them refuses while PES is running: the game writes its own save back when it
-closes, over the one the command wrote.
+each of them refuses while the PES of the save's version is running: the game writes its own
+save back when it closes, over the one the command wrote. A PES of another version running
+does not stop it.
 
 `export-toml` writes a team of the save as a Team TOML file: the team's names, colors, manager
 and stadium, its tactics, and every rostered player with every field, the look included (a

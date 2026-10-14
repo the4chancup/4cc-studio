@@ -37,7 +37,9 @@ SWE-2 rulings `.tmp/parallel/aatf/rulings_as1.md`, `.tmp/5_2/rulings_as2.md`).
 And P.A1, 5.4a5-6 (`git diff 41395af 7abd220 -- crates Cargo.toml`; brief
 `.tmp/5_4/duck_brief_P_a1.md`, SWE-2 round S1 in `.tmp/5_4/duck_rulings.md`): both Devin Pro
 slots refused it on 2026-10-14 (a quota stop, then an internal error twice), so Codex after the
-interpreter.
+interpreter; it ran there at 19:44. The interpreter review (I.A1) ran 14:44: its seven concerns
+are not ruled yet. Session handover with both, step 5.4c's first moves and the pitfalls met:
+`.tmp/lead/handover_2026-10-14.md`.
 Phase 3 closed with its reviews queued (the maintainer's
 directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20 rounds
 (map `.tmp/lead/review_queue.md`, briefs `.tmp/duck_brief_S*.md`, rulings
@@ -82,12 +84,14 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
   DirectX rounds; `dds_convert::dds::fix_interpolated_channels` re-derives those channels. Drop
   it if a later release rounds (the exact-match test will say).
 - While a PES game (or any process named `PES2015.exe` to `PES2021.exe`) runs on the machine,
-  `save_editor`'s tests of `import-toml`, `apply-patch` and `transplant` fail with "PES 20xx is
-  running": the commands refuse then (SE-CLI-02). Close the game before `just gates` or a
+  `save_editor`'s tests of `import-toml`, `apply-patch` and `transplant` on that version's
+  fixture save fail with "PES 20xx is running": the commands refuse then (SE-CLI-02). Close the game before `just gates` or a
   mutation run that touches `save_editor`; a failed unmutated baseline is the symptom.
 - `studio_core`'s `pes_process.rs` is split by `cfg` per OS, so a mutation run reports the other
   OS's mutants as missed: a Windows-only function's mutant tested on the VPS's Linux half (and a
-  Linux one on this machine) compiles out. Triage those by OS, not as test gaps.
+  Linux one on this machine) compiles out. Triage those by OS, not as test gaps. Windows gates
+  never compile a `target_os = "linux"` branch either (5.4a6's did not build): `cfg`-split code
+  gets `just gates-remote` before it lands.
 
 ---
 
@@ -1008,8 +1012,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       copied as `PES2021.exe`; the probe reads only the process name; `.tmp/5_4/se_cli_02/`):
       `transplant` refused with exit code 2 naming PES 2021 and `--out` unwritten, the same
       command wrote it with no stand-in, before and after; `import-toml` and `apply-patch`
-      given a missing file refused before reading it. SE-CLI-02's `manual: checked` line
-      waits for 5.4c's two commands and a real game
+      given a missing file refused before reading it. Narrowed the same day to the PES of the
+      save's version (DECISIONS 2026-10-14; stand-in check `.tmp/5_4/se_cli_02/result_version.txt`:
+      `PES2021.exe` refuses the PES 21 save, `PES2015.exe` does not). SE-CLI-02's `manual: checked`
+      line waits for 5.4c's two commands and a real game
   - [x] 5.4b `check-aatf`, after 5.2 → done when: SE-AATF-01 to 03 pass. Done 2026-10-14
     (SWE-2, first attempt): `cli.rs` `check_aatf`, `parse_teams`; `messages.rs`
     `aatf_violation`, `aatf_check_failed`, `violation_rule`; the `aatf_rules` setting; help;
