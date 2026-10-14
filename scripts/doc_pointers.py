@@ -123,6 +123,9 @@ def resolve(root: Path, source: str, path: str) -> Path | None:
 
 
 def problems(root: Path, found: list[Pointer]) -> list[str]:
+    # `resolve` returns resolved paths, so the root must be resolved too: a Windows temp folder
+    # can come back in its 8.3 short form (`RUNNER~1` on CI), which `relative_to` does not match.
+    root = root.resolve()
     cache: dict[Path, set[str]] = {}
     out = []
     for pointer in found:
