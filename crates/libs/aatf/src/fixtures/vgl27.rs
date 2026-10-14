@@ -57,7 +57,6 @@ fn purple_quota(bracket: &str, count: u8, quota: u8) -> Violation {
 ///   9 and 20 bronze (185), 0 and 11 goalkeepers (189, counted as 185),
 ///   8 to the mids (180), 14 and 17 to the talls (185), the rest
 ///   regulars at their own heights (175 or 180);
-/// - `preset_change` set on, which VGL27 requires;
 /// - cards, A positions and formations untouched: the sample's already
 ///   fit (slot 10's Captaincy free as the captain's, and no formation
 ///   ban, so the preset-3 3-4-3 stands).
@@ -120,7 +119,6 @@ fn legalize(mut records: Records) -> Records {
             .apply_tier(&view, &player, "regular", records.player_mut(slot))
             .expect("the tier applies");
     }
-    records.team.tactics.auto.preset_change = Some(true);
     records
 }
 
@@ -562,7 +560,7 @@ fn man_marking_and_the_support_settings_are_checked() {
         )]
     );
     let mut team = legal_team();
-    team.tactics.auto.preset_change = Some(false);
+    team.tactics.auto.preset_change = Some(true);
     assert_eq!(
         problems(&rules, &team),
         vec![error(

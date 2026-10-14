@@ -85,7 +85,7 @@ const RULESET = #{
     team_settings: [
         #{ label: "No man marking", man_marking: false },
         #{ label: "Support settings", auto_substitution: false,
-           auto_offside_trap: false, auto_preset_change: true },
+           auto_offside_trap: false, auto_preset_change: false },
         #{ label: "No 3-4-3 formations", forbidden_shapes: [[3, 4, 3]] },
     ],
 

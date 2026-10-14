@@ -7684,3 +7684,16 @@ Why: VGL26/VGL27 require the byte on and VTL10/VTL11 off; on real cup saves the 
 team and the second passes every team, both without meaning if the byte is not the setting.
 Changing four rulesets on an inference would trade one unverified reading for another.
 Plan: `plans/aatf_rules.md` "VGL26", the support-settings paragraph.
+
+## 2026-10-14 — aatf — VGL26 and VGL27 require the automatic preset change off
+Decision: VGL26's and VGL27's "Support settings" team rule requires `auto_preset_change` off, with
+auto substitution and the offside trap; the rules pages' "switch preset tactic", which must be on,
+is checked by no ruleset. Supersedes this day's earlier entry ("switch preset tactic" checked
+against a byte that may not hold it).
+Why: the maintainer explained the two settings. "Switch preset tactic" is the tactics menu's option
+offering all three presets instead of one, a manager's own setting, not stored per team; the byte
+is "Auto change Preset Tactics" (the 4cc wiki's Edit-file page), the game switching presets during
+a match, which is a support setting and so off. Every team of the three PES 21 cup saves holds it
+off, and VTL10 and VTL11 already require it off.
+Plan: `plans/aatf_rules.md` "Background" (the rules pages' list) and "VGL26" (its team settings
+row and the support-settings paragraph).

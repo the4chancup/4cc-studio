@@ -973,7 +973,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     specials in `rulesets/vtl11.rhai`; the legal fixture team's captain becomes a Prolific
     Winger (a Goal Poacher rated A at CF draws the warning); `the_playing_style_warnings_at_cf`.
     Re-run on the VTL11 save: the 22 warnings now match the checker's
-  - [ ] 5.2f-r2 Where PES 21 stores "switch preset tactic" (`aatf_rules.md` "VGL26", the
+  - [x] 5.2f-r2 closed 2026-10-14 without the in-game check: the maintainer explained the two
+    settings. "Switch preset tactic" is the tactics menu's three-preset option (per user, not per
+    team); the byte is the automatic preset change during a match, a support setting, so VGL26
+    and VGL27 now require it off (data blocks, fixtures; DECISIONS 2026-10-14). The step as
+    first written: where PES 21 stores "switch preset tactic" (`aatf_rules.md` "VGL26", the
     paragraph on the support settings; in-game, so ask the maintainer before taking focus; back
     up the saves first): toggle it on one team in Edit mode, save, and diff the EDIT file and
     the SYSTEM file against their backups; then toggle the team's other support settings one at
@@ -1134,11 +1138,11 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
-- open (2026-10-14, 5.2f) — every team of the VGL26 cup save fails VGL26's "Support settings"
+- resolved 2026-10-14 (5.2f-r2) — every team of the VGL26 cup save fails VGL26's "Support settings"
   special on `auto_preset_change` (all three PES 21 cup saves hold it off): the rule follows the
-  rules page, which speaks of the deadline export. Answered by the maintainer the same day: every
-  cup manager keeps "switch preset tactic" on, so the setting is likely not stored per team in the
-  EDIT file (the SYSTEM file is the candidate). Waits on step 5.2f-r2's in-game check.
+  rules page, which speaks of the deadline export. Resolved the same day (step 5.2f-r2): the
+  page's "switch preset tactic" is the tactics menu's option, not the byte, which VGL26 and
+  VGL27 now require off.
 - open (2026-10-11, Phase 5 Acceptance; deferred until the cup next plays a pre-Fox version) —
   the pre-Fox aesthetics patch (`pes_savefile/operations.md` "Aesthetics patch", the pre-Fox
   half; `spec/team_compiler/pipeline.md` "Post-processing"): every appearance field, the resolved boots and gloves

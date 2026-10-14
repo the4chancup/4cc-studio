@@ -70,7 +70,8 @@ The VGL26 and VGL27 rules pages (the VGL wiki's "Chapter III: Squad") state rule
 do not test, or test loosely: every position a player is fielded at in the first preset must be
 one of his A positions (VGL27's checker only asks that the registered position appear in the
 first preset);
-no man marking; every support setting off except preset switching, which must be on; injury
+no man marking; every support setting off (the page's "switch preset tactic", which must be on,
+is the tactics menu's option offering all three presets, not a team setting); injury
 resistance exactly 2 for medals and 1 for non-medals (the checkers allow less, but for VGL27's
 medals); and, in VGL26, no
 formation of three defenders, four midfielders and three forwards (3-4-3 and its variants), fluid
@@ -613,7 +614,7 @@ from the VGL26 rules page and 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `st
 | Cards | `tricks` (the rules page's twelve, Malicia included) free; Heading free for everyone (`free_cards`); paid 9, 8, 8, 7, 6, goalkeeper 5; free COM 2 for medals, 1 for the rest; `a_positions` 2 (goalkeeper 1); the captain's Captaincy free and one extra card (`cards: 1` for `captain: true`) |
 | Injury resistance | exact: 2 for medals, 1 for the rest |
 | Universal | `fielded_at_a: [1]`; `max_skill_cards` 41, so no cap |
-| Team settings | no man marking; auto substitution and offside trap off, preset change on; `forbidden_shapes: [[3, 4, 3]]` |
+| Team settings | no man marking; auto substitution, offside trap and preset change off; `forbidden_shapes: [[3, 4, 3]]` |
 | Suggestions | `cards`, `com`, `a_positions`, `weak_foot`, `free_cards` |
 
 Where the data reads differently from `aatf_single_vgl`, on purpose (the rules page is stricter):
@@ -627,11 +628,12 @@ preset 1 only (an outfielder cannot be rated A at GK, and preset 1 fields A posi
 no condition reads the positions fielded in presets 2 and 3. The
 rules page's "support settings" are read as substitution, offside trap and preset change: its
 next rule allows auto attack/defence levels at fixed values, so that setting is left free.
-Every cup manager keeps "switch preset tactic" on, yet every team of the three PES 21 cup saves
-holds the byte read as `auto_preset_change` at 0: the in-game setting is most likely not stored
-per team in the EDIT file (the SYSTEM file is the candidate), and the byte may be something else.
-VGL26 and VGL27 require it on and VTL10 and VTL11 off, so all four rules hang on that byte; an
-in-game check (worklog step 5.2f-r2) decides whether they stay, move to another byte, or go.
+The page's "switch preset tactic", which must be on, is not one of them: it is the tactics
+menu's option offering all three presets instead of one, a manager's own setting the save does
+not hold per team, so no ruleset checks it. `auto_preset_change` is the team's automatic preset
+change during a match (the 4cc wiki's Edit-file page calls the byte "Auto change Preset
+Tactics"), a support setting, so it is off, as in VTL10 and VTL11; every team of the three PES 21
+cup saves holds it off.
 
 ## VGL27
 

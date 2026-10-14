@@ -86,7 +86,7 @@ const RULESET = #{
     team_settings: [
         #{ label: "No man marking", man_marking: false },
         #{ label: "Support settings", auto_substitution: false,
-           auto_offside_trap: false, auto_preset_change: true },
+           auto_offside_trap: false, auto_preset_change: false },
     ],
 
     suggestions: ["cards", "com", "a_positions", "weak_foot", "free_cards"],

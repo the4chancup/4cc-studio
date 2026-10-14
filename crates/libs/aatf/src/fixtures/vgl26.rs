@@ -39,7 +39,6 @@ fn position(name: &str) -> Position {
 /// - the sample's preset 3 is a 3-4-3, which VGL26 bans: each of its
 ///   three formations made a 3-5-2 by one position (the last player's
 ///   SS read as AMF);
-/// - `preset_change` set on, which VGL26 requires;
 /// - cards and A positions untouched: the sample's already fit (slot
 ///   10's Captaincy free as the captain's).
 fn legalize(mut records: Records) -> Records {
@@ -94,7 +93,6 @@ fn legalize(mut records: Records) -> Records {
     for formation in &mut records.team.tactics.presets[2].formations {
         formation.players[10].position = position("AMF").0;
     }
-    records.team.tactics.auto.preset_change = Some(true);
     records
 }
 
@@ -441,7 +439,7 @@ fn man_marking_and_the_support_settings_are_checked() {
         )]
     );
     let mut team = legal_team();
-    team.tactics.auto.preset_change = Some(false);
+    team.tactics.auto.preset_change = Some(true);
     assert_eq!(
         problems(&rules, &team),
         vec![error(
