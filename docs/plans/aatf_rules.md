@@ -614,8 +614,14 @@ from the VGL26 rules page and 4ccEditor-VGL's `vgl26` branch (tip `ad378d2`; `st
 | Suggestions | `cards`, `com`, `a_positions`, `weak_foot`, `free_cards` |
 
 Where the data reads differently from `aatf_single_vgl`, on purpose (the rules page is stricter):
-injury resistance is exact, where the checker allows less; and the first-preset A-position rule,
-the team settings and the formation ban are checked, where the checker tests none of them. The
+injury resistance is exact, where the checker allows less; the first-preset A-position rule,
+the team settings and the formation ban are checked, where the checker tests none of them; a
+registered goalkeeper must be 185 cm (a special), where the checker reads one at 180 as a
+regular; and Heading is free beside the twelve tricks, where the checker counts it among them
+(a player holding all thirteen pays one card there). Goalkeepers' form is 8, as both say. The
+page's "medal and buffed players cannot be played as a goalkeeper at any time" is checked in
+preset 1 only (an outfielder cannot be rated A at GK, and preset 1 fields A positions alone):
+no condition reads the positions fielded in presets 2 and 3. The
 rules page's "support settings" are read as substitution, offside trap and preset change: its
 next rule allows auto attack/defence levels at fixed values, so that setting is left free.
 

@@ -23,6 +23,7 @@ mod interpreter;
 mod official;
 mod spring26;
 mod vgl25;
+mod vgl26;
 
 /// A team as records, what `apply_tier` writes into, viewed on demand.
 struct Records {
@@ -38,6 +39,23 @@ impl Records {
             .expect("the sample team parses");
         let (version, team, players) =
             records_from_team_toml(&document).expect("the sample team builds records");
+        Records {
+            version,
+            team,
+            players,
+        }
+    }
+
+    /// The sample team's records on `version`: a Team TOML document is
+    /// version-neutral, so setting its `pes_version` before the build
+    /// gives the same team on another version (the VGL cups play on
+    /// PES 21, whose presets can be fluid; PES 15's cannot).
+    fn sample_on(version: PesVersion) -> Records {
+        let mut document = TeamToml::parse(include_str!("../../sample/team.toml"))
+            .expect("the sample team parses");
+        document.pes_version = Some(version);
+        let (version, team, players) = records_from_team_toml(&document)
+            .expect("the sample team builds records on the version");
         Records {
             version,
             team,

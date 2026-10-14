@@ -578,13 +578,19 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![4, 4, 2]
         );
-        // A preset outside 1 to 3 is a script error.
-        assert!(
-            engine
-                .eval_with_scope::<Array>(&mut scope, "team.fielded_positions(team.players[8], 4)")
-                .is_err(),
-            "preset 4 is a script error"
-        );
+        // A preset outside 1 to 3 is a script error, both ends of the
+        // range.
+        for preset in [0, 4] {
+            assert!(
+                engine
+                    .eval_with_scope::<Array>(
+                        &mut scope,
+                        &format!("team.fielded_positions(team.players[8], {preset})")
+                    )
+                    .is_err(),
+                "preset {preset} is a script error"
+            );
+        }
         // Preset 3 answers too.
         let fielded = engine
             .eval_with_scope::<Array>(&mut scope, "team.fielded_positions(team.players[10], 3)")
@@ -741,6 +747,30 @@ mod tests {
                 .expect("playing_style"),
             "build_up"
         );
+        // The same byte on PES 21's table is OffensiveFullback.
+        let (engine, mut scope, mut file) = with_team(PesVersion::Pes21);
+        let team = TeamView::new(&file, 701).expect("the team views");
+        let slot = usize::from(team.players[10].slot);
+        let player_id = file.team(701).expect("team 701").roster[slot].player_id;
+        let entry = file
+            .players_mut()
+            .iter_mut()
+            .find(|p| p.id == player_id)
+            .expect("the roster slot's player");
+        assert_eq!(entry.positions.playing_style, 0);
+        assert_eq!(
+            pes_savefile::schema::playstyle::decode(PesVersion::Pes21, 15).ok(),
+            Some(pes_savefile::model::PlayStyle::OffensiveFullback)
+        );
+        entry.positions.playing_style = 15;
+        let team = TeamView::new(&file, 701).expect("the team views");
+        scope.push("team", team);
+        assert_eq!(
+            engine
+                .eval_with_scope::<String>(&mut scope, "team.players[10].playing_style")
+                .expect("playing_style"),
+            "offensive_fullback"
+        );
     }
 
     /// A fluid preset reports one map per formation: `preset`,
@@ -883,12 +913,14 @@ mod tests {
                 .is_unit(),
             "a non-fluid preset fields its kick-off formation alone"
         );
-        assert!(
-            engine
-                .eval_with_scope::<Dynamic>(&mut scope, "team.formation(4, 1)")
-                .is_err(),
-            "a preset outside 1 to 3 is a script error"
-        );
+        for preset in [0, 4] {
+            assert!(
+                engine
+                    .eval_with_scope::<Dynamic>(&mut scope, &format!("team.formation({preset}, 1)"))
+                    .is_err(),
+                "preset {preset} is a script error"
+            );
+        }
     }
 
     #[test]

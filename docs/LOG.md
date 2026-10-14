@@ -1940,3 +1940,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.2e, VGL25: its data block from 4ccEditor-VGL's `vgl25` checker and
   nine fixtures (manlets at 77 and 82, the 189 cm goalkeepers, no giant medals or goalkeepers,
   the captain's extra card); two suggestion-only differences recorded in the plan.
+- **2026-10-14** — Step 5.2e, VGL26: its data block from the rules page and 4ccEditor-VGL's
+  `vgl26` checker, eleven fixtures (per-stat targets, the first-preset A rule on a fluid PES 21
+  preset, the 3-4-3 ban, team settings); goalkeepers held to the page's 185 cm.

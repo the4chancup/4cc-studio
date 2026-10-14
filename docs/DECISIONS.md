@@ -7560,3 +7560,15 @@ total over the field's two bits (a dump carries what the save holds); the unused
 spelled as its number, because a word would claim a meaning nothing has shown.
 Plan: `spec/pes_savefile/operations.md` "Team TOML" (the `playable` line); the model's docs
 follow in the code.
+
+## 2026-10-14 — aatf — VGL26 follows its rules page on goalkeepers' height; fielding at GK checked in preset 1 only
+Decision: VGL26's goalkeeper tier is recognized by registered position alone, and a special
+forbids a registered goalkeeper at any height but 185 cm. The page's "medal and buffed players
+cannot be played as a goalkeeper at any time" stays checked in preset 1 only.
+Why: the rules page says goalkeepers must be 185 cm, and the plan follows the page where it is
+stricter; the checker read a goalkeeper at 180 as a regular, which let him pass. One forbid
+reports it once, where a height in the tier's condition would have read him as a regular and
+reported every stat. Presets 2 and 3 would need a condition on fielded positions that no other
+ruleset uses; preset 1 already refuses it (no outfielder is rated A at GK, and preset 1 fields A
+positions alone), so the gap is a member fielding an outfielder in goal in a reserve preset.
+Plan: `aatf_rules.md` "VGL26" (the "on purpose" paragraph).
