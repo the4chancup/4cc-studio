@@ -17,8 +17,8 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3 and 5.2f done 2026-10-14; then 5.2f-r1
-and 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f and 5.2f-r1 done 2026-10-14; then
+5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -954,10 +954,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     the plan's "Differences every legacy checker shows" and the per-ruleset ones, except
     VTL11's two playing-style warnings (5.2f-r1); `aatf_rules.md` (Background, "VTL10",
     "Development phase and verification")
-  - [ ] 5.2f-r1 VTL11's two warnings (`aatf_rules.md` Background, VTL11): in
-    `rulesets/vtl11.rhai`, a warning special for a Goal Poacher rated A at CF and one for a
-    Creative Playmaker rated A at CF, with fixtures → done when: each fixture reports exactly
-    its warning, and a player of either style not rated A at CF reports none
+  - [x] 5.2f-r1 VTL11's two warnings, done 2026-10-14 (SWE-2): two `severity: "warning"`
+    specials in `rulesets/vtl11.rhai`; the legal fixture team's captain becomes a Prolific
+    Winger (a Goal Poacher rated A at CF draws the warning); `the_playing_style_warnings_at_cf`.
+    Re-run on the VTL11 save: the 22 warnings now match the checker's
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;

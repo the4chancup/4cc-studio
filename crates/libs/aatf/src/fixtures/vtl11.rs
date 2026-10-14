@@ -11,6 +11,8 @@
 use super::*;
 use crate::ruleset::{Card, PlayStyle, Position, Stat};
 use pes_savefile::interchange::team_toml::labels::PLAYABLE_POSITIONS;
+use pes_savefile::model::playstyle::PlayStyle as SavePlayStyle;
+use pes_savefile::schema::playstyle;
 
 /// The VTL11 data block, a template ruleset with custom checks.
 const VTL11: &str = include_str!("../../rulesets/vtl11.rhai");
@@ -79,6 +81,9 @@ fn playable_at(name: &str) -> usize {
 /// - slots 15 and 22 re-registered LB to RB — the A moving with the
 ///   registration — so the 188 cm players' registered positions are RB
 ///   and CMF alone;
+/// - slot 10, the captain, made a prolific winger: the sample's goal
+///   poacher rated A at CF draws VTL11's warning, and the legal team
+///   reports nothing (no gold special keys on prolific_winger);
 /// - Malicia (required) and two paid skill cards — fighting_spirit,
 ///   interception — to every player: the held cards already fit (the
 ///   pass skills free on non-medals, the COM styles inside the free
@@ -105,6 +110,13 @@ fn legalize(mut records: Records) -> Records {
         entry.positions.playable[playable_at("LB")] = 0;
         entry.positions.playable[playable_at("RB")] = 2;
     }
+    let goal_poacher = playstyle::encode(records.version, SavePlayStyle::GoalPoacher)
+        .expect("the sample's versions have Goal Poacher");
+    let prolific_winger = playstyle::encode(records.version, SavePlayStyle::ProlificWinger)
+        .expect("the sample's versions have Prolific Winger");
+    let entry = records.player_mut(10);
+    assert_eq!(entry.positions.playing_style, goal_poacher);
+    entry.positions.playing_style = prolific_winger;
     let rules = rules();
     for (slot, tier, height) in [
         (9, "gold", 195),
@@ -331,6 +343,82 @@ fn a_golds_playing_style_moves_his_targets() {
     );
     assert_eq!(
         found,
+        vec![
+            error(
+                Some(9),
+                ViolationKind::Stat {
+                    stat: stat("defensive_prowess"),
+                    value: 60,
+                    target: 65,
+                    at_most: false
+                }
+            ),
+            error(
+                Some(9),
+                ViolationKind::Stat {
+                    stat: stat("stamina"),
+                    value: 99,
+                    target: 94,
+                    at_most: false
+                }
+            )
+        ]
+    );
+}
+
+/// The exe's two playing-style warnings at CF, outside the error count:
+/// a Goal Poacher does not activate there, a Creative Playmaker does.
+/// Slots 10 and 2 are rated A at CF already (registered there, so no
+/// allowance is spent); slot 9 is a creative playmaker whose only A is
+/// SS. A gold Creative Playmaker's targets move, so the CF case for
+/// that style is slot 2, a silver.
+#[test]
+fn the_playing_style_warnings_at_cf() {
+    let rules = rules();
+    assert_eq!(
+        problems(
+            &rules,
+            &edited(10, |p| p.playing_style = Some(play_style("goal_poacher")))
+        ),
+        vec![warning(
+            10,
+            special(
+                "Goal Poacher at CF",
+                "Goal Poacher does not activate at CF with the league's exe"
+            )
+        )]
+    );
+    assert_eq!(
+        problems(
+            &rules,
+            &edited(2, |p| p.playing_style =
+                Some(play_style("creative_playmaker")))
+        ),
+        vec![warning(
+            2,
+            special(
+                "Creative Playmaker at CF",
+                "Creative Playmaker activates at CF with the league's exe"
+            )
+        )]
+    );
+    assert_eq!(
+        problems(
+            &rules,
+            &edited(9, |p| p.playing_style =
+                Some(play_style("creative_playmaker")))
+        ),
+        vec![],
+        "a creative playmaker not rated A at CF: no warning"
+    );
+    // Losing the creative_playmaker bonus is the two `Stat` violations
+    // `a_golds_playing_style_moves_his_targets` lists; no warning joins
+    // them, slot 9 not being rated A at CF.
+    assert_eq!(
+        problems(
+            &rules,
+            &edited(9, |p| p.playing_style = Some(play_style("goal_poacher")))
+        ),
         vec![
             error(
                 Some(9),

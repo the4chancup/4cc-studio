@@ -105,6 +105,12 @@ const RULESET = #{
         #{ label: "A gold Creative Playmaker",
            when: #{ tiers: ["gold"], playing_styles: ["creative_playmaker"] },
            then: #{ stat_bonus: #{ stamina: 5, defensive_prowess: -5 } } },
+        #{ label: "Goal Poacher at CF", severity: "warning",
+           when: #{ playing_styles: ["goal_poacher"], rated_a_at: ["CF"] },
+           then: #{ forbid: "Goal Poacher does not activate at CF with the league's exe" } },
+        #{ label: "Creative Playmaker at CF", severity: "warning",
+           when: #{ playing_styles: ["creative_playmaker"], rated_a_at: ["CF"] },
+           then: #{ forbid: "Creative Playmaker activates at CF with the league's exe" } },
     ],
 
     team_settings: [

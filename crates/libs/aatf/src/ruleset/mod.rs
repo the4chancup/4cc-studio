@@ -322,7 +322,7 @@ pub struct Condition {
     /// Holds any of these cards.
     #[serde(default)]
     pub holds: Vec<Card>,
-    /// Rated A (or B) at any of these positions.
+    /// Rated A at any of these positions.
     #[serde(default)]
     pub rated_a_at: Vec<Position>,
     /// Rated B at any of these positions.

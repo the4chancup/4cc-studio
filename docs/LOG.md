@@ -1961,3 +1961,5 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.2f done: the legacy checkers, built headless from their ruleset
   commits, against aatf on seven cup-save runs; legality agrees outside VGL's support settings
   (a maintainer question); VTL11's two warnings are step 5.2f-r1; VTL10's teams follow `2cf222f`.
+- **2026-10-14** — Step 5.2f-r1 done: VTL11's two playing-style warnings at CF; on its cup save
+  they now match the checker's 22.
