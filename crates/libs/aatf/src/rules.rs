@@ -148,10 +148,11 @@ impl Rules {
     ///
     /// The values resolve against what is written, not what the player
     /// held: a special conditioned on a value the tier sets (form, a
-    /// stat) would otherwise see the old one. The write lands on a copy,
-    /// `tier_values` is recomputed on it and the passes repeat until
-    /// the values stop changing, three writes at most; still changing
-    /// is `CheckError::Unsettled` and `entry` is left as it was.
+    /// stat, the name colour) would otherwise see the old one. The
+    /// colour lands on a copy first, then each pass writes the values
+    /// and recomputes `tier_values` on it until they stop changing,
+    /// three writes at most, then commits; still changing is
+    /// `CheckError::Unsettled` and `entry` is left as it was.
     pub fn apply_tier(
         &self,
         team: &TeamView,
@@ -159,37 +160,33 @@ impl Rules {
         tier: &str,
         entry: &mut PlayerEntry,
     ) -> Result<(), CheckError> {
-        let mut copy = entry.clone();
         let mut values = self.tier_values(team, player, tier)?;
+        let tier = self
+            .ruleset
+            .tiers
+            .iter()
+            .find(|t| t.id == tier)
+            .expect("tier_values accepted the tier");
+        let tier_colors: Vec<&str> = self
+            .ruleset
+            .tiers
+            .iter()
+            .filter_map(|t| t.name_color.as_deref())
+            .collect();
+        let mut copy = entry.clone();
+        crate::values::write_name_color(&mut copy.name, tier.name_color.as_deref(), &tier_colors);
         for _ in 0..3 {
             values.write(&mut copy);
             let view = PlayerView::of_entry(team.version, player.slot, &copy);
-            let settled = self.tier_values(team, &view, tier)?;
+            let settled = self.tier_values(team, &view, &tier.id)?;
             if settled == values {
                 *entry = copy;
-                let tier = self
-                    .ruleset
-                    .tiers
-                    .iter()
-                    .find(|t| t.id == tier)
-                    .expect("tier_values accepted the tier");
-                let tier_colors: Vec<&str> = self
-                    .ruleset
-                    .tiers
-                    .iter()
-                    .filter_map(|t| t.name_color.as_deref())
-                    .collect();
-                crate::values::write_name_color(
-                    &mut entry.name,
-                    tier.name_color.as_deref(),
-                    &tier_colors,
-                );
                 return Ok(());
             }
             values = settled;
         }
         Err(CheckError::Unsettled {
-            tier: tier.to_string(),
+            tier: tier.id.clone(),
         })
     }
 

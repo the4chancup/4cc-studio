@@ -36,7 +36,8 @@ version-matched refusal) ran there that evening (2 accepted, fixed in 5.4a5-r1);
 after it accepted 1 of 3 (`.tmp/5_4/duck_rulings.md`): that surface is closed. The interpreter
 review I.A1 (`3b4b10e..` the 5.2d2-r1 commit; `aatf_rules.md` "The ruleset schema", "The
 interpreter", "The host") accepted all seven concerns (`.tmp/5_2/duck_rulings.md`), reworked in
-step 5.2i-r1; then the SWE-2 loop and Astra again on that surface. Session handover:
+step 5.2i-r1; SWE-2 round I.S1 after it accepted 3 of 5 (step 5.2i-r2), so Astra I.A2 runs
+next over `adcc070..` the 5.2i-r2 commit. Session handover:
 `.tmp/lead/handover_2026-10-14.md`.
 Phase 3 closed with its reviews queued (the maintainer's
 directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20 rounds
@@ -1002,10 +1003,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       effects keep the specials' order (`apply_effects`' `from`); overlapping card groups
       refused on load (`LoadRule::GroupsOverlap`); `apply_tier` resolves the values it writes
       (`CheckError::Unsettled`, `PlayerView::of_entry` extracted from `TeamView::view`)
-    - [ ] 5.2i-r2 SWE-2 review I.S1's three accepted (`.tmp/5_2/duck_rulings.md` "I.S1"):
-      `apply_tier` writes the name colour before resolving; a `free_cards` option's trigger is
-      the plan's general rule (over the limit without it, fewer paid with it); the `from` gate
-      tested for `max_a_positions` (brief `.tmp/5_2/brief_5_2i_r2.md`); then Astra I.A2
+    - [x] 5.2i-r2 SWE-2 review I.S1's three accepted (`.tmp/5_2/duck_rulings.md` "I.S1"),
+      done 2026-10-14 (SWE-2, first attempt): `apply_tier` writes the name colour onto its copy
+      before resolving (`rules.rs`); a `free_cards` option is used when the paid count is over
+      the limit without it and lower with it (`logic.rhai` `option_used`, `paid_cards` gone);
+      the `from` gate tested for `max_a_positions` (`fixtures/interpreter.rs`); then Astra I.A2
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;

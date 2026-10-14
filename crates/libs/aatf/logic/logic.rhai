@@ -361,8 +361,12 @@ fn option_used(tier, p, player, option) {
     for group in table(option, "free").keys() {
         if num(cards.held_by_group, group) > num(cards.free, group) { return true; }
     }
-    for card in list(option, "free_cards") {
-        if card in cards.paid_cards { return true; }
+    if "free_cards" in option && cards.paid > cards.limit {
+        // The option's cards free by name: freeing one a group covers
+        // releases its allowance onto a paid groupmate, so the paid
+        // count's drop decides, not the card's own status.
+        let freed = p + #{ free_cards: list(p, "free_cards") + list(option, "free_cards") };
+        if this.card_summary(tier, freed, player).paid < cards.paid { return true; }
     }
     if "a_positions" in option && cards.counted_a > cards.a_allowance { return true; }
     if "max_a_positions" in option && p.max_a_positions != ()
@@ -475,7 +479,7 @@ fn groups_of(groups, card) {
 
 // A player's cards against `tier` under `p`: the held cards, how many are skills and COM
 // styles, the free count and the held count per group (a card free by name is not counted
-// there), the paid cards (the list of them, and how many are skills), the A and B ratings,
+// there), the paid count and how many of them are skills, the A and B ratings,
 // the A allowance, the extra A positions and the paid limit; `this` is the ruleset.
 fn card_summary(tier, p, player) {
     let held = player.cards;
@@ -493,7 +497,6 @@ fn card_summary(tier, p, player) {
     for group in free.keys() { remaining[group] = free[group]; }
     let paid = 0;
     let paid_skills = 0;
-    let paid_cards = [];
     for card in held {
         if card in p.free_cards { continue; }
         let mine = groups_of(groups, card);
@@ -508,7 +511,6 @@ fn card_summary(tier, p, player) {
         }
         if covered { continue; }
         paid += 1;
-        paid_cards.push(card);
         if !(card in com) { paid_skills += 1; }
     }
     let a_count = 0;
@@ -522,7 +524,7 @@ fn card_summary(tier, p, player) {
     let extra = max(0, counted_a - a_allowance);
     #{
         held: held, skills: skills, coms: coms, free: free, held_by_group: held_by_group,
-        paid: paid, paid_skills: paid_skills, paid_cards: paid_cards,
+        paid: paid, paid_skills: paid_skills,
         a_count: a_count, b_count: b_count,
         counted_a: counted_a, a_allowance: a_allowance, extra: extra,
         limit: num(tier, "cards") + p.cards - extra,

@@ -1982,3 +1982,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — 5.4c1a: a save player's database row from his record, and the three Fox
   player tables as one `pes_savefile` codec the Team compiler now uses. SWE-2 review I.S1 of the
   interpreter rework accepted 3 of 5 (rework 5.2i-r2 next, then Astra I.A2).
+- **2026-10-14** — 5.2i-r2: I.S1's three fixes (`apply_tier` writes the name colour before it
+  resolves; a `free_cards` option is used when it lowers an over-limit paid count; the `from`
+  gate tested for `max_a_positions`). Astra I.A2 next on the interpreter's rework range.

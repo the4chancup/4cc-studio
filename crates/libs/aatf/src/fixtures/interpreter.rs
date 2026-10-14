@@ -599,6 +599,42 @@ fn a_free_cards_option_is_used_only_for_a_paid_card() {
     );
 }
 
+/// A `free_cards` option is also used when its card is covered by a
+/// group's allowance: freeing it by name releases the allowance onto a
+/// paid groupmate, so with the option fewer cards are paid. Without it
+/// the paid count is over the limit here; with it, Scissors Feint is
+/// free by name and `tricks`' one free card covers Flip Flap.
+#[test]
+fn a_covered_card_freed_by_name_frees_the_groups_allowance() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                        injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                        cards: 3, free: #{ tricks: 1 }, a_positions: 1 }],
+            card_groups: #{ tricks: [\"scissors_feint\", \"flip_flap\"] },
+            specials: [#{ label: \"pick\",
+                then: #{ choice: [#{ free_cards: [\"scissors_feint\"] }] } }],
+        };",
+    );
+    // `held` order matters: Scissors Feint is listed first and takes the
+    // allowance, so Flip Flap is the paid card: paid 4 against 3.
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 2;
+        p.weak_foot_accuracy = 2;
+        p.cards = vec![
+            card("scissors_feint"),
+            card("flip_flap"),
+            card("malicia"),
+            card("captaincy"),
+            card("super_sub"),
+        ];
+    });
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+}
+
 /// A chosen option's replacing effect (`weak_foot`) gives way to one
 /// a *later* special sets: choices resolve after every special, but
 /// the specials' order decides which replacement stands.
@@ -637,6 +673,50 @@ fn a_later_specials_weak_foot_wins_over_an_earlier_choice() {
         ]
     );
     // Listed before the choice's special, the option applies: 4/4 met.
+    let rules = with_specials(&format!("{replace}, {choice}"));
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+}
+
+/// The same ordering holds for a chosen option's `max_a_positions`: a
+/// later special's cap wins over an earlier choice's option.
+#[test]
+fn a_later_specials_max_a_positions_wins_over_an_earlier_choice() {
+    let with_specials = |specials: &str| {
+        rules(&format!(
+            "const RULESET = #{{
+                schema: 1, name: \"x\", squad_size: 23,
+                universal: #{{ max_skill_cards: 10 }},
+                tiers: [#{{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                            injury_resistance: 1, weak_foot: #{{ usage: 2, accuracy: 2 }},
+                            cards: 40, a_positions: 13 }}],
+                specials: [{specials}],
+            }};"
+        ))
+    };
+    let choice = "#{ label: \"cap3\", then: #{ choice: [#{ max_a_positions: 3 }] } }";
+    let replace = "#{ label: \"cap2\", then: #{ max_a_positions: 2 } }";
+    let cb = position("CB");
+    let cmf = position("CMF");
+    // Slot 3 rated A at three positions (the registered RB, plus CB and
+    // CMF).
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 2;
+        p.weak_foot_accuracy = 2;
+        assert_eq!(p.ratings.iter().filter(|rating| **rating == 2).count(), 1);
+        p.ratings[usize::from(cb.0)] = 2;
+        p.ratings[usize::from(cmf.0)] = 2;
+    });
+    // The choice's special is earlier: the later special's cap stands.
+    let rules = with_specials(&format!("{choice}, {replace}"));
+    assert_eq!(
+        findings_at(&rules, &team, 3),
+        vec![error(
+            Some(3),
+            ViolationKind::APositions { count: 3, max: 2 }
+        )]
+    );
+    // Listed after it, the option's cap applies: three A positions met.
     let rules = with_specials(&format!("{replace}, {choice}"));
     assert_eq!(findings_at(&rules, &team, 3), vec![]);
 }
@@ -706,4 +786,54 @@ fn apply_tier_refuses_values_that_never_settle() {
         }
     );
     assert_eq!(records.player_mut(3), &before, "the player is untouched");
+}
+
+/// The name colour is a value the tier writes too: `apply_tier` writes
+/// it onto the copy before the values settle, so a special conditioned
+/// on `name_colors` resolves against the written colour, both ways.
+/// `gold` gains the code and the `+1` it gates; `regular` strips the
+/// code and the bonus with it.
+#[test]
+fn apply_tier_resolves_specials_against_the_written_name_color() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            stats: #{ rating: [\"speed\"] },
+            universal: #{ max_skill_cards: 10 },
+            tiers: [
+                #{ id: \"gold\", label: \"Gold\", counts_as: \"regular\", rate: 90,
+                   form: 8, injury_resistance: 3, name_color: \"cc9900ff\",
+                   weak_foot: #{ usage: 4, accuracy: 4 }, cards: 40, a_positions: 13 },
+                #{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                   injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                   cards: 40, a_positions: 13 },
+            ],
+            specials: [#{ label: \"gilded\", when: #{ name_colors: [\"cc9900ff\"] },
+                          then: #{ stat_bonus: #{ all: 1 } } }],
+        };",
+    );
+    let applied = |name: &str, tier: &str| {
+        let mut records = Records::sample();
+        records.player_mut(3).name = name.to_string();
+        let view = records.view();
+        let player = view.player(3).expect("slot 3").clone();
+        rules
+            .apply_tier(&view, &player, tier, records.player_mut(3))
+            .expect("the tier applies");
+        records
+    };
+    // `gold` onto a colourless name: abilities at the gold rate plus 1,
+    // and the checker reports nothing.
+    let mut records = applied("NAME", "gold");
+    for ability in records.player_mut(3).stats.abilities().iter().flatten() {
+        assert_eq!(*ability, 91, "the gold rate plus the gated bonus");
+    }
+    assert_eq!(findings_at(&rules, &records.view(), 3), vec![]);
+    // `regular` onto a name carrying gold's code: the code is stripped,
+    // so the bonus is gone: abilities at the regular rate.
+    let mut records = applied("\u{11}ccc9900ffNAME", "regular");
+    for ability in records.player_mut(3).stats.abilities().iter().flatten() {
+        assert_eq!(*ability, 77, "the plain regular rate");
+    }
+    assert_eq!(findings_at(&rules, &records.view(), 3), vec![]);
 }
