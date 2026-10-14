@@ -1955,3 +1955,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.2e done: VTL10's data block from VTLEditor's `2cf222f` and eighteen
   fixtures; the plan lists its differences from VTL11. All seven rulesets of the step are in;
   Astra R12.A1 and C.A1 ran (6 accepted; C.A1's four are step 5.2c-r3).
+- **2026-10-14** — Step 5.2c-r3 done: Astra C.A1's four findings (the `ViolationKind` target
+  docs read as the plan; tests for two custom findings in order, an interior empty roster slot,
+  and the file's logic identity). The Astra loop on the rules file and its host ends.

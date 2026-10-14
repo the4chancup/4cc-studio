@@ -64,7 +64,8 @@ pub enum ViolationKind {
     /// No tier's `when` held (the player gets no tier and no further
     /// per-player check).
     NoTier,
-    /// An ability stat below its target.
+    /// An ability stat off its target (over it, for an `at_most`
+    /// target).
     Stat {
         /// The stat.
         stat: Stat,
@@ -72,36 +73,39 @@ pub enum ViolationKind {
         value: u8,
         /// The tier's or the effect's target.
         target: u8,
-        /// The target is an `at_most` entry (below is a violation, above
-        /// is not).
+        /// The target is an `at_most` entry: a value under it is legal,
+        /// one over it is the violation.
         at_most: bool,
     },
-    /// Form below the tier's target.
+    /// Form off the tier's target (over it, for an `at_most` target).
     Form {
         /// The player's form.
         value: u8,
         /// The target.
         target: u8,
     },
-    /// Injury resistance below the target.
+    /// Injury resistance off its target (over it, for an `at_most`
+    /// target).
     InjuryResistance {
         /// The player's value.
         value: u8,
-        /// The maximum.
+        /// The target.
         max: u8,
     },
-    /// Weak foot usage below the target.
+    /// Weak foot usage off its target (over it, for an `at_most`
+    /// target).
     WeakFootUsage {
         /// The player's value.
         value: u8,
-        /// The maximum.
+        /// The target.
         max: u8,
     },
-    /// Weak foot accuracy below the target.
+    /// Weak foot accuracy off its target (over it, for an `at_most`
+    /// target).
     WeakFootAccuracy {
         /// The player's value.
         value: u8,
-        /// The maximum.
+        /// The target.
         max: u8,
     },
     /// The name's leading colour code against the tier's; `expected: None`

@@ -659,6 +659,68 @@ mod tests {
         }
     }
 
+    /// An interior empty roster slot stays empty through the document:
+    /// the players after it keep their slot numbers and the tactics'
+    /// slot links (the starting eleven) still name them.
+    #[test]
+    fn from_team_toml_matches_new_with_an_empty_interior_slot() {
+        for version in PesVersion::ALL {
+            let mut file = EditFile::from_bytes(&fixture_save(version)).expect("fixture save");
+            // The second filled roster slot: an interior hole, never
+            // the first or the last occupied one.
+            let hole = {
+                let occupied: Vec<usize> = team_mut(&mut file)
+                    .roster
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, slot)| slot.player_id != 0)
+                    .map(|(index, _)| index)
+                    .collect();
+                assert!(
+                    occupied.len() >= 3,
+                    "{version:?}: room for an interior hole"
+                );
+                occupied[1]
+            };
+            team_mut(&mut file).roster[hole].player_id = 0;
+            let team = file.team(701).expect("team 701");
+            let players: Vec<&PlayerEntry> = team
+                .roster
+                .iter()
+                .filter(|slot| slot.player_id != 0)
+                .map(|slot| file.player(slot.player_id).expect("a rostered player"))
+                .collect();
+            let document =
+                TeamToml::from_team(version, team, &players).expect("from_team emits a document");
+            // The hole is a `players` key the document lacks: one over
+            // the roster index.
+            assert!(
+                !document
+                    .players
+                    .contains_key(&u8::try_from(hole + 1).expect("a roster slot index"))
+            );
+            let built = TeamView::from_team_toml(&document)
+                .unwrap_or_else(|e| panic!("{version:?}: the document builds: {e}"));
+            let expected = TeamView::new(&file, 701).expect("the team views");
+            assert_eq!(built, expected, "{version:?}");
+            if version == PesVersion::Pes19 {
+                let hole = u8::try_from(hole).expect("a roster slot index");
+                assert!(built.player(hole).is_none(), "the hole stays empty");
+                let after = built.player(hole + 1).expect("the next player");
+                assert_eq!(after.slot, hole + 1, "not shifted down");
+                for shape in expected.formation_shapes() {
+                    assert_eq!(
+                        built.formation(shape.preset, shape.formation),
+                        expected.formation(shape.preset, shape.formation),
+                        "{version:?} preset {} formation {}",
+                        shape.preset,
+                        shape.formation
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn a_document_without_a_version_is_refused() {
         let document = TeamToml::default();

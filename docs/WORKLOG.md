@@ -17,7 +17,7 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10) done 2026-10-14; then 5.2c-r3, 5.2f
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10) and 5.2c-r3 done 2026-10-14; then 5.2f
 and 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
@@ -941,10 +941,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     VTLEditor `2cf222f`, `src/fixtures/vtl10.rs`, eighteen fixtures; the plan's "VTL10" lists
     its differences from VTL11; the VTL wiki's VTL10 page describes another ruleset, which
     5.2f's parity run on the VTL10 save settles)
-  - [ ] 5.2c-r3 Astra C.A1's four accepted concerns (`.tmp/5_2/duck_rulings.md` "C.A1"): the
-    `at_most` docs in `violation.rs` say the opposite of the plan; a multi-finding conversion
-    test; a Team TOML roster with an interior empty slot; `Rules::logic()` tested → done when:
-    the four tests fail red and pass, the docs read as the plan
+  - [x] 5.2c-r3 Astra C.A1's four accepted concerns, done 2026-10-14 (SWE-2): the
+    `ViolationKind` target docs read as the plan (`at_most`: under is legal, over is the
+    violation); tests for a custom check's two findings in order, a Team TOML roster with an
+    interior empty slot, and `Rules::logic()` (official `Current`, edited `Modified`);
+    `violation.rs`, `rules.rs`, `team.rs`
   - [ ] 5.2f the parity runs against the legacy checkers on the cup saves (lead) → done
     when: each difference is a deliberate one the plan lists, or fixed
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:

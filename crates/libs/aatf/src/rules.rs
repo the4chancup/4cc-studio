@@ -236,6 +236,39 @@ mod tests {
         }
     }
 
+    /// The official file's logic is the current one.
+    #[test]
+    fn the_official_files_logic_is_current() {
+        assert_eq!(Rules::official().logic(), LogicIdentity::Current);
+    }
+
+    /// A statement added inside the logic section makes the file's
+    /// logic `Modified`: the section no longer hashes to a known
+    /// version.
+    #[test]
+    fn a_file_with_an_edited_logic_is_modified() {
+        // A comment line inside `check_team`'s body: the edit lands in
+        // the LOGIC section, so the section's hash changes.
+        let assembled = assemble(AUTUMN26);
+        assert_eq!(assembled.matches("fn check_team(team) {").count(), 1);
+        let text = assembled.replacen(
+            "fn check_team(team) {",
+            "fn check_team(team) {\n    // an edit\n",
+            1,
+        );
+        let edited = text.find("// an edit").expect("the edit landed");
+        let logic = text.find("// ==== LOGIC").expect("the logic banner");
+        let custom = text
+            .find("// ==== CUSTOM CHECKS")
+            .expect("the custom checks");
+        assert!(
+            logic < edited && edited < custom,
+            "the edit is inside the logic section"
+        );
+        let rules = Rules::load(&text).expect("the file loads");
+        assert_eq!(rules.logic(), LogicIdentity::Modified);
+    }
+
     /// The custom checks' violations come last, after the interpreter's.
     #[test]
     fn a_custom_check_reaches_the_result() {
@@ -264,6 +297,40 @@ mod tests {
         assert_eq!(found.last(), Some(&custom));
         assert_eq!(found.iter().filter(|v| **v == custom).count(), 1);
         assert!(found.len() > 1, "the interpreter reported on team 701 too");
+    }
+
+    /// Every map a custom check returns lands in the result, in the
+    /// check's own order, each with its own slot and severity.
+    #[test]
+    fn a_custom_check_returns_every_finding_in_order() {
+        use crate::ruleset::Severity;
+        use crate::violation::ViolationKind;
+
+        let text = assemble(AUTUMN26).replacen(
+            "fn custom_checks(team) { [] }",
+            "fn custom_checks(team) { [#{ kind: \"Custom\", text: \"first\", slot: team.players[0].slot }, #{ kind: \"Custom\", text: \"second\", slot: team.players[1].slot, severity: \"warning\" }] }",
+            1,
+        );
+        let rules = Rules::load(&text).expect("the file loads");
+        let team = fixture_team(PesVersion::Pes15);
+        let found = rules.check_team(&team).expect("the check runs");
+        let expected = [
+            Violation {
+                slot: Some(team.players[0].slot),
+                severity: Severity::Error,
+                kind: ViolationKind::Custom {
+                    text: "first".to_string(),
+                },
+            },
+            Violation {
+                slot: Some(team.players[1].slot),
+                severity: Severity::Warning,
+                kind: ViolationKind::Custom {
+                    text: "second".to_string(),
+                },
+            },
+        ];
+        assert_eq!(found[found.len().saturating_sub(2)..], expected);
     }
 
     #[test]
