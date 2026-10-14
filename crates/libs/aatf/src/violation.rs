@@ -279,6 +279,14 @@ pub enum CheckError {
         /// The id asked for.
         tier: String,
     },
+    /// `apply_tier`'s values still change after three writes: a special
+    /// conditioned on a value the tier sets keeps switching with what it
+    /// writes. The player is left as it was.
+    #[error("tier {tier} writes values that never settle")]
+    Unsettled {
+        /// The tier applied.
+        tier: String,
+    },
 }
 
 /// The violations of `check_team`'s returned list, in its order: every

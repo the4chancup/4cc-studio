@@ -1977,3 +1977,5 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Astra I.A1 (the interpreter): all seven concerns accepted; 5.2i-r1a fixes the
   three real teams reach (a negative card limit, omitted Team TOML keys, two untested effects).
   Step 5.4c settled on paper: rows from the record, tables in `pes_savefile`, base copies in-game.
+- **2026-10-14** — 5.2i-r1b: the interpreter's four fixes for rulesets members write (choice
+  options, replacement order, overlapping groups refused, `apply_tier` settling on its own writes).

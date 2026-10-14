@@ -261,9 +261,9 @@ fn profile(team, system, player, tier_id) {
         }
     }
     p.bracket = this.bracket_of(player.height - p.allowance);
-    for special in this.specials {
+    for (special, i) in this.specials {
         if team.condition_holds(system, player, tier_id, p.bracket, special.when) {
-            p = apply_effects(p, tier_id, special.label, severity_of(special), table(special, "then"));
+            p = apply_effects(p, tier_id, special.label, severity_of(special), table(special, "then"), i);
         }
     }
     this.resolve_choices(tier_id, p, player)
@@ -276,8 +276,10 @@ fn severity_of(special) {
 
 // `p` with `then`'s effects applied for `tier_id`: numeric effects add up, replacing effects
 // take the last value, a `height_allowance` is left to `profile`, and a `choice` waits for
-// `resolve_choices`.
-fn apply_effects(p, tier_id, label, severity, then) {
+// `resolve_choices`. `from` is the effect's owner in `specials`: a replacing effect applies
+// only when no special after it set the same one (a choice resolves after every special, so
+// its option gives way to a later special's replacement).
+fn apply_effects(p, tier_id, label, severity, then, from) {
     let bonus = table(then, "stat_bonus");
     for key in bonus.keys() {
         let amount = per_tier(bonus[key], tier_id);
@@ -305,7 +307,10 @@ fn apply_effects(p, tier_id, label, severity, then) {
         let value = per_tier(then.a_positions, tier_id);
         if value != () { p.a_positions += value; }
     }
-    if "max_a_positions" in then { p.max_a_positions = then.max_a_positions; }
+    if "max_a_positions" in then && num(p, "max_a_positions_from") <= from {
+        p.max_a_positions = then.max_a_positions;
+        p.max_a_positions_from = from;
+    }
     if "form" in then {
         let value = per_tier(then.form, tier_id);
         if value != () { p.form += value; }
@@ -314,12 +319,15 @@ fn apply_effects(p, tier_id, label, severity, then) {
         let value = per_tier(then.injury_resistance, tier_id);
         if value != () { p.injury_resistance += value; }
     }
-    if "weak_foot" in then { p.weak_foot = then.weak_foot; }
+    if "weak_foot" in then && num(p, "weak_foot_from") <= from {
+        p.weak_foot = then.weak_foot;
+        p.weak_foot_from = from;
+    }
     if "forbid" in then {
         p.forbids.push(#{ label: label, text: then.forbid, severity: severity });
     }
     if "choice" in then {
-        p.choices.push(#{ label: label, severity: severity, options: then.choice });
+        p.choices.push(#{ label: label, severity: severity, options: then.choice, from: from });
     }
     p
 }
@@ -332,7 +340,7 @@ fn resolve_choices(tier_id, p, player) {
     for choice in p.choices {
         for option in choice.options {
             if this.option_used(tier, p, player, option) {
-                p = apply_effects(p, tier_id, choice.label, choice.severity, option);
+                p = apply_effects(p, tier_id, choice.label, choice.severity, option, choice.from);
                 p.taken.push(choice.label);
                 break;
             }
@@ -354,7 +362,7 @@ fn option_used(tier, p, player, option) {
         if num(cards.held_by_group, group) > num(cards.free, group) { return true; }
     }
     for card in list(option, "free_cards") {
-        if card in cards.held && !(card in p.free_cards) { return true; }
+        if card in cards.paid_cards { return true; }
     }
     if "a_positions" in option && cards.counted_a > cards.a_allowance { return true; }
     if "max_a_positions" in option && p.max_a_positions != ()
@@ -467,8 +475,8 @@ fn groups_of(groups, card) {
 
 // A player's cards against `tier` under `p`: the held cards, how many are skills and COM
 // styles, the free count and the held count per group (a card free by name is not counted
-// there), the paid cards (and paid skills), the A and B ratings, the A allowance, the
-// extra A positions and the paid limit; `this` is the ruleset.
+// there), the paid cards (the list of them, and how many are skills), the A and B ratings,
+// the A allowance, the extra A positions and the paid limit; `this` is the ruleset.
 fn card_summary(tier, p, player) {
     let held = player.cards;
     let com = com_styles();
@@ -485,6 +493,7 @@ fn card_summary(tier, p, player) {
     for group in free.keys() { remaining[group] = free[group]; }
     let paid = 0;
     let paid_skills = 0;
+    let paid_cards = [];
     for card in held {
         if card in p.free_cards { continue; }
         let mine = groups_of(groups, card);
@@ -499,6 +508,7 @@ fn card_summary(tier, p, player) {
         }
         if covered { continue; }
         paid += 1;
+        paid_cards.push(card);
         if !(card in com) { paid_skills += 1; }
     }
     let a_count = 0;
@@ -512,7 +522,8 @@ fn card_summary(tier, p, player) {
     let extra = max(0, counted_a - a_allowance);
     #{
         held: held, skills: skills, coms: coms, free: free, held_by_group: held_by_group,
-        paid: paid, paid_skills: paid_skills, a_count: a_count, b_count: b_count,
+        paid: paid, paid_skills: paid_skills, paid_cards: paid_cards,
+        a_count: a_count, b_count: b_count,
         counted_a: counted_a, a_allowance: a_allowance, extra: extra,
         limit: num(tier, "cards") + p.cards - extra,
     }

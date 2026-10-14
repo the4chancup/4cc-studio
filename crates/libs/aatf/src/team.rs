@@ -67,6 +67,62 @@ impl PlayerView {
     pub(crate) fn rating_at(&self, pos: &str) -> Result<u8, String> {
         Position::try_from(pos.to_string()).map(|pos| self.ratings[usize::from(pos.0)])
     }
+
+    /// `entry`'s view at roster `slot` on `version`.
+    pub(crate) fn of_entry(version: PesVersion, slot: u8, entry: &PlayerEntry) -> PlayerView {
+        // A style byte past the version's table is no style (`()` in a
+        // script), not an error: the logic reports it as out of range.
+        let playing_style = playstyle::decode(version, entry.positions.playing_style)
+            .ok()
+            .and_then(|style| {
+                SavePlayStyle::ALL
+                    .iter()
+                    .position(|s| *s == style)
+                    .map(|i| PlayStyle(u8::try_from(i).expect("22 styles")))
+            });
+        let mut ratings = [0u8; 13];
+        for (i, rating) in entry.positions.playable.iter().enumerate() {
+            ratings[PLAYABLE_POSITIONS[i]] = *rating;
+        }
+        PlayerView {
+            slot,
+            age: entry.basic.age,
+            height: entry.basic.height,
+            weight: entry.basic.weight,
+            form: entry.stats.form.saturating_add(1),
+            injury_resistance: entry.stats.injury_resistance.saturating_add(1),
+            weak_foot_usage: entry.stats.weak_foot_usage.saturating_add(1),
+            weak_foot_accuracy: entry.stats.weak_foot_accuracy.saturating_add(1),
+            position: (usize::from(entry.positions.registered) < POSITIONS.len())
+                .then_some(Position(entry.positions.registered)),
+            playing_style,
+            strong_foot: match entry.positions.stronger_foot {
+                0 => Some(Foot::Right),
+                1 => Some(Foot::Left),
+                _ => None,
+            },
+            name_color: name_color(&entry.name).map(str::to_string),
+            cards: entry
+                .skills
+                .skills
+                .iter()
+                .enumerate()
+                .filter(|(_, held)| **held)
+                .map(|(i, _)| Card::Skill(u8::try_from(i).expect("41 skills")))
+                .chain(
+                    entry
+                        .skills
+                        .com_styles
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, held)| **held)
+                        .map(|(i, _)| Card::ComStyle(u8::try_from(i).expect("7 styles"))),
+                )
+                .collect(),
+            abilities: entry.stats.abilities(),
+            ratings,
+        }
+    }
 }
 
 /// One team of a save as a ruleset reads it: its roster's players and its
@@ -207,58 +263,11 @@ impl TeamView {
                 slot: u8::try_from(i).expect("a roster holds fewer than 256 slots"),
                 player_id: slot.player_id,
             })?;
-            // A style byte past the version's table is no style (`()` in a
-            // script), not an error: the logic reports it as out of range.
-            let playing_style = playstyle::decode(version, entry.positions.playing_style)
-                .ok()
-                .and_then(|style| {
-                    SavePlayStyle::ALL
-                        .iter()
-                        .position(|s| *s == style)
-                        .map(|i| PlayStyle(u8::try_from(i).expect("22 styles")))
-                });
-            let mut ratings = [0u8; 13];
-            for (i, rating) in entry.positions.playable.iter().enumerate() {
-                ratings[PLAYABLE_POSITIONS[i]] = *rating;
-            }
-            players.push(PlayerView {
-                slot: u8::try_from(i).expect("a roster holds fewer than 256 slots"),
-                age: entry.basic.age,
-                height: entry.basic.height,
-                weight: entry.basic.weight,
-                form: entry.stats.form.saturating_add(1),
-                injury_resistance: entry.stats.injury_resistance.saturating_add(1),
-                weak_foot_usage: entry.stats.weak_foot_usage.saturating_add(1),
-                weak_foot_accuracy: entry.stats.weak_foot_accuracy.saturating_add(1),
-                position: (usize::from(entry.positions.registered) < POSITIONS.len())
-                    .then_some(Position(entry.positions.registered)),
-                playing_style,
-                strong_foot: match entry.positions.stronger_foot {
-                    0 => Some(Foot::Right),
-                    1 => Some(Foot::Left),
-                    _ => None,
-                },
-                name_color: name_color(&entry.name).map(str::to_string),
-                cards: entry
-                    .skills
-                    .skills
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, held)| **held)
-                    .map(|(i, _)| Card::Skill(u8::try_from(i).expect("41 skills")))
-                    .chain(
-                        entry
-                            .skills
-                            .com_styles
-                            .iter()
-                            .enumerate()
-                            .filter(|(_, held)| **held)
-                            .map(|(i, _)| Card::ComStyle(u8::try_from(i).expect("7 styles"))),
-                    )
-                    .collect(),
-                abilities: entry.stats.abilities(),
-                ratings,
-            });
+            players.push(PlayerView::of_entry(
+                version,
+                u8::try_from(i).expect("a roster holds fewer than 256 slots"),
+                entry,
+            ));
         }
         let captain =
             (team.tactics.set_pieces.captain != 0xFF).then_some(team.tactics.set_pieces.captain);

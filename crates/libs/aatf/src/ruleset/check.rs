@@ -168,8 +168,10 @@ impl Ruleset {
 
         // card_groups: keys name a group; `com` and `suggestions`' seven
         // words are reserved (`com` for the COM styles, the words so a
-        // suggestion can never name two allowances).
-        for key in self.card_groups.keys() {
+        // suggestion can never name two allowances). The groups are
+        // disjoint and hold no COM style: a card in two would be made
+        // free by whichever group the allocation tries first.
+        for (index, (key, cards)) in self.card_groups.iter().enumerate() {
             if key.is_empty() {
                 out.push(RuleError {
                     path: "card_groups".to_string(),
@@ -181,6 +183,29 @@ impl Ruleset {
                     path: format!("card_groups.{key}"),
                     rule: LoadRule::ReservedGroup,
                 });
+            }
+            for card in cards {
+                // `com` is the first group the allocation tries.
+                if matches!(card, Card::ComStyle(_)) {
+                    out.push(RuleError {
+                        path: format!("card_groups.{key}"),
+                        rule: LoadRule::GroupsOverlap {
+                            card: card.label().to_string(),
+                            other: "com".to_string(),
+                        },
+                    });
+                }
+                for (other, earlier) in self.card_groups.iter().take(index) {
+                    if earlier.contains(card) {
+                        out.push(RuleError {
+                            path: format!("card_groups.{key}"),
+                            rule: LoadRule::GroupsOverlap {
+                                card: card.label().to_string(),
+                                other: other.clone(),
+                            },
+                        });
+                    }
+                }
             }
         }
 
@@ -750,6 +775,16 @@ pub enum LoadRule {
     /// `com` is the COM styles' group, and a word named a group would let
     /// a suggestion mean two allowances.
     ReservedGroup,
+    /// A card in two `card_groups`, or a COM style in any (the built-in
+    /// `com` group holds the seven): the allocation would make the card
+    /// free by whichever group it tries first, so a team's legality
+    /// would hang on the groups' names.
+    GroupsOverlap {
+        /// The card.
+        card: String,
+        /// The earlier group holding it (`com` for a COM style).
+        other: String,
+    },
     /// A tier with `counts_as` also has `count`.
     CountWithCountsAs,
     /// The tier a `counts_as` names has a `counts_as` of its own (itself
@@ -815,6 +850,9 @@ impl fmt::Display for LoadRule {
             LoadRule::UnknownTarget { name } => write!(f, "unknown at_most target {name:?}"),
             LoadRule::ReservedGroup => {
                 f.write_str("`com` or a `suggestions` word is a reserved card group")
+            }
+            LoadRule::GroupsOverlap { card, other } => {
+                write!(f, "card {card:?} is also in group {other:?}")
             }
             LoadRule::CountWithCountsAs => f.write_str("a tier with `counts_as` also has `count`"),
             LoadRule::CountsAsChain => {

@@ -997,9 +997,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       Team TOML's omitted keys read 0 on every field (`PlayerEntry::bare`, `TeamTactics::bare`
       in `pes_savefile`, used by `records_from_team_toml`); runtime fixtures for `stat_target`
       and `max_a_positions` (`fixtures/interpreter.rs`); the logic hash in `LOGIC_VERSIONS`
-    - [ ] 5.2i-r1b the authored-ruleset ones: `free_cards` options used only when paid;
-      replacing effects keep the specials' order; overlapping card groups refused on load;
-      `apply_tier` resolves the values it writes
+    - [x] 5.2i-r1b the authored-ruleset ones, done 2026-10-14 (SWE-2, first attempt):
+      `free_cards` options used only for a paid card (`card_summary`'s `paid_cards`); replacing
+      effects keep the specials' order (`apply_effects`' `from`); overlapping card groups
+      refused on load (`LoadRule::GroupsOverlap`); `apply_tier` resolves the values it writes
+      (`CheckError::Unsettled`, `PlayerView::of_entry` extracted from `TeamView::view`)
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;

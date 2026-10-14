@@ -720,3 +720,48 @@ fn rules_error_texts_name_path_and_message() {
     let size_at = text.find("23").expect("the squad size in the text");
     assert!(total_at < size_at, "{text}");
 }
+
+/// A card in two `card_groups` is one `GroupsOverlap` error per pair,
+/// at the later group, naming the earlier.
+#[test]
+fn a_card_in_two_groups_is_refused() {
+    // `scissors_feint` in `broad` and `narrow`; `flip_flap` is in
+    // `broad` alone, so the only error is the pair's.
+    case(
+        "overlapping groups",
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }],
+            card_groups: #{
+                broad: [\"scissors_feint\", \"flip_flap\"],
+                narrow: [\"scissors_feint\"],
+            },
+        };",
+        LoadRule::GroupsOverlap {
+            card: "scissors_feint".to_string(),
+            other: "broad".to_string(),
+        },
+        "card_groups.narrow",
+    );
+}
+
+/// A COM style in a `card_groups` entry overlaps the built-in `com`
+/// group, which holds the seven.
+#[test]
+fn a_com_style_in_a_group_is_refused() {
+    case(
+        "com style in a group",
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }],
+            card_groups: #{ shots: [\"long_ranger\"] },
+        };",
+        LoadRule::GroupsOverlap {
+            card: "long_ranger".to_string(),
+            other: "com".to_string(),
+        },
+        "card_groups.shots",
+    );
+}

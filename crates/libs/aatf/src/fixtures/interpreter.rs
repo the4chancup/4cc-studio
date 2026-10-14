@@ -538,3 +538,172 @@ fn max_a_positions_caps_the_a_positions() {
         .expect("limits");
     assert_eq!(limits.max_a_positions, Some(2));
 }
+
+/// A `free_cards` option is used when one of its cards is held and
+/// *paid*: a card a group's free allowance already covers does not
+/// take it. The choice takes the first option the player uses, so the
+/// `cards` option raises the limit instead.
+#[test]
+fn a_free_cards_option_is_used_only_for_a_paid_card() {
+    let with_free = |free: &str| {
+        rules(&format!(
+            "const RULESET = #{{
+                schema: 1, name: \"x\", squad_size: 23,
+                universal: #{{ max_skill_cards: 10 }},
+                tiers: [#{{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                            injury_resistance: 1, weak_foot: #{{ usage: 2, accuracy: 2 }},
+                            cards: 3, a_positions: 1{free} }}],
+                card_groups: #{{ tricks: [\"scissors_feint\"] }},
+                specials: [#{{ label: \"pick\",
+                    then: #{{ choice: [#{{ free_cards: [\"scissors_feint\"] }}, #{{ cards: 1 }}] }} }}],
+            }};"
+        ))
+    };
+    let holding = |held: &[&str]| {
+        let held: Vec<Card> = held.iter().map(|name| card(name)).collect();
+        view_edited(3, |p| {
+            set_tier(p, 77, 4, 1);
+            p.weak_foot_usage = 2;
+            p.weak_foot_accuracy = 2;
+            p.cards = held;
+        })
+    };
+    // `tricks` covers Scissors Feint: the `free_cards` option is not
+    // used, the `cards` one is — paid 4 against a raised limit of 4.
+    let rules = with_free(", free: #{ tricks: 1 }");
+    let team = holding(&[
+        "scissors_feint",
+        "malicia",
+        "captaincy",
+        "super_sub",
+        "fighting_spirit",
+    ]);
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+    // No free allowance: Scissors Feint is paid, so the option is
+    // used and the card free — paid 3 against 3.
+    let rules = with_free("");
+    let team = holding(&["scissors_feint", "malicia", "captaincy", "super_sub"]);
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+    // A fourth outside skill: the first option is still the one taken
+    // — paid 4 against 3.
+    let team = holding(&[
+        "scissors_feint",
+        "malicia",
+        "captaincy",
+        "super_sub",
+        "fighting_spirit",
+    ]);
+    assert_eq!(
+        findings_at(&rules, &team, 3),
+        vec![error(Some(3), ViolationKind::Cards { paid: 4, limit: 3 })]
+    );
+}
+
+/// A chosen option's replacing effect (`weak_foot`) gives way to one
+/// a *later* special sets: choices resolve after every special, but
+/// the specials' order decides which replacement stands.
+#[test]
+fn a_later_specials_weak_foot_wins_over_an_earlier_choice() {
+    let with_specials = |specials: &str| {
+        rules(&format!(
+            "const RULESET = #{{
+                schema: 1, name: \"x\", squad_size: 23,
+                universal: #{{ max_skill_cards: 10 }},
+                tiers: [#{{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                            injury_resistance: 1, weak_foot: #{{ usage: 2, accuracy: 2 }},
+                            cards: 40, a_positions: 13 }}],
+                specials: [{specials}],
+            }};"
+        ))
+    };
+    let choice =
+        "#{ label: \"four\", then: #{ choice: [#{ weak_foot: #{ usage: 4, accuracy: 4 } }] } }";
+    let replace = "#{ label: \"three\", then: #{ weak_foot: #{ usage: 3, accuracy: 3 } } }";
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 4;
+        p.weak_foot_accuracy = 4;
+    });
+    // The choice's special is earlier: the later special's 3/3 stands.
+    let rules = with_specials(&format!("{choice}, {replace}"));
+    assert_eq!(
+        findings_at(&rules, &team, 3),
+        vec![
+            error(Some(3), ViolationKind::WeakFootUsage { value: 4, max: 3 }),
+            error(
+                Some(3),
+                ViolationKind::WeakFootAccuracy { value: 4, max: 3 }
+            ),
+        ]
+    );
+    // Listed before the choice's special, the option applies: 4/4 met.
+    let rules = with_specials(&format!("{replace}, {choice}"));
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+}
+
+/// `apply_tier` resolves the specials against the values it writes,
+/// not the ones the player held: a special conditioned on `form`
+/// sees the form the tier sets, so the written player passes his own
+/// check.
+#[test]
+fn apply_tier_resolves_specials_against_the_values_it_writes() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                        injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                        cards: 40, a_positions: 13 }],
+            specials: [#{ label: \"fit\", when: #{ ranges: #{ form: [4, 4] } },
+                          then: #{ stat_bonus: #{ speed: 1 } } }],
+        };",
+    );
+    let mut records = Records::sample();
+    records.player_mut(3).stats.form = 1;
+    let view = records.view();
+    let player = view.player(3).expect("slot 3").clone();
+    assert_eq!(player.form, 2, "form 2 on the game's scale");
+    rules
+        .apply_tier(&view, &player, "regular", records.player_mut(3))
+        .expect("the tier applies");
+    let entry = records.player_mut(3);
+    assert_eq!(entry.stats.form, 3, "form 4 stored");
+    assert_eq!(
+        entry.stats.abilities()[usize::from(stat("speed").0)],
+        Some(78),
+        "the form-gated bonus applied"
+    );
+    assert_eq!(findings_at(&rules, &records.view(), 3), vec![]);
+}
+
+/// Values that never settle — a special switching its own condition
+/// off — are an `Unsettled` error, the player left as it was.
+#[test]
+fn apply_tier_refuses_values_that_never_settle() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                        injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                        cards: 40, a_positions: 13 }],
+            specials: [#{ label: \"swap\", when: #{ ranges: #{ form: [4, 4] } },
+                          then: #{ form: 1 } }],
+        };",
+    );
+    let mut records = Records::sample();
+    records.player_mut(3).stats.form = 1;
+    let before = records.player_mut(3).clone();
+    let view = records.view();
+    let player = view.player(3).expect("slot 3").clone();
+    let err = rules
+        .apply_tier(&view, &player, "regular", records.player_mut(3))
+        .expect_err("values that never settle are refused");
+    assert_eq!(
+        err,
+        crate::CheckError::Unsettled {
+            tier: "regular".to_string()
+        }
+    );
+    assert_eq!(records.player_mut(3), &before, "the player is untouched");
+}
