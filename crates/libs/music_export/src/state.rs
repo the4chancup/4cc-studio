@@ -212,6 +212,17 @@ mod tests {
     }
 
     #[test]
+    fn unscoring_one_scorer_keeps_anothers_goals() {
+        let mut state = state();
+        state.score_goal(Side::Home, "Billy");
+        state.score_goal(Side::Home, "Bob");
+        assert!(state.unscore_goal(Side::Home, "Billy"));
+        assert!(!state.unscore_goal(Side::Home, "Billy"));
+        assert_eq!(state.home.score, 1);
+        assert_eq!(state.home.player_goals("Bob"), 1);
+    }
+
+    #[test]
     fn most_goals_counts_ties_and_an_unlisted_player_at_zero() {
         let mut state = state();
         assert!(state.home.has_most_goals("Billy"), "0-0: nobody is ahead");

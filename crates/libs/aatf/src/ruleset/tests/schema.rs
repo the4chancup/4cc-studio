@@ -295,6 +295,7 @@ fn bad_proposal_field_values_are_schema() {
     for (name, snippet) in [
         ("ranges key", "when: #{ ranges: #{ pace: [90, 99] } }"),
         ("strong_foot", "when: #{ strong_foot: \"both\" }"),
+        ("name_color", "name_color: 5"),
     ] {
         let err = Ruleset::from_data_block(&format!(
             "const RULESET = #{{ schema: 1, name: \"x\", squad_size: 23, universal: #{{ max_skill_cards: 10 }}, tiers: [#{{ id: \"regular\", label: \"Regular\", rate: 77, {snippet} }}] }};"
@@ -302,6 +303,35 @@ fn bad_proposal_field_values_are_schema() {
         .expect_err(name);
         assert!(matches!(err, LoadError::Schema { .. }), "{name}: {err:?}");
     }
+}
+
+/// A present `weak_foot` names both halves (`#{ usage: 4 }` alone would
+/// cap accuracy at 0, below the game's 1): `Schema` on a tier, in a
+/// special's `then` and in a `choice` option. A tier with no `weak_foot`
+/// key at all still loads (the field's own default).
+#[test]
+fn a_partial_weak_foot_is_schema() {
+    for (name, text) in [
+        (
+            "a tier",
+            "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, weak_foot: #{ usage: 4 } }] };",
+        ),
+        (
+            "a special's then",
+            "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }], specials: [#{ label: \"x\", then: #{ weak_foot: #{ usage: 4 } } }] };",
+        ),
+        (
+            "a choice option",
+            "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }], specials: [#{ label: \"x\", then: #{ choice: [#{ weak_foot: #{ usage: 4 } }] } }] };",
+        ),
+    ] {
+        let err = Ruleset::from_data_block(text).expect_err(name);
+        assert!(matches!(err, LoadError::Schema { .. }), "{name}: {err:?}");
+    }
+    Ruleset::from_data_block(
+        "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };",
+    )
+    .expect("a tier without a weak_foot key loads");
 }
 
 #[test]

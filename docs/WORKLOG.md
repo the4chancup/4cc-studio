@@ -17,7 +17,7 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1 and 5.2d2 done 2026-10-14; then 5.2d2-r1, the mutants-diff 5c1f637 tests, 5.0m4
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2 and 5.2d2-r1 done 2026-10-14; then 5.0m4
 and 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
@@ -34,6 +34,9 @@ once an hour; work continues past it, but no phase closes with one outstanding.
 R12.A1 over `1ba5b0e..5743d9e` (5.2b1's reworks; `aatf_rules.md` "The host"); and one over
 5.2c1, 5.2c2 and their reworks, `79da9be..ec035a3` (`aatf_rules.md` "The rules file",
 "Loading and validation", "The host"; SWE-2 rulings C1, C2 in `.tmp/5_2/duck_rulings.md`).
+And a third: the interpreter, `3b4b10e..` the 5.2d2-r1 commit (5.2c3, 5.2d, 5.2e's two data
+blocks, the Red CBs fix, 5.2c3-r1, 5.2d2, 5.2d2-r1; `aatf_rules.md` "The ruleset schema", "The interpreter", "The host";
+SWE-2 rulings `.tmp/parallel/aatf/rulings_as1.md`, `.tmp/5_2/rulings_as2.md`).
 Phase 3 closed with its reviews queued (the maintainer's
 directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20 rounds
 (map `.tmp/lead/review_queue.md`, briefs `.tmp/duck_brief_S*.md`, rulings
@@ -895,7 +898,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `978a33b`): `apply_tier` then `check_team` reports nothing for every official tier (the
     Green silver giant and the Red manlet included); VTL11's name colour, a `QUESTIONS.md`
     entry, answered 2026-10-14 by a tier field (step 5.2d2)
-  - [~] 5.2d2 the schema fields step 20.0a and VTL11's name colour added (`aatf_rules.md` "The
+  - [x] 5.2d2 the schema fields step 20.0a and VTL11's name colour added (`aatf_rules.md` "The
     ruleset schema", "The host", the violation kinds): `Tier::name_color` with its check and
     `apply_tier`'s write; `Condition::ranges`, `strong_foot`, `any`; `Effects::form` and
     `injury_resistance`; the accessors `player.strong_foot` and `team.formation`; briefed
@@ -907,11 +910,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     Landed 2026-10-14 (SWE-2, first attempt; lead fix: `Effects::form`'s doc). Review AS2
     (SWE-2): 4 of 6 accepted (`.tmp/5_2/rulings_as2.md`), so the SWE-2 loop ends after its
     rework; then Astra over 5.2c3, 5.2d and 5.2d2 (Handover)
-    - [ ] 5.2d2-r1 AS2's rework: the `ranges` rows for `weight`, `injury_resistance`,
+    - [x] 5.2d2-r1 AS2's rework: the `ranges` rows for `weight`, `injury_resistance`,
       `weak_foot_usage`, `weak_foot_accuracy`; one `raised_target` helper for the form and
       injury-resistance targets; the `name_color` row of `bad_proposal_field_values_are_schema`;
       a present `weak_foot` names both halves (plan, decision 2026-10-14) → done when: each
-      has its red-first test
+      has its red-first test. Done 2026-10-14 (SWE-2,
+      with the five tests `just mutants-diff 5c1f637` asked for in `music_export` and the Save
+      editor: rulings `.tmp/lead/mutants_5c1f637_rulings.md`; one equivalent excluded in
+      `.cargo/mutants.toml`, `StartOffset::parse`'s dead arm removed)
   - [ ] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27, VTL11 and VTL10 data blocks and their
     fixtures → done when: the plan's per-ruleset fixtures pass. Autumn 25 and Spring 26 landed
     2026-10-14 (side-lead, `0aceb0b`: the sample team, a real team built under Spring 26,

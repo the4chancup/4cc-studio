@@ -99,8 +99,8 @@ fn tier_values(player, tier, team) {
     let weak_foot = weak_foot_of(t, p);
     #{
         stats: targets(t, p),
-        form: form_target(t, p),
-        injury_resistance: injury_resistance_target(t, p),
+        form: raised_target(t, p, "form"),
+        injury_resistance: raised_target(t, p, "injury_resistance"),
         weak_foot: #{ usage: num(weak_foot, "usage"), accuracy: num(weak_foot, "accuracy") },
     }
 }
@@ -426,12 +426,8 @@ fn weak_foot_of(tier, p) {
     if p.weak_foot != () { p.weak_foot } else { table(tier, "weak_foot") }
 }
 
-// The tier's form target plus the specials' `form` effects.
-fn form_target(tier, p) { num(tier, "form") + p.form }
-
-// The tier's injury-resistance limit plus the specials'
-// `injury_resistance` effects.
-fn injury_resistance_target(tier, p) { num(tier, "injury_resistance") + p.injury_resistance }
+// The tier's `key` value plus the specials' effects of the same key.
+fn raised_target(tier, p, key) { num(tier, key) + num(p, key) }
 
 // The name-colour codes the tiers set (empty when none does).
 fn name_colors() {
@@ -585,11 +581,11 @@ fn player_checks(team, system, player, tier, p) {
             });
         }
     }
-    let form = form_target(tier, p);
+    let form = raised_target(tier, p, "form");
     if misses(at_most, "form", player.form, form) {
         found.push(#{ kind: "Form", slot: slot, value: player.form, target: form });
     }
-    let injury_resistance = injury_resistance_target(tier, p);
+    let injury_resistance = raised_target(tier, p, "injury_resistance");
     if misses(at_most, "injury_resistance", player.injury_resistance, injury_resistance) {
         found.push(#{
             kind: "InjuryResistance", slot: slot, value: player.injury_resistance,
@@ -687,7 +683,7 @@ fn suggestions(tier, p, player, cards) {
                 found.push(unused(slot, allowance, player.weak_foot_accuracy, accuracy));
             }
         } else if allowance == "injury_resistance" {
-            let target = injury_resistance_target(tier, p);
+            let target = raised_target(tier, p, "injury_resistance");
             if player.injury_resistance < target {
                 found.push(unused(slot, allowance, player.injury_resistance, target));
             }

@@ -47,18 +47,18 @@ fn fires(rules: &Rules, team: &TeamView, slot: u8, label: &str) -> bool {
     })
 }
 
-/// A special replacing `weak_foot` in part only (`weak_foot: #{ usage: 4 }`
-/// keeps no `accuracy`) lists the usage suggestion without a `CheckError`:
-/// the `suggestions` branch reads the limits through `num`, as the check does.
+/// The weak-foot suggestion reads the special's limits, not the tier's:
+/// a `weak_foot` replacement raising usage to 4 reports the player's 2
+/// as unused.
 #[test]
-fn a_partial_weak_foot_effect_reports_the_suggestion() {
+fn a_specials_weak_foot_limits_report_the_suggestion() {
     let rules = rules(
         "const RULESET = #{
             schema: 1, name: \"x\", squad_size: 23,
             universal: #{ max_skill_cards: 10 },
             tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77,
                         weak_foot: #{ usage: 2, accuracy: 2 } }],
-            specials: [#{ label: \"four-four\", then: #{ weak_foot: #{ usage: 4 } } }],
+            specials: [#{ label: \"four-four\", then: #{ weak_foot: #{ usage: 4, accuracy: 2 } } }],
             suggestions: [\"weak_foot\"],
         };",
     );
@@ -107,6 +107,30 @@ fn a_special_fires_through_ranges() {
     let below =
         probe("#{ label: \"in\", when: #{ ranges: #{ form: [1, 7] } }, then: #{ forbid: \"x\" } }");
     assert!(!fires(&below, &team, 3, "in"));
+    // The four other `PlayerValue` names read their accessors, same
+    // shape: `[v, v]` fires, `[v + 1, 99]` does not.
+    for (name, value) in [
+        ("weight", 72),
+        ("injury_resistance", 2),
+        ("weak_foot_usage", 3),
+        ("weak_foot_accuracy", 3),
+    ] {
+        let team = view_edited(3, |p| match name {
+            "weight" => p.weight = value,
+            "injury_resistance" => p.injury_resistance = value,
+            "weak_foot_usage" => p.weak_foot_usage = value,
+            _ => p.weak_foot_accuracy = value,
+        });
+        let inside = probe(&format!(
+            "#{{ label: \"in\", when: #{{ ranges: #{{ {name}: [{value}, {value}] }} }}, then: #{{ forbid: \"x\" }} }}"
+        ));
+        assert!(fires(&inside, &team, 3, "in"), "{name}");
+        let above = probe(&format!(
+            "#{{ label: \"in\", when: #{{ ranges: #{{ {name}: [{}, 99] }} }}, then: #{{ forbid: \"x\" }} }}",
+            value + 1
+        ));
+        assert!(!fires(&above, &team, 3, "in"), "{name}");
+    }
     // `physical_contact` is a stat the sample team's PES 15 lacks: `()`
     // fails the range for every player.
     let missing = probe(

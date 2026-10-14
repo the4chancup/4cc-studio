@@ -1931,3 +1931,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — FoxDen session 3 on PES 2019's stock exe: its own build stays proxy-only (no
   static dinput8 import), the relaxed copy dies at its first Lua string call; the kit-swapper
   script still untested. Game, exe and saves restored by hash.
+- **2026-10-14** — Step 5.2d2-r1: AS2's rework (a present `weak_foot` names both halves; one
+  helper for the raised targets; the untested `ranges` names), with the five assertions
+  `mutants-diff 5c1f637` found missing in `music_export` and the Save editor.

@@ -144,6 +144,27 @@ mod tests {
         );
     }
 
+    /// A cup-range team named with a leading slash only (`/backup`, no
+    /// trailing one) is not slash-wrapped: it does not fold to `/backup/`,
+    /// which a later team actually called `/backup/` takes.
+    #[test]
+    fn a_leading_slash_without_a_trailing_one_is_not_listed() {
+        let mut file =
+            EditFile::from_bytes(&pes_savefile::fixture_save(pes_version::PesVersion::Pes21))
+                .unwrap();
+        file.team_mut(707).unwrap().name = "/backup".to_owned();
+        file.team_mut(708).unwrap().name = "/backup/".to_owned();
+        let (list, duplicates) = from_save(&file);
+        assert_eq!(
+            list.id_of(&TeamName::new("/backup/").unwrap()),
+            Some(TeamId::new(708).unwrap())
+        );
+        assert!(
+            duplicates.iter().all(|duplicate| duplicate.team != 708),
+            "{duplicates:?}"
+        );
+    }
+
     #[test]
     fn a_missing_file_loads_as_the_upstream_list() {
         let dir = std::env::temp_dir().join("save_editor_teams_list");

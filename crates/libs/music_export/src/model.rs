@@ -405,7 +405,6 @@ impl StartOffset {
             return None;
         }
         let scale = match fraction.len() {
-            0 => 0,
             1 => 100,
             2 => 10,
             _ => 1,
@@ -510,6 +509,7 @@ mod tests {
         assert!(Comparison::Ne.holds(1, 2));
         assert!(Comparison::Ge.holds(3, 2));
         assert!(!Comparison::Gt.holds(2, 3));
+        assert!(!Comparison::Gt.holds(2, 2));
         assert!(Comparison::Eq.holds(-1, -1));
     }
 

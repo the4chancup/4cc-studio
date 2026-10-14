@@ -165,6 +165,19 @@ mod tests {
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
+    /// A name whose only dot is its first byte (`.intro`) has no
+    /// extension: its companion is `.intro_normalized`, not
+    /// `_normalized.intro`.
+    #[test]
+    fn a_leading_dot_name_is_no_extension() {
+        let dir = temp_dir("dotfile", &[(".intro_normalized", b"normalized")]);
+        assert_eq!(
+            resolved(&dir, ".intro", true).as_deref(),
+            Some(".intro_normalized")
+        );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
     #[test]
     fn a_missing_plain_file_falls_back_to_the_normalized_companion() {
         let dir = temp_dir("gone", &[("gone_normalized.mp3", b"gone")]);

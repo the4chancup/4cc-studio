@@ -134,15 +134,14 @@ pub struct Tier {
     pub name_color: Option<String>,
 }
 
-/// A weak-foot target (usage and accuracy).
+/// A weak-foot target (usage and accuracy). A present `weak_foot` names
+/// both halves: a missing one would cap it at 0, below the game's 1.
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WeakFoot {
     /// Weak foot usage.
-    #[serde(default)]
     pub usage: u8,
     /// Weak foot accuracy.
-    #[serde(default)]
     pub accuracy: u8,
 }
 
