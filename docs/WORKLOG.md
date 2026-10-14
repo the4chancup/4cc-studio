@@ -34,6 +34,10 @@ once an hour; work continues past it, but no phase closes with one outstanding.
 ran on the brother's Codex slot on 2026-10-14, both loops ending. Left: the interpreter, `3b4b10e..` the 5.2d2-r1 commit (5.2c3, 5.2d, 5.2e's two data
 blocks, the Red CBs fix, 5.2c3-r1, 5.2d2, 5.2d2-r1; `aatf_rules.md` "The ruleset schema", "The interpreter", "The host";
 SWE-2 rulings `.tmp/parallel/aatf/rulings_as1.md`, `.tmp/5_2/rulings_as2.md`).
+And P.A1, 5.4a5-6 (`git diff 41395af 7abd220 -- crates Cargo.toml`; brief
+`.tmp/5_4/duck_brief_P_a1.md`, SWE-2 round S1 in `.tmp/5_4/duck_rulings.md`): both Devin Pro
+slots refused it on 2026-10-14 (a quota stop, then an internal error twice), so Codex after the
+interpreter.
 Phase 3 closed with its reviews queued (the maintainer's
 directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20 rounds
 (map `.tmp/lead/review_queue.md`, briefs `.tmp/duck_brief_S*.md`, rulings

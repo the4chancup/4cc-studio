@@ -7634,3 +7634,19 @@ on its save and its window title follows its language, so the process name is th
 mark; the CLI needs a one-shot probe before the GUI's poll exists, and the poll reuses it.
 Plan: `plans/core/architecture.md` "Crate structure" (the running-PES probe) and "Event system"
 (a command's result text).
+
+## 2026-10-14 — save_editor — how `check-aatf` prints a violation, its setting and `--teams`
+Decision: one finding line per violation, code `aatf_violation`, at the violation's severity, its
+context the team, the player's id (a player's violation), `rule` (the `ViolationKind` name as a
+rules file writes it) and the kind's fields by their rules-file labels; suggestions are not
+printed; a team whose `check_team` fails is an `aatf_check_failed` error line and the run goes on;
+`--teams` ids and ranges, an id the save lacks refused; the setting key `aatf_rules`, empty for the
+embedded official file.
+Why: one code with the rule as context, not one code per kind, because the kinds are `aatf`'s and
+a second list of 32 codes in the tool would drift from it, while the context already names the
+rule; the console prints a finding's code and context, so the line reads like the tool's other
+findings. Suggestions are a GUI toggle, off by default, and the CLI has no flag for it. A failed
+team stops nothing else: the other teams' results are still true, and the failure is a bug the
+line names. Rules-file labels (`CF`, `dribbling`) because the reader of the line is the person
+who wrote or edits the rules file.
+Plan: `plans/save_editor.md` "CLI", the `check-aatf` bullet.

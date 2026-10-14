@@ -1,0 +1,140 @@
+# `official_legal.toml` with two heights changed: the goalkeeper in slot 01 at 194 cm, which the
+# official ruleset reports as a warning ("Goalkeepers below giant"), and slot 02 at 185 cm, a
+# tall player again, so the bracket quotas still hold. Imported onto pes_savefile's PES 15 fixture
+# save, team 714 reports that warning and nothing else.
+pes_version = 15
+
+[team]
+id = 714
+
+[players.01]
+height = 194
+
+[players.01.stats]
+attacking_prowess = 77
+ball_control = 77
+dribbling = 77
+low_pass = 77
+lofted_pass = 77
+finishing = 77
+heading = 77
+place_kicking = 77
+swerve = 77
+defensive_prowess = 77
+ball_winning = 77
+kicking_power = 77
+speed = 77
+explosive_power = 77
+body_control = 77
+jump = 77
+stamina = 77
+goalkeeping = 77
+catching = 77
+
+[players.02]
+height = 185
+
+[players.06.stats]
+attacking_prowess = 89
+ball_control = 89
+dribbling = 89
+low_pass = 89
+lofted_pass = 89
+finishing = 89
+heading = 89
+place_kicking = 89
+swerve = 89
+defensive_prowess = 89
+ball_winning = 89
+kicking_power = 89
+speed = 89
+explosive_power = 89
+body_control = 89
+jump = 89
+stamina = 89
+goalkeeping = 89
+catching = 89
+
+[players.10.stats]
+attacking_prowess = 86
+ball_control = 86
+dribbling = 86
+low_pass = 86
+lofted_pass = 86
+finishing = 86
+heading = 86
+place_kicking = 86
+swerve = 86
+defensive_prowess = 86
+ball_winning = 86
+kicking_power = 86
+speed = 86
+explosive_power = 86
+body_control = 86
+jump = 86
+stamina = 86
+goalkeeping = 86
+catching = 86
+
+[players.11.stats]
+attacking_prowess = 92
+ball_control = 92
+dribbling = 92
+low_pass = 92
+lofted_pass = 92
+finishing = 92
+heading = 92
+place_kicking = 92
+swerve = 92
+defensive_prowess = 92
+ball_winning = 92
+kicking_power = 92
+speed = 92
+explosive_power = 92
+body_control = 92
+jump = 92
+stamina = 92
+goalkeeping = 92
+catching = 92
+
+[players.12.stats]
+attacking_prowess = 77
+ball_control = 77
+dribbling = 77
+low_pass = 77
+lofted_pass = 77
+finishing = 77
+heading = 77
+place_kicking = 77
+swerve = 77
+defensive_prowess = 77
+ball_winning = 77
+kicking_power = 77
+speed = 77
+explosive_power = 77
+body_control = 77
+jump = 77
+stamina = 77
+goalkeeping = 77
+catching = 77
+
+[players.21.stats]
+attacking_prowess = 86
+ball_control = 86
+dribbling = 86
+low_pass = 86
+lofted_pass = 86
+finishing = 86
+heading = 86
+place_kicking = 86
+swerve = 86
+defensive_prowess = 86
+ball_winning = 86
+kicking_power = 86
+speed = 86
+explosive_power = 86
+body_control = 86
+jump = 86
+stamina = 86
+goalkeeping = 86
+catching = 86

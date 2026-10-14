@@ -568,7 +568,15 @@ The commands:
   the player, as the AATF panel
   lists them; an error-severity violation makes the exit code 1, a warning alone leaves it 0. A rules file that fails load-time validation is
   refused with its findings (line or key path), so `check-aatf` doubles as the CLI's rules
-  validation.
+  validation. Each violation is one finding line, `aatf_violation`, at the violation's severity:
+  the team, the player's id for a player's violation, the rule (the violation's kind as a rules
+  file names it, `FieldedNotA`) and the kind's own fields in their rules-file spelling
+  (`position=CF`, `stat=dribbling`), teams in id order, each team's lines in the order its check
+  returns them. Suggestions are not printed: the CLI has no "Show suggestions" toggle, and an
+  unused allowance is not something to fix. A team whose check fails (a bug in the logic or in a
+  custom check) is an `aatf_check_failed` error line and the other teams are still checked.
+  `--teams` takes ids and inclusive ranges (`701,705-710`); an id the save lacks is refused
+  (exit 2). The setting is `aatf_rules`, the file's path, empty for the embedded official ruleset.
 - `strip-and-seed` is "Stripped save"'s operation on a Fox save: it reads `--bins` (the cup's
   `4cc_08_bins.cpk`) and writes the seeded tables into `--bins-out`, then the stripped save into
   `--out`: when `--bins-out` cannot be written, the save is not (exit 3); a `--bins-out` written
