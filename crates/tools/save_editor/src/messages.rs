@@ -87,6 +87,10 @@ pub(crate) enum Code {
     /// `check-stripped --strip-again` to strip him again (`player`, `name`). Error while the
     /// id stands, Info once `--strip-again` has stripped him.
     AppearanceIdRestored,
+    /// `strip-and-seed`: the player's record copied another player's face, which the seed
+    /// rows cannot carry, so once stripped he shows the face his row describes; his export
+    /// describing his face settles it (`player`, `name`, `copied`).
+    StripBaseCopiedFace,
 }
 
 /// Which of `diff`'s two saves a finding is about, as the console names them.
@@ -139,6 +143,7 @@ impl Code {
             Code::AatfViolation => "aatf_violation",
             Code::AatfCheckFailed => "aatf_check_failed",
             Code::AppearanceIdRestored => "appearance_id_restored",
+            Code::StripBaseCopiedFace => "strip_base_copied_face",
         }
     }
 
@@ -164,7 +169,8 @@ impl Code {
             | Code::ImportValueCapped
             | Code::ImportSlotEmpty
             | Code::TransplantTargetStripped
-            | Code::TransplantDonorStripped => Severity::Warning,
+            | Code::TransplantDonorStripped
+            | Code::StripBaseCopiedFace => Severity::Warning,
             // A skipped team or player is an error and the rest is written (the plan's
             // `apply-patch`: exit 1); so is a dropped teams-list change and a list that
             // cannot be written (`export-teams-list`: exit 1).
@@ -308,6 +314,21 @@ pub(crate) fn appearance_id_restored(player: &PlayerEntry, severity: Severity) -
     );
     message.severity = severity;
     message
+}
+
+/// The message for one player `strip-and-seed` stripped whose record copied player
+/// `copied`'s face and hair: the seed rows hold no base-copy id, so he loses the copied
+/// face and shows the one his row describes. His export describing his face settles it:
+/// the compiled rows replace his seed.
+pub(crate) fn strip_base_copied_face(player: &PlayerEntry, copied: u32) -> Message {
+    message(
+        Code::StripBaseCopiedFace,
+        vec![
+            ("player", player.id.to_string()),
+            ("name", player.name.clone()),
+            ("copied", copied.to_string()),
+        ],
+    )
 }
 
 /// A violation's rule: its kind as a rules file writes it (`FieldedNotA`) and the kind's

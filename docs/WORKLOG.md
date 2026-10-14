@@ -37,8 +37,8 @@ after it accepted 1 of 3 (`.tmp/5_4/duck_rulings.md`): that surface is closed. T
 review I.A1 (`3b4b10e..` the 5.2d2-r1 commit; `aatf_rules.md` "The ruleset schema", "The
 interpreter", "The host") accepted all seven concerns (`.tmp/5_2/duck_rulings.md`), reworked in
 step 5.2i-r1; SWE-2 round I.S1 after it accepted 3 of 5 (step 5.2i-r2); Astra I.A2 over
-`adcc070..263a33f` accepted 4 of 4 (step 5.2i-r3), so the Astra loop ends there and a SWE-2
-round follows the rework. Session handover:
+`adcc070..263a33f` accepted 4 of 4 (step 5.2i-r3), so the Astra loop ends there; SWE-2 round
+I.S2 after the rework accepted 2 of 3 (step 5.2i-r4), which ends the loop. Session handover:
 `.tmp/lead/handover_2026-10-14.md`.
 Phase 3 closed with its reviews queued (the maintainer's
 directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20 rounds
@@ -1017,6 +1017,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       overridden replacement and a `free_cards` option at the limit; the r1b test renamed
       (brief `.tmp/5_2/brief_5_2i_r3.md`, after 5.4c1b: the Save editor builds on `aatf`); then
       SWE-2 round I.S2
+    - [ ] 5.2i-r4 SWE-2 round I.S2's two accepted (`.tmp/5_2/duck_rulings.md` "I.S2", 2 of 3,
+      so the review loop on the interpreter ends here): a `stat_bonus` option is used when a
+      stat it raises is over its own target (the rating comparison missed a stat whose tier
+      override sits below the rate, VGL26's silver place kicking); the raise test pinned for
+      `free`, `a_positions`, `stat_bonus` and `max_a_positions` (brief
+      `.tmp/5_2/brief_5_2i_r4.md`, after 5.4c2) → done when: the new tests pass, each red
+      without its fix
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;
@@ -1088,8 +1095,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         `tests/cli/strip.rs` SE-STR-01 to 06, SE-STR-01 on PES 21, 18 and 19. A table
         `--bins` lacks is appended without a timestamp (a fully stamped CPK then loses its
         ETOC; the game reads none, suite CPKs carry none). Open: SE-CLI-02 by hand
-    - [ ] 5.4c2 the `strip_base_copied_face` warning (plan "Stripped save": a base-copy id
+    - [x] 5.4c2 the `strip_base_copied_face` warning (plan "Stripped save": a base-copy id
       other than 0 and the player's own, the face flag ignored) → done when: SE-STR-07 passes.
+      `SeedRow::base_copy`, the code and its message, reported once `--out` is written, a help
+      sentence; SE-STR-07 on the PES 21 fixture (5,036 warnings). `save_editor` `session/`,
+      `messages.rs`, `cli.rs`, help, `tests/cli/strip.rs`.
       manual: checked 2026-10-15, PES 21 Edit mode (`.tmp/ingame/face_check/`): a stripped
       base-copied player shows Placeholder; the copied face shows with the face flag clear too
 - [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through

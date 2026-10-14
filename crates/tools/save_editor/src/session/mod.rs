@@ -44,6 +44,14 @@ pub(crate) struct SeedRow {
     pub boots: u32,
     /// His gloves ID, the `GloveList.bin` pair's value little-endian.
     pub gloves: u32,
+    /// The player his appearance block copies the face and hair from (`None` for a
+    /// base-copy id of 0 or his own id, which both mean no base copy). The row carries
+    /// no base-copy id, so once stripped he loses the copied face: `strip-and-seed`
+    /// warns for each (`plans/save_editor.md` "Stripped save"). The record's face edit
+    /// flag plays no part: in PES 21 Edit mode (2026-10-15) the game drew the copied
+    /// face with the flag clear as with it set, and over a face model of the player's
+    /// own.
+    pub base_copy: Option<u32>,
 }
 
 impl Session {
@@ -153,11 +161,13 @@ impl Session {
             if is_stripped(&self.file, player.id) {
                 continue;
             }
+            let copied = player.appearance.base_copy_id;
             rows.push(SeedRow {
                 player: player.id,
                 row: self.file.appearance_row(player.id)?,
                 boots: player.appearance.boots_id,
                 gloves: player.appearance.gloves_id,
+                base_copy: (copied != 0 && copied != player.id).then_some(copied),
             });
         }
         Ok(rows)

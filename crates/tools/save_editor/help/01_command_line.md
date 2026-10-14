@@ -96,7 +96,9 @@ of `--bins` (the cup's `4cc_08_bins.cpk`), written to `--bins-out`, then sets ev
 appearance id to -1 and writes `--out`. A player already at -1 keeps the rows the tables
 hold for him, and a table `--bins` does not hold is created. Every other file of the CPK is
 copied over unchanged. Run it once when the cup moves to a new PES version, on a save
-holding the looks the cup ships; stripping then changes nobody's look. A PES 15 to 17 save
+holding the looks the cup ships; stripping then changes nobody's look. Each stripped
+player whose face was copied from another player is a `strip_base_copied_face` warning,
+because the tables cannot carry the copy. A PES 15 to 17 save
 is refused: the database route is untested there. When `--bins-out` cannot be written the
 command fails with exit code 3 and the save is not written; the exit code is 0 otherwise.
 

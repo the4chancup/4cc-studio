@@ -843,12 +843,13 @@ SE-STR-06  GIVEN the PES 21 fixture save with one player's appearance id at -1, 
            THEN --bins-out holds PlayerAppearance.bin, BootsList.bin and GloveList.bin with a
                 row per other player built from his record, as in SE-STR-01, and none for the
                 stripped one; the CPK's other files are unchanged
-SE-STR-07  GIVEN the PES 21 fixture save, every player's base-copy id 7511 with his face edit
-                flag clear, but one player's id set to his own and another's to 0
+SE-STR-07  GIVEN the PES 21 fixture save, whose players copy player 7511 with the face edit
+                flag clear but for team 795's, which copy their own ids, with one copying
+                player's id set to 0
            WHEN strip-and-seed is run
-           THEN every player is stripped and seeded as in SE-STR-01; each but those two gets a
-                strip_base_copied_face warning naming him and player 7511, the two none; the
-                exit code is 0
+           THEN every player is stripped and seeded as in SE-STR-01; each player copying 7511
+                gets one strip_base_copied_face warning naming him and player 7511, team 795's
+                and the one at 0 none; the exit code is 0
 ```
 
 **Teams list**

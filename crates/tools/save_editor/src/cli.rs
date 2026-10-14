@@ -21,7 +21,7 @@ use studio_core::{CliError, RunningPes, Severity, ToolContext, running_pes};
 use crate::events::Report;
 use crate::messages::{
     Code, TOOL_ID, aatf_check_failed, aatf_violation, appearance_id_restored, import_note, message,
-    patch_skip, stripped_mark,
+    patch_skip, strip_base_copied_face, stripped_mark,
 };
 use crate::session::Session;
 use crate::{diff, settings, teams_list};
@@ -532,7 +532,7 @@ fn parse_teams(text: &str) -> Result<Vec<u32>, String> {
 /// "Stripped save"): a refusal of the save or of `--bins` writes nothing, and an
 /// unwritable `--bins-out` leaves `--out` unwritten (a seeded CPK beside an unstripped save
 /// changes no look: the records still decide).
-fn strip_and_seed(args: &StripAndSeedArgs, _report: &mut Report) -> Result<(), CliError> {
+fn strip_and_seed(args: &StripAndSeedArgs, report: &mut Report) -> Result<(), CliError> {
     let mut session = open(&args.base)?;
     refuse_pre_fox(session.version())?;
     refuse_while_running(&running_pes(), session.version())?;
@@ -556,7 +556,19 @@ fn strip_and_seed(args: &StripAndSeedArgs, _report: &mut Report) -> Result<(), C
         &gloves,
     )?;
     session.strip(&seed.iter().map(|row| row.player).collect::<Vec<_>>());
-    write_save(&session, &args.out)
+    write_save(&session, &args.out)?;
+    // Only once the strip is on disk: a base-copied face the seed rows cannot carry is
+    // lost, and the warning is about the strip that happened.
+    for row in &seed {
+        if let Some(copied) = row.base_copy {
+            let player = session
+                .file()
+                .player(row.player)
+                .expect("the seed's own ids");
+            report.message(strip_base_copied_face(player, copied));
+        }
+    }
+    Ok(())
 }
 
 /// `check-stripped`: each player whose appearance id came back is one

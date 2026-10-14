@@ -348,3 +348,50 @@ fn tables_the_bins_lacks_are_created_from_the_seed() {
         .unwrap();
     assert_eq!(archive.read(&entry).unwrap(), b"unicolor");
 }
+
+// SE-STR-07
+#[test]
+fn each_base_copied_face_is_one_warning_once_stripped() {
+    let sandbox = Sandbox::new("strip_seed_base_copy");
+    // The PES 21 fixture's players copy 7511 with the face edit flag clear, but for team
+    // 795's, which copy their own ids; one copying player is set to 0 through the lib.
+    let mut input = EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+    let cleared = input
+        .players()
+        .iter()
+        .find(|player| player.appearance.base_copy_id == 7511)
+        .unwrap()
+        .id;
+    input.player_mut(cleared).unwrap().appearance.base_copy_id = 0;
+    fs::write(sandbox.path("EDIT"), input.to_bytes(&TEST_SALT).unwrap()).unwrap();
+    // The warnings do not depend on the CPK's rows: its tables are created from the seed.
+    write_cpk(&sandbox.path("BINS"), &[(UNI_COLOR, b"unicolor".to_vec())]);
+
+    let run = sandbox.strip_and_seed("EDIT", "BINS", "OUT", "BINS_OUT");
+    assert_eq!(run.exit_code(), 0, "{:?}", run.messages());
+
+    // One warning per player whose record copies 7511; team 795's, who copy their own
+    // ids, and the one set to 0 get none.
+    let warnings: Vec<String> = input
+        .players()
+        .iter()
+        .filter(|player| player.appearance.base_copy_id == 7511)
+        .map(|player| {
+            format!(
+                "Warning strip_base_copied_face (player={}, name={}, copied=7511)",
+                player.id, player.name
+            )
+        })
+        .collect();
+    assert_eq!(run.messages(), warnings);
+
+    // The seed and the strip are SE-STR-01's: no player is pre-stripped (u32::MAX is no
+    // player), so every record seeds a row and every id goes to -1.
+    assert_seeded(&sandbox.path("BINS_OUT"), &input, u32::MAX, None);
+    let expected = payload_after(&sandbox.path("EDIT"), |file| {
+        for player in file.players_mut() {
+            player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
+        }
+    });
+    assert_eq!(payload(&sandbox.path("OUT")), expected);
+}

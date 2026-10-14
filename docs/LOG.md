@@ -1997,3 +1997,5 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 20.0c: the Ruleset editor draft has every embedded ruleset as a template, the
   load rules of `check.rs` as live problems, and a "Clouds' proposal" template using all 30
   rows of the coverage table; its block loads and runs in `check-aatf`.
+- **2026-10-15** — 5.4c2: `strip-and-seed` warns `strip_base_copied_face` for each stripped
+  player whose base-copy id is neither 0 nor his own, once the save is written (SE-STR-07).
