@@ -977,7 +977,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     paragraph on the support settings; in-game, so ask the maintainer before taking focus; back
     up the saves first): toggle it on one team in Edit mode, save, and diff the EDIT file and
     the SYSTEM file against their backups; then toggle the team's other support settings one at
-    a time the same way, to name the three bytes `TeamAutoFlags` reads. Then the four rulesets
+    a time the same way, to name the three bytes `TeamAutoFlags` reads. The 4cc wiki's Edit-file
+    page (`resources/Editfile.wikitext`, each version's "Team Game Plan" table) calls the byte
+    "Auto change Preset Tactics" (PES 16 at +0x204), against the inference: so the check also
+    tells whether that in-game option is the "switch preset tactic" managers keep on, or a
+    different one. Then the four rulesets
     (VGL26, VGL27 require it on; VTL10, VTL11 off) keep the rule on the right byte, or drop it
     when the setting is not per team → done when: the byte (or "not in the EDIT file") is
     measured and written in `pes_savefile`'s model plan, and each of the four data blocks
