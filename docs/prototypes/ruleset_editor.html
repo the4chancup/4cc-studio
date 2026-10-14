@@ -222,13 +222,563 @@ const CUSTOM_SAMPLE = `fn custom_checks(team) {
     []
 }`;
 
-function tier(id, label, count, rate, form, injury, weakFoot, cards, free) {
-  return { id, label, count, counts_as: null, when: {}, rate, stats: {}, form,
-    injury_resistance: injury, weak_foot: { usage: weakFoot, accuracy: weakFoot }, cards,
-    min_cards: 0, free, a_positions: 1, name_color: null };
+// ---- The embedded templates: crates/libs/aatf/rulesets/*.rhai, "Embedded rulesets" order ----
+// crates/libs/aatf/rulesets/spring26.rhai
+const SPRING26 = {
+  schema: 1, name: "Spring 26", squad_size: 23,
+  stats: clone(AUTUMN26.stats),
+  tiers: [
+    tier("gold", "Gold", 2, 99, 8, 3, { usage: 2, accuracy: 4 }, 5, { tricks: 3, com: 2 }),
+    tier("silver", "Silver", 3, 88, 8, 3, { usage: 2, accuracy: 4 }, 4, { tricks: 3, com: 1 }),
+    tier("goalkeeper", "Goalkeeper", null, 74, 4, 1, 2, 2, {},
+      { counts_as: "regular", when: { positions: ["GK"] } }),
+    tier("regular", "Regular", null, 77, 4, 1, 2, 3, { tricks: 2 }),
+  ],
+  card_groups: clone(AUTUMN26.card_groups),
+  heights: {
+    brackets: clone(AUTUMN26.heights.brackets),
+    systems: [
+      { id: "green", label: "Green", any_player: { height_min: 194 },
+        quotas: { giga: 0, giant: 5, tall: 6, mid: 6, manlet: 6 } },
+      { id: "red", label: "Red", any_player: null,
+        quotas: { giga: 0, giant: 0, tall: 10, mid: 7, manlet: 6 } },
+    ],
+  },
+  universal: clone(AUTUMN26.universal),
+  specials: [
+    special("Malicia is a free card", {}, { free_cards: ["malicia"] }),
+    special("The captain's Captaincy card is free", { captain: true }, { free_cards: ["captaincy"] }),
+    special("Medals cannot be goalkeepers", { tiers: ["gold", "silver"], positions: ["GK"] },
+      { forbid: "Medals cannot play as GK" }),
+    special("Goalkeepers at 189 count as tall", { positions: ["GK"], height_min: 189, height_max: 189 },
+      { height_allowance: 4 }),
+    special("Tall goalkeepers are 189", { positions: ["GK"], height_min: 181, height_max: 188 },
+      { forbid: "GKs in this bracket must be 189cm" }),
+    special("Goalkeepers below giant", { positions: ["GK"], height_min: 194 },
+      { forbid: "GK heights cannot be 194cm or more" }, "warning"),
+    special("Gold below giant", { tiers: ["gold"], height_min: 194 },
+      { forbid: "Gold heights cannot be 194cm or more" }, "warning"),
+    special("Manlets", { brackets: ["manlet"] },
+      { cards: 1, a_positions: 1, weak_foot: { usage: 4, accuracy: 4 } }),
+    special("Red manlet bonus", { systems: ["red"], height_max: 175 },
+      { stat_bonus: { all: { regular: 5, goalkeeper: 5 } } }),
+  ],
+  team_settings: [],
+  suggestions: ["cards", "tricks", "com", "weak_foot", "injury_resistance"],
+  custom_checks: null,
+};
+
+// crates/libs/aatf/rulesets/vgl27.rhai
+const VGL27 = {
+  schema: 1, name: "VGL27", squad_size: 23,
+  stats: {
+    rating: ["dribbling", "goalkeeping", "low_pass", "lofted_pass", "swerve",
+      "catching", "clearing", "reflexes", "coverage", "body_control",
+      "physical_contact", "kicking_power", "explosive_power", "ball_control",
+      "ball_winning", "jump", "place_kicking", "stamina", "speed"],
+    at_most: ["attacking_prowess", "defensive_prowess", "weak_foot_usage",
+      "weak_foot_accuracy"],
+  },
+  tiers: [
+    tier("gold", "Gold", 1, 99, 8, 2, 4, 6, { tricks: 12, com: 1 },
+      { when: { not: { positions: ["GK"] } }, a_positions: 2 }),
+    tier("silver", "Silver", 2, 94, 8, 2, 4, 5, { tricks: 12, com: 1 },
+      { when: { not: { positions: ["GK"] } }, a_positions: 2 }),
+    tier("bronze", "Bronze", 2, 89, 8, 2, 4, 5, { tricks: 12, com: 1 },
+      { when: { not: { positions: ["GK"] } }, a_positions: 2 }),
+    tier("goalkeeper", "Goalkeeper", null, 77, 4, 1, 2, 4, { tricks: 12 },
+      { counts_as: "regular", when: { positions: ["GK"] } }),
+    tier("regular", "Regular", null, 77, 4, 1, 2, 4, { tricks: 12 },
+      { when: { not: { positions: ["GK"] } }, a_positions: 2 }),
+  ],
+  card_groups: {
+    tricks: ["scissors_feint", "double_touch", "flip_flap", "marseille_turn",
+      "sombrero", "crossover_turn", "cut_behind_and_turn", "scotch_move",
+      "step_on_skill", "rabona", "no_look_pass", "malicia"],
+  },
+  heights: {
+    brackets: [
+      { id: "manlet", label: "Manlet", exactly: [175] },
+      { id: "mid", label: "Mid", exactly: [180] },
+      { id: "tall", label: "Tall", exactly: [185] },
+      { id: "giant", label: "Giant", exactly: [190] },
+      { id: "colossal", label: "Colossal", exactly: [210] },
+    ],
+    systems: [
+      { id: "purple", label: "Purple", any_player: null,
+        quotas: { colossal: 0, giant: 0, tall: 10, mid: 7, manlet: 6 } },
+    ],
+  },
+  universal: {
+    registered_position_a: true, fielded_at_a: [1], no_b_ratings: true,
+    b_uses_a_allowance: false, gk_not_second_a: true, age: [15, 50],
+    weight: { floor: 30, below: 129, above: 81 }, captain_required: true,
+    min_goalkeepers: 1, max_skill_cards: 41, max_com_styles: null,
+  },
+  specials: [
+    special("The captain's Captaincy card is free, plus one card, COM style or A position",
+      { captain: true },
+      { free_cards: ["captaincy"], choice: [{ cards: 1 }, { free: { com: 1 } }, { a_positions: 1 }] }),
+    special("Goalkeepers at 189 count as tall", { positions: ["GK"], height_min: 189, height_max: 189 },
+      { height_allowance: 4 }),
+    special("Tall goalkeepers are 189", { positions: ["GK"], height_min: 185, height_max: 185 },
+      { forbid: "GKs in this bracket must be 189cm" }),
+    special("Manlets", { brackets: ["manlet"] },
+      { cards: 1, a_positions: 1, weak_foot: { usage: 4, accuracy: 4 } }),
+  ],
+  team_settings: [
+    tset("No man marking", { man_marking: false }),
+    tset("Support settings", { auto_substitution: false, auto_offside_trap: false,
+      auto_preset_change: false }),
+  ],
+  suggestions: ["cards", "com", "a_positions", "weak_foot", "free_cards"],
+  custom_checks: null,
+};
+
+// crates/libs/aatf/rulesets/vgl26.rhai
+const VGL26 = {
+  schema: 1, name: "VGL26", squad_size: 23,
+  stats: {
+    rating: ["dribbling", "goalkeeping", "low_pass", "lofted_pass", "swerve",
+      "catching", "clearing", "reflexes", "coverage", "body_control",
+      "physical_contact", "kicking_power", "explosive_power", "ball_control",
+      "ball_winning", "jump", "place_kicking", "stamina", "speed"],
+    at_most: ["attacking_prowess", "defensive_prowess", "weak_foot_usage",
+      "weak_foot_accuracy"],
+  },
+  tiers: [
+    tier("gold", "Gold", 1, 99, 8, 2, 4, 9, { tricks: 12, com: 2 },
+      { when: { height_min: 195, height_max: 195 },
+        stats: { place_kicking: 94, ball_winning: 94, defensive_prowess: 60 },
+        a_positions: 2 }),
+    tier("silver", "Silver", 2, 95, 8, 2, 4, 8, { tricks: 12, com: 2 },
+      { when: { height_min: 195, height_max: 195 },
+        stats: { attacking_prowess: 99, finishing: 99, heading: 99,
+          place_kicking: 90, ball_winning: 90, defensive_prowess: 60 },
+        a_positions: 2 }),
+    tier("bronze", "Bronze", 2, 91, 8, 2, 4, 8, { tricks: 12, com: 2 },
+      { when: { height_min: 190, height_max: 190 },
+        stats: { attacking_prowess: 96, finishing: 96, heading: 96,
+          place_kicking: 86, ball_winning: 86, defensive_prowess: 60 },
+        a_positions: 2 }),
+    tier("buffed", "Buffed", 8, 85, 4, 1, 4, 7, { tricks: 12, com: 1 },
+      { when: { height_min: 185, height_max: 185, not: { positions: ["GK"] } },
+        stats: { attacking_prowess: 90, aggression: 90, jump: 75,
+          stamina: 70, ball_winning: 65, defensive_prowess: 60 },
+        a_positions: 2 }),
+    tier("goalkeeper", "Goalkeeper", null, 72, 8, 1, 4, 5, { tricks: 12, com: 1 },
+      { counts_as: "regular", when: { positions: ["GK"] } }),
+    tier("regular", "Regular", 10, 80, 4, 1, 4, 6, { tricks: 12, com: 1 },
+      { when: { height_min: 180, height_max: 180 },
+        stats: { aggression: 90, jump: 80, defensive_prowess: 70, ball_winning: 70,
+          explosive_power: 70, goalkeeping: 72, catching: 72, clearing: 72,
+          reflexes: 72, coverage: 72, stamina: 65 },
+        a_positions: 2 }),
+  ],
+  card_groups: {
+    tricks: ["scissors_feint", "double_touch", "flip_flap", "marseille_turn",
+      "sombrero", "crossover_turn", "cut_behind_and_turn", "scotch_move",
+      "step_on_skill", "rabona", "no_look_pass", "malicia"],
+  },
+  heights: { brackets: [], systems: [] },
+  universal: {
+    registered_position_a: true, fielded_at_a: [1], no_b_ratings: true,
+    b_uses_a_allowance: false, gk_not_second_a: true, age: [15, 50],
+    weight: { floor: 30, below: 129, above: 81 }, captain_required: true,
+    min_goalkeepers: 1, max_skill_cards: 41, max_com_styles: null,
+  },
+  specials: [
+    special("Heading is a free card", {}, { free_cards: ["heading"] }),
+    special("The captain's Captaincy card and one more are free", { captain: true },
+      { free_cards: ["captaincy"], cards: 1 }),
+    special("Medals cannot be goalkeepers", { tiers: ["gold", "silver", "bronze"], positions: ["GK"] },
+      { forbid: "Medals cannot play as GK" }),
+    special("Goalkeepers are 185", { positions: ["GK"], not: { height_min: 185, height_max: 185 } },
+      { forbid: "GKs must be 185cm" }),
+  ],
+  team_settings: [
+    tset("No man marking", { man_marking: false }),
+    tset("Support settings", { auto_substitution: false, auto_offside_trap: false,
+      auto_preset_change: false }),
+    tset("No 3-4-3 formations", { forbidden_shapes: [[3, 4, 3]] }),
+  ],
+  suggestions: ["cards", "com", "a_positions", "weak_foot", "free_cards"],
+  custom_checks: null,
+};
+
+// crates/libs/aatf/rulesets/vtl11.rhai
+const VTL11 = {
+  schema: 1, name: "VTL11", squad_size: 23,
+  stats: { rating: ["clearing"], at_most: [] },
+  tiers: [
+    tier("gold", "Gold", 2, 99, 8, 1, 4, 7, { com: 3 },
+      { when: { height_min: 195, height_max: 195, ranges: { swerve: [99, 99] } },
+        stats: { place_kicking: 94, defensive_prowess: 65, ball_winning: 94,
+          speed: 94, physical_contact: 94, stamina: 94 },
+        min_cards: 3, a_positions: 2, name_color: "cc9900ff" }),
+    tier("silver", "Silver", 3, 89, 8, 1, 4, 7, { com: 2 },
+      { when: { height_min: 195, height_max: 195, ranges: { swerve: [89, 89] } },
+        stats: { attacking_prowess: 94, heading: 94, defensive_prowess: 57,
+          tight_possession: 94, aggression: 94 },
+        min_cards: 3, a_positions: 3, name_color: "51bbc4ff" }),
+    tier("regular", "Regular", 10, 77, 4, 1, 4, 7, { com: 1 },
+      { when: { height_min: 180, height_max: 180 },
+        stats: { attacking_prowess: 87, ball_control: 87, dribbling: 87,
+          low_pass: 87, lofted_pass: 92, finishing: 92,
+          place_kicking: 70, swerve: 87, defensive_prowess: 73,
+          ball_winning: 70, kicking_power: 87, physical_contact: 70,
+          jump: 70, catching: 70, reflexes: 73, coverage: 73,
+          stamina: 62, tight_possession: 87, aggression: 92 },
+        min_cards: 3, a_positions: 2 }),
+    tier("buffed", "Buffed", 8, 77, 4, 1, 4, 7, { com: 1 },
+      { when: { height_min: 188, height_max: 188 },
+        stats: { attacking_prowess: 92, ball_control: 87, dribbling: 92,
+          low_pass: 87, lofted_pass: 87, finishing: 92,
+          place_kicking: 70, swerve: 87, defensive_prowess: 47,
+          ball_winning: 70, kicking_power: 92, speed: 87,
+          explosive_power: 87, body_control: 87, physical_contact: 82,
+          catching: 70, reflexes: 73, coverage: 73, stamina: 62,
+          tight_possession: 87, aggression: 87 },
+        min_cards: 3, a_positions: 1 }),
+  ],
+  card_groups: {},
+  heights: { brackets: [], systems: [] },
+  universal: {
+    registered_position_a: true, fielded_at_a: [], no_b_ratings: false,
+    b_uses_a_allowance: true, gk_not_second_a: true, age: [15, 50],
+    weight: { floor: 30, below: 129, above: 81 }, captain_required: false,
+    min_goalkeepers: 2, max_skill_cards: 11, max_com_styles: 5,
+  },
+  specials: [
+    special("The free skills", {}, { free_cards: [
+      "no_look_pass", "double_touch", "rabona", "acrobatic_finishing",
+      "first_time_shot", "dipping_shots", "rising_shots", "heading",
+      "malicia", "flip_flap", "marseille_turn", "scotch_move",
+      "crossover_turn"] }),
+    special("The pass skills are free to non-medals", { tiers: ["regular", "buffed"] },
+      { free_cards: ["one_touch_pass", "weighted_pass", "pinpoint_crossing"] }),
+    special("The captain's Captaincy card is free", { captain: true },
+      { free_cards: ["captaincy"] }),
+    special("Long Ranger is a free COM style", {}, { free_cards: ["long_ranger"] }),
+    special("Malicia is required", {}, { require_cards: ["malicia"] }),
+    special("The GK Penalty Specialist card is banned", { holds: ["gk_penalty_specialist"] },
+      { forbid: "The GK Penalty Specialist card is banned" }),
+    special("Regulars cannot be captain", { tiers: ["regular", "buffed"], captain: true },
+      { forbid: "Regulars can't be captain" }),
+    special("Medals cannot be goalkeepers", { tiers: ["gold", "silver"], positions: ["GK"] },
+      { forbid: "Medals cannot play as GK" }),
+    special("B positions only for 188cm players at CB", { any: [
+      { tiers: ["gold", "silver", "regular"],
+        rated_b_at: ["GK", "CB", "LB", "RB", "DMF", "CMF", "LMF", "RMF",
+          "AMF", "LWF", "RWF", "SS", "CF"] },
+      { tiers: ["buffed"],
+        rated_b_at: ["GK", "LB", "RB", "DMF", "CMF", "LMF", "RMF",
+          "AMF", "LWF", "RWF", "SS", "CF"] }] },
+      { forbid: "Illegal B positions, only allowed on 188cm players at CB" }),
+    special("188cm players have no A at CB or GK", { tiers: ["buffed"], rated_a_at: ["CB", "GK"] },
+      { forbid: "188cm players may not have an A-position at CB or GK" }),
+    special("A goalkeeper's form is 8", { tiers: ["regular"], positions: ["GK"] },
+      { form: 4 }),
+    special("A gold Fox in the Box", { tiers: ["gold"], playing_styles: ["fox_in_the_box"] },
+      { stat_bonus: { ball_winning: 5, defensive_prowess: -5 } }),
+    special("A gold Target Man", { tiers: ["gold"], playing_styles: ["target_man"] },
+      { stat_bonus: { physical_contact: 5, defensive_prowess: -5 } }),
+    special("A gold Creative Playmaker", { tiers: ["gold"], playing_styles: ["creative_playmaker"] },
+      { stat_bonus: { stamina: 5, defensive_prowess: -5 } }),
+    special("Goal Poacher at CF", { playing_styles: ["goal_poacher"], rated_a_at: ["CF"] },
+      { forbid: "Goal Poacher does not activate at CF with the league's exe" }, "warning"),
+    special("Creative Playmaker at CF", { playing_styles: ["creative_playmaker"], rated_a_at: ["CF"] },
+      { forbid: "Creative Playmaker activates at CF with the league's exe" }, "warning"),
+  ],
+  team_settings: [
+    tset("No man marking on PES 16", { versions: [16], man_marking: false }),
+    tset("PES 16 support settings", { versions: [16], auto_substitution: false,
+      auto_offside_trap: false, auto_preset_change: false }),
+  ],
+  suggestions: [],
+  custom_checks: `// What the schema cannot carry: the goalkeeper maximum (min_goalkeepers is a floor), and the
+// 188cm players' registered positions — at most two, and no 180cm player may share one.
+fn custom_checks(team) {
+    let found = [];
+    let goalkeepers = 0;
+    for player in team.players {
+        if player.position == "GK" { goalkeepers += 1; }
+    }
+    if goalkeepers > 2 {
+        found.push(#{ kind: "Custom", text: "More than two goalkeepers" });
+    }
+    // The 188cm players' registered positions, in first-seen order.
+    let positions = [];
+    for player in team.players {
+        if player.height == 188 && player.position != () && !(player.position in positions) {
+            positions.push(player.position);
+        }
+    }
+    if positions.len() > 2 {
+        found.push(#{ kind: "Custom", text: "Too many registered positions with 188cm players. Maximum is 2" });
+    }
+    // The 180cm players at one of the first two of those positions.
+    let theirs = [];
+    for position in positions {
+        if theirs.len() == 2 { break; }
+        theirs.push(position);
+    }
+    for player in team.players {
+        if player.height == 180 && player.position in theirs {
+            found.push(#{ kind: "Custom",
+                          text: "A 180cm player shares a 188cm player's registered position",
+                          slot: player.slot });
+        }
+    }
+    found
+}`,
+};
+
+// crates/libs/aatf/rulesets/vtl10.rhai
+const VTL10 = {
+  schema: 1, name: "VTL10", squad_size: 23,
+  stats: { rating: ["clearing"], at_most: [] },
+  tiers: [
+    tier("gold", "Gold", 2, 99, 8, 1, 4, 6, { com: 2 },
+      { when: { height_min: 194, height_max: 194, ranges: { swerve: [99, 99] } },
+        stats: { place_kicking: 96, defensive_prowess: 58 },
+        min_cards: 3, a_positions: 2 }),
+    tier("silver", "Silver", 3, 92, 8, 1, 4, 7, { com: 2 },
+      { when: { height_min: 194, height_max: 194, ranges: { swerve: [92, 92] } },
+        stats: { attacking_prowess: 95, place_kicking: 88, defensive_prowess: 56,
+          ball_winning: 88, stamina: 95, aggression: 88 },
+        min_cards: 3, a_positions: 3 }),
+    tier("regular", "Regular", 10, 77, 4, 1, 4, 7, { com: 1 },
+      { when: { any: [{ height_min: 178, height_max: 178 },
+                      { height_min: 180, height_max: 180 }] },
+        stats: { attacking_prowess: 87, ball_control: 87, dribbling: 87,
+          low_pass: 87, lofted_pass: 92, finishing: 97,
+          place_kicking: 70, swerve: 87, defensive_prowess: 73,
+          ball_winning: 68, kicking_power: 87, explosive_power: 73,
+          physical_contact: 68, jump: 67, goalkeeping: 75,
+          catching: 70, reflexes: 73, coverage: 73, stamina: 55,
+          tight_possession: 87, aggression: 92 },
+        min_cards: 3, a_positions: 2 }),
+    tier("buffed", "Buffed", 8, 77, 4, 1, 4, 7, { com: 1 },
+      { when: { height_min: 188, height_max: 188 },
+        stats: { attacking_prowess: 92, ball_control: 87, dribbling: 92,
+          low_pass: 87, lofted_pass: 87, finishing: 92,
+          place_kicking: 70, swerve: 87, defensive_prowess: 53,
+          ball_winning: 68, kicking_power: 92, speed: 88,
+          explosive_power: 88, body_control: 88, physical_contact: 88,
+          goalkeeping: 75, catching: 70, reflexes: 73, coverage: 73,
+          stamina: 60, tight_possession: 87, aggression: 87 },
+        min_cards: 3, a_positions: 1 }),
+  ],
+  card_groups: {},
+  heights: { brackets: [], systems: [] },
+  universal: {
+    registered_position_a: true, fielded_at_a: [], no_b_ratings: true,
+    b_uses_a_allowance: false, gk_not_second_a: true, age: [15, 50],
+    weight: { floor: 30, below: 129, above: 81 }, captain_required: false,
+    min_goalkeepers: 2, max_skill_cards: 12, max_com_styles: 5,
+  },
+  specials: [
+    special("The free skills", {}, { free_cards: [
+      "scissors_feint", "flip_flap", "marseille_turn", "sombrero",
+      "cut_behind_and_turn", "scotch_move", "acrobatic_finishing",
+      "heel_trick", "first_time_shot", "malicia", "double_touch",
+      "crossover_turn", "step_on_skill"] }),
+    special("The pass skills are free to non-medals", { tiers: ["regular", "buffed"] },
+      { free_cards: ["one_touch_pass", "weighted_pass", "pinpoint_crossing"] }),
+    special("The captain's Captaincy card is free", { captain: true },
+      { free_cards: ["captaincy"] }),
+    special("Incisive Run and Long Ranger are free COM styles", {},
+      { free_cards: ["incisive_run", "long_ranger"] }),
+    special("Malicia is required", {}, { require_cards: ["malicia"] }),
+    special("Regulars cannot be captain", { tiers: ["regular", "buffed"], captain: true },
+      { forbid: "Regulars can't be captain" }),
+    special("Medals cannot be goalkeepers", { tiers: ["gold", "silver"], positions: ["GK"] },
+      { forbid: "Medals cannot play as GK" }),
+    special("188cm players have no A at CB or GK", { tiers: ["buffed"], rated_a_at: ["CB", "GK"] },
+      { forbid: "188cm players may not have an A-position at CB or GK" }),
+    special("A goalkeeper's form is 8", { tiers: ["regular"], positions: ["GK"] },
+      { form: 4 }),
+    special("Regular goalkeepers are 180cm",
+      { tiers: ["regular"], positions: ["GK"], height_min: 178, height_max: 178 },
+      { forbid: "Regular goalkeepers must be 180cm" }),
+    special("Outfield regulars are 178cm",
+      { tiers: ["regular"], height_min: 180, height_max: 180, not: { positions: ["GK"] } },
+      { forbid: "Outfield regulars must be 178cm" }),
+    special("Buffed wingbacks are 2/2 weak foot", { tiers: ["buffed"], rated_a_at: ["LB", "RB"] },
+      { weak_foot: { usage: 2, accuracy: 2 } }),
+  ],
+  team_settings: [
+    tset("No man marking on PES 16", { versions: [16], man_marking: false }),
+    tset("PES 16 support settings", { versions: [16], auto_substitution: false,
+      auto_offside_trap: false, auto_preset_change: false }),
+  ],
+  suggestions: [],
+  custom_checks: `// What the schema cannot carry: the goalkeeper maximum (min_goalkeepers is a floor), and the
+// 188cm players' registered positions — at most two, and no 178cm player may share one.
+fn custom_checks(team) {
+    let found = [];
+    let goalkeepers = 0;
+    for player in team.players {
+        if player.position == "GK" { goalkeepers += 1; }
+    }
+    if goalkeepers > 2 {
+        found.push(#{ kind: "Custom", text: "More than two goalkeepers" });
+    }
+    // The 188cm players' registered positions, in first-seen order.
+    let positions = [];
+    for player in team.players {
+        if player.height == 188 && player.position != () && !(player.position in positions) {
+            positions.push(player.position);
+        }
+    }
+    if positions.len() > 2 {
+        found.push(#{ kind: "Custom", text: "Too many registered positions with 188cm players. Maximum is 2" });
+    }
+    // The 178cm players at one of the first two of those positions.
+    let theirs = [];
+    for position in positions {
+        if theirs.len() == 2 { break; }
+        theirs.push(position);
+    }
+    for player in team.players {
+        if player.height == 178 && player.position in theirs {
+            found.push(#{ kind: "Custom",
+                          text: "A 178cm player shares a 188cm player's registered position",
+                          slot: player.slot });
+        }
+    }
+    found
+}`,
+};
+
+// VGL26's block extended so that every item of the plain-language proposal
+// (aatf_rules.md "Coverage of a plain-language proposal") the schema can
+// carry is used at least once; each added special's label names its item.
+const CLOUDS = {
+  schema: 1, name: "Clouds' proposal, every item", squad_size: 23,
+  stats: clone(VGL26.stats),
+  tiers: clone(VGL26.tiers),
+  card_groups: clone(VGL26.card_groups),
+  heights: {
+    brackets: [
+      { id: "manlet", label: "Manlet", up_to: 175 },
+      { id: "mid", label: "Mid", up_to: 180 },
+      { id: "tall", label: "Tall", up_to: 185 },
+      { id: "giant", label: "Giant", up_to: 190 },
+      { id: "giga", label: "Giga", up_to: 210 },
+    ],
+    systems: [
+      { id: "standard", label: "Standard", any_player: null,
+        quotas: { giga: 3, giant: 2, manlet: 0 } },
+    ],
+  },
+  universal: clone(VGL26.universal),
+  specials: [
+    special("Heading is a free card", {}, { free_cards: ["heading"] }),
+    special("The captain's Captaincy card is free, plus one card, COM style or A position (choice)",
+      { captain: true },
+      { free_cards: ["captaincy"], choice: [{ cards: 1 }, { free: { com: 1 } }, { a_positions: 1 }] }),
+    special("Medals cannot be goalkeepers", { tiers: ["gold", "silver", "bronze"], positions: ["GK"] },
+      { forbid: "Medals cannot play as GK" }),
+    special("Goalkeepers are 185", { positions: ["GK"], not: { height_min: 185, height_max: 185 } },
+      { forbid: "GKs must be 185cm" }),
+    special("Buffed players at tall: +2 to every stat (brackets, stats_global_mod)",
+      { tiers: ["buffed"], brackets: ["tall"] },
+      { stat_bonus: { all: 2 } }),
+    special("Medals at giga: +1 A position (brackets)",
+      { tiers: ["gold", "silver", "bronze"], brackets: ["giga"] },
+      { a_positions: 1 }),
+    special("Medals below giga: +1 card (ELSE, the rule above under not)",
+      { tiers: ["gold", "silver", "bronze"], not: { brackets: ["giga"] } },
+      { cards: 1 }),
+    special("Regular CBs fielded only at CB count 4 cm shorter (fielded_only_at, allowed_height_mod)",
+      { tiers: ["regular"], positions: ["CB"], fielded_only_at: "CB" },
+      { height_allowance: 4 }),
+    special("A Fox in the Box: +3 attacking prowess at most (playing_style, stats_<stat>_mod)",
+      { playing_styles: ["fox_in_the_box"] },
+      { stat_bonus: { attacking_prowess: 3 } }),
+    special("Left-footed wingers: +1 paid card (strong_foot)",
+      { strong_foot: "left", positions: ["LWF", "LMF"] },
+      { cards: 1 }),
+    special("Speed 95 or more: a free COM style (stats_<stat> in a condition)",
+      { ranges: { speed: [95, 99] } },
+      { free: { com: 1 } }),
+    special("Weight 80 kg or more: +1 injury resistance (ranges)",
+      { ranges: { weight: [80, 130] } },
+      { injury_resistance: 1 }),
+    special("Form 8: +1 A position (form in a condition)",
+      { ranges: { form: [8, 8] } },
+      { a_positions: 1 }),
+    special("Holds Fighting Spirit: +1 paid card (cards_<card> in a condition)",
+      { holds: ["fighting_spirit"] },
+      { cards: 1 }),
+    special("195 cm or a Target Man: +1 card (any)",
+      { any: [{ height_min: 195 }, { playing_styles: ["target_man"] }] },
+      { cards: 1 }),
+    special("Buffed wingers: weak foot 2/2 (allowed_weak_foot_acc/use_mod, =)",
+      { tiers: ["buffed"], positions: ["LWF", "RWF"] },
+      { weak_foot: { usage: 2, accuracy: 2 } }),
+    special("Buffed and regulars play on form 8 (allowed_form_mod)",
+      { tiers: ["buffed", "regular"] },
+      { form: 4 }),
+    special("Goalkeepers' goalkeeping is 85 (stat_target)",
+      { tiers: ["goalkeeper"] },
+      { stat_target: { goalkeeping: 85 } }),
+  ],
+  team_settings: [
+    tset("No man marking (PES 21)", { versions: [21], man_marking: false }),
+    tset("Support settings", { auto_substitution: false, auto_offside_trap: false,
+      auto_preset_change: false, auto_attack_defence_levels: false }),
+    tset("No 3-4-3 formations", { forbidden_shapes: [[3, 4, 3]] }),
+  ],
+  suggestions: clone(VGL26.suggestions),
+  custom_checks: `// Two example rules (not from the proposal) reading what the schema cannot carry: the
+// proposal's preset<N>_<formation>_player_pos and _x/_y variables, a formation's positions
+// and coordinates rather than a player's fields.
+fn custom_checks(team) {
+    let found = [];
+    // No non-goalkeeper is fielded at GK in presets 2 and 3 (preset 1 is the schema's).
+    for player in team.players {
+        if player.position == "GK" { continue; }
+        for preset in [2, 3] {
+            if "GK" in team.fielded_positions(player, preset) {
+                found.push(#{ kind: "Custom",
+                              text: "A non-goalkeeper is fielded at GK after preset 1",
+                              slot: player.slot });
+            }
+        }
+    }
+    // No two players stand on the same spot in a formation.
+    for meta in team.formation_shapes() {
+        let formation = team.formation(meta.preset, meta.formation);
+        if formation == () { continue; }
+        for i in 0..formation.len() {
+            for j in (i + 1)..formation.len() {
+                if formation[i].x == formation[j].x && formation[i].y == formation[j].y {
+                    found.push(#{ kind: "Custom",
+                                  text: "Two players share a spot in a formation" });
+                }
+            }
+        }
+    }
+    found
+}`,
+};
+
+function tier(id, label, count, rate, form, injury, weakFoot, cards, free, extra) {
+  const wf = typeof weakFoot === "number" ? { usage: weakFoot, accuracy: weakFoot } : weakFoot;
+  return Object.assign({ id, label, count, counts_as: null, when: {}, rate, stats: {}, form,
+    injury_resistance: injury, weak_foot: wf, cards,
+    min_cards: 0, free, a_positions: 1, name_color: null }, extra);
 }
 function special(label, when, then, severity) {
   return { label, when, then, severity: severity || "error" };
+}
+function tset(label, fields) {
+  return Object.assign({ label, versions: [], man_marking: null, auto_substitution: null,
+    auto_offside_trap: null, auto_preset_change: null, auto_attack_defence_levels: null,
+    forbidden_shapes: [] }, fields);
 }
 function blank() {
   return {
@@ -334,7 +884,7 @@ function colour(hex8, set) {
     h("input", { type: "color", value: rgb, title: "Colour (the code's last two digits are the alpha)",
       oninput: e => { set(e.target.value.slice(1) + ((hex8 || "").slice(6, 8) || "ff")); changed(); },
       onchange: structural }),
-    text(hex8, set, { mono: true, width: 76, title: "The eight hex digits after \\x11c in the name" }));
+    text(hex8, set, { mono: true, width: 76, title: "The eight bytes after \\x11c in the name" }));
 }
 function remove(list, i) { return button("✕", () => { list.splice(i, 1); structural(); }, { frame0: true, title: "Remove" }); }
 function window_(title, body, buttons) {
@@ -522,38 +1072,54 @@ function walkConds(c, fn, path) {
   (c.any || []).forEach((a, i) => walkConds(a, fn, `${path}.any[${i}]`));
   if (c.not) walkConds(c.not, fn, path + ".not");
 }
+// `any_player` may name heights and positions only (check.rs `condition_is_wide`).
+function condIsWide(c) {
+  return (c.tiers || []).length || (c.systems || []).length || (c.brackets || []).length ||
+    c.captain != null || (c.playing_styles || []).length || (c.holds || []).length ||
+    (c.rated_a_at || []).length || (c.rated_b_at || []).length || (c.name_colors || []).length ||
+    c.fielded_only_at != null || Object.keys(c.ranges || {}).length || c.strong_foot != null ||
+    (c.any || []).some(condIsWide) || (c.not != null && condIsWide(c.not));
+}
+// `height_allowance` in `then` or any `choice` option (check.rs `effects_have_allowance`).
+function hasAllowance(e) {
+  return e.height_allowance != null || (e.choice || []).some(hasAllowance);
+}
 function problems(r) {
   const out = [];
   const add = (sec, msg) => out.push({ section: sec, text: msg });
   const tierIds = r.tiers.map(t => t.id), brackets = r.heights.brackets.map(b => b.id),
-    systems = r.heights.systems.map(s => s.id), groups = Object.keys(r.card_groups);
+    systems = r.heights.systems.map(s => s.id), groups = Object.keys(r.card_groups),
+    suggestionWords = ["cards", "a_positions", "weak_foot", "injury_resistance", "height",
+      "free_cards", "choices"],
+    bytes8 = s => new TextEncoder().encode(s).length === 8;
   const dup = (ids, sec, kind) => ids.forEach((id, i) => { if (ids.indexOf(id) !== i) add(sec, `two ${kind} share the id "${id}"`); });
-  if (!r.name.trim()) add("general", "the ruleset has no name");
+  if (r.name === "") add("general", "the ruleset has no name");
+  r.stats.at_most.forEach(n => { if (!STATS.concat(AT_MOST_EXTRA).includes(n)) add("general", `"${n}" is no at-most target`); });
   dup(tierIds, "tiers", "tiers"); dup(brackets, "heights", "brackets"); dup(systems, "heights", "height systems");
   const checkCond = (c, sec, where, opts = {}) => walkConds(c, (k, path) => {
-    (k.tiers || []).forEach(t => { if (!tierIds.includes(t)) add(sec, `${where}${path}: no tier "${t}"`); });
+    if (!opts.noTiers) (k.tiers || []).forEach(t => { if (!tierIds.includes(t)) add(sec, `${where}${path}: no tier "${t}"`); });
     (k.systems || []).forEach(s => { if (!systems.includes(s)) add(sec, `${where}${path}: no height system "${s}"`); });
     (k.brackets || []).forEach(b => { if (!brackets.includes(b)) add(sec, `${where}${path}: no bracket "${b}"`); });
-    (k.name_colors || []).forEach(n => { if (!/^[0-9a-fA-F]{8}$/.test(n)) add(sec, `${where}${path}: a name colour is eight hex digits`); });
+    (k.name_colors || []).forEach(n => { if (!bytes8(n)) add(sec, `${where}${path}: a name colour code is eight bytes`); });
     if (opts.noTiers && (k.tiers || []).length) add(sec, `${where}${path}: a tier's condition cannot name tiers`);
     if (opts.allowance && (k.brackets || []).length) add(sec, `${where}${path}: a special with a height allowance cannot name brackets, which are computed from it`);
   }, "");
   r.tiers.forEach((t, i) => {
     const where = `"${t.label || "tier " + (i + 1)}"`;
-    if (!t.id.trim() || !t.label.trim()) add("tiers", `${where}: an empty id or label`);
+    if (t.id === "" || t.label === "") add("tiers", `${where}: an empty id or label`);
     if (t.counts_as) {
-      if (t.count !== null) add("tiers", `${where}: a tier that counts as another has no count of its own`);
+      if (t.count != null) add("tiers", `${where}: a tier that counts as another has no count of its own`);
       const target = r.tiers.find(x => x.id === t.counts_as);
       if (!target) add("tiers", `${where}: counts as an unknown tier`);
       else if (target.counts_as) add("tiers", `${where}: counts as a tier that itself counts as another`);
     }
-    if (t.name_color && !/^[0-9a-fA-F]{8}$/.test(t.name_color)) add("tiers", `${where}: a name colour is eight hex digits`);
+    if (t.name_color && !bytes8(t.name_color)) add("tiers", `${where}: a name colour code is eight bytes`);
     Object.keys(t.free).forEach(g => { if (g !== "com" && !groups.includes(g)) add("tiers", `${where}: free cards of an unknown group "${g}"`); });
     checkCond(t.when, "tiers", where + " when", { noTiers: true });
   });
-  const rest = r.tiers.filter(t => t.count === null && !t.counts_as);
+  const rest = r.tiers.filter(t => t.count == null && t.counts_as == null);
   if (rest.length > 1) add("tiers", "only one tier can be the rest of the squad");
-  const counted = r.tiers.reduce((n, t) => n + (t.counts_as ? 0 : t.count || 0), 0);
+  const counted = r.tiers.reduce((n, t) => n + (t.count || 0), 0);
   if (counted > r.squad_size) add("tiers", `the tier counts add up to ${counted}, over the squad's ${r.squad_size}`);
   if (!rest.length && counted !== r.squad_size) add("tiers", `the tier counts add up to ${counted}, not the squad's ${r.squad_size}, and no tier is the rest`);
   let top = 0;
@@ -562,31 +1128,57 @@ function problems(r) {
     if (!hs.length) add("heights", `bracket "${b.label}": no height`);
     if (Math.min(...hs) <= top) add("heights", `bracket "${b.label}": its heights must lie above the brackets before it`);
     top = Math.max(top, ...hs);
-    if (!b.id.trim() || !b.label.trim()) add("heights", "a bracket with an empty id or label");
+    if (b.id === "" || b.label === "") add("heights", "a bracket with an empty id or label");
   });
   r.heights.systems.forEach((s, i) => {
     const last = i === r.heights.systems.length - 1, has = !isEmpty(condData(s.any_player));
+    if (s.id === "" || s.label === "") add("heights", "a system with an empty id or label");
     if (!last && !has) add("heights", `system "${s.label}": every system but the last needs a "when any player is" condition`);
     if (last && has) add("heights", `system "${s.label}": the last system applies otherwise and has no condition`);
+    if (condIsWide(s.any_player || {})) add("heights", `system "${s.label}": "when any player is" may name only heights and positions`);
     Object.keys(s.quotas).forEach(b => { if (!brackets.includes(b)) add("heights", `system "${s.label}": a quota for an unknown bracket`); });
   });
+  Object.entries(r.card_groups).forEach(([gid, cards], gi) => {
+    if (gid === "") add("cards", "a card group with an empty id");
+    if (gid === "com" || suggestionWords.includes(gid))
+      add("cards", `the group name "${gid}" is reserved: "com" is the built-in COM styles group, the others are suggestion words`);
+    cards.forEach(card => {
+      if (COM.includes(card)) add("cards", `COM style "${human(card)}" is in group "${gid}"; the built-in "com" group holds the seven`);
+      Object.keys(r.card_groups).slice(0, gi).forEach(other => {
+        if (r.card_groups[other].includes(card)) add("cards", `"${human(card)}" is in two card groups ("${other}", "${gid}")`);
+      });
+    });
+  });
+  const perTierIds = (v, sec, where) => { if (v && typeof v === "object") Object.keys(v).forEach(id => {
+    if (!tierIds.includes(id)) add(sec, `${where}: a per-tier value names no tier "${id}"`); }); };
+  const checkEffects = (e, sec, where) => {
+    Object.values(e.stat_bonus || {}).concat(Object.values(e.stat_target || {}),
+      [e.cards, e.a_positions, e.form, e.injury_resistance]).forEach(v => perTierIds(v, sec, where));
+    Object.entries(e.free || {}).forEach(([g, v]) => {
+      if (g !== "com" && !groups.includes(g)) add(sec, `${where}: free cards of an unknown group "${g}"`);
+      perTierIds(v, sec, where);
+    });
+    if (e.forbid === "") add(sec, `${where}: a forbid with no text`);
+    (e.choice || []).forEach(o => checkEffects(o, sec, where));
+  };
   r.specials.forEach((s, i) => {
     const where = `special "${s.label || i + 1}"`;
-    if (!s.label.trim()) add("specials", `special ${i + 1}: no label`);
-    const allowance = s.then.height_allowance != null || (s.then.choice || []).some(o => o.height_allowance != null);
-    checkCond(s.when, "specials", where + " when", { allowance });
-    if (s.then.forbid !== undefined && s.then.forbid !== null && !s.then.forbid.trim()) add("specials", `${where}: a forbid with no text`);
+    if (s.label === "") add("specials", `special ${i + 1}: no label`);
+    checkCond(s.when, "specials", where + " when", { allowance: hasAllowance(s.then) });
     (s.then.choice || []).forEach((o, j) => Object.keys(o).forEach(k => {
       if (!CHOICE_EFFECTS.includes(k)) add("specials", `${where}: option ${j + 1} holds "${effectName(k)}", which an option cannot (it could never be found used)`);
     }));
-    Object.keys(s.then.free || {}).forEach(g => { if (g !== "com" && !groups.includes(g)) add("specials", `${where}: free cards of an unknown group "${g}"`); });
+    checkEffects(s.then, "specials", where);
   });
-  r.team_settings.forEach(t => (t.forbidden_shapes || []).forEach(sh => {
-    if (sh.reduce((a, b) => a + b, 0) !== 10) add("universal", `team settings "${t.label}": the shape ${sh.join("-")} does not add up to 10 outfield players`);
-  }));
+  r.team_settings.forEach((t, i) => {
+    if (t.label === "") add("universal", `team settings ${i + 1}: no label`);
+    (t.forbidden_shapes || []).forEach(sh => {
+      if (sh.reduce((a, b) => a + b, 0) !== 10) add("universal", `team settings "${t.label}": the shape ${sh.join("-")} does not add up to 10 outfield players`);
+    });
+  });
   r.universal.fielded_at_a.forEach(p => { if (p < 1 || p > 3) add("universal", "presets are 1 to 3"); });
   r.suggestions.forEach(sg => {
-    if (!["cards", "a_positions", "weak_foot", "injury_resistance", "height", "free_cards", "choices", "com"].includes(sg) && !groups.includes(sg))
+    if (!suggestionWords.includes(sg) && sg !== "com" && !groups.includes(sg))
       add("suggestions", `"${sg}" is no allowance or card group`);
   });
   return out;
@@ -752,13 +1344,15 @@ function save() {
   }
 }
 function startPage() {
-  const disabled = "Embedded in Studio; not in this draft";
   window_("4cc Studio: Ruleset editor", h("div", { class: "col" },
     strong("New from template"),
     button("Autumn 26 (the official rules)", () => { load(AUTUMN26); closeWindow(); }),
-    button("Spring 26", () => {}, { disabled: true, title: disabled }),
-    button("VGL27, VGL26", () => {}, { disabled: true, title: "Transcribed at step 5.2e" }),
-    button("VTL11, VTL10", () => {}, { disabled: true, title: "Transcribed at step 5.2e" }),
+    button("Spring 26", () => { load(SPRING26); closeWindow(); }),
+    button("VGL27", () => { load(VGL27); closeWindow(); }),
+    button("VGL26", () => { load(VGL26); closeWindow(); }),
+    button("VTL11", () => { load(VTL11); closeWindow(); }),
+    button("VTL10", () => { load(VTL10); closeWindow(); }),
+    button("Clouds' proposal, every item (from VGL26)", () => { load(CLOUDS); closeWindow(); }),
     button("Blank: one tier, no brackets, the universal rules on", () => { load(blank()); closeWindow(); }),
     h("div", { class: "sep" }),
     strong("Random"),

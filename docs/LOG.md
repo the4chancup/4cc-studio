@@ -1994,3 +1994,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — In-game check (PES 21 Edit mode): a base copy shows whatever the face flag,
   over the player's own face.fpk too; stripped, he shows Placeholder or his model. The warning
   tests the id alone (5.4c2, SE-STR-07 rewritten). The game refuses the PES 21 fixture save.
+- **2026-10-15** — 20.0c: the Ruleset editor draft has every embedded ruleset as a template, the
+  load rules of `check.rs` as live problems, and a "Clouds' proposal" template using all 30
+  rows of the coverage table; its block loads and runs in `check-aatf`.

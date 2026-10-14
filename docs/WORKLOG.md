@@ -1176,6 +1176,21 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     Open and the other templates are shown disabled. Per-group free cards moved into each
     tier's expander (`ruleset_editor.md` "The editor"). To show the members; their remarks
     go into the plan before Phase 20's itemization
+  - [x] 20.0c the draft brought up to date (maintainer's request, 2026-10-15): the five other
+    embedded rulesets as working templates (custom checks included), `problems()` covering
+    every `LoadRule` (`GroupsOverlap`, `ReservedGroup`, `UnknownTarget`,
+    `SystemConditionTooWide`, ids inside effects; a name colour is eight bytes, any bytes), and
+    a sixth template, "Clouds' proposal, every item (from VGL26)", using each of 20.0a's 30
+    rows (each special's label names its item; the two custom-check rows as a real section
+    over `team.fielded_positions` and `team.formation`) → verify: the harness shows every
+    template valid with every view rendered, each transcribed block equal to its `.rhai`, a
+    red case per new rule; the Clouds block assembled as a rules file loads and runs in
+    `check-aatf`. Done 2026-10-15 (SWE-2; the lead cut the Clouds height quotas to giga,
+    giant and manlet, which every legal team meets, and moved three stat bonuses off stats a
+    tier already holds at 99, whose targets no player can reach). Run over the VGL26 cup save's
+    teams 781 to 834, VGL26's own file reports the 2 known violations; the Clouds file places
+    every tier and reports only what its own specials ask for (form 8, goalkeeping 85, buffed
+    stats 87). Files: `docs/prototypes/ruleset_editor.html`
 
 ---
 
@@ -1774,6 +1789,14 @@ points there.
   through a save of another row; what a match draws for 183 is unmeasured. `from_player`
   still refuses him (`OutOfRange`); `every_fixture_player_round_trips_through_his_settings`
   lists him.
+- open (2026-10-15, step 20.0c) — a `stat_bonus` on a stat a tier already targets at 99 gives
+  an exact target no player can reach (99 is the game's top), and nothing says so: the first
+  Clouds template's "Medals at giga: +2 to every stat" made every gold 101, so `check-aatf`
+  placed no player in gold (a TierCount violation on every VGL26 team) instead of naming the
+  rule. `aatf_rules.md` is silent. Settle with the next interpreter step: clamp a raised target
+  at 99 (the bonus then means nothing for that tier), or refuse it on load where a tier's
+  value plus a special's bonus passes 99 (a special's condition may never meet that tier, so
+  a load rule could refuse a playable file).
 
 ---
 
