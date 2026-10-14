@@ -79,7 +79,7 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
   textures").
 - `just mutants-diff` reuses `mutants.out/`: it wipes a whole-crate run's results. Keep the
   whole-crate run's summary aside (to `.tmp/mutants_<step>_whole/`, only `*.txt` and
-  `outcomes.json`: `AGENTS.md` "An archived run keeps its summary") before the first diff run.
+  `outcomes.json`: `RUNBOOK.md` "The scratch folder") before the first diff run.
 - `block_compression` 0.10's BC3/BC4/BC5 decoder truncates the alpha-ramp interpolation where
   DirectX rounds; `dds_convert::dds::fix_interpolated_channels` re-derives those channels. Drop
   it if a later release rounds (the exact-match test will say).

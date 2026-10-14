@@ -10,13 +10,14 @@ the codebase works, and what to do when the plan runs out. Before writing or cha
 
 ## Working documents
 
-Eight documents, eight jobs. Do not let content leak between them; two homes means they drift.
+Nine documents, nine jobs. Do not let content leak between them; two homes means they drift.
 
 | Document | Holds |
 |---|---|
 | `docs/spec/*.md` | What the suite does now, and why: architecture, formats, rationale, resolved decisions, and each delivered tool's "Acceptance" section. A phase's sections move here from the plans when it closes |
 | `docs/plans/*.md` | Work not built yet, with the same layout and headings as the spec: the design of what comes next, its rationale, and the open phase's "Acceptance" sections. Written in the present tense (the folder says it is future), each file opening with a banner that says so; a section partly built keeps its heading in both trees, the plan's part pointing at the spec section it builds on |
 | `docs/CONTRIBUTING.md` | How code is structured, written and verified |
+| `docs/RUNBOOK.md` | How the lead runs the machinery: mutation runs and the VPS, the scratch folder, the agents and their harness limits, the review rounds' full rules |
 | `docs/GLOSSARY.md` | One line per domain term, pointing at the plan section that owns it |
 | `docs/WORKLOG.md` | *Where we are*: current status, phase/step checklist, current-state gotchas, open issues (the lead's and the sidekick's) |
 | `docs/LOG.md` | *What happened*: the dated log, three lines at most per entry, newest last (append-only) |
@@ -160,74 +161,26 @@ yet. The lead never leaves the workspace unbuildable longer than one edit (decla
 once its file exists), and runs the full `just gates` once, after both are done. The brief says
 which crate the sidekick owns and that the rest of the tree is in motion.
 
-**Second opinion.** A model reviewing its own work is bounded by its own training: same data, same
-blind spots. The sidekick's code is already reviewed cross-family by the lead; what is *not* is
-everything the lead writes itself: plans, acceptance sections, briefs, converge audits, decision
-entries. At these checkpoints, and only these, get a critique from the reviewer subagent of a
-*different model family* than the lead (profiles in "Environment"), invoked with `run_subagent`:
-(a) after writing an Acceptance section; (b) after a worklog step that added a new `pub` interface
-or touched more than one crate, after the implementation *and* its tests are written and before
-the tests run, so one critique covers both the code and the assertions; steps inside one crate behind
-an existing interface are covered by the lead's diff review and by converge; (c) as the second half
-of every converge audit, after the lead's own, the primary use: the one check of code against
-*plan* (not against the brief, which carries the lead's assumptions) by a model that wrote
-neither; (d) reactively, when
-two attempts on the same premise have failed, the sidekick's included. **Batch, don't stream:**
-renames, doc edits, one-file fixes with no new behavior are never reviewed on their own; their
-diffs ride along with the next (b) review, or with converge. Never more than one *scheduled*
-critique per step; the reactive one (d) is an escalation and is exempt from the ceiling. Hand the
-reviewer *pointers* (plan sections, file paths, a diff written to `.tmp/lead/review.diff`, the
-acceptance IDs), never your own summary, which carries the assumptions it is there to catch. It
-returns every concern it found, ranked, each marked verified or suspected. Answer every one in the
-turn report: accepted → what changed; rejected → one line why. A concern silently dropped is the
-failure mode this exists to prevent. **There is no cap on concerns; rounds are bounded by the
-accept rate, not by the lead's sense of importance.** A cap made reviewers curate instead of
-report: 3.1's first round had a seven-concern cap, and its reasoning trace set out to pick "seven
-issues that a parent will likely accept, ideally five or more", so whatever it judged unlikely to
-be accepted went unreported, and a later round need not find it again. The ranking by
-reachability (below) is what keeps impossible edge cases at the bottom of the list. So a critique of one surface runs another round only when at
-least five of the last round's concerns were accepted (the signal was real); the next round gets
-the rework diff and the prior rulings so it does not repeat them, and the loop stops at a round
-under five accepted. There is no round ceiling: 2.20d's first three rounds each returned seven
-(then the cap), all accepted, most of them parity and memory defects rather than padding, so a ceiling of three
-stopped the loop where its signal was strongest. The stop therefore rests on the lead's
-rulings: a concern is rejected, with its one-line reason, when its input cannot reach the code,
-the plan or a decision entry already settles it, or it restates an accepted concern's class
-without a new defect. **Reviewer briefs rank concerns by reachability.** First comes what a
-real file, the crate's own readers or its own operations produce. A hand-built value that none
-of them produce is low value when the crate refuses it with an error, and ranks high only
-when it panics, hangs, or writes a wrong file without an error. From 2.20f's second round on,
-the top of the list went to models no reader or operation produces. Round 4's brief carried this line, and
-none of its four concerns needed a hand-built model. **Reviewer briefs also ask for
-over-engineering**, and the lead's rulings watch for it, above all on plans: a reviewer asked
-only for gaps reports only gaps, so each round adds a sentence per edge case it can name, and
-the fix for one concern becomes the next round's concern. The brief asks it to flag what could
-be cut (a special case a general rule already covers, machinery no scenario needs); the lead
-prefers one general rule over a growing list of cases, and rejects a narrow addition that
-distinguishes no behavior a real export reaches. At 3.1 (maintainer's warning), the rulings on
-the sidekick's round S2 replaced a growing list of "not compilable yet" cases with one short
-rule, what the tracer compiles, and rejected three narrow additions (a `NO_USE` inside a
-wrapper, folders inside `Common/`, a player folder named `Players`); from GPT round 6 on, both
-reviewers' briefs asked for over-engineering. Past the fifth round on one surface the lead reports the counts and the
-classes found to the user and continues unless told otherwise: a check-in, not a stop. Each
-round's reviewer is a fresh `run_subagent`, never a resumed one (`resume`), even though resuming
-saves the re-exploration: 2.20d's fourth round ran both on the same surface, and the reviewer
-resumed from round three returned four concerns, all among the fresh reviewer's seven, which
-found three more, all accepted; a resumed reviewer keeps its earlier reading and its blind spots
-with it. The
-count *returned* is not a stop signal: a reviewer told to keep the list short withholds
-(2.20c's first round returned five with its reasoning trace saying it aimed for "3-5 strong
-concerns" because the brief said "do not pad"; the second round, run as an experiment, returned
-three verified concerns, all accepted, one of them contradicting a lead ruling). So the brief
-never says "do not pad" or names any number of concerns, as a cap or a target; it says to report
-every concern found, ranked by reachability, and that a round with fewer than five accepted ends
-the loop, so a verified concern is never withheld to keep the list short; padding is caught by
-the accept rate, which is what that rule is for. At converge the surface is one crate (or one
-coupled pair), never the phase. The user can request a critique at any time with `/duck`, and
-since 2026-10-09 the lead runs the `duck` skill itself for every scheduled critique. Astra's
-five-hour quota holds five or six reviews (the weekly one about forty): a call stopped for quota
-puts the review on the worklog's "Handover" queue, the lead retries once an hour, and a working
-call runs the queue until the next stop; the work in between continues.
+**Second opinion.** A model reviewing its own work shares its own blind spots. The sidekick's
+code is reviewed cross-family by the lead; what the lead writes itself (plans, acceptance
+sections, briefs, converge audits, decision entries) gets a critique from a reviewer of a
+*different model family* (the `duck` skill: Astra, with SWE-2 rounds around it) at these
+checkpoints only: (a) after writing an Acceptance section; (b) after a worklog step that added a
+new `pub` interface or touched more than one crate, once its code and tests are written; (c) as
+the second half of every converge audit, after the lead's own, the one check of code against the
+plan by a model that wrote neither; (d) reactively, when two attempts on one premise have failed.
+Renames, doc edits and one-file fixes ride along with the next (b) review or with converge; at
+most one scheduled critique per step. Hand the reviewer pointers (plan sections, paths, a diff
+file, acceptance IDs), never a summary of your own. Its brief asks for every concern, ranked by
+reachability (what real files and the crate's own operations reach first; a hand-built input
+ranks low unless it panics, hangs or writes a wrong file without an error), and for
+over-engineering, and never names a number of concerns. The lead answers every concern in its
+turn report: accepted, with what changed, or rejected, with one line why. Another round runs only
+when at least five of the last round's concerns were accepted; each round is a fresh reviewer,
+never a resumed one; past the fifth round on one surface the lead reports the counts and classes
+to the maintainer and continues. A review stopped for quota is queued in the worklog's "Handover
+queue". The full rules, with the measurements behind each, are in `docs/RUNBOOK.md` "Review
+rounds".
 
 ## Read order by task
 
@@ -308,156 +261,15 @@ allowed only after `git add -A` has given every file a blob to restore from. Nev
 (`git add -A` fails outright) and which only `Remove-Item -LiteralPath "\\?\<full path>"` can
 delete; use `/dev/null` in bash, `$null` in PowerShell.
 
-The Devin IDE compacts the sidekick's context by itself when it reaches 500K tokens, so a
-full sidekick context needs no action from the lead; a brief still stands alone (file under
-`.tmp/`, read in full), because a compaction may fall between two handoffs.
-
-**Whole-crate mutation runs are split with the maintainer's VPS.** On the maintainer's PC the
-user environment variable `STUDIO_MUTANTS_REMOTE=bonfire` (an alias in `~/.ssh/config`) makes
-`just mutants <crate>` run half the mutants there (`scripts/mutants.py`: the working tree is
-sent as a git bundle, the remote shard runs at low priority, its results land in
-`mutants.out/remote/` and the combined survivors in `mutants.out/missed_all.txt`). Benchmarked
-on 2026-09-27 on one commit, the VPS is about as fast as the PC (`fox2` whole crate 167 s
-against 256 s, one eighth of `fmdl` 460 s against 433 s) with identical results, so the split
-should roughly halve a whole-crate run, and it moves half its energy off the home machine.
-Agent and IDE shells started before the variable was set do not see it, so the script also
-reads it from the user's registry environment; the run's first line says which mode it took
-("splitting the run with bonfire" or "running every mutant on this machine"). At 2.20i an
-agent shell without the variable ran all 806 `pes_savefile` mutants locally, over three
-hours. An empty value in the process opts out. `mutants-diff` splits the same way only when
-its estimated local time is at least 4 minutes (`SPLIT_THRESHOLD_SECONDS`): the estimate is the
-unmutated baseline plus each mutant's crate's measured mean seconds per mutant over the two
-jobs (`target/mutants-cost.json`, refreshed by every local run; a never-run crate falls back to
-its size, a never-measured baseline to 60 s), because cost follows a crate's test suite, not
-the mutant count (0.7-1.4 s for most crates, 33-37 s for `pes_savefile`). The baseline is a
-cold build in a fresh copy of the tree, about a minute, and the mean counts each job's cold
-first build and every timeout: until 3.z the estimate left all three out, and a 38-mutant diff
-estimated at 80 s took 270 s (now 266 s). That estimate is for the whole run here; a split
-run prints its own, the baseline plus half the rest (each half builds a baseline, so a split
-does not halve the estimate), and ends with its wall time, which adds the transfer, polling
-and fetch. The local half runs at below-normal priority with
-each of its two cargo processes given half the logical CPUs (`sized_config`, the remote half's
-sizing), not with two CPUs held back: the machine stays usable by priority, and the run gets
-what the user leaves idle (measured level with the old cap on the 3.z diff). A starved test can
-then time out, so a timeout that no infinite loop explains is rerun before it counts as caught.
-A build killed for memory (the remote half's cap) is filed by
-cargo-mutants as unviable, which hides an untested mutant: at 3.z eframe's dependency tree
-outgrew the 6 GiB cap and 12 remote mutants went untested that way, so the scripts now list
-every killed build and fail the run. Below
-that the split's fixed overhead, about a minute plus up to 15 s of polling, eats the gain. At
-2.20k a 32-mutant `pes_savefile` diff took 11 min 57 s locally; split, the local half took
-417 s and the remote half 502 s from its launch (the VPS ran about a fifth slower; the total
-wall time was not recorded). Manual ssh from
-Git Bash uses `/c/Windows/System32/OpenSSH/ssh.exe bonfire`: Git's own `ssh` cannot reach the
-Windows agent that holds the key. **A whole-crate run copies the working tree when it starts**,
-so a chain of runs queued behind a sidekick's edits snapshots a half-edited crate: at 4.y-conv
-the `team_compiler` run started while 4.y-fix1 was being written and had to be stopped; nothing
-edits a crate while its run is queued or going. The lead launches a long chain detached, with
-PowerShell `Start-Process bash.exe <script> -WindowStyle Hidden` from a script under `.tmp/`,
-never with the Bash tool's background mode: its two-hour cap kills the chain, and stopping it
-kills the console the run's children need, after which every build fails with `0xC0000142`
-and cargo-mutants files the mutant as unviable (273 of 274 in 23 s at 4.y-conv's first attempt).
-
-**When the maintainer's PC is suspect, the heavy runs go to the VPS.** Four
-`MEMORY_MANAGEMENT` bugchecks there (2026-10-07 to 10-10, the last during a run, all four in
-`rustc.exe` at one kernel site) led the maintainer to move them until third-party drivers
-were removed (2026-10-11), when the split came back; the switch stays for the next time.
-`REMOTE_ONLY = True` in `scripts/mutants.py` makes
-`just mutants` and `just mutants-diff` run every mutant on the VPS as one whole run (no
-local half, no split threshold; the last local `mutants.out` set aside as
-`mutants.out.old`), and `just gates-remote` runs `just gates` there against a snapshot of
-the working tree (`scripts/remote_gates.py`: the same transfer and clone, so it refuses
-while a mutants half is running or uncollected; the transient service `studio-gates`,
-memory-capped and CPU-idle, run synchronously). The VPS's `just` is installed in
-`~/.cargo/bin` at this machine's version, as cargo-mutants is. The lead uses
-`just gates-remote` for its review gates while the switch is on; a sidekick's own
-`cargo test -p` stays local. Measured on 4.y-sub (b3b4a): gates 4 min 11 s cold (peak
-8.7 GiB), 1 min 23 s incremental; a 15-mutant diff 330 s wall. The switch is a constant,
-not an environment variable as it first was: a shell started while the variable was set
-kept it after it was deleted, and would have kept running every mutant remotely.
-
-**The VPS's production Fluxer instance comes first.** The remote half runs as the transient
-system service `studio-mutants` (`sudo -n systemd-run`) with no swap and a `MemoryMax` of the
-host's available memory at launch less 1 GiB (`REMOTE_MEMORY_RESERVE`; printed as `remote
-memory cap`, and `just gates-remote`'s unit gets the same). Until 2026-10-11 the cap was a
-constant raised by hand each time the maintainer freed memory on the host (6G to 11G); a
-measured one takes what is free without asking and leaves the host its margin. Each remote
-cargo process also builds with few jobs (`REMOTE_BUILD_JOBS`, 1 since 4.14b's run hit the cap).
-So a runaway mutant is OOM-killed inside the unit and counts as caught; `OOMPolicy=continue`, so that
-kill does not stop cargo-mutants; `CPUWeight=idle`, because `nice` cannot keep a `user.slice`
-process off Fluxer's CPU under cgroup v2. On 2026-09-29 the old uncapped half filled the host's
-RAM and swap (`display_name` with `i *= 1`, a loop that grows a `Vec` forever), and the global
-OOM killer, which could as well have picked Postgres, took the test. The run prints its peak
-(`remote memory peak`) against its cap. Every split run since the tmpfs fix peaks at the
-cap, which is the cgroup's page cache being reclaimed, not a kill, so a peak near the cap
-changes nothing by itself. When a build is killed at the cap, the run fails and lists the
-untested mutants (`report_killed`), and the fix is then memory freed on the host (the
-maintainer's) or a lower `REMOTE_BUILD_JOBS`; past one job, the crate joins
-`LOCAL_ONLY_CRATES` in `scripts/mutants.py`, whose mutants never go to the VPS (a whole-crate run
-and any diff holding one of them run locally whole). `team_compiler` was listed from 4.14d, whose
-run lost two builds at the cap with one job, until the Phase 4 converge audit (2026-10-09) found
-the cause: the host's `/tmp` is a 7.8 GiB tmpfs, cargo-mutants' default place for its two copies
-of the tree, so each copy's `target/` (4 GiB with egui linked) lived in the unit's memory and the
-per-mutant rebuilds of 1-2 GiB tipped it over the cap; the script now builds the remote half under
-`~/studio-mutants/tmp` on disk (`REMOTE_TMPDIR`). The build copies' size, not the build's memory,
-is what to look at first when a killed build shows up again. A running half is stopped with
-`sudo systemctl stop studio-mutants` on the host.
-
-**The remote half runs detached** from any ssh session (`~/studio-mutants/run/`: `job.sh`,
-`pid`, `log`, `exit`, `memory_peak`), and the script polls it every 15 s with short ssh calls (30 s until 2026-10-10). A dropped link
-costs a poll, not the run: at 2.20i the remote half still hung off one long ssh session and
-died with it. If `just mutants` itself stops, `just mutants-collect` waits for the remote half
-and fetches it, including a died half's partial results. A new run refuses to start while a
-remote half is running or uncollected (a local one too, since the collection summarizes the
-local `mutants.out` with the remote half), and a run that uses the VPS also while `just
-gates-remote` runs there: both rewrite the remote clone. **A failed half is reported, never restarted:**
-`cargo mutants` does not resume, so a rerun starts from zero, hours of work (at 2.20i the
-sidekick restarted the VPS half and waited on it although the local half had already tested
-every mutant). A brief that starts a whole-crate run says so.
-
-**The session scratch `.tmp/` holds one folder per subphase** (`4_17/` for every 4.17 slice's
-briefs, reports, diffs, logs and probes; `lead/` for the lead's live notes; `reference/` for
-cup material; `review_queue_S/` for the S1-S6 review rounds), sorted that way on 2026-10-08
-after a flat top level had reached about two thousand files: a new scratch file goes in its
-step's folder. **An archived run keeps its summary, not its logs.** A run kept aside (in
-`.tmp/<subphase>/mutants_<step>_<what>/`, before
-the next run overwrites `mutants.out/`) copies only `*.txt` and `outcomes.json`, never the
-per-mutant `log/` or `remote/` trees: those are what reproduce a survivor, and a survivor is
-reproduced by re-running its mutant, not by reading a week-old log. Whole-folder copies had
-grown `.tmp/` to 17 GB by 3.8. Each local run builds in a
-`%TEMP%\studio-mutants\cargo-mutants-4cc-studio-*.tmp` copy of the tree (one fixed parent,
-`LOCAL_TMPDIR`, so one antivirus exclusion covers every run; until 2026-10-10 directly in
-`%TEMP%`), deleted when the run ends normally; a killed run leaves its copy behind
-(some with a multi-GB `target/`), so after stopping one, delete its copy. `.cargo/mutants.toml`
-sets `gitignore = true` so the copies leave out `.tmp/` and `target/`: before 3.8 each copy
-carried all of `.tmp/`, and two 3.7 runs died of a full disk.
-
-Three model families, three roles. Lead: Claude (Fable) in Devin CLI's Fusion mode. Sidekick:
-SWE-2 (Kimi lineage), reached through the `sidekick` tool; a cold probe on a spec-in-hand crate
-showed it follows `CONTRIBUTING.md` literally and reports plan gaps instead of deciding them, so it
-is trusted with implementation, not with judgment. Reviewer subagent profiles (global,
-`%APPDATA%\Devin\agents\`): `gpt-astra-high` (GPT, latest Astra) when the lead is a Claude, **or
-when you do not know what model you are**; `fable-medium` (Claude) only when you know you are a
-GPT. The reviewer reviews; it is never asked to edit. Cost is not the constraint on any of these;
-time is, hence the batching rule above.
-
-Two harness limits, both measured. **`run_subagent` profiles have no `skill` tool**, and the
-reviewer profiles (whose files list `allowed-tools`) have `read`, `grep` and `find_file_by_name`
-only. A brief that says "invoke the `karpathy-guidelines` skill" sends a subagent globbing the
-repo for a file that is not there; give it the file to read instead,
-`%APPDATA%\devin\skills\karpathy-guidelines\SKILL.md` (outside the repo, and its `read` tool
-reaches it). The `sidekick` tool has the `skill` tool, so its briefs keep the invoke wording.
-**The sidekick's role can be played by a `swe-2-high` subagent** (same model, profile file with
-no `allowed-tools`, so it has the shell, `edit` and `write`; measured 2026-10-05): run it in the
-foreground (a background subagent has unapproved tools denied), resume the same one per task
-(`resume: <agent_id>` keeps its memory, as the sidekick's handoffs do). SWE-2 has a 1M-token
-context (a post-trained Kimi K3): the two S5.14 review runs (2026-10-05) that ended with an
-empty final message at about 260K hit a 262K limit the ACP layer imposed, since lifted. A review over a wide surface is still split
-into two briefs run in parallel, because one round over a whole module runs well over an hour. The
-`sidekick` tool's single sidekick cannot be reset. **Compaction does not fire while a sidekick handoff or a background subagent is in
-flight**, so a run started "to save time" ahead of the `[[/compact]]` sentinel costs the
-compaction instead (2.20b's mutation runs were started that way and the sentinel was ignored).
-Compact first, then start the run in the resumed turn.
+**Operations** are in `docs/RUNBOOK.md`, read before starting what each section covers:
+mutation runs and the VPS that takes half of them (`just mutants`, `mutants-diff`,
+`gates-remote`, and the memory caps that keep the host's production service first); the `.tmp/`
+scratch layout and what an archived run keeps; the agents and their harness limits; and the full
+review-round rules. Three model families play three roles: the lead (Claude) plans, briefs,
+reviews and talks to the maintainer; the sidekick (SWE-2) implements; the reviewer (GPT Astra,
+through the `duck` skill) critiques what the lead writes. Two operations rules every agent needs:
+nothing edits a crate while its mutation run is queued or going (the run copies the tree when it
+starts), and a failed remote half is reported, never restarted (`cargo mutants` does not resume).
 
 ## When the plan has gaps
 
