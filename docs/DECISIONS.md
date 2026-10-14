@@ -7674,3 +7674,13 @@ two tools refusing on different conditions would confuse the user and the code.
 Plan: `plans/team_compiler/pipeline.md` "Post-processing", `messages.md`
 (`savefile_skipped_pes_running`), `README.md` TC-SAV-10, `plans/core/architecture.md` "The
 running-PES probe".
+
+## 2026-10-14 — aatf — "switch preset tactic" is checked against a byte that may not hold it
+Decision: the maintainer's answer to the VGL question: every cup manager keeps "switch preset
+tactic" on, so a cup save showing it off on every team means the EDIT file's byte is not the
+in-game setting (the SYSTEM file is the candidate). The rulesets stay as they are until an
+in-game check (step 5.2f-r2) names where PES 21 stores it.
+Why: VGL26/VGL27 require the byte on and VTL10/VTL11 off; on real cup saves the first fails every
+team and the second passes every team, both without meaning if the byte is not the setting.
+Changing four rulesets on an inference would trade one unverified reading for another.
+Plan: `plans/aatf_rules.md` "VGL26", the support-settings paragraph.

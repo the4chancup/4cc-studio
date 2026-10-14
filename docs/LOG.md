@@ -1971,3 +1971,6 @@ worklog passed 7,000 lines.
   official ruleset or a rules file (`--rules`, the `aatf_rules` setting), one line per violation.
 - **2026-10-14** — The Save editor's write refusal now applies only while the PES of the save's
   version runs (maintainer's choice); another version's game no longer blocks an edit.
+- **2026-10-14** — 5.4a5-r1: `diff` reports a stripped first-only player once. CI's Windows
+  job passes again: `doc_pointers` resolves its root (an 8.3 temp path broke its tests).
+  VGL's "switch preset tactic" answered: likely not in the EDIT file; step 5.2f-r2 checks.

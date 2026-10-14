@@ -37,7 +37,7 @@ SWE-2 rulings `.tmp/parallel/aatf/rulings_as1.md`, `.tmp/5_2/rulings_as2.md`).
 And P.A1, 5.4a5-6 (`git diff 41395af 7abd220 -- crates Cargo.toml`; brief
 `.tmp/5_4/duck_brief_P_a1.md`, SWE-2 round S1 in `.tmp/5_4/duck_rulings.md`): both Devin Pro
 slots refused it on 2026-10-14 (a quota stop, then an internal error twice), so Codex after the
-interpreter; it ran there at 19:44. The interpreter review (I.A1) ran 14:44: its seven concerns
+interpreter; it ran there that evening (2 accepted, fixed in 5.4a5-r1; one SWE-2 round left). The interpreter review (I.A1) ran 14:44: its seven concerns
 are not ruled yet. Session handover with both, step 5.4c's first moves and the pitfalls met:
 `.tmp/lead/handover_2026-10-14.md`.
 Phase 3 closed with its reviews queued (the maintainer's
@@ -973,6 +973,15 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     specials in `rulesets/vtl11.rhai`; the legal fixture team's captain becomes a Prolific
     Winger (a Goal Poacher rated A at CF draws the warning); `the_playing_style_warnings_at_cf`.
     Re-run on the VTL11 save: the 22 warnings now match the checker's
+  - [ ] 5.2f-r2 Where PES 21 stores "switch preset tactic" (`aatf_rules.md` "VGL26", the
+    paragraph on the support settings; in-game, so ask the maintainer before taking focus; back
+    up the saves first): toggle it on one team in Edit mode, save, and diff the EDIT file and
+    the SYSTEM file against their backups; then toggle the team's other support settings one at
+    a time the same way, to name the three bytes `TeamAutoFlags` reads. Then the four rulesets
+    (VGL26, VGL27 require it on; VTL10, VTL11 off) keep the rule on the right byte, or drop it
+    when the setting is not per team → done when: the byte (or "not in the EDIT file") is
+    measured and written in `pes_savefile`'s model plan, and each of the four data blocks
+    follows it with its fixtures
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;
@@ -1004,7 +1013,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     - [x] 5.4a5 `diff --json` (SE-DIF-02) through `PipelineEvent::Output`, done 2026-10-14
       (SWE-2): `studio_core` `events.rs` (`Output`, `EventLines`); `save_editor` `diff.rs`
       builds one `DiffReport` rendered as findings or as JSON, `Report::output`, `--json`;
-      `serde_json` 1.0.151; the test helper `Run::stdout`
+      `serde_json` 1.0.151; the test helper `Run::stdout`. Rework 5.4a5-r1 (Astra P.A1's two
+      findings: a stripped player only in the first save reported twice; `--json` with a scope
+      untested), done 2026-10-14 (SWE-2)
     - [x] 5.4a6 the write refusal while PES runs, done 2026-10-14 (SWE-2): `studio_core`
       `pes_process.rs` (`running_pes`: Toolhelp on Windows, `/proc/<pid>/cmdline` on Linux);
       `save_editor` `cli.rs` `refuse_while_running` first in `import-toml`, `apply-patch` and
@@ -1121,8 +1132,9 @@ points there.
 
 - open (2026-10-14, 5.2f) — every team of the VGL26 cup save fails VGL26's "Support settings"
   special on `auto_preset_change` (all three PES 21 cup saves hold it off): the rule follows the
-  rules page, which speaks of the deadline export. Waits on `docs/QUESTIONS.md` "VGL's 'switch
-  preset tactic' on the cup save".
+  rules page, which speaks of the deadline export. Answered by the maintainer the same day: every
+  cup manager keeps "switch preset tactic" on, so the setting is likely not stored per team in the
+  EDIT file (the SYSTEM file is the candidate). Waits on step 5.2f-r2's in-game check.
 - open (2026-10-11, Phase 5 Acceptance; deferred until the cup next plays a pre-Fox version) —
   the pre-Fox aesthetics patch (`pes_savefile/operations.md` "Aesthetics patch", the pre-Fox
   half; `spec/team_compiler/pipeline.md` "Post-processing"): every appearance field, the resolved boots and gloves

@@ -627,6 +627,11 @@ preset 1 only (an outfielder cannot be rated A at GK, and preset 1 fields A posi
 no condition reads the positions fielded in presets 2 and 3. The
 rules page's "support settings" are read as substitution, offside trap and preset change: its
 next rule allows auto attack/defence levels at fixed values, so that setting is left free.
+Every cup manager keeps "switch preset tactic" on, yet every team of the three PES 21 cup saves
+holds the byte read as `auto_preset_change` at 0: the in-game setting is most likely not stored
+per team in the EDIT file (the SYSTEM file is the candidate), and the byte may be something else.
+VGL26 and VGL27 require it on and VTL10 and VTL11 off, so all four rules hang on that byte; an
+in-game check (worklog step 5.2f-r2) decides whether they stay, move to another byte, or go.
 
 ## VGL27
 

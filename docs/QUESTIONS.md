@@ -62,17 +62,4 @@ the cup's preference for an unattended match, or does a stream want chants only 
 streamer starts them? Unblocks: the setting's default; the rule itself is already in the
 plan.
 
-### VGL's "switch preset tactic" on the cup save
-From: step 5.2f's parity runs, 2026-10-14 (`aatf_rules.md` "VGL26", team settings). The VGL26
-and VGL27 rules pages say a team's deadline export has every support setting off except
-"switch preset tactic", which must be on; the rulesets check that as `auto_preset_change`
-true. On the VGL26 cup save every team holds it off (so do the VTL10 and VTL11 saves, which
-reach the same three bytes the legacy editor reads as substitution, offside trap and preset
-change; the offside trap is on for three teams, so the bytes are live). Does a cup save keep
-the deadline export's setting, or do the organizers (or the game) turn it off when the save
-is built? And is the in-game "switch preset tactic" the third of those bytes? If the save
-does not keep it, the check belongs to the export, and on a save it fails every team.
-Unblocks: whether the VGL rulesets keep `auto_preset_change: true` (worklog issue
-2026-10-14, 5.2f).
-
 ## Small confirmations
