@@ -3382,6 +3382,7 @@ dependencies = [
 name = "save_editor"
 version = "0.1.0"
 dependencies = [
+ "aatf",
  "anyhow",
  "clap",
  "crossbeam-channel",

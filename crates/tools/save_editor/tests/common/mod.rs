@@ -65,10 +65,21 @@ impl Sandbox {
         self.run_with_data_dir(Some(self.root.join("data")), args)
     }
 
+    /// `run` with `settings` as the settings file's text (the tool sections under their ids).
+    pub fn run_with_settings(&self, settings: &str, args: &[&str]) -> Run {
+        self.run_full(Some(self.root.join("data")), settings, args)
+    }
+
     /// `run` with the data directory given (`None`: no settings file exists yet).
     pub fn run_with_data_dir(&self, data_dir: Option<PathBuf>, args: &[&str]) -> Run {
+        self.run_full(data_dir, "", args)
+    }
+
+    /// The run's shared body: `data_dir` and `settings` are the settings file's location and
+    /// text, `""` standing for no file.
+    fn run_full(&self, data_dir: Option<PathBuf>, settings: &str, args: &[&str]) -> Run {
         let tool = Tool::new();
-        let mut parsed = Settings::parse("").unwrap();
+        let mut parsed = Settings::parse(settings).unwrap();
         parsed.merge_defaults(tool.id(), &tool.default_settings());
         let (events_tx, events_rx) = unbounded();
         let (requests_tx, _requests_rx) = unbounded();

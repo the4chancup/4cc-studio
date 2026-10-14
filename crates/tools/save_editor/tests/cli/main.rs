@@ -6,6 +6,7 @@
 mod common;
 
 mod apply_patch;
+mod check_aatf;
 mod diff;
 mod export_teams_list;
 mod export_toml;

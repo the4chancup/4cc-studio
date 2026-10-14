@@ -6,6 +6,7 @@
 
 use std::borrow::Cow;
 
+use aatf::{Violation, ViolationKind};
 use pes_savefile::interchange::aesthetics_patch::PatchSkip;
 use pes_savefile::interchange::team_toml::ImportNote;
 use pes_savefile::ops::compare::PlayerDiff;
@@ -73,6 +74,13 @@ pub(crate) enum Code {
     /// `export-teams-list --yes`: the data directory cannot take the file; nothing is
     /// written (`path`, `error`).
     TeamsListReadOnly,
+    /// `check-aatf`: one rule the team breaks under the ruleset (`team`; `player` for a
+    /// player's violation; `rule`, then the rule's own fields). The severity is the
+    /// violation's, so `aatf_violation` sets it on the message it builds.
+    AatfViolation,
+    /// `check-aatf`: the ruleset's check itself failed on the team, which the other teams'
+    /// results do not cover (`team`, `error`).
+    AatfCheckFailed,
 }
 
 /// Which of `diff`'s two saves a finding is about, as the console names them.
@@ -122,6 +130,8 @@ impl Code {
             Code::TeamsListWritten => "teams_list_written",
             Code::TeamsListNotWritten => "teams_list_not_written",
             Code::TeamsListReadOnly => "teams_list_read_only",
+            Code::AatfViolation => "aatf_violation",
+            Code::AatfCheckFailed => "aatf_check_failed",
         }
     }
 
@@ -156,6 +166,9 @@ impl Code {
             | Code::TeamsListUnresolved
             | Code::TeamsListNameDuplicate
             | Code::TeamsListReadOnly => Severity::Error,
+            // `check-aatf`: a failed check is an error; a violation's own severity decides,
+            // and `aatf_violation` overwrites this default with it.
+            Code::AatfViolation | Code::AatfCheckFailed => Severity::Error,
         }
     }
 }
@@ -235,6 +248,207 @@ pub(crate) fn patch_skip(skip: PatchSkip) -> Message {
             Code::PatchPlayerNotInSave,
             vec![("player", player.to_string())],
         ),
+    }
+}
+
+/// The message for one `check-aatf` violation of `team`: `player` is the rostered player's
+/// id when the violation names a slot, `severity` the violation's (a suggestion is filtered
+/// by the caller, which prints nothing for it), and `rule` with its fields is
+/// `violation_rule`'s.
+pub(crate) fn aatf_violation(
+    team: u32,
+    player: Option<u32>,
+    violation: &Violation,
+    severity: Severity,
+) -> Message {
+    let (rule, fields) = violation_rule(&violation.kind);
+    let mut context = vec![("team", team.to_string())];
+    if let Some(player) = player {
+        context.push(("player", player.to_string()));
+    }
+    context.push(("rule", rule.to_owned()));
+    context.extend(fields);
+    let mut message = message(Code::AatfViolation, context);
+    message.severity = severity;
+    message
+}
+
+/// The message for a team whose `check-aatf` run failed (a bug in the logic or in a custom
+/// check): `error` is the `TeamViewError`'s or `CheckError`'s text.
+pub(crate) fn aatf_check_failed(team: u32, error: String) -> Message {
+    message(
+        Code::AatfCheckFailed,
+        vec![("team", team.to_string()), ("error", error)],
+    )
+}
+
+/// A violation's rule: its kind as a rules file writes it (`FieldedNotA`) and the kind's
+/// own fields by their field names, in declaration order, each value spelled as the file
+/// spells it. One arm per kind, so a new one does not compile past this match.
+pub(crate) fn violation_rule(kind: &ViolationKind) -> (&'static str, Vec<(&'static str, String)>) {
+    match kind {
+        ViolationKind::RegisteredNotA => ("RegisteredNotA", vec![]),
+        ViolationKind::FieldedNotA { preset, position } => (
+            "FieldedNotA",
+            vec![
+                ("preset", preset.to_string()),
+                ("position", position.label().to_owned()),
+            ],
+        ),
+        ViolationKind::BRating => ("BRating", vec![]),
+        ViolationKind::GkSecondA => ("GkSecondA", vec![]),
+        ViolationKind::Age { age, min, max } => (
+            "Age",
+            vec![
+                ("age", age.to_string()),
+                ("min", min.to_string()),
+                ("max", max.to_string()),
+            ],
+        ),
+        ViolationKind::Weight { weight, min, max } => (
+            "Weight",
+            vec![
+                ("weight", weight.to_string()),
+                ("min", min.to_string()),
+                ("max", max.to_string()),
+            ],
+        ),
+        ViolationKind::PositionRange => ("PositionRange", vec![]),
+        ViolationKind::PlayingStyleRange => ("PlayingStyleRange", vec![]),
+        ViolationKind::NoTier => ("NoTier", vec![]),
+        ViolationKind::Stat {
+            stat,
+            value,
+            target,
+            at_most,
+        } => (
+            "Stat",
+            vec![
+                ("stat", stat.label().to_owned()),
+                ("value", value.to_string()),
+                ("target", target.to_string()),
+                ("at_most", at_most.to_string()),
+            ],
+        ),
+        ViolationKind::Form { value, target } => (
+            "Form",
+            vec![("value", value.to_string()), ("target", target.to_string())],
+        ),
+        ViolationKind::InjuryResistance { value, max } => (
+            "InjuryResistance",
+            vec![("value", value.to_string()), ("max", max.to_string())],
+        ),
+        ViolationKind::WeakFootUsage { value, max } => (
+            "WeakFootUsage",
+            vec![("value", value.to_string()), ("max", max.to_string())],
+        ),
+        ViolationKind::WeakFootAccuracy { value, max } => (
+            "WeakFootAccuracy",
+            vec![("value", value.to_string()), ("max", max.to_string())],
+        ),
+        ViolationKind::NameColor { color, expected } => (
+            "NameColor",
+            [
+                color.as_ref().map(|color| ("color", color.clone())),
+                expected
+                    .as_ref()
+                    .map(|expected| ("expected", expected.clone())),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        ),
+        ViolationKind::Cards { paid, limit } => (
+            "Cards",
+            vec![("paid", paid.to_string()), ("limit", limit.to_string())],
+        ),
+        ViolationKind::MinCards { paid, min } => (
+            "MinCards",
+            vec![("paid", paid.to_string()), ("min", min.to_string())],
+        ),
+        ViolationKind::SkillCardCap { count, max } => (
+            "SkillCardCap",
+            vec![("count", count.to_string()), ("max", max.to_string())],
+        ),
+        ViolationKind::ComStyleCap { count, max } => (
+            "ComStyleCap",
+            vec![("count", count.to_string()), ("max", max.to_string())],
+        ),
+        ViolationKind::RequiredCard { card } => {
+            ("RequiredCard", vec![("card", card.label().to_owned())])
+        }
+        ViolationKind::APositions { count, max } => (
+            "APositions",
+            vec![("count", count.to_string()), ("max", max.to_string())],
+        ),
+        ViolationKind::Height { height } => ("Height", vec![("height", height.to_string())]),
+        ViolationKind::TierCount {
+            tier,
+            count,
+            expected,
+        } => (
+            "TierCount",
+            vec![
+                ("tier", tier.clone()),
+                ("count", count.to_string()),
+                ("expected", expected.to_string()),
+            ],
+        ),
+        ViolationKind::BracketQuota {
+            system,
+            bracket,
+            count,
+            quota,
+        } => (
+            "BracketQuota",
+            vec![
+                ("system", system.clone()),
+                ("bracket", bracket.clone()),
+                ("count", count.to_string()),
+                ("quota", quota.to_string()),
+            ],
+        ),
+        ViolationKind::Captain => ("Captain", vec![]),
+        ViolationKind::Goalkeepers { count, min } => (
+            "Goalkeepers",
+            vec![("count", count.to_string()), ("min", min.to_string())],
+        ),
+        ViolationKind::TeamSetting { label, setting } => (
+            "TeamSetting",
+            vec![("label", label.clone()), ("setting", setting.clone())],
+        ),
+        ViolationKind::FormationShape {
+            preset,
+            formation,
+            shape,
+        } => (
+            "FormationShape",
+            vec![
+                ("preset", preset.to_string()),
+                ("formation", formation.to_string()),
+                ("shape", format!("{shape:?}")),
+            ],
+        ),
+        ViolationKind::Special { label, text } => (
+            "Special",
+            vec![("label", label.clone()), ("text", text.clone())],
+        ),
+        ViolationKind::Custom { text } => ("Custom", vec![("text", text.clone())]),
+        ViolationKind::Unused {
+            allowance,
+            used,
+            allowed,
+        } => (
+            "Unused",
+            vec![
+                ("allowance", allowance.clone()),
+                ("used", used.to_string()),
+                ("allowed", allowed.to_string()),
+            ],
+        ),
+        ViolationKind::UnusedChoice { special } => {
+            ("UnusedChoice", vec![("special", special.clone())])
+        }
     }
 }
 
@@ -385,6 +599,43 @@ mod tests {
         assert_eq!(
             line(&patch_skip(PatchSkip::PlayerNotInSave { player: 71499 })),
             "Error patch_player_not_in_save (player=71499)"
+        );
+    }
+
+    #[test]
+    fn an_aatf_violation_names_team_player_rule_and_the_rules_fields() {
+        let fielded = Violation {
+            slot: Some(0),
+            severity: aatf::Severity::Error,
+            kind: ViolationKind::FieldedNotA {
+                preset: 1,
+                position: "GK".to_owned().try_into().unwrap(),
+            },
+        };
+        assert_eq!(
+            line(&aatf_violation(718, Some(71802), &fielded, Severity::Error)),
+            "Error aatf_violation (team=718, player=71802, rule=FieldedNotA, preset=1, position=GK)"
+        );
+        // A team-level violation names no player, an `Option` field none when `None`, and
+        // the severity is the violation's.
+        let name_color = Violation {
+            slot: None,
+            severity: aatf::Severity::Warning,
+            kind: ViolationKind::NameColor {
+                color: None,
+                expected: Some("cc9900ff".to_owned()),
+            },
+        };
+        assert_eq!(
+            line(&aatf_violation(718, None, &name_color, Severity::Warning)),
+            "Warning aatf_violation (team=718, rule=NameColor, expected=cc9900ff)"
+        );
+        assert_eq!(
+            line(&aatf_check_failed(
+                701,
+                "the check's script failed: x".to_owned()
+            )),
+            "Error aatf_check_failed (team=701, error=the check's script failed: x)"
         );
     }
 }

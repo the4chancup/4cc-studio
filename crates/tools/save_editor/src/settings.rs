@@ -1,19 +1,28 @@
 //! The Save editor's section of the settings file. A key enters with the step whose code reads
-//! it, so the file never carries a setting nothing honors yet: the commands of step 5.4a read
-//! none (the AATF rules path arrives with `check-aatf`, the comparator defaults and the last
-//! folder with the window), so the section is empty today.
+//! it, so the file never carries a setting nothing honors yet: `check-aatf` (step 5.4b) reads
+//! `aatf_rules`; the comparator defaults and the last folder arrive with the window.
 
 use serde::{Deserialize, Serialize};
 
-/// The Save editor's settings, the keys this version reads: none yet.
+/// The Save editor's settings, the keys this version reads.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub(crate) struct SaveEditorSettings {}
+pub(crate) struct SaveEditorSettings {
+    /// The AATF rules file `check-aatf` and the AATF panel run; empty: the official ruleset,
+    /// built in.
+    pub(crate) aatf_rules: String,
+}
 
 /// The defaults as a settings table, merged into the file's section for every key it lacks.
 pub(crate) fn default_table() -> toml::Table {
-    toml::Table::try_from(SaveEditorSettings::default())
-        .expect("a struct with no field is an empty table")
+    toml::Table::try_from(SaveEditorSettings::default()).expect("the default is one string")
+}
+
+/// Reads the tool's settings table. A missing key loads as its default; a key this version does
+/// not know is ignored, so a newer version's settings file does not break an older binary; a key
+/// of the wrong type is an error naming it.
+pub(crate) fn from_table(table: &toml::Table) -> Result<SaveEditorSettings, toml::de::Error> {
+    table.clone().try_into()
 }
 
 #[cfg(test)]
@@ -21,10 +30,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_defaults_are_an_empty_table_an_unknown_key_reads_back_as_the_defaults() {
-        assert!(default_table().is_empty());
+    fn the_defaults_carry_no_rules_file_and_an_unknown_key_reads_back_as_the_defaults() {
+        assert_eq!(default_table()["aatf_rules"].as_str(), Some(""));
         let table: toml::Table = toml::from_str("setting_from_a_newer_version = 3").unwrap();
-        let settings: SaveEditorSettings = table.try_into().unwrap();
-        assert_eq!(settings, SaveEditorSettings::default());
+        assert_eq!(from_table(&table).unwrap(), SaveEditorSettings::default());
+    }
+
+    #[test]
+    fn aatf_rules_names_a_rules_file() {
+        let table: toml::Table = toml::from_str("aatf_rules = \"vgl27.rhai\"").unwrap();
+        assert_eq!(from_table(&table).unwrap().aatf_rules, "vgl27.rhai");
     }
 }

@@ -81,7 +81,7 @@ mod tests {
         let tool = Tool::new();
         assert_eq!(tool.id(), "save-editor");
         assert_eq!(tool.label(), "Save editor");
-        assert!(tool.default_settings().is_empty());
+        assert_eq!(tool.default_settings()["aatf_rules"].as_str(), Some(""));
         assert_eq!(tool.help().topics.len(), 1);
     }
 }

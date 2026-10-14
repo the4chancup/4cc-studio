@@ -1967,3 +1967,5 @@ worklog passed 7,000 lines.
   document through the new `PipelineEvent::Output`, which the console writes verbatim.
 - **2026-10-14** — Step 5.4a6 done: `studio_core` lists the running PES games, and the Save
   editor's writing commands refuse while one runs (checked with a stand-in process).
+- **2026-10-14** — Step 5.4b done: `save-editor check-aatf` checks a save's cup teams against the
+  official ruleset or a rules file (`--rules`, the `aatf_rules` setting), one line per violation.

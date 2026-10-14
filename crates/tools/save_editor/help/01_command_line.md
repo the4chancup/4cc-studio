@@ -11,6 +11,7 @@ install's save folder, or a copy of it); none picks one for you.
 4cc-studio save-editor apply-patch <aesthetics_patch.toml> --base <save> --out <save>
 4cc-studio save-editor transplant <donor save> --base <save> --out <save> --select <list>
 4cc-studio save-editor diff <first save> <second save> [--aesthetics | --gameplay] [--json]
+4cc-studio save-editor check-aatf <save> [--teams <list>] [--rules <file>]
 4cc-studio save-editor export-teams-list <save> [--yes]
 ```
 
@@ -71,6 +72,17 @@ abilities, positions, skills, motion). Differences are the output, not errors: t
 code is 0. Two saves of different versions are refused. With `--json` the report is one JSON
 document on stdout instead, for tooling: the players with their changed fields and stripped
 marks, then the players one save alone holds; nothing else is printed.
+
+`check-aatf` checks the save's cup teams against an AATF ruleset: every team whose id is in
+the cup range, 701 to 920, or the ones `--teams` names as a comma-separated list of ids and
+inclusive ranges (`701,705-710`). The ruleset is the file `--rules` names, else the one the
+`aatf_rules` setting names, else the official ruleset built into 4cc Studio. Each violation
+prints as one `aatf_violation` line with the team, the player's id for a player's violation,
+the rule and what it measured, the teams in id order; a team whose check cannot run is the
+error line `aatf_check_failed` and the rest are still checked. An error-severity violation
+makes the exit code 1, warnings alone leave it 0. A rules file that does not load is refused
+with the line and column or the key path it failed at, so the command also validates a rules
+file; a `--teams` id the save does not hold is refused as well.
 
 `export-teams-list` merges the save's teams into the `teams_list.txt` of the data folder
 (the list the Team compiler resolves export names against; the list shipped with 4cc Studio

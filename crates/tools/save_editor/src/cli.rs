@@ -6,6 +6,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use aatf::{Rules, TeamView};
 use anyhow::anyhow;
 use clap::{ArgGroup, Args, Command, FromArgMatches, Subcommand};
 use pes_savefile::interchange::aesthetics_patch::AestheticsPatch;
@@ -16,9 +17,12 @@ use pes_version::PesVersion;
 use studio_core::{CliError, RunningPes, Severity, ToolContext, running_pes};
 
 use crate::events::Report;
-use crate::messages::{Code, TOOL_ID, import_note, message, patch_skip, stripped_mark};
+use crate::messages::{
+    Code, TOOL_ID, aatf_check_failed, aatf_violation, import_note, message, patch_skip,
+    stripped_mark,
+};
 use crate::session::Session;
-use crate::{diff, teams_list};
+use crate::{diff, settings, teams_list};
 
 // The exit codes are the command line's contract with scripts, the Team compiler's meanings.
 /// Exit code of a command that did its work with no Error finding.
@@ -44,8 +48,25 @@ enum SaveEditorCommand {
     Transplant(TransplantArgs),
     /// List every field that differs between two saves of one version, player by player.
     Diff(DiffArgs),
+    /// Check the save's cup teams against an AATF ruleset, one line per violation.
+    CheckAatf(CheckAatfArgs),
     /// Merge the save's team names and ids into the data directory's teams_list.txt.
     ExportTeamsList(ExportTeamsListArgs),
+}
+
+/// `check-aatf <save> [--teams <list>] [--rules <file>]`.
+#[derive(Debug, Args)]
+struct CheckAatfArgs {
+    /// The save to read (EDIT00000000).
+    save: PathBuf,
+    /// Only these teams, comma-separated ids and inclusive ranges (701,705-710); every team
+    /// of the save in the cup range (701 to 920) otherwise.
+    #[arg(long, value_name = "LIST")]
+    teams: Option<String>,
+    /// The AATF rules file to check against; the aatf_rules setting's file otherwise, or the
+    /// official ruleset built in when that is empty.
+    #[arg(long, value_name = "FILE")]
+    rules: Option<PathBuf>,
 }
 
 /// `export-teams-list <save> [--yes]`.
@@ -147,6 +168,7 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
         SaveEditorCommand::ApplyPatch(args) => apply_patch(&args, &mut report)?,
         SaveEditorCommand::Transplant(args) => transplant(&args, &mut report)?,
         SaveEditorCommand::Diff(args) => diff_saves(&args, &mut report)?,
+        SaveEditorCommand::CheckAatf(args) => check_aatf(&args, ctx, &mut report)?,
         SaveEditorCommand::ExportTeamsList(args) => {
             export_teams_list(&args, ctx.paths().data_dir.as_deref(), &mut report)?;
         }
@@ -352,6 +374,117 @@ fn diff_saves(args: &DiffArgs, report: &mut Report) -> Result<(), CliError> {
     })
 }
 
+/// `check-aatf`: the ruleset is `--rules`, else the `aatf_rules` setting's file, else the
+/// embedded official ruleset; a file that does not read or fails load-time validation is
+/// refused naming it, so the command doubles as a rules file's check. Each team is checked
+/// in turn, a team's failed check is an error line and the next team is still checked; a
+/// violation is one line at its severity, suggestions aside.
+fn check_aatf(
+    args: &CheckAatfArgs,
+    ctx: &ToolContext,
+    report: &mut Report,
+) -> Result<(), CliError> {
+    let rules = match rules_path(args, ctx)? {
+        Some(path) => Rules::load(&read_text(&path)?)
+            .map_err(|error| invalid(anyhow!("{}: {error}", path.display())))?,
+        None => Rules::official(),
+    };
+    let session = open(&args.save)?;
+    let ids = match &args.teams {
+        Some(text) => parse_teams(text).map_err(|error| invalid(anyhow!("--teams: {error}")))?,
+        None => {
+            let mut ids: Vec<u32> = session
+                .team_ids()
+                .filter(|id| (701..=920).contains(id))
+                .collect();
+            ids.sort_unstable();
+            ids
+        }
+    };
+    for id in &ids {
+        if session.file().team(*id).is_none() {
+            return Err(invalid(anyhow!("the save has no team {id}")));
+        }
+    }
+    for id in ids {
+        let team = session.file().team(id).expect("checked above");
+        let violations = match TeamView::new(session.file(), id)
+            .map_err(|error| error.to_string())
+            .and_then(|view| rules.check_team(&view).map_err(|error| error.to_string()))
+        {
+            Ok(violations) => violations,
+            Err(error) => {
+                report.message(aatf_check_failed(id, error));
+                continue;
+            }
+        };
+        for violation in violations {
+            let severity = match violation.severity {
+                aatf::Severity::Error => Severity::Error,
+                aatf::Severity::Warning => Severity::Warning,
+                // Suggestions are not printed: there is nothing to fix in an unused allowance.
+                aatf::Severity::Suggestion => continue,
+            };
+            let player = violation
+                .slot
+                .and_then(|slot| team.roster.get(usize::from(slot)))
+                .map(|slot| slot.player_id);
+            report.message(aatf_violation(id, player, &violation, severity));
+        }
+    }
+    Ok(())
+}
+
+/// The rules file `check-aatf` reads: `--rules`, else the `aatf_rules` setting when it names
+/// one, else `None` (the embedded official ruleset). A relative path is used as given.
+fn rules_path(args: &CheckAatfArgs, ctx: &ToolContext) -> Result<Option<PathBuf>, CliError> {
+    if let Some(path) = &args.rules {
+        return Ok(Some(path.clone()));
+    }
+    // A toml error's text ends with a newline, which would leave a blank line under `error: `.
+    let settings = settings::from_table(&ctx.tool_settings(TOOL_ID)).map_err(|error| {
+        invalid(anyhow!(
+            "settings [{TOOL_ID}]: {}",
+            error.to_string().trim_end()
+        ))
+    })?;
+    Ok((!settings.aatf_rules.is_empty()).then(|| PathBuf::from(&settings.aatf_rules)))
+}
+
+/// `--teams`' list: comma-separated ids and inclusive ranges (`701,705-710`), sorted with
+/// duplicates dropped; a malformed item or a range whose start is past its end is an `Err`
+/// naming it.
+fn parse_teams(text: &str) -> Result<Vec<u32>, String> {
+    let mut ids = Vec::new();
+    for item in text.split(',') {
+        let item = item.trim();
+        let (start, end) = match item.split_once('-') {
+            Some((first, last)) => (
+                first
+                    .trim()
+                    .parse::<u32>()
+                    .map_err(|_| format!("{item:?}: not a team id or a range"))?,
+                last.trim()
+                    .parse::<u32>()
+                    .map_err(|_| format!("{item:?}: not a team id or a range"))?,
+            ),
+            None => {
+                let id = item
+                    .parse::<u32>()
+                    .map_err(|_| format!("{item:?}: not a team id or a range"))?;
+                (id, id)
+            }
+        };
+        if start > end {
+            return Err(format!("{item:?}: the range's start is past its end"));
+        }
+        ids.extend(start..=end);
+    }
+    ids.sort_unstable();
+    ids.dedup();
+    Ok(ids)
+}
+
 /// `export-teams-list`: the save's teams merged into the data directory's list, the summary
 /// one line per change, the file written only with `--yes`. A data directory that cannot
 /// take the file (none chosen yet, or unwritable, found by attempting the write) is the
@@ -459,6 +592,18 @@ mod tests {
             "{}",
             error.error
         );
+    }
+
+    #[test]
+    fn parse_teams_reads_ids_and_inclusive_ranges_sorted_without_duplicates() {
+        assert_eq!(parse_teams("718").unwrap(), vec![718]);
+        assert_eq!(
+            parse_teams("705-707,701,706").unwrap(),
+            vec![701, 705, 706, 707]
+        );
+        for text in ["710-705", "7x", ""] {
+            assert!(parse_teams(text).is_err(), "{text}");
+        }
     }
 
     #[test]
