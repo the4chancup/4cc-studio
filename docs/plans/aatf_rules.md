@@ -659,8 +659,22 @@ message prints its own bracket's count (before it, the 185 cm count for every br
 
 A template, transcribed from the VTLEditor fork at `2cf222f` (2026-03-01), the last commit before
 VTL10's first matchday on 2026-03-13: `5b78e5b` ("small aatf changes", 2026-04-12) and `4333325`
-("post vtl10 update") came during the cup and are not its ruleset. Its differences from VTL11 are
-listed here when its data block is written (5.2e).
+("post vtl10 update") came during the cup and are not its ruleset. It differs from VTL11 in:
+
+- heights: medals at 194 (told apart by swerve, gold 99 and silver 92), outfield regulars at 178
+  and their goalkeepers at 180 (a special for each wrong one), the buffed at 188;
+- targets: its own per tier (silver's rate 92; the file stores absolute values); no
+  playing-style bonuses;
+- cards: gold's paid 6 and free COM 2; its own thirteen free skills; Incisive Run free beside Long
+  Ranger; no banned card; the skill card cap at 12;
+- no B rating anywhere (`no_b_ratings`); a buffed player rated A at LB or RB has weak foot 2/2;
+- no name colours.
+
+Its custom checks are VTL11's, with 178 cm for the regulars who may not share a 188 cm player's
+registered position. The VTL wiki's VTL10 page found in 2026-10 describes another ruleset entirely
+(medals rated 89, 94 and 99, eighteen regulars, heights 185, 180 and 175); the checker is
+followed, and the parity run on the VTL10 cup save (5.2f) shows which one its teams were built
+under.
 
 ---
 

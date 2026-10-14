@@ -17,7 +17,7 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1 and 5.0m4 done 2026-10-14; then 5.2e (VGL, VTL)
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10) done 2026-10-14; then 5.2c-r3, 5.2f
 and 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
@@ -30,11 +30,8 @@ and writes what is correctness-critical; the sidekick, SWE-2 through the Devin C
 the cross-family reviews run through the `duck` skill (Astra), the lead running them itself.
 When a review stops for quota, it is queued here (commit range, plan sections) and retried
 once an hour; work continues past it, but no phase closes with one outstanding.
-**Handover queue** (2026-10-13), both Astra on a Pro slot after its 10:00 daily reset:
-R12.A1 over `1ba5b0e..5743d9e` (5.2b1's reworks; `aatf_rules.md` "The host"); and one over
-5.2c1, 5.2c2 and their reworks, `79da9be..ec035a3` (`aatf_rules.md` "The rules file",
-"Loading and validation", "The host"; SWE-2 rulings C1, C2 in `.tmp/5_2/duck_rulings.md`).
-And a third: the interpreter, `3b4b10e..` the 5.2d2-r1 commit (5.2c3, 5.2d, 5.2e's two data
+**Handover queue** (2026-10-14): R12.A1 (2 accepted) and C.A1 (4 accepted, step 5.2c-r3)
+ran on the brother's Codex slot on 2026-10-14, both loops ending. Left: the interpreter, `3b4b10e..` the 5.2d2-r1 commit (5.2c3, 5.2d, 5.2e's two data
 blocks, the Red CBs fix, 5.2c3-r1, 5.2d2, 5.2d2-r1; `aatf_rules.md` "The ruleset schema", "The interpreter", "The host";
 SWE-2 rulings `.tmp/parallel/aatf/rulings_as1.md`, `.tmp/5_2/rulings_as2.md`).
 Phase 3 closed with its reviews queued (the maintainer's
@@ -923,7 +920,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       with the five tests `just mutants-diff 5c1f637` asked for in `music_export` and the Save
       editor: rulings `.tmp/lead/mutants_5c1f637_rulings.md`; one equivalent excluded in
       `.cargo/mutants.toml`, `StartOffset::parse`'s dead arm removed)
-  - [ ] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27, VTL11 and VTL10 data blocks and their
+  - [x] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27, VTL11 and VTL10 data blocks and their
     fixtures → done when: the plan's per-ruleset fixtures pass. Autumn 25 and Spring 26 landed
     2026-10-14 (side-lead, `0aceb0b`: the sample team, a real team built under Spring 26,
     reports nothing there as written); VGL25 landed 2026-10-14 (SWE-2: `rulesets/vgl25.rhai`,
@@ -940,7 +937,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     Long Ranger reaches; logic 1's hash edited in place, unreleased); (b) landed 2026-10-14
     (SWE-2, resumed once after a truncation: `rulesets/vtl11.rhai` with its CUSTOM CHECKS
     section, `src/fixtures/vtl11.rs`, fifteen fixtures, the PES 16 team settings on a PES 16
-    build of the sample); VTL10 remains
+    build of the sample); VTL10 landed 2026-10-14 (SWE-2: `rulesets/vtl10.rhai` from
+    VTLEditor `2cf222f`, `src/fixtures/vtl10.rs`, eighteen fixtures; the plan's "VTL10" lists
+    its differences from VTL11; the VTL wiki's VTL10 page describes another ruleset, which
+    5.2f's parity run on the VTL10 save settles)
+  - [ ] 5.2c-r3 Astra C.A1's four accepted concerns (`.tmp/5_2/duck_rulings.md` "C.A1"): the
+    `at_most` docs in `violation.rs` say the opposite of the plan; a multi-finding conversion
+    test; a Team TOML roster with an interior empty slot; `Rules::logic()` tested → done when:
+    the four tests fail red and pass, the docs read as the plan
   - [ ] 5.2f the parity runs against the legacy checkers on the cup saves (lead) → done
     when: each difference is a deliberate one the plan lists, or fixed
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:

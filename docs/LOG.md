@@ -1952,3 +1952,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.2e, VTL11 (b): its data block from VTLEditor's `ab5f0e2`
   checker, with its custom checks (the 188 cm players' positions, exactly two goalkeepers),
   and fifteen fixtures, PES 16's team settings among them.
+- **2026-10-14** — Step 5.2e done: VTL10's data block from VTLEditor's `2cf222f` and eighteen
+  fixtures; the plan lists its differences from VTL11. All seven rulesets of the step are in;
+  Astra R12.A1 and C.A1 ran (6 accepted; C.A1's four are step 5.2c-r3).
