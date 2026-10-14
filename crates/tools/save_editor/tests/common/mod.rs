@@ -11,7 +11,8 @@ use pes_savefile::fixture_save;
 use pes_version::PesVersion;
 use save_editor::Tool;
 use studio_core::{
-    AppPaths, CliError, PipelineEvent, PipelineEventEnvelope, Settings, StudioTool, ToolContext,
+    AppPaths, CliError, EventLines, PipelineEvent, PipelineEventEnvelope, Settings, StudioTool,
+    ToolContext,
 };
 
 /// A fresh folder standing in for the executable's folder; `data/` is the data directory.
@@ -123,6 +124,20 @@ impl Run {
         assert!(self.events.is_empty(), "a refused command emits nothing");
     }
 
+    /// What the console printer writes: each event's `EventLines` line, newline-separated,
+    /// so a command's `Output` text lands verbatim among the finding lines.
+    pub fn stdout(&self) -> String {
+        let mut lines = EventLines::new();
+        let mut out = String::new();
+        for envelope in &self.events {
+            if let Some(line) = lines.line(&envelope.event) {
+                out.push_str(&line);
+                out.push('\n');
+            }
+        }
+        out
+    }
+
     /// Every `Message` event as one line: severity, code and context, so a test asserts all
     /// of them at once. Every finding is run-wide, so there is no source or location.
     pub fn messages(&self) -> Vec<String> {
@@ -143,6 +158,7 @@ impl Run {
                     ))
                 }
                 PipelineEvent::ExportStarted { .. }
+                | PipelineEvent::Output(_)
                 | PipelineEvent::ExportProcessed { .. }
                 | PipelineEvent::FolderStatus { .. }
                 | PipelineEvent::Progress { .. }

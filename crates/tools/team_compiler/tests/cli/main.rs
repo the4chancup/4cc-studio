@@ -132,6 +132,7 @@ impl Run {
                 }
                 PipelineEvent::ExportProcessed { .. }
                 | PipelineEvent::FolderStatus { .. }
+                | PipelineEvent::Output(_)
                 | PipelineEvent::Progress { .. }
                 | PipelineEvent::Complete { .. }
                 | PipelineEvent::UnmigratedContentFound => {}

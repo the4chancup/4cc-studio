@@ -1963,3 +1963,5 @@ worklog passed 7,000 lines.
   (a maintainer question); VTL11's two warnings are step 5.2f-r1; VTL10's teams follow `2cf222f`.
 - **2026-10-14** — Step 5.2f-r1 done: VTL11's two playing-style warnings at CF; on its cup save
   they now match the checker's 22.
+- **2026-10-14** — Step 5.4a5 done: `save-editor diff --json` prints the report as one JSON
+  document through the new `PipelineEvent::Output`, which the console writes verbatim.

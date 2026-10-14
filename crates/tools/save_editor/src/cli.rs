@@ -76,7 +76,7 @@ struct TransplantArgs {
     select: String,
 }
 
-/// `diff <first> <second> [--aesthetics | --gameplay]`.
+/// `diff <first> <second> [--aesthetics | --gameplay] [--json]`.
 #[derive(Debug, Args)]
 #[command(group = ArgGroup::new("scope").args(["aesthetics", "gameplay"]))]
 struct DiffArgs {
@@ -90,6 +90,9 @@ struct DiffArgs {
     /// Only the rest: names, basics, abilities, positions, skills, motion.
     #[arg(long)]
     gameplay: bool,
+    /// The report as one JSON document on stdout, for tooling.
+    #[arg(long)]
+    json: bool,
 }
 
 /// `<file> --base <save> --out <save>`: the file to apply, the save it is applied to, and
@@ -320,7 +323,12 @@ fn diff_saves(args: &DiffArgs, report: &mut Report) -> Result<(), CliError> {
         // clap makes the two flags exclusive.
         (false, false) | (true, true) => None,
     };
-    diff::report(first.file(), second.file(), scope, report).map_err(|error| match error {
+    let result = if args.json {
+        diff::report_json(first.file(), second.file(), scope, report)
+    } else {
+        diff::report(first.file(), second.file(), scope, report)
+    };
+    result.map_err(|error| match error {
         CompareError::VersionMismatch { a, b } => {
             version_mismatch("the first save", a, "the second", b)
         }

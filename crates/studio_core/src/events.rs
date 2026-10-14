@@ -71,6 +71,11 @@ pub enum PipelineEvent {
     },
     /// A structured finding for the user (a warning, an error, an info line).
     Message(Message),
+    /// A command's result text (a JSON report, a document): the console prints it to stdout
+    /// as it is, no prefix or folding, and a tool's log shows it as one entry. A command
+    /// whose result is such text reports nothing else on success, so stdout parses
+    /// (`save-editor diff --json`).
+    Output(String),
     /// Coarse run progress: `processed` of `total` units done.
     Progress {
         /// Units finished so far.
@@ -263,6 +268,7 @@ impl EventLines {
                 None
             }
             PipelineEvent::Message(message) => Some(self.message_line(message)),
+            PipelineEvent::Output(text) => Some(text.clone()),
             PipelineEvent::ExportProcessed { .. }
             | PipelineEvent::FolderStatus { .. }
             | PipelineEvent::Progress { .. }
@@ -549,6 +555,15 @@ mod tests {
         assert_eq!(
             line_for(&mut printer, 2),
             "- co Midcup Spring.zip: Error players_txt_missing"
+        );
+    }
+
+    #[test]
+    fn an_output_is_its_text_unchanged() {
+        let text = "{\n  \"players\": [\n    { \"id\": 70105 }\n  ]\n}";
+        assert_eq!(
+            EventLines::new().line(&PipelineEvent::Output(text.to_owned())),
+            Some(text.to_owned())
         );
     }
 

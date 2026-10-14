@@ -84,6 +84,52 @@ fn each_changed_field_is_a_row_and_the_scopes_keep_their_own() {
         .assert_refused(2, &["--gameplay"]);
 }
 
+// SE-DIF-02
+#[test]
+fn json_flag_writes_the_same_report_as_one_document() {
+    let sandbox = Sandbox::new("diff_json");
+    let [(boots_old, boots_new), (speed_old, speed_new)] = sandbox.diff_pair();
+
+    let run = sandbox.diff("A", "B", &["--json"]);
+    assert_eq!(run.exit_code(), 0);
+    let stdout = run.stdout();
+    let report: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|error| panic!("stdout does not parse as JSON: {error}\n{stdout}"));
+    assert_eq!(
+        report["players"],
+        serde_json::json!([
+            {
+                "id": 70105,
+                "stripped": null,
+                "rows": [
+                    { "field": "BootsId", "old": boots_old.to_string(), "new": boots_new.to_string() }
+                ]
+            },
+            {
+                "id": 70107,
+                "stripped": null,
+                "rows": [
+                    { "field": "Speed", "old": speed_old.to_string(), "new": speed_new.to_string() }
+                ]
+            },
+        ])
+    );
+    assert_eq!(
+        report["only_in_first"],
+        serde_json::json!([{ "id": NOWHERE, "stripped": null }])
+    );
+    assert_eq!(
+        report["only_in_second"],
+        serde_json::json!([{ "id": 70110, "stripped": null }])
+    );
+    for line in stdout.lines() {
+        assert!(
+            !line.starts_with("- ") && !line.starts_with("Info "),
+            "a finding line in the JSON output: {line}"
+        );
+    }
+}
+
 // SE-DIF-03
 #[test]
 fn two_versions_are_refused_naming_both() {

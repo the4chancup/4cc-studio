@@ -25,16 +25,26 @@ impl Report {
     /// One finding. A command's findings are all run-wide: there is no export to address.
     pub(crate) fn message(&mut self, message: Message) {
         self.worst = self.worst.max(Some(message.severity));
-        self.ctx.emit(PipelineEventEnvelope {
-            run_id: RUN_ID,
-            export_id: None,
-            export_revision: None,
-            event: PipelineEvent::Message(message),
-        });
+        self.emit(PipelineEvent::Message(message));
+    }
+
+    /// The command's result text (a JSON report): the console prints it as it is. Not a
+    /// finding, so it does not touch the exit code's severity.
+    pub(crate) fn output(&mut self, text: String) {
+        self.emit(PipelineEvent::Output(text));
     }
 
     /// The worst severity reported so far; `None` when no finding was.
     pub(crate) fn worst(&self) -> Option<Severity> {
         self.worst
+    }
+
+    fn emit(&self, event: PipelineEvent) {
+        self.ctx.emit(PipelineEventEnvelope {
+            run_id: RUN_ID,
+            export_id: None,
+            export_revision: None,
+            event,
+        });
     }
 }

@@ -193,11 +193,12 @@ pub(crate) fn stripped_mark(mark: Stripped) -> Message {
     message(code, vec![("player", player.to_string())])
 }
 
-/// The message for one `diff` row of `player`: the field by its schema name (`BootsId`,
-/// `FacialHairType`, `Name`; `face_run` for the run's bits no field names, whose values
-/// are the two runs' fingerprints), old value, new value.
-pub(crate) fn player_diff(player: u32, row: &PlayerDiff) -> Message {
-    let (field, old, new) = match row {
+/// One `diff` row's texts: the field by its schema name (`BootsId`, `FacialHairType`,
+/// `Name`; `face_run` for the run's bits no field names, whose values are the two runs'
+/// fingerprints) and the old and new values. The finding and the JSON report carry the
+/// same three strings.
+pub(crate) fn diff_fields(row: &PlayerDiff) -> (String, String, String) {
+    match row {
         PlayerDiff::Field { field, old, new } => {
             (format!("{field:?}"), old.to_string(), new.to_string())
         }
@@ -208,14 +209,18 @@ pub(crate) fn player_diff(player: u32, row: &PlayerDiff) -> Message {
         PlayerDiff::FaceRun { old, new } => {
             ("face_run".to_owned(), old.to_string(), new.to_string())
         }
-    };
+    }
+}
+
+/// The message for one `diff` row of `player`: `field`, `old` and `new` are `diff_fields`'s.
+pub(crate) fn player_diff(player: u32, field: &str, old: &str, new: &str) -> Message {
     message(
         Code::PlayerDiff,
         vec![
             ("player", player.to_string()),
-            ("field", field),
-            ("old", old),
-            ("new", new),
+            ("field", field.to_owned()),
+            ("old", old.to_owned()),
+            ("new", new.to_owned()),
         ],
     )
 }
@@ -322,47 +327,39 @@ mod tests {
         use pes_savefile::ops::fingerprint::FaceHash;
         use pes_savefile::schema::fields::{PlayerField, PlayerText};
         use pes_savefile::schema::ingame_face::IngameFaceField;
+        let line_of = |row: &PlayerDiff| {
+            let (field, old, new) = diff_fields(row);
+            line(&player_diff(70105, &field, &old, &new))
+        };
         assert_eq!(
-            line(&player_diff(
-                70105,
-                &PlayerDiff::Field {
-                    field: PlayerField::BootsId,
-                    old: 3601,
-                    new: 12
-                }
-            )),
+            line_of(&PlayerDiff::Field {
+                field: PlayerField::BootsId,
+                old: 3601,
+                new: 12
+            }),
             "Info player_diff (player=70105, field=BootsId, old=3601, new=12)"
         );
         assert_eq!(
-            line(&player_diff(
-                70105,
-                &PlayerDiff::Text {
-                    text: PlayerText::ShirtName,
-                    old: "A".to_owned(),
-                    new: "B".to_owned()
-                }
-            )),
+            line_of(&PlayerDiff::Text {
+                text: PlayerText::ShirtName,
+                old: "A".to_owned(),
+                new: "B".to_owned()
+            }),
             "Info player_diff (player=70105, field=ShirtName, old=A, new=B)"
         );
         assert_eq!(
-            line(&player_diff(
-                70105,
-                &PlayerDiff::Face {
-                    field: IngameFaceField::NoseType,
-                    old: 1,
-                    new: 2
-                }
-            )),
+            line_of(&PlayerDiff::Face {
+                field: IngameFaceField::NoseType,
+                old: 1,
+                new: 2
+            }),
             "Info player_diff (player=70105, field=NoseType, old=1, new=2)"
         );
         assert_eq!(
-            line(&player_diff(
-                70105,
-                &PlayerDiff::FaceRun {
-                    old: FaceHash([0, 1, 0xab, 0xff]),
-                    new: FaceHash([0; 4])
-                }
-            )),
+            line_of(&PlayerDiff::FaceRun {
+                old: FaceHash([0, 1, 0xab, 0xff]),
+                new: FaceHash([0; 4])
+            }),
             "Info player_diff (player=70105, field=face_run, old=0001abff, new=00000000)"
         );
     }
