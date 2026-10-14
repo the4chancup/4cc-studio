@@ -122,6 +122,10 @@ fn build(
         only_in_second: Vec::new(),
     };
     for player in first.players() {
+        if diff.only_in_a.contains(&player.id) {
+            // An unmatched player is reported once, in `only_in_first`, with his mark.
+            continue;
+        }
         let stripped = stripped_side(first, second, player.id);
         let rows: Vec<DiffRow> = diff
             .players
