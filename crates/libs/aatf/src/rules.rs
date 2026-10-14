@@ -303,6 +303,28 @@ mod tests {
         );
     }
 
+    /// A data block's own CUSTOM CHECKS section is kept by
+    /// `from_data_block` and its `custom_checks` runs.
+    #[test]
+    fn a_data_blocks_custom_check_reports() {
+        let data = format!(
+            "{AUTUMN26}\n\n{}\nfn custom_checks(team) {{ [#{{ kind: \"Custom\", text: \"x\", slot: team.players[0].slot }}] }}\n",
+            crate::file::CUSTOM_CHECKS
+        );
+        let rules = Rules::from_data_block(&data).expect("the file loads");
+        let found = rules
+            .check_team(&fixture_team(PesVersion::Pes15))
+            .expect("the check runs");
+        let custom = Violation {
+            slot: Some(0),
+            severity: crate::ruleset::Severity::Error,
+            kind: crate::violation::ViolationKind::Custom {
+                text: "x".to_string(),
+            },
+        };
+        assert!(found.contains(&custom), "{found:?}");
+    }
+
     /// The official ruleset on the sample team costs under a tenth of
     /// `MAX_OPERATIONS` (the plan's tenfold margin), and the limit is not
     /// stale: under thirty times the cost. The count and the time are in

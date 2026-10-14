@@ -4,7 +4,7 @@
 //! the fixture saves' team 701, edited the smallest amount.
 
 use super::*;
-use crate::ruleset::Foot;
+use crate::ruleset::{Card, Foot};
 
 /// `text` assembled with the current logic.
 fn rules(text: &str) -> Rules {
@@ -14,6 +14,11 @@ fn rules(text: &str) -> Rules {
 /// The ability stat `name` names.
 fn stat(name: &str) -> Stat {
     Stat::try_from(name.to_string()).expect("a stat name")
+}
+
+/// The card `name` names.
+fn card(name: &str) -> Card {
+    Card::try_from(name.to_string()).expect("a card name")
 }
 
 /// The sample team's view with `edit` applied to the player at `slot`.
@@ -363,4 +368,64 @@ fn a_tiers_name_color_is_checked_and_written() {
     );
     assert_eq!(records.player_mut(3).name, "NAME");
     assert_eq!(records.player_mut(4).name, "\u{11}c12345678NAME");
+}
+
+/// A card free by name does not spend its group's free allowance:
+/// holding only Long Ranger (a COM style `free_cards` covers) under a
+/// tier freeing one `com` card, the `com` suggestion reports 0 of 1.
+#[test]
+fn a_card_free_by_name_does_not_spend_the_group_allowance() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77,
+                        free: #{ com: 1 } }],
+            specials: [#{ label: \"lr\", then: #{ free_cards: [\"long_ranger\"] } }],
+            suggestions: [\"com\"],
+        };",
+    );
+    let team = view_edited(3, |p| p.cards = vec![card("long_ranger")]);
+    let found = suggestions_for(&rules, &team, 3);
+    assert!(found.contains(&unused("com", 0, 1)), "{found:?}");
+}
+
+/// A `free` choice option is not "used" by a card already free by name:
+/// holding Long Ranger, a second `com` card the tier's one free `com`
+/// covers and a paid card over the zero base limit, the choice resolves
+/// to its `cards` option and the check reports nothing on the slot.
+#[test]
+fn a_free_option_is_not_used_by_a_card_free_by_name() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                        injury_resistance: 1, weak_foot: #{ usage: 1, accuracy: 1 },
+                        free: #{ com: 1 } }],
+            specials: [
+                #{ label: \"lr\", then: #{ free_cards: [\"long_ranger\"] } },
+                #{ label: \"pick\",
+                   then: #{ choice: [#{ free: #{ com: 1 } }, #{ cards: 1 }] } },
+            ],
+            suggestions: [\"com\", \"choices\"],
+        };",
+    );
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 1;
+        p.weak_foot_accuracy = 1;
+        p.ratings = [0; 13];
+        p.cards = vec![card("long_ranger"), card("trickster"), card("captaincy")];
+    });
+    let limits = rules
+        .card_limits(&team, team.player(3).expect("slot 3"), "regular")
+        .expect("limits");
+    assert_eq!(limits.limit, 1, "the `cards` option, not the `free` one");
+    assert_eq!(limits.free.get("com"), Some(&1));
+    let found = rules.check_team(&team).expect("the check runs");
+    assert!(
+        !found.iter().any(|v| v.slot == Some(3)),
+        "nothing on slot 3: {found:?}"
+    );
 }

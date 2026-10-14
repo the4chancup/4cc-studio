@@ -1,5 +1,5 @@
 //! Assembling a rules file from a data block, the current logic and the
-//! empty custom-checks hook.
+//! block's custom-checks section (the empty stub when it has none).
 
 /// The current logic section, banner included.
 pub(crate) const LOGIC: &str = include_str!("../logic/logic.rhai");
@@ -7,14 +7,34 @@ pub(crate) const LOGIC: &str = include_str!("../logic/logic.rhai");
 /// The CUSTOM CHECKS banner line, under which a file's own checks go.
 pub(crate) const CUSTOM_CHECKS: &str = "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ====";
 
+/// The offset of `text`'s CUSTOM CHECKS section: the first line
+/// starting `// ==== CUSTOM CHECKS`, `text.len()` without one.
+fn custom_checks_at(text: &str) -> usize {
+    let mut offset = 0usize;
+    for line in text.split_inclusive('\n') {
+        if line.starts_with("// ==== CUSTOM CHECKS") {
+            return offset;
+        }
+        offset += line.len();
+    }
+    text.len()
+}
+
 /// The whole rules file for `data_block`: the block, the current logic
-/// and the empty custom-checks stub.
+/// and the block's CUSTOM CHECKS section verbatim, or the empty stub
+/// when the block has none.
 pub(crate) fn assemble(data_block: &str) -> String {
+    let (data, section) = data_block.split_at(custom_checks_at(data_block));
+    let custom = if section.is_empty() {
+        format!("{CUSTOM_CHECKS}\nfn custom_checks(team) {{ [] }}")
+    } else {
+        section.trim_end().to_string()
+    };
     format!(
-        "{}\n\n{}\n\n{}\nfn custom_checks(team) {{ [] }}\n",
-        data_block.trim_end(),
+        "{}\n\n{}\n\n{}\n",
+        data.trim_end(),
         LOGIC.trim_end(),
-        CUSTOM_CHECKS
+        custom
     )
 }
 
@@ -41,7 +61,7 @@ pub enum LogicIdentity {
 /// banner and the table.
 pub(crate) const LOGIC_VERSIONS: &[(u32, &str)] = &[(
     1,
-    "80a9ac740ca001911d9db3dcb49e853d913bd16db57e39500e9fd0e717125632",
+    "17cc68d4bc717b03b6aee3cab6106543485b23657613e2e3b458665c70b01e1b",
 )];
 
 /// `text`'s logic section: from the line starting `// ==== LOGIC` to
@@ -154,6 +174,42 @@ mod tests {
     fn no_custom_checks_banner_hashes_to_the_end() {
         let text = format!("{OFFICIAL}\n{LOGIC}");
         assert_eq!(identity(&text), LogicIdentity::Current);
+    }
+
+    /// A data block's own CUSTOM CHECKS section lands after the logic,
+    /// verbatim, and `custom_checks` is defined once.
+    #[test]
+    fn a_data_blocks_custom_checks_section_is_kept() {
+        let section = format!(
+            "{CUSTOM_CHECKS}\nfn custom_checks(team) {{ [#{{ kind: \"Custom\", text: \"x\" }}] }}\n"
+        );
+        let assembled = assemble(&format!("{OFFICIAL}\n{section}"));
+        let data = assembled.find("const RULESET").expect("the data");
+        let logic = assembled.find("// ==== LOGIC").expect("the logic");
+        let section_at = assembled.find(CUSTOM_CHECKS).expect("the section");
+        assert!(
+            data < logic && logic < section_at,
+            "data, logic, section, in that order"
+        );
+        assert!(
+            assembled.ends_with(&format!("{}\n", section.trim_end())),
+            "the section verbatim, to the file's end"
+        );
+        assert_eq!(assembled.matches("fn custom_checks").count(), 1);
+    }
+
+    /// Without the banner the file is the data, the logic and the empty
+    /// stub, exactly.
+    #[test]
+    fn without_a_custom_checks_section_the_stub_is_emitted() {
+        assert_eq!(
+            assemble(OFFICIAL),
+            format!(
+                "{}\n\n{}\n\n{CUSTOM_CHECKS}\nfn custom_checks(team) {{ [] }}\n",
+                OFFICIAL.trim_end(),
+                LOGIC.trim_end()
+            )
+        );
     }
 
     /// `LOGIC_VERSIONS`' last entry is the current `logic.rhai`'s

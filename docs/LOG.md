@@ -1946,3 +1946,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.2e, VGL27: its data block from the rules page and 4ccEditor-VGL's
   `VGL27.B` checker, sixteen fixtures; goalkeepers and the captain's extra allowance follow the
   page (a goalkeeper at 185 forbidden; a card, COM style or A position for the captain).
+- **2026-10-14** — Step 5.2e, VTL11 (a): a ruleset file keeps its own custom checks when
+  assembled; a card free by name no longer spends its group's free count (review AS1's
+  concern 3, reached by VTL11's Long Ranger).

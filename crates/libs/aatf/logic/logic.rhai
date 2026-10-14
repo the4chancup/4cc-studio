@@ -466,9 +466,9 @@ fn groups_of(groups, card) {
 }
 
 // A player's cards against `tier` under `p`: the held cards, how many are skills and COM
-// styles, the free count and the held count per group, the paid cards (and paid skills), the
-// A and B ratings, the A allowance, the extra A positions and the paid limit; `this` is the
-// ruleset.
+// styles, the free count and the held count per group (a card free by name is not counted
+// there), the paid cards (and paid skills), the A and B ratings, the A allowance, the
+// extra A positions and the paid limit; `this` is the ruleset.
 fn card_summary(tier, p, player) {
     let held = player.cards;
     let com = com_styles();
@@ -486,9 +486,9 @@ fn card_summary(tier, p, player) {
     let paid = 0;
     let paid_skills = 0;
     for card in held {
+        if card in p.free_cards { continue; }
         let mine = groups_of(groups, card);
         for group in mine { held_by_group[group] = num(held_by_group, group) + 1; }
-        if card in p.free_cards { continue; }
         let covered = false;
         for group in mine {
             if num(remaining, group) > 0 {

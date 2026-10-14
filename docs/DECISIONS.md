@@ -7586,3 +7586,15 @@ page allows, and the brackets' exact heights already refuse 181 to 188 but 185. 
 the captain three alternatives where the checker grants a card, and a VGL ruleset follows its
 page.
 Plan: `aatf_rules.md` "VGL27" (the recognition row and the "on purpose" paragraph).
+
+## 2026-10-14 — aatf — a ruleset file in `rulesets/` may carry its own custom checks
+Decision: a `rulesets/` file holds the data block and, when the ruleset has custom checks, its
+CUSTOM CHECKS section after it; `assemble` puts the current logic between the two (the empty
+stub when there is no section). VTL11's skill-card cap of 11 applies on every version, not on
+PES 21 only, as its checker does.
+Why: VTL11's rule on the 188 cm players' positions is a custom check (decision 2026-10-06), and
+a custom check written into a test instead of beside its data would not ship with the ruleset
+when the Ruleset editor's templates embed it. The cap: the plan had misread the checker, whose
+test is unconditional.
+Plan: `aatf_rules.md` "Crate layout" (the paragraph after the tree), "Background" (VTL11) and
+the schema's `max_skill_cards` doc.

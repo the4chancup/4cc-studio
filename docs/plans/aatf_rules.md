@@ -55,7 +55,8 @@ paid skill cards, each extra A position counting as one; B ratings allowed only 
 at CB, which also count toward the A-position allowance, and an A at CB forbidden for them; medals'
 names required to carry a gold or silver colour code and other players' forbidden to; at most two
 registered positions among the 188 cm players, no 180 cm player sharing one (by user decision a
-custom check, not schema); the game's skill card limit raised to 11 on PES 21; and, on PES 16
+custom check, not schema); the skill card limit raised to 11 on every version (PES 21 loads
+more than the game's 10); and, on PES 16
 only, team tactics settings (no man marking set up, auto substitution, offside trap and preset
 change off).
 
@@ -236,8 +237,8 @@ pub struct Universal {
     pub weight: Option<WeightRule>,
     pub captain_required: bool,
     pub min_goalkeepers: u8,
-    /// Skill cards a player may hold, free ones included (the game's limit: 10; VTL11 uses 11
-    /// on PES 21).
+    /// Skill cards a player may hold, free ones included (the game's limit: 10; VTL11 uses 11,
+    /// on every version).
     pub max_skill_cards: u8,
     pub max_com_styles: Option<u8>,
 }
@@ -898,8 +899,10 @@ crates/libs/aatf/
 └── tests/fixtures/     # known-legal and known-violating teams per ruleset
 ```
 
-The data blocks hold only `const RULESET = …;`; the embedded official file is assembled from the
-data and the current logic, so the logic exists once in the repository.
+The data blocks hold only `const RULESET = …;`, followed, in a ruleset with custom checks (VTL11),
+by its CUSTOM CHECKS section, banner included; a file is assembled from the data, the current
+logic and that section (or the empty stub), so the logic exists once in the repository and a
+custom check is kept beside the data it belongs to, not in a test.
 
 ---
 
