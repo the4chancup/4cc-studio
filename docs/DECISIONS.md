@@ -7621,3 +7621,16 @@ The warnings are the checker's and the schema carries them as data. On the VTL10
 checker's 43 legal teams are exactly the data block's, so the wiki page is not the cup's ruleset.
 Plan: `aatf_rules.md` "Development phase and verification" (the differences), "Background"
 (VTL11's warnings), "VTL10" (the page settled).
+
+## 2026-10-14 — studio_core — a command's result text is an event; the running-PES probe matches exe names
+Decision: `PipelineEvent::Output(String)` carries a CLI command's result text (the console prints
+it verbatim to stdout; a command printing one reports nothing else on success). The running-PES
+probe, `pes_process::running_pes()`, lists `PES2015.exe` to `PES2021.exe` processes by name
+(Toolhelp on Windows, `/proc/<pid>/cmdline` on Linux for Wine and Proton), each with its version
+and, when the process allows, its exe path.
+Why: the printer thread owns stdout during a command, so text returned from `cli_run` and printed
+by the binary would interleave with its lines; an event keeps one writer. The game takes no lock
+on its save and its window title follows its language, so the process name is the one stable
+mark; the CLI needs a one-shot probe before the GUI's poll exists, and the poll reuses it.
+Plan: `plans/core/architecture.md` "Crate structure" (the running-PES probe) and "Event system"
+(a command's result text).

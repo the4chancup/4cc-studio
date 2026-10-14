@@ -80,6 +80,19 @@ crates/studio_core/src/
 └── updater.rs        # release check, download/verify, binary swap, rollback (desktop only)
 ```
 
+**The running-PES probe.** `pes_process::running_pes() -> Vec<RunningPes>` lists the PES games
+running now, each a `RunningPes { version: PesVersion, exe: Option<PathBuf> }`, matched by
+executable name: `PES2015.exe` to `PES2021.exe`, in any letter case (the names the games ship
+with; a renamed exe is not seen). On Windows it walks a Toolhelp process snapshot and asks each
+match for its image path (the `unsafe` the code style allows here), `None` when the process
+refuses (an elevated game seen from an unelevated Studio); on Linux it reads each
+`/proc/<pid>/cmdline`, whose first argument under Wine or Proton is the exe's Windows path, and
+matches its last segment after a `\` or `/`; elsewhere it returns none. A process it cannot read
+is skipped. The CLI calls it once where a step must not run while the game does (the compiler's
+savefile step, the Save editor's writing commands); the GUI's version-selector poll calls it on a
+timer. We match process names, not a lock file or a window title, because the game takes no lock
+on its save and its window title changes with its language.
+
 #### Launch modes
 
 What exists of this is in `spec/core/architecture.md` "Launch modes".
@@ -173,6 +186,14 @@ What exists of this is in `spec/core/architecture.md` "Event system".
 
 The GUI rejects events whose `run_id` or `export_revision` is older than the current grid state, so
 results from a stale filesystem snapshot cannot overwrite newer checks.
+
+**A command's result text.** `PipelineEvent::Output(String)` carries text a CLI command prints
+as its result, a JSON report or a document: `EventLines` gives it back as it is, so the console
+printer writes it to stdout with no prefix or folding, and a tool's log shows it as one entry. A
+command whose result is such text reports nothing else on success (its findings go in the text),
+so stdout parses (`save-editor diff --json`). We do this, not return the text from `cli_run`,
+because the printer thread owns stdout while a command runs: a second writer would interleave with
+its lines.
 
 These notes extend the spec's `PipelineEvent` enum, the first at `Progress`, the second at `Complete`:
 

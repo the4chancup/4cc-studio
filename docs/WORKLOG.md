@@ -986,10 +986,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       fixture's two `/4ccg/`). Done 2026-10-13 (Fable side-lead; the lead's fix: with no data
       directory the working list is the upstream one, not a `teams_list.txt` in the current
       directory)
-    - [ ] 5.4a5 `diff --json` (SE-DIF-02), after the issue "a tool has no way to print a whole
-      document to stdout"
-    - [ ] 5.4a6 the write refusal while PES runs (SE-CLI-02, manual), after the issue "no
-      'PES is running' probe exists"
+    - [ ] 5.4a5 `diff --json` (SE-DIF-02) through `PipelineEvent::Output`
+      (`plans/core/architecture.md` "Event system", "A command's result text"; closes the issue
+      "a tool has no way to print a whole document to stdout")
+    - [ ] 5.4a6 the write refusal while PES runs (SE-CLI-02, manual) through
+      `studio_core::pes_process::running_pes` (`plans/core/architecture.md` "Crate structure",
+      "The running-PES probe"; closes the issue "no 'PES is running' probe exists")
   - [ ] 5.4b `check-aatf`, after 5.2 → done when: SE-AATF-01 to 03 pass
   - [ ] 5.4c `strip-and-seed` and `check-stripped` (measure issue "strip-and-seed and a
     base-copied face" first, and settle issue "real cup players past the editor ranges") → done when: SE-STR-01 to 06 pass on PES 21, and on PES 18 and 19
