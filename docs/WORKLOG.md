@@ -932,8 +932,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     concerns 2 and 3 stay closed); VGL26 landed 2026-10-14 (SWE-2 plus the lead's goalkeeper
     height special: `rulesets/vgl26.rhai`, `src/fixtures/vgl26.rs`, eleven fixtures, the fluid
     ones on the sample built as PES 21 by `Records::sample_on`; review R12.A1's two engine
-    tests); VGL27, VTL11, VTL10 remain, one brief each (a brief for two rulesets twice overran
-    SWE-2's output limit)
+    tests); VGL27 landed 2026-10-14 (SWE-2 plus the lead's narrowing of its goalkeeper special
+    to 185 cm: `rulesets/vgl27.rhai`, `src/fixtures/vgl27.rs`, sixteen fixtures); VTL11, VTL10
+    remain, one brief each (a brief for two rulesets twice overran SWE-2's output limit)
   - [ ] 5.2f the parity runs against the legacy checkers on the cup saves (lead) → done
     when: each difference is a deliberate one the plan lists, or fixed
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:

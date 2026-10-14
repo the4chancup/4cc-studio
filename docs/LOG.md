@@ -1943,3 +1943,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.2e, VGL26: its data block from the rules page and 4ccEditor-VGL's
   `vgl26` checker, eleven fixtures (per-stat targets, the first-preset A rule on a fluid PES 21
   preset, the 3-4-3 ban, team settings); goalkeepers held to the page's 185 cm.
+- **2026-10-14** — Step 5.2e, VGL27: its data block from the rules page and 4ccEditor-VGL's
+  `VGL27.B` checker, sixteen fixtures; goalkeepers and the captain's extra allowance follow the
+  page (a goalkeeper at 185 forbidden; a card, COM style or A position for the captain).

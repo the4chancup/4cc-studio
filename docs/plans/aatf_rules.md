@@ -634,7 +634,7 @@ others do not:
 | Feature | VGL27 |
 |---|---|
 | Tiers | gold 1, silver 2, bronze 2 (rates 99, 94, 89), goalkeeper (77) `counts_as` regular (77, the rest); no per-stat targets |
-| Tier recognition | rating alone; the medal tiers' `when` excludes GK, so a registered GK is a goalkeeper whatever his rating |
+| Tier recognition | rating alone; every other tier's `when` excludes GK (the regular's too, or a GK rated under 77 would fall back to it), so a registered GK is a goalkeeper whatever his rating |
 | Heights | five brackets of one exact height each (175, 180, 185, 190, 210) under one system with no `any_player` (quotas 6, 7, 10, 0, 0); a goalkeeper at 189 counts as 185 (`height_allowance: 4`); the official "Manlets" special |
 | Cards | VGL26's shape with smaller numbers and no free Heading: paid 6, 5, 5, 4, goalkeeper 4; free COM 1, 1, 1, 0, 0 |
 | Injury resistance, universal, team settings | as VGL26, without the formation ban |
@@ -642,7 +642,11 @@ others do not:
 
 Where the data reads differently from `aatf_single_vgl`, on purpose: the rules page is followed
 where it is stricter (exact injury resistance for non-medals, which the checker lets go below 1;
-the team settings are checked); the checker's positional test (the registered position appears
+the team settings are checked; a goalkeeper at 185 is forbidden, since the page's tall bracket
+takes goalkeepers at 189 only, where the checker counts him as tall; a goalkeeper at 175 or 180
+is in those brackets, which name no position); the captain's extra allowance is the page's one
+of a card, a COM style or an A position (a `choice`), where the checker always grants a card;
+the checker's positional test (the registered position appears
 in the first preset) gives way to the page's first-preset A-position rule, which judges every
 position a player is fielded at there. A rating between two tiers' targets (96) is placed by
 expected rating, as in the official file, where `aatf_single_vgl` reports no tier. `VGL27.B`

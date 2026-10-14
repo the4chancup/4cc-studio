@@ -7572,3 +7572,17 @@ reported every stat. Presets 2 and 3 would need a condition on fielded positions
 ruleset uses; preset 1 already refuses it (no outfielder is rated A at GK, and preset 1 fields A
 positions alone), so the gap is a member fielding an outfielder in goal in a reserve preset.
 Plan: `aatf_rules.md` "VGL26" (the "on purpose" paragraph).
+
+## 2026-10-14 — aatf — VGL27's goalkeepers and captain follow its rules page
+Decision: in VGL27 every tier but the goalkeeper excludes GK in its `when`, the regular
+included; a goalkeeper at 185 cm is forbidden by a special, and one at 175 or 180 cm is in
+those brackets; the captain's extra allowance is a `choice` of one card, one COM style or one A
+position.
+Why: the plan's "a registered GK is a goalkeeper whatever his rating" needs the regular's
+exclusion too, or a goalkeeper rated under 77 falls back to the regular (the last tier whose
+`when` holds). The page's tall bracket takes outfielders at 185 and goalkeepers at 189, and its
+other brackets name no position: forbidding every height but 189 would refuse goalkeepers the
+page allows, and the brackets' exact heights already refuse 181 to 188 but 185. The page offers
+the captain three alternatives where the checker grants a card, and a VGL ruleset follows its
+page.
+Plan: `aatf_rules.md` "VGL27" (the recognition row and the "on purpose" paragraph).
