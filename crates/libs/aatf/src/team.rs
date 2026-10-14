@@ -4,7 +4,7 @@
 
 use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::TeamToml;
-use pes_savefile::interchange::team_toml::labels::POSITIONS;
+use pes_savefile::interchange::team_toml::labels::{PLAYABLE_POSITIONS, POSITIONS};
 use pes_savefile::model::names::name_color;
 use pes_savefile::model::player::PlayerEntry;
 use pes_savefile::model::playstyle::PlayStyle as SavePlayStyle;
@@ -56,14 +56,6 @@ pub struct PlayerView {
     /// on the save's scale: C 0, B 1, A 2.
     pub(crate) ratings: [u8; 13],
 }
-
-/// The index of each `Position`'s rating in `PlayerPositions::playable`:
-/// the save stores them as CF, SS, LWF, RWF, AMF, DMF, CMF, LMF, RMF, CB,
-/// LB, RB, GK (the position groups in reverse order, each group in the
-/// registered order), not as a plain reversal of the registered order:
-/// every real cup team's players are rated A at their registered position
-/// under this order alone.
-const PLAYABLE_INDEX: [usize; 13] = [12, 9, 10, 11, 5, 6, 7, 8, 4, 2, 3, 1, 0];
 
 impl PlayerView {
     /// The ability stat `name` names (`None` for a stat the version lacks).
@@ -226,8 +218,8 @@ impl TeamView {
                         .map(|i| PlayStyle(u8::try_from(i).expect("22 styles")))
                 });
             let mut ratings = [0u8; 13];
-            for (p, rating) in ratings.iter_mut().enumerate() {
-                *rating = entry.positions.playable[PLAYABLE_INDEX[p]];
+            for (i, rating) in entry.positions.playable.iter().enumerate() {
+                ratings[PLAYABLE_POSITIONS[i]] = *rating;
             }
             players.push(PlayerView {
                 slot: u8::try_from(i).expect("a roster holds fewer than 256 slots"),

@@ -17,7 +17,7 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2 and 5.2d2-r1 done 2026-10-14; then 5.0m4
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1 and 5.0m4 done 2026-10-14; then 5.2e (VGL, VTL)
 and 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
@@ -801,7 +801,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     ways); the PES 19 target half is the red one. Every fixture player round-trips as before.
     Left: `aesthetics_patch/tests.rs`'s `shifted` repeats the widest ranges as test moduli,
     and `aatf/sample/team.toml` carries the old celebration comments (regenerated at 5.0m4)
-  - [ ] 5.0m4 the playable ratings on the save's scale and order: `labels::RATINGS` is
+  - [x] 5.0m4 the playable ratings on the save's scale and order: `labels::RATINGS` is
     `none 0, C 1, B 2, A 3` and `playable` is read as CF 0 to GK 12 reversed, but every real
     team stores A as 2 (no save stores a 3) in the order CF, SS, LWF, RWF, AMF, DMF, CMF,
     LMF, RMF, CB, LB, RB, GK (a census of 11 799 rated fixture players: 11 795 store 2 at
@@ -811,7 +811,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `PLAYABLE_INDEX`), and `PlayerStats` gains the by-index ability setter `aatf`'s
     `values.rs` `write_ability` stands in for → done when: every fixture player's registered
     position reads A, the sample team regenerated reads as before in `aatf`, and the
-    stopgaps are gone
+    stopgaps are gone. Done 2026-10-14 (SWE-2, resumed once
+    after a denied delete; decision 2026-10-14): `labels::RATINGS` C, B, A, "3",
+    `labels::PLAYABLE_POSITIONS`, `PlayerStats::set_ability`; the census test counts a player
+    with any nonzero rating as rated (11 799) and names the four measured exceptions (PES 18
+    70101, 78908, 82807; PES 19 84123); the sample's 23 `playable` lines relabelled, its
+    bytes and `aatf`'s ratings identical before and after
 - [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:

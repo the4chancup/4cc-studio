@@ -198,7 +198,7 @@ fn emit_player(out: &mut String, slot: u8, section: &PlayerSection) -> Result<()
         "playable",
         section.positions.playable.map(playable_text),
         &playable_text([0; 13]),
-        "\"none\" | \"C\" | \"B\" | \"A\"",
+        "\"C\" | \"B\" | \"A\"",
     );
     emit(
         out,
@@ -254,11 +254,12 @@ fn emit_player(out: &mut String, slot: u8, section: &PlayerSection) -> Result<()
     Ok(())
 }
 
-/// `{ CF = "A", SS = "B", …, GK = "none" }` — model order (CF is index 0).
+/// `{ CF = "A", SS = "B", …, GK = "C" }` — `playable`'s order
+/// (`labels::PLAYABLE_POSITIONS`).
 fn playable_text(playable: [u8; 13]) -> String {
     let entries: Vec<String> = (0..13)
         .map(|i| {
-            let position = labels::POSITIONS[12 - i];
+            let position = labels::POSITIONS[labels::PLAYABLE_POSITIONS[i]];
             let rating = labels::RATINGS[usize::from(playable[i])];
             format!("{position} = \"{rating}\"")
         })
@@ -432,8 +433,8 @@ fn flag_names() -> Vec<&'static str> {
         .collect()
 }
 
-/// `playable = { GK = "none", …, CF = "A" }`: every position required, each a
-/// rating label.
+/// `playable = { GK = "C", …, CF = "A" }`: every position required, each a
+/// rating label; `GK`'s value is `playable[12]` (`labels::PLAYABLE_POSITIONS`).
 fn playable(item: &Item, key: &str) -> Result<[u8; 13], TeamTomlError> {
     let table = item
         .as_table_like()
@@ -449,7 +450,11 @@ fn playable(item: &Item, key: &str) -> Result<[u8; 13], TeamTomlError> {
             });
         };
         let rating = label_index(item, &format!("{key}.{position}"), &labels::RATINGS)?;
-        out[12 - index] = rating;
+        let i = labels::PLAYABLE_POSITIONS
+            .iter()
+            .position(|&entry| entry == index)
+            .expect("PLAYABLE_POSITIONS is a permutation");
+        out[i] = rating;
     }
     reject(table, key, &labels::POSITIONS)?;
     Ok(out)

@@ -410,8 +410,8 @@ fn read_player(
             key.set_section(&mut section, u32_at(record, offset))?;
         }
     }
-    // The editor's `play_pos` is the save's playable array verbatim — CF 0 to
-    // GK 12, the model's order, no remap.
+    // The editor's `play_pos` is the save's playable array verbatim, in the
+    // model's order (CF at 0 to GK at 12), no remap.
     section.positions.playable = Some(
         record[PLAY_POS..PLAY_POS + 13]
             .try_into()

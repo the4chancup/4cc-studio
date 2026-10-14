@@ -157,6 +157,46 @@ impl PlayerStats {
             self.aggression,
         ]
     }
+
+    /// Sets ability `index` to `value`, in `abilities`' order
+    /// (`interchange::team_toml::labels::ABILITY_STATS`'); an `Option` field
+    /// the version lacks stays `None`. An index past 24 panics, a
+    /// programming error, as indexing `abilities()` would.
+    pub fn set_ability(&mut self, index: usize, value: u8) {
+        let gated = |field: &mut Option<u8>| {
+            if field.is_some() {
+                *field = Some(value);
+            }
+        };
+        match index {
+            0 => self.attacking_prowess = value,
+            1 => self.ball_control = value,
+            2 => self.dribbling = value,
+            3 => self.low_pass = value,
+            4 => self.lofted_pass = value,
+            5 => self.finishing = value,
+            6 => self.place_kicking = value,
+            7 => self.swerve = value,
+            8 => self.heading = value,
+            9 => self.defensive_prowess = value,
+            10 => self.ball_winning = value,
+            11 => self.kicking_power = value,
+            12 => self.speed = value,
+            13 => self.explosive_power = value,
+            14 => self.body_control = value,
+            15 => gated(&mut self.physical_contact),
+            16 => self.jump = value,
+            17 => self.goalkeeping = value,
+            18 => gated(&mut self.catching),
+            19 => gated(&mut self.clearing),
+            20 => gated(&mut self.reflexes),
+            21 => gated(&mut self.coverage),
+            22 => self.stamina = value,
+            23 => gated(&mut self.tight_possession),
+            24 => gated(&mut self.aggression),
+            other => panic!("ability stat index {other} is past the 25 ability stats"),
+        }
+    }
 }
 
 /// Registered/playable positions and the playing style.
@@ -164,7 +204,8 @@ impl PlayerStats {
 pub struct PlayerPositions {
     /// Registered position, GK 0 to CF 12.
     pub registered: u8,
-    /// Playable position rating (0 none, 1 C, 2 B, 3 A), CF 0 to GK 12.
+    /// Playable position rating (0 C, 1 B, 2 A; 3 held by no save), in the
+    /// order CF, SS, LWF, RWF, AMF, DMF, CMF, LMF, RMF, CB, LB, RB, GK.
     pub playable: [u8; 13],
     /// Playing style, a version-specific index.
     pub playing_style: u8,
@@ -597,5 +638,43 @@ impl PlayerEntry {
             PlayerField::AnkleTaping => self.appearance.ankle_taping = value != 0,
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Writing index `i` reads back through `abilities()` at `i`; a stat the
+    /// version lacks stays `None`.
+    #[test]
+    fn set_ability_writes_the_field_abilities_reads() {
+        // PES 21 shape: every gated stat present.
+        let mut stats = PlayerStats {
+            physical_contact: Some(0),
+            catching: Some(0),
+            clearing: Some(0),
+            reflexes: Some(0),
+            coverage: Some(0),
+            tight_possession: Some(0),
+            aggression: Some(0),
+            ..Default::default()
+        };
+        for i in 0..25u8 {
+            stats.set_ability(usize::from(i), 30 + i);
+        }
+        let want: Vec<Option<u8>> = (0..25u8).map(|i| Some(30 + i)).collect();
+        assert_eq!(stats.abilities().to_vec(), want);
+        // PES 15 shape: the gated stats absent stay absent.
+        let mut stats = PlayerStats::default();
+        for i in 0..25u8 {
+            stats.set_ability(usize::from(i), 50);
+        }
+        let abilities = stats.abilities();
+        for index in [15usize, 18, 19, 20, 21, 23, 24] {
+            assert_eq!(abilities[index], None);
+        }
+        assert_eq!(abilities.iter().flatten().count(), 18);
+        assert!(abilities.iter().flatten().all(|v| *v == 50));
     }
 }

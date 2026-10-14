@@ -7,7 +7,8 @@ checks run on a real team without a script error.
 It is a Team TOML document of team 714 of `2026 4chan Summer Cup Save V3.rar` (the save's
 `EDIT.bin`, PES 15; the maintainer's `C:\Data\4cc\Saves`), written on 2026-10-12 with
 `pes_savefile`'s `TeamToml::from_team` (rewritten 2026-10-13, when the model gained PES 15's auto
-flags and every version's man marking) and then anonymized: the team's name and short name are
+flags and every version's man marking; regenerated 2026-10-14 for the `playable` ratings'
+scale and order, stored values unchanged) and then anonymized: the team's name and short name are
 `Sample` and `SMP`, its id, manager, stadium, colours and kit slots are left out, and each player
 is renamed `Player NN` (shirt name `PLAYER NN`, NN the roster slot) and carries no appearance,
 edit flags, boots, gloves, base copy or nationality. None of those is read by a ruleset.

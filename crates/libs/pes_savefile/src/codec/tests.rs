@@ -335,6 +335,50 @@ fn the_player_census_matches_the_measured_ranges() {
     assert_eq!(p21.shirt_name, "FUR\u{f0}USAGA");
 }
 
+/// The census the `PLAYABLE_POSITIONS` order encodes: every rated player —
+/// one with at least one nonzero rating — stores 2 (A) at his registered
+/// position, bar the four measured exceptions, named by id so a change in
+/// which players fail is seen.
+#[test]
+fn a_rated_player_stores_a_at_his_registered_position() {
+    const EXCEPTIONS: [(PesVersion, u32); 4] = [
+        (PesVersion::Pes18, 70101),
+        (PesVersion::Pes18, 78908),
+        (PesVersion::Pes18, 82807),
+        (PesVersion::Pes19, 84123),
+    ];
+    let mut seen = 0usize;
+    for version in FIXTURES {
+        let payload = payload(version);
+        let schema = schema_for(version);
+        for player in players(&payload, schema) {
+            if !player.positions.playable.iter().any(|&rating| rating != 0) {
+                continue;
+            }
+            let entry = crate::interchange::team_toml::labels::PLAYABLE_POSITIONS
+                .iter()
+                .position(|&p| p == usize::from(player.positions.registered))
+                .expect("a permutation covers every position");
+            let rating = player.positions.playable[entry];
+            if EXCEPTIONS.contains(&(version, player.id)) {
+                seen += 1;
+                assert_ne!(
+                    rating, 2,
+                    "{version:?} player {} is a measured exception",
+                    player.id
+                );
+            } else {
+                assert_eq!(
+                    rating, 2,
+                    "{version:?} player {} registered {}",
+                    player.id, player.positions.registered
+                );
+            }
+        }
+    }
+    assert_eq!(seen, EXCEPTIONS.len(), "every exception seen exactly once");
+}
+
 #[test]
 fn the_ingame_face_run_has_the_versions_length() {
     for version in FIXTURES {

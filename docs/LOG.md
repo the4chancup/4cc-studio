@@ -1934,3 +1934,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.2d2-r1: AS2's rework (a present `weak_foot` names both halves; one
   helper for the raised targets; the untested `ranges` names), with the five assertions
   `mutants-diff 5c1f637` found missing in `music_export` and the Save editor.
+- **2026-10-14** — Step 5.0m4: `pes_savefile` reads the playable ratings as the saves store them
+  (C 0, B 1, A 2, in the order CF, SS, LWF, RWF, AMF, DMF, CMF, LMF, RMF, CB, LB, RB, GK), so a
+  Team TOML says A where the game does; `aatf`'s stopgaps are gone, its sample relabelled.

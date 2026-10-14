@@ -2,16 +2,12 @@
 //! standard package, the accessor table (`Player`/`Team`), and the
 //! operation and call-depth limits.
 
+use pes_savefile::interchange::team_toml::labels::RATINGS;
 use rhai::packages::Package;
 use rhai::{Array, Dynamic, Engine, EvalAltResult, Map};
 
 use crate::ruleset::Position;
 use crate::team::{PlayerView, TeamView};
-
-/// The playable scale as the save stores it: C 0, B 1, A 2 (every real
-/// cup team's registered positions hold 2, which the rules require to be
-/// A). 3 is past the scale, which no real save holds, and reads as `none`.
-const RATINGS: [&str; 4] = ["C", "B", "A", "none"];
 
 /// The most operations one script run may take: the official ruleset's
 /// `check_team` on the sample team costs about 480 000 operations
@@ -359,8 +355,9 @@ mod tests {
         );
     }
 
-    /// The letters on the save's scale (C 0, B 1, A 2; 3 past it) and
-    /// the playable order (SS at index 1, CMF at 6, GK at 12).
+    /// The letters on the save's scale (C 0, B 1, A 2; a stored 3, which
+    /// no save holds, reads "3") and the playable order (SS at index 1,
+    /// CMF at 6, GK at 12).
     #[test]
     fn rating_at_names_the_letters() {
         let (engine, mut scope, mut file) = with_team(PesVersion::Pes19);
@@ -385,7 +382,7 @@ mod tests {
             ("SS", "A"),
             ("CMF", "A"),
             ("LMF", "C"),
-            ("GK", "none"),
+            ("GK", "3"),
         ] {
             assert_eq!(
                 engine

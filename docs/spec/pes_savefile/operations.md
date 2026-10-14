@@ -475,7 +475,7 @@ playing_attitude = 0            # PES 20+, stored
 
 [players.01.positions]
 registered = "CF"               # "GK" "CB" "LB" "RB" "DMF" "CMF" "LMF" "RMF" "AMF" "LWF" "RWF" "SS" "CF"
-playable = { CF = "A", SS = "B", GK = "none", ... }   # thirteen keys; "none" | "C" | "B" | "A"
+playable = { CF = "A", SS = "B", GK = "C", ... }   # thirteen keys; "C" | "B" | "A" (stored 0-2; a stored 3, which no save holds, reads "3")
 playing_style = "goal_poacher"  # canonical `PlayStyle` name in snake_case; "none" for none
 stronger_foot = "right"         # "right" | "left"
 stronger_hand = "right"         # PES 20+

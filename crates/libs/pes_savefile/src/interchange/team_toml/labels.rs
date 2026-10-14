@@ -41,8 +41,17 @@ pub const INSTRUCTIONS: [&str; 17] = [
     "anchoring",
 ];
 
-/// Playable-position ratings; index = the stored rating (0 none to 3 A).
-pub const RATINGS: [&str; 4] = ["none", "C", "B", "A"];
+/// Playable-position ratings; index = the stored 2-bit value (0 C, 1 B,
+/// 2 A). 3 is past the game's scale, held by no save, spelled as its
+/// number so a dump still carries it.
+pub const RATINGS: [&str; 4] = ["C", "B", "A", "3"];
+
+/// The index into `POSITIONS` of `playable` entry `i`: the save's order
+/// CF, SS, LWF, RWF, AMF, DMF, CMF, LMF, RMF, CB, LB, RB, GK — the position
+/// groups in reverse order, each group in the registered order. Measured:
+/// 11 795 of 11 799 rated fixture players store A at their registered
+/// position under this order (a plain reversal reads only 5 683).
+pub const PLAYABLE_POSITIONS: [usize; 13] = [12, 11, 9, 10, 8, 4, 5, 6, 7, 1, 2, 3, 0];
 
 /// `PlayStyle` names in canonical order (`PlayStyle::ALL`'s index).
 pub const PLAY_STYLES: [&str; 22] = [
@@ -218,6 +227,20 @@ mod tests {
         }
     }
 
+    /// `PLAYABLE_POSITIONS` is a permutation of 0..13; its inverse maps a
+    /// `POSITIONS` index to its `playable` entry.
+    #[test]
+    fn playable_positions_is_a_permutation() {
+        let mut sorted = PLAYABLE_POSITIONS;
+        sorted.sort_unstable();
+        assert_eq!(sorted, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+        let mut inverse = [0usize; 13];
+        for (i, &position) in PLAYABLE_POSITIONS.iter().enumerate() {
+            inverse[position] = i;
+        }
+        assert_eq!(inverse, [12, 9, 10, 11, 5, 6, 7, 8, 4, 2, 3, 1, 0]);
+    }
+
     /// Lowercase ASCII, digits and underscores only.
     fn is_snake_case(label: &str) -> bool {
         !label.is_empty()
@@ -268,7 +291,7 @@ mod tests {
             .chain(SKILLS.iter())
             .chain(COM_STYLES.iter())
             .chain(FOOT.iter())
-            .chain(RATINGS.iter().filter(|l| **l == "none"))
+            .chain(RATINGS.iter().filter(|l| **l == "3"))
             .chain(STYLE_SWITCHES.iter().flat_map(|(key, pair)| {
                 assert!(is_snake_case(key), "{key}");
                 pair.iter()

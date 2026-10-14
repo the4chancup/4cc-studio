@@ -19,8 +19,8 @@
 //! `()` past them); `cards` (the held skills and COM styles'
 //! labels); `stat(name)` (the ability stat's value, `()` where the
 //! version lacks it; an unknown name is a script error);
-//! `rating_at(pos)` (`"A"`, `"B"`, `"C"`, `"none"`; an unknown position
-//! is a script error).
+//! `rating_at(pos)` (`"A"`, `"B"` or `"C"`; a stored 3, which no save
+//! holds, reads `"3"`; an unknown position is a script error).
 //! On `Team`: `players` (the roster in slot order), `captain` (the slot,
 //! `()` for none), `version` (the short number);
 //! `fielded_positions(player, preset)` (labels, once each, in the

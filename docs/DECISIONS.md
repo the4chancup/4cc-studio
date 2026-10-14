@@ -7547,3 +7547,16 @@ that half below the game's lowest value (1), so every player the tier or special
 violates it; an author writing `usage: 4` alone means something else, and the load is where
 the slip can still be named.
 Plan: `aatf_rules.md` "The ruleset schema", the paragraph after the Rust block.
+
+## 2026-10-14 — pes_savefile — the playable ratings read C 0, B 1, A 2, in the save's own position order
+Decision: `labels::RATINGS` becomes `C`, `B`, `A`, `3` (index = the stored 2-bit value) and
+`PlayerPositions::playable` is read in the order CF, SS, LWF, RWF, AMF, DMF, CMF, LMF, RMF, CB,
+LB, RB, GK, not as the registered order reversed. The Team TOML's `playable` keys and labels
+follow; a stored 3 is labelled `"3"`.
+Why: measured, not guessed: of 11 799 rated fixture players, 11 795 store 2 at their
+registered position under this order, 5 683 under the reversal, and none stores a 3; every cup
+rule requires A at the registered position, so 2 is A. The four-entry table keeps the writer
+total over the field's two bits (a dump carries what the save holds); the unused value is
+spelled as its number, because a word would claim a meaning nothing has shown.
+Plan: `spec/pes_savefile/operations.md` "Team TOML" (the `playable` line); the model's docs
+follow in the code.

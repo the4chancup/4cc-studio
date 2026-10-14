@@ -85,7 +85,8 @@ pub enum PlayerField {
     Coverage,
     /// Weak Foot Usage.
     WeakFootUsage,
-    /// Playable position rating for position `n` (0 none, 1 C, 2 B, 3 A), CF 0 to GK 12.
+    /// Playable position rating `n` of the save's order (0 C, 1 B, 2 A; 3
+    /// held by no save), CF at 0 to GK at 12.
     PlayablePosition(u8),
     /// Hunching while dribbling.
     HunchingDribbling,

@@ -772,7 +772,7 @@ The script API, which `libs/aatf`'s crate doc lists too:
 | `player.name_color` | the eight bytes after a leading `\x11c` (`"cc9900ff"`); `()` for a name without one |
 | `player.cards` | the labels of the skills and COM styles held, skills first, each in table order |
 | `player.stat(name)` | the ability stat's value; `()` on a version without it (`physical_contact` before PES 17); an unknown name is a script error |
-| `player.rating_at(pos)` | `"A"`, `"B"`, `"C"` or `"none"`; an unknown position is a script error |
+| `player.rating_at(pos)` | `"A"`, `"B"` or `"C"` (`labels::RATINGS`; a stored 3, which no save holds, reads `"3"`); an unknown position is a script error |
 | `team.players` | the roster's players in slot order, empty slots left out |
 | `team.captain` | the captain's slot; `()` for none |
 | `team.version` | the short number (`21`), as `TeamSettings::versions` spells it |

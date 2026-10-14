@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use pes_savefile::model::names::name_color;
-use pes_savefile::model::player::{PlayerEntry, PlayerStats};
+use pes_savefile::model::player::PlayerEntry;
 use serde::Deserialize;
 
 use crate::ruleset::{Card, GroupId, Stat, WeakFoot};
@@ -52,7 +52,7 @@ impl TierValues {
     /// record stores each of the last four one below the game's scale.
     pub(crate) fn write(&self, entry: &mut PlayerEntry) {
         for (stat, value) in &self.stats {
-            write_ability(&mut entry.stats, *stat, *value);
+            entry.stats.set_ability(usize::from(stat.0), *value);
         }
         entry.stats.form = self.form.saturating_sub(1);
         entry.stats.injury_resistance = self.injury_resistance.saturating_sub(1);
@@ -80,85 +80,9 @@ pub(crate) fn write_name_color(name: &mut String, code: Option<&str>, tier_color
     }
 }
 
-/// Sets ability `stat` of `stats` to `value`; a stat the version lacks
-/// (`None`) stays absent. The arms follow `labels::ABILITY_STATS`' order,
-/// which `PlayerStats::abilities` reads by, and a test pins each to its
-/// field.
-pub(crate) fn write_ability(stats: &mut PlayerStats, stat: Stat, value: u8) {
-    let gated = |field: &mut Option<u8>| {
-        if field.is_some() {
-            *field = Some(value);
-        }
-    };
-    match stat.0 {
-        0 => stats.attacking_prowess = value,
-        1 => stats.ball_control = value,
-        2 => stats.dribbling = value,
-        3 => stats.low_pass = value,
-        4 => stats.lofted_pass = value,
-        5 => stats.finishing = value,
-        6 => stats.place_kicking = value,
-        7 => stats.swerve = value,
-        8 => stats.heading = value,
-        9 => stats.defensive_prowess = value,
-        10 => stats.ball_winning = value,
-        11 => stats.kicking_power = value,
-        12 => stats.speed = value,
-        13 => stats.explosive_power = value,
-        14 => stats.body_control = value,
-        15 => gated(&mut stats.physical_contact),
-        16 => stats.jump = value,
-        17 => stats.goalkeeping = value,
-        18 => gated(&mut stats.catching),
-        19 => gated(&mut stats.clearing),
-        20 => gated(&mut stats.reflexes),
-        21 => gated(&mut stats.coverage),
-        22 => stats.stamina = value,
-        23 => gated(&mut stats.tight_possession),
-        24 => gated(&mut stats.aggression),
-        // `Stat` is built from `ABILITY_STATS`' 25 indices alone.
-        other => unreachable!("ability stat index {other} is past the 25 ability stats"),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pes_savefile::interchange::team_toml::labels::ABILITY_STATS;
-
-    /// Writing index `i` into stat `i` reads back as `abilities()` in
-    /// the same order; a gated stat stays `None` where it is `None`.
-    #[test]
-    fn each_ability_writes_its_own_field() {
-        // PES 21 shape: every gated stat present.
-        let mut stats = PlayerStats {
-            physical_contact: Some(0),
-            catching: Some(0),
-            clearing: Some(0),
-            reflexes: Some(0),
-            coverage: Some(0),
-            tight_possession: Some(0),
-            aggression: Some(0),
-            ..Default::default()
-        };
-        for (i, _) in ABILITY_STATS.iter().enumerate() {
-            let index = u8::try_from(i).expect("25 stats");
-            write_ability(&mut stats, Stat(index), 30 + index);
-        }
-        let want: Vec<Option<u8>> = (0..25u8).map(|i| Some(30 + i)).collect();
-        assert_eq!(stats.abilities().to_vec(), want);
-        // PES 15 shape: the gated stats absent stay absent.
-        let mut stats = PlayerStats::default();
-        for (i, _) in ABILITY_STATS.iter().enumerate() {
-            write_ability(&mut stats, Stat(u8::try_from(i).expect("25 stats")), 50);
-        }
-        let abilities = stats.abilities();
-        for index in [15usize, 18, 19, 20, 21, 23, 24] {
-            assert_eq!(abilities[index], None, "{}", ABILITY_STATS[index]);
-        }
-        assert_eq!(abilities.iter().flatten().count(), 18);
-        assert!(abilities.iter().flatten().all(|v| *v == 50));
-    }
 
     /// The four scaled values land one below the game's scale.
     #[test]
