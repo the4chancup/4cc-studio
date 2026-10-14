@@ -56,7 +56,9 @@ at CB, which also count toward the A-position allowance, and an A at CB forbidde
 names required to carry a gold or silver colour code and other players' forbidden to; at most two
 registered positions among the 188 cm players, no 180 cm player sharing one (by user decision a
 custom check, not schema); the skill card limit raised to 11 on every version (PES 21 loads
-more than the game's 10); and, on PES 16
+more than the game's 10); two warnings for a player rated A at CF, whose playing style the
+league's exe treats differently there (a Goal Poacher's does not take effect, a Creative
+Playmaker's does); and, on PES 16
 only, team tactics settings (no man marking set up, auto substitution, offside trap and preset
 change off).
 
@@ -664,7 +666,7 @@ VTL10's first matchday on 2026-03-13: `5b78e5b` ("small aatf changes", 2026-04-1
 - heights: medals at 194 (told apart by swerve, gold 99 and silver 92), outfield regulars at 178
   and their goalkeepers at 180 (a special for each wrong one), the buffed at 188;
 - targets: its own per tier (silver's rate 92; the file stores absolute values); no
-  playing-style bonuses;
+  playing-style bonuses or warnings;
 - cards: gold's paid 6 and free COM 2; its own thirteen free skills; Incisive Run free beside Long
   Ranger; no banned card; the skill card cap at 12;
 - no B rating anywhere (`no_b_ratings`); a buffed player rated A at LB or RB has weak foot 2/2;
@@ -673,8 +675,8 @@ VTL10's first matchday on 2026-03-13: `5b78e5b` ("small aatf changes", 2026-04-1
 Its custom checks are VTL11's, with 178 cm for the regulars who may not share a 188 cm player's
 registered position. The VTL wiki's VTL10 page found in 2026-10 describes another ruleset entirely
 (medals rated 89, 94 and 99, eighteen regulars, heights 185, 180 and 175); the checker is
-followed, and the parity run on the VTL10 cup save (5.2f) shows which one its teams were built
-under.
+followed, and the cup save bears it out: the 43 teams the checker passes are the ones the data
+block passes, and every other team fails both.
 
 ---
 
@@ -1020,6 +1022,14 @@ Verification:
 - **Parity, VGL27.** The same against `vgl27`'s `aatf_single_vgl` (`VGL27.B`) on the VGL26 cup save's teams:
   built for VGL26, most fail, and what is compared is the findings, not legality. A VGL27 cup
   save replaces it when one exists.
+- **Differences every legacy checker shows, on purpose.** A player of no tier is reported once,
+  as `NoTier`, where the checkers go on to report his tier-free checks too (a weight, a required
+  card): the member fixes the player's type first and the next check reports the rest, one more
+  run rather than a missed error, since a team with an error gets a person's attention anyway.
+  The checkers' "Illegal Ability scores" line (the overall rating off the tier's) has no kind:
+  every stat off its target is reported itself. A tier over its count is reported on the team
+  (`TierCount`), where the official checker also names one of the excess players, an arbitrary
+  choice among them.
 - Per ruleset, known-legal teams report nothing; each known-violating fixture reports exactly its
   violation. Every special of the official file is exercised by at least one fixture. VGL26's
   and VGL27's include a starting-eleven player fielded in preset 1 at a position he is not rated

@@ -1958,3 +1958,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.2c-r3 done: Astra C.A1's four findings (the `ViolationKind` target
   docs read as the plan; tests for two custom findings in order, an interior empty roster slot,
   and the file's logic identity). The Astra loop on the rules file and its host ends.
+- **2026-10-14** — Step 5.2f done: the legacy checkers, built headless from their ruleset
+  commits, against aatf on seven cup-save runs; legality agrees outside VGL's support settings
+  (a maintainer question); VTL11's two warnings are step 5.2f-r1; VTL10's teams follow `2cf222f`.

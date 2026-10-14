@@ -7607,3 +7607,17 @@ minimum only; a third goalkeeper is otherwise a regular among ten and passes eve
 already carries.
 Plan: no plan edit needed (the plan's VTL11 paragraph lists the custom check; the goalkeeper
 count is the checker's, transcribed).
+
+## 2026-10-14 — aatf — the parity differences every legacy checker shows are kept
+Decision: a player of no tier stays reported once, as `NoTier`; the checkers' overall-rating
+line gets no kind; a tier over its count stays a team finding. VTL11's two playing-style
+warnings are added to its data block (step 5.2f-r1), and VTL10 stays the checker's ruleset.
+Why: the parity runs (5.2f) agreed on every team's legality outside VGL's support settings;
+what differed was these three reporting choices and VTL11's warnings. Running the tier-free
+checks for a player of no tier would report a weight or a missing card one run earlier, at the
+cost of a second path through the checks for a player the member must look at anyway; the
+rating line repeats the stats that make it; naming one excess medal picks an arbitrary player.
+The warnings are the checker's and the schema carries them as data. On the VTL10 save the
+checker's 43 legal teams are exactly the data block's, so the wiki page is not the cup's ruleset.
+Plan: `aatf_rules.md` "Development phase and verification" (the differences), "Background"
+(VTL11's warnings), "VTL10" (the page settled).

@@ -17,7 +17,7 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10) and 5.2c-r3 done 2026-10-14; then 5.2f
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3 and 5.2f done 2026-10-14; then 5.2f-r1
 and 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
@@ -946,8 +946,18 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     violation); tests for a custom check's two findings in order, a Team TOML roster with an
     interior empty slot, and `Rules::logic()` (official `Current`, edited `Modified`);
     `violation.rs`, `rules.rs`, `team.rs`
-  - [ ] 5.2f the parity runs against the legacy checkers on the cup saves (lead) → done
-    when: each difference is a deliberate one the plan lists, or fixed
+  - [x] 5.2f the parity runs, done 2026-10-14 (lead; `.tmp/5_2f/`: each checker built
+    headless from its ruleset commit, run three times per save, `findings.md`): Autumn 25 and
+    Spring 26 on their two cup saves each, Autumn 26 on all four, VTL10, VTL11 and VGL26 on
+    their saves, VGL27 on VGL26's. Legality agrees on every team but VGL26's support-settings
+    rule (issue below) and one first-preset finding the page adds; the other differences are
+    the plan's "Differences every legacy checker shows" and the per-ruleset ones, except
+    VTL11's two playing-style warnings (5.2f-r1); `aatf_rules.md` (Background, "VTL10",
+    "Development phase and verification")
+  - [ ] 5.2f-r1 VTL11's two warnings (`aatf_rules.md` Background, VTL11): in
+    `rulesets/vtl11.rhai`, a warning special for a Goal Poacher rated A at CF and one for a
+    Creative Playmaker rated A at CF, with fixtures → done when: each fixture reports exactly
+    its warning, and a player of either style not rated A at CF reports none
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;
@@ -1078,6 +1088,10 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-14, 5.2f) — every team of the VGL26 cup save fails VGL26's "Support settings"
+  special on `auto_preset_change` (all three PES 21 cup saves hold it off): the rule follows the
+  rules page, which speaks of the deadline export. Waits on `docs/QUESTIONS.md` "VGL's 'switch
+  preset tactic' on the cup save".
 - open (2026-10-11, Phase 5 Acceptance; deferred until the cup next plays a pre-Fox version) —
   the pre-Fox aesthetics patch (`pes_savefile/operations.md` "Aesthetics patch", the pre-Fox
   half; `spec/team_compiler/pipeline.md` "Post-processing"): every appearance field, the resolved boots and gloves
