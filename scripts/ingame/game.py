@@ -68,10 +68,11 @@ PAD_BUTTONS = {
     "lb": "LEFT_SHOULDER", "rb": "RIGHT_SHOULDER",
     "up": "DPAD_UP", "down": "DPAD_DOWN", "left": "DPAD_LEFT", "right": "DPAD_RIGHT",
 }
+# XInput's stick Y axis is positive up (the reverse of screen coordinates).
 PAD_STICKS = {
-    "ls-up": ("left", 0.0, -1.0), "ls-down": ("left", 0.0, 1.0),
+    "ls-up": ("left", 0.0, 1.0), "ls-down": ("left", 0.0, -1.0),
     "ls-left": ("left", -1.0, 0.0), "ls-right": ("left", 1.0, 0.0),
-    "rs-up": ("right", 0.0, -1.0), "rs-down": ("right", 0.0, 1.0),
+    "rs-up": ("right", 0.0, 1.0), "rs-down": ("right", 0.0, -1.0),
     "rs-left": ("right", -1.0, 0.0), "rs-right": ("right", 1.0, 0.0),
 }
 # The triggers, pulled fully: Edit mode's Appearance view zooms with them.
