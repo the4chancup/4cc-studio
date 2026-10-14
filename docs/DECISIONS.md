@@ -7538,3 +7538,12 @@ rejected because the Ruleset editor's forms are easier still and the file must a
 the interpreter.
 Plan: `aatf_rules.md` "Coverage of a plain-language proposal", "The ruleset schema", "The
 host"; `ruleset_editor.md` "The editor".
+
+## 2026-10-14 — aatf — a present `weak_foot` names both halves
+Decision: a `weak_foot` written in a tier or an effect requires both `usage` and `accuracy`;
+one left out fails the load (`Schema`), as a present `weight` missing a bound does.
+Why: required, not defaulted to the empty value, because a missing half defaulting to 0 caps
+that half below the game's lowest value (1), so every player the tier or special reaches
+violates it; an author writing `usage: 4` alone means something else, and the load is where
+the slip can still be named.
+Plan: `aatf_rules.md` "The ruleset schema", the paragraph after the Rust block.

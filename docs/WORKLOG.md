@@ -17,7 +17,7 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3 done 2026-10-14; then 5.2c3-r1, 5.2d2, 5.0m4
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1 and 5.2d2 done 2026-10-14; then 5.2d2-r1, the mutants-diff 5c1f637 tests, 5.0m4
 and 5.4a5-6; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
@@ -883,17 +883,19 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       The side-lead bounded "Red CBs up to 189" to 189; the maintainer ruled for `aatf.cpp`'s
       reading (the 4 cm at every height), applied by the lead with the Red legal fixture's CBs
       at 189. Review AS1 (SWE-2): 6 of 12 accepted (`.tmp/parallel/aatf/rulings_as1.md`)
-      - [ ] 5.2c3-r1 AS1's rework: `AllowanceWithBracket` looks inside `when.not`; a `choice`
+      - [x] 5.2c3-r1 AS1's rework: `AllowanceWithBracket` looks inside `when.not`; a `choice`
         option carrying `stat_target`, `require_cards`, `forbid`, `height_allowance` or a
         nested `choice` refused at load; `suggestions`' weak foot read through `num`; a Team
         TOML without `[tactics]` leaves no player fielded (0xFF); fixtures for `weight`'s floor
         and `age`'s lower bound; `PositionRange`'s doc → done when: each has its red-first
-        test, then a SWE-2 round AS2 over the rework
-  - [~] 5.2d `tier_values`, `card_limits`, `apply_tier`. Landed 2026-10-14 (side-lead,
+        test, then a SWE-2 round AS2 over the rework. Done 2026-10-14 (SWE-2, with 5.2d2):
+        item 3's crash did not reproduce (`num` already guarded both reads), kept as a
+        consistency change
+  - [x] 5.2d `tier_values`, `card_limits`, `apply_tier`. Landed 2026-10-14 (side-lead,
     `978a33b`): `apply_tier` then `check_team` reports nothing for every official tier (the
     Green silver giant and the Red manlet included); VTL11's name colour, a `QUESTIONS.md`
     entry, answered 2026-10-14 by a tier field (step 5.2d2)
-  - [ ] 5.2d2 the schema fields step 20.0a and VTL11's name colour added (`aatf_rules.md` "The
+  - [~] 5.2d2 the schema fields step 20.0a and VTL11's name colour added (`aatf_rules.md` "The
     ruleset schema", "The host", the violation kinds): `Tier::name_color` with its check and
     `apply_tier`'s write; `Condition::ranges`, `strong_foot`, `any`; `Effects::form` and
     `injury_resistance`; the accessors `player.strong_foot` and `team.formation`; briefed
@@ -902,6 +904,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     reports nothing for a tier with a name colour and for a tier without one under a
     ruleset that sets them (a name with the other tier's code stripped, a name with an
     unrelated code kept), and `team.formation`'s slots match the fixture save's preset 1
+    Landed 2026-10-14 (SWE-2, first attempt; lead fix: `Effects::form`'s doc). Review AS2
+    (SWE-2): 4 of 6 accepted (`.tmp/5_2/rulings_as2.md`), so the SWE-2 loop ends after its
+    rework; then Astra over 5.2c3, 5.2d and 5.2d2 (Handover)
+    - [ ] 5.2d2-r1 AS2's rework: the `ranges` rows for `weight`, `injury_resistance`,
+      `weak_foot_usage`, `weak_foot_accuracy`; one `raised_target` helper for the form and
+      injury-resistance targets; the `name_color` row of `bad_proposal_field_values_are_schema`;
+      a present `weak_foot` names both halves (plan, decision 2026-10-14) → done when: each
+      has its red-first test
   - [ ] 5.2e the Autumn 25, Spring 26, VGL25, VGL26, VGL27, VTL11 and VTL10 data blocks and their
     fixtures → done when: the plan's per-ruleset fixtures pass. Autumn 25 and Spring 26 landed
     2026-10-14 (side-lead, `0aceb0b`: the sample team, a real team built under Spring 26,
@@ -1554,6 +1564,13 @@ points there.
   silently fall back to the CPK; (4) only boot-time shader loads are verified in game, model,
   texture and kit-bin loads under `livecpk\` are not (Sider's buffered-copy and CPK-size hooks
   were not ported). Phase 4's sideload acceptance waits on them; recheck FoxDen when itemizing.
+  FoxDen session 3 (2026-10-14, PES 2019 on the stock 1.6.0.0 exe, scratch
+  `.tmp/foxden/plan.md`): (5) FoxDen's own build runs proxy-only on every PES 2019 exe here:
+  `host_is_game()` wants a static `dinput8.dll` import, which neither exe has, on disk or in
+  the running image (the game loads DirectInput at run time); (6) with that check relaxed
+  (test copy), the game dies right after the livecpk Lua state is created, on the stock exe as
+  on the patched one: `lua_tolstring` resolves to a misaligned address (RVA 0x4bbba5f, the
+  pattern's second pass), most likely mid-function. The kit-swapper script has not run yet.
 - open — a run that does not end cleanly leaves its staging (3.z): closing the window while
   the GUI's compile runs ends the process mid-run, and the coordinator's `Cancelled` path does
   not discard the staging either, so `output/.staging/<run>/` can be left beside the previous

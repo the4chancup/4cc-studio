@@ -136,10 +136,14 @@ fn age_outside_the_bounds() {
             "{age}"
         );
     }
-    assert_eq!(problems(&rules, &edited(3, |p| p.age = 50)), vec![]);
+    for age in [15, 50] {
+        assert_eq!(problems(&rules, &edited(3, |p| p.age = age)), vec![]);
+    }
 }
 
-/// Slot 3 is 175 cm: `max(30, 175 - 129)..=175 - 81` is 46 to 94.
+/// Slot 3 is 175 cm: `max(30, 175 - 129)..=175 - 81` is 46 to 94; at
+/// 150 cm the height-derived bound (21 to 69) sits below the floor, so
+/// `max(30, ..)..=69` is 30 to 69.
 #[test]
 fn weight_outside_the_rule() {
     let rules = Rules::official();
@@ -159,6 +163,28 @@ fn weight_outside_the_rule() {
         );
     }
     assert_eq!(problems(&rules, &edited(3, |p| p.weight = 46)), vec![]);
+    // At 150 cm (still a manlet: the bracket's `up_to` is 175) the floor
+    // is the lower bound: 29 is under it, 30 is legal.
+    let under = edited(3, |p| {
+        p.height = 150;
+        p.weight = 29;
+    });
+    assert_eq!(
+        problems(&rules, &under),
+        vec![error(
+            Some(3),
+            ViolationKind::Weight {
+                weight: 29,
+                min: 30,
+                max: 69
+            }
+        )]
+    );
+    let at_floor = edited(3, |p| {
+        p.height = 150;
+        p.weight = 30;
+    });
+    assert_eq!(problems(&rules, &at_floor), vec![]);
 }
 
 /// A registered position past the labels, and a playing style the

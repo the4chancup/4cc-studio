@@ -140,6 +140,8 @@ impl Rules {
 
     /// Writes tier `tier`'s targets into `entry`, the record `player`
     /// views (of `team`): stats, form, injury resistance and weak foot,
+    /// and the tier's `name_color` over the name's leading colour code
+    /// (a code another tier sets stripped under a tier that sets none),
     /// so the quick actions and the Team creator's defaults produce a
     /// player `check_team` accepts on those. The lib's one writing
     /// operation; the check itself never fixes anything.
@@ -151,6 +153,19 @@ impl Rules {
         entry: &mut PlayerEntry,
     ) -> Result<(), CheckError> {
         self.tier_values(team, player, tier)?.write(entry);
+        let tier = self
+            .ruleset
+            .tiers
+            .iter()
+            .find(|t| t.id == tier)
+            .expect("tier_values accepted the tier");
+        let tier_colors: Vec<&str> = self
+            .ruleset
+            .tiers
+            .iter()
+            .filter_map(|t| t.name_color.as_deref())
+            .collect();
+        crate::values::write_name_color(&mut entry.name, tier.name_color.as_deref(), &tier_colors);
         Ok(())
     }
 

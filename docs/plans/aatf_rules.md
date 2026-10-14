@@ -382,9 +382,11 @@ pub enum Severity {
 A field left out of the file takes its empty value (0, `false`, an empty list or map, `None`),
 except `schema`, `name`, `squad_size`, `universal` with its `max_skill_cards`, and each tier's,
 bracket's and system's `id`, `label` and (tiers) `rate`, and each special's and team
-settings entry's `label`, and a present `weight`'s `floor`, `below` and `above`, which are
+settings entry's `label`, a present `weight`'s `floor`, `below` and `above`, and a present
+`weak_foot`'s `usage` and `accuracy` (a tier's or an effect's), which are
 required (an absent `universal` would otherwise default `max_skill_cards` to 0, a cap no file
-means; a weight rule missing a bound would demand a weight equal to the height; a violation
+means; a weight rule missing a bound would demand a weight equal to the height; a weak foot
+missing a half would cap it at 0, below the game's 1; a violation
 shows its special's label, which an empty one would leave blank).
 
 Rules the types cannot carry, checked on load ("Loading and validation"): no string is empty

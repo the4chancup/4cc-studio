@@ -99,8 +99,8 @@ fn tier_values(player, tier, team) {
     let weak_foot = weak_foot_of(t, p);
     #{
         stats: targets(t, p),
-        form: num(t, "form"),
-        injury_resistance: num(t, "injury_resistance"),
+        form: form_target(t, p),
+        injury_resistance: injury_resistance_target(t, p),
         weak_foot: #{ usage: num(weak_foot, "usage"), accuracy: num(weak_foot, "accuracy") },
     }
 }
@@ -169,10 +169,42 @@ fn condition_holds(system, player, tier_id, bracket_id, cond) {
     if "fielded_only_at" in cond && !this.fielded_only_at(player, cond.fielded_only_at) {
         return false;
     }
+    if "ranges" in cond {
+        for key in cond.ranges.keys() {
+            let value = player_value(player, key);
+            if value == () || value < cond.ranges[key][0] || value > cond.ranges[key][1] {
+                return false;
+            }
+        }
+    }
+    if "strong_foot" in cond && player.strong_foot != cond.strong_foot { return false; }
+    if "any" in cond && cond.any.len() > 0 {
+        let holds = false;
+        for entry in cond.any {
+            if this.condition_holds(system, player, tier_id, bracket_id, entry) {
+                holds = true;
+                break;
+            }
+        }
+        if !holds { return false; }
+    }
     if "not" in cond && this.condition_holds(system, player, tier_id, bracket_id, cond["not"]) {
         return false;
     }
     true
+}
+
+// `player`'s `PlayerValue` `key`: an ability stat through `player.stat` (`()`
+// where the version lacks it, failing the range), the accessor of the same
+// name for the six other names.
+fn player_value(player, key) {
+    if key == "age" { player.age }
+    else if key == "weight" { player.weight }
+    else if key == "form" { player.form }
+    else if key == "injury_resistance" { player.injury_resistance }
+    else if key == "weak_foot_usage" { player.weak_foot_usage }
+    else if key == "weak_foot_accuracy" { player.weak_foot_accuracy }
+    else { player.stat(key) }
 }
 
 // Whether `this` (a player) is rated `rating` at any of `positions`.
@@ -219,7 +251,7 @@ fn profile(team, system, player, tier_id) {
     let p = #{
         allowance: 0, bracket: (), bonus: #{}, targets: #{}, cards: 0, free: #{},
         free_cards: [], require_cards: [], a_positions: 0, max_a_positions: (), weak_foot: (),
-        forbids: [], choices: [], taken: [],
+        form: 0, injury_resistance: 0, forbids: [], choices: [], taken: [],
     };
     for special in this.specials {
         let then = table(special, "then");
@@ -274,6 +306,14 @@ fn apply_effects(p, tier_id, label, severity, then) {
         if value != () { p.a_positions += value; }
     }
     if "max_a_positions" in then { p.max_a_positions = then.max_a_positions; }
+    if "form" in then {
+        let value = per_tier(then.form, tier_id);
+        if value != () { p.form += value; }
+    }
+    if "injury_resistance" in then {
+        let value = per_tier(then.injury_resistance, tier_id);
+        if value != () { p.injury_resistance += value; }
+    }
     if "weak_foot" in then { p.weak_foot = then.weak_foot; }
     if "forbid" in then {
         p.forbids.push(#{ label: label, text: then.forbid, severity: severity });
@@ -384,6 +424,22 @@ fn player_rating(player) {
 // The weak-foot limits: a special's replacement, else the tier's.
 fn weak_foot_of(tier, p) {
     if p.weak_foot != () { p.weak_foot } else { table(tier, "weak_foot") }
+}
+
+// The tier's form target plus the specials' `form` effects.
+fn form_target(tier, p) { num(tier, "form") + p.form }
+
+// The tier's injury-resistance limit plus the specials'
+// `injury_resistance` effects.
+fn injury_resistance_target(tier, p) { num(tier, "injury_resistance") + p.injury_resistance }
+
+// The name-colour codes the tiers set (empty when none does).
+fn name_colors() {
+    let codes = [];
+    for tier in this.tiers {
+        if "name_color" in tier && tier.name_color != () { codes.push(tier.name_color); }
+    }
+    codes
 }
 
 // `player`'s tier and profile: the first tier in list order whose `when` holds and whose
@@ -529,11 +585,11 @@ fn player_checks(team, system, player, tier, p) {
             });
         }
     }
-    let form = num(tier, "form");
+    let form = form_target(tier, p);
     if misses(at_most, "form", player.form, form) {
         found.push(#{ kind: "Form", slot: slot, value: player.form, target: form });
     }
-    let injury_resistance = num(tier, "injury_resistance");
+    let injury_resistance = injury_resistance_target(tier, p);
     if misses(at_most, "injury_resistance", player.injury_resistance, injury_resistance) {
         found.push(#{
             kind: "InjuryResistance", slot: slot, value: player.injury_resistance,
@@ -550,6 +606,18 @@ fn player_checks(team, system, player, tier, p) {
         found.push(#{
             kind: "WeakFootAccuracy", slot: slot, value: player.weak_foot_accuracy, max: accuracy,
         });
+    }
+    // The name colour: the tier's own code, or none of the codes the
+    // tiers set when it has none.
+    if "name_color" in tier && tier.name_color != () {
+        if player.name_color != tier.name_color {
+            found.push(#{
+                kind: "NameColor", slot: slot, color: player.name_color,
+                expected: tier.name_color,
+            });
+        }
+    } else if player.name_color != () && player.name_color in this.name_colors() {
+        found.push(#{ kind: "NameColor", slot: slot, color: player.name_color });
     }
     if cards.paid > cards.limit {
         found.push(#{ kind: "Cards", slot: slot, paid: cards.paid, limit: cards.limit });
@@ -610,14 +678,16 @@ fn suggestions(tier, p, player, cards) {
             }
         } else if allowance == "weak_foot" {
             let weak_foot = weak_foot_of(tier, p);
-            if player.weak_foot_usage < num(weak_foot, "usage") {
-                found.push(unused(slot, allowance, player.weak_foot_usage, weak_foot.usage));
+            let usage = num(weak_foot, "usage");
+            let accuracy = num(weak_foot, "accuracy");
+            if player.weak_foot_usage < usage {
+                found.push(unused(slot, allowance, player.weak_foot_usage, usage));
             }
-            if player.weak_foot_accuracy < num(weak_foot, "accuracy") {
-                found.push(unused(slot, allowance, player.weak_foot_accuracy, weak_foot.accuracy));
+            if player.weak_foot_accuracy < accuracy {
+                found.push(unused(slot, allowance, player.weak_foot_accuracy, accuracy));
             }
         } else if allowance == "injury_resistance" {
-            let target = num(tier, "injury_resistance");
+            let target = injury_resistance_target(tier, p);
             if player.injury_resistance < target {
                 found.push(unused(slot, allowance, player.injury_resistance, target));
             }

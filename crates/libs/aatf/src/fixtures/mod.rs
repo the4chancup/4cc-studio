@@ -19,6 +19,7 @@ use crate::violation::ViolationKind;
 use crate::{PlayerView, Rules, TeamView, Violation};
 
 mod autumn25;
+mod interpreter;
 mod official;
 mod spring26;
 

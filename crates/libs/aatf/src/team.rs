@@ -15,7 +15,7 @@ use pes_savefile::schema::playstyle;
 use pes_savefile::settings_toml::AppearanceSettings;
 use pes_version::PesVersion;
 
-use crate::ruleset::{Card, PlayStyle, Position, Stat};
+use crate::ruleset::{Card, Foot, PlayStyle, Position, Stat};
 
 /// One roster player as a ruleset reads them, every value on the game's
 /// scale (form 1 to 8, injury resistance 1 to 3, weak foot 1 to 4, where
@@ -43,6 +43,8 @@ pub struct PlayerView {
     /// The playing style (`None` when the version's table has no such
     /// style).
     pub(crate) playing_style: Option<PlayStyle>,
+    /// The stronger foot (`None` for a byte past 0/1).
+    pub(crate) strong_foot: Option<Foot>,
     /// The name's leading colour code (`cc9900ff`).
     pub(crate) name_color: Option<String>,
     /// The held cards: the skills in table order, then the COM styles.
@@ -144,6 +146,20 @@ pub(crate) struct FormationShape {
     pub(crate) shape: [u8; 3],
 }
 
+/// One slot of a formation the game can field: the starting-eleven
+/// player's roster slot, the position and the coordinates as stored.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct FormationSlotView {
+    /// The roster slot of the starting-eleven player the slot fields.
+    pub(crate) slot: u8,
+    /// The slot's position.
+    pub(crate) position: Position,
+    /// The horizontal coordinate, as stored.
+    pub(crate) x: u8,
+    /// The vertical coordinate, as stored.
+    pub(crate) y: u8,
+}
+
 impl TeamView {
     /// The team `team_id` of `file`.
     pub fn new(file: &EditFile, team_id: u32) -> Result<TeamView, TeamViewError> {
@@ -225,6 +241,11 @@ impl TeamView {
                 position: (usize::from(entry.positions.registered) < POSITIONS.len())
                     .then_some(Position(entry.positions.registered)),
                 playing_style,
+                strong_foot: match entry.positions.stronger_foot {
+                    0 => Some(Foot::Right),
+                    1 => Some(Foot::Left),
+                    _ => None,
+                },
                 name_color: name_color(&entry.name).map(str::to_string),
                 cards: entry
                     .skills
@@ -287,10 +308,14 @@ pub(crate) fn records_from_team_toml(
         captain: 0xFF,
     };
     // The man-marking bytes too: an absent `man_marking` key reads as no
-    // assignment, not a marking of opponent slot 0.
+    // assignment, not a marking of opponent slot 0. And the starting
+    // eleven and bench order: an absent `[tactics]` reads as nobody
+    // fielded, not eleven copies of roster slot 0.
     for preset in &mut team.tactics.presets {
         preset.man_marking = [0xFF; 11];
     }
+    team.tactics.starting_eleven = [0xFF; 11];
+    team.tactics.bench_order = [0xFF; 21];
     let highest = document.players.keys().max().copied().unwrap_or(0);
     team.roster = (1..=highest)
         .map(|slot| RosterSlot {
@@ -395,6 +420,29 @@ impl TeamView {
             }
         }
         true
+    }
+
+    /// The eleven slots of `preset`'s fielded `formation` (both numbered
+    /// from 1), `None` for a formation the preset does not field (a
+    /// non-fluid preset's second and third included).
+    pub(crate) fn formation(&self, preset: u8, formation: u8) -> Option<Vec<FormationSlotView>> {
+        let (_, fielded) = self
+            .fielded_formations(preset)
+            .into_iter()
+            .find(|(number, _)| *number == formation)?;
+        Some(
+            fielded
+                .players
+                .iter()
+                .zip(self.tactics.starting_eleven)
+                .map(|(slot, starter)| FormationSlotView {
+                    slot: starter,
+                    position: Position(slot.position),
+                    x: slot.x,
+                    y: slot.y,
+                })
+                .collect(),
+        )
     }
 
     /// Whether any of the three presets has a man-marking assignment set:
@@ -677,6 +725,30 @@ mod tests {
         );
         // The sample team's captain is still `Some(10)`.
         assert_eq!(TeamView::sample_team().captain, Some(10));
+    }
+
+    #[test]
+    fn an_absent_tactics_section_fields_nobody() {
+        // A document without `[tactics]`: the bare record's starting
+        // eleven and bench order are 0xFF, not eleven copies of slot 0.
+        // Slot 0's `fielded_*` answers come from his registered position
+        // alone; the sample's slot 0 is registered CB here (a GK
+        // otherwise would answer `fielded_only_at` the same either way,
+        // the default formations' bytes being GK).
+        let mut document =
+            TeamToml::parse(include_str!("../sample/team.toml")).expect("the sample team parses");
+        document.tactics = Default::default();
+        document
+            .players
+            .get_mut(&1)
+            .expect("a first player")
+            .positions
+            .registered = Some(1);
+        let view = TeamView::from_team_toml(&document).expect("the team builds");
+        assert_eq!(view.fielded_positions(0, 1), Vec::<Position>::new());
+        let cb = Position(1);
+        assert!(view.fielded_only_at(0, cb));
+        assert!(!view.fielded_only_at(0, Position(0)));
     }
 
     #[test]

@@ -15,7 +15,8 @@
 //! The script API a ruleset sees, on `Player`: `slot`, `age`, `height`,
 //! `weight`; `form`, `injury_resistance`, `weak_foot_usage`,
 //! `weak_foot_accuracy` (the game's scale); `position`, `playing_style`,
-//! `name_color` (label or `()`); `cards` (the held skills and COM styles'
+//! `name_color` (label or `()`), `strong_foot` (`"right"` or `"left"`,
+//! `()` past them); `cards` (the held skills and COM styles'
 //! labels); `stat(name)` (the ability stat's value, `()` where the
 //! version lacks it; an unknown name is a script error);
 //! `rating_at(pos)` (`"A"`, `"B"`, `"C"`, `"none"`; an unknown position
@@ -25,7 +26,9 @@
 //! `fielded_positions(player, preset)` (labels, once each, in the
 //! position table's order; a preset outside 1 to 3 is a script error),
 //! `fielded_only_at(player, pos)` (an unknown position is a script
-//! error), `formation_shapes()` (`#{ preset, formation,
+//! error), `formation(preset, formation)` (the eleven slots as
+//! `#{ slot, position, x, y }`, `()` for a formation the preset cannot
+//! field), `formation_shapes()` (`#{ preset, formation,
 //! shape: [defenders, midfielders, forwards] }`); `man_marking` (whether
 //! any preset has a man-marking assignment set), `auto_substitution`
 //! (the stored setting, 0 off), `auto_offside_trap`,
@@ -57,8 +60,8 @@ pub use values::{CardLimits, TierValues};
 pub use violation::{CheckError, Violation, ViolationKind};
 
 pub use ruleset::{
-    Bracket, BracketHeights, BracketId, Card, Condition, Effects, GroupId, HeightSystem, Heights,
-    IdKind, LoadError, LoadRule, PerTier, PlayStyle, Position, RuleError, Ruleset, Severity,
-    Special, Stat, StatOrAll, StatRules, SystemId, TeamSettings, Tier, TierId, Universal, WeakFoot,
-    WeightRule,
+    Bracket, BracketHeights, BracketId, Card, Condition, Effects, Foot, GroupId, HeightSystem,
+    Heights, IdKind, LoadError, LoadRule, PerTier, PlayStyle, PlayerValue, Position, RuleError,
+    Ruleset, Severity, Special, Stat, StatOrAll, StatRules, SystemId, TeamSettings, Tier, TierId,
+    Universal, WeakFoot, WeightRule,
 };

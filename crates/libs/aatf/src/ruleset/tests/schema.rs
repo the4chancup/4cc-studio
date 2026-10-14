@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeMap;
 
 #[test]
 fn an_unknown_top_level_key_is_schema() {
@@ -242,6 +243,64 @@ fn a_schema_error_carries_its_key_path() {
             LoadError::Schema { path: got, .. } => assert_eq!(got, path, "{name}"),
             other => panic!("{name}: {other:?}"),
         }
+    }
+}
+
+/// The proposal's fields deserialize: a `ranges` key is a stat label or
+/// one of the six `PlayerValue` names, `strong_foot` the Team TOML foot
+/// labels, `any` a list of conditions, `form`/`injury_resistance` the
+/// `PerTier` spellings.
+#[test]
+fn the_proposal_fields_deserialize() {
+    let ruleset = Ruleset::from_data_block(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, name_color: \"cc9900ff\" }],
+            specials: [#{ label: \"x\",
+                when: #{ ranges: #{ speed: [90, 99], age: [15, 20] }, strong_foot: \"left\",
+                         any: [#{ captain: true }, #{ positions: [\"GK\"] }] },
+                then: #{ form: #{ regular: 1 }, injury_resistance: -1 } }],
+        };",
+    )
+    .expect("the fields parse");
+    let tier = &ruleset.tiers[0];
+    assert_eq!(tier.name_color.as_deref(), Some("cc9900ff"));
+    let when = &ruleset.specials[0].when;
+    assert_eq!(
+        when.ranges.get(&PlayerValue::Stat(
+            Stat::try_from("speed".to_string()).expect("a stat")
+        )),
+        Some(&(90, 99))
+    );
+    assert_eq!(when.ranges.get(&PlayerValue::Age), Some(&(15, 20)));
+    assert_eq!(when.strong_foot, Some(Foot::Left));
+    assert_eq!(when.any.len(), 2);
+    assert!(when.any[0].captain == Some(true) && when.any[1].positions.len() == 1);
+    let then = &ruleset.specials[0].then;
+    assert_eq!(
+        then.form,
+        Some(PerTier::ByTier(BTreeMap::from([(
+            "regular".to_string(),
+            1
+        )])))
+    );
+    assert_eq!(then.injury_resistance, Some(PerTier::All(-1)));
+}
+
+/// A `ranges` key that is no `PlayerValue` name, a foot that is not
+/// `right`/`left` and a `name_color` that is not a string are `Schema`.
+#[test]
+fn bad_proposal_field_values_are_schema() {
+    for (name, snippet) in [
+        ("ranges key", "when: #{ ranges: #{ pace: [90, 99] } }"),
+        ("strong_foot", "when: #{ strong_foot: \"both\" }"),
+    ] {
+        let err = Ruleset::from_data_block(&format!(
+            "const RULESET = #{{ schema: 1, name: \"x\", squad_size: 23, universal: #{{ max_skill_cards: 10 }}, tiers: [#{{ id: \"regular\", label: \"Regular\", rate: 77, {snippet} }}] }};"
+        ))
+        .expect_err(name);
+        assert!(matches!(err, LoadError::Schema { .. }), "{name}: {err:?}");
     }
 }
 

@@ -299,18 +299,31 @@ fn empty_strings_at_the_untested_sites_are_refused() {
             ),
             "specials[2].then.forbid",
         ),
-        (
-            "empty forbid in a choice option",
-            edit(
-                AUTUMN26,
-                "#{ free: #{ com: 1 } }, #{ a_positions: 1 }",
-                "#{ free: #{ com: 1 }, forbid: \"\" }, #{ a_positions: 1 }",
-            ),
-            "specials[11].then.choice[0].forbid",
-        ),
     ] {
         case(name, &broken, LoadRule::Empty, path);
     }
+    // An emptied `forbid` inside a `choice` option reports the option's
+    // disallowed effect as well as the empty string.
+    let err = Ruleset::from_data_block(&edit(
+        AUTUMN26,
+        "#{ free: #{ com: 1 } }, #{ a_positions: 1 }",
+        "#{ free: #{ com: 1 }, forbid: \"\" }, #{ a_positions: 1 }",
+    ))
+    .expect_err("empty forbid in a choice option");
+    assert_eq!(
+        err,
+        LoadError::Rules(vec![
+            RuleError {
+                path: "specials[11].then.choice[0].forbid".to_string(),
+                rule: LoadRule::ChoiceOptionEffect,
+            },
+            RuleError {
+                path: "specials[11].then.choice[0].forbid".to_string(),
+                rule: LoadRule::Empty,
+            },
+        ]),
+        "{err:?}"
+    );
 }
 
 #[test]
@@ -518,6 +531,27 @@ fn color_code_lengths_are_refused() {
 }
 
 #[test]
+fn a_tiers_name_color_is_eight_bytes() {
+    // The same rule as a `name_colors` entry, at the tier's key.
+    case(
+        "tier name_color short",
+        &edit(
+            AUTUMN26,
+            "#{ id: \"gold\", label: \"Gold\", count: 1, rate: 99",
+            "#{ id: \"gold\", label: \"Gold\", count: 1, rate: 99, name_color: \"cc9900f\"",
+        ),
+        LoadRule::ColorCodeLength,
+        "tiers[0].name_color",
+    );
+    Ruleset::from_data_block(&edit(
+        AUTUMN26,
+        "#{ id: \"gold\", label: \"Gold\", count: 1, rate: 99",
+        "#{ id: \"gold\", label: \"Gold\", count: 1, rate: 99, name_color: \"cc9900ff\"",
+    ))
+    .expect("an eight-byte name_color loads");
+}
+
+#[test]
 fn a_suggestion_word_as_a_group_is_reserved() {
     for word in [
         "cards",
@@ -566,66 +600,6 @@ fn giga_first_fails_every_later_bracket() {
 }
 
 #[test]
-fn choice_options_check_like_then() {
-    // `free`'s per-tier map inside a `choice` option.
-    case(
-        "unknown tier in a choice option",
-        &edit(
-            AUTUMN26,
-            "choice: [#{ free: #{ com: 1 } }, #{ a_positions: 1 }]",
-            "choice: [#{ free: #{ com: #{ goldd: 1 } } }, #{ a_positions: 1 }]",
-        ),
-        LoadRule::UnknownId {
-            kind: IdKind::Tier,
-            id: "goldd".to_string(),
-        },
-        "specials[11].then.choice[0].free.com.goldd",
-    );
-    // `height_allowance` inside a `choice` option names no bracket.
-    case(
-        "allowance in a choice option",
-        &edit(
-            AUTUMN26,
-            "when: #{ tiers: [\"gold\", \"silver\", \"bronze\"] },\n           then: #{ choice: [#{ free: #{ com: 1 } }",
-            "when: #{ tiers: [\"gold\", \"silver\", \"bronze\"], brackets: [\"manlet\"] },\n           then: #{ choice: [#{ free: #{ com: 1 }, height_allowance: 4 }",
-        ),
-        LoadRule::AllowanceWithBracket,
-        "specials[11].when.brackets[0]",
-    );
-}
-
-#[test]
-fn an_unknown_tier_in_a_specials_when_is_refused() {
-    case(
-        "unknown tier in a special's when",
-        &edit(
-            AUTUMN26,
-            "when: #{ tiers: [\"gold\", \"silver\", \"bronze\"], positions: [\"GK\"] }",
-            "when: #{ tiers: [\"gollum\"], positions: [\"GK\"] }",
-        ),
-        LoadRule::UnknownId {
-            kind: IdKind::Tier,
-            id: "gollum".to_string(),
-        },
-        "specials[2].when.tiers[0]",
-    );
-}
-
-#[test]
-fn a_tiers_when_not_naming_a_tier_is_refused() {
-    case(
-        "tier when.not names a tier",
-        &edit(
-            AUTUMN26,
-            "when: #{ positions: [\"GK\"] }",
-            "when: #{ not: #{ tiers: [\"gold\"] } }",
-        ),
-        LoadRule::TierConditionNamesTiers,
-        "tiers[3].when.not.tiers",
-    );
-}
-
-#[test]
 fn counts_over_the_squad_are_refused() {
     case(
         "counts exceed squad",
@@ -635,84 +609,6 @@ fn counts_over_the_squad_are_refused() {
             squad_size: 4,
         },
         "tiers",
-    );
-}
-
-#[test]
-fn a_tiers_when_naming_a_tier_is_refused() {
-    case(
-        "tier when names a tier",
-        &edit(
-            AUTUMN26,
-            "when: #{ positions: [\"GK\"] }",
-            "when: #{ tiers: [\"gold\"] }",
-        ),
-        LoadRule::TierConditionNamesTiers,
-        "tiers[3].when.tiers",
-    );
-}
-
-#[test]
-fn a_system_condition_too_wide_is_refused() {
-    case(
-        "system condition too wide",
-        &edit(
-            AUTUMN26,
-            "any_player: #{ height_min: 194 }",
-            "any_player: #{ height_min: 194, tiers: [\"gold\"] }",
-        ),
-        LoadRule::SystemConditionTooWide,
-        "heights.systems[0].any_player",
-    );
-}
-
-#[test]
-fn a_last_system_with_a_condition_is_refused() {
-    case(
-        "last system has a condition",
-        &edit(
-            AUTUMN26,
-            "#{ id: \"red\", label: \"Red\",",
-            "#{ id: \"red\", label: \"Red\", any_player: #{ height_min: 180 },",
-        ),
-        LoadRule::LastSystemHasCondition,
-        "heights.systems[1].any_player",
-    );
-}
-
-#[test]
-fn an_empty_any_player_is_no_condition() {
-    // `any_player: #{}` holds for every player: a non-last system with it
-    // is `SystemWithoutCondition`, and the last one with it loads.
-    case(
-        "non-last system with an empty condition",
-        &edit(
-            AUTUMN26,
-            "any_player: #{ height_min: 194 }",
-            "any_player: #{}",
-        ),
-        LoadRule::SystemWithoutCondition,
-        "heights.systems[0]",
-    );
-    Ruleset::from_data_block(&edit(
-        AUTUMN26,
-        "#{ id: \"red\", label: \"Red\",",
-        "#{ id: \"red\", label: \"Red\", any_player: #{},",
-    ))
-    .expect("an empty condition on the last system is no condition");
-}
-
-#[test]
-fn an_allowance_with_a_bracket_is_refused() {
-    case(
-        "allowance with bracket",
-        &edit(
-            AUTUMN26,
-            "when: #{ positions: [\"GK\"], height_min: 189, height_max: 189 }",
-            "when: #{ positions: [\"GK\"], brackets: [\"manlet\"] }",
-        ),
-        LoadRule::AllowanceWithBracket,
-        "specials[3].when.brackets[0]",
     );
 }
 
@@ -744,41 +640,6 @@ fn a_shape_not_ten_is_refused() {
     );
 }
 
-#[test]
-fn an_unknown_id_inside_not_is_refused() {
-    // `not` is checked like the condition it sits in.
-    case(
-        "unknown id in not",
-        &edit(
-            AUTUMN26,
-            "when: #{ positions: [\"GK\"], height_min: 189, height_max: 189 }",
-            "when: #{ positions: [\"GK\"], not: #{ systems: [\"greeen\"] } }",
-        ),
-        LoadRule::UnknownId {
-            kind: IdKind::System,
-            id: "greeen".to_string(),
-        },
-        "specials[3].when.not.systems[0]",
-    );
-}
-
-#[test]
-fn an_unknown_tier_in_an_effect_is_refused() {
-    case(
-        "unknown tier in stat_bonus",
-        &edit(
-            AUTUMN26,
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2, silverr: 1 } }",
-        ),
-        LoadRule::UnknownId {
-            kind: IdKind::Tier,
-            id: "silverr".to_string(),
-        },
-        "specials[9].then.stat_bonus.all.silverr",
-    );
-}
-
 /// Counts summing to exactly `squad_size` load — `>` at the boundary.
 #[test]
 fn counts_at_the_squad_size_load() {
@@ -797,143 +658,6 @@ fn a_forbidden_shape_of_ten_loads() {
         "team_settings: [#{ label: \"no 3-4-3\", forbidden_shapes: [[3, 4, 3]] }],\n    suggestions:",
     ))
     .expect("a shape adding to ten loads");
-}
-
-/// A `when.brackets` entry naming a nonexistent bracket is `UnknownId`;
-/// `bracket_has`/`==` at it.
-#[test]
-fn an_unknown_bracket_in_a_specials_condition_is_refused() {
-    case(
-        "unknown bracket",
-        &edit(
-            AUTUMN26,
-            "when: #{ brackets: [\"manlet\"] }",
-            "when: #{ brackets: [\"nope\"] }",
-        ),
-        LoadRule::UnknownId {
-            kind: IdKind::Bracket,
-            id: "nope".to_string(),
-        },
-        "specials[8].when.brackets[0]",
-    );
-    Ruleset::from_data_block(&edit(
-        AUTUMN26,
-        "when: #{ brackets: [\"manlet\"] }",
-        "when: #{ brackets: [\"giant\"] }",
-    ))
-    .expect("a real bracket name loads");
-}
-
-/// Unknown tier ids inside a `then`'s per-tier maps are `UnknownId` at
-/// their own key paths — `stat_target`, `cards` and `free` all walk it.
-#[test]
-fn an_unknown_tier_in_effects_maps_is_refused() {
-    for (from, to, path) in [
-        (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            "stat_target: #{ dribbling: #{ gollum: 3 } }",
-            "specials[9].then.stat_target.dribbling.gollum",
-        ),
-        (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            "cards: #{ gollum: 3 }",
-            "specials[9].then.cards.gollum",
-        ),
-        (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            "a_positions: #{ gollum: 3 }",
-            "specials[9].then.a_positions.gollum",
-        ),
-        (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            "free: #{ tricks: #{ gollum: 2 } }",
-            "specials[9].then.free.tricks.gollum",
-        ),
-    ] {
-        case(
-            from,
-            &edit(AUTUMN26, from, to),
-            LoadRule::UnknownId {
-                kind: IdKind::Tier,
-                id: "gollum".to_string(),
-            },
-            path,
-        );
-    }
-    // A `free` map key is a group id, not a tier.
-    case(
-        "free group key",
-        &edit(
-            AUTUMN26,
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            "free: #{ gollum: #{ regular: 2 } }",
-        ),
-        LoadRule::UnknownId {
-            kind: IdKind::Group,
-            id: "gollum".to_string(),
-        },
-        "specials[9].then.free.gollum",
-    );
-    // The same keys naming a real tier load.
-    for to in [
-        "stat_target: #{ dribbling: #{ regular: 3 } }",
-        "cards: #{ regular: 3 }",
-        "a_positions: #{ regular: 3 }",
-        "free: #{ tricks: #{ regular: 2 } }",
-    ] {
-        Ruleset::from_data_block(&edit(
-            AUTUMN26,
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            to,
-        ))
-        .expect("a real tier key loads");
-    }
-}
-
-/// Every forbidden field in `any_player` is `SystemConditionTooWide`; the
-/// three allowed ones (`height_min`, `height_max`, `positions`) together
-/// are not.
-#[test]
-fn any_player_is_wide_field_by_field() {
-    let fields: [(&str, &str); 11] = [
-        ("tiers", "tiers: [\"gold\"]"),
-        ("systems", "systems: [\"red\"]"),
-        ("brackets", "brackets: [\"manlet\"]"),
-        ("captain", "captain: true"),
-        ("playing_styles", "playing_styles: [\"none\"]"),
-        ("holds", "holds: [\"malicia\"]"),
-        ("rated_a_at", "rated_a_at: [\"CB\"]"),
-        ("rated_b_at", "rated_b_at: [\"LB\"]"),
-        ("name_colors", "name_colors: [\"cc9900ff\"]"),
-        ("fielded_only_at", "fielded_only_at: \"CB\""),
-        ("not", "not: #{ captain: true }"),
-    ];
-    for (name, snippet) in fields {
-        let err = Ruleset::from_data_block(&edit(
-            AUTUMN26,
-            "any_player: #{ height_min: 194 }",
-            &format!("any_player: #{{ height_min: 194, {snippet} }}"),
-        ))
-        .expect_err(name);
-        assert!(
-            matches!(
-                err,
-                LoadError::Rules(ref errors)
-                    if errors
-                        == &[RuleError {
-                            path: "heights.systems[0].any_player".to_string(),
-                            rule: LoadRule::SystemConditionTooWide,
-                        }]
-            ),
-            "{name}: {err:?}"
-        );
-    }
-    Ruleset::from_data_block(&edit(
-        AUTUMN26,
-        "any_player: #{ height_min: 194 }",
-        "any_player: #{ height_min: 180, height_max: 199, positions: [\"GK\"] }",
-    ))
-    .expect("the three allowed fields together load");
 }
 
 /// `LoadError::Rules` displays each `RuleError` as `path: message`,

@@ -119,6 +119,15 @@ impl Ruleset {
                 }
             }
             self.check_condition(&tier.when, &format!("{path}.when"), false, &mut out);
+            // Eight bytes, like a `name_colors` entry.
+            if let Some(name_color) = &tier.name_color
+                && name_color.len() != 8
+            {
+                out.push(RuleError {
+                    path: format!("{path}.name_color"),
+                    rule: LoadRule::ColorCodeLength,
+                });
+            }
         }
         let total: u32 = self
             .tiers
@@ -332,12 +341,7 @@ impl Ruleset {
             }
             self.check_condition(&special.when, &format!("{path}.when"), true, &mut out);
             if effects_have_allowance(&special.then) {
-                for (j, _) in special.when.brackets.iter().enumerate() {
-                    out.push(RuleError {
-                        path: format!("{path}.when.brackets[{j}]"),
-                        rule: LoadRule::AllowanceWithBracket,
-                    });
-                }
+                allowance_with_bracket(&special.when, &format!("{path}.when"), &mut out);
             }
             self.check_effects(&special.then, &format!("{path}.then"), &mut out);
         }
@@ -460,6 +464,9 @@ impl Ruleset {
                 });
             }
         }
+        for (i, entry) in condition.any.iter().enumerate() {
+            self.check_condition(entry, &format!("{path}.any[{i}]"), allow_tiers, out);
+        }
         if let Some(not) = &condition.not {
             self.check_condition(not, &format!("{path}.not"), allow_tiers, out);
         }
@@ -504,6 +511,8 @@ impl Ruleset {
         for (name, per_tier) in [
             ("cards", &effects.cards),
             ("a_positions", &effects.a_positions),
+            ("form", &effects.form),
+            ("injury_resistance", &effects.injury_resistance),
         ] {
             if let Some(per_tier) = per_tier {
                 self.check_per_tier(per_tier, &format!("{path}.{name}"), out);
@@ -531,12 +540,50 @@ impl Ruleset {
             });
         }
         for (i, option) in effects.choice.iter().enumerate() {
-            self.check_effects(option, &format!("{path}.choice[{i}]"), out);
+            let option_path = format!("{path}.choice[{i}]");
+            // An option holds only the effects `Effects::choice`'s doc
+            // lists: an option is found used through a limit it raises,
+            // which the others never do.
+            for (field, present) in [
+                ("stat_target", !option.stat_target.is_empty()),
+                ("require_cards", !option.require_cards.is_empty()),
+                ("form", option.form.is_some()),
+                ("injury_resistance", option.injury_resistance.is_some()),
+                ("height_allowance", option.height_allowance.is_some()),
+                ("forbid", option.forbid.is_some()),
+                ("choice", !option.choice.is_empty()),
+            ] {
+                if present {
+                    out.push(RuleError {
+                        path: format!("{option_path}.{field}"),
+                        rule: LoadRule::ChoiceOptionEffect,
+                    });
+                }
+            }
+            self.check_effects(option, &option_path, out);
         }
     }
 }
+/// Every `brackets` entry of `condition` reported at its own path,
+/// `not` nesting included: a special with `height_allowance` names no
+/// bracket, brackets being computed from the allowance.
+fn allowance_with_bracket(condition: &Condition, path: &str, out: &mut Vec<RuleError>) {
+    for (i, _) in condition.brackets.iter().enumerate() {
+        out.push(RuleError {
+            path: format!("{path}.brackets[{i}]"),
+            rule: LoadRule::AllowanceWithBracket,
+        });
+    }
+    for (i, entry) in condition.any.iter().enumerate() {
+        allowance_with_bracket(entry, &format!("{path}.any[{i}]"), out);
+    }
+    if let Some(not) = &condition.not {
+        allowance_with_bracket(not, &format!("{path}.not"), out);
+    }
+}
+
 /// `any_player` may name heights and positions only: whether any other
-/// field is set, `not` included.
+/// field is set, `not` and `any` entries included.
 fn condition_is_wide(condition: &Condition) -> bool {
     !condition.tiers.is_empty()
         || !condition.systems.is_empty()
@@ -548,6 +595,9 @@ fn condition_is_wide(condition: &Condition) -> bool {
         || !condition.rated_b_at.is_empty()
         || !condition.name_colors.is_empty()
         || condition.fielded_only_at.is_some()
+        || !condition.ranges.is_empty()
+        || condition.strong_foot.is_some()
+        || condition.any.iter().any(condition_is_wide)
         || condition.not.as_deref().is_some_and(condition_is_wide)
 }
 
@@ -681,8 +731,8 @@ pub enum LoadRule {
     /// A string is empty: a `name`, an id, a label, a `card_groups` key
     /// or a `forbid` text.
     Empty,
-    /// A `name_colors` entry is not eight bytes long (any bytes — the
-    /// game does not check they are hex).
+    /// A `name_colors` entry or a tier's `name_color` is not eight bytes
+    /// long (any bytes — the game does not check they are hex).
     ColorCodeLength,
     /// A `suggestions` entry that is neither one of the seven words nor a
     /// group id.
@@ -736,8 +786,12 @@ pub enum LoadRule {
     /// The last system has `any_player` set.
     LastSystemHasCondition,
     /// A special with `height_allowance` (in `then` or any `choice` option)
-    /// names a bracket in its `when`.
+    /// names a bracket in its `when`, nested `not` and `any` included.
     AllowanceWithBracket,
+    /// A `choice` option holding an effect its doc does not list: only
+    /// `stat_bonus`, `cards`, `free`, `free_cards`, `a_positions`,
+    /// `max_a_positions` and `weak_foot` can be found used.
+    ChoiceOptionEffect,
     /// `fielded_at_a` holds a preset outside 1 to 3.
     PresetOutOfRange {
         /// The out-of-range preset.
@@ -779,7 +833,7 @@ impl fmt::Display for LoadRule {
                 f.write_str("a height system other than the last has no or an empty `any_player`")
             }
             LoadRule::Empty => f.write_str("empty string"),
-            LoadRule::ColorCodeLength => f.write_str("a `name_colors` entry is not eight bytes"),
+            LoadRule::ColorCodeLength => f.write_str("a name colour code is not eight bytes"),
             LoadRule::BracketsNotAscending => {
                 f.write_str("bracket heights not above the brackets before it")
             }
@@ -790,6 +844,9 @@ impl fmt::Display for LoadRule {
             LoadRule::LastSystemHasCondition => f.write_str("the last system has `any_player`"),
             LoadRule::AllowanceWithBracket => {
                 f.write_str("a special with `height_allowance` names a bracket")
+            }
+            LoadRule::ChoiceOptionEffect => {
+                f.write_str("a `choice` option holds an effect it cannot be used through")
             }
             LoadRule::PresetOutOfRange { preset } => {
                 write!(f, "preset {preset} is outside 1 to 3")

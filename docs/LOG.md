@@ -1925,3 +1925,9 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.0m3: the measured motion ranges have one home in `pes_savefile`
   (`motion_top`), read by the settings keys and by the cross-version conversion, which now caps
   a motion at the target's top with a note; PES 19 gets its own cheek and forehead caps.
+- **2026-10-14** — Steps 5.2c3-r1 and 5.2d2: the AS1 rework, and the schema fields a member's
+  proposal and VTL11 need (`ranges`, `strong_foot`, `any`, form and injury-resistance effects,
+  `team.formation`, a tier's name colour checked and written by `apply_tier`). AS2: 4 of 6.
+- **2026-10-14** — FoxDen session 3 on PES 2019's stock exe: its own build stays proxy-only (no
+  static dinput8 import), the relaxed copy dies at its first Lua string call; the kit-swapper
+  script still untested. Game, exe and saves restored by hash.

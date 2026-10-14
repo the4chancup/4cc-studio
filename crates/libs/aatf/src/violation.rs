@@ -56,7 +56,8 @@ pub enum ViolationKind {
         /// The bound's maximum.
         max: u8,
     },
-    /// Too few or too many positions rated (a position range limit).
+    /// The registered-position byte is past the version's position
+    /// labels.
     PositionRange,
     /// A playing style outside its allowed set.
     PlayingStyleRange,
@@ -102,6 +103,15 @@ pub enum ViolationKind {
         value: u8,
         /// The maximum.
         max: u8,
+    },
+    /// The name's leading colour code against the tier's; `expected: None`
+    /// is a tier that sets none, met by a name with no colour code the
+    /// tiers set.
+    NameColor {
+        /// The name's leading colour code (`None` for a name without one).
+        color: Option<String>,
+        /// The tier's code (`None` on a tier that sets none).
+        expected: Option<String>,
     },
     /// Paid cards over the limit.
     Cards {
@@ -337,6 +347,7 @@ pub(crate) fn violations(list: Dynamic) -> Result<Vec<Violation>, CheckError> {
             | ViolationKind::InjuryResistance { .. }
             | ViolationKind::WeakFootUsage { .. }
             | ViolationKind::WeakFootAccuracy { .. }
+            | ViolationKind::NameColor { .. }
             | ViolationKind::Cards { .. }
             | ViolationKind::MinCards { .. }
             | ViolationKind::SkillCardCap { .. }
@@ -494,6 +505,15 @@ mod tests {
                 ViolationKind::WeakFootAccuracy { value: 1, max: 3 },
             ),
             (
+                "#{ kind: \"NameColor\", color: \"c0c0c0ff\", expected: () }",
+                None,
+                Severity::Error,
+                ViolationKind::NameColor {
+                    color: Some("c0c0c0ff".to_string()),
+                    expected: None,
+                },
+            ),
+            (
                 "#{ kind: \"Cards\", paid: 10, limit: 8 }",
                 None,
                 Severity::Error,
@@ -625,7 +645,7 @@ mod tests {
                 },
             ),
         ];
-        assert_eq!(cases.len(), 31);
+        assert_eq!(cases.len(), 32);
         for (text, slot, severity, kind) in cases {
             let got = violations(one(text)).expect(text).remove(0);
             assert_eq!(

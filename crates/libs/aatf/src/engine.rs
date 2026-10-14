@@ -58,6 +58,10 @@ pub(crate) fn engine() -> Engine {
             p.playing_style
                 .map_or(Dynamic::UNIT, |style| style.label().into())
         })
+        .register_get("strong_foot", |p: &mut PlayerView| {
+            p.strong_foot
+                .map_or(Dynamic::UNIT, |foot| foot.label().into())
+        })
         .register_get("name_color", |p: &mut PlayerView| {
             p.name_color
                 .clone()
@@ -141,6 +145,38 @@ pub(crate) fn engine() -> Engine {
                 Position::try_from(pos.to_string())
                     .map(|position| t.fielded_only_at(p.slot, position))
                     .map_err(script_error)
+            },
+        )
+        .register_fn(
+            "formation",
+            |t: &mut TeamView,
+             preset: i64,
+             formation: i64|
+             -> Result<Dynamic, Box<EvalAltResult>> {
+                let preset = u8::try_from(preset)
+                    .ok()
+                    .filter(|preset| (1..=3).contains(preset))
+                    .ok_or_else(|| script_error(format!("preset {preset}: outside 1 to 3")))?;
+                // A formation outside 1 to 3 (or u8) is one the preset
+                // does not field.
+                let Ok(formation) = u8::try_from(formation) else {
+                    return Ok(Dynamic::UNIT);
+                };
+                Ok(t.formation(preset, formation)
+                    .map_or(Dynamic::UNIT, |slots| {
+                        slots
+                            .iter()
+                            .map(|slot| {
+                                let mut map = Map::new();
+                                map.insert("slot".into(), i64::from(slot.slot).into());
+                                map.insert("position".into(), slot.position.label().into());
+                                map.insert("x".into(), i64::from(slot.x).into());
+                                map.insert("y".into(), i64::from(slot.y).into());
+                                Dynamic::from_map(map)
+                            })
+                            .collect::<Array>()
+                            .into()
+                    }))
             },
         )
         .register_fn("formation_shapes", |t: &mut TeamView| {
@@ -760,6 +796,102 @@ mod tests {
                 .collect();
             assert_eq!(shape, want, "{i}");
         }
+    }
+
+    /// `strong_foot` is the foot label or `()` past the two stored
+    /// values; UTAH TEAPOT's byte driven through all three.
+    #[test]
+    fn strong_foot_reads_the_stored_byte() {
+        let (engine, mut scope, mut file) = with_team(PesVersion::Pes19);
+        let set_foot = |file: &mut EditFile, byte: u8| {
+            file.players_mut()
+                .iter_mut()
+                .find(|p| p.id == 70111)
+                .expect("player 70111")
+                .positions
+                .stronger_foot = byte;
+        };
+        assert_eq!(
+            file.player(70111).expect("70111").positions.stronger_foot,
+            0
+        );
+        for (byte, want) in [(0u8, "right"), (1u8, "left")] {
+            set_foot(&mut file, byte);
+            let team = TeamView::new(&file, 701).expect("the team views");
+            scope.push("team", team);
+            assert_eq!(
+                engine
+                    .eval_with_scope::<String>(&mut scope, "team.players[10].strong_foot")
+                    .expect("strong_foot"),
+                want,
+                "{byte}"
+            );
+        }
+        set_foot(&mut file, 5);
+        let team = TeamView::new(&file, 701).expect("the team views");
+        scope.push("team", team);
+        assert!(
+            engine
+                .eval_with_scope::<Dynamic>(&mut scope, "team.players[10].strong_foot")
+                .expect("strong_foot")
+                .is_unit(),
+            "a byte past 1 is ()"
+        );
+    }
+
+    /// `team.formation(preset, formation)` is the fielded formation's
+    /// eleven slots, `#{ slot, position, x, y }` read against the save's
+    /// own bytes, `()` for a formation the preset does not field, a
+    /// script error for a preset outside 1 to 3.
+    #[test]
+    fn formation_reads_the_fielded_formation() {
+        use pes_savefile::interchange::team_toml::labels::POSITIONS;
+        let (engine, mut scope, file) = with_team(PesVersion::Pes19);
+        let tactics = &file.team(701).expect("team 701").tactics;
+        // Premise: preset 1 is not fluid, so its formation 2 is ()
+        // while formation 1 (kick-off) answers.
+        assert_eq!(tactics.presets[0].style.fluid, Some(false));
+        let kick_off = &tactics.presets[0].formations[0];
+        let got = engine
+            .eval_with_scope::<Array>(&mut scope, "team.formation(1, 1)")
+            .expect("formation");
+        assert_eq!(got.len(), 11);
+        for (i, entry) in got.iter().enumerate() {
+            let map = entry.clone().cast::<Map>();
+            assert_eq!(
+                map["slot"].as_int().expect("slot"),
+                i64::from(tactics.starting_eleven[i]),
+                "slot {i}"
+            );
+            assert_eq!(
+                map["position"].clone().into_string().expect("position"),
+                POSITIONS[usize::from(kick_off.players[i].position)],
+                "slot {i}"
+            );
+            assert_eq!(
+                map["x"].as_int().expect("x"),
+                i64::from(kick_off.players[i].x),
+                "slot {i}"
+            );
+            assert_eq!(
+                map["y"].as_int().expect("y"),
+                i64::from(kick_off.players[i].y),
+                "slot {i}"
+            );
+        }
+        assert!(
+            engine
+                .eval_with_scope::<Dynamic>(&mut scope, "team.formation(1, 2)")
+                .expect("formation")
+                .is_unit(),
+            "a non-fluid preset fields its kick-off formation alone"
+        );
+        assert!(
+            engine
+                .eval_with_scope::<Dynamic>(&mut scope, "team.formation(4, 1)")
+                .is_err(),
+            "a preset outside 1 to 3 is a script error"
+        );
     }
 
     #[test]

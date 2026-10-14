@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use pes_savefile::interchange::team_toml::labels::{
-    ABILITY_STATS, COM_STYLES, PLAY_STYLES, POSITIONS, SKILLS,
+    ABILITY_STATS, COM_STYLES, FOOT, PLAY_STYLES, POSITIONS, SKILLS,
 };
 use pes_version::PesVersion;
 use serde::Deserialize;
@@ -127,6 +127,11 @@ pub struct Tier {
     /// A positions included, the registered one counted; each extra A costs a card.
     #[serde(default)]
     pub a_positions: u8,
+    /// The colour code (eight bytes, as `Condition::name_colors` spells them) this tier's
+    /// names start with. When any tier sets one, a player of a tier that sets none carries
+    /// none of the codes the tiers set (VTL11: medals gold or silver, the rest without).
+    #[serde(default)]
+    pub name_color: Option<String>,
 }
 
 /// A weak-foot target (usage and accuracy).
@@ -333,9 +338,90 @@ pub struct Condition {
     /// outside the starting eleven: registered there.
     #[serde(default)]
     pub fielded_only_at: Option<Position>,
+    /// Each value within its inclusive range (`ranges: #{ speed: [90, 99] }`), on the game's
+    /// scale; a stat the version lacks fails its range. Height has its own fields above.
+    #[serde(default)]
+    pub ranges: BTreeMap<PlayerValue, (u8, u8)>,
+    /// The stronger foot.
+    #[serde(default)]
+    pub strong_foot: Option<Foot>,
+    /// At least one of these holds; empty always holds. With `not`, any combination of fields
+    /// is one condition, so a rule with several cases is one special and its additive effects
+    /// apply once to a player who meets two of them.
+    #[serde(default)]
+    pub any: Vec<Condition>,
     /// Holds only when this fails.
     #[serde(default)]
     pub not: Option<Box<Condition>>,
+}
+
+/// A number `Condition::ranges` tests: an ability stat by its name, or `age`, `weight`,
+/// `form`, `injury_resistance`, `weak_foot_usage`, `weak_foot_accuracy`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[serde(try_from = "String")]
+pub enum PlayerValue {
+    /// An ability stat.
+    Stat(Stat),
+    /// Age in years.
+    Age,
+    /// Weight in kg.
+    Weight,
+    /// Form.
+    Form,
+    /// Injury resistance.
+    InjuryResistance,
+    /// Weak foot usage.
+    WeakFootUsage,
+    /// Weak foot accuracy.
+    WeakFootAccuracy,
+}
+
+impl TryFrom<String> for PlayerValue {
+    type Error = String;
+
+    fn try_from(name: String) -> Result<Self, Self::Error> {
+        Ok(match name.as_str() {
+            "age" => PlayerValue::Age,
+            "weight" => PlayerValue::Weight,
+            "form" => PlayerValue::Form,
+            "injury_resistance" => PlayerValue::InjuryResistance,
+            "weak_foot_usage" => PlayerValue::WeakFootUsage,
+            "weak_foot_accuracy" => PlayerValue::WeakFootAccuracy,
+            _ => PlayerValue::Stat(Stat::try_from(name)?),
+        })
+    }
+}
+
+/// Spelled `right` and `left`, the Team TOML labels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(try_from = "String")]
+pub enum Foot {
+    /// The right foot.
+    Right,
+    /// The left foot.
+    Left,
+}
+
+impl Foot {
+    /// The foot's `right`/`left` spelling.
+    pub fn label(self) -> &'static str {
+        match self {
+            Foot::Right => "right",
+            Foot::Left => "left",
+        }
+    }
+}
+
+impl TryFrom<String> for Foot {
+    type Error = String;
+
+    fn try_from(name: String) -> Result<Self, Self::Error> {
+        match label_index(&FOOT, &name) {
+            Some(0) => Ok(Foot::Right),
+            Some(1) => Ok(Foot::Left),
+            _ => Err(format!("{name:?}: unknown foot")),
+        }
+    }
 }
 
 impl Condition {
@@ -391,6 +477,12 @@ pub struct Effects {
     /// Replaces the A-position cap.
     #[serde(default)]
     pub max_a_positions: Option<u8>,
+    /// Added to the tier's form target.
+    #[serde(default)]
+    pub form: Option<PerTier<i8>>,
+    /// Added to the tier's injury-resistance limit.
+    #[serde(default)]
+    pub injury_resistance: Option<PerTier<i8>>,
     /// Replaces the tier's limits.
     #[serde(default)]
     pub weak_foot: Option<WeakFoot>,

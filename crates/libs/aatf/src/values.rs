@@ -5,6 +5,7 @@
 
 use std::collections::BTreeMap;
 
+use pes_savefile::model::names::name_color;
 use pes_savefile::model::player::{PlayerEntry, PlayerStats};
 use serde::Deserialize;
 
@@ -57,6 +58,25 @@ impl TierValues {
         entry.stats.injury_resistance = self.injury_resistance.saturating_sub(1);
         entry.stats.weak_foot_usage = self.weak_foot.usage.saturating_sub(1);
         entry.stats.weak_foot_accuracy = self.weak_foot.accuracy.saturating_sub(1);
+    }
+}
+
+/// Writes `code` over `name`'s leading colour code — `\x11c` plus its
+/// eight bytes replaced when one is there, the code prepended when not.
+/// With `code` `None`, a leading code `tier_colors` holds (another
+/// tier's) is removed and any other leading code kept; the rest of the
+/// name is untouched either way. No length check: an over-long name
+/// fails the save's write, as any name too long for its field does.
+/// (`aatf_rules.md` "The host".)
+pub(crate) fn write_name_color(name: &mut String, code: Option<&str>, tier_colors: &[&str]) {
+    let body = name_color(name).map_or(name.as_str(), |c| &name[2 + c.len()..]);
+    match code {
+        Some(code) => *name = format!("\u{11}c{code}{body}"),
+        None => {
+            if name_color(name).is_some_and(|c| tier_colors.contains(&c)) {
+                *name = body.to_string();
+            }
+        }
     }
 }
 
