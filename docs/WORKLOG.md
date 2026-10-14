@@ -937,8 +937,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     slices (its single brief overran SWE-2's output limit after the reading): (a) landed
     2026-10-14, `assemble` keeps a `rulesets/` file's CUSTOM CHECKS section, and the card tally
     counts a group's cards only when not free by name (review AS1's concern 3, which VTL11's
-    Long Ranger reaches; logic 1's hash edited in place, unreleased); (b) the data block, its
-    custom checks and fixtures; then VTL10
+    Long Ranger reaches; logic 1's hash edited in place, unreleased); (b) landed 2026-10-14
+    (SWE-2, resumed once after a truncation: `rulesets/vtl11.rhai` with its CUSTOM CHECKS
+    section, `src/fixtures/vtl11.rs`, fifteen fixtures, the PES 16 team settings on a PES 16
+    build of the sample); VTL10 remains
   - [ ] 5.2f the parity runs against the legacy checkers on the cup saves (lead) → done
     when: each difference is a deliberate one the plan lists, or fixed
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:

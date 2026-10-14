@@ -271,8 +271,8 @@ pub struct Universal {
     /// At least this many goalkeepers.
     #[serde(default)]
     pub min_goalkeepers: u8,
-    /// Skill cards a player may hold, free ones included (the game's limit: 10; VTL11 uses 11
-    /// on PES 21).
+    /// Skill cards a player may hold, free ones included (the game's limit: 10; VTL11 uses 11,
+    /// on every version).
     pub max_skill_cards: u8,
     /// COM playing styles at most, unset for no limit.
     #[serde(default)]

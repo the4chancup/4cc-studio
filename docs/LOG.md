@@ -1949,3 +1949,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — Step 5.2e, VTL11 (a): a ruleset file keeps its own custom checks when
   assembled; a card free by name no longer spends its group's free count (review AS1's
   concern 3, reached by VTL11's Long Ranger).
+- **2026-10-14** — Step 5.2e, VTL11 (b): its data block from VTLEditor's `ab5f0e2`
+  checker, with its custom checks (the 188 cm players' positions, exactly two goalkeepers),
+  and fifteen fixtures, PES 16's team settings among them.

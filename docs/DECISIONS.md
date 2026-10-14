@@ -7598,3 +7598,12 @@ when the Ruleset editor's templates embed it. The cap: the plan had misread the 
 test is unconditional.
 Plan: `aatf_rules.md` "Crate layout" (the paragraph after the tree), "Background" (VTL11) and
 the schema's `max_skill_cards` doc.
+
+## 2026-10-14 — aatf — VTL11's goalkeeper count is exact, its maximum a custom check
+Decision: VTL11 sets `min_goalkeepers: 2`, and its custom checks report a third goalkeeper.
+Why: its checker refuses a team with fewer or more than two goalkeepers, and the schema has a
+minimum only; a third goalkeeper is otherwise a regular among ten and passes every count. A
+`max_goalkeepers` field for one ruleset would widen the schema for a rule the escape hatch
+already carries.
+Plan: no plan edit needed (the plan's VTL11 paragraph lists the custom check; the goalkeeper
+count is the checker's, transcribed).
