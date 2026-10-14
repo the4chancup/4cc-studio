@@ -7830,3 +7830,20 @@ beta's logs check both values. Full mode is for unattended matches, where nobody
 Random, so the SEN:P-AI rebuild's 15 % is the default; 0 keeps chants manual.
 Plan: `plans/music_player.md` "Autopilot" ("Scorer matching", "Stoppage chants"), the
 settings table, "Testing", the Rigdio fork's survey row.
+
+## 2026-10-15 — save_editor — a base-copied face is any base-copy id other than 0 and the player's own, whatever the face flag
+Decision (lead, from an in-game check): `strip_base_copied_face` reports every player whose
+base-copy id is neither 0 nor his own id; the face edit flag plays no part.
+Why: PES 21 Edit mode on the maintainer's cup save (2026-10-15, screenshots in
+`.tmp/ingame/face_check/`): "MESSI" of /sp/ copies player 7511 with the flag set and shows
+Messi's face; the same save with that one flag cleared (`save-editor diff`: EditedFace 1 to 0,
+nothing else) shows the same face, so the game reads the id alone. It wins over the player's
+own face model too: two /sp/ players with a `face.fpk` each in the download CPKs, face flag
+set on one and clear on the other, given base copy 7511, both showed Messi's face; so a
+player with a model of his own is not exempt (stripped, he shows his model instead of the copy,
+as a stripped player without a base copy did in the same run). Stripped, he and a
+teammate copying 114624 show Placeholder, their rows having no base-copy id, so the warning is
+needed. Testing the id and the flag would miss flag-clear copies the game shows. The PES 21
+fixture save, whose 5,037 players copy 7511 with the flag clear, is no evidence either way:
+the installed game refuses it ("data from a different version").
+Plan: `plans/save_editor.md` "Stripped save" (the base-copied face bullet), SE-STR-07.

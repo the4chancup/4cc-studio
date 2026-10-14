@@ -1991,3 +1991,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.2i-r3: a choice option is used only when, applied, it raises the limit the
   player exceeds (another tier's value or an overridden replacement takes no choice). SWE-2
   round I.S2 next on the interpreter.
+- **2026-10-15** — In-game check (PES 21 Edit mode): a base copy shows whatever the face flag,
+  over the player's own face.fpk too; stripped, he shows Placeholder or his model. The warning
+  tests the id alone (5.4c2, SE-STR-07 rewritten). The game refuses the PES 21 fixture save.

@@ -1070,9 +1070,8 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   - [ ] 5.4c `strip-and-seed` and `check-stripped`; both call `refuse_while_running` first
     (`check-stripped` with `--strip-again`). The two issues it waited on were settled
     2026-10-14 (DECISIONS): rows come from the record (`EditFile::appearance_row`, plan
-    `pes_savefile/model.md`), and a base-copied face is reported, its condition waiting for an
-    in-game check (`QUESTIONS.md` "Which base-copied faces the game shows"; census
-    `.tmp/5_4/base_copy_census.txt`):
+    `pes_savefile/model.md`), and a base-copied face is reported, its condition settled by an
+    in-game check 2026-10-15 (DECISIONS; census `.tmp/5_4/base_copy_census.txt`):
     - [ ] 5.4c1 the commands, in two slices → done when: SE-STR-01 to 06 pass on PES 21, and
       on PES 18 and 19 after 5.1b; then SE-CLI-02 checked by hand with a running game, all five
       commands:
@@ -1089,8 +1088,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         `tests/cli/strip.rs` SE-STR-01 to 06, SE-STR-01 on PES 21, 18 and 19. A table
         `--bins` lacks is appended without a timestamp (a fully stamped CPK then loses its
         ETOC; the game reads none, suite CPKs carry none). Open: SE-CLI-02 by hand
-    - [ ] 5.4c2 the `strip_base_copied_face` warning, after the in-game check → done when:
-      SE-STR-07 passes
+    - [ ] 5.4c2 the `strip_base_copied_face` warning (plan "Stripped save": a base-copy id
+      other than 0 and the player's own, the face flag ignored) → done when: SE-STR-07 passes.
+      manual: checked 2026-10-15, PES 21 Edit mode (`.tmp/ingame/face_check/`): a stripped
+      base-copied player shows Placeholder; the copied face shows with the face flag clear too
 - [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
   the harness: a stripped and seeded save shows every player as before; a compiled team's rows
   show; a file that sets no face or hair key shows the default face → done when: each a
@@ -1607,10 +1608,11 @@ points there.
   and before any tool generates `settings.toml` from a save. Strip-and-seed's half settled
   2026-10-14: its rows come from the record (`EditFile::appearance_row`, step 5.4c1); open for
   generation only.
-- open — strip-and-seed and a base-copied face, measured 2026-10-14 (step 5.4c; census
+- resolved 2026-10-15 (in-game check; DECISIONS "a base-copied face is any base-copy id other
+  than 0 and the player's own"; step 5.4c2 builds the warning) — strip-and-seed and a
+  base-copied face, measured 2026-10-14 (step 5.4c; census
   `.tmp/5_4/base_copy_census.txt`, plan "Stripped save"): base-copied faces are reported, not
-  carried; which records count waits for the in-game check in `QUESTIONS.md` "Which
-  base-copied faces the game shows" (step 5.4c2). The issue: the `PlayerAppearance.bin` row carries no
+  carried. The issue: the `PlayerAppearance.bin` row carries no
   base-copy id (`plans/pes_savefile/model.md`, "The Fox database row"), which holds a face-transplant
   relationship (`spec/pes_savefile/operations.md` "Save-to-save operations"), so a stripped player whose
   record copied another player's face may change face, against "stripping changes nobody's

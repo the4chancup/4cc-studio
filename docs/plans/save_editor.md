@@ -388,19 +388,21 @@ afterwards.
   of the PES 19 one), which the settings refuse and the row must carry as they are.
 - **A base-copied face is reported, not carried.** A player whose appearance block copies
   another player's face (a face copied from a Konami player or from a teammate in Edit mode) is
-  stripped and seeded like the others, but the row has no base-copy id, so the game may show him
-  a face other than the copied one. Strip and seed reports each such player
+  stripped and seeded like the others, but the row has no base-copy id, so once stripped he
+  loses the copied face and hair and shows the face his row describes, Placeholder for a player
+  who never had one of his own (PES 21 Edit mode, 2026-10-15: a cup save's "MESSI" copying
+  player 7511, and a teammate copying 114624). Strip and seed reports each such player
   (`strip_base_copied_face`, a warning naming him and the player copied); his export describing
   his face settles it, the compiled rows replacing his seed. Leaving them unstripped would keep
   their look but break "every appearance id at -1", so every later compile and `check-stripped`
-  would flag them. Which records count is measured in-game first: a census of 125 Fox saves on
-  the maintainer's machine (2026-10-14, `.tmp/5_4/base_copy_census.txt`) found a base-copy id
-  other than 0 and the player's own on 0 to 26 players of each real PES 21 cup save (the face
-  edit flag set on nearly all), up to 117 on PES 19 and 988 on PES 18 (the flag set on some,
-  clear on others), and on 5,037 players of the PES 21 fixture save, all copying player 7511
-  with the flag clear, which a cup save showing one face for everyone makes unlikely to be a
-  face the game shows. So whether the game reads the base-copy id while the face flag is clear
-  decides whether the warning tests the id alone or the id and the flag.
+  would flag them. A player counts when his base-copy id is neither 0 nor his own id, whatever
+  his face edit flag says, and whether or not a face model of his own is installed: the game
+  shows the copied face with the flag clear as with it set (the same save, that one flag
+  cleared, showed the same face), and over his own `face.fpk` too (two players with one each,
+  flag set and clear, given a base copy, both showed the copied face), which stripping
+  reveals, as it does for a player without a base copy. A census of 125 Fox saves on the
+  maintainer's machine (2026-10-14, `.tmp/5_4/base_copy_census.txt`) found such an id on 0 to
+  26 players of each real PES 21 cup save, up to 117 on PES 19 and 988 on PES 18.
 - **Nothing in the editor sets an id back.** Imports (Team TOML, `.4ccs`/`.4cct`, Texport) and
   name writes, the aesthetics patch included, leave the appearance block's id as it is; the aesthetics
   transplant and the unlocked Appearance tab write the record's fields but not its id, and on a
@@ -841,11 +843,12 @@ SE-STR-06  GIVEN the PES 21 fixture save with one player's appearance id at -1, 
            THEN --bins-out holds PlayerAppearance.bin, BootsList.bin and GloveList.bin with a
                 row per other player built from his record, as in SE-STR-01, and none for the
                 stripped one; the CPK's other files are unchanged
-SE-STR-07  GIVEN the PES 21 fixture save in which one player's base-copy id is a teammate's id
-                and his face edit flag is set
+SE-STR-07  GIVEN the PES 21 fixture save, every player's base-copy id 7511 with his face edit
+                flag clear, but one player's id set to his own and another's to 0
            WHEN strip-and-seed is run
-           THEN he is stripped and seeded as in SE-STR-01, a strip_base_copied_face warning
-                names him and the teammate, no other player is reported, and the exit code is 0
+           THEN every player is stripped and seeded as in SE-STR-01; each but those two gets a
+                strip_base_copied_face warning naming him and player 7511, the two none; the
+                exit code is 0
 ```
 
 **Teams list**
