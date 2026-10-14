@@ -57,22 +57,4 @@ step 5.4c2; strip and seed itself (5.4c1) goes ahead.
 
 ## Cup practice and preferences
 
-### Fuzzy scorer matching for the feed-driven goalhorn
-From: the fork survey, 2026-10-13 (`music_player.md` "Autopilot", score from the game). The
-plan matches a `Goal` event's scorer to a player slot case-insensitively, standard horn on a
-miss. The Rigdio fork uses `thefuzz.partial_ratio > 70` (best match wins), which suggests
-its author met in-game names that differ from `.4ccm` slot names. How often do they differ
-in practice (truncation, commas, accents, nicknames)? If often, should the player fall back
-to a fuzzy match, accepting false positives on short names, or should a miss stay the
-standard horn with a logged name so the manager fixes the export? Unblocks: the
-scorer-matching rule in "Autopilot" before Phase 10's player crate.
-
-### The stoppage chant's default
-From: the fork survey, 2026-10-13 (`music_player.md` "Autopilot", stoppage chants, and
-`autopilot_stoppage_chant_percent`). The plan ships the chance at 0 (chants stay manual).
-The SEN:P-AI 1.3.0 rebuild ships 15 %, the ATF bot author's choice for his streams. Is 15 %
-the cup's preference for an unattended match, or does a stream want chants only when the
-streamer starts them? Unblocks: the setting's default; the rule itself is already in the
-plan.
-
 ## Small confirmations

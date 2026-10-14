@@ -7796,3 +7796,37 @@ a limit the option raises") covers it, and gives the same verdicts on every earl
 name colour is a value the tier writes, the same class as form and stats.
 Plan: `plans/aatf_rules.md` "The ruleset schema" (`Effects::choice`); "The host" (the
 `apply_tier` paragraph already says "resolved against what it writes").
+
+## 2026-10-14 — aatf — a choice option is used only when, applied, it raises the limit the player exceeds
+Decision (lead, from a review): a choice option is used when, without it, the player exceeds a
+limit and the option, applied to him, raises that limit: a per-tier value naming another tier
+raises nothing, nor does a replacing effect (`weak_foot`, `max_a_positions`) that a later
+special overrides. Each limit's test compares the player's values with and without the option
+applied, not the option's keys.
+Why: Astra's review I.A2 found both kinds counted as used because the check read only which keys
+the option holds: the option took the choice while changing nothing, and a later option that
+would have helped (an extra card) was skipped, leaving a `Cards` error the ruleset does not
+mean. Comparing the applied values is the plan's existing "a limit the option raises", read for
+the player's own tier and the specials' order; the `free_cards` rule is its case for cards freed
+by name.
+Plan: `plans/aatf_rules.md` "The ruleset schema" (`Effects::choice`).
+
+## 2026-10-14 — music_player — a missed scorer falls back to a fuzzy match at 90, names of 4 characters up; stoppage chants default to 15 %
+Decision (maintainer): the feed's scorer name is matched to a player slot case-insensitively
+first, then to the slot with the highest `partial_ratio` (`thefuzz`'s, defined in the plan:
+the shorter lowercased name against the longer's windows, best indel similarity, 0 to 100) when
+it reaches 90 and no other slot ties it, both names having at least 4 characters; otherwise
+the standard horn plays and the names are logged. The ratio is a few lines in the player
+crate, not a dependency. `autopilot_stoppage_chant_percent` defaults to 15 (Full mode only,
+as before).
+Why: the maintainer's answers (2026-10-14 and 15). In-game names and `.4ccm` slot names
+differ enough that managers will rename most slots to match, so a high bar suffices: 90, not
+the Rigdio fork's 70, which would let a near-miss of another player's name take the goal. The
+cross-check of the EDIT-file census against the `.4ccm` census (65 slots, 144 saves; plan
+"Scorer matching") found no score between 81 and 99, and a name contained in a longer one
+scoring 100 either way, wrongly for short in-game names ("sex" in the slot "Sexy Hagcat",
+"I", "NO"): the lead proposed the 4-character floor and the maintainer agreed. The Studio
+beta's logs check both values. Full mode is for unattended matches, where nobody presses
+Random, so the SEN:P-AI rebuild's 15 % is the default; 0 keeps chants manual.
+Plan: `plans/music_player.md` "Autopilot" ("Scorer matching", "Stoppage chants"), the
+settings table, "Testing", the Rigdio fork's survey row.

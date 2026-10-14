@@ -11,6 +11,7 @@ rust-version.workspace = true
 aatf.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+cpk.workspace = true
 egui.workspace = true
 log.workspace = true
 pes_savefile.workspace = true

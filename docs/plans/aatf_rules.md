@@ -340,11 +340,12 @@ pub struct Effects {
     /// A violation with this text.
     pub forbid: Option<String>,
     /// The first option the player uses, or none: an option is used when, without it, the
-    /// player exceeds a limit the option raises; a `stat_bonus` raises the stat targets, so it is
-    /// used when, without it, the player's rating is above the expected rating; a `free_cards`
-    /// option, when, without it, the paid cards are over the limit and, with it, fewer are paid
-    /// (a card a group covers can still help, its group's allowance passing to a paid
-    /// groupmate). A one-option
+    /// player exceeds a limit the option, applied, raises for him (a per-tier value for another
+    /// tier raises nothing, nor does a replacement a later special overrides); a `stat_bonus`
+    /// raises the stat targets, so it is used when, without it, the player's rating is above
+    /// the expected rating; a `free_cards` option, when, without it, the paid cards are over
+    /// the limit and, with it, fewer are paid (a card a group covers can still help, its
+    /// group's allowance passing to a paid groupmate). A one-option
     /// choice is an optional effect (VGL25's manlet bonus). An option holds only effects that
     /// raise a limit (`stat_bonus`, `cards`, `free`, `free_cards`, `a_positions`,
     /// `max_a_positions`, `weak_foot`): any other could never be found used. Choices are

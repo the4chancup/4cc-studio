@@ -7,12 +7,12 @@
 use std::path::Path;
 
 use anyhow::{Context, anyhow};
-use pes_savefile::EditFile;
 use pes_savefile::interchange::aesthetics_patch::{AestheticsPatch, PatchError, PatchSummary};
 use pes_savefile::interchange::team_toml::{ImportNote, TeamToml, TeamTomlError};
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use pes_savefile::model::{PlayerEntry, RosterSlot};
 use pes_savefile::ops::transplant::{TransplantError, transplant};
+use pes_savefile::{EditFile, SaveError};
 use pes_version::PesVersion;
 
 /// The open save.
@@ -28,6 +28,22 @@ pub(crate) enum Stripped {
     Target(u32),
     /// The donor: the fields copied are his record's, not the look the game shows for him.
     Donor(u32),
+}
+
+/// One player's contribution to `strip-and-seed`'s seed (`plans/save_editor.md` "Stripped
+/// save"): his `PlayerAppearance.bin` row and his boots and gloves list values, as the
+/// record holds them (a value past a key's range is carried as stored).
+#[derive(Debug)]
+pub(crate) struct SeedRow {
+    /// The player's id.
+    pub player: u32,
+    /// His `PlayerAppearance.bin` row: the id little-endian, then the 56 bytes his record
+    /// keeps after the base-copy id (`EditFile::appearance_row`).
+    pub row: [u8; 60],
+    /// His boots ID, the `BootsList.bin` pair's value little-endian.
+    pub boots: u32,
+    /// His gloves ID, the `GloveList.bin` pair's value little-endian.
+    pub gloves: u32,
 }
 
 impl Session {
@@ -125,6 +141,55 @@ impl Session {
             }
         }
         Ok(marks)
+    }
+
+    /// The seed `strip-and-seed` writes into the Fox player tables: one `SeedRow` per
+    /// player of the save whose appearance id is set, in record order. A player at -1 is
+    /// left out: his record is not his look, so his rows stand (`plans/save_editor.md`
+    /// "Stripped save"). The error is `appearance_row`'s, which a pre-Fox save refuses.
+    pub(crate) fn seed(&self) -> Result<Vec<SeedRow>, SaveError> {
+        let mut rows = Vec::new();
+        for player in self.file.players() {
+            if is_stripped(&self.file, player.id) {
+                continue;
+            }
+            rows.push(SeedRow {
+                player: player.id,
+                row: self.file.appearance_row(player.id)?,
+                boots: player.appearance.boots_id,
+                gloves: player.appearance.gloves_id,
+            });
+        }
+        Ok(rows)
+    }
+
+    /// The players `check-stripped` lists: an appearance id set while at least one other
+    /// player of the save is at -1, in record order. A save with no stripped player lists
+    /// nobody (nothing marked him a table-dressed save).
+    pub(crate) fn restored_players(&self) -> Vec<&PlayerEntry> {
+        if !self
+            .file
+            .players()
+            .iter()
+            .any(|player| player.appearance_id == Some(STRIPPED_APPEARANCE_ID))
+        {
+            return Vec::new();
+        }
+        self.file
+            .players()
+            .iter()
+            .filter(|player| !is_stripped(&self.file, player.id))
+            .collect()
+    }
+
+    /// Sets the appearance id of every player `ids` names to -1
+    /// (`STRIPPED_APPEARANCE_ID`): the tables decide his look from then on.
+    pub(crate) fn strip(&mut self, ids: &[u32]) {
+        for player in self.file.players_mut() {
+            if ids.contains(&player.id) {
+                player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
+            }
+        }
     }
 
     /// Writes the save to `out`, an existing file there first copied to `<out>.bak` (one

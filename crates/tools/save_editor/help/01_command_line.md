@@ -12,11 +12,14 @@ install's save folder, or a copy of it); none picks one for you.
 4cc-studio save-editor transplant <donor save> --base <save> --out <save> --select <list>
 4cc-studio save-editor diff <first save> <second save> [--aesthetics | --gameplay] [--json]
 4cc-studio save-editor check-aatf <save> [--teams <list>] [--rules <file>]
+4cc-studio save-editor strip-and-seed --base <save> --bins <cpk> --out <save> --bins-out <cpk>
+4cc-studio save-editor check-stripped <save> [--strip-again --out <save>]
 4cc-studio save-editor export-teams-list <save> [--yes]
 ```
 
 A command that writes a save reads the one `--base` names and writes the one `--out` names,
-which may be the same file; a file already at `--out` is first copied to `<out>.bak` (one
+which may be the same file; a file already at `--out` (or `--bins-out` for the CPK
+`strip-and-seed` writes) is first copied to `<file>.bak` (one
 level: the next write replaces that copy). No command creates a save from nothing, and
 each of them refuses while the PES of the save's version is running: the game writes its own
 save back when it closes, over the one the command wrote. A PES of another version running
@@ -84,6 +87,26 @@ error line `aatf_check_failed` and the rest are still checked. An error-severity
 makes the exit code 1, warnings alone leave it 0. A rules file that does not load is refused
 with the line and column or the key path it failed at, so the command also validates a rules
 file; a `--teams` id the save does not hold is refused as well.
+
+`strip-and-seed` prepares the cup's official save, once per PES version, on PES 2018 to
+2021: the game dresses a player from the cup CPK's database tables
+(`PlayerAppearance.bin`, `BootsList.bin`, `GloveList.bin`) when his appearance id is -1, so
+the command first copies every player's current look from his record into the three tables
+of `--bins` (the cup's `4cc_08_bins.cpk`), written to `--bins-out`, then sets every
+appearance id to -1 and writes `--out`. A player already at -1 keeps the rows the tables
+hold for him, and a table `--bins` does not hold is created. Every other file of the CPK is
+copied over unchanged. Run it once when the cup moves to a new PES version, on a save
+holding the looks the cup ships; stripping then changes nobody's look. A PES 15 to 17 save
+is refused: the database route is untested there. When `--bins-out` cannot be written the
+command fails with exit code 3 and the save is not written; the exit code is 0 otherwise.
+
+`check-stripped` lists the players of a Fox save whose appearance id came back while other
+players stay stripped: the game's own Edit mode restores a player's id on any edit of him,
+and from then on the game shows his save record, not the database rows. Each such player is
+one error line, `appearance_id_restored`, and the exit code is 1; a save with no stripped
+player lists nobody and exits 0. With `--strip-again` and `--out` the listed players are
+stripped again and the save is written; the tables are not touched and the exit code is 0.
+A PES 15 to 17 save is refused.
 
 `export-teams-list` merges the save's teams into the `teams_list.txt` of the data folder
 (the list the Team compiler resolves export names against; the list shipped with 4cc Studio

@@ -36,8 +36,9 @@ version-matched refusal) ran there that evening (2 accepted, fixed in 5.4a5-r1);
 after it accepted 1 of 3 (`.tmp/5_4/duck_rulings.md`): that surface is closed. The interpreter
 review I.A1 (`3b4b10e..` the 5.2d2-r1 commit; `aatf_rules.md` "The ruleset schema", "The
 interpreter", "The host") accepted all seven concerns (`.tmp/5_2/duck_rulings.md`), reworked in
-step 5.2i-r1; SWE-2 round I.S1 after it accepted 3 of 5 (step 5.2i-r2), so Astra I.A2 runs
-next over `adcc070..` the 5.2i-r2 commit. Session handover:
+step 5.2i-r1; SWE-2 round I.S1 after it accepted 3 of 5 (step 5.2i-r2); Astra I.A2 over
+`adcc070..263a33f` accepted 4 of 4 (step 5.2i-r3), so the Astra loop ends there and a SWE-2
+round follows the rework. Session handover:
 `.tmp/lead/handover_2026-10-14.md`.
 Phase 3 closed with its reviews queued (the maintainer's
 directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20 rounds
@@ -1008,6 +1009,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       before resolving (`rules.rs`); a `free_cards` option is used when the paid count is over
       the limit without it and lower with it (`logic.rhai` `option_used`, `paid_cards` gone);
       the `from` gate tested for `max_a_positions` (`fixtures/interpreter.rs`); then Astra I.A2
+    - [ ] 5.2i-r3 Astra I.A2's four accepted (`.tmp/5_2/duck_rulings.md` "I.A2"; DECISIONS
+      2026-10-14 "a choice option is used only when, applied, it raises the limit"): a choice
+      option is used only when, applied with its choice's `from`, it raises the limit the
+      player exceeds (`logic.rhai` `option_used`); tests for another tier's option, an
+      overridden replacement and a `free_cards` option at the limit; the r1b test renamed
+      (brief `.tmp/5_2/brief_5_2i_r3.md`, after 5.4c1b: the Save editor builds on `aatf`); then
+      SWE-2 round I.S2
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;
@@ -1073,7 +1081,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         `PlayerTable<VALUE>`, `AppearanceTable`, `ItemList`); the Team compiler's codec moved
         onto it, its `ItemTable` mapping to `PlayerTableFile`. Found: the row's 56 bytes are
         all modeled fields (DECISIONS correction entry)
-      - [ ] 5.4c1b `save_editor`: `strip-and-seed` and `check-stripped`
+      - [x] 5.4c1b `save_editor`: `strip-and-seed` and `check-stripped`, done 2026-10-14
+        (SWE-2, first attempt): `cli.rs` (the two commands, `write_bins`, one `write_file` for
+        the `.bak` rule), `Session::seed`/`restored_players`/`strip`, `appearance_id_restored`
+        (Error, Info once `--strip-again` has stripped him, so the exit stays 0), help entries;
+        `tests/cli/strip.rs` SE-STR-01 to 06, SE-STR-01 on PES 21, 18 and 19. A table
+        `--bins` lacks is appended without a timestamp (a fully stamped CPK then loses its
+        ETOC; the game reads none, suite CPKs carry none). Open: SE-CLI-02 by hand
     - [ ] 5.4c2 the `strip_base_copied_face` warning, after the in-game check → done when:
       SE-STR-07 passes
 - [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through

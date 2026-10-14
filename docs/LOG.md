@@ -1985,3 +1985,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — 5.2i-r2: I.S1's three fixes (`apply_tier` writes the name colour before it
   resolves; a `free_cards` option is used when it lowers an over-limit paid count; the `from`
   gate tested for `max_a_positions`). Astra I.A2 next on the interpreter's rework range.
+- **2026-10-14** — 5.4c1b: the Save editor's `strip-and-seed` (the cup CPK's player tables
+  seeded from the save, then every appearance id at -1) and `check-stripped`. Astra I.A2 on the
+  interpreter accepted 4 of 4 (rework 5.2i-r3). Music player: fuzzy scorer match at 90, chants 15 %.

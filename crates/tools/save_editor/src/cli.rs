@@ -3,23 +3,25 @@
 //! argument, an unreadable file, a team the save lacks) comes before anything is written.
 
 use std::fs;
-use std::io;
+use std::io::{self, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 
 use aatf::{Rules, TeamView};
 use anyhow::anyhow;
 use clap::{ArgGroup, Args, Command, FromArgMatches, Subcommand};
+use cpk::{CpkArchive, CpkWriter};
 use pes_savefile::interchange::aesthetics_patch::AestheticsPatch;
 use pes_savefile::interchange::team_toml::TeamToml;
 use pes_savefile::ops::compare::{CompareError, DiffScope};
 use pes_savefile::ops::transplant::{TransplantError, parse_selection};
-use pes_version::PesVersion;
+use pes_savefile::player_tables::{AppearanceTable, ItemList, PlayerTable, PlayerTableFile};
+use pes_version::{Engine, PesVersion};
 use studio_core::{CliError, RunningPes, Severity, ToolContext, running_pes};
 
 use crate::events::Report;
 use crate::messages::{
-    Code, TOOL_ID, aatf_check_failed, aatf_violation, import_note, message, patch_skip,
-    stripped_mark,
+    Code, TOOL_ID, aatf_check_failed, aatf_violation, appearance_id_restored, import_note, message,
+    patch_skip, stripped_mark,
 };
 use crate::session::Session;
 use crate::{diff, settings, teams_list};
@@ -34,6 +36,10 @@ const ERRORS: u8 = 1;
 const INVALID: u8 = 2;
 /// Exit code of a command whose write failed; what was already written stands.
 const WRITE_FAILED: u8 = 3;
+
+/// The `Tvers` string a CPK this tool writes carries (the Team compiler's `TOOL_VERSION`
+/// spelling).
+const TOOL_VERSION: &str = concat!("4cc Studio ", env!("CARGO_PKG_VERSION"));
 
 #[derive(Debug, Subcommand)]
 enum SaveEditorCommand {
@@ -50,8 +56,42 @@ enum SaveEditorCommand {
     Diff(DiffArgs),
     /// Check the save's cup teams against an AATF ruleset, one line per violation.
     CheckAatf(CheckAatfArgs),
+    /// Seed a CPK's Fox player tables from a save's players, then strip the save.
+    StripAndSeed(StripAndSeedArgs),
+    /// List the players whose appearance id came back while others stay stripped.
+    CheckStripped(CheckStrippedArgs),
     /// Merge the save's team names and ids into the data directory's teams_list.txt.
     ExportTeamsList(ExportTeamsListArgs),
+}
+
+/// `strip-and-seed --base <save> --bins <cpk> --out <save> --bins-out <cpk>`.
+#[derive(Debug, Args)]
+struct StripAndSeedArgs {
+    /// The save to strip (EDIT00000000); never written unless it is also --out.
+    #[arg(long, value_name = "SAVE")]
+    base: PathBuf,
+    /// The cup's 4cc_08_bins.cpk the player tables are seeded into.
+    #[arg(long, value_name = "CPK")]
+    bins: PathBuf,
+    /// Where the stripped save goes; an existing file there is kept as <out>.bak.
+    #[arg(long, value_name = "SAVE")]
+    out: PathBuf,
+    /// Where the seeded CPK goes; an existing file there is kept as <bins-out>.bak.
+    #[arg(long, value_name = "CPK")]
+    bins_out: PathBuf,
+}
+
+/// `check-stripped <save> [--strip-again --out <save>]`.
+#[derive(Debug, Args)]
+struct CheckStrippedArgs {
+    /// The save to check (EDIT00000000).
+    save: PathBuf,
+    /// Strip the listed players again and write --out.
+    #[arg(long, requires = "out")]
+    strip_again: bool,
+    /// Where the re-stripped save goes; an existing file there is kept as <out>.bak.
+    #[arg(long, value_name = "SAVE", requires = "strip_again")]
+    out: Option<PathBuf>,
 }
 
 /// `check-aatf <save> [--teams <list>] [--rules <file>]`.
@@ -169,6 +209,8 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
         SaveEditorCommand::Transplant(args) => transplant(&args, &mut report)?,
         SaveEditorCommand::Diff(args) => diff_saves(&args, &mut report)?,
         SaveEditorCommand::CheckAatf(args) => check_aatf(&args, ctx, &mut report)?,
+        SaveEditorCommand::StripAndSeed(args) => strip_and_seed(&args, &mut report)?,
+        SaveEditorCommand::CheckStripped(args) => check_stripped(&args, &mut report)?,
         SaveEditorCommand::ExportTeamsList(args) => {
             export_teams_list(&args, ctx.paths().data_dir.as_deref(), &mut report)?;
         }
@@ -484,6 +526,190 @@ fn parse_teams(text: &str) -> Result<Vec<u32>, String> {
     ids.sort_unstable();
     ids.dedup();
     Ok(ids)
+}
+
+/// `strip-and-seed`: the seed, then the strip, in the plan's order (`plans/save_editor.md`
+/// "Stripped save"): a refusal of the save or of `--bins` writes nothing, and an
+/// unwritable `--bins-out` leaves `--out` unwritten (a seeded CPK beside an unstripped save
+/// changes no look: the records still decide).
+fn strip_and_seed(args: &StripAndSeedArgs, _report: &mut Report) -> Result<(), CliError> {
+    let mut session = open(&args.base)?;
+    refuse_pre_fox(session.version())?;
+    refuse_while_running(&running_pes(), session.version())?;
+    let mut archive = open_cpk(&args.bins)?;
+    let mut appearance: AppearanceTable =
+        read_table(&mut archive, PlayerTableFile::PlayerAppearance)?;
+    let mut boots: ItemList = read_table(&mut archive, PlayerTableFile::BootsList)?;
+    let mut gloves: ItemList = read_table(&mut archive, PlayerTableFile::GloveList)?;
+    let seed = session.seed().map_err(|error| invalid(error.into()))?;
+    for row in &seed {
+        appearance.set(row.player, row.row[4..].try_into().expect("56 bytes"));
+        boots.set(row.player, row.boots.to_le_bytes());
+        gloves.set(row.player, row.gloves.to_le_bytes());
+    }
+    write_bins(
+        &mut archive,
+        &args.bins,
+        &args.bins_out,
+        &appearance,
+        &boots,
+        &gloves,
+    )?;
+    session.strip(&seed.iter().map(|row| row.player).collect::<Vec<_>>());
+    write_save(&session, &args.out)
+}
+
+/// `check-stripped`: each player whose appearance id came back is one
+/// `appearance_id_restored` line, an Error while he stands listed (exit 1). With
+/// `--strip-again` (which clap couples to `--out`) his id is set to -1 and `--out` is
+/// written; the lines then report what was fixed, so they go out at Info and the exit
+/// code is 0.
+fn check_stripped(args: &CheckStrippedArgs, report: &mut Report) -> Result<(), CliError> {
+    let mut session = open(&args.save)?;
+    refuse_pre_fox(session.version())?;
+    if args.strip_again {
+        refuse_while_running(&running_pes(), session.version())?;
+    }
+    let restored = session.restored_players();
+    let severity = if args.strip_again {
+        Severity::Info
+    } else {
+        Severity::Error
+    };
+    let ids: Vec<u32> = restored.iter().map(|player| player.id).collect();
+    for player in restored {
+        report.message(appearance_id_restored(player, severity));
+    }
+    if let Some(out) = &args.out {
+        session.strip(&ids);
+        write_save(&session, out)?;
+    }
+    Ok(())
+}
+
+/// Refuses a pre-Fox save (PES 15 to 17): the database tables dress nobody there, so there
+/// is nothing to seed or strip (`plans/save_editor.md` "Stripped save").
+fn refuse_pre_fox(version: PesVersion) -> Result<(), CliError> {
+    match version.engine() {
+        Engine::Fox => Ok(()),
+        Engine::PreFox => Err(invalid(anyhow!(
+            "{version}: a pre-Fox save is not stripped: the database tables dress nobody there"
+        ))),
+    }
+}
+
+/// Opens the CPK at `path`; one that does not open or does not read as a CPK is a refusal.
+fn open_cpk(path: &Path) -> Result<CpkArchive<fs::File>, CliError> {
+    let file = fs::File::open(path)
+        .map_err(|error| invalid(anyhow!("{}: cannot read the file: {error}", path.display())))?;
+    CpkArchive::open(file)
+        .map_err(|error| invalid(anyhow!("{}: cannot read the CPK: {error}", path.display())))
+}
+
+/// The CPK's copy of `file`'s table; a table the archive lacks starts empty, and a copy
+/// that does not read as the table (a length that is not a whole number of rows) is a
+/// refusal naming it.
+fn read_table<const VALUE: usize>(
+    archive: &mut CpkArchive<impl Read + Seek>,
+    file: PlayerTableFile,
+) -> Result<PlayerTable<VALUE>, CliError> {
+    let entry = archive
+        .entries()
+        .iter()
+        .find(|entry| entry.path == file.cpk_path())
+        .cloned();
+    let Some(entry) = entry else {
+        return Ok(PlayerTable::new());
+    };
+    let bytes = archive
+        .read(&entry)
+        .map_err(|error| invalid(anyhow!("{}: cannot read the entry: {error}", entry.path)))?;
+    PlayerTable::read(file, &bytes).map_err(|error| invalid(error.into()))
+}
+
+/// Writes `out` as `--bins` with the three tables seeded: every other entry with its path,
+/// bytes and timestamp unchanged, in `--bins`' order, a table's new bytes in its entry's
+/// place (its timestamp kept), and a table `--bins` lacked appended in `PlayerTableFile`
+/// order. The archive is built in memory so a bad `--bins` still refuses before the write;
+/// a write that fails is the write-failed code.
+fn write_bins(
+    archive: &mut CpkArchive<impl Read + Seek>,
+    bins: &Path,
+    out: &Path,
+    appearance: &AppearanceTable,
+    boots: &ItemList,
+    gloves: &ItemList,
+) -> Result<(), CliError> {
+    let tables = [
+        (PlayerTableFile::PlayerAppearance, appearance.to_bytes()),
+        (PlayerTableFile::BootsList, boots.to_bytes()),
+        (PlayerTableFile::GloveList, gloves.to_bytes()),
+    ];
+    let mut writer = CpkWriter::new(Cursor::new(Vec::new()), TOOL_VERSION)
+        .map_err(|error| invalid(anyhow!("{error}")))?;
+    for entry in archive.entries().to_vec() {
+        let bytes = match tables
+            .iter()
+            .find(|(file, _)| file.cpk_path() == entry.path)
+        {
+            Some((_, bytes)) => bytes.clone(),
+            None => archive.read(&entry).map_err(|error| {
+                invalid(anyhow!(
+                    "{}: cannot read the entry {}: {error}",
+                    bins.display(),
+                    entry.path
+                ))
+            })?,
+        };
+        writer
+            .add(&entry.path, &bytes, entry.modified)
+            .map_err(|error| invalid(anyhow!("{}: {error}", bins.display())))?;
+    }
+    for (file, bytes) in &tables {
+        if archive
+            .entries()
+            .iter()
+            .any(|entry| entry.path == file.cpk_path())
+        {
+            continue;
+        }
+        writer
+            .add(file.cpk_path(), bytes, None)
+            .map_err(|error| invalid(anyhow!("{}: {error}", bins.display())))?;
+    }
+    let bytes = writer
+        .finish()
+        .map_err(|error| invalid(anyhow!("{error}")))?
+        .into_inner();
+    write_file(out, &bytes)
+}
+
+/// Writes `bytes` to `path` under the rule "Writing a save" gives every output file: the
+/// content lands in a `.tmp` sibling, an existing `path` is copied to `<path>.bak` (one
+/// level), then the sibling is renamed over it. A failure is the write-failed code and
+/// leaves `path` as it was.
+fn write_file(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
+    let sibling = |ext: &str| {
+        let mut name = path.as_os_str().to_owned();
+        name.push(ext);
+        PathBuf::from(name)
+    };
+    let tmp = sibling(".tmp");
+    let bak = sibling(".bak");
+    let write_and_swap = || -> io::Result<()> {
+        fs::write(&tmp, bytes)?;
+        if path.exists() {
+            fs::copy(path, &bak)?;
+        }
+        fs::rename(&tmp, path)
+    };
+    write_and_swap().map_err(|error| {
+        drop(fs::remove_file(&tmp));
+        CliError::new(
+            WRITE_FAILED,
+            anyhow!("{}: cannot write the file: {error}", path.display()),
+        )
+    })
 }
 
 /// `export-teams-list`: the save's teams merged into the data directory's list, the summary

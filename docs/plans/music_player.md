@@ -38,7 +38,7 @@ overlays.
 |------|------|----------|
 | Rigdio | Match-day music player (streamer side) | `Tools_4cc/rigdio` |
 | RigDJ | `.4ccm` GUI editor (manager side, same codebase) | `Tools_4cc/rigdio` |
-| Rigdio fork | The ATF bot's author's fork (v2.2.1, 2026-10-11): upstream v2.2.0 plus a local API and event clips, fed by the SEN:P-AI fork; surveyed 2026-10-13: event clips kept apart from the slots ("Model"), the fixed library path for auto team loading, per-side event clips and the stoppage chant ("Autopilot"); its inbound API, fuzzy scorer matching and the chant default are questions for the maintainer | `Tools_Marco/rigdio` |
+| Rigdio fork | The ATF bot's author's fork (v2.2.1, 2026-10-11): upstream v2.2.0 plus a local API and event clips, fed by the SEN:P-AI fork; surveyed 2026-10-13: event clips kept apart from the slots ("Model"), the fixed library path for auto team loading, per-side event clips, the stoppage chant and its 15 % default, fuzzy scorer matching (at 90, not its 70) ("Autopilot"); its inbound API is a question for the maintainer | `Tools_Marco/rigdio` |
 
 Playback goes through **libmpv** (`libmpv-2.dll`, pinned to an April 2024 Win7-compatible
 build) via the `python-mpv` binding. Loudness analysis shells out to a custom-minified
@@ -357,8 +357,8 @@ and lane contract live in the Match tracker plan).
   ordinary manual match-state behavior.
   A `Goal` event with `OpenPlay`, `Penalty`, or regulation-phase `Unknown` kind
   immediately increments the side's regulation score and the scorer's count (scorer
-  matched to a player slot case-insensitively; no matching slot → the standard goalhorn,
-  the goal still counts) — unless `resolves_unclassified` is `Some(id)`, in which case the
+  matched to a player slot as "Scorer matching" below says; no matching slot → the standard
+  goalhorn, the goal still counts) — unless `resolves_unclassified` is `Some(id)`, in which case the
   player removes that exact uncertain record before applying the classified score and
   scorer update, rather than adding a second goal; the goalhorn then plays through the
   normal selection logic **after a settable announcement delay** (default 8s) — the window
@@ -378,6 +378,35 @@ and lane contract live in the Match tracker plan).
   pending auto-play. **Undo Last Goal** restores only the pre-goal playback snapshot; it
   does not decrement authoritative score or scorer totals while the feed is score
   authority. Tracker-side score correction is not supported in the first implementation.
+- **Scorer matching**: the feed's scorer name is matched to the side's player slots
+  case-insensitively first; failing that, among the slots whose name has at least 4
+  characters, to the one with the highest partial ratio, if the scorer's name has at least 4
+  characters too, the ratio is at least 90 and no other slot ties it (characters are counted
+  after trimming, as Unicode scalar values). The partial ratio is `thefuzz`'s
+  `partial_ratio`: both names lowercased, the shorter scored by indel similarity
+  (`200 × LCS / (len a + len b)`) against each substring of the longer of its own length and
+  each shorter prefix and suffix of it, both ways round when the lengths are equal, the best
+  score kept and rounded to a whole number (a few lines in the crate, no dependency; a
+  hand-written copy matched `thefuzz` 0.22 on 50,000 random pairs). No such slot, or a tie →
+  the standard goalhorn, and the scorer's name and the side's slots are logged so the manager
+  can rename the slot. A slot name is the manager's to write and is often shorter or spelled
+  otherwise than the in-game name (the Rigdio fork's author matched at 70); 90, not 70,
+  because managers are expected to bring their slot names close to the in-game ones, and a
+  near-miss below it is more likely another player than a respelling. An exact match always
+  wins, so a slot named as in the game is never outscored by a fuzzy one. A name contained
+  in a longer one scores 100 whichever is the slot, so a name under 4 characters ("I", "NO",
+  "sex", all real in-game names) matches exactly or not at all: contained, it would claim
+  any slot spelling it; from 4 characters on a contained name ("Mark" in "Markus") still
+  scores 100, and the logged names are how a manager finds it. The Studio beta's logs are
+  where 90 and 4 are checked. Measured 2026-10-14
+  (`.tmp/music/scorer_census/`: 65 slots of the 7 teams on the teams list among the
+  machine's `.4ccm` files, against every name and shirt name those teams carry in 144 saves):
+  34 slots equal a name exactly, 13 more score 100 by containment (right, "Billy" in "Billy
+  Herrington"; wrong, the in-game "sex" in the slot "Sexy Hagcat", or shirt names "NO" and
+  "I" in longer slots), none scores 81 to 99, and the other 18 score 80 or less, most of them
+  slots of a file copied from another team's. So between 81 and 100 the threshold changes
+  nothing on this data; a short name contained in a longer one is what fuzzy matching gets
+  wrong, which the 4-character floor answers ("Billy", "Stella" and "Get Out" still match).
 - **Goalhorn stop window**: a goal freezes the game clock through the celebration and
   the replay; the clock resumes at the kickoff, a few seconds after the streamer
   dismisses the replay. On the first `ClockStarted` after a goal, autopilot **fades
@@ -413,13 +442,14 @@ and lane contract live in the Match tracker plan).
   `(match_id, sequence)`, not by minute (distinct events can share a minute). A `SecondYellow`
   dismissal fires the `event red` clip (the same clip a straight red uses); a single `Yellow` fires `event yellow`.
   The `event` instruction stops being dead weight.
-- **Stoppage chants** (off by default): on `ClockStopped` past the first minute
+- **Stoppage chants** (Full mode, 15 % by default): on `ClockStopped` past the first minute
   (`display_minute > 1`) for a reason other than `Goal`, `OwnGoal` or `HalfEnd`, Full mode
   draws with probability `autopilot_stoppage_chant_percent` and, on a hit, plays a random
   chant of either side as a Random button press (the chant timer and the one-chant-at-a-time
   rule apply; no draw while a chant plays). Co-pilot and Assist leave chants to the
-  streamer: the Random button is a press of its own. The default of 0 keeps chants manual;
-  the SEN:P-AI 1.3.0 rebuild ships the same rule at 15 %.
+  streamer: the Random button is a press of its own. The default is 15 %, as the SEN:P-AI
+  1.3.0 rebuild ships it: Full mode is for an unattended match, where nobody presses Random;
+  0 keeps chants manual.
 - **Anthems start manually**: pre-match anthem autoplay is not planned, and there is no autoplay
   setting or feed trigger. The existing kickoff fade-out may still stop a manually started anthem;
   stopping playback does not imply automatic starting.
@@ -633,7 +663,7 @@ menu (same semantics, same defaults):
 | `autopilot_horn_delay` | 8s | announcement window between a detected goal and the horn |
 | `autopilot_horn_stop` | on | fade the goalhorn at the post-goal kickoff |
 | `autopilot_shootout_horn` | off | allow the standard horn for live shootout successes; never changes regulation score, scorer counts, or regulation condition state |
-| `autopilot_stoppage_chant_percent` | 0 | chance (0–100) of a random chant at a stoppage that is not a goal, an own goal or a half end; 0 keeps chants manual (see "Autopilot") |
+| `autopilot_stoppage_chant_percent` | 15 | chance (0–100) of a random chant at a stoppage that is not a goal, an own goal or a half end; 0 keeps chants manual (see "Autopilot") |
 
 `write_to_log` disappears (the suite owns logging), as do the palette tables.
 
@@ -700,7 +730,9 @@ Parsing/validation CLI lives with the [Music export editor](music_export_editor.
 - **Engine smoke tests**: decode every supported format (including Opus), loop with
   start offset, fade-out, rate change, EOF detection.
 - **Autopilot**: scripted `match_feed` event sequences (goals, own goals, cards,
-  unknown scorers, feed loss) asserting scoring, selection, the no-double-counting
+  unknown scorers, a scorer matched fuzzily at 90 and missed at 89, two slots tied, a
+  3-character name contained in a slot left unmatched and a 4-character one matched, feed
+  loss) asserting scoring, selection, the no-double-counting
    rule, the announcement-delay window (manual press cancels the pending horn; early
    kickoff drops it), the horn fade at the post-goal clock restart, and highlight
    behavior in Co-pilot/Assist modes — pure logic, no game or audio needed.

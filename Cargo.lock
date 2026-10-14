@@ -3385,6 +3385,7 @@ dependencies = [
  "aatf",
  "anyhow",
  "clap",
+ "cpk",
  "crossbeam-channel",
  "egui",
  "log",

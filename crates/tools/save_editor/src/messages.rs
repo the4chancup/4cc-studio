@@ -9,6 +9,7 @@ use std::borrow::Cow;
 use aatf::{Violation, ViolationKind};
 use pes_savefile::interchange::aesthetics_patch::PatchSkip;
 use pes_savefile::interchange::team_toml::ImportNote;
+use pes_savefile::model::PlayerEntry;
 use pes_savefile::ops::compare::PlayerDiff;
 use studio_core::{Disposition, Message, MessageCode, Scope, Severity};
 
@@ -81,6 +82,11 @@ pub(crate) enum Code {
     /// `check-aatf`: the ruleset's check itself failed on the team, which the other teams'
     /// results do not cover (`team`, `error`).
     AatfCheckFailed,
+    /// `check-stripped`: the player's appearance id is set again while another player's is
+    /// stripped, so the game shows his save record, not the database rows; the member runs
+    /// `check-stripped --strip-again` to strip him again (`player`, `name`). Error while the
+    /// id stands, Info once `--strip-again` has stripped him.
+    AppearanceIdRestored,
 }
 
 /// Which of `diff`'s two saves a finding is about, as the console names them.
@@ -132,6 +138,7 @@ impl Code {
             Code::TeamsListReadOnly => "teams_list_read_only",
             Code::AatfViolation => "aatf_violation",
             Code::AatfCheckFailed => "aatf_check_failed",
+            Code::AppearanceIdRestored => "appearance_id_restored",
         }
     }
 
@@ -167,8 +174,13 @@ impl Code {
             | Code::TeamsListNameDuplicate
             | Code::TeamsListReadOnly => Severity::Error,
             // `check-aatf`: a failed check is an error; a violation's own severity decides,
-            // and `aatf_violation` overwrites this default with it.
-            Code::AatfViolation | Code::AatfCheckFailed => Severity::Error,
+            // and `aatf_violation` overwrites this default with it. `check-stripped`: a
+            // listed player is an error (`check-stripped`: exit 1);
+            // `appearance_id_restored` overwrites this to Info once `--strip-again` has
+            // stripped him.
+            Code::AatfViolation | Code::AatfCheckFailed | Code::AppearanceIdRestored => {
+                Severity::Error
+            }
         }
     }
 }
@@ -280,6 +292,22 @@ pub(crate) fn aatf_check_failed(team: u32, error: String) -> Message {
         Code::AatfCheckFailed,
         vec![("team", team.to_string()), ("error", error)],
     )
+}
+
+/// The message for one player `check-stripped` lists: his appearance id came back while
+/// other players stay stripped, so the game shows his save record, not the database rows.
+/// `severity` is Error while he stands listed (exit 1), Info once `--strip-again` has
+/// stripped him again.
+pub(crate) fn appearance_id_restored(player: &PlayerEntry, severity: Severity) -> Message {
+    let mut message = message(
+        Code::AppearanceIdRestored,
+        vec![
+            ("player", player.id.to_string()),
+            ("name", player.name.clone()),
+        ],
+    );
+    message.severity = severity;
+    message
 }
 
 /// A violation's rule: its kind as a rules file writes it (`FieldedNotA`) and the kind's
