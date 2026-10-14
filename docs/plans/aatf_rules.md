@@ -136,7 +136,8 @@ pub struct Ruleset {
     /// buttons follow this order.
     pub tiers: Vec<Tier>,
     /// Named card sets a tier can make free (`Tier::free`); `com` is reserved for the
-    /// seven COM playing styles, and no group id is one of `suggestions`' seven words.
+    /// seven COM playing styles, and no group id is one of `suggestions`' seven words. The
+    /// groups are disjoint and hold no COM style.
     pub card_groups: BTreeMap<GroupId, Vec<Card>>,
     pub heights: Heights,
     pub universal: Universal,
@@ -340,10 +341,14 @@ pub struct Effects {
     pub forbid: Option<String>,
     /// The first option the player uses, or none: an option is used when, without it, the
     /// player exceeds a limit the option raises; a `stat_bonus` raises the stat targets, so it is
-    /// used when, without it, the player's rating is above the expected rating. A one-option
+    /// used when, without it, the player's rating is above the expected rating; a `free_cards`
+    /// option, when one of its cards is held and paid (no allowance covers it). A one-option
     /// choice is an optional effect (VGL25's manlet bonus). An option holds only effects that
     /// raise a limit (`stat_bonus`, `cards`, `free`, `free_cards`, `a_positions`,
-    /// `max_a_positions`, `weak_foot`): any other could never be found used.
+    /// `max_a_positions`, `weak_foot`): any other could never be found used. Choices are
+    /// resolved after every other effect, but a chosen option's replacing effect
+    /// (`max_a_positions`, `weak_foot`) gives way to one a later special sets, as the order of
+    /// `specials` says.
     pub choice: Vec<Effects>,
 }
 
@@ -405,7 +410,10 @@ no team can be legal); each bracket's heights lie above every height of the brac
 every team, so the systems after it could never apply); a special with
 `height_allowance` names no bracket in its condition, nested `not` and `any` included, since
 brackets are computed from the allowance; a `choice` option holds only the effects its doc
-lists; `fielded_at_a` names presets 1 to 3; a forbidden shape's counts add up to 10.
+lists; `fielded_at_a` names presets 1 to 3; a forbidden shape's counts add up to 10; no card is
+in two `card_groups` and none holds a COM style (the built-in `com` group has them): a card in
+two groups would be made free by whichever group the allocation tries first, so a team's
+legality would hang on the groups' names (no shipped ruleset overlaps).
 
 ### How a player is read
 
@@ -430,7 +438,9 @@ A player's **paid cards** are their skills plus COM styles, less the free ones h
 up to that group's free count; every held card in `free_cards`. The **limit** is the tier's
 `cards` plus every `cards` effect, less one per A position beyond the allowance (`a_positions`
 plus effects; B ratings counted with the A positions under `b_uses_a_allowance`). Paid cards over
-the limit is a violation; so are paid skill cards plus extra A positions under `min_cards`, a
+the limit is a violation, the limit falling below zero when the extra A positions outnumber the
+cards (a regular with three cards and five A positions over one allowed is over it with no card at
+all); so are paid skill cards plus extra A positions under `min_cards`, a
 required card not held, more A positions than `max_a_positions`, more skill cards than
 `max_skill_cards` and more COM styles than `max_com_styles`. The version's valid
 registered-position and playing-style ranges are built in.
@@ -695,8 +705,9 @@ host's registered accessors:
 - `check_team(team) -> [violation]`: steps 1–4 of "How a player is read" for every player.
 - `tier_values(player, tier, team) -> map`: the targets a player of `tier` must carry (per stat,
   form, injury resistance, weak foot), specials applied. Behind `apply_tier`.
-- `card_limits(player, tier, team) -> map`: paid limit, free count per group, free and required
-  cards, A positions allowed. Behind the card pickers' remaining-count badges.
+- `card_limits(player, tier, team) -> map`: paid limit (below zero when the extra A positions
+  outnumber the cards), free count per group, free and required cards, A positions allowed.
+  Behind the card pickers' remaining-count badges.
 
 A violation crosses back as a map the host converts into:
 
@@ -726,7 +737,8 @@ pub enum ViolationKind {
     /// The name's leading colour code against the tier's; `expected: None` is a tier that
     /// sets none, met by a name with no colour code the tiers set.
     NameColor { color: Option<String>, expected: Option<String> },
-    Cards { paid: u8, limit: u8 },
+    /// `limit` below zero: more extra A positions than cards (see "The card economy").
+    Cards { paid: u8, limit: i8 },
     MinCards { paid: u8, min: u8 },
     SkillCardCap { count: u8, max: u8 },
     ComStyleCap { count: u8, max: u8 },
@@ -780,7 +792,11 @@ roster as `PlayerView`s, every value on the game's own scale (form 1 to 8, injur
 (`TeamView::from_team_toml`, for the Team creator's check before it writes and for the sample
 team), of the version its `pes_version` names: the document is applied onto bare records, one
 roster slot per `players` key, with each player's `appearance` table left out, because no
-ruleset reads it and it applies only over a real player's face data.
+ruleset reads it and it applies only over a real player's face data. A bare record carries every
+field its version has, at zero (decoded from a zeroed record of the version's layout), so a key
+the document omits reads 0 like any other, never as a field the version lacks: with
+`PlayerEntry::default()`'s absent fields, an omitted `catching` would switch its check off while
+an omitted `speed` is reported.
 
 ```rust
 let mut engine = rhai::Engine::new_raw();        // no module resolver; print and debug go nowhere
@@ -853,7 +869,11 @@ followed by the offside trap (+0x1FF) and the automatic preset change (+0x200), 
 and writes the result into the player (stats; form; injury resistance and weak foot at their
 maximum), and the tier's `name_color` over the name's leading colour code; under a tier that
 sets none, it removes a leading code that another tier sets and keeps any other. A name the
-code pushes past its field fails the save's write, as any name too long for it does. It is behind the Save editor's quick actions (one button per tier, in list order) and
+code pushes past its field fails the save's write, as any name too long for it does. The values
+are resolved against what it writes, not what the player held: a special conditioned on a value
+the tier sets (form, a stat) would otherwise see the old one, so `apply_tier` writes onto a copy,
+recomputes `tier_values` on it and repeats until they stop changing (three passes at most) before
+committing; values still changing are an error and leave the player untouched. It is behind the Save editor's quick actions (one button per tier, in list order) and
 the Team creator's default stats, so neither tool can produce a player the checker then rejects.
 AATF reports violations and never fixes them.
 

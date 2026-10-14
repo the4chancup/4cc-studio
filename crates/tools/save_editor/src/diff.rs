@@ -14,7 +14,8 @@ use crate::session::is_stripped;
 /// so the two forms cannot drift.
 #[derive(Serialize)]
 struct DiffReport {
-    /// `first`'s players with a row in scope or a stripped mark, in `first`'s record order.
+    /// `first`'s players that `second` also holds, with a row in scope or a stripped mark, in
+    /// `first`'s record order (a player only in `first` is in `only_in_first` alone).
     players: Vec<PlayerReport>,
     /// Ids `first` alone holds, in its record order.
     only_in_first: Vec<OnlyInPlayer>,

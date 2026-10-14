@@ -327,6 +327,31 @@ fn paid_cards_over_the_limit() {
     );
 }
 
+/// Slot 12 with every card removed and rated A at four more outfield
+/// positions: five A positions where a regular is allowed one, so the
+/// extra four deduct the paid limit to 3 - 4 = -1 and paid 0 is still
+/// over it.
+#[test]
+fn an_overspend_in_a_positions_is_over_the_limit() {
+    let rules = Rules::official();
+    let team = edited(12, |p| {
+        assert_eq!(p.cards.len(), 3);
+        assert_eq!(p.ratings.iter().filter(|rating| **rating == 2).count(), 1);
+        p.cards.clear();
+        for name in ["DMF", "LMF", "AMF", "CF"] {
+            p.ratings[usize::from(position(name).0)] = 2;
+        }
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(Some(12), ViolationKind::Cards { paid: 0, limit: -1 })]
+    );
+    let limits = rules
+        .card_limits(&team, team.player(12).expect("slot 12"), "regular")
+        .expect("limits");
+    assert_eq!(limits.limit, -1);
+}
+
 /// Eleven skills on slot 12 (a regular who is no manlet, so no bonus
 /// card), none of them a trick: the game's cap of ten, over the paid limit
 /// as well (the cap is never reached under it in this file).

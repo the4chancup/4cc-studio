@@ -286,8 +286,13 @@ pub(crate) fn records_from_team_toml(
     }
     // Bare records: one roster slot per index up to the highest
     // `players` key, `i + 1` where the key is present, and one bare
-    // `PlayerEntry` per present slot.
-    let mut team = TeamEntry::default();
+    // `PlayerEntry` per present slot. The bare records carry every
+    // field the version has at zero, so a key the document omits reads
+    // 0 like any other field, never as a field the version lacks.
+    let mut team = TeamEntry {
+        tactics: TeamTactics::bare(version),
+        ..TeamEntry::default()
+    };
     // 0xFF is the record's none, so an absent `[tactics.set_pieces]`
     // key reads as no taker, not as roster slot 0.
     team.tactics.set_pieces = SetPieceTakers {
@@ -324,7 +329,7 @@ pub(crate) fn records_from_team_toml(
         .keys()
         .map(|slot| PlayerEntry {
             id: u32::from(*slot),
-            ..Default::default()
+            ..PlayerEntry::bare(version)
         })
         .collect();
     let notes = document
@@ -480,6 +485,10 @@ mod tests {
     use super::*;
     use pes_savefile::fixture_save;
     use pes_savefile::model::TeamEntry;
+
+    use crate::Rules;
+    use crate::ruleset::Severity;
+    use crate::violation::{Violation, ViolationKind};
 
     /// `version`'s fixture save and its team 701's view.
     fn view(version: PesVersion) -> (EditFile, TeamView) {
@@ -841,6 +850,68 @@ mod tests {
                 .iter()
                 .all(|preset| preset.man_marking == [0xFF; 11])
         );
+    }
+
+    /// The sample is legal under Spring 26, the ruleset it was built
+    /// for. `catching` is a stat PES 15 has: its key removed from the
+    /// document, the bare record reads 0 like any other field (not
+    /// "the version lacks it"), and the check reports it against the
+    /// regular rate, 77.
+    #[test]
+    fn an_omitted_gated_stat_reads_zero() {
+        let rules = Rules::from_data_block(include_str!("../rulesets/spring26.rhai"))
+            .expect("Spring 26 loads");
+        let problems = |view: &TeamView| {
+            rules
+                .check_team(view)
+                .expect("the check runs")
+                .into_iter()
+                .filter(|violation| violation.severity != Severity::Suggestion)
+                .collect::<Vec<Violation>>()
+        };
+        assert_eq!(problems(&TeamView::sample_team()), vec![]);
+        let mut document =
+            TeamToml::parse(include_str!("../sample/team.toml")).expect("the sample parses");
+        let section = document.players.get_mut(&2).expect("player 02");
+        assert_eq!(section.stats.catching, Some(77));
+        section.stats.catching = None;
+        let view = TeamView::from_team_toml(&document).expect("the team builds");
+        assert_eq!(
+            problems(&view),
+            vec![Violation {
+                slot: Some(1),
+                severity: Severity::Error,
+                kind: ViolationKind::Stat {
+                    stat: Stat::try_from("catching".to_string()).expect("a stat"),
+                    value: 0,
+                    target: 77,
+                    at_most: false,
+                },
+            }]
+        );
+    }
+
+    /// Every `[tactics.auto]` key left out on a PES 21 document: the
+    /// bare tactics record carries the version's flags at zero, so
+    /// `Some(0)`/`Some(false)`, not `None` ("the version lacks it").
+    #[test]
+    fn omitted_auto_settings_read_off() {
+        let file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).expect("fixture save");
+        let team = file.team(701).expect("team 701");
+        let players: Vec<&PlayerEntry> = team
+            .roster
+            .iter()
+            .filter(|slot| slot.player_id != 0)
+            .map(|slot| file.player(slot.player_id).expect("a rostered player"))
+            .collect();
+        let mut document =
+            TeamToml::from_team(PesVersion::Pes21, team, &players).expect("from_team emits");
+        document.tactics.auto = Default::default();
+        let view = TeamView::from_team_toml(&document).expect("the team builds");
+        assert_eq!(view.tactics.auto.substitution, Some(0));
+        assert_eq!(view.tactics.auto.offside_trap, Some(false));
+        assert_eq!(view.tactics.auto.preset_change, Some(false));
+        assert_eq!(view.tactics.auto.attack_defence_levels, Some(false));
     }
 
     #[test]

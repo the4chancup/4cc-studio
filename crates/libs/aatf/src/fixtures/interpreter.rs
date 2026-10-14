@@ -4,7 +4,7 @@
 //! the fixture saves' team 701, edited the smallest amount.
 
 use super::*;
-use crate::ruleset::{Card, Foot};
+use crate::ruleset::{Card, Foot, Position};
 
 /// `text` assembled with the current logic.
 fn rules(text: &str) -> Rules {
@@ -16,9 +16,22 @@ fn stat(name: &str) -> Stat {
     Stat::try_from(name.to_string()).expect("a stat name")
 }
 
+/// The position `name` names.
+fn position(name: &str) -> Position {
+    Position::try_from(name.to_string()).expect("a position name")
+}
+
 /// The card `name` names.
 fn card(name: &str) -> Card {
     Card::try_from(name.to_string()).expect("a card name")
+}
+
+/// `team`'s findings on roster `slot` under `rules`, suggestions out.
+fn findings_at(rules: &Rules, team: &TeamView, slot: u8) -> Vec<Violation> {
+    problems(rules, team)
+        .into_iter()
+        .filter(|violation| violation.slot == Some(slot))
+        .collect()
 }
 
 /// The sample team's view with `edit` applied to the player at `slot`.
@@ -428,4 +441,100 @@ fn a_free_option_is_not_used_by_a_card_free_by_name() {
         !found.iter().any(|v| v.slot == Some(3)),
         "nothing on slot 3: {found:?}"
     );
+}
+
+/// `stat_target` replaces the tier's target for the stat everywhere the
+/// target is read: the check, and `tier_values` (`apply_tier`'s and the
+/// badge's numbers). The tier's `cards` and `a_positions` are wide
+/// enough that only the stat decides.
+#[test]
+fn a_stat_target_replaces_the_tier_target() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                        injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                        cards: 40, a_positions: 13 }],
+            specials: [#{ label: \"ninety\", then: #{ stat_target: #{ speed: 90 } } }],
+        };",
+    );
+    let speed = stat("speed");
+    let edited = |speed_value: u8| {
+        view_edited(3, |p| {
+            set_tier(p, 77, 4, 1);
+            p.weak_foot_usage = 2;
+            p.weak_foot_accuracy = 2;
+            p.abilities[usize::from(speed.0)] = Some(speed_value);
+        })
+    };
+    // Slot 3 at speed 90: the special's target met, nothing on him.
+    assert_eq!(findings_at(&rules, &edited(90), 3), vec![]);
+    // Speed 89: off the special's 90, not the tier's 77.
+    let team = edited(89);
+    assert_eq!(
+        findings_at(&rules, &team, 3),
+        vec![error(
+            Some(3),
+            ViolationKind::Stat {
+                stat: speed,
+                value: 89,
+                target: 90,
+                at_most: false
+            }
+        )]
+    );
+    let values = rules
+        .tier_values(&team, team.player(3).expect("slot 3"), "regular")
+        .expect("values");
+    assert_eq!(values.stats.get(&speed), Some(&90));
+}
+
+/// `max_a_positions` caps the A ratings where the tier's `a_positions`
+/// allowance does not: over the cap is an `APositions` violation, and
+/// `card_limits` reports the cap. The tier's `cards` and `a_positions`
+/// are wide enough that only the cap decides.
+#[test]
+fn max_a_positions_caps_the_a_positions() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                        injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                        cards: 40, a_positions: 13 }],
+            specials: [#{ label: \"cap\", then: #{ max_a_positions: 2 } }],
+        };",
+    );
+    let cb = position("CB");
+    let cmf = position("CMF");
+    // Slot 3 rated A at two positions (RB's plus CB): at the cap,
+    // nothing on him.
+    let two = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 2;
+        p.weak_foot_accuracy = 2;
+        assert_eq!(p.ratings.iter().filter(|rating| **rating == 2).count(), 1);
+        p.ratings[usize::from(cb.0)] = 2;
+    });
+    assert_eq!(findings_at(&rules, &two, 3), vec![]);
+    // A third A position: over the cap.
+    let three = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 2;
+        p.weak_foot_accuracy = 2;
+        p.ratings[usize::from(cb.0)] = 2;
+        p.ratings[usize::from(cmf.0)] = 2;
+    });
+    assert_eq!(
+        findings_at(&rules, &three, 3),
+        vec![error(
+            Some(3),
+            ViolationKind::APositions { count: 3, max: 2 }
+        )]
+    );
+    let limits = rules
+        .card_limits(&three, three.player(3).expect("slot 3"), "regular")
+        .expect("limits");
+    assert_eq!(limits.max_a_positions, Some(2));
 }

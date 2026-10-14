@@ -15,6 +15,24 @@ travel in the database tables"), which stay open:
 - **The Fox database row.** The compile writes the rows `appearance_row` produces for a
   stripped player into its `PlayerAppearance.bin`; boots and gloves go to the
   `BootsList.bin`/`GloveList.bin` pairs, not to the row.
+- **A save player's row from his record**, for the Save editor's strip and seed:
+  `EditFile::appearance_row(player_id) -> Result<[u8; 60], SaveError>`, the player id and the
+  56 bytes his record holds after the base-copy id, taken from the record as the save would
+  write it (his entry written over the save's own record bytes), so a value past a key's range
+  and every bit no field models are carried as stored (`PlayerSettings::appearance_row` stays
+  the route for a settings file, which writes the games' values into those bits). Tested on
+  each Fox fixture save: an unedited player's row is his record's bytes in the loaded payload,
+  and an edited field shows in it. A pre-Fox save has no row (an error naming the version).
+- **The Fox player tables** live here too, as one type: `PlayerAppearance.bin` (60-byte rows,
+  the player id then the 56 appearance bytes), `BootsList.bin` and `GloveList.bin` ((player
+  id, item ID) `u32` pairs), each read whole (a length that is not a whole number of rows is
+  an error naming the table), edited by player id (set a row, remove a row) and written sorted
+  by player id. Every table the games and the cup's DLC ship is sorted with each id once (12
+  `PlayerAppearance.bin` files of PES 17 to 20 and the cup's `4cc_01`, measured 2026-10-14).
+  The Team compiler's bins step (its `BootsList`/`GloveList` editing moves here from
+  `team_compiler::bins::player_tables`, its row-selection rules staying in the tool) and the
+  Save editor's strip and seed edit the same tables, and a tool crate cannot call another's
+  code; a third copy of a table codec is what this avoids.
 - Generation's callers skip a record whose appearance id is -1 (`settings_toml.md`, the end
   of "Player settings in exports"); `from_player` itself reads whatever record it is given.
 - Only the Save editor's strip operation writes the appearance id's -1 (worklog issue

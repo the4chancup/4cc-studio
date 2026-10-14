@@ -3,11 +3,14 @@
 //! and (PES 17+) advanced instructions, plus the shared starting eleven, bench
 //! order, set-piece takers and auto flags.
 
+use pes_version::PesVersion;
+
 use crate::codec::{self, CodecError};
 use crate::model::team::TeamEntry;
 use crate::schema::fields::{
     FormationPart, InstructionPart, InstructionSide, PresetField, TacticsField,
 };
+use crate::schema::schema_for;
 
 /// A tactics record's contents: the three presets and the team-wide settings.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -125,6 +128,24 @@ pub struct SetPieceTakers {
     pub penalty: u8,
     /// Captain.
     pub captain: u8,
+}
+
+impl TeamTactics {
+    /// A record of `version` with every field the version stores at zero
+    /// and the fields it lacks absent (the gated `Option` fields `None`):
+    /// what a document is applied onto when no save record exists, so a
+    /// key the document omits reads 0 like any other field, never as a
+    /// field the version lacks. Decoded from a zeroed record of the
+    /// version's tactics layout, so the schema alone decides what is
+    /// present.
+    pub fn bare(version: PesVersion) -> TeamTactics {
+        let schema = schema_for(version).tactic;
+        let record = vec![0; schema.size];
+        let mut team = TeamEntry::default();
+        codec::read_tactics_into(&mut team, &record, schema)
+            .expect("every field of the version's tactics record accepts 0");
+        team.tactics
+    }
 }
 
 /// The automatic-settings flags; each is one byte on disk carrying 0 or 1

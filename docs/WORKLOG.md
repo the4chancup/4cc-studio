@@ -31,14 +31,12 @@ the cross-family reviews run through the `duck` skill (Astra), the lead running 
 When a review stops for quota, it is queued here (commit range, plan sections) and retried
 once an hour; work continues past it, but no phase closes with one outstanding.
 **Handover queue** (2026-10-14): R12.A1 (2 accepted) and C.A1 (4 accepted, step 5.2c-r3)
-ran on the brother's Codex slot on 2026-10-14, both loops ending. Left: the interpreter, `3b4b10e..` the 5.2d2-r1 commit (5.2c3, 5.2d, 5.2e's two data
-blocks, the Red CBs fix, 5.2c3-r1, 5.2d2, 5.2d2-r1; `aatf_rules.md` "The ruleset schema", "The interpreter", "The host";
-SWE-2 rulings `.tmp/parallel/aatf/rulings_as1.md`, `.tmp/5_2/rulings_as2.md`).
-And P.A1, 5.4a5-6 (`git diff 41395af 7abd220 -- crates Cargo.toml`; brief
-`.tmp/5_4/duck_brief_P_a1.md`, SWE-2 round S1 in `.tmp/5_4/duck_rulings.md`): both Devin Pro
-slots refused it on 2026-10-14 (a quota stop, then an internal error twice), so Codex after the
-interpreter; it ran there that evening (2 accepted, fixed in 5.4a5-r1; one SWE-2 round left). The interpreter review (I.A1) ran 14:44: its seven concerns
-are not ruled yet. Session handover with both, step 5.4c's first moves and the pitfalls met:
+ran on the brother's Codex slot on 2026-10-14, both loops ending. P.A1 (5.4a5-6 and the
+version-matched refusal) ran there that evening (2 accepted, fixed in 5.4a5-r1); SWE-2 round S2
+after it accepted 1 of 3 (`.tmp/5_4/duck_rulings.md`): that surface is closed. The interpreter
+review I.A1 (`3b4b10e..` the 5.2d2-r1 commit; `aatf_rules.md` "The ruleset schema", "The
+interpreter", "The host") accepted all seven concerns (`.tmp/5_2/duck_rulings.md`), reworked in
+step 5.2i-r1; then the SWE-2 loop and Astra again on that surface. Session handover:
 `.tmp/lead/handover_2026-10-14.md`.
 Phase 3 closed with its reviews queued (the maintainer's
 directive of 2026-10-02); Phase 4's converge ran them with its own as the S1-S20 rounds
@@ -990,6 +988,18 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     when the setting is not per team → done when: the byte (or "not in the EDIT file") is
     measured and written in `pes_savefile`'s model plan, and each of the four data blocks
     follows it with its fixtures
+  - [ ] 5.2i-r1 Astra I.A1's seven accepted concerns on the interpreter (rulings
+    `.tmp/5_2/duck_rulings.md` "I.A1"; DECISIONS 2026-10-14, four entries; `aatf_rules.md` "The
+    ruleset schema", "The card economy", "The interpreter", "The host"), in two SWE-2 slices,
+    then the SWE-2 review loop and Astra again (seven accepted):
+    - [x] 5.2i-r1a the reachable ones, done 2026-10-14 (SWE-2, first attempt): the paid-card
+      limit is signed (`logic.rhai` `card_summary`, `ViolationKind::Cards`, `CardLimits`); a
+      Team TOML's omitted keys read 0 on every field (`PlayerEntry::bare`, `TeamTactics::bare`
+      in `pes_savefile`, used by `records_from_team_toml`); runtime fixtures for `stat_target`
+      and `max_a_positions` (`fixtures/interpreter.rs`); the logic hash in `LOGIC_VERSIONS`
+    - [ ] 5.2i-r1b the authored-ruleset ones: `free_cards` options used only when paid;
+      replacing effects keep the specials' order; overlapping card groups refused on load;
+      `apply_tier` resolves the values it writes
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;
@@ -1040,10 +1050,21 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `aatf_violation`, `aatf_check_failed`, `violation_rule`; the `aatf_rules` setting; help;
     `tests/cli/check_aatf.rs` on the lead's fixtures `tests/fixtures/aatf/` (PES 15 team 714
     made legal, and legal but for one warning, under the official ruleset)
-  - [ ] 5.4c `strip-and-seed` and `check-stripped` (measure issue "strip-and-seed and a
-    base-copied face" first, and settle issue "real cup players past the editor ranges"); both
-    call `refuse_while_running` first (`check-stripped` with `--strip-again`) → done when: SE-STR-01 to 06 pass on PES 21, and on PES 18 and 19
-    after 5.1b; then SE-CLI-02 checked by hand with a running game, all five commands
+  - [ ] 5.4c `strip-and-seed` and `check-stripped`; both call `refuse_while_running` first
+    (`check-stripped` with `--strip-again`). The two issues it waited on were settled
+    2026-10-14 (DECISIONS): rows come from the record (`EditFile::appearance_row`, plan
+    `pes_savefile/model.md`), and a base-copied face is reported, its condition waiting for an
+    in-game check (`QUESTIONS.md` "Which base-copied faces the game shows"; census
+    `.tmp/5_4/base_copy_census.txt`):
+    - [ ] 5.4c1 the commands, in two slices → done when: SE-STR-01 to 06 pass on PES 21, and
+      on PES 18 and 19 after 5.1b; then SE-CLI-02 checked by hand with a running game, all five
+      commands:
+      - [ ] 5.4c1a `pes_savefile`: `EditFile::appearance_row` and the Fox player tables type
+        (`plans/pes_savefile/model.md`, DECISIONS 2026-10-14), the Team compiler's item lists
+        moved onto it
+      - [ ] 5.4c1b `save_editor`: `strip-and-seed` and `check-stripped`
+    - [ ] 5.4c2 the `strip_base_copied_face` warning, after the in-game check → done when:
+      SE-STR-07 passes
 - [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
   the harness: a stripped and seeded save shows every player as before; a compiled team's rows
   show; a file that sets no face or hair key shows the default face → done when: each a
@@ -1557,8 +1578,13 @@ points there.
   the `from_player` route: `appearance_row` itself writes such a value as is (the field's bits
   are its bound), but the Save editor has no public way to build those settings. Settle before
   5.4c (a row straight from a `PlayerEntry`, or wider ranges if the game shows those values),
-  and before any tool generates `settings.toml` from a save.
-- open — strip-and-seed and a base-copied face: the `PlayerAppearance.bin` row carries no
+  and before any tool generates `settings.toml` from a save. Strip-and-seed's half settled
+  2026-10-14: its rows come from the record (`EditFile::appearance_row`, step 5.4c1); open for
+  generation only.
+- open — strip-and-seed and a base-copied face, measured 2026-10-14 (step 5.4c; census
+  `.tmp/5_4/base_copy_census.txt`, plan "Stripped save"): base-copied faces are reported, not
+  carried; which records count waits for the in-game check in `QUESTIONS.md` "Which
+  base-copied faces the game shows" (step 5.4c2). The issue: the `PlayerAppearance.bin` row carries no
   base-copy id (`plans/pes_savefile/model.md`, "The Fox database row"), which holds a face-transplant
   relationship (`spec/pes_savefile/operations.md` "Save-to-save operations"), so a stripped player whose
   record copied another player's face may change face, against "stripping changes nobody's

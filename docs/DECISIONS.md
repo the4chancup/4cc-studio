@@ -7697,3 +7697,80 @@ a match, which is a support setting and so off. Every team of the three PES 21 c
 off, and VTL10 and VTL11 already require it off.
 Plan: `plans/aatf_rules.md` "Background" (the rules pages' list) and "VGL26" (its team settings
 row and the support-settings paragraph).
+
+## 2026-10-14 — aatf — the paid-card limit is signed
+Decision: `ViolationKind::Cards` and `CardLimits` carry the paid limit as `i8`: a player with more
+extra A positions than cards has a limit below zero and is over it with no card at all.
+Why: the logic clamped the limit at 0 so it fit a `u8`, not a negative number, and then a regular
+rated A at five positions with three cards held nothing over a limit of 0 and passed; an
+overspend paid in A positions is still an overspend (Astra I.A1, concern 1).
+Plan: `plans/aatf_rules.md` "The card economy", "The interpreter" (`card_limits`,
+`ViolationKind::Cards`).
+
+## 2026-10-14 — aatf — a Team TOML's omitted key reads 0 on every field
+Decision: `TeamView::from_team_toml` applies the document onto bare records that carry every
+field of the document's version at zero, so an omitted key reads 0 whether or not some version
+lacks the field.
+Why: `PlayerEntry::default()` leaves version-gated fields absent, which the logic reads as "this
+version lacks the stat": an omitted `catching` switched its check off while an omitted `speed`
+was reported (Astra I.A1, concern 2). Rejecting incomplete documents instead would refuse the
+partial documents a check of only some values needs.
+Plan: `plans/aatf_rules.md` "The host", the paragraph on `TeamView::from_team_toml`.
+
+## 2026-10-14 — aatf — choices: free_cards options, replacing effects, and disjoint card groups
+Decision: a `free_cards` choice option is used when one of its cards is held and paid; a chosen
+option's replacing effect (`max_a_positions`, `weak_foot`) gives way to one a later special sets;
+a ruleset whose card groups overlap, or hold a COM style, is refused on load.
+Why: an option was taken when its card was held and not free by name, even when a group already
+covered it, blocking the option that helped; choices resolve after every special (their use
+depends on the other effects), which let an earlier special's option override a later special's
+replacement against the specials' order; overlapping groups made the greedy allocation, and so a
+team's legality, depend on the groups' names. Refusing overlaps is simpler than an
+order-independent allocation, and no shipped ruleset overlaps (Astra I.A1, concerns 3 to 5).
+Plan: `plans/aatf_rules.md` "The ruleset schema" (`card_groups`, `Effects::choice`, the load
+rules).
+
+## 2026-10-14 — aatf — apply_tier resolves the values it writes
+Decision: `apply_tier` writes onto a copy, recomputes `tier_values` on the copy and repeats until
+they stop changing, three passes at most, then commits; values still changing are an error and
+the player is left as it was.
+Why: the specials were resolved against the player's old values, so a special conditioned on a
+value the tier sets (form, a stat) wrote a player `check_team` then rejected, breaking the quick
+actions' promise (Astra I.A1, concern 6). A bounded loop with an error, not an unbounded one,
+because a special can switch itself off by its own effect.
+Plan: `plans/aatf_rules.md` "The host", the `apply_tier` paragraph.
+
+## 2026-10-14 — save_editor, pes_savefile — strip and seed takes each row from the player's record
+Decision: strip and seed builds each `PlayerAppearance.bin` row with a new
+`EditFile::appearance_row(player_id)`, the record's own bytes as the save would write them, not
+through `PlayerSettings::from_player` and `PlayerSettings::appearance_row`.
+Why: SE-STR-01 asks for rows equal to the records' bytes, and real cup saves hold values past a
+key's range inside its field's bits (79 players of the PES 18 fixture save, 26 of the PES 19
+one) that `from_player` refuses; widening the ranges would need the game to show those values
+first, and the settings route would also rewrite bits no field models with the games' values.
+Plan: `plans/save_editor.md` "Stripped save" (the strip and seed bullet),
+`plans/pes_savefile/model.md` "Player settings model" (the new bullet).
+
+## 2026-10-14 — save_editor — a base-copied face is reported by strip and seed, its condition measured in-game first
+Decision: a player whose record copies another player's face is stripped and seeded like the
+others and reported as a `strip_base_copied_face` warning; which records count (base-copy id
+alone, or with the face edit flag) waits for an in-game check, so step 5.4c splits into the
+commands (5.4c1) and the warning (5.4c2, SE-STR-07).
+Why: the database row has no base-copy id, so the relationship cannot be carried; leaving such
+players unstripped would keep their look but break "every appearance id at -1", so every later
+compile and `check-stripped` would flag them. A census of 125 Fox saves found 0 to 26 such
+players per real PES 21 cup save (face flag set) and 5,037 in the PES 21 fixture save (all
+copying 7511, flag clear): testing the id alone could warn about every player of a save.
+Plan: `plans/save_editor.md` "Stripped save" (the base-copied face bullet), the `strip-and-seed`
+CLI bullet, SE-STR-07; `QUESTIONS.md` "Which base-copied faces the game shows".
+
+## 2026-10-14 — pes_savefile, team_compiler — the Fox player tables move to pes_savefile
+Decision: `PlayerAppearance.bin`, `BootsList.bin` and `GloveList.bin` are read, edited by player
+id and written sorted by player id by one `pes_savefile` type; the Team compiler's
+`BootsList`/`GloveList` editing (`bins::player_tables`'s `ItemList`) moves there, the compiler
+keeping its row-selection rules (committed tasks, `Remove` rows, `player_table_missing`).
+Why: the Save editor's strip and seed (5.4c1) writes the same three tables, and a tool crate
+cannot depend on another; a second codec in the Save editor would drift from the compiler's.
+`pes_savefile` already builds the appearance row. Sorted by id with each id once is what all
+twelve game and cup `PlayerAppearance.bin` files measured hold, as the item lists do.
+Plan: `plans/pes_savefile/model.md` "Player settings model" (the Fox player tables bullet).

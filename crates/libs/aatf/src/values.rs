@@ -32,8 +32,9 @@ pub struct TierValues {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CardLimits {
-    /// Paid cards allowed, the player's extra A positions deducted.
-    pub limit: u8,
+    /// Paid cards allowed, the player's extra A positions deducted;
+    /// below zero when they outnumber the cards.
+    pub limit: i8,
     /// Free cards per group (`com` included), the specials' added.
     pub free: BTreeMap<GroupId, u8>,
     /// Cards that cost nothing.

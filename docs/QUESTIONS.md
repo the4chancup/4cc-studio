@@ -42,6 +42,19 @@ ID, which the game draws only on a player the save points at it, and writing tha
 pre-Fox save is the deferred pre-Fox patch's; a save of yours whose player wears that ID
 (`/out/`: 1684) would let it run now.
 
+### Which base-copied faces the game shows
+From: step 5.4c's census, 2026-10-14 (`save_editor.md` "Stripped save", the base-copied face
+bullet; `.tmp/5_4/base_copy_census.txt`). A Fox player record's base-copy id differs from the
+player's own id on 0 to 26 players of each real PES 21 cup save (face edit flag set on nearly
+all) and on all 5,037 players of the PES 21 fixture save (all copying player 7511, flag clear).
+Strip and seed cannot carry the id (the database row has none), so it warns about such
+players; which ones depends on two things only the game shows, in Edit mode on PES 21 (the
+lead runs it through the harness once you allow it to take focus; saves backed up first):
+(1) does a fixture-save player (base copy 7511, face flag clear) show player 7511's face or
+his own; (2) after stripping a real cup save's base-copied player (flag set), which face does
+he show. Unblocks: the warning's condition (id alone, or id and flag) and SE-STR-07's fixture,
+step 5.4c2; strip and seed itself (5.4c1) goes ahead.
+
 ## Cup practice and preferences
 
 ### Fuzzy scorer matching for the feed-driven goalhorn

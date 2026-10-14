@@ -121,8 +121,9 @@ pub enum ViolationKind {
     Cards {
         /// The paid count.
         paid: u8,
-        /// The limit.
-        limit: u8,
+        /// The limit; below zero, the extra A positions outnumber the
+        /// cards.
+        limit: i8,
     },
     /// Paid skill cards plus extra A positions under `min_cards`.
     MinCards {

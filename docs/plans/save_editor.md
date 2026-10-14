@@ -382,6 +382,25 @@ afterwards.
   player no export describes looks like afterwards, so stripping changes nobody's look; compiled
   players' rows replace their seed rows. Appearance holds no tactics, so the seed can come from
   any save with the cup's appearances, keeping the DLC builder and the savefile builder apart.
+  Each row is taken from the player's record as the save holds it (`pes_savefile`'s
+  `EditFile::appearance_row`), not rebuilt through his `PlayerSettings`: real cup saves hold
+  values past a key's range inside its field's bits (79 players of the PES 18 fixture save, 26
+  of the PES 19 one), which the settings refuse and the row must carry as they are.
+- **A base-copied face is reported, not carried.** A player whose appearance block copies
+  another player's face (a face copied from a Konami player or from a teammate in Edit mode) is
+  stripped and seeded like the others, but the row has no base-copy id, so the game may show him
+  a face other than the copied one. Strip and seed reports each such player
+  (`strip_base_copied_face`, a warning naming him and the player copied); his export describing
+  his face settles it, the compiled rows replacing his seed. Leaving them unstripped would keep
+  their look but break "every appearance id at -1", so every later compile and `check-stripped`
+  would flag them. Which records count is measured in-game first: a census of 125 Fox saves on
+  the maintainer's machine (2026-10-14, `.tmp/5_4/base_copy_census.txt`) found a base-copy id
+  other than 0 and the player's own on 0 to 26 players of each real PES 21 cup save (the face
+  edit flag set on nearly all), up to 117 on PES 19 and 988 on PES 18 (the flag set on some,
+  clear on others), and on 5,037 players of the PES 21 fixture save, all copying player 7511
+  with the flag clear, which a cup save showing one face for everyone makes unlikely to be a
+  face the game shows. So whether the game reads the base-copy id while the face flag is clear
+  decides whether the warning tests the id alone or the id and the flag.
 - **Nothing in the editor sets an id back.** Imports (Team TOML, `.4ccs`/`.4cct`, Texport) and
   name writes, the aesthetics patch included, leave the appearance block's id as it is; the aesthetics
   transplant and the unlocked Appearance tab write the record's fields but not its id, and on a
@@ -584,7 +603,8 @@ The commands:
   `4cc_08_bins.cpk`) and writes the seeded tables into `--bins-out`, then the stripped save into
   `--out`: when `--bins-out` cannot be written, the save is not (exit 3); a `--bins-out` written
   beside a save left unstripped changes no look, the records still deciding. A table `--bins`
-  lacks is created from the seed rows. A pre-Fox save is refused.
+  lacks is created from the seed rows. A pre-Fox save is refused. Each base-copied face is a
+  `strip_base_copied_face` warning line; warnings leave the exit code 0.
 - `check-stripped` lists the players whose appearance id is set while others are stripped (exit 1
   when it lists any); `--strip-again` sets their ids to -1, leaving the tables as they are, and
   writes `--out`, which it requires (exit 0). A pre-Fox save is refused.
@@ -820,6 +840,11 @@ SE-STR-06  GIVEN the PES 21 fixture save with one player's appearance id at -1, 
            THEN --bins-out holds PlayerAppearance.bin, BootsList.bin and GloveList.bin with a
                 row per other player built from his record, as in SE-STR-01, and none for the
                 stripped one; the CPK's other files are unchanged
+SE-STR-07  GIVEN the PES 21 fixture save in which one player's base-copy id is a teammate's id
+                and his face edit flag is set
+           WHEN strip-and-seed is run
+           THEN he is stripped and seeded as in SE-STR-01, a strip_base_copied_face warning
+                names him and the teammate, no other player is reported, and the exit code is 0
 ```
 
 **Teams list**

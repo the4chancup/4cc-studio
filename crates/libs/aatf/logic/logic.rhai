@@ -514,7 +514,7 @@ fn card_summary(tier, p, player) {
         held: held, skills: skills, coms: coms, free: free, held_by_group: held_by_group,
         paid: paid, paid_skills: paid_skills, a_count: a_count, b_count: b_count,
         counted_a: counted_a, a_allowance: a_allowance, extra: extra,
-        limit: max(0, num(tier, "cards") + p.cards - extra),
+        limit: num(tier, "cards") + p.cards - extra,
     }
 }
 

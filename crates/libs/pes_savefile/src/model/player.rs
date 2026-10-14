@@ -2,9 +2,12 @@
 //! are `Option` (the record has no run for them) or defaulted to 0/false; the
 //! schema decides what is read and written, the model just holds the result.
 
+use pes_version::PesVersion;
+
 use crate::codec::{self, CodecError};
 use crate::model::ingame_face::IngameFace;
 use crate::schema::fields::PlayerField;
+use crate::schema::schema_for;
 
 /// The stripped value of `PlayerEntry::appearance_id`: the game's -1 (all
 /// bits set). A stripped player takes his appearance from the database
@@ -359,6 +362,26 @@ pub struct PlayerAppearance {
 }
 
 impl PlayerEntry {
+    /// A record of `version` with every field the version stores at zero
+    /// and the fields it lacks absent (the gated `Option` fields `None`):
+    /// what a document is applied onto when no save record exists, so a
+    /// key the document omits reads 0 like any other field, never as a
+    /// field the version lacks. Decoded from a zeroed record of the
+    /// version's layout (the PES 15/16 appearance record included), so
+    /// the schema alone decides what is present.
+    pub fn bare(version: PesVersion) -> PlayerEntry {
+        let schema = schema_for(version);
+        let record = vec![0; schema.player.size];
+        let mut player = codec::read_player(&record, schema.player)
+            .expect("every field of the version's player record accepts 0");
+        if let Some((_, appearance)) = schema.appearance {
+            let record = vec![0; appearance.size];
+            codec::read_player_into(&mut player, &record, appearance)
+                .expect("every field of the version's appearance record accepts 0");
+        }
+        player
+    }
+
     /// The model value a bit run carries, in codec field order.
     pub(crate) fn get(&self, field: PlayerField) -> Result<u32, CodecError> {
         let v = match field {
@@ -676,5 +699,88 @@ mod tests {
         }
         assert_eq!(abilities.iter().flatten().count(), 18);
         assert!(abilities.iter().flatten().all(|v| *v == 50));
+    }
+
+    /// `bare` carries every field the version stores at zero and leaves
+    /// the fields it lacks absent: `abilities()` is `Some(0)` exactly
+    /// where the schema has the stat, and the tactics' auto flags are
+    /// `Some` zero or false exactly where the tactics schema has them.
+    #[test]
+    fn bare_records_carry_the_versions_fields() {
+        use crate::model::tactics::TeamTactics;
+        use crate::schema::fields::TacticsField;
+
+        /// `abilities()`' index order as `PlayerField`s.
+        const ABILITY_FIELDS: [PlayerField; 25] = [
+            PlayerField::AttackingProwess,
+            PlayerField::BallControl,
+            PlayerField::Dribbling,
+            PlayerField::LowPass,
+            PlayerField::LoftedPass,
+            PlayerField::Finishing,
+            PlayerField::PlaceKicking,
+            PlayerField::Swerve,
+            PlayerField::Heading,
+            PlayerField::DefensiveProwess,
+            PlayerField::BallWinning,
+            PlayerField::KickingPower,
+            PlayerField::Speed,
+            PlayerField::ExplosivePower,
+            PlayerField::BodyControl,
+            PlayerField::PhysicalContact,
+            PlayerField::Jump,
+            PlayerField::Goalkeeping,
+            PlayerField::Catching,
+            PlayerField::Clearing,
+            PlayerField::Reflexes,
+            PlayerField::Coverage,
+            PlayerField::Stamina,
+            PlayerField::TightPossession,
+            PlayerField::Aggression,
+        ];
+        for version in PesVersion::ALL {
+            let schema = schema_for(version);
+            let abilities = PlayerEntry::bare(version).stats.abilities();
+            for (index, field) in ABILITY_FIELDS.iter().enumerate() {
+                let expected = schema.player_has(*field).then_some(0);
+                assert_eq!(abilities[index], expected, "{version:?} {field:?}");
+            }
+            let auto = TeamTactics::bare(version).auto;
+            assert_eq!(
+                auto.substitution.is_some_and(|value| value == 0),
+                schema.tactic.has(TacticsField::AutoSubstitution),
+                "{version:?} substitution"
+            );
+            assert_eq!(
+                auto.offside_trap.is_some_and(|value| !value),
+                schema.tactic.has(TacticsField::AutoOffsideTrap),
+                "{version:?} offside_trap"
+            );
+            assert_eq!(
+                auto.preset_change.is_some_and(|value| !value),
+                schema.tactic.has(TacticsField::AutoPresetChange),
+                "{version:?} preset_change"
+            );
+            assert_eq!(
+                auto.attack_defence_levels.is_some_and(|value| !value),
+                schema.tactic.has(TacticsField::AutoAttackDefenceLevels),
+                "{version:?} attack_defence_levels"
+            );
+        }
+        // The gated fields the versions differ on, spelled out.
+        let pes15 = PlayerEntry::bare(PesVersion::Pes15);
+        assert_eq!(pes15.stats.physical_contact, None);
+        assert_eq!(pes15.stats.catching, Some(0));
+        assert_eq!(
+            PlayerEntry::bare(PesVersion::Pes17).stats.physical_contact,
+            Some(0)
+        );
+        for version in [PesVersion::Pes15, PesVersion::Pes16] {
+            assert_eq!(
+                TeamTactics::bare(version).auto.attack_defence_levels,
+                None,
+                "{version:?}"
+            );
+        }
     }
 }

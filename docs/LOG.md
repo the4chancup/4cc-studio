@@ -1974,3 +1974,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — 5.4a5-r1: `diff` reports a stripped first-only player once. CI's Windows
   job passes again: `doc_pointers` resolves its root (an 8.3 temp path broke its tests).
   VGL's "switch preset tactic" answered: likely not in the EDIT file; step 5.2f-r2 checks.
+- **2026-10-14** — Astra I.A1 (the interpreter): all seven concerns accepted; 5.2i-r1a fixes the
+  three real teams reach (a negative card limit, omitted Team TOML keys, two untested effects).
+  Step 5.4c settled on paper: rows from the record, tables in `pes_savefile`, base copies in-game.
