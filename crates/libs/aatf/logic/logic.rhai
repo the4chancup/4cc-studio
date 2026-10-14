@@ -333,13 +333,13 @@ fn apply_effects(p, tier_id, label, severity, then, from) {
 }
 
 // `p` with each choice's first used option applied, the used choices' labels in `taken`;
-// `this` is the ruleset. An option is used when, without it, the player exceeds a limit the
-// option raises.
+// `this` is the ruleset. An option is used when, without it, the player exceeds a limit
+// the option, applied, raises for him.
 fn resolve_choices(tier_id, p, player) {
     let tier = this.tier(tier_id);
     for choice in p.choices {
         for option in choice.options {
-            if this.option_used(tier, p, player, option) {
+            if this.option_used(tier, p, player, option, choice) {
                 p = apply_effects(p, tier_id, choice.label, choice.severity, option, choice.from);
                 p.taken.push(choice.label);
                 break;
@@ -349,34 +349,52 @@ fn resolve_choices(tier_id, p, player) {
     p
 }
 
-// Whether `player`, read as `tier` under `p`, exceeds a limit `option` raises; `this` is the
-// ruleset.
-fn option_used(tier, p, player, option) {
+// Whether `player`, read as `tier` under `p`, exceeds a limit `option` raises once applied
+// as `choice`'s pick; `this` is the ruleset. `applied` is the copy `apply_effects` returns:
+// a per-tier value for another tier changes nothing on it, and neither does a replacement
+// a later special sets (the `from` gate drops it), so each limit asks for both an excess
+// under `p` and a raise under `applied`.
+fn option_used(tier, p, player, option, choice) {
+    let applied = apply_effects(p, tier.id, choice.label, choice.severity, option, choice.from);
     let cards = this.card_summary(tier, p, player);
+    let applied_cards = this.card_summary(tier, applied, player);
     if "stat_bonus" in option
-        && this.player_rating(player) > this.expected_rating(tier, p) {
+        && this.player_rating(player) > this.expected_rating(tier, p)
+        && this.expected_rating(tier, applied) > this.expected_rating(tier, p) {
         return true;
     }
-    if "cards" in option && cards.paid > cards.limit { return true; }
+    if "cards" in option && cards.paid > cards.limit
+        && (applied_cards.limit > cards.limit || applied_cards.paid < cards.paid) {
+        return true;
+    }
     for group in table(option, "free").keys() {
-        if num(cards.held_by_group, group) > num(cards.free, group) { return true; }
+        if num(cards.held_by_group, group) > num(cards.free, group)
+            && num(applied_cards.free, group) > num(cards.free, group) {
+            return true;
+        }
     }
-    if "free_cards" in option && cards.paid > cards.limit {
-        // The option's cards free by name: freeing one a group covers
-        // releases its allowance onto a paid groupmate, so the paid
-        // count's drop decides, not the card's own status.
-        let freed = p + #{ free_cards: list(p, "free_cards") + list(option, "free_cards") };
-        if this.card_summary(tier, freed, player).paid < cards.paid { return true; }
+    if "free_cards" in option && cards.paid > cards.limit
+        && (applied_cards.limit > cards.limit || applied_cards.paid < cards.paid) {
+        return true;
     }
-    if "a_positions" in option && cards.counted_a > cards.a_allowance { return true; }
+    if "a_positions" in option && cards.counted_a > cards.a_allowance
+        && applied_cards.a_allowance > cards.a_allowance {
+        return true;
+    }
     if "max_a_positions" in option && p.max_a_positions != ()
-        && cards.a_count > p.max_a_positions {
+        && cards.a_count > p.max_a_positions
+        && num(applied, "max_a_positions") > p.max_a_positions {
         return true;
     }
     if "weak_foot" in option {
-        let weak_foot = weak_foot_of(tier, p);
-        if player.weak_foot_usage > num(weak_foot, "usage")
-            || player.weak_foot_accuracy > num(weak_foot, "accuracy") {
+        let limits = weak_foot_of(tier, p);
+        let raised = weak_foot_of(tier, applied);
+        if player.weak_foot_usage > num(limits, "usage")
+            && num(raised, "usage") > num(limits, "usage") {
+            return true;
+        }
+        if player.weak_foot_accuracy > num(limits, "accuracy")
+            && num(raised, "accuracy") > num(limits, "accuracy") {
             return true;
         }
     }

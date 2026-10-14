@@ -1988,3 +1988,6 @@ worklog passed 7,000 lines.
 - **2026-10-14** — 5.4c1b: the Save editor's `strip-and-seed` (the cup CPK's player tables
   seeded from the save, then every appearance id at -1) and `check-stripped`. Astra I.A2 on the
   interpreter accepted 4 of 4 (rework 5.2i-r3). Music player: fuzzy scorer match at 90, chants 15 %.
+- **2026-10-15** — 5.2i-r3: a choice option is used only when, applied, it raises the limit the
+  player exceeds (another tier's value or an overridden replacement takes no choice). SWE-2
+  round I.S2 next on the interpreter.

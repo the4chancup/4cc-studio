@@ -539,12 +539,12 @@ fn max_a_positions_caps_the_a_positions() {
     assert_eq!(limits.max_a_positions, Some(2));
 }
 
-/// A `free_cards` option is used when one of its cards is held and
-/// *paid*: a card a group's free allowance already covers does not
-/// take it. The choice takes the first option the player uses, so the
-/// `cards` option raises the limit instead.
+/// A `free_cards` option is used when, without it, the paid cards are
+/// over the limit and with it fewer are paid. The choice takes the first
+/// option the player uses, so where freeing lowers nothing the `cards`
+/// option raises the limit instead.
 #[test]
-fn a_free_cards_option_is_used_only_for_a_paid_card() {
+fn a_free_cards_option_is_used_when_it_lowers_an_over_limit_paid_count() {
     let with_free = |free: &str| {
         rules(&format!(
             "const RULESET = #{{
@@ -568,8 +568,9 @@ fn a_free_cards_option_is_used_only_for_a_paid_card() {
             p.cards = held;
         })
     };
-    // `tricks` covers Scissors Feint: the `free_cards` option is not
-    // used, the `cards` one is — paid 4 against a raised limit of 4.
+    // `tricks` covers Scissors Feint: freeing it by name pays for no
+    // extra card, so the `free_cards` option is not used and the
+    // `cards` one is, paid 4 against a raised limit of 4.
     let rules = with_free(", free: #{ tricks: 1 }");
     let team = holding(&[
         "scissors_feint",
@@ -579,13 +580,14 @@ fn a_free_cards_option_is_used_only_for_a_paid_card() {
         "fighting_spirit",
     ]);
     assert_eq!(findings_at(&rules, &team, 3), vec![]);
-    // No free allowance: Scissors Feint is paid, so the option is
-    // used and the card free — paid 3 against 3.
+    // No free allowance: Scissors Feint is paid and freeing it lowers
+    // the paid count, so the option is used, paid 3 against 3.
     let rules = with_free("");
     let team = holding(&["scissors_feint", "malicia", "captaincy", "super_sub"]);
     assert_eq!(findings_at(&rules, &team, 3), vec![]);
     // A fourth outside skill: the first option is still the one taken
-    // — paid 4 against 3.
+    // (the choice takes the first used option, not the best), paid 4
+    // against 3.
     let team = holding(&[
         "scissors_feint",
         "malicia",
@@ -597,6 +599,34 @@ fn a_free_cards_option_is_used_only_for_a_paid_card() {
         findings_at(&rules, &team, 3),
         vec![error(Some(3), ViolationKind::Cards { paid: 4, limit: 3 })]
     );
+}
+
+/// A `free_cards` option is not used at the limit: paid exactly at it
+/// is not over it, so the choice passes to the `weak_foot` option the
+/// player needs.
+#[test]
+fn a_free_cards_option_is_not_used_at_the_limit() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                        injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                        cards: 3, a_positions: 1 }],
+            specials: [#{ label: \"pick\",
+                then: #{ choice: [#{ free_cards: [\"scissors_feint\"] },
+                                  #{ weak_foot: #{ usage: 4, accuracy: 4 } }] } }],
+        };",
+    );
+    // Paid 3 against 3: the `free_cards` option would take the choice
+    // only if being over the limit were not required.
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 4;
+        p.weak_foot_accuracy = 4;
+        p.cards = vec![card("scissors_feint"), card("malicia"), card("captaincy")];
+    });
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
 }
 
 /// A `free_cards` option is also used when its card is covered by a
@@ -627,6 +657,46 @@ fn a_covered_card_freed_by_name_frees_the_groups_allowance() {
         p.cards = vec![
             card("scissors_feint"),
             card("flip_flap"),
+            card("malicia"),
+            card("captaincy"),
+            card("super_sub"),
+        ];
+    });
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+}
+
+/// An option naming another tier is not used: `cards: #{ gold: 1 }`
+/// raises nothing for a regular, so the choice passes to the
+/// `free_cards` option that lowers his paid count.
+#[test]
+fn an_option_for_another_tier_is_not_used() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            stats: #{ rating: [\"speed\"] },
+            universal: #{ max_skill_cards: 10 },
+            tiers: [
+                #{ id: \"gold\", label: \"Gold\", counts_as: \"regular\",
+                   when: #{ positions: [\"GK\"] }, rate: 90, form: 8,
+                   injury_resistance: 3, name_color: \"cc9900ff\",
+                   weak_foot: #{ usage: 4, accuracy: 4 }, cards: 40, a_positions: 13 },
+                #{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                   injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                   cards: 3, a_positions: 13 },
+            ],
+            specials: [#{ label: \"pick\",
+                then: #{ choice: [#{ cards: #{ gold: 1 } },
+                                  #{ free_cards: [\"scissors_feint\"] }] } }],
+        };",
+    );
+    // Paid 4 against 3: the per-tier `cards` option changes nothing for
+    // a regular, so Scissors Feint's freeing applies, paid 3 against 3.
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 2;
+        p.weak_foot_accuracy = 2;
+        p.cards = vec![
+            card("scissors_feint"),
             card("malicia"),
             card("captaincy"),
             card("super_sub"),
@@ -675,6 +745,51 @@ fn a_later_specials_weak_foot_wins_over_an_earlier_choice() {
     // Listed before the choice's special, the option applies: 4/4 met.
     let rules = with_specials(&format!("{replace}, {choice}"));
     assert_eq!(findings_at(&rules, &team, 3), vec![]);
+}
+
+/// An option whose replacing effect a later special overrides is not
+/// used: applied, it raises nothing, so the choice passes to the
+/// `cards` option that raises the limit the player exceeds.
+#[test]
+fn an_overridden_replacement_is_not_used() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                        injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                        cards: 3, a_positions: 13 }],
+            specials: [
+                #{ label: \"four\",
+                   then: #{ choice: [#{ weak_foot: #{ usage: 4, accuracy: 4 } },
+                                     #{ cards: 1 }] } },
+                #{ label: \"three\", then: #{ weak_foot: #{ usage: 3, accuracy: 3 } } },
+            ],
+        };",
+    );
+    // Paid 4 against 3: the `weak_foot` option's 4/4 cannot stand over
+    // the later special's 3/3, so the `cards` option takes the choice.
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 4;
+        p.weak_foot_accuracy = 4;
+        p.cards = vec![
+            card("scissors_feint"),
+            card("malicia"),
+            card("captaincy"),
+            card("super_sub"),
+        ];
+    });
+    assert_eq!(
+        findings_at(&rules, &team, 3),
+        vec![
+            error(Some(3), ViolationKind::WeakFootUsage { value: 4, max: 3 }),
+            error(
+                Some(3),
+                ViolationKind::WeakFootAccuracy { value: 4, max: 3 }
+            ),
+        ]
+    );
 }
 
 /// The same ordering holds for a chosen option's `max_a_positions`: a

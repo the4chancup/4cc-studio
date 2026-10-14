@@ -1009,7 +1009,8 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       before resolving (`rules.rs`); a `free_cards` option is used when the paid count is over
       the limit without it and lower with it (`logic.rhai` `option_used`, `paid_cards` gone);
       the `from` gate tested for `max_a_positions` (`fixtures/interpreter.rs`); then Astra I.A2
-    - [ ] 5.2i-r3 Astra I.A2's four accepted (`.tmp/5_2/duck_rulings.md` "I.A2"; DECISIONS
+    - [x] 5.2i-r3, done 2026-10-15 (SWE-2, first attempt; `MAX_OPERATIONS` raised to 10M, the
+      applied copy costing the official sample ~120k operations, 600k in all) Astra I.A2's four accepted (`.tmp/5_2/duck_rulings.md` "I.A2"; DECISIONS
       2026-10-14 "a choice option is used only when, applied, it raises the limit"): a choice
       option is used only when, applied with its choice's `from`, it raises the limit the
       player exceeds (`logic.rhai` `option_used`); tests for another tier's option, an

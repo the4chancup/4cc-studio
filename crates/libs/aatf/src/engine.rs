@@ -10,11 +10,11 @@ use crate::ruleset::Position;
 use crate::team::{PlayerView, TeamView};
 
 /// The most operations one script run may take: the official ruleset's
-/// `check_team` on the sample team costs about 480 000 operations
-/// (measured 2026-10-14, `rules.rs`), and the plan sets a tenfold margin,
+/// `check_team` on the sample team costs about 600 000 operations
+/// (measured 2026-10-15, `rules.rs`), and the plan sets a tenfold margin,
 /// which that file's test keeps honest. A script that loops forever
 /// stops here with a script error, never a hang.
-pub(crate) const MAX_OPERATIONS: u64 = 5_000_000;
+pub(crate) const MAX_OPERATIONS: u64 = 10_000_000;
 
 /// A script error naming `message`.
 fn script_error(message: String) -> Box<EvalAltResult> {
