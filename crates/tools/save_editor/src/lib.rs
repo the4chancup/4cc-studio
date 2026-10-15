@@ -45,7 +45,10 @@ impl StudioTool for Tool {
     }
 
     fn settings_view(&mut self, ui: &mut egui::Ui) {
-        ui.label("The Save editor has no settings yet.");
+        ui.label(
+            "The Save editor has one setting, aatf_rules: the AATF rules file check-aatf \
+             runs. Its editor comes with the Save editor's window.",
+        );
     }
 
     fn default_settings(&self) -> toml::Table {

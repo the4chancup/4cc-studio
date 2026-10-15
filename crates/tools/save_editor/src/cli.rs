@@ -317,6 +317,18 @@ fn export_toml(args: &ExportTomlArgs, report: &mut Report) -> Result<(), CliErro
     let session = open(&args.save)?;
     let files: Vec<(u32, PathBuf, String)> = match (args.team, &args.out, &args.out_dir) {
         (Some(id), Some(out), _) => {
+            // An --out naming the save itself is refused before anything is written: the
+            // no-backup rule is for a Team TOML, and replacing the save with one would
+            // lose it. The two are compared canonicalized, so one file under two names
+            // still matches; a missing --out canonicalizes to nothing and is no match.
+            if let (Ok(out_file), Ok(save)) = (fs::canonicalize(out), fs::canonicalize(&args.save))
+                && out_file == save
+            {
+                return Err(invalid(anyhow!(
+                    "--out {}: that is the save being read; a Team TOML written over it would lose it",
+                    out.display()
+                )));
+            }
             vec![(id, out.clone(), session.export_team(id).map_err(invalid)?)]
         }
         (None, _, Some(out_dir)) => {
@@ -479,7 +491,11 @@ fn check_aatf(
 }
 
 /// The rules file `check-aatf` reads: `--rules`, else the `aatf_rules` setting when it names
-/// one, else `None` (the embedded official ruleset). A relative path is used as given.
+/// one, else `None` (the embedded official ruleset). `--rules`, a command-line path, is used
+/// as given; the setting's relative path resolves in the data directory, as
+/// `teams_list_path` does (a rules file is user data beside the settings file, not a file
+/// beside wherever the command was started): an absolute one, or a relative one with no data
+/// directory chosen, is used as given.
 fn rules_path(args: &CheckAatfArgs, ctx: &ToolContext) -> Result<Option<PathBuf>, CliError> {
     if let Some(path) = &args.rules {
         return Ok(Some(path.clone()));
@@ -491,7 +507,14 @@ fn rules_path(args: &CheckAatfArgs, ctx: &ToolContext) -> Result<Option<PathBuf>
             error.to_string().trim_end()
         ))
     })?;
-    Ok((!settings.aatf_rules.is_empty()).then(|| PathBuf::from(&settings.aatf_rules)))
+    if settings.aatf_rules.is_empty() {
+        return Ok(None);
+    }
+    let path = PathBuf::from(&settings.aatf_rules);
+    Ok(Some(match (path.is_relative(), &ctx.paths().data_dir) {
+        (true, Some(data_dir)) => data_dir.join(path),
+        _ => path,
+    }))
 }
 
 /// `--teams`' list: comma-separated ids and inclusive ranges (`701,705-710`), sorted with
@@ -574,8 +597,8 @@ fn strip_and_seed(args: &StripAndSeedArgs, report: &mut Report) -> Result<(), Cl
 /// `check-stripped`: each player whose appearance id came back is one
 /// `appearance_id_restored` line, an Error while he stands listed (exit 1). With
 /// `--strip-again` (which clap couples to `--out`) his id is set to -1 and `--out` is
-/// written; the lines then report what was fixed, so they go out at Info and the exit
-/// code is 0.
+/// written; the lines then report what was fixed, so they go out at Info once the write
+/// has landed (a failed write reports nobody fixed) and the exit code is 0.
 fn check_stripped(args: &CheckStrippedArgs, report: &mut Report) -> Result<(), CliError> {
     let mut session = open(&args.save)?;
     refuse_pre_fox(session.version())?;
@@ -583,18 +606,22 @@ fn check_stripped(args: &CheckStrippedArgs, report: &mut Report) -> Result<(), C
         refuse_while_running(&running_pes(), session.version())?;
     }
     let restored = session.restored_players();
-    let severity = if args.strip_again {
-        Severity::Info
-    } else {
-        Severity::Error
-    };
-    let ids: Vec<u32> = restored.iter().map(|player| player.id).collect();
-    for player in restored {
-        report.message(appearance_id_restored(player, severity));
-    }
     if let Some(out) = &args.out {
+        let ids: Vec<u32> = restored.iter().map(|player| player.id).collect();
+        let lines: Vec<_> = restored
+            .iter()
+            .copied()
+            .map(|player| appearance_id_restored(player, Severity::Info))
+            .collect();
         session.strip(&ids);
         write_save(&session, out)?;
+        for line in lines {
+            report.message(line);
+        }
+    } else {
+        for player in restored {
+            report.message(appearance_id_restored(player, Severity::Error));
+        }
     }
     Ok(())
 }
@@ -716,7 +743,11 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
         fs::rename(&tmp, path)
     };
     write_and_swap().map_err(|error| {
-        drop(fs::remove_file(&tmp));
+        // The write's own error is the one reported; the temporary file is removed best
+        // effort, a leftover being a diagnostic rather than a finding.
+        if let Err(removal) = fs::remove_file(&tmp) {
+            log::debug!("{}: kept: {removal}", tmp.display());
+        }
         CliError::new(
             WRITE_FAILED,
             anyhow!("{}: cannot write the file: {error}", path.display()),
@@ -735,6 +766,10 @@ fn export_teams_list(
     report: &mut Report,
 ) -> Result<(), CliError> {
     let session = open(&args.save)?;
+    // The working list is read before the first finding: a refusal emits nothing, and a
+    // list that cannot be read is one (the upstream list is never merged over it).
+    let path = data_dir.map(|dir| dir.join(teams_list::FILE_NAME));
+    let working = teams_list::load_working(path.as_deref()).map_err(invalid)?;
     let (incoming, duplicates) = teams_list::from_save(session.file());
     for duplicate in &duplicates {
         report.message(message(
@@ -746,8 +781,6 @@ fn export_teams_list(
             ],
         ));
     }
-    let path = data_dir.map(|dir| dir.join(teams_list::FILE_NAME));
-    let working = teams_list::load_working(path.as_deref()).map_err(invalid)?;
     let (merged, summary) = teams_list::reconcile(&working, &incoming);
     for (id, name) in &summary.added {
         report.message(message(

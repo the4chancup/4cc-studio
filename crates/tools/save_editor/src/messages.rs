@@ -651,20 +651,187 @@ mod tests {
         );
     }
 
+    /// One variant of `ViolationKind` each, and the `rule=` line's fields as the rules
+    /// file spells them: the map keys `logic.rhai` emits for the kind, in emit order.
     #[test]
-    fn an_aatf_violation_names_team_player_rule_and_the_rules_fields() {
-        let fielded = Violation {
-            slot: Some(0),
-            severity: aatf::Severity::Error,
-            kind: ViolationKind::FieldedNotA {
-                preset: 1,
-                position: "GK".to_owned().try_into().unwrap(),
-            },
-        };
-        assert_eq!(
-            line(&aatf_violation(718, Some(71802), &fielded, Severity::Error)),
-            "Error aatf_violation (team=718, player=71802, rule=FieldedNotA, preset=1, position=GK)"
-        );
+    fn every_violation_kind_prints_its_rules_file_fields() {
+        let cases: &[(ViolationKind, &str)] = &[
+            (ViolationKind::RegisteredNotA, "rule=RegisteredNotA"),
+            (
+                ViolationKind::FieldedNotA {
+                    preset: 1,
+                    position: "GK".to_owned().try_into().unwrap(),
+                },
+                "rule=FieldedNotA, preset=1, position=GK",
+            ),
+            (ViolationKind::BRating, "rule=BRating"),
+            (ViolationKind::GkSecondA, "rule=GkSecondA"),
+            (
+                ViolationKind::Age {
+                    age: 15,
+                    min: 16,
+                    max: 40,
+                },
+                "rule=Age, age=15, min=16, max=40",
+            ),
+            (
+                ViolationKind::Weight {
+                    weight: 80,
+                    min: 30,
+                    max: 50,
+                },
+                "rule=Weight, weight=80, min=30, max=50",
+            ),
+            (ViolationKind::PositionRange, "rule=PositionRange"),
+            (ViolationKind::PlayingStyleRange, "rule=PlayingStyleRange"),
+            (ViolationKind::NoTier, "rule=NoTier"),
+            (
+                ViolationKind::Stat {
+                    stat: "dribbling".to_owned().try_into().unwrap(),
+                    value: 80,
+                    target: 92,
+                    at_most: true,
+                },
+                "rule=Stat, stat=dribbling, value=80, target=92, at_most=true",
+            ),
+            (
+                ViolationKind::Form {
+                    value: 2,
+                    target: 4,
+                },
+                "rule=Form, value=2, target=4",
+            ),
+            (
+                ViolationKind::InjuryResistance { value: 0, max: 2 },
+                "rule=InjuryResistance, value=0, max=2",
+            ),
+            (
+                ViolationKind::WeakFootUsage { value: 2, max: 4 },
+                "rule=WeakFootUsage, value=2, max=4",
+            ),
+            (
+                ViolationKind::WeakFootAccuracy { value: 1, max: 3 },
+                "rule=WeakFootAccuracy, value=1, max=3",
+            ),
+            (
+                ViolationKind::NameColor {
+                    color: Some("c0c0c0ff".to_owned()),
+                    expected: Some("cc9900ff".to_owned()),
+                },
+                "rule=NameColor, color=c0c0c0ff, expected=cc9900ff",
+            ),
+            (
+                ViolationKind::Cards { paid: 10, limit: 8 },
+                "rule=Cards, paid=10, limit=8",
+            ),
+            (
+                ViolationKind::MinCards { paid: 3, min: 5 },
+                "rule=MinCards, paid=3, min=5",
+            ),
+            (
+                ViolationKind::SkillCardCap { count: 11, max: 10 },
+                "rule=SkillCardCap, count=11, max=10",
+            ),
+            (
+                ViolationKind::ComStyleCap { count: 8, max: 7 },
+                "rule=ComStyleCap, count=8, max=7",
+            ),
+            (
+                ViolationKind::RequiredCard {
+                    card: "malicia".to_owned().try_into().unwrap(),
+                },
+                "rule=RequiredCard, card=malicia",
+            ),
+            (
+                ViolationKind::APositions { count: 3, max: 2 },
+                "rule=APositions, count=3, max=2",
+            ),
+            (
+                ViolationKind::Height { height: 191 },
+                "rule=Height, height=191",
+            ),
+            (
+                ViolationKind::TierCount {
+                    tier: "gold".to_owned(),
+                    count: 0,
+                    expected: 1,
+                },
+                "rule=TierCount, tier=gold, count=0, expected=1",
+            ),
+            (
+                ViolationKind::BracketQuota {
+                    system: "red".to_owned(),
+                    bracket: "tall".to_owned(),
+                    count: 3,
+                    quota: 6,
+                },
+                "rule=BracketQuota, system=red, bracket=tall, count=3, quota=6",
+            ),
+            (ViolationKind::Captain, "rule=Captain"),
+            (
+                ViolationKind::Goalkeepers { count: 0, min: 1 },
+                "rule=Goalkeepers, count=0, min=1",
+            ),
+            (
+                ViolationKind::TeamSetting {
+                    label: "no offside trap".to_owned(),
+                    setting: "offside_trap".to_owned(),
+                },
+                "rule=TeamSetting, label=no offside trap, setting=offside_trap",
+            ),
+            (
+                ViolationKind::FormationShape {
+                    preset: 2,
+                    formation: 3,
+                    shape: [3, 4, 3],
+                },
+                "rule=FormationShape, preset=2, formation=3, shape=[3, 4, 3]",
+            ),
+            (
+                ViolationKind::Special {
+                    label: "GKs below giant".to_owned(),
+                    text: "GK heights cannot be 194cm or more".to_owned(),
+                },
+                "rule=Special, label=GKs below giant, text=GK heights cannot be 194cm or more",
+            ),
+            (
+                ViolationKind::Custom {
+                    text: "a custom check's text".to_owned(),
+                },
+                "rule=Custom, text=a custom check's text",
+            ),
+            (
+                ViolationKind::Unused {
+                    allowance: "cards".to_owned(),
+                    used: 3,
+                    allowed: 8,
+                },
+                "rule=Unused, allowance=cards, used=3, allowed=8",
+            ),
+            (
+                ViolationKind::UnusedChoice {
+                    special: "manlet bonus".to_owned(),
+                },
+                "rule=UnusedChoice, special=manlet bonus",
+            ),
+        ];
+        for (kind, expected) in cases {
+            let violation = Violation {
+                slot: Some(0),
+                severity: aatf::Severity::Error,
+                kind: kind.clone(),
+            };
+            assert_eq!(
+                line(&aatf_violation(
+                    718,
+                    Some(71802),
+                    &violation,
+                    Severity::Error
+                )),
+                format!("Error aatf_violation (team=718, player=71802, {expected})"),
+                "{kind:?}"
+            );
+        }
         // A team-level violation names no player, an `Option` field none when `None`, and
         // the severity is the violation's.
         let name_color = Violation {

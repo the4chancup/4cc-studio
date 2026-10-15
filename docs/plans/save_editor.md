@@ -561,7 +561,9 @@ The commands:
 - `export-toml` requires an explicit source EDIT and either `--team <id>` with `-o`/`--out <file>`,
   or `--all-teams` with `--out-dir <directory>` for one file per team of the save, named
   `<id>.toml`. These forms are mutually exclusive; there is no implicit current-team selection.
-  An existing TOML is replaced, with no backup; a `--team` the save lacks is refused.
+  An existing TOML is replaced, with no backup; a `--team` the save lacks is refused, and so
+  is an `--out` naming the input save itself (exit 2, nothing written): the no-backup rule
+  is for a Team TOML, and replacing the save with one would lose it.
 - `import-toml` requires the Team TOML, `--base <EDIT>`, and `--out <EDIT>`. It imports onto
   the team the document's `id` names, with the same import logic as the GUI, preserving unmodeled
   save data; it prints each import note (a converted or dropped value) on its own line. The
@@ -600,7 +602,10 @@ The commands:
   unused allowance is not something to fix. A team whose check fails (a bug in the logic or in a
   custom check) is an `aatf_check_failed` error line and the other teams are still checked.
   `--teams` takes ids and inclusive ranges (`701,705-710`); an id the save lacks is refused
-  (exit 2). The setting is `aatf_rules`, the file's path, empty for the embedded official ruleset.
+  (exit 2). The setting is `aatf_rules`, the file's path, empty for the embedded official ruleset;
+  a relative one resolves in the data directory, as `teams_list_path` does (a rules file is user
+  data beside the settings file, not a file beside wherever the command was started);
+  `--rules`, a command-line path, is relative to the current directory.
 - `strip-and-seed` is "Stripped save"'s operation on a Fox save: it reads `--bins` (the cup's
   `4cc_08_bins.cpk`) and writes the seeded tables into `--bins-out`, then the stripped save into
   `--out`: when `--bins-out` cannot be written, the save is not (exit 3); a `--bins-out` written
@@ -610,7 +615,8 @@ The commands:
 - `check-stripped` lists the players whose appearance id is set while others are stripped, one
   `appearance_id_restored` error each (exit 1 when it lists any; a save no player of which is
   stripped lists nobody); `--strip-again` sets their ids to -1, leaving the tables as they are, and
-  writes `--out`, which it requires (exit 0). A pre-Fox save is refused.
+  writes `--out`, which it requires (exit 0), reporting the players it set once `--out` is
+  written, so a failed write reports none fixed. A pre-Fox save is refused.
 - `export-teams-list` prints the merge summary (added / kept / overridden / unresolved) and stops
   unless `--yes` is given; a change behind an unresolved conflict is dropped, as for the updater
   merge (`libs/teams_list.md`). An unwritable data directory reports `teams_list_read_only` and
@@ -728,6 +734,9 @@ SE-TOML-07 GIVEN a stripped PES 21 save and the unstripped PES 21 fixture save
 SE-TOML-08 GIVEN a Team TOML whose [team] id the PES 21 fixture save lacks
            WHEN it is imported
            THEN it is refused naming the team, with exit code 2, and --out is not written
+SE-TOML-09 GIVEN a copy of the PES 21 fixture save
+           WHEN export-toml --team 714 is run with --out naming that copy
+           THEN it is refused with exit code 2, and the copy is unchanged
 ```
 
 **Aesthetics patch**
@@ -814,6 +823,10 @@ SE-AATF-03 GIVEN a rules file that fails load-time validation, and the VGL27 rul
            THEN the first is refused with its validation findings (line or key path) and exit
                 code 2; the second and the third print that violation, which a run with neither
                 does not
+SE-AATF-04 GIVEN the VGL27 ruleset and save of SE-AATF-03, the ruleset in the data directory,
+                and the command started from another directory
+           WHEN check-aatf is run with aatf_rules naming the file by its bare name
+           THEN it prints SE-AATF-03's VGL27 violation
 ```
 
 **Stripped save**
@@ -852,6 +865,10 @@ SE-STR-07  GIVEN the PES 21 fixture save, whose players copy player 7511 with th
            THEN every player is stripped and seeded as in SE-STR-01; each player copying 7511
                 gets one strip_base_copied_face warning naming him and player 7511, team 795's
                 and the one at 0 none; the exit code is 0
+SE-STR-08  GIVEN a stripped PES 21 save in which one player's appearance id is set again, and
+                an --out that cannot be written (a folder of that name)
+           WHEN check-stripped --strip-again is run
+           THEN it fails naming --out, with exit code 3, and no player is reported fixed
 ```
 
 **Teams list**

@@ -133,6 +133,8 @@ fn a_teams_id_the_save_lacks_is_refused() {
     let sandbox = Sandbox::new("aatf_no_team");
     sandbox.fixture(PesVersion::Pes15, "EDIT");
     check(&sandbox, "EDIT", &["--teams", "9999"]).assert_refused(2, &["9999"]);
+    // A known id beside the missing one: the refusal stands and emits nothing.
+    check(&sandbox, "EDIT", &["--teams", "718,9999"]).assert_refused(2, &["9999"]);
 }
 
 // SE-AATF-03
@@ -211,6 +213,28 @@ fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
             .iter()
             .any(|line| line.contains("rule=FieldedNotA")),
         "the official ruleset has no fielded_at_a: {:?}",
+        run.messages()
+    );
+}
+
+// SE-AATF-04
+#[test]
+fn a_relative_aatf_rules_resolves_in_the_data_directory() {
+    let sandbox = Sandbox::new("aatf_rules_relative");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    fs::write(sandbox.path("data/vgl27.rhai"), vgl27_rules()).unwrap();
+
+    // The sandbox runs the command in-process, so its current directory is the test
+    // process's, which holds no vgl27.rhai: the file is found only under the data
+    // directory's resolution.
+    let run = sandbox.run_with_settings(
+        "[save-editor]\naatf_rules = 'vgl27.rhai'\n",
+        &["check-aatf", &sandbox.arg("EDIT"), "--teams", "701"],
+    );
+    assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
+    assert!(
+        run.messages().iter().any(|line| line == FIELDED_NOT_A),
+        "{:?}",
         run.messages()
     );
 }

@@ -203,14 +203,22 @@ fn an_unwritable_data_directory_is_reported_and_nothing_written() {
 
 /// A `teams_list.txt` that cannot be read (here a folder of that name) is refused naming it,
 /// not taken for a first run: the upstream list is never merged over a list that exists.
+// SE-TL-05
 #[test]
 fn an_unreadable_working_list_is_refused() {
     let sandbox = Sandbox::new("teams_list_unreadable");
-    sandbox.unique_names_fixture("EDIT", |_| {});
+    // The plain fixture, whose two `/4ccg/` teams would emit teams_list_name_duplicate
+    // lines were the working list read after the duplicate check.
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    let save_bytes = fs::read(sandbox.path("EDIT")).unwrap();
     fs::create_dir(sandbox.path("data/teams_list.txt")).unwrap();
-    sandbox
-        .export_teams_list("EDIT", &["--yes"])
-        .assert_refused(2, &["teams_list.txt", "cannot read the teams list"]);
+
+    let run = sandbox.export_teams_list("EDIT", &["--yes"]);
+    run.assert_refused(2, &["teams_list.txt", "cannot read the teams list"]);
+    assert_eq!(fs::read(sandbox.path("EDIT")).unwrap(), save_bytes);
+    let data: Vec<_> = fs::read_dir(sandbox.path("data")).unwrap().collect();
+    assert_eq!(data.len(), 1, "the data directory is unchanged: {data:?}");
+    assert!(sandbox.path("data/teams_list.txt").is_dir());
 }
 
 // SE-TL-04

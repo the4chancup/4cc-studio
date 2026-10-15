@@ -8083,3 +8083,20 @@ silver place kicking): the player's rating fit while one stat broke its own targ
 option a member would take went unused and the stat was reported. Found by SWE-2 review I.S2;
 the plan's `Effects::choice` comment kept the old rule until the Phase 5 converge audit.
 Plan: `plans/aatf_rules.md` "The ruleset schema", `Effects::choice`.
+
+## 2026-10-15 — save_editor — `export-toml` refuses an `--out` that is the input save
+Decision: `export-toml --out` naming the save it reads (the same file) is refused, exit 2,
+nothing written (SE-TOML-09).
+Why: refused, not backed up: the command's other outputs are Team TOMLs, replaced without a
+backup by design, and a save replaced by TOML text is lost, where every command that writes a
+save keeps a `.bak`. Found by converge review CE.S1.
+Plan: `plans/save_editor.md` "CLI", the `export-toml` bullet.
+
+## 2026-10-15 — save_editor — a relative `aatf_rules` resolves in the data directory
+Decision: a relative `aatf_rules` setting resolves in the data directory, as `teams_list_path`
+does; `--rules` stays relative to the current directory (SE-AATF-04).
+Why: the setting is one value the CLI and the AATF panel share; resolved against the current
+directory, the same setting would read a different file depending on where `4cc-studio` was
+started. One rule across tools: a user data file a setting names follows the settings file.
+Found by converge review CE.S1.
+Plan: `plans/save_editor.md` "CLI", the `check-aatf` bullet.

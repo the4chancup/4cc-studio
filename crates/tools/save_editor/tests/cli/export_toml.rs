@@ -96,3 +96,26 @@ fn a_team_the_save_lacks_or_both_forms_is_refused_with_nothing_written() {
     assert!(!sandbox.path("714.toml").exists());
     assert!(!sandbox.path("teams").exists());
 }
+
+// SE-TOML-09
+#[test]
+fn an_out_naming_the_save_itself_is_refused_and_the_save_unchanged() {
+    let sandbox = Sandbox::new("export_out_is_the_save");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    let bytes = fs::read(sandbox.path("EDIT")).unwrap();
+
+    let run = sandbox.run(&[
+        "export-toml",
+        &sandbox.arg("EDIT"),
+        "--team",
+        "714",
+        "--out",
+        &sandbox.arg("EDIT"),
+    ]);
+    run.assert_refused(2, &["--out"]);
+    assert_eq!(
+        fs::read(sandbox.path("EDIT")).unwrap(),
+        bytes,
+        "the save is unchanged"
+    );
+}

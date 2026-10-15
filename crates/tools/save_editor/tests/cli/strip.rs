@@ -329,24 +329,26 @@ fn a_bins_out_that_cannot_be_written_leaves_the_save_unwritten() {
 // SE-STR-06
 #[test]
 fn tables_the_bins_lacks_are_created_from_the_seed() {
-    let sandbox = Sandbox::new("strip_seed_no_tables");
-    let probe = EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
-    let stripped = probe.players()[2].id;
-    let input = pre_stripped_fixture(&sandbox, PesVersion::Pes21, "EDIT", stripped);
-    write_cpk(&sandbox.path("BINS"), &[(UNI_COLOR, b"unicolor".to_vec())]);
+    for version in [PesVersion::Pes21, PesVersion::Pes18, PesVersion::Pes19] {
+        let sandbox = Sandbox::new(&format!("strip_seed_no_tables_{}", version.number()));
+        let probe = EditFile::from_bytes(&pes_savefile::fixture_save(version)).unwrap();
+        let stripped = probe.players()[2].id;
+        let input = pre_stripped_fixture(&sandbox, version, "EDIT", stripped);
+        write_cpk(&sandbox.path("BINS"), &[(UNI_COLOR, b"unicolor".to_vec())]);
 
-    let run = sandbox.strip_and_seed("EDIT", "BINS", "OUT", "BINS_OUT");
-    assert_eq!(run.exit_code(), 0, "{:?}", run.messages());
+        let run = sandbox.strip_and_seed("EDIT", "BINS", "OUT", "BINS_OUT");
+        assert_eq!(run.exit_code(), 0, "{version}: {:?}", run.messages());
 
-    assert_seeded(&sandbox.path("BINS_OUT"), &input, stripped, None);
-    let mut archive = read_cpk(&sandbox.path("BINS_OUT"));
-    let entry = archive
-        .entries()
-        .iter()
-        .find(|entry| entry.path == UNI_COLOR)
-        .cloned()
-        .unwrap();
-    assert_eq!(archive.read(&entry).unwrap(), b"unicolor");
+        assert_seeded(&sandbox.path("BINS_OUT"), &input, stripped, None);
+        let mut archive = read_cpk(&sandbox.path("BINS_OUT"));
+        let entry = archive
+            .entries()
+            .iter()
+            .find(|entry| entry.path == UNI_COLOR)
+            .cloned()
+            .unwrap();
+        assert_eq!(archive.read(&entry).unwrap(), b"unicolor", "{version}");
+    }
 }
 
 // SE-STR-07
@@ -394,4 +396,24 @@ fn each_base_copied_face_is_one_warning_once_stripped() {
         }
     });
     assert_eq!(payload(&sandbox.path("OUT")), expected);
+}
+
+// SE-STR-08
+#[test]
+fn a_strip_again_whose_out_cannot_be_written_reports_nobody_fixed() {
+    let sandbox = Sandbox::new("check_stripped_bad_out");
+    sandbox.stripped_fixture("STRIPPED");
+    // As Edit mode leaves it: one player's appearance id back at his own.
+    let mut file = EditFile::load(&sandbox.path("STRIPPED")).unwrap();
+    let restored = file.players()[0].id;
+    file.player_mut(restored).unwrap().appearance_id = Some(restored);
+    fs::write(sandbox.path("STRIPPED"), file.to_bytes(&TEST_SALT).unwrap()).unwrap();
+    // An --out that is a folder cannot be written.
+    fs::create_dir(sandbox.path("OUT_DIR")).unwrap();
+
+    let out = sandbox.arg("OUT_DIR");
+    let run = sandbox.check_stripped("STRIPPED", &["--strip-again", "--out", &out]);
+    // assert_refused asserts no event was emitted: no appearance_id_restored line, so no
+    // player is reported fixed.
+    run.assert_refused(3, &["OUT_DIR"]);
 }
