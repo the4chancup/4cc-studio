@@ -1233,7 +1233,8 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       manual: checked 2026-10-15, PES 21 Edit mode (`.tmp/ingame/face_check/`): a stripped
       base-copied player shows Placeholder; the copied face shows with the face flag clear too
 - [x] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
-  the harness: a stripped and seeded save shows every player as before; a compiled team's rows
+  the harness: a stripped and seeded save shows the sampled players as before (every player's
+  row equal to his record is SE-STR-01's test); a compiled team's rows
   show; a file that sets no face or hair key shows the default face; a CPK holding the
   shared-ID record (`4cc_studio/shared_ids/`) loads as one without it → done when: each a
   `manual: checked` line here. The gloves half waits on FoxDen (issue "FoxDen's PES 2021
@@ -1272,7 +1273,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
 - [ ] 5.6 Converge (`AGENTS.md` "Closing a phase"), from 2ca98d1 (Phase 4 closed). Lead plan
   `.tmp/lead/converge_5_plan.md`. `music_export` (10.0, built ahead) converges with Phase 10.
   - [ ] 5.6a the lead's audit: plan shapes against the code; every step's criterion re-run;
-    `just acceptance strict` (2 unproven, 10 uncited CLI tests to explain); requirements
+    `just acceptance strict` (the uncited CLI tests: 5.6a1); requirements
     coverage; the open issues naming Phase 5 crates ruled
     - [ ] 5.6a1 the ten uncited CLI tests cite their scenarios (after the chain leaves
       `team_compiler` and `save_editor`): `patch.rs` the TC-SAV-02, 03, 12 and 01 halves
@@ -1280,6 +1281,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `savefile.rs` TC-SAV-10 (l.466) and TC-SAV-16 (l.490); `export_teams_list.rs` SE-TL-05
       (l.206, its test also asserting the list folder and the save untouched) → verify: `just
       acceptance strict` passes
+    - [ ] 5.6a2 the audit's code-side fixes (`.tmp/5_6/audit_shapes.md`, `audit_criteria.md`;
+      after the chain leaves `aatf` and `save_editor`): the Rust docs of
+      `Universal::gk_not_second_a` and `Effects::choice` say what the code does (the plan's
+      wording of 2026-10-15), and `check.rs:569`'s pointer names `LoadRule::ChoiceOptionEffect`;
+      SE-STR-06's test loops over PES 18, 19 and 21 as 5.4c1's criterion asks (the seed row's
+      offset differs by version) → verify: `cargo test -p aatf -p save_editor`
   - [ ] 5.6b design health: the whole-crate mutation runs (started 2026-10-15 over a305229:
     `pes_savefile`, `aatf`, `save_editor`, `studio_core`, `aesthetics_export`,
     `team_compiler`; `.tmp/5_6/`; no edit to those crates while they run), survivors triaged;
@@ -1287,7 +1294,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   - [ ] 5.6c the `pes_savefile` census: every save, `.ted` and editor file on the machine, the
     installed Fox player tables, the decoded run's bit coverage
   - [ ] 5.6d the cross-family converge reviews, one surface per large crate
-  - [ ] 5.6e close: the second whole-crate runs, plans moved to the spec, steps collapsed
+  - [ ] 5.6e close: the second whole-crate runs, plans moved to the spec (the Save editor's
+    spec gains its message catalog: 19 of its 25 codes are named nowhere in the plan), steps
+    collapsed
 
 ### Phase 8 — GUI
 
@@ -2051,7 +2060,12 @@ points there.
   rule. `aatf_rules.md` is silent. Settle with the next interpreter step: clamp a raised target
   at 99 (the bonus then means nothing for that tier), or refuse it on load where a tier's
   value plus a special's bonus passes 99 (a special's condition may never meet that tier, so
-  a load rule could refuse a playable file).
+  a load rule could refuse a playable file). The same logic version change fixes the Phase 5
+  converge audit's finding (`.tmp/5_6/audit_shapes.md` row 1.7): an explicit `()` on an
+  optional `Condition` or `Effects` key (`captain: ()`, `fielded_only_at: ()`, `forbid: ()`)
+  reads as `None` in Rust but as present in the logic, which tests the key's presence; the
+  logic's `num`/`list`/`table`/`flag` helpers already treat `()` as absent. Only a hand-written
+  file reaches it.
 
 ---
 

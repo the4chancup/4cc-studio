@@ -8072,3 +8072,14 @@ plan's Acceptance already gave those operations their scenarios with the view. T
 operations they wrap (`pes_savefile`'s model edits, `ops::fpc`, tactics) exist and are tested.
 Plan: `plans/core/development_plan.md` "Phase 5" and "Phase 8"; `plans/save_editor.md` "Build
 order and verification".
+
+## 2026-10-15 — aatf — a `stat_bonus` choice option is used when a stat it raises is over its own target (correction)
+Decision: corrects the entry of 2026-10-07 "VGL24 and VGL25 checked; optional effects as
+one-option choices", which said a `stat_bonus` option is used when the player's rating is above
+the expected rating. Since step 5.2i-r4 the interpreter uses it when, without it, a stat the
+option raises is over that stat's own target.
+Why: the rating comparison missed a stat whose tier override sits below the rate (VGL26's
+silver place kicking): the player's rating fit while one stat broke its own target, so the
+option a member would take went unused and the stat was reported. Found by SWE-2 review I.S2;
+the plan's `Effects::choice` comment kept the old rule until the Phase 5 converge audit.
+Plan: `plans/aatf_rules.md` "The ruleset schema", `Effects::choice`.

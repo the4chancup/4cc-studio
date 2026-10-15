@@ -234,7 +234,8 @@ pub struct Universal {
     pub no_b_ratings: bool,
     /// B ratings count toward the A-position allowance, like extra A positions.
     pub b_uses_a_allowance: bool,
-    /// A GK rating is never an outfield player's second A.
+    /// A GK rating is never a player's second A: it fires for any player holding GK A among
+    /// several A positions, a goalkeeper with a second A included, as `aatf.cpp` tests it.
     pub gk_not_second_a: bool,
     /// Inclusive.
     pub age: Option<(u8, u8)>,
@@ -342,8 +343,9 @@ pub struct Effects {
     /// The first option the player uses, or none: an option is used when, without it, the
     /// player exceeds a limit the option, applied, raises for him (a per-tier value for another
     /// tier raises nothing, nor does a replacement a later special overrides); a `stat_bonus`
-    /// raises the stat targets, so it is used when, without it, the player's rating is above
-    /// the expected rating; a `free_cards` option, when, without it, the paid cards are over
+    /// raises the stat targets, so it is used when, without it, a stat it raises is over its own
+    /// target (a stat whose tier override sits below the rate counts, as VGL26's silver place
+    /// kicking does; the overall rating alone would miss it); a `free_cards` option, when, without it, the paid cards are over
     /// the limit and, with it, fewer are paid (a card a group covers can still help, its
     /// group's allowance passing to a paid groupmate). A one-option
     /// choice is an optional effect (VGL25's manlet bonus). An option holds only effects that
@@ -814,6 +816,7 @@ engine.register_type_with_name::<TeamView>("Team")
 
 engine.set_max_operations(MAX_OPERATIONS);
 engine.set_max_call_levels(32);
+engine.set_max_expr_depths(64, 64);              // rhai's debug and release defaults differ, and the interpreter nests past the debug limit
 ```
 
 The script API, which `libs/aatf`'s crate doc lists too:
@@ -840,8 +843,9 @@ The script API, which `libs/aatf`'s crate doc lists too:
 | `team.auto_substitution` | the stored setting (0 off); `()` on a version without it |
 | `team.auto_offside_trap`, `.auto_preset_change`, `.auto_attack_defence_levels` | the flag; `()` on a version without it (attack/defence levels before PES 17) |
 
-`MAX_OPERATIONS` is set from the measured cost of the official ruleset on a full team, with a
-tenfold margin. Closed sets cross the boundary as the labels the file uses (`"GK"`, `"A"`,
+`MAX_OPERATIONS` is set from the measured cost of the official ruleset on a full team, with at
+least a tenfold margin (10 million against about 600,000 measured; the test holds it between
+10 and 30 times). Closed sets cross the boundary as the labels the file uses (`"GK"`, `"A"`,
 `"malicia"`); the Rust side keeps its enums and converts at the registration functions, nowhere
 else. Tactics questions are answered in Rust from `pes_savefile`'s model, so the starting-eleven
 lookup and the formation count, both wrong upstream until `f5e7b3e`, live in one tested place: a
