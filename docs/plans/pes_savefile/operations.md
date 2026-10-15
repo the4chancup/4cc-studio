@@ -146,8 +146,11 @@ minus the roster record's size, the team record ends where the roster starts (17
 coach block starts, 88 bytes before it); the team, roster and tactics records are read with the
 save's codecs (names included), and each filled roster slot's player record is read at that
 slot's position (`players_at` + slot × the record stride, as on 18-21), its id checked against
-the slot's (`RosterMismatch`, as for 18-21). The writer writes the team and roster records back and lays the players out in the
-roster's order. We read the records rather than keep the target save's team and roster because
+the slot's (`RosterMismatch`, as for 18-21). No real roster has an empty slot before a filled
+one (55 texports, 2026-10-15), so slot and packed positions agree on every file measured; a
+gapped roster laid out packed would be refused by that id check, never misread. The writer
+writes the team and roster records back and lays the players out in the roster's order. All 46
+PES 16 and 17 texports read with 23 players, and write back to their own payload byte for byte. We read the records rather than keep the target save's team and roster because
 the file carries them, and the consecutive-id rule they replace was ours, never measured: it is
 what lost the 21 players. `to_team_toml` on 15-17 then carries the `[team]` section and shirt
 numbers as on 18-21.

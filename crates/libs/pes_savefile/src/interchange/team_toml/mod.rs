@@ -381,8 +381,8 @@ pub enum ImportNote {
         /// The value's label.
         label: String,
     },
-    /// A face type above the target's cap or skin 7 into a no-custom-skin
-    /// version; capped to `to`.
+    /// A face type above the target's cap, skin 7 into a no-custom-skin
+    /// version, or a motion above the target's top; capped to `to`.
     Capped {
         /// The dotted key path.
         path: String,
