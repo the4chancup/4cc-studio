@@ -1286,11 +1286,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `Universal::gk_not_second_a` and `Effects::choice` say what the code does (the plan's
       wording of 2026-10-15), and `check.rs:569`'s pointer names `LoadRule::ChoiceOptionEffect`;
       SE-STR-06's test loops over PES 18, 19 and 21 as 5.4c1's criterion asks (the seed row's
-      offset differs by version) → verify: `cargo test -p aatf -p save_editor`
+      offset differs by version); `save_editor/src/cli.rs` `write_and_swap`'s error path says
+      why the temp file's removal result is dropped → verify: `cargo test -p aatf -p save_editor`
   - [ ] 5.6b design health: the whole-crate mutation runs (started 2026-10-15 over a305229:
     `pes_savefile`, `aatf`, `save_editor`, `studio_core`, `aesthetics_export`,
     `team_compiler`; `.tmp/5_6/`; no edit to those crates while they run), survivors triaged;
-    the design-tell sweep; `just clef` per crate; the `pub` census
+    the design-tell sweep; `just clef` per crate; the `pub` census. Sweep and `pub` census
+    done 2026-10-15 (`.tmp/5_6/audit_notes.md`: one missing why comment, into 5.6a2); Clef
+    runs on the free-tier token alone, queueing when its day is spent
   - [ ] 5.6c the `pes_savefile` census: every save, `.ted` and editor file on the machine, the
     installed Fox player tables, the decoded run's bit coverage
   - [ ] 5.6d the cross-family converge reviews, one surface per large crate
