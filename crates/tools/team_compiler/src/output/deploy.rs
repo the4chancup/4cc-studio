@@ -429,17 +429,43 @@ pub(crate) enum DeployFailure {
     Rename { cpk: CpkStem, error: io::Error },
 }
 
+/// A deployment installed and not yet committed: the run's CPKs in place in `download/`,
+/// the old ones they replaced kept aside, until the patch and the savefile are written.
+#[derive(Debug)]
+#[must_use]
+pub(crate) struct Installed {
+    /// The run's CPKs now in `download/`.
+    placed: Vec<PathBuf>,
+    /// Each old CPK moved aside: its `.old` path, then its own.
+    moved: Vec<(PathBuf, PathBuf)>,
+}
+
+impl Installed {
+    /// Removes the old CPKs kept aside (a failure is logged: the run is installed).
+    pub(crate) fn commit(self) {
+        for (aside, _) in self.moved {
+            remove_logged(&aside);
+        }
+    }
+
+    /// Puts `download/` back as the run found it: `undo` over `placed` and `moved`.
+    pub(crate) fn roll_back(self) {
+        undo(&self.placed, &self.moved, &[]);
+    }
+}
+
 /// Installs the CPKs `cpks` staged in `staging` into `download`, each as `<name>.cpk`, all of
 /// them or none: each is copied to `<name>.cpk.partial` first (a copy: the output folder is
-/// usually on another volume than the game). One CPK is then renamed over its old one, which
-/// on one volume is atomic, so the game finds the old CPK or the whole new one. Several go
-/// through `install_all`. A failure removes the `.partial`s (a failure to remove one is
+/// usually on another volume than the game), then `install_all` moves each old CPK aside and
+/// renames the `.partial`s into place: the old CPK moved aside first, so a run can be undone
+/// after it is installed. A failure removes the `.partial`s (a failure to remove one is
 /// logged) and leaves the old CPKs as they were; the staged CPKs stay, for the output folder.
+/// The returned `Installed` commits or rolls the deployment back.
 pub(crate) fn deploy(
     staging: &Staging,
     download: &Path,
     cpks: &[CpkStem],
-) -> Result<(), DeployFailure> {
+) -> Result<Installed, DeployFailure> {
     let names: Vec<String> = cpks.iter().map(cpk_file_name).collect();
     let partials: Vec<PathBuf> = names
         .iter()
@@ -452,42 +478,34 @@ pub(crate) fn deploy(
             return Err(DeployFailure::Copy(error));
         }
     }
-    let [cpk] = cpks else {
-        return install_all(download, cpks, &names, &partials);
-    };
-    if let Err(error) = fs::rename(&partials[0], download.join(&names[0])) {
-        remove_all(&partials);
-        return Err(DeployFailure::Rename {
-            cpk: cpk.clone(),
-            error,
-        });
-    }
-    Ok(())
+    install_all(download, cpks, &names, &partials)
 }
 
 /// Renames the copied `partials` of the CPKs `cpks` (file `names`) into place in `download`,
 /// all of them or none (`pipeline.md` "Deploy CPKs"): each old CPK there is moved aside to
-/// `<name>.cpk.old`, then each `.partial` renamed to its name, then the `.old` files removed
-/// (a failure to remove one is logged: the run is installed). A rename that fails undoes the
+/// `<name>.cpk.old`, then each `.partial` renamed to its name. The old CPKs stay aside in the
+/// returned `Installed` until the run commits or rolls back. A rename that fails undoes the
 /// ones made (`undo`) and is the `Rename` failure naming its CPK.
 fn install_all(
     download: &Path,
     cpks: &[CpkStem],
     names: &[String],
     partials: &[PathBuf],
-) -> Result<(), DeployFailure> {
+) -> Result<Installed, DeployFailure> {
     let installed: Vec<PathBuf> = names.iter().map(|name| download.join(name)).collect();
     let asides: Vec<PathBuf> = names
         .iter()
         .map(|name| download.join(format!("{name}.old")))
         .collect();
+    // A `.old` a killed run left needs no removal: the rename aside replaces it (std's
+    // Windows rename replaces an existing file), and this run's commit removes the new one.
     // The old CPKs move aside before any new one goes in: renaming each `.partial` over its
     // old CPK could not be undone once a later rename failed, the old CPKs being gone, while
     // a CPK moved aside can still be moved back.
-    let mut moved: Vec<(&Path, &Path)> = Vec::new();
+    let mut moved: Vec<(PathBuf, PathBuf)> = Vec::new();
     for (index, cpk) in cpks.iter().enumerate() {
         match fs::rename(&installed[index], &asides[index]) {
-            Ok(()) => moved.push((&asides[index], &installed[index])),
+            Ok(()) => moved.push((asides[index].clone(), installed[index].clone())),
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
             Err(error) => {
                 undo(&[], &moved, partials);
@@ -503,17 +521,17 @@ fn install_all(
             return Err(DeployFailure::Rename { cpk, error });
         }
     }
-    for (aside, _) in moved {
-        remove_logged(aside);
-    }
-    Ok(())
+    Ok(Installed {
+        placed: installed,
+        moved,
+    })
 }
 
-/// Puts `download/` back as `install_all` found it, after a rename failed: the new CPKs
-/// `placed` removed, then each old CPK `moved` aside (its `.old` path, its own) moved back,
-/// then the `partials` left removed. A failure is logged, not returned: the failure reported
-/// is the rename that started the undo.
-fn undo(placed: &[PathBuf], moved: &[(&Path, &Path)], partials: &[PathBuf]) {
+/// Puts `download/` back as `install_all` found it, after a rename failed or the run rolled
+/// its deployment back: the new CPKs `placed` removed, then each old CPK `moved` aside (its
+/// `.old` path, its own) moved back, then the `partials` left removed. A failure is logged,
+/// not returned: the failure reported is the one that started the undo.
+fn undo(placed: &[PathBuf], moved: &[(PathBuf, PathBuf)], partials: &[PathBuf]) {
     remove_all(placed);
     for (aside, installed) in moved {
         if let Err(error) = fs::rename(aside, installed) {
@@ -1083,7 +1101,7 @@ mod tests {
     }
 
     #[test]
-    fn deploying_copies_the_staged_cpk_over_the_old_one() {
+    fn deploying_copies_the_staged_cpk_over_the_old_one_kept_aside_until_commit() {
         let temp = scratch("deploy");
         let output = temp.path().join("output");
         let download = temp.path().join("download");
@@ -1091,14 +1109,20 @@ mod tests {
         fs::write(download.join("cup.cpk"), "old").unwrap();
         let staging = staged_cpk(&output, b"new");
 
-        deploy(&staging, &download, &[CpkStem::new("cup").unwrap()]).unwrap();
+        let installed = deploy(&staging, &download, &[CpkStem::new("cup").unwrap()]).unwrap();
 
         assert_eq!(fs::read(download.join("cup.cpk")).unwrap(), b"new");
-        assert_eq!(fs::read_dir(&download).unwrap().count(), 1, "no .partial");
+        assert_eq!(fs::read(download.join("cup.cpk.old")).unwrap(), b"old");
         assert_eq!(
             fs::read(staging.folder().join("cup.cpk")).unwrap(),
             b"new",
             "a copy: the staged CPK stays until the staging goes"
+        );
+        installed.commit();
+        assert_eq!(
+            texts(&download),
+            BTreeMap::from([("cup.cpk".to_owned(), "new".to_owned())]),
+            "committed: the new CPK alone, no .partial or .old"
         );
     }
 
@@ -1122,9 +1146,12 @@ mod tests {
         let temp = scratch("deploy_rename_failed");
         let output = temp.path().join("output");
         let download = temp.path().join("download");
-        // A non-empty folder at the old CPK's path: nothing can be renamed over it.
-        fs::create_dir_all(download.join("cup.cpk")).unwrap();
-        fs::write(download.join("cup.cpk/kept.txt"), "kept").unwrap();
+        fs::create_dir_all(&download).unwrap();
+        fs::write(download.join("cup.cpk"), "old").unwrap();
+        // A non-empty folder where the old CPK would be moved aside: nothing can be renamed
+        // over it, as nothing can over a `.old` PES holds.
+        fs::create_dir_all(download.join("cup.cpk.old")).unwrap();
+        fs::write(download.join("cup.cpk.old/kept.txt"), "kept").unwrap();
         let staging = staged_cpk(&output, b"new");
 
         let failure = deploy(&staging, &download, &[CpkStem::new("cup").unwrap()]).unwrap_err();
@@ -1133,10 +1160,10 @@ mod tests {
             matches!(&failure, DeployFailure::Rename { cpk, .. } if cpk.as_str() == "cup"),
             "{failure:?}"
         );
+        assert_eq!(fs::read(download.join("cup.cpk")).unwrap(), b"old");
         assert!(!download.join("cup.cpk.partial").exists());
-        assert_eq!(fs::read_dir(&download).unwrap().count(), 1);
         assert_eq!(
-            fs::read(download.join("cup.cpk/kept.txt")).unwrap(),
+            fs::read(download.join("cup.cpk.old/kept.txt")).unwrap(),
             b"kept"
         );
     }
@@ -1198,13 +1225,84 @@ mod tests {
         fs::write(download.join("other.cpk"), "not the run's").unwrap();
         let staging = staged_cpks(&output, &["bins", "part"]);
 
-        deploy(&staging, &download, &stems(&["bins", "part"])).unwrap();
+        deploy(&staging, &download, &stems(&["bins", "part"]))
+            .unwrap()
+            .commit();
 
         assert_eq!(
             texts(&download),
             BTreeMap::from([
                 ("bins.cpk".to_owned(), "new bins".to_owned()),
                 ("other.cpk".to_owned(), "not the run's".to_owned()),
+                ("part.cpk".to_owned(), "new part".to_owned()),
+            ])
+        );
+    }
+
+    #[test]
+    fn a_rolled_back_install_restores_the_old_cpk_and_removes_the_new_one() {
+        let temp = scratch("deploy_rollback");
+        let output = temp.path().join("output");
+        let download = temp.path().join("download");
+        fs::create_dir_all(&download).unwrap();
+        fs::write(download.join("cup.cpk"), "old").unwrap();
+        let staging = staged_cpk(&output, b"new");
+
+        deploy(&staging, &download, &[CpkStem::new("cup").unwrap()])
+            .unwrap()
+            .roll_back();
+
+        assert_eq!(
+            texts(&download),
+            BTreeMap::from([("cup.cpk".to_owned(), "old".to_owned())]),
+            "the old CPK back, alone"
+        );
+    }
+
+    #[test]
+    fn a_rolled_back_install_of_several_restores_every_old_cpk() {
+        let temp = scratch("deploy_rollback_several");
+        let output = temp.path().join("output");
+        let download = temp.path().join("download");
+        fs::create_dir_all(&download).unwrap();
+        fs::write(download.join("bins.cpk"), "old bins").unwrap();
+        fs::write(download.join("part.cpk"), "old part").unwrap();
+        fs::write(download.join("other.cpk"), "not the run's").unwrap();
+        let staging = staged_cpks(&output, &["bins", "fresh", "part"]);
+
+        deploy(&staging, &download, &stems(&["bins", "fresh", "part"]))
+            .unwrap()
+            .roll_back();
+
+        // `fresh` had no old CPK: it is removed, the two moved ones put back.
+        assert_eq!(
+            texts(&download),
+            BTreeMap::from([
+                ("bins.cpk".to_owned(), "old bins".to_owned()),
+                ("other.cpk".to_owned(), "not the run's".to_owned()),
+                ("part.cpk".to_owned(), "old part".to_owned()),
+            ])
+        );
+    }
+
+    #[test]
+    fn a_committed_install_removes_the_old_cpks_kept_aside() {
+        let temp = scratch("deploy_commit_several");
+        let output = temp.path().join("output");
+        let download = temp.path().join("download");
+        fs::create_dir_all(&download).unwrap();
+        fs::write(download.join("bins.cpk"), "old bins").unwrap();
+        fs::write(download.join("part.cpk"), "old part").unwrap();
+        let staging = staged_cpks(&output, &["bins", "part"]);
+
+        deploy(&staging, &download, &stems(&["bins", "part"]))
+            .unwrap()
+            .commit();
+
+        assert_eq!(
+            texts(&download),
+            BTreeMap::from([
+                ("bins.cpk".to_owned(), "new bins".to_owned()),
                 ("part.cpk".to_owned(), "new part".to_owned()),
             ])
         );

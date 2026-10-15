@@ -28,7 +28,7 @@ use crate::bins::installed::{self, InstalledPaths};
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
 use crate::messages::{Code, size_text, tool_message};
-use crate::output::deploy::{self, DeployFailure, Staging};
+use crate::output::deploy::{self, DeployFailure, Installed, Staging};
 use crate::output::parts::{self, TeamsParts, Unplaced};
 use crate::output::patch;
 use crate::output::savefile;
@@ -606,30 +606,88 @@ fn build(
         &target,
         &mut events,
     ) {
-        Ok(installed) => {
+        Ok(published) => {
             match write_patch(&mut events, output_folder, version, &patch_teams, &staged) {
                 Ok(patch) => {
                     // The savefile step applies the patch the run just wrote, never a
                     // re-read of the file, and only when the game loads the run's output.
-                    if let (true, Some(patch)) = (installed, &patch) {
-                        savefile::update(
-                            &mut events,
-                            savefile::locate(savefile_path, || {
-                                pes_savefile::discovery::discover_savefiles(version)
-                            }),
-                            &studio_core::running_pes(),
-                            &output_folder.join(patch::FILE_NAME),
-                            patch,
-                        );
+                    let failure = match (&published, &patch) {
+                        (Published::Deployed(_) | Published::Sideloaded, Some(patch)) => {
+                            savefile::update(
+                                &mut events,
+                                savefile::locate(savefile_path, || {
+                                    pes_savefile::discovery::discover_savefiles(version)
+                                }),
+                                &studio_core::running_pes(),
+                                &output_folder.join(patch::FILE_NAME),
+                                patch,
+                            )
+                            .err()
+                        }
+                        (Published::Output, _) | (_, None) => None,
+                    };
+                    match (published, failure) {
+                        (Published::Deployed(installed), None) => {
+                            installed.commit();
+                            write_teamnotes(&mut events, output_folder, &notes);
+                        }
+                        (Published::Deployed(installed), Some(failure)) => {
+                            installed.roll_back();
+                            // Reported before the promotion, so a promotion that fails adds
+                            // its own finding rather than hiding why the run rolled back.
+                            let mut context = failure.context;
+                            context.push(("output", output_folder.display().to_string()));
+                            events.message(tool_message(
+                                failure.code,
+                                Scope::Run,
+                                Disposition::AbortRun,
+                                context,
+                            ));
+                            // The compiled artifacts remain available: the staged CPKs
+                            // promoted to the output folder beside the patch naming them.
+                            for cpk_stem in &staged {
+                                if let Err(error) =
+                                    deploy::promote(&staging, output_folder, cpk_stem)
+                                {
+                                    abort_output(
+                                        &mut events,
+                                        &target,
+                                        Code::OutputCommitFailed,
+                                        error,
+                                    );
+                                    return Ok(events.worst());
+                                }
+                            }
+                            // An AbortRun publishes nothing more: no teamnotes.
+                        }
+                        (Published::Sideloaded, failure) => {
+                            if let Some(failure) = failure {
+                                events.message(tool_message(
+                                    failure.code,
+                                    Scope::Run,
+                                    Disposition::Keep,
+                                    failure.context,
+                                ));
+                            }
+                            write_teamnotes(&mut events, output_folder, &notes);
+                        }
+                        // `update` does not run for `Output`, which is `Ok` or no patch.
+                        (Published::Output, _) => {
+                            write_teamnotes(&mut events, output_folder, &notes);
+                        }
                     }
-                    write_teamnotes(&mut events, output_folder, &notes);
                 }
-                Err(error) => abort_output(
-                    &mut events,
-                    &output_folder.join(patch::FILE_NAME),
-                    Code::PatchWriteFailed,
-                    error,
-                ),
+                Err(error) => {
+                    if let Published::Deployed(installed) = published {
+                        installed.roll_back();
+                    }
+                    abort_output(
+                        &mut events,
+                        &output_folder.join(patch::FILE_NAME),
+                        Code::PatchWriteFailed,
+                        error,
+                    );
+                }
             }
         }
         Err(error) => abort_output(&mut events, &target, Code::OutputCommitFailed, error),
@@ -730,17 +788,27 @@ fn size_over_limit(run_folder: &Path, name: &CpkStem, cap: u64) -> anyhow::Resul
     )))
 }
 
+/// What `promote` published, and so what the rest of the run commits or undoes.
+enum Published {
+    /// The CPKs (or test mode's tree) in the output folder: the game loads nothing new.
+    Output,
+    /// The CPKs installed in `download/`, the old ones kept aside until the run commits.
+    Deployed(Installed),
+    /// Sideload mode's tree in `livecpk/`: in place, with no undo.
+    Sideloaded,
+}
+
 /// Puts the output staged in `staging` in place for `mode`: in normal mode the CPKs `staged`,
 /// in that order. A run that deploys installs all of them into `download` when there is one,
 /// else, or when installing fails (one `old_cpk_locked` or `deploy_target_unwritable`, an
 /// Error naming `promoted`, the CPK's path in the output folder or the folder itself), every
 /// one goes into the output folder; under `--no-deploy` each CPK goes there,
 /// `deploy_skipped_by_flag` naming each. In test and sideload mode the loose tree becomes the
-/// output folder's `test_output/` or the PES folder's `livecpk/`. Returns whether the game
-/// now loads this run's output: an installed deployment and a sideload tree (in `livecpk/`,
-/// which the runtime serves to the game), never a promoted one, `--no-deploy` or test mode:
-/// the savefile step's gate (`spec/team_compiler/pipeline.md` "6. Post-processing"). Only a
-/// failure to put the output in the output folder or the loose tree in place is the error.
+/// output folder's `test_output/` or the PES folder's `livecpk/`. Returns what was published:
+/// a `Deployed` install's old CPKs stay aside for the run to commit or roll back, and the
+/// savefile step runs for `Deployed` and `Sideloaded` alone, the modes the game loads the
+/// run's output of (`spec/team_compiler/pipeline.md` "6. Post-processing"). Only a failure to
+/// put the output in the output folder or the loose tree in place is the error.
 fn promote(
     mode: &OutputMode,
     staging: &Staging,
@@ -749,14 +817,16 @@ fn promote(
     download: Option<&Path>,
     promoted: &Path,
     events: &mut RunEvents,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<Published> {
     match mode {
         OutputMode::Normal { no_deploy } => {
             if let Some(download) = download {
-                let Err(failure) = deploy::deploy(staging, download, staged) else {
-                    return Ok(true);
-                };
-                events.message(deploy_failed(failure, download, promoted));
+                match deploy::deploy(staging, download, staged) {
+                    Ok(installed) => return Ok(Published::Deployed(installed)),
+                    Err(failure) => {
+                        events.message(deploy_failed(failure, download, promoted));
+                    }
+                }
             }
             for cpk_stem in staged {
                 let path = deploy::promote(staging, output_folder, cpk_stem)?;
@@ -769,17 +839,17 @@ fn promote(
                     ));
                 }
             }
-            Ok(false)
+            Ok(Published::Output)
         }
         OutputMode::Test => deploy::promote_tree(
             staging,
             deploy::TEST_OUTPUT,
             &output_folder.join(deploy::TEST_OUTPUT),
         )
-        .map(|()| false),
+        .map(|()| Published::Output),
         OutputMode::Sideload { pes_folder } => {
             deploy::promote_tree(staging, deploy::LIVECPK, &pes_folder.join(deploy::LIVECPK))
-                .map(|()| true)
+                .map(|()| Published::Sideloaded)
         }
     }
 }

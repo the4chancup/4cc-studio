@@ -184,6 +184,23 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
   boots/gloves IDs whose content is not installed — exactly what the "only for content actually
   written" rule exists to prevent; on Fox a compiled player's IDs live in the CPK's own table
   rows, but the same skip keeps one rule for both engines.
+- **One transaction: CPKs, patch, savefile** — a deployment keeps every old CPK it replaces
+  aside as `{name}.cpk.old` (one CPK too, not only a multi-CPK run) until the patch is written
+  and the savefile step has ended without `savefile_invalid` or `savefile_write_failed`; only
+  then are the `.old` files removed. Either of those two findings, or `patch_write_failed`,
+  rolls the deployment back: the run's CPKs leave `download/` and the old ones return, so the
+  game keeps loading what it loaded before the run, and the finding is Fatal (`AbortRun`,
+  exit 3). After a savefile failure the staged CPKs are promoted to `output/` beside the
+  patch, which names them, so the compiled artifacts remain available; after a patch failure
+  nothing more is published, as for every `AbortRun`. A `.old` left by a run that was killed
+  before its commit needs nothing: the next run's move aside replaces it (a rename replaces an
+  existing file) and its commit removes it. We keep the old CPK
+  aside, not rename the new one over it as the one-CPK deployment did, because a rename over
+  it cannot be undone once the savefile fails. Sideload mode has no rollback: its previous
+  `livecpk\` tree is gone once the new one is in place, and keeping it would cost a copy of
+  every model on each iteration, the mode's whole point being speed; its savefile failures
+  stay Errors (exit 1), the new tree in place. `savefile_team_missing` and
+  `savefile_player_missing` roll nothing back: the rest of the patch is applied.
 - **Run PES** — optional launch of `PES20{version}.exe`, only after the complete deployment
   transaction succeeds. Built in Phase 8 together with sideload mode's Launch PES button, as one
   launcher: both start the same exe the same way, and the GUI phase is where its only manual

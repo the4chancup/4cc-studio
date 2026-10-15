@@ -58,20 +58,33 @@ fn target_running(running: &[RunningPes], version: PesVersion) -> bool {
     running.iter().any(|game| game.version == version)
 }
 
+/// The savefile failure that ends the deployment transaction: `update` reports every other
+/// outcome itself and returns this one for the caller to emit, `AbortRun` after a
+/// deployment it rolls back, an Error in sideload mode.
+#[derive(Debug)]
+pub(crate) struct SavefileFailure {
+    /// The finding to emit: `SavefileInvalid` or `SavefileWriteFailed`.
+    pub(crate) code: Code,
+    /// Its context entries (`path`, then `error` or `version`).
+    pub(crate) context: Vec<(&'static str, String)>,
+}
+
 /// Applies `patch` (the `aesthetics_patch.toml` at `patch_path` the run just wrote) to the
-/// save `located` names, reporting every outcome as a `Keep` finding: no save is the
-/// warning `savefile_missing`, a save the target's running game owns is skipped, an
-/// unreadable or wrong-version save an error, a patch team or player the save lacks a
-/// per-item error with the rest applied (a save holding none of the patch's teams is not
-/// rewritten), a compiled player whose appearance id the save still sets a warning, and the
-/// save written, its previous file kept as `.bak`, the info `savefile_written`.
+/// save `located` names, reporting every outcome as a `Keep` finding but the two the caller
+/// emits: no save is the warning `savefile_missing`, a save the target's running game owns is
+/// skipped, a patch team or player the save lacks a per-item error with the rest applied (a
+/// save holding none of the patch's teams is not rewritten), a compiled player whose
+/// appearance id the save still sets a warning, and the save written, its previous file kept
+/// as `.bak`, the info `savefile_written`. An unreadable or wrong-version save is
+/// `Err`(`savefile_invalid`) and a failed `apply` or write `Err`(`savefile_write_failed`),
+/// neither emitted here.
 pub(crate) fn update(
     events: &mut RunEvents,
     located: Located,
     running: &[RunningPes],
     patch_path: &Path,
     patch: &AestheticsPatch,
-) {
+) -> Result<(), SavefileFailure> {
     let report = |events: &mut RunEvents, code: Code, context: Vec<(&'static str, String)>| {
         events.message(tool_message(code, Scope::Run, Disposition::Keep, context));
     };
@@ -82,7 +95,7 @@ pub(crate) fn update(
                 context.push(("path", path.display().to_string()));
             }
             report(events, Code::SavefileMissing, context);
-            return;
+            return Ok(());
         }
         Located::Configured(path) => path.clone(),
         Located::Detected { path, candidates } => {
@@ -106,45 +119,39 @@ pub(crate) fn update(
                 ("version", patch.pes_version.to_string()),
             ],
         );
-        return;
+        return Ok(());
     }
     let mut file = match EditFile::load(&path) {
         Ok(file) => file,
         Err(error) => {
-            report(
-                events,
-                Code::SavefileInvalid,
-                vec![
+            return Err(SavefileFailure {
+                code: Code::SavefileInvalid,
+                context: vec![
                     ("path", path.display().to_string()),
                     ("error", format!("{error:#}")),
                 ],
-            );
-            return;
+            });
         }
     };
     if file.version() != patch.pes_version {
-        report(
-            events,
-            Code::SavefileInvalid,
-            vec![
+        return Err(SavefileFailure {
+            code: Code::SavefileInvalid,
+            context: vec![
                 ("path", path.display().to_string()),
                 ("version", file.version().to_string()),
             ],
-        );
-        return;
+        });
     }
     let summary = match patch.apply(&mut file) {
         Ok(summary) => summary,
         Err(error) => {
-            report(
-                events,
-                Code::SavefileWriteFailed,
-                vec![
+            return Err(SavefileFailure {
+                code: Code::SavefileWriteFailed,
+                context: vec![
                     ("path", path.display().to_string()),
                     ("error", format!("{error:#}")),
                 ],
-            );
-            return;
+            });
         }
     };
     for skip in &summary.skipped {
@@ -193,7 +200,7 @@ pub(crate) fn update(
     // A save holding none of the patch's teams is left as it was: writing it would change
     // nothing but turn its `.bak` over, losing the user's previous backup.
     if summary.applied_teams.is_empty() {
-        return;
+        return Ok(());
     }
     match file.save(&path) {
         Ok(()) => report(
@@ -212,15 +219,17 @@ pub(crate) fn update(
                 ),
             ],
         ),
-        Err(error) => report(
-            events,
-            Code::SavefileWriteFailed,
-            vec![
-                ("path", path.display().to_string()),
-                ("error", format!("{error:#}")),
-            ],
-        ),
+        Err(error) => {
+            return Err(SavefileFailure {
+                code: Code::SavefileWriteFailed,
+                context: vec![
+                    ("path", path.display().to_string()),
+                    ("error", format!("{error:#}")),
+                ],
+            });
+        }
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -365,7 +374,8 @@ mod tests {
             &running,
             &temp.path().join("aesthetics_patch.toml"),
             &empty_patch(),
-        );
+        )
+        .unwrap();
 
         let messages = messages(&rx);
         let [(code, context)] = messages.as_slice() else {
@@ -406,7 +416,8 @@ mod tests {
             &[],
             &temp.path().join("aesthetics_patch.toml"),
             &patch,
-        );
+        )
+        .unwrap();
 
         let codes: Vec<String> = messages(&rx).into_iter().map(|(code, _)| code).collect();
         assert_eq!(codes, ["savefile_team_missing"]);

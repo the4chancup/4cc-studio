@@ -26,6 +26,8 @@ fn a_run_holding_no_patch_moves_an_earlier_one_aside_to_bak() {
     let sandbox = Sandbox::new("patch_bak");
     let earlier = b"# an earlier run's patch\npes_version = 21\n";
     sandbox.write("output/aesthetics_patch.toml", earlier);
+    // An older backup, which the move aside replaces.
+    sandbox.write("output/aesthetics_patch.toml.bak", b"# an older backup\n");
     let export = "exports/co Full KitsOnly";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(

@@ -455,10 +455,12 @@ pub(crate) enum Code {
     /// when it closes, over this one; applied by the next compile with PES closed.
     SavefileSkippedPesRunning,
     /// The savefile could not be updated: the patch's `apply` refused it, or `EditFile`
-    /// could not write it back (context: `path`, `error`).
+    /// could not write it back (context: `path`, `error`); Fatal (`AbortRun`) after a
+    /// deployment, which is rolled back, an Error in sideload mode.
     SavefileWriteFailed,
     /// The configured or found savefile cannot be read, or its version is not the compile
-    /// target's (context: `path`, `error` or `version`); the save is not modified.
+    /// target's (context: `path`, `error` or `version`); the save is not modified. Fatal
+    /// (`AbortRun`) after a deployment, which is rolled back, an Error in sideload mode.
     SavefileInvalid,
     /// The patch was applied to the local savefile and the savefile replaced, the previous
     /// file kept as `.bak` (context: `path`, the team ids applied).
@@ -1029,8 +1031,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("savefile_autodetected", CatalogSeverity::Info),
     ("savefile_missing", CatalogSeverity::Warning),
     ("savefile_skipped_pes_running", CatalogSeverity::Warning),
-    ("savefile_write_failed", CatalogSeverity::Error),
-    ("savefile_invalid", CatalogSeverity::Error),
+    ("savefile_write_failed", CatalogSeverity::ErrorOrFatal),
+    ("savefile_invalid", CatalogSeverity::ErrorOrFatal),
     ("savefile_written", CatalogSeverity::Info),
     ("savefile_team_missing", CatalogSeverity::Error),
     ("savefile_player_missing", CatalogSeverity::Error),

@@ -39,12 +39,9 @@ pub(crate) fn write(
     let path = output_folder.join(FILE_NAME);
     if teams.is_empty() {
         if path.is_file() {
-            let bak = output_folder.join(BAK_NAME);
-            // Windows' rename refuses an existing target, so an older backup goes first.
-            if bak.exists() {
-                fs::remove_file(&bak)?;
-            }
-            fs::rename(&path, &bak)?;
+            // The rename replaces an older backup, on Windows too (std renames with
+            // `MOVEFILE_REPLACE_EXISTING`).
+            fs::rename(&path, output_folder.join(BAK_NAME))?;
         }
         return Ok(None);
     }

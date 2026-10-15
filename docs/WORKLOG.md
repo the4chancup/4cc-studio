@@ -20,7 +20,7 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
 5.y-gloves and 5.3a (a1 to a5, its review loop closed) and 5.3b1 (the patch written) done
-2026-10-15, and 5.3b2 (the local savefile) done 2026-10-15; next 5.3b3 (the transaction); step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-15, and 5.3b2 (the local savefile) and 5.3b3 (the transaction) done 2026-10-15; next the checkpoint (b) review of 5.3b, then 16.w (the release exe's floor and size); step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1145,9 +1145,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `output/patch.rs`, `messages.rs` (nine codes, `savefile_written` and
       `savefile_player_missing` per DECISIONS 2026-10-15), `testing.rs` and
       `tests/common/mod.rs` (test contexts never `auto`), `tests/cli/savefile.rs` (new)
-    - [ ] 5.3b3 the CPKs, the patch and the savefile as one transaction (the installed CPKs
+    - [x] 5.3b3 the CPKs, the patch and the savefile as one transaction (the installed CPKs
       kept aside until the savefile is written, restored on a failure) → done when: TC-SAV-05's
-      first half, 08 and 09 pass
+      first half, 08 and 09 pass. Done (DECISIONS 2026-10-15, sideload exempt): `deploy.rs`
+      (`Installed` with `commit` and `roll_back`, one CPK through `install_all`),
+      `compile.rs` (`Published`, the rollback and promotion to `output/`), `savefile.rs`
+      (`SavefileFailure`), `messages.rs` (the two codes E/F), `patch.rs` (the `.bak` rename
+      replaces), `tests/cli/savefile.rs`
 - [ ] 5.4 The Save editor crate (skeleton, settings, egui-free `session/`, CLI), after 5.1:
   - [ ] 5.4a `export-toml`, `import-toml`, `apply-patch`, `transplant`, `diff`,
     `export-teams-list` → done when: SE-CLI, SE-TOML, SE-PAT, SE-TRN, SE-DIF and SE-TL pass.
@@ -1293,7 +1297,22 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
 
 ### Phase 16 — Polish and distribution
 
-Steps are itemized when Phase 15 closes; one is fixed already:
+Steps are itemized when Phase 15 closes; two are fixed already:
+
+- [ ] 16.w the release exe's platform floor and size (maintainer, 2026-10-15; taken up right
+  after 5.3b3's review, not at Phase 16). A survey of 2026-10-14 (`.tmp/win7/`) found the
+  exe cannot load on Windows 7 (Rust std's Win8+ imports and `windows-core`'s `combase.dll`)
+  and needs the VC++ redistributable, which no doc names; the maintainer ruled Windows 7 out
+  (its last members moved to Linux). Slices:
+  - [ ] 16.w1 `docs/spec/core/distribution.md` states the floor, Windows 10 x64 (and Linux),
+    with the reason (the Rust target and the GUI stack require it) → verify: `just doc-pointers`
+  - [ ] 16.w2 `+crt-static` for the Windows release build (measured +327 KiB, 1%), so the exe
+    runs without the redistributable → verify: the release exe's import table has no
+    `VCRUNTIME140.dll` and no `api-ms-win-crt-*` (`.tmp/win7/imports.py`); the GUI starts
+  - [ ] 16.w3 the size growth (17.1 MiB on 2026-10-02 to 30.95 MiB on 2026-10-14): find its
+    cause with `cargo bloat` (approved as a developer tool), make the low-hanging reductions
+    that also shorten builds, and update the spec's measurement → verify: before and after
+    sizes and clean release build times, measured the same way
 
 - [ ] 16.x `dds_convert` GPU BC7 (deferred from 2.5b to Phase 4, decision entry 2026-09-21, then
   past Release 0.1.0, decision entry 2026-09-28; spec `libs/README.md` "First-release desktop GPU

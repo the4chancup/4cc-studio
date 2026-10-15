@@ -8012,3 +8012,21 @@ that is not installed, the incoherence the deployed-only rule prevents; sideload
 tree is what the game loads, and TC-SAV-10 expects its savefile written once PES is closed.
 Plan: `plans/team_compiler/messages.md` "Output stage and savefile", `plans/team_compiler/pipeline.md`
 "Savefile update".
+
+## 2026-10-15 — team compiler — the deployment transaction: old CPKs kept aside, sideload exempt
+Decision: a deployment moves every old CPK aside to `{name}.cpk.old` (a one-CPK run too) and
+removes the `.old` files only after the patch is written and the savefile step ends without
+`savefile_invalid` or `savefile_write_failed`. Those two findings and `patch_write_failed`
+roll the deployment back and are Fatal (`AbortRun`, exit 3); after a savefile failure the
+staged CPKs are promoted to `output/` beside the patch, after a patch failure nothing more is
+published. A stale `.old` from a killed run is left to the next run's move aside, which
+replaces it (std's rename replaces an existing file on Windows too). Sideload
+mode has no rollback: its savefile failures stay Errors, the new `livecpk\` tree in place.
+Why: the plan makes the CPKs and the savefile one transaction (TC-SAV-05, 08, 09 expect the
+previous CPK back and exit 3), and the one-CPK deployment's rename over the old CPK cannot be
+undone once the savefile fails; moving it aside first costs one more rename. Keeping
+sideload's previous tree would cost a copy of every model on each iteration of a mode that
+exists for speed, and its savefile half catches up on the next compile anyway. A cleanup of
+stale `.old` files was built and removed in review: only a read-only file or a folder at that
+path defeats the rename, and a killed run leaves neither.
+Plan: `plans/team_compiler/pipeline.md` "One transaction: CPKs, patch, savefile".

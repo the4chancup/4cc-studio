@@ -61,8 +61,6 @@ states one-to-one; a glTF material with states absent just gets its family's sta
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
-| `savefile_write_failed` | E | savefile could not be updated | deployment transaction fails and rolls back; compile artifacts remain available |
-| `savefile_invalid` | E | the configured or found savefile cannot be read, or its version is not the compile target's (context: the path, the version) | the save is not modified; as `savefile_write_failed` |
 | `pes_folder_not_found` | E | as the spec's row | savefile step skipped |
 | `dpfilelist_missing` | E/W | as the spec's row | E: savefile step skipped |
 | `dpfilelist_not_official` | W | as the spec's row | the GUI offers **Upgrade DpFileList**, which asks before replacing the list |
@@ -72,8 +70,6 @@ states one-to-one; a glTF material with states absent just gets its family's sta
 | `deploy_target_unwritable` | E | as the spec's row | savefile step skipped; GUI offers Relaunch as administrator. Normally pre-empted by the live writability preflight (see `pipeline.md` "6. Post-processing") |
 | `deploy_skipped_by_flag` | I | as the spec's row | savefile step skipped |
 
-The `savefile_write_failed` and `savefile_invalid` rows' rollback half (the deployment
-transaction failing and rolling back) is 5.3b3's; the spec's rows carry the plain-Error half.
 A missing savefile
 is the explicitly permitted warning-only case. A present savefile that cannot be read or whose
 version differs from the compile target is an error, not `savefile_missing`; do not modify it or

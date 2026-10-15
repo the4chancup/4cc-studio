@@ -47,6 +47,7 @@ fn a_deployed_run_applies_its_patch_to_the_savefile_and_keeps_a_bak() {
     let sandbox = Sandbox::new("savefile_applied");
     install_pes(&sandbox);
     let save = install_save(&sandbox, PesVersion::Pes21);
+    sandbox.write("PES/download/4cc_99_test.cpk", b"the old CPK");
     // Team 714's roster with 71405 in slot 06 and 71406 in slot 05: the patch's players
     // find the save's by id, whatever the roster order.
     let mut file = EditFile::load(&save).unwrap();
@@ -105,6 +106,17 @@ fn a_deployed_run_applies_its_patch_to_the_savefile_and_keeps_a_bak() {
         fs::read(sandbox.root.join("save").join("EDIT00000000.bak")).unwrap(),
         before_bytes,
         "the previous file is the .bak"
+    );
+    // The committed deployment: the new CPK in `download/`, the old one not kept aside.
+    assert_ne!(
+        fs::read(sandbox.root.join("PES/download/4cc_99_test.cpk")).unwrap(),
+        b"the old CPK",
+        "the run's CPK installed"
+    );
+    assert_eq!(
+        leftover_files(&sandbox, "PES/download"),
+        Vec::<String>::new(),
+        "no .old left"
     );
 }
 
@@ -201,7 +213,8 @@ fn a_savefile_path_naming_a_missing_file_is_a_warning_and_the_patch_is_written()
     }
 }
 
-// TC-SAV-05, the second half (the exit-3 deployment rollback is slice 5.3b3's)
+// The second half of the scenario: a team the save lacks is an error, the rest is applied.
+// TC-SAV-05
 #[test]
 fn a_team_the_save_lacks_is_an_error_and_the_rest_is_written() {
     let sandbox = Sandbox::new("savefile_team_missing");
@@ -241,25 +254,51 @@ fn a_team_the_save_lacks_is_an_error_and_the_rest_is_written() {
     );
 }
 
-// TC-SAV-05, the first half's finding; its rollback (exit 3, the previous CPK back) is 5.3b3's
+/// The files of `relative` (a folder of the sandbox) whose name ends in `.old` or
+/// `.partial`: what a run's deployment transaction would leave behind.
+fn leftover_files(sandbox: &Sandbox, relative: &str) -> Vec<String> {
+    fs::read_dir(sandbox.root.join(relative))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.ends_with(".old") || name.ends_with(".partial"))
+        .collect()
+}
+
+// The first half of the scenario: a wrong-version save aborts the run and rolls the
+// deployment back.
+// TC-SAV-05
 #[test]
 fn a_save_of_another_version_is_savefile_invalid_and_left_alone() {
     let sandbox = Sandbox::new("savefile_invalid_version");
     install_pes(&sandbox);
     let save = install_save(&sandbox, PesVersion::Pes19);
     let before = fs::read(&save).unwrap();
+    sandbox.write("PES/download/4cc_99_test.cpk", b"the old CPK");
     motion_export(&sandbox, "co Full Motions");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
 
     let lines = run.messages();
-    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    assert_eq!(run.exit_code(), 3, "{lines:#?}");
     let expected = format!(
-        "Error savefile_invalid [Keep] (path={}, version=PES 2019)",
-        save.display()
+        "Fatal savefile_invalid [AbortRun] (path={}, version=PES 2019, output={})",
+        save.display(),
+        sandbox.display("output")
     );
     assert!(lines.contains(&expected), "{lines:#?}");
     assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
+    assert_eq!(
+        fs::read(sandbox.root.join("PES/download/4cc_99_test.cpk")).unwrap(),
+        b"the old CPK",
+        "the deployment rolled back"
+    );
+    assert_eq!(
+        leftover_files(&sandbox, "PES/download"),
+        Vec::<String>::new(),
+        "no .old or .partial left"
+    );
+    assert!(sandbox.root.join("output/4cc_99_test.cpk").is_file());
+    assert!(sandbox.root.join("output/aesthetics_patch.toml").is_file());
 }
 
 // TC-SAV-07
@@ -281,6 +320,86 @@ fn a_player_whose_appearance_id_is_set_is_reported_and_stays_set() {
     assert!(lines.contains(&expected), "{lines:#?}");
     let after = EditFile::load(&save).unwrap();
     assert_eq!(after.player(71405).unwrap().appearance_id, Some(71405));
+}
+
+// TC-SAV-08
+#[test]
+fn a_savefile_that_cannot_be_replaced_rolls_the_deployment_back() {
+    let sandbox = Sandbox::new("savefile_write_failed");
+    install_pes(&sandbox);
+    let save = install_save(&sandbox, PesVersion::Pes21);
+    let before = fs::read(&save).unwrap();
+    // `EditFile::save` copies the previous file to `<save>.bak` first: a folder of that
+    // name makes the save impossible to replace.
+    fs::create_dir_all(sandbox.root.join("save/EDIT00000000.bak")).unwrap();
+    sandbox.write("PES/download/4cc_99_test.cpk", b"the old CPK");
+    motion_export(&sandbox, "co Full Motions");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 3, "{lines:#?}");
+    let prefix = format!(
+        "Fatal savefile_write_failed [AbortRun] (path={}, error=",
+        save.display()
+    );
+    let suffix = format!(", output={})", sandbox.display("output"));
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.starts_with(&prefix) && line.ends_with(&suffix)),
+        "{lines:#?}"
+    );
+    assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
+    assert_eq!(
+        fs::read(sandbox.root.join("PES/download/4cc_99_test.cpk")).unwrap(),
+        b"the old CPK",
+        "the deployment rolled back"
+    );
+    assert_eq!(
+        leftover_files(&sandbox, "PES/download"),
+        Vec::<String>::new(),
+        "no .old or .partial left"
+    );
+    assert!(sandbox.root.join("output/4cc_99_test.cpk").is_file());
+    assert!(sandbox.root.join("output/aesthetics_patch.toml").is_file());
+}
+
+// TC-SAV-09
+#[test]
+fn a_patch_that_cannot_be_written_rolls_the_deployment_back() {
+    let sandbox = Sandbox::new("patch_write_failed");
+    install_pes(&sandbox);
+    let save = install_save(&sandbox, PesVersion::Pes21);
+    let before = fs::read(&save).unwrap();
+    // The patch's own path taken by a folder: the write cannot happen.
+    fs::create_dir_all(sandbox.root.join("output/aesthetics_patch.toml")).unwrap();
+    sandbox.write("PES/download/4cc_99_test.cpk", b"the old CPK");
+    motion_export(&sandbox, "co Full Motions");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 3, "{lines:#?}");
+    let prefix = format!(
+        "Fatal patch_write_failed [AbortRun] (path={}, error=",
+        sandbox.display("output/aesthetics_patch.toml")
+    );
+    assert!(
+        lines.iter().any(|line| line.starts_with(&prefix)),
+        "{lines:#?}"
+    );
+    assert_eq!(
+        fs::read(sandbox.root.join("PES/download/4cc_99_test.cpk")).unwrap(),
+        b"the old CPK",
+        "the deployment rolled back"
+    );
+    assert_eq!(
+        leftover_files(&sandbox, "PES/download"),
+        Vec::<String>::new(),
+        "no .old left"
+    );
+    assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
 }
 
 #[cfg(windows)]
@@ -386,4 +505,63 @@ fn a_no_deploy_and_a_test_mode_run_leave_the_savefile_alone() {
         );
         assert_eq!(fs::read(&save).unwrap(), before, "{args:?}");
     }
+}
+
+// A killed run's stale `.old` is replaced when the old CPK moves aside, and the commit
+// removes it: nothing is left.
+// TC-DEP-01
+#[test]
+fn a_stale_old_cpk_from_a_killed_run_leaves_none_after_a_deployed_run() {
+    let sandbox = Sandbox::new("savefile_stale_old");
+    install_pes(&sandbox);
+    install_save(&sandbox, PesVersion::Pes21);
+    sandbox.write("PES/download/4cc_99_test.cpk", b"the old CPK");
+    sandbox.write("PES/download/4cc_99_test.cpk.old", b"a killed run's");
+    motion_export(&sandbox, "co Full Motions");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        sandbox.root.join("PES/download/4cc_99_test.cpk").is_file(),
+        "deployed"
+    );
+    assert_eq!(
+        leftover_files(&sandbox, "PES/download"),
+        Vec::<String>::new(),
+        "no .old left"
+    );
+}
+
+// The scenario's sideload form: no deployment to roll back, so the failure stays an Error
+// and the new `livecpk/` tree stays in place.
+// TC-SAV-05
+#[test]
+fn a_sideload_run_with_a_save_of_another_version_is_an_error_only() {
+    let sandbox = Sandbox::new("savefile_sideload_invalid");
+    sandbox.write("PES/PES2021.exe", b"the game");
+    let save = install_save(&sandbox, PesVersion::Pes19);
+    let before = fs::read(&save).unwrap();
+    motion_export(&sandbox, "co Full Motions");
+
+    let run = sandbox.run(
+        &pes21_settings(&sandbox),
+        &["compile", "--mode", "sideload"],
+    );
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 1, "{lines:#?}");
+    let expected = format!(
+        "Error savefile_invalid [Keep] (path={}, version=PES 2019)",
+        save.display()
+    );
+    assert!(lines.contains(&expected), "{lines:#?}");
+    assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
+    let livecpk = sandbox.root.join("PES/livecpk");
+    assert!(livecpk.is_dir(), "the sideload tree in place");
+    assert!(
+        fs::read_dir(&livecpk).unwrap().next().is_some(),
+        "not empty"
+    );
 }

@@ -2042,3 +2042,8 @@ worklog passed 7,000 lines.
   the maintainer's PES 21 save during the run; contexts fixed, CONTRIBUTING rule added.
 - **2026-10-15** — 5.3b2 mutation run (`mutants-diff e88c5c7`, 23 mutants): one survivor, the
   `savefile_path` type error's wording, killed by a settings test.
+- **2026-10-15** — The maintainer's PES 21 save repaired with the maintainer's approval: 79205's
+  `goal_celebration_1` set back to 1 (his 22 teammates' value), the only field the test wrote.
+- **2026-10-15** — 5.3b3: a deployment keeps the old CPKs aside until the patch and the
+  savefile are written; a failure of either rolls it back (exit 3). Sideload has no rollback.
+- **2026-10-15** — 5.3b3 mutation run (`mutants-diff e3aa21d`): 6 caught, none missed.
