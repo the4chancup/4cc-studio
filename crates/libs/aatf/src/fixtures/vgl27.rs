@@ -8,7 +8,7 @@
 //! version-neutral), which the fluid-formation fixture needs.
 
 use super::*;
-use crate::ruleset::{Card, Position};
+use crate::ruleset::Card;
 
 /// The VGL27 data block, a template ruleset.
 const VGL27: &str = include_str!("../../rulesets/vgl27.rhai");
@@ -16,24 +16,6 @@ const VGL27: &str = include_str!("../../rulesets/vgl27.rhai");
 /// VGL27's rules loaded.
 fn rules() -> Rules {
     Rules::from_data_block(VGL27).expect("VGL27 loads")
-}
-
-/// The card `name` names.
-fn card(name: &str) -> Card {
-    Card::try_from(name.to_string()).expect("a card name")
-}
-
-/// The position `name` names.
-fn position(name: &str) -> Position {
-    Position::try_from(name.to_string()).expect("a position name")
-}
-
-/// A `Special` violation's kind.
-fn special(label: &str, text: &str) -> ViolationKind {
-    ViolationKind::Special {
-        label: label.to_string(),
-        text: text.to_string(),
-    }
 }
 
 /// A `BracketQuota` of the Purple system.
@@ -510,6 +492,26 @@ fn heading_is_a_paid_card() {
     );
 }
 
+/// `card_limits` reports each tier's `a_positions` — two for the
+/// outfield tiers, one for the goalkeepers.
+#[test]
+fn card_limits_reports_each_tiers_a_positions() {
+    let rules = rules();
+    let team = legal_team();
+    for (slot, tier, expected) in [
+        (2, "gold", 2),
+        (5, "silver", 2),
+        (9, "bronze", 2),
+        (0, "goalkeeper", 1),
+        (12, "regular", 2),
+    ] {
+        let limits = rules
+            .card_limits(&team, team.player(slot).expect("filled"), tier)
+            .expect("limits");
+        assert_eq!(limits.a_positions, expected, "{tier}");
+    }
+}
+
 /// The captain's choice: slot 10 (a silver) at one card over the limit
 /// takes the free-card option and is legal; at two over, no single
 /// option covers it and the +1 shows in the limit.
@@ -527,6 +529,55 @@ fn the_captain_gets_one_extra_of_card_com_or_a_position() {
         problems(&rules, &team),
         vec![error(Some(10), ViolationKind::Cards { paid: 7, limit: 6 })]
     );
+}
+
+/// The `free: #{ com: 1 }` option is the one the captain uses where a
+/// second COM style is held: his second style is past the one the tier
+/// frees, and the option's freeing shows in `card_limits` while the
+/// paid limit stays the tier's (the `cards` option untouched).
+#[test]
+fn the_captains_com_option_frees_his_second_com() {
+    let rules = rules();
+    let team = legal_team();
+    let limits = rules
+        .card_limits(&team, team.player(10).expect("slot 10"), "silver")
+        .expect("limits");
+    assert_eq!(
+        limits.free.get("com"),
+        Some(&2),
+        "the option's +1 free COM style"
+    );
+    assert_eq!(limits.limit, 5, "the tier's limit, not `cards`");
+    assert_eq!(problems(&rules, &team), vec![]);
+}
+
+/// The `a_positions` option decides only once the earlier options do
+/// not: a captain with one COM style (the `free: com` option inert) and
+/// a third A position — over the silver allowance — has the option
+/// raise it to three, the paid limit again the tier's.
+#[test]
+fn the_captains_a_positions_option_raises_his_allowance() {
+    let rules = rules();
+    let (cb, dmf) = (position("CB"), position("DMF"));
+    let team = edited(10, |p| {
+        assert_eq!(
+            p.cards
+                .iter()
+                .filter(|c| matches!(c, Card::ComStyle(_)))
+                .count(),
+            2
+        );
+        assert_eq!(p.ratings.iter().filter(|r| **r == 2).count(), 1);
+        p.cards.retain(|c| *c != card("long_ranger"));
+        p.ratings[usize::from(cb.0)] = 2;
+        p.ratings[usize::from(dmf.0)] = 2;
+    });
+    let limits = rules
+        .card_limits(&team, team.player(10).expect("slot 10"), "silver")
+        .expect("limits");
+    assert_eq!(limits.a_positions, 3, "the option's +1 over the silver 2");
+    assert_eq!(limits.limit, 5, "the tier's limit, not `cards`");
+    assert_eq!(problems(&rules, &team), vec![]);
 }
 
 /// The man-marking ban and the support settings are checked, each its

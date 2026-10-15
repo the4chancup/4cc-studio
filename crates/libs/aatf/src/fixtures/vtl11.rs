@@ -9,8 +9,7 @@
 //! codes, which `apply_tier` writes.
 
 use super::*;
-use crate::ruleset::{Card, PlayStyle, Position, Stat};
-use pes_savefile::interchange::team_toml::labels::PLAYABLE_POSITIONS;
+use crate::ruleset::{Card, PlayStyle};
 use pes_savefile::model::playstyle::PlayStyle as SavePlayStyle;
 use pes_savefile::schema::playstyle;
 
@@ -22,32 +21,9 @@ fn rules() -> Rules {
     Rules::from_data_block(VTL11).expect("VTL11 loads")
 }
 
-/// The card `name` names.
-fn card(name: &str) -> Card {
-    Card::try_from(name.to_string()).expect("a card name")
-}
-
-/// The position `name` names.
-fn position(name: &str) -> Position {
-    Position::try_from(name.to_string()).expect("a position name")
-}
-
 /// The playing style `name` names.
 fn play_style(name: &str) -> PlayStyle {
     PlayStyle::try_from(name.to_string()).expect("a playing style name")
-}
-
-/// The ability stat `name` names.
-fn stat(name: &str) -> Stat {
-    Stat::try_from(name.to_string()).expect("a stat name")
-}
-
-/// A `Special` violation's kind.
-fn special(label: &str, text: &str) -> ViolationKind {
-    ViolationKind::Special {
-        label: label.to_string(),
-        text: text.to_string(),
-    }
 }
 
 /// A `Custom` violation on roster `slot` (`None`: the team).
@@ -58,15 +34,6 @@ fn custom(slot: Option<u8>, text: &str) -> Violation {
             text: text.to_string(),
         },
     )
-}
-
-/// The index in `entry`'s `playable` table (the save's order, not the
-/// position table's) of position `name`.
-fn playable_at(name: &str) -> usize {
-    PLAYABLE_POSITIONS
-        .iter()
-        .position(|index| *index == usize::from(position(name).0))
-        .expect("a position")
 }
 
 /// `records` (the sample team, on either build's version) made legal
@@ -789,6 +756,25 @@ fn a_medal_cannot_play_as_goalkeeper() {
             ),
             custom(None, "More than two goalkeepers")
         ]
+    );
+}
+
+/// Two goalkeepers are the floor too, not only the cap the custom check
+/// reads: one made an outfielder (slot 11, registered CB and form back
+/// at the regulars' 4) is the team's `Goalkeepers` violation alone.
+#[test]
+fn one_goalkeeper_is_under_the_floor() {
+    let rules = rules();
+    let (gk, cb) = (position("GK"), position("CB"));
+    let team = edited(11, |p| {
+        p.position = Some(cb);
+        p.ratings[usize::from(gk.0)] = 0;
+        p.ratings[usize::from(cb.0)] = 2;
+        p.form = 4;
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(None, ViolationKind::Goalkeepers { count: 1, min: 2 })]
     );
 }
 

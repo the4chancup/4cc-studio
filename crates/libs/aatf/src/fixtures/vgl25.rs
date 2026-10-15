@@ -15,11 +15,6 @@ fn rules() -> Rules {
     Rules::from_data_block(VGL25).expect("VGL25 loads")
 }
 
-/// The card `name` names.
-fn card(name: &str) -> Card {
-    Card::try_from(name.to_string()).expect("a card name")
-}
-
 /// A `Special` violation's kind.
 fn special(label: &str, text: &str) -> ViolationKind {
     ViolationKind::Special {

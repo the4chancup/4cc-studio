@@ -8,11 +8,12 @@
 //! its own rules first.
 
 use pes_savefile::interchange::team_toml::TeamToml;
+use pes_savefile::interchange::team_toml::labels::PLAYABLE_POSITIONS;
 use pes_savefile::model::player::PlayerEntry;
 use pes_savefile::model::team::TeamEntry;
 use pes_version::PesVersion;
 
-use crate::ruleset::{Severity, Stat, WeakFoot};
+use crate::ruleset::{Card, Position, Severity, Stat, WeakFoot};
 use crate::team::records_from_team_toml;
 use crate::values::TierValues;
 use crate::violation::ViolationKind;
@@ -174,4 +175,36 @@ fn unused(allowance: &str, used: u8, allowed: u8) -> ViolationKind {
         used,
         allowed,
     }
+}
+
+/// The card `name` names.
+fn card(name: &str) -> Card {
+    Card::try_from(name.to_string()).expect("a card name")
+}
+
+/// The position `name` names.
+fn position(name: &str) -> Position {
+    Position::try_from(name.to_string()).expect("a position name")
+}
+
+/// The ability stat `name` names.
+fn stat(name: &str) -> Stat {
+    Stat::try_from(name.to_string()).expect("a stat name")
+}
+
+/// A `Special` violation's kind.
+fn special(label: &str, text: &str) -> ViolationKind {
+    ViolationKind::Special {
+        label: label.to_string(),
+        text: text.to_string(),
+    }
+}
+
+/// The index in `entry`'s `playable` table (the save's order, not the
+/// position table's) of position `name`.
+fn playable_at(name: &str) -> usize {
+    PLAYABLE_POSITIONS
+        .iter()
+        .position(|index| *index == usize::from(position(name).0))
+        .expect("a position")
 }

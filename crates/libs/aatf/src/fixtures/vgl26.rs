@@ -8,7 +8,7 @@
 //! which the fluid-formation fixtures need.
 
 use super::*;
-use crate::ruleset::{Card, Position, Stat};
+use crate::ruleset::Card;
 
 /// The VGL26 data block, a template ruleset.
 const VGL26: &str = include_str!("../../rulesets/vgl26.rhai");
@@ -16,16 +16,6 @@ const VGL26: &str = include_str!("../../rulesets/vgl26.rhai");
 /// VGL26's rules loaded.
 fn rules() -> Rules {
     Rules::from_data_block(VGL26).expect("VGL26 loads")
-}
-
-/// The card `name` names.
-fn card(name: &str) -> Card {
-    Card::try_from(name.to_string()).expect("a card name")
-}
-
-/// The position `name` names.
-fn position(name: &str) -> Position {
-    Position::try_from(name.to_string()).expect("a position name")
 }
 
 /// `records` (the sample team, on either build's version) made legal
@@ -464,6 +454,36 @@ fn man_marking_and_the_support_settings_are_checked() {
     );
 }
 
+/// The captain's Captaincy card and one more are free only through the
+/// special: the captain (slot 10, the sample's Captaincy holder) pushed
+/// to his paid limit is legal — `card_limits` shows the +1 (9 over the
+/// silver 8) and Captaincy among the free cards.
+#[test]
+fn the_captains_special_covers_the_limit_and_the_card() {
+    let rules = rules();
+    assert_eq!(legal_team().captain, Some(10));
+    let team = edited(10, |p| {
+        for name in [
+            "knuckle_shot",
+            "heel_trick",
+            "dipping_shots",
+            "rising_shots",
+            "man_marking",
+        ] {
+            p.cards.push(card(name));
+        }
+    });
+    assert_eq!(problems(&rules, &team), vec![]);
+    let limits = rules
+        .card_limits(&team, team.player(10).expect("slot 10"), "silver")
+        .expect("limits");
+    assert_eq!(limits.limit, 9, "the special's +1 over the silver 8");
+    assert!(
+        limits.free_cards.contains(&card("captaincy")),
+        "Captaincy is free to the captain"
+    );
+}
+
 /// Heading is a free card for everyone, outside the tricks group: a
 /// regular at his card limit (slot 4, three paid plus three more)
 /// holds it on top, where a seventh paid card is over.
@@ -492,6 +512,27 @@ fn heading_is_free_at_the_card_limit() {
         problems(&rules, &team),
         vec![error(Some(4), ViolationKind::Cards { paid: 7, limit: 6 })]
     );
+}
+
+/// `card_limits` reports each tier's `a_positions` — two for the
+/// outfield tiers, one for the goalkeepers.
+#[test]
+fn card_limits_reports_each_tiers_a_positions() {
+    let rules = rules();
+    let team = legal_team();
+    for (slot, tier, expected) in [
+        (2, "gold", 2),
+        (5, "silver", 2),
+        (9, "bronze", 2),
+        (8, "buffed", 2),
+        (0, "goalkeeper", 1),
+        (12, "regular", 2),
+    ] {
+        let limits = rules
+            .card_limits(&team, team.player(slot).expect("filled"), tier)
+            .expect("limits");
+        assert_eq!(limits.a_positions, expected, "{tier}");
+    }
 }
 
 /// A medal's injury resistance is exact (the rules page, stricter than

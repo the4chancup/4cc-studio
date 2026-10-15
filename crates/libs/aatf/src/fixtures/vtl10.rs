@@ -9,8 +9,7 @@
 //! 2/2 weak foot their special debuffs them to.
 
 use super::*;
-use crate::ruleset::{Card, Position, Stat};
-use pes_savefile::interchange::team_toml::labels::PLAYABLE_POSITIONS;
+use crate::ruleset::Card;
 
 /// The VTL10 data block, a template ruleset with custom checks.
 const VTL10: &str = include_str!("../../rulesets/vtl10.rhai");
@@ -18,29 +17,6 @@ const VTL10: &str = include_str!("../../rulesets/vtl10.rhai");
 /// VTL10's rules loaded.
 fn rules() -> Rules {
     Rules::from_data_block(VTL10).expect("VTL10 loads")
-}
-
-/// The card `name` names.
-fn card(name: &str) -> Card {
-    Card::try_from(name.to_string()).expect("a card name")
-}
-
-/// The position `name` names.
-fn position(name: &str) -> Position {
-    Position::try_from(name.to_string()).expect("a position name")
-}
-
-/// The ability stat `name` names.
-fn stat(name: &str) -> Stat {
-    Stat::try_from(name.to_string()).expect("a stat name")
-}
-
-/// A `Special` violation's kind.
-fn special(label: &str, text: &str) -> ViolationKind {
-    ViolationKind::Special {
-        label: label.to_string(),
-        text: text.to_string(),
-    }
 }
 
 /// A `Custom` violation on roster `slot` (`None`: the team).
@@ -51,15 +27,6 @@ fn custom(slot: Option<u8>, text: &str) -> Violation {
             text: text.to_string(),
         },
     )
-}
-
-/// The index in `entry`'s `playable` table (the save's order, not the
-/// position table's) of position `name`.
-fn playable_at(name: &str) -> usize {
-    PLAYABLE_POSITIONS
-        .iter()
-        .position(|index| *index == usize::from(position(name).0))
-        .expect("a position")
 }
 
 /// `records` (the sample team, on either build's version) made legal
@@ -428,6 +395,25 @@ fn no_b_rating_anywhere() {
     );
 }
 
+/// A 188 cm player may not hold an A at CB or GK: a buffed (slot 3)
+/// rated A at CB is the special's violation (as VTL11's twin fixture
+/// shows, the paid limit survives it).
+#[test]
+fn a_188_holds_no_a_at_cb() {
+    let rules = rules();
+    let cb = position("CB");
+    assert_eq!(
+        problems(&rules, &edited(3, |p| p.ratings[usize::from(cb.0)] = 2)),
+        vec![error(
+            Some(3),
+            special(
+                "188cm players have no A at CB or GK",
+                "188cm players may not have an A-position at CB or GK"
+            )
+        )]
+    );
+}
+
 /// VTL10 bans no card — VTL11's GK Penalty Specialist ban is one of its
 /// own: a regular (slot 14) holding it is legal (a paid card, his paid
 /// count rising to five inside the limit).
@@ -529,6 +515,35 @@ fn a_medal_cannot_play_as_goalkeeper() {
                 special("Medals cannot be goalkeepers", "Medals cannot play as GK")
             ),
             custom(None, "More than two goalkeepers")
+        ]
+    );
+}
+
+/// Two goalkeepers are the floor too, not only the cap the custom check
+/// reads: one made an outfielder (slot 11, registered CB and form back
+/// at the regulars' 4) is both the outfield height special's violation
+/// and the team's `Goalkeepers`.
+#[test]
+fn one_goalkeeper_is_under_the_floor() {
+    let rules = rules();
+    let (gk, cb) = (position("GK"), position("CB"));
+    let team = edited(11, |p| {
+        p.position = Some(cb);
+        p.ratings[usize::from(gk.0)] = 0;
+        p.ratings[usize::from(cb.0)] = 2;
+        p.form = 4;
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![
+            error(
+                Some(11),
+                special(
+                    "Outfield regulars are 178cm",
+                    "Outfield regulars must be 178cm"
+                )
+            ),
+            error(None, ViolationKind::Goalkeepers { count: 1, min: 2 })
         ]
     );
 }

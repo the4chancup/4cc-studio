@@ -6,24 +6,9 @@
 use std::collections::BTreeMap;
 
 use super::*;
-use crate::ruleset::{Card, Position, Stat};
+use crate::ruleset::Card;
 use crate::values::CardLimits;
 use crate::violation::CheckError;
-
-/// The ability stat `name` names.
-fn stat(name: &str) -> Stat {
-    Stat::try_from(name.to_string()).expect("a stat name")
-}
-
-/// The position `name` names.
-fn position(name: &str) -> Position {
-    Position::try_from(name.to_string()).expect("a position name")
-}
-
-/// The card `name` names.
-fn card(name: &str) -> Card {
-    Card::try_from(name.to_string()).expect("a card name")
-}
 
 /// The sample team (legal under Spring 26: two golds, three silvers at 88,
 /// goalkeepers at 74, Green quotas 5 giants, 6 tall, 6 mid, 6 manlets)
@@ -522,14 +507,6 @@ fn a_player_below_every_tier_reads_as_the_last_fitting_tier() {
 }
 
 // ---- The specials, one fixture each
-
-/// A `Special` violation's kind.
-fn special(label: &str, text: &str) -> ViolationKind {
-    ViolationKind::Special {
-        label: label.to_string(),
-        text: text.to_string(),
-    }
-}
 
 /// A `BracketQuota` of the Green system.
 fn green_quota(bracket: &str, count: u8, quota: u8) -> Violation {

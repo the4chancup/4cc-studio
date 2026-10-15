@@ -4,26 +4,11 @@
 //! the fixture saves' team 701, edited the smallest amount.
 
 use super::*;
-use crate::ruleset::{Card, Foot, Position};
+use crate::ruleset::{Card, Foot};
 
 /// `text` assembled with the current logic.
 fn rules(text: &str) -> Rules {
     Rules::from_data_block(text).expect("the data block loads")
-}
-
-/// The ability stat `name` names.
-fn stat(name: &str) -> Stat {
-    Stat::try_from(name.to_string()).expect("a stat name")
-}
-
-/// The position `name` names.
-fn position(name: &str) -> Position {
-    Position::try_from(name.to_string()).expect("a position name")
-}
-
-/// The card `name` names.
-fn card(name: &str) -> Card {
-    Card::try_from(name.to_string()).expect("a card name")
 }
 
 /// `team`'s findings on roster `slot` under `rules`, suggestions out.
