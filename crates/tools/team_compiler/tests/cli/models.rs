@@ -106,6 +106,7 @@ fn a_player_s_own_boots_and_gloves_compile_under_its_exclusive_id_with_the_textu
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0625/#Win/boots.fpk",
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
@@ -334,6 +335,7 @@ fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0623/#Win/boots.fpk",
             "Asset/model/character/boots/k0623/#Win/boots.fpkd",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
@@ -405,6 +407,7 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/common/714/07 - B/sourceimages/#windx11/shirt.ftex",
@@ -516,6 +519,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0625/#Win/boots.fpk",
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
@@ -548,6 +552,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
@@ -900,6 +905,7 @@ fn a_shared_folder_s_subfolder_models_are_parts_of_its_package() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=extra/x_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
         ],
         "{lines:#?}"
     );
@@ -911,6 +917,7 @@ fn a_shared_folder_s_subfolder_models_are_parts_of_its_package() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=extra/x_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
             "Info fmdl_merged [Keep] at Boots/Crocs (model=boots.fmdl)",
         ],
@@ -951,6 +958,7 @@ fn a_subfolder_s_shared_link_is_the_root_s_and_names_one_folder_once() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Warning shared_folder_orphaned [DropFolder] at Boots/Tabi ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
         "{lines:#?}"
@@ -1208,6 +1216,7 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
             glove_fpk,
@@ -1308,6 +1317,7 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
@@ -1582,6 +1592,7 @@ fn a_texture_the_player_and_a_combined_boots_folder_hold_is_packed_once_or_overr
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             k0625,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             skin,
@@ -1617,6 +1628,7 @@ fn a_texture_the_player_and_a_combined_boots_folder_hold_is_packed_once_or_overr
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             k0625,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             skin,
@@ -1688,6 +1700,7 @@ fn under_ingame_face_a_texture_the_player_and_a_combined_boots_folder_hold_diffe
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0625/#Win/boots.fpk",
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
@@ -1741,6 +1754,7 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_is_
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex",
@@ -1837,6 +1851,7 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_leave_their_boots_
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0629/#Win/boots.fpk",
             "Asset/model/character/boots/k0629/#Win/boots.fpkd",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
@@ -1886,6 +1901,7 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Mud (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
@@ -1894,6 +1910,7 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0644/#Win/boots.fpk",
             "Asset/model/character/boots/k0644/#Win/boots.fpkd",
             "Asset/model/character/boots/k0644/#windx11/shirt.ftex",
@@ -1999,6 +2016,7 @@ fn shared_ids_follow_the_folder_names_so_a_new_folder_shifts_the_ones_after_it()
             "Info fmdl_weights_not_normalized [Keep] at Boots/Apple (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Zebra (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
@@ -2021,6 +2039,7 @@ fn shared_ids_follow_the_folder_names_so_a_new_folder_shifts_the_ones_after_it()
             "Info fmdl_weights_not_normalized [Keep] at Boots/Mango (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Zebra (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
@@ -2059,6 +2078,7 @@ fn the_planned_ids_are_the_slot_s_and_two_compiles_write_the_same_bytes() {
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0625/#Win/boots.fpk",
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
@@ -2464,7 +2484,10 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
     assert_eq!(
         findings_of(&check.messages(), "co Midcup Variant Crocs"),
-        ["Info export_identified [Keep] (team=/co/, id=714)"]
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
+        ]
     );
     assert_eq!(check.exit_code(), 0);
 
@@ -2474,6 +2497,7 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
         "co Midcup Variant Crocs",
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
             "Warning kit_variant_model_left_out [Keep] at Boots/Crocs (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
         ],
@@ -2535,6 +2559,7 @@ fn a_shared_boots_folder_s_per_kit_models_on_pes_17_collapse_to_the_lowest_varia
         export,
         &[
             CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             CLEAN[1],
             "Warning kit_variant_model_left_out [Keep] at Boots/Studs (model=boots_kitN.model, used=boots_kit1.model)",
         ],
@@ -2929,6 +2954,7 @@ fn a_shared_folder_s_texture_link_names_its_common_texture_on_pes_21() {
         &[
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
@@ -2972,6 +2998,7 @@ fn a_shared_folder_s_texture_link_takes_the_common_file_s_spelling_on_pes_21() {
         &[
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );

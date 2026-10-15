@@ -775,7 +775,15 @@ fn a_linked_boots_folder_is_written_once_as_boots_model_and_boots_mtl_under_its_
     sandbox.write(&format!("{crocs}/boots.mtl"), &materials_naming("crocs"));
     sandbox.write(&format!("{crocs}/crocs.dds"), &small_dds());
 
-    let entries = compile_pes17(&sandbox, export, &CLEAN);
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
+            CLEAN[1],
+        ],
+    );
 
     let boots = entries_under(&entries, "common/character0/model/character/boots/");
     let names: Vec<&str> = boots.keys().copied().collect();
@@ -821,6 +829,7 @@ fn a_shared_boots_folder_with_no_model_takes_no_id_and_warns() {
         &[
             CLEAN[0],
             "Warning shared_folder_no_model [Keep] at Boots/Studs (player=Players/05 - A)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             CLEAN[1],
         ],
     );
@@ -870,6 +879,7 @@ fn a_shared_boots_folder_s_model_of_another_name_is_written_as_boots_model_with_
         &[
             "Info mtl_texture_unused_missing [Keep] at Boots/Mud (file=materials.mtl, texture=./other.dds, materials=card)",
             CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             CLEAN[1],
         ],
     );
@@ -899,7 +909,15 @@ fn a_linked_gloves_folder_is_written_with_a_generated_glove_xml_under_its_shared
     // The texture both sets name: a shared folder's `.mtl` is checked against its own files.
     sandbox.write(&format!("{keeper}/skin.dds"), &small_dds());
 
-    let entries = compile_pes17(&sandbox, export, &CLEAN);
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
+            CLEAN[1],
+        ],
+    );
 
     let gloves = entries_under(&entries, "common/character0/model/character/glove/");
     let names: Vec<&str> = gloves.keys().copied().collect();
@@ -953,7 +971,15 @@ fn a_shared_gloves_folder_s_mtl_files_pack_flattened_at_the_output_s_root() {
     // `glove_l.mtl`'s texture too, at the root.
     sandbox.write(&format!("{keeper}/skin.dds"), &small_dds());
 
-    let entries = compile_pes17(&sandbox, export, &CLEAN);
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
+            CLEAN[1],
+        ],
+    );
 
     let gloves = entries_under(&entries, "common/character0/model/character/glove/");
     let names: Vec<&str> = gloves.keys().copied().collect();
@@ -1012,6 +1038,7 @@ fn a_shared_boots_folder_s_subfolder_fmdl_s_set_names_its_texture_from_the_root(
         &[
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=sub/boots.fmdl, count=1662)",
             CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             CLEAN[1],
             "Info native_field_dropped [Keep] at Boots/Crocs (model=sub/boots.fmdl, field=bone_matrices)",
             "Info native_field_dropped [Keep] at Boots/Crocs (model=sub/boots.fmdl, bone=8, field=skl_parent)",
@@ -1052,6 +1079,7 @@ fn a_shared_folder_s_common_link_is_file_not_used_on_pes_17() {
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Warning file_not_used [Keep] at Boots/Crocs (file=armor.dds.common)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
@@ -1083,6 +1111,7 @@ fn a_shared_folder_s_texture_and_link_of_one_stem_do_not_conflict_on_pes_17() {
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Warning file_not_used [Keep] at Boots/Crocs (file=skin.dds.common)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
@@ -1388,6 +1417,7 @@ fn a_linked_boots_folder_s_fmdl_is_converted_into_boots_model_and_boots_mtl_on_p
                 "Info fmdl_weights_not_normalized [Keep] {folder} (file=boots.fmdl, count=1662)"
             ),
             CLEAN[0].to_owned(),
+            "Warning shared_ids_unrecorded [Keep] (team=714)".to_owned(),
             CLEAN[1].to_owned(),
             format!(
                 "Info native_field_dropped [Keep] {folder} (model=boots.fmdl, field=bone_matrices)"
@@ -1466,6 +1496,7 @@ fn a_linked_gloves_folder_s_fmdls_are_converted_and_listed_in_its_glove_xml_on_p
                 "Info fmdl_weights_not_normalized [Keep] {folder} (file=glove_l.fmdl, count=2)"
             ),
             CLEAN[0].to_owned(),
+            "Warning shared_ids_unrecorded [Keep] (team=714)".to_owned(),
             CLEAN[1].to_owned(),
             format!(
                 "Info native_field_dropped [Keep] {folder} (model=glove_l.fmdl, field=bone_matrices)"

@@ -743,6 +743,7 @@ fn a_model_whose_conversion_fails_leaves_its_package_out_even_with_pass_through(
         assert_eq!(
             paths,
             [
+                "4cc_studio/shared_ids/714.toml",
                 "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex",
                 "Asset/model/character/face/real/71405/#Win/face.fpk",
                 "Asset/model/character/face/real/71405/#Win/face.fpkd",
@@ -895,7 +896,14 @@ fn a_shared_boots_folder_s_model_is_converted_to_its_boots_fmdl_on_pes_21() {
 
     let (code, lines, entries) = compiled_for(&sandbox, 21, "", export);
 
-    assert_eq!(lines, CLEAN);
+    assert_eq!(
+        lines,
+        [
+            CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
+            CLEAN[1]
+        ]
+    );
     assert_eq!(code, 0);
     let skin = "Asset/model/character/boots/k0644/#windx11/skin.ftex";
     assert!(entries.contains_key(skin), "{:?}", entries.keys());
@@ -948,10 +956,11 @@ fn a_shared_folder_s_selected_gltf_drops_every_player_linking_it_on_pes_21_and_1
     let identified = "Info export_identified [Keep] (team=/co/, id=714)";
     let no_colors = "Info team_colors_missing [Keep] ()";
     let slot_06 = format!("exports/{export}/Players/06 - B");
+    let unrecorded = "Warning shared_ids_unrecorded [Keep] (team=714)";
     for (version, findings, kept, dropped) in [
         (
             21,
-            vec![identified, gltf_error, no_colors],
+            vec![identified, unrecorded, gltf_error, no_colors],
             "Asset/model/character/boots/k0626/#Win/boots.fpk".to_owned(),
             ["k0625", "71405", "k0644"],
         ),
@@ -959,6 +968,7 @@ fn a_shared_folder_s_selected_gltf_drops_every_player_linking_it_on_pes_21_and_1
             17,
             vec![
                 identified,
+                unrecorded,
                 gltf_error,
                 no_colors,
                 "Info xml_face_neck_added [Keep] at Players/06 - B ()",
@@ -993,11 +1003,12 @@ fn a_shared_folder_s_selected_gltf_drops_every_player_linking_it_on_pes_21_and_1
             entries.keys()
         );
 
-        // `check` reports neither: the drop is planning's.
+        // `check` reports neither drop, which is planning's; it does report the
+        // `Midcup`'s missing record.
         let run = sandbox.run(&pes_settings(&sandbox, version), &["check"]);
         assert_eq!(
             findings_of(&run.messages(), export),
-            [identified],
+            [identified, unrecorded],
             "PES {version}"
         );
         assert_eq!(run.exit_code(), 0, "PES {version}");
@@ -1595,11 +1606,24 @@ fn a_shared_boots_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_onto_it() 
     assert_eq!(
         lines_15,
         followed_by(
-            &[states, CLEAN[0], CLEAN[1]],
+            &[
+                states,
+                CLEAN[0],
+                "Warning shared_ids_unrecorded [Keep] (team=714)",
+                CLEAN[1]
+            ],
             moved_cap_lines("at Boots/Cap", "boots.model")
         )
     );
-    assert_eq!(lines_16, [states, CLEAN[0], CLEAN[1]]);
+    assert_eq!(
+        lines_16,
+        [
+            states,
+            CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
+            CLEAN[1]
+        ]
+    );
     // One part: on PES 2016 the output's model is the source as it is.
     assert!(model_16 == source);
     assert!(model_15 != source);
@@ -1640,11 +1664,24 @@ fn a_shared_gloves_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_its_mtl_a
     assert_eq!(
         lines_15,
         followed_by(
-            &[states, CLEAN[0], CLEAN[1]],
+            &[
+                states,
+                CLEAN[0],
+                "Warning shared_ids_unrecorded [Keep] (team=714)",
+                CLEAN[1]
+            ],
             moved_cap_lines("at Gloves/Cap", "glove_l.model")
         )
     );
-    assert_eq!(lines_16, [states, CLEAN[0], CLEAN[1]]);
+    assert_eq!(
+        lines_16,
+        [
+            states,
+            CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
+            CLEAN[1]
+        ]
+    );
     assert!(model_16 == source);
     assert!(model_15 != source);
     // The member's `.mtl`, packed as on any version.

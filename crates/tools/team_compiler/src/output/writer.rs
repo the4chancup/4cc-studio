@@ -21,6 +21,7 @@ use pes_savefile::player_tables::{AppearanceTable, ItemList, PlayerTableFile};
 
 use crate::bins::kit_configs::{kit_configs, loose_kit_configs};
 use crate::bins::player_tables::{ItemTable, apply, left_out, table_missing};
+use crate::bins::shared_ids::SharedIds;
 use crate::bins::{KitColorEntry, Rgb, WorkingBins, uni_color_kit_number};
 use crate::messages::{Code, tool_message};
 use crate::output::parts::TeamsParts;
@@ -30,6 +31,41 @@ use crate::plan::TeamKits;
 use crate::plan::item_rows::PlayerRows;
 use crate::processing::TaskBatch;
 use crate::templates::Templates;
+
+/// The manifest's per-team writes beside the tasks' own: the `TeamColor.bin` colors, the
+/// `UniColor.bin`/`UniformParameter.bin` kits, the player tables' rows and the shared-IDs
+/// records (`pipeline.md` "Bins accumulation").
+#[derive(Clone, Copy)]
+pub(crate) struct BinsEdits<'a> {
+    /// Each planned team's colors for its `TeamColor.bin` record.
+    pub(crate) team_colors: &'a [(u16, Vec<Rgb>)],
+    /// Each planned team export's kits, for its `UniColor.bin` record and
+    /// `UniformParameter.bin` configs.
+    pub(crate) team_kits: &'a [TeamKits],
+    /// Every planned team export's compiled players' `BootsList.bin`, `GloveList.bin` and
+    /// `PlayerAppearance.bin` rows.
+    pub(crate) player_rows: &'a PlayerRows,
+    /// Each planned team export's shared-IDs record to write, whatever its folders' tasks'
+    /// outcomes.
+    pub(crate) shared_ids: &'a [(u16, SharedIds)],
+}
+
+impl BinsEdits<'static> {
+    /// The empty edits: no team compiled anything.
+    #[cfg(test)]
+    pub(crate) fn empty() -> BinsEdits<'static> {
+        static ROWS: PlayerRows = PlayerRows {
+            items: Vec::new(),
+            appearance: Vec::new(),
+        };
+        BinsEdits {
+            team_colors: &[],
+            team_kits: &[],
+            player_rows: &ROWS,
+            shared_ids: &[],
+        }
+    }
+}
 
 /// One CPK's entries being written into `sink`, a CPK file or a folder of loose files. The
 /// overrides go in with the first committed entry, or at the end when only they go in, so a
@@ -291,9 +327,7 @@ impl CpkOutput {
         mut self,
         version: PesVersion,
         bins: WorkingBins,
-        team_colors: &[(u16, Vec<Rgb>)],
-        team_kits: &[TeamKits],
-        player_rows: &PlayerRows,
+        edits: BinsEdits<'_>,
         templates: &Templates,
     ) -> anyhow::Result<(Written, Vec<Message>)> {
         ensure!(
@@ -306,8 +340,7 @@ impl CpkOutput {
             Some(referees) => self.finish_referees(referees, version, templates, &mut messages)?,
             None => false,
         };
-        let (team, team_messages) =
-            self.finish_team(version, bins, team_colors, team_kits, player_rows)?;
+        let (team, team_messages) = self.finish_team(version, bins, &edits)?;
         messages.extend(team_messages);
         Ok((Written { team, refs }, messages))
     }
@@ -416,10 +449,14 @@ impl CpkOutput {
         mut self,
         version: PesVersion,
         bins: WorkingBins,
-        team_colors: &[(u16, Vec<Rgb>)],
-        team_kits: &[TeamKits],
-        player_rows: &PlayerRows,
+        edits: &BinsEdits<'_>,
     ) -> anyhow::Result<(bool, Vec<Message>)> {
+        let BinsEdits {
+            team_colors,
+            team_kits,
+            player_rows,
+            shared_ids,
+        } = *edits;
         // A run in which no team committed anything writes no file, so it adds no bin either,
         // unless the overrides go into the CPK: they are written whatever the exports bring;
         // or the referee configs changed the bins on PES 18-21: their entries need the bin;
@@ -512,6 +549,11 @@ impl CpkOutput {
             player_rows,
             &mut messages,
         )?;
+        // Every compiled team's shared-IDs record, the planned assignment whatever the
+        // folders' tasks' outcomes, beside the bins (`pipeline.md` "Bins accumulation").
+        for (team_id, record) in shared_ids {
+            self.add_bin(&paths::shared_ids(*team_id), &record.write(), &mut messages)?;
+        }
         self.sink.finish()?;
         if let Some(parts) = self.parts {
             parts.finish()?;
@@ -731,9 +773,7 @@ mod tests {
         let (written, messages) = output.finish(
             version,
             WorkingBins::bundled(version, &Templates::embedded()),
-            &[],
-            &[],
-            &PlayerRows::default(),
+            BinsEdits::empty(),
             &Templates::embedded(),
         )?;
         assert_eq!(messages, []);
@@ -1112,9 +1152,10 @@ mod tests {
             .finish(
                 PesVersion::Pes21,
                 WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()),
-                &team_714_colors(),
-                &[],
-                &PlayerRows::default(),
+                BinsEdits {
+                    team_colors: &team_714_colors(),
+                    ..BinsEdits::empty()
+                },
                 &Templates::embedded(),
             )
             .unwrap();
@@ -1232,9 +1273,7 @@ mod tests {
             .finish(
                 PesVersion::Pes21,
                 bundled(),
-                &[],
-                &[],
-                &PlayerRows::default(),
+                BinsEdits::empty(),
                 &Templates::embedded(),
             )
             .unwrap()
@@ -1333,9 +1372,7 @@ mod tests {
             .finish(
                 PesVersion::Pes17,
                 WorkingBins::bundled(PesVersion::Pes17, &Templates::embedded()),
-                &[],
-                &[],
-                &PlayerRows::default(),
+                BinsEdits::empty(),
                 &Templates::embedded(),
             )
             .unwrap();
@@ -1436,9 +1473,7 @@ mod tests {
             .finish(
                 PesVersion::Pes17,
                 WorkingBins::bundled(PesVersion::Pes17, &templates),
-                &[],
-                &[],
-                &PlayerRows::default(),
+                BinsEdits::empty(),
                 &templates,
             )
             .unwrap();
@@ -1486,9 +1521,7 @@ mod tests {
             .finish(
                 version,
                 WorkingBins::bundled(version, templates),
-                &[],
-                &[],
-                &PlayerRows::default(),
+                BinsEdits::empty(),
                 templates,
             )
             .unwrap();
@@ -1639,9 +1672,7 @@ mod tests {
             .finish(
                 PesVersion::Pes17,
                 WorkingBins::bundled(PesVersion::Pes17, &templates),
-                &[],
-                &[],
-                &PlayerRows::default(),
+                BinsEdits::empty(),
                 &templates,
             )
             .unwrap();
@@ -1751,14 +1782,7 @@ mod tests {
             .unwrap();
 
         let error = output
-            .finish(
-                PesVersion::Pes21,
-                bundled(),
-                &[],
-                &[],
-                &PlayerRows::default(),
-                &templates,
-            )
+            .finish(PesVersion::Pes21, bundled(), BinsEdits::empty(), &templates)
             .expect_err("an undecodable config with the marker");
 
         assert!(
@@ -1949,9 +1973,7 @@ mod tests {
             .finish(
                 PesVersion::Pes21,
                 bins,
-                &[],
-                &[],
-                &PlayerRows::default(),
+                BinsEdits::empty(),
                 &Templates::embedded(),
             )
             .unwrap();
@@ -2106,9 +2128,10 @@ mod tests {
             .finish(
                 PesVersion::Pes21,
                 bins,
-                &team_714_colors(),
-                &[],
-                &PlayerRows::default(),
+                BinsEdits {
+                    team_colors: &team_714_colors(),
+                    ..BinsEdits::empty()
+                },
                 &Templates::embedded(),
             )
             .unwrap();
@@ -2200,9 +2223,10 @@ mod tests {
                 .finish(
                     PesVersion::Pes21,
                     broken,
-                    &team_colors,
-                    &[],
-                    &PlayerRows::default(),
+                    BinsEdits {
+                        team_colors: &team_colors,
+                        ..BinsEdits::empty()
+                    },
                     &Templates::embedded(),
                 )
                 .unwrap();
@@ -2255,9 +2279,7 @@ mod tests {
             .finish(
                 PesVersion::Pes21,
                 bins,
-                &[],
-                &[],
-                &PlayerRows::default(),
+                BinsEdits::empty(),
                 &Templates::embedded(),
             )
             .unwrap();
@@ -2416,9 +2438,10 @@ mod tests {
             .finish(
                 PesVersion::Pes21,
                 bins,
-                &[],
-                &[team],
-                &PlayerRows::default(),
+                BinsEdits {
+                    team_kits: &[team],
+                    ..BinsEdits::empty()
+                },
                 &Templates::embedded(),
             )
             .unwrap();
@@ -2540,9 +2563,10 @@ mod tests {
             .finish(
                 PesVersion::Pes21,
                 bins,
-                &[],
-                &[],
-                &player_rows,
+                BinsEdits {
+                    player_rows: &player_rows,
+                    ..BinsEdits::empty()
+                },
                 &Templates::embedded(),
             )
             .unwrap();

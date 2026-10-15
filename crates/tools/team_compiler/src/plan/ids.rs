@@ -4,7 +4,7 @@
 //! every ID and processing never allocates one, and the same export always compiles to the same
 //! IDs.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use aesthetics_export::{
     PlayerFolder, PlayerSlot, SharedKind, SharedModelFolder, ValidatedAestheticsExport,
@@ -15,6 +15,7 @@ use teams_list::TeamId;
 use vtree::ScopePath;
 
 use super::roles::{FolderModels, PlayerFile, link_feeds_own_package, package_of, player_file};
+use crate::bins::shared_ids::SharedIds;
 
 /// The first ID of the first team's block: IDs 0 to 100 are the stock band.
 const FIRST_BLOCK: u16 = 101;
@@ -62,6 +63,67 @@ impl PlannedModelIds {
             .filter(|index| *index < SHARED_COUNT)?;
         Some(self.block_start + EXCLUSIVE_COUNT + index)
     }
+}
+
+/// The shared ID each of `folders` (`shared_folders_taking_ids`' output for `kind`, in its
+/// case-folded alphabetical order) takes, in the same order, for a team of block `ids`
+/// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team
+/// already has"): with `record` `None` — a `Full` export, or a `Midcup` the installed CPKs
+/// hold no record of — the `index`-th of the block's shared IDs; with one — a `Midcup`'s —
+/// a folder it names (names compare case-folded) keeps its ID, and every other folder takes
+/// the lowest of the block's shared IDs neither the record's entries nor the earlier new
+/// folders hold.
+/// `Err(demand)` when the block's shared IDs do not reach: the count of them the team's
+/// folders need — the record's in-block entries plus the folders it does not name (a `Full`
+/// export's being its folders), which `pool_messages` reports as `boots_id_pool_exhausted` or
+/// `gloves_id_pool_exhausted`. A recorded ID outside the block takes no free slot: it is not
+/// one of the seventeen.
+pub(crate) fn assigned_shared_ids(
+    ids: PlannedModelIds,
+    kind: SharedKind,
+    folders: &[&SharedModelFolder],
+    record: Option<&SharedIds>,
+) -> Result<Vec<u16>, usize> {
+    let table = record.map(|record| record.of(kind));
+    let first = ids.shared(0).expect("a team's block holds the shared IDs");
+    // The record's folder names folded to the IDs they hold, the lower ID winning a folded
+    // collision (a hand-edited file's).
+    let held: BTreeMap<String, u16> =
+        table
+            .into_iter()
+            .flatten()
+            .fold(BTreeMap::new(), |mut held, (id, name)| {
+                held.entry(vtree::fold_name(name)).or_insert(*id);
+                held
+            });
+    // The shared IDs the record's entries hold inside the block.
+    let taken = table.map_or(0, |table| {
+        table
+            .keys()
+            .filter(|id| (first..first + SHARED_COUNT).contains(id))
+            .count()
+    });
+    let new = folders
+        .iter()
+        .filter(|folder| !held.contains_key(&vtree::fold_name(&folder.folder_name)))
+        .count();
+    if new + taken > usize::from(SHARED_COUNT) {
+        return Err(taken + new);
+    }
+    let mut free = (0..SHARED_COUNT)
+        .map(|index| first + index)
+        .filter(|id| table.is_none_or(|table| !table.contains_key(id)));
+    Ok(folders
+        .iter()
+        .map(|folder| {
+            held.get(&vtree::fold_name(&folder.folder_name))
+                .copied()
+                .unwrap_or_else(|| {
+                    free.next()
+                        .expect("the new folders fit the free shared IDs, checked above")
+                })
+        })
+        .collect())
 }
 
 /// The shared folders of `kind` in `export` that take a shared ID when compiled for `engine`,
@@ -373,6 +435,101 @@ mod tests {
         assert_eq!(
             taking(&files, None, Engine::Fox, SharedKind::Boots),
             Vec::<String>::new()
+        );
+    }
+
+    /// A shared folder `Boots/<name>` as `assigned_shared_ids` sees it.
+    fn shared_folder(name: &str) -> SharedModelFolder {
+        SharedModelFolder {
+            path: ScopePath::new(&format!("Boots/{name}")).unwrap(),
+            folder_name: name.to_owned(),
+            files: Vec::new(),
+        }
+    }
+
+    /// `assigned_shared_ids` over `folders` for team 714's boots block, `record` its
+    /// installed one when given.
+    fn assignment(
+        folders: &[&SharedModelFolder],
+        record: Option<&SharedIds>,
+    ) -> Result<Vec<u16>, usize> {
+        assigned_shared_ids(
+            PlannedModelIds::for_team(team(714)),
+            SharedKind::Boots,
+            folders,
+            record,
+        )
+    }
+
+    #[test]
+    fn a_folder_the_record_names_keeps_its_id_compared_case_folded() {
+        let crocs = shared_folder("crocs");
+        let new = shared_folder("New");
+        let record = SharedIds {
+            boots: BTreeMap::from([(645, "Crocs".to_owned())]),
+            gloves: BTreeMap::new(),
+        };
+        assert_eq!(
+            assignment(&[&crocs, &new], Some(&record)),
+            Ok(vec![645, 644])
+        );
+    }
+
+    #[test]
+    fn new_folders_take_the_lowest_free_ids_alphabetically_around_a_recorded_one() {
+        let alpha = shared_folder("Alpha");
+        let bravo = shared_folder("Bravo");
+        let mango = shared_folder("Mango");
+        let record = SharedIds {
+            boots: BTreeMap::from([(645, "Mango".to_owned())]),
+            gloves: BTreeMap::new(),
+        };
+        // Alpha and Bravo sort before and beside Mango: the first free ID, then the next.
+        assert_eq!(
+            assignment(&[&alpha, &bravo, &mango], Some(&record)),
+            Ok(vec![644, 646, 645])
+        );
+    }
+
+    #[test]
+    fn the_pool_is_exhausted_when_the_new_folders_outnumber_the_free_ids() {
+        let record = SharedIds {
+            boots: (0..16u16)
+                .map(|index| (644 + index, format!("R{index:02}")))
+                .collect(),
+            gloves: BTreeMap::new(),
+        };
+        let alpha = shared_folder("Alpha");
+        let bravo = shared_folder("Bravo");
+        // 16 recorded entries and 2 new folders need 18 of the block's 17 shared IDs.
+        assert_eq!(assignment(&[&alpha, &bravo], Some(&record)), Err(18));
+        // One new folder: the last free ID serves it.
+        assert_eq!(assignment(&[&alpha], Some(&record)), Ok(vec![660]));
+        // And with no record the folders are numbered from 644, the same 16.
+        let ids: Vec<u16> = (644..660).collect();
+        let folders: Vec<SharedModelFolder> = record
+            .boots
+            .values()
+            .map(|name| shared_folder(name))
+            .collect();
+        let refs: Vec<&SharedModelFolder> = folders.iter().collect();
+        assert_eq!(assignment(&refs, None), Ok(ids));
+    }
+
+    #[test]
+    fn a_recorded_id_outside_the_block_takes_none_of_its_shared_ids() {
+        // 700 is no ID of team 714's block (644 to 660): all 17 stay free for new folders.
+        let record = SharedIds {
+            boots: BTreeMap::from([(700, "Stray".to_owned())]),
+            gloves: BTreeMap::new(),
+        };
+        let folders: Vec<SharedModelFolder> = (0..17)
+            .map(|index| shared_folder(&format!("F{index:02}")))
+            .collect();
+        let refs: Vec<&SharedModelFolder> = folders.iter().collect();
+        assert_eq!(
+            assignment(&refs, Some(&record)),
+            Ok((644..=660).collect::<Vec<u16>>())
         );
     }
 

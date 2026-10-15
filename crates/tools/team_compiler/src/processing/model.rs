@@ -970,6 +970,10 @@ impl From<MergeError> for TaskFailure {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use crate::bins::installed::WalkedCpks;
+
     use super::*;
 
     /// Team 714's Common texture directory.
@@ -1081,14 +1085,9 @@ mod tests {
             file_name: file_name.to_owned(),
             directory: COMMON_714.to_owned(),
         };
-        let installed = InstalledPaths::Known(
-            [vtree::fold_name(&paths::common_texture(
-                Engine::Fox,
-                714,
-                "pants_kit1",
-            ))]
-            .into(),
-        );
+        let installed = InstalledPaths::Known(WalkedCpks::from(HashSet::from([vtree::fold_name(
+            &paths::common_texture(Engine::Fox, 714, "pants_kit1"),
+        )])));
         let lookup = installed_lookup(&installed, 714);
         let none = TextureFolders::default();
         let no_verdict = BTreeMap::new();
@@ -1127,14 +1126,9 @@ mod tests {
             file_name: file_name.to_owned(),
             directory: kitn.to_owned(),
         };
-        let installed = InstalledPaths::Known(
-            [vtree::fold_name(&paths::common_texture(
-                Engine::Fox,
-                714,
-                "kit1/armor_bsm",
-            ))]
-            .into(),
-        );
+        let installed = InstalledPaths::Known(WalkedCpks::from(HashSet::from([vtree::fold_name(
+            &paths::common_texture(Engine::Fox, 714, "kit1/armor_bsm"),
+        )])));
         let lookup = installed_lookup(&installed, 714);
         let none = TextureFolders::default();
         let no_verdict = BTreeMap::new();
@@ -1367,12 +1361,12 @@ mod tests {
     #[test]
     fn a_common_path_is_pointed_at_the_fox_common_output_whether_held_or_not() {
         // The installed CPKs hold `skin` and `jessie/skin` below `Common/` and nothing else.
-        let installed = InstalledPaths::Known(
+        let installed = InstalledPaths::Known(WalkedCpks::from(
             ["skin", "jessie/skin"]
                 .iter()
                 .map(|below| vtree::fold_name(&paths::common_texture(Engine::Fox, 714, below)))
-                .collect(),
-        );
+                .collect::<HashSet<String>>(),
+        ));
         let known = installed_lookup(&installed, 714);
         let uninstalled = InstalledPaths::Unknown;
         let unknown = installed_lookup(&uninstalled, 714);

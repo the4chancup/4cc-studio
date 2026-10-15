@@ -19,7 +19,7 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
-5.y-gloves done 2026-10-15; next 5.3a, then 5.3b; step 20.0b (the Ruleset editor draft) done 2026-10-14
+5.y-gloves and 5.3a (a1 to a5, its review loop closed) done 2026-10-15; next 5.3b; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1027,7 +1027,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       without its fix. `option_used`'s `stat_bonus` branch per stat against `targets`; five
       tests. `aatf` `logic/logic.rhai`, `src/file.rs` (logic hash), `src/fixtures/interpreter.rs`
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
-  - [ ] 5.3a the player tables, in slices (code survey 2026-10-15: the settings are parsed
+  - [x] 5.3a the player tables, in slices (code survey 2026-10-15: the settings are parsed
     only to validate them and reach no planning; boots/gloves rows exist, appearance rows pass
     through; no default-ID rows, no per-version range, no FPC on players, no record). Each slice
     marks the TC-BIN-10/17/22 it restates `withdrawn: restated as TC-BIN-25/26/27` in the commit
@@ -1099,9 +1099,16 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       referee exports on both engines. `pes_savefile` `ops/fpc.rs`, `settings_toml/`;
       `team_compiler` `validation.rs`, `plan/item_rows.rs`, `messages.rs`,
       `tests/cli/{bins,referees}.rs`
-    - [ ] 5.3a5 the shared-ID record and a Midcup reading it
+    - [x] 5.3a5 the shared-ID record and a Midcup reading it
       (`plans/aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
-      team already has", `shared_ids_unrecorded`) → done when: TC-BIN-34 to 36 pass
+      team already has", `shared_ids_unrecorded`) → done when: TC-BIN-34 to 36 pass. Done:
+      `bins/shared_ids.rs` (`SharedIds`); the walk takes each team's topmost record for
+      `compile` and `check` alike (the bins CPK first in multi-CPK mode);
+      `ids::assigned_shared_ids` serves planning and `pool_messages`; every team export's
+      record is written through `add_bin`. TC-BIN-34 gained slot 06 linking adidas (an
+      unlinked shared folder takes no ID). `team_compiler` `bins/`, `plan/ids.rs`,
+      `plan/mod.rs`, `validation.rs`, `output/writer.rs`, `paths.rs`, `check.rs`,
+      `compile.rs`, about 70 tests gaining the record entry or the warning
     The `autopilot` marker moves to 5.3b, its only consumer (the patch's names).
   - [ ] 5.3b the `autopilot` marker in `aesthetics_export`, the patch and the local savefile →
     done when: TC-SAV-01 to 12 and TC-BIN-31 to 33's patch halves pass (TC-SAV-10 a `manual:`

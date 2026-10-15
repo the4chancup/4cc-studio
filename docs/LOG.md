@@ -2026,3 +2026,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.3a1-r2: the review loop over 5.3a1-a3 closes (T.S1 2, T.A1 1, T.S2 3
   accepted, one later found unreachable); tests for the review's cases and 5.3a4's two mutation
   survivors; TC-BIN-38 proven.
+- **2026-10-15** — 5.3a5: every compiled CPK records each team's shared IDs
+  (`4cc_studio/shared_ids/<team>.toml`) and a Midcup keeps the recorded ones, warning
+  `shared_ids_unrecorded` without a record (TC-BIN-34 to 36). Step 5.3a done; 5.3b next.

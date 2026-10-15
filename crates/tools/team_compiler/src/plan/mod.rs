@@ -25,12 +25,13 @@ use teams_list::TeamId;
 use vtree::ScopePath;
 
 use crate::bins::Rgb;
+use crate::bins::shared_ids::SharedIds;
 use crate::kit_variants::{kit_number, model_variant_sets};
 use crate::messages::{Code, tool_message};
 use crate::mtl_search::mtl_for;
 use crate::paths::{PackageKey, REFEREE_TEAM_ID, TextureHome};
 use collars::export_collar;
-use ids::{PlannedModelIds, shared_folders_taking_ids};
+use ids::{PlannedModelIds, assigned_shared_ids, shared_folders_taking_ids};
 use item_rows::{PlayerRows, RowPlayer, export_rows};
 use roles::{
     FolderModels, ModelPackage, PlayerFile, below_common, combined_folders, common_file,
@@ -75,6 +76,10 @@ pub(crate) struct BuildManifest {
     /// referees) and the text of its root `notes.txt`, in export order, for `teamnotes.txt`.
     /// An export without a note is not listed.
     pub(crate) notes: Vec<(String, String)>,
+    /// Each planned team export's shared-IDs record as planned (`player_folders.md` "A
+    /// `Midcup` export keeps the shared IDs the team already has"), by team ID, in export
+    /// order: written into the CPK whatever its folders' tasks' outcomes.
+    pub(crate) shared_ids: Vec<(u16, SharedIds)>,
 }
 
 /// A planned team export's kits.
@@ -964,6 +969,9 @@ pub(crate) struct ExportToPlan {
     pub(crate) team_colors: Option<Vec<Rgb>>,
     /// The text of its root `notes.txt`; `None` when it has none.
     pub(crate) notes: Option<String>,
+    /// The team's shared-IDs record the installed CPKs hold; `None` for a referee export, or
+    /// when no installed CPK holds one for the team.
+    pub(crate) shared_ids: Option<SharedIds>,
     /// The export paths of its models (`.fmdl`, `.model`) whose vertices carry hand weights,
     /// as the deep pass found them (`deep::ContentPass::hand_weighted`): a player's face model
     /// among them is hand auto-split (`ModelFolder::hand_split`).
@@ -998,6 +1006,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
     let mut team_kits = Vec::new();
     let mut player_rows = PlayerRows::default();
     let mut notes = Vec::new();
+    let mut shared_ids = Vec::new();
     let mut messages = Vec::new();
     // Each claimed collar's ID and its claimant's name. Planning is serial and takes the
     // exports in canonical order, so the earlier export keeps a collar two exports claim.
@@ -1007,6 +1016,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         export: mut resolved,
         team_colors: colors,
         notes: note,
+        shared_ids: installed_ids,
         hand_weighted,
         metal_models,
         settings: mut player_settings,
@@ -1132,17 +1142,34 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 .collect(),
         };
         // The shared folders taking an id, each with its package and that id, in the id order
-        // of the kind: the boots folders, then the gloves folders.
+        // of the kind: the boots folders, then the gloves folders. A `Midcup` export's record
+        // keeps the IDs the installed record gives its folders; a `Full` export's, or one the
+        // installed CPKs hold no record of, numbers its own.
         let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
+        let midcup_record = match export.coverage {
+            ExportCoverage::Midcup => installed_ids.as_ref(),
+            ExportCoverage::Full => None,
+        };
+        let mut output_record = midcup_record.cloned().unwrap_or_default();
         for kind in [SharedKind::Boots, SharedKind::Gloves] {
             let package = package_of(kind);
             let folders =
                 shared_folders_taking_ids(&export, version.engine(), kind, &hand_weighted);
-            for (index, folder) in folders.into_iter().enumerate() {
-                let shared_id = u32::from(model_ids.and_then(|ids| ids.shared(index)).expect(
+            let assignment = match model_ids {
+                Some(ids) => assigned_shared_ids(ids, kind, &folders, midcup_record).expect(
                     "a referee's links take no shared id, and the structure pass drops a \
                          team export whose shared pool is exhausted",
-                ));
+                ),
+                None => Vec::new(),
+            };
+            let assigned: Vec<(u16, String)> = folders
+                .iter()
+                .zip(assignment.iter())
+                .map(|(folder, id)| (*id, folder.folder_name.clone()))
+                .collect();
+            output_record = output_record.extended(kind, &assigned);
+            for (folder, shared_id) in folders.into_iter().zip(assignment) {
+                let shared_id = u32::from(shared_id);
                 let mut folder = ModelFolder {
                     path: folder.path.clone(),
                     files: folder.files.clone(),
@@ -1499,6 +1526,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             edits,
             slots,
         });
+        shared_ids.push((team_id, output_record));
         if let Some(logo) = export.logo {
             tasks.push(task(export_id, team_id, TaskKind::Logo { logo }));
         }
@@ -1513,6 +1541,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             team_kits,
             player_rows,
             notes,
+            shared_ids,
         },
         messages,
     }

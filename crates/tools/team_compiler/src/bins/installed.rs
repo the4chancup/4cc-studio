@@ -28,6 +28,7 @@ use uniparam::UniformParameter;
 use pes_savefile::player_tables::{AppearanceTable, ItemList, PlayerTableFile};
 
 use super::player_tables::ItemTable;
+use super::shared_ids::SharedIds;
 use super::{TeamColorBin, UniColorBin, WorkingBins, dpfl};
 use crate::kit_variants::kit_lookup_keys;
 use crate::messages::{Code, deploy_message, tool_message};
@@ -51,8 +52,31 @@ pub(crate) enum InstalledPaths {
     /// The lookup cannot be made: no PES folder, no `DpFileList.bin`, or a list that does not
     /// name the run's CPK, so nothing is known to come before it.
     Unknown,
+    /// What the walk took from those CPKs.
+    Known(WalkedCpks),
+}
+
+/// What the walk of the installed CPKs listed before the run's took
+/// (`InstalledPaths::Known`).
+#[derive(Debug, Default, PartialEq)]
+pub(crate) struct WalkedCpks {
     /// Every entry path of those CPKs, folded (`vtree::fold_name`).
-    Known(HashSet<String>),
+    pub(crate) paths: HashSet<String>,
+    /// Each team's shared-IDs record (`4cc_studio/shared_ids/<team_id>.toml`), from the
+    /// topmost CPK holding one, the bins CPK itself first in multi-CPK mode
+    /// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
+    /// team already has").
+    pub(crate) shared_ids: BTreeMap<u16, SharedIds>,
+}
+
+impl From<HashSet<String>> for WalkedCpks {
+    /// The paths alone: no record is read from a set built by hand.
+    fn from(paths: HashSet<String>) -> WalkedCpks {
+        WalkedCpks {
+            paths,
+            shared_ids: BTreeMap::new(),
+        }
+    }
 }
 
 impl InstalledPaths {
@@ -71,7 +95,7 @@ impl InstalledPaths {
     pub(crate) fn common_texture_stems(&self, engine: Engine, team_id: u16) -> BTreeSet<String> {
         let paths = match self {
             InstalledPaths::Unknown => return BTreeSet::new(),
-            InstalledPaths::Known(paths) => paths,
+            InstalledPaths::Known(walked) => &walked.paths,
         };
         // The path of the empty `below`, cut at the stem, gives the folded head and tail
         // every Common texture path of the team has.
@@ -107,6 +131,15 @@ impl InstalledPaths {
                     .flat_map(kit_lookup_keys)
                     .collect()
             }
+        }
+    }
+
+    /// Team `team_id`'s shared-IDs record, the topmost the walk found; `None` when no CPK
+    /// holds one or no walk was made.
+    pub(crate) fn shared_ids(&self, team_id: u16) -> Option<&SharedIds> {
+        match self {
+            InstalledPaths::Unknown => None,
+            InstalledPaths::Known(walked) => walked.shared_ids.get(&team_id),
         }
     }
 }
@@ -217,8 +250,9 @@ enum Place {
 /// The bins a run compiling `cpk_stem` for `version` builds on, taken from the installed
 /// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), passing over the
 /// refs CPK `refs` when the run writes one, a bin none of them holds from its bundled base in
-/// the run's `templates` (a Fox player table, having none, is then absent), the entry paths of
-/// the CPKs walked, and the findings: a `bin_source` per bin found or bundled, and
+/// the run's `templates` (a Fox player table, having none, is then absent), the entry paths
+/// of the CPKs walked, and each team's shared-IDs record (`take_shared_ids`), and the
+/// findings: a `bin_source` per bin found or bundled, and
 /// `dpfilelist_missing` when the folder has no list (an Error when the run `deploys`, a
 /// Warning when not). `multicpk` is the run writing the parts layout: `cpk_stem` is then the
 /// bins CPK's stem and the player tables' walk starts at the installed CPK of its name
@@ -257,12 +291,13 @@ pub(crate) fn working_bins(
     };
     let mut messages = Vec::new();
     let mut bins = WorkingBins::bundled(version, templates);
+    let mut shared_ids = BTreeMap::new();
     let walked = walk(pes_folder, cpk_stem, refs, multicpk, |cpk, name, place| {
         take_bins(cpk, name, place, &mut wanted, &mut bins)?;
         if gathers_loose_kit_configs && place == Place::Below {
             take_loose_kit_configs(cpk, &mut bins.loose_kit_configs)?;
         }
-        Ok(())
+        take_shared_ids(cpk, &mut shared_ids)
     })?;
     let installed = match walked {
         Walk::NotMade => InstalledPaths::Unknown,
@@ -276,7 +311,7 @@ pub(crate) fn working_bins(
             ));
             InstalledPaths::Unknown
         }
-        Walk::Walked(paths) => InstalledPaths::Known(paths),
+        Walk::Walked(paths) => InstalledPaths::Known(WalkedCpks { paths, shared_ids }),
     };
     for Wanted { bin, found } in wanted {
         let cpk = match found {
@@ -296,14 +331,18 @@ pub(crate) fn working_bins(
 }
 
 /// The entry paths of the installed CPKs listed before `cpk_name`'s but the refs CPK
-/// `refs_name`, when given, for `check`'s texture links: the walk `compile` makes, reading each
-/// CPK's table of contents and no bin, so `check` and `compile` agree on a link. `check`
-/// reports nothing about the walk: a name that is no valid CPK name, a missing list, or a list
-/// or CPK that cannot be read gives `Unknown`, and `compile` reports them.
+/// `refs_name`, when given, and each team's shared-IDs record, for `check`'s texture links
+/// and shared-ID findings: the walk `compile` makes, reading each CPK's table of contents
+/// and no bin, so `check` and `compile` agree on a link and a `Midcup` export's record.
+/// `multicpk` is the run writing the parts layout: the record of the bins CPK `cpk_name`
+/// itself is then read first, as `compile`'s is. `check` reports nothing about the walk: a
+/// name that is no valid CPK name, a missing list, or a list, CPK or record that cannot be
+/// read gives `Unknown`, and `compile` reports them.
 pub(crate) fn installed_paths(
     pes_folder: &Path,
     cpk_name: &str,
     refs_name: Option<&str>,
+    multicpk: bool,
 ) -> InstalledPaths {
     let named = CpkStem::new(cpk_name).and_then(|cpk_stem| {
         let refs = refs_name.map(CpkStem::new).transpose()?;
@@ -316,14 +355,15 @@ pub(crate) fn installed_paths(
             return InstalledPaths::Unknown;
         }
     };
+    let mut shared_ids = BTreeMap::new();
     match walk(
         pes_folder,
         &cpk_stem,
         refs.as_ref(),
-        false,
-        |_, _, _| Ok(()),
+        multicpk,
+        |cpk, _, _| take_shared_ids(cpk, &mut shared_ids),
     ) {
-        Ok(Walk::Walked(paths)) => InstalledPaths::Known(paths),
+        Ok(Walk::Walked(paths)) => InstalledPaths::Known(WalkedCpks { paths, shared_ids }),
         Ok(Walk::NotMade | Walk::NoList(_)) => InstalledPaths::Unknown,
         Err(unreadable) => {
             log::debug!(
@@ -486,6 +526,38 @@ fn take_loose_kit_configs(
             .with_context(|| format!("cannot unwrap {path_in_cpk}"))?
             .into_owned();
         configs.insert(name, bytes);
+    }
+    Ok(())
+}
+
+/// Takes into `records` each team's shared-IDs record `cpk` holds that is not there yet,
+/// unwrapped when it is WESYS-compressed and parsed: the walk goes nearest CPK first, so the
+/// record kept is the topmost. A record that does not parse is as unreadable as a bin that
+/// does not, found here rather than when the CPK is finished. At the boundary the records are
+/// taken too: the previous output put them there, as the player tables' it also holds.
+fn take_shared_ids(
+    cpk: &mut InstalledCpk,
+    records: &mut BTreeMap<u16, SharedIds>,
+) -> anyhow::Result<()> {
+    let new: Vec<_> = cpk
+        .entries()
+        .iter()
+        .filter_map(|entry| {
+            let team = paths::shared_ids_team(&entry.path)?;
+            (!records.contains_key(&team)).then(|| (team, entry.clone()))
+        })
+        .collect();
+    for (team, entry) in new {
+        let path_in_cpk = &entry.path;
+        let bytes = cpk
+            .read(&entry)
+            .with_context(|| format!("cannot read {path_in_cpk}"))?;
+        let bytes = wezlib::decompress_if_wrapped(&bytes)
+            .with_context(|| format!("cannot unwrap {path_in_cpk}"))?
+            .into_owned();
+        let record =
+            SharedIds::read(&bytes).with_context(|| format!("cannot parse {path_in_cpk}"))?;
+        records.insert(team, record);
     }
     Ok(())
 }
@@ -735,7 +807,7 @@ mod tests {
             .map(|(path, _)| vtree::fold_name(path))
             .collect();
         expected.insert(vtree::fold_name(&hair));
-        assert_eq!(installed, InstalledPaths::Known(expected));
+        assert_eq!(installed, InstalledPaths::Known(WalkedCpks::from(expected)));
         let stems = installed.common_texture_stems(Engine::Fox, 714);
         assert!(stems.contains("hair"), "Hair.ftex installed, hair asked");
         assert!(!stems.contains("after"), "listed after the run's");
@@ -775,13 +847,16 @@ mod tests {
         // nothing.
         install_list(pes, &["4cc_99_test.cpk", "4cc_08_bins.cpk"]);
         let installed = walk(pes);
-        assert_eq!(installed, InstalledPaths::Known(HashSet::new()));
+        assert_eq!(
+            installed,
+            InstalledPaths::Known(WalkedCpks::from(HashSet::new()))
+        );
         assert!(installed.common_texture_stems(Engine::Fox, 714).is_empty());
     }
 
     #[test]
     fn the_common_texture_stems_are_the_team_s_own_common_output_s_folded() {
-        let installed = InstalledPaths::Known(
+        let installed = InstalledPaths::Known(WalkedCpks::from(
             [
                 paths::common_texture(Engine::Fox, 714, "Hair"),
                 paths::common_texture(Engine::Fox, 714, "jessie/Pants"),
@@ -794,8 +869,8 @@ mod tests {
             ]
             .iter()
             .map(|path| vtree::fold_name(path))
-            .collect(),
-        );
+            .collect::<HashSet<String>>(),
+        ));
         assert_eq!(
             installed.common_texture_stems(Engine::Fox, 714),
             BTreeSet::from([
@@ -816,7 +891,7 @@ mod tests {
 
     #[test]
     fn the_pre_fox_common_texture_stems_are_the_team_s_own_common_dds_files_folded() {
-        let installed = InstalledPaths::Known(
+        let installed = InstalledPaths::Known(WalkedCpks::from(
             [
                 paths::common_texture(Engine::PreFox, 714, "Hair"),
                 paths::common_texture(Engine::PreFox, 702, "skin"),
@@ -832,8 +907,8 @@ mod tests {
             ]
             .iter()
             .map(|path| vtree::fold_name(path))
-            .collect(),
-        );
+            .collect::<HashSet<String>>(),
+        ));
         assert_eq!(
             installed.common_texture_stems(Engine::PreFox, 714),
             BTreeSet::from([
@@ -873,11 +948,11 @@ mod tests {
         install_cpk(pes, "4cc_63_midcup.cpk", &[(&after, b"after")]);
 
         assert_eq!(
-            installed_paths(pes, "4cc_99_test", None),
-            InstalledPaths::Known(HashSet::from([
+            installed_paths(pes, "4cc_99_test", None, false),
+            InstalledPaths::Known(WalkedCpks::from(HashSet::from([
                 vtree::fold_name(paths::UNI_COLOR),
                 vtree::fold_name(&hair),
-            ]))
+            ])))
         );
     }
 
@@ -899,19 +974,19 @@ mod tests {
         );
 
         assert_eq!(
-            installed_paths(pes, "4cc_99_test", Some("4cc_18_referees")),
-            InstalledPaths::Known(HashSet::from([vtree::fold_name(&hair)]))
+            installed_paths(pes, "4cc_99_test", Some("4cc_18_referees"), false),
+            InstalledPaths::Known(WalkedCpks::from(HashSet::from([vtree::fold_name(&hair)])))
         );
         assert_eq!(
-            installed_paths(pes, "4cc_99_test", None),
-            InstalledPaths::Known(HashSet::from([
+            installed_paths(pes, "4cc_99_test", None, false),
+            InstalledPaths::Known(WalkedCpks::from(HashSet::from([
                 vtree::fold_name(&hair),
                 vtree::fold_name(&skin),
                 vtree::fold_name(paths::TEAM_COLOR),
-            ]))
+            ])))
         );
         assert_eq!(
-            installed_paths(pes, "4cc_99_test", Some("con")),
+            installed_paths(pes, "4cc_99_test", Some("con"), false),
             InstalledPaths::Unknown,
             "no valid CPK name"
         );
@@ -935,23 +1010,23 @@ mod tests {
         let temp = scratch("installed_check_walk_unknown");
         let pes = temp.path();
         assert_eq!(
-            installed_paths(&pes.join("PES"), "4cc_99_test", None),
+            installed_paths(&pes.join("PES"), "4cc_99_test", None, false),
             InstalledPaths::Unknown,
             "no PES folder"
         );
         assert_eq!(
-            installed_paths(pes, "4cc_99_test", None),
+            installed_paths(pes, "4cc_99_test", None, false),
             InstalledPaths::Unknown,
             "no list"
         );
         install_list(pes, &["4cc_61_midcup.cpk", "4cc_99_test.cpk"]);
         assert_eq!(
-            installed_paths(pes, "4cc_99_test", None),
-            InstalledPaths::Known(HashSet::new()),
+            installed_paths(pes, "4cc_99_test", None, false),
+            InstalledPaths::Known(WalkedCpks::from(HashSet::new())),
             "a listed CPK with no file is passed over"
         );
         assert_eq!(
-            installed_paths(pes, "con", None),
+            installed_paths(pes, "con", None, false),
             InstalledPaths::Unknown,
             "no valid CPK name"
         );
@@ -963,7 +1038,7 @@ mod tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(&cpk, &cpk).unwrap();
         assert_eq!(
-            installed_paths(pes, "4cc_99_test", None),
+            installed_paths(pes, "4cc_99_test", None, false),
             InstalledPaths::Unknown,
             "a CPK that cannot be opened"
         );
@@ -1403,10 +1478,10 @@ mod tests {
         // texture lookup's.
         assert_eq!(
             installed,
-            InstalledPaths::Known(HashSet::from([
+            InstalledPaths::Known(WalkedCpks::from(HashSet::from([
                 vtree::fold_name(paths::UNI_COLOR),
                 vtree::fold_name(&gameplay_texture),
-            ]))
+            ])))
         );
 
         // The same install in single-CPK mode: nothing is taken from the run's own CPK.
@@ -1431,5 +1506,72 @@ mod tests {
                 source("UniformParameter.bin", "bundled"),
             ]
         );
+    }
+
+    #[test]
+    fn in_multi_cpk_mode_a_team_s_record_is_taken_from_the_bins_cpk_itself_first() {
+        let temp = scratch("installed_multicpk_records");
+        let pes = temp.path();
+        install_list(
+            pes,
+            &["4cc_06_gameplay.cpk", "4cc_08_bins.cpk", "4cc_41_teams.cpk"],
+        );
+        let below_record = SharedIds {
+            boots: BTreeMap::from([(644, "Below".to_owned())]),
+            ..SharedIds::default()
+        };
+        let boundary_record = SharedIds {
+            boots: BTreeMap::from([(645, "Boundary".to_owned())]),
+            ..SharedIds::default()
+        };
+        install_cpk(
+            pes,
+            "4cc_06_gameplay.cpk",
+            &[(&paths::shared_ids(714), &below_record.write())],
+        );
+        install_cpk(
+            pes,
+            "4cc_08_bins.cpk",
+            &[(&paths::shared_ids(714), &boundary_record.write())],
+        );
+        let stem = CpkStem::new("4cc_08_bins").unwrap();
+
+        let (_, installed, _) = working_bins(
+            pes,
+            &stem,
+            None,
+            true,
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
+        assert_eq!(
+            installed.shared_ids(714),
+            Some(&boundary_record),
+            "the previous output's record, in the bins CPK itself, wins over the one below"
+        );
+
+        // Single-CPK mode: the run's own CPK is not read; the record comes from below it.
+        let (_, installed, _) = working_bins(
+            pes,
+            &stem,
+            None,
+            false,
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
+        assert_eq!(installed.shared_ids(714), Some(&below_record));
+        // `check`'s walk reads the records too, the boundary's first with `multicpk` on.
+        for (multicpk, record) in [(true, &boundary_record), (false, &below_record)] {
+            let walked = installed_paths(pes, "4cc_08_bins", None, multicpk);
+            assert_eq!(
+                walked.shared_ids(714),
+                Some(record),
+                "check, multicpk {multicpk}"
+            );
+        }
     }
 }

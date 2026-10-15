@@ -337,12 +337,20 @@ fn the_tracer_bullet_matches_the_reference_tree() {
         }
     }
 
+    // The team's shared-IDs record: ours alone, at a path no game reads (`player_folders.md`
+    // "A `Midcup` export keeps the shared IDs the team already has"). The tracer links no
+    // shared folder, so both tables are empty.
+    assert_eq!(
+        ours["4cc_studio/shared_ids/792.toml"],
+        b"# Written by 4cc Studio; do not edit.\n[boots]\n[gloves]\n"
+    );
     for path in ours.keys() {
-        let produced = TABLE.iter().any(|(reference_path, row)| match row {
-            Row::Relocated(our_path) | Row::RelocatedContainer(our_path) => path == our_path,
-            Row::NotProduced(_) => false,
-            Row::Exact | Row::Container => path == reference_path,
-        });
+        let produced = path.starts_with("4cc_studio/")
+            || TABLE.iter().any(|(reference_path, row)| match row {
+                Row::Relocated(our_path) | Row::RelocatedContainer(our_path) => path == our_path,
+                Row::NotProduced(_) => false,
+                Row::Exact | Row::Container => path == reference_path,
+            });
         if !produced {
             failures.push(format!(
                 "our CPK holds {path}, not in the table's produced rows"

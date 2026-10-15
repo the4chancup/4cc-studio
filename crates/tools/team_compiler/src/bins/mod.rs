@@ -11,6 +11,7 @@ pub(crate) mod dpfl;
 pub(crate) mod installed;
 pub(crate) mod kit_configs;
 pub(crate) mod player_tables;
+pub(crate) mod shared_ids;
 
 use std::collections::BTreeMap;
 use std::ops::Range;

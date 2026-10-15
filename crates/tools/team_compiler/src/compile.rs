@@ -15,6 +15,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use aesthetics_export::ExportIdentity;
 use anyhow::Context;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use pes_version::PesVersion;
@@ -30,7 +31,7 @@ use crate::output::deploy::{self, DeployFailure, Staging};
 use crate::output::parts::{self, TeamsParts, Unplaced};
 use crate::output::sink::OutputSink;
 use crate::output::teamnotes;
-use crate::output::writer::{CpkOutput, Referees};
+use crate::output::writer::{BinsEdits, CpkOutput, Referees};
 use crate::paths::REFEREE_TEAM_ID;
 use crate::plan::{BuildManifest, BuildTask, ExportToPlan, overrides, plan_run};
 use crate::processing::{
@@ -317,11 +318,16 @@ fn plan(
             events.message(message);
         }
         if let Some(resolved) = checked.resolved {
+            let shared_ids = match &resolved.identity {
+                ExportIdentity::Team { id, .. } => installed.shared_ids(id.get()).cloned(),
+                ExportIdentity::Referees => None,
+            };
             exports.push(ExportToPlan {
                 export_id: checked.source.export_id,
                 export: resolved,
                 team_colors: checked.team_colors,
                 notes: checked.notes,
+                shared_ids,
                 hand_weighted: checked.hand_weighted,
                 metal_models: checked.metal_models,
                 settings: checked.settings,
@@ -386,6 +392,7 @@ fn build(
     let team_kits = manifest.team_kits;
     let player_rows = manifest.player_rows;
     let notes = manifest.notes;
+    let shared_ids = manifest.shared_ids;
     let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
     for (index, task) in tasks.iter().enumerate() {
         last_task_of.insert(task.export_id, index);
@@ -479,6 +486,7 @@ fn build(
         let team_colors = &team_colors;
         let team_kits = &team_kits;
         let player_rows = &player_rows;
+        let shared_ids = &shared_ids;
         let budget = &budget;
         let templates = &context.templates;
         let writer = scope.spawn(move || {
@@ -491,9 +499,12 @@ fn build(
                     output.finish(
                         version,
                         bins,
-                        team_colors,
-                        team_kits,
-                        player_rows,
+                        BinsEdits {
+                            team_colors,
+                            team_kits,
+                            player_rows,
+                            shared_ids,
+                        },
                         templates,
                     )
                 });

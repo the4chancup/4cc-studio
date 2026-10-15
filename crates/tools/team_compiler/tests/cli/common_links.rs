@@ -123,6 +123,7 @@ fn a_common_model_link_bakes_the_model_into_the_face_and_its_texture_stays_in_th
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             shirt,
             cloth.as_str(),
             FACE_05,
@@ -214,6 +215,7 @@ fn a_boots_link_packs_the_common_skeleton_and_two_players_linking_one_model_shar
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
@@ -334,6 +336,7 @@ fn a_boots_link_beside_a_shared_boots_link_combines_the_shared_folder() {
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             FACE_05,
@@ -447,6 +450,7 @@ fn a_common_model_link_converts_the_model_with_its_common_mtl_into_the_player_s_
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/face.ftex",
             skin.as_str(),
             FACE_05,
@@ -520,6 +524,7 @@ fn a_common_model_converted_with_the_player_s_own_mtl_names_his_texture_of_its_s
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             format!("{home}/face.ftex").as_str(),
             format!("{home}/skin.ftex").as_str(),
             common_skin.as_str(),
@@ -616,6 +621,7 @@ fn two_players_linking_one_common_model_each_convert_it_and_share_its_texture() 
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             skin.as_str(),
             FACE_05,
             FACE_05_FPKD,
@@ -692,6 +698,7 @@ fn a_material_a_local_and_a_common_part_define_over_textures_in_two_places_drops
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             &format!("{COMMON_TEXTURES}/shirt.ftex"),
@@ -749,6 +756,7 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             FACE_05,
             FACE_05_FPKD,
             "common/character0/model/character/uniform/team/UniColor.bin",
@@ -817,6 +825,7 @@ fn a_texture_link_points_the_player_s_model_at_the_one_copy_in_the_team_s_common
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             skin,
             hair.as_str(),
             FACE_05,
@@ -885,6 +894,7 @@ fn a_link_to_an_ftex_points_the_player_s_model_at_the_one_copy_in_the_team_s_com
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             skin,
             hair.as_str(),
             FACE_05,
@@ -1100,6 +1110,7 @@ fn a_shared_folder_s_kit_folder_of_links_finds_their_sets_in_common() {
         [
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
@@ -2345,6 +2356,7 @@ fn a_shared_folder_holding_only_a_model_link_takes_a_shared_id() {
         findings_of(&lines, "co Midcup Crocs"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()"
         ],
         "{lines:#?}"
@@ -2482,6 +2494,7 @@ fn a_shared_folder_s_mtl_link_gives_its_model_the_common_material_set() {
         findings_of(&lines, "co Midcup Crocs"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()"
         ],
         "{lines:#?}"
@@ -2583,6 +2596,7 @@ fn an_unlinked_common_model_builds_nothing() {
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             FACE_05,
             FACE_05_FPKD,
             "common/character0/model/character/uniform/team/UniColor.bin",

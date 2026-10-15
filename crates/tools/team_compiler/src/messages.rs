@@ -101,6 +101,10 @@ pub(crate) enum Code {
     BootsIdPoolExhausted,
     /// More shared gloves folders take an id than the team's block has; the export is skipped.
     GlovesIdPoolExhausted,
+    /// A `Midcup` export holding shared boots or gloves folders, and no installed CPK records
+    /// the team's shared IDs: its folders are numbered alphabetically, as a `Full` export's,
+    /// and may take IDs the main CPK gives other folders.
+    SharedIdsUnrecorded,
     /// A slot with a portrait in its player folder and one in `Portraits/` whose bytes differ:
     /// the export is skipped, since the compiler cannot tell which one the manager means.
     PortraitConflict,
@@ -495,7 +499,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 146] = [
+    const ALL: [Code; 147] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -525,6 +529,7 @@ impl Code {
         Code::LogoUpscaled,
         Code::BootsIdPoolExhausted,
         Code::GlovesIdPoolExhausted,
+        Code::SharedIdsUnrecorded,
         Code::PortraitConflict,
         Code::LinkCombined,
         Code::SettingsTomlInvalid,
@@ -676,6 +681,7 @@ impl Code {
             Code::LogoUpscaled => "logo_upscaled",
             Code::BootsIdPoolExhausted => "boots_id_pool_exhausted",
             Code::GlovesIdPoolExhausted => "gloves_id_pool_exhausted",
+            Code::SharedIdsUnrecorded => "shared_ids_unrecorded",
             Code::PortraitConflict => "portrait_conflict",
             Code::LinkCombined => "link_combined",
             Code::SettingsTomlInvalid => "settings_toml_invalid",
@@ -847,6 +853,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("logo_upscaled", CatalogSeverity::Warning),
     ("boots_id_pool_exhausted", CatalogSeverity::Error),
     ("gloves_id_pool_exhausted", CatalogSeverity::Error),
+    ("shared_ids_unrecorded", CatalogSeverity::Warning),
     ("portrait_conflict", CatalogSeverity::Error),
     ("link_combined", CatalogSeverity::Info),
     ("settings_toml_invalid", CatalogSeverity::Error),

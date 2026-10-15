@@ -9,8 +9,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, FileKind, FpcDirective, ModelFormat, ModelSuffix,
-    ParsedAestheticsExport, ResolvedAestheticsExport, SharedKind, SourceError,
+    ExportCoverage, ExportIdentity, FileDescriptor, FileKind, FpcDirective, ModelFormat,
+    ModelSuffix, ParsedAestheticsExport, ResolvedAestheticsExport, SharedKind, SourceError,
     ValidatedAestheticsExport, ValidationContext, common_link_name, common_link_target,
     is_txt_note, model_suffix, parse_listing, read_colors_txt,
 };
@@ -24,11 +24,14 @@ use teams_list::TeamId;
 use vtree::ScopePath;
 
 use crate::bins::installed::InstalledPaths;
+use crate::bins::shared_ids::SharedIds;
 use crate::bins::{Rgb, TEAM_COLORS};
 use crate::cli::RunInputs;
 use crate::deep;
 use crate::messages::{Code, issue_message, tool_message};
-use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_with_no_model};
+use crate::plan::ids::{
+    PlannedModelIds, assigned_shared_ids, shared_folders_taking_ids, shared_folders_with_no_model,
+};
 use crate::plan::item_rows::{check_gloves_id, conflicting_id_keys};
 use crate::plan::mapped_players;
 use crate::plan::roles::{
@@ -426,13 +429,27 @@ fn check_source(
                     &mut settings,
                     &hand_weighted,
                 ));
+                // The team's shared-IDs record the installed CPKs hold, which a `Midcup`
+                // export's folders keep their IDs from and its `shared_ids_unrecorded` reads.
+                let record = match &resolved.identity {
+                    ExportIdentity::Team { id, .. } => installed.shared_ids(id.get()),
+                    ExportIdentity::Referees => None,
+                };
                 let exhausted = pool_messages(
                     &resolved,
                     inputs.common.pes_version,
                     &export,
                     &hand_weighted,
+                    record,
                 );
                 if exhausted.is_empty() {
+                    messages.extend(unrecorded_message(
+                        &resolved,
+                        inputs.common.pes_version,
+                        &export,
+                        &hand_weighted,
+                        record,
+                    ));
                     Some(resolved)
                 } else {
                     messages.extend(exhausted);
@@ -567,40 +584,83 @@ fn notes(export: &ValidatedAestheticsExport, content: &ContentSource) -> Option<
     }
 }
 
-/// `boots_id_pool_exhausted` and `gloves_id_pool_exhausted`, each when more shared folders of
-/// its kind take an id for `version` than the team's block holds, naming the count; the export
-/// is dropped (`team_compiler/README.md` TC-MOD-06). A referee export has no block: its ids
-/// are its slots' (`k99NN`). `hand_weighted` is the deep pass's, as planning counts the
-/// folders with it (`shared_folders_taking_ids`).
+/// `boots_id_pool_exhausted` and `gloves_id_pool_exhausted`, each when its kind's folders
+/// need more of the team's block's shared ids than it holds (`assigned_shared_ids`), naming
+/// the count; the export is dropped (`team_compiler/README.md` TC-MOD-06). A `Midcup`
+/// export's folders are counted with the `record` the installed CPKs hold, a `Full` export's
+/// from the export alone. A referee export has no block: its ids are its slots' (`k99NN`).
+/// `hand_weighted` is the deep pass's, as planning counts the folders with it
+/// (`shared_folders_taking_ids`).
 fn pool_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
     export: &Scope,
     hand_weighted: &BTreeSet<ScopePath>,
+    record: Option<&SharedIds>,
 ) -> Vec<Message> {
-    match resolved.identity {
-        ExportIdentity::Team { .. } => {}
+    let id = match resolved.identity {
+        ExportIdentity::Team { id, .. } => id,
         ExportIdentity::Referees => return Vec::new(),
-    }
+    };
+    let record = match resolved.export.coverage {
+        ExportCoverage::Midcup => record,
+        ExportCoverage::Full => None,
+    };
+    let ids = PlannedModelIds::for_team(id);
     [
         (SharedKind::Boots, Code::BootsIdPoolExhausted),
         (SharedKind::Gloves, Code::GlovesIdPoolExhausted),
     ]
     .into_iter()
     .filter_map(|(kind, code)| {
-        let count =
-            shared_folders_taking_ids(&resolved.export, version.engine(), kind, hand_weighted)
-                .len();
-        (count > usize::from(SHARED_COUNT)).then(|| {
-            tool_message(
-                code,
-                export.clone(),
-                Disposition::DropExport,
-                vec![("count", count.to_string())],
-            )
-        })
+        let folders =
+            shared_folders_taking_ids(&resolved.export, version.engine(), kind, hand_weighted);
+        assigned_shared_ids(ids, kind, &folders, record)
+            .err()
+            .map(|count| {
+                tool_message(
+                    code,
+                    export.clone(),
+                    Disposition::DropExport,
+                    vec![("count", count.to_string())],
+                )
+            })
     })
     .collect()
+}
+
+/// `shared_ids_unrecorded`, naming the team, for a `Midcup` export whose shared boots or
+/// gloves folders take an id while no installed CPK holds the team's record of them
+/// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team
+/// already has"): numbered alphabetically, they may take ids the main CPK gives other folders.
+fn unrecorded_message(
+    resolved: &ResolvedAestheticsExport,
+    version: PesVersion,
+    export: &Scope,
+    hand_weighted: &BTreeSet<ScopePath>,
+    record: Option<&SharedIds>,
+) -> Option<Message> {
+    if resolved.export.coverage == ExportCoverage::Full || record.is_some() {
+        return None;
+    }
+    let id = match &resolved.identity {
+        ExportIdentity::Team { id, .. } => *id,
+        ExportIdentity::Referees => return None,
+    };
+    let takes = [SharedKind::Boots, SharedKind::Gloves]
+        .into_iter()
+        .any(|kind| {
+            !shared_folders_taking_ids(&resolved.export, version.engine(), kind, hand_weighted)
+                .is_empty()
+        });
+    takes.then(|| {
+        tool_message(
+            Code::SharedIdsUnrecorded,
+            export.clone(),
+            Disposition::Keep,
+            vec![("team", id.to_string())],
+        )
+    })
 }
 
 /// `settings_model_id_conflict` on each mapped player folder of `resolved` whose
@@ -1101,7 +1161,7 @@ mod tests {
         let scope = Scope::Export {
             export_id: ExportId(0),
         };
-        pool_messages(export, version, &scope, &BTreeSet::new())
+        pool_messages(export, version, &scope, &BTreeSet::new(), None)
             .into_iter()
             .map(|message| {
                 assert_eq!(message.scope, scope);

@@ -226,9 +226,10 @@ IDs automatically").
 
 ```
 TC-BIN-34  GIVEN a Full /co/ export holding Boots/Crocs and Boots/adidas, slot 05 linking Crocs
+                and slot 06 adidas (a shared folder no player links takes no ID)
            WHEN it is compiled for PES 21
            THEN the CPK holds 4cc_studio/shared_ids/714.toml whose [boots] names 644 adidas
-                and 645 Crocs, and BootsList.bin holds (71405, 645)
+                and 645 Crocs, and BootsList.bin holds (71405, 645) and (71406, 644)
 TC-BIN-35  GIVEN an installed CPK below the output holding TC-BIN-34's record, and a Midcup
                 /co/ export holding Boots/Birk and Boots/crocs, slot 05 linking Birk and slot 06
                 linking crocs

@@ -77,6 +77,7 @@ fn a_far_vertex_drops_its_folder_at_check_and_at_compile_even_with_pass_through(
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/face/real/71407/#Win/face.fpk",
@@ -307,11 +308,15 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
     // `/co/`'s block starts at 621: slot 07's boots are 627, slot 05's 625.
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    let record = ["4cc_studio/shared_ids/714.toml".to_owned()];
     let color_bins = [
         "common/character0/model/character/uniform/team/UniColor.bin".to_owned(),
         "common/etc/TeamColor.bin".to_owned(),
     ];
-    assert_eq!(paths, [&boots(627)[..], &face(71407), &color_bins].concat());
+    assert_eq!(
+        paths,
+        [&record[..], &boots(627)[..], &face(71407), &color_bins].concat()
+    );
 
     for command in ["check", "compile"] {
         let run = sandbox.run(&pass_through_settings(&sandbox), &command_args(command));
@@ -338,6 +343,7 @@ fn a_format_error_drops_its_folder_unless_pass_through_keeps_it() {
     assert_eq!(
         paths,
         [
+            &record[..],
             &boots(625)[..],
             &boots(627),
             &face(71405),
@@ -495,6 +501,7 @@ fn a_model_that_does_not_parse_is_model_broken_and_drops_its_folder_even_with_pa
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/face/real/71407/#Win/face.fpk",
@@ -547,6 +554,7 @@ fn a_logo_that_does_not_decode_is_logo_file_invalid_and_the_export_is_otherwise_
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/face/real/71407/#Win/face.fpk",

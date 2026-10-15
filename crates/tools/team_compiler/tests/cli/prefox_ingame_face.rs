@@ -342,6 +342,7 @@ fn a_shared_boots_folder_holding_two_boots_models_is_written_as_one_merged_boots
         export,
         &[
             CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
             CLEAN[1],
             "Info model_merged [Keep] at Boots/Twin (model=boots.model)",
         ],
@@ -800,7 +801,15 @@ fn a_shared_gloves_folder_s_mtl_no_model_uses_is_not_written() {
     );
     sandbox.write(&format!("{keeper}/left.dds"), &small_dds());
 
-    let entries = compile_pes17(&sandbox, export, &CLEAN);
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            CLEAN[0],
+            "Warning shared_ids_unrecorded [Keep] (team=714)",
+            CLEAN[1],
+        ],
+    );
 
     let gloves = entries_under(&entries, GLOVES);
     let names: Vec<&str> = gloves.keys().copied().collect();

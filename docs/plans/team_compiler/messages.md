@@ -45,7 +45,6 @@ What exists of this is in `spec/team_compiler/messages.md` "Catalog".
 | `gltf_embedded_image_ignored` | I | a glTF embeds texture bytes (stock Blender's default); textures are only ever read from the folder's files | embedded images ignored (once per model) |
 | `gltf_bone_unknown` | E | a glTF skin joint has neither `PES_bone` metadata nor a name in the template skeleton | folder discarded |
 | `settings_toml_name_shared` | W | `name` or `shirt_name` given in an autopilot export's folder mapped to multiple players | name applied to all of them |
-| `shared_ids_unrecorded` | W | a `Midcup` export holding shared boots or gloves folders, and no installed CPK below its output records the team's shared IDs (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team already has"; context: the team) | its folders numbered alphabetically, as a `Full` export's; they may take IDs the main CPK gives other folders |
 | `settings_name_invalid` | W | a `name` or `shirt_name` string that does not fit the target version's field or character set (context: the key) | not written; the save's name stands |
 | `model_source_ambiguous` | E | duplicate model sources within the selected representation (target-native > glTF > convertible opposite); its input is two glTF files of one stem (`boots.glb` beside `boots.gltf`), so it is first reachable in Phase 7 | folder discarded (`DropFolder`) |
 

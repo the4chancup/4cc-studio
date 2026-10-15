@@ -361,6 +361,25 @@ pub(crate) fn kit_texture(engine: Engine, name: &str) -> String {
     }
 }
 
+/// The folder of one team's shared-IDs record in the CPK
+/// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team
+/// already has"), a path no game reads.
+pub(crate) const SHARED_IDS: &str = "4cc_studio/shared_ids/";
+
+/// The CPK path of team `team_id`'s shared-IDs record (`<team id>.toml` under `SHARED_IDS`).
+pub(crate) fn shared_ids(team_id: u16) -> String {
+    format!("{SHARED_IDS}{team_id}.toml")
+}
+
+/// The team a `SHARED_IDS` entry records, its name `<team id>.toml`; `None` for any other
+/// path there.
+pub(crate) fn shared_ids_team(path: &str) -> Option<u16> {
+    path.strip_prefix(SHARED_IDS)?
+        .strip_suffix(".toml")?
+        .parse()
+        .ok()
+}
+
 /// The folder holding a folder per team of loose kit configs, named for the team ID
 /// (`kit_config`).
 pub(crate) const TEAM_KIT_CONFIGS: &str = "common/character0/model/character/uniform/team/";

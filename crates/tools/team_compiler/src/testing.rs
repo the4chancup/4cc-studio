@@ -171,6 +171,7 @@ pub(crate) fn to_plan(
         export,
         team_colors,
         notes,
+        shared_ids: None,
         hand_weighted: BTreeSet::new(),
         metal_models: BTreeSet::new(),
         settings: BTreeMap::new(),

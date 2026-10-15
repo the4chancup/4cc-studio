@@ -1868,6 +1868,122 @@ fn a_midcup_markerless_player_is_not_checked_for_the_gloves_rule() {
     }
 }
 
+/// Team 714's record of which shared folder took which of its block's shared IDs, at a path
+/// no game reads.
+const SHARED_IDS_714: &str = "4cc_studio/shared_ids/714.toml";
+
+/// The record file's text for `boots` (shared ID, folder name); the `[gloves]` table is
+/// always written, here empty.
+fn record(boots: &[(u16, &str)]) -> Vec<u8> {
+    let mut text = "# Written by 4cc Studio; do not edit.\n[boots]\n".to_owned();
+    for (id, name) in boots {
+        text.push_str(&format!("{id} = \"{name}\"\n"));
+    }
+    (text + "[gloves]\n").into_bytes()
+}
+
+// TC-BIN-34
+#[test]
+fn a_full_export_s_shared_ids_are_numbered_alphabetically_and_recorded() {
+    let sandbox = Sandbox::new("bins_shared_ids_full");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    let export = "exports/co Full Shared";
+    for folder in ["adidas", "Crocs"] {
+        sandbox.write(
+            &format!("{export}/Boots/{folder}/boots.fmdl"),
+            &clean_model(),
+        );
+    }
+    sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
+    // Slot 06 links adidas, so it takes a shared ID too (the scenario's THEN names 05's row).
+    sandbox.write(&format!("{export}/Players/06 - B/adidas.boots"), b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        pairs_of(&entries, BOOTS_LIST),
+        [(70201, 11), (71405, 645), (71406, 644)]
+    );
+    assert_eq!(
+        entries[SHARED_IDS_714],
+        record(&[(644, "adidas"), (645, "Crocs")]),
+        "the CPK records which folder took which shared ID"
+    );
+}
+
+// TC-BIN-35
+#[test]
+fn a_midcup_export_keeps_the_installed_shared_ids_for_the_folders_it_resends() {
+    let sandbox = Sandbox::new("bins_shared_ids_midcup");
+    let installed = record(&[(644, "adidas"), (645, "Crocs")]);
+    install_tables(
+        &sandbox,
+        &[
+            (BOOTS_LIST, &item_list(&[(70201, 11)])),
+            (SHARED_IDS_714, installed.as_slice()),
+        ],
+    );
+    let export = "exports/co Midcup Shared";
+    for folder in ["Birk", "crocs"] {
+        sandbox.write(
+            &format!("{export}/Boots/{folder}/boots.fmdl"),
+            &clean_model(),
+        );
+    }
+    sandbox.write(&format!("{export}/Players/05 - A/Birk.boots"), b"");
+    sandbox.write(&format!("{export}/Players/06 - B/crocs.boots"), b"");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("shared_ids_unrecorded")),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        pairs_of(&entries, BOOTS_LIST),
+        [(70201, 11), (71405, 646), (71406, 645)],
+        "Birk takes the lowest free ID, crocs keeps the recorded one"
+    );
+    assert_eq!(
+        entries[SHARED_IDS_714],
+        record(&[(644, "adidas"), (645, "crocs"), (646, "Birk")]),
+        "the installed entries kept, the Midcup's folders under their own spellings"
+    );
+}
+
+// TC-BIN-36
+#[test]
+fn a_midcup_export_with_no_installed_record_is_warned_and_records_its_own() {
+    let sandbox = Sandbox::new("bins_shared_ids_unrecorded");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    let export = "exports/co Midcup Shared";
+    sandbox.write(&format!("{export}/Boots/Birk/boots.fmdl"), &clean_model());
+    sandbox.write(&format!("{export}/Players/05 - A/Birk.boots"), b"");
+
+    // `check` reports the missing record as `compile` does.
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert!(
+            lines
+                .iter()
+                .any(|line| line
+                    == "co Midcup Shared: Warning shared_ids_unrecorded [Keep] (team=714)"),
+            "{args:?}: {lines:#?}"
+        );
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 644)]);
+    assert_eq!(entries[SHARED_IDS_714], record(&[(644, "Birk")]));
+}
+
 // TC-BIN-30
 #[test]
 fn a_face_link_feeding_the_own_package_is_no_gloves_id_for_the_checkbox_rule() {

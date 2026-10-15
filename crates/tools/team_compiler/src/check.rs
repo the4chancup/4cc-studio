@@ -23,6 +23,7 @@ pub(crate) fn run(inputs: &RunInputs, ctx: &ToolContext) -> anyhow::Result<Optio
         &inputs.common.pes_folder(),
         inputs.settings.boundary_cpk_name(),
         refs_name,
+        inputs.settings.multicpk_mode,
     );
     let pool = run_pool(inputs)?;
     // No tasks follow a check, so no archive is kept past its check.
