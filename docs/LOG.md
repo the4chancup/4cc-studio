@@ -2029,3 +2029,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.3a5: every compiled CPK records each team's shared IDs
   (`4cc_studio/shared_ids/<team>.toml`) and a Midcup keeps the recorded ones, warning
   `shared_ids_unrecorded` without a record (TC-BIN-34 to 36). Step 5.3a done; 5.3b next.
+- **2026-10-15** — 5.3b sliced (b1 the patch, b2 the savefile, b3 one transaction); 5.3b1 split in
+  two after SWE-2 runs ended on its output limit. 5.3b1a: the `autopilot` root marker and
+  `pes_savefile`'s `MotionSettings::resolved`, `NameField`, `utc_datetime`.

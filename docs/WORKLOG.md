@@ -1112,7 +1112,28 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     The `autopilot` marker moves to 5.3b, its only consumer (the patch's names).
   - [ ] 5.3b the `autopilot` marker in `aesthetics_export`, the patch and the local savefile →
     done when: TC-SAV-01 to 12 and TC-BIN-31 to 33's patch halves pass (TC-SAV-10 a `manual:`
-    line)
+    line). Slices (code survey 2026-10-15: `AestheticsPatch` and `EditFile::save` exist in
+    `pes_savefile`, nothing in the compiler; no `savefile_path`; `promote` cannot tell a
+    deployed run from a degraded one; a successful `deploy` keeps no rollback point; the
+    fixture saves are not stripped):
+    - [ ] 5.3b1 the marker, the patch built (motions resolved per version, an autopilot
+      export's names, `settings_name_invalid`, `settings_toml_name_shared`) and written to the
+      output folder (`patch_written`, `patch_write_failed`, the `.bak` when there is nothing
+      to patch) → done when: TC-BIN-31 to 33's patch halves and TC-SAV-06 pass. In two
+      sub-slices (two runs on the whole slice ended on SWE-2's output-token limit):
+      - [x] 5.3b1a the marker (`RootArtifacts::autopilot`) and `pes_savefile`'s
+        `MotionSettings::resolved`, `NameField`, `aesthetics_patch::utc_datetime`. Done:
+        `aesthetics_export` `conventions/file_types.rs`, `validate/{folders,root,mod,tests}.rs`;
+        `pes_savefile` `settings_toml/` (`apply` checks names through `NameField`),
+        `interchange/aesthetics_patch/`
+      - [ ] 5.3b1b the compiler: the names rule, the patch built in planning and written
+    - [ ] 5.3b2 `savefile_path` (`auto` discovery; the test sandbox names a stripped fixture
+      save), the patch applied to the local savefile with its findings, skipped while the
+      target's PES runs and when the CPKs were not deployed → done when: TC-SAV-01 to 05, 07,
+      10 to 12 pass
+    - [ ] 5.3b3 the CPKs, the patch and the savefile as one transaction (the installed CPKs
+      kept aside until the savefile is written, restored on a failure) → done when: TC-SAV-05's
+      first half, 08 and 09 pass
 - [ ] 5.4 The Save editor crate (skeleton, settings, egui-free `session/`, CLI), after 5.1:
   - [ ] 5.4a `export-toml`, `import-toml`, `apply-patch`, `transplant`, `diff`,
     `export-teams-list` → done when: SE-CLI, SE-TOML, SE-PAT, SE-TRN, SE-DIF and SE-TL pass.

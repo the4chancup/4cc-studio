@@ -41,6 +41,38 @@ pub enum NameSetting {
     Explicit(String),
 }
 
+/// One of the two player-name fields `PlayerSettings::apply` checks a text
+/// against before writing it. `check` is that check alone: the compiler
+/// drops a name `apply` would refuse, with this one check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NameField {
+    /// `name`, the player's savefile name (UTF-8, colour codes included).
+    Name,
+    /// `shirt_name`, single-byte text.
+    ShirtName,
+}
+
+impl NameField {
+    /// The field's TOML key (`name`, `shirt_name`).
+    pub fn key(self) -> &'static str {
+        match self {
+            NameField::Name => "name",
+            NameField::ShirtName => "shirt_name",
+        }
+    }
+
+    /// What `PlayerSettings::apply` checks of this field's text: `check_text`
+    /// against the version's field capacity, `shirt_name` single-byte.
+    pub fn check(self, text: &str, version: PesVersion) -> Result<(), SettingsError> {
+        let (field, single_byte) = match self {
+            NameField::Name => (PlayerText::Name, false),
+            NameField::ShirtName => (PlayerText::ShirtName, true),
+        };
+        let max = text_max(schema_for(version).player.texts, field);
+        check_text(self.key(), text, max, single_byte)
+    }
+}
+
 /// The `[appearance]` table's stored values: every leaf `Option`;
 /// `PlayerSettings::apply` writes a `None` key's default (`KeySpec::default`),
 /// `apply_appearance` (Team TOML) leaves the savefile value alone. Physique
@@ -152,6 +184,33 @@ pub struct MotionSettings {
     pub goal_celebration_1: Option<u8>,
     /// Second goal celebration.
     pub goal_celebration_2: Option<u8>,
+}
+
+impl MotionSettings {
+    /// `self` with every motion key `version` stores filled: a set key keeps
+    /// its value, an absent one takes its `KeySpec` default, a key the
+    /// version does not store (`dribbling` before PES 20) is `None`. The
+    /// aesthetics patch writes every motion key, so a key the file leaves
+    /// out is written at its default.
+    pub fn resolved(&self, version: PesVersion) -> MotionSettings {
+        let mut appearance = AppearanceSettings {
+            motion: self.clone(),
+            ..AppearanceSettings::default()
+        };
+        for key in SettingKey::ALL {
+            let spec = key.spec();
+            if spec.table != KeyTable::Motion {
+                continue;
+            }
+            let value = if held_on(key, version) {
+                get_appearance(&appearance, key).or(spec.default)
+            } else {
+                None
+            };
+            set_appearance(&mut appearance, key, value);
+        }
+        appearance.motion
+    }
 }
 
 /// The `[appearance.face]` table: the face of the ingame-face run, its
@@ -881,17 +940,11 @@ impl PlayerSettings {
                 }
             }
         }
-        let texts = schema_for(version).player.texts;
         if let Some(NameSetting::Explicit(name)) = &self.name {
-            check_text("name", name, text_max(texts, PlayerText::Name), false)?;
+            NameField::Name.check(name, version)?;
         }
         if let Some(shirt_name) = &self.shirt_name {
-            check_text(
-                "shirt_name",
-                shirt_name,
-                text_max(texts, PlayerText::ShirtName),
-                true,
-            )?;
+            NameField::ShirtName.check(shirt_name, version)?;
         }
         let mut next = player.clone();
         if let Some(NameSetting::Explicit(name)) = &self.name {

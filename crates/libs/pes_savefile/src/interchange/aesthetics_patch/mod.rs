@@ -151,6 +151,35 @@ fn fox_only(version: PesVersion) -> Result<(), PatchError> {
     }
 }
 
+/// `unix_seconds` as the `compiled` stamp's form: a UTC datetime at whole
+/// seconds with offset `Z`.
+pub fn utc_datetime(unix_seconds: u64) -> toml_edit::Datetime {
+    let days = unix_seconds / 86_400;
+    let seconds = unix_seconds % 86_400;
+    // Howard Hinnant's civil-from-days: `z` counts days from 0000-03-01, the
+    // shift moving the leap day to each year's end.
+    let z = i64::try_from(days).expect("a day count far inside i64") + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = (doy - (153 * mp + 2) / 5 + 1) as u8;
+    let month = (if mp < 10 { mp + 3 } else { mp - 9 }) as u8;
+    let year = u16::try_from(y + i64::from(month <= 2)).expect("a TOML year");
+    toml_edit::Datetime {
+        date: Some(toml_edit::Date { year, month, day }),
+        time: Some(toml_edit::Time {
+            hour: (seconds / 3600) as u8,
+            minute: (seconds % 3600 / 60) as u8,
+            second: (seconds % 60) as u8,
+            nanosecond: 0,
+        }),
+        offset: Some(toml_edit::Offset::Z),
+    }
+}
+
 impl AestheticsPatch {
     /// Reads an `aesthetics_patch.toml` text. Every rule is an error, never
     /// a skip: the five header keys are `MissingKey`, any other top-level

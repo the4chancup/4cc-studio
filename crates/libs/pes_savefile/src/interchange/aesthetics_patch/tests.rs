@@ -326,6 +326,18 @@ fn text_that_is_not_toml_is_toml_error() {
     assert!(matches!(error, PatchError::Toml(_)), "{error:?}");
 }
 
+/// The `compiled` stamp's form: UTC, whole seconds, offset `Z`.
+#[test]
+fn utc_datetime_stamps_whole_seconds_utc() {
+    for (unix, expected) in [
+        (0u64, "1970-01-01T00:00:00Z"),
+        (1709164800, "2024-02-29T00:00:00Z"),
+        (4102444799, "2099-12-31T23:59:59Z"),
+    ] {
+        assert_eq!(utc_datetime(unix).to_string(), expected, "{unix}");
+    }
+}
+
 // -------------------------------------------------------------------
 // Apply
 

@@ -767,6 +767,29 @@ fn a_name_over_the_versions_field_is_refused_on_two_versions() {
     }
 }
 
+/// `NameField::check` is `apply`'s text check standalone: at the field's
+/// capacity passes, one byte longer is `TextTooLong` naming the key.
+#[test]
+fn name_field_check_is_applys_check() {
+    let texts = schema_for(PesVersion::Pes21).player.texts;
+    for (field, max) in [
+        (NameField::Name, text_max(texts, PlayerText::Name)),
+        (NameField::ShirtName, text_max(texts, PlayerText::ShirtName)),
+    ] {
+        let key = field.key();
+        field
+            .check(&"N".repeat(max), PesVersion::Pes21)
+            .expect("at capacity");
+        match field.check(&"N".repeat(max + 1), PesVersion::Pes21) {
+            Err(SettingsError::TextTooLong {
+                key: got,
+                max: got_max,
+            }) => assert_eq!((got.as_str(), got_max), (key, max)),
+            other => panic!("{key}: expected TextTooLong, got {other:?}"),
+        }
+    }
+}
+
 #[test]
 fn a_shirt_name_that_is_not_a_plain_string_is_refused() {
     // A char above U+00FF does not fit the single-byte field: `WrongType` at

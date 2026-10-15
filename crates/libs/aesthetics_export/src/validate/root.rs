@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use super::folders::stem;
 use crate::FileKind;
-use crate::conventions::{MetadataFile, strip_prefix_ci};
+use crate::conventions::{Marker, MetadataFile, strip_prefix_ci};
 use crate::listing::{SmallMetadata, ValidationContext, metadata_text};
 use crate::parse::{AestheticsExportDraft, FileDescriptor};
 use crate::slots::PlayerSlot;
@@ -176,6 +176,7 @@ pub(crate) fn check_root(
         team_colors: None,
         notes: None,
         referee_marker: None,
+        autopilot: false,
     };
     for file in &draft.root_files {
         if is_logo_candidate(file) {
@@ -196,6 +197,9 @@ pub(crate) fn check_root(
             FileKind::Metadata(MetadataFile::Readme) => {}
             FileKind::Texture if referees && name.eq_ignore_ascii_case("ref_marker.dds") => {
                 artifacts.referee_marker = Some(file.clone());
+            }
+            FileKind::Marker(Marker::Autopilot) if !referees => {
+                artifacts.autopilot = true;
             }
             _ => issues.push(issue_in(
                 context,

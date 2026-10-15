@@ -92,6 +92,9 @@ pub struct RootArtifacts {
     pub notes: Option<FileDescriptor>,
     /// A referee export's `ref_marker.dds`.
     pub referee_marker: Option<FileDescriptor>,
+    /// A team export's `autopilot` marker: the export's players' names are
+    /// the aesthetics patch's to write.
+    pub autopilot: bool,
 }
 
 /// The sanitized export: exactly the content no issue dropped.
@@ -125,7 +128,7 @@ pub struct ValidatedAestheticsExport {
     pub collars: Vec<FileDescriptor>,
     /// `Common/`, the targets of `.common` links.
     pub common: Vec<FileDescriptor>,
-    /// Sanitized root colors/notes/referee marker.
+    /// Sanitized root colors/notes/referee marker, and the `autopilot` flag.
     pub root: RootArtifacts,
 }
 

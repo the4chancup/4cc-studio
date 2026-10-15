@@ -433,6 +433,55 @@ fn a_setting_the_version_lacks_is_skipped_not_refused() {
     assert_eq!(player.appearance.sleeves, 2);
 }
 
+/// `resolved` is the aesthetics patch's view of a settings file's motion
+/// table: every key the version holds at its set value or its `KeySpec`
+/// default, a key the version lacks `None`.
+#[test]
+fn resolved_fills_every_motion_key_the_version_holds() {
+    let as_appearance = |motion: &MotionSettings| AppearanceSettings {
+        motion: motion.clone(),
+        ..AppearanceSettings::default()
+    };
+    for version in [PesVersion::Pes18, PesVersion::Pes21] {
+        let resolved = as_appearance(&MotionSettings::default().resolved(version));
+        for key in SettingKey::ALL {
+            let spec = key.spec();
+            if spec.table != KeyTable::Motion {
+                continue;
+            }
+            let expected = if held_on(key, version) {
+                Some(spec.default.expect("every motion key has a default"))
+            } else {
+                None
+            };
+            assert_eq!(
+                get_appearance(&resolved, key),
+                expected,
+                "{version:?} {key:?}"
+            );
+        }
+    }
+    // `dribbling` is PES 20+: `None` resolved on 18, its default on 21.
+    assert_eq!(
+        MotionSettings::default()
+            .resolved(PesVersion::Pes18)
+            .dribbling,
+        None
+    );
+    assert_eq!(
+        MotionSettings::default()
+            .resolved(PesVersion::Pes21)
+            .dribbling,
+        SettingKey::Dribbling.spec().default
+    );
+    // A set key keeps its stored value.
+    let set = MotionSettings {
+        free_kick: Some(5),
+        ..MotionSettings::default()
+    };
+    assert_eq!(set.resolved(PesVersion::Pes21).free_kick, Some(5));
+}
+
 /// A fully unset settings writes every appearance key's default, so no
 /// save value shows through: the stock IDs and the names keep the save's
 /// own (the compiler resolves the IDs; absent names are never written),

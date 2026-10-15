@@ -69,6 +69,9 @@ pub enum Marker {
     /// underscore (`icon_7`). Any digits make the marker, so an out-of-range
     /// `icon_99` is still a kit's icon, reported as invalid by validation.
     Icon,
+    /// `autopilot`: a team export by a caretaker, whose players' names the
+    /// aesthetics patch writes over the tactical export's.
+    Autopilot,
 }
 
 /// A metadata file by its known name.
@@ -113,13 +116,14 @@ const SHARED_LINKS: [(&str, SharedKind); 3] = [
 /// Marker names with a fixed spelling: `pre-fox` before `fox` only because
 /// they read as a pair. A bare `fpc` reads as `fpc_on` (presence means on).
 /// The icon marker carries a number and is matched by `icon_digits`.
-const MARKERS: [(&str, Marker); 6] = [
+const MARKERS: [(&str, Marker); 7] = [
     ("ingame_face", Marker::IngameFace),
     ("fpc_on", Marker::FpcOn),
     ("fpc_off", Marker::FpcOff),
     ("fpc", Marker::FpcOn),
     ("pre-fox", Marker::PreFox),
     ("fox", Marker::Fox),
+    ("autopilot", Marker::Autopilot),
 ];
 
 /// Known metadata names, whole-name case-insensitive.
@@ -342,7 +346,7 @@ mod tests {
 
     #[test]
     fn classify_covers_the_convention_table() {
-        let cases: [(&str, FileKind); 58] = [
+        let cases: [(&str, FileKind); 59] = [
             ("Crocs.boots", FileKind::SharedLink(SharedKind::Boots)),
             ("Crocs.BOOTS.txt", FileKind::SharedLink(SharedKind::Boots)),
             ("Longhair.face", FileKind::SharedLink(SharedKind::Face)),
@@ -363,6 +367,7 @@ mod tests {
             ("fpc_off.txt", FileKind::Marker(Marker::FpcOff)),
             ("pre-fox", FileKind::Marker(Marker::PreFox)),
             ("Fox.txt", FileKind::Marker(Marker::Fox)),
+            ("AUTOPILOT.txt", FileKind::Marker(Marker::Autopilot)),
             ("players.txt", FileKind::Metadata(MetadataFile::PlayersTxt)),
             ("README.TXT", FileKind::Metadata(MetadataFile::Readme)),
             ("ref_lists.txt", FileKind::Metadata(MetadataFile::RefLists)),
