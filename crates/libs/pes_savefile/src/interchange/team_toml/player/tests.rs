@@ -1704,13 +1704,12 @@ fn a_pes21_document_on_a_pes18_target_converts() {
     let cap18 =
         face_type_cap(PesVersion::Pes18, IngameFaceField::FacialHairType).expect("a PES 18 cap");
     let over = cap18 + 1;
-    doc.players
-        .values_mut()
-        .next()
-        .expect("a player")
-        .appearance
-        .face
-        .facial_hair_type = Some(over);
+    let first = doc.players.values_mut().next().expect("a player");
+    first.appearance.face.facial_hair_type = Some(over);
+    // A celebration past PES 18's shown top (127) and a free kick past its
+    // 4-bit field: both write at the target's top, each with its note.
+    first.appearance.motion.goal_celebration_1 = Some(162);
+    first.appearance.motion.free_kick = Some(19);
     let mut target_team = team18.clone();
     let mut targets: Vec<PlayerEntry> = file18.players().to_vec();
     let notes = doc
@@ -1726,6 +1725,19 @@ fn a_pes21_document_on_a_pes18_target_converts() {
         )),
         "a Capped note for facial_hair_type, reset to 0: {notes:?}"
     );
+    for (suffix, from, to) in [
+        (".appearance.motion.goal_celebration_1", 162u8, 127u8),
+        (".appearance.motion.free_kick", 20, 16),
+    ] {
+        assert!(
+            notes.iter().any(|note| matches!(
+                note,
+                ImportNote::Capped { path, from: f, to: t }
+                    if path.ends_with(suffix) && *f == from && *t == to
+            )),
+            "a Capped note for {suffix}, {from} to {to} as the document shows them: {notes:?}"
+        );
+    }
     assert!(
         notes.iter().any(|note| matches!(
             note,
@@ -1751,6 +1763,14 @@ fn a_pes21_document_on_a_pes18_target_converts() {
             .expect("a stored type"),
         0,
         "the over-cap face type is written 0"
+    );
+    assert_eq!(
+        target.motion.goal_celebration_1, 127,
+        "the over-top celebration is written at PES 18's top"
+    );
+    assert_eq!(
+        target.motion.free_kick, 15,
+        "the over-wide free kick is written at PES 18's top"
     );
     let source = file21
         .player(team18.roster[first_slot].player_id)

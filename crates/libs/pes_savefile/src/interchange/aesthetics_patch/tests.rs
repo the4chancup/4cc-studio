@@ -806,8 +806,9 @@ fn a_broken_patch_is_refused_whole() {
     assert_eq!(save.players(), &before[..]);
     assert_eq!(save.teams(), &teams[..]);
 
-    // `corner_kick` stored 8: inside the key's 1-to-10 range, past PES
-    // 18's 3-bit field.
+    // `corner_kick` stored 8: inside the key's widest 1-to-10 range, past
+    // PES 18's own top (shown 1 to 6), refused at the key's per-version
+    // range before the field's width is reached.
     let (mut save, _) = open(PesVersion::Pes18);
     let before = save.players().to_vec();
     let teams = save.teams().to_vec();
@@ -825,21 +826,69 @@ fn a_broken_patch_is_refused_whole() {
         )],
     );
     let err = patch.apply(&mut save).expect_err("refused");
-    assert!(
-        matches!(
-            err,
-            PatchError::Settings(SettingsError::Codec(
-                crate::CodecError::ValueTooWide {
-                    ref field,
-                    value: 8,
-                    width: 3,
-                }
-            )) if field == "CornerKickMotion"
-        ),
-        "{err:?}"
-    );
+    match &err {
+        PatchError::Settings(SettingsError::OutOfRange {
+            key, value, range, ..
+        }) => {
+            assert_eq!(key, "teams[0].players.05.appearance.motion.corner_kick");
+            assert_eq!(*value, 8);
+            assert_eq!(range, "1 to 6");
+        }
+        other => panic!("{other:?}"),
+    }
     assert_eq!(save.players(), &before[..]);
     assert_eq!(save.teams(), &teams[..]);
+}
+
+/// A motion past the patch's own version's top is refused at the key's
+/// per-version range, not written: PES 18's celebration top is 127
+/// stored, its hunching shown 1 to 3 (stored 0 to 2).
+#[test]
+fn a_motion_past_the_patch_versions_top_is_refused() {
+    let (mut save, _) = open(PesVersion::Pes18);
+    let before = save.players().to_vec();
+    let teams = save.teams().to_vec();
+    for (motion, path, value, range) in [
+        (
+            MotionSettings {
+                goal_celebration_1: Some(162),
+                ..MotionSettings::default()
+            },
+            "teams[0].players.05.appearance.motion.goal_celebration_1",
+            162i64,
+            "0 to 127",
+        ),
+        (
+            MotionSettings {
+                hunching_dribbling: Some(3),
+                ..MotionSettings::default()
+            },
+            "teams[0].players.05.appearance.motion.hunching_dribbling",
+            3,
+            "1 to 3",
+        ),
+    ] {
+        let patch = patch_at(
+            PesVersion::Pes18,
+            vec![team(701, BTreeMap::from([(5, motion_only(motion))]))],
+        );
+        let err = patch.apply(&mut save).expect_err("refused");
+        match &err {
+            PatchError::Settings(SettingsError::OutOfRange {
+                key,
+                value: got,
+                range: got_range,
+                ..
+            }) => {
+                assert_eq!(key, path);
+                assert_eq!(*got, value);
+                assert_eq!(got_range, range);
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(save.players(), &before[..], "{path}");
+        assert_eq!(save.teams(), &teams[..], "{path}");
+    }
 }
 
 /// The kind's range check the field's width does not see: `free_kick`

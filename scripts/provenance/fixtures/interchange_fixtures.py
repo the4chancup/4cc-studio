@@ -25,7 +25,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from save_census import KEYS, crypt_stream, effective, file_key, section_key  # noqa: E402
 
-OUT = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\crates\libs\pes_savefile\tests\fixtures")
+# The checkout the script sits in (a worktree writes its own fixtures).
+OUT = Path(__file__).resolve().parents[3] / "crates" / "libs" / "pes_savefile" / "tests" / "fixtures"
 PREFIX = 4096
 
 TED = {  # version -> (source, key index, size, team record size, roster size, tactics size, player size, width)
@@ -33,7 +34,10 @@ TED = {  # version -> (source, key index, size, team record size, roster size, t
     19: (r"C:\Data\Documents\KONAMI\PRO EVOLUTION SOCCER 2019\WEPES\98HU.ted", 0x13, 0x25B0, 416, 244, 628, 188, 40),
     21: (r"C:\Data\Documents\KONAMI\eFootball PES 2021 SEASON UPDATE\WEPES\98hu_vrl4_v1.ted", 0x15, 0x39E4, 588, 284, 628, 312, 40),
 }
-TEXPORT17 = r"C:\Data\4cc\Saves\pesXcrypter\TEXPORT00000000"
+TEXPORT_OLD = {  # version -> (source, tactics offset, players offset, player + appearance record size)
+    16: (r"C:\Data\Documents\KONAMI\Pro Evolution Soccer 2016\save old2\TEXPORT00000001", 0x10298, 0x510660, 112 + 72),
+    17: (r"C:\Data\4cc\Saves\pesXcrypter\TEXPORT00000000", 0x10330, 0x510840, 188),
+}
 SQUAD = r"C:\Data\Documents\KONAMI\PRO EVOLUTION SOCCER 2019\292733975847239680\save\CM.4ccs"
 PES19_PAYLOAD = OUT / "pes19_payload.bin.zz"
 CCT_TEAM = 713
@@ -81,11 +85,16 @@ def ted(version):
     print(f"  tail {dec[-12:].hex()}; 660-byte block nonzero bytes {sum(1 for b in dec[tactics_at + tactics:players_at] if b)}")
 
 
-# --- Texport 17 (container) ----------------------------------------------------------------------
+# --- Texport 16 and 17 (container) ---------------------------------------------------------------
 
-def texport17():
-    data = Path(TEXPORT17).read_bytes()
-    eff = effective(KEYS[17])
+def texport_container(version):
+    """The save-style slices of a 16 or 17 texport. The body lays out as an 18-21 one does: the
+    roster record (team id, 32 player ids, 32 shirt-number bytes; 164 bytes) sits right before
+    the tactics record, and the player records follow the roster's order, not id order (the
+    PES 16 file's roster lists 80423 third)."""
+    src, tactics_at, players_at, stride = TEXPORT_OLD[version]
+    data = Path(src).read_bytes()
+    eff = effective(KEYS[version])
     fkey = file_key(data[0:320], eff)
     hsize = 176
     header = crypt_stream(section_key(fkey, hsize), data[320 : 320 + hsize])
@@ -101,17 +110,20 @@ def texport17():
     assert off + serial_size * 2 == len(data)
     assert desc.startswith(b"Team Export Data"), desc[:20]
     assert crypt_stream(section_key(fkey, 2), payload_enc[:PREFIX]) == payload[:PREFIX]
-    team_id = struct.unpack_from("<I", payload, 0x10330)[0]
-    first = struct.unpack_from("<I", payload, 0x510840)[0]
-    assert first == team_id * 100 + 1, (team_id, first)
-    n = 0
-    while struct.unpack_from("<I", payload, 0x510840 + n * 188)[0] == first + n:
-        n += 1
-    write(OUT / "pes17_texport_head.bin", data[:head_end])
-    write(OUT / "pes17_texport_payload_enc_head.bin", payload_enc[:PREFIX])
-    write(OUT / "pes17_texport_payload.bin.zz", zlib.compress(payload, 9))
-    print(f"pes17_texport: head {head_end} B; payload {payload_size} logo {logo_size} desc {desc_size} serial {serial_size}")
-    print(f"  description {desc.rstrip(b'\\0')!r}; team {team_id}; {n} players @ 0x510840")
+    team_id = struct.unpack_from("<I", payload, tactics_at)[0]
+    roster_at = tactics_at - 164
+    assert struct.unpack_from("<I", payload, roster_at)[0] == team_id
+    ids = [i for i in struct.unpack_from("<32I", payload, roster_at + 4) if i]
+    numbers = payload[roster_at + 4 + 128 : tactics_at]
+    records = [struct.unpack_from("<I", payload, players_at + i * stride)[0] for i in range(len(ids))]
+    assert records == ids, (records, ids)
+    name = f"pes{version}_texport"
+    write(OUT / f"{name}_head.bin", data[:head_end])
+    write(OUT / f"{name}_payload_enc_head.bin", payload_enc[:PREFIX])
+    write(OUT / f"{name}_payload.bin.zz", zlib.compress(payload, 9))
+    print(f"{name}: head {head_end} B; payload {payload_size} logo {logo_size} desc {desc_size} serial {serial_size}")
+    print(f"  description {desc.rstrip(b'\\0')!r}; team {team_id}; {len(ids)} players @ {players_at:#x} in roster order")
+    print(f"  roster @ {roster_at:#x}: ids {ids}; shirt bytes {numbers.hex()}")
     print(f"  payload md5 = {hashlib.md5(payload).hexdigest()}  zz {len(zlib.compress(payload, 9))} B")
 
 
@@ -262,6 +274,7 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for v in (18, 19, 21):
         ted(v)
-    texport17()
+    for v in (16, 17):
+        texport_container(v)
     squad()
     nightly()

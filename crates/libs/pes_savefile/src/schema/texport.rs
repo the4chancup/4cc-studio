@@ -1,11 +1,12 @@
 //! The Texport layout tables. Two eras: the 18-21 `.ted` (a 0x50 header, a
 //! 32-byte XOR key at 0x30, then the save's own records concatenated) and the
 //! 15-17 `TEXPORT00000000` (a whole savefile container; the table names where
-//! the tactics and player records sit in its payload).
+//! the team, roster, tactics and player records sit in its payload).
 //!
 //! Provenance: the 18-21 constants are measured on real files (four 18,
 //! eleven 19, one 20, five 21 texports; counts in `operations.md` "Interchange
-//! formats"). No PES 15/16 texport exists: their offsets are unverified.
+//! formats"). The 15-17 layout is measured on all 46 texports of the
+//! reference machine (12 PES 16, 34 17; PES 15's is PES 16's, unverified).
 
 use pes_version::PesVersion;
 
@@ -25,9 +26,14 @@ pub struct TexportLayout {
     pub tail: [u8; 12],
 }
 
-/// Where a 15-17 texport's readable records sit in the container's payload
-/// (the team and roster records' positions are unmeasured).
+/// Where a 15-17 texport's records sit in the container's payload: the
+/// tactics and player offsets measured, the team and roster offsets derived
+/// from them and the save schema's record sizes.
 pub(crate) struct TexportOld {
+    /// Byte offset of the team record.
+    pub team_at: usize,
+    /// Byte offset of the roster record.
+    pub roster_at: usize,
     /// Byte offset of the tactics record.
     pub tactics_at: usize,
     /// Byte offset of the first player record.
@@ -116,22 +122,6 @@ static PES21: TexportLayout = TexportLayout {
     tail: hex("000000000000000001000000"),
 };
 
-// PES 15/16's offsets are unverified.
-static PES15_OLD: TexportOld = TexportOld {
-    tactics_at: 0x10298,
-    players_at: 0x51065C,
-};
-
-static PES16_OLD: TexportOld = TexportOld {
-    tactics_at: 0x10298,
-    players_at: 0x510660,
-};
-
-static PES17_OLD: TexportOld = TexportOld {
-    tactics_at: 0x10330,
-    players_at: 0x510840,
-};
-
 /// The 18-21 `.ted` layout; `None` on 15-17.
 pub fn texport_layout(version: PesVersion) -> Option<&'static TexportLayout> {
     match version {
@@ -143,12 +133,26 @@ pub fn texport_layout(version: PesVersion) -> Option<&'static TexportLayout> {
     }
 }
 
-/// The 15-17 payload offsets; `None` on 18-21.
-pub(crate) fn texport_old(version: PesVersion) -> Option<&'static TexportOld> {
-    match version {
-        PesVersion::Pes15 => Some(&PES15_OLD),
-        PesVersion::Pes16 => Some(&PES16_OLD),
-        PesVersion::Pes17 => Some(&PES17_OLD),
-        PesVersion::Pes18 | PesVersion::Pes19 | PesVersion::Pes20 | PesVersion::Pes21 => None,
-    }
+/// The 15-17 payload offsets; `None` on 18-21. The team and roster offsets
+/// are derived: the roster ends where the tactics record begins, the team
+/// record ends where the roster begins — on 17 with the 88-byte coach
+/// block between them.
+pub(crate) fn texport_old(version: PesVersion) -> Option<TexportOld> {
+    let (tactics_at, players_at, coach) = match version {
+        PesVersion::Pes15 => (0x10298, 0x51065C, 0),
+        PesVersion::Pes16 => (0x10298, 0x510660, 0),
+        PesVersion::Pes17 => (0x10330, 0x510840, 88),
+        PesVersion::Pes18 | PesVersion::Pes19 | PesVersion::Pes20 | PesVersion::Pes21 => {
+            return None;
+        }
+    };
+    let schema = super::schema_for(version);
+    let roster_at = tactics_at - schema.roster.size;
+    let team_at = roster_at - coach - schema.team.size;
+    Some(TexportOld {
+        team_at,
+        roster_at,
+        tactics_at,
+        players_at,
+    })
 }

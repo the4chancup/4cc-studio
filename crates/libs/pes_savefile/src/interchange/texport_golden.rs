@@ -334,6 +334,18 @@ fn pes17_texport_opens_through_the_container_and_round_trips() {
     assert_eq!(t.version(), PesVersion::Pes17);
     // The reference reads the tactics record at 0x10330 and the players at 0x510840.
     assert_eq!(t.team().id, 736);
+    // The team record carries its metadata and the roster record the shirt
+    // numbers, both read at the measured offsets.
+    assert!(!t.team().name.is_empty(), "the team record's name");
+    let doc = t.to_team_toml().expect("to_team_toml");
+    for (key, section) in &doc.players {
+        let index = usize::from(*key - 1);
+        assert_eq!(
+            section.number,
+            Some(t.team().roster[index].number),
+            "the roster's shirt number at slot {key}"
+        );
+    }
     let players = t.players();
     assert_eq!(players.len(), 23);
     let schema = schema_for(PesVersion::Pes17);
@@ -362,6 +374,79 @@ fn pes17_texport_opens_through_the_container_and_round_trips() {
     assert_eq!(display_name(&players[1].name), "JAMES MAY");
     for (i, p) in players.iter().enumerate() {
         assert_eq!(p.id, 736 * 100 + 1 + i as u32);
+    }
+    assert_eq!(t.to_bytes(&test_salt()).expect("encodes"), bytes);
+}
+
+/// The PES 16 texport's decrypted payload, sliced as a save fixture's is.
+fn pes16_payload() -> Vec<u8> {
+    let mut payload = Vec::new();
+    flate2::read::ZlibDecoder::new(
+        &include_bytes!("../../tests/fixtures/pes16_texport_payload.bin.zz")[..],
+    )
+    .read_to_end(&mut payload)
+    .expect("inflates");
+    payload
+}
+
+/// The PES 16 texport as a container around the sliced payload (logo and
+/// serial dropped, as the save fixtures are).
+fn pes16_texport_bytes() -> Vec<u8> {
+    let payload = pes16_payload();
+    let mut description = b"Team Export Data 02".to_vec();
+    description.resize(384, 0);
+    SaveContainer {
+        scheme: Scheme::Keyed(MasterKey::Pes16),
+        description,
+        logo: Vec::new(),
+        payload,
+        identifier: vec![0; MasterKey::Pes16.header_size() - 80],
+        serial: Vec::new(),
+    }
+    .to_bytes(&test_salt())
+    .expect("container encodes")
+}
+
+/// The one real file whose roster is not id-sorted (team 804): the
+/// records follow the roster's order, which the consecutive-id scan
+/// read two players of before dropping the other 21 without an error.
+#[test]
+fn pes16_texport_reads_players_in_the_rosters_order() {
+    let bytes = pes16_texport_bytes();
+    let t = Texport::from_bytes(&bytes, None).expect("opens");
+    assert_eq!(t.version(), PesVersion::Pes16);
+    assert_eq!(t.team().id, 804);
+    assert!(!t.team().name.is_empty(), "the team record's name");
+    let expected: Vec<u32> = vec![
+        80401, 80402, 80423, 80404, 80405, 80407, 80422, 80408, 80410, 80411, 80409, 80413, 80414,
+        80403, 80415, 80421, 80418, 80419, 80412, 80417, 80416, 80420, 80406,
+    ];
+    // The roster record itself holds the ids in the file's order.
+    assert_eq!(
+        t.team()
+            .roster
+            .iter()
+            .filter(|slot| slot.player_id != 0)
+            .map(|slot| slot.player_id)
+            .collect::<Vec<_>>(),
+        expected,
+        "the roster's order"
+    );
+    let players = t.players();
+    assert_eq!(
+        players.iter().map(|p| p.id).collect::<Vec<_>>(),
+        expected,
+        "players in the roster's order"
+    );
+    // The shirt numbers are the roster's, carried into the document.
+    let doc = t.to_team_toml().expect("to_team_toml");
+    for (key, section) in &doc.players {
+        let index = usize::from(*key - 1);
+        assert_eq!(
+            section.number,
+            Some(t.team().roster[index].number),
+            "slot {key}"
+        );
     }
     assert_eq!(t.to_bytes(&test_salt()).expect("encodes"), bytes);
 }

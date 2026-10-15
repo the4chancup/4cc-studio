@@ -127,6 +127,31 @@ Still open:
 
 What exists of this is in `spec/pes_savefile/operations.md` "Texport (read + write)".
 
+**The 15-17 team and roster records, measured (Phase 5 converge).** Over every 15-17 texport on
+the reference machine (12 PES 16, 34 PES 17; none of PES 15), the 15-17 body lays its records
+out as an 18-21 one does, each the save schema's size: on 16, the team record (456 bytes) at
+`0x1002C`, then the roster record (164) at `0x101F4`, then the tactics record at `0x10298`; on
+17, the team record (480) at `0x10054`, the 88-byte coach block at `0x10234`, the roster record
+at `0x1028C`, the tactics record at `0x10330` (the four team-id positions the spec lists are
+these records' ids). In all 46 files the team record's, the roster's and the tactics record's
+ids agree, the roster holds the 23 player ids and their shirt numbers, and on 16 the player
+records follow the roster's order. That order is not always the ids' order: one real PES 16
+file (team 804, the fixture `pes16_texport_*`) lists 80401, 80402, 80423, 80404, ..., and the
+consecutive-id scan the reader uses today stops after two players and drops the other 21
+without an error. PES 15 is taken to lay out as 16 does (the same tactics offset and record
+sizes), unverified.
+
+So a 15-17 texport is read and written as an 18-21 one is: `roster_at` is the tactics offset
+minus the roster record's size, the team record ends where the roster starts (17: where the
+coach block starts, 88 bytes before it); the team, roster and tactics records are read with the
+save's codecs (names included), and each filled roster slot's player record is read at that
+slot's position (`players_at` + slot × the record stride, as on 18-21), its id checked against
+the slot's (`RosterMismatch`, as for 18-21). The writer writes the team and roster records back and lays the players out in the
+roster's order. We read the records rather than keep the target save's team and roster because
+the file carries them, and the consecutive-id rule they replace was ours, never measured: it is
+what lost the 21 players. `to_team_toml` on 15-17 then carries the `[team]` section and shirt
+numbers as on 18-21.
+
 ## Player section population (Phase 19, DB generator)
 
 The savefile half of the [DB generator](../db_generator.md), specified here and implemented in

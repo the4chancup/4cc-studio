@@ -21,12 +21,12 @@ use crate::model::playstyle::PlayStyle;
 use crate::model::team::TeamEntry;
 use crate::schema::fields::{PlayerField, PlayerText, RosterField};
 use crate::schema::ingame_face::INGAME_FACE_FIELDS;
-use crate::schema::limits::face_type_cap;
+use crate::schema::limits::{face_type_cap, motion_top};
 use crate::schema::{bit_width, playstyle, schema_for};
 use crate::settings_toml::document::{
     AppearanceDocument, emit_appearance, leaf_path, padded, parse_appearance,
 };
-use crate::settings_toml::keys::{SettingKey, Source};
+use crate::settings_toml::keys::{Kind, SettingKey, Source};
 use crate::settings_toml::{
     AppearanceSettings, appearance_from, apply_appearance, get_appearance, held_on, set_appearance,
 };
@@ -777,6 +777,24 @@ fn apply_appearance_table(
                     if !context.fields.contains(&field) {
                         set_appearance(&mut appearance, key, None);
                         notes.push(ImportNote::NotInThisVersion { path: leaf });
+                    } else if let Some(top) = motion_top(context.to, field)
+                        && value > top
+                    {
+                        // A motion past the target's top is capped, stored
+                        // value against the stored top (`motion_top`'s
+                        // units); the note reports the document's numbers
+                        // (a 1-based key's stored value plus one, a
+                        // celebration's as stored).
+                        set_appearance(&mut appearance, key, Some(top));
+                        let shown = |v: u8| match key.spec().kind {
+                            Kind::OneBased { .. } => v.saturating_add(1),
+                            _ => v,
+                        };
+                        notes.push(ImportNote::Capped {
+                            path: leaf,
+                            from: shown(value),
+                            to: shown(top),
+                        });
                     }
                 }
                 Source::Face(_) | Source::NoseAngle if !held_on(key, context.to) => {

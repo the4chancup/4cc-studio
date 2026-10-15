@@ -418,11 +418,17 @@ fn build(
         let Some(stored) = get_appearance(&appearance, key) else {
             continue;
         };
-        if !spec.kind.accepts_stored(stored) {
+        // The patch's own version's range, not the widest the key table
+        // holds; a key the version lacks is `version_kind`'s `None` and
+        // `apply_appearance`'s `NotInThisVersion`, as before.
+        let Some(kind) = key.version_kind(schema.version) else {
+            continue;
+        };
+        if !kind.accepts_stored(stored) {
             return Err(SettingsError::OutOfRange {
                 key: format!("{motion_path}.{}", spec.name),
                 value: i64::from(stored),
-                range: range_text(spec.kind),
+                range: range_text(kind),
             }
             .into());
         }

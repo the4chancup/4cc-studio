@@ -3,10 +3,11 @@
 //! - 18-21 `.ted`: a 0x50 plaintext header, a 32-byte XOR key at 0x30, then
 //!   the save's own team, roster, tactics and player records concatenated
 //!   (sizes in `schema/texport.rs`, measured on real 18-21 files).
-//! - 15-17 `TEXPORT00000000`: a whole savefile container; the tactics and
-//!   player records' payload offsets are `schema::texport::texport_old`'s
-//!   (the team and roster records' positions are unmeasured, so the team
-//!   carries only the id the tactics record holds and an empty roster).
+//! - 15-17 `TEXPORT00000000`: a whole savefile container; the team, roster,
+//!   tactics and player records' payload offsets are
+//!   `schema::texport::texport_old`'s, the team's and roster's derived from
+//!   the save schema's record sizes (measured on every 15-17 texport of the
+//!   reference machine).
 //!
 //! The module owns crypto and carry-through only: every record is decoded
 //! and re-encoded by the schema codec, and unmodeled bytes ride along in the
@@ -73,10 +74,11 @@ pub enum TexportError {
     /// The 15-17 container crypto failed.
     #[error(transparent)]
     Container(#[from] ContainerError),
-    /// A 15-17 container that is a save, not a texport: the description is
-    /// the file's own label, `Team Export Data NN` + the team name on a
+    /// A savefile container that is a save, not a texport: the description
+    /// is the file's own label, `Team Export Data NN` + the team name on a
     /// texport and `Edit Data` on a save. Checked before any record is read,
-    /// so a save handed to `from_bytes` is refused rather than opening with
+    /// so a save handed to `from_bytes` — of 15-17, or of 18-21 after its
+    /// size matches no `.ted` layout — is refused rather than opening with
     /// a garbage team and no players.
     #[error("the container's description is not \"Team Export Data\" (a save's is \"Edit Data\")")]
     NotATexport,
@@ -96,32 +98,23 @@ pub enum TexportError {
     /// `new` cannot synthesize a 15-17 file: there is no measured template.
     #[error("no texport template exists for {0:?}; write by editing a read file")]
     NoTemplate(PesVersion),
-    /// The 15-17 writer lays player records out positionally and the reader
-    /// stops at the first record whose id is not `team.id * 100 + 1 + slot`;
-    /// that termination rule is ours (unmeasured), so the writer refuses a
-    /// player list it could not read back rather than guessing.
-    #[error("old-layout record {slot} must be player id {expected}, not {got}")]
-    OldPlayerIds {
-        /// The 0-based record position.
-        slot: usize,
-        /// The id the position must carry (`u64`: a team id over
-        /// ~42 million has no representable layout).
-        expected: u64,
-        /// The player id found there.
-        got: u32,
+    /// A 15-17 file whose team, roster and tactics records disagree on the
+    /// team id — the invariant every measured texport holds, so the payload
+    /// is not laid out as one.
+    #[error("the team, roster and tactics records disagree ({team}, {roster}, {tactics})")]
+    IdsDisagree {
+        /// The team record's id.
+        team: u32,
+        /// The roster record's id.
+        roster: u32,
+        /// The tactics record's id.
+        tactics: u32,
     },
 }
 
 /// The little-endian u32 id at a record's start.
 fn record_id(record: &[u8]) -> u32 {
     u32::from_le_bytes(record[..4].try_into().expect("an id field"))
-}
-
-/// The id a 15-17 record must carry at position `i` (`team.id * 100 + 1 +
-/// i`), in u64 so a team id over ~42 million mismatches instead of
-/// overflowing.
-fn old_record_id(team_id: u32, i: u32) -> u64 {
-    u64::from(team_id) * 100 + 1 + u64::from(i)
 }
 
 /// The derived record offsets of an 18-21 file.
@@ -351,12 +344,11 @@ impl Texport {
         })
     }
 
-    /// A 15-17 file: the container's payload holds the tactics record and the
-    /// consecutive player records (15/16: a player record then its appearance
-    /// record per player). The team and roster records are unmeasured, so the
-    /// team carries the tactics record's id and a roster implied by the player
-    /// records: one slot per record, the consecutive ids the scan found, and
-    /// shirt number 0 — the format does not carry shirt numbers.
+    /// A 15-17 file: the container's payload holds the team, roster and
+    /// tactics records at `texport_old`'s offsets, then the player records
+    /// in the roster's order — one record per filled roster slot, its id
+    /// checked against the slot's (15/16: a player record then its
+    /// appearance record per player).
     fn open_old(container: SaveContainer) -> Result<Texport, TexportError> {
         // The description is the file's own label, checked before any record
         // is read: without it a save opens silently with a garbage team and
@@ -368,69 +360,60 @@ impl Texport {
         let schema = schema_for(version);
         let old = texport_old(version).ok_or(TexportError::UnknownVersion)?;
         let payload = &container.payload;
-        let tactics = payload
-            .get(old.tactics_at..old.tactics_at + schema.tactic.size)
-            .ok_or(CodecError::RecordSize {
-                expected: schema.tactic.size,
-                got: payload.len().saturating_sub(old.tactics_at),
-            })?;
-        let mut team = TeamEntry {
-            id: record_id(tactics),
-            ..TeamEntry::default()
+        let record = |at: usize, size: usize| -> Result<&[u8], TexportError> {
+            payload.get(at..at + size).ok_or_else(|| {
+                CodecError::RecordSize {
+                    expected: size,
+                    got: payload.len().saturating_sub(at),
+                }
+                .into()
+            })
         };
-        read_tactics_into(&mut team, tactics, schema.tactic)?;
+        // The three records' ids agree in every measured file.
+        let team_rec = record(old.team_at, schema.team.size)?;
+        let roster_rec = record(old.roster_at, schema.roster.size)?;
+        let tactics_rec = record(old.tactics_at, schema.tactic.size)?;
+        let (team_id, roster_id, tactics_id) = (
+            record_id(team_rec),
+            record_id(roster_rec),
+            record_id(tactics_rec),
+        );
+        if team_id != tactics_id || roster_id != tactics_id {
+            return Err(TexportError::IdsDisagree {
+                team: team_id,
+                roster: roster_id,
+                tactics: tactics_id,
+            });
+        }
+        let mut team = read_team(team_rec, schema.team)?;
+        read_roster_into(&mut team, roster_rec, schema.roster)?;
+        read_tactics_into(&mut team, tactics_rec, schema.tactic)?;
         let stride = schema
             .appearance
             .as_ref()
             .map_or(schema.player.size, |(_, a)| schema.player.size + a.size);
         let mut players = Vec::new();
-        for i in 0usize.. {
-            let at = old.players_at + i * stride;
-            let Some(record) = payload.get(at..at + schema.player.size) else {
-                break;
-            };
-            let id = record_id(record);
-            let Ok(i) = u32::try_from(i) else { break };
-            if id == 0 || u64::from(id) != old_record_id(team.id, i) {
-                break;
+        for (slot, roster) in team.roster.iter().enumerate() {
+            if roster.player_id == 0 {
+                continue;
             }
-            let mut player = read_player(record, schema.player)?;
+            let at = old.players_at + slot * stride;
+            let rec = record(at, schema.player.size)?;
+            let id = record_id(rec);
+            if id != roster.player_id {
+                return Err(TexportError::RosterMismatch {
+                    slot,
+                    roster: roster.player_id,
+                    player: id,
+                });
+            }
+            let mut player = read_player(rec, schema.player)?;
             if let Some((_, appearance)) = &schema.appearance {
-                let start = at + schema.player.size;
-                let record =
-                    payload
-                        .get(start..start + appearance.size)
-                        .ok_or(CodecError::RecordSize {
-                            expected: appearance.size,
-                            got: payload.len().saturating_sub(start),
-                        })?;
-                read_player_into(&mut player, record, appearance)?;
+                let rec = record(at + schema.player.size, appearance.size)?;
+                read_player_into(&mut player, rec, appearance)?;
             }
             players.push(player);
         }
-        // The roster the file implies: the consecutive ids in record order,
-        // padded to the version's roster width with empty slots. The width
-        // is the schema's `Player` array size, not a literal.
-        let width = schema
-            .roster
-            .arrays
-            .iter()
-            .find(|a| matches!((a.make)(0), crate::schema::fields::RosterField::Player(0)))
-            .map_or(0, |a| usize::from(a.count));
-        team.roster = (0..width)
-            .map(|i| crate::model::team::RosterSlot {
-                player_id: if i < players.len() {
-                    u32::try_from(old_record_id(
-                        team.id,
-                        u32::try_from(i).expect("a roster is narrower than u32"),
-                    ))
-                    .expect("a record the reader accepted carries an id that fits u32")
-                } else {
-                    0
-                },
-                number: 0,
-            })
-            .collect();
         Ok(Texport {
             version,
             file: File::Old(container),
@@ -484,8 +467,7 @@ impl Texport {
         self.version
     }
 
-    /// The team (team, roster and tactics joined on 18-21; the tactics
-    /// record's id and contents alone on 15-17).
+    /// The team (team, roster and tactics joined).
     pub fn team(&self) -> &TeamEntry {
         &self.team
     }
@@ -506,28 +488,14 @@ impl Texport {
     }
 
     /// The export as a Team TOML document: team, tactics and the rostered
-    /// players, ready to `TeamToml::apply` onto a save. On 15-17 the file
-    /// carries no team metadata or shirt numbers, so the `[team]` section is
-    /// reduced to `id` (name, short name, colours and edit flags stay the
-    /// target's) and `players[NN].number` is `None`.
+    /// players, ready to `TeamToml::apply` onto a save. On every version
+    /// the `[team]` section and the roster's shirt numbers are the file's.
     pub fn to_team_toml(
         &self,
     ) -> Result<crate::interchange::team_toml::TeamToml, crate::interchange::team_toml::TeamTomlError>
     {
         let players: Vec<&PlayerEntry> = self.players.iter().collect();
-        let mut document =
-            crate::interchange::team_toml::TeamToml::from_team(self.version, &self.team, &players)?;
-        if matches!(self.file, File::Old(_)) {
-            let id = document.team.id;
-            document.team = crate::interchange::team_toml::TeamSection {
-                id,
-                ..crate::interchange::team_toml::TeamSection::default()
-            };
-            for section in document.players.values_mut() {
-                section.number = None;
-            }
-        }
-        Ok(document)
+        crate::interchange::team_toml::TeamToml::from_team(self.version, &self.team, &players)
     }
 
     /// The records re-encoded into the plaintext (unmodeled bytes as read),
@@ -546,21 +514,17 @@ impl Texport {
             File::Old(container) => {
                 let schema = schema_for(self.version);
                 let old = texport_old(self.version).expect("an old holds offsets");
-                // The records write positionally and the reader stops at the
-                // first id that is not `team.id * 100 + 1 + slot`; refuse a
-                // list this write could not read back.
-                for (i, player) in self.players.iter().enumerate() {
-                    let expected =
-                        u32::try_from(i).map_or(u64::MAX, |i| old_record_id(self.team.id, i));
-                    if u64::from(player.id) != expected {
-                        return Err(TexportError::OldPlayerIds {
-                            slot: i,
-                            expected,
-                            got: player.id,
-                        });
-                    }
-                }
                 let mut container = container.clone();
+                write_team(
+                    &self.team,
+                    &mut container.payload[old.team_at..old.team_at + schema.team.size],
+                    schema.team,
+                )?;
+                write_roster(
+                    &self.team,
+                    &mut container.payload[old.roster_at..old.roster_at + schema.roster.size],
+                    schema.roster,
+                )?;
                 write_tactics(
                     &self.team,
                     &mut container.payload[old.tactics_at..old.tactics_at + schema.tactic.size],
@@ -570,21 +534,44 @@ impl Texport {
                     .appearance
                     .as_ref()
                     .map_or(schema.player.size, |(_, a)| schema.player.size + a.size);
-                for (i, player) in self.players.iter().enumerate() {
-                    let at = old.players_at + i * stride;
-                    write_player(
-                        player,
-                        &mut container.payload[at..at + schema.player.size],
-                        schema.player,
-                    )?;
-                    if let Some((_, appearance)) = &schema.appearance {
-                        let at = at + schema.player.size;
-                        write_player(
-                            player,
-                            &mut container.payload[at..at + appearance.size],
-                            appearance,
-                        )?;
+                let mut players = self.players.iter();
+                for (slot, roster) in self.team.roster.iter().enumerate() {
+                    if roster.player_id == 0 {
+                        continue;
                     }
+                    let player = players.next().ok_or(TexportError::RosterMismatch {
+                        slot,
+                        roster: roster.player_id,
+                        player: 0,
+                    })?;
+                    if player.id != roster.player_id {
+                        return Err(TexportError::RosterMismatch {
+                            slot,
+                            roster: roster.player_id,
+                            player: player.id,
+                        });
+                    }
+                    let at = old.players_at + slot * stride;
+                    // `team_mut` can fill a slot past the records the payload
+                    // holds: a bounds refusal, not a slice panic.
+                    let got = container.payload.len().saturating_sub(at);
+                    let record = container.payload.get_mut(at..at + stride).ok_or(
+                        CodecError::RecordSize {
+                            expected: stride,
+                            got,
+                        },
+                    )?;
+                    write_player(player, &mut record[..schema.player.size], schema.player)?;
+                    if let Some((_, appearance)) = &schema.appearance {
+                        write_player(player, &mut record[schema.player.size..], appearance)?;
+                    }
+                }
+                if let Some(extra) = players.next() {
+                    return Err(TexportError::RosterMismatch {
+                        slot: self.team.roster.len(),
+                        roster: 0,
+                        player: extra.id,
+                    });
                 }
                 Ok(container.to_bytes(salt)?)
             }
@@ -595,7 +582,6 @@ impl Texport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::container::{MasterKey, Scheme};
     use crate::test_support::{open, test_salt};
 
     /// The fixture .ted files, one per version.
@@ -817,80 +803,6 @@ mod tests {
         ));
     }
 
-    /// A PES 16 texport built in the format's understood layout (tactics
-    /// record, then player record + appearance record per rostered player)
-    /// wrapped in the savefile container. Self-consistency against our own
-    /// construction: no real PES 15/16 texport exists, so this pins the
-    /// player+appearance stride and the consecutive-id scan, unverified
-    /// against a real file.
-    #[test]
-    fn a_synthesized_pes16_texport_round_trips_through_the_old_path() {
-        let schema = schema_for(PesVersion::Pes16);
-        let old = texport_old(PesVersion::Pes16).expect("offsets");
-        let (_, appearance) = schema.appearance.as_ref().expect("a split record");
-        let stride = schema.player.size + appearance.size;
-        let (file, _) = open(PesVersion::Pes16);
-        let team = file.team(701).expect("team 701");
-        let rostered: Vec<&PlayerEntry> = team
-            .roster
-            .iter()
-            .filter(|slot| slot.player_id != 0)
-            .map(|slot| file.player(slot.player_id).expect("rostered"))
-            .collect();
-        assert!(rostered.len() >= 3, "the team has players");
-
-        let mut payload = vec![0u8; old.players_at + 40 * stride + 64];
-        write_tactics(
-            team,
-            &mut payload[old.tactics_at..old.tactics_at + schema.tactic.size],
-            schema.tactic,
-        )
-        .expect("tactics write");
-        for (i, player) in rostered.iter().enumerate() {
-            let at = old.players_at + i * stride;
-            write_player(
-                player,
-                &mut payload[at..at + schema.player.size],
-                schema.player,
-            )
-            .expect("player write");
-            write_player(
-                player,
-                &mut payload[at + schema.player.size..at + stride],
-                appearance,
-            )
-            .expect("appearance write");
-        }
-        // A trailing record whose id is not the next consecutive id: the
-        // reader stops at the roster count.
-        let at = old.players_at + rostered.len() * stride;
-        write_player(
-            rostered[0],
-            &mut payload[at..at + schema.player.size],
-            schema.player,
-        )
-        .expect("stray write");
-
-        let mut description = b"Team Export Data 01".to_vec();
-        description.resize(384, 0);
-        let container = SaveContainer {
-            scheme: Scheme::Keyed(MasterKey::Pes16),
-            description,
-            logo: Vec::new(),
-            payload,
-            identifier: vec![0; MasterKey::Pes16.header_size() - 80],
-            serial: Vec::new(),
-        };
-        let bytes = container.to_bytes(&test_salt()).expect("encodes");
-        let t = Texport::from_bytes(&bytes, None).expect("opens");
-        assert_eq!(t.version(), PesVersion::Pes16);
-        assert_eq!(t.team().id, 701);
-        assert_eq!(t.players().len(), rostered.len());
-        let expected: Vec<PlayerEntry> = rostered.iter().map(|p| (*p).clone()).collect();
-        assert_eq!(t.players(), &expected[..]);
-        assert_eq!(t.to_bytes(&test_salt()).expect("encodes"), bytes);
-    }
-
     /// PES 20's layout is derived from its own record sizes (a 528-byte team
     /// record, not 21's 588), so a 21-sized file is `WrongSize` for it — the
     /// untested key index never gets to decode anything.
@@ -910,26 +822,30 @@ mod tests {
         );
     }
 
-    /// A 15-17 texport through `to_team_toml`: the implied roster exports
-    /// every player, team metadata and shirt numbers stay the target's, and
-    /// the document applies onto another team of the same version.
+    /// A 15-17 texport through `to_team_toml`: the `[team]` section and
+    /// the roster's shirt numbers are the file's, and the document applies
+    /// onto another team of the same version.
     #[test]
     fn a_pes17_texport_applies_through_team_toml() {
-        use crate::interchange::team_toml::TeamSection;
-
         let bytes = crate::interchange::texport_golden::pes17_texport_bytes();
         let texport = Texport::from_bytes(&bytes, None).expect("opens");
         let doc = texport.to_team_toml().expect("to_team_toml");
+        assert!(!texport.team().name.is_empty());
         assert_eq!(
-            doc.team,
-            TeamSection {
-                id: doc.team.id,
-                ..TeamSection::default()
-            },
-            "the file carries no team metadata"
+            doc.team.name.as_deref(),
+            Some(texport.team().name.as_str()),
+            "the file carries its team metadata"
         );
-        assert!(doc.players.values().all(|s| s.number.is_none()));
         assert_eq!(doc.players.len(), texport.players().len());
+        // The shirt numbers are the roster record's.
+        for (key, section) in &doc.players {
+            let index = usize::from(*key - 1);
+            assert_eq!(
+                section.number,
+                Some(texport.team().roster[index].number),
+                "slot {key}"
+            );
+        }
 
         // Another team of the PES 17 save with at least as many rostered
         // slots: the texport's 23 players land on its first 23.
@@ -947,14 +863,14 @@ mod tests {
                         >= doc.players.len()
             })
             .expect("a team with enough slots");
-        let name = team.name.clone();
         let mut target = team.clone();
         let mut players = file.players().to_vec();
         let notes = doc
             .apply(PesVersion::Pes17, &mut target, &mut players)
             .expect("applies");
         assert!(notes.is_empty(), "{notes:?}");
-        assert_eq!(target.name, name, "the file carries no team name");
+        // The file's [team] applies as any other document's does.
+        assert_eq!(target.name, texport.team().name);
         for key in doc.players.keys() {
             let index = usize::from(*key - 1);
             let id = target.roster[index].player_id;
@@ -976,15 +892,16 @@ mod tests {
             expected.appearance.ingame_face.write_unused();
             assert_eq!(applied, expected, "slot {key}");
             assert_eq!(
-                target.roster[index].number, team.roster[index].number,
-                "shirt numbers are not the file's to give"
+                target.roster[index].number,
+                texport.team().roster[index].number,
+                "shirt numbers are the file's"
             );
         }
     }
 
-    /// The 15-17 writer lays players out positionally and the reader stops
-    /// at the first id that is not `team.id * 100 + 1 + slot`: a swapped
-    /// order would write fine and reopen with fewer players, so it is
+    /// The 15-17 writer lays each filled roster slot's player at its
+    /// position and the reader checks the record's id against the slot's:
+    /// a swapped order would write fine and reopen mismatched, so it is
     /// refused.
     #[test]
     fn an_old_layout_refuses_player_ids_that_do_not_match_the_slots() {
@@ -995,7 +912,7 @@ mod tests {
             .to_bytes(&test_salt())
             .expect_err("swapped players cannot be written positionally");
         assert!(
-            matches!(err, TexportError::OldPlayerIds { slot: 0, .. }),
+            matches!(err, TexportError::RosterMismatch { slot: 0, .. }),
             "{err:?}"
         );
     }
