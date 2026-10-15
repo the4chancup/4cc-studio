@@ -1638,3 +1638,115 @@ fn an_invalid_settings_toml_is_reported_and_the_row_is_the_template_s_defaults()
         "the dropped file leaves the template's row"
     );
 }
+
+// TC-BIN-30
+#[test]
+fn an_fpc_on_player_gets_the_hide_preset_with_the_interference_reported() {
+    let sandbox = Sandbox::new("bins_fpc_strip");
+    install_tables(&sandbox, &[(PLAYER_APPEARANCE, &player_appearance())]);
+    let export = "exports/co Full Fpc";
+    // Slot 05: `fpc_on`; his `sleeves` is the one key the preset sets that he set otherwise.
+    let toml = "[appearance.strip]\nsleeves = \"short\"\ninners = \"normal\"\n\
+        undershorts = \"short\"\nankle_taping = true\n";
+    sandbox.write(&format!("{export}/Players/05 - A/fpc_on"), b"");
+    sandbox.write(
+        &format!("{export}/Players/05 - A/settings.toml"),
+        toml.as_bytes(),
+    );
+    // Slot 06: no marker, the gloves checkbox on and no gloves model.
+    sandbox.write(
+        &format!("{export}/Players/06 - B/face_high.fmdl"),
+        &clean_model(),
+    );
+    sandbox.write(
+        &format!("{export}/Players/06 - B/settings.toml"),
+        b"[appearance.strip]\ngloves = true\n",
+    );
+
+    // A `settings.toml` finding: `check` and `compile` report it alike.
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        let fpc: Vec<&str> = lines
+            .iter()
+            .filter(|line| {
+                [
+                    "fpc_strip_conflict",
+                    "fpc_inners_break_hiding",
+                    "fpc_undershorts_break_hiding",
+                    "fpc_taping_shows_pieces",
+                    "fpc_gloves_checkbox_winter_gloves",
+                ]
+                .iter()
+                .any(|code| line.contains(code))
+            })
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            fpc,
+            [
+                "co Full Fpc: Warning fpc_strip_conflict [Keep] at Players/05 - A \
+                 (key=appearance.strip.sleeves)",
+                "co Full Fpc: Warning fpc_inners_break_hiding [Keep] at Players/05 - A ()",
+                "co Full Fpc: Warning fpc_undershorts_break_hiding [Keep] at Players/05 - A ()",
+                "co Full Fpc: Info fpc_taping_shows_pieces [Keep] at Players/05 - A ()",
+                "co Full Fpc: Warning fpc_gloves_checkbox_winter_gloves [Keep] at \
+                 Players/06 - B ()",
+            ],
+            "{args:?}"
+        );
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let table = AppearanceTable::read(
+        PlayerTableFile::PlayerAppearance,
+        &entries[PLAYER_APPEARANCE],
+    )
+    .unwrap();
+    // The preset's sleeves win; the inners, undershorts and taping are as authored.
+    let mut expected = PlayerSettings::parse(toml).unwrap();
+    expected.apply_fpc_preset(&fpc::preset(fpc::Preset::Hide));
+    assert_eq!(
+        expected.get(SettingKey::Sleeves),
+        Some(2),
+        "the preset's long"
+    );
+    assert_eq!(
+        table.get(71405).copied(),
+        Some(
+            expected.appearance_row(71405, PesVersion::Pes21).unwrap()[4..]
+                .try_into()
+                .unwrap()
+        ),
+        "71405's row"
+    );
+}
+
+// TC-BIN-30
+#[test]
+fn a_midcup_markerless_player_is_not_checked_for_the_gloves_rule() {
+    let sandbox = Sandbox::new("bins_fpc_midcup_gloves");
+    // No marker, `gloves = true` and no gloves model: under a `Midcup` export his
+    // installed row stays, which `check` cannot read, so no gloves finding.
+    let export = "exports/co Midcup Gloves";
+    sandbox.write(
+        &format!("{export}/Players/05 - A/face_high.fmdl"),
+        &clean_model(),
+    );
+    sandbox.write(
+        &format!("{export}/Players/05 - A/settings.toml"),
+        b"[appearance.strip]\ngloves = true\n",
+    );
+
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line.contains("fpc_gloves_checkbox_winter_gloves")),
+            "{args:?}: {lines:#?}"
+        );
+    }
+}

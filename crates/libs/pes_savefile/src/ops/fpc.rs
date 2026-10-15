@@ -44,19 +44,9 @@ pub fn apply(
         .appearance
         .ingame_face
         .get(IngameFaceField::SkinColor)?;
-    player.appearance.sleeves = match appearance.sleeves {
-        fpc::Sleeves::Short => 1,
-        fpc::Sleeves::Long => 2,
-    };
-    player.appearance.untucked = match appearance.tuck {
-        fpc::Tuck::Tucked => false,
-        fpc::Tuck::Untucked => true,
-    };
-    player.appearance.socks = match appearance.socks {
-        fpc::Socks::Standard => 0,
-        fpc::Socks::Long => 1,
-        fpc::Socks::Short => 2,
-    };
+    player.appearance.sleeves = sleeves_value(appearance.sleeves);
+    player.appearance.untucked = untucked_value(appearance.tuck);
+    player.appearance.socks = socks_value(appearance.socks);
     player.appearance.boots_id = u32::from(appearance.boots_id);
     player.appearance.gloves_id = u32::from(appearance.gloves_id);
     match appearance.skin_color {
@@ -79,6 +69,34 @@ pub fn apply(
         }
     }
     Ok(())
+}
+
+/// A preset's sleeve length as `PlayerField::Sleeves`'s stored value, the
+/// `settings.toml` label list's index ("seasonal", "short", "long").
+/// `settings_toml` shares these mappings.
+pub(crate) fn sleeves_value(sleeves: fpc::Sleeves) -> u8 {
+    match sleeves {
+        fpc::Sleeves::Short => 1,
+        fpc::Sleeves::Long => 2,
+    }
+}
+
+/// A preset's tuck as `PlayerField::Untucked`'s stored value.
+pub(crate) fn untucked_value(tuck: fpc::Tuck) -> bool {
+    match tuck {
+        fpc::Tuck::Tucked => false,
+        fpc::Tuck::Untucked => true,
+    }
+}
+
+/// A preset's sock length as `PlayerField::Socks`'s stored value, the
+/// `settings.toml` label list's index ("standard", "long", "short").
+pub(crate) fn socks_value(socks: fpc::Socks) -> u8 {
+    match socks {
+        fpc::Socks::Standard => 0,
+        fpc::Socks::Long => 1,
+        fpc::Socks::Short => 2,
+    }
 }
 
 /// The player's strip settings as the interference inputs. Reads the gloves

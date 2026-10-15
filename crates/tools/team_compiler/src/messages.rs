@@ -118,6 +118,23 @@ pub(crate) enum Code {
     /// target's (`PlayerSettings::narrow_to`): the key's default is written in its place (a face
     /// type 0, a motion the template's value, a custom skin 7 as 1).
     SettingsValueOutOfRange,
+    /// A player's `settings.toml` sets a strip key or the skin color the folder's `fpc_on` or
+    /// `fpc_off` marker's preset also sets, to another value: the preset wins.
+    FpcStripConflict,
+    /// `libs/fpc`'s rule on a player whose folder carries `fpc_on`: inners worn under a hidden
+    /// body break the hiding (the lib's Error, a Warning here, since a Studio Error would drop
+    /// the folder).
+    FpcInnersBreakHiding,
+    /// `libs/fpc`'s rule on a player whose folder carries `fpc_on`: undershorts worn under a
+    /// hidden body break the hiding (the lib's Error, a Warning here).
+    FpcUndershortsBreakHiding,
+    /// `libs/fpc`'s rule on a player whose folder carries `fpc_on`: wrist or ankle taping
+    /// selectively shows body pieces, deliberate in custom setups.
+    FpcTapingShowsPieces,
+    /// `libs/fpc`'s rule on any player: the gloves checkbox on with gloves ID 0 gives winter
+    /// gloves in winter conditions (a `Midcup` player whose gloves keep the installed row is
+    /// not checked).
+    FpcGlovesCheckboxWinterGloves,
     /// A Fox model whose name has no recognized suffix: it is face content, a part of the
     /// `fcl_hair.fmdl` merge.
     FmdlFclHairFallback,
@@ -478,7 +495,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 141] = [
+    const ALL: [Code; 146] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -513,6 +530,11 @@ impl Code {
         Code::SettingsTomlInvalid,
         Code::SettingsModelIdConflict,
         Code::SettingsValueOutOfRange,
+        Code::FpcStripConflict,
+        Code::FpcInnersBreakHiding,
+        Code::FpcUndershortsBreakHiding,
+        Code::FpcTapingShowsPieces,
+        Code::FpcGlovesCheckboxWinterGloves,
         Code::FmdlFclHairFallback,
         Code::FmdlMerged,
         Code::ModelMerged,
@@ -659,6 +681,11 @@ impl Code {
             Code::SettingsTomlInvalid => "settings_toml_invalid",
             Code::SettingsModelIdConflict => "settings_model_id_conflict",
             Code::SettingsValueOutOfRange => "settings_value_out_of_range",
+            Code::FpcStripConflict => "fpc_strip_conflict",
+            Code::FpcInnersBreakHiding => "fpc_inners_break_hiding",
+            Code::FpcUndershortsBreakHiding => "fpc_undershorts_break_hiding",
+            Code::FpcTapingShowsPieces => "fpc_taping_shows_pieces",
+            Code::FpcGlovesCheckboxWinterGloves => "fpc_gloves_checkbox_winter_gloves",
             Code::FmdlFclHairFallback => "fmdl_fcl_hair_fallback",
             Code::FmdlMerged => "fmdl_merged",
             Code::ModelMerged => "model_merged",
@@ -825,6 +852,14 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("settings_toml_invalid", CatalogSeverity::Error),
     ("settings_model_id_conflict", CatalogSeverity::Warning),
     ("settings_value_out_of_range", CatalogSeverity::Warning),
+    ("fpc_strip_conflict", CatalogSeverity::Warning),
+    ("fpc_inners_break_hiding", CatalogSeverity::Warning),
+    ("fpc_undershorts_break_hiding", CatalogSeverity::Warning),
+    ("fpc_taping_shows_pieces", CatalogSeverity::Info),
+    (
+        "fpc_gloves_checkbox_winter_gloves",
+        CatalogSeverity::Warning,
+    ),
     ("fmdl_fcl_hair_fallback", CatalogSeverity::Info),
     ("fmdl_merged", CatalogSeverity::Info),
     ("model_merged", CatalogSeverity::Info),

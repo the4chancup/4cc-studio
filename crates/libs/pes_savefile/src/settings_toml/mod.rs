@@ -981,6 +981,81 @@ impl PlayerSettings {
         }
         narrowed
     }
+
+    /// Applies an `fpc` preset's strip keys and skin, mapped as
+    /// `ops::fpc::apply` maps them onto a savefile player, the preset's boots
+    /// and gloves IDs aside: an export resolves those itself (the numbered
+    /// list of `aesthetics_export/settings_toml.md`). Returns the dotted key
+    /// of each the file had set to another value, for the Team compiler's
+    /// `fpc_strip_conflict`: `skin_color` only when a `SkinColor::Preset`
+    /// preset resets an authored custom skin (7) to 1; any other skin it
+    /// leaves alone. `SkinColor::Custom` writes 7 as `apply` does; no marker
+    /// carries it, so the compiler never reaches that arm.
+    pub fn apply_fpc_preset(&mut self, appearance: &fpc::Appearance) -> Vec<String> {
+        let mut overridden = Vec::new();
+        // The key table's order: `skin_color` before the strip keys.
+        match appearance.skin_color {
+            fpc::SkinColor::Preset => {
+                if self.appearance.skin_color == Some(7) {
+                    overridden.push(dotted(&SettingKey::SkinColor.spec()));
+                    self.appearance.skin_color = Some(1);
+                }
+            }
+            fpc::SkinColor::Custom => {
+                if self.appearance.skin_color.is_some_and(|set| set != 7) {
+                    overridden.push(dotted(&SettingKey::SkinColor.spec()));
+                }
+                self.appearance.skin_color = Some(7);
+            }
+        }
+        for (key, value) in [
+            (
+                SettingKey::Sleeves,
+                crate::ops::fpc::sleeves_value(appearance.sleeves),
+            ),
+            (
+                SettingKey::Socks,
+                crate::ops::fpc::socks_value(appearance.socks),
+            ),
+            (
+                SettingKey::Untucked,
+                u8::from(crate::ops::fpc::untucked_value(appearance.tuck)),
+            ),
+        ] {
+            if self.get(key).is_some_and(|set| set != value) {
+                overridden.push(dotted(&key.spec()));
+            }
+            set_appearance(&mut self.appearance, key, Some(value));
+        }
+        overridden
+    }
+
+    /// The settings' strip settings as `fpc::check`'s `StripStyle`, the same
+    /// mapping `ops::fpc::strip_style` makes of a savefile player's, an
+    /// absent key taking its `KeySpec` default as the appearance write
+    /// applies it. `gloves_id` is the ID the compile's resolution gives the
+    /// player: the file's `gloves_id` key is only one of its sources (the
+    /// folder's models and the FPC marker are the others).
+    pub fn strip_style(&self, gloves_id: u16) -> fpc::StripStyle {
+        let value = |key: SettingKey| {
+            self.get(key)
+                .or(key.spec().default)
+                .expect("the strip keys all have a default")
+        };
+        fpc::StripStyle {
+            inners_worn: value(SettingKey::Inners) != 0,
+            undershorts_worn: value(SettingKey::Undershorts) != 0,
+            wrist_taping: value(SettingKey::WristTaping) != 0,
+            ankle_taping: value(SettingKey::AnkleTaping) != 0,
+            gloves_checkbox: value(SettingKey::Gloves) != 0,
+            gloves_id,
+            skin_color: if value(SettingKey::SkinColor) == 7 {
+                fpc::SkinColor::Custom
+            } else {
+                fpc::SkinColor::Preset
+            },
+        }
+    }
 }
 
 /// Maps `text_misfit`'s verdict for the `key` text onto this file's errors.

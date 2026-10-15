@@ -45,13 +45,8 @@ What exists of this is in `spec/team_compiler/messages.md` "Catalog".
 | `gltf_embedded_image_ignored` | I | a glTF embeds texture bytes (stock Blender's default); textures are only ever read from the folder's files | embedded images ignored (once per model) |
 | `gltf_bone_unknown` | E | a glTF skin joint has neither `PES_bone` metadata nor a name in the template skeleton | folder discarded |
 | `settings_toml_name_shared` | W | `name` or `shirt_name` given in an autopilot export's folder mapped to multiple players | name applied to all of them |
-| `fpc_strip_conflict` | W | `settings.toml` sets a key the folder's FPC preset also sets, to another value (for `skin_color`, a custom skin, 7, where the preset sets a preset skin; boots and gloves IDs aside: `settings_toml.md` resolves them) | FPC preset wins; keys ignored |
 | `shared_ids_unrecorded` | W | a `Midcup` export holding shared boots or gloves folders, and no installed CPK below its output records the team's shared IDs (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team already has"; context: the team) | its folders numbered alphabetically, as a `Full` export's; they may take IDs the main CPK gives other folders |
 | `settings_name_invalid` | W | a `name` or `shirt_name` string that does not fit the target version's field or character set (context: the key) | not written; the save's name stands |
-| `fpc_inners_break_hiding` | W | `libs/fpc`'s interference rule on a player whose folder carries `fpc_on` (`libs/fpc.md`; context: the player; the marker is the lib's `is_fpc_player`, so its fifth rule, `fpc_custom_skin_on_non_fpc`, is not reported: a custom skin with no marker is the partial-hide setup, a custom body in a stock jersey, which no marker names); the lib's Error, a Warning here because a Studio Error would drop the folder | written as authored |
-| `fpc_undershorts_break_hiding` | W | likewise, the lib's Error too | written as authored |
-| `fpc_taping_shows_pieces` | I | likewise | written as authored |
-| `fpc_gloves_checkbox_winter_gloves` | W | `libs/fpc`'s rule on any player: the gloves checkbox on with gloves ID 0, whatever the FPC marker (context: the player); the ID is the one `settings_toml.md` resolves, and a `Midcup` player whose gloves keep his installed row is not checked, `check` reading no installed table | written as authored |
 | `model_source_ambiguous` | E | duplicate model sources within the selected representation (target-native > glTF > convertible opposite); its input is two glTF files of one stem (`boots.glb` beside `boots.gltf`), so it is first reachable in Phase 7 | folder discarded (`DropFolder`) |
 
 **XML/MTL content checks** (pre-Fox, plus `face_diff.xml` in Fox)

@@ -1078,10 +1078,21 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         as work. A folder holding only `settings.toml` plans a blank face, so the rows-only
         case needs an `ingame_face` marker and no model. `team_compiler` `plan/item_rows.rs`,
         `plan/mod.rs`, `validation.rs`, `output/writer.rs`, `tests/cli/bins.rs`
-      - [ ] SWE-2 round T.S2 over the 5.3a1-r1 commit (worktree): under five accepted closes
-        5.3a-R
-    - [ ] 5.3a4 FPC presets on a player's settings and their findings → done when: TC-BIN-29, 30
-      and TC-REF-19 pass
+      - [x] SWE-2 round T.S2 over the 5.3a1-r1 commit (worktree): 3 of 4 accepted, which
+        closes the loop once r2 lands
+      - [ ] 5.3a1-r2 `category_assigned` reads the combined links again (a part a combining
+        link of the other kind contributes; the lead's `has_effective_part` swap in r1 missed
+        it), and the review's tests → done when: the cross-kind, no-model-link and hand-split
+        conflict tests pass under `check` and `compile`, and TC-BIN-38 is proven
+    - [x] 5.3a4 FPC presets on a player's settings and their findings → done when: TC-BIN-29, 30
+      and TC-REF-19 pass. Done: `PlayerSettings::apply_fpc_preset` and `strip_style` in
+      `pes_savefile` (the field mapping shared with `ops/fpc.rs`); validation applies the
+      marker's preset to the settings planning receives and reports `fpc_strip_conflict` and
+      `fpc::check`'s rules (`fpc_custom_skin_on_non_fpc` not reported; a `Midcup` markerless
+      player's gloves rule skipped; a referee's gloves link counts as gloves), for team and
+      referee exports on both engines. `pes_savefile` `ops/fpc.rs`, `settings_toml/`;
+      `team_compiler` `validation.rs`, `plan/item_rows.rs`, `messages.rs`,
+      `tests/cli/{bins,referees}.rs`
     - [ ] 5.3a5 the shared-ID record and a Midcup reading it
       (`plans/aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
       team already has", `shared_ids_unrecorded`) → done when: TC-BIN-34 to 36 pass

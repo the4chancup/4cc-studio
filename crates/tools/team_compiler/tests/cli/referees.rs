@@ -1622,3 +1622,65 @@ fn a_deploying_compile_installs_the_refs_cpk_with_the_team_s() {
         Vec::<String>::new()
     );
 }
+
+// TC-REF-19
+#[test]
+fn a_referee_with_the_gloves_checkbox_and_no_gloves_is_reported() {
+    let sandbox = Sandbox::new("ref_gloves_checkbox");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    let folder = format!("{REFS}/Players/Ref A");
+    sandbox.write(&format!("{folder}/face_high.fmdl"), &clean_model());
+    sandbox.write(
+        &format!("{folder}/settings.toml"),
+        b"[appearance.strip]\ngloves = true\n",
+    );
+
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        assert!(
+            lines.iter().any(|line| line
+                == "refs Cup: Warning fpc_gloves_checkbox_winter_gloves [Keep] at \
+                    Players/Ref A ()"),
+            "{args:?}: {lines:#?}"
+        );
+    }
+    let (_, entries) = compile(&sandbox);
+    // A referee has no player-table row: neither CPK holds a PlayerAppearance.bin.
+    assert!(!entries.contains_key(crate::bins::PLAYER_APPEARANCE));
+    assert!(!team_entries(&sandbox).contains_key(crate::bins::PLAYER_APPEARANCE));
+    assert!(!sandbox.root.join("output/aesthetics_patch.toml").exists());
+}
+
+// TC-REF-19
+#[test]
+fn a_referee_s_linked_gloves_his_own_package_are_no_winter_gloves() {
+    let sandbox = Sandbox::new("ref_gloves_link");
+    sandbox.write(&format!("{REFS}/players.txt"), b"01 Ref A\n");
+    let folder = format!("{REFS}/Players/Ref A");
+    sandbox.write(&format!("{folder}/face_high.fmdl"), &clean_model());
+    // His gloves are the linked folder's, built as his slot's `g99NN`: not the hands 0
+    // the rule fires on.
+    sandbox.write(&format!("{folder}/Grip.gloves"), b"");
+    sandbox.write(
+        &format!("{REFS}/Gloves/Grip/glove_l.fmdl"),
+        &tracer_player_file("glove_l.fmdl"),
+    );
+    sandbox.write(
+        &format!("{folder}/settings.toml"),
+        b"[appearance.strip]\ngloves = true\n",
+    );
+
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line.contains("fpc_gloves_checkbox_winter_gloves")),
+            "{args:?}: {lines:#?}"
+        );
+    }
+}

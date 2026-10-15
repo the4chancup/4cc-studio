@@ -2020,3 +2020,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.3a1-r1: `settings_model_id_conflict` comes from validation, so `check`
   reports it; a compile whose only work is player rows writes its CPK. Lead: the folder's own
   category read through `has_effective_part`, not a restatement of `folder_tasks`.
+- **2026-10-15** — 5.3a4: an `fpc_on`/`fpc_off` marker applies its preset to the player's
+  settings, with `fpc_strip_conflict` and `libs/fpc`'s interference rules reported by `check`
+  and `compile` (TC-BIN-30, TC-REF-19). Review T.S2 closed the 5.3a1-a3 loop: rework r2 next.

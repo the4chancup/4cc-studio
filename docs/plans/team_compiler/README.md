@@ -147,6 +147,11 @@ TC-BIN-37  GIVEN multi-CPK mode, an installed 4cc_08_bins.cpk (the bins CPK) hol
            WHEN it is compiled for PES 21
            THEN the output bins CPK keeps 71423's row and pair as installed, and holds 71405's
                 rows from the export
+TC-BIN-38  GIVEN a Midcup /co/ export whose only player folder, slot 05, holds ingame_face and
+                a settings.toml setting boots_id = 12 and a facial hair type, and no model
+           WHEN it is compiled for PES 21
+           THEN the output CPK is written and holds the three player tables, with (71405, 12)
+                in BootsList.bin and 71405's appearance row from his settings.toml
 ```
 
 **Aesthetics patch and savefile**

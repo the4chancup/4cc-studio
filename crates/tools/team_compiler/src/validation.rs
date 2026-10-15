@@ -9,10 +9,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use aesthetics_export::{
-    ExportIdentity, FileDescriptor, FileKind, ModelFormat, ModelSuffix, ParsedAestheticsExport,
-    ResolvedAestheticsExport, SharedKind, SourceError, ValidatedAestheticsExport,
-    ValidationContext, common_link_name, common_link_target, is_txt_note, model_suffix,
-    parse_listing, read_colors_txt,
+    ExportIdentity, FileDescriptor, FileKind, FpcDirective, ModelFormat, ModelSuffix,
+    ParsedAestheticsExport, ResolvedAestheticsExport, SharedKind, SourceError,
+    ValidatedAestheticsExport, ValidationContext, common_link_name, common_link_target,
+    is_txt_note, model_suffix, parse_listing, read_colors_txt,
 };
 use anyhow::Context;
 use pes_savefile::settings_toml::PlayerSettings;
@@ -29,7 +29,7 @@ use crate::cli::RunInputs;
 use crate::deep;
 use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_with_no_model};
-use crate::plan::item_rows::conflicting_id_keys;
+use crate::plan::item_rows::{check_gloves_id, conflicting_id_keys};
 use crate::plan::mapped_players;
 use crate::plan::roles::{
     FolderModels, ModelPackage, PlayerFile, combined_folders, common_skeleton, file_stem,
@@ -419,6 +419,13 @@ fn check_source(
                     &settings,
                     &hand_weighted,
                 ));
+                messages.extend(fpc_settings_messages(
+                    &resolved,
+                    inputs.common.pes_version,
+                    source.export_id,
+                    &mut settings,
+                    &hand_weighted,
+                ));
                 let exhausted = pool_messages(
                     &resolved,
                     inputs.common.pes_version,
@@ -644,6 +651,88 @@ fn settings_id_messages(
             .collect::<Vec<Message>>()
         })
         .collect()
+}
+
+/// The `fpc_on`/`fpc_off` markers' findings on each mapped player folder of `resolved`
+/// holding a `settings.toml` or a marker, for team and referee exports on either engine
+/// (`settings_toml.md`: a `settings.toml`'s findings are reported by `check` and `compile`
+/// alike): the marker's preset (`fpc_on` the hide, `fpc_off` the unhide) is applied to the
+/// `settings` planning receives (a folder with a marker and no `settings.toml` gains an entry,
+/// which is what its `PlayerAppearance.bin` row is built from) and one `fpc_strip_conflict` is
+/// reported per key the file had set to another value; then `fpc::check` runs over the strip
+/// style the settings give (`PlayerSettings::strip_style`), `is_fpc_player` being the `fpc_on`
+/// marker, with the gloves ID the resolution gives (`item_rows::check_gloves_id`): `None` on a
+/// `Midcup` export's markerless player, who keeps his installed row, whose gloves rule does not
+/// run. The lib's `fpc_custom_skin_on_non_fpc` maps to no code: the marker is the check's
+/// `is_fpc_player`, and a custom skin with no marker is the partial-hide setup (a custom body
+/// in a stock jersey), which no marker names; on Fox the deep pass has already narrowed it
+/// to 1.
+fn fpc_settings_messages(
+    resolved: &ResolvedAestheticsExport,
+    version: PesVersion,
+    export_id: ExportId,
+    settings: &mut BTreeMap<ScopePath, PlayerSettings>,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> Vec<Message> {
+    let engine = version.engine();
+    let mut messages = Vec::new();
+    for player in mapped_players(&resolved.export) {
+        if player.fpc.is_none() && !settings.contains_key(&player.path) {
+            continue;
+        }
+        let folder_settings = settings.entry(player.path.clone()).or_default();
+        if let Some(directive) = player.fpc {
+            let preset = fpc::preset(match directive {
+                FpcDirective::On => fpc::Preset::Hide,
+                FpcDirective::Off => fpc::Preset::Unhide,
+            });
+            for key in folder_settings.apply_fpc_preset(&preset) {
+                messages.push(tool_message(
+                    Code::FpcStripConflict,
+                    Scope::Folder {
+                        export_id,
+                        path: player.path.clone(),
+                    },
+                    Disposition::Keep,
+                    vec![("key", key)],
+                ));
+            }
+        }
+        let gloves_id = check_gloves_id(
+            &resolved.export,
+            player,
+            Some(&*folder_settings),
+            engine,
+            hand_weighted,
+        );
+        // A `None` ID only gates the gloves rule; the field's value feeds nothing else.
+        let style = folder_settings.strip_style(gloves_id.unwrap_or(0));
+        let is_fpc_player = player.fpc == Some(FpcDirective::On);
+        for finding in fpc::check(&style, is_fpc_player) {
+            let code = match finding.code {
+                "fpc_inners_break_hiding" => Code::FpcInnersBreakHiding,
+                "fpc_undershorts_break_hiding" => Code::FpcUndershortsBreakHiding,
+                "fpc_taping_shows_pieces" => Code::FpcTapingShowsPieces,
+                "fpc_gloves_checkbox_winter_gloves" if gloves_id.is_some() => {
+                    Code::FpcGlovesCheckboxWinterGloves
+                }
+                // `fpc_custom_skin_on_non_fpc` is never reported (the doc comment above);
+                // the gloves finding at a `None` ID is the Midcup keep-installed case.
+                "fpc_custom_skin_on_non_fpc" | "fpc_gloves_checkbox_winter_gloves" => continue,
+                other => unreachable!("fpc::check emits its five codes, got {other}"),
+            };
+            messages.push(tool_message(
+                code,
+                Scope::Folder {
+                    export_id,
+                    path: player.path.clone(),
+                },
+                Disposition::Keep,
+                vec![],
+            ));
+        }
+    }
+    messages
 }
 
 /// `shared_folder_no_model` on each shared boots or gloves folder a mapped player links

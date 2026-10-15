@@ -7,13 +7,17 @@
 
 use std::collections::BTreeSet;
 
-use aesthetics_export::{ExportCoverage, FpcDirective, PlayerFolder, ValidatedAestheticsExport};
+use aesthetics_export::{
+    ExportCoverage, FpcDirective, PlayerFolder, SharedKind, ValidatedAestheticsExport,
+};
 use pes_savefile::settings_toml::PlayerSettings;
 use pes_version::Engine;
 use vtree::ScopePath;
 
 use super::ids::shared_folders_taking_ids;
-use super::roles::{ModelPackage, has_effective_part, linked_folder, shared_kind_of};
+use super::roles::{
+    ModelPackage, has_effective_part, link_feeds_own_package, linked_folder, shared_kind_of,
+};
 use super::{BuildTask, TaskKind};
 use crate::bins::player_tables::ItemTable;
 use crate::paths::PackageKey;
@@ -239,6 +243,39 @@ fn default_id(
             ExportCoverage::Midcup => None,
         },
     }
+}
+
+/// The gloves ID `player` resolves to for `fpc::check`'s gloves rule, decided from the
+/// export alone the way `conflicting_id_keys` restates `export_rows`' resolution for
+/// `check` (`settings_toml.md`, the numbered list): a compiler-assigned ID's stand-in (the
+/// rule reads only `== 0`, and an assigned ID is a real model's, never 0), else the authored
+/// stock ID, else `default_id`'s marker or coverage answer. `None` is a `Midcup` export's
+/// markerless player, who keeps his installed row; `check` reads no installed table, so his
+/// gloves rule does not run. `category_assigned` does not cover a referee's gloves link,
+/// which feeds his slot's package (`link_feeds_own_package`) and takes no shared ID.
+pub(crate) fn check_gloves_id(
+    export: &ValidatedAestheticsExport,
+    player: &PlayerFolder,
+    settings: Option<&PlayerSettings>,
+    engine: Engine,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> Option<u16> {
+    let assigned = category_assigned(export, player, ItemTable::Gloves, engine, hand_weighted)
+        || player.links.iter().any(|link| {
+            link.kind == SharedKind::Gloves
+                && link_feeds_own_package(export, engine, player, link, hand_weighted)
+        });
+    if assigned {
+        // A stand-in: the rule reads only whether the ID is 0, and an assigned
+        // ID never is (a team block starts at 101, a referee's is his slot's).
+        return Some(1);
+    }
+    authored_id(settings, ItemTable::Gloves)
+        .map(u16::from)
+        .or_else(|| {
+            default_id(player.fpc, ItemTable::Gloves, export.coverage)
+                .map(|id| u16::try_from(id).expect("the resolved defaults are 0 and 11"))
+        })
 }
 
 /// The boots or gloves id a team player's package is emitted under, which his row points at.

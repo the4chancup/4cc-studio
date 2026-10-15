@@ -31,7 +31,8 @@ game reads; on both engines):
 
 A `Full` export numbers its folders alphabetically, as now, and records them. A `Midcup` export
 first reads the team's record from the installed CPKs below its output (the topmost holding
-one, the walk "Bins accumulation" makes for the working bins): a folder named there, compared
+one, the walk "Bins accumulation" makes for the working bins; `check` reads it too, so the
+two report the pool and `shared_ids_unrecorded` alike): a folder named there, compared
 case-folded as folder names are, keeps its ID; a folder not named takes the lowest of the
 team's 17 shared IDs of its kind neither the record nor an earlier new folder holds,
 alphabetically; and the CPK records the installed entries with the new ones, each folder the
