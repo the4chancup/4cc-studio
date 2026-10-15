@@ -630,8 +630,10 @@ the Export upgrader's (Phase 6).
 
 `pes_savefile` (codec, model, conversions, transplant/fingerprint ops, interchange
 formats, comparator, FPC invisibility) is built in Phase 2 as a standalone lib; the
-editor's non-UI substance — the tool crate's settings, CLI and operations wiring,
-plus the `aatf` rules engine — lands in Phase 5; the view lands in Phase 8 (see the
+editor's non-UI substance a command drives — the tool crate's settings, CLI and the `session/`
+operations its commands run, plus the `aatf` rules engine — lands in Phase 5; the view lands
+in Phase 8 with the `session/` wiring only it drives (undo, selection, recent files, the FPC
+toggle, AATF quick actions), each built in the slice that uses it (see the
 [core plan](core/development_plan.md#development-plan)). Within Phase 8, the view builds up as:
 
 1. Open/save + player editing tabs (Abilities & Skills, Appearance) — the card pickers as the
@@ -873,4 +875,8 @@ SE-TL-04   GIVEN a save holding two teams whose names fold to one (the PES 21 fi
            THEN the first in record order is merged, the other is listed as
                 teams_list_name_duplicate naming the team kept and is not written, and the
                 exit code is 1
+SE-TL-05   GIVEN a data directory whose teams_list.txt cannot be read (a folder of that name)
+           WHEN export-teams-list --yes is run
+           THEN it is refused naming teams_list.txt, nothing is merged or written, and the exit
+                code is 2
 ```

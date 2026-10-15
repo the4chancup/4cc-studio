@@ -1145,7 +1145,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `output/patch.rs`, `messages.rs` (nine codes, `savefile_written` and
       `savefile_player_missing` per DECISIONS 2026-10-15), `testing.rs` and
       `tests/common/mod.rs` (test contexts never `auto`), `tests/cli/savefile.rs` (new)
-      manual: checked 2026-10-15, TC-SAV-10 against a stripped copy of the maintainer's save
+      TC-SAV-10 manual: checked 2026-10-15, against a stripped copy of the maintainer's save
       and a sandbox PES folder (`.tmp/5_5/studio_sl/`): with PES 21 running, sideload compile
       exit 0, the patch's `cpks = []`, `savefile_skipped_pes_running`, the copy byte-identical;
       with only PES 17 running, `savefile_written` and the copy's `.bak` kept
@@ -1221,7 +1221,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         `tests/cli/strip.rs` SE-STR-01 to 06, SE-STR-01 on PES 21, 18 and 19. A table
         `--bins` lacks is appended without a timestamp (a fully stamped CPK then loses its
         ETOC; the game reads none, suite CPKs carry none)
-      manual: checked 2026-10-15, SE-CLI-02 with PES 21 running: `import-toml`, `apply-patch`,
+      SE-CLI-02 manual: checked 2026-10-15, with PES 21 running: `import-toml`, `apply-patch`,
       `transplant`, `strip-and-seed` and `check-stripped --strip-again` each refused with exit 2
       naming PES 2021, no `--out` written; with only PES 17 running each wrote its `--out`
       (`.tmp/5_5/cli02/`)
@@ -1269,7 +1269,25 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   manual: checked 2026-10-15, PES 17 Edit mode, end to end: run 2's export compiled by
   this step's exe (`.tmp/ingame/gloves_check/studio6/`), unpatched: slots 01 and 02 draw their
   right gloves magenta (`r6_slot01.png`, `r6_slot02.png`)
-- [ ] 5.6 Converge (`AGENTS.md` "Closing a phase")
+- [ ] 5.6 Converge (`AGENTS.md` "Closing a phase"), from 2ca98d1 (Phase 4 closed). Lead plan
+  `.tmp/lead/converge_5_plan.md`. `music_export` (10.0, built ahead) converges with Phase 10.
+  - [ ] 5.6a the lead's audit: plan shapes against the code; every step's criterion re-run;
+    `just acceptance strict` (2 unproven, 10 uncited CLI tests to explain); requirements
+    coverage; the open issues naming Phase 5 crates ruled
+    - [ ] 5.6a1 the ten uncited CLI tests cite their scenarios (after the chain leaves
+      `team_compiler` and `save_editor`): `patch.rs` the TC-SAV-02, 03, 12 and 01 halves
+      (l.75, 112, 176, 196), TC-SAV-13 to 15 (l.140, 247, 271, written 2026-10-15);
+      `savefile.rs` TC-SAV-10 (l.466) and TC-SAV-16 (l.490); `export_teams_list.rs` SE-TL-05
+      (l.206, its test also asserting the list folder and the save untouched) → verify: `just
+      acceptance strict` passes
+  - [ ] 5.6b design health: the whole-crate mutation runs (started 2026-10-15 over a305229:
+    `pes_savefile`, `aatf`, `save_editor`, `studio_core`, `aesthetics_export`,
+    `team_compiler`; `.tmp/5_6/`; no edit to those crates while they run), survivors triaged;
+    the design-tell sweep; `just clef` per crate; the `pub` census
+  - [ ] 5.6c the `pes_savefile` census: every save, `.ted` and editor file on the machine, the
+    installed Fox player tables, the decoded run's bit coverage
+  - [ ] 5.6d the cross-family converge reviews, one surface per large crate
+  - [ ] 5.6e close: the second whole-crate runs, plans moved to the spec, steps collapsed
 
 ### Phase 8 — GUI
 
@@ -1655,7 +1673,9 @@ points there.
   table is read into `CommonSettings`, so a key it does not know (a newer version's) is lost on
   save, while a tool's table keeps unknown keys (`core/gui.md`). Settle whether `[common]` keeps
   them too before that save path lands (review S2.1).
-- open (gloves only) — the boots/gloves rows a `Full` export leaves (`pipeline.md`
+- resolved 2026-10-15 (Phase 5 converge: step 5.3a writes the default-ID rows, TC-BIN-25
+  and 27; the gloves' look waits on the FoxDen issue below, "FoxDen's PES 2021 gloves
+  trampoline") — the boots/gloves rows a `Full` export leaves (`pipeline.md`
   "Bins accumulation", TC-BIN-17, decision "a team export's name carries `Full` or `Midcup`").
   Phase 4 (4.22) drops the installed row of a compiled player the export gives no boots or
   gloves, so he has no row until Phase 5 writes the default-ID rows. A team player the `Full`
@@ -1852,7 +1872,7 @@ points there.
   5.4c (a row straight from a `PlayerEntry`, or wider ranges if the game shows those values),
   and before any tool generates `settings.toml` from a save. Strip-and-seed's half settled
   2026-10-14: its rows come from the record (`EditFile::appearance_row`, step 5.4c1); open for
-  generation only.
+  generation only, settled with the Export upgrader's generation (Phase 6).
 - resolved 2026-10-15 (in-game check; DECISIONS "a base-copied face is any base-copy id other
   than 0 and the player's own"; step 5.4c2 builds the warning) — strip-and-seed and a
   base-copied face, measured 2026-10-14 (step 5.4c; census
@@ -1924,7 +1944,8 @@ points there.
   unmodeled player-record bits that real saves set: PES 18 bits 252-254 and PES 16 bits 222
   and 362 are moved by no Edit setting and kept through load, edit and save: retained,
   meaning unknown, not editable. The "most likely `Star`" guess has no support.
-- open — `pes_savefile` player id versus appearance id (2.20i reviewer): the appearance
+- resolved 2026-10-15 (Phase 5 converge: `PlayerEntry::appearance_id` models the field,
+  strip-and-seed sets it to -1) — `pes_savefile` player id versus appearance id (2.20i reviewer): the appearance
   block's player id (+116 on 17-19, +240 on 20/21) is unmodeled, so changing
   `PlayerEntry.id` leaves it stale. Nothing changes an id today. Step 4.0 settled what the field
   does (-1 = the player's appearance comes from the database tables), so the model gains it with
@@ -1944,7 +1965,9 @@ points there.
   gloves id of his own (`/a/`: 126/126 ... 148/148) rather than 55/11, which its doc comment
   already calls indistinguishable. The Save editor cannot use it to tell FPC teams apart; a hide
   strip (long sleeves, tucked, short socks) plus boots no other player wears marked them in the
-  survey (`.tmp/4_0/apptest`, `fpc` subcommand).
+  survey (`.tmp/4_0/apptest`, `fpc` subcommand). Settle with the FPC toggle, built with the
+  Save editor's view in Phase 8 (DECISIONS 2026-10-15 "the session wiring only the view
+  drives").
 - **Texport write is unverified in-game** (2.17h): `Texport::new` synthesizes 18-21 files from
   measured templates and `to_bytes` rewrites read files; both round-trip byte-identical, but no
   generated file has been imported by the game yet (`plans/pes_savefile/verification.md` "Texport write": manual,

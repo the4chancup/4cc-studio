@@ -8058,3 +8058,17 @@ builds, the opposite of the aim. Clean release builds measured 116 s before and 
 one run each: no build-time gain, and no difference one run can tell from noise.
 Plan: `spec/core/distribution.md` "Platform floor" and "Size budget"; `spec/core/README.md`
 "External Dependencies", the `rhai` row.
+
+## 2026-10-15 — save editor — the session wiring only the view drives is built with the view (Phase 8)
+Decision: Phase 5 delivers the Save editor's settings, CLI and the `session/` operations its
+commands run; the wiring only the view drives (editing with the undo stack, selection, recent
+files, tactics, the FPC toggle, AATF quick actions) is built in Phase 8, each piece in the slice
+of the view that uses it. The development plan's Phase 5 bullet listed it under Phase 5 and its
+verification asked unit tests of "the operations with no command"; both now say the above.
+Why: found at the Phase 5 converge audit, with none of it built. Built now, each piece is a
+layer with no consumer, its shape (what an undo entry holds, what a selection query returns)
+guessed before the view that decides it, and reworked when the view lands; the save editor
+plan's Acceptance already gave those operations their scenarios with the view. The lib-level
+operations they wrap (`pes_savefile`'s model edits, `ops::fpc`, tactics) exist and are tested.
+Plan: `plans/core/development_plan.md` "Phase 5" and "Phase 8"; `plans/save_editor.md` "Build
+order and verification".

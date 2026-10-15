@@ -217,6 +217,23 @@ TC-SAV-12  GIVEN a /co/ export whose slot 05 settings.toml sets a motion key, an
                 naming a PES 17 fixture save
            WHEN it is compiled for PES 17
            THEN no aesthetics_patch.toml is written and the savefile is byte-identical
+TC-SAV-13  GIVEN a write_names export with a player whose name is too long for the field and
+                two players sharing one settings.toml name
+           WHEN it is checked, then compiled with --no-deploy
+           THEN check reports the same settings_name_invalid and settings_toml_name_shared
+                lines as compile
+TC-SAV-14  GIVEN a team export and a referee export (/refs/) compiled together for PES 21
+           WHEN they are compiled with --no-deploy
+           THEN the patch holds one [[teams]] entry, the team export's, and the exit code is 0
+TC-SAV-15  GIVEN a folder at <output_folder_path>/aesthetics_patch.toml and an export with a
+                notes.txt
+           WHEN it is compiled with --no-deploy
+           THEN patch_write_failed is reported (Fatal), no teamnotes.txt is written, and the exit
+                code is 3
+TC-SAV-16  GIVEN a PES 21 savefile present and an export whose settings.toml sets a motion key
+           WHEN it is compiled with --no-deploy, and again in --mode test
+           THEN no savefile_ finding is reported, the savefile is byte-identical, and each exit
+                code is 0
 ```
 
 **Shared IDs across a Midcup**

@@ -36,15 +36,18 @@ release" in the plans means 1.0.0, so a "first-release" feature may land after 0
 - `libs/aatf`: the ruleset schema and its load-time validation, the generic Rhai interpreter, the
   host and `apply_tier`, logic identity, and the Autumn 26, Autumn 25, Spring 26, VGL25, VGL26,
   VGL27 and VTL11 rulesets as data with their fixtures ([AATF rules plan](../aatf_rules.md), "Development phase and verification").
-- The Save editor tool crate's non-GUI substance: settings, CLI, and the operations wiring over
-  `pes_savefile` (editing, tactics, AATF checks, comparator, transplant, FPC toggle, strip and
-  seed with the restored-id check) that the Phase 8 view will render — build order in the
-  [Save editor plan](../save_editor.md).
+- The Save editor tool crate's non-GUI substance that a command drives: settings, the CLI, and
+  the `session/` operations its commands run over `pes_savefile` (Team TOML export and import,
+  the aesthetics patch, AATF checks, comparator, transplant, strip and seed with the
+  restored-id check) — build order in the [Save editor plan](../save_editor.md). The wiring
+  only the view drives (editing with its undo stack, selection, recent files, tactics, the FPC
+  toggle, AATF quick actions) is built in Phase 8, each piece in the slice of the view that
+  uses it: built now, it would be a layer with no consumer, its shape guessed before the view
+  that decides it.
 
 **Verification:** Team compiler parity now includes savefile output — compiled savefile compared
 against 4ccEditor edits for the same assignments; AATF rule fixtures (known-violating and clean
-saves); the save editor's CLI exercised on fixture saves, and its operations with no command
-by unit tests. In game, on the Fox version the cup has chosen (step 4.0's Test 1 covered PES 2021 only): a stripped and seeded save
+saves); the save editor's CLI exercised on fixture saves. In game, on the Fox version the cup has chosen (step 4.0's Test 1 covered PES 2021 only): a stripped and seeded save
 shows every player as before; a compiled team's rows show, gloves included once a FoxDen change keeps the
 table's value; and an `ingame_face` player whose file sets none of the face and hair keys renders the default face (without the marker a folder with no face model gets the blank face, no head)
 (`aesthetics_export/settings_toml.md`, the ingame-face run's rules).
@@ -94,7 +97,8 @@ this phase completes it.
   run strip
 - Implement each tool's `view()`: Team compiler grid (live validation), save editor
   (player/team/tactics editing, AATF checks, comparator, transplant — build order in the [Save
-  editor plan](../save_editor.md); the tactics editor, card pickers and violations list are built as
+  editor plan](../save_editor.md); the `session/` wiring only the view drives, undo,
+  selection, recent files, the FPC toggle and AATF quick actions, lands with it; the tactics editor, card pickers and violations list are built as
   `libs/team_widgets`, which the Team creator later reuses), export upgrader
 - Implement the exports folder watcher (`notify` + debouncing) and the two-tier check system with
   cache
