@@ -189,9 +189,13 @@ pub(crate) fn conflicting_id_keys(
 /// Whether planning assigns `player`, a player folder of `export`, an ID for `table`'s
 /// category on a target of `engine`, what `export_rows`' task lookup finds: a `Models` task
 /// of the category's package for his own folder, which planning gives exactly when his
-/// effective package of that kind has a part (`has_effective_part`, the predicate a boots or
-/// gloves link's combining is decided by), or for a shared folder of its kind he links
-/// (`shared_folders_taking_ids` being those planning gives one).
+/// effective package of that kind has a part (`has_effective_part`), or for a shared folder of
+/// its kind he links (`shared_folders_taking_ids` being those planning gives one).
+/// `has_effective_part` reads his own files and his linked faces, not his combining boots or
+/// gloves links (it is what decides their combining), while `folder_tasks` reads every source;
+/// the two agree because validation confines a shared boots or gloves folder's models to its
+/// own kind's names (`check_shared`, `fmdl_name_invalid`), so such a link adds no part of the
+/// other kind, and a part of its own kind only where his own already plans the task.
 fn category_assigned(
     export: &ValidatedAestheticsExport,
     player: &PlayerFolder,

@@ -2023,3 +2023,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.3a4: an `fpc_on`/`fpc_off` marker applies its preset to the player's
   settings, with `fpc_strip_conflict` and `libs/fpc`'s interference rules reported by `check`
   and `compile` (TC-BIN-30, TC-REF-19). Review T.S2 closed the 5.3a1-a3 loop: rework r2 next.
+- **2026-10-15** — 5.3a1-r2: the review loop over 5.3a1-a3 closes (T.S1 2, T.A1 1, T.S2 3
+  accepted, one later found unreachable); tests for the review's cases and 5.3a4's two mutation
+  survivors; TC-BIN-38 proven.

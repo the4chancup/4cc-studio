@@ -49,6 +49,24 @@ fn a_custom_skin_resets_and_reports_where_another_skin_is_left_alone() {
     assert_eq!(settings.get(SettingKey::SkinColor), Some(3));
 }
 
+/// The partial-hide preset writes a custom skin (7): an authored preset skin is reported
+/// and set to 7, an authored custom skin kept and not reported.
+#[test]
+fn a_partial_hide_preset_reports_a_preset_skin_and_keeps_a_custom_one() {
+    let mut settings = PlayerSettings::parse("[appearance]\nskin_color = 3\n").expect("parses");
+    let overridden = settings.apply_fpc_preset(&::fpc::preset(::fpc::Preset::PartialHide));
+    assert_eq!(overridden, ["appearance.skin_color"]);
+    assert_eq!(settings.get(SettingKey::SkinColor), Some(7));
+
+    let mut settings = PlayerSettings::parse("[appearance]\nskin_color = 7\n").expect("parses");
+    assert_eq!(
+        settings.apply_fpc_preset(&::fpc::preset(::fpc::Preset::PartialHide)),
+        Vec::<String>::new(),
+        "an authored custom skin is the preset's own"
+    );
+    assert_eq!(settings.get(SettingKey::SkinColor), Some(7));
+}
+
 /// The strip style of a file setting inners and wrist taping, the absent
 /// keys at their defaults and the given gloves ID carried.
 #[test]

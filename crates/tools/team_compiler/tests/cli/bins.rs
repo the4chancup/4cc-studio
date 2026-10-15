@@ -1387,7 +1387,124 @@ fn a_linked_shared_folder_s_gloves_id_wins_over_an_authored_gloves_id() {
     );
 }
 
-// TC-BIN-25
+// TC-BIN-29
+#[test]
+fn a_combined_face_folder_s_boots_part_assigns_the_id() {
+    let sandbox = Sandbox::new("bins_face_link_boots_part");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    let export = "exports/co Midcup Face Boots";
+    let folder = format!("{export}/Players/05 - A");
+    // A face link always combines, and a `Faces/` folder may hold any model name: the
+    // boots.fmdl Round holds is a part of his boots, which take his exclusive ID, and his
+    // authored boots_id conflicts.
+    sandbox.write(&format!("{folder}/Round.face"), b"");
+    sandbox.write(&format!("{folder}/settings.toml"), b"boots_id = 3\n");
+    sandbox.write(
+        &format!("{export}/Faces/Round/face_high.fmdl"),
+        &clean_model(),
+    );
+    sandbox.write(
+        &format!("{export}/Faces/Round/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        assert!(
+            lines.iter().any(|line| line
+                == "co Midcup Face Boots: Warning settings_model_id_conflict [Keep] at \
+                    Players/05 - A (key=boots_id)"),
+            "{args:?}: {lines:#?}"
+        );
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        pairs_of(&entries, BOOTS_LIST),
+        [(70201, 11), (71405, 625)],
+        "71405's row is his exclusive ID, not the authored 3"
+    );
+}
+
+// TC-BIN-29
+#[test]
+fn a_plainly_linked_folder_holding_no_model_leaves_the_authored_id_its_row() {
+    let sandbox = Sandbox::new("bins_plain_link_no_model");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    let export = "exports/co Midcup Plain";
+    let folder = format!("{export}/Players/05 - A");
+    // Crocs holds textures alone, no boots model: the link stays plain, the folder takes no
+    // ID, and the authored boots_id is his row with no conflict.
+    sandbox.write(&format!("{folder}/Crocs.boots"), b"");
+    sandbox.write(&format!("{folder}/settings.toml"), b"boots_id = 3\n");
+    sandbox.write(
+        &format!("{export}/Boots/Crocs/crocs.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        assert!(
+            lines.iter().any(|line| line
+                == "co Midcup Plain: Warning shared_folder_no_model [Keep] at Boots/Crocs \
+                    (player=Players/05 - A)"),
+            "{args:?}: {lines:#?}"
+        );
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line.contains("settings_model_id_conflict")),
+            "{args:?}: {lines:#?}"
+        );
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        pairs_of(&entries, BOOTS_LIST),
+        [(70201, 11), (71405, 3)],
+        "the authored stock ID is his row, Crocs having nothing to assign"
+    );
+}
+
+// TC-BIN-29
+#[test]
+fn a_hand_split_face_part_assigns_the_gloves_id_over_an_authored_one() {
+    let sandbox = Sandbox::new("bins_hand_split_gloves_id");
+    install_tables(&sandbox, &[(GLOVE_LIST, &item_list(&[(70201, 31)]))]);
+    let export = "exports/co Midcup Hands Id";
+    // A full-body model with both hands on (`tests/fixtures/hand_split/README.md`): the
+    // hands split off it give him a gloves package, which takes his exclusive ID.
+    let body =
+        fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hand_split/body.fmdl"))
+            .unwrap();
+    sandbox.write(&format!("{export}/Players/05 - A/body.fmdl"), &body);
+    sandbox.write(
+        &format!("{export}/Players/05 - A/settings.toml"),
+        b"gloves_id = 3\n",
+    );
+
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        assert!(
+            lines.iter().any(|line| line
+                == "co Midcup Hands Id: Warning settings_model_id_conflict [Keep] at \
+                    Players/05 - A (key=gloves_id)"),
+            "{args:?}: {lines:#?}"
+        );
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        pairs_of(&entries, GLOVE_LIST),
+        [(70201, 31), (71405, 625)],
+        "71405's row is his exclusive ID, not the authored 3"
+    );
+}
+
+// TC-BIN-38
 #[test]
 fn a_midcup_export_holding_only_a_settings_toml_writes_the_tables() {
     let sandbox = Sandbox::new("bins_settings_only");
@@ -1746,6 +1863,36 @@ fn a_midcup_markerless_player_is_not_checked_for_the_gloves_rule() {
             !lines
                 .iter()
                 .any(|line| line.contains("fpc_gloves_checkbox_winter_gloves")),
+            "{args:?}: {lines:#?}"
+        );
+    }
+}
+
+// TC-BIN-30
+#[test]
+fn a_face_link_feeding_the_own_package_is_no_gloves_id_for_the_checkbox_rule() {
+    let sandbox = Sandbox::new("bins_face_link_gloves_rule");
+    let export = "exports/co Full Face Link";
+    // A shared face feeds his own package always, but it is no gloves ID: the gloves
+    // checkbox with no gloves warns as it does without a link.
+    sandbox.write(&format!("{export}/Players/05 - A/Round.face"), b"");
+    sandbox.write(
+        &format!("{export}/Players/05 - A/settings.toml"),
+        b"[appearance.strip]\ngloves = true\n",
+    );
+    sandbox.write(
+        &format!("{export}/Faces/Round/face_high.fmdl"),
+        &clean_model(),
+    );
+
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        assert!(
+            lines.iter().any(|line| line
+                == "co Full Face Link: Warning fpc_gloves_checkbox_winter_gloves [Keep] at \
+                    Players/05 - A ()"),
             "{args:?}: {lines:#?}"
         );
     }

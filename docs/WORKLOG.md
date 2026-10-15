@@ -1062,7 +1062,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       agree; the writer's row build is an `expect` (a test builds a row from every key at both
       ends of each Fox version's range). `team_compiler` `deep/mod.rs`, `messages.rs`,
       `output/writer.rs`, `tests/cli/bins.rs`
-    - [ ] 5.3a-R the cross-family review (checkpoint (b)) over 5.3a1 and 5.3a3 (`6da0fe4..` the
+    - [x] 5.3a-R the cross-family review (checkpoint (b)) over 5.3a1 and 5.3a3 (`6da0fe4..` the
       5.3a3 commit): SWE-2 round T.S1 (`.tmp/5_3/swe_brief_T_s1.md`, in a worktree), then Astra
       if it accepts fewer than five, per `RUNBOOK.md` "Review rounds". T.S1 accepted 2 of 3,
       Astra T.A1 1 of 1 (`.tmp/5_3/duck_rulings.md`); a SWE-2 round T.S2 over the rework closes
@@ -1080,10 +1080,16 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         `plan/mod.rs`, `validation.rs`, `output/writer.rs`, `tests/cli/bins.rs`
       - [x] SWE-2 round T.S2 over the 5.3a1-r1 commit (worktree): 3 of 4 accepted, which
         closes the loop once r2 lands
-      - [ ] 5.3a1-r2 `category_assigned` reads the combined links again (a part a combining
+      - [x] 5.3a1-r2 `category_assigned` reads the combined links again (a part a combining
         link of the other kind contributes; the lead's `has_effective_part` swap in r1 missed
         it), and the review's tests → done when: the cross-kind, no-model-link and hand-split
-        conflict tests pass under `check` and `compile`, and TC-BIN-38 is proven
+        conflict tests pass under `check` and `compile`, and TC-BIN-38 is proven. Done: the
+        cross-kind part proved unreachable (validation confines a shared boots or gloves
+        folder's models to its kind's names), so `has_effective_part` stays, the invariant in
+        its doc comment; tests for a boots part in a combined `Faces/` folder, a no-model link,
+        a hand split, and 5.3a4's two mutation survivors; TC-BIN-38 cited.
+        `team_compiler` `plan/item_rows.rs`, `tests/cli/bins.rs`; `pes_savefile`
+        `settings_toml/tests/fpc.rs`
     - [x] 5.3a4 FPC presets on a player's settings and their findings → done when: TC-BIN-29, 30
       and TC-REF-19 pass. Done: `PlayerSettings::apply_fpc_preset` and `strip_style` in
       `pes_savefile` (the field mapping shared with `ops/fpc.rs`); validation applies the
