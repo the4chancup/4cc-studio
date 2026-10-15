@@ -1669,9 +1669,11 @@ points there.
   read) stands.
 - open — a face diff is engine-specific (maintainer, 2026-10-03): a diff authored for one
   engine misplaces the face on the other; the compiler passes a diff through for whatever
-  target it compiles, so a diff is the author's responsibility, as with Red. The
-  investigation waits for the maintainer's go (`docs/QUESTIONS.md` "Face diffs are
-  engine-specific").
+  target it compiles, so a diff is the author's responsibility, as with Red. Investigated
+  offline 2026-10-15 (`.tmp/face_diff/findings.md`): one format on both engines, Konami's
+  diffs carried unchanged from PES 17 to 18; the real split is version 4 (32 entries) against
+  5 (33), with a mechanical conversion. In-game tests and the maintainer's example wait in
+  `docs/QUESTIONS.md` "Face diffs are engine-specific".
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`spec/model_conversion/ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more

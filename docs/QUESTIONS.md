@@ -28,7 +28,19 @@ From: maintainer, 2026-10-03 (worklog Issues). A `face_diff.bin` (or its `face_d
 did; the compiler passes a diff through for whatever target it compiles. Deferred until after
 Phase 4's kits work. To investigate then: what differs (format, bones moved, rest pose),
 whether one engine's diff converts into the other's, and how a folder says which engine its
-diff is for (the kit layout's `pre-fox`/`fox` markers are the model). Say when.
+diff is for (the kit layout's `pre-fox`/`fox` markers are the model).
+Investigated offline 2026-10-15 (`.tmp/face_diff/findings.md`; 18,622 diffs in the installed
+games' CPKs). The format and values are the same on both engines: 1,006 of the 1,094 faces
+present in both PES 17 and PES 18 have byte-identical diffs, and no header byte tells the
+engines apart. The real split is the diff's version: 4 (32 bone entries, 944 bytes) against 5
+(33, 960), which Konami ships in every game. Konami converted five faces 4 to 5 mechanically
+(one entry inserted at index 31, the count and offset table updated). The "autoconverted"
+community default used by 547 cup faces is that conversion with the count left at 32 and the
+inserted entry 1.4 km off. So the misplacement you saw may come from a version 4 diff, from
+that half-converted file, from eye-hiding values, or from the face model rather than the
+engine. Which face did you see misplaced, and on which game? With that, one Edit-mode run
+on PES 17 and PES 21 settles it: the version 4 default, it converted, the half-converted file
+with its count fixed, and the version 5 default.
 
 ## Cup practice and preferences
 
