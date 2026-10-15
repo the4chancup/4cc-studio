@@ -1027,18 +1027,36 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       without its fix. `option_used`'s `stat_bonus` branch per stat against `targets`; five
       tests. `aatf` `logic/logic.rhai`, `src/file.rs` (logic hash), `src/fixtures/interpreter.rs`
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
-  - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
-    findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;
-    `pes_savefile` exposes no per-version range yet, so it gains one first: today
-    `PlayerSettings::apply` takes a PES 21 file's `hunching_dribbling = 5` for PES 18 and the
-    codec refuses it only at write, review R2.S1-1),
-    the `autopilot` marker in `aesthetics_export`; the shared-ID record and a Midcup reading it
-    (`plans/aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
-    team already has", `shared_ids_unrecorded`); TC-BIN-10/17/22 marked `withdrawn: restated as
-    TC-BIN-25/26/27` in the commit that rewires their citing tests (`tests/cli/bins.rs`) → done
-    when: TC-BIN-25 to 36 and TC-REF-19 pass (TC-BIN-31's PES 18 half after 5.1b)
-  - [ ] 5.3b the patch and the local savefile → done when: TC-SAV-01 to 12 pass (TC-SAV-10 a
-    `manual:` line)
+  - [ ] 5.3a the player tables, in slices (code survey 2026-10-15: the settings are parsed
+    only to validate them and reach no planning; boots/gloves rows exist, appearance rows pass
+    through; no default-ID rows, no per-version range, no FPC on players, no record). Each slice
+    marks the TC-BIN-10/17/22 it restates `withdrawn: restated as TC-BIN-25/26/27` in the commit
+    that rewires its citing test (`tests/cli/bins.rs`); TC-BIN-31 to 33's patch halves wait for
+    5.3b:
+    - [ ] 5.3a1 the settings carried from the deep pass into planning; an appearance row per
+      compiled player (`PlayerSettings::appearance_row`); the boots and gloves IDs resolved
+      (`settings_toml.md`: the folder's model, a stock key, the marker's or 0, a Midcup keeping
+      the installed row), `settings_model_id_conflict`; `player_table_missing` over all three
+      tables → done when: TC-BIN-25 to 29 pass, TC-BIN-10/17/22 withdrawn (appearance rows and
+      default IDs land together: TC-BIN-25 and 27 need the gloves 0 row, and the appearance rows
+      change what TC-BIN-10's test asserts)
+    - [ ] 5.3a2 a failed task keeps the installed ID, an invalid `settings.toml` writes the
+      template's row; in multi-CPK mode the player tables' walk starts at the bins CPK itself
+      (`spec/team_compiler/pipeline.md` "Bins accumulation" says so, the code's walk skips it)
+      → done when: the table halves of TC-BIN-32 and 33, and TC-BIN-37, pass
+    - [ ] 5.3a3 the per-version range in `pes_savefile` (today `PlayerSettings::apply` takes a PES
+      21 file's `hunching_dribbling = 5` for PES 18 and the codec refuses it only at write,
+      review R2.S1-1) and `settings_value_out_of_range` (a key's default; a key the target lacks
+      dropped silently) → done when: TC-BIN-31's table half passes (its PES 18 half after 5.1b)
+    - [ ] 5.3a4 FPC presets on a player's settings and their findings → done when: TC-BIN-29, 30
+      and TC-REF-19 pass
+    - [ ] 5.3a5 the shared-ID record and a Midcup reading it
+      (`plans/aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
+      team already has", `shared_ids_unrecorded`) → done when: TC-BIN-34 to 36 pass
+    The `autopilot` marker moves to 5.3b, its only consumer (the patch's names).
+  - [ ] 5.3b the `autopilot` marker in `aesthetics_export`, the patch and the local savefile →
+    done when: TC-SAV-01 to 12 and TC-BIN-31 to 33's patch halves pass (TC-SAV-10 a `manual:`
+    line)
 - [ ] 5.4 The Save editor crate (skeleton, settings, egui-free `session/`, CLI), after 5.1:
   - [ ] 5.4a `export-toml`, `import-toml`, `apply-patch`, `transplant`, `diff`,
     `export-teams-list` → done when: SE-CLI, SE-TOML, SE-PAT, SE-TRN, SE-DIF and SE-TL pass.

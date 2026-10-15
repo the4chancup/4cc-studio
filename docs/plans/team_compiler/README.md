@@ -70,7 +70,10 @@ and TC-BIN-25 to TC-BIN-27 restate them. Not in Phase 5, so not here: the pre-Fo
 savefile writes (deferred with pre-Fox's other gaps: a compile for PES 15-17 writes no patch and
 leaves the savefile byte-identical) and a referee export's settings (worklog issue). PES 18
 and 19 appearance rows are built like PES 20 and 21's (`spec/pes_savefile/model.md`, "The Fox
-database row"). Test data as in Phase 4. Unless a
+database row"). Test data as in Phase 4. A scenario naming no coverage tag compiles a `Full`
+export (a `Midcup` one keeps a player's installed row where a `Full` one writes the default,
+`aesthetics_export/settings_toml.md`). The patch halves of TC-BIN-31 to TC-BIN-33 are proven
+with the patch (step 5.3b), their table halves before. Unless a
 scenario says otherwise, the PES folder is a deployable fixture install whose DpFileList lists
 `4cc_08_bins` (holding the three player tables) and the output CPK, and `savefile_path` names
 a stripped fixture save of the compile's version carrying team 714 (a test never uses `auto`,
@@ -138,6 +141,12 @@ TC-BIN-33  GIVEN an installed PlayerAppearance.bin row for 71405 with no value a
            WHEN it is compiled for PES 21
            THEN settings_toml_invalid is reported, 71405's row is the template's defaults, and
                 the patch holds his motions at their defaults
+TC-BIN-37  GIVEN multi-CPK mode, an installed 4cc_08_bins.cpk (the bins CPK) holding a
+                PlayerAppearance.bin row for 71423 and the pair (71423, 7), and a /co/ export
+                with no slot 23 folder whose slot 05 holds boots.fmdl
+           WHEN it is compiled for PES 21
+           THEN the output bins CPK keeps 71423's row and pair as installed, and holds 71405's
+                rows from the export
 ```
 
 **Aesthetics patch and savefile**

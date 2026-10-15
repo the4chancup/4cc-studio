@@ -7896,3 +7896,16 @@ make members copy folders they did not change.
 Plan: `plans/aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
 team already has"; `plans/team_compiler/messages.md` `shared_ids_unrecorded`;
 `plans/team_compiler/README.md` TC-BIN-34 to TC-BIN-36.
+
+## 2026-10-15 — team_compiler — Phase 5's table scenarios compile a Full export unless they say Midcup
+Decision (lead): a Phase 5 acceptance scenario naming no coverage tag compiles a `Full` export;
+TC-BIN-31 to TC-BIN-33's patch halves are proven with the patch (step 5.3b), their table halves
+before it; a new TC-BIN-37 pins the multi-CPK player-table walk.
+Why: a code survey before briefing 5.3a found TC-BIN-25, 27 and 29 expect rows (gloves 0) a
+`Midcup` export would not write, since a Midcup with no marker keeps a player's installed row
+(`settings_toml.md`, the boots/gloves resolution), while the tests they restate compile a
+Midcup; and no patch is written before 5.3b. The spec's "Bins accumulation" says a multi-CPK
+compile walks the player tables from the bins CPK itself, keeping the seed rows of players no
+export compiles, but the code's walk starts below it: unpinned by any scenario, so built
+without a test until now.
+Plan: `plans/team_compiler/README.md` "Acceptance" (the Phase 5 scope paragraph, TC-BIN-37).
