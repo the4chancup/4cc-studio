@@ -1044,10 +1044,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       row with no task is set outright). `team_compiler` `deep/`, `validation.rs`,
       `plan/item_rows.rs`, `plan/mod.rs`, `bins/`, `output/writer.rs`, `messages.rs`, tests
       (`tests/cli/bins.rs` and the message lists gaining `player_table_missing` lines)
-    - [ ] 5.3a2 a failed task keeps the installed ID, an invalid `settings.toml` writes the
+    - [x] 5.3a2 a failed task keeps the installed ID, an invalid `settings.toml` writes the
       template's row; in multi-CPK mode the player tables' walk starts at the bins CPK itself
       (`spec/team_compiler/pipeline.md` "Bins accumulation" says so, the code's walk skips it)
-      → done when: the table halves of TC-BIN-32 and 33, and TC-BIN-37, pass
+      → done when: the table halves of TC-BIN-32 and 33, and TC-BIN-37, pass. Done: `walk`
+      visits the boundary CPK first in multi-CPK mode, and `take_bins` takes only the three
+      player tables there (`Place`); the other bins, the loose kit configs and the texture
+      lookup still start below it. TC-BIN-32/33 already held since 5.3a1 (red runs by hand).
+      `team_compiler` `bins/installed.rs`, `compile.rs`, `tests/cli/{bins,multicpk}.rs`
     - [x] 5.3a3 the per-version range in `pes_savefile` (today `PlayerSettings::apply` takes a PES
       21 file's `hunching_dribbling = 5` for PES 18 and the codec refuses it only at write,
       review R2.S1-1) and `settings_value_out_of_range` (a key's default; a key the target lacks
@@ -1060,7 +1064,15 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `output/writer.rs`, `tests/cli/bins.rs`
     - [ ] 5.3a-R the cross-family review (checkpoint (b)) over 5.3a1 and 5.3a3 (`6da0fe4..` the
       5.3a3 commit): SWE-2 round T.S1 (`.tmp/5_3/swe_brief_T_s1.md`, in a worktree), then Astra
-      if it accepts fewer than five, per `RUNBOOK.md` "Review rounds"
+      if it accepts fewer than five, per `RUNBOOK.md` "Review rounds". T.S1 accepted 2 of 3,
+      Astra T.A1 1 of 1 (`.tmp/5_3/duck_rulings.md`); a SWE-2 round T.S2 over the rework closes
+      the loop if it accepts under five:
+      - [ ] 5.3a1-r1 `settings_model_id_conflict` from validation, so `check` reports it too
+        (`settings_toml.md`: a `settings.toml`'s findings are reported by `check` and `compile`
+        alike); a compile whose only work is player rows (a settings-only `Midcup`) writes its
+        CPK (`finish_team` returned before the tables) → done when: TC-BIN-29's test asserts
+        the conflict's presence and absence in both commands, and a settings-only `Midcup`
+        compile's CPK holds the player's rows
     - [ ] 5.3a4 FPC presets on a player's settings and their findings → done when: TC-BIN-29, 30
       and TC-REF-19 pass
     - [ ] 5.3a5 the shared-ID record and a Midcup reading it

@@ -2014,3 +2014,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.3a3: a `settings.toml` value past the compile target's range becomes the
   key's default with `settings_value_out_of_range`, instead of stopping the compile (TC-BIN-31's
   table half).
+- **2026-10-15** — 5.3a2: a multi-CPK compile takes the player tables from the installed bins
+  CPK it replaces, so the seed rows of players no export compiles survive (TC-BIN-37); TC-BIN-32
+  and 33's table halves pinned. Review T.S1/T.A1 over 5.3a1-a3: 3 accepted, rework 5.3a1-r1.

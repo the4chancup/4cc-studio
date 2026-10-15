@@ -930,7 +930,8 @@ pub(crate) const BOOTS_LIST: &str = "common/character0/model/character/boots/Boo
 pub(crate) const GLOVE_LIST: &str = "common/character0/model/character/glove/GloveList.bin";
 
 /// The player appearance table's path in a CPK.
-const PLAYER_APPEARANCE: &str = "common/character0/model/character/appearance/PlayerAppearance.bin";
+pub(crate) const PLAYER_APPEARANCE: &str =
+    "common/character0/model/character/appearance/PlayerAppearance.bin";
 
 /// A `BootsList.bin` or `GloveList.bin` holding `pairs` (player id, item id) as they are
 /// given: two little-endian `u32` each.
@@ -1430,4 +1431,114 @@ fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
             "{number}: the in-game hair changes the row"
         );
     }
+}
+
+// TC-BIN-32
+#[test]
+fn a_failed_boots_task_keeps_the_installed_pair_and_the_appearance_row_is_still_set() {
+    // The scenario's patch half (the patch holds his motion keys) comes with step 5.3b.
+    let sandbox = Sandbox::new("bins_boots_failed_row");
+    install_tables(
+        &sandbox,
+        &[
+            (BOOTS_LIST, &item_list(&[(71405, 7)])),
+            (PLAYER_APPEARANCE, &player_appearance()),
+        ],
+    );
+    let export = "exports/co Full Boots";
+    let folder = format!("{export}/Players/05 - A");
+    // Two boots parts, one paired with a skeleton and one without: `skl_merge_conflict`
+    // fails the boots task, as in TC-BIN-11's test, and the folder's blank face still
+    // commits.
+    for name in ["boots.fmdl", "kit_boots.fmdl"] {
+        sandbox.write(
+            &format!("{folder}/{name}"),
+            &tracer_player_file("boots.fmdl"),
+        );
+    }
+    sandbox.write(&format!("{folder}/boots.skl"), &body_skl("pes21"));
+    sandbox.write(
+        &format!("{folder}/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+    let toml = "[appearance]\nskin_color = 3\n[appearance.motion]\nhunching_dribbling = 5\n";
+    sandbox.write(&format!("{folder}/settings.toml"), toml.as_bytes());
+    // Slot 06's face compiles.
+    sandbox.write(
+        &format!("{export}/Players/06 - B/face_high.fmdl"),
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert!(
+        lines.iter().any(|line| line
+            == "co Full Boots: Error skl_merge_conflict [DropFolder] at Players/05 - A (skeleton=differs)"),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        pairs_of(&entries, BOOTS_LIST),
+        [(71405, 7), (71406, 0)],
+        "the failed task's row keeps the installed pair"
+    );
+    let table = AppearanceTable::read(
+        PlayerTableFile::PlayerAppearance,
+        &entries[PLAYER_APPEARANCE],
+    )
+    .unwrap();
+    let authored = PlayerSettings::parse(toml).unwrap();
+    let expected = authored.appearance_row(71405, PesVersion::Pes21).unwrap();
+    assert_eq!(
+        table.get(71405).copied(),
+        Some(expected[4..].try_into().unwrap()),
+        "71405's appearance row carries the key whatever the task's outcome"
+    );
+}
+
+// TC-BIN-33
+#[test]
+fn an_invalid_settings_toml_is_reported_and_the_row_is_the_template_s_defaults() {
+    // The scenario's patch half (the patch holds his motions at their defaults) comes
+    // with step 5.3b.
+    let sandbox = Sandbox::new("bins_settings_invalid_row");
+    // The installed row for 71405 with no value at its default: every byte flipped.
+    let template = PlayerSettings::default()
+        .appearance_row(71405, PesVersion::Pes21)
+        .unwrap();
+    let mut installed = 71405u32.to_le_bytes().to_vec();
+    installed.extend(template[4..].iter().map(|byte| byte ^ 0xff));
+    install_tables(&sandbox, &[(PLAYER_APPEARANCE, &installed)]);
+    let export = "exports/co Full Settings";
+    sandbox.write(
+        &format!("{export}/Players/05 - A/face_high.fmdl"),
+        &clean_model(),
+    );
+    // `name` takes `true` or a string.
+    sandbox.write(
+        &format!("{export}/Players/05 - A/settings.toml"),
+        b"name = 5\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert!(
+        lines.iter().any(|line| line
+            == "co Full Settings: Error settings_toml_invalid [DropFile] at \
+                Players/05 - A/settings.toml (file=settings.toml, error=name: expected true or a string)"),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let table = AppearanceTable::read(
+        PlayerTableFile::PlayerAppearance,
+        &entries[PLAYER_APPEARANCE],
+    )
+    .unwrap();
+    assert_eq!(
+        table.get(71405).copied(),
+        Some(template[4..].try_into().unwrap()),
+        "the dropped file leaves the template's row"
+    );
 }

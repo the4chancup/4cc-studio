@@ -168,7 +168,6 @@ pub(crate) fn run(
     // CPK, is known from the exports' names before any file is read.
     let sources = reader::discover(&inputs.exports_root, &inputs.exports)?;
     let refs = refs_name.filter(|_| sources.iter().any(ExportSource::is_referees));
-    let cpk_stem = layout.boundary();
     let download = if mode.deploys() {
         let official = templates.official_list();
         let (download, messages) = deploy::preflight(
@@ -187,7 +186,7 @@ pub(crate) fn run(
     };
     let Some((bins, installed)) = working_bins(
         inputs,
-        cpk_stem,
+        layout,
         refs,
         mode.deploys(),
         &templates,
@@ -200,15 +199,16 @@ pub(crate) fn run(
 }
 
 /// The bins the run builds on, from the installed CPKs of the PES folder listed before
-/// `cpk_stem` but the refs CPK `refs` the run replaces, or the bundled bases in `templates`,
-/// and the entry paths of the installed CPKs walked, for the texture lookup, their findings
-/// reported first. A file of the walk that cannot be read is
-/// `installed_bin_unreadable`, Fatal, and `None`: the run stops before any export is read, the
-/// previous CPK kept, rather than build on an older copy that its CPK, loaded above it, would
-/// put back for every team.
+/// `layout`'s boundary but the refs CPK `refs` the run replaces, or the bundled bases in
+/// `templates`, and the entry paths of the installed CPKs walked, for the texture lookup,
+/// their findings reported first. In multi-CPK mode the boundary is the bins CPK, whose
+/// installed copy the player tables' walk starts at. A file of the walk that cannot be read
+/// is `installed_bin_unreadable`, Fatal, and `None`: the run stops before any export is read,
+/// the previous CPK kept, rather than build on an older copy that its CPK, loaded above it,
+/// would put back for every team.
 fn working_bins(
     inputs: &RunInputs,
-    cpk_stem: &CpkStem,
+    layout: &CpkLayout,
     refs: Option<&CpkStem>,
     deploys: bool,
     templates: &Templates,
@@ -216,7 +216,16 @@ fn working_bins(
 ) -> Option<(WorkingBins, InstalledPaths)> {
     let pes_folder = inputs.common.pes_folder();
     let version = inputs.common.pes_version;
-    match installed::working_bins(&pes_folder, cpk_stem, refs, version, deploys, templates) {
+    let multicpk = matches!(layout, CpkLayout::Parts { .. });
+    match installed::working_bins(
+        &pes_folder,
+        layout.boundary(),
+        refs,
+        multicpk,
+        version,
+        deploys,
+        templates,
+    ) {
         Ok((bins, installed, messages)) => {
             for message in messages {
                 events.message(message);

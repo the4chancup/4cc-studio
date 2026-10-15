@@ -4,10 +4,13 @@
 //! colors and kits for every team the run does not compile. Each bin comes from the nearest of
 //! those CPKs that holds it, and from its bundled base when none does or the walk cannot be
 //! made (no PES folder, no list, a list not naming the run's CPK); a Fox player table, which
-//! has no bundled base, is then absent. The walk passes over the installed refs CPK when the
-//! run writes one, since the run replaces it (`pipeline.md` "5. Writer", step 5). The same
-//! walk keeps every entry path of those CPKs, for the texture lookup (`pipeline.md` "Resolved
-//! decisions", "A texture a model names must exist"), which `check` makes too, reading no bin.
+//! has no bundled base, is then absent. In multi-CPK mode the run's own CPK is the bins CPK,
+//! whose installed copy the three player tables' walk starts at: it holds the seed rows of
+//! the players no export compiles, which the run's output replaces. The walk passes over the
+//! installed refs CPK when the run writes one, since the run replaces it (`pipeline.md` "5.
+//! Writer", step 5). The same walk keeps every entry path of the CPKs below the boundary, for
+//! the texture lookup (`pipeline.md` "Resolved decisions", "A texture a model names must
+//! exist"), which `check` makes too, reading no bin.
 //! On PES 15-17 it also gathers the loose kit configs (`WorkingBins::loose_kit_configs`).
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -155,13 +158,19 @@ impl Bin {
         }
     }
 
+    /// Whether the bin is one of the three player tables, the bins a multi-CPK run takes
+    /// from the bins CPK itself (`pipeline.md` "Bins accumulation").
+    fn is_player_table(self) -> bool {
+        match self {
+            Bin::TeamColor | Bin::UniColor | Bin::UniformParameter => false,
+            Bin::BootsList | Bin::GloveList | Bin::PlayerAppearance => true,
+        }
+    }
+
     /// Whether the run has a bundled base for the bin when no installed CPK holds it. The
     /// player tables have none: the seed rows are the cup's own.
     fn has_base(self) -> bool {
-        match self {
-            Bin::TeamColor | Bin::UniColor | Bin::UniformParameter => true,
-            Bin::BootsList | Bin::GloveList | Bin::PlayerAppearance => false,
-        }
+        !self.is_player_table()
     }
 
     /// Parses `bytes`, unwrapped, as the bin and puts it in `bins` in place of the one there.
@@ -194,18 +203,33 @@ struct Wanted {
     found: Option<String>,
 }
 
+/// Where a CPK the walk opens sits in the list against the run's own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Place {
+    /// The boundary CPK itself, a multi-CPK run's bins CPK: it supplies the player tables
+    /// alone, its other bins and loose kit configs being the previous output's, which the
+    /// run replaces.
+    Boundary,
+    /// A CPK listed before the boundary, which supplies every bin the walk looks for.
+    Below,
+}
+
 /// The bins a run compiling `cpk_stem` for `version` builds on, taken from the installed
 /// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), passing over the
 /// refs CPK `refs` when the run writes one, a bin none of them holds from its bundled base in
 /// the run's `templates` (a Fox player table, having none, is then absent), the entry paths of
 /// the CPKs walked, and the findings: a `bin_source` per bin found or bundled, and
 /// `dpfilelist_missing` when the folder has no list (an Error when the run `deploys`, a
-/// Warning when not). A list, a CPK or a bin that cannot be read is the error: the run stops
-/// rather than build on an older copy.
+/// Warning when not). `multicpk` is the run writing the parts layout: `cpk_stem` is then the
+/// bins CPK's stem and the player tables' walk starts at the installed CPK of its name
+/// itself, so the seed rows it holds come through to the output replacing it. A list, a CPK
+/// or a bin that cannot be read is the error: the run stops rather than build on an older
+/// copy.
 pub(crate) fn working_bins(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
     refs: Option<&CpkStem>,
+    multicpk: bool,
     version: PesVersion,
     deploys: bool,
     templates: &Templates,
@@ -233,9 +257,9 @@ pub(crate) fn working_bins(
     };
     let mut messages = Vec::new();
     let mut bins = WorkingBins::bundled(version, templates);
-    let walked = walk(pes_folder, cpk_stem, refs, |cpk, name| {
-        take_bins(cpk, name, &mut wanted, &mut bins)?;
-        if gathers_loose_kit_configs {
+    let walked = walk(pes_folder, cpk_stem, refs, multicpk, |cpk, name, place| {
+        take_bins(cpk, name, place, &mut wanted, &mut bins)?;
+        if gathers_loose_kit_configs && place == Place::Below {
             take_loose_kit_configs(cpk, &mut bins.loose_kit_configs)?;
         }
         Ok(())
@@ -292,7 +316,13 @@ pub(crate) fn installed_paths(
             return InstalledPaths::Unknown;
         }
     };
-    match walk(pes_folder, &cpk_stem, refs.as_ref(), |_, _| Ok(())) {
+    match walk(
+        pes_folder,
+        &cpk_stem,
+        refs.as_ref(),
+        false,
+        |_, _, _| Ok(()),
+    ) {
         Ok(Walk::Walked(paths)) => InstalledPaths::Known(paths),
         Ok(Walk::NotMade | Walk::NoList(_)) => InstalledPaths::Unknown,
         Err(unreadable) => {
@@ -311,14 +341,18 @@ type InstalledCpk = CpkArchive<BufReader<File>>;
 
 /// Walks every CPK `pes_folder`'s `download/DpFileList.bin` lists before `cpk_stem`'s, nearest
 /// first, keeping every entry path of each, folded, and calling `take` on each with its listed
-/// name: the texture lookup needs every path, so the walk does not stop once the bins are
-/// found. A listed CPK with no file is passed over, and so is the refs CPK `refs` when given;
+/// name and `Place`: the texture lookup needs every path, so the walk does not stop once the
+/// bins are found. With `from_boundary` (a multi-CPK run, whose boundary is the bins CPK),
+/// the boundary CPK itself is walked first as `Place::Boundary`, for the entries that start
+/// there; its paths do not join the texture lookup's, it being no CPK listed before the
+/// run's. A listed CPK with no file is passed over, and so is the refs CPK `refs` when given;
 /// one that cannot be opened, or that `take` fails on, is the error, naming that CPK.
 fn walk(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
     refs: Option<&CpkStem>,
-    mut take: impl FnMut(&mut InstalledCpk, &str) -> anyhow::Result<()>,
+    from_boundary: bool,
+    mut take: impl FnMut(&mut InstalledCpk, &str, Place) -> anyhow::Result<()>,
 ) -> Result<Walk, Unreadable> {
     if !pes_folder.is_dir() {
         return Ok(Walk::NotMade);
@@ -334,6 +368,12 @@ fn walk(
     };
     let refs = refs.map(deploy::cpk_file_name);
     let mut paths = HashSet::new();
+    if from_boundary {
+        let path = download.join(&own);
+        if let Some(mut cpk) = open_cpk(&path)? {
+            take(&mut cpk, &own, Place::Boundary).map_err(|error| Unreadable { path, error })?;
+        }
+    }
     for name in list[..position].iter().rev() {
         // The run replaces the installed refs CPK, so nothing in it is built on or looked up:
         // a refs export's texture link is not satisfied by the referees it replaces.
@@ -349,7 +389,7 @@ fn walk(
                 .iter()
                 .map(|entry| vtree::fold_name(&entry.path)),
         );
-        take(&mut cpk, name).map_err(|error| Unreadable { path, error })?;
+        take(&mut cpk, name, Place::Below).map_err(|error| Unreadable { path, error })?;
     }
     Ok(Walk::Walked(paths))
 }
@@ -385,17 +425,22 @@ fn open_cpk(path: &Path) -> Result<Option<InstalledCpk>, Unreadable> {
         .map_err(unreadable)
 }
 
-/// Takes into `bins` from `cpk`, listed as `name`, each of `wanted` not found yet that it
-/// holds, unwrapped when the bin is WESYS-compressed, and parsed: a bin that does not parse as
-/// its format is as unreadable as one that cannot be read, found here rather than when the CPK
-/// is finished after every export was processed.
+/// Takes into `bins` from `cpk`, listed as `name` at `place` in the walk, each of `wanted`
+/// not found yet that it holds, unwrapped when the bin is WESYS-compressed, and parsed: a bin
+/// that does not parse as its format is as unreadable as one that cannot be read, found here
+/// rather than when the CPK is finished after every export was processed. At the boundary
+/// only the player tables are taken; a CPK below supplies every bin.
 fn take_bins(
     cpk: &mut InstalledCpk,
     name: &str,
+    place: Place,
     wanted: &mut [Wanted],
     bins: &mut WorkingBins,
 ) -> anyhow::Result<()> {
     for wanted in wanted.iter_mut().filter(|wanted| wanted.found.is_none()) {
+        if place == Place::Boundary && !wanted.bin.is_player_table() {
+            continue;
+        }
         let path_in_cpk = wanted.bin.path();
         let Some(entry) = cpk.entries().iter().find(|entry| entry.path == path_in_cpk) else {
             continue;
@@ -557,6 +602,7 @@ mod tests {
             &pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -569,6 +615,7 @@ mod tests {
             &pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes17,
             true,
             &Templates::embedded(),
@@ -589,6 +636,7 @@ mod tests {
                 pes,
                 &stem(),
                 None,
+                false,
                 PesVersion::Pes21,
                 deploys,
                 &Templates::embedded(),
@@ -620,6 +668,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -662,6 +711,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -700,6 +750,7 @@ mod tests {
                 pes,
                 &stem(),
                 None,
+                false,
                 PesVersion::Pes21,
                 false,
                 &Templates::embedded(),
@@ -870,6 +921,7 @@ mod tests {
             pes,
             &stem(),
             Some(&refs),
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -929,6 +981,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -969,6 +1022,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -1011,6 +1065,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -1029,6 +1084,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes17,
             true,
             &Templates::embedded(),
@@ -1070,10 +1126,18 @@ mod tests {
         );
         install_cpk(pes, "4cc_61_midcup.cpk", &[(&p1, &[61; 120])]);
         let gathered = |version| {
-            working_bins(pes, &stem(), None, version, true, &Templates::embedded())
-                .unwrap()
-                .0
-                .loose_kit_configs
+            working_bins(
+                pes,
+                &stem(),
+                None,
+                false,
+                version,
+                true,
+                &Templates::embedded(),
+            )
+            .unwrap()
+            .0
+            .loose_kit_configs
         };
 
         assert_eq!(
@@ -1099,6 +1163,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -1138,6 +1203,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -1163,6 +1229,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes17,
             true,
             &Templates::embedded(),
@@ -1198,6 +1265,7 @@ mod tests {
                 pes,
                 &stem(),
                 None,
+                false,
                 PesVersion::Pes21,
                 true,
                 &Templates::embedded(),
@@ -1226,6 +1294,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -1252,6 +1321,7 @@ mod tests {
             pes,
             &stem(),
             None,
+            false,
             PesVersion::Pes21,
             true,
             &Templates::embedded(),
@@ -1259,5 +1329,107 @@ mod tests {
             panic!("a CPK that cannot be opened must be the error, not a CPK with no file");
         };
         assert_eq!(unreadable.path, cpk);
+    }
+
+    #[test]
+    fn in_multi_cpk_mode_the_player_tables_start_at_the_bins_cpk_itself() {
+        let temp = scratch("installed_multicpk_tables");
+        let pes = temp.path();
+        // The parts layout's boundary is the bins CPK; the teams parts are listed after it.
+        install_list(
+            pes,
+            &["4cc_06_gameplay.cpk", "4cc_08_bins.cpk", "4cc_41_teams.cpk"],
+        );
+        let gameplay_texture = paths::common_texture(Engine::Fox, 714, "gameplay");
+        install_cpk(
+            pes,
+            "4cc_06_gameplay.cpk",
+            &[
+                (paths::UNI_COLOR, &uni_color_bin(6)),
+                (&gameplay_texture, b"gameplay"),
+            ],
+        );
+        // The installed bins CPK, which the run's output replaces: a UniColor and a texture
+        // of its own, which are not built on, and two player tables, which are.
+        let bins_texture = paths::common_texture(Engine::Fox, 714, "bins");
+        let boots = [0x39, 0x12, 0x01, 0x00, 0x0b, 0x00, 0x00, 0x00];
+        install_cpk(
+            pes,
+            "4cc_08_bins.cpk",
+            &[
+                (paths::UNI_COLOR, &uni_color_bin(8)),
+                (PlayerTableFile::BootsList.cpk_path(), &boots),
+                (PlayerTableFile::PlayerAppearance.cpk_path(), &[9; 60]),
+                (&bins_texture, b"bins"),
+            ],
+        );
+        let stem = CpkStem::new("4cc_08_bins").unwrap();
+
+        let (bins, installed, messages) = working_bins(
+            pes,
+            &stem,
+            None,
+            true,
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
+        assert_eq!(
+            bins.uni_color.into_bytes(),
+            uni_color_bin(6),
+            "the bins CPK's own UniColor is the previous output's: taken from below"
+        );
+        assert_eq!(
+            bins.boots_list.map(|list| list.to_bytes()),
+            Some(boots.to_vec())
+        );
+        assert_eq!(bins.glove_list, None, "no CPK holds it");
+        assert_eq!(
+            bins.player_appearance.map(|table| table.to_bytes()),
+            Some(vec![9; 60])
+        );
+        assert_eq!(
+            messages,
+            [
+                source("TeamColor.bin", "bundled"),
+                source("UniColor.bin", "4cc_06_gameplay.cpk"),
+                source("UniformParameter.bin", "bundled"),
+                source("BootsList.bin", "4cc_08_bins.cpk"),
+                source("PlayerAppearance.bin", "4cc_08_bins.cpk"),
+            ]
+        );
+        // The boundary CPK is not a CPK listed before the run's: its paths are not the
+        // texture lookup's.
+        assert_eq!(
+            installed,
+            InstalledPaths::Known(HashSet::from([
+                vtree::fold_name(paths::UNI_COLOR),
+                vtree::fold_name(&gameplay_texture),
+            ]))
+        );
+
+        // The same install in single-CPK mode: nothing is taken from the run's own CPK.
+        let (bins, _, messages) = working_bins(
+            pes,
+            &stem,
+            None,
+            false,
+            PesVersion::Pes21,
+            true,
+            &Templates::embedded(),
+        )
+        .unwrap();
+        assert_eq!(bins.uni_color.into_bytes(), uni_color_bin(6));
+        assert_eq!(bins.boots_list, None);
+        assert_eq!(bins.player_appearance, None);
+        assert_eq!(
+            messages,
+            [
+                source("TeamColor.bin", "bundled"),
+                source("UniColor.bin", "4cc_06_gameplay.cpk"),
+                source("UniformParameter.bin", "bundled"),
+            ]
+        );
     }
 }
