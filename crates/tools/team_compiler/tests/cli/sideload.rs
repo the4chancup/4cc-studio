@@ -9,7 +9,7 @@ use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes_settings, pes21_settings, tracer_export};
 use crate::compile_exports::TEAM_COLOR;
 use crate::referees::{REFS, REFS_CPK, write_ref_a};
-use crate::{deploy_skipped, patch_written, snapshot};
+use crate::{deploy_skipped, patch_written, savefile_missing, snapshot};
 
 /// What the sandboxes' `overrides/` folder puts at `TEAM_COLOR`.
 const TEAM_COLOR_OVERRIDE: &[u8] = b"the operator's TeamColor.bin";
@@ -136,6 +136,9 @@ fn sideload_writes_what_the_cpk_holds_as_loose_files_replacing_livecpk() {
         .map(|line| line.replace(&normal_root, &root))
         .collect();
     let mut sideload_messages = run.messages();
+    // The sideload tree is what the game loads, so its savefile step runs, and finds no
+    // save in the sandbox.
+    assert_eq!(sideload_messages.pop(), Some(savefile_missing(&sandbox)));
     assert_eq!(
         sideload_messages.pop(),
         Some(patch_written(&sandbox, "792"))

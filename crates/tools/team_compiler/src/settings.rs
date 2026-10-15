@@ -17,6 +17,8 @@ pub(crate) struct TeamCompilerSettings {
     pub(crate) cpk_name: String,
     /// Where compiled CPKs go; a relative path resolves beside the executable.
     pub(crate) output_folder_path: PathBuf,
+    /// The local savefile the compile's aesthetics patch is applied to.
+    pub(crate) savefile_path: SavefilePath,
     /// Cup DLC mode: team content split into size-capped parts plus a bins CPK.
     pub(crate) multicpk_mode: bool,
     /// The stem of the teams part slots in multi-CPK mode: every official list entry
@@ -46,6 +48,7 @@ impl Default for TeamCompilerSettings {
         TeamCompilerSettings {
             cpk_name: "4cc_99_test".to_owned(),
             output_folder_path: PathBuf::from("output"),
+            savefile_path: SavefilePath::Auto,
             multicpk_mode: false,
             teams_cpk_name: "teams".to_owned(),
             // 3 GiB: comfortably under the 4 GiB a Git for Windows object can hold, the limit
@@ -122,6 +125,51 @@ impl Serialize for DdsCompression {
             DdsCompression::Auto => serializer.serialize_str("auto"),
             DdsCompression::On => serializer.serialize_bool(true),
             DdsCompression::Off => serializer.serialize_bool(false),
+        }
+    }
+}
+
+/// `savefile_path` (`settings.md`): the local savefile the compile's aesthetics patch is
+/// applied to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SavefilePath {
+    /// `pes_savefile`'s discovery under Documents\KONAMI for the target version.
+    Auto,
+    /// A configured file; a relative path resolves beside the executable.
+    Path(PathBuf),
+}
+
+// A visitor like `DdsCompression`'s: `"auto"` or a path string, never an untagged enum whose
+// error would name the helper's Rust type.
+impl<'de> Deserialize<'de> for SavefilePath {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_any(SavefilePathVisitor)
+    }
+}
+
+/// Reads `savefile_path` as the settings file spells it: `"auto"` or the path as a string.
+struct SavefilePathVisitor;
+
+impl Visitor<'_> for SavefilePathVisitor {
+    type Value = SavefilePath;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("\"auto\" or a path")
+    }
+
+    fn visit_str<E: de::Error>(self, value: &str) -> Result<SavefilePath, E> {
+        match value {
+            "auto" => Ok(SavefilePath::Auto),
+            path => Ok(SavefilePath::Path(PathBuf::from(path))),
+        }
+    }
+}
+
+impl Serialize for SavefilePath {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            SavefilePath::Auto => serializer.serialize_str("auto"),
+            SavefilePath::Path(path) => serializer.serialize_str(&path.to_string_lossy()),
         }
     }
 }
@@ -280,11 +328,55 @@ mod tests {
     }
 
     #[test]
+    fn savefile_path_reads_auto_and_a_path_and_round_trips() {
+        for (text, expected) in [
+            ("savefile_path = \"auto\"", SavefilePath::Auto),
+            (
+                "savefile_path = \"save/EDIT00000000\"",
+                SavefilePath::Path(PathBuf::from("save/EDIT00000000")),
+            ),
+        ] {
+            let table: toml::Table = toml::from_str(text).unwrap();
+            assert_eq!(
+                from_table(&table).unwrap().savefile_path,
+                expected,
+                "{text}"
+            );
+        }
+        assert_eq!(
+            TeamCompilerSettings::default().savefile_path,
+            SavefilePath::Auto
+        );
+        assert_eq!(default_table()["savefile_path"].as_str(), Some("auto"));
+        for value in [
+            SavefilePath::Auto,
+            SavefilePath::Path(PathBuf::from("save/EDIT00000000")),
+        ] {
+            let settings = TeamCompilerSettings {
+                savefile_path: value,
+                ..TeamCompilerSettings::default()
+            };
+            let table = toml::Table::try_from(&settings).unwrap();
+            assert_eq!(from_table(&table).unwrap(), settings);
+        }
+    }
+
+    #[test]
     fn a_key_of_the_wrong_type_is_an_error_naming_it() {
         let table: toml::Table = toml::from_str("strict_file_type_check = \"yes\"").unwrap();
         let error = from_table(&table).unwrap_err();
         assert!(
             error.to_string().contains("strict_file_type_check"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn a_savefile_path_that_is_not_a_string_says_what_it_takes() {
+        let table: toml::Table = toml::from_str("savefile_path = 3").unwrap();
+        let error = from_table(&table).unwrap_err();
+        assert!(
+            error.to_string().contains("expected \"auto\" or a path"),
             "{error}"
         );
     }

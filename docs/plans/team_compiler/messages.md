@@ -61,13 +61,8 @@ states one-to-one; a glTF material with states absent just gets its family's sta
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
-| `savefile_autodetected` | I | `savefile_path = auto` resolved a savefile under Documents\KONAMI (names the path; noted especially when several account folders existed and the newest was chosen) | none |
-| `savefile_missing` | W | the patch holds entries (Fox: motions and resolved names; pre-Fox: aesthetics) but no savefile is configured/found; the patch is the run's only savefile output | savefile step skipped; the message names the patch and the save editor's apply action |
-| `savefile_skipped_pes_running` | W | savefile changes pending but the compile target's PES is running (a PES of another version does not count; any output mode; the motivating case is sideload-mode iteration) | savefile step skipped; applied by the next compile with PES closed |
 | `savefile_write_failed` | E | savefile could not be updated | deployment transaction fails and rolls back; compile artifacts remain available |
 | `savefile_invalid` | E | the configured or found savefile cannot be read, or its version is not the compile target's (context: the path, the version) | the save is not modified; as `savefile_write_failed` |
-| `savefile_team_missing` | E | a team of the patch is not in the savefile (context: the team) | that team's entries are not applied; the rest is |
-| `savefile_player_not_stripped` | W | Fox: a compiled player's record in the local save has its appearance id set (a save never stripped, or an id the game's Edit mode restored), so the game shows his record, not the compiled rows (context: the players) | reported; the save editor strips them (`strip-and-seed` for a save never stripped, `check-stripped --strip-again` otherwise) |
 | `pes_folder_not_found` | E | as the spec's row | savefile step skipped |
 | `dpfilelist_missing` | E/W | as the spec's row | E: savefile step skipped |
 | `dpfilelist_not_official` | W | as the spec's row | the GUI offers **Upgrade DpFileList**, which asks before replacing the list |
@@ -77,6 +72,8 @@ states one-to-one; a glTF material with states absent just gets its family's sta
 | `deploy_target_unwritable` | E | as the spec's row | savefile step skipped; GUI offers Relaunch as administrator. Normally pre-empted by the live writability preflight (see `pipeline.md` "6. Post-processing") |
 | `deploy_skipped_by_flag` | I | as the spec's row | savefile step skipped |
 
+The `savefile_write_failed` and `savefile_invalid` rows' rollback half (the deployment
+transaction failing and rolling back) is 5.3b3's; the spec's rows carry the plain-Error half.
 A missing savefile
 is the explicitly permitted warning-only case. A present savefile that cannot be read or whose
 version differs from the compile target is an error, not `savefile_missing`; do not modify it or

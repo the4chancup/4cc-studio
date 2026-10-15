@@ -31,6 +31,7 @@ mod prefox_kits;
 mod prefox_textures;
 mod prefox_user_xml;
 mod referees;
+mod savefile;
 mod sideload;
 mod sources;
 mod test_mode;
@@ -240,6 +241,17 @@ fn patch_written(sandbox: &Sandbox, teams: &str) -> String {
     format!(
         "Info patch_written [Keep] (path={}, teams={teams})",
         sandbox.display("output/aesthetics_patch.toml")
+    )
+}
+
+/// The `savefile_missing` warning a deployed or sideloaded Fox compile whose save the
+/// sandbox lacks reports after `patch_written`, naming the output patch and the sandbox's
+/// `savefile_path`.
+fn savefile_missing(sandbox: &Sandbox) -> String {
+    format!(
+        "Warning savefile_missing [Keep] (patch={}, path={})",
+        sandbox.display("output/aesthetics_patch.toml"),
+        sandbox.display("save/EDIT00000000")
     )
 }
 

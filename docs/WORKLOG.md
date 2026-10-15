@@ -20,7 +20,7 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
 5.y-gloves and 5.3a (a1 to a5, its review loop closed) and 5.3b1 (the patch written) done
-2026-10-15; next 5.3b2 (the local savefile); step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-15, and 5.3b2 (the local savefile) done 2026-10-15; next 5.3b3 (the transaction); step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1135,10 +1135,16 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         `messages.rs`, `tests/cli/patch.rs` and the existing tests gaining `patch_written`;
         the marker renamed `write_names` (DECISIONS 2026-10-15) in code, the `settings.toml`
         template, the save editor's help and the plans
-    - [ ] 5.3b2 `savefile_path` (`auto` discovery; the test sandbox names a stripped fixture
+    - [x] 5.3b2 `savefile_path` (`auto` discovery; the test sandbox names a stripped fixture
       save), the patch applied to the local savefile with its findings, skipped while the
       target's PES runs and when the CPKs were not deployed → done when: TC-SAV-01 to 05, 07,
-      10 to 12 pass
+      10 to 12 pass. Done (TC-SAV-05's second half, its first half's finding; TC-SAV-10's
+      sideload write and running-PES skip as tests, its `manual:` line still open):
+      `settings.rs` (`SavefilePath`), `compile.rs` (`RunPaths`, `promote` returns whether the
+      game loads the output, `write_patch` returns the patch), `output/savefile.rs` (new),
+      `output/patch.rs`, `messages.rs` (nine codes, `savefile_written` and
+      `savefile_player_missing` per DECISIONS 2026-10-15), `testing.rs` and
+      `tests/common/mod.rs` (test contexts never `auto`), `tests/cli/savefile.rs` (new)
     - [ ] 5.3b3 the CPKs, the patch and the savefile as one transaction (the installed CPKs
       kept aside until the savefile is written, restored on a failure) → done when: TC-SAV-05's
       first half, 08 and 09 pass

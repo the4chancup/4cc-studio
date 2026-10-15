@@ -18,7 +18,7 @@ use std::sync::Arc;
 use aesthetics_export::ExportIdentity;
 use anyhow::Context;
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use pes_savefile::interchange::aesthetics_patch::PatchTeam;
+use pes_savefile::interchange::aesthetics_patch::{AestheticsPatch, PatchTeam};
 use pes_version::PesVersion;
 use pipeline::{Cancelled, CpkStem, MemoryBudget, Permit};
 use studio_core::{Disposition, ExportId, Message, Scope, Severity, ToolContext};
@@ -31,6 +31,7 @@ use crate::messages::{Code, size_text, tool_message};
 use crate::output::deploy::{self, DeployFailure, Staging};
 use crate::output::parts::{self, TeamsParts, Unplaced};
 use crate::output::patch;
+use crate::output::savefile;
 use crate::output::sink::OutputSink;
 use crate::output::teamnotes;
 use crate::output::writer::{BinsEdits, CpkOutput, Referees};
@@ -40,6 +41,7 @@ use crate::processing::{
     CompileContext, EntryTarget, TEST_BINS_PREFIX, TaskBatch, TaskFiles, process_task,
 };
 use crate::reader::{self, ContentSource, ExportSource, SourceFailure, SourceKind, SourceRevision};
+use crate::settings::SavefilePath;
 use crate::templates::{self, Templates};
 use crate::validation::{run_budget, run_pool, validation_pass};
 
@@ -80,6 +82,14 @@ impl OutputMode {
             OutputMode::Test => false,
         }
     }
+}
+
+/// The two destinations a run's outputs go to, resolved on the command line (`settings.md`
+/// "Path resolution"): the output folder, and the local save the `aesthetics_patch.toml` is
+/// applied to when the game loads the run's output.
+pub(crate) struct RunPaths {
+    pub(crate) output_folder: PathBuf,
+    pub(crate) savefile_path: SavefilePath,
 }
 
 /// The CPKs a normal compile writes (`pipeline.md` "5. Writer", steps 5 and 6), decided on
@@ -154,12 +164,15 @@ impl CpkLayout {
 /// output that cannot be written or put in place, a team the parts cannot take, or an export
 /// file that changes while the run reads it, is a Fatal finding, after which the previous
 /// output is all that is left. An exports folder or an `overrides/` folder that cannot be read
-/// is an error. A run of several CPKs installs all of them or none.
+/// is an error. A run of several CPKs installs all of them or none. The
+/// `aesthetics_patch.toml` written beside the output is applied to the save `savefile_path`
+/// resolves to when the game loads the run's output (`spec/team_compiler/pipeline.md` "6.
+/// Post-processing").
 pub(crate) fn run(
     inputs: &RunInputs,
     layout: &CpkLayout,
     refs_name: Option<&CpkStem>,
-    output_folder: &Path,
+    paths: &RunPaths,
     mode: &OutputMode,
     ctx: &ToolContext,
 ) -> anyhow::Result<Option<Severity>> {
@@ -177,7 +190,7 @@ pub(crate) fn run(
             &inputs.common.pes_folder(),
             inputs.common.pes_version,
             &layout.cpks(&official, refs),
-            &layout.promoted(output_folder, refs),
+            &layout.promoted(&paths.output_folder, refs),
             &official,
         );
         for message in messages {
@@ -198,7 +211,7 @@ pub(crate) fn run(
         return Ok(events.worst());
     };
     let planned = plan(inputs, sources, installed, mode, download, events, ctx)?;
-    build(planned, bins, templates, layout, refs, output_folder, mode)
+    build(planned, bins, templates, layout, refs, paths, mode)
 }
 
 /// The bins the run builds on, from the installed CPKs of the PES folder listed before
@@ -374,9 +387,11 @@ fn build(
     templates: Templates,
     layout: &CpkLayout,
     refs: Option<&CpkStem>,
-    output_folder: &Path,
+    paths: &RunPaths,
     mode: &OutputMode,
 ) -> anyhow::Result<Option<Severity>> {
+    let output_folder = &paths.output_folder;
+    let savefile_path = &paths.savefile_path;
     let PlannedRun {
         version,
         mut events,
@@ -582,7 +597,7 @@ fn build(
             Some(_) | None => written.team,
         })
         .collect();
-    let promoted = promote(
+    match promote(
         mode,
         &staging,
         output_folder,
@@ -590,11 +605,31 @@ fn build(
         download.as_deref(),
         &target,
         &mut events,
-    );
-    match promoted {
-        Ok(()) => {
-            if write_patch(&mut events, output_folder, version, &patch_teams, &staged) {
-                write_teamnotes(&mut events, output_folder, &notes);
+    ) {
+        Ok(installed) => {
+            match write_patch(&mut events, output_folder, version, &patch_teams, &staged) {
+                Ok(patch) => {
+                    // The savefile step applies the patch the run just wrote, never a
+                    // re-read of the file, and only when the game loads the run's output.
+                    if let (true, Some(patch)) = (installed, &patch) {
+                        savefile::update(
+                            &mut events,
+                            savefile::locate(savefile_path, || {
+                                pes_savefile::discovery::discover_savefiles(version)
+                            }),
+                            &studio_core::running_pes(),
+                            &output_folder.join(patch::FILE_NAME),
+                            patch,
+                        );
+                    }
+                    write_teamnotes(&mut events, output_folder, &notes);
+                }
+                Err(error) => abort_output(
+                    &mut events,
+                    &output_folder.join(patch::FILE_NAME),
+                    Code::PatchWriteFailed,
+                    error,
+                ),
             }
         }
         Err(error) => abort_output(&mut events, &target, Code::OutputCommitFailed, error),
@@ -701,8 +736,11 @@ fn size_over_limit(run_folder: &Path, name: &CpkStem, cap: u64) -> anyhow::Resul
 /// Error naming `promoted`, the CPK's path in the output folder or the folder itself), every
 /// one goes into the output folder; under `--no-deploy` each CPK goes there,
 /// `deploy_skipped_by_flag` naming each. In test and sideload mode the loose tree becomes the
-/// output folder's `test_output/` or the PES folder's `livecpk/`. Only a failure to put the
-/// output in the output folder or the loose tree in place is the error.
+/// output folder's `test_output/` or the PES folder's `livecpk/`. Returns whether the game
+/// now loads this run's output: an installed deployment and a sideload tree (in `livecpk/`,
+/// which the runtime serves to the game), never a promoted one, `--no-deploy` or test mode:
+/// the savefile step's gate (`spec/team_compiler/pipeline.md` "6. Post-processing"). Only a
+/// failure to put the output in the output folder or the loose tree in place is the error.
 fn promote(
     mode: &OutputMode,
     staging: &Staging,
@@ -711,12 +749,12 @@ fn promote(
     download: Option<&Path>,
     promoted: &Path,
     events: &mut RunEvents,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     match mode {
         OutputMode::Normal { no_deploy } => {
             if let Some(download) = download {
                 let Err(failure) = deploy::deploy(staging, download, staged) else {
-                    return Ok(());
+                    return Ok(true);
                 };
                 events.message(deploy_failed(failure, download, promoted));
             }
@@ -731,15 +769,17 @@ fn promote(
                     ));
                 }
             }
-            Ok(())
+            Ok(false)
         }
         OutputMode::Test => deploy::promote_tree(
             staging,
             deploy::TEST_OUTPUT,
             &output_folder.join(deploy::TEST_OUTPUT),
-        ),
+        )
+        .map(|()| false),
         OutputMode::Sideload { pes_folder } => {
             deploy::promote_tree(staging, deploy::LIVECPK, &pes_folder.join(deploy::LIVECPK))
+                .map(|()| true)
         }
     }
 }
@@ -771,52 +811,42 @@ fn deploy_failed(failure: DeployFailure, download: &Path, output: &Path) -> Mess
 
 /// Writes the run's `aesthetics_patch.toml` into `output_folder` — `patch::write` moves an
 /// earlier one aside to `.bak` when `teams` is empty (no compiled player, or a pre-Fox
-/// target) — reporting `patch_written` with the path and the team ids it covers. A write or
-/// rename failing is `patch_write_failed` through `abort_output`, which aborts the run, and
-/// `false` is returned so nothing more is published; the one-transaction question with the
-/// CPKs is slice b3's. Called once the run's outputs are in place, so a run that published
-/// nothing (returned above) leaves the patch alone.
+/// target) — reporting `patch_written` with the path and the team ids it covers, and returns
+/// the patch written, for the savefile step to apply. A write or rename failing is
+/// `patch_write_failed` through `abort_output` at the caller, which aborts the run; the
+/// one-transaction question with the CPKs is slice b3's. Called once the run's outputs are
+/// in place, so a run that published nothing (returned above) leaves the patch alone.
 fn write_patch(
     events: &mut RunEvents,
     output_folder: &Path,
     version: PesVersion,
     teams: &[PatchTeam],
     staged: &[CpkStem],
-) -> bool {
-    match patch::write(output_folder, version, teams, staged) {
-        Ok(Some(teams)) => {
-            events.message(tool_message(
-                Code::PatchWritten,
-                Scope::Run,
-                Disposition::Keep,
-                vec![
-                    (
-                        "path",
-                        output_folder.join(patch::FILE_NAME).display().to_string(),
-                    ),
-                    (
-                        "teams",
-                        teams
-                            .iter()
-                            .map(u32::to_string)
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                    ),
-                ],
-            ));
-            true
-        }
-        Ok(None) => true,
-        Err(error) => {
-            abort_output(
-                events,
-                &output_folder.join(patch::FILE_NAME),
-                Code::PatchWriteFailed,
-                error,
-            );
-            false
-        }
+) -> anyhow::Result<Option<AestheticsPatch>> {
+    let patch = patch::write(output_folder, version, teams, staged)?;
+    if let Some(patch) = &patch {
+        events.message(tool_message(
+            Code::PatchWritten,
+            Scope::Run,
+            Disposition::Keep,
+            vec![
+                (
+                    "path",
+                    output_folder.join(patch::FILE_NAME).display().to_string(),
+                ),
+                (
+                    "teams",
+                    patch
+                        .teams
+                        .iter()
+                        .map(|team| team.id.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                ),
+            ],
+        ));
     }
+    Ok(patch)
 }
 
 /// Writes `notes` (team name, note text) as `<output_folder>/teamnotes.txt`, or removes a
@@ -1849,7 +1879,11 @@ mod tests {
             let ctx = tool_context(root, "");
             let inputs = sandbox_inputs(root, &ctx);
             let normal = OutputMode::Normal { no_deploy: false };
-            run(&inputs, &layout, None, &output, &normal, &ctx).unwrap();
+            let paths = RunPaths {
+                output_folder: output.clone(),
+                savefile_path: SavefilePath::Path(root.join("save/EDIT00000000")),
+            };
+            run(&inputs, &layout, None, &paths, &normal, &ctx).unwrap();
             let previous = fs::read(&cpk).unwrap();
 
             let (events_tx, events) = unbounded();
@@ -1877,7 +1911,7 @@ mod tests {
                 Templates::embedded(),
                 &layout,
                 None,
-                &output,
+                &paths,
                 &normal,
             )
             .unwrap();

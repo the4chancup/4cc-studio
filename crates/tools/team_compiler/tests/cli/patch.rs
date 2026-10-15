@@ -15,7 +15,7 @@ use crate::compile::{pes_settings, pes21_settings, tracer_kit};
 use crate::prefox_faces::write_slot_05_face;
 
 /// The patch in `sandbox`'s output folder, parsed back.
-fn read_patch(sandbox: &Sandbox) -> AestheticsPatch {
+pub(crate) fn read_patch(sandbox: &Sandbox) -> AestheticsPatch {
     let text = fs::read_to_string(sandbox.root.join("output/aesthetics_patch.toml")).unwrap();
     AestheticsPatch::parse(&text).unwrap()
 }
@@ -53,7 +53,7 @@ fn a_run_holding_no_patch_moves_an_earlier_one_aside_to_bak() {
 
 /// A `write_names` export: `players.txt` mapping `Snuffy` to slot 05 and `Sharer` to 06 and
 /// 08, `Snuffy` taking his name from the folder and `Sharer` setting its own.
-fn write_names_export(sandbox: &Sandbox, export: &str, snuffy: &str, sharer: &str) {
+pub(crate) fn write_names_export(sandbox: &Sandbox, export: &str, snuffy: &str, sharer: &str) {
     sandbox.write(&format!("{export}/write_names"), b"");
     sandbox.write(
         &format!("{export}/players.txt"),

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use crate::bins::install_names;
 use crate::common::{Run, Sandbox};
 use crate::compile::{cpk_entries, pes21_settings, tracer_export};
-use crate::{bundled_bins_then, patch_written, snapshot};
+use crate::{bundled_bins_then, patch_written, savefile_missing, snapshot};
 
 /// The findings of a PES 21 `compile` of the tracer with bundled bins, after the bins' own.
 const TRACER_FINDINGS: [&str; 7] = [
@@ -140,6 +140,7 @@ fn compile_installs_the_cpk_over_the_old_one_and_leaves_nothing_in_the_output_fo
 
     let mut expected = bundled_bins_then(TRACER_FINDINGS);
     expected.push(patch_written(&sandbox, "792"));
+    expected.push(savefile_missing(&sandbox));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     // Only the CPK changed in download/: the installed list already names it.
@@ -330,6 +331,7 @@ fn another_version_s_exe_is_a_warning_and_the_cpk_is_installed() {
     )];
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
     expected.push(patch_written(&sandbox, "792"));
+    expected.push(savefile_missing(&sandbox));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     assert!(sandbox.root.join("PES/download/4cc_99_test.cpk").is_file());
@@ -372,6 +374,7 @@ fn a_list_naming_a_cpk_the_official_one_lacks_is_dpfilelist_not_official_and_the
     )];
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
     expected.push(patch_written(&sandbox, "792"));
+    expected.push(savefile_missing(&sandbox));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     assert_installed(&sandbox, &twin);
@@ -418,6 +421,7 @@ fn a_listed_cpk_missing_from_download_is_dpfilelist_cpk_missing_and_the_cpk_is_i
     )];
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
     expected.push(patch_written(&sandbox, "792"));
+    expected.push(savefile_missing(&sandbox));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     assert_installed(&sandbox, &twin);

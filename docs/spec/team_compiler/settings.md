@@ -28,6 +28,7 @@ differing new default is a deliberate decision, explained in the Controls column
 |---|---|---|---|
 | `cpk_name` | `4cc_90_test` | `4cc_99_test` | Single-CPK output `CpkStem` (shared validation contract in the Writer section); the new default is the official DpFileList's test entry (`pipeline.md` "DpFileList upgrade") |
 | `output_folder_path` | `patches_output/` (hardcoded) | `output/` | Root for promoted CPKs (degraded runs and `--no-deploy`), the `.staging/` folder, `test_output/`, and `teamnotes.txt`. Relative paths resolve **beside the executable** (Red's `patches_output/` in its new place; `%APPDATA%` is no place to look for a CPK) |
+| `savefile_path` | — | auto | `EDIT00000000` to update. `auto` runs `pes_savefile`'s discovery under the user's **Documents\KONAMI** folder for the selected version (the savefile is never inside the PES install, so `pes_folder_path` plays no part — see "Savefile discovery" in the Savefile spec); newest account wins when several exist (`savefile_autodetected`); nothing found → `savefile_missing` (Red never touches the savefile) |
 | `multicpk_mode` | 0 | same | Cup DLC mode: team content into size-split `teams` parts + the bins CPK (see "Multi-CPK mode: teams parts"); replaces Red's faces/uniform/bins content split |
 | `teams_cpk_name` | `4cc_40_faces` + `4cc_45_uniform` | `teams` | Stem of the teams part slots; the slots themselves are every DpFileList entry matching `{prefix}_{NN}_{stem}` (`4cc_41_teams`, `4cc_42_teams`, …), ordered by number. A stem that is the bins CPK's own (`bins` for `4cc_08_bins`) is refused (exit code 2): the bins CPK would be a part too. Replaces `faces_cpk_name` and `uniform_cpk_name` |
 | `cpk_part_max_size` | — | `3221225472` (3 GiB) | Cap per teams part (TOC included); the writer places whole teams, rolling to the next slot when the next team would not fit — teams are never split across parts. Chosen comfortably under Git for Windows' 4 GiB object ceiling; five slots give 15 GiB. Written as a whole number of bytes, not as text like `3 GB`: a count needs no unit parser and leaves no doubt between GB and GiB, and the findings show it in KiB, MiB or GiB. Single-CPK runs are not split, only warned (`cpk_size_over_limit`) |
@@ -41,7 +42,7 @@ differing new default is a deliberate decision, explained in the Controls column
 In the settings file the 0/1 settings are TOML booleans (`pass_through = false`). A setting enters
 `TeamCompilerSettings` and `default_settings()` with the phase whose code reads it, not before,
 so no key is written that nothing honors yet; the compiler reads `cpk_name`,
-`output_folder_path`, `multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`,
+`output_folder_path`, `savefile_path`, `multicpk_mode`, `teams_cpk_name`, `cpk_part_max_size`,
 `bins_cpk_name`, `refs_cpk_name`, `dds_compression`, `strict_file_type_check`, `pass_through`
 and `teams_list_path`. A missing key
 loads as its default; a key of the wrong type is a configuration error (exit code 2, naming the
@@ -87,6 +88,7 @@ compiles, where a few seconds against a 48-team run is irrelevant.
 | Relative `teams_list_path` | Selected data directory — the file is user data once the grid writes ID assignments into it, so it follows the settings file (see `pipeline.md` "Resolved decisions", "Teams list"); nothing is bundled beside the binary |
 | `templates/` override directory | Selected data directory; each file shadows the matching embedded template/fallback-bin resource (see `pipeline.md` "Resolved decisions") |
 | `pes_folder_path` | Absolute PES installation path (after expanding its documented `**` version placeholder) |
+| `savefile_path` | Absolute when explicitly set, a relative one beside the executable as `output_folder_path`; `auto` resolves under the shell's Documents folder → `KONAMI\{game folder}[\{account id}]\save\EDIT00000000` per the Savefile spec's discovery table — independent of `pes_folder_path` |
 | Generated CPKs, `test_output/`, `teamnotes.txt` | Resolved `output_folder_path` |
 | Installed CPKs | `{pes_folder_path}/download/` |
 | Sideload-mode output | `{pes_folder_path}/livecpk/`, the root the game-side runtime serves; no setting (`pipeline.md` "5. Writer", output modes) |

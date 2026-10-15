@@ -120,13 +120,20 @@ pub(crate) fn install_pes(root: &Path) {
 
 /// A context whose executable folder is `root` (data directory `root/data`), over PES 21
 /// settings with the PES folder at `root/PES` plus `extra` settings lines, the tool's defaults
-/// merged in. Its shell channels have no consumer.
+/// merged in. Its shell channels have no consumer. `savefile_path` names a file under `root`
+/// rather than the `auto` default, whose discovery would find the developer's own save.
 pub(crate) fn tool_context(root: &Path, extra: &str) -> ToolContext {
     let text = format!(
         "[common]\npes_version = 21\npes_folder_path = '{}'\n{extra}",
         root.join("PES").display()
     );
     let mut settings = Settings::parse(&text).unwrap();
+    // Before `merge_defaults` fills `savefile_path` with `auto`: an existing key is kept.
+    let mut tool = settings.tool(TOOL_ID).cloned().unwrap_or_default();
+    tool.entry("savefile_path").or_insert_with(|| {
+        toml::Value::String(root.join("save").join("EDIT00000000").display().to_string())
+    });
+    settings.set_tool(TOOL_ID, tool);
     settings.merge_defaults(TOOL_ID, &default_table());
     let (events_tx, _events_rx) = unbounded();
     let (requests_tx, _requests_rx) = unbounded();

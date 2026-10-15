@@ -13,11 +13,11 @@ use pipeline::CpkStem;
 use studio_core::{AppPaths, CliError, CommonSettings, SETTINGS_FILE_NAME, Severity, ToolContext};
 use teams_list::TeamsList;
 
-use crate::compile::{CpkLayout, OutputMode};
+use crate::compile::{CpkLayout, OutputMode, RunPaths};
 use crate::messages::TOOL_ID;
 use crate::output::deploy;
 use crate::reader::is_archive;
-use crate::settings::{TeamCompilerSettings, from_table};
+use crate::settings::{SavefilePath, TeamCompilerSettings, from_table};
 use crate::{check, compile, upgrade};
 
 // The exit codes are the command line's contract with scripts (`settings.md` "CLI").
@@ -121,11 +121,19 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
             let (layout, refs) = compile_settings(&settings, &mode)?;
             let exports_root = prepare_exports_root(&args.source, &common, ctx.paths())?;
             // `settings.md` "Path resolution": a relative output folder sits beside the
-            // executable; an absolute one replaces the base.
-            let output_folder = ctx.paths().exe_dir.join(&settings.output_folder_path);
+            // executable; an absolute one replaces the base. A configured savefile path
+            // resolves the same way (`auto` runs no discovery here: it resolves at the
+            // savefile stage).
+            let paths = RunPaths {
+                output_folder: ctx.paths().exe_dir.join(&settings.output_folder_path),
+                savefile_path: match &settings.savefile_path {
+                    SavefilePath::Auto => SavefilePath::Auto,
+                    SavefilePath::Path(path) => SavefilePath::Path(ctx.paths().exe_dir.join(path)),
+                },
+            };
             // Probed before any export is read, so a run never does the work and then fails
             // to write it.
-            deploy::prepare_output_folder(&output_folder)
+            deploy::prepare_output_folder(&paths.output_folder)
                 .map_err(|error| CliError::new(ABORTED, error))?;
             create_teams_list(&settings.teams_list_path, ctx.paths().data_dir.as_deref());
             let inputs = resolve_inputs(
@@ -139,7 +147,7 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
                 &inputs,
                 &layout,
                 refs.as_ref(),
-                &output_folder,
+                &paths,
                 &mode,
                 ctx,
             ))

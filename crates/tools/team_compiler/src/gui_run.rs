@@ -136,8 +136,9 @@ mod tests {
         "- Warning player_table_missing (table=PlayerAppearance.bin, rows=1)",
     ];
 
-    /// `TRACER_LINES`, then the `patch_written` line naming `root`'s output patch and the run's
-    /// exit line.
+    /// `TRACER_LINES`, then the `patch_written` line naming `root`'s output patch, the
+    /// `savefile_missing` warning (`tool_context` names a save under `root` that is not
+    /// there), and the run's exit line.
     fn tracer_lines(root: &Path) -> Vec<String> {
         TRACER_LINES
             .iter()
@@ -146,6 +147,11 @@ mod tests {
                 format!(
                     "- Info patch_written (path={}, teams=792)",
                     root.join("output").join("aesthetics_patch.toml").display()
+                ),
+                format!(
+                    "- Warning savefile_missing (patch={}, path={})",
+                    root.join("output").join("aesthetics_patch.toml").display(),
+                    root.join("save").join("EDIT00000000").display()
                 ),
                 "Run finished: exit code 0".to_owned(),
             ])

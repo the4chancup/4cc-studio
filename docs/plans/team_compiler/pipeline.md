@@ -153,7 +153,12 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
 - **Savefile update** — the local savefile, when one is configured, is updated by **applying the
   patch just written** through `pes_savefile`'s `apply_patch` — the compiler has no second write
   path, so the local result and the savefile builder's later result are the same bytes by
-  construction. Saving uses a `.bak` backup, the same convention as the save editor's. A missing
+  construction. Saving uses a `.bak` backup, the same convention as the save editor's, and is
+  reported as `savefile_written` (I) with the path, as every other output of the run reports
+  itself. A team or player of the patch the save lacks is reported per item
+  (`savefile_team_missing`, `savefile_player_missing`, the save editor's `apply-patch` skips)
+  and the rest is applied; a save holding none of the patch's teams is not rewritten, so its
+  `.bak` stays the user's previous backup. A missing
   savefile stays a warning (`savefile_missing`, naming the patch): even the DLC builder is expected
   to compile against a template save, to test the DLC in PES. **The savefile is never written while
   the compile target's PES is running**, in any output mode: the game holds its edit data in memory
@@ -171,8 +176,11 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
   "Writing a save"): the savefile is always the target's version (another is
   `savefile_invalid`), and a game only writes back its own version's save, so a PES of another
   version running leaves the step to run. The savefile is likewise
-  **skipped whenever the CPKs were not deployed** — a degraded run promoted to `output/`, or
-  `--no-deploy`. The incoherence it prevents is pre-Fox's, where a savefile can point at
+  **skipped whenever the CPKs were not deployed** — a degraded run promoted to `output/`, a
+  deployment refused by its preflight, `--no-deploy`, or test mode, whose loose tree in
+  `output/` the game never reads. Sideload mode counts as deployed: its tree in `livecpk\` is
+  what the game loads, and its savefile half catching up once PES is closed is the reason the
+  running-PES skip exists. The incoherence it prevents is pre-Fox's, where a savefile can point at
   boots/gloves IDs whose content is not installed — exactly what the "only for content actually
   written" rule exists to prevent; on Fox a compiled player's IDs live in the CPK's own table
   rows, but the same skip keeps one rule for both engines.

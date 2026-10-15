@@ -2037,3 +2037,8 @@ worklog passed 7,000 lines.
   prototype rule to our UI crates, and ruled Launch PES never uses Steam; worklog step 8.0 added.
 - **2026-10-15** — 5.3b1 mutation run (`mutants-diff 6dbf56d`): 4 survivors, all in
   `utc_datetime`, killed by a day-by-day calendar test. Light theme ruled second-class.
+- **2026-10-15** — 5.3b2: a deployed or sideloaded Fox compile applies its patch to the local
+  save (`savefile_*` findings). A GUI test context left on `auto` wrote one player's motions into
+  the maintainer's PES 21 save during the run; contexts fixed, CONTRIBUTING rule added.
+- **2026-10-15** — 5.3b2 mutation run (`mutants-diff e88c5c7`, 23 mutants): one survivor, the
+  `savefile_path` type error's wording, killed by a settings test.

@@ -25,16 +25,17 @@ pub(crate) const FILE_NAME: &str = "aesthetics_patch.toml";
 const BAK_NAME: &str = "aesthetics_patch.toml.bak";
 
 /// Writes `<output_folder>/aesthetics_patch.toml` for `teams` through a temporary file
-/// renamed into place, and returns the teams' ids for `patch_written`. `teams` empty is no
-/// patch: an earlier file of the name goes to `.bak` (a directory of the name is not the
-/// patch and is left) and `None` is returned. `cpks` is the staged CPKs the run publishes,
+/// renamed into place, and returns the patch it wrote: its `teams` give `patch_written`'s
+/// ids, and the savefile step applies it (`output/savefile.rs`). `teams` empty
+/// is no patch: an earlier file of the name goes to `.bak` (a directory of the name is not
+/// the patch and is left) and `None` is returned. `cpks` is the staged CPKs the run publishes,
 /// empty in test and sideload mode, which publish loose trees.
 pub(crate) fn write(
     output_folder: &Path,
     version: PesVersion,
     teams: &[PatchTeam],
     cpks: &[CpkStem],
-) -> anyhow::Result<Option<Vec<u32>>> {
+) -> anyhow::Result<Option<AestheticsPatch>> {
     let path = output_folder.join(FILE_NAME);
     if teams.is_empty() {
         if path.is_file() {
@@ -61,5 +62,5 @@ pub(crate) fn write(
         teams: teams.to_vec(),
     };
     replace_file(&path, patch.to_toml()?.as_bytes())?;
-    Ok(Some(teams.iter().map(|team| team.id).collect()))
+    Ok(Some(patch))
 }

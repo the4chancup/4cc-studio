@@ -443,6 +443,36 @@ pub(crate) enum Code {
     /// The `aesthetics_patch.toml` could not be written or moved aside; the run is aborted,
     /// prior published outputs untouched (`AbortRun`).
     PatchWriteFailed,
+    /// `savefile_path = auto` resolved a savefile under Documents\KONAMI (context: the path,
+    /// `candidates` how many there were; the newest is used).
+    SavefileAutodetected,
+    /// The patch holds entries but no savefile is configured or found (context: `patch`, and
+    /// `path` when a configured path names a missing file); the patch is the run's only
+    /// savefile output.
+    SavefileMissing,
+    /// Savefile changes pending but the compile target's PES is running (a PES of another
+    /// version does not count; context: `path`, `version`): the game writes its own save back
+    /// when it closes, over this one; applied by the next compile with PES closed.
+    SavefileSkippedPesRunning,
+    /// The savefile could not be updated: the patch's `apply` refused it, or `EditFile`
+    /// could not write it back (context: `path`, `error`).
+    SavefileWriteFailed,
+    /// The configured or found savefile cannot be read, or its version is not the compile
+    /// target's (context: `path`, `error` or `version`); the save is not modified.
+    SavefileInvalid,
+    /// The patch was applied to the local savefile and the savefile replaced, the previous
+    /// file kept as `.bak` (context: `path`, the team ids applied).
+    SavefileWritten,
+    /// A team of the patch is not in the savefile (context: `team`); its entries are not
+    /// applied, the rest is.
+    SavefileTeamMissing,
+    /// A player of the patch is not in the savefile, his team being there (context: the
+    /// player id); his entries are not applied, the rest is.
+    SavefilePlayerMissing,
+    /// Fox: a compiled player's record in the local save has its appearance id set (a save
+    /// never stripped, or an id the game's Edit mode restored), so the game shows his record,
+    /// not the compiled rows (context: `players`).
+    SavefilePlayerNotStripped,
     /// `--no-deploy`: the CPK was promoted to the output folder instead of installed.
     DeploySkippedByFlag,
     /// A run that deploys, whose `pes_folder_path` is not a folder (no PES installed, or the
@@ -512,7 +542,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 151] = [
+    const ALL: [Code; 160] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -643,6 +673,15 @@ impl Code {
         Code::OutputCommitFailed,
         Code::PatchWritten,
         Code::PatchWriteFailed,
+        Code::SavefileAutodetected,
+        Code::SavefileMissing,
+        Code::SavefileSkippedPesRunning,
+        Code::SavefileWriteFailed,
+        Code::SavefileInvalid,
+        Code::SavefileWritten,
+        Code::SavefileTeamMissing,
+        Code::SavefilePlayerMissing,
+        Code::SavefilePlayerNotStripped,
         Code::DeploySkippedByFlag,
         Code::PesFolderNotFound,
         Code::PesVersionMismatch,
@@ -799,6 +838,15 @@ impl Code {
             Code::OutputCommitFailed => "output_commit_failed",
             Code::PatchWritten => "patch_written",
             Code::PatchWriteFailed => "patch_write_failed",
+            Code::SavefileAutodetected => "savefile_autodetected",
+            Code::SavefileMissing => "savefile_missing",
+            Code::SavefileSkippedPesRunning => "savefile_skipped_pes_running",
+            Code::SavefileWriteFailed => "savefile_write_failed",
+            Code::SavefileInvalid => "savefile_invalid",
+            Code::SavefileWritten => "savefile_written",
+            Code::SavefileTeamMissing => "savefile_team_missing",
+            Code::SavefilePlayerMissing => "savefile_player_missing",
+            Code::SavefilePlayerNotStripped => "savefile_player_not_stripped",
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
             Code::PesFolderNotFound => "pes_folder_not_found",
             Code::PesVersionMismatch => "pes_version_mismatch",
@@ -978,6 +1026,15 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("output_commit_failed", CatalogSeverity::Fatal),
     ("patch_written", CatalogSeverity::Info),
     ("patch_write_failed", CatalogSeverity::Fatal),
+    ("savefile_autodetected", CatalogSeverity::Info),
+    ("savefile_missing", CatalogSeverity::Warning),
+    ("savefile_skipped_pes_running", CatalogSeverity::Warning),
+    ("savefile_write_failed", CatalogSeverity::Error),
+    ("savefile_invalid", CatalogSeverity::Error),
+    ("savefile_written", CatalogSeverity::Info),
+    ("savefile_team_missing", CatalogSeverity::Error),
+    ("savefile_player_missing", CatalogSeverity::Error),
+    ("savefile_player_not_stripped", CatalogSeverity::Warning),
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
     ("pes_folder_not_found", CatalogSeverity::Error),
     ("pes_version_mismatch", CatalogSeverity::Warning),

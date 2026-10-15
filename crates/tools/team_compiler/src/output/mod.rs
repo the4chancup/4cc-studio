@@ -4,6 +4,7 @@
 pub(crate) mod deploy;
 pub(crate) mod parts;
 pub(crate) mod patch;
+pub(crate) mod savefile;
 pub(crate) mod sink;
 pub(crate) mod teamnotes;
 pub(crate) mod writer;

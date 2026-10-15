@@ -43,7 +43,8 @@ impl Sandbox {
 
     /// `settings` with `pes_folder_path` set to the sandbox's `PES/` when the text names no
     /// game folder: the default is the real install's path, which a compile that deploys would
-    /// write into.
+    /// write into; and `savefile_path` to the sandbox's `save/EDIT00000000` when the text names
+    /// none: the `auto` default would find the developer's own save.
     fn sandboxed(&self, settings: &str) -> String {
         let mut root: toml::Table = toml::from_str(settings).unwrap();
         let common = root
@@ -54,6 +55,20 @@ impl Sandbox {
         common
             .entry("pes_folder_path")
             .or_insert_with(|| toml::Value::String(self.root.join("PES").display().to_string()));
+        let tool = root
+            .entry("team-compiler")
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()))
+            .as_table_mut()
+            .unwrap();
+        tool.entry("savefile_path").or_insert_with(|| {
+            toml::Value::String(
+                self.root
+                    .join("save")
+                    .join("EDIT00000000")
+                    .display()
+                    .to_string(),
+            )
+        });
         toml::to_string(&root).unwrap()
     }
 

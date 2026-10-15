@@ -224,6 +224,12 @@ Requirements:
   fixture's value coincides, a skipped write passes the test. Three review rounds
   at step 5.1d found such tests, among them one that compared a name against a different player
   and one that swapped two roster slots without moving the player it patched.
+- **A test never reaches the developer's own files.** A setting whose default finds something on
+  the machine (`savefile_path = auto` walks Documents\KONAMI, `pes_folder_path` names the real
+  install) is set to a path under the test's own folder by every test context that runs the
+  tool: the crate's CLI sandbox and its in-process `tool_context` alike, inserted before the
+  tool's defaults are merged in (a default already merged is not replaced). At 5.3b2 a context
+  that missed this let three GUI tests apply their patch to the maintainer's PES 21 save.
 - **Acceptance IDs.** Each tool plan has an "Acceptance" section listing that tool's user-observable
   behavior as scenarios with stable IDs, written before the phase that delivers them (procedure in
   `AGENTS.md` "Working documents"). Format, one entry per behavior:

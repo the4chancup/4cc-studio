@@ -246,6 +246,13 @@ mod tests {
                         .join("aesthetics_patch.toml")
                         .display()
                 ),
+                format!(
+                    "- Warning savefile_missing (patch={}, path={})",
+                    root.join("output")
+                        .join("aesthetics_patch.toml")
+                        .display(),
+                    root.join("save").join("EDIT00000000").display()
+                ),
                 "Run finished: exit code 0".to_owned(),
             ]
         );

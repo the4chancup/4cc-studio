@@ -7996,3 +7996,19 @@ Why: designing and checking two themes per view would spend review time on a the
 members see.
 Plan: `plans/core/README.md` "Styling is code, not CSS", `plans/core/gui.md` "Other UI
 components" and "Prototypes before implementation".
+
+## 2026-10-15 — team compiler — the savefile step reports its write and a missing player; test mode skips it
+Decision: a successful local savefile update is reported as `savefile_written` (I, the path and
+the teams applied), and a patch player the save lacks (his team present) as
+`savefile_player_missing` (E, the player id), beside `savefile_team_missing`. The step runs only
+when the game loads the run's output: a normal-mode deployment that succeeded, or sideload mode;
+test mode skips it with the other non-deploying runs.
+Why: a step that changes user data and says nothing when it succeeds leaves the user unsure the
+save was touched, while the patch and the CPKs each report themselves; dropping
+`PatchSkip::PlayerNotInSave` silently would hide an unapplied player, which the save editor's
+`apply-patch` already reports for the same patch (one rule in both tools). Test mode's loose
+tree in `output/` is never read by the game, so writing the save would make it point at content
+that is not installed, the incoherence the deployed-only rule prevents; sideload's `livecpk\`
+tree is what the game loads, and TC-SAV-10 expects its savefile written once PES is closed.
+Plan: `plans/team_compiler/messages.md` "Output stage and savefile", `plans/team_compiler/pipeline.md`
+"Savefile update".
