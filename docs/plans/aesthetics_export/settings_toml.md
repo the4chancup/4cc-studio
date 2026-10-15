@@ -66,7 +66,8 @@ means **default** and is the same as an absent key. Each category resolves in th
 1. The folder's own models or a link file provide the category → the compiler-assigned ID; when
    that output fails, the player's installed ID stays (Fox: his row of the installed table;
    pre-Fox: the savefile's current ID), so no ID points at content the CPK lacks. A numeric key
-   is ignored with `settings_model_id_conflict` (W).
+   is ignored with `settings_model_id_conflict` (W), reported on Fox team exports until the
+   pre-Fox patch and a referee's table rows exist, the only places the key reaches the game.
 2. A numeric key → that stock ID, whatever FPC marker the folder carries.
 3. Default (`""` or absent) → the folder's FPC marker decides: `fpc_on` writes the hide preset's
    nonexistent IDs (boots 55, gloves 11); `fpc_off` or no marker writes 0 for both (the default

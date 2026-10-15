@@ -71,7 +71,8 @@ pub(crate) fn write_names_export(sandbox: &Sandbox, export: &str, snuffy: &str, 
     );
 }
 
-// The TC-SAV-02 patch half (the savefile half lands in slice b2).
+// The patch half of the write_names run (the savefile half is `savefile.rs`'s).
+// TC-SAV-02
 #[test]
 fn a_write_names_export_s_names_reach_the_patch_shared_ones_warned() {
     let sandbox = Sandbox::new("patch_write_names");
@@ -108,7 +109,8 @@ fn a_write_names_export_s_names_reach_the_patch_shared_ones_warned() {
     }
 }
 
-// The TC-SAV-03 patch half (the savefile half lands in slice b2).
+// The patch half (the savefile half is `savefile.rs`'s).
+// TC-SAV-03
 #[test]
 fn a_name_the_field_refuses_is_dropped_and_warned() {
     let sandbox = Sandbox::new("patch_name_invalid");
@@ -137,6 +139,7 @@ fn a_name_the_field_refuses_is_dropped_and_warned() {
 
 // `check` reports the two name findings `compile` does: the names rule is the one planning
 // builds the patch with.
+// TC-SAV-13
 #[test]
 fn check_reports_the_name_findings_compile_does() {
     let sandbox = Sandbox::new("patch_names_check");
@@ -172,7 +175,8 @@ fn check_reports_the_name_findings_compile_does() {
     }
 }
 
-// The TC-SAV-12 patch half (the savefile half lands in slice b2).
+// The patch half (the savefile half is `savefile.rs`'s).
+// TC-SAV-12
 #[test]
 fn a_pre_fox_compile_writes_no_patch() {
     let sandbox = Sandbox::new("patch_prefox");
@@ -191,8 +195,9 @@ fn a_pre_fox_compile_writes_no_patch() {
     assert!(!output.join("aesthetics_patch.toml.bak").exists());
 }
 
-// The TC-SAV-01 patch half with no `write_names` marker (the savefile half lands in slice b2):
-// no name is written, every motion key is, the header names the CPK and the version.
+// The patch half with no `write_names` marker (the savefile half is `savefile.rs`'s): no
+// name is written, every motion key is, the header names the CPK and the version.
+// TC-SAV-01
 #[test]
 fn a_plain_export_s_patch_holds_every_motion_and_no_name() {
     let sandbox = Sandbox::new("patch_plain");
@@ -244,6 +249,7 @@ fn a_plain_export_s_patch_holds_every_motion_and_no_name() {
 }
 
 // A referee export compiled beside a team export adds no `[[teams]]` entry to the patch.
+// TC-SAV-14
 #[test]
 fn a_referee_export_gets_no_patch_entry() {
     let sandbox = Sandbox::new("patch_refs");
@@ -268,6 +274,7 @@ fn a_referee_export_gets_no_patch_entry() {
 
 // `patch_write_failed` aborts the run when the patch's path is taken (exit 3), and nothing
 // more is published: the export's note writes no `teamnotes.txt`.
+// TC-SAV-15
 #[test]
 fn a_patch_path_taken_by_a_folder_aborts_the_run() {
     let sandbox = Sandbox::new("patch_write_failed");

@@ -834,7 +834,9 @@ the next compile run with the game closed applies the patch then. When the save 
 written, the one you had is kept beside it as `EDIT00000000.bak`. A save that cannot be
 read or cannot be written (`savefile_invalid`, `savefile_write_failed`) stops the run with
 exit code 3: the new CPKs come out of the game again and are left in the output folder,
-and the CPKs the game had go back in. The warning `savefile_player_not_stripped` names a
+and the CPKs the game had go back in. In `--mode sideload` the same findings are errors
+instead: the exit code is 1 and the new `livecpk/` tree stays in place. The warning
+`savefile_player_not_stripped` names a
 compiled player whose record in your save still has an appearance of its own (a save never
 stripped, or one the game's Edit mode gave one again): the game shows his record, not the
 compiled one. `4cc-studio save-editor strip-and-seed` strips a save that never was, and

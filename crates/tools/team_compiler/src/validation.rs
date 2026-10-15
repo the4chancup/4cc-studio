@@ -686,10 +686,18 @@ fn settings_id_messages(
 ) -> Vec<Message> {
     match version.engine() {
         Engine::Fox => {}
+        // On pre-Fox the keys reach nothing: no patch is written and the
+        // savefile is left alone until the pre-Fox aesthetics patch lands (the
+        // worklog's open "the pre-Fox aesthetics patch" issue), so a warning
+        // would single out one ignored key of many. The gate lifts with it.
         Engine::PreFox => return Vec::new(),
     }
     match resolved.identity {
         ExportIdentity::Team { .. } => {}
+        // A referee export's settings reach no table or patch yet (the
+        // worklog's open "a referee export's `settings.toml` reaches no table"
+        // issue), so a warning would single out one ignored key of many. The
+        // gate lifts with it.
         ExportIdentity::Referees => return Vec::new(),
     }
     mapped_players(&resolved.export)
@@ -815,14 +823,17 @@ fn settings_name_messages(
 ) -> Vec<Message> {
     let slots = match (version.engine(), &resolved.export.roster) {
         (Engine::Fox, ValidatedRoster::Team(slots)) => slots,
+        // The same gates as `settings_id_messages`: on pre-Fox the keys reach
+        // nothing until the pre-Fox aesthetics patch lands, and a referee
+        // export's settings reach no table yet (the same two open worklog
+        // issues), so a warning would single out one ignored key of many. A
+        // referee export also cannot carry `write_names` (the marker is
+        // `root_file_unexpected` on one), the marker the names rule reads. The
+        // gates lift with the issues.
         (Engine::Fox, ValidatedRoster::Referees(_)) | (Engine::PreFox, _) => {
             return Vec::new();
         }
     };
-    match resolved.identity {
-        ExportIdentity::Team { .. } => {}
-        ExportIdentity::Referees => return Vec::new(),
-    }
     let mut messages = Vec::new();
     for (index, player) in resolved.export.players.iter().enumerate() {
         let mapped = slots

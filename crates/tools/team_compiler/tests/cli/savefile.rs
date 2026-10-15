@@ -462,7 +462,9 @@ fn a_pre_fox_compile_writes_no_patch_and_leaves_the_savefile_alone() {
     assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
 }
 
-// TC-SAV-10's automatable half (the running-PES half is `savefile.rs`'s unit test)
+// The automatable half (the running-PES skip is `src/output/savefile.rs`'s unit test and
+// the worklog's `manual: checked` line).
+// TC-SAV-10
 #[test]
 fn a_sideload_run_writes_the_savefile_and_a_patch_naming_no_cpk() {
     let sandbox = Sandbox::new("savefile_sideload");
@@ -487,6 +489,7 @@ fn a_sideload_run_writes_the_savefile_and_a_patch_naming_no_cpk() {
 
 // The other modes the game loads nothing of (`spec/team_compiler/pipeline.md` "6.
 // Post-processing"): --no-deploy and test mode.
+// TC-SAV-16
 #[test]
 fn a_no_deploy_and_a_test_mode_run_leave_the_savefile_alone() {
     let sandbox = Sandbox::new("savefile_not_installed");

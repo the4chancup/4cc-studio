@@ -69,6 +69,7 @@ pub(crate) struct WalkedCpks {
     pub(crate) shared_ids: BTreeMap<u16, SharedIds>,
 }
 
+#[cfg(test)]
 impl From<HashSet<String>> for WalkedCpks {
     /// The paths alone: no record is read from a set built by hand.
     fn from(paths: HashSet<String>) -> WalkedCpks {

@@ -1471,12 +1471,14 @@ points there.
   half; `spec/team_compiler/pipeline.md` "Post-processing"): every appearance field, the resolved boots and gloves
   IDs through commit-conditioned mutations, the edit flags and the base-copy ID (issue below).
   Until then a compile for PES 15-17 writes no patch and leaves the savefile alone (decision
-  2026-10-11).
+  2026-10-11). With it, lift the Fox-only gates of `team_compiler` `validation.rs`
+  `settings_id_messages` and `settings_name_messages` (their catalog rows say Fox only).
 - open (2026-10-11, Phase 5 Acceptance) — a referee export's `settings.toml` reaches no table or
   patch: a referee's look is the template's `RefereeAppearance.bin` (`blue_port.md`), whose rows
   nothing writes, and `blue_port.md` has `fpc_off` apply its settings preset to a referee on
   PES 18-21. Settle with a Fox refkit (the issue on a referee's body under `fpc_off`): which
-  table a referee's settings go to, and TC-REF-19's outcome then.
+  table a referee's settings go to, and TC-REF-19's outcome then; with it, lift
+  `settings_id_messages`' team-only gate (`validation.rs`).
 - open (2026-10-11, 5.0c; deferred until the cup next plays a pre-Fox version) — what Red does
   on PES 15-17 that Studio does not (`.tmp/5_0c/xml.md`, `checks.md`), most noticed first:
   - a member's `face.xml` that does not list `hair_high_win32.model` (1,248 of 1,263 such
