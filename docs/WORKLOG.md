@@ -20,7 +20,7 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
 5.y-gloves and 5.3a (a1 to a5, its review loop closed) and 5.3b1 (the patch written) done
-2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w1 (the platform floor) done 2026-10-15; next 16.w2 and 16.w3 (the release exe's CRT and size); step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w (the platform floor, a static CRT, the size growth measured) done 2026-10-15; next 5.5 (the in-game check), then 5.6 (converge); step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1027,7 +1027,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `.tmp/5_2/brief_5_2i_r4.md`, after 5.4c2) → done when: the new tests pass, each red
       without its fix. `option_used`'s `stat_bonus` branch per stat against `targets`; five
       tests. `aatf` `logic/logic.rhai`, `src/file.rs` (logic hash), `src/fixtures/interpreter.rs`
-- [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
+- [x] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [x] 5.3a the player tables, in slices (code survey 2026-10-15: the settings are parsed
     only to validate them and reach no planning; boots/gloves rows exist, appearance rows pass
     through; no default-ID rows, no per-version range, no FPC on players, no record). Each slice
@@ -1305,7 +1305,7 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
 
 Steps are itemized when Phase 15 closes; two are fixed already:
 
-- [ ] 16.w the release exe's platform floor and size (maintainer, 2026-10-15; taken up right
+- [x] 16.w the release exe's platform floor and size (maintainer, 2026-10-15; taken up right
   after 5.3b3's review, not at Phase 16). A survey of 2026-10-14 (`.tmp/win7/`) found the
   exe cannot load on Windows 7 (Rust std's Win8+ imports and `windows-core`'s `combase.dll`)
   and needs the VC++ redistributable, which no doc names; the maintainer ruled Windows 7 out
@@ -1313,13 +1313,18 @@ Steps are itemized when Phase 15 closes; two are fixed already:
   - [x] 16.w1 `docs/spec/core/distribution.md` states the floor, Windows 10 x64 (and Linux),
     with the reason (the Rust target and the GUI stack require it) → verify: `just doc-pointers`.
     Done: the "Platform floor" paragraph, DECISIONS 2026-10-15
-  - [ ] 16.w2 `+crt-static` for the Windows release build (measured +327 KiB, 1%), so the exe
+  - [x] 16.w2 `+crt-static` for the Windows release build (measured +327 KiB, 1%), so the exe
     runs without the redistributable → verify: the release exe's import table has no
-    `VCRUNTIME140.dll` and no `api-ms-win-crt-*` (`.tmp/win7/imports.py`); the GUI starts
-  - [ ] 16.w3 the size growth (17.1 MiB on 2026-10-02 to 30.95 MiB on 2026-10-14): find its
+    `VCRUNTIME140.dll` and no `api-ms-win-crt-*` (`.tmp/win7/imports.py`); the GUI starts.
+    Done: `.cargo/config.toml` (every MSVC build); 7 CRT imports before, none after; +225 KiB;
+    the GUI started hidden, alive and responding with its window after 8 s
+  - [x] 16.w3 the size growth (17.1 MiB on 2026-10-02 to 30.95 MiB on 2026-10-14): find its
     cause with `cargo bloat` (approved as a developer tool), make the low-hanging reductions
     that also shorten builds, and update the spec's measurement → verify: before and after
-    sizes and clean release build times, measured the same way
+    sizes and clean release build times, measured the same way. Done (DECISIONS 2026-10-15):
+    the growth is features (`.tmp/16w/`: the 2026-10-02 commit's crate table against today's);
+    `rhai` `only_i64` -627 KiB; 32,723,968 bytes and 116 s before, 32,311,808 bytes (static
+    CRT included) and 124 s after, one clean build each; the spec's "Size budget" updated
 
 - [ ] 16.x `dds_convert` GPU BC7 (deferred from 2.5b to Phase 4, decision entry 2026-09-21, then
   past Release 0.1.0, decision entry 2026-09-28; spec `libs/README.md` "First-release desktop GPU

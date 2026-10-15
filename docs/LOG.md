@@ -2052,3 +2052,6 @@ worklog passed 7,000 lines.
   explains the patch. `mutants-diff 2337e4f`: 2 caught, 6 unviable.
 - **2026-10-15** — 16.w1: the spec states the platform floor, Windows 10 x64 and 64-bit Linux;
   the maintainer ruled Windows 7 out (its last cup users moved to Linux).
+- **2026-10-15** — 16.w2-w3: Windows builds link the C runtime statically (no redistributable
+  needed, +225 KiB); the size growth since 2026-10-02 is features (`cargo bloat`); `rhai`'s
+  `only_i64` cut 627 KiB. 30.8 MiB now; clean release build 116 s before, 124 s after.

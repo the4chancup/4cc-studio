@@ -8041,3 +8041,20 @@ tier-3 Rust target (`x86_64-win7-windows-msvc`, built from source on nightly) pl
 to Linux, which the Linux build serves.
 Plan: `spec/core/distribution.md` "Distribution: portable .7z bundle", the "Platform floor"
 paragraph (the floor is a fact of the built exe, so it goes to the spec directly).
+
+## 2026-10-15 — distribution — a static C runtime on Windows, `rhai` with `only_i64`, the release profile kept
+Decision: every Windows MSVC build links the C runtime statically (`.cargo/config.toml`
+`[target.x86_64-pc-windows-msvc] rustflags`), tests and the Python extension included. `rhai`
+gains `only_i64`. The release profile stays the default (no LTO, unwinding kept).
+Why: a dynamic CRT makes the exe need the Visual C++ redistributable, which a clean Windows 10
+lacks and no doc told members to install; the static one costs 225 KiB. The flag on every
+build, not only a release recipe, means the gates test the runtime the release ships. The
+size growth (17.1 MiB on 2026-10-02 to 30.8 MiB) is features (`cargo bloat`, measured in the
+spec), so the cuts were only those that change nothing observable: `only_i64` drops 627 KiB of
+operators for integer types no script can produce, every host value being an `i64`; `no_float`
+and the other `rhai` cuts were not taken, since they narrow what a ruleset's custom checks may
+write. `panic = "abort"` would break the GUI's report of a panicked compile; LTO lengthens
+builds, the opposite of the aim. Clean release builds measured 116 s before and 124 s after,
+one run each: no build-time gain, and no difference one run can tell from noise.
+Plan: `spec/core/distribution.md` "Platform floor" and "Size budget"; `spec/core/README.md`
+"External Dependencies", the `rhai` row.

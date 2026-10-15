@@ -43,9 +43,18 @@ decisions", "Teams list").
 
 **Size budget:** the release binary stays under about 30 MB, and up to
 50 MB is acceptable where a feature truly needs it. A new dependency is weighed against this,
-measured on an optimized build, not a debug one. Measured on 2026-10-02 (default release profile,
-Phase 3's code): 17.1 MiB, about 70% of it the GUI stack (wgpu and naga, egui and its text
-rendering, winit, accesskit), and the Team compiler's embedded bins and templates 1.6 MiB.
+measured on an optimized build, not a debug one. Measured on 2026-10-15 (default release profile,
+static C runtime, Phase 5's code): 30.8 MiB, up from 17.1 MiB on 2026-10-02 (Phase 3), and the
+growth is features, not an accident (`cargo bloat`, crate by crate): `rhai` and the `aatf` crate
+2.6 MiB of code, the Phase 4 and 5 crates (the Team compiler's later steps, `pes_savefile`,
+`pes_model`, `model_convert`, the Save editor, the image formats) about 5 MiB, and read-only data
+from 5.4 to 10.9 MiB (embedded files 4.7 MiB of it: the referee templates about 3 MiB, the kit
+bins, the help chapters and the AATF sample team). The release profile stays the default:
+`panic = "abort"` would cut the unwinding tables, but the GUI reports a compile thread's panic
+instead of closing, and LTO trades longer builds for size. The one cut taken is `rhai`'s
+`only_i64` (0.6 MiB; [External Dependencies](README.md#external-dependencies-rust-crates));
+storing the referee templates compressed would save an estimated 1.5 to 2 MiB more, if the
+budget ever needs it.
 
 **Platform floor:** Windows 10 x64 and 64-bit Linux. The Windows exe cannot load on Windows 7,
 and Windows 8.1 is untested; supporting either is not a goal: Rust's `x86_64-pc-windows-msvc` target has required
@@ -53,7 +62,8 @@ Windows 10 since Rust 1.78 (its standard library imports `WaitOnAddress` and
 `GetSystemTimePreciseAsFileTime`, which Windows 7 lacks), and the GUI stack imports
 `combase.dll` (through `windows-core`, used by `wgpu-hal` and `accesskit_windows`), which
 Windows 7 does not have under that name. The cup's last Windows 7 users moved to Linux, which
-the Linux build serves.
+the Linux build serves. The Windows exe links the C runtime statically (`.cargo/config.toml`), so
+it runs on a clean Windows 10 without the Visual C++ redistributable installed.
 
 ### Data location: asked on first run
 

@@ -12,3 +12,10 @@ jobs = -2
 # Linux needs none: the kernel OOM-kills, and the VPS half runs memory-capped.
 [target.'cfg(windows)']
 runner = ["scripts/test_runner.cmd", "6G"]
+
+# The Windows exe links the C runtime statically, so it runs on a clean Windows 10 without the
+# VC++ redistributable, which no member should have to install (spec/core/distribution.md
+# "Platform floor"; +225 KiB measured). Every build gets the flag, tests and the Python
+# extension included, so the gates run the C runtime the release ships.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
