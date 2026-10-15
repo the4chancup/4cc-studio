@@ -647,13 +647,15 @@ fn check_stripped(args: &CheckStrippedArgs, report: &mut Report) -> Result<(), C
     Ok(())
 }
 
-/// Refuses a pre-Fox save (PES 15 to 17): the database tables dress nobody there, so there
-/// is nothing to seed or strip (`plans/save_editor.md` "Stripped save").
+/// Refuses a pre-Fox save (PES 15 to 17): stripping is not supported there; the database
+/// route is untested, and the aesthetics patch is their route (`plans/save_editor.md`
+/// "Stripped save").
 fn refuse_pre_fox(version: PesVersion) -> Result<(), CliError> {
     match version.engine() {
         Engine::Fox => Ok(()),
         Engine::PreFox => Err(invalid(anyhow!(
-            "{version}: a pre-Fox save is not stripped: the database tables dress nobody there"
+            "{version}: stripping a pre-Fox save is not supported: the database route is \
+             untested there; the aesthetics patch is its route"
         ))),
     }
 }

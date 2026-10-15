@@ -39,8 +39,9 @@ save has it, so a file holding only `[team] id` and `[players.03] name = "Snuffy
 one player and nothing else. A file written from another PES version is converted on the
 way in, and each value that could not be taken as written is one line: a key the save's
 version has no field for (`import_key_not_in_version`), a value it cannot store
-(`import_value_not_encodable`), a face type or skin above its range, written as 0
-(`import_value_capped`), a player table for an empty roster slot (`import_slot_empty`).
+(`import_value_not_encodable`), a face type above the target's cap or a custom skin (7) on
+a version that has none (`import_value_capped`; the face type written as 0, the skin as 1),
+a player table for an empty roster slot (`import_slot_empty`).
 Those lines do not change the exit code. A file with no `[team] id`, one naming a team the
 save does not hold, or one with a name longer than the version's field is refused, naming
 the team or the player, and nothing is written. The file never sets a player's look

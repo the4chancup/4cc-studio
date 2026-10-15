@@ -5,8 +5,10 @@
 use std::fs;
 use std::path::Path;
 
+use pes_savefile::EditFile;
 use pes_version::PesVersion;
 
+use crate::TEST_SALT;
 use crate::common::Sandbox;
 
 /// The VGL27 rules file, assembled the way `aatf`'s `file::assemble` builds a data block
@@ -15,6 +17,20 @@ use crate::common::Sandbox;
 fn vgl27_rules() -> String {
     let aatf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf");
     let data = fs::read_to_string(aatf.join("rulesets/vgl27.rhai")).unwrap();
+    let logic = fs::read_to_string(aatf.join("logic/logic.rhai")).unwrap();
+    format!(
+        "{}\n\n{}\n\n{}\nfn custom_checks(team) {{ [] }}\n",
+        data.trim_end(),
+        logic.trim_end(),
+        "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ===="
+    )
+}
+
+/// The official ruleset as a file: `rulesets/autumn26.rhai`'s data block (the one
+/// `Rules::official` embeds) assembled like `vgl27_rules`.
+fn official_rules() -> String {
+    let aatf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf");
+    let data = fs::read_to_string(aatf.join("rulesets/autumn26.rhai")).unwrap();
     let logic = fs::read_to_string(aatf.join("logic/logic.rhai")).unwrap();
     format!(
         "{}\n\n{}\n\n{}\nfn custom_checks(team) {{ [] }}\n",
@@ -153,14 +169,11 @@ fn a_rules_file_that_fails_to_load_is_refused_with_its_position() {
         "EDIT",
         &["--teams", "701", "--rules", &sandbox.arg("broken.rhai")],
     );
+    run.assert_refused(2, &["broken.rhai"]);
     let error = match &run.result {
         Err(error) => error.to_string(),
         Ok(code) => panic!("not refused: exit code {code}"),
     };
-    assert!(
-        error.contains("broken.rhai"),
-        "the refusal names the file: {error}"
-    );
     // `LoadError::Parse` displays `{line}:{column}: <message>` after the file's name.
     let mut position = error
         .split("broken.rhai: ")
@@ -213,6 +226,137 @@ fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
             .iter()
             .any(|line| line.contains("rule=FieldedNotA")),
         "the official ruleset has no fielded_at_a: {:?}",
+        run.messages()
+    );
+}
+
+// SE-AATF-05
+#[test]
+fn without_teams_every_cup_team_is_checked_in_id_order() {
+    let sandbox = Sandbox::new("aatf_default_teams");
+    // The fixture holds cup teams alone: team 703's id moved outside the cup range makes
+    // the team outside 701 to 920 — it breaks the same rules (`--teams 925` flags it) but
+    // the default selection leaves it out.
+    let mut file = EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes15)).unwrap();
+    file.team_mut(703).unwrap().id = 925;
+    fs::write(sandbox.path("EDIT"), file.to_bytes(&TEST_SALT).unwrap()).unwrap();
+
+    let run = check(&sandbox, "EDIT", &["--teams", "925"]);
+    assert!(
+        run.messages().iter().any(|line| line.contains("team=925")),
+        "925 breaks the same rules: {:?}",
+        run.messages()
+    );
+
+    let run = check(&sandbox, "EDIT", &[]);
+    assert_eq!(run.exit_code(), 1);
+    let ids: Vec<u32> = run
+        .messages()
+        .iter()
+        .filter_map(|line| {
+            line.split("team=")
+                .nth(1)?
+                .split(|c: char| !c.is_ascii_digit())
+                .next()?
+                .parse()
+                .ok()
+        })
+        .collect();
+    assert!(
+        ids.iter().all(|id| (701..=920).contains(id)),
+        "an out-of-range team printed: {ids:?}"
+    );
+    assert!(
+        ids.contains(&704) && ids.contains(&718),
+        "SE-AATF-02's two teams print: {ids:?}"
+    );
+    let mut teams = ids.clone();
+    teams.dedup();
+    assert!(
+        teams.windows(2).all(|pair| pair[0] < pair[1]),
+        "team id order: {teams:?}"
+    );
+}
+
+// SE-AATF-06
+#[test]
+fn a_check_that_fails_on_one_team_does_not_stop_the_rest() {
+    let sandbox = Sandbox::new("aatf_check_failed_continues");
+    sandbox.fixture(PesVersion::Pes15, "EDIT");
+    let file = EditFile::load(&sandbox.path("EDIT")).unwrap();
+    // The fixture's one captain-19 team is 743; 744's is 22, so the custom check below
+    // fails on 743 alone (the sample team's captain is 10: the file still loads).
+    assert_eq!(file.team(743).unwrap().tactics.set_pieces.captain, 19);
+    assert_eq!(file.team(744).unwrap().tactics.set_pieces.captain, 22);
+    fs::write(
+        sandbox.path("throw19.rhai"),
+        official_rules().replacen(
+            "fn custom_checks(team) { [] }",
+            "fn custom_checks(team) { if team.captain == 19 { throw \"boom\" } [] }",
+            1,
+        ),
+    )
+    .unwrap();
+
+    let run = check(
+        &sandbox,
+        "EDIT",
+        &[
+            "--teams",
+            "743,744",
+            "--rules",
+            &sandbox.arg("throw19.rhai"),
+        ],
+    );
+    assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
+    let failed = run
+        .messages()
+        .iter()
+        .position(|line| line.starts_with("Error aatf_check_failed (team=743,"))
+        .unwrap_or_else(|| panic!("743's check failed line: {:?}", run.messages()));
+    assert!(
+        run.messages()[failed].contains("boom"),
+        "{:?}",
+        run.messages()
+    );
+    assert!(
+        run.messages().iter().any(|line| line.contains("team=744")),
+        "744's violations still print: {:?}",
+        run.messages()
+    );
+}
+
+// SE-AATF-07
+#[test]
+fn rules_wins_over_the_aatf_rules_setting() {
+    let sandbox = Sandbox::new("aatf_rules_flag_wins");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    fs::write(sandbox.path("vgl27.rhai"), vgl27_rules()).unwrap();
+    fs::write(sandbox.path("official.rhai"), official_rules()).unwrap();
+
+    // The setting names VGL27; --rules names the official file and is the one checked.
+    let settings = format!(
+        "[save-editor]\naatf_rules = '{}'\n",
+        sandbox.path("vgl27.rhai").display()
+    );
+    let run = sandbox.run_with_settings(
+        &settings,
+        &[
+            "check-aatf",
+            &sandbox.arg("EDIT"),
+            "--teams",
+            "701",
+            "--rules",
+            &sandbox.arg("official.rhai"),
+        ],
+    );
+    // A run that checked (0 or 1), not a refused one: a refusal prints no rule line either.
+    assert!(run.exit_code() < 2, "{:?}", run.messages());
+    assert!(
+        !run.messages()
+            .iter()
+            .any(|line| line.contains("rule=FieldedNotA")),
+        "the VGL27 rule the official ruleset does not have: {:?}",
         run.messages()
     );
 }

@@ -841,6 +841,20 @@ SE-AATF-04 GIVEN the VGL27 ruleset and save of SE-AATF-03, the ruleset in the da
                 and the command started from another directory
            WHEN check-aatf is run with aatf_rules naming the file by its bare name
            THEN it prints SE-AATF-03's VGL27 violation
+SE-AATF-05 GIVEN SE-AATF-02's save, with error-severity violations in two cup teams and a team
+                outside 701 to 920 that would break the same rules
+           WHEN check-aatf is run without --teams
+           THEN both cup teams' violations are printed, in team id order, none of the other
+                team's, and the exit code is 1
+SE-AATF-06 GIVEN a rules file that passes load-time validation but whose check fails on one
+                cup team, and a later cup team with a violation
+           WHEN check-aatf is run with it
+           THEN the first team is the error line aatf_check_failed, the later team's violation
+                is still printed, and the exit code is 1
+SE-AATF-07 GIVEN SE-AATF-03's VGL27 file named in the settings and the official ruleset written
+                to a file given by --rules
+           WHEN check-aatf is run on SE-AATF-03's save
+           THEN the --rules file is the one checked: the VGL27 violation is not printed
 ```
 
 **Stripped save**

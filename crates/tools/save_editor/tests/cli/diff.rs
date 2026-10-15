@@ -21,7 +21,8 @@ impl Sandbox {
 
     /// Two PES 21 saves: `A` is the fixture with player 70110 renumbered to `NOWHERE`
     /// (so 70110 is in `B` alone and `NOWHERE` in `A` alone); `B` is the fixture with
-    /// 70105's boots id and 70107's speed changed. The two changed values, old and new.
+    /// one player, 70105, carrying both changes: his boots id and his speed. The two
+    /// changed values, old and new.
     fn diff_pair(&self) -> [(u32, u32); 2] {
         // The boots id is a `u32` field, the speed a `u8`; both land as `u32` for the lines.
         let mut a = EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
@@ -31,7 +32,7 @@ impl Sandbox {
         let boots = &mut b.player_mut(70105).unwrap().appearance.boots_id;
         let boots_change = (*boots, *boots + 1);
         *boots += 1;
-        let speed = &mut b.player_mut(70107).unwrap().stats.speed;
+        let speed = &mut b.player_mut(70105).unwrap().stats.speed;
         let speed_change = (*speed, (*speed + 1) % 100);
         *speed = speed_change.1;
         fs::write(self.path("B"), b.to_bytes(&TEST_SALT).unwrap()).unwrap();
@@ -49,8 +50,10 @@ fn each_changed_field_is_a_row_and_the_scopes_keep_their_own() {
     let [(boots_old, boots_new), (speed_old, speed_new)] = sandbox.diff_pair();
     let boots =
         format!("Info player_diff (player=70105, field=BootsId, old={boots_old}, new={boots_new})");
+    // Both rows are 70105's; the comparator lists a player's fields in schema order, the
+    // stat before the appearance field.
     let speed =
-        format!("Info player_diff (player=70107, field=Speed, old={speed_old}, new={speed_new})");
+        format!("Info player_diff (player=70105, field=Speed, old={speed_old}, new={speed_new})");
     let only_in = [
         format!("Info player_only_in (player={NOWHERE}, save=first)"),
         "Info player_only_in (player=70110, save=second)".to_owned(),
@@ -61,8 +64,8 @@ fn each_changed_field_is_a_row_and_the_scopes_keep_their_own() {
     assert_eq!(
         run.messages(),
         vec![
-            boots.clone(),
             speed.clone(),
+            boots.clone(),
             only_in[0].clone(),
             only_in[1].clone()
         ]
@@ -102,14 +105,8 @@ fn json_flag_writes_the_same_report_as_one_document() {
                 "id": 70105,
                 "stripped": null,
                 "rows": [
+                    { "field": "Speed", "old": speed_old.to_string(), "new": speed_new.to_string() },
                     { "field": "BootsId", "old": boots_old.to_string(), "new": boots_new.to_string() }
-                ]
-            },
-            {
-                "id": 70107,
-                "stripped": null,
-                "rows": [
-                    { "field": "Speed", "old": speed_old.to_string(), "new": speed_new.to_string() }
                 ]
             },
         ])
@@ -136,9 +133,9 @@ fn json_report_keeps_the_scope() {
     let sandbox = Sandbox::new("diff_json_scope");
     let [(boots_old, boots_new), (speed_old, speed_new)] = sandbox.diff_pair();
 
-    for (flag, id, field, old, new) in [
-        ("--aesthetics", 70105, "BootsId", boots_old, boots_new),
-        ("--gameplay", 70107, "Speed", speed_old, speed_new),
+    for (flag, field, old, new) in [
+        ("--aesthetics", "BootsId", boots_old, boots_new),
+        ("--gameplay", "Speed", speed_old, speed_new),
     ] {
         let run = sandbox.diff("A", "B", &["--json", flag]);
         assert_eq!(run.exit_code(), 0);
@@ -148,7 +145,7 @@ fn json_report_keeps_the_scope() {
         assert_eq!(
             report["players"],
             serde_json::json!([{
-                "id": id,
+                "id": 70105,
                 "stripped": null,
                 "rows": [{ "field": field, "old": old.to_string(), "new": new.to_string() }]
             }])

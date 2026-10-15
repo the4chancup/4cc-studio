@@ -229,6 +229,25 @@ fn the_tables_are_seeded_and_every_appearance_id_is_set_to_minus_one() {
         });
         assert_eq!(payload(&sandbox.path("OUT")), expected, "{version}");
     }
+
+    // The CPK's one-level backup: an existing --bins-out is kept as <file>.bak, and
+    // --bins-out naming --bins keeps the CPK it replaces.
+    let sandbox = Sandbox::new("strip_seed_bins_bak");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    write_cpk(&sandbox.path("BINS"), &[(UNI_COLOR, b"unicolor".to_vec())]);
+    fs::write(sandbox.path("BINS_OUT"), b"the previous bins").unwrap();
+    let run = sandbox.strip_and_seed("EDIT", "BINS", "OUT", "BINS_OUT");
+    assert_eq!(run.exit_code(), 0, "{:?}", run.messages());
+    assert_eq!(
+        fs::read(sandbox.path("BINS_OUT.bak")).unwrap(),
+        b"the previous bins".to_vec()
+    );
+
+    write_cpk(&sandbox.path("BINS2"), &[(UNI_COLOR, b"unicolor".to_vec())]);
+    let replaced = fs::read(sandbox.path("BINS2")).unwrap();
+    let run = sandbox.strip_and_seed("EDIT", "BINS2", "OUT2", "BINS2");
+    assert_eq!(run.exit_code(), 0, "{:?}", run.messages());
+    assert_eq!(fs::read(sandbox.path("BINS2.bak")).unwrap(), replaced);
 }
 
 // SE-STR-02
