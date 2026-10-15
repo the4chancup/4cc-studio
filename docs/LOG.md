@@ -2055,3 +2055,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 16.w2-w3: Windows builds link the C runtime statically (no redistributable
   needed, +225 KiB); the size growth since 2026-10-02 is features (`cargo bloat`); `rhai`'s
   `only_i64` cut 627 KiB. 30.8 MiB now; clean release build 116 s before, 124 s after.
+- **2026-10-15** — 5.5, PES 21 in-game: a strip-and-seeded cup save shows its players as before,
+  a compiled team's rows and shared-ID record load, an `ingame_face` player gets the default
+  face; SE-CLI-02 and TC-SAV-10 checked by hand. The maintainer's save restored, hash checked.

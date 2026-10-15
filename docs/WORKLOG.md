@@ -20,7 +20,7 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
 5.y-gloves and 5.3a (a1 to a5, its review loop closed) and 5.3b1 (the patch written) done
-2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w (the platform floor, a static CRT, the size growth measured) done 2026-10-15; next 5.5 (the in-game check), then 5.6 (converge); step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w (the platform floor, a static CRT, the size growth measured) done 2026-10-15; 5.5 (the in-game check) done 2026-10-15; next 5.6 (converge: its whole-crate mutation runs started 2026-10-15, `.tmp/5_6/`); step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -770,12 +770,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   - The code lands in 5.0m. Every live save and the faces CPKs were restored by hash.
 
   Scratch `.tmp/5_0l/` (evidence: `findings.md`).
-- [ ] 5.0m The decoded run in `pes_savefile`, before 5.3a (TC-BIN-31 authors hair keys). Plan:
+- [x] 5.0m The decoded run in `pes_savefile`, before 5.3a (TC-BIN-31 authors hair keys). Plan:
   `plans/pes_savefile/model.md` "The ingame-face run, decoded";
   `plans/aesthetics_export/settings_toml.md`, the template and the ingame-face run's rules;
   `plans/pes_savefile/operations.md`, "Cross-version player conversion" and "Team TOML". Slices,
   each a commit:
-  - [ ] 5.0m1 the fields and the keys. One slice, because the completeness test ties every new
+  - [x] 5.0m1 the fields and the keys. One slice, because the completeness test ties every new
     field to its key; most of the diff is table rows. Brief `.tmp/5_0m/brief_5_0m1.md`:
     - every field row with its layout, and the measured-unused table;
     - the nose accessors, and PES 15's `face_type_cap` column;
@@ -831,7 +831,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     with any nonzero rating as rated (11 799) and names the four measured exceptions (PES 18
     70101, 78908, 82807; PES 19 84123); the sample's 23 `playable` lines relabelled, its
     bytes and `aatf`'s ratings identical before and after
-- [ ] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
+- [x] 5.2 `libs/aatf` (`aatf_rules.md` "Development phase and verification"; issue "`apply_tier`
   cannot make a VTL11 medal legal"), sliced per that section → done when: its fixtures
   pass. Slices, each a commit:
   - [x] 5.2a the crate, `Ruleset` and its types (the plan's block), `RULESET` read from a
@@ -846,7 +846,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     2026-10-13) → done when: a data block with a wrong-typed `tiers[2].free.tricks` reports
     that path. Done 2026-10-13 (Fable, first attempt): the path as the crate prints it
     (`tiers[2].free.tricks`; a missing top-level key's parent is the root, `.`)
-  - [ ] 5.2b the host's view of a team (`aatf_rules.md` "The host"). Sub-slices, each a commit:
+  - [x] 5.2b the host's view of a team (`aatf_rules.md` "The host"). Sub-slices, each a commit:
     - [x] 5.2b1 `TeamView` and `PlayerView` from `pes_savefile`'s model, the tactics answers
       (`fielded_only_at`, `fielded_positions`, formation shapes) in Rust, the engine with every
       accessor of the plan's table but the team settings, `Ruleset::from_data_block` on it
@@ -855,7 +855,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       each accessor is tested on fixture teams, through a script. Done 2026-10-12 (SWE-2, first
       attempt; `pes_savefile` gains `PlayerStats::abilities` and `names::name_color`; `print`
       runs on the shared engine and writes nowhere)
-    - [ ] 5.2b2 the team settings' accessors: the man-marking assignments in `pes_savefile`'s
+    - [x] 5.2b2 the team settings' accessors: the man-marking assignments in `pes_savefile`'s
       tactics model (PES 15 to 21, offsets in `aatf_rules.md` "The host"), the auto flags (off
       is 0; PES 15's three at +0x1FE to +0x200, not modeled yet) → done when: each setting reads
       right on a fixture team set both ways. Measured 2026-10-12/13 (in-game on PES 15, 16 and
@@ -873,7 +873,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         rows) → done when: each reads right on a fixture team set both ways. Done 2026-10-13
         (Fable, first attempt): `TeamView::man_marking` beside the other tactics answers, the
         auto values `()` on a version without them, each tested through a script
-  - [ ] 5.2c `logic.rhai`'s `check_team` for the official file, `Violation` from its maps,
+  - [x] 5.2c `logic.rhai`'s `check_team` for the official file, `Violation` from its maps,
     `file.rs` (assembling a file, its section split, logic identity), the sample team, the official known-legal and known-violating fixtures, the operation
     limit → done when: each special of the official file is exercised by a fixture. Sub-slices,
     each a commit:
@@ -992,7 +992,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     when the setting is not per team → done when: the byte (or "not in the EDIT file") is
     measured and written in `pes_savefile`'s model plan, and each of the four data blocks
     follows it with its fixtures
-  - [ ] 5.2i-r1 Astra I.A1's seven accepted concerns on the interpreter (rulings
+  - [x] 5.2i-r1 Astra I.A1's seven accepted concerns on the interpreter (rulings
     `.tmp/5_2/duck_rulings.md` "I.A1"; DECISIONS 2026-10-14, four entries; `aatf_rules.md` "The
     ruleset schema", "The card economy", "The interpreter", "The host"), in two SWE-2 slices,
     then the SWE-2 review loop and Astra again (seven accepted):
@@ -1139,12 +1139,16 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       save), the patch applied to the local savefile with its findings, skipped while the
       target's PES runs and when the CPKs were not deployed → done when: TC-SAV-01 to 05, 07,
       10 to 12 pass. Done (TC-SAV-05's second half, its first half's finding; TC-SAV-10's
-      sideload write and running-PES skip as tests, its `manual:` line still open):
+      sideload write and running-PES skip as tests, its `manual:` line below):
       `settings.rs` (`SavefilePath`), `compile.rs` (`RunPaths`, `promote` returns whether the
       game loads the output, `write_patch` returns the patch), `output/savefile.rs` (new),
       `output/patch.rs`, `messages.rs` (nine codes, `savefile_written` and
       `savefile_player_missing` per DECISIONS 2026-10-15), `testing.rs` and
       `tests/common/mod.rs` (test contexts never `auto`), `tests/cli/savefile.rs` (new)
+      manual: checked 2026-10-15, TC-SAV-10 against a stripped copy of the maintainer's save
+      and a sandbox PES folder (`.tmp/5_5/studio_sl/`): with PES 21 running, sideload compile
+      exit 0, the patch's `cpks = []`, `savefile_skipped_pes_running`, the copy byte-identical;
+      with only PES 17 running, `savefile_written` and the copy's `.bak` kept
     - [x] 5.3b3 the CPKs, the patch and the savefile as one transaction (the installed CPKs
       kept aside until the savefile is written, restored on a failure) → done when: TC-SAV-05's
       first half, 08 and 09 pass. Done (DECISIONS 2026-10-15, sideload exempt): `deploy.rs`
@@ -1158,8 +1162,8 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       player applies; a deployment the game runs vanilla over (`dpfilelist_cpk_missing`)
       skips the savefile step (`deploy.rs` `Download`), `locate` through `try_exists`, the
       help chapter's "The aesthetics patch and your save"
-- [ ] 5.4 The Save editor crate (skeleton, settings, egui-free `session/`, CLI), after 5.1:
-  - [ ] 5.4a `export-toml`, `import-toml`, `apply-patch`, `transplant`, `diff`,
+- [x] 5.4 The Save editor crate (skeleton, settings, egui-free `session/`, CLI), after 5.1:
+  - [x] 5.4a `export-toml`, `import-toml`, `apply-patch`, `transplant`, `diff`,
     `export-teams-list` → done when: SE-CLI, SE-TOML, SE-PAT, SE-TRN, SE-DIF and SE-TL pass.
     Slices, each a commit:
     - [x] 5.4a1 the crate (`crates/tools/save_editor`: `lib.rs`, `settings.rs`, `events.rs`,
@@ -1196,12 +1200,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `aatf_violation`, `aatf_check_failed`, `violation_rule`; the `aatf_rules` setting; help;
     `tests/cli/check_aatf.rs` on the lead's fixtures `tests/fixtures/aatf/` (PES 15 team 714
     made legal, and legal but for one warning, under the official ruleset)
-  - [ ] 5.4c `strip-and-seed` and `check-stripped`; both call `refuse_while_running` first
+  - [x] 5.4c `strip-and-seed` and `check-stripped`; both call `refuse_while_running` first
     (`check-stripped` with `--strip-again`). The two issues it waited on were settled
     2026-10-14 (DECISIONS): rows come from the record (`EditFile::appearance_row`, plan
     `pes_savefile/model.md`), and a base-copied face is reported, its condition settled by an
     in-game check 2026-10-15 (DECISIONS; census `.tmp/5_4/base_copy_census.txt`):
-    - [ ] 5.4c1 the commands, in two slices → done when: SE-STR-01 to 06 pass on PES 21, and
+    - [x] 5.4c1 the commands, in two slices → done when: SE-STR-01 to 06 pass on PES 21, and
       on PES 18 and 19 after 5.1b; then SE-CLI-02 checked by hand with a running game, all five
       commands:
       - [x] 5.4c1a done 2026-10-14 (SWE-2, one rework: an `unreachable!` from widening the
@@ -1216,7 +1220,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         (Error, Info once `--strip-again` has stripped him, so the exit stays 0), help entries;
         `tests/cli/strip.rs` SE-STR-01 to 06, SE-STR-01 on PES 21, 18 and 19. A table
         `--bins` lacks is appended without a timestamp (a fully stamped CPK then loses its
-        ETOC; the game reads none, suite CPKs carry none). Open: SE-CLI-02 by hand
+        ETOC; the game reads none, suite CPKs carry none)
+      manual: checked 2026-10-15, SE-CLI-02 with PES 21 running: `import-toml`, `apply-patch`,
+      `transplant`, `strip-and-seed` and `check-stripped --strip-again` each refused with exit 2
+      naming PES 2021, no `--out` written; with only PES 17 running each wrote its `--out`
+      (`.tmp/5_5/cli02/`)
     - [x] 5.4c2 the `strip_base_copied_face` warning (plan "Stripped save": a base-copy id
       other than 0 and the player's own, the face flag ignored) → done when: SE-STR-07 passes.
       `SeedRow::base_copy`, the code and its message, reported once `--out` is written, a help
@@ -1224,11 +1232,24 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `messages.rs`, `cli.rs`, help, `tests/cli/strip.rs`.
       manual: checked 2026-10-15, PES 21 Edit mode (`.tmp/ingame/face_check/`): a stripped
       base-copied player shows Placeholder; the copied face shows with the face flag clear too
-- [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
+- [x] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
   the harness: a stripped and seeded save shows every player as before; a compiled team's rows
   show; a file that sets no face or hair key shows the default face; a CPK holding the
   shared-ID record (`4cc_studio/shared_ids/`) loads as one without it → done when: each a
-  `manual: checked` line here
+  `manual: checked` line here. The gloves half waits on FoxDen (issue "FoxDen's PES 2021
+  gloves trampoline"), as the plan says. Runs, shots and saves in `.tmp/5_5/`, by a305229's
+  release exe; the maintainer's save swapped with their approval and restored (SHA-256 checked)
+  manual: checked 2026-10-15, PES 21 Edit mode, the maintainer's cup save strip-and-seeded
+  (`4cc_08_bins.cpk` seeded into the test slot; /d/ 0 of 23 players stripped before, 23 after):
+  /d/ rows 1-3 and VGL 22 (team 792) rows 5-6 look the same as on the unstripped save
+  (`pair_d_0N.png`, `pair_vgl_0N.png`), a sample, not every player
+  manual: checked 2026-10-15, PES 21 Edit mode, stripped save, the /egg/ tracer export compiled
+  into the test slot: 792's slot 05 shows the compiled full-body model with its boots
+  (`s3_05_body.png`); the CPK holds `4cc_studio/shared_ids/792.toml` and loads as any other
+  manual: checked 2026-10-15, same session: slot 06, an `ingame_face` folder whose
+  `settings.toml` sets only a motion, shows the default face (short dark-brown hair, Face and
+  Hairstyle editable; `pair4_vgl_06.png`). Without the marker the folder gets the blank face
+  and no head, as designed (DECISIONS 2026-10-04; `s3_06_body.png`)
 - [x] 5.y-gloves PES 15-17: every `.mtl` of a shared gloves output packed at its root
   (`plans/team_compiler/pipeline.md` "3. Per-model-folder parallel steps (rayon)", Packing;
   DECISIONS 2026-10-15 "every .mtl of a pre-Fox gloves output is packed at its root") → done

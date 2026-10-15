@@ -46,7 +46,7 @@ against 4ccEditor edits for the same assignments; AATF rule fixtures (known-viol
 saves); the save editor's CLI exercised on fixture saves, and its operations with no command
 by unit tests. In game, on the Fox version the cup has chosen (step 4.0's Test 1 covered PES 2021 only): a stripped and seeded save
 shows every player as before; a compiled team's rows show, gloves included once a FoxDen change keeps the
-table's value; and a file that sets none of the face and hair keys renders the default face
+table's value; and an `ingame_face` player whose file sets none of the face and hair keys renders the default face (without the marker a folder with no face model gets the blank face, no head)
 (`aesthetics_export/settings_toml.md`, the ingame-face run's rules).
 
 ### Phase 6: Export upgrader (`tools/export_upgrader`)
