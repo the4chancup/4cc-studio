@@ -7847,3 +7847,20 @@ needed. Testing the id and the flag would miss flag-clear copies the game shows.
 fixture save, whose 5,037 players copy 7511 with the flag clear, is no evidence either way:
 the installed game refuses it ("data from a different version").
 Plan: `plans/save_editor.md` "Stripped save" (the base-copied face bullet), SE-STR-07.
+
+## 2026-10-15 — team_compiler — a gloves subfolder's .mtl names a texture from above by a copy beside it
+Decision (lead, from an in-game check): on PES 15-17 a texture that a shared gloves folder's
+subfolder `.mtl` resolves in a folder above its own is packed again beside that `.mtl`, which
+names it `./<stem>.dds`, instead of `../<stem>.dds`. Model paths in `glove.xml` keep their
+subfolders.
+Why: PES 17 Edit mode (2026-10-15, /out/ slots 01-03 wearing shared gloves 1684-1686, files in
+`.tmp/ingame/gloves_check/`): `glove.xml`'s `./grip/glove_r.model` loads, and so do a `.mtl`'s
+`./magenta.dds` beside it and `./sub/magenta.dds` below it; a `grip/` `.mtl` naming
+`../magenta.dds` drew the glove white, and so did the game-rooted
+`model/character/glove/g1684/magenta.dds` (CPK patched by hand, since the compiler writes a
+path into the folder relative). The question's fallback, packing gloves flat, would collide
+two subfolders' `glove_r.model`; a copy collides with nothing, since the lookup reaches above
+only when the nearer folders lack the stem. PES 15 and 16 are unmeasured (no test slot) and
+taken to read as PES 17, one engine.
+Plan: `plans/team_compiler/pipeline.md` "3. Per-model-folder parallel steps (rayon)" (Packing),
+TC-MOD-93.

@@ -1999,3 +1999,5 @@ worklog passed 7,000 lines.
   rows of the coverage table; its block loads and runs in `check-aatf`.
 - **2026-10-15** — 5.4c2: `strip-and-seed` warns `strip_base_copied_face` for each stripped
   player whose base-copy id is neither 0 nor his own, once the save is written (SE-STR-07).
+- **2026-10-15** — In-game, PES 17: a shared gloves folder's subfolder model loads, but a `.mtl`
+  texture path climbing out of its folder does not; step 5.y-gloves packs a copy beside it.

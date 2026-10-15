@@ -30,18 +30,6 @@ Phase 4's kits work. To investigate then: what differs (format, bones moved, res
 whether one engine's diff converts into the other's, and how a folder says which engine its
 diff is for (the kit layout's `pre-fox`/`fox` markers are the model). Say when.
 
-### A shared gloves folder's subfolder paths on PES 15-17
-From: S19 review, 2026-10-11 (DECISIONS "a combined shared folder's files stand at their paths
-below the player folder"). A shared gloves folder's subfolder is packed at its path, so its
-`glove.xml` names `./grip/glove_r.model` and a subfolder `.mtl` naming the folder's root
-texture writes `../skin.dds`. Whether PES 15-17 loads both is unchecked: a gloves folder
-with a model and `.mtl` in a subfolder, its texture at the root, seen in Edit mode. If not,
-the fallback is packing gloves flat (a subfolder's files by name). Not runnable by the lead
-yet (4.y-ingame2, 2026-10-12): a shared gloves folder compiles to the team's first shared
-ID, which the game draws only on a player the save points at it, and writing that ID into a
-pre-Fox save is the deferred pre-Fox patch's; a save of yours whose player wears that ID
-(`/out/`: 1684) would let it run now.
-
 ## Cup practice and preferences
 
 ## Small confirmations

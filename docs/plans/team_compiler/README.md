@@ -205,6 +205,17 @@ TC-SAV-12  GIVEN a /co/ export whose slot 05 settings.toml sets a motion key, an
            THEN no aesthetics_patch.toml is written and the savefile is byte-identical
 ```
 
+**Shared gloves on PES 15-17**
+
+```
+TC-MOD-93  GIVEN Gloves/Keeper holding glove_l.model with materials.mtl naming skin.dds,
+                skin.dds, and grip/glove_r.model with grip/materials.mtl naming skin.dds,
+                slot 05 linking it
+           WHEN the export is compiled for PES 17
+           THEN the gloves output holds skin.dds and grip/skin.dds with equal bytes, and
+                grip/materials.mtl names ./skin.dds
+```
+
 **Referees**
 
 ```
