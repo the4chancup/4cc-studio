@@ -205,10 +205,35 @@ TC-SAV-12  GIVEN a /co/ export whose slot 05 settings.toml sets a motion key, an
            THEN no aesthetics_patch.toml is written and the savefile is byte-identical
 ```
 
+**Shared IDs across a Midcup**
+
+The /co/ block's shared IDs are 644 to 660 (`spec/aesthetics_export/player_folders.md` "Assigns
+IDs automatically").
+
+```
+TC-BIN-34  GIVEN a Full /co/ export holding Boots/Crocs and Boots/adidas, slot 05 linking Crocs
+           WHEN it is compiled for PES 21
+           THEN the CPK holds 4cc_studio/shared_ids/714.toml whose [boots] names 644 adidas
+                and 645 Crocs, and BootsList.bin holds (71405, 645)
+TC-BIN-35  GIVEN an installed CPK below the output holding TC-BIN-34's record, and a Midcup
+                /co/ export holding Boots/Birk and Boots/crocs, slot 05 linking Birk and slot 06
+                linking crocs
+           WHEN it is compiled for PES 21
+           THEN Birk takes 646 and crocs keeps 645: BootsList.bin holds (71405, 646) and
+                (71406, 645), the CPK's record names 644 adidas, 645 crocs and 646 Birk, and
+                no shared_ids_unrecorded is reported
+TC-BIN-36  GIVEN no installed CPK holding a /co/ record, and a Midcup /co/ export holding
+                Boots/Birk, slot 05 linking it
+           WHEN it is compiled for PES 21
+           THEN Birk takes 644, BootsList.bin holds (71405, 644), shared_ids_unrecorded names
+                team 714, and the CPK's record names 644 Birk
+```
+
 **Shared gloves on PES 15-17**
 
 Every `.mtl` of the output moves to its root (`pipeline.md` "3. Per-model-folder parallel
-steps (rayon)"), so TC-MOD-93 withdraws TC-MOD-74, whose packing it changes.
+steps (rayon)"), so TC-MOD-93 restates TC-MOD-74, whose packing it changes; TC-MOD-74 is
+marked withdrawn in the commit that rewires its test.
 
 ```
 TC-MOD-93  GIVEN Gloves/Keeper holding glove_l.model with glove_l.mtl, skin.dds, and

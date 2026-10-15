@@ -1031,10 +1031,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `pes_savefile` exposes no per-version range yet, so it gains one first: today
     `PlayerSettings::apply` takes a PES 21 file's `hunching_dribbling = 5` for PES 18 and the
     codec refuses it only at write, review R2.S1-1),
-    the `autopilot` marker in `aesthetics_export`; settle issue "shared IDs and retained rows"
-    first; TC-BIN-10/17/22 marked `withdrawn: restated as TC-BIN-25/26/27` in the commit that
-    rewires their citing tests (`tests/cli/bins.rs`) → done when: TC-BIN-25 to 33 and TC-REF-19
-    pass (TC-BIN-31's PES 18 half after 5.1b)
+    the `autopilot` marker in `aesthetics_export`; the shared-ID record and a Midcup reading it
+    (`plans/aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
+    team already has", `shared_ids_unrecorded`); TC-BIN-10/17/22 marked `withdrawn: restated as
+    TC-BIN-25/26/27` in the commit that rewires their citing tests (`tests/cli/bins.rs`) → done
+    when: TC-BIN-25 to 36 and TC-REF-19 pass (TC-BIN-31's PES 18 half after 5.1b)
   - [ ] 5.3b the patch and the local savefile → done when: TC-SAV-01 to 12 pass (TC-SAV-10 a
     `manual:` line)
 - [ ] 5.4 The Save editor crate (skeleton, settings, egui-free `session/`, CLI), after 5.1:
@@ -1105,13 +1106,15 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       base-copied player shows Placeholder; the copied face shows with the face flag clear too
 - [ ] 5.5 The in-game check (`development_plan.md` Phase 5 "Verification"), by the lead through
   the harness: a stripped and seeded save shows every player as before; a compiled team's rows
-  show; a file that sets no face or hair key shows the default face → done when: each a
+  show; a file that sets no face or hair key shows the default face; a CPK holding the
+  shared-ID record (`4cc_studio/shared_ids/`) loads as one without it → done when: each a
   `manual: checked` line here
 - [ ] 5.y-gloves PES 15-17: every `.mtl` of a shared gloves output packed at its root
   (`plans/team_compiler/pipeline.md` "3. Per-model-folder parallel steps (rayon)", Packing;
   DECISIONS 2026-10-15 "every .mtl of a pre-Fox gloves output is packed at its root") → done
-  when: TC-MOD-93 passes, TC-MOD-74's test has become its test (TC-MOD-74 is withdrawn when the phase
-  closes, as TC-BIN-10 is). SWE-2, `team_compiler`
+  when: TC-MOD-93 passes, TC-MOD-74's test has become its test, and TC-MOD-74 is marked
+  `withdrawn: restated as TC-MOD-93` in that commit (as 5.3a does TC-BIN-10). SWE-2,
+  `team_compiler`
   (`processing/prefox_shared.rs` `package`, `packed_mtl_name`).
   manual: checked 2026-10-15, PES 17 Edit mode, /out/ slots 01-03 on shared gloves 1684-1686
   (`.tmp/ingame/gloves_check/`, `r3_slot0N.png`, `r4_slot03.png`): `glove.xml`'s
@@ -1614,7 +1617,9 @@ points there.
   only savefile write path, has no key for it (Team TOML has `base_copy_id`). Settle with
   the pre-Fox patch: the rule and its key, with the edit flags the patch writes (review S5.A1
   item 10).
-- open — shared IDs and retained rows: a team's shared boots/gloves IDs are assigned in
+- resolved 2026-10-15 (maintainer: a Midcup carries only the changed shared folders; DECISIONS
+  "a compiled CPK records its shared IDs, and a Midcup keeps them"; step 5.3a builds it) —
+  shared IDs and retained rows: a team's shared boots/gloves IDs are assigned in
   alphabetical folder order from the export being compiled (`player_folders.md` "Assigns IDs
   automatically"), while a player the export does not compile keeps his installed row
   (`spec/team_compiler/pipeline.md` "Bins accumulation"). A `Midcup` export holding shared folder B but not A

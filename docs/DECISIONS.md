@@ -7879,3 +7879,20 @@ the textures task, which emits each texture once, to learn from the `.mtl` files
 subfolder reaches above; the move is a change to the packed names alone.
 Plan: `plans/team_compiler/pipeline.md` "3. Per-model-folder parallel steps (rayon)" (Packing),
 `plans/team_compiler/README.md` TC-MOD-93.
+
+## 2026-10-15 — team_compiler — a compiled CPK records its shared IDs, and a Midcup keeps them
+Decision (maintainer, on the lead's recommendation): every compiled CPK records, per team,
+which shared boots or gloves folder took which ID (`4cc_studio/shared_ids/<team_id>.toml`). A
+`Midcup` export reads the record from the installed CPKs below its output: a folder named there
+keeps its ID, a new one takes the lowest free shared ID, and a team with no record is numbered
+alphabetically with a `shared_ids_unrecorded` warning. A `Full` export numbers alphabetically
+and records.
+Why: the maintainer answered that members' Midcup exports carry only the shared folders that
+changed. Numbering those alone alphabetically gives a new folder the ID an absent one holds in
+the main CPK, whose rows stay for the players the Midcup does not compile, so those players
+would wear the new folder. The record travels in the CPK every member installs, so a Midcup
+compiled anywhere reads the same one; requiring Midcups to carry every shared folder would
+make members copy folders they did not change.
+Plan: `plans/aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
+team already has"; `plans/team_compiler/messages.md` `shared_ids_unrecorded`;
+`plans/team_compiler/README.md` TC-BIN-34 to TC-BIN-36.
