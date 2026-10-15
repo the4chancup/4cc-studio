@@ -312,11 +312,12 @@ fn a_check_that_fails_on_one_team_does_not_stop_the_rest() {
         "{:?}",
         run.messages()
     );
+    // After the failure line: teams print in id order, a failed one in its place.
     assert!(
-        run.messages()
+        run.messages()[failed + 1..]
             .iter()
             .any(|line| line.contains("aatf_violation (team=744,")),
-        "744's violations still print: {:?}",
+        "744's violations still print, after 743's failure: {:?}",
         run.messages()
     );
 }
