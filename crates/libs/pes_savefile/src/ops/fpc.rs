@@ -40,6 +40,8 @@ pub fn apply(
     if appearance.skin_color == fpc::SkinColor::Custom && !fpc::custom_skin_available(version) {
         return Err(FpcError::CustomSkinUnavailable { version });
     }
+    // A probe, not a read: the face run must hold the skin field before the
+    // first write, so a player without it errors with nothing changed.
     player
         .appearance
         .ingame_face

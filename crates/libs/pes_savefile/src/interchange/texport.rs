@@ -73,6 +73,13 @@ pub enum TexportError {
     /// The 15-17 container crypto failed.
     #[error(transparent)]
     Container(#[from] ContainerError),
+    /// A 15-17 container that is a save, not a texport: the description is
+    /// the file's own label, `Team Export Data NN` + the team name on a
+    /// texport and `Edit Data` on a save. Checked before any record is read,
+    /// so a save handed to `from_bytes` is refused rather than opening with
+    /// a garbage team and no players.
+    #[error("the container's description is not \"Team Export Data\" (a save's is \"Edit Data\")")]
+    NotATexport,
     /// A record codec failed.
     #[error(transparent)]
     Codec(#[from] CodecError),
@@ -170,7 +177,9 @@ fn crypt(bytes: &[u8], layout: &TexportLayout) -> Vec<u8> {
 }
 
 /// Whether the decrypted candidate's team, roster and tactics records carry
-/// one id — the check that picks 20 or 21 out of a shared file size.
+/// one id — the consistency check behind a size match: every version's file
+/// size is distinct, so a size-matched buffer whose record ids disagree is
+/// not that version's texport.
 fn ids_agree(plaintext: &[u8], layout: &TexportLayout, version: PesVersion) -> bool {
     let schema = schema_for(version);
     let off = Offsets::of(layout, schema);
@@ -250,10 +259,11 @@ fn write_ted<'a>(
 
 impl Texport {
     /// `version = None` detects: the container's version for 15-17; by size
-    /// for 18/19; 20 and 21 share a size, so both key indices are tried and
-    /// the one whose team, roster and tactics record ids agree wins
-    /// (`UnknownVersion` when neither or both do). An explicit `version` for
-    /// 15-17 defers to the container's own.
+    /// for 18-21 (every version's file size is distinct since PES 20's was
+    /// measured), the size-matched layout's team, roster and tactics record
+    /// ids checked for agreement so a same-sized non-texport stays
+    /// `UnknownVersion`. An explicit `version` for 15-17 defers to the
+    /// container's own.
     pub fn from_bytes(bytes: &[u8], version: Option<PesVersion>) -> Result<Texport, TexportError> {
         match version {
             Some(version) => match texport_layout(version) {
@@ -348,6 +358,12 @@ impl Texport {
     /// records: one slot per record, the consecutive ids the scan found, and
     /// shirt number 0 — the format does not carry shirt numbers.
     fn open_old(container: SaveContainer) -> Result<Texport, TexportError> {
+        // The description is the file's own label, checked before any record
+        // is read: without it a save opens silently with a garbage team and
+        // no players.
+        if !container.description.starts_with(b"Team Export Data") {
+            return Err(TexportError::NotATexport);
+        }
         let version = container.version();
         let schema = schema_for(version);
         let old = texport_old(version).ok_or(TexportError::UnknownVersion)?;
@@ -715,18 +731,20 @@ mod tests {
         ));
     }
 
-    /// A 15-17 *save* container is shorter than the texport's record
-    /// offsets: reading it must error, not slice past the payload.
+    /// A 15-17 *save* is refused at its description before a record is read;
+    /// a texport-labelled container whose payload ends before the tactics
+    /// record errors, never slices past the payload.
     #[test]
     fn a_save_shorter_than_the_old_offsets_is_an_error_not_a_panic() {
         let container = crate::test_support::fixture_container(PesVersion::Pes17);
         let bytes = container.to_bytes(&test_salt()).expect("encodes");
         let err = Texport::from_bytes(&bytes, None).expect_err("not a texport");
-        assert!(matches!(err, TexportError::Codec(_)), "{err:?}");
+        assert!(matches!(err, TexportError::NotATexport), "{err:?}");
 
         // A valid container whose payload ends before the tactics record:
         // the same refusal, never a slice panic.
         let mut container = crate::test_support::fixture_container(PesVersion::Pes17);
+        container.description[..16].copy_from_slice(b"Team Export Data");
         container.payload.truncate(0x10330);
         let bytes = container.to_bytes(&test_salt()).expect("encodes");
         let err = Texport::from_bytes(&bytes, None).expect_err("not a texport");
@@ -734,6 +752,22 @@ mod tests {
             matches!(err, TexportError::Codec(CodecError::RecordSize { .. })),
             "{err:?}"
         );
+    }
+
+    /// A save's description reads `Edit Data`, not `Team Export Data`: the
+    /// PES 17 fixture save refuses on both entry paths (detected, and asked
+    /// for by name).
+    #[test]
+    fn a_save_is_not_a_texport() {
+        let container = crate::test_support::fixture_container(PesVersion::Pes17);
+        let bytes = container.to_bytes(&test_salt()).expect("encodes");
+        for version in [None, Some(PesVersion::Pes17)] {
+            let err = Texport::from_bytes(&bytes, version).expect_err("a save");
+            assert!(
+                matches!(err, TexportError::NotATexport),
+                "{version:?}: {err:?}"
+            );
+        }
     }
 
     #[test]
@@ -755,13 +789,15 @@ mod tests {
         assert_eq!(back.players(), &expected_players[..]);
     }
 
+    /// The size match alone does not make a texport: a 21-sized buffer whose
+    /// decrypted record ids disagree is `UnknownVersion`.
     #[test]
-    fn a_shared_size_with_disagreeing_ids_is_unknown() {
+    fn a_size_match_with_disagreeing_ids_is_unknown() {
         let (_, bytes) = TEDS[2];
         let layout = texport_layout(PesVersion::Pes21).expect("a layout");
         let mut plain = crypt(bytes, layout);
-        // Corrupt the roster record's id so no key index makes the three
-        // records agree, then re-encrypt under the 21 index.
+        // Corrupt the roster record's id so the three records disagree, then
+        // re-encrypt under the 21 index.
         let off = Offsets::of(layout, schema_for(PesVersion::Pes21));
         plain[off.roster] ^= 0xff;
         let corrupt = crypt(&plain, layout);

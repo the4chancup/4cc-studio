@@ -609,6 +609,35 @@ fn an_absent_team_or_player_is_skipped_and_the_rest_applied() {
     );
 }
 
+/// A hand-edited patch's `id` is any u32: past 42,949,672 `id * 100 + NN`
+/// overflows u32, and unchecked arithmetic wraps onto a different, real
+/// player's id — written with no error. The player is reported skipped
+/// instead, and the save untouched.
+#[test]
+fn a_team_id_too_large_for_its_player_ids_skips_the_players() {
+    let (mut save, _) = open(PesVersion::Pes21);
+    // The fixture's teams run 701..=920; give one the overflowing id so
+    // the team is found and the player loop is reached.
+    save.teams_mut()[0].id = 42_949_673;
+    let patch = patch_at(
+        PesVersion::Pes21,
+        vec![team(42_949_673, BTreeMap::from([(1, named("OVER"))]))],
+    );
+    let before = save.to_bytes(&test_salt()).expect("encodes");
+    let summary = patch.apply(&mut save).expect("applies");
+    assert_eq!(summary.applied_teams, [42_949_673]);
+    assert!(summary.applied_players.is_empty());
+    assert_eq!(
+        summary.skipped,
+        [PatchSkip::PlayerNotInSave { player: u32::MAX }]
+    );
+    assert_eq!(
+        save.to_bytes(&test_salt()).expect("encodes"),
+        before,
+        "nothing was written"
+    );
+}
+
 /// SE-PAT-03's lib half: a version or allocation-scheme mismatch is
 /// refused naming both values, before any write.
 #[test]

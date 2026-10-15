@@ -151,7 +151,12 @@ impl TeamToml {
     }
 
     /// The document's text, in the plan block's order. A `None` key emits its
-    /// commented neutral line; a section with no `Some` member emits no table.
+    /// commented neutral line. `[team]`, `[tactics]` and its `set_pieces`,
+    /// `auto` and preset `style`/`sliders` tables, and every `[players.NN]`
+    /// block are emitted whole, every key shown or commented; the tables
+    /// emitted only when they hold a `Some` member are `[team.edit_flags]`,
+    /// a preset's `formation_M` and `instructions`, and `[players.NN]` itself
+    /// exists per entry in `players`.
     pub fn to_toml(&self) -> Result<String, TeamTomlError> {
         let mut out = String::new();
         let version = self
@@ -705,8 +710,8 @@ mod tests {
         );
     }
 
-    /// `tactics.auto.substitution` is `u8_val`'s only caller: a non-zero
-    /// value parses to exactly that value.
+    /// `tactics.auto.substitution` is the stored setting byte, not a slot
+    /// number: a non-zero value parses to exactly that value.
     #[test]
     fn a_non_zero_substitution_parses() {
         let (file, _) = open(PesVersion::Pes19);

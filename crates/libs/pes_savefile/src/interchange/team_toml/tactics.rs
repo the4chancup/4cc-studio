@@ -17,7 +17,7 @@ use crate::schema::fields::{PresetField, TacticsField};
 use crate::schema::instruction;
 
 use super::items::{
-    as_table, boolean, emit, gated, int_array, label, opt, ranged, reject, required, slot, u8_val,
+    as_table, boolean, emit, gated, int_array, label, opt, ranged, reject, required, u8_val,
 };
 use super::labels;
 
@@ -269,13 +269,13 @@ pub(super) fn parse_tactics(item: &Item) -> Result<TacticsSection, TeamTomlError
     if let Some(item) = table.get("set_pieces") {
         let t = as_table(item, "tactics.set_pieces")?;
         tactics.set_pieces = SetPiecesSection {
-            free_kick_long: opt(t, "tactics.set_pieces", "free_kick_long", slot)?,
-            free_kick_short: opt(t, "tactics.set_pieces", "free_kick_short", slot)?,
-            free_kick_second: opt(t, "tactics.set_pieces", "free_kick_second", slot)?,
-            corner_left: opt(t, "tactics.set_pieces", "corner_left", slot)?,
-            corner_right: opt(t, "tactics.set_pieces", "corner_right", slot)?,
-            penalty: opt(t, "tactics.set_pieces", "penalty", slot)?,
-            captain: opt(t, "tactics.set_pieces", "captain", slot)?,
+            free_kick_long: opt(t, "tactics.set_pieces", "free_kick_long", u8_val)?,
+            free_kick_short: opt(t, "tactics.set_pieces", "free_kick_short", u8_val)?,
+            free_kick_second: opt(t, "tactics.set_pieces", "free_kick_second", u8_val)?,
+            corner_left: opt(t, "tactics.set_pieces", "corner_left", u8_val)?,
+            corner_right: opt(t, "tactics.set_pieces", "corner_right", u8_val)?,
+            penalty: opt(t, "tactics.set_pieces", "penalty", u8_val)?,
+            captain: opt(t, "tactics.set_pieces", "captain", u8_val)?,
         };
         reject(
             t,

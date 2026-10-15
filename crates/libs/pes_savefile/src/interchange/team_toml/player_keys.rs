@@ -3,7 +3,7 @@
 //! driving parse, emit and apply for every scalar field. The non-scalar keys
 //! (`name`, `shirt_name`, `number`, `positions.playable`,
 //! `positions.playing_style`, `skills.skills`, `skills.com_styles`,
-//! `appearance`) are handled individually in `player.rs`.
+//! `appearance`) are handled individually in `player`.
 
 #[cfg(test)]
 use pes_version::PesVersion;

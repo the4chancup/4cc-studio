@@ -286,6 +286,35 @@ fn update_toml_refuses_a_table_position_holding_a_value() {
     }
 }
 
+/// A name carrying the save's colour codes (`\x11c` + eight hex digits)
+/// must survive the document text byte for byte: `to_toml` escapes the
+/// control bytes in the TOML string and `parse` reads them back — a raw
+/// 0x11 in the text would leave the file unparsable or the name corrupted.
+/// The fixture is PES 19's player 71803, picked by scanning the fixture's
+/// names for '\x11' (the PES 19 and 21 saves each hold about a hundred).
+#[test]
+fn a_colour_coded_name_survives_the_toml_round_trip() {
+    let player = find_player(
+        &payload(PesVersion::Pes19),
+        schema_for(PesVersion::Pes19),
+        71803,
+    );
+    assert!(
+        player.name.contains('\x11'),
+        "the fixture name carries a code: {:?}",
+        player.name
+    );
+    let settings = PlayerSettings::from_player(&player).expect("from_player");
+    let text = settings.to_toml().expect("emit");
+    assert!(!text.contains('\x11'), "a raw control byte in {text}");
+    let reparsed = PlayerSettings::parse(&text).expect("the emitted text parses");
+    assert_eq!(
+        reparsed.name,
+        Some(NameSetting::Explicit(player.name.clone())),
+        "the name byte for byte"
+    );
+}
+
 #[test]
 fn to_toml_round_trips_a_real_player_through_text() {
     for version in [PesVersion::Pes19, PesVersion::Pes15] {

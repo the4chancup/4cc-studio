@@ -74,10 +74,6 @@ pub(super) fn u8_val(item: &Item, key: &str) -> Result<u8, TeamTomlError> {
     ranged(item, key, 0, 255)
 }
 
-pub(super) fn slot(item: &Item, key: &str) -> Result<u8, TeamTomlError> {
-    ranged(item, key, 0, 255)
-}
-
 pub(super) fn u16_val(item: &Item, key: &str) -> Result<u16, TeamTomlError> {
     let value = integer(item, key)?;
     u16::try_from(value).map_err(|_| TeamTomlError::OutOfRange {

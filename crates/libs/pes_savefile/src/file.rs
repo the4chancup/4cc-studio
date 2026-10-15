@@ -369,7 +369,9 @@ impl EditFile {
         };
         if let Err(error) = write_and_swap() {
             // Best effort: the original error is the one to report.
-            drop(std::fs::remove_file(&tmp));
+            if let Err(cleanup) = std::fs::remove_file(&tmp) {
+                log::debug!("could not remove {}: {cleanup}", tmp.display());
+            }
             return Err(error.into());
         }
         Ok(())
@@ -627,7 +629,9 @@ mod tests {
     fn temp_dir(name: &str) -> std::path::PathBuf {
         let dir =
             std::env::temp_dir().join(format!("pes_savefile_test_{}_{}", name, std::process::id()));
-        drop(std::fs::remove_dir_all(&dir));
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).expect("cleanup");
+        }
         dir
     }
 
@@ -685,7 +689,12 @@ mod tests {
     /// the test pins the offset, the index and the id, not unmodeled bits.
     #[test]
     fn appearance_row_is_the_records_bytes() {
-        for (version, offset) in [(PesVersion::Pes21, 252usize), (PesVersion::Pes18, 128)] {
+        for (version, offset) in [
+            (PesVersion::Pes18, 128usize),
+            (PesVersion::Pes19, 128),
+            (PesVersion::Pes20, 252),
+            (PesVersion::Pes21, 252),
+        ] {
             let (file, _) = open(version);
             let schema = schema_for(version);
             let decrypted = payload(version);

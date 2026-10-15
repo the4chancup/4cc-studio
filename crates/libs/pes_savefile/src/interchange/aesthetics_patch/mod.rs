@@ -334,7 +334,19 @@ impl AestheticsPatch {
             applied_teams.push(team.id);
             for (slot, patch_player) in &team.players {
                 let player_path = format!("{team_path}.players.{slot:02}");
-                let player_id = team.id * 100 + u32::from(*slot);
+                // The patch's team id is any u32, so `id * 100 + NN` can
+                // overflow: unchecked it wraps onto a different, real
+                // player's id, who would be written with no error. An
+                // unrepresentable id is the player not being in the save,
+                // reported at u32::MAX for a number u32 cannot carry.
+                let Some(player_id) = team
+                    .id
+                    .checked_mul(100)
+                    .and_then(|id| id.checked_add(u32::from(*slot)))
+                else {
+                    skipped.push(PatchSkip::PlayerNotInSave { player: u32::MAX });
+                    continue;
+                };
                 let Some(player) = save.player(player_id) else {
                     skipped.push(PatchSkip::PlayerNotInSave { player: player_id });
                     continue;
