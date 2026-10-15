@@ -2050,3 +2050,5 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.3b reviewed (SWE-2 5 of 7, 3 of 3; Astra 3 of 5) and closed: a deployment
   the game runs vanilla over skips the savefile, an unreadable save path is invalid, the help
   explains the patch. `mutants-diff 2337e4f`: 2 caught, 6 unviable.
+- **2026-10-15** — 16.w1: the spec states the platform floor, Windows 10 x64 and 64-bit Linux;
+  the maintainer ruled Windows 7 out (its last cup users moved to Linux).

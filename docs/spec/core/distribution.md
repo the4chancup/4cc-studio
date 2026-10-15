@@ -47,6 +47,14 @@ measured on an optimized build, not a debug one. Measured on 2026-10-02 (default
 Phase 3's code): 17.1 MiB, about 70% of it the GUI stack (wgpu and naga, egui and its text
 rendering, winit, accesskit), and the Team compiler's embedded bins and templates 1.6 MiB.
 
+**Platform floor:** Windows 10 x64 and 64-bit Linux. The Windows exe cannot load on Windows 7,
+and Windows 8.1 is untested; supporting either is not a goal: Rust's `x86_64-pc-windows-msvc` target has required
+Windows 10 since Rust 1.78 (its standard library imports `WaitOnAddress` and
+`GetSystemTimePreciseAsFileTime`, which Windows 7 lacks), and the GUI stack imports
+`combase.dll` (through `windows-core`, used by `wgpu-hal` and `accesskit_windows`), which
+Windows 7 does not have under that name. The cup's last Windows 7 users moved to Linux, which
+the Linux build serves.
+
 ### Data location: asked on first run
 
 Settings and data live in one of two locations:

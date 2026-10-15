@@ -8030,3 +8030,14 @@ exists for speed, and its savefile half catches up on the next compile anyway. A
 stale `.old` files was built and removed in review: only a read-only file or a folder at that
 path defeats the rename, and a killed run leaves neither.
 Plan: `plans/team_compiler/pipeline.md` "One transaction: CPKs, patch, savefile".
+
+## 2026-10-15 — distribution — the platform floor is Windows 10 x64 and 64-bit Linux
+Decision: Studio supports Windows 10 x64 and later, and 64-bit Linux; Windows 7 and 8.1 are not
+targets, and the docs say so.
+Why: the exe already cannot load on Windows 7 (Rust's standard Windows target imports
+Windows 8+ functions, and the GUI stack imports `combase.dll`); reaching it would mean a
+tier-3 Rust target (`x86_64-win7-windows-msvc`, built from source on nightly) plus patching
+`windows-core`'s DLL name, a cost no member needs, since the cup's last Windows 7 users moved
+to Linux, which the Linux build serves.
+Plan: `spec/core/distribution.md` "Distribution: portable .7z bundle", the "Platform floor"
+paragraph (the floor is a fact of the built exe, so it goes to the spec directly).
