@@ -571,6 +571,18 @@ fn man_marking_and_the_support_settings_are_checked() {
             }
         )]
     );
+    let mut team = legal_team();
+    team.tactics.auto.offside_trap = Some(true);
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(
+            None,
+            ViolationKind::TeamSetting {
+                label: "Support settings".to_string(),
+                setting: "auto_offside_trap".to_string()
+            }
+        )]
+    );
 }
 
 /// VGL27 has no formation ban: the sample's preset 3 is a 3-4-3 and
@@ -585,5 +597,37 @@ fn a_3_4_3_formation_is_legal() {
             .any(|f| f.preset == 3 && f.formation == 1 && f.shape == [3, 4, 3]),
         "preset 3 fields a 3-4-3"
     );
+    assert_eq!(problems(&rules, &team), vec![]);
+}
+
+/// VGL's skill-card cap is past the game's ten (`max_skill_cards` 41):
+/// a regular holding eleven skills — the tricks group covering the
+/// nine added over his paid cards — reports nothing.
+#[test]
+fn eleven_skills_are_legal() {
+    let rules = rules();
+    let skills = |p: &PlayerView| {
+        p.cards
+            .iter()
+            .filter(|card| matches!(card, Card::Skill(_)))
+            .count()
+    };
+    assert_eq!(skills(player(&legal_team(), 12)), 2);
+    let team = edited(12, |p| {
+        for name in [
+            "scissors_feint",
+            "flip_flap",
+            "marseille_turn",
+            "sombrero",
+            "crossover_turn",
+            "cut_behind_and_turn",
+            "scotch_move",
+            "step_on_skill",
+            "rabona",
+        ] {
+            p.cards.push(card(name));
+        }
+    });
+    assert_eq!(skills(player(&team, 12)), 11);
     assert_eq!(problems(&rules, &team), vec![]);
 }

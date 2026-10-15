@@ -450,6 +450,18 @@ fn man_marking_and_the_support_settings_are_checked() {
             }
         )]
     );
+    let mut team = legal_team();
+    team.tactics.auto.offside_trap = Some(true);
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(
+            None,
+            ViolationKind::TeamSetting {
+                label: "Support settings".to_string(),
+                setting: "auto_offside_trap".to_string()
+            }
+        )]
+    );
 }
 
 /// Heading is a free card for everyone, outside the tricks group: a
@@ -480,4 +492,52 @@ fn heading_is_free_at_the_card_limit() {
         problems(&rules, &team),
         vec![error(Some(4), ViolationKind::Cards { paid: 7, limit: 6 })]
     );
+}
+
+/// A medal's injury resistance is exact (the rules page, stricter than
+/// the checker's `>` test): a silver at 1, under the target 2, is the
+/// one violation.
+#[test]
+fn a_medals_injury_resistance_is_exactly_two() {
+    let rules = rules();
+    assert_eq!(player(&legal_team(), 5).injury_resistance, 2);
+    assert_eq!(
+        problems(&rules, &edited(5, |p| p.injury_resistance = 1)),
+        vec![error(
+            Some(5),
+            ViolationKind::InjuryResistance { value: 1, max: 2 }
+        )]
+    );
+}
+
+/// VGL's skill-card cap is past the game's ten (`max_skill_cards` 41):
+/// a regular holding eleven skills — the tricks group covering the
+/// nine added over his paid cards — reports nothing.
+#[test]
+fn eleven_skills_are_legal() {
+    let rules = rules();
+    let skills = |p: &PlayerView| {
+        p.cards
+            .iter()
+            .filter(|card| matches!(card, Card::Skill(_)))
+            .count()
+    };
+    assert_eq!(skills(player(&legal_team(), 12)), 2);
+    let team = edited(12, |p| {
+        for name in [
+            "scissors_feint",
+            "flip_flap",
+            "marseille_turn",
+            "sombrero",
+            "crossover_turn",
+            "cut_behind_and_turn",
+            "scotch_move",
+            "step_on_skill",
+            "rabona",
+        ] {
+            p.cards.push(card(name));
+        }
+    });
+    assert_eq!(skills(player(&team, 12)), 11);
+    assert_eq!(problems(&rules, &team), vec![]);
 }

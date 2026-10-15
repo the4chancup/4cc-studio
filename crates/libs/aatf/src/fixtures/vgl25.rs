@@ -323,3 +323,35 @@ fn acrobatic_finishing_and_malicia_are_free() {
     });
     assert_eq!(problems(&rules, &team), vec![]);
 }
+
+/// VGL's skill-card cap is past the game's ten (`max_skill_cards` 41):
+/// a regular at his card limit (slot 12, three paid) holding eleven
+/// skills — the tricks group covering the nine added — reports nothing.
+#[test]
+fn eleven_skills_are_legal() {
+    let rules = rules();
+    let skills = |p: &PlayerView| {
+        p.cards
+            .iter()
+            .filter(|card| matches!(card, Card::Skill(_)))
+            .count()
+    };
+    assert_eq!(skills(player(&legal_team(), 12)), 2);
+    let team = edited(12, |p| {
+        for name in [
+            "scissors_feint",
+            "flip_flap",
+            "marseille_turn",
+            "sombrero",
+            "cut_behind_and_turn",
+            "scotch_move",
+            "rabona",
+            "malicia",
+            "double_touch",
+        ] {
+            p.cards.push(card(name));
+        }
+    });
+    assert_eq!(skills(player(&team, 12)), 11);
+    assert_eq!(problems(&rules, &team), vec![]);
+}

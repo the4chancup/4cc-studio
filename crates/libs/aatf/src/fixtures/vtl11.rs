@@ -309,7 +309,10 @@ fn silver_and_gold_at_195_differ_only_in_swerve() {
 /// The gold's playing-style bonuses: slot 9's creative_playmaker moves
 /// his stamina target to 99 and defensive prowess to 60, what
 /// `apply_tier` wrote — met is legal, short of it the `Stat` violation,
-/// and losing the style puts both targets back.
+/// and losing the style puts both targets back. The other two fire the
+/// same way on the PES 21 build (whose `physical_contact` PES 15
+/// lacks): a Fox in the Box's ball winning and a Target Man's physical
+/// contact, each to 99 with defensive prowess at 60.
 #[test]
 fn a_golds_playing_style_moves_his_targets() {
     let rules = rules();
@@ -359,6 +362,94 @@ fn a_golds_playing_style_moves_his_targets() {
                     stat: stat("stamina"),
                     value: 99,
                     target: 94,
+                    at_most: false
+                }
+            )
+        ]
+    );
+
+    // On PES 21: Fox in the Box (+5 ball winning) and Target Man (+5
+    // physical contact), each with the -5 defensive prowess. The
+    // creative_playmaker bonus no longer applies, so stamina goes back
+    // to the tier's 94 either way.
+    let (bw, pc, st, dp) = (
+        stat("ball_winning"),
+        stat("physical_contact"),
+        stat("stamina"),
+        stat("defensive_prowess"),
+    );
+    let team = legalize(Records::sample_on(PesVersion::Pes21)).view();
+    assert_eq!(team.version, PesVersion::Pes21);
+    let gold = player(&team, 9).clone();
+    assert_eq!(gold.playing_style, Some(play_style("creative_playmaker")));
+    assert_eq!(gold.abilities[usize::from(st.0)], Some(99));
+    assert_eq!(gold.abilities[usize::from(bw.0)], Some(94));
+    assert_eq!(gold.abilities[usize::from(pc.0)], Some(94));
+    assert_eq!(gold.abilities[usize::from(dp.0)], Some(60));
+    // `team` with slot 9's style changed and stamina back at 94.
+    let styled = |team: &TeamView, style: PlayStyle| {
+        let mut team = team.clone();
+        let player = player_mut(&mut team, 9);
+        player.playing_style = Some(style);
+        player.abilities[usize::from(st.0)] = Some(94);
+        team
+    };
+    let fib = play_style("fox_in_the_box");
+    let target_man = play_style("target_man");
+    // The bonus met: legal; the tier's unadjusted values (ball winning
+    // or physical_contact 94, defensive_prowess 65): off the moved
+    // targets.
+    let mut legal = styled(&team, fib);
+    player_mut(&mut legal, 9).abilities[usize::from(bw.0)] = Some(99);
+    assert_eq!(problems(&rules, &legal), vec![]);
+    let mut unadjusted = styled(&team, fib);
+    player_mut(&mut unadjusted, 9).abilities[usize::from(dp.0)] = Some(65);
+    assert_eq!(
+        problems(&rules, &unadjusted),
+        vec![
+            error(
+                Some(9),
+                ViolationKind::Stat {
+                    stat: dp,
+                    value: 65,
+                    target: 60,
+                    at_most: false
+                }
+            ),
+            error(
+                Some(9),
+                ViolationKind::Stat {
+                    stat: bw,
+                    value: 94,
+                    target: 99,
+                    at_most: false
+                }
+            )
+        ]
+    );
+    let mut legal = styled(&team, target_man);
+    player_mut(&mut legal, 9).abilities[usize::from(pc.0)] = Some(99);
+    assert_eq!(problems(&rules, &legal), vec![]);
+    let mut unadjusted = styled(&team, target_man);
+    player_mut(&mut unadjusted, 9).abilities[usize::from(dp.0)] = Some(65);
+    assert_eq!(
+        problems(&rules, &unadjusted),
+        vec![
+            error(
+                Some(9),
+                ViolationKind::Stat {
+                    stat: dp,
+                    value: 65,
+                    target: 60,
+                    at_most: false
+                }
+            ),
+            error(
+                Some(9),
+                ViolationKind::Stat {
+                    stat: pc,
+                    value: 94,
+                    target: 99,
                     at_most: false
                 }
             )
@@ -572,6 +663,42 @@ fn a_188s_b_rating_only_at_cb_and_never_an_a_there() {
             )
         )]
     );
+}
+
+/// The permitted B at CB still spends the one-A allowance
+/// (`b_uses_a_allowance`): a buffed player at his paid limit (slot 3,
+/// three paid in the legal team, seven after the added skills) gains it
+/// and is over — the B counts toward the allowance, an extra position
+/// costing a card; `card_limits` reports the limit one lower.
+#[test]
+fn the_permitted_b_at_cb_spends_the_a_allowance() {
+    let rules = rules();
+    let cb = position("CB");
+    let at_limit = |p: &mut PlayerView| {
+        for name in [
+            "long_throw",
+            "acrobatic_clear",
+            "track_back",
+            "penalty_specialist",
+        ] {
+            p.cards.push(card(name));
+        }
+    };
+    assert_eq!(player(&legal_team(), 3).cards.len(), 6);
+    let team = edited(3, at_limit);
+    assert_eq!(problems(&rules, &team), vec![]);
+    let team = edited(3, |p| {
+        at_limit(p);
+        p.ratings[usize::from(cb.0)] = 1;
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(Some(3), ViolationKind::Cards { paid: 7, limit: 6 })]
+    );
+    let limits = rules
+        .card_limits(&team, team.player(3).expect("slot 3"), "buffed")
+        .expect("limits");
+    assert_eq!(limits.limit, 6, "the allowance spent costs a card");
 }
 
 /// The custom checks: the 188 cm players' registered positions number at
@@ -819,6 +946,73 @@ fn long_ranger_is_free_and_coms_cap_at_five() {
         vec![error(
             Some(14),
             ViolationKind::ComStyleCap { count: 6, max: 5 }
+        )]
+    );
+}
+
+/// Weak foot is exact (`at_most` is empty, against the checker's `>`
+/// test): under the 4/4 every tier sets, a regular at 3/4 and one at
+/// 4/3 each report the lower value.
+#[test]
+fn weak_foot_below_the_exact_target() {
+    let rules = rules();
+    let regular = legal_team();
+    let regular = player(&regular, 14);
+    assert_eq!(
+        (regular.weak_foot_usage, regular.weak_foot_accuracy),
+        (4, 4)
+    );
+    assert_eq!(
+        problems(&rules, &edited(14, |p| p.weak_foot_usage = 3)),
+        vec![error(
+            Some(14),
+            ViolationKind::WeakFootUsage { value: 3, max: 4 }
+        )]
+    );
+    assert_eq!(
+        problems(&rules, &edited(14, |p| p.weak_foot_accuracy = 3)),
+        vec![error(
+            Some(14),
+            ViolationKind::WeakFootAccuracy { value: 3, max: 4 }
+        )]
+    );
+}
+
+/// The skill-card cap is eleven, over the game's ten (the cup's saves
+/// load them): eleven skills on a regular (slot 14 — eight free, three
+/// paid, inside the budget) report nothing; a twelfth, free as well, is
+/// the cap alone.
+#[test]
+fn eleven_skills_are_the_cap() {
+    let rules = rules();
+    let eleven = |p: &mut PlayerView| {
+        p.cards = [
+            "malicia",
+            "no_look_pass",
+            "double_touch",
+            "rabona",
+            "acrobatic_finishing",
+            "first_time_shot",
+            "dipping_shots",
+            "rising_shots",
+            "fighting_spirit",
+            "interception",
+            "track_back",
+        ]
+        .into_iter()
+        .map(card)
+        .collect();
+    };
+    assert_eq!(problems(&rules, &edited(14, eleven)), vec![]);
+    let team = edited(14, |p| {
+        eleven(p);
+        p.cards.push(card("heading"));
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(
+            Some(14),
+            ViolationKind::SkillCardCap { count: 12, max: 11 }
         )]
     );
 }
