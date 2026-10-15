@@ -268,9 +268,9 @@ fn the_tracer_bullet_matches_the_reference_tree() {
         &["compile", "--no-deploy", exports_root.to_str().unwrap()],
     );
     assert_eq!(run.exit_code(), 0);
-    // Notes only, but for the two player tables: with no PES install there is no table to
-    // build on, so the tracer's boots and gloves rows are left out (`pipeline.md` "Bins
-    // accumulation"), as Red, which wrote no table, never had them.
+    // Notes only, but for the three player tables: with no PES install there is no table to
+    // build on, so the tracer's boots, gloves and appearance rows are left out (`pipeline.md`
+    // "Bins accumulation"), as Red, which wrote no table, never had them.
     let mut warnings = Vec::new();
     for envelope in &run.events {
         if let PipelineEvent::Message(message) = &envelope.event
@@ -292,9 +292,10 @@ fn the_tracer_bullet_matches_the_reference_tree() {
         warnings,
         [
             table_missing("BootsList.bin"),
-            table_missing("GloveList.bin")
+            table_missing("GloveList.bin"),
+            table_missing("PlayerAppearance.bin")
         ],
-        "the tracer compiles with notes only, but for the two player tables"
+        "the tracer compiles with notes only, but for the three player tables"
     );
 
     let ours = archive(&output.join("4cc_99_test.cpk"));

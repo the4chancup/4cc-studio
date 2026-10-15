@@ -22,9 +22,9 @@ use pipeline::CpkStem;
 use studio_core::{Disposition, Message, Scope};
 use uniparam::UniformParameter;
 
-use pes_savefile::player_tables::{ItemList, PlayerTableFile};
+use pes_savefile::player_tables::{AppearanceTable, ItemList, PlayerTableFile};
 
-use super::player_tables::{ItemTable, read_player_appearance};
+use super::player_tables::ItemTable;
 use super::{TeamColorBin, UniColorBin, WorkingBins, dpfl};
 use crate::kit_variants::kit_lookup_keys;
 use crate::messages::{Code, deploy_message, tool_message};
@@ -177,7 +177,10 @@ impl Bin {
                 bins.glove_list = Some(ItemList::read(ItemTable::Gloves.file(), &bytes)?)
             }
             Bin::PlayerAppearance => {
-                bins.player_appearance = Some(read_player_appearance(bytes)?);
+                bins.player_appearance = Some(AppearanceTable::read(
+                    PlayerTableFile::PlayerAppearance,
+                    &bytes,
+                )?);
             }
         }
         Ok(())
@@ -1145,7 +1148,10 @@ mod tests {
             Some(boots.to_vec())
         );
         assert_eq!(bins.glove_list, None, "no CPK holds it");
-        assert_eq!(bins.player_appearance, Some(vec![7; 60]));
+        assert_eq!(
+            bins.player_appearance.map(|table| table.to_bytes()),
+            Some(vec![7; 60])
+        );
         let mut expected = all_bundled().to_vec();
         expected.extend([
             source("BootsList.bin", "4cc_08_bins.cpk"),

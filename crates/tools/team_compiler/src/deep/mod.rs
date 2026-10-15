@@ -78,6 +78,7 @@ use aesthetics_export::{
     common_link_target,
 };
 use dds_convert::SourceFormat;
+use pes_savefile::settings_toml::PlayerSettings;
 use pes_version::{Engine, PesVersion};
 use rayon::prelude::*;
 use vtree::ScopePath;
@@ -98,7 +99,7 @@ use crate::user_face_xml::{
     self, Child, FaceFiles, UserFaceXml, XmlError, XmlFinding, names_file, reference, resolve,
 };
 use collar::collar_findings;
-use documents::{colors_findings, face_diff_findings, kit_config_findings, settings_finding};
+use documents::{colors_findings, face_diff_findings, kit_config_findings, player_settings};
 use materials::{TextureSources, held_common, held_textures, texture_findings};
 use model::{MaterialRead, ModelKind, fired};
 use pairings::{material_finding, pairings, searched_common_mtls, used_names};
@@ -109,7 +110,7 @@ pub(crate) use documents::version_clamped;
 pub(crate) use model::{FAR_VERTEX_CODES, Fired, summed};
 
 /// What the deep pass found in one export (`content_findings`).
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq)]
 pub(crate) struct ContentPass {
     /// The content findings, in file order.
     pub(crate) findings: Vec<ContentFinding>,
@@ -133,6 +134,10 @@ pub(crate) struct ContentPass {
     /// is hidden (`model_hidden_dropped`), which a `.common` link naming one is dropped with
     /// (`hidden_link_findings`).
     hidden_models: BTreeSet<ScopePath>,
+    /// Each player folder's parsed `settings.toml`, by folder path, which planning resolves
+    /// the compiled players' table rows from. A folder with no such file, or one that does
+    /// not parse (`settings_toml_invalid`, the file dropped), is not among them.
+    pub(crate) settings: BTreeMap<ScopePath, PlayerSettings>,
 }
 
 impl ContentPass {
@@ -152,6 +157,7 @@ impl ContentPass {
         self.metal_models.extend(other.metal_models);
         self.materials.extend(other.materials);
         self.hidden_models.extend(other.hidden_models);
+        self.settings.extend(other.settings);
     }
 }
 
@@ -423,7 +429,14 @@ pub(crate) fn content_findings(
                     engine,
                 ));
             }
-            findings.extend(settings_finding(content, player));
+            match player_settings(content, player) {
+                Ok(settings) => {
+                    if let Some(settings) = settings {
+                        pass.settings.insert(player.path.clone(), settings);
+                    }
+                }
+                Err(finding) => findings.push(finding),
+            }
             pass
         })
         .collect();
@@ -1524,6 +1537,7 @@ fn file_outcome(
         metal_models,
         materials,
         hidden_models,
+        settings: BTreeMap::new(),
     }
 }
 

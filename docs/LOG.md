@@ -2009,3 +2009,5 @@ worklog passed 7,000 lines.
   records its shared IDs and a Midcup keeps them (TC-BIN-34 to 36, step 5.3a).
 - **2026-10-15** — 5.y-gloves: a pre-Fox gloves output packs every `.mtl` at its root under a
   flattened name, so no texture path climbs (TC-MOD-93; TC-MOD-74 withdrawn).
+- **2026-10-15** — 5.3a1: on Fox every compiled player gets his appearance row from his
+  `settings.toml` and his boots and gloves IDs by the plan's resolution (TC-BIN-25 to 29).

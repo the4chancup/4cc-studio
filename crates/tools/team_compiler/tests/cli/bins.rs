@@ -6,6 +6,8 @@ use std::fs;
 use std::path::Path;
 
 use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
+use pes_savefile::player_tables::{AppearanceTable, PlayerTableFile};
+use pes_savefile::settings_toml::PlayerSettings;
 use pes_version::PesVersion;
 use uniparam::UniformParameter;
 
@@ -540,6 +542,10 @@ fn a_midcup_fpc_on_export_patches_the_installed_configs_of_the_kits_it_does_not_
     expected.extend([
         "co Midcup Kits: Info kit_config_fpc_adjusted [Keep] (slot=p1)".to_owned(),
         "co Midcup Kits: Warning kit_config_fpc_unpatched [Keep] (slot=p3)".to_owned(),
+        // The fpc_on player's resolved boots, gloves and appearance rows: no installed table.
+        "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)".to_owned(),
+        "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)".to_owned(),
+        "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)".to_owned(),
     ]);
     expected.push(deploy_skipped(&sandbox));
     assert_eq!(run.messages(), expected);
@@ -1001,9 +1007,9 @@ pub(crate) fn pairs_of(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> Vec<(
         .collect()
 }
 
-// TC-BIN-10
+// TC-BIN-25
 #[test]
-fn a_compiled_player_s_boots_row_joins_the_installed_list_and_the_other_tables_pass_through() {
+fn a_compiled_player_s_three_rows_join_the_installed_tables_which_keep_theirs() {
     let sandbox = Sandbox::new("bins_player_tables");
     let gloves = item_list(&INSTALLED_GLOVES);
     let appearance = player_appearance();
@@ -1015,10 +1021,13 @@ fn a_compiled_player_s_boots_row_joins_the_installed_list_and_the_other_tables_p
             (PLAYER_APPEARANCE, &appearance),
         ],
     );
+    let folder = "exports/co Full Boots/Players/05 - A";
     sandbox.write(
-        "exports/co Midcup Boots/Players/05 - A/boots.fmdl",
+        &format!("{folder}/boots.fmdl"),
         &tracer_player_file("boots.fmdl"),
     );
+    let toml = "[appearance]\nskin_color = 3\n";
+    sandbox.write(&format!("{folder}/settings.toml"), toml.as_bytes());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
@@ -1050,11 +1059,27 @@ fn a_compiled_player_s_boots_row_joins_the_installed_list_and_the_other_tables_p
         expected,
         "eleven pairs sorted by player id"
     );
-    assert!(entries[GLOVE_LIST] == gloves, "GloveList.bin unchanged");
-    assert!(
-        entries[PLAYER_APPEARANCE] == appearance,
-        "PlayerAppearance.bin unchanged"
+    // No gloves and no marker: the Full export's default ID.
+    let mut expected_gloves = INSTALLED_GLOVES.to_vec();
+    expected_gloves.push((71405, 0));
+    assert_eq!(
+        pairs_of(&entries, GLOVE_LIST),
+        expected_gloves,
+        "the compiled player's gloves row gains the default ID"
     );
+    // His settings.toml's row joins the two installed ones, sorted after them.
+    let settings = PlayerSettings::parse(toml).unwrap();
+    let row = settings.appearance_row(71405, PesVersion::Pes21).unwrap();
+    assert_ne!(
+        row,
+        PlayerSettings::default()
+            .appearance_row(71405, PesVersion::Pes21)
+            .unwrap(),
+        "the authored key changes the row"
+    );
+    let mut expected_appearance = appearance.clone();
+    expected_appearance.extend(row);
+    assert_eq!(entries[PLAYER_APPEARANCE], expected_appearance);
 }
 
 // TC-BIN-11
@@ -1124,19 +1149,19 @@ fn a_player_s_own_gloves_and_a_linked_shared_folder_s_set_their_gloves_rows() {
     );
 }
 
-// TC-BIN-17
+// TC-BIN-26
 #[test]
-fn a_full_export_removes_the_boots_row_of_a_player_with_no_boots_and_a_midcup_keeps_it() {
+fn a_full_export_zeroes_a_markerless_player_s_boots_row_and_a_midcup_keeps_it() {
     for (coverage, expected) in [
-        ("Full", vec![(70201, 11), (71405, 625)]),
-        ("Midcup", vec![(70201, 11), (71405, 625), (71406, 9)]),
+        ("Full", vec![(71405, 625), (71406, 0), (71407, 0)]),
+        ("Midcup", vec![(71405, 625), (71406, 9), (71407, 0)]),
     ] {
         let sandbox = Sandbox::new(&format!("bins_boots_rows_{coverage}"));
         install_tables(
             &sandbox,
             &[(
                 BOOTS_LIST,
-                &item_list(&[(70201, 11), (71405, 7), (71406, 9)]),
+                &item_list(&[(71405, 7), (71406, 9), (71407, 55)]),
             )],
         );
         let export = format!("exports/co {coverage} Boots");
@@ -1148,6 +1173,11 @@ fn a_full_export_removes_the_boots_row_of_a_player_with_no_boots_and_a_midcup_ke
             &format!("{export}/Players/06 - B/face_high.fmdl"),
             &clean_model(),
         );
+        sandbox.write(
+            &format!("{export}/Players/07 - C/face_high.fmdl"),
+            &clean_model(),
+        );
+        sandbox.write(&format!("{export}/Players/07 - C/fpc_off"), b"");
 
         let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
@@ -1157,12 +1187,12 @@ fn a_full_export_removes_the_boots_row_of_a_player_with_no_boots_and_a_midcup_ke
     }
 }
 
-// TC-BIN-22
+// TC-BIN-27
 #[test]
-fn with_no_installed_list_the_boots_row_is_left_out_and_reported() {
+fn with_no_installed_tables_the_run_s_rows_are_left_out_and_each_table_reported() {
     let sandbox = Sandbox::new("bins_no_tables");
     sandbox.write(
-        "exports/co Midcup Boots/Players/05 - A/boots.fmdl",
+        "exports/co Full Boots/Players/05 - A/boots.fmdl",
         &tracer_player_file("boots.fmdl"),
     );
 
@@ -1176,11 +1206,135 @@ fn with_no_installed_list_the_boots_row_is_left_out_and_reported() {
         .collect();
     assert_eq!(
         missing,
-        ["Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)"]
+        [
+            "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)",
+            "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)",
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
+        ]
     );
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert!(entries.contains_key("Asset/model/character/boots/k0625/#Win/boots.fpk"));
     for table in [BOOTS_LIST, GLOVE_LIST, PLAYER_APPEARANCE] {
         assert!(!entries.contains_key(table), "no {table}");
     }
+}
+
+// TC-BIN-28
+#[test]
+fn a_compiled_player_s_appearance_row_is_his_settings_toml_s_not_the_installed_one() {
+    let sandbox = Sandbox::new("bins_appearance_rows");
+    // The installed rows the compile replaces: a row of set bytes for each of 71405 and
+    // 71406, nothing like what a settings.toml builds.
+    let mut installed = Vec::new();
+    for player_id in [71405u32, 71406] {
+        installed.extend(player_id.to_le_bytes());
+        installed.extend([0xaa; 56]);
+    }
+    install_tables(&sandbox, &[(PLAYER_APPEARANCE, &installed)]);
+    let export = "exports/co Full Appearance";
+    // Slot 05's folder, with one appearance key authored; folder B, a face and no
+    // settings.toml, mapped to 06 and 08.
+    sandbox.write(
+        "exports/co Full Appearance/players.txt",
+        b"05 A\n06 B\n08 B\n",
+    );
+    let toml = "[appearance]\nskin_color = 3\n";
+    sandbox.write(
+        &format!("{export}/Players/A/settings.toml"),
+        toml.as_bytes(),
+    );
+    sandbox.write(
+        &format!("{export}/Players/B/face_high.fmdl"),
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let table = AppearanceTable::read(
+        PlayerTableFile::PlayerAppearance,
+        &entries[PLAYER_APPEARANCE],
+    )
+    .unwrap();
+    let default = PlayerSettings::default();
+    let authored = PlayerSettings::parse(toml).unwrap();
+    let with_key = authored.appearance_row(71405, PesVersion::Pes21).unwrap();
+    let template = default.appearance_row(71406, PesVersion::Pes21).unwrap();
+    assert_ne!(with_key[4..], template[4..], "the authored key sets a byte");
+    assert_eq!(
+        table.get(71405).copied(),
+        Some(with_key[4..].try_into().unwrap()),
+        "71405's row is the template's defaults with the key's value"
+    );
+    assert_eq!(
+        table.get(71406).copied(),
+        Some(template[4..].try_into().unwrap()),
+        "71406's row is the template's defaults"
+    );
+    assert_eq!(
+        table.get(71408).copied(),
+        Some(template[4..].try_into().unwrap()),
+        "71408's row is the template's defaults"
+    );
+    assert!(
+        !entries[PLAYER_APPEARANCE]
+            .windows(56)
+            .any(|row| row.iter().all(|&byte| byte == 0xaa)),
+        "nothing of either installed row remains"
+    );
+}
+
+// TC-BIN-29
+#[test]
+fn the_authored_stock_id_the_marker_defaults_and_the_assigned_id_resolve_in_order() {
+    let sandbox = Sandbox::new("bins_id_resolution");
+    install_tables(
+        &sandbox,
+        &[
+            (BOOTS_LIST, &item_list(&[(70201, 11)])),
+            (GLOVE_LIST, &item_list(&[(70201, 31)])),
+        ],
+    );
+    let export = "exports/co Full Ids";
+    // Slot 05: fpc_on and an authored stock boots ID.
+    sandbox.write(&format!("{export}/Players/05 - A/fpc_on"), b"");
+    sandbox.write(
+        &format!("{export}/Players/05 - A/settings.toml"),
+        b"boots_id = 12\n",
+    );
+    // Slot 06: fpc_on, nothing else.
+    sandbox.write(&format!("{export}/Players/06 - B/fpc_on"), b"");
+    sandbox.write(
+        &format!("{export}/Players/06 - B/face_high.fmdl"),
+        &clean_model(),
+    );
+    // Slot 07: its own boots and an authored stock boots ID, which loses.
+    sandbox.write(
+        &format!("{export}/Players/07 - C/boots.fmdl"),
+        &tracer_player_file("boots.fmdl"),
+    );
+    sandbox.write(
+        &format!("{export}/Players/07 - C/settings.toml"),
+        b"boots_id = 12\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        lines.iter().any(|line| line
+            == "co Full Ids: Warning settings_model_id_conflict [Keep] at Players/07 - C (key=boots_id)"),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        pairs_of(&entries, BOOTS_LIST),
+        [(70201, 11), (71405, 12), (71406, 55), (71407, 627)]
+    );
+    assert_eq!(
+        pairs_of(&entries, GLOVE_LIST),
+        [(70201, 31), (71405, 11), (71406, 11), (71407, 0)]
+    );
 }

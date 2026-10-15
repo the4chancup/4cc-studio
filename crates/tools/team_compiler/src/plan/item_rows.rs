@@ -1,14 +1,19 @@
-//! The compiled players' rows of `BootsList.bin` and `GloveList.bin` (`team_compiler/pipeline.md`
-//! "Bins accumulation"), decided at planning from the `Models` tasks: a player whose boots or
-//! gloves a task builds is pointed at the ID the task emits them under once it commits, and a
-//! `Full` export's player with none loses his installed row.
+//! The compiled players' rows of the three Fox player tables (`team_compiler/pipeline.md`
+//! "Bins accumulation"), decided at planning: `PlayerAppearance.bin` from each folder's
+//! `settings.toml` (the template's when it has none), `BootsList.bin` and `GloveList.bin`
+//! by the resolution of `aesthetics_export/settings_toml.md`: the folder's own models or a
+//! link file take the ID a `Models` task emits them under once it commits, an authored
+//! stock ID is written as is, and else the marker or the coverage decides the default.
 
-use aesthetics_export::ExportCoverage;
+use aesthetics_export::{ExportCoverage, FpcDirective};
+use pes_savefile::settings_toml::PlayerSettings;
+use studio_core::{Disposition, ExportId, Message, Scope};
 use vtree::ScopePath;
 
 use super::roles::ModelPackage;
 use super::{BuildTask, TaskKind};
 use crate::bins::player_tables::ItemTable;
+use crate::messages::{Code, tool_message};
 use crate::paths::PackageKey;
 
 /// One compiled player's row of `BootsList.bin` or `GloveList.bin`, as planning decides it
@@ -19,18 +24,34 @@ pub(crate) struct ItemRow {
     pub(crate) table: ItemTable,
     /// The player's id: his team ID times 100 plus his roster slot (71405).
     pub(crate) player_id: u32,
-    /// What happens to his row.
-    pub(crate) change: RowChange,
+    /// What his row's item ID becomes.
+    pub(crate) id: u32,
+    /// The manifest position of the task putting the item under `id` into the CPK: the row
+    /// is set only once it commits, the installed row staying when it does not. `None` for
+    /// an authored stock ID or a resolved default, which no task emits.
+    pub(crate) task: Option<usize>,
 }
 
-/// What a compile does to a player's row.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RowChange {
-    /// The row becomes (player id, `id`) when manifest task `task` commits, the task that puts
-    /// the item under `id` into the CPK; else the installed row stays.
-    Set { id: u32, task: usize },
-    /// A `Full` export's compiled player with no item of the table: the installed row goes.
-    Remove,
+/// One compiled player's `PlayerAppearance.bin` row, as planning decides it: the writer
+/// builds it from `settings` (`PlayerSettings::appearance_row`), the folder's
+/// `settings.toml` or the template's when it has none; nothing of the installed row
+/// survives. It is written whatever his tasks' outcomes.
+#[derive(Debug, PartialEq)]
+pub(crate) struct AppearanceRow {
+    /// The player's id.
+    pub(crate) player_id: u32,
+    /// What his row is built from.
+    pub(crate) settings: PlayerSettings,
+}
+
+/// A run's compiled players' rows of the three Fox tables (`export_rows`): what the writer
+/// applies to the installed tables.
+#[derive(Debug, Default, PartialEq)]
+pub(crate) struct PlayerRows {
+    /// The `BootsList.bin`/`GloveList.bin` rows.
+    pub(crate) items: Vec<ItemRow>,
+    /// The `PlayerAppearance.bin` rows.
+    pub(crate) appearance: Vec<AppearanceRow>,
 }
 
 /// A compiled player folder as its rows need it.
@@ -42,23 +63,40 @@ pub(super) struct RowPlayer {
     pub(super) player_ids: Vec<u32>,
     /// The export paths of the shared folders the player folder links.
     pub(super) linked: Vec<ScopePath>,
+    /// The folder's `fpc_on`/`fpc_off` marker; `None` when it has none.
+    pub(super) fpc: Option<FpcDirective>,
+    /// The folder's parsed `settings.toml`; `None` when it has none (the row is the
+    /// template's).
+    pub(super) settings: Option<PlayerSettings>,
 }
 
-/// The rows of `players`, the compiled player folders of one export whose `coverage` is given,
-/// against `tasks`, the manifest so far, whose export's tasks start at `first`. A player's
-/// boots come from his folder's own boots package, emitted under each of his slots' exclusive
-/// ids, or else from the package of a shared boots folder he links, emitted under its shared
-/// id: `Set` with that task. A link that combines makes the shared folder a part of his own
-/// package, so his own task is the one. With neither, his row is removed for a `Full` export
-/// and left alone for a `Midcup` one. Gloves alike.
+/// The rows of `players`, the compiled player folders of one export whose `coverage` is
+/// given, against `tasks`, the manifest so far, whose export's tasks start at `first`: the
+/// `BootsList.bin`/`GloveList.bin` rows and the `PlayerAppearance.bin` ones. Per category
+/// and in the resolution's order: a player's own package, emitted under each of his slots'
+/// exclusive ids, or the package of a shared folder he links, emitted under its shared id,
+/// each gated on its task, and an authored stock ID for that category then ignored with
+/// `settings_model_id_conflict` on the folder. A link that combines makes the shared folder
+/// a part of his own package, so his own task is the one. With neither, an authored stock
+/// ID is written, else the default `default_id` resolves: the hide preset's nonexistent ID
+/// for `fpc_on`, 0 for `fpc_off` or a `Full` export's markerless player, and no row for a
+/// `Midcup` one's, who keeps his installed row. Gloves alike.
 pub(super) fn export_rows(
     tasks: &[BuildTask],
     first: usize,
     players: &[RowPlayer],
     coverage: ExportCoverage,
-) -> Vec<ItemRow> {
-    let mut rows = Vec::new();
+    export_id: ExportId,
+    messages: &mut Vec<Message>,
+) -> PlayerRows {
+    let mut items = Vec::new();
+    let mut appearance = Vec::new();
     for player in players {
+        let settings = player.settings.clone().unwrap_or_default();
+        appearance.extend(player.player_ids.iter().map(|player_id| AppearanceRow {
+            player_id: *player_id,
+            settings: settings.clone(),
+        }));
         for table in ItemTable::ALL {
             let package = package(table);
             let own = models_task(tasks, first, &player.path, package)
@@ -73,27 +111,85 @@ pub(super) fn export_rows(
                 })
             };
             match own.or_else(linked) {
-                Some((task, ids)) => rows.extend(player.player_ids.iter().zip(ids).map(
-                    |(player_id, id)| ItemRow {
-                        table,
-                        player_id: *player_id,
-                        change: RowChange::Set { id, task },
-                    },
-                )),
-                None => match coverage {
-                    ExportCoverage::Full => {
-                        rows.extend(player.player_ids.iter().map(|player_id| ItemRow {
+                Some((task, ids)) => {
+                    if authored_id(player.settings.as_ref(), table).is_some() {
+                        messages.push(tool_message(
+                            Code::SettingsModelIdConflict,
+                            Scope::Folder {
+                                export_id,
+                                path: player.path.clone(),
+                            },
+                            Disposition::Keep,
+                            vec![("key", key(table).to_owned())],
+                        ));
+                    }
+                    items.extend(player.player_ids.iter().zip(ids).map(|(player_id, id)| {
+                        ItemRow {
                             table,
                             player_id: *player_id,
-                            change: RowChange::Remove,
-                        }))
+                            id,
+                            task: Some(task),
+                        }
+                    }));
+                }
+                None => {
+                    let id = authored_id(player.settings.as_ref(), table)
+                        .map(u32::from)
+                        .or_else(|| default_id(player.fpc, table, coverage));
+                    if let Some(id) = id {
+                        items.extend(player.player_ids.iter().map(|player_id| ItemRow {
+                            table,
+                            player_id: *player_id,
+                            id,
+                            task: None,
+                        }));
                     }
-                    ExportCoverage::Midcup => {}
-                },
+                }
             }
         }
     }
-    rows
+    PlayerRows { items, appearance }
+}
+
+/// The stock ID `settings` authors for `table`'s category; `None` for `""` or an absent
+/// `boots_id`/`gloves_id` key, or no `settings.toml` at all.
+fn authored_id(settings: Option<&PlayerSettings>, table: ItemTable) -> Option<u8> {
+    let settings = settings?;
+    match table {
+        ItemTable::Boots => settings.boots_id,
+        ItemTable::Gloves => settings.gloves_id,
+    }
+}
+
+/// The `boots_id`/`gloves_id` key of `table`'s category, as `settings_model_id_conflict`
+/// names it.
+fn key(table: ItemTable) -> &'static str {
+    match table {
+        ItemTable::Boots => "boots_id",
+        ItemTable::Gloves => "gloves_id",
+    }
+}
+
+/// The ID the resolution's default rule gives a player whose folder provides neither the
+/// category's models nor a stock key: the hide preset's nonexistent ID for `fpc_on`, 0 for
+/// `fpc_off` or no marker of a `Full` export's player, and no row for a `Midcup` export's
+/// markerless player, who keeps his installed row.
+fn default_id(
+    fpc: Option<FpcDirective>,
+    table: ItemTable,
+    coverage: ExportCoverage,
+) -> Option<u32> {
+    match fpc {
+        Some(FpcDirective::On) => Some(u32::from(match table {
+            ItemTable::Boots => fpc::NONEXISTENT_BOOTS_ID,
+            ItemTable::Gloves => fpc::NONEXISTENT_GLOVES_ID,
+        })),
+        Some(FpcDirective::Off) => Some(0),
+        None => match coverage {
+            ExportCoverage::Full => Some(0),
+            ExportCoverage::Midcup => None,
+        },
+    }
 }
 
 /// The boots or gloves id a team player's package is emitted under, which his row points at.
@@ -198,7 +294,7 @@ mod tests {
                 | TaskKind::Collar { .. } => None,
             })
             .collect();
-        (report.manifest.item_rows, models)
+        (report.manifest.player_rows.items, models)
     }
 
     /// The row setting `player_id`'s item of `table` to `id` once task `task` commits.
@@ -206,16 +302,19 @@ mod tests {
         ItemRow {
             table,
             player_id,
-            change: RowChange::Set { id, task },
+            id,
+            task: Some(task),
         }
     }
 
-    /// The row removing `player_id`'s item of `table`.
-    fn remove(table: ItemTable, player_id: u32) -> ItemRow {
+    /// The row setting `player_id`'s item of `table` to `id` unconditionally: an authored
+    /// stock ID or a resolved default, which no task emits.
+    fn default(table: ItemTable, player_id: u32, id: u32) -> ItemRow {
         ItemRow {
             table,
             player_id,
-            change: RowChange::Remove,
+            id,
+            task: None,
         }
     }
 
@@ -234,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn a_full_export_sets_its_players_rows_from_their_tasks_and_removes_the_rest() {
+    fn a_full_export_sets_its_players_rows_from_their_tasks_and_defaults_the_rest() {
         let (rows, models) = planned("Full");
         assert_eq!(models, expected_models());
         assert_eq!(
@@ -242,10 +341,10 @@ mod tests {
             [
                 set(ItemTable::Boots, 71405, 625, 1),
                 set(ItemTable::Gloves, 71405, 644, 5),
-                remove(ItemTable::Boots, 71406),
-                remove(ItemTable::Gloves, 71406),
+                default(ItemTable::Boots, 71406, 0),
+                default(ItemTable::Gloves, 71406, 0),
                 set(ItemTable::Boots, 71407, 627, 4),
-                remove(ItemTable::Gloves, 71407),
+                default(ItemTable::Gloves, 71407, 0),
             ]
         );
     }
@@ -282,7 +381,7 @@ mod tests {
         );
         // A's face (0) and boots (1) under slots 03 and 08; B's face (2); Keeper's gloves (3).
         assert_eq!(
-            report.manifest.item_rows,
+            report.manifest.player_rows.items,
             [
                 set(ItemTable::Boots, 71403, 623, 1),
                 set(ItemTable::Boots, 71408, 628, 1),
@@ -290,5 +389,14 @@ mod tests {
                 set(ItemTable::Gloves, 71411, 644, 3),
             ]
         );
+        // And each slot its own appearance row, the template's while the folder has none.
+        let appearance: Vec<u32> = report
+            .manifest
+            .player_rows
+            .appearance
+            .iter()
+            .map(|row| row.player_id)
+            .collect();
+        assert_eq!(appearance, [71403, 71408, 71409, 71411]);
     }
 }

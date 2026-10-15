@@ -1033,13 +1033,17 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     marks the TC-BIN-10/17/22 it restates `withdrawn: restated as TC-BIN-25/26/27` in the commit
     that rewires its citing test (`tests/cli/bins.rs`); TC-BIN-31 to 33's patch halves wait for
     5.3b:
-    - [ ] 5.3a1 the settings carried from the deep pass into planning; an appearance row per
+    - [x] 5.3a1 the settings carried from the deep pass into planning; an appearance row per
       compiled player (`PlayerSettings::appearance_row`); the boots and gloves IDs resolved
       (`settings_toml.md`: the folder's model, a stock key, the marker's or 0, a Midcup keeping
       the installed row), `settings_model_id_conflict`; `player_table_missing` over all three
       tables → done when: TC-BIN-25 to 29 pass, TC-BIN-10/17/22 withdrawn (appearance rows and
       default IDs land together: TC-BIN-25 and 27 need the gloves 0 row, and the appearance rows
-      change what TC-BIN-10's test asserts)
+      change what TC-BIN-10's test asserts). Done: `PlayerRows` (items and appearance rows) in
+      the manifest, rows built at the writer into an `AppearanceTable`; `RowChange` gone (a
+      row with no task is set outright). `team_compiler` `deep/`, `validation.rs`,
+      `plan/item_rows.rs`, `plan/mod.rs`, `bins/`, `output/writer.rs`, `messages.rs`, tests
+      (`tests/cli/bins.rs` and the message lists gaining `player_table_missing` lines)
     - [ ] 5.3a2 a failed task keeps the installed ID, an invalid `settings.toml` writes the
       template's row; in multi-CPK mode the player tables' walk starts at the bins CPK itself
       (`spec/team_compiler/pipeline.md` "Bins accumulation" says so, the code's walk skips it)
@@ -1047,7 +1051,10 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     - [ ] 5.3a3 the per-version range in `pes_savefile` (today `PlayerSettings::apply` takes a PES
       21 file's `hunching_dribbling = 5` for PES 18 and the codec refuses it only at write,
       review R2.S1-1) and `settings_value_out_of_range` (a key's default; a key the target lacks
-      dropped silently) → done when: TC-BIN-31's table half passes (its PES 18 half after 5.1b)
+      dropped silently) → done when: TC-BIN-31's table half passes, on PES 18 and 21.
+      Runs before 5.3a2: since 5.3a1 a value inside its key's widest range but past the
+      target's field (`hunching_dribbling = 5` for PES 18) fails `appearance_row` and stops the
+      whole compile ("cannot build player N's PlayerAppearance.bin row")
     - [ ] 5.3a4 FPC presets on a player's settings and their findings → done when: TC-BIN-29, 30
       and TC-REF-19 pass
     - [ ] 5.3a5 the shared-ID record and a Midcup reading it

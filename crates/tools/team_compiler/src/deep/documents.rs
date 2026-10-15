@@ -253,14 +253,16 @@ pub(crate) fn version_clamped(
         .collect()
 }
 
-/// `settings_toml_invalid` when `player` has a `settings.toml` that is not UTF-8 or that
-/// `PlayerSettings::parse` refuses: the file alone is dropped, the folder's models still
-/// compile, and the savefile keeps the player's values.
-pub(super) fn settings_finding(
+/// `player`'s `settings.toml` parsed; `None` when it has none. `settings_toml_invalid` when
+/// it is not UTF-8 or `PlayerSettings::parse` refuses: the file alone is dropped, the
+/// folder's models still compile, and the player's look is the template's.
+pub(super) fn player_settings(
     content: &ContentSource,
     player: &PlayerFolder,
-) -> Option<ContentFinding> {
-    let file = player.settings.as_ref()?;
+) -> Result<Option<PlayerSettings>, ContentFinding> {
+    let Some(file) = player.settings.as_ref() else {
+        return Ok(None);
+    };
     parsed_toml(
         content,
         file,
@@ -269,7 +271,7 @@ pub(super) fn settings_finding(
         Disposition::DropFile,
         PlayerSettings::parse,
     )
-    .err()
+    .map(Some)
 }
 
 /// One `color_entry_invalid` per line the `colors.txt` `file` refuses (`read_colors_txt`, keeping

@@ -1922,13 +1922,8 @@ TC-BIN-21  GIVEN TC-BIN-05's install with 4cc_61_midcup.cpk replaced by bytes th
            WHEN a /co/ export is compiled with cpk_name 4cc_99_test
            THEN installed_bin_unreadable is reported naming 4cc_61_midcup.cpk, no export is
                 read, no CPK is written, and the exit code is 3
-TC-BIN-10  GIVEN an installed BootsList.bin of ten pairs, a GloveList.bin and a
-           PlayerAppearance.bin, none of them for a team 714 player, and a /co/ export whose
-           slot 05 holds boots.fmdl
-           WHEN it is compiled for PES 21
-           THEN the CPK's BootsList.bin holds eleven pairs sorted by player id with (71405, 625)
-                among them and the ten unchanged; GloveList.bin and PlayerAppearance.bin are
-                byte-identical to the installed ones
+TC-BIN-10  withdrawn: restated as TC-BIN-25 (`plans/team_compiler/README.md`), which also
+           gives the compiled player's gloves and appearance rows
 TC-BIN-11  GIVEN slot 05 holding boots.fmdl whose task fails, and an installed pair (71405, 7)
            WHEN the export is compiled for PES 21
            THEN BootsList.bin keeps (71405, 7)
@@ -1957,11 +1952,8 @@ TC-BIN-16  GIVEN an installed UniformParameter.bin holding team 714's p1, p2 and
            WHEN it is compiled for PES 21
            THEN the emitted UniformParameter.bin holds team 714's p1 config and neither its p2
                 nor its p3, and team 702's p1 unchanged
-TC-BIN-17  GIVEN an installed BootsList.bin holding (71405, 7) and (71406, 9), and a /co/ export
-           whose slot 05 holds boots.fmdl and whose slot 06 holds no boots
-           WHEN it is compiled for PES 21 as a Full export, then as a Midcup export
-           THEN the Full run's BootsList.bin holds (71405, 625) and no row for 71406, and the
-                Midcup run's holds (71405, 625) and (71406, 9)
+TC-BIN-17  withdrawn: restated as TC-BIN-26 (`plans/team_compiler/README.md`), a Full export's
+           markerless player now getting the default ID rather than losing his row
 TC-BIN-18  GIVEN an installed CPK holding team 714's loose p1 kit config without the FPC values
            (shirt model 144), and a Midcup /co/
            export with fpc_on and only p2/
@@ -1982,10 +1974,8 @@ TC-BIN-20  GIVEN a Full /co/ export with kits p1 and p2 and no g1/, and a Midcup
            WHEN they are compiled for PES 21
            THEN /co/ gets g1 as an empty g1/ (kit_placeholder for g1; its UniColor.bin record
                 has a kit count of 3) and /a/ gets no placeholder kit
-TC-BIN-22  GIVEN no PES install configured, and a /co/ export whose slot 05 holds boots.fmdl
-           WHEN it is compiled for PES 21
-           THEN the CPK holds k0625's boots and no BootsList.bin, GloveList.bin or
-                PlayerAppearance.bin, and player_table_missing names BootsList.bin with 1 row
+TC-BIN-22  withdrawn: restated as TC-BIN-27 (`plans/team_compiler/README.md`), which names
+           each of the three tables
 TC-BIN-23  GIVEN an installed UniColor.bin whose team 714 record holds kits p1, p2 and p3, an
            installed UniformParameter.bin holding team 714's p1 entry and no p3 entry, and
            a Midcup /co/ export with Collars/collar_12.fmdl (or .model), only p2/ and no fpc_on

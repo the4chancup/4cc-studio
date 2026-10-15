@@ -18,6 +18,7 @@ use aesthetics_export::{
     SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, common_link_target, kit_folder,
 };
 use kit_config::KitSlot;
+use pes_savefile::settings_toml::PlayerSettings;
 use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, ExportId, Message, Scope};
 use teams_list::TeamId;
@@ -30,7 +31,7 @@ use crate::mtl_search::mtl_for;
 use crate::paths::{PackageKey, REFEREE_TEAM_ID, TextureHome};
 use collars::export_collar;
 use ids::{PlannedModelIds, shared_folders_taking_ids};
-use item_rows::{ItemRow, RowPlayer, export_rows};
+use item_rows::{PlayerRows, RowPlayer, export_rows};
 use roles::{
     FolderModels, ModelPackage, PlayerFile, below_common, combined_folders, common_file,
     common_folder, common_skeleton, directory_stem, emits_kit_texture, file_stem, is_common_file,
@@ -67,9 +68,9 @@ pub(crate) struct BuildManifest {
     /// Each planned team export's kits, in export order, for its team's `UniColor.bin` record
     /// and `UniformParameter.bin` configs ("Bins accumulation").
     pub(crate) team_kits: Vec<TeamKits>,
-    /// Every planned team export's compiled players' `BootsList.bin` and `GloveList.bin` rows,
-    /// in export order ("Bins accumulation").
-    pub(crate) item_rows: Vec<ItemRow>,
+    /// Every planned team export's compiled players' `BootsList.bin`, `GloveList.bin` and
+    /// `PlayerAppearance.bin` rows, in export order ("Bins accumulation").
+    pub(crate) player_rows: PlayerRows,
     /// Each planned export's team name as messages show it (`/co/`, `/refs/` for the
     /// referees) and the text of its root `notes.txt`, in export order, for `teamnotes.txt`.
     /// An export without a note is not listed.
@@ -971,6 +972,10 @@ pub(crate) struct ExportToPlan {
     /// (`deep::ContentPass::metal_models`): a model folder one of whose pre-Fox packages
     /// converts one of them gets the template environment map (`ModelFolder::environment_map`).
     pub(crate) metal_models: BTreeSet<ScopePath>,
+    /// Each player folder's parsed `settings.toml`, by folder path, as the deep pass found
+    /// them (`deep::ContentPass::settings`): the compiled players' table rows resolve from
+    /// them (`export_rows`).
+    pub(crate) settings: BTreeMap<ScopePath, PlayerSettings>,
 }
 
 /// Plans the run over the identity-resolved exports, given in `ExportId` order, for the target
@@ -991,7 +996,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
     let mut tasks = Vec::new();
     let mut team_colors = Vec::new();
     let mut team_kits = Vec::new();
-    let mut item_rows = Vec::new();
+    let mut player_rows = PlayerRows::default();
     let mut notes = Vec::new();
     let mut messages = Vec::new();
     // Each claimed collar's ID and its claimant's name. Planning is serial and takes the
@@ -1004,6 +1009,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         notes: note,
         hand_weighted,
         metal_models,
+        settings: mut player_settings,
     } in exports
     {
         drop_gltf_folders(export_id, &mut resolved, version, &mut messages);
@@ -1198,6 +1204,8 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     .filter_map(|link| linked_folder(&export, link))
                     .map(|shared| shared.path.clone())
                     .collect(),
+                fpc: folder.fpc,
+                settings: player_settings.remove(&folder.path),
             });
             if let Some(portrait) = &folder.portrait {
                 portraits.extend(
@@ -1308,12 +1316,16 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             Engine::PreFox => false,
         };
         if writes_item_rows {
-            item_rows.extend(export_rows(
+            let rows = export_rows(
                 &tasks,
                 first_task,
                 &row_players,
                 export.coverage,
-            ));
+                export_id,
+                &mut messages,
+            );
+            player_rows.items.extend(rows.items);
+            player_rows.appearance.extend(rows.appearance);
         }
         // A Common textures task per texture directory of `Common/` a target packs — a
         // texture's is the directory above the first kit-token folder below `Common/`
@@ -1506,7 +1518,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             tasks,
             team_colors,
             team_kits,
-            item_rows,
+            player_rows,
             notes,
         },
         messages,
@@ -2215,6 +2227,7 @@ mod tests {
 
     use super::*;
     use crate::testing::{resolved, resolved_with_issues, to_plan, two_team_colors};
+    use item_rows::ItemRow;
 
     /// `keys` as a list (`[71405, 71407]`, `[referee 1, referee 20]`).
     fn keys_text(keys: &[PackageKey]) -> String {
@@ -4258,7 +4271,7 @@ mod tests {
         assert!(report.messages.is_empty(), "{:?}", report.messages);
         assert!(report.manifest.team_colors.is_empty());
         assert!(report.manifest.team_kits.is_empty());
-        assert!(report.manifest.item_rows.is_empty());
+        assert!(report.manifest.player_rows.items.is_empty());
     }
 
     #[test]
@@ -4526,7 +4539,7 @@ mod tests {
             ["Boots/Crocs/boots.model", "Boots/Crocs/boots.mtl"]
         );
         // PES 15-17 have no player tables to point a player at his boots.
-        assert_eq!(report.manifest.item_rows, []);
+        assert_eq!(report.manifest.player_rows.items, []);
     }
 
     #[test]
@@ -5621,7 +5634,8 @@ mod tests {
         // The player's `GloveList.bin` row follows the gloves task, as an authored glove's.
         let gloves: Vec<&ItemRow> = report
             .manifest
-            .item_rows
+            .player_rows
+            .items
             .iter()
             .filter(|row| row.table == crate::bins::player_tables::ItemTable::Gloves)
             .collect();
@@ -5630,7 +5644,8 @@ mod tests {
             [&ItemRow {
                 table: crate::bins::player_tables::ItemTable::Gloves,
                 player_id: 71405,
-                change: item_rows::RowChange::Set { id: 625, task: 1 },
+                id: 625,
+                task: Some(1),
             }]
         );
     }

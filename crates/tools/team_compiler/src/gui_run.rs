@@ -121,7 +121,7 @@ mod tests {
 
     /// The lines of a clean compile of the sandbox's tracer export, installed into its PES
     /// folder (`install_pes`).
-    const TRACER_LINES: [&str; 10] = [
+    const TRACER_LINES: [&str; 11] = [
         "- Info bin_source (bin=TeamColor.bin, cpk=bundled)",
         "- Info bin_source (bin=UniColor.bin, cpk=bundled)",
         "- Info bin_source (bin=UniformParameter.bin, cpk=bundled)",
@@ -131,6 +131,7 @@ mod tests {
         "- egg Midcup Tracer: Info export_identified (team=/egg/, id=792)",
         "- Warning player_table_missing (table=BootsList.bin, rows=1)",
         "- Warning player_table_missing (table=GloveList.bin, rows=1)",
+        "- Warning player_table_missing (table=PlayerAppearance.bin, rows=1)",
         "Run finished: exit code 0",
     ];
 

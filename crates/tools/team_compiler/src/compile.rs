@@ -315,6 +315,7 @@ fn plan(
                 notes: checked.notes,
                 hand_weighted: checked.hand_weighted,
                 metal_models: checked.metal_models,
+                settings: checked.settings,
             });
         }
         sources.push(CompileSource {
@@ -374,7 +375,7 @@ fn build(
     let tasks = manifest.tasks;
     let team_colors = manifest.team_colors;
     let team_kits = manifest.team_kits;
-    let item_rows = manifest.item_rows;
+    let player_rows = manifest.player_rows;
     let notes = manifest.notes;
     let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
     for (index, task) in tasks.iter().enumerate() {
@@ -468,7 +469,7 @@ fn build(
         let last_tasks = &last_tasks;
         let team_colors = &team_colors;
         let team_kits = &team_kits;
-        let item_rows = &item_rows;
+        let player_rows = &player_rows;
         let budget = &budget;
         let templates = &context.templates;
         let writer = scope.spawn(move || {
@@ -478,7 +479,14 @@ fn build(
             // before a failure removes the staging folder.
             let written = write_batches(batches_rx, &mut output, &mut events, last_tasks, budget)
                 .and_then(|()| {
-                    output.finish(version, bins, team_colors, team_kits, item_rows, templates)
+                    output.finish(
+                        version,
+                        bins,
+                        team_colors,
+                        team_kits,
+                        player_rows,
+                        templates,
+                    )
                 });
             (events, written)
         });

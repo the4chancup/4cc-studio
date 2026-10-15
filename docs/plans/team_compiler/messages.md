@@ -53,7 +53,6 @@ What exists of this is in `spec/team_compiler/messages.md` "Catalog".
 | `fpc_undershorts_break_hiding` | W | likewise, the lib's Error too | written as authored |
 | `fpc_taping_shows_pieces` | I | likewise | written as authored |
 | `fpc_gloves_checkbox_winter_gloves` | W | `libs/fpc`'s rule on any player: the gloves checkbox on with gloves ID 0, whatever the FPC marker (context: the player) | written as authored |
-| `settings_model_id_conflict` | W | `settings.toml` sets `boots_id` or `gloves_id` for a category whose ID the compiler assigns, from the folder's standalone models or a link file (pre-Fox face-XML models assign none; context: the category) | the compiler-assigned ID wins; key ignored |
 | `model_source_ambiguous` | E | duplicate model sources within the selected representation (target-native > glTF > convertible opposite); its input is two glTF files of one stem (`boots.glb` beside `boots.gltf`), so it is first reachable in Phase 7 | folder discarded (`DropFolder`) |
 
 **XML/MTL content checks** (pre-Fox, plus `face_diff.xml` in Fox)

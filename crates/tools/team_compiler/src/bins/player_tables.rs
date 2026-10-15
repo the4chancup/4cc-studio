@@ -11,15 +11,11 @@
 
 use std::collections::BTreeSet;
 
-use anyhow::ensure;
 use pes_savefile::player_tables::{ItemList, PlayerTableFile};
 use studio_core::{Disposition, Message, Scope};
 
 use crate::messages::{Code, tool_message};
-use crate::plan::item_rows::{ItemRow, RowChange};
-
-/// A `PlayerAppearance.bin` row's size: the player id, then 56 appearance bytes.
-const APPEARANCE_ROW: usize = 60;
+use crate::plan::item_rows::ItemRow;
 
 /// One of the two tables pointing a player at his own boots or gloves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,9 +39,9 @@ impl ItemTable {
     }
 }
 
-/// Applies `rows`' rows of `table` to `list`: each `Set` row whose task is among `committed` (the
-/// manifest positions of the batches the writer committed) is set, the others leaving the
-/// installed pair as it is, and each `Remove` row is removed.
+/// Applies `rows`' rows of `table` to `list`: each row with a task is set once that task is
+/// among `committed` (the manifest positions of the batches the writer committed), the
+/// installed pair staying when it is not, and each row with none is set outright.
 pub(crate) fn apply(
     list: &mut ItemList,
     table: ItemTable,
@@ -53,33 +49,26 @@ pub(crate) fn apply(
     committed: &BTreeSet<usize>,
 ) {
     for row in rows.iter().filter(|row| row.table == table) {
-        match row.change {
-            RowChange::Set { id, task } => {
-                if committed.contains(&task) {
-                    list.set(row.player_id, id.to_le_bytes());
-                }
-            }
-            RowChange::Remove => list.remove(row.player_id),
+        match row.task {
+            Some(task) if !committed.contains(&task) => {}
+            _ => list.set(row.player_id, row.id.to_le_bytes()),
         }
     }
 }
 
-/// The `player_table_missing` finding for `table` when no installed CPK holds it: naming it
-/// and counting `rows`' `Set` rows of it whose task is among `committed`, the rows the CPK
-/// leaves out; none when there are no such rows (a `Remove` row has nothing to leave out).
-pub(crate) fn table_missing(
-    table: ItemTable,
-    rows: &[ItemRow],
-    committed: &BTreeSet<usize>,
-) -> Option<Message> {
-    let left_out = rows
-        .iter()
+/// The rows of `table` a missing `BootsList.bin` or `GloveList.bin` leaves out: its `rows`
+/// with no task, or whose task is among `committed`.
+pub(crate) fn left_out(table: ItemTable, rows: &[ItemRow], committed: &BTreeSet<usize>) -> usize {
+    rows.iter()
         .filter(|row| row.table == table)
-        .filter(|row| match row.change {
-            RowChange::Set { task, .. } => committed.contains(&task),
-            RowChange::Remove => false,
-        })
-        .count();
+        .filter(|row| row.task.is_none_or(|task| committed.contains(&task)))
+        .count()
+}
+
+/// The `player_table_missing` finding for a table no CPK of the walk holds when the run has
+/// `left_out` rows for it, naming the table and counting them; none when there are no such
+/// rows.
+pub(crate) fn table_missing(file: PlayerTableFile, left_out: usize) -> Option<Message> {
     if left_out == 0 {
         return None;
     }
@@ -88,21 +77,10 @@ pub(crate) fn table_missing(
         Scope::Run,
         Disposition::Keep,
         vec![
-            ("table", table.file().file_name().to_owned()),
+            ("table", file.file_name().to_owned()),
             ("rows", left_out.to_string()),
         ],
     ))
-}
-
-/// `bytes` as a `PlayerAppearance.bin`, which passes through unchanged: a length that is not a
-/// whole number of 60-byte rows is an error. No row is read.
-pub(crate) fn read_player_appearance(bytes: Vec<u8>) -> anyhow::Result<Vec<u8>> {
-    ensure!(
-        bytes.len().is_multiple_of(APPEARANCE_ROW),
-        "PlayerAppearance.bin is {} bytes, not a whole number of {APPEARANCE_ROW}-byte rows",
-        bytes.len()
-    );
-    Ok(bytes)
 }
 
 #[cfg(test)]
@@ -124,83 +102,97 @@ mod tests {
         ItemList::read(ItemTable::Boots.file(), &bytes_of(pairs)).unwrap()
     }
 
-    /// The row of `table` for `player_id` making `change`.
-    fn row(table: ItemTable, player_id: u32, change: RowChange) -> ItemRow {
+    /// The row of `table` setting `player_id`'s item to `id` once `task` commits (`Some`),
+    /// or unconditionally (`None`).
+    fn row(table: ItemTable, player_id: u32, id: u32, task: Option<usize>) -> ItemRow {
         ItemRow {
             table,
             player_id,
-            change,
+            id,
+            task,
         }
     }
 
     #[test]
-    fn a_player_appearance_bin_is_whole_60_byte_rows_kept_as_they_are() {
-        let rows: Vec<u8> = (0..120).collect();
-        assert_eq!(read_player_appearance(rows.clone()).unwrap(), rows);
-        let error = read_player_appearance(vec![0; 61]).unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            "PlayerAppearance.bin is 61 bytes, not a whole number of 60-byte rows"
-        );
-    }
-
-    #[test]
-    fn a_committed_set_row_is_set_an_uncommitted_one_kept_and_a_remove_row_removed() {
+    fn a_committed_row_is_set_an_uncommitted_one_kept_and_a_taskless_one_set() {
         let mut list = boots(&[(70201, 11), (71405, 7), (71406, 9), (71407, 8)]);
         let rows = [
-            row(ItemTable::Boots, 71405, RowChange::Set { id: 625, task: 1 }),
+            row(ItemTable::Boots, 71405, 625, Some(1)),
             // Its task failed: the installed pair stays.
-            row(ItemTable::Boots, 71407, RowChange::Set { id: 627, task: 2 }),
-            row(ItemTable::Boots, 71406, RowChange::Remove),
-            row(ItemTable::Boots, 71408, RowChange::Set { id: 628, task: 3 }),
+            row(ItemTable::Boots, 71407, 627, Some(2)),
+            // The resolved default, which no task emits.
+            row(ItemTable::Boots, 71406, 0, None),
+            row(ItemTable::Boots, 71408, 628, Some(3)),
             // Another table's rows change nothing here.
-            row(ItemTable::Gloves, 70201, RowChange::Remove),
-            row(
-                ItemTable::Gloves,
-                71409,
-                RowChange::Set { id: 629, task: 1 },
-            ),
+            row(ItemTable::Gloves, 70201, 0, None),
+            row(ItemTable::Gloves, 71409, 629, Some(1)),
         ];
         apply(&mut list, ItemTable::Boots, &rows, &BTreeSet::from([1, 3]));
         assert_eq!(
             list.to_bytes(),
-            bytes_of(&[(70201, 11), (71405, 625), (71407, 8), (71408, 628)])
+            bytes_of(&[
+                (70201, 11),
+                (71405, 625),
+                (71406, 0),
+                (71407, 8),
+                (71408, 628)
+            ])
         );
     }
 
     #[test]
-    fn a_missing_table_counts_its_committed_set_rows_and_says_nothing_without_one() {
+    fn a_missing_table_counts_its_committed_and_taskless_rows_and_says_nothing_without_one() {
         let rows = [
-            row(ItemTable::Boots, 71405, RowChange::Set { id: 625, task: 1 }),
-            row(ItemTable::Boots, 71407, RowChange::Set { id: 627, task: 2 }),
-            row(ItemTable::Boots, 71408, RowChange::Set { id: 628, task: 3 }),
-            row(ItemTable::Boots, 71406, RowChange::Remove),
-            row(ItemTable::Gloves, 71406, RowChange::Remove),
+            row(ItemTable::Boots, 71405, 625, Some(1)),
+            row(ItemTable::Boots, 71407, 627, Some(2)),
+            row(ItemTable::Boots, 71408, 628, Some(3)),
+            row(ItemTable::Boots, 71406, 0, None),
+            row(ItemTable::Gloves, 71406, 0, None),
         ];
         let committed = BTreeSet::from([1, 3]);
+        assert_eq!(left_out(ItemTable::Boots, &rows, &committed), 3);
         assert_eq!(
-            table_missing(ItemTable::Boots, &rows, &committed),
+            left_out(ItemTable::Boots, &rows, &BTreeSet::new()),
+            1,
+            "only the taskless row"
+        );
+        assert_eq!(
+            table_missing(
+                ItemTable::Boots.file(),
+                left_out(ItemTable::Boots, &rows, &committed)
+            ),
             Some(tool_message(
                 Code::PlayerTableMissing,
                 Scope::Run,
                 Disposition::Keep,
                 vec![
                     ("table", "BootsList.bin".to_owned()),
-                    ("rows", "2".to_owned())
+                    ("rows", "3".to_owned())
                 ],
             ))
         );
+        assert_eq!(left_out(ItemTable::Gloves, &rows, &committed), 1);
         assert_eq!(
-            table_missing(ItemTable::Boots, &rows, &BTreeSet::new()),
-            None,
-            "no Set row committed"
+            table_missing(
+                ItemTable::Gloves.file(),
+                left_out(ItemTable::Gloves, &rows, &committed)
+            ),
+            Some(tool_message(
+                Code::PlayerTableMissing,
+                Scope::Run,
+                Disposition::Keep,
+                vec![
+                    ("table", "GloveList.bin".to_owned()),
+                    ("rows", "1".to_owned())
+                ],
+            ))
         );
-        assert_eq!(
-            table_missing(ItemTable::Gloves, &rows, &committed),
-            None,
-            "only a Remove row"
-        );
-        let message = table_missing(ItemTable::Boots, &rows, &committed).unwrap();
+        assert_eq!(table_missing(ItemTable::Boots.file(), 0), None);
+        let message = table_missing(
+            ItemTable::Boots.file(),
+            left_out(ItemTable::Boots, &rows, &committed),
+        )
+        .unwrap();
         assert_eq!(message.severity, studio_core::Severity::Warning);
     }
 }

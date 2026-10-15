@@ -17,17 +17,17 @@ use kit_config::KitConfig;
 use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, Message, Scope};
 
-use pes_savefile::player_tables::{ItemList, PlayerTableFile};
+use pes_savefile::player_tables::{AppearanceTable, ItemList, PlayerTableFile};
 
 use crate::bins::kit_configs::{kit_configs, loose_kit_configs};
-use crate::bins::player_tables::{ItemTable, apply, table_missing};
+use crate::bins::player_tables::{ItemTable, apply, left_out, table_missing};
 use crate::bins::{KitColorEntry, Rgb, WorkingBins, uni_color_kit_number};
 use crate::messages::{Code, tool_message};
 use crate::output::parts::TeamsParts;
 use crate::output::sink::OutputSink;
 use crate::paths::{self, REFEREE_MARKER_COLLAR};
 use crate::plan::TeamKits;
-use crate::plan::item_rows::ItemRow;
+use crate::plan::item_rows::PlayerRows;
 use crate::processing::TaskBatch;
 use crate::templates::Templates;
 
@@ -293,7 +293,7 @@ impl CpkOutput {
         bins: WorkingBins,
         team_colors: &[(u16, Vec<Rgb>)],
         team_kits: &[TeamKits],
-        item_rows: &[ItemRow],
+        player_rows: &PlayerRows,
         templates: &Templates,
     ) -> anyhow::Result<(Written, Vec<Message>)> {
         ensure!(
@@ -307,7 +307,7 @@ impl CpkOutput {
             None => false,
         };
         let (team, team_messages) =
-            self.finish_team(version, bins, team_colors, team_kits, item_rows)?;
+            self.finish_team(version, bins, team_colors, team_kits, player_rows)?;
         messages.extend(team_messages);
         Ok((Written { team, refs }, messages))
     }
@@ -404,7 +404,7 @@ impl CpkOutput {
     /// `team_colors` (team id, colors) set in its team's record; then `UniColor.bin`, built on
     /// `bins`' the same way, each `Full` export's team of `team_kits` keeping only its kit
     /// tasks' kits in its record, then each committed kit's entry merged into its team's record
-    /// in commit order; then the Fox player tables `bins` holds, with `item_rows` applied
+    /// in commit order; then the Fox player tables `bins` holds, with `player_rows` applied
     /// (`add_player_tables`); with parts, the teams parts are finished after the sink, the slots
     /// left over written as the placeholder (no part and no placeholder when no file is
     /// written). Returns whether a CPK was written and the findings to report: `kit_configs`'
@@ -418,7 +418,7 @@ impl CpkOutput {
         bins: WorkingBins,
         team_colors: &[(u16, Vec<Rgb>)],
         team_kits: &[TeamKits],
-        item_rows: &[ItemRow],
+        player_rows: &PlayerRows,
     ) -> anyhow::Result<(bool, Vec<Message>)> {
         // A run in which no team committed anything writes no file, so it adds no bin either,
         // unless the overrides go into the CPK: they are written whatever the exports bring;
@@ -498,7 +498,13 @@ impl CpkOutput {
             (ItemTable::Boots, boots_list),
             (ItemTable::Gloves, glove_list),
         ];
-        self.add_player_tables(lists, player_appearance, item_rows, &mut messages)?;
+        self.add_player_tables(
+            version,
+            lists,
+            player_appearance,
+            player_rows,
+            &mut messages,
+        )?;
         self.sink.finish()?;
         if let Some(parts) = self.parts {
             parts.finish()?;
@@ -507,33 +513,61 @@ impl CpkOutput {
     }
 
     /// Adds the Fox player tables: each of `lists` (`BootsList.bin` then `GloveList.bin`) the
-    /// walk found, with `item_rows`' rows of it applied against the committed batches
-    /// (`apply`), written whole, changed or not, then `player_appearance`, when found,
-    /// unchanged. A list the walk did not find is not written, a list of this run's rows alone
-    /// taking every other player's away, and `player_table_missing` goes to `messages` when
-    /// committed rows of it are left out.
+    /// walk found, with `player_rows`' rows of it applied against the committed batches
+    /// (`apply`), written whole, changed or not, then `player_appearance` when found, with
+    /// each appearance row built from its settings for `version` and set. A table the walk
+    /// did not find is not written, one of this run's rows alone taking every other player's
+    /// away, and `player_table_missing` goes to `messages` naming it with the count of the
+    /// run's rows left out.
     fn add_player_tables(
         &mut self,
+        version: PesVersion,
         lists: [(ItemTable, Option<ItemList>); 2],
-        player_appearance: Option<Vec<u8>>,
-        item_rows: &[ItemRow],
+        player_appearance: Option<AppearanceTable>,
+        player_rows: &PlayerRows,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         for (table, list) in lists {
             match list {
                 Some(mut list) => {
-                    apply(&mut list, table, item_rows, &self.committed);
+                    apply(&mut list, table, &player_rows.items, &self.committed);
                     self.add_bin(table.file().cpk_path(), &list.to_bytes(), messages)?;
                 }
-                None => messages.extend(table_missing(table, item_rows, &self.committed)),
+                None => messages.extend(table_missing(
+                    table.file(),
+                    left_out(table, &player_rows.items, &self.committed),
+                )),
             }
         }
-        if let Some(bytes) = player_appearance {
-            self.add_bin(
-                PlayerTableFile::PlayerAppearance.cpk_path(),
-                &bytes,
-                messages,
-            )?;
+        match player_appearance {
+            Some(mut table) => {
+                for row in &player_rows.appearance {
+                    let bytes = row
+                        .settings
+                        .appearance_row(row.player_id, version)
+                        .with_context(|| {
+                            format!(
+                                "cannot build player {}'s PlayerAppearance.bin row",
+                                row.player_id
+                            )
+                        })?;
+                    table.set(
+                        row.player_id,
+                        bytes[4..]
+                            .try_into()
+                            .expect("a row is 4 id bytes and 56 more"),
+                    );
+                }
+                self.add_bin(
+                    PlayerTableFile::PlayerAppearance.cpk_path(),
+                    &table.to_bytes(),
+                    messages,
+                )?;
+            }
+            None => messages.extend(table_missing(
+                PlayerTableFile::PlayerAppearance,
+                player_rows.appearance.len(),
+            )),
         }
         Ok(())
     }
@@ -661,6 +695,7 @@ mod tests {
 
     use cpk::CpkArchive;
     use kit_config::{KitConfig, matches_fpc};
+    use pes_savefile::settings_toml::PlayerSettings;
     use pipeline::MemoryBudget;
     use studio_core::{Disposition, ExportId, Scope};
     use uniparam::UniformParameter;
@@ -668,7 +703,7 @@ mod tests {
     use super::*;
     use crate::bins::{TeamColorBin, UniColorBin};
     use crate::messages::{Code, tool_message};
-    use crate::plan::item_rows::RowChange;
+    use crate::plan::item_rows::{AppearanceRow, ItemRow};
     use crate::plan::{EffectiveTeamKitFpc, TeamKitEdits};
     use crate::templates::Templates;
     use crate::testing::scratch;
@@ -696,7 +731,7 @@ mod tests {
             WorkingBins::bundled(version, &Templates::embedded()),
             &[],
             &[],
-            &[],
+            &PlayerRows::default(),
             &Templates::embedded(),
         )?;
         assert_eq!(messages, []);
@@ -1077,7 +1112,7 @@ mod tests {
                 WorkingBins::bundled(PesVersion::Pes21, &Templates::embedded()),
                 &team_714_colors(),
                 &[],
-                &[],
+                &PlayerRows::default(),
                 &Templates::embedded(),
             )
             .unwrap();
@@ -1197,7 +1232,7 @@ mod tests {
                 bundled(),
                 &[],
                 &[],
-                &[],
+                &PlayerRows::default(),
                 &Templates::embedded(),
             )
             .unwrap()
@@ -1298,7 +1333,7 @@ mod tests {
                 WorkingBins::bundled(PesVersion::Pes17, &Templates::embedded()),
                 &[],
                 &[],
-                &[],
+                &PlayerRows::default(),
                 &Templates::embedded(),
             )
             .unwrap();
@@ -1401,7 +1436,7 @@ mod tests {
                 WorkingBins::bundled(PesVersion::Pes17, &templates),
                 &[],
                 &[],
-                &[],
+                &PlayerRows::default(),
                 &templates,
             )
             .unwrap();
@@ -1451,7 +1486,7 @@ mod tests {
                 WorkingBins::bundled(version, templates),
                 &[],
                 &[],
-                &[],
+                &PlayerRows::default(),
                 templates,
             )
             .unwrap();
@@ -1604,7 +1639,7 @@ mod tests {
                 WorkingBins::bundled(PesVersion::Pes17, &templates),
                 &[],
                 &[],
-                &[],
+                &PlayerRows::default(),
                 &templates,
             )
             .unwrap();
@@ -1714,7 +1749,14 @@ mod tests {
             .unwrap();
 
         let error = output
-            .finish(PesVersion::Pes21, bundled(), &[], &[], &[], &templates)
+            .finish(
+                PesVersion::Pes21,
+                bundled(),
+                &[],
+                &[],
+                &PlayerRows::default(),
+                &templates,
+            )
             .expect_err("an undecodable config with the marker");
 
         assert!(
@@ -1907,7 +1949,7 @@ mod tests {
                 bins,
                 &[],
                 &[],
-                &[],
+                &PlayerRows::default(),
                 &Templates::embedded(),
             )
             .unwrap();
@@ -2064,7 +2106,7 @@ mod tests {
                 bins,
                 &team_714_colors(),
                 &[],
-                &[],
+                &PlayerRows::default(),
                 &Templates::embedded(),
             )
             .unwrap();
@@ -2158,7 +2200,7 @@ mod tests {
                     broken,
                     &team_colors,
                     &[],
-                    &[],
+                    &PlayerRows::default(),
                     &Templates::embedded(),
                 )
                 .unwrap();
@@ -2213,7 +2255,7 @@ mod tests {
                 bins,
                 &[],
                 &[],
-                &[],
+                &PlayerRows::default(),
                 &Templates::embedded(),
             )
             .unwrap();
@@ -2374,7 +2416,7 @@ mod tests {
                 bins,
                 &[],
                 &[team],
-                &[],
+                &PlayerRows::default(),
                 &Templates::embedded(),
             )
             .unwrap();
@@ -2460,26 +2502,37 @@ mod tests {
                 )
                 .unwrap(),
             ),
-            player_appearance: Some(appearance.clone()),
+            player_appearance: Some(
+                AppearanceTable::read(PlayerTableFile::PlayerAppearance, &appearance).unwrap(),
+            ),
             ..bundled()
         };
-        let rows = [
-            ItemRow {
-                table: ItemTable::Boots,
+        let player_rows = PlayerRows {
+            items: vec![
+                ItemRow {
+                    table: ItemTable::Boots,
+                    player_id: 71405,
+                    id: 625,
+                    task: Some(0),
+                },
+                ItemRow {
+                    table: ItemTable::Boots,
+                    player_id: 71407,
+                    id: 627,
+                    task: Some(1),
+                },
+                ItemRow {
+                    table: ItemTable::Gloves,
+                    player_id: 71405,
+                    id: 625,
+                    task: Some(0),
+                },
+            ],
+            appearance: vec![AppearanceRow {
                 player_id: 71405,
-                change: RowChange::Set { id: 625, task: 0 },
-            },
-            ItemRow {
-                table: ItemTable::Boots,
-                player_id: 71407,
-                change: RowChange::Set { id: 627, task: 1 },
-            },
-            ItemRow {
-                table: ItemTable::Gloves,
-                player_id: 71405,
-                change: RowChange::Set { id: 625, task: 0 },
-            },
-        ];
+                settings: PlayerSettings::default(),
+            }],
+        };
 
         let (written, messages) = output
             .finish(
@@ -2487,7 +2540,7 @@ mod tests {
                 bins,
                 &[],
                 &[],
-                &rows,
+                &player_rows,
                 &Templates::embedded(),
             )
             .unwrap();
@@ -2520,9 +2573,16 @@ mod tests {
             entry(&path, PlayerTableFile::BootsList.cpk_path()),
             installed(&[(70201, 11), (71405, 625), (71407, 7)])
         );
+        // The installed table's two rows share one junk player id (0x5a5a5a5a), which the
+        // table keeps once; 71405's new row sorts before it.
+        let mut expected_appearance = PlayerSettings::default()
+            .appearance_row(71405, PesVersion::Pes21)
+            .unwrap()
+            .to_vec();
+        expected_appearance.extend([0x5a; 60]);
         assert_eq!(
             entry(&path, PlayerTableFile::PlayerAppearance.cpk_path()),
-            appearance
+            expected_appearance
         );
     }
 

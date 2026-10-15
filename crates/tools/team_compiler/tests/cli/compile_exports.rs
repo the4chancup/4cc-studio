@@ -663,7 +663,8 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
                 "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
                 "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
                 "a Midcup Notes: Info team_colors_missing [Keep] ()",
-                "co Midcup Notes: Info team_colors_missing [Keep] ()"
+                "co Midcup Notes: Info team_colors_missing [Keep] ()",
+                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=2)"
             ]
         )
     );
@@ -732,7 +733,8 @@ fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
             [
                 "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
                 "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
-                "co Midcup Notes: Info team_colors_missing [Keep] ()"
+                "co Midcup Notes: Info team_colors_missing [Keep] ()",
+                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)"
             ]
         )
     );
@@ -1741,6 +1743,7 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
                     "dbg Midcup D: Info team_colors_missing [Keep] ()",
                     "Warning player_table_missing [Keep] (table=BootsList.bin, rows=2)",
                     "Warning player_table_missing [Keep] (table=GloveList.bin, rows=2)",
+                    "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=2)",
                 ],
             )
         } else {
@@ -1784,7 +1787,10 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
                 "co Full Spring 2026.zip: Info kit_config_generated [Keep] at Kits/p1 ()",
                 "co Full Spring 2026.zip: Info kit_placeholder [Keep] at Kits/p1 ()",
                 "co Full Spring 2026.zip: Warning kit_colors_missing [Keep] at Kits/p1 ()",
-                "co Full Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
+                "co Full Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()",
+                "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)",
+                "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)",
+                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)"
             ]
         )
     );
@@ -1810,7 +1816,8 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
                 "egg Midcup Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
                 "egg Midcup Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
                 "egg Midcup Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
-                "egg Midcup Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()"
+                "egg Midcup Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()",
+                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)"
             ]
         )
     );
@@ -1840,7 +1847,8 @@ fn a_7z_over_the_memory_cap_compiles() {
                 "egg Midcup Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
                 "egg Midcup Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
                 "egg Midcup Tracer.7z: Info team_colors_missing [Keep] ()",
-                "egg Midcup Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()"
+                "egg Midcup Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()",
+                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)"
             ]
         )
     );
@@ -1970,7 +1978,8 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
             "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/g1 ()",
             "dbg Midcup Seven.7z: Info kit_colors_derived [Keep] at Kits/g1 ()",
             "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)",
-            "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)"
+            "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)",
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=2)"
         ])
     );
     assert!(outcomes[0].1 == outcomes[1].1, "the CPKs differ");
@@ -2065,6 +2074,7 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
         "a Midcup Home: Info team_colors_missing [Keep] ()".to_owned(),
         "a Midcup Home: Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
         "a Midcup Home: Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
+        "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)".to_owned(),
     ];
     assert_eq!(
         lines,
@@ -2142,6 +2152,7 @@ fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_repor
             format!("Warning duplicate_path [Keep] (path={BOOTS_05})"),
             format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
             "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)".to_owned(),
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)".to_owned(),
         ])
     );
     assert_eq!(run.exit_code(), 0, "a Warning does not fail the run");

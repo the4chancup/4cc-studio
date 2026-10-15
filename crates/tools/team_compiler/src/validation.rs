@@ -15,6 +15,7 @@ use aesthetics_export::{
     parse_listing, read_colors_txt,
 };
 use anyhow::Context;
+use pes_savefile::settings_toml::PlayerSettings;
 use pes_version::{Engine, PesVersion};
 use pipeline::{MIN_FREE_BUDGET, MemoryBudget};
 use rayon::prelude::*;
@@ -69,6 +70,10 @@ pub(crate) struct CheckedSource {
     /// (`deep::ContentPass::metal_models`), which planning reads for the template environment
     /// map on PES 15-17; empty when the deep pass did not run. Read only beside `resolved`.
     pub(crate) metal_models: BTreeSet<ScopePath>,
+    /// Each player folder's parsed `settings.toml`, by folder path
+    /// (`deep::ContentPass::settings`), which planning resolves the compiled players' table
+    /// rows from; empty when the deep pass did not run. Read only beside `resolved`.
+    pub(crate) settings: BTreeMap<ScopePath, PlayerSettings>,
     /// What the source looked like when it was listed, which `compile` checks its tasks'
     /// reads against; `None` when routing or the listing's parse set the source aside.
     /// `check` carries it and does nothing with it.
@@ -304,6 +309,7 @@ fn check_source(
         notes: None,
         hand_weighted: BTreeSet::new(),
         metal_models: BTreeSet::new(),
+        settings: BTreeMap::new(),
         revision: None,
         content: None,
     };
@@ -352,6 +358,7 @@ fn check_source(
     // again, so they drop, cascade and pass through as the structure pass's own do.
     let mut hand_weighted = BTreeSet::new();
     let mut metal_models = BTreeSet::new();
+    let mut settings = BTreeMap::new();
     if let Some(validated) = &report.validated {
         let pass = deep::content_findings(
             validated,
@@ -362,6 +369,7 @@ fn check_source(
         );
         hand_weighted = pass.hand_weighted;
         metal_models = pass.metal_models;
+        settings = pass.settings;
         if !pass.findings.is_empty() {
             report = report.with_content_findings(pass.findings, &context);
         }
@@ -435,6 +443,7 @@ fn check_source(
         notes,
         hand_weighted,
         metal_models,
+        settings,
         revision: Some(revision),
         content,
     }
@@ -1567,6 +1576,7 @@ mod tests {
             notes: None,
             hand_weighted: BTreeSet::new(),
             metal_models: BTreeSet::new(),
+            settings: BTreeMap::new(),
             revision: None,
             content: None,
         }
@@ -1591,6 +1601,7 @@ mod tests {
             notes: None,
             hand_weighted: BTreeSet::new(),
             metal_models: BTreeSet::new(),
+            settings: BTreeMap::new(),
             revision: None,
             content: None,
         }

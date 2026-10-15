@@ -21,7 +21,7 @@ use pes_version::PesVersion;
 use uniparam::UniformParameter;
 
 use crate::templates::Templates;
-use pes_savefile::player_tables::ItemList;
+use pes_savefile::player_tables::{AppearanceTable, ItemList};
 
 /// One color as the bins hold it: red, green, blue.
 pub(crate) type Rgb = [u8; 3];
@@ -366,9 +366,9 @@ pub(crate) struct WorkingBins {
     pub(crate) boots_list: Option<ItemList>,
     /// `GloveList.bin`, as `boots_list`.
     pub(crate) glove_list: Option<ItemList>,
-    /// `PlayerAppearance.bin`'s bytes, whole 60-byte rows, as `boots_list`: it passes through
-    /// unchanged.
-    pub(crate) player_appearance: Option<Vec<u8>>,
+    /// `PlayerAppearance.bin`, as `boots_list`: the table the run's compiled players' rows
+    /// are set on.
+    pub(crate) player_appearance: Option<AppearanceTable>,
     /// PES 15-17's loose kit configs (`kit_configs::loose_kit_configs`), by entry name
     /// (`714_DEF_1st_realUni.bin`), unwrapped: every `.bin` in a team's folder under
     /// `uniform/team/` of the installed CPKs, the nearest CPK's copy of each. A `Midcup`

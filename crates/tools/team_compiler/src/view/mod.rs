@@ -239,6 +239,7 @@ mod tests {
                 "- egg Midcup Tracer: Info export_identified (team=/egg/, id=792)",
                 "- Warning player_table_missing (table=BootsList.bin, rows=1)",
                 "- Warning player_table_missing (table=GloveList.bin, rows=1)",
+                "- Warning player_table_missing (table=PlayerAppearance.bin, rows=1)",
                 "Run finished: exit code 0",
             ]
         );
