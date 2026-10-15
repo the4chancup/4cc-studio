@@ -34,7 +34,8 @@ pub(crate) enum Code {
     ImportValueCapped,
     /// `import-toml`: a `[players.NN]` whose roster slot is empty; skipped (`slot`).
     ImportSlotEmpty,
-    /// `apply-patch`: the team's players were written (`team`).
+    /// `apply-patch`: the save holds the team and at least one of its patch players was
+    /// written (`team`). A team whose players the save all lacks is not listed.
     PatchTeamApplied,
     /// `apply-patch`: the save has no team with this id; its players were not looked at
     /// (`team`).

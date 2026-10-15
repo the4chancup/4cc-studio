@@ -113,6 +113,20 @@ fn an_out_naming_the_save_itself_is_refused_and_the_save_unchanged() {
         &sandbox.arg("EDIT"),
     ]);
     run.assert_refused(2, &["--out"]);
+
+    // The same file under another spelling is the save too: the compare is on the
+    // canonical path, so a subfolder's `..` does not slip past it.
+    fs::create_dir(sandbox.path("sub")).unwrap();
+    let spelled = sandbox.arg("sub/../EDIT");
+    let run = sandbox.run(&[
+        "export-toml",
+        &sandbox.arg("EDIT"),
+        "--team",
+        "714",
+        "--out",
+        &spelled,
+    ]);
+    run.assert_refused(2, &["--out"]);
     assert_eq!(
         fs::read(sandbox.path("EDIT")).unwrap(),
         bytes,

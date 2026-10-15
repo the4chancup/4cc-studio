@@ -30,8 +30,8 @@ and stadium, its tactics, and every rostered player with every field, the look i
 player whose look the save does not hold, on a stripped save, carries `stripped = true`). With
 `--team` one team goes to the file `--out` names, replacing it when it exists; with
 `--all-teams` every team of the save goes to its own `<id>.toml` in the `--out-dir` folder,
-which is created when missing, its older files replaced. A team id the save does not hold is
-refused and nothing is written.
+which is created when missing, its older files replaced. A team id the save does not hold,
+or an `--out` naming the save itself, is refused and nothing is written.
 
 `import-toml` writes a Team TOML file onto the team its `[team] id` names. The file's keys
 are what it writes: a key, a player or a whole section left out of the file is left as the
@@ -49,10 +49,13 @@ on or off: on a stripped save his look stays the database's.
 `apply-patch` applies the `aesthetics_patch.toml` the Team compiler writes beside its CPKs:
 the compiled players' motions and, for exports carrying the `write_names` marker, their names. The patch
 must be for the save's PES version and the suite's boots and gloves allocation scheme, or it
-is refused with nothing written. Each team of the patch is one line, `patch_team_applied`;
-a team or a player the save does not hold is the error line `patch_team_not_in_save` or
+is refused with nothing written. Each team of the patch is one line, `patch_team_applied`,
+listed only when at least one of its players was written: a team the save holds whose patch
+players it all lacks is not listed. A team or a player the save does not hold is the error
+line `patch_team_not_in_save` or
 `patch_player_not_in_save`, the rest of the patch is applied and written, and the exit code
-is 1.
+is 1. Like every command that writes a save, its lines come once `--out` is written, so a
+write that fails prints only its failure.
 
 `transplant` copies players' looks from a donor save of the same PES version onto the
 `--base` save: the whole look (boots, gloves, base copy, physique, strip settings, the
@@ -79,8 +82,9 @@ marks, then the players one save alone holds; nothing else is printed.
 
 `check-aatf` checks the save's cup teams against an AATF ruleset: every team whose id is in
 the cup range, 701 to 920, or the ones `--teams` names as a comma-separated list of ids and
-inclusive ranges (`701,705-710`). The ruleset is the file `--rules` names, else the one the
-`aatf_rules` setting names, else the official ruleset built into 4cc Studio. Each violation
+inclusive ranges (`701,705-710`). The ruleset is the file `--rules` names, read from where
+the command runs, else the one the `aatf_rules` setting names (a relative path is read from
+the data folder), else the official ruleset built into 4cc Studio. Each violation
 prints as one `aatf_violation` line with the team, the player's id for a player's violation,
 the rule and what it measured, the teams in id order; a team whose check cannot run is the
 error line `aatf_check_failed` and the rest are still checked. An error-severity violation

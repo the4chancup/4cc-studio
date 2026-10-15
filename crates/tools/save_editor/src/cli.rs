@@ -275,22 +275,26 @@ fn write_save(session: &Session, out: &Path) -> Result<(), CliError> {
 
 /// `import-toml`: the document is parsed and applied in memory first, so a document the lib
 /// refuses (a text too long, a key it does not know) refuses the command with `--out`
-/// unwritten; each note is one line.
+/// unwritten; each note is one line, emitted once `--out` is written, so a failed write
+/// reports no note.
 fn import_toml(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
     let mut session = open(&args.base)?;
     refuse_while_running(&running_pes(), session.version())?;
     let document = TeamToml::parse(&read_text(&args.file)?)
         .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
     let notes = session.import_team(&document).map_err(invalid)?;
-    for note in &notes {
-        report.message(import_note(note));
+    let lines: Vec<_> = notes.iter().map(import_note).collect();
+    write_save(&session, &args.out)?;
+    for line in lines {
+        report.message(line);
     }
-    write_save(&session, &args.out)
+    Ok(())
 }
 
 /// `apply-patch`: a version or allocation-scheme mismatch (and a pre-Fox patch) is refused
 /// before anything is touched; a team or player the save lacks is an Error finding and the
-/// rest is written.
+/// rest is written. The applied and skipped lines are emitted once `--out` is written, so a
+/// failed write reports none of them.
 fn apply_patch(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
     let mut session = open(&args.base)?;
     refuse_while_running(&running_pes(), session.version())?;
@@ -299,16 +303,30 @@ fn apply_patch(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
     let summary = session
         .apply_patch(&patch)
         .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
+    let mut lines = Vec::new();
     for team in &summary.applied_teams {
-        report.message(message(
-            Code::PatchTeamApplied,
-            vec![("team", team.to_string())],
-        ));
+        // A team is applied only when at least one of its players was written: a team the
+        // save holds whose every patch player it lacks prints only their skips (a cup
+        // player id is its team's id x 100 + slot).
+        if summary
+            .applied_players
+            .iter()
+            .any(|player| player / 100 == *team)
+        {
+            lines.push(message(
+                Code::PatchTeamApplied,
+                vec![("team", team.to_string())],
+            ));
+        }
     }
-    for skip in summary.skipped {
-        report.message(patch_skip(skip));
+    for skip in &summary.skipped {
+        lines.push(patch_skip(*skip));
     }
-    write_save(&session, &args.out)
+    write_save(&session, &args.out)?;
+    for line in lines {
+        report.message(line);
+    }
+    Ok(())
 }
 
 /// `export-toml`: every team's text is built before the first file is written, so a team
@@ -367,7 +385,8 @@ fn export_toml(args: &ExportTomlArgs, report: &mut Report) -> Result<(), CliErro
 
 /// `transplant`: the selection is parsed, then the lib checks the version pair and every id
 /// before the first copy, so a refusal leaves `--out` unwritten; a player at -1 on either
-/// side of a pair is a warning line.
+/// side of a pair is a warning line, emitted once `--out` is written, so a failed write
+/// reports no mark.
 fn transplant(args: &TransplantArgs, report: &mut Report) -> Result<(), CliError> {
     let mut pairs = Vec::new();
     for item in args.select.split(',') {
@@ -386,10 +405,12 @@ fn transplant(args: &TransplantArgs, report: &mut Report) -> Result<(), CliError
                 invalid(error.into())
             }
         })?;
-    for mark in marks {
-        report.message(stripped_mark(mark));
+    let lines: Vec<_> = marks.into_iter().map(stripped_mark).collect();
+    write_save(&session, &args.out)?;
+    for line in lines {
+        report.message(line);
     }
-    write_save(&session, &args.out)
+    Ok(())
 }
 
 /// The refusal of two saves of different versions, each named as a member reads it

@@ -162,3 +162,66 @@ fn a_stripped_save_takes_the_patch_with_its_ids_still_stripped() {
         payload_with_patch(&sandbox, "STRIPPED", &text)
     );
 }
+
+// SE-PAT-05
+#[test]
+fn a_team_whose_every_patch_player_the_save_lacks_is_not_listed_applied() {
+    let sandbox = Sandbox::new("patch_no_players");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    let save = EditFile::load(&sandbox.path("EDIT")).unwrap();
+    // Two slots of /co/ whose player ids the save lacks (a cup player id is the team's
+    // id x 100 + slot).
+    let empty: Vec<u8> = (1..=99u8)
+        .filter(|slot| save.player(CO * 100 + u32::from(*slot)).is_none())
+        .collect();
+    let [first, second, ..] = empty[..] else {
+        panic!("the fixture's /co/ lacks two slots' players: {empty:?}");
+    };
+    let players: String = [first, second]
+        .iter()
+        .map(|slot| format!("\n[teams.players.{slot:02}]\nname = \"NOBODY\"\n"))
+        .collect();
+    let teams = format!("\n[[teams]]\nid = {CO}\nname = \"/co/\"\n{players}");
+    let text = patch_text(21, ALLOCATION_SCHEME_VERSION, &teams);
+    fs::write(sandbox.path("patch.toml"), &text).unwrap();
+
+    let run = sandbox.apply("patch.toml", "EDIT", "OUT");
+    assert_eq!(run.exit_code(), 1);
+    assert_eq!(
+        run.messages(),
+        [first, second]
+            .iter()
+            .map(|slot| {
+                format!(
+                    "Error patch_player_not_in_save (player={})",
+                    CO * 100 + u32::from(*slot)
+                )
+            })
+            .collect::<Vec<_>>(),
+        "each player skipped, the team not listed as applied"
+    );
+    assert_eq!(
+        payload(&sandbox.path("OUT")),
+        payload(&sandbox.path("EDIT")),
+        "no player was written"
+    );
+}
+
+// SE-PAT-06
+#[test]
+fn an_out_that_cannot_be_written_prints_only_the_failure() {
+    let sandbox = Sandbox::new("patch_bad_out");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    fs::write(
+        sandbox.path("patch.toml"),
+        patch_text(21, ALLOCATION_SCHEME_VERSION, &co_block()),
+    )
+    .unwrap();
+    // An --out that is a folder cannot be written; assert_refused asserts no event went
+    // out, so no patch_team_applied or skip line.
+    fs::create_dir(sandbox.path("OUT_DIR")).unwrap();
+
+    sandbox
+        .apply("patch.toml", "EDIT", "OUT_DIR")
+        .assert_refused(3, &["OUT_DIR"]);
+}

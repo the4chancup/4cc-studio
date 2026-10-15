@@ -572,8 +572,13 @@ The commands:
 - `apply-patch` takes the patch, `--base <EDIT>` and `--out <EDIT>` exactly like `import-toml`;
   it refuses a version or allocation-scheme mismatch before touching anything, prints the per-team
   summary (applied / skipped: not in save), and is the batch form of the GUI action — the savefile
-  builder can apply a night's patches in one script. A skipped team or player is an error (exit
-  1) and the rest is written. A pre-Fox patch is refused until the compiler writes one (deferred
+  builder can apply a night's patches in one script. A team is listed as applied only when at
+  least one of its players was written: a team the save holds whose patch players it all lacks
+  prints only their skips. A skipped team or player is an error (exit
+  1) and the rest is written. Like every command that writes a save (`import-toml`'s notes,
+  `transplant`'s marks, `check-stripped --strip-again`'s fixed players), its lines are printed
+  once `--out` is written: a write that fails prints only its failure (exit 3), never a line
+  saying what was written. A pre-Fox patch is refused until the compiler writes one (deferred
   with pre-Fox's other gaps). The read-only lock is a GUI guard; the CLI commands that write aesthetics
   (`transplant`, an `import-toml` whose file holds aesthetics) are explicit by nature and are not
   gated.
@@ -760,6 +765,15 @@ SE-PAT-04  GIVEN a stripped PES 21 save and a PES 21 patch with names and motion
            WHEN apply-patch is run
            THEN the team's players carry the patch's names and motions and their appearance ids
                 are still -1
+SE-PAT-05  GIVEN the PES 21 fixture save and a PES 21 patch for one of its teams whose every
+                player id the save lacks
+           WHEN apply-patch is run
+           THEN each player is listed as skipped: not in save, the team is not listed as
+                applied, and the exit code is 1
+SE-PAT-06  GIVEN SE-PAT-01's save and patch, and an --out that cannot be written (a folder of
+                that name)
+           WHEN apply-patch is run
+           THEN it fails naming --out, with exit code 3, and no team is listed as applied
 ```
 
 **Transplant**
