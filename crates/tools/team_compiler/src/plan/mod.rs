@@ -1545,7 +1545,15 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             edits,
             slots,
         });
-        shared_ids.push((team_id, output_record));
+        // A Midcup over no record whose folders took no ID writes none: an empty one would
+        // read to the next Midcup above it as "no shared folders" (`player_folders.md` "A
+        // `Midcup` export keeps the shared IDs the team already has").
+        if export.coverage != ExportCoverage::Midcup
+            || midcup_record.is_some()
+            || !output_record.is_empty()
+        {
+            shared_ids.push((team_id, output_record));
+        }
         if let Some(logo) = export.logo {
             tasks.push(task(export_id, team_id, TaskKind::Logo { logo }));
         }

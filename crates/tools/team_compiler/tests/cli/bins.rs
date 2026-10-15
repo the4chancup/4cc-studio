@@ -2021,6 +2021,72 @@ fn a_midcup_export_with_no_installed_record_is_warned_and_records_its_own() {
     assert_eq!(entries[SHARED_IDS_714], record(&[(644, "Birk")]));
 }
 
+// TC-BIN-39
+#[test]
+fn a_midcup_export_with_nothing_to_record_writes_no_shared_ids_record() {
+    let sandbox = Sandbox::new("bins_shared_ids_none");
+    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    // A settings-only player folder: no shared folder of either kind takes an ID, so there
+    // is no record to write and none to warn about.
+    let export = "exports/co Midcup Settings";
+    sandbox.write(&format!("{export}/Players/05 - A/ingame_face"), b"");
+    sandbox.write(
+        &format!("{export}/Players/05 - A/settings.toml"),
+        b"boots_id = 12\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("shared_ids_unrecorded")),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        !entries.contains_key(SHARED_IDS_714),
+        "an empty record would read to the next Midcup as \"no shared folders\""
+    );
+}
+
+// TC-BIN-39
+#[test]
+fn a_midcup_export_with_nothing_to_record_rewrites_the_installed_one() {
+    let sandbox = Sandbox::new("bins_shared_ids_empty");
+    let installed = record(&[]);
+    install_tables(
+        &sandbox,
+        &[
+            (BOOTS_LIST, &item_list(&[(70201, 11)])),
+            (SHARED_IDS_714, installed.as_slice()),
+        ],
+    );
+    // The same settings-only export as the no-record case: it carries the record it
+    // inherited, even an empty one (a `Full` export with no shared folder writes one).
+    let export = "exports/co Midcup Settings";
+    sandbox.write(&format!("{export}/Players/05 - A/ingame_face"), b"");
+    sandbox.write(
+        &format!("{export}/Players/05 - A/settings.toml"),
+        b"boots_id = 12\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("shared_ids_unrecorded")),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(entries[SHARED_IDS_714], installed);
+}
+
 // TC-BIN-30
 #[test]
 fn a_face_link_feeding_the_own_package_is_no_gloves_id_for_the_checkbox_rule() {

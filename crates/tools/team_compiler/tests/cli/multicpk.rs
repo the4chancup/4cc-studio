@@ -146,9 +146,6 @@ fn teams_fill_the_slots_first_fit_and_the_bins_go_into_the_bins_cpk() {
         .into_keys()
         .collect();
     let mut expected_bins = vec![
-        "4cc_studio/shared_ids/702.toml".to_owned(),
-        "4cc_studio/shared_ids/707.toml".to_owned(),
-        "4cc_studio/shared_ids/714.toml".to_owned(),
         TEAM_COLOR.to_owned(),
         UNI_COLOR.to_owned(),
         UNIFORM_PARAMETER.to_owned(),
@@ -366,12 +363,10 @@ fn leftovers(sandbox: &Sandbox) -> Vec<String> {
         .collect()
 }
 
-/// Asserts the bins CPK at `bins` holds the three bins and the two teams' shared-IDs
-/// records, and the teams part at `part` the kits of /a/ and /co/.
+/// Asserts the bins CPK at `bins` holds the three bins, and the teams part at `part` the
+/// kits of /a/ and /co/.
 fn assert_run_s_cpks(bins: &Path, part: &Path) {
     let mut expected_bins = vec![
-        "4cc_studio/shared_ids/702.toml".to_owned(),
-        "4cc_studio/shared_ids/714.toml".to_owned(),
         TEAM_COLOR.to_owned(),
         UNI_COLOR.to_owned(),
         UNIFORM_PARAMETER.to_owned(),

@@ -259,6 +259,11 @@ TC-BIN-36  GIVEN no installed CPK holding a /co/ record, and a Midcup /co/ expor
            WHEN it is compiled for PES 21
            THEN Birk takes 644, BootsList.bin holds (71405, 644), shared_ids_unrecorded names
                 team 714, and the CPK's record names 644 Birk
+TC-BIN-39  GIVEN no installed CPK holding a /co/ record, and a Midcup /co/ export whose only
+                player folder, slot 05, holds a settings.toml
+           WHEN it is compiled for PES 21
+           THEN the CPK holds no 4cc_studio/shared_ids/714.toml, and no shared_ids_unrecorded
+                is reported
 ```
 
 **Shared gloves on PES 15-17**

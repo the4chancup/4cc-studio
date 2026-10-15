@@ -25,14 +25,9 @@ const PLAYER: &str = "egg Midcup Tracer/Players/05 - The Chad Stormworks Player"
 /// The CPK path of the tracer player's face package.
 const FACE_FPK: &str = "Asset/model/character/face/real/79205/#Win/face.fpk";
 
-/// The bins and the shared-IDs record a PES 21 run with no installed CPK writes, for the
-/// tracer's team.
-const BINS: [&str; 4] = [
-    UNIFORM_PARAMETER,
-    TEAM_COLOR,
-    UNI_COLOR,
-    "4cc_studio/shared_ids/792.toml",
-];
+/// The bins a PES 21 run with no installed CPK writes: a Midcup with nothing recorded
+/// writes no shared-IDs record.
+const BINS: [&str; 3] = [UNIFORM_PARAMETER, TEAM_COLOR, UNI_COLOR];
 
 /// Every file under the sandbox's `output/test_output/`, by its path there spelled with `/`,
 /// with its bytes.

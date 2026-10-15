@@ -743,7 +743,6 @@ fn a_model_whose_conversion_fails_leaves_its_package_out_even_with_pass_through(
         assert_eq!(
             paths,
             [
-                "4cc_studio/shared_ids/714.toml",
                 "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex",
                 "Asset/model/character/face/real/71405/#Win/face.fpk",
                 "Asset/model/character/face/real/71405/#Win/face.fpkd",

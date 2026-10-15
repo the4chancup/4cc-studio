@@ -72,7 +72,6 @@ fn under_ingame_face_no_face_is_built_and_a_model_the_face_would_take_is_the_boo
     assert_eq!(
         paths(&entries),
         [
-            "4cc_studio/shared_ids/714.toml",
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             glove_fpk,
@@ -187,7 +186,6 @@ fn under_ingame_face_an_empty_face_subfolder_is_ignored() {
     assert_eq!(
         paths(&entries),
         [
-            "4cc_studio/shared_ids/714.toml",
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
@@ -227,7 +225,6 @@ fn a_player_folder_with_no_face_model_gets_the_blank_face() {
     assert_eq!(
         paths(&entries),
         [
-            "4cc_studio/shared_ids/714.toml",
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             FACE_05,
@@ -285,7 +282,6 @@ fn a_face_file_in_a_folder_with_no_face_model_is_not_used_and_reported() {
     assert_eq!(
         paths(&entries),
         [
-            "4cc_studio/shared_ids/714.toml",
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",

@@ -46,6 +46,13 @@ impl SharedIds {
         text.into_bytes()
     }
 
+    /// Whether neither kind's table names a folder: a `Midcup` over no installed record
+    /// writes none rather than an empty one (`player_folders.md` "A `Midcup` export keeps
+    /// the shared IDs the team already has").
+    pub(crate) fn is_empty(&self) -> bool {
+        self.boots.is_empty() && self.gloves.is_empty()
+    }
+
     /// The record's table of `kind`, boots or gloves; a shared face takes no shared ID, so
     /// the record has none for it.
     pub(crate) fn of(&self, kind: SharedKind) -> &BTreeMap<u16, String> {

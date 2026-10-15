@@ -537,13 +537,11 @@ fn the_pre_fox_tracer_matches_the_reference_tree() {
             Row::UniColor => compare_uni_color(&mut failures, our_bytes, reference_bytes),
         }
     }
-    // The team's shared-IDs record, written on pre-Fox too: ours alone, at a path no game
-    // reads (`player_folders.md` "A `Midcup` export keeps the shared IDs the team already
-    // has"). The tracer links no shared folder, so both tables are empty.
-    assert_eq!(
-        ours["4cc_studio/shared_ids/731.toml"],
-        b"# Written by 4cc Studio; do not edit.\n[boots]\n[gloves]\n"
-    );
+    // The team's shared-IDs record, at a path no game reads (`player_folders.md` "A
+    // `Midcup` export keeps the shared IDs the team already has"): a Midcup over no
+    // installed CPK with no shared folder taking an ID writes none, on pre-Fox too, and
+    // the tracer links none.
+    assert!(!ours.contains_key("4cc_studio/shared_ids/731.toml"));
     for path in ours.keys() {
         if !path.starts_with("4cc_studio/") && !accounted.contains(path) {
             failures.push(format!("our CPK holds {path}, not in the tables' rows"));

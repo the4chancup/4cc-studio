@@ -106,7 +106,6 @@ fn a_player_s_own_boots_and_gloves_compile_under_its_exclusive_id_with_the_textu
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0625/#Win/boots.fpk",
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
@@ -335,7 +334,6 @@ fn a_folder_mapped_to_two_slots_emits_its_boots_under_both_ids_and_its_textures_
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0623/#Win/boots.fpk",
             "Asset/model/character/boots/k0623/#Win/boots.fpkd",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
@@ -407,7 +405,6 @@ fn a_texture_that_cannot_convert_drops_the_whole_folder_and_the_folder_beside_it
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/common/714/07 - B/sourceimages/#windx11/shirt.ftex",
@@ -519,7 +516,6 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0625/#Win/boots.fpk",
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
@@ -568,6 +564,8 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     assert_eq!(
         added,
         [
+            // Crocs's shared ID, taken only now that a plain link wears it on its own.
+            "4cc_studio/shared_ids/714.toml",
             k0644,
             "Asset/model/character/boots/k0644/#Win/boots.fpkd",
             "Asset/model/character/boots/k0644/#windx11/sole.ftex",
@@ -1216,7 +1214,6 @@ fn a_subfolder_s_parts_combine_with_loose_root_files_of_their_category() {
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
             glove_fpk,
@@ -1317,7 +1314,6 @@ fn a_face_link_combines_the_shared_face_folder_into_the_player_s_face() {
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
             "Asset/model/character/face/real/71405/#Win/face.fpk",
             "Asset/model/character/face/real/71405/#Win/face.fpkd",
@@ -1592,7 +1588,6 @@ fn a_texture_the_player_and_a_combined_boots_folder_hold_is_packed_once_or_overr
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             k0625,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             skin,
@@ -1628,7 +1623,6 @@ fn a_texture_the_player_and_a_combined_boots_folder_hold_is_packed_once_or_overr
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             k0625,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             skin,
@@ -1700,7 +1694,6 @@ fn under_ingame_face_a_texture_the_player_and_a_combined_boots_folder_hold_diffe
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0625/#Win/boots.fpk",
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
@@ -1754,7 +1747,6 @@ fn a_texture_the_player_s_folder_and_a_combined_face_folder_hold_differently_is_
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0627/#Win/boots.fpk",
             "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/skin.ftex",
@@ -1851,7 +1843,6 @@ fn parts_with_a_skeleton_mismatch_or_a_material_defined_twice_leave_their_boots_
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0629/#Win/boots.fpk",
             "Asset/model/character/boots/k0629/#Win/boots.fpkd",
             "Asset/model/character/common/714/05 - A/sourceimages/#windx11/shirt.ftex",
@@ -2078,7 +2069,6 @@ fn the_planned_ids_are_the_slot_s_and_two_compiles_write_the_same_bytes() {
     assert_eq!(
         paths,
         [
-            "4cc_studio/shared_ids/714.toml",
             "Asset/model/character/boots/k0625/#Win/boots.fpk",
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
             "Asset/model/character/face/real/71405/#Win/face.fpk",

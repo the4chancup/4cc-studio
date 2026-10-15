@@ -38,7 +38,10 @@ alphabetically; and the CPK records the installed entries with the new ones, eac
 Midcup holds under its own spelling. When no installed
 CPK holds a record (the main CPK built by Red, or before this rule), the Midcup numbers its
 folders alphabetically and reports `shared_ids_unrecorded` (a warning naming the team): its IDs
-may be ones the main CPK gives other folders. A Midcup whose new folders do not all fit among the
+may be ones the main CPK gives other folders. Such a Midcup with no shared folder taking an ID
+writes no record: an empty one would read, to the next Midcup above it, as the team having
+no shared folders, and that Midcup's new folders would take the main CPK's IDs without the
+warning. A Midcup whose new folders do not all fit among the
 free IDs is refused as a Full export with more than 17 is (`boots_id_pool_exhausted`,
 `gloves_id_pool_exhausted`). We record in the CPK rather than in the
 export or a Studio setting because the CPK is what every member installs and compiles over:

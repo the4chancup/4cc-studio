@@ -8100,3 +8100,23 @@ directory, the same setting would read a different file depending on where `4cc-
 started. One rule across tools: a user data file a setting names follows the settings file.
 Found by converge review CE.S1.
 Plan: `plans/save_editor.md` "CLI", the `check-aatf` bullet.
+
+## 2026-10-15 — team_compiler — a recordless Midcup with no shared folder writes no shared-IDs record
+Decision: a `Midcup` export over installed CPKs holding no record of its team, with no shared
+boots or gloves folder taking an ID, writes no `4cc_studio/shared_ids/<team>.toml` (TC-BIN-39).
+A `Full` export still writes its record, empty or not.
+Why: the empty record read, to the next Midcup above it, as the team having no shared folders,
+so that Midcup's new folders took the main CPK's IDs without `shared_ids_unrecorded`. An empty
+`Full` record is true (Studio built every folder), so it stays. Found by converge review CT.A1.
+Plan: `plans/aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
+team already has".
+
+## 2026-10-15 — pes_savefile — a 15-17 texport reads the team and roster records, players in roster order
+Decision: a 15-17 texport's team and roster records are read and written at their measured
+offsets (the roster right before the tactics record, the team record before it, 17 with the
+coach block between), and its player records are taken in the roster's order, each id checked
+against its slot; the consecutive-id scan (`team * 100 + 1 + i`) goes.
+Why: measured on all 46 15-17 texports of the reference machine; one real PES 16 file lists its
+players out of id order, and the scan, our unmeasured rule, read 2 of its 23 players without an
+error. Found by the Phase 5 texport census and review CP.S2b.
+Plan: `plans/pes_savefile/operations.md` "Texport (read + write)".

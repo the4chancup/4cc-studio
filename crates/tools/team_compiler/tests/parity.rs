@@ -337,13 +337,11 @@ fn the_tracer_bullet_matches_the_reference_tree() {
         }
     }
 
-    // The team's shared-IDs record: ours alone, at a path no game reads (`player_folders.md`
-    // "A `Midcup` export keeps the shared IDs the team already has"). The tracer links no
-    // shared folder, so both tables are empty.
-    assert_eq!(
-        ours["4cc_studio/shared_ids/792.toml"],
-        b"# Written by 4cc Studio; do not edit.\n[boots]\n[gloves]\n"
-    );
+    // The team's shared-IDs record, at a path no game reads (`player_folders.md` "A
+    // `Midcup` export keeps the shared IDs the team already has"): a Midcup over no
+    // installed CPK with no shared folder taking an ID writes none, and the tracer links
+    // none.
+    assert!(!ours.contains_key("4cc_studio/shared_ids/792.toml"));
     for path in ours.keys() {
         let produced = path.starts_with("4cc_studio/")
             || TABLE.iter().any(|(reference_path, row)| match row {
