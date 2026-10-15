@@ -121,6 +121,9 @@ pub enum PatchError {
 pub struct PatchSummary {
     /// The ids of the patch's teams the save holds, in file order.
     pub applied_teams: Vec<u32>,
+    /// The ids of the players written, in file order, a team's by slot: the
+    /// patch's players the save holds. Empty means the save is unchanged.
+    pub applied_players: Vec<u32>,
     /// The patch's teams and players the save lacks: teams in file order,
     /// a team's players by slot (the `players` map is a `BTreeMap`;
     /// `parse` keeps no key order).
@@ -342,6 +345,7 @@ impl AestheticsPatch {
                 ));
             }
         }
+        let applied_players = built.iter().map(|(player_id, _)| *player_id).collect();
         // Pass 2: every built entry replaces its player.
         for (player_id, entry) in built {
             *save
@@ -350,6 +354,7 @@ impl AestheticsPatch {
         }
         Ok(PatchSummary {
             applied_teams,
+            applied_players,
             skipped,
         })
     }

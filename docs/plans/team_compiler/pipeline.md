@@ -157,7 +157,7 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
   reported as `savefile_written` (I) with the path, as every other output of the run reports
   itself. A team or player of the patch the save lacks is reported per item
   (`savefile_team_missing`, `savefile_player_missing`, the save editor's `apply-patch` skips)
-  and the rest is applied; a save holding none of the patch's teams is not rewritten, so its
+  and the rest is applied; a save holding none of the patch's players is not rewritten, so its
   `.bak` stays the user's previous backup. A missing
   savefile stays a warning (`savefile_missing`, naming the patch): even the DLC builder is expected
   to compile against a template save, to test the DLC in PES. **The savefile is never written while

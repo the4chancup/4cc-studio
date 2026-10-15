@@ -19,25 +19,31 @@ use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
 use crate::settings::SavefilePath;
 
+/// The save editor's command that applies a patch to a save, which `savefile_missing` names
+/// for the user who applies it by hand.
+const APPLY_COMMAND: &str = "4cc-studio save-editor apply-patch";
+
 /// Where the step reads and writes the save.
 #[derive(Debug, PartialEq)]
 pub(crate) enum Located {
-    /// The configured path, which names a file.
+    /// The configured path, which names something: a file, or what the load then refuses
+    /// (a folder) as `savefile_invalid`.
     Configured(PathBuf),
     /// `auto`'s newest candidate, and how many candidates there were.
     Detected { path: PathBuf, candidates: usize },
-    /// No file: the configured path, `None` for `auto`.
+    /// Nothing there: the configured path, `None` for `auto`.
     Missing(Option<PathBuf>),
 }
 
 /// The save `setting` resolves to: `discover` (the Documents\KONAMI walk, whose list is
-/// newest first) is called for `Auto` alone, a configured path only checked to be a file.
+/// newest first) is called for `Auto` alone, a configured path only checked to exist: a
+/// folder named by mistake is a save that cannot be read, an error, not a missing save.
 pub(crate) fn locate(
     setting: &SavefilePath,
     discover: impl FnOnce() -> Vec<SavefileCandidate>,
 ) -> Located {
     match setting {
-        SavefilePath::Path(path) if path.is_file() => Located::Configured(path.clone()),
+        SavefilePath::Path(path) if path.exists() => Located::Configured(path.clone()),
         SavefilePath::Path(path) => Located::Missing(Some(path.clone())),
         SavefilePath::Auto => {
             let candidates = discover();
@@ -73,7 +79,7 @@ pub(crate) struct SavefileFailure {
 /// save `located` names, reporting every outcome as a `Keep` finding but the two the caller
 /// emits: no save is the warning `savefile_missing`, a save the target's running game owns is
 /// skipped, a patch team or player the save lacks a per-item error with the rest applied (a
-/// save holding none of the patch's teams is not rewritten), a compiled player whose
+/// save holding none of the patch's players is not rewritten), a compiled player whose
 /// appearance id the save still sets a warning, and the save written, its previous file kept
 /// as `.bak`, the info `savefile_written`. An unreadable or wrong-version save is
 /// `Err`(`savefile_invalid`) and a failed `apply` or write `Err`(`savefile_write_failed`),
@@ -94,6 +100,7 @@ pub(crate) fn update(
             if let Some(path) = configured {
                 context.push(("path", path.display().to_string()));
             }
+            context.push(("command", APPLY_COMMAND.to_owned()));
             report(events, Code::SavefileMissing, context);
             return Ok(());
         }
@@ -168,15 +175,10 @@ pub(crate) fn update(
             ),
         }
     }
-    let mut not_stripped: Vec<u32> = patch
-        .teams
+    let mut not_stripped: Vec<u32> = summary
+        .applied_players
         .iter()
-        .filter(|team| summary.applied_teams.contains(&team.id))
-        .flat_map(|team| {
-            team.players
-                .keys()
-                .map(move |slot| team.id * 100 + u32::from(*slot))
-        })
+        .copied()
         .filter(|id| {
             file.player(*id)
                 .is_some_and(|player| player.appearance_id != Some(STRIPPED_APPEARANCE_ID))
@@ -197,26 +199,31 @@ pub(crate) fn update(
             )],
         );
     }
-    // A save holding none of the patch's teams is left as it was: writing it would change
+    // A save holding none of the patch's players is left as it was: writing it would change
     // nothing but turn its `.bak` over, losing the user's previous backup.
-    if summary.applied_teams.is_empty() {
+    if summary.applied_players.is_empty() {
         return Ok(());
     }
+    // The teams a player was written for: a team the save holds whose every patch player
+    // it lacks is not one (cup player ids are team id x 100 + slot).
+    let written_teams: Vec<String> = summary
+        .applied_teams
+        .iter()
+        .filter(|team| {
+            summary
+                .applied_players
+                .iter()
+                .any(|player| player / 100 == **team)
+        })
+        .map(u32::to_string)
+        .collect();
     match file.save(&path) {
         Ok(()) => report(
             events,
             Code::SavefileWritten,
             vec![
                 ("path", path.display().to_string()),
-                (
-                    "teams",
-                    summary
-                        .applied_teams
-                        .iter()
-                        .map(u32::to_string)
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                ),
+                ("teams", written_teams.join(", ")),
             ],
         ),
         Err(error) => {
@@ -241,8 +248,9 @@ mod tests {
 
     use crossbeam_channel::{Receiver, unbounded};
     use pes_savefile::interchange::aesthetics_patch::{
-        ALLOCATION_SCHEME_VERSION, PatchTeam, utc_datetime,
+        ALLOCATION_SCHEME_VERSION, PatchPlayer, PatchTeam, utc_datetime,
     };
+    use pes_savefile::settings_toml::MotionSettings;
     use studio_core::{AppPaths, PipelineEvent, PipelineEventEnvelope, Settings, ToolContext};
 
     use super::*;
@@ -313,10 +321,10 @@ mod tests {
             locate(&SavefilePath::Path(missing.clone()), never),
             Located::Missing(Some(missing))
         );
-        // A folder is not a file either.
+        // A folder named by mistake is there: its load fails as `savefile_invalid`.
         assert_eq!(
             locate(&SavefilePath::Path(temp.path().to_owned()), never),
-            Located::Missing(Some(temp.path().to_owned()))
+            Located::Configured(temp.path().to_owned())
         );
     }
 
@@ -421,6 +429,111 @@ mod tests {
 
         let codes: Vec<String> = messages(&rx).into_iter().map(|(code, _)| code).collect();
         assert_eq!(codes, ["savefile_team_missing"]);
+        assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
+        assert!(
+            !temp.path().join("EDIT00000000.bak").exists(),
+            "no .bak turned over"
+        );
+    }
+
+    #[test]
+    fn savefile_written_names_only_the_teams_a_player_was_written_for() {
+        let temp = scratch("savefile_written_teams");
+        let save = temp.path().join("EDIT00000000");
+        let mut file =
+            EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        // 71405's record renumbered to an id the save lacks: team 714 stays, he goes.
+        let free = (1..).find(|id| file.player(*id).is_none()).unwrap();
+        file.player_mut(71405).unwrap().id = free;
+        fs::write(&save, file.to_bytes(&[7; 320]).unwrap()).unwrap();
+        let slot_05 = || {
+            BTreeMap::from([(
+                5,
+                PatchPlayer {
+                    name: None,
+                    shirt_name: None,
+                    motion: MotionSettings::default().resolved(PesVersion::Pes21),
+                },
+            )])
+        };
+        let mut patch = empty_patch();
+        for (id, name) in [(714, "/co/"), (792, "/egg/")] {
+            patch.teams.push(PatchTeam {
+                id,
+                name: name.to_owned(),
+                players: slot_05(),
+            });
+        }
+        let (mut events, rx) = events();
+
+        update(
+            &mut events,
+            Located::Configured(save.clone()),
+            &[],
+            &temp.path().join("aesthetics_patch.toml"),
+            &patch,
+        )
+        .unwrap();
+
+        let messages = messages(&rx);
+        let codes: Vec<&str> = messages.iter().map(|(code, _)| code.as_str()).collect();
+        // The fixture is not stripped: 79205, the one player written, is reported.
+        assert_eq!(
+            codes,
+            [
+                "savefile_player_missing",
+                "savefile_player_not_stripped",
+                "savefile_written"
+            ]
+        );
+        assert_eq!(messages[1].1, [("players".to_owned(), "79205".to_owned())]);
+        assert_eq!(
+            messages[2].1,
+            [
+                ("path".to_owned(), save.display().to_string()),
+                ("teams".to_owned(), "792".to_owned())
+            ],
+            "714's only patch player was skipped"
+        );
+    }
+
+    #[test]
+    fn update_writes_nothing_when_the_save_holds_the_team_but_none_of_its_players() {
+        let temp = scratch("savefile_no_player_applied");
+        let save = temp.path().join("EDIT00000000");
+        let mut file =
+            EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        // 71405's record renumbered to an id the save lacks: team 714 stays, he goes.
+        let free = (1..).find(|id| file.player(*id).is_none()).unwrap();
+        file.player_mut(71405).unwrap().id = free;
+        fs::write(&save, file.to_bytes(&[7; 320]).unwrap()).unwrap();
+        let before = fs::read(&save).unwrap();
+        let mut patch = empty_patch();
+        patch.teams.push(PatchTeam {
+            id: 714,
+            name: "/co/".to_owned(),
+            players: BTreeMap::from([(
+                5,
+                PatchPlayer {
+                    name: None,
+                    shirt_name: None,
+                    motion: MotionSettings::default().resolved(PesVersion::Pes21),
+                },
+            )]),
+        });
+        let (mut events, rx) = events();
+
+        update(
+            &mut events,
+            Located::Configured(save.clone()),
+            &[],
+            &temp.path().join("aesthetics_patch.toml"),
+            &patch,
+        )
+        .unwrap();
+
+        let codes: Vec<String> = messages(&rx).into_iter().map(|(code, _)| code).collect();
+        assert_eq!(codes, ["savefile_player_missing"]);
         assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
         assert!(
             !temp.path().join("EDIT00000000.bak").exists(),

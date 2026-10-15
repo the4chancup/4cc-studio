@@ -197,8 +197,12 @@ fn a_pre_fox_compile_writes_no_patch() {
 fn a_plain_export_s_patch_holds_every_motion_and_no_name() {
     let sandbox = Sandbox::new("patch_plain");
     let export = "exports/co Full Plain";
-    let toml = "name = \"Some Name\"\nshirt_name = \"SOME\"\n\
-        [appearance.motion]\nhunching_dribbling = 2\n";
+    // A name longer than PES 21's field: unused without the marker, so not checked either
+    // (`settings_toml.md`: no finding reports the names of an export without it).
+    let toml = format!(
+        "name = \"{}\"\nshirt_name = \"SOME\"\n[appearance.motion]\nhunching_dribbling = 2\n",
+        "a".repeat(70)
+    );
     sandbox.write(
         &format!("{export}/Players/05 - A/settings.toml"),
         toml.as_bytes(),
@@ -208,6 +212,13 @@ fn a_plain_export_s_patch_holds_every_motion_and_no_name() {
 
     let lines = run.messages();
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        lines
+            .iter()
+            .all(|line| !line.contains(" settings_name_invalid")
+                && !line.contains(" settings_toml_name_shared")),
+        "no name finding without the marker: {lines:#?}"
+    );
     let written = format!(
         "Info patch_written [Keep] (path={}, teams=714)",
         sandbox.display("output/aesthetics_patch.toml")
@@ -224,7 +235,7 @@ fn a_plain_export_s_patch_holds_every_motion_and_no_name() {
     let player = &team.players[&5];
     assert_eq!(player.name, None, "no marker, no name");
     assert_eq!(player.shirt_name, None);
-    let expected = PlayerSettings::parse(toml)
+    let expected = PlayerSettings::parse(&toml)
         .unwrap()
         .appearance
         .motion

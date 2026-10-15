@@ -510,6 +510,12 @@ fn apply_writes_the_motions_and_names_and_nothing_else() {
     let patch = patch_at(PesVersion::Pes21, vec![team(701, players)]);
     let summary = patch.apply(&mut save).expect("applies");
     assert_eq!(summary.applied_teams, [701]);
+    let written: Vec<u32> = patch.teams[0]
+        .players
+        .keys()
+        .map(|slot| 70100 + u32::from(*slot))
+        .collect();
+    assert_eq!(summary.applied_players, written);
     assert!(summary.skipped.is_empty());
     for (slot, patch_player) in &patch.teams[0].players {
         let id = 70100 + u32::from(*slot);
@@ -588,6 +594,7 @@ fn an_absent_team_or_player_is_skipped_and_the_rest_applied() {
     let patch = patch_at(PesVersion::Pes21, vec![team(701, players), absent]);
     let summary = patch.apply(&mut save).expect("applies");
     assert_eq!(summary.applied_teams, [701]);
+    assert_eq!(summary.applied_players, [70105], "70124 is not in the save");
     assert_eq!(
         summary.skipped,
         [

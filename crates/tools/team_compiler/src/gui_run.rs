@@ -149,7 +149,7 @@ mod tests {
                     root.join("output").join("aesthetics_patch.toml").display()
                 ),
                 format!(
-                    "- Warning savefile_missing (patch={}, path={})",
+                    "- Warning savefile_missing (patch={}, path={}, command=4cc-studio save-editor apply-patch)",
                     root.join("output").join("aesthetics_patch.toml").display(),
                     root.join("save").join("EDIT00000000").display()
                 ),

@@ -204,7 +204,7 @@ fn a_savefile_path_naming_a_missing_file_is_a_warning_and_the_patch_is_written()
             sandbox.display("output/aesthetics_patch.toml")
         ),
         format!(
-            "Warning savefile_missing [Keep] (patch={}, path={})",
+            "Warning savefile_missing [Keep] (patch={}, path={}, command=4cc-studio save-editor apply-patch)",
             sandbox.display("output/aesthetics_patch.toml"),
             missing.display()
         ),
@@ -309,6 +309,9 @@ fn a_player_whose_appearance_id_is_set_is_reported_and_stays_set() {
     let save = install_save(&sandbox, PesVersion::Pes21);
     let mut file = EditFile::load(&save).unwrap();
     file.player_mut(71405).unwrap().appearance_id = Some(71405);
+    // 71406, whom the export does not compile, is not stripped either: only the patch's
+    // players are checked, so he is not named.
+    file.player_mut(71406).unwrap().appearance_id = Some(71406);
     fs::write(&save, file.to_bytes(&TEST_SALT).unwrap()).unwrap();
     motion_export(&sandbox, "co Full Motions");
 

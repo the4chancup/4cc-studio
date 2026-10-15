@@ -446,9 +446,9 @@ pub(crate) enum Code {
     /// `savefile_path = auto` resolved a savefile under Documents\KONAMI (context: the path,
     /// `candidates` how many there were; the newest is used).
     SavefileAutodetected,
-    /// The patch holds entries but no savefile is configured or found (context: `patch`, and
-    /// `path` when a configured path names a missing file); the patch is the run's only
-    /// savefile output.
+    /// The patch holds entries but no savefile is configured or found (context: `patch`,
+    /// `path` when a configured path names nothing, and `command`, the save editor's
+    /// `apply-patch` for applying it by hand); the patch is the run's only savefile output.
     SavefileMissing,
     /// Savefile changes pending but the compile target's PES is running (a PES of another
     /// version does not count; context: `path`, `version`): the game writes its own save back

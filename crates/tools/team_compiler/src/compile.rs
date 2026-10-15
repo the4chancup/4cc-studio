@@ -883,8 +883,8 @@ fn deploy_failed(failure: DeployFailure, download: &Path, output: &Path) -> Mess
 /// earlier one aside to `.bak` when `teams` is empty (no compiled player, or a pre-Fox
 /// target) — reporting `patch_written` with the path and the team ids it covers, and returns
 /// the patch written, for the savefile step to apply. A write or rename failing is
-/// `patch_write_failed` through `abort_output` at the caller, which aborts the run; the
-/// one-transaction question with the CPKs is slice b3's. Called once the run's outputs are
+/// `patch_write_failed` through `abort_output` at the caller, which first rolls a deployment
+/// back and then aborts the run. Called once the run's outputs are
 /// in place, so a run that published nothing (returned above) leaves the patch alone.
 fn write_patch(
     events: &mut RunEvents,

@@ -249,7 +249,7 @@ fn patch_written(sandbox: &Sandbox, teams: &str) -> String {
 /// `savefile_path`.
 fn savefile_missing(sandbox: &Sandbox) -> String {
     format!(
-        "Warning savefile_missing [Keep] (patch={}, path={})",
+        "Warning savefile_missing [Keep] (patch={}, path={}, command=4cc-studio save-editor apply-patch)",
         sandbox.display("output/aesthetics_patch.toml"),
         sandbox.display("save/EDIT00000000")
     )
