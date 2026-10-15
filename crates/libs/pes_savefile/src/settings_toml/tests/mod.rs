@@ -1,10 +1,12 @@
 //! The `PlayerSettings` tests: the completeness invariant, `from_player`,
 //! `apply` and the key table itself (`model`), the `PlayerAppearance.bin`
-//! row (`appearance_row`), and the TOML text half (`document`).
+//! row (`appearance_row`), the per-version narrowing (`narrow`), and the
+//! TOML text half (`document`).
 
 mod appearance_row;
 mod document;
 mod model;
+mod narrow;
 
 use std::collections::HashSet;
 
@@ -13,8 +15,8 @@ use toml_edit::DocumentMut;
 
 use super::keys::Source;
 use super::{
-    AppearanceSettings, KeyTable, Kind, NameSetting, Ownership, PlayerSettings, SettingKey,
-    SettingsError, appearance_from, face_ownership, get_appearance, held_on, ownership,
+    AppearanceSettings, KeyTable, Kind, NameSetting, NarrowedValue, Ownership, PlayerSettings,
+    SettingKey, SettingsError, appearance_from, face_ownership, get_appearance, held_on, ownership,
 };
 use crate::codec::{CodecError, read_player, runs, text_max, write_player};
 use crate::model::ingame_face::IngameFace;

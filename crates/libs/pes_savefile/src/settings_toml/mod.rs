@@ -17,7 +17,7 @@ mod tests;
 
 use pes_version::PesVersion;
 
-use document::{dotted, range_text};
+use document::{dotted, range_text, toml_form};
 use keys::Source;
 
 use crate::codec::{CodecError, TextMisfit, text_max, text_misfit};
@@ -364,6 +364,21 @@ pub struct PlayerSettings {
     pub gloves_id: Option<u8>,
     /// The `[appearance]` tables.
     pub appearance: AppearanceSettings,
+}
+
+/// One `settings.toml` value `PlayerSettings::narrow_to` reset to its key's
+/// default for the compile target: what the Team compiler's
+/// `settings_value_out_of_range` reports.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NarrowedValue {
+    /// The key's dotted TOML path (`appearance.face.facial_hair_type`; a
+    /// top-level key is just its name).
+    pub key: String,
+    /// The value as the file wrote it: the TOML number (a one-based
+    /// motion's stored 4 reports its shown 5).
+    pub value: i64,
+    /// The version's range as the file would write it ("1 to 3").
+    pub range: String,
 }
 
 /// A `PlayerSettings` could not be produced or applied.
@@ -927,6 +942,44 @@ impl PlayerSettings {
         write_appearance(&appearance, next)?;
         next.appearance.ingame_face.write_unused();
         Ok(())
+    }
+
+    /// Narrows the settings to the compile target `version`: every set value
+    /// inside its key's widest range but outside the version's own
+    /// (`SettingKey::version_kind`) is reset to the key's `KeySpec` default
+    /// (a face type 0, a motion the template's value, a custom skin the
+    /// target lacks as 1), and one `NarrowedValue` per reset key is
+    /// returned, in the key table's order, for the Team compiler's
+    /// `settings_value_out_of_range`. A key the version does not store is
+    /// left alone: the write drops it (`held_on`), with no finding. A stored
+    /// value outside the key's widest range too (a directly written field,
+    /// never a parsed file) is not this method's to touch: `apply`'s and
+    /// `appearance_row`'s checks still refuse it.
+    pub fn narrow_to(&mut self, version: PesVersion) -> Vec<NarrowedValue> {
+        let mut narrowed = Vec::new();
+        for key in SettingKey::ALL {
+            let Some(stored) = self.get(key) else {
+                continue;
+            };
+            let spec = key.spec();
+            let Some(kind) = key.version_kind(version) else {
+                continue;
+            };
+            if !spec.kind.accepts_stored(stored) || kind.accepts_stored(stored) {
+                continue;
+            }
+            narrowed.push(NarrowedValue {
+                key: dotted(&spec),
+                value: toml_form(key, stored, false)
+                    .expect("inside the widest range, checked above")
+                    .as_integer()
+                    .expect("the kinds a version narrows all write a TOML integer"),
+                range: range_text(kind),
+            });
+            self.set(key, spec.default.expect("a key that narrows has one"))
+                .expect("a key's default is inside its widest range");
+        }
+        narrowed
     }
 }
 

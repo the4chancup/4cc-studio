@@ -151,6 +151,49 @@ fn the_names_are_not_the_rows() {
     }
 }
 
+/// Every key at its `version_kind` extreme fits the version's fields: the
+/// narrowing is what the writer relies on when it `expect`s the row to
+/// build. Both ends of each held range are tried, on every Fox version.
+#[test]
+fn a_row_builds_from_every_key_at_its_version_range_extremes() {
+    let stored_max = |kind: Kind| match kind {
+        Kind::Number { max, .. } => max,
+        Kind::Signed { limit } => 2 * limit,
+        Kind::OneBased { max } => max - 1,
+        Kind::PlusOne { max } => max + 1,
+        Kind::Mapped(map) => *map.iter().max().expect("a nonempty map"),
+        Kind::Bool => 1,
+        Kind::Labels(labels) => labels.len() as u8 - 1,
+    };
+    let stored_min = |kind: Kind| match kind {
+        Kind::Number { min, .. } => min,
+        Kind::Signed { .. } | Kind::OneBased { .. } | Kind::PlusOne { .. } => 0,
+        Kind::Mapped(map) => *map.iter().min().expect("a nonempty map"),
+        Kind::Bool | Kind::Labels(_) => 0,
+    };
+    for version in [
+        PesVersion::Pes18,
+        PesVersion::Pes19,
+        PesVersion::Pes20,
+        PesVersion::Pes21,
+    ] {
+        for stored in [stored_min, stored_max] {
+            let mut settings = PlayerSettings::default();
+            for key in SettingKey::ALL {
+                let Some(kind) = key.version_kind(version) else {
+                    continue;
+                };
+                settings
+                    .set(key, stored(kind))
+                    .expect("inside the widest range");
+            }
+            settings
+                .appearance_row(71405, version)
+                .unwrap_or_else(|err| panic!("{version:?}: {err}"));
+        }
+    }
+}
+
 /// A pre-Fox game has no row: PES 17 reads one, but its compile writes the
 /// savefile instead.
 #[test]

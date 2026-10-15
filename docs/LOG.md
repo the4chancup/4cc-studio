@@ -2011,3 +2011,6 @@ worklog passed 7,000 lines.
   flattened name, so no texture path climbs (TC-MOD-93; TC-MOD-74 withdrawn).
 - **2026-10-15** — 5.3a1: on Fox every compiled player gets his appearance row from his
   `settings.toml` and his boots and gloves IDs by the plan's resolution (TC-BIN-25 to 29).
+- **2026-10-15** — 5.3a3: a `settings.toml` value past the compile target's range becomes the
+  key's default with `settings_value_out_of_range`, instead of stopping the compile (TC-BIN-31's
+  table half).

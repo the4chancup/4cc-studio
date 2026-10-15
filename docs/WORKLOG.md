@@ -1048,13 +1048,19 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       template's row; in multi-CPK mode the player tables' walk starts at the bins CPK itself
       (`spec/team_compiler/pipeline.md` "Bins accumulation" says so, the code's walk skips it)
       → done when: the table halves of TC-BIN-32 and 33, and TC-BIN-37, pass
-    - [ ] 5.3a3 the per-version range in `pes_savefile` (today `PlayerSettings::apply` takes a PES
+    - [x] 5.3a3 the per-version range in `pes_savefile` (today `PlayerSettings::apply` takes a PES
       21 file's `hunching_dribbling = 5` for PES 18 and the codec refuses it only at write,
       review R2.S1-1) and `settings_value_out_of_range` (a key's default; a key the target lacks
       dropped silently) → done when: TC-BIN-31's table half passes, on PES 18 and 21.
-      Runs before 5.3a2: since 5.3a1 a value inside its key's widest range but past the
-      target's field (`hunching_dribbling = 5` for PES 18) fails `appearance_row` and stops the
-      whole compile ("cannot build player N's PlayerAppearance.bin row")
+      Done (ahead of 5.3a2, whose compiles it would have stopped): `SettingKey::version_kind`
+      and `PlayerSettings::narrow_to` in `pes_savefile` `settings_toml/`; the deep pass narrows
+      each player's settings and reports one finding per reset key, so `check` and `compile`
+      agree; the writer's row build is an `expect` (a test builds a row from every key at both
+      ends of each Fox version's range). `team_compiler` `deep/mod.rs`, `messages.rs`,
+      `output/writer.rs`, `tests/cli/bins.rs`
+    - [ ] 5.3a-R the cross-family review (checkpoint (b)) over 5.3a1 and 5.3a3 (`6da0fe4..` the
+      5.3a3 commit): SWE-2 round T.S1 (`.tmp/5_3/swe_brief_T_s1.md`, in a worktree), then Astra
+      if it accepts fewer than five, per `RUNBOOK.md` "Review rounds"
     - [ ] 5.3a4 FPC presets on a player's settings and their findings → done when: TC-BIN-29, 30
       and TC-REF-19 pass
     - [ ] 5.3a5 the shared-ID record and a Midcup reading it

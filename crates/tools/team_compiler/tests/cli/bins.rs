@@ -7,7 +7,7 @@ use std::path::Path;
 
 use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
 use pes_savefile::player_tables::{AppearanceTable, PlayerTableFile};
-use pes_savefile::settings_toml::PlayerSettings;
+use pes_savefile::settings_toml::{PlayerSettings, SettingKey};
 use pes_version::PesVersion;
 use uniparam::UniformParameter;
 
@@ -1337,4 +1337,97 @@ fn the_authored_stock_id_the_marker_defaults_and_the_assigned_id_resolve_in_orde
         pairs_of(&entries, GLOVE_LIST),
         [(70201, 31), (71405, 11), (71406, 11), (71407, 0)]
     );
+}
+
+// TC-BIN-31
+#[test]
+fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
+    // The scenario's patch half (the patch holds hunching_dribbling 1 and
+    // no dribbling key) comes with step 5.3b; this proves the table half.
+    let toml = "[appearance.motion]\nhunching_dribbling = 5\ndribbling = 2\n\
+        [appearance.face]\nfacial_hair_type = 15\n\
+        [appearance.hair]\nstyle = 4\ncolor_red = 40\n";
+    for (number, version) in [(18u8, PesVersion::Pes18), (21, PesVersion::Pes21)] {
+        let sandbox = Sandbox::new(&format!("bins_ranges_{number}"));
+        install_tables(
+            &sandbox,
+            &[
+                (BOOTS_LIST, &item_list(&INSTALLED_BOOTS)),
+                (GLOVE_LIST, &item_list(&INSTALLED_GLOVES)),
+                (PLAYER_APPEARANCE, &player_appearance()),
+            ],
+        );
+        let export = format!("co Full Ranges{number}");
+        sandbox.write(
+            &format!("exports/{export}/Players/05 - A/settings.toml"),
+            toml.as_bytes(),
+        );
+
+        let run = sandbox.run(&pes_settings(&sandbox, number), &["compile", "--no-deploy"]);
+
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{number}: {lines:#?}");
+        if version == PesVersion::Pes18 {
+            for (key, value, range) in [
+                ("appearance.motion.hunching_dribbling", "5", "1 to 3"),
+                ("appearance.face.facial_hair_type", "15", "0 to 12"),
+            ] {
+                let expected = format!(
+                    "{export}: Warning settings_value_out_of_range [Keep] at Players/05 - A \
+                     (key={key}, value={value}, range={range})"
+                );
+                assert!(lines.contains(&expected), "{lines:#?}");
+            }
+            // `dribbling` is a PES 20 and 21 key: dropped on PES 18, no finding names it.
+            assert!(
+                !lines
+                    .iter()
+                    .any(|line| line.contains("key=appearance.motion.dribbling")),
+                "{lines:#?}"
+            );
+        } else {
+            // PES 21 takes every authored value: nothing is out of range.
+            assert!(
+                !lines
+                    .iter()
+                    .any(|line| line.contains("settings_value_out_of_range")),
+                "{lines:#?}"
+            );
+        }
+        let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+        let table = AppearanceTable::read(
+            PlayerTableFile::PlayerAppearance,
+            &entries[PLAYER_APPEARANCE],
+        )
+        .unwrap();
+        // The row is the export's settings narrowed to the target: on PES 18
+        // the facial hair type is back at its 0 default and the hunching at
+        // the template's 1; on PES 21 it is as authored.
+        let mut expected = PlayerSettings::parse(toml).unwrap();
+        expected.narrow_to(version);
+        if version == PesVersion::Pes18 {
+            assert_eq!(
+                expected.get(SettingKey::FacialHairType),
+                Some(0),
+                "the reset facial hair type"
+            );
+        }
+        assert_eq!(
+            table.get(71405).copied(),
+            Some(
+                expected.appearance_row(71405, version).unwrap()[4..]
+                    .try_into()
+                    .unwrap()
+            ),
+            "{number}: 71405's row"
+        );
+        // Both runs' rows carry the authored in-game hair.
+        let mut no_hair = expected.clone();
+        no_hair.appearance.hair = Default::default();
+        assert_ne!(
+            expected.appearance_row(71405, version).unwrap()[4..],
+            no_hair.appearance_row(71405, version).unwrap()[4..],
+            "{number}: the in-game hair changes the row"
+        );
+    }
 }

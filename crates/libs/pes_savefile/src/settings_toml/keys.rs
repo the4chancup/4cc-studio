@@ -5,6 +5,7 @@
 
 use pes_version::PesVersion;
 
+use super::held_on;
 use crate::schema::fields::PlayerField;
 use crate::schema::ingame_face::IngameFaceField;
 use crate::schema::limits::{face_type_cap, motion_top};
@@ -1453,6 +1454,46 @@ impl SettingKey {
             SettingKey::Pes15HairType => Source::Face(IngameFaceField::Pes15HairType),
             SettingKey::Pes15HairVariation => Source::Face(IngameFaceField::Pes15HairVariation),
         }
+    }
+
+    /// The `Kind` `version` bounds the key to: the widest range narrowed to
+    /// the version's own, from the same tables `spec` draws the widest from
+    /// (the measured motion tops, the face-type caps, and the custom skin
+    /// the PES 15 to 17 games alone have, `custom_skin_available`). `None`
+    /// for a key the version does not store (`held_on`): that is a drop with
+    /// no finding, not a narrowing. Every key without a per-version table
+    /// entry keeps its widest range, which every version holding it shares.
+    pub(crate) fn version_kind(self, version: PesVersion) -> Option<Kind> {
+        if !held_on(self, version) {
+            return None;
+        }
+        let spec = self.spec();
+        Some(match self.source() {
+            Source::Player(field) => match motion_top(version, field) {
+                // A 1-based motion's shown top is one above the stored; a
+                // celebration's stored top shows as is (0 being OFF).
+                Some(top) => match spec.kind {
+                    Kind::OneBased { .. } => Kind::OneBased { max: top + 1 },
+                    Kind::Number { min, .. } => Kind::Number { min, max: top },
+                    // `motion_top` covers only the nine motion fields, each
+                    // one of the two kinds above.
+                    Kind::Signed { .. }
+                    | Kind::PlusOne { .. }
+                    | Kind::Mapped(_)
+                    | Kind::Bool
+                    | Kind::Labels(_) => spec.kind,
+                },
+                None => spec.kind,
+            },
+            Source::Face(field) => match face_type_cap(version, field) {
+                Some(cap) => Kind::Number { min: 0, max: cap },
+                None if self == SettingKey::SkinColor && !fpc::custom_skin_available(version) => {
+                    Kind::Number { min: 0, max: 6 }
+                }
+                None => spec.kind,
+            },
+            Source::NoseAngle => spec.kind,
+        })
     }
 }
 

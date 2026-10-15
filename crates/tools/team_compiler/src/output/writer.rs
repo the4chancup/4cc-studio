@@ -542,15 +542,10 @@ impl CpkOutput {
         match player_appearance {
             Some(mut table) => {
                 for row in &player_rows.appearance {
-                    let bytes = row
-                        .settings
-                        .appearance_row(row.player_id, version)
-                        .with_context(|| {
-                            format!(
-                                "cannot build player {}'s PlayerAppearance.bin row",
-                                row.player_id
-                            )
-                        })?;
+                    let bytes = row.settings.appearance_row(row.player_id, version).expect(
+                        "the deep pass narrowed every parsed settings.toml to this \
+                             version's ranges and the parser bounds the rest",
+                    );
                     table.set(
                         row.player_id,
                         bytes[4..]

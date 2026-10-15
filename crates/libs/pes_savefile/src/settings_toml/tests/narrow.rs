@@ -1,0 +1,128 @@
+//! `PlayerSettings::narrow_to`: a value inside its key's widest range but
+//! past the compile target's resets to the key's default and reports what
+//! `settings_value_out_of_range` needs (the key, the value as the file
+//! wrote it, the version's range as the file would write it).
+
+use super::*;
+
+/// PES 18's facial-hair cap is 12; a parsed 15 (inside the widest 29)
+/// narrows to the face type's default 0 and reports the dotted key, the
+/// written 15 and the target's "0 to 12".
+#[test]
+fn a_face_type_over_the_target_s_cap_resets_to_0_and_reports() {
+    let mut settings = PlayerSettings::parse("[appearance.face]\nfacial_hair_type = 15\n")
+        .expect("inside the widest range");
+    let narrowed = settings.narrow_to(PesVersion::Pes18);
+    assert_eq!(
+        narrowed,
+        [NarrowedValue {
+            key: "appearance.face.facial_hair_type".to_string(),
+            value: 15,
+            range: "0 to 12".to_string(),
+        }]
+    );
+    assert_eq!(settings.get(SettingKey::FacialHairType), Some(0));
+}
+
+/// A one-based motion past the target's top resets to the template's value
+/// (`1`, stored 0); the report carries the shown 5, not the stored 4, and
+/// the shown range "1 to 3".
+#[test]
+fn a_motion_over_the_target_s_top_resets_to_the_template_s_value() {
+    let mut settings = PlayerSettings::parse("[appearance.motion]\nhunching_dribbling = 5\n")
+        .expect("inside the widest range");
+    let narrowed = settings.narrow_to(PesVersion::Pes18);
+    assert_eq!(
+        narrowed,
+        [NarrowedValue {
+            key: "appearance.motion.hunching_dribbling".to_string(),
+            value: 5,
+            range: "1 to 3".to_string(),
+        }]
+    );
+    assert_eq!(settings.get(SettingKey::HunchingDribbling), Some(0));
+}
+
+/// A celebration past the target's top (PES 18's 127) resets the same way.
+#[test]
+fn a_celebration_over_the_target_s_top_resets() {
+    let mut settings = PlayerSettings::parse("[appearance.motion]\ngoal_celebration_1 = 162\n")
+        .expect("inside the widest range");
+    let narrowed = settings.narrow_to(PesVersion::Pes18);
+    assert_eq!(
+        narrowed,
+        [NarrowedValue {
+            key: "appearance.motion.goal_celebration_1".to_string(),
+            value: 162,
+            range: "0 to 127".to_string(),
+        }]
+    );
+    assert_eq!(settings.get(SettingKey::GoalCelebration1), Some(0));
+}
+
+/// A custom skin (7) exists on PES 15 to 17 only: kept on 17, reset to the
+/// default 1 on 18 and reported against "0 to 6".
+#[test]
+fn a_custom_skin_resets_only_where_the_target_lacks_one() {
+    let mut settings =
+        PlayerSettings::parse("[appearance]\nskin_color = 7\n").expect("inside the widest range");
+    let narrowed = settings.narrow_to(PesVersion::Pes18);
+    assert_eq!(
+        narrowed,
+        [NarrowedValue {
+            key: "appearance.skin_color".to_string(),
+            value: 7,
+            range: "0 to 6".to_string(),
+        }]
+    );
+    assert_eq!(settings.get(SettingKey::SkinColor), Some(1));
+
+    let mut settings =
+        PlayerSettings::parse("[appearance]\nskin_color = 7\n").expect("inside the widest range");
+    assert_eq!(settings.narrow_to(PesVersion::Pes17), []);
+    assert_eq!(settings.get(SettingKey::SkinColor), Some(7));
+}
+
+/// A value inside the target's range is left alone and unreported, as is
+/// the same file's value on the wider target that takes it.
+#[test]
+fn a_value_inside_the_target_s_range_is_untouched() {
+    for version in [PesVersion::Pes18, PesVersion::Pes21] {
+        let cap = if version == PesVersion::Pes18 { 12 } else { 19 };
+        let mut settings =
+            PlayerSettings::parse(&format!("[appearance.face]\nfacial_hair_type = {cap}\n"))
+                .expect("inside the widest range");
+        assert_eq!(settings.narrow_to(version), [], "{version:?}");
+        assert_eq!(settings.get(SettingKey::FacialHairType), Some(cap));
+    }
+}
+
+/// A key the target has no field for (`dribbling` before PES 20) is left
+/// to `held_on`'s drop at the write: kept as authored, unreported.
+#[test]
+fn a_key_the_target_lacks_is_not_reported() {
+    let mut settings = PlayerSettings::parse("[appearance.motion]\ndribbling = 2\n")
+        .expect("inside the widest range");
+    assert_eq!(settings.narrow_to(PesVersion::Pes18), []);
+    assert_eq!(settings.get(SettingKey::Dribbling), Some(2));
+    // On PES 20 the key is held and 2 is inside its 0 to 3.
+    let mut settings = PlayerSettings::parse("[appearance.motion]\ndribbling = 2\n")
+        .expect("inside the widest range");
+    assert_eq!(settings.narrow_to(PesVersion::Pes20), []);
+    assert_eq!(settings.get(SettingKey::Dribbling), Some(2));
+}
+
+/// `version_kind` is `None` exactly where `held_on` is, and narrows only
+/// the keys with a measured per-version range.
+#[test]
+fn version_kind_is_none_where_the_version_lacks_the_key() {
+    for version in PesVersion::ALL {
+        for key in SettingKey::ALL {
+            assert_eq!(
+                key.version_kind(version).is_none(),
+                !held_on(key, version),
+                "{version:?} {key:?}"
+            );
+        }
+    }
+}

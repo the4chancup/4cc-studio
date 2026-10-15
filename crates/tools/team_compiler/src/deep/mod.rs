@@ -431,7 +431,24 @@ pub(crate) fn content_findings(
             }
             match player_settings(content, player) {
                 Ok(settings) => {
-                    if let Some(settings) = settings {
+                    if let Some(mut settings) = settings {
+                        // The parser bounds a value to the key's widest range; the compile
+                        // target's own is narrower. Each value past it resets to the key's
+                        // default here, one finding apiece, so `check` and `compile` report
+                        // alike and planning sees the row's values (`settings_toml.md`).
+                        for reset in settings.narrow_to(version) {
+                            findings.push(ContentFinding {
+                                code: Code::SettingsValueOutOfRange.as_str(),
+                                scope: IssueScope::Folder(player.path.clone()),
+                                context: vec![
+                                    ("key", reset.key),
+                                    ("value", reset.value.to_string()),
+                                    ("range", reset.range),
+                                ],
+                                disposition: Disposition::Keep,
+                                pass_through_eligible: false,
+                            });
+                        }
                         pass.settings.insert(player.path.clone(), settings);
                     }
                 }

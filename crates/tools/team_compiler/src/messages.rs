@@ -114,6 +114,10 @@ pub(crate) enum Code {
     /// compiler assigns, from the folder's standalone models or a link file: the
     /// compiler-assigned ID wins and the key is ignored.
     SettingsModelIdConflict,
+    /// A player's `settings.toml` value inside its key's widest range but outside the compile
+    /// target's (`PlayerSettings::narrow_to`): the key's default is written in its place (a face
+    /// type 0, a motion the template's value, a custom skin 7 as 1).
+    SettingsValueOutOfRange,
     /// A Fox model whose name has no recognized suffix: it is face content, a part of the
     /// `fcl_hair.fmdl` merge.
     FmdlFclHairFallback,
@@ -474,7 +478,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 140] = [
+    const ALL: [Code; 141] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -508,6 +512,7 @@ impl Code {
         Code::LinkCombined,
         Code::SettingsTomlInvalid,
         Code::SettingsModelIdConflict,
+        Code::SettingsValueOutOfRange,
         Code::FmdlFclHairFallback,
         Code::FmdlMerged,
         Code::ModelMerged,
@@ -653,6 +658,7 @@ impl Code {
             Code::LinkCombined => "link_combined",
             Code::SettingsTomlInvalid => "settings_toml_invalid",
             Code::SettingsModelIdConflict => "settings_model_id_conflict",
+            Code::SettingsValueOutOfRange => "settings_value_out_of_range",
             Code::FmdlFclHairFallback => "fmdl_fcl_hair_fallback",
             Code::FmdlMerged => "fmdl_merged",
             Code::ModelMerged => "model_merged",
@@ -818,6 +824,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("link_combined", CatalogSeverity::Info),
     ("settings_toml_invalid", CatalogSeverity::Error),
     ("settings_model_id_conflict", CatalogSeverity::Warning),
+    ("settings_value_out_of_range", CatalogSeverity::Warning),
     ("fmdl_fcl_hair_fallback", CatalogSeverity::Info),
     ("fmdl_merged", CatalogSeverity::Info),
     ("model_merged", CatalogSeverity::Info),
