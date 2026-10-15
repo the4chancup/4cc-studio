@@ -178,7 +178,9 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
   version running leaves the step to run. The savefile is likewise
   **skipped whenever the CPKs were not deployed** — a degraded run promoted to `output/`, a
   deployment refused by its preflight, `--no-deploy`, or test mode, whose loose tree in
-  `output/` the game never reads. Sideload mode counts as deployed: its tree in `livecpk\` is
+  `output/` the game never reads; and after a deployment the game will not load
+  (`dpfilelist_cpk_missing`: the installed list names a CPK `download/` lacks, so the game
+  runs vanilla), which commits silently, the warning having said why. Sideload mode counts as deployed: its tree in `livecpk\` is
   what the game loads, and its savefile half catching up once PES is closed is the reason the
   running-PES skip exists. The incoherence it prevents is pre-Fox's, where a savefile can point at
   boots/gloves IDs whose content is not installed — exactly what the "only for content actually

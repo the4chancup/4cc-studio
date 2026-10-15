@@ -20,7 +20,7 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
 5.y-gloves and 5.3a (a1 to a5, its review loop closed) and 5.3b1 (the patch written) done
-2026-10-15, and 5.3b2 (the local savefile) and 5.3b3 (the transaction) done 2026-10-15; next the checkpoint (b) review of 5.3b, then 16.w (the release exe's floor and size); step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w1 (the platform floor) done 2026-10-15; next 16.w2 and 16.w3 (the release exe's CRT and size); step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1111,7 +1111,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `plan/mod.rs`, `validation.rs`, `output/writer.rs`, `paths.rs`, `check.rs`,
       `compile.rs`, about 70 tests gaining the record entry or the warning
     The `autopilot` marker moves to 5.3b, its only consumer (the patch's names).
-  - [ ] 5.3b the names marker in `aesthetics_export` (`autopilot`, renamed `write_names`), the
+  - [x] 5.3b the names marker in `aesthetics_export` (`autopilot`, renamed `write_names`), the
     patch and the local savefile →
     done when: TC-SAV-01 to 12 and TC-BIN-31 to 33's patch halves pass (TC-SAV-10 a `manual:`
     line). Slices (code survey 2026-10-15: `AestheticsPatch` and `EditFile::save` exist in
@@ -1152,6 +1152,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `compile.rs` (`Published`, the rollback and promotion to `output/`), `savefile.rs`
       (`SavefileFailure`), `messages.rs` (the two codes E/F), `patch.rs` (the `.bak` rename
       replaces), `tests/cli/savefile.rs`
+    - [x] 5.3b review (checkpoint (b)): SWE-2 B.S1 (5 of 7 accepted), B.S2 (3 of 3), Astra B.A1
+      (3 of 5; one rejected concern is the open issue on `output_folder_path`). Fixes:
+      `PatchSummary.applied_players`, a folder `savefile_path` invalid, no rewrite when no
+      player applies; a deployment the game runs vanilla over (`dpfilelist_cpk_missing`)
+      skips the savefile step (`deploy.rs` `Download`), `locate` through `try_exists`, the
+      help chapter's "The aesthetics patch and your save"
 - [ ] 5.4 The Save editor crate (skeleton, settings, egui-free `session/`, CLI), after 5.1:
   - [ ] 5.4a `export-toml`, `import-toml`, `apply-patch`, `transplant`, `diff`,
     `export-teams-list` → done when: SE-CLI, SE-TOML, SE-PAT, SE-TRN, SE-DIF and SE-TL pass.
@@ -1304,8 +1310,9 @@ Steps are itemized when Phase 15 closes; two are fixed already:
   exe cannot load on Windows 7 (Rust std's Win8+ imports and `windows-core`'s `combase.dll`)
   and needs the VC++ redistributable, which no doc names; the maintainer ruled Windows 7 out
   (its last members moved to Linux). Slices:
-  - [ ] 16.w1 `docs/spec/core/distribution.md` states the floor, Windows 10 x64 (and Linux),
-    with the reason (the Rust target and the GUI stack require it) → verify: `just doc-pointers`
+  - [x] 16.w1 `docs/spec/core/distribution.md` states the floor, Windows 10 x64 (and Linux),
+    with the reason (the Rust target and the GUI stack require it) → verify: `just doc-pointers`.
+    Done: the "Platform floor" paragraph, DECISIONS 2026-10-15
   - [ ] 16.w2 `+crt-static` for the Windows release build (measured +327 KiB, 1%), so the exe
     runs without the redistributable → verify: the release exe's import table has no
     `VCRUNTIME140.dll` and no `api-ms-win-crt-*` (`.tmp/win7/imports.py`); the GUI starts
@@ -1390,6 +1397,12 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-15, Astra review B.A1 of 5.3b) — nothing refuses an `output_folder_path` that
+  resolves to the PES folder's `download/` (or inside the PES install): a degraded or
+  `--no-deploy` run then installs into the game past every deployment check, and a savefile
+  failure's rollback promotes the new CPK over the old one it just restored. Fix when the
+  settings get their validation pass (Phase 8's settings view at the latest): refuse such a
+  path on the command line and in the settings view, comparing the canonical paths.
 - resolved 2026-10-14 (5.2f-r2) — every team of the VGL26 cup save fails VGL26's "Support settings"
   special on `auto_preset_change` (all three PES 21 cup saves hold it off): the rule follows the
   rules page, which speaks of the deadline export. Resolved the same day (step 5.2f-r2): the

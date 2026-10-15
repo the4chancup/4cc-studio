@@ -2047,3 +2047,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.3b3: a deployment keeps the old CPKs aside until the patch and the
   savefile are written; a failure of either rolls it back (exit 3). Sideload has no rollback.
 - **2026-10-15** — 5.3b3 mutation run (`mutants-diff e3aa21d`): 6 caught, none missed.
+- **2026-10-15** — 5.3b reviewed (SWE-2 5 of 7, 3 of 3; Astra 3 of 5) and closed: a deployment
+  the game runs vanilla over skips the savefile, an unreadable save path is invalid, the help
+  explains the patch. `mutants-diff 2337e4f`: 2 caught, 6 unviable.

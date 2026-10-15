@@ -537,6 +537,40 @@ fn a_stale_old_cpk_from_a_killed_run_leaves_none_after_a_deployed_run() {
     );
 }
 
+// The game's DPFL lists a CPK that is not in `download/` (`dpfilelist_cpk_missing`): the
+// deployment commits, but the game rejects the whole folder and runs vanilla, so the
+// savefile step does not run, silently, the warning having said why.
+// TC-DEP-14
+#[test]
+fn a_deployed_run_the_game_runs_vanilla_leaves_the_savefile_alone() {
+    let sandbox = Sandbox::new("savefile_vanilla");
+    install_pes(&sandbox);
+    let save = install_save(&sandbox, PesVersion::Pes21);
+    let before = fs::read(&save).unwrap();
+    fs::remove_file(sandbox.root.join("PES/download/4cc_62_midcup.cpk")).unwrap();
+    motion_export(&sandbox, "co Full Motions");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let expected = format!(
+        "Warning dpfilelist_cpk_missing [Keep] (path={}, files=4cc_62_midcup.cpk, command=4cc-studio team-compiler upgrade-dpfl)",
+        sandbox.display("PES/download")
+    );
+    assert!(lines.contains(&expected), "{lines:#?}");
+    // A leading space: the code field's position, which a sandbox path never matches.
+    assert!(
+        lines.iter().all(|line| !line.contains(" savefile_")),
+        "{lines:#?}"
+    );
+    assert!(
+        sandbox.root.join("PES/download/4cc_99_test.cpk").is_file(),
+        "deployed"
+    );
+    assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
+}
+
 // The scenario's sideload form: no deployment to roll back, so the failure stays an Error
 // and the new `livecpk/` tree stays in place.
 // TC-SAV-05

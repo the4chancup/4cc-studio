@@ -28,7 +28,7 @@ use crate::bins::installed::{self, InstalledPaths};
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
 use crate::messages::{Code, size_text, tool_message};
-use crate::output::deploy::{self, DeployFailure, Installed, Staging};
+use crate::output::deploy::{self, DeployFailure, Download, Installed, Staging};
 use crate::output::parts::{self, TeamsParts, Unplaced};
 use crate::output::patch;
 use crate::output::savefile;
@@ -282,9 +282,9 @@ struct PlannedRun {
     version: PesVersion,
     /// The events so far: validation's and planning's findings.
     events: RunEvents,
-    /// The PES folder's `download/` the CPK is installed into; `None` when the run does not
-    /// deploy or cannot.
-    download: Option<PathBuf>,
+    /// The `download/` the run's CPKs are installed into, and whether the game will load
+    /// them; `None` when the run does not deploy or cannot.
+    download: Option<Download>,
     budget: Arc<MemoryBudget>,
     pool: rayon::ThreadPool,
     /// The `overrides/` folder's files, by CPK path.
@@ -308,7 +308,7 @@ fn plan(
     sources: Vec<ExportSource>,
     installed: InstalledPaths,
     mode: &OutputMode,
-    download: Option<PathBuf>,
+    download: Option<Download>,
     mut events: RunEvents,
     ctx: &ToolContext,
 ) -> anyhow::Result<PlannedRun> {
@@ -602,7 +602,7 @@ fn build(
         &staging,
         output_folder,
         &staged,
-        download.as_deref(),
+        download.as_ref(),
         &target,
         &mut events,
     ) {
@@ -610,28 +610,31 @@ fn build(
             match write_patch(&mut events, output_folder, version, &patch_teams, &staged) {
                 Ok(patch) => {
                     // The savefile step applies the patch the run just wrote, never a
-                    // re-read of the file, and only when the game loads the run's output.
+                    // re-read of the file, and only when the game loads the run's output: a
+                    // deployment the game runs vanilla over commits the same, silently.
                     let failure = match (&published, &patch) {
-                        (Published::Deployed(_) | Published::Sideloaded, Some(patch)) => {
-                            savefile::update(
-                                &mut events,
-                                savefile::locate(savefile_path, || {
-                                    pes_savefile::discovery::discover_savefiles(version)
-                                }),
-                                &studio_core::running_pes(),
-                                &output_folder.join(patch::FILE_NAME),
-                                patch,
-                            )
-                            .err()
-                        }
-                        (Published::Output, _) | (_, None) => None,
+                        (
+                            Published::Deployed { loaded: true, .. } | Published::Sideloaded,
+                            Some(patch),
+                        ) => savefile::update(
+                            &mut events,
+                            savefile::locate(savefile_path, || {
+                                pes_savefile::discovery::discover_savefiles(version)
+                            }),
+                            &studio_core::running_pes(),
+                            &output_folder.join(patch::FILE_NAME),
+                            patch,
+                        )
+                        .err(),
+                        (Published::Output | Published::Deployed { loaded: false, .. }, _)
+                        | (_, None) => None,
                     };
                     match (published, failure) {
-                        (Published::Deployed(installed), None) => {
+                        (Published::Deployed { installed, .. }, None) => {
                             installed.commit();
                             write_teamnotes(&mut events, output_folder, &notes);
                         }
-                        (Published::Deployed(installed), Some(failure)) => {
+                        (Published::Deployed { installed, .. }, Some(failure)) => {
                             installed.roll_back();
                             // Reported before the promotion, so a promotion that fails adds
                             // its own finding rather than hiding why the run rolled back.
@@ -678,7 +681,7 @@ fn build(
                     }
                 }
                 Err(error) => {
-                    if let Published::Deployed(installed) = published {
+                    if let Published::Deployed { installed, .. } = published {
                         installed.roll_back();
                     }
                     abort_output(
@@ -792,39 +795,47 @@ fn size_over_limit(run_folder: &Path, name: &CpkStem, cap: u64) -> anyhow::Resul
 enum Published {
     /// The CPKs (or test mode's tree) in the output folder: the game loads nothing new.
     Output,
-    /// The CPKs installed in `download/`, the old ones kept aside until the run commits.
-    Deployed(Installed),
+    /// The CPKs installed in `download/`, the old ones kept aside until the run commits;
+    /// `loaded` `false` when the game will not load them (`dpfilelist_cpk_missing`): the run
+    /// commits the same, and only the savefile step is skipped.
+    Deployed { installed: Installed, loaded: bool },
     /// Sideload mode's tree in `livecpk/`: in place, with no undo.
     Sideloaded,
 }
 
 /// Puts the output staged in `staging` in place for `mode`: in normal mode the CPKs `staged`,
-/// in that order. A run that deploys installs all of them into `download` when there is one,
-/// else, or when installing fails (one `old_cpk_locked` or `deploy_target_unwritable`, an
-/// Error naming `promoted`, the CPK's path in the output folder or the folder itself), every
+/// in that order. A run that deploys installs all of them into `download`'s folder when there
+/// is one, else, or when installing fails (one `old_cpk_locked` or `deploy_target_unwritable`,
+/// an Error naming `promoted`, the CPK's path in the output folder or the folder itself), every
 /// one goes into the output folder; under `--no-deploy` each CPK goes there,
 /// `deploy_skipped_by_flag` naming each. In test and sideload mode the loose tree becomes the
 /// output folder's `test_output/` or the PES folder's `livecpk/`. Returns what was published:
 /// a `Deployed` install's old CPKs stay aside for the run to commit or roll back, and the
-/// savefile step runs for `Deployed` and `Sideloaded` alone, the modes the game loads the
-/// run's output of (`spec/team_compiler/pipeline.md` "6. Post-processing"). Only a failure to
-/// put the output in the output folder or the loose tree in place is the error.
+/// savefile step runs for a `Deployed` the game will load and for `Sideloaded` alone, the
+/// publications whose output the game loads (`spec/team_compiler/pipeline.md` "6.
+/// Post-processing"). Only a failure to put the output in the output folder or the loose tree
+/// in place is the error.
 fn promote(
     mode: &OutputMode,
     staging: &Staging,
     output_folder: &Path,
     staged: &[CpkStem],
-    download: Option<&Path>,
+    download: Option<&Download>,
     promoted: &Path,
     events: &mut RunEvents,
 ) -> anyhow::Result<Published> {
     match mode {
         OutputMode::Normal { no_deploy } => {
             if let Some(download) = download {
-                match deploy::deploy(staging, download, staged) {
-                    Ok(installed) => return Ok(Published::Deployed(installed)),
+                match deploy::deploy(staging, &download.folder, staged) {
+                    Ok(installed) => {
+                        return Ok(Published::Deployed {
+                            installed,
+                            loaded: download.loaded,
+                        });
+                    }
                     Err(failure) => {
-                        events.message(deploy_failed(failure, download, promoted));
+                        events.message(deploy_failed(failure, &download.folder, promoted));
                     }
                 }
             }

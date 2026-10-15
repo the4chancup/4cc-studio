@@ -805,3 +805,39 @@ When a command ends, its exit code tells a script how it went:
 | 1 | Finished, but with an error: something of an export was left out, or kept because `pass_through` is on, or the CPK could not be installed into the game and was left in the output folder. |
 | 2 | The command line or a setting is wrong, for example a `cpk_name` that is not a valid file name. Nothing ran. |
 | 3 | The run stopped early, for example because the teams list cannot be read or the output folder cannot be written. |
+
+## The aesthetics patch and your save
+
+On PES 2018 to 2021, every `compile` that builds players also writes `aesthetics_patch.toml`
+in the output folder. It holds each compiled player's motions, taken from his
+`settings.toml` (a motion the file does not set gets the game's default), and, only for an
+export whose root holds the `write_names` marker file, his name and shirt name. The cup's
+official save is built with that file: the cup maintainer compiles the exports and hands
+over the CPKs and the patch, and the save builder applies the patch with `4cc-studio
+save-editor apply-patch`.
+
+`compile` also applies the patch to your own save, so what you just built shows in your
+game, but only when the game will load what the run installed: after a CPK was installed
+into the game's `download` folder, and in `--mode sideload`. It is not applied with
+`--no-deploy`, in `--mode test`, after an install that failed and left the CPK in the
+output folder, or when `dpfilelist_cpk_missing` warns that the game will run without the
+`download` folder's CPKs at all.
+
+The `savefile_path` setting says which save is yours: `auto`, the default, looks for it
+under `Documents\KONAMI` for the PES version you compile for, and picks the save written
+last when the game has more than one account folder (the note `savefile_autodetected`
+names it). Give a path yourself to use another save, a cup's template save for one.
+
+The save is never written while that PES version is running, since the game would write
+its own save back over it on exit: the warning `savefile_skipped_pes_running` says so, and
+the next compile run with the game closed applies the patch then. When the save is
+written, the one you had is kept beside it as `EDIT00000000.bak`. A save that cannot be
+read or cannot be written (`savefile_invalid`, `savefile_write_failed`) stops the run with
+exit code 3: the new CPKs come out of the game again and are left in the output folder,
+and the CPKs the game had go back in. The warning `savefile_player_not_stripped` names a
+compiled player whose record in your save still has an appearance of its own (a save never
+stripped, or one the game's Edit mode gave one again): the game shows his record, not the
+compiled one. `4cc-studio save-editor strip-and-seed` strips a save that never was, and
+`4cc-studio save-editor check-stripped` with `--strip-again` and `--out` clears the records
+Edit mode brought back. No save found at all is only the warning `savefile_missing`, which names the patch
+file so you can apply it by hand.

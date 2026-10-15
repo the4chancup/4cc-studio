@@ -26,8 +26,8 @@ const APPLY_COMMAND: &str = "4cc-studio save-editor apply-patch";
 /// Where the step reads and writes the save.
 #[derive(Debug, PartialEq)]
 pub(crate) enum Located {
-    /// The configured path, which names something: a file, or what the load then refuses
-    /// (a folder) as `savefile_invalid`.
+    /// The configured path, which names something or could not be checked: a file, or what
+    /// the load then refuses (a folder, a file the user cannot read) as `savefile_invalid`.
     Configured(PathBuf),
     /// `auto`'s newest candidate, and how many candidates there were.
     Detected { path: PathBuf, candidates: usize },
@@ -37,14 +37,19 @@ pub(crate) enum Located {
 
 /// The save `setting` resolves to: `discover` (the Documents\KONAMI walk, whose list is
 /// newest first) is called for `Auto` alone, a configured path only checked to exist: a
-/// folder named by mistake is a save that cannot be read, an error, not a missing save.
+/// folder named by mistake is a save that cannot be read, an error, not a missing save. A
+/// path the check itself fails on (a folder the user cannot read) counts as existing too,
+/// so the load reports the error as `savefile_invalid` rather than the save reading as
+/// missing.
 pub(crate) fn locate(
     setting: &SavefilePath,
     discover: impl FnOnce() -> Vec<SavefileCandidate>,
 ) -> Located {
     match setting {
-        SavefilePath::Path(path) if path.exists() => Located::Configured(path.clone()),
-        SavefilePath::Path(path) => Located::Missing(Some(path.clone())),
+        SavefilePath::Path(path) => match path.try_exists() {
+            Ok(true) | Err(_) => Located::Configured(path.clone()),
+            Ok(false) => Located::Missing(Some(path.clone())),
+        },
         SavefilePath::Auto => {
             let candidates = discover();
             match candidates.first() {

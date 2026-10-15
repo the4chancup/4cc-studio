@@ -218,6 +218,15 @@ fn probe_folder(folder: &Path) -> io::Result<()> {
     fs::remove_file(&probe)
 }
 
+/// The PES folder's `download/` a run installs into, and whether the game will load it.
+#[derive(Debug)]
+pub(crate) struct Download {
+    pub(crate) folder: PathBuf,
+    /// `false` when the installed DpFileList names a CPK the folder lacks
+    /// (`dpfilelist_cpk_missing`): the game then rejects the whole folder and runs vanilla.
+    pub(crate) loaded: bool,
+}
+
 /// The checks a run that deploys makes before any export is read (`pipeline.md` "6.
 /// Post-processing", "Destination writability preflight"), in order: the PES folder
 /// `pes_folder` is a folder (`pes_folder_not_found`), it holds `version`'s exe
@@ -230,16 +239,16 @@ fn probe_folder(folder: &Path) -> io::Result<()> {
 /// that cannot). The first Error ends them (both list Errors when the list lacks both kinds). A
 /// missing or unreadable list adds no finding: the working-bin walk, which reads it next,
 /// reports it (`dpfilelist_missing`, `installed_bin_unreadable`). Returns the `download/`
-/// folder to install into, or `None` when a check failed and the CPKs go to `promoted` (the
-/// one CPK's path in the output folder, or the folder), which each Error names; and the
-/// findings.
+/// to install into, `loaded` `false` when the game will run vanilla over it, or `None` when a
+/// check failed and the CPKs go to `promoted` (the one CPK's path in the output folder, or the
+/// folder), which each Error names; and the findings.
 pub(crate) fn preflight(
     pes_folder: &Path,
     version: PesVersion,
     cpks: &[CpkStem],
     promoted: &Path,
     official: &[String],
-) -> (Option<PathBuf>, Vec<Message>) {
+) -> (Option<Download>, Vec<Message>) {
     let output = || ("output", promoted.display().to_string());
     let mut messages = Vec::new();
     if !pes_folder.is_dir() {
@@ -306,7 +315,9 @@ pub(crate) fn preflight(
         return (None, messages);
     }
     messages.extend(not_official(&list_path, &list, official));
-    messages.extend(cpks_missing(&download, &list, &names));
+    let missing = cpks_missing(&download, &list, &names);
+    let loaded = missing.is_none();
+    messages.extend(missing);
     for name in &names {
         if let Err((path, error)) = probe_download(&download, name) {
             messages.push(tool_message(
@@ -322,7 +333,13 @@ pub(crate) fn preflight(
             return (None, messages);
         }
     }
-    (Some(download), messages)
+    (
+        Some(Download {
+            folder: download,
+            loaded,
+        }),
+        messages,
+    )
 }
 
 /// The `command` context entry of a finding about the installed list.
@@ -638,7 +655,7 @@ mod tests {
 
     /// `preflight` for a PES 2021 run compiling `cpks` into the PES folder `pes`, against
     /// `OFFICIAL`, promoted to `<pes>/promoted` when it cannot deploy.
-    fn preflight_of(pes: &Path, cpks: &[&str]) -> (Option<PathBuf>, Vec<Message>) {
+    fn preflight_of(pes: &Path, cpks: &[&str]) -> (Option<Download>, Vec<Message>) {
         let official = OFFICIAL.map(str::to_owned);
         let cpks: Vec<CpkStem> = cpks.iter().map(|cpk| CpkStem::new(cpk).unwrap()).collect();
         preflight(
@@ -654,7 +671,11 @@ mod tests {
     /// against `OFFICIAL`; it deploys, the findings are only Warnings.
     fn preflight_61(pes: &Path) -> Vec<Message> {
         let (download, messages) = preflight_of(pes, &["4cc_61_midcup"]);
-        assert_eq!(download, Some(pes.join(DOWNLOAD)), "{messages:#?}");
+        assert_eq!(
+            download.map(|download| download.folder),
+            Some(pes.join(DOWNLOAD)),
+            "{messages:#?}"
+        );
         messages
     }
 
@@ -826,7 +847,7 @@ mod tests {
         let (download, messages) =
             preflight_of(&pes, &["4cc_63_midcup", "4cc_61_midcup", "4cc_62_midcup"]);
 
-        assert_eq!(download, None);
+        assert!(download.is_none());
         assert_eq!(
             messages,
             [list_error(
@@ -845,7 +866,7 @@ mod tests {
         let (download, messages) =
             preflight_of(&pes, &["4cc_80_mine", "4cc_62_midcup", "4cc_81_mine"]);
 
-        assert_eq!(download, None);
+        assert!(download.is_none());
         assert_eq!(
             messages,
             [
@@ -863,7 +884,14 @@ mod tests {
 
         let (download, messages) = preflight_of(&pes, &["4cc_61_midcup", "4cc_62_midcup"]);
 
-        assert_eq!(download, Some(pes.join(DOWNLOAD)), "{messages:#?}");
+        let Some(download) = download else {
+            panic!("deploys: {messages:#?}")
+        };
+        assert_eq!(download.folder, pes.join(DOWNLOAD));
+        assert!(
+            !download.loaded,
+            "a listed CPK absent: the game runs vanilla"
+        );
         assert_eq!(
             messages,
             [tool_message(
