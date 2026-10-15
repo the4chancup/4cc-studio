@@ -7909,3 +7909,19 @@ compile walks the player tables from the bins CPK itself, keeping the seed rows 
 export compiles, but the code's walk starts below it: unpinned by any scenario, so built
 without a test until now.
 Plan: `plans/team_compiler/README.md` "Acceptance" (the Phase 5 scope paragraph, TC-BIN-37).
+
+## 2026-10-15 — team_compiler — the compiler does not report `fpc_custom_skin_on_non_fpc`
+Decision (lead): the Team compiler passes the folder's `fpc_on` marker to `fpc::check` as
+`is_fpc_player` and maps four of its five rules; the fifth, a custom skin on a player the
+check is told is not hidden, is not reported.
+Why: the catalog plan listed four rules and was silent on the fifth. In a compile the only
+way to a custom skin without `fpc_on` is a `settings.toml` setting skin 7 on PES 15 to 17
+(the Fox games narrow it to 1), which is the partial-hide setup (a custom body in a stock
+jersey) that no marker names; a warning on it would fire on every such player and on nothing
+else. A reader of a save, which has no marker, would classify with `ops::fpc::is_fpc_player`
+(a custom skin counts as hidden) instead, under which the rule cannot fire either.
+Also: `fpc_gloves_checkbox_winter_gloves` checks the gloves ID the boots/gloves resolution
+gives; a `Midcup` player whose gloves keep his installed row is not checked, since `check`
+reads no installed table and `check` and `compile` report a folder's findings alike.
+Plan: `plans/team_compiler/messages.md`, the `fpc_inners_break_hiding` and
+`fpc_gloves_checkbox_winter_gloves` rows.

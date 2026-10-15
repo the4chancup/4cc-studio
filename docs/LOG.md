@@ -2017,3 +2017,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.3a2: a multi-CPK compile takes the player tables from the installed bins
   CPK it replaces, so the seed rows of players no export compiles survive (TC-BIN-37); TC-BIN-32
   and 33's table halves pinned. Review T.S1/T.A1 over 5.3a1-a3: 3 accepted, rework 5.3a1-r1.
+- **2026-10-15** — 5.3a1-r1: `settings_model_id_conflict` comes from validation, so `check`
+  reports it; a compile whose only work is player rows writes its CPK. Lead: the folder's own
+  category read through `has_effective_part`, not a restatement of `folder_tasks`.

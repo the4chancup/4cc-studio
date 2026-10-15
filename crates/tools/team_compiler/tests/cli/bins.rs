@@ -1320,15 +1320,27 @@ fn the_authored_stock_id_the_marker_defaults_and_the_assigned_id_resolve_in_orde
         b"boots_id = 12\n",
     );
 
-    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
-
-    let lines = run.messages();
-    assert_eq!(run.exit_code(), 0, "{lines:#?}");
-    assert!(
-        lines.iter().any(|line| line
-            == "co Full Ids: Warning settings_model_id_conflict [Keep] at Players/07 - C (key=boots_id)"),
-        "{lines:#?}"
-    );
+    // A `settings.toml` finding: `check` and `compile` report it alike. Slot 07's own boots
+    // take the assigned ID, so its key conflicts; slot 05's is used (the folder has no boots
+    // model), and slot 06 sets none.
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        let conflicts: Vec<&str> = lines
+            .iter()
+            .filter(|line| line.contains("settings_model_id_conflict"))
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            conflicts,
+            [
+                "co Full Ids: Warning settings_model_id_conflict [Keep] at Players/07 - C \
+                 (key=boots_id)"
+            ],
+            "{args:?}"
+        );
+    }
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         pairs_of(&entries, BOOTS_LIST),
@@ -1337,6 +1349,90 @@ fn the_authored_stock_id_the_marker_defaults_and_the_assigned_id_resolve_in_orde
     assert_eq!(
         pairs_of(&entries, GLOVE_LIST),
         [(70201, 31), (71405, 11), (71406, 11), (71407, 0)]
+    );
+}
+
+// TC-BIN-29
+#[test]
+fn a_linked_shared_folder_s_gloves_id_wins_over_an_authored_gloves_id() {
+    let sandbox = Sandbox::new("bins_gloves_link_conflict");
+    install_tables(&sandbox, &[(GLOVE_LIST, &item_list(&[(70201, 31)]))]);
+    let export = "exports/co Midcup Gloves Id";
+    let folder = format!("{export}/Players/05 - A");
+    // A plain link, the folder holding no gloves model: the shared folder's assigned ID is
+    // his, and his settings.toml's stock `gloves_id` conflicts.
+    sandbox.write(&format!("{folder}/Crocs.gloves"), b"");
+    sandbox.write(&format!("{folder}/settings.toml"), b"gloves_id = 3\n");
+    sandbox.write(
+        &format!("{export}/Gloves/Crocs/glove_l.fmdl"),
+        &tracer_player_file("glove_l.fmdl"),
+    );
+
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 0, "{args:?}: {lines:#?}");
+        assert!(
+            lines.iter().any(|line| line
+                == "co Midcup Gloves Id: Warning settings_model_id_conflict [Keep] at \
+                    Players/05 - A (key=gloves_id)"),
+            "{args:?}: {lines:#?}"
+        );
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        pairs_of(&entries, GLOVE_LIST),
+        [(70201, 31), (71405, 644)],
+        "71405's row is the shared folder's assigned ID, not the authored 3"
+    );
+}
+
+// TC-BIN-25
+#[test]
+fn a_midcup_export_holding_only_a_settings_toml_writes_the_tables() {
+    let sandbox = Sandbox::new("bins_settings_only");
+    install_tables(
+        &sandbox,
+        &[
+            (BOOTS_LIST, &item_list(&[(70201, 11)])),
+            (GLOVE_LIST, &item_list(&[(70201, 31)])),
+            (PLAYER_APPEARANCE, &player_appearance()),
+        ],
+    );
+    // `ingame_face` keeps the folder's only work to its table rows: with no face model it
+    // plans no package, so no task commits and only the rows are the run's.
+    sandbox.write("exports/co Midcup Settings/Players/05 - A/ingame_face", b"");
+    let toml = "boots_id = 12\n[appearance.face]\nfacial_hair_type = 3\n";
+    sandbox.write(
+        "exports/co Midcup Settings/Players/05 - A/settings.toml",
+        toml.as_bytes(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    // The planned rows are the run's whole work, and still write the CPK.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 12)]);
+    assert_eq!(pairs_of(&entries, GLOVE_LIST), [(70201, 31)]);
+    let table = AppearanceTable::read(
+        PlayerTableFile::PlayerAppearance,
+        &entries[PLAYER_APPEARANCE],
+    )
+    .unwrap();
+    let settings = PlayerSettings::parse(toml).unwrap();
+    let row = settings.appearance_row(71405, PesVersion::Pes21).unwrap();
+    assert_ne!(
+        row[4..],
+        PlayerSettings::default()
+            .appearance_row(71405, PesVersion::Pes21)
+            .unwrap()[4..],
+        "the authored facial hair changes the row"
+    );
+    assert_eq!(
+        table.get(71405).copied(),
+        Some(row[4..].try_into().unwrap()),
+        "71405's row is his settings.toml's"
     );
 }
 

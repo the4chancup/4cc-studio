@@ -29,6 +29,7 @@ use crate::cli::RunInputs;
 use crate::deep;
 use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{SHARED_COUNT, shared_folders_taking_ids, shared_folders_with_no_model};
+use crate::plan::item_rows::conflicting_id_keys;
 use crate::plan::mapped_players;
 use crate::plan::roles::{
     FolderModels, ModelPackage, PlayerFile, combined_folders, common_skeleton, file_stem,
@@ -411,6 +412,13 @@ fn check_source(
                     source.export_id,
                     &hand_weighted,
                 ));
+                messages.extend(settings_id_messages(
+                    &resolved,
+                    inputs.common.pes_version,
+                    source.export_id,
+                    &settings,
+                    &hand_weighted,
+                ));
                 let exhausted = pool_messages(
                     &resolved,
                     inputs.common.pes_version,
@@ -586,6 +594,56 @@ fn pool_messages(
         })
     })
     .collect()
+}
+
+/// `settings_model_id_conflict` on each mapped player folder of `resolved` whose
+/// `settings.toml` (the deep pass's `settings`) authors a `boots_id`/`gloves_id` for a
+/// category whose ID the compile assigns from the folder's own models or a shared folder it
+/// links (`item_rows::conflicting_id_keys`, the same decision `export_rows` makes over the
+/// manifest planning never builds under `check`): for a team export on a Fox target, where
+/// the compiled players get their table rows (`settings_toml.md`: a `settings.toml`'s
+/// findings are reported by `check` and `compile` alike).
+fn settings_id_messages(
+    resolved: &ResolvedAestheticsExport,
+    version: PesVersion,
+    export_id: ExportId,
+    settings: &BTreeMap<ScopePath, PlayerSettings>,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> Vec<Message> {
+    match version.engine() {
+        Engine::Fox => {}
+        Engine::PreFox => return Vec::new(),
+    }
+    match resolved.identity {
+        ExportIdentity::Team { .. } => {}
+        ExportIdentity::Referees => return Vec::new(),
+    }
+    mapped_players(&resolved.export)
+        .into_iter()
+        .flat_map(|player| {
+            let path = player.path.clone();
+            conflicting_id_keys(
+                &resolved.export,
+                player,
+                settings.get(&player.path),
+                version.engine(),
+                hand_weighted,
+            )
+            .into_iter()
+            .map(move |key| {
+                tool_message(
+                    Code::SettingsModelIdConflict,
+                    Scope::Folder {
+                        export_id,
+                        path: path.clone(),
+                    },
+                    Disposition::Keep,
+                    vec![("key", key.to_owned())],
+                )
+            })
+            .collect::<Vec<Message>>()
+        })
+        .collect()
 }
 
 /// `shared_folder_no_model` on each shared boots or gloves folder a mapped player links

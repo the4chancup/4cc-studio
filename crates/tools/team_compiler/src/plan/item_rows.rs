@@ -5,15 +5,17 @@
 //! link file take the ID a `Models` task emits them under once it commits, an authored
 //! stock ID is written as is, and else the marker or the coverage decides the default.
 
-use aesthetics_export::{ExportCoverage, FpcDirective};
+use std::collections::BTreeSet;
+
+use aesthetics_export::{ExportCoverage, FpcDirective, PlayerFolder, ValidatedAestheticsExport};
 use pes_savefile::settings_toml::PlayerSettings;
-use studio_core::{Disposition, ExportId, Message, Scope};
+use pes_version::Engine;
 use vtree::ScopePath;
 
-use super::roles::ModelPackage;
+use super::ids::shared_folders_taking_ids;
+use super::roles::{ModelPackage, has_effective_part, linked_folder, shared_kind_of};
 use super::{BuildTask, TaskKind};
 use crate::bins::player_tables::ItemTable;
-use crate::messages::{Code, tool_message};
 use crate::paths::PackageKey;
 
 /// One compiled player's row of `BootsList.bin` or `GloveList.bin`, as planning decides it
@@ -75,8 +77,9 @@ pub(super) struct RowPlayer {
 /// `BootsList.bin`/`GloveList.bin` rows and the `PlayerAppearance.bin` ones. Per category
 /// and in the resolution's order: a player's own package, emitted under each of his slots'
 /// exclusive ids, or the package of a shared folder he links, emitted under its shared id,
-/// each gated on its task, and an authored stock ID for that category then ignored with
-/// `settings_model_id_conflict` on the folder. A link that combines makes the shared folder
+/// each gated on its task, and an authored stock ID for that category then ignored:
+/// validation reports `settings_model_id_conflict` for it (`conflicting_id_keys`), which
+/// `check` reaches too. A link that combines makes the shared folder
 /// a part of his own package, so his own task is the one. With neither, an authored stock
 /// ID is written, else the default `default_id` resolves: the hide preset's nonexistent ID
 /// for `fpc_on`, 0 for `fpc_off` or a `Full` export's markerless player, and no row for a
@@ -86,8 +89,6 @@ pub(super) fn export_rows(
     first: usize,
     players: &[RowPlayer],
     coverage: ExportCoverage,
-    export_id: ExportId,
-    messages: &mut Vec<Message>,
 ) -> PlayerRows {
     let mut items = Vec::new();
     let mut appearance = Vec::new();
@@ -112,17 +113,6 @@ pub(super) fn export_rows(
             };
             match own.or_else(linked) {
                 Some((task, ids)) => {
-                    if authored_id(player.settings.as_ref(), table).is_some() {
-                        messages.push(tool_message(
-                            Code::SettingsModelIdConflict,
-                            Scope::Folder {
-                                export_id,
-                                path: player.path.clone(),
-                            },
-                            Disposition::Keep,
-                            vec![("key", key(table).to_owned())],
-                        ));
-                    }
                     items.extend(player.player_ids.iter().zip(ids).map(|(player_id, id)| {
                         ItemRow {
                             table,
@@ -168,6 +158,65 @@ fn key(table: ItemTable) -> &'static str {
         ItemTable::Boots => "boots_id",
         ItemTable::Gloves => "gloves_id",
     }
+}
+
+/// The `boots_id`/`gloves_id` keys `settings`, the `settings.toml` of `player`, a mapped
+/// player folder of `export`, authors a stock ID for whose category's ID planning assigns on
+/// a target of `engine` (`settings_model_id_conflict`): `export_rows`' `own.or_else(linked)`
+/// `Some` restated from the export alone, which `check` has where the manifest is never
+/// built (`category_assigned`). Boots' key first.
+pub(crate) fn conflicting_id_keys(
+    export: &ValidatedAestheticsExport,
+    player: &PlayerFolder,
+    settings: Option<&PlayerSettings>,
+    engine: Engine,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> Vec<&'static str> {
+    ItemTable::ALL
+        .into_iter()
+        .filter(|table| {
+            authored_id(settings, *table).is_some()
+                && category_assigned(export, player, *table, engine, hand_weighted)
+        })
+        .map(key)
+        .collect()
+}
+
+/// Whether planning assigns `player`, a player folder of `export`, an ID for `table`'s
+/// category on a target of `engine`, what `export_rows`' task lookup finds: a `Models` task
+/// of the category's package for his own folder, which planning gives exactly when his
+/// effective package of that kind has a part (`has_effective_part`, the predicate a boots or
+/// gloves link's combining is decided by), or for a shared folder of its kind he links
+/// (`shared_folders_taking_ids` being those planning gives one).
+fn category_assigned(
+    export: &ValidatedAestheticsExport,
+    player: &PlayerFolder,
+    table: ItemTable,
+    engine: Engine,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> bool {
+    has_effective_part(export, player, package(table), engine, hand_weighted)
+        || linked_takes_id(export, player, table, engine, hand_weighted)
+}
+
+/// Whether a shared folder of `table`'s kind that `player` links takes an ID for `engine`
+/// (`shared_folders_taking_ids`), planning then giving its package a `Models` task of its
+/// own: `export_rows`' `linked` lookup, where the task stands for the folder.
+fn linked_takes_id(
+    export: &ValidatedAestheticsExport,
+    player: &PlayerFolder,
+    table: ItemTable,
+    engine: Engine,
+    hand_weighted: &BTreeSet<ScopePath>,
+) -> bool {
+    let kind = shared_kind_of(package(table));
+    let taking = shared_folders_taking_ids(export, engine, kind, hand_weighted);
+    player
+        .links
+        .iter()
+        .filter(|link| link.kind == kind)
+        .filter_map(|link| linked_folder(export, link))
+        .any(|linked| taking.iter().any(|folder| folder.path == linked.path))
 }
 
 /// The ID the resolution's default rule gives a player whose folder provides neither the

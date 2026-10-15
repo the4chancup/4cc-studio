@@ -422,8 +422,15 @@ impl CpkOutput {
     ) -> anyhow::Result<(bool, Vec<Message>)> {
         // A run in which no team committed anything writes no file, so it adds no bin either,
         // unless the overrides go into the CPK: they are written whatever the exports bring;
-        // or the referee configs changed the bins on PES 18-21: their entries need the bin.
-        if !self.started && self.overrides.is_empty() && self.uniform_parameters.is_empty() {
+        // or the referee configs changed the bins on PES 18-21: their entries need the bin;
+        // or player rows were planned: the tables are the run's work as an override is, a
+        // settings-only export's compile otherwise losing its rows with no error.
+        if !self.started
+            && self.overrides.is_empty()
+            && self.uniform_parameters.is_empty()
+            && player_rows.items.is_empty()
+            && player_rows.appearance.is_empty()
+        {
             return Ok((false, Vec::new()));
         }
         self.start()?;

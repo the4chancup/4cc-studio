@@ -1067,12 +1067,19 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       if it accepts fewer than five, per `RUNBOOK.md` "Review rounds". T.S1 accepted 2 of 3,
       Astra T.A1 1 of 1 (`.tmp/5_3/duck_rulings.md`); a SWE-2 round T.S2 over the rework closes
       the loop if it accepts under five:
-      - [ ] 5.3a1-r1 `settings_model_id_conflict` from validation, so `check` reports it too
+      - [x] 5.3a1-r1 `settings_model_id_conflict` from validation, so `check` reports it too
         (`settings_toml.md`: a `settings.toml`'s findings are reported by `check` and `compile`
         alike); a compile whose only work is player rows (a settings-only `Midcup`) writes its
         CPK (`finish_team` returned before the tables) → done when: TC-BIN-29's test asserts
         the conflict's presence and absence in both commands, and a settings-only `Midcup`
-        compile's CPK holds the player's rows
+        compile's CPK holds the player's rows. Done: `item_rows::conflicting_id_keys` (the
+        folder's own category from `has_effective_part`, a link's from
+        `shared_folders_taking_ids`) called from validation; `finish_team` counts planned rows
+        as work. A folder holding only `settings.toml` plans a blank face, so the rows-only
+        case needs an `ingame_face` marker and no model. `team_compiler` `plan/item_rows.rs`,
+        `plan/mod.rs`, `validation.rs`, `output/writer.rs`, `tests/cli/bins.rs`
+      - [ ] SWE-2 round T.S2 over the 5.3a1-r1 commit (worktree): under five accepted closes
+        5.3a-R
     - [ ] 5.3a4 FPC presets on a player's settings and their findings → done when: TC-BIN-29, 30
       and TC-REF-19 pass
     - [ ] 5.3a5 the shared-ID record and a Midcup reading it

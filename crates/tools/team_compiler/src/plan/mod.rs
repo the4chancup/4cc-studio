@@ -1316,14 +1316,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             Engine::PreFox => false,
         };
         if writes_item_rows {
-            let rows = export_rows(
-                &tasks,
-                first_task,
-                &row_players,
-                export.coverage,
-                export_id,
-                &mut messages,
-            );
+            let rows = export_rows(&tasks, first_task, &row_players, export.coverage);
             player_rows.items.extend(rows.items);
             player_rows.appearance.extend(rows.appearance);
         }
