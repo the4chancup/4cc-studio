@@ -17,8 +17,9 @@ Pro slots' Tuesday reset), 5.0i (the plans/spec split) done 2026-10-12, 5.2c1 an
 landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed (2026-10-13),
 5.0j done (its last slice 5.0j7), 5.0m2, 5.2a2, 5.2b2b and 5.4a1-4 landed (2026-10-13), 10.0a-c
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
-2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14; then
-5.4c, the queued Astra reviews (Handover); step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
+5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
+5.y-gloves done 2026-10-15; next 5.3a, then 5.3b; step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1109,18 +1110,25 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   show; a file that sets no face or hair key shows the default face; a CPK holding the
   shared-ID record (`4cc_studio/shared_ids/`) loads as one without it → done when: each a
   `manual: checked` line here
-- [ ] 5.y-gloves PES 15-17: every `.mtl` of a shared gloves output packed at its root
+- [x] 5.y-gloves PES 15-17: every `.mtl` of a shared gloves output packed at its root
   (`plans/team_compiler/pipeline.md` "3. Per-model-folder parallel steps (rayon)", Packing;
   DECISIONS 2026-10-15 "every .mtl of a pre-Fox gloves output is packed at its root") → done
   when: TC-MOD-93 passes, TC-MOD-74's test has become its test, and TC-MOD-74 is marked
   `withdrawn: restated as TC-MOD-93` in that commit (as 5.3a does TC-BIN-10). SWE-2,
   `team_compiler`
-  (`processing/prefox_shared.rs` `package`, `packed_mtl_name`).
+  (`processing/prefox_shared.rs` `package`, `packed_mtl_name`). Done: flattened `.mtl` names,
+  every shared-output `.mtl` pointed from the root (a converted boots FMDL in a subfolder was
+  pointed from its subfolder, now TC-MOD-85's second test); `MaterialPlaces::packed`,
+  `of_packed`, `of_below` removed. `team_compiler` `processing/prefox_shared.rs`,
+  `prefox_face.rs`, `paths.rs`, help, `tests/cli/prefox_faces.rs`
   manual: checked 2026-10-15, PES 17 Edit mode, /out/ slots 01-03 on shared gloves 1684-1686
   (`.tmp/ingame/gloves_check/`, `r3_slot0N.png`, `r4_slot03.png`): `glove.xml`'s
   `./grip/glove_r.model` loads; a `.mtl` texture path `./x.dds` and `./sub/x.dds` loads,
   `../x.dds` and the game-rooted `model/character/glove/g1684/x.dds` do not (white glove);
   a `grip/` model whose `.mtl` sits at the root naming `./x.dds` loads (`r5_slot01.png`)
+  manual: checked 2026-10-15, PES 17 Edit mode, end to end: run 2's export compiled by
+  this step's exe (`.tmp/ingame/gloves_check/studio6/`), unpatched: slots 01 and 02 draw their
+  right gloves magenta (`r6_slot01.png`, `r6_slot02.png`)
 - [ ] 5.6 Converge (`AGENTS.md` "Closing a phase")
 
 ### Phase 10 — Music tools

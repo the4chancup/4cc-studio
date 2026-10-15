@@ -6,15 +6,16 @@
 //! folder of their kind his link combines, under his exclusive id (`player_folders.md`
 //! "`ingame_face` marker", "`ingame_face` with shared links"). Boots are one model as
 //! `boots.model` and the `.mtl` it uses as `boots.mtl`, the names the game loads, several
-//! models merged into one (`pes_model::ops::merge`); gloves are each model and the `.mtl`
-//! files they use at their paths below the folder with their names lowercased, listed in a generated `glove.xml`,
+//! models merged into one (`pes_model::ops::merge`); gloves are each model at its path
+//! below the folder and the `.mtl` files they use at the output's root, each named by its
+//! path below the folder with each `/` written `_`, lowercased, listed in a generated `glove.xml`,
 //! unmerged. An `.fmdl` among the models is converted as the face converts one (`pipeline.md`
 //! step 3 "Format conversion"), its `.model` and material set taking the place of a member's
 //! `.model` and the `.mtl` it uses; a `.model` the conversion pre-check finds posed off the
 //! version's skeleton is moved onto it as the face moves one, the `.mtl` it uses packed as
 //! written. A shared folder's textures sit at their paths beside them
-//! (`TextureHome::SharedOutput`), each `.mtl` path naming its texture relative to the packed
-//! `.mtl` (`./<stem>.dds` beside it); a player's are
+//! (`TextureHome::SharedOutput`), each `.mtl` path naming its texture from the output's root,
+//! where the `.mtl` packs (`./<stem>.dds`, `./<sub>/<stem>.dds`); a player's are
 //! in his common folder (`TextureHome::PlayerCommon`), named as his face's `.mtl` files name
 //! them, and a Common `.mtl`'s stay in the team's Common output. `materialize` writes the files
 //! into the output's folder.
@@ -107,14 +108,17 @@ impl SourceModel<'_> {
 }
 
 /// The name a gloves output packs the `.mtl` `file` of the source folder `source` under: its
-/// path below `source` with its name lowercased (`grip/glove_r.mtl`); a Common file's bare
-/// name, copied in under its own.
+/// path below `source` with each `/` written `_`, lowercased (`grip/glove_r.mtl` packs as
+/// `grip_glove_r.mtl`, at the output's root, the game loading no `../` texture path); a
+/// Common file's bare name, copied in under its own.
 fn packed_mtl_name(file: &FileDescriptor, source: &ScopePath) -> String {
     if is_common_file(&file.path) {
         return file.path.name().to_ascii_lowercase();
     }
     let directory = directory_below(&file.path, source);
-    format!("{directory}{}", file.path.name().to_ascii_lowercase())
+    format!("{directory}{}", file.path.name())
+        .replace('/', "_")
+        .to_ascii_lowercase()
 }
 
 /// One part of a boots output: its `.model`'s export path, which names it in an error, the
@@ -138,11 +142,12 @@ struct BootsPart<'a> {
 /// skeleton before it is merged or packed, the `.mtl` packed as written. Boots:
 /// the models as `boots.model` and the `.mtl` each uses (`material_of`) as `boots.mtl`
 /// (`boots_files`), the merge of several noted in `findings` as
-/// `model_merged`. Gloves: each model and the `.mtl` each uses at its path below the folder,
-/// its name lowercased, once however many use the `.mtl`, and a `glove.xml` listing the
+/// `model_merged`. Gloves: each model at its path below the folder and the `.mtl` each uses
+/// at the output's root, its path below the folder with each `/` written `_`, lowercased,
+/// once however many use the `.mtl`, and a `glove.xml` listing the
 /// models in the order of
-/// their export paths, case-folded, each typed by its role and naming its `.mtl` at its path
-/// (`./grip/glove_r.model`, `./grip/glove_r.mtl`); a player's
+/// their export paths, case-folded, each typed by its role and naming its `.mtl` at the root
+/// (`./grip/glove_r.model`, `./grip_glove_r.mtl`); a player's
 /// model or `.mtl` replaces a combined folder's packing under its name (`without_replaced`).
 /// A `.mtl` no model uses is not packed. Every `.mtl` packed has each texture path naming one
 /// of the folder's textures by its stem pointed at the folder's texture home, and one naming a
@@ -157,7 +162,8 @@ struct BootsPart<'a> {
 /// the Common `.skl` of its stem, its findings naming it by `named_on_folder`, a Common one by
 /// its export path), its `.model` taking a member's `.model`'s place and its
 /// material set the place of the `.mtl` that model uses: merged into `boots.mtl`, or packed
-/// as `<stem>.mtl` lowercased beside `<stem>.model` and named by its `glove.xml` entry. The
+/// at the output's root as its model's packed stem flattened (`grip/glove_r.fmdl`'s as
+/// `grip_glove_r.mtl`) and named by its `glove.xml` entry. The
 /// set's texture paths are pointed as the face points a converted one's: each metal material
 /// first given the environment map in the texture home (`add_environment_map`, as the face
 /// does), then the folder's textures and links as a `.mtl`'s, a Common FMDL's set resolving in
@@ -282,13 +288,13 @@ pub(super) fn package(
         .map(|file| file_stem(below_common(&file.path)).to_owned())
         .collect();
     let common_places = FolderPlaces::common(&common_below, &common_home);
-    // The places of a `.mtl` `file` packed at `packed`'s directory below the output folder
-    // (`""` for `boots.mtl`): a `Common/` `.mtl` resolves in `Common/` alone.
-    let places_for = |file: &FileDescriptor, source: &ScopePath, packed: &str| -> MaterialPlaces {
+    // The places of a `.mtl` `file`, packed at the output's root: a `Common/` `.mtl`
+    // resolves in `Common/` alone.
+    let places_for = |file: &FileDescriptor, source: &ScopePath| -> MaterialPlaces {
         if is_common_file(&file.path) {
             common_places.of(&common_scope, &file.path)
         } else {
-            folder_places.of_packed(source, &file.path, packed)
+            folder_places.of(source, &file.path)
         }
     };
     // An FMDL converted (`fmdl_for_pre_fox`, its source's skeleton of its path stem the bind
@@ -314,10 +320,9 @@ pub(super) fn package(
         // names the texture the textures task emits (or the folder's own `env`, or the Common
         // one its link names, `point_materials` respelling it below).
         add_environment_map(&mut conversion.materials, &home.of(""));
-        let packed = directory_below(&model.file.path, model.source_path);
         point_materials(
             &mut conversion.materials,
-            &places_for(model.file, model.source_path, &packed),
+            &places_for(model.file, model.source_path),
         );
         point_reserved_kit_stems(&mut conversion.materials, &common_directory);
         Ok(conversion)
@@ -355,7 +360,7 @@ pub(super) fn package(
                     sets.push(read_materials(
                         material,
                         &bytes,
-                        &places_for(material, model.source_path, ""),
+                        &places_for(material, model.source_path),
                     )?);
                     member_sets.insert(&material.path, (sets.len() - 1, bytes));
                 }
@@ -406,9 +411,10 @@ pub(super) fn package(
                 let packed = model.packed_name();
                 let (bytes, material) = if model.converts() {
                     let conversion = convert(&model, files, findings)?;
-                    // Packed beside its model under the model's stem: a member's `.mtl` of
-                    // that name the folder also packs is two files of one name (`insert`).
-                    let material = format!("{}.mtl", file_stem(&packed));
+                    // Packed at the root under its model's packed stem flattened, as a
+                    // member's `.mtl` is: a member's `.mtl` of that name the folder also
+                    // packs is two files of one name (`insert`).
+                    let material = format!("{}.mtl", file_stem(&packed).replace('/', "_"));
                     insert(
                         &mut contents,
                         package,
@@ -451,12 +457,8 @@ pub(super) fn package(
             });
             for (file, source) in used {
                 let packed = packed_mtl_name(file, source);
-                let below = directory_below(&file.path, source);
-                let bytes = rewritten_materials(
-                    file,
-                    &take(files, file),
-                    &places_for(file, source, &below),
-                )?;
+                let bytes =
+                    rewritten_materials(file, &take(files, file), &places_for(file, source))?;
                 insert(&mut contents, package, packed, bytes)?;
             }
             insert(

@@ -925,11 +925,13 @@ fn a_linked_gloves_folder_is_written_with_a_generated_glove_xml_under_its_shared
     );
 }
 
-// TC-MOD-74
+// TC-MOD-93
 #[test]
-fn a_shared_gloves_folder_s_subfolder_files_pack_at_their_paths() {
-    // `grip/`'s model, `.mtl` and texture pack at `grip/` below the output folder, listed by
-    // `glove.xml` at their paths, the `.mtl` naming its texture beside it as `./grip.dds`.
+fn a_shared_gloves_folder_s_mtl_files_pack_flattened_at_the_output_s_root() {
+    // `grip/`'s model and texture pack at `grip/` below the output folder, the `.mtl` the
+    // model uses at the root under its path below the folder with `/` written `_`, `glove.xml`
+    // naming it there; the `.mtl` names its textures from the root (`./grip/grip.dds`,
+    // `./skin.dds`), the game loading no `../` path.
     let sandbox = Sandbox::new("prefox_shared_gloves_subfolder");
     let export = "co Midcup Keeper";
     write_slot_05_face(&sandbox, export);
@@ -941,12 +943,14 @@ fn a_shared_gloves_folder_s_subfolder_files_pack_at_their_paths() {
     sandbox.write(&format!("{keeper}/glove_l.model"), &card_model());
     sandbox.write(&format!("{keeper}/glove_l.mtl"), &card_materials());
     sandbox.write(&format!("{keeper}/grip/glove_r.model"), &card_model());
-    sandbox.write(
-        &format!("{keeper}/grip/glove_r.mtl"),
-        &materials_naming("grip"),
+    // `glove_r.mtl` names `grip.dds`, beside it, and `skin.dds`, at the folder's root.
+    let grip_mtl = String::from_utf8(materials_naming("grip")).unwrap().replace(
+        "magfilter=\"linear\" />",
+        "magfilter=\"linear\" /><sampler name=\"SpecularMap\" path=\"./skin.dds\" srgb=\"1\" />",
     );
+    sandbox.write(&format!("{keeper}/grip/glove_r.mtl"), grip_mtl.as_bytes());
     sandbox.write(&format!("{keeper}/grip/grip.dds"), &small_dds());
-    // `glove_l.mtl`'s texture, at the root.
+    // `glove_l.mtl`'s texture too, at the root.
     sandbox.write(&format!("{keeper}/skin.dds"), &small_dds());
 
     let entries = compile_pes17(&sandbox, export, &CLEAN);
@@ -960,8 +964,8 @@ fn a_shared_gloves_folder_s_subfolder_files_pack_at_their_paths() {
             "g0644/glove_l.model",
             "g0644/glove_l.mtl",
             "g0644/grip/glove_r.model",
-            "g0644/grip/glove_r.mtl",
             "g0644/grip/grip.dds",
+            "g0644/grip_glove_r.mtl",
             "g0644/skin.dds",
         ]
     );
@@ -970,12 +974,59 @@ fn a_shared_gloves_folder_s_subfolder_files_pack_at_their_paths() {
         "<?xml version='1.0' encoding='UTF-8'?>\r\n\
          <config>\r\n   \
          <model level=\"0\" type=\"gloveL\" path=\"./glove_l.model\" material=\"./glove_l.mtl\" />\r\n   \
-         <model level=\"0\" type=\"gloveR\" path=\"./grip/glove_r.model\" material=\"./grip/glove_r.mtl\" />\r\n\
+         <model level=\"0\" type=\"gloveR\" path=\"./grip/glove_r.model\" material=\"./grip_glove_r.mtl\" />\r\n\
          </config>"
     );
     assert_eq!(
-        sampler_paths(gloves["g0644/grip/glove_r.mtl"]),
-        ["./grip.dds"]
+        sampler_paths(gloves["g0644/grip_glove_r.mtl"]),
+        ["./grip/grip.dds", "./skin.dds"]
+    );
+}
+
+// TC-MOD-85
+#[test]
+fn a_shared_boots_folder_s_subfolder_fmdl_s_set_names_its_texture_from_the_root() {
+    // The subfolder's FMDL converts, its material set merged into `boots.mtl` at the output's
+    // root, where it names the subfolder's texture as `./sub/shirt.dds`.
+    let sandbox = Sandbox::new("prefox_shared_boots_subfolder_fmdl");
+    let export = "co Midcup Crocs";
+    write_slot_05_face(&sandbox, export);
+    sandbox.write(&format!("exports/{export}/Players/05 - A/Crocs.boots"), b"");
+    let crocs = format!("exports/{export}/Boots/Crocs");
+    sandbox.write(
+        &format!("{crocs}/sub/boots.fmdl"),
+        &tracer_player_file("fcl_hair.fmdl"),
+    );
+    sandbox.write(
+        &format!("{crocs}/sub/boots.skl"),
+        &tracer_player_file("fcl_hair.skl"),
+    );
+    sandbox.write(
+        &format!("{crocs}/sub/shirt.dds"),
+        &tracer_player_file("shirt.dds"),
+    );
+
+    let entries = compile_pes17(
+        &sandbox,
+        export,
+        &[
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=sub/boots.fmdl, count=1662)",
+            CLEAN[0],
+            CLEAN[1],
+            "Info native_field_dropped [Keep] at Boots/Crocs (model=sub/boots.fmdl, field=bone_matrices)",
+            "Info native_field_dropped [Keep] at Boots/Crocs (model=sub/boots.fmdl, bone=8, field=skl_parent)",
+            "Info native_field_dropped [Keep] at Boots/Crocs (model=sub/boots.fmdl, bone=25, field=skl_parent)",
+            "Warning mesh_flags_dropped [Keep] at Boots/Crocs (model=sub/boots.fmdl, material=1, field=no_shadow_cast)",
+        ],
+    );
+
+    let boots = entries_under(&entries, BOOTS_K0644);
+    let names: Vec<&str> = boots.keys().copied().collect();
+    assert_eq!(names, ["boots.model", "boots.mtl", "sub/shirt.dds"]);
+    assert!(
+        sampler_paths(boots["boots.mtl"]).contains(&"./sub/shirt.dds".to_owned()),
+        "{:?}",
+        sampler_paths(boots["boots.mtl"])
     );
 }
 

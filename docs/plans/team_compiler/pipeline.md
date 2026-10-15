@@ -52,7 +52,9 @@ What exists of this is in `spec/team_compiler/pipeline.md` "3. Per-model-folder 
 In **Format conversion** (step 1): duplicate sources within the selected representation are
 ambiguous and drop the folder (`model_source_ambiguous`).
 
-In **Packing** (step 7), a shared gloves folder on PES 15-17: every `.mtl` the output packs
+In **Packing** (step 7), a gloves output on PES 15-17 (a shared folder's, or an `ingame_face`
+player's own, built by the same code; his textures name game paths, so only the `.mtl` names
+change for him): every `.mtl` the output packs
 (a member's, or a converted model's `<stem>.mtl`) sits at the output's root, named by its path
 below the folder with each `/` written `_`, lowercased (`grip/materials.mtl` packs as
 `grip_materials.mtl`, a converted `grip/glove_r.fmdl`'s set as `grip_glove_r.mtl`); `glove.xml`

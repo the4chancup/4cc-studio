@@ -2007,3 +2007,5 @@ worklog passed 7,000 lines.
   its own target; the raise test pinned for four more limits. The interpreter's review loop ends.
 - **2026-10-15** — Maintainer: Midcups carry only changed shared folders, so each compiled CPK
   records its shared IDs and a Midcup keeps them (TC-BIN-34 to 36, step 5.3a).
+- **2026-10-15** — 5.y-gloves: a pre-Fox gloves output packs every `.mtl` at its root under a
+  flattened name, so no texture path climbs (TC-MOD-93; TC-MOD-74 withdrawn).

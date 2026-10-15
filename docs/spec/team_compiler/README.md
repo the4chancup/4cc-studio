@@ -1099,12 +1099,8 @@ TC-MOD-73  GIVEN slot 05 holding face_high.fmdl and skin.dds, linking Faces/Roun
                 .../common/<team>/05 - A/jessie/sourceimages/, the player's texture home holds
                 both skin.ftex at their paths, and neither texture_stem_conflict nor
                 shared_texture_overridden is reported
-TC-MOD-74  GIVEN Gloves/Keeper holding glove_l.model with glove_l.mtl, and grip/glove_r.model
-           with grip/glove_r.mtl naming grip.dds, and grip/grip.dds, slot 05 linking it
-           WHEN the export is compiled for PES 17
-           THEN the gloves output holds grip/glove_r.model, grip/glove_r.mtl and grip/grip.dds
-                at those paths, glove.xml lists ./glove_l.model and ./grip/glove_r.model, and
-                glove_r.mtl's path names ./grip.dds
+TC-MOD-74  withdrawn: restated as TC-MOD-93 (`plans/team_compiler/README.md`), a gloves output
+           packing every .mtl at its root since PES 17 loads no ../ texture path
 TC-MOD-75  GIVEN Common/jessie/armor_bsm.dds, Boots/Crocs holding boots.fmdl naming
            ./jessie/armor_bsm and jessie/armor_bsm.dds.common, and slot 05 linking Crocs.boots
            WHEN the export is compiled for PES 21

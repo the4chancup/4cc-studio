@@ -1665,28 +1665,14 @@ impl<'a> FolderPlaces<'a> {
 
     /// Where the paths of the `.mtl` at `path`, a file of the source folder `source` (the
     /// model folder for the folder's own files, a combined folder's for its files, `Common/`
-    /// for a Common file) are pointed, packed where `source` holds it: a name in the places
-    /// it resolves in, in order; a path below its folder at that path.
+    /// for a Common file) are pointed: a name in the places it resolves in, in order; a path
+    /// below its folder at that path.
     pub(super) fn of(&self, source: &ScopePath, path: &ScopePath) -> MaterialPlaces<'_> {
-        let packed = texture_lookup::split(&relative(path, source)).0.to_owned();
-        self.of_packed(source, path, &packed)
-    }
-
-    /// `of` for a `.mtl` packed at `packed`'s directory below its output's root instead of
-    /// below `source` (`""` for a shared boots output's `boots.mtl`, merged at the root:
-    /// a `.mtl` its parts were read from is not the file written).
-    pub(super) fn of_packed(
-        &self,
-        source: &ScopePath,
-        path: &ScopePath,
-        packed: &str,
-    ) -> MaterialPlaces<'_> {
         MaterialPlaces {
             by_name: self
                 .textures
                 .places(source, path, self.home, self.common_directory),
             below: (self, source.clone(), path.clone()),
-            packed: packed.to_owned(),
         }
     }
 }
@@ -1700,11 +1686,6 @@ pub(super) struct MaterialPlaces<'a> {
     /// that path alone (`TextureFolders::at`): the model folder's places, the `.mtl`'s source
     /// folder and its path (a converted set's model's).
     pub(super) below: (&'a FolderPlaces<'a>, ScopePath, ScopePath),
-    /// The `.mtl`'s packed directory below its output's root (`""` or `/`-terminated), which
-    /// a `./` home's texture paths resolve against (`TextureDirectory::of_below`): `""` for a
-    /// shared boots output's `boots.mtl`, the `.mtl`'s own directory for one packed below the
-    /// folder.
-    pub(super) packed: String,
 }
 
 /// `bytes`, the `.mtl` `file`, with its texture paths pointed as `point_materials` points
@@ -1770,7 +1751,7 @@ pub(super) fn point_materials(set: &mut MaterialSet, places: &MaterialPlaces) {
         });
         if let Some((below, directory)) = found {
             let (subdirectory, name) = texture_lookup::split(below);
-            path.directory = directory.of_below(subdirectory, &places.packed);
+            path.directory = directory.of(subdirectory);
             path.file_name = format!("{name}.dds");
         }
     });
@@ -2116,7 +2097,6 @@ mod tests {
         MaterialPlaces {
             by_name: places.to_vec(),
             below: (&*PLACES, (*FOLDER).clone(), (*FOLDER).clone()),
-            packed: String::new(),
         }
     }
 

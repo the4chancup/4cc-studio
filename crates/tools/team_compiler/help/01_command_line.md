@@ -276,8 +276,9 @@ player linking it, reported as `link_combined`, the player's own model or `.mtl`
 linked folder's file of the same name. A linked `Boots` folder's `.model` is written once as
 `boots.model` with the `.mtl` it uses as `boots.mtl`, several merged into one and reported as
 `model_merged`, and a linked `Gloves` folder's models
-and the `.mtl` files they use are written once under their own names in lower case, the models
-listed in a `glove.xml` that `compile` writes; the
+are written once at their paths and the `.mtl` files they use at the folder's root, each named
+by its path below the folder with `/` written `_` (`grip/glove_r.mtl` as `grip_glove_r.mtl`),
+all in lower case, the models listed in a `glove.xml` that `compile` writes; the
 textures of either sit beside the models.
 Each model uses the first `.mtl` found in its own folder, then in the player's folder: one
 whose name starts or ends the model's name, then `materials.mtl`, then any. For PES 2015 to
