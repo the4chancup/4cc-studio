@@ -1017,13 +1017,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       overridden replacement and a `free_cards` option at the limit; the r1b test renamed
       (brief `.tmp/5_2/brief_5_2i_r3.md`, after 5.4c1b: the Save editor builds on `aatf`); then
       SWE-2 round I.S2
-    - [ ] 5.2i-r4 SWE-2 round I.S2's two accepted (`.tmp/5_2/duck_rulings.md` "I.S2", 2 of 3,
+    - [x] 5.2i-r4 SWE-2 round I.S2's two accepted (`.tmp/5_2/duck_rulings.md` "I.S2", 2 of 3,
       so the review loop on the interpreter ends here): a `stat_bonus` option is used when a
       stat it raises is over its own target (the rating comparison missed a stat whose tier
       override sits below the rate, VGL26's silver place kicking); the raise test pinned for
       `free`, `a_positions`, `stat_bonus` and `max_a_positions` (brief
       `.tmp/5_2/brief_5_2i_r4.md`, after 5.4c2) → done when: the new tests pass, each red
-      without its fix
+      without its fix. `option_used`'s `stat_bonus` branch per stat against `targets`; five
+      tests. `aatf` `logic/logic.rhai`, `src/file.rs` (logic hash), `src/fixtures/interpreter.rs`
 - [ ] 5.3 Team compiler savefile writing, Fox, after 5.1:
   - [ ] 5.3a the player tables: appearance rows, default-ID rows, FPC presets and their
     findings, the out-of-range rule (a key's default; a key the target lacks dropped silently;

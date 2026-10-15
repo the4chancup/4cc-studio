@@ -2003,3 +2003,5 @@ worklog passed 7,000 lines.
   texture path climbing out of its folder does not; step 5.y-gloves packs a copy beside it.
 - **2026-10-15** — In-game, PES 17: a subfolder glove draws with its `.mtl` at the output's
   root, so 5.y-gloves packs every gloves `.mtl` there instead of copying textures.
+- **2026-10-15** — 5.2i-r4: a `stat_bonus` choice option is used when a stat it raises is over
+  its own target; the raise test pinned for four more limits. The interpreter's review loop ends.

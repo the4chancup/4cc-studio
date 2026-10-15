@@ -705,6 +705,217 @@ fn an_option_for_another_tier_is_not_used() {
     assert_eq!(findings_at(&rules, &team, 3), vec![]);
 }
 
+/// A `stat_bonus` option is used per stat, as the `Stat` check reads
+/// them: a VGL26 silver (the tier below verbatim, place kicking's 90
+/// under the 95 rate) at 95 on every rating stat and place kicking 92
+/// rates his expected 95 but is over place kicking's own target, so the
+/// option raising it applies and he is legal; at 90 nothing is over and
+/// the choice reports unused.
+#[test]
+fn a_stat_bonus_option_is_used_for_a_stat_over_its_own_target() {
+    // VGL26's `stats` block, `tricks` group and silver tier verbatim
+    // (rulesets/vgl26.rhai); the regulars are the rest of the squad.
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            stats: #{
+                rating: [\"dribbling\", \"goalkeeping\", \"low_pass\", \"lofted_pass\", \"swerve\",
+                         \"catching\", \"clearing\", \"reflexes\", \"coverage\", \"body_control\",
+                         \"physical_contact\", \"kicking_power\", \"explosive_power\", \"ball_control\",
+                         \"ball_winning\", \"jump\", \"place_kicking\", \"stamina\", \"speed\"],
+                at_most: [\"attacking_prowess\", \"defensive_prowess\",
+                          \"weak_foot_usage\", \"weak_foot_accuracy\"],
+            },
+            universal: #{ max_skill_cards: 41 },
+            tiers: [
+                #{ id: \"silver\", label: \"Silver\", count: 2,
+                   when: #{ height_min: 195, height_max: 195 },
+                   rate: 95, form: 8, injury_resistance: 2,
+                   stats: #{ attacking_prowess: 99, finishing: 99, heading: 99,
+                            place_kicking: 90, ball_winning: 90, defensive_prowess: 60 },
+                   weak_foot: #{ usage: 4, accuracy: 4 },
+                   cards: 8, free: #{ tricks: 12, com: 2 }, a_positions: 2 },
+                #{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                   injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                   cards: 6, a_positions: 2 },
+            ],
+            card_groups: #{
+                tricks: [\"scissors_feint\", \"double_touch\", \"flip_flap\", \"marseille_turn\",
+                         \"sombrero\", \"crossover_turn\", \"cut_behind_and_turn\", \"scotch_move\",
+                         \"step_on_skill\", \"rabona\", \"no_look_pass\", \"malicia\"],
+            },
+            specials: [#{ label: \"pick\",
+                then: #{ choice: [#{ stat_bonus: #{ place_kicking: 2 } },
+                                  #{ cards: 1 }] } }],
+            suggestions: [\"choices\"],
+        };",
+    );
+    // A silver at every target but place kicking: the option raises
+    // that one target.
+    let silver = |place_kicking: u8| {
+        view_edited(3, |p| {
+            p.height = 195;
+            set_tier(p, 95, 8, 2);
+            p.weak_foot_usage = 4;
+            p.weak_foot_accuracy = 4;
+            for (name, value) in [
+                ("attacking_prowess", 99),
+                ("finishing", 99),
+                ("heading", 99),
+                ("ball_winning", 90),
+                ("defensive_prowess", 60),
+            ] {
+                p.abilities[usize::from(stat(name).0)] = Some(value);
+            }
+            p.abilities[usize::from(stat("place_kicking").0)] = Some(place_kicking);
+        })
+    };
+    // 92 over the 90 target: the option is used, the choice taken.
+    let team = silver(92);
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+    assert_eq!(suggestions_for(&rules, &team, 3), vec![]);
+    // 90 meets it: no option is used and the choice reports unused.
+    let team = silver(90);
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+    assert_eq!(
+        suggestions_for(&rules, &team, 3),
+        vec![ViolationKind::UnusedChoice {
+            special: "pick".to_string()
+        }]
+    );
+}
+
+/// A `free` option naming another tier is not used: `com` raised for
+/// `gold` alone raises nothing for a regular, so the choice passes to
+/// the option that frees a COM style for him.
+#[test]
+fn a_free_option_for_another_tier_is_not_used() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [
+                #{ id: \"gold\", label: \"Gold\", counts_as: \"regular\",
+                   when: #{ positions: [\"GK\"] }, rate: 90, form: 8,
+                   injury_resistance: 3, name_color: \"cc9900ff\",
+                   weak_foot: #{ usage: 4, accuracy: 4 }, cards: 40, a_positions: 13 },
+                #{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                   injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                   cards: 2, free: #{ com: 1 }, a_positions: 13 },
+            ],
+            specials: [#{ label: \"pick\",
+                then: #{ choice: [#{ free: #{ com: #{ gold: 1 } } },
+                                  #{ free: #{ com: 1 } }] } }],
+            suggestions: [\"choices\"],
+        };",
+    );
+    // Two COM styles over the one the tier frees: the second is paid,
+    // three paid against two. The golds' option raises nothing for a
+    // regular; the second frees his second COM style, paid 2 against 2.
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 2;
+        p.weak_foot_accuracy = 2;
+        p.cards = vec![
+            card("trickster"),
+            card("mazing_run"),
+            card("malicia"),
+            card("captaincy"),
+        ];
+    });
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+    let limits = rules
+        .card_limits(&team, team.player(3).expect("slot 3"), "regular")
+        .expect("limits");
+    assert_eq!(limits.free.get("com"), Some(&2), "the second option's free");
+}
+
+/// An `a_positions` option naming another tier is not used: the golds'
+/// +1 raises nothing for a regular over his allowance, so the choice
+/// passes to the option that raises it for him.
+#[test]
+fn an_a_positions_option_for_another_tier_is_not_used() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [
+                #{ id: \"gold\", label: \"Gold\", counts_as: \"regular\",
+                   when: #{ positions: [\"GK\"] }, rate: 90, form: 8,
+                   injury_resistance: 3, name_color: \"cc9900ff\",
+                   weak_foot: #{ usage: 4, accuracy: 4 }, cards: 40, a_positions: 13 },
+                #{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                   injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                   cards: 3, a_positions: 1 },
+            ],
+            specials: [#{ label: \"pick\",
+                then: #{ choice: [#{ a_positions: #{ gold: 1 } },
+                                  #{ a_positions: 1 }] } }],
+            suggestions: [\"choices\"],
+        };",
+    );
+    // A second A position over the one allowed spends a card slot:
+    // three paid against a limit of two. The golds' option raises
+    // nothing for a regular; the second raises his allowance to two,
+    // nothing extra spent, three paid against three.
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 2;
+        p.weak_foot_accuracy = 2;
+        assert_eq!(p.ratings.iter().filter(|rating| **rating == 2).count(), 1);
+        p.ratings[usize::from(position("CB").0)] = 2;
+        p.cards = vec![card("malicia"), card("captaincy"), card("super_sub")];
+    });
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+    let limits = rules
+        .card_limits(&team, team.player(3).expect("slot 3"), "regular")
+        .expect("limits");
+    assert_eq!(limits.a_positions, 2, "the second option's allowance");
+}
+
+/// A `stat_bonus` option naming another tier is not used: the golds'
+/// bonus raises none of a regular's targets, so the choice passes to
+/// the option that raises the target he is over.
+#[test]
+fn a_stat_bonus_option_for_another_tier_is_not_used() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [
+                #{ id: \"gold\", label: \"Gold\", counts_as: \"regular\",
+                   when: #{ positions: [\"GK\"] }, rate: 90, form: 8,
+                   injury_resistance: 3, name_color: \"cc9900ff\",
+                   weak_foot: #{ usage: 4, accuracy: 4 }, cards: 40, a_positions: 13 },
+                #{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                   injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                   cards: 40, a_positions: 13 },
+            ],
+            specials: [#{ label: \"pick\",
+                then: #{ choice: [#{ stat_bonus: #{ all: #{ gold: 5 } } },
+                                  #{ stat_bonus: #{ speed: 13 } }] } }],
+            suggestions: [\"choices\"],
+        };",
+    );
+    // Speed 90 over the regulars' 77: the golds' `all` raises nothing
+    // for him; the second option raises speed's target to 90, met.
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 2;
+        p.weak_foot_accuracy = 2;
+        p.abilities[usize::from(stat("speed").0)] = Some(90);
+    });
+    assert_eq!(findings_at(&rules, &team, 3), vec![]);
+    let values = rules
+        .tier_values(&team, team.player(3).expect("slot 3"), "regular")
+        .expect("values");
+    assert_eq!(
+        values.stats.get(&stat("speed")),
+        Some(&90),
+        "the second option's bonus"
+    );
+}
+
 /// A chosen option's replacing effect (`weak_foot`) gives way to one
 /// a *later* special sets: choices resolve after every special, but
 /// the specials' order decides which replacement stands.
@@ -834,6 +1045,53 @@ fn a_later_specials_max_a_positions_wins_over_an_earlier_choice() {
     // Listed after it, the option's cap applies: three A positions met.
     let rules = with_specials(&format!("{replace}, {choice}"));
     assert_eq!(findings_at(&rules, &team, 3), vec![]);
+}
+
+/// A `max_a_positions` option a later special overrides is not used:
+/// applied, it raises nothing (the `from` gate drops it), so with
+/// nothing else he needs the choice goes unused while the later
+/// special's cap stands.
+#[test]
+fn an_overridden_max_a_positions_is_not_used() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                        injury_resistance: 1, weak_foot: #{ usage: 2, accuracy: 2 },
+                        cards: 40, a_positions: 13 }],
+            specials: [
+                #{ label: \"cap3\",
+                   then: #{ choice: [#{ max_a_positions: 3 }, #{ cards: 1 }] } },
+                #{ label: \"cap2\", then: #{ max_a_positions: 2 } },
+            ],
+            suggestions: [\"choices\"],
+        };",
+    );
+    // Three A positions over the standing cap of two: the earlier
+    // choice's cap of three is overridden and its `cards` option is
+    // nothing he needs, so no option is used.
+    let team = view_edited(3, |p| {
+        set_tier(p, 77, 4, 1);
+        p.weak_foot_usage = 2;
+        p.weak_foot_accuracy = 2;
+        assert_eq!(p.ratings.iter().filter(|rating| **rating == 2).count(), 1);
+        p.ratings[usize::from(position("CB").0)] = 2;
+        p.ratings[usize::from(position("CMF").0)] = 2;
+    });
+    assert_eq!(
+        findings_at(&rules, &team, 3),
+        vec![error(
+            Some(3),
+            ViolationKind::APositions { count: 3, max: 2 }
+        )]
+    );
+    assert_eq!(
+        suggestions_for(&rules, &team, 3),
+        vec![ViolationKind::UnusedChoice {
+            special: "cap3".to_string()
+        }]
+    );
 }
 
 /// `apply_tier` resolves the specials against the values it writes,

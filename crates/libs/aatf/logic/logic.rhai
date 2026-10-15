@@ -358,10 +358,15 @@ fn option_used(tier, p, player, option, choice) {
     let applied = apply_effects(p, tier.id, choice.label, choice.severity, option, choice.from);
     let cards = this.card_summary(tier, p, player);
     let applied_cards = this.card_summary(tier, applied, player);
-    if "stat_bonus" in option
-        && this.player_rating(player) > this.expected_rating(tier, p)
-        && this.expected_rating(tier, applied) > this.expected_rating(tier, p) {
-        return true;
+    if "stat_bonus" in option {
+        let before = targets(tier, p);
+        let raised = targets(tier, applied);
+        for stat in ability_stats() {
+            let value = player.stat(stat);
+            if value != () && value > before[stat] && raised[stat] > before[stat] {
+                return true;
+            }
+        }
     }
     if "cards" in option && cards.paid > cards.limit
         && (applied_cards.limit > cards.limit || applied_cards.paid < cards.paid) {
