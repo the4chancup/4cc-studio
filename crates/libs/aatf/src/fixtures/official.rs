@@ -508,19 +508,6 @@ fn a_player_below_every_tier_reads_as_the_last_fitting_tier() {
 
 // ---- The specials, one fixture each
 
-/// A `BracketQuota` of the Green system.
-fn green_quota(bracket: &str, count: u8, quota: u8) -> Violation {
-    error(
-        None,
-        ViolationKind::BracketQuota {
-            system: "green".to_string(),
-            bracket: bracket.to_string(),
-            count,
-            quota,
-        },
-    )
-}
-
 /// Slot 12 pays three cards, his limit: Malicia on top costs nothing, and
 /// with a paid card on top of both he pays four, not five.
 #[test]

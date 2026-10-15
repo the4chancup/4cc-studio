@@ -15,27 +15,6 @@ fn rules() -> Rules {
     Rules::from_data_block(VGL25).expect("VGL25 loads")
 }
 
-/// A `Special` violation's kind.
-fn special(label: &str, text: &str) -> ViolationKind {
-    ViolationKind::Special {
-        label: label.to_string(),
-        text: text.to_string(),
-    }
-}
-
-/// A `BracketQuota` of the Purple system.
-fn purple_quota(bracket: &str, count: u8, quota: u8) -> Violation {
-    error(
-        None,
-        ViolationKind::BracketQuota {
-            system: "purple".to_string(),
-            bracket: bracket.to_string(),
-            count,
-            quota,
-        },
-    )
-}
-
 /// The sample team made legal under VGL25:
 ///
 /// - tiers through `Rules::apply_tier` on the records: the golds (2, 10)

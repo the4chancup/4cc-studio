@@ -18,19 +18,6 @@ fn rules() -> Rules {
     Rules::from_data_block(VGL27).expect("VGL27 loads")
 }
 
-/// A `BracketQuota` of the Purple system.
-fn purple_quota(bracket: &str, count: u8, quota: u8) -> Violation {
-    error(
-        None,
-        ViolationKind::BracketQuota {
-            system: "purple".to_string(),
-            bracket: bracket.to_string(),
-            count,
-            quota,
-        },
-    )
-}
-
 /// `records` (the sample team, on either build's version) made legal
 /// under VGL27:
 ///

@@ -168,6 +168,42 @@ fn warning(slot: u8, kind: ViolationKind) -> Violation {
     }
 }
 
+/// A `BracketQuota` of the Green system.
+fn green_quota(bracket: &str, count: u8, quota: u8) -> Violation {
+    error(
+        None,
+        ViolationKind::BracketQuota {
+            system: "green".to_string(),
+            bracket: bracket.to_string(),
+            count,
+            quota,
+        },
+    )
+}
+
+/// A `BracketQuota` of the Purple system.
+fn purple_quota(bracket: &str, count: u8, quota: u8) -> Violation {
+    error(
+        None,
+        ViolationKind::BracketQuota {
+            system: "purple".to_string(),
+            bracket: bracket.to_string(),
+            count,
+            quota,
+        },
+    )
+}
+
+/// A `Custom` violation on roster `slot` (`None`: the team).
+fn custom(slot: Option<u8>, text: &str) -> Violation {
+    error(
+        slot,
+        ViolationKind::Custom {
+            text: text.to_string(),
+        },
+    )
+}
+
 /// An `Unused` suggestion's kind.
 fn unused(allowance: &str, used: u8, allowed: u8) -> ViolationKind {
     ViolationKind::Unused {

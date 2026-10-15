@@ -157,12 +157,42 @@ fn apply_tier_then_check_reports_nothing_for_every_tier() {
     }
 }
 
+/// `card_limits` reports each tier's `a_positions` (one for every
+/// tier), and the goalkeeper's own numbers: the file's two paid cards
+/// (the limit, his one A fitting the one allowance — no deduction), no
+/// `free` group at all, and `tier_values`' weak foot 2/2.
+#[test]
+fn card_limits_and_tier_values_report_the_tiers_values() {
+    let rules = rules();
+    let team = legal_team();
+    for (slot, tier) in [
+        (2, "gold"),
+        (5, "silver"),
+        (0, "goalkeeper"),
+        (12, "regular"),
+    ] {
+        let limits = rules
+            .card_limits(&team, team.player(slot).expect("filled"), tier)
+            .expect("limits");
+        assert_eq!(limits.a_positions, 1, "{tier}");
+    }
+    let limits = rules
+        .card_limits(&team, team.player(0).expect("slot 0"), "goalkeeper")
+        .expect("limits");
+    assert_eq!(limits.limit, 2, "the goalkeeper's two paid cards");
+    assert!(limits.free.is_empty(), "the goalkeeper frees no group");
+    let values = rules
+        .tier_values(&team, team.player(0).expect("slot 0"), "goalkeeper")
+        .expect("values");
+    assert_eq!((values.weak_foot.usage, values.weak_foot.accuracy), (2, 2));
+}
+
 /// Under the Red system the manlet bonus is for regulars and
 /// goalkeepers alone: the built team's manlets rate 82. A regular
 /// manlet at the unbonused 77 is off the raised 82; a goalkeeper at 175
-/// (slot 11, a manlet out and a mid moved to tall, the quotas kept) is
-/// legal at 82 and off every rating stat at 77; a silver manlet, whom
-/// the map does not name, keeps his 88.
+/// (slot 11 to manlet, manlet 22 to tall, the quotas kept) is legal at
+/// 82 and off every rating stat at 77; a silver manlet, whom the map
+/// does not name, keeps his 88.
 #[test]
 fn the_red_manlet_bonus_is_for_regulars_and_goalkeepers() {
     let rules = rules();
@@ -187,8 +217,11 @@ fn the_red_manlet_bonus_is_for_regulars_and_goalkeepers() {
         "{found:?}"
     );
     // A goalkeeper manlet (slot 11 to 175, a manlet to tall, quotas kept):
-    // legal at the bonused 82, off at the goalkeepers' 77.
-    for rate in [82, 77] {
+    // legal at the bonused 82; off it both ways — at 83 he reads as the
+    // goalkeeper tier (its raised 82 still fits) and every ability misses
+    // the 82 (19, the at-most pair included); at 77 no tier's expected
+    // reaches him and he reports as a regular manlet, off the 82 (17).
+    for rate in [82, 83, 77] {
         let mut records = red_legal_records();
         records.player_mut(11).basic.height = 175;
         records.player_mut(22).basic.height = 185;
@@ -201,19 +234,22 @@ fn the_red_manlet_bonus_is_for_regulars_and_goalkeepers() {
         if rate == 82 {
             assert_eq!(found, vec![], "{rate}: {found:?}");
         } else {
-            assert!(!found.is_empty(), "{rate}: the unbonused rate is off");
+            assert_eq!(
+                found.len(),
+                if rate == 83 { 19 } else { 17 },
+                "{rate}: {found:?}"
+            );
             assert!(
                 found.iter().all(|v| v.slot == Some(11)
                     && matches!(
                         v.kind,
                         ViolationKind::Stat {
-                            value: 77,
+                            value,
                             target: 82,
-                            at_most: false,
                             ..
-                        }
+                        } if value == rate
                     )),
-                "{found:?}"
+                "{rate}: {found:?}"
             );
         }
     }
@@ -291,17 +327,6 @@ fn a_tall_goalkeeper_must_be_189() {
 #[test]
 fn goalkeepers_and_golds_below_giant_are_warnings() {
     let rules = rules();
-    let quota = |bracket: &str, count: u8, quota: u8| {
-        error(
-            None,
-            ViolationKind::BracketQuota {
-                system: "green".to_string(),
-                bracket: bracket.to_string(),
-                count,
-                quota,
-            },
-        )
-    };
     assert_eq!(
         problems(&rules, &edited(0, |p| p.height = 194)),
         vec![
@@ -312,8 +337,8 @@ fn goalkeepers_and_golds_below_giant_are_warnings() {
                     "GK heights cannot be 194cm or more"
                 )
             ),
-            quota("tall", 5, 6),
-            quota("giant", 6, 5),
+            green_quota("tall", 5, 6),
+            green_quota("giant", 6, 5),
         ]
     );
     assert_eq!(
@@ -323,8 +348,8 @@ fn goalkeepers_and_golds_below_giant_are_warnings() {
                 2,
                 special("Gold below giant", "Gold heights cannot be 194cm or more")
             ),
-            quota("tall", 5, 6),
-            quota("giant", 6, 5),
+            green_quota("tall", 5, 6),
+            green_quota("giant", 6, 5),
         ]
     );
 }

@@ -161,11 +161,6 @@ fn apply_tier_then_check_reports_nothing_for_every_tier() {
     }
 }
 
-/// The ability stat `name` names.
-fn stat(name: &str) -> Stat {
-    Stat::try_from(name.to_string()).expect("a stat name")
-}
-
 /// A silver's finishing target is 99 (slot 5): met it is legal; at 95,
 /// the base rate, it is the one stat violation.
 #[test]

@@ -19,16 +19,6 @@ fn rules() -> Rules {
     Rules::from_data_block(VTL10).expect("VTL10 loads")
 }
 
-/// A `Custom` violation on roster `slot` (`None`: the team).
-fn custom(slot: Option<u8>, text: &str) -> Violation {
-    error(
-        slot,
-        ViolationKind::Custom {
-            text: text.to_string(),
-        },
-    )
-}
-
 /// `records` (the sample team, on either build's version) made legal
 /// under VTL10:
 ///

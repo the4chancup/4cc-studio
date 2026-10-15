@@ -26,16 +26,6 @@ fn play_style(name: &str) -> PlayStyle {
     PlayStyle::try_from(name.to_string()).expect("a playing style name")
 }
 
-/// A `Custom` violation on roster `slot` (`None`: the team).
-fn custom(slot: Option<u8>, text: &str) -> Violation {
-    error(
-        slot,
-        ViolationKind::Custom {
-            text: text.to_string(),
-        },
-    )
-}
-
 /// `records` (the sample team, on either build's version) made legal
 /// under VTL11:
 ///
