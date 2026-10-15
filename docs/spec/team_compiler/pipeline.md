@@ -646,7 +646,8 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    `../<stem>.dds` for the folder's root texture a gloves subfolder's `.mtl` resolves nearest
    first, a boots folder packing its one `boots.mtl` at the root; PES 17 loads the `./` and
    `./<sub>/` paths but not the `../` one, which `plans/team_compiler/pipeline.md` "3.
-   Per-model-folder parallel steps (rayon)" replaces). Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
+   Per-model-folder parallel steps (rayon)" removes by packing every gloves `.mtl` at the
+   root). Fox mode packs allowed types (`.bin`, `.fmdl`, `.skl`, `.fclo`) into an FPK plus a
    generated empty `.fpkd` (player-owned and merge-copied textures having been relocated to the per-player
    common subfolder; plain shared-output textures remain in that model's own texture location).
    Packed entries are emitted to the writer queue. (Blue: `contents_packing.py`)

@@ -7864,3 +7864,18 @@ only when the nearer folders lack the stem. PES 15 and 16 are unmeasured (no tes
 taken to read as PES 17, one engine.
 Plan: `plans/team_compiler/pipeline.md` "3. Per-model-folder parallel steps (rayon)" (Packing),
 TC-MOD-93.
+
+## 2026-10-15 — team_compiler — every .mtl of a pre-Fox gloves output is packed at its root
+Decision (lead, from an in-game check): amends the entry above. On PES 15-17 a shared gloves
+output packs each `.mtl` at its root, named by its path below the folder with `/` written `_`
+(`grip_materials.mtl`), `glove.xml` naming it there; models and textures keep their paths, and
+the `.mtl` names its textures `./<stem>.dds` or `./<sub>/<stem>.dds`. No texture is copied.
+TC-MOD-93 withdraws TC-MOD-74.
+Why: a fifth PES 17 run the same day (`.tmp/ingame/gloves_check/r5_slot01.png`) drew the right
+glove magenta with its model at `grip/glove_r.model` and its `.mtl` at the root naming
+`./magenta.dds`, and the fourth had a root `.mtl` load `./sub/magenta.dds`; so moving the
+`.mtl` removes every upward path. A copy beside a subfolder `.mtl` also works (run 2) but needs
+the textures task, which emits each texture once, to learn from the `.mtl` files which ones a
+subfolder reaches above; the move is a change to the packed names alone.
+Plan: `plans/team_compiler/pipeline.md` "3. Per-model-folder parallel steps (rayon)" (Packing),
+`plans/team_compiler/README.md` TC-MOD-93.

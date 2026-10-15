@@ -207,13 +207,18 @@ TC-SAV-12  GIVEN a /co/ export whose slot 05 settings.toml sets a motion key, an
 
 **Shared gloves on PES 15-17**
 
+Every `.mtl` of the output moves to its root (`pipeline.md` "3. Per-model-folder parallel
+steps (rayon)"), so TC-MOD-93 withdraws TC-MOD-74, whose packing it changes.
+
 ```
-TC-MOD-93  GIVEN Gloves/Keeper holding glove_l.model with materials.mtl naming skin.dds,
-                skin.dds, and grip/glove_r.model with grip/materials.mtl naming skin.dds,
-                slot 05 linking it
+TC-MOD-93  GIVEN Gloves/Keeper holding glove_l.model with glove_l.mtl, skin.dds, and
+                grip/glove_r.model with grip/glove_r.mtl naming grip.dds and skin.dds, and
+                grip/grip.dds, slot 05 linking it
            WHEN the export is compiled for PES 17
-           THEN the gloves output holds skin.dds and grip/skin.dds with equal bytes, and
-                grip/materials.mtl names ./skin.dds
+           THEN the gloves output holds grip/glove_r.model, grip_glove_r.mtl, grip/grip.dds
+                and skin.dds, and no grip/glove_r.mtl; glove.xml lists ./glove_l.model and
+                ./grip/glove_r.model with material ./grip_glove_r.mtl; grip_glove_r.mtl's
+                paths name ./grip/grip.dds and ./skin.dds
 ```
 
 **Referees**

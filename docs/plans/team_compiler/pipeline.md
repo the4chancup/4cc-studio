@@ -52,18 +52,25 @@ What exists of this is in `spec/team_compiler/pipeline.md` "3. Per-model-folder 
 In **Format conversion** (step 1): duplicate sources within the selected representation are
 ambiguous and drop the folder (`model_source_ambiguous`).
 
-In **Packing** (step 7), a shared gloves folder on PES 15-17: a texture that a `.mtl` packed in
-a subfolder resolves in a folder above its own (nearest first, as now) is packed a second time
-beside that `.mtl`, which names it `./<stem>.dds`; the spec's `../<stem>.dds` goes. The game
-does not load a `.mtl` texture path that climbs out of the `.mtl`'s folder: in PES 17 Edit mode
-(2026-10-15) a right glove whose `grip/` `.mtl` named `../magenta.dds` drew white, and so did
-the game-rooted `model/character/glove/<id>/magenta.dds`, while `./magenta.dds` beside the
-`.mtl`, `./sub/magenta.dds` below it and `glove.xml`'s `./grip/glove_r.model` all loaded. We
-copy rather than pack the folder flat, which would collide two subfolders' `glove_r.model`.
-The copy collides with nothing: the lookup reaches above only when the `.mtl`'s folder and
-each folder between lack the stem, and two `.mtl` files of one folder reaching the same
-texture pack the same copy once. PES 15 and 16 are unmeasured and taken to read as PES 17
-does (the same engine).
+In **Packing** (step 7), a shared gloves folder on PES 15-17: every `.mtl` the output packs
+(a member's, or a converted model's `<stem>.mtl`) sits at the output's root, named by its path
+below the folder with each `/` written `_`, lowercased (`grip/materials.mtl` packs as
+`grip_materials.mtl`, a converted `grip/glove_r.fmdl`'s set as `grip_glove_r.mtl`); `glove.xml`
+names it there (`material="./grip_materials.mtl"`) while the model keeps its subfolder path
+(`./grip/glove_r.model`). Its textures are then named from the root, `./<stem>.dds` or
+`./<sub>/<stem>.dds`, never `../`; the textures stay where they are packed now, and the lookup
+still resolves nearest first from the `.mtl`'s source folder. The game does not load a `.mtl`
+texture path that climbs out of the `.mtl`'s folder: in PES 17 Edit mode (2026-10-15) a right
+glove whose `grip/` `.mtl` named `../magenta.dds` drew white, and so did the game-rooted
+`model/character/glove/<id>/magenta.dds`, while a root `.mtl` naming `./magenta.dds` or
+`./sub/magenta.dds`, a `grip/` `.mtl` naming `./magenta.dds` beside it, and a `grip/` model
+whose `.mtl` sat at the root all loaded. We move the `.mtl` files rather than copy each
+texture a subfolder `.mtl` reaches above into its folder, which the textures task, emitting
+each texture once at its path, would have to learn from the `.mtl` files; and rather than pack
+the folder flat, which would collide two subfolders' `glove_r.model`. Two `.mtl` files whose
+flattened names meet (`grip/a.mtl` and a root `grip_a.mtl`) fail the task as any two files of
+one packed name do. PES 15 and 16 are unmeasured and taken to read as PES 17 does (the same
+engine).
 
 ### 4. Per-export non-model steps
 

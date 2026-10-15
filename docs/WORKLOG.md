@@ -1106,15 +1106,17 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   the harness: a stripped and seeded save shows every player as before; a compiled team's rows
   show; a file that sets no face or hair key shows the default face → done when: each a
   `manual: checked` line here
-- [ ] 5.y-gloves PES 15-17: a gloves subfolder's `.mtl` names a texture found above its folder
-  by a copy packed beside it (`plans/team_compiler/pipeline.md` "3. Per-model-folder parallel
-  steps (rayon)", Packing; DECISIONS 2026-10-15) → done when: TC-MOD-93 passes and TC-MOD-74
-  still does. SWE-2, `team_compiler` (`processing/prefox_face.rs` `point_materials`,
-  `paths.rs` `of_below`, the gloves packing).
+- [ ] 5.y-gloves PES 15-17: every `.mtl` of a shared gloves output packed at its root
+  (`plans/team_compiler/pipeline.md` "3. Per-model-folder parallel steps (rayon)", Packing;
+  DECISIONS 2026-10-15 "every .mtl of a pre-Fox gloves output is packed at its root") → done
+  when: TC-MOD-93 passes, TC-MOD-74's test has become its test (TC-MOD-74 is withdrawn when the phase
+  closes, as TC-BIN-10 is). SWE-2, `team_compiler`
+  (`processing/prefox_shared.rs` `package`, `packed_mtl_name`).
   manual: checked 2026-10-15, PES 17 Edit mode, /out/ slots 01-03 on shared gloves 1684-1686
   (`.tmp/ingame/gloves_check/`, `r3_slot0N.png`, `r4_slot03.png`): `glove.xml`'s
   `./grip/glove_r.model` loads; a `.mtl` texture path `./x.dds` and `./sub/x.dds` loads,
-  `../x.dds` and the game-rooted `model/character/glove/g1684/x.dds` do not (white glove)
+  `../x.dds` and the game-rooted `model/character/glove/g1684/x.dds` do not (white glove);
+  a `grip/` model whose `.mtl` sits at the root naming `./x.dds` loads (`r5_slot01.png`)
 - [ ] 5.6 Converge (`AGENTS.md` "Closing a phase")
 
 ### Phase 10 — Music tools
