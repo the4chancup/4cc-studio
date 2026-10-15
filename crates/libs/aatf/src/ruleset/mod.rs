@@ -256,7 +256,8 @@ pub struct Universal {
     /// B ratings count toward the A-position allowance, like extra A positions.
     #[serde(default)]
     pub b_uses_a_allowance: bool,
-    /// A GK rating is never an outfield player's second A.
+    /// A GK rating is never a player's second A: it fires for any player holding GK A among
+    /// several A positions, a goalkeeper with a second A included.
     #[serde(default)]
     pub gk_not_second_a: bool,
     /// Inclusive age bounds.
@@ -492,9 +493,19 @@ pub struct Effects {
     #[serde(default)]
     pub forbid: Option<String>,
     /// The first option the player uses, or none: an option is used when, without it, the
-    /// player exceeds a limit the option raises; a `stat_bonus` raises the stat targets, so it is
-    /// used when, without it, the player's rating is above the expected rating. A one-option
-    /// choice is an optional effect (VGL25's manlet bonus).
+    /// player exceeds a limit the option, applied, raises for him (a per-tier value for another
+    /// tier raises nothing, nor does a replacement a later special overrides); a `stat_bonus`
+    /// raises the stat targets, so it is used when, without it, a stat it raises is over its own
+    /// target (a stat whose tier override sits below the rate counts, as VGL26's silver place
+    /// kicking does; the overall rating alone would miss it); a `free_cards` option, when,
+    /// without it, the paid cards are over the limit and, with it, fewer are paid (a card a
+    /// group covers can still help, its group's allowance passing to a paid groupmate). A
+    /// one-option choice is an optional effect (VGL25's manlet bonus). An option holds only
+    /// effects that raise a limit (`stat_bonus`, `cards`, `free`, `free_cards`, `a_positions`,
+    /// `max_a_positions`, `weak_foot`): any other could never be found used. Choices are
+    /// resolved after every other effect, but a chosen option's replacing effect
+    /// (`max_a_positions`, `weak_foot`) gives way to one a later special sets, as the order of
+    /// `specials` says.
     #[serde(default)]
     pub choice: Vec<Effects>,
 }

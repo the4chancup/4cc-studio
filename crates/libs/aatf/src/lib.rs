@@ -24,9 +24,13 @@
 //! On `Team`: `players` (the roster in slot order), `captain` (the slot,
 //! `()` for none), `version` (the short number);
 //! `fielded_positions(player, preset)` (labels, once each, in the
-//! position table's order; a preset outside 1 to 3 is a script error),
-//! `fielded_only_at(player, pos)` (an unknown position is a script
-//! error), `formation(preset, formation)` (the eleven slots as
+//! position table's order, empty for a player outside the starting
+//! eleven; a preset outside 1 to 3 is a script error),
+//! `fielded_only_at(player, pos)` (whether every formation the game can
+//! field from the three presets fields the player at `pos`; for a player
+//! outside the starting eleven, whether `pos` is his registered
+//! position; an unknown position is a script error),
+//! `formation(preset, formation)` (the eleven slots as
 //! `#{ slot, position, x, y }`, `()` for a formation the preset cannot
 //! field), `formation_shapes()` (`#{ preset, formation,
 //! shape: [defenders, midfielders, forwards] }`); `man_marking` (whether

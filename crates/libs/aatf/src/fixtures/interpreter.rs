@@ -1210,3 +1210,45 @@ fn apply_tier_resolves_specials_against_the_written_name_color() {
     }
     assert_eq!(findings_at(&rules, &records.view(), 3), vec![]);
 }
+
+/// `team_settings`' `auto_attack_defence_levels` is compared like the
+/// other auto flags: the sample team on PES 21 (the field does not
+/// exist before PES 17, so `sample_on` builds it there) holds the flag
+/// off, and a probe demanding `false` reports no `TeamSetting`; the flag
+/// set reports the entry's.
+#[test]
+fn auto_attack_defence_levels_is_compared() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }],
+            team_settings: [#{ label: \"a/d levels off\",
+                               auto_attack_defence_levels: false }],
+        };",
+    );
+    let team_settings = |team: &TeamView| {
+        problems(&rules, team)
+            .into_iter()
+            .filter(|v| matches!(v.kind, ViolationKind::TeamSetting { .. }))
+            .collect::<Vec<_>>()
+    };
+    let mut team = Records::sample_on(PesVersion::Pes21).view();
+    assert_eq!(
+        team.tactics.auto.attack_defence_levels,
+        Some(false),
+        "the PES 21 sample holds the flag off"
+    );
+    assert_eq!(team_settings(&team), vec![]);
+    team.tactics.auto.attack_defence_levels = Some(true);
+    assert_eq!(
+        team_settings(&team),
+        vec![error(
+            None,
+            ViolationKind::TeamSetting {
+                label: "a/d levels off".to_string(),
+                setting: "auto_attack_defence_levels".to_string()
+            }
+        )]
+    );
+}

@@ -202,6 +202,29 @@ fn a_manlet_not_taking_the_bonus_gets_the_choice_suggestion() {
     );
 }
 
+/// A manlet below the bracket's top is legal, and the `height`
+/// suggestion reports the unused centimetres: slot 3 at 170 stays in the
+/// manlet bracket (`up_to` 175) and reads 170 of the 175 it allows.
+#[test]
+fn a_manlet_below_the_brackets_top_gets_the_height_suggestion() {
+    let rules = rules();
+    assert_eq!(player(&legal_team(), 3).height, 175);
+    let team = edited(3, |p| p.height = 170);
+    assert_eq!(problems(&rules, &team), vec![]);
+    assert_eq!(
+        suggestions_for(&rules, &team, 3),
+        vec![
+            unused("cards", 3, 4),
+            unused("a_positions", 1, 3),
+            unused("height", 170, 175),
+            unused("free_cards", 0, 1),
+            ViolationKind::UnusedChoice {
+                special: "Manlet bonus".to_string()
+            },
+        ]
+    );
+}
+
 /// A medal at 190 (slot 9, a tall silver) or a goalkeeper at 190 (slot
 /// 0) is forbidden; each is a giant, one tall player short and one giant
 /// over.

@@ -567,8 +567,8 @@ impl Ruleset {
         for (i, option) in effects.choice.iter().enumerate() {
             let option_path = format!("{path}.choice[{i}]");
             // An option holds only the effects `Effects::choice`'s doc
-            // lists: an option is found used through a limit it raises,
-            // which the others never do.
+            // lists (`LoadRule::ChoiceOptionEffect`): an option is found
+            // used through a limit it raises, which the others never do.
             for (field, present) in [
                 ("stat_target", !option.stat_target.is_empty()),
                 ("require_cards", !option.require_cards.is_empty()),

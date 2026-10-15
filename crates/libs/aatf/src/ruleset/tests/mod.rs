@@ -66,6 +66,23 @@ fn the_official_ruleset_loads() {
     }
 }
 
+/// The operation limit binds the top level, not only `check_team`
+/// (`rules.rs`'s loop test): a `loop {}` ahead of `RULESET` fails the
+/// load with rhai's operations error, never a hang.
+#[test]
+fn a_loop_before_the_data_block_stops_at_the_operation_limit() {
+    let err = Ruleset::from_data_block(
+        "loop {}\nconst RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };",
+    )
+    .expect_err("the limit stops it");
+    match err {
+        LoadError::Parse { message, .. } => {
+            assert!(message.contains("operations"), "{message}");
+        }
+        other => panic!("expected Parse, got {other:?}"),
+    }
+}
+
 // One failing file per load-time rule: `edit` of a unique snippet of
 // the official text → `Rules` with exactly the expected error.
 fn case(name: &str, broken: &str, rule: LoadRule, path: &str) {
