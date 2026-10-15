@@ -11,26 +11,13 @@ use pes_version::PesVersion;
 use crate::TEST_SALT;
 use crate::common::Sandbox;
 
-/// The VGL27 rules file, assembled the way `aatf`'s `file::assemble` builds a data block
-/// that has no CUSTOM CHECKS section: the block trimmed, the current logic trimmed, then
-/// the banner line and the empty `custom_checks` stub.
-fn vgl27_rules() -> String {
+/// The `rulesets/<ruleset>.rhai` rules file, assembled the way `aatf`'s `file::assemble`
+/// builds a data block that has no CUSTOM CHECKS section: the block trimmed, the current
+/// logic trimmed, then the banner line and the empty `custom_checks` stub. `autumn26` is
+/// the block `Rules::official` embeds.
+fn rules_file(ruleset: &str) -> String {
     let aatf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf");
-    let data = fs::read_to_string(aatf.join("rulesets/vgl27.rhai")).unwrap();
-    let logic = fs::read_to_string(aatf.join("logic/logic.rhai")).unwrap();
-    format!(
-        "{}\n\n{}\n\n{}\nfn custom_checks(team) {{ [] }}\n",
-        data.trim_end(),
-        logic.trim_end(),
-        "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ===="
-    )
-}
-
-/// The official ruleset as a file: `rulesets/autumn26.rhai`'s data block (the one
-/// `Rules::official` embeds) assembled like `vgl27_rules`.
-fn official_rules() -> String {
-    let aatf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf");
-    let data = fs::read_to_string(aatf.join("rulesets/autumn26.rhai")).unwrap();
+    let data = fs::read_to_string(aatf.join(format!("rulesets/{ruleset}.rhai"))).unwrap();
     let logic = fs::read_to_string(aatf.join("logic/logic.rhai")).unwrap();
     format!(
         "{}\n\n{}\n\n{}\nfn custom_checks(team) {{ [] }}\n",
@@ -192,7 +179,7 @@ fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
     let sandbox = Sandbox::new("aatf_vgl27");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
     let rules = sandbox.path("vgl27.rhai");
-    fs::write(&rules, vgl27_rules()).unwrap();
+    fs::write(&rules, rules_file("vgl27")).unwrap();
 
     let arg = rules.to_str().unwrap().to_owned();
     let run = check(
@@ -235,10 +222,16 @@ fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
 fn without_teams_every_cup_team_is_checked_in_id_order() {
     let sandbox = Sandbox::new("aatf_default_teams");
     // The fixture holds cup teams alone: team 703's id moved outside the cup range makes
-    // the team outside 701 to 920 — it breaks the same rules (`--teams 925` flags it) but
-    // the default selection leaves it out.
+    // the team outside 701 to 920, and it breaks the same rules (`--teams 925` flags it)
+    // but the default selection leaves it out.
     let mut file = EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes15)).unwrap();
     file.team_mut(703).unwrap().id = 925;
+    // Swapping 704's and 718's ids (through the free id 921) makes record order disagree
+    // with id order: the record at 704's place now carries 718, the one at 718's place 704.
+    // Both still break the same rules, as the assertions below check.
+    file.team_mut(704).unwrap().id = 921;
+    file.team_mut(718).unwrap().id = 704;
+    file.team_mut(921).unwrap().id = 718;
     fs::write(sandbox.path("EDIT"), file.to_bytes(&TEST_SALT).unwrap()).unwrap();
 
     let run = check(&sandbox, "EDIT", &["--teams", "925"]);
@@ -290,7 +283,7 @@ fn a_check_that_fails_on_one_team_does_not_stop_the_rest() {
     assert_eq!(file.team(744).unwrap().tactics.set_pieces.captain, 22);
     fs::write(
         sandbox.path("throw19.rhai"),
-        official_rules().replacen(
+        rules_file("autumn26").replacen(
             "fn custom_checks(team) { [] }",
             "fn custom_checks(team) { if team.captain == 19 { throw \"boom\" } [] }",
             1,
@@ -320,7 +313,9 @@ fn a_check_that_fails_on_one_team_does_not_stop_the_rest() {
         run.messages()
     );
     assert!(
-        run.messages().iter().any(|line| line.contains("team=744")),
+        run.messages()
+            .iter()
+            .any(|line| line.contains("aatf_violation (team=744,")),
         "744's violations still print: {:?}",
         run.messages()
     );
@@ -331,8 +326,8 @@ fn a_check_that_fails_on_one_team_does_not_stop_the_rest() {
 fn rules_wins_over_the_aatf_rules_setting() {
     let sandbox = Sandbox::new("aatf_rules_flag_wins");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
-    fs::write(sandbox.path("vgl27.rhai"), vgl27_rules()).unwrap();
-    fs::write(sandbox.path("official.rhai"), official_rules()).unwrap();
+    fs::write(sandbox.path("vgl27.rhai"), rules_file("vgl27")).unwrap();
+    fs::write(sandbox.path("official.rhai"), rules_file("autumn26")).unwrap();
 
     // The setting names VGL27; --rules names the official file and is the one checked.
     let settings = format!(
@@ -366,7 +361,7 @@ fn rules_wins_over_the_aatf_rules_setting() {
 fn a_relative_aatf_rules_resolves_in_the_data_directory() {
     let sandbox = Sandbox::new("aatf_rules_relative");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
-    fs::write(sandbox.path("data/vgl27.rhai"), vgl27_rules()).unwrap();
+    fs::write(sandbox.path("data/vgl27.rhai"), rules_file("vgl27")).unwrap();
 
     // The sandbox runs the command in-process, so its current directory is the test
     // process's, which holds no vgl27.rhai: the file is found only under the data
