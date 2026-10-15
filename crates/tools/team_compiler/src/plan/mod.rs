@@ -84,7 +84,8 @@ pub(crate) struct BuildManifest {
     pub(crate) notes: Vec<(String, String)>,
     /// Each planned team export's shared-IDs record as planned (`player_folders.md` "A
     /// `Midcup` export keeps the shared IDs the team already has"), by team ID, in export
-    /// order: written into the CPK whatever its folders' tasks' outcomes.
+    /// order: written into the CPK whatever its folders' tasks' outcomes; a `Midcup` over
+    /// no installed record whose folders took no ID has none.
     pub(crate) shared_ids: Vec<(u16, SharedIds)>,
 }
 

@@ -264,6 +264,12 @@ TC-BIN-39  GIVEN no installed CPK holding a /co/ record, and a Midcup /co/ expor
            WHEN it is compiled for PES 21
            THEN the CPK holds no 4cc_studio/shared_ids/714.toml, and no shared_ids_unrecorded
                 is reported
+TC-BIN-40  GIVEN an installed CPK below the output holding an empty /co/ record, and TC-BIN-39's
+                Midcup export; and, apart, a Full /co/ export whose only player folder, slot
+                05, holds a settings.toml
+           WHEN each is compiled for PES 21
+           THEN each CPK holds 4cc_studio/shared_ids/714.toml with no entry, and no
+                shared_ids_unrecorded is reported
 ```
 
 **Shared gloves on PES 15-17**
