@@ -6,6 +6,7 @@ use std::fs;
 use std::path::Path;
 
 use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
+use pes_savefile::interchange::aesthetics_patch::AestheticsPatch;
 use pes_savefile::player_tables::{AppearanceTable, PlayerTableFile};
 use pes_savefile::settings_toml::{PlayerSettings, SettingKey};
 use pes_version::PesVersion;
@@ -20,7 +21,7 @@ use crate::compile_exports::{
 };
 use crate::models::body_skl;
 use crate::prefox_faces::write_slot_05_face;
-use crate::{BUNDLED_BINS, clean_model, deploy_skipped};
+use crate::{BUNDLED_BINS, clean_model, deploy_skipped, patch_written};
 
 /// Team `/co/`, whose `UniColor.bin` record the tests set.
 const CO: usize = 714;
@@ -548,6 +549,7 @@ fn a_midcup_fpc_on_export_patches_the_installed_configs_of_the_kits_it_does_not_
         "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)".to_owned(),
     ]);
     expected.push(deploy_skipped(&sandbox));
+    expected.push(patch_written(&sandbox, "714"));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -1006,6 +1008,12 @@ pub(crate) fn pairs_of(entries: &BTreeMap<String, Vec<u8>>, path: &str) -> Vec<(
             )
         })
         .collect()
+}
+
+/// The `aesthetics_patch.toml` the run wrote to the sandbox's output folder, parsed back.
+fn patch_of(sandbox: &Sandbox) -> AestheticsPatch {
+    let text = fs::read_to_string(sandbox.root.join("output/aesthetics_patch.toml")).unwrap();
+    AestheticsPatch::parse(&text).unwrap()
 }
 
 // TC-BIN-25
@@ -1556,8 +1564,6 @@ fn a_midcup_export_holding_only_a_settings_toml_writes_the_tables() {
 // TC-BIN-31
 #[test]
 fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
-    // The scenario's patch half (the patch holds hunching_dribbling 1 and
-    // no dribbling key) comes with step 5.3b; this proves the table half.
     let toml = "[appearance.motion]\nhunching_dribbling = 5\ndribbling = 2\n\
         [appearance.face]\nfacial_hair_type = 15\n\
         [appearance.hair]\nstyle = 4\ncolor_red = 40\n";
@@ -1643,13 +1649,30 @@ fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
             no_hair.appearance_row(71405, version).unwrap()[4..],
             "{number}: the in-game hair changes the row"
         );
+        // The patch half: the narrowed hunching, `dribbling` only where the version holds it.
+        let patch = fs::read_to_string(sandbox.root.join("output/aesthetics_patch.toml")).unwrap();
+        if version == PesVersion::Pes18 {
+            assert!(
+                patch.contains("hunching_dribbling = 1"),
+                "{number}: {patch}"
+            );
+            assert!(
+                !patch.lines().any(|line| line.starts_with("dribbling")),
+                "{number}: {patch}"
+            );
+        } else {
+            assert!(
+                patch.contains("hunching_dribbling = 5"),
+                "{number}: {patch}"
+            );
+            assert!(patch.contains("dribbling = 2"), "{number}: {patch}");
+        }
     }
 }
 
 // TC-BIN-32
 #[test]
 fn a_failed_boots_task_keeps_the_installed_pair_and_the_appearance_row_is_still_set() {
-    // The scenario's patch half (the patch holds his motion keys) comes with step 5.3b.
     let sandbox = Sandbox::new("bins_boots_failed_row");
     install_tables(
         &sandbox,
@@ -1708,13 +1731,18 @@ fn a_failed_boots_task_keeps_the_installed_pair_and_the_appearance_row_is_still_
         Some(expected[4..].try_into().unwrap()),
         "71405's appearance row carries the key whatever the task's outcome"
     );
+    // The patch half: his motion keys, whatever the failed task's outcome.
+    let patch = patch_of(&sandbox);
+    let motion = &patch.teams[0].players[&5].motion;
+    assert_eq!(
+        *motion,
+        authored.appearance.motion.resolved(PesVersion::Pes21)
+    );
 }
 
 // TC-BIN-33
 #[test]
 fn an_invalid_settings_toml_is_reported_and_the_row_is_the_template_s_defaults() {
-    // The scenario's patch half (the patch holds his motions at their defaults) comes
-    // with step 5.3b.
     let sandbox = Sandbox::new("bins_settings_invalid_row");
     // The installed row for 71405 with no value at its default: every byte flipped.
     let template = PlayerSettings::default()
@@ -1753,6 +1781,15 @@ fn an_invalid_settings_toml_is_reported_and_the_row_is_the_template_s_defaults()
         table.get(71405).copied(),
         Some(template[4..].try_into().unwrap()),
         "the dropped file leaves the template's row"
+    );
+    // The patch half: his motions at their defaults, the dropped file giving none.
+    let patch = patch_of(&sandbox);
+    assert_eq!(
+        patch.teams[0].players[&5].motion,
+        PlayerSettings::default()
+            .appearance
+            .motion
+            .resolved(PesVersion::Pes21)
     );
 }
 

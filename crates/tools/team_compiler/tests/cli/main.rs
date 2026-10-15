@@ -21,6 +21,7 @@ mod kit_layout;
 mod logo;
 mod models;
 mod multicpk;
+mod patch;
 mod preflight;
 mod prefox_faces;
 mod prefox_hand_split;
@@ -230,6 +231,15 @@ fn deploy_skipped(sandbox: &Sandbox) -> String {
     format!(
         "Info deploy_skipped_by_flag [Keep] (path={})",
         sandbox.display("output/4cc_99_test.cpk")
+    )
+}
+
+/// The `patch_written` line a Fox compile that publishes reports, naming `sandbox`'s output
+/// patch and `teams` (`"714"`, `"714, 792"`).
+fn patch_written(sandbox: &Sandbox, teams: &str) -> String {
+    format!(
+        "Info patch_written [Keep] (path={}, teams={teams})",
+        sandbox.display("output/aesthetics_patch.toml")
     )
 }
 

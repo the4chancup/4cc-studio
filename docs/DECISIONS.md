@@ -7925,3 +7925,74 @@ gives; a `Midcup` player whose gloves keep his installed row is not checked, sin
 reads no installed table and `check` and `compile` report a folder's findings alike.
 Plan: `plans/team_compiler/messages.md`, the `fpc_inners_break_hiding` and
 `fpc_gloves_checkbox_winter_gloves` rows.
+
+## 2026-10-15 — aesthetics_export — the names marker is `write_names`, not `autopilot`
+Decision (maintainer): the valueless root marker that opts an export's players' `name` and
+`shirt_name` into the aesthetics patch is named `write_names`. Autopilot teams stay the
+motivating case; one whose tactical export already holds the right names leaves it out.
+Why: the marker controls what the compile does, not what the team is, and the two do not
+coincide (an autopilot team with correct names needs no names written). A name that states
+its effect reads right in an export folder and leaves `autopilot` free of a meaning it did
+not have. Without the marker the patch is still written, carrying the players' motions.
+Plan: `aesthetics_export/{player_folders,object_model,settings_toml}.md`,
+`team_compiler/{pipeline,messages,README}.md` (TC-SAV-02, 03), `spec/pes_savefile/operations.md`
+"Aesthetics patch", GLOSSARY "Aesthetics patch".
+
+## 2026-10-15 — core — a GUI prototype may use what our planned UI crates can draw
+Decision (maintainer): a prototype page is limited to the CSS and HTML elements that egui and
+the UI crates of the planned dependency table can represent, not to egui's own widgets alone:
+eased transitions (`egui_animation`), Markdown (`egui_commonmark`), native file dialogs and files
+dropped on the window are allowed. An element only an unlisted crate can draw (sortable tables
+need `egui_extras`) needs that crate added to the table first.
+Why: the old list was stricter than the build: it forbade transitions the grid's fades and
+`egui_animation` already plan, and left out the file drop the Export upgrader's view is made of.
+The rule exists so a draft never promises what the implementation cannot draw; the crates we
+will use are what decides that.
+Plan: `plans/core/gui.md` "Prototypes before implementation".
+
+## 2026-10-15 — team_compiler — Launch PES starts the exe from the game folder, never Steam
+Decision (maintainer): the sideload mode's Launch PES button (and Phase 8's single launcher it
+shares with `run_pes`) starts `PES20{version}.exe` from `pes_folder_path`; nothing goes through
+Steam.
+Why: launching through Steam is incompatible with the cup's mods, so every version is run from
+its install folder; the "Steam URL, else the exe" wording contradicted the launcher plan.
+Plan: `plans/team_compiler/gui.md` "Toolbar".
+
+## 2026-10-15 — core — `egui_extras` joins the UI crates; hover cards, mixed formatting and sortable tables are representable
+Decision (maintainer, on the lead's recommendation): `egui_extras` (0.36.2, `default-features =
+false`) is added to the planned dependency table for `TableBuilder` (resizable, sortable,
+sticky-header tables) and `StripBuilder`; the prototype rule counts as representable hover
+cards (`UiBuilder::sense` with a `Frame`), mixed inline formatting (`LayoutJob`) and those
+tables. Third-party egui crates (`egui_dnd`, `egui_plot`) wait for the tool that needs them;
+free-layout crates (`egui_taffy`, `egui_flex`), toast crates, docking crates and theme crates
+are not planned.
+Why: the save editor's lists, the comparator and the AATF violations list are tables a member
+wants to sort and resize; `egui_extras` is released with egui from its own repository, so it
+cannot hold back an egui upgrade, which a third-party crate can. Hover cards and `LayoutJob` need
+no crate (checked in egui 0.36.2), so listing them as not representable was stricter than egui.
+Toasts would bypass the status bar's notices; free layout would mix two layout systems.
+Plan: `plans/core/README.md` "External Dependencies", `plans/core/gui.md` "Prototypes before
+implementation".
+
+## 2026-10-15 — core — a light theme beside the dark default, both curated
+Decision (maintainer): Studio has a light theme as well as the dark one, dark the default. Both
+are curated `Visuals` presets in `studio_core`'s `theme.rs`, chosen by the common `theme`
+setting (already `Dark`/`Light` in `CommonSettings`) and applied live; views take colors from
+the presets' semantic palette, and prototypes are reviewed in both themes.
+Why: the setting and a "dark/light" row existed, but the curated look was described as one
+preset and the prototypes' stylesheet as dark only, so light would have been egui's plain
+default with colors chosen for dark backgrounds.
+Plan: `plans/core/README.md` "Styling is code, not CSS", `plans/core/gui.md` "Other UI
+components" and "Prototypes before implementation".
+
+## 2026-10-15 — core — correction: the light theme is second-class
+Decision (maintainer), narrowing the entry above: only a small fraction of members use a light
+theme, so dark is the one curated preset, the default, and the theme every view and prototype
+is designed and reviewed in. Light stays available through the `theme` setting as egui's light
+`Visuals` with Studio's accent, rounding and status colors, checked once for legibility; drafts
+are not reviewed in it and the prototype stylesheet has no light toggle. Views still take
+colors from the semantic palette, which keeps light readable at no per-view cost.
+Why: designing and checking two themes per view would spend review time on a theme few
+members see.
+Plan: `plans/core/README.md` "Styling is code, not CSS", `plans/core/gui.md` "Other UI
+components" and "Prototypes before implementation".

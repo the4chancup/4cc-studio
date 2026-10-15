@@ -131,15 +131,15 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
   publishes (none for a sideload tree): the resolved
   savefile writes for the compiled players (format and rules in "Aesthetics patch" in the
   [Savefile plan](../pes_savefile/operations.md)). On **Fox** it holds the compiled players'
-  motions and an autopilot export's names (the rest is in the CPK's player appearance tables,
+  motions and a `write_names` export's names (the rest is in the CPK's player appearance tables,
   "Bins accumulation") and, as on pre-Fox, is written with the CPKs as one more file of the
   run's publication, test and sideload trees included (none when the run publishes nothing,
   the previous patch staying as it was; a failed write is `patch_write_failed`), except that a run with nothing to put in it writes
   none and moves an earlier patch to `aesthetics_patch.toml.bak`; so an earlier run's patch
   never stands beside a newer CPK. The
-  savefile builder applies it whole; names come only from an export carrying the `autopilot`
+  savefile builder applies it whole; names come only from an export carrying the `write_names`
   marker, so a managed team's players keep their manager's names. On
-  **pre-Fox** it holds everything (names only from an autopilot export): settings.toml settings with
+  **pre-Fox** it holds everything (names only from a `write_names` export): settings.toml settings with
   `name = true` and FPC markers resolved to concrete values, the authored stock boots/gloves IDs
   (else the marker's default) for categories requesting no standalone output, and the
   auto-assigned boots/gloves IDs **only for content that was actually packed**: if a boots/gloves task failed, the affected players
@@ -188,7 +188,7 @@ What exists of this is in `spec/team_compiler/pipeline.md` "Resolved decisions a
 Resolved decisions:
 
 - **The aesthetics patch is the compiler's only savefile write path**: a compile writes
-  `aesthetics_patch.toml` to its output folder with the CPKs it publishes (on Fox only motions and autopilot names, the rest travelling in the CPK's
+  `aesthetics_patch.toml` to its output folder with the CPKs it publishes (on Fox only motions and a `write_names` export's names, the rest travelling in the CPK's
   player appearance tables); a configured local savefile is updated by applying that
   patch, never by a separate write. Reason: the DLC builder and the savefile builder are different
   roles — the official save carries the teams' custom tactics, which the DLC builder must not have —

@@ -230,17 +230,23 @@ mod tests {
         assert_eq!(
             tool.run_log.lines(),
             [
-                "- Info bin_source (bin=TeamColor.bin, cpk=bundled)",
-                "- Info bin_source (bin=UniColor.bin, cpk=bundled)",
-                "- Info bin_source (bin=UniformParameter.bin, cpk=bundled)",
-                "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)",
-                "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-                "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
-                "- egg Midcup Tracer: Info export_identified (team=/egg/, id=792)",
-                "- Warning player_table_missing (table=BootsList.bin, rows=1)",
-                "- Warning player_table_missing (table=GloveList.bin, rows=1)",
-                "- Warning player_table_missing (table=PlayerAppearance.bin, rows=1)",
-                "Run finished: exit code 0",
+                "- Info bin_source (bin=TeamColor.bin, cpk=bundled)".to_owned(),
+                "- Info bin_source (bin=UniColor.bin, cpk=bundled)".to_owned(),
+                "- Info bin_source (bin=UniformParameter.bin, cpk=bundled)".to_owned(),
+                "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=boots.fmdl, count=1662)".to_owned(),
+                "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)".to_owned(),
+                "- egg Midcup Tracer: Info fmdl_weights_not_normalized at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)".to_owned(),
+                "- egg Midcup Tracer: Info export_identified (team=/egg/, id=792)".to_owned(),
+                "- Warning player_table_missing (table=BootsList.bin, rows=1)".to_owned(),
+                "- Warning player_table_missing (table=GloveList.bin, rows=1)".to_owned(),
+                "- Warning player_table_missing (table=PlayerAppearance.bin, rows=1)".to_owned(),
+                format!(
+                    "- Info patch_written (path={}, teams=792)",
+                    root.join("output")
+                        .join("aesthetics_patch.toml")
+                        .display()
+                ),
+                "Run finished: exit code 0".to_owned(),
             ]
         );
     }

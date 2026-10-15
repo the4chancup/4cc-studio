@@ -321,27 +321,38 @@ stadiums and cells = components.
 | Common and per-tool settings forms | egui widgets (`TextEdit`, `CheckBox`, `ComboBox`), saved to TOML |
 | Export tree browser | `egui::CollapsingHeader` tree, shows object model |
 | File/folder pickers | `rfd` for native dialogs and supported web file picking; web directory access needs a separate File System Access API adapter (`rfd` has no WASM folder picker) |
-| Dark/light theme | egui dark/light modes through the shared `Visuals` theme preset in `studio_core`; icon glyphs from `egui-phosphor` |
+| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_visuals`, no restart); icon glyphs from `egui-phosphor` |
 
 ### Prototypes before implementation
 
 Every tool's GUI, and every new shell element, is drafted first as an interactive web page and
 refined with the maintainer (and shown to the members who asked to help shape it) before any
 egui code is written: a page is quicker to change than a view, and a member can open it without
-building anything. The draft then becomes the view's specification, so it uses only what egui
-can draw, or the prototype promises a screen the implementation cannot deliver:
+building anything. The draft then becomes the view's specification, so it uses only the CSS
+and HTML elements the UI crates we plan to use can represent: `egui`/`eframe` and the UI crates
+of the dependency table in `README.md` "External Dependencies" (today `egui-phosphor`,
+`egui_commonmark`, `egui_animation`, `egui_extras`, `rfd`). Anything else would promise a screen the
+implementation cannot deliver. An element only an unlisted crate can draw needs that crate added
+to the table first (a new dependency, asked for first):
 
-- **Allowed:** egui's widgets (label, button, checkbox, radio button, selectable label, combo
-  box, slider, drag value, single- and multi-line text edit, hyperlink, image, progress bar,
-  spinner, separator, colour button), its containers (collapsing header, grid, scroll area,
-  horizontal and vertical layouts, top, bottom, side and central panels, window, modal),
-  tooltips, context and bar menus, drag and drop between widgets, and `egui-phosphor` icons.
-- **Not allowed:** free CSS layout (flexbox or grid placement egui's layouts cannot express),
-  animations and transitions, hover-styled cards, rich text beyond egui's `RichText`
-  (colour, size, strong, italic, monospace), and tables with sortable or resizable columns,
-  which need `egui_extras` (a new dependency, asked for first; until then a `Grid`).
-- **Look:** one shared stylesheet in egui's dark theme, so every draft looks like Studio and
-  the drafts look like one another.
+- **Representable, for example:** egui's widgets (label, button, checkbox, radio button,
+  selectable label, combo box, slider, drag value, single- and multi-line text edit, hyperlink,
+  image, progress bar, spinner, separator, colour button), its containers (collapsing header,
+  grid, scroll area, horizontal and vertical layouts, top, bottom, side and central panels,
+  window, modal), tooltips, context and bar menus, drag and drop between widgets and of files
+  dropped on the window from outside, native file dialogs (`rfd`), Markdown text
+  (`egui_commonmark`), `egui-phosphor` icons, colour or position transitions with easing
+  (egui's `animate_*`, `egui_animation`), cards and rows that change on hover (a `Frame` over
+  a container that senses hover, `UiBuilder::sense`), mixed inline formatting in one line
+  (colour, size, background highlight, underline, strikethrough: egui's `LayoutJob`), and
+  tables with sortable or resizable columns and a sticky header (`egui_extras`' `TableBuilder`;
+  the sorting is ours).
+- **Not representable, for example:** free CSS layout (flexbox or grid placement egui's layouts
+  and `egui_extras`' `StripBuilder` cannot express), CSS effects beyond fill, stroke, rounding
+  and shadow (gradients, blur, filters), and per-character text effects.
+- **Look:** one shared stylesheet in Studio's dark theme, so every draft looks like Studio and
+  the drafts look like one another. Drafts are not reviewed in the light theme, which is
+  second-class.
 
 A draft is one self-contained HTML file (its script and styles inline), so it can be sent as a
 single attachment; its behavior is faked with sample data, never wired to the real libs. The

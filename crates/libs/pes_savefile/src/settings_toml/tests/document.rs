@@ -13,8 +13,8 @@ const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key i
 
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
 # name for players.txt-mapped folders); "text" = write as is; absent = not written.
-# name and shirt_name are used only when the export's root holds the `autopilot` marker (a
-# team without a manager); otherwise they are ignored and the manager's names stand.
+# name and shirt_name are used only when the export's root holds the `write_names` marker;
+# otherwise they are ignored and the names in the save stand.
 name = "Snuffy"
 shirt_name = "SNUFFY"           # "text" = write as is; absent = not written
 boots_id = ""                   # "" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)

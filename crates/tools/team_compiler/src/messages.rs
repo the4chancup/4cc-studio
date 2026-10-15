@@ -122,6 +122,13 @@ pub(crate) enum Code {
     /// target's (`PlayerSettings::narrow_to`): the key's default is written in its place (a face
     /// type 0, a motion the template's value, a custom skin 7 as 1).
     SettingsValueOutOfRange,
+    /// A kept player folder of a `write_names` export, mapped to more than one player, whose
+    /// `settings.toml` gives `name` or `shirt_name`: the name, when its check passes, goes to
+    /// every player the folder maps.
+    SettingsTomlNameShared,
+    /// A `write_names` export's `name` or `shirt_name` string that does not fit the target
+    /// version's field or character set (context: the key): the name is not written.
+    SettingsNameInvalid,
     /// A player's `settings.toml` sets a strip key or the skin color the folder's `fpc_on` or
     /// `fpc_off` marker's preset also sets, to another value: the preset wins.
     FpcStripConflict,
@@ -430,6 +437,12 @@ pub(crate) enum Code {
     CpkWriteFailed,
     /// The written CPK could not replace the previous one; the run's staging is discarded.
     OutputCommitFailed,
+    /// The run's `aesthetics_patch.toml` was written to the output folder (context: the
+    /// path and the team ids it covers).
+    PatchWritten,
+    /// The `aesthetics_patch.toml` could not be written or moved aside; the run is aborted,
+    /// prior published outputs untouched (`AbortRun`).
+    PatchWriteFailed,
     /// `--no-deploy`: the CPK was promoted to the output folder instead of installed.
     DeploySkippedByFlag,
     /// A run that deploys, whose `pes_folder_path` is not a folder (no PES installed, or the
@@ -499,7 +512,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 147] = [
+    const ALL: [Code; 151] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -535,6 +548,8 @@ impl Code {
         Code::SettingsTomlInvalid,
         Code::SettingsModelIdConflict,
         Code::SettingsValueOutOfRange,
+        Code::SettingsTomlNameShared,
+        Code::SettingsNameInvalid,
         Code::FpcStripConflict,
         Code::FpcInnersBreakHiding,
         Code::FpcUndershortsBreakHiding,
@@ -626,6 +641,8 @@ impl Code {
         Code::DuplicatePath,
         Code::CpkWriteFailed,
         Code::OutputCommitFailed,
+        Code::PatchWritten,
+        Code::PatchWriteFailed,
         Code::DeploySkippedByFlag,
         Code::PesFolderNotFound,
         Code::PesVersionMismatch,
@@ -687,6 +704,8 @@ impl Code {
             Code::SettingsTomlInvalid => "settings_toml_invalid",
             Code::SettingsModelIdConflict => "settings_model_id_conflict",
             Code::SettingsValueOutOfRange => "settings_value_out_of_range",
+            Code::SettingsTomlNameShared => "settings_toml_name_shared",
+            Code::SettingsNameInvalid => "settings_name_invalid",
             Code::FpcStripConflict => "fpc_strip_conflict",
             Code::FpcInnersBreakHiding => "fpc_inners_break_hiding",
             Code::FpcUndershortsBreakHiding => "fpc_undershorts_break_hiding",
@@ -778,6 +797,8 @@ impl Code {
             Code::DuplicatePath => "duplicate_path",
             Code::CpkWriteFailed => "cpk_write_failed",
             Code::OutputCommitFailed => "output_commit_failed",
+            Code::PatchWritten => "patch_written",
+            Code::PatchWriteFailed => "patch_write_failed",
             Code::DeploySkippedByFlag => "deploy_skipped_by_flag",
             Code::PesFolderNotFound => "pes_folder_not_found",
             Code::PesVersionMismatch => "pes_version_mismatch",
@@ -859,6 +880,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("settings_toml_invalid", CatalogSeverity::Error),
     ("settings_model_id_conflict", CatalogSeverity::Warning),
     ("settings_value_out_of_range", CatalogSeverity::Warning),
+    ("settings_toml_name_shared", CatalogSeverity::Warning),
+    ("settings_name_invalid", CatalogSeverity::Warning),
     ("fpc_strip_conflict", CatalogSeverity::Warning),
     ("fpc_inners_break_hiding", CatalogSeverity::Warning),
     ("fpc_undershorts_break_hiding", CatalogSeverity::Warning),
@@ -953,6 +976,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("duplicate_path", CatalogSeverity::Warning),
     ("cpk_write_failed", CatalogSeverity::Fatal),
     ("output_commit_failed", CatalogSeverity::Fatal),
+    ("patch_written", CatalogSeverity::Info),
+    ("patch_write_failed", CatalogSeverity::Fatal),
     ("deploy_skipped_by_flag", CatalogSeverity::Info),
     ("pes_folder_not_found", CatalogSeverity::Error),
     ("pes_version_mismatch", CatalogSeverity::Warning),

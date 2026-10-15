@@ -12,7 +12,7 @@ use crate::models::{
     body_skl, boots_mesh_count, compile_clean, package_names, template, tracer_boots_mesh_count,
 };
 use crate::prefox_faces::{expected_face_xml, face_cpk, face_folder, nested_entries, small_dds};
-use crate::{TEAM_COLORS_MISSING, findings_of};
+use crate::{TEAM_COLORS_MISSING, findings_of, patch_written};
 
 const BOOTS_05: &str = "Asset/model/character/boots/k0625/#Win/boots.fpk";
 const FACE_05: &str = "Asset/model/character/face/real/71405/#Win/face.fpk";
@@ -173,8 +173,10 @@ fn under_ingame_face_an_empty_face_subfolder_is_ignored() {
             TEAM_COLORS_MISSING,
         ]
     );
-    // The last line names the CPK's path, which holds the sandbox's own name.
-    let (last, findings) = lines.split_last().unwrap();
+    // The last lines name the patch's and the CPK's paths, which hold the sandbox's own name.
+    let (patch, findings) = lines.split_last().unwrap();
+    assert_eq!(*patch, patch_written(&sandbox, "714"));
+    let (last, findings) = findings.split_last().unwrap();
     assert!(last.starts_with("Info deploy_skipped_by_flag"), "{last}");
     assert!(
         findings.iter().all(|line| !line.contains("face/")),

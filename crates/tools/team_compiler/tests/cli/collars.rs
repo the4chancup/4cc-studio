@@ -15,7 +15,9 @@ use crate::compile::{
 };
 use crate::compile_exports::{UNIFORM_PARAMETER, bundled_uniform_parameter, emitted_config};
 use crate::prefox_faces::card_model;
-use crate::{CLEAN_PLAYER, TEAM_COLORS_MISSING, clean_model, findings_of, no_deploy_lines};
+use crate::{
+    CLEAN_PLAYER, TEAM_COLORS_MISSING, clean_model, findings_of, no_deploy_lines, patch_written,
+};
 
 /// The export the tests here write, with the coverage tag a `Midcup` export carries.
 const EXPORT: &str = "exports/co Midcup Collars";
@@ -222,17 +224,16 @@ fn a_midcup_export_s_collar_goes_into_its_team_s_kits_it_does_not_resend() {
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
-    assert_eq!(
-        run.messages(),
-        no_deploy_lines(
-            &sandbox,
-            [
-                "co Midcup Collars: Info export_identified [Keep] (team=/co/, id=714)",
-                &format!("co Midcup Collars: {TEAM_COLORS_MISSING}"),
-                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
-            ]
-        )
+    let mut expected = no_deploy_lines(
+        &sandbox,
+        [
+            "co Midcup Collars: Info export_identified [Keep] (team=/co/, id=714)",
+            &format!("co Midcup Collars: {TEAM_COLORS_MISSING}"),
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
+        ],
     );
+    expected.push(patch_written(&sandbox, "714"));
+    assert_eq!(run.messages(), expected);
     let entries = compiled(&sandbox);
     let configs = team_configs(&entries[UNIFORM_PARAMETER], 714);
     let base = team_configs(&bundled_uniform_parameter(), 714);
@@ -896,18 +897,17 @@ fn an_export_whose_only_collar_is_dropped_compiles_without_it() {
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
-    assert_eq!(
-        run.messages(),
-        no_deploy_lines(
-            &sandbox,
-            [
-                "co Midcup Collars: Error collar_id_invalid [DropFile] at Collars/collar_9999.fmdl (file=collar_9999.fmdl)",
-                "co Midcup Collars: Info export_identified [Keep] (team=/co/, id=714)",
-                &format!("co Midcup Collars: {TEAM_COLORS_MISSING}"),
-                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
-            ]
-        )
+    let mut expected = no_deploy_lines(
+        &sandbox,
+        [
+            "co Midcup Collars: Error collar_id_invalid [DropFile] at Collars/collar_9999.fmdl (file=collar_9999.fmdl)",
+            "co Midcup Collars: Info export_identified [Keep] (team=/co/, id=714)",
+            &format!("co Midcup Collars: {TEAM_COLORS_MISSING}"),
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
+        ],
     );
+    expected.push(patch_written(&sandbox, "714"));
+    assert_eq!(run.messages(), expected);
     assert_eq!(compiled_players(&sandbox), [71403]);
     assert_eq!(run.exit_code(), 1);
 }

@@ -138,7 +138,7 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
             | FileKind::MaterialsToml
             | FileKind::Bin
             | FileKind::CommonLink
-            | FileKind::Marker(Marker::PreFox | Marker::Fox | Marker::Icon | Marker::Autopilot)
+            | FileKind::Marker(Marker::PreFox | Marker::Fox | Marker::Icon | Marker::WriteNames)
             | FileKind::Metadata(
                 MetadataFile::PlayersTxt
                 | MetadataFile::RefsTxt

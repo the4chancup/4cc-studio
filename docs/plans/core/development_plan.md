@@ -26,7 +26,7 @@ release" in the plans means 1.0.0, so a "first-release" feature may land after 0
   markers apply `libs/fpc`'s FPC presets here. The resolved settings become, on Fox, each compiled
   player's appearance table rows (Phase 4's `bins/`, whose boots and gloves rows are already
   set only for committed outputs), the default-ID rows, and an aesthetics patch of motions and an
-  autopilot export's names, which depend on no asset; the patch is applied to the local save.
+  `write_names` export's names, which depend on no asset; the patch is applied to the local save.
   The pre-Fox patch ("Player settings in exports" in the Aesthetics export plan), the one whose
   boots and gloves IDs need commit-conditioned mutations (`BuildManifest` planning freezes
   `PlannedModelIds`; producer commits activate the asset-dependent mutations; final serialization

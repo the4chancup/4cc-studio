@@ -127,7 +127,7 @@ implementation is measured against.
 
 | Feature | Notes |
 |---------|-------|
-| Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save: on pre-Fox the default route by which teams' aesthetics reach the official save, on Fox the compiled players' motions and the resolved `name`/`shirt_name` entries (autopilot exports set them; managed exports leave them out). See "Read-only aesthetics" |
+| Apply aesthetics patch | The compiler's `aesthetics_patch.toml` → current save: on pre-Fox the default route by which teams' aesthetics reach the official save, on Fox the compiled players' motions and the resolved `name`/`shirt_name` entries (only from exports carrying the `write_names` marker). See "Read-only aesthetics" |
 
 ---
 

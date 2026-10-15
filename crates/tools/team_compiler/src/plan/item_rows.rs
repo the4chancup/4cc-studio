@@ -71,6 +71,8 @@ pub(super) struct RowPlayer {
     pub(super) linked: Vec<ScopePath>,
     /// The folder's `fpc_on`/`fpc_off` marker; `None` when it has none.
     pub(super) fpc: Option<FpcDirective>,
+    /// The folder's name part, which a `write_names` export's `name = true` resolves to.
+    pub(super) player_name: String,
     /// The folder's parsed `settings.toml`; `None` when it has none (the row is the
     /// template's).
     pub(super) settings: Option<PlayerSettings>,

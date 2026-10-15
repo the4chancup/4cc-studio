@@ -20,6 +20,7 @@ use crate::common::{Run, Sandbox};
 use crate::compile::{cpk_entries, kit_texture, pes21_settings, tracer_export, tracer_player_file};
 use crate::compile_exports::{TEAM_COLOR, UNI_COLOR, UNIFORM_PARAMETER};
 use crate::deploy::{install_pes, templates_folder};
+use crate::patch_written;
 use crate::referees::{REFEREE_CONFIGS, write_refs_with_marker};
 use crate::snapshot;
 use crate::upgrade::pes17_list;
@@ -120,6 +121,7 @@ fn teams_fill_the_slots_first_fit_and_the_bins_go_into_the_bins_cpk() {
     let output = sandbox.root.join("output");
     let mut expected_files: BTreeSet<String> = TEAMS_SLOTS.map(str::to_owned).into();
     expected_files.insert("4cc_08_bins.cpk".to_owned());
+    expected_files.insert("aesthetics_patch.toml".to_owned());
     assert_eq!(
         output_files(&sandbox),
         expected_files,
@@ -156,7 +158,8 @@ fn teams_fill_the_slots_first_fit_and_the_bins_go_into_the_bins_cpk() {
     let lines = run.messages();
     let mut expected_end = vec![skipped(&sandbox, "4cc_08_bins.cpk")];
     expected_end.extend(TEAMS_SLOTS.map(|slot| skipped(&sandbox, slot)));
-    assert_eq!(lines[lines.len() - 6..], expected_end);
+    expected_end.push(patch_written(&sandbox, "702, 707, 714"));
+    assert_eq!(lines[lines.len() - 7..], expected_end);
     assert!(!output.join(".staging").exists());
 }
 
@@ -308,7 +311,11 @@ fn a_second_slot_run_is_filled_by_its_own_stem_and_the_first_is_left_alone() {
     assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
     assert_eq!(
         output_files(&sandbox),
-        BTreeSet::from(["4cc_08_bins.cpk".to_owned(), "4cc_51_teams2.cpk".to_owned()])
+        BTreeSet::from([
+            "4cc_08_bins.cpk".to_owned(),
+            "4cc_51_teams2.cpk".to_owned(),
+            "aesthetics_patch.toml".to_owned(),
+        ])
     );
     let part = cpk_entries(&sandbox.root.join("output/4cc_51_teams2.cpk"));
     for team in ["u0702g1", "u0707g1", "u0714g1"] {
@@ -382,10 +389,11 @@ fn assert_run_s_cpks(bins: &Path, part: &Path) {
 
 /// Asserts every CPK of the run is in the sandbox's output folder, the refs CPK holding the
 /// referee of slot 01 last among them when the run held a refs export (`refs`), and nothing
-/// else but `teamnotes.txt` when the run wrote one.
+/// else but the `aesthetics_patch.toml` and a `teamnotes.txt` when the run wrote one.
 fn assert_every_cpk_promoted(sandbox: &Sandbox, refs: bool) {
     let mut files = output_files(sandbox);
     files.remove("teamnotes.txt");
+    files.remove("aesthetics_patch.toml");
     let mut expected: BTreeSet<String> = run_cpks().into_iter().collect();
     if refs {
         expected.insert(REFS_CPK.to_owned());
@@ -560,7 +568,7 @@ fn test_mode_writes_its_loose_files_as_without_multi_cpk_mode() {
         assert_eq!(run.exit_code(), 0, "{name}");
         assert_eq!(
             output_files(&sandbox),
-            BTreeSet::from(["test_output".to_owned()]),
+            BTreeSet::from(["test_output".to_owned(), "aesthetics_patch.toml".to_owned()]),
             "{name}"
         );
         trees.push(snapshot(&sandbox.root.join("output/test_output")));

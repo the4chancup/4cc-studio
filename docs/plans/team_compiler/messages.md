@@ -44,8 +44,6 @@ What exists of this is in `spec/team_compiler/messages.md` "Catalog".
 | `material_link_layered` | I | a `.common` material link and a local material file share a stem; the Common file layers below the local one | none |
 | `gltf_embedded_image_ignored` | I | a glTF embeds texture bytes (stock Blender's default); textures are only ever read from the folder's files | embedded images ignored (once per model) |
 | `gltf_bone_unknown` | E | a glTF skin joint has neither `PES_bone` metadata nor a name in the template skeleton | folder discarded |
-| `settings_toml_name_shared` | W | `name` or `shirt_name` given in an autopilot export's folder mapped to multiple players | name applied to all of them |
-| `settings_name_invalid` | W | a `name` or `shirt_name` string that does not fit the target version's field or character set (context: the key) | not written; the save's name stands |
 | `model_source_ambiguous` | E | duplicate model sources within the selected representation (target-native > glTF > convertible opposite); its input is two glTF files of one stem (`boots.glb` beside `boots.gltf`), so it is first reachable in Phase 7 | folder discarded (`DropFolder`) |
 
 **XML/MTL content checks** (pre-Fox, plus `face_diff.xml` in Fox)
@@ -64,8 +62,6 @@ states one-to-one; a glTF material with states absent just gets its family's sta
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
 | `savefile_autodetected` | I | `savefile_path = auto` resolved a savefile under Documents\KONAMI (names the path; noted especially when several account folders existed and the newest was chosen) | none |
-| `patch_written` | I | the aesthetics patch was written to the output folder (names the path and the teams it covers) | none |
-| `patch_write_failed` | F | the aesthetics patch could not be written (context: the path, the error) | as `output_commit_failed`: run aborted; prior published outputs, the patch included, remain untouched (`AbortRun`) |
 | `savefile_missing` | W | the patch holds entries (Fox: motions and resolved names; pre-Fox: aesthetics) but no savefile is configured/found; the patch is the run's only savefile output | savefile step skipped; the message names the patch and the save editor's apply action |
 | `savefile_skipped_pes_running` | W | savefile changes pending but the compile target's PES is running (a PES of another version does not count; any output mode; the motivating case is sideload-mode iteration) | savefile step skipped; applied by the next compile with PES closed |
 | `savefile_write_failed` | E | savefile could not be updated | deployment transaction fails and rolls back; compile artifacts remain available |

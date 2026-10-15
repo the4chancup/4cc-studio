@@ -256,8 +256,9 @@ A single primary action:
   setting), and a `--gui` autorun always uses its own `--mode`, so `quick_compile.bat` cannot be
   hijacked by a leftover session mode. No separate buttons: the three are the same compile with a
   different sink, so they belong to the same control. With the sideload mode selected, a **Launch
-  PES** button sits beside it: it starts the selected version's PES the
-  ordinary way (its Steam URL, else the exe in the game folder) when that PES is not running, and
+  PES** button sits beside it: it starts the selected version's `PES20{version}.exe` from the
+  game folder (`pes_folder_path`; never through Steam, whose launch is incompatible with the cup's
+  mods, so every version runs from its install folder) when that PES is not running, and
   is disabled while it runs (the running-PES poll, `core/architecture.md` `pes_process.rs`); it
   starts the game and does nothing else. Red's staged operations as separate runs
   ("extracted → contents", "contents → CPK") are superseded by the unified pipeline and are not

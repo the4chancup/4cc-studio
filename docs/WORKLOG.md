@@ -19,7 +19,8 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 (`music_export`, ahead of Phase 10), 10.0d, 5.2c3, 5.2d and Autumn 25/Spring 26 (5.2e) landed
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
-5.y-gloves and 5.3a (a1 to a5, its review loop closed) done 2026-10-15; next 5.3b; step 20.0b (the Ruleset editor draft) done 2026-10-14
+5.y-gloves and 5.3a (a1 to a5, its review loop closed) and 5.3b1 (the patch written) done
+2026-10-15; next 5.3b2 (the local savefile); step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1110,13 +1111,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       `plan/mod.rs`, `validation.rs`, `output/writer.rs`, `paths.rs`, `check.rs`,
       `compile.rs`, about 70 tests gaining the record entry or the warning
     The `autopilot` marker moves to 5.3b, its only consumer (the patch's names).
-  - [ ] 5.3b the `autopilot` marker in `aesthetics_export`, the patch and the local savefile →
+  - [ ] 5.3b the names marker in `aesthetics_export` (`autopilot`, renamed `write_names`), the
+    patch and the local savefile →
     done when: TC-SAV-01 to 12 and TC-BIN-31 to 33's patch halves pass (TC-SAV-10 a `manual:`
     line). Slices (code survey 2026-10-15: `AestheticsPatch` and `EditFile::save` exist in
     `pes_savefile`, nothing in the compiler; no `savefile_path`; `promote` cannot tell a
     deployed run from a degraded one; a successful `deploy` keeps no rollback point; the
     fixture saves are not stripped):
-    - [ ] 5.3b1 the marker, the patch built (motions resolved per version, an autopilot
+    - [x] 5.3b1 the marker, the patch built (motions resolved per version, a `write_names`
       export's names, `settings_name_invalid`, `settings_toml_name_shared`) and written to the
       output folder (`patch_written`, `patch_write_failed`, the `.bak` when there is nothing
       to patch) → done when: TC-BIN-31 to 33's patch halves and TC-SAV-06 pass. In two
@@ -1126,7 +1128,13 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
         `aesthetics_export` `conventions/file_types.rs`, `validate/{folders,root,mod,tests}.rs`;
         `pes_savefile` `settings_toml/` (`apply` checks names through `NameField`),
         `interchange/aesthetics_patch/`
-      - [ ] 5.3b1b the compiler: the names rule, the patch built in planning and written
+      - [x] 5.3b1b the compiler: the names rule, the patch built in planning and written.
+        Done: `plan/patch.rs` (`patch_names` shared by validation and planning,
+        `patch_team`), `output/patch.rs` (`write`, the `.bak`), `compile.rs` (`write_patch`
+        after `promote`, `teamnotes.txt` not written after an abort), `validation.rs`,
+        `messages.rs`, `tests/cli/patch.rs` and the existing tests gaining `patch_written`;
+        the marker renamed `write_names` (DECISIONS 2026-10-15) in code, the `settings.toml`
+        template, the save editor's help and the plans
     - [ ] 5.3b2 `savefile_path` (`auto` discovery; the test sandbox names a stripped fixture
       save), the patch applied to the local savefile with its findings, skipped while the
       target's PES runs and when the CPKs were not deployed → done when: TC-SAV-01 to 05, 07,
@@ -1225,6 +1233,34 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   this step's exe (`.tmp/ingame/gloves_check/studio6/`), unpatched: slots 01 and 02 draw their
   right gloves magenta (`r6_slot01.png`, `r6_slot02.png`)
 - [ ] 5.6 Converge (`AGENTS.md` "Closing a phase")
+
+### Phase 8 — GUI
+
+The phase's steps are itemized when it opens. Before that, its plans get the fixes a survey
+found (2026-10-15; the prototype rule and the launcher were fixed that day, DECISIONS):
+
+- [ ] 8.0 plan fixes before itemizing:
+  - `plans/core/gui.md` "Event wiring": the sketch has the shell own one event receiver and
+    route events; the spec and DECISIONS 2026-09 have each tool drain its own sink in `tick`
+    (`spec/core/architecture.md` "Event system"). "Shell layout": its sketch puts the log and
+    toolbar in the shell, its prose in each tool's view
+  - the prototype-first rule (`plans/core/gui.md` "Prototypes before implementation") written
+    into Phase 8's bullets in `core/development_plan.md` and into the Team compiler, Save editor
+    and Export upgrader plans, with where each draft sits in the Save editor's build order
+  - the watcher and check cache: one home (`libs/pipeline` in the spec, `team_compiler/src/check/`
+    in `plans/team_compiler/README.md`)
+  - "run strip" (core docs) and "Status strip" (`plans/team_compiler/gui.md`): one name
+  - `color_tools`' Phase 8 widgets (`plans/libs/color_tools.md`) added to Phase 8's bullets
+  - the Export upgrader's view: more than its one sentence (layout, the unmigrated-content
+    report), before its prototype
+  - acceptance sections for the Phase 8 views (none exist); TC-GUI-01/02 checked against the
+    headless AccessKit tests now covering most of them ("prefer an automated proof")
+  - egui pins: `eframe` and `egui` exact (`=0.36.2`) in `[workspace.dependencies]`; `egui-wgpu`
+    needs no declaration (each egui-family crate requires its own `egui` version, so the exact
+    `egui` pin holds it), and the spec's "egui version discipline" says so
+  - the spec catching up with the code: `PipelineEvent::Output`, `pes_process.rs` in the
+    closed module tree; the plan's tool registry missing `team_creator`, `ruleset_editor`,
+    `db_generator`; the Save editor's crate tree missing `events.rs`, `diff.rs`, `teams_list.rs`
 
 ### Phase 10 — Music tools
 

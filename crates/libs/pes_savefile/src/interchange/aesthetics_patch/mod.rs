@@ -1,6 +1,6 @@
 //! `aesthetics_patch.toml`: the file the Team compiler writes to its output
 //! folder with its CPKs, holding what the CPK's tables cannot — on Fox,
-//! every compiled player's motions and an autopilot export's names — for the
+//! every compiled player's motions and a `write_names` export's names — for the
 //! savefile builder to apply (plan: `pes_savefile/operations.md` "Aesthetics
 //! patch"). This module is the Fox half's types, text form and `apply`; the
 //! pre-Fox keys arrive with that half.
@@ -64,9 +64,9 @@ pub struct PatchTeam {
 /// One `[teams.players.NN]` table: what the patch writes of one player.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PatchPlayer {
-    /// An autopilot export's only; `None` = not written.
+    /// A `write_names` export's only; `None` = not written.
     pub name: Option<String>,
-    /// An autopilot export's only, like `name`; `None` = not written.
+    /// A `write_names` export's only, like `name`; `None` = not written.
     pub shirt_name: Option<String>,
     /// `[appearance.motion]`, as in `settings.toml`; `None` keys are not written.
     pub motion: MotionSettings,
@@ -293,7 +293,7 @@ impl AestheticsPatch {
     }
 
     /// Applies the patch to `save`: each listed player's motions and, for
-    /// an autopilot export, his names — nothing of his appearance block, so
+    /// a `write_names` export, his names — nothing of his appearance block, so
     /// a stripped player (appearance id -1) stays stripped. Every refusal
     /// runs before any write, as `transplant` checks before it writes: a
     /// pre-Fox `pes_version` (a hand-built patch can hold one), a version

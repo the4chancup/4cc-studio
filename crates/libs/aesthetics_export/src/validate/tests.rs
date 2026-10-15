@@ -2846,12 +2846,12 @@ fn an_icon_marker_outside_a_kit_folder_is_no_icon() {
 }
 
 #[test]
-fn an_autopilot_marker_in_a_player_folder_is_out_of_place() {
+fn a_write_names_marker_in_a_player_folder_is_out_of_place() {
     // The finding a non-admitted marker gets, as `pre-fox` above.
     let dropped = report(
         "egg Midcup",
         &[
-            ("Players/03 - A/autopilot", 0),
+            ("Players/03 - A/write_names", 0),
             ("Players/03 - A/hair.dds", 9),
         ],
         &[],
@@ -2866,7 +2866,7 @@ fn an_autopilot_marker_in_a_player_folder_is_out_of_place() {
         vec![(
             "file_type_disallowed",
             Disposition::DropFolder,
-            vec![("file", "autopilot".to_owned())]
+            vec![("file", "write_names".to_owned())]
         )]
     );
 
@@ -2876,14 +2876,14 @@ fn an_autopilot_marker_in_a_player_folder_is_out_of_place() {
         &context_with(false, false),
         "egg Midcup",
         &[
-            ("Players/03 - A/autopilot", 0),
+            ("Players/03 - A/write_names", 0),
             ("Players/03 - A/hair.dds", 9),
         ],
         &[],
         &[],
     );
     let files = &kept.validated.unwrap().players[0].files;
-    assert!(files.iter().any(|file| file.path.name() == "autopilot"));
+    assert!(files.iter().any(|file| file.path.name() == "write_names"));
 }
 
 // TC-KIT-09
@@ -2973,20 +2973,20 @@ fn unexpected_root_files_and_folders_are_dropped() {
 }
 
 #[test]
-fn an_autopilot_marker_at_the_root_is_a_team_exports_flag() {
+fn a_write_names_marker_at_the_root_is_a_team_exports_flag() {
     let team = report(
         "egg Midcup",
-        &[("autopilot", 0), ("Players/03 - A/hair.dds", 9)],
+        &[("write_names", 0), ("Players/03 - A/hair.dds", 9)],
         &[],
         &[],
     );
     assert_eq!(issue_codes(&team), vec![]);
-    assert!(team.validated.unwrap().root.autopilot);
+    assert!(team.validated.unwrap().root.write_names);
 
     // A referee export does not admit it.
     let refs = report(
         "refs Cup",
-        &[("players.txt", 10), ("autopilot", 0)],
+        &[("players.txt", 10), ("write_names", 0)],
         &["Players/Keeper"],
         &[("players.txt", Ok(b"01 Keeper"))],
     );
@@ -2994,13 +2994,13 @@ fn an_autopilot_marker_at_the_root_is_a_team_exports_flag() {
         issue_codes(&refs),
         vec![("root_file_unexpected", Disposition::DropFile)]
     );
-    assert_eq!(refs.issues[0].scope, file_scope("autopilot"));
-    assert!(!refs.validated.unwrap().root.autopilot);
+    assert_eq!(refs.issues[0].scope, file_scope("write_names"));
+    assert!(!refs.validated.unwrap().root.write_names);
 
     // Absent, the flag is off.
     let without = report("egg Midcup", &[("Players/03 - A/hair.dds", 9)], &[], &[]);
     assert_eq!(issue_codes(&without), vec![]);
-    assert!(!without.validated.unwrap().root.autopilot);
+    assert!(!without.validated.unwrap().root.write_names);
 }
 
 // TC-ROOT-03

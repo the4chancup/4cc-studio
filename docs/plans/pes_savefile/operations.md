@@ -84,7 +84,7 @@ format, the Fox half's keys and `apply`, `interchange/aesthetics_patch`'s types)
 Still open:
 
 - **The pre-Fox half of the format.** On **pre-Fox** (PES 15–17) the patch holds everything
-  below, as the only route for aesthetics, names likewise only from an autopilot export: per
+  below, as the only route for aesthetics, names likewise only from a `write_names` export: per
   player, the `PlayerSettings` schema plus `name`, `shirt_name` and the compiler-owned
   `edit_flags`, with `boots_id`/`gloves_id` over their full stored range — the resolved ID is
   the one the order in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)'s
@@ -112,7 +112,7 @@ Still open:
   The pre-Fox half also lifts the `PreFox` refusal and adds its keys to the spec's types.
 - **The compiler's production of the file.** Like the spec's Fox one it is written to the
   output folder with the CPKs a compile publishes, its header naming the CPKs; a compile with
-  nothing to put in it (no compiled player, no autopilot export) writes none and moves an
+  nothing to put in it (no compiled player) writes none and moves an
   earlier patch to `aesthetics_patch.toml.bak`, one backup replaced each time, and a run that
   publishes nothing leaves the previous CPK and its patch alone. The compiler's own savefile
   stage is "apply the patch just produced to the local save" (see "Savefile update" in the

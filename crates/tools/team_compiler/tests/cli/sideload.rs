@@ -9,7 +9,7 @@ use crate::common::Sandbox;
 use crate::compile::{cpk_entries, pes_settings, pes21_settings, tracer_export};
 use crate::compile_exports::TEAM_COLOR;
 use crate::referees::{REFS, REFS_CPK, write_ref_a};
-use crate::{deploy_skipped, snapshot};
+use crate::{deploy_skipped, patch_written, snapshot};
 
 /// What the sandboxes' `overrides/` folder puts at `TEAM_COLOR`.
 const TEAM_COLOR_OVERRIDE: &[u8] = b"the operator's TeamColor.bin";
@@ -120,20 +120,27 @@ fn sideload_writes_what_the_cpk_holds_as_loose_files_replacing_livecpk() {
     // The same findings as the normal run's, `overrides_active` and `duplicate_path` among them.
     let normal_root = normal.root.display().to_string();
     let root = sandbox.root.display().to_string();
-    // The twin says last that it installed neither CPK (`--no-deploy`), the team CPK first; a
-    // sideload run has no such note.
+    // The twin says last that it installed neither CPK (`--no-deploy`), the team CPK first,
+    // then that its patch was written; a sideload run has no such CPK notes but writes the
+    // patch alike.
     let mut normal_messages = normal_run.messages();
     let refs_skipped = format!(
         "Info deploy_skipped_by_flag [Keep] (path={})",
         normal.display(&format!("output/{REFS_CPK}"))
     );
+    assert_eq!(normal_messages.pop(), Some(patch_written(&normal, "792")));
     assert_eq!(normal_messages.pop(), Some(refs_skipped));
     assert_eq!(normal_messages.pop(), Some(deploy_skipped(&normal)));
     let normal_lines: Vec<String> = normal_messages
         .iter()
         .map(|line| line.replace(&normal_root, &root))
         .collect();
-    assert_eq!(run.messages(), normal_lines);
+    let mut sideload_messages = run.messages();
+    assert_eq!(
+        sideload_messages.pop(),
+        Some(patch_written(&sandbox, "792"))
+    );
+    assert_eq!(sideload_messages, normal_lines);
     let overrides = sandbox.display("data/overrides");
     for line in [
         format!("Info overrides_active [Keep] (folder={overrides}, files=1)"),

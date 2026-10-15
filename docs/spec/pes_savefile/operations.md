@@ -665,9 +665,9 @@ format; the pre-Fox half and the compiler's production of the file are in
 gloves travel in the CPK's database tables, not in the savefile (see "Player settings in exports"
 in the [Aesthetics export plan](../../plans/aesthetics_export/settings_toml.md)), so the patch holds what
 the tables cannot carry: every compiled player's **motions** (`[appearance.motion]`, player-record
-fields outside the appearance block a table row holds) and the **names and shirt names** of an
-**autopilot** export's players, one with the `autopilot` marker at its root (its tactical export
-carries placeholder names). A patch's `players.NN` is player id `team id × 100 + NN`, the
+fields outside the appearance block a table row holds) and the **names and shirt names** of the
+players of an export with the `write_names` marker at its root (typically an autopilot team,
+whose tactical export carries placeholder names). A patch's `players.NN` is player id `team id × 100 + NN`, the
 export's savefile identity (`spec/aesthetics_export/player_folders.md` "Savefile identity"), whatever roster slot he
 holds, so the patch lands on the player whose models the CPK carries. It is applied whole, with
 no team picker: a managed team's export has
@@ -689,7 +689,7 @@ id = 702
 name = "/a/"                 # for the reader; the id is what is applied
 
 [teams.players.03]           # slot 03 → player 70203
-name = "Snuffy"              # an autopilot export's only; absent = not written
+name = "Snuffy"              # a write_names export's only; absent = not written
 shirt_name = "SNUFFY"        # likewise
 
 [teams.players.03.appearance.motion]
@@ -750,7 +750,7 @@ pub struct PatchTeam {
 }
 
 pub struct PatchPlayer {
-    /// An autopilot export's only; `None` = not written.
+    /// A `write_names` export's only; `None` = not written.
     pub name: Option<String>,
     pub shirt_name: Option<String>,
     /// `[appearance.motion]`, as in `settings.toml`; `None` keys are not written.

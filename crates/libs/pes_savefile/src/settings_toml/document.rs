@@ -26,8 +26,8 @@ const HEADER: &str = "\
 
 # true = derive from the folder name (\"15 - Snuffy\" gives \"Snuffy\"; the whole folder
 # name for players.txt-mapped folders); \"text\" = write as is; absent = not written.
-# name and shirt_name are used only when the export's root holds the `autopilot` marker (a
-# team without a manager); otherwise they are ignored and the manager's names stand.
+# name and shirt_name are used only when the export's root holds the `write_names` marker;
+# otherwise they are ignored and the names in the save stand.
 ";
 
 /// The dotted path of a key ("appearance.strip.sleeves"; a top-level key is

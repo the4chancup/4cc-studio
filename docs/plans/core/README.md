@@ -75,8 +75,15 @@ Trade-offs accepted:
   built-in animation helpers (`ctx.animate_value_with_time` / `animate_bool`) drive the fade in
   the update loop; `egui_animation` adds easing helpers if the built-ins are not enough.
 - **Styling is code, not CSS**: egui's default look is plain, so the suite ships a curated theme
-  instead of defaults. One shared `Visuals` preset in `studio_core` (accent color, `CornerRadius`,
-  `Shadow`, per-widget style overrides) applied by every tool, icon glyphs from the `egui-phosphor`
+  instead of defaults. One curated dark `Visuals` preset in `studio_core` (accent color,
+  `CornerRadius`, `Shadow`, per-widget style overrides), the default and the theme every view
+  is designed and reviewed in, applied by every tool. Light is a second-class alternative for
+  the few members who want it, chosen by the common `theme` setting and switched live: egui's
+  light `Visuals` with the same accent, rounding and status colors applied, checked once for
+  legibility rather than per view. Views take their colors from the preset's semantic palette
+  (status, warning, accent), never a hard-coded color, which is what keeps light readable at no
+  per-view cost (the Team compiler's grid derives its label contrast from the cell for the same
+  reason). Icon glyphs from the `egui-phosphor`
   icon font for sidebar/toolbar/status icons, custom fonts via `FontDefinitions`, and rounded,
   shadowed `Frame` chrome for panels and cards. A 2026 re-evaluation of the Rust GUI landscape
   against this suite's requirements (pure-Rust desktop rendering, same-codebase WASM, embedded
@@ -98,6 +105,7 @@ What exists of this is in `spec/core/README.md` "External Dependencies (Rust cra
 | `egui-phosphor` | Icon font glyphs for the shell's sidebar, toolbar, and status icons | Release not yet reviewed; pinned to the workspace egui version once selected |
 | `egui_commonmark` | Markdown rendering for the help window (CommonMark subset: headings, lists, tables, code blocks, links) | Release not yet reviewed; pinned to the workspace egui version once selected. Chosen over a hand-rolled renderer (see `gui.md` "Help window") |
 | `egui_animation` | Easing helpers for cell-color fades and panel transitions (on top of egui's built-in `animate_*`) | Release not yet reviewed; dropped if the built-in helpers suffice |
+| `egui_extras` (`default-features = false`) | `TableBuilder` (resizable columns, sticky header, rows drawn only when visible; sorting is a clickable header over our own data) for the Save editor's player and team lists, the comparator and the AATF violations list; `StripBuilder` for proportional splits | Released with egui from its own repository (0.36.2 verified 2026-10-15), so it moves in lock-step with the pinned egui and never holds an upgrade back. Third-party egui crates (`egui_dnd`, `egui_plot`) wait for the tool that needs them, since each can lag an egui release |
 | `rfd` | Native file/folder dialogs | Production-ready |
 | `ureq` (3.x; features `rustls` [default], `platform-verifier`, `json`, `win-system-proxy`) | HTTP for the desktop updater: one Releases API GET and one streamed asset download per release | Production-ready (3.4.1 verified 2026-09-10). Chosen over `reqwest` because `reqwest` starts a Tokio runtime internally even in blocking mode, which breaks the "no async runtime" rule; the updater needs nothing `ureq` lacks. `platform-verifier` trusts the OS certificate store; `win-system-proxy` honors Windows proxy settings, env vars cover Linux |
 | `sha2` | SHA256 verification of downloaded updates | Production-ready |

@@ -338,6 +338,39 @@ fn utc_datetime_stamps_whole_seconds_utc() {
     }
 }
 
+/// Every day from 1970 past 2400 against a day-by-day calendar walk, so the century and
+/// 400-year leap corrections are reached (2000 and 2400 leap, 2100 and 2200 not), and a time
+/// whose hour, minute and second all differ.
+#[test]
+fn utc_datetime_matches_a_day_by_day_calendar() {
+    let (mut year, mut month, mut day) = (1970u16, 1u8, 1u8);
+    for days in 0..160_000u64 {
+        let date = utc_datetime(days * 86_400).date.expect("a date");
+        assert_eq!(
+            (date.year, date.month, date.day),
+            (year, month, day),
+            "day {days}"
+        );
+        let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+        let length = match month {
+            2 if leap => 29,
+            2 => 28,
+            4 | 6 | 9 | 11 => 30,
+            _ => 31,
+        };
+        day += 1;
+        if day > length {
+            day = 1;
+            month += 1;
+            if month > 12 {
+                month = 1;
+                year += 1;
+            }
+        }
+    }
+    assert_eq!(utc_datetime(45_296).to_string(), "1970-01-01T12:34:56Z");
+}
+
 // -------------------------------------------------------------------
 // Apply
 

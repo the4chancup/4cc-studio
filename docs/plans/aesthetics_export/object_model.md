@@ -8,8 +8,8 @@
 
 What exists of this is in `spec/aesthetics_export/object_model.md` "Validation semantics".
 
-A team export's `autopilot` marker is also admitted at the root — a team without a manager: the
-aesthetics patch writes its players' names ("Player settings in exports" in
+A team export's `write_names` marker is also admitted at the root: the aesthetics patch writes
+its players' names ("Player settings in exports" in
 [`settings_toml.md`](settings_toml.md)).
 
 ### `aesthetics_export` crate layout

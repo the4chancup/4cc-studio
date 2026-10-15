@@ -2032,3 +2032,8 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.3b sliced (b1 the patch, b2 the savefile, b3 one transaction); 5.3b1 split in
   two after SWE-2 runs ended on its output limit. 5.3b1a: the `autopilot` root marker and
   `pes_savefile`'s `MotionSettings::resolved`, `NameField`, `utc_datetime`.
+- **2026-10-15** — 5.3b1b: every Fox compile writes `aesthetics_patch.toml` (motions; names of
+  a marked export), TC-SAV-06. The maintainer renamed the marker `write_names`, widened the GUI
+  prototype rule to our UI crates, and ruled Launch PES never uses Steam; worklog step 8.0 added.
+- **2026-10-15** — 5.3b1 mutation run (`mutants-diff 6dbf56d`): 4 survivors, all in
+  `utc_datetime`, killed by a day-by-day calendar test. Light theme ruled second-class.

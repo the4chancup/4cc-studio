@@ -115,13 +115,15 @@ impl RunLog {
 mod tests {
     use studio_core::StudioTool;
 
+    use std::path::Path;
+
     use super::*;
     use crate::Tool;
     use crate::testing::{install_pes, poll_until_done, sandbox, tool_context};
 
     /// The lines of a clean compile of the sandbox's tracer export, installed into its PES
-    /// folder (`install_pes`).
-    const TRACER_LINES: [&str; 11] = [
+    /// folder (`install_pes`), up to `patch_written`, whose path `tracer_lines` fills in.
+    const TRACER_LINES: [&str; 10] = [
         "- Info bin_source (bin=TeamColor.bin, cpk=bundled)",
         "- Info bin_source (bin=UniColor.bin, cpk=bundled)",
         "- Info bin_source (bin=UniformParameter.bin, cpk=bundled)",
@@ -132,8 +134,23 @@ mod tests {
         "- Warning player_table_missing (table=BootsList.bin, rows=1)",
         "- Warning player_table_missing (table=GloveList.bin, rows=1)",
         "- Warning player_table_missing (table=PlayerAppearance.bin, rows=1)",
-        "Run finished: exit code 0",
     ];
+
+    /// `TRACER_LINES`, then the `patch_written` line naming `root`'s output patch and the run's
+    /// exit line.
+    fn tracer_lines(root: &Path) -> Vec<String> {
+        TRACER_LINES
+            .iter()
+            .map(|line| (*line).to_owned())
+            .chain([
+                format!(
+                    "- Info patch_written (path={}, teams=792)",
+                    root.join("output").join("aesthetics_patch.toml").display()
+                ),
+                "Run finished: exit code 0".to_owned(),
+            ])
+            .collect()
+    }
 
     /// Polls the log until its run has ended.
     fn finish(log: &mut RunLog) {
@@ -155,12 +172,12 @@ mod tests {
         log.start_compile(&ctx);
         assert!(log.is_running());
         finish(&mut log);
-        assert_eq!(log.lines(), TRACER_LINES);
+        assert_eq!(log.lines(), tracer_lines(root));
         assert!(root.join("PES/download/4cc_99_test.cpk").is_file());
 
         log.start_compile(&ctx);
         finish(&mut log);
-        assert_eq!(log.lines(), TRACER_LINES);
+        assert_eq!(log.lines(), tracer_lines(root));
     }
 
     #[test]
@@ -191,7 +208,7 @@ mod tests {
             tool.tick(&ctx);
             tool.run_log.is_running()
         });
-        assert_eq!(tool.run_log.lines(), TRACER_LINES);
+        assert_eq!(tool.run_log.lines(), tracer_lines(root));
     }
 
     #[test]

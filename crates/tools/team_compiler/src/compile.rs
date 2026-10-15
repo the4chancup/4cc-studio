@@ -18,6 +18,7 @@ use std::sync::Arc;
 use aesthetics_export::ExportIdentity;
 use anyhow::Context;
 use crossbeam_channel::{Receiver, Sender, unbounded};
+use pes_savefile::interchange::aesthetics_patch::PatchTeam;
 use pes_version::PesVersion;
 use pipeline::{Cancelled, CpkStem, MemoryBudget, Permit};
 use studio_core::{Disposition, ExportId, Message, Scope, Severity, ToolContext};
@@ -29,6 +30,7 @@ use crate::events::RunEvents;
 use crate::messages::{Code, size_text, tool_message};
 use crate::output::deploy::{self, DeployFailure, Staging};
 use crate::output::parts::{self, TeamsParts, Unplaced};
+use crate::output::patch;
 use crate::output::sink::OutputSink;
 use crate::output::teamnotes;
 use crate::output::writer::{BinsEdits, CpkOutput, Referees};
@@ -391,6 +393,7 @@ fn build(
     let team_colors = manifest.team_colors;
     let team_kits = manifest.team_kits;
     let player_rows = manifest.player_rows;
+    let patch_teams = manifest.patch_teams;
     let notes = manifest.notes;
     let shared_ids = manifest.shared_ids;
     let mut last_task_of: BTreeMap<ExportId, usize> = BTreeMap::new();
@@ -589,7 +592,11 @@ fn build(
         &mut events,
     );
     match promoted {
-        Ok(()) => write_teamnotes(&mut events, output_folder, &notes),
+        Ok(()) => {
+            if write_patch(&mut events, output_folder, version, &patch_teams, &staged) {
+                write_teamnotes(&mut events, output_folder, &notes);
+            }
+        }
         Err(error) => abort_output(&mut events, &target, Code::OutputCommitFailed, error),
     }
     Ok(events.worst())
@@ -760,6 +767,56 @@ fn deploy_failed(failure: DeployFailure, download: &Path, output: &Path) -> Mess
             ("output", output.display().to_string()),
         ],
     )
+}
+
+/// Writes the run's `aesthetics_patch.toml` into `output_folder` — `patch::write` moves an
+/// earlier one aside to `.bak` when `teams` is empty (no compiled player, or a pre-Fox
+/// target) — reporting `patch_written` with the path and the team ids it covers. A write or
+/// rename failing is `patch_write_failed` through `abort_output`, which aborts the run, and
+/// `false` is returned so nothing more is published; the one-transaction question with the
+/// CPKs is slice b3's. Called once the run's outputs are in place, so a run that published
+/// nothing (returned above) leaves the patch alone.
+fn write_patch(
+    events: &mut RunEvents,
+    output_folder: &Path,
+    version: PesVersion,
+    teams: &[PatchTeam],
+    staged: &[CpkStem],
+) -> bool {
+    match patch::write(output_folder, version, teams, staged) {
+        Ok(Some(teams)) => {
+            events.message(tool_message(
+                Code::PatchWritten,
+                Scope::Run,
+                Disposition::Keep,
+                vec![
+                    (
+                        "path",
+                        output_folder.join(patch::FILE_NAME).display().to_string(),
+                    ),
+                    (
+                        "teams",
+                        teams
+                            .iter()
+                            .map(u32::to_string)
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    ),
+                ],
+            ));
+            true
+        }
+        Ok(None) => true,
+        Err(error) => {
+            abort_output(
+                events,
+                &output_folder.join(patch::FILE_NAME),
+                Code::PatchWriteFailed,
+                error,
+            );
+            false
+        }
+    }
 }
 
 /// Writes `notes` (team name, note text) as `<output_folder>/teamnotes.txt`, or removes a

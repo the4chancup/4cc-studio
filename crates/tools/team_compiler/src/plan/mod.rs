@@ -6,6 +6,7 @@ pub(crate) mod collars;
 pub(crate) mod ids;
 pub(crate) mod item_rows;
 pub(crate) mod overrides;
+pub(crate) mod patch;
 pub(crate) mod roles;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -18,6 +19,7 @@ use aesthetics_export::{
     SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, common_link_target, kit_folder,
 };
 use kit_config::KitSlot;
+use pes_savefile::interchange::aesthetics_patch::PatchTeam;
 use pes_savefile::settings_toml::PlayerSettings;
 use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, ExportId, Message, Scope};
@@ -72,6 +74,10 @@ pub(crate) struct BuildManifest {
     /// Every planned team export's compiled players' `BootsList.bin`, `GloveList.bin` and
     /// `PlayerAppearance.bin` rows, in export order ("Bins accumulation").
     pub(crate) player_rows: PlayerRows,
+    /// The `[[teams]]` blocks of the run's `aesthetics_patch.toml` (`patch::patch_team`), in
+    /// export order, Fox only: empty when no team export compiled a player, and on a pre-Fox
+    /// target, which writes no patch.
+    pub(crate) patch_teams: Vec<PatchTeam>,
     /// Each planned export's team name as messages show it (`/co/`, `/refs/` for the
     /// referees) and the text of its root `notes.txt`, in export order, for `teamnotes.txt`.
     /// An export without a note is not listed.
@@ -1005,6 +1011,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
     let mut team_colors = Vec::new();
     let mut team_kits = Vec::new();
     let mut player_rows = PlayerRows::default();
+    let mut patch_teams = Vec::new();
     let mut notes = Vec::new();
     let mut shared_ids = Vec::new();
     let mut messages = Vec::new();
@@ -1225,6 +1232,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             row_players.push(RowPlayer {
                 path: folder.path.clone(),
                 player_ids: player_ids.clone(),
+                player_name: folder.player_name.clone(),
                 linked: folder
                     .links
                     .iter()
@@ -1346,6 +1354,17 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             let rows = export_rows(&tasks, first_task, &row_players, export.coverage);
             player_rows.items.extend(rows.items);
             player_rows.appearance.extend(rows.appearance);
+            // The same compiled players get the patch's `[[teams]]` block: the run's one
+            // patch across exports, whose header `build` fills in.
+            if let Some(team) = patch::patch_team(
+                &row_players,
+                team_id,
+                export.team_name.as_str(),
+                export.root.write_names,
+                version,
+            ) {
+                patch_teams.push(team);
+            }
         }
         // A Common textures task per texture directory of `Common/` a target packs — a
         // texture's is the directory above the first kit-token folder below `Common/`
@@ -1540,6 +1559,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             team_colors,
             team_kits,
             player_rows,
+            patch_teams,
             notes,
             shared_ids,
         },

@@ -6,9 +6,8 @@
 
 What exists of this is in `spec/aesthetics_export/player_folders.md` "Player folders (the Studio export format)".
 
-A team export's root also admits the valueless `autopilot` marker (a team without a manager: the
-aesthetics patch writes its players' names, "Player settings in exports" in
-[`settings_toml.md`](settings_toml.md)).
+A team export's root also admits the valueless `write_names` marker: the aesthetics patch writes
+its players' names ("Player settings in exports" in [`settings_toml.md`](settings_toml.md)).
 
 The block size is fixed for the lifetime of a scheme version — IDs are baked into distributed
 outputs — so builds record `allocation_scheme_version = 1` in their metadata.

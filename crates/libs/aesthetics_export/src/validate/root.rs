@@ -176,7 +176,7 @@ pub(crate) fn check_root(
         team_colors: None,
         notes: None,
         referee_marker: None,
-        autopilot: false,
+        write_names: false,
     };
     for file in &draft.root_files {
         if is_logo_candidate(file) {
@@ -198,8 +198,8 @@ pub(crate) fn check_root(
             FileKind::Texture if referees && name.eq_ignore_ascii_case("ref_marker.dds") => {
                 artifacts.referee_marker = Some(file.clone());
             }
-            FileKind::Marker(Marker::Autopilot) if !referees => {
-                artifacts.autopilot = true;
+            FileKind::Marker(Marker::WriteNames) if !referees => {
+                artifacts.write_names = true;
             }
             _ => issues.push(issue_in(
                 context,

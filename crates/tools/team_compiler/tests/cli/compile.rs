@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::common::{Run, Sandbox};
 use crate::models::package_names;
-use crate::{CLEAN_PLAYER, bundled_bins_then, clean_model, findings_of, snapshot};
+use crate::{CLEAN_PLAYER, bundled_bins_then, clean_model, findings_of, patch_written, snapshot};
 
 impl Sandbox {
     /// Copies every file under `source` into `<folder>`, leaving `source` untouched.
@@ -128,6 +128,7 @@ fn compile_no_deploy_writes_the_cpk_to_the_output_folder_and_leaves_pes_alone() 
                 promoted.display()
             )
         ]));
+    expected.push(patch_written(&sandbox, "792"));
     assert_eq!(run.messages(), expected);
     assert_eq!(snapshot(&sandbox.root.join("PES")), pes_before);
     // The staging folder went with the rename: a finished run leaves only the CPK.

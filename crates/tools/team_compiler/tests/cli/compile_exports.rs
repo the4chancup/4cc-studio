@@ -18,7 +18,7 @@ use crate::compile::{
 use crate::textures::{bc1_dds, texture_fixture};
 use crate::{
     BUNDLED_BINS, CLEAN_PLAYER, TEAM_COLORS_MISSING, bundled_bins_then, clean_model, command_args,
-    deploy_skipped, findings_of, no_deploy_lines, source_fixture,
+    deploy_skipped, findings_of, no_deploy_lines, patch_written, source_fixture,
 };
 
 // TC-ROS-01
@@ -651,23 +651,22 @@ fn compile_collects_the_compiled_exports_notes_into_teamnotes_txt_and_removes_a_
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
-    assert_eq!(
-        run.messages(),
-        no_deploy_lines(
-            &sandbox,
-            [
-                "a Midcup Notes: Info notes_found [Keep] at notes.txt ()",
-                "a Midcup Notes: Info export_identified [Keep] (team=/a/, id=702)",
-                "b Midcup Skipped: Error players_txt_slot_duplicate [DropExport] at players.txt line 2 slot Some(3) ()",
-                "b Midcup Skipped: Info notes_found [Keep] at notes.txt ()",
-                "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
-                "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
-                "a Midcup Notes: Info team_colors_missing [Keep] ()",
-                "co Midcup Notes: Info team_colors_missing [Keep] ()",
-                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=2)"
-            ]
-        )
+    let mut expected = no_deploy_lines(
+        &sandbox,
+        [
+            "a Midcup Notes: Info notes_found [Keep] at notes.txt ()",
+            "a Midcup Notes: Info export_identified [Keep] (team=/a/, id=702)",
+            "b Midcup Skipped: Error players_txt_slot_duplicate [DropExport] at players.txt line 2 slot Some(3) ()",
+            "b Midcup Skipped: Info notes_found [Keep] at notes.txt ()",
+            "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
+            "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
+            "a Midcup Notes: Info team_colors_missing [Keep] ()",
+            "co Midcup Notes: Info team_colors_missing [Keep] ()",
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=2)",
+        ],
     );
+    expected.push(patch_written(&sandbox, "702, 714"));
+    assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 1);
     assert_eq!(compiled_players(&sandbox), [70203, 71403]);
     assert_eq!(
@@ -726,18 +725,17 @@ fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
 
     let lines = run.messages();
     let (last, first) = lines.split_last().unwrap();
-    assert_eq!(
-        first,
-        no_deploy_lines(
-            &sandbox,
-            [
-                "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
-                "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
-                "co Midcup Notes: Info team_colors_missing [Keep] ()",
-                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)"
-            ]
-        )
+    let mut before_last = no_deploy_lines(
+        &sandbox,
+        [
+            "co Midcup Notes: Info notes_found [Keep] at notes.txt ()",
+            "co Midcup Notes: Info export_identified [Keep] (team=/co/, id=714)",
+            "co Midcup Notes: Info team_colors_missing [Keep] ()",
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
+        ],
     );
+    before_last.push(patch_written(&sandbox, "714"));
+    assert_eq!(first, before_last);
     // The error ends with the platform's own text, so only its shape is fixed.
     let prefix = format!(
         "Error teamnotes_write_failed [Keep] (path={path}, error={path}: ",
@@ -1756,6 +1754,7 @@ fn export_paths_restrict_check_and_compile_to_the_named_exports() {
             .collect();
         if command == "compile" {
             expected.push(deploy_skipped(&sandbox));
+            expected.push(patch_written(&sandbox, "714, 790"));
         }
         assert_eq!(run.messages(), expected, "{command}");
         assert_eq!(run.exit_code(), 0, "{command}");
@@ -1775,25 +1774,24 @@ fn a_zip_export_is_compiled_as_the_team_its_name_starts_with() {
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
-    assert_eq!(
-        run.messages(),
-        no_deploy_lines(
-            &sandbox,
-            [
-                "co Full Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-                "co Full Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
-                "co Full Spring 2026.zip: Info team_colors_missing [Keep] ()",
-                // A full export with no player kit compiles an empty `p1/`.
-                "co Full Spring 2026.zip: Info kit_config_generated [Keep] at Kits/p1 ()",
-                "co Full Spring 2026.zip: Info kit_placeholder [Keep] at Kits/p1 ()",
-                "co Full Spring 2026.zip: Warning kit_colors_missing [Keep] at Kits/p1 ()",
-                "co Full Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()",
-                "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)",
-                "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)",
-                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)"
-            ]
-        )
+    let mut expected = no_deploy_lines(
+        &sandbox,
+        [
+            "co Full Spring 2026.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "co Full Spring 2026.zip: Info export_identified [Keep] (team=/co/, id=714)",
+            "co Full Spring 2026.zip: Info team_colors_missing [Keep] ()",
+            // A full export with no player kit compiles an empty `p1/`.
+            "co Full Spring 2026.zip: Info kit_config_generated [Keep] at Kits/p1 ()",
+            "co Full Spring 2026.zip: Info kit_placeholder [Keep] at Kits/p1 ()",
+            "co Full Spring 2026.zip: Warning kit_colors_missing [Keep] at Kits/p1 ()",
+            "co Full Spring 2026.zip: Info kit_colors_derived [Keep] at Kits/g1 ()",
+            "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)",
+            "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)",
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
+        ],
     );
+    expected.push(patch_written(&sandbox, "714"));
+    assert_eq!(run.messages(), expected);
     assert_eq!(compiled_players(&sandbox), [71405]);
     assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1"]);
     assert_eq!(run.exit_code(), 0);
@@ -1807,20 +1805,19 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
-    assert_eq!(
-        run.messages(),
-        no_deploy_lines(
-            &sandbox,
-            [
-                "egg Midcup Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-                "egg Midcup Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
-                "egg Midcup Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
-                "egg Midcup Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
-                "egg Midcup Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()",
-                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)"
-            ]
-        )
+    let mut expected = no_deploy_lines(
+        &sandbox,
+        [
+            "egg Midcup Tracer bad notes.zip: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Midcup Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
+            "egg Midcup Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
+            "egg Midcup Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
+            "egg Midcup Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()",
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
+        ],
     );
+    expected.push(patch_written(&sandbox, "792"));
+    assert_eq!(run.messages(), expected);
     assert_eq!(compiled_players(&sandbox), [79205]);
     assert_eq!(run.exit_code(), 1);
 }
@@ -1839,19 +1836,18 @@ fn a_7z_over_the_memory_cap_compiles() {
 
     let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
 
-    assert_eq!(
-        run.messages(),
-        no_deploy_lines(
-            &sandbox,
-            [
-                "egg Midcup Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
-                "egg Midcup Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
-                "egg Midcup Tracer.7z: Info team_colors_missing [Keep] ()",
-                "egg Midcup Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()",
-                "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)"
-            ]
-        )
+    let mut expected = no_deploy_lines(
+        &sandbox,
+        [
+            "egg Midcup Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
+            "egg Midcup Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
+            "egg Midcup Tracer.7z: Info team_colors_missing [Keep] ()",
+            "egg Midcup Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()",
+            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
+        ],
     );
+    expected.push(patch_written(&sandbox, "792"));
+    assert_eq!(run.messages(), expected);
     assert_eq!(compiled_players(&sandbox), [79205]);
     assert_eq!(compiled_kits(&sandbox), ["u0792g1"]);
     assert_eq!(run.exit_code(), 0);
@@ -1878,8 +1874,14 @@ fn a_7z_kept_from_its_check_and_one_decompressed_again_compile_the_same_cpk() {
 
         assert_eq!(run.exit_code(), 0, "{name}");
         let cpk = fs::read(sandbox.root.join("output/4cc_99_test.cpk")).unwrap();
-        // The note names this sandbox's CPK, so it is checked here and the rest compared.
+        // The notes name this sandbox's CPK and patch, so they are checked here and the rest
+        // compared.
         let mut messages = run.messages();
+        assert_eq!(
+            messages.pop(),
+            Some(patch_written(&sandbox, "792")),
+            "{name}"
+        );
         assert_eq!(messages.pop(), Some(deploy_skipped(&sandbox)), "{name}");
         outcomes.push((messages, cpk));
     }
@@ -1954,8 +1956,14 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
 
         assert_eq!(run.exit_code(), 0, "{threads} threads");
         let cpk = fs::read(sandbox.root.join("output/4cc_99_test.cpk")).unwrap();
-        // The note names this sandbox's CPK, so it is checked here and the rest compared.
+        // The notes name this sandbox's CPK and patch, so they are checked here and the rest
+        // compared. The kits-only export adds no `[[teams]]` entry.
         let mut messages = run.messages();
+        assert_eq!(
+            messages.pop(),
+            Some(patch_written(&sandbox, "790, 792")),
+            "{threads}"
+        );
         assert_eq!(messages.pop(), Some(deploy_skipped(&sandbox)), "{threads}");
         outcomes.push((messages, cpk));
     }
@@ -2076,10 +2084,9 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
         "a Midcup Home: Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
         "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)".to_owned(),
     ];
-    assert_eq!(
-        lines,
-        no_deploy_lines(&sandbox, [&validated[..], &planned[..]].concat())
-    );
+    let mut expected = no_deploy_lines(&sandbox, [&validated[..], &planned[..]].concat());
+    expected.push(patch_written(&sandbox, "702"));
+    assert_eq!(lines, expected);
     assert_eq!(compiled_players(&sandbox), [70203]);
     assert_eq!(compiled_kits(&sandbox), ["u0702p1"]);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -2142,19 +2149,18 @@ fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_repor
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
-    assert_eq!(
-        run.messages(),
-        no_deploy_lines(&sandbox, [
-            "co Midcup Boots: Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)".to_owned(),
-            "co Midcup Boots: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
-            "co Midcup Boots: Info team_colors_missing [Keep] ()".to_owned(),
-            format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
-            format!("Warning duplicate_path [Keep] (path={BOOTS_05})"),
-            format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
-            "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)".to_owned(),
-            "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)".to_owned(),
-        ])
-    );
+    let mut expected = no_deploy_lines(&sandbox, [
+        "co Midcup Boots: Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)".to_owned(),
+        "co Midcup Boots: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+        "co Midcup Boots: Info team_colors_missing [Keep] ()".to_owned(),
+        format!("Info overrides_active [Keep] (folder={folder}, files=2)"),
+        format!("Warning duplicate_path [Keep] (path={BOOTS_05})"),
+        format!("Warning duplicate_path [Keep] (path={TEAM_COLOR})"),
+        "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)".to_owned(),
+        "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)".to_owned(),
+    ]);
+    expected.push(patch_written(&sandbox, "714"));
+    assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0, "a Warning does not fail the run");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(entries[BOOTS_05], BOOTS_OVERRIDE);

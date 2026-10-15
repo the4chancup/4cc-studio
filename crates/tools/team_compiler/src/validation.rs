@@ -10,9 +10,9 @@ use std::sync::Arc;
 
 use aesthetics_export::{
     ExportCoverage, ExportIdentity, FileDescriptor, FileKind, FpcDirective, ModelFormat,
-    ModelSuffix, ParsedAestheticsExport, ResolvedAestheticsExport, SharedKind, SourceError,
-    ValidatedAestheticsExport, ValidationContext, common_link_name, common_link_target,
-    is_txt_note, model_suffix, parse_listing, read_colors_txt,
+    ModelSuffix, ParsedAestheticsExport, PlayerIndex, ResolvedAestheticsExport, SharedKind,
+    SourceError, ValidatedAestheticsExport, ValidatedRoster, ValidationContext, common_link_name,
+    common_link_target, is_txt_note, model_suffix, parse_listing, read_colors_txt,
 };
 use anyhow::Context;
 use pes_savefile::settings_toml::PlayerSettings;
@@ -34,6 +34,7 @@ use crate::plan::ids::{
 };
 use crate::plan::item_rows::{check_gloves_id, conflicting_id_keys};
 use crate::plan::mapped_players;
+use crate::plan::patch::patch_names;
 use crate::plan::roles::{
     FolderModels, ModelPackage, PlayerFile, combined_folders, common_skeleton, file_stem,
     is_read_common_file, is_user_face_xml, linked_common_files, part_source_models,
@@ -429,6 +430,12 @@ fn check_source(
                     &mut settings,
                     &hand_weighted,
                 ));
+                messages.extend(settings_name_messages(
+                    &resolved,
+                    inputs.common.pes_version,
+                    source.export_id,
+                    &settings,
+                ));
                 // The team's shared-IDs record the installed CPKs hold, which a `Midcup`
                 // export's folders keep their IDs from and its `shared_ids_unrecorded` reads.
                 let record = match &resolved.identity {
@@ -791,6 +798,69 @@ fn fpc_settings_messages(
                 vec![],
             ));
         }
+    }
+    messages
+}
+
+/// `settings_toml_name_shared` and `settings_name_invalid` on each mapped player folder of a
+/// `write_names` team export of `resolved` (`plan::patch::patch_names`, the same names rule
+/// planning builds the patch with): for a team export on a Fox target, where the compiled
+/// players' names reach the save only through the patch (`settings_toml.md`: a
+/// `settings.toml`'s findings are reported by `check` and `compile` alike).
+fn settings_name_messages(
+    resolved: &ResolvedAestheticsExport,
+    version: PesVersion,
+    export_id: ExportId,
+    settings: &BTreeMap<ScopePath, PlayerSettings>,
+) -> Vec<Message> {
+    let slots = match (version.engine(), &resolved.export.roster) {
+        (Engine::Fox, ValidatedRoster::Team(slots)) => slots,
+        (Engine::Fox, ValidatedRoster::Referees(_)) | (Engine::PreFox, _) => {
+            return Vec::new();
+        }
+    };
+    match resolved.identity {
+        ExportIdentity::Team { .. } => {}
+        ExportIdentity::Referees => return Vec::new(),
+    }
+    let mut messages = Vec::new();
+    for (index, player) in resolved.export.players.iter().enumerate() {
+        let mapped = slots
+            .values()
+            .filter(|slot| **slot == PlayerIndex(index))
+            .count();
+        if mapped == 0 {
+            continue;
+        }
+        let names = patch_names(
+            settings.get(&player.path),
+            &player.player_name,
+            mapped,
+            resolved.export.root.write_names,
+            version,
+        );
+        if names.shared {
+            messages.push(tool_message(
+                Code::SettingsTomlNameShared,
+                Scope::Folder {
+                    export_id,
+                    path: player.path.clone(),
+                },
+                Disposition::Keep,
+                vec![],
+            ));
+        }
+        messages.extend(names.invalid.into_iter().map(|key| {
+            tool_message(
+                Code::SettingsNameInvalid,
+                Scope::Folder {
+                    export_id,
+                    path: player.path.clone(),
+                },
+                Disposition::Keep,
+                vec![("key", key.to_owned())],
+            )
+        }));
     }
     messages
 }

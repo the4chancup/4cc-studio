@@ -2,14 +2,13 @@
 //! Post-processing"): the checks made before any export is read, the copy and rename over the
 //! old CPK, and the degraded run that leaves the CPK in the output folder instead.
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::bins::install_names;
 use crate::common::{Run, Sandbox};
 use crate::compile::{cpk_entries, pes21_settings, tracer_export};
-use crate::{bundled_bins_then, snapshot};
+use crate::{bundled_bins_then, patch_written, snapshot};
 
 /// The findings of a PES 21 `compile` of the tracer with bundled bins, after the bins' own.
 const TRACER_FINDINGS: [&str; 7] = [
@@ -139,7 +138,9 @@ fn compile_installs_the_cpk_over_the_old_one_and_leaves_nothing_in_the_output_fo
 
     let run = compile_tracer(&sandbox);
 
-    assert_eq!(run.messages(), bundled_bins_then(TRACER_FINDINGS));
+    let mut expected = bundled_bins_then(TRACER_FINDINGS);
+    expected.push(patch_written(&sandbox, "792"));
+    assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     // Only the CPK changed in download/: the installed list already names it.
     let mut expected_download = download_before;
@@ -160,9 +161,11 @@ fn compile_installs_the_cpk_over_the_old_one_and_leaves_nothing_in_the_output_fo
         Vec::<String>::new()
     );
     assert_eq!(
-        snapshot(&sandbox.root.join("output")),
-        BTreeMap::<PathBuf, Vec<u8>>::new(),
-        "no CPK and no .staging in the output folder"
+        snapshot(&sandbox.root.join("output"))
+            .keys()
+            .collect::<Vec<_>>(),
+        [&PathBuf::from("aesthetics_patch.toml")],
+        "the patch, and no CPK and no .staging, in the output folder"
     );
 }
 
@@ -189,7 +192,11 @@ fn an_old_cpk_held_open_is_old_cpk_locked_and_the_cpk_is_promoted() {
 
     drop(held_open);
     let lines = run.messages();
-    let (last, first) = lines.split_last().unwrap();
+    // `patch_written` follows the degraded deployment's promote, the `old_cpk_locked`
+    // finding before it.
+    let (patch, first) = lines.split_last().unwrap();
+    assert_eq!(*patch, patch_written(&sandbox, "792"));
+    let (last, first) = first.split_last().unwrap();
     assert_eq!(first, bundled_bins_then(TRACER_FINDINGS));
     // The error ends with the platform's own text, so only its shape is fixed.
     let prefix = format!(
@@ -229,6 +236,7 @@ fn without_a_pes_folder_the_run_is_pes_folder_not_found_and_the_cpk_is_promoted(
     )];
     // Every bin is the bundled one: there is no list to walk.
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
+    expected.push(patch_written(&sandbox, "792"));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 1);
     assert_promoted(&sandbox, &twin);
@@ -295,6 +303,7 @@ fn a_list_not_naming_the_cpk_is_cpk_name_unlisted_and_the_cpk_is_promoted() {
         sandbox.display("output/4cc_80_mine.cpk")
     )];
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
+    expected.push(patch_written(&sandbox, "792"));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 1);
     // The CPK's bytes do not depend on its name.
@@ -320,6 +329,7 @@ fn another_version_s_exe_is_a_warning_and_the_cpk_is_installed() {
         sandbox.display("PES")
     )];
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
+    expected.push(patch_written(&sandbox, "792"));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     assert!(sandbox.root.join("PES/download/4cc_99_test.cpk").is_file());
@@ -361,6 +371,7 @@ fn a_list_naming_a_cpk_the_official_one_lacks_is_dpfilelist_not_official_and_the
         sandbox.display("PES/download/DpFileList.bin")
     )];
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
+    expected.push(patch_written(&sandbox, "792"));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     assert_installed(&sandbox, &twin);
@@ -406,6 +417,7 @@ fn a_listed_cpk_missing_from_download_is_dpfilelist_cpk_missing_and_the_cpk_is_i
         sandbox.display("PES/download")
     )];
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
+    expected.push(patch_written(&sandbox, "792"));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
     assert_installed(&sandbox, &twin);
@@ -433,6 +445,7 @@ fn a_list_lacking_the_cpk_the_official_one_names_is_dpfilelist_outdated_and_the_
         promoted(&sandbox)
     )];
     expected.extend(bundled_bins_then(TRACER_FINDINGS));
+    expected.push(patch_written(&sandbox, "792"));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 1);
     assert_promoted(&sandbox, &twin);

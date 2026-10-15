@@ -62,7 +62,7 @@ What exists of this is in `spec/team_compiler/README.md` "Acceptance".
 
 **Phase 5 scope.** On Fox, `compile` builds every compiled player's `PlayerAppearance.bin` row
 from his `settings.toml` and folder markers, writes the boots and gloves rows of every compiled
-player (the default-ID rows included), and writes the aesthetics patch (motions, and an autopilot
+player (the default-ID rows included), and writes the aesthetics patch (motions, and a `write_names`
 export's names) to the output folder, applying it to the local savefile. A compiled player is
 every player a kept player folder of a team export maps to ("Player settings in exports" in the Aesthetics export
 plan). Phase 5 withdraws TC-BIN-10, TC-BIN-17 and TC-BIN-22, whose player tables it changes,
@@ -166,15 +166,15 @@ TC-SAV-01  GIVEN a /co/ export whose slot 05 settings.toml sets one motion key a
                 and 71406's unchanged,
                 his name and appearance id unchanged, every other byte unchanged, and the
                 previous file is the .bak
-TC-SAV-02  GIVEN an export with the autopilot marker whose slot 05 settings.toml has name = true
+TC-SAV-02  GIVEN an export with the `write_names` marker whose slot 05 settings.toml has name = true
            and shirt_name = "SNUFFY", in the folder whose name part is Snuffy, and whose slot 06
            folder, mapped to two players by players.txt, sets a name
            WHEN it is compiled for PES 21
            THEN the patch and the savefile carry 71405's name Snuffy and shirt name SNUFFY, both
                 players of slot 06's folder carry its name, and settings_toml_name_shared is
                 reported
-TC-SAV-03  GIVEN a slot 05 settings.toml whose name is longer than PES 21's name field, in an
-           autopilot export
+TC-SAV-03  GIVEN a slot 05 settings.toml whose name is longer than PES 21's name field, in a
+           `write_names` export
            WHEN it is compiled
            THEN settings_name_invalid is reported, the patch has no name key for 71405, and
                 the savefile keeps his name

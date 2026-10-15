@@ -47,7 +47,7 @@ the team or the player, and nothing is written. The file never sets a player's l
 on or off: on a stripped save his look stays the database's.
 
 `apply-patch` applies the `aesthetics_patch.toml` the Team compiler writes beside its CPKs:
-the compiled players' motions and, for teams compiled on autopilot, their names. The patch
+the compiled players' motions and, for exports carrying the `write_names` marker, their names. The patch
 must be for the save's PES version and the suite's boots and gloves allocation scheme, or it
 is refused with nothing written. Each team of the patch is one line, `patch_team_applied`;
 a team or a player the save does not hold is the error line `patch_team_not_in_save` or

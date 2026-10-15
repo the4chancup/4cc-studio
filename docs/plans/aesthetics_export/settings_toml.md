@@ -97,8 +97,8 @@ name inside `[appearance]` would collide with.
 
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
 # name for players.txt-mapped folders); "text" = write as is; absent = not written.
-# name and shirt_name are used only when the export's root holds the `autopilot` marker (a
-# team without a manager); otherwise they are ignored and the manager's names stand.
+# name and shirt_name are used only when the export's root holds the `write_names` marker;
+# otherwise they are ignored and the names in the save stand.
 name = "Snuffy"
 shirt_name = "SNUFFY"           # "text" = write as is; absent = not written
 boots_id = ""                   # "" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)
@@ -357,7 +357,7 @@ Name-writing rules, in full — **not writing is the default**; writing is opt-i
    is always plain. Cup organizers colour names freely (not only medal players'), so tools that
    generate `settings.toml` from a savefile (the Export upgrader, the save editor) must emit the
    explicit string whenever the savefile name carries codes, or the next compile would strip them.
-4. In an autopilot export, with `name = true` or a string in a folder mapped to multiple players
+4. In a `write_names` export, with `name = true` or a string in a folder mapped to multiple players
    via `players.txt`, the same name is applied to all of them, with a warning
    (`settings_toml_name_shared`).
 
@@ -366,19 +366,22 @@ against the version's shirt-name field and character set, as a `name` string is,
 being `settings_name_invalid` and not written; it may fill the field, as real saves'
 shirt names do: only `shirt_name_from` keeps a byte free, for text it invents). There is
 no `true`: a shirt name rarely repeats the player name, and a derived default would be one more
-thing to read. In an autopilot export a shared folder applies it to every mapped
+thing to read. In a `write_names` export a shared folder applies it to every mapped
 player, like `name`.
 
 On Fox the motions and the names are the parts of this file that reach the savefile, and only
-through the **aesthetics patch**. As for names, an autopilot team (an aesthetics export by a
-caretaker, a tactical export by the
-council, often written before the destination team was known, with names like "Gold striker")
-needs its names written over the tactical export's, and the patch makes that automatic for an
-export carrying the `autopilot` marker at its root. The patch is applied whole, with no team
+through the **aesthetics patch**. As for names, an export carrying the `write_names` marker at
+its root has its names written by the patch. The motivating case is an autopilot team (an
+aesthetics export by a caretaker, a tactical export by the council, often written before the
+destination team was known, with names like "Gold striker"), whose names must be written over
+the tactical export's; an autopilot team whose tactical export already holds the right names
+leaves the marker out. The marker is named for what it does, not for the team's status, because
+the two do not coincide. The patch is applied whole, with no team
 picker: without the marker an export's `name` and `shirt_name` are not used, so a managed team's
 players keep the names their manager set in the save editor, and a generated file's names do no
 harm. No finding reports them unused: every generated file carries names, so it would fire on
-nearly every export.
+nearly every export. Without the marker the patch is still written: it carries the players'
+motions.
 
 Compile-time flow: resolve boots/gloves IDs from the models and link files present (a broken link is
 caught as `link_target_missing` — a check impossible in the current split-tool workflow), falling
@@ -388,7 +391,7 @@ resolve the settings and the IDs of content that was actually written, then per 
 - **Fox:** each compiled player's `PlayerAppearance.bin`, `BootsList.bin` and `GloveList.bin` rows
   are built from the resolved settings and written into the output CPK with every other player's
   installed row (see "Bins accumulation" in the [Team compiler plan](../team_compiler/pipeline.md));
-  the resolved motions, and an autopilot export's names, go into the **aesthetics patch** written
+  the resolved motions, and a `write_names` export's names, go into the **aesthetics patch** written
   with it: motions are player-record fields outside the appearance block a table row holds.
 - **Pre-Fox:** everything resolved goes into the aesthetics patch.
 

@@ -69,9 +69,9 @@ pub enum Marker {
     /// underscore (`icon_7`). Any digits make the marker, so an out-of-range
     /// `icon_99` is still a kit's icon, reported as invalid by validation.
     Icon,
-    /// `autopilot`: a team export by a caretaker, whose players' names the
-    /// aesthetics patch writes over the tactical export's.
-    Autopilot,
+    /// `write_names`: the export's players' names are the aesthetics
+    /// patch's to write (an autopilot team's, over its tactical export's).
+    WriteNames,
 }
 
 /// A metadata file by its known name.
@@ -123,7 +123,7 @@ const MARKERS: [(&str, Marker); 7] = [
     ("fpc", Marker::FpcOn),
     ("pre-fox", Marker::PreFox),
     ("fox", Marker::Fox),
-    ("autopilot", Marker::Autopilot),
+    ("write_names", Marker::WriteNames),
 ];
 
 /// Known metadata names, whole-name case-insensitive.
@@ -367,7 +367,7 @@ mod tests {
             ("fpc_off.txt", FileKind::Marker(Marker::FpcOff)),
             ("pre-fox", FileKind::Marker(Marker::PreFox)),
             ("Fox.txt", FileKind::Marker(Marker::Fox)),
-            ("AUTOPILOT.txt", FileKind::Marker(Marker::Autopilot)),
+            ("WRITE_NAMES.txt", FileKind::Marker(Marker::WriteNames)),
             ("players.txt", FileKind::Metadata(MetadataFile::PlayersTxt)),
             ("README.TXT", FileKind::Metadata(MetadataFile::Readme)),
             ("ref_lists.txt", FileKind::Metadata(MetadataFile::RefLists)),
