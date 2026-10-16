@@ -38,7 +38,7 @@ overlays.
 |------|------|----------|
 | Rigdio | Match-day music player (streamer side) | `Tools_4cc/rigdio` |
 | RigDJ | `.4ccm` GUI editor (manager side, same codebase) | `Tools_4cc/rigdio` |
-| Rigdio fork | The ATF bot's author's fork (v2.2.1, 2026-10-11): upstream v2.2.0 plus a local API and event clips, fed by the SEN:P-AI fork; surveyed 2026-10-13: event clips kept apart from the slots ("Model"), the fixed library path for auto team loading, per-side event clips, the stoppage chant and its 15 % default, fuzzy scorer matching (at 90, not its 70) ("Autopilot"); its inbound API is a question for the maintainer | `Tools_Marco/rigdio` |
+| Rigdio fork | The ATF bot's author's fork (v2.2.1, 2026-10-11): upstream v2.2.0 plus a local API and event clips, fed by the SEN:P-AI fork; surveyed 2026-10-13: event clips kept apart from the slots ("Model"), the fixed library path for auto team loading, per-side event clips, the stoppage chant and its 15 % default, fuzzy scorer matching (at 90, not its 70) ("Autopilot"); its inbound API is not adopted: its driver joins the suite instead ("Autopilot") | `Tools_Marco/rigdio` |
 
 Playback goes through **libmpv** (`libmpv-2.dll`, pinned to an April 2024 Win7-compatible
 build) via the `python-mpv` binding. Loudness analysis shells out to a custom-minified
@@ -322,6 +322,12 @@ dropped in 2020 and the two forks (Rigdio v2.2.1, SEN:P-AI 1.3.0) restored as HT
 two processes; the end goal is a match the streamer doesn't have to touch. Autopilot runs in
 the tool's background `tick`, not its view — watching the tracker's stats table doesn't
 pause the soundboard.
+
+The player has no inbound control API. The Rigdio fork's local HTTP API (load, anthems,
+goal, victory, chant, event) serves rigbot, a driver outside the player that commands what no
+memory cue covers (the anthems, the victory anthem); a driver like it joins the suite as a
+Studio tool and calls the player in-process, as the tracker's feed does, rather than over a
+port (`core/development_plan.md` "Unscheduled tools").
 
 Snapshot-bearing messages (`Snapshot`, `MatchLive`, `MatchResumed`, `ScoreReconciled`)
 are state reconciliation only — the player never synthesizes one-shot automation from

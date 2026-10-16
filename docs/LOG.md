@@ -2058,3 +2058,6 @@ worklog passed 7,000 lines.
 - **2026-10-15** — 5.5, PES 21 in-game: a strip-and-seeded cup save shows its players as before,
   a compiled team's rows and shared-ID record load, an `ingame_face` player gets the default
   face; SE-CLI-02 and TC-SAV-10 checked by hand. The maintainer's save restored, hash checked.
+- **2026-10-16** — the maintainer answered the music player's inbound-API question: the suite
+  absorbs outside tools, so the player gets no inbound API and rigbot (managers' remote tactics
+  control; source to come from its author) is an unscheduled tool.

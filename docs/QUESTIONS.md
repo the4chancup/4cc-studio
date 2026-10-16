@@ -8,18 +8,6 @@ sidekick work in progress stays in `WORKLOG.md` "Issues"; this file holds nothin
 settle itself. Entries are grouped by what an answer unblocks, newest last within a group; each
 names where the question came from so the context can be read there.
 
-## Blocking a plan ruling
-
-### An inbound control API for the music player
-From: the fork survey, 2026-10-13 (`music_player.md` "Autopilot"). The Rigdio fork exposes a
-local HTTP API (load, anthems, goal, victory, chant, event) that the ATF bot ("rigbot")
-drives for the parts no memory cue covers (anthems, the victory anthem); the tracker's
-`watch` CLI is output only and does not serve that consumer. Should the Studio player expose
-such an inbound local API (the fork's endpoint table as the starting contract, `side` only,
-no busy-409), or does the bot become a Studio tool and call the player in-process, which
-dissolves the question? Unblocks: whether Phase 10 plans a control surface at all, and the
-`match_tracker/README.md` "External consumers" wording.
-
 ## In-game checks
 
 ### Face diffs are engine-specific

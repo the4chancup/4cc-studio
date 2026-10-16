@@ -8120,3 +8120,17 @@ Why: measured on all 46 15-17 texports of the reference machine; one real PES 16
 players out of id order, and the scan, our unmeasured rule, read 2 of its 23 players without an
 error. Found by the Phase 5 texport census and review CP.S2b.
 Plan: `plans/pes_savefile/operations.md` "Texport (read + write)".
+
+## 2026-10-16 — core, music player — the suite absorbs outside tools; the player has no inbound API
+Decision (maintainer, answering the QUESTIONS entry "An inbound control API for the music
+player"): the suite takes in every tool the community uses, those released after it too, so an
+outside program that would drive a Studio tool joins the suite and calls it in-process. The
+Music player exposes no inbound control API; rigbot (managers' remote control of their team's
+tactics), which drives the Rigdio fork's local HTTP API, becomes an unscheduled Studio tool.
+Why: the maintainer's statement of the project's aim (one tool covering every other, new ones
+included). An inbound API is a server and a wire contract to keep for a consumer the suite
+will absorb, and the fork's handlers show its cost (tkinter driven from server threads). Phase
+10 plans no control surface.
+Plan: `plans/core/development_plan.md` "Unscheduled tools" (the rule, the rigbot bullet);
+`plans/music_player.md` "Autopilot" and "Relationship to the old codebase" (the Rigdio fork
+row); `plans/match_tracker/README.md` "Key decisions" (External consumers).

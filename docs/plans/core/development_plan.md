@@ -386,6 +386,10 @@ preset.
 
 ### Unscheduled tools
 
+The suite takes in every tool the community uses, those released after it as well, so an
+outside tool that would talk to a Studio tool is planned into the suite and calls it
+in-process; we do not give Studio tools inbound APIs for outside programs, because each one
+is a server and a wire contract to keep for a consumer the suite is going to absorb anyway.
 Tools the suite will take in, with no phase or plan yet:
 
 - **Aesthetics ATF bot** (the maintainer's `Tools_Marco/4cc-aes-atf-bot`, Python; the Aesthetics
@@ -395,5 +399,10 @@ Tools the suite will take in, with no phase or plan yet:
   cup's aesthetics are checked without playing through the rosters by hand. Its pad and OBS
   capture already drive the in-game check harness (`scripts/ingame/game.py` `pad` and
   `obs-shot`).
+- **rigbot**: lets managers control their own team's tactics remotely during a match, and
+  drives the Rigdio fork's local API (`music_player.md` "Autopilot": team loads, the anthems,
+  the victory anthem, the chant, goals), passing SEN:P-AI `--no-rigdio` because it drives
+  Rigdio itself. Not published; the maintainer is asking its author for the source, and until
+  then what it does is known only from the forks' READMEs.
 
 ---
