@@ -117,3 +117,9 @@ path = "crates/libs/archives/src/lib.rs"
 kind = "bool"
 description = "in read: Ok arg 1: false becomes true | removed: false"
 why = "stopping early only saves work: the mismatch is returned after the iteration either way"
+
+[[exclude]]
+path = "crates/libs/pes_savefile/src/settings_toml/mod.rs"
+kind = "bool"
+description = "in narrow_to: toml_form arg 3: false becomes true | removed: false"
+why = "narrow_to checks the key's widest range first; inside it the stored-width bound cannot refuse and both modes convert alike"
