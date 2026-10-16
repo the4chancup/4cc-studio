@@ -4,7 +4,7 @@ Covers the `pes_savefile` lib crate: the EDIT00000000 file codec (container cryp
 schema-driven payload codec, player/team/tactics model), the cross-version player
 data conversion, the save-to-save operations (aesthetics transplant, aesthetics
 fingerprinting), and the interchange formats (Team TOML, legacy `.4ccs`/`.4cct`
-readers, Texport, the aesthetics patch). Shared by the [Save editor](../../plans/save_editor.md), the
+readers, Texport, the aesthetics patch). Shared by the [Save editor](../save_editor.md), the
 [Team compiler](../team_compiler/README.md), the integrated
 [model conversion](../model_conversion/README.md), and the
 [Export upgrader](../../plans/export_upgrader.md). Platform context is in the
@@ -97,6 +97,7 @@ crates/libs/pes_savefile/src/
 │       ├── document.rs #     parse, to_toml, update_toml
 │       └── appearance_row.rs # the row's bytes and the pre-Fox refusal
 ├── convert.rs          # cross-version player conversion (bitfield surgery, playstyle/skill maps)
+├── player_tables.rs    # the three Fox player tables (PlayerAppearance/BootsList/GloveList.bin), one PlayerTable<VALUE>
 ├── ops/                # save-to-save operations
 │   ├── mod.rs          #   the module wiring
 │   ├── transplant.rs   #   aesthetics transplant (Midcupping)

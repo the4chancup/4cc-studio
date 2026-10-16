@@ -114,7 +114,7 @@ resolved export source.
 ```
 
 (Refreshing `teams_list.txt` from a savefile is the Save editor's `export-teams-list`; see the
-[Save editor plan](../../plans/save_editor.md) "CLI".)
+[Save editor plan](../save_editor.md) "CLI".)
 
 `upgrade-dpfl` prints what the override changes (entries that will no longer be loaded, with the
 sizes of any matching `.cpk` files found in `download/`) and stops unless `--yes` is given; it never
@@ -168,6 +168,8 @@ promoted to `output/`) exits 1 and an aborted deployment 3, as the mapping alrea
 caller special-cases deployment. The CLI is a separate process with its own run
 and does not require the GUI to be closed. In sideload mode the bins land at
 their game paths inside `livecpk/` ("Output-mode artifact routing" under `pipeline.md` "Resolved
-decisions").
+decisions"). A sideload-mode run with PES open skips the savefile step
+(`savefile_skipped_pes_running`, see `pipeline.md` "Post-processing") — the model iteration lands
+through sideloading and the savefile catches up on the first compile after PES is closed.
 
 ---

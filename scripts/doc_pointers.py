@@ -51,13 +51,8 @@ LIST_MARKER = re.compile(r"^\s*(?:[-*]|\d+\.)\s+")
 BOLD = re.compile(r"\*\*(?P<title>[^*]+?)\*\*")
 LINK = re.compile(r"\]\((?P<target>[^)\s#:]+\.md)(?:#[^)]*)?\)")
 SKIPPED = {"docs/DECISIONS.md", "docs/LOG.md"}
-# Phase 5 (savefile integration).
+# Phase 5 closed (2026-10-16) and moved its sections; no phase is open.
 OPEN_PHASE_PLANS = {
-    "docs/plans/aatf_rules.md",
-    "docs/plans/save_editor.md",
-    "docs/plans/pes_savefile/operations.md",
-    "docs/plans/pes_savefile/model.md",
-    "docs/plans/aesthetics_export/settings_toml.md",
     # `libs/music_export` is built ahead of Phase 10 (worklog 10.0); its format section moves
     # to the spec when that phase closes.
     "docs/plans/music_player.md",

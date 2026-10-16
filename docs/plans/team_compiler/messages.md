@@ -61,16 +61,7 @@ states one-to-one; a glTF material with states absent just gets its family's sta
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
-| `pes_folder_not_found` | E | as the spec's row | savefile step skipped |
-| `dpfilelist_missing` | E/W | as the spec's row | E: savefile step skipped |
 | `dpfilelist_not_official` | W | as the spec's row | the GUI offers **Upgrade DpFileList**, which asks before replacing the list |
-| `dpfilelist_outdated` | E | as the spec's row | savefile step skipped; GUI offers Upgrade DpFileList |
-| `cpk_name_unlisted` | E | as the spec's row | savefile step skipped |
-| `old_cpk_locked` | E | as the spec's row | savefile step skipped; GUI offers Retry (deployment only) and Open output folder |
-| `deploy_target_unwritable` | E | as the spec's row | savefile step skipped; GUI offers Relaunch as administrator. Normally pre-empted by the live writability preflight (see `pipeline.md` "6. Post-processing") |
-| `deploy_skipped_by_flag` | I | as the spec's row | savefile step skipped |
-
-A missing savefile
-is the explicitly permitted warning-only case. A present savefile that cannot be read or whose
-version differs from the compile target is an error, not `savefile_missing`; do not modify it or
-publish a partially deployed run.
+| `dpfilelist_outdated` | E | as the spec's row | GUI offers Upgrade DpFileList |
+| `old_cpk_locked` | E | as the spec's row | GUI offers Retry (deployment only) and Open output folder |
+| `deploy_target_unwritable` | E | as the spec's row | GUI offers Relaunch as administrator. Normally pre-empted by the live writability preflight (see `pipeline.md` "6. Post-processing") |

@@ -961,7 +961,7 @@ fn a_family_only_key_is_skipped_on_the_other_layout() {
 
 /// Every face and hair key's field at the plan's byte:bit and width, and
 /// every measured-unused row at the plan's bits and value
-/// (`plans/pes_savefile/model.md`, "The ingame-face run, decoded"). The
+/// (`spec/pes_savefile/model.md`, "The ingame-face run"). The
 /// table is copied from the plan, not derived from the schema, so a row
 /// of the schema that moved, changed width or swapped with another fails
 /// here even where both fields hold the same value in every fixture.

@@ -30,7 +30,7 @@ schema. Platform context is in the [core plan](core/README.md).
 ## The editor
 
 **Start page:** *New from template*, where the template is one of the embedded rulesets
-(`aatf_rules.md` "Embedded rulesets": the latest two of the 4cc, VGL and VTL, Autumn 26 first)
+(`spec/aatf_rules.md` "Embedded rulesets": the latest two of the 4cc, VGL and VTL, Autumn 26 first)
 or **Blank** (one tier, no brackets, the universal rules on); *Random*, in three
 flavors (see "Randomize"); and *Open file*. Recent files below.
 

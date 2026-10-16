@@ -2070,3 +2070,6 @@ worklog passed 7,000 lines.
 - **2026-10-16** — 5.6c done: the census of every player table on the machine (103 distinct) found
   the games' boots and gloves lists WESYS-wrapped, which `read` took as rows (PES 2020's as
   garbage), and a cup CPK refused over a code-page name; `read` unwraps, `cpk` reads Latin-1.
+- **2026-10-16** — 5.6e move: Phase 5's sections moved to the spec (`aatf_rules.md`, `save_editor.md`
+  with its message catalog, `settings_toml.md`, the rest merged), corrected to the code, every
+  pointer repointed; the second whole-crate mutation runs started.

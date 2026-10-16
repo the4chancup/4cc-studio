@@ -1,6 +1,6 @@
 //! The session: the save that is open, and the operations over it that the commands run (and
 //! the window will, through its undo stack). egui-free, so the command line and the window
-//! cannot diverge (`plans/save_editor.md` "Crate layout"). `pes_savefile` owns every byte and
+//! cannot diverge (`spec/save_editor.md` "Crate layout"). `pes_savefile` owns every byte and
 //! every operation on the model; the session resolves ids against the open save and hands
 //! the lib the entries it asks for.
 
@@ -21,7 +21,7 @@ pub(crate) struct Session {
 }
 
 /// A player of a transplant pair whose appearance id is -1: his record is not what the game
-/// shows (`plans/save_editor.md` "Stripped save"), so the output marks him.
+/// shows (`spec/save_editor.md` "Stripped save"), so the output marks him.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Stripped {
     /// The target: his record took the donor's fields, and the game does not read it.
@@ -30,7 +30,7 @@ pub(crate) enum Stripped {
     Donor(u32),
 }
 
-/// One player's contribution to `strip-and-seed`'s seed (`plans/save_editor.md` "Stripped
+/// One player's contribution to `strip-and-seed`'s seed (`spec/save_editor.md` "Stripped
 /// save"): his `PlayerAppearance.bin` row and his boots and gloves list values, as the
 /// record holds them (a value past a key's range is carried as stored).
 #[derive(Debug)]
@@ -47,7 +47,7 @@ pub(crate) struct SeedRow {
     /// The player his appearance block copies the face and hair from (`None` for a
     /// base-copy id of 0 or his own id, which both mean no base copy). The row carries
     /// no base-copy id, so once stripped he loses the copied face: `strip-and-seed`
-    /// warns for each (`plans/save_editor.md` "Stripped save"). The record's face edit
+    /// warns for each (`spec/save_editor.md` "Stripped save"). The record's face edit
     /// flag plays no part: in PES 21 Edit mode (2026-10-15) the game drew the copied
     /// face with the flag clear as with it set, and over a face model of the player's
     /// own.
@@ -153,7 +153,7 @@ impl Session {
 
     /// The seed `strip-and-seed` writes into the Fox player tables: one `SeedRow` per
     /// player of the save whose appearance id is set, in record order. A player at -1 is
-    /// left out: his record is not his look, so his rows stand (`plans/save_editor.md`
+    /// left out: his record is not his look, so his rows stand (`spec/save_editor.md`
     /// "Stripped save"). The error is `appearance_row`'s, which a pre-Fox save refuses.
     pub(crate) fn seed(&self) -> Result<Vec<SeedRow>, SaveError> {
         let mut rows = Vec::new();

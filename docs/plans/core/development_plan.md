@@ -18,40 +18,6 @@ depends on the Blender `pes-models` codec outside this workspace. Phase numbers 
 every pointer names them. Releases stay `0.x` until Phase 16 closes with **1.0.0**; "first
 release" in the plans means 1.0.0, so a "first-release" feature may land after 0.1.0.
 
-### Phase 5: Savefile integration (`tools/save_editor` logic, `libs/aatf`, Team compiler savefile writing)
-
-`pes_savefile` exists since Phase 2; this phase wires it into its two consumers.
-
-- Savefile writing in the Team compiler (`output/savefile.rs`), Fox first. `fpc_on`/`fpc_off`
-  markers apply `libs/fpc`'s FPC presets here. The resolved settings become, on Fox, each compiled
-  player's appearance table rows (Phase 4's `bins/`, whose boots and gloves rows are already
-  set only for committed outputs), the default-ID rows, and an aesthetics patch of motions and an
-  `write_names` export's names, which depend on no asset; the patch is applied to the local save.
-  The pre-Fox patch ("Player settings in exports" in the Aesthetics export plan), the one whose
-  boots and gloves IDs need commit-conditioned mutations (`BuildManifest` planning freezes
-  `PlannedModelIds`; producer commits activate the asset-dependent mutations; final serialization
-  applies only activated ones while independent accepted `settings.toml` changes still apply),
-  is deferred with pre-Fox's other gaps until the cup next plays a pre-Fox version (worklog
-  issue). The allocation scheme is fixed (40-ID per-team blocks — see the Team compiler plan).
-- `libs/aatf`: the ruleset schema and its load-time validation, the generic Rhai interpreter, the
-  host and `apply_tier`, logic identity, and the Autumn 26, Autumn 25, Spring 26, VGL25, VGL26,
-  VGL27 and VTL11 rulesets as data with their fixtures ([AATF rules plan](../aatf_rules.md), "Development phase and verification").
-- The Save editor tool crate's non-GUI substance that a command drives: settings, the CLI, and
-  the `session/` operations its commands run over `pes_savefile` (Team TOML export and import,
-  the aesthetics patch, AATF checks, comparator, transplant, strip and seed with the
-  restored-id check) — build order in the [Save editor plan](../save_editor.md). The wiring
-  only the view drives (editing with its undo stack, selection, recent files, tactics, the FPC
-  toggle, AATF quick actions) is built in Phase 8, each piece in the slice of the view that
-  uses it: built now, it would be a layer with no consumer, its shape guessed before the view
-  that decides it.
-
-**Verification:** Team compiler parity now includes savefile output — compiled savefile compared
-against 4ccEditor edits for the same assignments; AATF rule fixtures (known-violating and clean
-saves); the save editor's CLI exercised on fixture saves. In game, on the Fox version the cup has chosen (step 4.0's Test 1 covered PES 2021 only): a stripped and seeded save
-shows every player as before; a compiled team's rows show, gloves included once a FoxDen change keeps the
-table's value; and an `ingame_face` player whose file sets none of the face and hair keys renders the default face (without the marker a folder with no face model gets the blank face, no head)
-(`aesthetics_export/settings_toml.md`, the ingame-face run's rules).
-
 ### Phase 6: Export upgrader (`tools/export_upgrader`)
 
 - Implement old-format export loading (the only place old-format knowledge lives)

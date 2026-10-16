@@ -305,7 +305,16 @@ pub fn discover_savefiles_in(documents: &Path, version: PesVersion) -> Vec<Savef
 pub fn discover_savefiles(version: PesVersion) -> Vec<SavefileCandidate>;
 ```
 
+The compiler's `savefile_path = auto` takes the newest candidate and reports which one it
+chose (`savefile_autodetected`, Info, with the path and the candidate count) so a user with
+two accounts can pin `savefile_path` if the guess is wrong. The version is verified after
+discovery, not assumed from the folder: the candidate is loaded with the ordinary
+`EditFile::load` auto-detection and must match the requested version, otherwise it is
+refused (`savefile_invalid`, naming the save's version) rather than used — a stale save
+left by a previous game version in a reused folder must not be edited as if it were
+current. Nothing found is the consumer's own message (`savefile_missing` in the compiler).
+
 Discovery returns paths and never opens the saves; verifying the version is the caller's
-`EditFile::load` (the plan's rule).
+`EditFile::load`, the rule above.
 
 ---

@@ -20,7 +20,7 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
 5.y-gloves and 5.3a (a1 to a5, its review loop closed) and 5.3b1 (the patch written) done
-2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w (the platform floor, a static CRT, the size growth measured) done 2026-10-15; 5.5 (the in-game check) done 2026-10-15; 5.6 (converge) open: 5.6a to 5.6d done 2026-10-16 (5.6c's player tables census found and fixed the games' wrapped item lists and a code-page CPK name), next 5.6e (the spec move under way, then the second whole-crate runs and the collapse); step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w (the platform floor, a static CRT, the size growth measured) done 2026-10-15; 5.5 (the in-game check) done 2026-10-15; 5.6 (converge) open: 5.6a to 5.6d done 2026-10-16 (5.6c's player tables census found and fixed the games' wrapped item lists and a code-page CPK name), next 5.6e (the spec move done; the second whole-crate runs going, then the collapse); step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -36,7 +36,7 @@ once an hour; work continues past it, but no phase closes with one outstanding.
 ran on the brother's Codex slot on 2026-10-14, both loops ending. P.A1 (5.4a5-6 and the
 version-matched refusal) ran there that evening (2 accepted, fixed in 5.4a5-r1); SWE-2 round S2
 after it accepted 1 of 3 (`.tmp/5_4/duck_rulings.md`): that surface is closed. The interpreter
-review I.A1 (`3b4b10e..` the 5.2d2-r1 commit; `aatf_rules.md` "The ruleset schema", "The
+review I.A1 (`3b4b10e..` the 5.2d2-r1 commit; `spec/aatf_rules.md` "The ruleset schema", "The
 interpreter", "The host") accepted all seven concerns (`.tmp/5_2/duck_rulings.md`), reworked in
 step 5.2i-r1; SWE-2 round I.S1 after it accepted 3 of 5 (step 5.2i-r2); Astra I.A2 over
 `adcc070..263a33f` accepted 4 of 4 (step 5.2i-r3), so the Astra loop ends there; SWE-2 round
@@ -585,13 +585,13 @@ Fixed before the itemization:
   be a power of two), `deep/mod.rs` (a kit's main texture takes `MainKit` on pre-Fox only),
   `messages.rs` docs, the help, tests in `deep/texture.rs` and `tests/cli/textures.rs`.
 
-Itemized 2026-10-12 with the Acceptance (`save_editor.md` "Acceptance", the Phase 5 block of
+Itemized 2026-10-12 with the Acceptance (`spec/save_editor.md` "Acceptance", the Phase 5 block of
 `spec/team_compiler/README.md` "Acceptance"): libs first, each with its fixtures as its spec, then the
 two consumers, the in-game check, converge. Before the first step that writes a save (5.3b, 5.4),
 the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-1`,
 `Tools_4cc/4ccEditor-VGL`; 5.0's survey).
 
-- [x] 5.1 `pes_savefile`'s Phase 5 model (`plans/pes_savefile/model.md` "Planned for Phase 5"), in
+- [x] 5.1 `pes_savefile`'s Phase 5 model (`spec/pes_savefile/model.md` "Player settings model (settings.toml)"), in
   slices:
   - [x] 5.1a the appearance-block player id modeled on the entry, outside `PlayerAppearance`
     (issue "player id versus appearance id"); height and weight out of the key table;
@@ -771,9 +771,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
 
   Scratch `.tmp/5_0l/` (evidence: `findings.md`).
 - [x] 5.0m The decoded run in `pes_savefile`, before 5.3a (TC-BIN-31 authors hair keys). Plan:
-  `plans/pes_savefile/model.md` "The ingame-face run, decoded";
+  `spec/pes_savefile/model.md` "The ingame-face run";
   `plans/aesthetics_export/settings_toml.md`, the template and the ingame-face run's rules;
-  `plans/pes_savefile/operations.md`, "Cross-version player conversion" and "Team TOML". Slices,
+  `spec/pes_savefile/operations.md`, "Cross-version player conversion" and "Team TOML". Slices,
   each a commit:
   - [x] 5.0m1 the fields and the keys. One slice, because the completeness test ties every new
     field to its key; most of the diff is table rows. Brief `.tmp/5_0m/brief_5_0m1.md`:
@@ -846,7 +846,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     2026-10-13) → done when: a data block with a wrong-typed `tiers[2].free.tricks` reports
     that path. Done 2026-10-13 (Fable, first attempt): the path as the crate prints it
     (`tiers[2].free.tricks`; a missing top-level key's parent is the root, `.`)
-  - [x] 5.2b the host's view of a team (`aatf_rules.md` "The host"). Sub-slices, each a commit:
+  - [x] 5.2b the host's view of a team (`spec/aatf_rules.md` "The host"). Sub-slices, each a commit:
     - [x] 5.2b1 `TeamView` and `PlayerView` from `pes_savefile`'s model, the tactics answers
       (`fielded_only_at`, `fielded_positions`, formation shapes) in Rust, the engine with every
       accessor of the plan's table but the team settings, `Ruleset::from_data_block` on it
@@ -856,7 +856,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       attempt; `pes_savefile` gains `PlayerStats::abilities` and `names::name_color`; `print`
       runs on the shared engine and writes nowhere)
     - [x] 5.2b2 the team settings' accessors: the man-marking assignments in `pes_savefile`'s
-      tactics model (PES 15 to 21, offsets in `aatf_rules.md` "The host"), the auto flags (off
+      tactics model (PES 15 to 21, offsets in `spec/aatf_rules.md` "The host"), the auto flags (off
       is 0; PES 15's three at +0x1FE to +0x200, not modeled yet) → done when: each setting reads
       right on a fixture team set both ways. Measured 2026-10-12/13 (in-game on PES 15, 16 and
       21, and a census of every 15 to 21 save on disk; `.tmp/5_2b2/findings.md`): man marking is
@@ -979,7 +979,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     settings. "Switch preset tactic" is the tactics menu's three-preset option (per user, not per
     team); the byte is the automatic preset change during a match, a support setting, so VGL26
     and VGL27 now require it off (data blocks, fixtures; DECISIONS 2026-10-14). The step as
-    first written: where PES 21 stores "switch preset tactic" (`aatf_rules.md` "VGL26", the
+    first written: where PES 21 stores "switch preset tactic" (`spec/aatf_rules.md` "VGL26", the
     paragraph on the support settings; in-game, so ask the maintainer before taking focus; back
     up the saves first): toggle it on one team in Edit mode, save, and diff the EDIT file and
     the SYSTEM file against their backups; then toggle the team's other support settings one at
@@ -1329,6 +1329,12 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `spec/pes_savefile/operations.md`); and `spec/core/distribution.md`'s size figure is
     corrected: embedded files are about 4.2 MiB, not 4.7 (the measure matched 0.58 MiB of
     test fixtures; the `.rdata` breakdown is `.tmp/16w/rdata_parts.py`)
+    Move done 2026-10-16 (four SWE-2 slices, each heading classified against the code, the lead
+    reviewing every line that did not move verbatim; `.tmp/5_6/move/`): new spec files
+    `aatf_rules.md` (1,083 lines, kept whole at the threshold), `save_editor.md` with its
+    25-code catalog, `aesthetics_export/settings_toml.md`; the rest merged; every lag above
+    carried; pointers repointed, `OPEN_PHASE_PLANS` down to `music_player.md`. Open: the second
+    whole-crate runs (started 14:26, `.tmp/5_6/close/`), their triage, the collapse
 
 ### Phase 8 — GUI
 
@@ -1932,7 +1938,7 @@ points there.
   base-copied face, measured 2026-10-14 (step 5.4c; census
   `.tmp/5_4/base_copy_census.txt`, plan "Stripped save"): base-copied faces are reported, not
   carried. The issue: the `PlayerAppearance.bin` row carries no
-  base-copy id (`plans/pes_savefile/model.md`, "The Fox database row"), which holds a face-transplant
+  base-copy id (`spec/pes_savefile/model.md`, "Player settings model (settings.toml)"), which holds a face-transplant
   relationship (`spec/pes_savefile/operations.md` "Save-to-save operations"), so a stripped player whose
   record copied another player's face may change face, against "stripping changes nobody's
   look". Untested (Test 1 did not cover it). Measure before strip-and-seed is built; then
@@ -1994,7 +2000,7 @@ points there.
   slots and the strip table"); the tables carry `KitSlot*` rows for PES 17 alone. Add the rows
   for the other versions when the Save editor needs kit bindings. (The PES 21 team colours,
   this issue's other half, were measured in Edit mode on 2026-10-13 at the tables' bits.)
-- resolved 2026-10-13 (in-game; `plans/pes_savefile/model.md` "The player record") —
+- resolved 2026-10-13 (in-game; `spec/pes_savefile/model.md` "The player record") —
   unmodeled player-record bits that real saves set: PES 18 bits 252-254 and PES 16 bits 222
   and 362 are moved by no Edit setting and kept through load, edit and save: retained,
   meaning unknown, not editable. The "most likely `Star`" guess has no support.

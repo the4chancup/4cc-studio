@@ -21,8 +21,7 @@ test reproducible without a pre-shared binary blob.
   normalizes Red's `u0???p<d>` to `kit<d>` (`p0` → `kitN`) in file names and in decoded FMDL/MTL/XML
   paths before diffing.
 
-The versioned test matrix also covers savefile success/failure and cancellation, and these key
-behavior areas:
+The versioned test matrix also covers these key behavior areas:
 
 - **Rosters and identity**: a refs export without `players.txt` blocked by the compiler yet
   repairable in the Refs arranger.
@@ -36,14 +35,9 @@ behavior areas:
   failed kit showing base-bin colors; catalog completeness (every emitted code has a template,
   context placeholders are satisfied, code+scope grouping is stable, CLI and GUI render the same
   underlying message).
-- **Deployment and environment**: the installed ID kept for players whose boots/gloves task failed
-  (pre-Fox: his savefile ID) while independent settings
-  still apply; with either FPC marker, successful standalone assets
-  overriding preset IDs, failed/dropped requested assets preserving existing IDs, and absent
-  standalone assets using preset IDs (including pre-Fox face-XML-local parts); no FPC
+- **Deployment and environment**: no FPC
   markers on an already-FPC team (pre-Fox: an already-FPC savefile; Fox: already-FPC installed
-  rows), configs untouched; a mixed `fpc_on`/`fpc_off` team applying
-  per-player presets; atomic `players.txt` replacement
+  rows), configs untouched; atomic `players.txt` replacement
   never exposing a half-written roster to the
   watcher.
 
@@ -51,5 +45,3 @@ GPU mode may produce different valid encoded texture bytes
 across devices/drivers, and containers containing those textures may consequently differ too.
 That exception does not relax model/bin output, asset identities, collision decisions, or ordering;
 GPU checks compare decoded texture semantics and quality rather than demanding CPU byte equality.
-Savefiles use fresh randomized encryption salts, so compare them after decryption and semantic
-normalization, or inject a deterministic RNG in tests.

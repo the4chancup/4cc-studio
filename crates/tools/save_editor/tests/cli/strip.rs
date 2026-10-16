@@ -1,4 +1,4 @@
-//! `strip-and-seed` and `check-stripped` (`plans/save_editor.md` "Stripped save"): the Fox
+//! `strip-and-seed` and `check-stripped` (`spec/save_editor.md` "Stripped save"): the Fox
 //! player tables seeded from a save's players, every appearance id set to -1, and the
 //! restored-id listing and re-strip.
 

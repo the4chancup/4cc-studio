@@ -17,9 +17,9 @@ crates (`music_export`, `audio_engine`) are specified in the
 in the [Match tracker plan](../../plans/match_tracker/README.md), the kit config codec
 (`kit_config` — binary/TOML, reverse-engineered format documentation) in the
 [Kit config editor plan](../kit_config_editor.md), the AATF rules engine
-(`aatf`) in the [AATF rules plan](../../plans/aatf_rules.md), the shared
+(`aatf`) in the [AATF rules](../aatf_rules.md), the shared
 tactics/card widgets (`team_widgets`) in the [Save editor
-plan](../../plans/save_editor.md), the fox2 parser in
+plan](../save_editor.md), the fox2 parser in
 [fox2](fox2.md), and the Konami database tables (`pesdb`) in
 the [DB generator plan](../../plans/db_generator.md). Platform context is in the
 [core plan](../core/README.md).

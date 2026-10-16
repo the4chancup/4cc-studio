@@ -1,7 +1,7 @@
 //! `TierValues` and `CardLimits`: what a file's `tier_values` and
 //! `card_limits` answer for one player read as one tier, converted from
 //! the script's maps, and the write of `TierValues` into a player record,
-//! the lib's one writing operation (`aatf_rules.md` "The host").
+//! the lib's one writing operation (`spec/aatf_rules.md` "The host").
 
 use std::collections::BTreeMap;
 
@@ -68,7 +68,7 @@ impl TierValues {
 /// tier's) is removed and any other leading code kept; the rest of the
 /// name is untouched either way. No length check: an over-long name
 /// fails the save's write, as any name too long for its field does.
-/// (`aatf_rules.md` "The host".)
+/// (`spec/aatf_rules.md` "The host".)
 pub(crate) fn write_name_color(name: &mut String, code: Option<&str>, tier_colors: &[&str]) {
     let body = name_color(name).map_or(name.as_str(), |c| &name[2 + c.len()..]);
     match code {

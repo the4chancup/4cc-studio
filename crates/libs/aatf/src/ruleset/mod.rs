@@ -1,6 +1,6 @@
 //! `Ruleset` and its types: a rules file's `RULESET` map as Rust, read by
 //! `from_data_block` and checked against the rules the types cannot carry.
-//! Plan: `aatf_rules.md` "The ruleset schema", "Loading and validation".
+//! Plan: `spec/aatf_rules.md` "The ruleset schema", "Loading and validation".
 
 use std::collections::BTreeMap;
 
@@ -17,7 +17,7 @@ mod tests;
 pub use check::{IdKind, LoadError, LoadRule, RuleError};
 
 // ---------------------------------------------------------------------------
-// The types (`aatf_rules.md` "The ruleset schema", the type block)
+// The types (`spec/aatf_rules.md` "The ruleset schema", the type block)
 
 /// The id a tier, bracket, system or card group answers to: the ruleset's
 /// own string.

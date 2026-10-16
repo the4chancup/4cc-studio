@@ -1,5 +1,5 @@
 //! `team.toml`: the full-fidelity team interchange format (plan:
-//! `pes_savefile/operations.md`, "Interchange formats" → "Team TOML"). A
+//! `spec/pes_savefile/operations.md`, "Interchange formats" → "Team TOML"). A
 //! document holds one team's `[team]`, `[tactics]` and `[players.NN]` data
 //! with every field optional: an absent key is "leave untouched" on import,
 //! which is what makes one-key patches and cross-version imports safe.

@@ -31,10 +31,6 @@ The GUI autorun form extends the spec's command list:
 4cc-studio --gui team-compiler compile [exports-root] [--mode normal|test|sideload]   # GUI autorun
 ```
 
-A sideload-mode run with PES open skips the savefile step
-(`savefile_skipped_pes_running`, see `pipeline.md` "Post-processing") — the model iteration lands through sideloading and
-the savefile catches up on the first compile after PES is closed.
-
 The `--gui` form (the core plan's "Launch modes") is what `quick_compile.bat` runs. The tool's
 `gui_run` implementation accepts `compile` only — `check` is meaningless in the GUI, where checking
 is live — and queues the compile until the initial exports check has completed, then triggers the

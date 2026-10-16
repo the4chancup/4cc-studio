@@ -1,4 +1,4 @@
-//! The teams list as `export-teams-list` sees it (`plans/save_editor.md` "CLI"): the save's
+//! The teams list as `export-teams-list` sees it (`spec/save_editor.md` "CLI"): the save's
 //! team names and ids as an incoming list, the working `teams_list.txt` of the data
 //! directory (the embedded upstream list when there is none yet), and the write of the
 //! merged list. The merge itself is `teams_list::reconcile`.

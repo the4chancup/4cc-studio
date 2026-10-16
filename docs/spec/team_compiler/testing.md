@@ -62,7 +62,7 @@ Comparison uses four tiers:
 
 Maintain a versioned test matrix for PES 15–21 covering team and referee exports; folders, ZIP, and
 7z; native and converted pre-Fox/Fox models; local, shared, and combined models; normal, multi-CPK,
-test, and sideload modes. Key behavior areas:
+test, and sideload modes; savefile success/failure and cancellation. Key behavior areas:
 
 - **Rosters and identity**: an export stem such as `co - Spring.zip` resolving through `/co/`; a
   folder and archive with identical display stems staying distinct (including in test-mode output
@@ -125,8 +125,11 @@ test, and sideload modes. Key behavior areas:
   conversion/packing/logo/texture-conflict findings and
   unsafe-path/ambiguous-roster/required-metadata findings.
 - **Deployment and environment**: the installed ID kept for players whose boots/gloves task failed
-  (Fox: the player's installed table row) while independent settings
-  still apply; source modification after planning producing
+  (Fox: the player's installed table row; pre-Fox: his savefile ID) while independent settings
+  still apply; with either FPC marker, successful standalone assets
+  overriding preset IDs, failed/dropped requested assets preserving existing IDs, and absent
+  standalone assets using preset IDs (including pre-Fox face-XML-local parts); a mixed
+  `fpc_on`/`fpc_off` team applying per-player presets; source modification after planning producing
   `source_changed_during_run` (no final output published, no installed CPK or savefile changed);
   separate refs CPK installation; multi-CPK deployment failure; a mixed `fpc_on`/`fpc_off` team
   giving every kit config the FPC values; an FPC team's unexported kit slots
@@ -144,6 +147,7 @@ test, and sideload modes. Key behavior areas:
 Separate **Red parity** (normalized archive-entry equivalence is acceptable) from **Rust
 reproducibility**. Explicit CPU mode is the deterministic reference: identical inputs and encoder
 configuration must produce byte-identical CPK, test, and sideload artifacts, including canonical
-ordering and normalized timestamps.
+ordering and normalized timestamps. Savefiles use fresh randomized encryption salts, so compare
+them after decryption and semantic normalization, or inject a deterministic RNG in tests.
 
 ---

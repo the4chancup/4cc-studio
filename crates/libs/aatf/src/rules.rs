@@ -36,7 +36,7 @@ pub struct Rules {
 const REQUIRED: [(&str, usize); 3] = [("check_team", 1), ("tier_values", 3), ("card_limits", 3)];
 
 impl Rules {
-    /// Loads a rules file through steps 1 to 3 of `aatf_rules.md`
+    /// Loads a rules file through steps 1 to 3 of `spec/aatf_rules.md`
     /// "Loading and validation"; the first failure is returned.
     pub fn load(text: &str) -> Result<Rules, LoadError> {
         let (engine, ast, scope) = run_top_level(text)?;

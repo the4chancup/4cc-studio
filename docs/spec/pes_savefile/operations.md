@@ -54,8 +54,8 @@ between them every field both layouts hold is read from the source and written o
 whose own hair fields and unused bits stand as the template holds them, and the nose is re-coded
 (PES 15's 3 × type + angle becomes the type alone, with a `NoseAngleDropped` note for a non-zero
 angle; the reverse writes angle 0). No byte is copied by position between the layouts: PES 15's
-hair variation sits where 16 to 21 keep the hairstyle and cropped style (`plans/pes_savefile/model.md`
-"The ingame-face run, decoded"). No byte is invented.
+hair variation sits where 16 to 21 keep the hairstyle and cropped style (`spec/pes_savefile/model.md`
+"The ingame-face run"). No byte is invented.
 
 ```rust
 /// `convert.rs`. Rewrites `target`, a player read from a `to`-version save, from `source`,
@@ -81,6 +81,9 @@ pub enum ConvertNote {
     /// PES 15's nose angle has no field on PES 16 to 21: a non-zero one was dropped, the nose
     /// type written alone.
     NoseAngleDropped { angle: i8 },
+    /// A motion above the target's top was written as the top, which the target's editor
+    /// shows for it anyway.
+    MotionCapped { field: PlayerField, value: u8 },
 }
 
 pub enum ConvertError {
@@ -94,7 +97,7 @@ pub enum ConvertError {
 
 Field by field: `name`/`shirt_name` copied, truncated to the target schema's text length with a
 note (the reference cuts at 45/15 silently); `basic`, the non-gated `stats`, `positions` (bar
-the style), `skills.com_styles`, `motion`, `edit_flags`, the boots/gloves/base-copy IDs, physique
+the style), `skills.com_styles`, `motion` (capped at the target's top, below), `edit_flags`, the boots/gloves/base-copy IDs, physique
 and strip fields copied; a gated `Option` field is carried only where the target has it
 (`target.x.is_some()`), otherwise the target's `None` stands; `skills.skills` copied then every
 index the target schema has no `Skill(i)` row for cleared (`RecordSchema::has`); the style goes
@@ -105,28 +108,47 @@ applied. Skin 7 is reset only when `fpc::custom_skin_available` is false for `fr
 unconditionally, but each of their directions has a no-custom-skin side; the reference editor's
 import resets to 0, the converters to 1, and the converters are the verified path).
 
+The motion ranges narrow from 20/21 to 19 and earlier (corner kick
+1–10 vs 1–6, free kick 1–20 vs 1–16, penalty 1–7 vs 1–4, see the `settings.toml` key table). What
+the game does with a stored motion past its range was measured on PES 18, from a patched save: a
+hunching of stored 3 (the field is 2 bits; the editor offers 1 to 3, stored 0 to 2) shows "3", a
+corner kick of stored 7 (3 bits, 1 to 6) shows "6", a goal celebration of 150 shows "127": the
+list's top, with no crash on load or in Edit mode. Saving the team with another row of the same
+screen edited kept the hunching 3 and the celebration 150 but rewrote the corner kick 7 to 0, the
+list's first entry, its own row untouched; PES 16 keeps a stored celebration of 183 the same way.
+Which values a save keeps is per field, so a value past the range is not stable. The conversion
+therefore caps a motion at the target's top instead of copying it through: the top is what the
+game shows for it anyway, and a copied value can turn into the list's first entry on the
+player's next in-game save, a change nobody asked for. The cap is a `MotionCapped` note; each
+version's tops are measured (`schema::limits::motion_top`, the table of
+`aesthetics_export/settings_toml.md` "Player settings in exports").
+
 ```rust
 /// `schema/limits.rs`: the per-version caps, next to the schemas. `None` for the fields that
 /// are not face types (gloves, skin, iris).
 pub fn face_type_cap(version: PesVersion, field: IngameFaceField) -> Option<u8>;
 ```
 
-| Face type | PES 15–19 | PES 20–21 |
-|---|---|---|
-| cheek | 3 | 3 |
-| forehead | 5 | 5 |
-| facial hair | 12 | 19 |
-| laughter lines | 4 | 4 |
-| upper eyelid | 6 | 7 |
-| lower eyelid | 2 | 6 |
-| eyebrow | 5 | 7 |
-| neck line | 2 | 3 |
-| nose | 6 | 7 |
-| upper lip | 3 | 4 |
-| lower lip | 2 | 4 |
+| Face type | PES 15 | PES 16–18 | PES 19 | PES 20–21 |
+|---|---|---|---|---|
+| cheek | 14 | 3 | 5 | 3 |
+| forehead | 6 | 5 | 6 | 5 |
+| facial hair | 29 | 12 | 12 | 19 |
+| laughter lines | 6 | 4 | 4 | 4 |
+| upper eyelid | 14 | 6 | 6 | 7 |
+| lower eyelid | 14 | 2 | 2 | 6 |
+| eyebrow | 17 | 5 | 5 | 7 |
+| neck line | 5 | 2 | 2 | 3 |
+| nose | 11 | 6 | 6 | 7 |
+| upper lip | 7 | 3 | 3 | 4 |
+| lower lip | 7 | 2 | 2 | 4 |
 
-Measured: the PES 16 column (the 19 → 16 converter's caps) and the PES 21 column (the 16 → 21
-converter's). Assumed: 15, 17, 18 and 19 equal 16; 20 equals 21. The `settings.toml` key table's
+The PES 15 column joins the editor's range and the census of the game's faces. Neck line 4 and 5
+and lips 7 have no editor entry, but the game draws them as distinct models. PES 17 and 18 stay
+assumed equal to 16. PES 19's cheek and forehead were measured in its editor (26 cup players on
+the maintainer's save use the types past 16's caps); its other nine types stay assumed equal to
+16. PES 19 is therefore wider than 20 and 21 on those two, as measured: a 19 to 20 conversion
+resets a cheek 4 or 5 like any face type past the target's cap. The `settings.toml` key table's
 widest range for each face key is derived from this table (the maximum over versions), so the two
 cannot drift.
 
@@ -172,7 +194,7 @@ know the version, and only conversion and the interchange formats need the canon
 ## Save-to-save operations
 
 Ported from Midcupping's scripts and the reference editor's comparator, exposed in the
-[save editor](../../plans/save_editor.md):
+[save editor](../save_editor.md):
 
 - **Aesthetics transplant** (`transplant-aesthetics-*.py`): copy the appearance
   data of selected players from a donor save into a target save of the same
@@ -259,7 +281,7 @@ pub fn face_hash(face: &IngameFace) -> FaceHash;
 ```rust
 /// `ops/compare.rs`. Every difference between two players of the same version: the schema's
 /// stored fields (the player record's, plus the 15/16 appearance record's) through the model,
-/// the two texts, the known ingame-face bits, and the run's undecoded bits as one row.
+/// the two texts, the known ingame-face bits, and the run's measured-unused bits as one row.
 /// `Err` only when a gated field the schema stores is `None` on either side (an entry not
 /// read from a save of this version).
 pub fn compare_players(
@@ -502,8 +524,7 @@ strip = false
 
 [players.01.appearance]         # settings.toml's [appearance] table, verbatim
 skin_color = 1
-# ... [players.01.appearance.physique] / .strip / .motion / .face / .unknown, as in settings.toml;
-# .unknown's face is the ingame-face run's undecoded bits as hex (the named bits 0); absent = untouched
+# ... [players.01.appearance.physique] / .strip / .motion / .face / .hair, as in settings.toml
 ```
 
 Skill names, in the model's slot order 0-40: `scissors_feint flip_flap marseille_turn sombrero
@@ -630,11 +651,10 @@ pub fn shirt_name_from(name: &str, version: PesVersion) -> String;
 Rules of `apply`: `pes_version` absent means "the target's version" (no conversion); the
 `appearance` table's keys alone, each as its stored value (a key the table lacks keeps
 its value: "absent = untouched", where `settings.toml` and the patch write every field),
-go through `settings_toml`'s shared writer, then `[appearance.unknown]` `face` writes the
-run's undecoded bits only as far as both runs reach — the named bits stay as the keys wrote
-them, a longer file drops its tail, a longer target keeps its own, `None` writes nothing;
+go through `settings_toml`'s shared writer, the run's measured-unused bits keeping the
+save's values;
 an import never sets a player's appearance id, so a stripped save stays stripped (see
-"Stripped save" in the [Save editor plan](../../plans/save_editor.md)); `base_copy_id` equal
+"Stripped save" in the [Save editor plan](../save_editor.md)); `base_copy_id` equal
 to the file's own player
 id (the file's team id × 100 + slot) becomes the target player's id; a `stats` key the target
 version lacks is `NotInThisVersion` when the versions differ and `TeamTomlError::NotInThisVersion`
@@ -657,13 +677,23 @@ build the official savefile can be different people. The DLC builder compiles th
 without ever seeing the savefile builder's data (the teams' custom tactics, which they send to the
 savefile builder alone), hands over the CPK and the patch, and the savefile builder applies the
 patch to the official save. `interchange/aesthetics_patch` holds the **Fox half** of the
-format; the pre-Fox half and the compiler's production of the file are in
+format; the pre-Fox half is in
 [`plans/pes_savefile/operations.md`](../../plans/pes_savefile/operations.md) "Aesthetics patch
 (new)".
 
+The Team compiler writes the file to the output folder with the CPKs a compile publishes, its
+header naming the CPKs (empty for a sideload tree, which publishes loose files). A compile with
+nothing to put in it (no compiled player, or a pre-Fox target) writes none and moves an earlier
+patch to `aesthetics_patch.toml.bak`, one backup replaced each time; the write happens once the
+run's outputs are in place, so a run that publishes nothing leaves the previous CPK and its
+patch alone. The compiler's own savefile stage is "apply the patch just produced to the local
+save" (see "Savefile update" in the [Team compiler plan](../../plans/team_compiler/pipeline.md)) — one
+path, so a patch applied a week later by someone else yields the same bytes the DLC builder's
+machine wrote.
+
 **What it holds depends on the engine.** On **Fox** (PES 18–21) a player's appearance, boots and
 gloves travel in the CPK's database tables, not in the savefile (see "Player settings in exports"
-in the [Aesthetics export plan](../../plans/aesthetics_export/settings_toml.md)), so the patch holds what
+in the [Aesthetics export plan](../aesthetics_export/settings_toml.md)), so the patch holds what
 the tables cannot carry: every compiled player's **motions** (`[appearance.motion]`, player-record
 fields outside the appearance block a table row holds) and the **names and shirt names** of the
 players of an export with the `write_names` marker at its root (typically an autopilot team,
@@ -766,7 +796,11 @@ impl AestheticsPatch {
 }
 
 pub struct PatchSummary {
+    /// The ids of the patch's teams the save holds, in file order.
     pub applied_teams: Vec<u32>,
+    /// The ids of the players written, in file order, a team's by slot. Empty means the
+    /// save is unchanged.
+    pub applied_players: Vec<u32>,
     pub skipped: Vec<PatchSkip>,
 }
 
@@ -805,8 +839,8 @@ Both are raw dumps of the reference editor's in-memory structs; both parse into 
   them as literals. Fields the exporting version lacks are ignored whatever the bytes (the writer
   fills `phys_cont` from `body_ctrl` on 15 and 16, and `clearing`/`reflex`/`cover` on 15 only);
   the playing style is
-  the exporting version's index. The record has no id and no ingame-face run: `[appearance.unknown]` is
-  absent, skin/iris/player-gloves go to the `appearance` keys. With no id, a record's player is
+  the exporting version's index. The record has no id and no ingame-face run: the face and hair
+  keys are absent, skin/iris/player-gloves go to the `appearance` keys. With no id, a record's player is
   only its position, so `read_squad` takes the target team and its save's players, as the
   reference's import does: record *k* goes to the roster slot of the *k*-th rostered player in
   the target's record order, and number *i* to slot *i* when that slot received a record (the
@@ -841,20 +875,33 @@ Both are raw dumps of the reference editor's in-memory structs; both parse into 
 ### Texport (read + write)
 
 Texport files are **PES's own in-game team export/import format**. Measured on real files
-(three 17 texports, four 18, eleven 19, one 20, five 21; none for 15 or 16): the file is a
+(12 PES 16, 34 PES 17, four 18, eleven 19, one 20, five 21; none for 15): the file is a
 concatenation of the **save's own records, in the save's own layouts**, so the schema codec
 reads and writes every record and `interchange/texport.rs` adds only the crypto and the layout
 table (`schema/texport.rs`). Two eras:
 
 - **15-17** (`TEXPORT00000000`, ~5.6 MB): the version's savefile container (`SaveContainer`
   decrypts it unchanged; the description reads `Team Export Data NN` + the team name where a
-  save's reads `Edit Data`). Tactics record at `0x10298` (15/16) / `0x10330` (17), player
-  records at `0x51065C` / `0x510660` / `0x510840`, consecutive in roster order (15/16: player
-  record then appearance record per player). The team and roster records' positions are not yet
-  measured (the 17 payload holds the team id at `0x10054`, `0x10058`, `0x10234`, `0x1028C` before
-  the tactics record); until they are, a 15-17 texport's team and roster come from the target
-  save and only tactics and players are read. 15 and 16 offsets are the reference editor's,
-  unverified.
+  save's reads `Edit Data`, the check `NotATexport` applies). The body lays its records out as
+  an 18-21 one does, each the save schema's size: on 16, the team record (456 bytes) at
+  `0x1002C`, then the roster record (164) at `0x101F4`, then the tactics record at `0x10298`;
+  on 17, the team record (480) at `0x10054`, the 88-byte coach block at `0x10234`, the roster
+  record at `0x1028C`, the tactics record at `0x10330`. So the roster sits at the tactics
+  offset minus the roster record's size and the team record ends where the roster starts
+  (17: where the coach block starts). In all 46 files the three records' ids agree
+  (`IdsDisagree` when they do not) and the roster holds the 23 player ids and their shirt
+  numbers. Player records are at `0x51065C` / `0x510660` / `0x510840`, each filled roster
+  slot's record at that slot's position (`players_at` + slot × the record stride, as on
+  18-21), its id checked against the slot's (`RosterMismatch`, as for 18-21); on 15/16 a
+  player record then its appearance record per player. That order is the roster's, not
+  always the ids': one real PES 16 file (team 804) lists 80401, 80402, 80423, 80404, ...,
+  which a consecutive-id scan reads as two players and loses the other 21. No real roster
+  has an empty slot before a filled one (55 texports, 2026-10-15), so slot and packed
+  positions agree on every file measured; a gapped roster laid out packed would be refused
+  by the id check, never misread. PES 15 is taken to lay out as 16 does (the same tactics
+  offset and record sizes), unverified. The records are read rather than keeping the target
+  save's team and roster because the file carries them, and the consecutive-id rule they
+  replaced was ours, never measured: it is what lost the 21 players.
 - **18-21** (`.ted`, 8128 / 9648 / 14760 / 14820 bytes for 18 / 19 / 20 / 21): plaintext header
   `0x00..0x30`, a 32-byte key at `0x30`, then the body XOR'd with the key starting at key index
   `0x12` / `0x13` / `0x14` / `0x15` (18 / 19 / 20 / 21) and wrapping at 32. PES 20's size is not the
@@ -883,9 +930,11 @@ pub fn texport_layout(version: PesVersion) -> Option<&'static TexportLayout>;   
 
 /// `interchange/texport.rs`.
 pub struct Texport { /* version, the plaintext (18-21) or the SaveContainer (15-17), team, players */ }
-pub enum TexportError { UnknownVersion, WrongSize { version, expected, actual }, Container(ContainerError), Codec(CodecError), RosterMismatch { slot, roster: u32, player: u32 }, NoTemplate(PesVersion), OldPlayerIds { slot, expected: u64, got: u32 } }
-// `OldPlayerIds`: the 15-17 reader stops at the first record whose id is not
-// `team.id * 100 + 1 + slot`, so the writer refuses a player list it could not read back.
+pub enum TexportError { UnknownVersion, WrongSize { version, expected, actual }, Container(ContainerError), NotATexport, Codec(CodecError), RosterMismatch { slot, roster: u32, player: u32 }, NoTemplate(PesVersion), IdsDisagree { team, roster, tactics } }
+// `NotATexport`: a 15-17 savefile container that is a save, not a texport — the description is
+// the file's own label, checked before any record is read, so a save handed to `from_bytes` is
+// refused rather than opening with a garbage team and no players. `IdsDisagree`: the team,
+// roster and tactics records' ids disagree — the invariant every measured 15-17 texport holds.
 
 impl Texport {
     /// `version = None` detects: by size for 18-21 (every size is distinct once 20's is derived;
@@ -899,16 +948,16 @@ impl Texport {
     /// team and players (`team_mut`/`players_mut`).
     pub fn new(version: PesVersion, team: &TeamEntry, players: &[&PlayerEntry], salt: &[u8; 320]) -> Result<Texport, TexportError>;
     pub fn version(&self) -> PesVersion;
-    pub fn team(&self) -> &TeamEntry;            // team + roster + tactics (15-17: the tactics record's id,
-                                                 //   the roster the consecutive records imply, no names)
+    pub fn team(&self) -> &TeamEntry;            // team + roster + tactics, the file's records on
+                                                 //   every version
     pub fn players(&self) -> &[PlayerEntry];     // roster order, empty slots skipped
     pub fn team_mut(&mut self) -> &mut TeamEntry;
     pub fn players_mut(&mut self) -> &mut [PlayerEntry];
     /// The records re-encoded into the plaintext (unmodeled bytes as read), then encrypted:
     /// XOR with the file's own key on 18-21, the container with `salt` on 15-17.
     pub fn to_bytes(&self, salt: &[u8; 320]) -> Result<Vec<u8>, TexportError>;
-    /// The import document: `TeamToml::from_team` over the texport; on 15-17 the `[team]` section
-    /// is reduced to `id` and shirt numbers are absent (the file carries neither).
+    /// The import document: `TeamToml::from_team` over the texport; on every version the
+    /// `[team]` section and the roster's shirt numbers are the file's.
     pub fn to_team_toml(&self) -> Result<TeamToml, TeamTomlError>;
 }
 ```

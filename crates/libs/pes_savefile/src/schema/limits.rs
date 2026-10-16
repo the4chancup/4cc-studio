@@ -1,7 +1,7 @@
 //! The per-version caps on the ingame-face type fields
-//! (`plans/pes_savefile/operations.md`, "Cross-version player conversion",
+//! (`spec/pes_savefile/operations.md`, "Cross-version player conversion",
 //! whose table has PES 15's column) and the per-version tops of the motion
-//! fields (`plans/aesthetics_export/settings_toml.md` "Player settings in
+//! fields (`spec/aesthetics_export/settings_toml.md` "Player settings in
 //! exports", the measured table). A field
 //! that is not a face type (a slider, a colour, the hair, gloves, skin, iris)
 //! has no cap, and a player field that is not a measured motion has no top:
@@ -348,7 +348,7 @@ mod tests {
     ];
 
     /// The plan's measured tops as the editor shows them
-    /// (`plans/aesthetics_export/settings_toml.md` "Player settings in
+    /// (`spec/aesthetics_export/settings_toml.md` "Player settings in
     /// exports"), one row per `MOTIONS` field, one column per version of
     /// `PesVersion::ALL`.
     const SHOWN_TOPS: [[u8; 7]; 9] = [

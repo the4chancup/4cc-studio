@@ -1,4 +1,4 @@
-//! The comparator's report (`plans/save_editor.md` "Comparator (gameplay + aesthetics)"):
+//! The comparator's report (`spec/save_editor.md` "Comparator (gameplay + aesthetics)"):
 //! two saves' players paired by id, each changed field a row, a player at -1 marked stripped
 //! beside his rows (the appearance id itself is no row), then the players only in one save.
 

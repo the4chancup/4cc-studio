@@ -41,10 +41,6 @@ These planned crates extend the spec's workspace tree:
 │       ├── model_viewport/           # (future) shared wgpu model-preview widget — created with the
 │       │                             #   Team compiler's 3D-preview feature; consumers: team_compiler
 │       │                             #   and player_aesthetics_editor (labeled approximate preview)
-│       ├── aatf/                     # (Phase 5, in progress) AATF rules: the ruleset schema, the
-│       │                             #   Rhai engine and the host views exist; the interpreter's
-│       │                             #   checks and `apply_tier` join it (Save editor, Team creator,
-│       │                             #   Ruleset editor)
 │       ├── music_export/             # (Phase 10) .4ccm music export format: parse/write + condition model
 │       ├── audio_engine/             # (Phase 10) Audio playback (kira/symphonia) + loudness analysis (ebur128)
 │       └── match_feed/               # (Phase 11) Live match event feed (match tracker → music player)

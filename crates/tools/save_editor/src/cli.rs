@@ -1,4 +1,4 @@
-//! The `save-editor` command line (`plans/save_editor.md` "CLI"): the batch surface for the
+//! The `save-editor` command line (`spec/save_editor.md` "CLI"): the batch surface for the
 //! operations the cups script. Every command reads an explicit save; a refusal (a bad
 //! argument, an unreadable file, a team the save lacks) comes before anything is written.
 
@@ -572,7 +572,7 @@ fn parse_teams(text: &str) -> Result<Vec<u32>, String> {
     Ok(ids)
 }
 
-/// `strip-and-seed`: the seed, then the strip, in the plan's order (`plans/save_editor.md`
+/// `strip-and-seed`: the seed, then the strip, in the plan's order (`spec/save_editor.md`
 /// "Stripped save"): a refusal of the save or of `--bins` writes nothing, and an
 /// unwritable `--bins-out` leaves `--out` unwritten (a seeded CPK beside an unstripped save
 /// changes no look: the records still decide).
@@ -648,7 +648,7 @@ fn check_stripped(args: &CheckStrippedArgs, report: &mut Report) -> Result<(), C
 }
 
 /// Refuses a pre-Fox save (PES 15 to 17): stripping is not supported there; the database
-/// route is untested, and the aesthetics patch is their route (`plans/save_editor.md`
+/// route is untested, and the aesthetics patch is their route (`spec/save_editor.md`
 /// "Stripped save").
 fn refuse_pre_fox(version: PesVersion) -> Result<(), CliError> {
     match version.engine() {

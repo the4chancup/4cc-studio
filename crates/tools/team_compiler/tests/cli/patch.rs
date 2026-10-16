@@ -1,5 +1,5 @@
 //! The `aesthetics_patch.toml` `compile` writes to the output folder on a Fox target
-//! (`pes_savefile/operations.md` "Aesthetics patch"): every compiled player's resolved
+//! (`spec/pes_savefile/operations.md` "Aesthetics patch"): every compiled player's resolved
 //! motions, a `write_names` export's names, the `.bak` an earlier patch is moved to when the
 //! run holds none, and `patch_write_failed` aborting the run.
 

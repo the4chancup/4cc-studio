@@ -48,7 +48,7 @@ static C runtime, Phase 5's code): 30.8 MiB, up from 17.1 MiB on 2026-10-02 (Pha
 growth is features, not an accident (`cargo bloat`, crate by crate): `rhai` and the `aatf` crate
 2.6 MiB of code, the Phase 4 and 5 crates (the Team compiler's later steps, `pes_savefile`,
 `pes_model`, `model_convert`, the Save editor, the image formats) about 5 MiB, and read-only data
-from 5.4 to 10.9 MiB (embedded files 4.7 MiB of it: the referee templates about 3 MiB, the kit
+from 5.4 to 10.9 MiB (embedded files about 4.2 MiB of it: the referee templates about 3 MiB, the kit
 bins, the help chapters and the AATF sample team). The release profile stays the default:
 `panic = "abort"` would cut the unwinding tables, but the GUI reports a compile thread's panic
 instead of closing, and LTO trades longer builds for size. The one cut taken is `rhai`'s

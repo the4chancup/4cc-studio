@@ -2,7 +2,7 @@
 //! Team compiler's aesthetics patch, the teams list), transplanted and compared.
 //!
 //! `Tool` registers the tool with the shell: its settings section, its help chapter and its
-//! `save-editor` command line (`plans/save_editor.md` "CLI"). The window is a later phase's;
+//! `save-editor` command line (`spec/save_editor.md` "CLI"). The window is a later phase's;
 //! until then `view` shows a placeholder line. `pes_savefile` owns every byte and every
 //! operation on the model; this crate owns the session (the file that is open) and the
 //! command line over it.

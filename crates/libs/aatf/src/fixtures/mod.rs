@@ -1,4 +1,4 @@
-//! The per-ruleset fixtures (`aatf_rules.md` "Development phase and
+//! The per-ruleset fixtures (`spec/aatf_rules.md` "Development phase and
 //! verification"): a known-legal team reports nothing, and each
 //! known-violating fixture, a real team changed in its test by the
 //! smallest edit that breaks one rule, reports exactly that rule's

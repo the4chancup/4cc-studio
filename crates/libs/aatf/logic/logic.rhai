@@ -1,8 +1,8 @@
 // ==== LOGIC (ruleset-logic 1): written by 4cc Studio; the Ruleset editor replaces this section ====
 // The generic interpreter: it reads the RULESET map above over the Team and Player values the
 // host registers (the script API is listed in 4cc Studio's aatf crate doc) and reports each
-// violation as a map the host converts. The rules it applies are described in the plan
-// (aatf_rules.md "How a player is read", "The card economy", "The interpreter").
+// violation as a map the host converts. The rules it applies are described in the spec
+// (spec/aatf_rules.md "How a player is read", "The card economy", "The interpreter").
 //
 // Rhai copies every argument of a call except a method call's receiver (`this`), so the
 // functions that read the ruleset are written as methods on it (`rules.read_player(...)`),

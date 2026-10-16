@@ -63,7 +63,7 @@ pub(crate) fn locate(
     }
 }
 
-/// The save editor's `refuse_while_running` rule (`save_editor.md` "Writing a save"): only
+/// The save editor's `refuse_while_running` rule (`spec/save_editor.md` "Writing a save"): only
 /// the target version's game counts: another version's never writes this save back.
 fn target_running(running: &[RunningPes], version: PesVersion) -> bool {
     running.iter().any(|game| game.version == version)

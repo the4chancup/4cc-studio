@@ -30,8 +30,8 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
 - **Settings completeness**: for every version, each player field in the schema tables is
   marked `settings`, `compiler_owned` or `gameplay` (an `Ownership` match with no wildcard
   arm), the `settings` set equals `PlayerSettings`' fields, and every bit of the appearance
-  block has exactly one carrier — a `PlayerField` row, an `INGAME_FACE_FIELDS` row, or
-  `[appearance.unknown]` `face` — with none of it `gameplay`; the generated template contains
+  block has exactly one carrier — a `PlayerField` row, an `INGAME_FACE_FIELDS` row, or an
+  `UNUSED_FACE_BITS` row — with none of it `gameplay`; the generated template contains
   every `PlayerSettings` key (a commented line for each unset
   one; `boots_id`/`gloves_id` as `""`, which parses back to unset).
 - **Cross-implementation parity**: field values must match 4ccEditor's for the same save. The
@@ -52,8 +52,14 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
   ctypes offsets held as literals in the golden test (the fields PES 19's schema lacks are a
   literal list and must be absent); a `.4ccs` read against a team whose roster order differs from
   its record order puts each record on its own player's slot; the `.4cct` fixture's tactics equal the schema codec's for
-  the same team; Texport `from_bytes` → `to_bytes` is byte-identical on the real 17, 18, 19,
+  the same team; Texport `from_bytes` → `to_bytes` is byte-identical on the real 16, 17, 18, 19,
   20 and 21 fixtures and the whole tactics and every player record equal what the schema codec reads at
   the golden's literal offsets; `apply` refuses, before any write, a value wider than the target
   version's field, a text the target's field cannot encode or hold, and a NUL; the 18/19/20/21
-  key indices and layouts are measured, 15/16's are the reference's.
+  key indices and layouts are measured, the 16/17 payload offsets measured on 46 real files and
+  PES 15's taken as 16's, unverified.
+- **Patch equivalence**: compiling a fixture export against a save, and compiling it without a
+  save then applying the produced patch to a copy of that save, yield byte-identical savefiles.
+  Held by construction: the compiler has no second savefile write path, so the local apply and a
+  later `apply-patch` of the written file are the same `AestheticsPatch::apply` over the same
+  patch (`team_compiler/src/output/savefile.rs`).

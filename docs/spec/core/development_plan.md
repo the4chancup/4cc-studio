@@ -9,7 +9,7 @@ fixtures or reference outputs); the tools follow, each bringing the consumer-sha
 first to need. Each phase's detailed specification lives in the corresponding plan document: phase
 2 in [libs](../libs/README.md)/[model conversion](../model_conversion/README.md)/[savefile](../pes_savefile/README.md), phases
 3–4 in [team compiler](../team_compiler/README.md), phase 5 in [savefile](../pes_savefile/README.md)/[save
-editor](../../plans/save_editor.md)/[AATF rules](../../plans/aatf_rules.md), phase 6 in [export upgrader](../../plans/export_upgrader.md), phase 7 in [model
+editor](../save_editor.md)/[AATF rules](../aatf_rules.md), phase 6 in [export upgrader](../../plans/export_upgrader.md), phase 7 in [model
 conversion](../model_conversion/README.md), phase 9 in [stadium compiler](../../plans/stadium_compiler.md), phase 10 in
 [music player](../../plans/music_player.md)/[music export editor](../../plans/music_export_editor.md), phase 11 in [match
 tracker](../../plans/match_tracker/README.md), phase 12 in [kit config editor](../../plans/kit_config_editor.md), phase 13 in [refs
@@ -360,3 +360,43 @@ acceptance 421 scenarios, 366 proven (the 55 unproven are the save editor's and 
 compiler's Phase 5 scenarios, written ahead). Deferred: the parity gate over upgraded old
 exports, compiled and compared with Red's output (nested CPK contents, bins; auto-assigned IDs
 aside), which needs Phase 5's savefile and ID integration and Phase 6's Export upgrader.
+
+### Phase 5: Savefile integration (`tools/save_editor` logic, `libs/aatf`, Team compiler savefile writing)
+
+`pes_savefile` exists since Phase 2; this phase wires it into its two consumers.
+
+- Savefile writing in the Team compiler (`output/savefile.rs`), Fox first. The resolved settings
+  become, on Fox, each compiled player's appearance table rows (Phase 4's `bins/`, whose boots
+  and gloves rows are set only for committed outputs), the default-ID rows (`plan/item_rows.rs`,
+  where a folder's `fpc_on`/`fpc_off` marker picks the hide preset's ID or 0), and an aesthetics
+  patch of motions and a `write_names` export's names, which depend on no asset; the patch is
+  written beside the output and applied to the local save. The pre-Fox patch ("Player settings
+  in exports" in the Aesthetics export plan), the one whose boots and gloves IDs need
+  commit-conditioned mutations, is deferred with pre-Fox's other gaps until the cup next plays a
+  pre-Fox version (worklog issue). The allocation scheme is fixed (40-ID per-team blocks — see
+  the Team compiler plan).
+- `libs/aatf`: the ruleset schema and its load-time validation, the generic Rhai interpreter, the
+  host and `apply_tier`, logic identity, and the Autumn 26, Autumn 25, Spring 26, VGL25, VGL26,
+  VGL27, VTL10 and VTL11 rulesets as data with their fixtures ([AATF rules](../aatf_rules.md),
+  "Development phase and verification").
+- The Save editor tool crate's non-GUI substance that a command drives: settings, the CLI, and
+  the `session/` operations its commands run over `pes_savefile` (Team TOML export and import,
+  the aesthetics patch, AATF checks, comparator, transplant, strip and seed with the
+  restored-id check, the teams list export; [Save editor](../save_editor.md), "CLI"). The
+  wiring only the view drives (editing with its undo stack, selection, recent files, tactics,
+  the FPC toggle, AATF quick actions) is Phase 8's, each piece in the slice of the view that
+  uses it: built earlier, it would be a layer with no consumer, its shape guessed before the
+  view that decides it.
+
+**Verification (done):** the Team compiler's savefile stage against a whole fixture save
+(`tests/fixture_save.rs`, through `pes_savefile`'s `test-support` feature); the AATF rulesets'
+fixtures (known-legal and known-violating teams, `apply_tier` then check); the Save editor's CLI
+on fixture saves, every SE scenario cited by a test. In game on PES 21 (worklog 5.5): a stripped
+and seeded save shows the sampled players as before; a compiled team's rows show; an
+`ingame_face` player whose file sets none of the face and hair keys renders the default face
+(without the marker a folder with no face model gets the blank face, no head;
+`aesthetics_export/settings_toml.md`, the ingame-face run's rules). The gloves half waits on a
+FoxDen change that keeps the table's value (worklog issue). Converge ran a whole-crate mutation
+run and a Clef scan over `pes_savefile`, `aatf`, `save_editor`, `studio_core`,
+`aesthetics_export` and `team_compiler`, every survivor and flag ruled, and a census of every
+save, `.ted` and editor file and every player table on the maintainer's machine.

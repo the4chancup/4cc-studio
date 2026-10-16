@@ -215,7 +215,7 @@ respectively).
 The payload's other sections (manager entries, competitions, stadium names, the kit entry
 table, the competition-entry lists) and the bytes inside these five records that no field
 covers are retained and written back as read; what they hold, with their offsets per version,
-is in `plans/pes_savefile/model.md` "Unmodeled payload sections".
+is in `spec/pes_savefile/model.md` "Unmodeled payload sections".
 
 Structural eras:
 

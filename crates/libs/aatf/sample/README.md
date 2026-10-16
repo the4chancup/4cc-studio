@@ -1,6 +1,6 @@
 # The sample team
 
-`team.toml` is the team load step 3 runs a rules file's `check_team` on (`aatf_rules.md`
+`team.toml` is the team load step 3 runs a rules file's `check_team` on (`spec/aatf_rules.md`
 "Loading and validation"): what it reports does not matter, only that the logic and the custom
 checks run on a real team without a script error.
 

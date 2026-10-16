@@ -32,7 +32,8 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │   ├── studio_core/                  # Platform: app shell, tool trait, settings framework,
 │   │                                 #   common widgets (grid, log panel), PipelineEvent types
 │   ├── tools/
-│   │   └── team_compiler/            # Team compiler (pipeline, loaded processing model, packing, GUI)
+│   │   ├── team_compiler/            # Team compiler (pipeline, loaded processing model, packing, GUI)
+│   │   └── save_editor/              # Save editor: settings, the CLI and the session its commands drive
 │   └── libs/
 │       ├── pes_savefile/             # EDIT file codec: crypto, schema tables, player/team/
 │       │                             #   tactics model, interchange formats (Team TOML, Texport,
@@ -75,8 +76,8 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       │                             #   Python; the wheel is built separately via maturin, `studio`
 │       │                             #   never links it
 │       ├── kit_config/               # Kit config codec: binary ↔ TOML, validation (applies fpc values)
-│       ├── aatf/                     # (Phase 5, in progress) AATF rules: the ruleset schema as
-│       │                             #   data, the Rhai engine, the TeamView/PlayerView host
+│       ├── aatf/                     # AATF rules: the ruleset schema as data, the Rhai engine
+│       │                             #   and interpreter, the TeamView/PlayerView host, apply_tier
 │       └── fpc/                      # Full Player Customization as data: kit values, player presets,
 │                                     #   interference rules — leaf crate shared by kit_config,
 │                                     #   pes_savefile, and the tools that surface FPC
@@ -174,7 +175,7 @@ The small tools (Kit config editor, Refs arranger, Balls compiler, Export upgrad
 aesthetics editor, Music player, Music export editor) add their logic as flat modules next to these
 (`compile.rs`, `arrange.rs`, …) and need no further prescription. The two flagship tools and the
 Match tracker elaborate below the skeleton; their trees are in their own plans ("Crate layout" in
-the [Team compiler](../team_compiler/README.md), [Save editor](../../plans/save_editor.md), and [Match
+the [Team compiler](../team_compiler/README.md), [Save editor](../save_editor.md), and [Match
 tracker](../../plans/match_tracker/README.md) plans). Lib crates with a mandated layout are `pes_savefile`,
 `model_convert`, and `aesthetics_export` (in their plans) plus the `format/`–`ops/` split of `fmdl` and
 `pes_model` (in [libs](../libs/README.md)); the remaining libs are single-concern and get no prescription.

@@ -2,7 +2,7 @@
 //! rows (the one place these offsets appear), and the run's measured-unused
 //! bits. The offsets are the appearance block's bytes 22 onward, relative to
 //! the run's first byte. Every bit was measured in the games
-//! (`plans/pes_savefile/model.md`, "The ingame-face run, decoded").
+//! (`spec/pes_savefile/model.md`, "The ingame-face run").
 
 use pes_version::PesVersion;
 

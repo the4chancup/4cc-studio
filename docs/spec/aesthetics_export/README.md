@@ -20,5 +20,5 @@ single-file plan.
 |---|---|
 | [Object model](object_model.md) | Object Model |
 | [Player folders](player_folders.md) | Player folders (the Studio export format) |
-| [settings.toml](../../plans/aesthetics_export/settings_toml.md) | Player settings in exports (settings.toml) |
+| [settings.toml](settings_toml.md) | Player settings in exports (settings.toml) |
 | [FPC toggle](fpc_toggle.md) | FPC toggle (`fpc_on` / `fpc_off` marker files) |

@@ -2,7 +2,7 @@ use super::*;
 
 // The TOML half: the template, the parser's errors, `update_toml`.
 
-/// The key-table block of `docs/plans/aesthetics_export/settings_toml.md`,
+/// The key-table block of `docs/spec/aesthetics_export/settings_toml.md`,
 /// verbatim: `to_toml` of the settings the block parses to must reproduce
 /// it byte for byte.
 const PLAN_BLOCK: &str = r#"# settings.toml, inside a player folder. Every key is optional: an absent key takes the
