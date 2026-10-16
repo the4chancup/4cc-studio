@@ -124,7 +124,9 @@ fn apply_tier_then_check_reports_nothing_for_every_tier() {
 /// `card_limits` reports each tier's `a_positions` (one for every
 /// tier), and the goalkeeper's own numbers: the file's two paid cards
 /// (the limit, his one A fitting the one allowance — no deduction), no
-/// `free` group at all, and `tier_values`' weak foot 2/2.
+/// `free` group at all, and `tier_values`' weak foot 2/2. A manlet
+/// regular (slot 3) reads the "Manlets" special's raises: two A
+/// positions and four paid.
 #[test]
 fn card_limits_and_tier_values_report_the_tiers_values() {
     let rules = rules();
@@ -149,6 +151,13 @@ fn card_limits_and_tier_values_report_the_tiers_values() {
         .tier_values(&team, team.player(0).expect("slot 0"), "goalkeeper")
         .expect("values");
     assert_eq!((values.weak_foot.usage, values.weak_foot.accuracy), (2, 2));
+    // Slot 3 is a manlet (175 cm, the manlet bracket) and a regular
+    // (the 77 rate): the "Manlets" special's +1 A position and +1 paid
+    // card show in his limits — two and four, his one A inside them.
+    let manlet = player(&team, 3);
+    assert_eq!(manlet.height, 175);
+    let limits = rules.card_limits(&team, manlet, "regular").expect("limits");
+    assert_eq!((limits.a_positions, limits.limit), (2, 4));
 }
 
 /// Under the Red system the manlet bonus is for regulars and

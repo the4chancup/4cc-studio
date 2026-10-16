@@ -55,7 +55,8 @@ paid skill cards, each extra A position counting as one; B ratings allowed only 
 at CB, which also count toward the A-position allowance, and an A at CB forbidden for them; medals'
 names required to carry a gold or silver colour code and other players' forbidden to; at most two
 registered positions among the 188 cm players, no 180 cm player sharing one (by user decision a
-custom check, not schema); the skill card limit raised to 11 on every version (PES 21 loads
+custom check, not schema; as the cup's checker does, "one" is the first two such positions in
+roster order, since a third is already the too-many error); the skill card limit raised to 11 on every version (PES 21 loads
 more than the game's 10); two warnings for a player rated A at CF, whose playing style the
 league's exe treats differently there (a Goal Poacher's does not take effect, a Creative
 Playmaker's does); and, on PES 16
