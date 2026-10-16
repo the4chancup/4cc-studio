@@ -60,6 +60,7 @@ mutants-diff base="HEAD":
 extra-mutants crate *args:
     {{python}} scripts/extra_mutants.py {{crate}} {{args}}
 
+# Retired from every review (CONTRIBUTING.md "Clef scan"); kept for re-measuring a model.
 # Clef bug scan of the production lines changed since `base`; report in clef.out/report.md
 clef-diff base="HEAD":
     {{python}} scripts/clef_scan.py diff {{base}}

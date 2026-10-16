@@ -2073,3 +2073,6 @@ worklog passed 7,000 lines.
 - **2026-10-16** — 5.6e move: Phase 5's sections moved to the spec (`aatf_rules.md`, `save_editor.md`
   with its message catalog, `settings_toml.md`, the rest merged), corrected to the code, every
   pointer repointed; the second whole-crate mutation runs started.
+- **2026-10-17** — The Clef scan retired (maintainer); SubQ Snap, measured as its successor, best on
+  mutation-style slips but at chance on 111 real pre-fix/post-fix pairs, replaces nothing
+  (`DECISIONS.md`; reviews are sized before briefing, RUNBOOK "Review rounds").

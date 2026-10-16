@@ -8174,3 +8174,25 @@ one path, and it reads the Western code pages' accented letters as they were mea
 Save editor rewrites would carry such a name back in UTF-8; the bins CPK it rewrites holds none.
 Plan: no plan edit needed: no plan or spec section describes the CPK reader's strings; the
 crate's docs carry the rule.
+
+## 2026-10-17 — review process — the Clef scan is retired, and SubQ Snap does not replace it
+Decision (maintainer): the Clef scan leaves every review, the phase close's design-health pass
+included; `scripts/clef_scan.py`, `scripts/clef_rulings.md` and the `just clef*` recipes stay
+for re-measuring a model. No decision model takes its place yet.
+Why: 88 ruled flags held two real defects, both scored below every flag at 0.80 or above, and
+Phase 5's close pass raised 22 flags, all false; each flag cost the lead a reading. The
+successor measured first, SubQ Snap (Subquadratic, public preview from 2026-10-12, 384K-token
+window, $0.05 per million input tokens), separates one-line mutation-style slips better than
+Clef (AUC 0.92 against 0.84 over 732 pairs; 254 against 150 caught with at most 10 clean
+windows flagged) but not real defects: over 111 pairs from 63 of the project's fix commits
+(the code before the fix against the code after) its AUC is 0.50 on the window, 0.51 on the
+whole file and 0.50 with the spec sections the file cites (0.56 asked whether the code
+contradicts those sections, 40 pairs), and Clef's is 0.51 on the window. On a whole-workspace
+scan (1,512 windows at 53abc6f) the windows it scores highest were less often ones a later fix
+changed (top 50: 10%) than windows overall (13%). A slip of the kind it catches breaks a
+test, which the mutation runs already measure. As a pre-ruler of reviewer concerns it reaches
+AUC 0.91 on 66 Phase 5 concerns, but the reviewer's own "edge case" mark alone reaches 0.875,
+and what Snap adds reads the reviewer's hedging words; the lead still reads every concern, so
+it saves nothing.
+Plan: `CONTRIBUTING.md` "Clef scan"; `AGENTS.md` (converge's design-health pass, the sweeps).
+The evaluation is outside the repository (`SystemOne/jev-eval/round3/RESULTS.md` "Round 4").

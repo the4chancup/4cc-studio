@@ -170,7 +170,7 @@ only CI saw), `just acceptance strict` (the scanner's converge mode, under "Requ
 also runs), `just bindings` (the `maturin` build of `python_bindings`), `just release <version>`
 (arrives with release 0.1.0, `core/development_plan.md` "Release 0.1.0"), `just
 mutants <crate>`, `just mutants-collect` and `just mutants-diff [base]` (the mutation runs,
-below), `just clef-diff [base]` and `just clef <crate>` (the Clef scan, below). `just --list` shows
+below). `just --list` shows
 them with a one-line description each.
 
 On Windows every binary `cargo test`, `run` or `bench` launches goes through
@@ -315,40 +315,24 @@ Requirements:
   refuses an input the standard library would accept (a leading `+`, which `u8::from_str`
   takes) still gets a test of its own when written: no run will ask for it (the color grammar
   had none, with all its mutants caught; S10's review, 2026-10-09).
-- **Clef scan.** The sweeps find what a pattern can see and the mutation runs what a missing
-  test lets through; a logic slip in code its own tests agree with needs a reader. `just
-  clef-diff [base]` asks Cloudflare's Clef decision model (27B, hosted on Workers AI) whether
-  each 60-line window around the production lines changed since `base` contains a bug, flags a
-  window at P >= 0.7 and lists its three likeliest lines (`clef.out/report.md`, gitignored);
-  `just clef <crate>` (or `all`) does the same over a crate's whole production code. Measured
-  on 2026-10-06 (`DECISIONS.md`): 19 of 21 one-edit defects injected into real windows caught,
-  1 of 21 unmodified windows and 2 of 64 reviewed hunks flagged; with the scan's own windows,
-  five reviewed commits gave 10 flagged windows of 203, all on the code a later fix changed
-  (the report merges overlapping flagged windows, here into three flags); re-checked at Phase 4's
-  converge (`DECISIONS.md` 2026-10-09): of 66 ruled flags two were real, at 0.71 and 0.77, and the
-  ten highest windows under 0.7 all false, so 0.7 stays. It does not see a
-  defect whose evidence is in another file or in the plan, and test code (a `tests/` folder,
-  `tests.rs`, a module declared under `#[cfg(test)]` in a file of its own, the inline
-  `#[cfg(test)] mod … {}`) is not scanned. The windows are positional,
-  not cut to whole functions: function-sized windows lost context and did worse (15 of 21
-  caught, AUC 0.87 against 0.98). It runs only at a phase's close, never as a gate (it
-  needs the network and a token): `just clef <crate>` over each of the phase's crates at
-  converge. A step's review does not run it: over 32 reviewed code commits after the first
-  whole-crate pass, `just clef-diff` flagged seven windows, all false, while that pass found
-  the one real bug; `clef-diff` stays for a diff the lead wants read. The lead runs it,
-  not the sidekick. Each flag is ruled like a reviewer concern: accepted (the fix goes into the
-  rework brief) or rejected with a one-line reason, and its row (the report prints it) goes into
-  `scripts/clef_rulings.md`, so a ruled flag is not raised again while its code is unchanged,
-  and the rulings are the data the threshold is re-checked against. The token comes from
-  `CLOUDFLARE_API_TOKEN`, or from the file `STUDIO_CLEF_TOKEN_FILE` names, outside the
-  repository, one token per line, used in order: the first is the maintainer's free-tier
-  account, which allows 10,000 neurons a UTC day (about 450K tokens, some thirty step diffs)
-  and is used first on purpose to contain costs; the second is the paid plan, with no daily
-  cap. A token that reaches its allocation (error 4006 on the first token is the expected
-  case) is skipped for the rest of the day and the next one takes over. When every token is spent, the
-  scan is queued with the code as it is then and the run exits 0 saying `QUEUED`: the work goes
-  on without Clef, and the first scan after the UTC date changes runs the queue first, its flags
-  ruled like any others.
+- **Clef scan (retired 2026-10-17).** A decision model asked whether each 60-line window of
+  production code holds a bug (`scripts/clef_scan.py`, `just clef <crate>` and `just
+  clef-diff [base]`, Cloudflare's Clef, flags at P >= 0.7, rulings in
+  `scripts/clef_rulings.md`) ran at every phase close from 2026-10-06 and is no longer part of
+  any review. Over 88 ruled flags two were real (a version-gated flag, 4.c-fix1; a memory
+  charge released early, 4.y), both scored below every flag at 0.80 or above, and Phase 5's
+  close pass raised 22, all false; the cost was the lead's reading of every flag. Its
+  successor candidate was measured before anything replaced it (2026-10-17, outside the
+  repository, in the maintainer's `SystemOne/jev-eval/round3` folder, its results' Round 4):
+  SubQ Snap, a decision model with a 384K-token window, catches one-line slips of the
+  mutation-run kind far better (AUC 0.92 against 0.84 over 732 pairs), but on 111 real
+  defects from the project's fix commits
+  it scores the code before each fix no higher than the code after (AUC 0.50 for the window,
+  the whole file, and the file with the spec sections it cites), and its highest windows on
+  real code were less often ones a later fix changed than windows overall. The slips it does
+  catch are the kind a test catches, which the mutation runs already measure. A scan comes
+  back only with a model that separates real pre-fix code from fixed code on that history set
+  (`build_history.py` there rebuilds it from any list of fix commits).
 
 ## Dependencies
 

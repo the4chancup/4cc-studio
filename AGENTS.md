@@ -50,8 +50,7 @@ phase) is not a gap and stays in the plan. The lead's audit ends with a **design
 over the phase's crates, separate from requirements coverage: the design-tell sweep (below) run
 over the whole phase's code rather than one diff, `just mutants <crate>` (the extra mutant
 kinds included) run over each crate with every survivor triaged (`CONTRIBUTING.md` "Mutation
-runs"), `just clef <crate>` over each crate
-with every flag ruled (`CONTRIBUTING.md` "Clef scan"), and every `pub` item listed with the
+runs"), and every `pub` item listed with the
 consumer that justifies it (a crate, the CLI, the bindings, or a plan section naming one). A crate
 that reads a file format also gets a **census**: every file of that format on the maintainer's
 machine (found through the Everything index, archives opened) run through read, the semantic
@@ -132,16 +131,9 @@ third check and the only one that is a measurement rather than a reading: each s
 assertion the sweeps cannot see because it was never written (the `kit_config` probe found
 twenty such gaps in a crate that had passed both sweeps, converge and the cross-family
 reviewer), and every survivor is triaged per `CONTRIBUTING.md` "Mutation runs" before the
-diff lands, the missing tests going into the rework brief. The **Clef scan** (`just clef
-<crate>`, `CONTRIBUTING.md` "Clef scan") is not part of a step's review: a decision model's
-read of each 60-line window for a bug, aimed at the logic slips that match no sweep pattern
-and break no test the sidekick wrote, it runs over each of a phase's crates at the phase's
-close (the design-health pass, above). Per-diff scans were dropped after 4.14c2: over 32
-reviewed code commits they flagged seven windows, all false, while the first whole-crate pass
-found the one real bug. The lead runs it and rules each flag like a reviewer concern
-(accepted into the rework brief, or rejected with one line in `scripts/clef_rulings.md`), and
-a flag never reaches the sidekick unruled, because a sidekick handed raw flags "fixes" the
-false ones. Each sweep item is a
+diff lands, the missing tests going into the rework brief. A decision model's bug scan of
+each 60-line window (the Clef scan) is retired: `CONTRIBUTING.md` "Clef scan" says why and
+what a successor must show first. Each sweep item is a
 `CONTRIBUTING.md` rule; the sweeps exist because a rule nobody greps for is a rule the review
 applies only when it happens to notice. When a review finds slop
 neither list names, the fix is a new entry here or in `CONTRIBUTING.md`, not a longer review:

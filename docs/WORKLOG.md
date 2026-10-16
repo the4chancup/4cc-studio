@@ -1385,7 +1385,7 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
     `select`'s skip follows its entry past an unload. SWE-2, first attempt, red runs pasted.
     Files: `src/{resolve,select,lib}.rs`
   - [ ] 10.0e the plan's "Model" section extended with `Verdict`, `MatchState`, `PriorityList` as
-    built; `just mutants music_export`, `just clef music_export`, each survivor and flag ruled
+    built; `just mutants music_export`, each survivor triaged
 
 ### Phase 16 — Polish and distribution
 
