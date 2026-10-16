@@ -238,3 +238,25 @@ since 2026-10-09 the lead runs the `duck` skill itself for every scheduled criti
 five-hour quota holds five or six reviews (the weekly one about forty): a call stopped for quota
 puts the review on the worklog's "Handover" queue, the lead retries once an hour, and a working
 call runs the queue until the next stop; the work in between continues.
+
+**A review is sized before it is briefed.** Every plan's quota (Devin's, Codex's, Claude's) is
+a fixed amount of API-priced dollars shown as a percentage, so a review costs what its tokens
+cost. Each request resends the whole context, so a review costs about its requests times its
+average context, and GPT-6 Astra charges the whole of any request whose prompt passes 272K
+tokens at twice its input rates (output 1.5x). Measured over the 34 Devin-route Astra exports
+to 2026-10-16 (`.tmp/astra_cost/long_context.py`): a typical review peaks at 150-220K over about
+55 requests and costs $7-11 at API prices; only four crossed 272K, adding 5% to the total; one
+of them (`CP_a1`) reached 426K in 19 requests by reading large files whole. So the surcharge
+is not what to design around; the context's size is. The lead estimates a surface as the bytes
+it reads divided by four, plus about 30K for the brief, the rules and the guidelines, and:
+
+- over about 200K, splits it along the code's own boundaries (one crate; a format crate's
+  `format/`, `ops/` and `check.rs`; each with its plan sections), one brief per part, never
+  through the middle of a module: what a split loses is the concern that needs both parts in
+  view (two modules disagreeing, one rule applied two ways, a plan section the other part
+  contradicts), and a boundary the code already draws keeps nearly all of those;
+- for a converge audit split by crate, adds a short third brief over what crosses the parts
+  (the shared types, the plan's cross-references), given as pointers;
+- in every brief, has the reviewer read large files (fixtures, generated tables, a spec file
+  past about 1,000 lines) by range or search, not whole;
+- under about 200K does not split: two parts repeat the fixed reading and save nothing.
