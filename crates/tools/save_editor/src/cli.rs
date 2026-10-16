@@ -929,4 +929,27 @@ mod tests {
             assert!(parse(&bad).is_err(), "{bad:?}");
         }
     }
+
+    #[test]
+    fn a_command_is_required() {
+        // A bare `save-editor` is a usage refusal: the parse fails before a command runs,
+        // so nothing is written.
+        let error = command().try_get_matches_from(["save-editor"]).unwrap_err();
+        assert_eq!(error.exit_code(), 2);
+        assert_eq!(
+            error.to_string().lines().next().unwrap(),
+            "error: 'save-editor' requires a subcommand but one was not provided"
+        );
+    }
+
+    #[test]
+    fn parse_teams_trims_around_items_and_range_ends() {
+        assert_eq!(
+            parse_teams(" 701 , 705 - 707 ").unwrap(),
+            vec![701, 705, 706, 707]
+        );
+        assert_eq!(parse_teams("701, 702").unwrap(), vec![701, 702]);
+        assert_eq!(parse_teams("705 -707").unwrap(), vec![705, 706, 707]);
+        assert_eq!(parse_teams("705- 707").unwrap(), vec![705, 706, 707]);
+    }
 }

@@ -91,6 +91,12 @@ fn each_selection_form_copies_its_targets_look_and_nothing_else() {
         assert_eq!(moved.edit_flags.face, from.edit_flags.face, "{target}");
         assert_eq!(moved.appearance_id, Some(target), "{target}: his own id");
     }
+
+    // Spaces around the commas are trimmed from each item, so the same selection written
+    // with them produces the same save.
+    let run = sandbox.transplant("DONOR", "EDIT", "OUT2", "70105, 70107:70207, 703, 704-705");
+    assert_eq!(run.exit_code(), 0, "{:?}", run.messages());
+    assert_eq!(payload(&sandbox.path("OUT2")), expected);
 }
 
 // SE-TRN-02
