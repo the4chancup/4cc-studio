@@ -123,8 +123,8 @@ mod tests {
     // 0 auto threads, 80.0, the update check) and `spec/core/distribution.md`'s
     // "Update state" table (`check_for_updates` true, `check_interval_hours` 24,
     // `last_update_check` and `skipped_version` empty). `theme` is the dark
-    // preset per `plans/core/gui.md` "Other UI components", `last_tool` empty
-    // on a first run.
+    // preset, the default the GUI phase plans, `last_tool` empty on a first
+    // run.
     #[test]
     fn the_defaults_match_the_settings_tables() {
         // `pes_folder_path` is the shipped pattern on Windows and empty
