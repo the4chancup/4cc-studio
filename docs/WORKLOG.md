@@ -1305,7 +1305,16 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     files and the bit coverage done 2026-10-15 (`.tmp/5_6/audit_notes.md` "Save census": 189
     real files round-trip, bit coverage clean; the 15-17 texport reader fixed and re-censused)
     - [ ] 5.6c1 the installed Fox player tables: every installed PES 18-21 CPK's player table
-      through `PlayerTableFile` (read, round trip), tallied by outcome
+      through `PlayerTableFile` (read, round trip), tallied by outcome. Census run 2026-10-16
+      over every CPK and loose table on the machine (`.tmp/5_6/player_table_census/`: 7,678
+      CPKs, 215 with tables, 103 distinct tables): every game, PES 15 to 21, ships its boots
+      and gloves lists WESYS-wrapped, which `read` took as rows (PES 2020's boots list read
+      as garbage, no error); unwrapped, all 103 round-trip byte for byte and sit at the path
+      the tools look up. Open: `read` unwraps (decision of 2026-10-16), then the census re-run
+    - [ ] 5.6c2 a CPK name that is not UTF-8: the same census found a cup's PES 2016 stadium
+      pack (`download_vgl7/4cc_30_stadiums.cpk`) refused whole over one file name in a
+      Windows code page, which stops a Team compiler run on its install; read as Latin-1
+      (decision of 2026-10-16), then the census re-run
   - [x] 5.6d the cross-family converge reviews, one surface per large crate. Done 2026-10-16
     (every surface's SWE-2 and Astra loops ended; rulings `.tmp/5_6/review/duck_rulings.md`)
   - [ ] 5.6e close: the second whole-crate runs, plans moved to the spec (the Save editor's

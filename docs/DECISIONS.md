@@ -8149,3 +8149,28 @@ folder. `indicatif` over a hand-written line because terminal width, the Windows
 draw-rate cap are already solved there, for a size cost under 0.5 % of the binary.
 Plan: `plans/core/architecture.md` "Event system" (the console's progress line and run summary),
 `plans/core/development_plan.md` "Phase 8: GUI", `plans/core/README.md` "External Dependencies".
+
+## 2026-10-16 — pes_savefile — a player table is read as a CPK stores it, WESYS-wrapped or not
+Decision: `PlayerTable::read` unwraps WESYS-wrapped bytes before reading rows (a stream that does
+not unwrap is an error naming the table); `to_bytes` stays unwrapped.
+Why: the census of every player table on the machine (worklog 5.6c1) found every game, PES 15 to
+21, shipping its `BootsList.bin` and `GloveList.bin` wrapped; read as rows, PES 2020's wrapped
+boots list is a whole number of pairs and reads as garbage with no error, and the Save editor's
+`--bins` reads tables with no unwrap of its own (the Team compiler's walk unwraps every bin
+first). The unwrap in the lib, not in each tool, because one rule in the reader holds for every
+caller, where a per-tool copy is the gap this one was. Written unwrapped because every cup copy
+is.
+Plan: `plans/pes_savefile/model.md` "The Fox player tables".
+
+## 2026-10-16 — cpk — a table string that is not UTF-8 is read as Latin-1, not refused
+Decision: a CPK's @UTF string (an entry's directory or file name) that is not valid UTF-8 is read
+byte for byte as Latin-1, and the archive opens; `CpkError::InvalidUtf8` goes.
+Why: the census of every CPK on the machine (worklog 5.6c2) found a cup's PES 2016 stadium pack
+(`4cc_30_stadiums.cpk`, VGL7) naming one leftover file `au_seat cópia.dds` in a Windows code
+page; refusing the archive stops a whole Team compiler run on such an install
+(`installed_bin_unreadable`, Fatal) over a file the game never loads. Latin-1, not U+FFFD
+replacement, because it maps each byte to its own character, so two such names never fold into
+one path, and it reads the Western code pages' accented letters as they were meant. A CPK the
+Save editor rewrites would carry such a name back in UTF-8; the bins CPK it rewrites holds none.
+Plan: no plan edit needed: no plan or spec section describes the CPK reader's strings; the
+crate's docs carry the rule.

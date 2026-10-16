@@ -31,8 +31,15 @@ travel in the database tables"), which stay open:
   the player id then the 56 appearance bytes), `BootsList.bin` and `GloveList.bin` ((player
   id, item ID) `u32` pairs), each read whole (a length that is not a whole number of rows is
   an error naming the table), edited by player id (set a row, remove a row) and written sorted
-  by player id. Every table the games and the cup's DLC ship is sorted with each id once (12
-  `PlayerAppearance.bin` files of PES 17 to 20 and the cup's `4cc_01`, measured 2026-10-14).
+  by player id. A table is read as a CPK stores it: WESYS-wrapped bytes are unwrapped first,
+  since every game, PES 15 to 21, ships its `BootsList.bin` and `GloveList.bin` wrapped
+  (its `PlayerAppearance.bin` and every cup copy plain), and wrapped bytes read as rows
+  refuse only by luck: PES 2020's wrapped boots list is a whole number of pairs and would
+  read as garbage (a stream that does not unwrap is an error naming the table).
+  The tables are written unwrapped, as the cup's copies are. Every table on the maintainer's
+  machine is, once unwrapped, sorted with each id once (103 distinct tables from 215 CPKs and
+  42 loose files, PES 15 to 21 installs, cup DLC and Studio's own output, censused 2026-10-16,
+  worklog 5.6c1).
   The Team compiler's bins step (its `BootsList`/`GloveList` editing moves here from
   `team_compiler::bins::player_tables`, its row-selection rules staying in the tool) and the
   Save editor's strip and seed edit the same tables, and a tool crate cannot call another's
