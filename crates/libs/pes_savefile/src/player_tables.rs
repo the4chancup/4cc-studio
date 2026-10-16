@@ -5,7 +5,9 @@
 //! `u32` pairs). Sorted by player id with each id once is what every game
 //! and cup copy of these tables measured holds (the twelve
 //! `PlayerAppearance.bin` files of PES 17 to 20 and the cup's `4cc_01`),
-//! which is why `to_bytes` sorts. The Team compiler's bins step and the
+//! which is why `to_bytes` sorts. Every game ships `BootsList.bin` and
+//! `GloveList.bin` WESYS-wrapped: `read` unwraps them, `to_bytes` writes
+//! them plain, as every cup copy is. The Team compiler's bins step and the
 //! Save editor's strip and seed edit the same tables.
 
 use std::collections::BTreeMap;
@@ -68,6 +70,14 @@ pub enum PlayerTableError {
         /// for `PlayerAppearance.bin`).
         unit: &'static str,
     },
+    /// The bytes carry the WESYS header but do not unwrap (a corrupt or truncated stream).
+    #[error("{file} is WESYS-wrapped and does not unwrap: {error}")]
+    Unwrap {
+        /// The table's file name.
+        file: &'static str,
+        /// What the unwrap reported.
+        error: wezlib::Error,
+    },
 }
 
 /// One table: per player id, the `VALUE` bytes after the id (56 for
@@ -97,8 +107,16 @@ impl<const VALUE: usize> PlayerTable<VALUE> {
 
     /// `bytes` as `file`'s (player id, `VALUE` bytes) rows; a length that is
     /// not a whole number of `4 + VALUE`-byte rows is `Length`, naming the
-    /// file.
+    /// file. `bytes` is the table as a CPK stores it, WESYS-wrapped or not:
+    /// the games ship `BootsList.bin` and `GloveList.bin` wrapped, so wrapped
+    /// bytes are unwrapped first and a stream that does not unwrap is
+    /// `Unwrap`.
     pub fn read(file: PlayerTableFile, bytes: &[u8]) -> Result<Self, PlayerTableError> {
+        let bytes =
+            wezlib::decompress_if_wrapped(bytes).map_err(|error| PlayerTableError::Unwrap {
+                file: file.file_name(),
+                error,
+            })?;
         let row = 4 + VALUE;
         if !bytes.len().is_multiple_of(row) {
             return Err(PlayerTableError::Length {
@@ -135,7 +153,8 @@ impl<const VALUE: usize> PlayerTable<VALUE> {
         self.rows.get(&player_id)
     }
 
-    /// The table's bytes: every row, sorted by player id.
+    /// The table's bytes: every row, sorted by player id, written unwrapped
+    /// as every cup copy is.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.rows
             .iter()
@@ -181,6 +200,49 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn a_wrapped_table_reads_as_its_payload() {
+        for (file, plain) in [
+            (
+                PlayerTableFile::BootsList,
+                bytes_of(&[(70201, [11, 0, 0, 0]), (71405, [0x71, 0x02, 0x00, 0x00])]),
+            ),
+            (
+                PlayerTableFile::PlayerAppearance,
+                bytes_of(&[(70201, [7; 56]), (71405, [9; 56])]),
+            ),
+        ] {
+            let wrapped = wezlib::compress(&plain);
+            match file {
+                PlayerTableFile::BootsList | PlayerTableFile::GloveList => {
+                    let table = ItemList::read(file, &wrapped).expect("reads");
+                    assert_eq!(table, ItemList::read(file, &plain).expect("reads"));
+                    assert_eq!(table.to_bytes(), plain, "{}", file.file_name());
+                }
+                PlayerTableFile::PlayerAppearance => {
+                    let table = AppearanceTable::read(file, &wrapped).expect("reads");
+                    assert_eq!(table, AppearanceTable::read(file, &plain).expect("reads"));
+                    assert_eq!(table.to_bytes(), plain, "{}", file.file_name());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_wrapped_table_that_does_not_unwrap_is_an_error_naming_the_file() {
+        let mut wrapped = wezlib::compress(&bytes_of(&[(70201, [11, 0, 0, 0])]));
+        for byte in &mut wrapped[16..] {
+            *byte = 0xFF;
+        }
+        let err = ItemList::read(PlayerTableFile::GloveList, &wrapped)
+            .expect_err("a corrupt wrapped stream does not read");
+        assert!(
+            err.to_string()
+                .starts_with("GloveList.bin is WESYS-wrapped and does not unwrap: "),
+            "{err}"
+        );
     }
 
     #[test]

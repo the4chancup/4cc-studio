@@ -20,7 +20,7 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
 5.y-gloves and 5.3a (a1 to a5, its review loop closed) and 5.3b1 (the patch written) done
-2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w (the platform floor, a static CRT, the size growth measured) done 2026-10-15; 5.5 (the in-game check) done 2026-10-15; 5.6 (converge) open: 5.6a, 5.6b and 5.6d done 2026-10-16, next 5.6c1 (the installed Fox player tables' census), then 5.6e (the second whole-crate runs, the spec move, the collapse); step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w (the platform floor, a static CRT, the size growth measured) done 2026-10-15; 5.5 (the in-game check) done 2026-10-15; 5.6 (converge) open: 5.6a to 5.6d done 2026-10-16 (5.6c's player tables census found and fixed the games' wrapped item lists and a code-page CPK name), next 5.6e (the spec move under way, then the second whole-crate runs and the collapse); step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1300,21 +1300,25 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     14, 3, 20; triage per crate in `.tmp/5_6/mutants_<crate>/triage.md`): 20 tests added, 7
     equivalents in `.cargo/extra_mutants.toml`, the probe's Windows arm rerun locally after a
     split run (`WINDOWS_ONLY_TESTS`), three placeholder views deferred (issue of 2026-10-16)
-  - [ ] 5.6c the `pes_savefile` census: every save, `.ted` and editor file on the machine, the
+  - [x] 5.6c the `pes_savefile` census: every save, `.ted` and editor file on the machine, the
     installed Fox player tables, the decoded run's bit coverage. Saves, `.ted` and editor
     files and the bit coverage done 2026-10-15 (`.tmp/5_6/audit_notes.md` "Save census": 189
-    real files round-trip, bit coverage clean; the 15-17 texport reader fixed and re-censused)
-    - [ ] 5.6c1 the installed Fox player tables: every installed PES 18-21 CPK's player table
+    real files round-trip, bit coverage clean; the 15-17 texport reader fixed and re-censused);
+    the player tables done 2026-10-16 (5.6c1, 5.6c2)
+    - [x] 5.6c1 the installed Fox player tables: every installed PES 18-21 CPK's player table
       through `PlayerTableFile` (read, round trip), tallied by outcome. Census run 2026-10-16
       over every CPK and loose table on the machine (`.tmp/5_6/player_table_census/`: 7,678
       CPKs, 215 with tables, 103 distinct tables): every game, PES 15 to 21, ships its boots
       and gloves lists WESYS-wrapped, which `read` took as rows (PES 2020's boots list read
       as garbage, no error); unwrapped, all 103 round-trip byte for byte and sit at the path
-      the tools look up. Open: `read` unwraps (decision of 2026-10-16), then the census re-run
-    - [ ] 5.6c2 a CPK name that is not UTF-8: the same census found a cup's PES 2016 stadium
+      the tools look up. `read` now unwraps (decision of 2026-10-16; `player_tables.rs`); the
+      census re-run (`.tmp/5_6/player_table_census_after/`) reads all 103, the 16 wrapped
+      included, and round-trips them
+    - [x] 5.6c2 a CPK name that is not UTF-8: the same census found a cup's PES 2016 stadium
       pack (`download_vgl7/4cc_30_stadiums.cpk`) refused whole over one file name in a
-      Windows code page, which stops a Team compiler run on its install; read as Latin-1
-      (decision of 2026-10-16), then the census re-run
+      Windows code page, which stops a Team compiler run on its install. Done 2026-10-16: such
+      a string reads as Latin-1 (decision of 2026-10-16; `cpk/src/utf.rs`), and the census
+      re-run opens the pack
   - [x] 5.6d the cross-family converge reviews, one surface per large crate. Done 2026-10-16
     (every surface's SWE-2 and Astra loops ended; rulings `.tmp/5_6/review/duck_rulings.md`)
   - [ ] 5.6e close: the second whole-crate runs, plans moved to the spec (the Save editor's

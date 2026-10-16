@@ -2067,3 +2067,6 @@ worklog passed 7,000 lines.
 - **2026-10-16** — 5.6a, 5.6b and 5.6d done; `converge-5` landed on main. The five other runs
   left 47 survivors: 19 tests added, 6 equivalents ruled, three placeholder views deferred, and
   most of `studio_core`'s the split's own (a `#[cfg]` arm the half's OS never compiles).
+- **2026-10-16** — 5.6c done: the census of every player table on the machine (103 distinct) found
+  the games' boots and gloves lists WESYS-wrapped, which `read` took as rows (PES 2020's as
+  garbage), and a cup CPK refused over a code-page name; `read` unwraps, `cpk` reads Latin-1.

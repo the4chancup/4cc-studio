@@ -259,7 +259,15 @@ impl UtfTable {
         let read_string = |offset: usize| -> Result<String, CpkError> {
             let rest = strings.get(offset..).ok_or(CpkError::Truncated)?;
             let end = rest.iter().position(|b| *b == 0).unwrap_or(rest.len());
-            String::from_utf8(rest[..end].to_vec()).map_err(|_| CpkError::InvalidUtf8)
+            let bytes = &rest[..end];
+            // A name written in a Windows code page (a cup's stadium pack names
+            // a file `au_seat cópia.dds` with byte 0xF3) would otherwise refuse
+            // the whole archive; Latin-1 maps each byte to its own character,
+            // so two such names never fold into one path.
+            Ok(match std::str::from_utf8(bytes) {
+                Ok(text) => text.to_owned(),
+                Err(_) => bytes.iter().map(|byte| char::from(*byte)).collect(),
+            })
         };
 
         let read_value = |reader: &mut Reader<'_>, kind: UtfKind| -> Result<UtfValue, CpkError> {
@@ -584,7 +592,7 @@ mod tests {
     }
 
     #[test]
-    fn a_non_utf8_pool_string_is_rejected() {
+    fn a_non_utf8_pool_string_reads_as_latin1() {
         let mut bytes = sample_table().write(b"TEST");
         let length = usize::try_from(u64::from_le_bytes(bytes[8..16].try_into().unwrap())).unwrap();
         crypt(&mut bytes[16..16 + length]);
@@ -597,10 +605,11 @@ mod tests {
             .position(|w| w == b"one\0")
             .unwrap();
         content[8 + strings + at] = 0xFF;
-        assert!(matches!(
-            UtfTable::read(&bytes, b"TEST"),
-            Err(CpkError::InvalidUtf8)
-        ));
+        let table = UtfTable::read(&bytes, b"TEST").unwrap();
+        assert_eq!(
+            table.get(0, "Label"),
+            Some(&UtfValue::String("\u{FF}ne".into()))
+        );
     }
 
     #[test]

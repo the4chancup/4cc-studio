@@ -3,9 +3,11 @@
 //! A CPK file is a `CPK ` header @UTF table (version fields, offsets to the
 //! other tables), the file contents, a `TOC ` table of file entries, and
 //! optionally an `ETOC` table of modification times. All @UTF content is
-//! XOR-encrypted with the CRI keystream. The writer lays every archive out
-//! one fixed way (see `write.rs`), so the same entries and `Tvers` tool-version
-//! string (the one `CpkWriter::new` takes) always give the same bytes.
+//! XOR-encrypted with the CRI keystream. A table string that is not UTF-8
+//! (a name written in a Windows code page) reads as Latin-1, byte for byte.
+//! The writer lays every archive out one fixed way (see `write.rs`), so the
+//! same entries and `Tvers` tool-version string (the one `CpkWriter::new`
+//! takes) always give the same bytes.
 
 mod crilayla;
 mod read;
@@ -46,9 +48,6 @@ pub enum CpkError {
     /// value.
     #[error("missing required utf column {0}")]
     MissingColumn(&'static str),
-    /// A string in the table's pool is not UTF-8.
-    #[error("utf table string is not utf-8")]
-    InvalidUtf8,
     /// The `CPK ` header table does not fit the 0x800 bytes before the first
     /// file.
     #[error("header table larger than the 0x800-byte reserved region")]
