@@ -121,36 +121,30 @@ fn apply_tier_then_check_reports_nothing_for_every_tier() {
     }
 }
 
-/// `card_limits` reports each tier's `a_positions` (one for every
-/// tier), and the goalkeeper's own numbers: the file's two paid cards
-/// (the limit, his one A fitting the one allowance — no deduction), no
-/// `free` group at all, and `tier_values`' weak foot 2/2. A manlet
-/// regular (slot 3) reads the "Manlets" special's raises: two A
-/// positions and four paid.
+/// `card_limits` reports each tier's economy on a member nothing but
+/// the captaincy free card touches — the paid limit, the A positions,
+/// the free counts (the exact map, so a group named nowhere in it
+/// shows) and `max_a_positions` unset — and `tier_values` the weak
+/// foot. Slots: 10 for the gold (the captain — his free Captaincy
+/// changes none of these numbers), 9 for the silver (the only
+/// single-A medal), 0 for the goalkeeper (his one A fitting the one
+/// allowance, the limit undeducted), 12 for the regular, a mid — a
+/// manlet reads the "Manlets" special's raises instead: two A
+/// positions and four paid, asserted last.
 #[test]
 fn card_limits_and_tier_values_report_the_tiers_values() {
     let rules = rules();
     let team = legal_team();
-    for (slot, tier) in [
-        (2, "gold"),
-        (5, "silver"),
-        (0, "goalkeeper"),
-        (12, "regular"),
-    ] {
-        let limits = rules
-            .card_limits(&team, team.player(slot).expect("filled"), tier)
-            .expect("limits");
-        assert_eq!(limits.a_positions, 1, "{tier}");
-    }
-    let limits = rules
-        .card_limits(&team, team.player(0).expect("slot 0"), "goalkeeper")
-        .expect("limits");
-    assert_eq!(limits.limit, 2, "the goalkeeper's two paid cards");
-    assert!(limits.free.is_empty(), "the goalkeeper frees no group");
-    let values = rules
-        .tier_values(&team, team.player(0).expect("slot 0"), "goalkeeper")
-        .expect("values");
-    assert_eq!((values.weak_foot.usage, values.weak_foot.accuracy), (2, 2));
+    assert_economy(
+        &rules,
+        &team,
+        &[
+            (10, "gold", 5, 1, &[("com", 2), ("tricks", 3)], (2, 4)),
+            (9, "silver", 4, 1, &[("com", 1), ("tricks", 3)], (2, 4)),
+            (0, "goalkeeper", 2, 1, &[], (2, 2)),
+            (12, "regular", 3, 1, &[("tricks", 2)], (2, 2)),
+        ],
+    );
     // Slot 3 is a manlet (175 cm, the manlet bracket) and a regular
     // (the 77 rate): the "Manlets" special's +1 A position and +1 paid
     // card show in his limits — two and four, his one A inside them.

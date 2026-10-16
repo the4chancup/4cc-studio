@@ -7,6 +7,8 @@
 //! ruleset it was built for); each ruleset's module makes it legal under
 //! its own rules first.
 
+use std::collections::BTreeMap;
+
 use pes_savefile::interchange::team_toml::TeamToml;
 use pes_savefile::interchange::team_toml::labels::PLAYABLE_POSITIONS;
 use pes_savefile::model::player::PlayerEntry;
@@ -243,4 +245,39 @@ fn playable_at(name: &str) -> usize {
         .iter()
         .position(|index| *index == usize::from(position(name).0))
         .expect("a position")
+}
+
+/// One tier's economy on one member, as `card_limits` and `tier_values`
+/// report it: (roster slot, tier id, paid limit, A positions, the exact
+/// free counts, weak foot usage and accuracy). `max_a_positions` is
+/// expected unset.
+type Economy<'a> = (u8, &'a str, i8, u8, &'a [(&'a str, u8)], (u8, u8));
+
+/// Asserts each row of `rows` against `rules` on `team`: the `free` map
+/// compared whole, so a group the row does not name fails too.
+fn assert_economy(rules: &Rules, team: &TeamView, rows: &[Economy]) {
+    for &(slot, tier, limit, a_positions, expected_free, (usage, accuracy)) in rows {
+        let limits = rules
+            .card_limits(team, team.player(slot).expect("filled"), tier)
+            .expect("limits");
+        assert_eq!(
+            (limits.limit, limits.a_positions, limits.max_a_positions),
+            (limit, a_positions, None),
+            "{tier} (slot {slot})"
+        );
+        let expected_free: BTreeMap<String, u8> = expected_free
+            .iter()
+            .map(|(group, count)| (group.to_string(), *count))
+            .collect();
+        assert_eq!(limits.free, expected_free, "{tier} (slot {slot})");
+        let weak_foot = rules
+            .tier_values(team, team.player(slot).expect("filled"), tier)
+            .expect("values")
+            .weak_foot;
+        assert_eq!(
+            (weak_foot.usage, weak_foot.accuracy),
+            (usage, accuracy),
+            "{tier} (slot {slot})"
+        );
+    }
 }

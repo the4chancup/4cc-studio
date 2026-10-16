@@ -1024,6 +1024,34 @@ fn card_limits_name_the_economy() {
     let as_gold = limits(10, "gold");
     assert_eq!((as_gold.limit, as_gold.a_positions), (6, 1));
     assert_eq!(as_gold.free.get("com"), Some(&2));
+
+    // The whole economy per tier: the paid limit, the A positions, the
+    // free counts (the exact map, so a group named nowhere in it shows)
+    // and `max_a_positions` unset, plus `tier_values`' weak foot.
+    // Slot 0 for the goalkeeper, slot 9 for the bronze (a member taking
+    // no option of the medals' choice); the other medals each carry a
+    // share of the choice — slot 2's second A position takes the `a`
+    // option (his `a_positions` reads the tier's 1 plus its share),
+    // slot 5's the same, slot 10's second COM style takes the `com`
+    // option (his `free` reads the tier's {tricks 3, com 1} plus its
+    // share — the a_positions still the tier's own). Where a member's
+    // share masks the file's value, the probe names it.
+    assert_economy(
+        &rules,
+        &team,
+        &[
+            (2, "gold", 6, 2, &[("com", 2), ("tricks", 3)], (4, 4)),
+            (5, "silver", 5, 2, &[("com", 1), ("tricks", 3)], (4, 4)),
+            (10, "silver", 5, 1, &[("com", 2), ("tricks", 3)], (4, 4)),
+            (9, "bronze", 4, 1, &[("com", 1), ("tricks", 3)], (4, 4)),
+            (0, "goalkeeper", 2, 1, &[], (2, 2)),
+            (12, "regular", 3, 1, &[("tricks", 2)], (2, 2)),
+        ],
+    );
+    // The gold's `a_positions` masked by his option: the tier's own 1
+    // reads on a member of another tier — the captain (a silver, one A
+    // and two COM styles the gold's free two cover) read as gold.
+    assert_eq!(limits(10, "gold").a_positions, 1);
 }
 
 /// An allowance the file does not list is never suggested: a manlet

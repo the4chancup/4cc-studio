@@ -479,24 +479,29 @@ fn heading_is_a_paid_card() {
     );
 }
 
-/// `card_limits` reports each tier's `a_positions` — two for the
-/// outfield tiers, one for the goalkeepers.
+/// `card_limits` reports each tier's economy on a member no special
+/// touches — the paid limit, the A positions, the free counts (the
+/// exact map, so a group named nowhere in it shows) and
+/// `max_a_positions` unset — and `tier_values` the weak foot (4/4 for
+/// the medals, 2/2 for the rest). Slots: 2 for the gold, 5 the silver,
+/// 9 the bronze, 0 the goalkeeper (his one A fitting the one
+/// allowance), 12 the regular, a mid — every one inside its A
+/// allowance.
 #[test]
-fn card_limits_reports_each_tiers_a_positions() {
+fn card_limits_and_tier_values_report_the_tiers_values() {
     let rules = rules();
     let team = legal_team();
-    for (slot, tier, expected) in [
-        (2, "gold", 2),
-        (5, "silver", 2),
-        (9, "bronze", 2),
-        (0, "goalkeeper", 1),
-        (12, "regular", 2),
-    ] {
-        let limits = rules
-            .card_limits(&team, team.player(slot).expect("filled"), tier)
-            .expect("limits");
-        assert_eq!(limits.a_positions, expected, "{tier}");
-    }
+    assert_economy(
+        &rules,
+        &team,
+        &[
+            (2, "gold", 6, 2, &[("com", 1), ("tricks", 12)], (4, 4)),
+            (5, "silver", 5, 2, &[("com", 1), ("tricks", 12)], (4, 4)),
+            (9, "bronze", 5, 2, &[("com", 1), ("tricks", 12)], (4, 4)),
+            (0, "goalkeeper", 4, 1, &[("tricks", 12)], (2, 2)),
+            (12, "regular", 4, 2, &[("tricks", 12)], (2, 2)),
+        ],
+    );
 }
 
 /// The captain's choice: slot 10 (a silver) at one card over the limit

@@ -125,6 +125,28 @@ fn apply_tier_then_check_reports_nothing_for_every_tier() {
     }
 }
 
+/// `card_limits` reports each tier's economy on a member no special
+/// touches — the paid limit, the A positions, the free counts (the
+/// exact map, so a group named nowhere in it shows) and
+/// `max_a_positions` unset — and `tier_values` the weak foot. Slots:
+/// 2 for the gold (two A positions inside the two allowed), 5 for the
+/// silver (likewise), 12 for the regular, a mid — a manlet would read
+/// the "Manlets" special's raises instead.
+#[test]
+fn card_limits_and_tier_values_report_the_tiers_values() {
+    let rules = rules();
+    let team = legal_team();
+    assert_economy(
+        &rules,
+        &team,
+        &[
+            (2, "gold", 5, 2, &[("com", 1), ("tricks", 12)], (4, 4)),
+            (5, "silver", 4, 2, &[("com", 1), ("tricks", 12)], (4, 4)),
+            (12, "regular", 3, 2, &[("tricks", 12)], (2, 2)),
+        ],
+    );
+}
+
 /// A regular manlet (slot 3) rates 77, or 82 with the optional manlet
 /// bonus taken; at 80 the bonus applies (his rating is over the tier's
 /// 77 without it) and every rating stat is off the raised target 82:

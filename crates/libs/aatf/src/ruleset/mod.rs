@@ -709,8 +709,8 @@ pub(crate) fn run_top_level(
 ) -> Result<(rhai::Engine, rhai::AST, rhai::Scope<'static>), LoadError> {
     // The one engine every script runs on: no module resolver, and
     // `print`/`debug` go nowhere. The block's statements — loops
-    // included — run under the caller's operation limit, which 5.2c3
-    // sets.
+    // included — run under the engine's `MAX_OPERATIONS`, which
+    // `engine()` sets.
     let engine = crate::engine::engine();
     let ast = engine.compile(text).map_err(|e| LoadError::Parse {
         line: e.position().line().unwrap_or(0),

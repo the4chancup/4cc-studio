@@ -879,6 +879,24 @@ fn card_limits_name_the_economy() {
         (2, 3)
     );
     assert_eq!(limits(3, "buffed").a_positions, 1);
+
+    // The whole economy per tier — the paid limit, the A positions,
+    // the free counts (the exact map, so a group named nowhere in it
+    // shows) and `max_a_positions` unset — plus `tier_values`' weak
+    // foot. Slots: 9 for the gold (the playing-style bonus is a stat
+    // bonus and changes none of these numbers), 5 the silver, 14 the
+    // regular, 3 the buffed. The plan ("Background") names no number for
+    // these fields; the values are the file's.
+    assert_economy(
+        &rules,
+        &team,
+        &[
+            (9, "gold", 7, 2, &[("com", 3)], (4, 4)),
+            (5, "silver", 7, 3, &[("com", 2)], (4, 4)),
+            (14, "regular", 7, 2, &[("com", 1)], (4, 4)),
+            (3, "buffed", 7, 1, &[("com", 1)], (4, 4)),
+        ],
+    );
 }
 
 /// Long Ranger is free by name beyond the tier's COM allowance: a

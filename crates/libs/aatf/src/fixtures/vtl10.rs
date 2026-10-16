@@ -759,4 +759,32 @@ fn card_limits_name_the_economy() {
         (2, 3)
     );
     assert_eq!(limits(3, "buffed").a_positions, 1);
+
+    // The whole economy per tier — the paid limit, the A positions,
+    // the free counts (the exact map, so a group named nowhere in it
+    // shows) and `max_a_positions` unset — plus `tier_values`' weak
+    // foot. Slots: 9 for the gold, 5 the silver, 14 the regular; for
+    // the buffed, slot 7 — registered CMF, so no wingback A and no
+    // debuff (the plan's only card figure is the gold's; the rest of the
+    // numbers are the file's, "the plan names no number").
+    let weak_foot = |slot: u8, tier: &str| {
+        rules
+            .tier_values(&team, team.player(slot).expect("filled"), tier)
+            .expect("values")
+            .weak_foot
+    };
+    assert_economy(
+        &rules,
+        &team,
+        &[
+            (9, "gold", 6, 2, &[("com", 2)], (4, 4)),
+            (5, "silver", 7, 3, &[("com", 2)], (4, 4)),
+            (14, "regular", 7, 2, &[("com", 1)], (4, 4)),
+            (7, "buffed", 7, 1, &[("com", 1)], (4, 4)),
+        ],
+    );
+    // Slot 3, the buffed wingback (A at RB), reads the special's debuff
+    // instead: weak foot 2/2.
+    let debuffed = weak_foot(3, "buffed");
+    assert_eq!((debuffed.usage, debuffed.accuracy), (2, 2));
 }
