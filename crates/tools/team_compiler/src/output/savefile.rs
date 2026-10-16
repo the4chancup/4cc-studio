@@ -503,6 +503,59 @@ mod tests {
     }
 
     #[test]
+    fn savefile_player_not_stripped_lists_the_players_sorted_whatever_the_team_order() {
+        let temp = scratch("savefile_not_stripped_sorted");
+        let save = temp.path().join("EDIT00000000");
+        let file = EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        fs::write(&save, file.to_bytes(&[7; 320]).unwrap()).unwrap();
+        let slot_05 = || {
+            BTreeMap::from([(
+                5,
+                PatchPlayer {
+                    name: None,
+                    shirt_name: None,
+                    motion: MotionSettings::default().resolved(PesVersion::Pes21),
+                },
+            )])
+        };
+        let mut patch = empty_patch();
+        // The patch order is the exports' order, not the teams': `applied_players` is
+        // [79205, 71405], and the warning sorts it for the report.
+        for (id, name) in [(792, "/egg/"), (714, "/co/")] {
+            patch.teams.push(PatchTeam {
+                id,
+                name: name.to_owned(),
+                players: slot_05(),
+            });
+        }
+        let (mut events, rx) = events();
+
+        update(
+            &mut events,
+            Located::Configured(save.clone()),
+            &[],
+            &temp.path().join("aesthetics_patch.toml"),
+            &patch,
+        )
+        .unwrap();
+
+        let messages = messages(&rx);
+        let codes: Vec<&str> = messages.iter().map(|(code, _)| code.as_str()).collect();
+        assert_eq!(codes, ["savefile_player_not_stripped", "savefile_written"]);
+        assert_eq!(
+            messages[0].1,
+            [("players".to_owned(), "71405, 79205".to_owned())]
+        );
+        assert_eq!(
+            messages[1].1,
+            [
+                ("path".to_owned(), save.display().to_string()),
+                ("teams".to_owned(), "792, 714".to_owned())
+            ]
+        );
+    }
+
+    #[test]
     fn update_writes_nothing_when_the_save_holds_the_team_but_none_of_its_players() {
         let temp = scratch("savefile_no_player_applied");
         let save = temp.path().join("EDIT00000000");

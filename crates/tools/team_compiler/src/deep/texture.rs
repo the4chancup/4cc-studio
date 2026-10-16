@@ -292,6 +292,26 @@ mod tests {
     }
 
     #[test]
+    fn a_texture_of_an_unsupported_codec_drops_its_folder_and_is_never_passed_through() {
+        let temp = scratch("deep_texture_codec");
+        // A volume DDS: packed, the folder's textures task would fail on it, so it is never
+        // pass-through-eligible.
+        let mut volume = bc1_dds(4, 4);
+        volume[112..116].copy_from_slice(&0x0020_0000_u32.to_le_bytes());
+        let findings = findings_of(temp.path(), &[("Players/03 - A/skin.dds", volume)], &[]);
+        assert_eq!(
+            findings,
+            [texture_finding_on(
+                "texture_codec_unsupported",
+                &folder("Players/03 - A"),
+                "skin.dds",
+                Disposition::DropFolder,
+                false
+            )]
+        );
+    }
+
+    #[test]
     fn a_texture_the_probe_refuses_is_unreadable_or_of_an_unsupported_codec() {
         let rule = SizeRule::FoxMipmapped;
         assert_eq!(

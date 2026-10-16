@@ -715,6 +715,32 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_converted_glove_s_packed_name_is_lowercased_at_its_path_below_the_source() {
+        let descriptor = |path: &str| FileDescriptor {
+            path: ScopePath::new(path).unwrap(),
+            source: ScopePath::new(path).unwrap(),
+            size: 16,
+            kind: FileKind::Model(ModelFormat::Fmdl),
+        };
+        let player = ScopePath::new("Players/05 - A").unwrap();
+        let grip = ScopePath::new("Gloves/Grip").unwrap();
+        let common = descriptor("Common/GLOVE_L.FMDL");
+        let nested = descriptor("Gloves/Grip/Grip2/GLOVE_L.FMDL");
+        fn model<'a>(file: &'a FileDescriptor, source_path: &'a ScopePath) -> SourceModel<'a> {
+            SourceModel {
+                file,
+                xml_type: "gloveL".to_owned(),
+                source_path,
+                source_files: &[],
+                skeleton: None,
+            }
+        }
+        // A Common FMDL packs under its bare name, a source folder's own below the folder.
+        assert_eq!(model(&common, &player).packed_name(), "glove_l.model");
+        assert_eq!(model(&nested, &grip).packed_name(), "grip2/glove_l.model");
+    }
+
     /// The code and context of `failure`.
     fn failure_of(failure: TaskFailure) -> (Code, Vec<(&'static str, String)>) {
         (failure.code, failure.context)

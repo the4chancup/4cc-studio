@@ -3096,7 +3096,13 @@ mod tests {
             role("fcl_hair_sim.fclo"),
             packed(ModelPackage::Face, "fcl_hair_sim.fclo")
         );
+        // Each file plays the role its name gives, letter case aside.
+        assert_eq!(
+            role("Fcl_Hair_Sim.Fclo"),
+            packed(ModelPackage::Face, "fcl_hair_sim.fclo")
+        );
         assert_eq!(role("face_diff.xml"), Some(PlayerFile::FaceDiffXml));
+        assert_eq!(role("Face_Diff.xml"), Some(PlayerFile::FaceDiffXml));
         assert_eq!(
             role("hair.png.common"),
             Some(PlayerFile::CommonTexture("hair".to_owned()))

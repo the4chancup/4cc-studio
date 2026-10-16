@@ -334,6 +334,8 @@ mod tests {
             ("arm_glove_r", "gloveR"),
             ("x_handR", "handR"),
             ("cape_model_type_cape", "cape"),
+            // The escape-hatch marker matches letter case aside, as a suffix does.
+            ("cape_MODEL_TYPE_cape", "cape"),
             ("body_uniform", "uniform"),
             ("x_pants_nocloth", "pants_nocloth"),
             ("torso", "parts"),

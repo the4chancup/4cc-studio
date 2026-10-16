@@ -3151,6 +3151,46 @@ mod tests {
     }
 
     #[test]
+    fn an_ingame_face_player_s_link_to_a_gltf_beaten_common_model_drops_him_on_pre_fox() {
+        // On pre-Fox a marked player's `.common` link to a model is a part of his own
+        // (`PreFoxPart`): a Common glTF of its stem beats the linked model, so the link
+        // would load the glTF and the linker is dropped naming it.
+        let files = [
+            ("Players/05 - A/ingame_face", 0),
+            ("Players/05 - A/kit_boots.fmdl", 16),
+            ("Players/05 - A/body.fmdl.common", 0),
+            ("Common/body.fmdl", 8),
+            ("Common/body.glb", 4),
+        ];
+        let export = resolved("co Midcup Gltf", &files, &[], None);
+
+        let mut kept = export;
+        let mut messages = Vec::new();
+        drop_gltf_folders(ExportId(0), &mut kept, PesVersion::Pes17, &mut messages);
+
+        let [message] = messages.as_slice() else {
+            panic!("{messages:?}");
+        };
+        assert_eq!(message.code.code, "model_gltf_unsupported");
+        assert_eq!(message.disposition, Disposition::DropFolder);
+        assert_eq!(
+            message.scope,
+            Scope::Folder {
+                export_id: ExportId(0),
+                path: scope_path("Players/05 - A")
+            }
+        );
+        assert_eq!(
+            message.context,
+            [("file".to_owned(), "Common/body.glb".to_owned())]
+        );
+        assert!(
+            mapped_players(&kept.export).is_empty(),
+            "the dropped player maps no slot"
+        );
+    }
+
+    #[test]
     fn a_shared_folder_the_gltf_drop_orphans_is_removed_and_reports_nothing() {
         let files = [
             ("Players/05 - A/boots.glb", 4),

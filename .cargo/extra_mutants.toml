@@ -129,3 +129,35 @@ path = "crates/studio_core/src/pes_process.rs"
 kind = "bool"
 description = "in image_path: OpenProcess arg 2: false becomes true | removed: false"
 why = "bInheritHandle only: a query-limited handle closed before image_path returns; a child started meanwhile could inherit no more than that query right, and nothing the suite outputs reads it"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/deep/mod.rs"
+kind = "bool"
+description = "in content_findings: pass_through_eligible: false becomes true | removed: false"
+why = "the flag is read only for DropFile/DropFolder findings (issues::pass_through, deep::drops_file); this finding is Keep"
+
+# Also drops the second face.xml arm's (the unused-face-file one, a line below), which shares
+# this description: the caught mutant the site naming cannot tell apart (accepted loss).
+[[exclude]]
+path = "crates/tools/team_compiler/src/plan/roles.rs"
+kind = "normalize"
+description = "in pre_fox_file: eq_ignore_ascii_case becomes == | removed: file.path.name().eq_ignore_ascii_case(\"face.xml\")"
+why = "a shared folder's FACE.XML then gets UnusedFaceFile, not None: both unused (no package), and the case-insensitive is_user_face_xml reports it as xml_ignored_shared first"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/texture_lookup.rs"
+kind = "literal"
+description = "in at: the matches! pattern loses an alternative | removed: \".\" |"
+why = "a . segment lands verbatim in the key folder() looks up, and no place key (a real directory below the folder) holds one, so the lookup misses as the guard does"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/texture_lookup.rs"
+kind = "literal"
+description = "in at: the matches! pattern loses an alternative | removed: | \"..\""
+why = "a .. segment lands verbatim in the key folder() looks up, and no place key (a real directory below the folder) holds one, so the lookup misses as the guard does"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/validation.rs"
+kind = "literal"
+description = "in unread_for_a_known_reason: the matches! pattern loses an alternative | removed: FileKind::Model(ModelFormat::Fmdl) |"
+why = "pre_fox_file gives every FMDL a role unless beaten, so one reaching here is beaten (the first disjunct) or out of role position (the structure-pass disjunct)"

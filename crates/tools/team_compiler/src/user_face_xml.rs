@@ -1331,7 +1331,8 @@ mod tests {
                 &["xml_type_unknown [Keep] (type=cape)"],
             ),
             (
-                r#"<model type="uniform_sub" path="./face_high.model"/><model type="gloveL" path="./face_high.model"/>"#,
+                // Every type the compiler itself generates is known, `handL`/`handR` included.
+                r#"<model type="uniform_sub" path="./face_high.model"/><model type="gloveL" path="./face_high.model"/><model type="handL" path="./face_high.model"/><model type="handR" path="./face_high.model"/>"#,
                 &[],
             ),
             (

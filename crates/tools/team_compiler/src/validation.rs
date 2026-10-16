@@ -1211,7 +1211,7 @@ mod tests {
     use studio_core::Severity;
 
     use super::*;
-    use crate::testing::{resolved, resolved_with_issues, scratch};
+    use crate::testing::{resolved, resolved_with_check, resolved_with_issues, scratch};
 
     /// The export `co Midcup Pool` whose slots 01 to `count` each link their own shared folder of
     /// `kind` (`Boots/S01/` for slot 01), each player folder also holding `local`.
@@ -1568,6 +1568,22 @@ mod tests {
     }
 
     #[test]
+    fn a_link_file_lenient_validation_keeps_in_a_shared_folder_is_not_file_not_used_again() {
+        let files = [
+            ("Players/03 - A/face_high.fmdl", 1),
+            ("Players/03 - A/Crocs.boots", 0),
+            ("Boots/Crocs/kit_boots.fmdl", 1),
+            // A `.face` link inside a shared boots folder is off its allowlist.
+            ("Boots/Crocs/extra.face", 1),
+        ];
+        let (export, issues) = resolved_with_check("co Midcup Names", &files, &[], None, false);
+        // The strict check off keeps the file, which the structure pass already named: it
+        // takes no role, and no `file_not_used` repeats the finding.
+        assert_eq!(issues, ["file_type_disallowed"]);
+        assert_eq!(names(&export, PesVersion::Pes21), Vec::<String>::new());
+    }
+
+    #[test]
     fn a_shared_folder_s_and_common_s_files_no_task_reads_are_file_not_used() {
         let files = [
             ("Players/03 - A/face_high.fmdl", 1),
@@ -1584,6 +1600,10 @@ mod tests {
             ("Common/x.model", 1),
             ("Common/x.skl", 1),
             ("Common/x.dds", 1),
+            // Kinds the Common allowlist admits that no task can read either.
+            ("Common/x.fclo", 1),
+            ("Common/x.bin", 1),
+            ("Common/materials.toml", 1),
         ];
         let export = resolved("co Midcup Names", &files, &[], None);
         // On Fox the shared face's model link takes the linked model's role: `legs` names
@@ -1595,7 +1615,10 @@ mod tests {
                 "Info fmdl_fcl_hair_fallback [Keep] at Faces/Round (file=legs.fmdl.common)",
                 "Warning file_not_used [Keep] at Gloves/Grip (file=glove_l.skl)",
                 "Warning file_not_used [Keep] (file=Common/guide.txt)",
+                "Warning file_not_used [Keep] (file=Common/materials.toml)",
                 "Warning file_not_used [Keep] (file=Common/notes.xml)",
+                "Warning file_not_used [Keep] (file=Common/x.bin)",
+                "Warning file_not_used [Keep] (file=Common/x.fclo)",
             ]
         );
         assert_eq!(
@@ -1603,7 +1626,10 @@ mod tests {
             [
                 "Warning file_not_used [Keep] at Faces/Round (file=legs.fmdl.common)",
                 "Warning file_not_used [Keep] (file=Common/guide.txt)",
+                "Warning file_not_used [Keep] (file=Common/materials.toml)",
                 "Warning file_not_used [Keep] (file=Common/notes.xml)",
+                "Warning file_not_used [Keep] (file=Common/x.bin)",
+                "Warning file_not_used [Keep] (file=Common/x.fclo)",
             ]
         );
     }
