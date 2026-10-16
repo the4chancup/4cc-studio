@@ -2064,3 +2064,6 @@ worklog passed 7,000 lines.
 - **2026-10-16** — 5.6b: `pes_savefile`'s whole-crate run done (1839 caught, two survivors: one
   test added, one equivalent). The chain's archive copy of the remote logs then filled C: and
   stopped the next two runs before they began; the incremental cache cleared, the chain resumed.
+- **2026-10-16** — 5.6a, 5.6b and 5.6d done; `converge-5` landed on main. The five other runs
+  left 47 survivors: 19 tests added, 6 equivalents ruled, three placeholder views deferred, and
+  most of `studio_core`'s the split's own (a `#[cfg]` arm the half's OS never compiles).

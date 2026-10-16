@@ -20,7 +20,7 @@ landed (2026-10-12, reworked 2026-10-13), 5.0k done, 5.0l done and 5.0m1 landed 
 2026-10-14, 20.0a (the coverage table) done 2026-10-14; 5.0m3, 5.2c3-r1, 5.2d2, 5.2d2-r1, 5.0m4 and 5.2e (VGL25-27, VTL11, VTL10), 5.2c-r3, 5.2f, 5.2f-r1, 5.4a5-6 and 5.4b done 2026-10-14;
 5.4c (5.4c1a to 5.4c2), 5.2i's reworks (r1 to r4, ending the interpreter's reviews) and
 5.y-gloves and 5.3a (a1 to a5, its review loop closed) and 5.3b1 (the patch written) done
-2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w (the platform floor, a static CRT, the size growth measured) done 2026-10-15; 5.5 (the in-game check) done 2026-10-15; next 5.6 (converge: its whole-crate mutation runs started 2026-10-15, `.tmp/5_6/`); step 20.0b (the Ruleset editor draft) done 2026-10-14
+2026-10-15, and 5.3b (the local savefile, the transaction, its review loop closed) done 2026-10-15, 16.w (the platform floor, a static CRT, the size growth measured) done 2026-10-15; 5.5 (the in-game check) done 2026-10-15; 5.6 (converge) open: 5.6a, 5.6b and 5.6d done 2026-10-16, next 5.6c1 (the installed Fox player tables' census), then 5.6e (the second whole-crate runs, the spec move, the collapse); step 20.0b (the Ruleset editor draft) done 2026-10-14
 (5.2b2's measurements done 2026-10-13, PES 15 included; the official file sets no team settings) (Acceptance written and itemized 2026-10-12). 2.5b (GPU BC7) is
 step 16.x (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0
 after Phase 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1272,16 +1272,17 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
   right gloves magenta (`r6_slot01.png`, `r6_slot02.png`)
 - [ ] 5.6 Converge (`AGENTS.md` "Closing a phase"), from 2ca98d1 (Phase 4 closed). Lead plan
   `.tmp/lead/converge_5_plan.md`. `music_export` (10.0, built ahead) converges with Phase 10.
-  - [ ] 5.6a the lead's audit: plan shapes against the code; every step's criterion re-run;
+  - [x] 5.6a the lead's audit: plan shapes against the code; every step's criterion re-run;
     `just acceptance strict` (the uncited CLI tests: 5.6a1); requirements
-    coverage; the open issues naming Phase 5 crates ruled
-    - [ ] 5.6a1 the ten uncited CLI tests cite their scenarios (after the chain leaves
+    coverage; the open issues naming Phase 5 crates ruled. Done 2026-10-16 on `converge-5`
+    (`acceptance strict`: 440 scenarios, 440 proven)
+    - [x] 5.6a1 the ten uncited CLI tests cite their scenarios (after the chain leaves
       `team_compiler` and `save_editor`): `patch.rs` the TC-SAV-02, 03, 12 and 01 halves
       (l.75, 112, 176, 196), TC-SAV-13 to 15 (l.140, 247, 271, written 2026-10-15);
       `savefile.rs` TC-SAV-10 (l.466) and TC-SAV-16 (l.490); `export_teams_list.rs` SE-TL-05
       (l.206, its test also asserting the list folder and the save untouched) → verify: `just
       acceptance strict` passes
-    - [ ] 5.6a2 the audit's code-side fixes (`.tmp/5_6/audit_shapes.md`, `audit_criteria.md`;
+    - [x] 5.6a2 the audit's code-side fixes (`.tmp/5_6/audit_shapes.md`, `audit_criteria.md`;
       after the chain leaves `aatf` and `save_editor`): the Rust docs of
       `Universal::gk_not_second_a` and `Effects::choice` say what the code does (the plan's
       wording of 2026-10-15), and `check.rs:569`'s pointer names `LoadRule::ChoiceOptionEffect`;
@@ -1289,19 +1290,32 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       offset differs by version); `save_editor/src/cli.rs` `write_and_swap`'s error path says
       why the temp file's removal result is dropped, and `pes_savefile/src/ops/fpc.rs`
       `apply`'s skin-colour `get` why it is a probe before any write (Clef flag df0a8a6d) → verify: `cargo test -p aatf -p save_editor`
-  - [ ] 5.6b design health: the whole-crate mutation runs (started 2026-10-15 over a305229:
+  - [x] 5.6b design health: the whole-crate mutation runs (started 2026-10-15 over a305229:
     `pes_savefile`, `aatf`, `save_editor`, `studio_core`, `aesthetics_export`,
     `team_compiler`; `.tmp/5_6/`; no edit to those crates while they run), survivors triaged;
     the design-tell sweep; `just clef` per crate; the `pub` census. Sweep and `pub` census
     done 2026-10-15 (`.tmp/5_6/audit_notes.md`: one missing why comment, into 5.6a2); Clef
     done 2026-10-15 over the six crates (1,522 windows, 22 flags, all rejected, one why
-    comment into 5.6a2; `scripts/clef_rulings.md`)
+    comment into 5.6a2; `scripts/clef_rulings.md`). Runs done 2026-10-16 (survivors: 2, 1, 9,
+    14, 3, 20; triage per crate in `.tmp/5_6/mutants_<crate>/triage.md`): 20 tests added, 7
+    equivalents in `.cargo/extra_mutants.toml`, the probe's Windows arm rerun locally after a
+    split run (`WINDOWS_ONLY_TESTS`), three placeholder views deferred (issue of 2026-10-16)
   - [ ] 5.6c the `pes_savefile` census: every save, `.ted` and editor file on the machine, the
-    installed Fox player tables, the decoded run's bit coverage
-  - [ ] 5.6d the cross-family converge reviews, one surface per large crate
+    installed Fox player tables, the decoded run's bit coverage. Saves, `.ted` and editor
+    files and the bit coverage done 2026-10-15 (`.tmp/5_6/audit_notes.md` "Save census": 189
+    real files round-trip, bit coverage clean; the 15-17 texport reader fixed and re-censused)
+    - [ ] 5.6c1 the installed Fox player tables: every installed PES 18-21 CPK's player table
+      through `PlayerTableFile` (read, round trip), tallied by outcome
+  - [x] 5.6d the cross-family converge reviews, one surface per large crate. Done 2026-10-16
+    (every surface's SWE-2 and Astra loops ended; rulings `.tmp/5_6/review/duck_rulings.md`)
   - [ ] 5.6e close: the second whole-crate runs, plans moved to the spec (the Save editor's
     spec gains its message catalog: 19 of its 25 codes are named nowhere in the plan), steps
-    collapsed
+    collapsed. The move also carries what the converge left in the plans' wording only:
+    `aatf.rs` in `aatf_rules.md` "Crate layout", `PatchSummary`/`ConvertNote`, the VGL25
+    universal row, `NotATexport`, the 15-17 texport text (four places in
+    `spec/pes_savefile/operations.md`); and `spec/core/distribution.md`'s size figure is
+    corrected: embedded files are about 4.2 MiB, not 4.7 (the measure matched 0.58 MiB of
+    test fixtures; the `.rdata` breakdown is `.tmp/16w/rdata_parts.py`)
 
 ### Phase 8 — GUI
 
@@ -1455,6 +1469,17 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-15, 5.6c census) — PES 2014 files read as PES 15 and then fail with a
+  misleading error: `SaveContainer::decrypt` labels a PES 2014 `EDIT.bin` or `TEXPORT0N.bin`
+  `Pes15`, and the decode fails on a player name (not UTF-8) or a tactics byte. Loud, never a
+  wrong write, but it should be refused as PES 2014 (unsupported): measure what separates the
+  two versions' containers (PES 2014's EDIT is 4,799,651 bytes, its texport 5,389,806; no real
+  PES 15 texport is on the machine) and refuse it by name. `.tmp/5_6/audit_notes.md`.
+- open (2026-10-16, 5.6b mutation runs) — three GUI views are placeholder lines no test reads:
+  `save_editor`'s `view` and `settings_view` and `team_compiler`'s `settings_view`
+  (`lib.rs`), each a survivor when replaced with `()`. Their tests come with the views they
+  stand in for (the Save editor's window, the Team compiler's settings editor, Phase 8), with
+  `team_compiler`'s headless `view/mod.rs` harness.
 - open (2026-10-15, Astra review B.A1 of 5.3b) — nothing refuses an `output_folder_path` that
   resolves to the PES folder's `download/` (or inside the PES install): a degraded or
   `--no-deploy` run then installs into the game past every deployment check, and a savefile
