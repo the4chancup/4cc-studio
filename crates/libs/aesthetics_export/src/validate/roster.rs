@@ -659,6 +659,27 @@ mod tests {
     }
 
     #[test]
+    fn a_roster_that_fails_to_read_reports_only_the_read_failure() {
+        // As for an invalid roster: `source_read_failed` already drops the
+        // export, so no `player_unlisted` follows for the folder.
+        let report = report(
+            "egg Midcup",
+            &[("players.txt", 7)],
+            &["Players/A"],
+            &[("players.txt", Err("denied"))],
+        );
+        assert_eq!(
+            issues_of(&report),
+            vec![(
+                "source_read_failed",
+                IssueScope::File(ScopePath::new("players.txt").unwrap()),
+                Disposition::DropExport,
+            )]
+        );
+        assert!(report.validated.is_none());
+    }
+
+    #[test]
     fn player_name_takes_the_label_or_the_whole_name() {
         let without_roster = report(
             "egg Midcup",

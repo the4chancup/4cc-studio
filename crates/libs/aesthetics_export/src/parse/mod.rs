@@ -793,6 +793,37 @@ mod tests {
     }
 
     #[test]
+    fn flattening_conflicts_list_in_fold_key_order() {
+        // The loose `a.txt` collides before `a`'s file/folder conflict is
+        // met (`.` sorts before `/` inside `wrapper/`); the findings come
+        // out fold-sorted anyway: `a`, then `a.txt`.
+        let parsed = parse(
+            "egg Midcup",
+            &[
+                ("a", 1),
+                ("a.txt", 1),
+                ("wrapper/a.txt", 2),
+                ("wrapper/a/x", 2),
+                ("wrapper/Players/03 - A/face_high.fmdl", 10),
+            ],
+            &[],
+        );
+        let conflicts: Vec<IssueScope> = parsed
+            .issues
+            .iter()
+            .filter(|issue| issue.code == "nested_root_conflict")
+            .map(|issue| issue.scope.clone())
+            .collect();
+        assert_eq!(
+            conflicts,
+            vec![
+                IssueScope::File(ScopePath::new("a").unwrap()),
+                IssueScope::File(ScopePath::new("a.txt").unwrap()),
+            ]
+        );
+    }
+
+    #[test]
     fn no_content_is_no_issue() {
         let parsed = parse("egg Midcup", &[("readme.txt", 5)], &[]);
         assert!(parsed.issues.is_empty());

@@ -2501,6 +2501,31 @@ fn a_kit_inherits_only_the_stems_it_lacks() {
     );
 }
 
+#[test]
+fn the_inherited_stem_list_is_sorted() {
+    // `all/`'s files arrive in path order, where `kit_a-1.dds` sorts before
+    // `kit_a.dds` (`-` before `.`); the finding lists the stems sorted.
+    let report = report(
+        "egg Midcup",
+        &[
+            ("Kits/all/kit_a.dds", 9),
+            ("Kits/all/kit_a-1.dds", 9),
+            ("Kits/p2/kit.dds", 9),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![("kit_textures_inherited", Disposition::Keep)]
+    );
+    assert_eq!(report.issues[0].scope, folder("Kits/p2"));
+    assert_eq!(
+        report.issues[0].context,
+        vec![("stems", "a, a-1".to_owned())]
+    );
+}
+
 // TC-KIT-05
 #[test]
 fn all_files_and_an_unused_all_folder() {
