@@ -66,7 +66,13 @@ exclude_re = [
     # the host's arm compiles, so each run lists the others' replacements as missed. The Windows
     # arm is caught on Windows, the Linux arm on Linux (the VPS, measured 2026-10-01); the
     # other-platform arm (a plain `None`) compiles on no tested OS. A pattern telling the arms
-    # apart would need line numbers, which drift.
+    # apart would need line numbers, which drift. The same holds for `studio_core`'s
+    # running-PES probe (`pes_process.rs`): its Linux arm (`cmdlines`, `probe`), drawn into the
+    # Windows half, is listed missed there and caught on Linux by
+    # `cmdlines_hold_this_test_process` and `running_pes_lists_a_running_game_with_its_exe`
+    # (by reading, 5.6b); its Windows arm, drawn into the Linux half, is rerun here
+    # (`WINDOWS_ONLY_TESTS` in `scripts/mutants.py`); its other-platform `probe` compiles on no
+    # tested OS.
     # pes_model 2.20g equivalences, each checked by reasoning rather than a
     # distinguishing input existing:
     # `locate`'s `relative < section.bytes.len()` -> `<=` is equivalent. The

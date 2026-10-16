@@ -282,4 +282,96 @@ mod tests {
             assert!(PesVersion::ALL.contains(&game.version), "{game:?}");
         }
     }
+
+    /// Kills the fake game and removes its folder on drop, so a failed
+    /// assertion leaves neither behind.
+    #[cfg(any(windows, target_os = "linux"))]
+    struct FakeGame {
+        child: std::process::Child,
+        folder: PathBuf,
+    }
+
+    #[cfg(any(windows, target_os = "linux"))]
+    impl Drop for FakeGame {
+        fn drop(&mut self) {
+            // Cleanup only: the test already killed and reaped the child, so these
+            // usually fail on a dead process, and a leftover folder fails no assertion.
+            drop(self.child.kill());
+            drop(self.child.wait());
+            drop(std::fs::remove_dir_all(&self.folder));
+        }
+    }
+
+    #[cfg(any(windows, target_os = "linux"))]
+    #[test]
+    fn running_pes_lists_a_running_game_with_its_exe() {
+        use std::process::{Command, Stdio};
+        use std::time::{Duration, Instant};
+
+        // The probe's one job is seeing a running game (the core plan's "The
+        // running-PES probe"), and every other test runs with none open. The
+        // fake game is PES 2020 because the tools' tests use that version
+        // least: while it lives, any other test probing at the same moment (a
+        // parallel mutation job, the Save editor's or Team compiler's own
+        // tests) sees a running PES 2020 and a PES 2020 write refuses, so the
+        // window is kept to the one poll that lists it.
+        let folder =
+            std::env::temp_dir().join(format!("studio_core_running_pes_{}", std::process::id()));
+        if folder.exists() {
+            std::fs::remove_dir_all(&folder).unwrap();
+        }
+        std::fs::create_dir_all(&folder).unwrap();
+        let exe = folder.join("PES2020.exe");
+
+        // A small system program that runs until killed, copied under the name
+        // the game ships with so the probe's by-name match sees it.
+        #[cfg(windows)]
+        let (sleeper, arguments) = (
+            PathBuf::from(r"C:\Windows\System32\PING.EXE"),
+            ["-n", "30", "127.0.0.1"],
+        );
+        #[cfg(target_os = "linux")]
+        let (sleeper, arguments) = (
+            ["/bin/sleep", "/usr/bin/sleep"]
+                .into_iter()
+                .map(PathBuf::from)
+                .find(|path| path.is_file())
+                .expect("sleep lives in /bin or /usr/bin"),
+            ["30"],
+        );
+        std::fs::copy(&sleeper, &exe).expect("the sleeper program copies");
+
+        let mut fake = FakeGame {
+            child: Command::new(&exe)
+                .args(arguments)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .expect("the fake game starts"),
+            folder,
+        };
+
+        // The probe can take a moment to see a new process: poll for up to
+        // five seconds, and kill the fake game as soon as one poll lists it.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut games;
+        loop {
+            games = running_pes();
+            if games.iter().any(|game| {
+                game.version == PesVersion::Pes20 && game.exe.as_deref() == Some(exe.as_path())
+            }) || Instant::now() >= deadline
+            {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(30));
+        }
+        drop(fake.child.kill());
+        drop(fake.child.wait());
+
+        let expected = RunningPes {
+            version: PesVersion::Pes20,
+            exe: Some(exe),
+        };
+        assert!(games.contains(&expected), "{expected:?} not in {games:?}");
+    }
 }

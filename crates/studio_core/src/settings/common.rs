@@ -117,4 +117,37 @@ mod tests {
             PathBuf::from("/games/PES")
         );
     }
+
+    // The defaults the spec pins: `spec/team_compiler/settings.md`'s "Common
+    // settings (studio_core)" table (version 19, the `20**` folder, `exports/`,
+    // 0 auto threads, 80.0, the update check) and `spec/core/distribution.md`'s
+    // "Update state" table (`check_for_updates` true, `check_interval_hours` 24,
+    // `last_update_check` and `skipped_version` empty). `theme` is the dark
+    // preset per `plans/core/gui.md` "Other UI components", `last_tool` empty
+    // on a first run.
+    #[test]
+    fn the_defaults_match_the_settings_tables() {
+        // `pes_folder_path` is the shipped pattern on Windows and empty
+        // elsewhere: no sensible default exists off Windows.
+        #[cfg(windows)]
+        let pes_folder_path = r"C:\Program Files (x86)\Pro Evolution Soccer 20**";
+        #[cfg(not(windows))]
+        let pes_folder_path = "";
+        assert_eq!(
+            CommonSettings::default(),
+            CommonSettings {
+                pes_version: PesVersion::Pes19,
+                pes_folder_path: pes_folder_path.to_owned(),
+                exports_folder_path: PathBuf::from("exports"),
+                thread_count: 0,
+                memory_cap_percent: 80.0,
+                theme: Theme::Dark,
+                check_for_updates: true,
+                check_interval_hours: 24,
+                last_update_check: None,
+                skipped_version: None,
+                last_tool: None,
+            }
+        );
+    }
 }

@@ -123,3 +123,9 @@ path = "crates/libs/pes_savefile/src/settings_toml/mod.rs"
 kind = "bool"
 description = "in narrow_to: toml_form arg 3: false becomes true | removed: false"
 why = "narrow_to checks the key's widest range first; inside it the stored-width bound cannot refuse and both modes convert alike"
+
+[[exclude]]
+path = "crates/studio_core/src/pes_process.rs"
+kind = "bool"
+description = "in image_path: OpenProcess arg 2: false becomes true | removed: false"
+why = "bInheritHandle only: a query-limited handle closed before image_path returns; a child started meanwhile could inherit no more than that query right, and nothing the suite outputs reads it"

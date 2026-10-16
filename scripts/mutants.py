@@ -76,11 +76,18 @@ EXTRA_KINDS = ("bool", "literal", "normalize", "order")
 # Linux), promote_tree's removal arm by
 # a_previous_tree_that_cannot_be_removed_fails_the_promotion_and_is_not_overlaid
 # (FILE_SHARE_READ denies the delete on Windows). Matched by file and function,
-# never by line number, which drifts.
+# never by line number, which drifts. studio_core's running-PES probe has a
+# `#[cfg(windows)]` arm (processes, image_path, probe) the Linux half never
+# compiles, so its mutants all came back missed there at 5.6b; `probe` also names
+# the Linux and other-platform arms, which a rerun here leaves missed, as they are.
 WINDOWS_ONLY_TESTS = [
     re.compile(
         r"crates/tools/team_compiler/src/output/deploy\.rs:\d+:\d+: .* in "
         r"(sweep_run|probe_download|promote_tree)$"
+    ),
+    re.compile(
+        r"crates/studio_core/src/pes_process\.rs:\d+:\d+: "
+        r"(replace (processes|image_path|probe) -> |.* in (processes|image_path|probe)$)"
     ),
 ]
 # The remote half's systemd unit: a transient service so its cgroup is
