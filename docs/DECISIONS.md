@@ -8134,3 +8134,18 @@ will absorb, and the fork's handlers show its cost (tkinter driven from server t
 Plan: `plans/core/development_plan.md` "Unscheduled tools" (the rule, the rigbot bullet);
 `plans/music_player.md` "Autopilot" and "Relationship to the old codebase" (the Rigdio fork
 row); `plans/match_tracker/README.md` "Key decisions" (External consumers).
+
+## 2026-10-16 — core, studio — the CLI draws a progress line and a run summary in a terminal
+Decision (maintainer, on the lead's recommendation): in Phase 8 the console printer draws a
+progress line on stderr from `Progress` and leaves a one-line run summary on `Complete`, only
+when stderr is a terminal, with `indicatif` (`default-features = false`; the maintainer allowed it
+if very light: measured at four small crates and about 145 KiB). Stdout is unchanged. No terminal
+version of the progress grid.
+Why: the few CLI users get the run's progress and counts at a glance, and stdout stays the finding
+lines the CLI tests and scripts read; stderr in a terminal is the one place a redrawn line cannot
+corrupt anything. The grid's value is colours and click-through, which a terminal cannot give
+without a TUI library, for a handful of users whose finding lines already name each failing
+folder. `indicatif` over a hand-written line because terminal width, the Windows console and the
+draw-rate cap are already solved there, for a size cost under 0.5 % of the binary.
+Plan: `plans/core/architecture.md` "Event system" (the console's progress line and run summary),
+`plans/core/development_plan.md` "Phase 8: GUI", `plans/core/README.md` "External Dependencies".

@@ -94,7 +94,8 @@ this phase completes it.
   search, log-panel message links, and `4cc-studio help`), and the first-run data-location dialog
   (`spec/core/distribution.md` "Data location: asked on first run")
 - Build the common widgets: progress grid, log panel (auto-scroll, filters, grid cross-linking),
-  run strip
+  run strip; and the console printer's progress line and run summary for CLI mode, drawn on
+  stderr in a terminal only (`architecture.md` "Event system")
 - Implement each tool's `view()`: Team compiler grid (live validation), save editor
   (player/team/tactics editing, AATF checks, comparator, transplant — build order in the [Save
   editor plan](../save_editor.md); the `session/` wiring only the view drives, undo,
