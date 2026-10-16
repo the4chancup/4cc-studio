@@ -2061,3 +2061,6 @@ worklog passed 7,000 lines.
 - **2026-10-16** — the maintainer answered the music player's inbound-API question: the suite
   absorbs outside tools, so the player gets no inbound API and rigbot (managers' remote tactics
   control; source to come from its author) is an unscheduled tool.
+- **2026-10-16** — 5.6b: `pes_savefile`'s whole-crate run done (1839 caught, two survivors: one
+  test added, one equivalent). The chain's archive copy of the remote logs then filled C: and
+  stopped the next two runs before they began; the incremental cache cleared, the chain resumed.

@@ -128,7 +128,12 @@ grown `.tmp/` to 17 GB by 3.8. Each local run builds in a
 `%TEMP%`), deleted when the run ends normally; a killed run leaves its copy behind
 (some with a multi-GB `target/`), so after stopping one, delete its copy. `.cargo/mutants.toml`
 sets `gitignore = true` so the copies leave out `.tmp/` and `target/`: before 3.8 each copy
-carried all of `.tmp/`, and two 3.7 runs died of a full disk.
+carried all of `.tmp/`, and two 3.7 runs died of a full disk. The logs alone are large: a
+`pes_savefile` whole-crate run leaves about 20 GiB in `mutants.out/` (5.6b: 8.9 GiB local,
+11 GiB fetched from the remote half), which the next run moves to `mutants.out.old`; a chain
+script that copied `remote/` whole into its archive filled C: and stopped the two runs queued behind it.
+When C: fills, clear `target/debug/incremental` first (64 GiB then), which cargo rebuilds, never
+the whole `target/`: it also holds `mutants-cost.json` and the runs' generated configs.
 
 ## Agents and harness
 
