@@ -142,6 +142,26 @@ fn an_unknown_at_most_target_is_refused() {
     );
 }
 
+/// The four targets besides the ability stats that a player may sit
+/// below, each alone, so no name is pinned only by a ruleset listing it.
+#[test]
+fn every_non_stat_at_most_target_loads() {
+    for name in [
+        "form",
+        "injury_resistance",
+        "weak_foot_usage",
+        "weak_foot_accuracy",
+    ] {
+        let ruleset = Ruleset::from_data_block(&edit(
+            AUTUMN26,
+            "at_most: [\"attacking_prowess\", \"defensive_prowess\",\n                  \"injury_resistance\", \"weak_foot_usage\", \"weak_foot_accuracy\"],",
+            &format!("at_most: [\"{name}\"],"),
+        ))
+        .expect(name);
+        assert_eq!(ruleset.stats.at_most, [name], "{name}");
+    }
+}
+
 #[test]
 fn the_com_card_group_is_reserved() {
     // `com` inside `card_groups` next to `tricks`: `free: com` and the
