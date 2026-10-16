@@ -643,6 +643,31 @@ mod tests {
         }
     }
 
+    /// `new` already stores each player with his own id; the own-id override
+    /// in `write_ted` is reached only by an opened texport edited through
+    /// `players_mut`, where `new`'s own-id copy never ran.
+    #[test]
+    fn a_stripped_player_edited_into_an_opened_texport_is_written_with_his_own_id() {
+        for (version, bytes) in TEDS {
+            let mut texport = Texport::from_bytes(bytes, None).expect("opens");
+            for player in texport.players_mut() {
+                // The fixture holds each player's own id, not the stripped
+                // -1: the edit below is a real change.
+                assert_ne!(
+                    player.appearance_id,
+                    Some(STRIPPED_APPEARANCE_ID),
+                    "{version:?}"
+                );
+                player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
+            }
+            let out = texport.to_bytes(&test_salt()).expect("encodes");
+            let back = Texport::from_bytes(&out, Some(version)).expect("reopens");
+            for player in back.players() {
+                assert_eq!(player.appearance_id, Some(player.id), "{version:?}");
+            }
+        }
+    }
+
     #[test]
     fn new_synthesizes_a_file_the_records_round_trip_through() {
         for (version, bytes) in TEDS {
