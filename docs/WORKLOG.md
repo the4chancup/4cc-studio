@@ -1488,6 +1488,18 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open (2026-10-16, Phase 5 close runs; after the close) — a split mutation run waits on the
+  VPS for crates whose tests dominate: the halves are equal (`--shard 0/2` and `1/2`), but with
+  half this PC's threads per test (8 vCPUs against 16) the VPS tests `aatf`, `save_editor` and
+  `pes_savefile` at 60-80% of the local rate (5.6 runs: 92 against 157 an hour, 163 against 248,
+  84 against 107), while build-bound crates run at par or faster. Give the local side the larger
+  share in proportion to the two sides' measured rates per crate (`pes_savefile` about 55/45,
+  saving about 1.4 h of its 11.5), only if it stays exact: cargo-mutants takes one shard per
+  invocation, so the share needs either several local shards of an n-way split run one after
+  another (one extra baseline each, about 75 s for `pes_savefile`) or another way to hand each
+  side its list; whichever is used, the merged outcomes must name every listed mutant exactly
+  once (checked against `--list` in the summary, a run failing it reported, not summarized).
+  `scripts/mutants.py`; RUNBOOK "Mutation runs and the VPS".
 - open (2026-10-15, 5.6c census) — PES 2014 files read as PES 15 and then fail with a
   misleading error: `SaveContainer::decrypt` labels a PES 2014 `EDIT.bin` or `TEXPORT0N.bin`
   `Pes15`, and the decode fails on a player name (not UTF-8) or a tactics byte. Loud, never a
