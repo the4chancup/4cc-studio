@@ -1360,7 +1360,7 @@ fn the_authored_stock_id_the_marker_defaults_and_the_assigned_id_resolve_in_orde
     );
 }
 
-// TC-BIN-29
+// TC-BIN-41
 #[test]
 fn a_linked_shared_folder_s_gloves_id_wins_over_an_authored_gloves_id() {
     let sandbox = Sandbox::new("bins_gloves_link_conflict");
@@ -1395,7 +1395,7 @@ fn a_linked_shared_folder_s_gloves_id_wins_over_an_authored_gloves_id() {
     );
 }
 
-// TC-BIN-29
+// TC-BIN-41
 #[test]
 fn a_combined_face_folder_s_boots_part_assigns_the_id() {
     let sandbox = Sandbox::new("bins_face_link_boots_part");
@@ -1435,7 +1435,7 @@ fn a_combined_face_folder_s_boots_part_assigns_the_id() {
     );
 }
 
-// TC-BIN-29
+// TC-BIN-41
 #[test]
 fn a_plainly_linked_folder_holding_no_model_leaves_the_authored_id_its_row() {
     let sandbox = Sandbox::new("bins_plain_link_no_model");
@@ -1476,7 +1476,7 @@ fn a_plainly_linked_folder_holding_no_model_leaves_the_authored_id_its_row() {
     );
 }
 
-// TC-BIN-29
+// TC-BIN-41
 #[test]
 fn a_hand_split_face_part_assigns_the_gloves_id_over_an_authored_one() {
     let sandbox = Sandbox::new("bins_hand_split_gloves_id");

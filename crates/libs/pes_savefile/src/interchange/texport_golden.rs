@@ -16,6 +16,7 @@ use crate::model::names::display_name;
 use crate::model::player::PlayerEntry;
 use crate::model::team::TeamEntry;
 use crate::schema::schema_for;
+use crate::schema::texport::texport_old;
 use crate::test_support::test_salt;
 
 /// One measured file.
@@ -309,10 +310,9 @@ fn pes17_payload() -> Vec<u8> {
     payload
 }
 
-/// The PES 17 texport as a container around the sliced payload (logo and
-/// serial dropped, as the save fixtures are).
-pub(crate) fn pes17_texport_bytes() -> Vec<u8> {
-    let payload = pes17_payload();
+/// `payload` as the PES 17 texport's container (logo and serial dropped,
+/// as the save fixtures are).
+fn pes17_container(payload: Vec<u8>) -> Vec<u8> {
     let mut description = b"Team Export Data 03".to_vec();
     description.resize(384, 0);
     SaveContainer {
@@ -325,6 +325,11 @@ pub(crate) fn pes17_texport_bytes() -> Vec<u8> {
     }
     .to_bytes(&test_salt())
     .expect("container encodes")
+}
+
+/// The PES 17 texport fixture's bytes: its sliced payload in its container.
+pub(crate) fn pes17_texport_bytes() -> Vec<u8> {
+    pes17_container(pes17_payload())
 }
 
 #[test]
@@ -376,6 +381,36 @@ fn pes17_texport_opens_through_the_container_and_round_trips() {
         assert_eq!(p.id, 736 * 100 + 1 + i as u32);
     }
     assert_eq!(t.to_bytes(&test_salt()).expect("encodes"), bytes);
+}
+
+/// The 15-17 open's premise: the team, roster and tactics records carry
+/// one team id in every measured file, so a file whose team record — or
+/// roster record — alone names another is not laid out as a texport and
+/// is refused (`IdsDisagree` reporting the three ids the file holds).
+#[test]
+fn a_pes17_texport_whose_team_or_roster_id_alone_disagrees_is_refused() {
+    let old = texport_old(PesVersion::Pes17).expect("a 15-17 layout");
+    for (at, team, roster) in [(old.team_at, 737, 736), (old.roster_at, 736, 737)] {
+        let mut payload = pes17_payload();
+        assert_eq!(
+            u32_at(&payload, at),
+            736,
+            "the record's own id is the team's"
+        );
+        payload[at..at + 4].copy_from_slice(&737u32.to_le_bytes());
+        let err = Texport::from_bytes(&pes17_container(payload), None).expect_err("refused");
+        assert!(
+            matches!(
+                err,
+                TexportError::IdsDisagree {
+                    team: t,
+                    roster: r,
+                    tactics: 736,
+                } if t == team && r == roster
+            ),
+            "id changed at {at:#x}: {err:?}"
+        );
+    }
 }
 
 /// The PES 16 texport's decrypted payload, sliced as a save fixture's is.

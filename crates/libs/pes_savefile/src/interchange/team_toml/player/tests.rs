@@ -1803,3 +1803,54 @@ fn a_pes21_document_on_a_pes18_target_converts() {
         );
     }
 }
+
+/// A foreign motion stored at the target's top is not over it: the value
+/// writes as stored and no `Capped` note names the key. 127 and 15 are
+/// PES 18's tops in `motion_top`'s stored units (a celebration is stored
+/// as shown, a 1-based key one below what the editor shows).
+#[test]
+fn a_foreign_motion_at_the_targets_top_converts_with_no_note() {
+    let (file21, _) = open(PesVersion::Pes21);
+    let (file18, _) = open(PesVersion::Pes18);
+    let team21 = file21.team(701).expect("team 701 is in both fixtures");
+    let team18 = file18.team(701).expect("team 701 is in both fixtures");
+    let refs: Vec<&PlayerEntry> = file21.players().iter().collect();
+    let mut doc = TeamToml::from_team(PesVersion::Pes21, team21, &refs).expect("from_team");
+    let first = doc.players.values_mut().next().expect("a player");
+    first.appearance.motion.goal_celebration_1 = Some(127);
+    first.appearance.motion.free_kick = Some(15);
+    let mut target_team = team18.clone();
+    let mut targets: Vec<PlayerEntry> = file18.players().to_vec();
+    let notes = doc
+        .apply(PesVersion::Pes18, &mut target_team, &mut targets)
+        .expect("a foreign apply is notes, not errors");
+    for suffix in [
+        ".appearance.motion.goal_celebration_1",
+        ".appearance.motion.free_kick",
+    ] {
+        assert!(
+            !notes.iter().any(|note| matches!(
+                note,
+                ImportNote::Capped { path, .. } if path.ends_with(suffix)
+            )),
+            "no Capped note for {suffix}: {notes:?}"
+        );
+    }
+    let first_slot = team18
+        .roster
+        .iter()
+        .position(|slot| slot.player_id != 0)
+        .expect("a rostered slot");
+    let target = targets
+        .iter()
+        .find(|player| player.id == team18.roster[first_slot].player_id)
+        .expect("the player");
+    assert_eq!(
+        target.motion.goal_celebration_1, 127,
+        "the celebration at PES 18's top is stored as is"
+    );
+    assert_eq!(
+        target.motion.free_kick, 15,
+        "the free kick at PES 18's top is stored as is"
+    );
+}

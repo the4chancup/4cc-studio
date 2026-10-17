@@ -1321,7 +1321,7 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       re-run opens the pack
   - [x] 5.6d the cross-family converge reviews, one surface per large crate. Done 2026-10-16
     (every surface's SWE-2 and Astra loops ended; rulings `.tmp/5_6/review/duck_rulings.md`)
-  - [ ] 5.6f the citation audit (`CONTRIBUTING.md` "Citation audit", added to the design-health
+  - [x] 5.6f the citation audit (`CONTRIBUTING.md` "Citation audit", added to the design-health
     pass 2026-10-17): `just citation-audit` flagged 32 of 732 citations (31 `team_compiler`:
     TC-BIN-29 four tests, TC-OUT-07 and TC-MOD-43 three each; 1 `save_editor`, SE-AATF-02;
     `snap.out/citations.md`); each ruled in `scripts/citation_rulings.md`, the accepted
@@ -1335,9 +1335,9 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `.tmp/5_6/citations/rulings_acc.md`). The audit's re-run: the 25 accepted pairs' widened
     states score 0.69-0.97; the widening pushed one more TC-MOD-35 test under 0.3, ruled and
     widened in turn; no new flag, the 7 below 0.3 are the 2 rejected and the 5 awaiting a
-    citation move. Open: the five citation moves
-    (`bins.rs`' four TC-BIN-29 tests to TC-BIN-41, `a_7z_over_the_memory_cap_compiles` to
-    TC-PLN-08) after `team_compiler`'s close run, then `just acceptance strict`
+    citation move. Done 2026-10-17: the five moved (`bins.rs`' four TC-BIN-29 tests to
+    TC-BIN-41, `a_7z_over_the_memory_cap_compiles` to TC-PLN-08); the audit's only flags under
+    0.3 are the 2 rejected; `just acceptance strict` 442 of 442 proven
   - [ ] 5.6e close: the second whole-crate runs, plans moved to the spec (the Save editor's
     spec gains its message catalog: 19 of its 25 codes are named nowhere in the plan), steps
     collapsed. The move also carries what the converge left in the plans' wording only:

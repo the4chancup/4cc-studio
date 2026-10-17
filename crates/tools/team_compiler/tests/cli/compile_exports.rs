@@ -1822,7 +1822,7 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
     assert_eq!(run.exit_code(), 1);
 }
 
-// TC-PLN-05
+// TC-PLN-08
 #[test]
 fn a_7z_over_the_memory_cap_compiles() {
     let sandbox = Sandbox::new("seven_z_over_cap");
