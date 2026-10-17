@@ -2087,3 +2087,6 @@ worklog passed 7,000 lines.
 - **2026-10-17** — A member's anime face with a pre-Fox diff and a hand-fixed Fox one: the fix
   is two eye floats (35 to 45), the pair cup members set by hand on Fox; PES 21's Edit mode
   shows no change even at 0 and 90, so what he saw is asked (`QUESTIONS.md`).
+- **2026-10-17** — Phase 6 (Export upgrader) opens: the Red inventory's four open items are
+  settled into the plan's steps 5 and 7 (6.0a), the goalkeeper token `u0???g` respelled with
+  the team's ID as Red does; next, the acceptance section (6.0b).

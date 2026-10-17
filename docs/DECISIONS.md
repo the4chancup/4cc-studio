@@ -8216,3 +8216,20 @@ of a review. Not a gate: it needs the network and a key. Its other measured uses
 Clef scan's decision of 2026-10-17; spec drift, AUC 0.68).
 Plan: `CONTRIBUTING.md` "Citation audit"; `AGENTS.md` (converge's design-health pass). The
 evaluation is outside the repository (`SystemOne/jev-eval/round3/RESULTS.md` "Round 4b").
+
+## 2026-10-17 — export_upgrader — the Red inventory's four open items settled before the acceptance section
+Decision: (1) a kit whose binary config names another kit's back, chest, leg or name texture
+gets a copy of it in its own folder (`kit_texture_copied`, I), before the `all/` hoist; (2) an
+FMDL texture whose stem is only in `Common/` gets the stem and a `.common` link, whatever
+directory the FMDL named; (3) the goalkeeper token `u0???g` is no variant set: a whole-export
+upgrade respells its three ID characters as the resolved team's ID in names and paths, and
+model-folder mode leaves it as written; (4) a second `gk:` Note entry and player entries past
+the ninth are reported as unmigrated content.
+Why: each keeps the upgraded export compiling as Red compiled the old one. Without (1) the 59
+configs that borrow kit 1's fonts would compile kits with no numbers or names; without (2) a
+texture Red found in Common would resolve nowhere. For (3), not a `kitN` rewrite, because Studio
+has one kit number for every player and a fixed goalkeeper texture is a plain name; and not a
+respelling to `XXX`, because nothing in Studio produces `u0XXX` (`spec/model_format.md`), while
+the team's ID is what Red wrote and makes a model and a file that spelled it differently match
+again. (4) has no Studio slot to land in.
+Plan: `plans/export_upgrader.md` steps 5 and 7; its "Open items" section removed.

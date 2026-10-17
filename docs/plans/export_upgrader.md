@@ -54,8 +54,19 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    and not the default 3, becomes that kit's icon marker, `icon_<N>`: "Marker names" in the
    Aesthetics export plan); the Note's kit-entry order maps
    entries to slots (player entries → `p1`…, `gk:` entries → `g1`…), matching how Red numbered them
-   in `UniColor.bin`. Kit folders are written as bare slots (`p1/`) — the old format has no kit
-   names to carry. Then the shared textures are **hoisted into `Kits/all/`**: a stem present in
+   in `UniColor.bin`. A second `gk:` entry and player entries past the ninth have no Studio slot
+   (Red wrote them to `UniColor.bin` as kit 0x11 and kits past 9): each is reported as
+   unmigrated content (step 10). Kit folders are written as bare slots (`p1/`) — the old format has no kit
+   names to carry. A kit whose binary config names **another kit's texture** in its back,
+   chest, leg or name field gets a copy of that texture in its own folder, under the generic
+   name, reported (`kit_texture_copied`, I, naming the kit, the stem and the kit it came from):
+   makers copy kit 1's config for the others, so kits 2-4 (and often the GK) wear kit 1's number
+   and name fonts without shipping their own (59 of the 1041 distinct old configs on the
+   maintainer's machine, in 23 exports, nearly all VGL26). Red rewrites only the team ID in those
+   fields and keeps the kit the maker wrote, while the compiler re-derives the fields from the
+   kit's own folder, so without the copy those kits would compile without numbers or names.
+   Then the shared textures are **hoisted into `Kits/all/`** (a copied texture moves too when
+   every kit now holds it): a stem present in
    *every* kit folder with byte-identical contents (two or more kits) moves to `all/` and the copies
    are deleted (`kit_texture_hoisted`, I, naming the stem). Only the all-kits-identical case
    qualifies: hoisting a stem that some kit lacks would hand that kit a texture it never had and
@@ -115,7 +126,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    the FMDL texture `./kitN/` `armor_bsm` and the link `kitN/armor_bsm.dds.common` in the
    model's folder, the kit magic below respelled in the folder name as in a file name; a kit
    reference counts as present when a variant folder holds the file). A Common-path
-   reference whose file is not in the input's `Common/` is reported and left as it was. This applies to structural migration, not only optional glTF conversion.
+   reference whose file is not in the input's `Common/` is reported and left as it was. An
+   FMDL texture whose stem is **not in the model's folder but is in the input's `Common/`** gets
+   the same stem and link, whatever directory the FMDL named, since Red points such a texture
+   at the team's Common folder. This applies to structural migration, not only optional glTF conversion.
    In the same pass, the legacy kit-dependent path magic is rewritten to the Studio spelling:
    `u0???p0` → `kitN`, `u0???p1`…`u0???p9` → `kit1`…`kit9`, in file and folder names and in
    `.mtl`/`face.xml` paths and FMDL path tables alike (see "Kit-dependent assets" in the [Unified
@@ -123,7 +137,13 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    `XXX` placeholder literally or baked the real team ID in (`u0872p1.dds`), and both forms mean the
    same thing. The upgrader is the **only** Studio component that reads the legacy spelling — the
    compiler has no notion of it. `dummy_kit*` references are left as they are — the compiler
-   keeps them as reserved game-substituted names. Pre-Fox **model-type prefixes become suffixes**:
+   keeps them as reserved game-substituted names. The goalkeeper token **`u0???g`**
+   (`u0XXXg1.dds` in a `Common/`, which a keeper's model names) is no variant set in Studio,
+   which has one kit number for every player ("Kit-dependent assets"): in a whole-export upgrade
+   its three ID characters become the resolved team's ID, in file and folder names and in
+   `.mtl`/`face.xml` paths and FMDL path tables alike, as Red respells it, so a model and a file
+   that spelled the ID differently (`XXX` in one, the ID in the other) match again. Model-folder
+   mode has no team and leaves the token as written. Pre-Fox **model-type prefixes become suffixes**:
    Red typed `face.xml` entries by a leading type (`gloveL_foo.model`, matched case-insensitively
    with underscores ignored, or a `model_type_<x>` token anywhere); the Studio format puts the type
    last (`foo_gloveL.model`, `foo_model_type_<x>.model` — see "Model names: a free part plus a
@@ -261,34 +281,6 @@ holds `midcup` or `additions` in any letter case, the two ways old midcup export
 `upgrade-models` is model-folder mode; its output is one folder per migrated input folder under
 the output directory. Both print step 10's report and exit non-zero when it is not clean. The GUI
 offers the same two modes as two drop targets on the tool view.
-
-## Open items
-
-What Red does with old exports that the steps above do not carry yet, found by the Red behavior
-inventory (step 5.0c, `.tmp/5_0c/`); each is settled in this plan before Phase 6's acceptance
-section is written.
-
-- **A kit config naming another kit's texture** (step 5). Red rewrites only the team ID in a
-  config's back, chest, leg and name fields, keeping the kit letter and number the maker wrote:
-  makers copy kit 1's config for the others, so kits 2-4 (and often the GK) wear kit 1's number
-  and name fonts without shipping their own. 59 of the 1041 distinct old configs on the
-  maintainer's machine do this (23 exports, nearly all VGL26). Step 5 drops the fields and the
-  compiler re-derives them from the textures in the kit's folder, so those kits would compile
-  without numbers or names, against step 5's "compiles byte-for-byte as before". Recommended:
-  the upgrader reads the four fields and copies a texture another kit's field names into that
-  kit's folder before the hoist (which then moves it to `all/` when every kit has it), with an
-  info line.
-- **An FMDL texture found only in `Common/`** (step 7). Red points a texture at the team's
-  Common folder whenever its stem is not in the model's folder but is in `Common/`, whatever
-  directory the model named; step 7 adds a `.common` link only for a reference that named the
-  Common folder by game path. Recommended: the link also when the stem exists only in `Common/`.
-- **The `u0???g` team-ID token** (step 7). Red respells `u0<id>g` like `u0<id>p` in FMDL strings
-  and when matching file names; step 7 and `spec/model_format.md` "Kit-dependent assets" treat only
-  `u0???p<d>`, so a model and a file spelling the ID differently stop matching. Step 7 says what
-  happens to `u0???g`.
-- **Note kit entries past Studio's slots** (step 5). Red writes a `UniColor.bin` entry for a
-  second `gk:` line (kit 0x11) and for player lines past the ninth; the Studio format has no slot
-  for either. Reported as unmigrated content (step 10).
 
 ## Dependencies
 

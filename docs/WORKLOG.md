@@ -428,6 +428,24 @@ manual: checked 2026-10-15, PES 17 Edit mode, end to end: run 2's export compile
 this step's exe (`.tmp/ingame/gloves_check/studio6/`), unpatched: slots 01 and 02 draw their
 right gloves magenta (`r6_slot01.png`, `r6_slot02.png`)
 
+### Phase 6 — Export upgrader
+
+Opened 2026-10-17. The build steps are itemized once the acceptance section is reviewed.
+
+- [x] 6.0a the plan's "Open items" settled (`plans/export_upgrader.md`; they must be before the
+  acceptance section is written): a kit config naming another kit's texture, an FMDL texture
+  found only in `Common/`, the `u0???g` token, Note kit entries past Studio's slots → verify:
+  "Open items" is empty, each answer is in the step it belongs to, with a decision entry for
+  each one the plan did not already recommend. Done 2026-10-17: the section removed, the
+  answers in steps 5 and 7, one decision entry for the four (the `u0???g` one the lead's: the
+  team's ID, as Red respells it, after the Everything index found the token in old exports'
+  `Common/` folders, a fixed goalkeeper texture rather than a variant set)
+- [ ] 6.0b the Export upgrader's "Acceptance" section (`AGENTS.md` "Before a tool phase";
+  format `CONTRIBUTING.md` "Testing"), CLI scenarios for `upgrade` and `upgrade-models`; the GUI's
+  drop targets are Phase 8's → verify: every numbered step and "Model-folder mode" has a
+  scenario or an explicit "no observable behavior" note, and the cross-family review
+  (checkpoint (a): SWE-2 loop, then Astra) has ended
+
 ### Phase 8 — GUI
 
 The phase's steps are itemized when it opens. Before that, its plans get the fixes a survey
