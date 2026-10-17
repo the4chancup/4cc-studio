@@ -13,8 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader), opening with its acceptance step; first, the split mutation
-run's uneven halves (issue of 2026-10-16, "after the close"). 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader), opening with its acceptance step. 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -581,7 +580,7 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
-- open (2026-10-16, Phase 5 close runs; after the close) — a split mutation run waits on the
+- resolved 2026-10-17 (after Phase 5's close; `scripts/mutants.py` `plan_file_split`) — a split mutation run waits on the
   VPS for crates whose tests dominate: the halves are equal (`--shard 0/2` and `1/2`), but with
   half this PC's threads per test (8 vCPUs against 16) the VPS tests `aatf`, `save_editor` and
   `pes_savefile` at 60-80% of the local rate (5.6 runs: 92 against 157 an hour, 163 against 248,
@@ -592,7 +591,13 @@ points there.
   another (one extra baseline each, about 75 s for `pes_savefile`) or another way to hand each
   side its list; whichever is used, the merged outcomes must name every listed mutant exactly
   once (checked against `--list` in the summary, a run failing it reported, not summarized).
-  `scripts/mutants.py`; RUNBOOK "Mutation runs and the VPS".
+  `scripts/mutants.py`; RUNBOOK "Mutation runs and the VPS". Resolved: a whole-crate run
+  hands each side a complementary set of source files (`examine_globs` here, `exclude_globs`
+  there) sized by the two sides' measured mean seconds per mutant, checked exact against
+  `--list` before launch and against the merged outcomes after (exit code 5 otherwise);
+  round-robin stays for diff runs and unmeasured crates. The remote means were seeded from the
+  close runs' archives (`.tmp/5_6/shards/seed_remote_costs.py`); `studio_core`'s first file
+  split put 38 of 85 mutants here, the halves ending 146 s and 153 s in.
 - open (2026-10-15, 5.6c census) — PES 2014 files read as PES 15 and then fail with a
   misleading error: `SaveContainer::decrypt` labels a PES 2014 `EDIT.bin` or `TEXPORT0N.bin`
   `Pes15`, and the decode fails on a player name (not UTF-8) or a tactics byte. Loud, never a

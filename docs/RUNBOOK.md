@@ -10,12 +10,22 @@ and its rules stay in force. Read a section before starting what it covers.
 
 **Whole-crate mutation runs are split with the maintainer's VPS.** On the maintainer's PC the
 user environment variable `STUDIO_MUTANTS_REMOTE=bonfire` (an alias in `~/.ssh/config`) makes
-`just mutants <crate>` run half the mutants there (`scripts/mutants.py`: the working tree is
-sent as a git bundle, the remote shard runs at low priority, its results land in
-`mutants.out/remote/` and the combined survivors in `mutants.out/missed_all.txt`). Benchmarked
+`just mutants <crate>` run part of the mutants there (`scripts/mutants.py`: the working tree is
+sent as a git bundle, the remote half runs at low priority, its results land in
+`mutants.out/remote/` and the combined survivors in `mutants.out/missed_all.txt`). A whole-crate
+run hands each side a complementary set of the crate's source files rather than `--shard`
+halves: the local config's `examine_globs` name this machine's files and the remote's
+`exclude_globs` add them, the local share being `remote / (local + remote)` of the two sides'
+measured mean seconds per mutant (`target/mutants-cost.json`; the remote side's means fold into
+its `remote_mutant` table at each fetch), so a slower side tests less. A diff run, a crate one
+side has not measured yet, a file assignment landing further from the target than halves, and per-side
+listings that do not recombine to the whole listing exactly all keep the even `--shard 0/2` /
+`1/2`, and `extra_mutants.out/split.json` records which a run used so the summary can check the
+merged outcomes name every listed mutant exactly once. Benchmarked
 on 2026-09-27 on one commit, the VPS is about as fast as the PC (`fox2` whole crate 167 s
-against 256 s, one eighth of `fmdl` 460 s against 433 s) with identical results, so the split
-should roughly halve a whole-crate run, and it moves half its energy off the home machine.
+against 256 s, one eighth of `fmdl` 460 s against 433 s) with identical results, so a split
+roughly halves a whole-crate run whose sides rate the same, and it moves part of its energy off
+the home machine either way.
 Agent and IDE shells started before the variable was set do not see it, so the script also
 reads it from the user's registry environment; the run's first line says which mode it took
 ("splitting the run with bonfire" or "running every mutant on this machine"). At 2.20i an

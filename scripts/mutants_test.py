@@ -7,6 +7,7 @@ import io
 import json
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -102,6 +103,128 @@ class Summarize(unittest.TestCase):
             self.assertEqual(self.summarize(root), 0)
 
 
+class SplitCoverage(unittest.TestCase):
+    def summarize(self, root: Path) -> tuple[int, str]:
+        saved = mutants.ROOT
+        mutants.ROOT = root
+        try:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = mutants.summarize(0, 0, root / "remote_console.txt", (None, None))
+            return code, out.getvalue()
+        finally:
+            mutants.ROOT = saved
+
+    def write_split_run(
+        self, root: Path, local: list[str], remote: list[str], names: list[str]
+    ) -> None:
+        """A finished whole-crate split run under `root`: the split record
+        listing `names`, and each half's `mutants.out` testing its names."""
+        record = root / "extra_mutants.out" / "split.json"
+        record.parent.mkdir(parents=True, exist_ok=True)
+        record.write_text(
+            json.dumps(
+                {
+                    "crate": "cpk",
+                    "method": "files",
+                    "target": 0.6,
+                    "achieved": 0.6,
+                    "local_files": ["crates/libs/cpk/src/lib.rs"],
+                    "names": names,
+                }
+            ),
+            encoding="utf-8",
+        )
+        for base, found in (
+            (root / "mutants.out", local),
+            (root / "mutants.out" / "remote" / "mutants.out", remote),
+        ):
+            write_run(
+                base,
+                len(found),
+                [{"scenario": mutant(name), "summary": "CaughtMutant"} for name in found],
+            )
+
+    def test_the_merged_halves_naming_each_listed_mutant_once_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_split_run(
+                root, ["m_local_a", "m_local_b"], ["m_remote_c"],
+                ["m_local_a", "m_local_b", "m_remote_c"],
+            )
+            code, _ = self.summarize(root)
+            self.assertEqual(code, 0)
+
+    def test_a_listed_mutant_neither_half_tested_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_split_run(
+                root, ["m_local_a", "m_local_b"], [],
+                ["m_local_a", "m_local_b", "m_remote_c"],
+            )
+            code, out = self.summarize(root)
+            self.assertEqual(code, 5)
+            self.assertIn("never tested", out)
+            self.assertIn("m_remote_c", out)
+
+    def test_a_mutant_both_halves_tested_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_split_run(
+                root, ["m_local_a", "m_local_b"], ["m_local_b"],
+                ["m_local_a", "m_local_b"],
+            )
+            code, out = self.summarize(root)
+            self.assertEqual(code, 5)
+            self.assertIn("tested twice", out)
+            self.assertIn("m_local_b", out)
+
+
+class SizedConfig(unittest.TestCase):
+    def test_extra_keys_write_toml_lists_tomllib_reads_back(self):
+        text = mutants.sized_config(
+            16,
+            extra={
+                "examine_globs": ["crates/libs/cpk/src/read.rs"],
+                "exclude_globs": ["crates/libs/cpk/src/write.rs"],
+            },
+        )
+        parsed = tomllib.loads(text)
+        self.assertEqual(parsed["examine_globs"], ["crates/libs/cpk/src/read.rs"])
+        base = tomllib.loads(
+            (mutants.ROOT / ".cargo" / "mutants.toml").read_text(encoding="utf-8")
+        )["exclude_globs"]
+        self.assertEqual(
+            parsed["exclude_globs"], base + ["crates/libs/cpk/src/write.rs"]
+        )
+
+
+class Partition(unittest.TestCase):
+    def test_each_file_goes_to_the_side_further_below_its_share_largest_first(self):
+        files = {"a.rs": 40, "b.rs": 30, "c.rs": 20, "d.rs": 10}
+        self.assertEqual(mutants.partition(files, 0.6), {"a.rs", "c.rs"})
+
+    def test_a_split_further_from_the_share_than_halves_falls_back(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertIsNone(mutants.partition({"a.rs": 90, "b.rs": 10}, 0.55))
+
+
+class LocalShare(unittest.TestCase):
+    def test_the_slower_half_gets_the_smaller_share(self):
+        cache = {
+            "mutant": {"cpk": 10.0},
+            "remote_mutant": {"cpk": 15.0},
+            "baseline": {},
+        }
+        self.assertAlmostEqual(mutants.local_share("cpk", cache), 0.6)
+
+    def test_a_half_without_a_measurement_gives_no_share(self):
+        cache = {"mutant": {"cpk": 10.0}, "remote_mutant": {}, "baseline": {}}
+        self.assertIsNone(mutants.local_share("cpk", cache))
+        cache = {"mutant": {}, "remote_mutant": {"cpk": 15.0}, "baseline": {}}
+        self.assertIsNone(mutants.local_share("cpk", cache))
+
+
 class CostCache(unittest.TestCase):
     def update(self, root: Path) -> bool:
         """Whether `update_cost_cache` over `root`'s `mutants.out` wrote the cache."""
@@ -132,6 +255,57 @@ class CostCache(unittest.TestCase):
             self.assertFalse(self.update(Path(tmp)))
             write_run(out, 5, outcomes("CaughtMutant"), {"log/m": "test failed"})
             self.assertTrue(self.update(Path(tmp)))
+
+    def test_a_cache_without_remote_mutant_loads_an_empty_table(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_path = Path(tmp) / "cost.json"
+            cache_path.write_text(
+                json.dumps({"mutant": {"cpk": 1.5}, "baseline": {"cpk": 60.0}}),
+                encoding="utf-8",
+            )
+            saved = mutants.COST_CACHE
+            mutants.COST_CACHE = cache_path
+            try:
+                cache = mutants.load_cost_cache()
+            finally:
+                mutants.COST_CACHE = saved
+            self.assertEqual(cache["remote_mutant"], {})
+            self.assertEqual(cache["mutant"], {"cpk": 1.5})
+            self.assertEqual(cache["baseline"], {"cpk": 60.0})
+
+    def test_remote_outcomes_fold_into_remote_mutant_not_baseline(self):
+        def outcomes() -> list[dict]:
+            return [
+                {
+                    "scenario": {
+                        "Mutant": {
+                            "name": f"m{i}",
+                            "file": "crates/libs/cpk/src/lib.rs",
+                        }
+                    },
+                    "summary": "CaughtMutant",
+                    "phase_results": [{"duration": 2.0}],
+                }
+                for i in range(5)
+            ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # `mutant_crate` resolves the crate by the nearest Cargo.toml.
+            (root / "crates" / "libs" / "cpk").mkdir(parents=True)
+            (root / "crates" / "libs" / "cpk" / "Cargo.toml").write_text("")
+            remote = root / "mutants.out" / "remote" / "mutants.out"
+            write_run(remote, 5, outcomes())
+            saved = mutants.ROOT, mutants.COST_CACHE
+            mutants.ROOT, mutants.COST_CACHE = root, root / "cost.json"
+            try:
+                mutants.update_cost_cache(remote, "remote_mutant")
+                cache = json.loads(mutants.COST_CACHE.read_text(encoding="utf-8"))
+            finally:
+                mutants.ROOT, mutants.COST_CACHE = saved
+            self.assertEqual(cache["remote_mutant"], {"cpk": 2.0})
+            self.assertNotIn("cpk", cache["mutant"])
+            self.assertNotIn("cpk", cache["baseline"])
 
 
 if __name__ == "__main__":

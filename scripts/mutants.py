@@ -1,8 +1,13 @@
 """`just mutants <crate>`: a whole-crate cargo-mutants run, optionally split in two.
 
-With `STUDIO_MUTANTS_REMOTE` set to an ssh host (e.g. `bonfire`) the run is sharded
-round-robin: this machine runs `--shard 0/2`, the host runs `--shard 1/2`, and the
-remote half's results merge into `mutants.out/remote/`. Unset (in the process
+With `STUDIO_MUTANTS_REMOTE` set to an ssh host (e.g. `bonfire`) the run is
+split with it: a whole-crate run hands each half a complementary set of the
+crate's source files, sized by the two halves' measured per-mutant costs
+(`target/mutants-cost.json`), through `examine_globs` in the local config and
+`exclude_globs` in the remote's; a diff run, a crate with no measurement on a
+side, and a file split that fails its exactness check keep the even
+`--shard 0/2` / `1/2` round-robin. The remote half's results merge into
+`mutants.out/remote/`. Unset (in the process
 and, on Windows, in the user's registry environment) or empty, the plain local
 command runs; it also runs for a crate in `LOCAL_ONLY_CRATES`, whose builds
 outgrow the remote's memory cap.
@@ -44,6 +49,8 @@ import tempfile
 import threading
 import time
 import tomllib
+from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -278,17 +285,26 @@ def transfer(host: str, remote_head: str | None) -> None:
         Path(bundle.name).unlink(missing_ok=True)
 
 
-def sized_config(cpus: int, build_jobs: int | None = None) -> str:
+def sized_config(
+    cpus: int, build_jobs: int | None = None, extra: dict | None = None
+) -> str:
     """`.cargo/mutants.toml`'s text with each of the two cargo processes (`--jobs
     2`) given half of `cpus` logical CPUs, for test threads and, unless
     `build_jobs` sets fewer, build jobs, so together they use every CPU
     without oversubscribing it. The scripts run cargo-mutants at a low
     priority instead of holding CPUs back (`below_normal`), so the machine
-    stays usable."""
+    stays usable. `extra` sets more keys — a file split's `examine_globs` or
+    `exclude_globs`; a list value extends the base file's list of that key
+    rather than replacing it."""
     config = tomllib.loads((ROOT / ".cargo/mutants.toml").read_text(encoding="utf-8"))
     half = max(1, cpus // 2)
     config["additional_cargo_args"] = ["--jobs", str(build_jobs or half)]
     config["additional_cargo_test_args"] = ["--", f"--test-threads={half}"]
+    for key, value in (extra or {}).items():
+        base = config.get(key)
+        config[key] = (
+            base + value if isinstance(base, list) and isinstance(value, list) else value
+        )
     lines = []
     for key, value in config.items():
         serializable = isinstance(value, (str, int, bool)) or (
@@ -301,20 +317,22 @@ def sized_config(cpus: int, build_jobs: int | None = None) -> str:
     return "\n".join(lines) + "\n"
 
 
-def remote_config(host: str, nproc: int) -> None:
+def remote_config(host: str, nproc: int, extra: dict | None = None) -> None:
     """Write the remote's mutants.toml, sized for the remote's CPUs, its builds
-    held to `REMOTE_BUILD_JOBS` for the memory cap."""
+    held to `REMOTE_BUILD_JOBS` for the memory cap; `extra` carries a file
+    split's `exclude_globs`."""
     ssh(host, f"cat > {REMOTE_BASE}/mutants.remote.toml",
-        input=sized_config(nproc, REMOTE_BUILD_JOBS), text=True, check=True)
+        input=sized_config(nproc, REMOTE_BUILD_JOBS, extra), text=True, check=True)
 
 
-def local_config() -> Path:
+def local_config(extra: dict | None = None) -> Path:
     """Write `target/mutants.local.toml`, sized for this machine's CPUs, and
-    return its path for `--config`."""
+    return its path for `--config`; `extra` carries a file split's
+    `examine_globs`."""
     path = ROOT / "target" / "mutants.local.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".tmp")
-    temp.write_text(sized_config(os.cpu_count() or 2), encoding="utf-8")
+    temp.write_text(sized_config(os.cpu_count() or 2, extra=extra), encoding="utf-8")
     os.replace(temp, path)
     return path
 
@@ -330,15 +348,18 @@ def below_normal() -> dict:
     return {"preexec_fn": lambda: os.nice(10)}
 
 
-def local_mutants(args: list[str]) -> subprocess.CompletedProcess:
+def local_mutants(args: list[str], config: Path | None = None) -> subprocess.CompletedProcess:
     """Runs `cargo mutants <args> --jobs 2` here, sized by `local_config` and at
     `below_normal` priority, its copies of the tree in `LOCAL_TMPDIR`: Rust's
     `temp_dir`, which cargo-mutants copies into, reads `TMP` then `TEMP` on
-    Windows and `TMPDIR` elsewhere."""
+    Windows and `TMPDIR` elsewhere. `config` is a config a file split already
+    wrote (its `examine_globs` must not be regenerated away)."""
     LOCAL_TMPDIR.mkdir(parents=True, exist_ok=True)
     folder = str(LOCAL_TMPDIR)
+    if config is None:
+        config = local_config()
     return subprocess.run(
-        ["cargo", "mutants", *args, "--jobs", "2", "--config", str(local_config())],
+        ["cargo", "mutants", *args, "--jobs", "2", "--config", str(config)],
         cwd=ROOT,
         env={**os.environ, "TMP": folder, "TEMP": folder, "TMPDIR": folder},
         **below_normal(),
@@ -478,7 +499,9 @@ def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
     """Writes `run/job.sh` (and `run/in.diff` for a `--in-diff` selection,
     the same diff the local half reads) and starts it as the `REMOTE_UNIT`
     transient service (`sudo -n systemd-run`): shard 1/2 of the selection, or
-    all of it when `whole` (`REMOTE_ONLY`). The service is detached from this ssh session
+    all of it when `whole` (`REMOTE_ONLY`, and a whole-crate file split, whose
+    shares the remote's `exclude_globs` carry instead of a shard). The service is
+    detached from this ssh session
     by construction: the unit is memory-capped (`MemoryMax`, no swap) and
     CPU-idle so Fluxer's production services on the host win, and
     `OOMPolicy=continue` keeps cargo-mutants alive past an in-unit OOM kill.
@@ -583,19 +606,26 @@ def wait_remote(host: str) -> tuple[int, float]:
 def run_split(
     selection: list[str], host: str, tree: str, remote_head: str | None,
     remote_tree: str | None, nproc: int, local: bool = True,
+    local_files: set[str] | None = None,
 ) -> tuple[int, int, float | None, float]:
-    """The local shard starts at once, in the foreground with console output as
+    """The local half starts at once, in the foreground with console output as
     today; a thread transfers the snapshot, writes the remote config and launches
-    the remote shard, so the transfer counts against the remote side only.
+    the remote half, so the transfer counts against the remote side only.
     `selection` is the mutant-selection arguments (`["-p", crate]` or
     `["--in-diff", path]`); the remote reads an uploaded copy of a diff.
     Without `local` (`REMOTE_ONLY`) the remote runs the whole selection and
-    nothing runs here. Returns the (local, remote) codes and seconds: the local
+    nothing runs here. With `local_files` (a whole-crate file split) neither
+    half takes a `--shard`: the local config examines those files and the
+    remote's excludes them, so each tests a complementary set. Returns the
+    (local, remote) codes and seconds: the local
     half's from the common start (None without one), the remote half's from its
     own launch."""
     start = time.monotonic()
     remote: dict = {}
     whole = not local
+    remote_extra = (
+        {"exclude_globs": sorted(local_files)} if local_files is not None else None
+    )
 
     def remote_half() -> None:
         try:
@@ -603,8 +633,10 @@ def run_split(
                 print("remote tree up to date", flush=True)
             else:
                 transfer(host, remote_head)
-            remote_config(host, nproc)
-            launch_remote(host, selection, whole=whole)
+            remote_config(host, nproc, remote_extra)
+            # A file split's remote runs with no `--shard`: its config's
+            # exclude_globs already name the local half's share.
+            launch_remote(host, selection, whole=whole or local_files is not None)
             print("remote half launched", flush=True)
         except Exception as error:
             # Re-raised in the main thread once the local half is done: an
@@ -620,7 +652,13 @@ def run_split(
         return 0, remote_code, None, remote_seconds
     thread = threading.Thread(target=remote_half)
     thread.start()
-    local_run = local_mutants([*selection, "--shard", "0/2", "--sharding", "round-robin"])
+    if local_files is None:
+        local_run = local_mutants([*selection, "--shard", "0/2", "--sharding", "round-robin"])
+    else:
+        local_run = local_mutants(
+            list(selection),
+            config=local_config(extra={"examine_globs": sorted(local_files)}),
+        )
     local_seconds = time.monotonic() - start
     thread.join()
     if "error" in remote:
@@ -825,6 +863,9 @@ def summarize(
         print(missed, end="")
     if remote_code not in (0, 2, 3):
         # cargo-mutants: 2 = missed mutants, 3 = timeouts, 4 = baseline failed.
+        # This script adds 1 for its own findings (a half that never ran,
+        # stopped early, or lost builds) and 5 for a split run whose merged
+        # halves do not cover the recorded listing exactly once (below).
         print("--- remote log tail ---")
         print("\n".join(log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-20:]))
     code = max(local_code, remote_code)
@@ -847,6 +888,31 @@ def summarize(
             ran, selected = short
             print(f"the {label} half stopped early: {selected - ran} of its {selected} mutants never ran")
             code = max(code, 1)
+    # A whole-crate split run records its whole listing's names
+    # (split_run_record): whichever method shared them, the two halves'
+    # merged outcomes must name each listed mutant exactly once — anything
+    # else means a mutant went untested or got tested twice. A run with no
+    # record (a diff, REMOTE_ONLY, a local run) skips the check.
+    record_path = split_run_record()
+    if record_path.exists():
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        tested: Counter = Counter()
+        for base in (local, remote):
+            outcomes = base / "outcomes.json"
+            if not outcomes.exists():
+                continue
+            for outcome in json.loads(outcomes.read_text(encoding="utf-8"))["outcomes"]:
+                scenario = outcome["scenario"]
+                if isinstance(scenario, dict):
+                    tested[scenario["Mutant"]["name"]] += 1
+        missing, doubled = check_split(record["names"], tested)
+        for kind, names in (("never tested", missing), ("tested twice or unlisted", doubled)):
+            if names:
+                print(
+                    f"split coverage: {sum(names.values())} mutants {kind}: "
+                    + ", ".join(sorted(names)[:5])
+                )
+                code = max(code, 5)
     return report_killed(code)
 
 
@@ -904,6 +970,9 @@ def collect(host: str) -> int:
     else:
         fetch_remote(host)
     update_cost_cache()
+    update_cost_cache(
+        ROOT / "mutants.out" / "remote" / "mutants.out", "remote_mutant"
+    )
     # The local half's exit code went with the script that ran it; its files
     # say the same, in cargo-mutants' precedence: 4 = the baseline failed,
     # 3 = timeouts, 2 = missed mutants.
@@ -939,20 +1008,24 @@ def mutant_crate(file: str) -> str:
 
 
 def load_cost_cache() -> dict[str, dict[str, float]]:
-    """`target/mutants-cost.json`: `mutant` (crate -> mean seconds per mutant)
-    and `baseline` (crate -> the baseline seconds of the last local run that
-    mutated it); empty tables when no run has written it yet. A cache in the
+    """`target/mutants-cost.json`: `mutant` (crate -> mean seconds per mutant
+    on this machine), `remote_mutant` (the same on the VPS half) and
+    `baseline` (crate -> the baseline seconds of the last local run that
+    mutated it); empty tables when no run has written them yet, as an older
+    cache without `remote_mutant` reads. A cache in the
     older flat form (crate -> median seconds per mutant) seeds `mutant` with
     its values, minus the `src` key of the old crate naming: a median left
     out the timeouts and the cold builds, so it underestimates, but it is
     still nearer than the size fallback."""
     if not COST_CACHE.exists():
-        return {"mutant": {}, "baseline": {}}
+        return {"mutant": {}, "remote_mutant": {}, "baseline": {}}
     cache = json.loads(COST_CACHE.read_text(encoding="utf-8"))
     if isinstance(cache.get("mutant"), dict) and isinstance(cache.get("baseline"), dict):
+        if not isinstance(cache.get("remote_mutant"), dict):
+            cache["remote_mutant"] = {}
         return cache
     seeds = {crate: seconds for crate, seconds in cache.items() if crate != "src"}
-    return {"mutant": seeds, "baseline": {}}
+    return {"mutant": seeds, "remote_mutant": {}, "baseline": {}}
 
 
 def cost_per_mutant(crate: str, cache: dict[str, dict[str, float]]) -> float:
@@ -970,6 +1043,18 @@ def cost_per_mutant(crate: str, cache: dict[str, dict[str, float]]) -> float:
             if line.strip()
         )
     return 1 + nonblank / 1000
+
+
+def local_share(crate: str, cache: dict[str, dict[str, float]]) -> float | None:
+    """The share of a whole-crate split run's mutants this machine should get:
+    `remote / (local + remote)` over the two halves' measured mean seconds per
+    mutant for `crate`, so the slower half tests less. None when either half
+    has never measured the crate — the run then stays round-robin."""
+    local = cache["mutant"].get(crate)
+    remote = cache["remote_mutant"].get(crate)
+    if not local or not remote:
+        return None
+    return remote / (local + remote)
 
 
 def estimate_seconds(crates: list[str], share: float = 1.0) -> float:
@@ -992,20 +1077,24 @@ def estimate_seconds(crates: list[str], share: float = 1.0) -> float:
     return baseline + sum(costs) / 2 * share
 
 
-def update_cost_cache() -> None:
-    """Fold the local run's measured costs into `COST_CACHE`. Per crate, the
-    mean of the summed phase durations over every mutant outcome, caught,
-    missed, timed out or unviable alike, replacing the old value when the run
-    had at least 5 of them (below that the mean is noise): each listed mutant
-    is one of these, and the mean carries what a median dropped, a timeout's
-    whole test timeout and each job's first, cold build (40-60 s at 3.z).
-    The baseline's duration is recorded for every crate the run mutated.
-    Only the local `mutants.out` counts; the remote half ran on other
-    hardware. A run with a killed build changes nothing: its durations time
+def update_cost_cache(out_dir: Path | None = None, table: str = "mutant") -> None:
+    """Fold a finished half's measured costs into `COST_CACHE`'s `table` — the
+    local `mutants.out` (the default) into `mutant`, the fetched remote
+    half's into `remote_mutant`, which only a file split's share reads. Per
+    crate, the mean of the summed phase durations over every mutant outcome,
+    caught, missed, timed out or unviable alike, replacing the old value when
+    the run had at least 5 of them (below that the mean is noise): each
+    listed mutant is one of these, and the mean carries what a median
+    dropped, a timeout's whole test timeout and each job's first, cold build
+    (40-60 s at 3.z). The baseline's duration is recorded for every crate the
+    run mutated — the local table only: it feeds this machine's estimates, so
+    the remote's baseline, measured on other hardware, does not. A run with a
+    killed build changes nothing: its durations time
     the failure, not the tests (4.y-conv: 273 builds lost their console in
     23 s), and would pull later estimates under the split threshold."""
-    path = ROOT / "mutants.out" / "outcomes.json"
-    if not path.exists() or killed_builds(ROOT / "mutants.out"):
+    out_dir = out_dir or ROOT / "mutants.out"
+    path = out_dir / "outcomes.json"
+    if not path.exists() or killed_builds(out_dir):
         return
     durations: dict[str, list[float]] = {}
     baseline = None
@@ -1019,8 +1108,8 @@ def update_cost_cache() -> None:
     cache = load_cost_cache()
     for crate, values in durations.items():
         if len(values) >= 5:
-            cache["mutant"][crate] = statistics.mean(values)
-        if baseline is not None:
+            cache[table][crate] = statistics.mean(values)
+        if table == "mutant" and baseline is not None:
             cache["baseline"][crate] = baseline
     COST_CACHE.parent.mkdir(parents=True, exist_ok=True)
     temp = COST_CACHE.with_suffix(".tmp")
@@ -1064,6 +1153,152 @@ def record_extra_run(crate: str, counts: dict, seconds: float) -> None:
     os.replace(temp, path)
 
 
+def split_run_record() -> Path:
+    """`extra_mutants.out/split.json`: how the run in `mutants.out` shared a
+    whole-crate split's mutants — the crate, the method (`files` or
+    `round-robin`), the target and achieved local shares, the local files and
+    the whole listing's mutant names, which the summary checks the merged
+    outcomes against. Beside `run.json` for the same reason
+    (`extra_run_record`): `just mutants-collect` is another process, and
+    cargo-mutants moves an existing `mutants.out` aside when a run starts."""
+    return ROOT / "extra_mutants.out" / "split.json"
+
+
+def record_split_run(record: dict) -> None:
+    path = split_run_record()
+    path.parent.mkdir(exist_ok=True)
+    temp = path.with_name(path.name + ".tmp")
+    temp.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    os.replace(temp, path)
+
+
+def list_mutants(crate: str, config: Path) -> list[dict]:
+    """The mutants `cargo mutants -p crate --config config` would test, from
+    `--list --json` on this machine: each entry's `file` is the source path
+    (slash-separated, relative to the tree, what examine/exclude globs match
+    whole) and `name` the string the run's outcomes and missed.txt carry."""
+    listed = subprocess.run(
+        ["cargo", "mutants", "-p", crate, "--list", "--json",
+         "--config", str(config)],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    if listed.returncode != 0:
+        raise RuntimeError(f"listing {crate}'s mutants failed:\n{listed.stderr}")
+    return json.loads(listed.stdout) if listed.stdout.strip() else []
+
+
+def partition(files: dict[str, int], share: float) -> set[str] | None:
+    """The local half's source files of a whole-crate file split: `files`
+    maps each file to its mutant count and `share` is the local target
+    (`local_share`). Greedy, largest count first (ties by path): each file
+    goes to the half further below its target, a deficit tie to local. None
+    when the result lands further from `share` than an even split does — a
+    crate whose mutants sit in one big file cannot be balanced by files, and
+    stays round-robin."""
+    total = sum(files.values())
+    if not total:
+        return None
+    target = share * total
+    local: set[str] = set()
+    local_count = remote_count = 0
+    for path, count in sorted(files.items(), key=lambda item: (-item[1], item[0])):
+        if target - local_count >= total - target - remote_count:
+            local.add(path)
+            local_count += count
+        else:
+            remote_count += count
+    achieved = local_count / total
+    if abs(achieved - share) > abs(0.5 - share):
+        print(
+            f"a file split lands {achieved:.0%} of the mutants on this machine, "
+            f"further from the {share:.0%} target than halves: "
+            "splitting round-robin",
+            flush=True,
+        )
+        return None
+    return local
+
+
+def check_split(
+    expected: Iterable[str], actual: Iterable[str]
+) -> tuple[Counter, Counter]:
+    """Two multisets of mutant names: of `expected` (a run's whole listing),
+    those `actual` (the halves' selections or merged outcomes) never covers,
+    and of `actual`, those beyond `expected` — a mutant both halves took, or
+    one the listing did not hold."""
+    return Counter(expected) - Counter(actual), Counter(actual) - Counter(expected)
+
+
+def plan_file_split(crate: str, nproc: int) -> dict:
+    """The split a whole-crate run of `crate` will use, as its `split.json`
+    record: `files` when the halves' measured costs give a share a file
+    partition can meet, `round-robin` otherwise — an unmeasured half, no
+    file split nearer the target than halves, or per-half listings that do
+    not recombine to the whole listing (`check_split` over `--list --json`
+    with each half's config)."""
+    whole = list_mutants(crate, local_config())
+    record = {
+        "crate": crate,
+        "method": "round-robin",
+        "target": 0.5,
+        "achieved": 0.5,
+        "local_files": [],
+        "names": [m["name"] for m in whole],
+    }
+    share = local_share(crate, load_cost_cache())
+    if share is None:
+        print(
+            f"{crate}: no per-mutant cost measured on both halves yet; "
+            "splitting round-robin",
+            flush=True,
+        )
+        return record
+    record["target"] = share
+    counts = Counter(m["file"] for m in whole)
+    local_files = partition(counts, share)
+    if local_files is None:
+        return record
+    # The split launches only when exact: each half's own listing — the local
+    # config's, and the remote config's text in a local file — must recombine
+    # to the whole listing with no name missing or doubled.
+    remote_text = sized_config(
+        nproc, REMOTE_BUILD_JOBS, extra={"exclude_globs": sorted(local_files)}
+    )
+    remote_tmp = tempfile.NamedTemporaryFile(suffix=".toml", delete=False)
+    try:
+        remote_tmp.write(remote_text.encode("utf-8"))
+        remote_tmp.close()
+        local_names = [
+            m["name"]
+            for m in list_mutants(
+                crate, local_config(extra={"examine_globs": sorted(local_files)})
+            )
+        ]
+        remote_names = [m["name"] for m in list_mutants(crate, Path(remote_tmp.name))]
+    finally:
+        Path(remote_tmp.name).unlink(missing_ok=True)
+    missing, doubled = check_split(record["names"], local_names + remote_names)
+    if missing or doubled:
+        names, kind = (missing, "missing") if missing else (doubled, "doubled")
+        print(
+            f"a file split is inexact ({sum(names.values())} {kind}, first: "
+            f"{sorted(names)[0]}): splitting round-robin",
+            flush=True,
+        )
+        return record
+    achieved = sum(counts[path] for path in local_files) / len(record["names"])
+    record.update(
+        method="files", achieved=achieved, local_files=sorted(local_files)
+    )
+    print(
+        f"file split: this machine tests {achieved:.0%} of {crate}'s "
+        f"{len(record['names'])} mutants ({len(local_files)} files, target "
+        f"{share:.0%}), the remote the rest",
+        flush=True,
+    )
+    return record
+
+
 def split(
     selection: list[str], host: str, local: bool = True, tree: str | None = None
 ) -> int:
@@ -1098,7 +1333,15 @@ def split(
         return 1
 
     set_aside_last_run()
+    local_files: set[str] | None = None
     if selection[0] == "-p" and local:
+        # The split is planned and recorded before the halves start, so a
+        # later `just mutants-collect` checks this run's merged outcomes
+        # against its own listing.
+        record = plan_file_split(selection[1], nproc)
+        record_split_run(record)
+        if record["method"] == "files":
+            local_files = set(record["local_files"])
         import extra_mutants  # deferred: extra_mutants imports this module
 
         _, extra_counts, extra_seconds = extra_mutants.run_crate(
@@ -1113,15 +1356,20 @@ def split(
             flush=True,
         )
         extra_run_record().unlink(missing_ok=True)
+        split_run_record().unlink(missing_ok=True)
     else:
-        # A diff run has no extra pass: drop the last whole-crate run's record so
-        # the summary never reads its survivors as this run's.
+        # A diff run has no extra pass: drop the last whole-crate run's records so
+        # the summary never reads their contents as this run's.
         extra_run_record().unlink(missing_ok=True)
+        split_run_record().unlink(missing_ok=True)
     local_code, remote_code, local_seconds, remote_seconds = run_split(
-        selection, host, tree, remote_head, remote_tree, nproc, local
+        selection, host, tree, remote_head, remote_tree, nproc, local, local_files
     )
     update_cost_cache()
     fetch_remote(host)
+    update_cost_cache(
+        ROOT / "mutants.out" / "remote" / "mutants.out", "remote_mutant"
+    )
     code = summarize(
         local_code, remote_code,
         ROOT / "mutants.out" / "remote" / "remote_console.txt",
@@ -1170,6 +1418,9 @@ def main(argv: list[str]) -> int:
             return 1
         print(f"{reason}: running every mutant on this machine", flush=True)
         set_aside_last_run()
+        # Not a split run: drop a previous split's record so its summary
+        # never checks this run's outcomes against it.
+        split_run_record().unlink(missing_ok=True)
         import extra_mutants  # deferred: extra_mutants imports this module
 
         _, extra_counts, extra_seconds = extra_mutants.run_crate(
