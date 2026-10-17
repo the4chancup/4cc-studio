@@ -399,4 +399,12 @@ and seeded save shows the sampled players as before; a compiled team's rows show
 FoxDen change that keeps the table's value (worklog issue). Converge ran a whole-crate mutation
 run and a Clef scan over `pes_savefile`, `aatf`, `save_editor`, `studio_core`,
 `aesthetics_export` and `team_compiler`, every survivor and flag ruled, and a census of every
-save, `.ted` and editor file and every player table on the maintainer's machine.
+save, `.ted` and editor file and every player table on the maintainer's machine. The second
+whole-crate runs, at the close (extra kinds included): `pes_savefile` 1830 caught, 2 missed
+(tested since); `aatf` 242 caught, 0 missed; `save_editor` 128 caught, 3 missed (two
+placeholder views, tested with Phase 8's views, and an error arm only Linux reaches);
+`studio_core` 76 caught, 5 missed (process-probe arms the half's OS compiles out);
+`aesthetics_export` 603 caught, 0 missed; `team_compiler` 2474 caught, 1 missed (a placeholder
+view). The citation audit (`CONTRIBUTING.md` "Citation audit") ruled every test it found not
+proving its scenario. At the close (2026-10-17): `just gates` green, 3513 tests in 63 test
+runs, none failed or ignored; acceptance 442 scenarios (4 manual, 9 withdrawn), all proven.

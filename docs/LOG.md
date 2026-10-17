@@ -2081,3 +2081,6 @@ worklog passed 7,000 lines.
 - **2026-10-17** — `aatf`'s close mutation run failed its baseline: 5.6e's repointed comment
   sat in `logic.rhai`'s hashed logic section; the pinned hash follows it, and the move's step
   now runs the gates after comment-only edits (`AGENTS.md`).
+- **2026-10-17** — Phase 5 (Savefile integration) closed: the close mutation runs leave no test
+  gap (two `pes_savefile` survivors tested), the citation audit's flags all ruled, acceptance
+  442 of 442 proven, the worklog's steps collapsed to the phase row.
