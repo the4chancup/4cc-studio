@@ -2084,3 +2084,6 @@ worklog passed 7,000 lines.
 - **2026-10-17** — Phase 5 (Savefile integration) closed: the close mutation runs leave no test
   gap (two `pes_savefile` survivors tested), the citation audit's flags all ruled, acceptance
   442 of 442 proven, the worklog's steps collapsed to the phase row.
+- **2026-10-17** — A member's anime face with a pre-Fox diff and a hand-fixed Fox one: the fix
+  is two eye floats (35 to 45), the pair cup members set by hand on Fox; PES 21's Edit mode
+  shows no change even at 0 and 90, so what he saw is asked (`QUESTIONS.md`).

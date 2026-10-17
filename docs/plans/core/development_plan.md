@@ -369,7 +369,8 @@ Tools the suite will take in, with no phase or plan yet:
 - **rigbot**: lets managers control their own team's tactics remotely during a match, and
   drives the Rigdio fork's local API (`music_player.md` "Autopilot": team loads, the anthems,
   the victory anthem, the chant, goals), passing SEN:P-AI `--no-rigdio` because it drives
-  Rigdio itself. Not published; the maintainer is asking its author for the source, and until
-  then what it does is known only from the forks' READMEs.
+  Rigdio itself. Not published: its author wants to work on it further before publishing the
+  source (2026-10-18), so it waits; nothing scheduled depends on it, and until then what it does
+  is known only from the forks' READMEs.
 
 ---

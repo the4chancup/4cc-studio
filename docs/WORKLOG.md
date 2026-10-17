@@ -455,6 +455,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   - the spec catching up with the code: `PipelineEvent::Output`, `pes_process.rs` in the
     closed module tree; the plan's tool registry missing `team_creator`, `ruleset_editor`,
     `db_generator`; the Save editor's crate tree missing `events.rs`, `diff.rs`, `teams_list.rs`
+- [ ] 8.1 egui's bundled fonts, once the theme settles its icon font (`egui-phosphor`): the
+  four default fonts are 1.37 MiB of the release exe's `.rdata` (2026-10-16,
+  `.tmp/16w/rdata_parts.py`), the two emoji fonts (`NotoEmoji-Regular` 409 KiB,
+  `emoji-icon-font` 317 KiB) about 0.7 MiB of it. If the GUI shows no emoji, egui's
+  `default_fonts` feature goes off and `Ubuntu-Light` and `Hack` are embedded through
+  `FontDefinitions` → verify: every view drawn with the emoji fonts removed shows no missing
+  glyph (egui's own widgets draw a few symbols from them), and the exe shrinks by about 0.7 MiB
+  (`spec/core/distribution.md` "Size budget")
 
 ### Phase 10 — Music tools
 
@@ -1073,8 +1081,10 @@ points there.
   target it compiles, so a diff is the author's responsibility, as with Red. Investigated
   offline 2026-10-15 (`.tmp/face_diff/findings.md`): one format on both engines, Konami's
   diffs carried unchanged from PES 17 to 18; the real split is version 4 (32 entries) against
-  5 (33), with a mechanical conversion. In-game tests and the maintainer's example wait in
-  `docs/QUESTIONS.md` "Face diffs are engine-specific".
+  5 (33), with a mechanical conversion. The maintainer's example (2026-10-17, a member's
+  anime face, `.tmp/face_diff/lapwing/findings.md`): the Fox fix is two eye floats (head 0x2C
+  and 0x30, 35 to 45), which PES 21's Edit mode does not show even at 0 and 90; what the
+  member saw, and where, waits in `docs/QUESTIONS.md` "Face diffs are engine-specific".
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`spec/model_conversion/ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more

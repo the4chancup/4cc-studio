@@ -26,9 +26,14 @@ engines apart. The real split is the diff's version: 4 (32 bone entries, 944 byt
 community default used by 547 cup faces is that conversion with the count left at 32 and the
 inserted entry 1.4 km off. So the misplacement you saw may come from a version 4 diff, from
 that half-converted file, from eye-hiding values, or from the face model rather than the
-engine. Which face did you see misplaced, and on which game? With that, one Edit-mode run
-on PES 17 and PES 21 settles it: the version 4 default, it converted, the half-converted file
-with its count fixed, and the version 5 default.
+engine. Example given 2026-10-17: a member's anime face, `lapwing`, whose pre-Fox diff he
+edited for Fox (`.tmp/face_diff/lapwing/findings.md`). His fix is two head floats, 0x2C and
+0x30, from 35 to 45 (eye parameters, by the census), and cup members' Fox diffs hold the same
+hand-set pair (45, 45, -10, -10) more than any other value. In PES 21's Edit mode those floats
+change nothing visible, even at 0 and 90: they act on moving eyes. What did the member see
+wrong with the 35 diff on Fox, and where (Edit mode, the eyes during a match, a cutscene
+close-up)? With that, a run there with 35 and 45 on PES 21 and PES 17 tells whether one diff
+serves both engines or a folder needs one per engine.
 
 ## Cup practice and preferences
 
