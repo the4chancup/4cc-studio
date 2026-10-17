@@ -2076,3 +2076,5 @@ worklog passed 7,000 lines.
 - **2026-10-17** — The Clef scan retired (maintainer); SubQ Snap, measured as its successor, best on
   mutation-style slips but at chance on 111 real pre-fix/post-fix pairs, replaces nothing
   (`DECISIONS.md`; reviews are sized before briefing, RUNBOOK "Review rounds").
+- **2026-10-17** — The citation audit (`just citation-audit`, SubQ Snap, AUC 0.995 on 732 citations
+  against swapped scenarios) joins the phase close; its first pass flags 32 citations (5.6f).

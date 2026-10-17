@@ -8196,3 +8196,23 @@ and what Snap adds reads the reviewer's hedging words; the lead still reads ever
 it saves nothing.
 Plan: `CONTRIBUTING.md` "Clef scan"; `AGENTS.md` (converge's design-health pass, the sweeps).
 The evaluation is outside the repository (`SystemOne/jev-eval/round3/RESULTS.md` "Round 4").
+
+## 2026-10-17 — review process — a citation audit by SubQ Snap joins the phase close
+Decision (maintainer): `just citation-audit` (`scripts/citation_audit.py`) runs in the phase
+close's design-health pass: SubQ Snap is asked of every (scenario, citing test) pair whether
+the test proves the scenario, the pairs under P 0.3 are flagged, and the lead rules each in
+`scripts/citation_rulings.md` (accepted: widen or add the scenario, or move the citation).
+Why: `acceptance.py` checks that a citation names a live scenario, not that the test proves
+it, and `CONTRIBUTING.md` reads a citation as that proof; nothing else checked it. Measured on
+the 732 citations at 7bd0bba against the same tests paired with the nearest scenario of their
+family that they do not cite: AUC 0.995 with the test's same-file helpers attached and a
+question that lets a test prove one of a scenario's listed cases (0.989 on the test alone,
+which flagged 164, mostly helpers hiding the work and multi-case scenarios); 32 flagged, the
+three lowest read in full all real, and both citations a commit had removed as wrong scored
+under 0.3 (0.10, 0.15). Snap, not a reviewer model, because the question has its answer in the
+two texts given and a decision model returns a calibrated probability for each of 732 pairs in
+minutes for about $0.08; Astra reads the same pairs only inside a converge review, at the cost
+of a review. Not a gate: it needs the network and a key. Its other measured uses failed (the
+Clef scan's decision of 2026-10-17; spec drift, AUC 0.68).
+Plan: `CONTRIBUTING.md` "Citation audit"; `AGENTS.md` (converge's design-health pass). The
+evaluation is outside the repository (`SystemOne/jev-eval/round3/RESULTS.md` "Round 4b").

@@ -35,7 +35,13 @@ wasm-check:
 # Gate 5: the acceptance-ID scanner's own tests, then the scan (`report` fails on untrustworthy citations; `strict`, at converge, also on unproven scenarios)
 acceptance mode="report":
     {{python}} scripts/acceptance_test.py
+    {{python}} scripts/citation_audit_test.py
     {{python}} scripts/acceptance.py {{mode}}
+
+# Does each test prove the scenario it cites? SubQ Snap asks every citation (converge; needs the network and STUDIO_SNAP_KEY_FILE); report in snap.out/citations.md
+citation-audit:
+    {{python}} scripts/citation_audit_test.py
+    {{python}} scripts/citation_audit.py
 
 # Gate 6: the section-pointer check's own tests, then the check (every `file.md` "Section" pointer resolves)
 doc-pointers:

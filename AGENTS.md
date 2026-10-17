@@ -50,9 +50,9 @@ phase) is not a gap and stays in the plan. The lead's audit ends with a **design
 over the phase's crates, separate from requirements coverage: the design-tell sweep (below) run
 over the whole phase's code rather than one diff, `just mutants <crate>` (the extra mutant
 kinds included) run over each crate with every survivor triaged (`CONTRIBUTING.md` "Mutation
-runs"), and every `pub` item listed with the
-consumer that justifies it (a crate, the CLI, the bindings, or a plan section naming one). A crate
-that reads a file format also gets a **census**: every file of that format on the maintainer's
+runs"), `just citation-audit` with every flag ruled (`CONTRIBUTING.md` "Citation audit"), and
+every `pub` item listed with the consumer that justifies it (a crate, the CLI, the bindings,
+or a plan section naming one). A crate that reads a file format also gets a **census**: every file of that format on the maintainer's
 machine (found through the Everything index, archives opened) run through read, the semantic
 round trip and `check`, tallied by outcome, each failing class diagnosed before it is fixed or
 recorded as a refusal, and re-run after every fix with a regression check (`.tmp/2_20/model_census/`

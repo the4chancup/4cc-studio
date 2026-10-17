@@ -14,6 +14,9 @@
 # Clef scan report and answer cache (`just clef`, `just clef-diff`)
 /clef.out/
 
+# Citation audit report and answer cache (`just citation-audit`)
+/snap.out/
+
 # OS noise
 Thumbs.db
 .DS_Store

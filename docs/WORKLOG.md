@@ -1321,6 +1321,14 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
       re-run opens the pack
   - [x] 5.6d the cross-family converge reviews, one surface per large crate. Done 2026-10-16
     (every surface's SWE-2 and Astra loops ended; rulings `.tmp/5_6/review/duck_rulings.md`)
+  - [ ] 5.6f the citation audit (`CONTRIBUTING.md` "Citation audit", added to the design-health
+    pass 2026-10-17): `just citation-audit` flagged 32 of 732 citations (31 `team_compiler`:
+    TC-BIN-29 four tests, TC-OUT-07 and TC-MOD-43 three each; 1 `save_editor`, SE-AATF-02;
+    `snap.out/citations.md`); each ruled in `scripts/citation_rulings.md`, the accepted
+    ones fixed by widening or adding the scenario or moving the citation. The scenario edits
+    land any time; a test's citation moves only once `team_compiler`'s close mutation run is
+    done (nothing edits a crate while its run is queued). → verify: `just citation-audit`
+    lists no new flag; `just acceptance strict` passes
   - [ ] 5.6e close: the second whole-crate runs, plans moved to the spec (the Save editor's
     spec gains its message catalog: 19 of its 25 codes are named nowhere in the plan), steps
     collapsed. The move also carries what the converge left in the plans' wording only:

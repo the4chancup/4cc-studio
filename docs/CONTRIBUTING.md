@@ -170,7 +170,7 @@ only CI saw), `just acceptance strict` (the scanner's converge mode, under "Requ
 also runs), `just bindings` (the `maturin` build of `python_bindings`), `just release <version>`
 (arrives with release 0.1.0, `core/development_plan.md` "Release 0.1.0"), `just
 mutants <crate>`, `just mutants-collect` and `just mutants-diff [base]` (the mutation runs,
-below). `just --list` shows
+below), `just citation-audit` (the citation audit, below). `just --list` shows
 them with a one-line description each.
 
 On Windows every binary `cargo test`, `run` or `bench` launches goes through
@@ -275,6 +275,26 @@ Requirements:
   tests; `strict`, run at converge, also fails on each of them. Strict checks every scenario in
   the plans: written just in time, they all belong to the closing phase or an earlier one, and
   an earlier phase's proof that disappeared is a regression.
+- **Citation audit.** `acceptance.py` proves a citation names a live scenario, not that the
+  test proves it: a test checking a case its scenario does not state passes every gate, and
+  the scenarios stop reading as the tool's whole behaviour. `just citation-audit` asks SubQ
+  Snap (a decision model with a 384K-token window, hosted by Subquadratic) of every (scenario,
+  citing test) pair whether the test proves the scenario, given the scenario's text, the test
+  and the functions of its own file it calls, and lists the pairs under P 0.3
+  (`snap.out/citations.md`, gitignored). Measured on 2026-10-17 (`DECISIONS.md`): the 732
+  citations then in the code against the same tests paired with a neighbouring scenario they
+  do not cite, AUC 0.995; 32 flagged, the three read in full all real (a refusal test citing a
+  filter scenario, a deadlock regression citing the determinism scenario, a gloves-ID test
+  citing a boots-ID scenario), and both citations the project had removed as wrong scored
+  under 0.3. Every cited scenario had a test above 0.5, so a flag says a test checks an
+  unstated case, never that a scenario is unproven. It runs at a phase's close (the
+  design-health pass), never as a gate: it needs the network and a key, read from
+  `SUBQ_API_KEY` or the file `STUDIO_SNAP_KEY_FILE` names, outside the repository. The lead
+  runs it and rules each flag like a reviewer concern, its row (the report prints it) going
+  into `scripts/citation_rulings.md`: accepted, the scenario is widened, a scenario is added,
+  or the test's citation moves to the scenario it proves; rejected, with a one-line reason.
+  Answers are cached by state (`snap.out/cache.json`), so a second pass pays for changed pairs
+  only; a full pass sends about 1.5M tokens ($0.08).
 - Code must build on Windows and Linux. No external converters or runtimes (texconv, 7z, ffmpeg,
   libmpv are all replaced in-process); the only subprocesses are the ones the plan names (Blender,
   PES, the elevated self-relaunch).
