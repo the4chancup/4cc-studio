@@ -1342,7 +1342,11 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     `aatf_rules.md` (1,083 lines, kept whole at the threshold), `save_editor.md` with its
     25-code catalog, `aesthetics_export/settings_toml.md`; the rest merged; every lag above
     carried; pointers repointed, `OPEN_PHASE_PLANS` down to `music_player.md`. Open: the second
-    whole-crate runs (started 14:26, `.tmp/5_6/close/`), their triage, the collapse
+    whole-crate runs (started 14:26, `.tmp/5_6/close/`), their triage, the collapse.
+    `aatf`'s run stopped at its baseline (2026-10-17 02:37): the move's repointed comment in
+    `logic.rhai` changed the hashed logic section, and four tests read the official files as
+    `Modified`; `LOGIC_VERSIONS` takes the new hash (until a release the hash follows every
+    edit, `file.rs`), and `aatf` re-runs after `team_compiler`
 
 ### Phase 8 — GUI
 

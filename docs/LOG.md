@@ -2078,3 +2078,6 @@ worklog passed 7,000 lines.
   (`DECISIONS.md`; reviews are sized before briefing, RUNBOOK "Review rounds").
 - **2026-10-17** — The citation audit (`just citation-audit`, SubQ Snap, AUC 0.995 on 732 citations
   against swapped scenarios) joins the phase close; its first pass flags 32 citations (5.6f).
+- **2026-10-17** — `aatf`'s close mutation run failed its baseline: 5.6e's repointed comment
+  sat in `logic.rhai`'s hashed logic section; the pinned hash follows it, and the move's step
+  now runs the gates after comment-only edits (`AGENTS.md`).
