@@ -524,8 +524,10 @@ SE-AATF-01 GIVEN a cup save with known error-severity violations, a team-level o
                 player, and exits 1; the second prints its warnings and exits 0; the third
                 prints none and exits 0
 SE-AATF-02 GIVEN the save with error-severity violations in two teams
-           WHEN check-aatf --teams names one of them
-           THEN only that team's violations are printed, and the exit code is 1
+           WHEN check-aatf --teams names one of them, and again naming a team id the save
+                lacks, alone or beside one it holds
+           THEN the first prints only that team's violations, and the exit code is 1; the
+                others are refused naming the missing id, with exit code 2, printing nothing
 SE-AATF-03 GIVEN a rules file that fails load-time validation, and the VGL27 ruleset with a save
                 whose team breaks a VGL27 rule the official ruleset does not have
            WHEN check-aatf --rules is run with each, and with no --rules and the VGL27 file

@@ -1329,6 +1329,15 @@ the two 4ccEditor forks are checked again for new commits (`Tools_4cc/4ccEditor-
     land any time; a test's citation moves only once `team_compiler`'s close mutation run is
     done (nothing edits a crate while its run is queued). → verify: `just citation-audit`
     lists no new flag; `just acceptance strict` passes
+    Scenarios done 2026-10-17: 18 widened (SE-AATF-02 and 17 `team_compiler` ones), TC-BIN-41
+    (the ID a gloves or boots package takes over an authored one) and TC-PLN-08 (an archive
+    past the memory cap) added; three SWE-2 rounds (6, 5 and 4 accepted,
+    `.tmp/5_6/citations/rulings_acc.md`). The audit's re-run: the 25 accepted pairs' widened
+    states score 0.69-0.97; the widening pushed one more TC-MOD-35 test under 0.3, ruled and
+    widened in turn; no new flag, the 7 below 0.3 are the 2 rejected and the 5 awaiting a
+    citation move. Open: the five citation moves
+    (`bins.rs`' four TC-BIN-29 tests to TC-BIN-41, `a_7z_over_the_memory_cap_compiles` to
+    TC-PLN-08) after `team_compiler`'s close run, then `just acceptance strict`
   - [ ] 5.6e close: the second whole-crate runs, plans moved to the spec (the Save editor's
     spec gains its message catalog: 19 of its 25 codes are named nowhere in the plan), steps
     collapsed. The move also carries what the converge left in the plans' wording only:
