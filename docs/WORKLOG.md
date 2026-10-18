@@ -512,10 +512,11 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     lib}.rs`, `tests/cli/players.rs`, `tests/common/mod.rs`
   - [x] 6.2c two shared folders of one name and the same files become one (the maintainer's
     ruling, DECISIONS 2026-10-18 "two shared folders of one name and the same files become
-    one"; plan step 4) → verify: unit tests in `players.rs` (identical pair merged, every wearer
-    linked; a differing pair keeps the ID rule; same paths with one byte differing; a path
-    only one holds). Done 2026-10-18: five unit tests; mutation diff clean; files:
-    `export_upgrader/src/players.rs`
+    one"; plan step 4) → verify: EU-PLY-12; unit tests in `players.rs` (identical pair merged,
+    every wearer linked; a differing pair keeps the ID rule; same paths with one byte differing;
+    a path only one holds). Done 2026-10-18: five unit tests; EU-PLY-12 proven (written at
+    Astra's round 6.3.K-A1); mutation diff clean; files: `export_upgrader/src/players.rs`,
+    `tests/cli/players.rs`
 - [x] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit
   colors and icons, the copy and the hoist → verify: EU-KIT-*. Three slices:
   - [x] 6.3a configs and textures into `Kits/<slot>/` (the config grammar, one config per slot,
@@ -536,8 +537,10 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     EU-KIT-05, -06, -07, -14; the copy rule widened to a field naming another stem (census
     `.tmp/6_3/census_fields.py`; plan step 5, DECISIONS 2026-10-18 "the kit-texture copy covers
     every field naming another texture"), its test on MGGG VGL26's configs. Done 2026-10-18:
-    every EU-KIT scenario proven; mutation diff clean; also round 6.3.S1's fixes. Open: the
-    cross-family review of 6.3 (SWE-2 round 6.3.S2 over 502cb5e onward, then Astra); files:
+    every EU-KIT scenario proven; mutation diff clean; also round 6.3.S1's fixes. Review of 6.3
+    and 6.2c: SWE-2 6.3.S1 5 accepted, 6.3.S2 3; Astra 6.3.K-A1 3 (a Full export's empty
+    kits blocking the hoist, EU-PLY-10's sweep reading nothing, EU-PLY-12 missing), fixed.
+    Open: the SWE-2 round on those fixes (6.3.S3); files:
     `export_upgrader/src/{kits,messages,upgrade}.rs`, `tests/cli/{kits,cli}.rs`
 - [ ] 6.4 models, portraits, logo and Common (step 7), as ordered slices: (a) portraits and the
   logo; (b) `.mtl`/`face.xml` references, Common links and the kit magic; (c) FMDL path tables;

@@ -770,6 +770,13 @@ EU-PLY-11  GIVEN the face folder "XXX23 - Pinto" and a save whose /co/ roster ha
            WHEN the export is upgraded
            THEN Players/23 - Pinto/ holds the face and no settings.toml, the empty slot is
                 reported naming 23, and the exit code is 0
+EU-PLY-12  GIVEN boots folders "k0430 - Crocs", worn by slots 03 and 05, and "k0431 - Crocs",
+                worn by 04 and 06, holding the same files byte for byte, and "k0432 - crocs",
+                worn by 07 and 08, whose boots.fmdl differs
+           WHEN the export is upgraded
+           THEN Boots/Crocs/ holds k0430's files, Boots/k0432/ holds k0432's, no Boots/k0431/
+                exists, the folders of 03, 04, 05 and 06 hold Crocs.boots and those of 07 and
+                08 k0432.boots
 ```
 
 **Kits**

@@ -337,13 +337,84 @@ fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
         stdout.contains("unmigrated_content at Boots/k0430 - B"),
         "{stdout}"
     );
-    // No output file carries a losing folder's bytes.
+    // The losing player folder is absent, and no output file carries a
+    // losing folder's bytes.
+    assert!(
+        !sandbox
+            .path("co Full Spring/Players/23 - Smug Redman")
+            .exists()
+    );
     for entry in sandbox.listing("co Full Spring") {
-        let path = sandbox.path(&entry);
+        let path = sandbox.path(&format!("co Full Spring/{entry}"));
         if path.is_file() {
             let bytes = fs::read(&path).unwrap();
             assert!(bytes != b"loser face" && bytes != b"loser boots", "{entry}");
         }
+    }
+}
+
+// EU-PLY-12
+#[test]
+fn identical_shared_folders_merge_as_one() {
+    let sandbox = Sandbox::new("ply_identical_shared");
+    for slot in [
+        "XXX03 - A",
+        "XXX04 - B",
+        "XXX05 - C",
+        "XXX06 - D",
+        "XXX07 - E",
+        "XXX08 - F",
+    ] {
+        face(&sandbox, &format!("co Spring/Faces/{slot}"));
+    }
+    boots(&sandbox, "co Spring/Boots/k0430 - Crocs");
+    boots(&sandbox, "co Spring/Boots/k0431 - Crocs");
+    boots(&sandbox, "co Spring/Boots/k0432 - crocs");
+    // `k0432 - crocs` differs from the two identical ones in its model alone.
+    sandbox.write("co Spring/Boots/k0432 - crocs/boots.fmdl", b"other model");
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
+        wears(file, 71403, 430, 0);
+        wears(file, 71404, 431, 0);
+        wears(file, 71405, 430, 0);
+        wears(file, 71406, 431, 0);
+        wears(file, 71407, 432, 0);
+        wears(file, 71408, 432, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    for (name, bytes) in BOOTS_FILES {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Spring/Boots/Crocs/{name}"))).unwrap(),
+            bytes,
+            "{name}"
+        );
+    }
+    assert!(!sandbox.path("co Full Spring/Boots/k0431").exists());
+    for (name, bytes) in [
+        ("boots.fmdl", b"other model" as &[u8]),
+        ("boots.skl", b"skl"),
+        ("shirt.dds", b"shirt"),
+    ] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Spring/Boots/k0432/{name}"))).unwrap(),
+            bytes,
+            "{name}"
+        );
+    }
+    for (player, link) in [
+        ("03 - A", "Crocs.boots"),
+        ("04 - B", "Crocs.boots"),
+        ("05 - C", "Crocs.boots"),
+        ("06 - D", "Crocs.boots"),
+        ("07 - E", "k0432.boots"),
+        ("08 - F", "k0432.boots"),
+    ] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Spring/Players/{player}/{link}"))).unwrap(),
+            b"",
+            "{player}/{link}"
+        );
     }
 }
 

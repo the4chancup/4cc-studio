@@ -480,8 +480,14 @@ pub(crate) fn kit_folders(
         }
     }
     if full {
-        kits.insert(KitSlot::P1);
-        kits.insert(KitSlot::G1);
+        // As the shared validation gives a Full export its empty kits: `p1`
+        // only when no player slot is written, `g1` only when no `g1` is.
+        if !kits.iter().any(|slot| *slot != KitSlot::G1) {
+            kits.insert(KitSlot::P1);
+        }
+        if !kits.contains(&KitSlot::G1) {
+            kits.insert(KitSlot::G1);
+        }
     }
     let mut export_findings = Vec::new();
     if kits.len() >= 2 {
@@ -576,6 +582,8 @@ mod tests {
         include_bytes!("../tests/fixtures/kit_configs/4CCG VGL26/XXX_DEF_1st_realUni.bin");
     const CONFIG_2ND: &[u8] =
         include_bytes!("../tests/fixtures/kit_configs/4CCG VGL26/XXX_DEF_2nd_realUni.bin");
+    const CONFIG_GK1ST: &[u8] =
+        include_bytes!("../tests/fixtures/kit_configs/4CCG VGL26/XXX_DEF_GK1st_realUni.bin");
     const MGGG_1ST: &[u8] =
         include_bytes!("../tests/fixtures/kit_configs/MGGG VGL26/XXX_DEF_1st_realUni.bin");
     const MGGG_2ND: &[u8] =
@@ -1244,6 +1252,39 @@ mod tests {
         assert_eq!(
             hoisted[0].context,
             vec![("stem".to_owned(), "kit_back".to_owned())]
+        );
+    }
+
+    #[test]
+    fn a_full_exports_empty_p1_counts_only_when_no_player_kit_is() {
+        // `p2` is a player kit, so the empty `p1` is not added; `g1` is
+        // present — `kit_back` shared byte for byte hoists.
+        let plan = plan_full(
+            &[
+                "Kit Configs/XXX_DEF_2nd_realUni.bin",
+                "Kit Configs/XXX_DEF_GK1st_realUni.bin",
+                "Kit Textures/u0XXXp2_back.dds",
+                "Kit Textures/u0XXXg1_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_2nd_realUni.bin", CONFIG_2ND),
+                ("Kit Configs/XXX_DEF_GK1st_realUni.bin", CONFIG_GK1ST),
+                ("Kit Textures/u0XXXp2_back.dds", b"back"),
+                ("Kit Textures/u0XXXg1_back.dds", b"back"),
+            ],
+            true,
+        );
+        assert_eq!(
+            plan.copies,
+            vec![(
+                "Kit Textures/u0XXXp2_back.dds".to_owned(),
+                "Kits/all/kit_back.dds".to_owned()
+            )]
+        );
+        assert!(
+            plan.findings
+                .iter()
+                .any(|m| m.code.code.as_ref() == "kit_texture_hoisted")
         );
     }
 
