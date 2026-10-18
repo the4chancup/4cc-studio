@@ -25,16 +25,15 @@ use vtree::ScopePath;
 
 use crate::cli::{ABORTED, CLEAN, ERRORS, INVALID, UpgradeArgs};
 use crate::messages::{
-    Code, extract_failed, issue_message, read_failed, team_name_unknown, tool_message,
+    Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, team_name_unknown,
+    tool_message,
 };
 use crate::naming::output_name;
 use crate::note;
+use crate::players::face_folders;
+use crate::roster::Roster;
 use crate::source::{self, OldExport, SourceFailure};
 
-/// The input export's id in this run's events.
-const INPUT: ExportId = ExportId(1);
-/// The output export's.
-const OUTPUT: ExportId = ExportId(2);
 /// A command is one run per process, so every event carries the same run id.
 const RUN_ID: RunId = RunId(1);
 
@@ -158,18 +157,28 @@ fn invalid(error: anyhow::Error) -> CliError {
     CliError::new(INVALID, error)
 }
 
-/// A run aborted before anything was written.
+/// A run aborted before anything was written, or while writing the output
+/// (`cli.rs`'s `ABORTED`: the incomplete output is left).
 fn aborted(error: anyhow::Error) -> CliError {
     CliError::new(ABORTED, error)
 }
 
-/// Writes `contents` to `output`'s root file `name`; a failure is the
-/// aborted code naming the file and saying the output is incomplete: it is
-/// left for the user to remove, since a second run refuses an existing
-/// output folder.
-fn write_root_file(output: &Path, name: &str, contents: String) -> Result<(), CliError> {
-    let path = output.join(name);
-    fs::write(&path, contents).map_err(|error| {
+/// Writes `bytes` to `output`'s file at `relative`, parent folders created; a
+/// failure is the aborted code naming the file and saying the output is
+/// incomplete: it is left for the user to remove, since a second run refuses
+/// an existing output folder.
+fn write_output_file(output: &Path, relative: &str, bytes: &[u8]) -> Result<(), CliError> {
+    let path = output.join(relative);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            aborted(anyhow!(
+                "{}: cannot create the directory: {error}; the output {} is incomplete",
+                parent.display(),
+                output.display()
+            ))
+        })?;
+    }
+    fs::write(&path, bytes).map_err(|error| {
         aborted(anyhow!(
             "{}: cannot write the file: {error}; the output {} is incomplete",
             path.display(),
@@ -196,7 +205,7 @@ struct Invocation {
 /// Steps 1-4: the invocation checks, before anything is written (`run`'s
 /// order, `plans/export_upgrader.md` "CLI").
 fn check_invocation(args: &UpgradeArgs, ctx: &ToolContext) -> Result<Invocation, CliError> {
-    // Step 1: the export must exist and be a folder or a `.zip`/`.7z`.
+    // "CLI": the export must exist and be a folder or a `.zip`/`.7z`.
     let path = &args.export;
     if !path.exists() {
         return Err(invalid(anyhow!(
@@ -213,7 +222,7 @@ fn check_invocation(args: &UpgradeArgs, ctx: &ToolContext) -> Result<Invocation,
     let path = resolve_input(path)?;
     let name = source::source_name(&path);
 
-    // Step 2: a referee export (the name's first word is `refs`) takes neither
+    // "CLI": a referee export (the name's first word is `refs`) takes neither
     // flag; a team export takes exactly one.
     let referees = aesthetics_export::team_name(&name).is_some_and(|name| name.is_referees());
     if referees {
@@ -233,7 +242,7 @@ fn check_invocation(args: &UpgradeArgs, ctx: &ToolContext) -> Result<Invocation,
         )));
     }
 
-    // Step 3: the savefile, when one is given.
+    // "CLI": the savefile, when one is given, must read as a save.
     let save = match &args.savefile {
         Some(savefile) => Some(EditFile::load(savefile).map_err(|error| {
             invalid(anyhow!(
@@ -244,7 +253,7 @@ fn check_invocation(args: &UpgradeArgs, ctx: &ToolContext) -> Result<Invocation,
         None => None,
     };
 
-    // Step 4: the teams list, the data directory's file or the embedded one.
+    // "CLI": the teams list, the data directory's file or the embedded one.
     let teams_list = load_teams_list(ctx.paths().data_dir.as_deref())?;
     Ok(Invocation {
         path,
@@ -261,7 +270,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     let invocation = check_invocation(args, ctx)?;
     let mut events = RunEvents::new(ctx);
 
-    // Step 5: the export itself.
+    // Step 1: the export itself.
     events.started(INPUT, &invocation.name);
     let mut export = match OldExport::open(&invocation.path) {
         Ok(export) => export,
@@ -271,7 +280,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         }
     };
 
-    // Step 6: nothing an old export holds at the root is no old export.
+    // Step 1: nothing an old export holds at the root is no old export.
     if !source::holds_old_export(&export.files, &export.folders) {
         events.message(tool_message(
             Code::NoOldExport,
@@ -282,10 +291,10 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         return Ok(ERRORS);
     }
 
-    // Step 7: the identity — a referee export, else the Note's `Team:` line,
-    // else the name's first word, each against the teams list. The Note is
-    // found for every export (it is consumed, never unmigrated content); its
-    // `Team:` line is read only for a team export.
+    // Step 6: the identity — a referee export, else the Note's `Team:` line,
+    // else the name's first word, each against the teams list. A team export's
+    // Note is consumed here and below; a referee export's is unmigrated
+    // content (step 9).
     let note_path = note::find(&export.files).map(str::to_owned);
     let note_text = match (&note_path, invocation.referees) {
         (Some(note_path), false) => match export.read(note_path) {
@@ -314,7 +323,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         }
     };
 
-    // Step 8: the savefile must hold the resolved team.
+    // "CLI": the savefile must hold the resolved team.
     if let (Some(save), Identity::Team { id, name }) = (&invocation.save, &identity)
         && save.team(u32::from(id.get())).is_none()
     {
@@ -327,7 +336,14 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         )));
     }
 
-    // Step 9: the output folder, refused when it exists or cannot be made.
+    // Step 2: the team's roster, when a save is given — its players by slot,
+    // read by ID (loose mode and referee exports have none).
+    let roster = match (&invocation.save, &identity) {
+        (Some(save), Identity::Team { id, .. }) => Some(Roster::read(save, *id)),
+        _ => None,
+    };
+
+    // "CLI": the output folder, refused when it exists or cannot be made.
     let output_name = output_name(&export.name, &identity);
     let base = args.output.clone().unwrap_or_else(|| {
         invocation
@@ -355,7 +371,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     }
 
     // Step 10: the output (this slice writes the folder alone); every input
-    // file no step consumed — every file but the Note — is unmigrated content.
+    // file no step consumed is unmigrated content.
     fs::create_dir(&output).map_err(|error| {
         aborted(anyhow!(
             "{}: cannot create the output folder: {error}",
@@ -396,17 +412,49 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             }
         }
         if !colors.is_empty() {
-            write_root_file(&output, "colors.txt", colors)?;
+            write_output_file(&output, "colors.txt", colors.as_bytes())?;
         }
         if let Some(notes) = note::other_notes(note_text) {
-            write_root_file(&output, "notes.txt", format!("{notes}\n"))?;
+            write_output_file(&output, "notes.txt", format!("{notes}\n").as_bytes())?;
         }
+    }
+
+    // Step 3's plan for the face folders: `run`'s findings, then every file
+    // copied under `Players/` and every normalized marker written.
+    let plan = face_folders(
+        &export.files,
+        match &identity {
+            Identity::Team { id, .. } => Some(*id),
+            Identity::Referees => None,
+        },
+        roster.as_ref(),
+    );
+    for message in plan.findings {
+        if message.code.code.as_ref() == Code::UnmigratedContent.as_str() {
+            any_unmigrated = true;
+        }
+        events.message(message);
+    }
+    for (from, to) in &plan.copies {
+        match export.read(from) {
+            Ok(bytes) => write_output_file(&output, to, &bytes)?,
+            Err(failure) => {
+                // One file's failure does not cost the rest (DECISIONS (2)).
+                events.message(read_failed(INPUT, failure, Disposition::DropFile));
+            }
+        }
+    }
+    for marker in &plan.markers {
+        write_output_file(&output, marker, b"")?;
     }
 
     for file in &export.files {
         // A team export's Note is consumed (the root files above); a referee
         // export's is unmigrated content like any file (step 9).
         if !invocation.referees && note_path.as_deref() == Some(file.as_str()) {
+            continue;
+        }
+        if plan.consumed.contains(file) {
             continue;
         }
         any_unmigrated = true;
@@ -425,7 +473,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         events.unmigrated();
     }
 
-    // Step 11: the shared validation on what was written ("Verification").
+    // "Verification": the shared validation on what was written.
     let version = match &invocation.save {
         Some(save) => save.version(),
         None => {
@@ -442,7 +490,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     };
     let report = validate_output(&output, &output_name, version, &mut events);
 
-    // Step 12: the verdict line and the exit code.
+    // "CLI": the verdict line and the exit code.
     let dropped = report.is_some_and(|report| drops_anything(&report.issues));
     let (code, exit_code) = verdict(events.worst(), dropped);
     events.message(tool_message(code, Scope::Run, Disposition::Keep, vec![]));
@@ -457,7 +505,7 @@ fn drops_anything(issues: &[aesthetics_export::ValidationIssue]) -> bool {
         .any(|issue| issue.disposition != aesthetics_export::Disposition::Keep)
 }
 
-/// The export's identity (step 7): `Referees` for a referee export, else the
+/// The export's identity (step 6): `Referees` for a referee export, else the
 /// Note's `Team:` value folded and looked up in the teams list, else the
 /// name's first word the same way. `Err((scope, name))` is `team_name_unknown`
 /// reporting the `Team:` line's file or the export, with the value as written.

@@ -135,7 +135,7 @@ fn a_team_export_takes_exactly_one_of_savefile_and_loose() {
     assert_eq!(sandbox.listing(""), before, "nothing is written");
 }
 
-// EU-CLI-03
+// EU-REF-05
 #[test]
 fn a_referee_export_takes_neither_flag_and_its_note_is_unmigrated() {
     let sandbox = Sandbox::new("cli_refs");
@@ -146,12 +146,19 @@ fn a_referee_export_takes_neither_flag_and_its_note_is_unmigrated() {
     fs::write(sandbox.path("refs Spring/refs Note.txt"), b"Team: /co/\n").unwrap();
     let save = sandbox.arg("EDIT");
     sandbox.save("EDIT");
+    let before = sandbox.listing("");
 
     upgrade(&sandbox, "refs Spring", &["--savefile", &save]).assert_refused(2, &["--savefile"]);
     upgrade(&sandbox, "refs Spring", &["--loose"]).assert_refused(2, &["--loose"]);
+    assert_eq!(sandbox.listing(""), before, "nothing is written");
 
     let run = upgrade(&sandbox, "refs Spring", &[]);
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert!(
+        sandbox.path("refs Spring upgraded").is_dir(),
+        "{}",
+        run.stdout()
+    );
     assert!(
         run.stdout()
             .contains("- refs Spring: Error unmigrated_content at refs Note.txt"),

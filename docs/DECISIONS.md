@@ -8413,3 +8413,21 @@ Windows folder name can end in, and `ScopePath` refuses. (7) the PES 16 texport 
 roster is out of slot order. (8) a flatten beside other entries would merge two trees with no
 rule for their collisions.
 Plan: `plans/export_upgrader.md` steps 1, 2, 3, 9, 10, "CLI", "Message catalog", "Verification".
+
+## 2026-10-18 — export_upgrader — the boots and gloves folders' rules of 6.2b
+Decision: (1) a boots folder's name is `k` and four digits, a gloves folder's `g` and four (or
+three alone), then the name part; any other, and a model folder no rostered player wears, is
+unmigrated content as a whole. (2) A merge kept shared for a byte clash is `merge_kept_shared`
+(Info), the first clashing path in its context. (3) Two shared folders of one kind whose names
+match, letter case aside, keep the name for the lowest ID; the others take their IDs. (4) The
+name order holds for every player: face folder's name part, the worn boots folder's, the worn
+gloves folder's, the save's name, the number. (5) Loose mode leaves the item folders unmigrated
+until its wearer inference lands (6.7).
+Why: (1) Red refuses any other name (`k####`, its `[1:5]` digits) and a folder nobody wears is
+step 10's "unassigned model folder"; one finding per folder names the decision. (2) the step
+said "reported (I)" with no code, and the path is what the author has to reconcile. (3) one
+`Boots/Crocs/` would hold two models, a wearer of one loading the other's; the ID keeps both
+recognizable. (4) a nameless face folder's player wearing `k0430 - Crocs` is the same author's
+naming as a player without a face folder; two orders would be a rule nobody remembers. (5)
+wearers then come from the IDs, step 11's own rules.
+Plan: `plans/export_upgrader.md` steps 3 and 4.

@@ -60,7 +60,8 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    the second by name is unmigrated content, as Red kept the first. Name comes, in order of preference, from the **face
    folder's own name part** (`XXX15 - Snuffy` → `Snuffy`; the author's curated name, and what the
    folder is called today), then from the **worn boots/gloves folder's name part** (a player with
-   boots/gloves but no face folder), then from the **savefile name** with its colour codes stripped
+   boots/gloves but no face folder, or whose face folder has no name part: one order for every
+   player), then from the **savefile name** with its colour codes stripped
    (`pes_savefile`'s `display_name()` — see "Name colour codes" in `spec/pes_savefile/model.md`; the raw codes are
    control characters, invalid in folder names; any other character a folder name cannot hold,
    `/`, `?` or `:` among them, is dropped the same way, and a trailing `.` or space is trimmed,
@@ -78,7 +79,12 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    into that player's folder (a boots folder used only by player 15 becomes `boots.fmdl` +
    textures inside `15 - Name/`). A file path the two folders share is kept once when the
    bytes match; with different bytes the model folder is not merged but kept shared with a
-   link, as in step 4, and reported (I), since one path cannot hold both. Two item folders
+   link, as in step 4, and reported (I, `merge_kept_shared`, the first clashing path in its
+   context), since one path cannot hold both. A boots folder's name is `k` and four digits, a
+   gloves folder's `g` and four digits (or three alone, below), then its name part, as Red
+   requires; any other is unmigrated content as a whole, and so is a model folder no rostered
+   player wears. A wearer's player folder takes the boots folder's name part before the
+   gloves folder's when the name falls to them. Two item folders
    carrying one ID (`k0430 - A`, `k0430 - B`) are one too many: the second by name is
    unmigrated content, as Red skipped it (`folder_error_num_repeated`). On a pre-Fox export they stay shared folders with a link, as
    in step 4: pre-Fox packs a player folder's every model into his face folder, where a
@@ -90,7 +96,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    Naming: nearly all model folders in current exports already carry a descriptive name after their
    ID (`k0915 - Crocs`), so migration uses that name part when present (`Boots/Crocs/`) and falls
    back to the old ID (`Boots/k0915/`) for folders named by ID alone; either way users can rename
-   them (and their link files) afterwards. A gloves folder named by a three-digit ID alone
+   them (and their link files) afterwards. Two shared folders of one kind whose names match,
+   letter case aside (`k0430 - Crocs`, `k0431 - crocs`), would be one folder: the lowest ID
+   keeps the name and every other takes its ID (`Boots/k0431/`), the links following, so no
+   wearer loads another's model. A gloves folder named by a three-digit ID alone
    is read as four digits (`g567` → `g0567`), as Red reads it (its `export_move.py`, gloves
    only).
 5. **Restructures kits**: Kit Configs + Kit Textures are reorganized into `Kits/` subfolders, one

@@ -12,10 +12,12 @@ use crate::upgrade;
 
 // The exit codes are the command line's contract with scripts (the plan's
 // "CLI"; the Team compiler's mapping).
-/// Exit code of a run that finished with no Error finding.
+/// Exit code of a run that finished with no Error finding and nothing
+/// dropped.
 pub(crate) const CLEAN: u8 = 0;
-/// Exit code of a run that finished, but reported an Error finding
-/// (unmigrated content, the unknown team, an export that does not extract).
+/// Exit code of a run that finished, but reported an Error finding or one
+/// that drops something (unmigrated content, the unknown team, an export that
+/// does not extract).
 pub(crate) const ERRORS: u8 = 1;
 /// Exit code of an invalid invocation: nothing was written.
 pub(crate) const INVALID: u8 = 2;

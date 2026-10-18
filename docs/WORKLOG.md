@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): the cross-family review of 6.1a-b, then 6.2 (player
-folders). 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): 6.2b (boots and gloves folders), beside the cross-family
+review of 6.1a-b (SWE-2 rounds on its run half, then Astra). 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -495,9 +495,12 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     `jp Summer 18/`
 - [ ] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
   `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*. Two slices:
-  - [ ] 6.2a the roster read by player ID, face folders into `Players/` (slot rule, name order
+  - [x] 6.2a the roster read by player ID, face folders into `Players/` (slot rule, name order
     and cleaning, portrait, `ingame_face`), `roster_slot_empty`, the `Faces/Faces/` flattening
-    → verify: EU-PLY-01, -03, -04 (the team half; the referee half with 6.6), -07, -11
+    → verify: EU-PLY-01, -03, -04 (the team half; the referee half with 6.6), -07, -11. Done
+    2026-10-18: the first runs to exit 0; a flatten in another letter case read wrong from an
+    archive (fixed); mutation diff 2 survivors tested; files: `export_upgrader/src/{players,
+    roster,source,upgrade,messages}.rs`, `tests/cli/players.rs`, `zip` a dev-dependency
   - [ ] 6.2b boots and gloves folders: wearers from the save, the Fox merge, shared folders and
     links, pre-Fox links, the lower-case `k`/`g` rule → verify: EU-PLY-02, -05, -06, -08, -09, -10
 - [ ] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit

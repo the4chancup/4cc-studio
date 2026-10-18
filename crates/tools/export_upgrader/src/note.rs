@@ -50,14 +50,14 @@ enum Section {
 
 /// The team section's entries, in Note order.
 ///
-/// The reading, as `bins_update.py` does it (step 5): blank lines skipped; a
-/// line's words split on whitespace; a line whose first word is `team` and
-/// whose second starts with `co`, both in any letter case, opens the team
-/// section; one whose first word is `kit` and second starts with `co` opens
-/// the kit section, closing the team one; a line starting, as written, with
-/// `player`, `other` or `notes` in any letter case ends the reading; inside
-/// the team section an entry is a line whose first non-blank character is
-/// `-`. A `-` line before any header belongs to no section.
+/// The reading (step 5): blank lines skipped; a line's words split on
+/// whitespace; a line whose first word is `team` and whose second starts
+/// with `co`, both in any letter case, opens the team section; one whose
+/// first word is `kit` and second starts with `co` opens the kit section,
+/// closing the team one; a line starting, as written, with `player`, `other`
+/// or `notes` in any letter case ends the reading; inside the team section
+/// an entry is a line whose first non-blank character is `-`. A `-` line
+/// before any header belongs to no section.
 pub(crate) fn team_entries(note_text: &str) -> Vec<NoteEntry> {
     let mut section = Section::None;
     let mut entries = Vec::new();

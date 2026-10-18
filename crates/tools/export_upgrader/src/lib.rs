@@ -12,6 +12,8 @@ mod cli;
 mod messages;
 mod naming;
 mod note;
+mod players;
+mod roster;
 mod source;
 mod upgrade;
 

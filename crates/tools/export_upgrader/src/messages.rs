@@ -15,6 +15,11 @@ use crate::source::SourceFailure;
 /// The tool's id: its CLI subcommand and the owner of its message codes.
 pub(crate) const TOOL_ID: &str = "export-upgrader";
 
+/// The input export's id in this run's events.
+pub(crate) const INPUT: ExportId = ExportId(1);
+/// The output export's.
+pub(crate) const OUTPUT: ExportId = ExportId(2);
+
 /// The codes the tool reports itself. `team_name_unknown` is shared with the
 /// structure pass's `ISSUE_CODES` (the plan's catalog takes the compiler's
 /// code), so it lives in `CATALOG`'s issue rows and is emitted by string.
@@ -32,6 +37,9 @@ pub(crate) enum Code {
     /// The last line otherwise: the output is a draft for manual repair
     /// ("Verification").
     MigrationNotClean,
+    /// A face folder whose slot the save's roster leaves empty: it still
+    /// becomes its player folder, with no `settings.toml` (`slot`).
+    RosterSlotEmpty,
 }
 
 impl Code {
@@ -43,6 +51,7 @@ impl Code {
             Code::UnmigratedContent => "unmigrated_content",
             Code::MigrationClean => "migration_clean",
             Code::MigrationNotClean => "migration_not_clean",
+            Code::RosterSlotEmpty => "roster_slot_empty",
         }
     }
 
@@ -54,6 +63,7 @@ impl Code {
         Code::UnmigratedContent,
         Code::MigrationClean,
         Code::MigrationNotClean,
+        Code::RosterSlotEmpty,
     ];
 }
 
@@ -70,6 +80,7 @@ const CATALOG: &[(&str, Severity)] = &[
     ("unmigrated_content", Severity::Error),
     ("migration_clean", Severity::Info),
     ("migration_not_clean", Severity::Info),
+    ("roster_slot_empty", Severity::Warning),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", Severity::Warning),
     ("nested_root_ambiguous", Severity::Error),

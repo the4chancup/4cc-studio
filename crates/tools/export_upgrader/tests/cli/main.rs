@@ -8,4 +8,5 @@ mod common;
 
 mod cli;
 mod input;
+mod players;
 mod roots;

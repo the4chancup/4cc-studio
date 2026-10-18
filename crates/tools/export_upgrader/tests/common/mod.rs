@@ -60,6 +60,25 @@ impl Sandbox {
         path
     }
 
+    /// Writes `bytes` at `relative`, parent folders created.
+    pub fn write(&self, relative: &str, bytes: &[u8]) {
+        let path = self.path(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, bytes).unwrap();
+    }
+
+    /// Writes the PES 21 fixture save at `relative` with `edit` applied to its
+    /// model first (a real encrypted `EDIT00000000` still).
+    pub fn save_edited(&self, relative: &str, edit: impl FnOnce(&mut pes_savefile::EditFile)) {
+        let mut file =
+            pes_savefile::EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21))
+                .unwrap();
+        edit(&mut file);
+        let path = self.path(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, file.to_bytes(&[7; 320]).unwrap()).unwrap();
+    }
+
     /// Copies the fixture file `name` (`tests/fixtures/<name>`) to `relative`
     /// in the sandbox.
     pub fn copy_fixture(&self, name: &str, relative: &str) {

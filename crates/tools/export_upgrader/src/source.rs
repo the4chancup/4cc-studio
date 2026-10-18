@@ -36,6 +36,10 @@ pub(crate) struct OldExport {
     pub(crate) folders: Vec<String>,
     /// The root's prefix in the source: `""` or `co Spring/`.
     prefix: String,
+    /// The pairs of top folder and child path flattened by step 1's
+    /// same-named subfolder rule (`faces` → `faces/faces`): `read` puts the
+    /// level back to find the bytes.
+    flattened: Vec<(String, String)>,
     reader: Reader,
 }
 
@@ -82,12 +86,14 @@ impl OldExport {
         let (files, folders) = below_root(files, folders);
         let prefix = root_prefix(&files, &folders);
         let (files, folders) = strip_prefix(files, folders, &prefix);
+        let (files, folders, flattened) = flatten_same_named(files, folders);
         check_paths(&files, &folders)?;
         Ok(OldExport {
             name,
             files,
             folders,
             prefix,
+            flattened,
             reader,
         })
     }
@@ -96,16 +102,28 @@ impl OldExport {
     /// failure names `path` as given: the export-relative path the report
     /// scopes to.
     pub(crate) fn read(&mut self, path: &str) -> Result<Vec<u8>, SourceFailure> {
+        // The flattened same-named subfolder's level goes back on the path:
+        // `Faces/XXX15/x` is stored `Faces/Faces/XXX15/x` (the child's own
+        // spelling, `kit configs/x` → `Kit Configs/kit configs/x`).
+        let mut in_root = path.to_owned();
+        if let Some((top, _)) = path.split_once('/')
+            && let Some((_, child)) = self
+                .flattened
+                .iter()
+                .find(|(name, _)| top.eq_ignore_ascii_case(name))
+        {
+            in_root = format!("{child}/{}", &path[top.len() + 1..]);
+        }
         match &mut self.reader {
             Reader::Folder(source) => {
-                let file = source.join(&self.prefix).join(path);
+                let file = source.join(&self.prefix).join(in_root);
                 fs::read(&file).map_err(|error| SourceFailure {
                     path: path.to_owned(),
                     error: error.to_string(),
                 })
             }
             Reader::Archive(archive) => {
-                let entry = format!("{}{path}", self.prefix);
+                let entry = format!("{}{in_root}", self.prefix);
                 archive.read(&entry).map_err(|error| SourceFailure {
                     path: path.to_owned(),
                     error: error.to_string(),
@@ -204,6 +222,67 @@ fn root_prefix(files: &[String], folders: &[String]) -> String {
         ([wrapper], []) => format!("{wrapper}/"),
         _ => String::new(),
     }
+}
+
+/// Step 1's same-named subfolder rule: a top folder holding nothing but one
+/// subfolder of its own name, letter case aside (`Faces/Faces/`, `Kit
+/// Configs/kit configs/`), is read as that subfolder, one level — `Other` and
+/// `Common` (any case) aside, and a folder holding the subfolder beside
+/// anything else is not flattened. Returns the listing with the doubled
+/// levels removed and the (top, child) pairs flattened, which `read` needs
+/// to map the paths back.
+fn flatten_same_named(
+    mut files: Vec<String>,
+    mut folders: Vec<String>,
+) -> (Vec<String>, Vec<String>, Vec<(String, String)>) {
+    let mut doubled = Vec::new();
+    for name in folders
+        .iter()
+        .filter(|path| !path.contains('/'))
+        .cloned()
+        .collect::<Vec<_>>()
+    {
+        if name.eq_ignore_ascii_case("other") || name.eq_ignore_ascii_case("common") {
+            continue;
+        }
+        let prefix = format!("{name}/");
+        let direct_file = files
+            .iter()
+            .any(|file| file.starts_with(&prefix) && !file[prefix.len()..].contains('/'));
+        let children: Vec<&String> = folders
+            .iter()
+            .filter(|folder| folder.starts_with(&prefix) && !folder[prefix.len()..].contains('/'))
+            .collect();
+        if direct_file || children.len() != 1 {
+            continue;
+        }
+        if children[0][prefix.len()..].eq_ignore_ascii_case(&name) {
+            doubled.push((name, children[0].clone()));
+        }
+    }
+    let mut flattened = Vec::new();
+    for (name, child) in doubled {
+        // The child's segment comes off: `Faces/Faces/x` reads `Faces/x`, and
+        // a child in another letter case reads under the top's spelling
+        // (`Kit Configs/kit configs/x` → `Kit Configs/x`).
+        let prefix = format!("{child}/");
+        let strip = |path: &String| {
+            if *path == child {
+                name.clone()
+            } else if let Some(rest) = path.strip_prefix(&prefix) {
+                format!("{name}/{rest}")
+            } else {
+                path.clone()
+            }
+        };
+        files = files.iter().map(&strip).collect();
+        folders = folders.iter().map(&strip).collect();
+        flattened.push((name, child));
+    }
+    folders.sort();
+    folders.dedup();
+    files.sort();
+    (files, folders, flattened)
 }
 
 /// The listing with `prefix` stripped from every entry below it; the wrapper's
@@ -354,6 +433,63 @@ mod tests {
         assert!(!failure.error.is_empty());
         // And a clean listing passes.
         assert!(check_paths(&["Other/readme.txt".to_owned()], &["Other".to_owned()]).is_ok());
+    }
+
+    #[test]
+    fn a_same_named_subfolder_is_flattened_once_keeping_the_tops_spelling() {
+        // `Faces/Faces/` flattens to `Faces/`; `Kit Configs/kit configs/` to
+        // `Kit Configs/`, the top folder's spelling kept and each listed once.
+        let (files, folders, flattened) = flatten_same_named(
+            vec![
+                "Faces/Faces/XXX15 - A/f.fmdl".to_owned(),
+                "Kit Configs/kit configs/x.bin".to_owned(),
+            ],
+            vec![
+                "Faces".to_owned(),
+                "Faces/Faces".to_owned(),
+                "Faces/Faces/XXX15 - A".to_owned(),
+                "Kit Configs".to_owned(),
+                "Kit Configs/kit configs".to_owned(),
+            ],
+        );
+        assert_eq!(
+            files,
+            [
+                "Faces/XXX15 - A/f.fmdl".to_owned(),
+                "Kit Configs/x.bin".to_owned()
+            ]
+        );
+        assert_eq!(
+            folders,
+            [
+                "Faces".to_owned(),
+                "Faces/XXX15 - A".to_owned(),
+                "Kit Configs".to_owned()
+            ]
+        );
+        assert_eq!(flattened.len(), 2);
+    }
+
+    #[test]
+    fn common_and_a_folder_with_direct_files_are_not_flattened() {
+        // `Common/Common/` is excluded by the rule; `Faces/` holding a direct
+        // file beside the subfolder is not "one subfolder alone".
+        let (files, folders, flattened) = flatten_same_named(
+            vec![
+                "Common/Common/a.dds".to_owned(),
+                "Faces/readme.txt".to_owned(),
+                "Faces/Faces/XXX15 - A/f.fmdl".to_owned(),
+            ],
+            vec![
+                "Common".to_owned(),
+                "Common/Common".to_owned(),
+                "Faces".to_owned(),
+                "Faces/Faces".to_owned(),
+            ],
+        );
+        assert_eq!(files[0], "Common/Common/a.dds");
+        assert!(folders.contains(&"Common/Common".to_owned()));
+        assert!(flattened.is_empty());
     }
 
     #[test]

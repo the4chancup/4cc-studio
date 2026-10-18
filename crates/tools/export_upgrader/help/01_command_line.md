@@ -11,7 +11,7 @@ folder that holds `4cc-studio`.
 `upgrade` takes one old export: a folder, a `.zip` or a `.7z`. A team export
 takes `--savefile`, naming the save (`EDIT00000000`) whose records say which
 player wears which boots and gloves, or `--loose` to infer the wearers from the
-IDs alone; a referee export (a name starting with `refs`) takes neither.
+IDs alone; a referee export (a name whose first word is `refs`) takes neither.
 
 The output is a new folder beside the input, or inside the folder `-o` names
 (created when missing). Its name is the team's key with the coverage tag

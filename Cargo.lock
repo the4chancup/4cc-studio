@@ -1396,6 +1396,7 @@ dependencies = [
  "teams_list",
  "toml",
  "vtree",
+ "zip",
 ]
 
 [[package]]
