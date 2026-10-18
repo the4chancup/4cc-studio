@@ -40,6 +40,10 @@ pub(crate) enum Code {
     /// A face folder whose slot the save's roster leaves empty: it still
     /// becomes its player folder, with no `settings.toml` (`slot`).
     RosterSlotEmpty,
+    /// A path a player folder and a merging item folder share with different
+    /// bytes: the item folder is kept shared with a link instead (`path`, the
+    /// first clashing path relative to the player folder).
+    MergeKeptShared,
 }
 
 impl Code {
@@ -52,6 +56,7 @@ impl Code {
             Code::MigrationClean => "migration_clean",
             Code::MigrationNotClean => "migration_not_clean",
             Code::RosterSlotEmpty => "roster_slot_empty",
+            Code::MergeKeptShared => "merge_kept_shared",
         }
     }
 
@@ -64,6 +69,7 @@ impl Code {
         Code::MigrationClean,
         Code::MigrationNotClean,
         Code::RosterSlotEmpty,
+        Code::MergeKeptShared,
     ];
 }
 
@@ -81,6 +87,7 @@ const CATALOG: &[(&str, Severity)] = &[
     ("migration_clean", Severity::Info),
     ("migration_not_clean", Severity::Info),
     ("roster_slot_empty", Severity::Warning),
+    ("merge_kept_shared", Severity::Info),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", Severity::Warning),
     ("nested_root_ambiguous", Severity::Error),

@@ -40,6 +40,294 @@ fn face(sandbox: &Sandbox, relative: &str) {
     }
 }
 
+/// The three files of the real tracer Fox boots folder, a few bytes each;
+/// `shirt.dds` carries the face's bytes so only a scenario's own files decide
+/// a merge's byte clash.
+const BOOTS_FILES: [(&str, &[u8]); 3] = [
+    ("boots.fmdl", b"boots"),
+    ("boots.skl", b"skl"),
+    ("shirt.dds", b"shirt"),
+];
+
+/// An old export's boots folder at `relative`.
+fn boots(sandbox: &Sandbox, relative: &str) {
+    for (name, bytes) in BOOTS_FILES {
+        sandbox.write(&format!("{relative}/{name}"), bytes);
+    }
+}
+
+/// A gloves folder at `relative` (`glove_l.fmdl`, `glove_r.fmdl`).
+fn gloves(sandbox: &Sandbox, relative: &str) {
+    sandbox.write(&format!("{relative}/glove_l.fmdl"), b"glove_l");
+    sandbox.write(&format!("{relative}/glove_r.fmdl"), b"glove_r");
+}
+
+/// Sets `id`'s `boots_id` and `gloves_id` on its appearance record.
+fn wears(file: &mut pes_savefile::EditFile, id: u32, boots_id: u32, gloves_id: u32) {
+    let player = file.player_mut(id).unwrap();
+    player.appearance.boots_id = boots_id;
+    player.appearance.gloves_id = gloves_id;
+}
+
+// EU-PLY-02
+#[test]
+fn a_wearer_without_a_face_folder_gets_one_with_ingame_face() {
+    let sandbox = Sandbox::new("ply_stray_boots");
+    boots(&sandbox, "co Spring/Boots/k0430 - Crocs");
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
+        wears(file, 71405, 430, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    for (name, bytes) in BOOTS_FILES {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Spring/Players/05 - Crocs/{name}"))).unwrap(),
+            bytes,
+            "{name}"
+        );
+    }
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/05 - Crocs/ingame_face")).unwrap(),
+        b""
+    );
+    assert!(!sandbox.path("co Full Spring/Boots").exists());
+}
+
+// EU-PLY-05
+#[test]
+fn folders_worn_by_two_share_the_folder_with_links() {
+    let sandbox = Sandbox::new("ply_shared");
+    for slot in ["XXX03 - A", "XXX04 - B", "XXX05 - C", "XXX06 - D"] {
+        face(&sandbox, &format!("co Spring/Faces/{slot}"));
+    }
+    boots(&sandbox, "co Spring/Boots/k0430 - Crocs");
+    boots(&sandbox, "co Spring/Boots/k0431");
+    gloves(&sandbox, "co Spring/Gloves/g0432 - Mitts");
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
+        wears(file, 71403, 430, 432);
+        wears(file, 71404, 431, 432);
+        wears(file, 71405, 430, 0);
+        wears(file, 71406, 431, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    for (name, bytes) in BOOTS_FILES {
+        for folder in ["Boots/Crocs", "Boots/k0431"] {
+            assert_eq!(
+                fs::read(sandbox.path(&format!("co Full Spring/{folder}/{name}"))).unwrap(),
+                bytes,
+                "{folder}/{name}"
+            );
+        }
+    }
+    for name in ["glove_l.fmdl", "glove_r.fmdl"] {
+        assert!(
+            sandbox
+                .path(&format!("co Full Spring/Gloves/Mitts/{name}"))
+                .exists()
+        );
+    }
+    for (player, links) in [
+        ("03 - A", vec!["Crocs.boots", "Mitts.gloves"]),
+        ("05 - C", vec!["Crocs.boots"]),
+        ("04 - B", vec!["k0431.boots", "Mitts.gloves"]),
+        ("06 - D", vec!["k0431.boots"]),
+    ] {
+        for link in links {
+            assert_eq!(
+                fs::read(sandbox.path(&format!("co Full Spring/Players/{player}/{link}"))).unwrap(),
+                b"",
+                "{player}/{link}"
+            );
+        }
+        // No player folder holds a copy of a model of those folders.
+        for file in ["boots.fmdl", "boots.skl", "glove_l.fmdl", "glove_r.fmdl"] {
+            assert!(
+                !sandbox
+                    .path(&format!("co Full Spring/Players/{player}/{file}"))
+                    .exists(),
+                "{player}/{file}"
+            );
+        }
+    }
+}
+
+// EU-PLY-06
+#[test]
+fn a_folder_nobody_wears_is_unmigrated_as_a_whole() {
+    let sandbox = Sandbox::new("ply_unworn");
+    face(&sandbox, "co Spring/Faces/XXX03 - A");
+    gloves(&sandbox, "co Spring/Gloves/g0432 - Mitts");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 1);
+    assert!(
+        run.stdout()
+            .contains("- co Spring: Error unmigrated_content at Gloves/g0432 - Mitts\n"),
+        "{}",
+        run.stdout()
+    );
+    assert!(!sandbox.path("co Full Spring/Gloves").exists());
+    assert_eq!(
+        sandbox
+            .listing("co Full Spring")
+            .iter()
+            .filter(|path| path.contains("glove_"))
+            .count(),
+        0
+    );
+}
+
+// EU-PLY-08
+#[test]
+fn pre_fox_never_merges_the_alone_worn_folder() {
+    let sandbox = Sandbox::new("ply_prefox");
+    face(&sandbox, "co Spring/Faces/XXX05 - Bob");
+    sandbox.write("co Spring/Faces/XXX05 - Bob/face.xml", b"<config/>");
+    sandbox.write(
+        "co Spring/Faces/XXX05 - Bob/face_high_win32.model",
+        b"face_high",
+    );
+    boots(&sandbox, "co Spring/Boots/k0430 - Crocs");
+    sandbox.write(
+        "co Spring/Boots/k0430 - Crocs/oral_boots_win32.model",
+        b"oral",
+    );
+    sandbox.write("co Spring/Boots/k0430 - Crocs/boots.mtl", b"mtl");
+    sandbox.write("co Spring/Boots/k0430 - Crocs/k2012_c.dds", b"tex");
+    sandbox.save_edited("EDIT16", pes_version::PesVersion::Pes16, |file| {
+        wears(file, 71405, 430, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT16");
+    // No exit assertion: the pre-Fox model renames are 6.4's, and validation
+    // may refuse the shared folder's names until then. A run always prints a
+    // verdict line.
+    let report = run.stdout();
+    assert!(report.contains("migration_"), "{report}");
+    for name in ["oral_boots_win32.model", "boots.mtl", "k2012_c.dds"] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Spring/Boots/Crocs/{name}"))).unwrap(),
+            fs::read(sandbox.path(&format!("co Spring/Boots/k0430 - Crocs/{name}"))).unwrap(),
+            "{name}"
+        );
+    }
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/05 - Bob/Crocs.boots")).unwrap(),
+        b""
+    );
+    for name in ["oral_boots_win32.model", "boots.mtl", "k2012_c.dds"] {
+        assert!(
+            !sandbox
+                .path(&format!("co Full Spring/Players/05 - Bob/{name}"))
+                .exists(),
+            "{name}"
+        );
+    }
+}
+
+// EU-PLY-09
+#[test]
+fn a_byte_clash_keeps_the_folder_shared_and_their_own_file() {
+    let sandbox = Sandbox::new("ply_clash");
+    face(&sandbox, "co Spring/Faces/XXX05 - A");
+    sandbox.write("co Spring/Faces/XXX05 - A/skin.dds", b"mine");
+    face(&sandbox, "co Spring/Faces/XXX06 - B");
+    sandbox.write("co Spring/Faces/XXX06 - B/skin.dds", b"shared");
+    boots(&sandbox, "co Spring/Boots/k0430 - Crocs");
+    sandbox.write("co Spring/Boots/k0430 - Crocs/skin.dds", b"theirs");
+    boots(&sandbox, "co Spring/Boots/k0431");
+    sandbox.write("co Spring/Boots/k0431/skin.dds", b"shared");
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
+        wears(file, 71405, 430, 0);
+        wears(file, 71406, 431, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert!(
+        run.stdout()
+            .contains("- co Spring: Info merge_kept_shared at Boots/k0430 - Crocs (path=skin.dds)"),
+        "{}",
+        run.stdout()
+    );
+    // The shared folder holds its own files; 05 keeps his face's skin.dds.
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Boots/Crocs/skin.dds")).unwrap(),
+        b"theirs"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Boots/Crocs/boots.fmdl")).unwrap(),
+        b"boots"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/05 - A/skin.dds")).unwrap(),
+        b"mine"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/05 - A/Crocs.boots")).unwrap(),
+        b""
+    );
+    // 06 merges: one skin.dds, the face's bytes being equal to the item's.
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/06 - B/boots.fmdl")).unwrap(),
+        b"boots"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/06 - B/skin.dds")).unwrap(),
+        b"shared"
+    );
+    assert!(!sandbox.path("co Full Spring/Boots/k0431").exists());
+}
+
+// EU-PLY-10
+#[test]
+fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
+    let sandbox = Sandbox::new("ply_second");
+    face(&sandbox, "co Spring/Faces/XXX23 - Bahsaka");
+    face(&sandbox, "co Spring/Faces/XXX23 - Smug Redman");
+    boots(&sandbox, "co Spring/Boots/k0430 - A");
+    boots(&sandbox, "co Spring/Boots/k0430 - B");
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
+        wears(file, 71423, 430, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 1);
+    for name in [
+        "fcl_hair.fmdl",
+        "face_diff.bin",
+        "shirt.dds",
+        "portrait.dds",
+    ] {
+        assert!(
+            sandbox
+                .path(&format!("co Full Spring/Players/23 - Bahsaka/{name}"))
+                .exists(),
+            "{name}"
+        );
+    }
+    for (name, bytes) in BOOTS_FILES {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Spring/Players/23 - Bahsaka/{name}"))).unwrap(),
+            bytes,
+            "{name}"
+        );
+    }
+    let stdout = run.stdout();
+    assert!(
+        stdout.contains("unmigrated_content at Faces/XXX23 - Smug Redman"),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("unmigrated_content at Boots/k0430 - B"),
+        "{stdout}"
+    );
+}
+
 // EU-PLY-01
 #[test]
 fn the_face_folders_become_the_players_folders() {
@@ -171,7 +459,7 @@ fn portraits_are_renamed_and_two_are_reported_as_named() {
 fn a_nameless_folder_takes_the_saves_display_name_cleaned() {
     let sandbox = Sandbox::new("ply_save_name");
     face(&sandbox, "co Spring/Faces/XXX09");
-    sandbox.save_edited("EDIT", |file| {
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
         // The colour-coded name of fixture player 78205: the `\x11c` code
         // strips, the `>` is not a folder-name character.
         file.player_mut(71409).unwrap().name = "\u{11}c789922ff>skin".to_owned();
@@ -220,7 +508,7 @@ fn either_ingame_face_spelling_becomes_one_bare_marker() {
 fn an_empty_roster_slot_is_a_warning_and_the_folder_still_forms() {
     let sandbox = Sandbox::new("ply_empty_slot");
     face(&sandbox, "co Spring/Faces/XXX23 - Pinto");
-    sandbox.save_edited("EDIT", |file| {
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
         let team = file.team_mut(714).unwrap();
         let position = team
             .roster

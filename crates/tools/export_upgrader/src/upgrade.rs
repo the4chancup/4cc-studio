@@ -30,7 +30,7 @@ use crate::messages::{
 };
 use crate::naming::output_name;
 use crate::note;
-use crate::players::face_folders;
+use crate::players::{PlayerFolders, player_folders};
 use crate::roster::Roster;
 use crate::source::{self, OldExport, SourceFailure};
 
@@ -83,7 +83,7 @@ fn verdict(worst: Option<Severity>, dropped: bool) -> (Code, u8) {
 }
 
 /// What the export resolved to: a listed team, or the referee package.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub(crate) enum Identity {
     /// A listed team; `id` is strictly 701-920.
     Team {
@@ -97,11 +97,12 @@ pub(crate) enum Identity {
 }
 
 /// A run's event stream: the findings it reports to the console (one line
-/// each) or the shell, and the worst severity among them, which decides the
-/// exit code.
+/// each) or the shell, and the worst severity among them and whether any
+/// drops something, which decide the exit code.
 struct RunEvents {
     ctx: ToolContext,
     worst: Option<Severity>,
+    dropped: bool,
 }
 
 impl RunEvents {
@@ -112,6 +113,7 @@ impl RunEvents {
         RunEvents {
             ctx: ctx.clone(),
             worst: None,
+            dropped: false,
         }
     }
 
@@ -129,6 +131,7 @@ impl RunEvents {
     /// One finding, addressed to the export its scope names.
     fn message(&mut self, message: Message) {
         self.worst = self.worst.max(Some(message.severity));
+        self.dropped |= message.disposition != Disposition::Keep;
         self.emit(message.scope.export_id(), PipelineEvent::Message(message));
     }
 
@@ -140,6 +143,13 @@ impl RunEvents {
     /// The worst severity reported so far; `None` when no finding was.
     fn worst(&self) -> Option<Severity> {
         self.worst
+    }
+
+    /// Whether a finding reported so far drops something (a file, a folder,
+    /// the export): the verdict's "nothing dropped" half for the tool's own
+    /// findings, beside the output validation's issues.
+    fn dropped(&self) -> bool {
+        self.dropped
     }
 
     fn emit(&self, export_id: Option<ExportId>, event: PipelineEvent) {
@@ -187,8 +197,9 @@ fn write_output_file(output: &Path, relative: &str, bytes: &[u8]) -> Result<(), 
     })
 }
 
-/// What `check_invocation` approved (steps 1-4): the input resolved and
-/// named, the flags checked, the save loaded, the teams list parsed.
+/// What `check_invocation` approved (the "CLI" paragraph's checks): the
+/// input resolved and named, the flags checked, the save loaded, the teams
+/// list parsed.
 struct Invocation {
     /// The input path, made absolute.
     path: PathBuf,
@@ -202,8 +213,8 @@ struct Invocation {
     teams_list: TeamsList,
 }
 
-/// Steps 1-4: the invocation checks, before anything is written (`run`'s
-/// order, `plans/export_upgrader.md` "CLI").
+/// The "CLI" paragraph's invocation checks, before anything is written
+/// (`run`'s order, `plans/export_upgrader.md` "CLI").
 fn check_invocation(args: &UpgradeArgs, ctx: &ToolContext) -> Result<Invocation, CliError> {
     // "CLI": the export must exist and be a folder or a `.zip`/`.7z`.
     let path = &args.export;
@@ -419,16 +430,38 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         }
     }
 
-    // Step 3's plan for the face folders: `run`'s findings, then every file
-    // copied under `Players/` and every normalized marker written.
-    let plan = face_folders(
-        &export.files,
-        match &identity {
-            Identity::Team { id, .. } => Some(*id),
-            Identity::Referees => None,
-        },
-        roster.as_ref(),
-    );
+    // The migration's target version decides the engine now (steps 3-4 merge
+    // only on Fox); "Verification" validates with it too.
+    let version = match &invocation.save {
+        Some(save) => save.version(),
+        None => {
+            if export
+                .files
+                .iter()
+                .any(|file| file.to_ascii_lowercase().ends_with(".model"))
+            {
+                PesVersion::Pes16
+            } else {
+                PesVersion::Pes21
+            }
+        }
+    };
+
+    // Steps 2-4's plan for the face and item folders: `run`'s findings, then
+    // every file copied under `Players/` and every marker and link written.
+    // A referee export's folders stay unmigrated content (6.6's).
+    let files = export.files.clone();
+    let plan = match &identity {
+        Identity::Referees => PlayerFolders::default(),
+        Identity::Team { .. } => {
+            player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
+                match (export.read(a), export.read(b)) {
+                    (Ok(a), Ok(b)) => a == b,
+                    _ => false,
+                }
+            })
+        }
+    };
     for message in plan.findings {
         if message.code.code.as_ref() == Code::UnmigratedContent.as_str() {
             any_unmigrated = true;
@@ -474,24 +507,12 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     }
 
     // "Verification": the shared validation on what was written.
-    let version = match &invocation.save {
-        Some(save) => save.version(),
-        None => {
-            if export
-                .files
-                .iter()
-                .any(|file| file.to_ascii_lowercase().ends_with(".model"))
-            {
-                PesVersion::Pes16
-            } else {
-                PesVersion::Pes21
-            }
-        }
-    };
     let report = validate_output(&output, &output_name, version, &mut events);
 
-    // "CLI": the verdict line and the exit code.
-    let dropped = report.is_some_and(|report| drops_anything(&report.issues));
+    // "CLI": the verdict line and the exit code: not clean when a finding
+    // was an Error or dropped anything, the tool's own and the output
+    // validation's alike.
+    let dropped = events.dropped() || report.is_some_and(|report| drops_anything(&report.issues));
     let (code, exit_code) = verdict(events.worst(), dropped);
     events.message(tool_message(code, Scope::Run, Disposition::Keep, vec![]));
     Ok(exit_code)
@@ -745,6 +766,45 @@ mod tests {
             vec![],
         ));
         assert_eq!(events.worst(), Some(Severity::Error));
+    }
+
+    #[test]
+    fn a_warning_finding_that_drops_something_is_not_clean() {
+        use std::sync::{Arc, Mutex};
+
+        use studio_core::{AppPaths, Settings};
+
+        // The verdict's "nothing dropped" half sees the tool's own findings
+        // too: a finding below Error that drops a folder still refuses
+        // `migration_clean` (DECISIONS 2026-10-18 (7)).
+        let (events_tx, _events_rx) = crossbeam_channel::unbounded();
+        let (requests_tx, _requests_rx) = crossbeam_channel::unbounded();
+        let ctx = ToolContext::new(
+            Arc::new(Mutex::new(Settings::default())),
+            AppPaths {
+                exe_dir: PathBuf::new(),
+                data_dir: None,
+            },
+            events_tx,
+            requests_tx,
+        );
+        let mut events = RunEvents::new(&ctx);
+        assert!(!events.dropped());
+        events.message(tool_message(
+            Code::RosterSlotEmpty,
+            Scope::Folder {
+                export_id: INPUT,
+                path: ScopePath::new("Faces/XXX15 - A").unwrap(),
+            },
+            Disposition::DropFolder,
+            vec![],
+        ));
+        assert_eq!(events.worst(), Some(Severity::Warning));
+        assert!(events.dropped());
+        assert_eq!(
+            verdict(events.worst(), events.dropped()),
+            (Code::MigrationNotClean, ERRORS)
+        );
     }
 
     #[test]

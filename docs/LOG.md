@@ -2105,3 +2105,5 @@ worklog passed 7,000 lines.
   filesystem-root input that panicked and a referee Note dropped silently; half b gets round S2.
 - **2026-10-18** — 6.2a: face folders become the player folders (the name order, the roster read
   by player ID, portraits and markers normalized); the first upgrades to exit 0.
+- **2026-10-18** — 6.2b: boots and gloves folders merge into their one wearer on Fox, else shared
+  with links; 6.2 done, 11 EU-PLY scenarios proven.

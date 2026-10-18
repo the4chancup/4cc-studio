@@ -67,12 +67,16 @@ impl Sandbox {
         fs::write(&path, bytes).unwrap();
     }
 
-    /// Writes the PES 21 fixture save at `relative` with `edit` applied to its
-    /// model first (a real encrypted `EDIT00000000` still).
-    pub fn save_edited(&self, relative: &str, edit: impl FnOnce(&mut pes_savefile::EditFile)) {
+    /// Writes `version`'s fixture save at `relative` with `edit` applied to
+    /// its model first (a real encrypted `EDIT00000000` still).
+    pub fn save_edited(
+        &self,
+        relative: &str,
+        version: PesVersion,
+        edit: impl FnOnce(&mut pes_savefile::EditFile),
+    ) {
         let mut file =
-            pes_savefile::EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21))
-                .unwrap();
+            pes_savefile::EditFile::from_bytes(&pes_savefile::fixture_save(version)).unwrap();
         edit(&mut file);
         let path = self.path(relative);
         fs::create_dir_all(path.parent().unwrap()).unwrap();

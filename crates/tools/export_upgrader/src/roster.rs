@@ -8,16 +8,16 @@ use pes_savefile::model::names::display_name;
 use teams_list::TeamId;
 
 /// One rostered player of the resolved team, as the save records him (step 2).
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub(crate) struct RosteredPlayer {
     /// The save's name with its colour codes stripped (`pes_savefile`'s
     /// `display_name`).
     pub(crate) name: String,
-    /// The custom boots ID his appearance record wears (6.2b's wearer map,
-    /// not yet built).
+    /// The custom boots ID his appearance record wears (the wearer map of
+    /// the item folders' migration).
     pub(crate) boots_id: u32,
-    /// The custom gloves ID his appearance record wears (6.2b's wearer map,
-    /// not yet built).
+    /// The custom gloves ID his appearance record wears (the wearer map of
+    /// the item folders' migration).
     pub(crate) gloves_id: u32,
 }
 

@@ -107,10 +107,7 @@ impl OldExport {
         // spelling, `kit configs/x` → `Kit Configs/kit configs/x`).
         let mut in_root = path.to_owned();
         if let Some((top, _)) = path.split_once('/')
-            && let Some((_, child)) = self
-                .flattened
-                .iter()
-                .find(|(name, _)| top.eq_ignore_ascii_case(name))
+            && let Some((_, child)) = self.flattened.iter().find(|(name, _)| name.as_str() == top)
         {
             in_root = format!("{child}/{}", &path[top.len() + 1..]);
         }
