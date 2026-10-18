@@ -8584,3 +8584,36 @@ would reach the game, where Red respelled it (`txt_id_change`); 343 such referen
 maintainer's 1,489 `Common/` `.mtl` files, and a link has no place in `Common/`.
 Plan: `plans/export_upgrader.md` step 7, EU-MDL-16, "Dependencies" (`roxmltree`, already the
 workspace's XML reader).
+
+## 2026-10-18 — export_upgrader — an FMDL's texture entries, class by class
+Decision: per texture entry of a migrated FMDL: a `dummy_` stem is left as written; a `./`
+directory has its kit magic respelled only; the game's kit texture folder
+(`/Assets/pes16/model/character/uniform/texture/`) is kept; the team's Common
+(`common/<3>/[sub/]sourceimages/`) is linked as a `.mtl`'s Common reference; other directories
+below `common/` are kept; every other directory becomes `./`, linked to the `Common/` root's
+texture when the model's folder holds none of the stem. A shared folder's FMDL links as a
+player folder's; a `Common/` FMDL gets the shared `.mtl` rule.
+Why: the plan said "every other FMDL texture directory becomes the model's own folder", which
+would repoint the 25 real FMDLs naming the game's kit texture folder at a file the folder lacks,
+so `fmdl_texture_not_found` would drop the model where the compiler keeps that path on purpose
+(`fmdl_texture_kit_path`). `dummy_` stems are game-supplied and never looked up. A census of the
+6,053 FMDLs in export folders (`.tmp/6_4/fmdl_dir_census.txt`) found no directory naming a
+subfolder of the model's folder outside one test export, Common subfolders spelled with
+`sourceimages/` after the subfolder (`common/000/Boots/sourceimages/`, 117 boots FMDLs), and
+kit magic in Common subfolders (`common/000/u0XXXp0/sourceimages/`, 45). The Fox compile reads
+a shared folder's links (`shared_texture_claim`), unlike the pre-Fox one.
+Plan: `plans/export_upgrader.md` step 7.
+
+## 2026-10-18 — export_upgrader — a kept Common reference that clashes is worn as the folder's texture, and `dummy_` stems are no Common files
+Decision: (1) a Common reference kept because the folder already holds a texture of its stem
+stays kept, and `common_reference_kept`'s text says the folder's texture is the one the model
+will wear. (2) A `.mtl`'s `dummy_` stem in a Common path has its `???` respelled alone: no
+lookup in `Common/`, no finding.
+Why: (1) Astra round M-A1: the compiler looks a game path's file name up in the folder first
+(`point_materials`, as `spec/model_format.md` "Stem-based texture references" says), so keeping
+the path does not keep its target, as the plan had claimed; changing the compiler's lookup for
+a rare layout is not worth a spec change, while a warning that says what happens is enough for
+an export that gets a human look anyway. (2) the game supplies `dummy_kit*` textures, so the
+lookup reported a false `common_reference_kept` on real files (/jp/ Summer 25 `XXX15 -
+Sister`); the compiler emits a member's `.mtl` as written, so the `???` still needs the ID.
+Plan: `plans/export_upgrader.md` step 7.

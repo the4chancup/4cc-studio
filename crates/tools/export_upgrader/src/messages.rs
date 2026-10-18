@@ -69,10 +69,13 @@ pub(crate) enum Code {
     LogoSmallDropped,
     /// No usable `_r_ll` member: the largest usable one became `logo.png`.
     LogoFallback,
-    /// An `.mtl` reference into the team's `Common/` kept as written but
-    /// its `???`, respelled the team's ID: the file is not in the input's
-    /// `Common/`, a link would clash, or a subfolder `.mtl` names a Common
-    /// subfolder (`reference`, the path as written).
+    /// An `.mtl`/`.fmdl` reference into the team's `Common/` kept as written
+    /// but its `???`, respelled the team's ID: the file is not in the
+    /// input's `Common/`, a link would clash (the folder already holds a
+    /// texture of that stem, which is the one the model will wear — the
+    /// compiler looks a game path's file name up in the folder first), or a
+    /// subfolder `.mtl` names a Common subfolder (`reference`, the path as
+    /// written).
     CommonReferenceKept,
 }
 

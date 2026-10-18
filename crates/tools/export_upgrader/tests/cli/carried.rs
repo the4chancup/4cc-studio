@@ -190,6 +190,38 @@ fn mtl_text(sandbox: &Sandbox, output: &str) -> String {
     fs::read_to_string(sandbox.path(output)).unwrap()
 }
 
+/// An FMDL of the `konami_highneck` fixture with its texture entries set
+/// from `entries` (`(directory, file_name)` pairs, in table order).
+fn fmdl(entries: &[(&str, &str)]) -> Vec<u8> {
+    let mut file = fmdl::FmdlFile::read(
+        &std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../libs/fmdl/tests/fixtures/konami_highneck.fmdl"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let mut entries = entries.iter();
+    fmdl::ops::paths::rewrite_texture_paths(&mut file, |path| {
+        if let Some((directory, name)) = entries.next() {
+            path.directory = (*directory).to_owned();
+            path.file_name = (*name).to_owned();
+        }
+    })
+    .unwrap();
+    file.write()
+}
+
+/// The `(directory, file_name)` entries of `output`'s written FMDL.
+fn fmdl_paths(sandbox: &Sandbox, output: &str) -> Vec<(String, String)> {
+    let file = fmdl::FmdlFile::read(&fs::read(sandbox.path(output)).unwrap()).unwrap();
+    fmdl::ops::paths::texture_paths(&file)
+        .unwrap()
+        .iter()
+        .map(|path| (path.directory.clone(), path.file_name.clone()))
+        .collect()
+}
+
 // EU-MDL-05
 #[test]
 fn common_references_become_the_bare_name_and_the_link() {
@@ -275,6 +307,82 @@ fn a_reference_whose_common_file_is_missing_is_kept_and_warned() {
     );
 }
 
+// EU-MDL-07
+#[test]
+fn a_fox_face_folder_s_fmdl_names_its_own_and_common_textures() {
+    let sandbox = Sandbox::new("mdl_fox_fmdl");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face_high.fmdl",
+        &fmdl(&[
+            (
+                "/Assets/pes16/model/character/common/000/sourceimages/",
+                "hair",
+            ),
+            (
+                "/Assets/pes16/model/character/face/real/00000/sourceimages/",
+                "skin",
+            ),
+        ]),
+    );
+    sandbox.write("co Spring/Common/hair.dds", b"hair");
+    sandbox.write("co Spring/Common/skin.dds", b"skin");
+    fs::write(
+        sandbox.path("EDIT"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes21),
+    )
+    .unwrap();
+
+    upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(
+        fmdl_paths(&sandbox, "co Full Spring/Players/07 - A/face_high.fmdl")[..2],
+        [
+            ("./".to_owned(), "hair".to_owned()),
+            ("./".to_owned(), "skin".to_owned()),
+        ]
+    );
+    for link in ["hair.dds.common", "skin.dds.common"] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Spring/Players/07 - A/{link}"))).unwrap(),
+            b""
+        );
+    }
+}
+
+// EU-MDL-08
+#[test]
+fn a_fox_face_folder_s_common_kit_reference_links_the_set() {
+    let sandbox = Sandbox::new("mdl_fox_kit_set");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face_high.fmdl",
+        &fmdl(&[(
+            "/Assets/pes16/model/character/common/000/u0XXXp0/sourceimages/",
+            "armor_bsm",
+        )]),
+    );
+    sandbox.write("co Spring/Common/u0XXXp1/armor_bsm.dds", b"armor");
+    fs::write(
+        sandbox.path("EDIT"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes21),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(
+        fmdl_paths(&sandbox, "co Full Spring/Players/07 - A/face_high.fmdl")[0],
+        ("./kitN/".to_owned(), "armor_bsm".to_owned())
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/07 - A/kitN/armor_bsm.dds.common")).unwrap(),
+        b""
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Common/kit1/armor_bsm.dds")).unwrap(),
+        b"armor"
+    );
+    let stdout = run.stdout();
+    assert!(!stdout.contains("common_link_missing"), "{stdout}");
+}
+
 // EU-MDL-09
 #[test]
 fn a_prefox_face_folder_s_kit_magic_files_references_and_face_xml_migrate() {
@@ -283,10 +391,7 @@ fn a_prefox_face_folder_s_kit_magic_files_references_and_face_xml_migrate() {
     sandbox.write("co Spring/Faces/XXX07 - A/u0XXXp1.dds", b"p1");
     sandbox.write("co Spring/Faces/XXX07 - A/u0714p2.dds", b"p2");
     sandbox.write("co Spring/Faces/XXX07 - A/u0XXXp0/armor.dds", b"armor");
-    sandbox.write(
-        "co Spring/Faces/XXX07 - A/u0XXXp0/jacket_win32.model",
-        b"jacket",
-    );
+    sandbox.write("co Spring/Faces/XXX07 - A/jacket_u0XXXp1.model", b"jacket");
     sandbox.write(
         "co Spring/Faces/XXX07 - A/face.mtl",
         &mtl(&[
@@ -296,10 +401,30 @@ fn a_prefox_face_folder_s_kit_magic_files_references_and_face_xml_migrate() {
             "./dummy_kit.dds",
         ]),
     );
+    // The folder's FMDL names the two files in `face/real/`, the armor in
+    // `./u0XXXp0/`, and `dummy_kit.dds` in `common/sourceimages/`.
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face_high.fmdl",
+        &fmdl(&[
+            (
+                "/Assets/pes16/model/character/face/real/00000/sourceimages/",
+                "u0XXXp1.dds",
+            ),
+            (
+                "/Assets/pes16/model/character/face/real/00000/sourceimages/",
+                "u0714p2.dds",
+            ),
+            ("./u0XXXp0/", "armor"),
+            (
+                "/Assets/pes16/model/character/common/sourceimages/",
+                "dummy_kit.dds",
+            ),
+        ]),
+    );
     sandbox.write(
         "co Spring/Faces/XXX07 - A/face.xml",
         &wezlib::compress(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<config>\n    <model level=\"0\" type=\"parts\" path=\"./u0XXXp0/jacket_*.model\" material=\"./face.mtl\"/>\n</config>\n"
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<config>\n    <model level=\"0\" type=\"parts\" path=\"./jacket_u0XXXp0.model\" material=\"./face.mtl\"/>\n</config>\n"
                 .as_bytes(),
         ),
     );
@@ -310,13 +435,11 @@ fn a_prefox_face_folder_s_kit_magic_files_references_and_face_xml_migrate() {
     .unwrap();
 
     upgrade(&sandbox, "co Spring", "EDIT16");
-    // The FMDL part of the scenario (the folder's FMDL path table) lands
-    // with 6.4c; the exit code the migration lands then is its.
     for path in [
         "Players/07 - A/kit1.dds",
         "Players/07 - A/kit2.dds",
         "Players/07 - A/kitF/armor.dds",
-        "Players/07 - A/kitF/jacket_win32.model",
+        "Players/07 - A/jacket_kit1.model",
     ] {
         assert!(
             sandbox.path(&format!("co Full Spring/{path}")).exists(),
@@ -343,7 +466,91 @@ fn a_prefox_face_folder_s_kit_magic_files_references_and_face_xml_migrate() {
     let xml = fs::read(sandbox.path("co Full Spring/Players/07 - A/face.xml")).unwrap();
     assert!(!wezlib::is_wrapped(&xml));
     let text = String::from_utf8(xml).unwrap();
-    assert!(text.contains("path=\"./kitN/jacket_*.model\""), "{text}");
+    assert!(text.contains("path=\"./jacket_kitN.model\""), "{text}");
+    assert_eq!(
+        fmdl_paths(&sandbox, "co Full Spring/Players/07 - A/face_high.fmdl"),
+        [
+            ("./".to_owned(), "kit1.dds".to_owned()),
+            ("./".to_owned(), "kit2.dds".to_owned()),
+            ("./kitN/".to_owned(), "armor".to_owned()),
+            (
+                "/Assets/pes16/model/character/common/sourceimages/".to_owned(),
+                "dummy_kit.dds".to_owned(),
+            ),
+        ]
+    );
+}
+
+// EU-MDL-10
+#[test]
+fn a_fox_common_keeper_file_and_reference_respell_the_team() {
+    let sandbox = Sandbox::new("mdl_fox_keeper");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face_high.fmdl",
+        &fmdl(&[(
+            "/Assets/pes16/model/character/common/000/sourceimages/",
+            "u0714g1",
+        )]),
+    );
+    sandbox.write("co Spring/Common/u0XXXg1.dds", b"gk");
+    fs::write(
+        sandbox.path("EDIT"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes21),
+    )
+    .unwrap();
+
+    upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Common/u0714g1.dds")).unwrap(),
+        b"gk"
+    );
+    assert_eq!(
+        fmdl_paths(&sandbox, "co Full Spring/Players/07 - A/face_high.fmdl")[0],
+        ("./".to_owned(), "u0714g1".to_owned())
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/07 - A/u0714g1.dds.common")).unwrap(),
+        b""
+    );
+}
+
+// EU-MDL-13
+#[test]
+fn a_fox_fmdl_s_other_directories_and_common_sourceimages_behave() {
+    let sandbox = Sandbox::new("mdl_fox_dirs");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face_high.fmdl",
+        &fmdl(&[
+            (
+                "/Assets/pes16/model/character/boots/k0915/sourceimages/",
+                "skin",
+            ),
+            ("/Assets/pes16/model/character/common/sourceimages/", "zero"),
+        ]),
+    );
+    sandbox.write("co Spring/Faces/XXX07 - A/skin.dds", b"skin");
+    fs::write(
+        sandbox.path("EDIT"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes21),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(
+        fmdl_paths(&sandbox, "co Full Spring/Players/07 - A/face_high.fmdl")[..2],
+        [
+            ("./".to_owned(), "skin".to_owned()),
+            (
+                "/Assets/pes16/model/character/common/sourceimages/".to_owned(),
+                "zero".to_owned(),
+            ),
+        ]
+    );
+    let stdout = run.stdout();
+    assert!(
+        !stdout.contains("common_reference_kept") && !stdout.contains("unmigrated_content"),
+        "{stdout}"
+    );
 }
 
 // EU-MDL-16

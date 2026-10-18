@@ -13,9 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): a SWE-2 round on 6.4b2, Astra on 6.4a-b2 batched,
-then 6.4c (FMDL path tables) and 6.4d (pre-Fox
-renames); Astra on 6.4 batched. 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): a SWE-2 round on 6.4c and Astra round M-A1's fixes,
+then 6.4d (pre-Fox renames), then Astra on 6.4c-d. 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -571,7 +570,18 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     overlapping tokens; mutation diff 3 survivors, two tested, one sort removed, then 1 equivalent (`upgrade.rs` copy skip: the rewrite is written after the copy); files:
     `export_upgrader/src/{kit_magic,face_xml,materials,upgrade,lib}.rs`,
     `tests/cli/carried.rs`, `Cargo.toml`; `aesthetics_export` `kit_set_member` made `pub`
-  - [ ] 6.4c FMDL path tables
+  - [x] 6.4c FMDL path tables → verify: EU-MDL-07, -08, -09 (its FMDL table), -10, -13. Done
+    2026-10-18: all proven; the plan's "every other directory becomes the model's folder" kept
+    the game's kit texture folder out, `dummy_` stems untouched, Common subfolders read past
+    the `sourceimages/` level (DECISIONS 2026-10-18 "an FMDL's texture entries, class by
+    class", from `.tmp/6_4/fmdl_dir_census.txt`); the `.mtl` and FMDL passes share one Common
+    decision; review round 6.4.S4 on 6.4b2 2 accepted (loop ended; EU-MDL-09 now names a
+    per-kit model by file token, a model in a kit folder being no set), Astra M-A1 on 6.4a-b2
+    2 accepted (loop ended: a kept clashing reference is worn as the folder's texture, so the
+    warning says so; `dummy_` stems are no Common files), both fixed here; lead review: clippy
+    `too_many_arguments` (a per-file context struct), a perturbation no test caught (tested); mutation diff 3 survivors, all in a set link's member ordering, removed (the link resolves whatever its extension);
+    files: `export_upgrader/src/{materials,messages}.rs`, `tests/cli/carried.rs`,
+    `Cargo.toml`
   - [ ] 6.4d pre-Fox renames
 - [ ] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
   EU-SET-*

@@ -2121,3 +2121,5 @@ worklog passed 7,000 lines.
   name plus a `.common` link; other references keep their `.dds` (the compiler restores it only on hits).
 - **2026-10-18** — 6.4b2: the legacy kit magic (`u0???pN`, `u0???g`) renamed to `kitN`/`kitF`/the
   team ID in names and in `.mtl`/`face.xml` paths; `face.xml` written unwrapped.
+- **2026-10-18** — 6.4c: an old FMDL's path table rewritten to the Studio spelling, the team's
+  Common linked as an `.mtl`'s; Astra on 6.4a-b2: a kept clashing reference is worn as the local texture.

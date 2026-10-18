@@ -1391,6 +1391,7 @@ dependencies = [
  "crossbeam-channel",
  "dds_convert",
  "egui",
+ "fmdl",
  "kit_config",
  "pes_model",
  "pes_savefile",

@@ -312,7 +312,9 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    none), or which no link can spell — the
    model's folder already holding a texture or link of that stem on the reference's
    nearest-first way up (the link would conflict with it, `texture_stem_conflict`, or lose to
-   it), or a Common subfolder named from a `.mtl` in a subfolder (the path below that `.mtl`
+   it; the kept game path loses to it too, the compiler looking a game path's file name up in
+   the folder first, so the warning's text says the folder's texture of that stem is the one
+   the model will wear), or a Common subfolder named from a `.mtl` in a subfolder (the path below that `.mtl`
    and the link mirroring `Common/` cannot agree) — is reported (`common_reference_kept`, W,
    on the `.mtl`, the reference as written in the context, `reference`: an installed CPK may
    hold it, so it is no unmigrated content) and left as it was, save
@@ -337,7 +339,23 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    compiler's `fmdl_texture_not_found` then leaves the package out where Red packed the model
    without its texture ("A texture a model names must exist" in
    `spec/team_compiler/pipeline.md`), and keeping the old directory would only hide the same
-   missing file (19 of the 5,921 FMDLs on the maintainer's machine name such a texture). This applies to structural migration, not only optional glTF conversion.
+   missing file (19 of the 5,921 FMDLs on the maintainer's machine name such a texture). The
+   FMDL rules in full, per texture entry, a census of the 6,053 real FMDLs in export folders
+   behind them (`.tmp/6_4/fmdl_dir_census.txt`): a `dummy_` stem is left as written, as the
+   compiler never looks one up; a directory starting `./` is the Studio spelling already, its
+   kit magic alone respelled, as a `.mtl`'s; the game's kit texture folder
+   `/Assets/pes16/model/character/uniform/texture/` is kept as written (25 real FMDLs), as the
+   compiler keeps it (`fmdl_texture_kit_path`): repointing it at the model's folder would lose
+   the kit texture to `fmdl_texture_not_found`; the team's Common is
+   `/Assets/pes16/model/character/common/` + three characters + `/`, an optional subfolder path,
+   then `sourceimages/` (`common/000/Boots/sourceimages/` names `Common/Boots/`, 117 real
+   boots FMDLs), linked as a `.mtl`'s Common reference is; any other directory below the Fox
+   common directory is kept; every other directory becomes `./`, the stem linked to the
+   `Common/` root's texture when the model's folder, nearest first from the FMDL's own folder,
+   holds none of it. A shared folder's FMDL is linked as a player folder's, the Fox compile
+   reading a shared folder's links; a `Common/` FMDL gets the shared `.mtl` rule (its Common
+   references kept, `???` respelled, reported when `Common/` lacks the texture, its other
+   directories kept). An FMDL that does not read is copied as it is. This applies to structural migration, not only optional glTF conversion.
    In the same pass, the legacy kit-dependent path magic is rewritten to the Studio spelling:
    `u0???p1`…`u0???p9` → `kit1`…`kit9`, in file and folder names and in `.mtl`/`face.xml` paths
    and FMDL path tables alike, and `u0???p0` → `kitN` in those paths but → `kitF` in a file or
@@ -352,9 +370,13 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    letters or digits, then `p` and a digit (or `g`), in that letter case, anywhere in a name or
    path and every occurrence (`skin_u0771p3.dds`, `Common/ltd/u0XXXp5/`). The names renamed
    are those below a player folder, below a shared `Boots/`/`Gloves/` folder and below
-   `Common/` (the kit folders have their own naming, `Kit Textures/` step 6's); a renamed path
-   that, letter case aside, another output path already takes is the second input's by path
-   order, not written, and reported `unmigrated_content` (`u0XXXp1.dds` beside `u0714p1.dds`).
+   `Common/` (the kit folders have their own naming, `Kit Textures/` step 6's); an output path,
+   renamed or not, that another output path already takes, letter case aside, is the second
+   input's, not written, and reported `unmigrated_content` (`u0XXXp1.dds` beside
+   `u0714p1.dds`; `A.dds` beside `a.dds`), where a second write would silently replace the first.
+   The kit folder token is a texture set's alone (`spec/model_format.md` "Kit-dependent
+   assets"): a `face.xml` naming a model in a `u0???p0/` folder is respelled `./kitN/…` as
+   written, which the compile does not resolve; no real export holds one.
    The paths respelled are those the export resolves, a model folder's own (`./`) and the
    team's Common; a game directory's are kept as written, the file there being the game's own
    (`model/character/uniform/texture/u0814p1.dds` is team 814's compiled kit texture; no real
@@ -367,7 +389,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    byte for byte as written, `<dif>` included; their `???` stays, the compiler respelling any
    three characters there. The upgrader is the **only** Studio component that reads the legacy spelling — the
    compiler has no notion of it. `dummy_kit*` references are left as they are — the compiler
-   keeps them as reserved game-substituted names. The goalkeeper token **`u0???g`**
+   keeps them as reserved game-substituted names; a `.mtl`'s `dummy_` stem in a Common path
+   (`model/character/uniform/common/XXX/dummy_kit.dds`, the real /jp/ Summer 25 export's
+   `XXX15 - Sister`) is looked up nowhere and reported never, its `???` alone respelled, since
+   the compiler emits a member's `.mtl` as written. The goalkeeper token **`u0???g`**
    (`u0XXXg1.dds` in a `Common/`, which a keeper's model names) is no variant set in Studio,
    which has one kit number for every player ("Kit-dependent assets"): in a whole-export upgrade
    its three ID characters become the resolved team's ID, in file and folder names and in
@@ -958,13 +983,15 @@ EU-MDL-08  GIVEN an FMDL texture common/XXX/u0XXXp0/sourceimages/armor_bsm, and
            THEN the FMDL texture is ./kitN/ armor_bsm, the model's folder holds the link
                 kitN/armor_bsm.dds.common, Common/ holds kit1/armor_bsm.dds, and the shared
                 validation finds the link resolving
-EU-MDL-09  GIVEN a model folder holding u0XXXp1.dds, u0714p2.dds and a folder u0XXXp0/, named by
-                its .mtl, its zlib-wrapped face.xml and its FMDL path table, which also name
-                dummy_kit.dds
+EU-MDL-09  GIVEN a model folder holding u0XXXp1.dds, u0714p2.dds, a folder u0XXXp0/ and
+                jacket_u0XXXp1.model, the textures named by its .mtl and its FMDL path table,
+                which also name dummy_kit.dds, and the model by its zlib-wrapped face.xml as
+                ./jacket_u0XXXp0.model
            WHEN the export is upgraded
-           THEN the folder holds kit1.dds, kit2.dds and kitF/, the references to the two files
-                name kit1 and kit2 and those to the folder kitN/, the face.xml is written
-                unwrapped, and the dummy_kit reference is unchanged
+           THEN the folder holds kit1.dds, kit2.dds, kitF/ and jacket_kit1.model, the references
+                to the two files name kit1 and kit2 and those to the folder kitN/, the face.xml
+                names ./jacket_kitN.model and is written unwrapped, and the dummy_kit reference
+                is unchanged
 EU-MDL-10  GIVEN Common/u0XXXg1.dds and a keeper's face folder whose FMDL names u0714g1
            WHEN the export is upgraded
            THEN Common/ holds u0714g1.dds and the keeper's FMDL texture and link both name
