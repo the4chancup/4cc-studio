@@ -26,6 +26,10 @@ pub(crate) struct PlayerFolders {
     /// Files to copy: input path → output path (both `/`-joined,
     /// root-relative).
     pub(crate) copies: Vec<(String, String)>,
+    /// Files copied at their input paths below `Players/`, which step 7's name
+    /// respells, renames and reference rewrites skip: a referee folder step 12
+    /// leaves as it was (empty for a team export).
+    pub(crate) untouched: Vec<(String, String)>,
     /// Empty marker files to write, output paths (`Players/15 -
     /// Snuffy/ingame_face`, `Players/15 - Snuffy/Crocs.boots`).
     pub(crate) markers: Vec<String>,

@@ -23,8 +23,14 @@ that already exists is refused and left untouched.
 A referee export is upgraded from its `refs.txt`: the output gets a
 `players.txt` holding the same slots in the Studio spelling (two-digit slot
 numbers, one entry per line) and no `refs.txt`, and its `ref_marker.dds` is
-carried as it is. A referee export without a `refs.txt` has no roster to
-migrate: it is reported (`refs_txt_missing`) and nothing is written.
+carried as it is. The old `face/`, `boots/`, `gloves/` and `common/`
+subfolders of each referee's folder are folded into that folder, a file held
+twice with the same bytes kept once. A file two of them hold with different
+bytes, or a subfolder of one of those four names inside them, leaves the
+referee's folder as it was, and it is reported. A model of `common/` that no
+`face.xml` of the referee names is left out and reported. A referee export
+without a `refs.txt` has no roster to migrate: it is reported
+(`refs_txt_missing`) and nothing is written.
 
 The original export is never modified. A file the migration cannot place yet
 is listed in the report as `unmigrated_content`, and the upgraded folder is

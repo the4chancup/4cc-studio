@@ -4,7 +4,8 @@
 //! `material` attributes whose values name the player folder's own or the
 //! team's Common get the kit magic respelled; everything else, the `<dif>`
 //! included, is byte for byte as written — a wrapped one is written
-//! unwrapped.
+//! unwrapped. Step 12 reads the model names its `path` values give
+//! (`named_paths`).
 
 use std::borrow::Cow;
 use std::collections::BTreeSet;
@@ -193,6 +194,38 @@ pub(crate) fn kept_common_files(
         kept.insert(vtree::fold_name(&below[..below.len() - suffix_len]));
     }
     kept
+}
+
+/// The folded file names the `path` attributes of the `face.xml` at `input`
+/// name (`./oral_parts_body_*.model` → `oral_parts_body_win32.model`,
+/// `model/character/uniform/common/XXX/x.model` → `x.model`: the last `/`
+/// segment, its `*` read as `win32`, as the compiler reads it); empty when
+/// the file does not read, unwrap or parse.
+pub(crate) fn named_paths(
+    input: &str,
+    read: &mut impl FnMut(&str) -> Result<Vec<u8>, SourceFailure>,
+) -> BTreeSet<String> {
+    let mut named = BTreeSet::new();
+    let Some((_, payload)) = read_face_xml(input, read) else {
+        return named;
+    };
+    let Some((_, text)) = xml_text(&payload) else {
+        return named;
+    };
+    let Ok(document) = Document::parse(text) else {
+        return named;
+    };
+    for attribute in document
+        .descendants()
+        .filter(|node| node.is_element())
+        .flat_map(|element| element.attributes())
+        .filter(|attribute| attribute.name() == "path")
+    {
+        let value = &text[attribute.range_value()];
+        let name = value.rsplit('/').next().unwrap_or(value);
+        named.insert(vtree::fold_name(&name.replace('*', "win32")));
+    }
+    named
 }
 
 /// `text`, a parseable `face.xml`, with the `path` and `material`
@@ -419,5 +452,29 @@ mod tests {
         let mut read = reader(vec![("Faces/x".to_owned(), wrapped)]);
         let kept = kept_common_files(&copies, &team(), &mut read);
         assert_eq!(kept.iter().collect::<Vec<_>>(), ["oral_hand_l_win32.model"]);
+    }
+
+    #[test]
+    fn named_paths_are_the_path_values_file_names_folded() {
+        let mut read = reader(vec![
+            ("x/face.xml".to_owned(), face_xml_text().into_bytes()),
+            (
+                "y/face.xml".to_owned(),
+                b"<config><model path=\"./a_*.model\" material=\"./m.mtl\"/><model path=\"model/character/uniform/common/XXX/sub/B.model\"/></config>".to_vec(),
+            ),
+        ]);
+        assert_eq!(
+            named_paths("x/face.xml", &mut read)
+                .iter()
+                .collect::<Vec<_>>(),
+            ["jacket_win32.model"]
+        );
+        assert_eq!(
+            named_paths("y/face.xml", &mut read)
+                .iter()
+                .collect::<Vec<_>>(),
+            ["a_win32.model", "b.model"]
+        );
+        assert!(named_paths("z/face.xml", &mut read).is_empty());
     }
 }

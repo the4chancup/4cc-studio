@@ -525,7 +525,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     let files = export.files.clone();
     let (mut plan, kits, settings) = match &identity {
         Identity::Referees => (
-            referee_folders(&files),
+            referee_folders(&files, |path| export.read(path)),
             KitFolders::default(),
             SettingsFiles::default(),
         ),
@@ -613,6 +613,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     for (from, to) in plan
         .copies
         .iter()
+        .chain(&plan.untouched)
         .chain(&kits.copies)
         .chain(&carried.copies)
     {

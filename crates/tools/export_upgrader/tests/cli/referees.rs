@@ -1,6 +1,7 @@
 //! Referee exports (the plan's "Referee exports" scenarios): `refs.txt`
 //! rewritten as the root `players.txt`, `ref_marker.dds` carried, the referee
-//! folders under `Players/` copied, and a `refs` export without a roster
+//! folders under `Players/` copied with their old `face/`, `boots/`, `gloves/`
+//! and `common/` subfolders folded in, and a `refs` export without a roster
 //! refused with nothing written. The folder names are real referees'
 //! (`arbiter`, `eiki`, from a real `refs` export).
 
@@ -59,6 +60,191 @@ fn refs_txt_becomes_the_canonical_players_txt_and_the_marker_is_carried() {
         "{}",
         run.stdout()
     );
+}
+
+/// A `refs Spring` export whose `refs.txt` lists the two real referee
+/// folders `arbiter` and `eiki`; the caller writes their files.
+fn referee_export(sandbox: &Sandbox) {
+    sandbox.write("refs Spring/refs.txt", b"01 arbiter\n02 eiki\n");
+}
+
+// EU-REF-02
+#[test]
+fn the_old_subfolders_fold_into_the_referee_folder_and_a_twin_is_kept_once() {
+    let sandbox = Sandbox::new("ref_flatten");
+    referee_export(&sandbox);
+    for (path, bytes) in [
+        ("face/face_diff.bin", &b"diff"[..]),
+        ("face/portrait.dds", b"portrait"),
+        ("boots/boots.fmdl", b"boots"),
+        ("boots/boots.skl", b"skl"),
+        ("boots/arbiter.dds", b"arbiter"),
+        ("gloves/glove_l.fmdl", b"left"),
+        ("gloves/glove_r.fmdl", b"right"),
+        ("common/arbiter.dds", b"arbiter"),
+    ] {
+        sandbox.write(&format!("refs Spring/Players/arbiter/{path}"), bytes);
+    }
+    sandbox.write("refs Spring/Players/eiki/boots.fmdl", b"boots");
+
+    let run = upgrade(&sandbox, "refs Spring");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert_eq!(
+        sandbox.listing("refs Spring upgraded/Players/arbiter"),
+        [
+            "arbiter.dds",
+            "boots.fmdl",
+            "boots.skl",
+            "face_diff.bin",
+            "glove_l.fmdl",
+            "glove_r.fmdl",
+            "portrait.dds",
+        ],
+        "{}",
+        run.stdout()
+    );
+    assert_eq!(
+        fs::read(sandbox.path("refs Spring upgraded/Players/arbiter/arbiter.dds")).unwrap(),
+        b"arbiter"
+    );
+}
+
+// EU-REF-03
+#[test]
+fn one_name_with_different_bytes_leaves_the_referee_folder_as_it_was() {
+    let sandbox = Sandbox::new("ref_clash");
+    referee_export(&sandbox);
+    sandbox.write("refs Spring/Players/arbiter/boots/x.dds", b"a");
+    sandbox.write("refs Spring/Players/arbiter/gloves/x.dds", b"b");
+    sandbox.write("refs Spring/Players/arbiter/boots/boots.fmdl", b"boots");
+    sandbox.write("refs Spring/Players/arbiter/boots/u0XXXp1.dds", b"kit");
+    sandbox.write("refs Spring/Players/eiki/boots.fmdl", b"boots");
+
+    let run = upgrade(&sandbox, "refs Spring");
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    for path in [
+        "Players/arbiter/boots/x.dds",
+        "Players/arbiter/gloves/x.dds",
+    ] {
+        assert!(
+            run.stdout()
+                .contains(&format!("unmigrated_content at {path}")),
+            "{path}: {}",
+            run.stdout()
+        );
+    }
+    let output = |path: &str| fs::read(sandbox.path(&format!("refs Spring upgraded/{path}")));
+    assert_eq!(output("Players/arbiter/boots/x.dds").unwrap(), b"a");
+    assert_eq!(output("Players/arbiter/gloves/x.dds").unwrap(), b"b");
+    assert_eq!(
+        output("Players/arbiter/boots/boots.fmdl").unwrap(),
+        b"boots"
+    );
+    // Left as it was: the kit magic does not touch it either.
+    assert_eq!(
+        output("Players/arbiter/boots/u0XXXp1.dds").unwrap(),
+        b"kit",
+        "{:?}",
+        sandbox.listing("refs Spring upgraded/Players/arbiter")
+    );
+}
+
+// EU-REF-08
+#[test]
+fn a_subfolder_of_face_keeps_its_place_and_a_nested_face_leaves_the_folder() {
+    let sandbox = Sandbox::new("ref_nested");
+    referee_export(&sandbox);
+    sandbox.write("refs Spring/Players/arbiter/face/kit/kit.dds", b"kit");
+    sandbox.write("refs Spring/Players/arbiter/boots/boots.fmdl", b"boots");
+    sandbox.write("refs Spring/Players/eiki/face/face/face.fmdl", b"face");
+    sandbox.write("refs Spring/Players/eiki/boots/boots.fmdl", b"boots");
+
+    let run = upgrade(&sandbox, "refs Spring");
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(
+        fs::read(sandbox.path("refs Spring upgraded/Players/arbiter/kit/kit.dds")).unwrap(),
+        b"kit",
+        "{}",
+        run.stdout()
+    );
+    assert!(
+        !sandbox
+            .path("refs Spring upgraded/Players/arbiter/face")
+            .exists()
+    );
+    assert_eq!(
+        fs::read(sandbox.path("refs Spring upgraded/Players/eiki/face/face/face.fmdl")).unwrap(),
+        b"face"
+    );
+    assert!(
+        run.stdout()
+            .contains("unmigrated_content at Players/eiki/face/face"),
+        "{}",
+        run.stdout()
+    );
+}
+
+// EU-REF-09
+#[test]
+fn a_common_model_no_face_xml_names_is_reported_and_left_out() {
+    let sandbox = Sandbox::new("ref_common_model");
+    referee_export(&sandbox);
+    sandbox.write(
+        "refs Spring/Players/arbiter/common/parts_body.model",
+        b"model",
+    );
+    sandbox.write("refs Spring/Players/arbiter/face/materials.mtl", b"mtl");
+    sandbox.write("refs Spring/Players/arbiter/face/face_diff.bin", b"diff");
+    sandbox.write("refs Spring/Players/eiki/boots.fmdl", b"boots");
+
+    let run = upgrade(&sandbox, "refs Spring");
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert!(
+        run.stdout()
+            .contains("unmigrated_content at Players/arbiter/common/parts_body.model"),
+        "{}",
+        run.stdout()
+    );
+    let listing = sandbox.listing("refs Spring upgraded");
+    assert!(
+        !listing
+            .iter()
+            .any(|path| path.ends_with("parts_body.model")),
+        "{listing:?}"
+    );
+}
+
+// EU-PLY-04
+#[test]
+fn either_ingame_face_spelling_in_a_referee_folder_becomes_one_bare_marker() {
+    let sandbox = Sandbox::new("ref_ingame");
+    referee_export(&sandbox);
+    sandbox.write(
+        "refs Spring/Players/arbiter/face/ingame_face.txt",
+        b"ignored",
+    );
+    sandbox.write("refs Spring/Players/arbiter/boots/boots.fmdl", b"boots");
+    sandbox.write("refs Spring/Players/eiki/ingame_face", b"");
+    sandbox.write("refs Spring/Players/eiki/boots/boots.fmdl", b"boots");
+
+    let run = upgrade(&sandbox, "refs Spring");
+    for referee in ["Players/arbiter", "Players/eiki"] {
+        let folder = format!("refs Spring upgraded/{referee}");
+        assert_eq!(
+            fs::read(sandbox.path(&format!("{folder}/ingame_face"))).unwrap(),
+            b"",
+            "{referee}: {}",
+            run.stdout()
+        );
+        assert!(
+            !sandbox.path(&format!("{folder}/ingame_face.txt")).exists(),
+            "{referee}"
+        );
+        assert!(
+            !sandbox.path(&format!("{folder}/face")).exists(),
+            "{referee}"
+        );
+    }
 }
 
 // EU-REF-04
