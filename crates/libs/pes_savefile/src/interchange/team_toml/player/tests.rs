@@ -681,7 +681,7 @@ fn a_stored_value_above_the_widest_range_round_trips() {
     assert_eq!(parsed, doc);
     let mut target_team = team.clone();
     // The save's own players: the one built above is back to his
-    // stored 0 to 29 there.
+    // stored celebration there.
     let mut targets = file.players().to_vec();
     parsed
         .apply(PesVersion::Pes15, &mut target_team, &mut targets)

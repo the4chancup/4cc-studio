@@ -111,8 +111,9 @@ fn carry<T: Copy>(target: &mut Option<T>, source: Option<T>) {
 /// written alone, at angle 0: the angle PES 15 codes with it has no field on
 /// 16 to 21 (a non-zero one is noted). A 16 to 21 nose type past 21 has no
 /// PES 15 coding (3 × type + the angle's code in six bits) and is refused as
-/// `ValueTooWide` rather than written wrong; no game writes one, the widest
-/// cap being 7.
+/// `ValueTooWide` rather than written wrong: PES 20 and 21 cap the type at
+/// 7, and PES 17 to 19 at its field's 63 (unmeasured, `face_type_cap`), so
+/// only a value no game's editor offers reaches it.
 fn carry_face(
     target: &mut IngameFace,
     source: &IngameFace,

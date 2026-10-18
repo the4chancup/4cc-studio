@@ -18,8 +18,8 @@ use IngameFaceField as F;
 /// are not face types. The measured columns are PES 15, PES 16, PES 19's
 /// cheek and forehead types, and PES 20-21; a column no game measured (PES
 /// 17 and 18's all eleven types, PES 19's other nine) is the field's bit
-/// maximum (`plans/aesthetics_export/settings_toml.md` "Player settings in
-/// exports"). For `NoseType` the cap is on the nose type, which PES 15
+/// maximum (`spec/pes_savefile/operations.md` "Cross-version player
+/// conversion"). For `NoseType` the cap is on the nose type, which PES 15
 /// codes with the nose angle (`IngameFace::nose`), not on the raw field.
 pub fn face_type_cap(version: PesVersion, field: IngameFaceField) -> Option<u8> {
     // (PES 15, PES 16, PES 19, PES 20-21): the measured columns. PES 15's
@@ -147,7 +147,7 @@ fn bit_max(field: IngameFaceField) -> Option<u8> {
 /// are not motions with a measured range (`Dribbling` included). The 1-based motions store
 /// one below what the editor shows; the goal celebrations are stored as shown, 0 being OFF.
 pub fn motion_top(version: PesVersion, field: PlayerField) -> Option<u8> {
-    // (PES 15, PES 16, PES 17, PES 18, PES 19, PES 20, PES 21): the plan's
+    // (PES 15, PES 16, PES 17, PES 18, PES 19, PES 20, PES 21): the spec's
     // measured table, in stored values.
     let (pes15, pes16, pes17, pes18, pes19, pes20, pes21) = match field {
         PlayerField::HunchingDribbling | PlayerField::HunchingRunning => (2, 2, 2, 2, 2, 4, 4),
@@ -294,7 +294,8 @@ mod tests {
         }
     }
 
-    /// The plan's table, as literals, in `TYPES` order: the measured
+    /// The spec's table (`spec/pes_savefile/operations.md` "Cross-version
+    /// player conversion"), as literals, in `TYPES` order: the measured
     /// columns PES 15, PES 16, PES 19's own (cheek and forehead, `None`
     /// where unmeasured) and PES 20-21's, and the unmeasured column of
     /// PES 17, 18 and 19's other nine — the fields' bit maxima read from
@@ -314,7 +315,7 @@ mod tests {
     ];
 
     #[test]
-    fn the_caps_are_the_plan_s_values() {
+    fn the_caps_are_the_spec_s_values() {
         for (field, (pes15, pes16, bits, pes19, newer)) in TYPES.into_iter().zip(GOLDEN) {
             assert_eq!(
                 face_type_cap(V::Pes15, field),
@@ -373,7 +374,7 @@ mod tests {
         PlayerField::GoalCelebration2,
     ];
 
-    /// The plan's measured tops as the editor shows them
+    /// The spec's measured tops as the editor shows them
     /// (`spec/aesthetics_export/settings_toml.md` "Player settings in
     /// exports"), one row per `MOTIONS` field, one column per version of
     /// `PesVersion::ALL`.
@@ -390,7 +391,7 @@ mod tests {
     ];
 
     #[test]
-    fn the_motion_tops_are_the_plan_s_table_in_stored_values() {
+    fn the_motion_tops_are_the_spec_s_table_in_stored_values() {
         for (field, shown) in MOTIONS.into_iter().zip(SHOWN_TOPS) {
             // The seven 1-based motions show stored + 1; the two
             // celebrations are stored as shown.

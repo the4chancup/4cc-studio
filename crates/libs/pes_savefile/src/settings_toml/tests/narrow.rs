@@ -4,6 +4,7 @@
 //! wrote it, the version's range as the file would write it).
 
 use super::*;
+use crate::schema::limits::face_type_cap;
 
 /// PES 16's measured facial-hair cap is 12; a parsed 15 (inside the widest
 /// 31) narrows to the face type's default 0 and reports the dotted key, the
@@ -113,12 +114,13 @@ fn a_custom_skin_resets_only_where_the_target_lacks_one() {
     assert_eq!(settings.get(SettingKey::SkinColor), Some(7));
 }
 
-/// A value inside the target's range is left alone and unreported, as is
-/// the same file's value on the wider target that takes it.
+/// A value at the target's cap is inside its range: left alone and
+/// unreported, on an unmeasured cap (PES 18, the field's bits) and a
+/// measured one (PES 21).
 #[test]
 fn a_value_inside_the_target_s_range_is_untouched() {
     for version in [PesVersion::Pes18, PesVersion::Pes21] {
-        let cap = if version == PesVersion::Pes18 { 12 } else { 19 };
+        let cap = face_type_cap(version, IngameFaceField::FacialHairType).expect("a face type");
         let mut settings =
             PlayerSettings::parse(&format!("[appearance.face]\nfacial_hair_type = {cap}\n"))
                 .expect("inside the widest range");

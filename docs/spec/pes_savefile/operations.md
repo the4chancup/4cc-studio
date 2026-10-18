@@ -149,9 +149,9 @@ PES 17's and 18's caps, nor PES 19's other than cheek and forehead: each such ca
 bit maximum (`INGAME_FACE_FIELDS`), not PES 16's, since real saves hold values past 16's caps
 there (79 players of the PES 18 fixture save, `cheek_type` 4 or 5 among them) and an assumed cap
 would reset a look the game shows. PES 19's cheek and forehead were measured in its editor (26
-cup players on the maintainer's save use the types past 16's caps). PES 19 is therefore wider
-than 20 and 21 on those two, as measured: a 19 to 20 conversion resets a cheek 4 or 5 like any
-face type past the target's cap. The `settings.toml` key table's
+cup players on the maintainer's save use the types past 16's caps). PES 17 to 19 are therefore
+wider than 20 and 21 on every type, measured or by their bits: a 19 to 20 conversion resets a
+cheek 4 or 5, or a facial hair type past 19, like any face type past the target's cap. The `settings.toml` key table's
 widest range for each face key is derived from this table (the maximum over versions), so the two
 cannot drift.
 

@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::schema::limits::{face_type_cap, motion_top};
+use crate::schema::limits::motion_top;
 
 #[test]
 fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
@@ -836,8 +836,8 @@ fn set_nose_refuses_what_the_field_cannot_hold() {
 #[test]
 fn every_fixture_player_round_trips_through_his_settings() {
     // (version, key, stored value) -> players, for a stored value the key's
-    // kind refuses, the face types left out: real saves go past the editor
-    // caps (a field with a `face_type_cap`). Any other is a range to report.
+    // kind refuses: a range to report. A face type cannot be one, its widest
+    // range being its field's bits (an unmeasured cap).
     let mut refused = std::collections::BTreeMap::<String, usize>::new();
     for version in PesVersion::ALL {
         let (file, _) = open(version);
@@ -850,13 +850,9 @@ fn every_fixture_player_round_trips_through_his_settings() {
                     && !key.spec().kind.accepts_stored(value)
                 {
                     outside = true;
-                    let face_type = matches!(key.source(), Source::Face(field)
-                        if face_type_cap(version, field).is_some());
-                    if !face_type {
-                        *refused
-                            .entry(format!("{version:?} {} = {value}", key.spec().name))
-                            .or_default() += 1;
-                    }
+                    *refused
+                        .entry(format!("{version:?} {} = {value}", key.spec().name))
+                        .or_default() += 1;
                 }
             }
             if outside {

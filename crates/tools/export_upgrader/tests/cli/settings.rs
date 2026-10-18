@@ -178,7 +178,7 @@ fn the_name_is_true_explicit_or_the_coded_save_name() {
 
 // EU-SET-05
 #[test]
-fn a_value_past_the_versions_top_is_written_as_stored() {
+fn a_value_past_the_assumed_cap_is_written_as_stored() {
     let sandbox = Sandbox::new("set_past_top");
     // /an/ player 70504, the PES 18 fixture save's slot-4 "Paul Levesque":
     // found by walking the fixture's players for a `cheek_type` past the

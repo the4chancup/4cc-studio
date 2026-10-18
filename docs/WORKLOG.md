@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): the SWE-2 loop on Astra 6.5.A1's fix (the face-type caps),
-then 6.6 (referee exports, plan steps 9 and 12). 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): 6.6 (referee exports, plan steps 9 and 12), in progress on a
+side branch (`.tmp/lead/tracks.md`). 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -613,7 +613,8 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   follow-up commit: a face-type cap no game measured (PES 17-18, PES 19's other nine) is the
   field's bits in `pes_savefile`'s `face_type_cap`, so the compiler keeps EU-SET-05's cheek
   type 5 (DECISIONS 2026-10-18 "an unmeasured face-type cap is the field's bits…"; TC-BIN-31
-  and SE-TOML-05 rewritten; mutation diff 10 caught); the hair half waits for a real value;
+  and SE-TOML-05 rewritten; mutation diff 10 caught; SWE-2 on it: 6.5.S2 6 accepted, 6.5.S3 3,
+  loop ended); the hair half waits for a real value;
   files:
   `export_upgrader/src/{settings,players,roster,upgrade,messages,lib}.rs`,
   `tests/cli/{settings,roots,players,main}.rs`, `pes_savefile/src/settings_toml/`,
