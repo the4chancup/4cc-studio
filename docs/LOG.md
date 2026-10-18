@@ -2134,3 +2134,6 @@ worklog passed 7,000 lines.
 - **2026-10-18** — Step 10.0e (side-lead B): `music_player.md` "Model" carries every `music_export`
   type and signature as built; the whole-crate mutation run (310 mutants, 0 missed) left four
   extra-kind survivors, now tests; six items with no planned consumer are crate-private.
+- **2026-10-18** — Astra on 10.0e (side-lead B's fixes): a `_normalized` companion is matched by
+  stem, any extension (IZAKAYA's 17 `.mp3`/`.opus` pairs); a root-level anchored path holds; the
+  entry `advance` skips is not drawn again under `randomise`.

@@ -171,8 +171,11 @@ Song paths resolve against the `.4ccm`'s folder with the same semantics as Rigdi
 - Case-insensitive filename matching (Linux support).
 - `_normalized` companion files (from the retired Riglevel pre-normalization workflow):
   when normalization will *not* be applied to the team (globally off, or the team opted
-  out), a `<stem>_normalized.<ext>` file is preferred over the plain file; when the
-  plain file is missing, the `_normalized` file is used regardless.
+  out), a `<stem>_normalized` file of any extension is preferred over the plain file
+  (the one with the song's own extension when there are several); when the plain file is
+  missing, the companion is used regardless. The extension is free because `songCheck`
+  compares stems alone, and real exports rely on it: IZAKAYA's pairs every `X.mp3` with
+  an `X_normalized.opus` (17 songs), DNG's one.
 - Missing files are collected across the whole export and reported as one list, not
   one-at-a-time.
 - A resolved path carries the file's name as it is on disk, not as the export spells it, so
@@ -197,16 +200,19 @@ pub fn resolve_song(folder: &Path, file: &str, normalization_applies: bool) -> O
 pub fn resolve_export(export: &MusicExport, folder: &Path, normalization_applies: bool) -> Resolution;
 ```
 
-`resolve_song` tries two candidates in `folder`, or in `file`'s subfolder when it names one (a
-`\` separator is read as `/`, so a path written on Windows resolves on Linux; the subfolder
-components are used as written and only the file name matches case-insensitively; a path
-anchored by a leading separator or a drive is used as written, a join's rule and
-`os.path.join`'s, which no export on the machine exercises: 0 of its 1,808 song lines name a
-subfolder at all): with `normalization_applies` unset, `<stem>_normalized.<ext>` first, then
-`file`; with it set, the other way round. Each candidate is its own lookup in the folder's
-listing (the exact name, else the first case-insensitive match); an unreadable folder finds
-nothing. `resolve_export` looks up every distinct file once, in the model's order: slot by
-slot in order of first appearance, file order within each, then the event clips.
+`resolve_song` joins `file` onto `folder` (a `\` separator is read as `/`, so a path written
+on Windows resolves on Linux; a path anchored by a leading separator or a drive, root-level or
+not, is used as written, a join's rule and `os.path.join`'s, which no export on the machine
+exercises: 0 of its 1,808 song lines are anchored or name a subfolder) and tries two
+candidates in the joined path's folder, by its file name: the plain file, and the companion,
+a file whose stem is `<stem>_normalized` whatever its extension, the song's own extension
+first when there are several. With `normalization_applies` unset the companion comes first,
+with it set the plain file. Each candidate is its own lookup in the folder's listing, names
+matched case-insensitively, the exact spelling (or the song's own extension) preferred and
+otherwise the smallest name, so the filesystem's listing order decides nothing (the subfolder
+components are used as written); an unreadable folder finds nothing. `resolve_export` looks up every distinct file
+once, in the model's order: slot by slot in order of first appearance, file order within each,
+then the event clips.
 
 ### Model
 
@@ -309,8 +315,10 @@ pub enum Instruction {
 }
 ```
 
-Every closed set has `keyword(self) -> &'static str`, its spelling in the file (the editor's
-dropdowns and chips); `Slot::keyword(&self) -> &str` is the reserved word or the player's name,
+`Comparison`, `MatchType`, `EventKind`, `PauseAction` and `EndAction` have
+`keyword(self) -> &'static str`, their spelling in the file (the editor's dropdowns and chips;
+`Condition` and `Instruction` have none, the serializer writes them whole);
+`Slot::keyword(&self) -> &str` is the reserved word or the player's name,
 what a press names as its `player`. `MatchType::ALL` is the nine types in the cup's order and
 `MatchType::KNOCKOUTS` the five `knockouts` stands for (the editor's Toggle Knockouts). The
 readers (`from_keyword`) are the parser's alone.
@@ -448,7 +456,8 @@ What the soundboard must do, distilled from Rigdio's behavior:
    "Model"), so selection never sees them.
 3. **Randomise**: if all of the player's own non-warcry entries carry `randomise`,
    pick uniformly at random among them instead (the appended default-goalhorn entries
-   belong to the `goal` slot and count for neither the check nor the pool).
+   belong to the `goal` slot and count for neither the check nor the pool; the entry that
+   just ended, step 2's skip, counts for the check and is not drawn).
 4. **Warcry**: warcry entries play first and to completion, then selection re-runs
    excluding warcries; multiple warcries with `randomise` pick randomly.
 5. If nothing passes, report "no song found" (never crash).

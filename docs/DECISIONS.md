@@ -8721,3 +8721,21 @@ the plan's standard (`os.path.join` does the same) and no export on the machine 
 1,808 song lines name a subfolder at all), so the simpler form wins over a rooting no file
 needs.
 Plan: `music_player.md` "Model", "File resolution".
+
+## 2026-10-18 — music_export — a `_normalized` companion is matched by stem, any extension; the entry `advance` skips is not drawn; a root-level anchor holds
+Decision: `resolve_song`'s companion is any file of the song's folder whose stem is
+`<stem>_normalized`, case-insensitively, whatever its extension, the song's own extension
+preferred when there are several, else the smallest name (the listing's order, which
+`songCheck` takes, is the filesystem's and differs between NTFS and ext4); a path anchored by
+a leading separator or a drive is used as written whether or not it names a subfolder (the
+whole path is joined, then split into folder and name); under `randomise`, the entry that just
+ended (`Press::skip`) counts for the all-entries check and is left out of the draw.
+Why: Astra round 10.0e.A1. `songCheck` (the Rigdio fork's `rigparse.py`) compares
+`splitext(file)[0]` with `<stem>_normalized` and never the extension, and real exports lean
+on it: IZAKAYA's `izakaya.4ccm` names 17 `.mp3` songs each beside an `X_normalized.opus`,
+DNG's one, which the extension-bound rule silently resolved to the plain file. The root-level
+case was the half of S1-1's rule the first form missed (`/song.mp3` split into an empty
+parent). A drawn repeat of the entry that just ended is what `advance` exists to prevent; no
+readable export combines the two instructions, so the fix is the smaller one (filter the
+draw, keep the check).
+Plan: `music_player.md` "File resolution", "Song selection (per button press)" step 3.

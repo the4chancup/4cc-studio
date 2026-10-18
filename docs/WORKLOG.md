@@ -697,7 +697,11 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
     0 missed; the extra kinds' 6 survivors became 4 tests and one simplification
     (`resolve_song` joins the subfolder once), the rerun catches all 26; SWE-2 round S1 4
     accepted (an anchored path's rule named and pinned, the lookup's rules and order stated),
-    loop ended, rulings `.tmp/10_0e/rulings.md`. Side-lead B, branch `side/10.0e`. Files:
+    loop ended; Astra round A1 (top lead, on main) 4 accepted: the `_normalized` companion by
+    stem of any extension (IZAKAYA's `.mp3`/`.opus` pairs), the root-level anchor, the
+    `advance` skip left out of the `randomise` draw, the `keyword()` sentence narrowed, each
+    with a red-run test (DECISIONS 2026-10-18); rulings `.tmp/10_0e/rulings.md`. Side-lead B,
+    branch `side/10.0e`. Files:
     `docs/plans/music_player.md`, `docs/DECISIONS.md`,
     `crates/libs/music_export/src/{lib,model,eval,state,select,resolve,parse}.rs`
 

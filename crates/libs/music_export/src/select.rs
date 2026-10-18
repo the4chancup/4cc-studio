@@ -131,7 +131,10 @@ impl PriorityList {
             if randomise && !warcry && !fallback {
                 let pool = self.positions(|loaded| !loaded.fallback && !loaded.entry.is_warcry());
                 if pool.iter().all(|&i| self.entries[i].entry.is_randomise()) {
-                    return Some(pool[pick(pool.len())]);
+                    // The entry that just ended (`advance`) counts for the
+                    // check but is not drawn again.
+                    let draw: Vec<usize> = pool.into_iter().filter(|&i| Some(i) != skip).collect();
+                    return Some(draw[pick(draw.len())]);
                 }
             }
             if verdict == Verdict::True && !(press.after_warcry && warcry) {
@@ -450,6 +453,32 @@ mod tests {
         };
         let mut one = loaded("Billy;b1.mp3;advance\n", "Billy");
         assert_eq!(one.select(&state, alone, &mut no_pick), None);
+    }
+
+    #[test]
+    fn randomise_does_not_draw_the_entry_advance_skips() {
+        let state = MatchState::new("jp", "v", MatchType::Group);
+        let mut list = loaded(
+            "goal;main.mp3\nBilly;b1.mp3;randomise;advance\nBilly;b2.mp3;randomise;advance\n",
+            "Billy",
+        );
+        let mut asked = Vec::new();
+        let mut first_of = |n: usize| {
+            asked.push(n);
+            0
+        };
+        let first = list.select(&state, press("Billy"), &mut first_of);
+        assert_eq!(file(&list, first), Some("b1.mp3".to_string()));
+        let next = Press {
+            skip: first,
+            ..press("Billy")
+        };
+        assert_eq!(
+            play(&mut list, &state, next, &mut first_of),
+            Some("b2.mp3".to_string()),
+            "the entry that just ended is not drawn again"
+        );
+        assert_eq!(asked, [2, 1], "it still counts for the all-entries check");
     }
 
     #[test]
