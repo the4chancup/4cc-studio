@@ -71,13 +71,26 @@ fn reference_into_common(directory: &str) -> Option<(&str, &str)> {
 
 /// The model folder an output path sits in (`Players/07 - A`,
 /// `Boots/Crocs`, `Gloves/Mitts`) and the file's path below it, or `None`.
-fn model_folder_of(output: &str) -> Option<(&str, &str)> {
+/// `shared` when the folder is a shared `Boots/`/`Gloves/` one.
+fn model_folder_of(output: &str) -> Option<(&str, &str, bool)> {
     let (top, rest) = output.split_once('/')?;
-    if !matches!(top, "Players" | "Boots" | "Gloves") {
-        return None;
-    }
+    let shared = match top {
+        "Players" => false,
+        "Boots" | "Gloves" => true,
+        _ => return None,
+    };
     let (folder, rest) = rest.split_once('/')?;
-    Some((&output[..top.len() + 1 + folder.len()], rest))
+    Some((&output[..top.len() + 1 + folder.len()], rest, shared))
+}
+
+/// The `???` of `path`'s Common directory respelled the team's ID in
+/// place, the rest as written.
+fn respell_marker(path: &mut TexturePath, sub: &str, team: TeamId) {
+    path.directory = format!(
+        "{}{:03}/{sub}",
+        &path.directory[..COMMON_PREFIX.len()],
+        team.get()
+    );
 }
 
 /// A reference `path` cannot spell: `common_reference_kept` on the `.mtl`,
@@ -99,11 +112,7 @@ fn keep_reference(
         Disposition::Keep,
         vec![("reference", format!("{}{}", path.directory, path.file_name))],
     ));
-    path.directory = format!(
-        "{}{:03}/{sub}",
-        &path.directory[..COMMON_PREFIX.len()],
-        team.get()
-    );
+    respell_marker(path, sub, team);
 }
 
 /// What step 7 makes of the migrated model folders' `.mtl` files for a team
@@ -120,7 +129,7 @@ pub(crate) fn material_references(
     let mut planned: BTreeMap<String, String> = BTreeMap::new();
 
     for (input, output) in copies {
-        let Some((model_folder, rest)) = model_folder_of(output) else {
+        let Some((model_folder, rest, shared)) = model_folder_of(output) else {
             continue;
         };
         let Some(name) = rest.rsplit('/').next() else {
@@ -145,18 +154,31 @@ pub(crate) fn material_references(
                 return;
             };
             let sub = sub.to_owned();
+            if shared {
+                // A shared folder's `.mtl` keeps its Common references as
+                // written save `???`: the pre-Fox compile does not read a
+                // shared folder's `.common` links.
+                respell_marker(path, &sub, team);
+                return;
+            }
             let stem = folded_stem(&path.file_name);
-            // The `Common/` file whose path below `Common/` is `sub` + a
-            // name of that stem, any extension.
-            let Some(common_rest) = common.iter().find_map(|file| {
-                let rest = under(file, "common")?;
-                let (folder, name) = match rest.rsplit_once('/') {
-                    Some((folder, name)) => (format!("{folder}/"), name),
-                    None => (String::new(), rest),
-                };
-                (vtree::fold_name(&folder) == vtree::fold_name(&sub) && folded_stem(name) == stem)
-                    .then_some(rest)
-            }) else {
+            // The `Common/` textures of the stem in the `sub` directory,
+            // linked only when exactly one stands there.
+            let matching: Vec<&str> = common
+                .iter()
+                .filter_map(|file| {
+                    let rest = under(file, "common")?;
+                    let (folder, name) = match rest.rsplit_once('/') {
+                        Some((folder, name)) => (format!("{folder}/"), name),
+                        None => (String::new(), rest),
+                    };
+                    (classify(name) == FileKind::Texture
+                        && vtree::fold_name(&folder) == vtree::fold_name(&sub)
+                        && folded_stem(name) == stem)
+                        .then_some(rest)
+                })
+                .collect();
+            let &[common_rest] = matching.as_slice() else {
                 keep_reference(path, &sub, team, input, &mut file_findings);
                 return;
             };
@@ -248,8 +270,6 @@ mod tests {
     use studio_core::Scope;
 
     use super::*;
-    use crate::messages::INPUT;
-    use crate::players::path_scope;
 
     /// The resolved team, 714.
     fn team() -> TeamId {
@@ -523,7 +543,11 @@ mod tests {
     }
 
     #[test]
-    fn a_shared_folder_mtl_links_inside_it() {
+    fn a_shared_folder_mtl_keeps_the_reference_with_the_team_id() {
+        // A `.mtl` of a shared `Boots/`/`Gloves/` folder keeps its Common
+        // references as written but `???`, respelled the team's ID — no
+        // finding and no link (the pre-Fox compile reads no shared folder's
+        // `.common` links).
         let boots = mtl(&["model/character/uniform/common/XXX/hair.dds"]);
         let rewrites = plan(
             &[("Boots/k0430 - Crocs/boots.mtl", "Boots/Crocs/boots.mtl")],
@@ -531,7 +555,72 @@ mod tests {
             &[("Boots/k0430 - Crocs/boots.mtl", &boots)],
         );
         let out = written_text(&rewrites, "Boots/Crocs/boots.mtl");
+        assert!(
+            out.contains("model/character/uniform/common/714/hair.dds"),
+            "{out}"
+        );
+        assert!(rewrites.links.is_empty());
+        assert!(rewrites.findings.is_empty());
+    }
+
+    #[test]
+    fn a_non_texture_of_the_stem_in_common_is_no_link_target() {
+        // `Common/hair.mtl` shares the stem but is no texture: kept and
+        // warned, no link.
+        let face = mtl(&["model/character/uniform/common/XXX/hair.dds"]);
+        let rewrites = plan(
+            &[("Faces/XXX07 - A/face.mtl", "Players/07 - A/face.mtl")],
+            &["Common/hair.mtl"],
+            &[("Faces/XXX07 - A/face.mtl", &face)],
+        );
+        assert!(rewrites.links.is_empty());
+        assert_eq!(
+            rewrites
+                .findings
+                .iter()
+                .map(|m| m.code.code.as_ref())
+                .collect::<Vec<_>>(),
+            ["common_reference_kept"]
+        );
+    }
+
+    #[test]
+    fn two_textures_of_the_stem_in_one_common_directory_keep_the_reference() {
+        // `Common/hair.dds` beside `Common/hair.png`: both textures of the
+        // stem in the directory, so no single file the link could spell —
+        // kept and warned.
+        let face = mtl(&["model/character/uniform/common/XXX/hair.dds"]);
+        let rewrites = plan(
+            &[("Faces/XXX07 - A/face.mtl", "Players/07 - A/face.mtl")],
+            &["Common/hair.dds", "Common/hair.png"],
+            &[("Faces/XXX07 - A/face.mtl", &face)],
+        );
+        assert!(rewrites.links.is_empty());
+        assert_eq!(
+            rewrites
+                .findings
+                .iter()
+                .map(|m| m.code.code.as_ref())
+                .collect::<Vec<_>>(),
+            ["common_reference_kept"]
+        );
+    }
+
+    #[test]
+    fn a_rewritten_mtl_keeps_the_wesys_wrap() {
+        let face = wezlib::compress(&mtl(&["model/character/uniform/common/XXX/hair.dds"]));
+        let rewrites = plan(
+            &[("Faces/XXX07 - A/face.mtl", "Players/07 - A/face.mtl")],
+            &["Common/hair.dds"],
+            &[("Faces/XXX07 - A/face.mtl", &face)],
+        );
+        let (_, bytes) = rewrites
+            .written
+            .iter()
+            .find(|(path, _)| path == "Players/07 - A/face.mtl")
+            .expect("the .mtl was rewritten");
+        assert!(wezlib::is_wrapped(bytes));
+        let out = String::from_utf8(wezlib::decompress(bytes).unwrap()).unwrap();
         assert!(out.contains("./hair.dds"), "{out}");
-        assert_eq!(rewrites.links, ["Boots/Crocs/hair.dds.common".to_owned()]);
     }
 }

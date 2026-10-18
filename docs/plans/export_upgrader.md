@@ -22,7 +22,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    holding nothing but one subfolder of its own name, letter case aside (`Faces/Faces/`; Other
    and Common aside), is read as that subfolder, one level, as Red flattens it. A file the game stores zlib-wrapped (a WESYS `.mtl` or
    `face.xml`; 48 wrapped `face.xml` files on the maintainer's machine) is unwrapped for the
-   rewrites below and written back wrapped. OS artifacts (`Thumbs.db`, `desktop.ini`,
+   rewrites below. A rewritten `.mtl` is written back wrapped, the compiler reading either. A
+   `face.xml` is written unwrapped, rewritten or not: the compiler parses a member's `face.xml`
+   as plain XML and refuses a wrapped one (`xml_broken`, the folder discarded), so a wrapped one
+   carried as it was would cost the player his face at the first compile. OS artifacts (`Thumbs.db`, `desktop.ini`,
    `.DS_Store`, at any depth) are left out of the output and not reported: Red's copy drops
    `*.db` and `*.ini` files, the compiler ignores the three ("OS artifacts" in
    `spec/aesthetics_export/object_model.md`), and the maintainer's old exports hold 670 of them,
@@ -284,7 +287,12 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    cannot simply become the bare name `./hair.dds` — that would resolve in the player folder and fail — so the
    upgrader writes the bare name **and creates the texture link** `hair.dds.common` (the
    `Common/` file's own name, whose extension the link names) at the root of the
-   model's player or shared folder, which is the Studio spelling of the same reference (a link
+   model's player folder, which is the Studio spelling of the same reference. A shared
+   `Boots/` or `Gloves/` folder's `.mtl`, and a `.mtl` in `Common/` (343 such references in
+   the maintainer's 1,489 `Common/` `.mtl` files, the compiler emitting a member's `.mtl` as
+   written), keeps its Common references as written, save the `???` below, with no finding: the pre-Fox compile does not read a shared folder's links
+   (they wait until the cup next plays a pre-Fox version) and `.mtl` is pre-Fox alone, while
+   the game path is supplied from the carried `Common/` (a link
    stands for the `Common/` file at its own path below that root, so one beside a subfolder's
    `.mtl` would name a file in a `Common/` subfolder; a bare name from a subfolder finds the
    root's link, nearest first) (see "Link files" in the [Unified model format
@@ -298,7 +306,9 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    `sourceimages/` level is the compiler's, not the export's: Red inserts it when it places a
    `Common/` subfolder's files, so that reference names the old file `Common/u0XXXp1/armor_bsm.dds`,
    which becomes `Common/kit1/armor_bsm.dds`, where the link resolves. A Common-path
-   reference whose file is not in the input's `Common/`, or which no link can spell — the
+   reference whose texture is not in the input's `Common/` (a texture of its stem in the
+   directory it names; two there conflict in `Common/` and are both dropped, so they count as
+   none), or which no link can spell — the
    model's folder already holding a texture or link of that stem on the reference's
    nearest-first way up (the link would conflict with it, `texture_stem_conflict`, or lose to
    it), or a Common subfolder named from a `.mtl` in a subfolder (the path below that `.mtl`
@@ -337,7 +347,24 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    file named `kitN` would be no file of the set, the compiler filling the gaps from the lowest
    variant instead (71 real `u0???p0` files, `MARISA`'s `k4465` holding `u0875p0` to `p4`). The `???` matches any three characters: authors wrote the
    `XXX` placeholder literally or baked the real team ID in (`u0872p1.dds`), and both forms mean the
-   same thing. The upgrader is the **only** Studio component that reads the legacy spelling — the
+   same thing. The token is matched as Red's `path_id_change` matches it: `u0`, three ASCII
+   letters or digits, then `p` and a digit (or `g`), in that letter case, anywhere in a name or
+   path and every occurrence (`skin_u0771p3.dds`, `Common/ltd/u0XXXp5/`). The names renamed
+   are those below a player folder, below a shared `Boots/`/`Gloves/` folder and below
+   `Common/` (the kit folders have their own naming, `Kit Textures/` step 6's); a renamed path
+   that, letter case aside, another output path already takes is the second input's by path
+   order, not written, and reported `unmigrated_content` (`u0XXXp1.dds` beside `u0714p1.dds`).
+   The paths respelled are those the export resolves, a model folder's own (`./`) and the
+   team's Common; a game directory's are kept as written, the file there being the game's own
+   (`model/character/uniform/texture/u0814p1.dds` is team 814's compiled kit texture; no real
+   export names one, 176 references in one model-test folder do). A Common-path reference
+   whose respelled name is a `kitN` reference (`common/XXX/u0XXXp0.dds`, `Common/` holding
+   `u0XXXp1.dds` to `p3`: /vg/'s Autumn 24 export) links like any other, the link named after
+   the reference's respelled name (`kitN.dds.common`) and present when `Common/`'s directory
+   holds a member of its set, as the shared validation resolves such a link. In a
+   `face.xml`, only the `path` and `material` attributes' values change, the rest of the file
+   byte for byte as written, `<dif>` included; their `???` stays, the compiler respelling any
+   three characters there. The upgrader is the **only** Studio component that reads the legacy spelling — the
    compiler has no notion of it. `dummy_kit*` references are left as they are — the compiler
    keeps them as reserved game-substituted names. The goalkeeper token **`u0???g`**
    (`u0XXXg1.dds` in a `Common/`, which a keeper's model names) is no variant set in Studio,
@@ -626,8 +653,9 @@ Uses `aesthetics_export` (the Studio format's object model, conventions, and val
 and verifies its output with the same crate the compiler consumes it with), `pes_savefile` (savefile
 reading, TOML generation), `archives` (old export loading), `vtree`, `kit_config` (binary → TOML kit
 config conversion), `dds_convert` (the logo comparison's decoding and resampling, step 7, the
-compiler's own resampler so the test judges what the compile would regenerate), and the format
-lib crates for content inspection. Old-format knowledge stays in
+compiler's own resampler so the test judges what the compile would regenerate), the format
+lib crates for content inspection, and `roxmltree` (already the workspace's XML reader, the
+compiler's for a member `face.xml`) for the `face.xml` attribute values step 7 respells. Old-format knowledge stays in
 this tool. The structural migration (steps 1–12) does no model-format conversion, but does rewrite
 text metadata, kit configs, and legacy MTL texture references. The optional glTF conversion (step 13)
 uses `model_convert`'s `ir_to_gltf` path. The crate remains a build dependency; the runtime
@@ -934,8 +962,8 @@ EU-MDL-09  GIVEN a model folder holding u0XXXp1.dds, u0714p2.dds and a folder u0
                 dummy_kit.dds
            WHEN the export is upgraded
            THEN the folder holds kit1.dds, kit2.dds and kitF/, the references to the two files
-                name kit1 and kit2 and those to the folder kitN/, the face.xml is still
-                zlib-wrapped, and the dummy_kit reference is unchanged
+                name kit1 and kit2 and those to the folder kitN/, the face.xml is written
+                unwrapped, and the dummy_kit reference is unchanged
 EU-MDL-10  GIVEN Common/u0XXXg1.dds and a keeper's face folder whose FMDL names u0714g1
            WHEN the export is upgraded
            THEN Common/ holds u0714g1.dds and the keeper's FMDL texture and link both name
@@ -968,6 +996,13 @@ EU-MDL-15  GIVEN Portraits/player_XXX07.dds, and slot 07's face folder holding a
            WHEN the export is upgraded
            THEN the output holds Portraits/player_07.dds and slot 07's folder portrait.dds,
                 portrait_conflict is reported naming slot 07, and the exit code is 1
+EU-MDL-16  GIVEN a pre-Fox face folder whose .mtl names
+                model/character/uniform/common/XXX/u0XXXp0.dds, with Common/u0XXXp1.dds and
+                Common/u0XXXp2.dds
+           WHEN the export is upgraded
+           THEN Common/ holds kit1.dds and kit2.dds, the .mtl names ./kitN.dds, the player
+                folder holds the link kitN.dds.common, and the shared validation finds the
+                link resolving
 ```
 
 **Player settings**

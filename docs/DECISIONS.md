@@ -8536,3 +8536,51 @@ file would win the lookup silently: either way the model would change look; a su
 game path keeps what the export meant, the warning saying where. (3) a broken `.mtl` is the
 compile's to report, as it was before the upgrade; copying untouched files keeps their bytes.
 Plan: `plans/export_upgrader.md` step 7, EU-MDL-05.
+
+## 2026-10-18 — export_upgrader — a shared folder's `.mtl` keeps its Common references, and a link needs one texture
+Decision: (1) the `.mtl` files of a shared `Boots/` or `Gloves/` folder keep their references
+into the team's Common as written, `???` respelled the team's ID, with no finding. (2) A Common
+reference is linked only when the directory it names in `Common/` holds exactly one texture of
+its stem; none, or two (`hair.dds` beside `hair.png`), keeps it with `common_reference_kept`.
+Why: (1) review round 6.4.S2: the pre-Fox compile leaves a shared folder's `.common` links
+unread until the cup next plays a pre-Fox version, and `.mtl` is pre-Fox alone, so a link there
+would lose the texture the game path gets from the carried `Common/`. (2) a non-texture of the
+stem gives a link that claims no texture, and two textures conflict in `Common/` and are both
+dropped, so the link would dangle and drop the player folder.
+Plan: `plans/export_upgrader.md` step 7.
+
+## 2026-10-18 — export_upgrader — a WESYS-wrapped `face.xml` is written unwrapped
+Decision: the upgrader writes every member `face.xml` unwrapped, whether a rewrite touched it
+or not; a rewritten `.mtl` keeps its wrapper.
+Why: the plan wrote both back wrapped, but the compiler parses a member's `face.xml` as plain
+XML and reports a wrapped one `xml_broken` (E, the folder discarded): 48 such files on the
+maintainer's machine would each cost a player his face at the first compile of the upgraded
+export, where Red unwrapped them. The compiler's `.mtl` reader unwraps, so the `.mtl` keeps the
+form its author shipped.
+Plan: `plans/export_upgrader.md` step 1, EU-MDL-09.
+
+## 2026-10-18 — export_upgrader — the kit magic's grammar, where it is renamed, and a Common kit set's link
+Decision: (1) the legacy token is matched as Red's `path_id_change` matches it: `u0`, three
+ASCII letters or digits, `p` and a digit (or `g`), case as written, anywhere and every
+occurrence. (2) Names are renamed below player folders, shared folders and `Common/`; a renamed
+path another output already takes (letter case aside) is the later input's, reported
+`unmigrated_content`. (3) Only paths the export resolves (`./`, the team's Common) are
+respelled; a game directory's are kept. (4) A Common reference whose respelled name is a `kitN`
+reference links as `<name>.common` when `Common/` holds a member of its set. (5) A `face.xml`
+changes only its `path`/`material` values; their `???` stays. (6) A `.mtl` in `Common/` is
+treated as a shared folder's: its Common references keep their path, `???` respelled the
+team's ID, with no finding.
+Why: (1) the plan said "any three characters" without saying where or in what case; Red's
+regex is what the exports were checked against. (2) silently overwriting one input with the
+other would write a wrong file with no error. (3) a game directory's file is the game's, named
+`u0<ID>p1` there (`uniform/texture/u0814p1.dds`, 176 references in one test folder, none in an
+export), so a `kit1` spelling would find nothing. (4) /vg/'s Autumn 24 export names
+`common/XXX/u0XXXp0.dds` with `Common/u0XXXp1.dds` to `p3`: without the set rule the reference
+matches no single texture and is kept unlinked, its `u0XXXp0` gone from the renamed `Common/`.
+(5) the compiler replaces any three characters of a `face.xml` Common path with the team ID
+already, and a byte-for-byte copy elsewhere keeps the `<dif>` and every attribute the compiler
+passes through. (6) the compiler emits a member's `.mtl` as written, so a Common `.mtl`'s `XXX`
+would reach the game, where Red respelled it (`txt_id_change`); 343 such references sit in the
+maintainer's 1,489 `Common/` `.mtl` files, and a link has no place in `Common/`.
+Plan: `plans/export_upgrader.md` step 7, EU-MDL-16, "Dependencies" (`roxmltree`, already the
+workspace's XML reader).

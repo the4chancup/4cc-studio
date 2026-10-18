@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): a SWE-2 round on 6.4b1, then 6.4b2 (the kit magic and
-the goalkeeper token, Common's `.mtl`, `face.xml`), 6.4c (FMDL path tables) and 6.4d (pre-Fox
+**Next:** Phase 6 (Export upgrader): SWE-2 round 6.4.S3 on 6.4b1's rework, then 6.4b2 (the
+kit magic and the goalkeeper token, a `Common/` `.mtl`'s `???`, `face.xml`), 6.4c (FMDL path tables) and 6.4d (pre-Fox
 renames); Astra on 6.4 batched. 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -558,11 +558,14 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     6.4a 3 accepted (`.tmp/6_4/rulings.md`), loop ended; lead fixes: the clash walk skipped
     the model folder's root from a subfolder `.mtl`, and counted model links; mutation diff 2
     survivors, both tested; files: `export_upgrader/src/{materials,carried,upgrade,messages,
-    lib}.rs`, `tests/cli/carried.rs`, `Cargo.toml`
+    lib}.rs`, `tests/cli/carried.rs`, `Cargo.toml`; review round 6.4.S2 5 accepted, fixed (a
+    shared folder's `.mtl` keeps its Common paths, a link needs exactly one texture; mutation
+    diff 23 caught), so round 6.4.S3 follows
   - [ ] 6.4b2 the kit magic and the goalkeeper token (names, `.mtl` and `face.xml` paths),
-    Common's own `.mtl`, `face.xml` (EU-MDL-09's "still zlib-wrapped" against the compiler's
-    `xml_broken` for a wrapped one: rule before briefing) → verify: EU-MDL-09 (its FMDL part
-    with 6.4c), -10, -14
+    a `Common/` `.mtl`'s `???`, `face.xml` written unwrapped (DECISIONS 2026-10-18 "the kit
+    magic's grammar…", from a census: `.tmp/6_4/kit_magic_census.txt`) → verify: EU-MDL-09
+    (its FMDL part with 6.4c), -16; EU-MDL-10 waits for 6.4c (its keeper FMDL), -14 for 6.4d
+    (the renames it guards)
   - [ ] 6.4c FMDL path tables
   - [ ] 6.4d pre-Fox renames
 - [ ] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
