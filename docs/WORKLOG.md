@@ -494,7 +494,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     entries), an unreadable or unfilled entry `unmigrated_content`; mutation diff 1 survivor
     tested; files: `export_upgrader/src/{note,upgrade}.rs`, `tests/cli/roots.rs`, fixture
     `jp Summer 18/`
-- [ ] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
+- [x] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
   `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*. Three slices:
   - [x] 6.2a the roster read by player ID, face folders into `Players/` (slot rule, name order
     and cleaning, portrait, `ingame_face`), `roster_slot_empty`, the `Faces/Faces/` flattening
@@ -510,11 +510,12 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     Error drops yet); also the first slice's review round S3 (the verdict reads the tool's own
     dropping findings); files: `export_upgrader/src/{players,roster,upgrade,source,messages,
     lib}.rs`, `tests/cli/players.rs`, `tests/common/mod.rs`
-  - [ ] 6.2c two shared folders of one name and the same files become one (the maintainer's
+  - [x] 6.2c two shared folders of one name and the same files become one (the maintainer's
     ruling, DECISIONS 2026-10-18 "two shared folders of one name and the same files become
     one"; plan step 4) → verify: unit tests in `players.rs` (identical pair merged, every wearer
     linked; a differing pair keeps the ID rule; same paths with one byte differing; a path
-    only one holds)
+    only one holds). Done 2026-10-18: five unit tests; mutation diff clean; files:
+    `export_upgrader/src/players.rs`
 - [x] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit
   colors and icons, the copy and the hoist → verify: EU-KIT-*. Three slices:
   - [x] 6.3a configs and textures into `Kits/<slot>/` (the config grammar, one config per slot,

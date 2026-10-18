@@ -2113,3 +2113,5 @@ worklog passed 7,000 lines.
   line without a config a placeholder kit; 6.3c's copy rule widened from a config census.
 - **2026-10-18** — 6.3c: kits get copies of the textures their configs borrow, shared ones
   move to `Kits/all/`; 6.3 done, every EU-KIT scenario proven.
+- **2026-10-18** — 6.2c (the maintainer's ruling): two shared boots or gloves folders of one
+  name holding the same files become one folder every wearer links.

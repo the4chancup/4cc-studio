@@ -382,6 +382,27 @@ fn item_folders(
         files: Vec<(String, String)>,
         wearers: Vec<u8>,
     }
+    /// Whether `other` holds the same files as `first`: the same relative
+    /// paths, letter case aside, each byte for byte.
+    fn same_files(
+        first: &Shared,
+        other: &Shared,
+        same_bytes: &mut impl FnMut(&str, &str) -> bool,
+    ) -> bool {
+        fn by_folded_path(item: &Shared) -> BTreeMap<String, &String> {
+            item.files
+                .iter()
+                .map(|(input, relative)| (vtree::fold_name(relative), input))
+                .collect()
+        }
+        let (first_files, other_files) = (by_folded_path(first), by_folded_path(other));
+        first_files.len() == other_files.len()
+            && other_files.iter().all(|(path, input)| {
+                first_files
+                    .get(path)
+                    .is_some_and(|first_input| same_bytes(first_input, input))
+            })
+    }
     let mut taken = BTreeSet::new();
     let mut shared: Vec<Shared> = Vec::new();
     for (folder, folder_files) in folders_below(files, kind.top()) {
@@ -496,9 +517,12 @@ fn item_folders(
             }
         }
     }
-    // Two shared folders of one kind whose names match, letter case aside:
-    // the lowest ID keeps the name, every other takes its ID spelling, the
-    // links following.
+    // Two shared folders of one kind whose names match, letter case aside,
+    // compared each with the lowest-ID one of its name. One holding the same
+    // files (the same paths folded, each byte for byte) is the same model
+    // under another ID: it merges — its files are not copied and its wearers
+    // link the lowest ID's folder name. One that differs takes its ID
+    // spelling, the links following, so no wearer loads another's model.
     let mut by_name: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     let mut names: Vec<String> = shared
         .iter()
@@ -513,18 +537,27 @@ fn item_folders(
             name
         })
         .collect();
+    let mut merged = vec![false; shared.len()];
     for indexes in by_name.values_mut() {
         indexes.sort_by_key(|&index| shared[index].id);
+        let first = indexes[0];
         for &index in &indexes[1..] {
-            names[index] = format!("{}{:04}", kind.letter(), shared[index].id);
+            if same_files(&shared[first], &shared[index], same_bytes) {
+                names[index] = names[first].clone();
+                merged[index] = true;
+            } else {
+                names[index] = format!("{}{:04}", kind.letter(), shared[index].id);
+            }
         }
     }
-    for (item, name) in shared.iter().zip(&names) {
-        for (file, relative) in &item.files {
-            plan.copies.push((
-                file.clone(),
-                format!("{}/{name}/{relative}", kind.shared_top()),
-            ));
+    for (index, (item, name)) in shared.iter().zip(&names).enumerate() {
+        if !merged[index] {
+            for (file, relative) in &item.files {
+                plan.copies.push((
+                    file.clone(),
+                    format!("{}/{name}/{relative}", kind.shared_top()),
+                ));
+            }
         }
         for &nn in &item.wearers {
             players
@@ -1211,5 +1244,235 @@ mod tests {
                 .iter()
                 .any(|(_, to)| to == "Boots/k0431/boots.fmdl")
         );
+    }
+
+    #[test]
+    fn identical_shared_folders_merge_into_the_lowest_ids() {
+        // `k0430 - Crocs` and `k0431 - Crocs`, the same files byte for byte:
+        // one `Boots/Crocs/`, every wearer of either linking it.
+        let files = files(&[
+            "Boots/k0430 - Crocs/boots.fmdl",
+            "Boots/k0430 - Crocs/boots.skl",
+            "Boots/k0431 - Crocs/boots.fmdl",
+            "Boots/k0431 - Crocs/boots.skl",
+        ]);
+        let roster = wearing(&[
+            (1, ("A", 430, 0)),
+            (2, ("B", 430, 0)),
+            (3, ("C", 431, 0)),
+            (4, ("D", 431, 0)),
+        ]);
+        let plan = plan_with_bytes(
+            &files,
+            Some(&roster),
+            Engine::Fox,
+            &[
+                ("Boots/k0430 - Crocs/boots.fmdl", b"model"),
+                ("Boots/k0431 - Crocs/boots.fmdl", b"model"),
+                ("Boots/k0430 - Crocs/boots.skl", b"skel"),
+                ("Boots/k0431 - Crocs/boots.skl", b"skel"),
+            ],
+        );
+        // Two files, from `k0430 - Crocs` alone.
+        assert_eq!(
+            plan.copies,
+            [
+                (
+                    "Boots/k0430 - Crocs/boots.fmdl".to_owned(),
+                    "Boots/Crocs/boots.fmdl".to_owned()
+                ),
+                (
+                    "Boots/k0430 - Crocs/boots.skl".to_owned(),
+                    "Boots/Crocs/boots.skl".to_owned()
+                ),
+            ]
+        );
+        for player in ["01 - Crocs", "02 - Crocs", "03 - Crocs", "04 - Crocs"] {
+            assert!(
+                plan.markers
+                    .contains(&format!("Players/{player}/Crocs.boots")),
+                "{player}"
+            );
+        }
+        // Its files are not copied but stay consumed — nothing is lost and
+        // nothing is reported.
+        for file in ["boots.fmdl", "boots.skl"] {
+            assert!(
+                plan.consumed
+                    .contains(&format!("Boots/k0431 - Crocs/{file}")),
+                "{file}"
+            );
+        }
+        assert!(
+            plan.findings
+                .iter()
+                .all(|m| m.code.code.as_ref() != "unmigrated_content")
+        );
+    }
+
+    #[test]
+    fn a_difference_in_one_file_keeps_the_id_spelling() {
+        // `boots.skl` differing in one byte: the 6.2b rule, `Boots/k0431/`.
+        let files = files(&[
+            "Boots/k0430 - Crocs/boots.fmdl",
+            "Boots/k0430 - Crocs/boots.skl",
+            "Boots/k0431 - Crocs/boots.fmdl",
+            "Boots/k0431 - Crocs/boots.skl",
+        ]);
+        let roster = wearing(&[
+            (1, ("A", 430, 0)),
+            (2, ("B", 430, 0)),
+            (3, ("C", 431, 0)),
+            (4, ("D", 431, 0)),
+        ]);
+        let plan = plan_with_bytes(
+            &files,
+            Some(&roster),
+            Engine::Fox,
+            &[
+                ("Boots/k0430 - Crocs/boots.fmdl", b"model"),
+                ("Boots/k0431 - Crocs/boots.fmdl", b"model"),
+                ("Boots/k0430 - Crocs/boots.skl", b"one"),
+                ("Boots/k0431 - Crocs/boots.skl", b"two"),
+            ],
+        );
+        assert!(
+            plan.copies
+                .iter()
+                .any(|(_, to)| to == "Boots/k0431/boots.skl")
+        );
+        assert!(
+            plan.markers
+                .contains(&"Players/03 - Crocs/k0431.boots".to_owned())
+        );
+        assert!(
+            plan.markers
+                .contains(&"Players/04 - Crocs/k0431.boots".to_owned())
+        );
+    }
+
+    #[test]
+    fn an_extra_file_means_no_merge() {
+        // `k0431 - Crocs` holding one more file than `k0430 - Crocs`.
+        let files = files(&[
+            "Boots/k0430 - Crocs/boots.fmdl",
+            "Boots/k0430 - Crocs/boots.skl",
+            "Boots/k0431 - Crocs/boots.fmdl",
+            "Boots/k0431 - Crocs/boots.skl",
+            "Boots/k0431 - Crocs/extra.dds",
+        ]);
+        let roster = wearing(&[
+            (1, ("A", 430, 0)),
+            (2, ("B", 430, 0)),
+            (3, ("C", 431, 0)),
+            (4, ("D", 431, 0)),
+        ]);
+        let plan = plan_with_bytes(
+            &files,
+            Some(&roster),
+            Engine::Fox,
+            &[
+                ("Boots/k0430 - Crocs/boots.fmdl", b"model"),
+                ("Boots/k0431 - Crocs/boots.fmdl", b"model"),
+                ("Boots/k0430 - Crocs/boots.skl", b"skel"),
+                ("Boots/k0431 - Crocs/boots.skl", b"skel"),
+                ("Boots/k0431 - Crocs/extra.dds", b"extra"),
+            ],
+        );
+        assert!(
+            plan.copies
+                .iter()
+                .any(|(_, to)| to == "Boots/k0431/extra.dds")
+        );
+        assert!(
+            plan.markers
+                .contains(&"Players/03 - Crocs/k0431.boots".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_case_folded_file_set_merges_too() {
+        // `Boots.fmdl` in `k0431 - crocs` is `boots.fmdl` in `k0430 - Crocs`,
+        // paths folded: equal bytes merge them.
+        let files = files(&[
+            "Boots/k0430 - Crocs/boots.fmdl",
+            "Boots/k0431 - crocs/Boots.fmdl",
+        ]);
+        let roster = wearing(&[
+            (1, ("A", 430, 0)),
+            (2, ("B", 430, 0)),
+            (3, ("C", 431, 0)),
+            (4, ("D", 431, 0)),
+        ]);
+        let plan = plan_with_bytes(
+            &files,
+            Some(&roster),
+            Engine::Fox,
+            &[
+                ("Boots/k0430 - Crocs/boots.fmdl", b"model"),
+                ("Boots/k0431 - crocs/Boots.fmdl", b"model"),
+            ],
+        );
+        assert_eq!(
+            plan.copies,
+            [(
+                "Boots/k0430 - Crocs/boots.fmdl".to_owned(),
+                "Boots/Crocs/boots.fmdl".to_owned()
+            )]
+        );
+        assert!(
+            plan.markers
+                .contains(&"Players/03 - crocs/Crocs.boots".to_owned())
+        );
+    }
+
+    #[test]
+    fn among_three_folders_only_the_identical_pair_merges() {
+        // `k0431 - Crocs` is `k0430 - Crocs` byte for byte, `k0432 - Crocs`
+        // is not: the middle merges, the third keeps its ID spelling.
+        let files = files(&[
+            "Boots/k0430 - Crocs/boots.fmdl",
+            "Boots/k0431 - Crocs/boots.fmdl",
+            "Boots/k0432 - Crocs/boots.fmdl",
+        ]);
+        let roster = wearing(&[
+            (1, ("A", 430, 0)),
+            (2, ("B", 430, 0)),
+            (3, ("C", 431, 0)),
+            (4, ("D", 431, 0)),
+            (5, ("E", 432, 0)),
+            (6, ("F", 432, 0)),
+        ]);
+        let plan = plan_with_bytes(
+            &files,
+            Some(&roster),
+            Engine::Fox,
+            &[
+                ("Boots/k0430 - Crocs/boots.fmdl", b"model"),
+                ("Boots/k0431 - Crocs/boots.fmdl", b"model"),
+                ("Boots/k0432 - Crocs/boots.fmdl", b"other"),
+            ],
+        );
+        assert_eq!(
+            plan.copies,
+            [
+                (
+                    "Boots/k0430 - Crocs/boots.fmdl".to_owned(),
+                    "Boots/Crocs/boots.fmdl".to_owned()
+                ),
+                (
+                    "Boots/k0432 - Crocs/boots.fmdl".to_owned(),
+                    "Boots/k0432/boots.fmdl".to_owned()
+                ),
+            ]
+        );
+        for marker in [
+            "Players/01 - Crocs/Crocs.boots",
+            "Players/03 - Crocs/Crocs.boots",
+            "Players/05 - Crocs/k0432.boots",
+            "Players/06 - Crocs/k0432.boots",
+        ] {
+            assert!(plan.markers.contains(&marker.to_owned()), "{marker}");
+        }
     }
 }
