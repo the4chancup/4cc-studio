@@ -610,6 +610,26 @@ mod tests {
     }
 
     #[test]
+    fn whitespace_only_and_indented_lines_are_skipped() {
+        let export = parsed("name;x\n   \n\t\n  # indented comment\n  anthem;a.mp3  \n");
+        assert_eq!(entries(&export, &Slot::Anthem)[0].file, "a.mp3");
+        assert_eq!(export.slots.len(), 1, "an indented comment is no player");
+    }
+
+    #[test]
+    fn not_reads_its_inner_keyword_in_any_case() {
+        let export = parsed("name;x\nP;p.mp3;NOT Goals >= 2;not HOME\n");
+        let entry = &entries(&export, &Slot::Player("P".into()))[0];
+        assert_eq!(
+            entry.conditions,
+            [
+                Condition::Not(Box::new(Condition::Goals(Comparison::Ge, 2))),
+                Condition::Not(Box::new(Condition::Home)),
+            ]
+        );
+    }
+
+    #[test]
     fn an_event_line_becomes_a_clip_apart_from_the_slots() {
         let export = parsed("name;x\nBilly;b.mp3\nBilly;red.mp3;event red;start 0:02\n");
         assert_eq!(entries(&export, &Slot::Player("Billy".into())).len(), 1);

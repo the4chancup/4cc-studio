@@ -165,6 +165,27 @@ mod tests {
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
+    #[test]
+    fn a_subfolder_written_with_backslashes_resolves_on_any_os() {
+        let dir = temp_dir("backslash", &[("sub/deep/Other.MP3", b"other")]);
+        assert_eq!(
+            resolved(&dir, "sub\\deep\\other.mp3", true).as_deref(),
+            Some("sub/deep/Other.MP3"),
+            "a path written on Windows, its name matched case-insensitively in its own subfolder"
+        );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn a_name_written_in_upper_case_matches_its_lower_case_file() {
+        let dir = temp_dir("upper", &[("song.mp3", b"song")]);
+        assert_eq!(
+            resolved(&dir, "SONG.MP3", true).as_deref(),
+            Some("song.mp3")
+        );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
     /// A name whose only dot is its first byte (`.intro`) has no
     /// extension: its companion is `.intro_normalized`, not
     /// `_normalized.intro`.
