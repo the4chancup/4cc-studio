@@ -21,26 +21,24 @@ pub struct Resolution {
 /// `None`.
 ///
 /// Two candidates are tried in `folder` (and in `file`'s subfolder when it
-/// names one): with `normalization_applies` unset, `<stem>_normalized.<ext>`
-/// first, then `file`; with it set, the other way round. Each candidate is
-/// its own lookup in the folder's listing, its file name matched
-/// case-insensitively (the subfolder components are used as written). The
-/// path returned carries the name as it is on disk, so two spellings of one
-/// file resolve to one path. An unreadable folder is "not found" for that
-/// candidate.
+/// names one, a `\` separator read as `/`, so a path written on Windows
+/// resolves on Linux): with `normalization_applies` unset,
+/// `<stem>_normalized.<ext>` first, then `file`; with it set, the other way
+/// round. Each candidate is its own lookup in the folder's listing, its file
+/// name matched case-insensitively (the subfolder components are used as
+/// written). The path returned carries the name as it is on disk, so two
+/// spellings of one file resolve to one path. An unreadable folder is "not
+/// found" for that candidate.
 pub fn resolve_song(folder: &Path, file: &str, normalization_applies: bool) -> Option<PathBuf> {
-    let (parent, name) = match file.rfind(['/', '\\']) {
-        Some(index) => (&file[..index], &file[index + 1..]),
-        None => ("", file),
+    let relative = file.replace('\\', "/");
+    let (dir, name) = match relative.rsplit_once('/') {
+        Some((parent, name)) => (folder.join(parent), name),
+        None => (folder.to_path_buf(), relative.as_str()),
     };
     let normalized = match name.rfind('.') {
         Some(index) if index > 0 => format!("{}_normalized{}", &name[..index], &name[index..]),
         _ => format!("{name}_normalized"),
     };
-    let dir = parent
-        .split(['/', '\\'])
-        .filter(|component| !component.is_empty())
-        .fold(folder.to_path_buf(), |dir, component| dir.join(component));
     let candidates: [&str; 2] = if normalization_applies {
         [name, normalized.as_str()]
     } else {
@@ -110,7 +108,9 @@ mod tests {
             name,
             std::process::id()
         ));
-        drop(std::fs::remove_dir_all(&dir));
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).expect("a stale folder is removed");
+        }
         for (file, bytes) in files {
             let path = dir.join(file);
             std::fs::create_dir_all(path.parent().expect("a parent")).expect("mkdir");

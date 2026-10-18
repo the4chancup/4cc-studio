@@ -3,8 +3,12 @@
 //! shaped by playback instructions.
 //!
 //! One typed model ([`MusicExport`]), one parser ([`parse`]) and one serializer
-//! ([`write`]), shared by the music player and the music export editor. The
-//! grammar, condition and instruction tables are in
+//! ([`write`]), shared by the music player and the music export editor, plus
+//! what the player runs a match on: the match state ([`MatchState`]), the
+//! condition evaluator ([`Verdict`]), each button's song selection
+//! ([`PriorityList`]) and the on-disk lookup of an export's songs
+//! (`resolve_export`, native only). The grammar, condition and instruction
+//! tables and every type's shape are in
 //! `docs/plans/music_player.md` "The `.4ccm` format". Callers own file I/O:
 //! the parser takes bytes and the file's stem (the team name when the file
 //! names none), the serializer returns the text.

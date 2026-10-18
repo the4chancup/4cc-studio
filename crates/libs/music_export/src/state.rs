@@ -48,39 +48,36 @@ impl TeamState {
 
     /// `player`'s goals, 0 when they have not scored.
     pub fn player_goals(&self, player: &str) -> u32 {
-        self.scorers
-            .iter()
-            .find(|(name, _)| same_player(name, player))
-            .map_or(0, |(_, goals)| *goals)
+        self.scorer(player).map_or(0, |i| self.scorers[i].1)
     }
 
     /// Whether `player` has at least as many goals as every scorer on the team.
-    pub fn has_most_goals(&self, player: &str) -> bool {
+    pub(crate) fn has_most_goals(&self, player: &str) -> bool {
         let mine = self.player_goals(player);
         self.scorers.iter().all(|(_, goals)| *goals <= mine)
     }
 
+    /// `player`'s index in `scorers`, matched case-insensitively.
+    fn scorer(&self, player: &str) -> Option<usize> {
+        self.scorers
+            .iter()
+            .position(|(name, _)| same_player(name, player))
+    }
+
     fn score_goal(&mut self, player: &str) {
         self.score += 1;
-        match self
-            .scorers
-            .iter_mut()
-            .find(|(name, _)| same_player(name, player))
-        {
-            Some((_, goals)) => *goals += 1,
+        match self.scorer(player) {
+            Some(i) => self.scorers[i].1 += 1,
             None => self.scorers.push((player.to_string(), 1)),
         }
     }
 
     /// Takes one goal back; false when the player has none to take.
     fn unscore_goal(&mut self, player: &str) -> bool {
-        let Some((_, goals)) = self
-            .scorers
-            .iter_mut()
-            .find(|(name, _)| same_player(name, player))
-        else {
+        let Some(i) = self.scorer(player) else {
             return false;
         };
+        let goals = &mut self.scorers[i].1;
         if *goals == 0 || self.score == 0 {
             return false;
         }
@@ -90,7 +87,7 @@ impl TeamState {
     }
 
     /// Back to no goals, the name kept.
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.score = 0;
         self.scorers.clear();
     }
@@ -162,7 +159,7 @@ impl MatchState {
     }
 
     /// `side`'s goal difference, us minus them.
-    pub fn lead(&self, side: Side) -> i64 {
+    pub(crate) fn lead(&self, side: Side) -> i64 {
         i64::from(self.team(side).score) - i64::from(self.opponent(side).score)
     }
 

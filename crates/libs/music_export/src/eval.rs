@@ -120,7 +120,7 @@ impl SongEntry {
     }
 
     /// Whether the entry carries `once` and so leaves its slot after its first check.
-    pub fn is_once(&self) -> bool {
+    pub(crate) fn is_once(&self) -> bool {
         self.conditions
             .iter()
             .any(|condition| matches!(condition, Condition::Once))

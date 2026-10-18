@@ -265,7 +265,7 @@ impl Comparison {
     }
 
     /// Whether `left <op> right` holds.
-    pub fn holds(self, left: i64, right: i64) -> bool {
+    pub(crate) fn holds(self, left: i64, right: i64) -> bool {
         match self {
             Comparison::Eq => left == right,
             Comparison::Ne => left != right,

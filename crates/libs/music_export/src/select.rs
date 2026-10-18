@@ -15,7 +15,7 @@ pub struct Loaded {
     /// From the default goalhorn (`goal`) slot, appended after the player's
     /// own entries: it is not the player's for the randomise check or pool,
     /// and its conditions count the `goal` button's own presses.
-    pub fallback: bool,
+    pub(crate) fallback: bool,
     /// A `once` entry has had its first check; the next unloads it.
     checked_once: bool,
 }
