@@ -2131,3 +2131,6 @@ worklog passed 7,000 lines.
   a value no key can hold is left out and reported, a missing custom model reported.
 - **2026-10-18** — Astra on 6.5: a face-type cap no game measured is the field's bits, so a
   compile keeps a real PES 18 player's cheek type 5 (the conversion and Team TOML import too).
+- **2026-10-18** — Step 10.0e (side-lead B): `music_player.md` "Model" carries every `music_export`
+  type and signature as built; the whole-crate mutation run (310 mutants, 0 missed) left four
+  extra-kind survivors, now tests; six items with no planned consumer are crate-private.

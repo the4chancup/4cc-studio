@@ -13,7 +13,8 @@ use crate::model::MusicExport;
 pub struct Resolution {
     /// Each resolved `SongEntry::file`, with the path it resolved to.
     pub found: Vec<(String, PathBuf)>,
-    /// The files that resolved nowhere, each once, in file order.
+    /// The files that resolved nowhere, each once, in the model's order
+    /// (slot by slot, then the event clips).
     pub missing: Vec<String>,
 }
 
@@ -22,7 +23,8 @@ pub struct Resolution {
 ///
 /// Two candidates are tried in `folder` (and in `file`'s subfolder when it
 /// names one, a `\` separator read as `/`, so a path written on Windows
-/// resolves on Linux): with `normalization_applies` unset,
+/// resolves on Linux; a path anchored by a leading separator or a drive is
+/// used as written, as a join does): with `normalization_applies` unset,
 /// `<stem>_normalized.<ext>` first, then `file`; with it set, the other way
 /// round. Each candidate is its own lookup in the folder's listing, its file
 /// name matched case-insensitively (the subfolder components are used as
@@ -67,9 +69,9 @@ fn find_in(dir: &Path, name: &str) -> Option<PathBuf> {
     folded
 }
 
-/// Every distinct song file of `export` (slot entries and event clips, in
-/// file order), resolved; the files that resolve nowhere listed once each,
-/// in file order.
+/// Every distinct song file of `export`, resolved, in the model's order: slot
+/// by slot in order of first appearance, file order within each, then the
+/// event clips; the files that resolve nowhere listed once each, in that order.
 pub fn resolve_export(
     export: &MusicExport,
     folder: &Path,
@@ -172,6 +174,25 @@ mod tests {
             resolved(&dir, "sub\\deep\\other.mp3", true).as_deref(),
             Some("sub/deep/Other.MP3"),
             "a path written on Windows, its name matched case-insensitively in its own subfolder"
+        );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    /// A leading separator or a drive anchors the path, as a join does: it is
+    /// not looked up under the export's folder.
+    #[test]
+    fn an_anchored_path_is_not_looked_up_under_the_folder() {
+        // The subfolder's name exists under the folder alone, nowhere at a
+        // root, so the anchored spellings find nothing.
+        let sub = format!("music_export_resolve_anchor_{}", std::process::id());
+        let relative = format!("{sub}/x.mp3");
+        let dir = temp_dir("anchored", &[(relative.as_str(), b"x")]);
+        assert_eq!(resolved(&dir, &format!("/{relative}"), true), None);
+        assert_eq!(resolved(&dir, &format!("\\{sub}\\x.mp3"), true), None);
+        assert_eq!(
+            resolved(&dir, &relative, true).as_deref(),
+            Some(relative.as_str()),
+            "the same file under a relative path is found"
         );
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }

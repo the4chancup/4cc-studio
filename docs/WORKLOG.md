@@ -10,8 +10,9 @@ is in `AGENTS.md` ("Working documents").
 ## Current status
 
 **Phase:** 6 (Export upgrader), opened 2026-10-17. Phase 5 (Savefile integration) closed
-2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
-(`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
+2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-e
+(`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
+with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
 **Next:** Phase 6 (Export upgrader): 6.6 (referee exports, plan steps 9 and 12), in progress on a
 side branch (`.tmp/lead/tracks.md`). 2.5b (GPU BC7) is step 16.x
@@ -672,7 +673,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
 
 The phase's steps are itemized when Phase 9 closes; its format crate was built ahead of it:
 
-- [~] 10.0 `libs/music_export`: the `.4ccm` format crate (`music_player.md` "The `.4ccm` format")
+- [x] 10.0 `libs/music_export`: the `.4ccm` format crate (`music_player.md` "The `.4ccm` format")
   - [x] 10.0a model, tokenizer, parser, serializer, 7 fixtures, census over the machine's 61
     `.4ccm` (56 parse and read back equal, 5 editor history copies refused for unknown keywords,
     as Rigdio refuses them); `indexmap` enters the workspace; `doc_pointers.py` lists the music
@@ -688,8 +689,17 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
     (a lead fix: the brief's exact-path shortcut returned the export's spelling on Windows);
     `select`'s skip follows its entry past an unload. SWE-2, first attempt, red runs pasted.
     Files: `src/{resolve,select,lib}.rs`
-  - [ ] 10.0e the plan's "Model" section extended with `Verdict`, `MatchState`, `PriorityList` as
-    built; `just mutants music_export`, each survivor triaged
+  - [x] 10.0e the plan's "Model" section carries every type and signature as built (the
+    lookup's shapes under "File resolution"), the `pub` audit (`.tmp/10_0e/pub_audit.md`: six
+    items with no planned consumer made `pub(crate)`), the design-tell sweep (one triple scorer
+    lookup folded, one discarded `Result` made a guard); `just mutants music_export`: 310
+    mutants, 282 caught, 26 unviable, 2 timeouts (real infinite loops in `select`'s counter),
+    0 missed; the extra kinds' 6 survivors became 4 tests and one simplification
+    (`resolve_song` joins the subfolder once), the rerun catches all 26; SWE-2 round S1 4
+    accepted (an anchored path's rule named and pinned, the lookup's rules and order stated),
+    loop ended, rulings `.tmp/10_0e/rulings.md`. Side-lead B, branch `side/10.0e`. Files:
+    `docs/plans/music_player.md`, `docs/DECISIONS.md`,
+    `crates/libs/music_export/src/{lib,model,eval,state,select,resolve,parse}.rs`
 
 ### Phase 16 — Polish and distribution
 

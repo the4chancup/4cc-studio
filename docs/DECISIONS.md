@@ -8707,11 +8707,17 @@ functions. `Press<'a>` keeps its lifetime, the crate's one struct lifetime, now 
 plan. Six items with no consumer in the player's or the editor's plan become `pub(crate)`:
 `Comparison::holds`, `SongEntry::is_once`, `TeamState::has_most_goals`, `TeamState::clear`,
 `MatchState::lead` and the `Loaded::fallback` field; `write`'s `condition_text` and
-`instruction_text` stay `pub(crate)` until the editor's chips need them.
+`instruction_text` stay `pub(crate)` until the editor's chips need them. `resolve_song` joins
+a song's subfolder once, after reading `\` as `/`, so a path anchored by a leading separator
+or a drive is used as written (a join's rule), where the split-and-fold it replaces put it
+under the export's folder.
 Why: the crate was built ahead of its phase from a section naming three shapes, and a
 consumer written at Phase 10 against the plan would otherwise be written against what a
 session remembered. A press is a one-call parameter bundle: borrowing the button's name is
 what a function argument does, and an owned `String` would allocate per press for nothing.
 The narrowed items are evaluation and selection internals; `CONTRIBUTING.md` makes `pub`
-crate API, and widening one when a consumer appears is one word.
+crate API, and widening one when a consumer appears is one word. The anchored-path rule is
+the plan's standard (`os.path.join` does the same) and no export on the machine has one (0 of
+1,808 song lines name a subfolder at all), so the simpler form wins over a rooting no file
+needs.
 Plan: `music_player.md` "Model", "File resolution".

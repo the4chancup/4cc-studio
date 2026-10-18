@@ -197,11 +197,16 @@ pub fn resolve_song(folder: &Path, file: &str, normalization_applies: bool) -> O
 pub fn resolve_export(export: &MusicExport, folder: &Path, normalization_applies: bool) -> Resolution;
 ```
 
-`resolve_song` tries two candidates in `folder` (and in `file`'s subfolder when it names one):
-with `normalization_applies` unset, `<stem>_normalized.<ext>` first, then `file`; with it set,
-the other way round. Each candidate is its own lookup in the folder's listing (the exact name,
-else the first case-insensitive match); an unreadable folder finds nothing. `resolve_export`
-looks up every distinct file of the slots and the event clips once, in file order.
+`resolve_song` tries two candidates in `folder`, or in `file`'s subfolder when it names one (a
+`\` separator is read as `/`, so a path written on Windows resolves on Linux; the subfolder
+components are used as written and only the file name matches case-insensitively; a path
+anchored by a leading separator or a drive is used as written, a join's rule and
+`os.path.join`'s, which no export on the machine exercises: 0 of its 1,808 song lines name a
+subfolder at all): with `normalization_applies` unset, `<stem>_normalized.<ext>` first, then
+`file`; with it set, the other way round. Each candidate is its own lookup in the folder's
+listing (the exact name, else the first case-insensitive match); an unreadable folder finds
+nothing. `resolve_export` looks up every distinct file once, in the model's order: slot by
+slot in order of first appearance, file order within each, then the event clips.
 
 ### Model
 
@@ -262,7 +267,8 @@ crate API (`CONTRIBUTING.md` "Code style", `pub(crate)` by default). The consume
 justifies each `pub` item is the music player ("Playback semantics", "Autopilot") or the
 [music export editor](music_export_editor.md) ("What the editor does", "New capabilities").
 
-**Conditions and instructions**, one variant per table row:
+**Conditions and instructions**, one variant per table row (`event` excepted: it lifts its
+line into an `EventClip`, above):
 
 ```rust
 pub enum Comparison { Eq, Ne, Lt, Gt, Le, Ge }   // `==` (`=` reads the same), `!=`, `<`, `>`, `<=`, `>=`
@@ -389,7 +395,7 @@ from then on; `special` is `False`, never auto-played (DECISIONS 2026-10-14).
 **Selection**, one list per button:
 
 ```rust
-pub struct Loaded { pub entry: SongEntry, /* fallback, checked_once: crate-private */ }
+pub struct Loaded { pub entry: SongEntry, /* fallback: pub(crate); checked_once: private */ }
 pub struct PriorityList { /* entries: Vec<Loaded>, shrinking as entries unload */ }
 
 pub struct Press<'a> {
