@@ -1,0 +1,369 @@
+//! Step 8's `settings.toml` files (`plans/export_upgrader.md` step 8): each
+//! rostered player's look as the save records it, generated through the same
+//! `PlayerSettings` the save editor writes, one file per output player
+//! folder. `from_player`'s output is adjusted for what the export's folders
+//! already decide, a line each: a boots or gloves folder of his worn ID
+//! claims the category, so its key is left out whatever the record holds; a
+//! stored 0 stays unset in a Full output but is written `0` in a Midcup one,
+//! where an unset key keeps the installed ID; and name writing is opt-in, so
+//! the file gets `name = true` only when the folder-derived name equals the
+//! raw save name (a derived name cannot carry colour codes). A value no
+//! `settings.toml` can hold is left out and reported, not fatal.
+
+use std::collections::BTreeMap;
+
+use pes_savefile::EditFile;
+use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
+use pes_savefile::settings_toml::{NameSetting, PlayerSettings};
+use studio_core::{Disposition, Message, Scope};
+
+use crate::messages::{Code, INPUT, tool_message};
+use crate::players::OutputFolder;
+use crate::roster::Roster;
+
+/// Step 8's `settings.toml` files and findings.
+#[derive(Debug, Default)]
+pub(crate) struct SettingsFiles {
+    /// Output path (`Players/15 - Snuffy/settings.toml`) → the file's bytes.
+    pub(crate) written: Vec<(String, Vec<u8>)>,
+    /// The findings, in slot order.
+    pub(crate) findings: Vec<Message>,
+}
+
+/// The step-8 plan for `roster`'s slots: one `settings.toml` per output
+/// folder in `folders`, and the findings each slot's decisions report.
+/// `full` is the output's coverage tag: only a Full output reports a
+/// folderless player's missing custom model.
+pub(crate) fn settings_files(
+    save: &EditFile,
+    roster: &Roster,
+    folders: &BTreeMap<u8, OutputFolder>,
+    full: bool,
+) -> SettingsFiles {
+    let mut files = SettingsFiles::default();
+    for (nn, player) in &roster.0 {
+        let slot = format!("{nn:02}");
+        let record = save
+            .player(player.id)
+            .expect("the roster read his record from the save");
+        let folder = folders.get(nn);
+        // A worn custom ID no migrated folder claims is missing content:
+        // checked for every rostered player of a Full output but in a
+        // Midcup one only for a player the output gives a folder (a Midcup
+        // compile leaves a folderless player as installed).
+        for (key, worn, claimed) in [
+            (
+                "boots_id",
+                player.boots_id,
+                folder.is_some_and(|folder| folder.boots_folder),
+            ),
+            (
+                "gloves_id",
+                player.gloves_id,
+                folder.is_some_and(|folder| folder.gloves_folder),
+            ),
+        ] {
+            if worn > 100 && !claimed && (full || folder.is_some()) {
+                files.findings.push(tool_message(
+                    Code::CustomModelMissing,
+                    Scope::Export { export_id: INPUT },
+                    Disposition::Keep,
+                    vec![
+                        ("slot", slot.clone()),
+                        ("name", player.name.clone()),
+                        ("key", key.to_owned()),
+                        ("id", worn.to_string()),
+                    ],
+                ));
+            }
+        }
+        let Some(folder) = folder else {
+            continue;
+        };
+        // The generation the save editor shares: a value past its key's
+        // widest range is left out and reported, any other failure loses
+        // the file.
+        let (mut settings, refused) = match PlayerSettings::from_player_skipping(record) {
+            Ok(generated) => generated,
+            Err(error) => {
+                files.findings.push(tool_message(
+                    Code::SettingsNotGenerated,
+                    Scope::Export { export_id: INPUT },
+                    Disposition::Keep,
+                    vec![
+                        ("slot", slot),
+                        ("name", player.name.clone()),
+                        ("error", error.to_string()),
+                    ],
+                ));
+                continue;
+            }
+        };
+        for value in &refused {
+            files.findings.push(tool_message(
+                Code::SettingsValueRefused,
+                Scope::Export { export_id: INPUT },
+                Disposition::Keep,
+                vec![
+                    ("slot", slot.clone()),
+                    ("name", player.name.clone()),
+                    ("key", value.key.clone()),
+                    ("value", value.value.to_string()),
+                ],
+            ));
+        }
+        // `from_player` gives a stock ID (1 to 100) or `None`. A folder of
+        // the category decides it instead; else a stored 0 is written only
+        // in a Midcup output, where an unset key keeps the installed ID.
+        for (claimed, stored, field) in [
+            (
+                folder.boots_folder,
+                record.appearance.boots_id,
+                &mut settings.boots_id,
+            ),
+            (
+                folder.gloves_folder,
+                record.appearance.gloves_id,
+                &mut settings.gloves_id,
+            ),
+        ] {
+            if claimed {
+                *field = None;
+            } else if stored == 0 && !full {
+                *field = Some(0);
+            }
+        }
+        // `name = true` writes the name the compiler derives from the
+        // folder name; the explicit string when they differ, the only
+        // spelling that can carry colour codes.
+        let folder_name = folder.path.rsplit('/').next().unwrap_or(&folder.path);
+        settings.name = if record.name == aesthetics_export::folder_player_name(folder_name) {
+            Some(NameSetting::FromFolder)
+        } else {
+            Some(NameSetting::Explicit(record.name.clone()))
+        };
+        match settings.to_toml() {
+            Ok(text) => {
+                // A stripped record still is his look until the team's first
+                // Studio compile, so the file is generated all the same and
+                // he is named.
+                if record.appearance_id == Some(STRIPPED_APPEARANCE_ID) {
+                    files.findings.push(tool_message(
+                        Code::SettingsFromStrippedRecord,
+                        Scope::Export { export_id: INPUT },
+                        Disposition::Keep,
+                        vec![("slot", slot), ("name", player.name.clone())],
+                    ));
+                }
+                files
+                    .written
+                    .push((format!("{}/settings.toml", folder.path), text.into_bytes()));
+            }
+            Err(error) => files.findings.push(tool_message(
+                Code::SettingsNotGenerated,
+                Scope::Export { export_id: INPUT },
+                Disposition::Keep,
+                vec![
+                    ("slot", slot),
+                    ("name", player.name.clone()),
+                    ("error", error.to_string()),
+                ],
+            )),
+        }
+    }
+    files
+}
+
+#[cfg(test)]
+mod tests {
+    use pes_version::PesVersion;
+    use teams_list::TeamId;
+
+    use super::*;
+
+    /// The PES 21 fixture save with `edit` applied to its model.
+    fn save_edited(edit: impl FnOnce(&mut EditFile)) -> EditFile {
+        let mut file = EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21))
+            .expect("the fixture save loads");
+        edit(&mut file);
+        file
+    }
+
+    /// `/co/`'s roster read from `save` (team 714).
+    fn roster_of(save: &EditFile) -> Roster {
+        Roster::read(save, TeamId::new(714).unwrap())
+    }
+
+    /// A slot's output folder at `path` (`Players/NN …`), claiming neither
+    /// category.
+    fn plain(path: &str) -> OutputFolder {
+        OutputFolder {
+            path: path.to_owned(),
+            boots_folder: false,
+            gloves_folder: false,
+        }
+    }
+
+    /// The `settings.toml` written for the folder `path`, parsed back.
+    fn settings_of(files: &SettingsFiles, path: &str) -> PlayerSettings {
+        let wanted = format!("{path}/settings.toml");
+        let matching: Vec<_> = files
+            .written
+            .iter()
+            .filter(|(written, _)| *written == wanted)
+            .collect();
+        assert_eq!(matching.len(), 1, "one settings.toml for {path}");
+        PlayerSettings::parse(std::str::from_utf8(&matching[0].1).unwrap())
+            .expect("the file parses")
+    }
+
+    fn findings_named<'a>(files: &'a SettingsFiles, code: &str) -> Vec<&'a Message> {
+        files
+            .findings
+            .iter()
+            .filter(|message| message.code.code.as_ref() == code)
+            .collect()
+    }
+
+    #[test]
+    fn a_stock_id_is_kept_and_a_claimed_one_left_out() {
+        let save = save_edited(|file| {
+            file.player_mut(71405).unwrap().appearance.boots_id = 12;
+            file.player_mut(71406).unwrap().appearance.boots_id = 12;
+        });
+        let roster = roster_of(&save);
+        let mut folders = BTreeMap::new();
+        folders.insert(5, plain("Players/05 - A"));
+        folders.insert(
+            6,
+            OutputFolder {
+                path: "Players/06 - B".to_owned(),
+                boots_folder: true,
+                gloves_folder: false,
+            },
+        );
+        let files = settings_files(&save, &roster, &folders, true);
+        assert_eq!(settings_of(&files, "Players/05 - A").boots_id, Some(12));
+        assert_eq!(settings_of(&files, "Players/06 - B").boots_id, None);
+    }
+
+    #[test]
+    fn a_stored_zero_is_unset_full_and_written_midcup() {
+        let save = save_edited(|file| {
+            file.player_mut(71405).unwrap().appearance.gloves_id = 0;
+        });
+        let roster = roster_of(&save);
+        let mut folders = BTreeMap::new();
+        folders.insert(5, plain("Players/05 - A"));
+        let files = settings_files(&save, &roster, &folders, true);
+        assert_eq!(settings_of(&files, "Players/05 - A").gloves_id, None);
+        let files = settings_files(&save, &roster, &folders, false);
+        assert_eq!(settings_of(&files, "Players/05 - A").gloves_id, Some(0));
+    }
+
+    #[test]
+    fn a_custom_id_no_folder_claims_is_reported_as_full_allows() {
+        let save = save_edited(|file| {
+            file.player_mut(71405).unwrap().appearance.boots_id = 433;
+            file.player_mut(71406).unwrap().appearance.boots_id = 433;
+            // The stock band's top, a game model: not custom content.
+            file.player_mut(71407).unwrap().appearance.boots_id = 100;
+        });
+        let roster = roster_of(&save);
+        // 05 gets a folder that claims no boots; 06 and 07 get none.
+        let mut folders = BTreeMap::new();
+        folders.insert(5, plain("Players/05 - A"));
+
+        let files = settings_files(&save, &roster, &folders, true);
+        let missing = findings_named(&files, "custom_model_missing");
+        assert_eq!(missing.len(), 2, "{:?}", files.findings);
+        let slots: Vec<&str> = missing
+            .iter()
+            .map(|message| {
+                message
+                    .context
+                    .iter()
+                    .find(|(key, _)| key == "slot")
+                    .unwrap()
+                    .1
+                    .as_str()
+            })
+            .collect();
+        assert_eq!(slots, ["05", "06"], "every rostered player is checked");
+        assert_eq!(
+            settings_of(&files, "Players/05 - A").boots_id,
+            None,
+            "the missing custom ID is not written"
+        );
+
+        // Midcup: only the player the output gives a folder is checked.
+        let files = settings_files(&save, &roster, &folders, false);
+        let missing = findings_named(&files, "custom_model_missing");
+        assert_eq!(missing.len(), 1, "{:?}", files.findings);
+        assert_eq!(
+            missing[0]
+                .context
+                .iter()
+                .find(|(key, _)| key == "slot")
+                .unwrap()
+                .1,
+            "05"
+        );
+
+        // No folder at all in Midcup: nothing reported, nothing written.
+        let files = settings_files(&save, &roster, &BTreeMap::new(), false);
+        assert!(findings_named(&files, "custom_model_missing").is_empty());
+        assert!(files.written.is_empty());
+    }
+
+    #[test]
+    fn the_name_is_from_folder_only_when_it_derives_to_the_save_name() {
+        let save = save_edited(|_| {});
+        let roster = roster_of(&save);
+        let raw = save.player(71405).unwrap().name.clone();
+        let mut folders = BTreeMap::new();
+        // His folder named as his save name: `name = true`.
+        folders.insert(5, plain(&format!("Players/05 - {raw}")));
+        // A folder named by its number alone: the explicit save name.
+        folders.insert(7, plain("Players/07"));
+        let files = settings_files(&save, &roster, &folders, true);
+        assert_eq!(
+            settings_of(&files, &format!("Players/05 - {raw}")).name,
+            Some(NameSetting::FromFolder)
+        );
+        assert_eq!(
+            settings_of(&files, "Players/07").name,
+            Some(NameSetting::Explicit(raw))
+        );
+    }
+
+    #[test]
+    fn a_stripped_record_is_named_and_generated_all_the_same() {
+        let save = save_edited(|file| {
+            file.player_mut(71405).unwrap().appearance_id = Some(STRIPPED_APPEARANCE_ID);
+        });
+        let roster = roster_of(&save);
+        let mut folders = BTreeMap::new();
+        folders.insert(5, plain("Players/05 - A"));
+        let files = settings_files(&save, &roster, &folders, true);
+        let stripped = findings_named(&files, "settings_from_stripped_record");
+        assert_eq!(stripped.len(), 1, "{:?}", files.findings);
+        assert_eq!(
+            stripped[0]
+                .context
+                .iter()
+                .find(|(key, _)| key == "slot")
+                .unwrap()
+                .1,
+            "05"
+        );
+        let settings = settings_of(&files, "Players/05 - A");
+        assert_eq!(
+            settings.appearance,
+            PlayerSettings::from_player(save.player(71405).unwrap())
+                .unwrap()
+                .appearance,
+            "the stripped record's look is written all the same"
+        );
+    }
+}

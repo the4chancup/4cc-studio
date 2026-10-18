@@ -12,3 +12,4 @@ mod input;
 mod kits;
 mod players;
 mod roots;
+mod settings;

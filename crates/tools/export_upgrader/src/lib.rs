@@ -8,9 +8,9 @@
 //! roster through `roster`, the player folders planned by `players`, the kit
 //! folders by `kits`, the carried folders by `carried`, the `.mtl` rewrites
 //! by `materials`, the `face.xml` respells by `face_xml`, the kit magic by
-//! `kit_magic`, the pre-Fox model renames by `model_names`, the output's
-//! name through `naming`, and every finding goes through the `messages`
-//! catalog.
+//! `kit_magic`, the pre-Fox model renames by `model_names`, the
+//! `settings.toml` files by `settings`, the output's name through `naming`,
+//! and every finding goes through the `messages` catalog.
 
 mod carried;
 mod cli;
@@ -24,6 +24,7 @@ mod naming;
 mod note;
 mod players;
 mod roster;
+mod settings;
 mod source;
 mod upgrade;
 

@@ -440,6 +440,19 @@ pub struct NarrowedValue {
     pub range: String,
 }
 
+/// A stored value `PlayerSettings::from_player_skipping` left unset: its key's
+/// kind (the widest range over every version) cannot represent it, as a PES 16
+/// cup player's `goal_celebration_2` 183.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RefusedValue {
+    /// The key's dotted TOML path, as `NarrowedValue::key`.
+    pub key: String,
+    /// The stored value.
+    pub value: i64,
+    /// The key's widest range as the file would write it ("0 to 162").
+    pub range: String,
+}
+
 /// A `PlayerSettings` could not be produced or applied.
 #[derive(Debug, thiserror::Error)]
 pub enum SettingsError {
@@ -891,19 +904,43 @@ impl PlayerSettings {
 
     /// Every key `Some` from the player; `name` is `Explicit` of the raw name,
     /// colour codes included. A stored value the key's kind cannot represent
-    /// (a hostile save's out-of-range bits) is `OutOfRange`.
+    /// (a hostile save's out-of-range bits) is `OutOfRange` — the first one
+    /// `from_player_skipping` collects, back as the error.
     pub fn from_player(player: &PlayerEntry) -> Result<Self, SettingsError> {
+        let (settings, refused) = Self::from_player_skipping(player)?;
+        if let Some(RefusedValue { key, value, range }) = refused.into_iter().next() {
+            return Err(SettingsError::OutOfRange { key, value, range });
+        }
+        Ok(settings)
+    }
+
+    /// `from_player`'s loop with the refused values collected instead of
+    /// failing the player: a `set` returning `OutOfRange` leaves the key
+    /// unset and pushes a `RefusedValue` (in the key table's order), any
+    /// other error propagates. `from_player` is this with the first refused
+    /// value back as `OutOfRange`.
+    pub fn from_player_skipping(
+        player: &PlayerEntry,
+    ) -> Result<(Self, Vec<RefusedValue>), SettingsError> {
         let mut settings = PlayerSettings {
             name: Some(NameSetting::Explicit(player.name.clone())),
             shirt_name: Some(player.shirt_name.clone()),
             ..PlayerSettings::default()
         };
+        let mut refused = Vec::new();
         for key in SettingKey::ALL {
-            if let Some(value) = read(player, key)? {
-                settings.set(key, value)?;
+            let Some(value) = read(player, key)? else {
+                continue;
+            };
+            match settings.set(key, value) {
+                Ok(()) => {}
+                Err(SettingsError::OutOfRange { key, value, range }) => {
+                    refused.push(RefusedValue { key, value, range });
+                }
+                Err(error) => return Err(error),
             }
         }
-        Ok(settings)
+        Ok((settings, refused))
     }
 
     /// Writes the settings onto the player, all or nothing: on `Err` the

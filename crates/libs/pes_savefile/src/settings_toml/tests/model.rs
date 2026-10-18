@@ -883,6 +883,43 @@ fn every_fixture_player_round_trips_through_his_settings() {
     );
 }
 
+/// The one fixture player whose stored value no key's range can hold (the
+/// PES 16 save's `goal_celebration_2` 183, found as the round trip above
+/// finds him): `from_player_skipping` leaves the key unset and reports the
+/// value, the rest of his settings filled; `from_player` still fails him.
+#[test]
+fn from_player_skipping_leaves_an_unrepresentable_value_out() {
+    let (file, _) = open(PesVersion::Pes16);
+    let player = file
+        .players()
+        .iter()
+        .find(|player| {
+            player
+                .get(PlayerField::GoalCelebration2)
+                .is_ok_and(|value| value == 183)
+        })
+        .expect("the fixture save's player storing 183 in goal_celebration_2");
+    let (settings, refused) =
+        PlayerSettings::from_player_skipping(player).expect("from_player_skipping");
+    assert_eq!(
+        refused,
+        vec![RefusedValue {
+            key: "appearance.motion.goal_celebration_2".to_string(),
+            value: 183,
+            range: "0 to 162".to_string(),
+        }]
+    );
+    assert_eq!(settings.appearance.motion.goal_celebration_2, None);
+    assert!(settings.appearance.motion.goal_celebration_1.is_some());
+    assert!(
+        matches!(
+            PlayerSettings::from_player(player),
+            Err(SettingsError::OutOfRange { .. })
+        ),
+        "from_player still refuses him"
+    );
+}
+
 /// A motion at its version's measured top reads into a settings file and
 /// applies back: the parser's widest range takes every version's top.
 #[test]

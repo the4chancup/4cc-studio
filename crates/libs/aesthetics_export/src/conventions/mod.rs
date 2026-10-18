@@ -90,6 +90,13 @@ pub(crate) fn split_folder_name(name: &str) -> (&str, Option<&str>) {
     }
 }
 
+/// The name a numbered player folder's `name = true` writes ("Validation
+/// semantics" → "Folder names"): its label after the first `-` (`15 -
+/// Snuffy` gives `Snuffy`), or the whole name when it has none.
+pub fn folder_player_name(folder_name: &str) -> &str {
+    split_folder_name(folder_name).1.unwrap_or(folder_name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,5 +122,11 @@ mod tests {
         ] {
             assert!(!is_small_metadata(path), "{path}");
         }
+    }
+
+    #[test]
+    fn folder_player_name_is_the_label_or_the_whole_name() {
+        assert_eq!(folder_player_name("03 - Jean-Pierre"), "Jean-Pierre");
+        assert_eq!(folder_player_name("07"), "07");
     }
 }

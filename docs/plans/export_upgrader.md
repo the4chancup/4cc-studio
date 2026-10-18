@@ -460,10 +460,18 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    it is written (`boots_id = 0`): an unset key there keeps the installed ID
    (`spec/aesthetics_export/settings_toml.md`), which may not be the default his record holds;
    a Full output keeps it unset, since an explicit 0 would also override the hide preset an
-   author who switches to the `fpc_on` marker expects. A custom ID worn by a player that no model folder of the export claims is
+   author who switches to the `fpc_on` marker expects. An ID a migrated boots or gloves folder
+   claims (his worn ID, merged into his folder or linked from it) is left out whatever its
+   value, a stock-band one included: the folder decides that category, and a number beside it
+   would be ignored at every compile (`settings_model_id_conflict`). A custom ID worn by a player that no model folder of the export claims is
    reported (step 10): the content is missing, and writing the number would point at whatever
-   Studio's block scheme later assigns there. Since name writing is opt-in, the upgrader emits `name = true` when the folder name's name
-   part equals the savefile name, or the explicit string otherwise — which is the case whenever the
+   Studio's block scheme later assigns there. It is `custom_model_missing` (E, the slot, the
+   player's name, the key and the ID), checked for every rostered player of a Full output but
+   in a Midcup output only for one the output gives a folder: a Midcup compile leaves a player
+   without a folder as installed, his content included, while a Full one rebuilds the team from
+   the export alone. Since name writing is opt-in, the upgrader emits `name = true` when the
+   player name the compiler derives from the output folder's name (`aesthetics_export`'s rule,
+   the name part of `NN - Name`) equals the savefile name, or the explicit string otherwise — which is the case whenever the
    folder was named from the face folder rather than the savefile, and whenever the savefile name
    can't be expressed in a folder name (filesystem-invalid characters, **including name colour
    codes**, which the explicit string preserves byte-for-byte so a compile never strips them).
@@ -473,10 +481,13 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    ("Player settings in exports" in the [Aesthetics export plan](aesthetics_export/settings_toml.md)).
    A value past even a key's widest range cannot be written, the parser refusing it (a PES 16
    cup player stores `goal_celebration_2` 183, `spec/aesthetics_export/settings_toml.md`): that
-   key is left out of his file and reported (W), naming the player, the key and the value. On a stripped Fox save
+   key is left out of his file and reported (W, `settings_value_refused`: the slot, the
+   player's name, the dotted key and the stored value). A record whose file cannot be generated
+   at all (a field read that fails) leaves his folder without one, reported
+   `settings_not_generated` (E, the slot, the name and the error). On a stripped Fox save
    (`spec/save_editor.md` "Stripped save") the save editor's generation skips a player at -1,
    his record not being his look; the upgrader generates from the record all the same and names
-   him in the report (I): strip-and-seed seeded his rows from those bytes, and the compiler,
+   him in the report (I, `settings_from_stripped_record`, the slot and the name): strip-and-seed seeded his rows from those bytes, and the compiler,
    which does not read the AET layout, has compiled nothing of his team since, so the record
    still is his look. That holds until the team's first Studio compile, which the upgrader
    cannot see: from then on his look is the compiled export's `settings.toml` (a save

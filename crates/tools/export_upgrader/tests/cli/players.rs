@@ -34,7 +34,7 @@ const FACE_FILES: [(&str, &[u8]); 4] = [
 ];
 
 /// An old export's face folder at `relative` with the four face files.
-fn face(sandbox: &Sandbox, relative: &str) {
+pub(crate) fn face(sandbox: &Sandbox, relative: &str) {
     for (name, bytes) in FACE_FILES {
         sandbox.write(&format!("{relative}/{name}"), bytes);
     }
@@ -50,20 +50,20 @@ const BOOTS_FILES: [(&str, &[u8]); 3] = [
 ];
 
 /// An old export's boots folder at `relative`.
-fn boots(sandbox: &Sandbox, relative: &str) {
+pub(crate) fn boots(sandbox: &Sandbox, relative: &str) {
     for (name, bytes) in BOOTS_FILES {
         sandbox.write(&format!("{relative}/{name}"), bytes);
     }
 }
 
 /// A gloves folder at `relative` (`glove_l.fmdl`, `glove_r.fmdl`).
-fn gloves(sandbox: &Sandbox, relative: &str) {
+pub(crate) fn gloves(sandbox: &Sandbox, relative: &str) {
     sandbox.write(&format!("{relative}/glove_l.fmdl"), b"glove_l");
     sandbox.write(&format!("{relative}/glove_r.fmdl"), b"glove_r");
 }
 
 /// Sets `id`'s `boots_id` and `gloves_id` on its appearance record.
-fn wears(file: &mut pes_savefile::EditFile, id: u32, boots_id: u32, gloves_id: u32) {
+pub(crate) fn wears(file: &mut pes_savefile::EditFile, id: u32, boots_id: u32, gloves_id: u32) {
     let player = file.player_mut(id).unwrap();
     player.appearance.boots_id = boots_id;
     player.appearance.gloves_id = gloves_id;

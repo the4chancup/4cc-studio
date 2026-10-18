@@ -2127,3 +2127,5 @@ worklog passed 7,000 lines.
   `oral_`/`_win32` off, `.mtl` and links following) outside folders that ship a `face.xml`.
 - **2026-10-18** — Astra M-A2 on 6.4c-d: an author's `kit1` beside a legacy kit token written
   `Kit1`; the compiler now refuses a member FMDL's bare `./` texture found nowhere.
+- **2026-10-18** — 6.5: each migrated player folder gets its `settings.toml` from the save record;
+  a value no key can hold is left out and reported, a missing custom model reported.

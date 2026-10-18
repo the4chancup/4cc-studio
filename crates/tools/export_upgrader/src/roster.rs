@@ -1,5 +1,6 @@
 //! The team's roster as the save records it (step 2): each rostered player's
-//! display name and, for 6.2b, his worn boots and gloves IDs.
+//! display name and, for 6.2b, his worn boots and gloves IDs, and his player
+//! ID for step 8's record read.
 
 use std::collections::BTreeMap;
 
@@ -10,6 +11,9 @@ use teams_list::TeamId;
 /// One rostered player of the resolved team, as the save records him (step 2).
 #[derive(Debug)]
 pub(crate) struct RosteredPlayer {
+    /// The player ID the roster entry named and his record was read by
+    /// (`team_id * 100 + NN`), for step 8's `save.player` read.
+    pub(crate) id: u32,
     /// The save's name with its colour codes stripped (`pes_savefile`'s
     /// `display_name`).
     pub(crate) name: String,
@@ -54,6 +58,7 @@ impl Roster {
                 players.insert(
                     nn as u8,
                     RosteredPlayer {
+                        id: slot.player_id,
                         name: display_name(&player.name),
                         boots_id: player.appearance.boots_id,
                         gloves_id: player.appearance.gloves_id,

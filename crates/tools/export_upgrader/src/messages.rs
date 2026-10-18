@@ -77,6 +77,23 @@ pub(crate) enum Code {
     /// subfolder `.mtl` names a Common subfolder (`reference`, the path as
     /// written).
     CommonReferenceKept,
+    /// A rostered player's save record wears a custom boots or gloves ID
+    /// (above 100) no migrated folder claims: the content is missing (step
+    /// 8; `slot`, `name`, `key` the ID's own, `id`). Checked for every
+    /// rostered player of a Full output but in a Midcup one only for a
+    /// player the output gives a folder.
+    CustomModelMissing,
+    /// A stored value no `settings.toml` key can hold, left out of the
+    /// player's file (`slot`, `name`, `key` the dotted key, `value` the
+    /// stored value).
+    SettingsValueRefused,
+    /// A `settings.toml` generated from a stripped record: the record still
+    /// is his look until the team's first Studio compile, which keeps its
+    /// own file instead (`slot`, `name`).
+    SettingsFromStrippedRecord,
+    /// A player's `settings.toml` could not be generated at all (`slot`,
+    /// `name`, `error` the failure's text).
+    SettingsNotGenerated,
 }
 
 impl Code {
@@ -99,6 +116,10 @@ impl Code {
             Code::LogoSmallDropped => "logo_small_dropped",
             Code::LogoFallback => "logo_fallback",
             Code::CommonReferenceKept => "common_reference_kept",
+            Code::CustomModelMissing => "custom_model_missing",
+            Code::SettingsValueRefused => "settings_value_refused",
+            Code::SettingsFromStrippedRecord => "settings_from_stripped_record",
+            Code::SettingsNotGenerated => "settings_not_generated",
         }
     }
 
@@ -121,6 +142,10 @@ impl Code {
         Code::LogoSmallDropped,
         Code::LogoFallback,
         Code::CommonReferenceKept,
+        Code::CustomModelMissing,
+        Code::SettingsValueRefused,
+        Code::SettingsFromStrippedRecord,
+        Code::SettingsNotGenerated,
     ];
 }
 
@@ -148,6 +173,10 @@ const CATALOG: &[(&str, Severity)] = &[
     ("logo_small_dropped", Severity::Info),
     ("logo_fallback", Severity::Warning),
     ("common_reference_kept", Severity::Warning),
+    ("custom_model_missing", Severity::Error),
+    ("settings_value_refused", Severity::Warning),
+    ("settings_from_stripped_record", Severity::Info),
+    ("settings_not_generated", Severity::Error),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", Severity::Warning),
     ("nested_root_ambiguous", Severity::Error),

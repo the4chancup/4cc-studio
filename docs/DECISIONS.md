@@ -8657,3 +8657,22 @@ and the file names distinct, while the token grammar (spelled exactly) no longer
 dropping or renaming the fragment would lose what it says, and a set token the grammar picks
 by position would change a rule the compiler and validation share.
 Plan: `plans/export_upgrader.md` step 7 (the kit magic).
+
+## 2026-10-18 — export_upgrader — step 8's codes, the Midcup scope of a missing custom model, and a claimed ID left out
+Decision: (1) step 8 reports `custom_model_missing` (E), `settings_value_refused` (W),
+`settings_from_stripped_record` (I) and `settings_not_generated` (E), each with the slot and the
+player's name. (2) a worn custom ID no migrated folder claims is checked for every rostered
+player of a Full output, but in a Midcup output only for a player the output gives a folder.
+(3) a boots or gloves ID a migrated folder claims is left out of `settings.toml` whatever its
+value, a stock-band one included. (4) `name = true` is written when the player name the
+compiler derives from the output folder's name (`aesthetics_export`'s rule) equals the save's
+raw name.
+Why: (1) the plan named the findings' severities but no codes. (2) a Midcup compile leaves a
+player without a folder as installed, his custom content included, so checking him would flag
+every Midcup export's other players and exit 1 on content nothing loses; a Full compile
+rebuilds the team from the export alone, so there the missing model is lost. (3) the plan kept
+a stock ID "which no folder carries", silent on a folder spelled with a stock-band ID; written
+beside the folder, the key is ignored at every compile (`settings_model_id_conflict`) and says
+nothing. (4) one rule with the compiler's own derivation, not a second reading of the folder
+name that could drift from it (a name part with a hyphen, a folder named by its number alone).
+Plan: `plans/export_upgrader.md` step 8.

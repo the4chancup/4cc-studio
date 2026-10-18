@@ -13,7 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): 6.5 (`settings.toml` generation, plan step 8). 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): 6.5's review loop (SWE-2, then Astra), then 6.6 (referee
+exports, plan steps 9 and 12). 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -600,8 +601,18 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     now reports a bare `./` stem found nowhere (it called it supplied, against
     `pipeline.md`); SWE-2 round 6.4.S7 on them 1 accepted (an empty FMDL directory is bare
     too), loop ended
-- [ ] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
-  EU-SET-*
+- [x] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
+  EU-SET-*. Done 2026-10-18: every EU-SET scenario and EU-ROOT-01's settings half proven; step 8's
+  four codes, a Midcup output checking a missing custom model only for players with a folder,
+  a folder-claimed ID left out (DECISIONS 2026-10-18 "step 8's codes…"); `pes_savefile`
+  `from_player_skipping` leaves a value past its key's widest range out (EU-SET-09's real 183),
+  `aesthetics_export` `folder_player_name` public for the name rule; lead review: test helpers
+  shared with `players.rs`, EU-SET-09's face folder made pre-Fox; mutation diff 1 survivor (the
+  stock band's top, 100) tested; review round 6.5.S1 2 accepted (loop ended,
+  `.tmp/6_5/rulings.md`), fixed here; files:
+  `export_upgrader/src/{settings,players,roster,upgrade,messages,lib}.rs`,
+  `tests/cli/{settings,roots,players,main}.rs`, `pes_savefile/src/settings_toml/`,
+  `aesthetics_export/src/{conventions/mod,validate/folders,lib}.rs`
 - [ ] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*
   - the `???` respelling (`materials.rs`, `kit_magic.rs`) takes a `TeamId`, which cannot be
     999: widen it to the export's ID for referees (round 6.4.S3-4)

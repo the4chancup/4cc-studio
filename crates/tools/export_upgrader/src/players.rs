@@ -6,9 +6,10 @@
 //! `ingame_face` marker normalized. A boots or gloves folder one player wears
 //! merges into his folder on a Fox export; one worn by two or more, or any
 //! worn one on a pre-Fox export, stays a named shared folder with a link file.
-//! `settings.toml` is 6.5's; a referee export's folders stay unmigrated
-//! content here (6.6's), and loose mode builds the player folders without
-//! the save's names and leaves the item folders unmigrated (6.7's).
+//! Each slot's output folder lands in `PlayerFolders::folders` for step 8's
+//! `settings.toml` (`settings.rs`); a referee export's folders stay
+//! unmigrated content here (6.6's), and loose mode builds the player folders
+//! without the save's names and leaves the item folders unmigrated (6.7's).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -37,6 +38,19 @@ pub(crate) struct PlayerFolders {
     /// Each slot's face-folder portrait: slot (1-23) → its input path, for
     /// step 7's comparison with `Portraits/`.
     pub(crate) portraits: BTreeMap<u8, String>,
+    /// Each slot's output player folder (1-23), for step 8.
+    pub(crate) folders: BTreeMap<u8, OutputFolder>,
+}
+
+/// One slot's output player folder as steps 3-4 leave it.
+#[derive(Debug)]
+pub(crate) struct OutputFolder {
+    /// The folder's output path (`Players/15 - Snuffy`).
+    pub(crate) path: String,
+    /// A boots folder of his worn ID was merged into it or is linked from it.
+    pub(crate) boots_folder: bool,
+    /// The same for a gloves folder.
+    pub(crate) gloves_folder: bool,
 }
 
 /// The slot a face folder's name gives: characters 4-5, after any three
@@ -76,6 +90,11 @@ struct PlayerFolder {
     boots_name_part: String,
     /// The worn gloves folder's name part, `""` when none.
     gloves_name_part: String,
+    /// A boots folder of his worn ID was merged into the folder or is linked
+    /// from it (step 8's "the folder decides the category").
+    boots_folder: bool,
+    /// The same for a gloves folder.
+    gloves_folder: bool,
     /// A kept face folder exists for the slot.
     has_face: bool,
     /// The bare `ingame_face` marker to write.
@@ -92,6 +111,8 @@ impl PlayerFolder {
             face_name_part: String::new(),
             boots_name_part: String::new(),
             gloves_name_part: String::new(),
+            boots_folder: false,
+            gloves_folder: false,
             has_face: false,
             marker: false,
             files: BTreeMap::new(),
@@ -256,6 +277,14 @@ pub(crate) fn player_folders(
         for link in &player.links {
             plan.markers.push(format!("{folder}/{link}"));
         }
+        plan.folders.insert(
+            *nn,
+            OutputFolder {
+                path: folder,
+                boots_folder: player.boots_folder,
+                gloves_folder: player.gloves_folder,
+            },
+        );
     }
     plan
 }
@@ -452,8 +481,14 @@ fn item_folders(
             // `ingame_face` marker.
             player.marker = player.marker || !player.has_face;
             match kind {
-                ItemKind::Boots => player.boots_name_part = name_part.clone(),
-                ItemKind::Gloves => player.gloves_name_part = name_part.clone(),
+                ItemKind::Boots => {
+                    player.boots_name_part = name_part.clone();
+                    player.boots_folder = true;
+                }
+                ItemKind::Gloves => {
+                    player.gloves_name_part = name_part.clone();
+                    player.gloves_folder = true;
+                }
             }
         }
         // On a Fox export a folder used by exactly one player merges into his
@@ -591,6 +626,7 @@ mod tests {
                     (
                         *slot,
                         RosteredPlayer {
+                            id: 71400 + u32::from(*slot),
                             name: (*name).to_owned(),
                             boots_id: 0,
                             gloves_id: 0,
@@ -610,6 +646,7 @@ mod tests {
                     (
                         *slot,
                         RosteredPlayer {
+                            id: 71400 + u32::from(*slot),
                             name: (*name).to_owned(),
                             boots_id: *boots,
                             gloves_id: *gloves,

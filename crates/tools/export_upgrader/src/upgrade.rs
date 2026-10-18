@@ -38,6 +38,7 @@ use crate::naming::output_name;
 use crate::note;
 use crate::players::{PlayerFolders, player_folders};
 use crate::roster::Roster;
+use crate::settings::{SettingsFiles, settings_files};
 use crate::source::{self, OldExport, SourceFailure};
 
 /// A command is one run per process, so every event carries the same run id.
@@ -454,22 +455,29 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         }
     };
 
-    // Steps 2-4's plan for the face and item folders, step 5's for the kits
-    // and step 7's for the carried folders, the `.mtl` rewrites, the
-    // `face.xml` respells and the kit magic: `run`'s findings, then every
-    // file copied and written. A referee export's folders stay unmigrated
-    // content (6.6's); it holds no `Kit Configs`/`Kit Textures` either,
-    // which the same fallback reports.
+    // Steps 2-4's plan for the face and item folders, step 5's for the kits,
+    // step 7's for the carried folders, the `.mtl` rewrites, the `face.xml`
+    // respells and the kit magic, and step 8's `settings.toml` files:
+    // `run`'s findings, then every file copied and written. A referee
+    // export's folders stay unmigrated content (6.6's); it holds no
+    // `Kit Configs`/`Kit Textures` either, which the same fallback reports.
     let files = export.files.clone();
-    let (plan, kits, carried, materials, face_xml) = match &identity {
+    let (plan, kits, carried, materials, face_xml, settings) = match &identity {
         Identity::Referees => (
             PlayerFolders::default(),
             KitFolders::default(),
             CarriedFiles::default(),
             MaterialRewrites::default(),
             Vec::new(),
+            SettingsFiles::default(),
         ),
         Identity::Team { id, .. } => {
+            // The coverage tag decides step 5's `all/` kits and step 8's
+            // worn-0 and missing-custom rules alike.
+            let full = matches!(
+                aesthetics_export::coverage(&output_name),
+                Some(aesthetics_export::ExportCoverage::Full)
+            );
             let mut plan =
                 player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
                     match (export.read(a), export.read(b)) {
@@ -477,6 +485,12 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                         _ => false,
                     }
                 });
+            // Step 8: a `settings.toml` per player folder, from the save's
+            // records (loose mode has none).
+            let settings = match (&invocation.save, &roster) {
+                (Some(save), Some(roster)) => settings_files(save, roster, &plan.folders, full),
+                _ => SettingsFiles::default(),
+            };
             let mut carried = carried_files(&files, &plan.portraits, |path| export.read(path));
             // The kit magic respells the plans' output names, then step
             // 7's model renames apply (`kept` the `Common/` names a member
@@ -521,15 +535,13 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                     &files,
                     version,
                     note_path.as_deref().zip(note_text.as_deref()),
-                    matches!(
-                        aesthetics_export::coverage(&output_name),
-                        Some(aesthetics_export::ExportCoverage::Full)
-                    ),
+                    full,
                     |path| export.read(path),
                 ),
                 carried,
                 materials,
                 face_xml,
+                settings,
             )
         }
     };
@@ -539,6 +551,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         .chain(kits.findings)
         .chain(carried.findings)
         .chain(materials.findings)
+        .chain(settings.findings)
     {
         if message.code.code.as_ref() == Code::UnmigratedContent.as_str() {
             any_unmigrated = true;
@@ -581,6 +594,9 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     }
     for marker in &plan.markers {
         write_output_file(&output, marker, b"")?;
+    }
+    for (path, bytes) in &settings.written {
+        write_output_file(&output, path, bytes)?;
     }
 
     // Step 10: every input file no step consumed is unmigrated content.

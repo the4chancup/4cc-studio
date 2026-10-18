@@ -18,8 +18,8 @@ use toml_edit::DocumentMut;
 use super::keys::Source;
 use super::{
     AppearanceSettings, KeyTable, Kind, MotionSettings, NameField, NameSetting, NarrowedValue,
-    Ownership, PlayerSettings, SettingKey, SettingsError, appearance_from, face_ownership,
-    get_appearance, held_on, ownership,
+    Ownership, PlayerSettings, RefusedValue, SettingKey, SettingsError, appearance_from,
+    face_ownership, get_appearance, held_on, ownership,
 };
 use crate::codec::{CodecError, read_player, runs, text_max, write_player};
 use crate::model::ingame_face::IngameFace;

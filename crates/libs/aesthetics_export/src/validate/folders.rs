@@ -8,8 +8,8 @@ use vtree::ScopePath;
 
 use crate::FileKind;
 use crate::conventions::{
-    Marker, MetadataFile, SharedKind, classify, common_link_name, is_boots, is_explicit_face,
-    is_gloves, is_player_singleton, is_txt_note, model_suffix, shared_link_name, split_folder_name,
+    Marker, MetadataFile, SharedKind, classify, common_link_name, folder_player_name, is_boots,
+    is_explicit_face, is_gloves, is_player_singleton, is_txt_note, model_suffix, shared_link_name,
 };
 use crate::listing::ValidationContext;
 use crate::parse::{AestheticsExportDraft, ExportKind, FileDescriptor, FolderDraft};
@@ -90,7 +90,7 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
     let player_name = if roster_file {
         name.to_owned()
     } else {
-        split_folder_name(name).1.unwrap_or(name).to_owned()
+        folder_player_name(name).to_owned()
     };
     let depth = draft.path.segments().count() + 1;
     let mut files = Vec::new();

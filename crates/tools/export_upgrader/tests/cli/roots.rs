@@ -20,15 +20,27 @@ fn upgrade(sandbox: &Sandbox, input: &str, save: &str) -> crate::common::Run {
 fn a_note_team_line_overrides_the_exports_name() {
     let sandbox = Sandbox::new("root_note_team");
     // "Numbers" holds the same export as the `co Spring` fixture: its Note's
-    // Team: line names /co/.
+    // Team: line names /co/. A face folder gives the output a player folder
+    // for the settings.toml half of the scenario.
     sandbox.copy_fixture_dir("co Spring", "Numbers");
+    sandbox.write("Numbers/Faces/XXX05 - PLACEHOLDER/fcl_hair.fmdl", b"hair");
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "Numbers", "EDIT");
     assert_eq!(run.exit_code(), 1);
-    // The name only: the players' settings.toml files the scenario also names
-    // are step 8's (6.5), not this slice's.
     assert!(sandbox.path("co Full Numbers").is_dir(), "{}", run.stdout());
+    // Every output player folder holds its settings.toml, generated from
+    // /co/'s records in the save.
+    let players = sandbox.listing("co Full Numbers/Players");
+    assert!(!players.is_empty(), "the output holds a player folder");
+    for folder in players.iter().filter(|path| !path.contains('/')) {
+        assert!(
+            sandbox
+                .path(&format!("co Full Numbers/Players/{folder}/settings.toml"))
+                .is_file(),
+            "{folder}"
+        );
+    }
 }
 
 // EU-ROOT-01
