@@ -494,7 +494,12 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     tested; files: `export_upgrader/src/{note,upgrade}.rs`, `tests/cli/roots.rs`, fixture
     `jp Summer 18/`
 - [ ] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
-  `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*
+  `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*. Two slices:
+  - [ ] 6.2a the roster read by player ID, face folders into `Players/` (slot rule, name order
+    and cleaning, portrait, `ingame_face`), `roster_slot_empty`, the `Faces/Faces/` flattening
+    → verify: EU-PLY-01, -03, -04 (the team half; the referee half with 6.6), -07, -11
+  - [ ] 6.2b boots and gloves folders: wearers from the save, the Fox merge, shared folders and
+    links, pre-Fox links, the lower-case `k`/`g` rule → verify: EU-PLY-02, -05, -06, -08, -09, -10
 - [ ] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit
   colors and icons, the copy and the hoist → verify: EU-KIT-*
 - [ ] 6.4 models, portraits, logo and Common (step 7), as ordered slices: (a) portraits and the
@@ -505,11 +510,13 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
 - [ ] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*
 - [ ] 6.7 loose mode (step 11) and the report's remaining classes (step 10) → verify:
   EU-LOOSE-01, EU-REP-*
-- [ ] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest)
+- [ ] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest, and
+  EU-CLI-05's `upgrade-models` half: its test cites the `upgrade` half only)
 - [ ] 6.9 the parity test (`team_compiler/testing.md`: an upgraded export compiles to Red's CPK
   for the old one) and a census of every old export on the maintainer's machine through
   `upgrade` (`AGENTS.md` "Closing a phase", the census template) → verify: every outcome class
-  tallied and diagnosed
+  tallied and diagnosed; a macOS archive's `__MACOSX/` or `._*` files, if any member export
+  holds them, are their own class (`.tmp/6_1/duck_rulings.md` S1a-2)
 
 ### Phase 8 — GUI
 

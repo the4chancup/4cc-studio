@@ -2101,3 +2101,5 @@ worklog passed 7,000 lines.
 - **2026-10-18** — 6.0c: the 5.0c Red inventory re-read on released Red `main` (it had read an
   unreleased branch): no compiler rule changes; four decision premises and five spec attributions
   corrected, the strict `refs.txt` reading recorded as a deviation.
+- **2026-10-18** — 6.1 review round S1 (SWE-2, two halves): 11 accepted of 18, among them a
+  filesystem-root input that panicked and a referee Note dropped silently; half b gets round S2.

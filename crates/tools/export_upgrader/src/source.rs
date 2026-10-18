@@ -16,7 +16,7 @@ use crate::note;
 
 /// Why a source could not be listed or read (`export_extract_failed`): the
 /// path that failed, as the file system spells it, and the reason.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub(crate) struct SourceFailure {
     /// The file or folder that could not be read.
     pub(crate) path: String,
@@ -92,17 +92,22 @@ impl OldExport {
         })
     }
 
-    /// The bytes of the file at `path`, a path of `files` below the root.
+    /// The bytes of the file at `path`, a path of `files` below the root. A
+    /// failure names `path` as given: the export-relative path the report
+    /// scopes to.
     pub(crate) fn read(&mut self, path: &str) -> Result<Vec<u8>, SourceFailure> {
         match &mut self.reader {
             Reader::Folder(source) => {
                 let file = source.join(&self.prefix).join(path);
-                fs::read(&file).map_err(|error| failure(&file, &error))
+                fs::read(&file).map_err(|error| SourceFailure {
+                    path: path.to_owned(),
+                    error: error.to_string(),
+                })
             }
             Reader::Archive(archive) => {
                 let entry = format!("{}{path}", self.prefix);
                 archive.read(&entry).map_err(|error| SourceFailure {
-                    path: entry,
+                    path: path.to_owned(),
                     error: error.to_string(),
                 })
             }

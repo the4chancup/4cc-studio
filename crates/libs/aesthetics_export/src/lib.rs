@@ -28,8 +28,8 @@ pub use conventions::{
 pub use listing::{CanonicalListing, ListedEntry, ListedKind, SmallMetadata, ValidationContext};
 pub use parse::{
     AestheticsExportDraft, ExportCoverage, ExportKind, FileDescriptor, FolderDraft,
-    ParsedAestheticsExport, RawRoster, RawRosterEntry, SourceError, coverage, parse_listing,
-    team_name,
+    ParsedAestheticsExport, RawRoster, RawRosterEntry, SourceError, coverage, is_name_separator,
+    parse_listing, team_name,
 };
 pub use resolve::{ExportIdentity, IdentityError, ResolvedAestheticsExport};
 pub use slots::{PlayerSlot, RefSlot};

@@ -8386,3 +8386,30 @@ The spec's attributions were corrected in place (`team_compiler/pipeline.md`, `b
 `libs/teams_list.md`, `libs/dds_convert.md`).
 Plan: no plan edit needed: each rule's spec text already states the rule; the attributions are
 fixed in the spec files named above.
+
+## 2026-10-18 — export_upgrader — the first slice's review and the face-folder rules of 6.2a
+Decision: (1) exit 3 also covers a file of the output that cannot be written mid-run: the error
+names it and the incomplete output is left. (2) A file of the input that does not read after
+its listing did is the compiler's `source_read_failed` (Error), the run going on without it,
+unless it is the Note, which decides the team (nothing is then written); an archive that does
+not open stays `export_extract_failed`. (3) A referee export's Note txt is
+unmigrated content. (4) The output is validated in a fixed context, named as such, not "the
+compiler's default". (5) A face folder's NN must be two digits making 01 to 23, else the folder
+is unmigrated content as a whole; a second face folder of a slot is too, as one entry. (6) A
+player folder name drops what a folder name cannot hold and trims a trailing `.` or space
+(`T.O.M.` → `T.O.M`); a name source left empty counts as absent. (7) The save's roster is read
+by player ID, never by position; an empty slot is `roster_slot_empty` (W). (8) The nested top
+folder is flattened only when it is the folder's only entry, one level.
+Why: (1) the copy steps write hundreds of files after the output folder exists, and a disk
+full there is no refusal "before anything is written"; deleting the partial output would
+delete what the user may want to inspect, while leaving it unexplained makes the second run's
+"already exists" a mystery. (2) the code exists for exactly this in the compiler, and one file
+failing should not cost the rest of the migration. (3) step 10 reports anything not migrated;
+the Note was consumed and dropped without a word. (4) the compiler's file-type setting is on
+by default, so "default context" invited a wrong correction. (5) Red refuses a face folder
+outside 01-23 and errors on the repeat; reporting the folder once, not each file, names the
+decision the user has to make. (6) the real PES 16 save's /co/ slot 23 is `T.O.M.`, which no
+Windows folder name can end in, and `ScopePath` refuses. (7) the PES 16 texport fixture's
+roster is out of slot order. (8) a flatten beside other entries would merge two trees with no
+rule for their collisions.
+Plan: `plans/export_upgrader.md` steps 1, 2, 3, 9, 10, "CLI", "Message catalog", "Verification".

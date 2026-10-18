@@ -174,6 +174,28 @@ pub(crate) fn extract_failed(export_id: ExportId, failure: SourceFailure) -> Mes
     )
 }
 
+/// `source_read_failed`: the file at `failure.path` did not read after the
+/// listing did, `disposition` what becomes of it (`path`, `error`). A shared
+/// code — one of `ISSUE_CODES` — so it has no `Code` variant and takes the
+/// catalog's row.
+pub(crate) fn read_failed(
+    export_id: ExportId,
+    failure: SourceFailure,
+    disposition: Disposition,
+) -> Message {
+    let scope = Scope::File {
+        export_id,
+        path: vtree::ScopePath::new(&failure.path)
+            .expect("a source path was checked when the export opened"),
+    };
+    message(
+        "source_read_failed",
+        scope,
+        disposition,
+        vec![("path", failure.path), ("error", failure.error)],
+    )
+}
+
 /// `team_name_unknown`: the team resolves to no row of the list, the `Team:`
 /// line's file or the export named (`name`, the value as written). A shared
 /// code — one of `ISSUE_CODES` — so it has no `Code` variant and takes the
@@ -275,6 +297,33 @@ mod tests {
         for code in Code::ALL {
             assert!(!ISSUE_CODES.contains(&code.as_str()), "{}", code.as_str());
         }
+    }
+
+    #[test]
+    fn read_failed_is_a_file_scoped_error_naming_the_path_and_reason() {
+        let failure = crate::source::SourceFailure {
+            path: "co Note.txt".to_owned(),
+            error: "denied".to_owned(),
+        };
+        let message = read_failed(ExportId(1), failure, Disposition::DropExport);
+        assert_eq!(message.code.tool_id, "export-upgrader");
+        assert_eq!(message.code.code, "source_read_failed");
+        assert_eq!(message.severity, Severity::Error);
+        assert_eq!(message.disposition, Disposition::DropExport);
+        assert_eq!(
+            message.scope,
+            Scope::File {
+                export_id: ExportId(1),
+                path: vtree::ScopePath::new("co Note.txt").unwrap()
+            }
+        );
+        assert_eq!(
+            message.context,
+            vec![
+                ("path".to_owned(), "co Note.txt".to_owned()),
+                ("error".to_owned(), "denied".to_owned())
+            ]
+        );
     }
 
     #[test]

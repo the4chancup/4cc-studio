@@ -19,8 +19,8 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    IDs, Kit Configs + Kit Textures folders, Common, Portraits, Collars, Logo, Other, Team Note txt; folder
    names are matched in any letter case, as Red matches them, while an item folder's `k` or `g`
    is lower case, as Red requires (a `K0430` folder is unmigrated content), and a top folder
-   holding one subfolder of its own name (`Faces/Faces/`; Other and Common aside) is read as
-   that subfolder, as Red flattens it. A file the game stores zlib-wrapped (a WESYS `.mtl` or
+   holding nothing but one subfolder of its own name, letter case aside (`Faces/Faces/`; Other
+   and Common aside), is read as that subfolder, one level, as Red flattens it. A file the game stores zlib-wrapped (a WESYS `.mtl` or
    `face.xml`; 48 wrapped `face.xml` files on the maintainer's machine) is unwrapped for the
    rewrites below and written back wrapped. OS artifacts (`Thumbs.db`, `desktop.ini`,
    `.DS_Store`, at any depth) are left out of the output and not reported: Red's copy drops
@@ -44,13 +44,17 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    IDs instead. A stripped Fox save serves like any other: strip-and-seed sets the appearance
    ids to -1 and leaves the rest of the records, boots/gloves IDs included, as they were (step 8).
    A face folder whose slot the save's roster leaves empty (a roster of 22 with a `XXX23`
-   folder) still becomes its player folder, with no `settings.toml`, and is reported (W): the
-   compiler's validation then rules on the slot as for any export.
+   folder) still becomes its player folder, with no `settings.toml`, and is reported (W,
+   `roster_slot_empty`, the slot in its context): the compiler's validation then rules on the
+   slot as for any export. The roster is read by player ID (`team_id * 100 + NN`, "Savefile
+   identity" in `spec/aesthetics_export/player_folders.md`), never by position: a real save's
+   roster need not be in slot order.
 3. **Builds player folders**: each player's face folder contents move into `Players/NN - Name/` (NN
    from the face folder's `XXXxx` suffix: its first three characters are the `XXX` placeholder
    or a baked-in team ID, any three characters, and NN the two after them, as Red reads them;
    1,034 of the 3,641 face folders on the maintainer's machine carry an ID, `73921 - Dorifto`).
-   The name part is what follows, its leading spaces and hyphens trimmed (`XXX15 - Snuffy`,
+   NN must be two digits making 01 to 23, as Red requires; a face folder without them is
+   unmigrated content as a whole. The name part is what follows, its leading spaces and hyphens trimmed (`XXX15 - Snuffy`,
    `XXX15 Snuffy` and `XXX15- Snuffy` all give `Snuffy`), and the same rule reads a boots or
    gloves folder's (`k2101 UNIFORM` → `UNIFORM`). Two face folders of one slot are one too many:
    the second by name is unmigrated content, as Red kept the first. Name comes, in order of preference, from the **face
@@ -59,7 +63,9 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    boots/gloves but no face folder), then from the **savefile name** with its colour codes stripped
    (`pes_savefile`'s `display_name()` — see "Name colour codes" in `spec/pes_savefile/model.md`; the raw codes are
    control characters, invalid in folder names; any other character a folder name cannot hold,
-   `/`, `?` or `:` among them, is dropped the same way), then NN alone. Red's Pre-Studio upgrader uses this
+   `/`, `?` or `:` among them, is dropped the same way, and a trailing `.` or space is trimmed,
+   which a folder name cannot end in either: `T.O.M.` → `T.O.M`; a source left empty counts as
+   absent), then NN alone. Red's Pre-Studio upgrader uses this
    same order. A face folder's portrait stays with the player folder, named `portrait.dds`: the
    AET allows a prefix (any file whose name ends in `portrait.dds`, letter case aside, as Red
    matches it), while the Studio format reads the exact stem `portrait`, so a prefixed one is
@@ -361,7 +367,9 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    the Refs arranger, and the `refs.txt` is removed; a root `ref_marker.dds` is carried as it is
    (the format admits it, `spec/aesthetics_export/object_model.md`); each referee's subfolders are **flattened** into
    the player folder root (step 12). Either old `ingame_face` spelling is normalized exactly as for
-   team player folders. No savefile needed — referee IDs are compiler-generated.
+   team player folders. No savefile needed — referee IDs are compiler-generated. A Note txt in a
+   referee export is unmigrated content: step 6 reads a team's colors, which referees have none
+   of, and its text is the author's to move.
 10. **Reports** anything that couldn't be migrated automatically (e.g. contents of the Other folder,
     unassigned model folders) for manual attention — the `UnmigratedContentFound` pipeline event;
     the tool defines its own message catalog on the shared `Message` structure (see the Team
@@ -370,7 +378,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     grammar, as the real `CIV4XG` VGL26 export's `XXX_DEF_GK2nd_realUni.bin` does; `Kit
     Textures/` for one failing texture; `Logo/` when it holds other than three emblems), the
     other entries migrate and the bad one is reported, since the author can then fix one file
-    rather than lose the team's kits silently, as Red's compile did.
+    rather than lose the team's kits silently, as Red's compile did. An entry is a file, or a
+    folder no step migrates as a whole (a second face folder of one slot, one without a slot),
+    reported once by its path; a file a step leaves in the output as named (a second portrait)
+    is reported all the same.
 11. **Loose mode** (no savefile available): step 2 needs the savefile only to learn which player
     wears which old boots/gloves ID. When no savefile is given, the upgrader offers loose mode,
     which infers the wearer from the **ID's position inside the team's Red block** instead —
@@ -522,8 +533,10 @@ something, the unknown team, or an archive that does not
 extract, reported `export_extract_failed` as the compiler does; the draft, when written, is
 kept for manual repair, "Verification"), **2** invalid invocation (a missing input path, an
 `upgrade` input that is a file other than a `.zip` or `.7z`, the flags above, a savefile that
-does not read as a save or lacks the team; nothing is written), **3** aborted before anything is
-written (the output folder exists or cannot be created). `--convert-to-gltf` is accepted once
+does not read as a save or lacks the team; nothing is written), **3** aborted: before anything
+is written (the output folder exists or cannot be created), or when a file of the output cannot
+be written, the error naming it and the incomplete output left for the user to remove, since a
+second run refuses an existing output folder. `--convert-to-gltf` is accepted once
 step 13 is built (Phase 7); until then it is an unknown argument. The GUI offers the same two
 modes as two drop targets on the tool view.
 
@@ -538,6 +551,7 @@ validation's findings on what was written.
 |---|---|---|---|
 | `no_old_export` | E | step 1: the input holds nothing an old export holds; nothing is written | — |
 | `export_extract_failed` | E | the archive does not open or its listing is refused (the compiler's code); nothing is written | `path`, `error` |
+| `source_read_failed` | E | a file of the input does not read after its listing did (the compiler's code); it is not migrated and the run goes on, unless it is the Note, which decides the team: then nothing is written | `path`, `error` |
 | `team_name_unknown` | E | the team resolves to no row of the list (the compiler's code), the `Team:` line's file or the export named; nothing is written | `name` |
 | `unmigrated_content` | E | an input file no step migrates (step 10), entry by entry; a Note entry whose colors do not read is one, its line in the context | `line` (a Note entry) |
 | `migration_clean` | I | last line: no Error finding, and no finding drops anything ("Verification"'s clean migrated export); exit 0 | — |
@@ -568,8 +582,9 @@ For each migration the upgrader writes an in-memory/output draft, enumerates it 
 `aesthetics_export::parse_listing` as `ParsedAestheticsExport`, runs the shared validation, and reports every
 scoped issue. The validation is for the savefile's version (in loose mode, PES 21, or PES 16 when
 the export holds a `.model` file: old exports are single-engine, and the version decides only
-which model names are allowed) in the compiler's default context: no pass-through, no strict
-file-type check, no installed Common textures. Shared validation may produce a sanitized `ValidatedAestheticsExport` with ineligible
+which model names are allowed) in a fixed context, not the compiler's settings: no
+pass-through, no strict file-type check (the compiler's setting is on by default), no installed
+Common textures. Shared validation may produce a sanitized `ValidatedAestheticsExport` with ineligible
 files/folders omitted, but the upgrader applies a stricter publication rule: only a report with no
 errors and no dropped scopes is labeled a clean migrated export. Any other draft remains available
 for manual repair rather than being mislabeled as fully migrated. Fixtures cover both old

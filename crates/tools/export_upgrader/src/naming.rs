@@ -2,22 +2,17 @@
 //! team's key, the coverage tag, then the rest of the old name — so the
 //! compiler reads the output's team from its first word.
 
-use aesthetics_export::{coverage, team_name};
+use aesthetics_export::{coverage, is_name_separator, team_name};
 
 use crate::upgrade::Identity;
-
-/// The separator `team_name`'s token split uses.
-fn is_separator(c: char) -> bool {
-    c == '.' || c == '-' || c == '+' || c == '_' || c.is_whitespace()
-}
 
 /// `name` minus its first token, the separator between kept
 /// (`co - Spring` → ` - Spring`).
 fn after_first_token(name: &str) -> &str {
-    let Some(start) = name.find(|c: char| !is_separator(c)) else {
+    let Some(start) = name.find(|c: char| !is_name_separator(c)) else {
         return "";
     };
-    match name[start..].find(is_separator) {
+    match name[start..].find(is_name_separator) {
         Some(end) => &name[start + end..],
         None => "",
     }

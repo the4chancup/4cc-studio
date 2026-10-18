@@ -30,6 +30,7 @@ repair).
 The exit code: 0 when the migration is clean; 1 when it is not clean: an
 error, or a finding that drops something (a warning that drops a folder means
 the compile would lose it); 2 when the command was refused before anything
-was written (a bad argument, an export that is not there or not readable, a
-savefile that does not hold the team); 3 when the run stopped before writing
-(the output folder exists or cannot be created).
+was written (a bad argument, an export that is not there, a savefile that
+does not read as a save or does not hold the team); 3 when the run aborted:
+before anything is written (the output folder exists or cannot be created),
+or when a file of the output cannot be written, the incomplete output left.

@@ -42,11 +42,18 @@ pub fn coverage(display_name: &str) -> Option<ExportCoverage> {
     }
 }
 
+/// Whether `c` separates the words of an export's display name: `.`, `-`,
+/// `+`, `_` or whitespace (the first word is the team's key, the second the
+/// coverage tag).
+pub fn is_name_separator(c: char) -> bool {
+    c == '.' || c == '-' || c == '+' || c == '_' || c.is_whitespace()
+}
+
 /// The non-empty tokens of a display stem, split on `.`, whitespace, `-`, `+`
 /// and `_`.
 fn tokens(display_name: &str) -> impl Iterator<Item = &str> {
     display_name
-        .split(|c: char| c == '.' || c == '-' || c == '+' || c == '_' || c.is_whitespace())
+        .split(is_name_separator)
         .filter(|token| !token.is_empty())
 }
 

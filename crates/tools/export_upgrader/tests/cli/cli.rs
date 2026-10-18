@@ -135,29 +135,40 @@ fn a_team_export_takes_exactly_one_of_savefile_and_loose() {
     assert_eq!(sandbox.listing(""), before, "nothing is written");
 }
 
+// EU-CLI-03
+#[test]
+fn a_referee_export_takes_neither_flag_and_its_note_is_unmigrated() {
+    let sandbox = Sandbox::new("cli_refs");
+    // A `refs` export's name decides before anything is read (step 9): it
+    // takes neither flag, and its Note is unmigrated content.
+    fs::create_dir_all(sandbox.path("refs Spring")).unwrap();
+    fs::write(sandbox.path("refs Spring/refs.txt"), b"01 Keeper\n").unwrap();
+    fs::write(sandbox.path("refs Spring/refs Note.txt"), b"Team: /co/\n").unwrap();
+    let save = sandbox.arg("EDIT");
+    sandbox.save("EDIT");
+
+    upgrade(&sandbox, "refs Spring", &["--savefile", &save]).assert_refused(2, &["--savefile"]);
+    upgrade(&sandbox, "refs Spring", &["--loose"]).assert_refused(2, &["--loose"]);
+
+    let run = upgrade(&sandbox, "refs Spring", &[]);
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert!(
+        run.stdout()
+            .contains("- refs Spring: Error unmigrated_content at refs Note.txt"),
+        "{}",
+        run.stdout()
+    );
+}
+
 // EU-CLI-04
 #[test]
 fn the_refusals_before_anything_is_written() {
     let sandbox = Sandbox::new("cli_refusals");
     let save = sandbox.arg("EDIT");
     sandbox.save("EDIT");
-
-    // An export path that does not exist.
-    upgrade(&sandbox, "gone", &["--savefile", &save])
-        .assert_refused(2, &["gone", "no such folder or file"]);
-
-    // An export path naming a .txt file.
     fs::write(sandbox.path("notes.txt"), b"text").unwrap();
-    upgrade(&sandbox, "notes.txt", &["--savefile", &save])
-        .assert_refused(2, &["notes.txt", "not a folder, .zip or .7z"]);
-
-    // A --savefile that is not a save.
     old_export(&sandbox, "co Spring", Some("/co/"));
     fs::write(sandbox.path("not-a-save.bin"), b"no save").unwrap();
-    let not_save = sandbox.arg("not-a-save.bin");
-    upgrade(&sandbox, "co Spring", &["--savefile", &not_save])
-        .assert_refused(2, &["not-a-save.bin"]);
-
     // A savefile that does not hold the resolved team. Every fixture save
     // holds every resolvable team of the embedded list, so the sandbox's data
     // directory gets a one-row list naming /newteam/ at 903 — a team the list
@@ -175,16 +186,28 @@ fn the_refusals_before_anything_is_written() {
         pes_savefile::fixture_save(PesVersion::Pes18),
     )
     .unwrap();
-    upgrade(&sandbox, "newteam Spring", &["--savefile", &save18]).assert_refused(2, &["/newteam/"]);
+    // A filesystem root is not an export, savefile or not.
+    let root = sandbox
+        .path("co Spring")
+        .ancestors()
+        .last()
+        .unwrap()
+        .to_path_buf();
+    let not_save = sandbox.arg("not-a-save.bin");
+    let before = sandbox.listing("");
 
-    // Nothing was written by any of the refusals: no output folder exists
-    // anywhere in the sandbox.
-    let written: Vec<String> = sandbox
-        .listing("")
-        .into_iter()
-        .filter(|path| path.contains("Full") || path.contains("Midcup"))
-        .collect();
-    assert_eq!(written, Vec::<String>::new(), "{written:?}");
+    upgrade(&sandbox, "gone", &["--savefile", &save])
+        .assert_refused(2, &["gone", "no such folder or file"]);
+    upgrade(&sandbox, "notes.txt", &["--savefile", &save])
+        .assert_refused(2, &["notes.txt", "not a folder, .zip or .7z"]);
+    upgrade(&sandbox, "co Spring", &["--savefile", &not_save])
+        .assert_refused(2, &["not-a-save.bin"]);
+    upgrade(&sandbox, "newteam Spring", &["--savefile", &save18]).assert_refused(2, &["/newteam/"]);
+    let root_arg = root.display().to_string();
+    let run = sandbox.run(&["upgrade", &root_arg, "--savefile", &save]);
+    run.assert_refused(2, &["a filesystem root is not an export"]);
+
+    assert_eq!(sandbox.listing(""), before, "nothing is written");
 }
 
 // EU-CLI-05

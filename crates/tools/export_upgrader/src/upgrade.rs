@@ -24,7 +24,9 @@ use teams_list::{TeamId, TeamName, TeamsList};
 use vtree::ScopePath;
 
 use crate::cli::{ABORTED, CLEAN, ERRORS, INVALID, UpgradeArgs};
-use crate::messages::{Code, extract_failed, issue_message, team_name_unknown, tool_message};
+use crate::messages::{
+    Code, extract_failed, issue_message, read_failed, team_name_unknown, tool_message,
+};
 use crate::naming::output_name;
 use crate::note;
 use crate::source::{self, OldExport, SourceFailure};
@@ -48,15 +50,25 @@ fn resolve_input(path: &Path) -> Result<PathBuf, CliError> {
             path.display()
         ))
     })?;
-    if resolved.file_name().is_some() {
-        return Ok(resolved);
-    }
-    fs::canonicalize(&resolved).map_err(|error| {
-        invalid(anyhow!(
-            "{}: cannot resolve the path: {error}",
+    let resolved = if resolved.file_name().is_some() {
+        resolved
+    } else {
+        fs::canonicalize(&resolved).map_err(|error| {
+            invalid(anyhow!(
+                "{}: cannot resolve the path: {error}",
+                path.display()
+            ))
+        })?
+    };
+    // A filesystem root still has no file name: it is no export (and
+    // `source_name`'s `expect` holds).
+    if resolved.file_name().is_none() {
+        return Err(invalid(anyhow!(
+            "{}: a filesystem root is not an export",
             path.display()
-        ))
-    })
+        )));
+    }
+    Ok(resolved)
 }
 
 /// The run's verdict (the plan's "Message catalog"): `migration_clean` and
@@ -152,13 +164,16 @@ fn aborted(error: anyhow::Error) -> CliError {
 }
 
 /// Writes `contents` to `output`'s root file `name`; a failure is the
-/// aborted code naming the file.
+/// aborted code naming the file and saying the output is incomplete: it is
+/// left for the user to remove, since a second run refuses an existing
+/// output folder.
 fn write_root_file(output: &Path, name: &str, contents: String) -> Result<(), CliError> {
     let path = output.join(name);
     fs::write(&path, contents).map_err(|error| {
         aborted(anyhow!(
-            "{}: cannot write the file: {error}",
-            path.display()
+            "{}: cannot write the file: {error}; the output {} is incomplete",
+            path.display(),
+            output.display()
         ))
     })
 }
@@ -276,7 +291,9 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         (Some(note_path), false) => match export.read(note_path) {
             Ok(bytes) => Some(note::text(&bytes)),
             Err(failure) => {
-                events.message(extract_failed(INPUT, failure));
+                // The Note decides the team: its failure stops the run with
+                // nothing written (DECISIONS (2)).
+                events.message(read_failed(INPUT, failure, Disposition::DropExport));
                 return Ok(ERRORS);
             }
         },
@@ -316,7 +333,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         invocation
             .path
             .parent()
-            .unwrap_or(Path::new(""))
+            .expect("the input is absolute and not a filesystem root (resolve_input)")
             .to_path_buf()
     });
     let output = base.join(&output_name);
@@ -387,7 +404,9 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     }
 
     for file in &export.files {
-        if note_path.as_deref() == Some(file.as_str()) {
+        // A team export's Note is consumed (the root files above); a referee
+        // export's is unmigrated content like any file (step 9).
+        if !invocation.referees && note_path.as_deref() == Some(file.as_str()) {
             continue;
         }
         any_unmigrated = true;
