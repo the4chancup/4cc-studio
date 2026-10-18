@@ -20,21 +20,27 @@ The tool view belongs to each tool; pipeline tools subdivide it into grid, toolb
 │  PES 19▾ │   ┌────────────────────────────────────────┐ │
 │          │   │ Team grid (scrollable)                 │ │
 │  ──────  │   │  /aa/ [714]  [01][02][03][□][□]    [GK][K1]  │ │
-│   SAVE   │   │  /bb/ [???]  [01][02][03][04][05]  [GK][K1]│ │
-│ ▌ TEAM   │   │  /cc/ [809]  [01][□][□][□][□]      [GK][K1]    │ │
-│   STAD   │   └────────────────────────────────────────┘ │
-│   UPGR   │   [run strip]              [Compile ▾]    │
-│   ⋯      │   ┌────────────────────────────────────────┐ │
+│ ▌ TEAM   │   │  /bb/ [???]  [01][02][03][04][05]  [GK][K1]│ │
+│   SAVE   │   │  /cc/ [809]  [01][□][□][□][□]      [GK][K1]    │ │
+│   UPGR   │   └────────────────────────────────────────┘ │
+│  (STAD)  │   [run strip]              [Compile ▾]    │
+│  (⋯)     │   ┌────────────────────────────────────────┐ │
 │          │   │ Log panel (scrolling, collapsible)     │ │
 │  ──────  │   │ - Warning - Nested folders ...         │ │
-│  [gear]  │   │ - /cc/ processed                       │ │
+│ [?][gear]│   │ - /cc/ processed                       │ │
 │          │   └────────────────────────────────────────┘ │
 ├──────────┴──────────────────────────────────────────────┤
 │ ⚠ data folder read-only          Compiled 48 · [Open output] │
 └─────────────────────────────────────────────────────────┘
 ```
 
-Panels claim space in call order, so the status bar is added first to span the full width:
+The sidebar lists the registered tools in registry order (today the Team compiler, the Save
+editor, the Export upgrader), then the planned ones in parentheses here, grayed in the window
+("Sidebar").
+
+The shell draws only what is its own. Panels claim space in call order, so the status bar is
+added first to span the full width, the sidebar next, and the central panel, whatever is left,
+is handed to the active tool's `view()`:
 
 ```rust
 impl eframe::App for StudioApp {
@@ -47,22 +53,33 @@ impl eframe::App for StudioApp {
         egui::Panel::left("sidebar").exact_size(self.sidebar_width())
             .show(ui, |ui| self.render_sidebar(ui));
 
-        // Bottom log panel (collapsible height)
-        egui::Panel::bottom("log")
-            .resizable(true).default_size(220.0)
-            .show(ui, |ui| self.render_log(ui));
-
-        // Toolbar (run strip + compile button)
-        egui::Panel::bottom("toolbar").exact_size(32.0)
-            .show(ui, |ui| self.render_toolbar(ui));
-
-        // Central panel: the tool view (grid, save editor, etc.)
+        // Central panel: the active tool's view, which lays itself out inside it
         egui::CentralPanel::default().show(ui, |ui| {
-            self.render_tool_view(ui);
+            self.tools[self.active].view(ui, &self.ctx);
         });
     }
 }
 ```
+
+A pipeline tool subdivides the `Ui` it is given with panels of its own, in the same claim
+order: the log panel at the bottom, the toolbar above it, the grid in what remains. Since 0.34 a
+panel's `show` takes any `Ui`, the whole-app one or a tool's (the older `show_inside` is
+deprecated, and deprecations are errors here, `spec/core/gui.md` "egui version discipline"):
+
+```rust
+// team_compiler::view, inside `view()`
+egui::Panel::bottom("log").resizable(true).default_size(220.0)
+    .show(ui, |ui| log_panel::show(ui, &self.log));
+egui::Panel::bottom("toolbar").exact_size(32.0)
+    .show(ui, |ui| toolbar::show(ui, &self.run));
+egui::CentralPanel::default().show(ui, |ui| grid::show(ui, &self.rows));
+```
+
+The shell never draws a tool's log or toolbar: an envelope names no tool (`spec/core/architecture.md`
+"Event system"), so a shell-owned log would have to guess whose run a line belongs to, and the
+Save editor has no run to show. The widgets are `studio_core`'s (the progress grid, the log panel
+and the run strip under `widgets/`, `architecture.md` "Crate structure"); where they are placed
+is each tool's.
 
 ### Sidebar
 
@@ -103,8 +120,10 @@ Top to bottom:
      the running version, so the fix keeps working across versions).
 3. **Tool list** — vertical nav with **full text labels** (small text, sidebar wide enough to fit),
    populated from the registered `StudioTool` list. The active tool is highlighted with an
-   accent-colored left border bar plus a filled background. Unimplemented tools are listed grayed
-   out, communicating the suite roadmap.
+   accent-colored left border bar plus a filled background. The suite's planned tools not in
+   this build (the registry's, `architecture.md` "Tool plugin interface") are listed after the
+   registered ones, grayed and not clickable, each tooltip saying the tool is not in this build:
+   the list communicates the suite roadmap.
 4. **Collapse button** — collapses the sidebar into an icon-only rail (tooltips carry the labels).
    Width toggles between ~160px and ~56px.
 5. **Help `?` and settings gear** pinned at the bottom — open the help window and the settings
@@ -137,7 +156,8 @@ Like the settings menu it is **assembled from the tools**, not written centrally
 
 - **Chapters.** `studio_core` contributes the core chapters (setting up, first run and data
   location, updates, and "What's new" — the repository's `CHANGELOG.md` embedded at build time,
-  see `distribution.md` "Changelog and version display"). Red's `readme_advanced.md` maps onto
+  see `distribution.md` "Changelog and version display"), which come first in the chapter
+  tree; the tools' chapters follow in sidebar order. Red's `readme_advanced.md` maps onto
   this almost one-to-one: its refs, format, texture-handling and special-files headings become
   Team compiler topics, its updater and first-run headings core topics.
 - **The Messages topic is generated.** Each chapter ends with a "Messages" topic rendered from the
@@ -168,13 +188,15 @@ Like the settings menu it is **assembled from the tools**, not written centrally
 ### Log panel
 
 - Fixed-height region below the toolbar, monospace, colored lines (info/warning/error mapped from
-  `PipelineEvent`), collapsible via chevron or divider drag.
+  `PipelineEvent`); its chevron collapses it to its header row and back, and dragging its
+  divider resizes it, the height kept across frames.
 - **Capped display**: only the last few hundred lines are rendered (egui text rendering is not
   optimized for thousands of lines). Full logs are written to disk (`issues.log`, `suggestions.log`)
   as before.
 - **Auto-scroll with interruption**: sticks to the bottom until the user scrolls up, which pauses
   auto-scroll and shows a "↓ N new" jump-back indicator.
-- **Filter toggles**: All / Warnings / Errors.
+- **Filter toggles**: All; Warnings (the warning, error and fatal lines); Errors (the error and
+  fatal lines). A filter hides lines, never drops them: All shows every line again.
 - **Cross-linking**: clicking a warning/error line highlights the corresponding grid cell (they
   share the export/folder identity from the event payload); clicking the line's **message ID**
   opens the help window at that message's catalog row (see "Help window").
@@ -227,10 +249,13 @@ uses, so it costs no new API:
 | State | Title |
 |---|---|
 | Idle | `4cc Studio` |
-| A tool reports a `ToolActivity` | `Team compiler · 12/48 · 01:12 — 4cc Studio` |
-| Idle, window unfocused, a `Notice` arrived since focus was lost | `Compiled 48 teams — 4cc Studio` |
+| A tool reports a `ToolActivity` | `Team compiler · 12/48 · 01:12 - 4cc Studio` |
+| Idle, window unfocused, a `Notice` arrived since focus was lost | `Compiled 48 teams - 4cc Studio` |
 
 Rules:
+
+- **A plain hyphen before the name.** The title is a UI string, so it carries no em dash
+  (`CONTRIBUTING.md` "Code style"); ` - ` is also what most desktop apps put before their name.
 
 - **Progress first, name last.** Taskbar buttons truncate from the right; the part worth
   reading is the number, not the app name.
@@ -255,24 +280,23 @@ Rules:
 
 What exists of this is in `spec/core/gui.md` "Event wiring".
 
-The GUI owns the receiving end and renders state in the egui update loop; the block extends the
-spec's `logic` pass, which ticks every tool:
+Each tool owns the receiving end of its own runs, as the spec's shell slice built it: a run gets
+its sink through `ctx.with_events(sender)`, the tool drains the receiver in `tick`, and `view()`
+renders the resulting state and reports the user's intent (a Compile click starts the next
+run). The block extends the spec's `logic` pass, which ticks every tool:
 
 ```rust
-// Pipeline workers send stable-ID events through the stale-result envelope:
-tx.send(PipelineEventEnvelope {
+// Pipeline workers (on the run's thread or the rayon pool) send stable-ID events through the
+// stale-result envelope, to the sender the run was started with:
+ctx.emit(PipelineEventEnvelope {
     run_id,
     export_id: Some(export_id),
     export_revision: Some(export_revision),
-    event: PipelineEvent::FolderStatus {
-        export_id,
-        path: folder_path.clone(),
-        status,
-    },
+    event: PipelineEvent::FolderStatus { export_id, path: folder_path.clone(), status },
 });
-// Messages are sent as separate enveloped events; the GUI associates them by scope.
+// Messages are sent as separate enveloped events; the tool associates them by scope.
 for msg in messages {
-    tx.send(PipelineEventEnvelope {
+    ctx.emit(PipelineEventEnvelope {
         run_id,
         export_id: msg.scope.export_id(),
         export_revision: revision_for(&msg.scope),
@@ -280,38 +304,37 @@ for msg in messages {
     });
 }
 
-// The GUI drains the channel once per frame. eframe calls `logic` before every
-// `ui` pass (and also while the window is hidden, when a repaint was requested),
-// so event draining lives there and `ui` only renders the resulting state:
-impl eframe::App for StudioApp {
-    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Drain all pending envelopes and reject stale revisions before applying.
-        while let Ok(envelope) = self.event_rx.try_recv() {
-            if self.is_current(&envelope) {
-                self.apply_event(envelope.event);
+// The tool drains its receivers once per frame, in `tick`, which the shell calls for every
+// registered tool before `ui` (and also while the window is hidden, when a repaint was
+// requested), so a compile behind the Save editor's view keeps its grid current:
+impl StudioTool for team_compiler::Tool {
+    fn tick(&mut self, _ctx: &ToolContext) {
+        // One receiver per live source: the compile in flight, the live checks.
+        while let Ok(envelope) = self.run.events.try_recv() {
+            // Reject what an older run or an older export revision computed.
+            if self.rows.is_current(&envelope) {
+                self.rows.apply(envelope.event);
             }
-        }
-
-        // Keep repainting while the pipeline is running. egui otherwise only
-        // repaints on input, so background sources schedule their own wakeups:
-        // timer deadlines via request_repaint_after, the match feed by
-        // requesting a repaint on publish.
-        if self.pipeline_running.load(Relaxed) {
-            ctx.request_repaint();
         }
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // Render: grid reads current state, log reads buffered lines
-        // (panel layout as in "Shell layout")
-        self.render_sidebar(ui);
-        self.render_tool_view(ui);
+    fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
+        // egui repaints only on input; while a run is in flight its events arrive on their own,
+        // so the view asks for the next frame (the shell slice does this today, 100 ms).
+        if self.run.is_running() {
+            ui.ctx().request_repaint_after(Duration::from_millis(100));
+        }
+        // Render: grid, toolbar and log read the tool's state (layout as in "Shell layout").
     }
 }
 ```
 
-The grid, log panel, and run strip are all views over the same shared state, updated from the
-same event channel. The stadium compiler view reuses the same grid rendering code with rows =
+Other background sources schedule their own wakeups the same way: timer deadlines through
+`request_repaint_after`, the match feed by requesting a repaint on publish (its wake callback,
+`architecture.md` "Tool plugin interface").
+
+The grid, log panel, and run strip are all views over the same tool state, updated from the
+same receivers. The stadium compiler view reuses the same grid rendering code with rows =
 stadiums and cells = components.
 
 ### Other UI components
@@ -356,7 +379,14 @@ to the table first (a new dependency, asked for first):
 
 A draft is one self-contained HTML file (its script and styles inline), so it can be sent as a
 single attachment; its behavior is faked with sample data, never wired to the real libs. The
-drafts live in `docs/prototypes/`, one file per tool.
+drafts live in `docs/prototypes/`, one file per tool (`team_compiler.html`, `save_editor.html`,
+`export_upgrader.html`), and one for the shell (`shell.html`: sidebar, status bar, settings
+menu, help window, the first-run dialog). Each is the first step of its view's build: Phase 8's
+list in `development_plan.md` names it ahead of every view, and each tool plan says where its
+draft sits in that tool's build order. A draft is drawn whole, every screen the tool's plan
+describes with sample data, before the first slice of the view is coded; a slice that changes
+what the draft shows changes the draft first, so the draft stays the specification the view
+is checked against.
 
 ### Cancellation
 
@@ -365,7 +395,9 @@ What exists of this is in `spec/core/gui.md` "Cancellation".
 During a run the Compile button becomes Cancel. A texture task checks the flag between its
 textures, since it converts them one after another and a folder of large BC7 encodes can be one
 of a run's longest tasks. It aborts cleanly: the run's staging is discarded and the previous
-outputs stay as they were.
+outputs stay as they were. In the grid, the cells not yet processed return to their check-phase
+state (the run wrote nothing of theirs, so nothing is "done"), and the log's last line says the
+run was cancelled, so a later reader of the log does not take a short run for a finished one.
 
 ### Browser deployment: Studio Web
 
@@ -429,3 +461,190 @@ Deployment is a static directory (`.wasm`, JS glue, `index.html`) under an HTTPS
 build runs `trunk`/`wasm-bindgen` in CI and the release job copies the output over. Suitability is
 evaluated when the web tier is scheduled — the requirements are just static files, HTTPS, and two
 response headers.
+
+### Acceptance
+
+Format and rules: `CONTRIBUTING.md` "Testing". `ST` is the shell's code (`studio_core`'s shell
+and widgets, and the `studio` binary's launch modes); IDs are never reused; later phases append.
+The shell is not a tool, so its scenarios live here, beside the sections they prove.
+
+**Phase 8 scope.** Phase 8 completes the shell the Phase 3 slice started: the sidebar, the
+settings menu, the status bar, the window title, the help window and `4cc-studio help`, the
+log panel widget, the first-run data-location dialog, the `last_tool` reopening and the
+`--gui` autorun. What a scenario observes is what a frame draws (through the headless harness
+of `studio_core/src/shell/mod.rs`: the frame's AccessKit nodes, a click as press and release
+frames, the viewport and output commands a frame emits, a title or a clipboard copy; a color,
+which no AccessKit node carries, is read
+back from the shell state the frame paints from), the settings file, and what the binary
+prints; `manual` marks only what needs a display, a native dialog or a running game. The tools in a
+scenario are stub tools registered with the test's shell unless a real one is named; "the
+settings file" is one under the test's own folder (`AppPaths` pointed there), never the
+developer's. The Team compiler's own toolbar, grid and cancellation are `TC-GUI` scenarios
+(`plans/team_compiler/README.md` "Acceptance"), the Save editor's view `SE-GUI` and the Export
+upgrader's `EU-GUI`.
+
+**Sidebar**
+
+```
+ST-SIDE-01  GIVEN three registered tools and a settings file whose last_tool names the second
+            WHEN the GUI opens
+            THEN the sidebar lists the three with their full labels in registration order, the
+                 second is active and its view is the one drawn
+ST-SIDE-02  GIVEN the sidebar expanded
+            WHEN the collapse button is clicked
+            THEN the sidebar is an icon rail whose entries carry their labels as tooltips, a
+                 click on an entry still switches to that tool, and a second click on the
+                 collapse button restores the labels
+ST-SIDE-03  GIVEN the selector at PES 21 and pes_folder_path resolving to a folder holding
+                 PES2019.exe
+            WHEN the sidebar is drawn
+            THEN the selector is red and its tooltip names the exe found; GIVEN the folder
+                 holding no PES exe, or missing, THEN the selector is yellow and the tooltip
+                 says what was found; GIVEN it holding PES2021.exe THEN neither
+ST-SIDE-04  GIVEN a tool reporting a version_change_blocker
+            WHEN the sidebar is drawn
+            THEN the selector is disabled with the tool's reason as its tooltip, and the setting keeps its
+                 value; GIVEN no tool blocking WHEN another version is picked THEN the settings
+                 file holds it and every tool reads it at its next frame
+ST-SIDE-05  manual  GIVEN the selector at PES 21 and PES2019.exe running from a folder other than
+                         the resolved pes_folder_path
+                    WHEN the poll next runs
+                    THEN the selector switches to PES 19 once, the status bar shows the notice
+                         naming the switch with a "Fix PES path" action, the action rewrites
+                         pes_folder_path from the running process (the ** placeholder kept where
+                         the path segment matches the version), and a later manual change back
+                         to PES 21 is not switched again while the program lives
+ST-SIDE-06  GIVEN the GUI open
+            WHEN the logo is clicked
+            THEN the About popup shows the version block (version, build kind, target triple,
+                 data location, selected PES version), links to the release page, the repository
+                 and the help, and its Copy button puts exactly that block on the clipboard
+ST-SIDE-07  GIVEN a build registering two of the suite's tools
+            WHEN the sidebar is drawn
+            THEN the suite's other planned tools are listed after them, grayed and not
+                 clickable, each tooltip saying the tool is not in this build
+```
+
+**Settings menu**
+
+```
+ST-SET-01   GIVEN two registered tools with settings sections and the second active
+            WHEN the settings gear is clicked
+            THEN the menu shows the common section and one collapsible section per tool, the
+                 second tool's expanded and the first's collapsed
+ST-SET-02   GIVEN the menu open
+            WHEN a common setting (`thread_count`) is changed
+            THEN the settings file holds the new value under [common], every tool table as it
+                 was, and ctx.common() returns the new value on the next frame
+ST-SET-03   GIVEN a data directory that cannot be written
+            WHEN a setting is changed
+            THEN the change applies for the session, the status bar's left slot shows the
+                 data_dir_read_only condition, and no dialog or prompt opens
+```
+
+**Status bar and window title**
+
+```
+ST-BAR-01   GIVEN no condition, no background activity and no notice
+            WHEN the status bar is drawn
+            THEN it shows the version number in small text and nothing else, at its fixed height
+ST-BAR-02   GIVEN the first tool active and the second reporting a ToolActivity
+            WHEN the status bar is drawn
+            THEN its middle slot shows the second tool's activity; GIVEN the second tool made
+                 active THEN the slot is empty (its own run strip shows it)
+ST-BAR-03   GIVEN a tool publishing a Notice with an action
+            WHEN the status bar is drawn
+            THEN its right slot shows the text and the one action until the action is clicked
+                 or the notice dismissed; GIVEN a notice without an action THEN it leaves the
+                 slot by itself after a few seconds, and a later notice replaces an earlier one
+ST-TTL-01   GIVEN a tool reporting a ToolActivity (label "Team compiler", 12 of 48 done, 72 s
+                 elapsed)
+            WHEN a frame is drawn
+            THEN the viewport title command reads "Team compiler · 12/48 · 01:12 - 4cc Studio",
+                 sent once and not again while the string is unchanged; GIVEN no activity THEN
+                 "4cc Studio"
+ST-TTL-02   GIVEN the window unfocused and no tool reporting an activity
+            WHEN a notice "Compiled 48 teams" arrives
+            THEN the title reads "Compiled 48 teams - 4cc Studio" until the window gains focus,
+                 then "4cc Studio"; GIVEN the window focused when it arrives THEN the title stays
+                 "4cc Studio"
+```
+
+**Help**
+
+```
+ST-HELP-01  GIVEN the Team compiler active
+            WHEN F1 is pressed, or the sidebar's ? clicked
+            THEN the help window opens on the Team compiler's chapter, the chapter tree lists
+                 one chapter per registered tool in sidebar order after the core chapters, and
+                 the chapter's last topic, Messages, lists every code of the tool's catalog with
+                 its severity
+ST-HELP-02  GIVEN the help window open
+            WHEN a message code is typed in the search box
+            THEN the results list its catalog row as "Chapter › Topic › line", and clicking the
+                 result shows that topic with the line highlighted; WHEN a word of a topic's
+                 body is typed, in another letter case, THEN that topic's line is listed the same
+                 way
+ST-HELP-03  GIVEN a tool's log panel showing a finding line
+            WHEN its message code is clicked
+            THEN the help window opens at that code's catalog row; GIVEN a topic holding an
+                 in-doc link `[text](tool-id#topic-slug)` to another tool's topic WHEN the link
+                 is clicked THEN that topic is shown
+ST-HELP-04  GIVEN the built binary
+            WHEN `4cc-studio help team-compiler` runs
+            THEN stdout is the chapter's Markdown; WHEN `4cc-studio help --export <dir>` runs
+                 THEN <dir> holds one .md file per chapter, each ending with its Messages topic
+```
+
+**Log panel widget**
+
+```
+ST-LOG-01   GIVEN a log holding more lines than the display cap
+            WHEN the panel is drawn
+            THEN only the last lines up to the cap are drawn, the newest at the bottom
+ST-LOG-02   GIVEN the panel scrolled up by the user
+            WHEN new lines arrive
+            THEN the view does not move and a "↓ N new" indicator counts them; clicking it
+                 returns to the bottom and auto-scroll resumes
+ST-LOG-03   GIVEN a log holding info, warning, error and fatal lines
+            WHEN the Warnings filter is chosen
+            THEN the warning, error and fatal lines are drawn and the info lines are not; Errors,
+                 the error and fatal lines alone; All, every line again
+ST-LOG-04   GIVEN the log panel open at its default height
+            WHEN its chevron is clicked
+            THEN the panel collapses to its header row and the view above it takes the space,
+                 and a second click restores it at its height; WHEN its divider is dragged THEN the panel takes the dragged height, kept across
+                 frames
+```
+
+**Launch**
+
+```
+ST-RUN-01   GIVEN neither settings file exists
+            WHEN the GUI starts
+            THEN a dialog asks for the data location (portable data/ or the user config
+                 directory) before any tool view, and the chosen location's settings.toml exists
+                 afterwards; GIVEN one exists THEN no dialog and that location is used
+ST-RUN-02   GIVEN the GUI closed with the second tool active
+            WHEN `4cc-studio` starts again
+            THEN the second tool is active
+ST-RUN-03   GIVEN a tool whose gui_run does not implement the command
+            WHEN `4cc-studio --gui <tool-id> <command>` runs
+            THEN it exits with a message naming the tool, and no window opens;
+                 GIVEN a tool implementing it THEN the GUI opens with that tool active and the
+                 command runs as if its button had been pressed
+ST-RUN-04   manual  GIVEN the Windows bundle
+                    WHEN the exe is double-clicked
+                    THEN no console window opens beside the GUI; WHEN `4cc-studio team-compiler
+                         check` runs from a terminal THEN its output reaches that terminal
+ST-CLI-01   GIVEN a data directory that cannot be written
+            WHEN a CLI command runs
+            THEN stderr starts with the data_dir_read_only condition as one line, and a notice a
+                 tool publishes during the command prints as one line when it occurs
+ST-CLI-02   manual  GIVEN a compile run from a terminal
+                    WHEN it runs
+                    THEN one progress line is drawn on stderr and redrawn in place, cleared while
+                         a finding line goes to stdout, and one summary line remains when the run
+                         ends; GIVEN the same command with stderr piped THEN neither is drawn and
+                         stdout holds exactly the lines it holds in a terminal
+```

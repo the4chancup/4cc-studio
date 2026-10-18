@@ -42,7 +42,7 @@ implementation is measured against.
 
 | 4ccEditor | Fate |
 |-----------|------|
-| Load 15/16/17/18/19/20/21 EDIT file (7 menu items) | One **Open savefile** action; auto-detect the version by master keys / container shape. The loaded file's version governs its codec and editing widgets; warn on a global-selector mismatch, never reinterpret the open file. The Open menu lists the saves `pes_savefile`'s discovery finds under `Documents\KONAMI` for every version (labelled by version and, for 18+, account folder) as one-click entries above the ordinary file picker, and the picker opens in the selected version's save folder when it exists — see "Savefile discovery" in the Savefile plan |
+| Load 15/16/17/18/19/20/21 EDIT file (7 menu items) | One **Open savefile** action; auto-detect the version by master keys / container shape. The loaded file's version governs its codec and editing widgets; warn on a global-selector mismatch, never reinterpret the open file. The Open menu lists the saves `pes_savefile`'s discovery finds under `Documents\KONAMI` for every version (labelled by version and, for 19+, account folder) as one-click entries, with the files opened earlier in the session, above the ordinary file picker, and the picker opens in the selected version's save folder when it exists — see "Savefile discovery" in the Savefile plan |
 | Save EDIT file (encrypted) | Kept; plus **Save as** and an automatic `.bak` of the file each save replaces (one level) |
 | Import Texport file (per-version submenu) | Kept, auto-detected version; plus **Texport export** (new — PES itself can import the result; see [Savefile plan](pes_savefile/README.md)) |
 
@@ -105,7 +105,8 @@ Planned files that do not exist yet:
   stats), `tabs/` (`abilities.rs`, `appearance.rs`, `team.rs`, `tactics.rs`), `panels/`
   (`aatf.rs`, `comparator.rs`, `transplant.rs`, `interchange.rs` — Team TOML / `.4ccs` / `.4cct`
   / Texport import-export dialogs) and `widgets.rs` (editor-local reusable widgets: version-gated
-  control, RGB field, ID picker)
+  control, ID picker; a color field (team colors, skin, iris, wrist tape) is `color_tools`'
+  picker, `libs/color_tools.md`, not a widget of this crate)
 
 Placement rules for the planned parts:
 
@@ -169,7 +170,10 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   4ccEditor.
 - Keyboard shortcuts preserved where they earn their keep (Ctrl+S save, Ctrl+F
   clear visual flags, Ctrl+I FPC toggle).
-- Closing with unsaved changes prompts.
+- Closing, or opening another save, with unsaved changes prompts.
+- Save is refused while the save's own PES runs, as the CLI's writing commands are (the game
+  writes its save back when it closes, over the one just written); another version's game does
+  not block it.
 
 Improvements policy: each of the above exists to remove a real friction point
 (finding players, reordering, fear of misclicks). No animations-for-the-sake-of-it.
@@ -395,7 +399,11 @@ editor's non-UI substance a command drives — the tool crate's settings, CLI an
 operations its commands run, plus the `aatf` rules engine — lands in Phase 5; the view lands
 in Phase 8 with the `session/` wiring only it drives (undo, selection, recent files, the FPC
 toggle, AATF quick actions), each built in the slice that uses it (see the
-[core plan](core/development_plan.md#development-plan)). Within Phase 8, the view builds up as:
+[core plan](core/development_plan.md#development-plan)). Within Phase 8, the draft comes first:
+`docs/prototypes/save_editor.html` (`core/gui.md` "Prototypes before implementation") shows the
+master-detail layout, every tab and every panel of the five slices below with sample data, and
+is refined with the maintainer before slice 1 is coded; a slice that changes what the draft
+shows changes the draft first. Then the view builds up as:
 
 1. Open/save + player editing tabs (Abilities & Skills, Appearance) — the card pickers as the
    first `team_widgets` content
@@ -415,4 +423,169 @@ Verification:
   "Development phase and verification".
 - Comparator/transplant output parity against the Midcupping scripts.
 - Texport export verified by importing into the game (manual, per version).
+
+---
+
+## Acceptance
+
+What exists of this is in `spec/save_editor.md` "Acceptance", whose rules (format, the fixture
+saves, a team or player named by its id in them) these scenarios follow; IDs continue the
+spec's numbering.
+
+**Phase 8 scope.** Phase 8 delivers the view and the `session/` wiring only it drives (undo,
+selection, recent files, the FPC toggle, AATF quick actions), in the five slices of "Build
+order and verification". What a scenario observes is what a frame draws, through the headless
+harness (the frame's AccessKit nodes, a click or a drag as pointer frames, keyboard shortcuts
+as key events; a color, which no AccessKit node carries, is read back from the view state the
+frame paints from), the file written by Save, and the session's model; `manual` marks only
+what needs a display, a native dialog or a running game. "The save" is the fixture save of
+the version named, PES 21 unless the scenario says otherwise, copied under the test's own
+folder; save discovery is pointed at a Documents folder under that folder, never the
+developer's. An operation's outcome in the file is its own specification's where one exists
+(a transplant's, `SE-TRN`; a patch's, `SE-PAT`; a tier's values, `spec/aatf_rules.md`
+`apply_tier`; a Team TOML's, the CLI's export); these scenarios observe that the view reaches
+the same operation and shows its result. The operations with no command, which the spec's
+Phase 5 scope left to the view (the quick actions, the player and team operations, the
+tactics copies, the Texport and legacy imports, generation), get theirs here.
+
+```
+SE-GUI-01  GIVEN the save
+           WHEN it is opened from the view (Open, or its entry in the discovered-saves list)
+           THEN the team selector lists its teams and ALL, the player list shows each player's
+                number, position and name with the name's color codes rendered as colors, and
+                the info strip shows the selected player's general fields
+SE-GUI-02  GIVEN the save open on team 701
+           WHEN a name, shirt name or id of a player of another team is typed in the filter box
+           THEN the list shows the matching players across all teams, matched on the
+                color-code-free display name, and selecting one shows him
+SE-GUI-03  GIVEN the save open
+           WHEN a player's ability value is edited in the Abilities & Skills tab
+           THEN his list entry carries the unsaved-changes dot, the file is unchanged until Save
+                (Ctrl+S or the button), and after Save the reopened file holds the value with
+                the dot gone
+SE-GUI-04  GIVEN two edits made in order
+           WHEN Undo is invoked, then Redo
+           THEN the second edit's field returns to its earlier value and the first's stays,
+                then the second is reapplied; the file changes only on Save
+SE-GUI-05  GIVEN the save open with unsaved changes
+           WHEN the window is closed, or another save opened
+           THEN a prompt offers to save, discard or cancel, and cancel leaves the session as it was
+SE-GUI-06  GIVEN a PES 17 save
+           WHEN the Abilities & Skills tab is drawn
+           THEN the star, playing attitude and stronger hand controls are disabled with a tooltip
+                naming the first version that has them, in the same place as on a PES 21 save,
+                where they are enabled
+SE-GUI-07  GIVEN the save open
+           WHEN the Appearance tab is drawn
+           THEN its values are disabled with the line saying the team's export owns them (and
+                on pre-Fox, the patch step); WHEN "Edit aesthetics anyway" is switched on THEN
+                they are editable, the switch is off again at the next start of the tool, and on
+                a stripped player the tab says the game does not read the record
+SE-GUI-08  GIVEN the save open on a team
+           WHEN player 02 is dragged above player 01 in the list
+           THEN the list shows the new order, and after Save the file's roster has them swapped
+SE-GUI-09  GIVEN the official ruleset active
+           WHEN Make Gold is clicked on a player
+           THEN his fields hold the Gold tier's values as `aatf::apply_tier` sets them
+                (`spec/aatf_rules.md`), as one undoable edit, and check-aatf then reports no
+                violation of the Gold tier's targets for him
+SE-GUI-10  GIVEN the save open on a team
+           WHEN its name, a color or the manager id is edited in the Team tab and saved
+           THEN the reopened file holds the values
+SE-GUI-11  GIVEN a player without FPC and "Edit aesthetics anyway" switched on
+           WHEN Ctrl+I, or the FPC toggle, is used
+           THEN his record carries the FPC enable preset's values and the toggle reads on; the
+                team-wide switch applies it to every player of the team; a strip setting that
+                breaks hiding is listed on the Appearance tab as an interference finding
+SE-GUI-12  GIVEN the Tactics tab on preset 1
+           WHEN a pitch player is dragged to another spot
+           THEN the slot's position is the drop point after snapping, undoable, and the saved
+                file holds it; WHEN a bench player is dragged onto a pitch player THEN the two
+                swap; WHEN a set-piece role is assigned from the palette THEN the taker field
+                holds that player; WHEN "players to join attack" is in its assignment mode and
+                two pitch players are clicked THEN those two are the setting's players
+SE-GUI-13  GIVEN the save open and a second save of the same version loaded in the comparator
+           WHEN the panel is drawn
+           THEN it lists the per-team, per-player differences the diff command reports, the
+                All / Gameplay / Aesthetics toggles and the team filter narrow them, Export
+                writes the same text as the CLI's report, and clicking a row selects that player
+SE-GUI-14  GIVEN "Edit aesthetics anyway" switched on and the transplant panel with a donor
+                 save of another version
+           WHEN it is picked
+           THEN it is refused naming both versions; GIVEN one of the same version and a
+                selection built in the panel THEN the preview lists the affected players with
+                their aesthetics diff before Apply, and Apply is one undoable edit written only
+                on Save
+SE-GUI-15  GIVEN a ruleset with violations in the open team
+           WHEN the AATF panel is drawn
+           THEN the violations are grouped per player, clicking one selects that player, Show
+                suggestions is off and reveals the unused allowances when on, Validate rules
+                lists a broken rules file's findings with their line or key path, and Save a
+                copy writes the embedded official ruleset out byte for byte
+SE-GUI-16  GIVEN the save open on a team
+           WHEN Team TOML export, then import on another team with only the gameplay section
+                chosen, runs from the interchange dialog
+           THEN the file written equals the CLI's export, and the import changes only the
+                gameplay fields, with a warning list when the file's version differs
+SE-GUI-17  GIVEN a `.4ccs` or `.4cct` file, or a Texport
+           WHEN it is opened through the import dialog
+           THEN its sections import as the Team TOML import does, read-only for the legacy
+                formats; WHEN Texport export runs on a team THEN the file written is a Texport
+                of the save's version that the import dialog reads back to the same team values
+SE-GUI-18  GIVEN an aesthetics patch of the save's version
+           WHEN Apply aesthetics patch is used
+           THEN the preview lists every player it changes with old and new values, Apply is
+                one undoable edit, and a patch of another version is refused with the save
+                untouched
+SE-GUI-19  GIVEN a player with name color codes
+           WHEN settings.toml generation runs on his folder from the view
+           THEN the file holds the explicit name string with its codes (never `name = true`,
+                the Export upgrader's folder-matching rule)
+SE-GUI-20  GIVEN a Fox save where some players' appearance ids are set and the rest are -1
+           WHEN it is opened
+           THEN the players with ids set are listed with a Strip again action, which sets their
+                ids to -1 as one undoable edit
+SE-GUI-21  manual  GIVEN the save's game running
+                   WHEN Save is clicked
+                   THEN it is refused naming the game, as the CLI's writing commands are
+                        (SE-CLI-02), and the file is unchanged
+SE-GUI-22  GIVEN the save open with "Edit aesthetics anyway" off (every start of the tool)
+           WHEN the Appearance tab, the team operations menu, the transplant panel and the
+                import dialog are drawn
+           THEN the FPC toggle and the team-wide FPC switch, the boots and gloves assignment,
+                Clear visual flags, the transplant's Apply and the imports' aesthetics section
+                are disabled, each with the ownership line as its tooltip, while Apply
+                aesthetics patch is enabled
+SE-GUI-23  GIVEN the save open on a team and "Edit aesthetics anyway" on
+           WHEN a team operation runs from its menu (Set edited flag, Set boots and gloves for
+                everyone in incremental mode, Set player names to positions, Clear visual flags,
+                the last also by Ctrl+F)
+           THEN every player of the team carries the operation's values, as one undoable edit,
+                and the saved file holds them
+SE-GUI-24  GIVEN the save open on a player
+           WHEN Set all stats to N, Bump all stats by N, Copy stats from another player or Swap
+                stats with him runs from the player operations
+           THEN his ability values are the operation's result, as one undoable edit, and the
+                saved file holds them
+SE-GUI-25  GIVEN the Tactics tab on preset 1
+           WHEN Copy preset to 2, then Swap formation kick-off with in-possession, run from the
+                tab's menus
+           THEN preset 2 equals preset 1 before the swap, the two formations are exchanged, each
+                as one undoable edit
+SE-GUI-26  GIVEN two PES 21 saves and one PES 19 save under the test's Documents folder, the
+                 selector at PES 21, and one of the three opened earlier in the session
+           WHEN the Open menu is drawn
+           THEN it lists the three discovered saves, each with its version (and account folder
+                for PES 19 and later), and the recent file above the file picker; WHEN Save as writes a new
+                path THEN the file replaced, if any, is kept once as its .bak
+SE-GUI-27  GIVEN the save open
+           WHEN Output rosters to TSV runs
+           THEN the file written holds one tab-separated row per player of every team, his
+                team, number and name among its columns; WHEN Fix database is chosen THEN a
+                confirmation dialog precedes it and cancelling changes nothing
+SE-GUI-28  GIVEN the selector at PES 19
+           WHEN a PES 21 save is opened
+           THEN the view warns, naming both versions, the save keeps its own version (its codec
+                and its widgets' gating are PES 21's), and the selector's setting is unchanged
+```
 

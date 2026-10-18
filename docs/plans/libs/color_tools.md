@@ -13,9 +13,10 @@ being edited), and recent colors. The widget also reports a **hover candidate**:
 while a swatch is hovered or the picker is dragged, the host gets the candidate
 color to live-preview in its own UI (the Kit config editor tints its menu-UI
 mockup and icon gallery with it), reverting when the hover ends without a click.
-Used by the Kit config editor (config colors and
-kit `colors.txt` colors) and by the Team creator; any later tool that
-needs a color field uses it too.
+Its first host is the Save editor's color fields (team colors, skin, iris,
+wrist tape; `plans/save_editor.md` "Crate layout"), which is what puts it in
+Phase 8; then the Kit config editor (config colors and kit `colors.txt` colors)
+and the Team creator; any later tool that needs a color field uses it too.
 
 ### Kit menu icon rendering (Phase 8)
 

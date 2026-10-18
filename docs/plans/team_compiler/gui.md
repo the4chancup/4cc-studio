@@ -74,7 +74,9 @@ it, one cell per player at a fixed position by number, plus one cell per kit:
 
 ## Live validation (no Check or Refresh buttons)
 
-The exports folder is monitored continuously; checking requires no user input:
+The exports folder is monitored continuously; checking requires no user input. The watcher and
+the cache below are `libs/pipeline`'s, shared with the Balls compiler's list view; this crate's
+`check/` decides what to check when and maps the results to rows (`README.md` "Crate layout"):
 
 - **Folder watching** via the `notify` crate (`ReadDirectoryChangesW` on Windows, inotify on Linux),
   with `notify-debouncer-full` for event debouncing. New exports trigger checks after a ~1–2s quiet
@@ -259,7 +261,8 @@ A single primary action:
   PES** button sits beside it: it starts the selected version's `PES20{version}.exe` from the
   game folder (`pes_folder_path`; never through Steam, whose launch is incompatible with the cup's
   mods, so every version runs from its install folder) when that PES is not running, and
-  is disabled while it runs (the running-PES poll, `core/architecture.md` `pes_process.rs`); it
+  is disabled while it runs (the running-PES probe, `spec/core/architecture.md` "Crate
+  structure", polled by the sidebar's selector); it
   starts the game and does nothing else. Red's staged operations as separate runs
   ("extracted → contents", "contents → CPK") are superseded by the unified pipeline and are not
   exposed. GUI autorun (`quick_compile.bat`, see
@@ -268,9 +271,11 @@ A single primary action:
   `quick_compile_close_on_success` may close the window when it ends. The button carries the
   **destination writability badge** (PES running / elevation needed — see `spec/team_compiler/pipeline.md` "Post-processing") with the
   reason and remedy in its tooltip, and its dropdown always contains **Open output folder**.
-- **Status strip** — a one-line bar next to the button: current stage, elapsed time, files written,
-  memory in use. The core plan's current `Progress { processed, total }` payload is insufficient;
-  extend it with these metrics or add separate `StageChanged`/`MetricsUpdated` events before
-  implementing this view.
+- **Run strip** — a one-line bar next to the button: current stage, elapsed time, files written,
+  memory in use. (The one name for it across the plans: "strip" alone means a kit here, and
+  "status strip" would be confused with the shell's status bar.) The core plan's current
+  `Progress { processed, total }` payload is insufficient; extend it with these metrics or add
+  separate `StageChanged`/`MetricsUpdated` events before implementing this view
+  (`core/architecture.md` "Event system").
 
 ---

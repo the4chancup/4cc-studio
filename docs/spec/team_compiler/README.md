@@ -653,15 +653,23 @@ TC-OUT-06  withdrawn: the subset gate it tested went at step 4.20; a gloves mode
 ```
 TC-GUI-01  manual  GIVEN the studio binary
                    WHEN it is launched with no arguments
-                   THEN a window opens whose sidebar lists the Team compiler, and selecting it shows
-                        its settings, a Compile button and an event log
-TC-GUI-02  manual  GIVEN the tracer bullet's export in the exports folder
-                   WHEN Compile is clicked
-                   THEN the CPK is deployed as in TC-DEP-01 when the configured PES install holds
-                        a DpFileList listing it, else promoted to output/ with the degrading
-                        finding; the log shows the run's findings as the console prints them (the
-                        export's export_identified line among them), then the run's exit code
+                   THEN a window titled 4cc Studio opens, whose sidebar lists the registered tools
+TC-GUI-02  GIVEN the tracer bullet's export in the exports folder
+           WHEN Compile is clicked
+           THEN the run is the CLI's `compile` on the effective settings (what it writes and
+                where is TC-DEP's and TC-OUT's), and the log shows the run's findings as the
+                console prints them (the export's export_identified line among them), then the
+                run's exit code
+TC-GUI-03  GIVEN the shell with registered tools
+           WHEN a tool's sidebar entry is clicked
+           THEN that entry is marked active and its view is the one drawn; the Team compiler's
+                view shows its settings section, collapsed, opening on the effective settings
+                as `key = value` lines, a Compile button enabled while no run is in flight and
+                disabled while one is, and the run log, which follows its newest line
 ```
+
+Only the first needs a display (`run_gui` opens the window); the rest of the Phase 3 slice is
+proven headless (`egui::Context::run_ui`, the frame's AccessKit nodes).
 
 **Phase 4 scope.** `compile` builds everything a validated export holds, for every target version
 (PES 15-21) and for referee exports, into the normal CPK, the test tree or the sideload tree, and

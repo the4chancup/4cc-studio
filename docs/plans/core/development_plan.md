@@ -29,7 +29,7 @@ release" in the plans means 1.0.0, so a "first-release" feature may land after 0
 - Implement `settings.toml` generation from savefile aesthetics: every key, `name = true` when the folder's name part equals the save's name and the explicit
   string otherwise, `shirt_name` the save's string (a migrated player must look the same once his
   rows replace his stripped record)
-- CLI: `4cc-studio export-upgrader ./old_export.zip`
+- CLI: `4cc-studio export-upgrader upgrade ./old_export.zip --savefile <EDIT>`
 
 **Verification:** Upgrade the full library of existing old-format exports; compile the results;
 compare game-facing output against Red's output for the same exports.
@@ -52,8 +52,14 @@ pass (`export_upgrader.md` step 13).
 ### Phase 8: GUI
 
 The shell slice from Phase 3 (window, sidebar, one tool's view, a plain event log) exists by now;
-this phase completes it.
+this phase completes it. Its scenarios are written: the shell's under `gui.md` "Acceptance"
+(`ST`), each tool's view under its plan's "Acceptance" (`TC-GUI`, `SE-GUI`, `EU-GUI`).
 
+- Before any view or shell element is coded, its draft (`gui.md` "Prototypes before
+  implementation"): `docs/prototypes/shell.html` first, then one per tool as its view comes up
+  (`team_compiler.html`, `save_editor.html`, `export_upgrader.html`), each refined with the
+  maintainer and kept as the view's specification; each tool plan says where its draft sits in
+  that tool's build order
 - Complete the `studio_core` app shell (sidebar, tool registry rendering, settings menu with per-tool
   collapsible sections, status bar with its three slots and static empty state, window title
   from activities and the held notice, help window with chapter tree, generated Messages topics,
@@ -62,14 +68,19 @@ this phase completes it.
 - Build the common widgets: progress grid, log panel (auto-scroll, filters, grid cross-linking),
   run strip; and the console printer's progress line and run summary for CLI mode, drawn on
   stderr in a terminal only (`architecture.md` "Event system")
+- Build `color_tools`' Phase 8 widgets (`plans/libs/color_tools.md`): the kit menu icon
+  rendering (the grid's kit-cell miniatures, pattern-only mode) and the color-picker popup (the
+  Save editor's color fields; the Kit config editor and the Team creator later)
 - Implement each tool's `view()`: Team compiler grid (live validation), save editor
   (player/team/tactics editing, AATF checks, comparator, transplant — build order in the [Save
   editor plan](../save_editor.md); the `session/` wiring only the view drives, undo,
   selection, recent files, the FPC toggle and AATF quick actions, lands with it; the tactics editor, card pickers and violations list are built as
   `libs/team_widgets`, which the Team creator later reuses), export upgrader
-- Implement the exports folder watcher (`notify` + debouncing) and the two-tier check system with
-  cache
-- Wire event channels to egui rendering
+- Implement the exports folder watcher (`notify` + debouncing) and the check cache in
+  `libs/pipeline` (`spec/libs/pipeline.md`; the design is `plans/team_compiler/gui.md` "Live
+  validation"), and the Team compiler's `check/` scheduling its two-tier check over them
+- Each view over the receivers its tool's `tick` drains (`gui.md` "Event wiring"): the grid,
+  the log panel and the run strip read the tool's state, never a shell-owned channel
 - Implement cancellation (`spec/core/gui.md` "Cancellation"): the Compile button's Cancel, the pipeline
   checking it between tasks and between a texture task's textures, the cancelled run's staging
   discarded
@@ -79,8 +90,10 @@ this phase completes it.
 - Test on Windows (Linux is a Phase 16 item: no Linux machine is available, and 0.1.0 is
   Windows-only)
 
-**Verification:** Manual testing on Windows; user feedback from the modding community arrives
-through Release 0.1.0, which follows.
+**Verification:** the acceptance scenarios above, the automated ones through the headless
+harness (a frame's AccessKit nodes, clicks as press and release frames: `studio_core/src/shell/mod.rs`'s
+tests are the model), the `manual` ones checked on Windows and recorded in the worklog; user
+feedback from the modding community arrives through Release 0.1.0, which follows.
 
 ### Release 0.1.0
 

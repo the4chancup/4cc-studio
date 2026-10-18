@@ -242,7 +242,8 @@ Requirements:
 
   `TC` is the tool's short code (`TC` team compiler, `SE` save editor, `EU` export upgrader, `SC`
   stadium compiler, `MP` music player, `ME` music export editor, `MT` match tracker, `KC` kit config
-  editor, `RA` refs arranger, `BC` balls compiler, `PA` player aesthetics editor), `KIT` an area
+  editor, `RA` refs arranger, `BC` balls compiler, `PA` player aesthetics editor; `ST` the shell,
+  which is no tool: its scenarios are in `plans/core/gui.md` "Acceptance"), `KIT` an area
   within the tool, the number never reused once assigned; a withdrawn scenario keeps its ID with
   the text `withdrawn: <reason>`. Scenarios describe observable outcomes (files written, findings
   emitted, savefile fields set, CLI output), never internal structure; if the implementation could

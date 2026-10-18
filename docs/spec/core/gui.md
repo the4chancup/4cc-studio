@@ -17,9 +17,16 @@ deprecated `SidePanel`/`TopBottomPanel` for `Panel`, replaced `App::update(&Cont
 `App::ui(&mut Ui)`, and renamed `Context::style` to `global_style`). LLM-assisted coding reproduces
 whichever API the model saw most, so it will emit pre-0.34 code by default. Rules:
 
-- Pin exact `egui`/`eframe`/`egui-wgpu` versions once in `[workspace.dependencies]` (the
-  lock-step rule under `architecture.md` "Workspace guardrails") and upgrade deliberately, one release at a time,
-  following each release's migration notes in `CHANGELOG.md` / the GitHub release.
+- `eframe` and `egui` are pinned exact (`=0.36.2`) once in `[workspace.dependencies]` (the
+  lock-step rule under `architecture.md` "Workspace guardrails") and upgraded deliberately, one
+  release at a time, following each release's migration notes in `CHANGELOG.md` / the GitHub
+  release. Exact rather than caret, because a caret already excludes the next minor (the
+  releases that rename) and what remains to exclude is a patch release arriving through a bare
+  `cargo update`, unreviewed. `egui-wgpu` is not declared: it is `eframe`'s own dependency, and
+  the crates built on egui (`egui-wgpu`, `egui-winit`, `egui_extras`) each require the `egui` of
+  their own release, so the exact `egui` pin holds them to it without a pin of their own. What
+  it does not hold is egui's own dependencies (`epaint`, `emath`, `ecolor`), which egui requires
+  by caret; they carry no API this workspace calls directly.
 - Treat deprecation warnings as errors in CI (`#![deny(deprecated)]` or `-D deprecated`) so stale
   API from generated code is caught at compile time rather than accumulating.
 - The code sketches in these plans follow 0.36; they illustrate structure and must be re-checked
@@ -98,7 +105,7 @@ into UI wiring plus the pipeline adapters. The desktop binary remains the primar
 ```
 lib crates (pes_savefile, cpk, fpk, fmdl, pes_model, ftex, dds_convert, fox2, vtree, archives, teams_list, aesthetics_export, pipeline, model_convert, aatf, music_export, audio_engine, match_feed, kit_config, ...)
     ↑ used by
-tool crates (team_compiler, save_editor, stadium_compiler, export_upgrader, music_player, music_export_editor, match_tracker, kit_config_editor, refs_arranger, balls_compiler, player_aesthetics_editor) — each implements StudioTool
+tool crates (team_compiler, save_editor, stadium_compiler, export_upgrader, music_player, music_export_editor, match_tracker, kit_config_editor, refs_arranger, balls_compiler, player_aesthetics_editor, team_creator, ruleset_editor, db_generator) — each implements StudioTool
     ↑ registered by            ↖ trait + shell + common widgets defined in studio_core
 studio (single binary: GUI when run without args, CLI subcommand dispatch with args;
         native binary + WASM web build)

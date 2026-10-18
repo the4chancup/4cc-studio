@@ -77,7 +77,8 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
   is still running) are detectable long before Compile, so they are checked **live**, like the
   version selector's exe check, not discovered at the end of a multi-minute run. The probe's failure
   kind is read from the OS error — `ERROR_ACCESS_DENIED` → elevation needed, `ERROR_SHARING_VIOLATION`
-  → in use (cross-checked against the core plan's running-PES poll, which names the culprit). The
+  → in use (cross-checked against the running-PES probe, `spec/core/architecture.md` "Crate
+  structure", which names the culprit). The
   check runs at startup, on window focus, whenever a relevant setting changes (`pes_folder_path`,
   `pes_version`, CPK names, `multicpk_mode`), and whenever the PES process poll changes
   state. Results show on the Compile button as a warning badge with the reason in the tooltip and a

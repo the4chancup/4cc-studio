@@ -6,7 +6,9 @@ plan's [Parallelism](../core/parallelism.md) section and the Team compiler's
 [pipeline walkthrough](../team_compiler/pipeline.md); this part is the crate's contract.
 
 The crate holds four pieces, built in Phase 3: the memory budget and its cap, the thread count
-and `CpkStem`. The folder watcher and the check cache join with live validation (Phase 8); the
+and `CpkStem`. The folder watcher and the check cache join with live validation (Phase 8; their
+design is `plans/team_compiler/gui.md` "Live validation", their consumers the Team compiler's
+`check/` and the Balls compiler's list view); the
 browser variants (`spec/core/gui.md` "Browser deployment: Studio Web") with the web build's pipeline
 tier.
 

@@ -153,6 +153,7 @@ mod tests {
         tool_context(Path::new("exe"), "")
     }
 
+    // TC-GUI-03
     #[test]
     fn without_a_click_nothing_is_reported_and_compile_is_enabled() {
         let ctx = settings_only_context();
@@ -177,6 +178,7 @@ mod tests {
         assert!(clicked);
     }
 
+    // TC-GUI-03
     #[test]
     fn compile_is_disabled_while_a_run_is_in_flight() {
         let ctx = settings_only_context();
@@ -192,6 +194,7 @@ mod tests {
         assert_eq!(log.lines(), ["Run finished: exit code 0"]);
     }
 
+    // TC-GUI-03
     #[test]
     fn the_settings_section_opens_on_the_effective_settings() {
         let ctx = settings_only_context();
@@ -210,6 +213,7 @@ mod tests {
         assert!(shows_text(&nodes, "cpk_name = \"4cc_99_test\""));
     }
 
+    // TC-GUI-02
     #[test]
     fn a_compile_click_through_the_tool_starts_a_run() {
         let temp = sandbox("view_compile_click");
@@ -267,6 +271,7 @@ mod tests {
             .expect("the window holds one scroll area")
     }
 
+    // TC-GUI-03
     #[test]
     fn a_log_line_arriving_keeps_the_scroll_area_at_the_bottom() {
         let ctx = settings_only_context();

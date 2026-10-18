@@ -1,4 +1,5 @@
-//! Which PES games are running now (core plan, "The running-PES probe"): the Save
+//! Which PES games are running now (`spec/core/architecture.md` "Crate structure", the
+//! running-PES probe): the Save
 //! editor's writing commands refuse while one is, and the GUI's version selector polls
 //! it on a timer.
 
@@ -16,7 +17,8 @@ pub struct RunningPes {
     pub exe: Option<PathBuf>,
 }
 
-/// The PES games running now (core plan, "The running-PES probe").
+/// The PES games running now (`spec/core/architecture.md` "Crate structure", the running-PES
+/// probe).
 pub fn running_pes() -> Vec<RunningPes> {
     probe()
 }
@@ -308,8 +310,8 @@ mod tests {
         use std::process::{Command, Stdio};
         use std::time::{Duration, Instant};
 
-        // The probe's one job is seeing a running game (the core plan's "The
-        // running-PES probe"), and every other test runs with none open. The
+        // The probe's one job is seeing a running game (`spec/core/architecture.md` "Crate
+        // structure", the running-PES probe), and every other test runs with none open. The
         // fake game is PES 2020 because the tools' tests use that version
         // least: while it lives, any other test probing at the same moment (a
         // parallel mutation job, the Save editor's or Team compiler's own

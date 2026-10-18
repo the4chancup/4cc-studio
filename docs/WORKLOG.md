@@ -53,8 +53,6 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
   Windows' `sh` is not on PATH from a plain PowerShell. Recipes still stop at the first failure.
 - `cargo install just cargo-deny` is required once per machine (both take a few minutes to build);
   the pinned toolchain and the wasm32 target install themselves on the first `cargo` call.
-- The lockfile holds egui 0.36.1 on purpose (0.36.2 was under a week old at bootstrap); a bare
-  `cargo update` would move it. Bump deliberately.
 - `dds_convert`'s CPU BC1 core (`block_compression`, PCA plus one refinement) trails DirectXTex
   by about 2.5 mean error on an 8x4 grey-ramp mip while matching it within 1.0 at the top mip;
   the encode tests compare the chain-wide mean for that reason. Revisit with representative kit
@@ -156,9 +154,11 @@ history up to commit `32261dd`. Carried forward: the phase's open issues under "
 
 TC-GUI-01 manual: checked 2026-10-02 by the maintainer on Windows, the window, the sidebar's
 Team compiler entry, its Settings, Compile button and log.
-TC-GUI-02 manual: checked 2026-10-02 by the maintainer on Windows, the /egg/ tracer export
-compiled from the window, the log showing `egg Tracer: Info export_identified (team=/egg/,
-id=792)` then `Run finished: exit code 0`. Linux: not yet checked, no machine with a display.
+TC-GUI-02 was checked by hand the same day (the /egg/ tracer export compiled from the window,
+the log showing `egg Tracer: Info export_identified (team=/egg/, id=792)` then `Run finished:
+exit code 0`); since 8.0 it and TC-GUI-03 are automated, cited by the headless view and shell
+tests, and TC-GUI-01 is narrowed to the window opening. Linux: not yet checked, no machine
+with a display.
 
 ### Phase 4 — Processing logic
 
@@ -638,28 +638,28 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
 The phase's steps are itemized when it opens. Before that, its plans get the fixes a survey
 found (2026-10-15; the prototype rule and the launcher were fixed that day, DECISIONS):
 
-- [ ] 8.0 plan fixes before itemizing:
-  - `plans/core/gui.md` "Event wiring": the sketch has the shell own one event receiver and
-    route events; the spec and DECISIONS 2026-09 have each tool drain its own sink in `tick`
-    (`spec/core/architecture.md` "Event system"). "Shell layout": its sketch puts the log and
-    toolbar in the shell, its prose in each tool's view
-  - the prototype-first rule (`plans/core/gui.md` "Prototypes before implementation") written
-    into Phase 8's bullets in `core/development_plan.md` and into the Team compiler, Save editor
-    and Export upgrader plans, with where each draft sits in the Save editor's build order
-  - the watcher and check cache: one home (`libs/pipeline` in the spec, `team_compiler/src/check/`
-    in `plans/team_compiler/README.md`)
-  - "run strip" (core docs) and "Status strip" (`plans/team_compiler/gui.md`): one name
-  - `color_tools`' Phase 8 widgets (`plans/libs/color_tools.md`) added to Phase 8's bullets
-  - the Export upgrader's view: more than its one sentence (layout, the unmigrated-content
-    report), before its prototype
-  - acceptance sections for the Phase 8 views (none exist); TC-GUI-01/02 checked against the
-    headless AccessKit tests now covering most of them ("prefer an automated proof")
-  - egui pins: `eframe` and `egui` exact (`=0.36.2`) in `[workspace.dependencies]`; `egui-wgpu`
-    needs no declaration (each egui-family crate requires its own `egui` version, so the exact
-    `egui` pin holds it), and the spec's "egui version discipline" says so
-  - the spec catching up with the code: `PipelineEvent::Output`, `pes_process.rs` in the
-    closed module tree; the plan's tool registry missing `team_creator`, `ruleset_editor`,
-    `db_generator`; the Save editor's crate tree missing `events.rs`, `diff.rs`, `teams_list.rs`
+- [x] 8.0 plan fixes before itemizing (2026-10-18, side-lead C, branch `side/8.0`): the
+  "Shell layout" and "Event wiring" sketches now match the spec (tools draw their own panels
+  inside the central panel and drain their own sinks in `tick`); the draft-first rule is in
+  Phase 8's bullets and each tool plan's build order (`shell.html` first, one page per tool);
+  the watcher and the check cache have one home, `libs/pipeline` (DECISIONS); "run strip" is
+  the one name (glossary row); `color_tools`' widgets are a Phase 8 bullet, the picker's first
+  host the Save editor's color fields (DECISIONS); the Export upgrader plan has a "GUI"
+  section; acceptance sections written: `ST` (`plans/core/gui.md`, a new code, CONTRIBUTING),
+  `TC-GUI-04` to `-21`, `SE-GUI-01` to `-28`, `EU-GUI-01` to `-06`; TC-GUI-01 narrowed to the
+  window and TC-GUI-02/03 automated, cited by the existing headless tests; `eframe` and `egui`
+  pinned `=0.36.2` (lockfile unchanged, `cargo tree --locked`); the spec caught up
+  (`PipelineEvent::Output` and its paragraph, `pes_process.rs` and the probe paragraph, the
+  three registered tools; the plan's registry gained `team_creator`, `ruleset_editor`,
+  `db_generator`). The Save editor's spec tree already listed `events.rs`, `diff.rs`,
+  `teams_list.rs` (no edit). The acceptance sections await the Astra round of checkpoint (a);
+  the upgrader's handoff to the compiler is a question (`QUESTIONS.md`). Files: `Cargo.toml`,
+  `docs/CONTRIBUTING.md`, `docs/GLOSSARY.md`, `docs/plans/core/{gui,architecture,development_plan}.md`,
+  `docs/spec/core/{gui,architecture,development_plan}.md`, `docs/spec/libs/pipeline.md`,
+  `docs/plans/team_compiler/{README,gui}.md`, `docs/spec/team_compiler/README.md`,
+  `docs/plans/{save_editor,export_upgrader}.md`, `docs/plans/libs/color_tools.md`,
+  `crates/studio_core/src/shell/mod.rs`, `crates/studio_core/src/pes_process.rs`,
+  `crates/tools/team_compiler/src/{view/mod,gui_run}.rs` (citation and pointer comments only)
 - [ ] 8.1 egui's bundled fonts, once the theme settles its icon font (`egui-phosphor`): the
   four default fonts are 1.37 MiB of the release exe's `.rdata` (2026-10-16,
   `.tmp/16w/rdata_parts.py`), the two emoji fonts (`NotoEmoji-Regular` 409 KiB,

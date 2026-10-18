@@ -8741,3 +8741,76 @@ parent). A drawn repeat of the entry that just ended is what `advance` exists to
 readable export combines the two instructions, so the fix is the smaller one (filter the
 draw, keep the check).
 Plan: `music_player.md` "File resolution", "Song selection (per button press)" step 3.
+
+## 2026-10-18 — core — the folder watcher and the check cache live in `libs/pipeline`
+Decision (side-lead, 8.0): the exports folder watcher (`notify` + debouncing) and the check
+cache (the manifest fingerprint and what it keys) are `libs/pipeline`'s, as the spec's crate
+tree said; the Team compiler's planned `check/watcher.rs` goes, and its `check/` only decides
+what to check when and maps results to rows. Their design stays in `plans/team_compiler/gui.md`
+"Live validation".
+Why: two plan files named two homes. The Balls compiler's list view watches its folder the
+same way (`plans/balls_compiler.md` "GUI"), and tool crates never depend on tool crates, so a
+watcher in `team_compiler` would be copied there; `pipeline` is "the scaffolding every
+compiling tool runs on" and already names the pair. The design text stays with the grid
+because the grid is what the watcher and cache exist for, and a second copy would drift.
+Plan: `plans/team_compiler/README.md` "Crate layout"; `plans/team_compiler/gui.md` "Live
+validation"; `spec/libs/pipeline.md` (the consumers named); `plans/core/development_plan.md`
+"Phase 8".
+
+## 2026-10-18 — core — `ST` is the shell's acceptance code; TC-GUI-02 and -03 are automated
+Decision (side-lead, 8.0): the shell's scenarios carry the code `ST` and live in
+`plans/core/gui.md` "Acceptance" (the shell is no tool, so no tool plan owns them). TC-GUI-01
+is narrowed to what needs a display (the window opening, `run_gui`); TC-GUI-02 (the Compile
+click runs the CLI's `compile`, the log shows its lines then the exit code) loses `manual` and
+is cited by `team_compiler`'s headless compile-click test, and the new TC-GUI-03 (a sidebar
+click shows the tool's view; the settings section, the Compile button and the log) is cited by
+the shell's and the view's headless tests. TC-GUI-02's former deployment clause goes: what the
+run writes is TC-DEP's and TC-OUT's, through the CLI path the button shares.
+Why: CONTRIBUTING's rule is "prefer an automated proof whenever the UI toolkit allows one";
+3.z's headless harness proves everything in the two scenarios but the native window, and the
+worklog's manual lines were proving by hand what a test proves on every run. The deployment
+clause was never what the headless test could or should observe twice.
+Plan: `spec/team_compiler/README.md` "Acceptance" (shell slice); `docs/CONTRIBUTING.md`
+"Testing" (the `ST` code); `plans/core/gui.md` "Acceptance".
+
+## 2026-10-18 — workspace — `eframe` and `egui` pinned exact; `egui-wgpu` stays undeclared
+Decision (side-lead, 8.0): `[workspace.dependencies]` pins `eframe = "=0.36.2"` and
+`egui = "=0.36.2"`; `egui-wgpu` is not added. The spec's "egui version discipline" said to pin
+all three.
+Why: a caret pin already excludes the next minor (where egui renames); what it let through was
+a patch release moving on a bare `cargo update`, unreviewed, which the exact pin stops.
+`egui-wgpu` is `eframe`'s own dependency and requires `egui = "0.36.2"` (its `Cargo.toml`), as
+the crates built on egui require the `egui` of their release, so the exact `egui` pin already
+holds it (checked: `cargo tree --locked` resolves unchanged with the exact pins); a third pin
+would be a second place to bump for no extra hold. egui's own dependencies (`epaint`, `emath`)
+stay caret-required by egui and are not held; nothing here calls them directly.
+Plan: `spec/core/gui.md` "egui version discipline"; `Cargo.toml`.
+
+## 2026-10-18 — save editor — a color field is `color_tools`' picker
+Decision (side-lead, 8.0): the Save editor's color fields (team colors 1 and 2, skin, iris,
+wrist tape) are `color_tools`' color-picker popup, not the "RGB field" the crate's `widgets.rs`
+line planned. The picker therefore has a Phase 8 host, and Phase 8's bullets name both
+`color_tools` widgets (the picker, and the kit menu icon rendering the grid's kit cells draw).
+Why: `color_tools`' plan dated both widgets Phase 8 but named only Phase 12 and 17 consumers
+for the picker, which made it a `pub` item with no caller for two phases; the Save editor's
+Appearance and Team tabs need a color field in Phase 8, and one picker across the tools is the
+"consistent rules across tools" rule applied to a widget.
+Plan: `plans/save_editor.md` "Crate layout"; `plans/libs/color_tools.md` "Color-picker widget";
+`plans/core/development_plan.md` "Phase 8".
+
+## 2026-10-18 — export upgrader — the view is the two commands as drop targets with the report as its product
+Decision (side-lead, 8.0): the Export upgrader's view (`plans/export_upgrader.md` "GUI") is two
+drop targets (an export; a folder of model folders), the CLI's arguments and nothing more (a
+savefile field prefilled from `pes_savefile::discovery` for the selected version, the loose
+switch, an output folder field), an Upgrade button running the command through the CLI's own
+parser on a thread of its own, and the report: the console's lines in the log panel and an
+unmigrated-content list above it. No settings section.
+Why: the plan had one sentence ("two drop targets"), and the draft needs a layout to start
+from. The CLI path, not a second code path, because the shell slice's rule (the button cannot
+do what the command line refuses) already holds for the compiler; the unmigrated list as the
+view's centre because that report is the one output a member acts on by hand. The savefile is
+prefilled from discovery rather than remembered as a setting because the tool has no settings
+and the save of the selected version is what a member means nine times in ten. The draft
+review is where the maintainer reshapes it; a handoff to the compiler after a clean upgrade is
+not decided here (`QUESTIONS.md`).
+Plan: `plans/export_upgrader.md` "GUI", "CLI" (the pointer), "Acceptance" (Phase 8 scope).

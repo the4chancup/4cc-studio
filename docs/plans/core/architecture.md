@@ -31,6 +31,7 @@ These planned crates extend the spec's workspace tree:
 │   │   ├── team_creator/             # New-team wizard: roster file → legal Team TOML + export with
 │   │   │                             #   embedded starter heads; owns no format, hands off
 │   │   ├── ruleset_editor/           # AATF ruleset forms → rules file (libs/aatf's format)
+│   │   ├── db_generator/             # The game's database tables from the teams list (libs/pesdb's formats)
 │   │   └── ...                       # Future tools (CPK tools, ...)
 │   └── libs/
 │       ├── team_widgets/             # (Phase 8) Shared egui widgets over the pes_savefile team model: tactics
@@ -72,24 +73,11 @@ crates/studio_core/src/
 │   ├── log_panel.rs  #   capped log, auto-scroll, filters, cross-linking
 │   └── run_strip.rs
 ├── theme.rs          # the shared Visuals preset, fonts, egui-phosphor registration
-├── pes_process.rs    # running-PES poll (desktop): version + exe path detection
 └── updater.rs        # release check, download/verify, binary swap, rollback (desktop only)
 ```
 
-**The running-PES probe.** `pes_process::running_pes() -> Vec<RunningPes>` lists the PES games
-running now, each a `RunningPes { version: PesVersion, exe: Option<PathBuf> }`, matched by
-executable name: `PES2015.exe` to `PES2021.exe`, in any letter case (the names the games ship
-with; a renamed exe is not seen). On Windows it walks a Toolhelp process snapshot and asks each
-match for its image path (the `unsafe` the code style allows here), `None` when the process
-refuses (another user's or a protected process; the limited query right is granted on an
-elevated game too); on Linux it reads each
-`/proc/<pid>/cmdline`, whose first argument under Wine or Proton is the exe's Windows path, and
-matches its last segment after a `\` or `/`; elsewhere it returns none. A process it cannot read
-is skipped. The CLI calls it once where a step must not run while the game of the save's version
-does (the compiler's savefile step, the Save editor's writing commands; a game of another
-version never writes that save); the GUI's version-selector poll calls it on a
-timer. We match process names, not a lock file or a window title, because the game takes no lock
-on its save and its window title changes with its language.
+The running-PES probe (`pes_process.rs`, `spec/core/architecture.md` "Crate structure") is
+built; the version selector's timer poll over it is Phase 8's (`gui.md` "Sidebar").
 
 #### Launch modes
 
@@ -159,18 +147,22 @@ fn tools(ctx: &egui::Context) -> Vec<Box<dyn StudioTool>> {
         Box::new(refs_arranger::Tool::new()),
         Box::new(balls_compiler::Tool::new()),
         Box::new(player_aesthetics_editor::Tool::new()),
+        Box::new(team_creator::Tool::new()),
+        Box::new(ruleset_editor::Tool::new()),
+        Box::new(db_generator::Tool::new()),
     ]
 }
 ```
 
-That is the full registry.
+That is the full registry; the three tools registered today are the first, second and fourth
+(`spec/core/architecture.md` "Tool plugin interface").
 
 These commands extend the spec's CLI examples:
 
 ```
 4cc-studio save-editor export-toml ./EDIT00000000 --team 701 -o ./aaa.toml
 4cc-studio stadium-compiler compile ./stadium_exports
-4cc-studio export-upgrader ./old_export.zip
+4cc-studio export-upgrader upgrade ./old_export.zip --savefile ./EDIT00000000
 4cc-studio music-export-editor check ./team.4ccm
 4cc-studio match-tracker watch
 4cc-studio kit-config-editor convert ./config.bin ./config.toml
@@ -184,14 +176,6 @@ What exists of this is in `spec/core/architecture.md` "Event system".
 
 The GUI rejects events whose `run_id` or `export_revision` is older than the current grid state, so
 results from a stale filesystem snapshot cannot overwrite newer checks.
-
-**A command's result text.** `PipelineEvent::Output(String)` carries text a CLI command prints
-as its result, a JSON report or a document: `EventLines` gives it back as it is, so the console
-printer writes it to stdout with no prefix or folding, and a tool's log shows it as one entry. A
-command whose result is such text reports nothing else on success (its findings go in the text),
-so stdout parses (`save-editor diff --json`). We do this, not return the text from `cli_run`,
-because the printer thread owns stdout while a command runs: a second writer would interleave with
-its lines.
 
 **The console's progress line and run summary.** When stderr is a terminal
 (`std::io::IsTerminal`), the console printer draws one progress line on stderr from `Progress`

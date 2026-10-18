@@ -37,4 +37,18 @@ serves both engines or a folder needs one per engine.
 
 ## Cup practice and preferences
 
+### Does the Export upgrader hand a clean upgrade to the Team compiler?
+From: side-lead 8.0, 2026-10-18 (`plans/export_upgrader.md` "GUI", DECISIONS 2026-10-18 "the
+view is the two commands as drop targets"). The view writes the upgraded export beside the
+input, as the CLI does, and the member then copies it into `exports/` and compiles. The
+question is whether a clean upgrade also offers "Move to exports and compile": the output
+moved into the exports folder and the Team compiler made active (`ctx.switch_to_tool`, the Refs
+arranger's handoff), the watcher then checking it like any dropped export. A notice carries at
+most one action (`spec/core/gui.md` "Status bar"), so it would be a button in the view's done
+line, or the clean run's notice action in place of Open output folder. Recommended: yes, as a
+button in the done line, for a clean upgrade only (exit code 0): an upgrade with unmigrated
+content is the member's to finish by hand first, and the notice keeps Open output folder.
+Unblocks: the upgrader's draft (`docs/prototypes/export_upgrader.html`), which can be reviewed
+with or without the button; nothing before it.
+
 ## Small confirmations

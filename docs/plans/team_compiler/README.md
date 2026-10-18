@@ -10,9 +10,9 @@ These entries extend the spec's tree of `crates/tools/team_compiler/src/`; `chec
 of the spec's `check.rs`:
 
 ```
-├── check/            # live validation orchestration (the lib validates; this schedules)
-│   ├── mod.rs        #   two-tier check (shallow archive / deep folder), results cache
-│   └── watcher.rs    #   notify + debounce → rescan via reader, recheck requests (desktop only)
+├── check/            # the `check` command, and the live grid's checks (the lib validates;
+│   ├── mod.rs        #   this schedules): which export to check when, shallow or deep
+│   └── live.rs       #   the watcher's and the cache's events mapped to rows and revisions
 └── view/
     ├── grid.rs       #   team grid on studio_core's grid widget; ID cell editing
     └── toolbar.rs    #   split Compile button, writability badge, run strip
@@ -20,8 +20,16 @@ of the spec's `check.rs`:
 
 Placement rules:
 
-- `check/` only schedules and caches the export validations of `libs/aesthetics_export` for the
-  live grid.
+- `check/` only schedules the export validations of `libs/aesthetics_export` for the live grid.
+  The folder watcher (`notify` + debouncing) and the check cache (the manifest fingerprint and
+  what it keys) are `libs/pipeline`'s (`spec/libs/pipeline.md`), not this crate's: the Balls
+  compiler's list view watches its folder the same way (`plans/balls_compiler.md` "GUI"), and a
+  watcher in this crate would be copied there, tool crates never depending on tool crates. The
+  design of both is `gui.md` "Live validation", since the grid is what they exist for.
+- The view is drafted first (`core/gui.md` "Prototypes before implementation"):
+  `docs/prototypes/team_compiler.html` shows the grid with sample rows in every cell state, the
+  toolbar with its split button, badge and run strip, and the log panel, and is refined with the
+  maintainer before `view/grid.rs` is written.
 
 ---
 
@@ -130,3 +138,120 @@ concern.
 **When to implement:** After the GUI is functional (post-Phase 8). The core architecture doesn't
 need to change; it's a `wgpu` rendering pass alongside egui. The object model already has all the
 data needed.
+
+---
+
+## Acceptance
+
+What exists of this is in `spec/team_compiler/README.md` "Acceptance", whose rules (format, the
+default export, the default version) these scenarios follow; IDs continue the spec's numbering.
+
+**Phase 8 scope.** Phase 8 delivers the view: the live-validating grid (`gui.md`), the toolbar
+with its split Compile button, the run strip, the log panel's cross-links, cancellation
+(`spec/core/gui.md` "Cancellation") and the tool's settings section. What a scenario observes
+is what a frame draws, through the headless harness (the frame's AccessKit nodes and the
+painted cells' colors, read back from the tool's row state the view paints from; a click as
+press and release frames), the files written, and the events the run emits; `manual` marks
+only what needs a display or a running game. "The exports folder" is one under the test's
+own folder, named by the test's settings; the shell's own behavior (sidebar, settings menu,
+status bar, help) is `ST`'s (`plans/core/gui.md` "Acceptance").
+
+```
+TC-GUI-04  GIVEN an exports folder holding a plain-folder export with players 01, 03 and kits p1,
+                 g1, and one archived (.zip) export
+           WHEN the view opens
+           THEN each export is a row with its team label and ID cell, the plain-folder row's
+                cells at the fixed positions 01 and 03 (02 empty, no cell) and GK and K1, each
+                cell checking then full-ok, warning or error as its scope's deep check ends;
+                the archive's cells end partial-ok (blue) or partial-error with nothing
+                decompressed beyond the root metadata a shallow check reads (players.txt, a kit's
+                config.toml; a solid .7z, its entry table alone)
+TC-GUI-05  GIVEN the view open on an exports folder
+           WHEN an export folder is copied in and has been quiet for the debounce period
+           THEN a row for it appears and is checked; WHEN an export is deleted or renamed THEN
+                its row goes, or carries the new name, on the next frame
+TC-GUI-06  GIVEN an export checked at the last launch and unchanged since
+           WHEN the view opens again
+           THEN its row shows its last statuses without a check running; GIVEN one of its files
+                edited since, or the teams list changed, or a validation-affecting setting
+                changed, THEN it is checked again
+TC-GUI-07  GIVEN an export whose team is not on the teams list
+           WHEN the view draws its row
+           THEN the ID cell is red and editable; typing an ID in 701-920 and Enter writes it to
+                the data directory's teams_list.txt and every row revalidates; an entry out of
+                range keeps the cell red with the reason in its tooltip; an ID another team
+                holds asks "in use by {team}; reassign?" and writes only on yes; GIVEN the data
+                directory not writable THEN the cell reverts, red, teams_list_read_only in its
+                tooltip
+TC-GUI-08  GIVEN a team export whose name carries neither Full nor Midcup
+           WHEN the view draws its row
+           THEN the row holds a Full and a Midcup button where its cells would be; clicking one
+                renames the folder or archive with the tag after the team name and the row
+                revalidates under the new name
+TC-GUI-09  GIVEN a cell with findings
+           WHEN the pointer hovers it
+           THEN the tooltip shows the folder name and the findings' text, worst severity first;
+                WHEN it is clicked THEN the detail panel opens on that scope
+TC-GUI-10  GIVEN a kit folder whose colors.txt parses and whose icon_<N> marker names pattern N
+           WHEN its cell is drawn
+           THEN the cell shows pattern N's two-color swatch in the kit's two menu colors under
+                its label; GIVEN the kit's check failed THEN the swatch shows the base
+                UniColor.bin colors instead
+TC-GUI-11  GIVEN the toolbar at rest
+           WHEN the Compile button's arrow is clicked
+           THEN the list offers Compile, Compile for sideloading (disabled on PES 15 and 16),
+                Test output and Open output folder; picking a mode relabels the main part and
+                the next main-part click runs that mode; the mode is normal again at the next
+                launch
+TC-GUI-12  GIVEN a run in flight
+           WHEN frames are drawn
+           THEN each cell being processed keeps its check color with a bold label, then turns
+                done, done-with-warning or done-with-errors as its task ends; the run strip
+                shows the stage, the elapsed time, the files written and the memory in use;
+                the Compile button reads Cancel
+TC-GUI-13  GIVEN a run in flight over two exports
+           WHEN Cancel is clicked
+           THEN the run ends after the task or texture in progress, no CPK is written or
+                replaced and the previous outputs are as they were, the cells not yet processed
+                return to their check colors, and the log's last line says the run was cancelled
+TC-GUI-14  GIVEN an export holding a finding whose effective disposition is DropExport
+           WHEN Compile is pressed
+           THEN every player and kit cell of its row shows the blocked state, each tooltip
+                naming the export-level cause, and no task of that export runs; GIVEN a folder
+                with a DropFile finding THEN its cell ends done-with-errors (orange-red)
+TC-GUI-15  GIVEN a warning line in the log panel
+           WHEN it is clicked
+           THEN the cell of its scope is highlighted in the grid; a line whose scope is the
+                export highlights the row label
+TC-GUI-16  GIVEN the destination not writable (the game running, or elevation needed)
+           WHEN the toolbar is drawn
+           THEN the Compile button carries the writability badge, its tooltip naming the reason
+                and the remedy; the button stays enabled, the run degrading as TC-DEP's
+                scenarios say
+TC-GUI-17  manual  GIVEN the sideload mode selected and PES 21 installed in pes_folder_path
+                   WHEN Launch PES is clicked
+                   THEN PES2021.exe starts from that folder, not through Steam, and the button
+                        is disabled while it runs
+TC-GUI-18  GIVEN `4cc-studio --gui team-compiler compile` with an export in the exports folder
+           WHEN the initial check completes
+           THEN the compile starts by itself, its grid and log indistinguishable from a click's;
+                GIVEN quick_compile_close_on_success set THEN the window closes when the run
+                ends with no Error-level finding and nothing skipped for errors (`settings.md`:
+                warnings alone still close it), and stays open otherwise; a manual Compile click
+                with the setting on never closes it
+TC-GUI-19  GIVEN the settings menu open on the Team compiler's section
+           WHEN cpk_name is edited
+           THEN the settings file's [team-compiler] table holds the new value and the next
+                compile writes a CPK of that name
+TC-GUI-20  GIVEN a referee export whose players.txt lists slots 1, 2 and 35, slots 1 and 35
+                 backed by the same model folder
+           WHEN the view draws its row
+           THEN the row's cells sit at the fixed positions 01 to 35 (only 01, 02 and 35 drawn),
+                cells 01 and 35 share one status and their tooltips name the same folder, and a
+                finding of that folder colors both
+TC-GUI-21  GIVEN an export holding a shared model folder no player links (shared_folder_orphaned,
+                 W) and a root logo_small.png with no main logo (logo_small_without_main, E)
+           WHEN the view draws its row
+           THEN the row label is red, the worse of the two findings' colors, its tooltip lists
+                both with their scopes, and no player or kit cell changes for them
+```

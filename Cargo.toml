@@ -20,8 +20,11 @@ block_compression = { version = "0.10.0", default-features = false, features = [
 clap = { version = "4.6.6", features = ["derive"] }
 crossbeam-channel = "0.5.17"
 directories = "6.0.0"
-eframe = "0.36.2"
-egui = "0.36.2"
+# Exact, so a bare `cargo update` cannot move even a patch release unreviewed (`spec/core/gui.md`
+# "egui version discipline"). The crates built on egui (`egui-wgpu`, `egui_extras`) each require
+# the `egui` of their release, so the exact `egui` pin holds them without a pin of their own.
+eframe = "=0.36.2"
+egui = "=0.36.2"
 env_logger = { version = "0.11.11", default-features = false }
 flate2 = "1.1.10"
 libc = "0.2.189"

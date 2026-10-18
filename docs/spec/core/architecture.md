@@ -33,7 +33,8 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │   │                                 #   common widgets (grid, log panel), PipelineEvent types
 │   ├── tools/
 │   │   ├── team_compiler/            # Team compiler (pipeline, loaded processing model, packing, GUI)
-│   │   └── save_editor/              # Save editor: settings, the CLI and the session its commands drive
+│   │   ├── save_editor/              # Save editor: settings, the CLI and the session its commands drive
+│   │   └── export_upgrader/          # Export upgrader: old-format exports and model folders to the Studio format
 │   └── libs/
 │       ├── pes_savefile/             # EDIT file codec: crypto, schema tables, player/team/
 │       │                             #   tactics model, interchange formats (Team TOML, Texport,
@@ -133,6 +134,7 @@ crates/studio_core/src/
 │                     #   notify), CliError, AppPaths, ShellRequest
 ├── events.rs         # PipelineEvent, PipelineEventEnvelope, FolderStatus, Message + Severity/Disposition, EventLines (an event's one-line text)
 ├── status.rs         # ShellCondition, ToolActivity, Notice — the status bar's typed items
+├── pes_process.rs    # the running-PES probe (below): which PES games run now, and from where
 ├── help/
 │   └── mod.rs        #   HelpSection/HelpTopic, HelpTarget (tool, topic, anchor)
 ├── settings/
@@ -149,6 +151,24 @@ crates/studio_core/src/
 Anything not on this list belongs in a lib crate or a tool crate. The two tempting misplacements:
 format knowledge (team IDs, teams-list parsing → `teams_list`; export conventions →
 `aesthetics_export`) and widgets used by one tool (→ that tool's `view/`).
+
+**The running-PES probe.** `pes_process::running_pes() -> Vec<RunningPes>` lists the PES games
+running now, each a `RunningPes { version: PesVersion, exe: Option<PathBuf> }`, matched by
+executable name: `PES2015.exe` to `PES2021.exe`, in any letter case (the names the games ship
+with; a renamed exe is not seen, and neither is the short `pes21.exe`). On Windows it walks a
+Toolhelp process snapshot and asks each match for its image path (the `unsafe` the code style
+allows here), `None` when the process refuses (another user's or a protected process; the
+limited query right is granted on an elevated game too); on Linux it reads each
+`/proc/<pid>/cmdline`, whose first argument under Wine or Proton is the exe's Windows path, and
+matches its last segment after a `\` or `/`; elsewhere it returns none. A process whose list
+entry cannot be read is skipped (on Linux, one whose `cmdline` cannot be read); a Windows match
+whose path cannot be read is kept with `exe: None`. Its callers today are the steps that must not run while the game of the save's
+version does: the compiler's savefile step and the Save editor's writing commands (a game of
+another version never writes that save); the GUI's version-selector poll calls it on a timer
+(Phase 8, `plans/core/gui.md` "Sidebar"). We match process names, not a lock file or a window
+title, because the game takes no lock on its save and its window title changes with its
+language. The module is split by `cfg` per OS, so a mutation run reports the other OS's arms
+as missed (`WORKLOG.md` "Current-state gotchas").
 
 **Tool crates** (`crates/tools/`) — each implements the `StudioTool` trait and owns:
 - Its processing logic (or orchestration over lib crates)
@@ -357,8 +377,10 @@ configuration error: nothing ran), and 3 when the executable's folder cannot be 
 console printer stops (an environment failure; a lost printer may have lost findings, so the
 tool's own verdict cannot stand).
 
-Today the `studio` binary's `tools()` registers the Team compiler alone and takes no
-context; the `egui::Context` parameter arrives with the match feed (Phase 11), its first user.
+Today the `studio` binary's `tools()` registers the Team compiler, the Save editor and the
+Export upgrader, in that sidebar order, and takes no context; the `egui::Context` parameter
+arrives with the match feed (Phase 11), its first user. The full registry is the plan's
+(`plans/core/architecture.md` "Tool plugin interface").
 
 CLI dispatch uses standard clap subcommands (each tool contributes one), which is the conventional
 CLI shape:
@@ -453,6 +475,9 @@ pub enum PipelineEvent {
     // defines its message catalog (see "Message catalog" in the Team compiler
     // plan). Display text is rendered from a per-catalog template table.
     Message(Message),
+    // A command's result text (a JSON report, a document), printed as it is: see
+    // "A command's result text" below.
+    Output(String),
     Progress { processed: usize, total: usize },
     Complete { success: bool, files_written: usize, skipped_folders: usize, duplicates: usize, folders_with_errors: usize },
     UnmigratedContentFound,   // e.g. files the upgrader could not place
@@ -499,7 +524,16 @@ need a header to be read:
 The source name comes from the export's `ExportStarted` event; the scope is the folder or file
 path, `<file> line <n>` for a roster entry, and nothing for the export itself or a run-wide
 finding; the context fields follow in parentheses, in template order. Other events print
-nothing.
+nothing, `Output` aside.
+
+**A command's result text.** `PipelineEvent::Output(String)` carries text a CLI command prints
+as its result, a JSON report or a document: `EventLines` gives it back as it is, so the console
+printer writes it to stdout with no prefix or folding, and a tool's log shows it as one entry. A
+command whose result is such text reports nothing else on success (its findings go in the text),
+so stdout parses (`save-editor diff --json`). We do this, not return the text from `cli_run`,
+because the printer thread owns stdout while a command runs: a second writer would interleave with
+its lines.
+
 **GUI** receives events via channels and renders them as egui UI updates (the active tool's log
 lines today; grid cell colors and the run strip are Phase 8's). The line above is `studio_core`'s `EventLines` (in `events.rs`), shared by
 the console printer and the tools' plain logs, so a finding reads the same in the terminal and in

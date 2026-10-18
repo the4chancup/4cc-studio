@@ -2137,3 +2137,6 @@ worklog passed 7,000 lines.
 - **2026-10-18** — Astra on 10.0e (side-lead B's fixes): a `_normalized` companion is matched by
   stem, any extension (IZAKAYA's 17 `.mp3`/`.opus` pairs); a root-level anchored path holds; the
   entry `advance` skips is not drawn again under `randomise`.
+- **2026-10-18** — 8.0 (side-lead C): Phase 8's plan fixes: the shell sketches match the spec,
+  drafts first in every build order, watcher and cache in `pipeline`, acceptance sections for the
+  shell (`ST`) and the three views, exact egui pins, the spec caught up with the code.

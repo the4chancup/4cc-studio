@@ -310,6 +310,7 @@ mod tests {
         assert_eq!(app.active, 1);
     }
 
+    // TC-GUI-03
     #[test]
     fn the_sidebar_marks_the_active_tool_and_a_click_on_an_entry_switches_to_it() {
         let Shell { mut app, a, b, .. } = shell();

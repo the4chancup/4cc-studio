@@ -166,6 +166,7 @@ mod tests {
         });
     }
 
+    // TC-GUI-02
     #[test]
     fn a_compile_logs_the_consoles_lines_then_its_exit_code_and_a_rerun_replaces_them() {
         let temp = sandbox("gui_run_compile");

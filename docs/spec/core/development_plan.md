@@ -277,7 +277,7 @@ export](../aesthetics_export/object_model.md) plan's "Validation semantics".
 scenarios, run in-process over Studio-format fixtures (folders, a `.zip` and a solid `.7z`),
 with the binary's own seams (settings location, exit codes, the console printer) run through
 the built `4cc-studio`; `scripts/acceptance.py` proving every automated scenario cited by a
-test; the shell slice's two manual scenarios (TC-GUI-01/02) checked by the maintainer on Windows
+test; the shell slice's two manual scenarios (TC-GUI-01/02; the second automated at 8.0) checked by the maintainer on Windows
 (Linux not yet, no machine with a display). Converge ran a whole-crate mutation run over each of
 the phase's crates, every survivor triaged. At the close (2026-10-02): `just gates` green, 1402
 tests in 50 test runs, none failed or ignored; acceptance 77 scenarios, 77 proven. Full
