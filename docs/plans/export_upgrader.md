@@ -503,14 +503,18 @@ to moving, flattening, or removing files describe that draft, not destructive ed
 9. **Migrates referee exports**, those whose name's first word is `refs` (in any letter case;
    `refs.txt` and the referee subfolders below are matched so too, as real exports spell them
    `Refs.txt`, `Face/`; a `refs` export without a `refs.txt` holds no roster to migrate and is
-   reported, nothing written, exit 1), as the compiler tells
+   reported, nothing written, exit 1: `refs_txt_missing`, E, on the export), as the compiler tells
    them apart ("Identity boundary" in `spec/aesthetics_export/object_model.md`): the old referee layout (`refs.txt` + per-referee
    face/boots/gloves/common subfolders — the prototype of the player-folder format) is refused by
    the compiler per referee folder (`player_layout_proto`, naming this tool; only the `refs.txt`
    alias is accepted), so it is upgraded to the fully unified layout: `refs.txt` becomes a root `players.txt`
    carrying the slot mapping (including repeated entries — the same model backing multiple of the 35
    referee slots for rarity control) in `aesthetics_export`'s canonical UTF-8/LF roster grammar shared with
-   the Refs arranger, and the `refs.txt` is removed; a root `ref_marker.dds` is carried as it is
+   the Refs arranger (every nonblank line, a line that parses written as its slot in two digits,
+   one space and the folder name, one that does not kept as written, so the shared validation
+   reports it on the output rather than the upgrader deciding what it meant; a `refs.txt` that is
+   not UTF-8 is unmigrated content and no `players.txt` is written, the validation then dropping
+   the output for the missing roster), and the `refs.txt` is removed; a root `ref_marker.dds` is carried as it is
    (the format admits it, `spec/aesthetics_export/object_model.md`); each referee's subfolders are **flattened** into
    the player folder root (step 12). Either old `ingame_face` spelling is normalized exactly as for
    team player folders. No savefile needed — referee IDs are compiler-generated. A Note txt in a
@@ -557,15 +561,27 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     A file name present in two locations with identical bytes is deduplicated; with different
     bytes it is reported as unmigrated content (step 10) and the folder is left as it was, for
     the author to resolve, and so is one stem two files share with different extensions
-    (`texture_stem_conflict` once folded). A model of `common/` that no reference of the referee
-    names is reported as unmigrated content and left out: Red kept `common/` in the referee's
+    (`texture_stem_conflict` once folded) when the two come from different locations, the
+    folder's root counting as one: that conflict is the fold's making, while one already inside
+    a location is the compile's to report as for any folder. A folder left as it was is copied
+    at its old paths, and step 7's renames and rewrites skip it: it is the author's to repair by
+    hand, and names moved under him would hide what the report named. A model of `common/` that no reference of the referee
+    names (a `face.xml` of his, wherever it stands in his folder, whose `path` value's file
+    name, its `*` read as `win32`, is the model's, letter case aside) is reported as unmigrated content and left out: Red kept `common/` in the referee's
     own common directory, where a model loads only when a reference names it, while at the root
     it would become a part of the face (the real `galosengen` holds such a
     `Common/parts_body.model`). References follow the files: in a referee's `.mtl`, `face.xml` or
-    FMDL, a `./x` or `common/???/x` reference whose file is in the referee's `common/` names it
+    FMDL, a `./x` or `common/???/x` reference whose file the flattened folder holds at that
+    path (from its `common/`, or from any other of its subfolders: the compiler looks a folder's
+    own file up before a game path either way, so one rule covers both) names it
     where the flatten puts it (the bare stem, or `./<sub>/x` for a file in a subfolder of
-    `common/`), and a `./x` whose file is in neither the referee's subfolders nor its `common/`
-    but in the export's `Common/` gets step 7's stem and link; the referee's `common/` is checked
+    `common/`), with no link and no finding, and a `./x` whose file is in neither the referee's subfolders nor its `common/`
+    but in the export's `Common/` gets step 7's stem and link when it is an `.mtl`'s or an
+    FMDL's texture (a `face.xml`'s `./x` is left as written: the compiler resolves a `path`
+    among the folder's own files, no link stands in for a model there, and it reports the miss
+    itself, `xml_model_not_found`; every `./` value of the 69 real referee `face.xml` files on
+    the maintainer's machine names a file of its own face folder, and their 64 Common-path
+    values name the export's `Common/refkit/`, which step 7 keeps as written); the referee's `common/` is checked
     before the export's `Common/`, as Red's referee pass checks them (`referee_tools.py`
     `update_file_paths`, which pointed them at the referee's own common directory), and step 7's
     other rules apply to the rest. The 15 referee exports on the maintainer's machine hold 693

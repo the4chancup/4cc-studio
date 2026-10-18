@@ -20,6 +20,12 @@ additions gets `Midcup`), and when that name is already the input's own,
 ` upgraded` is appended so the original is never written over. An output folder
 that already exists is refused and left untouched.
 
+A referee export is upgraded from its `refs.txt`: the output gets a
+`players.txt` holding the same slots in the Studio spelling (two-digit slot
+numbers, one entry per line) and no `refs.txt`, and its `ref_marker.dds` is
+carried as it is. A referee export without a `refs.txt` has no roster to
+migrate: it is reported (`refs_txt_missing`) and nothing is written.
+
 The original export is never modified. A file the migration cannot place yet
 is listed in the report as `unmigrated_content`, and the upgraded folder is
 checked against the same rules the Team compiler applies: every finding prints

@@ -5,9 +5,10 @@
 //! `export-upgrader` command line. The window is a later phase's; until then
 //! `view` shows a placeholder line. The migration itself lives in `upgrade`:
 //! the old export is read through `source`, its Note through `note`, the
-//! roster through `roster`, the player folders planned by `players`, the kit
-//! folders by `kits`, the carried folders by `carried`, the `.mtl` rewrites
-//! by `materials`, the `face.xml` respells by `face_xml`, the kit magic by
+//! roster through `roster`, the player folders planned by `players` (a
+//! referee export's roster and folders by `referees`), the kit folders by
+//! `kits`, the carried folders by `carried`, the `.mtl` rewrites by
+//! `materials`, the `face.xml` respells by `face_xml`, the kit magic by
 //! `kit_magic`, the pre-Fox model renames by `model_names`, the
 //! `settings.toml` files by `settings`, the output's name through `naming`,
 //! and every finding goes through the `messages` catalog.
@@ -23,6 +24,7 @@ mod model_names;
 mod naming;
 mod note;
 mod players;
+mod referees;
 mod roster;
 mod settings;
 mod source;

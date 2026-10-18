@@ -591,8 +591,8 @@ fn either_ingame_face_spelling_becomes_one_bare_marker() {
             "{player}"
         );
     }
-    // The referee half of EU-PLY-04 is 6.6's: a referee export's face folders
-    // stay unmigrated content in this slice.
+    // The referee half of EU-PLY-04 is a later 6.6 slice's: `referees.rs`
+    // copies a referee folder's files as they are, markers included.
 }
 
 // EU-PLY-11

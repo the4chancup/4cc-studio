@@ -11,5 +11,6 @@ mod cli;
 mod input;
 mod kits;
 mod players;
+mod referees;
 mod roots;
 mod settings;

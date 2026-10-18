@@ -4,7 +4,7 @@
 //! reference no link can spell is kept" and "an FMDL's texture entries,
 //! class by class"): a reference naming a `Common/` file becomes the bare
 //! name plus the `.common` link spelling it, and one no link can spell
-//! stays as written, its `???` respelled the resolved team's ID, reported
+//! stays as written, its `???` respelled the identity's path ID, reported
 //! `common_reference_kept`. A shared folder's (`Boots/`, `Gloves/`) or a
 //! `Common/` `.mtl` keeps its Common references as written — `???`
 //! respelled, no link — with `common_reference_kept` only when `Common/`
@@ -24,13 +24,13 @@ use fmdl::FmdlFile;
 use pes_model::format::mtl::MaterialSet;
 use pes_model::ops::paths::rewrite_texture_paths;
 use studio_core::{Disposition, Message, Scope};
-use teams_list::TeamId;
 
 use crate::carried::under;
 use crate::kit_magic::{Spelling, respell};
 use crate::messages::{Code, INPUT, tool_message};
 use crate::players::path_scope;
 use crate::source::SourceFailure;
+use crate::upgrade::Identity;
 
 /// What step 7 makes of the migrated model folders' `.mtl` and `.fmdl`
 /// files: the ones rewritten, the `.common` links their references need,
@@ -143,21 +143,25 @@ fn model_folder_of(output: &str) -> Option<(FolderKind, &str, &str)> {
 
 /// `directory`'s and `file_name`'s kit magic respelled (`Spelling::Path`,
 /// every `u0???p`/`u0???g` token in each).
-fn respell_reference(directory: &mut String, file_name: &mut String, team: TeamId) {
-    if let Cow::Owned(new) = respell(directory, Spelling::Path, team) {
+fn respell_reference(directory: &mut String, file_name: &mut String, identity: &Identity) {
+    if let Cow::Owned(new) = respell(directory, Spelling::Path, identity) {
         *directory = new;
     }
-    if let Cow::Owned(new) = respell(file_name, Spelling::Path, team) {
+    if let Cow::Owned(new) = respell(file_name, Spelling::Path, identity) {
         *file_name = new;
     }
 }
 
-/// The `???` of `directory`'s Common path respelled the team's ID in
-/// place: `prefix_len` the `model/character/…/common/` prefix's length
+/// The `???` of `directory`'s Common path respelled the identity's path ID
+/// in place: `prefix_len` the `model/character/…/common/` prefix's length
 /// (either format's) and `rest` what follows it (`sub` for an `.mtl`,
 /// `sub` + `sourceimages/` for an FMDL).
-fn respell_marker(directory: &mut String, prefix_len: usize, rest: &str, team: TeamId) {
-    *directory = format!("{}{:03}/{rest}", &directory[..prefix_len], team.get());
+fn respell_marker(directory: &mut String, prefix_len: usize, rest: &str, identity: &Identity) {
+    *directory = format!(
+        "{}{:03}/{rest}",
+        &directory[..prefix_len],
+        identity.path_id()
+    );
 }
 
 /// The `common_reference_kept` on a `.mtl`/FMDL file (`written` the
@@ -177,7 +181,7 @@ fn kept(written: &str, input: &str) -> Message {
 /// The values one file's references share: the model folder it sits in
 /// (`Players/07 - A`, `Boots/Crocs`, `Common`), its folder kind, its path
 /// below it (`rest`), the `Common/` output paths, the plans' copies, its
-/// input path and the team.
+/// input path and the export's identity.
 #[derive(Clone, Copy)]
 struct FileContext<'a> {
     /// `Players/`/`Boots/`/`Gloves/`/`Common/` (a shared `.fmdl` is
@@ -193,8 +197,8 @@ struct FileContext<'a> {
     copies: &'a [(String, String)],
     /// The file's input path, for the finding's scope.
     input: &'a str,
-    /// The resolved team.
-    team: TeamId,
+    /// The export's identity, whose path ID respells `???`.
+    identity: &'a Identity,
 }
 
 /// What the caller's reference is (`common_decision`'s outcomes differ):
@@ -227,7 +231,7 @@ fn fmdl_entry(
         return;
     }
     if path.directory.is_empty() || path.directory.starts_with("./") {
-        respell_reference(&mut path.directory, &mut path.file_name, ctx.team);
+        respell_reference(&mut path.directory, &mut path.file_name, ctx.identity);
         return;
     }
     // The game's kit texture folder is kept (`fmdl_texture_kit_path`), a
@@ -246,8 +250,8 @@ fn fmdl_entry(
             // team's — kept as written.
             return;
         };
-        let sub = respell(sub, Spelling::Path, ctx.team).into_owned();
-        if let Cow::Owned(name) = respell(&path.file_name, Spelling::Path, ctx.team) {
+        let sub = respell(sub, Spelling::Path, ctx.identity).into_owned();
+        if let Cow::Owned(name) = respell(&path.file_name, Spelling::Path, ctx.identity) {
             path.file_name = name;
         }
         // A shared folder's FMDL is linked as a player folder's (the Fox
@@ -279,7 +283,7 @@ fn fmdl_entry(
                 &mut path.directory,
                 FOX_COMMON_PREFIX.len(),
                 &format!("{sub}sourceimages/"),
-                ctx.team,
+                ctx.identity,
             ),
         }
         return;
@@ -290,7 +294,7 @@ fn fmdl_entry(
     if ctx.kind == FolderKind::Common {
         return;
     }
-    if let Cow::Owned(name) = respell(&path.file_name, Spelling::Path, ctx.team) {
+    if let Cow::Owned(name) = respell(&path.file_name, Spelling::Path, ctx.identity) {
         path.file_name = name;
     }
     path.directory = "./".to_owned();
@@ -445,15 +449,15 @@ fn common_decision(
 }
 
 /// What step 7 makes of the migrated model folders' `.mtl` and `.fmdl`
-/// files for a team export — one pass, one `planned` link map, so a link is
-/// planned once and each format's clash walk sees the other's links:
-/// `copies` the plans' (input, output) list (the player plan's and the
-/// carried `Common/` files'), `common` the `Common/` output paths (the
+/// files for an export of `identity` — one pass, one `planned` link map, so
+/// a link is planned once and each format's clash walk sees the other's
+/// links: `copies` the plans' (input, output) list (the player plan's and
+/// the carried `Common/` files'), `common` the `Common/` output paths (the
 /// respelled names the links are spelled after).
 pub(crate) fn material_references(
     copies: &[(String, String)],
     common: &[String],
-    team: TeamId,
+    identity: &Identity,
     mut read: impl FnMut(&str) -> Result<Vec<u8>, SourceFailure>,
 ) -> MaterialRewrites {
     let mut rewrites = MaterialRewrites::default();
@@ -479,7 +483,7 @@ pub(crate) fn material_references(
             common,
             copies,
             input,
-            team,
+            identity,
         };
         // The copy loop's own read reports a failure; a file that does not
         // read is the compile's to report, copied as it is.
@@ -518,7 +522,7 @@ pub(crate) fn material_references(
         let changed = rewrite_texture_paths(&mut set, |path| {
             // `./` or no directory: a local reference — respell it and stop.
             if path.directory.is_empty() || path.directory.starts_with("./") {
-                respell_reference(&mut path.directory, &mut path.file_name, ctx.team);
+                respell_reference(&mut path.directory, &mut path.file_name, ctx.identity);
                 return;
             }
             // Every other reference (a game directory's) stays as written,
@@ -533,12 +537,12 @@ pub(crate) fn material_references(
             if folded_stem(&path.file_name).starts_with("dummy_") {
                 // `sub` borrows `path.directory`: owned for the rewrite.
                 let sub = sub.to_owned();
-                respell_marker(&mut path.directory, COMMON_PREFIX.len(), &sub, ctx.team);
+                respell_marker(&mut path.directory, COMMON_PREFIX.len(), &sub, ctx.identity);
                 return;
             }
             // The `sub` and the file name respelled (`Spelling::Path`).
-            let sub = respell(sub, Spelling::Path, ctx.team).into_owned();
-            if let Cow::Owned(name) = respell(&path.file_name, Spelling::Path, ctx.team) {
+            let sub = respell(sub, Spelling::Path, ctx.identity).into_owned();
+            if let Cow::Owned(name) = respell(&path.file_name, Spelling::Path, ctx.identity) {
                 path.file_name = name;
             }
             match common_decision(
@@ -559,7 +563,9 @@ pub(crate) fn material_references(
                     );
                     path.directory = format!("./{sub}");
                 }
-                None => respell_marker(&mut path.directory, COMMON_PREFIX.len(), &sub, ctx.team),
+                None => {
+                    respell_marker(&mut path.directory, COMMON_PREFIX.len(), &sub, ctx.identity)
+                }
             }
         });
         if changed > 0 {
@@ -590,12 +596,16 @@ pub(crate) fn material_references(
 #[cfg(test)]
 mod tests {
     use studio_core::Scope;
+    use teams_list::{TeamId, TeamName};
 
     use super::*;
 
-    /// The resolved team, 714.
-    fn team() -> TeamId {
-        TeamId::new(714).unwrap()
+    /// The resolved team, `/co/` (714).
+    fn team() -> Identity {
+        Identity::Team {
+            id: TeamId::new(714).unwrap(),
+            name: TeamName::new("co").unwrap(),
+        }
     }
 
     /// A `.mtl` of one material holding one sampler per `paths` entry.
@@ -1048,7 +1058,7 @@ mod tests {
             .collect();
         let common: Vec<String> = common.iter().map(|file| (*file).to_owned()).collect();
         let bytes: BTreeMap<&str, &[u8]> = bytes.iter().copied().collect();
-        material_references(&copies, &common, team(), |path| {
+        material_references(&copies, &common, &team(), |path| {
             bytes
                 .get(path)
                 .map(|bytes| Ok(bytes.to_vec()))

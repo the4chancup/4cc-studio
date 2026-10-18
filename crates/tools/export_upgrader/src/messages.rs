@@ -27,6 +27,9 @@ pub(crate) const OUTPUT: ExportId = ExportId(2);
 pub(crate) enum Code {
     /// The input holds nothing an old export holds; nothing is written.
     NoOldExport,
+    /// A `refs` export without a `refs.txt` holds no roster to migrate:
+    /// nothing is written (step 9).
+    RefsTxtMissing,
     /// The archive does not open or its listing is refused (the compiler's
     /// code); nothing is written (`path`, `error`).
     ExportExtractFailed,
@@ -101,6 +104,7 @@ impl Code {
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Code::NoOldExport => "no_old_export",
+            Code::RefsTxtMissing => "refs_txt_missing",
             Code::ExportExtractFailed => "export_extract_failed",
             Code::UnmigratedContent => "unmigrated_content",
             Code::MigrationClean => "migration_clean",
@@ -127,6 +131,7 @@ impl Code {
     #[cfg(test)]
     const ALL: &'static [Code] = &[
         Code::NoOldExport,
+        Code::RefsTxtMissing,
         Code::ExportExtractFailed,
         Code::UnmigratedContent,
         Code::MigrationClean,
@@ -158,6 +163,7 @@ impl Code {
 const CATALOG: &[(&str, Severity)] = &[
     // The tool's own codes.
     ("no_old_export", Severity::Error),
+    ("refs_txt_missing", Severity::Error),
     ("export_extract_failed", Severity::Error),
     ("unmigrated_content", Severity::Error),
     ("migration_clean", Severity::Info),

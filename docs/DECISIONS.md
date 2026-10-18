@@ -8834,3 +8834,46 @@ hidden) requests nothing, so a run's last events waited for unrelated input; wak
 is the match feed's rule (its wake callback on publish), one rule for every background source
 rather than one per view (Astra 8.0.A1-2).
 Plan: `plans/core/gui.md` "Event wiring"; ST-TTL-03.
+
+## 2026-10-18 — export_upgrader — steps 9 and 12's gaps: the missing roster's code, the `players.txt` writer, and what a folder left as it was keeps
+Decision: (1) a `refs` export without a `refs.txt` is `refs_txt_missing` (E, the export
+dropped, nothing written). (2) `players.txt` is written by the upgrader itself: every nonblank
+line of `refs.txt`, a line that parses (an all-digit head) as its slot in two digits, one space
+and the trimmed rest, any other line as written; a `refs.txt` that is not UTF-8 is
+`unmigrated_content` and no `players.txt` is written. (3) a referee folder step 12 leaves as it
+was is copied at its old paths and skipped by step 7's renames and rewrites. (4) a `common/`
+model is "named" when a `face.xml` anywhere in the referee's folder has a `path` value whose
+file name, `*` read as `win32`, is the model's, folded. (5) the stem conflict the fold creates
+counts only two files from different locations. (6) in a referee's `.mtl`, `face.xml` or FMDL,
+a Common reference whose path the flattened folder holds becomes `./<sub>` with no link and no
+finding, wherever the file came from. (7) the respelling takes the export's identity, 999 for
+referees, not a `TeamId`.
+Why: (1) the plan named the outcome but no code; `no_old_export` is false (the export holds
+`Players/`) and `players_txt_missing` is the output validation's. (2) a line the upgrader
+cannot parse is not its to interpret: written as it was, the shared validation reports it on
+the output with its line, where a dropped line would be silent; `aesthetics_export` has only
+the reader, and a three-line writer earns no library function until the Refs arranger is built.
+(3) "left as it was" is literal: a folder the author must repair by hand with names moved
+under him hides what the report named, and the renames would follow the fold anyway once he
+has resolved it. (4) a face.xml `path` is the only reference that names a model; its `*` is
+the compiler's reading. (5) two textures of one stem already inside one location are the
+compile's `texture_stem_conflict` for any folder; the fold made only the cross-location one.
+(6) the compiler looks a folder's own file up before a game path, so a file from `face/` and
+one from `common/` resolve the same once at the root; one rule, not a record of where each
+file came from. (7) `TeamId` is strictly 701-920 and cannot carry 999 (round 6.4.S3-4).
+Plan: `plans/export_upgrader.md` steps 9 and 12.
+
+## 2026-10-18 — export_upgrader — a referee `face.xml`'s `./` reference to a `Common/` file is left as written
+Decision: step 12's "a `./x` whose file is only in the export's `Common/` gets step 7's stem and
+link" applies to an `.mtl`'s and an FMDL's textures; a referee `face.xml`'s `./x` (a `path` or
+a `material`) is left as written. Its Common-path values whose file the flatten moved into the
+folder still become `./<rest>`.
+Why: the compiler resolves a `face.xml` `path` among the folder's own `.model` files
+(`team_compiler/src/user_face_xml.rs` `resolve`: a `.mtl.common` link counts for a `material`,
+no link counts for a `path`), so a `.model.common` link would resolve nothing and the plan's
+sentence, read for a `face.xml`, names a spelling the compiler does not read; the miss is
+reported loudly (`xml_model_not_found`, the folder dropped), and every `./` value of the 69 real
+referee xmls names a file of its own face folder (`.tmp/6_6/refs_xml_census.py`: 532 such
+values, 64 Common-path ones naming the export's `Common/refkit/`), so machinery for it would
+serve no file seen. One rule for the two kinds the link does serve, not a per-attribute table.
+Plan: `plans/export_upgrader.md` step 12.

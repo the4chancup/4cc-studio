@@ -7,9 +7,9 @@
 //! merges into his folder on a Fox export; one worn by two or more, or any
 //! worn one on a pre-Fox export, stays a named shared folder with a link file.
 //! Each slot's output folder lands in `PlayerFolders::folders` for step 8's
-//! `settings.toml` (`settings.rs`); a referee export's folders stay
-//! unmigrated content here (6.6's), and loose mode builds the player folders
-//! without the save's names and leaves the item folders unmigrated (6.7's).
+//! `settings.toml` (`settings.rs`); a referee export's folders are
+//! `referees.rs`'s, and loose mode builds the player folders without the
+//! save's names and leaves the item folders unmigrated (6.7's).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -218,7 +218,7 @@ fn folders_below<'a>(files: &'a [String], top: &str) -> BTreeMap<String, Vec<&'a
 }
 
 /// What steps 2-3 make of `files`' face folders for a team export (a referee
-/// export's folders stay unmigrated: `run` does not call this for one) with
+/// export's folders are `referees.rs`'s: `run` does not call this for one) with
 /// `roster` for the names and empty slots (`None` in loose mode), and steps
 /// 3-4 make of its boots and gloves folders for `engine` and `same_bytes`.
 pub(crate) fn player_folders(
@@ -1195,8 +1195,8 @@ mod tests {
 
     #[test]
     fn a_file_directly_in_faces_belongs_to_no_plan() {
-        // A referee export's folders are unmigrated too: `run` does not call
-        // `player_folders` for one (6.6's).
+        // A referee export's folders are `referees.rs`'s: `run` does not
+        // call `player_folders` for one.
         let files = files(&["Faces/loose.fmdl", "Faces/XXX15 - A/face.fmdl"]);
         let plan = plan_folders(&files);
         assert!(!plan.consumed.contains("Faces/loose.fmdl"));

@@ -23,12 +23,12 @@ use studio_core::{
 use teams_list::{TeamId, TeamName, TeamsList};
 use vtree::ScopePath;
 
-use crate::carried::{CarriedFiles, carried_files, under};
+use crate::carried::{carried_files, under};
 use crate::cli::{ABORTED, CLEAN, ERRORS, INVALID, UpgradeArgs};
 use crate::face_xml::{face_xml_rewrites, kept_common_files};
 use crate::kit_magic::{drop_collisions, respell_outputs};
 use crate::kits::{KitFolders, kit_folders};
-use crate::materials::{MaterialRewrites, material_references};
+use crate::materials::material_references;
 use crate::messages::{
     Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, team_name_unknown,
     tool_message,
@@ -36,7 +36,8 @@ use crate::messages::{
 use crate::model_names::rename_models;
 use crate::naming::output_name;
 use crate::note;
-use crate::players::{PlayerFolders, player_folders};
+use crate::players::{path_scope, player_folders};
+use crate::referees::{find_refs_txt, players_txt, referee_folders};
 use crate::roster::Roster;
 use crate::settings::{SettingsFiles, settings_files};
 use crate::source::{self, OldExport, SourceFailure};
@@ -101,6 +102,18 @@ pub(crate) enum Identity {
     },
     /// A referee export; its name's first word is `refs`.
     Referees,
+}
+
+impl Identity {
+    /// The three-digit ID a whole-export upgrade writes where a game path or
+    /// a name carried the `???` placeholder: the team's, or 999 for a referee
+    /// export, the ID the game compiles referees under (plan step 7).
+    pub(crate) fn path_id(&self) -> u16 {
+        match self {
+            Identity::Team { id, .. } => id.get(),
+            Identity::Referees => 999,
+        }
+    }
 }
 
 /// A run's event stream: the findings it reports to the console (one line
@@ -362,6 +375,33 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         _ => None,
     };
 
+    // Step 9: a referee export's roster is its root `refs.txt`, read before
+    // anything is written: without one there is nothing to migrate, and a
+    // read failure stops the run as the Note's does (the file decides the
+    // roster). The path is kept with the `players.txt` text its bytes give
+    // (`None` when they are not UTF-8).
+    let refs_txt = match &identity {
+        Identity::Referees => {
+            let Some(path) = find_refs_txt(&export.files).map(str::to_owned) else {
+                events.message(tool_message(
+                    Code::RefsTxtMissing,
+                    Scope::Export { export_id: INPUT },
+                    Disposition::DropExport,
+                    vec![],
+                ));
+                return Ok(ERRORS);
+            };
+            match export.read(&path) {
+                Ok(bytes) => Some((path, players_txt(&bytes))),
+                Err(failure) => {
+                    events.message(read_failed(INPUT, failure, Disposition::DropExport));
+                    return Ok(ERRORS);
+                }
+            }
+        }
+        Identity::Team { .. } => None,
+    };
+
     // "CLI": the output folder, refused when it exists or cannot be made.
     let output_name = output_name(&export.name, &identity);
     let base = args.output.clone().unwrap_or_else(|| {
@@ -437,6 +477,25 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             write_output_file(&output, "notes.txt", format!("{notes}\n").as_bytes())?;
         }
     }
+    // Step 9: the referee roster becomes the root `players.txt`; a
+    // `refs.txt` that is not UTF-8 is unmigrated content and none is
+    // written, the output validation then reporting the missing roster.
+    match &refs_txt {
+        Some((_, Some(text))) => write_output_file(&output, "players.txt", text.as_bytes())?,
+        Some((path, None)) => {
+            any_unmigrated = true;
+            events.message(tool_message(
+                Code::UnmigratedContent,
+                Scope::File {
+                    export_id: INPUT,
+                    path: path_scope(path),
+                },
+                Disposition::DropFile,
+                vec![],
+            ));
+        }
+        None => {}
+    }
 
     // The migration's target version decides the engine now (steps 3-4 merge
     // only on Fox); "Verification" validates with it too.
@@ -455,96 +514,89 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         }
     };
 
-    // Steps 2-4's plan for the face and item folders, step 5's for the kits,
-    // step 7's for the carried folders, the `.mtl` rewrites, the `face.xml`
-    // respells and the kit magic, and step 8's `settings.toml` files:
-    // `run`'s findings, then every file copied and written. A referee
-    // export's folders stay unmigrated content (6.6's); it holds no
-    // `Kit Configs`/`Kit Textures` either, which the same fallback reports.
+    // What each identity contributes: a team export, steps 2-4's plan for
+    // the face and item folders, step 5's kits and step 8's `settings.toml`
+    // files; a referee export, step 9's root files and referee folders
+    // (`referees.rs`), and no kits or settings (it holds no `Kit Configs`/
+    // `Kit Textures`: the fallback reports any). Then, for both, step 7's
+    // carried folders, the kit magic, the model renames, the `.mtl`
+    // rewrites and the `face.xml` respells: `run`'s findings, then every
+    // file copied and written.
     let files = export.files.clone();
-    let (plan, kits, carried, materials, face_xml, settings) = match &identity {
+    let (mut plan, kits, settings) = match &identity {
         Identity::Referees => (
-            PlayerFolders::default(),
+            referee_folders(&files),
             KitFolders::default(),
-            CarriedFiles::default(),
-            MaterialRewrites::default(),
-            Vec::new(),
             SettingsFiles::default(),
         ),
-        Identity::Team { id, .. } => {
+        Identity::Team { .. } => {
             // The coverage tag decides step 5's `all/` kits and step 8's
             // worn-0 and missing-custom rules alike.
             let full = matches!(
                 aesthetics_export::coverage(&output_name),
                 Some(aesthetics_export::ExportCoverage::Full)
             );
-            let mut plan =
-                player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
-                    match (export.read(a), export.read(b)) {
-                        (Ok(a), Ok(b)) => a == b,
-                        _ => false,
-                    }
-                });
+            let plan = player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
+                match (export.read(a), export.read(b)) {
+                    (Ok(a), Ok(b)) => a == b,
+                    _ => false,
+                }
+            });
             // Step 8: a `settings.toml` per player folder, from the save's
             // records (loose mode has none).
             let settings = match (&invocation.save, &roster) {
                 (Some(save), Some(roster)) => settings_files(save, roster, &plan.folders, full),
                 _ => SettingsFiles::default(),
             };
-            let mut carried = carried_files(&files, &plan.portraits, |path| export.read(path));
-            // The kit magic respells the plans' output names, then step
-            // 7's model renames apply (`kept` the `Common/` names a member
-            // `face.xml` or an xml folder's link spells, computed from the
-            // respelled plan copies; both plans renamed in one call, so a
-            // link sees its `Common/` target's rename); a path another
-            // already takes is the later input's, reported, its finding
-            // following the plan's own.
-            let plan_copies = respell_outputs(std::mem::take(&mut plan.copies), *id);
-            let kept = kept_common_files(&plan_copies, *id, |path| export.read(path));
-            let plan_len = plan_copies.len();
-            let mut renamed = rename_models(
-                plan_copies
-                    .into_iter()
-                    .chain(respell_outputs(std::mem::take(&mut carried.copies), *id))
-                    .collect(),
-                &kept,
+            let kits = kit_folders(
+                &files,
+                version,
+                note_path.as_deref().zip(note_text.as_deref()),
+                full,
+                |path| export.read(path),
             );
-            let carried_copies = renamed.split_off(plan_len);
-            let (copies, dropped) = drop_collisions(renamed);
-            plan.copies = copies;
-            plan.findings.extend(dropped);
-            let (copies, dropped) = drop_collisions(carried_copies);
-            carried.copies = copies;
-            carried.findings.extend(dropped);
-            // `Common/` for the materials: the carried files' respelled
-            // output paths, which the links are spelled after.
-            let common: Vec<String> = carried
-                .copies
-                .iter()
-                .filter(|(_, output)| under(output, "common").is_some())
-                .map(|(_, output)| output.clone())
-                .collect();
-            let all_copies: Vec<(String, String)> =
-                plan.copies.iter().chain(&carried.copies).cloned().collect();
-            let materials =
-                material_references(&all_copies, &common, *id, |path| export.read(path));
-            let face_xml = face_xml_rewrites(&plan.copies, *id, |path| export.read(path));
-            (
-                plan,
-                kit_folders(
-                    &files,
-                    version,
-                    note_path.as_deref().zip(note_text.as_deref()),
-                    full,
-                    |path| export.read(path),
-                ),
-                carried,
-                materials,
-                face_xml,
-                settings,
-            )
+            (plan, kits, settings)
         }
     };
+    let mut carried = carried_files(&files, &plan.portraits, |path| export.read(path));
+    // The kit magic respells the plans' output names, then step 7's model
+    // renames apply (`kept` the `Common/` names a member `face.xml` or an
+    // xml folder's link spells, computed from the respelled plan copies;
+    // both plans renamed in one call, so a link sees its `Common/` target's
+    // rename); a path another already takes is the later input's, reported,
+    // its finding following the plan's own.
+    let plan_copies = respell_outputs(std::mem::take(&mut plan.copies), &identity);
+    let kept = kept_common_files(&plan_copies, &identity, |path| export.read(path));
+    let plan_len = plan_copies.len();
+    let mut renamed = rename_models(
+        plan_copies
+            .into_iter()
+            .chain(respell_outputs(
+                std::mem::take(&mut carried.copies),
+                &identity,
+            ))
+            .collect(),
+        &kept,
+    );
+    let carried_copies = renamed.split_off(plan_len);
+    let (copies, dropped) = drop_collisions(renamed);
+    plan.copies = copies;
+    plan.findings.extend(dropped);
+    let (copies, dropped) = drop_collisions(carried_copies);
+    carried.copies = copies;
+    carried.findings.extend(dropped);
+    // `Common/` for the materials: the carried files' respelled output
+    // paths, which the links are spelled after.
+    let common: Vec<String> = carried
+        .copies
+        .iter()
+        .filter(|(_, output)| under(output, "common").is_some())
+        .map(|(_, output)| output.clone())
+        .collect();
+    let all_copies: Vec<(String, String)> =
+        plan.copies.iter().chain(&carried.copies).cloned().collect();
+    let materials = material_references(&all_copies, &common, &identity, |path| export.read(path));
+    let face_xml = face_xml_rewrites(&plan.copies, &identity, |path| export.read(path));
     for message in plan
         .findings
         .into_iter()
