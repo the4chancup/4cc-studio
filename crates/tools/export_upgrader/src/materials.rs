@@ -694,6 +694,35 @@ mod tests {
     }
 
     #[test]
+    fn an_fmdl_common_reference_with_a_studio_token_beside_the_legacy_one_links_the_set() {
+        // The real VGL26 layout: the file's own `kit1_` prefix reads as the
+        // author's variant, so the respelled reference is the set's only token.
+        let boots = fmdl(&[(
+            "/Assets/pes16/model/character/common/000/sourceimages/",
+            "kit1_u0827p0.dds",
+        )]);
+        let rewrites = plan(
+            &[("boots", "Boots/VIVLOS/boots.fmdl")],
+            &[
+                "Common/Kit1_kit1.dds",
+                "Common/Kit1_kit2.dds",
+                "Common/Kit1_kit3.dds",
+                "Common/Kit1_kit4.dds",
+            ],
+            &[("boots", &boots)],
+        );
+        assert_eq!(
+            fmdl_paths(&rewrites, "Boots/VIVLOS/boots.fmdl")[0],
+            ("./".to_owned(), "Kit1_kitN.dds".to_owned())
+        );
+        assert_eq!(
+            rewrites.links,
+            ["Boots/VIVLOS/Kit1_kitN.dds.common".to_owned()]
+        );
+        assert!(rewrites.findings.is_empty());
+    }
+
+    #[test]
     fn an_fmdl_common_kit_reference_links_the_set() {
         let face = fmdl(&[(
             "/Assets/pes16/model/character/common/000/u0XXXp0/sourceimages/",

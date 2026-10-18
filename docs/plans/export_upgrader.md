@@ -384,7 +384,11 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    whose respelled name is a `kitN` reference (`common/XXX/u0XXXp0.dds`, `Common/` holding
    `u0XXXp1.dds` to `p3`: /vg/'s Autumn 24 export) links like any other, the link named after
    the reference's respelled name (`kitN.dds.common`) and present when `Common/`'s directory
-   holds a member of its set, as the shared validation resolves such a link. In a
+   holds a member of its set, as the shared validation resolves such a link. A name segment
+   holding a legacy `p` token and also a Studio token of the author's (`kit1_u0827p0.dds`, five
+   VGL26 exports) has that token's `k` written `K` (`Kit1_kitN.dds`, `Common/Kit1_kit1.dds`), in
+   names and references alike: a stem's first token is its kit token, so `kit1_kitN` would read
+   as variant 1 and its set would never link. In a
    `face.xml`, only the `path` and `material` attributes' values change, the rest of the file
    byte for byte as written, `<dif>` included; their `???` stays, the compiler respelling any
    three characters there. The upgrader is the **only** Studio component that reads the legacy spelling — the

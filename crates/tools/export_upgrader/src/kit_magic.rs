@@ -4,11 +4,15 @@
 //! (`u0` and three ASCII letters or digits, `p` and a digit) becomes
 //! `kit<N>` in a path and `kitF` in a file or folder name, `u0???g`
 //! becomes `u0<team>g`, matched in the letter case written, anywhere and
-//! every occurrence. Only the upgrader reads the legacy spelling.
+//! every occurrence. In a path segment holding a `u0???p` token, a Studio
+//! kit token already there (`kit1_u0827p1.dds`, which some VGL26 exports
+//! write) gets its `k` written `K` so the respelled token stays the only
+//! one. Only the upgrader reads the legacy spelling.
 
 use std::borrow::Cow;
 use std::collections::BTreeSet;
 
+use aesthetics_export::kit_token_starts;
 use studio_core::{Disposition, Message, Scope};
 use teams_list::TeamId;
 
@@ -31,12 +35,20 @@ pub(crate) enum Spelling {
 /// or digits, then `p` and a digit `d` becomes `kit<d>` (`d` = 0: `kitF`
 /// or `kitN` by `spelling`); `u0`, three ASCII letters or digits, then `g`
 /// becomes `u0<team, three digits>g`. Matched in the letter case written,
-/// anywhere, left to right, every occurrence. Borrowed when nothing
+/// anywhere, left to right, every occurrence. In each `/`-separated
+/// segment that holds a `p` token, every Studio kit token the segment
+/// already holds gets its `k` written `K`, so the respelled token is the
+/// segment's only one for `find_token` to read (`kit1_u0827p0.dds` →
+/// `Kit1_kitN.dds`, `u0???g` not triggering it). Borrowed when nothing
 /// changed.
 pub(crate) fn respell<'a>(text: &'a str, spelling: Spelling, team: TeamId) -> Cow<'a, str> {
     let bytes = text.as_bytes();
-    let mut out: Option<String> = None;
+    // The edits, as (start, end, replacement) byte ranges of `text`,
+    // disjoint: the legacy respells, and the `k`→`K` of every Studio kit
+    // token in a segment holding a legacy `p` one.
+    let mut edits: Vec<(usize, usize, Cow<str>)> = Vec::new();
     let mut last = 0;
+    let mut marked = BTreeSet::new();
     for at in 0..bytes.len() {
         // A match starting inside the one before it is not taken (the
         // earlier one wins, left to right).
@@ -54,7 +66,7 @@ pub(crate) fn respell<'a>(text: &'a str, spelling: Spelling, team: TeamId) -> Co
         {
             continue;
         }
-        let (replacement, end): (Cow<str>, usize) = match bytes.get(at + 5) {
+        let (replacement, end, legacy): (Cow<str>, usize, bool) = match bytes.get(at + 5) {
             Some(&b'p') => match bytes.get(at + 6) {
                 Some(&b'0') => (
                     Cow::Borrowed(match spelling {
@@ -62,27 +74,45 @@ pub(crate) fn respell<'a>(text: &'a str, spelling: Spelling, team: TeamId) -> Co
                         Spelling::Path => "kitN",
                     }),
                     at + 7,
+                    true,
                 ),
-                Some(digit) if digit.is_ascii_digit() => {
-                    (Cow::Owned(format!("kit{}", char::from(*digit))), at + 7)
-                }
+                Some(digit) if digit.is_ascii_digit() => (
+                    Cow::Owned(format!("kit{}", char::from(*digit))),
+                    at + 7,
+                    true,
+                ),
                 _ => continue,
             },
-            Some(&b'g') => (Cow::Owned(format!("u0{:03}g", team.get())), at + 6),
+            Some(&b'g') => (Cow::Owned(format!("u0{:03}g", team.get())), at + 6, false),
             _ => continue,
         };
-        let buffer = out.get_or_insert_with(|| String::with_capacity(text.len()));
-        buffer.push_str(&text[last..at]);
-        buffer.push_str(&replacement);
+        if legacy {
+            // The `/`-separated segment the token stands in.
+            let start = text[..at].rfind('/').map_or(0, |slash| slash + 1);
+            let end = text[at..].find('/').map_or(text.len(), |slash| at + slash);
+            marked.insert((start, end));
+        }
+        edits.push((at, end, replacement));
         last = end;
     }
-    match out {
-        Some(mut out) => {
-            out.push_str(&text[last..]);
-            Cow::Owned(out)
+    for (start, end) in marked {
+        for k in kit_token_starts(&text[start..end]) {
+            edits.push((start + k, start + k + 1, Cow::Borrowed("K")));
         }
-        None => Cow::Borrowed(text),
     }
+    if edits.is_empty() {
+        return Cow::Borrowed(text);
+    }
+    edits.sort_by_key(|(at, ..)| *at);
+    let mut out = String::with_capacity(text.len() + edits.len() * 3);
+    let mut cursor = 0;
+    for (at, end, replacement) in edits {
+        out.push_str(&text[cursor..at]);
+        out.push_str(&replacement);
+        cursor = end;
+    }
+    out.push_str(&text[cursor..]);
+    Cow::Owned(out)
 }
 
 /// The copies with their output names respelled (`Spelling::Name`) below a
@@ -205,6 +235,54 @@ mod tests {
         // The `g` match at 0 ends at 6; the `p` at 7 starts a token at 2 —
         // inside the first match, left to right.
         assert_eq!(respell("u0u0ZgAp1", Spelling::Name, team()), "u0714gAp1");
+    }
+
+    #[test]
+    fn a_studio_token_beside_a_legacy_one_gets_its_k_written_capital() {
+        assert_eq!(
+            respell("kit1_u0827p0.dds", Spelling::Path, team()),
+            "Kit1_kitN.dds"
+        );
+        assert_eq!(
+            respell("kit1_u0827p1.dds", Spelling::Name, team()),
+            "Kit1_kit1.dds"
+        );
+        assert_eq!(
+            respell("kitN_u0XXXp2.dds", Spelling::Name, team()),
+            "KitN_kit2.dds"
+        );
+        assert_eq!(
+            respell("kit1_kit2_u0XXXp3.dds", Spelling::Name, team()),
+            "Kit1_Kit2_kit3.dds"
+        );
+        assert_eq!(
+            respell("skit1_u0XXXp1.dds", Spelling::Name, team()),
+            "skit1_kit1.dds"
+        );
+        // `Kit2` was never a token: its K stays.
+        assert_eq!(
+            respell("Kit2_u0XXXp1.dds", Spelling::Name, team()),
+            "Kit2_kit1.dds"
+        );
+        // Only the token's own segment is rewritten; a `g` token does not
+        // trigger it.
+        assert_eq!(
+            respell("kit1/x_u0XXXp1.dds", Spelling::Name, team()),
+            "kit1/x_kit1.dds"
+        );
+        // A segment after a `/` is read from its first character.
+        assert_eq!(
+            respell("ltd/kit1_u0XXXp1.dds", Spelling::Name, team()),
+            "ltd/Kit1_kit1.dds"
+        );
+        assert_eq!(
+            respell("kit1_u0XXXg1.dds", Spelling::Name, team()),
+            "kit1_u0714g1.dds"
+        );
+        assert!(matches!(
+            respell("kit1_x.dds", Spelling::Name, team()),
+            Cow::Borrowed(_)
+        ));
     }
 
     #[test]

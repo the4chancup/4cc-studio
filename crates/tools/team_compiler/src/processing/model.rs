@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
 
-use aesthetics_export::{FileKind, ModelFormat};
+use aesthetics_export::{FileKind, ModelFormat, classify};
 use fmdl::ops::merge::{MergeError, merge};
 use fmdl::ops::paths::{TexturePath, rewrite_texture_paths, used_texture_paths};
 use fmdl::{FmdlFile, Model};
@@ -474,6 +474,9 @@ pub(super) fn package(
                     common_supplies.insert(format!("{}{}", path.directory, path.file_name), supply);
                 }
             })?;
+            // A converted `.model`'s texture paths are its `.mtl`'s, whose stems nothing
+            // supplies are `mtl_texture_not_found` (W, the folder kept: `messages.md`).
+            let converted = classify(part.path.name()) == FileKind::Model(ModelFormat::PesModel);
             for path in used_texture_paths(&model)? {
                 let context = || {
                     vec![
@@ -497,6 +500,8 @@ pub(super) fn package(
                     &installed_holds,
                 ) {
                     TextureSupply::Supplied => {}
+                    // A bare stem the `.mtl` check reports already.
+                    TextureSupply::Missing if converted && is_bare(&path.directory) => {}
                     TextureSupply::Missing => {
                         return Err(TaskFailure {
                             code: Code::FmdlTextureNotFound,
@@ -879,11 +884,20 @@ enum TextureSupply {
     Unknown,
 }
 
+/// Whether an FMDL texture directory is bare, `./` or empty: the stem is a name, looked up
+/// nearest first from the file's folder (`spec/model_format.md` "Stem-based texture
+/// references").
+fn is_bare(directory: &str) -> bool {
+    directory.is_empty() || directory == "./"
+}
+
 /// Whether the texture at `path`, already pointed where it goes, is supplied: not looked for
 /// when its stem starts with `dummy_`; what `supplies` says for it, the verdicts the path
 /// pointing returned for it (`point_texture`, `point_texture_below`), keyed by the path it
 /// wrote; missing when its directory still names a path below its file's folder
-/// (`texture_lookup::path_below`: no texture sat there). A path whose directory is a
+/// (`texture_lookup::path_below`: no texture sat there), a bare directory (`is_bare`: the
+/// file's own folder, where the pointing found nothing) counting as such a path. A path whose
+/// directory is a
 /// `common_home` spelling, `""` for the Common texture directory itself or a subdirectory
 /// below `Common/` (`jessie/`; a player's own texture home has the same shape), resolves
 /// among the Common textures packed at that subdirectory (`common_below_supply`): the
@@ -906,6 +920,11 @@ fn texture_supply(
         return *supply;
     }
     if texture_lookup::path_below(&path.directory).is_some() {
+        return TextureSupply::Missing;
+    }
+    // A bare `./` or empty directory names the file's own folder, where the
+    // pointing found nothing: the stem resolves nowhere.
+    if is_bare(&path.directory) {
         return TextureSupply::Missing;
     }
     match common_home.subdirectory(&path.directory) {
@@ -1550,9 +1569,30 @@ mod tests {
             supply("./textures/", "dummy_kit.dds", &[], &[], Some(false)),
             TextureSupply::Supplied
         );
-        // A bare `./` names a texture by name, and pointing found none: not looked for.
+        // A bare `./` names a texture by name, and pointing found none: nothing supplies it
+        // (`pipeline.md` "A texture a model names must exist").
         assert_eq!(
             supply("./", "skin.dds", &[], &[], Some(false)),
+            TextureSupply::Missing
+        );
+    }
+
+    #[test]
+    fn a_bare_local_directory_the_pointing_left_is_missing() {
+        // `./` or an empty directory names the file's own folder: nothing sat
+        // there, whatever a lookup in the installed CPKs would answer.
+        for directory in ["./", ""] {
+            for installed in [Some(true), Some(false), None] {
+                assert_eq!(
+                    supply(directory, "missing.dds", &[], &[], installed),
+                    TextureSupply::Missing,
+                    "{directory:?} {installed:?}"
+                );
+            }
+        }
+        // A `dummy_` stem is still never looked for.
+        assert_eq!(
+            supply("./", "dummy_kit.dds", &[], &[], Some(false)),
             TextureSupply::Supplied
         );
     }

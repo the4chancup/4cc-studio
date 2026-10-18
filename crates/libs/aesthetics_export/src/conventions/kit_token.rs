@@ -79,6 +79,21 @@ pub(crate) fn names_kit_fallback(path: &str) -> bool {
     matches!(kit_path_token(path), Some((KitToken::Fallback, _)))
 }
 
+/// The byte offsets of every kit token's first character in `stem`, left to
+/// right (`kit1_x_kit2` → `[0, 7]`), an empty `Vec` when it holds none.
+/// `export_upgrader` respells each so the Studio token a stem carries beside
+/// a legacy `u0???p` one no longer reads as a token once the legacy spelling
+/// is gone.
+pub fn kit_token_starts(stem: &str) -> Vec<usize> {
+    let mut starts = Vec::new();
+    let mut from = 0;
+    while let Some((at, _)) = find_token(&stem[from..]) {
+        starts.push(from + at + 1 - "kitN".len());
+        from += at + 1;
+    }
+    starts
+}
+
 /// `stem`, which holds a kit token, with its first token spelled for `kit` (`pants_kit1` and
 /// 3 give `pants_kit3`); `None` when `stem` holds no token.
 pub fn variant_stem(stem: &str, kit: u8) -> Option<String> {
@@ -264,6 +279,18 @@ mod tests {
         );
         assert_eq!(variant_path("kitN/a", 4), Some("kit4/a".to_owned()));
         assert_eq!(variant_path("pants", 1), None);
+    }
+
+    #[test]
+    fn token_starts_lists_every_token_left_to_right() {
+        assert_eq!(kit_token_starts("kit1_x_kit2"), [0, 7]);
+        assert_eq!(kit_token_starts("kit1_kitN_kitF"), [0, 5, 10]);
+        assert_eq!(kit_token_starts("pants_kit3"), [6]);
+        // A token after a non-token `kit` still counts.
+        assert_eq!(kit_token_starts("kit1kit2_kit3"), [9]);
+        for stem in ["skit1", "kit1kit2", "kitNx", "KIT1", "pants"] {
+            assert_eq!(kit_token_starts(stem), Vec::<usize>::new(), "{stem}");
+        }
     }
 
     #[test]

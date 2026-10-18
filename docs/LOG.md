@@ -2125,3 +2125,5 @@ worklog passed 7,000 lines.
   Common linked as an `.mtl`'s; Astra on 6.4a-b2: a kept clashing reference is worn as the local texture.
 - **2026-10-18** — 6.4d: pre-Fox models renamed to the Studio spelling (leading type last,
   `oral_`/`_win32` off, `.mtl` and links following) outside folders that ship a `face.xml`.
+- **2026-10-18** — Astra M-A2 on 6.4c-d: an author's `kit1` beside a legacy kit token written
+  `Kit1`; the compiler now refuses a member FMDL's bare `./` texture found nowhere.

@@ -13,8 +13,7 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): a SWE-2 round on 6.4d, then Astra on 6.4c-d, then 6.5
-(`settings.toml` generation). 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): 6.5 (`settings.toml` generation, plan step 8). 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -541,7 +540,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     kits blocking the hoist, EU-PLY-10's sweep reading nothing, EU-PLY-12 missing), fixed;
     SWE-2 6.3.S3 on those fixes 1 (two stale comments), both loops ended; files:
     `export_upgrader/src/{kits,messages,upgrade}.rs`, `tests/cli/{kits,cli}.rs`
-- [ ] 6.4 models, portraits, logo and Common (step 7), as ordered slices → verify: EU-MDL-*
+- [x] 6.4 models, portraits, logo and Common (step 7), as ordered slices → verify: EU-MDL-*
   - [x] 6.4a portraits, collars and the logo → verify: EU-MDL-01 to -04, -15. Done 2026-10-18:
     5 EU-MDL scenarios proven; the 40 % logo line remeasured with `dds_convert::resize` over
     the 94 distinct real pairs (downscales 0-30 %, variants 53-97 %; `.tmp/6_4/logo_share/`),
@@ -594,7 +593,13 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     a face.xml read struct and a redundant `Site` payload simplified; mutation diff 3 survivors,
     one dead guard removed, two tested; review round 6.4.S6 3 accepted (loop ended), fixed
     here (the link rule above); files: `export_upgrader/src/{model_names,face_xml,kit_magic,
-    materials,upgrade,lib}.rs`, `tests/cli/{carried,players}.rs`
+    materials,upgrade,lib}.rs`, `tests/cli/{carried,players}.rs`. Astra M-A2 on 6.4c-d 2
+    accepted (loop ended), fixed in a follow-up commit: an author's `kit1` beside a legacy
+    token written `Kit1` (DECISIONS 2026-10-18 "an author's `kit1` beside a legacy kit token
+    is written `Kit1`", five real VGL26 exports), and the compiler's `fmdl_texture_not_found`
+    now reports a bare `./` stem found nowhere (it called it supplied, against
+    `pipeline.md`); SWE-2 round 6.4.S7 on them 1 accepted (an empty FMDL directory is bare
+    too), loop ended
 - [ ] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
   EU-SET-*
 - [ ] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*

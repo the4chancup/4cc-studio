@@ -8643,3 +8643,17 @@ type (`model_name_invalid`, the folder dropped with its wearers' links): EU-PLY-
 `boots_edit.model` (158, mostly in model folders; the Edit-mode model is an open pre-Fox parity
 item of the worklog), so the rename rarely fires there.
 Plan: `plans/export_upgrader.md` step 7.
+
+## 2026-10-18 — export_upgrader — an author's `kit1` beside a legacy kit token is written `Kit1`
+Decision: in a name segment that holds a legacy `u0???pN` token, every Studio kit token already
+there (`kit1`-`kit9`, `kitN`, `kitF`, as the kit token grammar reads one) has its `k` written
+`K`, in file names and in `.mtl`/`face.xml`/FMDL references alike (`kit1_u0827p0.dds` →
+`Kit1_kitN.dds`, `Common/kit1_u0827p1.dds` → `Common/Kit1_kit1.dds`).
+Why: Astra round M-A2: five VGL26 exports in the maintainer's lab (`UMAJP`, `ESG`, `1999`, `PG`,
+a guest boss export) name kit-dependent textures `kit<K>_u0XXXp<N>`; respelled as they were, a
+stem's first token, the author's `kit1`, is its kit token, so the reference read as variant 1,
+no set link was planned and the model pointed at nothing. Upper-casing keeps the author's word
+and the file names distinct, while the token grammar (spelled exactly) no longer reads it;
+dropping or renaming the fragment would lose what it says, and a set token the grammar picks
+by position would change a rule the compiler and validation share.
+Plan: `plans/export_upgrader.md` step 7 (the kit magic).

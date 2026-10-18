@@ -3487,6 +3487,70 @@ mod tests {
         assert_eq!(package.get("face_diff.bin").unwrap(), own);
     }
 
+    /// The tracer's hair model with every texture path naming the bare local
+    /// `./missing.dds`.
+    fn naming_missing() -> Vec<u8> {
+        let mut model = FmdlFile::read(
+            &std::fs::read(tracer().join(format!("{PLAYER}/fcl_hair.fmdl"))).unwrap(),
+        )
+        .unwrap();
+        rewrite_texture_paths(&mut model, |path| {
+            path.directory = "./".to_owned();
+            path.file_name = "missing.dds".to_owned();
+        })
+        .unwrap();
+        model.write()
+    }
+
+    #[test]
+    fn a_bare_local_texture_nothing_supplies_is_missing() {
+        // `./missing.dds` names a texture of the part's own folder; with
+        // none there, the pointing leaves it and nothing supplies it.
+        let round = |extra: Vec<FileDescriptor>| {
+            player_with(
+                Vec::new(),
+                vec![shared(
+                    ModelPackage::Face,
+                    "Faces/Round",
+                    [
+                        vec![
+                            named("Faces/Round/face_diff.bin", "face_diff.bin"),
+                            named("Faces/Round/hair_high.fmdl", "fcl_hair.fmdl"),
+                        ],
+                        extra,
+                    ]
+                    .concat(),
+                )],
+            )
+        };
+        let batch = run_with(
+            face(round(Vec::new())),
+            &[("Faces/Round/hair_high.fmdl", &naming_missing())],
+        );
+        let (code, severity, disposition, context) = one_message(&batch);
+        assert_eq!(
+            (code, severity, disposition),
+            (
+                "fmdl_texture_not_found",
+                Severity::Error,
+                Disposition::DropFolder
+            )
+        );
+        assert!(
+            context
+                .iter()
+                .any(|(key, value)| key == "texture" && value == "./missing.dds"),
+            "{context:?}"
+        );
+
+        // `missing.dds` beside the model resolves the stem: no finding.
+        let batch = run_with(
+            face(round(vec![named("Faces/Round/missing.dds", "shirt.dds")])),
+            &[("Faces/Round/hair_high.fmdl", &naming_missing())],
+        );
+        assert!(batch.messages.is_empty(), "{:?}", batch.messages);
+    }
+
     /// The tracer's player folder's `face_diff.bin` bytes.
     fn tracer_player_file(name: &str) -> Vec<u8> {
         std::fs::read(tracer().join(format!("{PLAYER}/{name}"))).unwrap()
