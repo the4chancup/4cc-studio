@@ -256,8 +256,9 @@ pub(crate) fn kit_folders(
     // goalkeeper's, the first giving g1; the others give p1 … p9 in Note
     // order. A second `gk:` entry or a player entry past the ninth has no
     // slot and is unmigrated content, and so is an entry whose colors do not
-    // read — its slot still counts as given (the later entries keep theirs;
-    // Red dropped it and shifted every kit after it down a slot).
+    // read — its slot still counts as given, so the later entries keep
+    // theirs: dropping it would shift every kit after it down a slot, onto
+    // another kit's config.
     let mut entry_slots: Vec<KitSlot> = Vec::new();
     if let Some((note_path, note_text)) = note {
         let mut players_taken = 0usize;
@@ -503,24 +504,21 @@ pub(crate) fn kit_folders(
         let mut dropped = BTreeSet::new();
         for (stem, first_index) in &per_kit[0] {
             let first_index = *first_index;
-            let mut shared = true;
-            for kit_files in &per_kit[1..] {
-                let Some(&index) = kit_files.get(stem) else {
-                    shared = false;
-                    break;
-                };
-                let equal = match (
-                    read(&folders.copies[first_index].0),
-                    read(&folders.copies[index].0),
-                ) {
-                    (Ok(a), Ok(b)) => a == b,
-                    _ => false,
-                };
-                if !equal {
-                    shared = false;
-                    break;
-                }
+            // Every other kit must hold the stem before any byte is read, and
+            // the first kit's texture is read once for all the compares; a
+            // read failure is no match (the copy's own read reports it).
+            if !per_kit[1..]
+                .iter()
+                .all(|kit_files| kit_files.contains_key(stem))
+            {
+                continue;
             }
+            let Ok(first_bytes) = read(&folders.copies[first_index].0) else {
+                continue;
+            };
+            let shared = per_kit[1..].iter().all(|kit_files| {
+                read(&folders.copies[kit_files[stem]].0).is_ok_and(|bytes| bytes == first_bytes)
+            });
             if !shared {
                 continue;
             }
@@ -1174,7 +1172,7 @@ mod tests {
     }
 
     #[test]
-    fn a_field_naming_another_stem_of_another_slot_copies_it() {
+    fn a_chest_field_naming_its_own_kits_front_texture_copies_it() {
         // A chest field `u0728p1_front` in p1's config (JP's shape): `p1`
         // ships `u0XXXp1_front.dds`, so `kit_chest.dds` is its copy.
         let mut first = CONFIG_1ST.to_vec();
