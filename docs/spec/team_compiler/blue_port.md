@@ -83,8 +83,9 @@ What carries over from Red as compiler-internal behavior (invisible in the forma
   is not a normal `TeamId`); per-referee IDs generated as `refereeXXX` / `k99XX` / `g99XX`
 - Per-referee common structures and XML/MTL/FMDL path updates — no longer referee-specific: the
   standard texture relocation step moves **every** player's textures to a per-player common
-  subfolder (see `pipeline.md` "Per-model-folder parallel steps"), which is Red's preprocessing for referees and
-  Pre-Studio (`Players/`) folders generalized to every player
+  subfolder (see `pipeline.md` "Per-model-folder parallel steps"), which is released Red's preprocessing for referees
+  generalized to every player (its unreleased development branch had begun the same for
+  Pre-Studio `Players/` folders)
 - Referee base template content (`refscpk` templates)
 
 What does not carry over is how Red showed the referee marker (`ref_marker.dds`): pre-Fox it

@@ -8364,3 +8364,25 @@ need a severity for every finding, and the output is judged as its first compile
 folder (`player_unlisted`, `shared_folder_orphaned`): exit 0 there would tell a script the
 export migrated whole while its compile loses the folder.
 Plan: `plans/export_upgrader.md` steps 1 and 6, "CLI", "Message catalog" (new), "Verification".
+
+## 2026-10-18 — team_compiler — the 5.0c Red inventory re-read on released Red: four premises corrected, one deviation added
+Decision: the 5.0c inventory read Red's unreleased development branch (`e12aa01`); re-read on
+released `main` (6.0c), these earlier entries' premises are corrected, their rules unchanged.
+(1) 2026-10-11, the kit-texture path: released Red reports nothing and repoints the
+`uniform/texture/` directory to the model's own folder, where the file is not, so its model
+loses the texture silently; the Error the entry cites is the development branch's. Studio keeps
+the path and warns. (2) 2026-10-11, `refs_txt_ignored`: released Red never opens a referee
+export's `players.txt` (no error, no skip). (3) 2026-10-11, `+` splitting the team-name token:
+released Red splits on `+` too, so this is parity, not a deviation. (4) 2026-10-04, blank faces:
+released Red generates no face folder; the blank face is Studio's own rule (the development
+branch's `copy_folder_contents` had it). (5) A deviation the 2026-10-11 list lacks: Studio reads
+`refs.txt` with the strict roster grammar (a malformed line, a repeated slot, a slot outside
+01-35 are Errors) where released Red skips a malformed line, lets the last of a repeated slot
+win and bounds nothing.
+Why: a premise taken from a branch no member ran describes no export's compile; the rules stand
+on their own reasons ((1) a member is told why the texture is wrong; (5) a silently skipped
+line, or a slot no game loads, is what an Error exists to show), so only the record changes.
+The spec's attributions were corrected in place (`team_compiler/pipeline.md`, `blue_port.md`,
+`libs/teams_list.md`, `libs/dds_convert.md`).
+Plan: no plan edit needed: each rule's spec text already states the rule; the attributions are
+fixed in the spec files named above.
