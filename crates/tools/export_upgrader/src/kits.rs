@@ -1,19 +1,23 @@
 //! Step 5's `Kit Configs/` and `Kit Textures/` folders into `Kits/`
 //! (`plans/export_upgrader.md` step 5, `DECISIONS.md` 2026-10-18 "the kit
-//! configs' and kit textures' rules of 6.3a"): every config becomes its kit
+//! configs' and kit textures' rules of 6.3a" and "the Note's kit entries'
+//! grammar and the two kit Warnings of 6.3b"): every config becomes its kit
 //! folder's `config.toml` (its texture-name fields dropped — the compiler
 //! re-derives them from the textures present, its undecoded bits kept in the
 //! `[unknown]` table), every kit texture lands in its kit's folder under the
-//! generic `kit` name. What cannot be placed is left for the run's fallback
-//! to report as unmigrated content.
+//! generic `kit` name, and the Note's kit entries give each kit its
+//! `colors.txt` and icon. What cannot be placed is left for the run's
+//! fallback to report as unmigrated content.
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use aesthetics_export::read_colors_txt;
 use kit_config::{KitConfig, KitSlot};
 use pes_version::PesVersion;
 use studio_core::{Disposition, Message, Scope};
 
 use crate::messages::{Code, INPUT, read_failed, tool_message};
+use crate::note;
 use crate::players::path_scope;
 use crate::source::SourceFailure;
 
@@ -28,7 +32,8 @@ pub(crate) struct KitFolders {
     pub(crate) copies: Vec<(String, String)>,
     /// Input files accounted for; the run's fallback reports every other one.
     pub(crate) consumed: BTreeSet<String>,
-    /// Findings on the input, in input-path order.
+    /// Findings on the input, in input-path order, a file's own findings in
+    /// the order met.
     pub(crate) findings: Vec<Message>,
 }
 
@@ -70,15 +75,53 @@ fn texture_slot(file_name: &str) -> Option<(KitSlot, &str)> {
     Some((slot, &file_name[slot_at + 2..]))
 }
 
-/// What step 5 makes of `files`' `Kit Configs/` and `Kit Textures/`: every
-/// config decoded and converted to its kit folder's `config.toml`, every
-/// texture of a decided kit copied under the generic name.
+/// What a Note kit entry's colors give its kit: the two colors as the Note
+/// spells them and the icon marker number.
+struct KitEntry {
+    /// The two colors, each as the Note spells it.
+    colors: [String; 2],
+    /// The `icon_<N>` number; `None` for none or the default 3.
+    icon: Option<u8>,
+}
+
+/// A kit entry's colors (step 5): split at each `-`, the parts trimmed. Two
+/// or three parts read; one, or four and more, do not. The first two are each
+/// one color by the `colors.txt` grammar; either failing, the entry does not
+/// read. A third part that parses as a whole number from 0 to 23 other than
+/// 3 (the default) is the icon; any other third part gives none.
+fn kit_entry(colors: &str) -> Option<KitEntry> {
+    let parts: Vec<&str> = colors.split('-').map(str::trim).collect();
+    let (first, second, third) = match parts.as_slice() {
+        [first, second] => (*first, *second, None),
+        [first, second, third] => (*first, *second, Some(*third)),
+        _ => return None,
+    };
+    let one_color = |part: &str| {
+        let read = read_colors_txt(part.as_bytes(), 1);
+        (read.colors.len() == 1 && read.refused.is_empty()).then(|| part.to_owned())
+    };
+    let icon = third
+        .and_then(|part| part.parse::<u8>().ok())
+        .filter(|number| *number != 3 && *number <= 23);
+    Some(KitEntry {
+        colors: [one_color(first)?, one_color(second)?],
+        icon,
+    })
+}
+
+/// What step 5 makes of `files`' `Kit Configs/` and `Kit Textures/` and the
+/// Note's kit entries (`note` the Note's path and text, `None` without one):
+/// every config decoded and converted to its kit folder's `config.toml`,
+/// every texture of a decided kit copied under the generic name, each kit
+/// entry's colors and icon written beside it.
 pub(crate) fn kit_folders(
     files: &[String],
     version: PesVersion,
+    note: Option<(&str, &str)>,
     mut read: impl FnMut(&str) -> Result<Vec<u8>, SourceFailure>,
 ) -> KitFolders {
     let mut folders = KitFolders::default();
+    let mut failures: BTreeMap<String, Vec<Message>> = BTreeMap::new();
 
     // The `Kit Configs` candidates, a file directly in the folder or in one
     // subfolder of it whose name reads (a deeper file or another name is left
@@ -108,19 +151,18 @@ pub(crate) fn kit_folders(
     // before any byte compares, so a config that fails leaves the slot to the
     // next one; a later file of the slot is one config when its bytes match
     // the kit's, and not consumed otherwise.
-    let mut decided: BTreeMap<KitSlot, Vec<u8>> = BTreeMap::new();
-    let mut failures: BTreeMap<&str, Message> = BTreeMap::new();
+    let mut decided: BTreeMap<KitSlot, (&String, Vec<u8>)> = BTreeMap::new();
     for (file, slot) in roots.iter().chain(&below) {
         match read(file) {
             Err(failure) => {
-                failures.insert(
-                    file.as_str(),
-                    read_failed(INPUT, failure, Disposition::DropFile),
-                );
+                failures
+                    .entry(file.as_str().to_owned())
+                    .or_default()
+                    .push(read_failed(INPUT, failure, Disposition::DropFile));
                 folders.consumed.insert((*file).clone());
             }
             Ok(bytes) => match decided.get(slot) {
-                Some(kept) if *kept == bytes => {
+                Some((_, kept)) if *kept == bytes => {
                     folders.consumed.insert((*file).clone());
                 }
                 Some(_) => {}
@@ -131,13 +173,14 @@ pub(crate) fn kit_folders(
                             format!("Kits/{}/config.toml", slot.as_str()),
                             config.to_toml().into_bytes(),
                         ));
-                        decided.insert(*slot, bytes);
+                        decided.insert(*slot, (*file, bytes));
                         folders.consumed.insert((*file).clone());
                     }
                     Err(error) => {
-                        failures.insert(
-                            file.as_str(),
-                            tool_message(
+                        failures
+                            .entry(file.as_str().to_owned())
+                            .or_default()
+                            .push(tool_message(
                                 Code::UnmigratedContent,
                                 Scope::File {
                                     export_id: INPUT,
@@ -145,26 +188,142 @@ pub(crate) fn kit_folders(
                                 },
                                 Disposition::DropFile,
                                 vec![("error", error.to_string())],
-                            ),
-                        );
+                            ));
                         folders.consumed.insert((*file).clone());
                     }
                 },
             },
         }
     }
-    // The findings in input-path order (`files` is sorted): the decisions
-    // were met slot by slot, roots first.
-    for file in files {
-        if let Some(message) = failures.remove(file.as_str()) {
-            folders.findings.push(message);
+
+    // The Note's kit entries (step 5): `gk:` in any letter case is the
+    // goalkeeper's, the first giving g1; the others give p1 … p9 in Note
+    // order. A second `gk:` entry or a player entry past the ninth has no
+    // slot and is unmigrated content, and so is an entry whose colors do not
+    // read — its slot still counts as given (the later entries keep theirs;
+    // Red dropped it and shifted every kit after it down a slot).
+    let mut entry_slots: Vec<KitSlot> = Vec::new();
+    if let Some((note_path, note_text)) = note {
+        let mut players_taken = 0usize;
+        let mut gk_taken = false;
+        const PLAYER_SLOTS: [KitSlot; 9] = [
+            KitSlot::P1,
+            KitSlot::P2,
+            KitSlot::P3,
+            KitSlot::P4,
+            KitSlot::P5,
+            KitSlot::P6,
+            KitSlot::P7,
+            KitSlot::P8,
+            KitSlot::P9,
+        ];
+        let unmigrated = |line: &str| {
+            tool_message(
+                Code::UnmigratedContent,
+                Scope::File {
+                    export_id: INPUT,
+                    path: path_scope(note_path),
+                },
+                Disposition::DropFile,
+                vec![("line", line.to_owned())],
+            )
+        };
+        for entry in note::color_entries(note_text).kits {
+            let slot = if entry.line.to_ascii_lowercase().contains("gk:") {
+                if gk_taken {
+                    None
+                } else {
+                    gk_taken = true;
+                    Some(KitSlot::G1)
+                }
+            } else {
+                players_taken += 1;
+                PLAYER_SLOTS.get(players_taken - 1).copied()
+            };
+            let Some(slot) = slot else {
+                failures
+                    .entry(note_path.to_owned())
+                    .or_default()
+                    .push(unmigrated(&entry.line));
+                continue;
+            };
+            entry_slots.push(slot);
+            match kit_entry(&entry.colors) {
+                Some(parsed) => {
+                    let colors = format!("{}\n{}\n", parsed.colors[0], parsed.colors[1]);
+                    folders.written.push((
+                        format!("Kits/{}/colors.txt", slot.as_str()),
+                        colors.into_bytes(),
+                    ));
+                    if let Some(icon) = parsed.icon {
+                        folders
+                            .written
+                            .push((format!("Kits/{}/icon_{icon}", slot.as_str()), Vec::new()));
+                    }
+                }
+                None => {
+                    failures
+                        .entry(note_path.to_owned())
+                        .or_default()
+                        .push(unmigrated(&entry.line));
+                }
+            }
+        }
+        // Each slot an entry gives and no config does is a placeholder kit,
+        // kept with a Warning on the Note.
+        for slot in &entry_slots {
+            if !decided.contains_key(slot) {
+                failures
+                    .entry(note_path.to_owned())
+                    .or_default()
+                    .push(tool_message(
+                        Code::KitWithoutConfig,
+                        Scope::File {
+                            export_id: INPUT,
+                            path: path_scope(note_path),
+                        },
+                        Disposition::Keep,
+                        vec![("slot", slot.as_str().to_owned())],
+                    ));
+            }
+        }
+    }
+    // And each slot a config gives and no entry does, a Warning on the config
+    // that became its `config.toml` (every config without a Note).
+    for (slot, (config_path, _)) in &decided {
+        if !entry_slots.contains(slot) {
+            failures
+                .entry((*config_path).clone())
+                .or_default()
+                .push(tool_message(
+                    Code::ConfigWithoutKitEntry,
+                    Scope::File {
+                        export_id: INPUT,
+                        path: path_scope(config_path),
+                    },
+                    Disposition::Keep,
+                    vec![("slot", slot.as_str().to_owned())],
+                ));
         }
     }
 
+    // The findings in input-path order (`files` is sorted): the decisions
+    // were met slot by slot.
+    for file in files {
+        if let Some(messages) = failures.remove(file.as_str()) {
+            folders.findings.extend(messages);
+        }
+    }
+    folders.findings.extend(failures.into_values().flatten());
+
     // `Kit Textures`, a file directly in the folder alone (a subfolder's is
-    // not consumed): it lands only in a slot one decoded config gives, the
-    // first by input path of two landing on one name kept.
-    let slots: BTreeSet<KitSlot> = decided.keys().copied().collect();
+    // not consumed): it lands only in a slot a config or a Note entry gives,
+    // the first by input path of two landing on one name kept.
+    let slots: BTreeSet<KitSlot> = decided
+        .keys()
+        .copied()
+        .chain(entry_slots.iter().copied())
+        .collect();
     let mut taken: BTreeSet<String> = BTreeSet::new();
     for file in files {
         let Some((top, name)) = file.split_once('/') else {
@@ -211,7 +370,7 @@ mod tests {
     fn plan(listing: &[&str], bytes: &[(&str, &[u8])]) -> KitFolders {
         let bytes: BTreeMap<&str, &[u8]> = bytes.iter().copied().collect();
         let files: Vec<String> = listing.iter().map(|file| (*file).to_owned()).collect();
-        kit_folders(&files, PesVersion::Pes21, |path| {
+        kit_folders(&files, PesVersion::Pes21, None, |path| {
             bytes
                 .get(path)
                 .map(|bytes| Ok(bytes.to_vec()))
@@ -250,6 +409,37 @@ mod tests {
             ("u0XXXp1", None),
         ] {
             assert_eq!(texture_slot(name), expected, "{name}");
+        }
+    }
+
+    #[test]
+    fn the_kit_entry_grammar() {
+        let icon = |entry: Option<KitEntry>| entry.map(|entry| entry.icon);
+        // Two colors read as spelled; a third part 0-23 other than 3 is the
+        // icon (3 is the default and writes none).
+        let entry = kit_entry("211 74 79 - 162 62 77 - 3").expect("reads");
+        assert_eq!(entry.colors, ["211 74 79", "162 62 77"]);
+        assert_eq!(entry.icon, None);
+        assert_eq!(icon(kit_entry("30 30 30 - 250 250 250 - 5")), Some(Some(5)));
+        assert_eq!(icon(kit_entry("0 0 0 - 1 1 1 - 0")), Some(Some(0)));
+        let entry = kit_entry("#D34A4F - #A23E4D").expect("reads");
+        assert_eq!(entry.colors, ["#D34A4F", "#A23E4D"]);
+        assert_eq!(entry.icon, None);
+        assert_eq!(icon(kit_entry("1 2 3 - 4 5 6 - 24")), Some(None));
+        assert_eq!(icon(kit_entry("1 2 3 - 4 5 6 - x")), Some(None));
+        // An empty part (a trailing `-`) is no color: it reads nothing and
+        // refuses nothing.
+        for colors in [
+            "#RRGGBB - #RRGGBB",
+            "1 2 3",
+            "1 2 3 - 4 5 6 - 7 - 8",
+            "1 2 3 - ",
+        ] {
+            assert_eq!(
+                kit_entry(colors).map(|entry| entry.colors),
+                None,
+                "{colors}"
+            );
         }
     }
 
@@ -390,7 +580,14 @@ mod tests {
             plan.consumed
                 .contains("Kit Configs/714/XXX_DEF_1st_realUni.bin")
         );
-        assert_eq!(plan.findings.len(), 1);
+        // Input-path order: the surviving config's warning on `714/`'s file,
+        // then the root file's decode failure.
+        assert_eq!(plan.findings.len(), 2, "{:?}", plan.findings);
+        assert_eq!(
+            plan.findings[0].code.code.as_ref(),
+            "config_without_kit_entry"
+        );
+        assert_eq!(plan.findings[1].code.code.as_ref(), "unmigrated_content");
     }
 
     #[test]

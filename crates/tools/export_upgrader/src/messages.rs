@@ -44,6 +44,13 @@ pub(crate) enum Code {
     /// bytes: the item folder is kept shared with a link instead (`path`, the
     /// first clashing path relative to the player folder).
     MergeKeptShared,
+    /// A kit slot a Note kit entry gives and no `Kit Configs` config does:
+    /// the kit still forms, a placeholder the compiler fills (`slot`).
+    KitWithoutConfig,
+    /// A kit slot a `Kit Configs` config gives and no Note kit entry does:
+    /// its `config.toml` is written all the same, the kit offered as the old
+    /// export never offered it (`slot`).
+    ConfigWithoutKitEntry,
 }
 
 impl Code {
@@ -57,6 +64,8 @@ impl Code {
             Code::MigrationNotClean => "migration_not_clean",
             Code::RosterSlotEmpty => "roster_slot_empty",
             Code::MergeKeptShared => "merge_kept_shared",
+            Code::KitWithoutConfig => "kit_without_config",
+            Code::ConfigWithoutKitEntry => "config_without_kit_entry",
         }
     }
 
@@ -70,6 +79,8 @@ impl Code {
         Code::MigrationNotClean,
         Code::RosterSlotEmpty,
         Code::MergeKeptShared,
+        Code::KitWithoutConfig,
+        Code::ConfigWithoutKitEntry,
     ];
 }
 
@@ -88,6 +99,8 @@ const CATALOG: &[(&str, Severity)] = &[
     ("migration_not_clean", Severity::Info),
     ("roster_slot_empty", Severity::Warning),
     ("merge_kept_shared", Severity::Info),
+    ("kit_without_config", Severity::Warning),
+    ("config_without_kit_entry", Severity::Warning),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", Severity::Warning),
     ("nested_root_ambiguous", Severity::Error),

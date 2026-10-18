@@ -36,5 +36,6 @@ them without decoding, so tests write a few bytes under each texture's name inst
   1 in `2nd`), which `config.toml`'s `[unknown]` table keeps (EU-KIT-02).
 - `MGGG VGL26/`: the five configs of `MGGG  Aesthetics Export VGL26` (`1st` to `4th`,
   `GK1st`). Every one names kit 1's back texture in its back and leg fields and kit 1's name
-  texture in its name field (`u0811p1_back`, `u0811p1_name`), and `4th` names kit 3's main
-  texture, as makers who copy kit 1's config for the others leave them (EU-KIT-05, -07).
+  texture in its name field (`u0811p1_back`, `u0811p1_name`), as makers who copy kit 1's config
+  for the others leave them, and `4th` is a byte copy of `3rd`, so its main field names kit 3's
+  texture (EU-KIT-05, -07).

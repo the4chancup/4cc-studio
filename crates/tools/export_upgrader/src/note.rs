@@ -37,8 +37,7 @@ pub(crate) struct NoteEntry {
     pub(crate) colors: String,
 }
 
-/// Which color section of the Note the reading is inside (step 5's grammar):
-/// the kit entries are read their own way (6.3), the team ones here.
+/// Which color section of the Note the reading is inside (step 5's grammar).
 enum Section {
     /// Before `Team Colours:` (or `Kit Colours:`): entries belong to none.
     None,
@@ -48,19 +47,28 @@ enum Section {
     Kit,
 }
 
-/// The team section's entries, in Note order.
-///
-/// The reading (step 5): blank lines skipped; a line's words split on
-/// whitespace; a line whose first word is `team` and whose second starts
-/// with `co`, both in any letter case, opens the team section; one whose
-/// first word is `kit` and second starts with `co` opens the kit section,
-/// closing the team one; a line starting, as written, with `player`, `other`
-/// or `notes` in any letter case ends the reading; inside the team section
-/// an entry is a line whose first non-blank character is `-`. A `-` line
-/// before any header belongs to no section.
-pub(crate) fn team_entries(note_text: &str) -> Vec<NoteEntry> {
+/// The two color sections' entries, each in Note order.
+pub(crate) struct ColorEntries {
+    /// `Team Colours:`'s entries.
+    pub(crate) team: Vec<NoteEntry>,
+    /// `Kit Colours:`'s entries.
+    pub(crate) kits: Vec<NoteEntry>,
+}
+
+/// The color sections' entries (step 5's reading): blank lines skipped; a
+/// line's words split on whitespace; a line whose first word is `team` and
+/// whose second starts with `co`, both in any letter case, opens the team
+/// section; one whose first word is `kit` and second starts with `co` opens
+/// the kit section, closing the team one; a line starting, as written, with
+/// `player`, `other` or `notes` in any letter case ends the reading; inside
+/// a section an entry is a line whose first non-blank character is `-`. A
+/// `-` line before any header belongs to no section.
+pub(crate) fn color_entries(note_text: &str) -> ColorEntries {
     let mut section = Section::None;
-    let mut entries = Vec::new();
+    let mut entries = ColorEntries {
+        team: Vec::new(),
+        kits: Vec::new(),
+    };
     for line in note_text.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
@@ -85,15 +93,20 @@ pub(crate) fn team_entries(note_text: &str) -> Vec<NoteEntry> {
                 continue;
             }
         }
-        if matches!(section, Section::Team) && trimmed.starts_with('-') {
+        if trimmed.starts_with('-') {
             let colors = line
                 .rsplit_once(':')
                 .map(|(_, colors)| colors.trim())
                 .unwrap_or("");
-            entries.push(NoteEntry {
+            let entry = NoteEntry {
                 line: trimmed.to_owned(),
                 colors: colors.to_owned(),
-            });
+            };
+            match section {
+                Section::Team => entries.team.push(entry),
+                Section::Kit => entries.kits.push(entry),
+                Section::None => {}
+            }
         }
     }
     entries
@@ -141,7 +154,7 @@ mod tests {
 
     #[test]
     fn the_team_entries_are_the_team_sections_dash_lines_in_order() {
-        let entries = team_entries(NOTE);
+        let entries = color_entries(NOTE).team;
         assert_eq!(
             entries
                 .iter()
@@ -157,6 +170,36 @@ mod tests {
     }
 
     #[test]
+    fn the_kit_entries_are_the_kit_sections_dash_lines_in_order() {
+        // The fixture's `Kit Colours:` holds three player entries and the
+        // goalkeeper's, a blank line before it.
+        let kits = color_entries(NOTE).kits;
+        assert_eq!(
+            kits.iter()
+                .map(|entry| (entry.line.as_str(), entry.colors.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                (
+                    "- 1st player: 035 110 061 - 198 198 198",
+                    "035 110 061 - 198 198 198"
+                ),
+                (
+                    "- 2nd player: 035 035 035 - 113 147 083",
+                    "035 035 035 - 113 147 083"
+                ),
+                (
+                    "- 3rd player: 255 000 000 - 255 255 255",
+                    "255 000 000 - 255 255 255"
+                ),
+                (
+                    "- 1st GK: 000 000 000 - 000 000 000",
+                    "000 000 000 - 000 000 000"
+                ),
+            ]
+        );
+    }
+
+    #[test]
     fn other_notes_is_the_text_after_the_header() {
         let notes = other_notes(NOTE).expect("the 4ccg Note holds Other Notes");
         assert_eq!(notes.lines().count(), 2);
@@ -166,32 +209,35 @@ mod tests {
 
     #[test]
     fn a_header_in_another_letter_case_opens_the_section() {
-        let entries = team_entries("TEAM COLOURS:\r\n- 1st: 1 2 3\r\n");
+        let entries = color_entries("TEAM COLOURS:\r\n- 1st: 1 2 3\r\n").team;
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].colors, "1 2 3");
     }
 
     #[test]
     fn a_kit_header_closes_the_team_section() {
-        // The kit entries are not team entries (6.3 reads them its own way).
-        let entries = team_entries(
+        // The kit entries are their own section, not team entries.
+        let entries = color_entries(
             "Team Colours:\n- 1st: 1 2 3\nKit Colours:\n- 1st player: 4 5 6\n- 1st GK: 7 8 9",
         );
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].colors, "1 2 3");
+        assert_eq!(entries.team.len(), 1);
+        assert_eq!(entries.team[0].colors, "1 2 3");
+        assert_eq!(entries.kits.len(), 2);
+        assert_eq!(entries.kits[0].colors, "4 5 6");
+        assert_eq!(entries.kits[1].line, "- 1st GK: 7 8 9");
     }
 
     #[test]
     fn the_stop_words_end_the_reading() {
         for stop in ["Player IDs:", "Other Notes:", "Notes:"] {
             let text = format!("Team Colours:\n- 1st: 1 2 3\n{stop} x\n- 2nd: 4 5 6");
-            assert_eq!(team_entries(&text).len(), 1, "{stop}");
+            assert_eq!(color_entries(&text).team.len(), 1, "{stop}");
         }
     }
 
     #[test]
     fn a_dash_line_before_the_header_belongs_to_no_section_and_a_bad_entry_is_returned() {
-        let entries = team_entries("- early: 9 9 9\nTeam Colours:\n- 1st: blue\n");
+        let entries = color_entries("- early: 9 9 9\nTeam Colours:\n- 1st: blue\n").team;
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].line, "- 1st: blue");
         assert_eq!(entries[0].colors, "blue");

@@ -171,7 +171,19 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    maintainer's machine, in 23 exports, nearly all VGL26). Red rewrites only the team ID in those
    fields and keeps the kit the maker wrote, while the compiler re-derives the fields from the
    kit's own folder, so without the copy those kits would compile without numbers or names.
-   Then the shared textures are **hoisted into `Kits/all/`** (a copied texture moves too when
+   The same holds for a field naming a texture of **another stem** than its own, the kit's own
+   included (MGGG VGL26's leg fields name `u0811p1_back`, `JP Aesthetics Export World`'s chest
+   field its own `u0728p1_front`, a stem the compiler does not use): the copy goes under the
+   naming field's generic name (`kit_leg.dds` from `p1/kit_back.dds`), so one rule covers
+   every field that names something other than its own kit's own texture (162 fields of the
+   1,038 distinct configs, the named texture shipped for 43). A field is read as Red read it:
+   by position, `u`, four characters, the kit (`p0` meaning the config's own), the rest
+   naming the stem; the source is the named kit's migrated texture of that rest, and no copy
+   is made when it is not in the output, or when the kit holds its own file of the field's
+   name: the maker shipped that one (MGGG's goalkeeper holds its own back and name textures
+   while its config, copied from kit 1, names kit 1's). The finding is on the config's file,
+   its context the kit, the field's stem and the source (`kit=p2`, `stem=kit_back`,
+   `from=p1/kit_back`). Then the shared textures are **hoisted into `Kits/all/`** (a copied texture moves too when
    every kit now holds it): a stem present in
    *every* kit folder with byte-identical contents (two or more kits) moves to `all/` and the copies
    are deleted (`kit_texture_hoisted`, I, naming the stem). Every kit counts, the empty `p1` or

@@ -47,7 +47,7 @@ fn a_note_only_export_reports_no_unmigrated_content() {
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "Numbers", "EDIT");
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert!(
         !run.stdout().contains("unmigrated_content"),
         "{}",
@@ -188,12 +188,26 @@ fn a_shift_jis_notes_ascii_colors_read() {
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "jp Summer 18", "EDIT");
-    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
-    // The kit `colors.txt` files and the scenario's exit code 0 are 6.3's.
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert_eq!(
         fs::read(sandbox.path("jp Full Summer 18/colors.txt")).unwrap(),
         b"058 080 177\n255 255 255\n"
     );
+    // The kit entries' colors, each written as the Note spells it.
+    for (slot, colors) in [
+        ("p1", "#212D62\n#DE344F\n"),
+        ("p2", "#EEEEEE\n#70C8DE\n"),
+        ("p3", "#050505\n#EFD0C3\n"),
+        ("p4", "#D6384A\n#4466A7\n"),
+        ("p5", "#000400\n#7B0000\n"),
+        ("g1", "#FFFFFF\n#000000\n"),
+    ] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("jp Full Summer 18/Kits/{slot}/colors.txt"))).unwrap(),
+            colors.as_bytes(),
+            "{slot}"
+        );
+    }
     // The "Other Notes:" section is empty: no notes.txt.
     assert!(!sandbox.path("jp Full Summer 18/notes.txt").exists());
     assert!(

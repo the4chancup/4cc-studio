@@ -519,17 +519,17 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     case-only clash overwriting a file fixed); mutation diff 1 survivor tested; files:
     `export_upgrader/src/{kits,players,upgrade,lib}.rs`, `tests/cli/{kits,cli,players}.rs`,
     fixtures `kit_configs/`, `kit_config/src/names.rs` (`KitSlot::from_config_suffix`)
-  - [ ] 6.3b the Note's kit entries: per-kit `colors.txt` and `icon_<N>`, the `gk:` rule,
+  - [x] 6.3b the Note's kit entries: per-kit `colors.txt` and `icon_<N>`, the `gk:` rule,
     `kit_without_config`, `config_without_kit_entry`, entries with no slot → verify: EU-KIT-03,
-    -04, -09, -11, -13; EU-ROOT-05's exit 0
+    -04, -09, -11, -13; EU-ROOT-05's exit 0. Done 2026-10-18: 5 EU-KIT scenarios and EU-ROOT-05
+    proven; a Note-only export now exits 0 (its kits give the output content, no
+    `export_empty`); mutation diff 1 survivor tested; review round 6.3.S1 on 6.3a: 5 accepted
+    (`.tmp/6_3/rulings.md`), fixed in 6.3c; files: `export_upgrader/src/{kits,note,messages,
+    upgrade}.rs`, `tests/cli/{kits,roots,input}.rs`
   - [ ] 6.3c the copy of another kit's texture a config names, and the `all/` hoist → verify:
-    EU-KIT-05, -06, -07, -14. Open: a config field naming another *stem* than its own, which
-    step 5's copy rule does not cover. Census (`.tmp/6_3/census_fields.py`, 1,038 distinct
-    configs): another kit's same stem 103 fields (34 shipped, 10 exports); another stem 59
-    fields (9 shipped, 5 exports: MGGG's leg field naming `p1_back` in every kit, HSRG,
-    `JP Aesthetics Export World` and nijiura's chest naming their own shipped `_front`, a stem
-    Studio drops). Recommended for the 6.3c brief: the copy goes under the naming field's own
-    generic name (`kit_leg` from `p1_back`), which covers both cases with one rule
+    EU-KIT-05, -06, -07, -14; the copy rule widened to a field naming another stem (census
+    `.tmp/6_3/census_fields.py`; plan step 5, DECISIONS 2026-10-18 "the kit-texture copy covers
+    every field naming another texture"), its test on MGGG VGL26's configs
 - [ ] 6.4 models, portraits, logo and Common (step 7), as ordered slices: (a) portraits and the
   logo; (b) `.mtl`/`face.xml` references, Common links and the kit magic; (c) FMDL path tables;
   (d) pre-Fox renames → verify: EU-MDL-*

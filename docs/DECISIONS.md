@@ -8463,3 +8463,21 @@ parts is no entry the page describes. (2) a placeholder kit and a kit the Note n
 are both migrated, not lost: a Warning that dropped would make every such run not clean,
 against EU-KIT-09 and EU-KIT-13's exit 0.
 Plan: `plans/export_upgrader.md` step 5.
+
+## 2026-10-18 — export_upgrader — the kit-texture copy covers every field naming another texture (6.3c)
+Decision: (1) a config's back, chest, leg or name field naming anything other than its own
+kit's texture of that stem (another kit's, or another stem, the kit's own included) gives the
+kit a copy of the named texture under the field's generic name (`kit_leg.dds` from
+`p1/kit_back.dds`); `kit_texture_copied` (I) is on the config's file, context `kit`, `stem` (the
+field's) and `from` (the source's kit and stem). (2) No copy when the named texture is not in
+the output, or when the kit holds its own file of the field's name.
+Why: (1) the census of the maintainer's 1,038 distinct old configs found 103 fields naming
+another kit's same stem (the case the plan covered) and 59 naming another stem, the shipped
+cases in MGGG (every leg field names `p1_back`), HSRG and JP's chest `_front` textures, a stem
+the compiler drops: the compiler derives each field from its own stem's file, so without the
+copy those numbers compile blank; one rule covers both. (2) a texture the export never shipped
+has nothing to copy; a kit that ships its own file of that name was meant to wear it (MGGG's
+goalkeeper ships its own back and name textures while its config, copied from kit 1, names
+kit 1's), which is the simpler rule too, where letting the copy win would turn the kit's own
+file into unmigrated content.
+Plan: `plans/export_upgrader.md` step 5.

@@ -60,8 +60,9 @@ fn the_three_input_forms_upgrade_the_same() {
         "{}",
         stdout[0]
     );
+    // The Note's kit entries give kits without configs (6.3b).
     assert!(
-        stdout[0].contains("- co Full Spring: Error export_empty"),
+        stdout[0].contains("- co Spring: Warning kit_without_config at co Note.txt (slot=p1)"),
         "{}",
         stdout[0]
     );

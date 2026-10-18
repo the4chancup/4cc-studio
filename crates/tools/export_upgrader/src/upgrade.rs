@@ -401,7 +401,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     let mut any_unmigrated = false;
     if let Some(note_text) = &note_text {
         let mut colors = String::new();
-        for entry in note::team_entries(note_text) {
+        for entry in note::color_entries(note_text).team {
             let read = read_colors_txt(entry.colors.as_bytes(), 1);
             if read.colors.len() == 1 && read.refused.is_empty() {
                 colors.push_str(&entry.colors);
@@ -463,7 +463,12 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                     _ => false,
                 }
             }),
-            kit_folders(&files, version, |path| export.read(path)),
+            kit_folders(
+                &files,
+                version,
+                note_path.as_deref().zip(note_text.as_deref()),
+                |path| export.read(path),
+            ),
         ),
     };
     for message in plan.findings.into_iter().chain(kits.findings) {
