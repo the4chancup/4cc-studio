@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): 6.1b (the Note's team colors and notes), 6.0c's rulings
-beside it. 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): the cross-family review of 6.1a-b, then 6.2 (player
+folders). 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -453,7 +453,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   5.0c Red inventory's old-layout rows to the steps, re-checked on Red `main`; DECISIONS
   2026-10-17 (two entries, points (1)-(18)); files: `plans/export_upgrader.md`,
   `plans/aesthetics_export/settings_toml.md`, `spec/model_format.md`, `GLOSSARY.md`, `AGENTS.md`
-- [ ] 6.0c the 5.0c Red inventory re-checked against Red `main` for the Team compiler: it read
+- [x] 6.0c the 5.0c Red inventory re-checked against Red `main` for the Team compiler: it read
   `dev/pre-studio-format` at `e12aa01`, 16 commits past `main`, eleven library files differing
   (`fmdl_editing.py`, `portraits_move.py`, `referee_tools.py`, `team_id_get.py`, `export_check.py`,
   `players_process.py`, `savefile.py`, …); every row from those files, and the DECISIONS entry
@@ -465,9 +465,14 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   directory is repointed like any other); `main`'s team-name token still splits on `+`, so the
   DECISIONS 2026-10-11 deviation is against the dev branch only; `blue_port.md`'s shared
   referee `Boots/`/`Gloves/` are the dev branch's (all 15 real referee exports use `refs.txt`
-  and `Players/<name>/`)
+  and `Players/<name>/`). Done 2026-10-18 (two SWE-2 passes over the inventory's tables):
+  no compiler rule changes; two behaviors kept as recorded deviations (the kit-texture path
+  warning, the strict `refs.txt` reading), the BC5 → DXT5nm conversion already one; four
+  premises corrected (DECISIONS 2026-10-18 "the 5.0c Red inventory re-read"); attributions
+  fixed in `team_compiler/pipeline.md`, `blue_port.md`, `libs/teams_list.md`,
+  `libs/dds_convert.md`
 
-- [ ] 6.1 the thinnest end-to-end path: the `export_upgrader` tool crate (`core/architecture.md`
+- [x] 6.1 the thinnest end-to-end path: the `export_upgrader` tool crate (`core/architecture.md`
   tool-crate skeleton), `upgrade` reading a folder, `.zip` or `.7z` (step 1), resolving the team
   (step 6) and writing the output with its root `colors.txt`/`notes.txt`, the report (step 10's
   catalog) and the exit codes ("CLI") → verify: EU-IN-*, EU-ROOT-*, EU-CLI-* (the flag,
@@ -482,9 +487,12 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     equivalent `Default`); files: `crates/tools/export_upgrader/`, `aesthetics_export`
     (`coverage`, `is_os_artifact` pub), `studio` (registration), `.gitignore` (fixture
     `Thumbs.db`), `scripts/doc_pointers.py` (open-phase plan), plan "CLI"/"Message catalog"
-  - 6.1b the Note's team colors to the root `colors.txt` and its "Other Notes" to `notes.txt`
-    → verify: EU-ROOT-04, EU-ROOT-05's root `colors.txt` (its kits' with 6.3), EU-ROOT-01's
-    settings with 6.5
+  - [x] 6.1b the Note's team colors to the root `colors.txt` and its "Other Notes" to
+    `notes.txt` → verify: EU-ROOT-04, EU-ROOT-05's root `colors.txt` (its kits' with 6.3),
+    EU-ROOT-01's settings with 6.5. Done 2026-10-18: the Note's section reader (6.3 adds the kit
+    entries), an unreadable or unfilled entry `unmigrated_content`; mutation diff 1 survivor
+    tested; files: `export_upgrader/src/{note,upgrade}.rs`, `tests/cli/roots.rs`, fixture
+    `jp Summer 18/`
 - [ ] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
   `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*
 - [ ] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit

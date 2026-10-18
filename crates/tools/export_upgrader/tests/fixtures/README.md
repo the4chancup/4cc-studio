@@ -16,3 +16,9 @@ the folder with 7-Zip's `7z a`, so the three hold the same files.
 - `Thumbs.db`: eight bytes of an OLE header, an OS artifact step 1 leaves out unreported. The
   repository's `.gitignore` ignores the name except below a `tests/fixtures/` folder, so tree
   copies that honor it (the mutation runs') keep this one.
+
+## `jp Summer 18/`
+
+`JP Note.txt` alone: the real Note of `JP Aesthetic Export for Summer 18` (Teams_Main), byte for
+byte (CRLF). Its team and kit color lines are ASCII, its "Player IDs:" lines Shift-JIS (one,
+`72802`'s, holds bytes that are not UTF-8), and its "Other Notes:" section is empty (EU-ROOT-05).

@@ -2096,3 +2096,8 @@ worklog passed 7,000 lines.
 - **2026-10-18** — 6.1a: the `export_upgrader` crate's first path, `upgrade` reading a folder,
   `.zip` or `.7z`, resolving the team, writing the output under its derived name and validating
   it, every file not yet migrated reported; 12 EU scenarios proven, its own reader, not the compiler's.
+- **2026-10-18** — 6.1b: the upgraded export's root `colors.txt` and `notes.txt` from the Note's
+  team colors and "Other Notes", read as Red reads the Note; 6.1 done, 14 EU scenarios proven.
+- **2026-10-18** — 6.0c: the 5.0c Red inventory re-read on released Red `main` (it had read an
+  unreleased branch): no compiler rule changes; four decision premises and five spec attributions
+  corrected, the strict `refs.txt` reading recorded as a deviation.

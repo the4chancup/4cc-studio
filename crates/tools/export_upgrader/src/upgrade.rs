@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use aesthetics_export::{
     CanonicalListing, ListedEntry, ListedKind, SmallMetadata, SourceError, ValidationContext,
-    is_small_metadata, parse_listing,
+    is_small_metadata, parse_listing, read_colors_txt,
 };
 use anyhow::anyhow;
 use pes_savefile::EditFile;
@@ -151,6 +151,18 @@ fn aborted(error: anyhow::Error) -> CliError {
     CliError::new(ABORTED, error)
 }
 
+/// Writes `contents` to `output`'s root file `name`; a failure is the
+/// aborted code naming the file.
+fn write_root_file(output: &Path, name: &str, contents: String) -> Result<(), CliError> {
+    let path = output.join(name);
+    fs::write(&path, contents).map_err(|error| {
+        aborted(anyhow!(
+            "{}: cannot write the file: {error}",
+            path.display()
+        ))
+    })
+}
+
 /// What `check_invocation` approved (steps 1-4): the input resolved and
 /// named, the flags checked, the save loaded, the teams list parsed.
 struct Invocation {
@@ -260,9 +272,9 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     // found for every export (it is consumed, never unmigrated content); its
     // `Team:` line is read only for a team export.
     let note_path = note::find(&export.files).map(str::to_owned);
-    let team_value = match (&note_path, invocation.referees) {
+    let note_text = match (&note_path, invocation.referees) {
         (Some(note_path), false) => match export.read(note_path) {
-            Ok(bytes) => note::team_line(&note::text(&bytes)),
+            Ok(bytes) => Some(note::text(&bytes)),
             Err(failure) => {
                 events.message(extract_failed(INPUT, failure));
                 return Ok(ERRORS);
@@ -270,6 +282,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         },
         _ => None,
     };
+    let team_value = note_text.as_deref().and_then(note::team_line);
     let identity = match resolve(
         &export.name,
         invocation.referees,
@@ -333,7 +346,46 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         ))
     })?;
     events.started(OUTPUT, &output_name);
+
+    // The Note's team colors become the root `colors.txt`, its "Other Notes"
+    // section the root `notes.txt` (step 6; a referee export's Note gives
+    // neither). An entry whose colors do not read is unmigrated content
+    // naming the Note with its line; the kept entries are written as the Note
+    // spells them, one per line. The Note itself is never written.
     let mut any_unmigrated = false;
+    if let Some(note_text) = &note_text {
+        let mut colors = String::new();
+        for entry in note::team_entries(note_text) {
+            let read = read_colors_txt(entry.colors.as_bytes(), 1);
+            if read.colors.len() == 1 && read.refused.is_empty() {
+                colors.push_str(&entry.colors);
+                colors.push('\n');
+            } else {
+                any_unmigrated = true;
+                events.message(tool_message(
+                    Code::UnmigratedContent,
+                    Scope::File {
+                        export_id: INPUT,
+                        path: ScopePath::new(
+                            note_path
+                                .as_deref()
+                                .expect("a Note text exists only when a Note was found"),
+                        )
+                        .expect("every listed path was checked when the source opened"),
+                    },
+                    Disposition::DropFile,
+                    vec![("line", entry.line)],
+                ));
+            }
+        }
+        if !colors.is_empty() {
+            write_root_file(&output, "colors.txt", colors)?;
+        }
+        if let Some(notes) = note::other_notes(note_text) {
+            write_root_file(&output, "notes.txt", format!("{notes}\n"))?;
+        }
+    }
+
     for file in &export.files {
         if note_path.as_deref() == Some(file.as_str()) {
             continue;

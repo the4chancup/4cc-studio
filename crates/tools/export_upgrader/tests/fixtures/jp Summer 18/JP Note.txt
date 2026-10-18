@@ -1,0 +1,42 @@
+Team: /jp/
+ID: 728
+
+Team Colours:
+- 1st: 058 080 177
+- 2nd: 255 255 255
+
+Kit Colours:
+- 1st Player: #212D62 - #DE344F
+- 2nd Player: #EEEEEE - #70C8DE
+- 3rd Player: #050505 - #EFD0C3
+- 4th Player: #D6384A - #4466A7
+- 5th Player: #000400 - #7B0000
+
+- 1st GK: #FFFFFF - #000000
+
+Player IDs:
+- 72801 = Captain Meido
+- 72802 = (ÅLÅEwÅE`)
+- 72803 = Ero Ruins Eroge
+- 72804 = Why is /jp/ so shitty
+- 72805 = I Can Feel It In My Bones
+- 72806 = Sachiko
+- 72807 = YUA
+- 72808 = Japanese Bird
+- 72809 = Cirno
+- 72810 = Sage
+- 72811 = Get out of /jp/
+- 72812 = Having Fun is Cheating
+- 72813 = Beato
+- 72814 = Take it Easy
+- 72815 = Homeless Yukari
+- 72816 = Younger Sister
+- 72817 = which2huwudufuck
+- 72818 = Corndog Tenshi
+- 72819 = Ohayou
+- 72820 = Fumos
+- 72821 = "..."
+- 72822 = Flanfly
+- 72823 = Autism
+
+Other Notes:
