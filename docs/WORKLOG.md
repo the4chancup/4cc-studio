@@ -13,8 +13,9 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): 6.3 (kits), beside the cross-family review of 6.1a-b
-(SWE-2 round S4 on its run half, then Astra). 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): 6.3a (kit configs and textures, with the fixes of review
+rounds S4b and A1, the last ones on 6.1-6.2), then a SWE-2 loop on those fixes, then 6.3b
+(the Note's kit entries) and 6.3c (copy and hoist). 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -510,7 +511,25 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     dropping findings); files: `export_upgrader/src/{players,roster,upgrade,source,messages,
     lib}.rs`, `tests/cli/players.rs`, `tests/common/mod.rs`
 - [ ] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit
-  colors and icons, the copy and the hoist → verify: EU-KIT-*
+  colors and icons, the copy and the hoist → verify: EU-KIT-*. Three slices:
+  - [x] 6.3a configs and textures into `Kits/<slot>/` (the config grammar, one config per slot,
+    the `Kit Configs/<id>/` subfolder, the positional texture grammar) → verify: EU-KIT-01, -02,
+    -08, -10, -12; also the review rounds S4b and A1's fixes. Done 2026-10-18: 5 EU-KIT
+    scenarios proven; review loops on 6.1-6.2 ended (S4b 4 accepted, Astra A1 4, a Fox merge's
+    case-only clash overwriting a file fixed); mutation diff 1 survivor tested; files:
+    `export_upgrader/src/{kits,players,upgrade,lib}.rs`, `tests/cli/{kits,cli,players}.rs`,
+    fixtures `kit_configs/`, `kit_config/src/names.rs` (`KitSlot::from_config_suffix`)
+  - [ ] 6.3b the Note's kit entries: per-kit `colors.txt` and `icon_<N>`, the `gk:` rule,
+    `kit_without_config`, `config_without_kit_entry`, entries with no slot → verify: EU-KIT-03,
+    -04, -09, -11, -13; EU-ROOT-05's exit 0
+  - [ ] 6.3c the copy of another kit's texture a config names, and the `all/` hoist → verify:
+    EU-KIT-05, -06, -07, -14. Open: a config field naming another *stem* than its own, which
+    step 5's copy rule does not cover. Census (`.tmp/6_3/census_fields.py`, 1,038 distinct
+    configs): another kit's same stem 103 fields (34 shipped, 10 exports); another stem 59
+    fields (9 shipped, 5 exports: MGGG's leg field naming `p1_back` in every kit, HSRG,
+    `JP Aesthetics Export World` and nijiura's chest naming their own shipped `_front`, a stem
+    Studio drops). Recommended for the 6.3c brief: the copy goes under the naming field's own
+    generic name (`kit_leg` from `p1_back`), which covers both cases with one rule
 - [ ] 6.4 models, portraits, logo and Common (step 7), as ordered slices: (a) portraits and the
   logo; (b) `.mtl`/`face.xml` references, Common links and the kit magic; (c) FMDL path tables;
   (d) pre-Fox renames → verify: EU-MDL-*

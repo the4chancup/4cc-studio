@@ -2107,3 +2107,5 @@ worklog passed 7,000 lines.
   by player ID, portraits and markers normalized); the first upgrades to exit 0.
 - **2026-10-18** — 6.2b: boots and gloves folders merge into their one wearer on Fox, else shared
   with links; 6.2 done, 11 EU-PLY scenarios proven.
+- **2026-10-18** — 6.3a: kit configs become each kit's `config.toml` and kit textures its
+  `kit*.dds`; the review loops on 6.1-6.2 end, a Fox merge's case-only clash fixed.

@@ -8431,3 +8431,35 @@ recognizable. (4) a nameless face folder's player wearing `k0430 - Crocs` is the
 naming as a player without a face folder; two orders would be a rule nobody remembers. (5)
 wearers then come from the IDs, step 11's own rules.
 Plan: `plans/export_upgrader.md` steps 3 and 4.
+
+## 2026-10-18 — export_upgrader — the kit configs' and kit textures' rules of 6.3a
+Decision: (1) a second config of one kit slot (another ID spelling, or one below a `Kit
+Configs` subfolder) is one config with the kit's when its bytes match and unmigrated content
+otherwise, the kit's being the root's before a subfolder's, then the first by name; a file
+deeper than one subfolder is unmigrated. (2) A config that does not decode is unmigrated
+content, the decoder's error in the context (`error`). (3) A Kit Textures file is read by
+position, as Red reads it (`u`, four characters, `p`/`g` and the digit, a rest empty or
+starting with `_`, `.dds`), in any letter case; any other file, and the second by name of two
+landing on one name, letter case aside, is unmigrated content. (4) `kit_config`'s `KitSlot`
+reads a config entry suffix (`1st` … `GK1st`) itself, beside its `parse` of `p1` … `g1`.
+Why: (1) two configs of one slot cannot both reach the game, and the plan already rules the
+byte-equal pair one config; deeper files are what Red's one-level flatten left a folder,
+which its name check refused. (2) a reported config is one the author can fix, as the
+2026-10-17 entry (12) has it for bad entries. (3) Red checks `name[0] == "u"` and `name[5]` in
+`p`/`g` and packs only `.dds` from the folder; a rest not starting with `_` would give a
+generic name the shared validation refuses (`kit_texture_name_invalid`). (4) the suffix table
+is the crate's (`config_name` writes it); a second copy in the upgrader would drift.
+Plan: `plans/export_upgrader.md` step 5, "Message catalog".
+
+## 2026-10-18 — export_upgrader — the Note's kit entries' grammar and the two kit Warnings of 6.3b
+Decision: (1) a kit entry's colors split at each `-`: two colors, each read as a team color,
+and an optional third part, a whole number 0-23 other than 3 giving `icon_<N>`, anything else
+there giving no icon; one part, or more than three, does not read. (2) `kit_without_config` and
+`config_without_kit_entry` keep what they name (`Keep`), the finding on the Note's file or on
+the config's, context `slot`.
+Why: (1) Red took the icon as the last number past the colors when it read 0-23 and dropped
+it silently otherwise (`bins_update.py`), and the AET template writes no third part; four
+parts is no entry the page describes. (2) a placeholder kit and a kit the Note never offered
+are both migrated, not lost: a Warning that dropped would make every such run not clean,
+against EU-KIT-09 and EU-KIT-13's exit 0.
+Plan: `plans/export_upgrader.md` step 5.

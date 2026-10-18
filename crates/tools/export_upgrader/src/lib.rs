@@ -5,11 +5,12 @@
 //! `export-upgrader` command line. The window is a later phase's; until then
 //! `view` shows a placeholder line. The migration itself lives in `upgrade`:
 //! the old export is read through `source`, its Note through `note`, the
-//! roster through `roster`, the player folders planned by `players`, the
-//! output's name through `naming`, and every finding goes through the
-//! `messages` catalog.
+//! roster through `roster`, the player folders planned by `players`, the kit
+//! folders by `kits`, the output's name through `naming`, and every finding
+//! goes through the `messages` catalog.
 
 mod cli;
+mod kits;
 mod messages;
 mod naming;
 mod note;

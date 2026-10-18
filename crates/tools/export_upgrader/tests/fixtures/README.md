@@ -22,3 +22,19 @@ the folder with 7-Zip's `7z a`, so the three hold the same files.
 `JP Note.txt` alone: the real Note of `JP Aesthetic Export for Summer 18` (Teams_Main), byte for
 byte (CRLF). Its team and kit color lines are ASCII, its "Player IDs:" lines Shift-JIS (one,
 `72802`'s, holds bytes that are not UTF-8), and its "Other Notes:" section is empty (EU-ROOT-05).
+
+## `kit_configs/`
+
+Real binary kit configs (120 bytes each, not WESYS-wrapped), byte for byte from two exports in
+Lab, kept under their AET names. Kit textures are not kept: the upgrader renames and compares
+them without decoding, so tests write a few bytes under each texture's name instead.
+
+- `4CCG VGL26/`: the four configs of `4CCG Aesthetics Export VGL26`, the export `co Spring`'s
+  Note comes from (`1st`, `2nd`, `3rd`, `GK1st`). Each names its own kit's textures (the GK's
+  under another team ID, `u0839g1`, and a leg texture the export does not ship), and three
+  carry set undecoded bits the template lacks (offset `0x17` = 4 in `1st` and `3rd`, `0x13` =
+  1 in `2nd`), which `config.toml`'s `[unknown]` table keeps (EU-KIT-02).
+- `MGGG VGL26/`: the five configs of `MGGG  Aesthetics Export VGL26` (`1st` to `4th`,
+  `GK1st`). Every one names kit 1's back texture in its back and leg fields and kit 1's name
+  texture in its name field (`u0811p1_back`, `u0811p1_name`), and `4th` names kit 3's main
+  texture, as makers who copy kit 1's config for the others leave them (EU-KIT-05, -07).

@@ -439,6 +439,16 @@ mod tests {
     }
 
     #[test]
+    fn kit_slots_read_config_suffixes() {
+        assert_eq!(KitSlot::from_config_suffix("1st"), Some(KitSlot::P1));
+        assert_eq!(KitSlot::from_config_suffix("9TH"), Some(KitSlot::P9));
+        assert_eq!(KitSlot::from_config_suffix("gk1st"), Some(KitSlot::G1));
+        for suffix in ["GK2nd", "10th", "0th", ""] {
+            assert_eq!(KitSlot::from_config_suffix(suffix), None, "{suffix}");
+        }
+    }
+
+    #[test]
     fn validation_rules() {
         let mut config = KitConfig::template();
         config.shirt.short_sleeves = ShortSleeves::CutOut; // model 176

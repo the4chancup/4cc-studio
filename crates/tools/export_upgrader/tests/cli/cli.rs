@@ -217,6 +217,17 @@ fn the_refusals_before_anything_is_written() {
     assert_eq!(sandbox.listing(""), before, "nothing is written");
 }
 
+/// Every file below the sandbox's root, its path and its bytes: the
+/// before/after snapshot for "nothing is written".
+fn snapshot(sandbox: &Sandbox) -> Vec<(String, Vec<u8>)> {
+    sandbox
+        .listing("")
+        .iter()
+        .filter(|path| sandbox.path(path).is_file())
+        .map(|path| (path.clone(), fs::read(sandbox.path(path)).unwrap()))
+        .collect()
+}
+
 // EU-CLI-05
 #[test]
 fn an_output_folder_that_exists_or_cannot_be_created_is_refused() {
@@ -228,23 +239,22 @@ fn an_output_folder_that_exists_or_cannot_be_created_is_refused() {
     let save = sandbox.arg("EDIT");
     sandbox.save("EDIT");
 
+    let before = snapshot(&sandbox);
     let run = upgrade(&sandbox, "co Spring", &["--savefile", &save]);
     run.assert_refused(3, &["co Full Spring"]);
-    assert_eq!(
-        fs::read(sandbox.path("co Full Spring/keep.txt")).unwrap(),
-        b"my edit",
-        "the existing folder is untouched"
-    );
+    assert_eq!(snapshot(&sandbox), before, "nothing is written");
 
     // An output that cannot be created: -o names a file, not a directory.
     fs::write(sandbox.path("blocked"), b"a file").unwrap();
     let blocked = sandbox.arg("blocked");
+    let before = snapshot(&sandbox);
     let run = upgrade(
         &sandbox,
         "co Spring",
         &["--savefile", &save, "-o", &blocked],
     );
     run.assert_refused(3, &["blocked"]);
+    assert_eq!(snapshot(&sandbox), before, "nothing is written");
 }
 
 // EU-CLI-07

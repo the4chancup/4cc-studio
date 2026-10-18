@@ -24,6 +24,7 @@ use teams_list::{TeamId, TeamName, TeamsList};
 use vtree::ScopePath;
 
 use crate::cli::{ABORTED, CLEAN, ERRORS, INVALID, UpgradeArgs};
+use crate::kits::{KitFolders, kit_folders};
 use crate::messages::{
     Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, team_name_unknown,
     tool_message,
@@ -312,7 +313,8 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             Ok(bytes) => Some(note::text(&bytes)),
             Err(failure) => {
                 // The Note decides the team: its failure stops the run with
-                // nothing written (DECISIONS (2)).
+                // nothing written (DECISIONS 2026-10-18 "the first slice's
+                // review and the face-folder rules of 6.2a" (2)).
                 events.message(read_failed(INPUT, failure, Disposition::DropExport));
                 return Ok(ERRORS);
             }
@@ -381,8 +383,8 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         })?;
     }
 
-    // Step 10: the output (this slice writes the folder alone); every input
-    // file no step consumed is unmigrated content.
+    // "CLI": the output folder itself, refused when it cannot be created
+    // (exit 3).
     fs::create_dir(&output).map_err(|error| {
         aborted(anyhow!(
             "{}: cannot create the output folder: {error}",
@@ -447,47 +449,55 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         }
     };
 
-    // Steps 2-4's plan for the face and item folders: `run`'s findings, then
-    // every file copied under `Players/` and every marker and link written.
-    // A referee export's folders stay unmigrated content (6.6's).
+    // Steps 2-4's plan for the face and item folders and step 5's for the
+    // kits: `run`'s findings, then every file copied and written. A referee
+    // export's folders stay unmigrated content (6.6's); it holds no `Kit
+    // Configs`/`Kit Textures` either, which the same fallback reports.
     let files = export.files.clone();
-    let plan = match &identity {
-        Identity::Referees => PlayerFolders::default(),
-        Identity::Team { .. } => {
+    let (plan, kits) = match &identity {
+        Identity::Referees => (PlayerFolders::default(), KitFolders::default()),
+        Identity::Team { .. } => (
             player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
                 match (export.read(a), export.read(b)) {
                     (Ok(a), Ok(b)) => a == b,
                     _ => false,
                 }
-            })
-        }
+            }),
+            kit_folders(&files, version, |path| export.read(path)),
+        ),
     };
-    for message in plan.findings {
+    for message in plan.findings.into_iter().chain(kits.findings) {
         if message.code.code.as_ref() == Code::UnmigratedContent.as_str() {
             any_unmigrated = true;
         }
         events.message(message);
     }
-    for (from, to) in &plan.copies {
+    for (from, to) in plan.copies.iter().chain(&kits.copies) {
         match export.read(from) {
             Ok(bytes) => write_output_file(&output, to, &bytes)?,
             Err(failure) => {
-                // One file's failure does not cost the rest (DECISIONS (2)).
+                // One file's failure does not cost the rest (DECISIONS
+                // 2026-10-18 "the first slice's review and the face-folder
+                // rules of 6.2a" (2)).
                 events.message(read_failed(INPUT, failure, Disposition::DropFile));
             }
         }
+    }
+    for (path, bytes) in &kits.written {
+        write_output_file(&output, path, bytes)?;
     }
     for marker in &plan.markers {
         write_output_file(&output, marker, b"")?;
     }
 
+    // Step 10: every input file no step consumed is unmigrated content.
     for file in &export.files {
         // A team export's Note is consumed (the root files above); a referee
         // export's is unmigrated content like any file (step 9).
         if !invocation.referees && note_path.as_deref() == Some(file.as_str()) {
             continue;
         }
-        if plan.consumed.contains(file) {
+        if plan.consumed.contains(file) || kits.consumed.contains(file) {
             continue;
         }
         any_unmigrated = true;
@@ -506,24 +516,16 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         events.unmigrated();
     }
 
-    // "Verification": the shared validation on what was written.
-    let report = validate_output(&output, &output_name, version, &mut events);
+    // "Verification": the shared validation on what was written. Every issue
+    // goes through `events.message`, whose disposition sets `dropped`.
+    validate_output(&output, &output_name, version, &mut events);
 
     // "CLI": the verdict line and the exit code: not clean when a finding
     // was an Error or dropped anything, the tool's own and the output
     // validation's alike.
-    let dropped = events.dropped() || report.is_some_and(|report| drops_anything(&report.issues));
-    let (code, exit_code) = verdict(events.worst(), dropped);
+    let (code, exit_code) = verdict(events.worst(), events.dropped());
     events.message(tool_message(code, Scope::Run, Disposition::Keep, vec![]));
     Ok(exit_code)
-}
-
-/// Whether any issue drops something (a file, a slot, a folder, the export):
-/// the verdict's "no finding drops anything" half.
-fn drops_anything(issues: &[aesthetics_export::ValidationIssue]) -> bool {
-    issues
-        .iter()
-        .any(|issue| issue.disposition != aesthetics_export::Disposition::Keep)
 }
 
 /// The export's identity (step 6): `Referees` for a referee export, else the
@@ -601,20 +603,14 @@ fn embedded_teams_list() -> TeamsList {
 }
 
 /// Lists `output`, parses it back and validates it ("Verification"), reporting
-/// every issue on the output export; the report on success, `None` when the
-/// listing cannot be read or parsed (`export_extract_failed`, already
-/// reported).
-fn validate_output(
-    output: &Path,
-    output_name: &str,
-    version: PesVersion,
-    events: &mut RunEvents,
-) -> Option<aesthetics_export::ValidationReport> {
+/// every issue on the output export; nothing when the listing cannot be read
+/// or parsed (`export_extract_failed`, already reported).
+fn validate_output(output: &Path, output_name: &str, version: PesVersion, events: &mut RunEvents) {
     let (files, folders) = match source::list_folder(output) {
         Ok(listed) => listed,
         Err(failure) => {
             events.message(extract_failed(OUTPUT, failure));
-            return None;
+            return;
         }
     };
     let mut metadata = BTreeSet::new();
@@ -655,7 +651,7 @@ fn validate_output(
                 SourceError::Collision { path, error } => (path, error.to_string()),
             };
             events.message(extract_failed(OUTPUT, SourceFailure { path, error }));
-            return None;
+            return;
         }
     };
     let context = ValidationContext {
@@ -668,7 +664,6 @@ fn validate_output(
     for issue in &report.issues {
         events.message(issue_message(issue, OUTPUT));
     }
-    Some(report)
 }
 
 #[cfg(test)]
@@ -805,29 +800,6 @@ mod tests {
             verdict(events.worst(), events.dropped()),
             (Code::MigrationNotClean, ERRORS)
         );
-    }
-
-    #[test]
-    fn drops_anything_is_true_exactly_when_an_issue_drops() {
-        use aesthetics_export::{Disposition, IssueScope, ValidationIssue};
-
-        let issue = |disposition| ValidationIssue {
-            code: "export_empty",
-            scope: IssueScope::Export,
-            context: Vec::new(),
-            disposition,
-            passed_through: false,
-        };
-        assert!(!drops_anything(&[]));
-        assert!(!drops_anything(&[issue(Disposition::Keep)]));
-        for disposition in [
-            Disposition::DropFile,
-            Disposition::DropSlot,
-            Disposition::DropFolder,
-            Disposition::DropExport,
-        ] {
-            assert!(drops_anything(&[issue(disposition)]), "{disposition:?}");
-        }
     }
 
     #[test]

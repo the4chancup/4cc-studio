@@ -79,6 +79,15 @@ impl KitSlot {
             .copied()
     }
 
+    /// Reads a kit-config entry suffix, `1st` … `9th` or `GK1st`,
+    /// ASCII-case-insensitively; anything else is `None`.
+    pub fn from_config_suffix(suffix: &str) -> Option<KitSlot> {
+        KitSlot::ALL
+            .iter()
+            .find(|slot| slot.names().1.eq_ignore_ascii_case(suffix))
+            .copied()
+    }
+
     /// The lowercase slot name the texture names carry: `p1` … `p9`, `g1`.
     pub fn as_str(self) -> &'static str {
         self.names().0

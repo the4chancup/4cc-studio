@@ -23,7 +23,7 @@ that already exists is refused and left untouched.
 The original export is never modified. A file the migration cannot place yet
 is listed in the report as `unmigrated_content`, and the upgraded folder is
 checked against the same rules the Team compiler applies: every finding prints
-as one line naming its code and the file it is about, ending with
+as one line naming its code and the input path it is about, ending with
 `migration_clean` or `migration_not_clean` (the output is a draft for manual
 repair).
 

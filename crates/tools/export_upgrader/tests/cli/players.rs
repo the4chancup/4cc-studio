@@ -291,6 +291,13 @@ fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
     face(&sandbox, "co Spring/Faces/XXX23 - Smug Redman");
     boots(&sandbox, "co Spring/Boots/k0430 - A");
     boots(&sandbox, "co Spring/Boots/k0430 - B");
+    // The losing folders carry distinct bytes, so a copy of them would be
+    // caught, not only the winners' presence seen.
+    sandbox.write(
+        "co Spring/Faces/XXX23 - Smug Redman/face_diff.bin",
+        b"loser face",
+    );
+    sandbox.write("co Spring/Boots/k0430 - B/boots.fmdl", b"loser boots");
     sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
         wears(file, 71423, 430, 0);
     });
@@ -310,6 +317,10 @@ fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
             "{name}"
         );
     }
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/23 - Bahsaka/face_diff.bin")).unwrap(),
+        b"diff"
+    );
     for (name, bytes) in BOOTS_FILES {
         assert_eq!(
             fs::read(sandbox.path(&format!("co Full Spring/Players/23 - Bahsaka/{name}"))).unwrap(),
@@ -326,6 +337,14 @@ fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
         stdout.contains("unmigrated_content at Boots/k0430 - B"),
         "{stdout}"
     );
+    // No output file carries a losing folder's bytes.
+    for entry in sandbox.listing("co Full Spring") {
+        let path = sandbox.path(&entry);
+        if path.is_file() {
+            let bytes = fs::read(&path).unwrap();
+            assert!(bytes != b"loser face" && bytes != b"loser boots", "{entry}");
+        }
+    }
 }
 
 // EU-PLY-01

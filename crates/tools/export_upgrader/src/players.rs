@@ -99,7 +99,7 @@ impl PlayerFolder {
 
 /// A path of the listing as a `ScopePath`: every listed path was checked
 /// when the source opened.
-fn path_scope(path: &str) -> ScopePath {
+pub(crate) fn path_scope(path: &str) -> ScopePath {
     ScopePath::new(path).expect("every listed path was checked when the source opened")
 }
 
@@ -432,9 +432,10 @@ fn item_folders(
             }
         }
         // On a Fox export a folder used by exactly one player merges into his
-        // folder; pre-Fox never merges, and a path two folders share with
-        // different bytes keeps the item folder shared instead
-        // (`merge_kept_shared`, the first clashing path in its context).
+        // folder; pre-Fox never merges, and a path two folders share, folded
+        // (`Skin.dds` and `skin.dds` are one on Windows), with different bytes
+        // keeps the item folder shared instead (`merge_kept_shared`, the
+        // first clashing path in its context).
         let player = &players[&wearers[0]];
         let share = engine == Engine::PreFox
             || wearers.len() > 1
@@ -442,9 +443,14 @@ fn item_folders(
                 .iter()
                 .find_map(|file| {
                     let relative = &file[folder.len() + 1..];
-                    player.files.get(relative).and_then(|existing| {
-                        (!same_bytes(existing, file)).then(|| relative.to_owned())
-                    })
+                    let folded = vtree::fold_name(relative);
+                    player
+                        .files
+                        .iter()
+                        .find(|(path, _)| vtree::fold_name(path) == folded)
+                        .and_then(|(_, existing)| {
+                            (!same_bytes(existing, file)).then(|| relative.to_owned())
+                        })
                 })
                 .is_some_and(|path| {
                     plan.findings.push(tool_message(
@@ -475,10 +481,18 @@ fn item_folders(
                 .get_mut(&wearers[0])
                 .expect("the wearer's folder was ensured");
             for file in &folder_files {
-                player
+                let relative = &file[folder.len() + 1..];
+                let folded = vtree::fold_name(relative);
+                // A folded-equal path the merge already holds (byte-equal by
+                // the clash check above) keeps the player folder's spelling.
+                if player
                     .files
-                    .entry(file[folder.len() + 1..].to_owned())
-                    .or_insert_with(|| (*file).clone());
+                    .keys()
+                    .any(|path| vtree::fold_name(path) == folded)
+                {
+                    continue;
+                }
+                player.files.insert(relative.to_owned(), (*file).clone());
             }
         }
     }
@@ -493,7 +507,7 @@ fn item_folders(
             let name = clean_folder_name(&item.name_part)
                 .unwrap_or_else(|| format!("{}{:04}", kind.letter(), item.id));
             by_name
-                .entry(name.to_ascii_lowercase())
+                .entry(vtree::fold_name(&name))
                 .or_default()
                 .push(index);
             name
@@ -1105,5 +1119,97 @@ mod tests {
         let files = files(&["Faces/loose.fmdl", "Faces/XXX15 - A/face.fmdl"]);
         let plan = plan_folders(&files);
         assert!(!plan.consumed.contains("Faces/loose.fmdl"));
+    }
+
+    #[test]
+    fn a_case_folded_clash_keeps_the_item_folder_shared() {
+        // `Skin.dds` in the face folder and `skin.dds` in the boots folder:
+        // paths compare folded, so of different bytes they clash.
+        let files = files(&[
+            "Faces/XXX05 - A/Skin.dds",
+            "Boots/k0430 - Crocs/skin.dds",
+            "Boots/k0430 - Crocs/boots.fmdl",
+        ]);
+        let roster = wearing(&[(5, ("A", 430, 0))]);
+        let differing = plan_with_bytes(
+            &files,
+            Some(&roster),
+            Engine::Fox,
+            &[
+                ("Faces/XXX05 - A/Skin.dds", b"face"),
+                ("Boots/k0430 - Crocs/skin.dds", b"boots"),
+            ],
+        );
+        let kept = differing
+            .findings
+            .iter()
+            .find(|m| m.code.code == "merge_kept_shared")
+            .expect("merge_kept_shared expected");
+        // The item folder's spelling of the clashing path.
+        assert_eq!(
+            kept.context,
+            vec![("path".to_owned(), "skin.dds".to_owned())]
+        );
+        assert!(
+            differing
+                .copies
+                .iter()
+                .any(|(_, to)| to == "Boots/Crocs/skin.dds")
+        );
+        // Equal bytes merge once, the player folder's own spelling kept.
+        let equal = plan_with_bytes(
+            &files,
+            Some(&roster),
+            Engine::Fox,
+            &[
+                ("Faces/XXX05 - A/Skin.dds", b"same"),
+                ("Boots/k0430 - Crocs/skin.dds", b"same"),
+            ],
+        );
+        assert!(
+            equal
+                .copies
+                .iter()
+                .any(|(_, to)| to == "Players/05 - A/Skin.dds")
+        );
+        assert!(
+            equal
+                .copies
+                .iter()
+                .any(|(_, to)| to == "Players/05 - A/boots.fmdl")
+        );
+        assert!(
+            !equal
+                .copies
+                .iter()
+                .any(|(_, to)| to == "Players/05 - A/skin.dds")
+        );
+    }
+
+    #[test]
+    fn two_shared_folders_matching_only_by_fold_resolve_by_lowest_id() {
+        // `Éclair` and `éclair` fold to one name where `to_ascii_lowercase`
+        // kept them apart.
+        let files = files(&[
+            "Boots/k0430 - Éclair/boots.fmdl",
+            "Boots/k0431 - éclair/boots.fmdl",
+        ]);
+        let roster = wearing(&[
+            (1, ("A", 430, 0)),
+            (2, ("B", 430, 0)),
+            (3, ("C", 431, 0)),
+            (4, ("D", 431, 0)),
+        ]);
+        let plan = plan_with_bytes(&files, Some(&roster), Engine::Fox, &[]);
+        assert!(
+            plan.copies
+                .iter()
+                .any(|(_, to)| to == "Boots/Éclair/boots.fmdl")
+        );
+        assert!(
+            plan.copies
+                .iter()
+                .any(|(_, to)| to == "Boots/k0431/boots.fmdl")
+        );
     }
 }

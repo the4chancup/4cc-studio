@@ -126,7 +126,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    each written to `colors.txt` as the Note spells it, which is the "Colors" grammar
    (`spec/aesthetics_export/player_folders.md`); a
    kit entry holding `gk:` in any letter case is a goalkeeper's (the AET template spells
-   `- 1st GK:`). An entry whose colors do not read is reported
+   `- 1st GK:`). A kit entry's colors split at each `-` into its two colors, each read as a
+   team color is, and an optional third part, the icon: a whole number from 0 to 23 other than
+   3 gives `icon_<N>`, any other third part none, as Red read it (`bins_update.py` ignores
+   what is no such number); an entry of one part or of more than three does not read. An entry whose colors do not read is reported
    (step 10) and keeps its slot, which gets no `colors.txt`, the later entries keeping theirs: Red dropped it and shifted
    every later kit's colors one slot down, onto another kit's config. The Note's kit-entry order maps
    entries to slots (player entries → `p1`…, `gk:` entries → `g1`…), matching how Red numbered them
@@ -134,7 +137,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    its `colors.txt` alone, which the compiler builds as a placeholder kit, because a Note's
    kit lines are what told Red how many kits the team has (the AET page: "The amount of lines
    will let PES understand how many kits you have"); it is reported (`kit_without_config`, W,
-   naming the slot), since the page also tells authors to delete lines of kits they lack. The
+   naming the slot), since the page also tells authors to delete lines of kits they lack. Both
+   this Warning and the next keep what they name (the finding on the Note's file, or on the
+   config's, context `slot`): neither loses anything, so a run whose only findings they are is
+   clean. The
    other way round, a config whose slot no Note entry gives (a `XXX_DEF_4th_realUni.bin`
    beside three player entries) still becomes its kit folder, reported
    (`config_without_kit_entry`, W, naming the slot), as Red warned on the mismatch: Red packed
@@ -147,7 +153,16 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    (the AET page's old `Kit Configs/<team id>/` layout, 953 configs on the maintainer's machine)
    is read as if its files sat at the folder's root, as Red flattens it (`export_check.py`); a
    name found at both places is one config when the bytes match and unmigrated content
-   otherwise. Kit folders are written as bare slots (`p1/`) — the old format has no kit
+   otherwise, and so is any second config of one slot (`714_DEF_1st_realUni.bin` beside
+   `XXX_DEF_1st_realUni.bin`), the kit's config being the root's before a subfolder's, then the
+   first by name: two configs of one slot cannot both reach the game. A file deeper than one
+   subfolder, which Red's flatten left a folder and refused, and a config that does not decode
+   (its error named in the report), are unmigrated content too. A Kit Textures file is read by
+   position, as Red reads it: `u`, four characters, `p` or `g` with the kit's digit, then the
+   rest of the stem, empty or starting with `_`, which the generic name keeps
+   (`u0XXXp1_back.dds` → `p1/kit_back.dds`), and the extension `.dds`, in any letter case; a
+   file of another shape is unmigrated content, and so is the second by name of two that would
+   land on one name, letter case aside. Kit folders are written as bare slots (`p1/`) — the old format has no kit
    names to carry. A kit whose binary config names **another kit's texture** in its back,
    chest, leg or name field gets a copy of that texture in its own folder, under the generic
    name, reported (`kit_texture_copied`, I, naming the kit, the stem and the kit it came from):
@@ -562,7 +577,7 @@ validation's findings on what was written.
 | `export_extract_failed` | E | the archive does not open or its listing is refused (the compiler's code); nothing is written | `path`, `error` |
 | `source_read_failed` | E | a file of the input does not read after its listing did (the compiler's code); it is not migrated and the run goes on, unless it is the Note, which decides the team: then nothing is written | `path`, `error` |
 | `team_name_unknown` | E | the team resolves to no row of the list (the compiler's code), the `Team:` line's file or the export named; nothing is written | `name` |
-| `unmigrated_content` | E | an input file no step migrates (step 10), entry by entry; a Note entry whose colors do not read is one, its line in the context | `line` (a Note entry) |
+| `unmigrated_content` | E | an input file no step migrates (step 10), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context | `line` (a Note entry), `error` (a kit config) |
 | `migration_clean` | I | last line: no Error finding, and no finding drops anything ("Verification"'s clean migrated export); exit 0 | — |
 | `migration_not_clean` | I | last line otherwise: the output is a draft for manual repair ("Verification"); exit 1, a Warning that drops a folder included, since the compile would lose it | — |
 

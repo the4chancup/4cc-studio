@@ -8,5 +8,6 @@ mod common;
 
 mod cli;
 mod input;
+mod kits;
 mod players;
 mod roots;

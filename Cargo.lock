@@ -1390,6 +1390,7 @@ dependencies = [
  "clap",
  "crossbeam-channel",
  "egui",
+ "kit_config",
  "pes_savefile",
  "pes_version",
  "studio_core",
