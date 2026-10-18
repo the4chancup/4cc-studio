@@ -2119,3 +2119,5 @@ worklog passed 7,000 lines.
   kept only when a distinct drawing, the 40 % line remeasured with the compiler's resampler.
 - **2026-10-18** — 6.4b1: `Common/` carried; an old `.mtl`'s Common game path becomes the bare
   name plus a `.common` link; other references keep their `.dds` (the compiler restores it only on hits).
+- **2026-10-18** — 6.4b2: the legacy kit magic (`u0???pN`, `u0???g`) renamed to `kitN`/`kitF`/the
+  team ID in names and in `.mtl`/`face.xml` paths; `face.xml` written unwrapped.

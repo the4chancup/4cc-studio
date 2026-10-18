@@ -58,7 +58,7 @@ pub fn variant_path(path: &str, kit: u8) -> Option<String> {
 /// `kit1/textures/armor_bsm.dds`), the token spelled exactly as the stem's is and the
 /// other segments comparing folded. A member counts whatever its file kind: the caller
 /// picks (`common_link_files` keeps textures).
-pub(crate) fn kit_set_member(reference: &str, path: &str) -> Option<KitToken> {
+pub fn kit_set_member(reference: &str, path: &str) -> Option<KitToken> {
     let Some((KitToken::Reference, reference)) = kit_path_token(without_extension(reference))
     else {
         return None;

@@ -275,6 +275,122 @@ fn a_reference_whose_common_file_is_missing_is_kept_and_warned() {
     );
 }
 
+// EU-MDL-09
+#[test]
+fn a_prefox_face_folder_s_kit_magic_files_references_and_face_xml_migrate() {
+    let sandbox = Sandbox::new("mdl_kit_magic");
+    sandbox.write("co Spring/Faces/XXX07 - A/face_high_win32.model", b"face");
+    sandbox.write("co Spring/Faces/XXX07 - A/u0XXXp1.dds", b"p1");
+    sandbox.write("co Spring/Faces/XXX07 - A/u0714p2.dds", b"p2");
+    sandbox.write("co Spring/Faces/XXX07 - A/u0XXXp0/armor.dds", b"armor");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/u0XXXp0/jacket_win32.model",
+        b"jacket",
+    );
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face.mtl",
+        &mtl(&[
+            "./u0XXXp1.dds",
+            "./u0714p2.dds",
+            "./u0XXXp0/armor.dds",
+            "./dummy_kit.dds",
+        ]),
+    );
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face.xml",
+        &wezlib::compress(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<config>\n    <model level=\"0\" type=\"parts\" path=\"./u0XXXp0/jacket_*.model\" material=\"./face.mtl\"/>\n</config>\n"
+                .as_bytes(),
+        ),
+    );
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    upgrade(&sandbox, "co Spring", "EDIT16");
+    // The FMDL part of the scenario (the folder's FMDL path table) lands
+    // with 6.4c; the exit code the migration lands then is its.
+    for path in [
+        "Players/07 - A/kit1.dds",
+        "Players/07 - A/kit2.dds",
+        "Players/07 - A/kitF/armor.dds",
+        "Players/07 - A/kitF/jacket_win32.model",
+    ] {
+        assert!(
+            sandbox.path(&format!("co Full Spring/{path}")).exists(),
+            "{path}"
+        );
+    }
+    let set = pes_model::format::mtl::MaterialSet::read(
+        &fs::read(sandbox.path("co Full Spring/Players/07 - A/face.mtl")).unwrap(),
+    )
+    .unwrap();
+    let paths: Vec<String> = pes_model::ops::paths::texture_paths(&set)
+        .iter()
+        .map(|path| format!("{}{}", path.directory, path.file_name))
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            "./kit1.dds",
+            "./kit2.dds",
+            "./kitN/armor.dds",
+            "./dummy_kit.dds"
+        ]
+    );
+    let xml = fs::read(sandbox.path("co Full Spring/Players/07 - A/face.xml")).unwrap();
+    assert!(!wezlib::is_wrapped(&xml));
+    let text = String::from_utf8(xml).unwrap();
+    assert!(text.contains("path=\"./kitN/jacket_*.model\""), "{text}");
+}
+
+// EU-MDL-16
+#[test]
+fn a_prefox_common_kit_reference_links_the_common_set() {
+    let sandbox = Sandbox::new("mdl_common_kit_set");
+    sandbox.write("co Spring/Faces/XXX07 - A/face_high_win32.model", b"face");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face.mtl",
+        &mtl(&["model/character/uniform/common/XXX/u0XXXp0.dds"]),
+    );
+    sandbox.write("co Spring/Common/u0XXXp1.dds", b"p1");
+    sandbox.write("co Spring/Common/u0XXXp2.dds", b"p2");
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT16");
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Common/kit1.dds")).unwrap(),
+        b"p1"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Common/kit2.dds")).unwrap(),
+        b"p2"
+    );
+    let set = pes_model::format::mtl::MaterialSet::read(
+        &fs::read(sandbox.path("co Full Spring/Players/07 - A/face.mtl")).unwrap(),
+    )
+    .unwrap();
+    let paths: Vec<String> = pes_model::ops::paths::texture_paths(&set)
+        .iter()
+        .map(|path| format!("{}{}", path.directory, path.file_name))
+        .collect();
+    assert_eq!(paths, ["./kitN.dds"]);
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/07 - A/kitN.dds.common")).unwrap(),
+        b""
+    );
+    let stdout = run.stdout();
+    assert!(!stdout.contains("common_link_missing"), "{stdout}");
+    assert!(!stdout.contains("unmigrated_content"), "{stdout}");
+    assert_eq!(run.exit_code(), 0, "{stdout}");
+}
+
 // EU-REP-02
 #[test]
 fn a_portrait_named_for_a_slot_past_23_is_flagged() {

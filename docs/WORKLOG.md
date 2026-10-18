@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): SWE-2 round 6.4.S3 on 6.4b1's rework, then 6.4b2 (the
-kit magic and the goalkeeper token, a `Common/` `.mtl`'s `???`, `face.xml`), 6.4c (FMDL path tables) and 6.4d (pre-Fox
+**Next:** Phase 6 (Export upgrader): a SWE-2 round on 6.4b2, Astra on 6.4a-b2 batched,
+then 6.4c (FMDL path tables) and 6.4d (pre-Fox
 renames); Astra on 6.4 batched. 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -561,16 +561,23 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     lib}.rs`, `tests/cli/carried.rs`, `Cargo.toml`; review round 6.4.S2 5 accepted, fixed (a
     shared folder's `.mtl` keeps its Common paths, a link needs exactly one texture; mutation
     diff 23 caught), so round 6.4.S3 follows
-  - [ ] 6.4b2 the kit magic and the goalkeeper token (names, `.mtl` and `face.xml` paths),
+  - [x] 6.4b2 the kit magic and the goalkeeper token (names, `.mtl` and `face.xml` paths),
     a `Common/` `.mtl`'s `???`, `face.xml` written unwrapped (DECISIONS 2026-10-18 "the kit
     magic's grammar…", from a census: `.tmp/6_4/kit_magic_census.txt`) → verify: EU-MDL-09
     (its FMDL part with 6.4c), -16; EU-MDL-10 waits for 6.4c (its keeper FMDL), -14 for 6.4d
-    (the renames it guards)
+    (the renames it guards). Done 2026-10-18: EU-MDL-09 (but its FMDL table), -16 proven;
+    review round 6.4.S3 on 6.4b1's rework 3 accepted (loop ended), its fixes here; lead review
+    found a `face.xml` splice that shifted every edit after the first, and a respell panic on
+    overlapping tokens; mutation diff 3 survivors, two tested, one sort removed, then 1 equivalent (`upgrade.rs` copy skip: the rewrite is written after the copy); files:
+    `export_upgrader/src/{kit_magic,face_xml,materials,upgrade,lib}.rs`,
+    `tests/cli/carried.rs`, `Cargo.toml`; `aesthetics_export` `kit_set_member` made `pub`
   - [ ] 6.4c FMDL path tables
   - [ ] 6.4d pre-Fox renames
 - [ ] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
   EU-SET-*
 - [ ] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*
+  - the `???` respelling (`materials.rs`, `kit_magic.rs`) takes a `TeamId`, which cannot be
+    999: widen it to the export's ID for referees (round 6.4.S3-4)
 - [ ] 6.7 loose mode (step 11) and the report's remaining classes (step 10) → verify:
   EU-LOOSE-01, EU-REP-*
 - [ ] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest, and

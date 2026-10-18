@@ -25,6 +25,8 @@ use vtree::ScopePath;
 
 use crate::carried::{CarriedFiles, carried_files, under};
 use crate::cli::{ABORTED, CLEAN, ERRORS, INVALID, UpgradeArgs};
+use crate::face_xml::face_xml_rewrites;
+use crate::kit_magic::respell_outputs;
 use crate::kits::{KitFolders, kit_folders};
 use crate::materials::{MaterialRewrites, material_references};
 use crate::messages::{
@@ -452,33 +454,51 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     };
 
     // Steps 2-4's plan for the face and item folders, step 5's for the kits
-    // and step 7's for the carried folders: `run`'s findings, then every
+    // and step 7's for the carried folders, the `.mtl` rewrites, the
+    // `face.xml` respells and the kit magic: `run`'s findings, then every
     // file copied and written. A referee export's folders stay unmigrated
     // content (6.6's); it holds no `Kit Configs`/`Kit Textures` either,
     // which the same fallback reports.
     let files = export.files.clone();
-    let (plan, kits, carried, materials) = match &identity {
+    let (plan, kits, carried, materials, face_xml) = match &identity {
         Identity::Referees => (
             PlayerFolders::default(),
             KitFolders::default(),
             CarriedFiles::default(),
             MaterialRewrites::default(),
+            Vec::new(),
         ),
         Identity::Team { id, .. } => {
-            let plan = player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
-                match (export.read(a), export.read(b)) {
-                    (Ok(a), Ok(b)) => a == b,
-                    _ => false,
-                }
-            });
-            let carried = carried_files(&files, &plan.portraits, |path| export.read(path));
-            let common: Vec<String> = files
+            let mut plan =
+                player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
+                    match (export.read(a), export.read(b)) {
+                        (Ok(a), Ok(b)) => a == b,
+                        _ => false,
+                    }
+                });
+            let mut carried = carried_files(&files, &plan.portraits, |path| export.read(path));
+            // The kit magic respells the plans' output names; a respelled
+            // path another already takes is the later input's, reported;
+            // its finding follows the plan's own.
+            let (copies, dropped) = respell_outputs(std::mem::take(&mut plan.copies), *id);
+            plan.copies = copies;
+            plan.findings.extend(dropped);
+            let (copies, dropped) = respell_outputs(std::mem::take(&mut carried.copies), *id);
+            carried.copies = copies;
+            carried.findings.extend(dropped);
+            // `Common/` for the materials: the carried files' respelled
+            // output paths, which the links are spelled after.
+            let common: Vec<String> = carried
+                .copies
                 .iter()
-                .filter(|file| under(file, "common").is_some())
-                .cloned()
+                .filter(|(_, output)| under(output, "common").is_some())
+                .map(|(_, output)| output.clone())
                 .collect();
+            let all_copies: Vec<(String, String)> =
+                plan.copies.iter().chain(&carried.copies).cloned().collect();
             let materials =
-                material_references(&plan.copies, &common, *id, |path| export.read(path));
+                material_references(&all_copies, &common, *id, |path| export.read(path));
+            let face_xml = face_xml_rewrites(&plan.copies, *id, |path| export.read(path));
             (
                 plan,
                 kit_folders(
@@ -493,6 +513,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 ),
                 carried,
                 materials,
+                face_xml,
             )
         }
     };
@@ -514,8 +535,10 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         .chain(&kits.copies)
         .chain(&carried.copies)
     {
-        if materials.written.iter().any(|(output, _)| output == to) {
-            // A rewritten `.mtl` replaces its input's copy.
+        if materials.written.iter().any(|(output, _)| output == to)
+            || face_xml.iter().any(|(output, _)| output == to)
+        {
+            // A rewritten `.mtl` or `face.xml` replaces its input's copy.
             continue;
         }
         match export.read(from) {
@@ -532,6 +555,9 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         write_output_file(&output, path, bytes)?;
     }
     for (path, bytes) in &materials.written {
+        write_output_file(&output, path, bytes)?;
+    }
+    for (path, bytes) in &face_xml {
         write_output_file(&output, path, bytes)?;
     }
     for link in &materials.links {

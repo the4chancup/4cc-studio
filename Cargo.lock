@@ -1395,6 +1395,7 @@ dependencies = [
  "pes_model",
  "pes_savefile",
  "pes_version",
+ "roxmltree",
  "studio_core",
  "teams_list",
  "toml",

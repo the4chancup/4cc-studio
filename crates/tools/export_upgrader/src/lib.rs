@@ -7,11 +7,14 @@
 //! the old export is read through `source`, its Note through `note`, the
 //! roster through `roster`, the player folders planned by `players`, the kit
 //! folders by `kits`, the carried folders by `carried`, the `.mtl` rewrites
-//! by `materials`, the output's name through `naming`, and every finding
-//! goes through the `messages` catalog.
+//! by `materials`, the `face.xml` respells by `face_xml`, the kit magic by
+//! `kit_magic`, the output's name through `naming`, and every finding goes
+//! through the `messages` catalog.
 
 mod carried;
 mod cli;
+mod face_xml;
+mod kit_magic;
 mod kits;
 mod materials;
 mod messages;

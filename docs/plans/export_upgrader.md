@@ -290,7 +290,8 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    model's player folder, which is the Studio spelling of the same reference. A shared
    `Boots/` or `Gloves/` folder's `.mtl`, and a `.mtl` in `Common/` (343 such references in
    the maintainer's 1,489 `Common/` `.mtl` files, the compiler emitting a member's `.mtl` as
-   written), keeps its Common references as written, save the `???` below, with no finding: the pre-Fox compile does not read a shared folder's links
+   written), keeps its Common references as written, save the `???` below, with no finding when the input's
+   `Common/` holds the texture (one it lacks is reported as below): the pre-Fox compile does not read a shared folder's links
    (they wait until the cup next plays a pre-Fox version) and `.mtl` is pre-Fox alone, while
    the game path is supplied from the carried `Common/` (a link
    stands for the `Common/` file at its own path below that root, so one beside a subfolder's
