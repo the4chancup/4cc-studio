@@ -8481,3 +8481,14 @@ goalkeeper ships its own back and name textures while its config, copied from ki
 kit 1's), which is the simpler rule too, where letting the copy win would turn the kit's own
 file into unmigrated content.
 Plan: `plans/export_upgrader.md` step 5.
+
+## 2026-10-18 — export_upgrader — two shared folders of one name and the same files become one
+Decision: two shared boots or gloves folders whose names match, letter case aside, and which
+hold the same files (the same paths, letter case aside, each byte for byte) become one shared
+folder under the lowest ID's spelling, every wearer of either linking it; folders that differ
+keep the 6.2b rule (the lowest ID keeps the name, the others take their IDs). The maintainer's
+ruling, replacing 6.2b's (3) for identical folders.
+Why: identical files are one model under two IDs, which the game already shows alike, so one
+folder keeps every wearer's look and spares a copy, where the ID spelling kept a duplicate
+named by a number the author never chose.
+Plan: `plans/export_upgrader.md` step 4.

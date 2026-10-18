@@ -217,14 +217,21 @@ fn the_refusals_before_anything_is_written() {
     assert_eq!(sandbox.listing(""), before, "nothing is written");
 }
 
-/// Every file below the sandbox's root, its path and its bytes: the
-/// before/after snapshot for "nothing is written".
+/// Every entry below the sandbox's root, its path and its bytes (a folder
+/// with none): the before/after snapshot for "nothing is written".
 fn snapshot(sandbox: &Sandbox) -> Vec<(String, Vec<u8>)> {
     sandbox
         .listing("")
         .iter()
-        .filter(|path| sandbox.path(path).is_file())
-        .map(|path| (path.clone(), fs::read(sandbox.path(path)).unwrap()))
+        .map(|path| {
+            let full = sandbox.path(path);
+            let bytes = if full.is_file() {
+                fs::read(&full).unwrap()
+            } else {
+                Vec::new()
+            };
+            (path.clone(), bytes)
+        })
         .collect()
 }
 

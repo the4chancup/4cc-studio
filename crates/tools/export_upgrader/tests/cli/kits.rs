@@ -466,3 +466,208 @@ fn a_config_without_a_kit_entry_still_forms_its_kit() {
         run.stdout()
     );
 }
+
+// EU-KIT-05
+#[test]
+fn fields_naming_another_kits_textures_get_the_copies() {
+    let sandbox = Sandbox::new("kit_texture_copied");
+    for (fixture, name) in [
+        (
+            "kit_configs/MGGG VGL26/XXX_DEF_1st_realUni.bin",
+            "XXX_DEF_1st_realUni.bin",
+        ),
+        (
+            "kit_configs/MGGG VGL26/XXX_DEF_2nd_realUni.bin",
+            "XXX_DEF_2nd_realUni.bin",
+        ),
+        (
+            "kit_configs/4CCG VGL26/XXX_DEF_3rd_realUni.bin",
+            "XXX_DEF_3rd_realUni.bin",
+        ),
+    ] {
+        sandbox.copy_fixture(fixture, &format!("co Kits/Kit Configs/{name}"));
+    }
+    for (name, bytes) in [
+        ("u0XXXp1.dds", b"p1 main" as &[u8]),
+        ("u0XXXp1_back.dds", b"p1 back"),
+        ("u0XXXp1_name.dds", b"p1 name"),
+        ("u0XXXp2.dds", b"p2 main"),
+        ("u0XXXp3.dds", b"p3 main"),
+        ("u0XXXp3_back.dds", b"p3 back"),
+        ("u0XXXp3_name.dds", b"p3 name"),
+    ] {
+        sandbox.write(&format!("co Kits/Kit Textures/{name}"), bytes);
+    }
+    sandbox.copy_fixture("co Spring/co Note.txt", "co Kits/co Note.txt");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    // The 2nd's back, leg and name fields all name kit 1's: copies of p1's.
+    for (name, bytes) in [
+        ("kit_back.dds", b"p1 back" as &[u8]),
+        ("kit_leg.dds", b"p1 back"),
+        ("kit_name.dds", b"p1 name"),
+    ] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Kits/Kits/p2/{name}"))).unwrap(),
+            bytes,
+            "{name}"
+        );
+    }
+    let stdout = run.stdout();
+    for (stem, from) in [
+        ("kit_back", "p1/kit_back"),
+        ("kit_leg", "p1/kit_back"),
+        ("kit_name", "p1/kit_name"),
+    ] {
+        assert!(
+            stdout.contains(&format!(
+                "kit_texture_copied at Kit Configs/XXX_DEF_2nd_realUni.bin (kit=p2, stem={stem}, from={from})"
+            )),
+            "{stem}: {stdout}"
+        );
+    }
+    // The 3rd names its own and keeps what it shipped.
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Kits/p3/kit_back.dds")).unwrap(),
+        b"p3 back"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Kits/p3/kit_name.dds")).unwrap(),
+        b"p3 name"
+    );
+}
+
+// EU-KIT-06
+#[test]
+fn a_texture_every_kit_shares_byte_identically_moves_to_all() {
+    let sandbox = Sandbox::new("kit_hoist");
+    for ordinal in ["1st", "2nd", "GK1st"] {
+        sandbox.copy_fixture(
+            &kit_config(ordinal),
+            &format!("co Kits/Kit Configs/XXX_DEF_{ordinal}_realUni.bin"),
+        );
+    }
+    for (name, bytes) in [
+        ("u0XXXp1.dds", b"p1 main" as &[u8]),
+        ("u0XXXp2.dds", b"p2 main"),
+        ("u0XXXg1.dds", b"g1 main"),
+        ("u0XXXp1_back.dds", b"shared back"),
+        ("u0XXXp2_back.dds", b"shared back"),
+        ("u0XXXg1_back.dds", b"shared back"),
+        ("u0XXXp1_name.dds", b"shared name"),
+        ("u0XXXp2_name.dds", b"shared name"),
+    ] {
+        sandbox.write(&format!("co Kits/Kit Textures/{name}"), bytes);
+    }
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Kits/all/kit_back.dds")).unwrap(),
+        b"shared back"
+    );
+    // No kit folder holds `kit_back.dds` anymore; `kit_name`, absent from
+    // g1, stays where it was.
+    for slot in ["p1", "p2", "g1"] {
+        assert!(
+            !sandbox
+                .path(&format!("co Full Kits/Kits/{slot}/kit_back.dds"))
+                .exists(),
+            "{slot}"
+        );
+    }
+    for slot in ["p1", "p2"] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Kits/Kits/{slot}/kit_name.dds"))).unwrap(),
+            b"shared name",
+            "{slot}"
+        );
+    }
+    assert!(
+        run.stdout().contains("kit_texture_hoisted (stem=kit_back)"),
+        "{}",
+        run.stdout()
+    );
+}
+
+// EU-KIT-07
+#[test]
+fn a_copied_texture_moves_to_all_when_every_kit_now_holds_it() {
+    let sandbox = Sandbox::new("kit_copied_hoist");
+    for ordinal in ["1st", "2nd", "GK1st"] {
+        sandbox.copy_fixture(
+            &format!("kit_configs/MGGG VGL26/XXX_DEF_{ordinal}_realUni.bin"),
+            &format!("co Kits/Kit Configs/XXX_DEF_{ordinal}_realUni.bin"),
+        );
+    }
+    for (name, bytes) in [
+        ("u0XXXp1.dds", b"p1 main" as &[u8]),
+        ("u0XXXp1_back.dds", b"p1 back"),
+        ("u0XXXp2.dds", b"p2 main"),
+        ("u0XXXg1.dds", b"g1 main"),
+    ] {
+        sandbox.write(&format!("co Kits/Kit Textures/{name}"), bytes);
+    }
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    // p2 and g1's back and leg fields name kit 1's back: copies — and then
+    // `kit_back` and `kit_leg`, held byte-identically by every kit, hoist.
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Kits/all/kit_back.dds")).unwrap(),
+        b"p1 back"
+    );
+    assert_eq!(
+        sandbox.listing("co Full Kits/Kits/all"),
+        ["kit_back.dds", "kit_leg.dds"]
+    );
+    for slot in ["p1", "p2", "g1"] {
+        assert!(
+            !sandbox
+                .path(&format!("co Full Kits/Kits/{slot}/kit_back.dds"))
+                .exists(),
+            "{slot}"
+        );
+    }
+    let stdout = run.stdout();
+    assert!(stdout.contains("kit_texture_copied"), "{stdout}");
+    assert!(stdout.contains("kit_texture_hoisted"), "{stdout}");
+}
+
+// EU-KIT-14
+#[test]
+fn the_empty_g1_of_a_full_export_stops_the_hoist() {
+    let sandbox = Sandbox::new("kit_no_gk");
+    for ordinal in ["1st", "2nd"] {
+        sandbox.copy_fixture(
+            &kit_config(ordinal),
+            &format!("co Kits/Kit Configs/XXX_DEF_{ordinal}_realUni.bin"),
+        );
+    }
+    for name in ["u0XXXp1_back.dds", "u0XXXp2_back.dds"] {
+        sandbox.write(&format!("co Kits/Kit Textures/{name}"), b"shared back");
+    }
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    // `co Full Kits` is a Full export: its empty `g1` counts, so `kit_back`
+    // is not in every kit folder and nothing hoists.
+    for slot in ["p1", "p2"] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Kits/Kits/{slot}/kit_back.dds"))).unwrap(),
+            b"shared back",
+            "{slot}"
+        );
+    }
+    assert!(!sandbox.path("co Full Kits/Kits/all").exists());
+    assert!(
+        !run.stdout().contains("kit_texture_hoisted"),
+        "{}",
+        run.stdout()
+    );
+}

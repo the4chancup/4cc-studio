@@ -2111,3 +2111,5 @@ worklog passed 7,000 lines.
   `kit*.dds`; the review loops on 6.1-6.2 end, a Fox merge's case-only clash fixed.
 - **2026-10-18** — 6.3b: the Note's kit lines give each kit its `colors.txt` and icon, a
   line without a config a placeholder kit; 6.3c's copy rule widened from a config census.
+- **2026-10-18** — 6.3c: kits get copies of the textures their configs borrow, shared ones
+  move to `Kits/all/`; 6.3 done, every EU-KIT scenario proven.

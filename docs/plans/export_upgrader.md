@@ -97,9 +97,11 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    ID (`k0915 - Crocs`), so migration uses that name part when present (`Boots/Crocs/`) and falls
    back to the old ID (`Boots/k0915/`) for folders named by ID alone; either way users can rename
    them (and their link files) afterwards. Two shared folders of one kind whose names match,
-   letter case aside (`k0430 - Crocs`, `k0431 - crocs`), would be one folder: the lowest ID
-   keeps the name and every other takes its ID (`Boots/k0431/`), the links following, so no
-   wearer loads another's model. A gloves folder named by a three-digit ID alone
+   letter case aside (`k0430 - Crocs`, `k0431 - crocs`), would be one folder. When they hold
+   the same files (the same paths, letter case aside, each byte for byte), they are one model
+   under two IDs and become that one folder, under the lowest ID's spelling, every wearer of
+   either linking it. Otherwise the lowest ID keeps the name and every other takes its ID
+   (`Boots/k0431/`), the links following, so no wearer loads another's model. A gloves folder named by a three-digit ID alone
    is read as four digits (`g567` → `g0567`), as Red reads it (its `export_move.py`, gloves
    only).
 5. **Restructures kits**: Kit Configs + Kit Textures are reorganized into `Kits/` subfolders, one

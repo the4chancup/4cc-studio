@@ -1,13 +1,16 @@
 //! Step 5's `Kit Configs/` and `Kit Textures/` folders into `Kits/`
 //! (`plans/export_upgrader.md` step 5, `DECISIONS.md` 2026-10-18 "the kit
-//! configs' and kit textures' rules of 6.3a" and "the Note's kit entries'
-//! grammar and the two kit Warnings of 6.3b"): every config becomes its kit
-//! folder's `config.toml` (its texture-name fields dropped — the compiler
-//! re-derives them from the textures present, its undecoded bits kept in the
-//! `[unknown]` table), every kit texture lands in its kit's folder under the
-//! generic `kit` name, and the Note's kit entries give each kit its
-//! `colors.txt` and icon. What cannot be placed is left for the run's
-//! fallback to report as unmigrated content.
+//! configs' and kit textures' rules of 6.3a", "the Note's kit entries'
+//! grammar and the two kit Warnings of 6.3b" and "the kit-texture copy
+//! covers every field naming another texture"): every config becomes its
+//! kit folder's `config.toml` (its texture-name fields dropped — the
+//! compiler re-derives them from the textures present, its undecoded bits
+//! kept in the `[unknown]` table), every kit texture lands in its kit's
+//! folder under the generic `kit` name, the Note's kit entries give each
+//! kit its `colors.txt` and icon, a field naming another texture gives the
+//! kit a copy of it, and a texture every kit shares moves to `Kits/all/`.
+//! What cannot be placed is left for the run's fallback to report as
+//! unmigrated content.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -109,15 +112,58 @@ fn kit_entry(colors: &str) -> Option<KitEntry> {
     })
 }
 
+/// What a config's texture-name field names (step 5): its bytes up to the
+/// first NUL, then by position `u`/`U`, any four characters, the slot
+/// (`p0` in any case is the config's own), then the rest (`_back`,
+/// `_front`, …). Anything else names nothing.
+fn field_texture(field: &[u8; 16], own_slot: KitSlot) -> Option<(KitSlot, &str)> {
+    let end = field.iter().position(|byte| *byte == 0).unwrap_or(16);
+    let text = std::str::from_utf8(&field[..end]).ok()?;
+    if !text.get(..1)?.eq_ignore_ascii_case("u") {
+        return None;
+    }
+    let slot_at = text.char_indices().nth(5).map(|(index, _)| index)?;
+    let slot_text = text.get(slot_at..slot_at + 2)?;
+    let slot = if slot_text.eq_ignore_ascii_case("p0") {
+        own_slot
+    } else {
+        KitSlot::parse(slot_text)?
+    };
+    Some((slot, &text[slot_at + 2..]))
+}
+
+/// The folded stem of an output path's file name (`kit_back.dds` →
+/// `kit_back`, `kit_Back.DDS` the same): the name two files share or not.
+fn folded_stem(output: &str) -> String {
+    let name = output.rsplit('/').next().unwrap_or(output);
+    let stem = name.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(name);
+    vtree::fold_name(stem)
+}
+
+/// The kit folder a decoded config became: its input file, its bytes (the
+/// one-config compare) and its five texture-name fields, kept for the copy
+/// pass after `config.toml` drops them.
+struct Decided<'a> {
+    /// The `Kit Configs` file it came from.
+    path: &'a String,
+    /// Its raw bytes.
+    bytes: Vec<u8>,
+    /// `source_texture_names` as decoded.
+    fields: [[u8; 16]; 5],
+}
+
 /// What step 5 makes of `files`' `Kit Configs/` and `Kit Textures/` and the
-/// Note's kit entries (`note` the Note's path and text, `None` without one):
-/// every config decoded and converted to its kit folder's `config.toml`,
-/// every texture of a decided kit copied under the generic name, each kit
-/// entry's colors and icon written beside it.
+/// Note's kit entries (`note` the Note's path and text, `None` without one;
+/// `full` whether the output is a Full export, which gains the empty `p1`
+/// and `g1` for the `all/` hoist): every config decoded and converted to
+/// its kit folder's `config.toml`, every texture of a decided kit copied
+/// under the generic name, each kit entry's colors and icon written beside
+/// it, then the copy and the hoist.
 pub(crate) fn kit_folders(
     files: &[String],
     version: PesVersion,
     note: Option<(&str, &str)>,
+    full: bool,
     mut read: impl FnMut(&str) -> Result<Vec<u8>, SourceFailure>,
 ) -> KitFolders {
     let mut folders = KitFolders::default();
@@ -151,7 +197,7 @@ pub(crate) fn kit_folders(
     // before any byte compares, so a config that fails leaves the slot to the
     // next one; a later file of the slot is one config when its bytes match
     // the kit's, and not consumed otherwise.
-    let mut decided: BTreeMap<KitSlot, (&String, Vec<u8>)> = BTreeMap::new();
+    let mut decided: BTreeMap<KitSlot, Decided> = BTreeMap::new();
     for (file, slot) in roots.iter().chain(&below) {
         match read(file) {
             Err(failure) => {
@@ -162,18 +208,28 @@ pub(crate) fn kit_folders(
                 folders.consumed.insert((*file).clone());
             }
             Ok(bytes) => match decided.get(slot) {
-                Some((_, kept)) if *kept == bytes => {
+                Some(kept) if kept.bytes == bytes => {
                     folders.consumed.insert((*file).clone());
                 }
                 Some(_) => {}
                 None => match KitConfig::decode(&bytes, version) {
                     Ok(mut config) => {
+                        let fields = config
+                            .source_texture_names
+                            .expect("a decoded config carries its five texture-name fields");
                         config.source_texture_names = None;
                         folders.written.push((
                             format!("Kits/{}/config.toml", slot.as_str()),
                             config.to_toml().into_bytes(),
                         ));
-                        decided.insert(*slot, (*file, bytes));
+                        decided.insert(
+                            *slot,
+                            Decided {
+                                path: file,
+                                bytes,
+                                fields,
+                            },
+                        );
                         folders.consumed.insert((*file).clone());
                     }
                     Err(error) => {
@@ -290,31 +346,22 @@ pub(crate) fn kit_folders(
     }
     // And each slot a config gives and no entry does, a Warning on the config
     // that became its `config.toml` (every config without a Note).
-    for (slot, (config_path, _)) in &decided {
+    for (slot, decided) in &decided {
         if !entry_slots.contains(slot) {
             failures
-                .entry((*config_path).clone())
+                .entry(decided.path.clone())
                 .or_default()
                 .push(tool_message(
                     Code::ConfigWithoutKitEntry,
                     Scope::File {
                         export_id: INPUT,
-                        path: path_scope(config_path),
+                        path: path_scope(decided.path),
                     },
                     Disposition::Keep,
                     vec![("slot", slot.as_str().to_owned())],
                 ));
         }
     }
-
-    // The findings in input-path order (`files` is sorted): the decisions
-    // were met slot by slot.
-    for file in files {
-        if let Some(messages) = failures.remove(file.as_str()) {
-            folders.findings.extend(messages);
-        }
-    }
-    folders.findings.extend(failures.into_values().flatten());
 
     // `Kit Textures`, a file directly in the folder alone (a subfolder's is
     // not consumed): it lands only in a slot a config or a Note entry gives,
@@ -345,6 +392,179 @@ pub(crate) fn kit_folders(
         folders.copies.push((file.clone(), output));
         folders.consumed.insert(file.clone());
     }
+
+    // The textures each kit holds before any copy of its own, by slot then
+    // by folded stem (`Kits/<slot>/<name>`): the copy pass's source pool and
+    // "the kit holds its own" check — a copy is never the source of another.
+    let mut held: BTreeMap<KitSlot, BTreeMap<String, (String, String)>> = BTreeMap::new();
+    for (input, output) in &folders.copies {
+        if let Some(slot) = output.split('/').nth(1).and_then(KitSlot::parse) {
+            held.entry(slot)
+                .or_default()
+                .insert(folded_stem(output), (input.clone(), output.clone()));
+        }
+    }
+
+    // The copy (step 5): in slot order, each config's `back`, `chest`, `leg`,
+    // `name` field (the `kit` field is never read). A field naming the kit's
+    // own texture of that stem does nothing; one naming another texture — a
+    // slot and a rest — gets a copy of the named slot's output texture of
+    // `kit<rest>` under `kit_<field>.<the source's extension>`, when there
+    // is a source and the kit holds no file of the field's name.
+    const FIELD_STEMS: [(usize, &str); 4] = [(1, "back"), (2, "chest"), (3, "leg"), (4, "name")];
+    for (slot, decided) in &decided {
+        for (index, field) in FIELD_STEMS {
+            let Some((named, rest)) = field_texture(&decided.fields[index], *slot) else {
+                continue;
+            };
+            let stem = format!("kit_{field}");
+            if named == *slot && vtree::fold_name(&format!("kit{rest}")) == vtree::fold_name(&stem)
+            {
+                continue;
+            }
+            let kit_files = held.get(slot);
+            if kit_files.is_some_and(|files| files.contains_key(&vtree::fold_name(&stem))) {
+                continue;
+            }
+            let wanted = vtree::fold_name(&format!("kit{rest}"));
+            let Some((input, source)) = held.get(&named).and_then(|files| files.get(&wanted))
+            else {
+                continue;
+            };
+            let extension = source.rsplit_once('.').map(|(_, ext)| ext).unwrap_or("");
+            folders.copies.push((
+                input.clone(),
+                format!("Kits/{}/{stem}.{extension}", slot.as_str()),
+            ));
+            let source_stem = source
+                .rsplit('/')
+                .next()
+                .and_then(|file| file.rsplit_once('.'))
+                .map(|(stem, _)| stem)
+                .unwrap_or_default();
+            let from = format!("{}/{source_stem}", named.as_str());
+            failures
+                .entry(decided.path.clone())
+                .or_default()
+                .push(tool_message(
+                    Code::KitTextureCopied,
+                    Scope::File {
+                        export_id: INPUT,
+                        path: path_scope(decided.path),
+                    },
+                    Disposition::Keep,
+                    vec![
+                        ("kit", slot.as_str().to_owned()),
+                        ("stem", stem),
+                        ("from", from),
+                    ],
+                ));
+        }
+    }
+
+    // The hoist (step 5): with two kit folders or more — every slot the plan
+    // writes into, plus the empty `p1` and `g1` a Full export gains — a
+    // texture every kit folder holds with byte-identical contents moves to
+    // `Kits/all/` under the first kit's spelling, its per-kit copies dropped
+    // from the plan.
+    let mut kits: BTreeSet<KitSlot> = BTreeSet::new();
+    for output in folders
+        .written
+        .iter()
+        .map(|(output, _)| output)
+        .chain(folders.copies.iter().map(|(_, output)| output))
+    {
+        if let Some(slot) = output.split('/').nth(1).and_then(KitSlot::parse) {
+            kits.insert(slot);
+        }
+    }
+    if full {
+        kits.insert(KitSlot::P1);
+        kits.insert(KitSlot::G1);
+    }
+    let mut export_findings = Vec::new();
+    if kits.len() >= 2 {
+        // Per kit, folded stem → index into `copies` (its own texture files
+        // alone: written files are never hoisted).
+        let per_kit: Vec<BTreeMap<String, usize>> = kits
+            .iter()
+            .map(|slot| {
+                folders
+                    .copies
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, (_, output))| {
+                        output.starts_with(&format!("Kits/{}/", slot.as_str()))
+                    })
+                    .map(|(index, (_, output))| (folded_stem(output), index))
+                    .collect()
+            })
+            .collect();
+        let mut dropped = BTreeSet::new();
+        for (stem, first_index) in &per_kit[0] {
+            let first_index = *first_index;
+            let mut shared = true;
+            for kit_files in &per_kit[1..] {
+                let Some(&index) = kit_files.get(stem) else {
+                    shared = false;
+                    break;
+                };
+                let equal = match (
+                    read(&folders.copies[first_index].0),
+                    read(&folders.copies[index].0),
+                ) {
+                    (Ok(a), Ok(b)) => a == b,
+                    _ => false,
+                };
+                if !equal {
+                    shared = false;
+                    break;
+                }
+            }
+            if !shared {
+                continue;
+            }
+            let file = folders.copies[first_index]
+                .1
+                .rsplit('/')
+                .next()
+                .expect("a copy's output always holds a file name")
+                .to_owned();
+            folders.copies[first_index].1 = format!("Kits/all/{file}");
+            for kit_files in &per_kit[1..] {
+                dropped.insert(kit_files[stem]);
+            }
+            export_findings.push(tool_message(
+                Code::KitTextureHoisted,
+                Scope::Export { export_id: INPUT },
+                Disposition::Keep,
+                vec![(
+                    "stem",
+                    file.rsplit_once('.')
+                        .map(|(stem, _)| stem)
+                        .unwrap_or(&file)
+                        .to_owned(),
+                )],
+            ));
+        }
+        folders.copies = std::mem::take(&mut folders.copies)
+            .into_iter()
+            .enumerate()
+            .filter(|(index, _)| !dropped.contains(index))
+            .map(|(_, copy)| copy)
+            .collect();
+    }
+
+    // The findings in input-path order (`files` is sorted): the decisions
+    // were met slot by slot; the export-scoped findings (the hoists) come
+    // last, met last.
+    for file in files {
+        if let Some(messages) = failures.remove(file.as_str()) {
+            folders.findings.extend(messages);
+        }
+    }
+    folders.findings.extend(failures.into_values().flatten());
+    folders.findings.extend(export_findings);
     folders
 }
 
@@ -352,10 +572,18 @@ pub(crate) fn kit_folders(
 mod tests {
     use super::*;
 
+    use studio_core::Severity;
+
     const CONFIG_1ST: &[u8] =
         include_bytes!("../tests/fixtures/kit_configs/4CCG VGL26/XXX_DEF_1st_realUni.bin");
     const CONFIG_2ND: &[u8] =
         include_bytes!("../tests/fixtures/kit_configs/4CCG VGL26/XXX_DEF_2nd_realUni.bin");
+    const MGGG_1ST: &[u8] =
+        include_bytes!("../tests/fixtures/kit_configs/MGGG VGL26/XXX_DEF_1st_realUni.bin");
+    const MGGG_2ND: &[u8] =
+        include_bytes!("../tests/fixtures/kit_configs/MGGG VGL26/XXX_DEF_2nd_realUni.bin");
+    const MGGG_GK1ST: &[u8] =
+        include_bytes!("../tests/fixtures/kit_configs/MGGG VGL26/XXX_DEF_GK1st_realUni.bin");
 
     /// `bytes` decoded and converted the way `kit_folders` writes it.
     fn expected_toml(bytes: &[u8]) -> Vec<u8> {
@@ -366,11 +594,16 @@ mod tests {
 
     /// `kit_folders` over `listing`, each file's bytes behind `read`; a
     /// listed path without bytes is a test bug, so it panics rather than
-    /// failing a read.
+    /// failing a read. Not a Full export (no empty kits for the hoist).
     fn plan(listing: &[&str], bytes: &[(&str, &[u8])]) -> KitFolders {
+        plan_full(listing, bytes, false)
+    }
+
+    /// `plan` with `full` as the caller gives it.
+    fn plan_full(listing: &[&str], bytes: &[(&str, &[u8])], full: bool) -> KitFolders {
         let bytes: BTreeMap<&str, &[u8]> = bytes.iter().copied().collect();
         let files: Vec<String> = listing.iter().map(|file| (*file).to_owned()).collect();
-        kit_folders(&files, PesVersion::Pes21, None, |path| {
+        kit_folders(&files, PesVersion::Pes21, None, full, |path| {
             bytes
                 .get(path)
                 .map(|bytes| Ok(bytes.to_vec()))
@@ -660,5 +893,482 @@ mod tests {
         );
         assert!(plan.consumed.contains("Kit Textures/u0714p1.dds"));
         assert!(!plan.consumed.contains("Kit Textures/u0XXXp1.dds"));
+    }
+
+    #[test]
+    fn the_top_folders_match_in_any_letter_case() {
+        let plan = plan(
+            &[
+                "kit configs/XXX_DEF_1st_realUni.bin",
+                "KIT TEXTURES/u0XXXp1.dds",
+            ],
+            &[
+                ("kit configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("KIT TEXTURES/u0XXXp1.dds", b"main"),
+            ],
+        );
+        assert_eq!(plan.written[0].0, "Kits/p1/config.toml");
+        assert!(plan.copies.contains(&(
+            "KIT TEXTURES/u0XXXp1.dds".to_owned(),
+            "Kits/p1/kit.dds".to_owned()
+        )));
+    }
+
+    #[test]
+    fn a_configs_read_failure_is_reported_and_the_next_candidate_decides() {
+        let files: Vec<String> = [
+            "Kit Configs/714/XXX_DEF_1st_realUni.bin",
+            "Kit Configs/XXX_DEF_1st_realUni.bin",
+        ]
+        .iter()
+        .map(|file| (*file).to_owned())
+        .collect();
+        let plan = kit_folders(&files, PesVersion::Pes21, None, false, |path| {
+            if path == "Kit Configs/XXX_DEF_1st_realUni.bin" {
+                Err(SourceFailure {
+                    path: path.to_owned(),
+                    error: "denied".to_owned(),
+                })
+            } else {
+                Ok(CONFIG_1ST.to_vec())
+            }
+        });
+        // The subfolder's decides p1; the root file's read failure is
+        // reported and the file consumed.
+        assert_eq!(plan.written[0].0, "Kits/p1/config.toml");
+        assert!(
+            plan.consumed
+                .contains("Kit Configs/XXX_DEF_1st_realUni.bin")
+        );
+        assert!(
+            plan.consumed
+                .contains("Kit Configs/714/XXX_DEF_1st_realUni.bin")
+        );
+        // Input-path order: `714/`'s warning (its config survives), then the
+        // root file's `source_read_failed`.
+        let failed: Vec<&Message> = plan
+            .findings
+            .iter()
+            .filter(|m| m.code.code.as_ref() == "source_read_failed")
+            .collect();
+        assert_eq!(failed.len(), 1, "{:?}", plan.findings);
+        assert_eq!(failed[0].disposition, Disposition::DropFile);
+        assert_eq!(
+            failed[0].scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Kit Configs/XXX_DEF_1st_realUni.bin")
+            }
+        );
+    }
+
+    #[test]
+    fn a_field_names_its_texture_by_position() {
+        let field = |text: &str| {
+            let mut field = [0u8; 16];
+            field[..text.len()].copy_from_slice(text.as_bytes());
+            field
+        };
+        // `u`, four characters, the slot, the rest — `p0` the config's own
+        // in any letter case.
+        assert_eq!(
+            field_texture(&field("u0XXXp1_back"), KitSlot::P1),
+            Some((KitSlot::P1, "_back"))
+        );
+        assert_eq!(
+            field_texture(&field("u0728p1_front"), KitSlot::P1),
+            Some((KitSlot::P1, "_front"))
+        );
+        assert_eq!(
+            field_texture(&field("u0XXXp0_back"), KitSlot::P2),
+            Some((KitSlot::P2, "_back"))
+        );
+        assert_eq!(
+            field_texture(&field("U0XXXP0_leg"), KitSlot::G1),
+            Some((KitSlot::G1, "_leg"))
+        );
+        for text in ["", "kit_back", "u0p1_back", "u0XXXxx"] {
+            assert_eq!(field_texture(&field(text), KitSlot::P1), None, "{text:?}");
+        }
+        // A field that is not UTF-8 names nothing either.
+        let mut field = [0xFFu8; 16];
+        field[0] = b'u';
+        assert_eq!(field_texture(&field, KitSlot::P1), None);
+    }
+
+    #[test]
+    fn a_field_naming_another_stem_of_its_own_kit_copies_it() {
+        // MGGG `1st`: its leg field names `u0811p1_back` — its own slot, the
+        // back's stem — so `kit_leg.dds` is a copy of its `kit_back.dds`.
+        let plan = plan(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Textures/u0XXXp1.dds",
+                "Kit Textures/u0XXXp1_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", MGGG_1ST),
+                ("Kit Textures/u0XXXp1.dds", b"main"),
+                ("Kit Textures/u0XXXp1_back.dds", b"back"),
+            ],
+        );
+        assert!(plan.copies.contains(&(
+            "Kit Textures/u0XXXp1_back.dds".to_owned(),
+            "Kits/p1/kit_leg.dds".to_owned()
+        )));
+        // Its name field names `u0811p1_name`, which the export does not
+        // ship: no `kit_name.dds` copy.
+        assert!(
+            !plan
+                .copies
+                .iter()
+                .any(|(_, to)| to == "Kits/p1/kit_name.dds")
+        );
+        let copied: Vec<&Message> = plan
+            .findings
+            .iter()
+            .filter(|m| m.code.code.as_ref() == "kit_texture_copied")
+            .collect();
+        assert_eq!(copied.len(), 1, "{:?}", plan.findings);
+        assert_eq!(copied[0].severity, Severity::Info);
+        assert_eq!(copied[0].disposition, Disposition::Keep);
+        assert_eq!(
+            copied[0].context,
+            vec![
+                ("kit".to_owned(), "p1".to_owned()),
+                ("stem".to_owned(), "kit_leg".to_owned()),
+                ("from".to_owned(), "p1/kit_back".to_owned()),
+            ]
+        );
+        assert_eq!(
+            copied[0].scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Kit Configs/XXX_DEF_1st_realUni.bin")
+            }
+        );
+    }
+
+    #[test]
+    fn each_field_naming_another_kits_texture_gets_its_own_copy() {
+        // MGGG `1st` and `2nd`: the 2nd's back, leg and name fields all name
+        // `u0811p1_*` — three copies, three findings on its config file.
+        // `full` as a Full export's: the empty `g1` keeps every stem
+        // per-kit.
+        let plan = plan_full(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Configs/XXX_DEF_2nd_realUni.bin",
+                "Kit Textures/u0XXXp1.dds",
+                "Kit Textures/u0XXXp1_back.dds",
+                "Kit Textures/u0XXXp1_name.dds",
+                "Kit Textures/u0XXXp2.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", MGGG_1ST),
+                ("Kit Configs/XXX_DEF_2nd_realUni.bin", MGGG_2ND),
+                ("Kit Textures/u0XXXp1.dds", b"p1 main"),
+                ("Kit Textures/u0XXXp1_back.dds", b"p1 back"),
+                ("Kit Textures/u0XXXp1_name.dds", b"p1 name"),
+                ("Kit Textures/u0XXXp2.dds", b"p2 main"),
+            ],
+            true,
+        );
+        for to in [
+            "Kits/p2/kit_back.dds",
+            "Kits/p2/kit_leg.dds",
+            "Kits/p2/kit_name.dds",
+        ] {
+            assert!(plan.copies.iter().any(|(_, target)| target == to), "{to}");
+        }
+        let p2: Vec<&Message> = plan
+            .findings
+            .iter()
+            .filter(|m| {
+                m.code.code.as_ref() == "kit_texture_copied"
+                    && m.scope
+                        == Scope::File {
+                            export_id: INPUT,
+                            path: path_scope("Kit Configs/XXX_DEF_2nd_realUni.bin"),
+                        }
+            })
+            .collect();
+        // In `back`, `chest`, `leg`, `name` order: back, leg, name.
+        assert_eq!(p2.len(), 3, "{:?}", plan.findings);
+        assert_eq!(
+            p2[0].context,
+            vec![
+                ("kit".to_owned(), "p2".to_owned()),
+                ("stem".to_owned(), "kit_back".to_owned()),
+                ("from".to_owned(), "p1/kit_back".to_owned()),
+            ]
+        );
+        assert_eq!(p2[1].context[1].1, "kit_leg");
+        assert_eq!(p2[2].context[1].1, "kit_name");
+        assert_eq!(p2[2].context[2].1, "p1/kit_name");
+    }
+
+    #[test]
+    fn a_kit_shipping_its_own_file_of_the_fields_name_gets_no_copy() {
+        // MGGG `GK1st` ships its own `u0XXXg1_back.dds` while its config
+        // names `u0811p1_back`: its own file wins (its leg field still gets
+        // the copy, holding no `kit_leg` of its own).
+        let plan = plan(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Configs/XXX_DEF_GK1st_realUni.bin",
+                "Kit Textures/u0XXXp1_back.dds",
+                "Kit Textures/u0XXXg1.dds",
+                "Kit Textures/u0XXXg1_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("Kit Configs/XXX_DEF_GK1st_realUni.bin", MGGG_GK1ST),
+                ("Kit Textures/u0XXXp1_back.dds", b"p1 back"),
+                ("Kit Textures/u0XXXg1.dds", b"g1 main"),
+                ("Kit Textures/u0XXXg1_back.dds", b"g1 back"),
+            ],
+        );
+        assert!(plan.copies.contains(&(
+            "Kit Textures/u0XXXg1_back.dds".to_owned(),
+            "Kits/g1/kit_back.dds".to_owned()
+        )));
+        assert!(!plan.copies.iter().any(|(from, to)| {
+            from == "Kit Textures/u0XXXp1_back.dds" && to == "Kits/g1/kit_back.dds"
+        }));
+        assert!(plan.copies.contains(&(
+            "Kit Textures/u0XXXp1_back.dds".to_owned(),
+            "Kits/g1/kit_leg.dds".to_owned()
+        )));
+    }
+
+    #[test]
+    fn a_field_naming_its_own_kit_of_the_fields_stem_does_nothing() {
+        // 4CCG `1st` names its own back and name; a `p0` back field is the
+        // config's own too.
+        let mut second = CONFIG_2ND.to_vec();
+        // The back field (index 1) at 0x38: `u0XXXp0_back` names the config's
+        // own back as `p0`.
+        second[0x38..0x38 + 12].copy_from_slice(b"u0XXXp0_back");
+        let plan = plan(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Configs/XXX_DEF_2nd_realUni.bin",
+                "Kit Textures/u0XXXp1_back.dds",
+                "Kit Textures/u0XXXp2_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("Kit Configs/XXX_DEF_2nd_realUni.bin", &second),
+                ("Kit Textures/u0XXXp1_back.dds", b"p1 back"),
+                ("Kit Textures/u0XXXp2_back.dds", b"p2 back"),
+            ],
+        );
+        // Only the two textures' own copies: no `kit_texture_copied` at all.
+        assert_eq!(plan.copies.len(), 2, "{:?}", plan.copies);
+        assert!(
+            plan.findings
+                .iter()
+                .all(|m| m.code.code.as_ref() != "kit_texture_copied")
+        );
+    }
+
+    #[test]
+    fn a_field_naming_another_stem_of_another_slot_copies_it() {
+        // A chest field `u0728p1_front` in p1's config (JP's shape): `p1`
+        // ships `u0XXXp1_front.dds`, so `kit_chest.dds` is its copy.
+        let mut first = CONFIG_1ST.to_vec();
+        // The chest field (index 2) at 0x48 is empty in the fixture.
+        first[0x48..0x48 + 13].copy_from_slice(b"u0728p1_front");
+        let plan = plan(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Textures/u0XXXp1_front.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", &first),
+                ("Kit Textures/u0XXXp1_front.dds", b"front"),
+            ],
+        );
+        assert!(plan.copies.contains(&(
+            "Kit Textures/u0XXXp1_front.dds".to_owned(),
+            "Kits/p1/kit_chest.dds".to_owned()
+        )));
+        let copied = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "kit_texture_copied")
+            .expect("kit_texture_copied expected");
+        assert_eq!(
+            copied.context,
+            vec![
+                ("kit".to_owned(), "p1".to_owned()),
+                ("stem".to_owned(), "kit_chest".to_owned()),
+                ("from".to_owned(), "p1/kit_front".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_texture_every_kit_shares_moves_to_all() {
+        // Midcup (`full` false): the two kits' equal `kit_back` hoists.
+        let plan = plan_full(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Configs/XXX_DEF_2nd_realUni.bin",
+                "Kit Textures/u0XXXp1_back.dds",
+                "Kit Textures/u0XXXp2_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("Kit Configs/XXX_DEF_2nd_realUni.bin", CONFIG_2ND),
+                ("Kit Textures/u0XXXp1_back.dds", b"back"),
+                ("Kit Textures/u0XXXp2_back.dds", b"back"),
+            ],
+            false,
+        );
+        assert_eq!(
+            plan.copies,
+            vec![(
+                "Kit Textures/u0XXXp1_back.dds".to_owned(),
+                "Kits/all/kit_back.dds".to_owned()
+            )]
+        );
+        let hoisted: Vec<&Message> = plan
+            .findings
+            .iter()
+            .filter(|m| m.code.code.as_ref() == "kit_texture_hoisted")
+            .collect();
+        assert_eq!(hoisted.len(), 1, "{:?}", plan.findings);
+        assert_eq!(hoisted[0].severity, Severity::Info);
+        assert_eq!(hoisted[0].disposition, Disposition::Keep);
+        assert_eq!(hoisted[0].scope, Scope::Export { export_id: INPUT });
+        assert_eq!(
+            hoisted[0].context,
+            vec![("stem".to_owned(), "kit_back".to_owned())]
+        );
+    }
+
+    #[test]
+    fn the_empty_g1_a_full_export_gains_counts_for_the_hoist() {
+        // Full (`full` true): the same two kits, and the empty `g1` they
+        // gain — no stem is in every kit folder, so nothing hoists.
+        let plan = plan_full(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Configs/XXX_DEF_2nd_realUni.bin",
+                "Kit Textures/u0XXXp1_back.dds",
+                "Kit Textures/u0XXXp2_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("Kit Configs/XXX_DEF_2nd_realUni.bin", CONFIG_2ND),
+                ("Kit Textures/u0XXXp1_back.dds", b"back"),
+                ("Kit Textures/u0XXXp2_back.dds", b"back"),
+            ],
+            true,
+        );
+        assert!(plan.copies.contains(&(
+            "Kit Textures/u0XXXp2_back.dds".to_owned(),
+            "Kits/p2/kit_back.dds".to_owned()
+        )));
+        assert!(
+            !plan
+                .copies
+                .iter()
+                .any(|(_, to)| to.starts_with("Kits/all/"))
+        );
+        assert!(
+            plan.findings
+                .iter()
+                .all(|m| m.code.code.as_ref() != "kit_texture_hoisted")
+        );
+    }
+
+    #[test]
+    fn one_kit_alone_never_hoists() {
+        let plan = plan_full(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Textures/u0XXXp1_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("Kit Textures/u0XXXp1_back.dds", b"back"),
+            ],
+            false,
+        );
+        assert_eq!(
+            plan.copies,
+            vec![(
+                "Kit Textures/u0XXXp1_back.dds".to_owned(),
+                "Kits/p1/kit_back.dds".to_owned()
+            )]
+        );
+        assert!(
+            plan.findings
+                .iter()
+                .all(|m| m.code.code.as_ref() != "kit_texture_hoisted")
+        );
+    }
+
+    #[test]
+    fn textures_of_different_bytes_do_not_hoist() {
+        let plan = plan_full(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Configs/XXX_DEF_2nd_realUni.bin",
+                "Kit Textures/u0XXXp1_back.dds",
+                "Kit Textures/u0XXXp2_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("Kit Configs/XXX_DEF_2nd_realUni.bin", CONFIG_2ND),
+                ("Kit Textures/u0XXXp1_back.dds", b"one"),
+                ("Kit Textures/u0XXXp2_back.dds", b"two"),
+            ],
+            false,
+        );
+        for to in ["Kits/p1/kit_back.dds", "Kits/p2/kit_back.dds"] {
+            assert!(plan.copies.iter().any(|(_, target)| target == to), "{to}");
+        }
+        assert!(
+            plan.findings
+                .iter()
+                .all(|m| m.code.code.as_ref() != "kit_texture_hoisted")
+        );
+    }
+
+    #[test]
+    fn a_case_folded_pair_of_equal_bytes_hoists_as_one_name() {
+        // `kit_Back.DDS` and `kit_back.dds` fold to one name; the first
+        // kit's spelling is kept under `all/`.
+        let plan = plan_full(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Configs/XXX_DEF_2nd_realUni.bin",
+                "Kit Textures/u0XXXp1_Back.DDS",
+                "Kit Textures/u0XXXp2_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("Kit Configs/XXX_DEF_2nd_realUni.bin", CONFIG_2ND),
+                ("Kit Textures/u0XXXp1_Back.DDS", b"back"),
+                ("Kit Textures/u0XXXp2_back.dds", b"back"),
+            ],
+            false,
+        );
+        assert_eq!(
+            plan.copies,
+            vec![(
+                "Kit Textures/u0XXXp1_Back.DDS".to_owned(),
+                "Kits/all/kit_Back.DDS".to_owned()
+            )]
+        );
+        assert!(
+            plan.findings
+                .iter()
+                .any(|m| m.code.code.as_ref() == "kit_texture_hoisted")
+        );
     }
 }

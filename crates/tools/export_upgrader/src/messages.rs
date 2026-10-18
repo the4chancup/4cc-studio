@@ -51,6 +51,13 @@ pub(crate) enum Code {
     /// its `config.toml` is written all the same, the kit offered as the old
     /// export never offered it (`slot`).
     ConfigWithoutKitEntry,
+    /// A kit's config field named another texture: the named texture was
+    /// copied into the kit under the field's generic name (`kit`, `stem` the
+    /// field's, `from` the source's slot and stem).
+    KitTextureCopied,
+    /// A texture every kit folder held byte-identically: it moved to
+    /// `Kits/all/` (`stem`, the first kit's spelling).
+    KitTextureHoisted,
 }
 
 impl Code {
@@ -66,6 +73,8 @@ impl Code {
             Code::MergeKeptShared => "merge_kept_shared",
             Code::KitWithoutConfig => "kit_without_config",
             Code::ConfigWithoutKitEntry => "config_without_kit_entry",
+            Code::KitTextureCopied => "kit_texture_copied",
+            Code::KitTextureHoisted => "kit_texture_hoisted",
         }
     }
 
@@ -81,6 +90,8 @@ impl Code {
         Code::MergeKeptShared,
         Code::KitWithoutConfig,
         Code::ConfigWithoutKitEntry,
+        Code::KitTextureCopied,
+        Code::KitTextureHoisted,
     ];
 }
 
@@ -101,6 +112,8 @@ const CATALOG: &[(&str, Severity)] = &[
     ("merge_kept_shared", Severity::Info),
     ("kit_without_config", Severity::Warning),
     ("config_without_kit_entry", Severity::Warning),
+    ("kit_texture_copied", Severity::Info),
+    ("kit_texture_hoisted", Severity::Info),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", Severity::Warning),
     ("nested_root_ambiguous", Severity::Error),

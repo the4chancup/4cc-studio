@@ -467,6 +467,10 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 &files,
                 version,
                 note_path.as_deref().zip(note_text.as_deref()),
+                matches!(
+                    aesthetics_export::coverage(&output_name),
+                    Some(aesthetics_export::ExportCoverage::Full)
+                ),
                 |path| export.read(path),
             ),
         ),
@@ -776,7 +780,8 @@ mod tests {
 
         // The verdict's "nothing dropped" half sees the tool's own findings
         // too: a finding below Error that drops a folder still refuses
-        // `migration_clean` (DECISIONS 2026-10-18 (7)).
+        // `migration_clean` (DECISIONS 2026-10-18 "its own input read, and
+        // the gaps the first slice meets" (7)).
         let (events_tx, _events_rx) = crossbeam_channel::unbounded();
         let (requests_tx, _requests_rx) = crossbeam_channel::unbounded();
         let ctx = ToolContext::new(

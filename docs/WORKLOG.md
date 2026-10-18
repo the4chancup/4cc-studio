@@ -494,8 +494,8 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     entries), an unreadable or unfilled entry `unmigrated_content`; mutation diff 1 survivor
     tested; files: `export_upgrader/src/{note,upgrade}.rs`, `tests/cli/roots.rs`, fixture
     `jp Summer 18/`
-- [x] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
-  `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*. Two slices:
+- [ ] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
+  `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*. Three slices:
   - [x] 6.2a the roster read by player ID, face folders into `Players/` (slot rule, name order
     and cleaning, portrait, `ingame_face`), `roster_slot_empty`, the `Faces/Faces/` flattening
     → verify: EU-PLY-01, -03, -04 (the team half; the referee half with 6.6), -07, -11. Done
@@ -510,7 +510,12 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     Error drops yet); also the first slice's review round S3 (the verdict reads the tool's own
     dropping findings); files: `export_upgrader/src/{players,roster,upgrade,source,messages,
     lib}.rs`, `tests/cli/players.rs`, `tests/common/mod.rs`
-- [ ] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit
+  - [ ] 6.2c two shared folders of one name and the same files become one (the maintainer's
+    ruling, DECISIONS 2026-10-18 "two shared folders of one name and the same files become
+    one"; plan step 4) → verify: unit tests in `players.rs` (identical pair merged, every wearer
+    linked; a differing pair keeps the ID rule; same paths with one byte differing; a path
+    only one holds)
+- [x] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit
   colors and icons, the copy and the hoist → verify: EU-KIT-*. Three slices:
   - [x] 6.3a configs and textures into `Kits/<slot>/` (the config grammar, one config per slot,
     the `Kit Configs/<id>/` subfolder, the positional texture grammar) → verify: EU-KIT-01, -02,
@@ -526,10 +531,13 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     `export_empty`); mutation diff 1 survivor tested; review round 6.3.S1 on 6.3a: 5 accepted
     (`.tmp/6_3/rulings.md`), fixed in 6.3c; files: `export_upgrader/src/{kits,note,messages,
     upgrade}.rs`, `tests/cli/{kits,roots,input}.rs`
-  - [ ] 6.3c the copy of another kit's texture a config names, and the `all/` hoist → verify:
+  - [x] 6.3c the copy of another kit's texture a config names, and the `all/` hoist → verify:
     EU-KIT-05, -06, -07, -14; the copy rule widened to a field naming another stem (census
     `.tmp/6_3/census_fields.py`; plan step 5, DECISIONS 2026-10-18 "the kit-texture copy covers
-    every field naming another texture"), its test on MGGG VGL26's configs
+    every field naming another texture"), its test on MGGG VGL26's configs. Done 2026-10-18:
+    every EU-KIT scenario proven; mutation diff clean; also round 6.3.S1's fixes. Open: the
+    cross-family review of 6.3 (SWE-2 round 6.3.S2 over 502cb5e onward, then Astra); files:
+    `export_upgrader/src/{kits,messages,upgrade}.rs`, `tests/cli/{kits,cli}.rs`
 - [ ] 6.4 models, portraits, logo and Common (step 7), as ordered slices: (a) portraits and the
   logo; (b) `.mtl`/`face.xml` references, Common links and the kit magic; (c) FMDL path tables;
   (d) pre-Fox renames → verify: EU-MDL-*
