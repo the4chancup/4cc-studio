@@ -8697,3 +8697,21 @@ Plan: `plans/aesthetics_export/settings_toml.md` "Player settings in exports (se
 (the hair half); the built half in `spec/pes_savefile/operations.md` "Cross-version player
 conversion" and `spec/aesthetics_export/settings_toml.md`; TC-BIN-31
 (`spec/team_compiler/README.md`), SE-TOML-05 (`spec/save_editor.md`).
+
+## 2026-10-18 — music_export — the plan's "Model" is the code's copy; items with no planned consumer are crate-private
+Decision: `music_player.md` "Model" (and "File resolution") carries every type and signature
+the crate exports, copied from the code: the condition and instruction vocabularies,
+`parse`/`write` and their result types, `Side`/`TeamState`/`MatchState`, `Verdict` and the
+`eval` methods, `Loaded`/`Press`/`PriorityList`, `Resolution` and the two `resolve_*`
+functions. `Press<'a>` keeps its lifetime, the crate's one struct lifetime, now named by the
+plan. Six items with no consumer in the player's or the editor's plan become `pub(crate)`:
+`Comparison::holds`, `SongEntry::is_once`, `TeamState::has_most_goals`, `TeamState::clear`,
+`MatchState::lead` and the `Loaded::fallback` field; `write`'s `condition_text` and
+`instruction_text` stay `pub(crate)` until the editor's chips need them.
+Why: the crate was built ahead of its phase from a section naming three shapes, and a
+consumer written at Phase 10 against the plan would otherwise be written against what a
+session remembered. A press is a one-call parameter bundle: borrowing the button's name is
+what a function argument does, and an owned `String` would allocate per press for nothing.
+The narrowed items are evaluation and selection internals; `CONTRIBUTING.md` makes `pub`
+crate API, and widening one when a consumer appears is one word.
+Plan: `music_player.md` "Model", "File resolution".

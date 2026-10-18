@@ -153,7 +153,7 @@ Instructions modify playback rather than gate it:
 | Instruction | Arguments | Effect |
 |-------------|-----------|--------|
 | `start` | time (`[[d:]h:]m:s` or seconds) | begin playback at this offset; looping returns to it |
-| `speed` | 0.25–4.00 | fixed playback speed for this entry |
+| `speed` | 0.25–4.00 | fixed playback speed for this entry (the parser takes any positive rate; the range is the editor's check, DECISIONS 2026-10-14) |
 | `randomise` | — | when all of a player's (non-warcry) entries have it: pick uniformly at random instead of by priority |
 | `pause` | `continue`\|`restart` [`every` n] | on pause: keep position, or restart (every nth pause) |
 | `end` | `stop` | do not loop; stop and reload at song end (`end loop` is a legacy no-op, silently accepted) |
@@ -183,6 +183,25 @@ Song paths resolve against the `.4ccm`'s folder with the same semantics as Rigdi
 The old parser read files in the system locale encoding and crashed with
 `UnicodeDecodeError` on non-ASCII names; the new parser reads UTF-8 with a lossy
 Windows-1252 fallback and warns instead of crashing.
+
+The lookup as built (10.0d; native only, behind `#[cfg(not(target_arch = "wasm32"))]`, since
+the wasm build has no filesystem):
+
+```rust
+pub struct Resolution {
+    pub found: Vec<(String, PathBuf)>,   // each resolved `SongEntry::file`, with the path it resolved to
+    pub missing: Vec<String>,            // the files that resolved nowhere, each once, in file order
+}
+
+pub fn resolve_song(folder: &Path, file: &str, normalization_applies: bool) -> Option<PathBuf>;
+pub fn resolve_export(export: &MusicExport, folder: &Path, normalization_applies: bool) -> Resolution;
+```
+
+`resolve_song` tries two candidates in `folder` (and in `file`'s subfolder when it names one):
+with `normalization_applies` unset, `<stem>_normalized.<ext>` first, then `file`; with it set,
+the other way round. Each candidate is its own lookup in the folder's listing (the exact name,
+else the first case-insensitive match); an unreadable folder finds nothing. `resolve_export`
+looks up every distinct file of the slots and the event clips once, in file order.
 
 ### Model
 
@@ -233,8 +252,177 @@ pub struct EventClip {
   `gamestate.py`'s five-mutex thread-safety dance (the GUI thread owns it; workers get
   snapshots).
 - The serializer regenerates RigDJ's canonical layout (section comments
-  `# team identifier` / `# reserved names` / `# regular players`; flags written only
+  `# team identifier` / `# reserved names` / `# regular players`, plus a fourth,
+  `# event clips`, when the export has any; flags written only
   when opted out). Comments in hand-written files are not preserved — same as RigDJ.
+
+The rest of the crate as built (10.0a-d, ahead of Phase 10). The code is the source and
+these blocks its copy: a change to one is a change to both, and a shape not here is not
+crate API (`CONTRIBUTING.md` "Code style", `pub(crate)` by default). The consumer that
+justifies each `pub` item is the music player ("Playback semantics", "Autopilot") or the
+[music export editor](music_export_editor.md) ("What the editor does", "New capabilities").
+
+**Conditions and instructions**, one variant per table row:
+
+```rust
+pub enum Comparison { Eq, Ne, Lt, Gt, Le, Ge }   // `==` (`=` reads the same), `!=`, `<`, `>`, `<=`, `>=`
+pub enum MatchType { Group, Survival, Ro16, Quarterfinal, Semifinal, Final, ThirdPlace, Boss, Consolation }
+
+pub enum Condition {
+    Goals(Comparison, i32),
+    TeamGoals(Comparison, i32),
+    Lead(Comparison, i32),
+    Every(u32),                  // n > 0
+    Opponent(Vec<String>),       // case-insensitive, no slashes
+    Match(Vec<MatchType>),       // `knockouts` expanded on read
+    Home,
+    Once,
+    First,
+    Comeback,
+    MostGoals(Option<String>),
+    Special(Option<String>),
+    Time(Comparison, u32),
+    Not(Box<Condition>),
+}
+
+pub struct StartOffset { pub millis: u64 }   // `StartOffset::parse(text: &str) -> Option<StartOffset>`;
+                                             // `Display` writes the shortest form that reads back (`0:39.6`)
+pub enum PauseAction { Continue, Restart }
+pub enum EndAction { Stop, Loop }            // `Loop` is the default, kept so the line round-trips
+
+pub enum Instruction {
+    Start(StartOffset),
+    Speed(f64),                                  // any positive finite rate
+    Randomise,
+    Pause { action: PauseAction, every: u32 },   // `every` is 1 when not written
+    End(EndAction),
+    Warcry,
+    Unrandom,
+    Advance,
+    Louder,
+}
+```
+
+Every closed set has `keyword(self) -> &'static str`, its spelling in the file (the editor's
+dropdowns and chips); `Slot::keyword(&self) -> &str` is the reserved word or the player's name,
+what a press names as its `player`. `MatchType::ALL` is the nine types in the cup's order and
+`MatchType::KNOCKOUTS` the five `knockouts` stands for (the editor's Toggle Knockouts). The
+readers (`from_keyword`) are the parser's alone.
+
+**Reading and writing.** The caller owns the file I/O: the parser takes the bytes and the
+file's stem (the team name when the file carries no `name` line), the serializer returns the
+text. A refusal names its line and its defect as a stable kind, for the tools' `messages.rs`;
+a warning is what the reader made up for.
+
+```rust
+pub fn parse(bytes: &[u8], file_stem: &str) -> Result<Parsed, ParseError>;
+pub fn write(export: &MusicExport) -> String;
+
+pub struct Parsed { pub export: MusicExport, pub warnings: Vec<Warning> }
+pub enum Warning { TeamNameMissing, NotUtf8 }
+pub struct ParseError { pub line: usize, pub kind: ParseErrorKind }   // Display: `line {line}: {kind}`
+pub enum ParseErrorKind {
+    EmptyTeamName, SecondTeamName, ReservedWord(String), EmptySlot, EmptyFile, EmptyField,
+    UnclosedBracket, UnknownKeyword(String),
+    MissingArgument { keyword: String, what: &'static str },
+    ExtraArgument { keyword: String, argument: String },
+    InvalidArgument { keyword: String, argument: String },
+    NotOfInstruction(String), SecondEvent, EventOnReservedSlot(String),
+}
+```
+
+**Match state**, plain data owned by the GUI thread (the view and the Match tracker write it,
+the conditions read it):
+
+```rust
+pub enum Side { Home, Away }
+impl Side { pub fn opponent(self) -> Side; }
+
+pub struct TeamState {
+    pub name: String,                  // as the export carries it (lowercase, no slashes)
+    pub score: u32,
+    pub scorers: Vec<(String, u32)>,   // in order of first goal; a name is matched case-insensitively, the first spelling kept
+}
+impl TeamState {
+    pub fn new(name: &str) -> TeamState;                 // no goals
+    pub fn player_goals(&self, player: &str) -> u32;     // 0 when they have not scored
+}
+
+pub struct MatchState {
+    pub home: TeamState,
+    pub away: TeamState,
+    pub match_type: MatchType,
+    pub goal_minute: Option<u32>,      // `None` until prompted or supplied, and after each play
+}
+impl MatchState {
+    pub fn new(home: &str, away: &str, match_type: MatchType) -> MatchState;   // 0-0
+    pub fn team(&self, side: Side) -> &TeamState;
+    pub fn opponent(&self, side: Side) -> &TeamState;
+    pub fn score_goal(&mut self, side: Side, player: &str);
+    pub fn unscore_goal(&mut self, side: Side, player: &str) -> bool;   // false when there is none to take (Undo)
+    pub fn clear_team(&mut self, side: Side);                           // the per-team Reset
+}
+```
+
+**Evaluation**, pure functions of the state:
+
+```rust
+pub enum Verdict { True, False, NeverAgain }   // holds now; not now, maybe later; never again this match (unload)
+
+impl Condition {
+    pub fn eval(&self, state: &MatchState, side: Side, player: &str) -> Verdict;
+    pub fn needs_goal_minute(&self) -> bool;   // a `time`, under `not` included
+}
+impl SongEntry {
+    pub fn eval(&self, state: &MatchState, side: Side, player: &str) -> Verdict;   // AND; `NeverAgain` wins over `False`
+    pub fn needs_goal_minute(&self) -> bool;
+    pub fn is_warcry(&self) -> bool;      // the player's play-to-completion, the editor's Randomise Horns skip list
+    pub fn is_randomise(&self) -> bool;   // the editor's Randomise Horns mixed state
+}
+```
+
+The counts include the goal being scored. `once` is `True` at every evaluation and the
+selection unloads the entry after its first check (a pure evaluation cannot remember one);
+`time` without a minute is `False`; `not` of a `NeverAgain` is `True`, the negation holding
+from then on; `special` is `False`, never auto-played (DECISIONS 2026-10-14).
+
+**Selection**, one list per button:
+
+```rust
+pub struct Loaded { pub entry: SongEntry, /* fallback, checked_once: crate-private */ }
+pub struct PriorityList { /* entries: Vec<Loaded>, shrinking as entries unload */ }
+
+pub struct Press<'a> {
+    pub side: Side,
+    pub player: &'a str,       // the button's slot name: the player, or the reserved keyword
+    pub skip: Option<usize>,   // the entry that just ended (`advance`): its index into `entries()` as the list stood when the press began
+    pub after_warcry: bool,    // a warcry already played for this press: warcries are passed over
+}
+
+impl PriorityList {
+    pub fn for_slot(export: &MusicExport, slot: &Slot) -> PriorityList;
+    pub fn entries(&self) -> &[Loaded];
+    pub fn needs_goal_minute(&self) -> bool;
+    pub fn select(
+        &mut self,
+        state: &MatchState,
+        press: Press<'_>,
+        pick: &mut impl FnMut(usize) -> usize,
+    ) -> Option<usize>;
+}
+```
+
+- `for_slot` builds a button's list at load: the slot's entries, then the `goal` slot's as the
+  fallback when the slot is a player's (reserved slots and `goal` itself get none). A fallback
+  entry evaluates under the name `goal`, so its `goals` counts the default goalhorn button's
+  presses, and it is not the player's for the `randomise` check or pool.
+- `select` walks the list as "Song selection" says and returns an index into `entries()` as it
+  stands after the press's unloads, or `None` for "no song found"; the caller plays
+  `entries()[i].entry`. The random pick is the caller's: `pick(n)` returns an index below `n`
+  (the scenario tests are deterministic, the player passes its RNG). `Press` borrows the
+  button's name for the one call, the crate's one struct lifetime.
+- The list is plain data (`Clone`): the player snapshots it per goal for Undo and rebuilds it
+  from the export for Reset, with no reload.
 
 ---
 
