@@ -2117,3 +2117,5 @@ worklog passed 7,000 lines.
   name holding the same files become one folder every wearer links.
 - **2026-10-18** — 6.4a: portraits, collars and the logo are carried over; the small logo is
   kept only when a distinct drawing, the 40 % line remeasured with the compiler's resampler.
+- **2026-10-18** — 6.4b1: `Common/` carried; an old `.mtl`'s Common game path becomes the bare
+  name plus a `.common` link; other references keep their `.dds` (the compiler restores it only on hits).

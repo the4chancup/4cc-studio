@@ -170,3 +170,128 @@ fn a_portrait_of_other_bytes_in_the_face_folder_is_a_conflict() {
         run.stdout()
     );
 }
+
+/// A `.mtl` of one material holding one sampler per `paths` entry.
+fn mtl(paths: &[&str]) -> Vec<u8> {
+    let samplers: String = paths
+        .iter()
+        .map(|path| {
+            format!("        <sampler name=\"DiffuseMap\" path=\"{path}\" srgb=\"1\" minfilter=\"linear\" magfilter=\"linear\" uaddr=\"clamp\" vaddr=\"clamp\"/>\r\n")
+        })
+        .collect();
+    format!(
+        "<materialset>\r\n    <material name=\"face_phong\" shader=\"Wrinkle_Face\">\r\n{samplers}    </material>\r\n</materialset>\r\n"
+    )
+    .into_bytes()
+}
+
+/// The one `.mtl` output's text.
+fn mtl_text(sandbox: &Sandbox, output: &str) -> String {
+    fs::read_to_string(sandbox.path(output)).unwrap()
+}
+
+// EU-MDL-05
+#[test]
+fn common_references_become_the_bare_name_and_the_link() {
+    let sandbox = Sandbox::new("mdl_common_mtl");
+    sandbox.write("co Spring/Faces/XXX07 - A/face_high_win32.model", b"face");
+    sandbox.write("co Spring/Faces/XXX07 - A/face_srm.dds", b"srm");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face.mtl",
+        &mtl(&[
+            "./face_srm.dds",
+            "model/character/uniform/common/XXX/hair.dds",
+            "model/character/boots/k0002/ek0062_n.dds",
+        ]),
+    );
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/realkit/apc.mtl",
+        &mtl(&["model/character/uniform/common/XXX/hair.dds"]),
+    );
+    sandbox.write("co Spring/Common/hair.dds", b"hair");
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT16");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    // The face folder's own names stay; the Common reference becomes the
+    // bare name plus the link; the other game path is kept as written.
+    let face = mtl_text(&sandbox, "co Full Spring/Players/07 - A/face.mtl");
+    for expected in [
+        "./face_srm.dds",
+        "./hair.dds",
+        "model/character/boots/k0002/ek0062_n.dds",
+    ] {
+        assert!(face.contains(expected), "{expected}: {face}");
+    }
+    let apc = mtl_text(&sandbox, "co Full Spring/Players/07 - A/realkit/apc.mtl");
+    assert!(apc.contains("./hair.dds"), "{apc}");
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/07 - A/hair.dds.common")).unwrap(),
+        b""
+    );
+    assert!(
+        !sandbox
+            .path("co Full Spring/Players/07 - A/realkit/hair.dds.common")
+            .exists()
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Common/hair.dds")).unwrap(),
+        b"hair"
+    );
+}
+
+// EU-MDL-06
+#[test]
+fn a_reference_whose_common_file_is_missing_is_kept_and_warned() {
+    let sandbox = Sandbox::new("mdl_common_missing");
+    sandbox.write("co Spring/Faces/XXX07 - A/face_high_win32.model", b"face");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face.mtl",
+        &mtl(&["model/character/uniform/common/XXX/hair.dds"]),
+    );
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT16");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    let face = mtl_text(&sandbox, "co Full Spring/Players/07 - A/face.mtl");
+    assert!(
+        face.contains("model/character/uniform/common/714/hair.dds"),
+        "{face}"
+    );
+    let stdout = run.stdout();
+    assert!(
+        stdout.contains(
+            "common_reference_kept at Faces/XXX07 - A/face.mtl (reference=model/character/uniform/common/XXX/hair.dds)"
+        ),
+        "{stdout}"
+    );
+}
+
+// EU-REP-02
+#[test]
+fn a_portrait_named_for_a_slot_past_23_is_flagged() {
+    let sandbox = Sandbox::new("rep_portrait_24");
+    sandbox.write("co Kits/Portraits/player_XXX24.dds", b"portrait");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Portraits/player_24.dds")).unwrap(),
+        b"portrait"
+    );
+    let stdout = run.stdout();
+    assert!(
+        stdout.contains("portrait_name_invalid at Portraits/player_24.dds"),
+        "{stdout}"
+    );
+    assert!(stdout.contains("migration_not_clean"), "{stdout}");
+}

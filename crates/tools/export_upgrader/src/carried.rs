@@ -52,7 +52,7 @@ enum LogoRole {
 }
 
 /// The rest of `path` below `top` (its name in any letter case), or `None`.
-fn under<'a>(path: &'a str, top: &str) -> Option<&'a str> {
+pub(crate) fn under<'a>(path: &'a str, top: &str) -> Option<&'a str> {
     let (head, rest) = path.split_once('/')?;
     head.eq_ignore_ascii_case(top).then_some(rest)
 }
@@ -161,31 +161,21 @@ pub(crate) fn carried_files(
             .copies
             .push((file.clone(), format!("Portraits/player_{nn}.dds")));
         carried.consumed.insert(file.clone());
-        let Ok(slot) = nn.parse::<u8>() else {
-            continue;
-        };
+        let slot = nn
+            .parse::<u8>()
+            .expect("the two ASCII digits `portrait_nn` checked always parse");
         let Some(face_file) = face_portraits.get(&slot) else {
             continue;
         };
         let theirs = match read(file) {
             Ok(bytes) => bytes,
-            Err(failure) => {
-                failures
-                    .entry(failure.path.clone())
-                    .or_default()
-                    .push(read_failed(INPUT, failure, Disposition::DropFile));
-                continue;
-            }
+            // A read failure is no conflict; the copy loop's read reports
+            // the file.
+            Err(_) => continue,
         };
         let ours = match read(face_file) {
             Ok(bytes) => bytes,
-            Err(failure) => {
-                failures
-                    .entry(failure.path.clone())
-                    .or_default()
-                    .push(read_failed(INPUT, failure, Disposition::DropFile));
-                continue;
-            }
+            Err(_) => continue,
         };
         if theirs != ours {
             failures.entry(file.clone()).or_default().push(tool_message(
@@ -201,13 +191,16 @@ pub(crate) fn carried_files(
     }
 
     // `Collars/` (step 7): every file below it, at its relative path; the
-    // shared validation judges what it holds.
+    // shared validation judges what it holds. `Common/` is carried the
+    // same way.
     for file in files {
-        if let Some(rest) = under(file, "collars") {
-            carried
-                .copies
-                .push((file.clone(), format!("Collars/{rest}")));
-            carried.consumed.insert(file.clone());
+        for (top, output) in [("collars", "Collars"), ("common", "Common")] {
+            if let Some(rest) = under(file, top) {
+                carried
+                    .copies
+                    .push((file.clone(), format!("{output}/{rest}")));
+                carried.consumed.insert(file.clone());
+            }
         }
     }
 

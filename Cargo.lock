@@ -1392,12 +1392,14 @@ dependencies = [
  "dds_convert",
  "egui",
  "kit_config",
+ "pes_model",
  "pes_savefile",
  "pes_version",
  "studio_core",
  "teams_list",
  "toml",
  "vtree",
+ "wezlib",
  "zip",
 ]
 

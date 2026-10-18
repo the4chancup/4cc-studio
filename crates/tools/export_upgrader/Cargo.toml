@@ -15,12 +15,14 @@ clap.workspace = true
 dds_convert.workspace = true
 egui.workspace = true
 kit_config.workspace = true
+pes_model.workspace = true
 pes_savefile.workspace = true
 pes_version.workspace = true
 studio_core.workspace = true
 teams_list.workspace = true
 toml.workspace = true
 vtree.workspace = true
+wezlib.workspace = true
 
 [dev-dependencies]
 crossbeam-channel.workspace = true

@@ -6,12 +6,14 @@
 //! `view` shows a placeholder line. The migration itself lives in `upgrade`:
 //! the old export is read through `source`, its Note through `note`, the
 //! roster through `roster`, the player folders planned by `players`, the kit
-//! folders by `kits`, the carried folders by `carried`, the output's name
-//! through `naming`, and every finding goes through the `messages` catalog.
+//! folders by `kits`, the carried folders by `carried`, the `.mtl` rewrites
+//! by `materials`, the output's name through `naming`, and every finding
+//! goes through the `messages` catalog.
 
 mod carried;
 mod cli;
 mod kits;
+mod materials;
 mod messages;
 mod naming;
 mod note;

@@ -23,9 +23,10 @@ use studio_core::{
 use teams_list::{TeamId, TeamName, TeamsList};
 use vtree::ScopePath;
 
-use crate::carried::{CarriedFiles, carried_files};
+use crate::carried::{CarriedFiles, carried_files, under};
 use crate::cli::{ABORTED, CLEAN, ERRORS, INVALID, UpgradeArgs};
 use crate::kits::{KitFolders, kit_folders};
+use crate::materials::{MaterialRewrites, material_references};
 use crate::messages::{
     Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, team_name_unknown,
     tool_message,
@@ -456,13 +457,14 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     // content (6.6's); it holds no `Kit Configs`/`Kit Textures` either,
     // which the same fallback reports.
     let files = export.files.clone();
-    let (plan, kits, carried) = match &identity {
+    let (plan, kits, carried, materials) = match &identity {
         Identity::Referees => (
             PlayerFolders::default(),
             KitFolders::default(),
             CarriedFiles::default(),
+            MaterialRewrites::default(),
         ),
-        Identity::Team { .. } => {
+        Identity::Team { id, .. } => {
             let plan = player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
                 match (export.read(a), export.read(b)) {
                     (Ok(a), Ok(b)) => a == b,
@@ -470,6 +472,13 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 }
             });
             let carried = carried_files(&files, &plan.portraits, |path| export.read(path));
+            let common: Vec<String> = files
+                .iter()
+                .filter(|file| under(file, "common").is_some())
+                .cloned()
+                .collect();
+            let materials =
+                material_references(&plan.copies, &common, *id, |path| export.read(path));
             (
                 plan,
                 kit_folders(
@@ -483,6 +492,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                     |path| export.read(path),
                 ),
                 carried,
+                materials,
             )
         }
     };
@@ -491,6 +501,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         .into_iter()
         .chain(kits.findings)
         .chain(carried.findings)
+        .chain(materials.findings)
     {
         if message.code.code.as_ref() == Code::UnmigratedContent.as_str() {
             any_unmigrated = true;
@@ -503,6 +514,10 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         .chain(&kits.copies)
         .chain(&carried.copies)
     {
+        if materials.written.iter().any(|(output, _)| output == to) {
+            // A rewritten `.mtl` replaces its input's copy.
+            continue;
+        }
         match export.read(from) {
             Ok(bytes) => write_output_file(&output, to, &bytes)?,
             Err(failure) => {
@@ -515,6 +530,12 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     }
     for (path, bytes) in &kits.written {
         write_output_file(&output, path, bytes)?;
+    }
+    for (path, bytes) in &materials.written {
+        write_output_file(&output, path, bytes)?;
+    }
+    for link in &materials.links {
+        write_output_file(&output, link, b"")?;
     }
     for marker in &plan.markers {
         write_output_file(&output, marker, b"")?;

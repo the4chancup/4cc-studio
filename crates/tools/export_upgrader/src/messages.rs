@@ -69,6 +69,11 @@ pub(crate) enum Code {
     LogoSmallDropped,
     /// No usable `_r_ll` member: the largest usable one became `logo.png`.
     LogoFallback,
+    /// An `.mtl` reference into the team's `Common/` kept as written but
+    /// its `???`, respelled the team's ID: the file is not in the input's
+    /// `Common/`, a link would clash, or a subfolder `.mtl` names a Common
+    /// subfolder (`reference`, the path as written).
+    CommonReferenceKept,
 }
 
 impl Code {
@@ -90,6 +95,7 @@ impl Code {
             Code::LogoSmallCarried => "logo_small_carried",
             Code::LogoSmallDropped => "logo_small_dropped",
             Code::LogoFallback => "logo_fallback",
+            Code::CommonReferenceKept => "common_reference_kept",
         }
     }
 
@@ -111,6 +117,7 @@ impl Code {
         Code::LogoSmallCarried,
         Code::LogoSmallDropped,
         Code::LogoFallback,
+        Code::CommonReferenceKept,
     ];
 }
 
@@ -137,6 +144,7 @@ const CATALOG: &[(&str, Severity)] = &[
     ("logo_small_carried", Severity::Info),
     ("logo_small_dropped", Severity::Info),
     ("logo_fallback", Severity::Warning),
+    ("common_reference_kept", Severity::Warning),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", Severity::Warning),
     ("nested_root_ambiguous", Severity::Error),

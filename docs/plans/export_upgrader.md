@@ -270,23 +270,27 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    a usable `_r_ll` falls back to the largest usable member, `_r_l` before `_r`, its bytes
    becoming `logo.png`, reported on that file (`logo_fallback`, W), and then has nothing to
    compare the small image against, so no `logo_small.png` is written and the `_r` beside it is
-   dropped. A member that does not decode is unmigrated content, its error in the context. Across migrated model folders, including Common, normalize old `.mtl`
-   texture references to stems as required by the Studio format; emitted game MTLs regain `.dds`
-   extensions at compile time. A reference to the model's own folder (`./face_srm.dds`, a bare
-   name) becomes the bare stem; one into a game directory other than the team's Common
-   (`model/character/boots/k0002/ek0062_n.dds`, in the `/o/` 2024 Spring export's
-   `Dorifto/realkit/apc.mtl`, with no local copy) keeps its directory and loses only the
-   extension, since the Studio format keeps such a directory's meaning ("Stem-based texture
-   references" in `spec/model_format.md`). A reference that pointed into the team's Common folder by game path
+   dropped. A member that does not decode is unmigrated content, its error in the context. `Common/` is carried over, its
+   files as they are save the kit magic below. An old `.mtl`'s texture references mostly stay
+   as written: the Studio format ignores a reference's extension, so a name in the model's own
+   folder (`./face_srm.dds`) already resolves nearest first, and a game directory other than
+   the team's Common (`model/character/boots/k0002/ek0062_n.dds`, in the `/o/` 2024 Spring
+   export's `Dorifto/realkit/apc.mtl`, with no local copy) keeps its meaning ("Stem-based
+   texture references" in `spec/model_format.md`). We do not strip the `.dds`, because the
+   compiler puts it back only on a reference it resolves to a file of the export: a game path
+   written without it would reach the game without it. A reference that pointed into the team's Common folder by game path
    (`model/character/uniform/common/???/hair.dds` in an `.mtl`, the Fox common directory in an FMDL
    path table; `???` is the `XXX` placeholder or a baked-in team ID, as with the kit magic below)
-   cannot simply become the stem `hair` — that would resolve in the player folder and fail — so the
-   upgrader writes the stem **and creates the texture link** `hair.dds.common` at the root of the
+   cannot simply become the bare name `./hair.dds` — that would resolve in the player folder and fail — so the
+   upgrader writes the bare name **and creates the texture link** `hair.dds.common` (the
+   `Common/` file's own name, whose extension the link names) at the root of the
    model's player or shared folder, which is the Studio spelling of the same reference (a link
    stands for the `Common/` file at its own path below that root, so one beside a subfolder's
-   `.mtl` would name a file in a `Common/` subfolder; a bare stem from a subfolder finds the
+   `.mtl` would name a file in a `Common/` subfolder; a bare name from a subfolder finds the
    root's link, nearest first) (see "Link files" in the [Unified model format
-   plan](model_format.md)). A reference into a Common subfolder becomes a path below the
+   plan](model_format.md)). An `.mtl` that does not parse, or names nothing to change, is
+   copied as it is (a broken one is the compile's to report); a rewritten one is written in
+   the reader's layout, wrapped again when it was (step 1). A reference into a Common subfolder becomes a path below the
    model's folder and a link at that path (`common/???/u0???p0/sourceimages/armor_bsm` becomes
    the FMDL texture `./kitN/` `armor_bsm` and the link `kitN/armor_bsm.dds.common` in the
    model's folder, the kit magic below respelled in the folder name as in a file name; a kit
@@ -294,7 +298,12 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    `sourceimages/` level is the compiler's, not the export's: Red inserts it when it places a
    `Common/` subfolder's files, so that reference names the old file `Common/u0XXXp1/armor_bsm.dds`,
    which becomes `Common/kit1/armor_bsm.dds`, where the link resolves. A Common-path
-   reference whose file is not in the input's `Common/` is reported (W: an installed CPK may
+   reference whose file is not in the input's `Common/`, or which no link can spell — the
+   model's folder already holding a texture or link of that stem on the reference's
+   nearest-first way up (the link would conflict with it, `texture_stem_conflict`, or lose to
+   it), or a Common subfolder named from a `.mtl` in a subfolder (the path below that `.mtl`
+   and the link mirroring `Common/` cannot agree) — is reported (`common_reference_kept`, W,
+   on the `.mtl`, the reference as written in the context, `reference`: an installed CPK may
    hold it, so it is no unmigrated content) and left as it was, save
    its `???`, which becomes the resolved team's ID as Red's `path_id_change` respelled it
    (here and for the goalkeeper token below, a referee export's ID is 999, the one Red compiled
@@ -899,9 +908,10 @@ EU-MDL-05  GIVEN a pre-Fox face folder whose .mtl references face_srm.dds, a fil
                 model/character/boots/k0002/ek0062_n.dds, and whose subfolder realkit/ holds a
                 .mtl referencing that Common hair too
            WHEN the export is upgraded
-           THEN the migrated .mtl references face_srm, hair and
-                model/character/boots/k0002/ek0062_n, realkit's references hair, the player
-                folder's root holds the texture link hair.dds.common, and realkit/ holds none
+           THEN the migrated .mtl references ./face_srm.dds and
+                model/character/boots/k0002/ek0062_n.dds as written and ./hair.dds, realkit's
+                references ./hair.dds, the player folder's root holds the texture link
+                hair.dds.common, and realkit/ holds none
 EU-MDL-06  GIVEN a .mtl reference into model/character/uniform/common/XXX/ whose file Common/
                 lacks
            WHEN the export is upgraded
