@@ -39,3 +39,17 @@ them without decoding, so tests write a few bytes under each texture's name inst
   texture in its name field (`u0811p1_back`, `u0811p1_name`), as makers who copy kit 1's config
   for the others leave them, and `4th` is a byte copy of `3rd`, so its main field names kit 3's
   texture (EU-KIT-05, -07).
+
+## `logos/`
+
+Real `Logo/` folders, byte for byte from two exports in Lab, kept under their AET names
+(`emblem_0XXX_r_ll.png` 512², `_r_l` 256², `_r` 128²): the two pairs nearest the small logo's
+40 % line on either side, of the 94 distinct pairs on the maintainer's machine measured with
+`dds_convert::resize` (plan step 7).
+
+- `OMG VGL26/`: from `OMG  Aesthetics Export VGL26`. Its `_r` is a downscale of its `_r_ll`,
+  shifted a little, 4,919 of 16,384 pixels (30.02 %) differing: the worst-scoring downscale
+  (EU-MDL-02).
+- `VRG VGL26/`: from `VRG Aesthetics Export VGL26`. Its `_r` is a different drawing (the
+  team's mascot, where `_r_ll` shows the name over a figure), 8,699 pixels (53.09 %) differing:
+  the closest deliberate variant (EU-MDL-03).

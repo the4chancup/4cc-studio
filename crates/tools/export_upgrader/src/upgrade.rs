@@ -23,6 +23,7 @@ use studio_core::{
 use teams_list::{TeamId, TeamName, TeamsList};
 use vtree::ScopePath;
 
+use crate::carried::{CarriedFiles, carried_files};
 use crate::cli::{ABORTED, CLEAN, ERRORS, INVALID, UpgradeArgs};
 use crate::kits::{KitFolders, kit_folders};
 use crate::messages::{
@@ -449,39 +450,59 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         }
     };
 
-    // Steps 2-4's plan for the face and item folders and step 5's for the
-    // kits: `run`'s findings, then every file copied and written. A referee
-    // export's folders stay unmigrated content (6.6's); it holds no `Kit
-    // Configs`/`Kit Textures` either, which the same fallback reports.
+    // Steps 2-4's plan for the face and item folders, step 5's for the kits
+    // and step 7's for the carried folders: `run`'s findings, then every
+    // file copied and written. A referee export's folders stay unmigrated
+    // content (6.6's); it holds no `Kit Configs`/`Kit Textures` either,
+    // which the same fallback reports.
     let files = export.files.clone();
-    let (plan, kits) = match &identity {
-        Identity::Referees => (PlayerFolders::default(), KitFolders::default()),
-        Identity::Team { .. } => (
-            player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
+    let (plan, kits, carried) = match &identity {
+        Identity::Referees => (
+            PlayerFolders::default(),
+            KitFolders::default(),
+            CarriedFiles::default(),
+        ),
+        Identity::Team { .. } => {
+            let plan = player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
                 match (export.read(a), export.read(b)) {
                     (Ok(a), Ok(b)) => a == b,
                     _ => false,
                 }
-            }),
-            kit_folders(
-                &files,
-                version,
-                note_path.as_deref().zip(note_text.as_deref()),
-                matches!(
-                    aesthetics_export::coverage(&output_name),
-                    Some(aesthetics_export::ExportCoverage::Full)
+            });
+            let carried = carried_files(&files, &plan.portraits, |path| export.read(path));
+            (
+                plan,
+                kit_folders(
+                    &files,
+                    version,
+                    note_path.as_deref().zip(note_text.as_deref()),
+                    matches!(
+                        aesthetics_export::coverage(&output_name),
+                        Some(aesthetics_export::ExportCoverage::Full)
+                    ),
+                    |path| export.read(path),
                 ),
-                |path| export.read(path),
-            ),
-        ),
+                carried,
+            )
+        }
     };
-    for message in plan.findings.into_iter().chain(kits.findings) {
+    for message in plan
+        .findings
+        .into_iter()
+        .chain(kits.findings)
+        .chain(carried.findings)
+    {
         if message.code.code.as_ref() == Code::UnmigratedContent.as_str() {
             any_unmigrated = true;
         }
         events.message(message);
     }
-    for (from, to) in plan.copies.iter().chain(&kits.copies) {
+    for (from, to) in plan
+        .copies
+        .iter()
+        .chain(&kits.copies)
+        .chain(&carried.copies)
+    {
         match export.read(from) {
             Ok(bytes) => write_output_file(&output, to, &bytes)?,
             Err(failure) => {
@@ -506,7 +527,10 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         if !invocation.referees && note_path.as_deref() == Some(file.as_str()) {
             continue;
         }
-        if plan.consumed.contains(file) || kits.consumed.contains(file) {
+        if plan.consumed.contains(file)
+            || kits.consumed.contains(file)
+            || carried.consumed.contains(file)
+        {
             continue;
         }
         any_unmigrated = true;

@@ -34,6 +34,9 @@ pub(crate) struct PlayerFolders {
     pub(crate) consumed: BTreeSet<String>,
     /// The findings on the input, in input-path order.
     pub(crate) findings: Vec<Message>,
+    /// Each slot's face-folder portrait: slot (1-23) → its input path, for
+    /// step 7's comparison with `Portraits/`.
+    pub(crate) portraits: BTreeMap<u8, String>,
 }
 
 /// The slot a face folder's name gives: characters 4-5, after any three
@@ -341,6 +344,7 @@ fn face_folders(
                 player
                     .files
                     .insert("portrait.dds".to_owned(), (*file).clone());
+                plan.portraits.insert(nn, (*file).clone());
             }
             many => {
                 // One too many: each is reported and left in the folder as
@@ -791,6 +795,12 @@ mod tests {
             "Faces/XXX15 - A/x_portrait.dds".to_owned(),
             "Players/15 - A/portrait.dds".to_owned()
         )));
+        // Step 7's comparison map: the renamed portrait alone gives an
+        // entry; two portraits as named give none.
+        assert_eq!(
+            plan.portraits.get(&15),
+            Some(&"Faces/XXX15 - A/x_portrait.dds".to_owned())
+        );
         let list = files(&[
             "Faces/XXX16 - A/portrait.dds",
             "Faces/XXX16 - A/alt_portrait.dds",
@@ -812,6 +822,7 @@ mod tests {
                 .iter()
                 .any(|(_, to)| to == "Players/16 - A/alt_portrait.dds")
         );
+        assert!(!plan.portraits.contains_key(&16));
     }
 
     #[test]

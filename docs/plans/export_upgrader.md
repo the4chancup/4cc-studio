@@ -233,34 +233,44 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    whatever stands between, so `player_736917.dds`, in four real `/o/` exports, is slot 17's); it is renamed `player_NN.dds`, the only name the
    compiler accepts (`portrait_name_invalid`), and one already named so keeps its name. A slot
    with a portrait here and a different one in its face folder is kept both ways, and the
-   upgrader compares the two files' bytes and reports `portrait_conflict` (E, exit 1), as Red
+   upgrader compares the two files' bytes and reports `portrait_conflict` (E, exit 1; on the
+   `Portraits/` file, the slot in the context, `slot`; both files stay where they are), as Red
    refused the export: the compiler's comparison belongs to its deep pass
    (`spec/aesthetics_export/object_model.md`), which the structural validation the upgrader
    runs does not include, so without its own the upgrade would report clean an export no
    compile accepts. The Logo
-   folder becomes the Studio root files: the old `_r_ll` (512²)
-   image becomes root `logo.png`; the old `_r` (128²) image becomes root `logo_small.png` **only
+   folder becomes the Studio root files. Its members are the files directly in it whose names end,
+   in any case, in `_r_ll.png`, `_r_l.png` or `_r.png` (the AET page's `emblem_0XXX_r_ll.png`; 148
+   of the 149 such folders on the maintainer's machine hold exactly those three, the other a
+   `Thumbs.db` beside them, an OS artifact the listing skips); any other file, and a second member of one role, is unmigrated
+   content (step 10). A member is usable when it decodes as a PNG. The old `_r_ll` (512²)
+   image becomes root `logo.png`, its bytes as they are; the old `_r` (128²) image becomes root `logo_small.png` **only
    when it is clearly a different picture** — most old small logos are plain downscales, which the
    compiler now regenerates, but some are deliberate menu variants (simplified, joke), and the
    upgrader must tell the two apart rather than always carry or always drop. The test: downscale
-   `_r_ll` to 128² the way the compiler does (Lanczos3, alpha preserved), resample the old `_r` to
-   128² too if it is not already, and compare the two pixel by pixel over RGBA. A pixel *differs*
+   `_r_ll` to 128² with the suite's one resampler, the compiler's (`dds_convert::resize`:
+   Lanczos3, straight alpha), resample the old `_r` to 128² too if it is not already, and compare
+   the two pixel by pixel over RGBA. A pixel *differs*
    when any channel differs by more than 32 (of 255); two pixels that are both fully transparent
    are equal whatever their color channels hold (authors leave garbage behind alpha 0). The small
    image is a distinct variant, and is carried, when **more than 40 % of pixels differ**
-   (`LOGO_SMALL_DISTINCT_SHARE`); below that it is a downscale and is dropped. The number comes
-   from measuring the 52 distinct `Logo/` pairs in the maintainer's export library: the 45
-   downscales score 0–29 % — far above codec noise, because authors downscaled with
-   nearest-neighbor or sharpening kernels and cut alpha edges differently, which the channel
-   tolerance does not absorb — and the 7 deliberate variants score 63–97 %, every one a wholly
-   different drawing rather than a simplified crest. 40 % sits in the empty band, nearer the
-   downscale side, so the mistake still possible is the harmless one (a redundant file the user
-   deletes), not a lost drawing. Both outcomes are reported with the measured share
-   (`logo_small_carried`, `logo_small_dropped`; both I), so a wrong call is one look at the report
+   (`LOGO_SMALL_DISTINCT_SHARE`); at or below that it is a downscale and is dropped. The number comes
+   from measuring the 94 distinct `Logo/` pairs on the maintainer's machine with that resampler
+   (`.tmp/6_4/logo_share/`): the 77 downscales score 0–30 % — far above codec noise, because authors downscaled with
+   nearest-neighbor or sharpening kernels, shifted or cut alpha edges differently, which the channel
+   tolerance does not absorb — and the 17 deliberate variants score 53–97 %: a different
+   drawing, a recolored crest (`/pmmm/` VGL26), a crop (`/tf2g/` VGL26). 40 % sits in the empty
+   band, so neither mistake has a real pair behind it, and the one nearer (a redundant file the
+   user deletes) is the harmless one, not a lost drawing. Both outcomes are reported on the
+   `_r` file with the measured share, rounded to a whole percent (`share`, `30%`)
+   (`logo_small_carried`, `logo_small_dropped`; both I, and neither drops anything the compile
+   would miss), so a wrong call is one look at the report
    away from being fixed by hand: the old file is still in the source export. The `_r_l` (256²)
    file is dropped beside a usable `_r_ll` — the compiler regenerates it. A folder without
-   a usable `_r_ll` falls back to the largest member present, reported (`logo_fallback`, W), and then has nothing to
-   compare the small image against, so no `logo_small.png` is written. Across migrated model folders, including Common, normalize old `.mtl`
+   a usable `_r_ll` falls back to the largest usable member, `_r_l` before `_r`, its bytes
+   becoming `logo.png`, reported on that file (`logo_fallback`, W), and then has nothing to
+   compare the small image against, so no `logo_small.png` is written and the `_r` beside it is
+   dropped. A member that does not decode is unmigrated content, its error in the context. Across migrated model folders, including Common, normalize old `.mtl`
    texture references to stems as required by the Studio format; emitted game MTLs regain `.dds`
    extensions at compile time. A reference to the model's own folder (`./face_srm.dds`, a bare
    name) becomes the bare stem; one into a game directory other than the team's Common
@@ -606,7 +616,9 @@ output is judged as its first compile will judge it.
 Uses `aesthetics_export` (the Studio format's object model, conventions, and validation — the upgrader builds
 and verifies its output with the same crate the compiler consumes it with), `pes_savefile` (savefile
 reading, TOML generation), `archives` (old export loading), `vtree`, `kit_config` (binary → TOML kit
-config conversion), and the format lib crates for content inspection. Old-format knowledge stays in
+config conversion), `dds_convert` (the logo comparison's decoding and resampling, step 7, the
+compiler's own resampler so the test judges what the compile would regenerate), and the format
+lib crates for content inspection. Old-format knowledge stays in
 this tool. The structural migration (steps 1–12) does no model-format conversion, but does rewrite
 text metadata, kit configs, and legacy MTL texture references. The optional glTF conversion (step 13)
 uses `model_convert`'s `ir_to_gltf` path. The crate remains a build dependency; the runtime
@@ -636,9 +648,9 @@ whose Red block starts mid-range (lowest folder 0128 → block 126, 0128 → pla
 reported); and team identity — an export whose Note `Team:` line differs from its folder name
 resolves from the Note (e.g. a folder "Numbers" whose Note names `/co/`), one without any Note falls back to the first-word
 key; and the logo comparison — the two real pairs closest to the 40 % line from the survey behind
-step 7: the worst-scoring downscale (`/aceg/` VGL26, a nearest-neighbor `_r` at 29 %) asserting no
-`logo_small.png` and `logo_small_dropped`, and the closest deliberate variant (`/fgog/` VGLX
-Friendlies, 63 %) asserting `logo_small.png` and `logo_small_carried`. Real files, not synthesized
+step 7: the worst-scoring downscale (`/omg/` VGL26, a shifted `_r` at 30 %) asserting no
+`logo_small.png` and `logo_small_dropped`, and the closest deliberate variant (`/vrg/` VGL26, a
+different drawing at 53 %) asserting `logo_small.png` and `logo_small_carried`. Real files, not synthesized
 ones, so the threshold is checked against what authors actually shipped; the asserted shares are
 the measured ones, so a change to the resampler or the tolerance shows up as a failing number.
 
@@ -869,15 +881,15 @@ EU-MDL-01  GIVEN Portraits/player_XXX05.dds, player_71407.dds and player_09.dds,
            WHEN the export is upgraded
            THEN Portraits/ holds player_05.dds, player_07.dds and player_09.dds, and Collars/
                 holds the old folder's files
-EU-MDL-02  GIVEN the Logo folder of /aceg/'s VGL26 export, whose _r is a downscale of its _r_ll
-                with 29 % of pixels differing
+EU-MDL-02  GIVEN the Logo folder of /omg/'s VGL26 export, whose _r is a downscale of its _r_ll
+                with 30 % of pixels differing
            WHEN the export is upgraded
            THEN the root logo.png is its _r_ll image, the output holds no logo_small.png and no
-                _r_l image, and logo_small_dropped is reported with the share 29 %
-EU-MDL-03  GIVEN the Logo folder of /fgog/'s VGLX Friendlies export, 63 % of pixels differing
+                _r_l image, and logo_small_dropped is reported with the share 30 %
+EU-MDL-03  GIVEN the Logo folder of /vrg/'s VGL26 export, 53 % of pixels differing
            WHEN the export is upgraded
            THEN the root holds logo.png and logo_small.png, its _r image, and logo_small_carried
-                is reported with the share 63 %
+                is reported with the share 53 %
 EU-MDL-04  GIVEN a Logo folder holding _r_l and _r images and no _r_ll
            WHEN the export is upgraded
            THEN logo.png is the _r_l image, logo_fallback is reported naming it, no

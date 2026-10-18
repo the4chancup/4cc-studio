@@ -13,9 +13,9 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): 6.3a (kit configs and textures, with the fixes of review
-rounds S4b and A1, the last ones on 6.1-6.2), then a SWE-2 loop on those fixes, then 6.3b
-(the Note's kit entries) and 6.3c (copy and hoist). 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): 6.4b (`.mtl`/`face.xml` references, Common carried and
+its links, the kit magic), then 6.4c (FMDL path tables) and 6.4d (pre-Fox renames); 6.4a's
+SWE-2 review round runs beside 6.4b. 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -539,12 +539,20 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     every field naming another texture"), its test on MGGG VGL26's configs. Done 2026-10-18:
     every EU-KIT scenario proven; mutation diff clean; also round 6.3.S1's fixes. Review of 6.3
     and 6.2c: SWE-2 6.3.S1 5 accepted, 6.3.S2 3; Astra 6.3.K-A1 3 (a Full export's empty
-    kits blocking the hoist, EU-PLY-10's sweep reading nothing, EU-PLY-12 missing), fixed.
-    Open: the SWE-2 round on those fixes (6.3.S3); files:
+    kits blocking the hoist, EU-PLY-10's sweep reading nothing, EU-PLY-12 missing), fixed;
+    SWE-2 6.3.S3 on those fixes 1 (two stale comments), both loops ended; files:
     `export_upgrader/src/{kits,messages,upgrade}.rs`, `tests/cli/{kits,cli}.rs`
-- [ ] 6.4 models, portraits, logo and Common (step 7), as ordered slices: (a) portraits and the
-  logo; (b) `.mtl`/`face.xml` references, Common links and the kit magic; (c) FMDL path tables;
-  (d) pre-Fox renames → verify: EU-MDL-*
+- [ ] 6.4 models, portraits, logo and Common (step 7), as ordered slices → verify: EU-MDL-*
+  - [x] 6.4a portraits, collars and the logo → verify: EU-MDL-01 to -04, -15. Done 2026-10-18:
+    5 EU-MDL scenarios proven; the 40 % logo line remeasured with `dds_convert::resize` over
+    the 94 distinct real pairs (downscales 0-30 %, variants 53-97 %; `.tmp/6_4/logo_share/`),
+    the scenarios' pairs now `/omg/` and `/vrg/` VGL26 (fixtures `logos/`; DECISIONS
+    2026-10-18 "the logo rule remeasured…"); `dds_convert` a dependency; mutation diff 2
+    survivors, a no-op 128² shortcut, removed; files: `export_upgrader/src/{carried,players,
+    upgrade,messages,lib,kits}.rs`, `tests/cli/carried.rs`, `Cargo.toml`
+  - [ ] 6.4b `.mtl`/`face.xml` references, Common carried and its links, the kit magic
+  - [ ] 6.4c FMDL path tables
+  - [ ] 6.4d pre-Fox renames
 - [ ] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
   EU-SET-*
 - [ ] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*

@@ -1389,6 +1389,7 @@ dependencies = [
  "archives",
  "clap",
  "crossbeam-channel",
+ "dds_convert",
  "egui",
  "kit_config",
  "pes_savefile",

@@ -58,6 +58,17 @@ pub(crate) enum Code {
     /// A texture every kit folder held byte-identically: it moved to
     /// `Kits/all/` (`stem`, the first kit's spelling).
     KitTextureHoisted,
+    /// A `Portraits/` file and its slot's face-folder portrait differ in
+    /// bytes: the compiler's deep pass would refuse the export (`slot`).
+    PortraitConflict,
+    /// The old `_r` small logo is a different drawing, kept as
+    /// `logo_small.png` (`share`, the differing pixels' percentage).
+    LogoSmallCarried,
+    /// The old `_r` small logo is a downscale of the large one, dropped:
+    /// the compiler regenerates it (`share`).
+    LogoSmallDropped,
+    /// No usable `_r_ll` member: the largest usable one became `logo.png`.
+    LogoFallback,
 }
 
 impl Code {
@@ -75,6 +86,10 @@ impl Code {
             Code::ConfigWithoutKitEntry => "config_without_kit_entry",
             Code::KitTextureCopied => "kit_texture_copied",
             Code::KitTextureHoisted => "kit_texture_hoisted",
+            Code::PortraitConflict => "portrait_conflict",
+            Code::LogoSmallCarried => "logo_small_carried",
+            Code::LogoSmallDropped => "logo_small_dropped",
+            Code::LogoFallback => "logo_fallback",
         }
     }
 
@@ -92,6 +107,10 @@ impl Code {
         Code::ConfigWithoutKitEntry,
         Code::KitTextureCopied,
         Code::KitTextureHoisted,
+        Code::PortraitConflict,
+        Code::LogoSmallCarried,
+        Code::LogoSmallDropped,
+        Code::LogoFallback,
     ];
 }
 
@@ -114,6 +133,10 @@ const CATALOG: &[(&str, Severity)] = &[
     ("config_without_kit_entry", Severity::Warning),
     ("kit_texture_copied", Severity::Info),
     ("kit_texture_hoisted", Severity::Info),
+    ("portrait_conflict", Severity::Error),
+    ("logo_small_carried", Severity::Info),
+    ("logo_small_dropped", Severity::Info),
+    ("logo_fallback", Severity::Warning),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", Severity::Warning),
     ("nested_root_ambiguous", Severity::Error),

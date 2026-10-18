@@ -154,11 +154,12 @@ struct Decided<'a> {
 
 /// What step 5 makes of `files`' `Kit Configs/` and `Kit Textures/` and the
 /// Note's kit entries (`note` the Note's path and text, `None` without one;
-/// `full` whether the output is a Full export, which gains the empty `p1`
-/// and `g1` for the `all/` hoist): every config decoded and converted to
-/// its kit folder's `config.toml`, every texture of a decided kit copied
-/// under the generic name, each kit entry's colors and icon written beside
-/// it, then the copy and the hoist.
+/// `full` whether the output is a Full export, which gains an empty `p1`
+/// for the `all/` hoist when no player kit is written and an empty `g1`
+/// when no `g1` is): every config decoded and converted to its kit folder's
+/// `config.toml`, every texture of a decided kit copied under the generic
+/// name, each kit entry's colors and icon written beside it, then the copy
+/// and the hoist.
 pub(crate) fn kit_folders(
     files: &[String],
     version: PesVersion,
@@ -464,10 +465,11 @@ pub(crate) fn kit_folders(
     }
 
     // The hoist (step 5): with two kit folders or more — every slot the plan
-    // writes into, plus the empty `p1` and `g1` a Full export gains — a
-    // texture every kit folder holds with byte-identical contents moves to
-    // `Kits/all/` under the first kit's spelling, its per-kit copies dropped
-    // from the plan.
+    // writes into, plus the empty `p1` a Full export gains when no player
+    // kit is written and the empty `g1` when no `g1` is — a texture every
+    // kit folder holds with byte-identical contents moves to `Kits/all/`
+    // under the first kit's spelling, its per-kit copies dropped from the
+    // plan.
     let mut kits: BTreeSet<KitSlot> = BTreeSet::new();
     for output in folders
         .written

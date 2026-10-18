@@ -2115,3 +2115,5 @@ worklog passed 7,000 lines.
   move to `Kits/all/`; 6.3 done, every EU-KIT scenario proven.
 - **2026-10-18** — 6.2c (the maintainer's ruling): two shared boots or gloves folders of one
   name holding the same files become one folder every wearer links.
+- **2026-10-18** — 6.4a: portraits, collars and the logo are carried over; the small logo is
+  kept only when a distinct drawing, the 40 % line remeasured with the compiler's resampler.

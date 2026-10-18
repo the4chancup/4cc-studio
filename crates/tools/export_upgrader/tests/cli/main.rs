@@ -6,6 +6,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod carried;
 mod cli;
 mod input;
 mod kits;

@@ -12,6 +12,7 @@ aesthetics_export.workspace = true
 anyhow.workspace = true
 archives.workspace = true
 clap.workspace = true
+dds_convert.workspace = true
 egui.workspace = true
 kit_config.workspace = true
 pes_savefile.workspace = true
