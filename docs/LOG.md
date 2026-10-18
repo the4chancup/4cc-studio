@@ -2129,3 +2129,5 @@ worklog passed 7,000 lines.
   `Kit1`; the compiler now refuses a member FMDL's bare `./` texture found nowhere.
 - **2026-10-18** — 6.5: each migrated player folder gets its `settings.toml` from the save record;
   a value no key can hold is left out and reported, a missing custom model reported.
+- **2026-10-18** — Astra on 6.5: a face-type cap no game measured is the field's bits, so a
+  compile keeps a real PES 18 player's cheek type 5 (the conversion and Team TOML import too).

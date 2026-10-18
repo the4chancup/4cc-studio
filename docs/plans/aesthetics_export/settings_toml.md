@@ -34,14 +34,12 @@ generation skips that player with a note; the face-editor route restores his id 
 generating. The Export upgrader generates from the record all the same: for a team the
 compiler has never compiled, the record still is the look its rows were seeded from (its step 8).
 
-A version's range that no game measured (the PES 17 and 18 face caps, which the spec's range
-paragraph assumes equal to PES 16's, PES 19's caps other than its cheek and forehead types, and
-the in-game hair ranges of PES 16 to 20, assumed from PES 21's)
-is its field's bits, not the assumed range, for generation and for the compiler's per-version
-narrowing alike; a measured range stays as it is. Real saves hold values past the assumed
-ranges (79 players of the PES 18 fixture save, `cheek_type` 4 or 5 among them, within PES 19's
-measured range; found at step 5.1b), so the assumption would refuse their generation and reset
-their compile to the default, losing a look the game shows. The spec's range paragraph lists
-which ranges are unmeasured; the key's comment is unchanged.
+The in-game hair ranges of PES 16 to 20, which no game measured, are assumed from PES 21's: the
+spec's rule for an unmeasured range (its field's bits, for generation and the compiler's
+narrowing alike, built for the face types: `spec/pes_savefile/operations.md` "Cross-version
+player conversion") applies to them too. They have no per-version table yet, every version
+sharing PES 21's measured range, and no real save holds a hair value past it (the fixture
+saves' round trip, `every_fixture_player_round_trips_through_his_settings`), so the table is
+built when such a value is found.
 
 ---

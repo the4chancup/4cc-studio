@@ -5,14 +5,14 @@
 
 use super::*;
 
-/// PES 18's facial-hair cap is 12; a parsed 15 (inside the widest 29)
-/// narrows to the face type's default 0 and reports the dotted key, the
+/// PES 16's measured facial-hair cap is 12; a parsed 15 (inside the widest
+/// 31) narrows to the face type's default 0 and reports the dotted key, the
 /// written 15 and the target's "0 to 12".
 #[test]
 fn a_face_type_over_the_target_s_cap_resets_to_0_and_reports() {
     let mut settings = PlayerSettings::parse("[appearance.face]\nfacial_hair_type = 15\n")
         .expect("inside the widest range");
-    let narrowed = settings.narrow_to(PesVersion::Pes18);
+    let narrowed = settings.narrow_to(PesVersion::Pes16);
     assert_eq!(
         narrowed,
         [NarrowedValue {
@@ -22,6 +22,36 @@ fn a_face_type_over_the_target_s_cap_resets_to_0_and_reports() {
         }]
     );
     assert_eq!(settings.get(SettingKey::FacialHairType), Some(0));
+}
+
+/// An unmeasured cap is the field's bits: a stored cheek_type 5 is kept on
+/// PES 18 (its column no game measured) and on PES 19 (cheek measured 0 to
+/// 5), and narrows on PES 16 (measured 0 to 3).
+#[test]
+fn an_unmeasured_cap_is_the_fields_bits() {
+    for (version, narrowed) in [
+        (PesVersion::Pes18, false),
+        (PesVersion::Pes19, false),
+        (PesVersion::Pes16, true),
+    ] {
+        let mut settings = PlayerSettings::parse("[appearance.face]\ncheek_type = 5\n")
+            .expect("inside the widest range");
+        if narrowed {
+            assert_eq!(
+                settings.narrow_to(version),
+                [NarrowedValue {
+                    key: "appearance.face.cheek_type".to_string(),
+                    value: 5,
+                    range: "0 to 3".to_string(),
+                }],
+                "{version:?}"
+            );
+            assert_eq!(settings.get(SettingKey::CheekType), Some(0), "{version:?}");
+        } else {
+            assert_eq!(settings.narrow_to(version), [], "{version:?}");
+            assert_eq!(settings.get(SettingKey::CheekType), Some(5), "{version:?}");
+        }
+    }
 }
 
 /// A one-based motion past the target's top resets to the template's value

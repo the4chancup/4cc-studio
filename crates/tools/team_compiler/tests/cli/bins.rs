@@ -1565,7 +1565,7 @@ fn a_midcup_export_holding_only_a_settings_toml_writes_the_tables() {
 #[test]
 fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
     let toml = "[appearance.motion]\nhunching_dribbling = 5\ndribbling = 2\n\
-        [appearance.face]\nfacial_hair_type = 15\n\
+        [appearance.face]\nfacial_hair_type = 20\n\
         [appearance.hair]\nstyle = 4\ncolor_red = 40\n";
     for (number, version) in [(18u8, PesVersion::Pes18), (21, PesVersion::Pes21)] {
         let sandbox = Sandbox::new(&format!("bins_ranges_{number}"));
@@ -1588,31 +1588,33 @@ fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
         let lines = run.messages();
         assert_eq!(run.exit_code(), 0, "{number}: {lines:#?}");
         if version == PesVersion::Pes18 {
-            for (key, value, range) in [
-                ("appearance.motion.hunching_dribbling", "5", "1 to 3"),
-                ("appearance.face.facial_hair_type", "15", "0 to 12"),
-            ] {
-                let expected = format!(
-                    "{export}: Warning settings_value_out_of_range [Keep] at Players/05 - A \
-                     (key={key}, value={value}, range={range})"
-                );
-                assert!(lines.contains(&expected), "{lines:#?}");
-            }
+            let expected = format!(
+                "{export}: Warning settings_value_out_of_range [Keep] at Players/05 - A \
+                 (key=appearance.motion.hunching_dribbling, value=5, range=1 to 3)"
+            );
+            assert!(lines.contains(&expected), "{lines:#?}");
             // `dribbling` is a PES 20 and 21 key: dropped on PES 18, no finding names it.
-            assert!(
-                !lines
-                    .iter()
-                    .any(|line| line.contains("key=appearance.motion.dribbling")),
-                "{lines:#?}"
-            );
+            // PES 18's facial-hair cap is unmeasured, the field's bits:
+            // the authored 20 is inside it, so no finding names it either.
+            for key in [
+                "appearance.motion.dribbling",
+                "appearance.face.facial_hair_type",
+            ] {
+                assert!(
+                    !lines
+                        .iter()
+                        .any(|line| line.contains(&format!("key={key}"))),
+                    "{key} in {lines:#?}"
+                );
+            }
         } else {
-            // PES 21 takes every authored value: nothing is out of range.
-            assert!(
-                !lines
-                    .iter()
-                    .any(|line| line.contains("settings_value_out_of_range")),
-                "{lines:#?}"
+            // PES 21's measured facial-hair cap is 19: the authored 20 is
+            // the only out-of-range value.
+            let expected = format!(
+                "{export}: Warning settings_value_out_of_range [Keep] at Players/05 - A \
+                 (key=appearance.face.facial_hair_type, value=20, range=0 to 19)"
             );
+            assert!(lines.contains(&expected), "{lines:#?}");
         }
         let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
         let table = AppearanceTable::read(
@@ -1621,17 +1623,16 @@ fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
         )
         .unwrap();
         // The row is the export's settings narrowed to the target: on PES 18
-        // the facial hair type is back at its 0 default and the hunching at
-        // the template's 1; on PES 21 it is as authored.
+        // the hunching is back at the template's 1 and the facial hair kept
+        // at its authored 20 (the unmeasured cap is the field's bits); on
+        // PES 21's measured cap the facial hair narrows to its 0 default.
         let mut expected = PlayerSettings::parse(toml).unwrap();
         expected.narrow_to(version);
-        if version == PesVersion::Pes18 {
-            assert_eq!(
-                expected.get(SettingKey::FacialHairType),
-                Some(0),
-                "the reset facial hair type"
-            );
-        }
+        assert_eq!(
+            expected.get(SettingKey::FacialHairType),
+            Some(if version == PesVersion::Pes18 { 20 } else { 0 }),
+            "{number}: the facial hair type"
+        );
         assert_eq!(
             table.get(71405).copied(),
             Some(

@@ -253,20 +253,18 @@ fn a_pes21_document_on_a_pes19_target_notes_and_caps() {
     let refs: Vec<&PlayerEntry> = file21.players().iter().collect();
     let mut doc = TeamToml::from_team(PesVersion::Pes21, team21, &refs).expect("from_team");
 
-    // Push the first player's facial hair type to the PES 21 cap so it
-    // resets to 0 under the tighter PES 19 cap.
-    let cap21 =
-        face_type_cap(PesVersion::Pes21, IngameFaceField::FacialHairType).expect("a PES 21 cap");
+    // Push the first player's facial hair type past the PES 19 cap — the
+    // field's bits, an unmeasured column — so it resets to 0 there.
     let cap19 =
         face_type_cap(PesVersion::Pes19, IngameFaceField::FacialHairType).expect("a PES 19 cap");
-    assert!(cap21 > cap19, "the test needs the 21 cap above the 19 cap");
+    let over = cap19 + 1;
     doc.players
         .values_mut()
         .next()
         .expect("a player")
         .appearance
         .face
-        .facial_hair_type = Some(cap21);
+        .facial_hair_type = Some(over);
 
     let team19 = file19
         .teams()
@@ -311,7 +309,7 @@ fn a_pes21_document_on_a_pes19_target_notes_and_caps() {
             note,
             ImportNote::Capped { path, from, to }
                 if path.ends_with(".appearance.face.facial_hair_type")
-                    && *from == cap21
+                    && *from == over
                     && *to == 0
         )),
         "a Capped note for facial_hair_type, reset to 0: {notes:?}"
@@ -650,12 +648,13 @@ fn malformed_player_keys_are_errors() {
     );
 }
 
-/// The stored-ranges deviation, kept deliberate: a stored face type past
-/// every version's editor cap rides the document unchanged (and
-/// `settings.toml`'s strict `from_player` still refuses it). Facial hair
-/// type 31: its 5 bits hold it, PES 15's cap of 29, the widest, does not.
+/// The stored-ranges deviation, kept deliberate: a stored value past every
+/// version's editor cap rides the document unchanged (and `settings.toml`'s
+/// strict `from_player` still refuses it). `goal_celebration_2` 200: its 8
+/// bits hold it, the widest range of 162 does not (a face type's range is
+/// its field's bits now, so the bump is a motion's).
 #[test]
-fn a_face_type_above_the_editor_cap_round_trips() {
+fn a_stored_value_above_the_widest_range_round_trips() {
     use crate::settings_toml::{PlayerSettings, SettingsError};
 
     let (file, _) = open(PesVersion::Pes15);
@@ -666,11 +665,7 @@ fn a_face_type_above_the_editor_cap_round_trips() {
         .iter_mut()
         .find(|p| p.id == id)
         .expect("the rostered player");
-    player
-        .appearance
-        .ingame_face
-        .set(IngameFaceField::FacialHairType, 31)
-        .expect("fits the field");
+    player.motion.goal_celebration_2 = 200;
     let player = player.clone();
 
     // settings.toml's contract is intact: it refuses the same player.
@@ -800,8 +795,11 @@ fn a_skill_the_source_version_lacks_is_left_untouched() {
 /// (2.17f's rule — never a clamp); a value at the cap is not capped.
 #[test]
 fn a_face_type_over_the_cap_resets_and_at_the_cap_is_untouched() {
-    // Facial hair: capped at 12 on PES 15-19, at 19 on 20/21.
+    // Facial hair's PES 19 cap is the field's bits, an unmeasured column:
+    // the over-cap value is a document-side stored 32, the at-cap one 31.
     let (file, _) = open(PesVersion::Pes19);
+    let cap =
+        face_type_cap(PesVersion::Pes19, IngameFaceField::FacialHairType).expect("a PES 19 cap");
     let (team, slot) = first_slot(&file);
     let id = team.roster[slot].player_id;
     let face_value = |players: &[PlayerEntry]| {
@@ -828,7 +826,7 @@ fn a_face_type_over_the_cap_resets_and_at_the_cap_is_untouched() {
     };
 
     let mut section = PlayerSection::default();
-    section.appearance.face.facial_hair_type = Some(15);
+    section.appearance.face.facial_hair_type = Some(cap + 1);
     let mut target = team.clone();
     let mut players = file.players().to_vec();
     set_face(&mut players);
@@ -839,14 +837,14 @@ fn a_face_type_over_the_cap_resets_and_at_the_cap_is_untouched() {
         notes,
         vec![ImportNote::Capped {
             path: format!("players.{:02}.appearance.face.facial_hair_type", slot + 1),
-            from: 15,
+            from: cap + 1,
             to: 0,
         }]
     );
     assert_eq!(face_value(&players), 0);
 
     let mut section = PlayerSection::default();
-    section.appearance.face.facial_hair_type = Some(12);
+    section.appearance.face.facial_hair_type = Some(cap);
     let mut target = team.clone();
     let mut players = file.players().to_vec();
     set_face(&mut players);
@@ -854,7 +852,7 @@ fn a_face_type_over_the_cap_resets_and_at_the_cap_is_untouched() {
         .apply(PesVersion::Pes19, &mut target, &mut players)
         .expect("applies");
     assert!(notes.is_empty(), "{notes:?}");
-    assert_eq!(face_value(&players), 12);
+    assert_eq!(face_value(&players), cap);
 }
 
 /// Skin 7 resets to 1 with a `Capped` note where the target has no
@@ -1690,9 +1688,9 @@ fn a_minimal_document_writes_only_its_keys() {
 /// SE-TOML-05's lib half: a PES 21 document on a PES 18 target converts
 /// — a face type over the older cap is written 0 with a `Capped` note,
 /// a key the older version lacks is a `NotInThisVersion` note, and a
-/// shared field applies as stored. No fixture player is over PES 18's
-/// facial-hair cap (12 against 21's 19), so the document's value is
-/// made by hand.
+/// shared field applies as stored. PES 18's facial-hair cap is the
+/// field's bits (31, an unmeasured column), so a document value past it
+/// is made by hand.
 #[test]
 fn a_pes21_document_on_a_pes18_target_converts() {
     let (file21, _) = open(PesVersion::Pes21);

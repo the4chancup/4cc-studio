@@ -181,8 +181,9 @@ fn the_name_is_true_explicit_or_the_coded_save_name() {
 fn a_value_past_the_versions_top_is_written_as_stored() {
     let sandbox = Sandbox::new("set_past_top");
     // /an/ player 70504, the PES 18 fixture save's slot-4 "Paul Levesque":
-    // found by walking the fixture's players for a `cheek_type` inside the
-    // key's widest range but past the version's own (his 5), 2026-10-18.
+    // found by walking the fixture's players for a `cheek_type` past the
+    // assumed cap (his 5, inside the field's bits the unmeasured cap is),
+    // 2026-10-18.
     face(&sandbox, "an Spring/Faces/XXX04 - Paul Levesque");
     sandbox.save_edited("EDIT18", PesVersion::Pes18, |_| {});
 
@@ -199,6 +200,11 @@ fn a_value_past_the_versions_top_is_written_as_stored() {
         .filter(|line| line.contains("settings_") && line.contains("Paul Levesque"))
         .count();
     assert_eq!(named, 0, "nothing is reported about him: {}", run.stdout());
+    // The compile keeps what the upgrade wrote: PES 18's unmeasured cap is
+    // the field's bits, so the narrowing does not reset his 5.
+    let mut compiled = parsed;
+    assert_eq!(compiled.narrow_to(PesVersion::Pes18), []);
+    assert_eq!(compiled.appearance.face.cheek_type, Some(5));
 }
 
 // EU-SET-06

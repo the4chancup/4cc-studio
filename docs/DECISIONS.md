@@ -8676,3 +8676,24 @@ beside the folder, the key is ignored at every compile (`settings_model_id_confl
 nothing. (4) one rule with the compiler's own derivation, not a second reading of the folder
 name that could drift from it (a name part with a hyphen, a folder named by its number alone).
 Plan: `plans/export_upgrader.md` step 8.
+
+## 2026-10-18 — pes_savefile — an unmeasured face-type cap is the field's bits in `face_type_cap` itself
+Decision: `face_type_cap` returns the field's bit maximum for every version whose cap no game
+measured (PES 17 and 18 for all eleven types, PES 19 for all but cheek and forehead), so the
+compiler's per-version narrowing, the cross-version conversion and Team TOML's import all keep
+a stored value inside the field. The in-game hair half of the same plan rule waits for a real
+value past PES 21's range.
+Why: Astra round 6.5.A1: the upgrader generated a PES 18 cup player's `cheek_type = 5`
+(EU-SET-05) and the compiler's narrowing, on the assumed cap 3, reset it to 0 at his first
+compile, against `plans/aesthetics_export/settings_toml.md`. One table changed at its source,
+not a second "bits" table beside the narrowing, so the three readers cannot disagree on what a
+version accepts (a conversion to PES 18 capping what its compile keeps). The hair keys share one
+range over every version and no fixture player exceeds it, so a per-version hair table would
+be built for no value seen. Two delivered scenarios built on the assumed caps change with it:
+TC-BIN-31's PES 18 run keeps a facial hair type 20 (its PES 21 run now narrows it), and
+SE-TOML-05's capped value is a goal celebration, since no document can hold a face type past
+PES 18's cap any more.
+Plan: `plans/aesthetics_export/settings_toml.md` "Player settings in exports (settings.toml)"
+(the hair half); the built half in `spec/pes_savefile/operations.md` "Cross-version player
+conversion" and `spec/aesthetics_export/settings_toml.md`; TC-BIN-31
+(`spec/team_compiler/README.md`), SE-TOML-05 (`spec/save_editor.md`).

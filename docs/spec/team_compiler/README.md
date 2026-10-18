@@ -2447,14 +2447,16 @@ TC-BIN-30  GIVEN a Full /co/ export whose slot 05 carries fpc_on, and whose sett
                 value for the key and the inners, undershorts and taping as authored; the
                 Full one reports fpc_gloves_checkbox_winter_gloves for slot 05 (a face link
                 is no gloves ID), and the Midcup one reports no gloves finding
-TC-BIN-31  GIVEN a /co/ export whose slot 05 settings.toml holds facial_hair_type = 15 (PES 18:
-                0 to 12), hunching_dribbling = 5 (PES 18: 1 to 3) and dribbling = 2 (PES 20
-                and 21 only), and in-game hair (style = 4, color_red = 40)
+TC-BIN-31  GIVEN a /co/ export whose slot 05 settings.toml holds facial_hair_type = 20 (PES 18
+                unmeasured: the field's 0 to 31; PES 21: 0 to 19), hunching_dribbling = 5
+                (PES 18: 1 to 3) and dribbling = 2 (PES 20 and 21 only), and in-game hair
+                (style = 4, color_red = 40)
            WHEN it is compiled for PES 18, and for PES 21
-           THEN the PES 18 run reports settings_value_out_of_range for the first two, 71405's
-                row has facial hair type 0, its patch holds hunching_dribbling 1 and no
-                dribbling key, no finding names dribbling; both runs' rows carry that hair;
-                both exit 0
+           THEN the PES 18 run reports settings_value_out_of_range for hunching_dribbling
+                alone, 71405's row has facial hair type 20, its patch holds
+                hunching_dribbling 1 and no dribbling key, no finding names dribbling; the
+                PES 21 run reports it for facial_hair_type alone and its row has facial hair
+                type 0; both runs' rows carry that hair; both exit 0
 TC-BIN-32  GIVEN an installed pair (71405, 7), and a /co/ export whose slot 05 holds a
            boots.fmdl whose task fails and a settings.toml setting an appearance key and a
            motion key, and whose slot 06 holds a face model that compiles

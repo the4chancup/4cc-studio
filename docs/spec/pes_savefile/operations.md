@@ -129,26 +129,29 @@ version's tops are measured (`schema::limits::motion_top`, the table of
 pub fn face_type_cap(version: PesVersion, field: IngameFaceField) -> Option<u8>;
 ```
 
-| Face type | PES 15 | PES 16–18 | PES 19 | PES 20–21 |
-|---|---|---|---|---|
-| cheek | 14 | 3 | 5 | 3 |
-| forehead | 6 | 5 | 6 | 5 |
-| facial hair | 29 | 12 | 12 | 19 |
-| laughter lines | 6 | 4 | 4 | 4 |
-| upper eyelid | 14 | 6 | 6 | 7 |
-| lower eyelid | 14 | 2 | 2 | 6 |
-| eyebrow | 17 | 5 | 5 | 7 |
-| neck line | 5 | 2 | 2 | 3 |
-| nose | 11 | 6 | 6 | 7 |
-| upper lip | 7 | 3 | 3 | 4 |
-| lower lip | 7 | 2 | 2 | 4 |
+| Face type | PES 15 | PES 16 | PES 17–18 | PES 19 | PES 20–21 |
+|---|---|---|---|---|---|
+| cheek | 14 | 3 | 31 | 5 | 3 |
+| forehead | 6 | 5 | 7 | 6 | 5 |
+| facial hair | 29 | 12 | 31 | 31 | 19 |
+| laughter lines | 6 | 4 | 7 | 7 | 4 |
+| upper eyelid | 14 | 6 | 31 | 31 | 7 |
+| lower eyelid | 14 | 2 | 15 | 15 | 6 |
+| eyebrow | 17 | 5 | 31 | 31 | 7 |
+| neck line | 5 | 2 | 7 | 7 | 3 |
+| nose | 11 | 6 | 63 | 63 | 7 |
+| upper lip | 7 | 3 | 7 | 7 | 4 |
+| lower lip | 7 | 2 | 7 | 7 | 4 |
 
 The PES 15 column joins the editor's range and the census of the game's faces. Neck line 4 and 5
-and lips 7 have no editor entry, but the game draws them as distinct models. PES 17 and 18 stay
-assumed equal to 16. PES 19's cheek and forehead were measured in its editor (26 cup players on
-the maintainer's save use the types past 16's caps); its other nine types stay assumed equal to
-16. PES 19 is therefore wider than 20 and 21 on those two, as measured: a 19 to 20 conversion
-resets a cheek 4 or 5 like any face type past the target's cap. The `settings.toml` key table's
+and lips 7 have no editor entry, but the game draws them as distinct models. No game measured
+PES 17's and 18's caps, nor PES 19's other than cheek and forehead: each such cap is the field's
+bit maximum (`INGAME_FACE_FIELDS`), not PES 16's, since real saves hold values past 16's caps
+there (79 players of the PES 18 fixture save, `cheek_type` 4 or 5 among them) and an assumed cap
+would reset a look the game shows. PES 19's cheek and forehead were measured in its editor (26
+cup players on the maintainer's save use the types past 16's caps). PES 19 is therefore wider
+than 20 and 21 on those two, as measured: a 19 to 20 conversion resets a cheek 4 or 5 like any
+face type past the target's cap. The `settings.toml` key table's
 widest range for each face key is derived from this table (the maximum over versions), so the two
 cannot drift.
 

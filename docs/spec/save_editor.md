@@ -418,10 +418,10 @@ SE-TOML-04 GIVEN a Team TOML whose only content is [team] id, [players.03] name 
            THEN slot 3 of that team carries the name and the key's value, and every other byte
                 of the payload, the player's other appearance fields included, is unchanged
 SE-TOML-05 GIVEN a Team TOML, exported from the PES 21 fixture save, of a team both fixture
-                saves hold, one of whose players has a face type above PES 18's cap
+                saves hold, one of whose players has a goal celebration above PES 18's top
            WHEN it is imported into the PES 18 fixture save
-           THEN the --out save holds the team as converted for PES 18 (that face type written
-                0) with every other byte unchanged, each converted or dropped
+           THEN the --out save holds the team as converted for PES 18 (that celebration
+                written at the top) with every other byte unchanged, each converted or dropped
                 value is printed as a note line, and the exit code is 0
 SE-TOML-06 GIVEN a Team TOML with a player name longer than the target version's name field
            WHEN it is imported

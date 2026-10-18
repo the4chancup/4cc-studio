@@ -1091,8 +1091,9 @@ mod tests {
 
     /// PES 19's editor offers cheek types to 5 and forehead types to 6: a
     /// player carrying them reads into a `settings.toml` without a refusal,
-    /// keeps them on a PES 19 target, and resets to 0 into PES 18, whose
-    /// caps hold.
+    /// keeps them on a PES 19 target, keeps them on PES 18 too (its
+    /// unmeasured caps are the fields' bits), and resets to 0 into PES 16,
+    /// whose measured caps hold.
     #[test]
     fn pes19s_wider_cheek_and_forehead_types() {
         let mut source = first(V::Pes19);
@@ -1145,6 +1146,33 @@ mod tests {
                 .ingame_face
                 .get(F::CheekType)
                 .expect("covered"),
+            5,
+            "PES 18's unmeasured cheek cap is the field's bits"
+        );
+        assert_eq!(
+            target18
+                .appearance
+                .ingame_face
+                .get(F::ForeheadType)
+                .expect("covered"),
+            6,
+            "PES 18's unmeasured forehead cap is the field's bits"
+        );
+        assert!(
+            !notes
+                .iter()
+                .any(|note| matches!(note, N::FaceTypeReset { .. })),
+            "{notes:?}"
+        );
+
+        let mut target16 = first(V::Pes16);
+        let notes = convert_player(&source, V::Pes19, &mut target16, V::Pes16).expect("converts");
+        assert_eq!(
+            target16
+                .appearance
+                .ingame_face
+                .get(F::CheekType)
+                .expect("covered"),
             0
         );
         assert!(notes.contains(&N::FaceTypeReset {
@@ -1152,7 +1180,7 @@ mod tests {
             value: 5,
         }));
         assert_eq!(
-            target18
+            target16
                 .appearance
                 .ingame_face
                 .get(F::ForeheadType)

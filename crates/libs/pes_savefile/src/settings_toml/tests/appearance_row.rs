@@ -9,9 +9,11 @@ use super::*;
 /// cannot express) the same settings come through `appearance_from`, the
 /// stored-ranges reader that carries such values verbatim. No fixture
 /// player needs it since PES 15's caps joined the ranges, so one built
-/// player does: the first one with facial hair type 31, which the field's 5
-/// bits hold and no editor cap does. The row's run differs from the
-/// record's only in its unused bits, which take the games' values.
+/// player does: the first one with `goal_celebration_2` stored 200, which
+/// its field's 8 bits hold and no key's range does (a face type's range is
+/// its field's bits now, so a motion carries the bump). The row's run
+/// differs from the record's only in its unused bits, which take the games'
+/// values.
 #[test]
 fn a_save_players_settings_reproduce_his_appearance_row() {
     for (version, offset) in [
@@ -33,11 +35,7 @@ fn a_save_players_settings_reproduce_his_appearance_row() {
             .collect();
         let mut built = records[0].clone();
         let mut player = read_player(&built, schema.player).expect("decode");
-        player
-            .appearance
-            .ingame_face
-            .set(IngameFaceField::FacialHairType, 31)
-            .expect("fits the field");
+        player.motion.goal_celebration_2 = 200;
         write_player(&player, &mut built, schema.player).expect("encode");
         records.push(built);
         let mut hair_seen = false;
@@ -84,7 +82,7 @@ fn a_save_players_settings_reproduce_his_appearance_row() {
             hair_seen,
             "{version:?}: every player's hair is the default, the rows prove little"
         );
-        // The built player's arm is the reason `appearance_row` skips
+        // The built player's 200 is the reason `appearance_row` skips
         // `apply`'s checks: without it this test would stop proving it.
         assert!(
             out_of_range_players > 0,

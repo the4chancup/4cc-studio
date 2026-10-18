@@ -249,8 +249,11 @@ sock, undershort, shirttail and wrist-taping lists are the reference save editor
 bits); the physique numbers are the editor's spin ranges (stored value = number + 7); the motion
 ranges are its spin ranges per version (1-based ones are stored minus 1, celebrations as is); the
 face-type maxima are the caps the two legacy converters apply when writing a PES 16 and a PES 21
-save. The 17 and 18 face caps are unmeasured and assumed equal to PES 16's; PES 19's editor
-offers cheek types 0 to 5 and forehead types 0 to 6, wider than 16's, its other caps unmeasured. PES 15's face caps
+save. The 17 and 18 face caps are unmeasured; PES 19's editor offers cheek types 0 to 5 and
+forehead types 0 to 6, wider than 16's, its other caps unmeasured. An unmeasured face cap is
+the field's bits, for the parser's widest range and the compiler's narrowing alike, the
+comments keeping the measured ranges (`pes_savefile/operations.md` "Cross-version player
+conversion" holds the table). PES 15's face caps
 were measured: the editor's range joined with the game's own faces. The run's other keys were
 measured in the games (`spec/pes_savefile/model.md` "The ingame-face run"). The in-game hair
 ranges were measured on PES 21 and are assumed for 16 to 20. The parser checks a value against the **widest** range of a key (a PES

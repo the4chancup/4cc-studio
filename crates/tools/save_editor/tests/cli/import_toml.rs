@@ -6,8 +6,6 @@ use std::fs;
 use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::TeamToml;
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
-use pes_savefile::schema::ingame_face::IngameFaceField;
-use pes_savefile::schema::limits::face_type_cap;
 use pes_version::PesVersion;
 
 use crate::{Sandbox, payload, payload_after};
@@ -136,25 +134,25 @@ fn a_pes21_document_imports_into_pes18_converted_with_a_note_per_value() {
     let mut document =
         TeamToml::parse(&fs::read_to_string(sandbox.path("a.toml")).unwrap()).unwrap();
     assert_eq!(document.team.name.as_deref(), Some("/a/"));
-    let cap18 = face_type_cap(PesVersion::Pes18, IngameFaceField::FacialHairType).unwrap();
-    let cap21 = face_type_cap(PesVersion::Pes21, IngameFaceField::FacialHairType).unwrap();
-    assert!(cap18 < cap21, "the PES 21 cap is above the PES 18 one");
+    // PES 18's face caps are unmeasured — the fields' bit maxima — so no
+    // document value exceeds one; the capped note uses a motion, whose PES
+    // 18 top (127) is measured.
     document
         .players
         .get_mut(&1)
         .unwrap()
         .appearance
-        .face
-        .facial_hair_type = Some(cap21);
+        .motion
+        .goal_celebration_1 = Some(162);
     fs::write(sandbox.path("a.toml"), document.to_toml().unwrap()).unwrap();
 
     let run = sandbox.import("a.toml", "EDIT18", "OUT18");
     assert_eq!(run.exit_code(), 0);
     let messages = run.messages();
     assert!(
-        messages.contains(&format!(
-            "Warning import_value_capped (path=players.01.appearance.face.facial_hair_type, from={cap21}, to=0)"
-        )),
+        messages.contains(
+            &"Warning import_value_capped (path=players.01.appearance.motion.goal_celebration_1, from=162, to=127)".to_owned()
+        ),
         "{messages:?}"
     );
     assert!(
@@ -176,15 +174,9 @@ fn a_pes21_document_imports_into_pes18_converted_with_a_note_per_value() {
     let written = EditFile::load(&sandbox.path("OUT18")).unwrap();
     let slot_1 = written.team(team).unwrap().roster[0].player_id;
     assert_eq!(
-        written
-            .player(slot_1)
-            .unwrap()
-            .appearance
-            .ingame_face
-            .get(IngameFaceField::FacialHairType)
-            .unwrap(),
-        0,
-        "the face type above the cap is written 0"
+        written.player(slot_1).unwrap().motion.goal_celebration_1,
+        127,
+        "the motion above the target's top is written at it"
     );
 }
 

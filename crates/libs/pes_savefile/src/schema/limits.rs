@@ -10,19 +10,24 @@
 use pes_version::PesVersion;
 
 use crate::schema::fields::PlayerField;
-use crate::schema::ingame_face::IngameFaceField;
+use crate::schema::ingame_face::{INGAME_FACE_FIELDS, IngameFaceField};
 
 use IngameFaceField as F;
 
 /// The highest value `field` takes on `version`, `None` for the fields that
-/// are not face types. For `NoseType` the cap is on the nose type, which PES
-/// 15 codes with the nose angle (`IngameFace::nose`), not on the raw field.
+/// are not face types. The measured columns are PES 15, PES 16, PES 19's
+/// cheek and forehead types, and PES 20-21; a column no game measured (PES
+/// 17 and 18's all eleven types, PES 19's other nine) is the field's bit
+/// maximum (`plans/aesthetics_export/settings_toml.md` "Player settings in
+/// exports"). For `NoseType` the cap is on the nose type, which PES 15
+/// codes with the nose angle (`IngameFace::nose`), not on the raw field.
 pub fn face_type_cap(version: PesVersion, field: IngameFaceField) -> Option<u8> {
-    // (PES 15, PES 16-18, PES 19, PES 20-21): the plan's table. PES 15's
+    // (PES 15, PES 16, PES 19, PES 20-21): the measured columns. PES 15's
     // column is its editor's range joined with the values the game's own
-    // faces use; PES 19's cheek and forehead are measured in its editor,
-    // its other nine types assumed equal to 16's.
-    let (pes15, older, pes19, newer) = match field {
+    // faces use; PES 19's cheek and forehead are measured in its editor —
+    // `Some` for those two, `None` (unmeasured) for the rest, as are PES 17
+    // and 18's columns.
+    let (pes15, pes16, pes19, newer) = match field {
         F::PlayerGloves
         | F::PlayerGlovesColor
         | F::Jawline
@@ -104,24 +109,38 @@ pub fn face_type_cap(version: PesVersion, field: IngameFaceField) -> Option<u8> 
         | F::HairSideBackStyle
         | F::Hairline
         | F::HairForeheadWidth => return None,
-        F::CheekType => (14, 3, 5, 3),
-        F::ForeheadType => (6, 5, 6, 5),
-        F::FacialHairType => (29, 12, 12, 19),
-        F::LaughterLinesType => (6, 4, 4, 4),
-        F::UpperEyelidType => (14, 6, 6, 7),
-        F::LowerEyelidType => (14, 2, 2, 6),
-        F::EyebrowType => (17, 5, 5, 7),
-        F::NeckLineType => (5, 2, 2, 3),
-        F::NoseType => (11, 6, 6, 7),
-        F::UpperLipType => (7, 3, 3, 4),
-        F::LowerLipType => (7, 2, 2, 4),
+        F::CheekType => (14, 3, Some(5), 3),
+        F::ForeheadType => (6, 5, Some(6), 5),
+        F::FacialHairType => (29, 12, None, 19),
+        F::LaughterLinesType => (6, 4, None, 4),
+        F::UpperEyelidType => (14, 6, None, 7),
+        F::LowerEyelidType => (14, 2, None, 6),
+        F::EyebrowType => (17, 5, None, 7),
+        F::NeckLineType => (5, 2, None, 3),
+        F::NoseType => (11, 6, None, 7),
+        F::UpperLipType => (7, 3, None, 4),
+        F::LowerLipType => (7, 2, None, 4),
     };
     match version {
         PesVersion::Pes15 => Some(pes15),
-        PesVersion::Pes16 | PesVersion::Pes17 | PesVersion::Pes18 => Some(older),
-        PesVersion::Pes19 => Some(pes19),
+        PesVersion::Pes16 => Some(pes16),
+        // The unmeasured columns are the field's bit maximum.
+        PesVersion::Pes17 | PesVersion::Pes18 => bit_max(field),
+        PesVersion::Pes19 => pes19.or_else(|| bit_max(field)),
         PesVersion::Pes20 | PesVersion::Pes21 => Some(newer),
     }
+}
+
+/// The field's bit maximum (`2^bit_width - 1`) in `INGAME_FACE_FIELDS`: the
+/// cap of a version column no game measured — the biggest value the field
+/// can store.
+fn bit_max(field: IngameFaceField) -> Option<u8> {
+    let width = INGAME_FACE_FIELDS
+        .iter()
+        .find(|spec| spec.field == field)
+        .expect("the ingame-face table covers every variant")
+        .bit_width;
+    Some(u8::MAX >> (u8::BITS - width))
 }
 
 /// The highest stored value of motion field `field` on `version`, `None` for the fields that
@@ -275,41 +294,48 @@ mod tests {
         }
     }
 
-    /// The plan's table, as literals, in `TYPES` order: PES 15's measured
-    /// caps, PES 16 to 18's, PES 19's own (cheek and forehead measured in
-    /// its editor) and PES 20-21's.
-    const GOLDEN: [(u8, u8, u8, u8); 11] = [
-        (14, 3, 5, 3),
-        (6, 5, 6, 5),
-        (29, 12, 12, 19),
-        (6, 4, 4, 4),
-        (14, 6, 6, 7),
-        (14, 2, 2, 6),
-        (17, 5, 5, 7),
-        (5, 2, 2, 3),
-        (11, 6, 6, 7),
-        (7, 3, 3, 4),
-        (7, 2, 2, 4),
+    /// The plan's table, as literals, in `TYPES` order: the measured
+    /// columns PES 15, PES 16, PES 19's own (cheek and forehead, `None`
+    /// where unmeasured) and PES 20-21's, and the unmeasured column of
+    /// PES 17, 18 and 19's other nine — the fields' bit maxima read from
+    /// `INGAME_FACE_FIELDS` (5 bits → 31, 4 → 15, 3 → 7, 6 → 63).
+    const GOLDEN: [(u8, u8, u8, Option<u8>, u8); 11] = [
+        (14, 3, 31, Some(5), 3),
+        (6, 5, 7, Some(6), 5),
+        (29, 12, 31, None, 19),
+        (6, 4, 7, None, 4),
+        (14, 6, 31, None, 7),
+        (14, 2, 15, None, 6),
+        (17, 5, 31, None, 7),
+        (5, 2, 7, None, 3),
+        (11, 6, 63, None, 7),
+        (7, 3, 7, None, 4),
+        (7, 2, 7, None, 4),
     ];
 
     #[test]
     fn the_caps_are_the_plan_s_values() {
-        for (field, (pes15, older, pes19, newer)) in TYPES.into_iter().zip(GOLDEN) {
+        for (field, (pes15, pes16, bits, pes19, newer)) in TYPES.into_iter().zip(GOLDEN) {
             assert_eq!(
                 face_type_cap(V::Pes15, field),
                 Some(pes15),
                 "Pes15 {field:?}"
             );
-            for version in [V::Pes16, V::Pes17, V::Pes18] {
+            assert_eq!(
+                face_type_cap(V::Pes16, field),
+                Some(pes16),
+                "Pes16 {field:?}"
+            );
+            for version in [V::Pes17, V::Pes18] {
                 assert_eq!(
                     face_type_cap(version, field),
-                    Some(older),
+                    Some(bits),
                     "{version:?} {field:?}"
                 );
             }
             assert_eq!(
                 face_type_cap(V::Pes19, field),
-                Some(pes19),
+                Some(pes19.unwrap_or(bits)),
                 "Pes19 {field:?}"
             );
             for version in [V::Pes20, V::Pes21] {
@@ -322,14 +348,14 @@ mod tests {
         }
     }
 
-    /// PES 19's own column: its editor offers cheek to 5 and forehead to 6,
-    /// wider than both neighbours'.
+    /// PES 19's own column: its editor offers cheek to 5 and forehead to 6;
+    /// PES 18's unmeasured columns are the fields' bit maxima instead.
     #[test]
     fn pes19s_measured_cheek_and_forehead() {
         assert_eq!(face_type_cap(V::Pes19, F::CheekType), Some(5));
         assert_eq!(face_type_cap(V::Pes19, F::ForeheadType), Some(6));
-        assert_eq!(face_type_cap(V::Pes18, F::CheekType), Some(3));
-        assert_eq!(face_type_cap(V::Pes18, F::ForeheadType), Some(5));
+        assert_eq!(face_type_cap(V::Pes18, F::CheekType), Some(31));
+        assert_eq!(face_type_cap(V::Pes18, F::ForeheadType), Some(7));
     }
 
     /// The nine motion fields a measured range was taken for, in
@@ -383,12 +409,13 @@ mod tests {
         }
     }
 
-    /// PES 19 is wider than 20 and 21 on the two types measured in its
-    /// editor (cheek, forehead), so the never-narrow check runs 18 to 20.
+    /// A newer measured cap is never below PES 16's: the unmeasured columns
+    /// in between are the fields' bits, which a measured cap can be under —
+    /// the check runs between the two measured neighbours.
     #[test]
     fn the_newer_caps_never_narrow() {
         for field in TYPES {
-            let older = face_type_cap(PesVersion::Pes18, field).expect("a type");
+            let older = face_type_cap(PesVersion::Pes16, field).expect("a type");
             let newer = face_type_cap(PesVersion::Pes20, field).expect("a type");
             assert!(newer >= older, "{field:?}: {older} -> {newer}");
         }
