@@ -22,13 +22,26 @@ a migration path from the current workflow. Generation (`PlayerSettings::from_pl
 the Export upgrader) writes every key the save's version holds,
 so a generated file reproduces the player as he is, whatever the defaults; it emits
 `boots_id`/`gloves_id` only for a stored ID from 1 to 100: 0 (the default boots, normal hands)
-stays unset, which is its default, and an ID above 100 is custom content, which the upgrader
+stays unset, which is its default (the upgrader writes it in a Midcup output, where unset keeps
+the installed ID; the save editor, not knowing the export's coverage, cannot), and an ID above 100 is custom content, which the upgrader
 migrates into a folder or link (the old per-team blocks start at 101 too) and the save editor
 leaves out. It writes `name` per the Export upgrader's rule (`true` when the folder's name part
 equals the save's name, the explicit string otherwise; the save editor, generating without a
 folder, writes the string), `shirt_name` as the save's string, and no `height` or `weight`.
 On a stripped Fox save a record whose appearance id is -1 is not the player's look (the tables
-are, see "Stripped save" in the [Save editor plan](../save_editor.md)), so generation skips
-that player with a note; the face-editor route restores his id before generating.
+are, see "Stripped save" in the [Save editor plan](../save_editor.md)), so the save editor's
+generation skips that player with a note; the face-editor route restores his id before
+generating. The Export upgrader generates from the record all the same: for a team the
+compiler has never compiled, the record still is the look its rows were seeded from (its step 8).
+
+A version's range that no game measured (the PES 17 and 18 face caps, which the spec's range
+paragraph assumes equal to PES 16's, PES 19's caps other than its cheek and forehead types, and
+the in-game hair ranges of PES 16 to 20, assumed from PES 21's)
+is its field's bits, not the assumed range, for generation and for the compiler's per-version
+narrowing alike; a measured range stays as it is. Real saves hold values past the assumed
+ranges (79 players of the PES 18 fixture save, `cheek_type` 4 or 5 among them, within PES 19's
+measured range; found at step 5.1b), so the assumption would refuse their generation and reset
+their compile to the default, losing a look the game shows. The spec's range paragraph lists
+which ranges are unmeasured; the key's comment is unchanged.
 
 ---

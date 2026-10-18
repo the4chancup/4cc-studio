@@ -8233,3 +8233,106 @@ respelling to `XXX`, because nothing in Studio produces `u0XXX` (`spec/model_for
 the team's ID is what Red wrote and makes a model and a file that spelled it differently match
 again. (4) has no Studio slot to land in.
 Plan: `plans/export_upgrader.md` steps 5 and 7; its "Open items" section removed.
+
+## 2026-10-17 — export_upgrader — generation, portraits and the CLI settled before the acceptance section
+Decision: (1) a stripped Fox save's player is generated from his record like any other and named
+in the report (I), his record's IDs resolving his wearers; (2) a version's range no game
+measured (the PES 17/18 face caps, PES 19's other caps) is its field's bits, for generation and
+the compiler's narrowing alike, so a stored value is written as stored, one past a key's widest
+range left out and reported; (3) no `fpc_on` marker is written, FPC players migrating as raw settings and their own
+models; (4) old portraits `player_???NN.dds` are renamed `player_NN.dds`; (5) the output's name
+starts with the resolved team's key and the coverage tag, a tag already second is kept, and a
+name equal to the source's gets ` upgraded`; (6) a team export takes exactly one of `--savefile`
+and `--loose`; an existing output folder is refused; exit codes follow the Team compiler's
+0/1/2/3; `--convert-to-gltf` is an unknown argument until Phase 7; (7) a Note's `Team:` line
+naming no listed team is `team_name_unknown`, not skipped for the folder name; a referee export
+is one whose first word is `refs`, and takes neither flag; settings are generated for the
+player folders written, a player with no face folder and no custom boots/gloves getting none;
+loose mode writes `name = true` alone for a folder with a name part, nothing otherwise;
+(8) a prefixed face-folder portrait is renamed `portrait.dds`; a kit file naming no configured
+slot, and a loose-mode ID past the inferred block, are unmigrated content; a non-archive input
+file or an unreadable savefile is exit 2, an archive that does not extract exit 1; a Note kit
+entry without a config becomes a colors-only placeholder kit, reported (W); (9) on a pre-Fox
+export a single-wearer boots/gloves folder stays shared with a link; an xml-less folder's
+models lose `oral_`/`_win32` and keep the `.mtl` Red chose; a game-directory texture reference
+keeps its directory; a generated Common link sits at the model folder's root; (10) a `Kit
+Configs/` subfolder is read as its root; a merge whose two folders share a file name of
+different bytes stays shared with a link; a second folder of one ID is unmigrated; every
+non-Common FMDL texture directory becomes the model's own folder; (11) a face folder's and a
+kit config's three ID characters are any three, read by position; a name part is what follows
+the ID with leading spaces and hyphens trimmed; a second face folder of one slot is unmigrated;
+`Faces/Faces/`-style nesting is flattened; zlib-wrapped text files are written back wrapped;
+(12) where Red discarded a whole `Kit Configs/`, `Kit Textures/` or `Logo/` folder for one bad
+entry, the other entries migrate and the bad one is reported; (13) a team FMDL texture found
+only in `Common/` gets a stem and a Common link, as Red's referee pass gave it, where Red's team
+pass pointed it at the model's folder; a repointed stem that resolves nowhere stays the bare
+stem, for the compiler's `fmdl_texture_not_found`; (14) a `u0???p0` file or folder becomes
+`kitF`, a `u0???p0` path `kitN`; a referee export's `???` becomes 999; the "Other Notes"
+header is read in any letter case; (15) a kit config whose slot no Note entry gives becomes
+its kit folder, reported (W); (16) a stored boots/gloves ID 0 is written in a Midcup output
+only; a `Common/` file a member `face.xml` names keeps its name; hoisting counts the empty
+`p1`/`g1` a Full export is given; the upgrader compares a slot's two portraits itself;
+(17) a referee's folded subfolders keep their place below the root, one landing as a refused
+layout name being reported, and an unreferenced `common/` model is reported rather than folded;
+(18) `upgrade`'s `-o` names the directory the output is written into, not the output folder;
+an FMDL directory below the game's Fox common directory other than the team's is kept;
+model-folder output is validated as if dropped into a Midcup export.
+Why: the upgraded player must look as he did. (1) the compiler has never compiled an AET
+team, so his rows are still the seed his record's bytes made; skipping him would write default
+rows over his look at his next compile (worklog issue, review S5.10). (2) 79 players of the PES
+18 fixture save hold values past the assumed caps (`cheek_type` 4 or 5, PES 19's measured
+range), so an assumed cap would refuse their generation and reset their compile; a measured
+cap stays, being what the game offers; the one known value past even the widest range (PES 16's
+`goal_celebration_2` 183) stays refused, as the spec already rules. (3) the cup's FPC
+teams give each player a blank boots ID of his own (2023 Winter Cup `/a/`), which the preset
+match misses, while the strip fields alone also match dressed players; raw settings reproduce
+both. (4) 2,248 of 2,271 old portraits carry the three ID characters, a name the compiler
+refuses. (5) the compiler takes the team from the first word and the tag from the second, so
+an old name kept whole ("Numbers") would not compile. (6) a silent loose fallback would guess
+wearers the user never asked for; replacing an output would lose edits made since. (7) Red
+stops on an unknown `Team:` line (`team_id_get.py`), which may say the export is another
+team's; `refs` is the compiler's own identity rule; a player with no folder keeps the look the
+game reads now, his record or his row, which a Full compile leaves standing. (8) the AET allows
+the prefix and Red matches the suffix, while Studio reads the stem `portrait`; content with no
+Studio home goes to step 10's report rather than a guessed place; the exit codes are the
+compiler's for the same cases (`--export`, `export_extract_failed`); the Note's kit lines told
+Red how many kits the team has (the AET page), so dropping one would change the kits offered.
+(9) each keeps what Red packed: a member's `face.xml` would drop a merged pre-Fox model; Red
+matched `.mtl` files against the unwrapped name (`xml_editing.py`); a stem alone would lose a
+game texture's directory; a link mirrors `Common/` from its folder's root. (10) each is what Red
+did (`export_check.py`'s flatten, its repeated-ID skip, `fmdl_model_folder_paths_fix`), and a
+merge that would put two files on one path cannot keep both. (11) also Red's readings
+(`export_check.py`'s positional slot and config grammar, `nested_folders_fix`); 1,034 real
+face folders carry a baked ID, so an `XXX`-only reading would drop them. (12) and (13) are the
+exceptions to that, where Red's output lost what the author shipped: (12) the real `CIV4XG`
+VGL26 export lost every kit config to one `XXX_DEF_GK2nd_realUni.bin`, silently, while a
+reported file is one the author can fix; (13) the team pass's repoint left the model without a
+texture its export held, and a missing texture is an Error on Fox for every Studio export
+(`spec/team_compiler/pipeline.md` "A texture a model names must exist"), which keeping the old
+directory would only hide. The rest of the 2026-10-18 pass over the 5.0c Red inventory, re-read
+on Red's released `main` (it had been read on the unreleased `dev/pre-studio-format` branch),
+adds rules that are Red's:
+the referee's own `common/` in reference resolution, the Note's grammar, a left Common path's
+team ID, OS artifacts left out. (14) FoxDen's kit swapper keeps a `u0???p0` path whose variant
+is missing, so that file was the fallback, `kitF`'s role, while a file named `kitN` is no
+member of the set and the compiler would fill the gaps from the lowest variant instead (71 real
+`u0???p0` files); Red compiled referees under 999; Red's case-exact `Other Notes:` lost a real
+Note's `Other notes:` text, and the color headers are read in any case already. (15) Red packed
+such a config and, counting the Note's entries, never offered the kit; dropping it would lose a
+kit the author shipped, offering it adds one, and the report lets the author delete it.
+(16) an unset ID in a Midcup export keeps the installed one, while an explicit 0 in a Full one
+would override the hide preset of an author who adds `fpc_on` later; a member xml's path is
+packed as written and PES 16 refuses one without `oral_` (`xml_oral_prefix_missing`), so the
+sync Red's `update_xml_for_renamed_common_models` did would drop the folder; an empty kit
+inherits `all/`, so hoisting past it hands a keeper a texture he never had; the compiler's
+portrait comparison is its deep pass, which the upgrader's structural validation lacks.
+(17) Red kept a referee's `common/` in his own common directory, where a model loads only when
+named, so folded to the root an unnamed one would become a part of his face; a subfolder named
+like the refused layout would be refused again (`player_layout_proto`). (18) the output's name
+is its identity to the compiler, so an `-o` naming the folder itself could compile one team's
+upgrade as another's, while a directory keeps the name derived and matches `upgrade-models`'
+`-o`; Red keeps the whole `/Assets/pes16/model/character/common/` prefix and the compiler does
+not look in the game's directories, so repointing `common/sourceimages/zero` would lose a
+texture the game supplies; bare model folders are no export the shared validation reads.
+Plan: `plans/export_upgrader.md` steps 1, 2, 5, 7, 8, 10 and 12, "CLI", "Acceptance";
+`plans/aesthetics_export/settings_toml.md` "Player settings in exports".

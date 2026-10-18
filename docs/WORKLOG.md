@@ -9,11 +9,12 @@ is in `AGENTS.md` ("Working documents").
 
 ## Current status
 
-**Phase:** 5 (Savefile integration) closed 2026-10-17. Phases 1 to 4 done (Phase 4 closed
-2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
+**Phase:** 6 (Export upgrader), opened 2026-10-17. Phase 5 (Savefile integration) closed
+2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader), opening with its acceptance step. 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): its acceptance section is reviewed (6.0b); next 6.1, the
+thinnest end-to-end path, and 6.0c beside it. 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -430,7 +431,8 @@ right gloves magenta (`r6_slot01.png`, `r6_slot02.png`)
 
 ### Phase 6 — Export upgrader
 
-Opened 2026-10-17. The build steps are itemized once the acceptance section is reviewed.
+Opened 2026-10-17. The build steps follow the plan's steps, each landing with its scenarios'
+tests; 6.0c, the compiler-side re-check, runs beside them.
 
 - [x] 6.0a the plan's "Open items" settled (`plans/export_upgrader.md`; they must be before the
   acceptance section is written): a kit config naming another kit's texture, an FMDL texture
@@ -440,11 +442,53 @@ Opened 2026-10-17. The build steps are itemized once the acceptance section is r
   answers in steps 5 and 7, one decision entry for the four (the `u0???g` one the lead's: the
   team's ID, as Red respells it, after the Everything index found the token in old exports'
   `Common/` folders, a fixed goalkeeper texture rather than a variant set)
-- [ ] 6.0b the Export upgrader's "Acceptance" section (`AGENTS.md` "Before a tool phase";
+- [x] 6.0b the Export upgrader's "Acceptance" section (`AGENTS.md` "Before a tool phase";
   format `CONTRIBUTING.md` "Testing"), CLI scenarios for `upgrade` and `upgrade-models`; the GUI's
   drop targets are Phase 8's → verify: every numbered step and "Model-folder mode" has a
   scenario or an explicit "no observable behavior" note, and the cross-family review
-  (checkpoint (a): SWE-2 loop, then Astra) has ended
+  (checkpoint (a): SWE-2 loop, then Astra) has ended. Done 2026-10-18: 81 scenarios
+  (`plans/export_upgrader.md` "Acceptance"), steps 1 to 12, the CLI and model-folder mode
+  completed where the scenarios needed them; reviews A.S1-A.S4, A.A1, B.S1-B.S4, C.S1-C.S2,
+  A.A2, C.S3-C.S4, A.A3, C.S5 (rulings `.tmp/6_0/duck_rulings.md`), with a pass mapping the
+  5.0c Red inventory's old-layout rows to the steps, re-checked on Red `main`; DECISIONS
+  2026-10-17 (two entries, points (1)-(18)); files: `plans/export_upgrader.md`,
+  `plans/aesthetics_export/settings_toml.md`, `spec/model_format.md`, `GLOSSARY.md`, `AGENTS.md`
+- [ ] 6.0c the 5.0c Red inventory re-checked against Red `main` for the Team compiler: it read
+  `dev/pre-studio-format` at `e12aa01`, 16 commits past `main`, eleven library files differing
+  (`fmdl_editing.py`, `portraits_move.py`, `referee_tools.py`, `team_id_get.py`, `export_check.py`,
+  `players_process.py`, `savefile.py`, …); every row from those files, and the DECISIONS entry
+  "the Red behaviors Studio deliberately differs on (Red inventory, 5.0c)", checked against
+  `main` → verify: each such row marked same on `main` or corrected, with any plan or spec
+  change it implies. Already found by 6.0b's pass (`.tmp/6_0/duck_rulings.md` IA-C1, IA-C3,
+  IB-C2): `players_process.py`, `savefile.py` and `export_upgrade.py` do not exist on `main`;
+  the `uniform/texture/` Error that ruling A.3 cites is the dev branch's (on `main` that
+  directory is repointed like any other); `main`'s team-name token still splits on `+`, so the
+  DECISIONS 2026-10-11 deviation is against the dev branch only; `blue_port.md`'s shared
+  referee `Boots/`/`Gloves/` are the dev branch's (all 15 real referee exports use `refs.txt`
+  and `Players/<name>/`)
+
+- [ ] 6.1 the thinnest end-to-end path: the `export_upgrader` tool crate (`core/architecture.md`
+  tool-crate skeleton), `upgrade` reading a folder, `.zip` or `.7z` (step 1), resolving the team
+  (step 6) and writing the output with its root `colors.txt`/`notes.txt`, the report (step 10's
+  catalog) and the exit codes ("CLI") → verify: EU-IN-*, EU-ROOT-*, EU-CLI-* (the flag,
+  input, savefile and output-folder ones) pass, red first
+- [ ] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
+  `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*
+- [ ] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit
+  colors and icons, the copy and the hoist → verify: EU-KIT-*
+- [ ] 6.4 models, portraits, logo and Common (step 7), as ordered slices: (a) portraits and the
+  logo; (b) `.mtl`/`face.xml` references, Common links and the kit magic; (c) FMDL path tables;
+  (d) pre-Fox renames → verify: EU-MDL-*
+- [ ] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
+  EU-SET-*
+- [ ] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*
+- [ ] 6.7 loose mode (step 11) and the report's remaining classes (step 10) → verify:
+  EU-LOOSE-01, EU-REP-*
+- [ ] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest)
+- [ ] 6.9 the parity test (`team_compiler/testing.md`: an upgraded export compiles to Red's CPK
+  for the old one) and a census of every old export on the maintainer's machine through
+  `upgrade` (`AGENTS.md` "Closing a phase", the census template) → verify: every outcome class
+  tallied and diagnosed
 
 ### Phase 8 — GUI
 
@@ -767,6 +811,13 @@ points there.
   name replaces it (the plan's copy with local files on top). On pre-Fox no merged model
   makes the texture ambiguous, so the player's could win too; the plan's step 6 rule is
   engine-wide today. Safe as it is (an Error, nothing wrong written).
+- open (2026-10-17, 6.0b Astra review A.A1; deferred until the cup next plays a pre-Fox
+  version) — the compiler's `.mtl` search (`mtl_search.rs`, `spec/model_format.md` "Pre-Fox:
+  the `.mtl` a `.model` uses") matches the literal stem, while Red strips `oral_` and `_win32`
+  from a model named with both before matching (`xml_editing.py`), and names `face_high_win32`'s
+  `face_neck`: a hand-made Studio folder with `oral_parts_body_win32.model` beside
+  `parts_body.mtl` and `materials.mtl` gets `materials.mtl` where Red chose `parts_body.mtl`.
+  The upgrader drops the wrappers (its step 7), so migrated folders are not affected.
 - open (found at 4.14c2's review) — pre-Fox Common: a texture link whose target only an
   installed CPK holds is still `common_link_missing` on PES 15-17
   (`installed_common_textures` is empty there; the Fox walk's stems are `.ftex` paths). A
@@ -1046,18 +1097,22 @@ points there.
   The same holds for pre-Fox save IDs. Settle before 4.22: a midcup keeps the full export's
   assignment (from where?), or must carry every shared folder its team uses (review S5.A2
   item 1).
-- open — generation from a stripped save: `settings_toml.md` has generation skip a player
+- resolved 2026-10-17 (DECISIONS "generation, portraits and the CLI settled"; plan step 8:
+  the upgrader generates from the record) — generation from a stripped save: `settings_toml.md` has generation skip a player
   at -1, so an old-format export migrated against the cup's stripped Fox save gets no
   `settings.toml` for him and his next compile writes all-default rows over the look the
   tables hold. Reading his installed table rows (the bins walk) instead would keep it.
   Settle with the Export upgrader's generation, Phase 6 (review S5.10 item 3).
-- open — the Export upgrader's `fpc_on` detection (`export_upgrader.md` step 8, "settings
+- resolved 2026-10-17 (same decision: no `fpc_on` marker is written, raw settings and the
+  players' own models reproduce them) — the Export upgrader's `fpc_on` detection (`export_upgrader.md` step 8, "settings
   match the enable preset"): the cup's FPC players mostly ride their bodies in per-player
   boots IDs, so their boots field holds that ID, not 55, and Test 1's save had every /a/
   player FPC while `is_fpc_player` found none (`.tmp/4_0/apptest/results.txt`, run 2). Matching
   the strip fields alone would also mark a dressed player with long sleeves, tucked shirt and
   short socks. Settle the fields compared before Phase 6 (review S5.11 item 2).
-- open — real cup players past the editor ranges: `PlayerSettings::from_player` refuses a
+- resolved 2026-10-17 for generation (same decision: a version's unmeasured range is its
+  field's bits, for generation and the compiler's narrowing, `plans/aesthetics_export/settings_toml.md`;
+  built in Phase 6) — real cup players past the editor ranges: `PlayerSettings::from_player` refuses a
   stored value its key's kind cannot represent (`OutOfRange`, documented as "a hostile save's
   out-of-range bits"), but the PES 18 fixture save holds 79 such players and the PES 19 one 26
   (`cheek_type` 4 to 5 where the range ends at 3, `forehead_type` 6 where it ends at 5, inside

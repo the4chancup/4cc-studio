@@ -71,7 +71,10 @@ whole-crate run, 3 for a round's diff); (2) **move** what the phase delivered fr
 contract), correcting it where the code was built differently and converting any future-tense
 wording; deferred parts stay in the plan, and a section partly delivered keeps its heading in both
 trees, the plan's part pointing at the spec section it builds on; `just doc-pointers` then lists
-every pointer left naming the old tree, and code points at the spec alone, after which the
+every pointer left naming the old tree, and code points at the spec alone; `GLOSSARY.md`'s
+rows for the moved terms are repointed by hand, since a pointer into a plan file that still
+exists (as a stub naming its spec twin) resolves and the check passes it (5.6's close left
+three, fixed at 6.0b), after which the
 gates run, comment-only edits included: a comment can sit inside text a test pins (5.6e
 repointed one in `aatf`'s hashed `logic.rhai`, and the crate's close mutation run found its
 baseline failing); (3) collapse the

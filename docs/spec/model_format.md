@@ -90,7 +90,8 @@ just another stem fragment, so a leftover reference fails the ordinary texture-e
 any other missing texture. There is no dedicated finding for it — a specific error would be partial
 support, complexity for no gain, since every existing export goes through the Export upgrader before
 Studio can use it. The planned Export upgrader is the only Studio component that reads the legacy
-spelling, and it rewrites it to `kitN`/`kit1`…`kit9`. The legacy pattern is `u0` + **any three characters** + `p` +
+spelling, and it rewrites it to `kitN`/`kit1`…`kit9`, a `u0XXXp0` file or folder (the file
+a kit without a variant loaded) to `kitF`. The legacy pattern is `u0` + **any three characters** + `p` +
 digit: authors wrote the `XXX` placeholder literally *or* baked the real team ID in (`u0872p1.dds`),
 and both forms mean the same thing, so both are detected and both are renamed.
 

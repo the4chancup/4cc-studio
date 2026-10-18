@@ -2090,3 +2090,6 @@ worklog passed 7,000 lines.
 - **2026-10-17** — Phase 6 (Export upgrader) opens: the Red inventory's four open items are
   settled into the plan's steps 5 and 7 (6.0a), the goalkeeper token `u0???g` respelled with
   the team's ID as Red does; next, the acceptance section (6.0b).
+- **2026-10-18** — the Export upgrader's acceptance section (6.0b): 81 scenarios after 16 review
+  rounds and a pass re-reading the 5.0c Red inventory on Red's released `main` (it had read an
+  unreleased branch); the plan's steps gained Red's old-export readings, DECISIONS (12)-(18).
