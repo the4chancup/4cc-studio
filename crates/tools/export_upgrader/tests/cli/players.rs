@@ -203,23 +203,25 @@ fn pre_fox_never_merges_the_alone_worn_folder() {
     });
 
     let run = upgrade(&sandbox, "co Spring", "EDIT16");
-    // No exit assertion: the pre-Fox model renames are 6.4's, and validation
-    // may refuse the shared folder's names until then. A run always prints a
-    // verdict line.
     let report = run.stdout();
-    assert!(report.contains("migration_"), "{report}");
-    for name in ["oral_boots_win32.model", "boots.mtl", "k2012_c.dds"] {
+    assert_eq!(run.exit_code(), 0, "{report}");
+    // The boots model loses its `oral_`/`_win32` wrappers (step 7).
+    for (input, output) in [
+        ("oral_boots_win32.model", "boots.model"),
+        ("boots.mtl", "boots.mtl"),
+        ("k2012_c.dds", "k2012_c.dds"),
+    ] {
         assert_eq!(
-            fs::read(sandbox.path(&format!("co Full Spring/Boots/Crocs/{name}"))).unwrap(),
-            fs::read(sandbox.path(&format!("co Spring/Boots/k0430 - Crocs/{name}"))).unwrap(),
-            "{name}"
+            fs::read(sandbox.path(&format!("co Full Spring/Boots/Crocs/{output}"))).unwrap(),
+            fs::read(sandbox.path(&format!("co Spring/Boots/k0430 - Crocs/{input}"))).unwrap(),
+            "{output}"
         );
     }
     assert_eq!(
         fs::read(sandbox.path("co Full Spring/Players/05 - Bob/Crocs.boots")).unwrap(),
         b""
     );
-    for name in ["oral_boots_win32.model", "boots.mtl", "k2012_c.dds"] {
+    for name in ["boots.model", "boots.mtl", "k2012_c.dds"] {
         assert!(
             !sandbox
                 .path(&format!("co Full Spring/Players/05 - Bob/{name}"))

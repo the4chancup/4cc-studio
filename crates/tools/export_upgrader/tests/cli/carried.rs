@@ -618,3 +618,107 @@ fn a_portrait_named_for_a_slot_past_23_is_flagged() {
     );
     assert!(stdout.contains("migration_not_clean"), "{stdout}");
 }
+
+// EU-MDL-11
+#[test]
+fn prefox_model_names_move_the_leading_type_last_unless_a_face_xml_ships() {
+    let sandbox = Sandbox::new("mdl_type_renames");
+    sandbox.write("co Spring/Faces/XXX07 - A/gloveL_foo.model", b"gloves");
+    sandbox.write("co Spring/Faces/XXX07 - A/bar_gloveR.model", b"bar");
+    sandbox.write("co Spring/Faces/XXX07 - A/plain.model", b"plain");
+    sandbox.write("co Spring/Faces/XXX08 - B/face.xml", b"<config/>");
+    sandbox.write("co Spring/Faces/XXX08 - B/gloveL_baz.model", b"baz");
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    upgrade(&sandbox, "co Spring", "EDIT16");
+    for path in [
+        "Players/07 - A/foo_gloveL.model",
+        "Players/07 - A/bar_gloveR.model",
+        "Players/07 - A/plain.model",
+        "Players/08 - B/gloveL_baz.model",
+    ] {
+        assert!(
+            sandbox.path(&format!("co Full Spring/{path}")).exists(),
+            "{path}"
+        );
+    }
+    assert!(
+        !sandbox
+            .path("co Full Spring/Players/07 - A/gloveL_foo.model")
+            .exists()
+    );
+}
+
+// EU-MDL-12
+#[test]
+fn prefox_wrapped_models_and_their_mtls_and_links_rename() {
+    let sandbox = Sandbox::new("mdl_wrapper_renames");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/oral_parts_body_win32.model",
+        b"body",
+    );
+    sandbox.write("co Spring/Faces/XXX07 - A/parts_body.mtl", &mtl(&[]));
+    sandbox.write("co Spring/Faces/XXX07 - A/materials.mtl", &mtl(&[]));
+    sandbox.write("co Spring/Faces/XXX07 - A/gloveL_foo.model", b"gloves");
+    sandbox.write("co Spring/Faces/XXX07 - A/gloveL_foo.mtl", &mtl(&[]));
+    sandbox.write("co Spring/Faces/XXX07 - A/oral_cap_win32.model.common", b"");
+    sandbox.write("co Spring/Common/oral_cap_win32.model", b"cap");
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT16");
+    for path in [
+        "Players/07 - A/parts_body.model",
+        "Players/07 - A/parts_body.mtl",
+        "Players/07 - A/materials.mtl",
+        "Players/07 - A/foo_gloveL.model",
+        "Players/07 - A/foo_gloveL.mtl",
+        "Players/07 - A/cap.model.common",
+    ] {
+        assert!(
+            sandbox.path(&format!("co Full Spring/{path}")).exists(),
+            "{path}"
+        );
+    }
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Common/cap.model")).unwrap(),
+        b"cap"
+    );
+    let stdout = run.stdout();
+    assert!(!stdout.contains("common_link_missing"), "{stdout}");
+}
+
+// EU-MDL-14
+#[test]
+fn a_common_file_the_face_xml_names_keeps_its_name() {
+    let sandbox = Sandbox::new("mdl_common_kept");
+    sandbox.write(
+        "co Spring/Faces/XXX07 - A/face.xml",
+        b"<config><model level=\"0\" type=\"handL\" path=\"model/character/uniform/common/XXX/oral_hand_l_*.model\" material=\"./x.mtl\"/></config>",
+    );
+    sandbox.write("co Spring/Faces/XXX07 - A/x.mtl", &mtl(&[]));
+    sandbox.write("co Spring/Common/oral_hand_l_win32.model", b"hand");
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    upgrade(&sandbox, "co Spring", "EDIT16");
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Common/oral_hand_l_win32.model")).unwrap(),
+        b"hand"
+    );
+    let xml = fs::read_to_string(sandbox.path("co Full Spring/Players/07 - A/face.xml")).unwrap();
+    assert!(
+        xml.contains("path=\"model/character/uniform/common/XXX/oral_hand_l_*.model\""),
+        "{xml}"
+    );
+}

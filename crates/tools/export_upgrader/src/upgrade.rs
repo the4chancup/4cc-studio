@@ -25,14 +25,15 @@ use vtree::ScopePath;
 
 use crate::carried::{CarriedFiles, carried_files, under};
 use crate::cli::{ABORTED, CLEAN, ERRORS, INVALID, UpgradeArgs};
-use crate::face_xml::face_xml_rewrites;
-use crate::kit_magic::respell_outputs;
+use crate::face_xml::{face_xml_rewrites, kept_common_files};
+use crate::kit_magic::{drop_collisions, respell_outputs};
 use crate::kits::{KitFolders, kit_folders};
 use crate::materials::{MaterialRewrites, material_references};
 use crate::messages::{
     Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, team_name_unknown,
     tool_message,
 };
+use crate::model_names::rename_models;
 use crate::naming::output_name;
 use crate::note;
 use crate::players::{PlayerFolders, player_folders};
@@ -477,13 +478,28 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                     }
                 });
             let mut carried = carried_files(&files, &plan.portraits, |path| export.read(path));
-            // The kit magic respells the plans' output names; a respelled
-            // path another already takes is the later input's, reported;
-            // its finding follows the plan's own.
-            let (copies, dropped) = respell_outputs(std::mem::take(&mut plan.copies), *id);
+            // The kit magic respells the plans' output names, then step
+            // 7's model renames apply (`kept` the `Common/` names a member
+            // `face.xml` or an xml folder's link spells, computed from the
+            // respelled plan copies; both plans renamed in one call, so a
+            // link sees its `Common/` target's rename); a path another
+            // already takes is the later input's, reported, its finding
+            // following the plan's own.
+            let plan_copies = respell_outputs(std::mem::take(&mut plan.copies), *id);
+            let kept = kept_common_files(&plan_copies, *id, |path| export.read(path));
+            let plan_len = plan_copies.len();
+            let mut renamed = rename_models(
+                plan_copies
+                    .into_iter()
+                    .chain(respell_outputs(std::mem::take(&mut carried.copies), *id))
+                    .collect(),
+                &kept,
+            );
+            let carried_copies = renamed.split_off(plan_len);
+            let (copies, dropped) = drop_collisions(renamed);
             plan.copies = copies;
             plan.findings.extend(dropped);
-            let (copies, dropped) = respell_outputs(std::mem::take(&mut carried.copies), *id);
+            let (copies, dropped) = drop_collisions(carried_copies);
             carried.copies = copies;
             carried.findings.extend(dropped);
             // `Common/` for the materials: the carried files' respelled

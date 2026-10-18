@@ -321,14 +321,14 @@ fn fmdl_entry(
 /// the stem or the folder claims it and nothing is reported.
 fn common_decision(
     ctx: &FileContext,
-    reference: Reference,
+    class: Reference,
     sub: &str,
     file_name: &str,
     planned: &BTreeMap<String, String>,
     written: &str,
     findings: &mut Vec<Message>,
 ) -> Option<String> {
-    let game_dir = matches!(reference, Reference::GameDir);
+    let game_dir = matches!(class, Reference::GameDir);
     let stem = folded_stem(file_name);
     let respelled_stem = file_name
         .rsplit_once('.')
@@ -528,16 +528,18 @@ pub(crate) fn material_references(
             };
             // The reference as written, for the finding's context.
             let written = format!("{}{}", path.directory, path.file_name);
+            // A `dummy_` stem is the game's; its `???` alone is respelled,
+            // no lookup and no kit magic (MA1-2: the game supplies it).
+            if folded_stem(&path.file_name).starts_with("dummy_") {
+                // `sub` borrows `path.directory`: owned for the rewrite.
+                let sub = sub.to_owned();
+                respell_marker(&mut path.directory, COMMON_PREFIX.len(), &sub, ctx.team);
+                return;
+            }
             // The `sub` and the file name respelled (`Spelling::Path`).
             let sub = respell(sub, Spelling::Path, ctx.team).into_owned();
             if let Cow::Owned(name) = respell(&path.file_name, Spelling::Path, ctx.team) {
                 path.file_name = name;
-            }
-            // A `dummy_` stem is the game's; its `???` alone is respelled,
-            // no lookup (MA1-2: the game supplies it).
-            if folded_stem(&path.file_name).starts_with("dummy_") {
-                respell_marker(&mut path.directory, COMMON_PREFIX.len(), &sub, ctx.team);
-                return;
             }
             match common_decision(
                 &ctx,
@@ -778,6 +780,80 @@ mod tests {
     }
 
     #[test]
+    fn an_fmdl_common_reference_the_folder_claims_is_kept() {
+        // `hair.dds` is in `Common/` but the folder holds a texture of its
+        // stem: the link would clash — kept and reported.
+        let face = fmdl(&[(
+            "/Assets/pes16/model/character/common/000/sourceimages/",
+            "hair.dds",
+        )]);
+        let rewrites = plan(
+            &[
+                (
+                    "Faces/XXX07 - A/face_high.fmdl",
+                    "Players/07 - A/face_high.fmdl",
+                ),
+                ("Faces/XXX07 - A/hair.dds", "Players/07 - A/hair.dds"),
+            ],
+            &["Common/hair.dds"],
+            &[
+                ("Faces/XXX07 - A/face_high.fmdl", &face),
+                ("Faces/XXX07 - A/hair.dds", b"h"),
+            ],
+        );
+        assert_eq!(
+            fmdl_paths(&rewrites, "Players/07 - A/face_high.fmdl")[0],
+            (
+                "/Assets/pes16/model/character/common/714/sourceimages/".to_owned(),
+                "hair.dds".to_owned()
+            )
+        );
+        assert!(rewrites.links.is_empty());
+        assert_eq!(
+            rewrites
+                .findings
+                .iter()
+                .map(|m| m.code.code.as_ref())
+                .collect::<Vec<_>>(),
+            ["common_reference_kept"]
+        );
+    }
+
+    #[test]
+    fn an_fmdl_in_a_subfolder_naming_a_common_subfolder_is_kept() {
+        // `realkit/x.fmdl` naming `common/000/Boots/…`: the path below the
+        // model folder and the mirrored link cannot agree — kept.
+        let kit = fmdl(&[(
+            "/Assets/pes16/model/character/common/000/Boots/sourceimages/",
+            "x.dds",
+        )]);
+        let rewrites = plan(
+            &[(
+                "Faces/XXX07 - A/realkit/x.fmdl",
+                "Players/07 - A/realkit/x.fmdl",
+            )],
+            &["Common/Boots/x.dds"],
+            &[("Faces/XXX07 - A/realkit/x.fmdl", &kit)],
+        );
+        assert_eq!(
+            fmdl_paths(&rewrites, "Players/07 - A/realkit/x.fmdl")[0],
+            (
+                "/Assets/pes16/model/character/common/714/Boots/sourceimages/".to_owned(),
+                "x.dds".to_owned()
+            )
+        );
+        assert!(rewrites.links.is_empty());
+        assert_eq!(
+            rewrites
+                .findings
+                .iter()
+                .map(|m| m.code.code.as_ref())
+                .collect::<Vec<_>>(),
+            ["common_reference_kept"]
+        );
+    }
+
+    #[test]
     fn fmdl_entries_the_classes_keep_are_not_written() {
         let face = fmdl(&[
             (
@@ -1011,6 +1087,25 @@ mod tests {
         let text = written_text(&rewrites, "Players/07 - A/face.mtl");
         assert!(
             text.contains("path=\"model/character/uniform/common/714/dummy_kit.dds\""),
+            "{text}"
+        );
+        assert!(rewrites.links.is_empty());
+        assert!(rewrites.findings.is_empty());
+    }
+
+    #[test]
+    fn a_common_dummy_stem_in_a_sub_keeps_the_sub_as_written() {
+        let rewrites = plan(
+            &[("face", "Players/07 - A/face.mtl")],
+            &[],
+            &[(
+                "face",
+                &mtl(&["model/character/uniform/common/XXX/u0XXXp0/dummy_kit.dds"]),
+            )],
+        );
+        let text = written_text(&rewrites, "Players/07 - A/face.mtl");
+        assert!(
+            text.contains("path=\"model/character/uniform/common/714/u0XXXp0/dummy_kit.dds\""),
             "{text}"
         );
         assert!(rewrites.links.is_empty());

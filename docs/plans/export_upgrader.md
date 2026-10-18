@@ -404,22 +404,43 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    last (`foo_gloveL.model`, `foo_model_type_<x>.model` — see "Model names: a free part plus a
    suffix" in the [Aesthetics export plan](aesthetics_export/README.md)). The swap applies **only to folders
    without a `face.xml`** — filename typing exists to generate the xml, so a folder that ships its
-   own xml carries the types there and its files are left exactly as named. In xml-less folders the
-   upgrader moves a recognized leading type or `model_type_` token to the end of the stem; names
-   that already end in a type, or carry none, are untouched. It also drops the `oral_` prefix
+   own xml carries the types there and its files are left exactly as named. In xml-less folders (a
+   player folder with no `face.xml` of its own, its subfolders included, and a shared boots or
+   gloves folder, which validation refuses a model of when its name does not end in its type:
+   `oral_boots_win32.model` is `model_name_invalid`, `boots.model` is not) and in `Common/`, the
+   upgrader moves a recognized leading type to the end of the stem: one of Red's types
+   (`face_neck`, `handL`, `handR`, `gloveL`, `gloveR`, `uniform`, `shirt`, `pants_nocloth`, `eye`,
+   `mouth`, tried in that order) followed by `_` and more of the name (`gloveL_foo` →
+   `foo_gloveL`, `glove_l_foo` → `foo_glove_l`, the type kept as written). A type glued to the
+   next word is no type here (`eyebrow_x` stays, where Red typed it `eye`): none of the 856
+   models in the xml-less face folders of the maintainer's exports is named so, and moving
+   letters off a word makes a name nobody wrote. A name holding a `model_type_` token is left as
+   written: Red and the compiler both read everything after the token as the type, so it is in
+   place wherever it stands, and moving it would change the type. A name with no leading type is
+   untouched, one already ending in a type included, and so is a name that is a type alone
+   (`gloveL.model`). It also drops the `oral_` prefix
    and `_win32` suffix from a model named with both (`oral_parts_body_win32.model` →
    `parts_body.model`), in `Common/` too, a link of that name following its target
    (`oral_x_win32.model.common` → `x.model.common`): the compiler adds them back to the name it packs, and Red matched a
    `.mtl` against the name without them (its `xml_editing.py`), which the compiler's search,
    matching the literal stem, would not (`/jp/`'s Winter 2025 `XXX17 - Dekinai` holds that
    model beside `parts_body.mtl` and `materials.mtl`). Each renamed model keeps the `.mtl`
-   Red chose for it: in the type swap, a `.mtl` (or `.mtl.common` link) named after the old stem alone is renamed with
+   Red chose for it: in the type swap, a `.mtl` in the model's folder named after the old stem
+   alone (the stem the swap starts from, compared case-folded) is renamed with
    it (`gloveL_foo.mtl` → `foo_gloveL.mtl`), since the search matches a stem that starts or
    ends the model's ("Pre-Fox: the `.mtl` a `.model` uses" in `spec/model_format.md`); the
-   wrapper drop renames no `.mtl`, Red having matched against the unwrapped name already. In
-   either rename, a `.common` link follows its target's new name (`gloveL_foo.model.common` →
-   `foo_gloveL.model.common` with `Common/gloveL_foo.model` → `foo_gloveL.model`). A `Common/`
-   file that a member `face.xml` names keeps its name through both renames: the xml's `path` is
+   wrapper drop renames no `.mtl`, Red having matched against the unwrapped name already. A
+   `.mtl.common` link is not renamed with a model of its own folder: it follows its target in
+   `Common/`, keeping its name unless that `.mtl` is renamed with a `Common/` model, since a link
+   to a name that moved would name a file that is not there. In
+   either rename, a `.model.common` link follows its target's new name (`gloveL_foo.model.common` →
+   `foo_gloveL.model.common` with `Common/gloveL_foo.model` → `foo_gloveL.model`). A renamed
+   output that an earlier output already takes (compared case-folded) is left out and its input
+   reported `unmigrated_content`, as for the kit magic's renames. A `Common/`
+   file that a member `face.xml` names (a `path` or `material` value below
+   `model/character/uniform/common/<segment>/`, the file name's `*` read as `win32`, as the
+   compiler reads it) keeps its name through both renames, and so does one that a link in a
+   folder with a `face.xml` names, that link being left as written: the xml's `path` is
    packed as written, and on a PES 16 target one without the `oral_` prefix is refused
    (`xml_oral_prefix_missing`, `spec/team_compiler/messages.md`), so following the rename would
    lose the face folder where keeping the name loses nothing (the real `/o/` Winter 18 export's

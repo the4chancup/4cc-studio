@@ -8617,3 +8617,29 @@ an export that gets a human look anyway. (2) the game supplies `dummy_kit*` text
 lookup reported a false `common_reference_kept` on real files (/jp/ Summer 25 `XXX15 -
 Sister`); the compiler emits a member's `.mtl` as written, so the `???` still needs the ID.
 Plan: `plans/export_upgrader.md` step 7.
+
+## 2026-10-18 — export_upgrader — a pre-Fox leading type moves only when `_` follows it, `model_type_` names stay, `.mtl.common` links follow their target
+Decision: in the type swap of step 7, (1) a leading type is recognized only when `_` and more
+of the name follow it (`gloveL_foo` → `foo_gloveL`); a glued one (`eyebrow_x`) is left as
+written. (2) A name holding `model_type_` is left as written. (3) A `.mtl.common` link is not
+renamed with a model of its folder; it follows its `Common/` target. (4) A `Common/` file that
+a link in a folder with a `face.xml` names keeps its name, as one the `face.xml` itself names
+does. (5) A shared boots or gloves folder
+gets both renames, as an xml-less player folder does.
+Why: (1) Red matched the type with no delimiter, so `eyebrow_x` was typed `eye`; moving letters
+off a word makes a name nobody wrote, and a census of the maintainer's exports
+(`.tmp/6_4/model_names_census.txt`) found 185 delimited leading types and no glued one among the
+856 models of xml-less face folders. (2) the plan said the `model_type_` token moves to the end,
+but Red and the compiler (`xml_type`) both read everything after it as the type, so it is in
+place wherever it stands and a move would change the type (Red read it only when no leading
+type matched, the compiler always: `gloveL_model_type_x` changes type either way); the census
+found no such name. (3) a link to a name that moved names a missing file: its target is
+renamed only when it follows a swap-renamed `Common/` model (one real `.mtl.common`, a test
+folder; round 6.4.S6-2). (4) that link is left as written with its folder, so renaming its
+target would break it; no real export has one, and the rule costs one set entry. (5) it holds
+no `face.xml`, and validation refuses a boots or gloves model whose name does not end in its
+type (`model_name_invalid`, the folder dropped with its wearers' links): EU-PLY-08's
+`oral_boots_win32.model` failed so. Real old boots folders hold `boots.model` (221) and
+`boots_edit.model` (158, mostly in model folders; the Edit-mode model is an open pre-Fox parity
+item of the worklog), so the rename rarely fires there.
+Plan: `plans/export_upgrader.md` step 7.

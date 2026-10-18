@@ -7,7 +7,9 @@
 //! unwrapped.
 
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 
+use aesthetics_export::common_link_name;
 use roxmltree::Document;
 use teams_list::TeamId;
 
@@ -30,6 +32,44 @@ fn is_member_face_xml(output: &str) -> bool {
     })
 }
 
+/// The folded names of the `Players/<folder>/` folders holding a member
+/// `face.xml`, whose files are left entirely as named (step 7's model
+/// renames do not reach them, subfolders included).
+pub(crate) fn xml_folders(copies: &[(String, String)]) -> BTreeSet<String> {
+    copies
+        .iter()
+        .filter(|(_, output)| is_member_face_xml(output))
+        .filter_map(|(_, output)| {
+            output["Players/".len()..]
+                .split_once('/')
+                .map(|(folder, _)| vtree::fold_name(folder))
+        })
+        .collect()
+}
+
+/// `input`'s `face.xml` read and unwrapped, as both passes over it read it
+/// (`face_xml_rewrites`, `kept_common_files`): whether it was WESYS-wrapped
+/// (a rewrite is written unwrapped) and the payload; `None` when the read
+/// or the unwrap fails — such a file is left as written and names nothing.
+fn read_face_xml(
+    input: &str,
+    read: &mut impl FnMut(&str) -> Result<Vec<u8>, SourceFailure>,
+) -> Option<(bool, Vec<u8>)> {
+    let bytes = read(input).ok()?;
+    let payload = wezlib::decompress_if_wrapped(&bytes).ok()?.into_owned();
+    Some((wezlib::is_wrapped(&bytes), payload))
+}
+
+/// `payload`'s XML text past a BOM, and whether a BOM stood before it;
+/// `None` when `payload` is not UTF-8.
+fn xml_text(payload: &[u8]) -> Option<(bool, &str)> {
+    let text = std::str::from_utf8(payload).ok()?;
+    Some(match text.strip_prefix('\u{feff}') {
+        Some(text) => (true, text),
+        None => (false, text),
+    })
+}
+
 /// The member `face.xml` files to write instead of copying: output path
 /// and contents. One is here when its input is WESYS-wrapped (written
 /// unwrapped, step 1) or a `path`/`material` value changed.
@@ -45,45 +85,114 @@ pub(crate) fn face_xml_rewrites(
         }
         // The copy loop's own read reports a failure; a file that does not
         // unwrap is copied as it is (the compile reports it).
-        let Ok(bytes) = read(input) else {
+        let Some((wrapped, payload)) = read_face_xml(input, &mut read) else {
             continue;
         };
-        let wrapped = wezlib::is_wrapped(&bytes);
-        let payload = match wezlib::decompress_if_wrapped(&bytes) {
-            Ok(payload) => payload,
-            Err(_) => continue,
-        };
-        let text = match std::str::from_utf8(&payload) {
-            Ok(text) => text,
-            // Not UTF-8: a wrapped file still lands unwrapped, untouched.
-            Err(_) => {
-                if wrapped {
-                    rewrites.push((output.clone(), payload.into_owned()));
+        let respelled =
+            xml_text(&payload).and_then(|(bom, text)| match respell_face_xml(text, team) {
+                Cow::Owned(respelled) => {
+                    let mut out = String::new();
+                    if bom {
+                        out.push('\u{feff}');
+                    }
+                    out.push_str(&respelled);
+                    Some(out.into_bytes())
                 }
-                continue;
-            }
+                Cow::Borrowed(_) => None,
+            });
+        let new = match respelled {
+            Some(new) => new,
+            // Unchanged, or not UTF-8: a wrapped file still lands
+            // unwrapped, untouched.
+            None if wrapped => payload,
+            None => continue,
         };
-        let (bom, stripped) = match text.strip_prefix('\u{feff}') {
-            Some(stripped) => (true, stripped),
-            None => (false, text),
-        };
-        let respelled: Cow<[u8]> = match respell_face_xml(stripped, team) {
-            Cow::Owned(text) => {
-                let mut out = if bom {
-                    String::from("\u{feff}")
-                } else {
-                    String::new()
-                };
-                out.push_str(&text);
-                Cow::Owned(out.into_bytes())
-            }
-            Cow::Borrowed(_) => Cow::Borrowed(&*payload),
-        };
-        if wrapped || matches!(respelled, Cow::Owned(_)) {
-            rewrites.push((output.clone(), respelled.into_owned()));
-        }
+        rewrites.push((output.clone(), new));
     }
     rewrites
+}
+
+/// `value` minus `prefix` when it starts with it (ASCII
+/// case-insensitive).
+fn strip_prefix_ci<'a>(value: &'a str, prefix: &str) -> Option<&'a str> {
+    value
+        .get(..prefix.len())
+        .filter(|head| head.eq_ignore_ascii_case(prefix))
+        .map(|_| &value[prefix.len()..])
+}
+
+/// The `Common/` path a `face.xml` `path`/`material` value names, as the
+/// compiler reads it (`model/character/uniform/common/<segment>/<path>`,
+/// the file name's `*` read as `win32`, directories as written), respelled
+/// as the `Common/` outputs are (`Spelling::Name`) and folded; `None`
+/// when it names none (a value naming a folder gives a path no file has,
+/// which keeps nothing).
+fn common_below(value: &str, team: TeamId) -> Option<String> {
+    let rest = strip_prefix_ci(value, COMMON_PREFIX)?;
+    let (_segment, path) = rest.split_once('/')?;
+    let path = match path.rsplit_once('/') {
+        Some((dir, name)) => format!("{dir}/{}", name.replace('*', "win32")),
+        None => path.replace('*', "win32"),
+    };
+    Some(vtree::fold_name(&respell(&path, Spelling::Name, team)))
+}
+
+/// The `Common/` paths (folded, below `Common/`) that keep their names
+/// through step 7's renames (`plans/export_upgrader.md` step 7,
+/// `DECISIONS.md` 2026-10-18 "a pre-Fox leading type moves only when `_`
+/// follows it…" (4)): those a member `face.xml`'s `path`/`material` values
+/// name, and those a `.common` link in such a folder names — the link is
+/// left as written with its folder, so its target keeps its name too.
+pub(crate) fn kept_common_files(
+    copies: &[(String, String)],
+    team: TeamId,
+    mut read: impl FnMut(&str) -> Result<Vec<u8>, SourceFailure>,
+) -> BTreeSet<String> {
+    let xml = xml_folders(copies);
+    let mut kept = BTreeSet::new();
+    for (input, output) in copies {
+        if !is_member_face_xml(output) {
+            continue;
+        }
+        let Some((_, payload)) = read_face_xml(input, &mut read) else {
+            continue;
+        };
+        let Some((_, text)) = xml_text(&payload) else {
+            continue;
+        };
+        let Ok(document) = Document::parse(text) else {
+            continue;
+        };
+        for attribute in document
+            .descendants()
+            .filter(|node| node.is_element())
+            .flat_map(|element| element.attributes())
+        {
+            if matches!(attribute.name(), "path" | "material")
+                && let Some(below) = common_below(&text[attribute.range_value()], team)
+            {
+                kept.insert(below);
+            }
+        }
+    }
+    for (_, output) in copies {
+        let Some(rest) = output.strip_prefix("Players/") else {
+            continue;
+        };
+        let Some((folder, below)) = rest.split_once('/') else {
+            continue;
+        };
+        if !xml.contains(&vtree::fold_name(folder)) {
+            continue;
+        }
+        let name = below.rsplit('/').next().unwrap_or(below);
+        let Some(target) = common_link_name(name) else {
+            continue;
+        };
+        let suffix_len = name.len() - target.len();
+        kept.insert(vtree::fold_name(&below[..below.len() - suffix_len]));
+    }
+    kept
 }
 
 /// `text`, a parseable `face.xml`, with the `path` and `material`
@@ -259,5 +368,51 @@ mod tests {
         )];
         let mut read = reader(vec![("Faces/x".to_owned(), face_xml_text().into_bytes())]);
         assert!(face_xml_rewrites(&copies, team(), &mut read).is_empty());
+    }
+
+    #[test]
+    fn kept_common_files_names_the_values_common_paths() {
+        let copies = vec![("Faces/x".to_owned(), "Players/07 - A/face.xml".to_owned())];
+        let text = "<config><model path=\"model/character/uniform/common/o/oral_hand_l_*.model\" material=\"model/character/uniform/common/XXX/sub/x.mtl\"/></config>";
+        let mut read = reader(vec![("Faces/x".to_owned(), text.as_bytes().to_vec())]);
+        let kept = kept_common_files(&copies, team(), &mut read);
+        assert_eq!(
+            kept.iter().collect::<Vec<_>>(),
+            ["oral_hand_l_win32.model", "sub/x.mtl"]
+        );
+    }
+
+    #[test]
+    fn kept_common_files_ignores_local_and_bare_values() {
+        let copies = vec![("Faces/x".to_owned(), "Players/07 - A/face.xml".to_owned())];
+        let text = "<config><model path=\"./x.model\" material=\"model/character/uniform/common/\"/><model path=\"model/character/uniform/common/XXX\"/></config>";
+        let mut read = reader(vec![("Faces/x".to_owned(), text.as_bytes().to_vec())]);
+        assert!(kept_common_files(&copies, team(), &mut read).is_empty());
+    }
+
+    #[test]
+    fn kept_common_files_counts_a_link_in_the_xml_folder() {
+        let copies = vec![
+            ("Faces/x".to_owned(), "Players/07 - A/face.xml".to_owned()),
+            (
+                "Faces/x.link".to_owned(),
+                "Players/07 - A/oral_y_win32.model.common".to_owned(),
+            ),
+        ];
+        let mut read = reader(vec![("Faces/x".to_owned(), b"<config/>".to_vec())]);
+        let kept = kept_common_files(&copies, team(), &mut read);
+        assert_eq!(kept.iter().collect::<Vec<_>>(), ["oral_y_win32.model"]);
+    }
+
+    #[test]
+    fn kept_common_files_reads_a_wrapped_face_xml() {
+        let copies = vec![("Faces/x".to_owned(), "Players/07 - A/face.xml".to_owned())];
+        let wrapped = wezlib::compress(
+            "<config><model path=\"model/character/uniform/common/o/oral_hand_l_*.model\"/></config>"
+                .as_bytes(),
+        );
+        let mut read = reader(vec![("Faces/x".to_owned(), wrapped)]);
+        let kept = kept_common_files(&copies, team(), &mut read);
+        assert_eq!(kept.iter().collect::<Vec<_>>(), ["oral_hand_l_win32.model"]);
     }
 }

@@ -88,38 +88,50 @@ pub(crate) fn respell<'a>(text: &'a str, spelling: Spelling, team: TeamId) -> Co
 /// The copies with their output names respelled (`Spelling::Name`) below a
 /// player folder (`Players/<folder>/`), a shared folder (`Boots/<name>/`,
 /// `Gloves/<name>/`) or `Common/`; every other output, and those folders'
-/// own names, as they are. An output that, compared with
-/// `vtree::fold_name`, an earlier copy in the list already takes
-/// is left out and its input reported `unmigrated_content` (E,
-/// `Disposition::DropFile`, the fallback's scope and empty context).
+/// own names, as they are.
 pub(crate) fn respell_outputs(
     copies: Vec<(String, String)>,
     team: TeamId,
+) -> Vec<(String, String)> {
+    copies
+        .into_iter()
+        .map(|(from, to)| {
+            let to = match to.split_once('/') {
+                Some((top, rest)) => {
+                    // The path the magic can reach: `Players`/`Boots`/
+                    // `Gloves` keep their folder's own name and respell
+                    // below it; `Common/` respells the whole path below.
+                    let (keep, below) = match top {
+                        "Players" | "Boots" | "Gloves" => match rest.split_once('/') {
+                            Some((_folder, below)) => (&to[..to.len() - below.len()], below),
+                            None => (&to[..], ""),
+                        },
+                        "Common" => ("Common/", rest),
+                        _ => (&to[..], ""),
+                    };
+                    match respell(below, Spelling::Name, team) {
+                        Cow::Owned(below) => format!("{keep}{below}"),
+                        Cow::Borrowed(_) => to,
+                    }
+                }
+                _ => to,
+            };
+            (from, to)
+        })
+        .collect()
+}
+
+/// `copies` minus every output whose path, folded with
+/// `vtree::fold_name`, an earlier copy in the list already takes; the
+/// later input is reported `unmigrated_content` (E,
+/// `Disposition::DropFile`, the fallback's scope and empty context).
+pub(crate) fn drop_collisions(
+    copies: Vec<(String, String)>,
 ) -> (Vec<(String, String)>, Vec<Message>) {
     let mut out = Vec::with_capacity(copies.len());
     let mut taken: BTreeSet<String> = BTreeSet::new();
     let mut findings = Vec::new();
     for (from, to) in copies {
-        let to = match to.split_once('/') {
-            Some((top, rest)) => {
-                // The path the magic can reach: `Players`/`Boots`/`Gloves`
-                // keep their folder's own name and respell below it;
-                // `Common/` respells the whole path below.
-                let (keep, below) = match top {
-                    "Players" | "Boots" | "Gloves" => match rest.split_once('/') {
-                        Some((_folder, below)) => (&to[..to.len() - below.len()], below),
-                        None => (&to[..], ""),
-                    },
-                    "Common" => ("Common/", rest),
-                    _ => (&to[..], ""),
-                };
-                match respell(below, Spelling::Name, team) {
-                    Cow::Owned(below) => format!("{keep}{below}"),
-                    Cow::Borrowed(_) => to.clone(),
-                }
-            }
-            _ => to.clone(),
-        };
         if !taken.insert(vtree::fold_name(&to)) {
             findings.push(tool_message(
                 Code::UnmigratedContent,
@@ -197,7 +209,7 @@ mod tests {
 
     #[test]
     fn player_and_common_outputs_respell_their_rest() {
-        let (copies, findings) = respell_outputs(
+        let copies = respell_outputs(
             vec![
                 ("a".into(), "Players/07 - A/u0XXXp1.dds".into()),
                 ("b".into(), "Players/07 - A/u0XXXp0/armor.dds".into()),
@@ -210,7 +222,6 @@ mod tests {
             ],
             team(),
         );
-        assert!(findings.is_empty());
         assert_eq!(
             copies,
             vec![
@@ -227,14 +238,14 @@ mod tests {
     }
 
     #[test]
-    fn the_second_folded_output_is_reported_and_left_out() {
-        let (copies, findings) = respell_outputs(
+    fn respelled_names_collide_as_before() {
+        let (copies, findings) = drop_collisions(respell_outputs(
             vec![
                 ("a".into(), "Players/07 - A/u0XXXp1.dds".into()),
                 ("b".into(), "Players/07 - A/u0714p1.dds".into()),
             ],
             team(),
-        );
+        ));
         assert_eq!(
             copies,
             vec![("a".to_owned(), "Players/07 - A/kit1.dds".to_owned())]

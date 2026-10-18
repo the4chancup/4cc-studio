@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): a SWE-2 round on 6.4c and Astra round M-A1's fixes,
-then 6.4d (pre-Fox renames), then Astra on 6.4c-d. 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): a SWE-2 round on 6.4d, then Astra on 6.4c-d, then 6.5
+(`settings.toml` generation). 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -504,8 +504,8 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   - [x] 6.2b boots and gloves folders: wearers from the save, the Fox merge, shared folders and
     links, pre-Fox links, the lower-case `k`/`g` rule → verify: EU-PLY-02, -05, -06, -08, -09, -10.
     Done 2026-10-18: 11 EU-PLY scenarios proven; a shared folder split one file per folder
-    (fixed); EU-PLY-08's pre-Fox output not clean until 6.4d's model renames (its test asserts
-    the files only); mutation diff 2 survivors, 1 tested, 1 equivalent (no own finding below
+    (fixed); EU-PLY-08's pre-Fox output was not clean until 6.4d's model renames (its test
+    now asserts exit 0); mutation diff 2 survivors, 1 tested, 1 equivalent (no own finding below
     Error drops yet); also the first slice's review round S3 (the verdict reads the tool's own
     dropping findings); files: `export_upgrader/src/{players,roster,upgrade,source,messages,
     lib}.rs`, `tests/cli/players.rs`, `tests/common/mod.rs`
@@ -582,7 +582,19 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     `too_many_arguments` (a per-file context struct), a perturbation no test caught (tested); mutation diff 3 survivors, all in a set link's member ordering, removed (the link resolves whatever its extension);
     files: `export_upgrader/src/{materials,messages}.rs`, `tests/cli/carried.rs`,
     `Cargo.toml`
-  - [ ] 6.4d pre-Fox renames
+  - [x] 6.4d pre-Fox renames: the leading type moved last, `oral_`/`_win32` dropped, the `.mtl`
+    and `.model.common` links following, `Common/` files a member `face.xml` names kept →
+    verify: EU-MDL-11, -12, -14. Done 2026-10-18: all proven, EU-PLY-08 now exits 0; from a
+    census (`.tmp/6_4/model_names_census.txt`) a leading type moves only when `_` follows it,
+    `model_type_` names stay, a `.mtl.common` link follows only its `Common/` target, shared
+    boots/gloves folders rename too
+    (DECISIONS 2026-10-18 "a pre-Fox leading type moves only when `_` follows it…"); one
+    collision check after every rename (`drop_collisions`); review round 6.4.S5's three fixes;
+    the sidekick session that held the crate stalled twice, a fresh one finished; lead review:
+    a face.xml read struct and a redundant `Site` payload simplified; mutation diff 3 survivors,
+    one dead guard removed, two tested; review round 6.4.S6 3 accepted (loop ended), fixed
+    here (the link rule above); files: `export_upgrader/src/{model_names,face_xml,kit_magic,
+    materials,upgrade,lib}.rs`, `tests/cli/{carried,players}.rs`
 - [ ] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
   EU-SET-*
 - [ ] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*

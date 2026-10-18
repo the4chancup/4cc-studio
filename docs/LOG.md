@@ -2123,3 +2123,5 @@ worklog passed 7,000 lines.
   team ID in names and in `.mtl`/`face.xml` paths; `face.xml` written unwrapped.
 - **2026-10-18** — 6.4c: an old FMDL's path table rewritten to the Studio spelling, the team's
   Common linked as an `.mtl`'s; Astra on 6.4a-b2: a kept clashing reference is worn as the local texture.
+- **2026-10-18** — 6.4d: pre-Fox models renamed to the Studio spelling (leading type last,
+  `oral_`/`_win32` off, `.mtl` and links following) outside folders that ship a `face.xml`.
