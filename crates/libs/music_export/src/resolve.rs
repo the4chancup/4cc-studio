@@ -30,16 +30,28 @@ pub struct Resolution {
 /// `X_normalized.opus`), the one with the song's own extension first when
 /// there are several. With `normalization_applies` unset the companion comes
 /// first, with it set the plain file. Each candidate is its own lookup in the
-/// folder's listing, names matched case-insensitively (the subfolder
-/// components are used as written). The path returned carries the name as it
-/// is on disk, so two spellings of one file resolve to one path. An
-/// unreadable folder is "not found" for that candidate.
+/// folder's listing, names matched case-insensitively, the exact spelling (or
+/// the song's own extension) preferred and among equals the smallest name
+/// (the subfolder components are used as written). The path returned carries
+/// the name as it is on disk, so two spellings of one file resolve to one
+/// path. A path with no file name (`sub/`) resolves nowhere, and an unreadable
+/// folder is "not found" for that candidate.
 pub fn resolve_song(folder: &Path, file: &str, normalization_applies: bool) -> Option<PathBuf> {
-    let path = folder.join(file.replace('\\', "/"));
+    let relative = file.replace('\\', "/");
+    // The name as written, not the joined path's `file_name()`, which for
+    // `sub/` is the subfolder itself.
+    let name = relative.rsplit('/').next()?;
+    if name.is_empty() {
+        return None;
+    }
+    let path = folder.join(&relative);
     let dir = path.parent()?;
-    let name = path.file_name()?.to_str()?;
     let (stem, extension) = split_extension(name);
-    let (folded_name, companion_stem) = (name.to_lowercase(), format!("{stem}_normalized"));
+    let folded_name = name.to_lowercase();
+    let (companion_stem, folded_extension) = (
+        format!("{stem}_normalized").to_lowercase(),
+        extension.to_lowercase(),
+    );
     let plain = || {
         find_in(dir, |on_disk| {
             if on_disk == name {
@@ -54,10 +66,10 @@ pub fn resolve_song(folder: &Path, file: &str, normalization_applies: bool) -> O
     let companion = || {
         find_in(dir, |on_disk| {
             let (on_disk_stem, on_disk_extension) = split_extension(on_disk);
-            if !on_disk_stem.eq_ignore_ascii_case(&companion_stem) {
+            if on_disk_stem.to_lowercase() != companion_stem {
                 return None;
             }
-            Some(if on_disk_extension.eq_ignore_ascii_case(extension) {
+            Some(if on_disk_extension.to_lowercase() == folded_extension {
                 Rank::Preferred
             } else {
                 Rank::Acceptable
@@ -80,7 +92,9 @@ fn split_extension(name: &str) -> (&str, &str) {
     }
 }
 
-/// How well a listed file fits a lookup.
+/// How well a listed file fits a lookup; `Preferred` orders first (the derive
+/// follows the declaration order).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Rank {
     /// The exact name, or the companion with the song's own extension.
     Preferred,
@@ -88,23 +102,21 @@ enum Rank {
     Acceptable,
 }
 
-/// `dir`'s file that `rank` likes best, by its name on disk: the first it
-/// ranks `Preferred`, else the `Acceptable` one with the smallest name (the
-/// listing's order is the filesystem's, so it decides nothing). A listing
-/// scan, not `dir.join(name).exists()`: on a case-insensitive filesystem that
-/// answers with the written spelling. An unreadable folder, or an unreadable
-/// entry, finds nothing.
+/// `dir`'s file that `rank` likes best, by its name on disk: the best rank,
+/// and among equals the smallest name, so the listing's order (the
+/// filesystem's) decides nothing. A listing scan, not
+/// `dir.join(name).exists()`: on a case-insensitive filesystem that answers
+/// with the written spelling. An unreadable folder, or an unreadable entry,
+/// finds nothing.
 fn find_in(dir: &Path, rank: impl Fn(&str) -> Option<Rank>) -> Option<PathBuf> {
-    let mut acceptable = Vec::new();
+    let mut candidates = Vec::new();
     for entry in std::fs::read_dir(dir).ok()?.flatten() {
         let on_disk = entry.file_name();
-        match rank(&on_disk.to_string_lossy()) {
-            Some(Rank::Preferred) => return Some(entry.path()),
-            Some(Rank::Acceptable) => acceptable.push((on_disk, entry.path())),
-            None => {}
+        if let Some(rank) = rank(&on_disk.to_string_lossy()) {
+            candidates.push((rank, on_disk, entry.path()));
         }
     }
-    acceptable.into_iter().min().map(|(_, path)| path)
+    candidates.into_iter().min().map(|(_, _, path)| path)
 }
 
 /// Every distinct song file of `export`, resolved, in the model's order: slot
@@ -314,6 +326,66 @@ mod tests {
             Some("song_NORMALIZED.ogg"),
             "the companion's stem matches case-insensitively"
         );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    /// The companion's stem folds like the plain name does, Unicode included:
+    /// `songCheck` lowercases both.
+    #[test]
+    fn a_companion_s_stem_folds_non_ascii_letters() {
+        let dir = temp_dir("unicode", &[("CAFÉ_normalized.opus", b"normalized")]);
+        assert_eq!(
+            resolved(&dir, "café.mp3", false).as_deref(),
+            Some("CAFÉ_normalized.opus")
+        );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    #[test]
+    fn a_companion_is_looked_up_in_the_song_s_own_subfolder() {
+        let dir = temp_dir(
+            "subcompanion",
+            &[("sub/x_normalized.opus", b"normalized"), ("x.mp3", b"top")],
+        );
+        assert_eq!(
+            resolved(&dir, "sub/x.mp3", false).as_deref(),
+            Some("sub/x_normalized.opus")
+        );
+        assert_eq!(
+            resolved(&dir, "sub/x.mp3", true).as_deref(),
+            Some("sub/x_normalized.opus"),
+            "no plain file in the subfolder: the top folder's is not it"
+        );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    /// A name with no dot has no extension: it still folds, and its companion
+    /// of any extension is found.
+    #[test]
+    fn a_name_without_an_extension_folds_and_finds_its_companion() {
+        let dir = temp_dir(
+            "noext",
+            &[
+                ("Anthem", b"song"),
+                ("anthem_normalized.opus", b"normalized"),
+            ],
+        );
+        assert_eq!(resolved(&dir, "anthem", true).as_deref(), Some("Anthem"));
+        assert_eq!(
+            resolved(&dir, "anthem", false).as_deref(),
+            Some("anthem_normalized.opus")
+        );
+        std::fs::remove_dir_all(&dir).expect("cleanup");
+    }
+
+    /// A path with no file name (`sub/`, the empty string) is no song: a folder
+    /// of that name is not returned in its place.
+    #[test]
+    fn a_path_without_a_file_name_resolves_nowhere() {
+        let dir = temp_dir("noname", &[("sub/x.mp3", b"x")]);
+        assert_eq!(resolved(&dir, "sub/", true), None);
+        assert_eq!(resolved(&dir, "sub\\", true), None);
+        assert_eq!(resolve_song(&dir, "", true), None, "not the folder itself");
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 

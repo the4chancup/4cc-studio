@@ -208,11 +208,12 @@ candidates in the joined path's folder, by its file name: the plain file, and th
 a file whose stem is `<stem>_normalized` whatever its extension, the song's own extension
 first when there are several. With `normalization_applies` unset the companion comes first,
 with it set the plain file. Each candidate is its own lookup in the folder's listing, names
-matched case-insensitively, the exact spelling (or the song's own extension) preferred and
-otherwise the smallest name, so the filesystem's listing order decides nothing (the subfolder
-components are used as written); an unreadable folder finds nothing. `resolve_export` looks up every distinct file
-once, in the model's order: slot by slot in order of first appearance, file order within each,
-then the event clips.
+matched case-insensitively (Unicode folded, as `songCheck` lowercases), the exact spelling (or
+the song's own extension) preferred and among equals the smallest name, so the filesystem's
+listing order decides nothing (the subfolder components are used as written); a path with no
+file name (`sub/`) and an unreadable folder find nothing. `resolve_export` looks up every
+distinct file once, in the model's order: slot by slot in order of first appearance, file
+order within each, then the event clips.
 
 ### Model
 

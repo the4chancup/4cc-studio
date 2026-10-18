@@ -8725,11 +8725,13 @@ Plan: `music_player.md` "Model", "File resolution".
 ## 2026-10-18 — music_export — a `_normalized` companion is matched by stem, any extension; the entry `advance` skips is not drawn; a root-level anchor holds
 Decision: `resolve_song`'s companion is any file of the song's folder whose stem is
 `<stem>_normalized`, case-insensitively, whatever its extension, the song's own extension
-preferred when there are several, else the smallest name (the listing's order, which
-`songCheck` takes, is the filesystem's and differs between NTFS and ext4); a path anchored by
-a leading separator or a drive is used as written whether or not it names a subfolder (the
-whole path is joined, then split into folder and name); under `randomise`, the entry that just
-ended (`Press::skip`) counts for the all-entries check and is left out of the draw.
+preferred when there are several, and among equal ranks the smallest name (the listing's
+order, which `songCheck` takes, is the filesystem's and differs between NTFS and ext4); names
+fold with `to_lowercase`, Unicode included, in both lookups; a path anchored by a leading
+separator or a drive is used as written whether or not it names a subfolder (the whole path
+is joined for the folder, the name taken as written, so `sub/` resolves nowhere rather than to
+the subfolder); under `randomise`, the entry that just ended (`Press::skip`) counts for the
+all-entries check and is left out of the draw.
 Why: Astra round 10.0e.A1. `songCheck` (the Rigdio fork's `rigparse.py`) compares
 `splitext(file)[0]` with `<stem>_normalized` and never the extension, and real exports lean
 on it: IZAKAYA's `izakaya.4ccm` names 17 `.mp3` songs each beside an `X_normalized.opus`,

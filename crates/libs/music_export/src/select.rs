@@ -73,8 +73,9 @@ impl PriorityList {
     /// play again (or a `once` already checked) is unloaded, and the first
     /// passing entry plays. Before any check, an entry carrying `randomise`
     /// whose slot's own non-warcry entries all carry it is drawn from that
-    /// pool by `pick` (given the pool's size, returning an index into it),
-    /// conditions unread. After a warcry has played, warcries are passed over.
+    /// pool minus the skipped entry by `pick` (given the draw's size,
+    /// returning an index into it), conditions unread. After a warcry has
+    /// played, warcries are passed over.
     pub fn select(
         &mut self,
         state: &MatchState,

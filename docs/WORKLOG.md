@@ -700,7 +700,9 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
     loop ended; Astra round A1 (top lead, on main) 4 accepted: the `_normalized` companion by
     stem of any extension (IZAKAYA's `.mp3`/`.opus` pairs), the root-level anchor, the
     `advance` skip left out of the `randomise` draw, the `keyword()` sentence narrowed, each
-    with a red-run test (DECISIONS 2026-10-18); rulings `.tmp/10_0e/rulings.md`. Side-lead B,
+    with a red-run test (DECISIONS 2026-10-18); SWE-2 round S2 on the fix 6 accepted (Unicode
+    folding of the companion, `sub/` resolving nowhere, every candidate ranked, a subfolder
+    companion test), S3 2 accepted (loop ended); rulings `.tmp/10_0e/rulings.md`. Side-lead B,
     branch `side/10.0e`. Files:
     `docs/plans/music_player.md`, `docs/DECISIONS.md`,
     `crates/libs/music_export/src/{lib,model,eval,state,select,resolve,parse}.rs`
