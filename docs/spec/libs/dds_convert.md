@@ -29,9 +29,10 @@ approach in production, in `Engines/stages/lib/dxt.py` + the `texture2ddecoder` 
   `bibs_nrm`, `skin_nrm`; PES 21 `dummy_nrm`). The two engines differ only in the channels the
   shader ignores, and the output copies each engine's own files rather than guessing what the
   shader reads: pre-Fox `R = G = B = Y` (the color block is a grey Y), Fox `R = 255`, `B = 0` (the
-  DirectXTex `DXT5nm` layout). The legacy compilers never produced this conversion at all: they
-  invoked texconv with a format name it rejects (`DX5nm`), and the current texconv drops X when the
-  source is BC5, so there is no legacy output to be parity with; the Konami files are the standard.
+  DirectXTex `DXT5nm` layout). The legacy compilers never produced this conversion at all: released
+  Red converts every DX10 texture with texconv's `-f DXT5 -srgb`, which drops X when the source is
+  BC5 (its unreleased development branch asks for a format name texconv rejects, `DX5nm`), so
+  there is no legacy output to be parity with; the Konami files are the standard.
 - **Passthrough**: compressed blocks a target can read are kept and only the container changes.
   PES 15–18 read BC1, BC2 and BC3; PES 19–21 also read BC4, BC5 and BC7 (the legacy compilers
   passed BC5 through to PES 19–21 as FTEX format 9). The role narrows this: a normal-role source

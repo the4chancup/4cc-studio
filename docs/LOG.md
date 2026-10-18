@@ -2093,3 +2093,6 @@ worklog passed 7,000 lines.
 - **2026-10-18** — the Export upgrader's acceptance section (6.0b): 81 scenarios after 16 review
   rounds and a pass re-reading the 5.0c Red inventory on Red's released `main` (it had read an
   unreleased branch); the plan's steps gained Red's old-export readings, DECISIONS (12)-(18).
+- **2026-10-18** — 6.1a: the `export_upgrader` crate's first path, `upgrade` reading a folder,
+  `.zip` or `.7z`, resolving the team, writing the output under its derived name and validating
+  it, every file not yet migrated reported; 12 EU scenarios proven, its own reader, not the compiler's.

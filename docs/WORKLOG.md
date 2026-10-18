@@ -13,8 +13,8 @@ is in `AGENTS.md` ("Working documents").
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-d
 (`music_export`, converging with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): its acceptance section is reviewed (6.0b); next 6.1, the
-thinnest end-to-end path, and 6.0c beside it. 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): 6.1b (the Note's team colors and notes), 6.0c's rulings
+beside it. 2.5b (GPU BC7) is step 16.x
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -471,7 +471,20 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   tool-crate skeleton), `upgrade` reading a folder, `.zip` or `.7z` (step 1), resolving the team
   (step 6) and writing the output with its root `colors.txt`/`notes.txt`, the report (step 10's
   catalog) and the exit codes ("CLI") → verify: EU-IN-*, EU-ROOT-*, EU-CLI-* (the flag,
-  input, savefile and output-folder ones) pass, red first
+  input, savefile and output-folder ones) pass, red first. Two slices:
+  - [x] 6.1a the crate, `upgrade`'s CLI, the input read (folder through a walk of its own,
+    archives through `archives::Archive::open`; the compiler's reader stays its own, DECISIONS
+    2026-10-18), the root rule, the Note found and its `Team:` line, the output name, every
+    other input file reported `unmigrated_content`, the output validated and the exit codes →
+    verify: EU-IN-01..03, EU-ROOT-02/03, EU-CLI-01..05 and 07 (upgrade cases); EU-ROOT-01's
+    output name. Done 2026-10-18: 12 scenarios proven; review found `upgrade .` writing into
+    the input (fixed); mutation diff 11 survivors tested, 3 accepted (GUI placeholders, an
+    equivalent `Default`); files: `crates/tools/export_upgrader/`, `aesthetics_export`
+    (`coverage`, `is_os_artifact` pub), `studio` (registration), `.gitignore` (fixture
+    `Thumbs.db`), `scripts/doc_pointers.py` (open-phase plan), plan "CLI"/"Message catalog"
+  - 6.1b the Note's team colors to the root `colors.txt` and its "Other Notes" to `notes.txt`
+    → verify: EU-ROOT-04, EU-ROOT-05's root `colors.txt` (its kits' with 6.3), EU-ROOT-01's
+    settings with 6.5
 - [ ] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
   `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*
 - [ ] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit

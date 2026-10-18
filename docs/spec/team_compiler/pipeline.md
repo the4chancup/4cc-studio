@@ -215,7 +215,8 @@ format:
 3. **Export identity resolution** — after validation, a normal export's canonical `team_name` from
    the Reader is looked up in `teams_list.txt` — one row per team, tab-separated `ID` and `Name`
    columns, Name lowercased on load with the Reader's fold (see step 2 above), further columns
-   ignored (Red's `MinBootsID`/`MaxBootsID` are dead: Studio derives the 40-ID block from the team
+   ignored (the `MinBootsID`/`MaxBootsID` columns of Red's development-branch list are not read,
+   and released Red's list has none: Studio derives the 40-ID block from the team
    ID, see the export plan's "ID allocation"); rows whose Name is not slash-wrapped (Red's `Backup 1`, `VGL 55`
    placeholders) load but can never match. The complete `export_display_name` is never
    used as the lookup key. Valid normal `TeamId` values are 701–920. In Red, an unresolvable team
@@ -234,7 +235,8 @@ format:
    player-specific folders on both engines (the categorization, rerouting and merge rules are
    "`ingame_face` marker" in the [Aesthetics export plan](../aesthetics_export/player_folders.md)). Without `ingame_face`, a player with boots/gloves but no face models still gets a
    (blank) face folder: the absence of the default PES face is the final element of FPC, so the
-   folder must exist (Red's current behavior, kept). That holds for every roster-mapped player
+   folder must exist (the rule of Red's unreleased development branch; released Red generates no
+   face folder, packing only those members ship). That holds for every roster-mapped player
    folder without the marker and without a face model, whatever else it holds: a portrait
    alone, textures alone, a boots link alone, an empty `face/`, nothing. A referee folder is the
    exception: with no face model it gets no face folder, since a referee has no FPC body to
@@ -2098,7 +2100,9 @@ phase that owns them):
   load; a line whose Name does not fold is a placeholder kept verbatim and never looked up; a line
   whose Name folds but whose ID is outside 701–920 is an error, as are duplicate IDs or names; a
   UTF-8 BOM is tolerated on read and never written; blank lines are dropped; CRLF or LF read, CRLF
-  written (the file Red's current version writes: 220 rows, all ASCII).
+  written (the file Red's unreleased development branch writes: 220 rows, all ASCII; released
+  Red's separates its two columns, header `ID Name` included, by a space, which this reader
+  refuses naming the file).
 
 **Pre-Phase-3 gates** (the normal-team versus referee `ExportIdentity` boundary, sanitized
 validated-versus-eligible projection, roster-entry scope/disposition semantics): confirmed

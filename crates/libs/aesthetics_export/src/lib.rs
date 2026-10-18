@@ -21,14 +21,15 @@ mod validate;
 pub use colors_txt::{ColorLineRefusal, ColorsTxt, RefusedColorLine, read_colors_txt};
 pub use conventions::{
     FileKind, KitToken, Marker, MetadataFile, ModelFormat, ModelSuffix, SharedKind, classify,
-    common_link_name, common_link_target, ends_with_name, is_player_singleton, is_small_metadata,
-    is_txt_note, kit_folder, kit_path_token, kit_token, model_suffix, variant_path, variant_stem,
-    without_kit_token,
+    common_link_name, common_link_target, ends_with_name, is_os_artifact, is_player_singleton,
+    is_small_metadata, is_txt_note, kit_folder, kit_path_token, kit_token, model_suffix,
+    variant_path, variant_stem, without_kit_token,
 };
 pub use listing::{CanonicalListing, ListedEntry, ListedKind, SmallMetadata, ValidationContext};
 pub use parse::{
     AestheticsExportDraft, ExportCoverage, ExportKind, FileDescriptor, FolderDraft,
-    ParsedAestheticsExport, RawRoster, RawRosterEntry, SourceError, parse_listing, team_name,
+    ParsedAestheticsExport, RawRoster, RawRosterEntry, SourceError, coverage, parse_listing,
+    team_name,
 };
 pub use resolve::{ExportIdentity, IdentityError, ResolvedAestheticsExport};
 pub use slots::{PlayerSlot, RefSlot};

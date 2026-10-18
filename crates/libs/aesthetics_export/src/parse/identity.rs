@@ -31,7 +31,7 @@ pub fn team_name(display_name: &str) -> Option<TeamName> {
 /// `team_name`), `Full` or `Midcup` in any letter case (`co Full Spring
 /// 2026`, `co midcup day 5`). `None` for any other second token, a missing
 /// one included; a later `Full` (`b Spring Full`) does not count.
-pub(crate) fn coverage(display_name: &str) -> Option<ExportCoverage> {
+pub fn coverage(display_name: &str) -> Option<ExportCoverage> {
     let tag = tokens(display_name).nth(1)?;
     if tag.eq_ignore_ascii_case("full") {
         Some(ExportCoverage::Full)

@@ -24,6 +24,7 @@ fn tools() -> Vec<Box<dyn StudioTool>> {
     vec![
         Box::new(team_compiler::Tool::new()),
         Box::new(save_editor::Tool::new()),
+        Box::new(export_upgrader::Tool::new()),
     ]
 }
 

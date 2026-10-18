@@ -29,7 +29,11 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    which step 10 would otherwise list one by one. (A bare
    folder of item folders is the other accepted input — see "Model-folder mode".) An archive's
    name is its file's stem, the name of the folder inside it aside, as Red named an export
-   (a member's renamed `day5.zip` holding `co Spring/` is `day5`). An input holding no Note,
+   (a member's renamed `day5.zip` holding `co Spring/` is `day5`). The export's root is the
+   input's own, or, when that holds none of the files and folders this step and step 9 read
+   but exactly one folder and no other file (OS artifacts aside), that folder: the AET page
+   packs an export inside one main folder, and a folder input wrapped the same way reads the
+   same, so the two are one rule. An input holding no Note,
    none of the folders above and neither of a referee export's `refs.txt` and `Players/` (step
    9; the real `refs lan party` export holds those two alone) is reported as no old export, nothing written, exit 1, as Red
    refused it ("No usable files found"): resolved from its name alone, it would become a Full
@@ -171,6 +175,11 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    unless its user adds the team at its prompt (its `team_id_get.py`), because a Note that names a team the list lacks says the export may
    be another team's than its folder name suggests. The
    resolved key is used for the `teams_list.txt` lookup and as the output's first word ("CLI"); the
+   list is the data directory's `teams_list.txt`, the file the Team compiler's default
+   `teams_list_path` names, else the embedded list, and one that cannot be read or parsed aborts
+   (exit 3), as the compiler's does: the upgrader has no setting of its own for it, since an
+   export it resolves against one list and the compiler against another would compile as
+   another team; the
    complete folder name remains the display/source name, and the Studio output carries no Note (the format has no `Team:` line —
    see the Team compiler plan's "Root files").
 7. **Carries over** Portraits, Collars, and Common, and **converts the Logo folder**. An old
@@ -479,8 +488,8 @@ and left unchanged).
 ## CLI
 
 ```text
-studio export-upgrader upgrade <export> [--savefile <EDIT>] [--loose] [--convert-to-gltf] [-o <dir>]
-studio export-upgrader upgrade-models <folder> [-o <dir>]
+4cc-studio export-upgrader upgrade <export> [--savefile <EDIT>] [--loose] [--convert-to-gltf] [-o <dir>]
+4cc-studio export-upgrader upgrade-models <folder> [-o <dir>]
 ```
 
 `upgrade` takes one old export (folder, `.zip` or `.7z`); the output is a folder beside the
@@ -493,8 +502,11 @@ plan's "Coverage tag"), then the rest of the old name (`co - Spring` → `co Ful
 name whose first word is not the key keeps that word in the rest (`Numbers` resolved from its
 Note to `/co/` → `co Full Numbers`), because the compiler takes the team from the first word
 alone; one whose second word is already `Full` or `Midcup` keeps it rather than doubling it; a
-referee export takes no tag. A name equal to the source folder's own gets ` upgraded` appended
-(`refs Spring` → `refs Spring upgraded`), so the input is never written into. An output folder
+referee export takes no tag. A name equal to the export's own (a folder's name, an archive's
+stem), letter case aside, gets ` upgraded` appended (`refs Spring` → `refs Spring upgraded`), so
+the input is never written into: Windows names ignore case, so `CO Full Spring`'s output
+`co Full Spring` would be the input folder itself, and an archive's output takes the same name its folder form
+would. An output folder
 that already exists is refused, naming it: replacing it would lose edits made since an earlier
 upgrade. A team export takes `--savefile` or `--loose`, exactly one: loose mode is an assumption
 the user opts into (step 11), never a silent fallback; a referee export takes neither, and is refused with either. A
@@ -504,8 +516,9 @@ compiler's code) and nothing is written. `upgrade-models` is model-folder mode; 
 folder per migrated input folder under the output directory, by default a sibling folder named
 after the input with ` upgraded` appended. Both print step 10's report, one line per finding
 naming its code and the input path it is about, and exit with the Team compiler's mapping
-(`spec/team_compiler/settings.md` "CLI"): **0** clean (Warning and Info findings allowed), **1**
-not clean (unmigrated content, an Error finding, the unknown team, or an archive that does not
+(`spec/team_compiler/settings.md` "CLI"): **0** clean (Warning and Info findings allowed when
+they drop nothing), **1** not clean (unmigrated content, an Error finding, a finding that drops
+something, the unknown team, or an archive that does not
 extract, reported `export_extract_failed` as the compiler does; the draft, when written, is
 kept for manual repair, "Verification"), **2** invalid invocation (a missing input path, an
 `upgrade` input that is a file other than a `.zip` or `.7z`, the flags above, a savefile that
@@ -513,6 +526,28 @@ does not read as a save or lacks the team; nothing is written), **3** aborted be
 written (the output folder exists or cannot be created). `--convert-to-gltf` is accepted once
 step 13 is built (Phase 7); until then it is an unknown argument. The GUI offers the same two
 modes as two drop targets on the tool view.
+
+## Message catalog
+
+Tool id `export-upgrader`. Each step names the codes it reports where it describes them; this
+table holds the ones no single step owns. The report names two exports: the input, by its name
+(step 1), for what is found in it, and the output, by its folder name, for the shared
+validation's findings on what was written.
+
+| Code | Sev | When | Context |
+|---|---|---|---|
+| `no_old_export` | E | step 1: the input holds nothing an old export holds; nothing is written | — |
+| `export_extract_failed` | E | the archive does not open or its listing is refused (the compiler's code); nothing is written | `path`, `error` |
+| `team_name_unknown` | E | the team resolves to no row of the list (the compiler's code), the `Team:` line's file or the export named; nothing is written | `name` |
+| `unmigrated_content` | E | an input file no step migrates (step 10), entry by entry; a Note entry whose colors do not read is one, its line in the context | `line` (a Note entry) |
+| `migration_clean` | I | last line: no Error finding, and no finding drops anything ("Verification"'s clean migrated export); exit 0 | — |
+| `migration_not_clean` | I | last line otherwise: the output is a draft for manual repair ("Verification"); exit 1, a Warning that drops a folder included, since the compile would lose it | — |
+
+The shared validation's codes (`aesthetics_export::ISSUE_CODES`) keep the Team compiler's
+severity (`spec/team_compiler/messages.md` "Catalog"), each run-dependent one taken as for a
+compile that deploys with pass-through and the strict file-type check off, and an `E/F` one as
+an Error, since the run it would abort is the upgrade of this one export, already written: the
+output is judged as its first compile will judge it.
 
 ## Dependencies
 
@@ -531,7 +566,10 @@ in Phase 6; the optional glTF pass waits for Phase 7's importer/exporter support
 For each migration the upgrader writes an in-memory/output draft, enumerates it into canonical
 `vtree::ScopePath` entries plus small metadata, parses that listing back through
 `aesthetics_export::parse_listing` as `ParsedAestheticsExport`, runs the shared validation, and reports every
-scoped issue. Shared validation may produce a sanitized `ValidatedAestheticsExport` with ineligible
+scoped issue. The validation is for the savefile's version (in loose mode, PES 21, or PES 16 when
+the export holds a `.model` file: old exports are single-engine, and the version decides only
+which model names are allowed) in the compiler's default context: no pass-through, no strict
+file-type check, no installed Common textures. Shared validation may produce a sanitized `ValidatedAestheticsExport` with ineligible
 files/folders omitted, but the upgrader applies a stricter publication rule: only a report with no
 errors and no dropped scopes is labeled a clean migrated export. Any other draft remains available
 for manual repair rather than being mislabeled as fully migrated. Fixtures cover both old

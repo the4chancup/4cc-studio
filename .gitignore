@@ -20,4 +20,7 @@
 # OS noise
 Thumbs.db
 .DS_Store
+# ...except a test fixture's, which stands for one: tree copies that honor this file (the mutation
+# runs' snapshots) would otherwise drop it and fail the test that reads it
+!crates/**/tests/fixtures/**/Thumbs.db
 __pycache__/

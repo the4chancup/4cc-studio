@@ -68,8 +68,9 @@ pub fn is_small_metadata(path: &str) -> bool {
 pub(crate) const OS_ARTIFACTS: [&str; 3] = ["thumbs.db", "desktop.ini", ".ds_store"];
 
 /// Whether `name` (a path's last segment) is an OS artifact, ASCII-case-
-/// insensitively.
-pub(crate) fn is_os_artifact(name: &str) -> bool {
+/// insensitively: one of `Thumbs.db`, `desktop.ini` or `.DS_Store`, the files a
+/// file browser writes and an export never means to carry.
+pub fn is_os_artifact(name: &str) -> bool {
     OS_ARTIFACTS
         .iter()
         .any(|known| name.eq_ignore_ascii_case(known))

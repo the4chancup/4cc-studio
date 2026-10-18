@@ -1381,6 +1381,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "export_upgrader"
+version = "0.1.0"
+dependencies = [
+ "aesthetics_export",
+ "anyhow",
+ "archives",
+ "clap",
+ "crossbeam-channel",
+ "egui",
+ "pes_savefile",
+ "pes_version",
+ "studio_core",
+ "teams_list",
+ "toml",
+ "vtree",
+]
+
+[[package]]
 name = "extra_mutants"
 version = "0.1.0"
 dependencies = [
@@ -3736,6 +3754,7 @@ dependencies = [
  "clap",
  "crossbeam-channel",
  "env_logger",
+ "export_upgrader",
  "log",
  "save_editor",
  "studio_core",

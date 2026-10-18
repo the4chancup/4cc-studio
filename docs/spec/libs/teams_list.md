@@ -44,7 +44,9 @@ updater depend on the whole export object model for one file format.
 
 Consumers: `aesthetics_export` (identity resolution), `team_compiler` (ID cell write); the
 later consumers are in `plans/libs/teams_list.md`. `wasm32`-clean. Tested against
-Red's current `teams_list.txt` as a fixture (220 rows, `/umaJP/` mixed case, `/@/`, the `Backup N`
+the tab-separated `teams_list.txt` of Red's unreleased development branch as a fixture (released
+Red's list separates its two columns, header `ID Name` included, by a space, which this reader
+refuses naming the file; 220 rows, `/umaJP/` mixed case, `/@/`, the `Backup N`
 placeholders) plus reconcile cases for each summary bucket.
 
 ---

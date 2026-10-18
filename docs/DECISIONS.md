@@ -8336,3 +8336,31 @@ not look in the game's directories, so repointing `common/sourceimages/zero` wou
 texture the game supplies; bare model folders are no export the shared validation reads.
 Plan: `plans/export_upgrader.md` steps 1, 2, 5, 7, 8, 10 and 12, "CLI", "Acceptance";
 `plans/aesthetics_export/settings_toml.md` "Player settings in exports".
+
+## 2026-10-18 — export_upgrader — its own input read, and the gaps the first slice meets
+Decision: (1) the upgrader reads its input through `archives::Archive::open` and a folder walk
+of its own; the Team compiler's reader (`team_compiler/src/reader/`) stays private to the
+compiler, no crate-boundary move. (2) The export's root is the input's own, or its one folder
+when the root holds nothing an old export holds but that folder (folders and archives alike).
+(3) The teams list is the data directory's `teams_list.txt`, else the embedded one; no setting.
+(4) An output name equal to the export's own, letter case aside, gets ` upgraded`. (5) The
+output is validated for the savefile's version (loose mode: PES 21, PES 16 with a `.model`), in
+the compiler's default context. (6) A catalog of the run-level codes (`no_old_export`,
+`unmigrated_content`, `migration_clean`, `migration_not_clean`, the compiler's
+`export_extract_failed` and `team_name_unknown`); the shared validation's codes keep the
+compiler's severities, run-dependent ones taken as for a deploying compile. (7) A migration is
+clean when no finding is an Error and none drops anything, and only a clean one exits 0.
+Why: (1) what the two share is opening an archive by extension, which `archives` already does,
+and a 30-line walk; the rest of the compiler's reader is the compile's own (source revisions
+checked mid-run, a memory budget for `.7z` buffers, a lock for parallel readers), and moving it
+would make a leaf lib depend on `pipeline` and `aesthetics_export`. (2) EU-IN-01's archives
+hold the export inside one main folder, as the AET page packs them, and one rule for both
+input kinds gives the three forms one output. (3) a second setting could resolve an export
+against another list than the compiler compiles it with, as another team. (4) Windows names
+ignore case: `CO Full Spring`'s output would be the input folder. (5) the version decides only
+which model names are allowed, and old exports are single-engine. (6) the CLI's exit codes
+need a severity for every finding, and the output is judged as its first compile will judge it.
+(7) "Verification" already calls a draft with a dropped scope unclean, and a Warning can drop a
+folder (`player_unlisted`, `shared_folder_orphaned`): exit 0 there would tell a script the
+export migrated whole while its compile loses the folder.
+Plan: `plans/export_upgrader.md` steps 1 and 6, "CLI", "Message catalog" (new), "Verification".

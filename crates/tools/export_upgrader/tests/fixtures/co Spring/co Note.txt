@@ -1,0 +1,18 @@
+Team: /co/
+
+Team Colours:
+- 1st: 048 146 082
+- 2nd: 221 000 000
+- 3rd: 000 000 000
+- 4th: 000 000 000
+
+Kit Colours:
+- 1st player: 035 110 061 - 198 198 198
+- 2nd player: 035 035 035 - 113 147 083
+- 3rd player: 255 000 000 - 255 255 255
+
+- 1st GK: 000 000 000 - 000 000 000
+
+Other Notes:
+The Cracks Are Forming's eyes are pure black in Edit Mode, but should be fine in-match.
+The boot models that include the golden boots are using stock PES files that are TGAs compressed to FTEX. Blender can't process these, so you'll have to toggle off Load Textures if you need to import them.
