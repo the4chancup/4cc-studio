@@ -93,7 +93,7 @@ pub(crate) fn face_xml_rewrites(
         // `face.xml` needs no folder listing.
         let folder_files = match identity {
             Identity::Referees => folder_files(copies, output),
-            Identity::Team { .. } => BTreeSet::new(),
+            Identity::Team { .. } | Identity::ModelFolders => BTreeSet::new(),
         };
         let respelled = xml_text(&payload).and_then(|(bom, text)| {
             match respell_face_xml(text, identity, &folder_files) {
@@ -299,7 +299,7 @@ fn respell_face_xml<'a>(
             let raw = &text[attribute.range_value()];
             let flattened = match identity {
                 Identity::Referees => flattened_common_value(raw, identity, folder_files),
-                Identity::Team { .. } => None,
+                Identity::Team { .. } | Identity::ModelFolders => None,
             };
             let value = flattened.as_deref().unwrap_or(raw);
             if !(value.starts_with("./") || strip_prefix_ci(value, COMMON_PREFIX).is_some()) {

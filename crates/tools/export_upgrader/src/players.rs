@@ -63,7 +63,7 @@ pub(crate) struct OutputFolder {
 /// The slot a face folder's name gives: characters 4-5, after any three
 /// characters (`XXX` or a baked-in team ID, `71416`), two ASCII digits making
 /// 01-23.
-fn slot_of(name: &str) -> Option<u8> {
+pub(crate) fn slot_of(name: &str) -> Option<u8> {
     let digits = name.get(3..5)?;
     if !digits.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;
@@ -75,7 +75,7 @@ fn slot_of(name: &str) -> Option<u8> {
 /// `validate_segments` refuses — control characters and `< > : " / \ | ? *` —
 /// dropped, then trailing `.` and spaces trimmed (a name cannot end in them
 /// either: `T.O.M.` → `T.O.M`); an empty remainder counts as absent.
-fn clean_folder_name(name: &str) -> Option<String> {
+pub(crate) fn clean_folder_name(name: &str) -> Option<String> {
     let cleaned: String = name
         .chars()
         .filter(|c| {
@@ -137,7 +137,7 @@ pub(crate) fn path_scope(path: &str) -> ScopePath {
 /// One kind of item folder (the boots folders' `k`, the gloves' `g`, lower
 /// case as the old format requires).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ItemKind {
+pub(crate) enum ItemKind {
     Boots,
     Gloves,
 }
@@ -152,7 +152,7 @@ impl ItemKind {
     }
 
     /// Its name's first character.
-    fn letter(self) -> char {
+    pub(crate) fn letter(self) -> char {
         match self {
             ItemKind::Boots => 'k',
             ItemKind::Gloves => 'g',
@@ -189,7 +189,7 @@ impl ItemKind {
 /// a face folder's); a gloves folder named `g` and exactly three digits and
 /// nothing else reads as four (`g567` → ID 567). `None` for any other
 /// spelling (`K0430`, `k430 - X`, `boots`).
-fn parse_item_name(kind: ItemKind, name: &str) -> Option<(u32, String)> {
+pub(crate) fn parse_item_name(kind: ItemKind, name: &str) -> Option<(u32, String)> {
     let name = name.strip_prefix(kind.letter())?;
     if kind == ItemKind::Gloves && name.len() == 3 && name.bytes().all(|b| b.is_ascii_digit()) {
         return Some((name.parse().ok()?, String::new()));

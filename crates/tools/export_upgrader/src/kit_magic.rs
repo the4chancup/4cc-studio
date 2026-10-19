@@ -3,8 +3,9 @@
 //! grammar, where it is renamed, and a Common kit set's link"): `u0???pN`
 //! (`u0` and three ASCII letters or digits, `p` and a digit) becomes
 //! `kit<N>` in a path and `kitF` in a file or folder name, `u0???g`
-//! becomes `u0<path ID>g` (the team's, 999 for referees), matched in the
-//! letter case written, anywhere and every occurrence. In a path segment
+//! becomes `u0<path ID>g` (the team's, 999 for referees; kept as written
+//! in model-folder mode), matched in the letter case written, anywhere
+//! and every occurrence. In a path segment
 //! holding a `u0???p` token, a Studio kit token already there
 //! (`kit1_u0827p1.dds`, which some VGL26 exports write) gets its `k`
 //! written `K` so the respelled token stays the only one. Only the upgrader
@@ -35,8 +36,10 @@ pub(crate) enum Spelling {
 /// `text` with every legacy kit token respelled: `u0`, three ASCII letters
 /// or digits, then `p` and a digit `d` becomes `kit<d>` (`d` = 0: `kitF`
 /// or `kitN` by `spelling`); `u0`, three ASCII letters or digits, then `g`
-/// becomes `u0<the identity's path ID, three digits>g`. Matched in the
-/// letter case written, anywhere, left to right, every occurrence. In each
+/// becomes `u0<the identity's path ID, three digits>g`, or stays as
+/// written when the identity has no path ID (model-folder mode). Matched
+/// in the letter case written, anywhere, left to right, every occurrence.
+/// In each
 /// `/`-separated segment that holds a `p` token, every Studio kit token the
 /// segment already holds gets its `k` written `K`, so the respelled token is
 /// the segment's only one for `find_token` to read (`kit1_u0827p0.dds` →
@@ -84,11 +87,11 @@ pub(crate) fn respell<'a>(text: &'a str, spelling: Spelling, identity: &Identity
                 ),
                 _ => continue,
             },
-            Some(&b'g') => (
-                Cow::Owned(format!("u0{:03}g", identity.path_id())),
-                at + 6,
-                false,
-            ),
+            Some(&b'g') => match identity.path_id() {
+                Some(id) => (Cow::Owned(format!("u0{id:03}g")), at + 6, false),
+                // Model-folder mode has no team: the token stays as written.
+                None => continue,
+            },
             _ => continue,
         };
         if legacy {
@@ -362,6 +365,18 @@ mod tests {
                 &Identity::Referees
             ),
             vec![("a".to_owned(), "Common/u0999g1.dds".to_owned())]
+        );
+    }
+
+    #[test]
+    fn model_folders_leave_the_goalkeeper_token_as_written() {
+        assert!(matches!(
+            respell("u0XXXg1.dds", Spelling::Name, &Identity::ModelFolders),
+            Cow::Borrowed(_)
+        ));
+        assert_eq!(
+            respell("u0XXXp1_u0XXXg1", Spelling::Path, &Identity::ModelFolders),
+            "kit1_u0XXXg1"
         );
     }
 }

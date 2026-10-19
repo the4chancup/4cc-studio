@@ -153,6 +153,24 @@ impl Sandbox {
     }
 }
 
+/// Every entry below the sandbox's root, its path and its bytes (a folder
+/// with none): the before/after snapshot for "nothing is written".
+pub fn snapshot(sandbox: &Sandbox) -> Vec<(String, Vec<u8>)> {
+    sandbox
+        .listing("")
+        .iter()
+        .map(|path| {
+            let full = sandbox.path(path);
+            let bytes = if full.is_file() {
+                fs::read(&full).unwrap()
+            } else {
+                Vec::new()
+            };
+            (path.clone(), bytes)
+        })
+        .collect()
+}
+
 /// The listing of `folder` (at `prefix`) and everything below it into `out`.
 fn list(folder: &Path, prefix: &str, out: &mut Vec<String>) {
     for entry in fs::read_dir(folder).unwrap() {

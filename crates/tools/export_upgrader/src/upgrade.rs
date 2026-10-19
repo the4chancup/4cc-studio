@@ -50,7 +50,7 @@ const RUN_ID: RunId = RunId(1);
 /// `upgrade ..` to its parent — `absolute` keeps a trailing `..` on POSIX, so
 /// a path with no file name after it is canonicalized (the folder it points
 /// at).
-fn resolve_input(path: &Path) -> Result<PathBuf, CliError> {
+pub(crate) fn resolve_input(path: &Path) -> Result<PathBuf, CliError> {
     let resolved = std::path::absolute(path).map_err(|error| {
         invalid(anyhow!(
             "{}: cannot resolve the path: {error}",
@@ -82,7 +82,7 @@ fn resolve_input(path: &Path) -> Result<PathBuf, CliError> {
 /// exit 0 when no finding is an Error or Fatal and no finding drops anything;
 /// `migration_not_clean` and exit 1 otherwise, a Warning that drops a folder
 /// included, since the compile would lose it.
-fn verdict(worst: Option<Severity>, dropped: bool) -> (Code, u8) {
+pub(crate) fn verdict(worst: Option<Severity>, dropped: bool) -> (Code, u8) {
     if worst.is_none_or(|worst| worst < Severity::Error) && !dropped {
         (Code::MigrationClean, CLEAN)
     } else {
@@ -90,7 +90,8 @@ fn verdict(worst: Option<Severity>, dropped: bool) -> (Code, u8) {
     }
 }
 
-/// What the export resolved to: a listed team, or the referee package.
+/// What the run upgrades: a listed team's export, the referee package, or a
+/// folder of model folders (no team).
 #[derive(Debug)]
 pub(crate) enum Identity {
     /// A listed team; `id` is strictly 701-920.
@@ -102,16 +103,22 @@ pub(crate) enum Identity {
     },
     /// A referee export; its name's first word is `refs`.
     Referees,
+    /// Model-folder mode's: no team, so no ID is written where a path or a
+    /// name carried the `???` placeholder (plan "Model-folder mode").
+    ModelFolders,
 }
 
 impl Identity {
     /// The three-digit ID a whole-export upgrade writes where a game path or
     /// a name carried the `???` placeholder: the team's, or 999 for a referee
-    /// export, the ID the game compiles referees under (plan step 7).
-    pub(crate) fn path_id(&self) -> u16 {
+    /// export, the ID the game compiles referees under (plan step 7). `None`
+    /// for model-folder mode, which has no team and leaves the placeholder
+    /// as written.
+    pub(crate) fn path_id(&self) -> Option<u16> {
         match self {
-            Identity::Team { id, .. } => id.get(),
-            Identity::Referees => 999,
+            Identity::Team { id, .. } => Some(id.get()),
+            Identity::Referees => Some(999),
+            Identity::ModelFolders => None,
         }
     }
 }
@@ -119,7 +126,7 @@ impl Identity {
 /// A run's event stream: the findings it reports to the console (one line
 /// each) or the shell, and the worst severity among them and whether any
 /// drops something, which decide the exit code.
-struct RunEvents {
+pub(crate) struct RunEvents {
     ctx: ToolContext,
     worst: Option<Severity>,
     dropped: bool,
@@ -127,7 +134,7 @@ struct RunEvents {
 
 impl RunEvents {
     /// Events sent through `ctx`, none yet.
-    fn new(ctx: &ToolContext) -> RunEvents {
+    pub(crate) fn new(ctx: &ToolContext) -> RunEvents {
         // A clone shares the context's channels, so the events reach the same
         // receivers.
         RunEvents {
@@ -138,7 +145,7 @@ impl RunEvents {
     }
 
     /// An export entered the run: the console names its findings by this name.
-    fn started(&self, export_id: ExportId, display_name: &str) {
+    pub(crate) fn started(&self, export_id: ExportId, display_name: &str) {
         self.emit(
             Some(export_id),
             PipelineEvent::ExportStarted {
@@ -149,26 +156,26 @@ impl RunEvents {
     }
 
     /// One finding, addressed to the export its scope names.
-    fn message(&mut self, message: Message) {
+    pub(crate) fn message(&mut self, message: Message) {
         self.worst = self.worst.max(Some(message.severity));
         self.dropped |= message.disposition != Disposition::Keep;
         self.emit(message.scope.export_id(), PipelineEvent::Message(message));
     }
 
     /// The one event for unmigrated content existing at all.
-    fn unmigrated(&self) {
+    pub(crate) fn unmigrated(&self) {
         self.emit(None, PipelineEvent::UnmigratedContentFound);
     }
 
     /// The worst severity reported so far; `None` when no finding was.
-    fn worst(&self) -> Option<Severity> {
+    pub(crate) fn worst(&self) -> Option<Severity> {
         self.worst
     }
 
     /// Whether a finding reported so far drops something (a file, a folder,
     /// the export): the verdict's "nothing dropped" half for the tool's own
     /// findings, beside the output validation's issues.
-    fn dropped(&self) -> bool {
+    pub(crate) fn dropped(&self) -> bool {
         self.dropped
     }
 
@@ -183,13 +190,13 @@ impl RunEvents {
 }
 
 /// A refusal before anything was written.
-fn invalid(error: anyhow::Error) -> CliError {
+pub(crate) fn invalid(error: anyhow::Error) -> CliError {
     CliError::new(INVALID, error)
 }
 
 /// A run aborted before anything was written, or while writing the output
 /// (`cli.rs`'s `ABORTED`: the incomplete output is left).
-fn aborted(error: anyhow::Error) -> CliError {
+pub(crate) fn aborted(error: anyhow::Error) -> CliError {
     CliError::new(ABORTED, error)
 }
 
@@ -197,7 +204,11 @@ fn aborted(error: anyhow::Error) -> CliError {
 /// failure is the aborted code naming the file and saying the output is
 /// incomplete: it is left for the user to remove, since a second run refuses
 /// an existing output folder.
-fn write_output_file(output: &Path, relative: &str, bytes: &[u8]) -> Result<(), CliError> {
+pub(crate) fn write_output_file(
+    output: &Path,
+    relative: &str,
+    bytes: &[u8],
+) -> Result<(), CliError> {
     let path = output.join(relative);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
@@ -400,7 +411,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 }
             }
         }
-        Identity::Team { .. } => None,
+        Identity::Team { .. } | Identity::ModelFolders => None,
     };
 
     // "CLI": the output folder, refused when it exists or cannot be made.
@@ -558,6 +569,9 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 |path| export.read(path),
             );
             (plan, kits, settings)
+        }
+        Identity::ModelFolders => {
+            unreachable!("upgrade's resolve yields a team or the referees")
         }
     };
     let mut carried = carried_files(&files, &plan.portraits, |path| export.read(path));

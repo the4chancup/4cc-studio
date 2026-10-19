@@ -40,11 +40,17 @@ pub(crate) fn output_name(export_name: &str, identity: &Identity) -> String {
             };
             (name.as_str().trim_matches('/'), Some(tag))
         }
+        Identity::ModelFolders => {
+            unreachable!("upgrade's resolve yields a team or the referees")
+        }
     };
     let first_is_key = match team_name(export_name) {
         Some(found) => match identity {
             Identity::Team { name, .. } => found == *name,
             Identity::Referees => found.is_referees(),
+            Identity::ModelFolders => {
+                unreachable!("upgrade's resolve yields a team or the referees")
+            }
         },
         None => false,
     };

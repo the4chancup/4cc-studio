@@ -8968,3 +8968,32 @@ another team's range and its folder may be anyone's (SWE-2 6.7.S1-2: the real GB
 export's `g2522`/`g2523` beside `g2301`-`g2320` are reported, for the author or the save to
 place).
 Plan: `plans/export_upgrader.md` step 11.
+
+## 2026-10-19 — export_upgrader — model-folder mode's input, names, validation and report line
+Decision: (1) `upgrade-models` reads a folder as it is, its top level the model folders: no
+archive, no wrapper-folder or same-named-subfolder rule; (2) a top-level folder's kind is its
+name's (`Common` in any case; steps 3-4's item grammar for boots and gloves; any other a face
+folder), and a model folder holds an `.fmdl` or `.model` directly in it; (3) a face folder
+without a slot keeps its own name, and in a face folder only `ingame_face` is normalized, the
+portrait keeping its name; (4) two folders publishing one name, letter case aside, keep the
+first by input name, the later `unmigrated_content` as a whole folder; a root file is
+`unmigrated_content`; (5) the validated listing is named `models Midcup` and leaves out
+`player_folder_number_invalid`, `player_number_duplicate` and `shared_folder_orphaned`, at
+"Verification"'s version; (6) each output folder is reported `model_folder_destination` (I),
+`into` = `Players`, `Boots`, `Gloves` or `root`; (7) `-o` is the output folder itself, refused
+when it exists.
+Why: the plan said what each folder becomes but not how the input is listed, how a kind is told,
+what "holds no model files" counts, or how the validation's placement findings and the "where it
+goes" line are spelled. (1) Step 1's wrapper rule would read a folder holding one model folder as
+that model folder. (2) The item grammar is the one whole-export upgrades already apply, so a
+folder is the same kind in both modes; "directly in it" keeps one level, one folder per model,
+as the plan wants, and is what tells the converters' `players/<player>/` layout apart. (3) The
+plan names the slot rule only; the mode has no `Portraits/`, which step 3's rename serves. (4)
+The published folders share one level, so a face and a boots folder can collide where a whole
+export's `Players/` and `Boots/` never do; first-wins is step 3's rule for a slot's second face
+folder. (5) Those three findings judge where a folder will sit, which only the destination export
+knows; kept, every boots or gloves folder would drop (`shared_folder_orphaned` is a `DropFolder`)
+and no run holding one could exit 0. (6) A code of its own at Info, so the line shows on every
+run without making it not clean. (7) Writing into an existing directory would mix an earlier
+run's folders, edited since, with this run's, which is why `upgrade` refuses one too.
+Plan: `plans/export_upgrader.md` "Model-folder mode" and "CLI".

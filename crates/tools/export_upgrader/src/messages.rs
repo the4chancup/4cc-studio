@@ -101,6 +101,10 @@ pub(crate) enum Code {
     /// A player's `settings.toml` could not be generated at all (`slot`,
     /// `name`, `error` the failure's text).
     SettingsNotGenerated,
+    /// Model-folder mode: where an output folder goes once dropped into a
+    /// Studio export (`into`: `Players`, `Boots`, `Gloves`, or `root` for
+    /// `Common/`).
+    ModelFolderDestination,
 }
 
 impl Code {
@@ -129,6 +133,7 @@ impl Code {
             Code::SettingsValueRefused => "settings_value_refused",
             Code::SettingsFromStrippedRecord => "settings_from_stripped_record",
             Code::SettingsNotGenerated => "settings_not_generated",
+            Code::ModelFolderDestination => "model_folder_destination",
         }
     }
 
@@ -157,6 +162,7 @@ impl Code {
         Code::SettingsValueRefused,
         Code::SettingsFromStrippedRecord,
         Code::SettingsNotGenerated,
+        Code::ModelFolderDestination,
     ];
 }
 
@@ -190,6 +196,7 @@ const CATALOG: &[(&str, Severity)] = &[
     ("settings_value_refused", Severity::Warning),
     ("settings_from_stripped_record", Severity::Info),
     ("settings_not_generated", Severity::Error),
+    ("model_folder_destination", Severity::Info),
     // The structure pass's codes, in `ISSUE_CODES` order.
     ("nested_folders_fixed", Severity::Warning),
     ("nested_root_ambiguous", Severity::Error),

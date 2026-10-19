@@ -8,7 +8,7 @@ use clap::{Args, Command, FromArgMatches, Subcommand};
 use studio_core::{CliError, ToolContext};
 
 use crate::messages::TOOL_ID;
-use crate::upgrade;
+use crate::{model_folders, upgrade};
 
 // The exit codes are the command line's contract with scripts (the plan's
 // "CLI"; the Team compiler's mapping).
@@ -30,6 +30,9 @@ pub(crate) const ABORTED: u8 = 3;
 enum ExportUpgraderCommand {
     /// Migrate an old (AET) export to the Studio format.
     Upgrade(UpgradeArgs),
+    /// Migrate a folder of old-format model folders, each into a folder to
+    /// drop into a Studio export.
+    UpgradeModels(UpgradeModelsArgs),
 }
 
 /// `upgrade <export> (--savefile <EDIT> | --loose) [-o <dir>]`.
@@ -51,6 +54,18 @@ pub(crate) struct UpgradeArgs {
     pub(crate) output: Option<PathBuf>,
 }
 
+/// `upgrade-models <folder> [-o <dir>]`.
+#[derive(Debug, Args)]
+pub(crate) struct UpgradeModelsArgs {
+    /// The folder of old-format model folders (face, boots and gloves
+    /// folders, and an optional Common).
+    pub(crate) folder: PathBuf,
+    /// The output folder, created; `<folder> upgraded` beside the input by
+    /// default. It must not exist yet.
+    #[arg(short, long, value_name = "DIR")]
+    pub(crate) output: Option<PathBuf>,
+}
+
 /// The `export-upgrader` subcommand and its own subcommands.
 pub(crate) fn command() -> Command {
     ExportUpgraderCommand::augment_subcommands(Command::new(TOOL_ID).subcommand_required(true))
@@ -62,5 +77,6 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
         .map_err(|error| CliError::new(INVALID, error))?;
     match command {
         ExportUpgraderCommand::Upgrade(args) => upgrade::run(&args, ctx),
+        ExportUpgraderCommand::UpgradeModels(args) => model_folders::run(&args, ctx),
     }
 }

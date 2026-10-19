@@ -650,26 +650,51 @@ naming follows steps 3–4 so the result is directly droppable: a face folder be
 alone); a boots/gloves folder becomes a shared-style folder named by its name part (`Crocs/`), or
 by its old ID when it has no name — the user drops it into `Boots/`/`Gloves/` and adds the link
 file, or moves its contents into a player folder (renaming the model to `boots.fmdl` /
-`glove_*.fmdl` as the Studio format expects). The report lists, per output folder, where it goes.
+`glove_*.fmdl` as the Studio format expects). The report lists, per output folder, where it goes
+(`model_folder_destination`, I, on the output folder, `into` = `Players`, `Boots`, `Gloves`, or
+`root` for `Common/`).
 The shared validation ("Verification") runs on the output as it would sit once dropped in,
 not on the published layout, which no export reads as player or shared folders: the upgrader
 validates a listing that places each player folder under `Players/`, each boots or gloves
 folder under `Boots/` or `Gloves/` and the upgraded `Common/` beside them, as a Midcup export
-(which needs no kits), and reports the findings against the published folders; the identity
-findings are left out, the mode having no team.
+(which needs no kits), and reports the findings against the published folders. The findings
+about where a folder will sit rather than what it holds are left out, since the mode has no
+destination export: the identity findings (the listing is named `models Midcup`, so none
+arises), the roster's numbering (`player_folder_number_invalid`, `player_number_duplicate`: the
+folder's number, and its siblings', are the destination's, and a `players.txt` there may name a
+folder without one) and `shared_folder_orphaned` (the link naming a boots or gloves folder is
+the user's to add). We do not keep them, because every boots or gloves folder would then drop
+(`shared_folder_orphaned` is a `DropFolder`) and no run holding one could exit 0. The listing's
+version is "Verification"'s: PES 16 when the output holds a `.model` file, PES 21 otherwise.
+
+The input is read as it is: a folder (no archive), its top level the model folders, so step 1's
+root rules (the one wrapper folder, the same-named subfolder) do not apply: they would read a
+folder holding one model folder as that model folder. A top-level folder's kind is its name's:
+`Common` in any letter case; a boots or gloves folder by steps 3-4's item grammar (`k` or `g`,
+lower case, four digits, then the name part; `g` and three digits); any other name a face
+folder. A face folder's name is step 3's: a slot (characters 4-5 making 01 to 23) gives `NN -
+Name`, or `NN` alone with no name part; without one the folder keeps its own name (`Snuffy`).
+Every name is cleaned as step 3 cleans a candidate. In a face folder only `ingame_face` is
+normalized; its other files keep their names, the portrait included (no `Portraits/` to compare
+it with). Two folders whose output names match, letter case aside (`XXX15 - A` and `71415 - A`,
+or a face folder `Crocs` beside `k0430 - Crocs`, both published at the output's top level), keep
+the first by input name; the later is unmigrated content as a whole folder (`DropFolder`), as
+step 3's second face folder of a slot. A file directly in the input folder is unmigrated content
+(step 10).
 
 Not in this mode: kits, portraits, logo, `settings.toml`, the savefile, loose mode, the roster. No
-savefile is read — there are no wearers to resolve. A top-level folder that holds no model files
-(and is not `Common/`) is reported as unmigrated content (step 10) and left out; the converters'
+savefile is read — there are no wearers to resolve. A top-level folder that holds no model file directly
+in it (an `.fmdl` or `.model`; `Common/` aside) is reported as unmigrated content (step 10) and left out; the converters'
 two-level `players/<player>/<model folders>/` layout is therefore *not* accepted — one level, one
 folder per model, so that "what is a model folder" never has to be guessed.
 
 Verification: fixtures with one face folder carrying `u0XXXp1` textures and path-table references
 (asserting `kit1` everywhere, folder renamed `NN - Name`), one boots folder with a prefix-typed
 pre-Fox model (asserting the suffix form and the `Crocs/` output name), and a `Common/` with an
-`.mtl` whose references are stem-normalized while the player folder's `.mtl.common` link still
+`.mtl` whose references stay as written (step 7: a `Common/` `.mtl` keeps them, extension
+included) while the player folder's `.mtl.common` link still
 resolves against the migrated Common through `aesthetics_export`'s validation; plus one player
-`.mtl` referencing `model/character/uniform/common/XXX/hair.dds` (asserting the stem `hair` in the
+`.mtl` referencing `model/character/uniform/common/XXX/hair.dds` (asserting `./hair.dds` in the
 migrated `.mtl`, a `hair.dds.common` link beside it, and the stem resolving into Common through
 validation) and one such reference whose file is absent from `Common/` (asserting it is reported
 and left unchanged).
@@ -703,14 +728,18 @@ savefile that does not hold the resolved team is refused naming the team; an exp
 resolves neither from its Note nor from its name is reported (`team_name_unknown`, the
 compiler's code) and nothing is written. `upgrade-models` is model-folder mode; its output is one
 folder per migrated input folder under the output directory, by default a sibling folder named
-after the input with ` upgraded` appended. Both print step 10's report, one line per finding
+after the input with ` upgraded` appended, or the directory `-o` names. That directory is the
+output folder, refused like `upgrade`'s when it exists: we do not write into an existing one,
+because an earlier run's folders, edited since, would sit beside this run's with nothing telling
+them apart. Both print step 10's report, one line per finding
 naming its code and the input path it is about, and exit with the Team compiler's mapping
 (`spec/team_compiler/settings.md` "CLI"): **0** clean (Warning and Info findings allowed when
 they drop nothing), **1** not clean (unmigrated content, an Error finding, a finding that drops
 something, the unknown team, or an archive that does not
 extract, reported `export_extract_failed` as the compiler does; the draft, when written, is
 kept for manual repair, "Verification"), **2** invalid invocation (a missing input path, an
-`upgrade` input that is a file other than a `.zip` or `.7z`, the flags above, a savefile that
+`upgrade` input that is a file other than a `.zip` or `.7z`, an `upgrade-models` input that is
+not a folder, the flags above, a savefile that
 does not read as a save or lacks the team; nothing is written), **3** aborted: before anything
 is written (the output folder exists or cannot be created), or when a file of the output cannot
 be written, the error naming it and the incomplete output left for the user to remove, since a
@@ -1288,9 +1317,9 @@ EU-MF-02   GIVEN a player folder's .mtl referencing model/character/uniform/comm
                 another reference whose file Common/ lacks, a .mtl.common link, and Common/
                 holding hair.dds and a .mtl referencing face.dds
            WHEN upgrade-models runs
-           THEN the player's .mtl references the stem hair beside the link hair.dds.common, the
-                other reference is reported and left as written, Common's .mtl references the
-                stem face, the .mtl.common link is kept, the shared validation finds every
+           THEN the player's .mtl references ./hair.dds beside the link hair.dds.common, the
+                other reference is reported and left as written, Common's .mtl keeps its
+                reference to face.dds as written, the .mtl.common link is kept, the shared validation finds every
                 link resolving, and the exit code is 0
 EU-MF-03   GIVEN a top-level folder holding no model file (a players/ folder of model folders)
            WHEN upgrade-models runs
@@ -1317,7 +1346,7 @@ EU-CLI-03  GIVEN a team export upgraded with both --savefile and --loose, or wit
            THEN it is refused naming the two flags, with exit code 2, and nothing is written
 EU-CLI-04  GIVEN in turn an export path that does not exist, an export path naming a .txt file,
                 a --savefile that is not a save, and a savefile that does not hold the resolved
-                team, and an upgrade-models folder that does not exist
+                team, and an upgrade-models folder that does not exist or names a file
            WHEN upgrade, or upgrade-models for the last, runs
            THEN it is refused naming the path, the file or the team, with exit code 2, and
                 nothing is written

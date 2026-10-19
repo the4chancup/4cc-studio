@@ -160,15 +160,21 @@ fn respell_reference(directory: &mut String, file_name: &mut String, identity: &
 }
 
 /// The `???` of `directory`'s Common path respelled the identity's path ID
-/// in place: `prefix_len` the `model/character/…/common/` prefix's length
+/// in place, kept as written when the identity has none (model-folder
+/// mode): `prefix_len` the `model/character/…/common/` prefix's length
 /// (either format's) and `rest` what follows it (`sub` for an `.mtl`,
-/// `sub` + `sourceimages/` for an FMDL).
+/// `sub` + `sourceimages/` for an FMDL), still applied.
 fn respell_marker(directory: &mut String, prefix_len: usize, rest: &str, identity: &Identity) {
-    *directory = format!(
-        "{}{:03}/{rest}",
-        &directory[..prefix_len],
-        identity.path_id()
-    );
+    let marker = match identity.path_id() {
+        Some(id) => format!("{id:03}"),
+        None => {
+            let end = directory[prefix_len..]
+                .find('/')
+                .expect("the callers matched the marker and the `/` after it");
+            directory[prefix_len..prefix_len + end].to_owned()
+        }
+    };
+    *directory = format!("{}{marker}/{rest}", &directory[..prefix_len]);
 }
 
 /// The `common_reference_kept` on a `.mtl`/FMDL file (`written` the
@@ -491,7 +497,7 @@ fn plan_link(planned: &mut BTreeMap<String, String>, ctx: &FileContext, common_r
 fn is_referee_file(ctx: &FileContext) -> bool {
     match ctx.identity {
         Identity::Referees => ctx.kind == FolderKind::Player,
-        Identity::Team { .. } => false,
+        Identity::Team { .. } | Identity::ModelFolders => false,
     }
 }
 
@@ -1905,5 +1911,35 @@ mod tests {
             ]
         );
         assert!(rewrites.findings.is_empty(), "{:?}", codes(&rewrites));
+    }
+
+    #[test]
+    fn a_model_folders_common_reference_keeps_the_marker_as_written() {
+        // Model-folder mode has no team: the kept reference's `XXX` stays,
+        // its kit magic still respelled, the missing file still reported.
+        let face = mtl(&["model/character/uniform/common/XXX/u0XXXp1/missing.dds"]);
+        let rewrites = plan_for(
+            &Identity::ModelFolders,
+            &[("face", "Players/15 - Snuffy/face.mtl")],
+            &[],
+            &[("face", &face)],
+        );
+        let text = written_text(&rewrites, "Players/15 - Snuffy/face.mtl");
+        assert!(
+            text.contains("path=\"model/character/uniform/common/XXX/kit1/missing.dds\""),
+            "{text}"
+        );
+        assert_eq!(codes(&rewrites), ["common_reference_kept"]);
+        // A team's marker becomes its ID.
+        let rewrites = plan(
+            &[("face", "Players/15 - Snuffy/face.mtl")],
+            &[],
+            &[("face", &face)],
+        );
+        let text = written_text(&rewrites, "Players/15 - Snuffy/face.mtl");
+        assert!(
+            text.contains("path=\"model/character/uniform/common/714/kit1/missing.dds\""),
+            "{text}"
+        );
     }
 }
