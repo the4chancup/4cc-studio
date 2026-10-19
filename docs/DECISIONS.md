@@ -9106,3 +9106,13 @@ validation reads files from disk, as the compile does; staging and one rename gi
 without rebuilding the validation on an in-memory listing, and no reader ever sees a
 half-written export under the output's name.
 Plan: `plans/export_upgrader.md` "CLI".
+
+## 2026-10-19 — export_upgrader — a portrait Red converted or read by its short name migrates
+Decision: an old `Portraits/` file named `player_???NN` or `???NN` in a texture format the
+compiler converts (`png`, `jpg`, ...) migrates under the `player_NN` stem, as a `.dds` one
+does; a name Red misread into one the game never loads stays unmigrated content.
+Why: Red converted every portrait to DDS before placing it and read a name not starting
+`player_` by its fourth and fifth characters, so BAG VGL18.5's `player_XXX08.jpg` and
+`XXX17.jpg` were in game; the upgrader, reading `.dds` names alone, reported them as
+unmigrated content (the 2026-10-19 census rerun, worklog 6.14c).
+Plan: `plans/export_upgrader.md` step 7.

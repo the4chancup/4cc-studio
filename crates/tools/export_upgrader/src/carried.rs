@@ -9,6 +9,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use aesthetics_export::{FileKind, classify};
 use dds_convert::{Decoded, SourceFormat};
 use studio_core::{Disposition, Message, Scope};
 
@@ -57,22 +58,34 @@ pub(crate) fn under<'a>(path: &'a str, top: &str) -> Option<&'a str> {
     head.eq_ignore_ascii_case(top).then_some(rest)
 }
 
-/// The two digits an old portrait's name ends in: `player_` + at least two
-/// characters + `NN` + `.dds`, the fixed parts in any letter case
-/// (`player_XXX05.dds` → `05`, `player_736917.dds` → `17`).
-fn portrait_nn(file_name: &str) -> Option<&str> {
-    if !file_name.get(..7)?.eq_ignore_ascii_case("player_") {
+/// What an old portrait's name gives when it is one of the shapes step 7
+/// names: the slot's two digits and the extension as written; `player_`
+/// plus at least two characters plus `NN`, or exactly five characters
+/// ending in `NN` (`XXX17`, `73617`), each with an extension `classify`
+/// reads as a texture, the fixed parts in any letter case
+/// (`player_XXX05.dds` → `05`, `XXX17.jpg` → `17`). Names that are neither
+/// shape (`player_73906-.dds`, `XX17.jpg`) give `None`.
+fn portrait_name(file_name: &str) -> Option<(&str, &str)> {
+    if !matches!(classify(file_name), FileKind::Texture) {
         return None;
     }
-    if !file_name
-        .get(file_name.len().checked_sub(4)?..)?
-        .eq_ignore_ascii_case(".dds")
+    let (stem, ext) = file_name.rsplit_once('.')?;
+    let nn = if stem
+        .get(..7)
+        .is_some_and(|head| head.eq_ignore_ascii_case("player_"))
     {
+        let between = &stem[7..];
+        between.get(between.len().checked_sub(2)?..)?
+    } else if stem.len() == 5 {
+        // `get`: a five-byte stem may hold a non-ASCII name (`Zoé1`), whose
+        // fourth byte is no character boundary.
+        stem.get(3..)?
+    } else {
         return None;
-    }
-    let between = file_name.get(7..file_name.len() - 4)?;
-    let nn = between.get(between.len().checked_sub(2)?..)?;
-    nn.bytes().all(|byte| byte.is_ascii_digit()).then_some(nn)
+    };
+    nn.bytes()
+        .all(|byte| byte.is_ascii_digit())
+        .then_some((nn, ext))
 }
 
 /// The role a `Logo/` file's name gives, the longest ending first.
@@ -141,17 +154,18 @@ pub(crate) fn carried_files(
     let mut carried = CarriedFiles::default();
     let mut failures: BTreeMap<String, Vec<Message>> = BTreeMap::new();
 
-    // `Portraits/` (step 7): a file directly in it, `player_…NN.dds` in any
-    // letter case, becomes `Portraits/player_NN.dds` — the first of two
-    // giving one `NN` by input path. A slot whose face folder carries a
-    // different portrait is `portrait_conflict`: the compiler's deep pass
-    // would refuse the export.
+    // `Portraits/` (step 7): a file directly in it, `player_…NN` or the
+    // five-character `???NN` with a texture extension, in any letter case,
+    // becomes `Portraits/player_NN.<ext>` — the first of two giving one
+    // `NN` by input path. A slot whose face folder carries a different
+    // portrait is `portrait_conflict`: the compiler's deep pass would
+    // refuse the export.
     let mut slots = BTreeSet::new();
     for file in files {
         let Some(rest) = under(file, "portraits") else {
             continue;
         };
-        let Some(nn) = (!rest.contains('/')).then(|| portrait_nn(rest)).flatten() else {
+        let Some((nn, ext)) = (!rest.contains('/')).then(|| portrait_name(rest)).flatten() else {
             continue;
         };
         if !slots.insert(nn.to_owned()) {
@@ -159,11 +173,11 @@ pub(crate) fn carried_files(
         }
         carried
             .copies
-            .push((file.clone(), format!("Portraits/player_{nn}.dds")));
+            .push((file.clone(), format!("Portraits/player_{nn}.{ext}")));
         carried.consumed.insert(file.clone());
         let slot = nn
             .parse::<u8>()
-            .expect("the two ASCII digits `portrait_nn` checked always parse");
+            .expect("the two ASCII digits `portrait_name` checked always parse");
         let Some(face_file) = face_portraits.get(&slot) else {
             continue;
         };
@@ -433,16 +447,24 @@ mod tests {
     #[test]
     fn the_portrait_name_grammar() {
         for (name, expected) in [
-            ("player_XXX05.dds", Some("05")),
-            ("player_71407.dds", Some("07")),
-            ("player_09.dds", Some("09")),
-            ("player_736917.dds", Some("17")),
+            ("player_XXX05.dds", Some(("05", "dds"))),
+            ("player_71407.dds", Some(("07", "dds"))),
+            ("player_09.dds", Some(("09", "dds"))),
+            ("player_736917.dds", Some(("17", "dds"))),
+            ("player_05.png", Some(("05", "png"))),
+            ("XXX17.jpg", Some(("17", "jpg"))),
+            ("73617.png", Some(("17", "png"))),
             ("player_5.dds", None),
             ("portrait_05.dds", None),
             ("player_XXXab.dds", None),
-            ("player_05.png", None),
+            ("Vanilla vitamins.png", None),
+            ("stinky fox.png", None),
+            ("player_73906-.dds", None),
+            ("XX17.jpg", None),
+            ("Zoé1.png", None),
+            ("player_05.txt", None),
         ] {
-            assert_eq!(portrait_nn(name), expected, "{name}");
+            assert_eq!(portrait_name(name), expected, "{name}");
         }
     }
 

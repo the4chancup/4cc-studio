@@ -255,7 +255,13 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    placeholder or a baked-in team ID as with the kit magic below: 2,248 of the 2,271 old
    portraits on the maintainer's machine; Red read NN as the two characters before `.dds`
    whatever stands between, so `player_736917.dds`, in four real `/o/` exports, is slot 17's); it is renamed `player_NN.dds`, the only name the
-   compiler accepts (`portrait_name_invalid`), and one already named so keeps its name. A slot
+   compiler accepts (`portrait_name_invalid`), and one already named so keeps its name. Red
+   also converted a portrait of another texture format before placing it, and read a name not
+   starting `player_` by its fourth and fifth characters (`XXX17.jpg` is slot 17's), so a
+   `player_???NN` or `???NN` portrait in a format the compiler converts (`png`, `jpg`, ...)
+   migrates as well, renamed `player_NN` and keeping its format, which the compiler's
+   `Portraits/` takes as it takes any texture (BAG VGL18.5's `player_XXX08.jpg` and `XXX17.jpg`, both shown in game by
+   Red); a name Red misread into one the game never loads stays unmigrated content. A slot
    with a portrait here and a different one in its face folder is kept both ways, and the
    upgrader compares the two files' bytes and reports `portrait_conflict` (E, exit 1; on the
    `Portraits/` file, the slot in the context, `slot`; both files stay where they are), as Red
@@ -1181,6 +1187,10 @@ EU-MDL-01  GIVEN Portraits/player_XXX05.dds, player_71407.dds and player_09.dds,
            WHEN the export is upgraded
            THEN Portraits/ holds player_05.dds, player_07.dds and player_09.dds, and Collars/
                 holds the old folder's files
+EU-MDL-19  GIVEN Portraits/player_XXX08.jpg and XXX17.png (BAG VGL18.5's shapes)
+           WHEN the export is upgraded
+           THEN Portraits/ holds player_08.jpg and player_17.png with those files' bytes, no
+                unmigrated_content names either, and the exit code is 0
 EU-MDL-02  GIVEN the Logo folder of /omg/'s VGL26 export, whose _r is a downscale of its _r_ll
                 with 30 % of pixels differing
            WHEN the export is upgraded

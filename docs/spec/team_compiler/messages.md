@@ -560,7 +560,7 @@ pre-Fox version (worklog step 4.y-sub, slice (b3b4e)).
 
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
-| `portrait_name_invalid` | E | not `player_NN.dds` with NN in 01–23 | file discarded |
+| `portrait_name_invalid` | E | a `Portraits/` file that is not a texture named `player_NN` with NN in 01–23 | file discarded |
 | `logo_file_invalid` | E | a root `logo*` file has an unknown tag in its stem, a disallowed format, or fails to decode in the deep pass | no logo emitted for the team (both files dropped as one unit — the game needs all three sizes) |
 | `logo_role_duplicate` | E | two files claim the same role (two `logo*`, or two `logo_small*`) | no logo emitted for the team |
 | `logo_small_without_main` | E | `logo_small*` present with no main `logo*` | no logo emitted (the small image is not a source for the large sizes) |

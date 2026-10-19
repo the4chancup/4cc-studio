@@ -2188,3 +2188,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.15: a boots or gloves folder one roster slot links plainly takes that slot's exclusive ID; only
   folders two or more slots wear take the 17 shared IDs, so a `Full` export cannot exhaust them (20 one-wearer pre-Fox
   boots folders compile, TC-MOD-94). 15 scenarios rewritten, TC-MOD-06 now a `Midcup`'s.
+- **2026-10-19** — 6.14's census rerun: 250 of 639 real inputs upgrade clean (229 before), none lost, every
+  unclean run writing nothing; three classes left wait on `QUESTIONS.md`. 6.14c: a portrait Red converted from
+  another format or read by its five-character name (`XXX17.jpg`) migrates, keeping its format.

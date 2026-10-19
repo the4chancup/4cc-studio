@@ -16,9 +16,10 @@ with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
 **Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"):
 every converge review loop has ended (2026-10-19) and the close mutation run of
-`export_upgrader` is triaged (2 missed, the placeholder views, worklog 8.3); then 6.13c's upgrader half, 6.14 (an upgrade writes a clean export
-or nothing: the scenarios first), 6.12c (the library run), the plans-to-spec move and the
-worklog's collapse. 8.0's acceptance sections are reviewed and the shell's draft
+`export_upgrader` is triaged (2 missed, the placeholder views, worklog 8.3); 6.14 (an upgrade
+writes a clean export or nothing) and 6.15 (a one-wearer item folder takes its wearer's ID)
+are built, 6.14's census classes wait on three `QUESTIONS.md` entries; then 6.14c (portraits
+Red converted), 6.12c (the library run), the plans-to-spec move and the worklog's collapse. 8.0's acceptance sections are reviewed and the shell's draft
 (`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks. Side-leads are
 paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -901,6 +902,19 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     EU-REF-11, EU-LOOSE-02, EU-REF-10's root referee `.model`; EU-REF-05's fixture got its
     referee folder. EU-KIT-11 (the split had kept a dropped line's THEN) and EU-MF-01 (its
     gloves model sat in a boots folder, never clean) rewritten
+  - [x] 6.14 verify run (2026-10-19, 26c59b4; `.tmp/6_15/census_614_classes.md`): the 6.9b
+    census rerun, 250 inputs clean (229 before, the 21 new through leftovers), no clean input
+    lost, every exit 1 run writing nothing. The 57 inputs still unmigrated, by class: item
+    folders loose mode cannot place (spare positions 24-25 or outside the old block, which
+    the cup's save resolves), files directly in `Faces/`/`Boots/`/`Gloves/`, kit textures (a
+    Midcup's texture-only update, a `Full` export's slot with no config, copies, second GK
+    kits), misnamed portraits, two Note lines, and input defects or non-exports by design.
+    Three classes wait on the maintainer (`QUESTIONS.md` "Old content that never reached the
+    game", "A Midcup kit that updates its textures only", "A second goalkeeper kit")
+  - [x] 6.14c (2026-10-19; `carried.rs` `portrait_name`, EU-MDL-19's test) a portrait Red
+    converted or read by its short name migrates (plan step 7, DECISIONS 2026-10-19), keeping
+    its format; verified on BAG VGL18.5's real archive: `player_XXX08.jpg` and `XXX17.jpg` no
+    longer reported, its four misnamed portraits still are
 
 ### Phase 8 — GUI
 

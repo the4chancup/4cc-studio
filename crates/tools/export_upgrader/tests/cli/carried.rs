@@ -62,6 +62,33 @@ fn portraits_renamed_and_collars_carried() {
     );
 }
 
+// EU-MDL-19
+#[test]
+fn converted_and_short_named_portraits_migrate() {
+    let sandbox = Sandbox::new("mdl_portraits_converted");
+    // BAG VGL18.5's two shapes: a `player_` name converted from JPEG and
+    // the five-character name without the prefix.
+    sandbox.write("co Kits/Portraits/player_XXX08.jpg", b"portrait jpg");
+    sandbox.write("co Kits/Portraits/XXX17.png", b"portrait png");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Portraits/player_08.jpg")).unwrap(),
+        b"portrait jpg"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Portraits/player_17.png")).unwrap(),
+        b"portrait png"
+    );
+    assert!(
+        !run.stdout().contains("unmigrated_content"),
+        "{}",
+        run.stdout()
+    );
+}
+
 // EU-MDL-02
 #[test]
 fn a_downscale_small_logo_is_dropped_with_its_share() {
