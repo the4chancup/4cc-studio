@@ -105,11 +105,12 @@ Planned files that do not exist yet:
   stats), `tabs/` (`abilities.rs`, `appearance.rs`, `team.rs`, `tactics.rs`), `panels/`
   (`aatf.rs`, `comparator.rs`, `transplant.rs`, `interchange.rs` — Team TOML / `.4ccs` / `.4cct`
   / Texport import-export dialogs) and `widgets.rs` (editor-local reusable widgets: version-gated
-  control, ID picker; an RGB color field (the team colors) is `color_tools`' picker,
-  `libs/color_tools.md`, not a widget of this crate; every other color the editor shows (skin,
-  iris, wrist tape, spectacles, gloves, hair accessory) is a palette index in the save, as
-  `settings.toml`'s `skin_color` 0-7 is, so each is a choice of its palette's named entries,
-  never a picker whose free color no record can hold)
+  control, ID picker; a color is drawn by how the save stores it: an RGB one (the team colors;
+  the hair, eyebrow and facial-hair colors, 6 bits per channel, the picked color rounded to
+  them) is `color_tools`' picker, `libs/color_tools.md`, not a widget of this crate; a palette
+  index (skin, iris, wrist tape, spectacles, gloves, hair accessory, as `settings.toml`'s
+  `skin_color` 0-7) is a choice of its palette's entries, never a picker whose free color no
+  record can hold)
 
 Placement rules for the planned parts:
 
@@ -545,8 +546,10 @@ SE-GUI-16  GIVEN the save open on a team
 SE-GUI-17  GIVEN a `.4ccs` or `.4cct` file, or a Texport
            WHEN it is opened through the import dialog
            THEN its sections import as the Team TOML import does, read-only for the legacy
-                formats; WHEN Texport export runs on a team THEN the file written is a Texport
-                of the save's version that the import dialog reads back to the same team values
+                formats; WHEN Texport export runs on a team of a PES 18-21 save THEN the file
+                written is a Texport of the save's version that the import dialog reads back to
+                the same team values; GIVEN a PES 15-17 save THEN the export is disabled, its
+                tooltip naming the missing template
 SE-GUI-18  GIVEN an aesthetics patch of the save's version
            WHEN Apply aesthetics patch is used
            THEN the preview lists every player it changes with old and new values, Apply is

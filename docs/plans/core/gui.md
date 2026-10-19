@@ -325,9 +325,10 @@ impl StudioTool for team_compiler::Tool {
 ```
 
 egui repaints only on input, so a run's events wake the GUI themselves: the shell installs a
-wake callback in the `ToolContext` it hands out (GUI-neutral, `Arc<dyn Fn(Duration) + Send +
-Sync>` calling `egui::Context::request_repaint_after`, the match feed's shape in
-`architecture.md` "Tool plugin interface"), and `ToolContext::emit` calls it with no delay
+wake callback in the `ToolContext` it hands out (`Arc<dyn Fn(Duration) + Send + Sync>`
+calling `egui::Context::request_repaint_after`: GUI-neutral like the match feed's `wake` in
+`architecture.md` "Tool plugin interface", but taking a delay; the feed's own stays `Fn()`,
+since a publish always wants the next frame), and `ToolContext::emit` calls it with no delay
 after each send, on every sink `with_events` makes. The next frame's `tick` then drains the
 event whichever view is drawn, or none while the window is hidden, so a compile behind the Save
 editor's view still ends its activity and updates the window title (ST-TTL-03). A tool's own
@@ -405,10 +406,13 @@ outputs stay as they were. In the grid, the cells not yet processed return to th
 state (the run wrote nothing of theirs, so nothing is "done"), and the log's last line says the
 run was cancelled, so a later reader of the log does not take a short run for a finished one.
 
-**Closing the window** asks every tool, not only the one in view: a tool holding unsaved work
-(the Save editor's edits) reports it through a `StudioTool` hook beside
-`version_change_blocker`, and the shell then cancels the close, makes that tool the active
-view and lets its own prompt decide (save or discard closes the window, cancel keeps it). A
+**Closing the window** asks every tool, not only the one in view, and so does every close the
+shell performs itself (the Team compiler's quick-compile close on success included): a tool
+holding unsaved work (the Save editor's edits) reports it through a `StudioTool` hook beside
+`version_change_blocker`, and the shell then cancels the close, makes the first such tool the
+active view and lets its own prompt decide. Save or discard sends a close request back to the
+shell (a `ShellRequest`, as a tool switch is), which asks every tool again, so a second tool
+with unsaved work gets its own prompt in turn; cancel keeps the window and ends the close. A
 close the shell decided alone would drop the edits of a tool whose view was not drawn.
 
 ### Browser deployment: Studio Web

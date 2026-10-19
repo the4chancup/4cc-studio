@@ -240,7 +240,9 @@ TC-GUI-18  GIVEN `4cc-studio --gui team-compiler compile` with an export in the 
            WHEN the initial check completes
            THEN the compile starts by itself, its grid and log indistinguishable from a click's;
                 GIVEN quick_compile_close_on_success set THEN the window closes when the run
-                ends with no Error-level finding and nothing skipped for errors (`settings.md`:
+                ends with no Error-level finding and nothing skipped for errors, as any close
+                does (a tool holding unsaved work is asked first, `core/gui.md` "Closing the
+                window") (`settings.md`:
                 warnings alone still close it), and stays open otherwise; a manual Compile click
                 with the setting on never closes it
 TC-GUI-19  GIVEN the settings menu open on the Team compiler's section
