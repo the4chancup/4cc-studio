@@ -885,18 +885,7 @@ pub(crate) fn output_issues(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// A scratch folder under the temp dir (`CARGO_TARGET_TMPDIR` is set for
-    /// integration tests only).
-    fn scratch(name: &str) -> PathBuf {
-        let root =
-            std::env::temp_dir().join(format!("export_upgrader_{name}_{}", std::process::id()));
-        if root.exists() {
-            fs::remove_dir_all(&root).unwrap();
-        }
-        fs::create_dir_all(&root).unwrap();
-        root
-    }
+    use crate::test_support::{scratch, test_ctx};
 
     #[test]
     fn an_input_ending_in_a_dot_or_dot_dot_resolves_to_its_folder() {
@@ -939,21 +928,7 @@ mod tests {
 
     #[test]
     fn worst_tracks_the_worst_severity_reported() {
-        use std::sync::{Arc, Mutex};
-
-        use studio_core::{AppPaths, Settings};
-
-        let (events_tx, _events_rx) = crossbeam_channel::unbounded();
-        let (requests_tx, _requests_rx) = crossbeam_channel::unbounded();
-        let ctx = ToolContext::new(
-            Arc::new(Mutex::new(Settings::default())),
-            AppPaths {
-                exe_dir: PathBuf::new(),
-                data_dir: None,
-            },
-            events_tx,
-            requests_tx,
-        );
+        let (ctx, _events_rx) = test_ctx();
         let mut events = RunEvents::new(&ctx);
         assert_eq!(events.worst(), None);
         events.message(tool_message(
@@ -981,25 +956,11 @@ mod tests {
 
     #[test]
     fn a_warning_finding_that_drops_something_is_not_clean() {
-        use std::sync::{Arc, Mutex};
-
-        use studio_core::{AppPaths, Settings};
-
         // The verdict's "nothing dropped" half sees the tool's own findings
         // too: a finding below Error that drops a folder still refuses
         // `migration_clean` (DECISIONS 2026-10-18 "its own input read, and
         // the gaps the first slice meets" (7)).
-        let (events_tx, _events_rx) = crossbeam_channel::unbounded();
-        let (requests_tx, _requests_rx) = crossbeam_channel::unbounded();
-        let ctx = ToolContext::new(
-            Arc::new(Mutex::new(Settings::default())),
-            AppPaths {
-                exe_dir: PathBuf::new(),
-                data_dir: None,
-            },
-            events_tx,
-            requests_tx,
-        );
+        let (ctx, _events_rx) = test_ctx();
         let mut events = RunEvents::new(&ctx);
         assert!(!events.dropped());
         events.message(tool_message(
@@ -1034,5 +995,81 @@ mod tests {
             verdict(Some(Severity::Error), false),
             (Code::MigrationNotClean, ERRORS)
         );
+    }
+
+    #[test]
+    fn a_model_file_in_any_letter_case_makes_a_loose_run_pre_fox() {
+        let root = scratch("loose_model_case");
+        fs::create_dir_all(root.join("co Spring/Boots/k0430 - Crocs")).unwrap();
+        fs::write(root.join("co Spring/co Note.txt"), b"Team: /co/\r\n").unwrap();
+        fs::write(root.join("co Spring/Boots/k0430 - Crocs/x.MODEL"), b"model").unwrap();
+        let (ctx, _events_rx) = test_ctx();
+        let args = UpgradeArgs {
+            export: root.join("co Spring"),
+            savefile: None,
+            loose: true,
+            output: None,
+        };
+
+        run(&args, &ctx).unwrap();
+        // On the pre-Fox engine a worn boots folder stays shared; Fox
+        // merges it into its one wearer's folder.
+        assert!(
+            root.join("co Full Spring/Boots/Crocs/x.MODEL").is_file(),
+            "{:?}",
+            root
+        );
+    }
+
+    #[test]
+    fn a_disallowed_file_type_is_kept_by_the_output_validation() {
+        // The output's check runs without the strict file-type check: a
+        // disallowed file is noted, not dropped ("Verification": the
+        // compiler's setting is on, this one's off).
+        let output = scratch("output_issues_strict");
+        fs::create_dir_all(output.join("Players/03 - A")).unwrap();
+        fs::write(output.join("Players/03 - A/readme.doc"), b"x").unwrap();
+        let (ctx, _events_rx) = test_ctx();
+        let mut events = RunEvents::new(&ctx);
+        let issues = output_issues(
+            &output,
+            "co Midcup",
+            PesVersion::Pes21,
+            |path| path.to_owned(),
+            &mut events,
+        );
+        let issue = issues
+            .iter()
+            .find(|issue| issue.code == "file_type_disallowed")
+            .expect("file_type_disallowed expected");
+        assert_eq!(issue.disposition, aesthetics_export::Disposition::Keep);
+        assert!(!issue.passed_through);
+    }
+
+    #[test]
+    fn a_missing_shared_link_target_drops_its_folder() {
+        // And without pass-through: a link whose target is missing drops
+        // what it names rather than keeping it.
+        let output = scratch("output_issues_pass_through");
+        fs::create_dir_all(output.join("Players/03 - A")).unwrap();
+        fs::write(output.join("Players/03 - A/Crocs.boots"), b"").unwrap();
+        let (ctx, _events_rx) = test_ctx();
+        let mut events = RunEvents::new(&ctx);
+        let issues = output_issues(
+            &output,
+            "co Midcup",
+            PesVersion::Pes21,
+            |path| path.to_owned(),
+            &mut events,
+        );
+        let issue = issues
+            .iter()
+            .find(|issue| issue.code == "link_target_missing")
+            .expect("link_target_missing expected");
+        assert_eq!(
+            issue.disposition,
+            aesthetics_export::Disposition::DropFolder
+        );
+        assert!(!issue.passed_through);
     }
 }

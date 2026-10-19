@@ -830,6 +830,9 @@ mod tests {
             ("Snuffy", Some("Snuffy")),
             ("T.O.M.", Some("T.O.M")),
             ("a:b?c", Some("abc")),
+            ("a<b>c", Some("abc")),
+            ("a\"b|c", Some("abc")),
+            ("a*b", Some("ab")),
             ("a/b\\c", Some("abc")),
             ("a b ", Some("a b")),
             ("x  .  ", Some("x")),
@@ -1034,6 +1037,39 @@ mod tests {
             "Players/02 - Crocs/Crocs.boots",
             "Players/03 - crocs/k0431.boots",
             "Players/04 - crocs/k0431.boots",
+        ] {
+            assert!(plan.markers.contains(&marker.to_owned()), "{marker}");
+        }
+    }
+
+    #[test]
+    fn two_same_named_shared_folders_merge_into_the_lowest_id_s_whatever_the_listing_order() {
+        // `g567`'s three digits carry no name part, so it publishes `g0567`;
+        // `g0600 - g0567` publishes the same and sorts first: the same-files
+        // merge still goes into the lowest ID's files.
+        let files = files(&["Gloves/g0600 - g0567/x.dds", "Gloves/g567/x.dds"]);
+        let roster = wearing(&[(1, ("A", 0, 567)), (2, ("B", 0, 600))]);
+        let plan = plan_with_bytes(
+            &files,
+            Some(&roster),
+            Engine::PreFox,
+            &[
+                ("Gloves/g0600 - g0567/x.dds", b"same"),
+                ("Gloves/g567/x.dds", b"same"),
+            ],
+        );
+        assert_eq!(
+            plan.copies,
+            [(
+                "Gloves/g567/x.dds".to_owned(),
+                "Gloves/g0567/x.dds".to_owned()
+            )]
+        );
+        // The link names the merged folder's name; slot 02's own folder
+        // takes his worn folder's name part.
+        for marker in [
+            "Players/01 - A/g0567.gloves",
+            "Players/02 - g0567/g0567.gloves",
         ] {
             assert!(plan.markers.contains(&marker.to_owned()), "{marker}");
         }

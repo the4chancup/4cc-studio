@@ -31,6 +31,8 @@ mod referees;
 mod roster;
 mod settings;
 mod source;
+#[cfg(test)]
+mod test_support;
 mod upgrade;
 
 use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};

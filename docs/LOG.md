@@ -2164,3 +2164,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 8.2 (side-lead E, `side/8-shell-draft`): the shell's draft,
   `docs/prototypes/shell.html`: sidebar, status bar, window title, settings menu, help window,
   log panel and first-run dialog drawn whole with sample data; a headless harness walks 24 `ST` ids.
+- **2026-10-19** — Phase 6 close: `just mutants export_upgrader` left 33 survivors: 28 tests
+  added, 5 equivalents excluded, the two view placeholders left to Phase 8; SWE-2's converge
+  round (two halves) accepted none of 6 concerns.

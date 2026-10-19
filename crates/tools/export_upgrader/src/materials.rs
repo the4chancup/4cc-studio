@@ -982,6 +982,37 @@ mod tests {
     }
 
     #[test]
+    fn an_fmdl_common_reference_in_another_letter_case_respells_the_marker() {
+        let face = fmdl(&[(
+            "/ASSETS/PES16/MODEL/CHARACTER/COMMON/000/sourceimages/",
+            "hair.dds",
+        )]);
+        let rewrites = plan(
+            &[(
+                "Faces/XXX07 - A/face_high.fmdl",
+                "Players/07 - A/face_high.fmdl",
+            )],
+            &[],
+            &[("Faces/XXX07 - A/face_high.fmdl", &face)],
+        );
+        assert_eq!(
+            fmdl_paths(&rewrites, "Players/07 - A/face_high.fmdl")[0],
+            (
+                "/ASSETS/PES16/MODEL/CHARACTER/COMMON/714/sourceimages/".to_owned(),
+                "hair.dds".to_owned()
+            )
+        );
+        assert_eq!(
+            rewrites
+                .findings
+                .iter()
+                .map(|m| m.code.code.as_ref())
+                .collect::<Vec<_>>(),
+            ["common_reference_kept"]
+        );
+    }
+
+    #[test]
     fn an_fmdl_in_a_subfolder_naming_a_common_subfolder_is_kept() {
         // `realkit/x.fmdl` naming `common/000/Boots/…`: the path below the
         // model folder and the mirrored link cannot agree — kept.
@@ -1013,6 +1044,23 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["common_reference_kept"]
         );
+    }
+
+    #[test]
+    fn the_fox_common_reference_needs_the_marker_and_sourceimages() {
+        assert_eq!(
+            reference_into_fox_common("/Assets/pes16/model/character/common/000/sourceimages/"),
+            Some(("000", ""))
+        );
+        // A marker of another length is none even when the rest ends in
+        // `sourceimages/`; a three-character marker's rest must end in it.
+        for directory in [
+            "/Assets/pes16/model/character/common/00/sourceimages/",
+            "/Assets/pes16/model/character/common/0000/sourceimages/",
+            "/Assets/pes16/model/character/common/000/not_the_marker_end_at_all/",
+        ] {
+            assert_eq!(reference_into_fox_common(directory), None, "{directory}");
+        }
     }
 
     #[test]

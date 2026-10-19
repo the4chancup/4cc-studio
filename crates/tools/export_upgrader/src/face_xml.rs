@@ -450,6 +450,19 @@ mod tests {
     }
 
     #[test]
+    fn a_face_xml_in_another_letter_case_is_a_member() {
+        let copies = vec![("Faces/x".to_owned(), "Players/07 - A/Face.xml".to_owned())];
+        let mut read = reader(vec![("Faces/x".to_owned(), face_xml_text().into_bytes())]);
+        let rewrites = face_xml_rewrites(&copies, &team(), &mut read);
+        assert_eq!(rewrites.len(), 1);
+        let text = String::from_utf8(rewrites[0].1.clone()).unwrap();
+        assert!(
+            text.contains("path=\"./kitN/jacket_win32.model\""),
+            "{text}"
+        );
+    }
+
+    #[test]
     fn a_face_xml_in_a_subfolder_is_not_a_member() {
         let copies = vec![(
             "Faces/x".to_owned(),

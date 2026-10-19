@@ -471,7 +471,10 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
 
 #[cfg(test)]
 mod tests {
+    use studio_core::{PipelineEvent, PipelineEventEnvelope};
+
     use super::*;
+    use crate::test_support::{scratch, test_ctx};
 
     fn files(names: &[&str]) -> Vec<String> {
         names.iter().map(|name| (*name).to_owned()).collect()
@@ -536,6 +539,22 @@ mod tests {
         );
         assert_eq!(plan.markers, ["Players/Snuffy/ingame_face".to_owned()]);
         assert!(plan.findings.is_empty(), "{:?}", plan.findings);
+    }
+
+    #[test]
+    fn an_ingame_face_spelling_in_any_letter_case_becomes_the_marker() {
+        let plan = model_folder_plan(
+            &files(&["Snuffy/INGAME_FACE.TXT", "Snuffy/hair.model"]),
+            &[],
+        );
+        assert_eq!(plan.markers, ["Players/Snuffy/ingame_face".to_owned()]);
+        assert_eq!(
+            plan.copies,
+            [(
+                "Snuffy/hair.model".to_owned(),
+                "Players/Snuffy/hair.model".to_owned()
+            )]
+        );
     }
 
     #[test]
@@ -750,5 +769,39 @@ mod tests {
         assert_eq!(staged("Common/hair.dds", &folders), "Common/hair.dds");
         // A first segment naming no placed folder is returned as it is.
         assert_eq!(staged("Other/x", &folders), "Other/x");
+    }
+
+    /// The codes of the run's `Message` events, in order.
+    fn codes(events_rx: &crossbeam_channel::Receiver<PipelineEventEnvelope>) -> Vec<String> {
+        events_rx
+            .iter()
+            .filter_map(|envelope| match envelope.event {
+                PipelineEvent::Message(message) => Some(message.code.code.as_ref().to_owned()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_model_file_in_any_letter_case_makes_the_output_pes_16() {
+        let root = scratch("models_run_model_case");
+        fs::create_dir_all(root.join("new models/k0431")).unwrap();
+        fs::write(root.join("new models/k0431/x.MODEL"), b"model").unwrap();
+        let (ctx, events_rx) = test_ctx();
+        let args = UpgradeModelsArgs {
+            folder: root.join("new models"),
+            output: None,
+        };
+
+        run(&args, &ctx).unwrap();
+        drop(ctx);
+        // A boots folder's model that is not boots-named is
+        // `model_name_invalid` on the pre-Fox engine the `.MODEL` file
+        // selects (`fmdl_name_invalid` under PES 21).
+        let codes = codes(&events_rx);
+        assert!(
+            codes.contains(&"model_name_invalid".to_owned()),
+            "{codes:?}"
+        );
     }
 }

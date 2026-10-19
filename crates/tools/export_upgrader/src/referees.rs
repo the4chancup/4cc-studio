@@ -382,6 +382,14 @@ mod tests {
     }
 
     #[test]
+    fn players_txt_writes_one_space_however_many_the_name_has_before_it() {
+        assert_eq!(
+            players_txt(b"1   germanbro\n").as_deref(),
+            Some("01 germanbro\n")
+        );
+    }
+
+    #[test]
     fn players_txt_of_bytes_that_are_not_utf8_is_none() {
         assert_eq!(players_txt(b"\xFF\xFE"), None);
     }

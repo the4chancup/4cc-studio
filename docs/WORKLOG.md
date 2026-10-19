@@ -15,7 +15,9 @@ is in `AGENTS.md` ("Working documents").
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
 **Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"; the
-lead's audit found one gap, step 6.10, a referee tracer), then Astra's converge review; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
+lead's audit found one gap, step 6.10, a referee tracer; its mutation run's survivors are
+tested or ruled equivalent; SWE-2's converge round found nothing to accept), then Astra's
+converge review; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
 and the shell's draft (`docs/prototypes/shell.html`, step 8.2) is done, waiting for the
 maintainer's remarks. Parallel tracks:
 `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its

@@ -131,7 +131,7 @@ fn the_notes_team_colors_and_other_notes_become_the_root_files() {
     assert_eq!(note_txts, ["notes.txt"], "{note_txts:?}");
 }
 
-// EU-ROOT-04
+// EU-ROOT-06
 #[test]
 fn a_team_entry_whose_colors_do_not_read_is_unmigrated_content() {
     let sandbox = Sandbox::new("root_bad_entry");
@@ -165,7 +165,7 @@ fn a_team_entry_whose_colors_do_not_read_is_unmigrated_content() {
     );
 }
 
-// EU-ROOT-04
+// EU-ROOT-06
 #[test]
 fn a_team_entry_with_nothing_after_its_colon_is_unmigrated_content() {
     let sandbox = Sandbox::new("root_empty_entry");

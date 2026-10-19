@@ -56,7 +56,7 @@ fn the_output_name_carries_the_key_the_tag_and_the_rest() {
     }
 }
 
-// EU-CLI-01
+// EU-CLI-08
 #[test]
 fn an_input_named_with_a_trailing_dot_or_dot_dot_upgrades_beside_it() {
     let sandbox = Sandbox::new("cli_dot_input");

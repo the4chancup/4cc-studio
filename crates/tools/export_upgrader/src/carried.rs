@@ -415,6 +415,14 @@ mod tests {
     }
 
     #[test]
+    fn exactly_the_share_is_not_a_distinct_drawing() {
+        // The rule is strictly more than `LOGO_SMALL_DISTINCT_SHARE`
+        // percent: exactly it is a downscale, past it another drawing.
+        assert!(!is_distinct_drawing(4, 10));
+        assert!(is_distinct_drawing(41, 100));
+    }
+
+    #[test]
     fn the_reported_share_rounds_half_up() {
         let total = 128 * 128;
         assert_eq!(share_text(4919, total), "30%");
@@ -436,6 +444,22 @@ mod tests {
         ] {
             assert_eq!(portrait_nn(name), expected, "{name}");
         }
+    }
+
+    #[test]
+    fn a_logo_member_in_upper_case_has_its_role() {
+        assert!(matches!(
+            logo_role("EMBLEM_0XXX_R_LL.PNG"),
+            Some(LogoRole::Large)
+        ));
+        assert!(matches!(
+            logo_role("EMBLEM_0XXX_R_L.PNG"),
+            Some(LogoRole::Medium)
+        ));
+        assert!(matches!(
+            logo_role("EMBLEM_0XXX_R.PNG"),
+            Some(LogoRole::Small)
+        ));
     }
 
     #[test]

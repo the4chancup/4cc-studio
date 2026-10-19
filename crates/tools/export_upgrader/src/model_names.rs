@@ -571,6 +571,25 @@ mod tests {
     }
 
     #[test]
+    fn a_folder_holding_fcl_hair_skl_in_another_case_keeps_all_three_names() {
+        assert_eq!(
+            renamed(
+                &[
+                    "Players/05 - Bob/fcl_hair.fmdl",
+                    "Players/05 - Bob/FCL_HAIR.skl",
+                    "Players/05 - Bob/fcl_hair_sim.skl",
+                ],
+                &[],
+            ),
+            [
+                "Players/05 - Bob/fcl_hair.fmdl",
+                "Players/05 - Bob/FCL_HAIR.skl",
+                "Players/05 - Bob/fcl_hair_sim.skl",
+            ]
+        );
+    }
+
+    #[test]
     fn the_hair_skeleton_pairing_compares_names_in_any_letter_case() {
         assert_eq!(
             renamed(

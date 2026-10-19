@@ -228,6 +228,26 @@ mod tests {
     }
 
     #[test]
+    fn an_entry_line_with_leading_blanks_is_an_entry() {
+        let entries = color_entries("Team Colours:\n- 1st: 1 2 3\n   - 2nd: 4 5 6\n").team;
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| (entry.line.as_str(), entry.colors.as_str()))
+                .collect::<Vec<_>>(),
+            [("- 1st: 1 2 3", "1 2 3"), ("- 2nd: 4 5 6", "4 5 6")]
+        );
+    }
+
+    #[test]
+    fn other_notes_trims_blank_lines_around_the_section() {
+        assert_eq!(
+            other_notes("Other Notes:\n   \nkeep me\n\t\n"),
+            Some("keep me".to_owned())
+        );
+    }
+
+    #[test]
     fn the_stop_words_end_the_reading() {
         for stop in ["Player IDs:", "Other Notes:", "Notes:"] {
             let text = format!("Team Colours:\n- 1st: 1 2 3\n{stop} x\n- 2nd: 4 5 6");

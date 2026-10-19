@@ -80,3 +80,16 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
         ExportUpgraderCommand::UpgradeModels(args) => model_folders::run(&args, ctx),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_bare_command_is_a_usage_error() {
+        let error = command()
+            .try_get_matches_from(["export-upgrader"])
+            .expect_err("a bare `export-upgrader` takes a subcommand");
+        assert_eq!(error.exit_code(), i32::from(INVALID));
+    }
+}

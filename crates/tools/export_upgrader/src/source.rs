@@ -409,18 +409,7 @@ fn failure(path: &Path, error: &impl Display) -> SourceFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// A scratch folder under the temp dir (`CARGO_TARGET_TMPDIR` is set for
-    /// integration tests only).
-    fn scratch(name: &str) -> PathBuf {
-        let root =
-            std::env::temp_dir().join(format!("export_upgrader_{name}_{}", std::process::id()));
-        if root.exists() {
-            fs::remove_dir_all(&root).unwrap();
-        }
-        fs::create_dir_all(&root).unwrap();
-        root
-    }
+    use crate::test_support::scratch;
 
     /// `files` and `folders` as `below_root`'s caller builds them (unsorted is
     /// fine: it sorts).
@@ -477,6 +466,59 @@ mod tests {
         assert!(!failure.error.is_empty());
         // And a clean listing passes.
         assert!(check_paths(&["Other/readme.txt".to_owned()], &["Other".to_owned()]).is_ok());
+    }
+
+    #[test]
+    fn an_archive_is_named_so_in_any_letter_case() {
+        assert!(is_archive(Path::new("co Spring.ZIP")));
+        assert!(is_archive(Path::new("co Spring.7Z")));
+        assert!(is_archive(Path::new("co Spring.zip")));
+        assert!(!is_archive(Path::new("co Spring.rar")));
+    }
+
+    #[test]
+    fn a_refs_txt_in_any_letter_case_makes_an_old_export() {
+        assert!(holds_old_export(&["Refs.txt".to_owned()], &[]));
+    }
+
+    #[test]
+    fn an_other_folder_is_not_flattened_in_any_letter_case() {
+        // `Other` (and `Common`) are the rule's exclusions; an `OTHER` pair
+        // stays two levels.
+        let (files, folders, flattened) = flatten_same_named(
+            vec!["OTHER/OTHER/x.txt".to_owned()],
+            vec!["OTHER".to_owned(), "OTHER/OTHER".to_owned()],
+        );
+        assert_eq!(files, ["OTHER/OTHER/x.txt".to_owned()]);
+        assert_eq!(folders, ["OTHER".to_owned(), "OTHER/OTHER".to_owned()]);
+        assert!(flattened.is_empty());
+    }
+
+    #[test]
+    fn the_folders_stay_sorted_and_single_after_a_flatten() {
+        // `Faces-X` sorts between `Faces` and `Faces/Faces`: the flattened
+        // `Faces` lands away from the one already listed, so the listing
+        // must be sorted and deduped again, not only deduped.
+        let (_, folders, _) = flatten_same_named(
+            vec![
+                "Faces-X/a.txt".to_owned(),
+                "Faces/Faces/XXX15 - A/f.fmdl".to_owned(),
+            ],
+            vec![
+                "Faces".to_owned(),
+                "Faces-X".to_owned(),
+                "Faces/Faces".to_owned(),
+                "Faces/Faces/XXX15 - A".to_owned(),
+            ],
+        );
+        assert_eq!(
+            folders,
+            [
+                "Faces".to_owned(),
+                "Faces-X".to_owned(),
+                "Faces/XXX15 - A".to_owned()
+            ]
+        );
     }
 
     #[test]

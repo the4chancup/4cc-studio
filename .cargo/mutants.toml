@@ -187,6 +187,18 @@ exclude_re = [
     # export_upgrader (mutants-diff 4d3fa0a, worklog 6.8): in `model_folders::run`, the skip of
     # a copy whose `.mtl` or `face.xml` is rewritten, `||` -> `&&`, is equivalent: no file is
     # both, so nothing is skipped, and every copy written is then replaced by its rewrite,
-    # written after every copy. Pinned to its site: the two `==` beside it stay measured.
-    "export_upgrader/src/model_folders\\.rs:371:13: replace \\|\\| with && in run",
+    # written after every copy. Pinned to its site: the two `==` beside it stay measured. The
+    # same skip in `upgrade::run` is equivalent the same way (its rewrites, `kits.written`,
+    # `materials.written`, `face_xml`, are written after every copy). Both pins re-checked at
+    # Phase 6's close (2026-10-19; the first had drifted from 371).
+    "export_upgrader/src/model_folders\\.rs:393:13: replace \\|\\| with && in run",
+    "export_upgrader/src/upgrade\\.rs:637:13: replace \\|\\| with && in run",
+    # export_upgrader (Phase 6's close): `Tool::default_settings` returns an empty table, which is
+    # what `Default::default()` returns: the tool has no settings (plan step 6).
+    "export_upgrader/src/lib\\.rs:\\d+:\\d+: replace <impl StudioTool for Tool>::default_settings -> toml::Table with Default::default\\(\\)",
+    # export_upgrader (Phase 6's close): in `kit_folders`, the empty `p1` a Full export gains,
+    # `!=` -> `==`, is equivalent: the slot set feeds only the `all/` hoist, and an inserted
+    # slot has no copies, so wherever the two forms differ ({g1} alone, or no g1) an empty kit
+    # already blocks every hoist or there are fewer than two kits.
+    "export_upgrader/src/kits\\.rs:533:42: replace != with == in kit_folders",
 ]

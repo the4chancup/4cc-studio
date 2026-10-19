@@ -161,3 +161,9 @@ path = "crates/tools/team_compiler/src/validation.rs"
 kind = "literal"
 description = "in unread_for_a_known_reason: the matches! pattern loses an alternative | removed: FileKind::Model(ModelFormat::Fmdl) |"
 why = "pre_fox_file gives every FMDL a role unless beaten, so one reaching here is beaten (the first disjunct) or out of role position (the structure-pass disjunct)"
+
+[[exclude]]
+path = "crates/tools/export_upgrader/src/source.rs"
+kind = "order"
+description = "in flatten_same_named: the sort() statement is deleted | removed: files.sort();"
+why = "files arrive sorted (below_root) and a flatten strips one segment from every file below one top, a contiguous block whose order and place it keeps, so the sort finds them sorted"
