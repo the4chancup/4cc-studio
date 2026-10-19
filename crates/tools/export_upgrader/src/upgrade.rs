@@ -375,8 +375,9 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         _ => None,
     };
 
-    // Step 9: a referee export's roster is its root `refs.txt`, read before
-    // anything is written: without one there is nothing to migrate, and a
+    // Step 9: a referee export's roster is its root `refs.txt` or `Refs
+    // list.txt`, read before anything is written: without one there is
+    // nothing to migrate, and a
     // read failure stops the run as the Note's does (the file decides the
     // roster). The path is kept with the `players.txt` text its bytes give
     // (`None` when they are not UTF-8).

@@ -63,6 +63,59 @@ fn refs_txt_becomes_the_canonical_players_txt_and_the_marker_is_carried() {
     );
 }
 
+// EU-REF-01
+#[test]
+fn refs_list_txt_and_root_referee_folders_migrate_the_same_way() {
+    // The real "refs for Winter 25 Day 2" export's layout: the older
+    // roster name, the referee folders directly at the export's root.
+    let sandbox = Sandbox::new("ref_list_layout");
+    sandbox.write(
+        "refs Winter/Refs list.txt",
+        b"01 boston\n02 cena\n03 boston\n",
+    );
+    sandbox.write("refs Winter/boston/Face/face.model", b"face");
+    sandbox.write("refs Winter/boston/Face/face_diff.bin", b"diff");
+    sandbox.write("refs Winter/boston/Common/kwt.dds", b"kwt");
+    sandbox.write("refs Winter/cena/Face/face.model", b"face");
+    sandbox.write("refs Winter/Common/shared.dds", b"shared");
+
+    let run = upgrade(&sandbox, "refs Winter");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert_eq!(
+        fs::read_to_string(sandbox.path("refs Winter upgraded/players.txt")).unwrap(),
+        "01 boston\n02 cena\n03 boston\n",
+        "{}",
+        run.stdout()
+    );
+    let listing = sandbox.listing("refs Winter upgraded");
+    for path in [
+        "Players/boston/face.model",
+        "Players/boston/kwt.dds",
+        "Players/cena/face.model",
+        "Common/shared.dds",
+    ] {
+        assert!(
+            listing.iter().any(|listed| listed == path),
+            "{path}: {listing:?}"
+        );
+    }
+    assert!(
+        !listing
+            .iter()
+            .any(|path| path.to_ascii_lowercase().ends_with("refs list.txt")),
+        "{listing:?}"
+    );
+    assert!(
+        !listing.iter().any(|path| path.starts_with("boston")),
+        "{listing:?}"
+    );
+    assert!(
+        !run.stdout().contains("unmigrated_content"),
+        "{}",
+        run.stdout()
+    );
+}
+
 /// A `refs Spring` export whose `refs.txt` lists the two real referee
 /// folders `arbiter` and `eiki`; the caller writes their files.
 fn referee_export(sandbox: &Sandbox) {

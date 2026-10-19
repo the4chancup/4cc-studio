@@ -159,37 +159,41 @@ fn file_name(path: &Path) -> String {
         .into_owned()
 }
 
+/// The folder names step 1 knows an old export's root holds, matched in any
+/// letter case; in a referee export without `Players/` a root folder not
+/// among them is a referee's.
+pub(crate) const OLD_FOLDERS: [&str; 11] = [
+    "faces",
+    "boots",
+    "gloves",
+    "kit configs",
+    "kit textures",
+    "common",
+    "portraits",
+    "collars",
+    "logo",
+    "other",
+    "players",
+];
+
 /// Whether `files`' and `folders`' direct entries — the paths holding one
 /// segment — are something an old export's root holds (steps 1 and 9, names in
 /// any letter case): a Note, or a `Faces`, `Boots`, `Gloves`, `Kit Configs`,
 /// `Kit Textures`, `Common`, `Portraits`, `Collars`, `Logo`, `Other` or
-/// `Players` folder, or a `refs.txt` file.
+/// `Players` folder, or a `refs.txt` or `refs list.txt` file.
 pub(crate) fn holds_old_export(files: &[String], folders: &[String]) -> bool {
-    const OLD_FOLDERS: [&str; 11] = [
-        "faces",
-        "boots",
-        "gloves",
-        "kit configs",
-        "kit textures",
-        "common",
-        "portraits",
-        "collars",
-        "logo",
-        "other",
-        "players",
-    ];
-    files
+    files.iter().filter(|path| !path.contains('/')).any(|name| {
+        note::is_note_name(name)
+            || name.eq_ignore_ascii_case("refs.txt")
+            || name.eq_ignore_ascii_case("refs list.txt")
+    }) || folders
         .iter()
         .filter(|path| !path.contains('/'))
-        .any(|name| note::is_note_name(name) || name.eq_ignore_ascii_case("refs.txt"))
-        || folders
-            .iter()
-            .filter(|path| !path.contains('/'))
-            .any(|name| {
-                OLD_FOLDERS
-                    .iter()
-                    .any(|known| name.eq_ignore_ascii_case(known))
-            })
+        .any(|name| {
+            OLD_FOLDERS
+                .iter()
+                .any(|known| name.eq_ignore_ascii_case(known))
+        })
 }
 
 /// The listing's entries below its root: OS artifacts left out, sorted.
@@ -495,6 +499,11 @@ mod tests {
         assert_eq!(root_prefix(&files, &folders), "");
         // A referee export's `refs.txt` and `Players/` count the same way.
         let (files, folders) = listing(&["refs.txt"], &["Players"]);
+        assert_eq!(root_prefix(&files, &folders), "");
+        // As do the refs compiler's `Refs list.txt` and a referee folder
+        // directly at the root.
+        let (files, folders) = listing(&["Refs list.txt"], &["boston"]);
+        assert!(holds_old_export(&files, &folders));
         assert_eq!(root_prefix(&files, &folders), "");
     }
 }

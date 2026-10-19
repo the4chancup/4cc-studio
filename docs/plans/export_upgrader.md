@@ -37,8 +37,8 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    but exactly one folder and no other file (OS artifacts aside), that folder: the AET page
    packs an export inside one main folder, and a folder input wrapped the same way reads the
    same, so the two are one rule. An input holding no Note,
-   none of the folders above and neither of a referee export's `refs.txt` and `Players/` (step
-   9; the real `refs lan party` export holds those two alone) is reported as no old export, nothing written, exit 1, as Red
+   none of the folders above and none of a referee export's `refs.txt`, `Refs list.txt` and `Players/` (step
+   9; the real `refs lan party` export holds `refs.txt` and `Players/` alone) is reported as no old export, nothing written, exit 1, as Red
    refused it ("No usable files found"): resolved from its name alone, it would become a Full
    export without kits, which compiles placeholder kits over the team's installed ones.
 2. **Reads the team's savefile data** (via `pes_savefile`) to map old boots/gloves IDs to players —
@@ -503,7 +503,12 @@ to moving, flattening, or removing files describe that draft, not destructive ed
 9. **Migrates referee exports**, those whose name's first word is `refs` (in any letter case;
    `refs.txt` and the referee subfolders below are matched so too, as real exports spell them
    `Refs.txt`, `Face/`; a `refs` export without a `refs.txt` holds no roster to migrate and is
-   reported, nothing written, exit 1: `refs_txt_missing`, E, on the export), as the compiler tells
+   reported, nothing written, exit 1: `refs_txt_missing`, E, on the export; the roster file's
+   older spelling `Refs list.txt`, the refs compiler's, is read when there is no `refs.txt`, and
+   that layout's referee folders stand directly at the export root instead of under `Players/`:
+   when the export has no `Players/`, every root folder step 1 does not know is a referee's,
+   since four of the eleven real referee exports on the maintainer's machine, Winter to Summer
+   25, are that layout, with the same `Face/` and `Common/` per referee), as the compiler tells
    them apart ("Identity boundary" in `spec/aesthetics_export/object_model.md`): the old referee layout (`refs.txt` + per-referee
    face/boots/gloves/common subfolders — the prototype of the player-folder format) is refused by
    the compiler per referee folder (`player_layout_proto`, naming this tool; only the `refs.txt`

@@ -8877,3 +8877,18 @@ referee xmls names a file of its own face folder (`.tmp/6_6/refs_xml_census.py`:
 values, 64 Common-path ones naming the export's `Common/refkit/`), so machinery for it would
 serve no file seen. One rule for the two kinds the link does serve, not a per-attribute table.
 Plan: `plans/export_upgrader.md` step 12.
+
+## 2026-10-19 — export_upgrader — the refs-compiler layout (`Refs list.txt`, referee folders at the root) migrates too
+Decision: a root `Refs list.txt` (any letter case) is read as the referee roster when there is
+no `refs.txt`, and when a referee export has no `Players/` folder, every root folder step 1
+does not know (not `Common`, `Other`, the kit, item or image folders) is a referee folder;
+step 12's flatten and the rest of step 9 apply unchanged. Step 1 counts `Refs list.txt` among
+what an old export holds.
+Why: SWE-2 round 6.6.S1 listed four of the eleven real referee exports on the maintainer's
+machine (`C:\Data\4cc\Refs\25_{1,2,3,4}-*_refs\exports_to_add\refs for *`, Winter to Summer
+25) in that layout, the one the earlier "4cc refs compiler" read, each referee's folder the
+same `Face/` + `Common/` the Red layout has; refused as `no_old_export`, a `refs`-named export
+with a roster got a false diagnosis, and step 9's purpose is to migrate the maintainer's
+referee exports. Two aliases (the file's name, the folders' place) rather than a second layout
+rule, since nothing else differs.
+Plan: `plans/export_upgrader.md` steps 1 and 9.

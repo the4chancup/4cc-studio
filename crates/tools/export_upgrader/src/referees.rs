@@ -27,17 +27,24 @@ use crate::carried::under;
 use crate::face_xml::named_paths;
 use crate::messages::{Code, INPUT, tool_message};
 use crate::players::{PlayerFolders, path_scope};
-use crate::source::SourceFailure;
+use crate::source::{OLD_FOLDERS, SourceFailure};
 
 /// The old referee layout's subfolder names, folded: the compiler refuses a
 /// referee folder holding one directly (`player_layout_proto`).
 const LAYOUT_SUBFOLDERS: [&str; 4] = ["face", "boots", "gloves", "common"];
 
-/// The root `refs.txt` of `files` (directly at the root, any letter case), if any.
+/// The referee export's roster file of `files` (directly at the root, any
+/// letter case): `refs.txt` when there is one, else `refs list.txt`, the
+/// refs compiler's older spelling of its layout.
 pub(crate) fn find_refs_txt(files: &[String]) -> Option<&str> {
     files
         .iter()
         .find(|file| file.eq_ignore_ascii_case("refs.txt"))
+        .or_else(|| {
+            files
+                .iter()
+                .find(|file| file.eq_ignore_ascii_case("refs list.txt"))
+        })
         .map(String::as_str)
 }
 
@@ -72,14 +79,19 @@ pub(crate) fn players_txt(refs_txt: &[u8]) -> Option<String> {
     Some(out)
 }
 
-/// Step 9's root files and step 12's referee folders: the root `refs.txt`
-/// consumed (not copied: `run` writes `players.txt` from it), a root
-/// `ref_marker.dds` (any letter case) copied under its own name, and every
-/// direct subfolder of `Players/` (any letter case) flattened to
-/// `Players/<folder>/` (`flatten`), its files read through `read` for the
-/// byte comparisons and the `face.xml` files. A file directly in `Players/`
-/// is nobody's: the fallback reports it. `portraits` and `folders` stay
-/// empty: a referee has no save record.
+/// Step 9's root files and step 12's referee folders: the root roster file
+/// (`refs.txt` or `refs list.txt`, any letter case — both consumed when
+/// both exist) consumed (not copied: `run` writes `players.txt` from what
+/// `find_refs_txt` found), a root `ref_marker.dds` (any letter case) copied
+/// under its own name, and every direct subfolder of `Players/` (any letter
+/// case) flattened to `Players/<folder>/` (`flatten`), its files read
+/// through `read` for the byte comparisons and the `face.xml` files. When
+/// `files` holds no path under `Players/` — the refs compiler's layout —
+/// every root folder `OLD_FOLDERS` does not list is a referee folder the
+/// same way, and a file directly at the root stays nobody's: the fallback
+/// reports it, as a Note is. A file directly in `Players/` is nobody's
+/// either. `portraits` and `folders` stay empty: a referee has no save
+/// record.
 pub(crate) fn referee_folders(
     files: &[String],
     mut read: impl FnMut(&str) -> Result<Vec<u8>, SourceFailure>,
@@ -88,14 +100,25 @@ pub(crate) fn referee_folders(
     // Each referee folder's files by its name as written: input path and
     // path below the folder, in input order.
     let mut folders: BTreeMap<&str, Vec<(&str, &str)>> = BTreeMap::new();
+    // The refs compiler's layout stands the referee folders directly at the
+    // root instead of under `Players/`; it is the layout only when no
+    // `Players/` path exists.
+    let root_layout = !files.iter().any(|file| under(file, "Players").is_some());
     for file in files {
-        if file.eq_ignore_ascii_case("refs.txt") {
+        if file.eq_ignore_ascii_case("refs.txt") || file.eq_ignore_ascii_case("refs list.txt") {
             plan.consumed.insert(file.clone());
         } else if file.eq_ignore_ascii_case("ref_marker.dds") {
             plan.copies.push((file.clone(), file.clone()));
             plan.consumed.insert(file.clone());
         } else if let Some(rest) = under(file, "Players")
             && let Some((name, below)) = rest.split_once('/')
+        {
+            folders.entry(name).or_default().push((file, below));
+        } else if root_layout
+            && let Some((name, below)) = file.split_once('/')
+            && !OLD_FOLDERS
+                .iter()
+                .any(|known| name.eq_ignore_ascii_case(known))
         {
             folders.entry(name).or_default().push((file, below));
         }
@@ -680,5 +703,73 @@ mod tests {
             material.copies,
             pairs(&[("Players/a/common/x.mtl", "Players/a/x.mtl")])
         );
+    }
+
+    #[test]
+    fn find_refs_txt_prefers_refs_txt_then_the_older_spelling() {
+        let files = |names: &[&str]| {
+            names
+                .iter()
+                .map(|name| (*name).to_owned())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            find_refs_txt(&files(&["Refs list.txt", "refs.txt"])),
+            Some("refs.txt")
+        );
+        assert_eq!(
+            find_refs_txt(&files(&["Refs list.txt"])),
+            Some("Refs list.txt")
+        );
+    }
+
+    #[test]
+    fn the_refs_compilers_root_folders_are_the_referee_folders() {
+        // No `Players/`: `boston` is a referee folder, folded like one;
+        // the root `Common/` and `Other/` are not (step 1 knows them).
+        let plan = plan(
+            &[
+                "Refs list.txt",
+                "boston/Face/face.xml",
+                "boston/Common/kwt.dds",
+                "Common/shared.dds",
+                "Other/readme.txt",
+            ],
+            &[("boston/Face/face.xml", b"<config/>")],
+        );
+        assert_eq!(
+            plan.copies,
+            pairs(&[
+                ("boston/Common/kwt.dds", "Players/boston/kwt.dds"),
+                ("boston/Face/face.xml", "Players/boston/face.xml"),
+            ])
+        );
+        for consumed in [
+            "Refs list.txt",
+            "boston/Common/kwt.dds",
+            "boston/Face/face.xml",
+        ] {
+            assert!(plan.consumed.contains(consumed), "{consumed}");
+        }
+        assert!(!plan.consumed.contains("Common/shared.dds"));
+        assert!(!plan.consumed.contains("Other/readme.txt"));
+        assert!(plan.findings.is_empty());
+    }
+
+    #[test]
+    fn a_players_path_means_root_folders_are_not_referee_folders() {
+        let plan = plan(
+            &[
+                "Refs list.txt",
+                "Players/eiki/boots.fmdl",
+                "boston/Face/x.model",
+            ],
+            &[],
+        );
+        assert_eq!(
+            plan.copies,
+            pairs(&[("Players/eiki/boots.fmdl", "Players/eiki/boots.fmdl")])
+        );
+        assert!(!plan.consumed.contains("boston/Face/x.model"));
     }
 }

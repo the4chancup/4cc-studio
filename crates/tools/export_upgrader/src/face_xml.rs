@@ -89,7 +89,12 @@ pub(crate) fn face_xml_rewrites(
         let Some((wrapped, payload)) = read_face_xml(input, &mut read) else {
             continue;
         };
-        let folder_files = folder_files(copies, output);
+        // The flattened-value rewrite is a referee's alone: a team's
+        // `face.xml` needs no folder listing.
+        let folder_files = match identity {
+            Identity::Referees => folder_files(copies, output),
+            Identity::Team { .. } => BTreeSet::new(),
+        };
         let respelled = xml_text(&payload).and_then(|(bom, text)| {
             match respell_face_xml(text, identity, &folder_files) {
                 Cow::Owned(respelled) => {

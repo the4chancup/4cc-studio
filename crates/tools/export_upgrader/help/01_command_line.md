@@ -23,7 +23,9 @@ that already exists is refused and left untouched.
 A referee export is upgraded from its `refs.txt`: the output gets a
 `players.txt` holding the same slots in the Studio spelling (two-digit slot
 numbers, one entry per line) and no `refs.txt`, and its `ref_marker.dds` is
-carried as it is. The old `face/`, `boots/`, `gloves/` and `common/`
+carried as it is. The roster may also be the older `Refs list.txt`, with
+the referee folders standing directly in the export rather than under
+`Players/`; the migration is the same. The old `face/`, `boots/`, `gloves/` and `common/`
 subfolders of each referee's folder are folded into that folder, a file held
 twice with the same bytes kept once. A file two of them hold with different
 bytes, or a subfolder of one of those four names inside them, leaves the
