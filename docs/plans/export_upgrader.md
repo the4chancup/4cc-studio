@@ -948,6 +948,12 @@ EU-ROOT-05 GIVEN a Note whose team and kit color lines are ASCII and whose "Play
            WHEN the export is upgraded
            THEN the root colors.txt and each kit's colors.txt hold the Note's colors, and the
                 exit code is 0
+EU-ROOT-06 GIVEN a Note whose team colors hold an entry that reads as no color: "- 2nd: blue",
+                or an unfilled "- 2nd:", beside "- 1st: 048 146 082"
+           WHEN the export is upgraded
+           THEN unmigrated_content is reported at the Note naming that line, the root
+                colors.txt holds the entries that read, in the Note's order, and the exit code
+                is 1
 ```
 
 **Player folders**
@@ -1418,6 +1424,11 @@ EU-CLI-06  GIVEN a folder "new models" of old model folders
            WHEN it runs with -o out/done, out/ missing
            THEN out/done/ holds one folder per input folder directly, and no "new models
                 upgraded" folder exists
+EU-CLI-08  GIVEN the old export "co Spring" named on the command line as "co Spring/." and as
+                "co Spring/Other/.."
+           WHEN each is upgraded
+           THEN the output is the sibling folder "co Full Spring", beside "co Spring", as for
+                the plain name
 ```
 
 **Phase 8 scope.** Phase 8 delivers the view ("GUI"). What a scenario observes is what a frame

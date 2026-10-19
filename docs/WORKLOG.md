@@ -14,8 +14,8 @@ is in `AGENTS.md` ("Working documents").
 (`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): every step done; Astra's checkpoint review over 6.9a-c
-(with its SWE-2 loops), then the phase's close (`AGENTS.md` "Closing a phase"); 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
+**Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"; the
+lead's audit found one gap, step 6.10, a referee tracer), then Astra's converge review; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
 and the shell's draft (`docs/prototypes/shell.html`, step 8.2) is done, waiting for the
 maintainer's remarks. Parallel tracks:
 `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
@@ -720,6 +720,17 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     the pre-Fox one differs by the member's kept `face.xml` alone (`FaceXml::Kept`). Files:
     `export_upgrader/tests/upgraded_golden.rs`, `team_compiler/tests/{parity,parity_prefox}.rs`,
     `team_compiler/tests/upgraded/mod.rs`, both tracers' `upgraded/` and `README.md`
+- [ ] 6.10 a referee tracer, the converge audit's one gap (`plans/export_upgrader.md`
+  "Verification": a Red-era referee export's flattened result "compiles identically to the
+  unflattened original"; the compiler reads no old layout, so this is parity against Red's CPK
+  for the original): a fixture `team_compiler/tests/fixtures/tracer_refs/` cut from a real
+  Red-era referee export of the maintainer's library (one or two referees, their `face/`,
+  `boots/`, `gloves/`, `common/` subfolders and `refs.txt`), with `old/`, Red's extracted CPK
+  as `red/` (Red `main`, made as the tracers' READMEs say), and the upgraded golden as
+  `upgraded/`; `upgraded_golden.rs` and a parity case of its own compiling the golden against
+  `red/` (tiers of `spec/team_compiler/testing.md`) → verify: both tests pass, each check's
+  perturbation red; every difference from Red tabulated with its reason, as the tracers' tables
+  do
 
 ### Phase 8 — GUI
 
