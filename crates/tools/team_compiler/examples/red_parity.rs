@@ -13,8 +13,9 @@
 //!
 //! How an entry of Red's output is paired with ours, in order: the same path, Red's kit
 //! magic read as ours; a texture (`.ftex`, `.dds`) by file name among our textures, in the
-//! player's own folder when Red's path names his slot (`face/real/73905`), the first whose
-//! content compares equal, else the last compared (`relocated_differs`); a boots or gloves
+//! player's own folder when Red's path names his slot (`face/real/73905`), the ones not yet
+//! paired first, the first whose content compares equal, else the closest compared (fewest
+//! differing blocks under the same headers; `relocated_differs`); a boots or gloves
 //! package (`boots/k<id>/`, `glove/g<id>/`) under the ID the optional map names for Red's
 //! (the compiler plans its own IDs), else by content among our packages of the same shape,
 //! the nearest unpaired one once every equal pair is made; a `*.fpk.xml` is `dropped_fpk_xml`
@@ -306,14 +307,18 @@ fn compare_side(
         // players: `hair_parts_col`, `shirt`).
         if is_texture(red_path) {
             let slot = slot_of(red_path);
-            let candidates = textures_by_name.get(&lower_name(red_path));
-            let mut found = None;
-            let mut nearest = None;
-            for candidate in candidates
+            let mut candidates: Vec<_> = textures_by_name
+                .get(&lower_name(red_path))
                 .into_iter()
                 .flatten()
                 .filter(|path| slot.as_ref().is_none_or(|slot| in_slot(path, slot)))
-            {
+                .collect();
+            // Unpaired ones first: equal copies of one texture (one per package) pair one to
+            // one, rather than every Red copy with our first.
+            candidates.sort_by_key(|path| consumed.contains(*path));
+            let mut found = None;
+            let mut nearest = None;
+            for candidate in candidates {
                 let (class, detail) = compare_entry(
                     version,
                     red_path,
@@ -327,7 +332,9 @@ fn compare_side(
                     found = Some((*candidate, class));
                     break;
                 }
-                nearest = Some((*candidate, class, detail));
+                if is_closer(&detail, nearest.as_ref().map(|(_, _, best)| best)) {
+                    nearest = Some((*candidate, class, detail));
+                }
             }
             match (found, nearest) {
                 (Some((our_path, class)), _) => {
@@ -865,6 +872,30 @@ fn compare_ftex(red: &[u8], ours: &[u8]) -> (&'static str, String) {
     ("ftex_differs", format!("same headers, {pixels}"))
 }
 
+/// Whether a differing texture comparison's `detail` came closer than `best`'s (or there is
+/// none yet): fewer differing blocks, "pixels equal" closest of all. A detail with differing
+/// headers is the farthest, its block count meaningless (two payloads of one size but other
+/// dimensions or codecs). The candidates share a file name, so the first one compared is
+/// often another player's copy: without this the line would name it rather than the
+/// wearer's own (6.12c, a texture Red changed in its last two blocks).
+fn is_closer(detail: &str, best: Option<&String>) -> bool {
+    let distance = |detail: &str| -> Option<usize> {
+        if detail.ends_with("pixels equal") {
+            return Some(0);
+        }
+        let rest = detail.strip_prefix("same headers, ")?;
+        let (_, rest) = rest.split_once(" blocks (")?;
+        let (count, _) = rest.split_once(" blocks,")?;
+        count.parse().ok()
+    };
+    match (best.map(|best| distance(best)), distance(detail)) {
+        (None, _) => true,
+        (Some(_), None) => false,
+        (Some(None), Some(_)) => true,
+        (Some(Some(best)), Some(new)) => new < best,
+    }
+}
+
 /// The share of 16-byte blocks (one BC2/BC3/BC7 block, or four BC1 blocks) that differ
 /// between two pixel payloads, or their sizes when they differ.
 fn differing_blocks(red: &[u8], ours: &[u8]) -> String {
@@ -1398,7 +1429,9 @@ fn compare_nested_cpk(
                     found = Some((*candidate, class));
                     break;
                 }
-                nearest = Some((*candidate, class, detail));
+                if is_closer(&detail, nearest.as_ref().map(|(_, _, best)| best)) {
+                    nearest = Some((*candidate, class, detail));
+                }
             }
             match (found, nearest) {
                 (Some((our_path, class)), _) => {
