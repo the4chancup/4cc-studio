@@ -28,6 +28,11 @@ test:
     cargo test --workspace
     {{python}} scripts/mutants_test.py
 
+# The GPU BC7 encoder's tests, ignored by `test` because they need a Vulkan or Metal device and
+# no CI runner has one: run by hand before landing a change to `dds_convert`'s `gpu` module.
+gpu-tests:
+    cargo test -p dds_convert --lib -- --ignored gpu::
+
 # Gate 4: studio_core and every lib crate check for wasm32 (list derived from the workspace)
 wasm-check:
     {{python}} scripts/wasm_check.py

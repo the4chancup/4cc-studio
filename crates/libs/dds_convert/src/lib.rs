@@ -12,11 +12,46 @@
 //! [`probe`] reads a source's size from its header alone, for checks that
 //! must not pay a decode per texture. [`resize`] is the suite's one
 //! resampler (Lanczos3). [`encode_png`] is the one raster the crate writes:
-//! the game reads a team's logo as PNGs.
+//! the game reads a team's logo as PNGs. On native targets [`convert_with_gpu`]
+//! runs the same conversion with its BC7 encodes on a [`gpu::GpuEncoder`],
+//! falling back to the CPU per texture.
 
 mod cache;
 mod dds;
 mod encode;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod gpu;
+/// The wasm build has no GPU encoder: an uninhabited stand-in lets the conversion
+/// code take an `Option<&mut GpuEncoder>` on every target, always `None` there.
+#[cfg(target_arch = "wasm32")]
+mod gpu {
+    use block_compression::CompressionVariant;
+
+    use crate::ConvertError;
+
+    /// No GPU encoder exists on wasm; `encode` never sees one.
+    pub(crate) enum GpuEncoder {}
+
+    impl GpuEncoder {
+        pub(crate) fn accepts(
+            &self,
+            _variant: CompressionVariant,
+            _width: u32,
+            _height: u32,
+        ) -> bool {
+            match *self {}
+        }
+        pub(crate) fn encode(
+            &mut self,
+            _variant: CompressionVariant,
+            _width: u32,
+            _height: u32,
+            _rgba: &[u8],
+        ) -> Result<Vec<u8>, ConvertError> {
+            match *self {}
+        }
+    }
+}
 mod mips;
 mod raster;
 mod resample;
@@ -166,7 +201,28 @@ pub fn decode(bytes: &[u8], format: SourceFormat) -> Result<Decoded, ConvertErro
 /// undersized mips, block buffers of the wrong size).
 pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertError> {
     validate(decoded)?;
-    encode::convert(decoded, target)
+    encode::convert(decoded, target, None)
+}
+
+/// `convert`, with the BC7 encodes on `gpu` while it is usable. A texture the
+/// GPU cannot take (larger than the device's texture limit) is encoded on the
+/// CPU and the encoder stays usable; a failure on the device is logged, makes
+/// `gpu.unavailable()` return its reason, and the mip it happened on and
+/// everything after it (in that texture and in later ones) is encoded on the
+/// CPU. Output bytes may differ from `convert`'s (the plan's
+/// "Reproducibility"), never its container, size or mip count.
+///
+/// # Errors
+///
+/// As [`convert`].
+#[cfg(not(target_arch = "wasm32"))]
+pub fn convert_with_gpu(
+    decoded: &Decoded,
+    target: Target,
+    gpu: &mut gpu::GpuEncoder,
+) -> Result<Vec<u8>, ConvertError> {
+    validate(decoded)?;
+    encode::convert(decoded, target, Some(gpu))
 }
 
 /// A DDS in `codec` (`Bc1`, `Bc3` or `Bc7`; any other is `Unsupported`) at the source's own

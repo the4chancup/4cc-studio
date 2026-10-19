@@ -37,6 +37,33 @@ encoding at all.
   Check supported target versions, startup, full-path timing, resource pressure, cancellation, and
   fallback on representative hardware. No measured speedup is assumed in this plan.
 
+**Measured (2026-10-19, AMD Radeon RX 9060 XT, 16 logical CPUs; `.tmp/16x/findings.md`).** On
+real 4096² kit textures with alpha (13 mips, BC7 `alpha_basic`), Vulkan encodes a chain in
+0.48 s once warm, against 16.1 s per chain with all 16 CPU threads busy (134.5 s on one), at
+the same quality (level 0 against the source: 67.35 dB PSNR, largest channel difference 3, the
+CPU's 67.31 dB and 3). Building the BC1-5 and BC7 pipelines took 16.3 s in the first process
+after the driver was installed and 25-27 ms in every later one: the driver's shader cache keeps
+them, so the cold start is paid once per driver install or update, not per compile (not yet
+measured on NVIDIA or Intel). DX12 is worse on every count (37 s cold, 1.1 s per chain, a
+largest difference of 18), and one submission of a whole 8192² chain ran about 6 s on it and
+lost the device to Windows' GPU timeout, which Vulkan's 2.8 s survived but is the same risk.
+So:
+
+- **The encoder is Vulkan's (Metal's on macOS), started on its own thread.** The warm start
+  costs less than one 1024² BC7 encode on the CPU, so a ready GPU takes every BC7 texture; a
+  start not finished yet (the rare cold one) leaves the CPU encoding, and the GPU takes the
+  textures still waiting once it is ready. Whether a compile starts the GPU at all is decided
+  by whether it has BC7 work, not by a predicted cost: a cold start cannot be predicted.
+- **Submissions are bounded in pixels, not textures:** each one encodes at most a fixed slab of
+  rows (`add_compression_task`'s row offset), sized so it runs a small fraction of the 2 s
+  timeout on the measured GPU, whatever the texture's size.
+- **A GPU failure is per texture, then final:** the failing texture is encoded on the CPU, the
+  encoder reports itself unavailable with the reason, and the rest of the run stays on the CPU.
+
+**Built ahead (16.x a, before Release 0.1.0):** the encoder itself, in `dds_convert` behind
+`cfg(not(target_arch = "wasm32"))`, with its quality and fallback tests. Wiring it into the
+Team compiler's texture step stays after 0.1.0, which ships the CPU encoder only.
+
 **Reproducibility:** explicit CPU mode remains the byte-reproducible reference. The user accepts
 valid GPU-encoded texture bytes differing across GPUs/drivers; containing CPKs may differ as a
 consequence. GPU output must still satisfy decoded-content/quality checks. Asset paths, model/bin

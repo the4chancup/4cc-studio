@@ -62,6 +62,15 @@ exclude_re = [
     # headless through `StudioApp`'s `logic`/`ui`; these two are what the manual TC-GUI-01 run
     # proves (`team_compiler/README.md` "Shell slice").
     "replace run_gui(_mode)? -> ",
+    # `dds_convert`'s wasm stand-in for the GPU encoder (`lib.rs`, `mod gpu` under
+    # `cfg(target_arch = "wasm32")`): an uninhabited enum whose methods no value can reach,
+    # compiled on no tested OS, so its mutants build and "pass" untouched. The native encoder's
+    # mutants are in `gpu.rs` and stay measured.
+    "dds_convert/src/lib\\.rs:\\d+:\\d+: replace gpu::GpuEncoder::",
+    # `dds_convert`'s GPU upload: every `|` in `gpu_encode_scoped` joins distinct wgpu usage
+    # flags (`COPY_DST | TEXTURE_BINDING`, `COPY_SRC | STORAGE`, `COPY_DST | MAP_READ`), which
+    # share no bit, so `^` gives the same set (16.x a, 2026-10-19).
+    "replace \\| with \\^ in GpuEncoder::gpu_encode_scoped",
     # Not excluded, accepted: `pipeline`'s `available_memory` has one arm per platform, and only
     # the host's arm compiles, so each run lists the others' replacements as missed. The Windows
     # arm is caught on Windows, the Linux arm on Linux (the VPS, measured 2026-10-01); the

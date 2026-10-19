@@ -8930,3 +8930,20 @@ Why: `Texport::new` returns `NoTemplate` for 15-17, whose files can only be writ
 one the game exported; a flow that first asks for such a file is machinery no member has asked
 for, and a disabled action with its reason fails loudly rather than late (SWE-2 8.0.S7-6).
 Plan: `plans/save_editor.md` "Interchange formats in the UI"; SE-GUI-29.
+
+## 2026-10-19 — dds_convert — the GPU BC7 encoder is built ahead of 0.1.0, unwired, on Vulkan/Metal with bounded submissions
+Decision: step 16.x's encoder half is built now in `dds_convert` (native only, behind
+`cfg(not(target_arch = "wasm32"))`): `block_compression`'s `wgpu` feature and a workspace `wgpu`
+entry (30.0.1, the version eframe already resolves, so no new crate enters the build); the
+device is started on its own thread on Vulkan (Metal on macOS) with no DX12 or fallback
+adapter; each submission encodes a bounded slab of rows; a failure falls back to the CPU for
+that texture and leaves the encoder unavailable with its reason. The Team compiler's wiring
+stays after Release 0.1.0, which ships the CPU encoder only.
+Why: the probe (`.tmp/16x/findings.md`) measured Vulkan at ~33x the whole CPU's BC7 throughput
+at the same quality, a cold pipeline build the driver caches after its first process (16.3 s,
+then 27 ms), and DX12 worse on every count, with one unbounded 6 s submission losing the
+device; the encoder is independent of the release's features, and building it while the
+measurements are fresh costs less than rediscovering them in Phase 16. A cost estimate does
+not pick CPU or GPU: the warm start is cheaper than one texture and the cold one cannot be
+predicted, so the CPU starts and the GPU joins when ready.
+Plan: `plans/libs/README.md` "First-release desktop GPU BC7" ("Measured", "Built ahead").

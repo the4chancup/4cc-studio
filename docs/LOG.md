@@ -2146,3 +2146,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 8.0 reviews ended on main: Astra A1 8, SWE-2 S7 6, S8 6, S9 4, Astra A2 3,
   S10 0 accepted; colors by storage (team colors 6-bit), wake on a run's events and verdict,
   every close asks every tool (unsaved work, a run in flight).
+- **2026-10-19** — 16.x a: `dds_convert`'s GPU BC7 encoder built ahead and unwired (Vulkan/Metal,
+  bounded slabs, CPU fallback per mip after a device failure); `just gpu-tests` runs its five
+  ignored tests; a transient "no adapter" under load noted for the wiring.

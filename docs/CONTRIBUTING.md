@@ -170,7 +170,10 @@ only CI saw), `just acceptance strict` (the scanner's converge mode, under "Requ
 also runs), `just bindings` (the `maturin` build of `python_bindings`), `just release <version>`
 (arrives with release 0.1.0, `core/development_plan.md` "Release 0.1.0"), `just
 mutants <crate>`, `just mutants-collect` and `just mutants-diff [base]` (the mutation runs,
-below), `just citation-audit` (the citation audit, below). `just --list` shows
+below), `just citation-audit` (the citation audit, below), `just gpu-tests` (`dds_convert`'s GPU
+encoder tests: the one sanctioned `#[ignore]`, each with the reason `"needs a Vulkan or Metal
+GPU"`, since no CI runner has one; whoever changes `dds_convert`'s `gpu` module runs them on a
+machine that has one before it lands, and the review pastes their result). `just --list` shows
 them with a one-line description each.
 
 On Windows every binary `cargo test`, `run` or `bench` launches goes through

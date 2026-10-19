@@ -18,8 +18,8 @@ editor's coverage table and draft).
 classes, step 10), on a side branch; 8.0's acceptance sections are reviewed (every loop
 ended, 2026-10-19), and the shell's draft (`docs/prototypes/shell.html`) is on a side branch.
 Parallel tracks:
-`.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half being measured
-ahead of its phase
+`.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
+phase (16.x a, unwired)
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -777,6 +777,21 @@ Steps are itemized when Phase 15 closes; two are fixed already:
   fallback reason reported, cold pipeline creation and upload/readback measured first, then the
   texture step's bounded batches → verify: GPU and CPU outputs decode within the same tolerance
   on the `dds_convert` fixtures; the fallback path exercised by forcing no adapter
+  - [x] 16.x a `dds_convert`'s half, built ahead and unwired (2026-10-19, DECISIONS "the GPU
+    BC7 encoder is built ahead of 0.1.0"; measurements `.tmp/16x/findings.md`: Vulkan 0.48 s
+    per 4096 chain against 16.1 s on 16 CPU threads, same PSNR; DX12 refused): `gpu::GpuEncoder`
+    (Vulkan/Metal, 4-Mpixel slabs per submission, error scopes, a device failure sends that mip
+    and everything after it to the CPU, a texture past the device's limit goes to the CPU
+    whole), `convert_with_gpu`, `pad_to_blocks` shared, a wasm stand-in; `just gpu-tests` runs
+    the five `#[ignore]`d GPU tests (CONTRIBUTING); mutation run over the diff with them
+    included, survivors tested or excluded (`.cargo/mutants.toml`). Files: `Cargo.toml`,
+    `crates/libs/dds_convert/{Cargo.toml,src/gpu.rs,src/encode.rs,src/lib.rs}`, `justfile`,
+    `.cargo/mutants.toml`, `docs/CONTRIBUTING.md`, `docs/plans/libs/README.md`
+  - [ ] 16.x b the Team compiler's texture step on the encoder, after 0.1.0: the CPU starts at
+    once and the GPU joins when its device is ready, started only when the run's texture size
+    estimate makes it worth it; start it after the window's renderer is up, a failed start this
+    run's CPU fallback with its reason in the report (`.tmp/16x/findings.md`, "a transient
+    no adapter")
 
 ### Phase 20 — Ruleset editor (post-release)
 

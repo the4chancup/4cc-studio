@@ -622,6 +622,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1de43762f28cd97f3c60766636ac814838fd48390ff2a9162d9c9953b4c20182"
 dependencies = [
  "bytemuck",
+ "wgpu",
 ]
 
 [[package]]
@@ -1015,6 +1016,7 @@ dependencies = [
  "thiserror 2.0.20",
  "tiff",
  "wezlib",
+ "wgpu",
 ]
 
 [[package]]

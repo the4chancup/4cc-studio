@@ -10,12 +10,19 @@ use block_compression::encode::compress_rgba8;
 use block_compression::{BC7Settings, CompressionVariant};
 use pes_version::{Engine, PesVersion};
 
+use crate::gpu::GpuEncoder;
 use crate::mips::{self, Mip};
 use crate::{BlockCodec, ConvertError, Decoded, Target, TextureRole, alloc_len};
 
 /// Emits the DDS or FTEX bytes for `decoded` on `target`, per the codec
-/// rules of the conversion plan.
-pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertError> {
+/// rules of the conversion plan. `gpu`, when `Some`, runs the BC7 encodes on
+/// the device with the fallback rules `crate::convert_with_gpu` documents;
+/// `None` encodes everything on the CPU.
+pub(crate) fn convert(
+    decoded: &Decoded,
+    target: Target,
+    gpu: Option<&mut GpuEncoder>,
+) -> Result<Vec<u8>, ConvertError> {
     // Passthrough: blocks a target reads are kept and only the container
     // changes. The role narrows this: a normal-role source passes through
     // only as BC3 (taken to be laid out already) or, on PES 19-21, as BC5;
@@ -36,7 +43,7 @@ pub(crate) fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, Conv
     let normal_layout = target.role == TextureRole::Normal || is_bc5_source(decoded);
     let codec = select_codec(target, normal_layout, &emit);
     let layout = normal_layout.then(|| target.version.engine());
-    let blocks = encode_mips(codec, &emit, layout)?;
+    let blocks = encode_mips(codec, &emit, layout, gpu)?;
     container(
         target.version,
         pixel_format(codec),
@@ -68,7 +75,7 @@ pub(crate) fn encode_dds(decoded: &Decoded, codec: BlockCodec) -> Result<Vec<u8>
         ));
     }
     let emit = emitted_mips(decoded);
-    let blocks = encode_mips(codec, &emit, None)?;
+    let blocks = encode_mips(codec, &emit, None, None)?;
     Ok(dds(
         pixel_format(codec),
         decoded.width,
@@ -79,7 +86,7 @@ pub(crate) fn encode_dds(decoded: &Decoded, codec: BlockCodec) -> Result<Vec<u8>
 
 /// The mips to emit: a source that carried its own mip chain keeps its level
 /// count; a raster source gets the full chain generated.
-fn emitted_mips(decoded: &Decoded) -> Vec<Mip<'_>> {
+pub(crate) fn emitted_mips(decoded: &Decoded) -> Vec<Mip<'_>> {
     let mut emit: Vec<Mip> = Vec::new();
     if decoded.authored_mips {
         for (level, pixels) in decoded.mips.iter().enumerate() {
@@ -106,12 +113,22 @@ fn emitted_mips(decoded: &Decoded) -> Vec<Mip<'_>> {
 
 /// Encodes every mip of `emit` to blocks in `codec`: in the DXT5nm layout of
 /// `normal_layout`'s engine when one is given, in the color layout otherwise.
+/// A usable `gpu` encodes the BC7 mips of a texture it can take (`gpu` is
+/// always `None` on wasm); BC1/BC3, normal maps and everything else stay on
+/// the CPU.
 fn encode_mips(
     codec: BlockCodec,
     emit: &[Mip],
     normal_layout: Option<Engine>,
+    gpu: Option<&mut GpuEncoder>,
 ) -> Result<Vec<Vec<u8>>, ConvertError> {
     let variant = compression_variant(codec, emit);
+    // The GPU takes a texture whole or not at all: its largest (first) mip
+    // bounds every later one's size.
+    let mut gpu = gpu.filter(|gpu| {
+        emit.first()
+            .is_some_and(|top| gpu.accepts(variant, top.width, top.height))
+    });
     let mut blocks = Vec::with_capacity(emit.len());
     for mip in emit {
         let swizzled;
@@ -122,7 +139,11 @@ fn encode_mips(
             }
             None => &mip.pixels,
         };
-        blocks.push(encode_mip(variant, mip.width, mip.height, rgba)?);
+        let encoded = match (codec, gpu.as_deref_mut()) {
+            (BlockCodec::Bc7, Some(gpu)) => gpu.encode(variant, mip.width, mip.height, rgba)?,
+            _ => encode_mip(variant, mip.width, mip.height, rgba)?,
+        };
+        blocks.push(encoded);
     }
     Ok(blocks)
 }
@@ -177,7 +198,7 @@ fn fully_opaque(pixels: &[u8]) -> bool {
 /// alpha preset only when an emitted mip actually carries alpha: on opaque
 /// pixels both presets emit the same blocks (measured), and the opaque one
 /// does less work (it skips mode 7 and the fourth channel).
-fn compression_variant(codec: BlockCodec, emit: &[Mip]) -> CompressionVariant {
+pub(crate) fn compression_variant(codec: BlockCodec, emit: &[Mip]) -> CompressionVariant {
     match codec {
         BlockCodec::Bc1 => CompressionVariant::BC1,
         BlockCodec::Bc2 => CompressionVariant::BC2,
@@ -231,17 +252,22 @@ fn normal_swizzle(mip: &Mip, engine: Engine) -> Vec<u8> {
     rgba
 }
 
-/// Encodes one mip's RGBA8 pixels to blocks. The encoder requires
-/// dimensions that are multiples of 4, so an unaligned mip is padded by
-/// edge replication; the resulting block count is exactly what the logical
-/// dimensions need, so nothing is trimmed. Dimensions whose padded product
-/// cannot exist are `InvalidDecoded`, checked before the buffer is read.
-fn encode_mip(
-    variant: CompressionVariant,
+/// One mip's RGBA8 pixels padded to whole 4x4 blocks by edge replication, as
+/// both encoders require: borrowed when the size is already aligned.
+pub(crate) struct Padded<'a> {
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) rgba: Cow<'a, [u8]>,
+}
+
+/// Pads `rgba` (`width`x`height` RGBA8) to whole 4x4 blocks by edge
+/// replication. Dimensions whose padded size or row pitch cannot exist are
+/// `InvalidDecoded`, checked before the buffer is read.
+pub(crate) fn pad_to_blocks(
     width: u32,
     height: u32,
     rgba: &[u8],
-) -> Result<Vec<u8>, ConvertError> {
+) -> Result<Padded<'_>, ConvertError> {
     let padded_width = width
         .div_ceil(4)
         .checked_mul(4)
@@ -252,11 +278,13 @@ fn encode_mip(
         .ok_or(ConvertError::InvalidDecoded("dimensions"))?;
     let stride = padded_width
         .checked_mul(4)
-        .ok_or(ConvertError::InvalidDecoded("dimensions"))?;
+        .ok_or(ConvertError::InvalidDecoded("dimensions"))? as usize;
     if padded_width == width && padded_height == height {
-        let mut blocks = vec![0u8; alloc_len(variant.blocks_byte_size(width, height) as u64)?];
-        compress_rgba8(variant, rgba, &mut blocks, width, height, stride);
-        return Ok(blocks);
+        return Ok(Padded {
+            width,
+            height,
+            rgba: Cow::Borrowed(rgba),
+        });
     }
     let padded_len = u64::from(padded_width)
         .checked_mul(u64::from(padded_height))
@@ -269,19 +297,38 @@ fn encode_mip(
         for x in 0..padded_width as usize {
             let source_x = x.min(width as usize - 1);
             let from = (source_y * width as usize + source_x) * 4;
-            let to = (y * padded_width as usize + x) * 4;
+            let to = y * stride + x * 4;
             padded[to..to + 4].copy_from_slice(&rgba[from..from + 4]);
         }
     }
+    Ok(Padded {
+        width: padded_width,
+        height: padded_height,
+        rgba: Cow::Owned(padded),
+    })
+}
+
+/// Encodes one mip's RGBA8 pixels to blocks. The encoder requires
+/// dimensions that are multiples of 4, so an unaligned mip is padded by
+/// edge replication; the resulting block count is exactly what the logical
+/// dimensions need, so nothing is trimmed.
+pub(crate) fn encode_mip(
+    variant: CompressionVariant,
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+) -> Result<Vec<u8>, ConvertError> {
+    let padded = pad_to_blocks(width, height, rgba)?;
     let mut blocks =
-        vec![0u8; alloc_len(variant.blocks_byte_size(padded_width, padded_height) as u64)?];
+        vec![0u8; alloc_len(variant.blocks_byte_size(padded.width, padded.height) as u64)?];
     compress_rgba8(
         variant,
-        &padded,
+        &padded.rgba,
         &mut blocks,
-        padded_width,
-        padded_height,
-        stride,
+        padded.width,
+        padded.height,
+        // `pad_to_blocks` proved the `* 4` row pitch fits.
+        padded.width * 4,
     );
     Ok(blocks)
 }

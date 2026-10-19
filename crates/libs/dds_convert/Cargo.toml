@@ -18,5 +18,10 @@ thiserror.workspace = true
 tiff.workspace = true
 wezlib.workspace = true
 
+# The GPU BC7 encoder (`src/gpu.rs`): native only, guardrail 6 (`CONTRIBUTING.md`).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+block_compression = { workspace = true, features = ["wgpu"] }
+wgpu.workspace = true
+
 [lints]
 workspace = true
