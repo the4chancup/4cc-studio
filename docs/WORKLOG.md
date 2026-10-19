@@ -784,6 +784,21 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   tallies, every class diagnosed, no undiagnosed difference; the committed form of the test (the
   hash manifest `plans/team_compiler/testing.md` describes, or a measurement rerun at closes)
   decided from (b)'s measurements and logged
+  - [x] 6.12a the compile census (2026-10-19, side-lead H, branch `side/6.12`): the 320 census
+    inputs that upgrade (229 clean, 91 with an output beside an Error), re-upgraded and
+    compiled with the release binary at 00950a0, `compile --no-deploy`, PES 21 for Fox and 17
+    for pre-Fox (the cup's pre-Fox version; at the upgrader's loose-mode 16, 8 pre-Fox exports
+    fail `xml_oral_prefix_missing` alone): 106 compile exit 0, 214 exit 1 (143 of the 229
+    clean upgrades), 29 Error codes, every class diagnosed in the slice's report (`.tmp/6_12/`
+    in the worktree: `compile_census.py`, `tally.py`, `census_final.txt`,
+    `error_contexts.txt`, each input's two logs under `work*/<n>/`). The three largest are
+    content the compiler refuses where Red packs it as written: a Fox model naming a texture
+    its folder lacks (80 exports, 25 of 53 VGL26 exports), a pre-Fox mesh over 21845 faces
+    (71, FGOG's and O's history), a `face.xml` naming a missing file (51, which Red refuses
+    too). Defect candidates reported, not fixed: a `Common/` `.model` the pose pre-check
+    converts with the wrong `.mtl` (`model_conversion_failed`, 4 VG exports); a stray `\`
+    text node failing an `.mtl` Red parses (`mtl_broken`, G Autumn 25); 23 worn boots kept
+    shared exhausting the 17 shared IDs (`boots_id_pool_exhausted`, KFG VGL26)
 
 ### Phase 8 — GUI
 
