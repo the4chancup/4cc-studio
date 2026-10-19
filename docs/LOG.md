@@ -2143,3 +2143,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.6 (side-lead A, `side/6.6`): referee exports upgrade: `refs.txt` or
   `Refs list.txt` to `players.txt`, the old `face/`/`boots/`/`gloves/`/`common/` folded,
   references following the files; the `???` respelling takes the export's identity (999).
+- **2026-10-19** — 8.0 reviews ended on main: Astra A1 8, SWE-2 S7 6, S8 6, S9 4, Astra A2 3,
+  S10 0 accepted; colors by storage (team colors 6-bit), wake on a run's events and verdict,
+  every close asks every tool (unsaved work, a run in flight).

@@ -15,8 +15,9 @@ is in `AGENTS.md` ("Working documents").
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
 **Next:** Phase 6 (Export upgrader): 6.7 (loose mode, step 11, and the report's remaining
-classes, step 10), once 6.6's Astra round (checkpoint b) is ruled; 8.0's acceptance sections
-are in their review loop (Astra 8.0.A1 ruled, SWE-2 on its fixes). Parallel tracks:
+classes, step 10), on a side branch; 8.0's acceptance sections are reviewed (every loop
+ended, 2026-10-19), and the shell's draft (`docs/prototypes/shell.html`) is on a side branch.
+Parallel tracks:
 `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half being measured
 ahead of its phase
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
@@ -684,8 +685,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   (`PipelineEvent::Output` and its paragraph, `pes_process.rs` and the probe paragraph, the
   three registered tools; the plan's registry gained `team_creator`, `ruleset_editor`,
   `db_generator`). The Save editor's spec tree already listed `events.rs`, `diff.rs`,
-  `teams_list.rs` (no edit). The acceptance sections await the Astra round of checkpoint (a);
-  the upgrader's handoff to the compiler is a question (`QUESTIONS.md`). Files: `Cargo.toml`,
+  `teams_list.rs` (no edit). The upgrader's handoff to the compiler is a question
+  (`QUESTIONS.md`). Reviews (checkpoint a; rulings `.tmp/8_0/rulings.md`): SWE-2 V and S1-S6 on
+  the branch (S6 4), then on main Astra 8.0.A1 8 accepted, S7 6, S8 6, S9 4, Astra 8.0.A2 3,
+  S10 0, every loop ended (2026-10-19, top lead): the colors drawn by storage kind, the team
+  colors' 6-bit conversion; a run's events and verdict wake the GUI through the `ToolContext`;
+  every close asks every tool (unsaved work, a run in flight), resumed through a `ShellRequest`;
+  the GUI's Texport export on PES 18-21; new scenarios SE-GUI-29, ST-RUN-05/06, TC-GUI-22/23,
+  EU-GUI-07 (DECISIONS 2026-10-19). Files: `Cargo.toml`,
   `docs/CONTRIBUTING.md`, `docs/GLOSSARY.md`, `docs/plans/core/{gui,architecture,development_plan}.md`,
   `docs/spec/core/{gui,architecture,development_plan}.md`, `docs/spec/libs/pipeline.md`,
   `docs/plans/team_compiler/{README,gui}.md`, `docs/spec/team_compiler/README.md`,
